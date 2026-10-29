@@ -45,6 +45,13 @@ class TestArc:
         assert created.key != sy.Arc().key
         assert created.text.raw == "y := 2"
 
+    def test_create_module(self, client: sy.Synnax) -> None:
+        """Should create a module and read its type back."""
+        name = f"test_module_{uuid4().hex}"
+        created = client.arcs.create(name=name, mode="text", type="module")
+        assert created.type == "module"
+        assert client.arcs.retrieve(key=created.key).type == "module"
+
     def test_create_multiple(self, client: sy.Synnax) -> None:
         """Should create multiple Arcs at once."""
         arcs = [

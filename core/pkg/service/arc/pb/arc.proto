@@ -25,6 +25,13 @@ enum Mode {
   MODE_GRAPH = 1;
 }
 
+// Type specifies whether an Arc runs on a rack as an automation or holds code for other
+// Arcs to import as a module.
+enum Type {
+  TYPE_AUTOMATION = 0;
+  TYPE_MODULE = 1;
+}
+
 // Arc is an Arc module combining visual graph representation and text-based source code
 // for reactive control systems. Compiles to WebAssembly for sandboxed execution.
 message Arc {
@@ -41,4 +48,6 @@ message Arc {
   .arc.text.pb.Text text = 5;
   // program is the compiled module output including IR and WebAssembly bytecode.
   optional .arc.program.pb.Program program = 6;
+  // type specifies whether this Arc is an automation or a module.
+  Type type = 7;
 }

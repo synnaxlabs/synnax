@@ -11,7 +11,13 @@
 
 package v4
 
-import v3 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v3"
+import (
+	graph "github.com/synnaxlabs/arc/graph/versions/v1"
+	"github.com/synnaxlabs/arc/program"
+	text "github.com/synnaxlabs/arc/text/versions/v1"
+	v3 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v3"
+	"github.com/synnaxlabs/x/validate"
+)
 
 // Key is a unique identifier for an Arc module.
 type Key = v3.Key
@@ -26,4 +32,58 @@ const (
 
 // Arc is an Arc module combining visual graph representation and text-based source code
 // for reactive control systems. Compiles to WebAssembly for sandboxed execution.
-type Arc = v3.Arc
+type Arc struct {
+	// Key is the unique identifier for this module.
+	Key Key `json:"key" msgpack:"key"`
+	// Name is a human-readable name for the module.
+	Name string `json:"name" msgpack:"name"`
+	// Mode specifies the representation mode for this module. Either "text" for
+	// text-based Arc code or "graph" for visual dataflow.
+	Mode Mode `json:"mode" msgpack:"mode"`
+	// Graph is the visual dataflow graph representation of the module.
+	Graph graph.Graph `json:"graph" msgpack:"graph"`
+	// Text is the text-based Arc source code.
+	Text text.Text `json:"text" msgpack:"text"`
+	// Program is the compiled module output including IR and WebAssembly bytecode.
+	Program *program.Program `json:"program,omitzero" msgpack:"program,omitempty"`
+	// Type specifies whether this Arc is an automation or a module.
+	Type Type `json:"type" msgpack:"type"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (a *Arc) ApplyDefaults() {
+	if a.Type == "" {
+		a.Type = TypeAutomation
+	}
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (a Arc) Validate() error {
+	v := validate.New("Arc")
+	v.Ternaryf("mode", !a.Mode.IsValid(), "invalid mode: %v", a.Mode)
+	v.Ternaryf("type", !a.Type.IsValid(), "invalid type: %v", a.Type)
+	v.NotEmptyString("name", a.Name)
+	v.Exec(func() error { return validate.PathedError(a.Text.Validate(), "text") })
+	return v.Error()
+}
+
+// Type specifies whether an Arc runs on a rack as an automation or holds code for other
+// Arcs to import as a module.
+type Type string
+
+const (
+	TypeAutomation Type = "automation"
+	TypeModule     Type = "module"
+)
+
+// IsValid reports whether t is one of the defined Type
+// values.
+func (t Type) IsValid() bool {
+	switch t {
+	case TypeAutomation, TypeModule:
+		return true
+	default:
+		return false
+	}
+}

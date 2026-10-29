@@ -25,6 +25,7 @@ import (
 	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
@@ -36,6 +37,7 @@ import (
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
+	"github.com/synnaxlabs/x/set"
 	xsync "github.com/synnaxlabs/x/sync"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
@@ -52,6 +54,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Ontology *ontology.Ontology
+	// Group is used to create the Arcs group that every Arc is parented under.
+	//
+	// [REQUIRED]
+	Group *group.Service
 	// Channel is used for retrieving channel information from the cluster.
 	//
 	// [REQUIRED]
@@ -105,6 +111,7 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
+	c.Group = override.Nil(c.Group, other.Group)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Channel = override.Nil(c.Channel, other.Channel)
 	c.Task = override.Nil(c.Task, other.Task)
@@ -129,6 +136,7 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("arc")
 	v.NotNil("db", c.DB)
 	v.NotNil("ontology", c.Ontology)
+	v.NotNil("group", c.Group)
 	v.NotNil("channel", c.Channel)
 	v.NotNil("task", c.Task)
 	v.NotNil("status", c.Status)
@@ -143,6 +151,9 @@ type Service struct {
 	indexes  indexes
 	closer   xio.MultiCloser
 	cfg      ServiceConfig
+	group    group.Group
+	reserved set.Set[string]
+	names    nameLock
 	state    *actions.State[Key, Action]
 	locks    xsync.KeyedMutex[Key]
 	sweeper  textSweeper
@@ -152,12 +163,11 @@ type Service struct {
 // NewRoot builds the production analysis root: the STL, status, and ranges modules
 // plus the Core channel resolver. tx is consulted for channel lookups; nil uses the DB.
 func (s *Service) NewRoot(tx gorp.Tx) *symbol.Symbol {
-	syms := slices.Concat(
-		stl.NewSymbols(),
-		arcstatus.NewSymbols(),
-		ranges.NewSymbols(),
-	)
-	return symbol.NewRoot(s.cfg.Channel.NewArcSymbolResolver(tx), syms)
+	return symbol.NewRoot(s.cfg.Channel.NewArcSymbolResolver(tx), standardSymbols())
+}
+
+func standardSymbols() []*symbol.Symbol {
+	return slices.Concat(stl.NewSymbols(), arcstatus.NewSymbols(), ranges.NewSymbols())
 }
 
 func (s *Service) NewLSP() (*lsp.Server, error) {
@@ -235,9 +245,11 @@ func OpenService(
 		return nil, err
 	}
 	s = &Service{
-		cfg:     cfg,
-		state:   actions.NewState[Key, Action](cfg.DB),
-		indexes: newIndexes(),
+		cfg:      cfg,
+		reserved: reservedNames(),
+		names:    newNameLock(),
+		state:    actions.NewState[Key, Action](cfg.DB),
+		indexes:  newIndexes(),
 		sweeper: newTextSweeper(
 			cfg.Now,
 			cfg.TextSweepQuiescence,
@@ -246,10 +258,18 @@ func OpenService(
 	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
+	if s.group, err = cfg.Group.CreateOrRetrieve(
+		ctx, "Arcs", ontology.RootID,
+	); !ok(err, nil) {
+		return nil, err
+	}
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Arc]{
-		DB:              cfg.DB,
-		Indexes:         s.indexes.all(),
-		Migrations:      versions.Migrations,
+		DB:      cfg.DB,
+		Indexes: s.indexes.all(),
+		Migrations: versions.NewMigrations(versions.MigrationsConfig{
+			Ontology: cfg.Ontology,
+			Group:    s.group,
+		}),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
@@ -262,8 +282,15 @@ func OpenService(
 		return nil, err
 	}
 	cfg.Ontology.RegisterService(s)
+	// The policy reads the Arc table, so it registers after the table's migrations.
+	cfg.Ontology.RegisterPolicy(s)
 	if err = cfg.ImEx.RegisterImportExporter(s); !ok(err, nil) {
 		return nil, err
+	}
+	for _, t := range []Type{TypeAutomation, TypeModule} {
+		if err = cfg.ImEx.RegisterImporter(versions.FileType(t), s); !ok(err, nil) {
+			return nil, err
+		}
 	}
 	if cfg.Signals != nil {
 		var sig io.Closer
@@ -300,6 +327,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		tx:         gorp.OverrideTx(s.cfg.DB, tx),
 		otgWriter:  s.cfg.Ontology.NewWriter(tx),
 		otg:        s.cfg.Ontology,
+		group:      s.group,
 		tasks:      s.cfg.Task,
 		status:     s.cfg.Status,
 		table:      s.table,

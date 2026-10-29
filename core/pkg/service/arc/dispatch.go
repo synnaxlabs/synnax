@@ -49,9 +49,20 @@ func (s *Service) Dispatch(
 					if s.sweeper.quiet(key) {
 						dead = s.sweeper.forgettable(a.Text.Doc)
 					}
+					stored := a
 					a, err := Reduce(a, acts...)
 					if err != nil {
 						return a, err
+					}
+					a.ApplyDefaults()
+					if err = validateType(stored.Type, a.Type); err != nil {
+						return Arc{}, err
+					}
+					if a.Name != stored.Name {
+						if err = s.cfg.Ontology.NewWriter(tx).
+							ValidateName(ctx, OntologyID(key), a.Name); err != nil {
+							return Arc{}, err
+						}
 					}
 					if len(dead) > 0 {
 						sweep = []Action{

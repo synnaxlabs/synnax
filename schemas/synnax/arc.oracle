@@ -62,6 +62,9 @@ Arc struct {
         """
         @go marshal omit
     }
+    type    Type = automation {
+        @doc value "specifies whether this Arc is an automation or a module."
+    }
 
     action Create {
         arc Arc
@@ -188,4 +191,14 @@ Arc struct {
     @ontology type "arc"
     @py name       "Payload"
     @retrieve
+}
+
+Type enum {
+    automation = "automation"
+    module     = "module"
+
+    @doc value """
+        specifies whether an Arc runs on a rack as an automation or holds code for other
+        Arcs to import as a module.
+    """
 }

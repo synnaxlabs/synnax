@@ -51,6 +51,7 @@ var (
 	db       *gorp.DB
 	otg      *ontology.Ontology
 	rbacSvc  *rbac.Service
+	groupSvc *group.Service
 	arcSvc   *arc.Service
 	apiSvc   *apiarc.Service
 	author   user.User
@@ -63,7 +64,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	node := mock.NewNode(ctx)
 	db = node.DB
 	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
+	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 	}))
@@ -110,6 +111,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	arcSvc = MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
+		Group:    groupSvc,
 		Channel:  channelSvc,
 		Task:     taskSvc,
 		Status:   statusSvc,

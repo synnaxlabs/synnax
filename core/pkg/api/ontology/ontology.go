@@ -226,23 +226,11 @@ func (s *Service) MoveChildren(
 	}); err != nil {
 		return struct{}{}, err
 	}
-	w := s.ontology.NewWriter(tx)
-	for _, child := range req.Children {
-		if err := w.DeleteRelationships(ctx, ontology.Relationship{
-			From: req.From,
-			Type: ontology.RelationshipTypeParentOf,
-			To:   child,
-		}); err != nil {
-			return struct{}{}, err
-		}
-		if err := w.DefineRelationships(
-			ctx,
-			req.To,
-			ontology.RelationshipTypeParentOf,
-			child,
-		); err != nil {
-			return struct{}{}, err
-		}
-	}
-	return struct{}{}, nil
+	return struct{}{}, s.ontology.NewWriter(tx).MoveRelationships(
+		ctx,
+		req.From,
+		req.To,
+		ontology.RelationshipTypeParentOf,
+		req.Children...,
+	)
 }

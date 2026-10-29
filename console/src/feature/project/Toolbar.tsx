@@ -9,7 +9,7 @@
 
 import { project } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Access, Project } from "@synnaxlabs/pluto";
+import { Access, Ontology } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { Empty } from "@/platform/empty";
@@ -51,7 +51,7 @@ const Content = (): ReactElement => (
 );
 
 const Body = (): ReactElement => {
-  const groupID = Project.useGroupID({});
+  const groupID = Ontology.useRootChildID({ name: "Projects" });
   return <Tree.Tree root={groupID} emptyContent={<EmptyContent />} />;
 };
 

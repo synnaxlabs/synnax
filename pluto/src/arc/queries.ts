@@ -114,6 +114,8 @@ export const useHasText = Scope.bindHook(
 
 export const useName = Scope.bindHook(createSelector(({ name }) => name));
 
+export const useType = Scope.bindHook(createSelector(({ type }) => type));
+
 export interface AddNodeProps {
   key: string;
   type: string;
@@ -173,11 +175,13 @@ export const formSchema = z.object({
   key: arc.keyZ.optional(),
   name: z.string().min(1, "Name is required"),
   mode: arc.modeZ,
+  type: arc.typeZ,
 });
 
 export const ZERO_FORM_VALUES: z.infer<typeof formSchema> = {
   name: "",
   mode: "text",
+  type: "automation",
 };
 
 export type FormQuery = Record<string, never>;

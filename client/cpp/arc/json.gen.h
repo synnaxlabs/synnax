@@ -30,6 +30,7 @@ inline Arc Arc::parse(x::json::Parser parser) {
         .graph = parser.field<::arc::graph::Graph>("graph"),
         .text = parser.field<::arc::text::Text>("text"),
         .program = parser.field<std::optional<::arc::program::Program>>("program"),
+        .type = parser.field<std::string>("type", "automation"),
     };
 }
 
@@ -41,6 +42,7 @@ inline x::json::json Arc::to_json() const {
     j["graph"] = this->graph.to_json();
     j["text"] = this->text.to_json();
     if (this->program.has_value()) j["program"] = this->program->to_json();
+    j["type"] = this->type;
     return j;
 }
 

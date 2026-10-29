@@ -28,6 +28,13 @@ MODE_GRAPH: Literal["graph"] = "graph"
 
 Mode = Literal["text", "graph"]
 
+TYPE_AUTOMATION: Literal["automation"] = "automation"
+
+TYPE_MODULE: Literal["module"] = "module"
+
+
+Type = Literal["automation", "module"]
+
 Key: TypeAlias = UUID
 
 
@@ -43,6 +50,7 @@ class Payload(BaseModel):
         graph: Is the visual dataflow graph representation of the module.
         text: Is the text-based Arc source code.
         program: Is the compiled module output including IR and WebAssembly bytecode.
+        type: Specifies whether this Arc is an automation or a module.
     """
 
     key: Key = Field(default_factory=uuid4)
@@ -51,6 +59,7 @@ class Payload(BaseModel):
     graph: graph_.Graph = Field(default_factory=lambda: graph_.Graph())
     text: text_.Text = Field(default_factory=lambda: text_.Text())
     program: program_.Program | None = None
+    type: Type = "automation"
 
     def __hash__(self) -> int:
         return hash(self.key)

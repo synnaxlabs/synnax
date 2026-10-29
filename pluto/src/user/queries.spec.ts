@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology } from "@synnaxlabs/client";
 import { createTestClient, TEST_CLIENT_PARAMS } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
@@ -128,18 +127,6 @@ describe("User queries", () => {
         await result.current.updateAsync({ key: testUser.key, name: "Renamed User" });
       });
       expect(afterOptimistic).toHaveBeenCalledOnce();
-    });
-  });
-
-  describe("useGroupID", () => {
-    it("should retrieve the Users group ID", async () => {
-      const { result } = await renderHookSuspended(() => User.useGroupID({}), {
-        wrapper,
-      });
-
-      await waitFor(() => expect(result.current).not.toBeNull());
-      const res = await client.ontology.retrieve(result.current as ontology.ID);
-      expect(res.name).toBe("Users");
     });
   });
 

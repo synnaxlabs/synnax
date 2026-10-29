@@ -18,11 +18,13 @@ import (
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/text"
 	apiarc "github.com/synnaxlabs/synnax/pkg/api/arc"
+	apiontology "github.com/synnaxlabs/synnax/pkg/api/ontology"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/x/query"
@@ -433,6 +435,80 @@ var _ = Describe("Service", func() {
 				}),
 			).Error().
 				To(MatchError(query.ErrNotFound))
+		})
+	})
+	Describe("MoveChildren", func() {
+		It(
+			"Should move an Arc between two directories under Arcs",
+			func(ctx SpecContext) {
+				var arcs group.Group
+				Expect(groupSvc.NewRetrieve().
+					Where(group.MatchNames("Arcs")).
+					Entry(&arcs).
+					Exec(ctx, db)).To(Succeed())
+				sub := MustSucceed(
+					groupSvc.NewWriter(nil).Create(ctx, "sy_lib", arcs.OntologyID()),
+				)
+				a := createArc(ctx, "moved")
+				grantUpdateOn(
+					ctx,
+					author.OntologyID(),
+					a.OntologyID(),
+					arcs.OntologyID(),
+					sub.OntologyID(),
+				)
+				otgAPI := MustSucceed(apiontology.NewService(apiontology.ServiceConfig{
+					Ontology: otg,
+					RBAC:     rbacSvc,
+				}))
+				MustSucceed(otgAPI.MoveChildren(
+					AuthedCtx(ctx, author),
+					db,
+					apiontology.MoveChildrenRequest{
+						From:     arcs.OntologyID(),
+						To:       sub.OntologyID(),
+						Children: []ontology.ID{a.OntologyID()},
+					},
+				))
+				var parents []ontology.Resource
+				Expect(otg.NewRetrieve().
+					WhereIDs(a.OntologyID()).
+					TraverseTo(ontology.ParentsTraverser).
+					Entries(&parents).
+					Exec(ctx, db)).To(Succeed())
+				Expect(parents).To(HaveLen(1))
+				Expect(parents[0].ID).To(Equal(sub.OntologyID()))
+			},
+		)
+		It("Should leave an Arc moved onto its own directory", func(ctx SpecContext) {
+			var arcs group.Group
+			Expect(groupSvc.NewRetrieve().
+				Where(group.MatchNames("Arcs")).
+				Entry(&arcs).
+				Exec(ctx, db)).To(Succeed())
+			a := createArc(ctx, "stayed")
+			grantUpdateOn(ctx, author.OntologyID(), a.OntologyID(), arcs.OntologyID())
+			otgAPI := MustSucceed(apiontology.NewService(apiontology.ServiceConfig{
+				Ontology: otg,
+				RBAC:     rbacSvc,
+			}))
+			MustSucceed(otgAPI.MoveChildren(
+				AuthedCtx(ctx, author),
+				db,
+				apiontology.MoveChildrenRequest{
+					From:     arcs.OntologyID(),
+					To:       arcs.OntologyID(),
+					Children: []ontology.ID{a.OntologyID()},
+				},
+			))
+			var parents []ontology.Resource
+			Expect(otg.NewRetrieve().
+				WhereIDs(a.OntologyID()).
+				TraverseTo(ontology.ParentsTraverser).
+				Entries(&parents).
+				Exec(ctx, db)).To(Succeed())
+			Expect(parents).To(HaveLen(1))
+			Expect(parents[0].ID).To(Equal(arcs.OntologyID()))
 		})
 	})
 })

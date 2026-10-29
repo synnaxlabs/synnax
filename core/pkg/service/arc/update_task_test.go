@@ -48,6 +48,14 @@ var _ = Describe("UpdateTask", func() {
 		return tsk
 	}
 
+	It("Should reject a rack on a module", func(ctx SpecContext) {
+		m := arc.Arc{Name: "mod", Type: arc.TypeModule, Mode: arc.ModeText}
+		Expect(svc.NewWriter(tx).Create(ctx, &m)).To(Succeed())
+		Expect(svc.NewWriter(tx).
+			UpdateTask(ctx, m.Key, arc.TaskUpdate{Rack: new(testRack.Key)})).
+			Error().To(MatchError(ContainSubstring("module")))
+	})
+
 	It(
 		"Should create a task on the rack stamped with the arc's hash",
 		func(ctx SpecContext) {
@@ -304,6 +312,10 @@ var _ = Describe("Task sync", func() {
 		GinkgoHelper()
 		a = arc.Arc{Name: "syncable", Mode: mode}
 		Expect(writer.Create(ctx, &a)).To(Succeed())
+		key := a.Key
+		DeferCleanup(func(ctx SpecContext) {
+			Expect(writer.Delete(ctx, key)).To(Succeed())
+		})
 	}
 
 	retrieveTask := func(ctx SpecContext, key task.Key) task.Task {

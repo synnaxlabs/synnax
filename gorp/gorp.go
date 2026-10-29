@@ -139,6 +139,18 @@ func (s *txState) OnCleanup(fn func(committed bool)) {
 	s.mu.Unlock()
 }
 
+// OnCleanup registers fn to run once when tx commits or closes, with committed true
+// after a successful Commit. A DB used directly as tx has nothing to wait for, so
+// OnCleanup returns false and registers nothing.
+func OnCleanup(tx Tx, fn func(committed bool)) bool {
+	state := tx.txIdentity()
+	if state == nil {
+		return false
+	}
+	state.OnCleanup(fn)
+	return true
+}
+
 // runCleanups invokes every registered hook exactly once in registration
 // order, passing committed through to each, and then clears the list.
 // Hooks themselves must not re-enter runCleanups on the same state.

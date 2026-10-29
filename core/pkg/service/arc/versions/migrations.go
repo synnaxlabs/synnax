@@ -19,9 +19,20 @@ import (
 	v4 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v4"
 )
 
-// Migrations is the ordered migration chain for stored arcs.
-var Migrations = slices.Concat(
-	[]gorp.Migration{v0.NormalizeKeys, v0.Migration},
-	v1.Migrations,
-	[]gorp.Migration{v3.Migration, v3.ModeMigration, v4.Migration},
-)
+// MigrationsConfig configures the stored-arc migration chain.
+type MigrationsConfig = v4.MigrationConfig
+
+// NewMigrations returns the ordered migration chain for stored arcs.
+func NewMigrations(cfg MigrationsConfig) []gorp.Migration {
+	return slices.Concat(
+		[]gorp.Migration{v0.NormalizeKeys, v0.Migration},
+		v1.Migrations,
+		[]gorp.Migration{
+			v3.Migration,
+			v3.ModeMigration,
+			v4.Migration,
+			v4.TypeMigration,
+			v4.NewGroupMigration(cfg),
+		},
+	)
+}

@@ -28,6 +28,27 @@ type Writer struct {
 	tx                gorp.Tx
 	resourceTable     *gorp.Table[string, Resource]
 	relationshipTable *gorp.Table[string, Relationship]
+	policies          []Policy
+}
+
+// ValidateName returns the error of the first registered Policy that refuses name for
+// the resource with id. A service calls it before it renames a resource.
+func (w Writer) ValidateName(ctx context.Context, id ID, name string) error {
+	for _, p := range w.policies {
+		if err := p.ValidateName(ctx, w.tx, id, name); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (w Writer) validateParent(ctx context.Context, parent ID, children ...ID) error {
+	for _, p := range w.policies {
+		if err := p.ValidateParent(ctx, w.tx, parent, children...); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // DefineResources defines one or more new resources with the given [ID]s. If any of the
@@ -49,8 +70,16 @@ func (w Writer) DefineResources(ctx context.Context, ids ...ID) error {
 }
 
 // DeleteResources deletes one or more resources with the given [ID]s along with all of
-// their incoming and outgoing [Relationship]s.
+// their incoming and outgoing [Relationship]s. It returns the error of a registered
+// [Policy] that refuses a deletion, and then deletes nothing.
 func (w Writer) DeleteResources(ctx context.Context, ids ...ID) error {
+	for _, id := range ids {
+		for _, p := range w.policies {
+			if err := p.ValidateDelete(ctx, w.tx, id); err != nil {
+				return err
+			}
+		}
+	}
 	keys, err := lo.MapErr(ids, func(id ID, _ int) (string, error) {
 		if err := w.deleteIncomingRelationships(ctx, id); err != nil {
 			return "", err
@@ -71,7 +100,8 @@ func (w Writer) DeleteResources(ctx context.Context, ids ...ID) error {
 // with the given from [ID] to one or more to [ID]s. Already-existing relationships are
 // silently skipped. Returns [graph.ErrCyclicDependency] if any of the new relationships
 // would create a cycle (including the case where the reverse-direction relationship
-// already exists).
+// already exists), and the error of a registered [Policy] that refuses a new parent_of
+// relationship. Nothing is written when any relationship is rejected.
 func (w Writer) DefineRelationships(
 	ctx context.Context,
 	from ID,
@@ -104,16 +134,77 @@ func (w Writer) DefineRelationships(
 		}
 		rels = append(rels, rel)
 	}
+	if relationshipType == RelationshipTypeParentOf && len(rels) > 0 {
+		children := lo.Map(rels, func(rel Relationship, _ int) ID { return rel.To })
+		if err := w.validateParent(ctx, from, children...); err != nil {
+			return err
+		}
+	}
 	return w.relationshipTable.NewCreate().Entries(&rels).Exec(ctx, w.tx)
 }
 
 // DeleteRelationships deletes the given relationships. Relationships that do not exist
-// are silently skipped.
+// are silently skipped. Returns the error of a registered [Policy] that refuses a child
+// the parent_of parents it would keep. Nothing is deleted when any child is refused.
 func (w Writer) DeleteRelationships(ctx context.Context, rels ...Relationship) error {
+	if err := w.validateDetach(ctx, rels); err != nil {
+		return err
+	}
 	keys := lo.Map(rels, func(rel Relationship, _ int) string { return rel.GorpKey() })
 	return w.relationshipTable.NewDelete().
 		Where(gorp.MatchKeys[string, Relationship](keys...)).
 		Exec(ctx, w.tx)
+}
+
+// MoveRelationships re-parents each child from from to to. A child not under from
+// only gains to. Returns the errors of [Writer.DefineRelationships] and of a [Policy]
+// that refuses the child under its parents after the move.
+func (w Writer) MoveRelationships(
+	ctx context.Context,
+	from, to ID,
+	relationshipType RelationshipType,
+	children ...ID,
+) error {
+	if from == to {
+		return nil
+	}
+	wanted := set.New(children...)
+	prefix := from.String() + relationshipKeySep +
+		string(relationshipType) + relationshipKeySep
+	var moved []Relationship
+	if err := w.relationshipTable.NewRetrieve().
+		WherePrefix([]byte(prefix)).
+		Where(gorp.Match(func(_ gorp.Context, rel *Relationship) (bool, error) {
+			return wanted.Contains(rel.To), nil
+		})).
+		Entries(&moved).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	keys := lo.Map(moved, func(rel Relationship, _ int) string { return rel.GorpKey() })
+	if err := w.relationshipTable.NewDelete().
+		Where(gorp.MatchKeys[string, Relationship](keys...)).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	if err := w.DefineRelationships(
+		ctx, to, relationshipType, children...,
+	); err != nil {
+		return err
+	}
+	if relationshipType != RelationshipTypeParentOf {
+		return nil
+	}
+	for _, rel := range moved {
+		parents, err := w.retrieveParents(ctx, rel.To)
+		if err != nil {
+			return err
+		}
+		if err = w.validateKept(ctx, rel.To, parents); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // DeleteOutgoingRelationshipsOfType deletes all outgoing relationships of the given
@@ -164,6 +255,63 @@ func (w Writer) DeleteIncomingRelationshipsOfType(
 			return bytes.HasSuffix(key, suffix), nil
 		}).
 		Exec(ctx, w.tx)
+}
+
+// validateDetach asks every policy about each child that loses a parent_of parent.
+func (w Writer) validateDetach(ctx context.Context, rels []Relationship) error {
+	removed := make(map[ID]set.Set[ID])
+	for _, rel := range rels {
+		if rel.Type != RelationshipTypeParentOf {
+			continue
+		}
+		if removed[rel.To] == nil {
+			removed[rel.To] = set.New[ID]()
+		}
+		removed[rel.To].Add(rel.From)
+	}
+	for child, parents := range removed {
+		current, err := w.retrieveParents(ctx, child)
+		if err != nil {
+			return err
+		}
+		kept := lo.Filter(
+			current,
+			func(p ID, _ int) bool { return !parents.Contains(p) },
+		)
+		if len(kept) == len(current) {
+			continue
+		}
+		if err = w.validateKept(ctx, child, kept); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// validateKept asks every policy whether child may hold only parents.
+func (w Writer) validateKept(ctx context.Context, child ID, parents []ID) error {
+	for _, p := range w.policies {
+		if err := p.ValidateDetach(ctx, w.tx, child, parents...); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// retrieveParents returns the From of every parent_of relationship into child.
+func (w Writer) retrieveParents(ctx context.Context, child ID) ([]ID, error) {
+	suffix := []byte(relationshipKeySep + string(RelationshipTypeParentOf) +
+		relationshipKeySep + child.String())
+	var rels []Relationship
+	if err := w.relationshipTable.NewRetrieve().
+		WhereRaw(func(key, _ []byte) (bool, error) {
+			return bytes.HasSuffix(key, suffix), nil
+		}).
+		Entries(&rels).
+		Exec(ctx, w.tx); err != nil {
+		return nil, err
+	}
+	return lo.Map(rels, func(rel Relationship, _ int) ID { return rel.From }), nil
 }
 
 func (w Writer) retrieveOutgoingRelationships(

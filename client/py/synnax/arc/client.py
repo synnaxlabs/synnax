@@ -18,7 +18,7 @@ from freighter import Empty, UnaryClient
 from synnax.arc.graph import Graph
 from synnax.arc.program import Program
 from synnax.arc.text import Text
-from synnax.arc.types_gen import Key, Mode, Payload, ontology_id
+from synnax.arc.types_gen import Key, Mode, Payload, Type, ontology_id
 from synnax.exceptions import MultipleFoundError, NotFoundError
 from synnax.ontology.payload import ID
 from x.lists import normalize
@@ -69,6 +69,7 @@ class Arc(Payload):
         text: Text | None = None,
         mode: Mode = "text",
         program: Program | None = None,
+        type: Type = "automation",
         _client: Client | None = None,
     ):
         super().__init__(
@@ -78,6 +79,7 @@ class Arc(Payload):
             text=text if text is not None else Text(),
             mode=mode,
             program=program,
+            type=type,
         )
         self._client = _client
 
@@ -92,6 +94,7 @@ class Arc(Payload):
             graph=self.graph,
             text=self.text,
             mode=self.mode,
+            type=self.type,
         )
 
 
@@ -111,6 +114,7 @@ class Client:
         graph: Graph | None = None,
         text: Text | None = None,
         mode: Mode = "text",
+        type: Type = "automation",
     ) -> Arc: ...
 
     @overload
@@ -127,6 +131,7 @@ class Client:
         graph: Graph | None = None,
         text: Text | None = None,
         mode: Mode = "text",
+        type: Type = "automation",
     ) -> Arc | list[Arc]:
         is_single = True
         if arc is not None:
@@ -142,6 +147,7 @@ class Client:
                     graph=graph if graph is not None else Graph(),
                     text=text if text is not None else Text(),
                     mode=mode,
+                    type=type,
                 )
             ]
 
@@ -226,6 +232,7 @@ class Client:
                 text=p.text,
                 mode=p.mode,
                 program=p.program,
+                type=p.type,
                 _client=self,
             )
             for p in payloads

@@ -18,6 +18,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/search"
@@ -65,6 +66,58 @@ func (*sampleService) Search(
 	return search.Result[ontology.ID]{}, nil
 }
 
+var errRejected = errors.New("rejected by policy")
+
+// rejectPolicy refuses the child or name "rejected" and accepts everything else.
+type rejectPolicy struct{}
+
+var _ ontology.Policy = rejectPolicy{}
+
+func (rejectPolicy) ValidateParent(
+	_ context.Context,
+	_ gorp.Tx,
+	_ ontology.ID,
+	children ...ontology.ID,
+) error {
+	for _, child := range children {
+		if child.Key == "rejected" {
+			return errRejected
+		}
+	}
+	return nil
+}
+
+func (rejectPolicy) ValidateDetach(
+	_ context.Context,
+	_ gorp.Tx,
+	child ontology.ID,
+	_ ...ontology.ID,
+) error {
+	if child.Key == "pinned" {
+		return errRejected
+	}
+	return nil
+}
+
+func (rejectPolicy) ValidateDelete(_ context.Context, _ gorp.Tx, id ontology.ID) error {
+	if id.Key == "kept" {
+		return errRejected
+	}
+	return nil
+}
+
+func (rejectPolicy) ValidateName(
+	_ context.Context,
+	_ gorp.Tx,
+	_ ontology.ID,
+	name string,
+) error {
+	if name == "rejected" {
+		return errRejected
+	}
+	return nil
+}
+
 var (
 	db  *gorp.DB
 	otg *ontology.Ontology
@@ -76,6 +129,7 @@ var _ = BeforeSuite(func() {
 	db = DeferClose(gorp.Wrap(memkv.New()))
 	otg = MustOpen(ontology.Open(context.Background(), ontology.Config{DB: db}))
 	otg.RegisterService(&sampleService{})
+	otg.RegisterPolicy(rejectPolicy{})
 })
 
 var _ = BeforeEach(func() {

@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	taskversions "github.com/synnaxlabs/synnax/pkg/service/arc/task/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -40,6 +41,7 @@ type Writer struct {
 	tx         gorp.Tx
 	otgWriter  ontology.Writer
 	otg        *ontology.Ontology
+	group      group.Group
 	tasks      *task.Service
 	status     *status.Service
 	table      *gorp.Table[Key, Arc]
@@ -48,34 +50,66 @@ type Writer struct {
 	taskSync   *debounce.Keyed[Key]
 }
 
+// validateType rejects a change of type between the stored Arc and its replacement.
+func validateType(stored, next Type) error {
+	if stored == next {
+		return nil
+	}
+	return errors.Wrapf(
+		validate.ErrValidation, "type cannot change from %s to %s", stored, next,
+	)
+}
+
 // Create creates the given Arc. If the Arc does not have a key,
 // a new key will be generated.
 func (w Writer) Create(ctx context.Context, a *Arc) error {
 	var (
-		exists bool
-		err    error
+		existing Arc
+		exists   bool
+		err      error
 	)
 	if a.Key == uuid.Nil() {
 		a.Key = uuid.New()
 	} else {
-		exists, err = w.table.NewRetrieve().
+		err = w.table.NewRetrieve().
 			Where(gorp.MatchKeys[Key, Arc](a.Key)).
-			Exists(ctx, w.tx)
-		if err != nil {
+			Entry(&existing).
+			Exec(ctx, w.tx)
+		if errors.Skip(err, query.ErrNotFound) != nil {
 			return err
 		}
+		exists = err == nil
 	}
 	if len(a.Text.Doc.Inserts) == 0 && a.Text.Raw != "" {
 		a.Text.Doc = text.Create(a.Text.Raw)
 	}
+	a.ApplyDefaults()
 	if err = a.Validate(); err != nil {
 		return err
+	}
+	if exists {
+		if err = validateType(existing.Type, a.Type); err != nil {
+			return err
+		}
+		if existing.Name != a.Name {
+			if err = w.otgWriter.ValidateName(ctx, a.OntologyID(), a.Name); err != nil {
+				return err
+			}
+		}
 	}
 	if err = w.table.NewCreate().Entry(a).Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	if !exists {
 		if err = w.otgWriter.DefineResources(ctx, a.OntologyID()); err != nil {
+			return err
+		}
+		if err = w.otgWriter.DefineRelationships(
+			ctx,
+			w.group.OntologyID(),
+			ontology.RelationshipTypeParentOf,
+			a.OntologyID(),
+		); err != nil {
 			return err
 		}
 	} else if err = w.syncTask(ctx, *a); err != nil {
@@ -194,6 +228,11 @@ func (w Writer) UpdateTask(
 		Entry(&a).
 		Exec(ctx, w.tx); err != nil {
 		return nil, err
+	}
+	if a.Type == TypeModule {
+		return nil, errors.Wrap(
+			validate.ErrValidation, "a module cannot be bound to a rack",
+		)
 	}
 	if len(existing) > 0 {
 		if tsk, cfg, err = w.retrieveTask(ctx, existing[0]); err != nil {

@@ -19,6 +19,8 @@ import (
 	"github.com/synnaxlabs/gorp"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v3"
 	v4 "github.com/synnaxlabs/synnax/pkg/service/arc/versions/v4"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -56,6 +58,19 @@ var _ = Describe("MigrateArc", func() {
 		}))
 		Expect(got.Text.Materialize().Raw).To(Equal(newText))
 		Expect(got.Text.Raw).To(BeEmpty())
+	})
+
+	It("Should lift a v3 Arc as an automation", func(ctx SpecContext) {
+		key := uuid.New()
+		migrated := MustSucceed(v4.MigrateArc(ctx, v3.Arc{
+			Key:  key,
+			Name: "legacy",
+			Mode: v3.ModeText,
+		}))
+		Expect(migrated.Key).To(Equal(key))
+		Expect(migrated.Name).To(Equal("legacy"))
+		Expect(migrated.Mode).To(Equal(v4.ModeText))
+		Expect(migrated.Type).To(Equal(v4.TypeAutomation))
 	})
 
 	It("Should leave an Arc with no text untouched", func(ctx SpecContext) {
@@ -99,3 +114,97 @@ func migrateFromV3(ctx SpecContext, seed v3.Arc) v4.Arc {
 		Entry(&got).Exec(ctx, db)).To(Succeed())
 	return got
 }
+
+var _ = Describe("TypeMigration", func() {
+	It("Should make an Arc without a type an automation", func(ctx SpecContext) {
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v4.Key, v4.Arc]{DB: db}))
+		untyped := v4.Arc{Key: uuid.New(), Name: "untyped", Mode: v4.ModeText}
+		module := v4.Arc{
+			Key:  uuid.New(),
+			Name: "m",
+			Mode: v4.ModeText,
+			Type: v4.TypeModule,
+		}
+		seed := []v4.Arc{untyped, module}
+		Expect(gorp.NewCreate[v4.Key, v4.Arc]().Entries(&seed).Exec(ctx, db)).
+			To(Succeed())
+		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+			DB:         db,
+			Namespace:  "Arc",
+			Migrations: []gorp.Migration{v4.TypeMigration},
+		})).To(Succeed())
+		typeOf := func(key v4.Key) v4.Type {
+			GinkgoHelper()
+			var got v4.Arc
+			Expect(gorp.NewRetrieve[v4.Key, v4.Arc]().
+				Where(gorp.MatchKeys[v4.Key, v4.Arc](key)).
+				Entry(&got).Exec(ctx, db)).To(Succeed())
+			return got.Type
+		}
+		Expect(typeOf(untyped.Key)).To(Equal(v4.TypeAutomation))
+		Expect(typeOf(module.Key)).To(Equal(v4.TypeModule))
+	})
+})
+
+var _ = Describe("NewGroupMigration", func() {
+	It("Should parent every Arc without a group under Arcs", func(ctx SpecContext) {
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+		groups := MustOpen(group.OpenService(ctx, group.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+		}))
+		arcs := MustSucceed(groups.CreateOrRetrieve(ctx, "Arcs", ontology.RootID))
+		table := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[v4.Key, v4.Arc]{
+			DB: db,
+		}))
+		tx := db.OpenTx()
+		elsewhere := MustSucceed(groups.NewWriter(tx).Create(
+			ctx, "elsewhere", ontology.RootID,
+		))
+		orphan := v4.Arc{Key: uuid.New(), Name: "orphan", Type: v4.TypeAutomation}
+		grouped := v4.Arc{Key: uuid.New(), Name: "grouped", Type: v4.TypeAutomation}
+		Expect(table.NewCreate().Entry(&orphan).Exec(ctx, tx)).To(Succeed())
+		Expect(table.NewCreate().Entry(&grouped).Exec(ctx, tx)).To(Succeed())
+		w := otg.NewWriter(tx)
+		Expect(w.DefineResources(
+			ctx, orphan.OntologyID(), grouped.OntologyID(),
+		)).To(Succeed())
+		Expect(w.DefineRelationships(
+			ctx,
+			elsewhere.OntologyID(),
+			ontology.RelationshipTypeParentOf,
+			grouped.OntologyID(),
+		)).To(Succeed())
+		Expect(tx.Commit(ctx)).To(Succeed())
+		Expect(tx.Close()).To(Succeed())
+		Expect(table.Close()).To(Succeed())
+
+		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+			DB:        db,
+			Namespace: "Arc",
+			Migrations: []gorp.Migration{
+				v4.NewGroupMigration(v4.MigrationConfig{Ontology: otg, Group: arcs}),
+			},
+		})).To(Succeed())
+
+		parentsOf := func(id ontology.ID) []ontology.ID {
+			GinkgoHelper()
+			var parents []ontology.Resource
+			Expect(otg.NewRetrieve().
+				WhereIDs(id).
+				TraverseTo(ontology.ParentsTraverser).
+				ExcludeFieldData(true).
+				Entries(&parents).
+				Exec(ctx, nil)).To(Succeed())
+			ids := make([]ontology.ID, 0, len(parents))
+			for _, p := range parents {
+				ids = append(ids, p.ID)
+			}
+			return ids
+		}
+		Expect(parentsOf(orphan.OntologyID())).To(ConsistOf(arcs.OntologyID()))
+		Expect(parentsOf(grouped.OntologyID())).To(ConsistOf(elsewhere.OntologyID()))
+	})
+})

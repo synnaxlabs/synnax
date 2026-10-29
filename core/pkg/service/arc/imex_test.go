@@ -27,8 +27,8 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-// testParent satisfies the registry's required-parent check; the Arc importer does not
-// parent imported resources, so the ID only has to be non-zero.
+// testParent satisfies the registry's required-parent check; the Arc importer ignores
+// it and parents under the Arcs group, so the ID only has to be non-zero.
 var testParent = ontology.ID{Type: ontology.ResourceTypeProject, Key: "imex-parent"}
 
 var _ = Describe("ImEx", func() {
@@ -49,7 +49,7 @@ var _ = Describe("ImEx", func() {
 			Expect(svc.NewWriter(nil).Create(ctx, &a)).To(Succeed())
 			env := MustSucceed(svc.Export(ctx, arc.OntologyID(a.Key)))
 			Expect(env.Version).To(Equal(versions.Latest))
-			Expect(env.Type).To(Equal("arc"))
+			Expect(env.Type).To(Equal("arc-automation"))
 			Expect(env.Name).To(Equal("exported"))
 
 			decoded := MustSucceed(WireRoundTrip(env).Decode[arc.Arc](ctx))
@@ -96,6 +96,9 @@ var _ = Describe("ImEx", func() {
 			id := MustSucceed(imexSvc.Import(ctx, db, LoadEnvelope(path), opts))
 			Expect(id.Type).To(Equal(ontology.ResourceTypeArc))
 			key := MustSucceed(uuid.Parse(id.Key))
+			DeferCleanup(func(ctx SpecContext) {
+				Expect(svc.NewWriter(nil).Delete(ctx, key)).To(Succeed())
+			})
 			var res arc.Arc
 			Expect(svc.NewRetrieve().
 				Where(arc.MatchKeys(key)).
@@ -117,6 +120,7 @@ var _ = Describe("ImEx", func() {
 				imex.ImportOptions{Parent: testParent},
 			)
 			Expect(res.Name).To(Equal("Server Typed"))
+			Expect(res.Type).To(Equal(arc.TypeAutomation))
 			Expect(res.Mode).To(Equal(arc.ModeGraph))
 			Expect(res.Graph.Nodes).To(HaveLen(1))
 			Expect(res.Graph.Nodes[0].Key).To(Equal("n1"))
@@ -126,6 +130,25 @@ var _ = Describe("ImEx", func() {
 			)
 			Expect(inputsOf(res, "n1")).To(HaveKeyWithValue("type", "constant"))
 		})
+
+		It(
+			"Should parent the imported Arc under the Arcs group",
+			func(ctx SpecContext) {
+				res := importAndRetrieve(
+					ctx,
+					"versions/testdata/import_v3.json",
+					imex.ImportOptions{Parent: testParent},
+				)
+				var parents []ontology.Resource
+				Expect(otg.NewRetrieve().
+					WhereIDs(res.OntologyID()).
+					TraverseTo(ontology.ParentsTraverser).
+					Entries(&parents).
+					Exec(ctx, db)).To(Succeed())
+				Expect(parents).To(HaveLen(1))
+				Expect(parents[0].Name).To(Equal("Arcs"))
+			},
+		)
 
 		It(
 			"Should import a Console typed export carrying camelCase keys",
@@ -234,6 +257,8 @@ var _ = Describe("ImEx", func() {
 					imex.ImportOptions{Parent: testParent},
 				))
 				Expect(id.Key).ToNot(Equal("11111111-2222-3333-4444-555555555555"))
+				key := MustSucceed(uuid.Parse(id.Key))
+				Expect(svc.NewWriter(nil).Delete(ctx, key)).To(Succeed())
 			},
 		)
 	})
@@ -242,10 +267,17 @@ var _ = Describe("ImEx", func() {
 		It(
 			"Should preserve Arc content through export then import",
 			func(ctx SpecContext) {
-				original := arc.Arc{Name: "round-trip", Mode: arc.ModeText}
+				original := arc.Arc{
+					Name: "round_trip",
+					Type: arc.TypeModule,
+					Mode: arc.ModeText,
+				}
 				original.Text.Raw = "b = 2"
 				Expect(svc.NewWriter(nil).Create(ctx, &original)).To(Succeed())
 				env := MustSucceed(svc.Export(ctx, arc.OntologyID(original.Key)))
+				Expect(env.Type).To(Equal("arc-module"))
+				// The import lands beside the original, where the name is taken.
+				Expect(svc.NewWriter(nil).Delete(ctx, original.Key)).To(Succeed())
 				id := MustSucceed(imexSvc.Import(
 					ctx, db, WireRoundTrip(env), imex.ImportOptions{Parent: testParent},
 				))
@@ -256,7 +288,8 @@ var _ = Describe("ImEx", func() {
 					Where(arc.MatchKeys(key)).
 					Entry(&res).
 					Exec(ctx, db)).To(Succeed())
-				Expect(res.Name).To(Equal("round-trip"))
+				Expect(res.Name).To(Equal("round_trip"))
+				Expect(res.Type).To(Equal(arc.TypeModule))
 				Expect(res.Mode).To(Equal(arc.ModeText))
 				Expect(res.Text.Materialize().Raw).To(Equal("b = 2"))
 			},

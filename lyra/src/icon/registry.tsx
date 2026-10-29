@@ -32,6 +32,7 @@ import {
 } from "react-icons/bi";
 import {
   BsBorderWidth,
+  BsBox,
   BsFillInfoSquareFill,
   BsLightbulbFill,
   BsShiftFill,
@@ -536,6 +537,7 @@ export const Linear = wrapSVGIcon(MdOutlineLinearScale, "linear");
 export const None = wrapSVGIcon(TbCircleDashed, "none");
 export const Arc = wrapSVGIcon(TbChartArcs, "arc");
 export const ArcFlow = wrapSVGIcon(IoIosArrowRoundForward, "arc-flow");
+export const Module = wrapSVGIcon(BsBox, "module");
 export const ArcFunc = wrapSVGIcon(LuSquareFunction, "arc-func");
 export const Select = wrapSVGIcon(TbArrowsSplit, "select");
 export const Notification = wrapSVGIcon(IoNotifications, "notification");
@@ -724,6 +726,7 @@ const icons = {
   TerminalOutline,
   Arc,
   ArcFlow,
+  Module,
   ArcFunc,
   Select,
   Notification,

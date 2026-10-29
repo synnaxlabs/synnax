@@ -181,6 +181,9 @@ func (w Writer) CreateWithKey(
 		return Group{}, err
 	}
 	id := g.OntologyID()
+	if err := w.otgWriter.ValidateName(ctx, id, name); err != nil {
+		return Group{}, err
+	}
 	if err := w.table.NewCreate().Entry(&g).Exec(ctx, w.tx); err != nil {
 		return Group{}, err
 	}
@@ -233,6 +236,9 @@ func (w Writer) Delete(ctx context.Context, keys ...Key) error {
 
 // Rename renames the Group with the given key.
 func (w Writer) Rename(ctx context.Context, key Key, name string) error {
+	if err := w.otgWriter.ValidateName(ctx, OntologyID(key), name); err != nil {
+		return err
+	}
 	return w.table.NewUpdate().
 		Where(gorp.MatchKeys[Key, Group](key)).
 		ChangeErr(func(_ gorp.Context, g Group) (Group, error) {

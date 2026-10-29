@@ -27,3 +27,12 @@ const (
 // Arc is an Arc module combining visual graph representation and text-based source code
 // for reactive control systems. Compiles to WebAssembly for sandboxed execution.
 type Arc = v4.Arc
+
+// Type specifies whether an Arc runs on a rack as an automation or holds code for other
+// Arcs to import as a module.
+type Type = v4.Type
+
+const (
+	TypeAutomation Type = v4.TypeAutomation
+	TypeModule     Type = v4.TypeModule
+)

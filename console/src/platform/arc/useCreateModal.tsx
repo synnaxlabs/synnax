@@ -63,6 +63,20 @@ const Create = ({
       <Modal.Body>
         <Form.Form<typeof Arc.formSchema> {...form}>
           <Form.TextField path="name" required inputProps={NAME_INPUT_PROPS} />
+          <Form.Field<arc.Type> path="type" label="Type">
+            {({ value, onChange }) => (
+              <Select.Buttons value={value} onChange={onChange} variant="outlined">
+                <Select.Item itemKey="automation">
+                  <Icon.Arc />
+                  Automation
+                </Select.Item>
+                <Select.Item itemKey="module">
+                  <Icon.Module />
+                  Module
+                </Select.Item>
+              </Select.Buttons>
+            )}
+          </Form.Field>
           <Form.Field<arc.Mode> path="mode" label="Editor mode" full="x">
             {({ value, onChange }) => (
               <Select.Buttons value={value} onChange={onChange} variant="card" full="x">

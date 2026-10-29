@@ -533,6 +533,7 @@ describe("Arc queries", () => {
       const formData = result.current.form.value();
       expect(formData.name).toBe("");
       expect(formData.mode).toBe("text");
+      expect(formData.type).toBe("automation");
       expect(formData.key).toBeUndefined();
     });
 

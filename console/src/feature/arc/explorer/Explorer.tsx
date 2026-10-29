@@ -7,21 +7,38 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Arc } from "@synnaxlabs/pluto";
+import { arc } from "@synnaxlabs/client";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Menu } from "@synnaxlabs/lyra/menu";
+import { Access, Ontology } from "@synnaxlabs/pluto";
 
-import { List } from "@/feature/arc/list/List";
+import { Arc } from "@/platform/arc";
+import { Empty } from "@/platform/empty";
 import { type Panel } from "@/platform/panel";
+import { Tree } from "@/platform/tree";
+
+const RootContextMenu = (props: Tree.DefaultContextMenuProps) => {
+  const createArc = Arc.useCreate();
+  const canCreate = Access.useCreateGranted(arc.TYPE_ONTOLOGY_ID);
+  return (
+    <Tree.DefaultContextMenu {...props}>
+      {canCreate && (
+        <Menu.Item itemKey="createArc" onClick={createArc}>
+          <Icon.Add />
+          Create arc
+        </Menu.Item>
+      )}
+    </Tree.DefaultContextMenu>
+  );
+};
 
 export const Explorer: Panel.Content = () => {
-  const { data, getItem, subscribe, retrieve } = Arc.useList({});
+  const groupID = Ontology.useRootChildID({ name: "Arcs" });
   return (
-    <List
-      data={data}
-      getItem={getItem}
-      subscribe={subscribe}
-      retrieve={retrieve}
-      enableSearch
-      textIdPrefix="arc-explorer-text"
+    <Tree.Tree
+      root={groupID}
+      emptyContent={<Empty.Action message="No Arcs" />}
+      rootContextMenu={RootContextMenu}
     />
   );
 };

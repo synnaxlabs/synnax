@@ -7,13 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { arc as clientArc, group, NotFoundError, ontology } from "@synnaxlabs/client";
+import { arc as clientArc, group, NotFoundError } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Arc } from "@/feature/arc";
+import { retrieveArcsGroupID } from "@/platform/arc/testutil";
 import { findButton } from "@/platform/modals/testutil";
+import { getTreeRow } from "@/platform/tree/menuTestutil";
 import {
   findTreeRow,
   openTreeRowContextMenu,
@@ -26,25 +28,28 @@ import {
   commitTextEdit,
   resolveFocusedTab,
   uniqueName,
+  withControlHeld,
 } from "@/testutil";
 
 const client = createTestClient();
 
 const createArcInGroup = async () => {
+  const arcsID = await retrieveArcsGroupID(client);
   const arc = await client.arcs.create({
     name: uniqueName("arc"),
     mode: "graph",
     graph: { nodes: [], edges: [] },
   });
   const grp = await client.groups.create({
-    parent: ontology.ROOT_ID,
+    parent: arcsID,
     name: uniqueName("arcgrp"),
   });
-  await client.ontology.addChildren(
+  await client.ontology.moveChildren(
+    arcsID,
     group.ontologyID(grp.key),
     clientArc.ontologyID(arc.key),
   );
-  return { arc, root: group.ontologyID(grp.key) };
+  return { arc, root: group.ontologyID(grp.key), arcsID };
 };
 
 describe("arc/ontology", () => {
@@ -69,6 +74,38 @@ describe("arc/ontology", () => {
       await renderOntologyTree({ client, root, items: Arc.TREE_ITEMS });
       await openTreeRowContextMenu(arc.name);
       expect(await screen.findByText("Reload Console")).toBeTruthy();
+    });
+
+    it("opens the Arc as a tab from Edit", async () => {
+      const { arc, root } = await createArcInGroup();
+      const { store } = await renderOntologyTree({
+        client,
+        root,
+        items: Arc.TREE_ITEMS,
+      });
+      await openTreeRowContextMenu(arc.name);
+      fireEvent.click(await screen.findByText("Edit"));
+      const tab = await resolveFocusedTab(store, client);
+      if (tab.variant !== "resource") throw new Error("expected a resource tab");
+      expect(tab.resource.key).toBe(arc.key);
+    });
+
+    it("offers only the shared actions when several Arcs are selected", async () => {
+      const { arc, root, arcsID } = await createArcInGroup();
+      const other = await client.arcs.create({
+        name: uniqueName("mod"),
+        mode: "text",
+        type: "module",
+      });
+      await client.ontology.moveChildren(arcsID, root, clientArc.ontologyID(other.key));
+      await renderOntologyTree({ client, root, items: Arc.TREE_ITEMS });
+      fireEvent.click(await findTreeRow(arc.name));
+      withControlHeld(() => fireEvent.click(getTreeRow(other.name)));
+      await openTreeRowContextMenu(other.name);
+      expect(await screen.findByText("Delete")).toBeTruthy();
+      expect(screen.queryByText("Edit")).toBeNull();
+      expect(screen.queryByText("Rename")).toBeNull();
+      expect(screen.queryByText("Copy link")).toBeNull();
     });
 
     it("renames the Arc in place without a confirmation prompt", async () => {

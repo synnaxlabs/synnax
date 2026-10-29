@@ -11,7 +11,7 @@ import { group, type ontology } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Access } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import { type ReactElement, type ReactNode } from "react";
 
 import { ContextMenu } from "@/platform/context-menu";
 import { Group } from "@/platform/group";
@@ -20,16 +20,20 @@ import { type TreeState } from "@/platform/tree/types";
 export interface DefaultContextMenuProps {
   root: ontology.ID;
   state: TreeState;
+  /** Items a tree adds before "New group". */
+  children?: ReactNode;
 }
 
 export const DefaultContextMenu = ({
   root,
   state,
+  children,
 }: DefaultContextMenuProps): ReactElement => {
   const createGroup = Group.useCreateEmpty({ parent: root, state, root });
   const hasCreatePermission = Access.useCreateGranted(group.TYPE_ONTOLOGY_ID);
   return (
     <ContextMenu.Menu>
+      {children}
       {hasCreatePermission && (
         <Menu.Item itemKey="newGroup" onClick={createGroup}>
           <Icon.Group />

@@ -138,7 +138,8 @@ Each phase is one pull request into `main`.
 
 - **Phase 1: Arc type and the Arcs group.** New and existing Arcs are parented under it.
 - **Phase 2: Module resolution and `export`.** Path walk, analyzer resolution, and cycle
-  diagnostics.
+  diagnostics. The module rules of §3.0 hold on every path. No task holds a module, and
+  a module never runs.
 - **Phase 3: Compile modules into the importer.**
 - **Phase 4: Change propagation.** Compiled hashes, the importer lookup, and the resyncs
   of §3.2.

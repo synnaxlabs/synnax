@@ -10,6 +10,7 @@
 import { group, ontology, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
 import { Haul } from "@synnaxlabs/lyra/haul";
+import { Menu } from "@synnaxlabs/lyra/menu";
 import { Tree as PTree } from "@synnaxlabs/lyra/tree";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import {
@@ -22,7 +23,11 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { Tree } from "@/platform/tree";
 import { expandTreeRow, getTreeRow } from "@/platform/tree/menuTestutil";
-import { findTreeRow, renderOntologyTree } from "@/platform/tree/treeTestutil";
+import {
+  findTreeRow,
+  openTreeRootContextMenu,
+  renderOntologyTree,
+} from "@/platform/tree/treeTestutil";
 import {
   awaitTextEditingElement,
   awaitTextEditingExit,
@@ -401,12 +406,10 @@ describe("Tree.Tree", () => {
     });
 
     it("should start the rename of a new group outside the window", async () => {
-      const { container } = await renderTree(parentID);
+      await renderTree(parentID);
       await findTreeRow(names[CHILD_COUNT - 1]);
       expect(screen.queryByText(names[0])).toBeNull();
-      const tree = container.querySelector(".lyra-tree");
-      if (tree == null) throw new Error("tree not found");
-      fireEvent.contextMenu(tree);
+      await openTreeRootContextMenu();
       fireEvent.click(await screen.findByText("New group"));
       const editable = await awaitTextEditingElement();
       await act(async () => {
@@ -424,13 +427,36 @@ describe("Tree.Tree", () => {
       });
       const name = uniqueName("grp");
       await client.groups.create({ parent: group.ontologyID(root.key), name });
-      const { container } = await renderTree(group.ontologyID(root.key));
+      await renderTree(group.ontologyID(root.key));
       await screen.findByText(name);
-      const tree = container.querySelector(".lyra-tree");
-      expect(tree).not.toBeNull();
-      fireEvent.contextMenu(tree as Element);
+      await openTreeRootContextMenu();
       await waitFor(() => expect(screen.getByText("Reload Console")).toBeTruthy());
       await waitFor(() => expect(screen.getByText("New group")).toBeTruthy());
+    });
+
+    it("should render the given root context menu in place of the default", async () => {
+      const root = await client.groups.create({
+        parent: ontology.ROOT_ID,
+        name: uniqueName("root"),
+      });
+      const name = uniqueName("grp");
+      await client.groups.create({ parent: group.ontologyID(root.key), name });
+      const RootContextMenu = (props: Tree.DefaultContextMenuProps): ReactElement => (
+        <Tree.DefaultContextMenu {...props}>
+          <Menu.Item itemKey="extra">Extra item</Menu.Item>
+        </Tree.DefaultContextMenu>
+      );
+      render(
+        <Tree.Tree
+          root={group.ontologyID(root.key)}
+          rootContextMenu={RootContextMenu}
+        />,
+        { wrapper: await createWrapper() },
+      );
+      await screen.findByText(name);
+      await openTreeRootContextMenu();
+      await waitFor(() => expect(screen.getByText("Extra item")).toBeTruthy());
+      expect(screen.getByText("New group")).toBeTruthy();
     });
 
     it("should route a right-click on an item to its service's context menu with the selection", async () => {

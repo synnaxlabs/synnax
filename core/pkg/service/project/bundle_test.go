@@ -264,7 +264,7 @@ var _ = Describe("Export", func() {
 		files, members := MustSucceed2(svc.Export(ctx, proj.Key, xjson.Codec))
 		Expect(files).To(HaveKey("Startup.json"))
 		Expect(decode(files["Startup.json"])).To(SatisfyAll(
-			HaveKeyWithValue("type", "arc"),
+			HaveKeyWithValue("type", "arc-automation"),
 			HaveKeyWithValue("text", map[string]any{"raw": "x := 1"}),
 		))
 		root := decode(files["Controls.json"])["root"].(map[string]any)
@@ -736,13 +736,17 @@ var _ = Describe("Import", func() {
 		Expect(res.Name).To(Equal("Sequence"))
 	})
 
-	It("Should leave imported Arcs unparented", func(ctx SpecContext) {
+	It("Should parent imported Arcs under Arcs", func(ctx SpecContext) {
 		src := createProject(ctx, "Panel Arcs")
 		a := createArc(ctx, "Startup", "x := 1")
 		createPanel(
 			ctx, "Controls", src.OntologyID(), leaf(resourceTab(a.OntologyID())),
 		)
 		files, _ := MustSucceed2(svc.Export(ctx, src.Key, xjson.Codec))
+		// The import lands beside the original, where the name is taken.
+		Expect(arcSvc.Dispatch(ctx, a.Key, "", []arc.Action{
+			arc.NewRenameAction(arc.RenamePayload{Name: "Startup Source"}),
+		})).To(Succeed())
 		proj := importProject(ctx, files)
 		children := childrenOf(ctx, project.OntologyID(proj.Key))
 		Expect(children).To(HaveLen(1))
@@ -758,6 +762,25 @@ var _ = Describe("Import", func() {
 			Exec(ctx, tx)).To(Succeed())
 		Expect(res.Name).To(Equal("Startup"))
 		Expect(res.Text.Materialize().Raw).To(Equal("x := 1"))
+		var parents []ontology.Resource
+		Expect(otg.NewRetrieve().
+			WhereIDs(newArcID).
+			TraverseTo(ontology.ParentsTraverser).
+			Entries(&parents).
+			Exec(ctx, tx)).To(Succeed())
+		Expect(parents).To(HaveLen(1))
+		Expect(parents[0].Name).To(Equal("Arcs"))
+	})
+
+	It("Should reject a bundle whose Arc name is taken", func(ctx SpecContext) {
+		src := createProject(ctx, "Taken Arcs")
+		a := createArc(ctx, "Startup", "x := 1")
+		createPanel(
+			ctx, "Controls", src.OntologyID(), leaf(resourceTab(a.OntologyID())),
+		)
+		files, _ := MustSucceed2(svc.Export(ctx, src.Key, xjson.Codec))
+		Expect(svc.Import(ctx, tx, files, "Fallback.zip")).Error().
+			To(MatchError(ContainSubstring(`name "Startup" is already used`)))
 	})
 
 	It("Should ignore files that are not members", func(ctx SpecContext) {

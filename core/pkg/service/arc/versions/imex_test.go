@@ -182,6 +182,20 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		Entry("exported Arc", "testdata/import_v3_modeless.json"),
 	)
 
+	It("Should take the type from the header", func(ctx SpecContext) {
+		Expect(decode(ctx, "testdata/import_v4_module.json").Type).
+			To(Equal(versions.TypeModule))
+	})
+
+	DescribeTable(
+		"Should default the type of an export whose header names none",
+		func(ctx SpecContext, path string) {
+			Expect(decode(ctx, path).Type).To(Equal(versions.TypeAutomation))
+		},
+		Entry("v3", "testdata/import_v3.json"),
+		Entry("v4 before the type", "testdata/import_v4.json"),
+	)
+
 	It("Should drop the key on the wire", func(ctx SpecContext) {
 		Expect(decode(ctx, "testdata/import_v3.json").Key).To(Equal(uuid.Nil()))
 	})
