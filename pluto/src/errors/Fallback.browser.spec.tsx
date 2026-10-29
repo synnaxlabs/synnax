@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { CSS } from "@synnaxlabs/lyra/css";
 import { computed, renderThemed, resolve } from "@synnaxlabs/lyra/styletest";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { CSS } from "@/css";
 import { Errors } from "@/errors";
 
 const WIDTH = 600;

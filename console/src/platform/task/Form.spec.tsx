@@ -110,7 +110,7 @@ describe("wrapForm", () => {
     // grants resolve; until then the form renders in preview mode.
     await waitFor(findNameInput);
     await waitFor(() =>
-      expect(container.querySelector(".pluto-icon--play")).toBeTruthy(),
+      expect(container.querySelector(".lyra-icon--play")).toBeTruthy(),
     );
   });
 
@@ -123,7 +123,7 @@ describe("wrapForm", () => {
       taskKey: tsk.key,
     });
     await waitFor(() => expect(screen.getByText("child-form-body")).toBeTruthy());
-    expect(container.querySelector(".pluto-icon--play")).toBeNull();
+    expect(container.querySelector(".lyra-icon--play")).toBeNull();
   });
 
   it("should keep the controls on the driver status through an autosave", async () => {

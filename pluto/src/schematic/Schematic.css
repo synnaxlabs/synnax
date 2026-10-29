@@ -76,7 +76,7 @@
         & .react-flow__edge-path {
             stroke-width: 2px !important;
 
-            &.pluto--thin {
+            &.lyra--thin {
                 stroke-width: 1px !important;
             }
         }
@@ -86,7 +86,7 @@
         z-index: 6 !important;
     }
 
-    &.pluto--editable {
+    &.lyra--editable {
         .react-flow__pane.selection {
             cursor: pointer !important;
         }
