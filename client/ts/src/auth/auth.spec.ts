@@ -110,41 +110,57 @@ describe("auth", () => {
   });
 
   describe("retrieveMethods", () => {
+    const client = auth.createTokenlessClient({
+      host: TEST_CLIENT_PARAMS.host,
+      port: TEST_CLIENT_PARAMS.port,
+    });
     it("should list the methods the Core accepts without logging in", async () => {
-      const methods = await auth.retrieveMethods({
-        host: TEST_CLIENT_PARAMS.host,
-        port: TEST_CLIENT_PARAMS.port,
-      });
+      const methods = await auth.retrieveMethods(client);
       expect(methods.toSorted()).toEqual(["api_key", "password"]);
+    });
+    it("should serve repeated requests through one client", async () => {
+      const [first, second] = await Promise.all([
+        auth.retrieveMethods(client),
+        auth.retrieveMethods(client),
+      ]);
+      expect(second).toEqual(first);
+      expect(await auth.retrieveMethods(client)).toEqual(first);
     });
   });
 
   describe("createSession", () => {
-    it("should open a session without a client", async () => {
-      const { token, session } = await auth.createSession(
-        { host: TEST_CLIENT_PARAMS.host, port: TEST_CLIENT_PARAMS.port },
-        { method: "password", ...TEST_CREDENTIALS },
-      );
+    const tokenless = auth.createTokenlessClient({
+      host: TEST_CLIENT_PARAMS.host,
+      port: TEST_CLIENT_PARAMS.port,
+    });
+    it("should open a session without a logged-in client", async () => {
+      const { token, session } = await auth.createSession(tokenless, {
+        method: "password",
+        ...TEST_CREDENTIALS,
+      });
       expect(token.startsWith("sys_")).toBe(true);
       expect(session.subject.type).toBe("user");
     });
 
     it("should reject a wrong password", async () => {
       await expect(
-        auth.createSession(
-          { host: TEST_CLIENT_PARAMS.host, port: TEST_CLIENT_PARAMS.port },
-          { method: "password", username: TEST_CREDENTIALS.username, password: "x" },
-        ),
+        auth.createSession(tokenless, {
+          method: "password",
+          username: TEST_CREDENTIALS.username,
+          password: "x",
+        }),
       ).rejects.toThrow(AuthError);
     });
   });
 
   describe("retrieveProviders", () => {
     it("should list no providers when the Core sets none", async () => {
-      const providers = await auth.retrieveProviders({
-        host: TEST_CLIENT_PARAMS.host,
-        port: TEST_CLIENT_PARAMS.port,
-      });
+      const providers = await auth.retrieveProviders(
+        auth.createTokenlessClient({
+          host: TEST_CLIENT_PARAMS.host,
+          port: TEST_CLIENT_PARAMS.port,
+        }),
+      );
       expect(providers).toEqual([]);
     });
   });

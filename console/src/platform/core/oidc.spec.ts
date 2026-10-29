@@ -13,13 +13,14 @@ const tauri = vi.hoisted(() => ({
   invoke: vi.fn(async (cmd: string, args?: unknown): Promise<unknown> => {
     tauri.calls.push({ cmd, args });
     if (cmd === "oidc_listen") return 4242;
-    if (cmd === "oidc_wait") return `code=abc&state=${tauri.state}`;
+    if (cmd === "oidc_wait") return tauri.query ?? `code=abc&state=${tauri.state}`;
     return undefined;
   }),
   calls: [] as Array<{ cmd: string; args: unknown }>,
   proofs: [] as unknown[],
   opened: [] as string[],
   state: "",
+  query: undefined as string | undefined,
 }));
 const runtime = vi.hoisted((): { engine: "web" | "tauri" } => ({ engine: "tauri" }));
 vi.mock("@/session/runtime/runtime", async (importOriginal) => {
@@ -50,14 +51,7 @@ vi.mock("@/platform/runtime/openExternal", () => ({
   },
 }));
 
-import {
-  authorizeURL,
-  beginBrowserLogin,
-  completeBrowserLogin,
-  createPKCE,
-  loginDesktop,
-  parseCallback,
-} from "@/platform/core/oidc";
+import { Core } from "@/platform/core";
 
 const LOGIN = {
   provider: "idp",
@@ -83,58 +77,14 @@ describe("oidc", () => {
     window.history.replaceState(null, "", "/");
   });
 
-  describe("createPKCE", () => {
-    it("should derive the challenge from the verifier with S256", async () => {
-      const { verifier, challenge } = await createPKCE();
-      expect(verifier).toMatch(/^[A-Za-z0-9_-]{43}$/);
-      expect(challenge).toBe(await sha256(verifier));
-    });
-  });
-
-  describe("authorizeURL", () => {
-    it("should ask for a code with a PKCE challenge", () => {
-      const url = new URL(
-        authorizeURL({
-          login: LOGIN,
-          redirectUri: "http://127.0.0.1:4242/callback",
-          challenge: "challenge",
-          state: "state",
-        }),
-      );
-      expect(url.origin + url.pathname).toBe("https://idp.example.com/authorize");
-      expect(Object.fromEntries(url.searchParams)).toEqual({
-        tenant: "a",
-        response_type: "code",
-        client_id: "synnax",
-        redirect_uri: "http://127.0.0.1:4242/callback",
-        scope: "openid profile",
-        code_challenge: "challenge",
-        code_challenge_method: "S256",
-        state: "state",
-      });
-    });
-  });
-
-  describe("parseCallback", () => {
-    it("should return the code of a matching redirect", () => {
-      expect(parseCallback("?code=abc&state=s", "s")).toBe("abc");
-    });
-    it("should reject a redirect for another login", () => {
-      expect(() => parseCallback("?code=abc&state=other", "s")).toThrow(
-        "The login redirect does not belong to this login",
-      );
-    });
-    it("should report the provider's refusal", () => {
-      expect(() =>
-        parseCallback("?error=access_denied&error_description=Denied", "s"),
-      ).toThrow("Denied");
-    });
-  });
-
   describe("loginDesktop", () => {
+    const core = { key: "alpha", host: "localhost", port: 9090, secure: false };
+    afterEach(() => {
+      tauri.query = undefined;
+    });
+
     it("should exchange the loopback code and save the session's token", async () => {
-      const core = { key: "alpha", host: "localhost", port: 9090, secure: false };
-      await loginDesktop(core, LOGIN);
+      await Core.loginDesktop(core, LOGIN);
       const proof = tauri.proofs[tauri.proofs.length - 1] as Record<string, string>;
       expect(proof).toMatchObject({
         method: "oidc",
@@ -142,23 +92,45 @@ describe("oidc", () => {
         code: "abc",
         redirectUri: "http://127.0.0.1:4242/callback",
       });
+      expect(proof.verifier).toMatch(/^[A-Za-z0-9_-]{43}$/);
       const opened = new URL(tauri.opened[tauri.opened.length - 1]);
-      expect(opened.searchParams.get("redirect_uri")).toBe(
-        "http://127.0.0.1:4242/callback",
-      );
-      expect(opened.searchParams.get("code_challenge")).toBe(
-        await sha256(proof.verifier),
-      );
+      expect(opened.origin + opened.pathname).toBe("https://idp.example.com/authorize");
+      expect(Object.fromEntries(opened.searchParams)).toEqual({
+        tenant: "a",
+        response_type: "code",
+        client_id: "synnax",
+        redirect_uri: "http://127.0.0.1:4242/callback",
+        scope: "openid profile",
+        code_challenge: await sha256(proof.verifier),
+        code_challenge_method: "S256",
+        state: tauri.state,
+      });
+      expect(tauri.calls).toContainEqual({
+        cmd: "oidc_wait",
+        args: { state: tauri.state },
+      });
       expect(tauri.calls).toContainEqual({
         cmd: "keychain_set",
         args: { account: "http://@localhost:9090#alpha", secret: "sys_token" },
       });
     });
+
+    it("should reject a redirect for another login", async () => {
+      tauri.query = "code=abc&state=other";
+      await expect(Core.loginDesktop(core, LOGIN)).rejects.toThrow(
+        "The login redirect does not belong to this login",
+      );
+    });
+
+    it("should report the provider's refusal", async () => {
+      tauri.query = "error=access_denied&error_description=Denied";
+      await expect(Core.loginDesktop(core, LOGIN)).rejects.toThrow("Denied");
+    });
   });
 
   describe("beginBrowserLogin", () => {
     it("should save the verifier for the page the provider returns to", async () => {
-      await beginBrowserLogin("alpha", LOGIN);
+      await Core.beginBrowserLogin("alpha", LOGIN);
       const pending = JSON.parse(sessionStorage.getItem("synnax-oidc-login") ?? "{}");
       expect(pending).toMatchObject({
         core: "alpha",
@@ -183,13 +155,13 @@ describe("oidc", () => {
 
     it("should return nothing on a page that is not a redirect", () => {
       pending("s");
-      expect(completeBrowserLogin()).toBeUndefined();
+      expect(Core.completeBrowserLogin()).toBeUndefined();
     });
 
     it("should turn the redirect into credentials and clear it", () => {
       pending("s");
       window.history.replaceState(null, "", "/?code=abc&state=s");
-      expect(completeBrowserLogin()).toEqual({
+      expect(Core.completeBrowserLogin()).toEqual({
         core: "alpha",
         credentials: {
           provider: "idp",
@@ -205,10 +177,20 @@ describe("oidc", () => {
     it("should reject a redirect for another login", () => {
       pending("s");
       window.history.replaceState(null, "", "/?code=abc&state=other");
-      expect(() => completeBrowserLogin()).toThrow(
+      expect(() => Core.completeBrowserLogin()).toThrow(
         "The login redirect does not belong to this login",
       );
       expect(window.location.search).toBe("");
+    });
+
+    it("should report the provider's refusal", () => {
+      pending("s");
+      window.history.replaceState(
+        null,
+        "",
+        "/?error=access_denied&error_description=Denied&state=s",
+      );
+      expect(() => Core.completeBrowserLogin()).toThrow("Denied");
     });
   });
 });
