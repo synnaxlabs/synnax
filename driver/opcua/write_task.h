@@ -168,8 +168,8 @@ public:
     }
 
     /// @brief writes the command to the server. A connection that breaks gets one new
-    /// connection and one more attempt, so a Session the server closed while idle
-    /// does not drop the command.
+    /// connection and one more attempt, so a Session the server closed while idle does
+    /// not drop the command.
     x::errors::Error write(::x::telem::Frame &frame) override {
         if (!this->connection)
             if (const auto err = this->connect()) return err;

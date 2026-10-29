@@ -9,6 +9,7 @@
 
 export * from "@/platform/task/fields/AutoStart";
 export * from "@/platform/task/fields/DataSaving";
+export * from "@/platform/task/fields/NaNFill";
 export * from "@/platform/task/fields/SampleRate";
 export * from "@/platform/task/fields/StateUpdateRate";
 export * from "@/platform/task/fields/StreamRate";
