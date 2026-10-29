@@ -256,6 +256,37 @@ var _ = Describe("Check with a base", func() {
 	)
 
 	It(
+		"Should return every finding of a module that the base lacks",
+		func(ctx SpecContext) {
+			base := GinkgoT().TempDir()
+			Expect(os.CopyFS(
+				filepath.Join(base, "testdata/a"),
+				os.DirFS("testdata/a"),
+			)).To(Succeed())
+			findings := MustSucceed(exports.Check(ctx, exports.Config{
+				Modules: modules,
+				GOOS:    []string{"linux"},
+				Base:    base,
+			}))
+			Expect(summarize(findings)).To(Equal([]finding{
+				{File: "user.go", Kind: "func", Name: "Run"},
+			}))
+		},
+	)
+
+	It(
+		"Should return every finding when the base holds no module",
+		func(ctx SpecContext) {
+			findings := MustSucceed(exports.Check(ctx, exports.Config{
+				Modules: []string{"testdata/a"},
+				GOOS:    []string{"linux"},
+				Base:    GinkgoT().TempDir(),
+			}))
+			Expect(findings).To(ContainElement(HaveField("Name", "Internal")))
+		},
+	)
+
+	It(
 		"Should return every finding of a gated module and usage",
 		func(ctx SpecContext) {
 			findings := MustSucceed(exports.Check(ctx, exports.Config{
