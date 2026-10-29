@@ -486,14 +486,18 @@ public:
     /// @param nb the number of bits to write.
     /// @param src the source buffer, at least nb bytes long.
     x::errors::Error write_bits(const int addr, const size_t nb, const uint8_t *src) {
-        const bool single = this->requests.write_codes == WriteCodes::Single;
-        return this->exec(true, [&](modbus_t *ctx) {
-            if (!single) return modbus_write_bits(ctx, addr, static_cast<int>(nb), src);
-            for (std::size_t i = 0; i < nb; i++)
-                if (modbus_write_bit(ctx, addr + static_cast<int>(i), src[i]) == -1)
-                    return -1;
-            return static_cast<int>(nb);
-        });
+        if (this->requests.write_codes == WriteCodes::Multiple)
+            return this->exec(true, [&](modbus_t *ctx) {
+                return modbus_write_bits(ctx, addr, static_cast<int>(nb), src);
+            });
+        for (std::size_t i = 0; i < nb; i++) {
+            const int a = addr + static_cast<int>(i);
+            if (auto err = this->exec(true, [&](modbus_t *ctx) {
+                    return modbus_write_bit(ctx, a, src[i]);
+                }))
+                return err;
+        }
+        return x::errors::NIL;
     }
 
     /// @brief writes to the holding registers of the device, with function code 16, or
@@ -503,16 +507,18 @@ public:
     /// @param src the source buffer, at least nb registers long.
     x::errors::Error
     write_registers(const int addr, const size_t nb, const uint16_t *src) {
-        const bool single = this->requests.write_codes == WriteCodes::Single;
-        return this->exec(true, [&](modbus_t *ctx) {
-            if (!single)
+        if (this->requests.write_codes == WriteCodes::Multiple)
+            return this->exec(true, [&](modbus_t *ctx) {
                 return modbus_write_registers(ctx, addr, static_cast<int>(nb), src);
-            for (std::size_t i = 0; i < nb; i++)
-                if (modbus_write_register(ctx, addr + static_cast<int>(i), src[i]) ==
-                    -1)
-                    return -1;
-            return static_cast<int>(nb);
-        });
+            });
+        for (std::size_t i = 0; i < nb; i++) {
+            const int a = addr + static_cast<int>(i);
+            if (auto err = this->exec(true, [&](modbus_t *ctx) {
+                    return modbus_write_register(ctx, a, src[i]);
+                }))
+                return err;
+        }
+        return x::errors::NIL;
     }
 
     /// @brief checks that the unit answers by reading holding register 0.

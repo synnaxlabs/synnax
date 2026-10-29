@@ -905,6 +905,28 @@ TEST(DeviceTest, WaitsDelayBetweenRequests) {
     slave.stop();
 }
 
+/// @brief it should wait the device's delay before each request of a single-code write.
+TEST(DeviceTest, WaitsDelayBetweenSingleCodeWrites) {
+    testutil::SlaveConfig slave_config;
+    slave_config.port = 1656;
+    testutil::Slave slave(slave_config);
+    ASSERT_NIL(slave.start());
+    Manager manager;
+    RequestConfig requests;
+    requests.write_codes = WriteCodes::Single;
+    requests.delay = x::telem::MILLISECOND * 100;
+    auto dev = ASSERT_NIL_P(manager.acquire({"127.0.0.1", 1656}, requests));
+    uint16_t reg = 0;
+    ASSERT_NIL(dev->read_registers(HoldingRegister, 0, 1, &reg));
+    const auto start = std::chrono::steady_clock::now();
+    const std::vector<uint8_t> bits{1, 0};
+    ASSERT_NIL(dev->write_bits(0, bits.size(), bits.data()));
+    const std::vector<uint16_t> registers{1, 2};
+    ASSERT_NIL(dev->write_registers(0, registers.size(), registers.data()));
+    EXPECT_GE(std::chrono::steady_clock::now() - start, std::chrono::milliseconds(390));
+    slave.stop();
+}
+
 struct ProbeCase {
     std::string name;
     testutil::SlaveConfig slave;
