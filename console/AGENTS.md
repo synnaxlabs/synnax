@@ -99,7 +99,7 @@ Main window only, 250ms debounce. Every slice is declared in exactly one scope i
 | `core`      | project, range, status                            |
 | `project`   | drift                                             |
 | `window`    | arc, lineplot, log, nav, panels, schematic, table |
-| `transient` | haul, persist — never written                     |
+| `transient` | analytics, haul, link, persist — never written    |
 
 `Persist.open` throws when a slice is in none of them, so a new slice forces a decision
 about its durability.
