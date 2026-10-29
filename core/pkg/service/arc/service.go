@@ -280,6 +280,7 @@ func OpenService(
 		return nil, err
 	}
 	cfg.Ontology.RegisterService(s)
+	// The policy reads the Arc table, so it registers after the table's migrations.
 	cfg.Ontology.RegisterPolicy(s)
 	if err = cfg.ImEx.RegisterImportExporter(s); !ok(err, nil) {
 		return nil, err
