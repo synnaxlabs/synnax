@@ -79,6 +79,20 @@ func openStack(ctx context.Context, db *gorp.DB, cfg rack.ServiceConfig) stack {
 	}
 }
 
+// retrieveStatus returns the status that stat holds for the rack with the given key.
+func retrieveStatus(
+	ctx context.Context,
+	stat *status.Service,
+	key rack.Key,
+) (rack.Status, error) {
+	var s rack.Status
+	err := stat.NewRetrieve[rack.StatusDetails]().
+		Where(status.MatchKeys[rack.StatusDetails](rack.StatusKey(key))).
+		Entry(&s).
+		Exec(ctx, nil)
+	return s, err
+}
+
 var _ = Describe("Rack", Ordered, func() {
 	var (
 		writer     rack.Writer
@@ -717,7 +731,7 @@ var _ = Describe("Rack", Ordered, func() {
 		It("Should delete a rack and its associated status", func(ctx SpecContext) {
 			r := &rack.Rack{Name: "rack4"}
 			Expect(writer.Create(ctx, r)).To(Succeed())
-			Expect(writer.Delete(ctx, r.Key)).To(Succeed())
+			Expect(writer.DeleteGuard(ctx, r.Key, nil)).To(Succeed())
 			var res rack.Rack
 			Expect(
 				svc.NewRetrieve().
@@ -739,7 +753,7 @@ var _ = Describe("Rack", Ordered, func() {
 				WhereIDs(r.OntologyID()).
 				Entries(&[]ontology.Resource{}).
 				Exec(ctx, tx)).To(Succeed())
-			Expect(writer.Delete(ctx, r.Key)).To(Succeed())
+			Expect(writer.DeleteGuard(ctx, r.Key, nil)).To(Succeed())
 			Expect(otg.NewRetrieve().
 				WhereIDs(r.OntologyID()).
 				Entries(&[]ontology.Resource{}).
@@ -831,7 +845,7 @@ var _ = Describe("Rack", Ordered, func() {
 		It("Should initialize a rack with an unknown status", func(ctx SpecContext) {
 			r := rack.Rack{Name: "test rack"}
 			Expect(noTxWriter.Create(ctx, &r)).To(Succeed())
-			s := MustSucceed(svc.RetrieveStatus(ctx, r.Key))
+			s := MustSucceed(retrieveStatus(ctx, stat, r.Key))
 			Expect(s.Message).To(Equal("Rack status unknown"))
 			Expect(s.Variant).To(Equal(status.VariantWarning))
 			Expect(s.Time).To(BeNumerically("~", telem.Now(), 3*telem.SecondTS))
@@ -850,7 +864,7 @@ var _ = Describe("Rack", Ordered, func() {
 				}
 				r := rack.Rack{Name: "rack with custom status", Status: providedStatus}
 				Expect(noTxWriter.Create(ctx, &r)).To(Succeed())
-				s := MustSucceed(svc.RetrieveStatus(ctx, r.Key))
+				s := MustSucceed(retrieveStatus(ctx, stat, r.Key))
 				Expect(s.Message).To(Equal("Custom status message"))
 				Expect(s.Description).To(Equal("Custom description"))
 				Expect(s.Variant).To(Equal(status.VariantSuccess))
@@ -937,7 +951,7 @@ var _ = Describe("Rack", Ordered, func() {
 				Expect(noTxWriter.Create(ctx, &r)).To(Succeed())
 
 				Eventually(func(g Gomega) {
-					s := MustSucceed(svc.RetrieveStatus(ctx, r.Key))
+					s := MustSucceed(retrieveStatus(ctx, stat, r.Key))
 					g.Expect(s.Message).To(Equal("Driver not running"))
 					g.Expect(s.Variant).To(Equal(status.VariantWarning))
 					g.Expect(s.Time).
@@ -978,7 +992,7 @@ var _ = Describe("Rack", Ordered, func() {
 				})).To(Succeed())
 
 				Consistently(func(g Gomega) {
-					s := MustSucceed(svc.RetrieveStatus(ctx, r.Key))
+					s := MustSucceed(retrieveStatus(ctx, stat, r.Key))
 					g.Expect(s.Message).To(Equal("Running"))
 					g.Expect(s.Variant).To(Equal(status.VariantSuccess))
 					g.Expect(s.Description).To(BeEmpty())
@@ -1087,7 +1101,7 @@ var _ = Describe("Rack", Ordered, func() {
 					HealthCheckInterval: 10 * telem.Millisecond,
 				}))
 				Eventually(func(g Gomega) {
-					s := MustSucceed(after.rack.RetrieveStatus(ctx, r.Key))
+					s := MustSucceed(retrieveStatus(ctx, after.status, r.Key))
 					g.Expect(s.Variant).To(Equal(status.VariantWarning))
 					g.Expect(s.Message).To(Equal("Driver not running"))
 				}).Should(Succeed())
