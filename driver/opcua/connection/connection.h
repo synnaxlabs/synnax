@@ -15,6 +15,7 @@
 #include <mutex>
 #include <optional>
 #include <string>
+#include <thread>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -199,6 +200,11 @@ public:
         write(const UA_WriteRequest &req) const;
 
     private:
+        /// @returns the error of the service result of a call. A call that fails for a
+        /// lost connection closes the channel, so the next acquire connects again at
+        /// once instead of probing first. Any other result records a reply.
+        [[nodiscard]] x::errors::Error check(UA_StatusCode result) const;
+
         std::shared_ptr<UA_Client> client_;
         Pool *pool_;
         std::string key_;
@@ -206,18 +212,22 @@ public:
         friend class Pool;
     };
 
-    static constexpr int BREAKER_THRESHOLD = 3;
-    static constexpr std::chrono::seconds MIN_COOLDOWN{5};
-    static constexpr std::chrono::seconds MAX_COOLDOWN{30};
-    static constexpr std::chrono::seconds IDLE_TIMEOUT{60};
+    /// @brief how long a Pool keeps idle connections and pauses failed attempts.
+    struct Timing {
+        /// @brief how long a connection stays open while no one uses it.
+        std::chrono::milliseconds idle_timeout = IDLE_TIMEOUT;
+        /// @brief the first pause of the attempts to a server after three failures in a
+        /// row.
+        std::chrono::milliseconds min_cooldown = MIN_COOLDOWN;
+        /// @brief the longest pause. Each pause in a row doubles up to it.
+        std::chrono::milliseconds max_cooldown = MAX_COOLDOWN;
+    };
 
     /// @param store the source of the Driver certificate for secured connections.
-    /// @param idle_timeout how long a connection stays open while no one uses it.
-    explicit Pool(
-        std::shared_ptr<certificate::Store> store,
-        std::chrono::milliseconds idle_timeout = IDLE_TIMEOUT
-    );
-    ~Pool() = default;
+    explicit Pool(std::shared_ptr<certificate::Store> store);
+    Pool(std::shared_ptr<certificate::Store> store, Timing timing);
+    /// @brief blocks while it sends CloseSession for each connection.
+    ~Pool();
 
     Pool(const Pool &) = delete;
     Pool &operator=(const Pool &) = delete;
@@ -227,9 +237,10 @@ public:
     /// so the server keeps one Session for it. A new connection with no server
     /// certificate in its Config trusts the first one that the server presents.
     ///
-    /// The Pool makes one connection attempt to a server at a time. After
-    /// BREAKER_THRESHOLD failures in a row, it refuses attempts for a cooldown that
-    /// starts at MIN_COOLDOWN and doubles up to MAX_COOLDOWN.
+    /// The Pool makes one connection attempt to a server at a time. After three
+    /// failures in a row, it refuses attempts for a cooldown that starts at
+    /// Timing::min_cooldown and doubles up to Timing::max_cooldown. A connection that
+    /// no one uses for Timing::idle_timeout closes.
     std::pair<Connection, x::errors::Error>
     acquire(const Config &cfg, const std::string &log_prefix);
 
@@ -242,10 +253,6 @@ public:
     std::pair<bool, x::errors::Error>
     refresh(Connection &conn, const Config &cfg, const std::string &log_prefix);
 
-    /// @brief closes the connections that no one has used for the idle timeout. Blocks
-    /// while it sends CloseSession to their servers.
-    void close_idle();
-
     /// @returns the time of the last reply from the server on a connection with the
     /// configuration, or a zero timestamp if none replied.
     x::telem::TimeStamp last_reply(const Config &cfg) const;
@@ -254,6 +261,11 @@ public:
     size_t available_count(const std::string &endpoint) const;
 
 private:
+    static constexpr int BREAKER_THRESHOLD = 3;
+    static constexpr std::chrono::seconds MIN_COOLDOWN{5};
+    static constexpr std::chrono::seconds MAX_COOLDOWN{30};
+    static constexpr std::chrono::seconds IDLE_TIMEOUT{60};
+
     struct Entry {
         std::shared_ptr<UA_Client> client;
         bool in_use;
@@ -270,7 +282,8 @@ private:
     struct BreakerState {
         int consecutive_failures = 0;
         std::chrono::steady_clock::time_point cooldown_until;
-        std::chrono::seconds cooldown = MIN_COOLDOWN;
+        /// @brief the next pause, or zero for the first one.
+        std::chrono::milliseconds cooldown{0};
         /// @brief true while a thread connects. Other threads wait on connect_cv.
         bool connecting = false;
         /// @brief the trusted server certificate of the counted failures. A new
@@ -282,15 +295,22 @@ private:
         /// security error repeats, since waiting does not fix it.
         [[nodiscard]] x::errors::Error open_error() const;
         [[nodiscard]] bool open() const;
-        void failed(const x::errors::Error &err, const std::string &log_prefix);
+        void failed(
+            const x::errors::Error &err,
+            const Timing &timing,
+            const std::string &log_prefix
+        );
         void succeeded();
     };
 
     std::shared_ptr<certificate::Store> store;
-    std::chrono::milliseconds idle_timeout;
+    Timing timing;
     mutable std::mutex mutex_;
     /// @brief notified when a connecting thread finishes.
     std::condition_variable connect_cv;
+    /// @brief notified when a connection goes idle or the Pool closes.
+    std::condition_variable idle_cv;
+    bool closing = false;
     std::unordered_map<std::string, std::vector<Entry>> connections_;
     std::unordered_map<std::string, BreakerState> breakers;
     /// @brief the key of the client certificate that each group of settings uses now.
@@ -315,6 +335,13 @@ private:
     /// The caller holds mutex_ and closes the returned connections outside it.
     std::vector<std::shared_ptr<UA_Client>>
     retire(const std::string &settings, const std::string &key);
+
+    /// @brief closes each connection that no one used for the idle timeout, outside
+    /// mutex_, until the Pool closes.
+    void evict();
+
+    /// @brief runs evict. It starts last, after the members it uses.
+    std::thread evictor;
 
     friend class Connection;
 };

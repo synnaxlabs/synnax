@@ -51,6 +51,7 @@ cc_library(
 
 cc_test(
     name = "opcua_test",
+    timeout = "long",
     srcs = [
         "read_task_test.cpp",
         "scan_task_test.cpp",

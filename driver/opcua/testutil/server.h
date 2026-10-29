@@ -342,7 +342,7 @@ public:
     /// @brief artificial delay injected before each server iterate cycle.
     /// Used in tests to simulate a slow server (e.g. network-unreachable PLC).
     /// Zero means no delay.
-    x::telem::TimeSpan probe_delay;
+    std::atomic<x::telem::TimeSpan> probe_delay;
 
     explicit Server(ServerConfig cfg): cfg(std::move(cfg)) {}
 
@@ -476,9 +476,9 @@ public:
         ready = true;
 
         while (running.load()) {
-            if (probe_delay.nanoseconds() > 0)
+            if (const auto delay = probe_delay.load(); delay.nanoseconds() > 0)
                 std::this_thread::sleep_for(
-                    std::chrono::nanoseconds(probe_delay.nanoseconds())
+                    std::chrono::nanoseconds(delay.nanoseconds())
                 );
             UA_Server_run_iterate(server, true);
         }
