@@ -97,14 +97,15 @@ public:
 
     /// @brief sends the latest status of each task again, stamped now and with no
     /// command key, to repair statuses lost while the Driver could not reach the Core.
-    /// Skips a task that is writing its own status, as that write is newer. Writes one
-    /// task at a time, so a task waits on at most one re-send write.
+    /// Waits for a write of a task's own status in progress, then sends the latest
+    /// status, so a failed write is repaired too. Writes one task at a time, so a task
+    /// waits on at most one re-send write.
     /// @returns the first error of the writes. An error does not stop the writes of the
     /// other tasks. Call it again on error.
     [[nodiscard]] virtual x::errors::Error resend_statuses() = 0;
 
     /// @brief forgets the latest status of the task, so that a later re-send does not
-    /// write it. Call it once the task has left this Driver.
+    /// write it. Call it once the task has left this Driver. Never waits on a write.
     virtual void drop_status(const synnax::task::Key &key) = 0;
 };
 
@@ -141,12 +142,13 @@ class SynnaxContext final : public Context {
     synnax::rack::Key rack_key_;
     /// @brief the latest status of one task, with no command key.
     struct Entry {
-        /// @brief guards status and dropped, and orders the task's writes, so a re-send
-        /// never lands after a newer status.
+        /// @brief guards status and orders the task's writes, so a re-send never lands
+        /// after a newer status.
         std::mutex mu;
         synnax::task::Status status;
-        /// @brief true once the task has left this Driver.
-        bool dropped = false;
+        /// @brief true once the task has left this Driver. Set without mu, so a drop
+        /// never waits on a write.
+        std::atomic<bool> dropped = false;
     };
     /// @brief guards statuses. Never held during a write, so a task never waits on the
     /// write of another task.
@@ -205,9 +207,9 @@ public:
         }
         x::errors::Error first_err = x::errors::NIL;
         for (const auto &entry: entries) {
-            std::unique_lock lock{entry->mu, std::try_to_lock};
+            std::lock_guard lock{entry->mu};
             // drop_status can run between the copy and the lock.
-            if (!lock.owns_lock() || entry->dropped) continue;
+            if (entry->dropped) continue;
             auto status = entry->status;
             status.time = x::telem::TimeStamp::now();
             if (const auto err = this->client->statuses
@@ -219,16 +221,11 @@ public:
     }
 
     void drop_status(const synnax::task::Key &key) override {
-        std::shared_ptr<Entry> entry;
-        {
-            std::lock_guard lock{this->statuses_mu};
-            const auto it = this->statuses.find(key);
-            if (it == this->statuses.end()) return;
-            entry = it->second;
-            this->statuses.erase(it);
-        }
-        std::lock_guard lock{entry->mu};
-        entry->dropped = true;
+        std::lock_guard lock{this->statuses_mu};
+        const auto it = this->statuses.find(key);
+        if (it == this->statuses.end()) return;
+        it->second->dropped = true;
+        this->statuses.erase(it);
     }
 };
 
@@ -505,9 +502,9 @@ private:
     void process_start(const synnax::task::Command &cmd);
     /// @brief returns the entry for key, creating it if absent. Callers must hold mu.
     std::shared_ptr<Entry> entry_for(const synnax::task::Key &key);
-    /// @brief drops the entry for key unless it is still relevant or claimed by a
-    /// worker. even_if_processing is for a worker's own entry. Callers must hold
-    /// mu.
+    /// @brief drops the entry for key and forgets its status, unless the entry is still
+    /// relevant or claimed by a worker. even_if_processing is for a worker's own entry.
+    /// Callers must hold mu.
     void remove(const synnax::task::Key &key, bool even_if_processing = false);
     /// @brief starts the worker pool and monitor thread.
     void start_workers();
