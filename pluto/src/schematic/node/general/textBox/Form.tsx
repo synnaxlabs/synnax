@@ -10,7 +10,6 @@
 import "@/schematic/node/general/textBox/textBox.css";
 
 import { Button } from "@synnaxlabs/lyra/button";
-import { CSS } from "@synnaxlabs/lyra/css";
 import { type Flex } from "@synnaxlabs/lyra/flex";
 import { Form as Base } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -19,6 +18,7 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { type text } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
+import { CSS } from "@/css";
 import { Form } from "@/schematic/node/common/form";
 import { Orientation } from "@/schematic/node/common/orientation";
 

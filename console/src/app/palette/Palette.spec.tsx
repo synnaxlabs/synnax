@@ -90,7 +90,7 @@ describe("Palette", () => {
     // routes onPointerEnter into its own context, so hovering never opens the tip.
     fireEvent.pointerEnter(btn);
     const tip = await waitFor(() => {
-      const el = document.querySelector<HTMLElement>(".pluto-tooltip");
+      const el = document.querySelector<HTMLElement>(".lyra-tooltip");
       if (el == null) throw new Error("tooltip did not open");
       return el;
     });
