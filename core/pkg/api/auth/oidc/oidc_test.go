@@ -158,6 +158,26 @@ var _ = Describe("OIDC links", func() {
 				apioidc.LinkRequest{Credentials: creds},
 			)).Error().To(MatchError(auth.ErrInvalidCredentials))
 		})
+		It("Should refuse a caller that is not a user", func(ctx SpecContext) {
+			rack := ontology.ID{
+				Type: ontology.ResourceTypeRack,
+				Key:  uuid.New().String(),
+			}
+			Expect(otg.NewWriter(nil).DefineResources(ctx, rack)).To(Succeed())
+			_, token := MustSucceed2(apikeySvc.NewWriter(nil).Create(ctx, rack, "rack"))
+			rackToken := login(ctx, auth.Proof{Variant: auth.APIKeyProof{
+				APIKeyCredentials: auth.APIKeyCredentials{Key: token},
+			}})
+			Expect(apiSvc.Link(
+				authed(ctx, rackToken),
+				nil,
+				apioidc.LinkRequest{Credentials: grantAccount(uuid.New().String())},
+			)).Error().To(MatchError(validate.ErrValidation))
+			Expect(apiSvc.Retrieve(
+				authed(ctx, rootToken),
+				apioidc.RetrieveRequest{Subjects: []ontology.ID{rack}},
+			)).To(Equal(apioidc.RetrieveResponse{Links: []oidc.Link{}}))
+		})
 		It("Should refuse an account linked to another user", func(ctx SpecContext) {
 			sub := uuid.New().String()
 			linkAccount(ctx, bobToken, sub)
