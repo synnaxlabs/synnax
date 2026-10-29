@@ -7,8 +7,8 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Deploys a live Core with the Console embedded for each pull request that changes the
-# Core or the Console, or has the preview label, and removes it when the pull request
+# Deploys a live Core with the Console embedded for each pull request with the preview
+# label, again on each push while the label stays, and removes it when the pull request
 # closes. The host is in deploy/preview. Fork pull requests never deploy: their code
 # must not reach the AWS role. Nothing runs until the PREVIEW_* variables exist.
 
@@ -33,29 +33,12 @@ env:
   URL: https://pr-${{ github.event.pull_request.number }}.${{ vars.PREVIEW_DOMAIN }}
 
 jobs:
-  changes:
+  deploy:
     if:
       github.event.pull_request.head.repo.full_name == github.repository &&
       vars.PREVIEW_INSTANCE_ID != '' && github.event.action != 'closed' &&
+      contains(github.event.pull_request.labels.*.name, 'preview') &&
       (github.event.action != 'labeled' || github.event.label.name == 'preview')
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: read
-    outputs:
-      changed: ${{ steps.filter.outputs.preview }}
-    steps:
-      - uses: actions/checkout@v7
-      - uses: dorny/paths-filter@v4
-        id: filter
-        with:
-          filters: .github/filters.yaml
-
-  deploy:
-    needs: changes
-    if:
-      needs.changes.outputs.changed == 'true' ||
-      contains(github.event.pull_request.labels.*.name, 'preview')
     runs-on: ubuntu-latest
     permissions:
       contents: read

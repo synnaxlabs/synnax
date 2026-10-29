@@ -94,6 +94,7 @@ class Synnax(framer.Client):
 
     def __init__(
         self,
+        *,
         host: str = "",
         port: int = 0,
         username: str = "",
@@ -106,7 +107,6 @@ class Synnax(framer.Client):
         instrumentation: Instrumentation = NOOP,
         clock_skew_threshold: TimeSpan = TimeSpan.SECOND,
         ca_cert: str | None = None,
-        *,
         api_key: str = "",
     ):
         """Creates a new client. Connection parameters can be provided as arguments, or,
@@ -137,7 +137,13 @@ class Synnax(framer.Client):
                 "give either an API key or a username and password, not both"
             )
         opts = try_load_options_if_none_provided(
-            host, port, username, password, secure, ca_cert, api_key
+            host=host,
+            port=port,
+            username=username,
+            password=password,
+            secure=secure,
+            ca_cert=ca_cert,
+            api_key=api_key,
         )
         registry = exceptions.create_registry()
         self._transport = _configure_transport(
@@ -170,9 +176,15 @@ class Synnax(framer.Client):
         # that, and when an unclosed client is garbage collected.
         self._finalizer = weakref.finalize(self, self.connectivity.stop)
 
-        ch_retriever = channel.Retriever(self._transport.unary, instrumentation)
-        deleter = framer.Deleter(self._transport.unary, instrumentation)
-        ch_creator = channel.Writer(self._transport.unary, instrumentation)
+        ch_retriever = channel.Retriever(
+            client=self._transport.unary, instrumentation=instrumentation
+        )
+        deleter = framer.Deleter(
+            client=self._transport.unary, instrumentation=instrumentation
+        )
+        ch_creator = channel.Writer(
+            client=self._transport.unary, instrumentation=instrumentation
+        )
         super().__init__(
             stream_client=self._transport.stream,
             async_client=self._transport.stream_async,
@@ -185,9 +197,15 @@ class Synnax(framer.Client):
         )
         self.groups = group.Client(self._transport.unary)
         self.ontology = OntologyClient(client=self._transport.unary)
-        self.channels = channel.Client(self, ch_retriever, ch_creator)
-        range_retriever = RangeRetriever(self._transport.unary, instrumentation)
-        range_creator = ranger.Writer(self._transport.unary, instrumentation)
+        self.channels = channel.Client(
+            frame_client=self, retriever=ch_retriever, creator=ch_creator
+        )
+        range_retriever = RangeRetriever(
+            client=self._transport.unary, instrumentation=instrumentation
+        )
+        range_creator = ranger.Writer(
+            client=self._transport.unary, instrumentation=instrumentation
+        )
         self.signals = SignalsRegistry(frame_client=self, channels=ch_retriever)
         self.racks = rack.Client(client=self._transport.unary)
         self.devices = device.Client(client=self._transport.unary)
@@ -213,7 +231,9 @@ class Synnax(framer.Client):
             ontology=self.ontology,
             tasks=self.tasks,
         )
-        self.control = ControlClient(self, ch_retriever, self._transport.unary)
+        self.control = ControlClient(
+            framer=self, channels=ch_retriever, client=self._transport.unary
+        )
         self.users = user.Client(self._transport.unary)
         self.statuses = status.Client(self._transport.unary)
         self.license = LicenseClient(self._transport.unary)
@@ -235,6 +255,7 @@ class Synnax(framer.Client):
 
 
 def _configure_transport(
+    *,
     opts: Options,
     open_timeout: TimeSpan,
     read_timeout: TimeSpan,
