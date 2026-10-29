@@ -123,6 +123,8 @@ export interface RenderModalOpenerOptions extends Pick<RenderOptions, "onCaughtE
   additionalRegistry?: aether.ComponentRegistry;
   /** Receives every event the modal reports; discards them by default. */
   analytics?: Analytics.Sink;
+  /** Extra siblings rendered alongside the modal stack, e.g. CaptureStatuses. */
+  extra?: ReactNode;
 }
 
 export interface ModalOpenerHandle<R> {
@@ -153,6 +155,7 @@ export const renderModalOpener = async <Args extends unknown[], R>(
     additionalRegistry,
     onCaughtError,
     analytics = Analytics.NOOP,
+    extra,
   } = options;
   const { wrapper: Console, store: resolvedStore } = await createConsoleWrapper({
     client,
@@ -166,6 +169,7 @@ export const renderModalOpener = async <Args extends unknown[], R>(
         <Triggers.Provider>
           {children}
           <Modals.Stack />
+          {extra}
         </Triggers.Provider>
       </Analytics.Provider>
     </Console>
@@ -191,7 +195,7 @@ export const renderModalOpener = async <Args extends unknown[], R>(
   };
 };
 
-export interface OpenModalOptions<P> {
+export interface OpenModalOptions<P> extends Pick<RenderModalOpenerOptions, "extra"> {
   client?: Client | null;
   params?: P;
 }
@@ -204,10 +208,11 @@ export interface OpenModalOptions<P> {
  */
 export const openModal = async <P,>(
   useOpen: () => Modals.Opener<P>,
-  { client = null, params }: OpenModalOptions<P> = {},
+  { client = null, params, extra }: OpenModalOptions<P> = {},
 ): Promise<ModalOpenerHandle<void>> =>
   await renderModalOpener(useOpen as () => (params?: P) => void, [params], {
     client,
+    extra,
   });
 
 /**
