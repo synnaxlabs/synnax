@@ -21,9 +21,7 @@ const WRITE_CODES = ["multiple", "single"] as const;
 const writeCodesZ = z.enum(WRITE_CODES);
 export type WriteCodes = z.infer<typeof writeCodesZ>;
 
-const TRANSPORTS = ["tcp", "rtu"] as const;
-export const transportZ = z.enum(TRANSPORTS);
-export type Transport = z.infer<typeof transportZ>;
+export type Transport = "tcp" | "rtu";
 
 /** The baud rates the Driver accepts, which libmodbus sets on every platform. */
 export const BAUD_RATES = [
@@ -31,7 +29,7 @@ export const BAUD_RATES = [
 ] as const;
 
 export const PARITIES = ["none", "even", "odd"] as const;
-export const parityZ = z.enum(PARITIES);
+const parityZ = z.enum(PARITIES);
 export type Parity = z.infer<typeof parityZ>;
 
 export const STOP_BITS = [1, 2] as const;
