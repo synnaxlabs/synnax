@@ -28,8 +28,8 @@ namespace {
 /// @brief identifies the configurations whose connections differ only in the client
 /// certificate. The endpoint comes first for available_count.
 std::string settings_key(const Config &cfg) {
-    std::string key = cfg.endpoint + "|" + cfg.username + "|" + cfg.security_mode +
-                      "|" + cfg.security_policy;
+    std::string key = cfg.endpoint + "|" + cfg.username + "|" + cfg.password + "|" +
+                      cfg.security_mode + "|" + cfg.security_policy;
     if (!cfg.secured()) return key;
     return key + "|" + cfg.client_cert + "|" + cfg.client_private_key + "|" +
            (cfg.certificate_validation_disabled ? "unvalidated" : "validated");
@@ -44,21 +44,89 @@ std::string pool_key(const std::string &settings, const Security &sec) {
     return settings + "|" + sec.identity->certificate.thumbprint();
 }
 
-/// @returns true if the client's server presented the certificate that the
-/// configuration trusts, or the configuration trusts any certificate.
+/// @returns true if the client trusts the server certificate that the configuration
+/// trusts, or the configuration trusts any certificate.
 bool trusts(UA_Client *client, const Config &cfg) {
     if (!cfg.secured() || cfg.certificate_validation_disabled ||
         !cfg.server_certificate.has_value())
         return true;
-    return server_certificate(client) == cfg.server_certificate;
+    return trusted_certificate(client) == cfg.server_certificate;
+}
+
+bool active(UA_Client *client) {
+    return !connected(client);
+}
+
+/// @brief handles the client's pending network events, then reads the server's clock
+/// to check that the server still answers.
+x::errors::Error probe(UA_Client *client) {
+    if (const auto status = UA_Client_run_iterate(client, 0);
+        status != UA_STATUSCODE_GOOD)
+        return errors::parse(status);
+    if (const auto err = connected(client)) return err;
+    UA_Variant value;
+    UA_Variant_init(&value);
+    const auto status = UA_Client_readValueAttribute(
+        client,
+        UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER_SERVERSTATUS_CURRENTTIME),
+        &value
+    );
+    UA_Variant_clear(&value);
+    return errors::parse(status);
 }
 }
 
-Pool::Pool(std::shared_ptr<certificate::Store> store): store(std::move(store)) {}
+std::pair<types::ReadResponse, x::errors::Error>
+Pool::Connection::read(const UA_ReadRequest &req) const {
+    if (const auto err = connected(this->get())) return {types::ReadResponse(), err};
+    types::ReadResponse res(UA_Client_Service_read(this->get(), req));
+    auto err = errors::parse(res.get().responseHeader.serviceResult);
+    if (!err && this->pool_ != nullptr) this->pool_->replied(this->key_);
+    return {std::move(res), err};
+}
+
+std::pair<types::WriteResponse, x::errors::Error>
+Pool::Connection::write(const UA_WriteRequest &req) const {
+    if (const auto err = connected(this->get())) return {types::WriteResponse(), err};
+    types::WriteResponse res(UA_Client_Service_write(this->get(), req));
+    auto err = errors::parse(res.get().responseHeader.serviceResult);
+    if (!err && this->pool_ != nullptr) this->pool_->replied(this->key_);
+    return {std::move(res), err};
+}
+
+Pool::Pool(
+    std::shared_ptr<certificate::Store> store,
+    const std::chrono::milliseconds idle_timeout
+):
+    store(std::move(store)), idle_timeout(idle_timeout) {}
 
 x::errors::Error Pool::BreakerState::open_error() const {
     return this->last_error.matches(errors::SECURITY) ? this->last_error
                                                       : BREAKER_OPEN_ERROR;
+}
+
+bool Pool::BreakerState::open() const {
+    return this->consecutive_failures >= BREAKER_THRESHOLD &&
+           std::chrono::steady_clock::now() < this->cooldown_until;
+}
+
+void Pool::BreakerState::failed(
+    const x::errors::Error &err,
+    const std::string &log_prefix
+) {
+    this->last_error = err;
+    if (++this->consecutive_failures < BREAKER_THRESHOLD) return;
+    this->cooldown_until = std::chrono::steady_clock::now() + this->cooldown;
+    LOG(WARNING) << log_prefix << "pausing connections to the server for "
+                 << this->cooldown.count() << " s after " << this->consecutive_failures
+                 << " failed attempts in a row";
+    this->cooldown = std::min(this->cooldown * 2, MAX_COOLDOWN);
+}
+
+void Pool::BreakerState::succeeded() {
+    this->consecutive_failures = 0;
+    this->cooldown = MIN_COOLDOWN;
+    this->last_error = x::errors::NIL;
 }
 
 std::pair<Pool::Connection, x::errors::Error>
@@ -69,47 +137,12 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
     const std::string settings = settings_key(cfg);
     const std::string key = pool_key(settings, sec);
 
-    // Try to find a cached connection. We mark it in_use under the lock,
-    // then release the lock before running the blocking health probe.
-    std::shared_ptr<UA_Client> candidate;
+    std::shared_ptr<UA_Client> client;
     std::vector<std::shared_ptr<UA_Client>> retired;
     {
-        std::lock_guard<std::mutex> lock(mutex_);
+        std::lock_guard lock(this->mutex_);
         retired = this->retire(settings, key);
-        auto it = connections_.find(key);
-        if (it != connections_.end()) {
-            for (auto &entry: it->second) {
-                if (!entry.in_use) {
-                    UA_SessionState session_state = UA_SESSIONSTATE_CLOSED;
-                    UA_SecureChannelState channel_state = UA_SECURECHANNELSTATE_CLOSED;
-                    UA_Client_getState(
-                        entry.client.get(),
-                        &channel_state,
-                        &session_state,
-                        nullptr
-                    );
-                    if (session_state == UA_SESSIONSTATE_ACTIVATED) {
-                        // Left open, since a caller with another trusted
-                        // certificate may still use it.
-                        if (!trusts(entry.client.get(), cfg)) continue;
-                        entry.in_use = true;
-                        candidate = entry.client;
-                        break;
-                    }
-                    VLOG(1) << log_prefix << "Removing stale connection from pool";
-                    entry.client.reset();
-                }
-            }
-
-            it->second.erase(
-                std::remove_if(
-                    it->second.begin(),
-                    it->second.end(),
-                    [](const Entry &e) { return !e.client; }
-                ),
-                it->second.end()
-            );
-        }
+        client = this->take(key, cfg);
     }
     // Some servers allow few sessions, so retired ones close before a new one opens.
     if (!retired.empty()) {
@@ -118,165 +151,85 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
         retired.clear();
     }
 
-    // Health probe runs outside the lock so other threads can acquire
-    // different connections concurrently.
-    if (candidate) {
-        if (const auto err = this->run_iterate_checked(candidate, log_prefix)) {
-            VLOG(1) << log_prefix << "Cached connection failed maintenance, discarding";
-            std::lock_guard<std::mutex> lock(mutex_);
-            auto it = connections_.find(key);
-            if (it != connections_.end()) {
-                for (auto &entry: it->second) {
-                    if (entry.client == candidate) {
-                        entry.client.reset();
-                        break;
-                    }
-                }
-                it->second.erase(
-                    std::remove_if(
-                        it->second.begin(),
-                        it->second.end(),
-                        [](const Entry &e) { return !e.client; }
-                    ),
-                    it->second.end()
-                );
-            }
-        } else {
-            VLOG(1) << log_prefix << "Reusing connection from pool for "
-                    << cfg.endpoint;
-            // Reset breaker on successful reuse.
+    // The probe runs outside the lock, since it waits on the server.
+    if (client != nullptr && active(client.get())) {
+        if (const auto err = probe(client.get()); !err) {
             {
-                std::lock_guard<std::mutex> lock(mutex_);
-                breakers[key].consecutive_failures = 0;
+                std::lock_guard lock(this->mutex_);
+                this->breakers[key].succeeded();
             }
-            return {Connection(candidate, this, key), x::errors::NIL};
+            this->replied(key);
+            return {Connection(client, this, key), x::errors::NIL};
         }
+        VLOG(1) << log_prefix << "Idle connection stopped answering";
     }
 
-    // Serialized connection creation: only one thread connects at a time
-    // per endpoint. Other threads wait for the connecting thread to finish,
-    // then try to reuse the newly created connection.
-    {
-        std::unique_lock<std::mutex> lock(mutex_);
-        auto &breaker = breakers[key];
-        if (breaker.trusted != cfg.server_certificate) {
-            breaker.trusted = cfg.server_certificate;
-            breaker.consecutive_failures = 0;
-        }
-
-        // Check circuit breaker before cleanup_stale_entries: if tripped,
-        // fail fast without blocking on UA_Client_disconnect network calls.
-        if (breaker.consecutive_failures >= BREAKER_THRESHOLD) {
-            if (std::chrono::steady_clock::now() < breaker.cooldown_until) {
-                VLOG(1) << log_prefix << "Circuit breaker open, rejecting connection";
-                return {Connection(nullptr, nullptr, ""), breaker.open_error()};
-            }
-            // Cooldown expired — allow one probe attempt (half-open).
-            VLOG(1) << log_prefix << "Circuit breaker half-open, allowing probe";
-        }
-
-        // Breaker is not tripped (or is half-open) — clean up stale entries.
-        // Release the lock first: cleanup_stale_entries takes mutex_ internally
-        // and calls UA_Client_disconnect which blocks on network I/O.
-        lock.unlock();
-        cleanup_stale_entries(key, log_prefix);
-        lock.lock();
-        // Re-check breaker after reacquiring: another thread may have tripped
-        // it while we were cleaning up.
-        if (breaker.consecutive_failures >= BREAKER_THRESHOLD &&
-            std::chrono::steady_clock::now() < breaker.cooldown_until) {
-            VLOG(1) << log_prefix << "Circuit breaker open after cleanup, rejecting";
+    std::unique_lock lock(this->mutex_);
+    // References to map values stay valid as the map grows.
+    auto &breaker = this->breakers[key];
+    if (breaker.trusted != cfg.server_certificate) {
+        breaker.trusted = cfg.server_certificate;
+        breaker.consecutive_failures = 0;
+        breaker.cooldown = MIN_COOLDOWN;
+    }
+    while (true) {
+        if (breaker.open()) {
+            if (client != nullptr) this->put_back(key, client);
+            VLOG(1) << log_prefix << "Connections to the server are paused";
             return {Connection(nullptr, nullptr, ""), breaker.open_error()};
         }
-
-        // If another thread is already connecting, wait for it to finish.
-        // Then try to reuse its connection instead of creating a duplicate.
-        if (breaker.connecting) {
-            VLOG(1) << log_prefix << "Waiting for another thread to finish connecting";
-            connect_cv.wait(lock, [&breaker] { return !breaker.connecting; });
-
-            // Try to grab the newly created connection.
-            auto it = connections_.find(key);
-            if (it != connections_.end()) {
-                for (auto &entry: it->second) {
-                    if (!entry.in_use) {
-                        UA_SessionState ss = UA_SESSIONSTATE_CLOSED;
-                        UA_SecureChannelState cs = UA_SECURECHANNELSTATE_CLOSED;
-                        UA_Client_getState(entry.client.get(), &cs, &ss, nullptr);
-                        if (ss == UA_SESSIONSTATE_ACTIVATED &&
-                            trusts(entry.client.get(), cfg)) {
-                            entry.in_use = true;
-                            VLOG(1) << log_prefix
-                                    << "Reusing connection created by "
-                                       "another thread";
-                            return {
-                                Connection(entry.client, this, key),
-                                x::errors::NIL
-                            };
-                        }
-                    }
-                }
-            }
-
-            // No reusable connection available. If breaker is still tripped,
-            // fail fast. Otherwise fall through to connect ourselves.
-            if (breaker.consecutive_failures >= BREAKER_THRESHOLD) {
-                return {Connection(nullptr, nullptr, ""), breaker.open_error()};
-            }
+        if (!breaker.connecting) break;
+        VLOG(1) << log_prefix << "Waiting for another connection attempt";
+        this->connect_cv.wait(lock, [&breaker] { return !breaker.connecting; });
+        auto other = this->take(key, cfg);
+        if (other != nullptr && active(other.get())) {
+            if (client != nullptr) this->put_back(key, client);
+            return {Connection(other, this, key), x::errors::NIL};
         }
-
-        breaker.connecting = true;
+        if (other == nullptr) continue;
+        if (client == nullptr)
+            client = std::move(other);
+        else
+            this->put_back(key, other);
     }
+    breaker.connecting = true;
+    lock.unlock();
 
-    // Connect outside the lock. Only one thread reaches here per endpoint.
-    auto [client, err] = connect(cfg, sec, log_prefix);
+    const bool created = client == nullptr;
+    x::errors::Error err;
+    if (created) {
+        auto [c, connect_err] = connect(cfg, sec, log_prefix);
+        client = std::move(c);
+        err = connect_err;
+    } else {
+        VLOG(1) << log_prefix << "Connecting a lost connection again";
+        err = reconnect(client, cfg.endpoint);
+    }
+    if (!err) err = probe(client.get());
 
+    lock.lock();
+    breaker.connecting = false;
     if (err) {
-        std::lock_guard<std::mutex> lock(mutex_);
-        auto &breaker = breakers[key];
-        breaker.connecting = false;
-        breaker.last_error = err;
-        if (++breaker.consecutive_failures >= BREAKER_THRESHOLD) {
-            breaker.cooldown_until = std::chrono::steady_clock::now() +
-                                     BREAKER_COOLDOWN;
-            LOG(WARNING) << log_prefix << "Circuit breaker tripped after "
-                         << breaker.consecutive_failures << " consecutive failures";
-        }
-        connect_cv.notify_all();
+        breaker.failed(err, log_prefix);
+        // A lost connection keeps its entry, so its Session is activated again on the
+        // next attempt instead of being left on the server.
+        if (!created) this->put_back(key, client);
+        lock.unlock();
+        this->connect_cv.notify_all();
         return {Connection(nullptr, nullptr, ""), err};
     }
-
-    // Perform initial connection maintenance with error checking.
-    if (const auto iterate_err = this->run_iterate_checked(client, log_prefix)) {
-        LOG(WARNING) << log_prefix << "New connection failed initial maintenance";
-        std::lock_guard<std::mutex> lock(mutex_);
-        auto &breaker = breakers[key];
-        breaker.connecting = false;
-        breaker.last_error = iterate_err;
-        breaker.consecutive_failures++;
-        if (breaker.consecutive_failures >= BREAKER_THRESHOLD) {
-            breaker.cooldown_until = std::chrono::steady_clock::now() +
-                                     BREAKER_COOLDOWN;
-            LOG(WARNING) << log_prefix << "Circuit breaker tripped after "
-                         << breaker.consecutive_failures << " consecutive failures";
-        }
-        connect_cv.notify_all();
-        return {Connection(nullptr, nullptr, ""), iterate_err};
-    }
-
-    // Success — add to pool, reset breaker, notify waiters.
-    {
-        std::lock_guard<std::mutex> lock(mutex_);
+    breaker.succeeded();
+    if (created) {
         // Another caller can replace the certificate while this one connects.
-        const bool retired = this->current_keys[settings] != key;
-        connections_[key].push_back({client, true, retired});
-        auto &breaker = breakers[key];
-        breaker.connecting = false;
-        breaker.consecutive_failures = 0;
+        const bool replaced = this->current_keys[settings] != key;
+        this->connections_[key].push_back(
+            {.client = client, .in_use = true, .retired = replaced, .idle_since = {}}
+        );
     }
-    connect_cv.notify_all();
-
-    VLOG(1) << log_prefix << "Created new connection for " << cfg.endpoint;
+    lock.unlock();
+    this->connect_cv.notify_all();
+    this->replied(key);
+    VLOG(1) << log_prefix << "Connected to " << cfg.endpoint;
     return {Connection(client, this, key), x::errors::NIL};
 }
 
@@ -295,38 +248,80 @@ Pool::refresh(Connection &conn, const Config &cfg, const std::string &log_prefix
     return {true, x::errors::NIL};
 }
 
-void Pool::release(const std::string &key, const std::shared_ptr<UA_Client> &client) {
-    std::lock_guard<std::mutex> lock(mutex_);
-
-    auto it = connections_.find(key);
-    if (it == connections_.end()) { return; }
-
-    for (auto &entry: it->second) {
-        if (entry.client == client) {
-            UA_SessionState session_state = UA_SESSIONSTATE_CLOSED;
-            UA_SecureChannelState channel_state = UA_SECURECHANNELSTATE_CLOSED;
-            UA_Client_getState(client.get(), &channel_state, &session_state, nullptr);
-            if (session_state == UA_SESSIONSTATE_ACTIVATED && !entry.retired) {
-                entry.in_use = false;
-                VLOG(1) << "[conn_pool] Returned connection to pool";
-            } else {
-                entry.client.reset();
-                VLOG(1) << "[conn_pool] Discarding connection";
-            }
-            break;
+void Pool::close_idle() {
+    std::vector<std::shared_ptr<UA_Client>> closed;
+    {
+        std::lock_guard lock(this->mutex_);
+        const auto deadline = std::chrono::steady_clock::now() - this->idle_timeout;
+        for (auto it = this->connections_.begin(); it != this->connections_.end();) {
+            for (auto &entry: it->second)
+                if (!entry.in_use && (entry.retired || entry.idle_since <= deadline))
+                    closed.push_back(std::move(entry.client));
+            std::erase_if(it->second, [](const Entry &e) { return !e.client; });
+            if (it->second.empty())
+                it = this->connections_.erase(it);
+            else
+                ++it;
         }
     }
+    if (!closed.empty())
+        VLOG(1) << "[opc.pool] Closing " << closed.size() << " idle connections";
+}
 
-    it->second.erase(
-        std::remove_if(
-            it->second.begin(),
-            it->second.end(),
-            [](const Entry &e) { return !e.client; }
-        ),
-        it->second.end()
-    );
+x::telem::TimeStamp Pool::last_reply(const Config &cfg) const {
+    auto [sec, sec_err] = resolve_security(cfg, *this->store);
+    if (sec_err) return {};
+    const auto key = pool_key(settings_key(cfg), sec);
+    std::lock_guard lock(this->mutex_);
+    const auto it = this->replies.find(key);
+    if (it == this->replies.end()) return {};
+    return it->second;
+}
 
-    if (it->second.empty()) connections_.erase(it);
+void Pool::replied(const std::string &key) {
+    const auto now = x::telem::TimeStamp::now();
+    std::lock_guard lock(this->mutex_);
+    this->replies[key] = now;
+}
+
+std::shared_ptr<UA_Client> Pool::take(const std::string &key, const Config &cfg) {
+    const auto it = this->connections_.find(key);
+    if (it == this->connections_.end()) return nullptr;
+    Entry *lost = nullptr;
+    for (auto &entry: it->second) {
+        if (entry.in_use || entry.retired || !trusts(entry.client.get(), cfg)) continue;
+        if (active(entry.client.get())) {
+            entry.in_use = true;
+            return entry.client;
+        }
+        if (lost == nullptr) lost = &entry;
+    }
+    if (lost == nullptr) return nullptr;
+    lost->in_use = true;
+    return lost->client;
+}
+
+void Pool::put_back(const std::string &key, const std::shared_ptr<UA_Client> &client) {
+    const auto it = this->connections_.find(key);
+    if (it == this->connections_.end()) return;
+    for (auto &entry: it->second)
+        if (entry.client == client) {
+            entry.in_use = false;
+            entry.idle_since = std::chrono::steady_clock::now();
+            return;
+        }
+}
+
+void Pool::release(const std::string &key, const std::shared_ptr<UA_Client> &client) {
+    std::lock_guard lock(this->mutex_);
+    const auto it = this->connections_.find(key);
+    if (it == this->connections_.end()) return;
+    // The caller still holds the client, so a removed one closes outside the lock.
+    std::erase_if(it->second, [&client](const Entry &e) {
+        return e.client == client && e.retired;
+    });
+    this->put_back(key, client);
+    if (it->second.empty()) this->connections_.erase(it);
 }
 
 std::vector<std::shared_ptr<UA_Client>>
@@ -347,45 +342,8 @@ Pool::retire(const std::string &settings, const std::string &key) {
     return retired;
 }
 
-void Pool::cleanup_stale_entries(
-    const std::string &key,
-    const std::string &log_prefix
-) {
-    std::vector<std::shared_ptr<UA_Client>> stale;
-    {
-        std::lock_guard<std::mutex> lock(mutex_);
-        auto it = connections_.find(key);
-        if (it == connections_.end()) return;
-        for (auto &entry: it->second) {
-            if (entry.in_use || !entry.client) continue;
-            UA_SessionState ss = UA_SESSIONSTATE_CLOSED;
-            UA_SecureChannelState cs = UA_SECURECHANNELSTATE_CLOSED;
-            UA_Client_getState(entry.client.get(), &cs, &ss, nullptr);
-            if (ss != UA_SESSIONSTATE_ACTIVATED) {
-                stale.push_back(entry.client);
-                entry.client.reset();
-            }
-        }
-        it->second.erase(
-            std::remove_if(
-                it->second.begin(),
-                it->second.end(),
-                [](const Entry &e) { return !e.client; }
-            ),
-            it->second.end()
-        );
-        if (it->second.empty()) connections_.erase(it);
-    }
-    // Disconnect stale clients outside the lock to send CloseSession
-    // to the server, freeing server-side session slots.
-    for (auto &c: stale) {
-        VLOG(1) << log_prefix << "Sending CloseSession for orphaned connection";
-        UA_Client_disconnect(c.get());
-    }
-}
-
 size_t Pool::size() const {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard lock(this->mutex_);
     size_t total = 0;
     for (const auto &[_, entries]: connections_)
         total += entries.size();
@@ -393,7 +351,7 @@ size_t Pool::size() const {
 }
 
 size_t Pool::available_count(const std::string &endpoint) const {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::lock_guard lock(this->mutex_);
     size_t count = 0;
     for (const auto &[key, entries]: connections_)
         if (key.starts_with(endpoint))
@@ -401,46 +359,4 @@ size_t Pool::available_count(const std::string &endpoint) const {
                 if (!entry.in_use && entry.client) count++;
     return count;
 }
-
-x::errors::Error Pool::run_iterate_checked(
-    const std::shared_ptr<UA_Client> &client,
-    const std::string &log_prefix
-) {
-    const UA_StatusCode status = UA_Client_run_iterate(client.get(), 0);
-    if (status != UA_STATUSCODE_GOOD) {
-        LOG(WARNING) << log_prefix
-                     << "run_iterate failed: " << UA_StatusCode_name(status);
-        return driver::opcua::errors::parse(status);
-    }
-
-    UA_SessionState session_state = UA_SESSIONSTATE_CLOSED;
-    UA_SecureChannelState channel_state = UA_SECURECHANNELSTATE_CLOSED;
-    UA_Client_getState(client.get(), &channel_state, &session_state, nullptr);
-
-    if (session_state != UA_SESSIONSTATE_ACTIVATED) {
-        LOG(WARNING) << log_prefix << "Session no longer activated after run_iterate";
-        return x::errors::Error(
-            opcua::errors::NO_CONNECTION,
-            "session deactivated during maintenance"
-        );
-    }
-
-    UA_Variant value;
-    UA_Variant_init(&value);
-    const UA_StatusCode read_status = UA_Client_readValueAttribute(
-        client.get(),
-        UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER_SERVERSTATUS_CURRENTTIME),
-        &value
-    );
-    UA_Variant_clear(&value);
-
-    if (read_status != UA_STATUSCODE_GOOD) {
-        LOG(WARNING) << log_prefix
-                     << "Health probe failed: " << UA_StatusCode_name(read_status);
-        return driver::opcua::errors::parse(read_status);
-    }
-
-    return x::errors::NIL;
-}
-
 }

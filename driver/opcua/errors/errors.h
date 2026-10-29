@@ -18,8 +18,13 @@
 namespace driver::opcua::errors {
 const x::errors::Error CRITICAL = driver::errors::CRITICAL_HARDWARE_ERROR.sub("opc");
 const x::errors::Error TEMPORARY = driver::errors::TEMPORARY_HARDWARE_ERROR.sub("opc");
-const x::errors::Error UNREACHABLE = CRITICAL.sub("unreachable");
+/// @brief the connection to the server is lost or cannot open. A task that gets it
+/// connects again.
+const x::errors::Error UNREACHABLE = TEMPORARY.sub("unreachable");
 const x::errors::Error NO_CONNECTION = UNREACHABLE.sub("no_connection");
+/// @brief the server refused to open or activate a Session. The Driver tries again,
+/// since a server with a full Session table refuses valid credentials.
+const x::errors::Error SESSION_REJECTED = TEMPORARY.sub("session_rejected");
 
 /// @brief security-related errors for certificate and encryption issues
 const x::errors::Error SECURITY = CRITICAL.sub("security");
@@ -47,9 +52,13 @@ const x::errors::Error SERVER_CERTIFICATE_TIME_INVALID = SECURITY.sub(
 
 /// @brief specific OPC UA error codes mapped to error types
 const x::errors::Error INVALID_ENDPOINT = CRITICAL.sub("BadTcpEndpointUrlInvalid");
-const x::errors::Error IDENTITY_TOKEN_REJECTED = CRITICAL.sub(
-    "BadIdentityTokenRejected"
-);
 
+/// @brief converts the status of a service call to an error. A status that means the
+/// connection is lost is errors::UNREACHABLE, and any other bad status is
+/// errors::CRITICAL.
 x::errors::Error parse(const UA_StatusCode &status);
+
+/// @brief converts the status of a connection attempt to an error. It is the same as
+/// parse, except that a refused Session is errors::SESSION_REJECTED.
+x::errors::Error parse_connect(const UA_StatusCode &status);
 }
