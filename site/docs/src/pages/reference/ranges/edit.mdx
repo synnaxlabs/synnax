@@ -1,0 +1,187 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Edit and delete ranges"
+description: "Rename a range, change its times or stage, and delete it."
+clients: ["console", "python", "typescript", "arc"]
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Note } from "@/components/note";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import { Image } from "@/components/media/Media";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+Rename a [range](/reference/ranges), change its times or its stage, or delete it. To
+change labels and metadata, see [metadata and labels](/reference/ranges/metadata).
+
+<Divider.Divider x />
+
+## Rename a range
+
+<Client.Tabs>
+
+  <Fragment slot="console">
+
+Right-click the range in the ranges toolbar or the range explorer and select **Rename**.
+You can also click the name on the
+[range overview](/reference/ranges/find#range-overview).
+
+  </Fragment>
+
+  <Fragment slot="python">
+
+```python
+client.ranges.rename(my_range.key, "My Updated Range")
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+await client.ranges.rename(myRange.key, "My Updated Range");
+```
+
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Change the times or the stage
+
+<Client.Tabs>
+
+  <Fragment slot="console">
+
+On the [range overview](/reference/ranges/find#range-overview), click the start or end
+time on the timeline and change it. To start, complete, or reopen the range, click its
+stage. Each stage change sets the start or end time. See
+[stages](/reference/ranges/reference#stages).
+
+The Console cannot change the color or the parent of a range.
+
+  </Fragment>
+
+  <Fragment slot="python">
+
+Call `client.ranges.create` with the `key` of the range:
+
+```python
+from datetime import datetime
+
+import synnax as sy
+
+my_range = client.ranges.retrieve(name="My Range")
+client.ranges.create(
+    key=my_range.key,
+    name="My Updated Range",
+    time_range=sy.TimeRange(
+        start=sy.TimeStamp(datetime(2023, 2, 12, 13, 0)),
+        end=sy.TimeStamp(datetime(2023, 2, 12, 15, 0)),
+    ),
+    color="#00FF00",
+)
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+Call `client.ranges.create` with the `key` of the range:
+
+```typescript
+import { TimeRange, TimeStamp } from "@synnaxlabs/client";
+
+const myRange = await client.ranges.retrieve("My Range");
+await client.ranges.create({
+  key: myRange.key,
+  name: "My Updated Range",
+  timeRange: new TimeRange(
+    new TimeStamp("2023-02-12 13:00:00"),
+    new TimeStamp("2023-02-12 15:00:00"),
+  ),
+  color: "#00FF00",
+});
+```
+
+  </Fragment>
+
+  <Fragment slot="arc">
+
+An automation can only end a range that it created. `ranges.end` sets the end to the
+current time. Give it the key that `ranges.create` output:
+
+```arc channels="start_cmd, stop_cmd" bodies="test, idle, run, done"
+import ranges
+
+sequence test {
+    run_key str $= ""
+    stage idle {
+        start_cmd == 1 => run
+    }
+    stage run {
+        ranges.create(name="Hotfire", color="#3bc454") -> run_key
+        stop_cmd == 1 => done
+    }
+    stage done {
+        ranges.end(key=run_key)
+        start_cmd == 1 => run
+    }
+}
+
+true => test
+```
+
+See [create ranges in Arc](/reference/ranges/arc).
+
+  </Fragment>
+</Client.Tabs>
+
+<Note.Note variant="warning">
+  An update from Python or TypeScript replaces the name, the time range, and the color.
+  Leave out the color and the range loses it. Labels are only added, and the parent
+  stays when you leave it out. If no range has the key, Synnax creates a new range with
+  that key.
+</Note.Note>
+
+<Divider.Divider x />
+
+## Delete a range
+
+Deleting a range also deletes its child ranges. It does not delete the data of the
+channels in the range, and it does not delete its
+[snapshots](/reference/ranges/snapshots).
+
+<Client.Tabs>
+
+  <Fragment slot="console">
+
+Right-click the range in the ranges toolbar or the range explorer and select **Delete**,
+then confirm.
+
+<Image id="client/ranges/delete" />
+
+  </Fragment>
+
+  <Fragment slot="python">
+
+```python
+client.ranges.delete(my_range.key)
+client.ranges.delete([my_range.key, my_other_range.key])
+```
+
+A key that matches no range is ignored.
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+await client.ranges.delete(myRange.key);
+await client.ranges.delete([myRange.key, myOtherRange.key]);
+```
+
+  </Fragment>
+</Client.Tabs>

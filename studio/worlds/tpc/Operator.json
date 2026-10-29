@@ -1,72 +1,5 @@
 {
   "configs": {
-    "0KwRzIrJ4ii": {
-      "color": "#00d623",
-      "label": {
-        "label": "Purge PT",
-        "level": "p",
-        "orientation": "bottom"
-      },
-      "level": "h5",
-      "orientation": "left",
-      "redline": {
-        "bounds": {
-          "lower": 0,
-          "upper": 1
-        },
-        "gradient": []
-      },
-      "stalenessColor": [0, 0, 0, 0],
-      "stalenessTimeout": 5,
-      "telem": {
-        "props": {
-          "connections": [
-            {
-              "from": "valueStream",
-              "to": "rollingAverage"
-            },
-            {
-              "from": "rollingAverage",
-              "to": "stringifier"
-            }
-          ],
-          "outlet": "stringifier",
-          "segments": {
-            "rollingAverage": {
-              "props": {
-                "windowSize": 1
-              },
-              "type": "rolling-average",
-              "valueType": "number",
-              "variant": "source"
-            },
-            "stringifier": {
-              "props": {
-                "notation": "standard",
-                "precision": 2
-              },
-              "type": "stringify-number",
-              "valueType": "string",
-              "variant": "source"
-            },
-            "valueStream": {
-              "props": {
-                "channel": "pneumatics_pt"
-              },
-              "type": "stream-channel-value",
-              "valueType": "number",
-              "variant": "source"
-            }
-          }
-        },
-        "type": "source-pipeline",
-        "valueType": "string",
-        "variant": "source"
-      },
-      "tooltip": ["pneumatics_pt"],
-      "units": "psi",
-      "variant": "value"
-    },
     "0jdKiNGUXdE": {
       "color": "#004ad6",
       "label": {
@@ -81,72 +14,19 @@
       "scale": 1,
       "variant": "tJunction"
     },
-    "2i094l8SRqF": {
-      "color": "#ff005f",
-      "label": {
-        "label": "Fuel TC 2",
-        "level": "p",
-        "orientation": "top"
-      },
-      "level": "h5",
-      "orientation": "left",
-      "redline": {
-        "bounds": {
-          "lower": 0,
-          "upper": 1
+    "1Ajh5kZyqzw": {
+      "color": [0, 74, 214, 1],
+      "segments": [
+        {
+          "direction": "x",
+          "length": -31.09375
         },
-        "gradient": []
-      },
-      "stalenessColor": [0, 0, 0, 0],
-      "stalenessTimeout": 5,
-      "telem": {
-        "props": {
-          "connections": [
-            {
-              "from": "valueStream",
-              "to": "rollingAverage"
-            },
-            {
-              "from": "rollingAverage",
-              "to": "stringifier"
-            }
-          ],
-          "outlet": "stringifier",
-          "segments": {
-            "rollingAverage": {
-              "props": {
-                "windowSize": 1
-              },
-              "type": "rolling-average",
-              "valueType": "number",
-              "variant": "source"
-            },
-            "stringifier": {
-              "props": {
-                "notation": "standard",
-                "precision": 2
-              },
-              "type": "stringify-number",
-              "valueType": "string",
-              "variant": "source"
-            },
-            "valueStream": {
-              "props": {
-                "channel": "fuel_tc_2"
-              },
-              "type": "stream-channel-value",
-              "valueType": "number",
-              "variant": "source"
-            }
-          }
-        },
-        "type": "source-pipeline",
-        "valueType": "string",
-        "variant": "source"
-      },
-      "tooltip": ["fuel_tc_2"],
-      "units": "°C",
-      "variant": "value"
+        {
+          "direction": "y",
+          "length": 16.150000000000006
+        }
+      ],
+      "variant": "pipe"
     },
     "5lnJLvZggVN": {
       "color": "#004ad6",
@@ -266,20 +146,6 @@
       },
       "variant": "solenoidValve"
     },
-    "7yLD0xOFddf": {
-      "color": "#ffa800",
-      "label": {
-        "align": "center",
-        "direction": "x",
-        "label": "",
-        "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
-      },
-      "orientation": "right",
-      "scale": 1,
-      "variant": "tJunction"
-    },
     "BLMwEwSkGNS": {
       "color": "#004ad6",
       "label": {
@@ -293,8 +159,8 @@
     "CST75HX7oD1": {
       "color": "#b300ff",
       "dimensions": {
-        "height": 250,
-        "width": 150
+        "height": 180,
+        "width": 140
       },
       "label": {
         "label": "",
@@ -484,7 +350,7 @@
         "variant": "source"
       },
       "tooltip": ["press_tc_1"],
-      "units": "°C",
+      "units": "\u00b0C",
       "variant": "value"
     },
     "GXakOVjitf5": {
@@ -554,7 +420,7 @@
         "variant": "source"
       },
       "tooltip": ["fuel_tc_1"],
-      "units": "°C",
+      "units": "\u00b0C",
       "variant": "value"
     },
     "HH9i7jrQ0rH": {
@@ -570,194 +436,6 @@
       "orientation": "right",
       "scale": 1,
       "variant": "tJunction"
-    },
-    "IpSylSnCSc3": {
-      "color": "#00d623",
-      "control": {
-        "chip": {
-          "sink": {
-            "props": {
-              "authority": 100,
-              "channel": "purge_cmd"
-            },
-            "type": "acquire-channel-control",
-            "valueType": "boolean",
-            "variant": "sink"
-          },
-          "source": {
-            "props": {
-              "channel": "purge_cmd"
-            },
-            "type": "controlled-status-source",
-            "valueType": "status",
-            "variant": "source"
-          }
-        },
-        "indicator": {
-          "statusSource": {
-            "props": {
-              "channel": "purge_cmd"
-            },
-            "type": "controlled-status-source",
-            "valueType": "status",
-            "variant": "source"
-          }
-        },
-        "orientation": "right",
-        "show": true,
-        "showChip": true,
-        "showIndicator": true
-      },
-      "label": {
-        "align": "center",
-        "direction": "y",
-        "label": "Purge",
-        "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "left"
-      },
-      "normallyOpen": false,
-      "orientation": "top",
-      "scale": 1,
-      "sink": {
-        "props": {
-          "connections": [
-            {
-              "from": "setpoint",
-              "to": "setter"
-            }
-          ],
-          "inlet": "setpoint",
-          "segments": {
-            "setpoint": {
-              "props": {
-                "falsy": 0,
-                "truthy": 1
-              },
-              "type": "boolean-numeric-converter-sink",
-              "valueType": "boolean",
-              "variant": "sink"
-            },
-            "setter": {
-              "props": {
-                "channel": "purge_cmd"
-              },
-              "type": "controlled-numeric-telem-sink",
-              "valueType": "number",
-              "variant": "sink"
-            }
-          }
-        },
-        "type": "sink-pipeline",
-        "valueType": "boolean",
-        "variant": "sink"
-      },
-      "source": {
-        "props": {
-          "connections": [
-            {
-              "from": "valueStream",
-              "to": "threshold"
-            }
-          ],
-          "outlet": "threshold",
-          "segments": {
-            "threshold": {
-              "props": {
-                "trueBound": {
-                  "lower": 0.9,
-                  "upper": 1.1
-                }
-              },
-              "type": "boolean-source",
-              "valueType": "boolean",
-              "variant": "source"
-            },
-            "valueStream": {
-              "props": {
-                "channel": "purge_state"
-              },
-              "type": "stream-channel-value",
-              "valueType": "number",
-              "variant": "source"
-            }
-          }
-        },
-        "type": "source-pipeline",
-        "valueType": "boolean",
-        "variant": "source"
-      },
-      "variant": "solenoidValve"
-    },
-    "K9nj3YBK0KG": {
-      "": {
-        "tooltip": ["press_pt_2"]
-      },
-      "color": "#b300ff",
-      "label": {
-        "label": "Press PT 2",
-        "level": "p",
-        "orientation": "top"
-      },
-      "level": "h5",
-      "orientation": "left",
-      "redline": {
-        "bounds": {
-          "lower": 0,
-          "upper": 1
-        },
-        "gradient": []
-      },
-      "stalenessColor": [0, 0, 0, 0],
-      "stalenessTimeout": 5,
-      "telem": {
-        "props": {
-          "connections": [
-            {
-              "from": "valueStream",
-              "to": "rollingAverage"
-            },
-            {
-              "from": "rollingAverage",
-              "to": "stringifier"
-            }
-          ],
-          "outlet": "stringifier",
-          "segments": {
-            "rollingAverage": {
-              "props": {
-                "windowSize": 1
-              },
-              "type": "rolling-average",
-              "valueType": "number",
-              "variant": "source"
-            },
-            "stringifier": {
-              "props": {
-                "notation": "standard",
-                "precision": 2
-              },
-              "type": "stringify-number",
-              "valueType": "string",
-              "variant": "source"
-            },
-            "valueStream": {
-              "props": {
-                "channel": "press_pt_2"
-              },
-              "type": "stream-channel-value",
-              "valueType": "number",
-              "variant": "source"
-            }
-          }
-        },
-        "type": "source-pipeline",
-        "valueType": "string",
-        "variant": "source"
-      },
-      "tooltip": ["press_pt_2"],
-      "units": "psi",
-      "variant": "value"
     },
     "KWwYAhIaXR1": {
       "color": "#004ad6",
@@ -791,21 +469,20 @@
             "variant": "source"
           }
         },
-        "orientation": "right",
         "show": true,
         "showChip": true,
         "showIndicator": true
       },
       "label": {
         "align": "center",
-        "direction": "y",
+        "direction": "x",
         "label": "OX MPV",
         "level": "p",
         "maxInlineSize": 150,
-        "orientation": "left"
+        "orientation": "top"
       },
       "normallyOpen": false,
-      "orientation": "top",
+      "orientation": "left",
       "scale": 1,
       "sink": {
         "props": {
@@ -949,7 +626,7 @@
         "variant": "source"
       },
       "tooltip": ["ox_tc_1"],
-      "units": "°C",
+      "units": "\u00b0C",
       "variant": "value"
     },
     "L0MCB6oJASM": {
@@ -1064,278 +741,19 @@
       },
       "variant": "solenoidValve"
     },
-    "MEfIDo71Css": {
-      "": {
-        "tooltip": ["ox_tc_2"]
-      },
-      "color": "#004ad6",
-      "inlineSize": 70,
-      "label": {
-        "align": "center",
-        "direction": "x",
-        "label": "OX TC 2",
-        "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
-      },
-      "level": "h5",
-      "orientation": "left",
-      "redline": {
-        "bounds": {
-          "lower": 0,
-          "upper": 1
+    "Q6Ru747fTlZ": {
+      "color": [0, 74, 214, 1],
+      "segments": [
+        {
+          "direction": "x",
+          "length": 31.109375
         },
-        "gradient": []
-      },
-      "scale": 1,
-      "stalenessColor": [0, 0, 0, 0],
-      "stalenessTimeout": 5,
-      "telem": {
-        "props": {
-          "connections": [
-            {
-              "from": "valueStream",
-              "to": "rollingAverage"
-            },
-            {
-              "from": "rollingAverage",
-              "to": "stringifier"
-            }
-          ],
-          "outlet": "stringifier",
-          "segments": {
-            "rollingAverage": {
-              "props": {
-                "windowSize": 1
-              },
-              "type": "rolling-average",
-              "valueType": "number",
-              "variant": "source"
-            },
-            "stringifier": {
-              "props": {
-                "notation": "standard",
-                "precision": 2
-              },
-              "type": "stringify-number",
-              "valueType": "string",
-              "variant": "source"
-            },
-            "valueStream": {
-              "props": {
-                "channel": "ox_tc_2"
-              },
-              "type": "stream-channel-value",
-              "valueType": "number",
-              "variant": "source"
-            }
-          }
-        },
-        "type": "source-pipeline",
-        "valueType": "string",
-        "variant": "source"
-      },
-      "tooltip": ["ox_tc_2"],
-      "units": "°C",
-      "variant": "value"
-    },
-    "Px7l7pDawuy": {
-      "": {
-        "tooltip": ["fuel_pt_2"]
-      },
-      "color": "#ff005f",
-      "label": {
-        "label": "Fuel PT 2",
-        "level": "p",
-        "orientation": "top"
-      },
-      "level": "h5",
-      "orientation": "left",
-      "redline": {
-        "bounds": {
-          "lower": 0,
-          "upper": 1
-        },
-        "gradient": []
-      },
-      "stalenessColor": [0, 0, 0, 0],
-      "stalenessTimeout": 5,
-      "telem": {
-        "props": {
-          "connections": [
-            {
-              "from": "valueStream",
-              "to": "rollingAverage"
-            },
-            {
-              "from": "rollingAverage",
-              "to": "stringifier"
-            }
-          ],
-          "outlet": "stringifier",
-          "segments": {
-            "rollingAverage": {
-              "props": {
-                "windowSize": 1
-              },
-              "type": "rolling-average",
-              "valueType": "number",
-              "variant": "source"
-            },
-            "stringifier": {
-              "props": {
-                "notation": "standard",
-                "precision": 2
-              },
-              "type": "stringify-number",
-              "valueType": "string",
-              "variant": "source"
-            },
-            "valueStream": {
-              "props": {
-                "channel": "fuel_pt_2"
-              },
-              "type": "stream-channel-value",
-              "valueType": "number",
-              "variant": "source"
-            }
-          }
-        },
-        "type": "source-pipeline",
-        "valueType": "string",
-        "variant": "source"
-      },
-      "tooltip": ["fuel_pt_2"],
-      "units": "psi",
-      "variant": "value"
-    },
-    "QLFXTKWz3DJ": {
-      "color": "#ffa800",
-      "control": {
-        "chip": {
-          "sink": {
-            "props": {
-              "authority": 100,
-              "channel": "gas_booster_iso_cmd"
-            },
-            "type": "acquire-channel-control",
-            "valueType": "boolean",
-            "variant": "sink"
-          },
-          "source": {
-            "props": {
-              "channel": "gas_booster_iso_cmd"
-            },
-            "type": "controlled-status-source",
-            "valueType": "status",
-            "variant": "source"
-          }
-        },
-        "indicator": {
-          "statusSource": {
-            "props": {
-              "channel": "gas_booster_iso_cmd"
-            },
-            "type": "controlled-status-source",
-            "valueType": "status",
-            "variant": "source"
-          }
-        },
-        "orientation": "right",
-        "show": true,
-        "showChip": true,
-        "showIndicator": true
-      },
-      "label": {
-        "align": "center",
-        "direction": "y",
-        "label": "Gas Booster ISO",
-        "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "left"
-      },
-      "normallyOpen": false,
-      "orientation": "top",
-      "scale": 1,
-      "sink": {
-        "props": {
-          "connections": [
-            {
-              "from": "setpoint",
-              "to": "setter"
-            }
-          ],
-          "inlet": "setpoint",
-          "segments": {
-            "setpoint": {
-              "props": {
-                "falsy": 0,
-                "truthy": 1
-              },
-              "type": "boolean-numeric-converter-sink",
-              "valueType": "boolean",
-              "variant": "sink"
-            },
-            "setter": {
-              "props": {
-                "channel": "gas_booster_iso_cmd"
-              },
-              "type": "controlled-numeric-telem-sink",
-              "valueType": "number",
-              "variant": "sink"
-            }
-          }
-        },
-        "type": "sink-pipeline",
-        "valueType": "boolean",
-        "variant": "sink"
-      },
-      "source": {
-        "props": {
-          "connections": [
-            {
-              "from": "valueStream",
-              "to": "threshold"
-            }
-          ],
-          "outlet": "threshold",
-          "segments": {
-            "threshold": {
-              "props": {
-                "trueBound": {
-                  "lower": 0.9,
-                  "upper": 1.1
-                }
-              },
-              "type": "boolean-source",
-              "valueType": "boolean",
-              "variant": "source"
-            },
-            "valueStream": {
-              "props": {
-                "channel": "gas_booster_iso_state"
-              },
-              "type": "stream-channel-value",
-              "valueType": "number",
-              "variant": "source"
-            }
-          }
-        },
-        "type": "source-pipeline",
-        "valueType": "boolean",
-        "variant": "source"
-      },
-      "variant": "solenoidValve"
-    },
-    "SKO1UjHj1o3": {
-      "color": "#00d623",
-      "label": {
-        "label": "Purge Reg",
-        "level": "p",
-        "orientation": "top"
-      },
-      "orientation": "left",
-      "variant": "regulator"
+        {
+          "direction": "y",
+          "length": 16.150000000000006
+        }
+      ],
+      "variant": "pipe"
     },
     "UN8NV3qxaz7": {
       "": {
@@ -1495,8 +913,23 @@
       },
       "color": "#004ad6",
       "dimensions": {
-        "height": 250,
-        "width": 150
+        "height": 180,
+        "width": 140
+      },
+      "fill": {
+        "bounds": {
+          "lower": 0,
+          "upper": 100
+        },
+        "caretSide": "right",
+        "channel": "ox_level",
+        "color": [0, 74, 214, 0.35],
+        "precision": 1,
+        "showCaret": true,
+        "showFill": true,
+        "showScale": true,
+        "side": "right",
+        "units": "%"
       },
       "label": {
         "align": "center",
@@ -1542,21 +975,20 @@
             "variant": "source"
           }
         },
-        "orientation": "left",
         "show": true,
         "showChip": true,
         "showIndicator": true
       },
       "label": {
         "align": "center",
-        "direction": "y",
+        "direction": "x",
         "label": "Fuel MPV",
         "level": "p",
         "maxInlineSize": 150,
-        "orientation": "right"
+        "orientation": "top"
       },
       "normallyOpen": false,
-      "orientation": "bottom",
+      "orientation": "left",
       "scale": 1,
       "sink": {
         "props": {
@@ -1708,20 +1140,6 @@
         "maxInlineSize": 150,
         "orientation": "top"
       },
-      "orientation": "top",
-      "scale": 1,
-      "variant": "tJunction"
-    },
-    "WubiiPZ6MyL": {
-      "color": "#00d623",
-      "label": {
-        "align": "center",
-        "direction": "x",
-        "label": "",
-        "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
-      },
       "orientation": "right",
       "scale": 1,
       "variant": "tJunction"
@@ -1768,7 +1186,7 @@
         "label": "OX Press Iso",
         "level": "p",
         "maxInlineSize": 150,
-        "orientation": "bottom"
+        "orientation": "top"
       },
       "normallyOpen": false,
       "orientation": "left",
@@ -1843,25 +1261,26 @@
       },
       "variant": "solenoidValve"
     },
-    "dkPgXB2tjWf": {
-      "color": "#ffa800",
-      "dimensions": {
-        "height": 200,
-        "width": 125
-      },
-      "label": {
-        "label": "",
-        "level": "p",
-        "orientation": "top"
-      },
-      "orientation": "left",
-      "variant": "tank"
-    },
     "dlptAUF47pk": {
       "color": "#ff005f",
       "dimensions": {
-        "height": 250,
-        "width": 150
+        "height": 180,
+        "width": 140
+      },
+      "fill": {
+        "bounds": {
+          "lower": 0,
+          "upper": 100
+        },
+        "caretSide": "left",
+        "channel": "fuel_level",
+        "color": [255, 0, 95, 0.35],
+        "precision": 1,
+        "showCaret": true,
+        "showFill": true,
+        "showScale": true,
+        "side": "left",
+        "units": "%"
       },
       "label": {
         "label": "",
@@ -1882,7 +1301,7 @@
         "orientation": "top"
       },
       "orientation": "left",
-      "scale": 2.25,
+      "scale": 1.6,
       "variant": "nozzle"
     },
     "ed2fKMvty6b": {
@@ -2078,16 +1497,6 @@
         "variant": "sink"
       },
       "variant": "button"
-    },
-    "kbJw2Oi5Ueu": {
-      "color": "#b300ff",
-      "label": {
-        "label": "",
-        "level": "p",
-        "orientation": "top"
-      },
-      "orientation": "left",
-      "variant": "regulator"
     },
     "n4pmPCUcMaw": {
       "color": "#004ad6",
@@ -2447,81 +1856,6 @@
       },
       "variant": "solenoidValve"
     },
-    "qKNvIK45GCK": {
-      "": {
-        "tooltip": ["ox_pt_2"]
-      },
-      "color": "#004ad6",
-      "inlineSize": 70,
-      "label": {
-        "align": "center",
-        "direction": "x",
-        "label": "OX PT 2",
-        "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
-      },
-      "level": "h5",
-      "orientation": "left",
-      "redline": {
-        "bounds": {
-          "lower": 0,
-          "upper": 1
-        },
-        "gradient": []
-      },
-      "scale": 1,
-      "stalenessColor": [0, 0, 0, 0],
-      "stalenessTimeout": 5,
-      "telem": {
-        "props": {
-          "connections": [
-            {
-              "from": "valueStream",
-              "to": "rollingAverage"
-            },
-            {
-              "from": "rollingAverage",
-              "to": "stringifier"
-            }
-          ],
-          "outlet": "stringifier",
-          "segments": {
-            "rollingAverage": {
-              "props": {
-                "windowSize": 1
-              },
-              "type": "rolling-average",
-              "valueType": "number",
-              "variant": "source"
-            },
-            "stringifier": {
-              "props": {
-                "notation": "standard",
-                "precision": 2
-              },
-              "type": "stringify-number",
-              "valueType": "string",
-              "variant": "source"
-            },
-            "valueStream": {
-              "props": {
-                "channel": "ox_pt_2"
-              },
-              "type": "stream-channel-value",
-              "valueType": "number",
-              "variant": "source"
-            }
-          }
-        },
-        "type": "source-pipeline",
-        "valueType": "string",
-        "variant": "source"
-      },
-      "tooltip": ["ox_pt_2"],
-      "units": "psi",
-      "variant": "value"
-    },
     "qUGRcDkaBIx": {
       "color": "#004ad6",
       "control": {
@@ -2831,8 +2165,8 @@
       },
       "color": "#b300ff",
       "dimensions": {
-        "height": 200,
-        "width": 139
+        "height": 140,
+        "width": 140
       },
       "label": {
         "align": "center",
@@ -2977,76 +2311,6 @@
       },
       "variant": "pistonPump"
     },
-    "vVP5HNMj1sk": {
-      "": {
-        "tooltip": ["press_tc_2"]
-      },
-      "color": "#b300ff",
-      "label": {
-        "label": "Press TC 2",
-        "level": "p",
-        "orientation": "top"
-      },
-      "level": "h5",
-      "orientation": "left",
-      "redline": {
-        "bounds": {
-          "lower": 0,
-          "upper": 1
-        },
-        "gradient": []
-      },
-      "stalenessColor": [0, 0, 0, 0],
-      "stalenessTimeout": 5,
-      "telem": {
-        "props": {
-          "connections": [
-            {
-              "from": "valueStream",
-              "to": "rollingAverage"
-            },
-            {
-              "from": "rollingAverage",
-              "to": "stringifier"
-            }
-          ],
-          "outlet": "stringifier",
-          "segments": {
-            "rollingAverage": {
-              "props": {
-                "windowSize": 1
-              },
-              "type": "rolling-average",
-              "valueType": "number",
-              "variant": "source"
-            },
-            "stringifier": {
-              "props": {
-                "notation": "standard",
-                "precision": 2
-              },
-              "type": "stringify-number",
-              "valueType": "string",
-              "variant": "source"
-            },
-            "valueStream": {
-              "props": {
-                "channel": "press_tc_2"
-              },
-              "type": "stream-channel-value",
-              "valueType": "number",
-              "variant": "source"
-            }
-          }
-        },
-        "type": "source-pipeline",
-        "valueType": "string",
-        "variant": "source"
-      },
-      "tooltip": ["press_tc_2"],
-      "units": "°C",
-      "variant": "value"
-    },
     "wGdFMnYeLk8": {
       "color": "#ff005f",
       "label": {
@@ -3061,162 +2325,54 @@
       "scale": 1,
       "variant": "tJunction"
     },
-    "yAfA5biPqIA": {
-      "": {
-        "tooltip": ["press_pt_1"]
-      },
-      "color": "#ffa800",
-      "inlineSize": 78,
-      "label": {
-        "align": "center",
-        "direction": "x",
-        "label": "Accumulator PT",
-        "level": "p",
-        "maxInlineSize": 150,
-        "orientation": "top"
-      },
-      "level": "h5",
-      "orientation": "left",
-      "redline": {
-        "bounds": {
-          "lower": 0,
-          "upper": 1
-        },
-        "gradient": []
-      },
-      "scale": 1,
-      "stalenessColor": [0, 0, 0, 0],
-      "stalenessTimeout": 5,
-      "telem": {
-        "props": {
-          "connections": [
-            {
-              "from": "valueStream",
-              "to": "rollingAverage"
-            },
-            {
-              "from": "rollingAverage",
-              "to": "stringifier"
-            }
-          ],
-          "outlet": "stringifier",
-          "segments": {
-            "rollingAverage": {
-              "props": {
-                "windowSize": 1
-              },
-              "type": "rolling-average",
-              "valueType": "number",
-              "variant": "source"
-            },
-            "stringifier": {
-              "props": {
-                "notation": "standard",
-                "precision": 2
-              },
-              "type": "stringify-number",
-              "valueType": "string",
-              "variant": "source"
-            },
-            "valueStream": {
-              "props": {
-                "channel": "pneumatics_pt"
-              },
-              "type": "stream-channel-value",
-              "valueType": "number",
-              "variant": "source"
-            }
-          }
-        },
-        "type": "source-pipeline",
-        "valueType": "string",
-        "variant": "source"
-      },
-      "tooltip": ["pneumatics_pt"],
-      "units": "psi",
-      "variant": "value"
-    },
-    "xy-edge__tKyeVybyb2Z2-CST75HX7oD14": {
-      "color": [179, 0, 255, 1],
-      "segments": [],
-      "variant": "pipe"
-    },
-    "xy-edge__IpSylSnCSc32-WubiiPZ6MyL3": {
-      "color": [0, 214, 35, 1],
-      "segments": [
-        {
-          "direction": "y",
-          "length": -394.8873653848603
-        },
-        {
-          "direction": "x",
-          "length": 164.99041929803252
-        }
-      ],
-      "variant": "pneumatic"
-    },
-    "xy-edge__n4pmPCUcMaw2-KWwYAhIaXR12": {
-      "color": [0, 74, 214, 1],
-      "segments": [
-        {
-          "direction": "y",
-          "length": -283.7166395035551
-        },
-        {
-          "direction": "x",
-          "length": 140.1595651616617
-        }
-      ],
-      "variant": "jacketed"
-    },
-    "xy-edge__IpSylSnCSc31-0KwRzIrJ4ii3": {
-      "color": [0, 214, 35, 1],
-      "segments": [
-        {
-          "direction": "y",
-          "length": 0.9620045808269424
-        }
-      ],
-      "variant": "pneumatic"
-    },
-    "xy-edge__kbJw2Oi5Ueu2-rJ8HEDBlxlw7": {
-      "color": [179, 0, 255, 1],
-      "segments": [
-        {
-          "direction": "x",
-          "length": 6.636273737869203
-        }
-      ],
-      "variant": "pipe"
-    },
-    "1Ajh5kZyqzw": {
+    "xy-edge__0jdKiNGUXdE1-5lnJLvZggVN1": {
       "color": [0, 74, 214, 1],
       "segments": [
         {
           "direction": "x",
-          "length": -20.716482044354507
+          "length": -31.09375
         },
         {
           "direction": "y",
-          "length": 7.989755136102218
+          "length": -12.300000000000011
         }
       ],
       "variant": "pipe"
     },
-    "xy-edge__rJ8HEDBlxlw1-tKyeVybyb2Z1": {
-      "color": [179, 0, 255, 1],
+    "xy-edge__0jdKiNGUXdE2-qUGRcDkaBIx2": {
+      "color": [0, 74, 214, 1],
+      "segments": [
+        {
+          "direction": "x",
+          "length": 31.109375
+        },
+        {
+          "direction": "y",
+          "length": -12.300000000000011
+        }
+      ],
+      "variant": "pipe"
+    },
+    "xy-edge__0jdKiNGUXdE3-VcyomMLraaN1": {
+      "color": [0, 74, 214, 1],
       "segments": [
         {
           "direction": "y",
-          "length": -26.010401116607028
-        },
+          "length": 2.984375
+        }
+      ],
+      "variant": "pipe"
+    },
+    "xy-edge__BLMwEwSkGNS2-VcyomMLraaN2": {
+      "color": [0, 74, 214, 1],
+      "segments": [
         {
           "direction": "x",
-          "length": -233.44840515329815
+          "length": 20.484344482421875
         },
         {
           "direction": "y",
-          "length": -16.846493544702327
+          "length": 26.5
         }
       ],
       "variant": "pipe"
@@ -3226,290 +2382,121 @@
       "segments": [
         {
           "direction": "y",
-          "length": -6.994966082507503
+          "length": -197.484375
+        },
+        {
+          "direction": "x",
+          "length": 91.09375
         }
       ],
       "variant": "pipe"
     },
-    "xy-edge__0jdKiNGUXdE3-VcyomMLraaN1": {
-      "color": [0, 74, 214, 1],
-      "segments": [],
+    "xy-edge__HH9i7jrQ0rH1-nikWEdQSwLr1": {
+      "color": [255, 0, 95, 1],
+      "segments": [
+        {
+          "direction": "x",
+          "length": 31.109375
+        },
+        {
+          "direction": "y",
+          "length": 16.150000000000006
+        }
+      ],
       "variant": "pipe"
-    },
-    "xy-edge__VcyomMLraaN4-n4pmPCUcMaw1": {
-      "color": [0, 74, 214, 1],
-      "segments": [
-        {
-          "direction": "y",
-          "length": 65.73827310334042
-        },
-        {
-          "direction": "x",
-          "length": 3.1963217423690367
-        }
-      ],
-      "variant": "jacketed"
-    },
-    "xy-edge__7yLD0xOFddf2-dkPgXB2tjWf4": {
-      "color": [255, 168, 0, 1],
-      "segments": [
-        {
-          "direction": "x",
-          "length": -593.0328152928544
-        },
-        {
-          "direction": "y",
-          "length": -35.57395278255194
-        }
-      ],
-      "variant": "pneumatic"
     },
     "xy-edge__HH9i7jrQ0rH2-p2dLrZf6mMv2": {
       "color": [255, 0, 95, 1],
       "segments": [
         {
           "direction": "x",
-          "length": -25.25038798195135
+          "length": -31.09375
         },
         {
           "direction": "y",
-          "length": 10.01670394687315
+          "length": 16.150000000000006
         }
       ],
       "variant": "pipe"
+    },
+    "xy-edge__KWwYAhIaXR11-e4JtXVcg02b1": {
+      "color": [0, 74, 214, 1],
+      "segments": [
+        {
+          "direction": "x",
+          "length": 0.001
+        }
+      ],
+      "variant": "jacketed"
     },
     "xy-edge__L0MCB6oJASM1-VeRfM4LedsR1": {
       "color": [255, 0, 95, 1],
       "segments": [
         {
           "direction": "x",
-          "length": -7.611323970725607
-        },
-        {
-          "direction": "y",
-          "length": -320.0492650092677
-        },
-        {
-          "direction": "x",
-          "length": -75.27638293247958
-        },
-        {
-          "direction": "y",
-          "length": 19.978930338147897
+          "length": 0.001
         }
       ],
       "variant": "jacketed"
-    },
-    "xy-edge__QLFXTKWz3DJ2-tKyeVybyb2Z3": {
-      "color": [255, 168, 0, 1],
-      "segments": [
-        {
-          "direction": "y",
-          "length": -5.227613484665426
-        },
-        {
-          "direction": "x",
-          "length": 20.127013743585604
-        }
-      ],
-      "variant": "pneumatic"
-    },
-    "xy-edge__rJ8HEDBlxlw4-SKO1UjHj1o31": {
-      "color": [0, 214, 35, 1],
-      "segments": [
-        {
-          "direction": "y",
-          "length": 7.603945168920745
-        },
-        {
-          "direction": "x",
-          "length": 68.0145904837911
-        }
-      ],
-      "variant": "pneumatic"
-    },
-    "xy-edge__dlptAUF47pk3-D2jnA2ygsRn1": {
-      "color": [255, 0, 95, 1],
-      "segments": [
-        {
-          "direction": "y",
-          "length": -7.476031885797475
-        },
-        {
-          "direction": "x",
-          "length": 42.70918634908844
-        },
-        {
-          "direction": "y",
-          "length": 37.25798079296152
-        }
-      ],
-      "variant": "pipe"
-    },
-    "xy-edge__0jdKiNGUXdE1-5lnJLvZggVN1": {
-      "color": [0, 74, 214, 1],
-      "segments": [
-        {
-          "direction": "x",
-          "length": -20.16137721571556
-        },
-        {
-          "direction": "y",
-          "length": -2.189449005345324
-        }
-      ],
-      "variant": "pipe"
-    },
-    "xy-edge__p2dLrZf6mMv1-wGdFMnYeLk81": {
-      "color": [255, 0, 95, 1],
-      "segments": [
-        {
-          "direction": "y",
-          "length": 14.08436735602453
-        },
-        {
-          "direction": "x",
-          "length": 32.27852693080433
-        }
-      ],
-      "variant": "pipe"
-    },
-    "Q6Ru747fTlZ": {
-      "color": [0, 74, 214, 1],
-      "segments": [
-        {
-          "direction": "x",
-          "length": 21.14165737609079
-        },
-        {
-          "direction": "y",
-          "length": 7.466899969556096
-        }
-      ],
-      "variant": "pipe"
-    },
-    "xy-edge__nikWEdQSwLr2-wGdFMnYeLk82": {
-      "color": [255, 0, 95, 1],
-      "segments": [
-        {
-          "direction": "y",
-          "length": 16.061589504341697
-        },
-        {
-          "direction": "x",
-          "length": -28.855142732955755
-        }
-      ],
-      "variant": "pipe"
-    },
-    "xy-edge__dlptAUF47pk3-ojXq08A1bLP1": {
-      "color": [255, 0, 95, 1],
-      "segments": [
-        {
-          "direction": "y",
-          "length": -7.042165376339312
-        },
-        {
-          "direction": "x",
-          "length": 58.16473197597054
-        }
-      ],
-      "variant": "pipe"
-    },
-    "xy-edge__VeRfM4LedsR2-e4JtXVcg02b3": {
-      "color": [255, 0, 95, 1],
-      "segments": [
-        {
-          "direction": "y",
-          "length": 56.05145268385104
-        },
-        {
-          "direction": "x",
-          "length": -9.102954995288997
-        }
-      ],
-      "variant": "jacketed"
-    },
-    "xPS0ReajkIY": {
-      "color": "#ffa800",
-      "segments": [],
-      "variant": "pneumatic"
-    },
-    "xy-edge__dkPgXB2tjWf8-kbJw2Oi5Ueu1": {
-      "color": [255, 168, 0, 1],
-      "segments": [
-        {
-          "direction": "x",
-          "length": 16.27623344266015
-        },
-        {
-          "direction": "y",
-          "length": -22.668412128383807
-        },
-        {
-          "direction": "x",
-          "length": 15.00768158414133
-        }
-      ],
-      "variant": "pneumatic"
     },
     "xy-edge__L0MCB6oJASM2-dlptAUF47pk4": {
       "color": [255, 0, 95, 1],
       "segments": [
         {
           "direction": "x",
-          "length": 10.019709615372676
+          "length": 15.5
         },
         {
           "direction": "y",
-          "length": -75.83755794798219
+          "length": -75.5
         }
       ],
       "variant": "jacketed"
     },
-    "xy-edge__WubiiPZ6MyL2-KWwYAhIaXR12": {
-      "color": [0, 214, 35, 1],
-      "segments": [
-        {
-          "direction": "x",
-          "length": -30.341323421429934
-        },
-        {
-          "direction": "y",
-          "length": 59.33199895582936
-        }
-      ],
-      "variant": "pipe"
-    },
-    "xy-edge__wGdFMnYeLk83-dlptAUF47pk1": {
-      "color": [255, 0, 95, 1],
-      "segments": [],
-      "variant": "pipe"
-    },
-    "xy-edge__BLMwEwSkGNS2-VcyomMLraaN2": {
+    "xy-edge__VcyomMLraaN4-n4pmPCUcMaw1": {
       "color": [0, 74, 214, 1],
       "segments": [
         {
-          "direction": "x",
-          "length": 69.70495914735761
+          "direction": "y",
+          "length": 75.5
         },
         {
-          "direction": "y",
-          "length": 0.6487563554264568
+          "direction": "x",
+          "length": 15.5
         }
       ],
-      "variant": "pipe"
+      "variant": "jacketed"
+    },
+    "xy-edge__VeRfM4LedsR2-e4JtXVcg02b3": {
+      "color": [255, 0, 95, 1],
+      "segments": [
+        {
+          "direction": "x",
+          "length": 0.001
+        }
+      ],
+      "variant": "jacketed"
     },
     "xy-edge__W1dSGKqGk1f2-ed2fKMvty6b1": {
       "color": [179, 0, 255, 1],
       "segments": [
         {
           "direction": "y",
-          "length": -20.054906857291922
+          "length": -47.25
         },
         {
           "direction": "x",
-          "length": 564.6456757817881
+          "length": 358.68281249999995
+        }
+      ],
+      "variant": "pneumatic"
+    },
+    "xy-edge__YtBdiWNERfU1-W1dSGKqGk1f3": {
+      "color": [179, 0, 255, 1],
+      "segments": [
+        {
+          "direction": "x",
+          "length": 0.5906249999999886
         }
       ],
       "variant": "pneumatic"
@@ -3519,139 +2506,135 @@
       "segments": [
         {
           "direction": "x",
-          "length": 134.19966632900412
+          "length": 56.30937499999999
+        },
+        {
+          "direction": "y",
+          "length": 12.3
         }
       ],
       "variant": "pneumatic"
     },
-    "xy-edge__WubiiPZ6MyL1-VeRfM4LedsR1": {
-      "color": [0, 214, 35, 1],
+    "xy-edge__dlptAUF47pk3-D2jnA2ygsRn1": {
+      "color": [255, 0, 95, 1],
       "segments": [
         {
           "direction": "x",
-          "length": 28.376507288195512
+          "length": 56.5
         },
         {
           "direction": "y",
-          "length": 59.24584296994891
+          "length": 19.5
         }
       ],
       "variant": "pipe"
     },
-    "reactflow__edge-SKO1UjHj1o32-0KwRzIrJ4ii1": {
-      "color": [0, 214, 35, 1],
+    "xy-edge__dlptAUF47pk3-ojXq08A1bLP1": {
+      "color": [255, 0, 95, 1],
       "segments": [
         {
+          "direction": "y",
+          "length": -26.5
+        },
+        {
           "direction": "x",
-          "length": 11.857427462416894
+          "length": 20.5
         }
       ],
-      "variant": "pneumatic"
+      "variant": "pipe"
     },
     "xy-edge__ed2fKMvty6b2-HH9i7jrQ0rH3": {
       "color": [179, 0, 255, 1],
       "segments": [
         {
           "direction": "x",
-          "length": 150.30660167606368
+          "length": 198.69218750000005
         },
         {
           "direction": "y",
-          "length": 33.48017219193998
+          "length": 87.3
         }
       ],
       "variant": "pneumatic"
     },
-    "xy-edge__HH9i7jrQ0rH1-nikWEdQSwLr1": {
-      "color": [255, 0, 95, 1],
-      "segments": [
-        {
-          "direction": "x",
-          "length": 35.88328168180874
-        },
-        {
-          "direction": "y",
-          "length": 8.039481798555983
-        }
-      ],
-      "variant": "pipe"
-    },
-    "xy-edge__7yLD0xOFddf1-VeRfM4LedsR5": {
-      "color": [255, 168, 0, 1],
-      "segments": [
-        {
-          "direction": "x",
-          "length": 142.15919203536635
-        },
-        {
-          "direction": "y",
-          "length": -410.1363828536327
-        }
-      ],
-      "variant": "pneumatic"
-    },
-    "xy-edge__KWwYAhIaXR11-e4JtXVcg02b1": {
+    "xy-edge__n4pmPCUcMaw2-KWwYAhIaXR12": {
       "color": [0, 74, 214, 1],
       "segments": [
         {
-          "direction": "y",
-          "length": 55.96528189980745
-        },
-        {
           "direction": "x",
-          "length": 6.427322322366763
+          "length": 0.001
         }
       ],
       "variant": "jacketed"
     },
-    "xy-edge__0jdKiNGUXdE2-qUGRcDkaBIx2": {
-      "color": [0, 74, 214, 1],
+    "xy-edge__nikWEdQSwLr2-wGdFMnYeLk82": {
+      "color": [255, 0, 95, 1],
       "segments": [
         {
-          "direction": "x",
-          "length": 21.264336895442625
+          "direction": "y",
+          "length": 12.300000000000011
         },
         {
-          "direction": "y",
-          "length": -1.9673060790229062
+          "direction": "x",
+          "length": -31.109375
         }
       ],
       "variant": "pipe"
     },
-    "xy-edge__dkPgXB2tjWf1-QLFXTKWz3DJ1": {
-      "color": [255, 168, 0, 1],
+    "xy-edge__p2dLrZf6mMv1-wGdFMnYeLk81": {
+      "color": [255, 0, 95, 1],
       "segments": [
         {
           "direction": "y",
-          "length": -1.4772950143597114
-        }
-      ],
-      "variant": "pipe"
-    },
-    "xy-edge__YtBdiWNERfU1-W1dSGKqGk1f3": {
-      "color": [179, 0, 255, 1],
-      "segments": [
+          "length": 12.300000000000011
+        },
         {
           "direction": "x",
-          "length": -25.052318661057058
+          "length": 31.09375
         }
       ],
-      "variant": "pneumatic"
+      "variant": "pipe"
     },
     "xy-edge__qo0xVKkc4oR1-VcyomMLraaN2": {
       "color": [0, 74, 214, 1],
       "segments": [
         {
           "direction": "y",
-          "length": -41.60135297196579
+          "length": -19.5
         },
         {
           "direction": "x",
-          "length": 58.69277139477566
-        },
+          "length": 56.484344482421875
+        }
+      ],
+      "variant": "pipe"
+    },
+    "xy-edge__rJ8HEDBlxlw1-tKyeVybyb2Z1": {
+      "color": [179, 0, 255, 1],
+      "segments": [
         {
           "direction": "y",
-          "length": -2.1980884391345237
+          "length": 5.0
+        }
+      ],
+      "variant": "pipe"
+    },
+    "xy-edge__tKyeVybyb2Z2-CST75HX7oD14": {
+      "color": [179, 0, 255, 1],
+      "segments": [
+        {
+          "direction": "y",
+          "length": 5.0
+        }
+      ],
+      "variant": "pipe"
+    },
+    "xy-edge__wGdFMnYeLk83-dlptAUF47pk1": {
+      "color": [255, 0, 95, 1],
+      "segments": [
+        {
+          "direction": "y",
+          "length": 2.984375
         }
       ],
       "variant": "pipe"
@@ -3659,21 +2642,10 @@
   },
   "edges": [
     {
-      "key": "reactflow__edge-SKO1UjHj1o32-0KwRzIrJ4ii1",
-      "source": {
-        "node": "SKO1UjHj1o3",
-        "param": "2"
-      },
-      "target": {
-        "node": "0KwRzIrJ4ii",
-        "param": "1"
-      }
-    },
-    {
       "key": "xy-edge__dlptAUF47pk3-D2jnA2ygsRn1",
       "source": {
         "node": "dlptAUF47pk",
-        "param": "3"
+        "param": "8"
       },
       "target": {
         "node": "D2jnA2ygsRn",
@@ -3798,7 +2770,7 @@
       },
       "target": {
         "node": "VcyomMLraaN",
-        "param": "2"
+        "param": "7"
       }
     },
     {
@@ -3838,18 +2810,18 @@
       "key": "xy-edge__CST75HX7oD13-W1dSGKqGk1f1",
       "source": {
         "node": "CST75HX7oD1",
-        "param": "3"
+        "param": "1"
       },
       "target": {
         "node": "W1dSGKqGk1f",
-        "param": "1"
+        "param": "2"
       }
     },
     {
       "key": "xy-edge__W1dSGKqGk1f2-ed2fKMvty6b1",
       "source": {
         "node": "W1dSGKqGk1f",
-        "param": "2"
+        "param": "3"
       },
       "target": {
         "node": "ed2fKMvty6b",
@@ -3875,28 +2847,6 @@
       },
       "target": {
         "node": "W1dSGKqGk1f",
-        "param": "3"
-      }
-    },
-    {
-      "key": "xy-edge__kbJw2Oi5Ueu2-rJ8HEDBlxlw7",
-      "source": {
-        "node": "kbJw2Oi5Ueu",
-        "param": "2"
-      },
-      "target": {
-        "node": "rJ8HEDBlxlw",
-        "param": "7"
-      }
-    },
-    {
-      "key": "xy-edge__dkPgXB2tjWf8-kbJw2Oi5Ueu1",
-      "source": {
-        "node": "dkPgXB2tjWf",
-        "param": "8"
-      },
-      "target": {
-        "node": "kbJw2Oi5Ueu",
         "param": "1"
       }
     },
@@ -3923,21 +2873,10 @@
       }
     },
     {
-      "key": "xy-edge__QLFXTKWz3DJ2-tKyeVybyb2Z3",
-      "source": {
-        "node": "QLFXTKWz3DJ",
-        "param": "2"
-      },
-      "target": {
-        "node": "tKyeVybyb2Z",
-        "param": "3"
-      }
-    },
-    {
       "key": "xy-edge__KWwYAhIaXR11-e4JtXVcg02b1",
       "source": {
         "node": "KWwYAhIaXR1",
-        "param": "1"
+        "param": "2"
       },
       "target": {
         "node": "e4JtXVcg02b",
@@ -3948,7 +2887,7 @@
       "key": "xy-edge__VeRfM4LedsR2-e4JtXVcg02b3",
       "source": {
         "node": "VeRfM4LedsR",
-        "param": "2"
+        "param": "1"
       },
       "target": {
         "node": "e4JtXVcg02b",
@@ -3974,7 +2913,7 @@
       },
       "target": {
         "node": "VeRfM4LedsR",
-        "param": "1"
+        "param": "2"
       }
     },
     {
@@ -3989,94 +2928,6 @@
       }
     },
     {
-      "key": "xy-edge__WubiiPZ6MyL1-VeRfM4LedsR1",
-      "source": {
-        "node": "WubiiPZ6MyL",
-        "param": "1"
-      },
-      "target": {
-        "node": "VeRfM4LedsR",
-        "param": "1"
-      }
-    },
-    {
-      "key": "xy-edge__IpSylSnCSc31-0KwRzIrJ4ii3",
-      "source": {
-        "node": "IpSylSnCSc3",
-        "param": "1"
-      },
-      "target": {
-        "node": "0KwRzIrJ4ii",
-        "param": "3"
-      }
-    },
-    {
-      "key": "xy-edge__IpSylSnCSc32-WubiiPZ6MyL3",
-      "source": {
-        "node": "IpSylSnCSc3",
-        "param": "2"
-      },
-      "target": {
-        "node": "WubiiPZ6MyL",
-        "param": "3"
-      }
-    },
-    {
-      "key": "xy-edge__rJ8HEDBlxlw4-SKO1UjHj1o31",
-      "source": {
-        "node": "rJ8HEDBlxlw",
-        "param": "4"
-      },
-      "target": {
-        "node": "SKO1UjHj1o3",
-        "param": "1"
-      }
-    },
-    {
-      "key": "xy-edge__7yLD0xOFddf1-VeRfM4LedsR5",
-      "source": {
-        "node": "7yLD0xOFddf",
-        "param": "1"
-      },
-      "target": {
-        "node": "VeRfM4LedsR",
-        "param": "5"
-      }
-    },
-    {
-      "key": "xy-edge__7yLD0xOFddf2-dkPgXB2tjWf4",
-      "source": {
-        "node": "7yLD0xOFddf",
-        "param": "2"
-      },
-      "target": {
-        "node": "dkPgXB2tjWf",
-        "param": "4"
-      }
-    },
-    {
-      "key": "xy-edge__dkPgXB2tjWf1-QLFXTKWz3DJ1",
-      "source": {
-        "node": "dkPgXB2tjWf",
-        "param": "1"
-      },
-      "target": {
-        "node": "QLFXTKWz3DJ",
-        "param": "1"
-      }
-    },
-    {
-      "key": "xy-edge__WubiiPZ6MyL2-KWwYAhIaXR12",
-      "source": {
-        "node": "WubiiPZ6MyL",
-        "param": "2"
-      },
-      "target": {
-        "node": "KWwYAhIaXR1",
-        "param": "2"
-      }
-    },
-    {
       "key": "xy-edge__n4pmPCUcMaw2-KWwYAhIaXR12",
       "source": {
         "node": "n4pmPCUcMaw",
@@ -4084,18 +2935,7 @@
       },
       "target": {
         "node": "KWwYAhIaXR1",
-        "param": "2"
-      }
-    },
-    {
-      "key": "xPS0ReajkIY",
-      "source": {
-        "node": "7yLD0xOFddf",
-        "param": "3"
-      },
-      "target": {
-        "node": "KWwYAhIaXR1",
-        "param": "3"
+        "param": "1"
       }
     }
   ],
@@ -4104,384 +2944,264 @@
     {
       "key": "k9XCuVYxOzB",
       "position": {
-        "x": 1011,
-        "y": 632
+        "x": 530.984375,
+        "y": 286
       },
       "z_index": 4
-    },
-    {
-      "key": "7yLD0xOFddf",
-      "position": {
-        "x": 611.3803516098993,
-        "y": 734.0881488512645
-      },
-      "z_index": 24
-    },
-    {
-      "key": "IpSylSnCSc3",
-      "position": {
-        "x": 509.2145240269522,
-        "y": 583.4183035794158
-      },
-      "z_index": 4
-    },
-    {
-      "key": "WubiiPZ6MyL",
-      "position": {
-        "x": 697.0018688628214,
-        "y": 188.867129790864
-      },
-      "z_index": 24
     },
     {
       "key": "VeRfM4LedsR",
       "position": {
-        "x": 752.58143213513,
-        "y": 275.2223775077674
+        "x": 644.390625,
+        "y": 438.53125
       },
       "z_index": 4
     },
     {
       "key": "KWwYAhIaXR1",
       "position": {
-        "x": 617.2073572740329,
-        "y": 275.55853049940737
+        "x": 468.796875,
+        "y": 438.53125
       },
       "z_index": 4
     },
     {
       "key": "e4JtXVcg02b",
       "position": {
-        "x": 652.6816177637583,
-        "y": 375.6488170035559
+        "x": 550.4375,
+        "y": 450.5
       },
       "z_index": 4
     },
     {
       "key": "tKyeVybyb2Z",
       "position": {
-        "x": 38.47655529012843,
-        "y": 353.1257902036398
-      },
-      "z_index": 4
-    },
-    {
-      "key": "QLFXTKWz3DJ",
-      "position": {
-        "x": -33.379846943321496,
-        "y": 398.72341717816954
+        "x": 39.40625,
+        "y": 411.3125
       },
       "z_index": 4
     },
     {
       "key": "rJ8HEDBlxlw",
       "position": {
-        "x": 229.1760073720529,
-        "y": 477.62432532701166
+        "x": -5.0,
+        "y": 486.8125
       },
       "z_index": 2
     },
     {
       "key": "YtBdiWNERfU",
       "position": {
-        "x": 203.3401768139715,
-        "y": 12.027170576396433
+        "x": 206.20625,
+        "y": -41.46875
       },
       "z_index": 4
     },
     {
       "key": "W1dSGKqGk1f",
       "position": {
-        "x": 134.42283117318578,
-        "y": 35.86780807572771
+        "x": 169.40625,
+        "y": -15.578125
       },
       "z_index": 24
     },
     {
-      "key": "MEfIDo71Css",
-      "position": {
-        "x": 360.36771814314034,
-        "y": 422.19661753117936
-      },
-      "z_index": 4
-    },
-    {
       "key": "KnJjTf7CJv9",
       "position": {
-        "x": 360.36771814314034,
-        "y": 365.19661753117936
-      },
-      "z_index": 4
-    },
-    {
-      "key": "qKNvIK45GCK",
-      "position": {
-        "x": 366.86770490778304,
-        "y": 311.5299508645128
+        "x": 286.85935974121094,
+        "y": 327.0
       },
       "z_index": 4
     },
     {
       "key": "UN8NV3qxaz7",
       "position": {
-        "x": 366.86770490778304,
-        "y": 254.5299508645127
+        "x": 293.5078125,
+        "y": 271.0
       },
       "z_index": 4
     },
     {
       "key": "VcyomMLraaN",
       "position": {
-        "x": 344.10153353736075,
-        "y": 217.92749514690803
+        "x": 274.9999694824219,
+        "y": 210
       },
       "z_index": 2
     },
     {
       "key": "0jdKiNGUXdE",
       "position": {
-        "x": 402.3077886236238,
-        "y": 181.40448884810743
+        "x": 329.40625,
+        "y": 161.5625
       },
       "z_index": 24
     },
     {
       "key": "rTobk1G30ly",
       "position": {
-        "x": 402.43046814297566,
-        "y": 62.464630819799766
+        "x": 329.40625,
+        "y": 24.471875
       },
       "z_index": 24
     },
     {
       "key": "qUGRcDkaBIx",
       "position": {
-        "x": 451.7077945265089,
-        "y": 97.7859192792202
+        "x": 388.21875,
+        "y": 68.04375
       },
       "z_index": 4
     },
     {
       "key": "5lnJLvZggVN",
       "position": {
-        "x": 330.5107729180439,
-        "y": 97.56377635289778
+        "x": 246.6094055175781,
+        "y": 68.04375
       },
       "z_index": 4
     },
     {
       "key": "HH9i7jrQ0rH",
       "position": {
-        "x": 932.8388721209018,
-        "y": 47.4543137352087
+        "x": 822.171875,
+        "y": 24.471875
       },
       "z_index": 24
     },
     {
       "key": "nikWEdQSwLr",
       "position": {
-        "x": 996.8577922925748,
-        "y": 83.348184023629
+        "x": 880.984375,
+        "y": 68.04375
       },
       "z_index": 4
     },
     {
       "key": "p2dLrZf6mMv",
       "position": {
-        "x": 855.4528456490862,
-        "y": 85.32540617194618
+        "x": 739.375,
+        "y": 68.04375
       },
       "z_index": 4
     },
     {
       "key": "wGdFMnYeLk8",
       "position": {
-        "x": 939.8670110697548,
-        "y": 181.06103701783505
+        "x": 822.171875,
+        "y": 161.5625
       },
       "z_index": 24
     },
     {
-      "key": "yAfA5biPqIA",
-      "position": {
-        "x": -50.086546886277496,
-        "y": 563.6120611799672
-      },
-      "z_index": 4
-    },
-    {
       "key": "Uf71mmzzyez",
       "position": {
-        "x": 237.48927285856396,
-        "y": 557.4057282455545
-      },
-      "z_index": 4
-    },
-    {
-      "key": "dkPgXB2tjWf",
-      "position": {
-        "x": -56.307654121011275,
-        "y": 500.2641971370136
-      },
-      "z_index": 2
-    },
-    {
-      "key": "kbJw2Oi5Ueu",
-      "position": {
-        "x": 124.58560325160995,
-        "y": 532.735369623691
-      },
-      "z_index": 4
-    },
-    {
-      "key": "SKO1UjHj1o3",
-      "position": {
-        "x": 376.799972855844,
-        "y": 653.0095204959324
-      },
-      "z_index": 4
-    },
-    {
-      "key": "0KwRzIrJ4ii",
-      "position": {
-        "x": 487.595884547413,
-        "y": 685.912546931917
+        "x": 3.5078125,
+        "y": 556.796875
       },
       "z_index": 4
     },
     {
       "key": "n4pmPCUcMaw",
       "position": {
-        "x": 434.7041052797298,
-        "y": 507.0251432502485
+        "x": 373.40625,
+        "y": 438.53125
       },
       "z_index": 4
     },
     {
       "key": "L0MCB6oJASM",
       "position": {
-        "x": 864.6566390383351,
-        "y": 523.2927121788872
+        "x": 739.78125,
+        "y": 438.53125
       },
       "z_index": 4
     },
     {
       "key": "ojXq08A1bLP",
       "position": {
-        "x": 1101.309843180454,
-        "y": 210.6629761180268
+        "x": 940.25,
+        "y": 169.234375
       },
       "z_index": 4
     },
     {
       "key": "D2jnA2ygsRn",
       "position": {
-        "x": 1056.588660002796,
-        "y": 277.2370726204909
+        "x": 960.984375,
+        "y": 332.34375
       },
       "z_index": 4
     },
     {
       "key": "BLMwEwSkGNS",
       "position": {
-        "x": 194.9121993900031,
-        "y": 199.16936379148157
+        "x": 173.015625,
+        "y": 155.5
       },
       "z_index": 4
     },
     {
       "key": "qo0xVKkc4oR",
       "position": {
-        "x": 269.6275121425851,
-        "y": 285.08631155800833
+        "x": 188.21875,
+        "y": 332.34375
       },
       "z_index": 4
     },
     {
       "key": "ed2fKMvty6b",
       "position": {
-        "x": 716.1416454448381,
-        "y": -38.32273345673128
-      },
-      "z_index": 4
-    },
-    {
-      "key": "vVP5HNMj1sk",
-      "position": {
-        "x": 4.223248301523768,
-        "y": 280.0226532684396
+        "x": 556.5890625,
+        "y": -116.46875
       },
       "z_index": 4
     },
     {
       "key": "DeJ4iOHodtz",
       "position": {
-        "x": 4.223248301523768,
-        "y": 225.3479623472629
-      },
-      "z_index": 4
-    },
-    {
-      "key": "K9nj3YBK0KG",
-      "position": {
-        "x": 10.723235066166467,
-        "y": 171.29123370001284
+        "x": 14.859375,
+        "y": 327.0
       },
       "z_index": 4
     },
     {
       "key": "rCUKZktR3sZ",
       "position": {
-        "x": 10.723235066166467,
-        "y": 117.29123370001284
+        "x": 5.5078125,
+        "y": 271.0
       },
       "z_index": 4
     },
     {
       "key": "CST75HX7oD1",
       "position": {
-        "x": -9.729666288384024,
-        "y": 79.92633707042512
+        "x": -5.0,
+        "y": 210
       },
       "z_index": 2
     },
     {
-      "key": "2i094l8SRqF",
-      "position": {
-        "x": 898.2004284863254,
-        "y": 423.71598372929583
-      },
-      "z_index": 4
-    },
-    {
       "key": "GXakOVjitf5",
       "position": {
-        "x": 898.2004284863254,
-        "y": 368.22989835609064
-      },
-      "z_index": 4
-    },
-    {
-      "key": "Px7l7pDawuy",
-      "position": {
-        "x": 904.7003958181482,
-        "y": 313.4051091519367
+        "x": 787.625,
+        "y": 327.0
       },
       "z_index": 4
     },
     {
       "key": "VmLXT8TtVfn",
       "position": {
-        "x": 904.7004735494278,
-        "y": 258.8099376640525
+        "x": 786.2734375,
+        "y": 271.0
       },
       "z_index": 4
     },
     {
       "key": "dlptAUF47pk",
       "position": {
-        "x": 881.6607236537078,
-        "y": 224.09574871332688
+        "x": 767.765625,
+        "y": 210
       },
       "z_index": 2
     }

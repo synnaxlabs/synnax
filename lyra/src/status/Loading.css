@@ -9,7 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-@keyframes pluto-status-loading-in {
+@keyframes lyra-status-loading-in {
     to {
         opacity: 1;
     }
@@ -21,9 +21,9 @@
  * the delay unmounts the element before it was ever visible. Set
  * --pluto-loading-delay on any ancestor to tune it.
  */
-.pluto-status__loading {
+.lyra-status__loading {
     overflow: hidden;
     opacity: 0;
-    animation: pluto-status-loading-in var(--pluto-loading-fade, 150ms) ease-out
-        var(--pluto-loading-delay, 300ms) forwards;
+    animation: lyra-status-loading-in 150ms ease-out var(--pluto-loading-delay, 300ms)
+        forwards;
 }

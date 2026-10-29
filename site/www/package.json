@@ -9,11 +9,10 @@
     "check-types": "astro check",
     "preview": "astro preview",
     "astro": "astro",
-    "lint": "eslint",
-    "fix": "eslint --fix",
+    "lint": "eslint && stylelint \"src/**/*.{css,astro}\"",
+    "fix": "eslint --fix && stylelint --fix \"src/**/*.{css,astro}\"",
     "format": "prettier --write .",
     "format-check": "prettier --check .",
-    "stylelint": "stylelint \"src/**/*.css\"",
     "test": "vitest",
     "cov": "vitest --coverage"
   },
@@ -30,6 +29,7 @@
   },
   "devDependencies": {
     "@astrojs/check": "catalog:",
+    "@juggle/resize-observer": "catalog:",
     "@synnaxlabs/eslint-config": "catalog:",
     "@synnaxlabs/stylelint-config": "catalog:",
     "@synnaxlabs/tsconfig": "catalog:",

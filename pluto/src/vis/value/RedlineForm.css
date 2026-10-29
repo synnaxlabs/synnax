@@ -15,23 +15,23 @@
     width: 44rem;
 
     /* The floor sits outside the list, so the list's own inset would misalign it. */
-    .pluto-list__scroll {
+    .lyra-list__scroll {
         padding: 0;
     }
 
-    .pluto-list__item,
+    .lyra-list__item,
     .pluto-redline-form__floor {
         min-height: unset;
         padding: 0.5rem 0;
     }
 
-    .pluto-list__item.pluto-flex,
-    .pluto-redline-form__floor.pluto-flex {
+    .lyra-list__item.lyra-flex,
+    .pluto-redline-form__floor.lyra-flex {
         gap: 1rem;
     }
 
-    .pluto-color-swatch,
-    .pluto-color-swatch__dropdown {
+    .lyra-color-swatch,
+    .lyra-color-swatch__dropdown {
         flex-shrink: 0;
     }
 }

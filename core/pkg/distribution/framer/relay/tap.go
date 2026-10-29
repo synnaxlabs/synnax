@@ -37,10 +37,10 @@ import (
 type demand struct {
 	change.Change[address.Address, Request]
 	// ack, when non-nil, is closed by the tapper after it has fully applied this demand
-	// to all local taps. It lets a streamer block until the relay is actually filtering
-	// its channels in before acknowledging readiness, closing the window where a write
-	// could be dropped between open and the demand propagating. nil for demands that
-	// need no acknowledgment (deletes and mid-stream key reconfigurations).
+	// to all local taps. It lets a streamer acknowledge an open or a key update only
+	// once the relay is actually filtering its channels in, closing the window where a
+	// write could be dropped before the demand propagates. nil for demands that need no
+	// acknowledgment.
 	ack chan struct{}
 }
 

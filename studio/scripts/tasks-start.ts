@@ -43,7 +43,7 @@ const createTask = async (rackKey: rack.Key): Promise<void> => {
 /**
  * Docs `reference/hardware/start-and-stop-tasks` (Start a task): open the tasks
  * toolbar, double-click an NI analog read task to open its tab, and click Start; the
- * status turns to "Task started successfully". The NI device is simulated.
+ * status turns to "Started task". The NI device is simulated.
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
   const driver = await fixtures.simulatedDriver({
@@ -73,9 +73,9 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.zoom(form.locator(".console-task-controls").first(), 1.5);
     await session.hold(1200);
 
-    await session.click(form.locator("button:has(svg.pluto-icon--play)").first());
+    await session.click(form.locator("button:has(svg.lyra-icon--play)").first());
     session.endZoom();
-    await session.waitFor(form.getByText("Task started successfully").first());
+    await session.waitFor(form.getByText("Started task").first());
     await session.hold(3000);
   } finally {
     await driver.stop();

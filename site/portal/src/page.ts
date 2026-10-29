@@ -11,13 +11,10 @@ import { type APIContext } from "astro";
 
 import { type Portal } from "@/portal";
 import { type Organization, type OrganizationKind } from "@/server/db/schema";
-import { HTTPError } from "@/server/errors";
-import {
-  invitationsFor,
-  type Invited,
-  organizationsFor,
-  pick,
-} from "@/server/organization";
+import { ADMIN_ROLE } from "@/server/directory";
+import { badRequest, HTTPError } from "@/server/errors";
+import { isCategory, list, type Page, type Query } from "@/server/event";
+import { organizationsFor, pick } from "@/server/organization";
 import { type Session } from "@/server/session";
 import { landing, scoped } from "@/shell";
 
@@ -50,26 +47,6 @@ export const guest = (context: APIContext): Response | null =>
   context.locals.auth().userId == null
     ? null
     : context.redirect(landing(context.url.searchParams), 303);
-
-export interface Invitee {
-  /** email is the address the visitor is logged in with. */
-  email: string;
-  invitations: Invited[];
-}
-
-/**
- * invitee loads a logged-in visitor who opened a team invitation link, so the page can
- * offer the invitations they have not accepted. Returns null for a logged-out visitor.
- */
-export const invitee = async (context: APIContext): Promise<Invitee | null> => {
-  const loaded = await load(context);
-  if (loaded instanceof Response) return null;
-  const { portal, session } = loaded;
-  return {
-    email: session.email,
-    invitations: await invitationsFor(portal.store, portal.directory, session.userID),
-  };
-};
 
 export interface Scoped extends Loaded {
   /** organizations are every organization the user can act for, personal first. */
@@ -118,4 +95,53 @@ export const failure = (err: unknown): { status: number; message: string } => {
   if (err instanceof HTTPError) return { status: err.status, message: err.message };
   console.error(err);
   return { status: 500, message: "Something went wrong. Try again." };
+};
+
+/** Activity is a page of the audit log as a staff page shows it. */
+export interface Activity {
+  page: Page;
+  /** actors is the name each person in the page reads as. */
+  actors: Record<string, string>;
+  /** olderHref links the next page, or is null on the last one. */
+  olderHref: string | null;
+}
+
+/**
+ * readActivity reads the page of the audit log that the URL's `before`, `category`,
+ * and `staff` parameters ask for. Staff only.
+ * @throws {HTTPError} 400 for a parameter that is not valid.
+ */
+export const readActivity = async (
+  { store, directory, staffOrgID }: Portal,
+  url: URL,
+  query: Query = {},
+): Promise<Activity> => {
+  const params = url.searchParams;
+  const before = params.get("before");
+  if (before != null) {
+    query.before = Number(before);
+    if (!Number.isSafeInteger(query.before)) throw badRequest("Invalid page");
+  }
+  const category = params.get("category");
+  if (category != null) {
+    if (!isCategory(category)) throw badRequest("Invalid category");
+    query.category = category;
+  }
+  if (params.get("staff") != null)
+    query.actors = (await directory.roster(staffOrgID))
+      .filter((m) => m.role === ADMIN_ROLE)
+      .map((m) => m.userID);
+  const page = await list(store, query);
+  // A machine acting on its own seat has its activation key as the actor.
+  const people = page.entries
+    .filter(({ event: e }) => e.actor !== e.activation)
+    .map(({ event: e }) => e.actor);
+  const actors = await directory.names([...new Set(people)]);
+  let olderHref: string | null = null;
+  if (page.next != null) {
+    const older = new URL(url);
+    older.searchParams.set("before", String(page.next));
+    olderHref = `${older.pathname}${older.search}`;
+  }
+  return { page, actors, olderHref };
 };

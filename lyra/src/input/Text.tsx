@@ -9,21 +9,27 @@
 
 import "@/input/Input.css";
 
-import { type ReactElement, type ReactNode, useRef, useState } from "react";
+import {
+  type ReactElement,
+  type ReactNode,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 
 import { Button } from "@/button";
 import { SIZE_TEXT_LEVELS } from "@/component/text";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Generic } from "@/generic";
-import { useCombinedRefs } from "@/hooks";
+import { useCombinedRefs, useResize } from "@/hooks";
 import { useLabelledBy } from "@/input/Item";
 import { type InputProps, type Variant } from "@/input/types";
 import { type Status } from "@/status";
 import { Text as BaseText } from "@/text";
 import { type Tooltip } from "@/tooltip";
 
-const DATE_INPUT_TYPES = new Set(["date", "time", "datetime-local"]);
+const NATIVE_PREVIEW_TYPES = new Set(["date", "time", "datetime-local", "password"]);
 
 export interface TextProps
   extends
@@ -163,7 +169,19 @@ export const Text = ({
     e.stopPropagation();
   };
 
-  const combinedRef = useCombinedRefs(ref, internalRef);
+  // An input's text is no scroll container a CSS scroll timeline can watch, so the
+  // input measures itself to fade a cut value.
+  const [cut, setCut] = useState(false);
+  const measureCut = (el: HTMLElement | null): void => {
+    if (el != null && !area) setCut(el.scrollWidth > el.clientWidth);
+  };
+  const resizeRef = useResize<HTMLInputElement>((_, el) => measureCut(el));
+  useLayoutEffect(
+    () => measureCut(internalRef.current),
+    [value, tempValue, measureCut],
+  );
+
+  const combinedRef = useCombinedRefs(ref, internalRef, resizeRef);
 
   const inputStyle = { fontWeight: weight };
 
@@ -178,11 +196,12 @@ export const Text = ({
 
   if (tabIndex == null && preview) tabIndex = -1;
 
-  // A native date input formats its value for display, so a preview keeps the
-  // element. Every other type renders static text: an input cannot shrink to its
-  // content, which strands end content far from the value.
+  // A native date input formats its value for display, and a password input hides it,
+  // so a preview keeps the element. Every other type renders static text: an input
+  // cannot shrink to its content, which strands end content far from the value.
   const staticPreview =
-    preview === true && !DATE_INPUT_TYPES.has((rest as { type?: string }).type ?? "");
+    preview === true &&
+    !NATIVE_PREVIEW_TYPES.has((rest as { type?: string }).type ?? "");
 
   const outerProps: Flex.BoxProps = {
     style,
@@ -267,6 +286,7 @@ export const Text = ({
         <Generic.Element<"textarea" | "input">
           el={area ? "textarea" : "input"}
           ref={combinedRef}
+          className={cut ? CSS.M("cut") : undefined}
           value={tempValue ?? value ?? ""}
           role="textbox"
           onChange={handleChange}

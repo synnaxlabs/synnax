@@ -23,6 +23,7 @@ class ID(BaseModel):
     def __init__(
         self,
         key: CrudeID | None = None,
+        *,
         type: ResourceType | None = None,
     ):
         if isinstance(key, ID):
@@ -47,7 +48,7 @@ ROOT_ID = ID(key="root", type="builtin")
 CrudeID = str | ID
 
 
-class Relationship(BaseModel):
+class _Relationship(BaseModel):
     from_: ID
     type: str
     to: ID

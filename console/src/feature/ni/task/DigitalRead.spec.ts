@@ -15,7 +15,11 @@ import { describe, expect, it } from "vitest";
 
 import { NI } from "@/feature/ni";
 import { createNIDevice, renderNITaskForm } from "@/feature/ni/task/testutil";
-import { commitFieldInput, deployAndAwaitTask } from "@/platform/task/testutil";
+import {
+  commitFieldInput,
+  createWithHook,
+  deployAndAwaitTask,
+} from "@/platform/task/testutil";
 import { uniqueName } from "@/testutil";
 
 const client = createTestClient();
@@ -157,5 +161,13 @@ describe("DigitalRead", () => {
         firstTask.config.channels[0].channel,
       );
     });
+  });
+
+  it("should create the task with one channel", async () => {
+    const tsk = await createWithHook(
+      NI.Task.useCreateDigitalRead,
+      NI.Task.DIGITAL_READ_SCHEMAS,
+    );
+    expect(tsk.config.channels).toHaveLength(1);
   });
 });

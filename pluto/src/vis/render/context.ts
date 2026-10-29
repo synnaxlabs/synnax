@@ -8,12 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { type Instrumentation } from "@synnaxlabs/alamos";
-import { CSS } from "@synnaxlabs/lyra/css";
 import {
   box,
   color,
   type destructor,
   dimensions,
+  id,
   type runtime,
   scale,
   xy,
@@ -21,6 +21,7 @@ import {
 
 import { type aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
+import { CSS } from "@/css";
 import { status } from "@/status/aether";
 import { text } from "@/text/aether";
 import { SugaredOffscreenCanvasRenderingContext2D } from "@/vis/draw2d/canvas";
@@ -65,10 +66,15 @@ export class Context {
   /** queue render transitions onto the stack */
   readonly loop: Loop;
   /** See the @link{clear.Program} for why this is necessary. */
-  private readonly clearProgram?: clear.Program;
+  private clearProgram?: clear.Program;
   private readonly os: runtime.OS;
   private static readonly CONTEXT_KEY = CSS.B("render-context");
   private readonly instrumentation: Instrumentation;
+  private readonly addStatus: status.Adder;
+  /** One key for the lost and restored statuses, so the restore replaces the loss. */
+  private readonly statusKey = id.create();
+  private _generation = 0;
+  private readonly restoreHandlers = new Set<() => void>();
 
   static create(
     ctx: aether.Context,
@@ -105,6 +111,7 @@ export class Context {
     this.glCanvas = glCanvas;
     this.os = os;
     this.instrumentation = instrumentation;
+    this.addStatus = addStatus;
     this.dpr = 1;
 
     const lowerCtx = this.lower2dCanvas.getContext("2d");
@@ -128,17 +135,13 @@ export class Context {
     };
     const gl = this.glCanvas.getContext("webgl2", webGlOpts);
     if (gl == null) throw new Error("Could not get WebGL context");
-    gl.disable(gl.DEPTH_TEST);
-    gl.disable(gl.STENCIL_TEST);
-    gl.disable(gl.CULL_FACE);
-    gl.disable(gl.DITHER);
     this.gl = gl;
+    this.configureGL();
 
-    this.glCanvas.oncontextlost = () =>
-      addStatus({
-        variant: "error",
-        message: "WebGL context lost",
-      });
+    this.glCanvas.addEventListener("webglcontextlost", (e) => this.lose(e));
+    this.glCanvas.addEventListener("webglcontextrestored", () =>
+      handleError(() => this.restore(), "Failed to restore WebGL context"),
+    );
 
     const afterRender = () => {
       this.gl.flush();
@@ -166,6 +169,59 @@ export class Context {
 
   update(ctx: aether.Context): void {
     ctx.set(Context.CONTEXT_KEY, this);
+  }
+
+  /**
+   * Increments each time the WebGL context is restored after a loss. A restore destroys
+   * every GL object made in an earlier generation.
+   */
+  get generation(): number {
+    return this._generation;
+  }
+
+  /**
+   * Calls f each time the WebGL context is restored after a loss. The restore clears
+   * the GL canvas and destroys every GL object made before it.
+   * @returns a function that stops the calls.
+   */
+  onRestore(f: () => void): destructor.Destructor {
+    this.restoreHandlers.add(f);
+    return () => {
+      this.restoreHandlers.delete(f);
+    };
+  }
+
+  private configureGL(): void {
+    const { gl } = this;
+    gl.disable(gl.DEPTH_TEST);
+    gl.disable(gl.STENCIL_TEST);
+    gl.disable(gl.CULL_FACE);
+    gl.disable(gl.DITHER);
+  }
+
+  private lose(event: Event): void {
+    // The browser restores only a context whose loss event was canceled.
+    event.preventDefault();
+    this.loop.glLost = true;
+    this.addStatus({
+      key: this.statusKey,
+      variant: "error",
+      message: "WebGL context lost",
+      description: "Plots draw again once the browser restores the context.",
+    });
+  }
+
+  private restore(): void {
+    this._generation++;
+    this.configureGL();
+    if (this.os === "Windows") this.clearProgram = new clear.Program(this);
+    this.restoreHandlers.forEach((f) => f());
+    this.loop.glLost = false;
+    this.addStatus({
+      key: this.statusKey,
+      variant: "success",
+      message: "WebGL context restored",
+    });
   }
 
   /**
