@@ -111,8 +111,8 @@ type (
 	sessionRenewServer = grpc.UnaryServer[
 		struct{},
 		*emptypb.Empty,
-		struct{},
-		*emptypb.Empty,
+		auth.SessionRenewResponse,
+		*SessionRenewResponse,
 	]
 	sessionRetrieveServer = grpc.UnaryServer[
 		auth.SessionRetrieveRequest,
@@ -131,6 +131,7 @@ type (
 type (
 	sessionCreateRequestTranslator    struct{}
 	sessionCreateResponseTranslator   struct{}
+	sessionRenewResponseTranslator    struct{}
 	sessionRetrieveRequestTranslator  struct{}
 	sessionRetrieveResponseTranslator struct{}
 	sessionDeleteRequestTranslator    struct{}
@@ -138,6 +139,9 @@ type (
 
 var (
 	_ grpc.Translator[auth.SessionCreateRequest, *SessionCreateRequest] = (*sessionCreateRequestTranslator)(
+		nil,
+	)
+	_ grpc.Translator[auth.SessionRenewResponse, *SessionRenewResponse] = (*sessionRenewResponseTranslator)(
 		nil,
 	)
 	_ grpc.Translator[auth.SessionCreateResponse, *SessionCreateResponse] = (*sessionCreateResponseTranslator)(
@@ -295,6 +299,31 @@ func (sessionCreateResponseTranslator) Backward(
 	}, nil
 }
 
+func (sessionRenewResponseTranslator) Forward(
+	_ context.Context,
+	r auth.SessionRenewResponse,
+) (*SessionRenewResponse, error) {
+	return &SessionRenewResponse{
+		Session: sessionForward(r.Session),
+		User:    userForward(r.User),
+	}, nil
+}
+
+func (sessionRenewResponseTranslator) Backward(
+	_ context.Context,
+	r *SessionRenewResponse,
+) (auth.SessionRenewResponse, error) {
+	session, err := sessionBackward(r.Session)
+	if err != nil {
+		return auth.SessionRenewResponse{}, err
+	}
+	u, err := userBackward(r.User)
+	if err != nil {
+		return auth.SessionRenewResponse{}, err
+	}
+	return auth.SessionRenewResponse{Session: session, User: u}, nil
+}
+
 func (sessionRetrieveRequestTranslator) Forward(
 	_ context.Context,
 	r auth.SessionRetrieveRequest,
@@ -382,7 +411,7 @@ func New(t *api.Transport) grpc.BindableTransport {
 	}
 	renew := &sessionRenewServer{
 		RequestTranslator:  grpc.EmptyTranslator{},
-		ResponseTranslator: grpc.EmptyTranslator{},
+		ResponseTranslator: sessionRenewResponseTranslator{},
 		ServiceDesc:        &AuthSessionRenewService_ServiceDesc,
 	}
 	retrieve := &sessionRetrieveServer{
