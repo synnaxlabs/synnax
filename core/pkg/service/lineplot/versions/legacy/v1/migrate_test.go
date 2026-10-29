@@ -23,6 +23,7 @@ import (
 // nonZeroV0 builds a v0.Data with every model field populated so passthrough
 // regressions in v1.Migrate surface.
 func nonZeroV0() v0.Data {
+	GinkgoHelper()
 	label := "pressure"
 	return v0.Data{
 		Version: v0.Version,
