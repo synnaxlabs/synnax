@@ -1685,6 +1685,46 @@ TEST_F(SynnaxContextTest, WriteDoesNotWaitOnResendOfAnotherTask) {
     ASSERT_NIL(resent.get());
 }
 
+/// @brief it should neither write nor keep a status of a task that left this Driver.
+TEST_F(SynnaxContextTest, DropDiscardsLaterStatuses) {
+    const auto task = synnax::task::Task{.key = x::uuid::create(), .name = "released"};
+    const auto transport = std::make_shared<HoldingSetClient>("");
+    const auto sy = std::make_shared<synnax::Synnax>(new_test_client());
+    sy->statuses = synnax::status::Client(nullptr, transport, nullptr, nullptr);
+    const auto ctx = std::make_shared<SynnaxContext>(sy, nullptr, nullptr, rack.key);
+    synnax::task::Status late{
+        .key = synnax::task::status_key(task),
+        .variant = synnax::status::VARIANT_ERROR,
+        .message = "Failed to complete task operation",
+        .details = {.task = task.key},
+    };
+    ctx->drop_status(task.key);
+    ctx->set_status(late);
+    ASSERT_NIL(ctx->resend_statuses());
+    EXPECT_TRUE(transport->sent().empty());
+}
+
+/// @brief it should write and keep the statuses of a task claimed again after a drop.
+TEST_F(SynnaxContextTest, ClaimWritesStatusesAgain) {
+    const auto task = synnax::task::Task{.key = x::uuid::create(), .name = "returned"};
+    const auto transport = std::make_shared<HoldingSetClient>("");
+    const auto sy = std::make_shared<synnax::Synnax>(new_test_client());
+    sy->statuses = synnax::status::Client(nullptr, transport, nullptr, nullptr);
+    const auto ctx = std::make_shared<SynnaxContext>(sy, nullptr, nullptr, rack.key);
+    synnax::task::Status configured{
+        .key = synnax::task::status_key(task),
+        .variant = synnax::status::VARIANT_SUCCESS,
+        .message = "Task configured",
+        .details = {.task = task.key},
+    };
+    ctx->drop_status(task.key);
+    ctx->claim_status(task.key);
+    ctx->set_status(configured);
+    ASSERT_NIL(ctx->resend_statuses());
+    const auto key = synnax::task::status_key(task);
+    EXPECT_EQ(transport->sent(), (std::vector<std::vector<std::string>>{{key}, {key}}));
+}
+
 /// @brief it should send the latest status of each task again, with no command key.
 TEST_F(SynnaxContextTest, ResendsLatestStatuses) {
     const auto
@@ -1778,6 +1818,45 @@ TEST_F(TaskManagerTest, RackMoveDropsStatusFromResend) {
     EXPECT_TRUE(statuses.at(kept.key).details.running);
     EXPECT_FALSE(statuses.contains(moved.key));
     expect_no_driver_status(moved);
+}
+
+/// @brief it should write the statuses of a task that moves back to this rack.
+TEST_F(TaskManagerTest, RackMoveBackWritesStatusesAgain) {
+    auto factory = std::make_unique<TrackingTaskFactory>();
+    auto *f = factory.get();
+    start_manager(std::move(factory));
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task, "s1");
+    EVENTUALLY(
+        [&] {
+            std::lock_guard lock(f->mu);
+            return f->task_states.size() == 1;
+        },
+        [] { return "task not deployed"; }
+    );
+    const auto first = f->task_states[0];
+
+    auto other = ASSERT_NIL_P(client->racks.create("move_target"));
+    task.rack = other.key;
+    ASSERT_NIL(other.tasks.create(task));
+    send_start(client, task, "s2");
+    EVENTUALLY([&] { return first->stopped.load(); }, [] { return "not stopped"; });
+    // The worker drops the status after the instance stops and is destroyed.
+    std::this_thread::sleep_for((200 * x::telem::MILLISECOND).chrono());
+
+    task.rack = rack.key;
+    ASSERT_NIL(rack.tasks.create(task));
+    const auto since = x::telem::TimeStamp::now();
+    send_start(client, task, "s3");
+    WAIT_FOR_TASK_STATUS(streamer, task, [&](const synnax::task::Status &s) {
+        return s.message == "configured" && s.details.rack == rack.key &&
+               s.time >= since;
+    });
 }
 
 /// @brief it should not send the status of a deleted task again.
