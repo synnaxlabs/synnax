@@ -93,6 +93,11 @@ describe("plugins", () => {
         `Unexpected custom property "--pluto-nope" that nothing defines (${RULE})`,
       ]);
     });
+
+    it("should skip a var() inside a string", async () => {
+      const code = `.a::after { content: "var(--pluto-nope)"; }`;
+      expect(await lint("lyra/src/a.css", code, RULE)).toEqual([]);
+    });
   });
 
   describe("synnax/no-foreign-class", () => {
