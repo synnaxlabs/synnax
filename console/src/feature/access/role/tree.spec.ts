@@ -172,7 +172,7 @@ describe("role ontology service", () => {
       ["Engineer", "safety"],
       ["Operator", "control"],
       ["Viewer", "visible"],
-      ["Driver", "terminal-outline"],
+      ["Driver", "rack"],
       [role.name, "role"],
     ];
     for (const [name, icon] of cases)

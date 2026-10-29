@@ -211,7 +211,8 @@ def send_and_verify_commands(
             return
         if attempt < max_attempts - 1:
             print(
-                f">>> Retrying command send and verify... ({attempt + 1}/{max_attempts})"
+                ">>> Retrying command send and verify... "
+                f"({attempt + 1}/{max_attempts})"
             )
             sy.sleep(2)
     raise AssertionError(
@@ -690,7 +691,8 @@ class ReadTaskCase(TaskCase[ReadTaskT]):
             try:
                 self.client.channels.delete(ch.key)
                 raise AssertionError(
-                    f"Channel '{ch.name}' deletion should have been rejected while task is running"
+                    f"Channel '{ch.name}' deletion should have been rejected while "
+                    "task is running"
                 )
             except AssertionError:
                 raise

@@ -34,13 +34,18 @@ const Create = (_: Modals.ContentProps<Record<never, never>, void>): ReactElemen
   const create = Rack.useCreate({
     afterSuccess: async ({ data }) => {
       if (mounted.current) return setToken(data.token);
-      // closed before the key could be shown, so nobody holds its secret
+      // unmounted before the key could be shown, so nobody holds its secret
       await client?.auth.apiKeys.delete(data.key.key);
     },
   });
+  // a user who cannot delete keys could not clean up a key created after a close
+  const creating = create.variant === "loading";
+  Modals.useLock(creating);
   return (
     <Modal.Frame>
-      <Modal.Header icon={<Icon.Rack />}>Rack.Create</Modal.Header>
+      <Modal.Header icon={<Icon.Rack />} closeDisabled={creating}>
+        Rack.Create
+      </Modal.Header>
       <Modal.Body>
         <Flex.Box y>
           <Input.Text

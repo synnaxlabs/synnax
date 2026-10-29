@@ -363,7 +363,9 @@ class TestController:
             assert time.perf_counter() - start >= 0.2
 
     def test_wait_while(self, client: sy.Synnax) -> None:
-        """Test that the controller can wait for a condition to be true for a certain amount of time"""
+        """Test that the controller can wait for a condition to be true for a certain
+        amount of time
+        """
         _, press_en_cmd, press_en, _ = create_valve_set(client)
 
         assertions: dict[str, bool | int] = {}
@@ -490,7 +492,7 @@ class TestController:
         "wait",
         [
             lambda auto: auto.wait_until(lambda _: False, timeout=BLOCKED_WAIT),
-            lambda auto: auto.remains_true_for(lambda _: True, BLOCKED_WAIT),
+            lambda auto: auto.remains_true_for(lambda _: True, duration=BLOCKED_WAIT),
         ],
         ids=["wait_until", "remains_true_for"],
     )
@@ -520,6 +522,8 @@ class TestController:
             waiter.start()
             deadline = time.monotonic() + HANDSHAKE_TIMEOUT
             while not receiver.processors:
+                if errors:
+                    raise errors[0]
                 assert time.monotonic() < deadline, "waiter never registered"
                 time.sleep(0.01)
             asyncio.run_coroutine_threadsafe(

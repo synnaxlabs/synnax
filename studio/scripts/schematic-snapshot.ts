@@ -52,7 +52,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   const drawer = page.locator(".console-nav__drawer").first();
   await drawer.getByText(RANGE, { exact: true }).first().click();
   await session.waitFor(
-    drawer.locator(".console-range-list-item.pluto--selected").first(),
+    drawer.locator(".console-range-list-item.lyra--selected").first(),
   );
   // Switching toolbars remounts the tree, so the project collapses again.
   await capture.openToolbar(session, "project");
