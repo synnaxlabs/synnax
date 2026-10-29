@@ -27,3 +27,18 @@ class ModbusTcpServer:
         trace_connect: Callable[[bool], None] | None = None,
     ) -> None: ...
     async def serve_forever(self, *, background: bool = False) -> None: ...
+
+class ModbusSerialServer:
+    context: ModbusServerContext | SimCore
+    def __init__(
+        self,
+        context: ModbusServerContext | SimDevice | list[SimDevice],
+        *,
+        port: str = "",
+        stopbits: int = 1,
+        bytesize: int = 8,
+        parity: str = "N",
+        baudrate: int = 19200,
+        ignore_missing_devices: bool = False,
+    ) -> None: ...
+    async def serve_forever(self, *, background: bool = False) -> None: ...

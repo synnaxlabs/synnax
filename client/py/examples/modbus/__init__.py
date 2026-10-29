@@ -9,6 +9,20 @@
 
 """Modbus TCP example package."""
 
-from .server import ModbusGatewaySim, ModbusSim, run_gateway, run_server
+from .server import (
+    ModbusGatewaySim,
+    ModbusSerialSim,
+    ModbusSim,
+    run_gateway,
+    run_serial,
+    run_server,
+)
 
-__all__ = ["ModbusGatewaySim", "ModbusSim", "run_gateway", "run_server"]
+__all__ = [
+    "ModbusGatewaySim",
+    "ModbusSerialSim",
+    "ModbusSim",
+    "run_gateway",
+    "run_serial",
+    "run_server",
+]
