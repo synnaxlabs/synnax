@@ -249,6 +249,18 @@ func (g *Graph) writeStatus(
 	return g.status.NewWriter(tx).Set(ctx, stat)
 }
 
+// AcceptDefinition acts as ClearRuntimeStatus for the channel with the given key when
+// RejectDefinition rejected the channel. It keeps the status of a channel that is not
+// rejected: a running calculation owns that record.
+func (g *Graph) AcceptDefinition(ctx context.Context, key channel.Key) error {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	if !g.mu.rejected.Contains(key) {
+		return nil
+	}
+	return g.clearRuntimeStatus(ctx, key)
+}
+
 // ClearRuntimeStatus replaces the stored status of the channel with the given key with
 // a success status after the calculation runtime recovers. A channel with no stored
 // status gets none. A node the Graph holds as invalid keeps its status: that record
@@ -256,6 +268,10 @@ func (g *Graph) writeStatus(
 func (g *Graph) ClearRuntimeStatus(ctx context.Context, key channel.Key) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
+	return g.clearRuntimeStatus(ctx, key)
+}
+
+func (g *Graph) clearRuntimeStatus(ctx context.Context, key channel.Key) error {
 	g.mu.rejected.Remove(key)
 	if nd, ok := g.mu.nodes[key]; ok && nd.invalid {
 		return nil
