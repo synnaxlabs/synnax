@@ -44,7 +44,7 @@ class TaskClient(ResourceClient):
     def _select(self, names: list[str]) -> Locator:
         """Multi-select tasks via Ctrl+Click, return the last item."""
         self.show_toolbar()
-        return self.layout.ctrl_select_items(names, self.get_item)
+        return self.layout.ctrl_select_items(names, get_item_fn=self.get_item)
 
     def wait_for(
         self,
@@ -301,7 +301,7 @@ class TaskClient(ResourceClient):
         else:
             item.dblclick()
 
-    def snapshot(self, names: list[str], range_name: str) -> None:
+    def snapshot(self, names: list[str], *, range_name: str) -> None:
         """Snapshot tasks to the active range via context menu.
 
         Args:

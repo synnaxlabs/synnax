@@ -28,10 +28,10 @@ class Plot(ConsolePage):
 
     def __init__(
         self,
+        *,
         layout: LayoutClient,
         client: sy.Synnax,
         page_name: str,
-        *,
         pane_locator: Locator,
     ) -> None:
         """Initialize a Plot page wrapper (see ConsolePage.__init__ for details)."""
@@ -41,7 +41,9 @@ class Plot(ConsolePage):
             "Ranges": [],
             "X1": None,
         }
-        super().__init__(layout, client, page_name, pane_locator=pane_locator)
+        super().__init__(
+            layout=layout, client=client, page_name=page_name, pane_locator=pane_locator
+        )
 
     def add_channels(self, axis: Axis, channels: str | list[str]) -> None:
         channels = [channels] if isinstance(channels, str) else channels
@@ -280,7 +282,7 @@ class Plot(ConsolePage):
         ]
 
     def drag_channel_to_canvas(
-        self, channel_name: str, channels: ChannelClient
+        self, channel_name: str, *, channels: ChannelClient
     ) -> None:
         """Drag a channel from the sidebar onto the plot canvas.
 
@@ -303,7 +305,7 @@ class Plot(ConsolePage):
         self.data["Y1"].append(channel_name)
 
     def drag_channel_to_toolbar(
-        self, channel_name: str, channels: ChannelClient, axis: Axis = "Y1"
+        self, channel_name: str, *, channels: ChannelClient, axis: Axis = "Y1"
     ) -> None:
         """Drag a channel from the sidebar onto the toolbar data section.
 
@@ -376,7 +378,7 @@ class Plot(ConsolePage):
             ".console-controls button:has(.lyra-icon--range)"
         )
 
-    def wait_for_annotation_toggle(self, timeout: int = 5000) -> None:
+    def wait_for_annotation_toggle(self, *, timeout: int = 5000) -> None:
         """Wait for the annotation visibility toggle to appear."""
         self.get_annotation_toggle().wait_for(state="visible", timeout=timeout)
 
@@ -385,7 +387,7 @@ class Plot(ConsolePage):
         self.get_annotation_toggle().click(timeout=5000)
 
     def expect_annotations_visible(
-        self, visible: bool = True, timeout: int = 5000
+        self, *, visible: bool = True, timeout: int = 5000
     ) -> None:
         """Assert the annotation visibility toggle reflects the given state.
 
