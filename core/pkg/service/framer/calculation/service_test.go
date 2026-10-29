@@ -1106,6 +1106,33 @@ var _ = Describe("Calculation", Ordered, func() {
 					Expect(written()).To(HaveEach(compileFailure()))
 				},
 			)
+
+			It(
+				"Should write a failure again after a dependency is renamed away and back",
+				func(ctx SpecContext) {
+					openCalc(ctx)
+					write(0)
+					Eventually(written).Should(ConsistOf(failure()))
+					name := base.Name
+					Expect(channelWriter.Rename(
+						ctx, base.Key(), UniqueChannelName(), false,
+					)).To(Succeed())
+					Eventually(written).Should(ContainElement(compileFailure()))
+					Expect(channelWriter.Rename(ctx, base.Key(), name, false)).
+						To(Succeed())
+					stored := func() (calculation.Status, error) {
+						var st calculation.Status
+						err := statusSvc.NewRetrieve[struct{}]().
+							Where(status.MatchKeys[struct{}](calc.OntologyID().String())).
+							Entry(&st).
+							Exec(ctx, nil)
+						return st, err
+					}
+					Eventually(stored).Should(HaveField("Message", "Calculation ready"))
+					write(0)
+					Eventually(stored).Should(failure())
+				},
+			)
 		})
 
 		Specify("Should use channel ontology ID as status key", func(ctx SpecContext) {

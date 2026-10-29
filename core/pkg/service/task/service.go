@@ -36,7 +36,6 @@ import (
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
-	"go.uber.org/zap"
 )
 
 // ServiceConfig is the configuration for creating a Service.
@@ -253,16 +252,15 @@ func (s *Service) NewRetrieve() Retrieve {
 	}
 }
 
-func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) {
+func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) error {
 	var tasks []Task
 	if err := s.NewRetrieve().Where(MatchRacks(rackStat.Details.Rack)).
 		Entries(&tasks).
 		Exec(ctx, nil); err != nil {
-		s.cfg.L.Error("failed to retrieve tasks on suspect rack", zap.Error(err))
-		return
+		return errors.Wrap(err, "failed to retrieve tasks on suspect rack")
 	}
 	if len(tasks) == 0 {
-		return
+		return nil
 	}
 	byKey := make(map[string]Task, len(tasks))
 	for _, tsk := range tasks {
@@ -274,8 +272,7 @@ func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) {
 		Where(status.MatchKeys[StatusDetails](slices.Collect(maps.Keys(byKey))...)).
 		Entries(&reported).
 		Exec(ctx, nil); errors.Skip(err, query.ErrNotFound) != nil {
-		s.cfg.L.Error("failed to retrieve statuses on suspect rack", zap.Error(err))
-		return
+		return errors.Wrap(err, "failed to retrieve statuses on suspect rack")
 	}
 	statuses := make([]Status, 0, len(reported))
 	for _, prev := range reported {
@@ -304,11 +301,9 @@ func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) {
 		})
 	}
 	if len(statuses) == 0 {
-		return
+		return nil
 	}
-	if err := s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+	return s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
 		return s.cfg.Status.NewWriter(tx).SetMany(ctx, &statuses)
-	}); err != nil {
-		s.cfg.L.Error("failed to set statuses on suspect rack", zap.Error(err))
-	}
+	})
 }

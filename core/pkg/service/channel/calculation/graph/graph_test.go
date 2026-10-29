@@ -1337,6 +1337,49 @@ var _ = Describe("Graph", func() {
 		})
 
 		It(
+			"Should write only reports that change the stored status",
+			func(ctx SpecContext) {
+				g := openGraph(ctx)
+				createDep(ctx, "rt_change_dep")
+				calc := channel.Channel{
+					Name: "rt_change", DataType: telem.Int64T, Virtual: true,
+					Expression: "return rt_change_dep + 1",
+				}
+				Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+				report := func(variant status.Variant, at telem.TimeStamp) {
+					GinkgoHelper()
+					Expect(g.SetRuntimeStatus(ctx, calc.Key(), &calculation.Status{
+						Name:    "rt_change",
+						Variant: variant,
+						Message: "Message",
+						Time:    at,
+					})).To(Succeed())
+				}
+				storedTime := func() telem.TimeStamp {
+					GinkgoHelper()
+					s, ok := fetchStatus(ctx, calc.Key())
+					Expect(ok).To(BeTrue())
+					return s.Time
+				}
+
+				By("Skipping a success when nothing failed")
+				report(status.VariantSuccess, 1)
+				_, ok := fetchStatus(ctx, calc.Key())
+				Expect(ok).To(BeFalse())
+
+				By("Skipping an error that repeats the stored error")
+				report(status.VariantError, 2)
+				report(status.VariantError, 3)
+				Expect(storedTime()).To(Equal(telem.TimeStamp(2)))
+
+				By("Writing a success over the stored error once")
+				report(status.VariantSuccess, 4)
+				report(status.VariantSuccess, 5)
+				Expect(storedTime()).To(Equal(telem.TimeStamp(4)))
+			},
+		)
+
+		It(
 			"Should drop a report for a channel it holds as invalid",
 			func(ctx SpecContext) {
 				g := openGraph(ctx)

@@ -154,15 +154,19 @@ func (g *Graph) RejectDefinition(
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	g.mu.rejected.Add(key)
-	return g.setStatus(ctx, key, stat)
+	return g.db.WithTx(ctx, func(tx gorp.Tx) error {
+		return g.writeStatus(ctx, tx, key, stat)
+	})
 }
 
 // SetRuntimeStatus persists a status reported by the calculation runtime for the
-// channel with the given key. Routing runtime reports through the Graph keeps a single
-// writer on the status record, so a report and a validity clear apply in submission
-// order. A report for a channel deleted in the meantime is dropped, and so is a report
-// for a channel the Graph holds as invalid or rejected: that record describes the
-// channel definition.
+// channel with the given key when the report changes the stored status. A success
+// changes only a stored error. Any other report changes a stored status with a
+// different variant, message, or description. Routing runtime reports through the Graph
+// keeps a single writer on the status record, so a report and a validity clear apply in
+// submission order. The Graph drops a report for a deleted channel, and a report for a
+// channel it holds as invalid or rejected: that record describes the channel
+// definition.
 func (g *Graph) SetRuntimeStatus(
 	ctx context.Context,
 	key channel.Key,
@@ -173,30 +177,76 @@ func (g *Graph) SetRuntimeStatus(
 	if nd, ok := g.mu.nodes[key]; (ok && nd.invalid) || g.mu.rejected.Contains(key) {
 		return nil
 	}
-	return g.setStatus(ctx, key, stat)
-}
-
-func (g *Graph) setStatus(
-	ctx context.Context,
-	key channel.Key,
-	stat *calculation.Status,
-) error {
 	return g.db.WithTx(ctx, func(tx gorp.Tx) error {
-		exists, err := g.svc.NewRetrieve().
-			Where(channel.MatchKeys(key)).
-			Exists(ctx, tx)
+		stored, found, err := g.retrieveStatus(ctx, tx, key)
 		if err != nil {
 			return err
 		}
-		if !exists {
-			g.L.Debug("dropping runtime status for a deleted channel",
-				zap.Stringer("channel", key),
-			)
+		if !changes(stored, found, stat) {
 			return nil
 		}
-		stat.Key = calculation.StatusKey(key)
-		return g.status.NewWriter(tx).Set(ctx, stat)
+		if stat.Variant == status.VariantError {
+			g.L.Warn(stat.String())
+		} else {
+			g.L.Info(stat.String())
+		}
+		return g.writeStatus(ctx, tx, key, stat)
 	})
+}
+
+func changes(stored calculation.Status, found bool, next *calculation.Status) bool {
+	if next.Variant == status.VariantSuccess {
+		return found && stored.Variant == status.VariantError
+	}
+	return !found || stored.Variant != next.Variant ||
+		stored.Message != next.Message || stored.Description != next.Description
+}
+
+// Failed returns true when the stored status of the channel with the given key is an
+// error.
+func (g *Graph) Failed(ctx context.Context, key channel.Key) (bool, error) {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+	stored, found, err := g.retrieveStatus(ctx, nil, key)
+	return found && stored.Variant == status.VariantError, err
+}
+
+func (g *Graph) retrieveStatus(
+	ctx context.Context,
+	tx gorp.Tx,
+	key channel.Key,
+) (calculation.Status, bool, error) {
+	var stored calculation.Status
+	err := g.status.NewRetrieve[struct{}]().
+		Where(status.MatchKeys[struct{}](calculation.StatusKey(key))).
+		Entry(&stored).
+		Exec(ctx, tx)
+	if errors.Is(err, query.ErrNotFound) {
+		return stored, false, nil
+	}
+	return stored, err == nil, err
+}
+
+func (g *Graph) writeStatus(
+	ctx context.Context,
+	tx gorp.Tx,
+	key channel.Key,
+	stat *calculation.Status,
+) error {
+	exists, err := g.svc.NewRetrieve().
+		Where(channel.MatchKeys(key)).
+		Exists(ctx, tx)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		g.L.Debug("dropping runtime status for a deleted channel",
+			zap.Stringer("channel", key),
+		)
+		return nil
+	}
+	stat.Key = calculation.StatusKey(key)
+	return g.status.NewWriter(tx).Set(ctx, stat)
 }
 
 // ClearRuntimeStatus replaces the stored status of the channel with the given key with

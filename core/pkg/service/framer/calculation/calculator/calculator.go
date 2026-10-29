@@ -303,7 +303,7 @@ func (c *Calculator) Next(
 	c.state.channel.ClearReads()
 	if err := c.err; err != nil {
 		c.err = nil
-		return output, false, err
+		return framer.Frame{}, false, err
 	}
 	if !changed {
 		return output, false, nil

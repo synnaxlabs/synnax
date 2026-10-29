@@ -17,6 +17,7 @@
 
 #include "client/cpp/status/status.h"
 #include "client/cpp/testutil/testutil.h"
+#include "x/cpp/defer/defer.h"
 #include "x/cpp/testutil/testutil.h"
 #include "x/cpp/uuid/uuid.h"
 
@@ -1497,13 +1498,14 @@ TEST_F(TaskManagerTest, RetrievesInitialControlStateOnStart) {
 
 using SynnaxContextTest = TaskManagerTest;
 
-/// @brief a status set transport that holds each write of one status key until
-/// released, and echoes every write.
+/// @brief a status set transport that holds each write that starts with one status key
+/// until released, and echoes every write.
 class HoldingSetClient final : public synnax::status::SetClient {
     const std::string held_key;
     std::mutex mu;
     std::condition_variable cv;
     bool released = false;
+    std::vector<std::vector<std::string>> requests;
 
 public:
     std::atomic<bool> holding = false;
@@ -1514,14 +1516,23 @@ public:
 
     std::pair<grpc::status::SetResponse, x::errors::Error>
     send(const std::string &, grpc::status::SetRequest &req) override {
-        if (req.statuses(0).key() == this->held_key) {
-            std::unique_lock lock{this->mu};
+        std::unique_lock lock{this->mu};
+        auto &keys = this->requests.emplace_back();
+        for (const auto &status: req.statuses())
+            keys.push_back(status.key());
+        if (keys.front() == this->held_key) {
             this->holding = true;
             this->cv.wait(lock, [this] { return this->released; });
         }
         grpc::status::SetResponse res;
         *res.mutable_statuses() = req.statuses();
         return {res, x::errors::NIL};
+    }
+
+    /// @brief returns the status keys of each request, in order.
+    std::vector<std::vector<std::string>> sent() {
+        std::lock_guard lock{this->mu};
+        return this->requests;
     }
 
     void release() {
@@ -1533,8 +1544,8 @@ public:
     }
 };
 
-/// @brief it should write the status of a task while the write of another task's
-/// status hangs.
+/// @brief it should write the status of a task while the write of another task's status
+/// hangs.
 TEST_F(SynnaxContextTest, WriteDoesNotWaitOnAnotherTask) {
     const auto held = synnax::task::Task{.key = x::uuid::create(), .name = "held"};
     const auto free = synnax::task::Task{.key = x::uuid::create(), .name = "free"};
@@ -1549,21 +1560,59 @@ TEST_F(SynnaxContextTest, WriteDoesNotWaitOnAnotherTask) {
         .variant = synnax::status::VARIANT_SUCCESS,
         .details = {.task = held.key},
     };
-    std::thread hung([&] { ctx->set_status(held_status); });
-    ASSERT_EVENTUALLY_TRUE(transport->holding.load());
     synnax::task::Status free_status{
         .key = synnax::task::status_key(free),
         .variant = synnax::status::VARIANT_SUCCESS,
         .details = {.task = free.key},
     };
-    auto written = std::async(std::launch::async, [&] {
-        ctx->set_status(free_status);
+    // Declared before the guard, so the guard releases the hung write before the future
+    // waits for its task.
+    std::future<void> written;
+    std::thread hung([&] { ctx->set_status(held_status); });
+    x::defer::defer release([&] {
+        transport->release();
+        hung.join();
     });
-    const auto status = written.wait_for(std::chrono::seconds(2));
-    transport->release();
-    hung.join();
-    written.wait();
-    ASSERT_EQ(status, std::future_status::ready);
+    ASSERT_EVENTUALLY_TRUE(transport->holding.load());
+    written = std::async(std::launch::async, [&] { ctx->set_status(free_status); });
+    ASSERT_EQ(written.wait_for(std::chrono::seconds(2)), std::future_status::ready);
+}
+
+/// @brief it should skip a task that is writing its own status when it sends statuses
+/// again, and send the others without waiting for that write.
+TEST_F(SynnaxContextTest, ResendSkipsTaskThatIsWriting) {
+    const auto held = synnax::task::Task{.key = x::uuid::create(), .name = "held"};
+    const auto free = synnax::task::Task{.key = x::uuid::create(), .name = "free"};
+    const auto transport = std::make_shared<HoldingSetClient>(
+        synnax::task::status_key(held)
+    );
+    const auto sy = std::make_shared<synnax::Synnax>(new_test_client());
+    sy->statuses = synnax::status::Client(nullptr, transport, nullptr, nullptr);
+    const auto ctx = std::make_shared<SynnaxContext>(sy, nullptr, nullptr, rack.key);
+    synnax::task::Status free_status{
+        .key = synnax::task::status_key(free),
+        .variant = synnax::status::VARIANT_SUCCESS,
+        .details = {.task = free.key},
+    };
+    ctx->set_status(free_status);
+    synnax::task::Status held_status{
+        .key = synnax::task::status_key(held),
+        .variant = synnax::status::VARIANT_SUCCESS,
+        .details = {.task = held.key},
+    };
+    // Declared before the guard, so the guard releases the hung write before the future
+    // waits for the re-send.
+    std::future<x::errors::Error> resent;
+    std::thread hung([&] { ctx->set_status(held_status); });
+    x::defer::defer release([&] {
+        transport->release();
+        hung.join();
+    });
+    ASSERT_EVENTUALLY_TRUE(transport->holding.load());
+    resent = std::async(std::launch::async, [&] { return ctx->resend_statuses(); });
+    ASSERT_EQ(resent.wait_for(std::chrono::seconds(2)), std::future_status::ready);
+    ASSERT_NIL(resent.get());
+    EXPECT_EQ(transport->sent().back(), std::vector{synnax::task::status_key(free)});
 }
 
 /// @brief it should send the latest status of each task again, with no command key.
@@ -1605,7 +1654,7 @@ TEST_F(SynnaxContextTest, ResendsLatestStatuses) {
     ctx->set_status(error);
 
     const auto since = x::telem::TimeStamp::now();
-    ctx->resend_statuses();
+    ASSERT_NIL(ctx->resend_statuses());
     auto statuses = read_statuses_since(since, [](const auto &s) {
         return s.size() == 2;
     });
@@ -1652,7 +1701,7 @@ TEST_F(TaskManagerTest, DeleteDropsStatusFromResend) {
     std::this_thread::sleep_for((200 * x::telem::MILLISECOND).chrono());
 
     const auto since = x::telem::TimeStamp::now();
-    f->captured_ctx->resend_statuses();
+    ASSERT_NIL(f->captured_ctx->resend_statuses());
     const auto statuses = read_statuses_since(since, [&](const auto &s) {
         return s.contains(kept.key);
     });
