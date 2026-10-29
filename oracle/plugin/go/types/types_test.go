@@ -1395,6 +1395,32 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 			`
 				}
 
+				It(
+					"Should declare an inline variant's inherited fields",
+					func(ctx SpecContext) {
+						source := `
+						@go output "core/pkg/service/auth"
+						
+
+						Record struct {
+							key  uint32
+							name string
+							@go omit
+						}
+
+						Chan union on type {
+							ai extends Record {
+								rate float64
+							}
+						}
+					`
+						resp := MustGenerate(ctx, source, "auth", loader, goPlugin)
+						ExpectContent(resp, "types.gen.go").
+							ToContain("Key uint32", "Name string", "Rate float64").
+							ToNotContain("Record")
+					},
+				)
+
 				It("Should declare the inherited fields", func(ctx SpecContext) {
 					resp := MustGenerate(
 						ctx,

@@ -169,6 +169,32 @@ var _ = Describe("Python Types Plugin", func() {
 			`
 			}
 
+			It(
+				"Should declare an inline variant's inherited fields",
+				func(ctx SpecContext) {
+					source := `
+					@go output "core/pkg/service/auth"
+					@py output "out"
+
+					Record struct {
+						key  uint32
+						name string
+						@py omit
+					}
+
+					Chan union on type {
+						ai extends Record {
+							rate float64
+						}
+					}
+				`
+					resp := MustGenerate(ctx, source, "auth", loader, typesPlugin)
+					ExpectContent(resp, "types_gen.py").
+						ToContain("key: int", "name: str", "rate: float").
+						ToNotContain("Record")
+				},
+			)
+
 			It("Should declare the inherited fields", func(ctx SpecContext) {
 				resp := MustGenerate(
 					ctx,

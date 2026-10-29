@@ -911,6 +911,35 @@ var _ = Describe("C++ JSON Plugin", func() {
 		})
 
 		Context("parent omitted in C++", func() {
+			It("Should serialize an inline variant's inherited fields", func(
+				ctx SpecContext,
+			) {
+				source := `
+					@go output "core/pkg/service/auth"
+					@cpp output "client/cpp/auth"
+
+					Base struct {
+						port string
+					}
+
+					Record struct {
+						key  uint32
+						name string
+						@cpp omit
+					}
+
+					Chan union on type extends Base {
+						ai extends Record {
+							rate float64
+						}
+					}
+				`
+				resp := MustGenerate(ctx, source, "auth", loader, jsonPlugin)
+				ExpectContent(resp, "auth/json.gen.h").
+					ToContain(`"key"`, `"name"`, `"rate"`).
+					ToNotContain("Record")
+			})
+
 			It("Should serialize the inherited fields", func(ctx SpecContext) {
 				source := `
 					@go output "core/pkg/service/auth"

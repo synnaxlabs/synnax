@@ -403,8 +403,34 @@ var _ = Describe("Inheritance", func() {
 					}
 				}
 			`, "Chan", "builtin")
-			inherited, declared := resolver.VariantBases(form, v, table)
+			inherited, declared := resolver.VariantBases(form, v, "go", table)
 			Expect(inherited).To(HaveLen(2))
+			Expect(declared).To(BeEmpty())
+		})
+
+		It("Should declare the fields of a base absent from the language", func(
+			ctx SpecContext,
+		) {
+			form, v, table := analyzeUnion(ctx, `
+				@go output "pkg/test"
+				@cpp output "cpp/test"
+
+				Base struct {
+					port string = ""
+					@cpp omit
+				}
+
+				Chan union on type {
+					builtin extends Base {
+						units string = "c"
+					}
+				}
+			`, "Chan", "builtin")
+			inherited, declared := resolver.VariantBases(form, v, "cpp", table)
+			Expect(inherited).To(BeEmpty())
+			Expect(fieldNames(declared)).To(Equal([]string{"port"}))
+			inherited, declared = resolver.VariantBases(form, v, "go", table)
+			Expect(inherited).To(HaveLen(1))
 			Expect(declared).To(BeEmpty())
 		})
 
@@ -430,7 +456,7 @@ var _ = Describe("Inheritance", func() {
 					}
 				}
 			`, "Chan", "builtin")
-			inherited, declared := resolver.VariantBases(form, v, table)
+			inherited, declared := resolver.VariantBases(form, v, "go", table)
 			Expect(inherited).To(HaveLen(1))
 			Expect(inherited[0].Name).To(Equal("test.Extra"))
 			Expect(fieldNames(declared)).To(Equal([]string{"name"}))
@@ -458,7 +484,7 @@ var _ = Describe("Inheritance", func() {
 					}
 				}
 			`, "Chan", "builtin")
-				inherited, declared := resolver.VariantBases(form, v, table)
+				inherited, declared := resolver.VariantBases(form, v, "go", table)
 				Expect(inherited).To(BeEmpty())
 				Expect(fieldNames(declared)).To(Equal([]string{"name"}))
 			},
@@ -487,7 +513,7 @@ var _ = Describe("Inheritance", func() {
 					}
 				}
 			`, "Chan", "builtin")
-			inherited, declared := resolver.VariantBases(form, v, table)
+			inherited, declared := resolver.VariantBases(form, v, "go", table)
 			Expect(inherited).To(HaveLen(1))
 			Expect(fieldNames(declared)).ToNot(ContainElement("name"))
 		})
@@ -510,7 +536,7 @@ var _ = Describe("Inheritance", func() {
 					}
 				}
 			`, "Chan", "builtin")
-			inherited, declared := resolver.VariantBases(form, v, table)
+			inherited, declared := resolver.VariantBases(form, v, "go", table)
 			Expect(inherited).To(BeEmpty())
 			Expect(fieldNames(declared)).ToNot(ContainElement("name"))
 		})

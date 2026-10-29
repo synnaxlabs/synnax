@@ -190,6 +190,32 @@ var _ = Describe("TS Types Plugin", func() {
 			`
 			}
 
+			It(
+				"Should declare an inline variant's inherited fields",
+				func(ctx SpecContext) {
+					source := `
+					@go output "core/pkg/service/auth"
+					@ts output "out"
+
+					Record struct {
+						key  uint32
+						name string
+						@ts omit
+					}
+
+					Chan union on type {
+						ai extends Record {
+							rate float64
+						}
+					}
+				`
+					resp := MustGenerate(ctx, source, "auth", loader, typesPlugin)
+					ExpectContent(resp, "types.gen.ts").
+						ToContain("key: z.uint32()", "name: z.string()", "rate: z.number()").
+						ToNotContain("Record")
+				},
+			)
+
 			It("Should declare the inherited fields", func(ctx SpecContext) {
 				resp := MustGenerate(
 					ctx,

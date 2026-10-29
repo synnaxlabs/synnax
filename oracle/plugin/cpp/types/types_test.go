@@ -492,6 +492,41 @@ var _ = Describe("C++ Types Plugin", func() {
 			`
 			}
 
+			It(
+				"Should declare an inline variant's inherited fields",
+				func(ctx SpecContext) {
+					source := `
+					@go output "core/pkg/service/auth"
+					@cpp output "client/cpp/auth"
+
+					Base struct {
+						port string
+					}
+
+					Record struct {
+						key  uint32
+						name string
+						@cpp omit
+					}
+
+					Chan union on type extends Base {
+						ai extends Record {
+							rate float64
+						}
+					}
+				`
+					resp := MustGenerate(ctx, source, "auth", loader, cppPlugin)
+					ExpectContent(resp, "types.gen.h").
+						ToContain(
+							"struct AIChan : public Base {",
+							"std::uint32_t key",
+							"std::string name",
+							"double rate",
+						).
+						ToNotContain("Record")
+				},
+			)
+
 			It("Should declare the inherited fields", func(ctx SpecContext) {
 				resp := MustGenerate(
 					ctx, schema("@cpp omit", "rate float64"), "auth", loader, cppPlugin,

@@ -149,16 +149,17 @@ func CanUseInheritance(
 	return true
 }
 
-// VariantBases splits the types a union variant would inherit, its union's bases
-// followed by its own, into the ones it still inherits and the fields it must
-// declare itself. A base whose field the variant drops with `-name` cannot be
-// inherited, because no target language can remove a member from an inherited type,
-// so that base's remaining fields are returned for the variant to declare. A name an
-// inherited base or the variant itself already supplies wins over the flattened base's
-// copy, which is dropped.
+// VariantBases splits the types a union variant would inherit in lang, its union's
+// bases followed by its own, into the ones it still inherits and the fields it must
+// declare itself. A base absent from lang, or whose field the variant drops with
+// `-name`, cannot be inherited, because no target language can remove a member from an
+// inherited type, so that base's remaining fields are returned for the variant to
+// declare. A name an inherited base or the variant itself already supplies wins over
+// the flattened base's copy, which is dropped.
 func VariantBases(
 	form resolution.UnionForm,
 	v resolution.UnionVariant,
+	lang string,
 	table *resolution.Table,
 ) (inherited []resolution.TypeRef, declared []resolution.Field) {
 	payload, ok := v.Type.Resolve(table)
@@ -170,7 +171,7 @@ func VariantBases(
 		return form.Extends, nil
 	}
 	bases := append(slices.Clone(form.Extends), pform.Extends...)
-	if len(pform.OmittedFields) == 0 {
+	if len(pform.OmittedFields) == 0 && ParentsExist(bases, lang, table) {
 		return bases, nil
 	}
 	drop := set.New(pform.OmittedFields...)
@@ -188,9 +189,10 @@ func VariantBases(
 			continue
 		}
 		fields := resolution.UnifiedFields(base, table)
-		if lo.SomeBy(fields, func(f resolution.Field) bool {
-			return drop.Contains(f.Name)
-		}) {
+		if !ParentsExist([]resolution.TypeRef{ref}, lang, table) ||
+			lo.SomeBy(fields, func(f resolution.Field) bool {
+				return drop.Contains(f.Name)
+			}) {
 			flattened = append(flattened, fields)
 			continue
 		}
