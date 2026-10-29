@@ -31,7 +31,7 @@ describe("consent", () => {
     expect(await from().text()).toBe("ask");
   });
 
-  it("should forbid any cache to share the answer", () => {
-    expect(from("US").headers.get("Cache-Control")).toBe("private, no-store");
+  it("should let only the visitor's browser keep the answer, for a day", () => {
+    expect(from("US").headers.get("Cache-Control")).toBe("private, max-age=86400");
   });
 });
