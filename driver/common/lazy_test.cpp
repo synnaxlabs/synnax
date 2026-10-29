@@ -47,8 +47,9 @@ TEST(LazyTest, ConcurrentCallersShareOneLoad) {
     });
     std::vector<std::shared_ptr<int>> values(8);
     std::vector<std::thread> threads;
-    for (size_t i = 0; i < values.size(); i++)
-        threads.emplace_back([&lazy, &values, i] { values[i] = lazy.get().first; });
+    threads.reserve(values.size());
+    for (auto &value: values)
+        threads.emplace_back([&lazy, &value] { value = lazy.get().first; });
     for (auto &t: threads)
         t.join();
     EXPECT_EQ(loads.load(), 1);
