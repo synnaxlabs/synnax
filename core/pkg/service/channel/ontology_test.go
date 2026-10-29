@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -27,9 +28,9 @@ import (
 var _ = Describe("Ontology Helpers", func() {
 	Describe("OntologyID", func() {
 		It("Should return the ontology ID for the channel key", func() {
-			Expect(channel.OntologyID(channel.NewKey(1, 2))).To(Equal(ontology.ID{
+			Expect(channel.OntologyID(distchannel.NewKey(1, 2))).To(Equal(ontology.ID{
 				Type: "channel",
-				Key:  channel.NewKey(1, 2).String(),
+				Key:  distchannel.NewKey(1, 2).String(),
 			}))
 		})
 	})
@@ -54,7 +55,7 @@ var _ = Describe("Ontology Helpers", func() {
 	})
 	Describe("OntologyIDsFromKeys", func() {
 		It("Should return the ontology ID for each key", func() {
-			keys := channel.Keys{channel.NewKey(1, 2), channel.NewKey(3, 4)}
+			keys := channel.Keys{distchannel.NewKey(1, 2), distchannel.NewKey(3, 4)}
 			Expect(channel.OntologyIDsFromKeys(keys)).To(Equal([]ontology.ID{
 				channel.OntologyID(keys[0]),
 				channel.OntologyID(keys[1]),

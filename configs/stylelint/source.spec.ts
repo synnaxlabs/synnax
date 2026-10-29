@@ -44,11 +44,11 @@ describe("read", () => {
         `,
       });
       for (const cls of [
-        "pluto-btn",
-        "pluto-btn__icon",
-        "pluto-btn--outlined",
-        "pluto-btn__icon--large",
-        "pluto--small",
+        "lyra-btn",
+        "lyra-btn__icon",
+        "lyra-btn--outlined",
+        "lyra-btn__icon--large",
+        "lyra--small",
       ])
         expect(owners(cls)).toEqual(["lyra"]);
     });
@@ -61,20 +61,48 @@ describe("read", () => {
         `,
       });
       expect(owners("console-nav")).toEqual(["console"]);
-      expect(owners("pluto-nav")).toEqual([]);
+      expect(owners("lyra-nav")).toEqual([]);
+    });
+
+    it("should use the pluto prefix for the helpers Pluto defines", () => {
+      write({
+        "pluto/src/mosaic/Mosaic.tsx": `
+          import { CSS } from "@/css";
+          CSS.B("mosaic");
+        `,
+      });
+      expect(owners("pluto-mosaic")).toEqual(["pluto"]);
+      expect(owners("lyra-mosaic")).toEqual([]);
     });
 
     it("should model the bare helpers of a file that calls newBEM", () => {
       write({
         "lyra/src/css/css.ts": `
-          const PREFIX = "pluto";
+          const PREFIX = "lyra";
           export const { M } = newBEM(PREFIX);
           export const visible = (v: boolean) => M(v ? "visible" : "hidden");
         `,
       });
-      expect(owners("pluto--visible")).toEqual(["lyra"]);
-      expect(owners("pluto--hidden")).toEqual(["lyra"]);
-      expect(owners("pluto--shown")).toEqual([]);
+      expect(owners("lyra--visible")).toEqual(["lyra"]);
+      expect(owners("lyra--hidden")).toEqual(["lyra"]);
+      expect(owners("lyra--shown")).toEqual([]);
+    });
+
+    it("should credit a package with the classes of the helpers it calls", () => {
+      write({
+        "lyra/src/css/css.ts": `
+          const PREFIX = "lyra";
+          export const { M } = newBEM(PREFIX);
+          export const selected = (s: boolean) => s && M("selected");
+          export const editable = (e: boolean) => e && M("editable");
+        `,
+        "pluto/src/tree/Tree.tsx": `
+          import { CSS } from "@/css";
+          CSS.selected(true);
+        `,
+      });
+      expect(owners("lyra--selected")).toEqual(["lyra", "pluto"]);
+      expect(owners("lyra--editable")).toEqual(["lyra"]);
     });
 
     it("should fill a dynamic part with a string literal from any package", () => {
@@ -82,13 +110,13 @@ describe("read", () => {
         "lyra/src/button/Button.tsx": `CSS.BM("btn", variant);`,
         "console/src/Toolbar.tsx": `const variant = "filled";`,
       });
-      expect(owners("pluto-btn--filled")).toEqual(["lyra"]);
-      expect(owners("pluto-btn--filed")).toEqual([]);
+      expect(owners("lyra-btn--filled")).toEqual(["lyra"]);
+      expect(owners("lyra-btn--filed")).toEqual([]);
     });
 
     it("should fill a dynamic part with a number", () => {
       write({ "lyra/src/flex/Box.tsx": `CSS.M("bg", background.toString());` });
-      expect(owners("pluto--bg-10")).toEqual(["lyra"]);
+      expect(owners("lyra--bg-10")).toEqual(["lyra"]);
     });
 
     it("should read class names written as literals", () => {
@@ -98,9 +126,9 @@ describe("read", () => {
 
     it("should read a literal that ends in a separator as a family", () => {
       write({
-        "lyra/src/theming/Provider.tsx": `const CLASS_PREFIX = "pluto-theme-";`,
+        "lyra/src/theming/Provider.tsx": `const CLASS_PREFIX = "lyra-theme-";`,
       });
-      expect(owners("pluto-theme-synnax-dark")).toEqual(["lyra"]);
+      expect(owners("lyra-theme-synnax-dark")).toEqual(["lyra"]);
     });
 
     it("should not count a selector that reads a class", () => {
@@ -112,10 +140,10 @@ describe("read", () => {
 
     it("should not count classes that a style block or a spec names", () => {
       write({
-        "site/docs/src/Page.astro": `<div /><style>.pluto-btn { color: red; }</style>`,
-        "lyra/src/button/Button.spec.tsx": `expect(el.className).toContain("pluto-btn");`,
+        "site/docs/src/Page.astro": `<div /><style>.lyra-btn { color: red; }</style>`,
+        "lyra/src/button/Button.spec.tsx": `expect(el.className).toContain("lyra-btn");`,
       });
-      expect(owners("pluto-btn")).toEqual([]);
+      expect(owners("lyra-btn")).toEqual([]);
     });
   });
 
@@ -131,7 +159,7 @@ describe("read", () => {
       expect(source.defined("--pluto-gray-l9")).toBe(false);
     });
 
-    it("should read properties that code sets", () => {
+    it("should give the properties that code sets the pluto prefix", () => {
       write({
         "lyra/src/a.tsx": `
           import { CSS } from "@/css";
