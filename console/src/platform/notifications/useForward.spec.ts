@@ -273,6 +273,29 @@ describe("Notifications.useForward", () => {
       expect(keysOf(result.current)).not.toContain(key);
     });
 
+    it("should notify a held warning when an older check ends last", async () => {
+      vi.useFakeTimers({
+        toFake: ["setTimeout", "clearTimeout"],
+        shouldAdvanceTime: true,
+      });
+      const key = createTaskKey();
+      const resolvers: Array<(inUse: boolean) => void> = [];
+      const { rule, change } = createControlled(createPendingInUse(key, resolvers));
+      await renderForward(client, { task: { ...rule, warningsDelayed: true } });
+      const [warning] = await write({ key, variant: "warning" });
+      await vi.waitFor(() => expect(resolvers).toHaveLength(1));
+      act(() => resolvers[0](true));
+      change();
+      await vi.waitFor(() => expect(resolvers).toHaveLength(2));
+      change();
+      await vi.waitFor(() => expect(resolvers).toHaveLength(3));
+      act(() => resolvers[2](true));
+      act(() => resolvers[1](false));
+      await settleWrites(client);
+      act(() => void vi.advanceTimersByTime(TimeSpan.seconds(5).milliseconds));
+      expect(screen.getByText(warning.message)).toBeTruthy();
+    });
+
     it("should drop a problem whose thing leaves use", async () => {
       const key = createTaskKey();
       const used = new Set([key]);

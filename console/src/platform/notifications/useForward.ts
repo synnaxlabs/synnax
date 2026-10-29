@@ -196,8 +196,10 @@ const createForwarder = ({
         if (problems.get(stat.key) !== problem) return;
         const wasListed = listed(problem);
         if (checks === 1) problem.usedAtStart = inUse;
-        if (checks === problem.checks) problem.inUse = inUse;
-        if (!inUse) problem.decision = "hidden";
+        if (checks === problem.checks) {
+          problem.inUse = inUse;
+          if (!inUse) problem.decision = "hidden";
+        }
         show(problem);
         if (listed(problem) !== wasListed) publish();
       },
