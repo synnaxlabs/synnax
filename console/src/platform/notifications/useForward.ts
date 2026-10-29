@@ -10,7 +10,7 @@
 import { ontology, type status, type Synnax as Client } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Synnax } from "@synnaxlabs/pluto";
-import { TimeSpan } from "@synnaxlabs/x";
+import { destructor, TimeSpan } from "@synnaxlabs/x";
 import { useEffect } from "react";
 
 import { type Problem, useSetProblems } from "@/platform/notifications/Provider";
@@ -34,10 +34,18 @@ export interface Rule {
   /** @returns the kind of a status on one of the feature's keys. */
   kind: (status: status.Status) => Kind;
   /**
-   * @returns whether the thing that a state is about is in use. Runs only when a new
-   * problem starts on the key. Leave it out when the thing is always in use.
+   * @returns whether the thing that a state is about is in use. Runs when a new problem
+   * starts on the key and on each change from {@link onUseChange}. Leave it out when
+   * the thing is always in use.
    */
   inUse?: (args: InUseArgs) => Promise<boolean>;
+  /**
+   * Calls the handler on each change that can change whether a thing is in use, such
+   * as a device that becomes configured. A problem that starts while its thing is not
+   * in use never notifies, but it joins the open problems when its thing is in use.
+   * @returns a destructor that stops the calls.
+   */
+  onUseChange?: (client: Client, handler: () => void) => destructor.Destructor;
   /** Whether a warning notifies only if its problem is still open after 5 s. */
   warningsDelayed?: boolean;
   /**
@@ -82,7 +90,9 @@ interface Entry {
   /** Whether the latest write on the key is bad. */
   open: boolean;
   decision: "waiting" | "shown" | "hidden";
-  /** Undefined until the check resolves. */
+  /** Whether the thing was in use when the problem started, by the first check. */
+  usedAtStart?: boolean;
+  /** Whether the thing is in use by the latest check. Undefined until a check ends. */
   inUse?: boolean;
   /** True while a warning waits out the delay of its rule. */
   delayed: boolean;
@@ -90,6 +100,8 @@ interface Entry {
   superseded: boolean;
   timer?: ReturnType<typeof setTimeout>;
   count: number;
+  /** Counts the use checks, since checks can end out of order. */
+  checks: number;
 }
 
 interface ForwarderArgs {
@@ -107,6 +119,11 @@ interface Forwarder {
   remove: (key: status.Key) => void;
   /** Takes the problems that are open at load as seen, then handles held events. */
   load: (open: status.Status[]) => void;
+  /**
+   * Checks again if the thing of each problem that the rule checked is in use. Calls
+   * before the next microtask share one check, since one fetch can set many things.
+   */
+  recheck: (rule: Rule) => void;
   stop: () => void;
 }
 
@@ -147,8 +164,9 @@ const createForwarder = ({
     add({ ...stat, problem: identity });
 
   const show = (problem: Entry): void => {
-    const { decision, superseded, open, inUse } = problem;
-    if (decision !== "waiting" || superseded || !open || inUse !== true) return;
+    const { decision, superseded, open, usedAtStart, inUse } = problem;
+    if (decision !== "waiting" || superseded || !open) return;
+    if (usedAtStart !== true || inUse !== true) return;
     if (problem.delayed && problem.status.variant === "warning") return;
     clearTimeout(problem.timer);
     problem.decision = covered(problem) ? "hidden" : "shown";
@@ -166,18 +184,22 @@ const createForwarder = ({
 
   const check = (problem: Entry, { rule, key }: Owner): void => {
     if (rule.inUse == null) {
+      problem.usedAtStart = true;
       problem.inUse = true;
       show(problem);
       return;
     }
     const { status: stat } = problem;
+    const checks = ++problem.checks;
     void rule.inUse({ client, key, status: stat }).then(
       (inUse) => {
         if (problems.get(stat.key) !== problem) return;
-        problem.inUse = inUse;
+        const wasListed = listed(problem);
+        if (checks === 1) problem.usedAtStart = inUse;
+        if (checks === problem.checks) problem.inUse = inUse;
         if (!inUse) problem.decision = "hidden";
         show(problem);
-        if (listed(problem)) publish();
+        if (listed(problem) !== wasListed) publish();
       },
       (exc: unknown) =>
         handleError(exc, { message: "Failed to show status", name: stat.name }),
@@ -195,6 +217,7 @@ const createForwarder = ({
       delayed: false,
       superseded: false,
       count: 1,
+      checks: 0,
     };
     problems.set(stat.key, problem);
     return problem;
@@ -301,13 +324,26 @@ const createForwarder = ({
     events.forEach((event) => event());
   };
 
+  const rechecking = new Set<Rule>();
+  const recheck = (rule: Rule): void => {
+    if (rechecking.has(rule)) return;
+    rechecking.add(rule);
+    queueMicrotask(() => {
+      rechecking.delete(rule);
+      problems.forEach((problem, key) => {
+        const owner = getOwner(rules, key);
+        if (owner?.rule === rule && problem.checks > 0) check(problem, owner);
+      });
+    });
+  };
+
   const stop = (): void => {
     stopped = true;
     problems.forEach(({ timer }) => clearTimeout(timer));
     problems.clear();
   };
 
-  return { write, remove, load, stop };
+  return { write, remove, load, recheck, stop };
 };
 
 /**
@@ -331,6 +367,9 @@ export const useForward = (rules: Rules): void => {
     const forwarder = createForwarder({ client, rules, add, handleError, setProblems });
     const removeWriteListener = client.statuses.onWrite(forwarder.write);
     const removeDeleteListener = client.statuses.onDelete(forwarder.remove);
+    const removeUseListeners = Object.values(rules).map((rule) =>
+      rule?.onUseChange?.(client, () => forwarder.recheck(rule)),
+    );
     client.statuses
       .retrieve({ variants: PROBLEM_VARIANTS })
       .then(forwarder.load, (exc: unknown) => {
@@ -338,8 +377,11 @@ export const useForward = (rules: Rules): void => {
         forwarder.load([]);
       });
     return () => {
-      removeWriteListener();
-      removeDeleteListener();
+      destructor.unwind(
+        removeWriteListener,
+        removeDeleteListener,
+        ...removeUseListeners,
+      );
       forwarder.stop();
       setProblems([]);
     };

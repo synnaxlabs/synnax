@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax as Client } from "@synnaxlabs/client";
+import { type rack, type Synnax as Client } from "@synnaxlabs/client";
 import { waitForStreamLive } from "@synnaxlabs/client/testutil";
 import { Status } from "@synnaxlabs/lyra/status";
 import { TimeStamp } from "@synnaxlabs/x";
@@ -52,6 +52,16 @@ export const settleWrites = async (client: Client): Promise<void> => {
     time: TimeStamp.now(),
   });
   await screen.findByText(message);
+};
+
+/**
+ * @returns the key of a rack that the Core no longer has. The Core writes problems of
+ * its own on the key of each rack that exists, but none on this key.
+ */
+export const createRackKey = async (client: Client): Promise<rack.Key> => {
+  const { key } = await client.racks.create({ name: uniqueName("rack") });
+  await client.racks.delete(key);
+  return key;
 };
 
 /** @returns the notification that shows the message. */

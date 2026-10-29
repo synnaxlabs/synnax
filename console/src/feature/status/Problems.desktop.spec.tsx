@@ -17,7 +17,7 @@ import { z } from "zod";
 import { Status } from "@/feature/status";
 import { Nav } from "@/platform/nav";
 import { Notifications } from "@/platform/notifications";
-import { renderForward } from "@/platform/notifications/testutil";
+import { createRackKey, renderForward } from "@/platform/notifications/testutil";
 import { createConsoleWrapper, uniqueName } from "@/testutil";
 
 const client = createTestClient();
@@ -39,8 +39,6 @@ const createRules = (mine: Set<status.Key>): Notifications.Rules => {
   };
   return { channel: rule, device: rule, rack: rule, task: rule };
 };
-
-const createRackKey = (): rack.Key => Math.floor(Math.random() * 2 ** 32);
 
 interface Problems {
   mine: Set<status.Key>;
@@ -163,7 +161,10 @@ describe("Status.TOOLBAR problems", () => {
 
   it("should list a problem under the open problem that covers it", async () => {
     const { mine, createTaskKey, createRackStatusKey } = createProblems();
-    const [down, up] = [createRackKey(), createRackKey()];
+    const [down, up] = await Promise.all([
+      createRackKey(client),
+      createRackKey(client),
+    ]);
     const [covered, uncovered] = [createTaskKey(), createTaskKey()];
     await renderProblems(mine);
     const rackMessage = await write(createRackStatusKey(down), "error");

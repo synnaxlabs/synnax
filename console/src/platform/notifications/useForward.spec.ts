@@ -16,6 +16,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { type Notifications } from "@/platform/notifications";
 import {
   close,
+  createRackKey,
   findNotification,
   renderForward,
   settleWrites,
@@ -25,8 +26,6 @@ import { uniqueName } from "@/testutil";
 const client = createTestClient();
 
 const createTaskKey = (): status.Key => task.statusKey(uuid.create());
-const createRackKey = (): status.Key =>
-  rack.statusKey(Math.floor(Math.random() * 2 ** 32));
 
 interface Written {
   key: status.Key;
@@ -200,6 +199,101 @@ describe("Notifications.useForward", () => {
     });
   });
 
+  describe("use changes", () => {
+    interface Controlled {
+      rule: Notifications.Rule;
+      /** Reports a change of use to the forwarder. */
+      change: () => void;
+    }
+
+    const createControlled = (inUse: Notifications.Rule["inUse"]): Controlled => {
+      let handler: (() => void) | undefined;
+      return {
+        rule: {
+          ...STATE,
+          inUse,
+          onUseChange: (_, h) => {
+            handler = h;
+            return () => (handler = undefined);
+          },
+        },
+        change: () => {
+          if (handler == null) throw new Error("the forwarder must listen for changes");
+          handler();
+        },
+      };
+    };
+
+    /** @returns a use check that ends by a resolver on the key, and false elsewhere. */
+    const createPendingInUse =
+      (
+        key: status.Key,
+        resolvers: Array<(inUse: boolean) => void>,
+      ): Notifications.Rule["inUse"] =>
+      async ({ key: k }) => {
+        if (task.statusKey(k) !== key) return false;
+        return await new Promise<boolean>((r) => resolvers.push(r));
+      };
+
+    it("should list, not notify, a problem whose thing comes into use", async () => {
+      const key = createTaskKey();
+      const resolvers: Array<(inUse: boolean) => void> = [];
+      const { rule, change } = createControlled(createPendingInUse(key, resolvers));
+      const { result } = await renderForward(client, { task: rule });
+      const [error] = await write({ key, variant: "error" });
+      await vi.waitFor(() => expect(resolvers).toHaveLength(1));
+      change();
+      change();
+      await vi.waitFor(() => expect(resolvers).toHaveLength(2));
+      // The first check ends last, but it still decides the notification.
+      act(() => resolvers[1](true));
+      act(() => resolvers[0](false));
+      await waitFor(() => expect(keysOf(result.current)).toContain(key));
+      await settleWrites(client);
+      expect(screen.queryByText(error.message)).toBeNull();
+    });
+
+    it("should keep only the result of the latest check", async () => {
+      const key = createTaskKey();
+      const resolvers: Array<(inUse: boolean) => void> = [];
+      const { rule, change } = createControlled(createPendingInUse(key, resolvers));
+      const { result } = await renderForward(client, { task: rule });
+      await write({ key, variant: "error" });
+      await vi.waitFor(() => expect(resolvers).toHaveLength(1));
+      act(() => resolvers[0](true));
+      await waitFor(() => expect(keysOf(result.current)).toContain(key));
+      change();
+      await vi.waitFor(() => expect(resolvers).toHaveLength(2));
+      change();
+      await vi.waitFor(() => expect(resolvers).toHaveLength(3));
+      act(() => resolvers[2](false));
+      await waitFor(() => expect(keysOf(result.current)).not.toContain(key));
+      act(() => resolvers[1](true));
+      await settleWrites(client);
+      expect(keysOf(result.current)).not.toContain(key);
+    });
+
+    it("should drop a problem whose thing leaves use", async () => {
+      const key = createTaskKey();
+      const used = new Set([key]);
+      const { rule, change } = createControlled(async ({ status: { key: k } }) =>
+        used.has(k),
+      );
+      // Rules for every type keep the problems of other specs out of the list.
+      const { result } = await renderForward(client, {
+        channel: rule,
+        device: rule,
+        rack: rule,
+        task: rule,
+      });
+      await write({ key, variant: "error" });
+      await waitFor(() => expect(keysOf(result.current)).toContain(key));
+      used.delete(key);
+      change();
+      await waitFor(() => expect(keysOf(result.current)).not.toContain(key));
+    });
+  });
+
   describe("problems", () => {
     it("should notify a problem once and count its later writes", async () => {
       await renderForward(client, { task: STATE });
@@ -273,7 +367,7 @@ describe("Notifications.useForward", () => {
 
   describe("cover", () => {
     it("should not notify a problem inside the covering problem", async () => {
-      const covering = createRackKey();
+      const covering = rack.statusKey(await createRackKey(client));
       await renderForward(client, {
         rack: STATE,
         task: { ...STATE, coveredBy: () => covering },
@@ -292,7 +386,7 @@ describe("Notifications.useForward", () => {
         toFake: ["setTimeout", "clearTimeout"],
         shouldAdvanceTime: true,
       });
-      const covering = createRackKey();
+      const covering = rack.statusKey(await createRackKey(client));
       await renderForward(client, {
         rack: STATE,
         task: { ...DELAYED, coveredBy: () => covering },
@@ -307,7 +401,7 @@ describe("Notifications.useForward", () => {
     });
 
     it("should notify a problem after the covering problem closes", async () => {
-      const covering = createRackKey();
+      const covering = rack.statusKey(await createRackKey(client));
       await renderForward(client, {
         rack: STATE,
         task: { ...STATE, coveredBy: () => covering },
