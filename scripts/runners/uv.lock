@@ -1992,7 +1992,7 @@ dev = [
 requires-dist = [
     { name = "boto3", specifier = ">=1.43,<2" },
     { name = "certifi", specifier = ">=2026.10.19,<2027" },
-    { name = "synnax", specifier = ">=0.59" },
+    { name = "synnax", specifier = ">=0.59,<0.60" },
 ]
 
 [package.metadata.requires-dev]

@@ -55,10 +55,18 @@ export type UseListReturn<
   K extends record.Key,
   E extends record.Keyed<K>,
 > = Omit<Result<K[]>, "data"> & {
+  /**
+   * Retrieves once the debounce ends. Query changes made while it waits apply in order,
+   * then one append runs after them. A second append made while one waits does nothing.
+   */
   retrieve: (
     query: state.SetArg<Query, Partial<Query>>,
     options?: AsyncListOptions,
   ) => void;
+  /**
+   * Retrieves now. An append waits for the newest replace to answer, and does nothing
+   * when that replace fails.
+   */
   retrieveAsync: (
     query: state.SetArg<Query, Partial<Query>>,
     options?: AsyncListOptions,
@@ -121,6 +129,27 @@ export interface UseList<
 
 const defaultFilter = () => true;
 const DEFAULT_RETRIEVE_DEBOUNCE = TimeSpan.milliseconds(100);
+
+/** A retrieve that waits for the debounce to end. */
+interface Retrieve<Query extends query.Params> {
+  query: state.SetArg<Query, Query | {}>;
+  options: AsyncListOptions;
+}
+
+/** The retrieves a list runs when its debounce ends: the replace, then the append. */
+interface PendingRetrieves<Query extends query.Params> {
+  replace?: Retrieve<Query>;
+  append?: Retrieve<Query>;
+}
+
+/** @returns a setter that applies first, then second. */
+const chainSetters =
+  <Query extends query.Params>(
+    first: state.SetArg<Query, Query | {}>,
+    second: state.SetArg<Query, Query | {}>,
+  ): state.SetFunc<Query, Query | {}> =>
+  (prev) =>
+    state.executeSetter(second, state.executeSetter(first, prev));
 
 /** One retrieved page: its query, answer keys, and live subscription. */
 interface Page<K extends record.Key> {
@@ -191,6 +220,9 @@ export const createList = <
       ),
     );
     const hasMoreRef = useRef(true);
+    const pendingRef = useRef<PendingRetrieves<Query> | null>(null);
+    /** The newest replace. It resolves to whether its answer reached the list. */
+    const latestReplaceRef = useInitializerRef(() => Promise.resolve(true));
 
     const recomputeKeys = () => {
       const seen = new Set<Key>();
@@ -322,10 +354,11 @@ export const createList = <
       pagesRef.current.push(page);
     };
 
-    const retrieveAsync = async (
+    /** @returns whether the answer reached the list. */
+    const retrievePage = async (
       paramsSetter: state.SetArg<Query, Query | {}>,
-      options: AsyncListOptions = {},
-    ) => {
+      options: AsyncListOptions,
+    ): Promise<boolean> => {
       const { signal, mode = "replace" } = options;
 
       const query = normalized(
@@ -334,22 +367,26 @@ export const createList = <
       queryRef.current = query;
 
       // The compiler rejects `?.`, `??`, and `?:` in a try, so the body is a closure.
-      const apply = async (): Promise<void> => {
-        if (client == null)
-          return setResult(nullClientResult<Key[]>(`retrieve ${name}`));
+      const apply = async (): Promise<boolean> => {
+        if (client == null) {
+          setResult(nullClientResult<Key[]>(`retrieve ${name}`));
+          return false;
+        }
         setResult((p) => loadingResult(`retrieving ${name}`, p.data));
 
         // If we're in replace mode, we're 'resetting' the infinite scroll position
         // of the query, so we start from the top again.
         if (mode === "replace") hasMoreRef.current = true;
-        else if (mode === "append" && !hasMoreRef.current)
-          return setResult((p) => successResult(`retrieved ${name}`, p.data ?? []));
+        else if (mode === "append" && !hasMoreRef.current) {
+          setResult((p) => successResult(`retrieved ${name}`, p.data ?? []));
+          return true;
+        }
 
         let value = await retrieve({
           client,
           query,
         });
-        if (signal?.aborted || queryRef.current !== query) return;
+        if (signal?.aborted || queryRef.current !== query) return false;
         value = value.filter(filterRef.current);
         if (sortRef.current != null) value = [...value].sort(sortRef.current);
 
@@ -369,16 +406,39 @@ export const createList = <
           resultRef.current.data != null &&
           compare.primitiveArrays(resultRef.current.data, keys) === compare.EQUAL
         )
-          return setResult((p) => successResult(`retrieved ${name}`, p.data ?? []));
-
-        return setResult(() => successResult(`retrieved ${name}`, recomputeKeys()));
+          setResult((p) => successResult(`retrieved ${name}`, p.data ?? []));
+        else setResult(() => successResult(`retrieved ${name}`, recomputeKeys()));
+        return true;
       };
       try {
-        await apply();
+        return await apply();
       } catch (error) {
-        if (signal?.aborted || queryRef.current !== query) return;
+        if (signal?.aborted || queryRef.current !== query) return false;
         setResult(errorResult(`retrieve ${name}`, error));
+        return false;
       }
+    };
+    const retrievePageRef = useSyncedRef(retrievePage);
+
+    const retrieveAsync = async (
+      paramsSetter: state.SetArg<Query, Query | {}>,
+      options: AsyncListOptions = {},
+    ): Promise<void> => {
+      if (options.mode !== "append") {
+        latestReplaceRef.current = retrievePage(paramsSetter, options);
+        await latestReplaceRef.current;
+        return;
+      }
+      // An append pages from the answer to the newest replace. Started earlier, it
+      // would become the newest retrieve and discard that answer.
+      let replace: Promise<boolean>;
+      let answered: boolean;
+      do {
+        replace = latestReplaceRef.current;
+        answered = await replace;
+      } while (replace !== latestReplaceRef.current);
+      // The wait can span a client change, so the append runs in the newest render.
+      if (answered) await retrievePageRef.current(paramsSetter, options);
     };
 
     /**
@@ -489,24 +549,42 @@ export const createList = <
     };
 
     const debouncedRetrieve = useDebouncedCallback(
-      (query: state.SetArg<Query, Query | {}>, options: AsyncListOptions = {}) =>
-        void retrieveAsync(query, options),
+      () => {
+        const pending = pendingRef.current;
+        if (pending == null) return;
+        pendingRef.current = null;
+        const { replace, append } = pending;
+        if (replace != null)
+          void retrieveAsyncRef.current(replace.query, replace.options);
+        if (append != null) void retrieveAsyncRef.current(append.query, append.options);
+      },
       retrieveDebounce,
-      [retrieveAsync],
+      [],
     );
 
     const retrieveSync = (
       query: state.SetArg<Query, Query | {}>,
       options: AsyncListOptions = {},
     ) => {
+      const { replace, append } = pendingRef.current ?? {};
+      // A frame waits for the answer to each fetch for more, so an append made while a
+      // replace waits must still run.
+      if (options.mode === "append") {
+        if (append != null) return;
+        pendingRef.current = { replace, append: { query, options } };
+      } else {
+        const next = replace == null ? query : chainSetters(replace.query, query);
+        pendingRef.current = { replace: { query: next, options }, append };
+      }
       // A cold list fills from the cached answer to the exact query the debounced
-      // retrieve will fetch, so a remount paints before the network round trip. Setters
-      // must be pure: the debounced retrieve executes the setter again.
+      // retrieve will fetch first, so a remount paints before the network round trip.
+      // Setters must be pure: the debounced retrieve executes the setter again.
+      const first = pendingRef.current.replace?.query ?? query;
       if (resultRef.current.data == null)
         createCachedPage(
-          normalized(state.executeSetter(query, queryRef.current ?? {})),
+          normalized(state.executeSetter(first, queryRef.current ?? {})),
         );
-      debouncedRetrieve(query, options);
+      debouncedRetrieve();
     };
 
     return {

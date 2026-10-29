@@ -13,13 +13,13 @@ import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { findButton, findDismissButton, openModal } from "@/platform/modals/testutil";
-import { useCreateModal } from "@/platform/rack/useCreateModal";
+import { Rack } from "@/platform/rack";
 import { uniqueName } from "@/testutil";
 
 describe("useCreateModal", () => {
   it("should create a rack with a key and show the key once", async () => {
     const client = createTestClient();
-    await openModal(useCreateModal, { client });
+    await openModal(Rack.useCreateModal, { client });
     const name = uniqueName("rack");
     fireEvent.change(screen.getByPlaceholderText("Rack name"), {
       target: { value: name },
@@ -39,7 +39,7 @@ describe("useCreateModal", () => {
     const client = createTestClient();
     // API keys have no change stream, so the delete call is the only completion signal.
     const deleteAPIKeys = vi.spyOn(client.auth, "deleteAPIKeys");
-    await openModal(useCreateModal, { client });
+    await openModal(Rack.useCreateModal, { client });
     const name = uniqueName("rack");
     fireEvent.change(screen.getByPlaceholderText("Rack name"), {
       target: { value: name },
