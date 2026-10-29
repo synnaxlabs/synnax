@@ -166,7 +166,9 @@ class TestRangeClient:
         assert client.ranges.retrieve(key=rng.key).name == "Before Rename"
 
     def test_create_rejects_empty_name(self, client: sy.Synnax) -> None:
-        """Should reject creation of a range with an empty name (Pydantic min_length=1)"""
+        """Should reject creation of a range with an empty name (Pydantic
+        min_length=1)
+        """
         with pytest.raises(pydantic.ValidationError):
             client.ranges.create(
                 name="",
@@ -526,7 +528,9 @@ class TestRangeRetrieveFilters:
     """Tests the filters accepted by the range client's retrieve method."""
 
     def test_rejects_mixed_selectors(self, client: sy.Synnax) -> None:
-        """Should reject a key or name combined with another selector or a list filter"""
+        """Should reject a key or name combined with another selector or a list
+        filter
+        """
         retrieve = cast(Callable[..., object], client.ranges.retrieve)
         key = uuid4()
         with pytest.raises(ValueError, match="cannot be combined; use keys"):

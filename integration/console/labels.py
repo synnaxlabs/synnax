@@ -54,7 +54,8 @@ class LabelClient(ResourceClient):
             items = self._find_label_items()
             all_names = self._enumerate_label_names(items)
             raise ValueError(
-                f"Label '{name}' was not created successfully. Available labels: {all_names}"
+                f"Label '{name}' was not created successfully. Available labels: "
+                f"{all_names}"
             )
 
         self._close_edit_modal()
@@ -127,7 +128,8 @@ class LabelClient(ResourceClient):
             all_items = self._find_label_items()
             all_names = self._enumerate_label_names(all_items)
             raise RuntimeError(
-                f"Label rename from '{old_name}' to '{new_name}' did not complete. Available labels: {all_names}"
+                f"Label rename from '{old_name}' to '{new_name}' did not complete. "
+                f"Available labels: {all_names}"
             )
 
         self._close_edit_modal()

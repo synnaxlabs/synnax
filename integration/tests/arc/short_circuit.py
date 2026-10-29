@@ -69,7 +69,7 @@ sequence main {
         ss_start_cmd => on
     }
 }
-"""
+"""  # noqa: E501
 
 
 class ChannelCollector:
