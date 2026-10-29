@@ -50,11 +50,6 @@ type Sized interface {
 	SizedNumeric | ~[4]byte | ~[8]byte | ~[16]byte | ~bool
 }
 
-// Signed represents any numeric value that can be negative.
-type Signed interface {
-	SignedInteger | Floating
-}
-
 // Numeric represents any numeric value.
 type Numeric interface {
 	Integer | Floating

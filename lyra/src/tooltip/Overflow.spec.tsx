@@ -43,7 +43,7 @@ const Wrapper = ({ children }: { children: ReactNode }): ReactElement => (
 );
 
 const getTooltips = (): HTMLElement[] => [
-  ...document.querySelectorAll<HTMLElement>(".pluto-tooltip"),
+  ...document.querySelectorAll<HTMLElement>(".lyra-tooltip"),
 ];
 
 const mockWidth = (el: HTMLElement, scrollWidth: number): void => {

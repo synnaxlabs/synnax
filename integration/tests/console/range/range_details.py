@@ -24,7 +24,9 @@ NI_ANALOG_READ_CONFIG = {
 
 
 class RangeDetails(HardwareCase, ConsoleCase):
-    """Test Range Details: child range context menu, metadata, and snapshot operations."""
+    """Test Range Details: child range context menu, metadata, and snapshot
+    operations.
+    """
 
     suffix: str
     parent_range_name: str
@@ -66,10 +68,10 @@ class RangeDetails(HardwareCase, ConsoleCase):
         self.console.ranges.favorite(self.parent_range_name)
         self.console.ranges.set_active(self.parent_range_name)
         self.console.ranges.snapshot_to_active_range(
-            self.schematic_name, self.parent_range_name
+            self.schematic_name, range_name=self.parent_range_name
         )
         self.console.ranges.snapshot_to_active_range(
-            self.task_name, self.parent_range_name
+            self.task_name, range_name=self.parent_range_name
         )
         self.console.pages.delete(self.schematic_name)
         self.schematic_snapshot_name = f"{self.schematic_name} (Snapshot)"
@@ -93,7 +95,7 @@ class RangeDetails(HardwareCase, ConsoleCase):
 
         self.console.ranges.overview.wait_for_child_ranges(
             [self.child_1_name, self.child_2_name, self.child_3_name],
-            self.parent_range_name,
+            parent_name=self.parent_range_name,
         )
 
     def teardown(self) -> None:
@@ -185,7 +187,7 @@ class RangeDetails(HardwareCase, ConsoleCase):
             raise AssertionError(
                 f"Range '{self.child_3_name}' should be deleted from server"
             )
-        except sy.QueryError:
+        except sy.NotFoundError:
             pass
 
     def test_delete_multiple_child_ranges(self) -> None:
@@ -203,7 +205,7 @@ class RangeDetails(HardwareCase, ConsoleCase):
             try:
                 self.client.ranges.retrieve(name=name)
                 raise AssertionError(f"Range '{name}' should be deleted from server")
-            except sy.QueryError:
+            except sy.NotFoundError:
                 pass
 
     def test_set_metadata(self) -> None:

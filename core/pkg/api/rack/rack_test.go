@@ -15,6 +15,7 @@ import (
 	apirack "github.com/synnaxlabs/synnax/pkg/api/rack"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
@@ -111,5 +112,28 @@ var _ = Describe("Retrieve", func() {
 		Expect(res.Racks[0].Status).To(BeNil())
 		Expect(res.Racks[1].Key).To(Equal(withStatus.Key))
 		Expect(res.Racks[1].Status.Key).To(Equal(rack.StatusKey(withStatus.Key)))
+	})
+})
+
+var _ = Describe("Delete", func() {
+	It("Should end the sessions of the deleted rack", func(ctx SpecContext) {
+		u := createUser(ctx)
+		r := rack.Rack{Name: "Doomed"}
+		Expect(svc.Rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+		grant(ctx, access.ActionDelete, u.OntologyID(), r.OntologyID())
+		_, key := MustSucceed2(
+			svc.APIKey.NewWriter(nil).Create(ctx, r.OntologyID(), "driver"),
+		)
+		_, token := MustSucceed2(svc.Auth.Login(ctx, auth.Proof{
+			Variant: auth.APIKeyProof{
+				APIKeyCredentials: auth.APIKeyCredentials{Key: key},
+			},
+		}))
+		Expect(apiSvc.Delete(
+			AuthedCtx(ctx, u), nil,
+			apirack.DeleteRequest{Keys: []rack.Key{r.Key}},
+		)).Error().ToNot(HaveOccurred())
+		Expect(svc.Auth.Authenticate(ctx, token)).Error().
+			To(MatchError(auth.ErrInvalidToken))
 	})
 })

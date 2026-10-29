@@ -34,14 +34,16 @@ class TaskPage(ConsolePage):
 
     def __init__(
         self,
+        *,
         layout: LayoutClient,
         client: sy.Synnax,
         page_name: str,
-        *,
         pane_locator: Locator,
     ) -> None:
         """Initialize a TaskPage wrapper (see ConsolePage.__init__ for details)."""
-        super().__init__(layout, client, page_name, pane_locator=pane_locator)
+        super().__init__(
+            layout=layout, client=client, page_name=page_name, pane_locator=pane_locator
+        )
 
     def _pane(self) -> Locator | Page:
         return self.pane_locator if self.pane_locator is not None else self.page
@@ -54,7 +56,7 @@ class TaskPage(ConsolePage):
     def _channel_list(self) -> Locator:
         return self._pane().locator(_CHANNEL_LIST_SELECTOR).first
 
-    def select_device(self, label: str, name: str) -> None:
+    def select_device(self, label: str, *, name: str) -> None:
         """Pick ``name`` in the device dropdown of the form field ``label``."""
         self.layout.click_btn(label)
         self.layout.select_from_dropdown(name)
@@ -67,7 +69,7 @@ class TaskPage(ConsolePage):
         """The task name input in the form header, which shows no visible label."""
         return self._pane().get_by_role("textbox", name="Name", exact=True).first
 
-    def deploy(self, expect: str | None = STARTED_MESSAGE) -> None:
+    def deploy(self, *, expect: str | None = STARTED_MESSAGE) -> None:
         """Deploy the task from the controls bar.
 
         Play configures, saves, and starts the task.
@@ -77,7 +79,7 @@ class TaskPage(ConsolePage):
         """
         controls = self._controls()
         self.notifications.close_all()
-        play = controls.locator("button:has(.pluto-icon--play)")
+        play = controls.locator("button:has(.lyra-icon--play)")
         play.wait_for(state="visible", timeout=5000)
         play.click()
         if expect is not None:
@@ -86,13 +88,13 @@ class TaskPage(ConsolePage):
     def stop(self) -> None:
         """Stop the task from the controls bar and wait for the stopped message."""
         controls = self._controls()
-        stop_btn = controls.locator("button:has(.pluto-icon--stop)")
+        stop_btn = controls.locator("button:has(.lyra-icon--stop)")
         stop_btn.wait_for(state="visible", timeout=5000)
         self.notifications.close_all()
         stop_btn.click()
         self.wait_for_status(self.STOPPED_MESSAGE)
 
-    def wait_for_status(self, substr: str, timeout: float = 30000) -> str:
+    def wait_for_status(self, substr: str, *, timeout: float = 30000) -> str:
         """Wait for the status bar to contain a substring.
 
         :param substr: The substring to wait for in the status message.
@@ -108,6 +110,7 @@ class TaskPage(ConsolePage):
     def wait_for_status_level(
         self,
         levels: tuple[str, ...],
+        *,
         timeout: sy.TimeSpan = 30 * sy.TimeSpan.SECOND,
     ) -> dict[str, str]:
         """Poll the status box until its level is one of ``levels``.
@@ -136,9 +139,9 @@ class TaskPage(ConsolePage):
         :param label: Label of the field.
         """
         item = self.page.locator(f"text={label}").locator(
-            "xpath=ancestor::*[contains(@class, 'pluto-input__item')][1]"
+            "xpath=ancestor::*[contains(@class, 'lyra-input__item')][1]"
         )
-        help_text = item.locator(".pluto-input-help-text").first
+        help_text = item.locator(".lyra-input-help-text").first
         expect(help_text).not_to_have_text("", timeout=5000)
         return help_text.inner_text().strip()
 
@@ -164,8 +167,8 @@ class TaskPage(ConsolePage):
         class_attr = status_element.get_attribute("class") or ""
         level = "unknown"
         for cls in class_attr.split():
-            if cls.startswith("pluto--status-"):
-                level = cls.replace("pluto--status-", "")
+            if cls.startswith("lyra--status-"):
+                level = cls.replace("lyra--status-", "")
                 break
 
         msg = status_element.inner_text()
@@ -177,7 +180,7 @@ class TaskPage(ConsolePage):
 
     def copy_link(self) -> str:
         """Copy link to the task via the utility button in the form header."""
-        link_button = self.page.locator(".pluto-icon--link").locator("..")
+        link_button = self.page.locator(".lyra-icon--link").locator("..")
         link_button.click(timeout=5000)
         return self.layout.read_clipboard()
 

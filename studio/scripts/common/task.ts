@@ -42,11 +42,11 @@ export const VALVE_OUTPUTS = fixtures.configured(
  */
 export const fieldItem = (scope: Locator, label: string): Locator =>
   scope
-    .locator(".pluto-input__item")
+    .locator(".lyra-input__item")
     .filter({
       has: scope
         .page()
-        .locator(".pluto-input-label")
+        .locator(".lyra-input-label")
         .filter({ hasText: new RegExp(`^\\s*${label}\\s*\\*?\\s*$`) }),
     })
     .first();
@@ -76,15 +76,13 @@ export const choose = async (
   item: string,
   { search = false }: { search?: boolean } = {},
 ): Promise<void> => {
-  await session.click(
-    fieldItem(scope, label).locator(".pluto-dialog__trigger").first(),
-  );
+  await session.click(fieldItem(scope, label).locator(".lyra-dialog__trigger").first());
   if (search) {
     await session.hold(400);
     await session.type(item);
   }
   const option = session.page
-    .locator(".pluto-list__item:not(.pluto-tree__item)")
+    .locator(".lyra-list__item:not(.lyra-tree__item)")
     .filter({ has: session.page.getByText(item, { exact: true }) })
     .first();
   await session.waitFor(option);
@@ -162,7 +160,7 @@ export const recordTask = async (
   await channels(session, form);
   await session.hold(500);
 
-  await session.click(form.locator("button:has(svg.pluto-icon--play)").first());
+  await session.click(form.locator("button:has(svg.lyra-icon--play)").first());
   session.endZoom();
   await session.waitFor(form.getByText("Started task").first());
   await session.moveTo({ x: 1100, y: 120 });
