@@ -56,7 +56,6 @@ jobs:
   triage-prompt:
     name: Write the triage prompt
     needs: ci
-    # Triage runs only when the NIGHTLY_TRIAGE_ENABLED repository variable is true.
     if: failure() && vars.NIGHTLY_TRIAGE_ENABLED == 'true'
     runs-on: ubuntu-latest
     permissions:
