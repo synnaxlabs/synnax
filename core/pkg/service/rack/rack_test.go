@@ -945,10 +945,9 @@ var _ = Describe("Rack", Ordered, func() {
 					g.Expect(s.Key).
 						To(ContainSubstring(string(ontology.ResourceTypeRack)))
 					g.Expect(s.Details.Rack).To(Equal(r.Key))
-					g.Expect(s.Description).To(MatchRegexp(
-						`^The Core has not heard from the Driver on dead test rack ` +
-							`for .+\. Check that the Driver is running and can reach ` +
-							`the Core\.$`,
+					g.Expect(s.Description).To(Equal(
+						"The Core has not heard from the Driver on dead test rack. " +
+							"Check that the Driver is running and can reach the Core.",
 					))
 				}).Should(Succeed())
 			},
@@ -986,41 +985,37 @@ var _ = Describe("Rack", Ordered, func() {
 			},
 		)
 
-		It("Should dampen alerts after first dead check", func(ctx SpecContext) {
-			r := rack.Rack{Name: "dampening test rack"}
+		It("Should write each outage once", func(ctx SpecContext) {
+			const name = "outage test rack"
+			var writes, alerts atomic.Int32
+			DeferCleanup(stat.Observe().OnChange(func(
+				_ context.Context,
+				t gorp.TxReader[status.Key, status.Status[any]],
+			) {
+				for ch := range t {
+					if ch.Value.Name == name &&
+						ch.Value.Message == "Driver not running" {
+						writes.Add(1)
+					}
+				}
+			}))
+			DeferCleanup(svc.OnSuspect(func(_ context.Context, s rack.Status) {
+				if s.Name == name {
+					alerts.Add(1)
+				}
+			}))
+			r := rack.Rack{Name: name}
 			Expect(noTxWriter.Create(ctx, &r)).To(Succeed())
 
-			var (
-				alertCount int
-				alertMu    sync.Mutex
-			)
-			getCount := func() int {
-				alertMu.Lock()
-				defer alertMu.Unlock()
-				return alertCount
-			}
-			disconnect := svc.OnSuspect(func(_ context.Context, s rack.Status) {
-				if s.Details.Rack == r.Key {
-					alertMu.Lock()
-					alertCount++
-					alertMu.Unlock()
-				}
-			})
-			defer disconnect()
-
-			Eventually(getCount).Should(BeNumerically(">=", 1))
-			countAfterFirst := getCount()
-			time.Sleep(50 * time.Millisecond)
-			Expect(getCount()).To(Equal(countAfterFirst))
-			Eventually(
-				getCount,
-				200*time.Millisecond,
-				10*time.Millisecond,
-			).Should(BeNumerically(">", countAfterFirst))
+			Eventually(alerts.Load).Should(BeEquivalentTo(1))
+			Consistently(func(g Gomega) {
+				g.Expect(writes.Load()).To(BeEquivalentTo(1))
+				g.Expect(alerts.Load()).To(BeEquivalentTo(1))
+			}, 300*time.Millisecond, 10*time.Millisecond).Should(Succeed())
 		})
 
 		It(
-			"Should reset alert count when rack comes back alive",
+			"Should write a new outage after the rack reports healthy",
 			func(ctx SpecContext) {
 				r := rack.Rack{Name: "reset test rack"}
 				Expect(noTxWriter.Create(ctx, &r)).To(Succeed())

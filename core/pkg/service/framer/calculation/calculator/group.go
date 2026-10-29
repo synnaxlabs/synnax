@@ -42,6 +42,9 @@ func (g Group) WriteTo() channel.Keys {
 	return keys.Slice()
 }
 
+// Next runs every calculator in the group on input. statuses holds an error status for
+// each calculator whose step failed, and a success status for each calculator on its
+// first clean step with output after a failed step.
 func (g Group) Next(
 	ctx context.Context,
 	input framer.Frame,
@@ -54,6 +57,7 @@ func (g Group) Next(
 	for _, c := range g {
 		output, changedLocal, err = c.Next(ctx, output, output)
 		if err != nil {
+			c.failed = true
 			statuses = append(statuses, Status{
 				Key:         c.Channel().Key().String(),
 				Name:        c.Channel().Name,
@@ -63,8 +67,18 @@ func (g Group) Next(
 			})
 			continue
 		}
-		if changedLocal {
-			changed = changedLocal
+		if !changedLocal {
+			continue
+		}
+		changed = true
+		if c.failed {
+			c.failed = false
+			statuses = append(statuses, Status{
+				Key:     c.Channel().Key().String(),
+				Name:    c.Channel().Name,
+				Variant: status.VariantSuccess,
+				Message: "Calculation running",
+			})
 		}
 	}
 	return output, changed, statuses

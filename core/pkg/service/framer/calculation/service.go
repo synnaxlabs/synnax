@@ -106,7 +106,15 @@ type Service struct {
 		groups      map[int]*group
 		sync.Mutex
 	}
+	// reports holds the failure last written for each calculation. It is held across
+	// status writes so they land in the order it records them.
+	reports struct {
+		failures map[channel.Key]failure
+		sync.Mutex
+	}
 }
+
+type failure struct{ message, description string }
 
 // OpenService opens the service with the provided configuration. The service must be
 // closed when it is no longer needed.
@@ -128,6 +136,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	s.mu.graph = g
 	s.mu.calculators = make(map[channel.Key]*calculator.Calculator)
 	s.mu.groups = make(map[int]*group)
+	s.reports.failures = make(map[channel.Key]failure)
 
 	if err := cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
 		return cfg.Channel.NewWriter(tx).DeleteManyByNames(
@@ -144,10 +153,14 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	return s, nil
 }
 
+// setStatus writes each runtime status that changes the reported state of its
+// calculation: a failure that is new or has new text, or a success after a failure.
 func (s *Service) setStatus(
 	ctx context.Context,
 	statuses ...calculator.Status,
 ) {
+	s.reports.Lock()
+	defer s.reports.Unlock()
 	for _, st := range statuses {
 		chKey, err := channel.ParseKey(st.Key)
 		if err != nil {
@@ -158,7 +171,17 @@ func (s *Service) setStatus(
 			)
 			continue
 		}
-		s.cfg.L.Warn(st.String())
+		prev, failed := s.reports.failures[chKey]
+		next := failure{message: st.Message, description: st.Description}
+		bad := st.Variant == status.VariantError
+		if (bad && failed && prev == next) || (!bad && !failed) {
+			continue
+		}
+		if bad {
+			s.cfg.L.Warn(st.String())
+		} else {
+			s.cfg.L.Info(st.String())
+		}
 		if err = s.cfg.ChannelGraph.SetRuntimeStatus(ctx, chKey, &Status{
 			Name:        st.Name,
 			Variant:     st.Variant,
@@ -171,18 +194,52 @@ func (s *Service) setStatus(
 				zap.Error(err),
 				zap.Stringer("channel", chKey),
 			)
+			continue
+		}
+		if bad {
+			s.reports.failures[chKey] = next
+		} else {
+			delete(s.reports.failures, chKey)
 		}
 	}
 }
 
+// rejectDefinition reports that the Service cannot compile or request ch.
+func (s *Service) rejectDefinition(
+	ctx context.Context,
+	ch channel.Channel,
+	message string,
+	err error,
+) {
+	st := &Status{
+		Name:        ch.Name,
+		Variant:     status.VariantError,
+		Message:     message,
+		Description: err.Error(),
+		Time:        telem.Now(),
+	}
+	s.cfg.L.Warn(st.String())
+	if err := s.cfg.ChannelGraph.RejectDefinition(ctx, ch.Key(), st); err != nil {
+		s.cfg.L.Error(
+			"failed to set status",
+			zap.Error(err),
+			zap.Stringer("channel", ch.Key()),
+		)
+	}
+}
+
 func (s *Service) clearStatus(ctx context.Context, key channel.Key) {
+	s.reports.Lock()
+	defer s.reports.Unlock()
 	if err := s.cfg.ChannelGraph.ClearRuntimeStatus(ctx, key); err != nil {
 		s.cfg.L.Error(
 			"failed to clear status",
 			zap.Error(err),
 			zap.Stringer("channel", key),
 		)
+		return
 	}
+	delete(s.reports.failures, key)
 }
 
 func (s *Service) handleChange(ctx context.Context, reader channelgraph.Changes) {
@@ -199,13 +256,7 @@ func (s *Service) handleChange(ctx context.Context, reader channelgraph.Changes)
 			continue
 		}
 		if err := s.updateCalculation(ctx, ch); err != nil {
-			s.setStatus(ctx, calculator.Status{
-				Key:         ch.Key().String(),
-				Name:        ch.Name,
-				Variant:     status.VariantError,
-				Message:     "Failed to compile calculation",
-				Description: err.Error(),
-			})
+			s.rejectDefinition(ctx, ch, "Failed to compile calculation", err)
 		} else {
 			s.clearStatus(ctx, ch.Key())
 		}
@@ -228,7 +279,10 @@ func (s *Service) openOrGetCalculator(
 	ctx context.Context,
 	mod compiler.Module,
 ) (*calculator.Calculator, error) {
-	calc, err := calculator.Open(ctx, calculator.Config{Module: mod})
+	s.reports.Lock()
+	_, failed := s.reports.failures[mod.Channel.Key()]
+	s.reports.Unlock()
+	calc, err := calculator.Open(ctx, calculator.Config{Module: mod, Failed: failed})
 	if err != nil {
 		return nil, errors.Wrapf(
 			err, "failed to open calculator for channel %s", mod.Channel,
@@ -351,10 +405,7 @@ func (s *Service) Close() error {
 func (s *Service) updateRequests(
 	ctx context.Context, added, removed []channel.Key,
 ) error {
-	var (
-		channels []channel.Channel
-		statuses []calculator.Status
-	)
+	var channels []channel.Channel
 	if err := s.cfg.Channel.NewRetrieve().
 		Where(channel.MatchKeys(added...)).
 		Entries(&channels).
@@ -379,20 +430,11 @@ func (s *Service) updateRequests(
 			continue
 		}
 		if err := s.mu.graph.Add(ctx, ch); err != nil {
-			statuses = append(statuses, calculator.Status{
-				Key:         ch.Key().String(),
-				Name:        ch.Name,
-				Variant:     status.VariantError,
-				Message:     "Failed to request calculation",
-				Description: err.Error(),
-			})
+			s.rejectDefinition(ctx, ch, "Failed to request calculation", err)
 		} else {
 			s.clearStatus(ctx, ch.Key())
 		}
 		graphChanged = true
-	}
-	if len(statuses) > 0 {
-		s.setStatus(ctx, statuses...)
 	}
 	if graphChanged {
 		if err := s.rebuildGroups(ctx); err != nil {

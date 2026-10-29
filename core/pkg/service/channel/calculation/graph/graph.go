@@ -57,6 +57,8 @@ type Graph struct {
 		nodes            map[channel.Key]node
 		dependents       map[channel.Key]set.Set[channel.Key]
 		unresolvedByName map[string]set.Set[channel.Key]
+		// rejected holds the channels reported through RejectDefinition.
+		rejected set.Set[channel.Key]
 		sync.RWMutex
 	}
 }
@@ -122,6 +124,7 @@ func Open(ctx context.Context, cfgs ...Config) (*Graph, error) {
 	g.mu.nodes = make(map[channel.Key]node)
 	g.mu.dependents = make(map[channel.Key]set.Set[channel.Key])
 	g.mu.unresolvedByName = make(map[string]set.Set[channel.Key])
+	g.mu.rejected = make(set.Set[channel.Key])
 	if err := g.db.WithTx(ctx, func(tx gorp.Tx) error {
 		return g.hydrate(ctx, tx)
 	}); err != nil {
@@ -138,10 +141,26 @@ func Open(ctx context.Context, cfgs ...Config) (*Graph, error) {
 // the Graph's own.
 func (g *Graph) Observe() observe.Observable[Changes] { return g.obs }
 
+// RejectDefinition persists a status the calculation runtime reports when it cannot
+// compile or request the definition of the channel with the given key. The Graph then
+// drops runtime reports for the channel until ClearRuntimeStatus.
+func (g *Graph) RejectDefinition(
+	ctx context.Context,
+	key channel.Key,
+	stat *calculation.Status,
+) error {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.mu.rejected.Add(key)
+	return g.setStatus(ctx, key, stat)
+}
+
 // SetRuntimeStatus persists a status reported by the calculation runtime for the
 // channel with the given key. Routing runtime reports through the Graph keeps a single
 // writer on the status record, so a report and a validity clear apply in submission
-// order. A report for a channel deleted in the meantime is dropped.
+// order. A report for a channel deleted in the meantime is dropped, and so is a report
+// for a channel the Graph holds as invalid or rejected: that record describes the
+// channel definition.
 func (g *Graph) SetRuntimeStatus(
 	ctx context.Context,
 	key channel.Key,
@@ -149,6 +168,17 @@ func (g *Graph) SetRuntimeStatus(
 ) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
+	if nd, ok := g.mu.nodes[key]; (ok && nd.invalid) || g.mu.rejected.Contains(key) {
+		return nil
+	}
+	return g.setStatus(ctx, key, stat)
+}
+
+func (g *Graph) setStatus(
+	ctx context.Context,
+	key channel.Key,
+	stat *calculation.Status,
+) error {
 	return g.db.WithTx(ctx, func(tx gorp.Tx) error {
 		exists, err := g.svc.NewRetrieve().
 			Where(channel.MatchKeys(key)).
@@ -173,6 +203,7 @@ func (g *Graph) SetRuntimeStatus(
 func (g *Graph) ClearRuntimeStatus(ctx context.Context, key channel.Key) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
+	g.mu.rejected.Remove(key)
 	if nd, ok := g.mu.nodes[key]; ok && nd.invalid {
 		return nil
 	}
@@ -323,6 +354,7 @@ func (g *Graph) handleChanges(ctx context.Context, reader Changes) {
 					unresolvedNames = append(unresolvedNames, ch.Name)
 				}
 				g.enqueueDependents(chg.Key, queued)
+				g.mu.rejected.Remove(chg.Key)
 				continue
 			}
 			if ch.IsCalculated() {
