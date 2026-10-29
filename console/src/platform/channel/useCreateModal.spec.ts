@@ -42,6 +42,12 @@ const setName = (name: string): void => {
   });
 };
 
+const getKind = (name: string): HTMLElement => screen.getByRole("button", { name });
+
+const selectKind = (name: string): void => {
+  fireEvent.click(getKind(name));
+};
+
 const clickCreate = async (): Promise<void> => {
   await act(async () => {
     fireEvent.click(findButton("Create"));
@@ -49,19 +55,37 @@ const clickCreate = async (): Promise<void> => {
 };
 
 describe("useCreateModal", () => {
-  describe("index / virtual interaction", () => {
-    it("should disable the index toggle once virtual is enabled", async () => {
+  describe("kind", () => {
+    it("should start as a data channel that asks for an index", async () => {
       await openModal();
-      expect(getSwitch("Is index").disabled).toBe(false);
-      fireEvent.click(getSwitch("Virtual"));
-      await waitFor(() => expect(getSwitch("Is index").disabled).toBe(true));
+      expect(getKind("Data").getAttribute("aria-pressed")).toBe("true");
+      expect(screen.getByText("Select channel")).toBeTruthy();
     });
 
-    it("should disable the virtual toggle once is-index is enabled", async () => {
+    it("should hide the index field for an index channel", async () => {
       await openModal();
-      expect(getSwitch("Virtual").disabled).toBe(false);
-      fireEvent.click(getSwitch("Is index"));
-      await waitFor(() => expect(getSwitch("Virtual").disabled).toBe(true));
+      selectKind("Index");
+      await waitFor(() => expect(screen.queryByText("Select channel")).toBeNull());
+    });
+
+    it("should hide the index field for a virtual channel", async () => {
+      await openModal();
+      selectKind("Virtual");
+      await waitFor(() => expect(screen.queryByText("Select channel")).toBeNull());
+    });
+
+    it("should restore the default data type when leaving the index kind", async () => {
+      await openModal();
+      const name = uniqueChannelName("virt");
+      setName(name);
+      selectKind("Index");
+      selectKind("Virtual");
+      await clickCreate();
+      await waitFor(async () => {
+        const created = await client.channels.retrieve(name);
+        expect(created.isIndex).toBe(false);
+        expect(created.dataType.equals(DataType.FLOAT32)).toBe(true);
+      });
     });
   });
 
@@ -70,7 +94,7 @@ describe("useCreateModal", () => {
       await openModal();
       const name = uniqueChannelName("idx");
       setName(name);
-      fireEvent.click(getSwitch("Is index"));
+      selectKind("Index");
       await clickCreate();
       await waitFor(async () => {
         const created = await client.channels.retrieve(name);
@@ -104,7 +128,7 @@ describe("useCreateModal", () => {
       await openModal();
       const name = uniqueChannelName("virt");
       setName(name);
-      fireEvent.click(getSwitch("Virtual"));
+      selectKind("Virtual");
       await clickCreate();
       await waitFor(async () => {
         const created = await client.channels.retrieve(name);
@@ -117,7 +141,7 @@ describe("useCreateModal", () => {
       const analytics = createTestSink();
       await openModal(analytics);
       setName(uniqueChannelName("virt"));
-      fireEvent.click(getSwitch("Virtual"));
+      selectKind("Virtual");
       await clickCreate();
       await waitFor(() =>
         expect(analytics.capture).toHaveBeenCalledWith("channel_created", {
@@ -130,7 +154,7 @@ describe("useCreateModal", () => {
       await openModal();
       const name = uniqueChannelName("more");
       setName(name);
-      fireEvent.click(getSwitch("Is index"));
+      selectKind("Index");
       fireEvent.click(getSwitch("Create more"));
       await clickCreate();
       await waitFor(async () => {
@@ -142,14 +166,14 @@ describe("useCreateModal", () => {
           screen.getByPlaceholderText<HTMLInputElement>("Channel name").value,
         ).toBe("");
       });
-      expect(getSwitch("Is index").checked).toBe(false);
+      expect(getKind("Data").getAttribute("aria-pressed")).toBe("true");
     });
   });
 
   describe("validation", () => {
     it("should keep the modal open and show an error when the name is empty", async () => {
       await openModal();
-      fireEvent.click(getSwitch("Is index"));
+      selectKind("Index");
       await clickCreate();
       await waitFor(() => expect(screen.getByText("Name is required")).toBeTruthy());
       expect(screen.getByPlaceholderText("Channel name")).toBeTruthy();

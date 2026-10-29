@@ -120,6 +120,8 @@ outlined button) has fill l2 and border l4, and its caret has the disabled text 
   ("Create more") stays a switch, because it changes the dialog at once.
 - A checkbox in a form has its label above it or in the label column, like every other
   field. Its box starts at the edge of the label.
+- When flags pick one of a few kinds, show one button selector with an icon per kind,
+  never a checkbox per flag. The Create channel dialog uses Data, Index, and Virtual.
 - A label is a noun phrase in sentence case. It is never a question, and it never
   changes with state: "Index channel", not "Is index".
 - An error message is a sentence about its field ("Name is required"), never a raw
