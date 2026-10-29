@@ -118,10 +118,11 @@ const Keys = ({ subject }: Pick<ModalParams, "subject">): ReactElement => {
     afterSuccess: ({ data }) => {
       // a closed dialog can never show the token, so the key is of no use
       if (!mounted.current) {
-        handleError(
-          async () => await client?.auth.deleteKeys(data.key.key),
-          "Failed to delete an unused API key",
-        );
+        handleError(async () => {
+          await client?.auth.deleteKeys(data.key.key);
+          // a reopened dialog may have listed the key before this delete finished
+          invalidateKeys(query);
+        }, "Failed to delete an unused API key");
         return;
       }
       setCreated(data);
