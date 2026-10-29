@@ -48,7 +48,8 @@ the check that enforces it, or says that review enforces it.
   `lyra/src/theming/static/*.css`. Run `pnpm generate-theme` in `lyra/` after a theme
   change; a Lyra spec fails while the files are stale.
 - `synnax/no-unknown-custom-property` rejects a `var()` that nothing defines, fallbacks
-  included.
+  included. A stylesheet declaration, a style key, or a `setProperty` call defines one;
+  a read such as `getPropertyValue` does not.
 - Put static styles in CSS, never in a `style={{...}}` object. Pass only a truly dynamic
   value inline, as a custom property.
 
@@ -66,7 +67,8 @@ the check that enforces it, or says that review enforces it.
   from before their rules. Entries only leave it; never add one.
 - The class and custom property rules read the source of every package in `PACKAGES`
   (`configs/stylelint/source.ts`). Each of those packages lists that source as `lint`
-  input in its `turbo.json`, so Turbo reruns its lint when any of it changes.
+  input in its `turbo.json`, so Turbo reruns its lint when any of it changes. In CI, the
+  `stylelint` job lints every package when any of that source changes.
 - Hand-written vendor prefixes are allowed only for `user-select` and `backdrop-filter`,
   which Safari needs. Write the prefixed form first. When the standard form comes first,
   the build minifier keeps only the prefixed one (SY-4726).
