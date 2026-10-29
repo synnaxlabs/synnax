@@ -128,6 +128,7 @@ PLATFORMS = {"ubuntu": "linux", "windows": "windows", "macos": "darwin"}
 TC_STATES = {
     "PASSED": "passed",
     "FLAKY": "flaky",
+    "SKIPPED": "skipped",
     "FAILED": "failed",
     "TIMEOUT": "failed",
     "KILLED": "failed",
@@ -156,7 +157,7 @@ def os_of(runner: str) -> str:
     raise ValueError(f"unknown runner: {runner}")
 
 
-def ci_jobs(path: str, jobs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def ci_jobs(path: str, *, jobs: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Returns the CI jobs in a run of the workflow at path, named as in a CI run."""
     if path == CI_WORKFLOW:
         return jobs
@@ -187,7 +188,7 @@ def suite_jobs(
 
 
 def enumerate_tests(
-    root: Path, sha: str, lang: str, dirs: list[str]
+    root: Path, *, sha: str, lang: str, dirs: list[str]
 ) -> list[tuple[str, int, str]]:
     """Lists (path, line, name) for each test declared under dirs at sha."""
     globs, pattern = LANGS[lang]
@@ -238,7 +239,7 @@ def enumerate_tests(
     return tests
 
 
-def integration_sources(root: Path, sha: str) -> dict[str, str]:
+def integration_sources(root: Path, *, sha: str) -> dict[str, str]:
     """Maps each Python file under integration/ at sha, by its path there, to its
     source."""
     paths = [
@@ -268,13 +269,13 @@ def integration_sources(root: Path, sha: str) -> dict[str, str]:
     return sources
 
 
-@dataclass
+@dataclass(kw_only=True)
 class Case:
     """An integration case's class, as read from source."""
 
     source: str
     tags: list[str]
-    # Runner OS -> why the case auto-passes there instead of running.
+    # Runner OS -> why the case skips itself there instead of running.
     skipped: dict[str, str]
 
 
@@ -339,7 +340,7 @@ class Cases:
             raise ValueError(f"no class for {case} › {name}")
         return path, tests[0]
 
-    def resolve(self, case: str, name: str) -> Case:
+    def resolve(self, case: str, *, name: str) -> Case:
         path, cls = self._class(case, name)
         chain = self._ancestry(path, cls)
         names = {c.name for _, c in chain}
@@ -348,7 +349,7 @@ class Cases:
             for node in ast.walk(c):
                 if isinstance(node, ast.If):
                     for os_name, system in PLATFORMS.items():
-                        reason = auto_pass(node, system)
+                        reason = platform_skip(node, system=system)
                         if reason is not None:
                             skipped.setdefault(os_name, reason)
         tags = [
@@ -364,13 +365,16 @@ class Cases:
             tags.append("windows-only")
         elif "windows" not in runs:
             tags.append("not-windows")
-        return Case(f"integration/{path}#L{cls.lineno}", tags, skipped)
+        return Case(
+            source=f"integration/{path}#L{cls.lineno}", tags=tags, skipped=skipped
+        )
 
 
-def auto_pass(node: ast.If, system: str) -> str | None:
-    """Returns the auto_pass message when node gates an auto_pass on the platform
-    and the gate holds for system, as in
-    `if platform.system().lower() != "windows": self.auto_pass(msg=...)`."""
+def platform_skip(node: ast.If, *, system: str) -> str | None:
+    """Returns the skip reason when node gates a skip on the platform and the gate
+    holds for system, as in
+    `if platform.system().lower() != "windows": self.skip(...)`, or the same with
+    the older `auto_pass`."""
     test = node.test
     if not (
         isinstance(test, ast.Compare)
@@ -387,12 +391,13 @@ def auto_pass(node: ast.If, system: str) -> str | None:
             if (
                 isinstance(call, ast.Call)
                 and isinstance(call.func, ast.Attribute)
-                and call.func.attr == "auto_pass"
+                # Sources before skip() gate the case with auto_pass().
+                and call.func.attr in ("skip", "auto_pass")
             ):
                 msg = call.keywords[0].value if call.keywords else call.args[0]
                 if isinstance(msg, ast.Constant) and isinstance(msg.value, str):
                     return msg.value
-                return "Auto-passed"
+                return "Skipped"
     return None
 
 
@@ -457,7 +462,7 @@ def main() -> None:
             ".jobs[]|{name,conclusion,html_url,labels,started_at,completed_at}|tojson",
         ).splitlines()
     ]
-    jobs = ci_jobs(run["path"], run_jobs)
+    jobs = ci_jobs(run["path"], jobs=run_jobs)
     if not jobs:
         sys.exit(f"{run['path']} does not run CI")
 
@@ -470,7 +475,7 @@ def main() -> None:
         if conclusion == "skipped":
             continue
         state = {"success": "passed", "failure": "failed"}.get(conclusion, "unknown")
-        found = enumerate_tests(ROOT, sha, lang, dirs)
+        found = enumerate_tests(ROOT, sha=sha, lang=lang, dirs=dirs)
         suites.append(
             {
                 "job": key,
@@ -504,7 +509,7 @@ def main() -> None:
         if m:
             tc_jobs[(m.group(1), m.group(2))] = job
 
-    cases = Cases(integration_sources(ROOT, sha))
+    cases = Cases(integration_sources(ROOT, sha=sha))
     with tempfile.TemporaryDirectory() as tmp:
         subprocess.run(
             [
@@ -545,11 +550,13 @@ def main() -> None:
             )
             s = len(suites) - 1
             for t in summary["tests"]:
-                case = cases.resolve(t["case"], t["name"])
+                case = cases.resolve(t["case"], name=t["name"])
                 state = TC_STATES[t["status"]]
-                message = t.get("error_message")
-                # tc reports an auto-passed case as PASSED.
-                if runner_os in case.skipped:
+                message = t.get(
+                    "skip_reason" if state == "skipped" else "error_message"
+                )
+                # Runs before SKIPPED existed report an auto-passed case as PASSED.
+                if state == "passed" and runner_os in case.skipped:
                     state, message = "skipped", case.skipped[runner_os]
                 tests.append(
                     [

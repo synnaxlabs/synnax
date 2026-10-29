@@ -15,6 +15,8 @@ declare const IS_DEV: boolean;
  * read it; lower layers stay the same for both apps, except for what a flag hides.
  */
 declare const DESKTOP: boolean;
+/** True only in a Desktop release that CI builds. Local and test builds leave it off. */
+declare const RELEASE: boolean;
 
 interface MonacoEnvironment {
   getWorker: (moduleId: string, label: string) => Worker;

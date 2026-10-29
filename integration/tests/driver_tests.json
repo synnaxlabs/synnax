@@ -41,6 +41,7 @@
         { "case": "console/task/mqtt_edge_task" },
         { "case": "console/task/mqtt_invalid" },
         { "case": "console/device/connect_network" },
+        { "case": "console/device/connect_opcua" },
         { "case": "console/device/http_legacy_device" }
       ]
     },

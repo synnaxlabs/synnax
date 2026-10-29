@@ -73,7 +73,7 @@ def packet(kind: int, flags: int, body: bytes) -> bytes:
     return bytes([kind << 4 | flags]) + encode_length(len(body)) + body
 
 
-def publish_packet(topic: str, payload: bytes, retain: bool) -> bytes:
+def publish_packet(topic: str, payload: bytes, *, retain: bool) -> bytes:
     return packet(PUBLISH, int(retain), encode_string(topic) + payload)
 
 
@@ -143,7 +143,9 @@ class Broker:
         """Calls handler with the topic and payload of each message a client sends."""
         self._handlers.append(handler)
 
-    def publish(self, topic: str, payload: bytes | str, retain: bool = False) -> None:
+    def publish(
+        self, topic: str, payload: bytes | str, *, retain: bool = False
+    ) -> None:
         """Delivers a message to every subscriber, as if a client had sent it."""
         if isinstance(payload, str):
             payload = payload.encode()
@@ -152,7 +154,7 @@ class Broker:
                 self._retained[topic] = payload
             else:
                 self._retained.pop(topic, None)
-        data = publish_packet(topic, payload, False)
+        data = publish_packet(topic, payload, retain=False)
         for session in list(self._sessions.values()):
             if any(topic_matches(f, topic) for f in session.filters):
                 session.send(data)
@@ -254,7 +256,7 @@ class Broker:
             if packet_id in session.unreleased:
                 return
             session.unreleased.add(packet_id)
-        self.publish(topic, payload, retain)
+        self.publish(topic, payload, retain=retain)
         for handler in self._handlers:
             handler(topic, payload)
 
@@ -270,4 +272,4 @@ class Broker:
         session.send(packet(SUBACK, 0, packet_id.to_bytes(2, "big") + bytes(granted)))
         for topic, payload in self._retained.items():
             if any(topic_matches(f, topic) for f in added):
-                session.send(publish_packet(topic, payload, True))
+                session.send(publish_packet(topic, payload, retain=True))

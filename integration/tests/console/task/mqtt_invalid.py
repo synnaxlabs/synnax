@@ -43,8 +43,8 @@ class MQTTInvalidConfig(MQTTCase):
 
     def test_no_device(self) -> MQTTRead:
         self.log("Testing: No device selected")
-        page = self.create_page(MQTTRead, "MQTT Console Invalid")
-        self.assert_device_required(page, BROKER_FIELD_LABEL)
+        page = self.create_page(MQTTRead, prefix="MQTT Console Invalid")
+        self.assert_device_required(page, label=BROKER_FIELD_LABEL)
         return page
 
     def test_wildcard_topic(self, page: MQTTRead) -> None:
@@ -54,19 +54,19 @@ class MQTTInvalidConfig(MQTTCase):
         page.set_topic(WILDCARD_TOPIC)
         page.add_field(WILDCARD_TOPIC, POINTER)
         page.select_entry(WILDCARD_TOPIC)
-        page.deploy(wait=False)
+        page.deploy(expect=None)
         message = page.field_help_text("Topic")
         assert message == "Topic must not hold the wildcards + or #", (
             f"Topic field should report the wildcard, got '{message}'"
         )
-        self.assert_not_deployed(page, "wildcard topic")
+        self.assert_not_deployed(page, label="wildcard topic")
 
     def test_no_enabled_entries(self, page: MQTTRead) -> None:
         self.log("Testing: No enabled entries")
         page.set_topic(TOPIC)
         page.disable_entry(TOPIC)
-        page.deploy(wait=False)
-        self.assert_not_deployed(page, "no enabled entries")
+        page.deploy(expect=None)
+        self.assert_not_deployed(page, label="no enabled entries")
 
     def test_broker_down(self, page: MQTTRead) -> None:
         """Deploy against a stopped broker; the task warns, then reads once the
@@ -74,7 +74,7 @@ class MQTTInvalidConfig(MQTTCase):
         self.log("Testing: Broker down (runtime)")
         page.enable_entry(TOPIC)
         self.cleanup_simulator()
-        self.assert_driver_rejects(page, "broker down")
+        self.assert_driver_rejects(page, label="broker down")
         self.start_simulator()
         page.wait_for_status(page.STARTED_MESSAGE, timeout=60000)
         self.console.tasks.wait_for_state(page.page_name, "running")
@@ -86,10 +86,10 @@ class MQTTInvalidConfig(MQTTCase):
         # Page objects locate their pane by task type, so the first tab closes before a
         # second read task opens.
         self.console.close_all_tabs()
-        second = self.create_page(MQTTRead, "MQTT Console Duplicate")
+        second = self.create_page(MQTTRead, prefix="MQTT Console Duplicate")
         self.select_broker(second)
         second.add_entry()
         second.set_topic(TOPIC)
         second.add_field(TOPIC, POINTER)
-        self.assert_driver_rejects(second, "duplicate channel")
+        self.assert_driver_rejects(second, label="duplicate channel")
         self.console.tasks.stop(page.page_name)

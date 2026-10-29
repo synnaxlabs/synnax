@@ -39,7 +39,7 @@ class OPCUATask(TaskPage):
         :param name: Name of the server device.
         """
         # The option's accessible name is the device name joined to its endpoint.
-        self.select_device(SERVER_FIELD_LABEL, name)
+        self.select_device(SERVER_FIELD_LABEL, name=name)
         browser = self._browser()
         browser.wait_for(state="visible", timeout=10000)
         browser.locator(_BROWSER_LOADING_SELECTOR).wait_for(
@@ -68,7 +68,7 @@ class OPCUATask(TaskPage):
         for name in node_names:
             node = self._node(name)
             node.wait_for(state="visible", timeout=15000)
-            node.drag_to(channel_list)
+            self.layout.drag(node, channel_list)
             self._channel_row(name).first.wait_for(state="visible", timeout=5000)
 
     def disable_channel(self, node_name: str) -> None:

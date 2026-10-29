@@ -59,8 +59,8 @@ class MQTTEdgeTask(MQTTCase):
     def test_create_task(self) -> MQTTEdge:
         """A new edge node is not deployed; select the broker and name the node."""
         self.log("Testing: Create Sparkplug edge node")
-        page = self.create_page(MQTTEdge, "MQTT Console Edge")
-        self.assert_not_deployed(page, "new task")
+        page = self.create_page(MQTTEdge, prefix="MQTT Console Edge")
+        self.assert_not_deployed(page, label="new task")
         page.select_broker(self.device_name)
         page.set_node(GROUP, EDGE_NODE)
         return page
@@ -68,7 +68,7 @@ class MQTTEdgeTask(MQTTCase):
     def test_add_tag(self, page: MQTTEdge) -> None:
         """A tag takes the name of its channel, and keeps a name typed over it."""
         self.log("Testing: Add a tag")
-        page.add_tag(CHANNEL, TAG)
+        page.add_tag(CHANNEL, name=TAG)
         tags = page.tags()
         assert tags == [TAG], f"Tags should be {[TAG]}, got {tags}"
 

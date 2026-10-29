@@ -32,8 +32,8 @@ class MQTTReadTask(MQTTCase):
     def test_create_task(self) -> MQTTRead:
         """A new task is not deployed; select the broker."""
         self.log("Testing: Create MQTT read task")
-        page = self.create_page(MQTTRead, "MQTT Console Read")
-        self.assert_not_deployed(page, "new task")
+        page = self.create_page(MQTTRead, prefix="MQTT Console Read")
+        self.assert_not_deployed(page, label="new task")
         self.select_broker(page)
         return page
 

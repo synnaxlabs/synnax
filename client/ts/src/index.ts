@@ -29,6 +29,7 @@ export {
   AccessDeniedError,
   AuthError,
   ContiguityError,
+  ControlError,
   DisconnectedError,
   ExpiredLicenseError,
   InvalidLicenseError,
@@ -39,9 +40,13 @@ export {
   MissingLicenseError,
   MultipleFoundError,
   NotFoundError,
+  PathError,
   QueryError,
   RouteError,
+  SessionEndedError,
+  UnauthorizedError,
   UnexpectedError,
+  UnsupportedError,
   ValidationError,
 } from "@/errors";
 export { ethercat } from "@/ethercat";

@@ -11,6 +11,7 @@ import { type Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
@@ -151,6 +152,7 @@ export const ChannelList = <C extends Channel>({
   ...rest
 }: ChannelListProps<C>) => {
   const { onSelect, path, data } = rest;
+  const { status } = Form.useFieldState(path);
   const handleChange = (keys: string[]) => onSelect(keys);
   const menuProps = Menu.useContextMenu();
   return (
@@ -183,6 +185,14 @@ export const ChannelList = <C extends Channel>({
           </List.Scroll>
         </Select.Frame>
       </Menu.ContextMenu>
+      {status.variant !== "success" && (
+        <Input.HelpText
+          variant={status.variant}
+          className={CSS.BE("channel-list", "status")}
+        >
+          {status.message}
+        </Input.HelpText>
+      )}
       {footer}
     </Flex.Box>
   );

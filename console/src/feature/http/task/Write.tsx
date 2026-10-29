@@ -21,7 +21,7 @@ import { type FC, useState } from "react";
 
 import { useFromConfig } from "@/feature/http/device/queries";
 import { Select as SelectDevice } from "@/feature/http/device/Select";
-import * as Device from "@/feature/http/device/types";
+import { SCHEMAS } from "@/feature/http/device/types";
 import { EndpointLabel } from "@/feature/http/task/EndpointLabel";
 import {
   deployWriteConfigZ,
@@ -86,7 +86,7 @@ const EndpointItem = (props: Task.ChannelListItemProps) => {
           level="small"
           weight={450}
           color={9}
-          overflow="ellipsis"
+          overflow="fade"
         />
         <Task.EnabledCheckbox path={`${path}.disabled`} />
       </Flex.Box>
@@ -113,6 +113,7 @@ const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
           />
           <PlatformForm.KeyValueEditor
             path={`${path}.queryParams`}
+            resourceName="parameter"
             label="Query parameters"
             keyField="parameter"
             keyPlaceholder="limit"
@@ -120,6 +121,7 @@ const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
           />
           <PlatformForm.KeyValueEditor
             path={`${path}.headers`}
+            resourceName="header"
             label="Headers"
             keyField="name"
             keyPlaceholder="Content-Type"
@@ -209,7 +211,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
 ) => {
   const dev = await client.devices.retrieve({
     key: config.device,
-    schemas: Device.SCHEMAS,
+    schemas: SCHEMAS,
   });
   const safeDevName = channel.escapeInvalidName(dev.name);
   const saved = deep.copy(dev.properties);
@@ -230,8 +232,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
       );
     }
   } finally {
-    if (!deep.equal(saved, dev.properties))
-      await client.devices.create(dev, Device.SCHEMAS);
+    if (!deep.equal(saved, dev.properties)) await client.devices.create(dev, SCHEMAS);
   }
   return [config, dev.rack];
 };

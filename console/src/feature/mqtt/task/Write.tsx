@@ -100,7 +100,7 @@ const TargetItem = (props: Task.ChannelListItemProps) => {
         level="small"
         weight={450}
         color={9}
-        overflow="ellipsis"
+        overflow="fade"
       />
     </Select.Item>
   );
@@ -366,7 +366,7 @@ export const Write = Task.wrapForm({
   Form,
   schemas: WRITE_SCHEMAS,
   deployConfigZ: deployWriteConfigZ,
-  type: WRITE_TYPE,
+  type: "mqtt_write",
   getInitialValues,
   onConfigure,
 });

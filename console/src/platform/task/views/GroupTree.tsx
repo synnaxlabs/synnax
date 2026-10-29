@@ -216,7 +216,7 @@ const FieldLabel = ({ path, level, emptyLabel }: FieldLabelProps) => {
       level={level}
       weight={500}
       color={pointer === "" ? 8 : 10}
-      overflow="ellipsis"
+      overflow="fade"
       className={CSS.B("field-pointer")}
     >
       {pointer === "" ? emptyLabel : pointer}

@@ -20,7 +20,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen/internal/cluster/pledge"
 	"github.com/synnaxlabs/aspen/internal/node"
-	"github.com/synnaxlabs/freighter/mock"
+	freightertestutil "github.com/synnaxlabs/freighter/testutil"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
@@ -31,9 +31,17 @@ var blazingFastConfig = pledge.Config{
 	RetryInterval:  time.Microsecond,
 }
 
-func baseConfig(n *mock.Network[pledge.Request, pledge.Response]) pledge.Config {
+func baseConfig(
+	n *freightertestutil.Network[pledge.Request, pledge.Response],
+) pledge.Config {
 	cfg, _ := baseConfigWithAddr(n)
 	return cfg
+}
+
+func addresses(nodes node.Group) []address.Address {
+	return lo.MapToSlice(nodes, func(_ node.Key, n node.Node) address.Address {
+		return n.Address
+	})
 }
 
 func allCandidates(nodes node.Group) func() node.Group {
@@ -41,7 +49,7 @@ func allCandidates(nodes node.Group) func() node.Group {
 }
 
 func baseConfigWithAddr(
-	n *mock.Network[pledge.Request, pledge.Response],
+	n *freightertestutil.Network[pledge.Request, pledge.Response],
 ) (pledge.Config, address.Address) {
 	server := n.UnaryServer("")
 	return pledge.Config{
@@ -52,7 +60,7 @@ func baseConfigWithAddr(
 
 func provisionCandidates(
 	n int,
-	net *mock.Network[pledge.Request, pledge.Response],
+	net *freightertestutil.Network[pledge.Request, pledge.Response],
 	nodes node.Group,
 	candidates func(int) func() node.Group,
 	nodeState func(int) node.State,
@@ -82,8 +90,8 @@ const maxProposals = 3
 const jurorFailure = "juror unreachable"
 
 func provisionFailingJuror(
-	n *mock.Network[pledge.Request, pledge.Response],
-) *mock.UnaryServer[pledge.Request, pledge.Response] {
+	n *freightertestutil.Network[pledge.Request, pledge.Response],
+) *freightertestutil.UnaryServer[pledge.Request, pledge.Response] {
 	server := n.UnaryServer("")
 	server.BindHandler(
 		func(context.Context, pledge.Request) (pledge.Response, error) {
@@ -94,7 +102,7 @@ func provisionFailingJuror(
 }
 
 func arbitrateResponsible(
-	n *mock.Network[pledge.Request, pledge.Response],
+	n *freightertestutil.Network[pledge.Request, pledge.Response],
 	ins alamos.Instrumentation,
 	candidates func() node.Group,
 ) address.Address {
@@ -110,7 +118,7 @@ func arbitrateResponsible(
 
 func sendPledge(
 	ctx context.Context,
-	n *mock.Network[pledge.Request, pledge.Response],
+	n *freightertestutil.Network[pledge.Request, pledge.Response],
 	addr address.Address,
 ) (pledge.Response, error) {
 	tCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
@@ -119,7 +127,7 @@ func sendPledge(
 }
 
 func countRequests(
-	n *mock.Network[pledge.Request, pledge.Response],
+	n *freightertestutil.Network[pledge.Request, pledge.Response],
 	target address.Address,
 ) int {
 	var count int
@@ -132,9 +140,9 @@ func countRequests(
 }
 
 var _ = Describe("Pledge", func() {
-	var net *mock.Network[pledge.Request, pledge.Response]
+	var net *freightertestutil.Network[pledge.Request, pledge.Response]
 	BeforeEach(func() {
-		net = mock.NewNetwork[pledge.Request, pledge.Response]()
+		net = freightertestutil.NewNetwork[pledge.Request, pledge.Response]()
 	})
 
 	Describe("Invalid configuration", func() {
@@ -218,7 +226,7 @@ var _ = Describe("Pledge", func() {
 				DeferCleanup(cancel)
 				res := MustSucceed(pledge.Pledge(tCtx, baseConfig(net), pledge.Config{
 					Instrumentation: ins.Child("cluster-state-synchronized"),
-					Peers:           nodes.Addresses(),
+					Peers:           addresses(nodes),
 					Candidates:      candidates,
 				}, blazingFastConfig))
 				// The pledge algorithm may assign a marginally higher key than the
@@ -273,7 +281,7 @@ var _ = Describe("Pledge", func() {
 						}
 						return n
 					}
-					net = mock.NewNetwork[pledge.Request, pledge.Response]()
+					net = freightertestutil.NewNetwork[pledge.Request, pledge.Response]()
 				)
 				provisionCandidates(10, net, nodes, func(i int) func() node.Group {
 					return lo.Ternary(i%2 == 0, extraCandidates, allCandidates)
@@ -345,7 +353,7 @@ var _ = Describe("Pledge", func() {
 					res := MustSucceed(
 						pledge.Pledge(tCtx, baseConfig(net), pledge.Config{
 							Instrumentation: ins.Child("rejections-uncounted"),
-							Peers:           nodes.Addresses(),
+							Peers:           addresses(nodes),
 							Candidates:      allCandidates(nodes),
 						}, blazingFastConfig, pledge.Config{
 							RequestTimeout: time.Second,
@@ -419,7 +427,7 @@ var _ = Describe("Pledge", func() {
 					tCtx, cancel := context.WithCancel(ctx)
 					cancel()
 					Expect(pledge.Pledge(tCtx, baseConfig(net), pledge.Config{
-						Peers:      nodes.Addresses(),
+						Peers:      addresses(nodes),
 						Candidates: allCandidates(nodes),
 					})).Error().To(MatchError(context.Canceled))
 				},
@@ -486,7 +494,7 @@ var _ = Describe("Pledge", func() {
 						defer GinkgoRecover()
 						defer wg.Done()
 						mu.Lock()
-						addrs := nodes.Addresses()
+						addrs := addresses(nodes)
 						mu.Unlock()
 						cfg, addr := baseConfigWithAddr(net)
 						res := MustSucceed(pledge.Pledge(

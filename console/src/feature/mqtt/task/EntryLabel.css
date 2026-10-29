@@ -13,9 +13,18 @@
     flex-grow: 1;
     min-width: 0;
 
-    /* A long topic keeps its last levels, which tell topics apart. */
-    & > .pluto-text--overflow-ellipsis {
+    /* A long topic keeps its last levels, which tell topics apart, so it is cut and
+       fades at its start. */
+    & > :last-child {
         direction: rtl;
         text-align: left;
+        animation-name: console-mqtt-entry-label-fade;
+    }
+}
+
+@keyframes console-mqtt-entry-label-fade {
+    0%,
+    100% {
+        mask-image: linear-gradient(to left, black calc(100% - 2.25rem), transparent);
     }
 }

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { fireEvent, render, type RenderResult } from "@testing-library/react";
+import { act, fireEvent, render, type RenderResult } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { CSS } from "@/css";
@@ -197,6 +197,51 @@ describe("Input.Numeric", () => {
       fireEvent.change(input, { target: { value: "7" } });
       fireEvent.blur(input);
       expect(onChange).toHaveBeenCalledWith(7);
+    });
+  });
+
+  describe("escape", () => {
+    // Loads mathjs and lets every evaluation that started settle.
+    const settle = async (): Promise<void> =>
+      await act(async () => {
+        await import("mathjs");
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+
+    const enterExpression = (c: RenderResult): HTMLInputElement => {
+      const input = c.getByRole("textbox") as HTMLInputElement;
+      input.focus();
+      fireEvent.change(input, { target: { value: "2 * 60" } });
+      fireEvent.keyDown(input, { key: "Enter", code: "Enter" });
+      return input;
+    };
+
+    it("should commit an expression on Enter", async () => {
+      const onChange = vi.fn();
+      enterExpression(render(<Input.Numeric value={5} onChange={onChange} />));
+      await settle();
+      expect(onChange).toHaveBeenCalledWith(120);
+    });
+
+    it("should drop an expression still evaluating when Esc is pressed", async () => {
+      const onChange = vi.fn();
+      const input = enterExpression(
+        render(<Input.Numeric value={5} onChange={onChange} />),
+      );
+      fireEvent.keyDown(input, { key: "Escape" });
+      await settle();
+      expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("should discard typed text instead of committing it", () => {
+      const onChange = vi.fn();
+      const c = render(<Input.Numeric value={5} onChange={onChange} />);
+      const input = c.getByRole("textbox") as HTMLInputElement;
+      input.focus();
+      fireEvent.change(input, { target: { value: "15" } });
+      fireEvent.keyDown(input, { key: "Escape" });
+      expect(onChange).not.toHaveBeenCalled();
+      expect(input.value).toEqual("5");
     });
   });
 

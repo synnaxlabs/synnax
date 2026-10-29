@@ -123,7 +123,7 @@ class MQTTReadMultipleTopics(MQTTReadTaskCase):
 
 
 def _sparkplug_entry(
-    client: sy.Synnax, tag: str, data_type: sy.DataType, device: str = ""
+    client: sy.Synnax, tag: str, *, data_type: sy.DataType, device: str = ""
 ) -> mqtt.SparkplugReadEntry:
     """Creates the channel of a tag of the simulator, on an index of its own."""
     idx = create_index(client, f"mqtt_sparkplug_{tag}_time")
@@ -152,10 +152,10 @@ class MQTTReadSparkplug(MQTTReadTaskCase):
     @staticmethod
     def create_channels(client: sy.Synnax) -> list[mqtt.ReadEntry]:
         return [
-            _sparkplug_entry(client, "temperature", sy.DataType.FLOAT64),
-            _sparkplug_entry(client, "count", sy.DataType.INT64),
-            _sparkplug_entry(client, "running", sy.DataType.UINT8),
+            _sparkplug_entry(client, "temperature", data_type=sy.DataType.FLOAT64),
+            _sparkplug_entry(client, "count", data_type=sy.DataType.INT64),
+            _sparkplug_entry(client, "running", data_type=sy.DataType.UINT8),
             _sparkplug_entry(
-                client, "speed", sy.DataType.FLOAT32, device=SPARKPLUG_DEVICE
+                client, "speed", data_type=sy.DataType.FLOAT32, device=SPARKPLUG_DEVICE
             ),
         ]

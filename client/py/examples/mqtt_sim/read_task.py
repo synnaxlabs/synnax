@@ -24,6 +24,8 @@ The plant publishes this payload on plant/sensors:
     {"temperature": 23.5, "pressure": 101.3, "count": 7, "state": "running"}
 """
 
+import numpy as np
+
 import synnax as sy
 from synnax import mqtt
 
@@ -102,10 +104,11 @@ try:
             while True:
                 frame = streamer.read()
                 if frame is not None and "mqtt_temperature" in frame:
+                    temp = frame["mqtt_temperature"].as_(np.float64)[-1]
+                    pres = frame["mqtt_pressure"].as_(np.float64)[-1]
+                    state = frame["mqtt_running"].as_(np.uint8)[-1]
                     print(
-                        f"temperature={frame['mqtt_temperature'][-1]:.2f} "
-                        f"pressure={frame['mqtt_pressure'][-1]:.2f} "
-                        f"running={frame['mqtt_running'][-1]}",
+                        f"temperature={temp:.2f} pressure={pres:.2f} running={state}",
                         end="\r",
                         flush=True,
                     )

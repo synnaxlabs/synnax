@@ -13,6 +13,7 @@ from collections.abc import Callable
 
 def assert_eventually(
     condition: Callable[[], object],
+    *,
     timeout: float = 5.0,
     interval: float = 0.1,
 ) -> None:

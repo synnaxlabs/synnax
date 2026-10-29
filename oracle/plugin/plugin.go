@@ -80,7 +80,7 @@ func NewRegistry() *Registry {
 func (r *Registry) Register(p Plugin) error {
 	name := p.Name()
 	if _, exists := r.plugins[name]; exists {
-		return &DuplicatePluginError{Name: name}
+		return &duplicatePluginError{Name: name}
 	}
 	r.plugins[name] = p
 	return nil
@@ -94,11 +94,9 @@ func (r *Registry) All() []Plugin {
 	return lo.MapToSlice(r.plugins, func(_ string, p Plugin) Plugin { return p })
 }
 
-// DuplicatePluginError is returned when attempting to register a plugin with a name
-// that is already registered.
-type DuplicatePluginError struct {
+type duplicatePluginError struct {
 	// Name is the duplicate plugin name.
 	Name string
 }
 
-func (e *DuplicatePluginError) Error() string { return "duplicate plugin: " + e.Name }
+func (e *duplicatePluginError) Error() string { return "duplicate plugin: " + e.Name }

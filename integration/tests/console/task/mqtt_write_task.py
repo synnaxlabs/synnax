@@ -37,7 +37,7 @@ class MQTTWriteTask(MQTTCase):
     def test_create_task(self) -> MQTTWrite:
         """Create the task page and select the broker."""
         self.log("Testing: Create MQTT write task")
-        page = self.create_page(MQTTWrite, "MQTT Console Write")
+        page = self.create_page(MQTTWrite, prefix="MQTT Console Write")
         self.select_broker(page)
         return page
 
@@ -47,7 +47,9 @@ class MQTTWriteTask(MQTTCase):
         self.log("Testing: Add a plain target and a Sparkplug B tag")
         page.add_entry()
         page.set_topic(TOPIC)
-        page.configure_channel("/position", "Number", "float64")
+        page.configure_channel(
+            pointer="/position", json_type="Number", data_type="float64"
+        )
         page.add_tags(SPARKPLUG_EDGE_NODE, [TAG])
         listed = page.entries()
         expected = [TOPIC, TAG_PATH]
@@ -63,4 +65,4 @@ class MQTTWriteTask(MQTTCase):
         assert tags == {TAG}, f"Task tags should be {{{TAG!r}}}, got {tags}"
         keys = self.channel_keys(task)
         assert len(keys) == 2, f"Every target needs a command channel, got {keys}"
-        self.send_commands(page, task)
+        self.send_commands(page, task=task)

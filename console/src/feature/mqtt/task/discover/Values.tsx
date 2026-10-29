@@ -120,13 +120,13 @@ const Item = (props: List.ItemRenderProps<string>) => {
         size="small"
         aria-label={`Record ${value.name}`}
       />
-      <Text.Text level="small" weight={500} color={locked ? 9 : 10} overflow="ellipsis">
+      <Text.Text level="small" weight={500} color={locked ? 9 : 10} overflow="fade">
         {value.name}
       </Text.Text>
-      <Text.Text level="small" color={9} overflow="ellipsis" variant="code">
+      <Text.Text level="small" color={9} overflow="fade" variant="code">
         {value.sample ?? "–"}
       </Text.Text>
-      <Text.Text level="small" color={9} overflow="ellipsis">
+      <Text.Text level="small" color={9} overflow="fade">
         {dataType}
       </Text.Text>
     </Select.Item>

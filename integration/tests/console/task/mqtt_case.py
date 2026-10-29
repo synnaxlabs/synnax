@@ -107,7 +107,9 @@ class MQTTCase(ConsoleTaskCase):
         """Hold the running task, stop it from the form, then check each channel
         against the publish rate of the simulator. Topics publish on their own
         indexes, so the channels are counted one at a time."""
-        start = collect_samples(self.client, keys, self.TASK_DURATION, 1)
+        start = collect_samples(
+            self.client, keys, duration=self.TASK_DURATION, frame_size=1
+        )
         self.stop(page)
         time_range = sy.TimeRange(start, sy.TimeStamp.now())
         expected = int(float(self.SAMPLE_RATE) * self.TASK_DURATION.seconds)

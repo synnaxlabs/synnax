@@ -51,7 +51,7 @@ SPARKPLUG_EDGE_NODE = "Line1"
 SPARKPLUG_DEVICE = "Pump1"
 
 
-async def run_server(host: str, port: int, rate_hz: float = 10) -> None:
+async def run_server(host: str, port: int, *, rate_hz: float = 10) -> None:
     """Runs the mock plant until it is cancelled."""
     broker = Broker(host, port)
 
@@ -68,10 +68,10 @@ async def run_server(host: str, port: int, rate_hz: float = 10) -> None:
     setpoint = sparkplug.Tag("setpoint", pb.Double, 0.0)
     edge_node = sparkplug.EdgeNode(
         broker,
-        SPARKPLUG_GROUP,
-        SPARKPLUG_EDGE_NODE,
-        [temperature, counter, running],
-        {SPARKPLUG_DEVICE: [speed, setpoint]},
+        group=SPARKPLUG_GROUP,
+        edge_node=SPARKPLUG_EDGE_NODE,
+        tags=[temperature, counter, running],
+        devices={SPARKPLUG_DEVICE: [speed, setpoint]},
     )
     sparkplug.HostMirror(broker)
     await broker.start()
@@ -106,7 +106,7 @@ async def run_server(host: str, port: int, rate_hz: float = 10) -> None:
             running.value = count % 20 < 10
             speed.value = 1500 + 100 * math.cos(t)
             edge_node.data()
-            edge_node.data(SPARKPLUG_DEVICE, {speed.name})
+            edge_node.data(SPARKPLUG_DEVICE, names={speed.name})
             await asyncio.sleep(1 / rate_hz)
     finally:
         edge_node.death()
@@ -122,7 +122,7 @@ class MQTTSim(DeviceSim):
     device_name = "MQTT Test Broker"
 
     async def _run_server(self) -> None:
-        await run_server(self.host, self.port, float(self.rate))
+        await run_server(self.host, self.port, rate_hz=float(self.rate))
 
     @staticmethod
     def create_device(rack_key: int) -> mqtt.Device:
@@ -142,6 +142,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
     print(f"Mock MQTT plant on {args.host}:{args.port}. Press Ctrl+C to stop.")
     try:
-        asyncio.run(run_server(args.host, args.port, args.rate))
+        asyncio.run(run_server(args.host, args.port, rate_hz=args.rate))
     except KeyboardInterrupt:
         pass

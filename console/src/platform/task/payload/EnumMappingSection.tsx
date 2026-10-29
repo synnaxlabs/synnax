@@ -27,6 +27,7 @@ export const EnumMappingSection = ({
   <Form.Section title="Enum mapping">
     <PlatformForm.KeyValueEditor
       path={path}
+      resourceName="mapping"
       keyField="label"
       keyPlaceholder="String (e.g. ON)"
       valueType="number"

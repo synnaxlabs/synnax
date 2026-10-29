@@ -11,9 +11,9 @@
 
 .console-mqtt-connect {
     width: 155rem;
+}
 
-    /* Fits the longest label, so the column holds still as fields show and hide. */
-    .pluto-form-sections.pluto--direction-y {
-        grid-template-columns: minmax(18rem, max-content) minmax(0, 1fr);
-    }
+/* Fits the longest label, so the column holds still as fields show and hide. */
+.console-mqtt-connect__sections {
+    grid-template-columns: minmax(18rem, max-content) minmax(0, 1fr);
 }

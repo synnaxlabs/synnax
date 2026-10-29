@@ -120,6 +120,7 @@ class EdgeNode:
     def __init__(
         self,
         broker: Broker,
+        *,
         group: str,
         edge_node: str,
         tags: list[Tag],
@@ -148,7 +149,7 @@ class EdgeNode:
         return seq
 
     def _metrics(
-        self, device: str, birth: bool, names: set[str] | None
+        self, device: str, *, birth: bool, names: set[str] | None
     ) -> list[pb.Payload.Metric]:
         now = _now_ms()
         return [
@@ -170,7 +171,7 @@ class EdgeNode:
         self._bd_seq = (self._bd_seq + 1) % 256
         now = _now_ms()
         for device in self.tags:
-            metrics = self._metrics(device, True, None)
+            metrics = self._metrics(device, birth=True, names=None)
             if device == "":
                 metrics = [
                     new_metric(pb.Int64, self._bd_seq, name=BD_SEQ),
@@ -189,11 +190,11 @@ class EdgeNode:
         payload = pb.Payload(timestamp=_now_ms(), metrics=[bd_seq])
         self.broker.publish(self.topic("NDEATH"), payload.SerializeToString())
 
-    def data(self, device: str = "", names: set[str] | None = None) -> None:
+    def data(self, device: str = "", *, names: set[str] | None = None) -> None:
         """Publishes the values of tags of device, or of all of them with no names."""
         payload = pb.Payload(
             timestamp=_now_ms(),
-            metrics=self._metrics(device, False, names),
+            metrics=self._metrics(device, birth=False, names=names),
             seq=self._next_seq(),
         )
         self.broker.publish(
@@ -223,7 +224,7 @@ class EdgeNode:
                     tag.value = value
                     changed.add(tag.name)
         if changed:
-            self.data(device, changed)
+            self.data(device, names=changed)
 
 
 MIRROR_PREFIX = "plant/sparkplug/"

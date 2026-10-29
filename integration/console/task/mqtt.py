@@ -17,7 +17,7 @@ from console.task_page import TaskPage
 
 BROKER_FIELD_LABEL = "MQTT broker"
 DETAILS_SELECTOR = ".console-details__form"
-ENTRY_TITLE_SELECTOR = ".console-mqtt-entry-label > .pluto-text--overflow-ellipsis"
+ENTRY_TITLE_SELECTOR = ".console-mqtt-entry-label > .lyra-text--overflow-fade"
 FIELD_POINTER_SELECTOR = ".console-field-pointer"
 CHANNEL_NAME_SELECTOR = ".console-task__channel-name"
 TREE_ROWS_JS = f"""els => els.map((e) => [
@@ -97,7 +97,7 @@ class MQTTTask(TaskPage):
 
         :param name: Name of the broker device.
         """
-        self.select_device(BROKER_FIELD_LABEL, name)
+        self.select_device(BROKER_FIELD_LABEL, name=name)
         self._add_button().wait_for(state="visible", timeout=10000)
 
     def add_topics(self, topics: list[str]) -> None:
@@ -175,7 +175,9 @@ class MQTTRead(MQTTTask):
     def _rows(self) -> Locator:
         return self._pane().get_by_role("tree").first.get_by_role("treeitem")
 
-    def add_field(self, title: str, pointer: str, data_type: str | None = None) -> None:
+    def add_field(
+        self, title: str, pointer: str, *, data_type: str | None = None
+    ) -> None:
         """Add a field to a listed entry via its context menu, and select it.
 
         :param title: Title of the entry.
@@ -223,7 +225,9 @@ class MQTTWrite(MQTTTask):
     def _rows(self) -> Locator:
         return self._channel_list().get_by_role("option")
 
-    def configure_channel(self, pointer: str, json_type: str, data_type: str) -> None:
+    def configure_channel(
+        self, *, pointer: str, json_type: str, data_type: str
+    ) -> None:
         """Set the command channel of the selected plain target.
 
         :param pointer: JSON pointer the value takes in the payload.
@@ -269,7 +273,7 @@ class MQTTEdge(TaskPage):
 
         :param name: Name of the broker device.
         """
-        self.select_device(BROKER_FIELD_LABEL, name)
+        self.select_device(BROKER_FIELD_LABEL, name=name)
         self._add_button().wait_for(state="visible", timeout=10000)
 
     def set_node(self, group: str, edge_node: str) -> None:
@@ -277,7 +281,7 @@ class MQTTEdge(TaskPage):
         self._fill("plant", group)
         self._fill("line1", edge_node)
 
-    def add_tag(self, channel_name: str, name: str | None = None) -> None:
+    def add_tag(self, channel_name: str, *, name: str | None = None) -> None:
         """Add a tag that publishes ``channel_name``. The tag takes the name of the
         channel unless ``name`` is given."""
         index = self._rows().count()

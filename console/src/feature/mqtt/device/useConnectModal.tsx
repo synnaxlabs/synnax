@@ -127,7 +127,7 @@ export const Connect = ({
       <Modal.Body gap="large">
         <Form.Form<PDevice.FormSchema<typeof SCHEMAS>> {...form}>
           <Form.TextField path="name" showLabel={false} inputProps={NAME_INPUT_PROPS} />
-          <Form.Sections>
+          <Form.Sections className={CSS.BE("mqtt-connect", "sections")}>
             <Form.Section title="Connection">
               <Form.TextField
                 path="location"

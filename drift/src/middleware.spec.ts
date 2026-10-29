@@ -9,8 +9,8 @@
 
 import { describe, expect, it, vi } from "vitest";
 
-import { MockRuntime } from "@/mock/runtime";
 import { setWindowStage, type StoreState, ZERO_SLICE_STATE } from "@/state";
+import { MockRuntime } from "@/testutil";
 import { INITIAL_WINDOW_STATE, type WindowState } from "@/window";
 
 import { configureMiddleware, type GetDefaultMiddleware } from "./middleware";

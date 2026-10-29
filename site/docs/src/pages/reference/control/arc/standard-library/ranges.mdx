@@ -7,6 +7,7 @@ description:
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
+import { Field } from "@/components/field";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -15,9 +16,9 @@ runs. Import it with `import ranges`. Each function works in a flow and in a fun
 body. When a call fails, Synnax shows a warning, gives an empty key, and the automation
 keeps running. For worked examples, see [create ranges in Arc](/reference/ranges/arc).
 
-Both functions are trigger-only: each new input value runs them, whatever the value. To
-run one only when a condition is true, use `=>`. With no input, a function in a stage
-runs once each time the stage starts.
+Each new trigger runs both functions, whatever the value. To run one only when a
+condition is true, use `=>`. With no upstream trigger, a function in a stage runs once
+each time the stage starts.
 
 <Divider.Divider x />
 
@@ -25,11 +26,28 @@ runs once each time the stage starts.
 
 Creates a range that starts now and has no end. The Console shows it as in progress.
 
-| Parameter | Type  | Required | Default | Meaning                                                                                                                  |
-| --------- | ----- | -------- | ------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `name`    | `str` | Yes      |         | The name of the range.                                                                                                   |
-| `parent`  | `str` | No       | `""`    | The key of the parent range. Empty gives a top-level range.                                                              |
-| `color`   | `str` | No       | `""`    | A hex color such as `"#3bc454"`, or `rgb(r, g, b)` or `rgba(r, g, b, a)`. Line plots show only ranges that have a color. |
+<Field.List>
+
+<Field.Item name="name" type="str" required id="create-name">
+
+The name of the range.
+
+</Field.Item>
+
+<Field.Item name="parent" type="str" default='""' id="create-parent">
+
+The key of the parent range. Empty gives a top-level range.
+
+</Field.Item>
+
+<Field.Item name="color" type="str" default='""' id="create-color">
+
+A hex color such as `"#3bc454"`, or `rgb(r, g, b)` or `rgba(r, g, b, a)`. Line plots
+show only ranges that have a color.
+
+</Field.Item>
+
+</Field.List>
 
 - Output -> the key of the new range, as a `str`.
 - Function form -> `ranges.create(name, parent, color) str`. `parent` and `color` are
@@ -51,9 +69,15 @@ func start_test() str {
 
 Sets the end of a range to now.
 
-| Parameter | Type  | Required | Default | Meaning                      |
-| --------- | ----- | -------- | ------- | ---------------------------- |
-| `key`     | `str` | Yes      |         | The key of the range to end. |
+<Field.List>
+
+<Field.Item name="key" type="str" required id="end-key">
+
+The key of the range to end.
+
+</Field.Item>
+
+</Field.List>
 
 - Output -> the key of the range, as a `str`.
 - Function form -> `ranges.end(key) str`.
@@ -68,10 +92,10 @@ import ranges
 sequence test {
     key $= ""
     stage run {
-        ranges.create{name="Hotfire", color="#3bc454"} -> key
+        ranges.create(name="Hotfire", color="#3bc454") -> key
         stop_cmd == 1 => next
     }
-    ranges.end{key=key}
+    ranges.end(key=key)
 }
 
 start_cmd == 1 => test

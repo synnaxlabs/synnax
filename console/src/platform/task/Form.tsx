@@ -118,9 +118,6 @@ const Header = ({ isSnapshot }: HeaderProps) => (
   </>
 );
 
-// The deploy pipeline saves once at the end; notifying would fire autosave first.
-const SKIP_AUTOSAVE: PForm.SetOptions = { notifyOnChange: false };
-
 // Numeric fields have drag handles that emit a change per pixel.
 const AUTO_SAVE_DEBOUNCE = TimeSpan.milliseconds(200);
 
@@ -167,18 +164,19 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
             result.error.issues.forEach((issue) => {
               const variant = issueVariant(issue);
               if (variant !== "warning") blocked = true;
-              // Fields in keyed lists sit at the key of their entry, not its index.
-              const path =
-                issue.path.length === 0
-                  ? "config"
-                  : `config.${deep.resolvePath(issue.path.join("."), config)}`;
+              // Fields address array items by their key, not by their index.
+              const path = deep.resolvePath(
+                ["config", ...issue.path].join("."),
+                form.value(),
+              );
               form.setStatus(path, { key: path, variant, message: issue.message });
             });
             if (blocked) return;
           }
           const [newConfig, newRack] = await onConfigure(client, config, name);
-          form.set("config", newConfig, SKIP_AUTOSAVE);
-          if (primitive.isNonZero(newRack)) form.set("rack", newRack, SKIP_AUTOSAVE);
+          // Tracked sets, so the result of a save still in flight cannot revert them.
+          form.set("config", newConfig);
+          if (primitive.isNonZero(newRack)) form.set("rack", newRack);
           if (!(await saveAsync())) return;
         }
         await client.tasks.executeCommand({ task: taskKey, type: "start" });

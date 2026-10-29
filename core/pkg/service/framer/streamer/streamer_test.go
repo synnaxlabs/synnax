@@ -145,6 +145,52 @@ var _ = Describe("Streamer", Ordered, func() {
 		})
 	})
 
+	Describe("Key update acks", func() {
+		DescribeTable("Should deliver a write issued after a key update ack",
+			func(ctx SpecContext, cfg streamer.Config) {
+				ch := &channel.Channel{
+					Name:     UniqueChannelName(),
+					DataType: telem.Float32T,
+					Virtual:  true,
+				}
+				Expect(channelWriter.Create(ctx, ch)).To(Succeed())
+				keys := []channel.Key{ch.Key()}
+				cfg.SendOpenAck = true
+				s := MustSucceed(streamerSvc.New(ctx, cfg))
+				sCtx, cancel := signal.Isolated()
+				inlet, outlet := confluence.Attach(s)
+				defer cancel()
+				s.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+				var res streamer.Response
+				Eventually(outlet.Outlet()).Should(Receive(&res))
+				Expect(res.Ack).To(BeFalse())
+
+				inlet.Inlet() <- streamer.Config{Keys: keys, AckRequested: true}
+				Eventually(outlet.Outlet()).Should(Receive(&res))
+				Expect(res.Ack).To(BeTrue())
+				Expect(res.Frame.Empty()).To(BeTrue())
+
+				w := MustOpen(node.Framer.OpenWriter(ctx, framer.WriterConfig{
+					Start: telem.Now(),
+					Keys:  keys,
+				}))
+				writtenFr := frame.NewUnary(
+					ch.Key(),
+					telem.NewSeriesV[float32](1, 2, 3),
+				)
+				Expect(w.Write(writtenFr)).To(BeTrue())
+				Eventually(outlet.Outlet()).Should(Receive(&res))
+				Expect(res.Ack).To(BeFalse())
+				Expect(res.Frame.KeysSlice()).To(Equal(keys))
+				inlet.Close()
+				Eventually(outlet.Outlet()).Should(BeClosed())
+			},
+			Entry("no throttle", streamer.Config{}),
+			Entry("a throttle", streamer.Config{ThrottleRate: telem.Rate(5)}),
+			Entry("a downsampler", streamer.Config{DownsampleFactor: 2}),
+		)
+	})
+
 	Describe("Calculations", func() {
 		var (
 			indexCh *channel.Channel
@@ -623,7 +669,7 @@ var _ = Describe("Streamer", Ordered, func() {
 				Keys:  keys,
 			}))
 
-			throttleRate := 5 * telem.Hertz
+			throttleRate := telem.Rate(5)
 			s := MustSucceed(streamerSvc.New(ctx, streamer.Config{
 				Keys:         keys,
 				SendOpenAck:  true,
@@ -702,7 +748,7 @@ var _ = Describe("Streamer", Ordered, func() {
 				Keys:             keys,
 				SendOpenAck:      true,
 				DownsampleFactor: 2,
-				ThrottleRate:     5 * telem.Hertz,
+				ThrottleRate:     telem.Rate(5),
 			}))
 
 			sCtx, cancel := signal.Isolated()
@@ -741,7 +787,7 @@ var _ = Describe("Streamer", Ordered, func() {
 				Keys:  keys,
 			}))
 
-			throttleRate := 5 * telem.Hertz
+			throttleRate := telem.Rate(5)
 			s := MustSucceed(streamerSvc.New(ctx, streamer.Config{
 				Keys:         keys,
 				SendOpenAck:  true,
@@ -820,7 +866,7 @@ var _ = Describe("Streamer", Ordered, func() {
 				Keys:             keys,
 				SendOpenAck:      true,
 				DownsampleFactor: 2,
-				ThrottleRate:     5 * telem.Hertz,
+				ThrottleRate:     telem.Rate(5),
 			}))
 
 			sCtx, cancel := signal.Isolated()

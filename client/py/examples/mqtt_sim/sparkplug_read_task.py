@@ -32,7 +32,7 @@ client = sy.Synnax()
 dev = client.devices.retrieve(name="MQTT Broker")
 
 
-def create_tag_channel(name: str, data_type: sy.DataType) -> sy.Channel:
+def create_tag_channel(name: str, *, data_type: sy.DataType) -> sy.Channel:
     """Creates a channel on an index of its own, because each Sparkplug B tag carries
     its own timestamp."""
     index = client.channels.create(
@@ -49,8 +49,8 @@ def create_tag_channel(name: str, data_type: sy.DataType) -> sy.Channel:
     )
 
 
-temperature = create_tag_channel("sparkplug_temperature", sy.DataType.FLOAT64)
-speed = create_tag_channel("sparkplug_speed", sy.DataType.FLOAT32)
+temperature = create_tag_channel("sparkplug_temperature", data_type=sy.DataType.FLOAT64)
+speed = create_tag_channel("sparkplug_speed", data_type=sy.DataType.FLOAT32)
 
 tsk = mqtt.ReadTask(
     name="MQTT Py - Sparkplug Read Task",
