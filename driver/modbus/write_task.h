@@ -136,9 +136,9 @@ public:
     }
 };
 
-/// @brief writes single bits of holding registers. Each register with a commanded bit
-/// is read and then written back at once, so the device can change its other bits
-/// between the two requests. The commanded bits of one register go in one write.
+/// @brief writes single bits of holding registers. The commanded bits of one register
+/// go in one read of the register and one write back. A change the device makes to the
+/// other bits between the two requests is lost.
 class RegisterBitWriter final : public BaseWriter<channel::OutputRegisterBit> {
     /// @brief sets the register to (current AND and_mask) OR (or_mask AND NOT
     /// and_mask), the result of function code 22.

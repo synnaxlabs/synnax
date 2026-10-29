@@ -921,8 +921,8 @@ class TestModbusDevicePropertyUpdates:
         assert key3 == expected_key3
 
     def test_bit_channels_update_device_properties(self, client: sy.Synnax) -> None:
-        """Test that register bit channels map by register and bit, so two bits of
-        one register bind to two channels."""
+        """Test that register bit channels map by register and bit, so two bits of one
+        register bind to two channels."""
         rack = client.racks.retrieve_embedded_rack()
         device = sy.modbus.Device(
             host="127.0.0.1",

@@ -635,6 +635,19 @@ TEST(TestSeries, testMovePreservesAlignment) {
     ASSERT_EQ(s2.alignment.uint64(), Alignment(5, 10).uint64());
 }
 
+/// @brief it should carry the byte capacity of a variable series in a move, so a string
+/// write grows the buffer it holds.
+TEST(TestSeries, testMoveVariableByteCap) {
+    Series s1{STRING_T, 64};
+    const Series s2 = std::move(s1);
+    ASSERT_EQ(s2.byte_cap(), 64);
+    Series s3{STRING_T, 64};
+    s3 = Series{STRING_T, 8};
+    ASSERT_EQ(s3.byte_cap(), 8);
+    ASSERT_EQ(s3.write(std::string(32, 'a')), 1);
+    ASSERT_EQ(s3.strings(), std::vector<std::string>{std::string(32, 'a')});
+}
+
 /// @brief it should generate evenly spaced timestamps.
 TEST(TestSeriesLinspace, BasicEvenSpacing) {
     const auto start = TimeStamp(100);

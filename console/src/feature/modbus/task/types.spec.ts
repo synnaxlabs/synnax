@@ -137,6 +137,34 @@ describe("deploy configs", () => {
     ]);
   });
 
+  it("should reject a register bit inside a register value or on a taken bit", () => {
+    const result = Modbus.Task.deployWriteConfigZ.safeParse(
+      writeConfig([
+        { type: "holding_register", address: 0, dataType: "float32" },
+        { type: "holding_register_bit", address: 2, bit: 1 },
+        { type: "holding_register_bit", address: 2, bit: 2 },
+        { type: "coil", address: 2 },
+        { type: "holding_register_bit", address: 1, bit: 0 },
+        { type: "holding_register_bit", address: 2, bit: 1 },
+        { type: "holding_register", address: 2, dataType: "uint16" },
+      ]),
+    );
+    expect(issues(result)).toEqual([
+      {
+        path: ["channels", 4, "address"],
+        message: "Overlaps the holding register at address 0",
+      },
+      {
+        path: ["channels", 5, "address"],
+        message: "Overlaps the holding register bit at address 2",
+      },
+      {
+        path: ["channels", 6, "address"],
+        message: "Overlaps the holding register bit at address 2",
+      },
+    ]);
+  });
+
   it("should ignore disabled channels", () => {
     const result = Modbus.Task.deployWriteConfigZ.safeParse(
       writeConfig([

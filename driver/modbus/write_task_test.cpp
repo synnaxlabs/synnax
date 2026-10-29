@@ -752,8 +752,8 @@ TEST_F(ModbusWriteTest, testUnsupportedDataTypeRejected) {
     EXPECT_EQ(errors[0]["message"], "unsupported data type: string");
 }
 
-/// @brief it should accept two bits of one register, reject a bit inside a register
-/// value, and reject a second channel on the same bit.
+/// @brief it should accept two bits of one register, and reject a bit inside a register
+/// value, a second channel on the same bit, and a bit past 15.
 TEST_F(ModbusWriteTest, testRegisterBitOverlaps) {
     this->setup_task_config();
     auto third = ASSERT_NIL_P(client->channels.create(
@@ -781,18 +781,21 @@ TEST_F(ModbusWriteTest, testRegisterBitOverlaps) {
               bit(coil_ch.key, 2, 1),
               bit(third.key, 2, 2),
               bit(third.key, 1, 0),
-              bit(third.key, 2, 1)}
+              bit(third.key, 2, 1),
+              bit(third.key, 3, 16)}
          )}
     };
     auto p = x::json::Parser(task_cfg);
     WriteTaskConfig write_cfg(client, p);
     ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
     const auto errors = p.error_json()["errors"];
-    ASSERT_EQ(errors.size(), 2);
+    ASSERT_EQ(errors.size(), 3);
     EXPECT_EQ(errors[0]["path"], "channels.3.address");
     EXPECT_EQ(errors[0]["message"], "overlaps the holding register at address 0");
     EXPECT_EQ(errors[1]["path"], "channels.4.bit");
     EXPECT_EQ(errors[1]["message"], "another channel writes this bit of the register");
+    EXPECT_EQ(errors[2]["path"], "channels.5.bit");
+    EXPECT_EQ(errors[2]["message"], "must be from 0 to 15");
 }
 
 /// @brief it should set one bit of a holding register and keep its other bits.

@@ -25,10 +25,10 @@ const TABLE_DIGITS: Record<ChannelType, number> = {
 };
 
 const TABLE_NAMES: Record<number, string> = {
-  0: "coil",
-  1: "discrete input",
-  3: "input register",
-  4: "holding register",
+  0: "a coil",
+  1: "a discrete input",
+  3: "an input register",
+  4: "a holding register",
 };
 
 const MAX_ADDRESS = 65535;
@@ -40,8 +40,8 @@ export const toModicon = (type: ChannelType, address: number): string =>
 export type ParsedAddress = { address: number } | { error: string };
 
 /**
- * Parses an address typed as a zero-based offset or as a six-digit Modicon address.
- * The first digit of a Modicon address must name the table of the channel type.
+ * Parses an address typed as a zero-based offset or as a six-digit Modicon address. The
+ * first digit of a Modicon address must name the table of the channel type.
  */
 export const parseAddress = (type: ChannelType, raw: string): ParsedAddress => {
   const text = raw.trim();
@@ -52,10 +52,7 @@ export const parseAddress = (type: ChannelType, raw: string): ParsedAddress => {
     const table = TABLE_NAMES[digit];
     if (table == null || n < 1 || n > MAX_ADDRESS + 1)
       return { error: `${text} is not a Modicon address` };
-    if (digit !== TABLE_DIGITS[type])
-      return {
-        error: `${text} is ${/^[aeiou]/.test(table) ? "an" : "a"} ${table} address`,
-      };
+    if (digit !== TABLE_DIGITS[type]) return { error: `${text} is ${table} address` };
     return { address: n - 1 };
   }
   const n = Number(text);

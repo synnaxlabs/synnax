@@ -36,7 +36,7 @@ channel::InputRegister holding(
     return ch;
 }
 
-channel::InputRegister string(
+channel::InputRegister input_string(
     const synnax::channel::Key key,
     const std::uint16_t address,
     const std::int32_t length,
@@ -316,8 +316,8 @@ TEST(RegisterReader, BitsShareRequestWithValues) {
     slave.stop();
 }
 
-/// @brief it should read a string two characters to a register, high byte first,
-/// and end it at the first NUL.
+/// @brief it should read a string two characters to a register, high byte first, and
+/// end it at the first NUL.
 TEST(RegisterReader, String) {
     testutil::SlaveConfig cfg;
     cfg.port = 1651;
@@ -329,15 +329,15 @@ TEST(RegisterReader, String) {
     ASSERT_NIL(slave.start());
     auto dev = ASSERT_NIL_P(device::Manager().acquire({"127.0.0.1", 1651}));
 
-    RegisterReader reader(device::InputRegister, {string(1, 0, 8, false, "tag")});
+    RegisterReader reader(device::InputRegister, {input_string(1, 0, 8, false, "tag")});
     const auto [fr, err] = read_once(reader, dev);
     ASSERT_NIL(err);
     EXPECT_EQ(fr.series->at(0).strings(), std::vector<std::string>{"PUMP1"});
     slave.stop();
 }
 
-/// @brief it should read a string with the low byte of each register first when
-/// the bytes are swapped, and stop at the string length.
+/// @brief it should read a string with the low byte of each register first when the
+/// bytes are swapped, and stop at the string length.
 TEST(RegisterReader, StringBytesSwapped) {
     testutil::SlaveConfig cfg;
     cfg.port = 1652;
@@ -347,7 +347,7 @@ TEST(RegisterReader, StringBytesSwapped) {
     ASSERT_NIL(slave.start());
     auto dev = ASSERT_NIL_P(device::Manager().acquire({"127.0.0.1", 1652}));
 
-    RegisterReader reader(device::InputRegister, {string(1, 0, 3, true, "tag")});
+    RegisterReader reader(device::InputRegister, {input_string(1, 0, 3, true, "tag")});
     EXPECT_EQ(reader.sy_channels().size(), 1);
     const auto [fr, err] = read_once(reader, dev);
     ASSERT_NIL(err);

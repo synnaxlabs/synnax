@@ -23,9 +23,9 @@ export interface AddressFieldProps {
 }
 
 /**
- * The address of a channel. It takes a zero-based offset or a six-digit Modicon
- * address such as 400001, and shows the Modicon form after the offset. Text that does
- * not parse keeps the stored address and marks the field until the next edit.
+ * The address of a channel. It takes a zero-based offset or a six-digit Modicon address
+ * such as 400001, and shows the Modicon form after the offset. Text that does not parse
+ * keeps the stored address and marks the field until the next edit.
  */
 export const AddressField = ({ path }: AddressFieldProps): ReactElement => {
   const type = Form.useFieldValue<ChannelType>(`${path}.type`);

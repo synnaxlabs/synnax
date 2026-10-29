@@ -96,7 +96,7 @@ struct InputRegister final : Input {
         value_type(value.data_type),
         bytes_swapped(value.bytes_swapped.value_or(conn.swap_bytes)),
         words_swapped(value.words_swapped.value_or(conn.swap_words)),
-        string_length(std::max(string_length, 0)) {}
+        string_length(static_cast<std::size_t>(string_length)) {}
 
     InputRegister(
         const ::synnax::modbus::BaseReadChannel &base,

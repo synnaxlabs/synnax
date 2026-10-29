@@ -1161,8 +1161,8 @@ TEST_F(ModbusReadTest, testUnsupportedDataTypeRejected) {
     EXPECT_EQ(errors[0]["message"], "unsupported data type: timestamp");
 }
 
-/// @brief it should reject a string with no length, a string read into a channel
-/// that is not a string, and a bit past 15.
+/// @brief it should reject a string with no length, a string read into a channel that
+/// is not a string, and a bit past 15.
 TEST_F(ModbusReadTest, testStringAndBitRejected) {
     auto str = ASSERT_NIL_P(client->channels.create(
         make_unique_channel_name("str"),
@@ -1272,9 +1272,7 @@ TEST_F(ModbusReadTest, testStringAndBitRead) {
         const auto &fr = mock_factory->writes->at(i);
         ASSERT_EQ(fr.length(), 1);
         EXPECT_EQ(fr.at<uint8_t>(bit.key, 0), 1);
-        for (const auto &[key, ser]: fr)
-            if (key == str.key)
-                EXPECT_EQ(ser.strings(), std::vector<std::string>{"OK"});
+        EXPECT_EQ(std::get<std::string>(fr.at(str.key, 0)), "OK");
     }
 }
 

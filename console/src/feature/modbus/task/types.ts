@@ -61,8 +61,8 @@ export type WriteChannel = modbus.WriteChannel;
 export type WriteChannelType = modbus.WriteChannelType;
 
 /**
- * Returns the first address after a channel. A register channel spans one address per
- * 16 bits of its data type, and a coil or discrete input spans one.
+ * Returns the first address after a channel. A register value spans one address per 16
+ * bits of its data type, and every other channel spans one.
  */
 export const nextAddress = (channel: ReadChannel | WriteChannel): number => {
   if (!("dataType" in channel)) return channel.address + 1;

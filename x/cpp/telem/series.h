@@ -512,6 +512,7 @@ public:
         data_type_(std::move(other.data_type_)),
         cap_(other.cap_),
         cached_byte_size(other.cached_byte_size),
+        cached_byte_cap(other.cached_byte_cap),
         size_(other.size_),
         data_(std::move(other.data_)),
         time_range(other.time_range),
@@ -525,6 +526,7 @@ public:
             data_type_ = std::move(other.data_type_);
             cap_ = other.cap_;
             cached_byte_size = other.cached_byte_size;
+            cached_byte_cap = other.cached_byte_cap;
             size_ = other.size_;
             data_ = std::move(other.data_);
             time_range = other.time_range;

@@ -111,7 +111,7 @@ var _ = Describe("Service", func() {
 			})).To(Succeed())
 			data := MustSucceed(svc.Write.Read(ctx, nil, key))
 			Expect(data["channels"]).To(HaveExactElements(
-				HaveKeyWithValue("data_type", "uint8"),
+				HaveKeyWithValue("data_type", "uint16"),
 			))
 		})
 
