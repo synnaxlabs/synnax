@@ -53,7 +53,12 @@ class SetOutput(ConsoleCase):
         )
         value_symbol.move(delta_x=200, delta_y=0)
 
-        schematic.connect_symbols(setpoint_symbol, "right", value_symbol, "left")
+        schematic.connect_symbols(
+            source_symbol=setpoint_symbol,
+            source_handle="right",
+            target_symbol=value_symbol,
+            target_handle="left",
+        )
 
         set_p_value = 47.23
         setpoint_symbol.set_value(set_p_value)

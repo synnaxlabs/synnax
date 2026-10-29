@@ -41,7 +41,7 @@ class _WaitUntil(_Processor):
     exc: Exception | None
     reverse: bool
 
-    def __init__(self, callback: Condition, reverse: bool = False):
+    def __init__(self, callback: Condition, *, reverse: bool = False):
         self.event = Event()
         self.callback = callback
         self.exc = None
@@ -329,7 +329,7 @@ class Controller:
     ) -> bool:
         if not callable(cond):
             raise ValueError("First argument to wait_until must be a callable.")
-        processor = _WaitUntil(cond, reverse)
+        processor = _WaitUntil(cond, reverse=reverse)
         self._receiver.add_processor(processor)
         try:
             timeout_seconds = (

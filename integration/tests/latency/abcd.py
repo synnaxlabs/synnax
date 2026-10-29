@@ -94,10 +94,10 @@ class Abcd(Latency):
             self.subscribe("t_b")
 
         if self.mode == "d":
-            self.add_channel("d_ab", sy.DataType.FLOAT64, 0, False)
-            self.add_channel("d_bc", sy.DataType.FLOAT64, 0, False)
-            self.add_channel("d_cd", sy.DataType.FLOAT64, 0, False)
-            self.add_channel("d_da", sy.DataType.FLOAT64, 0, False)
+            self.add_channel("d_ab", sy.DataType.FLOAT64, 0, append_name=False)
+            self.add_channel("d_bc", sy.DataType.FLOAT64, 0, append_name=False)
+            self.add_channel("d_cd", sy.DataType.FLOAT64, 0, append_name=False)
+            self.add_channel("d_da", sy.DataType.FLOAT64, 0, append_name=False)
             self.subscribe(["t_a", "t_b", "t_c", "t_d"])
 
     def run(self) -> None:
