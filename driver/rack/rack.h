@@ -45,9 +45,13 @@ namespace driver::rack {
 /// when either is a symbolic link.
 const x::errors::Error STATE_ERROR = x::errors::SY.sub("driver").sub("state");
 
+/// @brief the directory in the state directory that holds OPC UA certificates. The
+/// Linux service user owns it.
+const std::string OPCUA_STATE_DIR = "opcua";
+
 struct RemoteInfo {
-    /// @brief the rack an older Driver saved. It is saved again only while the Driver
-    /// cannot enroll it.
+    /// @brief a saved rack that still needs enrollment. It is saved again only while
+    /// the Driver cannot enroll it.
     synnax::rack::Key rack_key = 0;
     x::uuid::UUID cluster_key;
 
@@ -275,8 +279,8 @@ struct Config {
     [[nodiscard]] x::errors::Error load_args(x::args::Parser &args);
 
     /// @brief logs in with the username and password, then creates an API key for the
-    /// rack an older Driver saved, or for a new rack when there is none. Sets the key
-    /// and the rack, and clears the username and password. Returns
+    /// saved rack that needs enrollment, or for a new rack when there is none. Sets the
+    /// key and the rack, and clears the username and password. Returns
     /// synnax::auth::ERR_ACCESS_DENIED when the user cannot create the key, and sets
     /// the rack only if it was saved.
     [[nodiscard]] x::errors::Error enroll();
