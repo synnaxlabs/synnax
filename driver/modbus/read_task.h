@@ -249,6 +249,18 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
 
         std::set<synnax::channel::Key> keys;
         std::vector<std::pair<x::json::Parser, synnax::channel::Key>> bindings;
+        const auto max_registers = this->props.requests.max_registers;
+        const auto fits =
+            [max_registers](x::json::Parser &ch, const channel::InputRegister &reg) {
+                if (reg.width() <= max_registers) return true;
+                ch.field_err(
+                    "data_type",
+                    "needs " + std::to_string(reg.width()) +
+                        " registers, but the device reads at most " +
+                        std::to_string(max_registers) + " per request"
+                );
+                return false;
+            };
         cfg.iter("channels", [&, this](x::json::Parser &ch) {
             const auto parsed = ::synnax::modbus::parse_read_channel(ch);
             const auto &base = std::visit(
@@ -275,7 +287,9 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
                     );
                     return;
                 }
-                holding_registers.emplace_back(*c, this->props.connection);
+                channel::InputRegister reg(*c, this->props.connection);
+                if (!fits(ch, reg)) return;
+                holding_registers.push_back(std::move(reg));
             } else if (
                 const auto *c = std::get_if<::synnax::modbus::InputRegisterReadChannel>(
                     &parsed
@@ -288,7 +302,9 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
                     );
                     return;
                 }
-                input_registers.emplace_back(*c, this->props.connection);
+                channel::InputRegister reg(*c, this->props.connection);
+                if (!fits(ch, reg)) return;
+                input_registers.push_back(std::move(reg));
             } else if (
                 const auto *c = std::get_if<::synnax::modbus::CoilReadChannel>(&parsed)
             )
