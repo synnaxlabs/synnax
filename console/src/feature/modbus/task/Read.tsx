@@ -21,12 +21,13 @@ import { type FC } from "react";
 
 import { useFromConfig } from "@/feature/modbus/device/queries";
 import { Select as SelectDevice } from "@/feature/modbus/device/Select";
-import * as Device from "@/feature/modbus/device/types";
+import { SCHEMAS } from "@/feature/modbus/device/types";
 import { OrderFields } from "@/feature/modbus/task/OrderFields";
 import { SelectReadChannelTypeField } from "@/feature/modbus/task/SelectReadChannelTypeField";
 import {
   deployReadConfigZ,
   isVariableDensityReadChannel,
+  nextAddress,
   READ_CHANNEL_SCHEMAS,
   READ_SCHEMAS,
   READ_TYPE,
@@ -128,7 +129,7 @@ const getOpenChannel = (channels: ReadChannel[]): ReadChannel => {
     ...channelToCopy,
     ...Task.READ_CHANNEL_OVERRIDE,
     key: id.create(),
-    address: channelToCopy.address + 1,
+    address: nextAddress(channelToCopy),
   };
 };
 
@@ -173,13 +174,14 @@ const channelName = (deviceName: string, channel: ReadChannel) => {
 const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({ deviceKey }) => {
   const config = READ_SCHEMAS.config.parse({});
   if (deviceKey != null) config.device = deviceKey;
+  config.channels = [getOpenChannel([])];
   return { name: "Modbus read task", type: READ_TYPE, config };
 };
 
 const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, config) => {
   const dev = await client.devices.retrieve({
     key: config.device,
-    schemas: Device.SCHEMAS,
+    schemas: SCHEMAS,
   });
   let shouldCreateIndex = false;
   if (dev.properties.read.index)
@@ -232,7 +234,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
       });
     }
   } finally {
-    if (modified) await client.devices.create(dev, Device.SCHEMAS);
+    if (modified) await client.devices.create(dev, SCHEMAS);
   }
 
   config.channels.forEach((c) => {

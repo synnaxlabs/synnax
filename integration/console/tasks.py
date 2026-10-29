@@ -16,13 +16,12 @@ from playwright.sync_api import Locator
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from console.base import ResourceClient
-from framework.run_dir import resolve_results_path
 
 
 class TaskClient(ResourceClient):
     """Task toolbar management for Console UI automation."""
 
-    ITEM_SELECTOR = ".pluto-list__item:has(.console-task__metadata)"
+    ITEM_SELECTOR = ".lyra-list__item:has(.console-task__metadata)"
 
     def show_toolbar(self) -> None:
         """Show the task toolbar in the left sidebar."""
@@ -45,7 +44,7 @@ class TaskClient(ResourceClient):
     def _select(self, names: list[str]) -> Locator:
         """Multi-select tasks via Ctrl+Click, return the last item."""
         self.show_toolbar()
-        return self.layout.ctrl_select_items(names, self.get_item)
+        return self.layout.ctrl_select_items(names, get_item_fn=self.get_item)
 
     def wait_for(
         self,
@@ -57,7 +56,7 @@ class TaskClient(ResourceClient):
 
     def _is_running(self, item: Locator) -> bool:
         """Check if a task item is currently running by its icon."""
-        return item.locator("button:has(.pluto-icon--stop)").is_visible()
+        return item.locator("button:has(.lyra-icon--stop)").is_visible()
 
     def wait_for_state(self, name: str, state: Literal["running", "stopped"]) -> None:
         """Wait for a task to reach the expected running state in the UI.
@@ -70,7 +69,7 @@ class TaskClient(ResourceClient):
         item = self.get_item(name)
         item.wait_for(state="visible", timeout=5000)
         icon_class = "stop" if state == "running" else "play"
-        item.locator(f"button:has(.pluto-icon--{icon_class})").wait_for(
+        item.locator(f"button:has(.lyra-icon--{icon_class})").wait_for(
             state="visible", timeout=30000
         )
 
@@ -139,7 +138,7 @@ class TaskClient(ResourceClient):
         with self.layout.page.expect_download(timeout=5000) as download_info:
             self.ctx_menu.click_option("Export")
         download = download_info.value
-        save_path = resolve_results_path(f"{name}_export.json")
+        save_path = str(self.layout.results_dir / f"{name}_export.json")
         download.save_as(save_path)
         with open(save_path, encoding="utf-8") as f:
             result: dict[str, Any] = json.load(f)
@@ -174,7 +173,7 @@ class TaskClient(ResourceClient):
         item.wait_for(state="visible", timeout=5000)
         if self._is_running(item):
             return
-        item.locator("button:has(.pluto-icon--play)").click()
+        item.locator("button:has(.lyra-icon--play)").click()
         self.wait_for_state(name, "running")
 
     def stop(self, name: str) -> None:
@@ -190,7 +189,7 @@ class TaskClient(ResourceClient):
         item.wait_for(state="visible", timeout=5000)
         if not self._is_running(item):
             return
-        item.locator("button:has(.pluto-icon--stop)").click()
+        item.locator("button:has(.lyra-icon--stop)").click()
         self.wait_for_state(name, "stopped")
 
     def start_many(self, names: list[str]) -> None:
@@ -302,7 +301,7 @@ class TaskClient(ResourceClient):
         else:
             item.dblclick()
 
-    def snapshot(self, names: list[str], range_name: str) -> None:
+    def snapshot(self, names: list[str], *, range_name: str) -> None:
         """Snapshot tasks to the active range via context menu.
 
         Args:

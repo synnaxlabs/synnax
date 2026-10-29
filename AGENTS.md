@@ -34,7 +34,7 @@ package or needing broader context:
 - `docs/claude/architecture.md` — system design, layering, data flow, gotchas
 - `docs/claude/testing.md` — cross-language testing + integration conductor (tc)
 - `docs/claude/integration-test.md` — writing integration tests (Arc gotchas)
-- `docs/claude/toolchains/{typescript,go,python,cpp}.md` — language rules
+- `docs/claude/toolchains/{typescript,go,python,cpp,css}.md` — language rules
 - `scripts/AGENTS.md` — repo scripts: formatting, copyright headers, codegen checks,
   versioning (also auto-loads)
 - `docs/tech/rfc/AGENTS.md` — RFC file names, front matter, headings, definition lists,
@@ -247,6 +247,8 @@ user alone; Claude's involvement is a tool detail, not an authorship claim.
 5. **Add one review tier label**: `review/human` when the change alters a user-facing
    interface, else `review/bot`. The tiers and the gate are in `CONTRIBUTING.md`. Never
    lower a tier a reviewer raised.
+6. **Add the `preview` label** only when the PR changes the Console UI or a reviewer
+   needs a live Core to check it. The label deploys a preview Core with the Console.
 
 ### 🚨 Rule 3: Cut small PRs into `main`, early and often 🚨
 
@@ -262,6 +264,10 @@ review. A Claude session pushes against it, never along with it:
 - **Prefer separate branches off `main` over a stack.** A dependency on unmerged work
   usually means the earlier piece should have merged already: open it, get it in, then
   branch again from `main`. Stack only when a piece truly cannot land alone.
+- **When the next piece needs an open PR, stack it at once.** Branch from that PR's
+  branch, open the new PR against it, and name the parent in the description. Never add
+  the new piece to the open PR, and never wait for the parent to merge first. When the
+  parent merges, merge `main` into the child and retarget it to `main`.
 - **Unfinished work ships dark, not on a branch.** A feature that is not ready hides
   behind a flag in `console/src/flags.ts` and merges anyway. The flag flip is the last
   small PR, never the first big one.

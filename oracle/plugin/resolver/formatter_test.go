@@ -15,7 +15,7 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/resolver"
 )
 
-var _ = Describe("ConfigurableFormatter", func() {
+var _ = Describe("configurableFormatter", func() {
 	Describe("Go configuration", func() {
 		var f resolver.TypeFormatter
 

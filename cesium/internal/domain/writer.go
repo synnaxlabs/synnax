@@ -69,18 +69,15 @@ var (
 	ErrStartAfterWrite = errors.New(
 		"cannot set the start of a domain writer after it writes",
 	)
-	DefaultWriterConfig = WriterConfig{
+	defaultWriterConfig = WriterConfig{
 		EnableAutoCommit:         new(true),
 		AutoIndexPersistInterval: 1 * telem.Second,
 	}
 )
 
-const AlwaysIndexPersistOnAutoCommit telem.TimeSpan = -1
-
-// Domain returns the Domain occupied by the theoretical domain formed by the
-// configuration. If End is not set, assumes the Domain has a zero span starting at
-// Start.
-func (w WriterConfig) Domain() telem.TimeRange {
+// domain returns the time range of the domain the configuration forms. If End is not
+// set, it assumes a zero span starting at Start.
+func (w WriterConfig) domain() telem.TimeRange {
 	if w.End.IsZero() {
 		return w.Start.SpanRange(0)
 	}
@@ -189,14 +186,14 @@ func (db *DB) OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, error)
 		return nil, ErrDBClosed
 	}
 
-	cfg, err := config.New(DefaultWriterConfig, cfg)
+	cfg, err := config.New(defaultWriterConfig, cfg)
 	if err != nil {
 		return nil, err
 	}
 	started := !cfg.Start.IsZero()
-	if started && db.idx.overlap(cfg.Domain()) {
+	if started && db.idx.overlap(cfg.domain()) {
 		return nil, errors.Wrap(
-			NewRangeWriteConflictError(cfg.Domain(), db.idx.timeRange()),
+			NewRangeWriteConflictError(cfg.domain(), db.idx.timeRange()),
 			"cannot open writer because there is already data in the writer's time range",
 		)
 	}
@@ -252,9 +249,9 @@ func (w *Writer) SetStart(start telem.TimeStamp) error {
 	// Waits for a running Delete, which did not check this domain.
 	w.domains.Lock()
 	defer w.domains.Unlock()
-	if w.idx.overlap(cfg.Domain()) {
+	if w.idx.overlap(cfg.domain()) {
 		return errors.Wrap(
-			NewRangeWriteConflictError(cfg.Domain(), w.idx.timeRange()),
+			NewRangeWriteConflictError(cfg.domain(), w.idx.timeRange()),
 			"cannot start writer because there is already data in the writer's time range",
 		)
 	}

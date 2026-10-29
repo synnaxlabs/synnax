@@ -19,13 +19,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { type z } from "zod";
 
 import { aether } from "@/aether/aether";
-import { aetherTest } from "@/aether/test";
-import { type telem } from "@/telem/aether";
+import { aetherTest } from "@/aether/testutil";
+import { telem } from "@/telem/aether";
 import { buildStack } from "@/testutil/providers";
 import { staleness } from "@/vis/staleness/aether";
 
 const createSource = (): telem.Source<unknown> => ({
-  value: () => null,
+  value: () => telem.success(null),
   onChange: () => () => {},
 });
 
@@ -389,7 +389,7 @@ describe("staleness", () => {
 
   describe("sample time", () => {
     const stamp = (leaf: Leaf, offset: CrudeTimeSpan): void => {
-      leaf.source.sampleTime = () => TimeStamp.now().add(offset);
+      leaf.source.value = () => telem.success(null, TimeStamp.now().add(offset));
     };
 
     it("should date the sample from its sample time", () => {
@@ -420,7 +420,7 @@ describe("staleness", () => {
 
     it("should read a sample without a time as arriving now", () => {
       const { leaf } = mount({ timeouts: [5] });
-      leaf.source.sampleTime = () => null;
+      leaf.source.value = () => telem.success(null);
       leaf.received();
       vi.advanceTimersByTime(4750);
       expect(leaf.transitions).toEqual([]);
@@ -438,14 +438,56 @@ describe("staleness", () => {
       expect(leaf.transitions).toEqual([true]);
     });
 
-    it("should clear staleness when a live sample follows an old one", () => {
+    it("should read every arrival after the first as live", () => {
       const { leaf } = mount({ timeouts: [5] });
       stamp(leaf, TimeSpan.seconds(-10));
       leaf.received();
-      leaf.source.sampleTime = () => null;
+      stamp(leaf, TimeSpan.seconds(-9));
       leaf.received();
       expect(leaf.transitions).toEqual([true, false]);
       expect(leaf.state.stale).toBe(false);
+    });
+  });
+
+  describe("appended", () => {
+    const append = (leaf: Leaf, appended: number, time: TimeStamp): void => {
+      leaf.source.value = () => ({ ...telem.success(null, time), appended });
+    };
+
+    it("should not count a change that keeps the appended count", () => {
+      const { leaf } = mount({ timeouts: [5] });
+      append(leaf, 1, TimeStamp.now());
+      leaf.received();
+      vi.advanceTimersByTime(4000);
+      leaf.received();
+      vi.advanceTimersByTime(1250);
+      expect(leaf.transitions).toEqual([true]);
+    });
+
+    it("should count a change that grows the appended count while its time holds", () => {
+      const { leaf } = mount({ timeouts: [5] });
+      const time = TimeStamp.now();
+      append(leaf, 1, time);
+      leaf.received();
+      vi.advanceTimersByTime(4000);
+      append(leaf, 2, time);
+      leaf.received();
+      vi.advanceTimersByTime(4000);
+      expect(leaf.transitions).toEqual([]);
+    });
+
+    it("should not count a count that falls and returns to its greatest", () => {
+      const { leaf } = mount({ timeouts: [5] });
+      const time = TimeStamp.now();
+      append(leaf, 3, time);
+      leaf.received();
+      vi.advanceTimersByTime(4000);
+      append(leaf, 2, time);
+      leaf.received();
+      append(leaf, 3, time);
+      leaf.received();
+      vi.advanceTimersByTime(1250);
+      expect(leaf.transitions).toEqual([true]);
     });
   });
 
