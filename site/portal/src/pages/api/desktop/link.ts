@@ -10,6 +10,7 @@
 import { type APIRoute } from "astro";
 
 import { form, handle } from "@/respond";
+import { isInternal } from "@/server/directory";
 import { badRequest } from "@/server/errors";
 import { link } from "@/server/license/desktop";
 import { parse } from "@/server/license/fingerprint";
@@ -62,17 +63,18 @@ export const POST: APIRoute = async (context) =>
             now,
           })
         : undefined;
-    await announce(portal.slack, async () => {
-      const { previous } = linked;
-      if (previous == null) return firstLogin(session, machineName, referrer);
-      const arrived = await arrival(portal.store, portal.directory, {
-        userID: session.userID,
-        machine: machineName,
-        previous,
-        now,
+    if (!isInternal(session.email))
+      await announce(portal.slack, async () => {
+        const { previous } = linked;
+        if (previous == null) return firstLogin(session, machineName, referrer);
+        const arrived = await arrival(portal.store, portal.directory, {
+          userID: session.userID,
+          machine: machineName,
+          previous,
+          now,
+        });
+        return arrived == null ? null : active(arrived);
       });
-      return arrived == null ? null : active(arrived);
-    });
     return Response.json({
       key: linked.key,
       secret: linked.secret,

@@ -38,7 +38,7 @@ class Toolbar(Surface):
         """
         self.show()
         item = self.get_item(name)
-        return item.locator("small.pluto-text--small").first.inner_text()
+        return item.locator("small.lyra-text--small").first.inner_text()
 
     def exists(self, name: str) -> bool:
         """Check if a range exists in the toolbar (is favorited)."""
@@ -82,7 +82,7 @@ class Toolbar(Surface):
     def get_label(self, range_name: str, label_name: str) -> Locator:
         """Get a label tag within a range item in the toolbar."""
         range_item = self.get_item(range_name)
-        return range_item.locator(".pluto-tag").filter(has_text=label_name).first
+        return range_item.locator(".lyra-tag").filter(has_text=label_name).first
 
     def label_exists(self, range_name: str, label_name: str) -> bool:
         """Check if a label exists on a range in the toolbar."""
@@ -119,7 +119,7 @@ class Toolbar(Surface):
         if not self.layout.locator_exists(range_item):
             return []
 
-        label_tags = range_item.locator(".pluto-tag")
+        label_tags = range_item.locator(".lyra-tag")
         label_count = label_tags.count()
 
         labels = []

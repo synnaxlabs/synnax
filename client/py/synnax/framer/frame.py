@@ -133,7 +133,8 @@ class Frame:
 
     @overload
     def append(self, col_or_frame: Frame) -> None:
-        """Appends the given frame to the current frame, modifying the current frame in place.
+        """Appends the given frame to the current frame, modifying the current frame in
+        place.
         :param col_or_frame: The frame to append to the current frame.
         """
 
@@ -143,12 +144,12 @@ class Frame:
         series: Series | None = None,
     ) -> None:
         """Appends a frame or series to the current frame. If a frame is provided, the
-        series and channels from the frame are appended to the current frame. If a series
-        is provided, the series is appended to the frame for the given channel.
-        :param col_or_frame: The channel key or name to append the series to, or the frame
-            to append to the current frame.
-        :param series: The series to append to the frame, if col_or_frame is a channel key
-            or name.
+        series and channels from the frame are appended to the current frame. If a
+        series is provided, the series is appended to the frame for the given channel.
+        :param col_or_frame: The channel key or name to append the series to, or the
+            frame to append to the current frame.
+        :param series: The series to append to the frame, if col_or_frame is a channel
+            key or name.
         """
         if isinstance(col_or_frame, Frame):
             self.series.extend(col_or_frame.series)

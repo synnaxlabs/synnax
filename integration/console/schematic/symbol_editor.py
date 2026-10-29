@@ -101,15 +101,15 @@ class SymbolEditor:
 
                 if (!onContentsChange) throw new Error('onContentsChange not found');
                 onContentsChange(svgContent, properName);
-            }""",
+            }""",  # noqa: E501
             [svg_content, proper_name],
         )
         self.wait_for_form_visible()
 
     def _region_rows(self) -> Locator:
         """Locate the region rows (the only list items carrying color swatches)."""
-        return self.page.locator(".pluto-list__item").filter(
-            has=self.page.locator(".pluto-color-swatch")
+        return self.page.locator(".lyra-list__item").filter(
+            has=self.page.locator(".lyra-color-swatch")
         )
 
     def region_count(self) -> int:
@@ -128,7 +128,7 @@ class SymbolEditor:
         return (
             self._region_rows()
             .nth(region_index)
-            .locator(".pluto-color-swatch")
+            .locator(".lyra-color-swatch")
             .nth(swatch_index)
         )
 
@@ -218,7 +218,7 @@ class SymbolEditor:
 
     def add_handle(self) -> None:
         """Add a new connection handle."""
-        handles_header = self.page.locator(".pluto-header").filter(has_text="Handles")
+        handles_header = self.page.locator(".lyra-header").filter(has_text="Handles")
         add_handle_btn = handles_header.locator("button").first
         add_handle_btn.click()
 
@@ -229,7 +229,7 @@ class SymbolEditor:
             scale_percent: Scale percentage (e.g., 100 for 100%, 150 for 150%).
                            Valid range is 5 to 1001.
         """
-        properties_header = self.page.locator(".pluto-header").filter(
+        properties_header = self.page.locator(".lyra-header").filter(
             has_text="Properties"
         )
         properties_section = properties_header.locator("..").locator("..")

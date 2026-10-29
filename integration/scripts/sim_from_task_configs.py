@@ -466,7 +466,8 @@ class SimDAQ:
                 # Status update every 10 seconds
                 if (timestamp - last_status) > sy.TimeSpan.SECOND * 10:
                     print(
-                        f"  [{timestamp}] {iteration} frames, {len(frame_data)} channels"
+                        f"  [{timestamp}] {iteration} frames, {len(frame_data)} "
+                        "channels"
                     )
                     last_status = timestamp
 
@@ -489,7 +490,10 @@ class SimDAQ:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Simulated DAQ - Creates channels from Synnax task configs and writes simulated data.",
+        description=(
+            "Simulated DAQ - Creates channels from Synnax task configs and writes "
+            "simulated data."
+        ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
