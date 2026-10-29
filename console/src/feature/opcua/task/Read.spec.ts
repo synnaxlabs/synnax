@@ -109,16 +109,16 @@ const createFolder = (): OPCUA.Task.ScannedNode => {
 };
 
 // Renders a draft whose device sits on a running rack, with a browser that lists only
-// the folder.
-const renderWithFolder = async (
-  folder: OPCUA.Task.ScannedNode,
+// the node.
+const renderWithNode = async (
+  node: OPCUA.Task.ScannedNode,
   channels: OPCUA.Task.ReadChannel[],
 ) => {
   const { scan, device } = await createScannedDevice(client);
   const draft = await createDraft(client, createReadConfig(device.key, channels));
   const root = await answerNextCommand(client, scan, {
     type: OPCUA.Task.BROWSE_COMMAND_TYPE,
-    data: { channels: [folder] },
+    data: { channels: [node] },
   });
   const statuses: Status.NotificationSpec[] = [];
   await renderRead({
@@ -417,7 +417,7 @@ describe("Read", () => {
   it("should add the variables under a dropped folder, named from their path", async () => {
     const folder = createFolder();
     const held = createReadChannel();
-    const { scan, draft } = await renderWithFolder(folder, [held]);
+    const { scan, draft } = await renderWithNode(folder, [held]);
     const pressure = `${folder.nodeId}.Tank.Pressure`;
     const search = await answerNextCommand(client, scan, {
       type: OPCUA.Task.BROWSE_VARIABLES_COMMAND_TYPE,
@@ -470,7 +470,7 @@ describe("Read", () => {
   it("should warn and add nothing when a dropped folder holds no variables", async () => {
     const folder = createFolder();
     const held = createReadChannel();
-    const { scan, draft, statuses } = await renderWithFolder(folder, [held]);
+    const { scan, draft, statuses } = await renderWithNode(folder, [held]);
     const search = await answerNextCommand(client, scan, {
       type: OPCUA.Task.BROWSE_VARIABLES_COMMAND_TYPE,
       data: { channels: [], truncated: false },
@@ -488,6 +488,54 @@ describe("Read", () => {
       ),
     );
     expect(await retrieveChannels(draft.key)).toEqual([held]);
+  });
+
+  it("should say the search stopped early when the reply is truncated", async () => {
+    const folder = createFolder();
+    const held = createReadChannel();
+    const { scan } = await renderWithNode(folder, [held]);
+    const search = await answerNextCommand(client, scan, {
+      type: OPCUA.Task.BROWSE_VARIABLES_COMMAND_TYPE,
+      data: {
+        channels: [{ ...createVariableNode("float64"), path: ["Pressure"] }],
+        truncated: true,
+      },
+    });
+    await dragNode(folder.name, held.nodeName);
+    await search.answered;
+    await screen.findByText(`Add 1 variable from ${folder.name}?`);
+    expect(
+      screen.getByText(
+        "The search stopped at a limit before it found every variable. Drag folders further down to add the rest.",
+      ),
+    ).toBeTruthy();
+  });
+
+  it("should add a node dragged from the details", async () => {
+    const node = createVariableNode("float64");
+    const held = createReadChannel();
+    const { scan, draft } = await renderWithNode(node, [held]);
+    const read = await answerNextCommand(client, scan, {
+      type: OPCUA.Task.READ_NODE_COMMAND_TYPE,
+      data: { node, nodeClass: "Variable", browseName: node.name, readable: true },
+    });
+    fireEvent.click(await screen.findByText(node.name));
+    await read.answered;
+    // The details header repeats the name below the tree.
+    await waitFor(() => expect(screen.getAllByText(node.name)).toHaveLength(2));
+    fireEvent.dragStart(screen.getAllByText(node.name)[1]);
+    fireEvent.drop(screen.getByText(new RegExp(held.nodeName)));
+    await waitFor(async () =>
+      expect(
+        (await retrieveChannels(draft.key)).map(({ nodeId, dataType }) => ({
+          nodeId,
+          dataType,
+        })),
+      ).toEqual([
+        { nodeId: held.nodeId, dataType: held.dataType },
+        { nodeId: node.nodeId, dataType: "float64" },
+      ]),
+    );
   });
 
   it("should report an imported CSV row without a node ID and add nothing", async () => {

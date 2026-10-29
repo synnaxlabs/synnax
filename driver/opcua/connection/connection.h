@@ -181,8 +181,8 @@ struct Server {
     uint32_t max_nodes_per_read = 0;
     /// @brief the most nodes that one Write request can name. 0 means no limit.
     uint32_t max_nodes_per_write = 0;
-    /// @brief the most nodes that one Browse or BrowseNext request can name. 0 means
-    /// no limit.
+    /// @brief the most nodes that one Browse or BrowseNext request can name. 0 means no
+    /// limit.
     uint32_t max_nodes_per_browse = 0;
 };
 
@@ -258,13 +258,14 @@ public:
         /// a child on another server or in a namespace the server does not list.
         /// @returns one result for each node, in order. Returns errors::NO_CONNECTION
         /// when the connection is lost, the error of a service result, or
-        /// errors::CRITICAL when the server returns a result count that does not
-        /// match the request, or continuation points with no children.
+        /// errors::CRITICAL when the server returns a result count that does not match
+        /// the request, or continuation points with no children.
         [[nodiscard]] std::pair<std::vector<types::BrowseResult>, x::errors::Error>
         browse(const std::vector<UA_NodeId> &nodes) const;
 
     private:
-        /// @brief browses count nodes in one request, and fills count results.
+        /// @brief browses count nodes in one Browse request, then follows their
+        /// continuation points with BrowseNext. Fills count results.
         [[nodiscard]] x::errors::Error browse(
             const UA_NodeId *nodes,
             size_t count,

@@ -1009,11 +1009,14 @@ synnax::task::Status run_command(
     return ctx->statuses.back();
 }
 
-/// @brief starts a server whose Generated folder holds count variables.
-std::unique_ptr<testutil::Server> start_generated_server(const std::uint32_t count) {
+/// @brief starts a server whose Generated folder holds the variables and empty folders.
+std::unique_ptr<testutil::Server>
+start_generated_server(const std::uint32_t variables, const std::uint32_t folders = 0) {
     auto cfg = testutil::ServerConfig::create_default();
     cfg.port = 4882;
-    cfg.generated_variables = count;
+    cfg.generated_variables = variables;
+    cfg.generated_folders = folders;
+    cfg.max_nodes_per_browse = 1000;
     auto server = std::make_unique<testutil::Server>(cfg);
     server->start();
     EXPECT_TRUE(server->wait_until_ready());
@@ -1069,6 +1072,25 @@ TEST_F(TestScanTask, testBrowseVariablesStopsAtLimit) {
     const x::json::json data = status.details.data.value();
     EXPECT_TRUE(data.at("truncated").get<bool>());
     EXPECT_EQ(data.at("channels").size(), MAX_VARIABLES);
+    generated->stop();
+}
+
+/// @brief it should stop at the most objects that it browses, and say so.
+TEST_F(TestScanTask, testBrowseVariablesStopsAtObjectLimit) {
+    const auto generated = start_generated_server(1, MAX_OBJECTS);
+    const auto status = run_command(
+        ctx,
+        task,
+        conn_pool,
+        store,
+        BROWSE_VARIABLES_CMD_TYPE,
+        4882,
+        {{"node_id", "NS=1;S=Generated"}}
+    );
+    ASSERT_EQ(status.variant, synnax::status::VARIANT_SUCCESS) << status.description;
+    const x::json::json data = status.details.data.value();
+    EXPECT_TRUE(data.at("truncated").get<bool>());
+    EXPECT_EQ(data.at("channels")[0]["name"], "V0");
     generated->stop();
 }
 

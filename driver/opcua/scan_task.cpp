@@ -287,11 +287,46 @@ void Scanner::certificates(
 }
 
 namespace {
+std::string text(const UA_String &s) {
+    return std::string(reinterpret_cast<const char *>(s.data), s.length);
+}
+
+/// @returns the scalar of type T that the result holds, or nothing.
+template<typename T>
+std::optional<T> scalar(const UA_DataValue &result, const UA_DataType &type) {
+    if (!result.hasValue || !UA_Variant_hasScalarType(&result.value, &type))
+        return std::nullopt;
+    return *static_cast<const T *>(result.value.data);
+}
+
 /// @brief the data type of a variable and whether it holds an array.
 struct VariableType {
     x::telem::DataType data_type = x::telem::UNKNOWN_T;
     bool is_array = false;
 };
+
+/// @brief finds the type of a variable from the results of reading its DataType and
+/// ValueRank. When the DataType is abstract or unknown, or the ValueRank allows both a
+/// scalar and an array, value tells the rest. value is nullptr when it was not read.
+/// @returns the type, and whether the DataType and ValueRank alone set it.
+std::pair<VariableType, bool> variable_type(
+    const UA_DataValue &data_type,
+    const UA_DataValue &value_rank,
+    const UA_DataValue *value
+) {
+    VariableType type;
+    if (const auto id = scalar<UA_NodeId>(data_type, UA_TYPES[UA_TYPES_NODEID]))
+        type.data_type = telem::to_data_type(*id);
+    const auto rank = scalar<UA_Int32>(value_rank, UA_TYPES[UA_TYPES_INT32]);
+    const bool rank_known = rank.has_value() && *rank >= UA_VALUERANK_SCALAR;
+    type.is_array = rank_known && *rank != UA_VALUERANK_SCALAR;
+    const bool declared = type.data_type != x::telem::UNKNOWN_T && rank_known;
+    if (value == nullptr || !value->hasValue) return {type, declared};
+    if (type.data_type == x::telem::UNKNOWN_T)
+        type.data_type = telem::to_data_type(value->value.type);
+    if (!rank_known) type.is_array = !UA_Variant_isScalar(&value->value);
+    return {type, declared};
+}
 
 /// @brief finds the types of the variables that refs name from their DataType and
 /// ValueRank. When a DataType is abstract or unknown, or a ValueRank allows both a
@@ -313,41 +348,30 @@ std::pair<std::vector<VariableType>, x::errors::Error> variable_types(
     if (variables.empty()) return {std::move(out), x::errors::NIL};
     auto [res, err] = conn.read(req.build());
     if (err) return {{}, err};
-    struct Unknown {
-        size_t ref;
-        bool rank_known;
-    };
-    std::vector<Unknown> unknown;
+    const auto *results = res.get().results;
+    std::vector<size_t> unknown;
     types::ReadRequestBuilder values;
     for (size_t j = 0; j < variables.size(); ++j) {
-        const auto &data_type = res.get().results[2 * j];
-        const auto &value_rank = res.get().results[2 * j + 1];
-        auto &type = out[variables[j]];
-        if (data_type.hasValue &&
-            UA_Variant_hasScalarType(&data_type.value, &UA_TYPES[UA_TYPES_NODEID]))
-            type.data_type = telem::to_data_type(
-                *static_cast<const UA_NodeId *>(data_type.value.data)
-            );
-        std::optional<UA_Int32> rank;
-        if (value_rank.hasValue &&
-            UA_Variant_hasScalarType(&value_rank.value, &UA_TYPES[UA_TYPES_INT32]))
-            rank = *static_cast<const UA_Int32 *>(value_rank.value.data);
-        const bool rank_known = rank.has_value() && *rank >= UA_VALUERANK_SCALAR;
-        type.is_array = rank_known && *rank != UA_VALUERANK_SCALAR;
-        if (type.data_type != x::telem::UNKNOWN_T && rank_known) continue;
+        bool declared = false;
+        std::tie(
+            out[variables[j]],
+            declared
+        ) = variable_type(results[2 * j], results[2 * j + 1], nullptr);
+        if (declared) continue;
         values.add_node(refs[variables[j]].node, UA_ATTRIBUTEID_VALUE);
-        unknown.push_back({.ref = variables[j], .rank_known = rank_known});
+        unknown.push_back(j);
     }
     if (unknown.empty()) return {std::move(out), x::errors::NIL};
     auto [value_res, value_err] = conn.read(values.build());
     if (value_err) return {{}, value_err};
     for (size_t k = 0; k < unknown.size(); ++k) {
-        const auto &value = value_res.get().results[k];
-        if (!value.hasValue) continue;
-        auto &type = out[unknown[k].ref];
-        if (type.data_type == x::telem::UNKNOWN_T)
-            type.data_type = telem::to_data_type(value.value.type);
-        if (!unknown[k].rank_known) type.is_array = !UA_Variant_isScalar(&value.value);
+        const auto j = unknown[k];
+        out[variables[j]] = variable_type(
+                                results[2 * j],
+                                results[2 * j + 1],
+                                &value_res.get().results[k]
+        )
+                                .first;
     }
     return {std::move(out), x::errors::NIL};
 }
@@ -509,31 +533,17 @@ find_variables(const connection::Pool::Connection &conn, const UA_NodeId &start)
     return {std::move(search), x::errors::NIL};
 }
 
-/// @returns the DateTime as ISO 8601 text, or nothing when the server did not set it
-/// or a timestamp cannot hold it.
-std::optional<std::string> date_text(UA_DateTime time) {
+/// @returns the DateTime as ISO 8601 text, or nothing when the server did not set it or
+/// a timestamp cannot hold it.
+std::optional<std::string> date_text(const UA_DateTime time) {
     if (time == 0) return std::nullopt;
-    UA_Variant v;
-    UA_Variant_setScalar(&v, &time, &UA_TYPES[UA_TYPES_DATETIME]);
-    const auto [sample, err] = telem::to_sample(v, x::telem::TIMESTAMP_T);
+    const auto [ts, err] = telem::to_timestamp(time);
     if (err) return std::nullopt;
-    return std::get<x::telem::TimeStamp>(sample).iso8601();
+    return ts.iso8601();
 }
 
-std::string text(const UA_String &s) {
-    return std::string(reinterpret_cast<const char *>(s.data), s.length);
-}
-
-/// @returns the scalar of type T that the result holds, or nothing.
-template<typename T>
-std::optional<T> scalar(const UA_DataValue &result, const UA_DataType &type) {
-    if (!result.hasValue || !UA_Variant_hasScalarType(&result.value, &type))
-        return std::nullopt;
-    return *static_cast<const T *>(result.value.data);
-}
-
-/// @returns the name of the data type, reading its BrowseName when the client does
-/// not know it.
+/// @returns the name of the data type, reading its BrowseName when the client does not
+/// know it.
 std::pair<std::string, x::errors::Error>
 type_name(const connection::Pool::Connection &conn, const UA_NodeId &data_type) {
     if (const auto *type = UA_findDataType(&data_type))
@@ -548,6 +558,134 @@ type_name(const connection::Pool::Connection &conn, const UA_NodeId &data_type) 
     );
     if (!name.has_value()) return {types::NodeId::to_string(data_type), x::errors::NIL};
     return {text(name->name), x::errors::NIL};
+}
+
+/// @returns the attributes and current value of a node as the reply to a read node
+/// command. A field reads a member of the structure value of the node.
+/// @returns x::errors::VALIDATION if field does not name a member of the node's value.
+std::pair<x::json::json, x::errors::Error> read_details(
+    const connection::Pool::Connection &conn,
+    const UA_NodeId &id,
+    const structure::Path &field
+) {
+    constexpr std::array attributes{
+        UA_ATTRIBUTEID_NODECLASS,
+        UA_ATTRIBUTEID_BROWSENAME,
+        UA_ATTRIBUTEID_DISPLAYNAME,
+        UA_ATTRIBUTEID_DESCRIPTION,
+        UA_ATTRIBUTEID_DATATYPE,
+        UA_ATTRIBUTEID_VALUERANK,
+        UA_ATTRIBUTEID_ARRAYDIMENSIONS,
+        UA_ATTRIBUTEID_USERACCESSLEVEL,
+        UA_ATTRIBUTEID_HISTORIZING,
+        UA_ATTRIBUTEID_MINIMUMSAMPLINGINTERVAL,
+        UA_ATTRIBUTEID_VALUE,
+    };
+    types::ReadRequestBuilder req;
+    for (const auto attribute: attributes)
+        req.add_node(id, attribute);
+    auto raw_req = req.build();
+    raw_req.timestampsToReturn = UA_TIMESTAMPSTORETURN_BOTH;
+    auto [res, read_err] = conn.read(raw_req);
+    if (read_err) return {{}, read_err};
+    const auto *r = res.get().results;
+    if (const auto node_err = errors::parse(r[0].status)) return {{}, node_err};
+    // The client decodes the NodeClass enumeration as its Int32 encoding.
+    const auto cls = static_cast<UA_NodeClass>(
+        scalar<UA_Int32>(r[0], UA_TYPES[UA_TYPES_INT32]).value_or(0)
+    );
+    const auto browse_name = scalar<UA_QualifiedName>(
+        r[1],
+        UA_TYPES[UA_TYPES_QUALIFIEDNAME]
+    );
+    const std::string name = browse_name.has_value() ? text(browse_name->name) : "";
+    x::json::json out = {
+        {"node_class", types::node_class_to_string(cls)},
+        {"browse_name", name},
+    };
+    if (const auto v = scalar<UA_LocalizedText>(r[2], UA_TYPES[UA_TYPES_LOCALIZEDTEXT]))
+        out["display_name"] = text(v->text);
+    if (const auto v = scalar<UA_LocalizedText>(r[3], UA_TYPES[UA_TYPES_LOCALIZEDTEXT]))
+        out["description"] = text(v->text);
+    VariableType type;
+    if (cls == UA_NODECLASS_VARIABLE) {
+        type = variable_type(r[4], r[5], &r[10]).first;
+        const auto type_id = scalar<UA_NodeId>(r[4], UA_TYPES[UA_TYPES_NODEID]);
+        const auto rank = scalar<UA_Int32>(r[5], UA_TYPES[UA_TYPES_INT32]);
+        if (type_id.has_value()) {
+            auto [type_text, name_err] = type_name(conn, *type_id);
+            if (name_err) return {{}, name_err};
+            out["type_name"] = type_text;
+        }
+        if (rank.has_value()) out["value_rank"] = *rank;
+        if (r[6].hasValue &&
+            UA_Variant_hasArrayType(&r[6].value, &UA_TYPES[UA_TYPES_UINT32])) {
+            const auto *dims = static_cast<const UA_UInt32 *>(r[6].value.data);
+            out["array_dimensions"] = std::vector<UA_UInt32>(
+                dims,
+                dims + r[6].value.arrayLength
+            );
+        }
+        if (const auto access = scalar<UA_Byte>(r[7], UA_TYPES[UA_TYPES_BYTE])) {
+            out["readable"] = (*access & UA_ACCESSLEVELMASK_READ) != 0;
+            out["writable"] = (*access & UA_ACCESSLEVELMASK_WRITE) != 0;
+            out["history_readable"] = (*access & UA_ACCESSLEVELMASK_HISTORYREAD) != 0;
+        }
+        if (const auto v = scalar<UA_Boolean>(r[8], UA_TYPES[UA_TYPES_BOOLEAN]))
+            out["historizing"] = *v;
+        if (const auto v = scalar<UA_Double>(r[9], UA_TYPES[UA_TYPES_DOUBLE]))
+            out["minimum_sampling_interval"] = *v;
+        const auto &value = r[10];
+        out["status"] = UA_StatusCode_name(value.status);
+        if (value.hasSourceTimestamp)
+            if (const auto t = date_text(value.sourceTimestamp))
+                out["source_timestamp"] = *t;
+        if (value.hasServerTimestamp)
+            if (const auto t = date_text(value.serverTimestamp))
+                out["server_timestamp"] = *t;
+        structure::Types types;
+        if (!field.empty() ||
+            (value.value.type != nullptr &&
+             value.value.type->typeKind == UA_DATATYPEKIND_EXTENSIONOBJECT)) {
+            auto [read_types, types_err] = structure::Types::read(conn, {id});
+            if (types_err) return {{}, types_err};
+            types = std::move(read_types);
+        }
+        if (value.hasValue) {
+            auto [value_text, text_err] = types.print(value.value, field);
+            if (text_err) return {{}, text_err};
+            out["value"] = value_text;
+        }
+        if (!field.empty()) {
+            const auto *structure = type_id.has_value() ? types.find(*type_id)
+                                                        : nullptr;
+            if (structure == nullptr)
+                return {
+                    {},
+                    x::errors::Error(
+                        x::errors::VALIDATION,
+                        "the node does not hold a structure"
+                    )
+                };
+            auto [member, member_err] = structure::Types::member_type(
+                *structure,
+                field
+            );
+            if (member_err) return {{}, member_err};
+            out["type_name"] = member->typeName;
+            type = {.data_type = telem::to_data_type(member), .is_array = false};
+        }
+    }
+    out["node"] = types::Node(
+                      type.data_type,
+                      field.empty() ? name : field.back(),
+                      types::NodeId::to_string(id, conn.server().namespaces),
+                      types::node_class_to_string(cls),
+                      type.is_array,
+                      structure::to_string(field)
+    )
+                      .to_json();
+    return {out, x::errors::NIL};
 }
 }
 
@@ -615,16 +753,7 @@ void Scanner::browse_nodes(const synnax::task::Command &cmd) const {
 void Scanner::browse_variables(const synnax::task::Command &cmd) const {
     x::json::Parser parser(cmd.args);
     const ScanCommandArgs args(parser);
-    synnax::task::Status status{
-        .key = synnax::task::status_key(this->task),
-        .name = this->task.name,
-        .variant = synnax::status::VARIANT_ERROR,
-        .details = synnax::task::StatusDetails{
-            .task = task.key,
-            .cmd = cmd.key,
-            .config_hash = task.config_hash,
-        }
-    };
+    auto status = command_status(this->task, cmd);
     if (!parser.ok()) {
         status.message = "Failed to parse scan command";
         status.description = common::config_err_description(parser.error());
@@ -676,16 +805,7 @@ void Scanner::browse_variables(const synnax::task::Command &cmd) const {
 void Scanner::read_node(const synnax::task::Command &cmd) const {
     x::json::Parser parser(cmd.args);
     const ScanCommandArgs args(parser);
-    synnax::task::Status status{
-        .key = synnax::task::status_key(this->task),
-        .name = this->task.name,
-        .variant = synnax::status::VARIANT_ERROR,
-        .details = synnax::task::StatusDetails{
-            .task = task.key,
-            .cmd = cmd.key,
-            .config_hash = task.config_hash,
-        }
-    };
+    auto status = command_status(this->task, cmd);
     if (!parser.ok()) {
         status.message = "Failed to parse scan command";
         status.description = common::config_err_description(parser.error());
@@ -700,8 +820,7 @@ void Scanner::read_node(const synnax::task::Command &cmd) const {
         ctx->set_status(status);
         return;
     }
-    const auto &namespaces = connection.server().namespaces;
-    const auto id = args.node.resolve(namespaces);
+    const auto id = args.node.resolve(connection.server().namespaces);
     if (!id.has_value()) {
         status.message = "Failed to read node";
         status.description = "The server has no namespace " +
@@ -709,141 +828,7 @@ void Scanner::read_node(const synnax::task::Command &cmd) const {
         ctx->set_status(status);
         return;
     }
-    const auto details = [&]() -> std::pair<x::json::json, x::errors::Error> {
-        constexpr std::array attributes{
-            UA_ATTRIBUTEID_NODECLASS,
-            UA_ATTRIBUTEID_BROWSENAME,
-            UA_ATTRIBUTEID_DISPLAYNAME,
-            UA_ATTRIBUTEID_DESCRIPTION,
-            UA_ATTRIBUTEID_DATATYPE,
-            UA_ATTRIBUTEID_VALUERANK,
-            UA_ATTRIBUTEID_ARRAYDIMENSIONS,
-            UA_ATTRIBUTEID_USERACCESSLEVEL,
-            UA_ATTRIBUTEID_HISTORIZING,
-            UA_ATTRIBUTEID_MINIMUMSAMPLINGINTERVAL,
-            UA_ATTRIBUTEID_VALUE,
-        };
-        types::ReadRequestBuilder req;
-        for (const auto attribute: attributes)
-            req.add_node(id.value(), attribute);
-        auto raw_req = req.build();
-        raw_req.timestampsToReturn = UA_TIMESTAMPSTORETURN_BOTH;
-        auto [res, read_err] = connection.read(raw_req);
-        if (read_err) return {{}, read_err};
-        const auto *r = res.get().results;
-        if (const auto node_err = errors::parse(r[0].status)) return {{}, node_err};
-        // The client decodes the NodeClass enumeration as its Int32 encoding.
-        const auto cls = static_cast<UA_NodeClass>(
-            scalar<UA_Int32>(r[0], UA_TYPES[UA_TYPES_INT32]).value_or(0)
-        );
-        const auto browse_name = scalar<UA_QualifiedName>(
-            r[1],
-            UA_TYPES[UA_TYPES_QUALIFIEDNAME]
-        );
-        x::json::json out = {
-            {"node_class", types::node_class_to_string(cls)},
-            {"browse_name", browse_name.has_value() ? text(browse_name->name) : ""},
-        };
-        if (const auto v = scalar<UA_LocalizedText>(
-                r[2],
-                UA_TYPES[UA_TYPES_LOCALIZEDTEXT]
-            ))
-            out["display_name"] = text(v->text);
-        if (const auto v = scalar<UA_LocalizedText>(
-                r[3],
-                UA_TYPES[UA_TYPES_LOCALIZEDTEXT]
-            ))
-            out["description"] = text(v->text);
-        auto data_type = x::telem::UNKNOWN_T;
-        auto is_array = false;
-        if (cls == UA_NODECLASS_VARIABLE) {
-            const auto type_id = scalar<UA_NodeId>(r[4], UA_TYPES[UA_TYPES_NODEID]);
-            const auto rank = scalar<UA_Int32>(r[5], UA_TYPES[UA_TYPES_INT32]);
-            if (type_id.has_value()) {
-                auto [name, name_err] = type_name(connection, *type_id);
-                if (name_err) return {{}, name_err};
-                out["type_name"] = name;
-                data_type = telem::to_data_type(*type_id);
-            }
-            if (rank.has_value()) {
-                out["value_rank"] = *rank;
-                is_array = *rank != UA_VALUERANK_SCALAR && *rank >= UA_VALUERANK_SCALAR;
-            }
-            if (r[6].hasValue &&
-                UA_Variant_hasArrayType(&r[6].value, &UA_TYPES[UA_TYPES_UINT32])) {
-                const auto *dims = static_cast<const UA_UInt32 *>(r[6].value.data);
-                out["array_dimensions"] = std::vector<UA_UInt32>(
-                    dims,
-                    dims + r[6].value.arrayLength
-                );
-            }
-            if (const auto access = scalar<UA_Byte>(r[7], UA_TYPES[UA_TYPES_BYTE])) {
-                out["readable"] = (*access & UA_ACCESSLEVELMASK_READ) != 0;
-                out["writable"] = (*access & UA_ACCESSLEVELMASK_WRITE) != 0;
-                out["history_readable"] = (*access & UA_ACCESSLEVELMASK_HISTORYREAD) !=
-                                          0;
-            }
-            if (const auto v = scalar<UA_Boolean>(r[8], UA_TYPES[UA_TYPES_BOOLEAN]))
-                out["historizing"] = *v;
-            if (const auto v = scalar<UA_Double>(r[9], UA_TYPES[UA_TYPES_DOUBLE]))
-                out["minimum_sampling_interval"] = *v;
-            const auto &value = r[10];
-            out["status"] = UA_StatusCode_name(value.status);
-            if (value.hasSourceTimestamp)
-                if (const auto t = date_text(value.sourceTimestamp))
-                    out["source_timestamp"] = *t;
-            if (value.hasServerTimestamp)
-                if (const auto t = date_text(value.serverTimestamp))
-                    out["server_timestamp"] = *t;
-            structure::Types types;
-            if (!args.field.empty() ||
-                (value.value.type != nullptr &&
-                 value.value.type->typeKind == UA_DATATYPEKIND_EXTENSIONOBJECT)) {
-                auto [read_types, types_err] = structure::Types::read(
-                    connection,
-                    {id.value()}
-                );
-                if (types_err) return {{}, types_err};
-                types = std::move(read_types);
-            }
-            if (value.hasValue) {
-                auto [value_text, text_err] = types.print(value.value, args.field);
-                if (text_err) return {{}, text_err};
-                out["value"] = value_text;
-            }
-            if (!args.field.empty()) {
-                const auto *type = type_id.has_value() ? types.find(*type_id) : nullptr;
-                if (type == nullptr)
-                    return {
-                        {},
-                        x::errors::Error(
-                            x::errors::VALIDATION,
-                            "the node does not hold a structure"
-                        )
-                    };
-                auto [member, member_err] = structure::Types::member_type(
-                    *type,
-                    args.field
-                );
-                if (member_err) return {{}, member_err};
-                out["type_name"] = member->typeName;
-                data_type = telem::to_data_type(member);
-                is_array = false;
-            }
-        }
-        out["node"] = types::Node(
-                          data_type,
-                          args.field.empty() ? out["browse_name"].get<std::string>()
-                                             : args.field.back(),
-                          types::NodeId::to_string(id.value(), namespaces),
-                          types::node_class_to_string(cls),
-                          is_array,
-                          structure::to_string(args.field)
-        )
-                          .to_json();
-        return {out, x::errors::NIL};
-    };
-    auto [data, details_err] = details();
+    auto [data, details_err] = read_details(connection, id.value(), args.field);
     if (details_err) {
         status.message = "Failed to read node";
         status.description = details_err.data;

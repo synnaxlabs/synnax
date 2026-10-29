@@ -30,7 +30,7 @@ import {
 } from "@/feature/opcua/task/types";
 import { CSS } from "@/platform/css";
 
-export interface DetailsProps {
+interface DetailsProps {
   device: Device;
   nodeId: string;
   field: string;
@@ -39,6 +39,8 @@ export interface DetailsProps {
 }
 
 interface State {
+  /** The node, field, and read count that the state answers. */
+  request: string;
   details?: NodeDetails;
   failure?: status.Status;
 }
@@ -89,8 +91,9 @@ export const Details = ({
 }: DetailsProps): ReactElement => {
   const client = Synnax.use();
   const deviceRef = useSyncedRef(device);
-  const [state, setState] = useState<State>({});
+  const [state, setState] = useState<State | null>(null);
   const [reads, setReads] = useState(0);
+  const request = JSON.stringify([nodeId, field, reads]);
   useAsyncEffect(
     async (signal) => {
       if (client == null) return;
@@ -104,15 +107,17 @@ export const Details = ({
             field,
           },
         });
-        next = { details: nodeDetailsZ.parse(data) };
+        next = { request, details: nodeDetailsZ.parse(data) };
       } catch (e) {
-        next = { failure: status.fromException(e, "Failed to read node") };
+        next = { request, failure: status.fromException(e, "Failed to read node") };
       }
       if (!signal.aborted) setState(next);
     },
-    [client, deviceRef, nodeId, field, reads],
+    [client, deviceRef, request],
   );
-  const { details, failure } = state;
+  const current = state?.request === request ? state : null;
+  const details = current?.details;
+  const failure = current?.failure;
   let content: ReactElement | null = null;
   if (failure != null) content = <Status.Summary status={failure} />;
   else if (details != null)

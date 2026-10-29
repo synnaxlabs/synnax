@@ -119,25 +119,17 @@ const EXPORT_LABEL = "Export channels to CSV";
 
 const IMPORT_LABEL = "Import channels from CSV";
 
-const toStream = (text: string): ReadableStream<Uint8Array> =>
-  new ReadableStream({
-    start: (controller) => {
-      controller.enqueue(new TextEncoder().encode(text));
-      controller.close();
-    },
-  });
-
 interface HeaderProps<C extends Channel> extends Pick<
   ChannelListProps<C>,
   "convertHaulItemToChannel" | "indexed"
 > {
-  push: (channels: C[]) => void;
+  onImport: (channels: C[]) => void;
 }
 
 const Header = <C extends Channel>({
   convertHaulItemToChannel,
   indexed,
-  push,
+  onImport,
 }: HeaderProps<C>) => {
   const ctx = PForm.useContext();
   const isPreview = Task.useIsPreview();
@@ -148,7 +140,9 @@ const Header = <C extends Channel>({
     handleError(
       async () =>
         await download({
-          stream: toStream(CSV.encode(getChannels(), { indexed })),
+          stream: Runtime.toStream(
+            new TextEncoder().encode(CSV.encode(getChannels(), { indexed })),
+          ),
           name: `${ctx.get<string>("name").value}_channels`,
           extension: "csv",
         }),
@@ -159,7 +153,7 @@ const Header = <C extends Channel>({
       const file = await Runtime.pickFiles({ title: IMPORT_LABEL, extension: "csv" });
       if (file == null) return;
       const text = new TextDecoder().decode(await Runtime.toBytes(await file.read()));
-      push(
+      onImport(
         CSV.decode(text, {
           existing: getChannels(),
           convert: convertHaulItemToChannel,
@@ -280,12 +274,14 @@ const ChannelList = <C extends Channel>({
     handleError(async () => {
       if (client == null) throw new DisconnectedError();
       const results: Awaited<ReturnType<typeof findVariables>>[] = [];
-      // One search at a time, so a drop of many folders does not flood the server.
+      // The Driver runs one scan command at a time, so a search sent before the last
+      // one ends would spend its timeout in the queue.
       for (const folder of folders)
         results.push(await findVariables(client, device, folder));
       const found = results.flatMap(({ items }) => items);
       const truncated = results.some((r) => r.truncated);
       const name = folders.length === 1 ? folders[0].data.name : "";
+      const target = folders.length === 1 ? "the folder" : "the folders";
       const count = newChannels(found).length;
       if (count === 0) {
         addStatus({
@@ -294,8 +290,8 @@ const ChannelList = <C extends Channel>({
           message: "Found no new variables",
           description:
             found.length === 0
-              ? "No variables are under the folder."
-              : "The task already has every variable under the folder.",
+              ? `No variables are under ${target}.`
+              : `The task already has every variable under ${target}.`,
         });
         return;
       }
@@ -345,7 +341,7 @@ const ChannelList = <C extends Channel>({
         <Header<C>
           convertHaulItemToChannel={convertHaulItemToChannel}
           indexed={indexed}
-          push={push}
+          onImport={push}
         />
       }
       selected={selected}
