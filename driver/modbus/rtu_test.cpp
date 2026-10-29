@@ -55,6 +55,17 @@ synnax::device::Device rtu_device(
     dev.properties = {{"connection", rtu(slave, unit_id).to_json()}};
     return dev;
 }
+
+/// @returns a connection test command for cfg.
+synnax::task::Command
+test_command(const synnax::task::Task &t, const device::ConnectionConfig &cfg) {
+    return synnax::task::Command{
+        .task = t.key,
+        .type = TEST_CONNECTION_CMD_TYPE,
+        .key = "rtu",
+        .args = {{"connection", cfg.to_json()}},
+    };
+}
 }
 
 /// @brief it should read every table and write coils and registers over RTU, with
@@ -226,17 +237,70 @@ TEST(RTU, ScannerTestsConnection) {
     synnax::task::Task t;
     t.key = x::uuid::create();
     Scanner scanner(ctx, t, std::make_shared<device::Manager>());
-    synnax::task::Command cmd{
-        .task = t.key,
-        .type = TEST_CONNECTION_CMD_TYPE,
-        .key = "rtu",
-        .args = {{"connection", rtu(slave, 1).to_json()}},
-    };
+    auto cmd = test_command(t, rtu(slave, 1));
 
     ASSERT_TRUE(scanner.exec(cmd, t, ctx));
     ASSERT_EQ(ctx->statuses.size(), 1);
     EXPECT_EQ(ctx->statuses[0].variant, synnax::status::VARIANT_SUCCESS);
     EXPECT_EQ(ctx->statuses[0].message, "Connected to device");
+}
+
+/// @brief it should accept new line settings for a serial port that only the scanner
+/// holds open, in a connection test and in the next scans.
+TEST(RTU, ScannerAcceptsNewLineSettings) {
+    testutil::Slave slave(serial_slave());
+    ASSERT_NIL(slave.start());
+    x::defer::defer stop_slave([&slave] { slave.stop(); });
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    synnax::task::Task t;
+    t.key = x::uuid::create();
+    Scanner scanner(ctx, t, std::make_shared<device::Manager>());
+    std::unordered_map<std::string, synnax::device::Device> devices{
+        {"dev", rtu_device(slave, "dev", 1)},
+    };
+    common::ScannerContext scan_ctx;
+    scan_ctx.devices = &devices;
+    ASSERT_NIL_P(scanner.scan(scan_ctx));
+    auto cfg = rtu(slave, 1);
+    cfg.serial.baud_rate = 9600;
+
+    auto cmd = test_command(t, cfg);
+    ASSERT_TRUE(scanner.exec(cmd, t, ctx));
+    ASSERT_EQ(ctx->statuses.size(), 1);
+    EXPECT_EQ(ctx->statuses[0].variant, synnax::status::VARIANT_SUCCESS);
+    ASSERT_NIL_P(scanner.scan(scan_ctx));
+    devices["dev"].properties = {{"connection", cfg.to_json()}};
+    const auto scanned = ASSERT_NIL_P(scanner.scan(scan_ctx));
+    ASSERT_EQ(scanned.size(), 1);
+    EXPECT_EQ(scanned[0].status->variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(scanned[0].status->message, "Device connected");
+}
+
+/// @brief it should fail a connection test at new line settings for a serial port that
+/// a task holds open.
+TEST(RTU, ScannerRejectsLineSettingsOfOpenPort) {
+    testutil::Slave slave(serial_slave());
+    ASSERT_NIL(slave.start());
+    x::defer::defer stop_slave([&slave] { slave.stop(); });
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    synnax::task::Task t;
+    t.key = x::uuid::create();
+    auto manager = std::make_shared<device::Manager>();
+    const auto held = ASSERT_NIL_P(manager->acquire(rtu(slave, 1)));
+    Scanner scanner(ctx, t, manager);
+    auto cfg = rtu(slave, 1);
+    cfg.serial.baud_rate = 9600;
+
+    auto cmd = test_command(t, cfg);
+    ASSERT_TRUE(scanner.exec(cmd, t, ctx));
+    ASSERT_EQ(ctx->statuses.size(), 1);
+    EXPECT_EQ(ctx->statuses[0].variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(ctx->statuses[0].message, "Failed to connect to device");
+    EXPECT_EQ(
+        ctx->statuses[0].description,
+        "serial port " + slave.serial_port() +
+            " is open at 19200 8E1, but this device uses 9600 8E1"
+    );
 }
 
 /// @brief it should report each unit on a serial port by whether it answers.

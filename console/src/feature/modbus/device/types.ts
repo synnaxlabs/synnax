@@ -69,27 +69,29 @@ const ZERO_REQUESTS = {
   delayMs: 0,
 } as const;
 
+const wholeNumberZ = (name: string) => z.int(`${name} must be a whole number`);
+
 const commonConnectionZ = z.object({
   swapBytes: z.boolean().default(ZERO_COMMON_CONNECTION.swapBytes),
   swapWords: z.boolean().default(ZERO_COMMON_CONNECTION.swapWords),
-  timeoutMs: z.number().default(ZERO_COMMON_CONNECTION.timeoutMs),
-  retries: z.number().default(ZERO_COMMON_CONNECTION.retries),
+  timeoutMs: wholeNumberZ("Timeout").default(ZERO_COMMON_CONNECTION.timeoutMs),
+  retries: wholeNumberZ("Retries").default(ZERO_COMMON_CONNECTION.retries),
 });
 
 const tcpConnectionZ = commonConnectionZ.extend({
   transport: z.literal("tcp"),
   host: z.string().default(ZERO_TCP_CONNECTION.host),
   port: z.number().default(ZERO_TCP_CONNECTION.port),
-  unitId: z.number().default(ZERO_TCP_CONNECTION.unitId),
+  unitId: wholeNumberZ("Unit ID").default(ZERO_TCP_CONNECTION.unitId),
 });
 
 const rtuConnectionZ = commonConnectionZ.extend({
   transport: z.literal("rtu"),
   serialPort: z.string().default(ZERO_RTU_CONNECTION.serialPort),
-  baudRate: z.number().default(ZERO_RTU_CONNECTION.baudRate),
+  baudRate: wholeNumberZ("Baud rate").default(ZERO_RTU_CONNECTION.baudRate),
   parity: parityZ.default(ZERO_RTU_CONNECTION.parity),
-  stopBits: z.number().default(ZERO_RTU_CONNECTION.stopBits),
-  unitId: z.number().default(ZERO_RTU_CONNECTION.unitId),
+  stopBits: wholeNumberZ("Stop bits").default(ZERO_RTU_CONNECTION.stopBits),
+  unitId: wholeNumberZ("Unit ID").default(ZERO_RTU_CONNECTION.unitId),
 });
 
 // Devices stored before serial connections have no transport, and are all TCP.
@@ -107,11 +109,11 @@ const propertiesZ = z.object({
     .default(() => ({ ...ZERO_TCP_CONNECTION })),
   requests: z
     .object({
-      maxRegisters: z.number().default(ZERO_REQUESTS.maxRegisters),
-      maxGap: z.number().default(ZERO_REQUESTS.maxGap),
+      maxRegisters: wholeNumberZ("Max registers").default(ZERO_REQUESTS.maxRegisters),
+      maxGap: wholeNumberZ("Max gap").default(ZERO_REQUESTS.maxGap),
       writeCodes: writeCodesZ.default(ZERO_REQUESTS.writeCodes),
       maskWriteSupported: z.boolean().default(ZERO_REQUESTS.maskWriteSupported),
-      delayMs: z.number().default(ZERO_REQUESTS.delayMs),
+      delayMs: wholeNumberZ("Request delay").default(ZERO_REQUESTS.delayMs),
     })
     .default(() => ({ ...ZERO_REQUESTS })),
   read: z

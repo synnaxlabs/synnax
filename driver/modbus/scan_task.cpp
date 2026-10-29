@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <memory>
+#include <mutex>
 #include <utility>
 
 #include "x/cpp/json/json.h"
@@ -33,6 +34,7 @@ std::pair<std::vector<synnax::device::Device>, x::errors::Error>
 Scanner::scan(const common::ScannerContext &scan_ctx) {
     std::vector<synnax::device::Device> devices_out;
     if (scan_ctx.devices == nullptr) return {devices_out, x::errors::NIL};
+    std::lock_guard lock(this->mu);
     std::unordered_map<std::string, Check> next;
     for (auto [key, dev]: *scan_ctx.devices) {
         this->check_device_health(dev, next);
@@ -54,10 +56,19 @@ bool Scanner::exec(
     return false;
 }
 
+void Scanner::release_stale(const device::ConnectionConfig &cfg) {
+    if (cfg.transport != device::Transport::RTU) return;
+    std::erase_if(this->checks, [&](const auto &entry) {
+        const auto &held = entry.second.dev->config();
+        return held.endpoint() == cfg.endpoint() &&
+               held.serial.line() != cfg.serial.line();
+    });
+}
+
 void Scanner::check_device_health(
     synnax::device::Device &dev,
     std::unordered_map<std::string, Check> &next
-) const {
+) {
     const auto rack_key = this->task.rack;
     const auto parser = x::json::Parser(dev.properties);
     const auto props = device::Properties(parser);
@@ -74,6 +85,7 @@ void Scanner::check_device_health(
         return;
     }
 
+    this->release_stale(props.connection);
     auto [d, err] = this->devices->acquire(props.connection, props.requests);
     synnax::device::StatusDetails details{.rack = rack_key, .device = dev.key};
     if (!err) {
@@ -105,7 +117,7 @@ void Scanner::check_device_health(
         };
 }
 
-void Scanner::test_connection(const synnax::task::Command &cmd) const {
+void Scanner::test_connection(const synnax::task::Command &cmd) {
     x::json::Parser parser(cmd.args);
     const ScanCommandArgs args(parser);
     synnax::task::Status status{
@@ -126,6 +138,8 @@ void Scanner::test_connection(const synnax::task::Command &cmd) const {
         ctx->set_status(status);
         return;
     }
+    std::lock_guard lock(this->mu);
+    this->release_stale(args.connection);
     auto [dev, err] = this->devices->acquire(args.connection);
     if (!err) err = dev->probe();
     if (err) {

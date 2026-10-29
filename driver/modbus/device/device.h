@@ -771,6 +771,9 @@ public:
 
     /// @returns the request counters of the unit on the shared connection.
     [[nodiscard]] Stats stats() const { return this->conn->stats(this->cfg.unit_id); }
+
+    /// @returns the endpoint and unit of the device.
+    [[nodiscard]] const ConnectionConfig &config() const { return this->cfg; }
 };
 
 /// @brief shares one connection among the devices on each endpoint: a TCP host and

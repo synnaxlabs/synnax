@@ -9,7 +9,7 @@
 
 import "@/feature/modbus/task/Task.css";
 
-import { channel, NotFoundError } from "@synnaxlabs/client";
+import { channel, type modbus, NotFoundError, type Synnax } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
@@ -189,6 +189,35 @@ const writeMapKey = (channel: WriteChannel) => {
   return s.replaceAll("_", "-");
 };
 
+// Python and older Consoles saved a holding register's command channel under a key with
+// no data type. The client returns the older Console's key in camel case.
+const legacyWriteMapKeys = (address: number): string[] => [
+  `holding-register-output-${address}`,
+  `holding-registerOutput-${address}`,
+];
+
+/**
+ * Moves the command channel of a holding register from a legacy key to its current key
+ * when the channel's data type matches.
+ * @returns true if it moved a channel.
+ */
+const adoptLegacyCommand = async (
+  client: Synnax,
+  channels: Record<string, number>,
+  ch: modbus.HoldingRegisterWriteChannel,
+): Promise<boolean> => {
+  for (const legacy of legacyWriteMapKeys(ch.address)) {
+    const key = channels[legacy];
+    if (key == null) continue;
+    const [cmd] = await client.channels.retrieve([key]);
+    if (cmd == null || !cmd.dataType.equals(ch.dataType)) continue;
+    delete channels[legacy];
+    channels[writeMapKey(ch)] = key;
+    return true;
+  }
+  return false;
+};
+
 const commandName = (deviceName: string, channel: WriteChannel) => {
   let s = `${deviceName}_${NAME_TYPES[channel.type]}_${channel.address}`;
   if (channel.type === "holding_register")
@@ -214,10 +243,14 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
     key: config.device,
     schemas: SCHEMAS,
   });
+  const { channels } = dev.properties.write;
+  let changed = false;
   const commandsToCreate: WriteChannel[] = [];
   for (const channel of config.channels) {
     const key = writeMapKey(channel);
-    const existing = dev.properties.write.channels[key];
+    if (channels[key] == null && channel.type === "holding_register")
+      changed = (await adoptLegacyCommand(client, channels, channel)) || changed;
+    const existing = channels[key];
     if (existing == null) {
       commandsToCreate.push(channel);
       continue;
@@ -250,14 +283,15 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
     );
     commands.forEach((c, i) => {
       const channel = commandsToCreate[i];
-      dev.properties.write.channels[writeMapKey(channel)] = c.key;
+      channels[writeMapKey(channel)] = c.key;
     });
-    await client.devices.create(dev, SCHEMAS);
+    changed = true;
   }
+  if (changed) await client.devices.create(dev, SCHEMAS);
 
   config.channels = config.channels.map((c) => ({
     ...c,
-    channel: dev.properties.write.channels[writeMapKey(c)],
+    channel: channels[writeMapKey(c)],
   }));
 
   return [config, dev.rack];
