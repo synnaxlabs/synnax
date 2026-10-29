@@ -89,6 +89,14 @@ func StatusToPB[Details any](
 		}
 		pb.Labels = &LabelList{Values: vals}
 	}
+	if r.Since != nil {
+		v := int64(*r.Since)
+		pb.Since = &v
+	}
+	if r.Cleared != nil {
+		v := int64(*r.Cleared)
+		pb.Cleared = &v
+	}
 	return pb, nil
 }
 
@@ -122,6 +130,14 @@ func StatusFromPB[Details any](
 			return status.Status[Details]{}, err
 		}
 		r.Labels = vals
+	}
+	if pb.Since != nil {
+		v := telem.TimeStamp(*pb.Since)
+		r.Since = &v
+	}
+	if pb.Cleared != nil {
+		v := telem.TimeStamp(*pb.Cleared)
+		r.Cleared = &v
 	}
 	return r, nil
 }

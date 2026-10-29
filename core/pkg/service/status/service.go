@@ -49,6 +49,11 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Label *label.Service
+	// Now returns the current time. Writers stamp the start and clear times of status
+	// problems from it.
+	//
+	// [OPTIONAL - defaults to telem.Now]
+	Now func() telem.TimeStamp
 	alamos.Instrumentation
 }
 
@@ -60,6 +65,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Label = override.Nil(c.Label, other.Label)
+	c.Now = override.Nil(c.Now, other.Now)
 	return c
 }
 
@@ -88,7 +94,7 @@ type Service struct {
 // service is ready for use and must be closed by calling Close to prevent resource
 // leaks.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {
-	cfg, err := config.New(ServiceConfig{}, cfgs...)
+	cfg, err := config.New(ServiceConfig{Now: telem.Now}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -213,6 +219,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		otgWriter: s.cfg.Ontology.NewWriter(tx),
 		otg:       s.cfg.Ontology,
 		group:     s.group,
+		now:       s.cfg.Now,
 	}
 }
 

@@ -9,85 +9,12 @@
 
 package v1
 
-import (
-	"fmt"
-	"strings"
-
-	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-)
-
-// String returns a formatted string representation of the Status.
-func (s Status[D]) String() string {
-	var b strings.Builder
-
-	var variantIcon string
-	switch s.Variant {
-	case VariantInfo:
-		variantIcon = "ℹ"
-	case VariantSuccess:
-		variantIcon = "✓"
-	case VariantError:
-		variantIcon = "✗"
-	case VariantWarning:
-		variantIcon = "⚠"
-	case VariantDisabled:
-		variantIcon = "⊘"
-	case VariantLoading:
-		variantIcon = "◌"
-	default:
-		variantIcon = "•"
-	}
-
-	_, _ = fmt.Fprintf(&b, "[%s %s]", variantIcon, s.Variant)
-
-	if s.Name != "" {
-		_, _ = fmt.Fprintf(&b, " %s", s.Name)
-	}
-
-	if s.Key != "" && s.Key != s.Name {
-		_, _ = fmt.Fprintf(&b, " (%s)", s.Key)
-	}
-
-	if s.Message != "" {
-		_, _ = fmt.Fprintf(&b, ": %s", s.Message)
-	}
-
-	if s.Description != "" {
-		_, _ = fmt.Fprintf(&b, "\n  %s", s.Description)
-	}
-
-	if s.Time != 0 {
-		_, _ = fmt.Fprintf(&b, "\n  @ %s", s.Time)
-	}
-
-	var zeroDetails D
-	if detailStr := fmt.Sprintf(
-		"%v",
-		s.Details,
-	); detailStr != fmt.Sprintf(
-		"%v",
-		zeroDetails,
-	) {
-		_, _ = fmt.Fprintf(&b, "\n  Details: %v", s.Details)
-	}
-
-	return b.String()
-}
-
-var _ gorp.Entry[Key] = (*Status[any])(nil)
-
 // GorpKey implements gorp.Entry.
-func (s Status[D]) GorpKey() Key { return s.Key }
+func (s Status[Details]) GorpKey() Key { return s.Key }
 
 // SetOptions implements gorp.Entry.
-func (Status[D]) SetOptions() []any { return nil }
+func (Status[Details]) SetOptions() []any { return nil }
 
-// OntologyID returns the unique ontology identifier for the status.
-func (s Status[D]) OntologyID() ontology.ID {
-	return ontology.ID{Type: ontology.ResourceTypeStatus, Key: s.Key}
-}
-
-// CustomTypeName implements types.CustomTypeName to ensure that Status struct does
-// not conflict with any other types in Gorp.
-func (Status[D]) CustomTypeName() string { return "Status" }
+// CustomTypeName implements types.CustomTypeName to match the Gorp key prefix stored
+// statuses were written under.
+func (Status[Details]) CustomTypeName() string { return "Status" }

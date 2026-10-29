@@ -36,6 +36,8 @@ Status<Details> Status<Details>::parse(x::json::Parser parser) {
         .labels = parser.field<std::optional<std::vector<::synnax::label::Label>>>(
             "labels"
         ),
+        .since = parser.field<std::optional<::x::telem::TimeStamp>>("since"),
+        .cleared = parser.field<std::optional<::x::telem::TimeStamp>>("cleared"),
     };
 }
 
@@ -55,6 +57,8 @@ x::json::json Status<Details>::to_json() const {
     else
         j["details"] = this->details.to_json();
     if (this->labels.has_value()) j["labels"] = x::json::to_array(*this->labels);
+    if (this->since.has_value()) j["since"] = this->since->nanoseconds();
+    if (this->cleared.has_value()) j["cleared"] = this->cleared->nanoseconds();
     return j;
 }
 

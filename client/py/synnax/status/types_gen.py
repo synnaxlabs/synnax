@@ -61,6 +61,13 @@ class Status(BaseModel, Generic[Details]):
         time: Is the timestamp when the status was created.
         details: Contains optional component-specific custom details for the status.
         labels: Contains optional labels for categorization and filtering.
+        since: Is when the open or most recent problem of the status started. A problem
+            is a period with a warning or error variant. The Core sets it on every write
+            and ignores the value a client sends. Empty if the status never had a
+            problem.
+        cleared: Is when the most recent problem of the status cleared. The Core sets it
+            on every write and ignores the value a client sends. Empty while a problem
+            is open, or if the status never had a problem.
     """
 
     key: Key = Field(default_factory=lambda: str(uuid4()))
@@ -75,6 +82,12 @@ class Status(BaseModel, Generic[Details]):
     )
     details: Details | None = None
     labels: list[label.Label] | None = None
+    since: telem.TimeStamp | None = Field(
+        default=None, ge=-9223372036854775808, le=9223372036854775807
+    )
+    cleared: telem.TimeStamp | None = Field(
+        default=None, ge=-9223372036854775808, le=9223372036854775807
+    )
 
     def __hash__(self) -> int:
         return hash(self.key)

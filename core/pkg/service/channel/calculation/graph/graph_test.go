@@ -108,12 +108,8 @@ func expectStatus(ctx context.Context, key channel.Key) calculation.Status {
 }
 
 // eventuallyExpectNoStatus asserts that the calculated channel identified by key
-// settles with no error status. The graph observes channel changes through an
-// asynchronous, buffered observable, so it may transiently publish a status for an
-// intermediate state — for example, an update event whose expression still references a
-// dependency that a later, not-yet-processed event removes — before it catches up and
-// clears it. The assertion therefore polls until the status has settled to absent
-// rather than reading it once; a status that never clears still fails the spec.
+// settles with no status. The graph observes channel changes asynchronously, so it can
+// publish a status for an intermediate state before it catches up.
 func eventuallyExpectNoStatus(ctx context.Context, key channel.Key) {
 	GinkgoHelper()
 	Eventually(func() bool {
@@ -121,6 +117,22 @@ func eventuallyExpectNoStatus(ctx context.Context, key channel.Key) {
 		return ok
 	}, 2*time.Second, 10*time.Millisecond).Should(BeFalse(),
 		"expected status to be cleared for channel %d", key)
+}
+
+// eventuallyExpectCleared asserts that the status of the calculated channel identified
+// by key settles to the success status the graph writes when a problem clears.
+func eventuallyExpectCleared(ctx context.Context, key channel.Key) calculation.Status {
+	GinkgoHelper()
+	var result calculation.Status
+	Eventually(func(g Gomega) {
+		s, ok := fetchStatus(ctx, key)
+		g.Expect(ok).To(BeTrue())
+		g.Expect(s.Variant).To(Equal(status.VariantSuccess))
+		g.Expect(s.Message).To(Equal("Calculation ready"))
+		g.Expect(s.Cleared).ToNot(BeNil())
+		result = s
+	}, 2*time.Second, 10*time.Millisecond).Should(Succeed())
+	return result
 }
 
 func retrieveChannelDataType(ctx context.Context, key channel.Key) telem.DataType {
@@ -775,7 +787,7 @@ var _ = Describe("Graph", func() {
 
 					By("Recreating the missing dependency")
 					createDep(ctx, "rc_fix_missing_dep")
-					eventuallyExpectNoStatus(ctx, calc.Key())
+					eventuallyExpectCleared(ctx, calc.Key())
 				},
 			)
 		})
@@ -978,7 +990,7 @@ var _ = Describe("Graph", func() {
 					createDep(ctx, "rc_unres_missing")
 
 					By("Verifying calc is auto-fixed")
-					eventuallyExpectNoStatus(ctx, calc.Key())
+					eventuallyExpectCleared(ctx, calc.Key())
 				},
 			)
 
@@ -1011,8 +1023,8 @@ var _ = Describe("Graph", func() {
 					createDep(ctx, "rc_unres_shared_dep")
 
 					By("Both calcs should auto-heal")
-					eventuallyExpectNoStatus(ctx, calc1.Key())
-					eventuallyExpectNoStatus(ctx, calc2.Key())
+					eventuallyExpectCleared(ctx, calc1.Key())
+					eventuallyExpectCleared(ctx, calc2.Key())
 				},
 			)
 
@@ -1031,7 +1043,7 @@ var _ = Describe("Graph", func() {
 					createDep(ctx, "rc_unres_chain_base")
 
 					By("calc1 should auto-heal")
-					eventuallyExpectNoStatus(ctx, calc1.Key())
+					eventuallyExpectCleared(ctx, calc1.Key())
 				},
 			)
 		})
@@ -1096,12 +1108,12 @@ var _ = Describe("Graph", func() {
 
 				By("Recreating the dependency")
 				createDep(ctx, "st_clear_dep")
-				eventuallyExpectNoStatus(ctx, calc.Key())
+				eventuallyExpectCleared(ctx, calc.Key())
 			},
 		)
 
 		It(
-			"Should pair a status entry with an ontology resource through set and clear",
+			"Should keep a status entry and its ontology resource through set and clear",
 			func(ctx SpecContext) {
 				openGraph(ctx)
 				calc := createBrokenCalc(ctx, "st_resource", "st_resource_dep")
@@ -1118,13 +1130,14 @@ var _ = Describe("Graph", func() {
 
 				By("Restoring the dependency so the graph clears the status")
 				createDep(ctx, "st_resource_dep")
-				eventuallyExpectNoStatus(ctx, calc.Key())
+				eventuallyExpectCleared(ctx, calc.Key())
 
-				By("The clear removes the status resource with the entry")
+				By("The clear keeps the status resource with the entry")
 				Expect(otg.NewRetrieve().
 					WhereIDs(id).
-					Entries(&[]ontology.Resource{}).
-					Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+					Entries(&res).
+					Exec(ctx, nil)).To(Succeed())
+				Expect(res).To(HaveLen(1))
 			},
 		)
 
@@ -1251,7 +1264,7 @@ var _ = Describe("Graph", func() {
 				By("Editing the expression to a different valid one")
 				calc.Expression = "return st_expr_dep * 2"
 				Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
-				eventuallyExpectNoStatus(ctx, calc.Key())
+				eventuallyExpectCleared(ctx, calc.Key())
 			},
 		)
 
@@ -1441,27 +1454,71 @@ var _ = Describe("Graph", func() {
 	})
 
 	Describe("ClearRuntimeStatus", func() {
-		It("Should remove a status the runtime reported", func(ctx SpecContext) {
-			g := openGraph(ctx)
-			createDep(ctx, "rt_clear_dep")
-			calc := channel.Channel{
-				Name: "rt_clear", DataType: telem.Int64T, Virtual: true,
-				Expression: "return rt_clear_dep + 1",
+		var (
+			g    *graph.Graph
+			calc channel.Channel
+		)
+		open := func(ctx context.Context, name string) {
+			GinkgoHelper()
+			g = openGraph(ctx)
+			createDep(ctx, name+"_dep")
+			calc = channel.Channel{
+				Name:       name,
+				DataType:   telem.Int64T,
+				Virtual:    true,
+				Expression: "return " + name + "_dep + 1",
 			}
 			Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+		}
+		fail := func(ctx context.Context) calculation.Status {
+			GinkgoHelper()
 			Expect(g.SetRuntimeStatus(ctx, calc.Key(), &calculation.Status{
-				Name:    "rt_clear",
+				Name:    calc.Name,
 				Variant: status.VariantError,
 				Message: "Failed to run calculation",
 				Time:    telem.Now(),
 			})).To(Succeed())
-			expectStatus(ctx, calc.Key())
+			return expectStatus(ctx, calc.Key())
+		}
 
-			Expect(g.ClearRuntimeStatus(ctx, calc.Key())).To(Succeed())
+		It(
+			"Should replace a status the runtime reported with a success status",
+			func(ctx SpecContext) {
+				open(ctx, "rt_clear")
+				failed := fail(ctx)
 
-			_, ok := fetchStatus(ctx, calc.Key())
-			Expect(ok).To(BeFalse())
-		})
+				Expect(g.ClearRuntimeStatus(ctx, calc.Key())).To(Succeed())
+
+				cleared := eventuallyExpectCleared(ctx, calc.Key())
+				Expect(cleared.Name).To(Equal(calc.Name))
+				Expect(cleared.Since).To(Equal(failed.Since))
+			},
+		)
+
+		It(
+			"Should keep the problem's start when the runtime fails again soon after",
+			func(ctx SpecContext) {
+				open(ctx, "rt_reopen")
+				failed := fail(ctx)
+				Expect(g.ClearRuntimeStatus(ctx, calc.Key())).To(Succeed())
+				eventuallyExpectCleared(ctx, calc.Key())
+
+				again := fail(ctx)
+				Expect(again.Since).To(Equal(failed.Since))
+				Expect(again.Cleared).To(BeNil())
+			},
+		)
+
+		It(
+			"Should not create a status for a channel that has none",
+			func(ctx SpecContext) {
+				open(ctx, "rt_clear_none")
+				Expect(g.ClearRuntimeStatus(ctx, calc.Key())).To(Succeed())
+
+				_, ok := fetchStatus(ctx, calc.Key())
+				Expect(ok).To(BeFalse())
+			},
+		)
 
 		It(
 			"Should keep the status of a channel with an invalid expression",

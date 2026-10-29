@@ -16,8 +16,15 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
+
+// clearWindow is how long a cleared problem stays the same problem: a status that goes
+// bad again within it keeps the problem's since.
+const clearWindow = 30 * telem.Second
 
 // Writer is used to create and update statuses within the DB. Every write touches both
 // the status entry and its ontology resource, and the two land together only when the
@@ -28,10 +35,13 @@ type Writer struct {
 	otgWriter ontology.Writer
 	otg       *ontology.Ontology
 	group     group.Group
+	now       func() telem.TimeStamp
 }
 
 // Set creates or updates a status within the DB. If the Status already has a key and
 // an existing Status already exists with that key, the existing status will be updated.
+// Set computes the Since and Cleared fields of s from the stored status and ignores the
+// values s carries.
 func (w Writer) Set[D any](ctx context.Context, s *Status[D]) error {
 	return w.SetWithParent(ctx, s, ontology.ID{})
 }
@@ -41,7 +51,8 @@ func (w Writer) Set[D any](ctx context.Context, s *Status[D]) error {
 // parent relationship will be deleted and a new parent relationship will be created. If
 // the status already exists and no parent is provided, the existing parent relationship
 // will be preserved. If an empty parent is provided, the status will be created under
-// the top level "Statuses" group.
+// the top level "Statuses" group. SetWithParent computes the Since and Cleared fields
+// of s as Set does.
 func (w Writer) SetWithParent[D any](
 	ctx context.Context,
 	s *Status[D],
@@ -54,11 +65,17 @@ func (w Writer) SetWithParent[D any](
 	if err := w.validate(*s); err != nil {
 		return err
 	}
-	exists, err := gorp.NewRetrieve[Key, Status[D]]().Where(gorp.MatchKeys[Key, Status[D]](s.Key)).
-		Exists(ctx, w.tx)
-	if err != nil {
+	// Raw details skip decoding the stored details, which the write replaces.
+	var prev Status[json.RawMessage]
+	err := gorp.NewRetrieve[Key, Status[json.RawMessage]]().
+		Where(gorp.MatchKeys[Key, Status[json.RawMessage]](s.Key)).
+		Entry(&prev).
+		Exec(ctx, w.tx)
+	exists := err == nil
+	if err != nil && !errors.Is(err, query.ErrNotFound) {
 		return err
 	}
+	markProblem(s, prev, w.now())
 	if err = w.table.NewCreate().Entry(new(s.ToAny())).Exec(ctx, w.tx); err != nil {
 		return err
 	}
@@ -100,7 +117,8 @@ func (w Writer) SetWithParent[D any](
 }
 
 // SetMany creates or updates multiple statuses within the DB. If any of the statuses
-// already exist, they will be updated.
+// already exist, they will be updated. SetMany computes the Since and Cleared fields of
+// each status as Set does.
 func (w Writer) SetMany[D any](ctx context.Context, statuses *[]Status[D]) error {
 	return w.SetManyWithParent(ctx, statuses, ontology.ID{})
 }
@@ -168,3 +186,28 @@ func (w Writer) validate[D any](s Status[D]) error {
 	v.NotEmptyString("variant", s.Variant)
 	return v.Error()
 }
+
+// markProblem sets the Since and Cleared fields of s from prev, the stored status or
+// the zero status when none is stored, at the time now. A problem is a period with a
+// warning or error variant.
+func markProblem[D any](
+	s *Status[D],
+	prev Status[json.RawMessage],
+	now telem.TimeStamp,
+) {
+	since, cleared, wasBad := prev.Since, prev.Cleared, isProblem(prev.Variant)
+	switch {
+	case isProblem(s.Variant):
+		reopened := !wasBad && cleared != nil &&
+			telem.TimeSpan(now-*cleared) < clearWindow
+		if since == nil || (!wasBad && !reopened) {
+			since = new(now)
+		}
+		cleared = nil
+	case wasBad:
+		cleared = new(now)
+	}
+	s.Since, s.Cleared = since, cleared
+}
+
+func isProblem(v Variant) bool { return v == VariantWarning || v == VariantError }
