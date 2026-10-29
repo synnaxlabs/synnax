@@ -73,7 +73,7 @@ fn accept(listener: &TcpListener, state: &str, timeout: Duration) -> Result<Stri
         }
         match listener.accept() {
             Ok((stream, _)) => {
-                if let Some(query) = respond(stream, state, deadline)? {
+                if let Some(query) = respond(stream, state, deadline) {
                     return Ok(query);
                 }
             }
@@ -89,13 +89,12 @@ fn accept(listener: &TcpListener, state: &str, timeout: Duration) -> Result<Stri
 /// [`MAX_REQUEST_LINE`] bytes, so a local process cannot hold the listener or grow its
 /// memory. A request for `/callback` with the given state gets the page and yields its
 /// query. A callback with another state gets a 400, any other request a 404, and both
-/// yield nothing.
-fn respond(
-    mut stream: TcpStream,
-    state: &str,
-    deadline: Instant,
-) -> Result<Option<String>, String> {
-    stream.set_nonblocking(false).map_err(|e| e.to_string())?;
+/// yield nothing. A failed connection yields what its request asked for, so it cannot
+/// end the login.
+fn respond(mut stream: TcpStream, state: &str, deadline: Instant) -> Option<String> {
+    if stream.set_nonblocking(false).is_err() {
+        return None;
+    }
     let line = read_request_line(&mut stream, deadline.min(Instant::now() + REQUEST_TIMEOUT));
     let target = line.split_whitespace().nth(1).unwrap_or("");
     let (path, query) = target.split_once('?').unwrap_or((target, ""));
@@ -109,14 +108,13 @@ fn respond(
     } else {
         ("400 Bad Request", "", false)
     };
-    write!(
+    let _ = write!(
         stream,
         "HTTP/1.1 {status}\r\nContent-Type: text/html; charset=utf-8\r\n\
          Content-Length: {}\r\nConnection: close\r\n\r\n{body}",
         body.len()
-    )
-    .map_err(|e| e.to_string())?;
-    Ok(found.then(|| query.to_string()))
+    );
+    found.then(|| query.to_string())
 }
 
 /// Reads up to the first line break. It stops early, with what it has read, at the
@@ -185,8 +183,31 @@ mod tests {
         });
         let (stream, _) = listener.accept().unwrap();
         let deadline = Instant::now() + Duration::from_secs(5);
-        assert_eq!(respond(stream, "xyz", deadline).unwrap(), None);
+        assert_eq!(respond(stream, "xyz", deadline), None);
         flood.join().unwrap();
+    }
+
+    fn respond_unwritable(target: &str) -> Option<String> {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let mut client = TcpStream::connect(("127.0.0.1", port)).unwrap();
+        write!(client, "GET {target} HTTP/1.1\r\n\r\n").unwrap();
+        let (stream, _) = listener.accept().unwrap();
+        stream.shutdown(std::net::Shutdown::Write).unwrap();
+        respond(stream, "xyz", Instant::now() + Duration::from_secs(5))
+    }
+
+    #[test]
+    fn keeps_the_callback_when_the_page_cannot_be_written() {
+        assert_eq!(
+            respond_unwritable("/callback?code=abc&state=xyz").as_deref(),
+            Some("code=abc&state=xyz")
+        );
+    }
+
+    #[test]
+    fn ignores_a_connection_that_cannot_be_written() {
+        assert_eq!(respond_unwritable("/favicon.ico"), None);
     }
 
     #[test]
