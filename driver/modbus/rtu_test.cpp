@@ -302,6 +302,38 @@ TEST(RTU, ScannerAcceptsNewLineSettings) {
     EXPECT_EQ(status.message, "Device connected");
 }
 
+/// @brief it should wait for a scan's probe of a serial port to end before it tests the
+/// port at new line settings.
+TEST(RTU, ScannerTestsNewLineSettingsDuringProbe) {
+    auto slave_cfg = serial_slave();
+    slave_cfg.silent_units = {4};
+    testutil::Slave slave(slave_cfg);
+    ASSERT_NIL(slave.start());
+    x::defer::defer stop_slave([&slave] { slave.stop(); });
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    synnax::task::Task t;
+    t.key = x::uuid::create();
+    Scanner scanner(ctx, t, std::make_shared<device::Manager>());
+    auto silent = rtu(slave, 4);
+    silent.timeout = x::telem::MILLISECOND * 500;
+    std::unordered_map<std::string, synnax::device::Device> devices{
+        {"silent", rtu_device(slave, "silent", 4)},
+    };
+    devices["silent"].properties = {{"connection", silent.to_json()}};
+    common::ScannerContext scan_ctx;
+    scan_ctx.devices = &devices;
+    std::thread scanning([&] { ASSERT_NIL_P(scanner.scan(scan_ctx)); });
+    x::defer::defer join([&scanning] { scanning.join(); });
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    auto cfg = rtu(slave, 1);
+    cfg.serial.baud_rate = 9600;
+
+    auto cmd = test_command(t, cfg);
+    ASSERT_TRUE(scanner.exec(cmd, t, ctx));
+    ASSERT_EQ(ctx->statuses.size(), 1);
+    EXPECT_EQ(ctx->statuses[0].variant, synnax::status::VARIANT_SUCCESS);
+}
+
 /// @brief it should fail a connection test at new line settings for a serial port that
 /// a task holds open.
 TEST(RTU, ScannerRejectsLineSettingsOfOpenPort) {
