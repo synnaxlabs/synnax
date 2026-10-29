@@ -15,6 +15,9 @@
 #include <vector>
 
 #include "gtest/gtest.h"
+#include <fcntl.h>
+#include <termios.h>
+#include <unistd.h>
 
 #include "x/cpp/defer/defer.h"
 #include "x/cpp/testutil/testutil.h"
@@ -189,6 +192,47 @@ TEST(RTU, LocksPortToOneConnection) {
     EXPECT_EQ(err.data, "serial port is in use by another connection");
     by_path.reset();
     ASSERT_NIL(by_link->read_registers(device::HoldingRegister, 0, 1, &reg));
+}
+
+/// @brief it should refuse a second connection to a port before it changes the port's
+/// line settings.
+TEST(RTU, RefusesPortBeforeChangingLineSettings) {
+    testutil::Slave slave(serial_slave());
+    ASSERT_NIL(slave.start());
+    x::defer::defer stop_slave([&slave] { slave.stop(); });
+    const auto link = std::filesystem::temp_directory_path() /
+                      ("modbus-rtu-" + x::uuid::create().to_string());
+    device::Manager manager;
+    auto link_cfg = rtu(slave, 1);
+    link_cfg.serial.port = link.string();
+    link_cfg.serial.baud_rate = 9600;
+    auto by_link = ASSERT_NIL_P(manager.acquire(link_cfg));
+    std::filesystem::create_symlink(slave.serial_port(), link);
+    x::defer::defer remove_link([&link] { std::filesystem::remove(link); });
+    auto by_path = ASSERT_NIL_P(manager.acquire(rtu(slave, 1)));
+    uint16_t reg = 0;
+    ASSERT_NIL(by_path->read_registers(device::HoldingRegister, 0, 1, &reg));
+
+    const int fd = open(slave.serial_port().c_str(), O_RDONLY | O_NOCTTY | O_NONBLOCK);
+    ASSERT_NE(fd, -1);
+    x::defer::defer close_fd([fd] { close(fd); });
+    std::atomic done = false;
+    std::atomic changed = false;
+    std::thread watch([&] {
+        termios tios{};
+        while (!done)
+            if (tcgetattr(fd, &tios) == 0 && cfgetospeed(&tios) != B19200)
+                changed = true;
+    });
+    std::size_t refused = 0;
+    for (int i = 0; i < 200; i++)
+        if (by_link->read_registers(device::HoldingRegister, 0, 1, &reg)
+                .matches(device::UNREACHABLE))
+            refused++;
+    done = true;
+    watch.join();
+    EXPECT_EQ(refused, 200);
+    EXPECT_FALSE(changed);
 }
 
 /// @brief it should demote a silent unit while another unit on the port answers.

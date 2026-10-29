@@ -75,13 +75,14 @@ Bit reads stay at the protocol limit of 2000 for each request.
 `device::Manager` keeps one connection per endpoint: `host:port` for TCP, the serial
 port for RTU. Every name of a serial port gives one key: on POSIX the Driver resolves
 links, and on Windows it ignores case. A link that does not exist yet cannot resolve, so
-each serial connection also locks its port when it opens it. A second connection to the
-port then fails as unreachable until the first one closes. Tasks and the scanner share
-each connection through a `weak_ptr` cache. The OPC UA `connection::Pool` lends each
-idle connection to one user at a time (`driver/opcua/connection/connection.h:146`).
-Modbus shares one connection instead, because a serial port has one owner and small PLCs
-allow few sockets. Requests take turns, and a waiting write goes before waiting reads.
-Each request sets its unit first with `modbus_set_slave`. A device whose serial settings
+each serial connection also locks its port before it applies its line settings. A second
+connection to the port then fails as unreachable until the first one closes, and the
+settings of the first stay as they are. Tasks and the scanner share each connection
+through a `weak_ptr` cache. The OPC UA `connection::Pool` lends each idle connection to
+one user at a time (`driver/opcua/connection/connection.h:146`). Modbus shares one
+connection instead, because a serial port has one owner and small PLCs allow few
+sockets. Requests take turns, and a waiting write goes before waiting reads. Each
+request sets its unit first with `modbus_set_slave`. A device whose serial settings
 differ from the connection's fails at start with a critical error that names both
 settings. The connection opens at the first request, so a task starts while its server
 is off, and its reads retry until the server answers. On RTU, each request waits for 3.5

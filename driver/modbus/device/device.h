@@ -194,10 +194,26 @@ inline std::string serial_path(const std::string &port) {
 /// with its links resolved, and on Windows, the device path in upper case.
 std::string canonical_port(const std::string &port);
 
-/// @brief locks the serial port that fd holds open, so that no other open of the port
-/// can use it. Windows already opens a COM port for one handle only.
-/// @returns 0, or EBUSY if another open of the port holds it.
-int lock_port(int fd);
+/// @brief an exclusive hold on a serial port. Take it before the port's line settings
+/// change, so that a refused connection cannot disturb the one using the port. Windows
+/// already opens a COM port for one handle only, so there it holds nothing.
+class PortLock {
+    int fd = -1;
+
+public:
+    PortLock() = default;
+    ~PortLock() { this->unlock(); }
+    PortLock(const PortLock &) = delete;
+    PortLock &operator=(const PortLock &) = delete;
+
+    /// @brief holds the port until unlock.
+    /// @returns 0, EBUSY if another connection holds the port, or the error of opening
+    /// the port.
+    int lock(const std::string &port);
+
+    /// @brief lets other connections hold the port. Does nothing if not held.
+    void unlock();
+};
 
 /// @brief the link to a Modbus server and the unit a device addresses on it.
 struct ConnectionConfig {
@@ -459,6 +475,9 @@ private:
     bool busy = false;
     std::size_t waiting_writes = 0;
     std::unordered_map<std::uint8_t, Unit> units;
+    /// @brief holds the serial port while connected. Touched only while holding the
+    /// turn.
+    PortLock port_lock;
     /// @brief whether the socket or port is open. Touched only while holding the turn.
     bool connected = false;
     /// @brief whether a late reply or the rest of a garbled frame can still arrive.
@@ -510,12 +529,14 @@ private:
             static_cast<std::uint32_t>(timeout.count() % 1000000)
         );
         if (!this->connected) {
-            if (modbus_connect(this->ctx) == -1) return errno;
             if (this->transport == Transport::RTU)
-                if (const int errnum = lock_port(modbus_get_socket(this->ctx))) {
-                    modbus_close(this->ctx);
+                if (const int errnum = this->port_lock.lock(this->serial.port))
                     return errnum;
-                }
+            if (modbus_connect(this->ctx) == -1) {
+                const int errnum = errno;
+                this->port_lock.unlock();
+                return errnum;
+            }
             this->connected = true;
             this->stale = false;
         }
@@ -531,6 +552,7 @@ private:
             this->stale = true;
         else if (classify(errnum).matches(UNREACHABLE)) {
             modbus_close(this->ctx);
+            this->port_lock.unlock();
             this->connected = false;
         }
         return errnum;
