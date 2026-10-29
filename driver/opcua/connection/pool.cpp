@@ -53,17 +53,13 @@ bool trusts(UA_Client *client, const Config &cfg) {
     return trusted_certificate(client) == cfg.server_certificate;
 }
 
-bool active(UA_Client *client) {
-    return !connected(client);
-}
-
-/// @brief handles the client's pending network events, then reads the server's clock
-/// to check that the server still answers.
+/// @brief handles the client's pending network events, then reads the server's clock to
+/// check that the server still answers.
 x::errors::Error probe(UA_Client *client) {
     if (const auto status = UA_Client_run_iterate(client, 0);
         status != UA_STATUSCODE_GOOD)
         return errors::parse(status);
-    if (const auto err = connected(client)) return err;
+    if (const auto err = lost(client)) return err;
     UA_Variant value;
     UA_Variant_init(&value);
     const auto status = UA_Client_readValueAttribute(
@@ -78,7 +74,7 @@ x::errors::Error probe(UA_Client *client) {
 
 std::pair<types::ReadResponse, x::errors::Error>
 Pool::Connection::read(const UA_ReadRequest &req) const {
-    if (const auto err = connected(this->get())) return {types::ReadResponse(), err};
+    if (const auto err = lost(this->get())) return {types::ReadResponse(), err};
     types::ReadResponse res(UA_Client_Service_read(this->get(), req));
     auto err = errors::parse(res.get().responseHeader.serviceResult);
     if (!err && this->pool_ != nullptr) this->pool_->replied(this->key_);
@@ -87,7 +83,7 @@ Pool::Connection::read(const UA_ReadRequest &req) const {
 
 std::pair<types::WriteResponse, x::errors::Error>
 Pool::Connection::write(const UA_WriteRequest &req) const {
-    if (const auto err = connected(this->get())) return {types::WriteResponse(), err};
+    if (const auto err = lost(this->get())) return {types::WriteResponse(), err};
     types::WriteResponse res(UA_Client_Service_write(this->get(), req));
     auto err = errors::parse(res.get().responseHeader.serviceResult);
     if (!err && this->pool_ != nullptr) this->pool_->replied(this->key_);
@@ -152,7 +148,7 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
     }
 
     // The probe runs outside the lock, since it waits on the server.
-    if (client != nullptr && active(client.get())) {
+    if (client != nullptr && !lost(client.get())) {
         if (const auto err = probe(client.get()); !err) {
             {
                 std::lock_guard lock(this->mutex_);
@@ -182,7 +178,7 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
         VLOG(1) << log_prefix << "Waiting for another connection attempt";
         this->connect_cv.wait(lock, [&breaker] { return !breaker.connecting; });
         auto other = this->take(key, cfg);
-        if (other != nullptr && active(other.get())) {
+        if (other != nullptr && !lost(other.get())) {
             if (client != nullptr) this->put_back(key, client);
             return {Connection(other, this, key), x::errors::NIL};
         }
@@ -287,18 +283,18 @@ void Pool::replied(const std::string &key) {
 std::shared_ptr<UA_Client> Pool::take(const std::string &key, const Config &cfg) {
     const auto it = this->connections_.find(key);
     if (it == this->connections_.end()) return nullptr;
-    Entry *lost = nullptr;
+    Entry *dropped = nullptr;
     for (auto &entry: it->second) {
         if (entry.in_use || entry.retired || !trusts(entry.client.get(), cfg)) continue;
-        if (active(entry.client.get())) {
+        if (!lost(entry.client.get())) {
             entry.in_use = true;
             return entry.client;
         }
-        if (lost == nullptr) lost = &entry;
+        if (dropped == nullptr) dropped = &entry;
     }
-    if (lost == nullptr) return nullptr;
-    lost->in_use = true;
-    return lost->client;
+    if (dropped == nullptr) return nullptr;
+    dropped->in_use = true;
+    return dropped->client;
 }
 
 void Pool::put_back(const std::string &key, const std::shared_ptr<UA_Client> &client) {

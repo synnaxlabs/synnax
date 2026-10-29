@@ -132,15 +132,15 @@ std::pair<std::shared_ptr<UA_Client>, x::errors::Error>
 connect(const Config &cfg, const Security &sec, std::string log_prefix);
 
 /// @brief closes the client's channel and connects it again with the security it was
-/// created with. The server activates the client's Session again, or the client
-/// creates a new one if the server dropped it.
+/// created with. The server activates the client's Session again, or the client creates
+/// a new one if the server dropped it.
 x::errors::Error
 reconnect(const std::shared_ptr<UA_Client> &client, const std::string &endpoint);
 
-/// @returns errors::NO_CONNECTION unless the client has an open channel and an active
+/// @returns errors::NO_CONNECTION if the client has no open channel or no active
 /// Session. Check it before each service call: a call on a lost connection connects
 /// again by itself, outside the Pool's breaker.
-x::errors::Error connected(UA_Client *client);
+x::errors::Error lost(UA_Client *client);
 
 /// @returns the certificate that the server presented on the client's last
 /// connection attempt, or nothing if the connection is not secured.
@@ -222,9 +222,9 @@ public:
     Pool(const Pool &) = delete;
     Pool &operator=(const Pool &) = delete;
 
-    /// @brief returns a connection to the server. It reuses an idle connection with
-    /// the same configuration and client identity, and connects a lost one again in
-    /// place, so the server keeps one Session for it. A new connection with no server
+    /// @brief returns a connection to the server. It reuses an idle connection with the
+    /// same configuration and client identity, and connects a lost one again in place,
+    /// so the server keeps one Session for it. A new connection with no server
     /// certificate in its Config trusts the first one that the server presents.
     ///
     /// The Pool makes one connection attempt to a server at a time. After
@@ -242,8 +242,8 @@ public:
     std::pair<bool, x::errors::Error>
     refresh(Connection &conn, const Config &cfg, const std::string &log_prefix);
 
-    /// @brief closes the connections that no one has used for the idle timeout.
-    /// Blocks while it sends CloseSession to their servers.
+    /// @brief closes the connections that no one has used for the idle timeout. Blocks
+    /// while it sends CloseSession to their servers.
     void close_idle();
 
     /// @returns the time of the last reply from the server on a connection with the
@@ -303,8 +303,8 @@ private:
     /// @brief records a reply from the server of key. Requires mutex_ not held.
     void replied(const std::string &key);
 
-    /// @brief marks an idle entry of key that trusts cfg as in use, preferring one
-    /// with an active Session. Requires mutex_.
+    /// @brief marks an idle entry of key that trusts cfg as in use, preferring one with
+    /// an active Session. Requires mutex_.
     std::shared_ptr<UA_Client> take(const std::string &key, const Config &cfg);
 
     /// @brief marks the entry of client as idle again. Requires mutex_.
