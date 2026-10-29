@@ -348,11 +348,13 @@ func (t *impl) open(ctx context.Context) (err error) {
 		streamer.Flow(sCtx, opts...)
 		select {
 		case <-ctx.Done():
-			return ctx.Err()
 		case _, ok := <-streamerResponses.Outlet():
 			if !ok {
 				return errors.New("streamer exited before it opened")
 			}
+		}
+		if err = ctx.Err(); err != nil {
+			return err
 		}
 	}
 
