@@ -7,12 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package fs
+package testutil
 
 import (
 	"sync"
 
 	"github.com/samber/lo"
+	xfs "github.com/synnaxlabs/x/io/fs"
 )
 
 // Op categorizes a recorded filesystem event.
@@ -65,7 +66,7 @@ type Recorder struct {
 	// FS is the underlying filesystem the Recorder delegates to. Methods that
 	// the Recorder does not need to instrument (Sub aside, all non-Open methods)
 	// pass through to this FS unchanged via promoted embedding.
-	FS
+	xfs.FS
 	// log is the shared append-only event log this Recorder writes to. The same
 	// log pointer is shared across the parent Recorder and every sub-FS derived
 	// from it via Sub, so events from every branch appear in a single timeline.
@@ -74,7 +75,7 @@ type Recorder struct {
 
 // NewRecorder returns a Recorder that delegates to inner and records every
 // Open call and every read or write performed on files returned by it.
-func NewRecorder(inner FS) *Recorder {
+func NewRecorder(inner xfs.FS) *Recorder {
 	return &Recorder{FS: inner, log: &eventLog{}}
 }
 
@@ -126,7 +127,7 @@ func (r *Recorder) Reset() { r.log.reset() }
 // for name and returns a File that records every Read, ReadAt, Write, and
 // WriteAt performed against it into this Recorder's event log. Failed opens
 // return the inner error and are not recorded.
-func (r *Recorder) Open(name string, flag int) (File, error) {
+func (r *Recorder) Open(name string, flag int) (xfs.File, error) {
 	f, err := r.FS.Open(name, flag)
 	if err != nil {
 		return nil, err
@@ -138,7 +139,7 @@ func (r *Recorder) Open(name string, flag int) (File, error) {
 // Sub returns a Recorder rooted at name within the underlying FS. The returned
 // Recorder shares this Recorder's event log, so events generated through it
 // appear in the same timeline as events generated directly through the parent.
-func (r *Recorder) Sub(name string) (FS, error) {
+func (r *Recorder) Sub(name string) (xfs.FS, error) {
 	inner, err := r.FS.Sub(name)
 	if err != nil {
 		return nil, err
@@ -183,7 +184,7 @@ func (l *eventLog) reset() {
 // through to the embedded File unchanged.
 type recordingFile struct {
 	// File is the underlying file the recordingFile delegates to.
-	File
+	xfs.File
 	// name is the path the file was opened with, used as the Name on every
 	// recorded Event so callers can scope queries to a single file.
 	name string
@@ -217,6 +218,6 @@ func (f *recordingFile) Write(p []byte) (int, error) {
 }
 
 var (
-	_ FS   = (*Recorder)(nil)
-	_ File = (*recordingFile)(nil)
+	_ xfs.FS   = (*Recorder)(nil)
+	_ xfs.File = (*recordingFile)(nil)
 )
