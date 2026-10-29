@@ -123,10 +123,9 @@ var _ = Describe("Signal", func() {
 				func() {
 					ctx, cancel := signal.Isolated()
 					siblingReturned := make(chan struct{})
-					ctx.Go(func(ctx context.Context) error {
-						<-ctx.Done()
+					ctx.Go(func(context.Context) error {
 						close(siblingReturned)
-						return ctx.Err()
+						return context.Canceled
 					})
 					cancel()
 					Eventually(siblingReturned).Should(BeClosed())
