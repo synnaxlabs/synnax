@@ -31,7 +31,8 @@ def run(runner: str, *, aws: AWS) -> str:
     iid, info = aws.instance(runner)
     if not info["running"]:
         return f"{iid} is {info['state']}, nothing to enable"
-    return f"runner start sent to {iid} ({aws.run(iid, info=info, linux=LINUX, windows=WINDOWS)})"
+    result = aws.run(iid, info=info, linux=LINUX, windows=WINDOWS)
+    return f"runner start sent to {iid} ({result})"
 
 
 def main() -> None:

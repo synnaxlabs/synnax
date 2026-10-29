@@ -107,7 +107,9 @@ def tier(pr: PR) -> str:
 
 
 def spread(values: list[float], *, unit: str) -> str:
-    return f"{percentile(values, q=0.5):.1f} {unit} / {percentile(values, q=0.9):.1f} {unit}"
+    median = percentile(values, q=0.5)
+    p90 = percentile(values, q=0.9)
+    return f"{median:.1f} {unit} / {p90:.1f} {unit}"
 
 
 def report(

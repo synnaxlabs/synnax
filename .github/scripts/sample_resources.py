@@ -73,7 +73,8 @@ def report(path: Path) -> str:
         f"| CPU % | {statistics.mean(cpu):.0f} | {percentile(cpu, fraction=0.5):.0f} | "
         f"{percentile(cpu, fraction=0.95):.0f} | {max(cpu):.0f} |\n"
         f"| Memory GB | {statistics.mean(memory):.1f} | "
-        f"{percentile(memory, fraction=0.5):.1f} | {percentile(memory, fraction=0.95):.1f} | "
+        f"{percentile(memory, fraction=0.5):.1f} | "
+        f"{percentile(memory, fraction=0.95):.1f} | "
         f"{max(memory):.1f} |\n"
     )
 
