@@ -11,6 +11,7 @@ import fs from "fs";
 import path from "path";
 import { type Document, type Root, type Rule as Node } from "postcss";
 import selectorParser from "postcss-selector-parser";
+import valueParser from "postcss-value-parser";
 import stylelint, { type Plugin, type PostcssResult, type Rule } from "stylelint";
 
 import { BEM_CLASS, type Source } from "./source.ts";
@@ -40,7 +41,6 @@ const UNKNOWN_PROPERTY = "synnax/no-unknown-custom-property";
 const FOREIGN_CLASS = "synnax/no-foreign-class";
 const GLOBAL_STYLE = "synnax/no-global-astro-style";
 
-const VAR = /var\(\s*(--[\w-]+)/g;
 const STYLE_TAG = /<style\b([^>]*)>/g;
 const LAYOUT = /\/src\/layouts\//;
 
@@ -102,15 +102,19 @@ const unknownProperty = (source: Source): Rule => {
     )
       return;
     root.walkDecls((node) => {
-      for (const [, property] of node.value.matchAll(VAR))
-        if (!source.defined(property))
-          report({
-            ruleName: UNKNOWN_PROPERTY,
-            result,
-            node,
-            word: property,
-            message: messages.rejected(property),
-          });
+      // The parser skips strings, so content: "var(--x)" names no property.
+      valueParser(node.value).walk((value) => {
+        if (value.type !== "function" || value.value !== "var") return;
+        const property = value.nodes.find((n) => n.type === "word")?.value;
+        if (property == null || source.defined(property)) return;
+        report({
+          ruleName: UNKNOWN_PROPERTY,
+          result,
+          node,
+          word: property,
+          message: messages.rejected(property),
+        });
+      });
     });
   };
   rule.ruleName = UNKNOWN_PROPERTY;
