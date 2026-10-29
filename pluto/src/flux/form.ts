@@ -28,6 +28,7 @@ import {
   type SetStateAction,
   use,
   useEffect,
+  useId,
   useLayoutEffect,
   useRef,
   useState,
@@ -223,6 +224,7 @@ interface PersistParams<
   params: FormBeforeSaveParams<Query, Schema>;
   setResult: Dispatch<SetStateAction<Result<undefined>>>;
   addStatus: Status.Adder;
+  statusKey: string;
   signal?: AbortSignal;
 }
 
@@ -239,6 +241,7 @@ const persist = async <
   afterSave,
   setResult,
   addStatus,
+  statusKey,
   signal,
 }: PersistParams<Query, Schema>): Promise<boolean> => {
   try {
@@ -269,11 +272,14 @@ const persist = async <
   } catch (error) {
     if (signal?.aborted === true) return false;
     const res = errorResult(`update ${name}`, error);
-    addStatus(res.status);
+    addStatus({ ...res.status, key: statusKey });
     setResult(res);
     return false;
   }
 };
+
+const withKey = (result: Result<undefined>, key: string): Result<undefined> =>
+  ({ ...result, status: { ...result.status, key } }) as Result<undefined>;
 
 const readCached = <Query extends query.Params, Data>(
   getCached: ((params: RetrieveParams<Query>) => Data | undefined) | undefined,
@@ -309,9 +315,14 @@ export const createForm = <
     onHasTouched,
     mode,
   }: UseFormParams<Query, Schema>): UseFormReturn<Schema> => {
-    const [result, setResult] = useState<Result<undefined>>(() =>
-      successResult(`retrieved ${name}`, undefined),
+    // Every status of the form has one key, so a view that shows the status in place
+    // can place the key before a save fails.
+    const statusKey = useId();
+    const [result, setKeyedResult] = useState<Result<undefined>>(() =>
+      withKey(successResult(`retrieved ${name}`, undefined), statusKey),
     );
+    const setResult: Dispatch<SetStateAction<Result<undefined>>> = (setter) =>
+      setKeyedResult((prev) => withKey(state.executeSetter(setter, prev), statusKey));
     const client = Synnax.use();
     const listeners = useDestructors();
     const addStatus = Status.useAdder();
@@ -411,6 +422,7 @@ export const createForm = <
         afterSave,
         setResult,
         addStatus,
+        statusKey,
         signal,
       });
       // The form re-pointed at another record while this save ran.

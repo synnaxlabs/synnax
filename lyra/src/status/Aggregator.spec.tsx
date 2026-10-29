@@ -9,8 +9,14 @@
 
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor } from "@testing-library/react";
-import { type PropsWithChildren } from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  createRef,
+  type PropsWithChildren,
+  type ReactNode,
+  type Ref,
+  useImperativeHandle,
+} from "react";
+import { afterEach, assert, describe, expect, it, vi } from "vitest";
 
 import { Status } from "@/status";
 
@@ -606,6 +612,102 @@ describe("Aggregator", () => {
         });
       });
       expect(result.current.statuses.statuses).toHaveLength(0);
+    });
+  });
+
+  describe("usePlace", () => {
+    interface Probe {
+      add: Status.Adder;
+      notifications: Status.UseNotificationsReturn;
+    }
+
+    const ProbeView = ({ ref }: { ref: Ref<Probe> }): null => {
+      const add = Status.useAdder();
+      const notifications = Status.useNotifications();
+      useImperativeHandle(ref, () => ({ add, notifications }), [add, notifications]);
+      return null;
+    };
+
+    const Place = ({ visible }: { visible?: boolean }): null => {
+      Status.usePlace("task:1", visible);
+      return null;
+    };
+
+    const reply: Status.Crude = {
+      key: "task:1",
+      variant: "error",
+      message: "Failed to start task",
+    };
+
+    const renderPlaces = (places: ReactNode) => {
+      const probe = createRef<Probe>();
+      const tree = (children: ReactNode) => (
+        <Status.Aggregator log={quiet}>
+          <ProbeView ref={probe} />
+          {children}
+        </Status.Aggregator>
+      );
+      const { rerender } = render(tree(places));
+      const get = (): Probe => {
+        assert(probe.current != null);
+        return probe.current;
+      };
+      return {
+        add: (spec: Status.Crude) => act(() => get().add(spec)),
+        notified: () => get().notifications.statuses,
+        rerender: (next: ReactNode) => rerender(tree(next)),
+      };
+    };
+
+    it("should not notify a status on a placed key", () => {
+      const { add, notified } = renderPlaces(<Place />);
+      add(reply);
+      expect(notified()).toHaveLength(0);
+    });
+
+    it("should notify a status on a key that no view places", () => {
+      const { add, notified } = renderPlaces(<Place />);
+      add({ ...reply, key: "task:2" });
+      expect(notified()).toMatchObject([{ key: "task:2" }]);
+    });
+
+    it("should notify a status on a key after its view unmounts", () => {
+      const { add, notified, rerender } = renderPlaces(<Place />);
+      rerender(null);
+      add(reply);
+      expect(notified()).toHaveLength(1);
+    });
+
+    it("should notify a status on a key whose view is not visible", () => {
+      const { add, notified } = renderPlaces(<Place visible={false} />);
+      add(reply);
+      expect(notified()).toHaveLength(1);
+    });
+
+    it("should place a key when its view becomes visible", () => {
+      const { add, notified, rerender } = renderPlaces(<Place visible={false} />);
+      rerender(<Place />);
+      add(reply);
+      expect(notified()).toHaveLength(0);
+    });
+
+    it("should keep a key placed until each view of it unmounts", () => {
+      const { add, notified, rerender } = renderPlaces([
+        <Place key="a" />,
+        <Place key="b" />,
+      ]);
+      rerender([<Place key="a" />]);
+      add(reply);
+      expect(notified()).toHaveLength(0);
+      rerender(null);
+      add(reply);
+      expect(notified()).toHaveLength(1);
+    });
+
+    it("should notify a problem on a placed key", () => {
+      const { add, notified } = renderPlaces(<Place />);
+      add({ ...reply, problem: "p1" });
+      expect(notified()).toHaveLength(1);
     });
   });
 });

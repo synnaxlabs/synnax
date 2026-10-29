@@ -9,6 +9,7 @@
 
 import { configureStore } from "@reduxjs/toolkit";
 import { type connection, type Synnax as Client } from "@synnaxlabs/client";
+import { type Status } from "@synnaxlabs/lyra/status";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { type aether } from "@synnaxlabs/pluto/ether";
 import { deep } from "@synnaxlabs/x";
@@ -34,6 +35,7 @@ import { Analytics } from "@/platform/analytics";
 import { Modals } from "@/platform/modals";
 import { Session } from "@/session";
 import {
+  CaptureStatuses,
   type ConsolePreloadedState,
   createConsoleWrapper,
   createSynnaxWrapper,
@@ -123,6 +125,8 @@ export interface RenderModalOpenerOptions extends Pick<RenderOptions, "onCaughtE
   additionalRegistry?: aether.ComponentRegistry;
   /** Receives every event the modal reports; discards them by default. */
   analytics?: Analytics.Sink;
+  /** Receives the notification list on every change. */
+  onStatuses?: (statuses: Status.NotificationSpec[]) => void;
 }
 
 export interface ModalOpenerHandle<R> {
@@ -153,6 +157,7 @@ export const renderModalOpener = async <Args extends unknown[], R>(
     additionalRegistry,
     onCaughtError,
     analytics = Analytics.NOOP,
+    onStatuses,
   } = options;
   const { wrapper: Console, store: resolvedStore } = await createConsoleWrapper({
     client,
@@ -166,6 +171,7 @@ export const renderModalOpener = async <Args extends unknown[], R>(
         <Triggers.Provider>
           {children}
           <Modals.Stack />
+          {onStatuses != null && <CaptureStatuses onStatuses={onStatuses} />}
         </Triggers.Provider>
       </Analytics.Provider>
     </Console>

@@ -138,6 +138,40 @@ describe("Controls.Controls", () => {
     await waitFor(() => expect(screen.queryByText("Copy diagnostics")).toBeNull());
   });
 
+  describe("save status", () => {
+    it("should show a failed save in place of the task status", async () => {
+      const { container } = await renderInTaskFormWithClient(
+        <Task.Controls.Controls
+          saveStatus={createTaskStatus({
+            variant: "error",
+            message: "Failed to update task",
+          })}
+          onDeploy={vi.fn()}
+          onStop={vi.fn()}
+        />,
+        { client, values: runningValues() },
+      );
+      await waitFor(() =>
+        expect(screen.getByText("Failed to update task")).toBeTruthy(),
+      );
+      expect(screen.queryByText("Running smoothly")).toBeNull();
+      await findIconButton(container, "stop");
+    });
+
+    it("should show the task status after a save that did not fail", async () => {
+      await renderInTaskFormWithClient(
+        <Task.Controls.Controls
+          saveStatus={createTaskStatus({ message: "Updated task" })}
+          onDeploy={vi.fn()}
+          onStop={vi.fn()}
+        />,
+        { client, values: runningValues() },
+      );
+      await waitFor(() => expect(screen.getByText("Running smoothly")).toBeTruthy());
+      expect(screen.queryByText("Updated task")).toBeNull();
+    });
+  });
+
   describe("permission to command the task", () => {
     it("should show a viewer the status without any action", async () => {
       const viewer = await roles.get("Viewer");

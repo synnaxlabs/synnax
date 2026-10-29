@@ -7,12 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type CrudeTimeSpan, id, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { type PropsWithChildren, useState } from "react";
+import {
+  type CrudeTimeSpan,
+  type destructor,
+  id,
+  TimeSpan,
+  TimeStamp,
+} from "@synnaxlabs/x";
+import { type PropsWithChildren, useEffect, useState } from "react";
 import type z from "zod";
 
 import { context } from "@/context";
-import { useNow, useSyncedRef } from "@/hooks";
+import { useInitializerRef, useNow, useSyncedRef } from "@/hooks";
 import {
   type Adder,
   type AsyncErrorHandler,
@@ -55,6 +61,14 @@ const [AdderContext, useAdder] = context.create<Adder>({
 });
 export { useAdder };
 
+/** Places a status key until the returned destructor runs. */
+type Place = (key: string) => destructor.Destructor;
+
+const [PlaceContext, usePlaceContext] = context.create<Place>({
+  defaultValue: () => () => {},
+  displayName: "Status.PlaceContext",
+});
+
 interface Handlers {
   error: ErrorHandler;
   async: AsyncErrorHandler;
@@ -89,7 +103,8 @@ const TRUNCATE_FACTOR = 0.9;
  * the status list. Mount one near the root of the app. Each key holds one notification
  * for its problem and one for its other statuses, and a new status replaces the one in
  * its place. A warning or error of the same problem joins its notification instead:
- * the count goes up, and the notification does not show again.
+ * the count goes up, and the notification does not show again. A status that is not
+ * part of a problem does not show when a view places its key with {@link usePlace}.
  */
 export const Aggregator = ({
   children,
@@ -97,10 +112,20 @@ export const Aggregator = ({
   log = printError,
 }: AggregatorProps) => {
   const [received, setReceived] = useState<Received[]>([]);
+  const placed = useInitializerRef(() => new Map<string, number>());
   if (received.length > maxHistory)
     setReceived(received.slice(0, Math.floor(maxHistory * TRUNCATE_FACTOR)));
+  const place: Place = (key) => {
+    placed.current.set(key, (placed.current.get(key) ?? 0) + 1);
+    return () => {
+      const count = (placed.current.get(key) ?? 0) - 1;
+      if (count > 0) placed.current.set(key, count);
+      else placed.current.delete(key);
+    };
+  };
   const handleAdd: Adder = (spec) => {
     const status = create(spec);
+    if (status.problem == null && placed.current.has(status.key)) return;
     setReceived((prev) => {
       const held = prev.find((r) => sameSlot(r.status, status));
       if (held != null && sameProblem(held.status, status))
@@ -113,9 +138,27 @@ export const Aggregator = ({
   return (
     <Context value={received}>
       <AdderContext value={handleAdd}>
-        <HandlersContext value={handlers}>{children}</HandlersContext>
+        <PlaceContext value={place}>
+          <HandlersContext value={handlers}>{children}</HandlersContext>
+        </PlaceContext>
       </AdderContext>
     </Context>
+  );
+};
+
+/**
+ * Places the key on the enclosing {@link Aggregator} while the caller is mounted and
+ * visible. Call it in a view that shows the statuses of the key in place, such as the
+ * controls of a task. A status on a placed key does not show as a notification, unless
+ * it is part of a problem.
+ * @param key - The key of the statuses that the view shows. Undefined places nothing.
+ * @param visible - Whether the view is on screen. Defaults to true.
+ */
+export const usePlace = (key: string | undefined, visible: boolean = true): void => {
+  const place = usePlaceContext();
+  useEffect(
+    () => (key == null || !visible ? undefined : place(key)),
+    [place, key, visible],
   );
 };
 

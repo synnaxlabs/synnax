@@ -67,6 +67,7 @@ const Calculated = ({
       else close();
     },
   });
+  Status.usePlace(stat.key);
   const [createMore, setCreateMore] = useState(false);
   const operationType = Form.useFieldValue<
     channel.OperationType,

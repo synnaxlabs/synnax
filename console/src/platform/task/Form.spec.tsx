@@ -13,9 +13,10 @@ import {
   createTestClientWithRole,
 } from "@synnaxlabs/client/testutil";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
+import { Status } from "@synnaxlabs/lyra/status";
 import { TimeStamp } from "@synnaxlabs/x";
 import { act, screen, waitFor } from "@testing-library/react";
-import { type FC } from "react";
+import { createRef, type FC, type Ref, useImperativeHandle } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
@@ -28,6 +29,7 @@ import {
   renderTaskFormHook,
   renderTaskFormTab,
 } from "@/platform/task/testutil";
+import { Session } from "@/session";
 import { uniqueName } from "@/testutil";
 
 const schemas = {
@@ -439,6 +441,84 @@ describe("wrapForm", () => {
       }
       expect(onConfigure).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe("wrapForm notifications", () => {
+  const AdderProbe = ({ ref }: { ref: Ref<Status.Adder> }): null => {
+    const add = Status.useAdder();
+    useImperativeHandle(ref, () => add, [add]);
+    return null;
+  };
+
+  const renderTab = async (visible: boolean) => {
+    const client = createTestClient();
+    const tsk = await createTask(client);
+    const adder = createRef<Status.Adder>();
+    const Form: FC = () => <AdderProbe ref={adder} />;
+    const onStatuses = vi.fn();
+    const { store, panelKey, tabKey } = await renderTaskFormTab(
+      createRenderer({ Form }),
+      { client, taskKey: tsk.key, onStatuses },
+    );
+    if (visible)
+      act(() => {
+        store.dispatch(
+          Session.Panel.reconcileSelection({ key: panelKey, leaves: [[tabKey]] }),
+        );
+      });
+    const add = (spec: Status.Crude) =>
+      act(() => {
+        adder.current?.(spec);
+      });
+    return { tsk, add, onStatuses };
+  };
+
+  const notifiedWith = (message: string) =>
+    expect.arrayContaining([expect.objectContaining({ message })]);
+
+  const reply = (key: task.Key): Status.Crude => ({
+    key: task.statusKey(key),
+    variant: "error",
+    message: "Failed to start task",
+  });
+
+  const failSave = async () => {
+    const input = await waitFor(findNameInput);
+    await act(async () => commitFieldInput(input, ""));
+    await waitFor(() => expect(screen.getByText("Failed to update task")).toBeTruthy());
+  };
+
+  it("should not notify a reply that the controls of a visible tab show", async () => {
+    const { tsk, add, onStatuses } = await renderTab(true);
+    await waitFor(findNameInput);
+    add(reply(tsk.key));
+    expect(onStatuses).not.toHaveBeenCalledWith(notifiedWith("Failed to start task"));
+  });
+
+  it("should notify a reply on a task whose tab is not visible", async () => {
+    const { tsk, add, onStatuses } = await renderTab(false);
+    await waitFor(findNameInput);
+    add(reply(tsk.key));
+    await waitFor(() =>
+      expect(onStatuses).toHaveBeenLastCalledWith(notifiedWith("Failed to start task")),
+    );
+  });
+
+  it("should show a failed save in the controls without a notification", async () => {
+    const { onStatuses } = await renderTab(true);
+    await failSave();
+    expect(onStatuses).not.toHaveBeenCalledWith(notifiedWith("Failed to update task"));
+  });
+
+  it("should notify a failed save while the tab is not visible", async () => {
+    const { onStatuses } = await renderTab(false);
+    await failSave();
+    await waitFor(() =>
+      expect(onStatuses).toHaveBeenLastCalledWith(
+        notifiedWith("Failed to update task"),
+      ),
+    );
   });
 });
 

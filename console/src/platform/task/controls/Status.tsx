@@ -17,6 +17,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
+import { Session } from "@/session";
 
 export interface ExpandableStatusProps extends Omit<Flex.BoxProps, "children"> {
   /** The status to display */
@@ -37,6 +38,7 @@ export const Status = ({
   className,
   ...props
 }: ExpandableStatusProps): ReactElement => {
+  PStatus.usePlace(stat.key, Session.Panel.useSelectIsTabVisible());
   const hasDescription = Boolean(stat.description);
   const message = stat.message || fallbackMessage;
   const ExpansionIcon = expanded ? Icon.Collapse : Icon.Expand;
