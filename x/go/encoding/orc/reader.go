@@ -57,14 +57,6 @@ type Reader struct {
 // NewReader creates a new Reader in io.Reader mode.
 func NewReader(r io.Reader) *Reader { return &Reader{r: r} }
 
-// Reset resets the reader to use an io.Reader and clears the recursion depth.
-func (r *Reader) Reset(reader io.Reader) {
-	r.r = reader
-	r.data = nil
-	r.pos = 0
-	r.depth = 0
-}
-
 // ResetBytes resets the reader to decode directly from a byte slice. This avoids the
 // bytes.NewReader allocation and enables zero-copy reads for fixed-size types.
 func (r *Reader) ResetBytes(data []byte) {
