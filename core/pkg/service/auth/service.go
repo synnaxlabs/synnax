@@ -22,6 +22,7 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	v3 "github.com/synnaxlabs/synnax/pkg/service/auth/versions/v3"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
@@ -135,6 +136,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[SessionKey, Session]{
 		DB:              cfg.DB,
 		Indexes:         s.indexes.all(),
+		Migrations:      []gorp.Migration{v3.NewMigration(s.version)},
 		Instrumentation: cfg.Instrumentation,
 	}); err != nil {
 		return nil, err
@@ -218,9 +220,9 @@ func (s *Service) Hold(
 	return h.ended, release, nil
 }
 
-// CheckHolds ends every held session that storage no longer has or whose credential
-// changed since login. The change feed normally ends a held session as it is deleted,
-// but it can drop notifications under load.
+// CheckHolds ends every held session that storage no longer has, and ends and deletes
+// every one whose credential changed since login. The change feed normally ends a held
+// session as it is deleted, but it can drop notifications under load.
 func (s *Service) CheckHolds(ctx context.Context) error {
 	held := s.held()
 	if len(held) == 0 {
@@ -235,7 +237,7 @@ func (s *Service) CheckHolds(ctx context.Context) error {
 	}
 	live := make(set.Set[SessionKey], len(sessions))
 	for _, e := range sessions {
-		current, err := s.current(ctx, e)
+		_, current, err := s.check(ctx, e)
 		if err != nil {
 			return err
 		}
@@ -267,12 +269,45 @@ func (s *Service) version(
 	return 0, errors.Wrapf(query.ErrNotFound, "credential %s", credential)
 }
 
-func (s *Service) current(ctx context.Context, session Session) (bool, error) {
+// check returns the stored session and true when it holds its credential's current
+// version, or deletes it and returns false. A stale read is checked again, since a
+// password change may renew the session after the caller read it. Versions only grow,
+// so a session read after its credential's version and older than it stays stale.
+func (s *Service) check(ctx context.Context, session Session) (Session, bool, error) {
 	v, err := s.version(ctx, nil, session.Credential)
-	if errors.Is(err, query.ErrNotFound) {
-		return false, nil
+	gone := errors.Is(err, query.ErrNotFound)
+	if err != nil && !gone {
+		return Session{}, false, err
 	}
-	return v == session.CredentialVersion, err
+	if !gone && session.CredentialVersion == v {
+		return session, true, nil
+	}
+	var current bool
+	err = s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		if err := s.table.NewRetrieve().
+			Where(gorp.MatchKeys[SessionKey, Session](session.Key)).
+			Entry(&session).
+			Exec(ctx, tx); err != nil {
+			return err
+		}
+		current = !gone && session.CredentialVersion >= v
+		if current {
+			return nil
+		}
+		return s.table.NewDelete().
+			Where(gorp.MatchKeys[SessionKey, Session](session.Key)).
+			Exec(ctx, tx)
+	})
+	if errors.Is(err, query.ErrNotFound) {
+		return Session{}, false, nil
+	}
+	if err != nil {
+		return Session{}, false, err
+	}
+	if !current {
+		s.forget(nil, session.Key)
+	}
+	return session, current, nil
 }
 
 func (s *Service) endHold(key SessionKey) {
@@ -395,14 +430,11 @@ func (s *Service) Authenticate(ctx context.Context, token string) (Session, erro
 	if subtle.ConstantTimeCompare(session.Hash, hash) != 1 {
 		return Session{}, ErrInvalidToken
 	}
-	current, err := s.current(ctx, session)
+	session, current, err := s.check(ctx, session)
 	if err != nil {
 		return Session{}, err
 	}
 	if !current {
-		if err = s.Logout(ctx, key); err != nil {
-			return Session{}, err
-		}
 		return Session{}, ErrInvalidToken
 	}
 	now := s.now()
