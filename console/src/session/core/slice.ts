@@ -33,10 +33,10 @@ export const coreZ = synnaxParamsZ.pick({ host: true, secure: true }).extend({
 export interface Core extends z.infer<typeof coreZ> {}
 
 /** The local Core a desktop session starts with. */
-export const LOCAL_KEY = "LOCAL";
+const LOCAL_KEY = "LOCAL";
 
 /** The public demo Core. */
-export const DEMO_KEY = "DEMO";
+const DEMO_KEY = "DEMO";
 
 /**
  * The Core serving a browser Console. Stored state is scoped to the page's origin and a
@@ -150,6 +150,22 @@ const { actions, reducer } = createSlice({
 });
 
 export const { set, select, clearSelected, remove, rename, setClusterKey } = actions;
+
+const purgePasswords = <S extends StoreState>(state: S): S => ({
+  ...state,
+  [SLICE_NAME]: {
+    ...state[SLICE_NAME],
+    cores: Object.fromEntries(
+      Object.entries(state[SLICE_NAME].cores).map(([key, core]) => [
+        key,
+        { ...core, password: "" },
+      ]),
+    ),
+  },
+});
+
+/** Keeps every password out of the stored state; a session resumes from its token. */
+export const PERSIST_EXCLUDE = [purgePasswords];
 
 export { reducer };
 

@@ -18,7 +18,7 @@ sequence {
     1 -> sw_a
     1 -> sw_b
     1 -> sw_c
-    wait{500ms}
+    wait(500ms)
     sw_pressure > 50
     0 -> sw_a
     0 -> sw_b
@@ -41,7 +41,7 @@ class StagelessWorkflow(ArcCase):
 
     The body covers every stageless construct in one workflow: write
     cascading (three consecutive writes that fire on a single tick), a
-    ``wait{}`` gate that blocks progression until a duration elapses, a
+    ``wait()`` gate that blocks progression until a duration elapses, a
     bare expression gate that blocks until a channel crosses a threshold,
     and a final cascade of three writes after the gates open.
 
@@ -70,10 +70,12 @@ class StagelessWorkflow(ArcCase):
     ]
 
     def setup(self) -> None:
-        create_virtual_channel(self.client, "sw_a", sy.DataType.UINT8)
-        create_virtual_channel(self.client, "sw_b", sy.DataType.UINT8)
-        create_virtual_channel(self.client, "sw_c", sy.DataType.UINT8)
-        create_virtual_channel(self.client, "sw_pressure", sy.DataType.FLOAT32)
+        create_virtual_channel(self.client, "sw_a", data_type=sy.DataType.UINT8)
+        create_virtual_channel(self.client, "sw_b", data_type=sy.DataType.UINT8)
+        create_virtual_channel(self.client, "sw_c", data_type=sy.DataType.UINT8)
+        create_virtual_channel(
+            self.client, "sw_pressure", data_type=sy.DataType.FLOAT32
+        )
         super().setup()
         self.set_manual_timeout(60)
 
@@ -84,7 +86,7 @@ class StagelessWorkflow(ArcCase):
         # anonymous top-level sequence on its first scheduler cycle.
         self.load_arc(
             self.arc_source,
-            self.arc_name_prefix,
+            name_prefix=self.arc_name_prefix,
             trigger=None,
         )
         self.verify_sequence_execution()

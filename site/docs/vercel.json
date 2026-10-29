@@ -1,6 +1,23 @@
 {
   "installCommand": "npx --yes pnpm@12.14.0 install --frozen-lockfile",
   "buildCommand": "npx --yes pnpm@12.14.0 --dir ../.. build:docs",
+  "git": {
+    "deploymentEnabled": {
+      "**": false,
+      "main": true
+    }
+  },
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://vercel.live https://t.synnaxlabs.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; connect-src 'self' https://ywd9t0jxcs-dsn.algolia.net https://demo.synnaxlabs.com:9090 wss://demo.synnaxlabs.com:9090 https://t.synnaxlabs.com https://formspree.io https://vercel.live; img-src 'self' data: https://t.synnaxlabs.com https://synnax.nyc3.cdn.digitaloceanspaces.com https://vercel.com https://*.vercel.app https://vercel.live; media-src 'self' https://synnax.nyc3.cdn.digitaloceanspaces.com; frame-src https://vercel.live https://www.youtube.com http://localhost:4321; object-src 'none';"
+        }
+      ]
+    }
+  ],
   "redirects": [
     {
       "source": "/guides/comparison/performance/one-billion-rows",

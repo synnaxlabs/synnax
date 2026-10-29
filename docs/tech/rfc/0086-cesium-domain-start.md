@@ -140,6 +140,7 @@ def open_writer(
     self,
     start: CrudeTimeStamp | None = None,      # was: start: CrudeTimeStamp
     channels: channel.Params | None = None,   # was: channels: channel.Params
+    *,
     authorities: CrudeAuthority | list[CrudeAuthority] = Authority.ABSOLUTE,
     ...
 ) -> Writer: ...

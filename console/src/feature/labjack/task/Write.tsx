@@ -21,7 +21,14 @@ import { type FC } from "react";
 import { use } from "@/feature/labjack/device/queries";
 import { Select } from "@/feature/labjack/device/Select";
 import { SelectPort } from "@/feature/labjack/device/SelectPort";
-import * as Device from "@/feature/labjack/device/types";
+import {
+  AO_PORT_TYPE,
+  type Device,
+  DO_PORT_TYPE,
+  type Model,
+  PORTS,
+  SCHEMAS,
+} from "@/feature/labjack/device/types";
 import {
   convertPortTypeToWriteChannelType,
   convertWriteChannelTypeToPortType,
@@ -54,7 +61,7 @@ const Properties = () => (
 );
 
 interface ChannelListItemProps extends Task.ChannelListItemProps {
-  deviceModel: Device.Model;
+  deviceModel: Model;
 }
 
 const ChannelListItem = ({ deviceModel, ...rest }: ChannelListItemProps) => {
@@ -91,7 +98,7 @@ const ChannelListItem = ({ deviceModel, ...rest }: ChannelListItemProps) => {
                 onChange={(value) => {
                   if (type === value) return;
                   const portType = convertWriteChannelTypeToPortType(value);
-                  const port = Device.PORTS[deviceModel][portType][0].key;
+                  const port = PORTS[deviceModel][portType][0].key;
                   set(path, { ...item, type: value, port });
                 }}
                 empty
@@ -118,15 +125,17 @@ const ChannelListItem = ({ deviceModel, ...rest }: ChannelListItemProps) => {
 
 const selectWriteChannelType = Component.renderProp(SelectWriteChannelType);
 
-const getOpenChannel = (channels: WriteChannel[], deviceModel: Device.Model) => {
-  if (channels.length === 0)
-    return { ...createWriteChannel("digital"), key: id.create() };
+const createFirstChannel = (): WriteChannel => ({
+  ...createWriteChannel("digital"),
+  key: id.create(),
+});
+
+const getOpenChannel = (channels: WriteChannel[], deviceModel: Model) => {
+  if (channels.length === 0) return createFirstChannel();
   const last = channels[channels.length - 1];
   const preferredPortType = convertWriteChannelTypeToPortType(last.type);
   const backupPortType =
-    preferredPortType === Device.DO_PORT_TYPE
-      ? Device.AO_PORT_TYPE
-      : Device.DO_PORT_TYPE;
+    preferredPortType === DO_PORT_TYPE ? AO_PORT_TYPE : DO_PORT_TYPE;
   const port = getOpenPort(channels, deviceModel, [preferredPortType, backupPortType]);
   if (port == null) return null;
   return {
@@ -139,7 +148,7 @@ const getOpenChannel = (channels: WriteChannel[], deviceModel: Device.Model) => 
 };
 
 interface ChannelListProps {
-  device: Device.Device;
+  device: Device;
 }
 
 const ChannelList = ({ device }: ChannelListProps) => {
@@ -176,6 +185,7 @@ const getInitialValues: Task.GetInitialValues<WriteSchemas> = ({
 }) => {
   const cfg = WRITE_SCHEMAS.config.parse(config ?? {});
   if (deviceKey != null) cfg.device = deviceKey;
+  if (config == null) cfg.channels = [createFirstChannel()];
   return { name: "LabJack write task", type: WRITE_TYPE, config: cfg };
 };
 
@@ -185,7 +195,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
 ) => {
   const dev = await client.devices.retrieve({
     key: config.device,
-    schemas: Device.SCHEMAS,
+    schemas: SCHEMAS,
   });
   PlatformDevice.checkConfigured(dev);
   let modified = false;
@@ -310,7 +320,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
       });
     }
   } finally {
-    if (modified) await client.devices.create(dev, Device.SCHEMAS);
+    if (modified) await client.devices.create(dev, SCHEMAS);
   }
   config.channels = config.channels.map((c) => {
     const pair =

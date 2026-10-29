@@ -43,18 +43,18 @@ export const LicenseTable = ({ entries, now }: LicenseTableProps): ReactElement 
     <Table columns={columns} head={head}>
       {entries.map(({ license: lic, seats, organization: org }) => (
         <Row key={lic.key} columns={columns} href={`/licenses/${lic.key}`}>
-          <Text.Text level="p" weight={500} overflow="ellipsis">
+          <Text.Text level="p" weight={500} overflow="fade">
             {lic.label}
           </Text.Text>
           {owned && (
-            <Text.Text level="p" color={9} overflow="ellipsis">
+            <Text.Text level="p" color={9} overflow="fade">
               {org?.name}
             </Text.Text>
           )}
           <Flex.Box>
             <Licenses.StatusTag status={statusOf(lic, now)} />
           </Flex.Box>
-          <Text.Text level="p" color={9} overflow="ellipsis">
+          <Text.Text level="p" color={9} overflow="fade">
             {term(lic)}
           </Text.Text>
           <Text.Text level="p" color={9}>

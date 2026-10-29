@@ -26,9 +26,9 @@ describe("Clock", () => {
 
   it("should count the periods elapsed since the epoch", () => {
     const c = new Clock({ period: PERIOD });
-    expect(c.value()).toBe(2);
+    expect(c.value().data).toBe(2);
     vi.advanceTimersByTime(300);
-    expect(c.value()).toBe(3);
+    expect(c.value().data).toBe(3);
     c.cleanup();
   });
 
@@ -59,7 +59,7 @@ describe("Clock", () => {
     vi.advanceTimersByTime(1);
     expect(firstHandler).toHaveBeenCalledTimes(1);
     expect(secondHandler).toHaveBeenCalledTimes(1);
-    expect(first.value()).toBe(second.value());
+    expect(first.value().data).toBe(second.value().data);
     first.cleanup();
     second.cleanup();
   });
@@ -80,7 +80,7 @@ describe("fixedArray", () => {
       data: [new Float32Array([1, 2, 3]), new Float32Array([-4, 5])],
     });
     const source = new StaticFactory().create(spec) as SeriesSource;
-    const [b, data] = source.value();
+    const [b, data] = source.value().data;
     expect(b).toEqual({ lower: -4, upper: 5 });
     expect(data).toBeInstanceOf(MultiSeries);
     expect(Array.from(data)).toEqual([1, 2, 3, -4, 5]);
