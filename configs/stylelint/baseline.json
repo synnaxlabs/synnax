@@ -29,7 +29,6 @@
     "console/src/feature/http/device/Connect.css": [
       "pluto--direction-y",
       "pluto-form-sections",
-      "pluto-input__switch",
       "pluto-tabs__content",
       "pluto-tabs__selector"
     ],
