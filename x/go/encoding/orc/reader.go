@@ -44,8 +44,8 @@ var MaxDecodeDepth = 10_000
 
 // Reader reads primitive data types using big-endian byte order. It supports two modes:
 // direct byte-slice mode (via ResetBytes) for zero-copy decoding from in-memory data,
-// and io.Reader mode (via Reset) for streaming. Direct mode avoids intermediate buffer
-// allocations and io.ReadFull overhead.
+// and io.Reader mode (via NewReader) for streaming. Direct mode avoids intermediate
+// buffer allocations and io.ReadFull overhead.
 type Reader struct {
 	r     io.Reader
 	buf   [8]byte
