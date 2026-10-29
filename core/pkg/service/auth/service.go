@@ -322,7 +322,7 @@ func (s *Service) Login(
 		Credential: identity.Credential,
 		LastActive: s.now(),
 	}
-	token, hash, err := newToken(session.Key)
+	token, hash, err := NewToken(tokenPrefix, session.Key)
 	if err != nil {
 		return Session{}, "", err
 	}
@@ -338,7 +338,7 @@ func (s *Service) Login(
 // [ErrExpiredToken] when the session has been idle for the idle timeout, in which case
 // the session is deleted.
 func (s *Service) Authenticate(ctx context.Context, token string) (Session, error) {
-	key, hash, err := parseToken(token)
+	key, hash, err := ParseToken(tokenPrefix, token)
 	if err != nil {
 		return Session{}, err
 	}
