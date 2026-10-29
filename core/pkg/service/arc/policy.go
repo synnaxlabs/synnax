@@ -86,14 +86,20 @@ func (s *Service) ValidateParent(
 	return nil
 }
 
-// ValidateDetach implements ontology.Policy. An Arc, or a group holding one, keeps a
-// directory parent.
+// ValidateDetach implements ontology.Policy. The Arcs group keeps its parent. An Arc,
+// or a group holding one, keeps a directory parent.
 func (s *Service) ValidateDetach(
 	ctx context.Context,
 	tx gorp.Tx,
 	child ontology.ID,
 	parents ...ontology.ID,
 ) error {
+	if child == s.group.OntologyID() {
+		return errors.Wrap(
+			validate.ErrValidation,
+			"the root Arcs group cannot be moved",
+		)
+	}
 	for _, parent := range parents {
 		directory, err := s.isDirectory(ctx, tx, parent)
 		if err != nil {

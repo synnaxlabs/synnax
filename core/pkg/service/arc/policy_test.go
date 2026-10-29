@@ -220,6 +220,13 @@ var _ = Describe("Policy", func() {
 			sub := MustSucceed(groups.Create(ctx, "sub", arcs))
 			Expect(detach(ctx, arcs, sub.OntologyID())).To(Succeed())
 		})
+		It(
+			"Should reject removing the root Arcs group from the root",
+			func(ctx SpecContext) {
+				Expect(detach(ctx, ontology.RootID, arcs)).
+					To(MatchError(ContainSubstring("cannot be moved")))
+			},
+		)
 	})
 
 	Describe("Standard module names", func() {
