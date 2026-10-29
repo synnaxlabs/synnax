@@ -2,8 +2,7 @@
 layout: "@/layouts/Reference.astro"
 title: "Connect a Modbus server"
 description:
-  "Connect a Modbus TCP server or a Modbus RTU device, such as a PLC or an I/O module,
-  to Synnax."
+  "Connect a Modbus TCP or Modbus RTU server, such as a PLC or an I/O module, to Synnax."
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
@@ -16,7 +15,7 @@ import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
 The Modbus integration reads and writes the coils and registers of Modbus TCP servers
-and of Modbus RTU devices on a serial port, such as PLCs and remote I/O modules. Modbus
+and of Modbus RTU servers on a serial port, such as PLCs and remote I/O modules. Modbus
 ASCII and Modbus RTU over TCP are not supported. In Synnax, a Modbus server is one unit
 at an IP address and port, or on a serial port. The
 [read task](/reference/hardware/modbus/read-task) and the
