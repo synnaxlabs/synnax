@@ -29,14 +29,13 @@ const base64url = (bytes: Uint8Array): string =>
 const randomString = (): string =>
   base64url(crypto.getRandomValues(new Uint8Array(32)));
 
-/** A PKCE pair: the verifier stays here, and the challenge goes to the provider. */
-export interface PKCE {
+// the verifier stays here, and the challenge goes to the provider
+interface PKCE {
   verifier: string;
   challenge: string;
 }
 
-/** Creates a PKCE pair with an S256 challenge. */
-export const createPKCE = async (): Promise<PKCE> => {
+const createPKCE = async (): Promise<PKCE> => {
   const verifier = randomString();
   const digest = await crypto.subtle.digest(
     "SHA-256",
@@ -45,18 +44,15 @@ export const createPKCE = async (): Promise<PKCE> => {
   return { verifier, challenge: base64url(new Uint8Array(digest)) };
 };
 
-export interface AuthorizeURLArgs {
+interface AuthorizeURLArgs {
   login: auth.OIDCLogin;
   redirectUri: string;
   challenge: string;
   state: string;
 }
 
-/**
- * Returns the provider's login address for an authorization code request. Query values
- * the address already holds are kept.
- */
-export const authorizeURL = ({
+// keeps the query values the provider's address already holds
+const authorizeURL = ({
   login,
   redirectUri,
   challenge,
@@ -75,12 +71,8 @@ export const authorizeURL = ({
   return url.toString();
 };
 
-/**
- * Returns the authorization code of a redirect's query string.
- * @throws {Error} when the provider returned an error, or when the state does not
- * match the login, which means the redirect came from another login.
- */
-export const parseCallback = (query: string, state: string): string => {
+// throws when the provider refused, or when the redirect belongs to another login
+const parseCallback = (query: string, state: string): string => {
   const params = new URLSearchParams(query);
   const error = params.get("error");
   if (error != null)
@@ -111,7 +103,7 @@ export const loginDesktop = async (
   const port = await invoke<number>("oidc_listen");
   const redirectUri = `http://127.0.0.1:${port}/callback`;
   await Runtime.openExternal(authorizeURL({ login, redirectUri, challenge, state }));
-  const query = await invoke<string>("oidc_wait");
+  const query = await invoke<string>("oidc_wait", { state });
   const code = parseCallback(query, state);
   const { token } = await auth.createSession(core, {
     method: "oidc",
