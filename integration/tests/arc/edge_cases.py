@@ -583,6 +583,7 @@ class EdgeCases(ArcCase):
     def _assert_configure_error(
         self,
         source: str,
+        *,
         name_prefix: str,
         substr: str,
         expect: Sequence[str] = (),
@@ -610,7 +611,10 @@ class EdgeCases(ArcCase):
         for case in CIRCULAR_CASES:
             self.log(f"[{case.label}] Testing circular dependency")
             self._assert_configure_error(
-                case.source, f"Circ{case.label}", case.wait_substr, case.expect
+                case.source,
+                name_prefix=f"Circ{case.label}",
+                substr=case.wait_substr,
+                expect=case.expect,
             )
 
     def _assert_guarded_configures(self, case: GuardedCase) -> None:
@@ -627,7 +631,9 @@ class EdgeCases(ArcCase):
         for case in EXEC_CONTEXT_CASES:
             self.log(f"[{case.label}] Testing exec context violation")
             self._assert_configure_error(
-                case.source, f"ExecCtx{case.label}", case.wait_substr
+                case.source,
+                name_prefix=f"ExecCtx{case.label}",
+                substr=case.wait_substr,
             )
 
     def _verify_wasm_in_flow(self) -> None:
@@ -641,7 +647,9 @@ class EdgeCases(ArcCase):
         for case in IMPORT_CASES:
             self.log(f"[{case.label}] Testing import diagnostic")
             self._assert_configure_error(
-                case.source, f"Import{case.label}", case.wait_substr
+                case.source,
+                name_prefix=f"Import{case.label}",
+                substr=case.wait_substr,
             )
 
     def _verify_type_mismatch_cases(self) -> None:
@@ -649,7 +657,9 @@ class EdgeCases(ArcCase):
         for case in TYPE_MISMATCH_CASES:
             self.log(f"[{case.label}] Testing type mismatch")
             self._assert_configure_error(
-                case.source, f"TypeMismatch{case.label}", case.wait_substr
+                case.source,
+                name_prefix=f"TypeMismatch{case.label}",
+                substr=case.wait_substr,
             )
 
     def _verify_routing_table_cases(self) -> None:
@@ -657,7 +667,9 @@ class EdgeCases(ArcCase):
         for case in ROUTING_TABLE_CASES:
             self.log(f"[{case.label}] Testing transition into routing")
             self._assert_configure_error(
-                case.source, f"RoutingTable{case.label}", case.wait_substr
+                case.source,
+                name_prefix=f"RoutingTable{case.label}",
+                substr=case.wait_substr,
             )
 
     def _verify_read_only_monitor(self) -> None:
