@@ -26,7 +26,7 @@ const TestMenu = (): ReactElement => {
       )}
       {...ctx}
     >
-      <div id="target-1" className="pluto-context-target" onContextMenu={ctx.open}>
+      <div id="target-1" className="lyra-context-target" onContextMenu={ctx.open}>
         Right click me
       </div>
     </Menu.ContextMenu>
@@ -80,7 +80,7 @@ const KeyMenu = ({ onKeys }: { onKeys: (keys: string[]) => void }): ReactElement
       <div
         id="dom-id"
         data-menu-key="semantic-key"
-        className="pluto-context-target"
+        className="lyra-context-target"
         onContextMenu={ctx.open}
       >
         Right click me

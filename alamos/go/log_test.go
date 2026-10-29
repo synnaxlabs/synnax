@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -192,6 +193,40 @@ var _ = Describe("Log", func() {
 			Expect(buffer.String()).To(ContainSubstring("stack trace"))
 			Expect(buffer.String()).To(ContainSubstring("log_test"))
 		})
+
+		It("Should drop stack traces from expected errors", func() {
+			logger := zap.New(
+				alamos.CustomZapCore(core),
+				zap.AddStacktrace(zapcore.ErrorLevel),
+			)
+			err := errors.Wrap(validate.ErrValidation, "bad request")
+			logger.Error("test", zap.Error(err))
+			Expect(
+				buffer.String(),
+			).To(ContainSubstring("bad request: validation error"))
+			Expect(buffer.String()).ToNot(ContainSubstring("errorVerbose"))
+			Expect(buffer.String()).ToNot(ContainSubstring(`"S":`))
+		})
+
+		It("Should keep stack traces on unexpected errors", func() {
+			logger := zap.New(alamos.CustomZapCore(core))
+			logger.Error("test", zap.Error(errors.New("unexpected")))
+			Expect(buffer.String()).To(ContainSubstring("errorVerbose"))
+			Expect(buffer.String()).To(ContainSubstring(`"S":`))
+		})
+
+		It(
+			"Should keep the stack trace of an unexpected error before an expected one",
+			func() {
+				logger := zap.New(alamos.CustomZapCore(core))
+				logger.Error(
+					"test",
+					zap.Error(errors.New("unexpected")),
+					zap.NamedError("expected", validate.ErrValidation),
+				)
+				Expect(buffer.String()).To(ContainSubstring(`"S":`))
+			},
+		)
 
 		It("Should handle custom caller information", func() {
 			custom := alamos.CustomZapCore(core)

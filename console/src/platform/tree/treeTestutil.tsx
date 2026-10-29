@@ -84,8 +84,8 @@ const SCROLL_STEP = 200;
  */
 // Sweeps from the top: a previous lookup can leave the tree scrolled past the row.
 const sweepTree = async (text: string): Promise<HTMLElement | null> => {
-  const tree = document.querySelector<HTMLElement>(".pluto-tree");
-  const rows = tree?.querySelector<HTMLElement>(".pluto-list__virtualizer");
+  const tree = document.querySelector<HTMLElement>(".lyra-tree");
+  const rows = tree?.querySelector<HTMLElement>(".lyra-list__virtualizer");
   if (tree == null || rows == null) return null;
   const total = parseInt(rows.style.minHeight, 10);
   for (let offset = 0; offset <= total; offset += SCROLL_STEP) {
@@ -116,7 +116,7 @@ const findTreeLabel = async (text: string): Promise<HTMLElement> => {
 
 /** Finds the rendered tree row containing the given text. */
 export const findTreeRow = async (text: string): Promise<Element> => {
-  const row = (await findTreeLabel(text)).closest(".pluto-tree__item");
+  const row = (await findTreeLabel(text)).closest(".lyra-tree__item");
   if (row == null) throw new Error(`tree row for ${text} not found`);
   return row;
 };
