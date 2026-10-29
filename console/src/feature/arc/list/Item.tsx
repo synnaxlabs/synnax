@@ -8,13 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { arc } from "@synnaxlabs/client";
-import { Flex } from "@synnaxlabs/lyra/flex";
-import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
-import { stopPropagation } from "@synnaxlabs/lyra/util";
 import { Access } from "@synnaxlabs/pluto";
+
+import { Panel } from "@/platform/panel";
 
 export interface ItemProps extends List.ItemProps<arc.Key> {
   onRename?: (name: string) => void;
@@ -24,38 +23,28 @@ export interface ItemProps extends List.ItemProps<arc.Key> {
 export const Item = ({ onRename, textIdPrefix = "text", ...props }: ItemProps) => {
   const { itemKey } = props;
   const item = List.useItem<arc.Key, arc.Arc>(itemKey);
-  const { onSelect, onHover, selected, hovered } = Select.useItemState(itemKey);
   const canRename = Access.useUpdateGranted(arc.ontologyID(itemKey));
+  const openTab = Panel.useOpenTab();
 
   if (item == null) return null;
   const { name } = item;
+  const handleActivate = () =>
+    openTab({ variant: "resource", resource: arc.ontologyID(itemKey) });
 
   return (
-    <List.Item
+    <Select.Item<arc.Key>
       {...props}
-      hovered={hovered}
-      onHover={onHover}
-      selected={selected}
-      rounded={!selected}
-      onSelect={onSelect}
-      justify="between"
+      checkable
+      onActivate={handleActivate}
       align="center"
     >
-      <Flex.Box x align="center">
-        <Input.Checkbox
-          value={selected}
-          onChange={onSelect}
-          onClick={stopPropagation}
-          aria-label="Select"
-        />
-        <Text.MaybeEditable
-          id={`${textIdPrefix}-${itemKey}`}
-          level="p"
-          value={name}
-          onChange={canRename ? onRename : undefined}
-          allowDoubleClick={false}
-        />
-      </Flex.Box>
-    </List.Item>
+      <Text.MaybeEditable
+        id={`${textIdPrefix}-${itemKey}`}
+        level="p"
+        value={name}
+        onChange={canRename ? onRename : undefined}
+        allowDoubleClick={false}
+      />
+    </Select.Item>
   );
 };
