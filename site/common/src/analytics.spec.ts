@@ -230,6 +230,46 @@ describe("analytics", () => {
       });
     });
 
+    describe("a visitor who answers while the country loads", () => {
+      /** Starts with a country route that answers only when told to. */
+      const beginWaiting = () => {
+        const rec = recorder();
+        let respond: (mode: string) => void = () => {};
+        const fetch = vi.fn(
+          async () =>
+            await new Promise<Response>((resolve) => {
+              respond = (mode) => resolve(new Response(mode));
+            }),
+        );
+        const started = start({
+          posthog: () => rec.posthog,
+          fetch,
+          card: card(),
+          userID: null,
+          sensitive: false,
+        });
+        return { ...rec, started, respond: (mode: string) => respond(mode) };
+      };
+
+      it("should keep a rejection outside Europe", async () => {
+        const { calls, started, respond } = beginWaiting();
+        click(".settings");
+        click("[data-consent=reject]");
+        respond("notice");
+        await started;
+        expect(calls).toEqual(["opt_out", "init"]);
+      });
+
+      it("should not show the card again in Europe", async () => {
+        const { started, respond } = beginWaiting();
+        click(".settings");
+        click("[data-consent=accept]");
+        respond("ask");
+        await started;
+        expect(card().hidden).toBe(true);
+      });
+    });
+
     it("should open the card from the cookie settings", async () => {
       answered();
       await begin();

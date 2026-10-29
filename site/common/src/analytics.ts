@@ -150,16 +150,19 @@ export const start = async ({
   const identify = (to: PostHog): void => {
     if (userID != null) to.identify(userID);
   };
+  let answered = chosen();
   document.addEventListener("click", (e) => {
     if (!(e.target instanceof Element)) return;
     const action = e.target.closest<HTMLElement>("[data-consent]")?.dataset.consent;
     if (action == null) return;
     if (action === "settings") card.hidden = false;
     else if (action === "accept") {
+      answered = true;
       posthog().opt_in_capturing();
       identify(posthog());
       card.hidden = true;
     } else if (action === "reject") {
+      answered = true;
       posthog().opt_out_capturing();
       card.hidden = true;
     } else throw new Error(`unknown consent action: ${action}`);
@@ -198,11 +201,12 @@ export const start = async ({
         if (loaded.get_explicit_consent_status() === "granted") identify(loaded);
       },
     });
-  if (chosen()) {
+  const mode = answered ? null : await fetchMode(fetch);
+  // The visitor can answer from the cookie settings while the country loads.
+  if (answered || mode == null) {
     init(false);
     return;
   }
-  const mode = await fetchMode(fetch);
   init(mode === "notice");
   if (mode === "ask") card.hidden = false;
   else {
