@@ -65,7 +65,13 @@ class _Payload(BaseModel):
 
 
 def _from_payload(p: _Payload) -> Series:
-    return Series(p.data, p.data_type, p.time_range, p.alignment, p.alignment_multiple)
+    return Series(
+        p.data,
+        data_type=p.data_type,
+        time_range=p.time_range,
+        alignment=p.alignment,
+        alignment_multiple=p.alignment_multiple,
+    )
 
 
 def _to_payload(s: Series) -> _Payload:
@@ -105,7 +111,9 @@ class Series(ArrayOperators):
     data: bytes
     """The underlying buffer"""
     alignment: Alignment
-    """The alignment of the Series, representing the position within an array of arrays"""
+    """The alignment of the Series, representing the position within an array of
+    arrays
+    """
     alignment_multiple: int
     """The number of alignment steps between consecutive samples. Above one when the
     Core reduced the Series from a longer one."""
@@ -130,6 +138,7 @@ class Series(ArrayOperators):
     def __init__(
         self,
         data: CrudeSeries | MultiSeries,
+        *,
         data_type: CrudeDataType | None = None,
         time_range: TimeRange | None = None,
         alignment: CrudeAlignment | None = None,
@@ -160,7 +169,8 @@ class Series(ArrayOperators):
                     alignment_multiple = data.series[0].alignment_multiple
             else:
                 raise ValueError(
-                    "[Series] - MultiSeries with more than one series cannot be converted to a Series"
+                    "[Series] - MultiSeries with more than one series cannot be "
+                    "converted to a Series"
                 )
             data_type = data_type or data.data_type
         elif isinstance(data, pd.Series):
@@ -217,8 +227,9 @@ class Series(ArrayOperators):
         https://numpy.org/doc/stable/user/basics.interoperability.html#the-array-method.
         """
         if not self.data_type.has_np:
+            dt = self.data_type
             raise ValueError(f"""
-                [Series] - {self.data_type} does not have a numpy equivalent, so it can't
+                [Series] - {dt} does not have a numpy equivalent, so it can't
                 be interpreted as a numpy array.
                 """)
 
@@ -230,7 +241,7 @@ class Series(ArrayOperators):
         return arr
 
     def to_numpy(
-        self, dtype: np.dtype | None = None, copy: bool | None = None
+        self, dtype: np.dtype | None = None, *, copy: bool | None = None
     ) -> np.ndarray:
         """Converts the Series to a numpy array. This is necessary for matplotlib
         interop.
@@ -429,7 +440,7 @@ class MultiSeries(ArrayOperators):
         return pre_alloc
 
     def to_numpy(
-        self, dtype: np.dtype | None = None, copy: bool | None = None
+        self, dtype: np.dtype | None = None, *, copy: bool | None = None
     ) -> np.ndarray:
         return self.__array__(dtype=dtype, copy=copy)
 
@@ -457,8 +468,8 @@ class MultiSeries(ArrayOperators):
     def alignment_bounds(self) -> Bounds:
         """:returns: The bounds of alignments covered by this MultiSeries.
 
-        The lower bound is the alignment of the first sample in the first series,
-        and the upper bound is the alignment just after the last sample in the last series.
+        The lower bound is the alignment of the first sample in the first series, and
+        the upper bound is the alignment just after the last sample in the last series.
         If the MultiSeries is empty, returns Bounds(0, 0).
         """
         if len(self.series) == 0:

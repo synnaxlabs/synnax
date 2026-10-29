@@ -51,7 +51,7 @@ describe("layouts.ListAndDetails", () => {
     await waitFor(() => expect(screen.getByText("No channels in task")).toBeTruthy());
     expect(screen.queryByText(/details-for-/)).toBeNull();
     const copyButton = getIconButton(container, "json");
-    expect(copyButton.className).toContain("pluto--disabled");
+    expect(copyButton.className).toContain("lyra--disabled");
   });
 
   it("should open with the first channel's details shown", async () => {

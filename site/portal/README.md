@@ -90,14 +90,16 @@ In each instance:
    Admin tab.
 2. Sign-in options: Google and Microsoft. Production needs its own OAuth credentials for
    both, with the redirect URLs the dashboard shows.
+3. User model: turn on first and last name. Without it, email sign-up fails with
+   "first_name is not a valid parameter for this request."
 
 In the production instance only:
 
 1. Domains: add the DNS records it asks for. `src/middleware.ts` allows its Frontend API
    host, `clerk.synnaxlabs.com`.
 2. Webhooks: add an endpoint at `https://portal.synnaxlabs.com/api/webhooks/clerk`
-   subscribed to `user.created`, `organization.created`, and `organization.updated`. Its
-   signing secret is `CLERK_WEBHOOK_SIGNING_SECRET`.
+   subscribed to `user.created`, `user.deleted`, `organization.created`, and
+   `organization.updated`. Its signing secret is `CLERK_WEBHOOK_SIGNING_SECRET`.
 
 Previews receive no webhooks. The portal creates organizations on first use instead.
 

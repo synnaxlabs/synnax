@@ -266,4 +266,38 @@ describe("Write", () => {
     );
     expect(tsk.config.channels).toHaveLength(1);
   });
+
+  describe("add channel", () => {
+    it.each([
+      { dataType: "uint16", address: 11 },
+      { dataType: "float32", address: 12 },
+      { dataType: "float64", address: 14 },
+    ])(
+      "should place a new channel after the last register of a $dataType channel",
+      async ({ dataType, address }) => {
+        const dev = await createModbusDevice(client);
+        const register = Modbus.Task.WRITE_CHANNEL_SCHEMAS.holding_register.parse({
+          type: "holding_register",
+          key: id.create(),
+          address: 10,
+          dataType,
+        });
+        const draft = await createDraft(client, {
+          ...Modbus.Task.WRITE_SCHEMAS.config.parse({}),
+          device: dev.key,
+          channels: [register],
+        });
+        const { container } = await renderWrite({ client, taskKey: draft.key });
+        await screen.findByText(dev.name);
+        fireEvent.click(getIconButton(container, "add"));
+        await waitFor(async () => {
+          const saved = await client.tasks.retrieve({
+            key: draft.key,
+            schemas: Modbus.Task.WRITE_SCHEMAS,
+          });
+          expect(saved.config.channels[1]?.address).toBe(address);
+        });
+      },
+    );
+  });
 });

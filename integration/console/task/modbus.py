@@ -44,7 +44,7 @@ class ModbusTask(TaskPage):
         :param name: Name of the server device.
         """
         configured = self.client.devices.retrieve(name=name).configured
-        self.select_device(SERVER_FIELD_LABEL, name)
+        self.select_device(SERVER_FIELD_LABEL, name=name)
         if configured:
             return
         modal = self.page.locator(LayoutClient.MODAL_SELECTOR)
@@ -55,7 +55,7 @@ class ModbusTask(TaskPage):
         modal.wait_for(state="hidden", timeout=15000)
 
     def add_channel(
-        self, type_name: str, address: int, data_type: str | None = None
+        self, type_name: str, *, address: int, data_type: str | None = None
     ) -> None:
         """Fill in the next channel row.
 

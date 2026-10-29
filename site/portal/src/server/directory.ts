@@ -66,6 +66,12 @@ export const ROLES: { key: string; name: string }[] = [
 export const roleName = (role: string): string =>
   ROLES.find((r) => r.key === role)?.name ?? role;
 
+const INTERNAL_DOMAIN = "@synnaxlabs.com";
+
+/** isInternal is true for a Synnax Labs email address. */
+export const isInternal = (email: string): boolean =>
+  email.toLowerCase().endsWith(INTERNAL_DOMAIN);
+
 /** Directory reads the people and organizations Clerk holds. */
 export interface Directory {
   /** person throws when Clerk does not know the user. */
@@ -77,6 +83,11 @@ export interface Directory {
   users: () => Promise<Account[]>;
   /** account returns null when Clerk does not know the user. */
   account: (userID: string) => Promise<Account | null>;
+  /**
+   * deleteAccount removes a user and their memberships. It does nothing for an unknown
+   * user.
+   */
+  deleteAccount: (userID: string) => Promise<void>;
   /** teams returns every organization in Clerk, newest first. */
   teams: () => Promise<Listing[]>;
   /** team returns null when Clerk does not know the organization. */
@@ -102,7 +113,7 @@ export interface Directory {
   remove: (clerkOrgID: string, userID: string) => Promise<void>;
   /** create makes a team with no members. */
   create: (name: string) => Promise<Listed>;
-  /** delete removes a team and its memberships. */
+  /** delete removes a team and its memberships. It does nothing for an unknown team. */
   delete: (clerkOrgID: string) => Promise<void>;
   /**
    * rename changes a team's name.
@@ -233,6 +244,11 @@ export const clerk = (client: Client): Directory => ({
     });
     return user == null ? null : toAccount(user);
   },
+  deleteAccount: async (userID) => {
+    await client.users.deleteUser(userID).catch((e: unknown) => {
+      if (!isNotFound(e)) throw errors.fromUnknown(e);
+    });
+  },
   teams: async () =>
     await paged(
       async (offset) =>
@@ -312,7 +328,9 @@ export const clerk = (client: Client): Directory => ({
     return { clerkOrgID: org.id, name: org.name };
   },
   delete: async (clerkOrgID) => {
-    await client.organizations.deleteOrganization(clerkOrgID);
+    await client.organizations.deleteOrganization(clerkOrgID).catch((e: unknown) => {
+      if (!isNotFound(e)) throw errors.fromUnknown(e);
+    });
   },
   rename: async (clerkOrgID, name) => {
     await client.organizations
@@ -365,6 +383,10 @@ export const memory = ({
       .sort((a, b) => b.joinedAt.getTime() - a.joinedAt.getTime()),
   account: async (userID) =>
     people[userID] == null ? null : accountOf(people, userID),
+  deleteAccount: async (userID) => {
+    delete people[userID];
+    delete members[userID];
+  },
   teams: async () =>
     organizations.map((o) => ({
       ...o,
@@ -404,8 +426,7 @@ export const memory = ({
   },
   delete: async (clerkOrgID) => {
     const i = organizations.findIndex((o) => o.clerkOrgID === clerkOrgID);
-    if (i === -1) throw new Error(`no Clerk organization ${clerkOrgID}`);
-    organizations.splice(i, 1);
+    if (i !== -1) organizations.splice(i, 1);
     for (const [userID, teams] of Object.entries(members))
       members[userID] = teams.filter((t) => t.clerkOrgID !== clerkOrgID);
   },

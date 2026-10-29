@@ -20,13 +20,15 @@ class EdgeCount(Counter):
     Kwargs:
         port (int): Physical port number
         active_edge (Literal["Rising", "Falling"]): Active edge
-        count_direction (Literal["Count up", "Count down", "Externally controlled"]): Count direction
+        count_direction (Literal["Count up", "Count down", "Externally controlled"]):
+            Count direction
         terminal (str): Input terminal (e.g., "PFI0", "PFI1", etc.)
         initial_count (int): Initial count value
     """
 
     def __init__(
         self,
+        *,
         layout: LayoutClient,
         name: str,
         device: str,

@@ -12,9 +12,9 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Text } from "@synnaxlabs/lyra/text";
+import { type Mode } from "@synnaxlabs/site-common/consent";
 import { type ReactElement, useId, useState } from "react";
 
-import { type Mode } from "@/server/consent";
 import { post, save } from "@/ui/api";
 import { Auth } from "@/ui/auth";
 import { useLogOut } from "@/ui/clerk";
@@ -51,7 +51,11 @@ export const Link = ({
   const [shared, setShared] = useState(false);
   const analyticsAllowed = consent === "notice" || shared;
   const action = useAction(async () => {
-    const res = await post<Linked>("/api/desktop/link", { fingerprint, name });
+    const res = await post<Linked>("/api/desktop/link", {
+      fingerprint,
+      name,
+      analytics: analyticsAllowed,
+    });
     setLinked(res);
     window.location.assign(activateURL(state, res, analyticsAllowed));
   });

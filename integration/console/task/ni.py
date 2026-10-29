@@ -33,14 +33,16 @@ class NITask(TaskPage):
 
     def __init__(
         self,
+        *,
         layout: LayoutClient,
         client: sy.Synnax,
         page_name: str,
-        *,
         pane_locator: Locator,
     ) -> None:
         """Initialize an NITask page wrapper (see ConsolePage.__init__ for details)."""
-        super().__init__(layout, client, page_name, pane_locator=pane_locator)
+        super().__init__(
+            layout=layout, client=client, page_name=page_name, pane_locator=pane_locator
+        )
         self.channels: list[NIChannel] = []
         self.channels_by_name: list[str] = []
 
@@ -48,6 +50,7 @@ class NITask(TaskPage):
     def add_channel(
         self,
         name: str,
+        *,
         chan_type: str,
         device: str,
         dev_name: str | None = None,
@@ -74,7 +77,7 @@ class NITask(TaskPage):
     def _open_new_device_dropdown(self) -> None:
         """Select the next channel row and open its device dropdown."""
         idx = self.next_channel_row()
-        self.layout.page.locator(".pluto-list__item").nth(idx).click()
+        self.layout.page.locator(".lyra-list__item").nth(idx).click()
         self.layout.click_btn("Device")
 
     def connect_device(self) -> None:
@@ -123,7 +126,10 @@ class NITask(TaskPage):
         if configured:
             modal = layout.page.locator(layout.MODAL_SELECTOR)
             fill_configure(
-                modal, layout.notifications, name=dev_name, identifier=dev_name
+                modal,
+                notifications=layout.notifications,
+                name=dev_name,
+                identifier=dev_name,
             )
             modal.wait_for(state="hidden", timeout=5000)
             # Configuring renames the device, and the field shows the new name late.
@@ -149,7 +155,7 @@ class NITask(TaskPage):
 
         for channel_name in names:
             idx = self.channels_by_name.index(channel_name)
-            self.layout.page.locator(".pluto-list__item").nth(idx).click()
+            self.layout.page.locator(".lyra-list__item").nth(idx).click()
             channel = self.channels[idx]
             sy.sleep(0.3)
             channel.assert_form()

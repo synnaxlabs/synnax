@@ -31,15 +31,20 @@ EDGE_VARIANTS = [
 
 
 def assert_properties(
-    schematic: Schematic, control_authority: int = 1, show_control_legend: bool = True
+    schematic: Schematic,
+    *,
+    control_authority: int = 1,
+    show_control_legend: bool = True,
 ) -> None:
     """Assert the schematic properties match expected values."""
     props = schematic.get_properties()
     assert props["control_authority"] == control_authority, (
-        f"Control authority mismatch! Actual: {props['control_authority']}, Expected: {control_authority}"
+        f"Control authority mismatch! Actual: {props['control_authority']}, Expected: "
+        f"{control_authority}"
     )
     assert props["show_control_legend"] == show_control_legend, (
-        f"Show control state legend mismatch! Actual: {props['show_control_legend']}, Expected: {show_control_legend}"
+        f"Show control state legend mismatch! Actual: {props['show_control_legend']}, "
+        f"Expected: {show_control_legend}"
     )
 
 

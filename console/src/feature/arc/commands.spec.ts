@@ -66,7 +66,7 @@ describe("Arc Commands", () => {
     fireEvent.change(input, { target: { value: name } });
     const buttons = screen.getAllByRole("button", { name: "Create" });
     const create = buttons[buttons.length - 1];
-    await waitFor(() => expect(create.className).not.toContain("pluto--disabled"));
+    await waitFor(() => expect(create.className).not.toContain("lyra--disabled"));
     await act(async () => {
       fireEvent.click(create);
     });

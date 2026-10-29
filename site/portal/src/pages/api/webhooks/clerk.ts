@@ -10,16 +10,19 @@
 import { verifyWebhook } from "@clerk/astro/webhooks";
 import { type APIRoute } from "astro";
 
+import { isInternal } from "@/server/directory";
 import { ensurePersonal, mirrorTeams } from "@/server/organization";
 import { joined } from "@/server/slack";
+import { forget } from "@/server/user";
 
 /**
  * POST mirrors Clerk's user and organization creation into the portal: a personal
- * organization per user and a team organization per Clerk organization. A new user is
- * also posted to Slack.
+ * organization per user and a team organization per Clerk organization. A new user
+ * outside Synnax Labs is also posted to Slack, and a deleted user's personal
+ * organization is deleted.
  */
 export const POST: APIRoute = async (context) => {
-  const { store, slack, webhookSecret } = context.locals.portal;
+  const { store, slack, directory, webhookSecret } = context.locals.portal;
   let evt: Awaited<ReturnType<typeof verifyWebhook>>;
   try {
     evt = await verifyWebhook(context.request, { signingSecret: webhookSecret });
@@ -47,15 +50,23 @@ export const POST: APIRoute = async (context) => {
         email ||
         id;
       await ensurePersonal(store, { userID: id, name });
-      await slack.post(joined({ userID: id, name, email }));
+      if (!isInternal(email)) await slack.post(joined({ userID: id, name, email }));
+      break;
+    }
+    case "user.deleted": {
+      const { id } = evt.data;
+      if (id == null) throw new Error("clerk sent user.deleted without a user id");
+      await forget(store, id);
       break;
     }
     case "organization.created":
-    case "organization.updated":
-      await mirrorTeams(store.query, [
-        { clerkOrgID: evt.data.id, name: evt.data.name },
-      ]);
+    case "organization.updated": {
+      // An event can arrive late, even after its team is deleted, so mirror the team as
+      // Clerk holds it now.
+      const team = await directory.team(evt.data.id);
+      if (team != null) await mirrorTeams(store.query, [team]);
       break;
+    }
     default:
       break;
   }

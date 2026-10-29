@@ -47,22 +47,24 @@ class ConsoleCase(TestCase):
 
     def __init__(
         self,
-        synnax_connection: SynnaxConnection = DEFAULT_CONNECTION,
         *,
+        synnax_connection: SynnaxConnection = DEFAULT_CONNECTION,
         name: str,
         **params: Any,
     ) -> None:
-        super().__init__(synnax_connection, name=name, **params)
+        super().__init__(synnax_connection=synnax_connection, name=name, **params)
         self.playwright = None
         self._cleanup_pages: list[str] = []
         self._project: sy.Project | None = None
 
     def execute(self) -> None:
         # Teardown errors are logged, not raised, so a subclass cleanup that raises
-        # before super().teardown() would otherwise leave the driver running.
+        # before super().teardown() would otherwise lose the trace and leave the driver
+        # running.
         try:
             super().execute()
         finally:
+            self._stop_tracing()
             self._close_browser()
 
     def setup(self) -> None:
@@ -126,7 +128,9 @@ class ConsoleCase(TestCase):
         self.page.goto(f"http://{host}:{port}/{query}", timeout=20000)
 
         self.log(f"Console found on port {port}")
-        self.console = Console(self.page, self.client, self.results_dir)
+        self.console = Console(
+            page=self.page, client=self.client, results_dir=self.results_dir
+        )
 
     def _login(self) -> None:
         username = self.synnax_connection.username
@@ -169,10 +173,6 @@ class ConsoleCase(TestCase):
         self.console.notifications.close_connection()
 
     def teardown(self) -> None:
-        # Stop and persist the trace before cleanup; cleanup may mutate page state
-        # in ways that mask the failure we want to capture.
-        self._stop_tracing()
-
         if self._cleanup_pages:
             try:
                 self.console.pages.delete_many(self._cleanup_pages)

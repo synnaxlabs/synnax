@@ -89,7 +89,7 @@ class TestPublishedFiles:
             return io.BytesIO(body)
 
         monkeypatch.setattr(urllib.request, "urlopen", urlopen)
-        assert prune_published.published_files("alamos", "0.56.0") == frozenset(
+        assert prune_published.published_files("alamos", version="0.56.0") == frozenset(
             {"alamos-0.56.0-py3-none-any.whl"}
         )
         assert timeouts == [prune_published.REQUEST_TIMEOUT_SECONDS]
@@ -103,7 +103,7 @@ class TestPublishedFiles:
             raise urllib.error.HTTPError(url, 404, "Not Found", Message(), None)
 
         monkeypatch.setattr(urllib.request, "urlopen", raise_not_found)
-        assert prune_published.published_files("alamos", "9.9.9") == frozenset()
+        assert prune_published.published_files("alamos", version="9.9.9") == frozenset()
 
     def test_should_propagate_other_http_errors(
         self, monkeypatch: pytest.MonkeyPatch
@@ -115,7 +115,7 @@ class TestPublishedFiles:
 
         monkeypatch.setattr(urllib.request, "urlopen", raise_server_error)
         with pytest.raises(urllib.error.HTTPError):
-            prune_published.published_files("alamos", "0.56.0")
+            prune_published.published_files("alamos", version="0.56.0")
 
 
 class TestMain:

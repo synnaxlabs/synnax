@@ -460,7 +460,8 @@ export const clickDeploy = async (container: HTMLElement): Promise<void> => {
       throw new Error("start button is disabled");
     return b;
   });
-  fireEvent.click(button);
+  // The click can re-render form parts that still suspend on their first query.
+  await act(async () => fireEvent.click(button));
 };
 
 /**
@@ -494,20 +495,22 @@ export const selectFromDropdown = async (
 };
 
 /**
- * Reads command-channel frames until one carries a command for taskKey, so parallel
- * suites writing their own task commands cannot interfere. Rejects after 10 seconds so
- * a command that never arrives names itself instead of hitting the test timeout.
+ * Reads command-channel frames until one carries a command for taskKey, and of the
+ * given type if there is one, so parallel suites writing their own task commands cannot
+ * interfere. Rejects after 10 seconds so a command that never arrives names itself
+ * instead of hitting the test timeout.
  */
 export const awaitCommand = async (
   streamer: framer.Streamer,
   taskKey: task.Key,
+  type?: string,
 ): Promise<task.Command> => {
   const read = async (): Promise<task.Command> => {
     for (;;) {
       const frame = await streamer.read();
       for (const sample of frame.get(task.COMMAND_CHANNEL_NAME)) {
         const cmd = task.commandZ.parse(sample);
-        if (cmd.task === taskKey) return cmd;
+        if (cmd.task === taskKey && (type == null || cmd.type === type)) return cmd;
       }
     }
   };
@@ -574,6 +577,13 @@ export const reportTaskStopped = async (
   });
 };
 
+export interface CommandAnswer extends Omit<CreateTaskStatusOverrides, "details"> {
+  /** Answers only a command of this type. Commands of any other type go unanswered. */
+  type?: string;
+  /** The data the answer carries in its details. */
+  data?: unknown;
+}
+
 /**
  * Answers the next command sent to the task as a Driver does, with a success status
  * unless answer overrides its fields. Specs run without a Driver, so a caller that
@@ -583,17 +593,17 @@ export const reportTaskStopped = async (
 export const answerNextCommand = async (
   client: Client,
   tsk: task.Task,
-  answer: Omit<CreateTaskStatusOverrides, "details"> = {},
+  { type, data, ...answer }: CommandAnswer = {},
 ): Promise<{ answered: Promise<void> }> => {
   const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
   const respond = async (): Promise<void> => {
     try {
-      const cmd = await awaitCommand(streamer, tsk.key);
+      const cmd = await awaitCommand(streamer, tsk.key, type);
       await client.tasks.create({
         ...tsk.payload,
         status: createTaskStatus({
           ...answer,
-          details: { task: tsk.key, cmd: cmd.key, rack: tsk.rack },
+          details: { task: tsk.key, cmd: cmd.key, rack: tsk.rack, data },
         }),
       });
     } finally {
