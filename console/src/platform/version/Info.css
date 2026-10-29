@@ -30,7 +30,7 @@
     .console-version-info__download {
         width: 50rem;
 
-        & > .pluto-text {
+        & > .lyra-text {
             flex-shrink: 0;
         }
     }

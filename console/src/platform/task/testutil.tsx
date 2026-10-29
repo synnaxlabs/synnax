@@ -439,7 +439,8 @@ export const clickDeploy = async (container: HTMLElement): Promise<void> => {
       throw new Error("start button is disabled");
     return b;
   });
-  fireEvent.click(button);
+  // The click can re-render form parts that still suspend on their first query.
+  await act(async () => fireEvent.click(button));
 };
 
 /**

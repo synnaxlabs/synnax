@@ -9,12 +9,8 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-range-explorer {
-    container-type: size;
-}
-
 .console-range__explorer-list {
-    & > .pluto-list__virtualizer {
+    & > .lyra-list__virtualizer {
         display: grid;
         grid-template-columns: auto 1fr auto auto auto;
         align-items: center;
@@ -28,7 +24,7 @@
     }
 
     & .console-range__list-item,
-    & .pluto-list__sentinel {
+    & .lyra-list__sentinel {
         grid-column: 1 / -1;
     }
 
@@ -37,7 +33,7 @@
         column-gap: 0;
     }
 
-    & .pluto-tags {
+    & .lyra-tags {
         grid-column: 1;
         justify-self: end;
     }

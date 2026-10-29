@@ -9,7 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-menu__divider {
+.lyra-menu__divider {
     /* Hide dividers that are the first or last child of the menu, 
      or dividers that have nothing in-between them. */
     &:first-child,

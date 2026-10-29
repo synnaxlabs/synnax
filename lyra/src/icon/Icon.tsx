@@ -115,7 +115,7 @@ export const wrapSVGIcon = (
 export const tint = (c?: color.Crude): Pick<IconProps, "className" | "style"> => {
   if (c == null) return {};
   return {
-    className: CSS.cls(CSS.B("symbol-colored"), CSS.BM("symbol-colored", "icon")),
+    className: CSS.cls(CSS.symbolColored, CSS.BM("symbol-colored", "icon")),
     // Inline, so the pick outranks the default icon colors that tabs and trees set.
     style: {
       [CSS.variable("symbol-color")]: color.rgbString(c),
