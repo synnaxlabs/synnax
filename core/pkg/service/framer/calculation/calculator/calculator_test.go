@@ -1391,16 +1391,16 @@ var _ = Describe("Calculator", Ordered, func() {
 			}
 			c := open(ctx, nil, &base, &calc)
 			fr := frame.NewUnary(base[0].Key(), telem.NewSeriesV[int64](0))
-			of, changed, err := c.Next(ctx, fr, frame.NewUnary(
+			Expect(c.Next(ctx, fr, frame.NewUnary(
 				base[0].Key(),
 				telem.NewSeriesV[int64](1),
-			))
-			Expect(err).To(MatchError(ContainSubstring("integer divide by zero")))
-			Expect(changed).To(BeFalse())
-			Expect(of).To(BeZero())
+			))).Error().To(MatchError(HavePrefix(
+				"WASM execution failed in node calculation at sample 0/1: " +
+					"wasm error: integer divide by zero",
+			)))
 			d := telem.NewSeriesV[int64](5)
 			d.Alignment = telem.NewAlignment(0, 1)
-			of, changed = MustSucceed2(c.Next(
+			of, changed := MustSucceed2(c.Next(
 				ctx,
 				frame.NewUnary(base[0].Key(), d),
 				frame.Frame{},
