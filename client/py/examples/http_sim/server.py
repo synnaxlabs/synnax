@@ -494,6 +494,7 @@ class HTTPSlowSim(HTTPSim):
 def run_server(
     host: str = "127.0.0.1",
     port: int = 8081,
+    *,
     https: bool = False,
     auth: str = "none",
     delay_ms: int = 0,
