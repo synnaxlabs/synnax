@@ -81,7 +81,9 @@ class CalculatedChannels(ConsoleCase):
         assert expected_val == calc_val, f"expected {expected_val}, got {calc_val}"
 
     def test_plot_calculated_channel(self) -> None:
-        """Test plotting a nested calculated channel (calc channel referencing another calc channel)."""
+        """Test plotting a nested calculated channel (calc channel referencing another
+        calc channel).
+        """
         self.log("Testing plot nested calculated channel")
 
         plot = self.console.pages.create(Plot, f"Nested Calc Plot {self.suffix}")

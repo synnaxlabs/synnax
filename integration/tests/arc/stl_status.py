@@ -224,7 +224,8 @@ class StlStatus(ArcCase):
         first = rows[DUP_KEYS[0]]
         if (first.variant, first.message) != (DUP_VARIANT, DUP_MESSAGE):
             self.fail(
-                f"first match {DUP_KEYS[0]}: expected ({DUP_VARIANT!r}, {DUP_MESSAGE!r}), "
+                f"first match {DUP_KEYS[0]}: expected ({DUP_VARIANT!r}, "
+                f"{DUP_MESSAGE!r}), "
                 f"got ({first.variant!r}, {first.message!r})"
             )
         second = rows[DUP_KEYS[1]]

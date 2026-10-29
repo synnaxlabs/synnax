@@ -37,7 +37,7 @@ const nameInput = (): HTMLInputElement =>
 // The port field carries its default rather than a placeholder, so it is reached by
 // the field class instead.
 const portInput = (): HTMLInputElement =>
-  getBySelector<HTMLInputElement>(document.body, ".pluto-field__port input");
+  getBySelector<HTMLInputElement>(document.body, ".lyra-field__port input");
 
 const fillForm = (name: string, host: string, port: string): void => {
   fireEvent.change(nameInput(), { target: { value: name } });

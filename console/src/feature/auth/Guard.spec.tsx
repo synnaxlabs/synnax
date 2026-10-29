@@ -150,7 +150,7 @@ describe("auth guard", () => {
     expect(screen.queryByText("authenticated content")).toBeNull();
     submitCredentials("synnax", "seldon");
     await waitFor(
-      () => expect(document.querySelector(".pluto--status-success")).toBeTruthy(),
+      () => expect(document.querySelector(".lyra--status-success")).toBeTruthy(),
       { timeout: 10000 },
     );
     // The login sequence swaps the Core and project partitions in turn; the workspace

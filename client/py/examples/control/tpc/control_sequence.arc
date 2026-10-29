@@ -17,7 +17,7 @@ func control_tpc() {
             ox_press_cmd = 0
         }
     } else if ox_pt_1 < 20 {
-        if not ox_press_state {
+        if ox_press_state == 0 {
             ox_press_cmd = 1
         }
     }

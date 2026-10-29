@@ -82,12 +82,12 @@ The research behind these rules is in `docs/tech/video-automation/decisions.md`.
 
 ## Traps
 
-- The window panel bar renders `.pluto-tabs__tab` too. Scope mosaic tab locators to
+- The window panel bar renders `.lyra-tabs__tab` too. Scope mosaic tab locators to
   `.console-mosaic`.
 - Menu items carry a shortcut indicator, so `getByText("Close", { exact: true })`
   misses. Match a prefix regex.
-- The inline editable class is `pluto-text--editable`. `CSS.BM` is `block--modifier`,
-  not `__`.
+- The inline editable class is `lyra-text--editable`. `CSS.BM` is `block--modifier`, not
+  `__`.
 - The range overview's own title input answers `getByPlaceholder("Name")`. Scope modal
   locators to `capture.MODAL`.
 - The Axes tab opens on X1, the time axis. Click Y1 before setting bounds.

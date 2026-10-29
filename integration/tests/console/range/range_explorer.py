@@ -15,7 +15,9 @@ from x import random_name
 
 
 class RangeExplorer(ConsoleCase):
-    """Test Range Explorer: context menu operations, multi-select, search, and filter."""
+    """Test Range Explorer: context menu operations, multi-select, search, and
+    filter.
+    """
 
     suffix: str
     label_a_name: str
