@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 /**
- * Mode is how the Desktop login asks about usage data: `ask` for consent, or `notice`
- * that it is on.
+ * Mode is how a site asks about cookies, or the Desktop login about usage data: `ask`
+ * for consent, or `notice` that they are on.
  */
 export type Mode = "ask" | "notice";
 

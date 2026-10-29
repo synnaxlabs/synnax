@@ -21,7 +21,7 @@ body {
 }
 
 * {
-    *:not(:is(.pluto-text, input, label)) {
+    *:not(:is(.lyra-text, input, label)) {
         /* stylelint-disable declaration-no-important -- matches the Console's global
            rule in console/src/app/App.css */
         user-select: none !important;

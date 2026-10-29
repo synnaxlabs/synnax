@@ -16,7 +16,7 @@
     pointer-events: none !important;
 
     .react-flow__resize-control,
-    .pluto-grid__item.pluto-haul-drop-region {
+    .pluto-grid__item.lyra-haul-drop-region {
         pointer-events: auto;
     }
 }

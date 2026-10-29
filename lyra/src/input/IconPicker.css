@@ -9,8 +9,8 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-icon-picker {
-    .pluto-icon-picker__grid {
+.lyra-icon-picker {
+    .lyra-icon-picker__grid {
         display: grid;
         grid-template-columns: repeat(
             var(--pluto-icon-picker-columns),

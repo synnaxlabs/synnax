@@ -52,7 +52,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.type("tank_pressure");
   await session.hold(400);
   await session.click(
-    modal.locator(".pluto-dialog__trigger").filter({ hasText: "float32" }).first(),
+    modal.locator(".lyra-dialog__trigger").filter({ hasText: "float32" }).first(),
   );
   await selectItem(session, "float32");
   await session.click(modal.getByText("Select channel", { exact: true }).first(), {
