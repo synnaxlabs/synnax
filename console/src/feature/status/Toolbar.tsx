@@ -27,6 +27,7 @@ import { type ReactElement, useState } from "react";
 import { Explorer } from "@/feature/status/explorer";
 import { ContextMenu } from "@/feature/status/list/ContextMenu";
 import { Badge, Problems } from "@/feature/status/Problems";
+import { PROBLEMS_VIEW } from "@/flags";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { type Nav } from "@/platform/nav";
@@ -127,7 +128,22 @@ const ListItem = (props: BaseList.ItemProps<status.Key>) => {
 
 const listItem = Component.renderProp(ListItem);
 
-const Content = (): ReactElement => (
+const FavoritesContent = (): ReactElement => (
+  <Toolbar.Content>
+    <Toolbar.Header>
+      <Toolbar.Title>
+        <Icon.Status />
+        Statuses
+      </Toolbar.Title>
+      <Actions />
+    </Toolbar.Header>
+    <Toolbar.Body>
+      <List />
+    </Toolbar.Body>
+  </Toolbar.Content>
+);
+
+const ProblemsContent = (): ReactElement => (
   <Toolbar.Content>
     <Tabs.Frame initialValue="problems" grow>
       <Toolbar.Header>
@@ -183,11 +199,11 @@ const Actions = (): ReactElement | null => {
 export const TOOLBAR: Nav.Toolbar = {
   key: "status",
   icon: <Icon.Status />,
-  content: <Content />,
+  content: PROBLEMS_VIEW ? <ProblemsContent /> : <FavoritesContent />,
   tooltip: "Statuses",
   trigger: ["S"],
   initialSize: 300,
   sizeBounds: { lower: 175, upper: 400 },
   useVisible: () => Access.useRetrieveGranted(status.TYPE_ONTOLOGY_ID),
-  badge: <Badge />,
+  badge: PROBLEMS_VIEW ? <Badge /> : undefined,
 };

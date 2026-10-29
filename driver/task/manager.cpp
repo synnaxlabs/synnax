@@ -90,6 +90,7 @@ void Manager::remove(const synnax::task::Key &key, const bool even_if_processing
     // keeps relevant()'s instance read claim-free.
     if (!even_if_processing && it->second->processing) return;
     if (it->second->relevant(this->rack.key)) return;
+    this->ctx->drop_status(key);
     this->entries.erase(it);
 }
 

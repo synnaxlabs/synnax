@@ -107,7 +107,8 @@ const Item = ({
   );
 };
 
-const item = Component.renderProp(Item);
+// Marked pure, so the Console build drops this view while its flag is off.
+const item = /* @__PURE__ */ Component.renderProp(Item);
 
 /**
  * Lists the open problems, newest first, with how long each has been open and its
