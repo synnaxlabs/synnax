@@ -12,3 +12,50 @@
 [extend]
 useDefault = true
 disabledRules = ["generic-api-key"]
+
+[[allowlists]]
+description = "Test TLS keys for localhost; only test servers and specs use them."
+paths = [
+    '''^driver/http/(mock|testutil)/test_key\.pem$''',
+    '''^freighter/cpp/grpc/(mock|testutil)/test_(leaf_)?key\.pem$''',
+]
+
+[[allowlists]]
+description = "Removed 2024 OPC UA development keys for a local test server."
+paths = ['''^driver/opc/''']
+
+[[allowlists]]
+description = "License fixtures signed by a test key that release builds reject."
+paths = ['''^core/pkg/service/license/testdata/''']
+
+[[allowlists]]
+description = "License key UUID of the portal's test fixture."
+regexTarget = "match"
+regexes = ['''0f2c6a7e-6b1a-4c1d-9c3e-1f1f0b7a2d11''']
+
+[[allowlists]]
+description = "Search-only Algolia key that the docs site sends from the browser."
+regexTarget = "match"
+regexes = ['''1f8b0497301392c94adedf89a98afb6f''']
+
+[[allowlists]]
+description = "PostHog project key, which only sends events and ships in every install."
+regexTarget = "match"
+regexes = ['''phc_CaKeC8DVDWCYaiYSnUpEaWWXLrWptuXwgF7tTY3U6Q7t''']
+
+[[allowlists]]
+description = "Not secrets: a PagerDuty form placeholder and an organization UUID."
+regexTarget = "match"
+regexes = [
+    '''R022XIJR9M266DX570EVE6EXP1AFBN6D''',
+    '''64156293-6534-416c-99d1-8db73a22ca6a''',
+]
+
+[[allowlists]]
+description = "Tokens of the local Uptrace development stack, never deployed."
+regexTarget = "match"
+regexes = [
+    '''project1_secret_token''',
+    '''synnax_dev''',
+    '''102c1a557c314fc28198acd017960843''',
+]
