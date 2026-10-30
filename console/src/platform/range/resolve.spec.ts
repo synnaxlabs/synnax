@@ -131,7 +131,7 @@ describe("Range.useResolveMultiple", () => {
           variant: "persisted",
           key: created.key,
           name: created.name,
-          timeRange: created.timeRange.numeric,
+          timeRange: created.timeRange,
         },
       ]),
     );
