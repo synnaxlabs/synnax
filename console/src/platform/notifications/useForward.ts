@@ -175,8 +175,10 @@ const createForwarder = ({
         if (!inUse) problem.decision = "hidden";
         show(problem);
       },
-      (exc: unknown) =>
-        handleError(exc, { message: "Failed to show status", name: stat.name }),
+      (exc: unknown) => {
+        if (problems.get(stat.key) !== problem) return;
+        handleError(exc, { message: "Failed to show status", name: stat.name });
+      },
     );
   };
 

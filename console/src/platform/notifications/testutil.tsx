@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax as Client } from "@synnaxlabs/client";
+import { type Synnax } from "@synnaxlabs/client";
 import { waitForStreamLive } from "@synnaxlabs/client/testutil";
 import { Status } from "@synnaxlabs/lyra/status";
 import { TimeStamp } from "@synnaxlabs/x";
@@ -36,7 +36,7 @@ export const UncappedFeed = (): ReactElement => {
  * Writes an alarm and waits until it notifies. The Core streams statuses in write
  * order, so the forwarder has received every status written before it.
  */
-export const settleWrites = async (client: Client): Promise<void> => {
+export const settleWrites = async (client: Synnax): Promise<void> => {
   const message = uniqueName("settled");
   await client.statuses.set({
     key: uniqueName("alarm"),
@@ -78,7 +78,7 @@ const Forward = ({ rules }: ForwardProps): ReactElement => {
  * the load ends counts as open at load.
  */
 export const renderForward = async (
-  client: Client,
+  client: Synnax,
   rules: Notifications.Rules,
 ): Promise<void> => {
   await waitForStreamLive(client.connection);
