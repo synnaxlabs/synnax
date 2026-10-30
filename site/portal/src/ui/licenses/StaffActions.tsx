@@ -16,7 +16,7 @@ import { type ReactElement } from "react";
 import { type License } from "@/server/db/schema";
 import { deny } from "@/server/license/deny";
 import { filename } from "@/server/license/limits";
-import { post, postFile, reload, save } from "@/ui/api";
+import { navigate, post, postFile, reload, save } from "@/ui/api";
 import { EditDialog } from "@/ui/licenses/EditDialog";
 import { Modal } from "@/ui/modal";
 import { useAction } from "@/ui/useAction";
@@ -24,21 +24,41 @@ import { useAction } from "@/ui/useAction";
 export interface StaffActionsProps {
   license: License;
   now: Date;
+  /** back is the page that opens once the license is deleted. */
+  back: string;
 }
 
 /** StaffActions are the license actions only Synnax Labs staff can take. */
 export const StaffActions = ({
   license: lic,
   now,
+  back,
 }: StaffActionsProps): ReactElement => {
   const floating = useAction(async () => {
     const blob = await postFile(`/api/licenses/${lic.key}/floating`);
     save(blob, filename(lic.label));
   });
+  const restore = useAction(async () => {
+    await post(`/api/licenses/${lic.key}/restore`);
+    reload();
+  });
+  const enterprise = lic.edition === "enterprise";
+  const error = floating.error ?? restore.error;
   return (
     <>
-      {floating.error != null && (
-        <Status.Summary variant="error" level="small" message={floating.error} />
+      {error != null && (
+        <Status.Summary variant="error" level="small" message={error} />
+      )}
+      {lic.revokedAt != null && enterprise && (
+        <Button.Button
+          variant="outlined"
+          onClick={restore.run}
+          status={restore.loading ? "loading" : undefined}
+          tooltip="Let it activate machines again while its terms allow. Its admins are emailed."
+        >
+          <Icon.Undo />
+          Restore
+        </Button.Button>
       )}
       {lic.revokedAt == null && <EditDialog license={lic} />}
       {deny(lic, now) == null && (
@@ -55,10 +75,10 @@ export const StaffActions = ({
       {lic.revokedAt == null && (
         <Modal.Frame
           name={`${lic.label}.Revoke`}
-          icon={<Icon.Delete />}
+          icon={<Icon.Disable />}
           trigger={
             <Dialog.Trigger variant="outlined" status="error" hideCaret>
-              <Icon.Delete />
+              <Icon.Disable />
               Revoke
             </Dialog.Trigger>
           }
@@ -72,11 +92,40 @@ export const StaffActions = ({
               reload();
             }}
           >
-            Every Core running under it loses its license at its next check. The
-            organization's admins are emailed. There is no undo.
+            No machine can activate it or download its license key. A Core checks its
+            license offline, so a Core that already holds it keeps running as its terms
+            allow. The organization's admins are emailed.
+            {enterprise
+              ? " Restore undoes this."
+              : " A Desktop license cannot be restored."}
           </Modal.Confirm>
         </Modal.Frame>
       )}
+      <Modal.Frame
+        name={`${lic.label}.Delete`}
+        icon={<Icon.Delete />}
+        trigger={
+          <Dialog.Trigger variant="outlined" status="error" hideCaret>
+            <Icon.Delete />
+            Delete
+          </Dialog.Trigger>
+        }
+      >
+        <Modal.Confirm
+          question={`Delete "${lic.label}"?`}
+          confirm="Delete"
+          delay={1500}
+          onConfirm={async () => {
+            await post(`/api/licenses/${lic.key}/delete`);
+            navigate(back);
+          }}
+        >
+          This deletes the license, its machines, and its history. You cannot undo it,
+          and no one gets an email. A Core checks its license offline, so a Core that
+          already holds it keeps running as its terms allow. To keep the history, revoke
+          the license instead.
+        </Modal.Confirm>
+      </Modal.Frame>
     </>
   );
 };

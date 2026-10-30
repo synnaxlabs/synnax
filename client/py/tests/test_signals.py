@@ -78,7 +78,9 @@ class TestRegistry:
 
         def handler(_: Latest) -> None: ...
 
-        decorated = fresh_client.signals.on(virtual_channel.key, lambda _: True)
+        decorated = fresh_client.signals.on(
+            virtual_channel.key, filter_f=lambda _: True
+        )
         assert decorated(handler) is handler
 
     @pytest.mark.asyncio
@@ -88,7 +90,7 @@ class TestRegistry:
         """Should call a handler registered by key with the latest value."""
         values: list[SampleValue] = []
 
-        @fresh_client.signals.on(virtual_channel.key, lambda _: True)
+        @fresh_client.signals.on(virtual_channel.key, filter_f=lambda _: True)
         def handler(state: Latest) -> None:
             values.append(state[virtual_channel.key])
 
@@ -103,7 +105,7 @@ class TestRegistry:
         """Should resolve a channel name and call the handler by name."""
         values: list[SampleValue] = []
 
-        @fresh_client.signals.on(virtual_channel.name, lambda _: True)
+        @fresh_client.signals.on(virtual_channel.name, filter_f=lambda _: True)
         def handler(state: Latest) -> None:
             values.append(state[virtual_channel.name])
 
@@ -124,11 +126,11 @@ class TestRegistry:
             value = state[key]
             return isinstance(value, float) and value > 5
 
-        @fresh_client.signals.on(key, above_five)
+        @fresh_client.signals.on(key, filter_f=above_five)
         def above(state: Latest) -> None:
             filtered.append(state[key])
 
-        @fresh_client.signals.on(key, lambda _: True)
+        @fresh_client.signals.on(key, filter_f=lambda _: True)
         def all_values(state: Latest) -> None:
             every.append(state[key])
 
@@ -153,11 +155,11 @@ class TestRegistryDispatch:
         a_values: list[SampleValue] = []
         b_values: list[SampleValue] = []
 
-        @fresh_client.signals.on(a.key, lambda s: s[a.key] == 1)
+        @fresh_client.signals.on(a.key, filter_f=lambda s: s[a.key] == 1)
         def on_a(state: Latest) -> None:
             a_values.append(state[a.key])
 
-        @fresh_client.signals.on(b.key, lambda _: True)
+        @fresh_client.signals.on(b.key, filter_f=lambda _: True)
         def on_b(state: Latest) -> None:
             b_values.append(state[b.key])
 
@@ -173,7 +175,7 @@ class TestRegistryDispatch:
         a_values: list[SampleValue] = []
         sums: list[float] = []
 
-        @fresh_client.signals.on(a.key, lambda _: True)
+        @fresh_client.signals.on(a.key, filter_f=lambda _: True)
         def on_a(state: Latest) -> None:
             a_values.append(state[a.key])
 
@@ -183,7 +185,7 @@ class TestRegistryDispatch:
             assert isinstance(b_value, float)
             return a_value + b_value > 2
 
-        @fresh_client.signals.on([a.key, b.key], sum_above_two)
+        @fresh_client.signals.on([a.key, b.key], filter_f=sum_above_two)
         def on_both(state: Latest) -> None:
             a_value, b_value = state[a.key], state[b.key]
             assert isinstance(a_value, float)
@@ -208,7 +210,7 @@ class TestRegistryStreamer:
         ch = create_channel(client)
         values: list[SampleValue] = []
 
-        @proxied_client.signals.on(ch.key, lambda _: True)
+        @proxied_client.signals.on(ch.key, filter_f=lambda _: True)
         def handler(state: Latest) -> None:
             values.append(state[ch.key])
 

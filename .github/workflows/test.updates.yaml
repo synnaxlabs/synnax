@@ -17,6 +17,9 @@ concurrency:
   group: updates-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   check-versions:
     name: Check versions

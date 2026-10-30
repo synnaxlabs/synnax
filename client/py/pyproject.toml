@@ -9,7 +9,8 @@
 
 [project]
 name = "synnax"
-version = "0.59.0"
+version = "0.60.0"
+readme = "README.md"
 description = "Synnax Client Library"
 keywords = ["Synnax", "Synnax Python Client"]
 authors = [{ name = "Emiliano Bonilla", email = "ebonilla@synnaxlabs.com" }]
@@ -43,7 +44,7 @@ dev = [
     "mypy>=2.4.0,<3",
     "ruff>=0.17.1,<1",
     "pandas-stubs>=3.0.5.260914,<4",
-    "pymodbus>=3.16.1,<4",
+    "pymodbus[serial]>=3.16.1,<4",
     "pytest>=9.1.1,<10",
     "pytest-asyncio>=1.4.0,<2",
     "pytest-cov>=7.1.0,<8",
@@ -70,6 +71,7 @@ select = [
     "I",
     "B",
     "DTZ",
+    "E501",
     "E7",
     "E9",
     "PLE",
@@ -88,6 +90,7 @@ ignore = ["UP040", "UP046", "UP047", "SIM105", "SIM115", "SIM117", "PT012", "RUF
 known-first-party = ["synnax", "alamos", "freighter", "x"]
 
 [tool.mypy]
+python_version = "3.12"
 mypy_path = "stubs"
 plugins = ["pydantic.mypy"]
 strict = true
@@ -148,6 +151,9 @@ markers = [
     "focus: marker to temporarily focus a test",
     "user: marker to temporarily focus a user test",
 ]
+
+[tool.coverage.run]
+omit = ["*/types_gen.py"]
 
 [build-system]
 requires = ["hatchling"]

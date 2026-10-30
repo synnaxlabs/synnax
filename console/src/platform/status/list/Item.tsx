@@ -12,7 +12,6 @@ import "@/platform/status/list/Item.css";
 import { status } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status as Base } from "@synnaxlabs/lyra/status";
@@ -36,7 +35,6 @@ export const Item = (props: ItemProps): ReactElement | null => {
     dispatch(Session.Status.toggleFavorite(itemKey));
   };
   const item = List.useItem<status.Key, status.Status>(itemKey);
-  const { selected, onSelect } = Select.useItemState(itemKey);
   const canRename = Access.useUpdateGranted(status.ontologyID(itemKey));
   const { update: rename } = Status.useRename();
 
@@ -44,20 +42,13 @@ export const Item = (props: ItemProps): ReactElement | null => {
   const { name, time, variant, message, labels } = item;
 
   return (
-    <List.Item<status.Key>
+    <Select.Item<status.Key>
       {...props}
-      className={CSS.cls(CSS.BE("status", "list-item"))}
+      className={CSS.BE("status", "list-item")}
+      checkable
       justify="between"
-      selected={selected}
     >
-      <Flex.Box x empty>
-        <Input.Checkbox
-          value={selected}
-          onChange={onSelect}
-          size="medium"
-          reveal={!selected}
-          aria-label="Select"
-        />
+      <Flex.Box x grow>
         <Text.Text level="p" weight={450}>
           <Base.Indicator variant={variant} />
           <Text.MaybeEditable
@@ -98,6 +89,6 @@ export const Item = (props: ItemProps): ReactElement | null => {
         </Text.Text>
         <Button.Favorite isFavorite={isFavorite} onFavorite={handleFavorite} reveal />
       </Flex.Box>
-    </List.Item>
+    </Select.Item>
   );
 };

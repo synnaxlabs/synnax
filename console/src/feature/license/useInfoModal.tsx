@@ -21,6 +21,8 @@ import { License as PLicense, Synnax } from "@synnaxlabs/pluto";
 import { caseconv, TimeStamp } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
+import { Handoff } from "@/feature/license/Handoff";
+import { KeyInput } from "@/feature/license/KeyInput";
 import { CSS } from "@/platform/css";
 import { License } from "@/platform/license";
 import { Modals } from "@/platform/modals";
@@ -172,6 +174,19 @@ const Info = () => {
               {lic != null && <Stats license={lic} fingerprint={fingerprint} />}
             </Flex.Box>
           )
+        )}
+        {info != null && lic?.edition !== "d" && (
+          <Flex.Box y gap="medium">
+            <Text.Text level="h5" weight={500}>
+              Update the license
+            </Text.Text>
+            {fingerprint.length > 0 && (
+              <Handoff fingerprint={fingerprint} variant="outlined">
+                Get a new key on the portal
+              </Handoff>
+            )}
+            <KeyInput />
+          </Flex.Box>
         )}
         <Flex.Box y gap="small" className={CSS.BE("license-info", "support")}>
           <Flex.Box y gap="tiny">

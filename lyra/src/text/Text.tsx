@@ -31,7 +31,7 @@ type AnchorProps = ComponentPropsWithoutRef<"a">;
  */
 export type Variant = "prose" | "code" | "numeric" | "keyboard" | "link";
 /** What happens to text that outruns its box. */
-export type Overflow = "ellipsis" | "fade" | "clip" | "nowrap" | "wrap";
+export type Overflow = "fade" | "clip" | "nowrap" | "wrap";
 
 /**
  * The text-specific props {@link TextProps} adds. Text is a flex box, so it also takes
@@ -54,7 +54,7 @@ export interface ExtensionProps
   overflow?: Overflow;
   /** Tints the text with a status color. */
   status?: Status.Variant;
-  /** Truncates past this many lines. Implies an ellipsis. */
+  /** Truncates past this many lines, fading the end of the last one. */
   lineClamp?: number;
 }
 
@@ -136,7 +136,7 @@ const formatStyle = (
  * a label lay out inside one element with no wrapper.
  *
  * @example <Text.Text level="h3">Ranges</Text.Text>
- * @example <Text.Text level="p" overflow="ellipsis"><Icon.Range />{name}</Text.Text>
+ * @example <Text.Text level="p" overflow="fade"><Icon.Range />{name}</Text.Text>
  */
 export const Text = <E extends Generic.ElementType = "p">({
   level = "p",

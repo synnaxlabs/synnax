@@ -37,22 +37,23 @@ class Writer:
 
     def __init__(
         self,
+        *,
         client: UnaryClient,
         instrumentation: Instrumentation = NOOP,
     ) -> None:
         self._client = client
         self.instrumentation = instrumentation
 
-    @trace("debug", "range.create")
+    @trace("debug", key="range.create")
     def create(self, ranges: list[Payload]) -> list[Payload]:
         req = _CreateRequest(ranges=ranges)
         return self._client.send("/range/create", req, _CreateResponse).ranges
 
-    @trace("debug", "range.delete")
+    @trace("debug", key="range.delete")
     def delete(self, keys: list[Key]) -> None:
         req = _DeleteRequest(keys=keys)
         self._client.send("/range/delete", req, Empty)
 
-    @trace("debug", "range.rename")
+    @trace("debug", key="range.rename")
     def rename(self, key: Key, name: str) -> None:
         self._client.send("/range/rename", _RenameRequest(key=key, name=name), Empty)

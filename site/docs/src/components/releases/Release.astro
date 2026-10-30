@@ -13,8 +13,16 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
 import "@/styles/release-diagrams.css";
 import { releaseAnchor } from "@/util/releaseNotes";
-const { date, version, title, breakingChanges, npmVersion = version } = Astro.props;
-const firstPart = version.split(".").slice(0, 2).join(".");
+const {
+    date,
+    version,
+    title,
+    breakingChanges,
+    npmVersion = version,
+    desktopVersion,
+} = Astro.props;
+const majorMinor = (v: string) => v.split(".").slice(0, 2).join(".");
+const firstPart = majorMinor(version);
 const [major, minor] = version.split(".").map(Number);
 // From v0.59, each product has its own tag, and the Core's tag stands for the release.
 const tag = major === 0 && minor < 59 ? `synnax-v${version}` : `core/v${version}`;
@@ -26,6 +34,14 @@ const tag = major === 0 && minor < 59 ? `synnax-v${version}` : `core/v${version}
             <Text.Text level="h3" weight={500}>
                 Version {firstPart}
             </Text.Text>
+            {desktopVersion != null && (
+                <Text.Text
+                    className="desktop-version"
+                    href={`https://github.com/synnaxlabs/synnax/releases/tag/desktop/v${desktopVersion}`}
+                >
+                    Desktop {majorMinor(desktopVersion)}
+                </Text.Text>
+            )}
             <Text.Text color={8}>{date}</Text.Text>
             {breakingChanges ? (
                 <Text.Text className="breaking-changes" level="small">
@@ -65,10 +81,11 @@ const tag = major === 0 && minor < 59 ? `synnax-v${version}` : `core/v${version}
 
 <style is:global>
     .release {
-        padding: 10rem 0rem;
+        padding: 10rem 0;
         max-width: 1150px;
         position: relative;
         margin: 0 auto;
+
         .meta {
             height: fit-content;
             position: sticky;
@@ -78,23 +95,37 @@ const tag = major === 0 && minor < 59 ? `synnax-v${version}` : `core/v${version}
             flex-basis: 375px;
             flex-grow: 1;
         }
+
         .details {
             flex-basis: 600px;
             flex-grow: 3;
             min-width: 0;
         }
+
+        .desktop-version {
+            color: var(--pluto-gray-l10);
+
+            &:hover {
+                color: var(--pluto-gray-l11);
+            }
+        }
+
         .breaking-changes {
             color: var(--pluto-error-z);
         }
+
         .no-breaking-changes {
             color: var(--pluto-success-z);
         }
+
         .link {
             height: 3.25rem;
             width: 3.25rem;
-            &.pluto-icon--logo-github {
+
+            &.lyra-icon--logo-github {
                 transform: scale(1.2);
             }
+
             color: var(--pluto-gray-l7);
             transition: all 0.2s ease-in-out;
 
@@ -103,9 +134,11 @@ const tag = major === 0 && minor < 59 ? `synnax-v${version}` : `core/v${version}
             }
         }
     }
-    @media (max-width: 800px) {
+
+    @media (width <= 800px) {
         .release {
             flex-direction: column !important;
+
             .meta {
                 position: unset;
                 flex-basis: fit-content;

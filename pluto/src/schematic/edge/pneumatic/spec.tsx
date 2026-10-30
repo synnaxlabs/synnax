@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic } from "@synnaxlabs/client";
-import { CSS } from "@synnaxlabs/lyra/css";
 import { color, type direction, xy } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
+import { CSS } from "@/css";
 import { Base } from "@/schematic/edge/common/base";
 import { Path } from "@/schematic/edge/common/path";
 import { Segmented } from "@/schematic/edge/common/segmented";
@@ -63,7 +63,7 @@ const Line = ({
 }: Segmented.PathProps): ReactElement => {
   const symbolStyle = { [Primitive.SYMBOL_COLOR]: color.rgbaString(colorVal) };
   return (
-    <g className={CSS.B("symbol-colored")} style={symbolStyle}>
+    <g className={CSS.symbolColored} style={symbolStyle}>
       <Base.Base path={Path.rounded(points, crossings)} color={colorVal} />
       {Path.computeSymbolPositions(points, SYMBOL_INTERVAL).map(
         ({ position, direction }, i) => (

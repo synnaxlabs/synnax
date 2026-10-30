@@ -9,6 +9,8 @@
 
 #include "absl/log/log.h"
 
+#include "x/cpp/os/os.h"
+
 #ifndef SYNNAX_NILINUXRT
 #include "driver/modbus/modbus.h"
 #endif
@@ -18,6 +20,7 @@
 #include "driver/http/http.h"
 #include "driver/rack/rack.h"
 #include "driver/rack/status/status.h"
+#include "driver/rack/unavailable.h"
 
 namespace driver::rack {
 using FactoryList = std::vector<std::unique_ptr<task::Factory>>;
@@ -35,6 +38,14 @@ void configure_integration(
 ) {
     if (!config.integration_enabled(integration_name)) {
         VLOG(1) << "[" << integration_name << "] integration disabled";
+        factories.push_back(
+            std::make_unique<UnavailableFactory>(
+                integration_name,
+                "The configuration of this Driver turns off the '" + integration_name +
+                    "' integration. Turn it on in the Driver configuration, then restart "
+                    "the Driver."
+            )
+        );
         return;
     }
     VLOG(1) << "[" << integration_name << "] integration enabled";
@@ -42,8 +53,14 @@ void configure_integration(
 }
 
 void configure_opcua(const Config &config, FactoryList &factories) {
-    configure_integration(config, factories, opcua::INTEGRATION_NAME, []() {
-        return std::make_unique<opcua::Factory>();
+    configure_integration(config, factories, opcua::INTEGRATION_NAME, [&config]() {
+        auto [host, _] = x::os::get_hostname();
+        return std::make_unique<opcua::Factory>(
+            std::make_shared<opcua::certificate::Store>(opcua::certificate::StoreConfig{
+                .dir = config.state_dir / "opcua" / "pki",
+                .host = host,
+            })
+        );
     });
 }
 
@@ -65,8 +82,9 @@ void configure_state(FactoryList &factories) {
 
 #ifndef SYNNAX_NILINUXRT
 void configure_modbus(const Config &config, FactoryList &factories) {
-    if (!config.integration_enabled(modbus::INTEGRATION_NAME)) return;
-    factories.push_back(std::make_unique<modbus::Factory>());
+    configure_integration(config, factories, modbus::INTEGRATION_NAME, []() {
+        return std::make_unique<modbus::Factory>();
+    });
 }
 #endif
 

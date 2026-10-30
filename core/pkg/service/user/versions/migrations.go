@@ -10,9 +10,15 @@
 package versions
 
 import (
+	"slices"
+
 	"github.com/synnaxlabs/gorp"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/user/versions/v0"
+	v1 "github.com/synnaxlabs/synnax/pkg/service/user/versions/v1"
 )
 
+// V0Migrations bring stored users to their v0 shape.
+var V0Migrations = []gorp.Migration{v0.NormalizeKeys, v0.Migration}
+
 // Migrations is the ordered migration chain for stored users.
-var Migrations = []gorp.Migration{v0.NormalizeKeys, v0.Migration}
+var Migrations = slices.Concat(V0Migrations, []gorp.Migration{v1.Migration})

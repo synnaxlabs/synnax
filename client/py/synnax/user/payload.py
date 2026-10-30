@@ -17,32 +17,21 @@ from synnax import ontology
 class New(BaseModel):
     username: str
     password: str
-    first_name: str = ""
-    last_name: str = ""
+    name: str = ""
     key: UUID | None = None
 
 
 class User(BaseModel):
     key: UUID
-    username: str
-    first_name: str
-    last_name: str
+    name: str
 
     @property
     def ontology_id(self) -> ontology.ID:
-        return ontology_id(self.key)
+        return _ontology_id(self.key)
 
 
-ONTOLOGY_TYPE = ontology.ID(type="user")
+_ONTOLOGY_TYPE = ontology.ID(type="user")
 
 
-def ontology_id(key: UUID) -> ontology.ID:
-    """Create an ontology ID for a user.
-
-    Args:
-        key: The user key.
-
-    Returns:
-        An ontology ID dictionary with type "user" and the given key.
-    """
-    return ontology.ID(type=ONTOLOGY_TYPE.type, key=str(key))
+def _ontology_id(key: UUID) -> ontology.ID:
+    return ontology.ID(type=_ONTOLOGY_TYPE.type, key=str(key))
