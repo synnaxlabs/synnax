@@ -66,6 +66,7 @@ const DEFAULT_STATE = {
   selectedText: "",
   selectedLines: [],
   computedLineHeight: 16,
+  rowEntries: [],
 };
 
 const setupAether = (overrides: Record<string, unknown> = {}) => {
@@ -555,6 +556,21 @@ describe("log/Base", () => {
       const logDiv = getLogDiv(container);
       fireEvent.mouseDown(logDiv, { button: 0, clientY: 100 });
       expect(setState).toHaveBeenCalled();
+    });
+
+    it("should select the entry of a wrapped row", () => {
+      const { setState } = setupAether({
+        empty: false,
+        computedLineHeight: 16,
+        rowEntries: [4, 4, 4, 5],
+        region: box.construct({ x: 0, y: 0 }, { width: 400, height: 600 }),
+      });
+      const { container } = renderLog();
+      fireEvent.mouseDown(getLogDiv(container), { button: 0, clientY: 30 });
+      const update = setState.mock.calls[setState.mock.calls.length - 1][0];
+      expect(update({ selectionStart: -1, selectionEnd: -1 })).toMatchObject({
+        selectionStart: 4,
+      });
     });
 
     it("should compute entry index from clientY position", () => {
