@@ -391,6 +391,14 @@ var _ = Describe("Service", func() {
 			Expect(retrieveStatus(ctx, d.Key).Name).To(Equal("Renamed"))
 		})
 
+		It("Should return not found for a missing device", func(ctx SpecContext) {
+			Expect(svc.NewWriter(tx).Apply(ctx, uuid.New(), device.Update{
+				Variant: device.ConfigurationUpdate{
+					Configuration: device.Configuration{Name: "Renamed"},
+				},
+			})).To(MatchError(query.ErrNotFound))
+		})
+
 		DescribeTable("Should reject an invalid update",
 			func(ctx SpecContext, update device.Update, message string) {
 				d := create(ctx)
