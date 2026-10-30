@@ -209,7 +209,7 @@ var _ = Describe("Variable-length channel", func() {
 							},
 						}))
 						defer func() { Expect(idx.Close()).To(Succeed()) }()
-						rec := xfs.NewRecorder(MustSucceed(subFS.Sub("data")))
+						rec := NewRecorder(MustSucceed(subFS.Sub("data")))
 						data := MustSucceed(unary.Open(ctx, unary.Config{
 							FS:        rec,
 							MetaCodec: json.Codec,
@@ -253,7 +253,7 @@ var _ = Describe("Variable-length channel", func() {
 						// A cache miss does one 4-byte ReadAt per sample to walk length
 						// prefixes, so the cache-hit path must do zero of them.
 						Expect(
-							rec.Count(xfs.MatchOp(xfs.OpReadAt), xfs.MatchLength(4)),
+							rec.Count(MatchOp(OpReadAt), MatchLength(4)),
 						).To(BeZero())
 					},
 				)
@@ -316,7 +316,7 @@ var _ = Describe("Variable-length channel", func() {
 							},
 						}))
 						defer func() { Expect(reopenIdx.Close()).To(Succeed()) }()
-						rec := xfs.NewRecorder(MustSucceed(subFS.Sub("data")))
+						rec := NewRecorder(MustSucceed(subFS.Sub("data")))
 						reopenData := MustSucceed(unary.Open(ctx, unary.Config{
 							FS:        rec,
 							MetaCodec: json.Codec,
@@ -347,7 +347,7 @@ var _ = Describe("Variable-length channel", func() {
 						// the recorder should see no 4-byte ReadAts even though the
 						// cache started empty.
 						Expect(
-							rec.Count(xfs.MatchOp(xfs.OpReadAt), xfs.MatchLength(4)),
+							rec.Count(MatchOp(OpReadAt), MatchLength(4)),
 						).To(BeZero())
 					},
 				)
@@ -368,7 +368,7 @@ var _ = Describe("Variable-length channel", func() {
 							FileSize: 40 * telem.Byte,
 						}))
 						defer func() { Expect(idx.Close()).To(Succeed()) }()
-						rec := xfs.NewRecorder(MustSucceed(subFS.Sub("data")))
+						rec := NewRecorder(MustSucceed(subFS.Sub("data")))
 						data := MustSucceed(unary.Open(ctx, unary.Config{
 							FS:        rec,
 							MetaCodec: json.Codec,
@@ -433,7 +433,7 @@ var _ = Describe("Variable-length channel", func() {
 						// rollover, so the read should not perform any length-prefix
 						// scans on either data file.
 						Expect(
-							rec.Count(xfs.MatchOp(xfs.OpReadAt), xfs.MatchLength(4)),
+							rec.Count(MatchOp(OpReadAt), MatchLength(4)),
 						).To(BeZero())
 					},
 				)
@@ -453,7 +453,7 @@ var _ = Describe("Variable-length channel", func() {
 							},
 						}))
 						defer func() { Expect(idx.Close()).To(Succeed()) }()
-						rec := xfs.NewRecorder(MustSucceed(subFS.Sub("data")))
+						rec := NewRecorder(MustSucceed(subFS.Sub("data")))
 						data := MustSucceed(unary.Open(ctx, unary.Config{
 							FS:        rec,
 							MetaCodec: json.Codec,
@@ -499,7 +499,7 @@ var _ = Describe("Variable-length channel", func() {
 						// directly. A rebuild scan would emit one 4-byte ReadAt
 						// per sample.
 						Expect(
-							rec.Count(xfs.MatchOp(xfs.OpReadAt), xfs.MatchLength(4)),
+							rec.Count(MatchOp(OpReadAt), MatchLength(4)),
 						).To(BeZero())
 					},
 				)
@@ -630,7 +630,7 @@ var _ = Describe("Variable-length channel", func() {
 							},
 						}))
 						defer func() { Expect(idx.Close()).To(Succeed()) }()
-						rec := xfs.NewRecorder(MustSucceed(subFS.Sub("data")))
+						rec := NewRecorder(MustSucceed(subFS.Sub("data")))
 						data := MustSucceed(unary.Open(ctx, unary.Config{
 							FS:        rec,
 							MetaCodec: json.Codec,
@@ -692,7 +692,7 @@ var _ = Describe("Variable-length channel", func() {
 						// is served entirely from cache.
 						var lengthPrefixReads int
 						for _, e := range rec.Events() {
-							if e.Op == xfs.OpReadAt && e.Length == 4 {
+							if e.Op == OpReadAt && e.Length == 4 {
 								lengthPrefixReads++
 							}
 						}

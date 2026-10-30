@@ -294,7 +294,7 @@ func BenchmarkCalculator_NestedTwoLevel(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		advanceAlignment(inputFrame)
-		_, _, _ = group.Next(env.ctx, inputFrame)
+		_, _ = group.Next(env.ctx, inputFrame, saveReport)
 	}
 	b.StopTimer()
 	b.ReportMetric(float64(3*b.N)/b.Elapsed().Seconds(), "samples/sec")
@@ -432,7 +432,7 @@ func BenchmarkCalculator_GroupScaling(b *testing.B) {
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				advanceAlignment(inputFrame)
-				_, _, _ = group.Next(env.ctx, inputFrame)
+				_, _ = group.Next(env.ctx, inputFrame, saveReport)
 			}
 			b.StopTimer()
 			b.ReportMetric(float64(3*b.N)/b.Elapsed().Seconds(), "samples/sec")

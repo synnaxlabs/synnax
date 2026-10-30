@@ -37,10 +37,6 @@ type unaryServerOptions struct {
 	// responseEncoders is the set of encoders the unary server will consider when
 	// resolving the response body codec from the Accept header.
 	responseEncoders []http.Encoder
-	// errorEncoders is the set of encoders the unary server will consider when the
-	// handler fails. It is separate from responseEncoders because a response encoder
-	// may be specialized to a single payload shape and unable to carry an error.
-	errorEncoders []http.Encoder
 	// streaming writes the response through Encoder.EncodeStream as a chunked body
 	// instead of buffering it. See WithStreamingResponse.
 	streaming bool
@@ -62,14 +58,6 @@ func WithRequestDecoders(decoders ...http.Decoder) UnaryServerOption {
 // the request's Accept header.
 func WithResponseEncoders(encoders ...http.Encoder) UnaryServerOption {
 	return func(o *unaryServerOptions) { o.responseEncoders = encoders }
-}
-
-// WithErrorEncoders overrides the set of encoders the unary server matches against the
-// request's Accept header when the handler returns an error. The first encoder is the
-// fallback when Accept matches none of them. Passing none leaves error responses with a
-// status and no encoded payload.
-func WithErrorEncoders(encoders ...http.Encoder) UnaryServerOption {
-	return func(o *unaryServerOptions) { o.errorEncoders = encoders }
 }
 
 // WithStreamingResponse writes the response body as a chunked stream driven by
@@ -95,7 +83,6 @@ func newUnaryServerOptions(opts []UnaryServerOption) unaryServerOptions {
 	so := unaryServerOptions{
 		requestDecoders:  defaultDecoders,
 		responseEncoders: defaultEncoders,
-		errorEncoders:    defaultEncoders,
 	}
 	for _, opt := range opts {
 		opt(&so)
@@ -188,34 +175,25 @@ func (s *unaryServer[RQ, RS]) fiberHandler(fCtx fiber.Ctx) error {
 
 // writeError answers the request with fErr as a 400.
 func (s *unaryServer[RQ, RS]) writeError(fCtx fiber.Ctx, fErr errors.Payload) error {
-	errEncoder, ok := s.resolveErrorEncoder(fCtx)
-	if !ok {
-		return fCtx.SendStatus(fiber.StatusBadRequest)
-	}
+	errEncoder := resolveErrorEncoder(fCtx)
 	fCtx.Set(fiber.HeaderContentType, errEncoder.ContentType())
 	fCtx.Status(fiber.StatusBadRequest)
 	return encodeAndWrite(fCtx, errEncoder, fErr)
 }
 
-// resolveErrorEncoder returns the encoder for an error payload, negotiating the
-// configured error encoders against the request's Accept header and falling back to the
-// first when none matches. It reports false when the server was given no error
-// encoders, leaving the caller to answer with a status and no encoded payload.
-func (s *unaryServer[RQ, RS]) resolveErrorEncoder(fCtx fiber.Ctx) (http.Encoder, bool) {
-	if len(s.errorEncoders) == 0 {
-		return nil, false
-	}
-	offers := lo.Map(s.errorEncoders, func(e http.Encoder, _ int) string {
+// Errors skip the route's response encoders, which may carry only one payload shape.
+func resolveErrorEncoder(fCtx fiber.Ctx) http.Encoder {
+	offers := lo.Map(defaultEncoders, func(e http.Encoder, _ int) string {
 		return e.ContentType()
 	})
 	if matched := fCtx.Accepts(offers...); matched != "" {
-		for _, e := range s.errorEncoders {
+		for _, e := range defaultEncoders {
 			if e.ContentType() == matched {
-				return e, true
+				return e
 			}
 		}
 	}
-	return s.errorEncoders[0], true
+	return defaultEncoders[0]
 }
 
 func (s *unaryServer[RQ, RS]) resolveRequestDecoder(

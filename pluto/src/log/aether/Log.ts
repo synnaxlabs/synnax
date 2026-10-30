@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { log } from "@synnaxlabs/client";
+import { log, type status } from "@synnaxlabs/client";
 import { type theme } from "@synnaxlabs/lyra/theme";
 import {
   bounds,
@@ -266,24 +266,27 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
         }));
     }
 
-    this.entries = this.internal.telem.value().data;
+    const { data, status } = i.telem.value();
+    this.entries = data;
     this.setAnchors(this.state.selectionStart, this.state.selectionEnd);
-    this.checkEmpty();
+    this.checkEmpty(status);
     i.stopListeningTelem?.();
     i.stopListeningTelem = i.telem.onChange(() => {
-      this.entries = this.internal.telem.value().data;
+      const { data, status } = this.internal.telem.value();
+      this.entries = data;
       this.reanchor();
-      this.checkEmpty();
+      this.checkEmpty(status);
       if (this.state.visible) this.requestRender();
     });
     if (!this.state.visible && !this.prevState.visible) return;
     this.requestRender();
   }
 
-  private checkEmpty(): void {
-    const actuallyEmpty = this.entries.length === 0;
+  // A loading log is not empty, since its stored entries have not arrived yet.
+  private checkEmpty(s: status.Status): void {
+    const actuallyEmpty = this.entries.length === 0 && s.variant !== "loading";
     if (actuallyEmpty === this.state.empty) return;
-    this.setState((s) => ({ ...s, empty: actuallyEmpty }));
+    this.setState((p) => ({ ...p, empty: actuallyEmpty }));
   }
 
   afterDelete(): void {

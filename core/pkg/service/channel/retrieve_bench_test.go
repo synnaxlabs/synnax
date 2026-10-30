@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"github.com/onsi/gomega"
+	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -153,7 +154,7 @@ func BenchmarkMatchIndexes(b *testing.B) {
 			}
 		})
 		b.Run(fmt.Sprintf("calculated=%d/miss", count), func(b *testing.B) {
-			absent := channel.NewKey(0, 999_999)
+			absent := distchannel.NewKey(0, 999_999)
 			b.ReportAllocs()
 			for range b.N {
 				if n := len(env.owners(b, absent)); n != 0 {
