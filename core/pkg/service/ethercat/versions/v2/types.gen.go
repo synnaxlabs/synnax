@@ -44,20 +44,9 @@ type EntryReadChannel struct {
 	SubIndex uint8 `json:"sub_index" msgpack:"sub_index"`
 	// DataType is the data type of the PDO entry.
 	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
-	// Scale is the scale applied to raw samples after acquisition. A scaled channel
-	// writes to a float Synnax channel.
-	Scale Scale `json:"scale" msgpack:"scale"`
 }
 
 func (EntryReadChannel) isReadChannelVariant() {}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (e *EntryReadChannel) ApplyDefaults() {
-	if e.Scale.Variant == nil {
-		e.Scale.Variant = NoneScale{}
-	}
-	e.Scale.ApplyDefaults()
-}
 
 // UnresolvedReadChannel is a channel whose PDO entry name matched no single entry on
 // its slave. It must be given an entry before the task runs.
@@ -129,16 +118,6 @@ func (u *ReadChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		return errors.Newf("ReadChannel: unknown type %q", disc.Type)
 	}
 	return nil
-}
-
-// ApplyDefaults fills the active variant's zero-valued fields with their
-// schema-declared defaults.
-func (u *ReadChannel) ApplyDefaults() {
-	switch variant := u.Variant.(type) {
-	case EntryReadChannel:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	}
 }
 
 // BaseWriteChannel carries the fields every EtherCAT write channel shares.
@@ -251,9 +230,6 @@ type ReadConfig struct {
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (r *ReadConfig) ApplyDefaults() {
 	r.ReadConfig.ApplyDefaults()
-	for i := range r.Channels {
-		r.Channels[i].ApplyDefaults()
-	}
 }
 
 // WriteConfig configures an EtherCAT write task. Each channel addresses a PDO entry on
@@ -280,147 +256,3 @@ func (w *WriteConfig) ApplyDefaults() {
 
 // ScanConfig configures an EtherCAT scan task.
 type ScanConfig = v1.ScanConfig
-
-type ScaleType string
-
-const (
-	LinearScaleType ScaleType = "linear"
-	MapScaleType    ScaleType = "map"
-	NoneScaleType   ScaleType = "none"
-)
-
-type ScaleVariant interface {
-	isScaleVariant()
-}
-
-// LinearScale maps raw values to engineering units with a slope and offset.
-type LinearScale struct {
-	// Slope is the multiplier applied to the raw value.
-	Slope float64 `json:"slope" msgpack:"slope"`
-	// Offset is the offset added after scaling.
-	Offset float64 `json:"offset" msgpack:"offset"`
-}
-
-func (LinearScale) isScaleVariant() {}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (l *LinearScale) ApplyDefaults() {
-	if l.Slope == 0 {
-		l.Slope = 1
-	}
-}
-
-// MapScale maps a raw range linearly onto a scaled range.
-type MapScale struct {
-	// PreScaledMin is the lower bound of the raw input range.
-	PreScaledMin float64 `json:"pre_scaled_min" msgpack:"pre_scaled_min"`
-	// PreScaledMax is the upper bound of the raw input range.
-	PreScaledMax float64 `json:"pre_scaled_max" msgpack:"pre_scaled_max"`
-	// ScaledMin is the lower bound of the scaled output range.
-	ScaledMin float64 `json:"scaled_min" msgpack:"scaled_min"`
-	// ScaledMax is the upper bound of the scaled output range.
-	ScaledMax float64 `json:"scaled_max" msgpack:"scaled_max"`
-}
-
-func (MapScale) isScaleVariant() {}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (m *MapScale) ApplyDefaults() {
-	if m.PreScaledMin == 0 && m.PreScaledMax == 0 {
-		m.PreScaledMax = 1
-	}
-	if m.ScaledMin == 0 && m.ScaledMax == 0 {
-		m.ScaledMax = 1
-	}
-}
-
-// NoneScale applies no scaling; the raw value is used directly.
-type NoneScale struct {
-}
-
-func (NoneScale) isScaleVariant() {}
-
-// Scale determines how raw PDO values are transformed to engineering units.
-type Scale struct {
-	Variant ScaleVariant
-}
-
-// MarshalJSONTo encodes the active variant with its "type" tag injected.
-func (u Scale) MarshalJSONTo(enc *jsontext.Encoder) error {
-	switch v := u.Variant.(type) {
-	case nil:
-		return enc.WriteToken(jsontext.Null)
-	case LinearScale:
-		return json.MarshalEncode(enc, struct {
-			Type ScaleType `json:"type"`
-			LinearScale
-		}{Type: LinearScaleType, LinearScale: v})
-	case MapScale:
-		return json.MarshalEncode(enc, struct {
-			Type ScaleType `json:"type"`
-			MapScale
-		}{Type: MapScaleType, MapScale: v})
-	case NoneScale:
-		return json.MarshalEncode(enc, struct {
-			Type ScaleType `json:"type"`
-			NoneScale
-		}{Type: NoneScaleType, NoneScale: v})
-	default:
-		return errors.Newf("Scale: unknown variant %T", v)
-	}
-}
-
-// UnmarshalJSONFrom decodes the variant selected by the "type" field.
-func (u *Scale) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	data, err := dec.ReadValue()
-	if err != nil {
-		return err
-	}
-	if data.Kind() == 'n' {
-		u.Variant = nil
-		return nil
-	}
-	opts := dec.Options()
-	var disc struct {
-		Type ScaleType `json:"type"`
-	}
-	if err := json.Unmarshal(data, &disc, opts); err != nil {
-		return err
-	}
-	switch disc.Type {
-	case LinearScaleType:
-		var v LinearScale
-		if err := json.Unmarshal(data, &v, opts); err != nil {
-			return err
-		}
-		u.Variant = v
-	case MapScaleType:
-		var v MapScale
-		if err := json.Unmarshal(data, &v, opts); err != nil {
-			return err
-		}
-		u.Variant = v
-	case NoneScaleType:
-		var v NoneScale
-		if err := json.Unmarshal(data, &v, opts); err != nil {
-			return err
-		}
-		u.Variant = v
-	default:
-		return errors.Newf("Scale: unknown type %q", disc.Type)
-	}
-	return nil
-}
-
-// ApplyDefaults fills the active variant's zero-valued fields with their
-// schema-declared defaults.
-func (u *Scale) ApplyDefaults() {
-	switch variant := u.Variant.(type) {
-	case LinearScale:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case MapScale:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	}
-}

@@ -25,7 +25,6 @@ func MigrateReadChannel(ctx context.Context, old v1.ReadChannel) (ReadChannel, e
 			Index:           v.Index,
 			SubIndex:        v.SubIndex,
 			DataType:        v.DataType,
-			Scale:           Scale{Variant: NoneScale{}},
 		}}, nil
 	case v1.AutomaticReadChannel:
 		return ReadChannel{Variant: UnresolvedReadChannel{

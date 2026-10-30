@@ -27,9 +27,6 @@ var _ = Describe("JSON", func() {
 				Index:           0x6000,
 				SubIndex:        1,
 				DataType:        telem.Int16T,
-				Scale: v2.Scale{
-					Variant: v2.LinearScale{Slope: 2, Offset: 1},
-				},
 			}},
 			{Variant: v2.UnresolvedReadChannel{
 				BaseReadChannel: v2.BaseReadChannel{Key: "b", Channel: 6, Device: "d"},
@@ -38,8 +35,7 @@ var _ = Describe("JSON", func() {
 		}
 		encoded := `[
 			{"type": "entry", "key": "a", "name": "", "disabled": false, "channel": 5,
-			 "device": "d", "index": 24576, "sub_index": 1, "data_type": "int16",
-			 "scale": {"type": "linear", "slope": 2, "offset": 1}},
+			 "device": "d", "index": 24576, "sub_index": 1, "data_type": "int16"},
 			{"type": "unresolved", "key": "b", "name": "", "disabled": false,
 			 "channel": 6, "device": "d", "pdo": "Input"}
 		]`

@@ -130,7 +130,6 @@ var _ = Describe("Migrate", func() {
 					Index:    0x6010,
 					SubIndex: 2,
 					DataType: "float32",
-					Scale:    v2.Scale{Variant: v2.NoneScale{}},
 				},
 			}))
 		})
@@ -229,7 +228,6 @@ var _ = Describe("Migrate", func() {
 				Index:    0x6000,
 				SubIndex: 0x11,
 				DataType: "int16",
-				Scale:    v2.Scale{Variant: v2.NoneScale{}},
 			}))
 		})
 
@@ -242,7 +240,6 @@ var _ = Describe("Migrate", func() {
 				Index:    0x1C32,
 				SubIndex: 0x20,
 				DataType: "uint8",
-				Scale:    v2.Scale{Variant: v2.NoneScale{}},
 			}))
 		})
 
@@ -364,7 +361,6 @@ var _ = Describe("Migrate", func() {
 				Index:    0x6000,
 				SubIndex: 0x11,
 				DataType: "int16",
-				Scale:    v2.Scale{Variant: v2.NoneScale{}},
 			}))
 			Expect(cfg.Channels[1]).To(Equal(unresolvedRead("el1008", "Input")))
 		})
