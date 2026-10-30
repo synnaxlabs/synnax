@@ -218,6 +218,33 @@ export const retrieveMethods = async (client: UnaryClient): Promise<Method[]> =>
 export const retrieveProviders = async (client: UnaryClient): Promise<OIDCLogin[]> =>
   (await sendMethods(client)).providers;
 
+export interface CreateSessionResult {
+  /** The token of the new session. */
+  token: string;
+  /** The new session. */
+  session: Session;
+}
+
+/**
+ * Opens a session with a proof, without a logged-in client. For a caller that saves the
+ * token itself and hands it to clients to resume.
+ * @param client - A client from {@link createTokenlessClient}.
+ * @throws {AuthError} when the Core rejects the proof.
+ * @throws {Unreachable} if the Core cannot be reached.
+ */
+export const createSession = async (
+  client: UnaryClient,
+  proof: Proof,
+): Promise<CreateSessionResult> => {
+  const { token, session } = await client.send(
+    SESSION_CREATE_ENDPOINT,
+    { proof },
+    createReqZ,
+    createResZ,
+  );
+  return { token, session };
+};
+
 const MAX_RETRIES = 3;
 
 // marks a request that carries its own token and never logs in: a logout or a resume.
@@ -242,6 +269,11 @@ export interface Authority {
   credentials?: Credentials;
   /** An API key to log in with, in place of credentials. */
   apiKey?: string;
+  /**
+   * An OpenID Connect authorization code to log in with once, in place of credentials.
+   * A code works only once, so later logins resume the session it opened.
+   */
+  oidc?: OIDCCredentials;
   /** The token of an earlier login to resume. */
   token?: string;
   /** Whether the Core keeps the token in a cookie the client never sees. */
@@ -270,6 +302,7 @@ export class Client {
   private readonly client: UnaryClient;
   private credentials?: Credentials;
   private apiKey?: string;
+  private oidc?: OIDCCredentials;
   private resumeToken?: string;
   private readonly cookie: boolean;
   private readonly persistent: boolean;
@@ -281,14 +314,18 @@ export class Client {
   // belongs to whoever saved its token or cookie
   private ownsSession = false;
 
-  /** @throws {Error} when the authority holds both credentials and an API key. */
+  /** @throws {Error} when the authority holds more than one proof. */
   constructor(client: UnaryClient, authority: Authority, observer: Observer = {}) {
-    if (authority.credentials != null && authority.apiKey != null)
-      throw new Error("Give either an API key or a username and password, not both");
+    const proofs = [authority.credentials, authority.apiKey, authority.oidc];
+    if (proofs.filter((p) => p != null).length > 1)
+      throw new Error(
+        "Give one of a username and password, an API key, or an OpenID Connect code",
+      );
     this.client = client;
     this.credentials =
       authority.credentials == null ? undefined : { ...authority.credentials };
     this.apiKey = authority.apiKey;
+    this.oidc = authority.oidc == null ? undefined : { ...authority.oidc };
     this.resumeToken = authority.token;
     this.cookie = authority.cookie ?? false;
     this.persistent = authority.persistent ?? false;
@@ -299,6 +336,7 @@ export class Client {
   setCredentials({ username, password }: Credentials): void {
     this.credentials = { username, password };
     this.apiKey = undefined;
+    this.oidc = undefined;
     this.resumeToken = undefined;
     this.authState = { authenticated: false };
     this.authenticating = undefined;
@@ -542,6 +580,7 @@ export class Client {
   private forget(): void {
     this.credentials = undefined;
     this.apiKey = undefined;
+    this.oidc = undefined;
     this.resumeToken = undefined;
   }
 
@@ -585,6 +624,7 @@ export class Client {
       let state: AuthState;
       let owned: boolean;
       let u: user.User | undefined;
+      let spentCode = false;
       const proof = this.proof();
       if (proof != null) {
         const res = await this.client.send(
@@ -593,6 +633,7 @@ export class Client {
           createReqZ,
           createResZ,
         );
+        spentCode = proof.method === "oidc";
         state = { authenticated: true, token: res.token, session: res.session };
         u = res.user;
         owned = true;
@@ -608,10 +649,16 @@ export class Client {
         );
         state = { authenticated: true, token, session: res.session };
         u = res.user;
-        owned = false;
+        // the token a spent code left names the session this client opened
+        owned = this.ownsSession;
       } else
         throw new AuthError("no credentials, API key, token, or cookie to log in with");
       if (generation !== this.generation) return null;
+      // a code works once, so a later login resumes the session it opened
+      if (spentCode) {
+        this.oidc = undefined;
+        this.resumeToken = state.token;
+      }
       this.authState = state;
       this.ownsSession = owned;
       this.observer.onUser?.(u);
@@ -622,6 +669,8 @@ export class Client {
       if (generation !== this.generation) return null;
       this.authState = { authenticated: false };
       if (AuthError.matches(parsed)) {
+        // the Core spent or refused the code; a Core that was not reached did neither
+        this.oidc = undefined;
         this.resumeToken = undefined;
         this.observer.onFailure?.(parsed);
       }
@@ -632,6 +681,7 @@ export class Client {
   private proof(): Proof | undefined {
     if (this.credentials != null) return { method: "password", ...this.credentials };
     if (this.apiKey != null) return { method: "api_key", key: this.apiKey };
+    if (this.oidc != null) return { method: "oidc", ...this.oidc };
     return undefined;
   }
 

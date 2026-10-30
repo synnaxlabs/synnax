@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Context } from "@synnaxlabs/freighter";
+import { type Context, type UnaryClient } from "@synnaxlabs/freighter";
 import { errors, id, url, uuid } from "@synnaxlabs/x";
 import { describe, expect, it, test } from "vitest";
 
@@ -125,6 +125,31 @@ describe("auth", () => {
       ]);
       expect(second).toEqual(first);
       expect(await auth.retrieveMethods(client)).toEqual(first);
+    });
+  });
+
+  describe("createSession", () => {
+    const tokenless = auth.createTokenlessClient({
+      host: TEST_CLIENT_PARAMS.host,
+      port: TEST_CLIENT_PARAMS.port,
+    });
+    it("should open a session without a logged-in client", async () => {
+      const { token, session } = await auth.createSession(tokenless, {
+        method: "password",
+        ...TEST_CREDENTIALS,
+      });
+      expect(token.startsWith("sys_")).toBe(true);
+      expect(session.subject.type).toBe("user");
+    });
+
+    it("should reject a wrong password", async () => {
+      await expect(
+        auth.createSession(tokenless, {
+          method: "password",
+          username: TEST_CREDENTIALS.username,
+          password: "x",
+        }),
+      ).rejects.toThrow(AuthError);
     });
   });
 
@@ -580,6 +605,147 @@ describe("auth", () => {
     });
   });
 
+  describe("OpenID Connect login", () => {
+    const CODE: auth.OIDCCredentials = {
+      provider: "idp",
+      code: "code",
+      verifier: "verifier",
+      redirectUri: "http://127.0.0.1:4242/callback",
+    };
+    const SESSION = {
+      key: uuid.create(),
+      subject: { type: "user", key: uuid.create() },
+      credential: uuid.create(),
+      lastActive: 0,
+    };
+
+    // records each request and answers a login or a renewal like a Core would, after
+    // failing the first `unreachable` requests as a refused connection does
+    const createRecordingUnary = (unreachable = 0) => {
+      const sent: { target: string; req: unknown; params?: Record<string, string> }[] =
+        [];
+      let failures = unreachable;
+      const unary: UnaryClient = {
+        use: () => {},
+        send: async (target, req, _, resSchema, params) => {
+          sent.push({ target, req, params });
+          if (failures > 0) {
+            failures -= 1;
+            throw new Error("connection refused");
+          }
+          return resSchema.parse(
+            target.endsWith("/auth/session/create")
+              ? { token: "sys_token", session: SESSION }
+              : { session: SESSION },
+          );
+        },
+      };
+      return { unary, sent };
+    };
+
+    it("should log in once with the code, then resume its session", async () => {
+      const { unary, sent } = createRecordingUnary();
+      const client = new auth.Client(unary, { oidc: CODE });
+      const mw = client.middleware();
+      let failed = false;
+      await mw(DUMMY_CTX, async (ctx) => {
+        if (failed) return ctx;
+        failed = true;
+        throw new InvalidTokenError("expired");
+      });
+      expect(sent.map((r) => r.target)).toEqual([
+        "/auth/session/create",
+        "/auth/session/renew",
+      ]);
+      expect(sent[0].req).toEqual({ proof: { method: "oidc", ...CODE } });
+      expect(sent[1].params).toEqual({ "synnax-own-token": "sys_token" });
+    });
+
+    it("should keep the code through a login that never reached the Core", async () => {
+      const { unary, sent } = createRecordingUnary(1);
+      const client = new auth.Client(unary, { oidc: CODE });
+      const mw = client.middleware();
+      await expect(mw(DUMMY_CTX, async (ctx) => ctx)).rejects.toThrow(
+        "connection refused",
+      );
+      await mw(DUMMY_CTX, async (ctx) => ctx);
+      expect(sent.map((r) => r.req)).toEqual([
+        { proof: { method: "oidc", ...CODE } },
+        { proof: { method: "oidc", ...CODE } },
+      ]);
+    });
+
+    it("should not resume a code login that a newer login replaced", async () => {
+      const sent: { target: string; req: unknown; params?: Record<string, string> }[] =
+        [];
+      let answerCode: (() => void) | undefined;
+      const unary: UnaryClient = {
+        use: () => {},
+        send: async (target, req, _, resSchema, params) => {
+          sent.push({ target, req, params });
+          if (!target.endsWith("/auth/session/create"))
+            return resSchema.parse(
+              target.endsWith("/auth/session/renew") ? { session: SESSION } : {},
+            );
+          const { proof } = req as { proof: { method: string } };
+          if (proof.method === "oidc")
+            await new Promise<void>((resolve) => (answerCode = resolve));
+          return resSchema.parse({ token: `sys_${proof.method}`, session: SESSION });
+        },
+      };
+      const client = new auth.Client(unary, { oidc: CODE });
+      const stale = client.middleware()(DUMMY_CTX, async (ctx) => ctx);
+      await expect.poll(() => answerCode).toBeDefined();
+      client.setCredentials(TEST_CREDENTIALS);
+      await client.middleware()(DUMMY_CTX, async (ctx) => ctx);
+      await client.logout();
+      answerCode?.();
+      await stale;
+      await expect(client.middleware()(DUMMY_CTX, async (ctx) => ctx)).rejects.toThrow(
+        "no credentials, API key, token, or cookie",
+      );
+      expect(sent.filter((r) => r.target.endsWith("/auth/session/renew"))).toEqual([]);
+    });
+
+    it("should forget the code when logging out before a login", async () => {
+      const { unary, sent } = createRecordingUnary();
+      const client = new auth.Client(unary, { oidc: CODE });
+      await client.logout();
+      await expect(client.middleware()(DUMMY_CTX, async (ctx) => ctx)).rejects.toThrow(
+        "no credentials, API key, token, or cookie",
+      );
+      expect(sent).toEqual([]);
+    });
+
+    it("should end the session it opened after resuming it", async () => {
+      const { unary, sent } = createRecordingUnary();
+      const client = new auth.Client(unary, { oidc: CODE });
+      const mw = client.middleware();
+      let failed = false;
+      await mw(DUMMY_CTX, async (ctx) => {
+        if (failed) return ctx;
+        failed = true;
+        throw new InvalidTokenError("expired");
+      });
+      await client.release();
+      expect(sent.map((r) => r.target)).toEqual([
+        "/auth/session/create",
+        "/auth/session/renew",
+        "/auth/session/delete",
+      ]);
+    });
+
+    it("should reject an OpenID Connect code given with an API key", () => {
+      expect(
+        () =>
+          new auth.Client(createRecordingUnary().unary, {
+            oidc: CODE,
+            apiKey: "syk_key",
+          }),
+      ).toThrow(/one of a username and password, an API key, or an OpenID Connect/);
+    });
+  });
+
   describe("setPassword", () => {
     const makeClient = (authority: auth.Authority, observer?: auth.Observer) => {
       const transport = new Transport(
@@ -751,14 +917,16 @@ describe("auth", () => {
 
     it("should reject an API key given with a username and password", () => {
       expect(() => createTestClient({ apiKey: "syk_key" })).toThrow(
-        /either an API key or a username and password/,
+        /one of a username and password, an API key, or an OpenID Connect code/,
       );
     });
 
     it("should reject an auth client given both credentials and an API key", () => {
       expect(() =>
         makeClient({ credentials: TEST_CREDENTIALS, apiKey: "syk_key" }),
-      ).toThrow(/either an API key or a username and password/);
+      ).toThrow(
+        /one of a username and password, an API key, or an OpenID Connect code/,
+      );
     });
   });
 });

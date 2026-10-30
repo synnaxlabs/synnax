@@ -59,6 +59,11 @@ export const synnaxParamsZ = z.object({
   password: z.string().min(1, "Password is required").optional(),
   /** An API key to log in with, in place of a username and password. */
   apiKey: z.string().min(1, "API key is required").optional(),
+  /**
+   * An OpenID Connect authorization code to log in with once, in place of a username
+   * and password.
+   */
+  oidc: auth.oidcCredentialsZ.optional(),
   /** The token of an earlier login to resume, in place of a username and password. */
   token: z.string().min(1).optional(),
   /**
@@ -94,9 +99,13 @@ export const synnaxParamsZ = z.object({
 
 // a refinement would stop callers from picking fields off synnaxParamsZ
 const constructorParamsZ = synnaxParamsZ.refine(
-  (p) => p.apiKey == null || (p.username == null && p.password == null),
+  (p) =>
+    [p.username != null || p.password != null, p.apiKey != null, p.oidc != null].filter(
+      Boolean,
+    ).length <= 1,
   {
-    message: "Give either an API key or a username and password, not both",
+    message:
+      "Give one of a username and password, an API key, or an OpenID Connect code",
     path: ["apiKey"],
   },
 );
@@ -113,6 +122,7 @@ const authorityOf = ({
   username,
   password,
   apiKey,
+  oidc,
   token,
   sessionCookie,
   sessionPersistent,
@@ -120,6 +130,7 @@ const authorityOf = ({
   credentials:
     username != null && password != null ? { username, password } : undefined,
   apiKey,
+  oidc,
   token,
   cookie: sessionCookie,
   persistent: sessionPersistent,
