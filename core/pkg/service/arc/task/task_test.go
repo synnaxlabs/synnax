@@ -1812,6 +1812,72 @@ var _ = Describe("Task", Ordered, func() {
 		)
 
 		It(
+			"Should write the key of a range created by a computed initializer",
+			func(ctx SpecContext) {
+				trig := createVirtualCh(ctx, "computed_range_trig", telem.Uint8T)
+				out := createVirtualCh(ctx, "computed_range_out", telem.StringT)
+				name := "computed_range_" + uuid.New().String()[:8]
+				prog := arc.Text{Raw: fmt.Sprintf(`
+					import ranges
+
+					sequence main {
+					    key := ranges.create("%s")
+					    key -> %s
+					}
+
+					%s => main
+				`, name, out.Name, trig.Name)}
+
+				responses, closeStreamer := openTestStreamer(
+					ctx, channel.Keys{out.Key()}, 10,
+				)
+				defer closeStreamer()
+				time.Sleep(10 * time.Millisecond)
+
+				svcTask := task.Task{
+					Key:    uuid.New(),
+					Name:   "test-computed-range-key",
+					Type:   arctask.Type,
+					Config: configToMap(arctask.Config{ArcKey: uuid.New()}),
+				}
+				t := MustSucceed(
+					newTextFactory(ctx, prog).ConfigureTask(ctx, svcTask, "cmd-1"),
+				)
+				Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+				defer func() { Expect(t.Stop(true)).To(Succeed()) }()
+
+				time.Sleep(20 * time.Millisecond)
+				w := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+					Keys:  []channel.Key{trig.Key()},
+					Start: telem.Now(),
+				}))
+				Expect(
+					w.Write(frame.NewUnary(trig.Key(), telem.NewSeriesV[uint8](1))),
+				).To(BeTrue())
+
+				var rng ranger.Range
+				Eventually(func(g Gomega) {
+					g.Expect(rangerSvc.NewRetrieve().
+						Where(ranger.MatchNames(name)).
+						Entry(&rng).Exec(ctx, nil)).To(Succeed())
+				}).Should(Succeed())
+				expected := rng.Key.String()
+
+				found := false
+				for !found {
+					var fr framer.StreamerResponse
+					Eventually(responses).Should(Receive(&fr))
+					for _, ser := range fr.Frame.Get(out.Key()).Series {
+						for _, v := range ser.Unmarshal[string]() {
+							found = found || v == expected
+						}
+					}
+				}
+				Expect(w.Close()).To(Succeed())
+			},
+		)
+
+		It(
 			"Should write the created range key to a channel alias sink",
 			func(ctx SpecContext) {
 				trig := createVirtualCh(ctx, "route_range_val_trig", telem.Uint8T)

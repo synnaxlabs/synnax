@@ -433,12 +433,22 @@ var _ = Describe("LiftVarReads", func() {
 		Expect(child.Internal).To(BeTrue())
 	})
 
-	It("Should not lift a variable that was never reassigned", func(bCtx SpecContext) {
+	It("Should not lift a never-reassigned literal variable", func(bCtx SpecContext) {
 		addVar(bCtx, symbol.Symbol{
 			Name: "x", Kind: symbol.KindVariable, Type: types.I32(),
+			DefaultValue: int32(5),
 		})
 		lift(bCtx, "x + 1")
 		Expect(fn.Type.Inputs).To(BeEmpty())
+	})
+
+	It("Should lift a computed variable as an input param", func(bCtx SpecContext) {
+		addVar(bCtx, symbol.Symbol{
+			Name: "x", Kind: symbol.KindVariable, Type: types.I32(),
+		})
+		ctx := lift(bCtx, "x + 1")
+		Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+		Expect(MustBeOk(fn.Type.Inputs.Get("x")).Type).To(Equal(types.I32()))
 	})
 
 	It(

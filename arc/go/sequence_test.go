@@ -12,6 +12,7 @@ package arc_test
 import (
 	"maps"
 	"slices"
+	"strconv"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -5092,6 +5093,177 @@ var _ = Describe("Sequence", func() {
 				Expect(lastBool(out, 101)).To(BeFalse())
 			},
 		)
+	})
+
+	Describe("Computed initializers", func() {
+		// drainI64 collects every i64 value flushed to a channel in order.
+		drainI64 := func(fr telem.Frame[uint32], key uint32) []int64 {
+			var out []int64
+			for _, ser := range fr.Get(key).Series {
+				out = append(out, ser.Unmarshal[int64]()...)
+			}
+			return out
+		}
+
+		It("Computes a top-level variable at program start", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"trig": {types.U8(), 100},
+				"out":  {types.String(), 102},
+			})
+			h := newRuntimeHarness(ctx, `
+				import time
+				start := time.now()
+				trig -> f"{start}" -> out`, resolver,
+				channels.Digest{Key: 102, DataType: telem.StringT},
+			)
+			defer h.Close(ctx)
+
+			advance(h, ctx, telem.Millisecond)
+			startedAt := strconv.FormatInt(int64(h.cycleNow), 10)
+			advance(h, ctx, telem.Millisecond)
+			trigger(h, ctx, 100)
+			out, _ := h.Flush()
+			Expect(drainStrings(out, 102)).To(Equal([]string{startedAt}))
+		})
+
+		It("Reads a computed constant expression as a literal", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"trig":    {types.U8(), 100},
+				"out_str": {types.String(), 101},
+				"out":     {types.I64(), 102},
+			})
+			h := newRuntimeHarness(ctx, `
+				x := 1 + 2
+				trig -> f"{x}" -> out_str
+				trig -> x * 2 -> out`, resolver,
+				channels.Digest{Key: 101, DataType: telem.StringT},
+				channels.Digest{Key: 102, DataType: telem.Int64T},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			out, _ := h.Flush()
+			Expect(lastString(out, 101)).To(Equal("3"))
+			Expect(drainI64(out, 102)).To(Equal([]int64{6}))
+		})
+
+		It("Computes a sequence variable once per entry", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"go1":       {types.U8(), 101},
+				"out":       {types.I64(), 102},
+			})
+			h := newRuntimeHarness(ctx, `
+				import time
+				sequence main {
+				    sequence s1 {
+				        k := time.now()
+				        k -> out
+				    }
+				    stage s2 {
+				        go1 => s1
+				    }
+				}
+				start_cmd => main`, resolver,
+				channels.Digest{Key: 102, DataType: telem.Int64T},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			out, _ := h.Flush()
+			first := drainI64(out, 102)
+			Expect(first).To(HaveLen(1), "entry must fire the initializer once")
+			Expect(first[0]).To(BeNumerically(">", 0))
+			advance(h, ctx, 10*telem.Millisecond)
+			out, _ = h.Flush()
+			Expect(drainI64(out, 102)).To(BeEmpty(),
+				"idle cycles must not re-fire the initializer")
+			trigger(h, ctx, 101)
+			out, _ = h.Flush()
+			second := drainI64(out, 102)
+			Expect(second).To(HaveLen(1))
+			Expect(second[0]).To(BeNumerically(">", first[0]),
+				"re-entry must recompute the initializer")
+		})
+
+		It("Computes a stage variable once per entry", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"out":       {types.I64(), 101},
+				"go2":       {types.U8(), 102},
+				"go1":       {types.U8(), 103},
+			})
+			h := newRuntimeHarness(ctx, `
+				import time
+				sequence main {
+				    stage s1 {
+				        k := time.now()
+				        k -> out
+				        go2 => next
+				    }
+				    stage s2 {
+				        go1 => s1
+				    }
+				}
+				start_cmd => main`, resolver,
+				channels.Digest{Key: 101, DataType: telem.Int64T},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			out, _ := h.Flush()
+			first := drainI64(out, 101)
+			Expect(first).To(HaveLen(1), "entry must fire the initializer once")
+			trigger(h, ctx, 102)
+			trigger(h, ctx, 103)
+			out, _ = h.Flush()
+			second := drainI64(out, 101)
+			Expect(second).To(HaveLen(1))
+			Expect(second[0]).To(BeNumerically(">", first[0]),
+				"re-entry must recompute the initializer")
+		})
+
+		It("Samples a computed variable in a later initializer", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"out":       {types.I64(), 102},
+			})
+			h := newRuntimeHarness(ctx, `
+				sequence main {
+				    x := 1 + 2
+				    y := x + 1
+				    y -> out
+				}
+				start_cmd => main`, resolver,
+				channels.Digest{Key: 102, DataType: telem.Int64T},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			out, _ := h.Flush()
+			Expect(drainI64(out, 102)).To(Equal([]int64{4}))
+		})
+
+		It("Lets a reassignment replace a computed initializer", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"out":       {types.I64(), 102},
+			})
+			h := newRuntimeHarness(ctx, `
+				sequence main {
+				    x := 1 + 2
+				    x = 10
+				    x -> out
+				}
+				start_cmd => main`, resolver,
+				channels.Digest{Key: 102, DataType: telem.Int64T},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			out, _ := h.Flush()
+			Expect(drainI64(out, 102)).To(Equal([]int64{10}))
+		})
 	})
 
 	Describe("Variable initialization on declaration", func() {

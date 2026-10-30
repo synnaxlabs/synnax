@@ -112,6 +112,7 @@ type shellBuilder struct {
 // varEntry holds a variable's runtime nodes: every reassignment writes the
 // register; deref serves reads when the register holds an indirection.
 type varEntry struct {
+	init     *ir.Node
 	register *ir.Node
 	deref    *ir.Node
 	disp     *dispatcher
@@ -556,14 +557,21 @@ func isExprReadVar(sym *symbol.Symbol) bool {
 func collectVarNodes(s *symbol.Symbol, kg *keyGenerator, shell *shellBuilder) {
 	for _, c := range s.Children() {
 		if c.Reassigned && isConstVar(c) {
-			shell.registerVar(c, varEntry{register: buildVariableNode(c, kg, "f0")})
+			shell.registerVar(c, varEntry{
+				register: buildVariableNode(c, kg, "f0", c.DefaultValue),
+			})
+		}
+		if zero := types.Zero(c.Type); c.IsComputed() && zero != nil {
+			shell.registerVar(c, varEntry{
+				register: buildVariableNode(c, kg, "f0", zero),
+			})
 		}
 		if c.Reassigned && c.Kind == symbol.KindVariable &&
 			c.Type.Kind == types.KindChan && c.SourceID != nil {
 			shell.registerVar(c, varEntry{register: buildIndirectRegister(c, kg)})
 		}
 		if isExprReadVar(c) {
-			e := varEntry{deref: buildVariableNode(c, kg, "value")}
+			e := varEntry{deref: buildVariableNode(c, kg, "value", nil)}
 			if c.Reassigned {
 				e.register = buildIndirectRegister(c, kg)
 				e.disp = buildDispatcher(c, e, kg, shell)
@@ -590,25 +598,20 @@ func buildIndirectRegister(sym *symbol.Symbol, kg *keyGenerator) *ir.Node {
 	}
 }
 
-// scopeVarMembers returns members for the variable nodes declared in scopeSym.
+// scopeVarMembers returns members for the variable nodes declared in scopeSym,
+// in declaration order with each init node before its register.
 func scopeVarMembers(scopeSym *symbol.Symbol, shell *shellBuilder) ir.Members {
-	var keys []string
+	var members ir.Members
 	for _, c := range scopeSym.Children() {
 		if c.Kind != symbol.KindVariable && c.Kind != symbol.KindStatefulVariable {
 			continue
 		}
 		e := shell.varNodes[c]
-		if e.register != nil {
-			keys = append(keys, e.register.Key)
+		for _, n := range []*ir.Node{e.init, e.register, e.deref} {
+			if n != nil {
+				members = append(members, ir.Member{NodeKey: new(n.Key)})
+			}
 		}
-		if e.deref != nil {
-			keys = append(keys, e.deref.Key)
-		}
-	}
-	slices.Sort(keys)
-	members := make(ir.Members, 0, len(keys))
-	for i := range keys {
-		members = append(members, ir.Member{NodeKey: &keys[i]})
 	}
 	return members
 }
@@ -634,8 +637,13 @@ func memberNodeKeys(members ir.Members) set.Set[string] {
 }
 
 // buildVariableNode builds sym's variable node. An unedged first param holds
-// its initial value; value-variable assignments append edge-fed feeder params.
-func buildVariableNode(sym *symbol.Symbol, kg *keyGenerator, param string) *ir.Node {
+// value, the initial; value-variable assignments append edge-fed feeder params.
+func buildVariableNode(
+	sym *symbol.Symbol,
+	kg *keyGenerator,
+	param string,
+	value any,
+) *ir.Node {
 	nodeType := "variable"
 	if sym.Kind == symbol.KindStatefulVariable {
 		nodeType = "stateful_variable"
@@ -649,35 +657,71 @@ func buildVariableNode(sym *symbol.Symbol, kg *keyGenerator, param string) *ir.N
 		Key:      kg.generate("var", sym.Name),
 		Type:     nodeType,
 		Channels: types.NewChannels(),
-		Inputs:   types.Params{{Name: param, Type: t, Value: sym.DefaultValue}},
+		Inputs:   types.Params{{Name: param, Type: t, Value: value}},
 		Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: t}},
 	}
 }
 
-// lowerExprReadDecl lowers an expression-read declaration: the initializer
-// becomes an always-live derivation feeding the variable node's f0.
-func lowerExprReadDecl(
+// lowerVarDecl lowers a declaration's initializer: a channel-read derivation
+// feeds the deref; a computed expression's entry node feeds the register.
+func lowerVarDecl(
 	ctx acontext.Context[parser.IVariableDeclarationContext],
 	kg *keyGenerator,
 	shell *shellBuilder,
-) bool {
+) (varEntry, bool) {
 	local := ctx.AST.LocalVariable()
 	if local == nil {
-		return true
+		return varEntry{}, true
 	}
 	sym, err := ctx.Scope.Resolve(ctx, local.IDENTIFIER().GetText())
 	if err != nil {
-		return true
+		return varEntry{}, true
 	}
 	e := shell.varNodes[sym]
 	expr := local.Expression()
-	if e.deref == nil || expr == nil || !isExprReadVar(sym) {
-		return true
+	if expr == nil {
+		return varEntry{}, true
+	}
+	if sym.IsComputed() {
+		return lowerComputedDecl(ctx, expr, sym, e, kg, shell)
+	}
+	if e.deref == nil || !isExprReadVar(sym) {
+		return varEntry{}, true
 	}
 	if sym.Reassigned {
-		return collectBranch(ctx, expr, sym, kg, shell)
+		return varEntry{}, collectBranch(ctx, expr, sym, kg, shell)
 	}
-	return lowerDerivation(ctx, expr, e.deref, "value", kg, shell)
+	return varEntry{}, lowerDerivation(ctx, expr, e.deref, "value", kg, shell)
+}
+
+// lowerComputedDecl lowers a computed initializer as the register's first
+// feeder; its variable reads bind as VarRefs so it stays an entry node.
+func lowerComputedDecl(
+	ctx acontext.Context[parser.IVariableDeclarationContext],
+	expr parser.IExpressionContext,
+	sym *symbol.Symbol,
+	e varEntry,
+	kg *keyGenerator,
+	shell *shellBuilder,
+) (varEntry, bool) {
+	if e.register == nil {
+		ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
+			"variable '%s' of type %s cannot have a computed initializer",
+			sym.Name, sym.Type))
+		return varEntry{}, false
+	}
+	res, ok := analyzeExpression(ctx.Child(expr), kg, shell, true)
+	if !ok {
+		return varEntry{}, false
+	}
+	e.init = &res.node
+	shell.varNodes[sym] = e
+	shell.edges = append(shell.edges, ir.Edge{
+		Source: res.output,
+		Target: varFeederRef(e.register).input,
+		Kind:   ir.EdgeKindContinuous,
+	})
+	return e, true
 }
 
 // collectBranch folds a derivation into sym's dispatcher: the branch function
@@ -1022,6 +1066,14 @@ func newConstNode(key string, inType, outType types.Type, v any) ir.Node {
 	}
 }
 
+// varValue returns sym's folded initializer, or the zero of its type.
+func varValue(sym *symbol.Symbol) any {
+	if sym.DefaultValue != nil {
+		return sym.DefaultValue
+	}
+	return types.Zero(sym.Type)
+}
+
 // buildVarReadNode lowers a triggered mid-chain variable read: a constant
 // whose value input references the register, emitting the live value on fire.
 func buildVarReadNode(sym *symbol.Symbol, vn *ir.Node, kg *keyGenerator) nodeResult {
@@ -1029,7 +1081,7 @@ func buildVarReadNode(sym *symbol.Symbol, vn *ir.Node, kg *keyGenerator) nodeRes
 		kg.generate("read", sym.Name),
 		types.VarRef(sym.Type, vn.Key),
 		sym.Type,
-		sym.DefaultValue,
+		varValue(sym),
 	)
 	return newNodeResult(n, ir.DefaultInputParam, ir.DefaultOutputParam)
 }
@@ -1484,8 +1536,17 @@ func Analyze(
 
 	for _, item := range t.AST.AllTopLevelItem() {
 		if decl := item.VariableDeclaration(); decl != nil {
-			if !lowerExprReadDecl(aCtx.Child(decl), kg, shell) {
+			e, ok := lowerVarDecl(aCtx.Child(decl), kg, shell)
+			if !ok {
 				return i, aCtx.Diagnostics
+			}
+			// The init node and register precede the flows that read them.
+			if e.init != nil {
+				i.Nodes = append(i.Nodes, *e.init)
+				rootMembers = append(rootMembers,
+					ir.Member{NodeKey: new(e.init.Key)},
+					ir.Member{NodeKey: new(e.register.Key)},
+				)
 			}
 		} else if flow := item.FlowStatement(); flow != nil {
 			nodes, edges, inlineMembers, _, ok := analyzeFlow(
@@ -1965,7 +2026,7 @@ func extractInputValues(
 				if sym, err := ctx.Scope.Resolve(ctx, id.GetText()); err == nil &&
 					sym.IsLiteral() {
 					if rn := shell.varNodes[sym].readNode(sym); rn != nil {
-						return sym.DefaultValue, types.VarRef(sym.Type, rn.Key), true
+						return varValue(sym), types.VarRef(sym.Type, rn.Key), true
 					}
 					if !sym.Reassigned && sym.DefaultValue != nil {
 						return sym.DefaultValue, paramType, true
@@ -2317,19 +2378,24 @@ func analyzeSequence(
 		Mode:     ir.ScopeModeSequential,
 		Liveness: liveness,
 	}
-	if vm := scopeVarMembers(seqScope, shell); len(vm) > 0 {
-		scope.Strata = []ir.Members{vm}
-	}
-
+	var (
+		allNodes []ir.Node
+		allEdges []ir.Edge
+	)
 	items := ctx.AST.AllSequenceItem()
 	for _, item := range items {
 		if decl := item.VariableDeclaration(); decl != nil {
-			if !lowerExprReadDecl(
-				ctx.Child(decl).WithScope(seqScope), kg, shell,
-			) {
+			e, ok := lowerVarDecl(ctx.Child(decl).WithScope(seqScope), kg, shell)
+			if !ok {
 				return ir.Scope{}, nil, nil, false
 			}
+			if e.init != nil {
+				allNodes = append(allNodes, *e.init)
+			}
 		}
+	}
+	if vm := scopeVarMembers(seqScope, shell); len(vm) > 0 {
+		scope.Strata = []ir.Members{vm}
 	}
 	steps := collectStepKeys(items)
 	memberKeys := make([]string, len(steps))
@@ -2341,11 +2407,6 @@ func analyzeSequence(
 	frame.escalatesCompletion = declaredAsStep(ctx.AST)
 	defer shell.popSeq()
 	defer shell.ownJumps(&frame.transitions)()
-
-	var (
-		allNodes []ir.Node
-		allEdges []ir.Edge
-	)
 
 	for i, si := range steps {
 		frame.activeIdx = i
@@ -2518,15 +2579,19 @@ func analyzeStage(
 
 	// Body items resolve against the stage's own scope; top-level stages keep
 	// ctx.Scope (theirs is registered at the parent).
-	var varMembers ir.Members
-	if stageScope, err := ctx.Scope.GetChildByParserRule(ctx.AST); err == nil {
+	var stageScope *symbol.Symbol
+	if s, err := ctx.Scope.GetChildByParserRule(ctx.AST); err == nil {
+		stageScope = s
 		ctx = ctx.WithScope(stageScope)
-		varMembers = scopeVarMembers(stageScope, shell)
 	}
 	for _, item := range stageBody.AllStageItem() {
 		if decl := item.VariableDeclaration(); decl != nil {
-			if !lowerExprReadDecl(ctx.Child(decl), kg, shell) {
+			e, ok := lowerVarDecl(ctx.Child(decl), kg, shell)
+			if !ok {
 				return ir.Scope{}, nil, nil, false
+			}
+			if e.init != nil {
+				nodes = append(nodes, *e.init)
 			}
 			continue
 		}
@@ -2586,6 +2651,10 @@ func analyzeStage(
 		}
 	}
 
+	var varMembers ir.Members
+	if stageScope != nil {
+		varMembers = scopeVarMembers(stageScope, shell)
+	}
 	members = append(varMembers, members...)
 	if len(members) > 0 {
 		scope.Strata = []ir.Members{members}

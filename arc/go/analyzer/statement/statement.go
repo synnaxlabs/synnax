@@ -114,11 +114,11 @@ func inferVarKind(ctx context.Context[parser.IVariableDeclarationContext]) {
 		}
 		return
 	}
-	// Channel read/write and literals already carry their type and SourceID.
+	// Channel read/write and folded initializers already carry their value.
 	if sym.SourceID != nil || sym.Type.Kind == types.KindChan {
 		return
 	}
-	if expr == nil || isLiteralExpression(ctx.Child(expr)) {
+	if expr == nil || sym.DefaultValue != nil {
 		return
 	}
 	// A bare identifier bound to a reactive variable is itself reactive.
@@ -141,11 +141,8 @@ func inferVarKind(ctx context.Context[parser.IVariableDeclarationContext]) {
 		}
 		return
 	}
-	if CastConstValue(expr, sym.Type) != nil {
-		return
-	}
 	// A complex initializer that reads channels is reactive: retype it as a
-	// read-only channel. AnalyzeSingleExpression also registers the reactive flow.
+	// read-only channel. One that reads none is computed once per scope entry.
 	if local != nil {
 		flow.AnalyzeSingleExpression(ctx.Child(expr))
 		if synth, serr := ctx.Scope.Root().GetChildByParserRule(expr); serr == nil &&

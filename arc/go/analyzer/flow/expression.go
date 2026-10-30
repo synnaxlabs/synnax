@@ -200,7 +200,7 @@ func LiftVarReads[T antlr.ParserRuleContext](
 			continue
 		}
 		exprRead := sym.IsReactive() && sym.SourceID == nil
-		if !sym.Reassigned && !exprRead {
+		if !sym.Reassigned && !exprRead && !sym.IsComputed() {
 			continue
 		}
 		// A channel-coupled var lifts as its value type; a node feeds it data.
