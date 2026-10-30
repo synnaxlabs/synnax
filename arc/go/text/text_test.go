@@ -2572,6 +2572,50 @@ var _ = Describe("Text", func() {
 		)
 
 		It(
+			"Should reject a stateful initializer whose later-declared callee reads a channel",
+			func(ctx SpecContext) {
+				source := `
+			sequence main {
+				c i64 $= readRaw()
+			}
+			func readRaw() {} i64 {
+				return count_ch
+			}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				_, diagnostics := text.Analyze(
+					ctx,
+					parsedText,
+					NewRoot(nil, varResolver...),
+				)
+				Expect(diagnostics.Ok()).To(BeFalse(), diagnostics.String())
+				Expect(diagnostics.String()).To(ContainSubstring(
+					"channels and channel-read expressions cannot be assigned to stateful variables",
+				))
+			},
+		)
+
+		It(
+			"Should accept a stateful initializer that reads a top-level variable",
+			func(ctx SpecContext) {
+				source := `
+			x := 2 + 3
+			sequence main {
+				y i64 $= x + 1
+				stage s1 {
+					y -> out_ch
+				}
+			}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				_, diagnostics := text.Analyze(
+					ctx,
+					parsedText,
+					NewRoot(nil, varResolver...),
+				)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			},
+		)
+
+		It(
 			"Should lower a computed stateful initializer as a root entry node",
 			func(ctx SpecContext) {
 				source := `
@@ -8836,6 +8880,12 @@ time.wait(duration=500ms) -> output`
 				Type: types.Chan(types.I64()),
 				ID:   102,
 			},
+			{
+				Name: "flag",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.Bool()),
+				ID:   103,
+			},
 		}
 		analyze := func(ctx SpecContext, source string) ir.IR {
 			GinkgoHelper()
@@ -8988,6 +9038,44 @@ time.wait(duration=500ms) -> output`
 				Expect(order[0]).To(BeNumerically(">=", 0))
 				Expect(order[0]).To(BeNumerically("<", order[1]),
 					"the input must run before the call in a pass")
+			},
+		)
+
+		It(
+			"Should lower a routed call's computed input as a node fired by the branch",
+			func(ctx SpecContext) {
+				inter := analyze(ctx, `
+			import time
+			func f(t i64 ns) {} i64 {
+				return t
+			}
+			flag -> select() -> {
+				true: f(time.now()) -> out
+			}`)
+				call := findNodeByKey(inter.Nodes, "f_0")
+				t := MustBeOk(call.Inputs.Get("t"))
+				Expect(t.Type.Kind).To(Equal(types.KindVarRef))
+				arg := findNodeByKey(inter.Nodes, t.Type.Name)
+				Expect(arg.Type).To(HavePrefix("expression_"))
+				Expect(edgeInto(inter, arg.Key, ir.DefaultInputParam)).To(BeTrue(),
+					"the branch must fire the computed input")
+			},
+		)
+
+		It(
+			"Should lower a copy of a computed variable as a computed initializer",
+			func(ctx SpecContext) {
+				inter := analyze(ctx, `
+			import time
+			x := time.now()
+			y := x
+			trig -> f"{y}" -> log_ch`)
+				yReg := findNodeByKey(inter.Nodes, "var_y_0")
+				init := initOf(inter, yReg)
+				Expect(init.Type).To(HavePrefix("expression_"))
+				p := MustBeOk(init.Inputs.Get("x"))
+				Expect(p.Type.Kind).To(Equal(types.KindVarRef))
+				Expect(p.Type.Name).To(Equal("var_x_0"))
 			},
 		)
 

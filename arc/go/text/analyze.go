@@ -2284,6 +2284,14 @@ func analyzeOutputRoutingTable(
 				Target: node.input,
 				Kind:   edgeKinds[i],
 			})
+			for _, arg := range node.args {
+				edges = append(edges, ir.Edge{
+					Source: prevOutputHandle,
+					Target: ir.Handle{Node: arg.Key, Param: ir.DefaultInputParam},
+					Kind:   edgeKinds[i],
+				})
+				nodes = append(nodes, arg)
+			}
 
 			if isLast && targetParamName != "" {
 				if !node.node.Inputs.Has(targetParamName) {

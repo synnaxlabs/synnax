@@ -100,16 +100,14 @@ func inferVarKind(ctx context.Context[parser.IVariableDeclarationContext]) {
 		return
 	}
 	if stateful {
-		if rhsTracksChannel(ctx, expr) {
-			ctx.Diagnostics.Add(diagnostics.Errorf(
-				ctx.AST,
-				"channels and channel-read expressions cannot be assigned to stateful variables",
-			))
+		if expr == nil || sym.DefaultValue != nil {
 			return
 		}
-		if expr != nil && sym.DefaultValue == nil {
-			flow.AnalyzeSingleExpression(ctx.Child(expr))
+		if bound, _ := rhsBindsChannel(ctx, expr); bound {
+			ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST, statefulChannelInitMsg))
+			return
 		}
+		flow.AnalyzeSingleExpression(ctx.Child(expr))
 		return
 	}
 	// Channel read/write and folded initializers already carry their value.
@@ -119,25 +117,28 @@ func inferVarKind(ctx context.Context[parser.IVariableDeclarationContext]) {
 	if expr == nil || sym.DefaultValue != nil {
 		return
 	}
-	// A bare identifier bound to a reactive variable is itself reactive.
+	// A bare identifier bound to a reactive variable is itself reactive; one
+	// bound to a value variable is a computed copy and registers below.
 	if primary := parser.GetPrimaryExpression(
 		expr,
 	); primary != nil &&
 		primary.IDENTIFIER() != nil {
-		if ref, rerr := ctx.Scope.Resolve(
-			ctx,
-			primary.IDENTIFIER().GetText(),
-		); rerr == nil {
-			if ref.Kind == symbol.KindStatefulVariable {
-				ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
-					"stateful variables cannot be assigned to ':=' variables"))
-				return
-			}
-			if ref.IsReactive() {
-				sym.Type = types.ReadChan(sym.Type)
-			}
+		ref, rerr := ctx.Scope.Resolve(ctx, primary.IDENTIFIER().GetText())
+		if rerr != nil {
+			return
 		}
-		return
+		if ref.Kind == symbol.KindStatefulVariable {
+			ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
+				"stateful variables cannot be assigned to ':=' variables"))
+			return
+		}
+		if ref.IsReactive() {
+			sym.Type = types.ReadChan(sym.Type)
+			return
+		}
+		if !ref.IsValueVariable() {
+			return
+		}
 	}
 	// A complex initializer that reads channels is reactive: retype it as a
 	// read-only channel. One that reads none is computed once per scope entry.
@@ -163,22 +164,47 @@ func rhsTracksChannel[T antlr.ParserRuleContext](
 	if isLiteralExpression(childCtx) {
 		return false
 	}
-	// A bare reference that resolves to a channel, channel-read/write, or channel-read
-	// variable.
-	if primary := parser.GetPrimaryExpression(
-		expr,
-	); primary != nil &&
-		primary.IDENTIFIER() != nil {
-		ref, err := ctx.Scope.Resolve(ctx, primary.IDENTIFIER().GetText())
-		if err != nil {
-			return false
-		}
-		return ref.Kind == symbol.KindChannel || ref.Type.Kind == types.KindChan
+	if bound, bare := rhsBindsChannel(ctx, expr); bare {
+		return bound
 	}
 	// A compound expression that reads one or more channels is channel-read.
 	flow.AnalyzeSingleExpression(childCtx)
 	synth, err := ctx.Scope.Root().GetChildByParserRule(expr)
 	return err == nil && len(synth.Channels.Read) > 0
+}
+
+// rhsBindsChannel reports whether a bare-identifier expr names a channel,
+// channel-read/write, or channel-read variable. bare is false for any other expr.
+func rhsBindsChannel[T antlr.ParserRuleContext](
+	ctx context.Context[T],
+	expr parser.IExpressionContext,
+) (bound, bare bool) {
+	primary := parser.GetPrimaryExpression(expr)
+	if primary == nil || primary.IDENTIFIER() == nil {
+		return false, false
+	}
+	ref, err := ctx.Scope.Resolve(ctx, primary.IDENTIFIER().GetText())
+	if err != nil {
+		return false, true
+	}
+	return ref.Kind == symbol.KindChannel || ref.Type.Kind == types.KindChan, true
+}
+
+const statefulChannelInitMsg = "channels and channel-read expressions cannot be " +
+	"assigned to stateful variables"
+
+// CheckStatefulInitializers rejects a `$=` initializer that reads a channel. Run
+// it after call-graph channels are propagated so a later-declared callee counts.
+func CheckStatefulInitializers[T antlr.ParserRuleContext](ctx context.Context[T]) {
+	for _, c := range ctx.Scope.Root().Children() {
+		expr, ok := c.AST.(parser.IExpressionContext)
+		if !ok || c.Kind != symbol.KindFunction || len(c.Channels.Read) == 0 {
+			continue
+		}
+		if decl, ok := expr.GetParent().(parser.IStatefulVariableContext); ok {
+			ctx.Diagnostics.Add(diagnostics.Errorf(decl, statefulChannelInitMsg))
+		}
+	}
 }
 
 // rhsReadsVariable reports whether expr references a variable or input symbol.

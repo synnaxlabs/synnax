@@ -292,6 +292,7 @@ var _ = Describe("Statement", func() {
 			DescribeTable("reject an invalid stateful initializer",
 				func(bCtx SpecContext, code string) {
 					ctx := declareIn(bCtx, NewRoot(nil, sensorChan...), code)
+					statement.CheckStatefulInitializers(ctx)
 					Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 					Expect((*ctx.Diagnostics)[0].Message).To(
 						ContainSubstring("cannot be assigned to stateful"),

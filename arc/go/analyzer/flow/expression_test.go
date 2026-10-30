@@ -633,3 +633,31 @@ var _ = Describe("LiftFmtStrVarReads", func() {
 		},
 	)
 })
+
+var _ = Describe("AnalyzeComputedArgs", func() {
+	It("Should register a synth only for a computed argument", func(bCtx SpecContext) {
+		root := NewRoot(nil)
+		MustSucceed(root.Add(bCtx, symbol.Symbol{
+			Name: "x", Kind: symbol.KindVariable, Type: types.I32(),
+		}))
+		args := []symbol.Argument{
+			{Expr: MustSucceed(parser.ParseExpression("1"))},
+			{Expr: MustSucceed(parser.ParseExpression("x"))},
+			{Expr: MustSucceed(parser.ParseExpression("x + 1"))},
+		}
+		ctx := context.NewRoot(bCtx, args[2].Expr, root)
+		flow.AnalyzeComputedArgs(ctx, args)
+		Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+		var synths []*symbol.Symbol
+		for _, c := range root.Children() {
+			if c.Kind == symbol.KindFunction || c.Kind == symbol.KindConstant {
+				synths = append(synths, c)
+			}
+		}
+		Expect(synths).To(HaveLen(1))
+		Expect(synths[0].Name).To(HavePrefix("expression_"))
+		Expect(MustSucceed(root.GetChildByParserRule(args[2].Expr))).To(
+			BeIdenticalTo(synths[0]),
+		)
+	})
+})

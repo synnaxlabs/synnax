@@ -5199,6 +5199,32 @@ var _ = Describe("Sequence", func() {
 		)
 
 		It(
+			"Reads a top-level computed variable in a stateful initializer",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(map[string]channelDef{
+					"start_cmd": {types.U8(), 100},
+					"out":       {types.I64(), 102},
+				})
+				h := newRuntimeHarness(ctx, `
+				x := 2 + 3
+				sequence main {
+				    y i64 $= x + 1
+				    stage s1 {
+				        y -> out
+				    }
+				}
+				start_cmd => main`, resolver,
+					channels.Digest{Key: 102, DataType: telem.Int64T},
+				)
+				defer h.Close(ctx)
+
+				trigger(h, ctx, 100)
+				out, _ := h.Flush()
+				Expect(drainI64(out, 102)).To(Equal([]int64{6}))
+			},
+		)
+
+		It(
 			"Keeps a computed stateful's first value across stage re-entries",
 			func(ctx SpecContext) {
 				resolver := channelSymbols(map[string]channelDef{
@@ -5556,6 +5582,30 @@ var _ = Describe("Sequence", func() {
 			out, _ := h.Flush()
 			Expect(drainI64(out, 102)).To(Equal([]int64{10}))
 		})
+
+		It(
+			"Copies a computed variable into a later declaration",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(map[string]channelDef{
+					"start_cmd": {types.U8(), 100},
+					"out":       {types.I64(), 102},
+				})
+				h := newRuntimeHarness(ctx, `
+				sequence main {
+				    x := 1 + 2
+				    y := x
+				    y -> out
+				}
+				start_cmd => main`, resolver,
+					channels.Digest{Key: 102, DataType: telem.Int64T},
+				)
+				defer h.Close(ctx)
+
+				trigger(h, ctx, 100)
+				out, _ := h.Flush()
+				Expect(drainI64(out, 102)).To(Equal([]int64{3}))
+			},
+		)
 	})
 
 	Describe("Computed call inputs", func() {
@@ -5640,6 +5690,33 @@ var _ = Describe("Sequence", func() {
 			trigger(h, ctx, 100)
 			out, _ := h.Flush()
 			Expect(drainI64(out, 102)).To(Equal([]int64{7}))
+		})
+
+		It("Passes a computed input to a routed call", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"flag": {types.Bool(), 100},
+				"out":  {types.I64(), 102},
+			})
+			h := newRuntimeHarness(ctx, `
+				import time
+				func f(t i64 ns) {} i64 {
+				    return t
+				}
+				flag -> select() -> {
+				    true: f(time.now()) -> out
+				}`, resolver,
+				channels.Digest{Key: 102, DataType: telem.Int64T},
+			)
+			defer h.Close(ctx)
+
+			advance(h, ctx, telem.Millisecond)
+			startedAt := int64(h.cycleNow)
+			h.Ingest(100, telem.NewSeriesV(true))
+			h.Tick(ctx, telem.Millisecond)
+			out, _ := h.Flush()
+			got := drainI64(out, 102)
+			Expect(got).To(HaveLen(1))
+			Expect(got[0]).To(BeNumerically(">", startedAt))
 		})
 	})
 
