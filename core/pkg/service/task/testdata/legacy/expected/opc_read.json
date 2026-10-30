@@ -28,6 +28,8 @@
   ],
   "data_saving_disabled": true,
   "device": "fixture-opc-device",
+  "history_backfill_enabled": false,
+  "mode": "sampled",
   "nan_fill_enabled": false,
   "sample_rate": 432.5,
   "stream_rate": 43.5

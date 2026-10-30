@@ -1078,6 +1078,7 @@ class OnChangeReadTaskSource final : public BaseReadTaskSource {
         this->granted = monitored.intervals;
         if (!this->cfg.history_backfill_enabled) return x::errors::NIL;
         std::vector<std::size_t> all(this->nodes.size());
+        // NOLINTNEXTLINE(modernize-use-ranges): macOS libc++ has no std::ranges::iota.
         std::iota(all.begin(), all.end(), 0);
         return this->start_backfill(all);
     }
