@@ -93,7 +93,7 @@ const COMMAND_DEADLINE = TimeSpan.seconds(10);
 
 /** A command awaiting the Driver's reply, with the timer that gives up on it. */
 interface CommandDeadline {
-  cmd: string;
+  cmd: Command;
   timer: NodeJS.Timeout;
 }
 
@@ -510,9 +510,13 @@ export class Client extends query.Retriever<
     statusStore.subscribe((event) => {
       if (event.variant !== "set") return;
       const task = statusTaskKey(event.value);
-      if (task == null) return;
+      if (task == null) {
+        this.standInForDownRack(event.value);
+        return;
+      }
       const pending = this.commandDeadlines.get(task);
-      if (pending == null || status.detailsOf(event.value)?.cmd !== pending.cmd) return;
+      if (pending == null || status.detailsOf(event.value)?.cmd !== pending.cmd.key)
+        return;
       clearTimeout(pending.timer);
       this.commandDeadlines.delete(task);
     });
@@ -739,8 +743,19 @@ export class Client extends query.Retriever<
     });
   }
 
-  // Nothing else retires the loading status: the Core writes a rack's problem once per
-  // outage, not again while a command waits.
+  // A rack's outage answers each command that waits on the rack, since the Core copies
+  // an outage onto running tasks only.
+  private standInForDownRack(rackStatus: status.Status): void {
+    for (const [task, pending] of this.commandDeadlines) {
+      const down = this.downRackStatus(this.store.get(task)?.rack);
+      if (down?.key !== rackStatus.key) continue;
+      clearTimeout(pending.timer);
+      this.commandDeadlines.delete(task);
+      this.cfg.statuses.setLocal(this.optimisticStatus(pending.cmd));
+    }
+  }
+
+  // Only a reply or an outage of the task's rack retires the loading status sooner.
   private armCommandDeadline(cmd: Command, optimistic: Status): void {
     const { statuses } = this.cfg;
     const key = statusKey(cmd.task);
@@ -765,7 +780,7 @@ export class Client extends query.Retriever<
         }),
       );
     }, COMMAND_DEADLINE.milliseconds);
-    this.commandDeadlines.set(cmd.task, { cmd: cmd.key, timer });
+    this.commandDeadlines.set(cmd.task, { cmd, timer });
   }
 
   // A task's status may live under the "task:<key>" row or under any status whose
