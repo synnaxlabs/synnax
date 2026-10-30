@@ -108,13 +108,15 @@ TEST(StatusCacheTest, WriteDoesNotWaitOnAnotherTask) {
     // Declared before the guard, so the guard releases the hung write before the future
     // waits for its task.
     std::future<void> written;
-    std::thread hung([&] { cache.set(held_status); });
+    std::thread hung([&] { ASSERT_NIL(cache.set(held_status)); });
     x::defer::defer release([&] {
         transport->release();
         hung.join();
     });
     ASSERT_EVENTUALLY_TRUE(transport->holding.load());
-    written = std::async(std::launch::async, [&] { cache.set(free_status); });
+    written = std::async(std::launch::async, [&] {
+        ASSERT_NIL(cache.set(free_status));
+    });
     ASSERT_EQ(written.wait_for(std::chrono::seconds(2)), std::future_status::ready);
 }
 
@@ -132,7 +134,7 @@ TEST(StatusCacheTest, ResendRepairsAWriteInProgress) {
         .variant = synnax::status::VARIANT_SUCCESS,
         .details = {.task = free.key},
     };
-    cache.set(free_status);
+    ASSERT_NIL(cache.set(free_status));
     synnax::task::Status held_status{
         .key = synnax::task::status_key(held),
         .variant = synnax::status::VARIANT_SUCCESS,
@@ -141,7 +143,9 @@ TEST(StatusCacheTest, ResendRepairsAWriteInProgress) {
     // Declared before the guard, so the guard releases the hung write before the future
     // waits for the re-send.
     std::future<x::errors::Error> resent;
-    std::thread hung([&] { cache.set(held_status); });
+    std::thread hung([&] {
+        ASSERT_OCCURRED_AS(cache.set(held_status), freighter::UNREACHABLE);
+    });
     x::defer::defer release([&] {
         transport->release();
         hung.join();
@@ -179,13 +183,13 @@ TEST(StatusCacheTest, WriteDoesNotWaitOnResendOfAnotherTask) {
         .variant = synnax::status::VARIANT_SUCCESS,
         .details = {.task = held.key},
     };
-    cache.set(held_status);
+    ASSERT_NIL(cache.set(held_status));
     synnax::task::Status free_status{
         .key = synnax::task::status_key(free),
         .variant = synnax::status::VARIANT_SUCCESS,
         .details = {.task = free.key},
     };
-    cache.set(free_status);
+    ASSERT_NIL(cache.set(free_status));
     // Declared before the guard, so the guard releases the hung re-send before the
     // futures wait for their tasks.
     std::future<x::errors::Error> resent;
@@ -193,7 +197,9 @@ TEST(StatusCacheTest, WriteDoesNotWaitOnResendOfAnotherTask) {
     x::defer::defer release([&] { transport->release(); });
     resent = std::async(std::launch::async, [&] { return cache.resend(); });
     ASSERT_EVENTUALLY_TRUE(transport->holding.load());
-    written = std::async(std::launch::async, [&] { cache.set(free_status); });
+    written = std::async(std::launch::async, [&] {
+        ASSERT_NIL(cache.set(free_status));
+    });
     ASSERT_EQ(written.wait_for(std::chrono::seconds(2)), std::future_status::ready);
     transport->release();
     ASSERT_NIL(resent.get());
@@ -211,7 +217,7 @@ TEST(StatusCacheTest, DropDiscardsLaterStatuses) {
         .details = {.task = task.key},
     };
     cache.drop(task.key);
-    cache.set(late);
+    ASSERT_NIL(cache.set(late));
     ASSERT_NIL(cache.resend());
     EXPECT_TRUE(transport->sent().empty());
 }
@@ -229,7 +235,7 @@ TEST(StatusCacheTest, ClaimWritesStatusesAgain) {
     };
     cache.drop(task.key);
     cache.claim(task.key);
-    cache.set(configured);
+    ASSERT_NIL(cache.set(configured));
     ASSERT_NIL(cache.resend());
     const auto key = synnax::task::status_key(task);
     EXPECT_EQ(transport->sent(), (std::vector<std::vector<std::string>>{{key}, {key}}));
