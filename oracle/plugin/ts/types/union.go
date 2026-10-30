@@ -10,6 +10,7 @@
 package types
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/samber/lo"
@@ -17,6 +18,7 @@ import (
 	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/output"
+	"github.com/synnaxlabs/oracle/plugin/resolver"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/set"
 )
@@ -125,34 +127,38 @@ func (p *Plugin) processUnion(
 			Doc:        doc.Get(v.Domains),
 		}
 		omitted := variantOmissions(v, table)
-		for _, ext := range form.Extends {
+		bases := form.Extends
+		var fields []resolution.Field
+		if v.Inline {
+			if payload, ok := v.Type.Resolve(table); ok {
+				if pform, ok := payload.Form.(resolution.StructForm); ok {
+					bases = append(slices.Clone(form.Extends), pform.Extends...)
+					var declared []resolution.Field
+					// A base absent from TypeScript has no schema to extend.
+					if !resolver.ParentsExist(bases, "ts", table) {
+						bases, declared = resolver.VariantBases(form, v, "ts", table)
+					}
+					fields = append(declared, pform.Fields...)
+				}
+			}
+		}
+		for _, ext := range bases {
 			if pn, ok := parentSchemaName(ext, table, data); ok {
 				vd.ParentSchemas = append(
 					vd.ParentSchemas, pn+omitClause(ext, omitted, table),
 				)
 			}
 		}
-		if v.Inline {
-			if payload, ok := v.Type.Resolve(table); ok {
-				if pform, ok := payload.Form.(resolution.StructForm); ok {
-					for _, ext := range pform.Extends {
-						if pn, ok := parentSchemaName(ext, table, data); ok {
-							vd.ParentSchemas = append(
-								vd.ParentSchemas, pn+omitClause(ext, omitted, table),
-							)
-						}
-					}
-					for _, f := range pform.Fields {
-						// The union entry is the parent, not the synthesized
-						// payload, so a field referencing the union itself (a
-						// recursive variant) renders as a lazy getter.
-						vd.Fields = append(vd.Fields,
-							p.processField(f, entry, table, data, false))
-					}
-				}
+		for _, f := range fields {
+			// The union entry is the parent, not the synthesized payload, so a
+			// field referencing the union itself (a recursive variant) renders as
+			// a lazy getter.
+			vd.Fields = append(vd.Fields, p.processField(f, entry, table, data, false))
+		}
+		if !v.Inline {
+			if pn, ok := parentSchemaName(v.Type, table, data); ok {
+				vd.ParentSchemas = append(vd.ParentSchemas, pn)
 			}
-		} else if pn, ok := parentSchemaName(v.Type, table, data); ok {
-			vd.ParentSchemas = append(vd.ParentSchemas, pn)
 		}
 		ud.Variants = append(ud.Variants, vd)
 	}
