@@ -28,15 +28,13 @@ cc_library(
         "persist.cpp",
         "rack.cpp",
         "remote.cpp",
+        "unavailable.h",
     ] + select({
         "@platforms//os:macos": ["factories_darwin.cpp"],
         "@platforms//os:linux": ["factories_linux.cpp"],
         "@platforms//os:windows": ["factories_windows.cpp"],
     }),
-    hdrs = [
-        "rack.h",
-        "unavailable.h",
-    ],
+    hdrs = ["rack.h"],
     defines = select({
         ":nilinuxrt": ["SYNNAX_NILINUXRT"],
         "//conditions:default": [],
