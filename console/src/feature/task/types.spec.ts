@@ -25,6 +25,10 @@ describe("parseType", () => {
     expect(Task.parseType(type)).toBe(expected);
   });
 
+  it("should name an Arc task", () => {
+    expect(Task.parseType("arc")).toBe("Arc task");
+  });
+
   it("should capitalize the first word of an unprefixed type", () => {
     expect(Task.parseType("sequence")).toBe("Sequence task");
   });
@@ -45,6 +49,10 @@ describe("getIcon", () => {
     ["pagerduty_alert", Icon.Logo.PagerDuty],
   ])("should resolve the vendor icon for %s", (type, expected) => {
     expect(Task.getIcon(type).type).toBe(expected);
+  });
+
+  it("should resolve the Arc icon for an Arc task", () => {
+    expect(Task.getIcon("arc").type).toBe(Icon.Arc);
   });
 
   it("should fall back to the generic task icon for unknown types", () => {

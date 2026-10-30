@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/feature/arc/tree.css";
+
 import { arc } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
@@ -38,6 +40,21 @@ const useDelete = Tree.createUseDelete({
     return data;
   },
 });
+
+export const RootContextMenu = (props: Tree.DefaultContextMenuProps) => {
+  const createArc = PlatformArc.useCreate();
+  const canCreate = Access.useCreateGranted(arc.TYPE_ONTOLOGY_ID);
+  return (
+    <Tree.DefaultContextMenu {...props}>
+      {canCreate && (
+        <Menu.Item itemKey="createArc" onClick={createArc}>
+          <Icon.Add />
+          Create arc
+        </Menu.Item>
+      )}
+    </Tree.DefaultContextMenu>
+  );
+};
 
 const TreeContextMenu: Tree.ContextMenu = (props) => {
   const {

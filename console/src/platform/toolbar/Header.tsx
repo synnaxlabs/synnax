@@ -12,6 +12,7 @@ import "@/platform/toolbar/Header.css";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Header as PHeader } from "@synnaxlabs/lyra/header";
+import { Icon } from "@synnaxlabs/lyra/icon";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
@@ -57,4 +58,22 @@ export const Action = ({ className, ...rest }: ActionProps): ReactElement => (
     className={CSS.cls(CSS.BE("toolbar", "action"), className)}
     {...rest}
   />
+);
+
+export interface SearchActionProps extends Pick<
+  Button.ToggleProps,
+  "value" | "onChange"
+> {}
+
+/** A header toggle that shows and hides the search bar in the body. */
+export const SearchAction = (props: SearchActionProps): ReactElement => (
+  <Button.Toggle
+    size="small"
+    rounded="small"
+    variant="text"
+    tooltip="Search"
+    {...props}
+  >
+    <Icon.Search />
+  </Button.Toggle>
 );

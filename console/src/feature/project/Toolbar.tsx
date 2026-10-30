@@ -10,7 +10,7 @@
 import { project } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Access, Ontology } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import { type ReactElement, useState } from "react";
 
 import { Empty } from "@/platform/empty";
 import { type Nav } from "@/platform/nav";
@@ -18,41 +18,44 @@ import { Project as PlatformProject } from "@/platform/project";
 import { Toolbar } from "@/platform/toolbar";
 import { Tree } from "@/platform/tree";
 
-const Actions = (): ReactElement | null => {
+const Content = (): ReactElement => {
   const openCreate = PlatformProject.useCreateModal();
   const hasCreatePermission = Access.useCreateGranted(project.TYPE_ONTOLOGY_ID);
-  if (!hasCreatePermission) return null;
+  const [searching, setSearching] = useState(false);
   return (
-    <Toolbar.Actions>
-      <Toolbar.Action
-        onClick={() => openCreate()}
-        tooltip="Create project"
-        variant="filled"
-      >
-        <Icon.Add />
-      </Toolbar.Action>
-    </Toolbar.Actions>
+    <Toolbar.Content>
+      <Toolbar.Header>
+        <Toolbar.Title>
+          <Icon.Project />
+          Projects
+        </Toolbar.Title>
+        <Toolbar.Actions>
+          <Toolbar.SearchAction value={searching} onChange={setSearching} />
+          {hasCreatePermission && (
+            <Toolbar.Action
+              onClick={() => openCreate()}
+              tooltip="Create project"
+              variant="filled"
+            >
+              <Icon.Add />
+            </Toolbar.Action>
+          )}
+        </Toolbar.Actions>
+      </Toolbar.Header>
+      <Toolbar.Body>
+        <Body search={searching} />
+      </Toolbar.Body>
+    </Toolbar.Content>
   );
 };
 
-const Content = (): ReactElement => (
-  <Toolbar.Content>
-    <Toolbar.Header>
-      <Toolbar.Title>
-        <Icon.Project />
-        Projects
-      </Toolbar.Title>
-      <Actions />
-    </Toolbar.Header>
-    <Toolbar.Body>
-      <Body />
-    </Toolbar.Body>
-  </Toolbar.Content>
-);
+interface BodyProps {
+  search: boolean;
+}
 
-const Body = (): ReactElement => {
+const Body = ({ search }: BodyProps): ReactElement => {
   const groupID = Ontology.useRootChildID({ name: "Projects" });
-  return <Tree.Tree root={groupID} emptyContent={<EmptyContent />} />;
+  return <Tree.Tree root={groupID} search={search} emptyContent={<EmptyContent />} />;
 };
 
 const EmptyContent = () => {

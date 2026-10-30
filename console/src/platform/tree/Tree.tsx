@@ -194,19 +194,20 @@ const toNodes = (
     }));
 
 // A node the filter cannot judge stays, either with no resource yet or with children
-// not yet loaded. A rejected group stays while a descendant passes.
+// not yet loaded. A rejected group stays only while a descendant passes.
 const filterNodes = (
   tree: Base.Node<string>[],
   filter: Filter,
   getResource: (key: string) => ontology.Resource | undefined,
+  loaded: (key: string) => boolean,
   ancestors: ontology.Resource[] = [],
 ): Base.Node<string>[] =>
   tree.flatMap((node) => {
     const resource = getResource(node.key);
     if (resource == null || filter(resource, ancestors)) return [node];
     if (node.children == null) return [];
-    if (node.children.length === 0) return [node];
-    const children = filterNodes(node.children, filter, getResource, [
+    if (!loaded(node.key)) return [node];
+    const children = filterNodes(node.children, filter, getResource, loaded, [
       ...ancestors,
       resource,
     ]);
@@ -232,6 +233,8 @@ const Internal = ({
   bar,
 }: InternalProps): ReactElement => {
   const [term, setTerm] = useState("");
+  // A bar the user opens takes focus. One that mounts with the tree steals none.
+  const [searchAtMount] = useState(search);
   const items = useItems();
   const resolveItem = (type: ontology.ResourceType): Item => items[type] ?? DefaultItem;
   const [selected, setSelected, selectedRef] = useCombinedStateAndRef<string[]>([]);
@@ -271,7 +274,14 @@ const Internal = ({
     };
   };
 
+  // Parents whose children an answer has filled in, so a filter can judge them.
+  const [loadedParents, setLoadedParents] = useState(() => new Set<string>());
+
   const applyAnswer = (parent: ontology.ID, resources: ontology.Resource[]) => {
+    const parentKey = ontology.idToString(parent);
+    setLoadedParents((prev) =>
+      prev.has(parentKey) ? prev : new Set(prev).add(parentKey),
+    );
     const next = toNodes(resources, resolveItem);
     const nextKeys = new Set(next.map(({ key }) => key));
     // A placeholder stands in only until the Core delivers the real resource, which
@@ -365,6 +375,15 @@ const Internal = ({
     return () => releaseChildren([...watchedRef.current.keys()]);
   }, [client, ontology.idToString(root)]);
 
+  // A filter judges a group by its descendants, so every group loads while one is on.
+  const filtering = (search && term !== "") || filter != null;
+  useEffect(() => {
+    if (!filtering) return;
+    Base.getDescendants(...nodes)
+      .filter(({ key, children }) => children != null && !watchedRef.current.has(key))
+      .forEach(({ key }) => void watchChildren(ontology.parseID(key)));
+  }, [filtering, nodes]);
+
   // Selection drives the context menu, and a key with no node poisons every later
   // right-click, so a node that leaves the tree leaves the selection with it.
   useEffect(() => {
@@ -422,8 +441,10 @@ const Internal = ({
   const matches = matchesPath(term.toLowerCase());
   const accepts: Filter =
     filter == null ? matches : (r, a) => matches(r, a) && filter(r, a);
-  const visibleNodes =
-    search || filter != null ? filterNodes(nodes, accepts, getResourceByKey) : nodes;
+  const isLoaded = (key: string) => loadedParents.has(key);
+  const visibleNodes = filtering
+    ? filterNodes(nodes, accepts, getResourceByKey, isLoaded)
+    : nodes;
   const treeProps = Base.use({
     nodes: visibleNodes,
     onExpand: handleExpand,
@@ -585,7 +606,12 @@ const Internal = ({
         {(search || bar != null) && (
           <Search.Bar>
             {search && (
-              <Search.Input value={term} onChange={setTerm} placeholder="Search..." />
+              <Search.Input
+                value={term}
+                onChange={setTerm}
+                placeholder="Search..."
+                autoFocus={!searchAtMount}
+              />
             )}
             {bar}
           </Search.Bar>
@@ -630,11 +656,6 @@ export const Tree = ({
 }: TreeProps): ReactElement | null => {
   if (root == null) return null;
   return (
-    <Internal
-      root={root}
-      rootContextMenu={rootContextMenu}
-      search={search}
-      {...rest}
-    />
+    <Internal root={root} rootContextMenu={rootContextMenu} search={search} {...rest} />
   );
 };

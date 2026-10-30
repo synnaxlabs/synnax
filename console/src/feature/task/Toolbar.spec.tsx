@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
+  arc,
   NotFoundError,
   type panel,
   type Synnax as Client,
@@ -40,7 +41,9 @@ import {
   createKeyEndingIn,
   getIconButton,
   openContextMenu,
+  queryIcon,
   queryIconButton,
+  resolveFocusedTab,
   uniqueName,
 } from "@/testutil";
 
@@ -58,6 +61,7 @@ interface CreateTaskOptions {
 // render. Track created resources and remove them after each test.
 const createdTasks: task.Key[] = [];
 const createdRacks: number[] = [];
+const createdArcs: arc.Key[] = [];
 
 // Deletion tests already removed their task, so a NotFound here is expected.
 const ignoreNotFound = (err: unknown) => {
@@ -65,6 +69,8 @@ const ignoreNotFound = (err: unknown) => {
 };
 
 afterEach(async () => {
+  // An Arc takes its task with it.
+  await client.arcs.delete(createdArcs.splice(0)).catch(ignoreNotFound);
   await client.tasks.delete(createdTasks.splice(0)).catch(ignoreNotFound);
   await client.racks.delete(createdRacks.splice(0)).catch(ignoreNotFound);
 });
@@ -101,6 +107,26 @@ const createTask = async ({
   createdTasks.push(t.key);
   if (running != null) await setRunning(t, running, drifted);
   return t;
+};
+
+// Binding an Arc to a rack creates its task, named after the Arc.
+const createArcTask = async () => {
+  const rack = await client.racks.create({
+    name: uniqueName("rack"),
+    integrations: ["arc"],
+  });
+  createdRacks.push(rack.key);
+  const a = await client.arcs.create({ name: uniqueName("arc"), mode: "text" });
+  createdArcs.push(a.key);
+  const t = await client.arcs.updateTask(a.key, { rack: rack.key });
+  assertDefined(t, "binding the Arc created no task");
+  return { arc: a, task: t };
+};
+
+const getRow = (name: string): HTMLElement => {
+  const row = screen.getByText(name).closest<HTMLElement>(".lyra-list__item");
+  assertDefined(row, `no list item for ${name}`);
+  return row;
 };
 
 const renderToolbar = async (
@@ -175,12 +201,6 @@ describe("task/Toolbar", () => {
   });
 
   describe("data saving button", () => {
-    const getRow = (name: string): HTMLElement => {
-      const row = screen.getByText(name).closest<HTMLElement>(".lyra-list__item");
-      assertDefined(row, `no list item for ${name}`);
-      return row;
-    };
-
     it("disables data saving for a task whose config has it enabled", async () => {
       const t = await createTask({ config: { dataSavingDisabled: false } });
       await renderToolbar();
@@ -416,6 +436,56 @@ describe("task/Toolbar", () => {
       });
       // The snapshot is a task on the same rack, which cannot go while it remains.
       createdTasks.push(...snapshots.map((c) => c.id.key));
+    });
+  });
+
+  describe("Arc tasks", () => {
+    it("lists an Arc bound to a rack under the Arc icon", async () => {
+      const { arc: a } = await createArcTask();
+      await renderToolbar();
+      await screen.findByText(a.name);
+      const row = getRow(a.name);
+      expect(within(row).getByText("Arc task")).toBeTruthy();
+      expect(queryIcon(row, "arc")).not.toBeNull();
+    });
+
+    it("withholds the data saving button and items from an Arc task", async () => {
+      const { arc: a } = await createArcTask();
+      await renderToolbar();
+      await screen.findByText(a.name);
+      expect(
+        within(getRow(a.name)).queryByRole("button", { name: /^Data saving/ }),
+      ).toBeNull();
+      await openContextMenu(a.name);
+      await screen.findByText("Edit configuration");
+      expect(screen.queryByText("Enable data saving")).toBeNull();
+      expect(screen.queryByText("Disable data saving")).toBeNull();
+    });
+
+    it("opens the Arc editor on double click", async () => {
+      const { arc: a } = await createArcTask();
+      const { store } = await renderToolbar();
+      await screen.findByText(a.name);
+      fireEvent.doubleClick(screen.getByText(a.name));
+      const tab = await resolveFocusedTab(store, client);
+      if (tab.variant !== "resource") throw new Error("focused tab is not a resource");
+      expect(tab.resource).toEqual(arc.ontologyID(a.key));
+    });
+
+    it("renames the Arc, and so its task, through the inline editor", async () => {
+      const { arc: a, task: t } = await createArcTask();
+      await renderToolbar();
+      await openContextMenu(a.name);
+      fireEvent.click(await screen.findByText("Rename"));
+      const editor = await awaitTextEditing(`text-${t.key}`);
+      const renamed = uniqueName("renamed");
+      commitTextEdit(editor, renamed);
+      await waitFor(async () =>
+        expect((await client.arcs.retrieve(a.key)).name).toBe(renamed),
+      );
+      await waitFor(async () =>
+        expect((await client.tasks.retrieve(t.key)).name).toBe(renamed),
+      );
     });
   });
 

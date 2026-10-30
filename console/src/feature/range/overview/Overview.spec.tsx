@@ -22,7 +22,6 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { Errors, Flux, Panel as PlutoPanel } from "@synnaxlabs/pluto";
-import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { type ComponentType } from "react";
 import { assert, describe, expect, it, vi } from "vitest";
@@ -33,7 +32,7 @@ import { Modals } from "@/platform/modals";
 import { findButton } from "@/platform/modals/testutil";
 import { createResourceTab, primePanel } from "@/platform/panel/testutil";
 import { Range as PlatformRange } from "@/platform/range";
-import { createTestRange, uniqueRangeName } from "@/platform/range/testutil";
+import { createChildTestRange, createTestRange } from "@/platform/range/testutil";
 import {
   CaptureStatuses,
   createConsoleWrapper,
@@ -105,15 +104,6 @@ const renderOverview = async (
   return { onSnapshotClick, onSnapshotDelete, setTabResource, statuses };
 };
 
-const createChildRange = async (parent: ranger.Range): Promise<ranger.Range> => {
-  const start = TimeStamp.now();
-  return await client.ranges.create({
-    name: uniqueRangeName("child"),
-    timeRange: new TimeRange(start, start.add(TimeSpan.seconds(1))),
-    parent: { key: parent.key },
-  });
-};
-
 const createSnapshot = async (rng: ranger.Range): Promise<ontology.ID> => {
   const project = await client.projects.create({
     name: uniqueName("proj"),
@@ -142,14 +132,14 @@ describe("range/overview/Overview", () => {
 
   it("lists the range's children", async () => {
     const rng = await createTestRange(client);
-    const child = await createChildRange(rng);
+    const child = await createChildTestRange(client, rng);
     await renderOverview(rng.key);
     expect(await screen.findByText(child.name)).toBeTruthy();
   });
 
   it("lists the new range's children after the tab swaps resource", async () => {
     const parent = await createTestRange(client);
-    const child = await createChildRange(parent);
+    const child = await createChildTestRange(client, parent);
     const { setTabResource } = await renderOverview(child.key);
     expect(await screen.findByDisplayValue(child.name)).toBeTruthy();
     await setTabResource(parent.key);
@@ -287,7 +277,7 @@ describe("range/overview/ChildRanges permissions", () => {
 
   const renderAs = async (as: Client): Promise<void> => {
     const rng = await createTestRange(client);
-    const child = await createChildRange(rng);
+    const child = await createChildTestRange(client, rng);
     await renderOverview(rng.key, undefined, as);
     // The listed child proves the section resolved its data before the button is
     // looked for.

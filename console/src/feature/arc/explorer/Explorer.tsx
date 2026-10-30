@@ -7,30 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { arc } from "@synnaxlabs/client";
-import { Icon } from "@synnaxlabs/lyra/icon";
-import { Menu } from "@synnaxlabs/lyra/menu";
-import { Access, Ontology } from "@synnaxlabs/pluto";
+import { Ontology } from "@synnaxlabs/pluto";
 
-import { Arc } from "@/platform/arc";
+import { RootContextMenu } from "@/feature/arc/tree";
 import { Empty } from "@/platform/empty";
 import { type Panel } from "@/platform/panel";
 import { Tree } from "@/platform/tree";
-
-const RootContextMenu = (props: Tree.DefaultContextMenuProps) => {
-  const createArc = Arc.useCreate();
-  const canCreate = Access.useCreateGranted(arc.TYPE_ONTOLOGY_ID);
-  return (
-    <Tree.DefaultContextMenu {...props}>
-      {canCreate && (
-        <Menu.Item itemKey="createArc" onClick={createArc}>
-          <Icon.Add />
-          Create arc
-        </Menu.Item>
-      )}
-    </Tree.DefaultContextMenu>
-  );
-};
 
 export const Explorer: Panel.Content = () => {
   const groupID = Ontology.useRootChildID({ name: "Arcs" });

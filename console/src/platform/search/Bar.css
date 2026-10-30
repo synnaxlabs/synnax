@@ -9,6 +9,10 @@
  * included in the file licenses/APL.txt.
  */
 
+/* The input's own 1rem start inset puts its icon at 1.5rem, level with the icon in a
+   toolbar header above it. */
 .console-search__bar:not(:empty) {
-    padding: 1.5rem;
+    padding: 1rem 1.5rem 1rem 1rem;
+    border-top: var(--pluto-border);
+    border-bottom: var(--pluto-border);
 }

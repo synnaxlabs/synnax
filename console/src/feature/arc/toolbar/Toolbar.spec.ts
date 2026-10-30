@@ -7,21 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type panel } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Arc } from "@/feature/arc";
-import { Modals } from "@/platform/modals";
-import { createActiveState } from "@/platform/project/testutil";
-import { Session } from "@/session";
+import { Group } from "@/feature/group";
+import { renderToolbar } from "@/platform/tree/menuTestutil";
 import {
-  awaitTextEditing,
+  findTreeRow,
+  openTreeRootContextMenu,
+  openTreeRowContextMenu,
+} from "@/platform/tree/treeTestutil";
+import {
+  awaitTextEditingElement,
   commitTextEdit,
-  createConsoleWrapper,
   getIconButton,
   resolveFocusedTab,
+  selectTestProject,
   type TestStore,
   uniqueName,
 } from "@/testutil";
@@ -35,21 +38,12 @@ const createArc = async () =>
     graph: { nodes: [], edges: [] },
   });
 
-const renderToolbar = async (): Promise<{ store: TestStore }> => {
-  const proj = await client.projects.create({
-    name: uniqueName("project"),
-  });
-  const { wrapper, store } = await createConsoleWrapper({
+const renderArcToolbar = async (): Promise<{ store: TestStore }> => {
+  const { store } = await renderToolbar(Arc.TOOLBAR.content, {
     client,
-    preloadedState: { [Session.Project.SLICE_NAME]: createActiveState(proj) },
+    items: { ...Arc.TREE_ITEMS, ...Group.TREE_ITEMS },
   });
-  render(
-    <>
-      {Arc.TOOLBAR.content}
-      <Modals.Stack />
-    </>,
-    { wrapper },
-  );
+  await selectTestProject(store, client);
   return { store };
 };
 
@@ -59,24 +53,44 @@ const focusedResourceKey = async (store: TestStore): Promise<string> => {
   return tab.resource.key;
 };
 
-const openTabs = async (store: TestStore): Promise<panel.Tab[]> => {
-  const panelKey = Session.Panel.selectSelected(store.getState());
-  if (panelKey == null) throw new Error("no panel selected");
-  const { root } = await client.panels.retrieve(panelKey);
-  if (root.variant !== "leaf") throw new Error("expected a leaf panel root");
-  return root.tabs;
+const toggleSearch = (): void => {
+  fireEvent.click(getIconButton(document.body, "search"));
 };
 
 describe("arc/Toolbar", () => {
-  it("renders a created arc with its deployment state", async () => {
+  it("lists an Arc under the Arcs group", async () => {
     const arc = await createArc();
-    await renderToolbar();
-    expect(await screen.findByText(arc.name)).toBeTruthy();
-    expect((await screen.findAllByText("Stopped")).length).toBeGreaterThan(0);
+    await renderArcToolbar();
+    expect(await findTreeRow(arc.name)).toBeTruthy();
+  });
+
+  it("shows the search bar only while the search action is on", async () => {
+    const arc = await createArc();
+    await renderArcToolbar();
+    await findTreeRow(arc.name);
+    expect(screen.queryByPlaceholderText("Search...")).toBeNull();
+    toggleSearch();
+    const input = await screen.findByPlaceholderText("Search...");
+    expect(document.activeElement).toBe(input);
+    toggleSearch();
+    await waitFor(() => expect(screen.queryByPlaceholderText("Search...")).toBeNull());
+  });
+
+  it("narrows the rows to the search term", async () => {
+    const kept = await createArc();
+    const dropped = await createArc();
+    await renderArcToolbar();
+    await findTreeRow(dropped.name);
+    toggleSearch();
+    fireEvent.change(await screen.findByPlaceholderText("Search..."), {
+      target: { value: kept.name },
+    });
+    await findTreeRow(kept.name);
+    await waitFor(() => expect(screen.queryByText(dropped.name)).toBeNull());
   });
 
   it("opens the explorer view from the explorer action", async () => {
-    const { store } = await renderToolbar();
+    const { store } = await renderArcToolbar();
     await waitFor(() => getIconButton(document.body, "explore"));
     fireEvent.click(getIconButton(document.body, "explore"));
     const tab = await resolveFocusedTab(store, client);
@@ -85,7 +99,7 @@ describe("arc/Toolbar", () => {
   });
 
   it("creates an arc through the create action's modal", async () => {
-    const { store } = await renderToolbar();
+    const { store } = await renderArcToolbar();
     await waitFor(() => getIconButton(document.body, "add"));
     fireEvent.click(getIconButton(document.body, "add"));
     const input = await screen.findByPlaceholderText("Name");
@@ -101,49 +115,35 @@ describe("arc/Toolbar", () => {
 
   it("opens the arc editor on double click", async () => {
     const arc = await createArc();
-    const { store } = await renderToolbar();
-    fireEvent.doubleClick(await screen.findByText(arc.name));
+    const { store } = await renderArcToolbar();
+    fireEvent.doubleClick(await findTreeRow(arc.name));
     expect(await focusedResourceKey(store)).toBe(arc.key);
   });
 
-  it("keeps the editor closed when the start button is double clicked", async () => {
-    const started = await createArc();
-    const opened = await createArc();
-    const { store } = await renderToolbar();
-    await screen.findByText(started.name);
-    await screen.findByText(opened.name);
-    // The start button mounts only once the update permission resolves, so poll the
-    // row for it instead of reading it off the first render.
-    const start = await waitFor(() => {
-      const row = document.getElementById(started.key);
-      if (row == null) throw new Error(`no list item for ${started.name}`);
-      return getIconButton(row, "play");
-    });
-    fireEvent.doubleClick(start);
-    // Opening the other arc gives a leaked double click time to land, so the tab count
-    // below is not read before the editor would have appeared.
-    fireEvent.doubleClick(screen.getByText(opened.name));
-    expect(await focusedResourceKey(store)).toBe(opened.key);
-    expect(await openTabs(store)).toHaveLength(1);
+  it("offers Create arc from the root context menu", async () => {
+    const arc = await createArc();
+    await renderArcToolbar();
+    await findTreeRow(arc.name);
+    await openTreeRootContextMenu();
+    expect(await screen.findByText("Create arc")).toBeTruthy();
   });
 
   describe("context menu", () => {
     it("opens the editor from Edit", async () => {
       const arc = await createArc();
-      const { store } = await renderToolbar();
-      fireEvent.contextMenu(await screen.findByText(arc.name));
+      const { store } = await renderArcToolbar();
+      await openTreeRowContextMenu(arc.name);
       fireEvent.click(await screen.findByText("Edit"));
       expect(await focusedResourceKey(store)).toBe(arc.key);
     });
 
     it("renames the arc through the inline editor", async () => {
       const arc = await createArc();
-      await renderToolbar();
-      fireEvent.contextMenu(await screen.findByText(arc.name));
+      await renderArcToolbar();
+      await openTreeRowContextMenu(arc.name);
       fireEvent.click(await screen.findByText("Rename"));
-      const editor = await awaitTextEditing(`text-${arc.key}`);
       const renamed = uniqueName("renamed");
-      commitTextEdit(editor, renamed);
+      commitTextEdit(await awaitTextEditingElement(), renamed);
       await waitFor(async () =>
         expect((await client.arcs.retrieve(arc.key)).name).toBe(renamed),
       );

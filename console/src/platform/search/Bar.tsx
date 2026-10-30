@@ -20,7 +20,6 @@ export interface BarProps extends Flex.BoxProps {}
 export const Bar = ({ className, ...rest }: BarProps): ReactElement => (
   <Flex.Box
     x
-    bordered
     background={1}
     justify="between"
     align="center"

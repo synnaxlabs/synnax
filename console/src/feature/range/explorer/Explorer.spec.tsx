@@ -26,7 +26,11 @@ import { Explorer } from "@/feature/range/explorer/Explorer";
 import { Modals } from "@/platform/modals";
 import { findButton } from "@/platform/modals/testutil";
 import { createTestRange, uniqueRangeName } from "@/platform/range/testutil";
-import { enableEditing, findToolbarIconButton } from "@/platform/view/testutil";
+import {
+  enableEditing,
+  findToolbarIconButton,
+  queryToolbarIconButton,
+} from "@/platform/view/testutil";
 import { Session } from "@/session";
 import {
   awaitTextEditing,
@@ -237,9 +241,7 @@ describe("range/Explorer permissions", () => {
         queryIconButton(getBySelector(document.body, ".console-controls"), "add"),
       ).toBeTruthy(),
     );
-    expect(
-      queryIconButton(getBySelector(document.body, ".console-view__toolbar"), "add"),
-    ).toBeNull();
+    expect(queryToolbarIconButton("add")).toBeNull();
   });
 
   it("should offer the create button to a subject who may create ranges", async () => {
