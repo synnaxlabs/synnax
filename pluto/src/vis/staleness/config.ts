@@ -10,7 +10,7 @@
 import { color } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { DEFAULT_TIMEOUT } from "@/vis/staleness/aether/staleness";
+import { staleness } from "@/vis/staleness/aether";
 
 /**
  * configZ carries the staleness keys a symbol config holds. Extend a symbol's schema
@@ -28,6 +28,6 @@ export interface Config extends z.infer<typeof configZ> {}
 
 /** The staleness a symbol starts with. An unset color resolves to the theme warning. */
 export const ZERO_CONFIG: Config = {
-  stalenessTimeout: DEFAULT_TIMEOUT,
+  stalenessTimeout: staleness.DEFAULT_TIMEOUT,
   stalenessColor: color.ZERO,
 };

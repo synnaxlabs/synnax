@@ -10,11 +10,11 @@
 import { type Config, defaultConfig } from "@/arc/graph/node/source/config";
 import { Form } from "@/arc/graph/node/source/Form";
 import { Symbol } from "@/arc/graph/node/source/Source";
-import { type Spec } from "@/arc/graph/node/types/spec";
+import { type types } from "@/arc/graph/node/types";
 
 export { configZ } from "@/arc/graph/node/source/config";
 
-const SPEC: Spec<"on", Config> = {
+const SPEC: types.Spec<"on", Config> = {
   key: "on",
   name: "Telemetry source",
   Form,

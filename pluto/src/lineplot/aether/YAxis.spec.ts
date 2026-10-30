@@ -25,7 +25,7 @@ import { YAxis } from "@/lineplot/aether/YAxis";
 import { telem } from "@/telem/aether";
 import { telemTest } from "@/telem/aether/testutil";
 import { buildStack } from "@/testutil/internal";
-import { Line } from "@/vis/line/aether/line";
+import { line } from "@/vis/line/aether";
 import { lineTest } from "@/vis/line/aether/testutil";
 import { canvasTest } from "@/vis/render/testutil";
 
@@ -98,7 +98,7 @@ describe("YAxis", () => {
         [lineTest.Host.TYPE]: lineTest.Host,
         [XAxis.TYPE]: XAxis,
         [YAxis.TYPE]: YAxis,
-        [Line.TYPE]: Line,
+        [line.Line.TYPE]: line.Line,
       },
       render: recorder,
     });
@@ -115,13 +115,13 @@ describe("YAxis", () => {
       autoBoundPadding: 0,
       ...axis,
     });
-    const setVisible = (line: string, visible: boolean): void =>
-      stack.driver.update([...path, line], Line.TYPE, {
-        ...lines[line],
+    const setVisible = (key: string, visible: boolean): void =>
+      stack.driver.update([...path, key], line.Line.TYPE, {
+        ...lines[key],
         color: color.construct("#ff0000"),
         visible,
       });
-    Object.keys(lines).forEach((line) => setVisible(line, !hidden.includes(line)));
+    Object.keys(lines).forEach((key) => setVisible(key, !hidden.includes(key)));
     teardowns.push(() => stack.driver.delete([aetherTest.ROOT_KEY]));
     return {
       xAxis: stack.driver.find<XAxis>(xPath),

@@ -13,9 +13,8 @@ import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { telem } from "@/telem/aether";
-import { noopColorSourceSpec } from "@/telem/aether/noop";
 import { theming } from "@/theming/aether";
-import { type Element } from "@/vis/diagram/aether/Diagram";
+import { type diagram } from "@/vis/diagram/aether";
 import { type FillTextOptions } from "@/vis/draw2d/canvas";
 import { render } from "@/vis/render";
 import { staleness } from "@/vis/staleness/aether";
@@ -73,7 +72,7 @@ interface InternalState {
 
 export class Value
   extends aether.Leaf<typeof valueState, InternalState>
-  implements Element
+  implements diagram.Element
 {
   static readonly TYPE = "value";
   static readonly z = valueState;
@@ -166,15 +165,14 @@ export class Value
   }
 
   render({ viewportScale = scale.XY.IDENTITY }): void {
-    const { renderCtx, telem, backgroundTelem, fontString, requestRender } =
-      this.internal;
+    const { renderCtx, backgroundTelem, fontString, requestRender } = this.internal;
     const { location, box: b } = this.state;
     if (box.areaIsZero(b)) return;
     const bTopLeft = box.topLeft(b);
     const bWidth = box.width(b);
     const bHeight = box.height(b);
     const canvas = renderCtx.upper2d.applyScale(viewportScale);
-    let value = telem.value().data;
+    let value = this.internal.telem.value().data;
     canvas.font = fontString;
     canvas.textAlign = "left";
     canvas.textBaseline = "alphabetic";
@@ -200,7 +198,7 @@ export class Value
       ? canvas.scissor(b, xy.ZERO, this.state.borderRadius)
       : null;
     try {
-      if (this.state.backgroundTelem.type != noopColorSourceSpec.type) {
+      if (this.state.backgroundTelem.type != telem.noopColorSourceSpec.type) {
         const colorValue = backgroundTelem.value().data;
         const isZero = color.isZero(colorValue);
         if (!isZero) {

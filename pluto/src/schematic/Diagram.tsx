@@ -30,7 +30,6 @@ import {
 } from "@/schematic/queries";
 import { useKey } from "@/schematic/Suspended";
 import { Diagram as Base } from "@/vis/diagram";
-import { internalNodeBox, resolveEndpoint } from "@/vis/diagram/util";
 
 // The partial merges against the latest config through a ref, not the render's
 // closure, so two changes in one tick both land.
@@ -98,15 +97,15 @@ const EdgeJumpProvider = ({ children }: PropsWithChildren): ReactElement => {
       const sourceNode = nodeLookup.get(edge.source.node);
       const targetNode = nodeLookup.get(edge.target.node);
       if (sourceNode == null || targetNode == null) return;
-      const source = resolveEndpoint(sourceNode.internals, edge.source.param);
-      const target = resolveEndpoint(targetNode.internals, edge.target.param);
+      const source = Base.resolveEndpoint(sourceNode.internals, edge.source.param);
+      const target = Base.resolveEndpoint(targetNode.internals, edge.target.param);
       if (source == null || target == null) return;
       const cfg = configs.get(edge.key) as Edge.Config | undefined;
       const segments = Edge.Segmented.build({
         source,
         target,
-        sourceBox: internalNodeBox(sourceNode),
-        targetBox: internalNodeBox(targetNode),
+        sourceBox: Base.internalNodeBox(sourceNode),
+        targetBox: Base.internalNodeBox(targetNode),
         middleSegments: cfg?.segments ?? [],
       });
       const points = Edge.Segmented.segmentsToPoints(
