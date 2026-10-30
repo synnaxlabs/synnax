@@ -60,7 +60,7 @@ describe("Arc Commands", () => {
     await act(async () => {
       fireEvent.click(item);
     });
-    const inputs = await screen.findAllByPlaceholderText("Name");
+    const inputs = await screen.findAllByPlaceholderText("Arc name");
     const input = inputs[inputs.length - 1];
     const name = uniqueName("arc");
     fireEvent.change(input, { target: { value: name } });
