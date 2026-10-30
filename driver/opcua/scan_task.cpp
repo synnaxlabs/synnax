@@ -14,6 +14,7 @@
 #include <optional>
 #include <ranges>
 #include <set>
+#include <span>
 #include <string>
 #include <tuple>
 #include <utility>
@@ -335,7 +336,7 @@ std::pair<VariableType, bool> variable_type(
 /// @returns one type for each reference, unknown for a node that is not a variable.
 std::pair<std::vector<VariableType>, x::errors::Error> variable_types(
     const connection::Pool::Connection &conn,
-    const std::vector<types::Reference> &refs
+    const std::span<const types::Reference> refs
 ) {
     std::vector<VariableType> out(refs.size());
     std::vector<size_t> variables;
@@ -380,26 +381,40 @@ std::pair<std::vector<VariableType>, x::errors::Error> variable_types(
     return {std::move(out), x::errors::NIL};
 }
 
-/// @returns the nodes that refs name, with the types of the variables.
+/// @brief the most variables in one step of reading types, when the server has no limit
+/// on the nodes in a Read request.
+constexpr size_t TYPE_BATCH = 1000;
+
+/// @returns the nodes that refs name, with the types of the variables. Reads the types
+/// in steps of about one Read request, and stops between steps once deadline passes, so
+/// it can return only the first nodes of refs. Always reads the first step.
 std::pair<std::vector<types::Node>, x::errors::Error> to_nodes(
     const connection::Pool::Connection &conn,
-    const std::vector<types::Reference> &refs
+    const std::vector<types::Reference> &refs,
+    const std::chrono::steady_clock::time_point deadline
 ) {
-    auto [variables, err] = variable_types(conn, refs);
-    if (err) return {{}, err};
+    // Each variable takes two nodes of a request: its DataType and its ValueRank.
+    const size_t limit = conn.server().max_nodes_per_read;
+    const size_t step = limit == 0 ? TYPE_BATCH : std::max<size_t>(limit / 2, 1);
     std::vector<types::Node> nodes;
     nodes.reserve(refs.size());
-    for (size_t i = 0; i < refs.size(); ++i)
-        nodes.emplace_back(
-            variables[i].data_type,
-            refs[i].browse_name,
-            types::NodeId::to_string(
-                refs[i].node.resolve({}).value(),
-                conn.server().namespaces
-            ),
-            types::node_class_to_string(refs[i].node_class),
-            variables[i].is_array
-        );
+    for (size_t head = 0; head < refs.size(); head += step) {
+        if (head > 0 && std::chrono::steady_clock::now() >= deadline) break;
+        const std::span part(refs.data() + head, std::min(step, refs.size() - head));
+        auto [variables, err] = variable_types(conn, part);
+        if (err) return {{}, err};
+        for (size_t i = 0; i < part.size(); ++i)
+            nodes.emplace_back(
+                variables[i].data_type,
+                part[i].browse_name,
+                types::NodeId::to_string(
+                    part[i].node.resolve({}).value(),
+                    conn.server().namespaces
+                ),
+                types::node_class_to_string(part[i].node_class),
+                variables[i].is_array
+            );
+    }
     return {std::move(nodes), x::errors::NIL};
 }
 
@@ -477,15 +492,21 @@ struct Search {
 
 /// @brief the most objects in one Browse request of a search for variables.
 constexpr size_t SEARCH_BATCH = 100;
-/// @brief how long a search for variables runs before it returns what it found, which
-/// is less than the 30 s that the Console waits for the reply.
+/// @brief how long a browse_variables command runs before it returns what it found,
+/// which is less than the 30 s that the Console waits for the reply.
 constexpr auto SEARCH_DEADLINE = std::chrono::seconds(20);
+/// @brief how long a browse command runs before it returns the nodes that it typed,
+/// which is less than the 10 s that the Console waits for the reply.
+constexpr auto BROWSE_DEADLINE = std::chrono::seconds(7);
 
 /// @brief finds the variables under a node, through objects at any depth, breadth
-/// first. Does not look under a variable. A node that fails to browse is skipped, and
-/// its error goes in the result.
-std::pair<Search, x::errors::Error>
-find_variables(const connection::Pool::Connection &conn, const UA_NodeId &start) {
+/// first, until deadline. Does not look under a variable. A node that fails to browse
+/// is skipped, and its error goes in the result.
+std::pair<Search, x::errors::Error> find_variables(
+    const connection::Pool::Connection &conn,
+    const UA_NodeId &start,
+    const std::chrono::steady_clock::time_point deadline
+) {
     struct Object {
         types::NodeId node;
         std::vector<std::string> path;
@@ -496,7 +517,6 @@ find_variables(const connection::Pool::Connection &conn, const UA_NodeId &start)
     objects.push_back({.node = types::NodeId(start), .path = {}});
     const size_t limit = conn.server().max_nodes_per_browse;
     const size_t batch = limit == 0 ? SEARCH_BATCH : std::min(limit, SEARCH_BATCH);
-    const auto deadline = std::chrono::steady_clock::now() + SEARCH_DEADLINE;
     for (size_t head = 0; head < objects.size();) {
         if (search.variables.size() >= MAX_VARIABLES ||
             std::chrono::steady_clock::now() >= deadline) {
@@ -734,6 +754,7 @@ std::optional<std::pair<connection::Pool::Connection, UA_NodeId>> Scanner::targe
 }
 
 void Scanner::browse_nodes(const synnax::task::Command &cmd) const {
+    const auto deadline = std::chrono::steady_clock::now() + BROWSE_DEADLINE;
     x::json::Parser parser(cmd.args);
     const ScanCommandArgs args(parser);
     auto status = command_status(this->task, cmd);
@@ -748,8 +769,9 @@ void Scanner::browse_nodes(const synnax::task::Command &cmd) const {
         auto [results, browse_err] = connection.browse({start});
         err = browse_err ? browse_err : results[0].err;
         if (!err) {
-            truncated = results[0].truncated;
-            std::tie(nodes, err) = to_nodes(connection, results[0].references);
+            const auto &refs = results[0].references;
+            std::tie(nodes, err) = to_nodes(connection, refs, deadline);
+            truncated = results[0].truncated || nodes.size() < refs.size();
         }
     }
     if (!err) {
@@ -780,20 +802,21 @@ void Scanner::browse_nodes(const synnax::task::Command &cmd) const {
 }
 
 void Scanner::browse_variables(const synnax::task::Command &cmd) const {
+    const auto deadline = std::chrono::steady_clock::now() + SEARCH_DEADLINE;
     x::json::Parser parser(cmd.args);
     const ScanCommandArgs args(parser);
     auto status = command_status(this->task, cmd);
     auto target = this->target(parser, args, status, "Failed to find variables");
     if (!target.has_value()) return;
     auto &[connection, start] = *target;
-    auto [search, search_err] = find_variables(connection, start);
+    auto [search, search_err] = find_variables(connection, start, deadline);
     std::vector<types::Reference> refs;
     refs.reserve(search.variables.size());
     for (auto &found: search.variables)
         refs.push_back(std::move(found.ref));
     std::vector<types::Node> nodes;
     auto err = search_err;
-    if (!err) std::tie(nodes, err) = to_nodes(connection, refs);
+    if (!err) std::tie(nodes, err) = to_nodes(connection, refs, deadline);
     if (err) {
         status.message = "Failed to find variables";
         status.description = err.data;
@@ -813,7 +836,7 @@ void Scanner::browse_variables(const synnax::task::Command &cmd) const {
     status.variant = synnax::status::VARIANT_SUCCESS;
     status.details.data = {
         {"channels", channels},
-        {"truncated", search.truncated},
+        {"truncated", search.truncated || nodes.size() < refs.size()},
         {"skipped", skipped},
     };
     ctx->set_status(status);

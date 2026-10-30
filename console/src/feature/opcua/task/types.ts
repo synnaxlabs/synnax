@@ -226,7 +226,7 @@ export interface CertificateInfo extends z.infer<typeof certificateInfoZ> {}
 
 export const browseResponseZ = z.object({
   channels: z.array(scannedNodeZ),
-  /** Whether the server lists more children than the Driver returned. */
+  /** Whether the Driver stopped at a limit before it returned every child. */
   truncated: z.boolean().default(false),
 });
 

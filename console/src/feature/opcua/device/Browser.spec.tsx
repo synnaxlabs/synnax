@@ -329,7 +329,7 @@ describe("Browser limits", () => {
           name: dev.name,
           message: "Showing the first 2 nodes",
           description:
-            "The server lists more nodes than the Driver loads. Enter a node ID in the search to open a node that is not shown.",
+            "The Driver stopped at a limit before it loaded every node. Enter a node ID in the search to open a node that is not shown.",
         }),
       ]),
     );

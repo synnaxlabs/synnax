@@ -185,7 +185,7 @@ export const Browser = ({ device }: BrowserProps) => {
           name: parent?.name ?? device.name,
           message: `Showing the first ${channels.length.toLocaleString()} nodes`,
           description:
-            "The server lists more nodes than the Driver loads. Enter a node ID in the search to open a node that is not shown.",
+            "The Driver stopped at a limit before it loaded every node. Enter a node ID in the search to open a node that is not shown.",
         });
       setStat(status.create({ variant: "success", message: "Browsed OPC UA nodes" }));
       // A member's name carries its structure's name, so channels made from members of

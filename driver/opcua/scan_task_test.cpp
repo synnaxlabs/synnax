@@ -1103,6 +1103,66 @@ TEST_F(TestScanTask, testBrowseStopsAtChildLimit) {
     generated->stop();
 }
 
+/// @brief starts a server whose Generated folder holds the variables, which waits 100
+/// ms before it handles each request and takes the type of one variable in each Read.
+std::unique_ptr<testutil::Server> start_slow_server(const std::uint32_t variables) {
+    auto cfg = testutil::ServerConfig::create_default();
+    cfg.port = 4882;
+    cfg.generated_variables = variables;
+    cfg.max_nodes_per_read = 2;
+    auto server = std::make_unique<testutil::Server>(cfg);
+    server->start();
+    EXPECT_TRUE(server->wait_until_ready());
+    server->probe_delay = 100 * x::telem::MILLISECOND;
+    return server;
+}
+
+/// @brief it should return the nodes that it typed before the 10 s that the Console
+/// waits, and say that it stopped early.
+TEST_F(TestScanTask, testBrowseStopsAtDeadline) {
+    const auto slow = start_slow_server(300);
+    const auto start = std::chrono::steady_clock::now();
+    const auto status = run_command(
+        ctx,
+        task,
+        conn_pool,
+        store,
+        BROWSE_CMD_TYPE,
+        4882,
+        {{"node_id", "NS=1;S=Generated"}}
+    );
+    EXPECT_LT(std::chrono::steady_clock::now() - start, std::chrono::seconds(10));
+    ASSERT_EQ(status.variant, synnax::status::VARIANT_SUCCESS) << status.description;
+    const x::json::json data = status.details.data.value();
+    EXPECT_TRUE(data.at("truncated").get<bool>());
+    EXPECT_GT(data.at("channels").size(), 0);
+    EXPECT_LT(data.at("channels").size(), 301);
+    slow->stop();
+}
+
+/// @brief it should return the variables that it typed before the 30 s that the Console
+/// waits, and say that it stopped early.
+TEST_F(TestScanTask, testBrowseVariablesStopsAtDeadline) {
+    const auto slow = start_slow_server(300);
+    const auto start = std::chrono::steady_clock::now();
+    const auto status = run_command(
+        ctx,
+        task,
+        conn_pool,
+        store,
+        BROWSE_VARIABLES_CMD_TYPE,
+        4882,
+        {{"node_id", "NS=1;S=Generated"}}
+    );
+    EXPECT_LT(std::chrono::steady_clock::now() - start, std::chrono::seconds(30));
+    ASSERT_EQ(status.variant, synnax::status::VARIANT_SUCCESS) << status.description;
+    const x::json::json data = status.details.data.value();
+    EXPECT_TRUE(data.at("truncated").get<bool>());
+    EXPECT_GT(data.at("channels").size(), 0);
+    EXPECT_LT(data.at("channels").size(), 301);
+    slow->stop();
+}
+
 /// @brief it should stop at the most objects that it browses, and say so.
 TEST_F(TestScanTask, testBrowseVariablesStopsAtObjectLimit) {
     const auto generated = start_generated_server(1, MAX_OBJECTS);
