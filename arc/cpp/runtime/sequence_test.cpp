@@ -3519,6 +3519,120 @@ TEST(
     ) << "re-entry must keep the first value";
 }
 
+TEST(
+    ComputedStatefulInitializersTest,
+    ReadsAComputedBoolStatefulsInitialValueInFlowReads
+) {
+    Sequence h(
+        R"(
+    sequence main {
+        x bool $= 1 > 0
+        stage s1 {
+            x -> %out%
+        }
+    }
+    %start_cmd% => main)",
+        {{"start_cmd", x::telem::UINT8_T}, {"out", x::telem::BOOLEAN_T}}
+    );
+
+    h.trigger("start_cmd");
+    const auto out = h.flush();
+    EXPECT_EQ(last<std::uint8_t>(out, h.key("out")), 1);
+}
+
+TEST(
+    ComputedStatefulInitializersTest,
+    PersistsAToggledComputedBoolStatefulAcrossStageReEntries
+) {
+    Sequence h(
+        R"(
+    sequence main {
+        x bool $= 1 < 0
+        stage s1 {
+            x = not(x)
+            x -> %out%
+            %go2% => s2
+        }
+        stage s2 {
+            %go1% => s1
+        }
+    }
+    %start_cmd% => main)",
+        {{"start_cmd", x::telem::UINT8_T},
+         {"out", x::telem::BOOLEAN_T},
+         {"go2", x::telem::UINT8_T},
+         {"go1", x::telem::UINT8_T}}
+    );
+
+    h.trigger("start_cmd");
+    auto out = h.flush();
+    EXPECT_EQ(last<std::uint8_t>(out, h.key("out")), 1);
+    h.trigger("go2");
+    h.trigger("go1");
+    out = h.flush();
+    EXPECT_EQ(last<std::uint8_t>(out, h.key("out")), 0);
+}
+
+TEST(
+    ComputedStatefulInitializersTest,
+    PersistsAnAssignedComputedStatefulAcrossNestedSequenceReEntries
+) {
+    Sequence h(
+        R"(
+    import time
+    sequence main {
+        sequence s1 {
+            counter $= 2 + 3
+            counter = counter + 1
+            str(counter) => %log%
+        }
+        stage s2 {
+            time.wait(100ms) => s1
+        }
+    }
+    1 => main)",
+        {{"log", x::telem::STRING_T}}
+    );
+
+    scope_entry_variable_reset::loop(h);
+    const auto out = h.flush();
+    EXPECT_EQ(
+        collect<std::string>(out, h.key("log")),
+        (std::vector<std::string>{"6", "7", "8", "9"})
+    );
+}
+
+TEST(
+    ComputedStatefulInitializersTest,
+    PersistsAnAssignedComputedStampAcrossNestedSequenceReEntries
+) {
+    Sequence h(
+        R"(
+    import time
+    sequence main {
+        sequence s1 {
+            stamp $= time.now()
+            stamp = stamp + 1
+            f"{stamp}" => %log%
+        }
+        stage s2 {
+            time.wait(100ms) => s1
+        }
+    }
+    1 => main)",
+        {{"log", x::telem::STRING_T}}
+    );
+
+    scope_entry_variable_reset::loop(h);
+    const auto got = collect<std::string>(h.flush(), h.key("log"));
+    ASSERT_EQ(got.size(), 4u);
+    const auto first = std::stoll(got[0]);
+    EXPECT_GT(first, 0);
+    for (size_t i = 0; i < got.size(); i++)
+        EXPECT_EQ(got[i], std::to_string(first + static_cast<long long>(i)))
+            << "each entry must continue from the last assigned stamp";
+}
+
 TEST(ComputedCallInputsTest, PassesTheTriggerTimeStampToAFunctionInput) {
     Sequence h(
         R"(

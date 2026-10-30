@@ -15,6 +15,7 @@ from tests.arc.arc import ArcCase
 
 DONE = "ranges_done"
 FLOW_PARENT_KEY_OUT = "flow_parent_key_out"
+COMPUTED_KEY_OUT = "computed_key_out"
 
 # ranges.end sets the end to now, so end ~= start instead of TimeStampMax.
 END_NOW_TOLERANCE = 200 * sy.TimeSpan.MILLISECOND
@@ -115,6 +116,14 @@ sequence one_shot_seq {
         range_one_shot_tick -> range_one_shot_echo // For verification
     }
 }
+
+// ──────────────────── Computed Key Variable ─────────────────────
+start_stl_ranges_cmd => computed_key_seq
+
+sequence computed_key_seq {
+    ck_key := ranges.create("RangeFlow_Computed")
+    ck_key -> computed_key_out // For verification
+}
 """  # noqa: E501
 
 
@@ -162,6 +171,7 @@ CASES: list[Case] = [
     Case("RangeFlow_Child", sy.Color("rgb(10, 20, 30)"), False),
     Case("RangeFlow_Child_NoColor", None, False),
     Case("RangeOneShot", None, False),
+    Case("RangeFlow_Computed", None, False),
 ]
 
 # Each Arc-created parent range and the children its captured key must parent.
@@ -181,7 +191,12 @@ class StlRanges(ArcCase):
     arc_source = ARC_STL_RANGES_SOURCE
     arc_name_prefix = "ArcStlRanges"
     start_cmd_channel = "start_stl_ranges_cmd"
-    subscribe_channels = [DONE, FLOW_PARENT_KEY_OUT, "range_one_shot_echo"]
+    subscribe_channels = [
+        DONE,
+        FLOW_PARENT_KEY_OUT,
+        "range_one_shot_echo",
+        COMPUTED_KEY_OUT,
+    ]
     collect_task_status = True
 
     def setup(self) -> None:
@@ -194,6 +209,9 @@ class StlRanges(ArcCase):
         )
         create_virtual_channel(
             self.client, "range_one_shot_echo", data_type=sy.DataType.UINT8
+        )
+        create_virtual_channel(
+            self.client, COMPUTED_KEY_OUT, data_type=sy.DataType.STRING
         )
         # A leftover row from a prior run would break the one-shot count.
         leftover = self.client.ranges.retrieve(names=["RangeOneShot"])
@@ -229,8 +247,13 @@ class StlRanges(ArcCase):
             self._verify_range(case, found[case.name], self._before, after)
 
         self._verify_parents(found)
+        self._verify_computed_key(found)
         self._verify_invalid_color_rejected()
         self._verify_entry_one_shot()
+
+    def _verify_computed_key(self, found: dict[str, sy.Range]) -> None:
+        # A computed := initializer holds the key the create returned.
+        self.wait_for_eq(COMPUTED_KEY_OUT, str(found["RangeFlow_Computed"].key))
 
     def _verify_entry_one_shot(self) -> None:
         self.log("Driving extra passes: the untriggered create must not fire again")

@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 // Behavioral coverage for sequence/stage execution. Each test compiles a
@@ -5238,6 +5239,150 @@ var _ = Describe("Sequence", func() {
 				out, _ = h.Flush()
 				Expect(drainI64(out, 104)).To(Equal([]int64{startedAt}),
 					"re-entry must keep the first value")
+			},
+		)
+
+		It(
+			"Reads a computed bool stateful's initial value in flow reads",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(map[string]channelDef{
+					"start_cmd": {types.U8(), 100},
+					"out":       {types.Bool(), 101},
+				})
+				h := newRuntimeHarness(ctx, `
+				sequence main {
+				    x bool $= 1 > 0
+				    stage s1 {
+				        x -> out
+				    }
+				}
+				start_cmd => main`, resolver,
+					channels.Digest{Key: 100, DataType: telem.Uint8T},
+					channels.Digest{Key: 101, DataType: telem.BooleanT},
+				)
+				defer h.Close(ctx)
+
+				trigger(h, ctx, 100)
+				out, _ := h.Flush()
+				Expect(lastBool(out, 101)).To(BeTrue())
+			},
+		)
+
+		It(
+			"Persists a toggled computed bool stateful across stage re-entries",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(map[string]channelDef{
+					"start_cmd": {types.U8(), 100},
+					"out":       {types.Bool(), 101},
+					"go2":       {types.U8(), 102},
+					"go1":       {types.U8(), 103},
+				})
+				h := newRuntimeHarness(ctx, `
+				sequence main {
+				    x bool $= 1 < 0
+				    stage s1 {
+				        x = not(x)
+				        x -> out
+				        go2 => s2
+				    }
+				    stage s2 {
+				        go1 => s1
+				    }
+				}
+				start_cmd => main`, resolver,
+					channels.Digest{Key: 100, DataType: telem.Uint8T},
+					channels.Digest{Key: 101, DataType: telem.BooleanT},
+					channels.Digest{Key: 102, DataType: telem.Uint8T},
+					channels.Digest{Key: 103, DataType: telem.Uint8T},
+				)
+				defer h.Close(ctx)
+
+				trigger(h, ctx, 100)
+				out, _ := h.Flush()
+				Expect(lastBool(out, 101)).To(BeTrue())
+				trigger(h, ctx, 102)
+				trigger(h, ctx, 103)
+				out, _ = h.Flush()
+				Expect(lastBool(out, 101)).To(BeFalse())
+			},
+		)
+
+		// loop runs four timed passes so a 100ms stage re-enters the nested
+		// sequence three times.
+		loop := func(h *runtimeHarness, ctx SpecContext) {
+			GinkgoHelper()
+			step := func(now telem.TimeSpan) {
+				h.Tick(ctx, now)
+				h.channelState.ClearReads()
+				h.Tick(ctx, now)
+				h.channelState.ClearReads()
+			}
+			step(0)
+			step(100 * telem.Millisecond)
+			step(200 * telem.Millisecond)
+			step(300 * telem.Millisecond)
+		}
+
+		It(
+			"Persists an assigned computed stateful across nested sequence re-entries",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(
+					map[string]channelDef{"log": {types.String(), 101}},
+				)
+				h := newRuntimeHarness(ctx, `import time
+				sequence main {
+				    sequence s1 {
+				        counter $= 2 + 3
+				        counter = counter + 1
+				        str(counter) => log
+				    }
+				    stage s2 {
+				        time.wait(100ms) => s1
+				    }
+				}
+				1 => main`, resolver,
+					channels.Digest{Key: 101, DataType: telem.StringT},
+				)
+				defer h.Close(ctx)
+
+				loop(h, ctx)
+				out, _ := h.Flush()
+				Expect(drainStrings(out, 101)).To(Equal([]string{"6", "7", "8", "9"}))
+			},
+		)
+
+		It(
+			"Persists an assigned computed stamp across nested sequence re-entries",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(
+					map[string]channelDef{"log": {types.String(), 101}},
+				)
+				h := newRuntimeHarness(ctx, `import time
+				sequence main {
+				    sequence s1 {
+				        stamp $= time.now()
+				        stamp = stamp + 1
+				        f"{stamp}" => log
+				    }
+				    stage s2 {
+				        time.wait(100ms) => s1
+				    }
+				}
+				1 => main`, resolver,
+					channels.Digest{Key: 101, DataType: telem.StringT},
+				)
+				defer h.Close(ctx)
+
+				loop(h, ctx)
+				out, _ := h.Flush()
+				got := drainStrings(out, 101)
+				Expect(got).To(HaveLen(4))
+				first := MustSucceed(strconv.ParseInt(got[0], 10, 64))
+				Expect(first).To(BeNumerically(">", 0))
+				for i, s := range got {
+					Expect(s).To(Equal(strconv.FormatInt(first+int64(i), 10)),
+						"each entry must continue from the last assigned stamp")
+				}
 			},
 		)
 	})
