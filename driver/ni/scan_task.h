@@ -10,15 +10,6 @@
 #pragma once
 
 #include <optional>
-// Disable GCC 13 false positive warning in <regex> header
-#if defined(__GNUC__) && !defined(__clang__)
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
-#endif
-#include <regex>
-#if defined(__GNUC__) && !defined(__clang__)
-#pragma GCC diagnostic pop
-#endif
 #include <string>
 #include <thread>
 #include <unordered_set>
@@ -27,6 +18,7 @@
 #include "nlohmann/json.hpp"
 
 #include "client/cpp/synnax.h"
+#include "x/cpp/lib/lazy.h"
 
 #include "driver/common/scan_task.h"
 #include "driver/ni/ni.h"
@@ -92,28 +84,9 @@ struct Device : synnax::device::Device {
     }
 };
 
-/// @brief the default pattern for ignoring certain models.
-const std::vector<std::string> DEFAULT_IGNORED_MODELS = {"^cRIO.*", "^nown.*"};
 /// @brief configuration for opening a scan task.
 struct ScanTaskConfig : common::ScanTaskConfig {
-    /// @brief a set of regex patterns to ignore certain devices when scanning.
-    std::vector<std::regex> ignored_models;
-
-    explicit ScanTaskConfig(x::json::Parser &cfg): common::ScanTaskConfig(cfg) {
-        const auto i = cfg.field<std::vector<std::string>>(
-            "ignored_models",
-            DEFAULT_IGNORED_MODELS
-        );
-        for (const auto &pattern: i)
-            ignored_models.emplace_back(pattern);
-    }
-
-    /// @brief returns if the device with the given model should be ignored.
-    [[nodiscard]] bool should_ignore(const std::string &model) const {
-        for (const auto &pattern: this->ignored_models)
-            if (std::regex_match(model, pattern)) return true;
-        return false;
-    }
+    explicit ScanTaskConfig(x::json::Parser &cfg): common::ScanTaskConfig(cfg) {}
 };
 
 /// @brief a task that scans for NI devices.
@@ -121,11 +94,13 @@ class Scanner final : public common::Scanner {
     /// @brief configuration for the scan task.
     const ScanTaskConfig cfg;
     const synnax::task::Task task;
-    /// @brief the NI system configuration library.
+    /// @brief loads the NI System Configuration library.
+    std::shared_ptr<x::lib::Lazy<syscfg::SugaredAPI>> lib;
+    /// @brief the NI System Configuration library, set by the first open.
     std::shared_ptr<syscfg::SugaredAPI> syscfg;
     /// @brief ni system configuration session handle.
     NISysCfgSessionHandle session = nullptr;
-    /// @brief ni filter we use to only find certain ni devices;
+    /// @brief ni filter we use to only find certain ni devices. Null while closed.
     NISysCfgFilterHandle filter = nullptr;
     /// @brief keys of devices already logged as ignored by the model filter.
     std::unordered_set<std::string> ignored_keys;
@@ -138,18 +113,22 @@ class Scanner final : public common::Scanner {
     std::pair<ni::Device, x::errors::Error>
     parse_device(NISysCfgResourceHandle resource);
 
+    /// @brief loads the library, then opens the session and the device filter.
+    x::errors::Error open();
+
+    /// @brief closes the filter and the session that are open.
+    x::errors::Error close();
+
     [[nodiscard]] common::ScannerConfig config() const override {
         return common::ScannerConfig{.make = MAKE, .log_prefix = SCAN_LOG_PREFIX};
     }
 
 public:
     explicit Scanner(
-        const std::shared_ptr<syscfg::SugaredAPI> &syscfg,
+        std::shared_ptr<x::lib::Lazy<syscfg::SugaredAPI>> lib,
         ScanTaskConfig cfg,
         synnax::task::Task task
     );
-
-    x::errors::Error start() override;
 
     std::pair<std::vector<synnax::device::Device>, x::errors::Error>
     scan(const common::ScannerContext &ctx) override;

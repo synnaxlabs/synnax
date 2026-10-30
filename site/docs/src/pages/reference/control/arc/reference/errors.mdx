@@ -206,7 +206,7 @@ This section lists the most common diagnostics without a code, not all of them.
 <Problem.List>
 
 <Problem.Item message={"input value for '<p>' must be a literal"}>
-  <Problem.Cause>A parameter in `{}` gets a channel or an expression.</Problem.Cause>
+  <Problem.Cause>A parameter in `()` gets a channel or an expression.</Problem.Cause>
   <Problem.Fix>Use a literal or a variable.</Problem.Fix>
 </Problem.Item>
 <Problem.Item message={"upstream value type <T> does not match func '<f>' trigger parameter '<p>' type <U>"}>
@@ -222,16 +222,16 @@ This section lists the most common diagnostics without a code, not all of them.
   <Problem.Fix>Use a channel of the output type.</Problem.Fix>
 </Problem.Item>
 <Problem.Item message={"<name> is not a function"}>
-  <Problem.Cause>`{}` follows a name that is not a function.</Problem.Cause>
-  <Problem.Fix>Call a function, or remove the `{}`.</Problem.Fix>
+  <Problem.Cause>`()` follows a name that is not a function.</Problem.Cause>
+  <Problem.Fix>Call a function, or remove the `()`.</Problem.Fix>
 </Problem.Item>
-<Problem.Item message={"'=>' cannot feed select{}, use '->'"}>
+<Problem.Item message={"'=>' cannot feed select(), use '->'"}>
   <Problem.Cause>A `=>` sends values into `select`.</Problem.Cause>
   <Problem.Fix>Use `->`.</Problem.Fix>
 </Problem.Item>
 <Problem.Item message={"input routing tables not yet implemented in text compiler"}>
   <Problem.Cause>The code uses an input routing table.</Problem.Cause>
-  <Problem.Fix>Set the extra parameters in `{}`, or call the function from a function.</Problem.Fix>
+  <Problem.Fix>Set the extra parameters in `()`, or call the function from a function.</Problem.Fix>
 </Problem.Item>
 <Problem.Item message={"'next' used outside of a sequence"}>
   <Problem.Cause>A `=> next` is in a top-level stage or flow.</Problem.Cause>
