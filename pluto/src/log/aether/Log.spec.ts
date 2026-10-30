@@ -1030,7 +1030,10 @@ describe("log/aether/Log", () => {
 
     it("should show dates for the same day of different years", () => {
       const entries = [entry("2025-01-05T12:00:00"), entry("2026-01-05T12:00:00")];
-      const { log } = setup(entries, REGION_500, { selectionStart: 0, selectionEnd: 1 });
+      const { log } = setup(entries, REGION_500, {
+        selectionStart: 0,
+        selectionEnd: 1,
+      });
       log.render();
       expect(log.state.selectedLines[0].text).toMatch(/^Jan 5/);
     });
