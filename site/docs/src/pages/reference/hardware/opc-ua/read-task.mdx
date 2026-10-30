@@ -224,8 +224,8 @@ a value only when its time is after the last one on the index, so it does not re
 stored value again. It drops a value with the same time as the last one without a
 warning, and shows "Rejected values with old timestamps" for an earlier one.
 
-A server can check or send less often than the task asks. The task then shows "Server
-changed the intervals" with the intervals that the server uses.
+A server can check or send less often than the task asks. The task then keeps running at
+the intervals of the server, and its "Task running" status names those intervals.
 
 On change mode cannot read arrays, and a channel cannot be the index. **NaN fill** does
 not apply, so the task skips each Bad value.
@@ -516,7 +516,7 @@ Check the clock of the server, and make sure that only one task writes to the in
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={"Server changed the intervals"}>
+<Problem.Item message={"The server samples each node every ... and sends changes every ..."}>
 <Problem.Cause>
 
 The server checks or sends the nodes of an On change task less often than the task asks.
