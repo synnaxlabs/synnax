@@ -448,7 +448,7 @@ Pool::Connection::browse(const std::vector<UA_NodeId> &nodes) const {
                 results.data() + offset,
                 room
             ))
-            return {{}, err};
+            return {std::vector<types::BrowseResult>(), err};
     return {std::move(results), x::errors::NIL};
 }
 
