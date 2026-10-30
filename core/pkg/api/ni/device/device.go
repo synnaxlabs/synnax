@@ -12,6 +12,8 @@ package device
 
 import (
 	"context"
+	"slices"
+	"uuid"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
@@ -26,6 +28,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -90,28 +93,73 @@ func (s *Service) enforce(
 }
 
 type (
-	// CreateRequest carries the devices to create.
+	// CreateRequest carries the devices to create or replace.
 	CreateRequest struct {
+		// Devices are the devices to store. A nil key mints a new one.
 		Devices []device.Device `json:"devices" msgpack:"devices"`
 	}
 	// CreateResponse carries the created devices with their keys.
 	CreateResponse struct {
+		// Devices are the stored devices.
 		Devices []device.Device `json:"devices" msgpack:"devices"`
 	}
 )
 
-// Create stores the given devices. It requires create access on the device type.
+// enforceCreate requires update access on each device that already exists, because
+// Create replaces it, and create access on the type when any device is new.
+func (s *Service) enforceCreate(
+	ctx context.Context,
+	tx gorp.Tx,
+	devices []device.Device,
+) error {
+	keys := make([]device.Key, 0, len(devices))
+	for _, d := range devices {
+		if d.Key != uuid.Nil() {
+			keys = append(keys, d.Key)
+		}
+	}
+	var existing []device.Device
+	if len(keys) > 0 {
+		if err := s.cfg.Device.NewRetrieve().
+			Where(device.MatchKeys(keys...)).
+			Entries(&existing).
+			Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
+			return err
+		}
+	}
+	found := make(set.Set[device.Key], len(existing))
+	ids := make([]ontology.ID, len(existing))
+	for i, d := range existing {
+		found.Add(d.Key)
+		ids[i] = d.OntologyID()
+	}
+	if len(ids) > 0 {
+		if err := s.enforce(ctx, tx, access.ActionUpdate, ids...); err != nil {
+			return err
+		}
+	}
+	if !slices.ContainsFunc(
+		devices,
+		func(d device.Device) bool { return !found.Contains(d.Key) },
+	) {
+		return nil
+	}
+	return s.enforce(
+		ctx,
+		tx,
+		access.ActionCreate,
+		ontology.ID{Type: ontology.ResourceTypeNiDevice},
+	)
+}
+
+// Create stores the given devices. It requires create access on the device type for a
+// new device and update access on a device it replaces.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
-	if err := s.enforce(
-		ctx,
-		tx,
-		access.ActionCreate,
-		ontology.ID{Type: ontology.ResourceTypeNiDevice},
-	); err != nil {
+	if err := s.enforceCreate(ctx, tx, req.Devices); err != nil {
 		return CreateResponse{}, err
 	}
 	w := s.cfg.Device.NewWriter(tx)
@@ -125,20 +173,31 @@ func (s *Service) Create(
 
 // RetrieveRequest selects the devices to retrieve. Empty fields do not filter.
 type RetrieveRequest struct {
-	SearchTerm     string       `json:"search_term"      msgpack:"search_term"`
-	Keys           []device.Key `json:"keys"             msgpack:"keys"`
-	Names          []string     `json:"names"            msgpack:"names"`
-	Serials        []string     `json:"serials"          msgpack:"serials"`
-	Models         []string     `json:"models"           msgpack:"models"`
-	Racks          []rack.Key   `json:"racks"            msgpack:"racks"`
-	Limit          int          `json:"limit"            msgpack:"limit"`
-	Offset         int          `json:"offset"           msgpack:"offset"`
-	IgnoreNotFound bool         `json:"ignore_not_found" msgpack:"ignore_not_found"`
-	IncludeStatus  bool         `json:"include_status"   msgpack:"include_status"`
+	// SearchTerm matches devices by name.
+	SearchTerm string `json:"search_term" msgpack:"search_term"`
+	// Keys selects devices by key.
+	Keys []device.Key `json:"keys" msgpack:"keys"`
+	// Names selects devices by name.
+	Names []string `json:"names" msgpack:"names"`
+	// Serials selects devices by serial number.
+	Serials []string `json:"serials" msgpack:"serials"`
+	// Models selects devices by product name.
+	Models []string `json:"models" msgpack:"models"`
+	// Racks selects devices by rack.
+	Racks []rack.Key `json:"racks" msgpack:"racks"`
+	// Limit caps the number of devices returned. Zero means no cap.
+	Limit int `json:"limit" msgpack:"limit"`
+	// Offset skips this many matching devices.
+	Offset int `json:"offset" msgpack:"offset"`
+	// IgnoreNotFound returns no devices instead of a not found error.
+	IgnoreNotFound bool `json:"ignore_not_found" msgpack:"ignore_not_found"`
+	// IncludeStatus attaches each device's status.
+	IncludeStatus bool `json:"include_status" msgpack:"include_status"`
 }
 
 // RetrieveResponse carries the retrieved devices.
 type RetrieveResponse struct {
+	// Devices are the retrieved devices.
 	Devices []device.Device `json:"devices" msgpack:"devices"`
 }
 
@@ -234,6 +293,7 @@ func (s *Service) Update(
 
 // DeleteRequest carries the keys of the devices to delete.
 type DeleteRequest struct {
+	// Keys selects the devices to delete.
 	Keys []device.Key `json:"keys" msgpack:"keys"`
 }
 

@@ -56,11 +56,32 @@ var _ = Describe("Service", func() {
 	}
 
 	Describe("NewService", func() {
-		It("Should reject a config missing the device service", func() {
-			Expect(apidevice.NewService(apidevice.ServiceConfig{
+		DescribeTable("Should reject a config missing a required field",
+			func(field string, unset func(*apidevice.ServiceConfig)) {
+				cfg := apidevice.ServiceConfig{
+					Device: svc.NI.Devices,
+					Status: svc.Status,
+					RBAC:   svc.RBAC,
+				}
+				unset(&cfg)
+				Expect(apidevice.NewService(cfg)).Error().
+					To(MatchError(ContainSubstring(field + ": must be non-nil")))
+			},
+			Entry("device", "device", func(c *apidevice.ServiceConfig) {
+				c.Device = nil
+			}),
+			Entry("status", "status", func(c *apidevice.ServiceConfig) {
+				c.Status = nil
+			}),
+			Entry("rbac", "rbac", func(c *apidevice.ServiceConfig) { c.RBAC = nil }),
+		)
+
+		It("Should let a later config override an earlier one", func() {
+			base := apidevice.ServiceConfig{Device: svc.NI.Devices}
+			Expect(apidevice.NewService(base, apidevice.ServiceConfig{
 				Status: svc.Status,
 				RBAC:   svc.RBAC,
-			})).Error().To(MatchError(ContainSubstring("device: must be non-nil")))
+			})).ToNot(BeNil())
 		})
 	})
 
@@ -92,7 +113,58 @@ var _ = Describe("Service", func() {
 		})
 	})
 
+	Describe("Create over an existing device", func() {
+		It("Should require update access on the device", func(ctx SpecContext) {
+			d := create(ctx)
+			grant(ctx, access.ActionCreate, user.OntologyID(u.Key), deviceType)
+			d.Name = "Replaced"
+			Expect(apiSvc.Create(
+				testutil.AuthedCtx(ctx, u),
+				nil,
+				apidevice.CreateRequest{Devices: []device.Device{d}},
+			)).Error().To(MatchError(access.ErrDenied))
+			Expect(retrieve(ctx, d.Key).Name).To(Equal("PXI-6255"))
+		})
+
+		It("Should replace with update access alone", func(ctx SpecContext) {
+			d := create(ctx)
+			grant(ctx, access.ActionUpdate, user.OntologyID(u.Key), deviceType)
+			d.Name = "Replaced"
+			Expect(apiSvc.Create(
+				testutil.AuthedCtx(ctx, u),
+				nil,
+				apidevice.CreateRequest{Devices: []device.Device{d}},
+			)).Error().ToNot(HaveOccurred())
+			Expect(retrieve(ctx, d.Key).Name).To(Equal("Replaced"))
+		})
+
+		It("Should require create access for a new key beside it", func(
+			ctx SpecContext,
+		) {
+			d := create(ctx)
+			grant(ctx, access.ActionUpdate, user.OntologyID(u.Key), deviceType)
+			Expect(apiSvc.Create(
+				testutil.AuthedCtx(ctx, u),
+				nil,
+				apidevice.CreateRequest{Devices: []device.Device{
+					d,
+					{Rack: d.Rack, Name: "Module"},
+				}},
+			)).Error().To(MatchError(access.ErrDenied))
+		})
+	})
+
 	Describe("Retrieve", func() {
+		It("Should reject the request when retrieve is not granted", func(
+			ctx SpecContext,
+		) {
+			d := create(ctx)
+			Expect(apiSvc.Retrieve(
+				testutil.AuthedCtx(ctx, u),
+				apidevice.RetrieveRequest{Keys: []device.Key{d.Key}},
+			)).Error().To(MatchError(access.ErrDenied))
+		})
+
 		It("Should filter by serial and attach the status", func(ctx SpecContext) {
 			d := create(ctx)
 			create(ctx)
