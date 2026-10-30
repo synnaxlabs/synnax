@@ -231,9 +231,10 @@ Write the node ID in one of the forms in
 
 The task could not write a command. The description names each channel and the reason.
 The task writes the other channels of the command and keeps running. When the connection
-is lost, the Driver connects again once and repeats the write. If that fails, the task
-drops the command. It does not keep commands for later, because a late command could
-move hardware at the wrong time.
+is lost, the Driver connects again once and repeats the write, so a value that the
+server already got can arrive twice. If that fails, the task drops the command. It does
+not keep commands for later, because a late command could move hardware at the wrong
+time.
 
 </Problem.Cause>
 <Problem.Fix>
