@@ -329,6 +329,68 @@ var _ = Describe("Service", func() {
 		})
 	})
 
+	Describe("Apply", func() {
+		It("Should write identity fields and keep configuration", func(
+			ctx SpecContext,
+		) {
+			d := create(ctx)
+			Expect(svc.NewWriter(tx).Update(
+				ctx,
+				d.Key,
+				func(d device.Device) (device.Device, error) {
+					d.Identifier = "dev1"
+					return d, nil
+				},
+			)).To(Succeed())
+			Expect(svc.NewWriter(tx).Apply(ctx, d.Key, device.Update{
+				Variant: device.IdentityUpdate{Identity: device.Identity{
+					Rack:   rackKey,
+					Serial: "02B",
+					Model:  "PXI-6259",
+				}},
+			})).To(Succeed())
+			got := retrieve(ctx, d.Key)
+			Expect(got.Serial).To(Equal("02B"))
+			Expect(got.Model).To(Equal("PXI-6259"))
+			Expect(got.Name).To(Equal(d.Name))
+			Expect(got.Identifier).To(Equal("dev1"))
+		})
+
+		It("Should write configuration fields and keep identity", func(
+			ctx SpecContext,
+		) {
+			d := create(ctx)
+			Expect(svc.NewWriter(tx).Apply(ctx, d.Key, device.Update{
+				Variant: device.ConfigurationUpdate{
+					Configuration: device.Configuration{
+						Name:       "Renamed",
+						Identifier: "dev1",
+					},
+				},
+			})).To(Succeed())
+			got := retrieve(ctx, d.Key)
+			Expect(got.Name).To(Equal("Renamed"))
+			Expect(got.Identifier).To(Equal("dev1"))
+			Expect(got.Serial).To(Equal(d.Serial))
+			Expect(retrieveStatus(ctx, d.Key).Name).To(Equal("Renamed"))
+		})
+
+		DescribeTable("Should reject an invalid update",
+			func(ctx SpecContext, update device.Update, message string) {
+				d := create(ctx)
+				Expect(svc.NewWriter(tx).Apply(ctx, d.Key, update)).
+					To(MatchError(ContainSubstring(message)))
+			},
+			Entry("no group", device.Update{}, "no field group"),
+			Entry("identity", device.Update{Variant: device.IdentityUpdate{}}, "required"),
+			Entry(
+				"configuration",
+				device.Update{Variant: device.ConfigurationUpdate{}},
+				"required",
+			),
+		)
+	})
+
 	Describe("Delete", func() {
 		It("Should remove the device, status, and resource", func(ctx SpecContext) {
 			d := create(ctx)

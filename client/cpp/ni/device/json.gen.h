@@ -13,6 +13,7 @@
 
 #include <string>
 #include <unordered_map>
+#include <variant>
 
 #include "client/cpp/channel/json.gen.h"
 #include "client/cpp/ni/chassis/json.gen.h"
@@ -20,6 +21,7 @@
 #include "client/cpp/rack/key.h"
 #include "client/cpp/status/json.gen.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/uuid/uuid.h"
 
 namespace synnax::ni::device {
 
@@ -135,6 +137,94 @@ inline x::json::json StatusDetails::to_json() const {
     j["rack"] = this->rack;
     j["device"] = this->device.to_json();
     return j;
+}
+
+inline Identity Identity::parse(x::json::Parser parser) {
+    return Identity{
+        .rack = parser.field<::synnax::rack::Key>("rack"),
+        .serial = parser.field<std::string>("serial"),
+        .model = parser.field<std::string>("model"),
+        .alias = parser.field<std::string>("alias"),
+        .simulated = parser.field<bool>("simulated", false),
+        .chassis = parser.field<std::optional<x::uuid::UUID>>("chassis"),
+    };
+}
+
+inline x::json::json Identity::to_json() const {
+    x::json::json j;
+    j["rack"] = this->rack;
+    j["serial"] = this->serial;
+    j["model"] = this->model;
+    j["alias"] = this->alias;
+    j["simulated"] = this->simulated;
+    if (this->chassis.has_value()) j["chassis"] = this->chassis->to_json();
+    return j;
+}
+
+inline Configuration Configuration::parse(x::json::Parser parser) {
+    return Configuration{
+        .name = parser.field<std::string>("name"),
+        .identifier = parser.field<std::string>("identifier", ""),
+        .analog_input = parser.field<InputPorts>("analog_input"),
+        .analog_output = parser.field<OutputPorts>("analog_output"),
+        .counter_input = parser.field<InputPorts>("counter_input"),
+        .digital_input = parser.field<InputPorts>("digital_input"),
+        .digital_output = parser.field<OutputPorts>("digital_output"),
+    };
+}
+
+inline x::json::json Configuration::to_json() const {
+    x::json::json j;
+    j["name"] = this->name;
+    j["identifier"] = this->identifier;
+    j["analog_input"] = this->analog_input.to_json();
+    j["analog_output"] = this->analog_output.to_json();
+    j["counter_input"] = this->counter_input.to_json();
+    j["digital_input"] = this->digital_input.to_json();
+    j["digital_output"] = this->digital_output.to_json();
+    return j;
+}
+
+inline IdentityUpdate IdentityUpdate::parse(x::json::Parser parser) {
+    IdentityUpdate result;
+    static_cast<Identity &>(result) = Identity::parse(parser);
+    result.group = parser.field<std::string>("group");
+    return result;
+}
+
+inline x::json::json IdentityUpdate::to_json() const {
+    x::json::json j;
+    for (auto &[k, v]: Identity::to_json().items())
+        j[k] = v;
+    j["group"] = this->group;
+    return j;
+}
+
+inline ConfigurationUpdate ConfigurationUpdate::parse(x::json::Parser parser) {
+    ConfigurationUpdate result;
+    static_cast<Configuration &>(result) = Configuration::parse(parser);
+    result.group = parser.field<std::string>("group");
+    return result;
+}
+
+inline x::json::json ConfigurationUpdate::to_json() const {
+    x::json::json j;
+    for (auto &[k, v]: Configuration::to_json().items())
+        j[k] = v;
+    j["group"] = this->group;
+    return j;
+}
+
+inline Update parse_update(x::json::Parser parser) {
+    const auto discriminator = parser.field<std::string>("group");
+    if (discriminator == "identity") return IdentityUpdate::parse(parser);
+    if (discriminator == "configuration") return ConfigurationUpdate::parse(parser);
+    parser.field_err("group", "unknown Update group: " + discriminator);
+    return {};
+}
+
+inline x::json::json to_json(const Update &value) {
+    return std::visit([](const auto &v) { return v.to_json(); }, value);
 }
 
 }

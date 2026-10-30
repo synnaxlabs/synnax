@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/connectivity"
 	"github.com/synnaxlabs/synnax/pkg/api/control"
 	"github.com/synnaxlabs/synnax/pkg/api/device"
+	nidevice "github.com/synnaxlabs/synnax/pkg/api/ni/device"
 	"github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/api/group"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
@@ -188,6 +189,12 @@ type Transport struct {
 	DeviceDelete   freighter.UnaryServer[device.DeleteRequest, struct{}]
 	// DeviceRename renames a device.
 	DeviceRename freighter.UnaryServer[device.RenameRequest, struct{}]
+
+	// NI DEVICE
+	NIDeviceCreate   freighter.UnaryServer[nidevice.CreateRequest, nidevice.CreateResponse]
+	NIDeviceRetrieve freighter.UnaryServer[nidevice.RetrieveRequest, nidevice.RetrieveResponse]
+	NIDeviceUpdate   freighter.UnaryServer[nidevice.UpdateRequest, struct{}]
+	NIDeviceDelete   freighter.UnaryServer[nidevice.DeleteRequest, struct{}]
 	// ACCESS
 	AccessCreatePolicy   freighter.UnaryServer[access.CreatePolicyRequest, access.CreatePolicyResponse]
 	AccessDeletePolicy   freighter.UnaryServer[access.DeletePolicyRequest, struct{}]
@@ -249,6 +256,7 @@ type Layer struct {
 	Rack         *rack.Service
 	Task         *task.Service
 	Device       *device.Service
+	NIDevice     *nidevice.Service
 	Access       *access.Service
 	Arc          *arc.Service
 	Status       *status.Service
@@ -432,6 +440,12 @@ func (l *Layer) BindTo(t Transport) {
 		t.DeviceRetrieve,
 		t.DeviceDelete,
 		t.DeviceRename,
+
+		// NI DEVICE
+		t.NIDeviceCreate,
+		t.NIDeviceRetrieve,
+		t.NIDeviceUpdate,
+		t.NIDeviceDelete,
 
 		// ACCESS
 		t.AccessCreatePolicy,
@@ -642,6 +656,12 @@ func (l *Layer) BindTo(t Transport) {
 	t.DeviceDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Device.Delete))
 	t.DeviceRename.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Device.Rename))
 
+	// NI DEVICE
+	t.NIDeviceCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.NIDevice.Create))
+	t.NIDeviceRetrieve.BindHandler(l.NIDevice.Retrieve)
+	t.NIDeviceUpdate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.NIDevice.Update))
+	t.NIDeviceDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.NIDevice.Delete))
+
 	// ACCESS
 	t.AccessCreatePolicy.BindHandler(
 		fgorp.CreateWriteUnaryHandler(db, l.Access.CreatePolicy),
@@ -845,6 +865,14 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	}
 	if l.Device, err = device.NewService(device.ServiceConfig{
 		Device:   cfg.Service.Device,
+		Status:   cfg.Service.Status,
+		RBAC:     cfg.Service.RBAC,
+		Ontology: cfg.Service.Ontology,
+	}); err != nil {
+		return nil, err
+	}
+	if l.NIDevice, err = nidevice.NewService(nidevice.ServiceConfig{
+		Device:   cfg.Service.NI.Devices,
 		Status:   cfg.Service.Status,
 		RBAC:     cfg.Service.RBAC,
 		Ontology: cfg.Service.Ontology,

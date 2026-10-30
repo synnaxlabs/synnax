@@ -18,6 +18,7 @@ import (
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
 	apidevice "github.com/synnaxlabs/synnax/pkg/api/device"
+	apinidevice "github.com/synnaxlabs/synnax/pkg/api/ni/device"
 	apiframer "github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/api/group"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
@@ -119,6 +120,12 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.RackRename = noop.UnaryServer[apirack.RenameRequest, struct{}]{}
 	t.TaskRename = noop.UnaryServer[apitask.RenameRequest, struct{}]{}
 	t.DeviceRename = noop.UnaryServer[apidevice.RenameRequest, struct{}]{}
+
+	// NI DEVICE
+	t.NIDeviceCreate = noop.UnaryServer[apinidevice.CreateRequest, apinidevice.CreateResponse]{}
+	t.NIDeviceRetrieve = noop.UnaryServer[apinidevice.RetrieveRequest, apinidevice.RetrieveResponse]{}
+	t.NIDeviceUpdate = noop.UnaryServer[apinidevice.UpdateRequest, struct{}]{}
+	t.NIDeviceDelete = noop.UnaryServer[apinidevice.DeleteRequest, struct{}]{}
 	t.StatusRename = noop.UnaryServer[apistatus.RenameRequest, struct{}]{}
 	t.ViewRename = noop.UnaryServer[view.RenameRequest, struct{}]{}
 

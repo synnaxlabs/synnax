@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/connectivity"
 	"github.com/synnaxlabs/synnax/pkg/api/control"
 	"github.com/synnaxlabs/synnax/pkg/api/device"
+	nidevice "github.com/synnaxlabs/synnax/pkg/api/ni/device"
 	"github.com/synnaxlabs/synnax/pkg/api/group"
 	"github.com/synnaxlabs/synnax/pkg/api/imex"
 	"github.com/synnaxlabs/synnax/pkg/api/label"
@@ -506,6 +507,24 @@ func Bind(layer *api.Layer, router *http.Router) {
 		DeviceRename: unary[device.RenameRequest, struct{}](
 			router,
 			"/api/v1/device/rename",
+		),
+
+		// NI DEVICE
+		NIDeviceCreate: unary[nidevice.CreateRequest, nidevice.CreateResponse](
+			router,
+			"/api/v1/ni/device/create",
+		),
+		NIDeviceRetrieve: unary[nidevice.RetrieveRequest, nidevice.RetrieveResponse](
+			router,
+			"/api/v1/ni/device/retrieve",
+		),
+		NIDeviceUpdate: unary[nidevice.UpdateRequest, struct{}](
+			router,
+			"/api/v1/ni/device/update",
+		),
+		NIDeviceDelete: unary[nidevice.DeleteRequest, struct{}](
+			router,
+			"/api/v1/ni/device/delete",
 		),
 
 		// ACCESS
