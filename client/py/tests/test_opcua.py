@@ -200,6 +200,7 @@ class TestOPCReadTask:
         )
         task.update_device_properties(client.devices)
         read = client.devices.retrieve(key=dev.key).properties["read"]
+        assert isinstance(read, dict)
         assert read["fields"] == {"NS=1;S=TestMotor": {"Speed": 11, "Position.Y": 12}}
         assert read["channels"] == {"NS=1;S=TestDouble": 13}
 

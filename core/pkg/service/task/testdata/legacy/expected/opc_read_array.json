@@ -7,6 +7,7 @@
       "channel": 6110,
       "data_type": "float32",
       "disabled": false,
+      "field": "",
       "is_index": false,
       "key": "ch-opc-array-0",
       "name": "fixture_opc_array_flow",
@@ -16,6 +17,7 @@
   ],
   "data_saving_disabled": false,
   "device": "fixture-opc-array-device",
+  "nan_fill_enabled": false,
   "sample_rate": 128.5,
   "stream_rate": 16.5
 }
