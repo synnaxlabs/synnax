@@ -185,6 +185,23 @@ describe("Notifications.useForward", () => {
       expect(screen.queryByText(error.message)).toBeNull();
     });
 
+    it("should not report a failed check of a deleted status", async () => {
+      const key = createTaskKey();
+      let reject: ((exc: Error) => void) | undefined;
+      const inUse = vi.fn(async ({ key: k }: Notifications.InUseArgs) => {
+        if (task.statusKey(k) !== key) return false;
+        return await new Promise<boolean>((_, r) => (reject = r));
+      });
+      await renderForward(client, { task: { ...STATE, inUse } });
+      const name = uniqueName("task");
+      await write({ key, variant: "error", name });
+      await vi.waitFor(() => expect(reject).toBeDefined());
+      await client.statuses.delete(key);
+      act(() => reject?.(new Error("The Core is unreachable.")));
+      await settleWrites(client);
+      expect(screen.queryByText(name)).toBeNull();
+    });
+
     it("should report a check that fails", async () => {
       const key = createTaskKey();
       const inUse = vi.fn(async ({ key: k }: Notifications.InUseArgs) => {
