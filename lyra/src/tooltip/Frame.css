@@ -25,6 +25,9 @@
     animation: lyra-tooltip-in 0.15s cubic-bezier(0.16, 1, 0.3, 1);
     transition: opacity 0.15s cubic-bezier(0.16, 1, 0.3, 1);
 
+    /* The tooltip's gray-l2 fill swallows the default chip fill. */
+    --pluto-keycap-bg: color-mix(in srgb, var(--pluto-gray-l11) 12%, transparent);
+
     .lyra-text {
         font-weight: 350;
     }
