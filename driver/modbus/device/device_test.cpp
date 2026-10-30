@@ -475,6 +475,47 @@ TEST(DeviceTest, ReusesDeviceAcrossServerRestart) {
     slave->stop();
 }
 
+/// @brief it should not count a timed-out connect against the unit, since the request
+/// never reached it.
+TEST(DeviceTest, ConnectTimeoutDoesNotDemoteUnit) {
+#ifdef __APPLE__
+    GTEST_SKIP() << "macOS resets a connect to a full accept queue";
+#endif
+    // A full accept queue drops new connects, so they time out instead of failing.
+    auto *listener = modbus_new_tcp("127.0.0.1", 1690);
+    const int fd = modbus_tcp_listen(listener, 1);
+    ASSERT_NE(fd, -1);
+    modbus_set_socket(listener, fd);
+    std::vector<modbus_t *> queued;
+    for (int i = 0; i < 8; i++) {
+        auto *ctx = modbus_new_tcp("127.0.0.1", 1690);
+        modbus_set_response_timeout(ctx, 0, 100000);
+        modbus_connect(ctx);
+        queued.push_back(ctx);
+    }
+    Manager manager;
+    ConnectionConfig cfg{"127.0.0.1", 1690};
+    cfg.timeout = x::telem::MILLISECOND * 100;
+    cfg.retries = 0;
+    auto dev = ASSERT_NIL_P(manager.acquire(cfg));
+
+    uint8_t bit = 0;
+    for (std::size_t i = 0; i <= DEMOTE_AFTER; i++) {
+        const auto err = dev->read_bits(Coil, 0, 1, &bit);
+        ASSERT_OCCURRED_AS(err, UNREACHABLE);
+        EXPECT_EQ(err.data, modbus_strerror(ETIMEDOUT));
+    }
+    EXPECT_EQ(dev->stats().requests, DEMOTE_AFTER + 1);
+    EXPECT_EQ(dev->stats().timeouts, 0U);
+
+    for (auto *ctx: queued) {
+        modbus_close(ctx);
+        modbus_free(ctx);
+    }
+    modbus_close(listener);
+    modbus_free(listener);
+}
+
 /// @brief it should return a critical error for an address the server does not have,
 /// and keep the connection.
 TEST(DeviceTest, IllegalAddressIsCritical) {
@@ -646,7 +687,7 @@ TEST(ConnectionConfigTest, ParsesSerial) {
     EXPECT_EQ(config.serial.parity, 'N');
     EXPECT_EQ(config.serial.stop_bits, 2);
     EXPECT_EQ(config.unit_id, 17);
-    EXPECT_EQ(config.endpoint(), "/dev/ttyUSB0");
+    EXPECT_EQ(config.endpoint(), canonical_port("/dev/ttyUSB0"));
     const auto j = config.to_json();
     EXPECT_EQ(j["transport"], "rtu");
     EXPECT_EQ(j["serial_port"], "/dev/ttyUSB0");
@@ -883,46 +924,6 @@ ConnectionConfig unit(const std::uint16_t port, const std::uint8_t id) {
     cfg.timeout = x::telem::MILLISECOND * 50;
     return cfg;
 }
-
-/// @brief a local TCP server that never accepts. Once its accept queue is full, Linux
-/// drops new connects, so they time out. macOS and Windows reset them instead.
-class FullServer {
-    int port;
-    modbus_t *listener;
-    std::vector<modbus_t *> clients;
-
-public:
-    explicit FullServer(const int port):
-        port(port), listener(modbus_new_tcp("127.0.0.1", port)) {}
-
-    FullServer(const FullServer &) = delete;
-    FullServer &operator=(const FullServer &) = delete;
-
-    ~FullServer() {
-        for (auto *client: this->clients) {
-            modbus_close(client);
-            modbus_free(client);
-        }
-        modbus_close(this->listener);
-        modbus_free(this->listener);
-    }
-
-    /// @brief listens, then connects until a connect times out.
-    x::errors::Error start() {
-        const int fd = modbus_tcp_listen(this->listener, 1);
-        if (fd == -1) return x::errors::Error(modbus_strerror(errno));
-        modbus_set_socket(this->listener, fd);
-        for (int i = 0; i < 16; i++) {
-            auto *client = modbus_new_tcp("127.0.0.1", this->port);
-            modbus_set_response_timeout(client, 0, 100000);
-            this->clients.push_back(client);
-            if (modbus_connect(client) == 0) continue;
-            if (errno == ETIMEDOUT) return x::errors::NIL;
-            return x::errors::Error(modbus_strerror(errno));
-        }
-        return x::errors::Error("the accept queue did not fill");
-    }
-};
 }
 
 /// @brief it should retry a timed-out request, demote the unit after three timed-out
@@ -1022,27 +1023,6 @@ TEST(DeviceTest, ReplyResetsTimeouts) {
     slave.set_silent(4, false);
     ASSERT_NIL(dev->read_registers(HoldingRegister, 0, 1, &reg));
     slave.stop();
-}
-
-/// @brief it should not demote a unit when connects to its server time out, since a
-/// server that is down says nothing about the unit.
-TEST(DeviceTest, ConnectTimeoutsKeepUnit) {
-#ifndef __linux__
-    GTEST_SKIP() << "only Linux lets a connect to a full accept queue time out";
-#endif
-    FullServer server(1655);
-    ASSERT_NIL(server.start());
-    Manager manager;
-    auto cfg = unit(1655, 1);
-    cfg.retries = 0;
-    auto dev = ASSERT_NIL_P(manager.acquire(cfg));
-    uint16_t reg = 0;
-
-    for (std::size_t i = 0; i <= DEMOTE_AFTER; i++) {
-        const auto err = dev->read_registers(HoldingRegister, 0, 1, &reg);
-        ASSERT_OCCURRED_AS(err, UNREACHABLE);
-        EXPECT_EQ(err.data, modbus_strerror(ETIMEDOUT));
-    }
 }
 
 /// @brief it should discard a reply that arrives after its request timed out, so the
