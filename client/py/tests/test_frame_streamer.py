@@ -170,7 +170,9 @@ class TestStreamer:
             pass
 
     def test_open_streamer_channel_not_found(self, client: sy.Synnax) -> None:
-        """Should throw an exception when a streamer is opened with an unknown channel"""
+        """Should throw an exception when a streamer is opened with an unknown
+        channel
+        """
         with pytest.raises(sy.NotFoundError), client.open_streamer([123]):
             pass
 
@@ -243,8 +245,7 @@ class TestStreamer:
                     frm = s.read(timeout=1)
                     assert frm is not None
                     for channel in curr_channels:
-                        d = frm.get(channel)
-                        assert d is not None
+                        d = frm[channel]
                         if len(d) > 0:
                             assert len(d) == 1
                             assert d[0] == (ts if channel == idx.name else value)
@@ -267,14 +268,14 @@ class TestStreamer:
 
     def test_downsample(self, virtual_channel: sy.Channel, client: sy.Synnax) -> None:
         """Should correctly stream data for a channel"""
-        with client.open_streamer(virtual_channel.key, 1) as s:
+        with client.open_streamer(virtual_channel.key, downsample_factor=1) as s:
             with client.open_writer(sy.TimeStamp.now(), virtual_channel.key) as w:
                 data = np.random.rand(10).astype(np.float64)
                 w.write(pd.DataFrame({virtual_channel.key: data}))
                 frame = s.read(timeout=1)
                 assert frame is not None
                 assert np.array_equal(frame[virtual_channel.key], data)
-        with client.open_streamer(virtual_channel.key, 2) as s:
+        with client.open_streamer(virtual_channel.key, downsample_factor=2) as s:
             with client.open_writer(sy.TimeStamp.now(), virtual_channel.key) as w:
                 samples = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]
                 expect = [1.0, 3.0, 5.0, 7.0, 9.0]
@@ -282,7 +283,7 @@ class TestStreamer:
                 frame = s.read(timeout=1)
                 assert frame is not None
                 assert np.array_equal(frame[virtual_channel.key], expect)
-        with client.open_streamer(virtual_channel.key, 10) as s:
+        with client.open_streamer(virtual_channel.key, downsample_factor=10) as s:
             with client.open_writer(sy.TimeStamp.now(), virtual_channel.key) as w:
                 samples = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]
                 expect = [1.0]
@@ -290,7 +291,7 @@ class TestStreamer:
                 frame = s.read(timeout=1)
                 assert frame is not None
                 assert np.array_equal(frame[virtual_channel.key], expect)
-        with client.open_streamer(virtual_channel.key, 20) as s:
+        with client.open_streamer(virtual_channel.key, downsample_factor=20) as s:
             with client.open_writer(sy.TimeStamp.now(), virtual_channel.key) as w:
                 samples = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]
                 expect = [1.0]
@@ -336,7 +337,7 @@ class TestStreamer:
         self, virtual_channel: sy.Channel, client: sy.Synnax
     ) -> None:
         with pytest.raises(sy.ValidationError):
-            with client.open_streamer(virtual_channel.key, -1):
+            with client.open_streamer(virtual_channel.key, downsample_factor=-1):
                 ...
 
     @pytest.mark.multi_node
@@ -413,7 +414,7 @@ class TestAsyncStreamer:
         data = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]
         with client.open_writer(sy.TimeStamp.now(), virtual_channel.key) as w:
             async with await client.open_async_streamer(
-                virtual_channel.key, downsample_factor
+                virtual_channel.key, downsample_factor=downsample_factor
             ) as s:
                 w.write(pd.DataFrame({virtual_channel.key: data}))
                 async with asyncio.timeout(READ_TIMEOUT):
@@ -426,7 +427,7 @@ class TestAsyncStreamer:
     ) -> None:
         """Should reject a negative downsample factor."""
         with pytest.raises(sy.ValidationError):
-            await client.open_async_streamer(virtual_channel.key, -1)
+            await client.open_async_streamer(virtual_channel.key, downsample_factor=-1)
 
 
 @pytest.mark.framer

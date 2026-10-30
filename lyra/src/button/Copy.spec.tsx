@@ -50,13 +50,13 @@ describe("Copy", () => {
   describe("rendering", () => {
     it("should render the copy icon by default", () => {
       const c = render(<Button.Copy text="hello" />);
-      expect(c.container.querySelector(".pluto-icon--copy")!).toBeTruthy();
+      expect(c.container.querySelector(".lyra-icon--copy")!).toBeTruthy();
     });
 
     it("should render text children alongside the copy icon", () => {
       const c = render(<Button.Copy text="hello">Copy me</Button.Copy>);
       expect(c.getByText("Copy me")).toBeTruthy();
-      expect(c.container.querySelector(".pluto-icon--copy")!).toBeTruthy();
+      expect(c.container.querySelector(".lyra-icon--copy")!).toBeTruthy();
     });
 
     it("should render a custom icon instead of the copy icon", () => {
@@ -65,8 +65,8 @@ describe("Copy", () => {
           <Icon.Python />
         </Button.Copy>,
       );
-      expect(c.container.querySelector(".pluto-icon--python")!).toBeTruthy();
-      expect(c.container.querySelector(".pluto-icon--copy")).toBeFalsy();
+      expect(c.container.querySelector(".lyra-icon--python")!).toBeTruthy();
+      expect(c.container.querySelector(".lyra-icon--copy")).toBeFalsy();
     });
 
     it("should render a custom icon with text without a double icon", () => {
@@ -75,8 +75,8 @@ describe("Copy", () => {
           <Icon.Python /> Copy Python code
         </Button.Copy>,
       );
-      expect(c.container.querySelector(".pluto-icon--python")!).toBeTruthy();
-      expect(c.container.querySelector(".pluto-icon--copy")).toBeFalsy();
+      expect(c.container.querySelector(".lyra-icon--python")!).toBeTruthy();
+      expect(c.container.querySelector(".lyra-icon--copy")).toBeFalsy();
       expect(c.getByText("Copy Python code")).toBeTruthy();
     });
   });
@@ -85,7 +85,7 @@ describe("Copy", () => {
     it("should copy the text to the clipboard when clicked", async () => {
       const c = render(<Button.Copy text="hello world" />);
       await act(async () => {
-        fireEvent.click(c.container.querySelector(".pluto-icon--copy")!);
+        fireEvent.click(c.container.querySelector(".lyra-icon--copy")!);
       });
       expect(writeText).toHaveBeenCalledWith("hello world");
     });
@@ -94,7 +94,7 @@ describe("Copy", () => {
       const getText = vi.fn(() => "computed text");
       const c = render(<Button.Copy text={getText} />);
       await act(async () => {
-        fireEvent.click(c.container.querySelector(".pluto-icon--copy")!);
+        fireEvent.click(c.container.querySelector(".lyra-icon--copy")!);
       });
       expect(getText).toHaveBeenCalled();
       expect(writeText).toHaveBeenCalledWith("computed text");
@@ -104,7 +104,7 @@ describe("Copy", () => {
       const getText = vi.fn(async () => "async text");
       const c = render(<Button.Copy text={getText} />);
       await act(async () => {
-        fireEvent.click(c.container.querySelector(".pluto-icon--copy")!);
+        fireEvent.click(c.container.querySelector(".lyra-icon--copy")!);
       });
       expect(getText).toHaveBeenCalled();
       expect(writeText).toHaveBeenCalledWith("async text");
@@ -113,10 +113,10 @@ describe("Copy", () => {
     it("should show the check icon after copying", async () => {
       const c = render(<Button.Copy text="hello" />);
       await act(async () => {
-        fireEvent.click(c.container.querySelector(".pluto-icon--copy")!);
+        fireEvent.click(c.container.querySelector(".lyra-icon--copy")!);
       });
-      expect(c.container.querySelector(".pluto-icon--check")!).toBeTruthy();
-      expect(c.container.querySelector(".pluto-icon--copy")).toBeFalsy();
+      expect(c.container.querySelector(".lyra-icon--check")!).toBeTruthy();
+      expect(c.container.querySelector(".lyra-icon--copy")).toBeFalsy();
     });
 
     it("should swap a custom icon for the check icon after copying", async () => {
@@ -125,25 +125,25 @@ describe("Copy", () => {
           <Icon.Python />
         </Button.Copy>,
       );
-      expect(c.container.querySelector(".pluto-icon--python")!).toBeTruthy();
+      expect(c.container.querySelector(".lyra-icon--python")!).toBeTruthy();
       await act(async () => {
-        fireEvent.click(c.container.querySelector(".pluto-icon--python")!);
+        fireEvent.click(c.container.querySelector(".lyra-icon--python")!);
       });
-      expect(c.container.querySelector(".pluto-icon--check")!).toBeTruthy();
-      expect(c.container.querySelector(".pluto-icon--python")).toBeFalsy();
+      expect(c.container.querySelector(".lyra-icon--check")!).toBeTruthy();
+      expect(c.container.querySelector(".lyra-icon--python")).toBeFalsy();
     });
 
     it("should reset to the copy icon after the default duration", async () => {
       const c = render(<Button.Copy text="hello" />);
       await act(async () => {
-        fireEvent.click(c.container.querySelector(".pluto-icon--copy")!);
+        fireEvent.click(c.container.querySelector(".lyra-icon--copy")!);
       });
-      expect(c.container.querySelector(".pluto-icon--check")!).toBeTruthy();
+      expect(c.container.querySelector(".lyra-icon--check")!).toBeTruthy();
       await act(async () => {
         vi.advanceTimersByTime(2000);
       });
-      expect(c.container.querySelector(".pluto-icon--copy")!).toBeTruthy();
-      expect(c.container.querySelector(".pluto-icon--check")).toBeFalsy();
+      expect(c.container.querySelector(".lyra-icon--copy")!).toBeTruthy();
+      expect(c.container.querySelector(".lyra-icon--check")).toBeFalsy();
     });
 
     it("should reset a custom icon after the default duration", async () => {
@@ -153,29 +153,29 @@ describe("Copy", () => {
         </Button.Copy>,
       );
       await act(async () => {
-        fireEvent.click(c.container.querySelector(".pluto-icon--python")!);
+        fireEvent.click(c.container.querySelector(".lyra-icon--python")!);
       });
-      expect(c.container.querySelector(".pluto-icon--check")!).toBeTruthy();
+      expect(c.container.querySelector(".lyra-icon--check")!).toBeTruthy();
       await act(async () => {
         vi.advanceTimersByTime(2000);
       });
-      expect(c.container.querySelector(".pluto-icon--python")!).toBeTruthy();
+      expect(c.container.querySelector(".lyra-icon--python")!).toBeTruthy();
     });
 
     it("should respect custom copiedDuration", async () => {
       const c = render(<Button.Copy text="hello" copiedDuration={500} />);
       await act(async () => {
-        fireEvent.click(c.container.querySelector(".pluto-icon--copy")!);
+        fireEvent.click(c.container.querySelector(".lyra-icon--copy")!);
       });
-      expect(c.container.querySelector(".pluto-icon--check")!).toBeTruthy();
+      expect(c.container.querySelector(".lyra-icon--check")!).toBeTruthy();
       await act(async () => {
         vi.advanceTimersByTime(400);
       });
-      expect(c.container.querySelector(".pluto-icon--check")!).toBeTruthy();
+      expect(c.container.querySelector(".lyra-icon--check")!).toBeTruthy();
       await act(async () => {
         vi.advanceTimersByTime(100);
       });
-      expect(c.container.querySelector(".pluto-icon--copy")!).toBeTruthy();
+      expect(c.container.querySelector(".lyra-icon--copy")!).toBeTruthy();
     });
   });
 
@@ -184,7 +184,7 @@ describe("Copy", () => {
       const onCopy = vi.fn();
       const c = render(<Button.Copy text="hello" onCopy={onCopy} />);
       await act(async () => {
-        fireEvent.click(c.container.querySelector(".pluto-icon--copy")!);
+        fireEvent.click(c.container.querySelector(".lyra-icon--copy")!);
       });
       expect(onCopy).toHaveBeenCalledTimes(1);
     });
@@ -194,20 +194,20 @@ describe("Copy", () => {
       const copied = stubCopyCommand();
       const c = render(<Button.Copy text="hello" />);
       await act(async () => {
-        fireEvent.click(c.container.querySelector(".pluto-icon--copy")!);
+        fireEvent.click(c.container.querySelector(".lyra-icon--copy")!);
       });
       expect(copied).toHaveBeenCalledWith("hello");
-      expect(c.container.querySelector(".pluto-icon--check")!).toBeTruthy();
+      expect(c.container.querySelector(".lyra-icon--check")!).toBeTruthy();
     });
 
     it("should not show the check icon when copying fails", async () => {
       writeText.mockRejectedValue(new Error("Failed"));
       const c = render(<Button.Copy text="hello" />, { wrapper });
       await act(async () => {
-        fireEvent.click(c.container.querySelector(".pluto-icon--copy")!);
+        fireEvent.click(c.container.querySelector(".lyra-icon--copy")!);
       });
-      expect(c.container.querySelector(".pluto-icon--copy")!).toBeTruthy();
-      expect(c.container.querySelector(".pluto-icon--check")).toBeFalsy();
+      expect(c.container.querySelector(".lyra-icon--copy")!).toBeTruthy();
+      expect(c.container.querySelector(".lyra-icon--check")).toBeFalsy();
     });
   });
 
@@ -221,7 +221,7 @@ describe("Copy", () => {
         </Status.Aggregator>,
       );
       await act(async () => {
-        fireEvent.click(c.container.querySelector(".pluto-icon--copy")!);
+        fireEvent.click(c.container.querySelector(".lyra-icon--copy")!);
       });
       const lastCall = spy.mock.lastCall?.[0] as NotificationSpec[];
       expect(lastCall).toHaveLength(1);
@@ -240,7 +240,7 @@ describe("Copy", () => {
       );
       name = "Task B";
       await act(async () => {
-        fireEvent.click(c.container.querySelector(".pluto-icon--copy")!);
+        fireEvent.click(c.container.querySelector(".lyra-icon--copy")!);
       });
       const lastCall = spy.mock.lastCall?.[0] as NotificationSpec[];
       expect(lastCall).toHaveLength(1);
@@ -262,7 +262,7 @@ describe("Copy", () => {
         </Status.Aggregator>,
       );
       await act(async () => {
-        fireEvent.click(c.container.querySelector(".pluto-icon--copy")!);
+        fireEvent.click(c.container.querySelector(".lyra-icon--copy")!);
       });
       const lastCall = spy.mock.lastCall?.[0] as NotificationSpec[];
       expect(lastCall).toHaveLength(1);
@@ -286,7 +286,7 @@ describe("Copy", () => {
         </Status.Aggregator>,
       );
       await act(async () => {
-        fireEvent.click(c.container.querySelector(".pluto-icon--copy")!);
+        fireEvent.click(c.container.querySelector(".lyra-icon--copy")!);
       });
       const lastCall = spy.mock.lastCall?.[0] as NotificationSpec[];
       expect(lastCall).toHaveLength(1);
@@ -302,10 +302,10 @@ describe("Copy", () => {
         </Status.Aggregator>,
       );
       await act(async () => {
-        fireEvent.click(c.container.querySelector(".pluto-icon--copy")!);
+        fireEvent.click(c.container.querySelector(".lyra-icon--copy")!);
       });
-      expect(c.container.querySelector(".pluto-icon--copy")!).toBeTruthy();
-      expect(c.container.querySelector(".pluto-icon--check")).toBeFalsy();
+      expect(c.container.querySelector(".lyra-icon--copy")!).toBeTruthy();
+      expect(c.container.querySelector(".lyra-icon--check")).toBeFalsy();
     });
 
     it("should not push a status when successMessage is not provided", async () => {
@@ -317,7 +317,7 @@ describe("Copy", () => {
         </Status.Aggregator>,
       );
       await act(async () => {
-        fireEvent.click(c.container.querySelector(".pluto-icon--copy")!);
+        fireEvent.click(c.container.querySelector(".lyra-icon--copy")!);
       });
       const lastCall = spy.mock.lastCall?.[0] as NotificationSpec[];
       expect(lastCall).toHaveLength(0);
@@ -333,7 +333,7 @@ describe("Copy", () => {
         </Status.Aggregator>,
       );
       await act(async () => {
-        fireEvent.click(c.container.querySelector(".pluto-icon--copy")!);
+        fireEvent.click(c.container.querySelector(".lyra-icon--copy")!);
       });
       const lastCall = spy.mock.lastCall?.[0] as NotificationSpec[];
       expect(lastCall).toHaveLength(1);
@@ -352,7 +352,7 @@ describe("Copy", () => {
         </Status.Aggregator>,
       );
       await act(async () => {
-        fireEvent.click(c.container.querySelector(".pluto-icon--copy")!);
+        fireEvent.click(c.container.querySelector(".lyra-icon--copy")!);
       });
       const lastCall = spy.mock.lastCall?.[0] as NotificationSpec[];
       expect(lastCall).toHaveLength(1);
@@ -365,17 +365,17 @@ describe("Copy", () => {
   describe("button props", () => {
     it("should pass through variant prop", () => {
       const c = render(<Button.Copy text="hello" variant="filled" />);
-      expect(c.container.querySelector(".pluto-btn--filled")).toBeTruthy();
+      expect(c.container.querySelector(".lyra-btn--filled")).toBeTruthy();
     });
 
     it("should pass through size prop", () => {
       const c = render(<Button.Copy text="hello" size="small" />);
-      expect(c.container.querySelector(".pluto--height-small")).toBeTruthy();
+      expect(c.container.querySelector(".lyra--height-small")).toBeTruthy();
     });
 
     it("should pass through disabled prop", () => {
       const c = render(<Button.Copy text="hello" disabled />);
-      expect(c.container.querySelector(".pluto--disabled")).toBeTruthy();
+      expect(c.container.querySelector(".lyra--disabled")).toBeTruthy();
     });
   });
 });

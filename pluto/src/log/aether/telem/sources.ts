@@ -143,8 +143,8 @@ export class StreamMultiChannelLog
   }
 
   // Appends the samples each channel received since the last pull, and returns whether
-  // the entries changed. A channel's entries wait while it loads, so its history lands
-  // in one pull before its live samples and takes the time it loaded.
+  // the entries or the status changed. A channel's entries wait while it loads, so its
+  // history lands in one pull before its live samples and takes the time it loaded.
   private pull(subscription: framer.Subscription): boolean {
     const now = this.now();
     let pushed = 0;
@@ -155,10 +155,11 @@ export class StreamMultiChannelLog
       worst = cstatus.worst(worst, snapshot.status)!;
       if (variant !== "loading") pushed += this.append(key, snapshot, now);
     }
+    const statusChanged = worst !== this.status;
     this.status = worst;
     this.failures.observe(worst);
     const evicted = this.gcEntries();
-    return pushed > 0 || evicted > 0;
+    return pushed > 0 || evicted > 0 || statusChanged;
   }
 
   // Appends the samples the channel appended since the key's cursor, which are the

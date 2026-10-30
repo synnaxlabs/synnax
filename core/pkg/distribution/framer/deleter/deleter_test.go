@@ -20,8 +20,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -240,7 +240,7 @@ var _ = Describe("Deleter", Ordered, func() {
 })
 
 type scenario struct {
-	dist     mock.Node
+	dist     testutil.Node
 	closer   io.Closer
 	name     string
 	keys     channel.Keys
@@ -273,7 +273,7 @@ func newChannelSet() []channel.Channel {
 func gatewayOnlyScenario(ctx context.Context) scenario {
 	GinkgoHelper()
 	channels := newChannelSet()
-	dist := mock.OpenNode(ctx)
+	dist := testutil.OpenNode(ctx)
 	channels = MustSucceed(dist.Channel.Create(ctx, channels))
 	keys := channel.KeysFromChannels(channels)
 	names := lo.Map(channels, func(ch channel.Channel, _ int) string { return ch.Name })
@@ -290,7 +290,7 @@ func gatewayOnlyScenario(ctx context.Context) scenario {
 func peerOnlyScenario(ctx context.Context) scenario {
 	GinkgoHelper()
 	channels := newChannelSet()
-	cluster := mock.OpenCluster(ctx, 4)
+	cluster := testutil.OpenCluster(ctx, 4)
 	dist := cluster.Nodes[1]
 	for i := range channels {
 		channels[i].Leaseholder = node.Key(i + 2)
@@ -311,7 +311,7 @@ func peerOnlyScenario(ctx context.Context) scenario {
 func mixedScenario(ctx context.Context) scenario {
 	GinkgoHelper()
 	channels := newChannelSet()
-	builder := mock.OpenCluster(ctx, 3)
+	builder := testutil.OpenCluster(ctx, 3)
 	dist := builder.Nodes[1]
 	for i := range channels {
 		channels[i].Leaseholder = node.Key(i + 1)
