@@ -86,7 +86,7 @@ inline void pad(std::string &b, int v, int width) {
     b += digits;
 }
 
-/// @brief appends the expansion of one layout code for c to b. Every strftime code
+/// @brief appends the expansion of one format code for c to b. Every strftime code
 /// that does not depend on locale is here. The locale codes %a %A %b %B %p %c %x %X
 /// print weekday and month names, AM and PM, and the local date style. Those words
 /// change with the user's language, and both runtimes must print the same bytes, so
@@ -179,22 +179,22 @@ inline bool expand(std::string &b, const CivilTime &c, const char code) {
     }
 }
 
-/// @brief renders ts in UTC with layout. An unsupported code, and a '%' at the end
-/// of layout, are copied through unchanged.
+/// @brief renders ts in UTC with format. An unsupported code, and a '%' at the end
+/// of format, are copied through unchanged.
 inline std::string
-strftime(const x::telem::TimeStamp ts, const std::string_view layout) {
+strftime(const x::telem::TimeStamp ts, const std::string_view format) {
     const auto c = break_down(ts);
     std::string b;
-    b.reserve(layout.size() * 2);
-    for (size_t i = 0; i < layout.size(); i++) {
-        if (layout[i] != '%' || i + 1 == layout.size()) {
-            b += layout[i];
+    b.reserve(format.size() * 2);
+    for (size_t i = 0; i < format.size(); i++) {
+        if (format[i] != '%' || i + 1 == format.size()) {
+            b += format[i];
             continue;
         }
         i++;
-        if (!expand(b, c, layout[i])) {
+        if (!expand(b, c, format[i])) {
             b += '%';
-            b += layout[i];
+            b += format[i];
         }
     }
     return b;

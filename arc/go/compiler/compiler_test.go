@@ -4700,16 +4700,16 @@ var _ = Describe("Compiler", func() {
 			),
 		)
 
-		Describe("Layouts", func() {
+		Describe("Formats", func() {
 			// Tuesday, January 17, 2012 at 08:32:05.25 UTC, in ISO week 3.
 			stamp := time.Date(2012, time.January, 17, 8, 32, 5, 250_000_000, time.UTC).
 				UnixNano()
-			formatWith := func(ctx SpecContext, ns int64, layout string) string {
+			formatWith := func(ctx SpecContext, ns int64, format string) string {
 				GinkgoHelper()
 				output := MustSucceed(compileWithHostImports(ctx, `
 				import time
 				func compute(t i64 ns) str {
-					return time.format(t, "`+layout+`")
+					return time.format(t, "`+format+`")
 				}
 				`, nil))
 				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
@@ -4721,8 +4721,8 @@ var _ = Describe("Compiler", func() {
 			}
 
 			DescribeTable("Should expand every code",
-				func(ctx SpecContext, layout, expected string) {
-					Expect(formatWith(ctx, stamp, layout)).To(Equal(expected))
+				func(ctx SpecContext, format, expected string) {
+					Expect(formatWith(ctx, stamp, format)).To(Equal(expected))
 				},
 				Entry("%Y", "%Y", "2012"),
 				Entry("%y", "%y", "12"),
@@ -4748,7 +4748,7 @@ var _ = Describe("Compiler", func() {
 				Entry("%T", "%T", "08:32:05"),
 				Entry("%%", "%%", "%"),
 				Entry(
-					"a Python layout",
+					"a Python format",
 					"%Y-%m-%d %H:%M:%S.%f",
 					"2012-01-17 08:32:05.250000",
 				),
@@ -4756,8 +4756,8 @@ var _ = Describe("Compiler", func() {
 			)
 
 			DescribeTable("Should match C and Python at the edges",
-				func(ctx SpecContext, ns int64, layout, expected string) {
-					Expect(formatWith(ctx, ns, layout)).To(Equal(expected))
+				func(ctx SpecContext, ns int64, format, expected string) {
+					Expect(formatWith(ctx, ns, format)).To(Equal(expected))
 				},
 				Entry(
 					"Sunday, January 1, 2012 at midnight",
@@ -4798,7 +4798,7 @@ var _ = Describe("Compiler", func() {
 				),
 			)
 
-			It("Should format into a format string through a local", func(ctx SpecContext) {
+			It("Should format into an f-string through a local", func(ctx SpecContext) {
 				output := MustSucceed(compileWithHostImports(ctx, `
 				import time
 				func compute(t i64 ns) str {
@@ -4814,17 +4814,18 @@ var _ = Describe("Compiler", func() {
 				Expect(strOf(results)).To(Equal("at 08:32"))
 			})
 
-			It("Should copy an unknown code in a dynamic layout through", func(ctx SpecContext) {
+			It("Should copy an unknown dynamic code through", func(ctx SpecContext) {
 				output := MustSucceed(compileWithHostImports(ctx, `
 				import time
-				func compute(t i64 ns, layout str) str {
-					return time.format(t, layout)
+				func compute(t i64 ns, fmt str) str {
+					return time.format(t, fmt)
 				}
 				`, nil))
 				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
-				layout := strState.Create("%Q %")
+				format := strState.Create("%Q %")
 				results := MustSucceed(
-					mod.ExportedFunction("compute").Call(ctx, uint64(stamp), uint64(layout)),
+					mod.ExportedFunction("compute").
+						Call(ctx, uint64(stamp), uint64(format)),
 				)
 				Expect(strOf(results)).To(Equal("%Q %"))
 			})

@@ -1109,49 +1109,6 @@ var _ = DescribeTable(
 	),
 )
 
-var _ = DescribeTable(
-	"time.format layout rejection",
-	func(ctx SpecContext, source, message string) {
-		root := symbol.NewRoot(nil, stl.NewSymbols())
-		start := arc.Symbol{
-			Name: "start",
-			Kind: symbol.KindChannel,
-			Type: types.Chan(types.U8()),
-			ID:   1,
-		}
-		out := arc.Symbol{
-			Name: "out",
-			Kind: symbol.KindChannel,
-			Type: types.Chan(types.String()),
-			ID:   2,
-		}
-		root.Parent.AddChild(&start, &out)
-		Expect(
-			arc.CompileText(ctx, arc.Text{Raw: source}, root),
-		).Error().To(MatchError(ContainSubstring(message)))
-	},
-	Entry(
-		"unsupported code",
-		"import time\n\nstart -> time.format(time.now(), \"%Q\") -> out",
-		"unsupported code '%Q' in layout",
-	),
-	Entry(
-		"locale code",
-		"import time\n\nstart -> time.format(time.now(), \"%a %b\") -> out",
-		"unsupported code '%a' in layout",
-	),
-	Entry(
-		"bare percent at the end",
-		"import time\n\nstart -> time.format(time.now(), \"%H:%M %\") -> out",
-		"layout ends with a bare '%'",
-	),
-	Entry(
-		"layout in a func body",
-		"import time\n\nfunc f(t i64 ns) str { return time.format(t, \"%Q\") }",
-		"unsupported code '%Q' in layout",
-	),
-)
-
 // Boolean expression pipelines: an expression that yields bool (comparison or
 // logical) flows straight into a bool channel.
 var _ = Describe("Bool expression pipelines end-to-end runtime", func() {

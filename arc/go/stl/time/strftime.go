@@ -12,7 +12,6 @@ package time
 import (
 	"fmt"
 
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -44,7 +43,7 @@ func breakDown(ts telem.TimeStamp) civilTime {
 	}
 }
 
-// expansion appends one layout code's text for c to b.
+// expansion appends one format code's text for c to b.
 type expansion func(b []byte, c civilTime) []byte
 
 func pad(b []byte, v, width int) []byte { return fmt.Appendf(b, "%0*d", width, v) }
@@ -56,7 +55,7 @@ func hour(b []byte, c civilTime) []byte   { return pad(b, c.hour, 2) }
 func minute(b []byte, c civilTime) []byte { return pad(b, c.minute, 2) }
 func second(b []byte, c civilTime) []byte { return pad(b, c.second, 2) }
 
-// codes maps each supported layout code to its expansion. Every strftime code that
+// codes maps each supported format code to its expansion. Every strftime code that
 // does not depend on locale is here. The locale codes %a %A %b %B %p %c %x %X print
 // weekday and month names, AM and PM, and the local date style. Those words change
 // with the user's language, and both runtimes must print the same bytes, so the
@@ -105,39 +104,22 @@ var codes = map[byte]expansion{
 	'%': func(b []byte, _ civilTime) []byte { return append(b, '%') },
 }
 
-// strftime renders ts in UTC with layout. An unsupported code, and a '%' at the end
-// of layout, are copied through unchanged.
-func strftime(ts telem.TimeStamp, layout string) string {
+// strftime renders ts in UTC with format. An unsupported code, and a '%' at the end
+// of format, are copied through unchanged.
+func strftime(ts telem.TimeStamp, format string) string {
 	c := breakDown(ts)
-	b := make([]byte, 0, 2*len(layout))
-	for i := 0; i < len(layout); i++ {
-		if layout[i] != '%' || i+1 == len(layout) {
-			b = append(b, layout[i])
+	b := make([]byte, 0, 2*len(format))
+	for i := 0; i < len(format); i++ {
+		if format[i] != '%' || i+1 == len(format) {
+			b = append(b, format[i])
 			continue
 		}
 		i++
-		if expand, ok := codes[layout[i]]; ok {
+		if expand, ok := codes[format[i]]; ok {
 			b = expand(b, c)
 		} else {
-			b = append(b, '%', layout[i])
+			b = append(b, '%', format[i])
 		}
 	}
 	return string(b)
-}
-
-// validateLayout reports the first unsupported code in layout, or a '%' at its end.
-func validateLayout(layout string) error {
-	for i := 0; i < len(layout); i++ {
-		if layout[i] != '%' {
-			continue
-		}
-		if i+1 == len(layout) {
-			return errors.New("layout ends with a bare '%'")
-		}
-		i++
-		if _, ok := codes[layout[i]]; !ok {
-			return errors.Newf("unsupported code '%%%c' in layout", layout[i])
-		}
-	}
-	return nil
 }

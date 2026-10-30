@@ -1632,11 +1632,9 @@ struct FormatFixture {
         linker(engine),
         instance(setup_instance()) {}
 
-    std::string format(const int64_t ns, const std::string_view layout = "") {
+    std::string format(const int64_t ns, const std::string_view fmt = "") {
         auto fn = std::get<wasmtime::Func>(instance.get(store, "call_format").value());
-        const auto handle = static_cast<int32_t>(
-            str_state->create(std::string(layout))
-        );
+        const auto handle = static_cast<int32_t>(str_state->create(std::string(fmt)));
         const auto result = fn.call(store, {wasmtime::Val(ns), wasmtime::Val(handle)})
                                 .unwrap();
         return str_state->get(result[0].i32());
@@ -1667,7 +1665,7 @@ TEST(FormatTest, MatchesTheGoVectors) {
 /// @brief Tuesday, January 17, 2012 at 08:32:05.25 UTC, in ISO week 3.
 constexpr int64_t STAMP = 1'326'789'125'250'000'000;
 
-/// @brief every layout code expands as in the Go table.
+/// @brief every fmt code expands as in the Go table.
 TEST(FormatTest, ExpandsEveryCode) {
     FormatFixture f;
     EXPECT_EQ(f.format(STAMP, "%Y"), "2012");

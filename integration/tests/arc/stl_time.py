@@ -35,29 +35,29 @@ func write_format() {
 }
 time_format_fn_trigger -> write_format()
 time_format_flow_trigger -> time.format(time.now()) -> time_format_flow_out
-// time.now() with a layout.
-func write_format_now_layout() {
+// time.now() with a format.
+func write_format_now_lit() {
     now_fmt_fn_out = time.format(time.now(), "%Y-%m-%d %H:%M:%S.%f")
 }
-now_fmt_trigger -> write_format_now_layout()
+now_fmt_trigger -> write_format_now_lit()
 now_fmt_trigger -> time.format(time.now(), "%Y-%m-%d %H:%M:%S.%f") -> now_fmt_flow_out
 // A stamp read from a channel, so the test can expect an exact string. It is
-// formatted bare, with a literal layout, and into an f-string through a local.
+// formatted bare, with a literal format, and into an f-string through a local.
 func write_format_fixed() {
     time_format_fixed_fn_out = time.format(time_format_ts_in)
-    time_layout_lit_fn_out = time.format(time_format_ts_in, "%Y-%m-%d %H:%M:%S.%f")
+    time_format_lit_fn_out = time.format(time_format_ts_in, "%Y-%m-%d %H:%M:%S.%f")
     clock := time.format(time_format_ts_in, "%H:%M:%S")
     time_fstr_out = f"at {clock}"
 }
 time_format_ts_in -> write_format_fixed()
 time.format(time_format_ts_in) -> time_format_fixed_flow_out
-time.format(time_format_ts_in, "%Y-%m-%d %H:%M:%S.%f") -> time_layout_lit_flow_out
-// A layout read from a channel compiles through a different path than a literal.
-func write_format_layout() {
-    time_layout_fn_out = time.format(time_format_ts_in, time_layout_in)
+time.format(time_format_ts_in, "%Y-%m-%d %H:%M:%S.%f") -> time_format_lit_flow_out
+// A format read from a channel compiles through a different path than a literal.
+func write_format_chan() {
+    time_format_chan_fn_out = time.format(time_format_ts_in, time_format_in)
 }
-time_layout_in -> write_format_layout()
-time.format(time_format_ts_in, time_layout_in) -> time_layout_flow_out
+time_format_in -> write_format_chan()
+time.format(time_format_ts_in, time_format_in) -> time_format_chan_flow_out
 
 // ─────────────────────────── time.interval ──────────────────────────
 // interval is inherently time-triggered (that's the point of the function).
@@ -117,11 +117,11 @@ ISO_8601_UTC = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,9})?Z$")
 # Allowed gap between a formatted time.now() and the wall clock when it is read.
 MAX_FORMAT_DRIFT = timedelta(seconds=2)
 
-# The layout the Arc source above uses as a literal, and the shape of its output.
-PYTHON_LAYOUT = "%Y-%m-%d %H:%M:%S.%f"
-PYTHON_LAYOUT_OUTPUT = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{6}$")
+# The format the Arc source above uses as a literal, and the shape of its output.
+PYTHON_FORMAT = "%Y-%m-%d %H:%M:%S.%f"
+PYTHON_FORMAT_OUTPUT = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{6}$")
 
-# (ns since the Unix epoch, ISO 8601, PYTHON_LAYOUT). Each stamp is written to
+# (ns since the Unix epoch, ISO 8601, PYTHON_FORMAT). Each stamp is written to
 # time_format_ts_in and formatted in both contexts. The f-string output takes the
 # clock part of the ISO form.
 FORMAT_CASES = (
@@ -150,11 +150,11 @@ FORMAT_CASES = (
 # Tuesday, January 17, 2012 at 08:32:05.25 UTC, in ISO week 3.
 STAMP = 1_326_789_125_250_000_000
 
-# (layout, expected for STAMP), each written to time_layout_in and formatted in both
+# (format, expected for STAMP), each written to time_format_in and formatted in both
 # contexts. Every supported code, then composites and text, then what the runtime
 # copies through unchanged. Consecutive expectations differ, so each wait proves a
 # new write landed.
-LAYOUT_CASES = (
+CODE_CASES = (
     ("%Y", "2012"),
     ("%y", "12"),
     ("%m", "01"),
@@ -184,7 +184,7 @@ LAYOUT_CASES = (
     ("%Q %", "%Q %"),
 )
 
-# (ns since the Unix epoch, layout, expected) at the calendar edges. Week numbers,
+# (ns since the Unix epoch, format, expected) at the calendar edges. Week numbers,
 # the 12-hour clock, ISO week rollover, the epoch, and a stamp before it.
 EDGE_CASES = (
     # Sunday, January 1, 2012 at midnight.
@@ -206,13 +206,13 @@ EDGE_CASES = (
 PYTHON_CODES = set("YymdHIMSjfUWwzZ%")
 
 
-def python_strftime(ns: int, layout: str) -> str | None:
-    """Python's rendering of layout at ns, or None when layout uses a code Python
+def python_strftime(ns: int, fmt: str) -> str | None:
+    """Python's rendering of format at ns, or None when format uses a code Python
     does not support on every platform."""
-    if any(code not in PYTHON_CODES for code in re.findall(r"%(.)", layout)):
+    if any(code not in PYTHON_CODES for code in re.findall(r"%(.)", fmt)):
         return None
     stamp = datetime(1970, 1, 1, tzinfo=UTC) + timedelta(microseconds=ns // 1000)
-    return stamp.strftime(layout)
+    return stamp.strftime(fmt)
 
 
 # (channel, label) for the two free-running interval counters.
@@ -235,7 +235,7 @@ class StlTime(ArcCase):
     time.now() is verified by checking the returned timestamp is a valid
     nanosecond value. time.format() is verified by parsing its output as ISO
     8601 and checking it against the wall clock, in both a function body and
-    a flow statement, then with every layout code on fixed stamps, from a
+    a flow statement, then with every format code on fixed stamps, from a
     literal and from a channel. time.interval() is verified by measuring its firing
     rate over 1 second. time.wait() is a regression test migrated from
     wait_timing.py verifying that a 3-second wait completes in ~3 seconds.
@@ -255,11 +255,11 @@ class StlTime(ArcCase):
         "now_fmt_flow_out",
         "time_format_fixed_fn_out",
         "time_format_fixed_flow_out",
-        "time_layout_lit_fn_out",
-        "time_layout_lit_flow_out",
+        "time_format_lit_fn_out",
+        "time_format_lit_flow_out",
         "time_fstr_out",
-        "time_layout_fn_out",
-        "time_layout_flow_out",
+        "time_format_chan_fn_out",
+        "time_format_chan_flow_out",
         "interval_count",
         "interval_count_mod",
         "toggle_cmd",
@@ -287,12 +287,12 @@ class StlTime(ArcCase):
                 ("now_fmt_flow_out", sy.DataType.STRING),
                 ("time_format_fixed_fn_out", sy.DataType.STRING),
                 ("time_format_fixed_flow_out", sy.DataType.STRING),
-                ("time_layout_lit_fn_out", sy.DataType.STRING),
-                ("time_layout_lit_flow_out", sy.DataType.STRING),
+                ("time_format_lit_fn_out", sy.DataType.STRING),
+                ("time_format_lit_flow_out", sy.DataType.STRING),
                 ("time_fstr_out", sy.DataType.STRING),
-                ("time_layout_in", sy.DataType.STRING),
-                ("time_layout_fn_out", sy.DataType.STRING),
-                ("time_layout_flow_out", sy.DataType.STRING),
+                ("time_format_in", sy.DataType.STRING),
+                ("time_format_chan_fn_out", sy.DataType.STRING),
+                ("time_format_chan_flow_out", sy.DataType.STRING),
                 ("interval_count", sy.DataType.INT64),
                 ("interval_count_mod", sy.DataType.INT64),
                 ("start_wait_cmd", sy.DataType.UINT8),
@@ -336,21 +336,21 @@ class StlTime(ArcCase):
         self.writer.write("time_now_flow_int_trigger", 1.0)
         self.wait_for_gt("time_now_flow_int_out", JAN_2020_NANOS)
 
-    def _assert_format(self, channel: str, label: str, layout: str | None) -> None:
+    def _assert_format(self, channel: str, label: str, fmt: str | None) -> None:
         """Wait for channel to hold a formatted time.now() and check it against the
-        wall clock. A None layout expects ISO 8601, else the output of PYTHON_LAYOUT.
+        wall clock. A None format expects ISO 8601, else the output of PYTHON_FORMAT.
         """
-        pattern = ISO_8601_UTC if layout is None else PYTHON_LAYOUT_OUTPUT
+        pattern = ISO_8601_UTC if fmt is None else PYTHON_FORMAT_OUTPUT
         self._wait_for_condition(
             channel,
             lambda v: isinstance(v, str) and pattern.match(v) is not None,
             f"to match {pattern.pattern}",
         )
         text = self.read_tlm(channel, "")
-        if layout is None:
+        if fmt is None:
             stamp = datetime.fromisoformat(text)
         else:
-            stamp = datetime.strptime(text, layout).replace(tzinfo=UTC)
+            stamp = datetime.strptime(text, fmt).replace(tzinfo=UTC)
         drift = abs(datetime.now(UTC) - stamp)
         self.log(
             f"[{label}] time.format wrote {text!r}, "
@@ -372,50 +372,50 @@ class StlTime(ArcCase):
         self.writer.write("time_format_flow_trigger", 1.0)
         self._assert_format("time_format_flow_out", "flow", None)
 
-    def _test_format_now_layout(self) -> None:
-        self.log("=== time.format() [time.now() with a layout] ===")
+    def _test_format_now_lit(self) -> None:
+        self.log("=== time.format() [time.now() with a format] ===")
         self.writer.write("now_fmt_trigger", 1.0)
-        self._assert_format("now_fmt_fn_out", "function", PYTHON_LAYOUT)
-        self._assert_format("now_fmt_flow_out", "flow", PYTHON_LAYOUT)
+        self._assert_format("now_fmt_fn_out", "function", PYTHON_FORMAT)
+        self._assert_format("now_fmt_flow_out", "flow", PYTHON_FORMAT)
 
-    def _check_python(self, ns: int, layout: str, expected: str) -> None:
-        """Fail when Python renders layout at ns differently from the table."""
-        rendered = python_strftime(ns, layout)
+    def _check_python(self, ns: int, fmt: str, expected: str) -> None:
+        """Fail when Python renders format at ns differently from the table."""
+        rendered = python_strftime(ns, fmt)
         if rendered is not None and rendered != expected:
             self.fail(
-                f"Python renders {layout!r} as {rendered!r}, table says {expected!r}"
+                f"Python renders {fmt!r} as {rendered!r}, table says {expected!r}"
             )
 
     def _test_format_fixed(self) -> None:
-        self.log("=== time.format() [fixed stamps, literal layouts] ===")
-        for ns, iso, with_layout in FORMAT_CASES:
-            self._check_python(ns, PYTHON_LAYOUT, with_layout)
+        self.log("=== time.format() [fixed stamps, literal formats] ===")
+        for ns, iso, with_format in FORMAT_CASES:
+            self._check_python(ns, PYTHON_FORMAT, with_format)
             self.writer.write("time_format_ts_in", ns)
-            self.log(f"Expecting {iso!r} and {with_layout!r} for {ns} ns")
+            self.log(f"Expecting {iso!r} and {with_format!r} for {ns} ns")
             self.wait_for_eq("time_format_fixed_fn_out", iso)
             self.wait_for_eq("time_format_fixed_flow_out", iso)
-            self.wait_for_eq("time_layout_lit_fn_out", with_layout)
-            self.wait_for_eq("time_layout_lit_flow_out", with_layout)
+            self.wait_for_eq("time_format_lit_fn_out", with_format)
+            self.wait_for_eq("time_format_lit_flow_out", with_format)
             self.wait_for_eq("time_fstr_out", f"at {iso[11:19]}")
 
-    def _check_layout(self, ns: int, layout: str, expected: str) -> None:
-        """Write ns and layout, then expect expected from both contexts."""
-        self._check_python(ns, layout, expected)
+    def _check_format(self, ns: int, fmt: str, expected: str) -> None:
+        """Write ns and format, then expect expected from both contexts."""
+        self._check_python(ns, fmt, expected)
         self.writer.write("time_format_ts_in", ns)
-        self.writer.write("time_layout_in", layout)
-        self.log(f"Expecting {expected!r} for {layout!r} at {ns} ns")
-        self.wait_for_eq("time_layout_fn_out", expected)
-        self.wait_for_eq("time_layout_flow_out", expected)
+        self.writer.write("time_format_in", fmt)
+        self.log(f"Expecting {expected!r} for {fmt!r} at {ns} ns")
+        self.wait_for_eq("time_format_chan_fn_out", expected)
+        self.wait_for_eq("time_format_chan_flow_out", expected)
 
-    def _test_format_layout_codes(self) -> None:
-        self.log("=== time.format() [every layout code, layout from a channel] ===")
-        for layout, expected in LAYOUT_CASES:
-            self._check_layout(STAMP, layout, expected)
+    def _test_format_codes(self) -> None:
+        self.log("=== time.format() [every format code, format from a channel] ===")
+        for fmt, expected in CODE_CASES:
+            self._check_format(STAMP, fmt, expected)
 
-    def _test_format_layout_edges(self) -> None:
+    def _test_format_edges(self) -> None:
         self.log("=== time.format() [calendar edges] ===")
-        for ns, layout, expected in EDGE_CASES:
-            self._check_layout(ns, layout, expected)
+        for ns, fmt, expected in EDGE_CASES:
+            self._check_format(ns, fmt, expected)
 
     def _test_interval_rate(self) -> None:
         self.log("=== time.interval ===")
@@ -466,9 +466,9 @@ class StlTime(ArcCase):
         self._test_now_flow()
         self._test_format()
         self._test_format_flow()
-        self._test_format_now_layout()
+        self._test_format_now_lit()
         self._test_format_fixed()
-        self._test_format_layout_codes()
-        self._test_format_layout_edges()
+        self._test_format_codes()
+        self._test_format_edges()
         self._test_interval_rate()
         self._test_wait_timing()

@@ -34,7 +34,7 @@ const (
 	waitSymbolName     = "wait"
 	nowSymbolName      = "now"
 	formatSymbolName   = "format"
-	layoutInputParam   = "layout"
+	formatInputParam   = "format"
 	periodInputParam   = "period"
 	durationInputParam = "duration"
 	name               = "time"
@@ -61,9 +61,9 @@ var (
 		doc.Code("arc", "t := time.now()"),
 	)
 	formatDoc = doc.New(
-		doc.Paragraph("Formats a timestamp in UTC. Without a layout, prints ISO 8601."),
+		doc.Paragraph("Formats a timestamp in UTC. Without a format, prints ISO 8601."),
 		doc.Paragraph(
-			"A layout takes every strftime code that does not depend on locale.",
+			"A format takes every strftime code that does not depend on locale.",
 		),
 		doc.Divider(),
 		doc.Code("arc", "t_str := time.format(time.now())\n"+
@@ -123,15 +123,14 @@ func NewSymbols() []*symbol.Symbol {
 		Type: types.Function(types.FunctionProperties{
 			Inputs: types.Params{
 				{Name: ir.DefaultInputParam, Type: types.TimeStamp()},
-				{Name: layoutInputParam, Type: types.String(), Value: ""},
+				{Name: formatInputParam, Type: types.String(), Value: ""},
 			},
 			Outputs: types.Params{
 				{Name: ir.DefaultOutputParam, Type: types.String()},
 			},
 		}),
-		Trigger:          symbol.TriggerOnly,
-		Doc:              formatDoc,
-		AnalyzeArguments: rejectInvalidLayout,
+		Trigger: symbol.TriggerOnly,
+		Doc:     formatDoc,
 	}
 	mod := &symbol.Symbol{Name: name, Kind: symbol.KindModule, Doc: moduleDoc}
 	mod.AddChild(interval, wait, now, format)
@@ -186,40 +185,6 @@ func rejectNonPositiveSpan(param string) symbol.ArgumentsHook {
 	}
 }
 
-// rejectInvalidLayout reports an unsupported code in a literal layout. Non-literal
-// layouts pass through; the runtime copies an unknown code to the output unchanged.
-func rejectInvalidLayout(diags *diagnostics.Diagnostics, args []symbol.Argument) {
-	for _, arg := range args {
-		if arg.Name != layoutInputParam && (arg.Name != "" || arg.Index != 1) {
-			continue
-		}
-		if arg.Expr == nil || !parser.IsLiteral(arg.Expr) {
-			continue
-		}
-		lit := parser.GetLiteral(arg.Expr)
-		if lit == nil {
-			continue
-		}
-		str := parser.StringTerminal(lit)
-		if str == nil {
-			continue
-		}
-		// A format string fills its placeholders at run time, so its layout is not
-		// known here.
-		if _, flags, ok := literal.StripQuotes(str.GetText()); !ok || flags.Format {
-			continue
-		}
-		// Type mismatches are the analyzer's to report, not the hook's.
-		parsed, err := literal.ParseString(str.GetText(), types.String())
-		if err != nil {
-			continue
-		}
-		if err := validateLayout(parsed.Value.(string)); err != nil {
-			diags.Add(diagnostics.Error(err, arg.AST))
-		}
-	}
-}
-
 // Host is the runtime host-side support for the time module: it registers
 // the `now` and `format` WASM host functions and acts as the node factory for
 // interval, wait, and now.
@@ -258,8 +223,8 @@ func NewHost(
 			return uint64(h.now)
 		}).Export(nowSymbolName)
 	builder = builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, v int64, layout uint32) uint32 {
-			l, ok := h.strings.Get(layout)
+		WithFunc(func(_ context.Context, v int64, format uint32) uint32 {
+			l, ok := h.strings.Get(format)
 			if !ok {
 				return 0
 			}
@@ -271,12 +236,12 @@ func NewHost(
 	return h, nil
 }
 
-// formatTimeStamp renders ts in UTC. An empty layout selects ISO 8601.
-func formatTimeStamp(ts telem.TimeStamp, layout string) string {
-	if layout == "" {
+// formatTimeStamp renders ts in UTC. An empty format selects ISO 8601.
+func formatTimeStamp(ts telem.TimeStamp, format string) string {
+	if format == "" {
 		return ts.Time().UTC().Format(iso8601Layout)
 	}
-	return strftime(ts, layout)
+	return strftime(ts, format)
 }
 
 func (h *Host) Create(cfg node.Config) (node.Node, error) {

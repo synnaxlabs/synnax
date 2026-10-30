@@ -262,11 +262,11 @@ public:
     }
 };
 
-/// @brief renders ts in UTC. An empty layout selects ISO 8601.
+/// @brief renders ts in UTC. An empty format selects ISO 8601.
 inline std::string
-format_time_stamp(const x::telem::TimeStamp ts, const std::string_view layout) {
-    if (layout.empty()) return ts.iso8601();
-    return strftime(ts, layout);
+format_time_stamp(const x::telem::TimeStamp ts, const std::string_view format) {
+    if (format.empty()) return ts.iso8601();
+    return strftime(ts, format);
 }
 
 class Module : public stl::Module {
@@ -335,9 +335,9 @@ public:
             .func_wrap(
                 MODULE_NAME,
                 "format",
-                [ss](const int64_t v, const uint32_t layout) -> uint32_t {
+                [ss](const int64_t v, const uint32_t format) -> uint32_t {
                     return ss->create(
-                        format_time_stamp(x::telem::TimeStamp(v), ss->get(layout))
+                        format_time_stamp(x::telem::TimeStamp(v), ss->get(format))
                     );
                 }
             )

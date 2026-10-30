@@ -9166,7 +9166,7 @@ time.wait(duration=500ms) -> output`
 		)
 
 		It(
-			"Should lower time.format with a layout as an expression node",
+			"Should lower time.format with a format as an expression node",
 			func(ctx SpecContext) {
 				resolver := []symbol.Symbol{
 					{
