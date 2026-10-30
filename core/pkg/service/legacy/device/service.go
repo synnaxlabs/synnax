@@ -24,12 +24,12 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
-	"go.uber.org/zap"
 )
 
 // ServiceConfig is the configuration for creating a device service.
@@ -180,12 +180,12 @@ func (s *Service) NewRetrieve() Retrieve {
 	}
 }
 
-func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) {
+func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) error {
 	var devices []Device
 	if err := s.NewRetrieve().Where(MatchRacks(rackStat.Details.Rack)).
 		Entries(&devices).
 		Exec(ctx, nil); err != nil {
-		s.cfg.L.Error("failed to retrieve devices on suspect rack", zap.Error(err))
+		return errors.Wrap(err, "failed to retrieve devices on suspect rack")
 	}
 	statuses := make([]Status, len(devices))
 	for i, device := range devices {
@@ -199,9 +199,7 @@ func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) {
 			Details:     StatusDetails{Rack: rackStat.Details.Rack, Device: device.Key},
 		}
 	}
-	if err := s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+	return s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
 		return s.cfg.Status.NewWriter(tx).SetMany(ctx, &statuses)
-	}); err != nil {
-		s.cfg.L.Error("failed to set statuses on suspect rack", zap.Error(err))
-	}
+	})
 }

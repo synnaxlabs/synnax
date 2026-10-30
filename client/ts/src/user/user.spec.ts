@@ -10,24 +10,17 @@
 import { id } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, test, vi } from "vitest";
 
-import { AuthError, NotFoundError, ValidationError } from "@/errors";
+import { AuthError, NotFoundError, ValidationError } from "@/index";
 import { query } from "@/query";
 import { createTestClient, expectDeleted } from "@/testutil";
 import { type user } from "@/user";
-
-interface SortType {
-  username: string;
-}
-
-const sort = (a: SortType, b: SortType) => a.username.localeCompare(b.username);
 
 const client = createTestClient();
 
 const userOne: user.New = {
   username: id.create(),
   password: "test",
-  firstName: "George",
-  lastName: "Washington",
+  name: "George Washington",
 };
 
 const userTwo: user.New = { username: id.create(), password: "test" };
@@ -35,33 +28,36 @@ const userTwo: user.New = { username: id.create(), password: "test" };
 const userThree: user.New = {
   username: id.create(),
   password: "test",
-  firstName: "John",
-  lastName: "Adams",
+  name: "John Adams",
 };
 
 const userArray: user.New[] = [
-  { username: id.create(), password: "secondTest", firstName: "Steve" },
+  { username: id.create(), password: "secondTest", name: "Steve" },
   { username: id.create(), password: "testArray" },
-].sort(sort);
+];
+
+/** Expects users to hold exactly the keys and names of the created users. */
+const expectUsers = (users: user.User[], created: user.New[]) =>
+  expect(users.map(({ key, name }) => ({ key, name }))).toEqual(
+    expect.arrayContaining(
+      created.map((u) => ({ key: u.key, name: u.name ?? u.username })),
+    ),
+  );
 
 describe("User", () => {
   describe("Create", () => {
     describe("One", () => {
       test("with a name", async () => {
         const res = await client.users.create(userOne);
-        expect(res.username).toEqual(userOne.username);
         expect(res.key).not.toEqual("");
-        expect(res.firstName).toEqual(userOne.firstName);
-        expect(res.lastName).toEqual(userOne.lastName);
+        expect(res.name).toEqual(userOne.name);
         userOne.key = res.key;
       });
       test("with no name", async () => {
         const res = await client.users.create(userTwo);
-        expect(res.username).toEqual(userTwo.username);
         expect(res.key).not.toEqual("");
         userTwo.key = res.key;
-        expect(res.firstName).toEqual("");
-        expect(res.lastName).toEqual("");
+        expect(res.name).toEqual(userTwo.username);
       });
       test("Repeated username", async () =>
         await expect(
@@ -76,21 +72,17 @@ describe("User", () => {
       test("array is one", async () => {
         const res = await client.users.create([userThree]);
         expect(res).toHaveLength(1);
-        expect(res[0].username).toEqual(userThree.username);
         expect(res[0].key).not.toEqual("");
         userThree.key = res[0].key;
-        expect(res[0].firstName).toEqual(userThree.firstName);
-        expect(res[0].lastName).toEqual(userThree.lastName);
+        expect(res[0].name).toEqual(userThree.name);
       });
       test("array not empty", async () => {
         const res = await client.users.create(userArray);
         expect(res).toHaveLength(2);
         userArray.forEach((u, i) => {
-          expect(res[i].username).toEqual(u.username);
           expect(res[i].key).not.toEqual("");
           userArray[i].key = res[i].key;
-          expect(res[i].firstName).toEqual(u.firstName ?? "");
-          expect(res[i].lastName).toEqual(u.lastName ?? "");
+          expect(res[i].name).toEqual(u.name ?? u.username);
         });
       });
       test("Repeated username", async () =>
@@ -115,10 +107,8 @@ describe("User", () => {
       describe("one", () => {
         test("found", async () => {
           const res = await client.users.retrieve({ username: userOne.username });
-          expect(res.username).toEqual(userOne.username);
           expect(res.key).toEqual(userOne.key);
-          expect(res.firstName).toEqual(userOne.firstName);
-          expect(res.lastName).toEqual(userOne.lastName);
+          expect(res.name).toEqual(userOne.name);
         });
         test("not found", async () =>
           await expect(
@@ -130,13 +120,8 @@ describe("User", () => {
           const res = await client.users.retrieve({
             usernames: userArray.map((u) => u.username),
           });
-          expect(res.sort(sort)).toHaveLength(2);
-          res.forEach((u, i) => {
-            expect(u.username).toEqual(userArray[i].username);
-            expect(u.key).toEqual(userArray[i].key);
-            expect(u.firstName).toEqual(userArray[i].firstName ?? "");
-            expect(u.lastName).toEqual(userArray[i].lastName ?? "");
-          });
+          expect(res).toHaveLength(2);
+          expectUsers(res, userArray);
         });
         test("not found", async () => {
           const res = await client.users.retrieve({ usernames: [id.create()] });
@@ -146,21 +131,12 @@ describe("User", () => {
           const res = await client.users.retrieve({
             usernames: [...userArray.map((u) => u.username), id.create()],
           });
-          expect(res.sort(sort)).toHaveLength(2);
-          res.forEach((u, i) => {
-            expect(u.username).toEqual(userArray[i].username);
-            expect(u.key).toEqual(userArray[i].key);
-            expect(u.firstName).toEqual(userArray[i].firstName ?? "");
-            expect(u.lastName).toEqual(userArray[i].lastName ?? "");
-          });
+          expect(res).toHaveLength(2);
+          expectUsers(res, userArray);
         });
         test("calling with no names", async () => {
           const res = await client.users.retrieve({ usernames: [] });
-          const usernames = res.map((u) => u.username);
-          expect(usernames).toContain(userOne.username);
-          expect(usernames).toContain(userTwo.username);
-          expect(usernames).toContain(userThree.username);
-          userArray.forEach((u) => expect(usernames).toContain(u.username));
+          expectUsers(res, [userOne, userTwo, userThree, ...userArray]);
         });
       });
     });
@@ -168,10 +144,8 @@ describe("User", () => {
       describe("one", () => {
         test("found", async () => {
           const res = await client.users.retrieve(userOne.key as string);
-          expect(res.username).toEqual(userOne.username);
           expect(res.key).toEqual(userOne.key);
-          expect(res.firstName).toEqual(userOne.firstName);
-          expect(res.lastName).toEqual(userOne.lastName);
+          expect(res.name).toEqual(userOne.name);
         });
         test("not found", async () => {
           await expect(
@@ -189,13 +163,8 @@ describe("User", () => {
           const res = await client.users.retrieve({
             keys: userArray.map((u) => u.key as string),
           });
-          expect(res.sort(sort)).toHaveLength(2);
-          res.forEach((u, i) => {
-            expect(u.username).toEqual(userArray[i].username);
-            expect(u.key).toEqual(userArray[i].key);
-            expect(u.firstName).toEqual(userArray[i].firstName ?? "");
-            expect(u.lastName).toEqual(userArray[i].lastName ?? "");
-          });
+          expect(res).toHaveLength(2);
+          expectUsers(res, userArray);
         });
         test("not found", async () => {
           for (const u of userArray)
@@ -208,11 +177,7 @@ describe("User", () => {
         });
         test("all", async () => {
           const res = await client.users.retrieve({ keys: [] });
-          const usernames = res.map((u) => u.username);
-          expect(usernames).toContain(userOne.username);
-          expect(usernames).toContain(userTwo.username);
-          expect(usernames).toContain(userThree.username);
-          userArray.forEach((u) => expect(usernames).toContain(u.username));
+          expectUsers(res, [userOne, userTwo, userThree, ...userArray]);
         });
       });
     });
@@ -224,10 +189,8 @@ describe("User", () => {
         client.users.changeUsername(userOne.key as string, newUsername),
       ).resolves.toBeUndefined();
       const res = await client.users.retrieve({ username: newUsername });
-      expect(res.username).toEqual(newUsername);
-      expect(res.key).not.toEqual("");
-      expect(res.firstName).toEqual(userOne.firstName);
-      expect(res.lastName).toEqual(userOne.lastName);
+      expect(res.key).toEqual(userOne.key);
+      expect(res.name).toEqual(userOne.name);
       userOne.username = newUsername;
     });
     test("Unsuccessful", async () =>
@@ -250,26 +213,12 @@ describe("User", () => {
   describe("Change Name", () => {
     test("Successful", async () => {
       await expect(
-        client.users.rename(userOne.key as string, "Thomas", "Jefferson"),
+        client.users.rename(userOne.key as string, "Thomas Jefferson"),
       ).resolves.toBeUndefined();
       const res = await client.users.retrieve(userOne.key as string);
-      expect(res.username).toEqual(userOne.username);
       expect(res.key).toEqual(userOne.key);
-      expect(res.firstName).toEqual("Thomas");
-      expect(res.lastName).toEqual("Jefferson");
-      userOne.firstName = "Thomas";
-      userOne.lastName = "Jefferson";
-    });
-    test("Only one name", async () => {
-      await expect(
-        client.users.rename(userOne.key as string, "James"),
-      ).resolves.toBeUndefined();
-      const res = await client.users.retrieve(userOne.key as string);
-      expect(res.username).toEqual(userOne.username);
-      expect(res.key).toEqual(userOne.key);
-      expect(res.firstName).toEqual("James");
-      expect(res.lastName).toEqual(userOne.lastName);
-      userOne.firstName = "James";
+      expect(res.name).toEqual("Thomas Jefferson");
+      userOne.name = "Thomas Jefferson";
     });
   });
   describe("Delete", () => {
@@ -318,15 +267,15 @@ describe("cached reads", () => {
     const off = client.users.onChange(u.key, handler);
     try {
       await client.users.retrieve(u.key);
-      await remote.users.rename(u.key, "Abigail", "Adams");
+      await remote.users.rename(u.key, "Abigail Adams");
       await expect
         .poll(() => {
           const cached = client.users.getCached(u.key);
-          return query.isLive(cached) && cached.firstName === "Abigail";
+          return query.isLive(cached) && cached.name === "Abigail Adams";
         })
         .toBe(true);
       expect(handler).toHaveBeenCalledWith(
-        expect.objectContaining({ firstName: "Abigail" }),
+        expect.objectContaining({ name: "Abigail Adams", key: u.key }),
       );
     } finally {
       off();
@@ -343,7 +292,7 @@ describe("cached reads", () => {
       await expect
         .poll(() => query.Deleted.matches(client.users.getCached(u.key)))
         .toBe(true);
-      expect(expectDeleted(results.at(-1)).corpse.username).toEqual(u.username);
+      expect(expectDeleted(results.at(-1)).corpse.key).toEqual(u.key);
     } finally {
       off();
     }

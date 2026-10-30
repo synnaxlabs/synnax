@@ -9,7 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-icon-tile {
+.lyra-icon-tile {
     display: inline-grid;
     flex-shrink: 0;
     place-items: center;
@@ -20,28 +20,28 @@
     border: var(--pluto-border-width) solid var(--pluto-gray-l4);
     border-radius: var(--pluto-border-radius-small);
 
-    & > .pluto-icon {
+    & > .lyra-icon {
         width: 50%;
         height: 50%;
     }
 
-    &.pluto-icon-tile--tiny {
+    &.lyra-icon-tile--tiny {
         --pluto-icon-tile-size: var(--pluto-height-tiny);
     }
 
-    &.pluto-icon-tile--small {
+    &.lyra-icon-tile--small {
         --pluto-icon-tile-size: var(--pluto-height-small);
     }
 
-    &.pluto-icon-tile--medium {
+    &.lyra-icon-tile--medium {
         --pluto-icon-tile-size: var(--pluto-height-medium);
     }
 
-    &.pluto-icon-tile--large {
+    &.lyra-icon-tile--large {
         --pluto-icon-tile-size: var(--pluto-height-large);
     }
 
-    &.pluto-icon-tile--huge {
+    &.lyra-icon-tile--huge {
         --pluto-icon-tile-size: var(--pluto-height-huge);
     }
 }

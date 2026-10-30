@@ -225,7 +225,7 @@ import { Text } from "@synnaxlabs/lyra/text";
             cursor: pointer;
         }
 
-        &:has(input:focus-visible) > .pluto-progress {
+        &:has(input:focus-visible) > .lyra-progress {
             outline: 2px solid var(--pluto-primary-z);
             outline-offset: 2px;
         }
@@ -238,7 +238,7 @@ import { Text } from "@synnaxlabs/lyra/text";
         text-align: right;
     }
 
-    @media (max-width: 800px) {
+    @media (width <= 800px) {
         .docs-lightbox__stage {
             padding: 9rem 2rem 2rem;
         }

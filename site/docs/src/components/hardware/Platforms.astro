@@ -72,7 +72,7 @@ const INTEGRATIONS = {
     modbus: {
         name: "Modbus",
         href: "/reference/hardware/modbus/connect-server",
-        connects: "Modbus TCP servers, such as PLCs and I/O modules",
+        connects: "Modbus TCP and RTU servers, such as PLCs and I/O modules",
         platforms: {
             windows: true,
             macos: true,
@@ -233,20 +233,24 @@ const unsupported = PLATFORMS.filter(({ key }) => platforms?.[key] === false);
         & th {
             vertical-align: bottom;
         }
+
         & th:not(:first-child),
         & td.docs-platforms-mark {
             text-align: center;
         }
+
         & .docs-platforms-label {
             display: inline-flex;
             flex-direction: column;
             align-items: center;
             gap: 0.75rem;
         }
+
         & td.docs-platforms-name {
             min-width: 30rem;
         }
-        @media (max-width: 800px) {
+
+        @media (width <= 800px) {
             & td.docs-platforms-mark {
                 text-align: left;
             }

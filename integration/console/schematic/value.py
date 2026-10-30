@@ -16,7 +16,7 @@ from console.schematic.symbol import Symbol
 class Value(Symbol):
     """Schematic value/telemetry symbol"""
 
-    _symbol_group = "General"
+    _symbol_group: str | None = "General"
 
     def __init__(
         self,
@@ -42,7 +42,7 @@ class Value(Symbol):
             stale_timeout: Timeout for stale data in milliseconds (optional)
             symbol_type: The type of symbol (default: "Value")
         """
-        super().__init__(label, symbol_type=symbol_type, rotatable=False)
+        super().__init__(label=label, symbol_type=symbol_type, rotatable=False)
         self.channel_name = channel_name
         self.notation = notation
         self.precision = precision
@@ -63,8 +63,8 @@ class Value(Symbol):
 
     def set_properties(
         self,
-        channel_name: str | None = None,
         *,
+        channel_name: str | None = None,
         notation: str | None = None,
         precision: int | None = None,
         averaging_window: int | None = None,
@@ -122,7 +122,7 @@ class Value(Symbol):
 
         return applied_properties
 
-    def get_properties(self, tab: str = "Telemetry") -> dict[str, Any]:
+    def get_properties(self, *, tab: str = "Telemetry") -> dict[str, Any]:
         """Get the current properties of the symbol"""
         super().get_properties(tab=tab)
 

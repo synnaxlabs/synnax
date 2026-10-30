@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import threading
+
 import pytest
 
 import synnax as sy
@@ -31,7 +33,7 @@ def streamer(client: Client) -> Streamer:
 
 def stop(streamer: Streamer) -> None:
     streamer.stop()
-    streamer.join(WAIT)
+    streamer.join(timeout=WAIT)
 
 
 class TestStreamer:
@@ -41,16 +43,16 @@ class TestStreamer:
         """Should read None and not satisfy a wait for 0 before any sample."""
         streamer.start()
         assert streamer.read(CHANNEL) is None
-        assert not streamer.wait_for(CHANNEL, lambda v: v == 0, 0.1)
+        assert not streamer.wait_for(CHANNEL, predicate=lambda v: v == 0, timeout=0.1)
         client.stream.push(sy.Frame({CHANNEL: sy.Series([0.0])}))
-        assert streamer.wait_for(CHANNEL, lambda v: v == 0, WAIT)
+        assert streamer.wait_for(CHANNEL, predicate=lambda v: v == 0, timeout=WAIT)
         stop(streamer)
 
     def test_wait_for_value(self, client: Client, streamer: Streamer) -> None:
         """Should return True once the value satisfies the predicate."""
         streamer.start()
         client.stream.push(sy.Frame({CHANNEL: sy.Series([1.0, 2.0])}))
-        assert streamer.wait_for(CHANNEL, lambda v: v == 2.0, WAIT)
+        assert streamer.wait_for(CHANNEL, predicate=lambda v: v == 2.0, timeout=WAIT)
         assert streamer.read(CHANNEL) == 2.0
         stop(streamer)
         assert client.stream.closed
@@ -62,7 +64,7 @@ class TestStreamer:
         streamer.start()
         client.stream.push(ValueError("decode failed"))
         with pytest.raises(RuntimeError, match="decode failed") as info:
-            streamer.wait_for(CHANNEL, lambda v: v == 1.0, WAIT)
+            streamer.wait_for(CHANNEL, predicate=lambda v: v == 1.0, timeout=WAIT)
         assert isinstance(info.value.__cause__, ValueError)
         stop(streamer)
         assert client.stream.closed
@@ -71,12 +73,19 @@ class TestStreamer:
         with pytest.raises(RuntimeError, match="decode failed"):
             streamer.check()
 
+    def test_open_before_start_returns(
+        self, client: Client, streamer: Streamer
+    ) -> None:
+        """Should open the stream before start returns, so no later write is missed."""
+        streamer.start()
+        assert client.opened_by is threading.current_thread()
+        stop(streamer)
+
     def test_raises_open_error(self, client: Client, streamer: Streamer) -> None:
         """Should raise an error from opening the stream."""
         client.open_error = ConnectionError("refused")
-        streamer.start()
-        with pytest.raises(RuntimeError, match="refused"):
-            streamer.wait_for(CHANNEL, lambda v: v == 1.0, WAIT)
+        with pytest.raises(ConnectionError, match="refused"):
+            streamer.start()
 
     def test_raises_close_error(self, client: Client, streamer: Streamer) -> None:
         """Should raise an error from closing the stream after a stop."""
@@ -95,7 +104,7 @@ class TestStreamer:
         streamer.start()
         client.stream.push(ValueError("decode failed"))
         with pytest.raises(RuntimeError, match="decode failed"):
-            streamer.wait_for(CHANNEL, lambda v: v == 1.0, WAIT)
+            streamer.wait_for(CHANNEL, predicate=lambda v: v == 1.0, timeout=WAIT)
         stop(streamer)
         with pytest.raises(RuntimeError, match="decode failed"):
             streamer.check()

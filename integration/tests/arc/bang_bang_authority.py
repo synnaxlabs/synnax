@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from examples.simulators import PressSimDAQ
+from examples.simulators import PressSimDAQ, SimDAQ
 
 import synnax as sy
 from framework.utils import create_virtual_channel
@@ -116,12 +116,12 @@ class BangBangAuthority(ArcCase):
     start_cmd_channel = "bb_start_cmd"
     end_cmd_channel = "end_test_cmd"
     subscribe_channels = ["press_vlv_state", "vent_vlv_state", "press_pt"]
-    sim_daq_class = PressSimDAQ
+    sim_daq_class: type[SimDAQ] | None = PressSimDAQ
 
     def setup(self) -> None:
         self._press_writer: sy.Writer | None = None
         self._vent_writer: sy.Writer | None = None
-        create_virtual_channel(self.client, "bb_stop_cmd", sy.DataType.UINT8)
+        create_virtual_channel(self.client, "bb_stop_cmd", data_type=sy.DataType.UINT8)
         super().setup()
         self.set_manual_timeout(60)
 
@@ -169,7 +169,7 @@ class BangBangAuthority(ArcCase):
                 "vent_vlv_cmd_time",
                 "vent_vlv_cmd",
             ],
-            50,
+            authorities=50,
             err_on_unauthorized=False,
         )
         try:
@@ -211,7 +211,7 @@ class BangBangAuthority(ArcCase):
         self._press_writer = self.client.open_writer(
             sy.TimeStamp.now(),
             ["press_vlv_cmd_time", "press_vlv_cmd"],
-            50,
+            authorities=50,
             err_on_unauthorized=False,
         )
         self._press_writer.write(
@@ -227,7 +227,7 @@ class BangBangAuthority(ArcCase):
         self._vent_writer = self.client.open_writer(
             sy.TimeStamp.now(),
             ["vent_vlv_cmd_time", "vent_vlv_cmd"],
-            50,
+            authorities=50,
             err_on_unauthorized=False,
         )
         self._vent_writer.write(

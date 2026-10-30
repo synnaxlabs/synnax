@@ -44,14 +44,14 @@ class TransitionArrows(ArcCase):
     subscribe_channels = ["ta_state"]
 
     def setup(self) -> None:
-        create_virtual_channel(self.client, "ta_abort_cmd", sy.DataType.UINT8)
-        create_virtual_channel(self.client, "ta_state", sy.DataType.UINT8)
+        create_virtual_channel(self.client, "ta_abort_cmd", data_type=sy.DataType.UINT8)
+        create_virtual_channel(self.client, "ta_state", data_type=sy.DataType.UINT8)
         super().setup()
         self.set_manual_timeout(60)
 
     def run(self) -> None:
         self._retrieve_rack()
-        self.arc_name = self.load_arc(self.arc_source, self.arc_name_prefix)
+        self.arc_name = self.load_arc(self.arc_source, name_prefix=self.arc_name_prefix)
         self.verify_sequence_execution()
 
     def verify_sequence_execution(self) -> None:
@@ -61,7 +61,6 @@ class TransitionArrows(ArcCase):
         state = self.read_tlm("ta_state")
         if state is not None:
             self.fail(f"ta_state={state} after ta_start_cmd=0; main started on false")
-            return
 
         self.log("Writing ta_start_cmd=1; main must start")
         self.writer.write("ta_start_cmd", 1)
@@ -73,7 +72,6 @@ class TransitionArrows(ArcCase):
         state = self.read_tlm("ta_state")
         if state != 1:
             self.fail(f"ta_state={state} after ta_abort_cmd=0; abort started on false")
-            return
 
         self.log("Writing ta_abort_cmd=1; abort must start")
         self.writer.write("ta_abort_cmd", 1)

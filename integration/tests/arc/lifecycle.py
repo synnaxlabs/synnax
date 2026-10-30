@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from examples.simulators import PressSimDAQ
+from examples.simulators import PressSimDAQ, SimDAQ
 
 import synnax as sy
 from console.case import ConsoleCase
@@ -132,17 +132,25 @@ class Lifecycle(ArcCase, ConsoleCase):
         "lifecycle_log",
         "signal_stage_log",
     ]
-    sim_daq_class = PressSimDAQ
+    sim_daq_class: type[SimDAQ] | None = PressSimDAQ
     collect_notifications = True
 
     def setup(self) -> None:
         self.new_name = f"ArcRenamed_{random_name()}"
         create_virtual_channel(self.client, "arc_lifecycle_virt")
         create_virtual_channel(self.client, "const_output")
-        create_virtual_channel(self.client, "lifecycle_log", sy.DataType.STRING)
-        create_virtual_channel(self.client, "signal_stage_log", sy.DataType.STRING)
-        create_virtual_channel(self.client, "bb_signal_start_cmd", sy.DataType.UINT8)
-        create_virtual_channel(self.client, "bb_signal_stop_cmd", sy.DataType.UINT8)
+        create_virtual_channel(
+            self.client, "lifecycle_log", data_type=sy.DataType.STRING
+        )
+        create_virtual_channel(
+            self.client, "signal_stage_log", data_type=sy.DataType.STRING
+        )
+        create_virtual_channel(
+            self.client, "bb_signal_start_cmd", data_type=sy.DataType.UINT8
+        )
+        create_virtual_channel(
+            self.client, "bb_signal_stop_cmd", data_type=sy.DataType.UINT8
+        )
         self.client.statuses.set(
             sy.Status(
                 key="lifecycle_press_alarm",

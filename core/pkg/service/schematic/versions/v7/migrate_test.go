@@ -22,13 +22,14 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy"
+	legacyv5 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v5"
 	legacyv6 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v6"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v0"
 	v7 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v7"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/kv/memkv"
 	spatial "github.com/synnaxlabs/x/spatial/versions/v0"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 //go:embed testdata/*.json
@@ -405,7 +406,7 @@ var _ = Describe("MigrateData", func() {
 				Expect(len(rawEdges) - len(validRawEdges)).To(Equal(expectInputOrphans))
 
 				out := MustSucceed(legacy.MigrateData(blob))
-				Expect(out.Version).To(Equal(legacy.DataVersion))
+				Expect(out.Version).To(Equal(legacyv5.Version))
 				Expect(out.Nodes).To(HaveLen(len(rawNodes)))
 				Expect(out.Edges).To(HaveLen(len(validRawEdges)))
 
@@ -449,7 +450,7 @@ var _ = Describe("MigrateData", func() {
 				"edges": [{"key": "e1", "source": "n1", "target": "n2", "sourceHandle": "out", "targetHandle": "in"}],
 				"props": {"n1": {"key": "valve"}}
 			}`)))
-			Expect(out.Version).To(Equal(legacy.DataVersion))
+			Expect(out.Version).To(Equal(legacyv5.Version))
 			Expect(out.Nodes).To(HaveLen(1))
 			Expect(out.Edges).To(HaveLen(1))
 			Expect(out.Props).To(HaveKey("n1"))
@@ -459,7 +460,7 @@ var _ = Describe("MigrateData", func() {
 			out := MustSucceed(
 				legacy.MigrateData(jsonMap(`{"nodes": [], "edges": [], "props": {}}`)),
 			)
-			Expect(out.Version).To(Equal(legacy.DataVersion))
+			Expect(out.Version).To(Equal(legacyv5.Version))
 		})
 
 		It("Should preserve user-set zIndex on nodes through the chain", func() {
@@ -519,7 +520,7 @@ var _ = Describe("MigrateData", func() {
 			"Should walk the chain on a nil blob and produce a zero legacy.Data",
 			func() {
 				out := MustSucceed(legacy.MigrateData(nil))
-				Expect(out.Version).To(Equal(legacy.DataVersion))
+				Expect(out.Version).To(Equal(legacyv5.Version))
 				Expect(out.Nodes).To(BeEmpty())
 				Expect(out.Edges).To(BeEmpty())
 			},

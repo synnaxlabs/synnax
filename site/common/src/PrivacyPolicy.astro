@@ -11,7 +11,7 @@
 import Legal from "./Legal.astro";
 ---
 
-<Legal title="Privacy policy" effective="October 27, 2026">
+<Legal title="Privacy policy" effective="October 28, 2026">
     <p>
         This privacy policy tells how Synnax Labs, Inc. ("Synnax Labs", "we", "us")
         collects, uses, shares, and protects personal information. It applies when you:
@@ -132,8 +132,9 @@ import Legal from "./Legal.astro";
     </ul>
     <p>
         PostHog, which stores usage data for us, also receives the IP address of the
-        computer. Synnax Desktop does not send recorded data, channel values, or files.
-        We use usage data to find bugs and to learn which features people use.
+        computer. It uses the address to find the country and city, and then discards
+        it. Synnax Desktop does not send recorded data, channel values, or files. We use
+        usage data to find bugs and to learn which features people use.
     </p>
     <p>
         We use the country of your IP address to choose how the login page asks about
@@ -144,16 +145,41 @@ import Legal from "./Legal.astro";
         the app, and turn off "Share usage data".
     </p>
 
-    <h3>Information we collect automatically</h3>
+    <h3 id="website-analytics">Website analytics</h3>
+    <p>
+        On www.synnaxlabs.com, docs.synnaxlabs.com, and the portal, PostHog records the
+        pages that you visit, your clicks, the page that sent you, how fast pages load,
+        and your browser and device type. How it records them depends on cookies:
+    </p>
     <ul>
         <li>
-            <strong>Website analytics</strong>: on docs.synnaxlabs.com, the pages that
-            you visit, your clicks, the page that sent you, and your browser and device
-            type. We do not store an analytics cookie or identifier in your browser. To
-            count visitors, PostHog makes a code from your IP address and browser type,
-            with a random value that changes each day. PostHog does not keep your IP
-            address, and it cannot connect the code to you.
+            <strong>With cookies</strong>: PostHog stores a cookie with a random ID in
+            your browser for one year. The ID shows us when you come back, and connects
+            your visits across our websites. PostHog also makes screen recordings of
+            your visits, which show what you click and how the page changes. Recordings
+            hide what you type in forms. In the portal, recordings hide all text.
         </li>
+        <li>
+            <strong>Without cookies</strong>: PostHog stores nothing in your browser and
+            makes no recordings. To count visitors, it makes a code from your IP address
+            and browser type, with a random value that changes each day. It cannot
+            connect the code to you.
+        </li>
+    </ul>
+    <p>
+        In the EU, the EEA, the UK, Switzerland, and countries that we cannot identify,
+        our websites ask before they use cookies. They count visits without cookies
+        until you choose, and after you reject. Everywhere else, they use cookies. To
+        turn cookies on or off, click "Cookie settings" at the bottom of a page.
+    </p>
+    <p>
+        If you log in to the portal while cookies are on, we link your website visits to
+        your account and to your Synnax Desktop usage data. PostHog receives your IP
+        address, uses it to find your country and city, and then discards it.
+    </p>
+
+    <h3>Information we collect automatically</h3>
+    <ul>
         <li>
             <strong>Search</strong>: the words that you search for in the documentation.
         </li>
@@ -170,10 +196,11 @@ import Legal from "./Legal.astro";
         </li>
         <li>
             <strong>Cookies and browser storage</strong>: the portal uses cookies to
-            keep you logged in and to remember the organization that you chose last. The
-            documentation stores your display choices in your browser, such as the
-            programming language of code examples. We do not use cookies for analytics
-            or advertising.
+            keep you logged in and to remember the organization that you chose last. Our
+            websites keep your cookie choice in a cookie for one year, and use the
+            analytics cookie that "Website analytics" tells about. The documentation
+            stores your display choices in your browser, such as the programming
+            language of code examples. We do not use cookies for advertising.
         </li>
     </ul>
 
@@ -199,8 +226,12 @@ import Legal from "./Legal.astro";
             interests: to protect our services and our users).
         </li>
         <li>
-            To learn which pages of our websites help people (legitimate interests: to
-            make our documentation better).
+            To learn how people use our websites, and to link their visits to their
+            account, with cookies and recordings (consent).
+        </li>
+        <li>
+            To count visits without cookies (legitimate interests: to make our websites
+            and documentation better).
         </li>
         <li>
             To answer your messages and give support (legitimate interests: to answer
@@ -230,13 +261,13 @@ import Legal from "./Legal.astro";
             are not a bot.
         </li>
         <li>
-            <strong>PostHog</strong> (US cloud): Synnax Desktop usage data and website
-            analytics.
+            <strong>PostHog</strong> (US cloud): Synnax Desktop usage data, website
+            analytics, and recordings.
         </li>
         <li>
             <strong>Vercel</strong>: hosts our websites and the portal. It finds your
-            country from your IP address, so that the login page knows how to ask about
-            usage data.
+            country from your IP address, so that our websites and the login page know
+            whether to ask before they use cookies or usage data.
         </li>
         <li>
             <strong>Neon</strong>: stores portal records in a database.
@@ -313,7 +344,8 @@ import Legal from "./Legal.astro";
             Synnax Desktop. Recordings of the app window: 30 days.
         </li>
         <li>
-            <strong>Website analytics</strong>: 25 months.
+            <strong>Website analytics</strong>: 25 months. Recordings of website visits:
+            30 days.
         </li>
         <li>
             <strong>Server logs</strong>: 30 days.
@@ -375,6 +407,10 @@ import Legal from "./Legal.astro";
         </li>
         <li>
             To stop Synnax Desktop usage data, turn off "Share usage data" in the app.
+        </li>
+        <li>
+            To turn off website cookies, click "Cookie settings" at the bottom of a page
+            of our websites.
         </li>
         <li>
             To remove a Synnax Desktop computer from your account, log it out on the

@@ -59,7 +59,7 @@ const Name = ({ channel, namePath, name, className, ...rest }: NameProps) => {
       onChange={handleRename}
       disabled={isPreview || (channel !== 0 && !canRename)}
       allowDoubleClick={false}
-      overflow="ellipsis"
+      overflow="fade"
       {...rest}
     />
   );

@@ -31,7 +31,7 @@ def current_offset(src: Path) -> int | None:
         return None
 
 
-def slice_to(src: Path, dst: Path, start: int | None, end: int | None) -> bool:
+def slice_to(src: Path, dst: Path, *, start: int | None, end: int | None) -> bool:
     """Copy server-log bytes ``[start, end)`` into ``dst``.
 
     Returns True if any bytes were written. False if the source is missing,
@@ -52,7 +52,7 @@ def slice_to(src: Path, dst: Path, start: int | None, end: int | None) -> bool:
         return False
 
 
-def copy_range(src: Path, dst: Path, start: int | None) -> bool:
+def copy_range(src: Path, dst: Path, *, start: int | None) -> bool:
     """Copy the server log from ``start`` to current EOF into ``dst``.
 
     Used at conductor-end to capture this run's slice of the (possibly long-lived)
@@ -65,4 +65,4 @@ def copy_range(src: Path, dst: Path, start: int | None) -> bool:
         end = src.stat().st_size
     except OSError:
         return False
-    return slice_to(src, dst, start, end)
+    return slice_to(src, dst, start=start, end=end)

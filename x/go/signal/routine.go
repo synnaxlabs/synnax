@@ -138,18 +138,6 @@ func RecoverWithoutErrOnPanic() RoutineOption {
 	}
 }
 
-// WithBreaker sets the breaker to use to enable the goroutine to attempt to rerun
-// despite a panic. The breaker controls the interval between two reruns as well as the
-// coefficient by which the interval grows.
-// When WithBreaker is used, the PanicPolicy of recoverErr is automatically used.
-func WithBreaker(breakerCfg breaker.Config) RoutineOption {
-	return func(r *routineOptions) {
-		r.breakerCfg = breakerCfg
-		r.useBreaker = true
-		r.panicPolicy = recoverErr
-	}
-}
-
 // WithBaseRetryInterval sets the base interval for the breaker used to restart the
 // goroutine. The base retry interval is how much time the breaker waits before trying
 // to restart for the first time. (Default: 1 second)
@@ -454,7 +442,7 @@ key: %s
 
 --------------------------------- ERROR ----------------------------------------
 
-%+v
+%v
 
 -------------------------------- ROUTINES --------------------------------------
 %s
