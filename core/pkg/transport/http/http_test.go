@@ -219,6 +219,17 @@ var _ = Describe("HTTP", func() {
 			Expect(created.Token).To(HavePrefix("sys_"))
 		})
 
+		It("Should list the accepted methods without a session", func() {
+			status, body := post("/api/v1/auth/methods", "", struct{}{})
+			Expect(status).To(Equal(http.StatusOK), string(body))
+			var res apiauth.MethodsResponse
+			Expect(json.Unmarshal(body, &res)).To(Succeed())
+			Expect(res.Methods).To(Equal([]auth.Method{
+				auth.MethodAPIKey,
+				auth.MethodPassword,
+			}))
+		})
+
 		DescribeTable(
 			"Should reach an ungated endpoint while no license is active",
 			func(path string, body func() any) {

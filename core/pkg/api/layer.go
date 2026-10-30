@@ -61,6 +61,7 @@ var DefaultLayerConfig = config.DefaultLayerConfig
 type Transport struct {
 	// AUTH
 	AuthLogin           freighter.UnaryServer[auth.LoginRequest, auth.LoginResponse]
+	AuthMethods         freighter.UnaryServer[struct{}, auth.MethodsResponse]
 	AuthChangePassword  freighter.UnaryServer[auth.ChangePasswordRequest, struct{}]
 	AuthSessionCreate   freighter.UnaryServer[auth.SessionCreateRequest, auth.SessionCreateResponse]
 	AuthSessionRenew    freighter.UnaryServer[struct{}, auth.SessionRenewResponse]
@@ -275,6 +276,7 @@ func (l *Layer) BindTo(t Transport) {
 	freighter.UseOnAll(
 		insecureMiddleware,
 		t.AuthLogin,
+		t.AuthMethods,
 		t.AuthSessionCreate,
 		t.ConnectivityCheck,
 	)
@@ -476,6 +478,7 @@ func (l *Layer) BindTo(t Transport) {
 
 	// AUTH
 	t.AuthLogin.BindHandler(l.Auth.Login)
+	t.AuthMethods.BindHandler(l.Auth.Methods)
 	t.AuthChangePassword.BindHandler(
 		fgorp.CreateWriteUnaryHandler(db, l.Auth.ChangePassword),
 	)

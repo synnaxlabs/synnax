@@ -43,6 +43,14 @@ message User {
   string key = 1;
 }
 
+service AuthMethodsService {
+  rpc Exec(google.protobuf.Empty) returns (MethodsResponse);
+}
+
+message MethodsResponse {
+  repeated string methods = 1;
+}
+
 service AuthSessionCreateService {
   rpc Exec(SessionCreateRequest) returns (SessionCreateResponse);
 }
