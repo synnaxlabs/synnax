@@ -113,7 +113,8 @@ export const Base = ({
     if (computedLineHeight <= 0) return 0;
     const localY = clientY - box.top(region);
     const lineIndex = Math.floor((localY - 6) / computedLineHeight);
-    return Math.max(0, rowEntries[lineIndex] ?? visibleStart + lineIndex);
+    if (rowEntries.length === 0) return Math.max(0, visibleStart + lineIndex);
+    return rowEntries[Math.min(Math.max(0, lineIndex), rowEntries.length - 1)];
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {

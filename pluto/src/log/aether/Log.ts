@@ -84,7 +84,8 @@ const LOAD_MARGIN = 200;
 const CONTENT_PADDING = 6;
 // Fits the widest date, such as "Jan 31".
 const DATE_WIDTH = 6;
-// The fewest characters of a value per row, so a wide prefix cannot stop wrapping.
+// The fewest characters of a value beside its prefix. With less room, the value starts
+// on the row below its prefix and uses the full width.
 const MIN_VALUE_COLUMNS = 16;
 
 // Per-theme prefix color muting — multiplied with the base color's HSLA.
@@ -123,6 +124,18 @@ interface Row {
   value: string;
   channelKey: string;
   first: boolean;
+}
+
+// How an entry splits into rows. The first lead rows hold no value.
+interface EntryLayout {
+  entry: number;
+  prefix: string;
+  value: string;
+  channelKey: string;
+  indent: string;
+  columns: number;
+  lead: number;
+  rows: number;
 }
 
 interface ScrollbackState {
@@ -357,44 +370,69 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     let rows = 0;
     let offset = 0;
     while (offset < this.entries.length) {
-      rows += this.wrapEntry(offset, dated).length;
+      rows += this.layoutEntry(offset, dated).rows;
       if (rows > capacity) break;
       offset++;
     }
     return Math.max(offset, Math.min(1, this.entries.length));
   }
 
-  private wrapEntry(index: number, dated: boolean): Row[] {
-    const { prefix, value, channelKey } = this.formatEntry(this.entries[index], dated);
-    const { charWidth } = this.internal;
+  private layoutEntry(entry: number, dated: boolean): EntryLayout {
+    const { prefix, value, channelKey } = this.formatEntry(this.entries[entry], dated);
     const width = box.width(this.state.region) - CONTENT_PADDING * 2 - SCROLLBAR_WIDTH;
-    const columns = Math.max(
-      MIN_VALUE_COLUMNS,
-      Math.floor(width / charWidth) - prefix.length,
-    );
-    if (value.length <= columns)
-      return [{ entry: index, prefix, value, channelKey, first: true }];
-    const indent = " ".repeat(prefix.length);
-    const rows: Row[] = [];
-    for (let start = 0; start < value.length; start += columns)
-      rows.push({
-        entry: index,
-        prefix: start === 0 ? prefix : indent,
-        value: value.slice(start, start + columns),
-        channelKey,
-        first: start === 0,
-      });
-    return rows;
+    const fullColumns = Math.floor(width / this.internal.charWidth);
+    const columns = fullColumns - prefix.length;
+    const base = { entry, prefix, value, channelKey };
+    if (value.length <= columns || columns >= MIN_VALUE_COLUMNS)
+      return {
+        ...base,
+        indent: " ".repeat(prefix.length),
+        columns,
+        lead: 0,
+        rows: Math.max(1, Math.ceil(value.length / columns)),
+      };
+    const ownColumns = Math.max(1, fullColumns);
+    return {
+      ...base,
+      indent: "",
+      columns: ownColumns,
+      lead: 1,
+      rows: 1 + Math.ceil(value.length / ownColumns),
+    };
+  }
+
+  private rowOf(layout: EntryLayout, row: number): Row {
+    const { entry, prefix, value, channelKey, indent, columns, lead } = layout;
+    const start = (row - lead) * columns;
+    return {
+      entry,
+      prefix: row === 0 ? prefix : indent,
+      value: row < lead ? "" : value.slice(start, start + columns),
+      channelKey,
+      first: row === 0,
+    };
   }
 
   // Lays out the rows that fit above the entry at end, cutting the top entry to fit.
+  private fitRows(end: number, capacity: number, dated: boolean): Row[] {
+    const rows: Row[] = [];
+    for (let i = end - 1; i >= 0 && rows.length < capacity; i--) {
+      const layout = this.layoutEntry(i, dated);
+      const top = Math.max(0, layout.rows - (capacity - rows.length));
+      for (let row = layout.rows - 1; row >= top; row--)
+        rows.push(this.rowOf(layout, row));
+    }
+    return rows.reverse();
+  }
+
+  // Dates widen the prefix, so the rows are fit once more when the entries they show
+  // cross a day.
   private layoutRows(end: number, lh: number): Row[] {
     const capacity = this.calcRowCapacity(lh);
-    const dated = spansDays(this.entries.slice(Math.max(0, end - capacity), end));
-    const rows: Row[] = [];
-    for (let i = end - 1; i >= 0 && rows.length < capacity; i--)
-      rows.unshift(...this.wrapEntry(i, dated));
-    return rows.slice(Math.max(0, rows.length - capacity));
+    const rows = this.fitRows(end, capacity, false);
+    if (rows.length === 0 || !spansDays(this.entries.slice(rows[0].entry, end)))
+      return rows;
+    return this.fitRows(end, capacity, true);
   }
 
   render(): render.Cleanup | undefined {
@@ -439,7 +477,10 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     const regHeight = box.height(reg);
     const { totalHeight } = this;
     if (totalHeight <= 0) return;
-    const proportionalHeight = (regHeight / totalHeight) * regHeight;
+    const minOffset = this.calcMinOffset(this.internal.lineHeight);
+    // Wrapped rows fit fewer entries on screen, so they shrink the thumb.
+    const proportionalHeight =
+      (regHeight / totalHeight) * regHeight * (minOffset / this.visibleLineCount);
     if (proportionalHeight >= regHeight * SCROLLBAR_RENDER_THRESHOLD) return;
     const height = bounds.clamp(
       { lower: SCROLLBAR_MIN_HEIGHT, upper: regHeight },
@@ -447,7 +488,7 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     );
     // The thumb travels the track less its own height, over the entries that sit
     // outside the viewport.
-    const scrollRange = this.entries.length - this.visibleLineCount;
+    const scrollRange = this.entries.length - minOffset;
     const distFromEnd = this.entries.length - this.scrollState.offset;
     const progress =
       scrollRange <= 0

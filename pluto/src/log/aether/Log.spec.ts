@@ -1030,7 +1030,10 @@ describe("log/aether/Log", () => {
 
     it("should show dates for the same day of different years", () => {
       const entries = [entry("2025-01-05T12:00:00"), entry("2026-01-05T12:00:00")];
-      const { log } = setup(entries, REGION_500, { selectionStart: 0, selectionEnd: 1 });
+      const { log } = setup(entries, REGION_500, {
+        selectionStart: 0,
+        selectionEnd: 1,
+      });
       log.render();
       expect(log.state.selectedLines[0].text).toMatch(/^Jan 5/);
     });
@@ -1085,6 +1088,33 @@ describe("log/aether/Log", () => {
       const capacity = Math.floor((500 - 12) / log.lineHeight);
       expect(log.state.rowEntries).toHaveLength(capacity);
       expect(log.state.rowEntries.at(-1)).toBe(19);
+    });
+
+    it("should draw the tail of a value far taller than the viewport", () => {
+      const huge: LogEntry = {
+        channelKey: 1,
+        timestamp: TimeStamp.milliseconds(0),
+        value: "x".repeat(5_000_000),
+      };
+      const { log } = setup([huge]);
+      expect(() => log.render()).not.toThrow();
+      const capacity = Math.floor((500 - 12) / log.lineHeight);
+      expect(log.state.rowEntries).toHaveLength(capacity);
+    });
+
+    it("should start a value below a prefix that leaves no room", () => {
+      const entry: LogEntry = {
+        channelKey: 1,
+        timestamp: TimeStamp.milliseconds(0),
+        value: "x".repeat(2000),
+      };
+      const { log } = setup([entry], REGION_500, {
+        channelNamesHidden: false,
+        channels: [clientLog.channelEntryZ.parse({ channel: 1, color: color.ZERO })],
+        channelNames: { "1": "n".repeat(500) },
+      });
+      log.render();
+      expect(log.state.rowEntries.length).toBeGreaterThan(1);
     });
 
     it("should copy a wrapped value in one piece", () => {

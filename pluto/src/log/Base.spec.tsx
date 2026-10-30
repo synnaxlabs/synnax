@@ -574,6 +574,21 @@ describe("log/Base", () => {
       });
     });
 
+    it("should select the last shown entry below the last row", () => {
+      const { setState } = setupAether({
+        empty: false,
+        computedLineHeight: 16,
+        rowEntries: [0, 0, 1],
+        region: box.construct({ x: 0, y: 0 }, { width: 400, height: 600 }),
+      });
+      const { container } = renderLog();
+      fireEvent.mouseDown(getLogDiv(container), { button: 0, clientY: 400 });
+      const update = setState.mock.calls[setState.mock.calls.length - 1][0];
+      expect(update({ selectionStart: -1, selectionEnd: -1 })).toMatchObject({
+        selectionStart: 1,
+      });
+    });
+
     it("should compute entry index from clientY position", () => {
       const { setState } = setupAether({
         empty: false,
