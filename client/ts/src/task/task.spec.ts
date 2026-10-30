@@ -1068,6 +1068,30 @@ describe("Task", async () => {
       }
     });
 
+    it("moves a stand-in to the next problem of its rack", async () => {
+      const dying = await client.racks.create({ name: `dying-${id.create()}` });
+      const t = await dying.createTask({
+        name: `follow-${id.create()}`,
+        config: {},
+        type: "pagerduty_alert",
+      });
+      const key = task.statusKey(t.key);
+      await client.tasks.retrieve({ key: t.key });
+      await setRackAliveAfterEcho(dying.key);
+      await setRackStatus(dying.key, "warning", "Rack status unknown");
+      await expect
+        .poll(() => client.statuses.store.get(rack.statusKey(dying.key))?.message)
+        .toBe("Rack status unknown");
+      await client.tasks.executeCommand({ task: t.key, type: "start" });
+      await expect
+        .poll(() => client.statuses.store.get(key)?.message)
+        .toBe("Rack status unknown");
+      await setRackStatus(dying.key, "warning", "Driver not running");
+      await expect
+        .poll(() => client.statuses.store.get(key)?.message)
+        .toBe("Driver not running");
+    });
+
     it("stands the rack's problem in once its Driver goes down during a wait", async () => {
       const dying = await client.racks.create({ name: `dying-${id.create()}` });
       const t = await dying.createTask({
