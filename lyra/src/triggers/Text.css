@@ -9,10 +9,11 @@
  * included in the file licenses/APL.txt.
  */
 
-/* A shortcut is one chip that holds all of its keys. */
+/* A shortcut is one chip that holds all of its keys. Running text sizes it with
+   --pluto-keycap-height and --pluto-keycap-font-size. */
 .lyra-triggers__keys.lyra-text {
     align-items: center;
-    height: 3rem;
+    height: var(--pluto-keycap-height, 3rem);
     padding-inline: round(0.833rem, 1px);
     border-radius: var(--pluto-border-radius-tiny);
     color: var(--pluto-keycap-color, var(--pluto-gray-l9));

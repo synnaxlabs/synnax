@@ -42,7 +42,7 @@ span.lyra-text {
     &.lyra-text--keyboard {
         min-width: round(1.667rem, 1px);
         justify-content: center;
-        font-size: var(--pluto-small-size);
+        font-size: var(--pluto-keycap-font-size, var(--pluto-small-size));
         line-height: 1;
     }
 
