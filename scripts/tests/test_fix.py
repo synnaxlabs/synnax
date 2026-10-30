@@ -157,7 +157,7 @@ class TestFix:
         self, repo: Repo
     ) -> None:
         clang_format(
-            repo, 'for f in "${@:2}"; do ! grep -q broken "$f" || exit 1; done'
+            repo, body='for f in "${@:2}"; do ! grep -q broken "$f" || exit 1; done'
         )
         repo.write("a.cpp", "int a;\n")
         repo.git("add", "a.cpp")
