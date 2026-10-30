@@ -95,24 +95,6 @@ var _ = Describe("TypeCamel", func() {
 	)
 })
 
-var _ = Describe("PascalAcronym", func() {
-	DescribeTable(
-		"should fully upper-case whole acronym segments only",
-		func(input, expected string) {
-			Expect(casing.PascalAcronym(input)).To(Equal(expected))
-		},
-		Entry("leading acronym", "ai_voltage", "AIVoltage"),
-		Entry("embedded acronym", "accel_4_wire_dc_voltage", "Accel4WireDCVoltage"),
-		Entry("rtd acronym", "ai_rtd", "AIRTD"),
-		Entry("no acronym", "force_bridge_table", "ForceBridgeTable"),
-		Entry(
-			"word containing acronym is not mangled",
-			"email_address",
-			"EmailAddress",
-		),
-	)
-})
-
 var _ = Describe("CamelAcronym", func() {
 	DescribeTable(
 		"should lower-case the leading word while preserving acronyms",
@@ -185,6 +167,26 @@ var _ = Describe("VariantTypeName", func() {
 			"DIChannel",
 			"digital_input",
 			"DigitalInputDIChannel",
+		),
+	)
+	DescribeTable(
+		"should fully upper-case whole acronym segments of the variant only",
+		func(variant, expected string) {
+			Expect(casing.VariantTypeName("Scale", variant)).To(Equal(expected))
+		},
+		Entry("leading acronym", "ai_voltage", "AIVoltageScale"),
+		Entry(
+			"embedded acronym",
+			"accel_4_wire_dc_voltage",
+			"Accel4WireDCVoltageScale",
+		),
+		Entry("rtd acronym", "ai_rtd", "AIRTDScale"),
+		Entry("api acronym", "api_key", "APIKeyScale"),
+		Entry("no acronym", "force_bridge_table", "ForceBridgeTableScale"),
+		Entry(
+			"word containing acronym is not mangled",
+			"email_address",
+			"EmailAddressScale",
 		),
 	)
 })

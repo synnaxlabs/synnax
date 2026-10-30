@@ -1612,8 +1612,8 @@ describe("Answers", () => {
       {
         failure: "access denial",
         error: new AccessDeniedError("gone"),
-        reports: 2,
-        records: [],
+        reports: 1,
+        records: [rec("b", 10)],
       },
       {
         failure: "transport error",

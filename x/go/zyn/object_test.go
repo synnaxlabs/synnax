@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 	"github.com/synnaxlabs/x/zyn"
 )
 
@@ -91,7 +92,9 @@ var _ = Describe("Object", func() {
 		})
 		It("Should return nil if the value is not a valid object", func() {
 			schema := zyn.Object(map[string]zyn.Schema{"Name": zyn.String()})
-			Expect(schema.Validate("not an object")).To(HaveOccurred())
+			Expect(
+				schema.Validate("not an object"),
+			).To(MatchError(validate.ErrInvalidType))
 		})
 		It("Should error when a required field is missing", func() {
 			schema := zyn.Object(map[string]zyn.Schema{
@@ -804,60 +807,13 @@ var _ = Describe("Object", func() {
 			})
 		})
 	})
-	Describe("Field Method", func() {
-		Specify("building schema incrementally with Field()", func() {
-			type TestStruct struct {
-				FirstName string
-				LastName  string
-				Age       int
-			}
-			schema := zyn.Object(nil).
-				Field("FirstName", zyn.String()).
-				Field("LastName", zyn.String()).
-				Field("Age", zyn.Number())
-			data := TestStruct{FirstName: "John", LastName: "Doe", Age: 42}
-			result := MustSucceed(schema.Dump(data))
-			Expect(result).To(Equal(map[string]any{
-				"first_name": "John",
-				"last_name":  "Doe",
-				"age":        int64(42),
-			}))
-			var dest TestStruct
-			Expect(schema.Parse(result, &dest)).To(Succeed())
-			Expect(dest.FirstName).To(Equal("John"))
-			Expect(dest.LastName).To(Equal("Doe"))
-			Expect(dest.Age).To(Equal(42))
-		})
-		Specify("combining Object() with Field()", func() {
-			type TestStruct struct {
-				Name  string
-				Email string
-				Age   int
-			}
-			schema := zyn.Object(map[string]zyn.Schema{
-				"Name": zyn.String(),
-			}).Field("Email", zyn.String()).Field("Age", zyn.Number())
-			data := TestStruct{Name: "John", Email: "john@example.com", Age: 30}
-			result := MustSucceed(schema.Dump(data))
-			Expect(result).To(Equal(map[string]any{
-				"name":  "John",
-				"email": "john@example.com",
-				"age":   int64(30),
-			}))
-			var dest TestStruct
-			Expect(schema.Parse(result, &dest)).To(Succeed())
-			Expect(dest.Name).To(Equal("John"))
-			Expect(dest.Email).To(Equal("john@example.com"))
-			Expect(dest.Age).To(Equal(30))
-		})
-	})
 	Describe("Nested Object Field Errors", func() {
 		It("Should correctly append path segments", func() {
 			schema := zyn.Object(map[string]zyn.Schema{
 				"first": zyn.Object(map[string]zyn.Schema{
 					"second": zyn.Object(map[string]zyn.Schema{
 						"third": zyn.Object(map[string]zyn.Schema{
-							"value": zyn.Uint64(),
+							"value": zyn.Number().Uint64(),
 						}),
 					}),
 				}),

@@ -45,9 +45,15 @@ on:
         type: string
         default: stable
 
+permissions:
+  contents: read
+
 jobs:
   build:
     name: Build (${{ matrix.os }})
+    # gh release upload adds the bundles to the draft release.
+    permissions:
+      contents: write
     env:
       SYNNAX_TS_ENV: prod
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -191,6 +197,8 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_PRIVATE_KEY }}
           POSTHOG_CLI_API_KEY: ${{ secrets.POSTHOG_CLI_API_KEY }}
           POSTHOG_CLI_PROJECT_ID: "621680"
+          # Only a release reports to analytics as production.
+          VITE_RELEASE: ${{ steps.config.outputs.release }}
         working-directory: console
         run: pnpm build --config src-tauri/release.tauri.conf.json
 
@@ -199,6 +207,7 @@ jobs:
         env:
           POSTHOG_CLI_API_KEY: ${{ secrets.POSTHOG_CLI_API_KEY }}
           POSTHOG_CLI_PROJECT_ID: "621680"
+          VITE_RELEASE: ${{ steps.config.outputs.release }}
         working-directory: console
         run: pnpm build --config src-tauri/release.tauri.conf.json --no-sign
 

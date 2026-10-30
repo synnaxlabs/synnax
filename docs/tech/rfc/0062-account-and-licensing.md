@@ -49,7 +49,7 @@ never stops because of time, and the old key format still activates a Core.
   or one of their teams.
 - **Organization**: The owner of every license, stored by the portal. Every user has a
   personal organization. A team organization is also backed by a Clerk organization for
-  membership, invitations, and roles.
+  membership and roles.
 - **Edition**: `desktop` or `enterprise`. Desktop is the Console build with an embedded
   Core. Enterprise is the standalone Core, Console, and Driver.
 - **License**: A signed JWT that names an organization, an edition, the machines it
@@ -112,10 +112,9 @@ which is where an operator without a desktop install activates.
 Every license belongs to an organization, and the portal owns the organization record. A
 user who signs up gets a personal organization with that user as its only member, and no
 Clerk organization. An enterprise customer gets a team organization backed by a Clerk
-organization, which supplies membership, invitations, and the `admin` and `member`
-roles. Staff create the team in the Clerk dashboard when a deal closes and invite the
-customer's admin. Customers never create teams, and a personal account shows no
-organization concept.
+organization, which supplies membership and the `admin` and `member` roles. Staff
+register the team in the portal when a deal closes, which invites the customer's admin.
+Customers never create teams, and a personal account shows no organization concept.
 
 Clerk bills each monthly retained organization past the first 100. Desktop makes every
 free user an organization owner, so personal organizations are not Clerk organizations.
@@ -295,16 +294,30 @@ unlicensed Core never settles, and it shows the login screen of §5.8 instead.
 
 ### 5.6 Portal identity and organizations
 
-Clerk provides sign-up, login, sessions, and, for teams, membership, invitations, and
-roles, through `@clerk/astro`. The portal renders every screen itself on Clerk's client
-API (§5.10), and no Clerk widget appears. The portal's organization records follow Clerk
-where they are read: resolving a session stores a record for each of the user's teams,
-and issuing a license stores the record for the team staff chose. A Clerk webhook does
-the same as a fast path, and nothing depends on its delivery.
+Clerk provides sign-up, login, sessions, and, for teams, membership and roles, through
+`@clerk/astro`. The portal renders every screen itself on Clerk's client API (§5.10),
+and no Clerk widget appears. The portal's organization records follow Clerk where they
+are read: resolving a session stores a record for each of the user's teams, and the
+staff list of organizations stores one for every team. A Clerk webhook does the same as
+a fast path, and nothing depends on its delivery.
+
+Staff register a team with a name and the first admin's email. The portal creates the
+Clerk organization with no members, stores its record, and invites the admin. Staff
+never join the team.
 
 Staff are members of the Synnax Labs team with the `owner` or `admin` role. Inside a
 team, every member activates machines, releases seats, and downloads license keys. Only
-admins manage members.
+admins and staff manage members, through portal routes on Clerk's backend API, and a
+team always keeps one admin.
+
+The portal owns team invitations. An invitation is for one email address and stays open
+for 30 days. Its link opens a page that only shows it, and a visitor logged in with a
+matching verified address accepts it there. Accepting adds the Clerk membership through
+the backend API, which sends no email, so Clerk never sends an invitation. A visitor who
+logs in or signs up from the page gets the invited address filled in and locked, and
+joins on the way back without a click. The link holds no secret, because only the
+invited address can accept. Inviting an address again sends its invitation again with a
+new expiry.
 
 Neon Postgres holds the portal's tables through Drizzle:
 
@@ -315,11 +328,16 @@ Neon Postgres holds the portal's tables through Drizzle:
   the license key from this record and never stores it.
 - **`activation`**: `license`, `fingerprint`, `first_seen`, `last_seen`, `released_at`,
   the machine's name, and the hash of its Desktop renewal secret.
-- **`event`**: An append-only audit log of issue, activate, renew, release, rename,
-  transfer, and revoke.
+- **`invitation`**: `organization`, `email`, `role`, `sent_at`, and `expires_at`.
+  Accepting or revoking an invitation deletes it.
+- **`event`**: An append-only audit log of license, machine, team, and member changes:
+  issue, activate, renew, release, rename, transfer, revoke, restore, register, invite,
+  acceptance, role change, and removal.
 
-Resend sends the mail Clerk does not: expiry warnings at 30, 7, and 1 days, and
-revocation notices. A daily Vercel Cron job runs the expiry sweep.
+Resend sends the mail Clerk does not: team invitations, expiry warnings at 30, 7, and 1
+days, and issue, revocation, and restoration notices. Each is HTML with a plain-text
+part, and links to its invitation or license. A daily Vercel Cron job runs the expiry
+sweep.
 
 The portal deploys like the docs site: Vercel's Git integration deploys `main` to
 production and each branch to a preview, and the build applies the Drizzle migrations
@@ -412,22 +430,28 @@ scope opens on Overview:
   recent machines, and one Enterprise panel with Talk to us. Devices, with each linked
   machine's license status, Rename, and Unlink.
 - **Team**: Overview, with usable licenses, seats in use, and the next expiry. Licenses,
-  and Members, where admins invite, remove, and change roles through Clerk.
-- **Staff**: Admin, in every scope: every license, searchable and filtered by status,
-  with Expiring as the renewal queue and Issue license as a dialog.
+  and Members, where admins invite, resend and revoke invitations, remove members, and
+  change roles.
+- **Staff**: Admin, in every scope, with three sections. Organizations lists every team
+  with its members, licenses, seats in use, and next expiry, and Register organization
+  is a dialog. A team's page has Licenses, Members, and Activity tabs, with Rename and
+  Issue license. Licenses lists every license, searchable and filtered by status, with
+  Expiring as the renewal queue. Activity is every team's event log, filtered by kind or
+  to staff actions.
 
 A license reads Active, Expiring (within 30 days of expiry, never for Desktop), Expired,
 or Revoked. Its page shows the facts, the machines with Download license key, Rename,
 and Release, the released machines, and the activity from the event log. Staff also get
 Edit, which changes the terms in place so seats and history survive a renewal, Floating
-license key, and Revoke. Activate a machine is a dialog that takes a name and the
-fingerprint the Console copied, and downloads the license key as a `.lic` file, the
-extension most license managers use. `/licenses/activate?license=` is the page the
-Console links.
+license key, Revoke, and Restore, which undoes a revocation and keeps the key and seats.
+Activate a machine is a dialog that takes a name and the fingerprint the Console copied,
+and downloads the license key as a `.lic` file, the extension most license managers use.
+`/licenses/activate?license=` is the page the Console links.
 
 Routes sit at the root of the host: `/`, `/devices`, `/licenses`, `/licenses/<key>`,
-`/licenses/activate`, `/members`, `/settings`, `/admin`, and `/api/...`. The scope is
-the `?org=` query parameter, so a license URL survives an organization rename.
+`/licenses/activate`, `/members`, `/settings`, `/admin`, `/admin/organizations/<key>`,
+`/admin/licenses`, `/admin/activity`, and `/api/...`. The scope is the `?org=` query
+parameter, so a license URL survives an organization rename.
 
 Each page is an Astro page that loads its data on the server and renders one React
 island with it. Actions are Pluto `Modal` dialogs that post JSON to the `/api/...`
@@ -513,8 +537,8 @@ clients decode it.
    hardware fingerprint plus a server-side count with reactivate. Matching by
    intersection, FlexNet's rule, survives adapter changes. Keygen's per-boot fingerprint
    needs an online heartbeat.
-9. **Staff issue every license and create every team**: There is no self-serve trial, so
-   a team a customer made would stay empty until a deal closes. The trade is real:
+9. **Staff issue every license and register every team**: There is no self-serve trial,
+   so a team a customer made would stay empty until a deal closes. The trade is real:
    onboarding is a staff step.
 10. **Old keys still activate a Core**: A hard cutover would stop every Core that
     upgrades before its holder has a signed license. The trade is real: the forgeable
@@ -573,3 +597,12 @@ clients decode it.
     enterprise edition (RFC 0063 §8) and would be the first wall an evaluator hits. The
     Core has no operation to drop a license key, so a logout could only stop renewal,
     and Unlink and Erase all data already cover it.
+28. **Member changes run on the server**: Clerk's client API lets only a member change a
+    team, and its changes skip the event log. Server routes let staff support a team
+    they never join and log every change. The trade is real: the portal enforces the
+    last-admin rule itself.
+29. **Revoke is undone by Restore, not paired with a Suspend**: Keygen, Cryptlex, and
+    LicenseSpring split a reversible block from a permanent one, but a Core checks its
+    license offline, so both would stop the same thing: new activations and downloads.
+    The trade is real: there is no quiet block, since Revoke and Restore both mail the
+    admins.

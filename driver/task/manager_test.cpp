@@ -14,7 +14,7 @@
 
 #include "client/cpp/status/status.h"
 #include "client/cpp/testutil/testutil.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 #include "x/cpp/uuid/uuid.h"
 
 #include "driver/task/task.h"
@@ -287,7 +287,7 @@ synnax::task::Status wait_for_task_status(
     x::telem::TimeSpan timeout = 5 * x::telem::SECOND
 ) {
     synnax::task::Status result;
-    x::test::eventually(
+    x::testutil::eventually(
         [&]() {
             auto [frame, err] = streamer.read();
             if (err) return false;
@@ -319,7 +319,7 @@ synnax::task::Status wait_for_task_status(
     )
 
 #define EVENTUALLY(condition, failure_message, ...)                                    \
-    ::x::test::eventually(                                                             \
+    ::x::testutil::eventually(                                                         \
         condition,                                                                     \
         failure_message,                                                               \
         __FILE__,                                                                      \
@@ -554,8 +554,8 @@ TEST_F(TaskManagerTest, StartForUnhandledTypeAnswersWithError) {
     EXPECT_EQ(s.message, "Failed to configure task");
     EXPECT_EQ(
         s.description,
-        "No integration on this Driver handles task type '" + ALT_SYNTHETIC_TASK_TYPE +
-            "'."
+        "No integration on this Driver runs '" + ALT_SYNTHETIC_TASK_TYPE +
+            "' tasks. Check that the Driver and the Core run the same version."
     );
     EXPECT_EQ(s.details.cmd, "start-cmd");
 }

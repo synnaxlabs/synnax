@@ -1,0 +1,105 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+// The channel types of a task, picked by group and then by type. Each Channel.Type in
+// the default slot names its group, and the groups keep the order of their first type.
+// When no type names a group, the pane holds only the types. A chip shows the icon of
+// its type, and a group shows the icon of its first type.
+
+import { unescape } from "html-escaper";
+
+import { type Group, type Option, Options, Picker } from "@/components/channel/Picker";
+import { toAnchor } from "@/util/anchor";
+
+const html = (await Astro.slots.render("default")).trim();
+
+const optional = (tag: string, name: string): string | undefined => {
+    const value = tag.match(new RegExp(`\\s${name}="([^"]*)"`))?.[1];
+    return value == null ? undefined : unescape(value);
+};
+
+const attribute = (tag: string, name: string): string => {
+    const value = optional(tag, name);
+    if (value == null) throw new Error(`Channel.Type is missing ${name}: ${tag}`);
+    return value;
+};
+
+const panes = [
+    ...html.matchAll(/<section class="channel-type"[\s\S]*?<\/section>/g),
+].map((m) => m[0]);
+if (panes.length === 0)
+    throw new Error("Channel.Types needs at least one Channel.Type");
+// A pane ends at its first closing tag, which is only safe when the slot holds nothing
+// but Channel.Type sections.
+if (panes.join("").replace(/\s/g, "") !== html.replace(/\s/g, ""))
+    throw new Error("Channel.Types holds content outside a Channel.Type");
+
+const options: Option[] = [];
+const groups: Group[] = [];
+for (const pane of panes) {
+    const tag = pane.slice(0, pane.indexOf(">") + 1);
+    const option: Option = {
+        type: attribute(tag, "id"),
+        name: attribute(tag, "data-name"),
+        icon: pane.match(
+            /<h4 class="channel-type__name"[^>]*>[\s\S]*?(<svg[\s\S]*?<\/svg>)/,
+        )?.[1],
+        pane,
+    };
+    options.push(option);
+    const name = optional(tag, "data-group");
+    if (name == null) continue;
+    let group = groups.find((g) => g.name === name);
+    if (group == null) {
+        group = { key: toAnchor(name), name, icon: option.icon, options: [] };
+        groups.push(group);
+    }
+    group.options.push(option);
+}
+const grouped = groups.reduce((count, { options }) => count + options.length, 0);
+if (grouped !== 0 && grouped !== options.length)
+    throw new Error("Channel.Types needs a group on every Channel.Type or on none");
+if (groups.length === 1)
+    throw new Error("Channel.Types needs at least two groups or none");
+---
+
+{groups.length === 0 ? <Options options={options} /> : <Picker groups={groups} />}
+
+<style is:global>
+    /* Holds a rendered icon, so its SVG lays out as a child of the tab. */
+    .channel-types__icon {
+        display: contents;
+    }
+
+    /* With no groups, the chips open the pane. */
+    article .lyra-tabs.channel-types__options {
+        padding: var(--docs-block-padding);
+
+        & > .lyra-tabs__selector {
+            gap: 1rem;
+            margin-bottom: 5rem;
+        }
+
+        & > .lyra-tabs__content:not([hidden]) {
+            padding: 0;
+        }
+    }
+
+    /* In a group, the chips and the type they show share the pane of the groups, so
+       their frame draws nothing of its own. */
+    article .lyra-tabs__content > .lyra-tabs.channel-types__options {
+        margin: 0;
+        padding: 0;
+        border: none;
+        border-radius: 0;
+        background: none;
+        overflow: visible;
+    }
+</style>

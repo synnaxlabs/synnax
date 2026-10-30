@@ -58,7 +58,7 @@ const ListItem = (props: ListItemProps): ReactElement | null => {
     >
       <Text.Editable
         value={entry.label}
-        overflow="ellipsis"
+        overflow="fade"
         color={10}
         weight={500}
         onChange={handleChangeLabel}

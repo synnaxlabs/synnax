@@ -24,7 +24,7 @@ class TestDeleter:
     ) -> None:
         idx_ch, _ = indexed_pair
         with client.open_writer(sy.TimeSpan.SECOND * 1, idx_ch) as w:
-            data = seconds_linspace(1, 50)
+            data = seconds_linspace(1, count=50)
             w.write(pd.DataFrame({idx_ch.key: data}))
             w.commit()
 
@@ -37,7 +37,7 @@ class TestDeleter:
         assert series.to_numpy().size == 26
         assert series.time_range == sy.TimeRange(
             sy.TimeStamp(25 * sy.TimeSpan.SECOND),
-            sy.TimeStamp(50 * sy.TimeSpan.SECOND) + 1,
+            sy.TimeStamp(50 * sy.TimeSpan.SECOND) + sy.TimeSpan.NANOSECOND,
         )
 
     def test_delete_by_name(
@@ -45,7 +45,7 @@ class TestDeleter:
     ) -> None:
         idx_ch, _ = indexed_pair
         with client.open_writer(sy.TimeSpan.SECOND * 1, idx_ch) as w:
-            data = seconds_linspace(1, 50)
+            data = seconds_linspace(1, count=50)
             w.write(pd.DataFrame({idx_ch.key: data}))
             w.commit()
 
@@ -58,14 +58,14 @@ class TestDeleter:
         assert series.to_numpy().size == 26
         assert series.time_range == sy.TimeRange(
             sy.TimeStamp(25 * sy.TimeSpan.SECOND),
-            sy.TimeStamp(50 * sy.TimeSpan.SECOND) + 1,
+            sy.TimeStamp(50 * sy.TimeSpan.SECOND) + sy.TimeSpan.NANOSECOND,
         )
 
     def test_delete_channel_not_found_key(
         self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
     ) -> None:
         idx_ch, data_ch = indexed_pair
-        client.write(0, idx_ch.key, seconds_linspace(1, 50))
+        client.write(0, idx_ch.key, seconds_linspace(1, count=50))
         # Delete the data channel first so we know the keys are not found
         client.channels.delete([data_ch])
         with pytest.raises(sy.NotFoundError):
