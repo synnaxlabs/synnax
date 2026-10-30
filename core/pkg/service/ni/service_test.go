@@ -55,9 +55,9 @@ var _ = Describe("Service", func() {
 
 	Describe("OpenService", func() {
 		DescribeTable("Should reject a config missing a required field",
-			func(ctx SpecContext, field string, clear func(*ni.ServiceConfig)) {
+			func(ctx SpecContext, field string, unset func(*ni.ServiceConfig)) {
 				cfg := ni.ServiceConfig{DB: db, Ontology: otg, Status: stat}
-				clear(&cfg)
+				unset(&cfg)
 				Expect(ni.OpenService(ctx, cfg)).Error().
 					To(MatchError(ContainSubstring(field + ": must be non-nil")))
 			},
