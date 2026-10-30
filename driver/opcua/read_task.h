@@ -881,10 +881,16 @@ public:
         for (auto &[_, s]: this->stamps)
             s.clear();
         Problems problems;
+        // A failed read drops the block, so the stamps that it accepted never write.
+        const auto written = this->last;
         for (std::size_t i = 0; i < this->cfg.samples_per_chan; i++) {
             const auto start = ::x::telem::TimeStamp::now();
             auto [ua_res, read_err] = this->read_values();
-            if (res.error = read_err; res.error) return res;
+            if (read_err) {
+                this->last = written;
+                res.error = read_err;
+                return res;
+            }
             const auto end = ::x::telem::TimeStamp::now();
             this->collect(
                 ua_res,

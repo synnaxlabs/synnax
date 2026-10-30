@@ -673,6 +673,38 @@ TEST_F(TestReadTask, testDateTimeIndexChecksStamps) {
     ASSERT_NIL(src->stop());
 }
 
+/// @brief it should write a stamp again after a block that read it failed, since the
+/// failed block wrote nothing.
+TEST_F(TestReadTask, testDateTimeIndexKeepsStampOfFailedBlock) {
+    const auto [idx, ch] = this->create_stamped_channels();
+    const auto time = now_us();
+    this->change_date_time(time);
+    auto cfg = date_time_cfg(ch);
+    cfg["sample_rate"] = 0.5;
+    cfg["stream_rate"] = 0.25;
+    const auto src = this->create_source(cfg);
+    ASSERT_NIL(src->start());
+    // The block reads once, then waits 2 s, so its second read finds no server.
+    std::thread stopper([this] {
+        std::this_thread::sleep_for(std::chrono::milliseconds(150));
+        this->server->stop();
+    });
+    // A low rate waits on the breaker, which waits only while it runs.
+    x::breaker::Breaker breaker;
+    breaker.start();
+    x::telem::Frame fr;
+    const auto failed = src->read(breaker, fr);
+    breaker.stop();
+    stopper.join();
+    ASSERT_TRUE(failed.error);
+    this->server->start();
+    ASSERT_TRUE(this->server->wait_until_ready());
+    this->change_date_time(time);
+    const auto got = read_stamps(*src, ch, 1, 5 * x::telem::SECOND);
+    EXPECT_EQ(got.stamps, std::vector{time});
+    ASSERT_NIL(src->stop());
+}
+
 /// @brief it should drop the stamp that the Core stores last without a warning when the
 /// task starts again.
 TEST_F(TestReadTask, testDateTimeIndexDropsStoredStampAtStart) {
