@@ -138,6 +138,8 @@ const isNodeID = (value: string): boolean => value.includes("=");
 interface Selection {
   nodeId: string;
   field: string;
+  /** The node ID of the node that the browser found this one under. */
+  parent?: string;
 }
 
 /** A node ID that the user entered, and the tree selection when they entered it. */
@@ -227,7 +229,11 @@ export const Browser = ({ device, roots }: BrowserProps) => {
   if (lookup != null && lookup.selected === selectedKey)
     selection = { nodeId: lookup.nodeId, field: "" };
   else if (selectedNode != null)
-    selection = { nodeId: selectedNode.nodeId, field: selectedNode.field };
+    selection = {
+      nodeId: selectedNode.nodeId,
+      field: selectedNode.field,
+      parent: selectedNode.parent,
+    };
   const refresh = () => {
     setInitialLoading(true);
     expand({ action: "expand", current: [] });
@@ -304,9 +310,7 @@ export const Browser = ({ device, roots }: BrowserProps) => {
         className={CSS.BE("opc-browser", "search")}
       />
       {content}
-      {selection != null && (
-        <Details device={device} nodeId={selection.nodeId} field={selection.field} />
-      )}
+      {selection != null && <Details device={device} {...selection} />}
     </Flex.Box>
   );
 };
