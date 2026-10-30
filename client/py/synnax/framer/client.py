@@ -15,7 +15,7 @@ import pandas as pd
 import synnax.channel.payload as channel
 from alamos import NOOP, Instrumentation
 from freighter import (
-    AsyncWebsocketClient,
+    AsyncStreamClient,
     FileTransport,
     UnaryClient,
     WebsocketClient,
@@ -63,7 +63,7 @@ class Client:
     """
 
     _stream_client: WebsocketClient
-    _async_client: AsyncWebsocketClient
+    _async_client: AsyncStreamClient
     _unary_client: UnaryClient
     _channels: Retriever
     _deleter: Deleter
@@ -75,7 +75,7 @@ class Client:
         self,
         *,
         stream_client: WebsocketClient,
-        async_client: AsyncWebsocketClient,
+        async_client: AsyncStreamClient,
         unary_client: UnaryClient,
         file_transport: FileTransport,
         retriever: Retriever,
