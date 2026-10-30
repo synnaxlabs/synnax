@@ -312,7 +312,7 @@ inline std::pair<std::shared_ptr<Runtime>, x::errors::Error> load(
         error_handler
     );
 
-    auto time_module = std::make_shared<stl::time::Module>();
+    auto time_module = std::make_shared<stl::time::Module>(str_st);
     std::vector<std::shared_ptr<stl::Module>> stl_modules = {
         std::make_shared<stl::channels::Module>(channel_st, str_st),
         std::make_shared<stl::stateful::Module>(var_st, series_st, str_st),

@@ -334,36 +334,29 @@ public:
     /// @brief returns the timestamp as an ISO 8601 UTC string.
     /// @returns a string like "2001-09-09T01:46:40.000000001Z".
     [[nodiscard]] std::string iso8601() const {
-        const int64_t sec = value / 1000000000 - (value % 1000000000 != 0 && value < 0);
-        const int64_t frac_ns = value - sec * 1000000000;
-        const int64_t day = sec / 86400 - (sec % 86400 != 0 && sec < 0);
-        const int64_t sod = sec - day * 86400;
-        const date::Date d = date::civil_from_days(static_cast<int32_t>(day));
-        const auto hh = sod / 3600;
-        const auto mm = (sod / 60) % 60;
-        const auto ss = sod % 60;
+        const date::CivilTime c = date::civil_from_nanoseconds(value);
 
         char buf[30];
-        strings::write_number(buf + 0, d.year, 4);
+        strings::write_number(buf + 0, c.year, 4);
         buf[4] = '-';
-        strings::write_number(buf + 5, d.month, 2);
+        strings::write_number(buf + 5, c.month, 2);
         buf[7] = '-';
-        strings::write_number(buf + 8, d.day, 2);
+        strings::write_number(buf + 8, c.day, 2);
         buf[10] = 'T';
-        strings::write_number(buf + 11, static_cast<int>(hh), 2);
+        strings::write_number(buf + 11, c.hour, 2);
         buf[13] = ':';
-        strings::write_number(buf + 14, static_cast<int>(mm), 2);
+        strings::write_number(buf + 14, c.minute, 2);
         buf[16] = ':';
-        strings::write_number(buf + 17, static_cast<int>(ss), 2);
+        strings::write_number(buf + 17, c.second, 2);
 
         int len = 19;
 
-        if (frac_ns != 0) {
+        if (c.nanosecond != 0) {
             buf[len++] = '.';
 
             // write 9 digits then trim without looping over the whole tail
             char frac[9];
-            strings::write_number(frac, static_cast<int>(frac_ns), 9);
+            strings::write_number(frac, c.nanosecond, 9);
 
             // find last non-zero digit
             int8_t last = 8;

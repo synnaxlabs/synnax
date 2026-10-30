@@ -7,6 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <cstdint>
+#include <ctime>
+#include <memory>
+#include <string>
+#include <string_view>
+
 #include "gtest/gtest.h"
 
 #include "client/cpp/synnax.h"
@@ -19,6 +25,7 @@
 #include "arc/cpp/runtime/node/factory.h"
 #include "arc/cpp/runtime/state/state.h"
 #include "arc/cpp/runtime/testutil/compile.h"
+#include "arc/cpp/stl/strings/state.h"
 #include "arc/cpp/stl/time/time.h"
 
 namespace arc::stl::time {
@@ -192,7 +199,7 @@ TEST(TimeModuleTest, ReturnsNotFoundForWrongType) {
     auto ir_node = setup.ir.nodes[0];
     ir_node.type = "not_a_time_node";
 
-    Module factory;
+    Module factory(std::make_shared<strings::State>());
     ASSERT_OCCURRED_AS_P(
         factory.create(runtime::node::Config(setup.ir, ir_node, setup.make_node())),
         x::errors::NOT_FOUND
@@ -202,7 +209,7 @@ TEST(TimeModuleTest, ReturnsNotFoundForWrongType) {
 /// @brief Test that module creates an Interval node from valid configuration.
 TEST(TimeModuleTest, CreatesIntervalNode) {
     TestSetup setup("interval", "period", x::telem::SECOND.nanoseconds());
-    Module factory;
+    Module factory(std::make_shared<strings::State>());
     const auto node = ASSERT_NIL_P(factory.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[0], setup.make_node())
     ));
@@ -212,7 +219,7 @@ TEST(TimeModuleTest, CreatesIntervalNode) {
 /// @brief Test that MultiFactory strips prefix for qualified time.interval type.
 TEST(TimeModuleTest, CreatesIntervalNodeQualifiedViaMultiFactory) {
     TestSetup setup("time.interval", "period", x::telem::SECOND.nanoseconds());
-    auto module = std::make_shared<Module>();
+    auto module = std::make_shared<Module>(std::make_shared<strings::State>());
     runtime::node::MultiFactory multi({module});
     const auto node = ASSERT_NIL_P(multi.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[0], setup.make_node())
@@ -223,7 +230,7 @@ TEST(TimeModuleTest, CreatesIntervalNodeQualifiedViaMultiFactory) {
 /// @brief Test that module creates a Wait node from valid configuration.
 TEST(TimeModuleTest, CreatesWaitNode) {
     TestSetup setup("wait", "duration", x::telem::SECOND.nanoseconds());
-    Module factory;
+    Module factory(std::make_shared<strings::State>());
     const auto node = ASSERT_NIL_P(factory.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[0], setup.make_node())
     ));
@@ -233,7 +240,7 @@ TEST(TimeModuleTest, CreatesWaitNode) {
 /// @brief Test that MultiFactory strips prefix for qualified time.wait type.
 TEST(TimeModuleTest, CreatesWaitNodeQualifiedViaMultiFactory) {
     TestSetup setup("time.wait", "duration", x::telem::SECOND.nanoseconds());
-    auto module = std::make_shared<Module>();
+    auto module = std::make_shared<Module>(std::make_shared<strings::State>());
     runtime::node::MultiFactory multi({module});
     const auto node = ASSERT_NIL_P(multi.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[0], setup.make_node())
@@ -244,7 +251,7 @@ TEST(TimeModuleTest, CreatesWaitNodeQualifiedViaMultiFactory) {
 /// @brief Test that shortest_span is set to the first interval when uninitialized.
 TEST(TimeModuleTest, ShortestSpanSetToFirstInterval) {
     TestSetup setup("interval", "period", (500 * x::telem::MILLISECOND).nanoseconds());
-    Module factory;
+    Module factory(std::make_shared<strings::State>());
     ASSERT_NIL_P(factory.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[0], setup.make_node())
     ));
@@ -259,7 +266,7 @@ TEST(TimeModuleTest, ShortestSpanUnsetForZeroVarBoundPeriod) {
         .kind = types::Kind::VarRef,
         .elem = x::mem::indirect<types::Type>(types::Type{.kind = types::Kind::I64})
     };
-    Module factory;
+    Module factory(std::make_shared<strings::State>());
     ASSERT_NIL_P(
         factory.create(runtime::node::Config(setup.ir, ir_node, setup.make_node()))
     );
@@ -271,7 +278,7 @@ TEST(TimeModuleTest, ShortestSpanIsTheMinimumAcrossNodes) {
     TestSetup setup1("interval", "period", (600 * x::telem::MILLISECOND).nanoseconds());
     TestSetup setup2("wait", "duration", (400 * x::telem::MILLISECOND).nanoseconds());
 
-    Module factory;
+    Module factory(std::make_shared<strings::State>());
     ASSERT_NIL_P(factory.create(
         runtime::node::Config(setup1.ir, setup1.ir.nodes[0], setup1.make_node())
     ));
@@ -284,7 +291,7 @@ TEST(TimeModuleTest, ShortestSpanIsTheMinimumAcrossNodes) {
 /// @brief Test that the module rejects a non-positive literal span.
 TEST(TimeModuleTest, RejectsNonPositiveLiteralSpan) {
     TestSetup wait("wait", "duration", 0);
-    Module factory;
+    Module factory(std::make_shared<strings::State>());
     const auto result = factory.create(
         runtime::node::Config(wait.ir, wait.ir.nodes[0], wait.make_node())
     );
@@ -1110,7 +1117,7 @@ TEST(NowTest, IsOutputTruthyFalseForUnknownParam) {
 /// @brief Now node does not affect shortest_span.
 TEST(TimeModuleTest, NowDoesNotAffectShortestSpan) {
     NowTestSetup setup;
-    Module factory;
+    Module factory(std::make_shared<strings::State>());
     ASSERT_NIL_P(factory.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[0], setup.make_node())
     ));
@@ -1125,7 +1132,7 @@ class VarConfig {
     runtime::state::State state;
 
 public:
-    Module factory;
+    Module factory{std::make_shared<strings::State>()};
     std::unique_ptr<runtime::node::Node> node;
 
     VarConfig(
@@ -1354,7 +1361,7 @@ compile_shortest(const synnax::Synnax &client, const std::string &source) {
             b.name
         )
     );
-    auto factory = std::make_shared<Module>();
+    auto factory = std::make_shared<Module>(std::make_shared<strings::State>());
     runtime::state::State s(
         runtime::state::Config{.ir = static_cast<const ir::IR &>(prog), .channels = {}},
         runtime::errors::noop_handler
@@ -1601,4 +1608,168 @@ sequence main {
     ),
     [](const testing::TestParamInfo<ShortestCase> &info) { return info.param.name; }
 );
+
+const std::string_view FORMAT_WAT = R"wat(
+(module
+  (import "time" "format" (func $format (param i64 i32) (result i32)))
+  (func (export "call_format") (param i64 i32) (result i32)
+    (call $format (local.get 0) (local.get 1)))
+)
+)wat";
+
+/// @brief binds the time module into a guest that imports only time.format.
+struct FormatFixture {
+    std::shared_ptr<strings::State> str_state;
+    Module mod;
+    wasmtime::Engine engine;
+    wasmtime::Store store;
+    wasmtime::Linker linker;
+    wasmtime::Instance instance;
+
+    FormatFixture():
+        str_state(std::make_shared<strings::State>()),
+        mod(str_state),
+        store(engine),
+        linker(engine),
+        instance(setup_instance()) {}
+
+    std::string format(const int64_t ns, const std::string_view fmt = "") {
+        auto fn = std::get<wasmtime::Func>(instance.get(store, "call_format").value());
+        const auto handle = static_cast<int32_t>(str_state->create(std::string(fmt)));
+        const auto result = fn.call(store, {wasmtime::Val(ns), wasmtime::Val(handle)})
+                                .unwrap();
+        return str_state->get(result[0].i32());
+    }
+
+private:
+    wasmtime::Instance setup_instance() {
+        mod.bind_to(linker, store);
+        auto wasm_mod = wasmtime::Module::compile(engine, FORMAT_WAT).unwrap();
+        return linker.instantiate(store, wasm_mod).unwrap();
+    }
+};
+
+/// @brief time.format matches the Go vectors byte for byte.
+TEST(FormatTest, MatchesTheGoVectors) {
+    FormatFixture f;
+    EXPECT_EQ(f.format(0), "1970-01-01T00:00:00Z");
+    EXPECT_EQ(f.format(1'500'000'000), "1970-01-01T00:00:01.5Z");
+    EXPECT_EQ(f.format(1'000'000'001), "1970-01-01T00:00:01.000000001Z");
+    EXPECT_EQ(f.format(1'000'000'000'000'000'000), "2001-09-09T01:46:40Z");
+    EXPECT_EQ(f.format(-1'000'000'000'000'000'000), "1938-04-24T22:13:20Z");
+    EXPECT_EQ(f.format(1'326'789'125'000'000'000), "2012-01-17T08:32:05Z");
+    EXPECT_EQ(f.format(1'326'789'125'250'000'000), "2012-01-17T08:32:05.25Z");
+    EXPECT_EQ(f.format(1'709'251'199'999'999'999), "2024-02-29T23:59:59.999999999Z");
+    EXPECT_EQ(f.format(946'684'800'000'000'000), "2000-01-01T00:00:00Z");
+}
+
+/// @brief Tuesday, January 17, 2012 at 08:32:05.25 UTC, in ISO week 3.
+constexpr int64_t STAMP = 1'326'789'125'250'000'000;
+
+/// @brief every format code expands as in the Go table.
+TEST(FormatTest, ExpandsEveryCode) {
+    FormatFixture f;
+    EXPECT_EQ(f.format(STAMP, "%Y"), "2012");
+    EXPECT_EQ(f.format(STAMP, "%y"), "12");
+    EXPECT_EQ(f.format(STAMP, "%m"), "01");
+    EXPECT_EQ(f.format(STAMP, "%d"), "17");
+    EXPECT_EQ(f.format(STAMP, "%e"), "17");
+    EXPECT_EQ(f.format(STAMP, "%H"), "08");
+    EXPECT_EQ(f.format(STAMP, "%I"), "08");
+    EXPECT_EQ(f.format(STAMP, "%M"), "32");
+    EXPECT_EQ(f.format(STAMP, "%S"), "05");
+    EXPECT_EQ(f.format(STAMP, "%j"), "017");
+    EXPECT_EQ(f.format(STAMP, "%f"), "250000");
+    EXPECT_EQ(f.format(STAMP, "%N"), "250000000");
+    EXPECT_EQ(f.format(STAMP, "%u"), "2");
+    EXPECT_EQ(f.format(STAMP, "%w"), "2");
+    EXPECT_EQ(f.format(STAMP, "%U"), "03");
+    EXPECT_EQ(f.format(STAMP, "%W"), "03");
+    EXPECT_EQ(f.format(STAMP, "%G"), "2012");
+    EXPECT_EQ(f.format(STAMP, "%V"), "03");
+    EXPECT_EQ(f.format(STAMP, "%z"), "+0000");
+    EXPECT_EQ(f.format(STAMP, "%Z"), "UTC");
+    EXPECT_EQ(f.format(STAMP, "%F"), "2012-01-17");
+    EXPECT_EQ(f.format(STAMP, "%T"), "08:32:05");
+    EXPECT_EQ(f.format(STAMP, "%%"), "%");
+    EXPECT_EQ(f.format(STAMP, "%C"), "20");
+    EXPECT_EQ(f.format(STAMP, "%D"), "01/17/12");
+    EXPECT_EQ(f.format(STAMP, "%g"), "12");
+    EXPECT_EQ(f.format(STAMP, "%n"), "\n");
+    EXPECT_EQ(f.format(STAMP, "%R"), "08:32");
+    EXPECT_EQ(f.format(STAMP, "%t"), "\t");
+    EXPECT_EQ(f.format(STAMP, "%Y-%m-%d %H:%M:%S.%f"), "2012-01-17 08:32:05.250000");
+    EXPECT_EQ(f.format(STAMP, "T+%S s"), "T+05 s");
+}
+
+/// @brief week numbers, the 12-hour clock, and ISO week rollover match C and Python.
+TEST(FormatTest, MatchesCAndPythonAtTheEdges) {
+    FormatFixture f;
+    // Sunday, January 1, 2012 at midnight.
+    EXPECT_EQ(
+        f.format(1'325'376'000'000'000'000, "%u %w %U %W %I %e %j"),
+        "7 0 01 00 12  1 001"
+    );
+    // Noon and one o'clock on January 17, 2012.
+    EXPECT_EQ(f.format(1'326'801'600'000'000'000, "%I"), "12");
+    EXPECT_EQ(f.format(1'326'805'200'000'000'000, "%I"), "01");
+    // January 1, 2021 falls in ISO week 53 of 2020.
+    EXPECT_EQ(f.format(1'609'459'200'000'000'000, "%G-%V %Y"), "2020-53 2021");
+    // December 30, 2024 falls in ISO week 1 of 2025.
+    EXPECT_EQ(f.format(1'735'516'800'000'000'000, "%G-%V %Y"), "2025-01 2024");
+    EXPECT_EQ(f.format(0, "%F %T"), "1970-01-01 00:00:00");
+    EXPECT_EQ(f.format(-1'000'000'000'000'000'000, "%F %T"), "1938-04-24 22:13:20");
+    // The two-digit ISO year follows %G, not %Y.
+    EXPECT_EQ(f.format(1'609'459'200'000'000'000, "%g %y"), "20 21");
+    EXPECT_EQ(f.format(1'735'516'800'000'000'000, "%g %y"), "25 24");
+}
+
+/// @brief the ends of the timestamp range format without overflow.
+TEST(FormatTest, HoldsAtTheEndsOfTheRange) {
+    FormatFixture f;
+    const std::string_view fmt = "%F %T.%N %j %w %G-%V %C %g";
+    EXPECT_EQ(f.format(-1, fmt), "1969-12-31 23:59:59.999999999 365 3 1970-01 19 70");
+    EXPECT_EQ(
+        f.format(999'999'999, fmt),
+        "1970-01-01 00:00:00.999999999 001 4 1970-01 19 70"
+    );
+    EXPECT_EQ(
+        f.format(INT64_MIN, fmt),
+        "1677-09-21 00:12:43.145224192 264 2 1677-38 16 77"
+    );
+    EXPECT_EQ(f.format(INT64_MIN + 1, "%F %T.%N"), "1677-09-21 00:12:43.145224193");
+    EXPECT_EQ(
+        f.format(INT64_MAX, fmt),
+        "2262-04-11 23:47:16.854775807 101 5 2262-15 22 62"
+    );
+}
+
+/// @brief an unknown code and a trailing percent copy through unchanged.
+TEST(FormatTest, CopiesAnUnknownCodeThrough) {
+    FormatFixture f;
+    EXPECT_EQ(f.format(STAMP, "%Q %"), "%Q %");
+}
+
+/// @brief every day from 1970 to 2100 formats as the C library does.
+TEST(FormatTest, MatchesTheCLibraryOnEveryDay) {
+    const char
+        *format = "%Y-%m-%d %H:%M:%S %e %j %u %w %U %W %G-%V %C %y %g %D %R %F %T";
+    // 4'133'980'800 is 2101-01-01T00:00:00Z.
+    for (int64_t sec = 13 * 3600 + 4 * 60 + 5; sec < 4'133'980'800; sec += 86400) {
+        const auto t = static_cast<std::time_t>(sec);
+        std::tm tm{};
+#ifdef _WIN32
+        ASSERT_EQ(gmtime_s(&tm, &t), 0) << sec;
+#else
+        ASSERT_NE(gmtime_r(&t, &tm), nullptr) << sec;
+#endif
+        char buf[128];
+        const size_t n = std::strftime(buf, sizeof(buf), format, &tm);
+        ASSERT_GT(n, 0u) << sec;
+        EXPECT_EQ(
+            strftime(x::telem::TimeStamp(sec * 1'000'000'000), format),
+            std::string(buf, n)
+        ) << sec;
+    }
+}
 }

@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
+	"github.com/synnaxlabs/arc/stl/strings"
 	"github.com/synnaxlabs/arc/stl/time"
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
@@ -39,9 +40,20 @@ var _ = Describe("Time", func() {
 						ctx,
 						wazero.NewRuntimeConfigInterpreter(),
 					),
+					strings.NewProgramState(),
 				),
 			)
 			Expect(factory).ToNot(BeNil())
+		})
+		It("Should reject a runtime without a strings state", func(ctx SpecContext) {
+			rt := wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigInterpreter())
+			Expect(time.NewHost(ctx, rt, nil)).Error().
+				To(MatchError(ContainSubstring("strings")))
+		})
+		It("Should not create a node for format", func(ctx SpecContext) {
+			factory := MustSucceed(time.NewHost(ctx, nil, nil))
+			Expect(factory.Create(node.Config{Node: ir.Node{Type: "format"}})).Error().
+				To(MatchError(query.ErrNotFound))
 		})
 	})
 	Describe("Interval", func() {
@@ -56,6 +68,7 @@ var _ = Describe("Time", func() {
 						ctx,
 						wazero.NewRuntimeConfigInterpreter(),
 					),
+					strings.NewProgramState(),
 				),
 			)
 			changedOutputs = nil
@@ -459,6 +472,7 @@ var _ = Describe("Time", func() {
 						ctx,
 						wazero.NewRuntimeConfigInterpreter(),
 					),
+					strings.NewProgramState(),
 				),
 			)
 			changedOutputs = nil
@@ -1182,7 +1196,7 @@ var _ = Describe("Time", func() {
 			})
 		}
 		BeforeEach(func(ctx SpecContext) {
-			factory = MustSucceed(time.NewHost(ctx, nil))
+			factory = MustSucceed(time.NewHost(ctx, nil, nil))
 			reported, deadlines, changed = nil, nil, nil
 		})
 		It("Should park an interval and report the error once", func(ctx SpecContext) {
@@ -1274,6 +1288,24 @@ var _ = Describe("Time", func() {
 			Expect(sym.Deprecated).ToNot(BeNil())
 			Expect(sym.Deprecated.QualifiedName()).To(Equal("time.wait"))
 		})
+		It("Should expose time.format as a WASM-only function", func(ctx SpecContext) {
+			sym := timeM(ctx, "format")
+			Expect(sym.Name).To(Equal("format"))
+			Expect(sym.Exec).To(Equal(symbol.ExecWASM))
+			Expect(sym.Trigger).To(Equal(symbol.TriggerOnly))
+			Expect(sym.Deprecated).To(BeNil())
+			Expect(sym.Type.Inputs).To(Equal(types.Params{
+				{Name: ir.DefaultInputParam, Type: types.TimeStamp()},
+				{Name: "format", Type: types.String(), Value: ""},
+			}))
+			Expect(sym.Type.Outputs).To(Equal(types.Params{
+				{Name: ir.DefaultOutputParam, Type: types.String()},
+			}))
+		})
+		It("Should not expose a bare format symbol", func(ctx SpecContext) {
+			Expect(root.Resolve(ctx, "format", symbol.IncludeInternal)).Error().
+				To(MatchError(ContainSubstring("undefined symbol: format")))
+		})
 	})
 	Describe("Deadline Reporting", func() {
 		Describe("Interval", func() {
@@ -1284,7 +1316,7 @@ var _ = Describe("Time", func() {
 				fired    int
 			)
 			BeforeEach(func(ctx SpecContext) {
-				factory := MustSucceed(time.NewHost(ctx, nil))
+				factory := MustSucceed(time.NewHost(ctx, nil, nil))
 				g := graph.Graph{
 					Nodes: []graph.Node{{Key: "interval_1"}},
 					Inputs: map[string]msgpack.EncodedJSON{
@@ -1383,7 +1415,7 @@ var _ = Describe("Time", func() {
 			var factory *time.Host
 			var s *node.ProgramState
 			BeforeEach(func(ctx SpecContext) {
-				factory = MustSucceed(time.NewHost(ctx, nil))
+				factory = MustSucceed(time.NewHost(ctx, nil, nil))
 				g := graph.Graph{
 					Nodes: []graph.Node{{Key: "wait_1"}},
 					Inputs: map[string]msgpack.EncodedJSON{
@@ -1584,6 +1616,7 @@ var _ = Describe("Time", func() {
 						ctx,
 						wazero.NewRuntimeConfigInterpreter(),
 					),
+					strings.NewProgramState(),
 				),
 			)
 			changedOutputs = nil
@@ -1750,7 +1783,7 @@ var _ = Describe("Time", func() {
 	Describe("Variable inputs", func() {
 		var factory *time.Host
 		BeforeEach(func(ctx SpecContext) {
-			factory = MustSucceed(time.NewHost(ctx, nil))
+			factory = MustSucceed(time.NewHost(ctx, nil, nil))
 		})
 
 		// varConfig builds a config whose span input is var-bound: Value holds

@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/runtime/node"
+	"github.com/synnaxlabs/arc/stl/strings"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/diagnostics"
@@ -32,10 +33,16 @@ const (
 	intervalSymbolName = "interval"
 	waitSymbolName     = "wait"
 	nowSymbolName      = "now"
+	formatSymbolName   = "format"
+	formatInputParam   = "format"
 	periodInputParam   = "period"
 	durationInputParam = "duration"
 	name               = "time"
 )
+
+// iso8601Layout is time.RFC3339Nano. Trailing fraction zeros are trimmed, so the
+// output matches the C++ runtime's TimeStamp::iso8601 byte for byte.
+const iso8601Layout = "2006-01-02T15:04:05.999999999Z07:00"
 
 var (
 	intervalDoc = doc.New(
@@ -53,9 +60,19 @@ var (
 		doc.Divider(),
 		doc.Code("arc", "t := time.now()"),
 	)
+	formatDoc = doc.New(
+		doc.Paragraph("Formats a timestamp in UTC. Without a format, prints ISO 8601."),
+		doc.Paragraph(
+			"A format takes every strftime code that does not depend on locale.",
+		),
+		doc.Divider(),
+		doc.Code("arc", "t_str := time.format(time.now())\n"+
+			"day := time.format(time.now(), \"%Y-%m-%d\")"),
+	)
 	moduleDoc = doc.New(
 		doc.Paragraph(
-			"Time-related primitives: reading the current timestamp, firing periodic intervals, and waiting fixed durations.",
+			"Time-related primitives: reading the current timestamp, string " +
+				"formatting, firing periodic intervals, and waiting fixed durations.",
 		),
 	)
 )
@@ -100,8 +117,24 @@ func NewSymbols() []*symbol.Symbol {
 		Trigger: symbol.TriggerOnly,
 		Doc:     nowDoc,
 	}
+	format := &symbol.Symbol{
+		Name: formatSymbolName,
+		Kind: symbol.KindFunction,
+		Exec: symbol.ExecWASM,
+		Type: types.Function(types.FunctionProperties{
+			Inputs: types.Params{
+				{Name: ir.DefaultInputParam, Type: types.TimeStamp()},
+				{Name: formatInputParam, Type: types.String(), Value: ""},
+			},
+			Outputs: types.Params{
+				{Name: ir.DefaultOutputParam, Type: types.String()},
+			},
+		}),
+		Trigger: symbol.TriggerOnly,
+		Doc:     formatDoc,
+	}
 	mod := &symbol.Symbol{Name: name, Kind: symbol.KindModule, Doc: moduleDoc}
-	mod.AddChild(interval, wait, now)
+	mod.AddChild(interval, wait, now, format)
 	intervalBare := *interval
 	intervalBare.Deprecated = interval
 	waitBare := *wait
@@ -154,35 +187,62 @@ func rejectNonPositiveSpan(param string) symbol.ArgumentsHook {
 }
 
 // Host is the runtime host-side support for the time module: it registers
-// the `now` WASM host function and acts as the node factory for interval
-// and wait.
+// the `now` and `format` WASM host functions and acts as the node factory for
+// interval, wait, and now.
 type Host struct {
 	// now is the current cycle's stamp, set by the runtime loop before each pass.
 	// The `now` WASM binding is called from guest code, which has no node Context
 	// to read, so the value is pushed here instead.
-	now telem.TimeStamp
+	now     telem.TimeStamp
+	strings *strings.ProgramState
 }
 
 // SetNow binds the cycle stamp the `now` host function returns for the coming pass.
 // The runtime loop calls it before every Scheduler.Next.
 func (h *Host) SetNow(now telem.TimeStamp) { h.now = now }
 
-// NewHost registers the time module's `now` WASM host binding with rt and
-// returns a Host handle that acts as the node factory for interval / wait.
-func NewHost(ctx context.Context, rt wazero.Runtime) (*Host, error) {
-	h := &Host{}
+// NewHost registers the time module's `now` and `format` WASM host bindings with
+// rt and returns a Host handle that acts as the node factory for interval / wait /
+// now. stringState backs the `format` return value and is required when rt is set.
+func NewHost(
+	ctx context.Context,
+	rt wazero.Runtime,
+	stringState *strings.ProgramState,
+) (*Host, error) {
+	h := &Host{strings: stringState}
 	if rt == nil {
 		return h, nil
+	}
+	v := validate.New("arc.time")
+	v.NotNil("strings", stringState)
+	if err := v.Error(); err != nil {
+		return nil, err
 	}
 	builder := rt.NewHostModuleBuilder(name)
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context) uint64 {
 			return uint64(h.now)
-		}).Export("now")
+		}).Export(nowSymbolName)
+	builder = builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, v int64, format uint32) uint32 {
+			l, ok := h.strings.Get(format)
+			if !ok {
+				return 0
+			}
+			return h.strings.Create(formatTimeStamp(telem.TimeStamp(v), l))
+		}).Export(formatSymbolName)
 	if _, err := builder.Instantiate(ctx); err != nil {
 		return nil, err
 	}
 	return h, nil
+}
+
+// formatTimeStamp renders ts in UTC. An empty format selects ISO 8601.
+func formatTimeStamp(ts telem.TimeStamp, format string) string {
+	if format == "" {
+		return ts.Time().UTC().Format(iso8601Layout)
+	}
+	return strftime(ts, format)
 }
 
 func (h *Host) Create(cfg node.Config) (node.Node, error) {

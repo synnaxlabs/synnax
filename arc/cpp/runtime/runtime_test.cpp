@@ -20,6 +20,12 @@
 #include "arc/cpp/runtime/testutil/mock_loop.h"
 
 namespace arc::runtime {
+/// @brief builds a time module on a throwaway strings state. These runtimes bind
+/// no WASM, so nothing reads the handles.
+std::shared_ptr<stl::time::Module> make_time_module() {
+    return std::make_shared<stl::time::Module>(std::make_shared<stl::strings::State>());
+}
+
 /// @brief Creates a minimal Runtime for testing queue behavior.
 std::shared_ptr<Runtime> create_test_runtime(
     size_t input_capacity,
@@ -40,7 +46,7 @@ std::shared_ptr<Runtime> create_test_runtime(
         nullptr,
         nullptr,
         nullptr,
-        std::make_shared<stl::time::Module>(),
+        make_time_module(),
         std::vector<arc::types::ChannelKey>{},
         std::vector<arc::types::ChannelKey>{},
         std::move(error_handler)
@@ -75,7 +81,7 @@ create_lifecycle_runtime(std::unique_ptr<testutil::MockLoop> loop) {
         state,
         std::move(scheduler),
         std::move(loop),
-        std::make_shared<stl::time::Module>(),
+        make_time_module(),
         std::vector<arc::types::ChannelKey>{},
         std::vector<arc::types::ChannelKey>{},
         arc::runtime::errors::noop_handler
@@ -334,7 +340,7 @@ TEST(RuntimeLifecycleTest, LoopStartFailureCallsErrorHandler) {
         state,
         std::move(scheduler),
         std::move(mock),
-        std::make_shared<stl::time::Module>(),
+        make_time_module(),
         std::vector<arc::types::ChannelKey>{},
         std::vector<arc::types::ChannelKey>{},
         [&](const x::errors::Error &err) {
@@ -476,7 +482,7 @@ struct DeadlineRuntimeFixture {
             state,
             std::move(scheduler),
             std::move(mock_loop),
-            std::make_shared<stl::time::Module>(),
+            make_time_module(),
             std::vector<arc::types::ChannelKey>{},
             std::vector<arc::types::ChannelKey>{},
             arc::runtime::errors::noop_handler
@@ -540,7 +546,7 @@ TEST(RuntimeClockTest, ResumesAboveReservedStamps) {
         state,
         std::move(scheduler),
         std::move(mock_loop),
-        std::make_shared<stl::time::Module>(),
+        make_time_module(),
         std::vector<arc::types::ChannelKey>{},
         std::vector<arc::types::ChannelKey>{},
         arc::runtime::errors::noop_handler

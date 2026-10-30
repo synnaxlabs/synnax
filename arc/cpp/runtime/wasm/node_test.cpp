@@ -85,7 +85,7 @@ std::vector<std::shared_ptr<stl::Module>> build_stl_modules(
         std::make_shared<stl::series::Module>(series_st),
         std::make_shared<stl::strings::Module>(str_st),
         std::make_shared<stl::math::Module>(),
-        std::make_shared<stl::time::Module>(),
+        std::make_shared<stl::time::Module>(str_st),
         std::make_shared<stl::error::Module>(arc::runtime::errors::noop_handler),
     };
 }

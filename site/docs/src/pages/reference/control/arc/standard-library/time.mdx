@@ -2,11 +2,14 @@
 layout: "@/layouts/Reference.astro"
 title: "`time`"
 description:
-  "Look up time.interval, time.wait, and time.now, the timers and the clock of an Arc
-  automation."
+  "Look up time.interval, time.wait, time.now, and time.format, the timers and the clock
+  of an Arc automation."
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Text } from "@synnaxlabs/lyra/text";
+import Details from "@/components/details/Details.astro";
 import { Field } from "@/components/field";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
@@ -19,7 +22,7 @@ as `500ms` or `10hz`, or a variable of type `i64 ns`. A variable declared as
 `hold := 5s` has the type `i64 s`, and gives error ARC3002 `expected i64 ns, got i64 s`.
 Declare it with the type:
 
-```arc channels="start_cmd, ign_cmd" bodies="fire"
+```arc channels="ign_cmd" bodies="fire"
 import time
 
 hold i64 ns := 5s
@@ -29,12 +32,87 @@ sequence fire {
     1 -> ign_cmd
 }
 
-start_cmd == 1 => fire
+true => fire
 ```
 
 A literal of 0 or less is a compile error, such as `period must be positive, got 0s`. A
 variable that becomes 0 or less stops the timer and reports an error. On the Core the
 error is a warning. On a Driver it stops the automation.
+
+<Divider.Divider x />
+
+## `format`
+
+Prints a timestamp as text, in UTC.
+
+<Field.List>
+
+<Field.Item name="input" type="i64 ns" required id="format-input">
+
+The timestamp to print.
+
+</Field.Item>
+
+<Field.Item name="format" type="str" default='""' id="format-format">
+
+The format of the text, from the codes below. An empty format gives ISO 8601, such as
+`2026-03-07T15:04:05.25Z`.
+
+</Field.Item>
+
+</Field.List>
+
+- Trigger -> optional. Each new trigger runs it, whatever the value. With no trigger, it
+  runs when `input` has a new value.
+- Output -> the text, as a `str`.
+- Function form -> `time.format(input, format) str`.
+
+```arc channels="start_msg"
+import time
+
+true => time.format(time.now(), "%Y-%m-%d %H:%M:%S") -> start_msg
+```
+
+A format holds plain text and codes. Each code prints one part of the time.
+
+<Details>
+<Text.Text slot="summary" level="p"><Icon.Table /> Format codes</Text.Text>
+
+The examples are for `2026-03-07T15:04:05.25Z`.
+
+| Code | Output                                  | Example      |
+| ---- | --------------------------------------- | ------------ |
+| `%Y` | Year                                    | `2026`       |
+| `%y` | Year, last two digits                   | `26`         |
+| `%C` | Year, first two digits                  | `20`         |
+| `%m` | Month, 01 to 12                         | `03`         |
+| `%d` | Day of the month, 01 to 31              | `07`         |
+| `%e` | Day of the month, space padded          | ` 7`         |
+| `%H` | Hour, 00 to 23                          | `15`         |
+| `%I` | Hour, 01 to 12                          | `03`         |
+| `%M` | Minute, 00 to 59                        | `04`         |
+| `%S` | Second, 00 to 59                        | `05`         |
+| `%j` | Day of the year, 001 to 366             | `066`        |
+| `%f` | Microseconds, six digits                | `250000`     |
+| `%N` | Nanoseconds, nine digits                | `250000000`  |
+| `%u` | Weekday, 1 on Monday to 7 on Sunday     | `6`          |
+| `%w` | Weekday, 0 on Sunday to 6 on Saturday   | `6`          |
+| `%U` | Week of the year, weeks start on Sunday | `09`         |
+| `%W` | Week of the year, weeks start on Monday | `09`         |
+| `%G` | ISO 8601 year                           | `2026`       |
+| `%g` | ISO 8601 year, last two digits          | `26`         |
+| `%V` | ISO 8601 week, 01 to 53                 | `10`         |
+| `%z` | Offset from UTC, always `+0000`         | `+0000`      |
+| `%Z` | Time zone, always `UTC`                 | `UTC`        |
+| `%F` | The same as `%Y-%m-%d`                  | `2026-03-07` |
+| `%D` | The same as `%m/%d/%y`                  | `03/07/26`   |
+| `%T` | The same as `%H:%M:%S`                  | `15:04:05`   |
+| `%R` | The same as `%H:%M`                     | `15:04`      |
+| `%%` | A `%`                                   | `%`          |
+| `%n` | A line break                            |              |
+| `%t` | A tab                                   |              |
+
+</Details>
 
 <Divider.Divider x />
 
@@ -80,10 +158,10 @@ Gives the current time.
 
 `now` has no parameters.
 
-```arc channels="start_cmd, start_time"
+```arc channels="start_time"
 import time
 
-start_cmd == 1 => time.now() -> start_time
+true => time.now() -> start_time
 ```
 
 <Divider.Divider x />
@@ -108,7 +186,7 @@ The time to wait.
 - Runs -> when `duration` has passed since the timer started. It counts from zero again
   each time its stage starts. As a sequence step, the sequence moves on when it fires.
 
-```arc channels="start_cmd, ign_cmd, press_vlv_cmd" bodies="fire"
+```arc channels="ign_cmd, press_vlv_cmd" bodies="fire"
 import time
 
 sequence fire {
@@ -117,7 +195,7 @@ sequence fire {
     1 -> press_vlv_cmd
 }
 
-start_cmd == 1 => fire
+true => fire
 ```
 
 The timers follow the same rules on the Core and on a Driver. They never fire early. How

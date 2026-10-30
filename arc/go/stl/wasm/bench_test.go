@@ -151,7 +151,7 @@ func BenchmarkWASMNodeSimpleArithmetic(b *testing.B) {
 	if err != nil {
 		b.Fatalf("Failed to create errors module: %v", err)
 	}
-	_, _ = stltime.NewHost(ctx, wasmRT)
+	_, _ = stltime.NewHost(ctx, wasmRT, stringsState)
 
 	guest, err := wasmRT.Instantiate(ctx, mod.WASM)
 	if err != nil {
@@ -316,7 +316,7 @@ func BenchmarkWASMNodeZeroAlloc(b *testing.B) {
 	if err != nil {
 		b.Fatalf("Failed to create errors module: %v", err)
 	}
-	_, _ = stltime.NewHost(ctx, wasmRT)
+	_, _ = stltime.NewHost(ctx, wasmRT, stringsState)
 
 	guest, err := wasmRT.Instantiate(ctx, mod.WASM)
 	if err != nil {

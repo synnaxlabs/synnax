@@ -244,6 +244,13 @@ TEST(TimeStampTests, testISO8601Negative) {
     ASSERT_EQ(ts.iso8601(), "1938-04-24T22:13:20Z");
 }
 
+/// @brief it should format the ends of the timestamp range without overflow.
+TEST(TimeStampTests, testISO8601EndsOfTheRange) {
+    ASSERT_EQ(TimeStamp(INT64_MIN).iso8601(), "1677-09-21T00:12:43.145224192Z");
+    ASSERT_EQ(TimeStamp(INT64_MAX).iso8601(), "2262-04-11T23:47:16.854775807Z");
+    ASSERT_EQ(TimeStamp(-1).iso8601(), "1969-12-31T23:59:59.999999999Z");
+}
+
 /// @brief it should initialize a timespan from a long.
 TEST(TimeSpanTests, testConstructor) {
     const auto ts = TimeSpan(5);

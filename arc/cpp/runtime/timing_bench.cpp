@@ -110,7 +110,9 @@ void measure_interval(const x::telem::TimeSpan period, std::int64_t &median_ns) 
     auto state = std::make_shared<state::State>(
         state::Config{.ir = prog, .channels = {}}
     );
-    auto time_module = std::make_shared<stl::time::Module>();
+    auto time_module = std::make_shared<stl::time::Module>(
+        std::make_shared<stl::strings::State>()
+    );
     auto recorder = std::make_unique<Recorder>(
         ASSERT_NIL_P(time_module->create(
             node::Config(prog, prog.nodes[0], ASSERT_NIL_P(state->node(TIMER_KEY)))

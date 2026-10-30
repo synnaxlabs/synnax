@@ -111,7 +111,7 @@ public:
             errors::noop_handler
         );
 
-        auto time_mod = std::make_shared<stl::time::Module>();
+        auto time_mod = std::make_shared<stl::time::Module>(str_st);
         this->time_mod = time_mod;
         const std::vector<std::shared_ptr<stl::Module>> stl_modules{
             std::make_shared<stl::channels::Module>(this->channel_state, str_st),
