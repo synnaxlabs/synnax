@@ -355,8 +355,8 @@ var _ = Describe("ImEx", func() {
 						},
 						{Channel: channel.Key(2), Alias: "second"},
 					},
-					TimestampPrecision:     1,
-					TimestampsHidden: true,
+					TimestampPrecision: 1,
+					TimestampsHidden:   true,
 				})
 				env := MustSucceed(imexSvc.Export(ctx, original.OntologyID()))
 				id := MustSucceed(

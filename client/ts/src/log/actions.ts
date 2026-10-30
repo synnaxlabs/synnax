@@ -26,8 +26,8 @@ import {
   setChannels,
   setChannelTimestampFormat,
   setChannelTimestampTz,
-  setTimestampsHidden,
   setTimestampPrecision,
+  setTimestampsHidden,
   swapChannel,
 } from "@/log/actions.gen";
 import { channelEntryZ } from "@/log/types.gen";
