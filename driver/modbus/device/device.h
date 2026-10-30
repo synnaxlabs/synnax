@@ -245,8 +245,8 @@ struct Properties {
 };
 
 /// @brief a connection to one Modbus TCP endpoint, shared by every device on it.
-/// Requests take turns, and a waiting write goes before waiting reads. Safe for
-/// concurrent use.
+/// Requests take turns. A waiting write goes before waiting reads, but not twice in a
+/// row, so reads keep their turns under steady writes. Safe for concurrent use.
 class Connection {
 public:
     /// @brief the clock of request, reply, and demotion times.
@@ -266,12 +266,15 @@ private:
     modbus_t *ctx;
     /// @brief how long the requests of a demoted unit fail at once.
     x::telem::TimeSpan demotion;
-    /// @brief guards busy, waiting_writes, and units.
+    /// @brief guards busy, the waiting counts, write_went_ahead, and units.
     std::mutex mu;
     std::condition_variable released;
     /// @brief whether a request holds the turn.
     bool busy = false;
     std::size_t waiting_writes = 0;
+    std::size_t waiting_reads = 0;
+    /// @brief whether the last turn went to a write while a read waited.
+    bool write_went_ahead = false;
     std::unordered_map<std::uint8_t, Unit> units;
     /// @brief whether the socket is open. Touched only while holding the turn.
     bool connected = false;
@@ -288,11 +291,15 @@ private:
     public:
         Turn(Connection &conn, const bool write): conn(conn) {
             std::unique_lock lock(conn.mu);
-            if (write) conn.waiting_writes++;
+            auto &waiting = write ? conn.waiting_writes : conn.waiting_reads;
+            waiting++;
             conn.released.wait(lock, [&] {
-                return !conn.busy && (write || conn.waiting_writes == 0);
+                if (conn.busy) return false;
+                if (write) return conn.waiting_reads == 0 || !conn.write_went_ahead;
+                return conn.waiting_writes == 0 || conn.write_went_ahead;
             });
-            if (write) conn.waiting_writes--;
+            waiting--;
+            conn.write_went_ahead = write && conn.waiting_reads > 0;
             conn.busy = true;
         }
 
