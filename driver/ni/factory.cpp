@@ -111,7 +111,7 @@ std::pair<common::ConfigureResult, x::errors::Error> Factory::configure_scan(
     common::ConfigureResult res;
     if (parser.error()) return {std::move(res), parser.error()};
     res.task = std::make_unique<common::ScanTask>(
-        std::make_unique<Scanner>(this->syscfg, cfg, task),
+        std::make_unique<Scanner>(this->syscfg, this->dmx, cfg, task),
         ctx,
         task,
         x::breaker::default_config(task.name),

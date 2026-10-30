@@ -23,16 +23,18 @@
 #include "absl/log/log.h"
 
 #include "driver/common/scan_task.h"
+#include "driver/ni/probe.h"
 #include "driver/ni/scan_task.h"
 #include "errors/errors.h"
 
 namespace driver::ni {
 Scanner::Scanner(
     std::shared_ptr<x::lib::Lazy<syscfg::SugaredAPI>> lib,
+    std::shared_ptr<x::lib::Lazy<daqmx::SugaredAPI>> dmx,
     ScanTaskConfig cfg,
     synnax::task::Task task
 ):
-    cfg(cfg), task(std::move(task)), lib(std::move(lib)) {}
+    cfg(cfg), task(std::move(task)), lib(std::move(lib)), dmx(std::move(dmx)) {}
 
 const auto SKIP_DEVICE_ERR = x::errors::Error("ni.skip_device", "");
 const std::size_t NO_DEVICES_LOG_MULTIPLIER = 12;
@@ -238,12 +240,36 @@ Scanner::scan(const common::ScannerContext &ctx) {
     std::vector<synnax::device::Device> devices;
     devices.reserve(ni_devices.size());
     for (auto &dev: ni_devices) {
+        this->read_hardware(dev, ctx);
         auto sy_dev = dev.to_synnax();
         if (auto it = parent_keys.find(dev.key); it != parent_keys.end())
             sy_dev.parent = synnax::device::ontology_id(it->second);
         devices.push_back(std::move(sy_dev));
     }
     return {devices, close_err};
+}
+
+void Scanner::read_hardware(ni::Device &dev, const common::ScannerContext &ctx) {
+    if (ctx.devices != nullptr)
+        if (const auto it = ctx.devices->find(dev.key);
+            it != ctx.devices->end() && it->second.properties.contains(HARDWARE_KEY))
+            return;
+    auto [dmx, err] = this->dmx->get();
+    if (!err) {
+        auto [hardware, probe_err] = probe(*dmx, dev.resource_name);
+        if (!probe_err) {
+            dev.hardware = std::move(hardware);
+            this->unread_keys.erase(dev.key);
+            return;
+        }
+        err = probe_err;
+    }
+    if (this->unread_keys.insert(dev.key).second)
+        LOG(WARNING) << SCAN_LOG_PREFIX << "failed to read the hardware of "
+                     << dev.resource_name << ": " << err;
+    else
+        VLOG(1) << SCAN_LOG_PREFIX << "failed to read the hardware of "
+                << dev.resource_name << ": " << err;
 }
 
 x::errors::Error Scanner::stop() {

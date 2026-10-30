@@ -13,6 +13,7 @@
 #include <cstring>
 #include <mutex>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include "absl/log/globals.h"
@@ -25,6 +26,7 @@
 #include "x/cpp/json/json.h"
 #include "x/cpp/testutil/testutil.h"
 
+#include "driver/ni/daqmx/mock.h"
 #include "driver/ni/ni.h"
 #include "driver/ni/scan_task.h"
 #include "driver/ni/syscfg/api.h"
@@ -224,6 +226,14 @@ loaded(const std::shared_ptr<syscfg::API> &api) {
     });
 }
 
+/// @brief returns a DAQmx library that loads api on first use.
+std::shared_ptr<x::lib::Lazy<daqmx::SugaredAPI>>
+loaded(const std::shared_ptr<daqmx::API> &api) {
+    return std::make_shared<x::lib::Lazy<daqmx::SugaredAPI>>([api] {
+        return std::pair{std::make_shared<daqmx::SugaredAPI>(api), x::errors::NIL};
+    });
+}
+
 /// @brief enables VLOG(1) and captures the text of every VLOG(1) line while in scope.
 class CaptureSink final : public absl::LogSink {
     int prev_vlog_level;
@@ -264,7 +274,12 @@ TEST(ScannerTest, testLogsIgnoredDeviceOnce) {
     });
     x::json::json j = {{"disabled", false}};
     auto p = x::json::Parser(j);
-    Scanner scanner(loaded(api), ScanTaskConfig(p), synnax::task::Task{});
+    Scanner scanner(
+        loaded(api),
+        loaded(std::make_shared<daqmx::MockAPI>()),
+        ScanTaskConfig(p),
+        synnax::task::Task{}
+    );
     CaptureSink sink;
     for (std::size_t i = 0; i < 3; i++) {
         auto [devices, err] = scanner.scan(common::ScannerContext{.count = i});
@@ -283,7 +298,12 @@ std::vector<synnax::device::Device> scan_once(
 ) {
     auto api = std::make_shared<FakeAPI>(std::move(resources));
     auto p = x::json::Parser(std::move(j));
-    Scanner scanner(loaded(api), ScanTaskConfig(p), synnax::task::Task{});
+    Scanner scanner(
+        loaded(api),
+        loaded(std::make_shared<daqmx::MockAPI>()),
+        ScanTaskConfig(p),
+        synnax::task::Task{}
+    );
     auto [devices, err] = scanner.scan(common::ScannerContext{});
     EXPECT_FALSE(err) << err;
     return devices;
@@ -344,6 +364,123 @@ TEST(ScannerTest, testIgnoresSavedPatterns) {
         models,
         std::vector<std::string>({"TestDevice", "MockDevice123", "PXI-6255"})
     );
+}
+
+/// @brief a DAQmx API whose device reads fail while failing is true.
+class FlakyAPI final : public daqmx::MockAPI {
+public:
+    bool failing = false;
+
+    int32 GetDeviceAttributeInt32(
+        const char name[],
+        const int32 attr,
+        int32 *value
+    ) override {
+        MockAPI::GetDeviceAttributeInt32(name, attr, value);
+        return this->failing ? DAQmxErrorInvalidDeviceID : 0;
+    }
+
+    int32 GetExtendedErrorInfo(char errorString[], const uInt32 bufferSize) override {
+        const std::string message = "Device not found.";
+        if (errorString == nullptr) return static_cast<int32>(message.size() + 1);
+        std::strncpy(errorString, message.c_str(), bufferSize);
+        return 0;
+    }
+
+    /// @brief returns how many times the scanner read the product category, which it
+    /// reads once per hardware read.
+    [[nodiscard]] std::size_t reads() const {
+        return static_cast<std::size_t>(std::ranges::count_if(
+            this->calls_to("GetDeviceAttributeInt32"),
+            [](const nlohmann::json &call) {
+                return call["args"]["attribute"] == DAQmx_Dev_ProductCategory;
+            }
+        ));
+    }
+};
+
+/// @brief a scanner over one physical device and a DAQmx API.
+struct HardwareScanner {
+    std::shared_ptr<FlakyAPI> dmx = std::make_shared<FlakyAPI>();
+    Scanner scanner;
+    /// @brief the stored records of the devices, as the scan task keeps them.
+    std::unordered_map<std::string, synnax::device::Device> stored;
+
+    HardwareScanner():
+        scanner(
+            loaded(
+                std::make_shared<FakeAPI>(std::vector<FakeAPI::Resource>{
+                    {"01A2B3C4", "NI PCIe-6363"},
+                })
+            ),
+            loaded(dmx),
+            config(),
+            synnax::task::Task{}
+        ) {}
+
+    /// @brief scans once and stores the devices found, as the scan task does.
+    synnax::device::Device scan() {
+        auto [devices, err] = this->scanner.scan(
+            common::ScannerContext{.devices = &this->stored}
+        );
+        EXPECT_FALSE(err) << err;
+        EXPECT_EQ(devices.size(), 1);
+        auto &dev = devices.at(0);
+        auto &stored = this->stored[dev.key];
+        auto properties = common::merge_device_properties(
+            stored.properties,
+            dev.properties
+        );
+        stored = dev;
+        stored.properties = properties.get<x::json::json::object_t>();
+        return dev;
+    }
+
+private:
+    static ScanTaskConfig config() {
+        auto p = x::json::Parser(x::json::json{{"disabled", false}});
+        return ScanTaskConfig(p);
+    }
+};
+
+/// @brief it should read the hardware of a new device once, then keep the stored value.
+TEST(ScannerTest, testReadsHardwareOnce) {
+    HardwareScanner s;
+    const auto first = s.scan();
+    EXPECT_TRUE(first.properties.contains(HARDWARE_KEY));
+    const auto second = s.scan();
+    EXPECT_FALSE(second.properties.contains(HARDWARE_KEY));
+    EXPECT_EQ(s.dmx->reads(), 1);
+    EXPECT_TRUE(s.stored.at("01A2B3C4").properties.contains(HARDWARE_KEY));
+}
+
+/// @brief it should not read the hardware of a device whose stored record has it.
+TEST(ScannerTest, testSkipsReadWhenStoredRecordHasHardware) {
+    HardwareScanner s;
+    s.stored["01A2B3C4"].properties[HARDWARE_KEY] = ::synnax::ni::Hardware{}.to_json();
+    EXPECT_FALSE(s.scan().properties.contains(HARDWARE_KEY));
+    EXPECT_EQ(s.dmx->reads(), 0);
+}
+
+/// @brief it should read the hardware of a device whose stored record lacks it.
+TEST(ScannerTest, testReadsWhenStoredRecordLacksHardware) {
+    HardwareScanner s;
+    s.stored["01A2B3C4"].properties["resource_name"] = "Dev1";
+    EXPECT_TRUE(s.scan().properties.contains(HARDWARE_KEY));
+    EXPECT_EQ(s.dmx->reads(), 1);
+}
+
+/// @brief it should keep a device whose hardware read fails, and read again on the next
+/// scan.
+TEST(ScannerTest, testRetriesFailedHardwareRead) {
+    HardwareScanner s;
+    s.dmx->failing = true;
+    const auto failed = s.scan();
+    EXPECT_EQ(failed.key, "01A2B3C4");
+    EXPECT_FALSE(failed.properties.contains(HARDWARE_KEY));
+    s.dmx->failing = false;
+    EXPECT_TRUE(s.scan().properties.contains(HARDWARE_KEY));
+    EXPECT_EQ(s.dmx->reads(), 2);
 }
 
 /// @brief it should start the scanner without the System Configuration library, warn

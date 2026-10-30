@@ -455,6 +455,78 @@ export interface WriteConfig extends z.infer<typeof writeConfigZ> {}
 export const scanConfigZ = task.scanConfigZ;
 export interface ScanConfig extends z.infer<typeof scanConfigZ> {}
 
+/** Range is a range of values that a device reads or writes. */
+export const rangeZ = z.object({
+  /** low is the low end of the range. */
+  low: z.number(),
+  /** high is the high end of the range. */
+  high: z.number(),
+});
+export interface Range extends z.infer<typeof rangeZ> {}
+
+/** AnalogInputPort is an analog input port of an NI device. */
+export const analogInputPortZ = z.object({
+  /** port is the number in the DAQmx name of the port, such as 3 for ai3. */
+  port: z.int32(),
+  /** terminalConfigs are the terminal configurations that the port accepts. */
+  terminalConfigs: terminalConfigZ.array().default(() => []),
+  /**
+   * defaultTerminalConfig is the terminal configuration that Cfg_Default gives on the
+   * port. Absent when the port takes no voltage channel.
+   */
+  defaultTerminalConfig: terminalConfigZ.optional(),
+  /** types are the channel types that the port accepts, such as ai_voltage. */
+  types: z
+    .string()
+    .array()
+    .default(() => []),
+  /**
+   * negative is the port that a differential channel on this port uses as its negative
+   * input. Absent when the port has no pair.
+   */
+  negative: z.int32().optional(),
+});
+export interface AnalogInputPort extends z.infer<typeof analogInputPortZ> {}
+
+/** AnalogOutputPort is an analog output port of an NI device. */
+export const analogOutputPortZ = z.object({
+  /** port is the number in the DAQmx name of the port, such as 1 for ao1. */
+  port: z.int32(),
+  /** terminalConfigs are the terminal configurations that the port accepts. */
+  terminalConfigs: terminalConfigZ.array().default(() => []),
+  /** types are the channel types that the port accepts, such as ao_voltage. */
+  types: z
+    .string()
+    .array()
+    .default(() => []),
+});
+export interface AnalogOutputPort extends z.infer<typeof analogOutputPortZ> {}
+
+/** CounterPort is a counter of an NI device. */
+export const counterPortZ = z.object({
+  /** port is the number in the DAQmx name of the counter, such as 0 for ctr0. */
+  port: z.int32(),
+  /** types are the channel types that the counter accepts, such as ci_frequency. */
+  types: z
+    .string()
+    .array()
+    .default(() => []),
+});
+export interface CounterPort extends z.infer<typeof counterPortZ> {}
+
+/** DigitalPort is a digital port of an NI device. */
+export const digitalPortZ = z.object({
+  /** port is the number in the DAQmx name of the port, such as 0 for port0. */
+  port: z.int32(),
+  /** lines is the number of lines in the port. */
+  lines: z.int32(),
+  /** input is true when the port reads digital input. */
+  input: z.boolean().default(false),
+  /** output is true when the port writes digital output. */
+  output: z.boolean().default(false),
+});
+export interface DigitalPort extends z.infer<typeof digitalPortZ> {}
+
 /** BuiltInCJC reads the reference temperature from the device's own sensor. */
 export const builtInCJCZ = z.object({
   source: z.literal("built_in"),
@@ -612,6 +684,59 @@ export const digitalWriteConfigZ = writeConfigZ.extend({
   channels: doChannelZ.array().default(() => []),
 });
 export interface DigitalWriteConfig extends z.infer<typeof digitalWriteConfigZ> {}
+
+/**
+ * Hardware is what the Driver reads from DAQmx about the ports, rates, and ranges of an
+ * NI device. The Driver stores it in the device properties under hardware.
+ */
+export const hardwareZ = z.object({
+  /**
+   * productCategory is the DAQmx product category of the device, such as m_series_daq.
+   */
+  productCategory: z.string().default(""),
+  /** productType is the DAQmx product name of the device, such as USB-6008. */
+  productType: z.string().default(""),
+  /** analogInputs are the analog input ports of the device. */
+  analogInputs: analogInputPortZ.array().default(() => []),
+  /** analogOutputs are the analog output ports of the device. */
+  analogOutputs: analogOutputPortZ.array().default(() => []),
+  /** counterInputs are the counters of the device that read input. */
+  counterInputs: counterPortZ.array().default(() => []),
+  /** counterOutputs are the counters of the device that write output. */
+  counterOutputs: counterPortZ.array().default(() => []),
+  /** digitalPorts are the digital ports of the device. */
+  digitalPorts: digitalPortZ.array().default(() => []),
+  /**
+   * terminals are the terminals of the device, such as PFI0, without the device name.
+   */
+  terminals: z
+    .string()
+    .array()
+    .default(() => []),
+  /** aiMinRate is the lowest analog input sample rate, in Hz. */
+  aiMinRate: z.number().optional(),
+  /**
+   * aiMaxSingleChannelRate is the highest analog input sample rate of one channel, in
+   * Hz.
+   */
+  aiMaxSingleChannelRate: z.number().optional(),
+  /**
+   * aiMaxMultiChannelRate is the highest analog input sample rate of the device, in Hz.
+   * A task with several channels divides it by the channel count.
+   */
+  aiMaxMultiChannelRate: z.number().optional(),
+  /** aoMaxRate is the highest analog output sample rate, in Hz. */
+  aoMaxRate: z.number().optional(),
+  /** aiVoltageRanges are the analog input voltage ranges of the device. */
+  aiVoltageRanges: rangeZ.array().default(() => []),
+  /** aiCurrentRanges are the analog input current ranges of the device. */
+  aiCurrentRanges: rangeZ.array().default(() => []),
+  /** aoVoltageRanges are the analog output voltage ranges of the device. */
+  aoVoltageRanges: rangeZ.array().default(() => []),
+  /** aoCurrentRanges are the analog output current ranges of the device. */
+  aoCurrentRanges: rangeZ.array().default(() => []),
+});
+export interface Hardware extends z.infer<typeof hardwareZ> {}
 
 /** CustomScale applies a user-defined scale to the raw measurement. */
 export const customScaleZ = z.object({
