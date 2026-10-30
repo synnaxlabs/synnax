@@ -883,6 +883,46 @@ ConnectionConfig unit(const std::uint16_t port, const std::uint8_t id) {
     cfg.timeout = x::telem::MILLISECOND * 50;
     return cfg;
 }
+
+/// @brief a local TCP server that never accepts. Once its accept queue is full, Linux
+/// drops new connects, so they time out. macOS and Windows reset them instead.
+class FullServer {
+    int port;
+    modbus_t *listener;
+    std::vector<modbus_t *> clients;
+
+public:
+    explicit FullServer(const int port):
+        port(port), listener(modbus_new_tcp("127.0.0.1", port)) {}
+
+    FullServer(const FullServer &) = delete;
+    FullServer &operator=(const FullServer &) = delete;
+
+    ~FullServer() {
+        for (auto *client: this->clients) {
+            modbus_close(client);
+            modbus_free(client);
+        }
+        modbus_close(this->listener);
+        modbus_free(this->listener);
+    }
+
+    /// @brief listens, then connects until a connect times out.
+    x::errors::Error start() {
+        const int fd = modbus_tcp_listen(this->listener, 1);
+        if (fd == -1) return x::errors::Error(modbus_strerror(errno));
+        modbus_set_socket(this->listener, fd);
+        for (int i = 0; i < 16; i++) {
+            auto *client = modbus_new_tcp("127.0.0.1", this->port);
+            modbus_set_response_timeout(client, 0, 100000);
+            this->clients.push_back(client);
+            if (modbus_connect(client) == 0) continue;
+            if (errno == ETIMEDOUT) return x::errors::NIL;
+            return x::errors::Error(modbus_strerror(errno));
+        }
+        return x::errors::Error("the accept queue did not fill");
+    }
+};
 }
 
 /// @brief it should retry a timed-out request, demote the unit after three timed-out
@@ -987,10 +1027,13 @@ TEST(DeviceTest, ReplyResetsTimeouts) {
 /// @brief it should not demote a unit when connects to its server time out, since a
 /// server that is down says nothing about the unit.
 TEST(DeviceTest, ConnectTimeoutsKeepUnit) {
+#ifndef __linux__
+    GTEST_SKIP() << "only Linux lets a connect to a full accept queue time out";
+#endif
+    FullServer server(1655);
+    ASSERT_NIL(server.start());
     Manager manager;
-    // 192.0.2.1 is reserved for documentation, so connects to it time out.
-    ConnectionConfig cfg{"192.0.2.1", 502};
-    cfg.timeout = x::telem::MILLISECOND * 50;
+    auto cfg = unit(1655, 1);
     cfg.retries = 0;
     auto dev = ASSERT_NIL_P(manager.acquire(cfg));
     uint16_t reg = 0;
