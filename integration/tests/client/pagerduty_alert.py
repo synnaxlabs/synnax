@@ -120,7 +120,6 @@ class PagerDutyAlert(TestCase):
         streamer.close()
         if not configured:
             self.fail("Timed out waiting for Go driver to configure the task")
-            return
 
         # 5. Trigger an alert by setting the status to error
         self.open_alert_key = self.status_key
@@ -161,7 +160,6 @@ class PagerDutyAlert(TestCase):
                 f"Expected to find a PagerDuty incident for '{self.status_key}', "
                 f"but none was found after 10s."
             )
-            return
         self.log(f"Found {len(matching)} matching incident(s) in PagerDuty")
 
         # 7. Resolve the status and verify PagerDuty resolves the incident

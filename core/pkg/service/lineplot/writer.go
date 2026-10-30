@@ -15,6 +15,7 @@ import (
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	v8 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v8"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 )
@@ -47,7 +48,7 @@ func (w Writer) Create(
 	}
 	// Materialize lines for any channel/range bindings supplied at creation so a plot
 	// created with channels and ranges but no lines is fully populated.
-	lp.Lines = reconcileLines(*lp)
+	lp.Lines = v8.ReconcileLines(lp.Key, lp.Channels, lp.Lines)
 	lp.ApplyDefaults()
 	if err := lp.Validate(); err != nil {
 		return err
