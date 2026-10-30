@@ -440,6 +440,29 @@ var _ = Describe("C++ JSON Plugin", func() {
 						ToContain(`obj[std::to_string(key)] = item.to_json();`)
 				},
 			)
+			DescribeTable("Should reject a map of structs with an unsupported key",
+				func(ctx SpecContext, key string) {
+					req := MustGenerateRequest(ctx, `
+					@cpp output "client/cpp/task"
+
+					Units enum {
+						volts = "Volts"
+					}
+
+					Pair struct {
+						left uint32
+					}
+
+					Task struct {
+						pairs map<`+key+`, Pair>
+					}
+				`, "task", loader)
+					Expect(jsonPlugin.Generate(req)).Error().
+						To(MatchError(ContainSubstring("Task.pairs")))
+				},
+				Entry("string enum", "Units"),
+				Entry("float", "float64"),
+			)
 			It(
 				"Should serialize a map of structs declared through an alias",
 				func(ctx SpecContext) {
