@@ -43,6 +43,7 @@ import { CSS } from "@/platform/css";
 import { Form as PlatformForm } from "@/platform/form";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
+import { useFooterTaskSettings } from "@/uiOptionsBar"; // SCRATCH
 
 const RATE_INPUT_PROPS = {
   endContent: "Hz",
@@ -53,25 +54,43 @@ const NAN_FILL_INPUT_PROPS = {
   tooltip: "Write NaN for invalid floats instead of skipping the sample",
 } as const;
 
-const Properties = () => (
-  <>
-    <SelectDevice />
-    <Flex.Box x grow>
-      <PForm.NumericField
-        path="config.rate"
-        label="Rate"
-        inputProps={RATE_INPUT_PROPS}
-      />
-      <Task.Fields.DataSaving />
-      <Task.Fields.AutoStart />
-      <PForm.CheckboxField
-        label="NaN fill"
-        path="config.nanFillEnabled"
-        inputProps={NAN_FILL_INPUT_PROPS}
-      />
-    </Flex.Box>
-  </>
-);
+const Properties = () => {
+  const footer = useFooterTaskSettings(); // SCRATCH
+  return (
+    <>
+      <SelectDevice />
+      <Flex.Box x grow>
+        <PForm.NumericField
+          path="config.rate"
+          label="Rate"
+          inputProps={RATE_INPUT_PROPS}
+        />
+        <Task.Fields.DataSaving />
+        <Task.Fields.AutoStart />
+        {footer ? (
+          <PForm.Field<boolean> path="config.nanFillEnabled" label="Invalid floats">
+            {({ value, onChange }) => (
+              <Select.Buttons<"skip" | "nan">
+                variant="outlined"
+                value={value ? "nan" : "skip"}
+                onChange={(k: "skip" | "nan") => onChange(k === "nan")}
+              >
+                <Select.Item itemKey="skip">Skip</Select.Item>
+                <Select.Item itemKey="nan">Write NaN</Select.Item>
+              </Select.Buttons>
+            )}
+          </PForm.Field>
+        ) : (
+          <PForm.CheckboxField
+            label="NaN fill"
+            path="config.nanFillEnabled"
+            inputProps={NAN_FILL_INPUT_PROPS}
+          />
+        )}
+      </Flex.Box>
+    </>
+  );
+};
 
 const isTimingField = (f: ReadField): boolean => f.timeFormat != null;
 

@@ -9,6 +9,9 @@
 
 import { Form } from "@synnaxlabs/lyra/form";
 
-export const AutoStart = () => (
-  <Form.CheckboxField label="Auto start" path="config.autoStart" />
-);
+import { useFooterTaskSettings } from "@/uiOptionsBar"; // SCRATCH
+
+export const AutoStart = () => {
+  if (useFooterTaskSettings()) return null; // SCRATCH
+  return <Form.CheckboxField label="Auto start" path="config.autoStart" />;
+};

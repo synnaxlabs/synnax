@@ -32,6 +32,7 @@ export interface PanesProps {
   title?: ReactNode;
   /** The details body, or a placeholder when nothing is selected. */
   children: ReactNode;
+  listActions?: ReactNode; // SCRATCH
 }
 
 /** Below this width the list leaves the layout and opens as a drawer instead. */
@@ -49,6 +50,7 @@ export const Panes = ({
   detailsPath,
   title,
   children,
+  listActions, // SCRATCH
 }: PanesProps) => {
   const [narrow, setNarrow] = useState(false);
   const narrowRef = useRef(narrow);
@@ -129,6 +131,7 @@ export const Panes = ({
               {listTitle}
             </Header.Title>
           </Flex.Box>
+          {listActions /* SCRATCH */}
         </Header.Header>
         {list}
       </Flex.Box>

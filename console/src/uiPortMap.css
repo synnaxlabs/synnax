@@ -1,0 +1,404 @@
+/* SCRATCH: never commit. Styles for the NI analog read port map prototype. */
+
+.ni-port-map {
+    --ni-cell: 24px;
+    --ni-row: 20px;
+    --ni-gap: 3px;
+
+    font-family: var(--pluto-font-family);
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    padding: 2rem 3rem;
+    border-bottom: var(--pluto-border);
+    flex: none;
+}
+
+.ni-port-map__devices {
+    display: flex;
+    flex-direction: column;
+    gap: 5rem;
+}
+
+.ni-port-map--wide .ni-port-map__devices {
+    flex-direction: row;
+    flex-wrap: wrap;
+    column-gap: 6rem;
+    row-gap: 3rem;
+}
+
+.ni-port-map__device {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+.ni-port-map__device-header {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.ni-port-map__model {
+    font-size: var(--pluto-p-size);
+    line-height: var(--pluto-p-line-height);
+    font-weight: 500;
+    color: var(--pluto-gray-l11);
+}
+
+.ni-port-map__meta {
+    font-size: 11px;
+    line-height: 14px;
+    color: var(--pluto-gray-l9);
+    font-variant-numeric: tabular-nums;
+}
+
+.ni-port-map__groups {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem 2rem;
+}
+
+.ni-port-map__group {
+    display: grid;
+    grid-auto-rows: var(--ni-row);
+    gap: var(--ni-gap);
+}
+
+/* A free port: a quiet slot. */
+.ni-port-map__cell {
+    all: unset;
+    font-family: var(--pluto-font-family);
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-around;
+    border-radius: var(--pluto-border-radius-tiny);
+    border: var(--pluto-border-width) solid transparent;
+    background: var(--pluto-gray-l2);
+    color: var(--pluto-gray-l9);
+    font-size: 11px;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+    cursor: pointer;
+    transition: var(--pluto-btn-transition);
+}
+
+.ni-port-map__cell--free:hover {
+    background: var(--pluto-gray-l4);
+    color: var(--pluto-gray-l11);
+}
+
+/* A used port in its channel's hue. Oklch mixing keeps the hue from going muddy. */
+.ni-port-map__cell--used,
+.ni-port-mark {
+    --ni-c: var(--ni-hue, var(--pluto-gray-l7));
+
+    color: var(--pluto-gray-l11);
+    font-weight: 500;
+}
+
+/* By state: one accent marks a used port, as UniFi and Dante do. The channel shows on
+   hover and in the details pane, not as a hue. */
+[data-ni-port-color="state"] .ni-port-map__cell--used {
+    background: color-mix(in oklch, var(--pluto-primary-z) 42%, var(--pluto-gray-l1));
+}
+
+[data-ni-port-color="state"] .ni-port-map__cell--used:hover,
+[data-ni-port-color="state"] .ni-port-map__cell--hovered {
+    background: color-mix(in oklch, var(--pluto-primary-z) 58%, var(--pluto-gray-l1));
+}
+
+/* The list keeps its plain port number. */
+[data-ni-port-color="state"] .ni-port-mark {
+    background: none;
+    color: var(--pluto-gray-l9);
+}
+
+/* Ring: a faint tint inside a ring of the hue, both pulled toward the surface. */
+[data-ni-port-color="ring"] .ni-port-map__cell--used,
+[data-ni-port-color="ring"] .ni-port-mark {
+    --ni-ring: inset 0 0 0 1.5px
+        color-mix(in oklch, var(--ni-c) 50%, var(--pluto-gray-l1));
+
+    background: color-mix(in oklch, var(--ni-c) 12%, var(--pluto-gray-l1));
+    box-shadow: var(--ni-ring);
+}
+
+[data-ni-port-color="ring"] .ni-port-map__cell--used:hover,
+[data-ni-port-color="ring"] .ni-port-map__cell--hovered {
+    background: color-mix(in oklch, var(--ni-c) 26%, var(--pluto-gray-l1));
+}
+
+/* Fill: a solid, deeper version of the hue. */
+[data-ni-port-color="fill"] .ni-port-map__cell--used,
+[data-ni-port-color="fill"] .ni-port-mark {
+    background: color-mix(in oklch, var(--ni-c) 55%, var(--pluto-gray-l1));
+}
+
+[data-ni-port-color="fill"] .ni-port-map__cell--used:hover,
+[data-ni-port-color="fill"] .ni-port-map__cell--hovered {
+    background: color-mix(in oklch, var(--ni-c) 70%, var(--pluto-gray-l1));
+}
+
+.ni-port-map__cell--pill {
+    padding: 2px 0;
+}
+
+.ni-port-map__negative {
+    opacity: 0.75;
+    font-weight: 400;
+}
+
+/* Matches the color rules' specificity, so the selection ring wins. */
+[data-ni-port-color] .ni-port-map__cell--selected {
+    box-shadow: var(--ni-ring, 0 0 0 transparent), var(--pluto-selected-ring);
+}
+
+.ni-port-map__cell--conflict,
+.ni-port-map__cell--conflict:hover {
+    background: color-mix(in srgb, var(--pluto-error-z) 15%, var(--pluto-gray-l1));
+    border-color: color-mix(in srgb, var(--pluto-error-z) 65%, var(--pluto-gray-l1));
+    color: var(--pluto-error-z);
+}
+
+/* The add button's icon lines up with the port grid. */
+.ni-port-map__add {
+    display: flex;
+    margin-left: -2rem;
+}
+
+/* Pinned under the ports, where the list view has "Add channel". */
+.ni-port-map__add--pinned {
+    display: flex;
+    flex: none;
+}
+
+.ni-port-map__add--pinned > .lyra-dialog__frame {
+    flex: 1 1 auto;
+}
+
+.ni-port-map__add--pinned .console-create-list-item {
+    flex: 1 1 auto;
+}
+
+/* The trigger is an empty select, which Lyra dims as a placeholder. "Add device" is
+   an action, so it takes the "Add channel" color. */
+.ni-port-map__add--pinned .lyra-btn.lyra-select-single-trigger--empty {
+    color: var(--pluto-gray-l9);
+}
+
+.ni-port-mark {
+    font-family: var(--pluto-font-family);
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 24px;
+    height: 20px;
+    border-radius: var(--pluto-border-radius-tiny);
+    border: var(--pluto-border-width) solid transparent;
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+}
+
+.ni-port-select__note {
+    color: var(--pluto-gray-l9);
+    font-size: 11px;
+}
+
+/* A port under the pointer marks its row with the list's own hover color, so a selected
+   row keeps its selected tint. */
+.console-channel-item.ni-port-item--hovered {
+    background: var(--pluto-hover-bg);
+}
+
+.ni-port-map--picker {
+    padding: 0;
+    border-bottom: none;
+}
+
+/* SCRATCH: list and port views. */
+.ni-port-map--column {
+    flex: 1 1 0;
+    min-height: 0;
+    padding: 0;
+    gap: 0;
+    border-bottom: none;
+}
+
+.ni-port-map--column .ni-port-map__devices {
+    flex: 1 1 0;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 3rem;
+}
+
+.ni-view-switch {
+    margin-right: 1rem;
+}
+
+/* SCRATCH: the rack hangs under the header buttons. */
+.console-task-header-actions {
+    position: relative;
+}
+
+.console-task-header-rack {
+    position: absolute;
+    top: calc(100% + 1rem);
+    right: 0;
+}
+
+/* SCRATCH: the details header. */
+.ni-port-badge {
+    font-family: var(--pluto-font-family);
+    box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    min-width: 24px;
+    height: 20px;
+    padding: 0 4px;
+    border-radius: var(--pluto-border-radius-tiny);
+    border: var(--pluto-border-width) solid transparent;
+    background: color-mix(in oklch, var(--pluto-primary-z) 42%, var(--pluto-gray-l1));
+    color: var(--pluto-gray-l11);
+    font-size: 11px;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+}
+
+.ni-port-badge--empty {
+    background: var(--pluto-gray-l3);
+    color: var(--pluto-gray-l9);
+}
+
+.ni-port-badge--conflict {
+    background: color-mix(in srgb, var(--pluto-error-z) 15%, var(--pluto-gray-l1));
+    border-color: color-mix(in srgb, var(--pluto-error-z) 65%, var(--pluto-gray-l1));
+    color: var(--pluto-error-z);
+}
+
+.ni-details-type-icon {
+    color: var(--pluto-gray-l9);
+    flex: none;
+    width: 14px;
+    height: 14px;
+}
+
+.ni-details-device {
+    flex: none;
+    margin-left: 0.5rem;
+}
+
+/* SCRATCH: in the ports view a click on a free port adds a channel, so hover says so. */
+.ni-port-map--column .ni-port-map__cell--free {
+    position: relative;
+}
+
+.ni-port-map--column .ni-port-map__cell--free:hover > span {
+    visibility: hidden;
+}
+
+.ni-port-map--column .ni-port-map__cell--free:hover::after {
+    content: "+";
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+/* SCRATCH: a disabled channel. The row's text dims, and the status dot stays as it is,
+   so the control that turns it back on keeps full contrast. */
+[data-ni-disabled]:not([data-ni-disabled="today"]) {
+    .console-channel-item--disabled .lyra-text,
+    .console-channel-item--disabled .console-channel-item__icon,
+    .console-channel-item--disabled .ni-port-mark {
+        color: var(--pluto-text-disabled);
+    }
+}
+
+/* A disabled port stays claimed. Each option marks it a different way. */
+.ni-port-map__cell--disabled:not(.ni-port-map__cell--conflict),
+.ni-port-badge--disabled:not(.ni-port-badge--conflict) {
+    --ni-used: color-mix(in oklch, var(--pluto-primary-z) 42%, var(--pluto-gray-l1));
+    --ni-used-hover: color-mix(
+        in oklch,
+        var(--pluto-primary-z) 58%,
+        var(--pluto-gray-l1)
+    );
+}
+
+/* Outline: no fill, a border in the used color. */
+[data-ni-disabled="outline"] {
+    .ni-port-map__cell--disabled:not(.ni-port-map__cell--conflict),
+    .ni-port-badge--disabled:not(.ni-port-badge--conflict) {
+        background: transparent;
+        border-color: color-mix(
+            in oklch,
+            var(--pluto-primary-z) 55%,
+            var(--pluto-gray-l1)
+        );
+        color: var(--pluto-gray-l9);
+    }
+
+    .ni-port-map__cell--disabled:not(.ni-port-map__cell--conflict):hover,
+    .ni-port-map__cell--disabled.ni-port-map__cell--hovered {
+        background: color-mix(
+            in oklch,
+            var(--pluto-primary-z) 16%,
+            var(--pluto-gray-l1)
+        );
+    }
+}
+
+/* Striped: the used color in diagonal stripes, as calendars mark a tentative event. */
+[data-ni-disabled="striped"] {
+    .ni-port-map__cell--disabled:not(.ni-port-map__cell--conflict),
+    .ni-port-badge--disabled:not(.ni-port-badge--conflict) {
+        background: repeating-linear-gradient(
+            -45deg,
+            var(--ni-used) 0 2px,
+            var(--pluto-gray-l1) 2px 5px
+        );
+        border-color: var(--ni-used);
+        color: var(--pluto-gray-l11);
+    }
+
+    .ni-port-map__cell--disabled:not(.ni-port-map__cell--conflict):hover,
+    .ni-port-map__cell--disabled.ni-port-map__cell--hovered {
+        background: repeating-linear-gradient(
+            -45deg,
+            var(--ni-used-hover) 0 2px,
+            var(--pluto-gray-l1) 2px 5px
+        );
+    }
+}
+
+/* Faded: the used fill, dimmed like the list row. */
+[data-ni-disabled="faded"] {
+    .ni-port-map__cell--disabled:not(.ni-port-map__cell--conflict),
+    .ni-port-badge--disabled:not(.ni-port-badge--conflict) {
+        background: color-mix(
+            in oklch,
+            var(--pluto-primary-z) 16%,
+            var(--pluto-gray-l1)
+        );
+        color: var(--pluto-text-disabled);
+    }
+
+    .ni-port-map__cell--disabled:not(.ni-port-map__cell--conflict):hover,
+    .ni-port-map__cell--disabled.ni-port-map__cell--hovered {
+        background: color-mix(
+            in oklch,
+            var(--pluto-primary-z) 26%,
+            var(--pluto-gray-l1)
+        );
+    }
+}

@@ -134,7 +134,8 @@ export const ChannelName = (props: ChannelNameProps): ReactElement => {
     if (props.defaultName != null)
       return (
         <Message variant="info" message="Created when the task is configured">
-          <Unresolved {...props} color={8} />
+          {/* SCRATCH: step 8 is a border step; 9 is secondary text. */}
+          <Unresolved {...props} color={9} />
         </Message>
       );
     return (

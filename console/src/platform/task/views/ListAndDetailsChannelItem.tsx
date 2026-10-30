@@ -11,12 +11,13 @@ import "@/platform/task/views/ListAndDetailsChannelItem.css";
 
 import { type channel } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
 import { type List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { type direction, type record } from "@synnaxlabs/x";
-import { cloneElement, type CSSProperties, type JSX } from "react";
+import { cloneElement, type CSSProperties, type JSX, type ReactNode } from "react";
 
 import { CSS } from "@/platform/css";
 import { ChannelName, type ChannelNameProps } from "@/platform/task/ChannelName";
@@ -43,6 +44,9 @@ export interface ListAndDetailsChannelItemProps<
   path: string;
   hasTareButton: boolean;
   nameDirection?: direction.Direction;
+  // SCRATCH: port map prototype hooks.
+  portNode?: ReactNode;
+  scratchClassName?: string;
 }
 
 const getChannelNameProps = (
@@ -69,11 +73,14 @@ export const ListAndDetailsChannelItem = <K extends string>({
   icon,
   stateChannel,
   nameDirection = "x",
+  portNode, // SCRATCH
+  scratchClassName, // SCRATCH
   ...rest
 }: ListAndDetailsChannelItemProps<K>) => {
   const { itemKey } = rest;
   const hasStateChannel = stateChannel != null;
   const hasIcon = icon != null;
+  const disabled = Form.useFieldValue<boolean>(`${path}.disabled`, { optional: true });
   const channelNameProps = getChannelNameProps(hasIcon);
   const portStyle: CSSProperties = { width: `${portMaxChars * 1.25}rem` };
   return (
@@ -81,16 +88,22 @@ export const ListAndDetailsChannelItem = <K extends string>({
       {...rest}
       justify="between"
       align="center"
-      className={CSS.B("channel-item")}
+      className={CSS.cls(
+        CSS.B("channel-item"),
+        disabled === true && CSS.BM("channel-item", "disabled"),
+        scratchClassName /* SCRATCH */,
+      )}
     >
       <Flex.Box
         direction={nameDirection}
         gap="small"
         align={nameDirection === "x" ? "center" : "start"}
       >
-        <Text.Text color={9} weight={500} style={portStyle}>
-          {port}
-        </Text.Text>
+        {portNode ?? ( // SCRATCH
+          <Text.Text color={9} weight={500} style={portStyle}>
+            {port}
+          </Text.Text>
+        )}
         {hasIcon && (
           <Tooltip.Dialog>
             {icon.name}

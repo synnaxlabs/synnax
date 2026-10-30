@@ -109,9 +109,12 @@ const Header = ({ isSnapshot }: HeaderProps) => (
           />
         )}
       </PForm.Field>
-      <Flex.Box align="end" gap="small">
+      {/* SCRATCH: the rack hangs under the buttons and adds no height. */}
+      <Flex.Box align="end" gap="small" className="console-task-header-actions">
         <UtilityButtons />
-        <Rack />
+        <div className="console-task-header-rack">
+          <Rack />
+        </div>
       </Flex.Box>
     </Flex.Box>
     {!isSnapshot && <ParentRangeButton />}

@@ -14,6 +14,7 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Select as PSelect } from "@synnaxlabs/lyra/select";
 import { caseconv, DataType, errors, primitive } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 
@@ -37,6 +38,7 @@ import {
 import { CSS } from "@/platform/css";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
+import { useFooterTaskSettings } from "@/uiOptionsBar"; // SCRATCH
 
 const getChannelByNodeID = (props: DeviceProperties, nodeId: string): channel.Key =>
   props.read.channels[nodeId] ??
@@ -66,21 +68,47 @@ const isIndexItem = Component.renderProp(IsIndexItem);
 
 const Properties = (): ReactElement => {
   const arrayMode = PForm.useFieldValue<boolean>("config.arrayMode");
+  const footer = useFooterTaskSettings(); // SCRATCH
+  const handleArrayModeChange = (
+    value: boolean,
+    { set }: { set: (path: string, value: unknown) => void },
+  ) => {
+    // always set the array size to 1 for either the default in array mode or an
+    // array size of 1 in stream mode.
+    set("config.arraySize", 1);
+    if (!value) set("config.streamRate", 25);
+  };
+  const arraySampling = (
+    <PForm.CheckboxField
+      label="Array sampling"
+      path="config.arrayMode"
+      onChange={handleArrayModeChange}
+    />
+  );
   return (
     <>
       <Select />
       <Flex.Box x>
+        {footer && (
+          <PForm.Field<boolean>
+            path="config.arrayMode"
+            label="Sampling"
+            onChange={handleArrayModeChange}
+          >
+            {({ value, onChange }) => (
+              <PSelect.Buttons<"stream" | "array">
+                variant="outlined"
+                value={value ? "array" : "stream"}
+                onChange={(k: "stream" | "array") => onChange(k === "array")}
+              >
+                <PSelect.Item itemKey="stream">Stream</PSelect.Item>
+                <PSelect.Item itemKey="array">Array</PSelect.Item>
+              </PSelect.Buttons>
+            )}
+          </PForm.Field>
+        )}
         <Task.Fields.SampleRate />
-        <PForm.CheckboxField
-          label="Array sampling"
-          path="config.arrayMode"
-          onChange={(value, { set }) => {
-            // always set the array size to 1 for either the default in array mode or an
-            // array size of 1 in stream mode.
-            set("config.arraySize", 1);
-            if (!value) set("config.streamRate", 25);
-          }}
-        />
+        {!footer && arraySampling}
         {arrayMode ? (
           <PForm.NumericField
             label="Array size"

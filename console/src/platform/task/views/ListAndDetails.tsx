@@ -9,7 +9,8 @@
 
 import { type Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
-import { useState } from "react";
+import { Select } from "@synnaxlabs/lyra/select";
+import { type ReactNode, useState } from "react";
 
 import { CSS } from "@/platform/css";
 import { type Channel } from "@/platform/task/types";
@@ -32,15 +33,29 @@ export interface ListAndDetailsProps<C extends Channel> extends Pick<
   /** Names the selected channel in the details header, typically by its port. */
   detailsTitle?: Component.RenderProp<DetailsProps>;
   createChannel: CreateChannel<C>;
+  // SCRATCH: port map prototype hooks.
+  selected?: string[];
+  onSelect?: (keys: string[]) => void;
+  listTop?: ReactNode;
+  top?: ReactNode;
+  listAlt?: ReactNode;
 }
 
 export const ListAndDetails = <C extends Channel>({
   details,
   detailsTitle,
   createChannel,
+  selected: selectedProp, // SCRATCH
+  onSelect, // SCRATCH
+  listTop, // SCRATCH
+  top, // SCRATCH
+  listAlt, // SCRATCH
   ...rest
 }: ListAndDetailsProps<C>) => {
-  const [selected, setSelected] = useState<string[]>([]);
+  const [view, setView] = useState<"list" | "ports">("list"); // SCRATCH
+  const [selectedState, setSelectedState] = useState<string[]>([]);
+  const selected = selectedProp ?? selectedState; // SCRATCH
+  const setSelected = onSelect ?? setSelectedState; // SCRATCH
   const handleCreateChannel = (channels: C[]) => createChannel(channels, selected[0]);
   const handleDuplicateChannels = (allChannels: C[], keys: string[]) => {
     const newlyMade: C[] = [];
@@ -51,10 +66,29 @@ export const ListAndDetails = <C extends Channel>({
     return newlyMade;
   };
   const detailsPath = selected.length > 0 ? `config.channels.${selected[0]}` : null;
-  return (
+  const panes = (
     <Panes
       listTitle="Channels"
+      listActions={
+        listAlt != null && (
+          <Select.Buttons<"list" | "ports">
+            className="ni-view-switch"
+            size="small"
+            value={view}
+            onChange={setView}
+          >
+            <Select.Item itemKey="list" size="small">
+              List
+            </Select.Item>
+            <Select.Item itemKey="ports" size="small">
+              Ports
+            </Select.Item>
+          </Select.Buttons>
+        )
+      }
       list={
+        listAlt != null && view === "ports" ? listAlt : <>
+        {listTop /* SCRATCH */}
         <ChannelList<C>
           {...rest}
           grow
@@ -64,6 +98,7 @@ export const ListAndDetails = <C extends Channel>({
           createChannel={handleCreateChannel}
           createChannels={handleDuplicateChannels}
         />
+        </>
       }
       detailsPath={detailsPath}
       title={detailsPath != null && detailsTitle?.({ path: detailsPath })}
@@ -74,5 +109,13 @@ export const ListAndDetails = <C extends Channel>({
         </Flex.Box>
       )}
     </Panes>
+  );
+  // SCRATCH
+  if (top == null) return panes;
+  return (
+    <Flex.Box y grow empty>
+      {top}
+      {panes}
+    </Flex.Box>
   );
 };

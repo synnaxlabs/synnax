@@ -9,6 +9,11 @@
 
 import { Form } from "@synnaxlabs/lyra/form";
 
-export const DataSaving = () => (
-  <Form.CheckboxField label="Data saving" path="config.dataSavingDisabled" inverted />
-);
+import { useFooterTaskSettings } from "@/uiOptionsBar"; // SCRATCH
+
+export const DataSaving = () => {
+  if (useFooterTaskSettings()) return null; // SCRATCH
+  return (
+    <Form.CheckboxField label="Data saving" path="config.dataSavingDisabled" inverted />
+  );
+};

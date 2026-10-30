@@ -19,6 +19,8 @@ import { CoefficientsField } from "@/feature/ni/task/CoefficientsField";
 import { CustomScaleSection } from "@/feature/ni/task/CustomScaleForm";
 import { MinMaxValueFields } from "@/feature/ni/task/MinMaxValueFields";
 import { SelectAIChannelTypeField } from "@/feature/ni/task/SelectAIChannelTypeField";
+import { usePortMapOption } from "@/uiOptionsBar"; // SCRATCH
+import { PortPickerField, PortSelectField } from "@/uiPortMap"; // SCRATCH
 import {
   type AccelChargeSensitivityUnits,
   type AccelSensitivityUnits,
@@ -1104,6 +1106,15 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
   ),
 };
 
+// SCRATCH: port map prototype.
+const ScratchPortField = ({ prefix }: { prefix: string }) => {
+  const option = usePortMapOption();
+  if (option === "today") return <PortField path={prefix} />;
+  if (option === "details" || option === "views")
+    return <PortPickerField prefix={prefix} />;
+  return <PortSelectField prefix={prefix} />;
+};
+
 export interface AIChannelFormProps {
   type: AIChannelType;
   prefix: string;
@@ -1115,7 +1126,7 @@ export const AIChannelForm = ({ type, prefix }: AIChannelFormProps) => {
     <Form.Sections>
       <Form.Section title="Source">
         <Select path={`${prefix}.device`} />
-        {type !== "ai_temp_builtin" && <PortField path={prefix} />}
+        {type !== "ai_temp_builtin" && <ScratchPortField prefix={prefix} />}
       </Form.Section>
       <Form.Section title="Signal">
         <SelectAIChannelTypeField path={prefix} inputProps={{ allowNone: false }} />

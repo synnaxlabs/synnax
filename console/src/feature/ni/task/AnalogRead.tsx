@@ -12,8 +12,10 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Text } from "@synnaxlabs/lyra/text";
+import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { errors, primitive, strings, unique } from "@synnaxlabs/x";
-import { type FC } from "react";
+import { type FC, useState } from "react";
 
 import { useByKeys } from "@/feature/ni/device/queries";
 import { SCHEMAS } from "@/feature/ni/device/types";
@@ -38,6 +40,14 @@ import {
 import { Device as PlatformDevice } from "@/platform/device";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
+import { useDetailsHeaderOption, usePortMapOption } from "@/uiOptionsBar"; // SCRATCH
+import {
+  PortBadge,
+  PortMap,
+  PortMapContext,
+  PortMark,
+  usePortMap,
+} from "@/uiPortMap"; // SCRATCH
 
 const Properties = () => (
   <>
@@ -67,9 +77,22 @@ const ChannelListItem = ({ onTare, ...rest }: ChannelListItemProps) => {
   const hasTareButton = channel !== 0 && !isSnapshot;
   const canTare = !disabled && isRunning;
   const Icon = AI_CHANNEL_TYPE_ICONS[type];
+  // SCRATCH: port map prototype.
+  const map = usePortMap();
+  const scratch =
+    map == null
+      ? {}
+      : {
+          portNode: <PortMark itemKey={rest.itemKey} />,
+          scratchClassName:
+            map.hovered === rest.itemKey ? "ni-port-item--hovered" : undefined,
+          onPointerEnter: () => map.setHovered(rest.itemKey),
+          onPointerLeave: () => map.setHovered(),
+        };
   return (
     <Task.Views.ListAndDetailsChannelItem
       {...rest}
+      {...scratch}
       port={channelPort(value) ?? NO_PORT}
       canTare={canTare}
       onTare={onTare}
@@ -89,9 +112,46 @@ const ChannelDetails = ({ path }: Task.Views.DetailsProps) => {
 
 const channelDetails = Component.renderProp(ChannelDetails);
 
+// SCRATCH: the header mirrors the selected list item, then names the device.
+const NameTitle = ({ path }: Task.Views.DetailsProps) => {
+  const value = PForm.useFieldValue<AIChannel>(path);
+  const devices = useByKeys(value.device ? [value.device] : []);
+  const dev = devices?.find((d) => d.key === value.device);
+  const Icon = AI_CHANNEL_TYPE_ICONS[value.type];
+  const identifier = dev?.properties.identifier || dev?.location;
+  const defaultName =
+    identifier != null && identifier !== ""
+      ? `${channel.escapeInvalidName(identifier)}_ai_${getAIChannelSuffix(value)}`
+      : undefined;
+  return (
+    <>
+      <PortBadge path={path} />
+      <Tooltip.Dialog>
+        {AI_CHANNEL_TYPE_NAMES[value.type]}
+        <Icon className="ni-details-type-icon" />
+      </Tooltip.Dialog>
+      <Task.ChannelName
+        id={`ni-details-name-${value.key}`}
+        channel={value.channel}
+        namePath={`${path}.name`}
+        defaultName={defaultName}
+        level="p"
+        weight={500}
+        color={11}
+      />
+      {dev != null && (
+        <Text.Text level="small" color={9} className="ni-details-device">
+          {dev.model}
+        </Text.Text>
+      )}
+    </>
+  );
+};
+
 const DetailsTitle = ({ path }: Task.Views.DetailsProps) => {
   const value = PForm.useFieldValue<AIChannel>(path);
   const Icon = AI_CHANNEL_TYPE_ICONS[value.type];
+  if (useDetailsHeaderOption() === "name") return <NameTitle path={path} />; // SCRATCH
   return (
     <Task.Views.ItemLabel kind={AI_CHANNEL_TYPE_NAMES[value.type]} icon={<Icon />}>
       Port {channelPort(value) ?? NO_PORT}
@@ -114,8 +174,21 @@ const Form: FC = () => {
   const listItem = ({ key, ...rest }: Task.ChannelListItemProps) => (
     <ChannelListItem key={key} {...rest} onTare={tare} />
   );
+  // SCRATCH: port map prototype.
+  const option = usePortMapOption();
+  const [selected, setSelected] = useState<string[]>([]);
+  const [hovered, setHovered] = useState<string>();
+  const on = option !== "today";
   return (
+    <PortMapContext
+      value={on ? { hovered, setHovered, selected, onSelect: setSelected } : null}
+    >
     <Task.Views.ListAndDetails<AIChannel>
+      selected={selected}
+      onSelect={setSelected}
+      listTop={option === "list" ? <PortMap /> : undefined}
+      top={option === "top" ? <PortMap wide /> : undefined}
+      listAlt={option === "views" ? <PortMap column /> : undefined}
       listItem={listItem}
       details={channelDetails}
       detailsTitle={detailsTitle}
@@ -125,6 +198,7 @@ const Form: FC = () => {
       contextMenuItems={Task.readChannelContextMenuItem}
       resolve={resolve}
     />
+    </PortMapContext>
   );
 };
 

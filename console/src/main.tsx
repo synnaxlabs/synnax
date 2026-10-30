@@ -12,8 +12,11 @@ import "zod/compile";
 import { createRoot } from "react-dom/client";
 
 import { App } from "@/app";
+import { mountUIOptionsBar } from "@/uiOptionsBar";
 import workerURL from "@/worker?worker&url";
 
 const rootEl = document.getElementById("root") as HTMLElement;
+
+mountUIOptionsBar();
 
 createRoot(rootEl).render(<App.App workerURL={workerURL} />);
