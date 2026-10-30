@@ -1009,6 +1009,48 @@ describe("log/aether/Log", () => {
     });
   });
 
+  describe("dates", () => {
+    const entry = (date: string): LogEntry => ({
+      channelKey: 1,
+      timestamp: new TimeStamp(new Date(date)),
+      value: "v",
+    });
+
+    it("should show dates when the entries span more than one local day", () => {
+      const entries = [entry("2026-01-05T12:00:00"), entry("2026-01-12T12:00:00")];
+      const { log } = setup(entries, REGION_500, {
+        selectionStart: 0,
+        selectionEnd: 1,
+      });
+      log.render();
+      const [first, second] = log.state.selectedLines.map((l) => l.text);
+      expect(first).toMatch(/^Jan 5  12:00:00/);
+      expect(second).toMatch(/^Jan 12 12:00:00/);
+    });
+
+    it("should show only the time when the entries share a local day", () => {
+      const entries = [entry("2026-01-05T01:00:00"), entry("2026-01-05T23:00:00")];
+      const { log } = setup(entries, REGION_500, {
+        selectionStart: 0,
+        selectionEnd: 1,
+      });
+      log.render();
+      expect(log.state.selectedLines[0].text).toMatch(/^01:00:00/);
+    });
+
+    it("should keep dates out of the line when timestamps are hidden", () => {
+      const entries = [entry("2026-01-05T12:00:00"), entry("2026-01-12T12:00:00")];
+      const { log } = setup(entries, REGION_500, {
+        timestampsHidden: true,
+        channelNamesHidden: true,
+        selectionStart: 0,
+        selectionEnd: 1,
+      });
+      log.render();
+      expect(log.state.selectedLines[0].text).toBe("v");
+    });
+  });
+
   describe("selectedText and selectedLines", () => {
     it("should clear selectedText when selection is negative", () => {
       const entries = Array.from({ length: 5 }, (_, i) => makeEntry(i));
