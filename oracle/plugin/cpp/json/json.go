@@ -388,7 +388,7 @@ func checkStructMapKey(
 	table *resolution.Table,
 ) error {
 	ref, ok := structMap(field.Type, table)
-	if !ok {
+	if !ok || ref.TypeArgs[0].IsTypeParam() {
 		return nil
 	}
 	base := resolution.PrimitiveBase(ref.TypeArgs[0], table)
