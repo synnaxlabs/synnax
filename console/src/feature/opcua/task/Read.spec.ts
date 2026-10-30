@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax, type task } from "@synnaxlabs/client";
+import { type Synnax, task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
@@ -23,7 +23,9 @@ import {
   dragNode,
 } from "@/feature/opcua/testutil";
 import {
+  answerCommand,
   answerNextCommand,
+  awaitCommand,
   awaitEditableForm,
   deployAndAwaitTask,
   renderTaskFormTab,
@@ -129,6 +131,18 @@ const renderWithNode = async (
   });
   await root.answered;
   return { scan, draft, statuses };
+};
+
+// Moves the task from the device named from to the device named to.
+const selectDevice = async (from: string, to: string) => {
+  fireEvent.click(await findDialogTriggerByText(from));
+  const search = await waitFor(() => {
+    const dialog = screen.getAllByRole("dialog").at(-1);
+    if (dialog == null) throw new Error("the device list did not open");
+    return within(dialog).getByRole("textbox");
+  });
+  fireEvent.change(search, { target: { value: to } });
+  fireEvent.click(await screen.findByText(to));
 };
 
 const importCSV = async (rows: string[]) => {
@@ -528,17 +542,76 @@ describe("Read", () => {
       type: OPCUA.Task.BROWSE_COMMAND_TYPE,
       data: { channels: [secondNode] },
     });
-    fireEvent.click(await findDialogTriggerByText(first.device.name));
-    const search = await waitFor(() => {
-      const dialog = screen.getAllByRole("dialog").at(-1);
-      if (dialog == null) throw new Error("the device list did not open");
-      return within(dialog).getByRole("textbox");
-    });
-    fireEvent.change(search, { target: { value: second.device.name } });
-    fireEvent.click(await screen.findByText(second.device.name));
+    await selectDevice(first.device.name, second.device.name);
     await secondRoot.answered;
     await screen.findByText(secondNode.name);
     expect(screen.queryByText(firstNode.name)).toBeNull();
+  });
+
+  it("should add nothing when the task moves to another server during a search", async () => {
+    const first = await createScannedDevice(client);
+    const second = await createScannedDevice(client);
+    const folder = createFolder();
+    const held = createReadChannel();
+    const draft = await createDraft(client, createReadConfig(first.device.key, [held]));
+    const root = await answerNextCommand(client, first.scan, {
+      type: OPCUA.Task.BROWSE_COMMAND_TYPE,
+      data: { channels: [folder] },
+    });
+    const statuses: Status.NotificationSpec[] = [];
+    await renderRead({
+      client,
+      taskKey: draft.key,
+      onStatuses: (next) => statuses.splice(0, statuses.length, ...next),
+    });
+    await root.answered;
+    const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+    let search: task.Command;
+    try {
+      await dragNode(folder.name, held.nodeName);
+      search = await awaitCommand(
+        streamer,
+        first.scan.key,
+        OPCUA.Task.BROWSE_VARIABLES_COMMAND_TYPE,
+      );
+    } finally {
+      streamer.close();
+    }
+    const secondRoot = await answerNextCommand(client, second.scan, {
+      type: OPCUA.Task.BROWSE_COMMAND_TYPE,
+      data: { channels: [] },
+    });
+    await selectDevice(first.device.name, second.device.name);
+    await secondRoot.answered;
+    await answerCommand(client, first.scan, search, {
+      data: {
+        channels: [
+          {
+            nodeId: `${folder.nodeId}.Pressure`,
+            name: "Pressure",
+            nodeClass: "Variable",
+            dataType: "float64",
+            isArray: false,
+            field: "",
+            path: ["Pressure"],
+          },
+        ],
+        truncated: false,
+        skipped: [],
+      },
+    });
+    await waitFor(() =>
+      expect(statuses).toContainEqual(
+        expect.objectContaining({
+          variant: "warning",
+          name: folder.name,
+          message: "Added no variables",
+          description: "The task moved to another server during the search.",
+        }),
+      ),
+    );
+    expect(screen.queryByRole("button", { name: "Add" })).toBeNull();
+    expect(await retrieveChannels(draft.key)).toEqual([held]);
   });
 
   it("should warn and add nothing when a dropped folder holds no variables", async () => {

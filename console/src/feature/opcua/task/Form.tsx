@@ -223,6 +223,8 @@ const SEARCH_LIMIT_NOTE =
 const NAMING_NOTE =
   "Each channel takes its name from the folder and the path to the variable.";
 
+const MOVED_NOTE = "The task moved to another server during the search.";
+
 interface Search {
   nodes: ScannedNode[];
   truncated: boolean;
@@ -328,6 +330,18 @@ const ChannelList = <C extends Channel>({
       const key = id.create();
       const name = folders.length === 1 ? folders[0].data.name : "";
       addStatus({ key, variant: "loading", name, message: "Searching for variables" });
+      // Another device mounts another body, but this search still writes to the form.
+      const moved = (): boolean => {
+        if (ctx.get<string>("config.device").value === device.key) return false;
+        addStatus({
+          key,
+          variant: "warning",
+          name,
+          message: "Added no variables",
+          description: MOVED_NOTE,
+        });
+        return true;
+      };
       let search: Search;
       try {
         search = await findVariables(
@@ -343,6 +357,7 @@ const ChannelList = <C extends Channel>({
         });
         return;
       }
+      if (moved()) return;
       const found = search.nodes;
       const missing = describeMissing(search);
       const target = folders.length === 1 ? "the folder" : "the folders";
@@ -374,7 +389,7 @@ const ChannelList = <C extends Channel>({
         description: missing ?? NAMING_NOTE,
         confirm: { label: "Add", variant: "success" },
       });
-      if (confirmed !== true) return;
+      if (confirmed !== true || moved()) return;
       push(newChannels(found));
     }, "Failed to add the variables of a folder");
   const handleDrop = ({ items }: Haul.OnDropProps): Haul.Item[] => {
