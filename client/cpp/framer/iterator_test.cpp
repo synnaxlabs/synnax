@@ -123,7 +123,8 @@ TEST(IteratorTests, testReadsForwardFromSeekGE) {
     ASSERT_NIL(iter.close());
 }
 
-/// @brief it should report a value only after a read at the current position.
+/// @brief it should report a value only after a read at the current position, and keep
+/// the value of that read.
 TEST(IteratorTests, testValidAfterRead) {
     auto client = new_test_client();
     auto [time, data] = create_indexed_pair(client);
@@ -139,6 +140,7 @@ TEST(IteratorTests, testValidAfterRead) {
     ASSERT_FALSE(ASSERT_NIL_P(iter.valid()));
     ASSERT_TRUE(ASSERT_NIL_P(iter.next()));
     ASSERT_TRUE(ASSERT_NIL_P(iter.valid()));
+    ASSERT_EQ(iter.value.at<float>(data.key, 0), 1);
     ASSERT_NIL(iter.close());
 }
 

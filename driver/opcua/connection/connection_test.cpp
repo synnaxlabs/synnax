@@ -8,7 +8,12 @@
 // included in the file licenses/APL.txt.
 
 #include <filesystem>
+#include <mutex>
 
+#include "absl/log/globals.h"
+#include "absl/log/log_entry.h"
+#include "absl/log/log_sink.h"
+#include "absl/log/log_sink_registry.h"
 #include "gtest/gtest.h"
 
 #include "client/cpp/synnax.h"
@@ -21,6 +26,35 @@
 #include "driver/opcua/testutil/testutil.h"
 
 namespace driver::opcua::connection {
+/// @brief enables VLOG(1) and captures the text of every log line while in scope.
+class CaptureSink final : public absl::LogSink {
+    int prev_vlog_level;
+    std::mutex mu;
+    std::vector<std::string> lines;
+
+public:
+    CaptureSink(): prev_vlog_level(absl::SetGlobalVLogLevel(1)) {
+        absl::AddLogSink(this);
+    }
+
+    ~CaptureSink() override {
+        absl::RemoveLogSink(this);
+        absl::SetGlobalVLogLevel(this->prev_vlog_level);
+    }
+
+    void Send(const absl::LogEntry &entry) override {
+        std::lock_guard lock(this->mu);
+        this->lines.emplace_back(entry.text_message());
+    }
+
+    [[nodiscard]] bool contains(const std::string &substr) {
+        std::lock_guard lock(this->mu);
+        return std::ranges::any_of(this->lines, [&](const std::string &line) {
+            return line.contains(substr);
+        });
+    }
+};
+
 /// @brief it should establish basic connection and read node value.
 TEST(ConnectionTest, testBasicConn) {
     UA_Variant float_val;
@@ -57,6 +91,29 @@ TEST(ConnectionTest, testBasicConn) {
     server.stop();
 
     UA_Variant_clear(&float_val);
+}
+
+/// @brief it should log open62541 messages with their UA_String arguments formatted.
+TEST(ConnectionTest, testLogFormatsUAString) {
+    testutil::ServerConfig server_cfg = testutil::ServerConfig::create_default();
+    server_cfg.port = 4850;
+    testutil::Server server(server_cfg);
+    server.start();
+    ASSERT_TRUE(server.wait_until_ready());
+
+    Config cfg;
+    cfg.endpoint = "opc.tcp://localhost:4850";
+    cfg.security_mode = "None";
+    cfg.security_policy = "None";
+
+    CaptureSink logs;
+    auto client = ASSERT_NIL_P(connect(cfg, {}, "test"));
+    EXPECT_TRUE(logs.contains(
+        "for SecurityPolicy http://opcfoundation.org/UA/SecurityPolicy#None and a "
+        "revised lifetime of"
+    ));
+
+    server.stop();
 }
 
 /// @brief it should return unreachable error when connection is refused.

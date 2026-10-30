@@ -119,10 +119,10 @@ describe("CSV", () => {
     it("should write an index column for a read task", () => {
       expect(CSV.encode(READ_CHANNELS, { indexed: true })).toBe(
         [
-          "name,node_id,field,data_type,enabled,index",
-          '"pump, inlet",ns=2;s=Pump,,float32,true,false',
-          ",ns=2;s=Motor,Speed,float32,false,false",
-          ",nsu=urn:plc;i=1001,,timestamp,true,true",
+          "name,node_name,node_id,field,data_type,enabled,index",
+          '"pump, inlet",Pump,ns=2;s=Pump,,float32,true,false',
+          ",Motor.Speed,ns=2;s=Motor,Speed,float32,false,false",
+          ",1001,nsu=urn:plc;i=1001,,timestamp,true,true",
           "",
         ].join("\n"),
       );
@@ -131,9 +131,9 @@ describe("CSV", () => {
     it("should write no index column for a write task", () => {
       expect(CSV.encode(WRITE_CHANNELS)).toBe(
         [
-          "name,node_id,field,data_type,enabled",
-          "valve_cmd,ns=2;s=Valve,,float32,true",
-          ',"ns=2;s=""Setpoint""",,uint8,false',
+          "name,node_name,node_id,field,data_type,enabled",
+          "valve_cmd,Valve,ns=2;s=Valve,,float32,true",
+          ',"""Setpoint""","ns=2;s=""Setpoint""",,uint8,false',
           "",
         ].join("\n"),
       );
@@ -151,7 +151,7 @@ describe("CSV", () => {
 
     it("should write only the header for an empty channel list", () => {
       expect(CSV.encode([], { indexed: true })).toBe(
-        "name,node_id,field,data_type,enabled,index\n",
+        "name,node_name,node_id,field,data_type,enabled,index\n",
       );
     });
   });
@@ -165,6 +165,16 @@ describe("CSV", () => {
 
     it("should decode the channels a write task encodes", () => {
       expect(decodeWrite(CSV.encode(WRITE_CHANNELS))).toEqual(WRITE_CHANNELS);
+    });
+
+    it("should keep the node names that a folder gives its channels", () => {
+      const channels = [
+        createReadChannel({
+          nodeId: "ns=2;s=Line1.Pressure",
+          nodeName: "Tank_Pressure",
+        }),
+      ];
+      expect(decodeRead(CSV.encode(channels, { indexed: true }))).toEqual(channels);
     });
 
     it("should keep commas and quotes inside quoted fields", () => {

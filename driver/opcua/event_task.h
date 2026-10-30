@@ -163,8 +163,8 @@ struct EventTaskConfig {
 /// An event writes at its Time, or at the time the Driver received it when it has none.
 /// Each event must write after the last sample on the index. At start, the task asks
 /// the server to send the state of each condition again. A replayed event at or before
-/// the last stored sample was written before, so the task drops it. Another event at or
-/// before the last sample writes 1 ns after it.
+/// the latest event that the task had when the replay began was written before, so the
+/// task drops it. Another event at or before the last sample writes 1 ns after it.
 class EventTaskSource final : public common::Source {
     /// @brief an event that the subscription delivered.
     struct Event {
@@ -199,6 +199,9 @@ class EventTaskSource final : public common::Source {
     bool replay_required = false;
     /// @brief the last time on the index of the channel.
     x::telem::TimeStamp last{};
+    /// @brief the latest event time that the task had when the replay in progress
+    /// began.
+    x::telem::TimeStamp replay_cutoff{};
     /// @brief when the task last tried again to record what failed.
     x::telem::TimeStamp retried{};
     /// @brief the problems with what the task fails to record.
@@ -239,7 +242,7 @@ class EventTaskSource final : public common::Source {
     void handle(const UA_KeyValueMap &fields) {
         switch (standard_type(fields.map[EVENT_TYPE_FIELD].value)) {
             case UA_NS0ID_REFRESHSTARTEVENTTYPE:
-                this->replays++;
+                if (this->replays++ == 0) this->replay_cutoff = this->latest();
                 return;
             case UA_NS0ID_REFRESHENDEVENTTYPE:
                 this->replays = std::max(this->replays - 1, 0);
@@ -376,19 +379,18 @@ class EventTaskSource final : public common::Source {
         return this->subscribe(std::move(c));
     }
 
-    /// @brief when connection::SUBSCRIBE_RETRY_INTERVAL has passed, tries again to
-    /// record what failed: a notifier that the server did not monitor, or a notifier,
-    /// event type, or field in a namespace that the server does not have. Subscribes
-    /// again when the namespaces of the server changed, since the subscription can then
-    /// name nodes by stale indexes.
+    /// @brief when connection::RETRY_INTERVAL has passed, tries again to record what
+    /// failed: a notifier that the server did not monitor, or a notifier, event type,
+    /// or field in a namespace that the server does not have. Subscribes again when the
+    /// namespaces of the server changed, since the subscription can then name nodes by
+    /// stale indexes.
     /// @returns an error that loses the connection, or the error of the new
     /// subscription.
     x::errors::Error retry() {
         if (this->unresolved.empty() && this->unmonitored.empty())
             return x::errors::NIL;
         const auto now = x::telem::TimeStamp::now();
-        if (now - this->retried < connection::SUBSCRIBE_RETRY_INTERVAL)
-            return x::errors::NIL;
+        if (now - this->retried < connection::RETRY_INTERVAL) return x::errors::NIL;
         this->retried = now;
         if (!this->unresolved.empty()) {
             types::ReadRequestBuilder builder;
@@ -417,16 +419,22 @@ class EventTaskSource final : public common::Source {
         return x::errors::NIL;
     }
 
+    /// @returns the latest time of the events that the task wrote or holds to write.
+    [[nodiscard]] x::telem::TimeStamp latest() const {
+        auto time = this->last;
+        for (const auto &e: this->events)
+            time = std::max(time, e.time);
+        return time;
+    }
+
     /// @brief moves the delivered events into fr, in order of time.
     void take(x::telem::Frame &fr) {
         std::ranges::stable_sort(this->events, {}, &Event::time);
         std::vector<x::json::json> samples;
         std::vector<x::telem::TimeStamp> stamps;
         for (auto &e: this->events) {
-            if (e.time <= this->last) {
-                if (e.replayed) continue;
-                e.time = this->last + x::telem::NANOSECOND;
-            }
+            if (e.replayed && e.time <= this->replay_cutoff) continue;
+            if (e.time <= this->last) e.time = this->last + x::telem::NANOSECOND;
             this->last = e.time;
             samples.push_back(std::move(e.sample));
             stamps.push_back(e.time);

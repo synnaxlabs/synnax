@@ -123,7 +123,7 @@ const findEndpoints = async (
   return { variant: "success", options: toOptions(endpoints) };
 };
 
-type State = { endpoint: string } & (Result | { variant: "loading" });
+type State = { rack: rack.Key; endpoint: string } & (Result | { variant: "loading" });
 
 export interface EndpointsProps {
   rack: rack.Key;
@@ -144,13 +144,14 @@ export const Endpoints = ({ rack, onSelect }: EndpointsProps): ReactElement => {
     "properties.connection.securityPolicy",
   );
   const handleFind = async () => {
-    setState({ endpoint, variant: "loading" });
+    setState({ rack, endpoint, variant: "loading" });
     const connection = get<ConnectionConfig>("properties.connection").value;
     let next: State;
     try {
-      next = { endpoint, ...(await findEndpoints(client, rack, connection)) };
+      next = { rack, endpoint, ...(await findEndpoints(client, rack, connection)) };
     } catch (error) {
       next = {
+        rack,
         endpoint,
         variant: "error",
         status: status.fromException(error, "Failed to get endpoints"),
@@ -158,7 +159,7 @@ export const Endpoints = ({ rack, onSelect }: EndpointsProps): ReactElement => {
     }
     setState(next);
   };
-  const current = state?.endpoint === endpoint ? state : null;
+  const current = state?.rack === rack && state.endpoint === endpoint ? state : null;
   const options = current?.variant === "success" ? current.options : null;
   const handleChange = (key: string | null) => {
     const option = options?.find((o) => o.key === key);

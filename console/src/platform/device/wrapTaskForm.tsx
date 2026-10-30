@@ -57,7 +57,8 @@ export const wrapTaskForm = <
   const Wrapper = () => {
     const deviceKey = Form.useFieldValue<string>("config.device");
     if (primitive.isZero(deviceKey)) return <NoneSelected />;
-    return <Configured deviceKey={deviceKey} />;
+    // A new device mounts a new body, so no state read from the old device stays.
+    return <Configured key={deviceKey} deviceKey={deviceKey} />;
   };
   Wrapper.displayName = `DeviceTaskForm(${Content.displayName ?? Content.name})`;
   return Wrapper;

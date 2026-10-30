@@ -561,6 +561,40 @@ describe("OPCUA.Device.useConnectModal", () => {
     ).toBeTruthy();
   });
 
+  it("should hide the endpoints of a rack the user moves away from", async () => {
+    const first = await createRunningRack(client, "opc");
+    const second = await createRunningRack(client, "opc");
+    const scan = await createScanTask(first);
+    await renderModalOpener(OPCUA.Device.useConnectModal, [{ rack: first.key }], {
+      client,
+    });
+    const listed = await answerNextCommand(client, scan, {
+      ...GET_ENDPOINTS,
+      data: { endpoints: ENDPOINTS },
+    });
+    fireEvent.click(await screen.findByText("Find endpoints"));
+    await listed.answered;
+    await findDialogTriggerByText("None");
+    fireEvent.click(await findDialogTriggerByText(first.name));
+    const search = await waitFor(() => {
+      const dialog = screen.getAllByRole("dialog").at(-1);
+      if (dialog == null) throw new Error("the rack list did not open");
+      return within(dialog).getByRole("textbox");
+    });
+    fireEvent.change(search, { target: { value: second.name } });
+    fireEvent.click(await screen.findByText(second.name));
+    await findDialogTriggerByText(second.name);
+    expect(
+      screen
+        .getAllByRole("button")
+        .some(
+          (b) =>
+            b.getAttribute("aria-haspopup") === "dialog" &&
+            b.textContent?.includes("None"),
+        ),
+    ).toBe(false);
+  });
+
   it("should save the timeouts the user enters", async () => {
     const rack = await createRunningRack(client, "opc");
     const scan = await createScanTask(rack);

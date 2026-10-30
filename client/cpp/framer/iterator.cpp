@@ -103,7 +103,8 @@ x::errors::Error Iterator::close() const {
 }
 
 std::pair<bool, x::errors::Error> Iterator::exec(grpc::framer::IteratorRequest req) {
-    this->value = x::telem::Frame();
+    // A validity check moves nothing, so value keeps the telemetry of the last read.
+    if (req.command() != VALID) this->value = x::telem::Frame();
     if (auto err = this->stream->send(req)) return {false, err};
     while (true) {
         auto [res, err] = this->stream->receive();

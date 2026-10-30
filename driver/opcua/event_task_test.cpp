@@ -262,6 +262,24 @@ TEST_F(TestEventTask, testSkipsReplayedStoredEvents) {
     ASSERT_NIL(src->stop());
 }
 
+/// @brief it should keep each new replayed event when several share a time, writing
+/// each later one 1 ns after the one before it.
+TEST_F(TestEventTask, testKeepsReplayedEventsAtOneTime) {
+    const auto src = this->source(this->config());
+    ASSERT_NIL(src->start());
+    const auto time = x::telem::TimeStamp::now() - x::telem::SECOND;
+    this->emit_marker(UA_NS0ID_REFRESHSTARTEVENTTYPE);
+    this->emit("first", time);
+    this->emit("second", time);
+    this->emit_marker(UA_NS0ID_REFRESHENDEVENTTYPE);
+    const auto [events, stamps] = read_events(*src, 2);
+    ASSERT_EQ(events.size(), 2);
+    EXPECT_EQ(events[0]["message"], "first");
+    EXPECT_EQ(events[1]["message"], "second");
+    EXPECT_EQ(stamps, std::vector({time, time + x::telem::NANOSECOND}));
+    ASSERT_NIL(src->stop());
+}
+
 /// @brief it should record the events of the notifiers that exist, and warn about each
 /// notifier that the server does not monitor.
 TEST_F(TestEventTask, testWarnsAboutMissingNotifier) {

@@ -343,6 +343,38 @@ describe("Write", () => {
       ]);
     });
 
+    it("should not give a free name that another method sets", async () => {
+      const dev = await createOPCDevice(client);
+      const nodeName = createMethodName();
+      const named = {
+        ...createMethodChannel(nodeName, [MODE, SPEED]),
+        name: `${nodeName}_cmd`,
+      };
+      const draft = await createDraft(
+        client,
+        createWriteConfig(dev.key, [
+          createMethodChannel(nodeName, [MODE, SPEED]),
+          named,
+        ]),
+      );
+      const { container } = await renderWrite({ client, taskKey: draft.key });
+      await screen.findAllByText(`Call ${nodeName}`);
+      const { config } = await deployAndAwaitTask(
+        client,
+        container,
+        draft.key,
+        OPCUA.Task.WRITE_SCHEMAS,
+      );
+      const commands = await client.channels.retrieve(
+        config.channels.map(({ cmdChannel }) => cmdChannel),
+      );
+      const names = new Map(commands.map(({ key, name }) => [key, name]));
+      expect(config.channels.map(({ cmdChannel }) => names.get(cmdChannel))).toEqual([
+        `${nodeName}_cmd_2`,
+        `${nodeName}_cmd`,
+      ]);
+    });
+
     it("should replace the command channel when the command moves to an argument of another type", async () => {
       const dev = await createOPCDevice(client);
       const ch = createMethodChannel(createMethodName(), [MODE, SPEED]);
@@ -524,6 +556,68 @@ describe("Write", () => {
         await dropMethod([{ name: "recipe", typeName: "Recipe", dataType: "" }]),
       ).toMatchObject({
         arguments: [{ source: "value", value: "", name: "recipe", dataType: "" }],
+      });
+    });
+
+    it("should keep the object of a method dragged from the details", async () => {
+      const { scan, device } = await createScannedDevice(client);
+      const held = createWriteChannel();
+      const draft = await createDraft(client, createWriteConfig(device.key, [held]));
+      const pump: OPCUA.Task.ScannedNode = {
+        ...createVariableNode(),
+        nodeClass: "Object",
+      };
+      const method: OPCUA.Task.ScannedNode = {
+        ...createVariableNode(),
+        nodeClass: "Method",
+      };
+      const root = await answerNextCommand(client, scan, {
+        type: OPCUA.Task.BROWSE_COMMAND_TYPE,
+        data: { channels: [pump] },
+      });
+      await renderWrite({ client, taskKey: draft.key });
+      await root.answered;
+      const children = await answerNextCommand(client, scan, {
+        type: OPCUA.Task.BROWSE_COMMAND_TYPE,
+        data: { channels: [method] },
+      });
+      const pumpRead = await answerNextCommand(client, scan, {
+        type: OPCUA.Task.READ_NODE_COMMAND_TYPE,
+        data: { node: pump, nodeClass: "Object", browseName: pump.name },
+      });
+      fireEvent.click(await screen.findByText(pump.name));
+      await children.answered;
+      await pumpRead.answered;
+      const methodData = {
+        node: method,
+        nodeClass: "Method",
+        browseName: method.name,
+        inputArguments: [],
+      };
+      const methodRead = await answerNextCommand(client, scan, {
+        type: OPCUA.Task.READ_NODE_COMMAND_TYPE,
+        data: methodData,
+      });
+      fireEvent.click(await screen.findByText(method.name));
+      await methodRead.answered;
+      // The details header repeats the name below the tree.
+      await waitFor(() => expect(screen.getAllByText(method.name)).toHaveLength(2));
+      const dropRead = await answerNextCommand(client, scan, {
+        type: OPCUA.Task.READ_NODE_COMMAND_TYPE,
+        data: methodData,
+      });
+      fireEvent.dragStart(screen.getAllByText(method.name)[1]);
+      fireEvent.drop(screen.getByText(new RegExp(held.nodeName)));
+      await dropRead.answered;
+      await waitFor(async () => {
+        const { config } = await client.tasks.retrieve({
+          key: draft.key,
+          schemas: OPCUA.Task.WRITE_SCHEMAS,
+        });
+        expect(config.channels[1]).toMatchObject({
+          nodeId: method.nodeId,
+          objectId: pump.nodeId,
+        });
       });
     });
   });
