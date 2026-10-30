@@ -17,7 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
@@ -41,7 +41,7 @@ var _ = Describe("Calculator", Ordered, func() {
 
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
-		node := mock.NewNode(ctx)
+		node := testutil.NewNode(ctx)
 		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
 		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB:       node.DB,

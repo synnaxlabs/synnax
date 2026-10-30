@@ -590,6 +590,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Group:           l.Group,
 		HostProvider:    cfg.Distribution.Cluster,
 		Status:          l.Status,
+		DriverRole:      l.RBAC.Builtin.DriverKey,
 	}); !ok(err, l.Rack) {
 		return nil, err
 	}
