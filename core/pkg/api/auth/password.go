@@ -30,11 +30,24 @@ type PasswordSetRequest struct {
 	Password string `json:"password" msgpack:"password"`
 	// CurrentPassword is required when the caller changes its own password.
 	CurrentPassword string `json:"current_password" msgpack:"current_password"`
+	// Cookie asks for the new token in a cookie, as [SessionCreateRequest] does.
+	Cookie bool `json:"cookie" msgpack:"cookie"`
+}
+
+// PasswordSetResponse is the session that replaces the caller's, when the password
+// change ended it.
+type PasswordSetResponse struct {
+	// Token is the new session's token. It is empty when Session is nil or the token
+	// went to a cookie.
+	Token string `json:"token" msgpack:"token"`
+	// Session is the new session, or nil when the caller's session did not end.
+	Session *auth.Session `json:"session,omitempty" msgpack:"session,omitempty"`
 }
 
 // SetPassword sets the password of the caller, or of another user when the caller may
-// update that user, and ends every other session the old password opened. A caller
-// setting its own password must send the current one. It returns
+// update that user, and ends every session the old password opened. A caller setting
+// its own password must send the current one. When the change ends the caller's
+// session, SetPassword opens a new one on the new password and returns it. It returns
 // [auth.ErrInvalidCredentials] for a wrong current password, a validation error when
 // the password method is off or the subject is not a user, and an error wrapping
 // query.ErrNotFound when the user has no password.
@@ -42,14 +55,14 @@ func (s *Service) SetPassword(
 	ctx context.Context,
 	tx gorp.Tx,
 	req PasswordSetRequest,
-) (struct{}, error) {
+) (PasswordSetResponse, error) {
 	if err := s.auth.Accepts(auth.MethodPassword); err != nil {
-		return struct{}{}, err
+		return PasswordSetResponse{}, err
 	}
 	caller := GetSubject(ctx)
 	subject := lo.Ternary(req.Subject.IsZero(), caller, req.Subject)
 	if subject.Type != ontology.ResourceTypeUser {
-		return struct{}{}, errors.Wrapf(
+		return PasswordSetResponse{}, errors.Wrapf(
 			validate.ErrValidation,
 			"a %s has no password",
 			subject.Type,
@@ -61,28 +74,40 @@ func (s *Service) SetPassword(
 		access.ActionUpdate,
 		[]ontology.ID{subject},
 	); err != nil {
-		return struct{}{}, err
+		return PasswordSetResponse{}, err
 	}
 	var current password.Password
 	if err := s.password.NewRetrieve().
 		Where(password.MatchSubjects(subject)).
 		Entry(&current).
 		Exec(ctx, tx); err != nil {
-		return struct{}{}, err
+		return PasswordSetResponse{}, err
 	}
-	var keep []auth.SessionKey
 	if subject == caller {
 		if _, err := s.password.Authenticate(ctx, proofOf(Credentials{
 			Username: current.Username,
 			Password: req.CurrentPassword,
 		})); err != nil {
-			return struct{}{}, err
+			return PasswordSetResponse{}, err
 		}
-		keep = []auth.SessionKey{getSession(ctx).Key}
 	}
 	if err := s.password.NewWriter(tx).
 		ChangePassword(ctx, subject, req.Password); err != nil {
-		return struct{}{}, err
+		return PasswordSetResponse{}, err
 	}
-	return struct{}{}, s.auth.NewWriter(tx).RevokeCredential(ctx, keep, current.Key)
+	w := s.auth.NewWriter(tx)
+	if err := w.RevokeCredential(ctx, current.Key); err != nil {
+		return PasswordSetResponse{}, err
+	}
+	if getSession(ctx).Credential != current.Key {
+		return PasswordSetResponse{}, nil
+	}
+	session, token, err := w.Open(ctx, subject, current.Key)
+	if err != nil {
+		return PasswordSetResponse{}, err
+	}
+	return PasswordSetResponse{
+		Token:   s.deliver(ctx, token, req.Cookie),
+		Session: &session,
+	}, nil
 }

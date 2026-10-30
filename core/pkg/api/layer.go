@@ -77,7 +77,7 @@ type Transport struct {
 	// AuthOIDCUnlink removes provider links and ends their sessions.
 	AuthOIDCUnlink freighter.UnaryServer[auth.OIDCUnlinkRequest, struct{}]
 	// AuthPasswordSet sets the caller's password or another user's.
-	AuthPasswordSet freighter.UnaryServer[auth.PasswordSetRequest, struct{}]
+	AuthPasswordSet freighter.UnaryServer[auth.PasswordSetRequest, auth.PasswordSetResponse]
 	// USER
 	UserRename         freighter.UnaryServer[user.RenameRequest, struct{}]
 	UserChangeUsername freighter.UnaryServer[user.ChangeUsernameRequest, struct{}]
