@@ -125,9 +125,13 @@ const ChannelListItem = ({ deviceModel, ...rest }: ChannelListItemProps) => {
 
 const selectWriteChannelType = Component.renderProp(SelectWriteChannelType);
 
+const createFirstChannel = (): WriteChannel => ({
+  ...createWriteChannel("digital"),
+  key: id.create(),
+});
+
 const getOpenChannel = (channels: WriteChannel[], deviceModel: Model) => {
-  if (channels.length === 0)
-    return { ...createWriteChannel("digital"), key: id.create() };
+  if (channels.length === 0) return createFirstChannel();
   const last = channels[channels.length - 1];
   const preferredPortType = convertWriteChannelTypeToPortType(last.type);
   const backupPortType =
@@ -181,6 +185,7 @@ const getInitialValues: Task.GetInitialValues<WriteSchemas> = ({
 }) => {
   const cfg = WRITE_SCHEMAS.config.parse(config ?? {});
   if (deviceKey != null) cfg.device = deviceKey;
+  if (config == null) cfg.channels = [createFirstChannel()];
   return { name: "LabJack write task", type: WRITE_TYPE, config: cfg };
 };
 

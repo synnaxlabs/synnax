@@ -14,6 +14,7 @@ import {
   DisconnectedError,
   type framer,
   NotFoundError,
+  SessionEndedError,
   status as cstatus,
   type Synnax,
   TimeStamp,
@@ -248,6 +249,8 @@ export class Controller
     try {
       await this.writer?.close();
     } catch (err) {
+      // The Core frees a writer's control when its session ends.
+      if (SessionEndedError.matches(err)) return;
       this.internal.addStatus(
         cstatus.fromException(err, {
           message: "Failed to release control",

@@ -56,7 +56,7 @@ jobs:
   triage-prompt:
     name: Write the triage prompt
     needs: ci
-    if: failure()
+    if: failure() && vars.NIGHTLY_TRIAGE_ENABLED == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read

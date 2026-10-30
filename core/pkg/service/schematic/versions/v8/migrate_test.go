@@ -22,9 +22,9 @@ import (
 	v7 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v7"
 	v8 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v8"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 var _ = Describe("MigrateNode", func() {
