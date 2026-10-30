@@ -254,5 +254,5 @@ func (s *Service) Delete(
 	if err := s.apiKey.NewWriter(tx).Delete(ctx, stored...); err != nil {
 		return struct{}{}, err
 	}
-	return struct{}{}, s.auth.NewWriter(tx).RevokeCredential(ctx, nil, stored...)
+	return struct{}{}, s.auth.NewWriter(tx).RevokeCredential(ctx, stored...)
 }

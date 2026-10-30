@@ -74,6 +74,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB: db,
 		Authenticators: map[auth.Method]auth.Authenticator{
 			auth.MethodPassword: passwordSvc,
+			auth.MethodAPIKey:   apiKeySvc,
 		},
 	}))
 	apiSvc = newService(authSvc)

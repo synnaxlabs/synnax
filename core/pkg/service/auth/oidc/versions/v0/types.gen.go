@@ -18,14 +18,14 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Key is a unique identifier for a provider link.
-type Key = uuid.UUID
+// LinkKey is a unique identifier for a provider link.
+type LinkKey = uuid.UUID
 
 // Link links an OpenID Connect provider account to a user. A user holds one link per
 // provider.
 type Link struct {
 	// Key is the unique identifier for this link.
-	Key Key `json:"key" msgpack:"key"`
+	Key LinkKey `json:"key" msgpack:"key"`
 	// Subject is the user the provider account logs in as.
 	Subject ontology.ID `json:"subject" msgpack:"subject"`
 	// Provider is the name of the provider in the Core's settings.

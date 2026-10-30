@@ -125,7 +125,7 @@ func (c ServiceConfig) Validate() error {
 // Service stores links and checks proofs of provider accounts.
 type Service struct {
 	cfg       ServiceConfig
-	table     *gorp.Table[Key, Link]
+	table     *gorp.Table[LinkKey, Link]
 	indexes   indexes
 	providers map[string]*provider
 }
@@ -180,7 +180,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 			lock:     make(chan struct{}, 1),
 		}
 	}
-	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Link]{
+	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[LinkKey, Link]{
 		DB:              cfg.DB,
 		Indexes:         s.indexes.all(),
 		Instrumentation: cfg.Instrumentation,
