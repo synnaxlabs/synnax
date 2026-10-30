@@ -85,7 +85,7 @@ describe("Input.TimeSpan readings", () => {
     fireEvent.change(field, { target: { value: text } });
     const readings = screen
       .queryAllByRole("menuitem")
-      .filter((item) => item.classList.contains("pluto-time-editor__suggestion"))
+      .filter((item) => item.classList.contains("lyra-time-editor__suggestion"))
       .map((item) => item.textContent ?? "");
     fireEvent.keyDown(field, { key: "Enter" });
     const committed = onChange.mock.calls[0]?.[0] as number | undefined;

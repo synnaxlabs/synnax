@@ -334,7 +334,7 @@ describe("Input.DateTime readings", () => {
   const readings = (): string[] =>
     screen
       .getAllByRole("menuitem")
-      .filter((item) => item.classList.contains("pluto-time-editor__suggestion"))
+      .filter((item) => item.classList.contains("lyra-time-editor__suggestion"))
       .map((item) => item.textContent ?? "");
 
   interface EditProps extends Partial<Input.DateTimeProps> {
