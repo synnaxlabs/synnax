@@ -95,6 +95,8 @@ const COMMAND_DEADLINE = TimeSpan.seconds(10);
 interface CommandDeadline {
   cmd: Command;
   timer: NodeJS.Timeout;
+  /** The status this client last wrote for the command, which is never its reply. */
+  shown: Status;
 }
 
 /**
@@ -496,11 +498,8 @@ export class Client extends query.Retriever<
             // tracks nor holds a status for is dropped.
             if (store.get(changed.task) == null && statusStore.get(key) == null) return;
             const optimistic = this.optimisticStatus(changed);
-            if (optimistic.variant !== "loading") {
-              statuses.setLocal(optimistic);
-              return;
-            }
-            statusStore.set(key, optimistic);
+            if (optimistic.variant === "loading") statusStore.set(key, optimistic);
+            else statuses.setLocal(optimistic);
             this.armCommandDeadline(changed, optimistic);
           }),
         ),
@@ -515,8 +514,8 @@ export class Client extends query.Retriever<
         return;
       }
       const pending = this.commandDeadlines.get(task);
-      if (pending == null || status.detailsOf(event.value)?.cmd !== pending.cmd.key)
-        return;
+      if (pending == null || event.value === pending.shown) return;
+      if (status.detailsOf(event.value)?.cmd !== pending.cmd.key) return;
       clearTimeout(pending.timer);
       this.commandDeadlines.delete(task);
     });
@@ -743,8 +742,8 @@ export class Client extends query.Retriever<
     });
   }
 
-  // A rack's outage answers each command that waits on the rack, since the Core copies
-  // an outage onto running tasks only.
+  // A waiting command shows each new problem of its rack, since the Core copies an
+  // outage onto running tasks only.
   private standInForDownRack(rackStatus: status.Status): void {
     for (const [task, pending] of this.commandDeadlines) {
       const down = this.downRackStatus(this.store.get(task)?.rack);
@@ -752,15 +751,16 @@ export class Client extends query.Retriever<
       // A batch stores a reply before it delivers the reply's event.
       const answered = this.statusesByTask
         .get(task)
-        .some((s) => status.detailsOf(s)?.cmd === pending.cmd.key);
+        .some(
+          (s) => s !== pending.shown && status.detailsOf(s)?.cmd === pending.cmd.key,
+        );
       if (answered) continue;
-      clearTimeout(pending.timer);
-      this.commandDeadlines.delete(task);
-      this.cfg.statuses.setLocal(this.optimisticStatus(pending.cmd));
+      pending.shown = this.optimisticStatus(pending.cmd);
+      this.cfg.statuses.setLocal(pending.shown);
     }
   }
 
-  // Only a reply or an outage of the task's rack retires the loading status sooner.
+  // Only a reply ends the wait sooner. The problem of a down rack outlasts the wait.
   private armCommandDeadline(cmd: Command, optimistic: Status): void {
     const { statuses } = this.cfg;
     const key = statusKey(cmd.task);
@@ -769,6 +769,7 @@ export class Client extends query.Retriever<
     const timer = setTimeout(() => {
       this.commandDeadlines.delete(cmd.task);
       if (statuses.store.get(key) == null) return;
+      if (this.downRackStatus(this.store.get(cmd.task)?.rack) != null) return;
       statuses.setLocal(
         status.create<StatusDetailsZodObject>({
           key,
@@ -785,7 +786,7 @@ export class Client extends query.Retriever<
         }),
       );
     }, COMMAND_DEADLINE.milliseconds);
-    this.commandDeadlines.set(cmd.task, { cmd, timer });
+    this.commandDeadlines.set(cmd.task, { cmd, timer, shown: optimistic });
   }
 
   // A task's status may live under the "task:<key>" row or under any status whose
