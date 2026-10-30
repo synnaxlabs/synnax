@@ -270,6 +270,8 @@ func (t *writeTask) open(ctx context.Context) (err error) {
 	// missed.
 	select {
 	case <-ctx.Done():
+		// Nothing drains the responses yet, so the streamer only exits on cancel.
+		cancel()
 		return errors.Join(ctx.Err(), shutdown.Close())
 	case _, ok := <-responses.Outlet():
 		if !ok {
