@@ -15,7 +15,7 @@ import { type connection } from "@/connection";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { Current } from "@/user/current";
-import { type Key, keyZ, type User, userZ } from "@/user/types.gen";
+import { type Key, keyZ, type New, type User, userZ } from "@/user/types.gen";
 
 const retrieveRequestZ = z.object({ keys: keyZ.array().optional() });
 const retrieveMultiParamsZ = retrieveRequestZ.or(query.keyListZ(keyZ));
@@ -95,11 +95,9 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Us
     });
   }
 
-  async create(user: z.input<typeof userZ>): Promise<User>;
-  async create(users: z.input<typeof userZ>[]): Promise<User[]>;
-  async create(
-    users: z.input<typeof userZ> | z.input<typeof userZ>[],
-  ): Promise<User | User[]> {
+  async create(user: New): Promise<User>;
+  async create(users: New[]): Promise<User[]>;
+  async create(users: New | New[]): Promise<User | User[]> {
     const isMany = Array.isArray(users);
     // Parsed once so a retried request keeps the keys it generated.
     const req = createReqZ.parse({ users: array.toArray(users) });

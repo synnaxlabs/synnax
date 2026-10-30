@@ -33,6 +33,7 @@ User struct {
         @filter
     }
 
+    @create
     @doc value     """
         is an account entity representing a person accessing the Synnax system. Users
         can have roles assigned for permission management.
