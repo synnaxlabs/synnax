@@ -159,12 +159,7 @@ const ExistingChannelNameField = ({ channel: key }: { channel: channel.Key }) =>
 const RecordLabel = ({ path }: Task.Views.GroupProps) => {
   const recordKey = PForm.useFieldValue<string>(`${path}.recordKey`);
   return (
-    <Text.Text
-      level="p"
-      weight={500}
-      color={recordKey === "" ? 9 : 10}
-      overflow="ellipsis"
-    >
+    <Text.Text level="p" weight={500} color={recordKey === "" ? 9 : 10} overflow="fade">
       {recordKey === "" ? "Any key" : recordKey}
     </Text.Text>
   );
