@@ -338,10 +338,8 @@ describe("log reducer", () => {
           .timestampsHidden,
       ).toEqual(false);
       expect(
-        roundTrip(
-          state,
-          log.setTimestampsHidden({ timestampsHidden: false }),
-        ).timestampsHidden,
+        roundTrip(state, log.setTimestampsHidden({ timestampsHidden: false }))
+          .timestampsHidden,
       ).toEqual(true);
     });
   });

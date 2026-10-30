@@ -526,8 +526,7 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     const name = displayNames[chKeyStr] ?? chKeyStr;
     const pad = namePadding[chKeyStr] ?? "";
     let prefix: string;
-    if (!timestampsHidden && !channelNamesHidden)
-      prefix = `${ts} ${name}${pad}  `;
+    if (!timestampsHidden && !channelNamesHidden) prefix = `${ts} ${name}${pad}  `;
     else if (!timestampsHidden) prefix = `${ts}  `;
     else if (!channelNamesHidden) prefix = `${name}${pad}  `;
     else prefix = "";
