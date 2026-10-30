@@ -7,15 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package framer
+package framer_test
 
 import (
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	fgrpc "github.com/synnaxlabs/freighter/grpc"
+	. "github.com/synnaxlabs/freighter/grpc/testutil"
+	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -25,12 +28,17 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
+	grpcframer "github.com/synnaxlabs/synnax/pkg/transport/grpc/framer"
 	. "github.com/synnaxlabs/x/testutil"
+	"google.golang.org/grpc"
 )
 
 var (
 	channelSvc    *svcchannel.Service
 	apiChannelSvc *channel.Service
+	transport     api.Transport
+	bindable      fgrpc.BindableTransport
+	conn          *fgrpc.ClientConn
 )
 
 func TestFramer(t *testing.T) {
@@ -40,7 +48,7 @@ func TestFramer(t *testing.T) {
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	node := mock.NewNode(ctx)
+	node := testutil.NewNode(ctx)
 	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
 	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB:       node.DB,
@@ -95,6 +103,14 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Alias:   aliasSvc,
 		Status:  statusSvc,
 	}))
+	var pool *fgrpc.Pool
+	addr := StartServer(func(reg grpc.ServiceRegistrar, p *fgrpc.Pool) {
+		bindable = grpcframer.New(&transport, apiChannelSvc)
+		bindable.BindTo(reg)
+		pool = p
+	})
+	conn = MustSucceed(pool.Acquire(addr))
+	DeferCleanup(conn.Release)
 })
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

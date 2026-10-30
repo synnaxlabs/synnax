@@ -9,7 +9,6 @@
 
 """Tree navigation utilities for Console UI automation."""
 
-import re
 import time
 from typing import TYPE_CHECKING
 
@@ -21,14 +20,39 @@ from console.context_menu import ContextMenu
 if TYPE_CHECKING:
     from console.layout import LayoutClient
 
-_CONTAINER = ".pluto-tree"
-_VIRTUALIZER = ".pluto-list__virtualizer"
+_CONTAINER = ".lyra-tree"
+_VIRTUALIZER = ".lyra-list__virtualizer"
 _SCROLL_STEP = 200
 # Rows for a new offset mount on a later frame, and a page the tree has not fetched
 # yet needs a round-trip.
 _SCROLL_SETTLE_MS = 150
 _POLL_MS = 100
 _DEFAULT_TIMEOUT_MS = 5000
+_SCROLL_TO_TOP_JS = """(el) => {
+    const tree = el.closest(".lyra-tree");
+    tree.scrollTop += el.getBoundingClientRect().top - tree.getBoundingClientRect().top;
+}"""
+# Items mount in any order, so the script sorts them by their position in the window.
+# The read is complete once it reaches a row outside the subtree or the bottom of the
+# tree.
+_NESTED_NAMES_JS = """(parent, prefix) => {
+    const tree = parent.closest(".lyra-tree");
+    const items = [...tree.querySelectorAll("[role=treeitem]")]
+        .filter((el) => el.checkVisibility())
+        .sort((a, b) => a.offsetTop - b.offsetTop);
+    const start = items.indexOf(parent);
+    if (start === -1) throw new Error(`tree item ${parent.id} is not visible`);
+    const level = Number(parent.getAttribute("aria-level"));
+    const names = [];
+    for (const el of items.slice(start + 1)) {
+        if (Number(el.getAttribute("aria-level")) <= level) return [names, true];
+        if (el.id.startsWith(prefix)) names.push(el.innerText.trim());
+    }
+    const virtualizer = tree.querySelector(".lyra-list__virtualizer");
+    if (virtualizer == null) return [names, true];
+    const last = items[items.length - 1];
+    return [names, last.offsetTop + last.offsetHeight >= virtualizer.scrollHeight];
+}"""
 
 
 class Tree:
@@ -194,18 +218,14 @@ class Tree:
             self.page.wait_for_timeout(_POLL_MS)
 
     def list_names(self, prefix: str) -> list[str]:
-        """List all visible item names with the given ID prefix.
+        """List the names of the mounted items with the given ID prefix.
+
+        Reads the tree once, so an item that another test removes cannot stall it.
 
         :param prefix: The ID prefix (e.g., 'role:', 'user:', 'channel:').
         :returns: List of item names.
         """
-        elements = self.find_by_prefix(prefix)
-        names: list[str] = []
-        for element in elements:
-            text = self.get_text(element)
-            if text:
-                names.append(text)
-        return names
+        return [text for _, text in self._mounted(prefix) if text]
 
     def get_text(self, item: Locator) -> str:
         """Get the text content from a tree item.
@@ -217,7 +237,7 @@ class Tree:
         :returns: The text content.
         """
         # Try editable text element first (common in ontology tree items)
-        text_element = item.locator("p.pluto-text--editable")
+        text_element = item.locator("p.lyra-text--editable")
         if text_element.count() > 0:
             return text_element.inner_text().strip()
         return item.inner_text().strip()
@@ -236,7 +256,7 @@ class Tree:
         if not items:
             return
         root = items[0]
-        caret = root.locator(".pluto--location-bottom")
+        caret = root.locator(".lyra--location-bottom")
         try:
             caret.wait_for(state="visible", timeout=500)
             return
@@ -263,11 +283,11 @@ class Tree:
         # it can be expanded.
         item = self.wait_for_name(prefix, name)
         item.scroll_into_view_if_needed()
-        # An expanded node's caret carries pluto--location-bottom (caret down);
-        # collapsed is pluto--location-right. The drawer remounts the tree each
+        # An expanded node's caret carries lyra--location-bottom (caret down);
+        # collapsed is lyra--location-right. The drawer remounts the tree each
         # time it is reopened, so an expand click issued before the freshly
         # mounted tree settles is silently dropped; retry until the caret flips.
-        caret = item.locator(".pluto--location-bottom")
+        caret = item.locator(".lyra--location-bottom")
         for _ in range(4):
             try:
                 caret.wait_for(state="visible", timeout=500)
@@ -293,7 +313,7 @@ class Tree:
         """
         if self.is_expanded(item):
             return
-        expand_icon = item.locator("svg.pluto-tree__expansion-indicator").first
+        expand_icon = item.locator("svg.lyra-tree__expansion-indicator").first
         if expand_icon.count() > 0:
             expand_icon.click()
         else:
@@ -309,7 +329,7 @@ class Tree:
         """
         if not self.is_expanded(item):
             return
-        expand_icon = item.locator("svg.pluto-tree__expansion-indicator").first
+        expand_icon = item.locator("svg.lyra-tree__expansion-indicator").first
         if expand_icon.count() > 0:
             expand_icon.click()
         else:
@@ -322,11 +342,11 @@ class Tree:
         :param item: The Locator for the tree item to check.
         :returns: True if expanded, False otherwise.
         """
-        expand_icon = item.locator("svg.pluto-tree__expansion-indicator").first
+        expand_icon = item.locator("svg.lyra-tree__expansion-indicator").first
         if expand_icon.count() == 0:
             return False
         class_attr = expand_icon.get_attribute("class") or ""
-        return "pluto-tree__expansion-indicator--expanded" in class_attr
+        return "lyra-tree__expansion-indicator--expanded" in class_attr
 
     def rename(self, item: Locator, new_name: str) -> None:
         """Rename a tree item via context menu.
@@ -336,7 +356,7 @@ class Tree:
         """
         self.ctx_menu.action(item, "Rename")
         self.page.locator(
-            "p.pluto-text--editable[contenteditable='true']"
+            "p.lyra-text--editable[contenteditable='true']"
         ).first.wait_for(state="visible", timeout=5000)
         self.layout.select_all_and_type(new_name)
         self.layout.press_enter()
@@ -365,9 +385,9 @@ class Tree:
         self.ctx_menu.action(last_item, "Group selection")
         # "Group selection" creates a group but doesn't enter name edit mode.
         # The newly created group gets the "selected" class.
-        new_group = self.page.locator("div.pluto--selected[id^='group:']").first
+        new_group = self.page.locator("div.lyra--selected[id^='group:']").first
         new_group.wait_for(state="visible", timeout=5000)
-        new_group.locator("p.pluto-text--editable").dblclick()
+        new_group.locator("p.lyra-text--editable").dblclick()
         self.layout.press_key("ControlOrMeta+a")
         self.layout.type_text(group_name)
         self.layout.press_enter()
@@ -410,7 +430,8 @@ class Tree:
         self.page.wait_for_timeout(300)
 
     def get_group(self, name: str) -> Locator:
-        """Get a group Locator by name, waiting for it to appear and scrolling into view.
+        """Get a group Locator by name, waiting for it to appear and scrolling into
+        view.
 
         More robust than find_by_name("group:", name) which filters by visibility.
         This waits for the element to be attached to the DOM and scrolls it into view.
@@ -437,62 +458,36 @@ class Tree:
         except PlaywrightTimeoutError:
             return False
 
-    def get_depth(self, item: Locator) -> int:
-        """Get the integer tree depth level of an item from its CSS variable.
-
-        The Pluto tree sets ``--pluto-tree-item-offset`` as an inline
-        style using the formula ``depth * 2.5 + 1.5`` rem. We parse
-        the numeric value and reverse the formula to get the depth level.
-
-        :param item: The Locator for the tree item.
-        :returns: The integer depth level (0 = root).
-        """
-        style = item.get_attribute("style") or ""
-        match = re.search(r"--pluto-tree-item-offset:\s*([\d.]+)", style)
-        if not match:
-            return 0
-        offset = float(match.group(1))
-        return int((offset - 1.5) / 2.5)
-
     def has_expand_arrow(self, item: Locator) -> bool:
         """Check if a tree item has an expand arrow (i.e. can have children).
 
         :param item: The Locator for the tree item.
         :returns: True if the item has an expansion indicator.
         """
-        indicator = item.locator("svg.pluto-tree__expansion-indicator")
+        indicator = item.locator("svg.lyra-tree__expansion-indicator")
         return indicator.count() > 0
 
-    def get_children_names(
-        self, parent: Locator, prefix: str, parent_name: str
-    ) -> list[str]:
-        """Get visible child item names nested under a parent in the tree.
+    def list_nested_names(self, parent: Locator, *, prefix: str) -> list[str]:
+        """List the names of the items nested under ``parent``.
 
-        Walks sibling items with the given prefix that appear after the parent
-        and have a greater tree depth.
+        Scrolls ``parent`` to the top of the tree, then reads the tree once, so an item
+        that another test removes cannot stall the read.
 
         :param parent: The Locator for the parent tree item.
-        :param prefix: The ID prefix of child items (e.g. 'device:').
-        :param parent_name: Display name of the parent (used to skip it).
-        :returns: List of child item names.
+        :param prefix: The ID prefix of the nested items (e.g. 'device:').
+        :returns: List of item names.
+        :raises ValueError: If the nested items do not fit in the tree's window.
         """
-        all_items = self.page.locator(f"div[id^='{prefix}']").all()
-        names: list[str] = []
-        found_parent = False
-        parent_depth = self.get_depth(parent)
-        for item in all_items:
-            if not item.is_visible():
-                continue
-            item_text = self.get_text(item)
-            if item_text == parent_name or parent_name in item_text:
-                found_parent = True
-                continue
-            if found_parent:
-                item_depth = self.get_depth(item)
-                if item_depth > parent_depth:
-                    names.append(self.get_text(item))
-                else:
-                    break
+        parent.evaluate(_SCROLL_TO_TOP_JS)
+        self.page.wait_for_timeout(_SCROLL_SETTLE_MS)
+        names: list[str]
+        complete: bool
+        names, complete = parent.evaluate(_NESTED_NAMES_JS, prefix)
+        if not complete:
+            raise ValueError(
+                f"Items under {parent.get_attribute('id')} do not fit in the tree's "
+                "window"
+            )
         return names
 
     def set_editable_text(self, item: Locator, text: str) -> None:
@@ -503,7 +498,7 @@ class Tree:
         :param item: The Locator for the tree item.
         :param text: The new text to set.
         """
-        text_element = item.locator("p.pluto-text--editable")
+        text_element = item.locator("p.lyra-text--editable")
         text_element.click()
         text_element.fill(text)
         self.layout.press_enter()

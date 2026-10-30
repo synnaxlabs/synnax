@@ -28,6 +28,7 @@ class Heartbeat:
 
     def __init__(
         self,
+        *,
         client: sy.Synnax,
         channels: Channels,
         name: str,
@@ -39,9 +40,12 @@ class Heartbeat:
         self.stopped = threading.Event()
         self.wake = threading.Event()
         channels.data(
-            channels.index(index or f"{name}_time"), {name: sy.DataType.BOOLEAN}
+            index=channels.index(index or f"{name}_time"),
+            channels={name: sy.DataType.BOOLEAN},
         )
-        self.publisher = Publisher(client, name, [name], auto_index=True)
+        self.publisher = Publisher(
+            client=client, name=name, channels=[name], auto_index=True
+        )
         atexit.register(self.stop)
         self.thread = threading.Thread(target=self._run, daemon=True)
         self.thread.start()

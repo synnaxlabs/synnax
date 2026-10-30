@@ -11,7 +11,7 @@
 
 /* A ruled grid. The data cells join into one box with shared lines. Row labels and
    remove buttons sit outside it. */
-.pluto-input__table {
+.lyra-input__table {
     width: 100%;
     table-layout: fixed;
     border-collapse: separate;
@@ -51,22 +51,22 @@
     }
 
     /* Headings sit over the cell text, which shadow inputs inset. */
-    & thead th:not(.pluto-input__table-gutter) {
+    & thead th:not(.lyra-input__table-gutter) {
         padding-left: 1.5rem;
     }
 
-    & .pluto-input__table-gutter {
+    & .lyra-input__table-gutter {
         width: 5rem;
         padding-right: 1rem;
 
-        & > .pluto-text {
+        & > .lyra-text {
             justify-content: flex-end;
             margin-left: auto;
             text-align: right;
         }
     }
 
-    & :is(thead, tbody) :is(th, td):not(:last-child, .pluto-input__table-gutter) {
+    & :is(thead, tbody) :is(th, td):not(:last-child, .lyra-input__table-gutter) {
         border-right: var(--pluto-border-width) solid var(--pluto-table-line);
         border-bottom: var(--pluto-border-width) solid var(--pluto-table-line);
     }
@@ -77,8 +77,8 @@
         :is(thead, tbody)
         tr
         > :is(
-            :first-child:not(.pluto-input__table-gutter),
-            .pluto-input__table-gutter + *
+            :first-child:not(.lyra-input__table-gutter),
+            .lyra-input__table-gutter + *
         ) {
         border-left: var(--pluto-border-width) solid var(--pluto-table-edge);
     }
@@ -87,15 +87,15 @@
         border-right-color: var(--pluto-table-edge);
     }
 
-    & thead th:not(:last-child, .pluto-input__table-gutter),
+    & thead th:not(:last-child, .lyra-input__table-gutter),
     &:not(:has(thead))
         tbody
         tr:first-child
-        > :is(th, td):not(:last-child, .pluto-input__table-gutter) {
+        > :is(th, td):not(:last-child, .lyra-input__table-gutter) {
         border-top: var(--pluto-border-width) solid var(--pluto-table-edge);
     }
 
-    & tbody tr:last-child > :is(th, td):not(:last-child, .pluto-input__table-gutter) {
+    & tbody tr:last-child > :is(th, td):not(:last-child, .lyra-input__table-gutter) {
         border-bottom-color: var(--pluto-table-edge);
     }
 
@@ -104,7 +104,7 @@
         background: var(--pluto-fill-rest);
     }
 
-    & tbody .pluto-input__container {
+    & tbody .lyra-input__container {
         border-radius: 0;
     }
 
@@ -112,7 +112,7 @@
     & tbody tr:last-child > :nth-last-child(2) {
         border-bottom-right-radius: var(--pluto-border-radius-tiny);
 
-        & .pluto-input__container {
+        & .lyra-input__container {
             border-bottom-right-radius: var(--pluto-table-cell-radius);
         }
     }
@@ -121,7 +121,7 @@
     &:not(:has(thead)) tbody tr:first-child > :nth-last-child(2) {
         border-top-right-radius: var(--pluto-border-radius-tiny);
 
-        & .pluto-input__container {
+        & .lyra-input__container {
             border-top-right-radius: var(--pluto-table-cell-radius);
         }
     }
@@ -130,12 +130,12 @@
         tbody
         tr:last-child
         > :is(
-            :first-child:not(.pluto-input__table-gutter),
-            .pluto-input__table-gutter + *
+            :first-child:not(.lyra-input__table-gutter),
+            .lyra-input__table-gutter + *
         ) {
         border-bottom-left-radius: var(--pluto-border-radius-tiny);
 
-        & .pluto-input__container {
+        & .lyra-input__container {
             border-bottom-left-radius: var(--pluto-table-cell-radius);
         }
     }
@@ -144,26 +144,26 @@
         thead
         tr
         > :is(
-            :first-child:not(.pluto-input__table-gutter),
-            .pluto-input__table-gutter + *
+            :first-child:not(.lyra-input__table-gutter),
+            .lyra-input__table-gutter + *
         ),
     &:not(:has(thead))
         tbody
         tr:first-child
         > :is(
-            :first-child:not(.pluto-input__table-gutter),
-            .pluto-input__table-gutter + *
+            :first-child:not(.lyra-input__table-gutter),
+            .lyra-input__table-gutter + *
         ) {
         border-top-left-radius: var(--pluto-border-radius-tiny);
 
-        & .pluto-input__container {
+        & .lyra-input__container {
             border-top-left-radius: var(--pluto-table-cell-radius);
         }
     }
 
     /* A cell draws its border on the grid line, so focus and hover frame the whole
        cell. The focused cell stays above its neighbors. */
-    & tbody .pluto-input {
+    & tbody .lyra-input {
         border-width: 0;
         outline: var(--pluto-border-width) solid var(--pluto-btn-border-color);
         outline-offset: 0;
@@ -174,5 +174,22 @@
         &:focus-within {
             z-index: 2;
         }
+    }
+
+    /* A marked cell keeps its frame at rest, above its unfocused neighbors. */
+    &
+        tbody
+        .lyra-input:is(.lyra--status-error, .lyra--status-warning):not(:focus-within) {
+        z-index: 1;
+    }
+
+    & tbody .lyra-input.lyra--status-error {
+        --pluto-border-color: var(--pluto-error-z);
+        --pluto-hover-border-color: var(--pluto-error-p1);
+    }
+
+    & tbody .lyra-input.lyra--status-warning {
+        --pluto-border-color: var(--pluto-warning-z);
+        --pluto-hover-border-color: var(--pluto-warning-p1);
     }
 }

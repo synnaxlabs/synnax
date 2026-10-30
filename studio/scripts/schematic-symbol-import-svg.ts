@@ -55,7 +55,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.hold(1800);
 
   await session.click(
-    modal.locator(".pluto-select-btn").filter({ hasText: "Actuator" }).first(),
+    modal.locator(".lyra-select-btn").filter({ hasText: "Actuator" }).first(),
     { text: true, zoom: false },
   );
   const active = modal
@@ -69,16 +69,16 @@ export default async (session: capture.CaptureSession): Promise<void> => {
 
   // The second swatch of a region is its fill. The 300px sidebar clips it, so scroll
   // the sidebar to it first: the rig clicks at screen coordinates.
-  const fill = region.locator(".pluto-color-swatch--chip").nth(1);
+  const fill = region.locator(".lyra-color-swatch--chip").nth(1);
   await fill.scrollIntoViewIfNeeded();
   await session.settle(300);
   await session.click(fill, { zoom: false });
-  const picker = page.locator(".pluto-color-picker").first();
+  const picker = page.locator(".lyra-color-picker").first();
   await session.waitFor(picker);
   await session.hold(600);
   // The second preset is the theme's secondary color.
   await session.click(
-    picker.locator(".pluto-color-picker__swatches .pluto-color-swatch").nth(1),
+    picker.locator(".lyra-color-picker__swatches .lyra-color-swatch").nth(1),
     { zoom: false },
   );
   await session.hold(500);
