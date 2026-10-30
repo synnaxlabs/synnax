@@ -330,7 +330,8 @@ failed to compile function 'f' body: failed to compile return expression: float 
   message={"cannot read '<name>': its initializer is not a compile-time constant"}
 >
   <Problem.Cause>
-    Code reads a top-level variable whose value is not a constant, such as a series.
+    A function reads a top-level variable whose value is not a constant, such as a
+    series or an expression.
   </Problem.Cause>
   <Problem.Fix>Declare the variable in the function or stage that uses it.</Problem.Fix>
 </Problem.Item>
