@@ -154,8 +154,11 @@ export interface Observer {
    * undefined when setCredentials drops the user.
    */
   onUser?: (user: user.User | undefined) => void;
-  /** Fires after every successful login, and after setPassword opens a new session. */
-  onSuccess?: () => void;
+  /**
+   * Fires with the session's key after every successful login, and after setPassword
+   * opens a new session.
+   */
+  onSuccess?: (session: SessionKey) => void;
   /** Fires on a definitive credential rejection, never on token self-heal. */
   onFailure?: (error: Error) => void;
 }
@@ -350,7 +353,7 @@ export class Client {
     if (res.session == null || generation !== this.generation) return;
     this.authState = { authenticated: true, token: res.token, session: res.session };
     if (this.resumeToken != null) this.resumeToken = res.token;
-    this.observer.onSuccess?.();
+    this.observer.onSuccess?.(res.session.key);
   }
 
   /**
@@ -467,7 +470,7 @@ export class Client {
       this.authState = state;
       this.ownsSession = owned;
       this.observer.onUser?.(u);
-      this.observer.onSuccess?.();
+      this.observer.onSuccess?.(state.session.key);
       return null;
     } catch (err) {
       const parsed = errors.fromUnknown(err);
