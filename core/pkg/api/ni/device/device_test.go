@@ -58,9 +58,8 @@ var _ = Describe("Service", func() {
 	Describe("NewService", func() {
 		It("Should reject a config missing the device service", func() {
 			Expect(apidevice.NewService(apidevice.ServiceConfig{
-				Status:   svc.Status,
-				RBAC:     svc.RBAC,
-				Ontology: svc.Ontology,
+				Status: svc.Status,
+				RBAC:   svc.RBAC,
 			})).Error().To(MatchError(ContainSubstring("device: must be non-nil")))
 		})
 	})

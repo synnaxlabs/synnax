@@ -40,9 +40,6 @@ type ServiceConfig struct {
 	// RBAC enforces access control on every request.
 	// [REQUIRED]
 	RBAC *rbac.Service
-	// Ontology resolves device parents.
-	// [REQUIRED]
-	Ontology *ontology.Ontology
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
@@ -52,7 +49,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Device = override.Nil(c.Device, other.Device)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
-	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	return c
 }
 
@@ -62,7 +58,6 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("device", c.Device)
 	v.NotNil("status", c.Status)
 	v.NotNil("rbac", c.RBAC)
-	v.NotNil("ontology", c.Ontology)
 	return v.Error()
 }
 

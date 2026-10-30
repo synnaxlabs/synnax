@@ -872,10 +872,9 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		return nil, err
 	}
 	if l.NIDevice, err = nidevice.NewService(nidevice.ServiceConfig{
-		Device:   cfg.Service.NI.Devices,
-		Status:   cfg.Service.Status,
-		RBAC:     cfg.Service.RBAC,
-		Ontology: cfg.Service.Ontology,
+		Device: cfg.Service.NI.Devices,
+		Status: cfg.Service.Status,
+		RBAC:   cfg.Service.RBAC,
 	}); err != nil {
 		return nil, err
 	}
