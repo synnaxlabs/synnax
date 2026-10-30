@@ -146,6 +146,20 @@ describe("Write", () => {
     );
   });
 
+  it("should offer no channel actions on a free port of the port picker", async () => {
+    const dev = await createLabJackDevice(client);
+    const draft = await createDraft(
+      client,
+      createConfig(dev.key, [createDigitalWriteChannel("DIO4")]),
+    );
+    await renderWrite({ client, taskKey: draft.key });
+    fireEvent.click(await findDialogTriggerByText("FIO4"));
+    const bank = await screen.findByRole("group", { name: "EIO0 to EIO7" });
+    fireEvent.contextMenu(within(bank).getByRole("button", { name: "EIO2" }));
+    await waitFor(() => expect(screen.getByText("Reload Console")).toBeTruthy());
+    expect(screen.queryByText("Remove")).toBeNull();
+  });
+
   it("should add a channel on the lowest free port of the device", async () => {
     const dev = await createLabJackDevice(client, { model: LabJack.Device.T7_MODEL });
     const draft = await createDraft(client, createConfig(dev.key, []));
