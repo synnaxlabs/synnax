@@ -41,8 +41,23 @@ struct is_vector<std::vector<T>> : std::true_type {
 template<typename T>
 inline constexpr bool is_vector_v = is_vector<T>::value;
 
-/// @brief Type trait to detect std::map and std::unordered_map types with string or
-/// numeric keys
+/// @brief Type trait to detect a key type with a static parse from a string that
+/// returns a pair of the key and an error, such as x::uuid::UUID.
+template<typename K, typename = void>
+struct is_string_parseable : std::false_type {};
+
+template<typename K>
+struct is_string_parseable<
+    K,
+    std::enable_if_t<std::is_same_v<
+        decltype(K::parse(std::declval<const std::string &>())),
+        std::pair<K, errors::Error>>>> : std::true_type {};
+
+template<typename K>
+inline constexpr bool is_string_parseable_v = is_string_parseable<K>::value;
+
+/// @brief Type trait to detect std::map and std::unordered_map types with string,
+/// numeric, or string-parseable keys
 template<typename T>
 struct is_map : std::false_type {
     using key_type = void;
@@ -52,7 +67,8 @@ struct is_map : std::false_type {
 template<typename K, typename V>
 struct is_map<std::map<K, V>>
     : std::conditional_t<
-          std::is_same_v<K, std::string> || std::is_arithmetic_v<K>,
+          std::is_same_v<K, std::string> || std::is_arithmetic_v<K> ||
+              is_string_parseable_v<K>,
           std::true_type,
           std::false_type> {
     using key_type = K;
@@ -62,7 +78,8 @@ struct is_map<std::map<K, V>>
 template<typename K, typename V>
 struct is_map<std::unordered_map<K, V>>
     : std::conditional_t<
-          std::is_same_v<K, std::string> || std::is_arithmetic_v<K>,
+          std::is_same_v<K, std::string> || std::is_arithmetic_v<K> ||
+              is_string_parseable_v<K>,
           std::true_type,
           std::false_type> {
     using key_type = K;
@@ -139,6 +156,13 @@ class Parser {
                 field_err(path, "Invalid numeric key: '" + json_key + "'");
                 return {K{}, false};
             }
+        } else if constexpr (is_string_parseable_v<K>) {
+            auto [map_key, err] = K::parse(json_key);
+            if (err) {
+                field_err(path, "Invalid key: '" + json_key + "'");
+                return {K{}, false};
+            }
+            return {map_key, true};
         }
         return {K{}, false};
     }
