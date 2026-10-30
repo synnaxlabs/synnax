@@ -11,12 +11,12 @@ import { allocSuiteAsync } from "@synnaxlabs/x/bench";
 import { test } from "vitest";
 
 import { type channel } from "@/channel";
-import { createKeys, createSequence } from "@/framer/benchutil";
 import { Joins } from "@/framer/cache/join";
 import { Store } from "@/framer/cache/store";
 import { MultiplexedStreamer } from "@/framer/cache/streamer";
 import { type Frame } from "@/framer/frame";
 import { type Streamer } from "@/framer/streamer";
+import { createKeys, createSequence } from "@/framer/testutil";
 
 class StubStreamer implements Streamer {
   keys: channel.Key[];

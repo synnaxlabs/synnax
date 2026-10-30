@@ -14,8 +14,8 @@ import { test } from "vitest";
 import { type channel } from "@/channel";
 import { payloadZ } from "@/channel/types.gen";
 import { WriteAdapter } from "@/framer/adapter";
-import { createKeys } from "@/framer/benchutil";
 import { Frame } from "@/framer/frame";
+import { createKeys } from "@/framer/testutil";
 
 const CHANNELS = 10;
 const SAMPLES = 100;
