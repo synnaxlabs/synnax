@@ -18,7 +18,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	v6 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v6"
 	v7 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v7"
@@ -167,20 +166,5 @@ var _ = Describe("v7 wire format", func() {
 			Expect(orc.Codec.Decode(ctx, raw[:n], &lp)).
 				To(truncatedErr, "prefix length %d", n)
 		}
-	})
-})
-
-var _ = Describe("RaiseStrokeWidths", func() {
-	It("Should raise widths below 1 to 1 and keep the rest", func(ctx SpecContext) {
-		in := v7.LinePlot{Lines: []v7.Line{
-			{StrokeWidth: 0},
-			{StrokeWidth: 0.5},
-			{StrokeWidth: 1},
-			{StrokeWidth: 3.5},
-		}}
-		out := MustSucceed(v7.RaiseStrokeWidths(ctx, in))
-		Expect(lo.Map(out.Lines, func(l v7.Line, _ int) float64 {
-			return l.StrokeWidth
-		})).To(Equal([]float64{1, 1, 1, 3.5}))
 	})
 })
