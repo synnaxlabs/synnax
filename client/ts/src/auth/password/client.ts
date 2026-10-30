@@ -10,6 +10,7 @@
 import { type UnaryClient } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
+import { type Password, passwordZ } from "@/auth/password/types.gen";
 import { type Credentials, type Session, sessionZ } from "@/auth/types.gen";
 import { ontology } from "@/ontology";
 
@@ -44,15 +45,6 @@ const setReqZ = z.object({
   cookie: z.boolean().optional(),
 });
 const setResZ = z.object({ token: z.string(), session: sessionZ.optional() });
-
-export const passwordZ = z.object({
-  /** subject is the user the password logs in as. */
-  subject: ontology.idZ,
-  /** username is the name the password logs in with. */
-  username: z.string(),
-});
-/** Password is a password as the API returns it: its subject and username. */
-export interface Password extends z.infer<typeof passwordZ> {}
 
 export interface RetrieveParams {
   /** The users whose passwords to list. */

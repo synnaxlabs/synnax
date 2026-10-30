@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from synnax.auth.password.client import Client, Password, RenameHandler
+from synnax.auth.password.client import Client, RenameHandler
+from synnax.auth.password.types_gen import Password
 
 __all__ = ["Client", "Password", "RenameHandler"]

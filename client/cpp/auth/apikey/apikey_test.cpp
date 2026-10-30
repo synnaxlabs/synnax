@@ -24,7 +24,7 @@ synnax::Synnax keyed_client(const std::string &token) {
     return synnax::Synnax(cfg);
 }
 
-bool holds(const std::vector<APIKey> &keys, const std::string &key) {
+bool holds(const std::vector<APIKey> &keys, const Key &key) {
     return std::ranges::any_of(keys, [&](const APIKey &k) { return k.key == key; });
 }
 }

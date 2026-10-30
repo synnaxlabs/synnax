@@ -16,7 +16,10 @@
 
 #include "google/protobuf/empty.pb.h"
 
+#include "client/cpp/auth/apikey/json.gen.h"
+#include "client/cpp/auth/apikey/types.gen.h"
 #include "client/cpp/auth/auth.h"
+#include "client/cpp/ontology/id.h"
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/telem/telem.h"
@@ -34,25 +37,21 @@ using RetrieveClient = freighter::
 using DeleteClient = freighter::
     UnaryClient<grpc::auth::APIKeyDeleteRequest, google::protobuf::Empty>;
 
-/// @brief an API key as the Core returns it, without its secret.
-struct APIKey {
-    /// @brief the unique key of the API key.
-    std::string key;
-    /// @brief the user or rack the key logs in as.
-    Subject subject;
-    /// @brief a label that tells the subject's keys apart.
-    std::string name;
-    /// @brief when the key was created.
-    x::telem::TimeStamp created = x::telem::TimeStamp(0);
-
-    APIKey() = default;
-
-    explicit APIKey(const grpc::auth::APIKey &k):
-        key(k.key()),
-        subject{k.subject().type(), k.subject().key()},
-        name(k.name()),
-        created(k.created()) {}
-};
+/// @brief returns the API key in a gRPC message. Returns an error when its key is not
+/// a UUID.
+inline std::pair<APIKey, x::errors::Error> from_pb(const grpc::auth::APIKey &pb) {
+    auto [key, err] = Key::parse(pb.key());
+    if (err) return {{}, err};
+    return {
+        APIKey{
+            .key = key,
+            .subject = subject_from_pb(pb.subject()),
+            .name = pb.name(),
+            .created = x::telem::TimeStamp(pb.created()),
+        },
+        x::errors::NIL,
+    };
+}
 
 /// @brief an API key just created, with the token that holds its secret.
 struct New {
@@ -81,42 +80,41 @@ public:
     /// @brief creates an API key for the subject, or for the caller when the subject
     /// is empty.
     [[nodiscard]] std::pair<New, x::errors::Error>
-    create(const std::string &name, const Subject &subject = {}) const {
+    create(const std::string &name, const ontology::ID &subject = {}) const {
         grpc::auth::APIKeyCreateRequest req;
         req.set_name(name);
-        if (!subject.type.empty()) {
-            req.mutable_subject()->set_type(subject.type);
-            req.mutable_subject()->set_key(subject.key);
-        }
+        if (!subject.is_zero()) subject_to_pb(subject, req.mutable_subject());
         auto [res, err] = this->create_client->send("/auth/api-key/create", req);
         if (err) return {{}, err};
-        return {New{res.token(), APIKey(res.key())}, x::errors::NIL};
+        auto [key, key_err] = from_pb(res.key());
+        if (key_err) return {{}, key_err};
+        return {New{res.token(), key}, x::errors::NIL};
     }
 
     /// @brief lists the caller's API keys, or those of the given subjects when the
     /// caller may retrieve them.
     [[nodiscard]] std::pair<std::vector<APIKey>, x::errors::Error>
-    retrieve(const std::vector<Subject> &subjects = {}) const {
+    retrieve(const std::vector<ontology::ID> &subjects = {}) const {
         grpc::auth::APIKeyRetrieveRequest req;
-        for (const auto &s: subjects) {
-            auto *id = req.add_subjects();
-            id->set_type(s.type);
-            id->set_key(s.key);
-        }
+        for (const auto &s: subjects)
+            subject_to_pb(s, req.add_subjects());
         auto [res, err] = this->retrieve_client->send("/auth/api-key/retrieve", req);
         if (err) return {{}, err};
         std::vector<APIKey> keys;
         keys.reserve(res.keys_size());
-        for (const auto &k: res.keys())
-            keys.emplace_back(k);
+        for (const auto &k: res.keys()) {
+            auto [key, key_err] = from_pb(k);
+            if (key_err) return {{}, key_err};
+            keys.push_back(key);
+        }
         return {keys, x::errors::NIL};
     }
 
     /// @brief deletes API keys and ends their sessions. Unknown keys are ignored.
-    [[nodiscard]] x::errors::Error del(const std::vector<std::string> &keys) const {
+    [[nodiscard]] x::errors::Error del(const std::vector<Key> &keys) const {
         grpc::auth::APIKeyDeleteRequest req;
         for (const auto &k: keys)
-            req.add_keys(k);
+            req.add_keys(k.to_string());
         return this->delete_client->send("/auth/api-key/delete", req).second;
     }
 };
