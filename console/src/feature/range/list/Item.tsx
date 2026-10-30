@@ -107,7 +107,7 @@ const Base = ({
           {showTimeRange && (
             <Telem.Text.TimeRange
               className={CSS.BE("range", "time-range")}
-              level="small"
+              level="tiny"
               role="group"
               aria-label="Time range"
             >
