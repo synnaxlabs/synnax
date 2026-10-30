@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <array>
+#include <chrono>
 #include <memory>
 #include <optional>
 #include <ranges>
@@ -469,7 +471,15 @@ struct Search {
     std::vector<Found> variables;
     /// @brief whether the search stopped at a limit before it visited every object.
     bool truncated = false;
+    /// @brief the number of objects that failed to browse.
+    size_t skipped = 0;
 };
+
+/// @brief the most objects in one Browse request of a search for variables.
+constexpr size_t SEARCH_BATCH = 100;
+/// @brief how long a search for variables runs before it returns what it found, which
+/// is less than the 30 s that the Console waits for the reply.
+constexpr auto SEARCH_DEADLINE = std::chrono::seconds(20);
 
 /// @brief finds the variables under a node, through objects at any depth, breadth
 /// first. Does not look under a variable. A node that fails to browse is skipped.
@@ -483,40 +493,45 @@ find_variables(const connection::Pool::Connection &conn, const UA_NodeId &start)
     std::set<std::string> visited{types::NodeId::to_string(start)};
     std::vector<Object> objects;
     objects.push_back({.node = types::NodeId(start), .path = {}});
-    size_t browsed = 0;
-    while (!objects.empty()) {
-        if (search.variables.size() >= MAX_VARIABLES || browsed >= MAX_OBJECTS) {
+    const size_t limit = conn.server().max_nodes_per_browse;
+    const size_t batch = limit == 0 ? SEARCH_BATCH : std::min(limit, SEARCH_BATCH);
+    const auto deadline = std::chrono::steady_clock::now() + SEARCH_DEADLINE;
+    for (size_t head = 0; head < objects.size();) {
+        if (search.variables.size() >= MAX_VARIABLES ||
+            std::chrono::steady_clock::now() >= deadline) {
             search.truncated = true;
             break;
         }
-        if (objects.size() > MAX_OBJECTS - browsed) {
-            objects.resize(MAX_OBJECTS - browsed);
-            search.truncated = true;
-        }
-        browsed += objects.size();
+        const size_t count = std::min(batch, objects.size() - head);
         std::vector<UA_NodeId> ids;
-        ids.reserve(objects.size());
-        for (const auto &object: objects)
-            ids.push_back(object.node.resolve({}).value());
+        ids.reserve(count);
+        for (size_t i = head; i < head + count; ++i)
+            ids.push_back(objects[i].node.resolve({}).value());
         auto [results, err] = conn.browse(ids);
         if (err) return {Search{}, err};
-        std::vector<Object> next;
-        for (size_t i = 0; i < results.size(); ++i) {
+        for (size_t i = 0; i < count; ++i) {
             if (results[i].err) {
                 LOG(WARNING) << SCAN_LOG_PREFIX << "skipped "
-                             << objects[i].node.to_string()
+                             << objects[head + i].node.to_string()
                              << " in a search for variables: " << results[i].err;
+                ++search.skipped;
                 continue;
             }
             for (auto &ref: results[i].references) {
                 if (ref.node_class != UA_NODECLASS_VARIABLE &&
                     ref.node_class != UA_NODECLASS_OBJECT)
                     continue;
+                const bool object = ref.node_class == UA_NODECLASS_OBJECT;
+                if ((object && objects.size() >= MAX_OBJECTS) ||
+                    (!object && search.variables.size() >= MAX_VARIABLES)) {
+                    search.truncated = true;
+                    continue;
+                }
                 if (!visited.insert(ref.node.to_string()).second) continue;
-                auto path = objects[i].path;
+                auto path = objects[head + i].path;
                 path.push_back(ref.browse_name);
-                if (ref.node_class == UA_NODECLASS_OBJECT)
-                    next.push_back(
+                if (object)
+                    objects.push_back(
                         {.node = std::move(ref.node), .path = std::move(path)}
                     );
                 else
@@ -525,11 +540,7 @@ find_variables(const connection::Pool::Connection &conn, const UA_NodeId &start)
                     );
             }
         }
-        objects = std::move(next);
-    }
-    if (search.variables.size() > MAX_VARIABLES) {
-        search.variables.resize(MAX_VARIABLES);
-        search.truncated = true;
+        head += count;
     }
     return {std::move(search), x::errors::NIL};
 }
@@ -689,44 +700,56 @@ std::pair<x::json::json, x::errors::Error> read_details(
 }
 }
 
-void Scanner::browse_nodes(const synnax::task::Command &cmd) const {
-    x::json::Parser parser(cmd.args);
-    const ScanCommandArgs args(parser);
-    auto status = command_status(this->task, cmd);
+std::optional<std::pair<connection::Pool::Connection, UA_NodeId>> Scanner::target(
+    const x::json::Parser &parser,
+    const ScanCommandArgs &args,
+    synnax::task::Status &status,
+    const std::string &failure
+) const {
     if (!parser.ok()) {
         status.message = "Failed to parse scan command";
         status.description = common::config_err_description(parser.error());
         status.details.data = parser.error_json();
         ctx->set_status(status);
-        return;
+        return std::nullopt;
     }
-
     auto [connection, err] = conn_pool->acquire(args.connection, SCAN_LOG_PREFIX);
     if (err) {
         status.message = "Failed to connect to server";
         status.description = err.data;
         ctx->set_status(status);
-        return;
+        return std::nullopt;
     }
-    const auto start = args.node.resolve(connection.server().namespaces);
-    if (!start.has_value()) {
-        status.message = "Failed to browse nodes";
+    const auto node = args.node.resolve(connection.server().namespaces);
+    if (!node.has_value()) {
+        status.message = failure;
         status.description = "The server has no namespace " +
                              args.node.namespace_uri() + ".";
         ctx->set_status(status);
-        return;
+        return std::nullopt;
     }
+    return std::pair{std::move(connection), node.value()};
+}
 
+void Scanner::browse_nodes(const synnax::task::Command &cmd) const {
+    x::json::Parser parser(cmd.args);
+    const ScanCommandArgs args(parser);
+    auto status = command_status(this->task, cmd);
+    auto target = this->target(parser, args, status, "Failed to browse nodes");
+    if (!target.has_value()) return;
+    auto &[connection, start] = *target;
+
+    x::errors::Error err;
     std::vector<types::Node> nodes;
     if (args.field.empty()) {
-        auto [results, browse_err] = connection.browse({start.value()});
+        auto [results, browse_err] = connection.browse({start});
         err = browse_err ? browse_err : results[0].err;
         if (!err) std::tie(nodes, err) = to_nodes(connection, results[0].references);
     }
     if (!err) {
         auto [members, members_err] = structure_members(
             connection,
-            start.value(),
+            start,
             args.node_id,
             args.field
         );
@@ -754,35 +777,16 @@ void Scanner::browse_variables(const synnax::task::Command &cmd) const {
     x::json::Parser parser(cmd.args);
     const ScanCommandArgs args(parser);
     auto status = command_status(this->task, cmd);
-    if (!parser.ok()) {
-        status.message = "Failed to parse scan command";
-        status.description = common::config_err_description(parser.error());
-        status.details.data = parser.error_json();
-        ctx->set_status(status);
-        return;
-    }
-    auto [connection, err] = conn_pool->acquire(args.connection, SCAN_LOG_PREFIX);
-    if (err) {
-        status.message = "Failed to connect to server";
-        status.description = err.data;
-        ctx->set_status(status);
-        return;
-    }
-    const auto start = args.node.resolve(connection.server().namespaces);
-    if (!start.has_value()) {
-        status.message = "Failed to find variables";
-        status.description = "The server has no namespace " +
-                             args.node.namespace_uri() + ".";
-        ctx->set_status(status);
-        return;
-    }
-    auto [search, search_err] = find_variables(connection, start.value());
+    auto target = this->target(parser, args, status, "Failed to find variables");
+    if (!target.has_value()) return;
+    auto &[connection, start] = *target;
+    auto [search, search_err] = find_variables(connection, start);
     std::vector<types::Reference> refs;
     refs.reserve(search.variables.size());
     for (auto &found: search.variables)
         refs.push_back(std::move(found.ref));
     std::vector<types::Node> nodes;
-    err = search_err;
+    auto err = search_err;
     if (!err) std::tie(nodes, err) = to_nodes(connection, refs);
     if (err) {
         status.message = "Failed to find variables";
@@ -798,7 +802,11 @@ void Scanner::browse_variables(const synnax::task::Command &cmd) const {
     }
     status.message = "Found variables";
     status.variant = synnax::status::VARIANT_SUCCESS;
-    status.details.data = {{"channels", channels}, {"truncated", search.truncated}};
+    status.details.data = {
+        {"channels", channels},
+        {"truncated", search.truncated},
+        {"skipped", search.skipped},
+    };
     ctx->set_status(status);
 }
 
@@ -806,29 +814,10 @@ void Scanner::read_node(const synnax::task::Command &cmd) const {
     x::json::Parser parser(cmd.args);
     const ScanCommandArgs args(parser);
     auto status = command_status(this->task, cmd);
-    if (!parser.ok()) {
-        status.message = "Failed to parse scan command";
-        status.description = common::config_err_description(parser.error());
-        status.details.data = parser.error_json();
-        ctx->set_status(status);
-        return;
-    }
-    auto [connection, err] = conn_pool->acquire(args.connection, SCAN_LOG_PREFIX);
-    if (err) {
-        status.message = "Failed to connect to server";
-        status.description = err.data;
-        ctx->set_status(status);
-        return;
-    }
-    const auto id = args.node.resolve(connection.server().namespaces);
-    if (!id.has_value()) {
-        status.message = "Failed to read node";
-        status.description = "The server has no namespace " +
-                             args.node.namespace_uri() + ".";
-        ctx->set_status(status);
-        return;
-    }
-    auto [data, details_err] = read_details(connection, id.value(), args.field);
+    auto target = this->target(parser, args, status, "Failed to read node");
+    if (!target.has_value()) return;
+    auto &[connection, id] = *target;
+    auto [data, details_err] = read_details(connection, id, args.field);
     if (details_err) {
         status.message = "Failed to read node";
         status.description = details_err.data;

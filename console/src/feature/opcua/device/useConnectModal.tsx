@@ -48,6 +48,7 @@ import {
 import {
   type CertificateInfo,
   TEST_CONNECTION_COMMAND_TYPE,
+  testConnectionResponseZ,
 } from "@/feature/opcua/task/types";
 import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
@@ -110,9 +111,9 @@ export const Connect = ({
       args: { connection },
     });
     if (scanStatus.variant === "error") {
-      const data = scanStatus.details?.data;
-      if (data != null && "serverCertificate" in data && data.serverCertificate != null)
-        setServerCertificateOffer(data.serverCertificate);
+      const reply = testConnectionResponseZ.safeParse(scanStatus.details?.data);
+      if (reply.success && reply.data.serverCertificate != null)
+        setServerCertificateOffer(reply.data.serverCertificate);
       throw status.toError(scanStatus);
     }
     // Since we just scanned successfully, we create a default healthy status for the

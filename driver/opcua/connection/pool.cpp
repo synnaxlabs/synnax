@@ -107,23 +107,6 @@ void move_results(T *results, T *&part, size_t &part_size) {
     part_size = 0;
 }
 
-/// @brief owns a response from the client and clears it on destruction.
-template<typename T>
-class Response {
-    T value_;
-    const UA_DataType *type_;
-
-public:
-    Response(T value, const UA_DataType *type): value_(value), type_(type) {}
-    ~Response() { UA_clear(&value_, type_); }
-    Response(const Response &) = delete;
-    Response &operator=(const Response &) = delete;
-    Response(Response &&) = delete;
-    Response &operator=(Response &&) = delete;
-
-    T &get() { return value_; }
-};
-
 /// @brief the continuation points of one BrowseNext request, with the index of the
 /// browse result that each one continues.
 struct Pending {
@@ -158,8 +141,19 @@ struct Pending {
     ~Pending() { UA_BrowseNextRequest_clear(&req); }
     Pending(const Pending &) = delete;
     Pending &operator=(const Pending &) = delete;
-    Pending(Pending &&) = delete;
-    Pending &operator=(Pending &&) = delete;
+    Pending(Pending &&other) noexcept:
+        req(other.req), results(std::move(other.results)) {
+        UA_BrowseNextRequest_init(&other.req);
+    }
+    Pending &operator=(Pending &&other) noexcept {
+        if (this != &other) {
+            UA_BrowseNextRequest_clear(&req);
+            req = other.req;
+            results = std::move(other.results);
+            UA_BrowseNextRequest_init(&other.req);
+        }
+        return *this;
+    }
 
     [[nodiscard]] bool empty() const { return results.empty(); }
 
@@ -169,10 +163,7 @@ struct Pending {
     void release(UA_Client *client) {
         if (this->empty() || lost(client)) return;
         req.releaseContinuationPoints = true;
-        const Response<UA_BrowseNextResponse> res(
-            UA_Client_Service_browseNext(client, req),
-            &UA_TYPES[UA_TYPES_BROWSENEXTRESPONSE]
-        );
+        const types::BrowseNextResponse res(UA_Client_Service_browseNext(client, req));
     }
 };
 
@@ -438,44 +429,36 @@ x::errors::Error Pool::Connection::browse(
     req.nodesToBrowse = descriptions.data();
     req.nodesToBrowseSize = count;
     if (auto err = lost(this->get())) return err;
-    Response<UA_BrowseResponse> res(
-        UA_Client_Service_browse(this->get(), req),
-        &UA_TYPES[UA_TYPES_BROWSERESPONSE]
-    );
-    auto &raw = res.get();
+    types::BrowseResponse res(UA_Client_Service_browse(this->get(), req));
+    auto &raw = *res.ptr();
     if (auto err = this->check(raw.responseHeader.serviceResult)) return err;
     const auto &namespaces = this->server_->namespaces;
     std::vector<size_t> indexes(count);
     for (size_t i = 0; i < count; ++i)
         indexes[i] = i;
     const size_t received = std::min(raw.resultsSize, count);
-    auto pending = std::make_unique<Pending>(raw.results, received, indexes);
+    Pending pending(raw.results, received, indexes);
     if (auto err = check_results(raw.resultsSize, count)) {
-        pending->release(this->get());
+        pending.release(this->get());
         return err;
     }
     for (size_t i = 0; i < count; ++i)
         add_references(raw.results[i], results[i], namespaces);
-    while (!pending->empty()) {
+    while (!pending.empty()) {
         if (auto err = lost(this->get())) return err;
-        Response<UA_BrowseNextResponse> next(
-            UA_Client_Service_browseNext(this->get(), pending->req),
-            &UA_TYPES[UA_TYPES_BROWSENEXTRESPONSE]
+        types::BrowseNextResponse next(
+            UA_Client_Service_browseNext(this->get(), pending.req)
         );
-        auto &next_raw = next.get();
+        auto &next_raw = *next.ptr();
         if (auto err = this->check(next_raw.responseHeader.serviceResult)) {
-            pending->release(this->get());
+            pending.release(this->get());
             return err;
         }
-        const size_t asked = pending->results.size();
+        const size_t asked = pending.results.size();
         const size_t got = std::min(next_raw.resultsSize, asked);
-        auto following = std::make_unique<Pending>(
-            next_raw.results,
-            got,
-            pending->results
-        );
+        Pending following(next_raw.results, got, pending.results);
         if (auto err = check_results(next_raw.resultsSize, asked)) {
-            following->release(this->get());
+            following.release(this->get());
             return err;
         }
         bool found = false;
@@ -483,13 +466,13 @@ x::errors::Error Pool::Connection::browse(
             found = found || next_raw.results[j].referencesSize > 0;
             add_references(
                 next_raw.results[j],
-                results[pending->results[j]],
+                results[pending.results[j]],
                 namespaces
             );
         }
         pending = std::move(following);
-        if (!found && !pending->empty()) {
-            pending->release(this->get());
+        if (!found && !pending.empty()) {
+            pending.release(this->get());
             return x::errors::Error(
                 errors::CRITICAL,
                 "the server returned continuation points with no children"

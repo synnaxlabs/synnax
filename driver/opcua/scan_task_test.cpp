@@ -1023,6 +1023,7 @@ TEST_F(TestScanTask, testBrowseVariables) {
     EXPECT_EQ(status.message, "Found variables");
     const x::json::json data = status.details.data.value();
     EXPECT_FALSE(data.at("truncated").get<bool>());
+    EXPECT_EQ(data.at("skipped").get<size_t>(), 0);
     const auto &channels = data.at("channels");
     ASSERT_EQ(channels.size(), 4);
     EXPECT_EQ(channels[0]["name"], "V0");

@@ -417,7 +417,7 @@ describe("Read", () => {
   it("should add the variables under a dropped folder, named from their path", async () => {
     const folder = createFolder();
     const held = createReadChannel();
-    const { scan, draft } = await renderWithNode(folder, [held]);
+    const { scan, draft, statuses } = await renderWithNode(folder, [held]);
     const pressure = `${folder.nodeId}.Tank.Pressure`;
     const search = await answerNextCommand(client, scan, {
       type: OPCUA.Task.BROWSE_VARIABLES_COMMAND_TYPE,
@@ -443,11 +443,22 @@ describe("Read", () => {
           },
         ],
         truncated: false,
+        skipped: 0,
       },
     });
     await dragNode(folder.name, held.nodeName);
     expect((await search.answered).args).toMatchObject({ nodeId: folder.nodeId });
     await screen.findByText(`Add 1 variable from ${folder.name}?`);
+    expect(statuses).toContainEqual(
+      expect.objectContaining({
+        variant: "success",
+        name: folder.name,
+        message: "Found 1 new variable",
+      }),
+    );
+    expect(statuses).not.toContainEqual(
+      expect.objectContaining({ variant: "loading", name: folder.name }),
+    );
     fireEvent.click(screen.getByRole("button", { name: "Add" }));
     await waitFor(async () =>
       expect(await retrieveChannels(draft.key)).toEqual([
@@ -473,7 +484,7 @@ describe("Read", () => {
     const { scan, draft, statuses } = await renderWithNode(folder, [held]);
     const search = await answerNextCommand(client, scan, {
       type: OPCUA.Task.BROWSE_VARIABLES_COMMAND_TYPE,
-      data: { channels: [], truncated: false },
+      data: { channels: [], truncated: false, skipped: 0 },
     });
     await dragNode(folder.name, held.nodeName);
     await search.answered;
@@ -499,6 +510,7 @@ describe("Read", () => {
       data: {
         channels: [{ ...createVariableNode("float64"), path: ["Pressure"] }],
         truncated: true,
+        skipped: 0,
       },
     });
     await dragNode(folder.name, held.nodeName);
@@ -509,6 +521,54 @@ describe("Read", () => {
         "The search stopped at a limit before it found every variable. Drag folders further down to add the rest.",
       ),
     ).toBeTruthy();
+  });
+
+  it("should say how many objects the server did not browse", async () => {
+    const folder = createFolder();
+    const held = createReadChannel();
+    const { scan } = await renderWithNode(folder, [held]);
+    const search = await answerNextCommand(client, scan, {
+      type: OPCUA.Task.BROWSE_VARIABLES_COMMAND_TYPE,
+      data: {
+        channels: [{ ...createVariableNode("float64"), path: ["Pressure"] }],
+        truncated: false,
+        skipped: 2,
+      },
+    });
+    await dragNode(folder.name, held.nodeName);
+    await search.answered;
+    await screen.findByText(`Add 1 variable from ${folder.name}?`);
+    expect(
+      screen.getByText(
+        "The server did not browse 2 objects, so their variables are missing.",
+      ),
+    ).toBeTruthy();
+  });
+
+  it("should replace the search status with the failure when the search fails", async () => {
+    const folder = createFolder();
+    const held = createReadChannel();
+    const { scan, draft, statuses } = await renderWithNode(folder, [held]);
+    const search = await answerNextCommand(client, scan, {
+      type: OPCUA.Task.BROWSE_VARIABLES_COMMAND_TYPE,
+      variant: "error",
+      message: "Failed to browse",
+    });
+    await dragNode(folder.name, held.nodeName);
+    await search.answered;
+    await waitFor(() =>
+      expect(statuses).toContainEqual(
+        expect.objectContaining({
+          variant: "error",
+          name: folder.name,
+          message: "Failed to search for variables",
+        }),
+      ),
+    );
+    expect(statuses).not.toContainEqual(
+      expect.objectContaining({ variant: "loading", name: folder.name }),
+    );
+    expect(await retrieveChannels(draft.key)).toEqual([held]);
   });
 
   it("should add a node dragged from the details", async () => {

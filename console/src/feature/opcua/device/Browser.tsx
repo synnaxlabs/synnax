@@ -29,10 +29,12 @@ import { array, type optional } from "@synnaxlabs/x";
 import { type KeyboardEvent, type ReactElement, useEffect, useState } from "react";
 
 import { Details } from "@/feature/opcua/device/Details";
+import { createHaulItem, HAUL_TYPE } from "@/feature/opcua/device/haul";
 import { executeScanCommand } from "@/feature/opcua/device/retrieveScanTask";
 import { type ConnectionConfig, type Device } from "@/feature/opcua/device/types";
 import {
   BROWSE_COMMAND_TYPE,
+  browseResponseZ,
   nodeIdentity,
   type ScannedNode,
 } from "@/feature/opcua/task/types";
@@ -53,21 +55,6 @@ const ICONS: Record<string, ReactElement> = {
 // A node can sit under more than one parent, so its key names the parent too.
 const nodeKey = (node: ScannedNode, parent?: ScannedNode): string =>
   `${nodeIdentity(node)}---${parent == null ? "" : nodeIdentity(parent)}`;
-
-export const HAUL_TYPE = "opc";
-
-export type HaulItem = Haul.Item<typeof HAUL_TYPE, string, ScannedNode>;
-
-const createHaulItem = (node: ScannedNode): HaulItem => ({
-  type: HAUL_TYPE,
-  key: node.key,
-  data: node,
-});
-
-export const isHaulItem = (item: Haul.Item): item is HaulItem =>
-  item.type === HAUL_TYPE;
-
-export const canDropHaulItem = Haul.canDropOfType<HaulItem>(HAUL_TYPE);
 
 export interface BrowserProps {
   device: Device;
@@ -123,12 +110,12 @@ const browseNodes = async (
   connection: ConnectionConfig,
   parent?: ScannedNode,
 ): Promise<ScannedNode[]> => {
-  const data = await executeScanCommand(client, rack, {
+  const { channels } = await executeScanCommand(client, rack, {
     type: BROWSE_COMMAND_TYPE,
     args: { connection, node_id: parent?.nodeId ?? "", field: parent?.field ?? "" },
+    schema: browseResponseZ,
   });
-  if (data == null || typeof data !== "object" || !("channels" in data)) return [];
-  return data.channels as ScannedNode[];
+  return channels;
 };
 
 /** @returns the nodes that match, or that hold a node that matches. */
@@ -167,7 +154,6 @@ export const Browser = ({ device }: BrowserProps) => {
   const [lookup, setLookup] = useState<Lookup | null>(null);
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
-  const { startDrag } = Haul.useDrag({ type: HAUL_TYPE });
   const retrieveNodes = (parent?: BrowserNode) => {
     if (client == null) return;
     if (parent == null)
@@ -263,8 +249,6 @@ export const Browser = ({ device }: BrowserProps) => {
     if (e.key !== "Enter" || !isNodeID(query.trim())) return;
     setLookup({ nodeId: query.trim(), selected: selectedKey });
   };
-  const handleDetailsDragStart = (node: ScannedNode) =>
-    startDrag([createHaulItem({ ...node, key: nodeIdentity(node) })]);
   const refreshRef = useSyncedRef(refresh);
   useEffect(() => refreshRef.current(), [refreshRef]);
   let content: ReactElement;
@@ -316,12 +300,7 @@ export const Browser = ({ device }: BrowserProps) => {
       />
       {content}
       {selection != null && (
-        <Details
-          device={device}
-          nodeId={selection.nodeId}
-          field={selection.field}
-          onDragStart={handleDetailsDragStart}
-        />
+        <Details device={device} nodeId={selection.nodeId} field={selection.field} />
       )}
     </Flex.Box>
   );

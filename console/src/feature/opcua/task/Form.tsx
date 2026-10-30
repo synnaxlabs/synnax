@@ -9,7 +9,12 @@
 
 import "@/feature/opcua/task/Task.css";
 
-import { type channel, DisconnectedError, type Synnax } from "@synnaxlabs/client";
+import {
+  type channel,
+  DisconnectedError,
+  status,
+  type Synnax,
+} from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { type Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -21,16 +26,16 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Synnax as PSynnax } from "@synnaxlabs/pluto";
-import { TimeSpan } from "@synnaxlabs/x";
+import { id, TimeSpan } from "@synnaxlabs/x";
 import { type FC, useState } from "react";
 
+import { Browser } from "@/feature/opcua/device/Browser";
 import {
-  Browser,
   canDropHaulItem,
   HAUL_TYPE,
   type HaulItem,
   isHaulItem,
-} from "@/feature/opcua/device/Browser";
+} from "@/feature/opcua/device/haul";
 import { use } from "@/feature/opcua/device/queries";
 import { executeScanCommand } from "@/feature/opcua/device/retrieveScanTask";
 import { type Device } from "@/feature/opcua/device/types";
@@ -41,6 +46,7 @@ import {
   browseVariablesResponseZ,
   type Channel,
   nodeIdentity,
+  type ScannedNode,
 } from "@/feature/opcua/task/types";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
@@ -121,13 +127,13 @@ const IMPORT_LABEL = "Import channels from CSV";
 
 interface HeaderProps<C extends Channel> extends Pick<
   ChannelListProps<C>,
-  "convertHaulItemToChannel" | "indexed"
+  "convertNodeToChannel" | "indexed"
 > {
   onImport: (channels: C[]) => void;
 }
 
 const Header = <C extends Channel>({
-  convertHaulItemToChannel,
+  convertNodeToChannel,
   indexed,
   onImport,
 }: HeaderProps<C>) => {
@@ -156,7 +162,7 @@ const Header = <C extends Channel>({
       onImport(
         CSV.decode(text, {
           existing: getChannels(),
-          convert: convertHaulItemToChannel,
+          convert: convertNodeToChannel,
           indexed,
         }),
       );
@@ -216,24 +222,56 @@ const canDrop = ({ items }: Haul.DraggingState): boolean =>
 
 const SEARCH_TIMEOUT = TimeSpan.seconds(30);
 
-/** @returns the variables under a folder, named from the folder and their path. */
+const SEARCH_LIMIT_NOTE =
+  "The search stopped at a limit before it found every variable. Drag folders further down to add the rest.";
+
+const NAMING_NOTE =
+  "Each channel takes its name from the folder and the path to the variable.";
+
+interface Search {
+  nodes: ScannedNode[];
+  truncated: boolean;
+  skipped: number;
+}
+
+/** @returns the variables under the folders, named from the folder and their path. */
 const findVariables = async (
   client: Synnax,
   device: Device,
-  { data: folder }: HaulItem,
-): Promise<{ items: HaulItem[]; truncated: boolean }> => {
-  const { channels, truncated } = browseVariablesResponseZ.parse(
-    await executeScanCommand(client, device.rack, {
-      type: BROWSE_VARIABLES_COMMAND_TYPE,
-      args: { connection: device.properties.connection, node_id: folder.nodeId },
-      timeout: SEARCH_TIMEOUT,
-    }),
-  );
-  const items = channels.map(({ path, ...node }): HaulItem => {
-    const data = { ...node, name: [folder.name, ...path].join("_") };
-    return { type: HAUL_TYPE, key: data.key, data };
-  });
-  return { items, truncated };
+  folders: ScannedNode[],
+): Promise<Search> => {
+  const search: Search = { nodes: [], truncated: false, skipped: 0 };
+  // The Driver runs one scan command at a time, so a search sent before the last one
+  // ends would spend its timeout in the queue.
+  for (const folder of folders) {
+    const { channels, truncated, skipped } = await executeScanCommand(
+      client,
+      device.rack,
+      {
+        type: BROWSE_VARIABLES_COMMAND_TYPE,
+        args: { connection: device.properties.connection, node_id: folder.nodeId },
+        schema: browseVariablesResponseZ,
+        timeout: SEARCH_TIMEOUT,
+      },
+    );
+    channels.forEach(({ path, ...node }) =>
+      search.nodes.push({ ...node, name: [folder.name, ...path].join("_") }),
+    );
+    search.truncated ||= truncated;
+    search.skipped += skipped;
+  }
+  return search;
+};
+
+/** @returns why the found variables are not every variable, or null if they are. */
+const describeMissing = ({ truncated, skipped }: Search): string | null => {
+  const notes: string[] = [];
+  if (truncated) notes.push(SEARCH_LIMIT_NOTE);
+  if (skipped > 0)
+    notes.push(
+      `The server did not browse ${skipped} ${skipped === 1 ? "object" : "objects"}, so their variables are missing.`,
+    );
+  return notes.length === 0 ? null : notes.join(" ");
 };
 
 interface ChannelListProps<C extends Channel> extends Pick<
@@ -242,8 +280,8 @@ interface ChannelListProps<C extends Channel> extends Pick<
 > {
   children: Component.RenderProp<ExtraItemProps>;
   device: Device;
-  /** @returns the channel of a dropped node, or null if the task cannot hold it. */
-  convertHaulItemToChannel: (item: HaulItem) => C | null;
+  /** @returns the channel of a node, or null if the task cannot hold it. */
+  convertNodeToChannel: (node: ScannedNode) => C | null;
   getChannelKeyAndID: ChannelKeyAndIDGetter<C>;
   /** True when a channel can be the task's index, which adds a CSV index column. */
   indexed?: boolean;
@@ -252,7 +290,7 @@ interface ChannelListProps<C extends Channel> extends Pick<
 const ChannelList = <C extends Channel>({
   device,
   children,
-  convertHaulItemToChannel,
+  convertNodeToChannel,
   getChannelKeyAndID,
   indexed,
   ...rest
@@ -264,43 +302,62 @@ const ChannelList = <C extends Channel>({
   const confirm = Modals.useConfirm();
   const addStatus = Status.useAdder();
   const handleError = Status.useErrorHandler();
-  const newChannels = (items: HaulItem[]): C[] => {
+  const newChannels = (nodes: ScannedNode[]): C[] => {
     const existing = new Set(ctx.get<C[]>(CHANNELS_PATH).value.map(nodeIdentity));
-    return items
-      .map(convertHaulItemToChannel)
+    return nodes
+      .map(convertNodeToChannel)
       .filter((ch): ch is C => ch != null && !existing.has(nodeIdentity(ch)));
   };
   const addFolders = (folders: HaulItem[]) =>
     handleError(async () => {
       if (client == null) throw new DisconnectedError();
-      const results: Awaited<ReturnType<typeof findVariables>>[] = [];
-      // The Driver runs one scan command at a time, so a search sent before the last
-      // one ends would spend its timeout in the queue.
-      for (const folder of folders)
-        results.push(await findVariables(client, device, folder));
-      const found = results.flatMap(({ items }) => items);
-      const truncated = results.some((r) => r.truncated);
+      const key = id.create();
       const name = folders.length === 1 ? folders[0].data.name : "";
-      const target = folders.length === 1 ? "the folder" : "the folders";
-      const count = newChannels(found).length;
-      if (count === 0) {
+      addStatus({ key, variant: "loading", name, message: "Searching for variables" });
+      let search: Search;
+      try {
+        search = await findVariables(
+          client,
+          device,
+          folders.map(({ data }) => data),
+        );
+      } catch (e) {
         addStatus({
-          variant: "warning",
+          ...status.fromException(e, "Failed to search for variables"),
+          key,
           name,
-          message: "Found no new variables",
-          description:
-            found.length === 0
-              ? `No variables are under ${target}.`
-              : `The task already has every variable under ${target}.`,
         });
         return;
       }
+      const found = search.nodes;
+      const missing = describeMissing(search);
+      const target = folders.length === 1 ? "the folder" : "the folders";
+      const count = newChannels(found).length;
+      if (count === 0) {
+        const reason =
+          found.length === 0
+            ? `No variables are under ${target}.`
+            : `The task already has every variable under ${target}.`;
+        addStatus({
+          key,
+          variant: "warning",
+          name,
+          message: "Found no new variables",
+          description: missing == null ? reason : `${reason} ${missing}`,
+        });
+        return;
+      }
+      const noun = count === 1 ? "variable" : "variables";
+      addStatus({
+        key,
+        variant: "success",
+        name,
+        message: `Found ${count} new ${noun}`,
+      });
       const source = name === "" ? `${folders.length} folders` : name;
       const confirmed = await confirm({
-        message: `Add ${count} ${count === 1 ? "variable" : "variables"} from ${source}?`,
-        description: truncated
-          ? "The search stopped at a limit before it found every variable. Drag folders further down to add the rest."
-          : "Each channel takes its name from the folder and the path to the variable.",
+        message: `Add ${count} ${noun} from ${source}?`,
+        description: missing ?? NAMING_NOTE,
         confirm: { label: "Add", variant: "success" },
       });
       if (confirmed !== true) return;
@@ -309,7 +366,7 @@ const ChannelList = <C extends Channel>({
   const handleDrop = ({ items }: Haul.OnDropProps): Haul.Item[] => {
     const variables = items.filter(isVariableHaulItem);
     const folders = items.filter(isFolderHaulItem);
-    push(newChannels(variables));
+    push(newChannels(variables.map(({ data }) => data)));
     if (folders.length > 0) addFolders(folders);
     return [...variables, ...folders];
   };
@@ -339,7 +396,7 @@ const ChannelList = <C extends Channel>({
       emptyContent={<EmptyContent />}
       header={
         <Header<C>
-          convertHaulItemToChannel={convertHaulItemToChannel}
+          convertNodeToChannel={convertNodeToChannel}
           indexed={indexed}
           onImport={push}
         />
@@ -357,9 +414,7 @@ const ChannelList = <C extends Channel>({
 
 export interface FormProps<C extends Channel>
   extends
-    Required<
-      Pick<ChannelListProps<C>, "convertHaulItemToChannel" | "contextMenuItems">
-    >,
+    Required<Pick<ChannelListProps<C>, "convertNodeToChannel" | "contextMenuItems">>,
     Pick<ChannelListProps<C>, "indexed"> {
   children?: Component.RenderProp<ExtraItemProps>;
   getChannelKeyAndID: ChannelKeyAndIDGetter<C>;
@@ -372,7 +427,7 @@ interface BodyProps<C extends Channel>
 
 const Body = <C extends Channel>({
   device,
-  convertHaulItemToChannel,
+  convertNodeToChannel,
   children = () => null,
   getChannelKeyAndID,
   contextMenuItems,
@@ -386,7 +441,7 @@ const Body = <C extends Channel>({
       {!isPreview && <Browser device={device} />}
       <ChannelList<C>
         device={device}
-        convertHaulItemToChannel={convertHaulItemToChannel}
+        convertNodeToChannel={convertNodeToChannel}
         getChannelKeyAndID={getChannelKeyAndID}
         contextMenuItems={contextMenuItems}
         resolve={resolveOnDevice}
