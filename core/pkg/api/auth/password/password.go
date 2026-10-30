@@ -102,7 +102,7 @@ type ChangeRequest struct {
 }
 
 // Change changes the password for the user with the provided credentials and ends
-// every other session that password opened.
+// every session that password opened, the caller's included.
 func (s *Service) Change(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -119,11 +119,7 @@ func (s *Service) Change(
 		ChangePassword(ctx, identity.Subject, req.NewPassword); err != nil {
 		return struct{}{}, err
 	}
-	return struct{}{}, s.auth.NewWriter(tx).RevokeCredential(
-		ctx,
-		[]svcauth.SessionKey{auth.GetSession(ctx).Key},
-		identity.Credential,
-	)
+	return struct{}{}, s.auth.NewWriter(tx).RevokeCredential(ctx, identity.Credential)
 }
 
 func proofOf(creds svcauth.Credentials) svcauth.Proof {
@@ -198,26 +194,39 @@ type SetRequest struct {
 	Password string `json:"password" msgpack:"password"`
 	// CurrentPassword is required when the caller changes its own password.
 	CurrentPassword string `json:"current_password" msgpack:"current_password"`
+	// Cookie asks for the new token in a cookie, as session.CreateRequest does.
+	Cookie bool `json:"cookie" msgpack:"cookie"`
+}
+
+// SetResponse is the session that replaces the caller's, when the password change ended
+// it.
+type SetResponse struct {
+	// Token is the new session's token. It is empty when Session is nil or the token
+	// went to a cookie.
+	Token string `json:"token" msgpack:"token"`
+	// Session is the new session, or nil when the caller's session did not end.
+	Session *svcauth.Session `json:"session,omitempty" msgpack:"session,omitempty"`
 }
 
 // Set sets the password of the caller, or of another user when the caller may update
-// that user, and ends every other session the old password opened. A caller setting its
-// own password must send the current one. It returns [svcauth.ErrInvalidCredentials]
-// for a wrong current password, a validation error when the password method is off or
-// the subject is not a user, and an error wrapping query.ErrNotFound when the user has
-// no password.
+// that user, and ends every session the old password opened. A caller setting its own
+// password must send the current one. When the change ends the caller's session, Set
+// opens a new one on the new password and returns it. It returns
+// [svcauth.ErrInvalidCredentials] for a wrong current password, a validation error when
+// the password method is off or the subject is not a user, and an error wrapping
+// query.ErrNotFound when the user has no password.
 func (s *Service) Set(
 	ctx context.Context,
 	tx gorp.Tx,
 	req SetRequest,
-) (struct{}, error) {
+) (SetResponse, error) {
 	if err := s.auth.Accepts(svcauth.MethodPassword); err != nil {
-		return struct{}{}, err
+		return SetResponse{}, err
 	}
 	caller := auth.GetSubject(ctx)
 	subject := lo.Ternary(req.Subject.IsZero(), caller, req.Subject)
 	if subject.Type != ontology.ResourceTypeUser {
-		return struct{}{}, errors.Wrapf(
+		return SetResponse{}, errors.Wrapf(
 			validate.ErrValidation,
 			"a %s has no password",
 			subject.Type,
@@ -230,30 +239,42 @@ func (s *Service) Set(
 		access.ActionUpdate,
 		[]ontology.ID{subject},
 	); err != nil {
-		return struct{}{}, err
+		return SetResponse{}, err
 	}
 	var current password.Password
 	if err := s.password.NewRetrieve().
 		Where(password.MatchSubjects(subject)).
 		Entry(&current).
 		Exec(ctx, tx); err != nil {
-		return struct{}{}, err
+		return SetResponse{}, err
 	}
-	var keep []svcauth.SessionKey
 	if subject == caller {
 		if _, err := s.password.Authenticate(ctx, proofOf(svcauth.Credentials{
 			Username: current.Username,
 			Password: req.CurrentPassword,
 		})); err != nil {
-			return struct{}{}, err
+			return SetResponse{}, err
 		}
-		keep = []svcauth.SessionKey{auth.GetSession(ctx).Key}
 	}
 	if err := s.password.NewWriter(tx).
 		ChangePassword(ctx, subject, req.Password); err != nil {
-		return struct{}{}, err
+		return SetResponse{}, err
 	}
-	return struct{}{}, s.auth.NewWriter(tx).RevokeCredential(ctx, keep, current.Key)
+	w := s.auth.NewWriter(tx)
+	if err := w.RevokeCredential(ctx, current.Key); err != nil {
+		return SetResponse{}, err
+	}
+	if auth.GetSession(ctx).Credential != current.Key {
+		return SetResponse{}, nil
+	}
+	session, token, err := w.Open(ctx, subject, current.Key)
+	if err != nil {
+		return SetResponse{}, err
+	}
+	return SetResponse{
+		Token:   auth.Deliver(ctx, s.auth, token, req.Cookie),
+		Session: &session,
+	}, nil
 }
 
 // Password is a password as the API returns it: its subject and username, without its
