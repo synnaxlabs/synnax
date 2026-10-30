@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/ethercat"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -57,7 +57,7 @@ func openDevices(ctx SpecContext, db *gorp.DB) *device.Service {
 		DB:           db,
 		Ontology:     otg,
 		Group:        groupSvc,
-		HostProvider: mock.NewStaticHostProvider(1),
+		HostProvider: testutil.NewStaticHostProvider(1),
 		Status:       statusSvc,
 	}))
 	devices := MustOpen(device.OpenService(ctx, device.ServiceConfig{

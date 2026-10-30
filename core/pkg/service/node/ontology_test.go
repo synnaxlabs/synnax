@@ -18,7 +18,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/cluster"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -45,14 +45,14 @@ func openTestService(
 }
 
 var (
-	testCluster *mock.Cluster
+	testCluster *testutil.Cluster
 	testSvc     *node.Service
 	testOtg     *ontology.Ontology
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	testCluster = mock.NewCluster(ctx, 2)
+	testCluster = testutil.NewCluster(ctx, 2)
 	testSvc, testOtg = openTestService(ctx, testCluster.Nodes[1].Cluster)
 })
 
@@ -136,7 +136,7 @@ var _ = Describe("Ontology", func() {
 			It(
 				"Should translate cluster changes into ontology changes when a node joins",
 				func(ctx SpecContext) {
-					ephemeral := mock.NewCluster(ctx, 1)
+					ephemeral := testutil.NewCluster(ctx, 1)
 					ephemeralSvc, _ := openTestService(ctx, ephemeral.Nodes[1].Cluster)
 
 					received := make(chan ontology.Change, 8)
