@@ -267,6 +267,41 @@ var _ = Describe("Service", func() {
 			Expect(parents(ctx, d.Key)).To(ConsistOf(other.OntologyID()))
 		})
 
+		It("Should move the parent edge when change edits the chassis in place", func(
+			ctx SpecContext,
+		) {
+			first, second := uuid.New(), uuid.New()
+			chassisID := func(key uuid.UUID) ontology.ID {
+				return ontology.ID{
+					Type: ontology.ResourceTypeNiChassis,
+					Key:  key.String(),
+				}
+			}
+			Expect(otg.NewWriter(tx).DefineResources(
+				ctx,
+				chassisID(first),
+				chassisID(second),
+			)).To(Succeed())
+			d := device.Device{Rack: rackKey, Name: "Module", Chassis: &first}
+			Expect(svc.NewWriter(tx).Create(ctx, &d)).To(Succeed())
+			Expect(svc.NewWriter(tx).Update(
+				ctx,
+				d.Key,
+				func(d device.Device) (device.Device, error) {
+					*d.Chassis = second
+					return d, nil
+				},
+			)).To(Succeed())
+			var res []ontology.Resource
+			Expect(otg.NewRetrieve().
+				WhereIDs(d.OntologyID()).
+				TraverseTo(ontology.ParentsTraverser).
+				ExcludeFieldData(true).
+				Entries(&res).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(ontology.ResourceIDs(res)).To(ConsistOf(chassisID(second)))
+		})
+
 		It("Should move the status with the rack", func(ctx SpecContext) {
 			d := create(ctx)
 			s := retrieveStatus(ctx, d.Key)
