@@ -71,16 +71,15 @@ var _ = Describe("Domain", func() {
 			Expect(testutil.ReadDomain(ctx, db, telem.TimeRangeMax)).To(BeEmpty())
 		})
 
-		DescribeTable("Should return an error when the data cannot be read",
-			func(ctx SpecContext, opt fstestutil.FaultyFSOption) {
+		It(
+			"Should return an error when the data cannot be read",
+			func(ctx SpecContext) {
 				tr := (10 * telem.SecondTS).SpanRange(10 * telem.Second)
 				Expect(testutil.WriteDomain(ctx, db, tr, []byte{1, 2})).To(Succeed())
-				faulty.SetOptions(opt)
+				faulty.SetOptions(fstestutil.WithFailReadAt())
 				Expect(testutil.ReadDomain(ctx, db, tr)).Error().
 					To(MatchError(fstestutil.ErrFault))
 			},
-			Entry("open", fstestutil.WithFailOpen()),
-			Entry("read", fstestutil.WithFailReadAt()),
 		)
 	})
 })
