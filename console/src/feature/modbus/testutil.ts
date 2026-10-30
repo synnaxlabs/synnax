@@ -13,9 +13,27 @@ import { deep, id } from "@synnaxlabs/x";
 import { Device } from "@/feature/modbus/device";
 import { uniqueName } from "@/testutil";
 
+type TCPConnection = Extract<Device.Connection, { transport: "tcp" }>;
+type RTUConnection = Extract<Device.Connection, { transport: "rtu" }>;
+
+/** Connection fields to set. A serial connection names its transport. */
+type ConnectionOverrides =
+  Partial<TCPConnection> | (Partial<RTUConnection> & Pick<RTUConnection, "transport">);
+
+const connectionOf = (overrides: ConnectionOverrides = {}): Device.Connection =>
+  overrides.transport === "rtu"
+    ? { ...Device.ZERO_CONNECTIONS.rtu, ...overrides }
+    : { ...Device.ZERO_CONNECTIONS.tcp, ...overrides };
+
 export interface CreateModbusDeviceOptions {
   configured?: boolean;
-  properties?: Partial<Device.Properties>;
+  /**
+   * Properties to set. Connection fields left out keep the zero values of the
+   * connection's transport.
+   */
+  properties?: Partial<Omit<Device.Properties, "connection">> & {
+    connection?: ConnectionOverrides;
+  };
 }
 
 /** Creates a rack and a configured Modbus server device on the live Core. */
@@ -33,7 +51,11 @@ export const createModbusDevice = async (
       make: "Modbus",
       model: "Modbus",
       configured,
-      properties: { ...deep.copy(Device.ZERO_PROPERTIES), ...properties },
+      properties: {
+        ...deep.copy(Device.ZERO_PROPERTIES),
+        ...properties,
+        connection: connectionOf(properties?.connection),
+      },
     },
     Device.SCHEMAS,
   );

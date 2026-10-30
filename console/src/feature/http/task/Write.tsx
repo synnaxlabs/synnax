@@ -103,7 +103,7 @@ const EndpointItem = (props: List.ItemProps<string>) => {
         level="small"
         weight={450}
         color={9}
-        overflow="ellipsis"
+        overflow="fade"
       />
     </Select.Item>
   );
