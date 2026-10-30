@@ -610,7 +610,7 @@ func (p *Plugin) processStruct(entry resolution.Type, data *templateData) struct
 		return sd
 	}
 
-	if resolver.CanUseInheritance(form, data.table) {
+	if resolver.CanUseInheritance(form, "cpp", data.table) {
 		sd.HasExtends = true
 		for _, extendsRef := range form.Extends {
 			parent, ok := extendsRef.Resolve(data.table)
