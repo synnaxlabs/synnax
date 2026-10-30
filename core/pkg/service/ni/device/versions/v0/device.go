@@ -16,6 +16,10 @@ import (
 
 var _ gorp.Entry[Key] = Device{}
 
+// CustomTypeName gives devices a table prefix that cannot collide with the legacy
+// device table or another integration's device.
+func (Device) CustomTypeName() string { return "ni_device" }
+
 // GorpKey returns the key of the device.
 func (d Device) GorpKey() Key { return d.Key }
 
