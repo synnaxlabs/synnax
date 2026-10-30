@@ -21,6 +21,8 @@ NOT implemented in Console UI (no helpers for these):
 - Create/edit/view policies (hidden from UI)
 """
 
+import time
+
 from playwright.sync_api import Locator
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
@@ -111,7 +113,9 @@ class AccessClient(ResourceClient):
         for _ in range(20):
             sy.sleep(0.5)
 
-            error_status = self.layout.page.locator(".pluto--status-error")
+            error_status = self.layout.page.locator(
+                ".console-login__status .lyra--status-error"
+            )
             if error_status.count() > 0 and error_status.is_visible():
                 error_text = error_status.inner_text().strip()
                 raise RuntimeError(f"Login failed: {error_text}")
@@ -177,9 +181,7 @@ class AccessClient(ResourceClient):
 
         :returns: The role name, or None if the badge shows none.
         """
-        badge = self.layout.page.locator(
-            ".pluto-dialog__trigger:has(.pluto-icon--user)"
-        )
+        badge = self.layout.page.locator(".lyra-dialog__trigger:has(.lyra-icon--user)")
         if badge.count() == 0 or not badge.is_visible():
             return None
         badge.click()
@@ -320,7 +322,7 @@ class AccessClient(ResourceClient):
 
         self.ctx_menu.action(user_item, "Rename")
 
-        name_element = user_item.locator("p.pluto-text--editable")
+        name_element = user_item.locator("p.lyra-text--editable")
         name_element.click()
         name_element.fill(new_name)
         self.layout.press_enter()
@@ -382,7 +384,7 @@ class AccessClient(ResourceClient):
 
         self.ctx_menu.action(role_item, "Rename")
 
-        role_name_element = role_item.locator("p.pluto-text--editable")
+        role_name_element = role_item.locator("p.lyra-text--editable")
         role_name_element.click()
         role_name_element.fill(new_name)
         self.layout.press_enter()
@@ -433,7 +435,7 @@ class AccessClient(ResourceClient):
 
     def _show_users_panel(self) -> None:
         """Show the users panel in the navigation drawer."""
-        self.layout.show_toolbar(self.SHORTCUT_KEY, self.ROLE_ITEM_PREFIX)
+        self.layout.show_toolbar(self.SHORTCUT_KEY, item_prefix=self.ROLE_ITEM_PREFIX)
 
     def _find_user_item(self, username: str) -> Locator | None:
         """Find a user item in the users panel by username.
@@ -449,7 +451,7 @@ class AccessClient(ResourceClient):
             sy.sleep(0.2)
         return None
 
-    def ensure_user_visible(self, username: str, role_name: str) -> Locator:
+    def ensure_user_visible(self, username: str, *, role_name: str) -> Locator:
         """Find a user item, re-expanding its role if needed.
 
         After tree refreshes (e.g. login/logout, deletions), a role node
@@ -511,12 +513,50 @@ class AccessClient(ResourceClient):
         self.tree.expand(role_item)
 
     def list_users_under_role(self, role_name: str) -> list[str]:
-        """List all users visible under a role.
+        """List the users under a role.
 
         The role must be expanded first.
 
         :param role_name: The name of the role.
         :returns: List of usernames under the role.
         """
-        self._show_users_panel()
-        return self.tree.list_names(self.USER_ITEM_PREFIX)
+        role_item = self._find_role_item(role_name)
+        if role_item is None:
+            raise ValueError(f"Role '{role_name}' not found")
+        return self.tree.list_nested_names(role_item, prefix=self.USER_ITEM_PREFIX)
+
+    def wait_for_user_role(
+        self,
+        username: str,
+        *,
+        role_name: str,
+        previous_role: str | None = None,
+        timeout: int = 5000,
+    ) -> None:
+        """Wait until the tree lists a user under a role.
+
+        The roles must be expanded first.
+
+        :param username: The username of the user.
+        :param role_name: The role the user must be under.
+        :param previous_role: A role the user must no longer be under.
+        :param timeout: Maximum time to wait, in milliseconds.
+        :raises PlaywrightTimeoutError: If the tree does not show the change in time.
+        """
+        deadline = time.monotonic() + timeout / 1000
+        while True:
+            users = self.list_users_under_role(role_name)
+            previous_users = (
+                []
+                if previous_role is None
+                else self.list_users_under_role(previous_role)
+            )
+            if username in users and username not in previous_users:
+                return
+            if time.monotonic() >= deadline:
+                raise PlaywrightTimeoutError(
+                    f"Tree did not list {username} under {role_name} within "
+                    f"{timeout}ms. {role_name}: {users}. {previous_role}: "
+                    f"{previous_users}"
+                )
+            self.layout.page.wait_for_timeout(100)

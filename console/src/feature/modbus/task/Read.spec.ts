@@ -19,6 +19,7 @@ import {
   awaitEditableForm,
   commitFieldInput,
   createTaskReadOnlyClient,
+  createWithHook,
   deployAndAwaitTask,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
@@ -348,6 +349,14 @@ describe("Read", () => {
       await screen.findByText("Bytes: device (not swapped)");
       expect(screen.queryByText(/^Words:/)).toBeNull();
     });
+  });
+
+  it("should create the task with one channel", async () => {
+    const tsk = await createWithHook(
+      Modbus.Task.useCreateRead,
+      Modbus.Task.READ_SCHEMAS,
+    );
+    expect(tsk.config.channels).toHaveLength(1);
   });
 
   describe("add channel", () => {

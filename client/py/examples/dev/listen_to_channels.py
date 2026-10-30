@@ -28,6 +28,6 @@ with client.open_streamer(channel_names) as streamer:
                 continue
             for value in frame[channel]:
                 if multiple_channels:
-                    print(f"{channel}: {value}")
+                    print(f"{channel}:", value)
                 else:
                     print(value)

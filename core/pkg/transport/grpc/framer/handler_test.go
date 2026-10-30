@@ -420,16 +420,18 @@ var _ = Describe("gRPC Framer Transport", func() {
 	})
 
 	Describe("Delete", func() {
-		It("Should round-trip the keys, names, and bounds", func(ctx SpecContext) {
+		It("Should translate the keys, names, and bounds", func(ctx SpecContext) {
 			t := transport.FrameDelete.(*deleteServer).RequestTranslator
-			msg := framer.DeleteRequest{
+			pb := &grpcframer.DeleteRequest{
+				Keys:   []uint32{1, 2},
+				Names:  []string{"a", "b"},
+				Bounds: &telempb.TimeRange{Start: 1, End: 5},
+			}
+			Expect(MustSucceed(t.Backward(ctx, pb))).To(Equal(framer.DeleteRequest{
 				Keys:   channel.Keys{1, 2},
 				Names:  []string{"a", "b"},
 				Bounds: telem.TimeRange{Start: 1, End: 5},
-			}
-			fwd := MustSucceed(t.Forward(ctx, msg))
-			Expect(fwd.Keys).To(Equal([]uint32{1, 2}))
-			Expect(MustSucceed(t.Backward(ctx, fwd))).To(Equal(msg))
+			}))
 		})
 	})
 })

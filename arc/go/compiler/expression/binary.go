@@ -11,16 +11,59 @@ package expression
 
 import (
 	"github.com/antlr4-go/antlr/v4"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/compiler/context"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/types"
 )
 
+// firstOperandHint keeps an outer hint from retyping a literal-only first operand.
+func firstOperandHint[N, T antlr.ParserRuleContext](
+	ctx context.Context[N],
+	operands []T,
+) types.Type {
+	if !literalOnly(operands[0]) {
+		return ctx.Hint
+	}
+	if lo.EveryBy(operands[1:], func(op T) bool { return literalOnly(op) }) {
+		return ctx.Hint
+	}
+	resolved, ok := ctx.TypeMap[ctx.AST]
+	if !ok || resolved.Kind == types.KindVariable {
+		return ctx.Hint
+	}
+	return resolved
+}
+
+// literalOnly reports whether every leaf of node is a numeric literal.
+func literalOnly(node antlr.Tree) bool {
+	if prim, ok := node.(parser.IPrimaryExpressionContext); ok {
+		if lit := prim.Literal(); lit != nil {
+			return lit.NumericLiteral() != nil
+		}
+		if prim.LPAREN() == nil || prim.Expression() == nil {
+			return false
+		}
+		return literalOnly(prim.Expression())
+	}
+	for _, child := range node.GetChildren() {
+		if _, ok := child.(antlr.TerminalNode); ok {
+			continue
+		}
+		if !literalOnly(child) {
+			return false
+		}
+	}
+	return true
+}
+
 func compileBinaryAdditive(
 	ctx context.Context[parser.IAdditiveExpressionContext],
 ) (types.Type, error) {
 	muls := ctx.AST.AllMultiplicativeExpression()
-	resultType, err := compileMultiplicative(ctx.Child(muls[0]))
+	resultType, err := compileMultiplicative(
+		ctx.Child(muls[0]).WithHint(firstOperandHint(ctx, muls)),
+	)
 	if err != nil {
 		return types.Type{}, err
 	}
@@ -110,7 +153,9 @@ func compileBinaryMultiplicative(
 ) (types.Type, error) {
 	unaries := ctx.AST.AllUnaryExpression()
 
-	resultType, err := compileUnary(ctx.Child(unaries[0]))
+	resultType, err := compileUnary(
+		ctx.Child(unaries[0]).WithHint(firstOperandHint(ctx, unaries)),
+	)
 	if err != nil {
 		return types.Type{}, err
 	}

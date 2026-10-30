@@ -75,7 +75,7 @@ class ConnectNetwork(ModbusCase):
         """The "Connect Modbus server" action of the server dropdown opens the form,
         and the connected server becomes the selected server."""
         self.log("Testing: Connect a server from a task form")
-        self.create_page(ModbusRead, "Connect Read")
+        self.create_page(ModbusRead, prefix="Connect Read")
         layout = self.console.layout
         layout.click_btn(SERVER_FIELD_LABEL)
         layout.dialog.get_by_text(f"Connect {NETWORK}", exact=True).click(timeout=5000)

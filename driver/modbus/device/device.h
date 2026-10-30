@@ -409,8 +409,9 @@ struct Properties {
 };
 
 /// @brief a connection to one Modbus TCP endpoint or serial port, shared by every
-/// device on it. Requests take turns, and a waiting write goes before waiting reads.
-/// Safe for concurrent use.
+/// device on it. Requests take turns. A waiting write goes before waiting reads, but
+/// not twice in a row, so reads keep their turns under steady writes. Safe for
+/// concurrent use.
 class Connection {
 public:
     /// @brief the clock of request, reply, and demotion times.
@@ -439,18 +440,24 @@ private:
     x::telem::TimeSpan demotion;
     /// @brief the shortest silence between two requests.
     const x::telem::TimeSpan frame_gap;
-    /// @brief guards busy, waiting_writes, and units.
+    /// @brief guards busy, the waiting counts, write_went_ahead, and units.
     std::mutex mu;
     std::condition_variable released;
     /// @brief whether a request holds the turn.
     bool busy = false;
     std::size_t waiting_writes = 0;
+    std::size_t waiting_reads = 0;
+    /// @brief whether the last turn went to a write while a read waited.
+    bool write_went_ahead = false;
     std::unordered_map<std::uint8_t, Unit> units;
     /// @brief holds the serial port while connected. Touched only while holding the
     /// turn.
     PortLock port_lock;
     /// @brief whether the socket or port is open. Touched only while holding the turn.
     bool connected = false;
+    /// @brief the file the serial port resolved to when it opened. Touched only while
+    /// holding the turn.
+    std::string opened;
     /// @brief whether a late reply or the rest of a garbled frame can still arrive.
     /// Touched only while holding the turn.
     bool stale = false;
@@ -464,11 +471,15 @@ private:
     public:
         Turn(Connection &conn, const bool write): conn(conn) {
             std::unique_lock lock(conn.mu);
-            if (write) conn.waiting_writes++;
+            auto &waiting = write ? conn.waiting_writes : conn.waiting_reads;
+            waiting++;
             conn.released.wait(lock, [&] {
-                return !conn.busy && (write || conn.waiting_writes == 0);
+                if (conn.busy) return false;
+                if (write) return conn.waiting_reads == 0 || !conn.write_went_ahead;
+                return conn.waiting_writes == 0 || conn.write_went_ahead;
             });
-            if (write) conn.waiting_writes--;
+            waiting--;
+            conn.write_went_ahead = write && conn.waiting_reads > 0;
             conn.busy = true;
         }
 
@@ -484,6 +495,13 @@ private:
         Turn &operator=(const Turn &) = delete;
     };
 
+    /// @brief closes the socket or port. Call only while holding the turn.
+    void disconnect() {
+        modbus_close(this->ctx);
+        this->port_lock.unlock();
+        this->connected = false;
+    }
+
     /// @brief sends one attempt of a request.
     /// @returns 0 on success, or the error number.
     template<typename Request>
@@ -496,10 +514,15 @@ private:
             static_cast<std::uint32_t>(timeout.count() / 1000000),
             static_cast<std::uint32_t>(timeout.count() % 1000000)
         );
+        if (this->connected && this->transport == Transport::RTU &&
+            canonical_port(this->serial.port) != this->opened)
+            this->disconnect();
         if (!this->connected) {
-            if (this->transport == Transport::RTU)
+            if (this->transport == Transport::RTU) {
                 if (const int errnum = this->port_lock.lock(this->serial.port))
                     return errnum;
+                this->opened = canonical_port(this->serial.port);
+            }
             if (modbus_connect(this->ctx) == -1) {
                 const int errnum = errno;
                 this->port_lock.unlock();
@@ -517,11 +540,8 @@ private:
         const int errnum = errno;
         if (errnum == ETIMEDOUT || errnum == EMBBADCRC)
             this->stale = true;
-        else if (classify(errnum).matches(UNREACHABLE)) {
-            modbus_close(this->ctx);
-            this->port_lock.unlock();
-            this->connected = false;
-        }
+        else if (classify(errnum).matches(UNREACHABLE))
+            this->disconnect();
         return errnum;
     }
 
@@ -614,6 +634,7 @@ public:
     /// retries at once, up to cfg.retries times. After a timeout or a bad CRC, the next
     /// request first discards any late bytes. Any other lost connection closes the
     /// socket or port. A unit with DEMOTE_AFTER timed-out attempts in a row is demoted.
+    /// A serial port whose link moved to another file reopens first.
     /// @param cfg the unit, timeout, and retries of the request.
     /// @param delay the wait after the previous request on the connection. A serial
     /// connection waits at least its frame gap.

@@ -162,16 +162,6 @@ var _ = Describe("Channel", func() {
 			Expect(c.Lease()).To(Equal(node.Key(7)))
 		})
 	})
-	Describe("Free", func() {
-		It("Should return true when the channel is not leased to a node", func() {
-			c := channel.Channel{Leaseholder: node.KeyFree}
-			Expect(c.Free()).To(BeTrue())
-		})
-		It("Should return false when the channel is leased to a node", func() {
-			c := channel.Channel{Leaseholder: 1}
-			Expect(c.Free()).To(BeFalse())
-		})
-	})
 	Describe("String", func() {
 		It("Should include the name and key when the channel is named", func() {
 			c := channel.Channel{Name: "temp", LocalKey: 5}

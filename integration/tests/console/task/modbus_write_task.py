@@ -42,7 +42,7 @@ class ModbusWriteTask(ModbusCase):
     def test_create_task(self) -> ModbusWrite:
         """Create the task page and select the server."""
         self.log("Testing: Create Modbus write task")
-        page = self.create_page(ModbusWrite, "Modbus Console Write")
+        page = self.create_page(ModbusWrite, prefix="Modbus Console Write")
         page.select_server(self.device_name)
         return page
 
@@ -50,7 +50,9 @@ class ModbusWriteTask(ModbusCase):
         """Coil and holding register command channels are listed."""
         self.log("Testing: Add command channels")
         for config_type, address, data_type in CHANNELS:
-            page.add_channel(WRITE_TYPE_NAMES[config_type], address, data_type)
+            page.add_channel(
+                WRITE_TYPE_NAMES[config_type], address=address, data_type=data_type
+            )
         self.assert_rows(page, LISTED)
 
     def test_send_commands(self, page: ModbusWrite) -> None:
@@ -66,7 +68,7 @@ class ModbusWriteTask(ModbusCase):
         assert len(keys) == len(CHANNELS), (
             f"Every command channel needs a key, got {keys}"
         )
-        self.send_commands(page, task)
+        self.send_commands(page, task=task)
         # The last round of commands is 100 to 103.
         assert_sim_coils(20, [True, True])
         assert_sim_registers(20, [*float32_words(102), *float32_words(103)])
@@ -95,7 +97,7 @@ class ModbusWriteTask(ModbusCase):
         """A register bit takes a Modicon address and changes only its bit."""
         self.log("Testing: Write a register bit at a Modicon address")
         index = len(CHANNELS)
-        page.add_channel(WRITE_TYPE_NAMES["holding_register_bit"], "400141")
+        page.add_channel(WRITE_TYPE_NAMES["holding_register_bit"], address="400141")
         page.set_bit(index, 4)
         self.test_deploy(page)
         task = self.retrieve_task(page.page_name)
@@ -105,7 +107,7 @@ class ModbusWriteTask(ModbusCase):
         assert stored == expected, f"The bit should be {expected}, got {stored}"
         name = self.client.channels.retrieve(self.channel_keys(task)[index]).name
         assert name.endswith("_holding_register_bit_output_140_4_cmd"), name
-        self.send_commands(page, task)
+        self.send_commands(page, task=task)
         # Register 140 holds 0b10001100.
         assert_sim_registers(140, [0b10011100])
         self.stop(page)

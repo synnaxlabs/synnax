@@ -24,6 +24,7 @@ from tests.driver.task import (
     create_index,
     send_and_verify_commands,
 )
+from x.telem import to_float
 
 DEMOTED = (
     "Failed to read data: unit 3 timed out 3 times in a row, so its requests fail "
@@ -109,7 +110,7 @@ class ModbusUnits(SimulatorCase):
         self.log("Testing: Each unit reads its own values")
         expected = self.expected_values((1, 2))
         with self.client.open_streamer(list(expected)) as streamer:
-            assert_streamed_values(self.client, streamer, expected)
+            assert_streamed_values(self.client, streamer, expected=expected)
 
     def test_one_connection(self) -> None:
         """The gateway counts its open connections: the Driver's and this check's."""
@@ -131,7 +132,7 @@ class ModbusUnits(SimulatorCase):
                 self.wait_for_warning(statuses, silent.key, DEMOTED)
                 expected = self.expected_values((1, 2))
                 with self.client.open_streamer(list(expected)) as streamer:
-                    assert_streamed_values(self.client, streamer, expected)
+                    assert_streamed_values(self.client, streamer, expected=expected)
 
     @staticmethod
     def wait_for_warning(
@@ -246,7 +247,7 @@ class ModbusSerialUnits(ModbusUnits):
                 frame = streamer.read(timeout=1)
                 if frame is None or key not in frame or len(frame[key]) == 0:
                     continue
-                last = frame[key][-1]
+                last = to_float(frame[key][-1])
                 if last == expected:
                     return
         raise AssertionError(f"Channel {key} should stream {expected}, got {last}")

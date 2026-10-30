@@ -129,7 +129,7 @@ func compileForRange(
 
 	hintCtx := loopCtx.WithHint(loopVarType)
 	if startExpr != nil {
-		if err = compileAndCast(hintCtx, startExpr, loopVarType); err != nil {
+		if _, err = expression.Compile(hintCtx.Child(startExpr)); err != nil {
 			return err
 		}
 	} else {
@@ -142,7 +142,7 @@ func compileForRange(
 		return err
 	}
 	limitIdx := limitSym.ID
-	if err = compileAndCast(hintCtx, endExpr, loopVarType); err != nil {
+	if _, err = expression.Compile(hintCtx.Child(endExpr)); err != nil {
 		return err
 	}
 	ctx.Writer.WriteLocalSet(limitIdx)
@@ -154,7 +154,7 @@ func compileForRange(
 			return err
 		}
 		stepIdx = stepSym.ID
-		if err = compileAndCast(hintCtx, stepExpr, loopVarType); err != nil {
+		if _, err = expression.Compile(hintCtx.Child(stepExpr)); err != nil {
 			return err
 		}
 		ctx.Writer.WriteLocalSet(stepIdx)
@@ -463,26 +463,6 @@ func compileContinueStatement(
 	}
 	label := uint32(ctx.BlockDepth() - entry.ContinueDepth)
 	ctx.Writer.WriteBr(label)
-	return nil
-}
-
-// compileAndCast compiles an expression and emits a cast if the compiled type
-// differs from the target. This uses the return type from expression.Compile
-// rather than a TypeMap lookup, which is more reliable for variable references
-// whose TypeMap entries may be stored at sub-expression levels.
-func compileAndCast(
-	ctx context.Context[parser.IForStatementContext],
-	expr parser.IExpressionContext,
-	target types.Type,
-) error {
-	compiledType, err := expression.Compile(ctx.Child(expr))
-	if err != nil {
-		return err
-	}
-	if !types.Equal(compiledType, target) &&
-		wasm.ConvertType(compiledType) != wasm.ConvertType(target) {
-		return expression.EmitCast(ctx, compiledType, target)
-	}
 	return nil
 }
 
