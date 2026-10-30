@@ -13,6 +13,7 @@ package lineplot
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/text"
@@ -33,7 +34,6 @@ const (
 	ActionTypeAddRange              = "add_range"
 	ActionTypeRemoveRange           = "remove_range"
 	ActionTypeSetRanges             = "set_ranges"
-	ActionTypeSetCustomRange        = "set_custom_range"
 	ActionTypeSetAxisLabel          = "set_axis_label"
 	ActionTypeSetAxisLabelDirection = "set_axis_label_direction"
 	ActionTypeSetAxisLabelLevel     = "set_axis_label_level"
@@ -118,33 +118,22 @@ type SetXChannelPayload struct {
 	Channel channel.Key `json:"channel" msgpack:"channel"`
 }
 
-// AddRangePayload appends the range key to the ranges array bound to the x-axis named
-// by axis_key. No-op when the range is already present.
+// AddRangePayload appends the range reference to the plot's ranges. No-op when an equal
+// reference is already present.
 type AddRangePayload struct {
-	AxisKey XAxisKey `json:"axis_key" msgpack:"axis_key"`
-	Range   string   `json:"range" msgpack:"range"`
+	Range ranger.Ref `json:"range" msgpack:"range"`
 }
 
-// RemoveRangePayload removes the range key from the x-axis named by axis_key. No-op
-// when the range is not present.
+// RemoveRangePayload removes the reference equal to range from the plot's ranges. No-op
+// when no reference is equal.
 type RemoveRangePayload struct {
-	AxisKey XAxisKey `json:"axis_key" msgpack:"axis_key"`
-	Range   string   `json:"range" msgpack:"range"`
+	Range ranger.Ref `json:"range" msgpack:"range"`
 }
 
-// SetRangesPayload replaces the entire set of range keys bound to the x-axis named by
-// axis_key with ranges. Ranges absent from the new set are removed and their lines
-// dropped; ranges not previously present are added. Existing ranges keep their line
-// styling.
+// SetRangesPayload replaces the plot's range references with ranges, such as when the
+// user edits a window. Lines style channels, so they are unaffected.
 type SetRangesPayload struct {
-	AxisKey XAxisKey `json:"axis_key" msgpack:"axis_key"`
-	Ranges  []string `json:"ranges" msgpack:"ranges"`
-}
-
-// SetCustomRangePayload sets the window the "custom" range key resolves to. A null
-// custom clears the window.
-type SetCustomRangePayload struct {
-	Custom *CustomRange `json:"custom,omitzero" msgpack:"custom,omitempty"`
+	Ranges []ranger.Ref `json:"ranges" msgpack:"ranges"`
 }
 
 // SetAxisLabelPayload sets the label rendered along the axis identified by key.
@@ -304,7 +293,6 @@ type Action struct {
 	AddRange              *AddRangePayload              `json:"add_range,omitzero" msgpack:"add_range,omitempty"`
 	RemoveRange           *RemoveRangePayload           `json:"remove_range,omitzero" msgpack:"remove_range,omitempty"`
 	SetRanges             *SetRangesPayload             `json:"set_ranges,omitzero" msgpack:"set_ranges,omitempty"`
-	SetCustomRange        *SetCustomRangePayload        `json:"set_custom_range,omitzero" msgpack:"set_custom_range,omitempty"`
 	SetAxisLabel          *SetAxisLabelPayload          `json:"set_axis_label,omitzero" msgpack:"set_axis_label,omitempty"`
 	SetAxisLabelDirection *SetAxisLabelDirectionPayload `json:"set_axis_label_direction,omitzero" msgpack:"set_axis_label_direction,omitempty"`
 	SetAxisLabelLevel     *SetAxisLabelLevelPayload     `json:"set_axis_label_level,omitzero" msgpack:"set_axis_label_level,omitempty"`
@@ -402,11 +390,6 @@ func Reduce(state LinePlot, actions ...Action) (LinePlot, error) {
 				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetRanges.Handle(state)
-		case ActionTypeSetCustomRange:
-			if a.SetCustomRange == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.SetCustomRange.Handle(state)
 		case ActionTypeSetAxisLabel:
 			if a.SetAxisLabel == nil {
 				return state, union.MissingPayload(a.Type)
@@ -585,11 +568,6 @@ func NewRemoveRangeAction(p RemoveRangePayload) Action {
 // NewSetRangesAction wraps a SetRangesPayload in an Action envelope.
 func NewSetRangesAction(p SetRangesPayload) Action {
 	return Action{Type: ActionTypeSetRanges, SetRanges: &p}
-}
-
-// NewSetCustomRangeAction wraps a SetCustomRangePayload in an Action envelope.
-func NewSetCustomRangeAction(p SetCustomRangePayload) Action {
-	return Action{Type: ActionTypeSetCustomRange, SetCustomRange: &p}
 }
 
 // NewSetAxisLabelAction wraps a SetAxisLabelPayload in an Action envelope.
