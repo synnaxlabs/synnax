@@ -195,9 +195,6 @@ class WriteTaskSink final : public common::Sink {
 
     /// @brief reads the input arguments of each method channel's method, so arguments
     /// convert to their declared types.
-    /// @returns only an error that loses the connection. When the server refuses the
-    /// browse or read for another reason, arguments convert by the types of their
-    /// values.
     x::errors::Error read_inputs() {
         this->inputs.clear();
         const auto &namespaces = this->connection.server().namespaces;
@@ -211,13 +208,7 @@ class WriteTaskSink final : public common::Sink {
                 }
         if (methods.empty()) return x::errors::NIL;
         auto [read, err] = method::read_inputs(this->connection, methods);
-        if (err.matches(errors::UNREACHABLE)) return err;
-        if (err) {
-            LOG(WARNING) << "[opc.write] failed to read the arguments of the methods, "
-                            "so arguments convert by the types of their values: "
-                         << err;
-            return x::errors::NIL;
-        }
+        if (err) return err;
         for (std::size_t i = 0; i < keys.size(); ++i) {
             if (!read[i].has_value()) continue;
             auto &types = this->inputs[keys[i]];
