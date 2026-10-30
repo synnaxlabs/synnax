@@ -9,21 +9,21 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-modal__header {
+.lyra-modal__header {
     padding-block: var(--pluto-modal-inset);
 
-    .pluto-navbar__content {
-        &.pluto--start {
+    .lyra-navbar__content {
+        &.lyra--start {
             padding-left: var(--pluto-modal-inset);
         }
 
-        &.pluto--end {
+        &.lyra--end {
             padding-right: var(--pluto-modal-inset);
         }
     }
 
     /* The icon sits 1rem inside its tile's border on every side. */
-    .pluto-icon-tile > .pluto-icon {
+    .lyra-icon-tile > .lyra-icon {
         width: calc(100% - 2rem);
         height: calc(100% - 2rem);
     }

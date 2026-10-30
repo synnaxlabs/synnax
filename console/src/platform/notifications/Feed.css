@@ -28,8 +28,9 @@
     .console-notifications__controls {
         flex-shrink: 0;
 
-        .pluto-btn {
+        .lyra-btn {
             --pluto-bg: color-mix(in srgb, var(--pluto-gray-l2) 75%, transparent);
+
             -webkit-backdrop-filter: blur(3.5rem) saturate(140%);
             backdrop-filter: blur(3.5rem) saturate(140%);
         }

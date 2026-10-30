@@ -18,6 +18,7 @@ import { createModbusDevice } from "@/feature/modbus/testutil";
 import {
   awaitEditableForm,
   createChannelReadOnlyClient,
+  createWithHook,
   deployAndAwaitTask,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
@@ -492,7 +493,7 @@ describe("Write", () => {
       const { input } = await renderRegister();
       enter(input, "300004");
       await waitFor(() =>
-        expect(input.closest(".pluto-input")?.classList.contains("pluto--error")).toBe(
+        expect(input.closest(".lyra-input")?.classList.contains("lyra--error")).toBe(
           true,
         ),
       );
@@ -503,12 +504,20 @@ describe("Write", () => {
     it("should clear the mark when a valid entry keeps the stored address", async () => {
       const { input } = await renderRegister();
       const marked = () =>
-        input.closest(".pluto-input")?.classList.contains("pluto--error");
+        input.closest(".lyra-input")?.classList.contains("lyra--error");
       enter(input, "300004");
       await waitFor(() => expect(marked()).toBe(true));
       enter(input, "400001");
       await waitFor(() => expect(marked()).toBe(false));
     });
+  });
+
+  it("should create the task with one channel", async () => {
+    const tsk = await createWithHook(
+      Modbus.Task.useCreateWrite,
+      Modbus.Task.WRITE_SCHEMAS,
+    );
+    expect(tsk.config.channels).toHaveLength(1);
   });
 
   describe("add channel", () => {

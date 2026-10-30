@@ -1199,6 +1199,52 @@ INSTANTIATE_TEST_SUITE_P(
     [](const ::testing::TestParamInfo<MaskWriteCase> &info) { return info.param.name; }
 );
 
+/// @brief it should give a waiting read the turn after one write, so steady writes
+/// cannot hold reads back.
+TEST(DeviceTest, ReadWaitsBehindOneWrite) {
+    testutil::SlaveConfig slave_config;
+    slave_config.port = 1657;
+    testutil::Slave slave(slave_config);
+    ASSERT_NIL(slave.start());
+    Manager manager;
+    ConnectionConfig cfg{"127.0.0.1", 1657};
+    auto dev = ASSERT_NIL_P(manager.acquire(cfg));
+    uint16_t reg = 0;
+    ASSERT_NIL(dev->read_registers(HoldingRegister, 0, 1, &reg));
+
+    slave.stall_next(MODBUS_TCP_SLAVE, std::chrono::milliseconds(300));
+    std::thread slow([&] {
+        uint16_t r = 0;
+        ASSERT_NIL(dev->read_registers(HoldingRegister, 0, 1, &r));
+    });
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    std::thread read([&] {
+        uint8_t bit = 0;
+        ASSERT_NIL(dev->read_bits(Coil, 0, 1, &bit));
+    });
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    std::vector<std::thread> writes;
+    for (int i = 0; i < 2; i++)
+        writes.emplace_back([&] {
+            const uint16_t value = 5;
+            ASSERT_NIL(dev->write_registers(0, 1, &value));
+        });
+    slow.join();
+    read.join();
+    for (auto &w: writes)
+        w.join();
+
+    const std::vector<int> expected{
+        MODBUS_FC_READ_HOLDING_REGISTERS,
+        MODBUS_FC_READ_HOLDING_REGISTERS,
+        MODBUS_FC_WRITE_MULTIPLE_REGISTERS,
+        MODBUS_FC_READ_COILS,
+        MODBUS_FC_WRITE_MULTIPLE_REGISTERS,
+    };
+    EXPECT_EQ(slave.log(), expected);
+    slave.stop();
+}
+
 /// @brief it should write each coil and register with its own request when the device
 /// writes with single function codes.
 TEST(DeviceTest, WritesWithSingleCodes) {

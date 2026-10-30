@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { array, type compare, type record, shallow, state } from "@synnaxlabs/x";
-import { useSyncExternalStore } from "react";
+import { array, compare, deep, type record, shallow, state } from "@synnaxlabs/x";
+import { useRef, useSyncExternalStore } from "react";
 import { type z } from "zod";
 
 import { type ContextValue, useContext } from "@/form/Context";
@@ -124,6 +124,27 @@ export const useFieldValue = (<I, O = I, Z extends z.ZodType = z.ZodType>(
 /** @returns whether the field at the path passed its last validation. */
 export const useFieldValid = (path: string): boolean =>
   useFieldState(path, { optional: true })?.status?.variant === "success";
+
+/**
+ * Reads the statuses other than success at and under a path, each keyed by its path.
+ * Re-renders the caller only when one of them changes.
+ */
+export const useStatuses = <Z extends z.ZodType = z.ZodType>(
+  path: string,
+  opts?: ContextOptions<Z>,
+): Status.Crude[] => {
+  const { bind, getStatuses } = useContext(opts?.ctx);
+  const cached = useRef<Status.Crude[]>([]);
+  const getSnapshot = () => {
+    const next = getStatuses().filter(
+      ({ key }) => key != null && deep.pathsMatch(key, path),
+    );
+    if (compare.arraysEqual(next, cached.current)) return cached.current;
+    cached.current = next;
+    return next;
+  };
+  return useSyncExternalStore(bind, getSnapshot, getSnapshot);
+};
 
 /** Edits for a form field holding an array of keyed entries. */
 export interface FieldListUtils<K extends record.Key, E extends record.Keyed<K>> {
