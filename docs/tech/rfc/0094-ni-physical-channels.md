@@ -191,8 +191,8 @@ A digital line past its port's width is a field error.
 
 ## 4 Implementation phases
 
-- **Phase 1: Device data.** §3.0 to §3.3. The Console keeps `hardware` when it writes
-  a device. No visible change.
+- **Phase 1: Device data.** §3.0 to §3.3. The Console keeps `hardware` when it writes a
+  device. No visible change.
 - **Phase 2: Port picking.** §3.4 and §3.5 for the five NI tasks, and the integration
   helpers. Deletes `portCount`, `lineCounts`, `digitalInputOutput`, `PortField`, the
   next-port counters, and `COUNTER_TERMINALS`.
@@ -256,9 +256,9 @@ rename and terminal configuration items. One channel then had two menus. The Mod
 register map reuses the list's menu the same way.
 
 **6.7 An Oracle struct, not hand-written properties.** RFC 0091 put new Modbus fields in
-hand-written copies in three languages, because those copies already existed. This
-shape has no copy yet, and RFC 0081 §3 makes Oracle the only device shape. EtherCAT
-stores its scanned PDOs the same way, as Oracle types in the device properties.
+hand-written copies in three languages, because those copies already existed. This shape
+has no copy yet, and RFC 0081 §3 makes Oracle the only device shape. EtherCAT stores its
+scanned PDOs the same way, as Oracle types in the device properties.
 
 ## 7 Open questions
 
