@@ -203,8 +203,10 @@ const createForwarder = ({
         show(problem);
         if (listed(problem) !== wasListed) publish();
       },
-      (exc: unknown) =>
-        handleError(exc, { message: "Failed to show status", name: stat.name }),
+      (exc: unknown) => {
+        if (problems.get(stat.key) !== problem) return;
+        handleError(exc, { message: "Failed to show status", name: stat.name });
+      },
     );
   };
 
