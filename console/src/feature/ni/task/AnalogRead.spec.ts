@@ -751,6 +751,28 @@ describe("AnalogRead ports", () => {
     ).toBeTruthy();
   });
 
+  it("should resolve Default for a current channel on a port that takes only current", async () => {
+    const hardware = createHardware();
+    hardware.analogInputs[0] = {
+      ...hardware.analogInputs[0],
+      terminalConfigs: ["RSE", "Diff"],
+      defaultTerminalConfig: "Diff",
+      types: ["ai_current"],
+    };
+    const dev = await createNIDevice(client, { properties: { hardware } });
+    await renderWith([
+      createChannel("ai_current", 0, { device: dev.key }),
+      createChannel("ai_voltage", 8, { device: dev.key }),
+    ]);
+    expect(await findDialogTriggerByText("Default (Differential)")).toBeTruthy();
+    expect(
+      await screen.findByText("Another channel uses ai8, its negative input"),
+    ).toBeTruthy();
+    expect(document.querySelector(".console-port-badge")?.className).toContain(
+      "console-port-badge--conflict",
+    );
+  });
+
   it("should add a channel on a free port from the ports view", async () => {
     const dev = await createDevice();
     const { draft } = await renderWith([
