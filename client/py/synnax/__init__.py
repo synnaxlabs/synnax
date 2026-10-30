@@ -105,7 +105,7 @@ from synnax.telem import (
     elapsed_seconds,
 )
 from synnax.timing import Loop, Timer, poll, sleep
-from synnax.user.payload import User
+from synnax.user import User
 from synnax.view import View
 from x import color
 from x.color import Color

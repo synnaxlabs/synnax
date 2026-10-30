@@ -15,7 +15,7 @@ import { type connection } from "@/connection";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { Current } from "@/user/current";
-import { type Key, keyZ, type New, newZ, type User, userZ } from "@/user/types.gen";
+import { type Key, keyZ, type New, type User, userZ } from "@/user/types.gen";
 
 const retrieveRequestZ = z.object({ keys: keyZ.array().optional() });
 const retrieveMultiParamsZ = retrieveRequestZ.or(query.keyListZ(keyZ));
@@ -36,7 +36,7 @@ export interface RetrieveRequest extends z.infer<typeof retrieveRequestZ> {}
 
 const retrieveResZ = z.object({ users: userZ.array().default(() => []) });
 
-const createReqZ = z.object({ users: newZ.array() });
+const createReqZ = z.object({ users: userZ.array() });
 const createResZ = z.object({ users: userZ.array() });
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 const renameResZ = z.object({});
@@ -99,12 +99,9 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Us
   async create(users: New[]): Promise<User[]>;
   async create(users: New | New[]): Promise<User | User[]> {
     const isMany = Array.isArray(users);
-    const res = await this.cfg.unary.send(
-      "/user/create",
-      { users: array.toArray(users) },
-      createReqZ,
-      createResZ,
-    );
+    // Parsed once so a retried request keeps the keys it generated.
+    const req = createReqZ.parse({ users: array.toArray(users) });
+    const res = await this.cfg.unary.send("/user/create", req, createReqZ, createResZ);
     this.store.set(res.users);
     return isMany ? res.users : res.users[0];
   }
