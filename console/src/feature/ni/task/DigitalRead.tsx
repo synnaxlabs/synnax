@@ -24,7 +24,7 @@ import {
   type DigitalNameComponentProps,
 } from "@/feature/ni/task/DigitalChannelList";
 import { getDigitalChannelDeviceKey } from "@/feature/ni/task/getDigitalChannelDeviceKey";
-import { digitalInputName } from "@/feature/ni/task/ports";
+import { digitalInputName, enabledFirst } from "@/feature/ni/task/ports";
 import { LinesView } from "@/feature/ni/task/PortsView";
 import {
   deployDigitalReadConfigZ,
@@ -139,9 +139,9 @@ const onConfigure: Task.OnConfigure<typeof digitalReadConfigZ> = async (
       dev.properties.digitalInput.channels = {};
     }
     const toCreate: DIChannel[] = [];
-    // A disabled channel can share a port, and with it the port's data channel.
+    // Channels on one port share its data channel, named by an enabled one if any.
     const seen = new Set<string>();
-    for (const channel of config.channels) {
+    for (const channel of enabledFirst(config.channels)) {
       const key = getDigitalChannelDeviceKey(channel);
       if (seen.has(key)) continue;
       seen.add(key);

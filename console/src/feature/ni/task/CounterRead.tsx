@@ -21,7 +21,7 @@ import { counterReadHardwareZ } from "@/feature/ni/task/checks";
 import { CIChannelForm } from "@/feature/ni/task/CIChannelForm";
 import { createNextCIChannel } from "@/feature/ni/task/createChannel";
 import { DetailsTitle as Title } from "@/feature/ni/task/DetailsTitle";
-import { COUNTER_INPUT, holdState } from "@/feature/ni/task/ports";
+import { COUNTER_INPUT, enabledFirst, holdState } from "@/feature/ni/task/ports";
 import { PortsView } from "@/feature/ni/task/PortsView";
 import {
   CI_CHANNEL_TYPE_ICONS,
@@ -214,9 +214,9 @@ const onConfigure: Task.OnConfigure<typeof counterReadConfigZ> = async (
 
       const deviceChannels = config.channels.filter((c) => c.device === dev.key);
       const toCreate: CIChannel[] = [];
-      // A disabled channel can share a port, and with it the port's data channel.
+      // Channels on one port share its data channel, named by an enabled one if any.
       const seen = new Set<string>();
-      for (const channel of deviceChannels) {
+      for (const channel of enabledFirst(deviceChannels)) {
         const key = channel.port.toString();
         if (seen.has(key)) continue;
         seen.add(key);

@@ -26,6 +26,7 @@ import {
   ANALOG_INPUT,
   analogInputClaims,
   analogInputHolds,
+  enabledFirst,
   holdState,
 } from "@/feature/ni/task/ports";
 import { PortsView } from "@/feature/ni/task/PortsView";
@@ -241,9 +242,9 @@ const onConfigure: Task.OnConfigure<typeof analogReadConfigZ> = async (
         dev.properties.analogInput.channels = {};
       }
       const toCreate: AIChannel[] = [];
-      // A disabled channel can share a port, and with it the port's data channel.
+      // Channels on one port share its data channel, named by an enabled one if any.
       const seen = new Set<string>();
-      for (const channel of config.channels) {
+      for (const channel of enabledFirst(config.channels)) {
         if (channel.device !== dev.key) continue;
         const key = getAIChannelDeviceKey(channel);
         if (seen.has(key)) continue;

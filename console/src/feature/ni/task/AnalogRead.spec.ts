@@ -904,6 +904,27 @@ describe("AnalogRead disabled channels", () => {
     await deployAndAwaitTask(client, second.container, second.draft.key);
   });
 
+  it("should name a new shared data channel after its enabled channel", async () => {
+    const dev = await createNIDevice(client);
+    const enabled = uniqueName("chan_on");
+    const { container, draft } = await renderWith([
+      createChannel("ai_voltage", 0, {
+        device: dev.key,
+        disabled: true,
+        name: uniqueName("chan_off"),
+      }),
+      createChannel("ai_voltage", 0, { device: dev.key, name: enabled }),
+    ]);
+    const { config } = await deployAndAwaitTask(
+      client,
+      container,
+      draft.key,
+      NI.Task.ANALOG_READ_SCHEMAS,
+    );
+    const created = await client.channels.retrieve(config.channels[0].channel);
+    expect(created.name).toBe(enabled);
+  });
+
   it("should deploy a disabled channel on a port the device does not have", async () => {
     const dev = await createDevice();
     const { container, draft } = await renderWith([

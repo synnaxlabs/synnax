@@ -25,6 +25,7 @@ import { DetailsTitle as Title } from "@/feature/ni/task/DetailsTitle";
 import {
   ANALOG_OUTPUT,
   analogOutputStateName,
+  enabledFirst,
   holdState,
   portClaims,
 } from "@/feature/ni/task/ports";
@@ -190,9 +191,9 @@ const onConfigure: Task.OnConfigure<typeof analogWriteConfigZ> = async (
     }
     const commandsToCreate: AOChannel[] = [];
     const statesToCreate: AOChannel[] = [];
-    // A disabled channel can share a port, and with it the port's data channel.
+    // Channels on one port share its data channel, named by an enabled one if any.
     const seen = new Set<string>();
-    for (const channel of config.channels) {
+    for (const channel of enabledFirst(config.channels)) {
       const key = channel.port.toString();
       if (seen.has(key)) continue;
       seen.add(key);

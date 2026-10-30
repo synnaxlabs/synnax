@@ -48,6 +48,10 @@ const enabled = (list: Claim[]): Claim[] => list.filter((c) => !c.disabled);
 /** Whether more than one enabled channel holds the port. */
 export const conflicts = (list: Claim[]): boolean => enabled(list).length > 1;
 
+/** The channels, enabled ones first, each group in its order. */
+export const enabledFirst = <C extends Task.Channel>(channels: C[]): C[] =>
+  channels.toSorted((a, b) => Number(a.disabled) - Number(b.disabled));
+
 const claim = (claims: Claims, port: number, c: Claim): void => {
   const list = claims.get(port);
   if (list == null) claims.set(port, [c]);
