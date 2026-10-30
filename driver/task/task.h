@@ -158,7 +158,8 @@ public:
     void set_status(synnax::task::Status &status) override {
         if (status.time == 0) status.time = x::telem::TimeStamp::now();
         status.details.rack = this->rack_key_;
-        this->statuses->set(status);
+        if (const auto err = this->statuses->set(status); err)
+            LOG(ERROR) << "[task.context] failed to write task status update: " << err;
     }
 
     x::errors::Error resend_statuses() override { return this->statuses->resend(); }

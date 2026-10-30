@@ -41,16 +41,17 @@ class StatusCache {
     /// @brief the tasks that left this Driver and were not claimed again.
     std::unordered_set<synnax::task::Key> released;
 
-    /// @brief returns the entry for key, creating it if absent. Returns null for a
-    /// released task.
-    std::shared_ptr<Entry> entry_for(const synnax::task::Key &key);
+    /// @brief returns the entry of the task of status, creating it with status if
+    /// absent. Returns null for a released task.
+    std::shared_ptr<Entry> entry_for(const synnax::task::Status &status);
 
 public:
     explicit StatusCache(synnax::status::Client client);
 
     /// @brief writes the status and keeps it as the latest status of its task, unless
-    /// the task left this Driver. Logs a failed write.
-    void set(synnax::task::Status &status);
+    /// the task left this Driver.
+    /// @returns the error of the write, or NIL for a task that left this Driver.
+    [[nodiscard]] x::errors::Error set(synnax::task::Status &status);
 
     /// @brief sends the latest status of each task again, stamped now and with no
     /// command key. Waits for a write of a task's own status in progress, then sends
