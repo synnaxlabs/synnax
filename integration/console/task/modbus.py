@@ -15,6 +15,7 @@ from console.layout import LayoutClient
 from console.task_page import TaskPage
 
 SERVER_FIELD_LABEL = "Modbus server"
+_CHANNEL_FIELDS_SELECTOR = ".lyra-list__cells"
 
 # Config channel type to the name shown in the channel type dropdown.
 READ_TYPE_NAMES = {
@@ -36,14 +37,11 @@ class ModbusTask(TaskPage):
     """Shared Modbus task page. Each channel is a row of type, address, and, for
     registers, data type."""
 
-    # The element that holds a row's fields.
-    fields_selector: str
-
     def _rows(self) -> Locator:
         return self._channel_list().get_by_role("option")
 
     def _fields(self, index: int) -> Locator:
-        return self._rows().nth(index).locator(self.fields_selector)
+        return self._rows().nth(index).locator(_CHANNEL_FIELDS_SELECTOR)
 
     def select_server(self, name: str) -> None:
         """Pick the Modbus server the task talks to. Selecting a server that is not
@@ -123,7 +121,6 @@ class ModbusRead(ModbusTask):
 
     page_type = "Modbus read task"
     pluto_label: str = ".console-task-configure--modbus_read"
-    fields_selector = ".lyra-list__cells"
 
 
 class ModbusWrite(ModbusTask):
@@ -131,4 +128,3 @@ class ModbusWrite(ModbusTask):
 
     page_type = "Modbus write task"
     pluto_label: str = ".console-task-configure--modbus_write"
-    fields_selector = ".console-channel-item"
