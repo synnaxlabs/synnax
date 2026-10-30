@@ -546,7 +546,7 @@ func (p *Plugin) processStructForTranslation(
 		data.AddInternal("x/cpp/json/json.h")
 	}
 
-	if resolver.CanUseInheritance(form, data.table) {
+	if resolver.CanUseInheritance(form, "cpp", data.table) {
 		translator.HasExtends = true
 		for _, extendsRef := range form.Extends {
 			parent, ok := extendsRef.Resolve(data.table)

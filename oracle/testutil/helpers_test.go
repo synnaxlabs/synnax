@@ -253,11 +253,42 @@ var domainDirectives = map[string]string{
 	"pb":  `@go output "out"`, // pb derives from go output
 }
 
+var _ = Describe("Analyze", func() {
+	It(
+		"Should resolve the types of the source under the namespace",
+		func(ctx SpecContext) {
+			table, diag := Analyze(
+				ctx, "User struct {\n  name string\n}\n", "user", NewMockFileLoader(),
+			)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			Expect(table.MustGet("user.User").Namespace).To(Equal("user"))
+		},
+	)
+
+	It(
+		"Should return a nil table when the source fails to analyze",
+		func(ctx SpecContext) {
+			table, diag := Analyze(
+				ctx, "User struct {", "user", NewMockFileLoader(),
+			)
+			Expect(table).To(BeNil())
+			Expect(diag.Ok()).To(BeFalse())
+		},
+	)
+})
+
 var _ = Describe("MustGenerateRequest", func() {
 	var loader *MockFileLoader
 
 	BeforeEach(func() {
 		loader = NewMockFileLoader()
+	})
+
+	It("should fail the spec when the source does not analyze", func(ctx SpecContext) {
+		failures := InterceptGomegaFailures(func() {
+			MustGenerateRequest(ctx, "User struct {", "bad", loader)
+		})
+		Expect(failures).To(ConsistOf(ContainSubstring("failed to analyze source")))
 	})
 
 	It("should return a request with resolved types", func(ctx SpecContext) {
@@ -332,6 +363,29 @@ var _ = Describe("MustGenerateRequest", func() {
 		source := fmt.Sprintf(structReferenceTemplate, domainDirectives["go"])
 		req := MustGenerateRequest(ctx, source, "ref", loader)
 		Expect(req.Resolutions).NotTo(BeNil())
+	})
+})
+
+var _ = Describe("MustGenerateMulti", func() {
+	It("should generate from every file on the loader", func(ctx SpecContext) {
+		loader := NewMockFileLoader()
+		loader.Add(
+			"schemas/user",
+			fmt.Sprintf(simpleStructTemplate, domainDirectives["go"]),
+		)
+		p := &reqCapturingPlugin{files: []plugin.File{{Path: "out/user.go"}}}
+		resp := MustGenerateMulti(ctx, loader, p)
+		Expect(resp.Files).To(HaveLen(1))
+		Expect(p.lastReq.Resolutions).NotTo(BeNil())
+	})
+
+	It("should fail the spec when a file does not analyze", func(ctx SpecContext) {
+		loader := NewMockFileLoader()
+		loader.Add("schemas/bad", "User struct {")
+		failures := InterceptGomegaFailures(func() {
+			MustGenerateMulti(ctx, loader, &mockPlugin{})
+		})
+		Expect(failures).To(ConsistOf(ContainSubstring("error")))
 	})
 })
 

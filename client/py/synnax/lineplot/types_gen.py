@@ -11,15 +11,15 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, TypeAlias
+from typing import Literal, TypeAlias
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
-from synnax import channel
+from synnax import channel, ranger
 from synnax.ontology.payload import ID
 from x import color as color_
-from x import spatial, telem, text
+from x import spatial, text
 
 AXIS_KEY_X1: Literal["x1"] = "x1"
 
@@ -43,6 +43,17 @@ TICK_TYPE_TIME: Literal["time"] = "time"
 
 TickType = Literal["linear", "time"]
 
+Y_AXIS_KEY_Y1: Literal["y1"] = "y1"
+
+Y_AXIS_KEY_Y2: Literal["y2"] = "y2"
+
+Y_AXIS_KEY_Y3: Literal["y3"] = "y3"
+
+Y_AXIS_KEY_Y4: Literal["y4"] = "y4"
+
+
+YAxisKey = Literal["y1", "y2", "y3", "y4"]
+
 AGGREGATION_MIN_MAX: Literal["min_max"] = "min_max"
 
 AGGREGATION_AVERAGE: Literal["average"] = "average"
@@ -65,17 +76,6 @@ X_AXIS_KEY_X2: Literal["x2"] = "x2"
 
 
 XAxisKey = Literal["x1", "x2"]
-
-Y_AXIS_KEY_Y1: Literal["y1"] = "y1"
-
-Y_AXIS_KEY_Y2: Literal["y2"] = "y2"
-
-Y_AXIS_KEY_Y3: Literal["y3"] = "y3"
-
-Y_AXIS_KEY_Y4: Literal["y4"] = "y4"
-
-
-YAxisKey = Literal["y1", "y2", "y3", "y4"]
 
 Key: TypeAlias = UUID
 
@@ -154,9 +154,12 @@ class Line(BaseModel):
     """Is the per-line styling and reduction configuration.
 
     Attributes:
-        key: Is the line identifier derived from its channel and range assignment.
-            Format is internal to the client and stable across re-renders so styling
-            overrides persist.
+        key: Is the line's stable identity, a UUID string. It is a function of the
+            plot's key and the line's y-axis, y-channel, and x-channel, so the Core and
+            the Console derive the same key for the same line.
+        y_axis: Is the y-axis the line is drawn against.
+        y_channel: Is the channel plotted on the y-axis.
+        x_channel: Is the channel plotted on the x-axis, or 0 to plot against time.
         label: Is the user-specified line label. Null means derive from the channel name
             at render time; non-null is an override.
         color: Is the line color. When null, the Console assigns one from the
@@ -167,6 +170,9 @@ class Line(BaseModel):
     """
 
     key: str
+    y_axis: YAxisKey
+    y_channel: channel.Key = Field(ge=0, le=4294967295)
+    x_channel: channel.Key = Field(default=channel.Key(0), ge=0, le=4294967295)
     label: str | None = None
     color: color_.Color | None = None
     stroke_width: float = 2
@@ -199,30 +205,6 @@ class Rule(BaseModel):
     position: float
 
 
-class DynamicCustomRange(BaseModel):
-    """Is a rolling window."""
-
-    variant: Literal["dynamic"] = "dynamic"
-    span: telem.TimeSpan = Field(
-        default=telem.TimeSpan(0), ge=-9223372036854775808, le=9223372036854775807
-    )
-
-
-class StaticCustomRange(BaseModel):
-    """Is a fixed window."""
-
-    variant: Literal["static"] = "static"
-    start: telem.TimeStamp = Field(ge=-9223372036854775808, le=9223372036854775807)
-    end: telem.TimeStamp = Field(ge=-9223372036854775808, le=9223372036854775807)
-
-
-# Is the window a plot's synthetic "custom" range key resolves to.
-CustomRange = Annotated[
-    DynamicCustomRange | StaticCustomRange,
-    Field(discriminator="variant"),
-]
-
-
 class Axis(BaseModel):
     """Is the configuration for a single plot axis.
 
@@ -250,23 +232,6 @@ class Axis(BaseModel):
     manual_bounds: ManualBounds = Field(default_factory=lambda: ManualBounds())
     tick_spacing: float = 75
     type: TickType | None = None
-
-
-class Ranges(BaseModel):
-    """Binds range keys to each x-axis.
-
-    Attributes:
-        x1: Are the range keys plotted against the x1 axis. Range keys are opaque
-            strings rather than UUIDs because the console layers synthetic
-            rolling-window ranges (e.g. "recent", "rolling1m") alongside persisted
-            ranges; the server stores whatever the client sends.
-        x2: Are the range keys plotted against the x2 axis.
-        custom: Is the window the "custom" range key resolves to.
-    """
-
-    x1: list[str] = Field(default_factory=list)
-    x2: list[str] = Field(default_factory=list)
-    custom: CustomRange | None = None
 
 
 class Axes(BaseModel):
@@ -300,11 +265,11 @@ class LinePlot(BaseModel):
         title: Is the plot title configuration.
         legend: Is the plot legend configuration.
         channels: Binds channel keys to each axis.
-        ranges: Binds range keys to each x-axis.
+        ranges: Are the ranges the plot shows: ranges saved in the Core, or inline
+            windows.
         axes: Bundles per-axis configuration.
-        lines: Holds per-line styling and reduction configuration. Each entry
-            corresponds to one channel and range combination produced by the channels
-            and ranges bindings.
+        lines: Holds per-line styling and reduction configuration. Each entry styles one
+            y-channel across every range the plot shows.
         rules: Holds annotation rules drawn over the plot.
     """
 
@@ -313,7 +278,7 @@ class LinePlot(BaseModel):
     title: Title = Field(default_factory=lambda: Title())
     legend: Legend = Field(default_factory=lambda: Legend())
     channels: Channels = Field(default_factory=lambda: Channels())
-    ranges: Ranges = Field(default_factory=lambda: Ranges())
+    ranges: list[ranger.Ref] = Field(default_factory=list)
     axes: Axes = Field(default_factory=lambda: Axes())
     lines: list[Line] = Field(default_factory=list)
     rules: list[Rule] = Field(default_factory=list)

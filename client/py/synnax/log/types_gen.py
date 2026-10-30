@@ -44,8 +44,8 @@ class ChannelEntry(BaseModel):
         channel: Is the channel this entry references.
         color: Is the display color for the channel.
         notation: Is the numeric notation used to render samples.
-        precision: Is the number of decimal digits to display. -1 means "use the
-            log-level precision"; 17 is the maximum significant digits for a float64.
+        precision: Is the number of decimal digits to display. Absent shows each sample
+            as it arrives; 17 is the maximum significant digits for a float64.
         alias: Is a human-readable alias displayed in place of the channel name.
         timestamp: Is the per-channel timestamp display configuration.
     """
@@ -53,7 +53,7 @@ class ChannelEntry(BaseModel):
     channel: channel_.Key = Field(ge=0, le=4294967295)
     color: color_.Color
     notation: notation_.Notation = "standard"
-    precision: int = Field(ge=-1, le=17, default=-1)
+    precision: int | None = Field(default=None, ge=0, le=17)
     alias: str = ""
     timestamp: TimestampConfig = Field(
         default_factory=lambda: TimestampConfig(format="preciseDate", tz="local")

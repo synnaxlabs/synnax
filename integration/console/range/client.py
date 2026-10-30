@@ -27,14 +27,17 @@ class Client(Surface):
 
     def __init__(
         self,
+        *,
         layout: LayoutClient,
         pages: "PagesClient",
     ):
         super().__init__(layout)
         self.pages = pages
         self.toolbar = Toolbar(layout)
-        self.explorer = Explorer(layout, self.toolbar)
-        self.overview = Overview(layout, self.toolbar, self.explorer)
+        self.explorer = Explorer(layout=layout, toolbar=self.toolbar)
+        self.overview = Overview(
+            layout=layout, toolbar=self.toolbar, explorer=self.explorer
+        )
 
     def create(
         self,
@@ -91,7 +94,7 @@ class Client(Surface):
         name_input.wait_for(state="visible", timeout=5000)
         expect(name_input).to_have_value(name, timeout=5000)
 
-    def snapshot_to_active_range(self, name: str, range_name: str) -> None:
+    def snapshot_to_active_range(self, name: str, *, range_name: str) -> None:
         """Snapshot a page or task to the active range via context menu.
 
         Searches the project tree first (for schematics, line plots, etc.),
@@ -102,16 +105,14 @@ class Client(Surface):
         """
         self.pages.expand_active()
         page_item = (
-            self.layout.page.locator(".pluto-tree__item").filter(has_text=name).first
+            self.layout.page.locator(".lyra-tree__item").filter(has_text=name).first
         )
         if self.layout.locator_exists(page_item):
             self.ctx_menu.action(page_item, f"Snapshot to {range_name}")
         else:
             self.layout.show_resource_toolbar("Tasks")
             task_item = (
-                self.layout.page.locator(".pluto-list__item")
-                .filter(has_text=name)
-                .first
+                self.layout.page.locator(".lyra-list__item").filter(has_text=name).first
             )
             task_item.wait_for(state="visible", timeout=5000)
             self.ctx_menu.action(task_item, f"Snapshot to {range_name}")

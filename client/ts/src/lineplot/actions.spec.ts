@@ -11,9 +11,16 @@ import { color } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { lineplot } from "@/lineplot";
+import { type ranger } from "@/ranger";
+
+const PLOT = "11111111-2222-4333-8444-555555555555";
 
 const createEmpty = (overrides: Partial<lineplot.LinePlot> = {}): lineplot.LinePlot =>
-  lineplot.linePlotZ.parse({ name: "Test Line Plot", ...overrides });
+  lineplot.linePlotZ.parse({ name: "Test Line Plot", key: PLOT, ...overrides });
+
+// lk is the key of the test plot's y1 line plotting yChannel against xChannel.
+const lk = (yChannel: number, xChannel = 10): string =>
+  lineplot.lineKey(PLOT, { yAxis: "y1", yChannel, xChannel });
 
 const apply = (
   state: lineplot.LinePlot,
@@ -29,7 +36,14 @@ const roundTrip = (
 };
 
 const createLine = (key: string, color: string): lineplot.Line =>
-  lineplot.lineZ.parse({ key, color });
+  lineplot.lineZ.parse({ key, color, yAxis: "y1", yChannel: 1 });
+
+const keyRef = (k: string): ranger.Ref => ({ variant: "key", key: k });
+
+const windowRef = (timeSpan: number): ranger.Ref => ({
+  variant: "window",
+  window: { variant: "dynamic", timeSpan },
+});
 
 const createRule = (key: string, label: string): lineplot.Rule =>
   lineplot.ruleZ.parse({
@@ -217,35 +231,38 @@ describe("lineplot reducer", () => {
   });
 
   describe("addRange and removeRange", () => {
-    const r1 = "00000000-0000-0000-0000-000000000001";
-    const r2 = "00000000-0000-0000-0000-000000000002";
+    const r1 = "00000000-0000-4000-8000-000000000001";
+    const r2 = "00000000-0000-4000-8000-000000000002";
 
-    it("should append the range to the named x-axis", () => {
-      const out = apply(createEmpty(), lineplot.addRange({ axisKey: "x1", range: r1 }));
-      expect(out.ranges.x1).toEqual([r1]);
+    it("should append the range reference", () => {
+      const out = apply(createEmpty(), lineplot.addRange({ range: keyRef(r1) }));
+      expect(out.ranges).toEqual([keyRef(r1)]);
     });
-    it("should drop the range from the named x-axis", () => {
-      const state = createEmpty({ ranges: { x1: [r1, r2], x2: [] } });
-      const out = apply(state, lineplot.removeRange({ axisKey: "x1", range: r1 }));
-      expect(out.ranges.x1).toEqual([r2]);
+    it("should drop the equal range reference", () => {
+      const state = createEmpty({ ranges: [keyRef(r1), keyRef(r2)] });
+      const out = apply(state, lineplot.removeRange({ range: keyRef(r1) }));
+      expect(out.ranges).toEqual([keyRef(r2)]);
     });
     it("should round-trip add then remove via the captured inverses", () => {
       const state = createEmpty();
-      expect(
-        roundTrip(state, lineplot.addRange({ axisKey: "x2", range: r1 })).ranges.x2,
-      ).toEqual([]);
+      expect(roundTrip(state, lineplot.addRange({ range: keyRef(r1) })).ranges).toEqual(
+        [],
+      );
+    });
+    it("should match a window by value", () => {
+      const state = createEmpty({ ranges: [windowRef(60e9), windowRef(120e9)] });
+      const out = apply(state, lineplot.removeRange({ range: windowRef(60e9) }));
+      expect(out.ranges).toEqual([windowRef(120e9)]);
     });
     it("should target the range so distinct ranges do not invalidate each other", () => {
       const { targets } = lineplot.reduceAll(createEmpty(), [
-        lineplot.addRange({ axisKey: "x1", range: r1 }),
+        lineplot.addRange({ range: keyRef(r1) }),
       ]);
       expect(targets).toEqual([`range:${r1}`]);
     });
   });
 
   describe("setChannels", () => {
-    const r1 = "00000000-0000-0000-0000-000000000001";
-
     it("should replace the whole channel set on the named y-axis", () => {
       const state = createEmpty({
         channels: { x1: 0, x2: 0, y1: [1, 2, 3], y2: [], y3: [], y4: [] },
@@ -291,45 +308,26 @@ describe("lineplot reducer", () => {
 
     it("should drop lines for removed channels and add lines for new ones", () => {
       const state = createEmpty({
-        channels: { x1: 10, x2: 0, y1: [5], y2: [], y3: [], y4: [] },
-        ranges: { x1: [], x2: [] },
+        channels: { x1: 10, x2: 0, y1: [], y2: [], y3: [], y4: [] },
       });
-      const withLines = apply(state, lineplot.addRange({ axisKey: "x1", range: r1 }));
+      const withLines = apply(
+        state,
+        lineplot.setChannels({ axisKey: "y1", channels: [5] }),
+      );
       const out = apply(
         withLines,
         lineplot.setChannels({ axisKey: "y1", channels: [6] }),
       );
-      expect(out.lines.map((l) => l.key)).toEqual([
-        lineplot.lineKey({
-          yAxis: "y1",
-          xAxis: "x1",
-          range: r1,
-          xChannel: 10,
-          yChannel: 6,
-        }),
-      ]);
+      expect(out.lines.map((l) => l.key)).toEqual([lk(6, 10)]);
     });
 
     it("should preserve styling of surviving channels and restore dropped lines on undo", () => {
       const state = createEmpty({
-        channels: { x1: 10, x2: 0, y1: [5, 6], y2: [], y3: [], y4: [] },
-        ranges: { x1: [], x2: [] },
+        channels: { x1: 10, x2: 0, y1: [], y2: [], y3: [], y4: [] },
       });
-      let s = apply(state, lineplot.addRange({ axisKey: "x1", range: r1 }));
-      const keep = lineplot.lineKey({
-        yAxis: "y1",
-        xAxis: "x1",
-        range: r1,
-        xChannel: 10,
-        yChannel: 5,
-      });
-      const drop = lineplot.lineKey({
-        yAxis: "y1",
-        xAxis: "x1",
-        range: r1,
-        xChannel: 10,
-        yChannel: 6,
-      });
+      let s = apply(state, lineplot.setChannels({ axisKey: "y1", channels: [5, 6] }));
+      const keep = lk(5, 10);
+      const drop = lk(6, 10);
       s = apply(
         s,
         lineplot.setLineColor({ key: keep, color: color.construct("#ff0000") }),
@@ -351,239 +349,131 @@ describe("lineplot reducer", () => {
   });
 
   describe("setRanges", () => {
-    const r1 = "00000000-0000-0000-0000-000000000001";
-    const r2 = "00000000-0000-0000-0000-000000000002";
-    const r3 = "00000000-0000-0000-0000-000000000003";
+    const r1 = "00000000-0000-4000-8000-000000000001";
+    const r2 = "00000000-0000-4000-8000-000000000002";
+    const r3 = "00000000-0000-4000-8000-000000000003";
 
-    it("should replace the whole range set on the named x-axis", () => {
-      const state = createEmpty({ ranges: { x1: [r1, r2], x2: [] } });
-      const out = apply(state, lineplot.setRanges({ axisKey: "x1", ranges: [r2, r3] }));
-      expect(out.ranges.x1).toEqual([r2, r3]);
+    it("should replace the whole range set", () => {
+      const state = createEmpty({ ranges: [keyRef(r1), keyRef(r2)] });
+      const out = apply(
+        state,
+        lineplot.setRanges({ ranges: [keyRef(r2), keyRef(r3)] }),
+      );
+      expect(out.ranges).toEqual([keyRef(r2), keyRef(r3)]);
     });
 
     it("should be a no-op when the set is unchanged", () => {
-      const state = createEmpty({ ranges: { x1: [r1, r2], x2: [] } });
+      const state = createEmpty({ ranges: [keyRef(r1), keyRef(r2)] });
       const { next, inverse, targets } = lineplot.reduceAll(state, [
-        lineplot.setRanges({ axisKey: "x1", ranges: [r1, r2] }),
+        lineplot.setRanges({ ranges: [keyRef(r1), keyRef(r2)] }),
       ]);
-      expect(next.ranges.x1).toEqual([r1, r2]);
+      expect(next.ranges).toEqual([keyRef(r1), keyRef(r2)]);
       expect(inverse).toEqual([]);
       expect(targets).toEqual([]);
     });
 
     it("should target only the ranges that changed", () => {
-      const state = createEmpty({ ranges: { x1: [r1, r2], x2: [] } });
+      const state = createEmpty({ ranges: [keyRef(r1), keyRef(r2)] });
       const { targets } = lineplot.reduceAll(state, [
-        lineplot.setRanges({ axisKey: "x1", ranges: [r2, r3] }),
+        lineplot.setRanges({ ranges: [keyRef(r2), keyRef(r3)] }),
       ]);
       expect(targets).toEqual([`range:${r1}`, `range:${r3}`]);
     });
 
     it("should round-trip the previous range set through its inverse", () => {
-      const state = createEmpty({ ranges: { x1: [r1, r2], x2: [] } });
+      const state = createEmpty({ ranges: [keyRef(r1), keyRef(r2)] });
       expect(
-        roundTrip(state, lineplot.setRanges({ axisKey: "x1", ranges: [r3] })).ranges.x1,
-      ).toEqual([r1, r2]);
+        roundTrip(state, lineplot.setRanges({ ranges: [keyRef(r3)] })).ranges,
+      ).toEqual([keyRef(r1), keyRef(r2)]);
     });
 
-    it("should drop lines for removed ranges and add lines for new ones", () => {
+    it("should keep a range added after the edit when undone", () => {
+      const state = createEmpty({ ranges: [keyRef(r1)] });
+      const { next, inverse } = lineplot.reduceAll(state, [
+        lineplot.setRanges({ ranges: [keyRef(r2)] }),
+      ]);
+      const concurrent = apply(next, lineplot.addRange({ range: keyRef(r3) }));
+      expect(lineplot.reduceAll(concurrent, inverse).next.ranges).toEqual([
+        keyRef(r3),
+        keyRef(r1),
+      ]);
+    });
+
+    it("should edit a window and leave the plot's lines unchanged", () => {
       const state = createEmpty({
         channels: { x1: 10, x2: 0, y1: [5], y2: [], y3: [], y4: [] },
-        ranges: { x1: [], x2: [] },
       });
-      const withLines = apply(state, lineplot.addRange({ axisKey: "x1", range: r1 }));
-      expect(withLines.lines).toHaveLength(1);
-      const out = apply(withLines, lineplot.setRanges({ axisKey: "x1", ranges: [r2] }));
-      expect(out.lines.map((l) => l.key)).toEqual([
-        lineplot.lineKey({
-          yAxis: "y1",
-          xAxis: "x1",
-          range: r2,
-          xChannel: 10,
-          yChannel: 5,
-        }),
-      ]);
-    });
-  });
-
-  describe("setCustomRange", () => {
-    const dynamic: lineplot.CustomRange = { variant: "dynamic", span: 60e9 };
-    const staticRange: lineplot.CustomRange = {
-      variant: "static",
-      start: "0",
-      end: "1000",
-    };
-
-    it("should set the custom window", () => {
-      const out = apply(createEmpty(), lineplot.setCustomRange({ custom: dynamic }));
-      expect(out.ranges.custom).toEqual(dynamic);
+      let s = apply(state, lineplot.addChannel({ axisKey: "y1", channel: 5 }));
+      s = apply(s, lineplot.addRange({ range: windowRef(60e9) }));
+      const out = apply(s, lineplot.setRanges({ ranges: [windowRef(120e9)] }));
+      expect(out.ranges).toEqual([windowRef(120e9)]);
+      expect(out.lines).toEqual(s.lines);
     });
 
-    it("should replace a dynamic window with a static one", () => {
-      const state = createEmpty({ ranges: { x1: [], x2: [], custom: dynamic } });
-      const out = apply(state, lineplot.setCustomRange({ custom: staticRange }));
-      expect(out.ranges.custom).toEqual(staticRange);
-    });
-
-    it("should preserve int64 precision in static endpoints", () => {
-      const custom: lineplot.CustomRange = {
-        variant: "static",
-        start: "1788000000000000123",
-        end: "1788000000000000456",
+    it("should preserve int64 precision in a fixed window", () => {
+      const fixed: ranger.Ref = {
+        variant: "window",
+        window: {
+          variant: "static",
+          timeRange: { start: "1788000000000000123", end: "1788000000000000456" },
+        },
       };
-      const out = apply(createEmpty(), lineplot.setCustomRange({ custom }));
-      expect(out.ranges.custom).toEqual(custom);
-    });
-
-    it("should coerce numeric static endpoints to strings", () => {
-      const out = apply(
-        createEmpty(),
-        lineplot.setCustomRange({
-          custom: { variant: "static", start: 0, end: 1000 },
-        }),
-      );
-      expect(out.ranges.custom).toEqual(staticRange);
-    });
-
-    it("should clear the window when custom is omitted", () => {
-      const state = createEmpty({ ranges: { x1: [], x2: [], custom: dynamic } });
-      const out = apply(state, lineplot.setCustomRange({}));
-      expect(out.ranges.custom).toBeUndefined();
-    });
-
-    it("should round-trip the previous window through its inverse", () => {
-      const state = createEmpty({ ranges: { x1: [], x2: [], custom: dynamic } });
-      expect(
-        roundTrip(state, lineplot.setCustomRange({ custom: staticRange })).ranges
-          .custom,
-      ).toEqual(dynamic);
-    });
-
-    it("should round-trip an unset window through its inverse", () => {
-      const state = createEmpty();
-      expect(
-        roundTrip(state, lineplot.setCustomRange({ custom: dynamic })).ranges.custom,
-      ).toBeUndefined();
-    });
-
-    it("should target the custom range key", () => {
-      const { targets } = lineplot.reduceAll(createEmpty(), [
-        lineplot.setCustomRange({ custom: dynamic }),
-      ]);
-      expect(targets).toEqual(["range:custom"]);
+      const out = apply(createEmpty(), lineplot.setRanges({ ranges: [fixed] }));
+      expect(out.ranges).toEqual([fixed]);
     });
   });
 
-  describe("eager line creation", () => {
-    const r1 = "00000000-0000-0000-0000-000000000001";
-    const r2 = "00000000-0000-0000-0000-000000000002";
+  describe("line creation", () => {
+    const r1 = "00000000-0000-4000-8000-000000000001";
+    const r2 = "00000000-0000-4000-8000-000000000002";
 
-    it("should materialize a line per range when a y-channel is added", () => {
-      const state = createEmpty({
-        channels: { x1: 10, x2: 0, y1: [], y2: [], y3: [], y4: [] },
-        ranges: { x1: [r1, r2], x2: [] },
-      });
-      const out = apply(state, lineplot.addChannel({ axisKey: "y1", channel: 5 }));
-      expect(out.lines.map((l) => l.key)).toEqual([
-        lineplot.lineKey({
-          yAxis: "y1",
-          xAxis: "x1",
-          range: r1,
-          xChannel: 10,
-          yChannel: 5,
-        }),
-        lineplot.lineKey({
-          yAxis: "y1",
-          xAxis: "x1",
-          range: r2,
-          xChannel: 10,
-          yChannel: 5,
-        }),
-      ]);
+    it("should materialize one line per y-channel across every range", () => {
+      const state = createEmpty({ ranges: [keyRef(r1), keyRef(r2)] });
+      const s = apply(state, lineplot.setXChannel({ axisKey: "x1", channel: 10 }));
+      const out = apply(s, lineplot.addChannel({ axisKey: "y1", channel: 5 }));
+      expect(out.lines.map((l) => l.key)).toEqual([lk(5)]);
     });
 
     it("should give created lines the Oracle default styling", () => {
-      const state = createEmpty({
-        channels: { x1: 10, x2: 0, y1: [], y2: [], y3: [], y4: [] },
-        ranges: { x1: [r1], x2: [] },
-      });
-      const out = apply(state, lineplot.addChannel({ axisKey: "y1", channel: 5 }));
+      const out = apply(
+        createEmpty(),
+        lineplot.addChannel({ axisKey: "y1", channel: 5 }),
+      );
       expect(out.lines[0]).toMatchObject({
+        yAxis: "y1",
+        yChannel: 5,
         strokeWidth: 2,
         aggregation: "min_max",
         detail: "medium",
       });
     });
 
-    it("should create no lines when there are no ranges (partial selection)", () => {
-      const state = createEmpty({
-        channels: { x1: 10, x2: 0, y1: [], y2: [], y3: [], y4: [] },
-        ranges: { x1: [], x2: [] },
-      });
-      const out = apply(state, lineplot.addChannel({ axisKey: "y1", channel: 5 }));
-      expect(out.channels.y1).toEqual([5]);
-      expect(out.lines).toEqual([]);
-    });
-
-    it("should materialize a line per y-channel when a range is added", () => {
-      const state = createEmpty({
-        channels: { x1: 10, x2: 0, y1: [5, 6], y2: [], y3: [], y4: [] },
-        ranges: { x1: [], x2: [] },
-      });
-      const out = apply(state, lineplot.addRange({ axisKey: "x1", range: r1 }));
-      expect(out.lines.map((l) => l.key)).toEqual([
-        lineplot.lineKey({
-          yAxis: "y1",
-          xAxis: "x1",
-          range: r1,
-          xChannel: 10,
-          yChannel: 5,
-        }),
-        lineplot.lineKey({
-          yAxis: "y1",
-          xAxis: "x1",
-          range: r1,
-          xChannel: 10,
-          yChannel: 6,
-        }),
-      ]);
-    });
-
-    it("should remove a channel's lines when it is removed", () => {
-      const state = createEmpty({
-        channels: { x1: 10, x2: 0, y1: [5, 6], y2: [], y3: [], y4: [] },
-        ranges: { x1: [], x2: [] },
-      });
-      const withLines = apply(state, lineplot.addRange({ axisKey: "x1", range: r1 }));
-      expect(withLines.lines).toHaveLength(2);
+    it("should create a channel's line even when the plot has no ranges", () => {
       const out = apply(
-        withLines,
-        lineplot.removeChannel({ axisKey: "y1", channel: 5 }),
+        createEmpty(),
+        lineplot.addChannel({ axisKey: "y1", channel: 5 }),
       );
-      expect(out.lines.map((l) => l.key)).toEqual([
-        lineplot.lineKey({
-          yAxis: "y1",
-          xAxis: "x1",
-          range: r1,
-          xChannel: 10,
-          yChannel: 6,
-        }),
-      ]);
+      expect(out.lines).toHaveLength(1);
     });
 
-    it("should restore removed lines with their styling on undo", () => {
-      const state = createEmpty({
-        channels: { x1: 10, x2: 0, y1: [5], y2: [], y3: [], y4: [] },
-        ranges: { x1: [], x2: [] },
-      });
-      const key = lineplot.lineKey({
-        yAxis: "y1",
-        xAxis: "x1",
-        range: r1,
-        xChannel: 10,
-        yChannel: 5,
-      });
-      let s = apply(state, lineplot.addRange({ axisKey: "x1", range: r1 }));
+    it("should leave lines unchanged when a range is added", () => {
+      const state = apply(
+        createEmpty(),
+        lineplot.addChannel({ axisKey: "y1", channel: 5 }),
+      );
+      const out = apply(state, lineplot.addRange({ range: keyRef(r1) }));
+      expect(out.lines).toEqual(state.lines);
+    });
+
+    it("should remove a channel's line when it is removed", () => {
+      let s = apply(createEmpty(), lineplot.addChannel({ axisKey: "y1", channel: 5 }));
+      s = apply(s, lineplot.addChannel({ axisKey: "y1", channel: 6 }));
+      const out = apply(s, lineplot.removeChannel({ axisKey: "y1", channel: 5 }));
+      expect(out.lines.map((l) => l.yChannel)).toEqual([6]);
+    });
+
+    it("should restore a removed line with its styling on undo", () => {
+      let s = apply(createEmpty(), lineplot.addChannel({ axisKey: "y1", channel: 5 }));
       s = apply(
         s,
         lineplot.setLineColor({
@@ -596,29 +486,17 @@ describe("lineplot reducer", () => {
         lineplot.removeChannel({ axisKey: "y1", channel: 5 }),
       );
       expect(restored.lines).toHaveLength(1);
-      expect(restored.lines[0].key).toEqual(key);
+      expect(restored.lines[0].key).toEqual(lk(5, 0));
       expect(restored.lines[0].color).toEqual(color.construct("#ff0000"));
     });
 
-    it("should rekey a y-axis's lines when the x-channel changes", () => {
-      const state = createEmpty({
-        channels: { x1: 10, x2: 0, y1: [5], y2: [], y3: [], y4: [] },
-        ranges: { x1: [], x2: [] },
-      });
-      const withLines = apply(state, lineplot.addRange({ axisKey: "x1", range: r1 }));
-      const out = apply(
-        withLines,
-        lineplot.setXChannel({ axisKey: "x1", channel: 20 }),
+    it("should rekey a line when the x-channel changes", () => {
+      const s = apply(
+        createEmpty(),
+        lineplot.addChannel({ axisKey: "y1", channel: 5 }),
       );
-      expect(out.lines.map((l) => l.key)).toEqual([
-        lineplot.lineKey({
-          yAxis: "y1",
-          xAxis: "x1",
-          range: r1,
-          xChannel: 20,
-          yChannel: 5,
-        }),
-      ]);
+      const out = apply(s, lineplot.setXChannel({ axisKey: "x1", channel: 20 }));
+      expect(out.lines.map((l) => l.key)).toEqual([lk(5, 20)]);
     });
   });
 
@@ -734,6 +612,9 @@ describe("lineplot reducer", () => {
     it("restores a previously-unset field on undo", () => {
       const start: lineplot.Line = {
         key: "l1",
+        yAxis: "y1",
+        yChannel: 1,
+        xChannel: 0,
         strokeWidth: 2,
         aggregation: "min_max",
         detail: "medium",
@@ -767,6 +648,9 @@ describe("lineplot reducer", () => {
       const state = createEmpty({ lines: [createLine("l1", "#ff0000")] });
       const next: lineplot.Line = {
         key: "l1",
+        yAxis: "y1",
+        yChannel: 1,
+        xChannel: 0,
         color: color.construct("#0000ff"),
         strokeWidth: 4,
         aggregation: "average",
@@ -780,6 +664,9 @@ describe("lineplot reducer", () => {
     it("should insert a new line and not record it as undoable", () => {
       const inserted: lineplot.Line = {
         key: "l1",
+        yAxis: "y1",
+        yChannel: 1,
+        xChannel: 0,
         strokeWidth: 2,
         aggregation: "min_max",
         detail: "medium",

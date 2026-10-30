@@ -20,7 +20,7 @@ from pydantic import BaseModel, Field
 from typing_extensions import TypeVar
 
 import synnax.channel.payload as channel
-from synnax.exceptions import ValidationError
+from synnax.exceptions import MultipleFoundError, ValidationError
 from synnax.telem import CrudeSeries, MultiSeries, Series, TypedCrudeSeries
 
 
@@ -133,7 +133,8 @@ class Frame:
 
     @overload
     def append(self, col_or_frame: Frame) -> None:
-        """Appends the given frame to the current frame, modifying the current frame in place.
+        """Appends the given frame to the current frame, modifying the current frame in
+        place.
         :param col_or_frame: The frame to append to the current frame.
         """
 
@@ -143,12 +144,12 @@ class Frame:
         series: Series | None = None,
     ) -> None:
         """Appends a frame or series to the current frame. If a frame is provided, the
-        series and channels from the frame are appended to the current frame. If a series
-        is provided, the series is appended to the frame for the given channel.
-        :param col_or_frame: The channel key or name to append the series to, or the frame
-            to append to the current frame.
-        :param series: The series to append to the frame, if col_or_frame is a channel key
-            or name.
+        series and channels from the frame are appended to the current frame. If a
+        series is provided, the series is appended to the frame for the given channel.
+        :param col_or_frame: The channel key or name to append the series to, or the
+            frame to append to the current frame.
+        :param series: The series to append to the frame, if col_or_frame is a channel
+            key or name.
         """
         if isinstance(col_or_frame, Frame):
             self.series.extend(col_or_frame.series)
@@ -170,7 +171,12 @@ class Frame:
         return zip(self.channels, self.series, strict=True)
 
     @overload
-    def __getitem__(self, key: channel.Key | str) -> MultiSeries: ...
+    def __getitem__(self, key: channel.Key | str) -> MultiSeries:
+        """Gets the series of a channel by its key or name. A name also finds a
+        channel keyed by key when the frame knows its name.
+
+        :raises MultipleFoundError: If two channels in the frame share the name.
+        """
 
     @overload
     def __getitem__(self, key: npt.NDArray[np.bool_]) -> DataFrame:
@@ -181,21 +187,46 @@ class Frame:
     ) -> MultiSeries | DataFrame:
         if not isinstance(key, (channel.Key, str)):
             return self.to_df()[key]
-        indexes = [i for i, k in enumerate(self.channels) if k == key]
-        return MultiSeries([self.series[i] for i in indexes])
+        cols = self._columns(key)
+        return MultiSeries(
+            [self.series[i] for i, k in enumerate(self.channels) if k in cols]
+        )
+
+    def _columns(self, key: channel.Key | str) -> set[channel.Key | str]:
+        if isinstance(key, channel.Key):
+            name = self.names.get(key)
+            if name is None or list(self.names.values()).count(name) > 1:
+                return {key}
+            return {key, name}
+        keys = [k for k, name in self.names.items() if name == key]
+        if len(keys) > 1:
+            raise MultipleFoundError(
+                f"Channels {keys} in the frame share the name {key}. Use a key."
+            )
+        return {key, *keys}
+
+    @overload
+    def get(
+        self, key: channel.Key | str, default: None = None
+    ) -> MultiSeries | None: ...
+
+    @overload
+    def get(self, key: channel.Key | str, default: MultiSeries) -> MultiSeries: ...
 
     def get(
         self, key: channel.Key | str, default: MultiSeries | None = None
     ) -> MultiSeries | None:
-        """Gets the series for the given channel key or name. If the channel does not
-        exist in the frame, returns the default value or None if no default is provided.
+        """Gets the series of a channel by its key or name.
+
         :param key: The channel key or name to get the series for.
-        :param default: The default value to return if the channel does not exist in the
+        :param default: The value to return when the frame has no series for the
+            channel.
+        :returns: The series of the channel, or default when the frame has no series
+            for the channel.
         """
-        try:
-            return self[key]
-        except ValueError:
+        if key not in self:
             return default
+        return self[key]
 
     def to_payload(self) -> FramePayload:
         """Converts the frame to its payload representation for transport over the
@@ -233,7 +264,7 @@ class Frame:
         return DataFrame(base)
 
     def __contains__(self, key: channel.Key | str) -> bool:
-        return key in self.channels
+        return not self._columns(key).isdisjoint(self.channels)
 
 
 # Bound per call, so a typed mapping of keys, names, payloads, or a mix matches.

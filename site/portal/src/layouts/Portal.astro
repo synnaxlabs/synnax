@@ -36,7 +36,7 @@ const option = (o: Organization) => ({
 });
 ---
 
-<Root title={title}>
+<Root title={title} userID={session.userID}>
     <header class="portal-bar">
         <div class="portal-bar__start">
             <a class="portal-bar__logo" href={scoped("/", scope)} aria-label="Synnax">
