@@ -11,14 +11,6 @@
 
 .console-toolbar__header {
     padding: 1rem 1.5rem;
-
-    /* A tab's name renders its own text inside the title. */
-    & .lyra-header__text .lyra-text {
-        font-weight: inherit;
-        font-size: inherit;
-        line-height: inherit;
-        color: inherit;
-    }
 }
 
 /* Visualization toolbars (the bottom drawer) embed tab selectors that must fill
