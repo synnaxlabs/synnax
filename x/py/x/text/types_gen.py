@@ -27,5 +27,7 @@ LEVEL_P: Literal["p"] = "p"
 
 LEVEL_SMALL: Literal["small"] = "small"
 
+LEVEL_TINY: Literal["tiny"] = "tiny"
 
-Level = Literal["h1", "h2", "h3", "h4", "h5", "p", "small"]
+
+Level = Literal["h1", "h2", "h3", "h4", "h5", "p", "small", "tiny"]
