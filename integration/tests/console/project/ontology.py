@@ -37,12 +37,12 @@ class Ontology(ConsoleCase):
         """Create a mix of page types for grouping tests."""
         self.page_a = f"Ontology Schematic {self.suffix}"
         json_path = get_fixture_path("ImportSpace/Metrics Schematic.json")
-        self.console.pages.import_file(json_path, self.page_a)
+        self.console.pages.import_file(json_path, name=self.page_a)
         self.console.layout.close_tab(self.page_a)
 
         self.page_b = f"Ontology Log {self.suffix}"
         json_path = get_fixture_path("ImportSpace/Metrics Log.json")
-        self.console.pages.import_file(json_path, self.page_b)
+        self.console.pages.import_file(json_path, name=self.page_b)
         self.console.layout.close_tab(self.page_b)
 
         self.page_c = f"Ontology Table {self.suffix}"
@@ -52,7 +52,7 @@ class Ontology(ConsoleCase):
 
         self.page_d = f"Ontology Plot {self.suffix}"
         json_path = get_fixture_path("ImportSpace/Metrics Plot.json")
-        self.console.pages.import_file(json_path, self.page_d)
+        self.console.pages.import_file(json_path, name=self.page_d)
         self.console.layout.close_tab(self.page_d)
 
     def run(self) -> None:

@@ -25,7 +25,8 @@ class LinearPosition(Counter):
         initial_pos (float): Initial position value
         z_index_enabled (bool): Enable Z index
         z_index_val (float): Z index value
-        z_index_phase (str): "A high B high", "A high B low", "A low B high", or "A low B low"
+        z_index_phase (str): "A high B high", "A high B low", "A low B high", or
+            "A low B low"
         terminal_a (str): Input Terminal A
         terminal_b (str): Input Terminal B
         terminal_z (str): Input Terminal Z
@@ -33,6 +34,7 @@ class LinearPosition(Counter):
 
     def __init__(
         self,
+        *,
         layout: LayoutClient,
         name: str,
         device: str,

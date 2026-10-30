@@ -129,7 +129,7 @@ class LayoutClient:
     )
     TAB_SELECTOR = f"{TAB_STRIP_SELECTOR} > .lyra-tabs__tab"
 
-    def __init__(self, page: Page, results_dir: Path):
+    def __init__(self, *, page: Page, results_dir: Path):
         self.page = page
         self.results_dir = results_dir
         self.ctx_menu = ContextMenu(self.page)
@@ -153,7 +153,7 @@ class LayoutClient:
         )
         return self.page.locator(".lyra-form-section").filter(has=header)
 
-    def command_palette(self, command: str, retries: int = 3) -> None:
+    def command_palette(self, command: str, *, retries: int = 3) -> None:
         """Execute a command via the command palette."""
         self._palette(
             query=command,
@@ -175,7 +175,7 @@ class LayoutClient:
             self.command_palette("Import components")
         fc_info.value.set_files(path)
 
-    def search_palette(self, query: str, retries: int = 3) -> None:
+    def search_palette(self, query: str, *, retries: int = 3) -> None:
         """Search for a resource via the command palette (without > prefix)."""
         self._palette(
             query=query,
@@ -194,7 +194,9 @@ class LayoutClient:
         error_prefix: str,
         retries: int,
     ) -> None:
-        """Internal palette implementation used by command_palette and search_palette."""
+        """Internal palette implementation used by command_palette and
+        search_palette.
+        """
         for attempt in range(retries):
             palette_btn = self.page.locator(".console-palette button").first
             palette_btn.wait_for(state="visible", timeout=5000)
@@ -302,7 +304,7 @@ class LayoutClient:
         for notification in self.notifications.check():
             message = notification.get("message", "")
             if match.lower() in message.lower():
-                self.notifications.close(0)
+                self.notifications.close(notification_index=0)
                 return True
         return False
 
@@ -327,7 +329,9 @@ class LayoutClient:
         nav_drawer.wait_for(state="visible", timeout=5000)
 
     def close_left_toolbar(self) -> None:
-        """Close any open side nav drawer (left/right, not bottom visualization toolbar)."""
+        """Close any open side nav drawer (left/right, not bottom visualization
+        toolbar).
+        """
         nav_drawer = self.page.locator(
             ".console-nav__drawer.lyra--visible:not(.lyra--location-bottom)"
         )
@@ -467,7 +471,7 @@ class LayoutClient:
 
         raise RuntimeError(f"No selected button found from options: {button_options}")
 
-    def select_labels(self, labels: list[str], scope: Locator | None = None) -> None:
+    def select_labels(self, labels: list[str], *, scope: Locator | None = None) -> None:
         """Pick labels from a "Labels" dropdown.
 
         :param labels: The label names to select.
@@ -482,6 +486,7 @@ class LayoutClient:
     def select_from_dropdown(
         self,
         text: str,
+        *,
         placeholder: str | None = None,
         exact: bool = False,
         reopen: Callable[[], None] | None = None,
@@ -1031,7 +1036,7 @@ class LayoutClient:
         self.page.mouse.move(x, y, steps=10)
         self.page.mouse.up()
 
-    def drop_files(self, paths: list[str], target: Locator | None = None) -> None:
+    def drop_files(self, paths: list[str], *, target: Locator | None = None) -> None:
         """Drop OS files or directories onto ``target`` (default: the mosaic).
 
         Synthetic ``DataTransfer`` drops carry no file-system entries, so the
@@ -1074,7 +1079,7 @@ class LayoutClient:
         finally:
             cdp.detach()
 
-    def show_toolbar(self, shortcut_key: str, item_prefix: str) -> None:
+    def show_toolbar(self, shortcut_key: str, *, item_prefix: str) -> None:
         """Show a navigation toolbar using keyboard shortcut.
 
         Args:
@@ -1095,11 +1100,13 @@ class LayoutClient:
                 if attempt == 2:
                     raise
 
-    def get_list_item(self, selector: str, name: str) -> Locator:
+    def get_list_item(self, selector: str, *, name: str) -> Locator:
         """Get a list item locator by CSS selector filtered by text content."""
         return self.page.locator(selector).filter(has_text=name).first
 
-    def deselect_all_items(self, container: Locator | Page, item_selector: str) -> None:
+    def deselect_all_items(
+        self, container: Locator | Page, *, item_selector: str
+    ) -> None:
         """Deselect all checked items by dispatching click on their checkbox labels."""
         checked = container.locator(
             f"{item_selector}:has(input.lyra-input__checkbox-input:checked"
@@ -1114,7 +1121,7 @@ class LayoutClient:
             expect(checked).to_have_count(remaining - 1, timeout=5000)
 
     def select_items(
-        self, names: list[str], get_item_fn: Callable[[str], Locator]
+        self, names: list[str], *, get_item_fn: Callable[[str], Locator]
     ) -> Locator:
         """Select multiple items via their checkbox labels, return the last item."""
         last_item = None
@@ -1133,7 +1140,7 @@ class LayoutClient:
         return last_item
 
     def ctrl_select_items(
-        self, names: list[str], get_item_fn: Callable[[str], Locator]
+        self, names: list[str], *, get_item_fn: Callable[[str], Locator]
     ) -> Locator:
         """Multi-select items via Ctrl+Click, return the last item."""
         first = get_item_fn(names[0])
@@ -1188,7 +1195,7 @@ class LayoutClient:
         self.press_enter()
         editable.wait_for(state="hidden", timeout=5000)
 
-    def open_modal(self, command: str, selector: str) -> None:
+    def open_modal(self, command: str, *, selector: str) -> None:
         """Open a modal via command palette.
 
         Args:
