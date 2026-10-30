@@ -39,7 +39,7 @@ Synnax, a Modbus server is one IP address and port. The
    <Icon.Add /> (**Connect device**), then select **Modbus TCP server**. You can also
    run the "Connect Modbus server" command.
 2. Enter a name for the server.
-3. In **Host**, enter the IPv4 address of the server, such as `192.168.1.20`.
+3. In **Host**, enter the IP address or hostname of the server, such as `192.168.1.20`.
 4. In **Port**, enter the port of the server. The default is `502`.
 5. In **Connect from**, select the Driver that connects to the server. If only one
    running Driver has Modbus enabled, the Console selects it for you.
@@ -109,13 +109,13 @@ the result as the server status in the devices toolbar. See
 
 ## Connection options
 
-| Console label | Python field | Default | Notes                                                  |
-| ------------- | ------------ | ------- | ------------------------------------------------------ |
-| Host          | `host`       |         | An IPv4 address. Hostnames, such as `localhost`, fail. |
-| Port          | `port`       | `502`   | The TCP port. Python has no default.                   |
-| Connect from  | `rack`       |         | The Driver that connects to the server.                |
-| Swap bytes    | `swap_bytes` | Off     | Swaps the two bytes in each register.                  |
-| Swap words    | `swap_words` | Off     | Puts the high word first in 32-bit and 64-bit values.  |
+| Console label | Python field | Default | Notes                                                 |
+| ------------- | ------------ | ------- | ----------------------------------------------------- |
+| Host          | `host`       |         | An IPv4 address, an IPv6 address, or a hostname.      |
+| Port          | `port`       | `502`   | The TCP port. Python has no default.                  |
+| Connect from  | `rack`       |         | The Driver that connects to the server.               |
+| Swap bytes    | `swap_bytes` | Off     | Swaps the two bytes in each register.                 |
+| Swap words    | `swap_words` | Off     | Puts the high word first in 32-bit and 64-bit values. |
 
 **Swap bytes** and **Swap words** set the default for every register channel of the
 server. A channel can override them. The Driver always sends unit ID 255. There is no
@@ -124,11 +124,6 @@ option to change it.
 <Divider.Divider x />
 
 ## Troubleshooting
-
-### Connect fails with a hostname
-
-The Driver accepts only IPv4 addresses. Enter the address of the server. For a server on
-the same computer as the Driver, enter `127.0.0.1`.
 
 ### Connect fails with "Connection refused" or a timeout
 

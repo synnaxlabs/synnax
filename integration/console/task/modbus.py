@@ -67,13 +67,17 @@ class ModbusTask(TaskPage):
         self.set_channel_type(index, type_name)
         self.set_address(index, address)
         if data_type is not None:
-            self._fields(index).get_by_role("button").nth(1).click()
-            self.layout.select_from_dropdown(data_type, exact=True)
+            self.set_data_type(index, data_type)
 
     def set_channel_type(self, index: int, type_name: str) -> None:
         """Set the type of the channel row at ``index``."""
         self._fields(index).get_by_role("button").first.click()
         self.layout.select_from_dropdown(type_name, exact=True)
+
+    def set_data_type(self, index: int, data_type: str) -> None:
+        """Set the data type of the register channel row at ``index``."""
+        self._fields(index).get_by_role("button").nth(1).click()
+        self.layout.select_from_dropdown(data_type, exact=True)
 
     def set_address(self, index: int, address: int) -> None:
         """Set the address of the channel row at ``index``."""

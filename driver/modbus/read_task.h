@@ -10,12 +10,15 @@
 #pragma once
 
 #include <set>
+#include <string>
+#include <unordered_map>
 #include <variant>
 
 #include "client/cpp/modbus/json.gen.h"
 
 #include "driver/common/read_task.h"
 #include "driver/common/sample_clock.h"
+#include "driver/modbus/block.h"
 #include "driver/modbus/channels.h"
 #include "driver/modbus/device/device.h"
 #include "driver/modbus/util/util.h"
@@ -45,9 +48,12 @@ struct Reader {
 /// @brief base reader class for all reader types.
 template<typename Channel>
 struct BaseReader : Reader {
+    /// @brief the channels of the reader, sorted by address.
     std::vector<Channel> channels;
 
-    explicit BaseReader(const std::vector<Channel> &channels): channels(channels) {}
+    explicit BaseReader(const std::vector<Channel> &channels): channels(channels) {
+        channel::sort_by_address(this->channels);
+    }
 
     [[nodiscard]] std::vector<synnax::channel::Channel> sy_channels() const override {
         std::vector<synnax::channel::Channel> result;
@@ -56,13 +62,38 @@ struct BaseReader : Reader {
             result.push_back(channel.ch);
         return result;
     }
+
+protected:
+    /// @brief names the channels and addresses of a failed block read. A lost
+    /// connection is about the device, not the block, so it passes through.
+    [[nodiscard]] x::errors::Error wrap(
+        const x::errors::Error &err,
+        const std::string &table,
+        const block::Block &b
+    ) const {
+        if (err.matches(device::UNREACHABLE)) return err;
+        std::vector<std::string> names;
+        for (std::size_t i = b.first; i < b.last; i++)
+            names.push_back(this->channels[i].ch.name);
+        return block::wrap(err, table, b, names);
+    }
 };
+
+/// @returns the size of the buffer that holds the largest block.
+inline std::size_t max_count(const std::vector<block::Block> &blocks) {
+    std::size_t count = 0;
+    for (const auto &b: blocks)
+        count = std::max(count, b.count);
+    return count;
+}
 
 /// @brief reads from holding and input registers.
 class RegisterReader final : public BaseReader<channel::InputRegister> {
     /// @brief the register type to read from. either HoldingRegister or InputRegister.
     device::RegisterType register_type;
-    /// @brief the buffer to read into.
+    /// @brief the requests that cover the channels.
+    std::vector<block::Block> blocks;
+    /// @brief the buffer to read each block into.
     std::vector<uint16_t> buffer;
 
 public:
@@ -70,41 +101,41 @@ public:
         const device::RegisterType register_type,
         const std::vector<channel::InputRegister> &chs
     ):
-        BaseReader(chs), register_type(register_type) {
-        auto first_addr = this->channels.front().address;
-        auto last_addr = this->channels.back().address;
-        // Use ceiling division to convert bytes to 16-bit registers
-        last_addr += (this->channels.back().value_type.density() + 1) / 2;
-        this->buffer.resize(last_addr - first_addr);
-    }
+        BaseReader(chs),
+        register_type(register_type),
+        blocks(block::plan(this->channels, MODBUS_MAX_READ_REGISTERS, true)),
+        buffer(max_count(this->blocks)) {}
 
     x::errors::Error read(
         const std::shared_ptr<device::Device> &dev,
         x::telem::Frame &fr,
         size_t &frame_offset
     ) override {
-        if (channels.empty()) return x::errors::NIL;
-
-        const int start_addr = this->channels[0].address;
-
-        if (const auto err = dev->read_registers(
-                this->register_type,
-                start_addr,
-                this->buffer.size(),
-                this->buffer.data()
-            ))
-            return err;
-
-        for (const auto &ch: channels) {
-            int offset = ch.address - start_addr;
-            auto [value, err] = util::parse_register_value(
-                this->buffer.data() + offset,
-                ch.value_type,
-                ch.bytes_swapped,
-                ch.words_swapped
-            );
-            if (err) return err;
-            fr.series->at(frame_offset++).write(value);
+        for (const auto &b: this->blocks) {
+            if (const auto err = dev->read_registers(
+                    this->register_type,
+                    b.start,
+                    b.count,
+                    this->buffer.data()
+                ))
+                return this->wrap(
+                    err,
+                    this->register_type == device::HoldingRegister ? "holding registers"
+                                                                   : "input registers",
+                    b
+                );
+            for (std::size_t i = b.first; i < b.last; i++) {
+                const auto &ch = this->channels[i];
+                auto [value, err] = util::parse_register_value(
+                    this->buffer.data() + (ch.address - b.start),
+                    ch.value_type,
+                    ch.bytes_swapped,
+                    ch.words_swapped
+                );
+                if (err) return err;
+                auto &s = fr.series->at(frame_offset++);
+                s.write(s.data_type().cast(value));
+            }
         }
         return x::errors::NIL;
     }
@@ -114,7 +145,9 @@ public:
 class BitReader final : public BaseReader<channel::InputDiscrete> {
     /// @brief the bit type to read from. either Coil or DiscreteInput.
     device::BitType bit_type;
-    /// @brief the buffer to read into.
+    /// @brief the requests that cover the channels.
+    std::vector<block::Block> blocks;
+    /// @brief the buffer to read each block into.
     std::vector<uint8_t> buffer;
 
 public:
@@ -124,28 +157,33 @@ public:
     ):
         BaseReader(channels),
         bit_type(bit_type),
-        buffer(this->channels.back().address - this->channels.front().address + 1) {}
+        blocks(block::plan(this->channels, MODBUS_MAX_READ_BITS, true)),
+        buffer(max_count(this->blocks)) {}
 
     x::errors::Error read(
         const std::shared_ptr<device::Device> &dev,
         x::telem::Frame &fr,
         size_t &frame_offset
     ) override {
-        if (channels.empty()) return x::errors::NIL;
-
-        const int start_addr = channels.front().address;
-
-        if (const auto err = dev->read_bits(
-                this->bit_type,
-                start_addr,
-                this->buffer.size(),
-                this->buffer.data()
-            ))
-            return err;
-
-        for (const auto &channel: channels)
-            fr.series->at(frame_offset++)
-                .write(this->buffer[channel.address - start_addr]);
+        for (const auto &b: this->blocks) {
+            if (const auto err = dev->read_bits(
+                    this->bit_type,
+                    b.start,
+                    b.count,
+                    this->buffer.data()
+                ))
+                return this->wrap(
+                    err,
+                    this->bit_type == device::Coil ? "coils" : "discrete inputs",
+                    b
+                );
+            for (std::size_t i = b.first; i < b.last; i++) {
+                auto &s = fr.series->at(frame_offset++);
+                s.write(s.data_type().cast(
+                    this->buffer[this->channels[i].address - b.start]
+                ));
+            }
+        }
         return x::errors::NIL;
     }
 };
@@ -208,6 +246,8 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             return;
         }
 
+        std::set<synnax::channel::Key> keys;
+        std::vector<std::pair<x::json::Parser, synnax::channel::Key>> bindings;
         cfg.iter("channels", [&, this](x::json::Parser &ch) {
             const auto parsed = ::synnax::modbus::parse_read_channel(ch);
             const auto &base = std::visit(
@@ -221,16 +261,34 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
                 ch.field_err("channel", "channel must be specified");
                 return;
             }
+            if (!keys.insert(base.channel).second) {
+                ch.field_err("channel", "another channel in the task reads into it");
+                return;
+            }
             if (const auto *c = std::get_if<
-                    ::synnax::modbus::HoldingRegisterReadChannel>(&parsed))
+                    ::synnax::modbus::HoldingRegisterReadChannel>(&parsed)) {
+                if (!channel::is_register_type(c->data_type)) {
+                    ch.field_err(
+                        "data_type",
+                        "unsupported data type: " + c->data_type.name()
+                    );
+                    return;
+                }
                 holding_registers.emplace_back(*c, this->conn);
-            else if (
+            } else if (
                 const auto *c = std::get_if<::synnax::modbus::InputRegisterReadChannel>(
                     &parsed
                 )
-            )
+            ) {
+                if (!channel::is_register_type(c->data_type)) {
+                    ch.field_err(
+                        "data_type",
+                        "unsupported data type: " + c->data_type.name()
+                    );
+                    return;
+                }
                 input_registers.emplace_back(*c, this->conn);
-            else if (
+            } else if (
                 const auto *c = std::get_if<::synnax::modbus::CoilReadChannel>(&parsed)
             )
                 coils.emplace_back(*c);
@@ -238,41 +296,37 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
                 discrete_inputs.emplace_back(
                     std::get<::synnax::modbus::DiscreteInputReadChannel>(parsed)
                 );
+            bindings.emplace_back(ch, base.channel);
             this->data_channel_count++;
         });
 
-        channel::sort_by_address(holding_registers);
-        channel::sort_by_address(input_registers);
-        channel::sort_by_address(coils);
-        channel::sort_by_address(discrete_inputs);
-
-        std::vector<synnax::channel::Key> keys;
-        keys.reserve(holding_registers.size());
-        for (const auto &ch: holding_registers)
-            keys.push_back(ch.synnax_key);
-        for (const auto &ch: input_registers)
-            keys.push_back(ch.synnax_key);
-        for (const auto &ch: coils)
-            keys.push_back(ch.synnax_key);
-        for (const auto &ch: discrete_inputs)
-            keys.push_back(ch.synnax_key);
-
-        auto [synnax_channels, err] = client->channels.retrieve(keys);
+        auto [synnax_channels, err] = client->channels.retrieve(
+            std::vector(keys.begin(), keys.end())
+        );
         if (err) {
             cfg.field_err("channels", err.data);
             return;
         }
-
-        for (size_t i = 0; i < holding_registers.size(); i++)
-            holding_registers[i].ch = synnax_channels[i];
-        for (size_t i = 0; i < input_registers.size(); i++)
-            input_registers[i].ch = synnax_channels[i + holding_registers.size()];
-        for (size_t i = 0; i < coils.size(); i++)
-            coils[i].ch = synnax_channels
-                [i + holding_registers.size() + input_registers.size()];
-        for (size_t i = 0; i < discrete_inputs.size(); i++)
-            discrete_inputs[i].ch = synnax_channels
-                [i + holding_registers.size() + input_registers.size() + coils.size()];
+        std::unordered_map<synnax::channel::Key, synnax::channel::Channel> by_key;
+        for (const auto &ch: synnax_channels) {
+            by_key.emplace(ch.key, ch);
+            if (ch.index != 0) this->indexes.insert(ch.index);
+        }
+        for (auto &[ch, key]: bindings)
+            if (const auto &dt = by_key.at(key).data_type;
+                !channel::is_register_type(dt))
+                ch.field_err(
+                    "channel",
+                    "must be a numeric channel, not a " + dt.name() + " channel"
+                );
+        for (auto &ch: holding_registers)
+            ch.ch = by_key.at(ch.synnax_key);
+        for (auto &ch: input_registers)
+            ch.ch = by_key.at(ch.synnax_key);
+        for (auto &ch: coils)
+            ch.ch = by_key.at(ch.synnax_key);
+        for (auto &ch: discrete_inputs)
+            ch.ch = by_key.at(ch.synnax_key);
 
         if (!holding_registers.empty())
             readers.push_back(
@@ -299,8 +353,6 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
                     std::move(discrete_inputs)
                 )
             );
-        for (const auto &ch: synnax_channels)
-            if (ch.index != 0) this->indexes.insert(ch.index);
     }
 
     /// @brief parses the configuration for the task from its JSON representation,

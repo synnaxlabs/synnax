@@ -9,6 +9,11 @@
 
 from console.task.modbus import WRITE_TYPE_NAMES, ModbusWrite
 from tests.console.task.modbus_case import ModbusCase
+from tests.driver.modbus_task import (
+    assert_sim_coils,
+    assert_sim_registers,
+    float32_words,
+)
 
 # Coils and float32 holding registers, as (config type, address, data type).
 CHANNELS = [
@@ -29,6 +34,7 @@ class ModbusWriteTask(ModbusCase):
         self.test_deploy(page)
         self.test_send_commands(page)
         self.test_stop(page)
+        self.test_change_data_type(page)
         self.test_reopen_config(page, [])
         self.assert_rows(page, LISTED)
 
@@ -62,3 +68,26 @@ class ModbusWriteTask(ModbusCase):
             f"Every command channel needs a key, got {keys}"
         )
         self.send_commands(page, task=task)
+        # The last round of commands is 100 to 103.
+        assert_sim_coils(20, [True, True])
+        assert_sim_registers(20, [*float32_words(102), *float32_words(103)])
+
+    def test_change_data_type(self, page: ModbusWrite) -> None:
+        """A data type change gives the register a new command channel, and a change
+        back gives it the old channel again."""
+        self.log("Testing: Change a command data type")
+        before = self.channel_keys(self.retrieve_task(page.page_name))
+        page.set_data_type(3, "uint16")
+        self.test_deploy(page)
+        self.stop(page)
+        changed = self.channel_keys(self.retrieve_task(page.page_name))
+        assert changed[:3] == before[:3] and changed[3] != before[3], (
+            f"Only the last command channel should change, got {before} -> {changed}"
+        )
+        name = self.client.channels.retrieve(changed[3]).name
+        assert name.endswith("_holding_register_output_22_u16_cmd"), name
+        page.set_data_type(3, "float32")
+        self.test_deploy(page)
+        self.stop(page)
+        after = self.channel_keys(self.retrieve_task(page.page_name))
+        assert after == before, f"Command channels should be {before}, got {after}"

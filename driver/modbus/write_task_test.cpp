@@ -667,4 +667,88 @@ TEST_F(ModbusWriteTest, testMultipleUint8HoldingRegisters) {
     ASSERT_EVENTUALLY_EQ(slave.get_holding_register(2), 150);
     wt->stop("stop_cmd", true);
 }
+
+/// @brief it should retry a command once on a new connection after the server drops the
+/// old one.
+TEST_F(ModbusWriteTest, testRetriesAfterDroppedConnection) {
+    this->setup_task_config();
+    testutil::SlaveConfig slave_cfg;
+    slave_cfg.port = 1502;
+    testutil::Slave slave(slave_cfg);
+    ASSERT_NIL(slave.start());
+    x::defer::defer stop_slave([&slave] { slave.stop(); });
+
+    x::json::json task_cfg{
+        {"device", "modbus_test_dev"},
+        {"channels",
+         x::json::json::array(
+             {{{"type", "coil"}, {"address", 0}, {"channel", coil_ch.key}}}
+         )}
+    };
+    auto p = x::json::Parser(task_cfg);
+    cfg = std::make_unique<WriteTaskConfig>(client, p);
+    ASSERT_NIL(p.error());
+    WriteTaskSink sink(devs, std::move(*cfg));
+    ASSERT_NIL(sink.start());
+
+    x::telem::Frame on(1);
+    on.emplace(coil_ch.key, x::telem::Series(static_cast<uint8_t>(1)));
+    ASSERT_NIL(sink.write(on));
+    EXPECT_EQ(slave.get_coil(0), 1);
+
+    slave.drop_connections();
+    x::telem::Frame off(1);
+    off.emplace(coil_ch.key, x::telem::Series(static_cast<uint8_t>(0)));
+    ASSERT_NIL(sink.write(off));
+    EXPECT_EQ(slave.get_coil(0), 0);
+    ASSERT_NIL(sink.stop());
+}
+
+/// @brief it should reject two holding registers whose addresses overlap.
+TEST_F(ModbusWriteTest, testOverlappingRegistersRejected) {
+    this->setup_task_config();
+    x::json::json task_cfg{
+        {"device", "modbus_test_dev"},
+        {"channels",
+         x::json::json::array(
+             {{{"type", "holding_register"},
+               {"address", 0},
+               {"channel", reg_ch.key},
+               {"data_type", "float32"}},
+              {{"type", "holding_register"},
+               {"address", 1},
+               {"channel", coil_ch.key},
+               {"data_type", "uint16"}}}
+         )}
+    };
+    auto p = x::json::Parser(task_cfg);
+    WriteTaskConfig write_cfg(client, p);
+    ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
+    const auto errors = p.error_json()["errors"];
+    ASSERT_EQ(errors.size(), 1);
+    EXPECT_EQ(errors[0]["path"], "channels.1.address");
+    EXPECT_EQ(errors[0]["message"], "overlaps the holding register at address 0");
+}
+
+/// @brief it should reject a holding register data type the Driver cannot encode.
+TEST_F(ModbusWriteTest, testUnsupportedDataTypeRejected) {
+    this->setup_task_config();
+    x::json::json task_cfg{
+        {"device", "modbus_test_dev"},
+        {"channels",
+         x::json::json::array(
+             {{{"type", "holding_register"},
+               {"address", 0},
+               {"channel", reg_ch.key},
+               {"data_type", "string"}}}
+         )}
+    };
+    auto p = x::json::Parser(task_cfg);
+    WriteTaskConfig write_cfg(client, p);
+    ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
+    const auto errors = p.error_json()["errors"];
+    ASSERT_EQ(errors.size(), 1);
+    EXPECT_EQ(errors[0]["path"], "channels.0.data_type");
+    EXPECT_EQ(errors[0]["message"], "unsupported data type: string");
+}
 }
