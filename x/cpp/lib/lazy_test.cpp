@@ -14,11 +14,10 @@
 
 #include "gtest/gtest.h"
 
+#include "x/cpp/lib/lazy.h"
 #include "x/cpp/testutil/testutil.h"
 
-#include "driver/common/lazy.h"
-
-namespace driver::common {
+namespace x::lib {
 const auto LOAD_FAILED = x::errors::Error("test.load_failed", "library is missing");
 
 /// @brief it should load again after a failed load, and keep the first value that

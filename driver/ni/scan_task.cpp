@@ -28,7 +28,7 @@
 
 namespace driver::ni {
 Scanner::Scanner(
-    std::shared_ptr<common::Lazy<syscfg::SugaredAPI>> lib,
+    std::shared_ptr<x::lib::Lazy<syscfg::SugaredAPI>> lib,
     ScanTaskConfig cfg,
     synnax::task::Task task
 ):

@@ -33,7 +33,10 @@ cc_library(
         "@platforms//os:linux": ["factories_linux.cpp"],
         "@platforms//os:windows": ["factories_windows.cpp"],
     }),
-    hdrs = ["rack.h"],
+    hdrs = [
+        "rack.h",
+        "unavailable.h",
+    ],
     defines = select({
         ":nilinuxrt": ["SYNNAX_NILINUXRT"],
         "//conditions:default": [],
@@ -43,8 +46,12 @@ cc_library(
         "//client/cpp/errors",
         "//driver/arc",
         "//driver/common",
+        "//driver/errors",
         "//driver/ethercat",
         "//driver/http",
+        "//driver/labjack:names",
+        "//driver/modbus:names",
+        "//driver/ni:names",
         "//driver/opcua",
         "//driver/rack/status",
         "//driver/task",
@@ -75,7 +82,10 @@ cc_test(
     name = "factories_test",
     srcs = ["factories_test.cpp"],
     deps = [
+        "//driver/labjack:names",
+        "//driver/ni:names",
         "//driver/rack",
+        "//driver/task",
         "@googletest//:gtest_main",
     ],
 )
@@ -87,6 +97,7 @@ cc_test(
     target_compatible_with = ["@platforms//os:macos"],
     deps = [
         "//client/cpp/testutil",
+        "//driver/ni:names",
         "//driver/rack",
         "//x/cpp/testutil",
         "@googletest//:gtest_main",
@@ -100,6 +111,7 @@ cc_test(
     target_compatible_with = ["@platforms//os:linux"],
     deps = [
         "//client/cpp/testutil",
+        "//driver/labjack:names",
         "//driver/rack",
         "//x/cpp/testutil",
         "@googletest//:gtest_main",
