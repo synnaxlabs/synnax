@@ -201,6 +201,47 @@ describe("Aggregator", () => {
       act(() => result.current.add({ ...problem(), key: "task:2" }));
       expect(result.current.notifications.statuses).toMatchObject([{ count: 3 }]);
     });
+
+    describe("history", () => {
+      const renderSmall = () =>
+        renderHook(
+          () => ({ add: Status.useAdder(), notifications: Status.useNotifications() }),
+          {
+            wrapper: ({ children }: PropsWithChildren) => (
+              <Status.Aggregator log={quiet} maxHistory={3}>
+                {children}
+              </Status.Aggregator>
+            ),
+          },
+        );
+      const expire = () =>
+        act(() => void vi.advanceTimersByTime(TimeSpan.seconds(8).milliseconds));
+
+      it("should keep a problem when other statuses fill the history", () => {
+        vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+        const { result } = renderSmall();
+        act(() => result.current.add(problem()));
+        expire();
+        for (let i = 0; i < 4; i++)
+          act(() => result.current.add({ variant: "info", message: `Saved ${i}` }));
+        expire();
+        act(() => result.current.add(problem()));
+        expect(result.current.notifications.statuses).toHaveLength(0);
+      });
+
+      it("should drop the oldest problems when problems fill the history", () => {
+        const { result } = renderSmall();
+        for (let i = 0; i < 5; i++)
+          act(() =>
+            result.current.add({ ...problem(), key: `task:${i}`, message: `${i}` }),
+          );
+        expect(result.current.notifications.statuses.map((s) => s.message)).toEqual([
+          "4",
+          "3",
+          "2",
+        ]);
+      });
+    });
   });
 
   describe("grouping", () => {
