@@ -308,11 +308,19 @@ func (s *readSource) Open(ctx context.Context) (driver.Reader, error) {
 // the broker repeats values that Cesium holds, and Cesium rejects a write inside stored
 // data.
 func (s *readSource) seed(ctx context.Context) error {
-	if len(s.stored) == 0 {
-		return nil
+	for _, key := range s.stored {
+		if err := s.seedIndex(ctx, key); err != nil {
+			return err
+		}
 	}
+	return nil
+}
+
+// seedIndex opens an iterator for one index only, because an iterator over channels on
+// several Cores reports the seek result of one Core.
+func (s *readSource) seedIndex(ctx context.Context, key channel.Key) error {
 	iter, err := s.framer.OpenIterator(ctx, framer.IteratorConfig{
-		Keys:      s.stored,
+		Keys:      channel.Keys{key},
 		Bounds:    telem.TimeRangeMax,
 		ChunkSize: 1,
 	})
@@ -320,7 +328,7 @@ func (s *readSource) seed(ctx context.Context) error {
 		return err
 	}
 	if iter.SeekLast() && iter.Prev(framer.IteratorAutoSpan) {
-		for key, series := range iter.Value().Entries() {
+		for _, series := range iter.Value().Entries() {
 			if series.Len() > 0 {
 				last := series.ValueAt[telem.TimeStamp](-1)
 				s.lastStamp[key] = max(s.lastStamp[key], last)

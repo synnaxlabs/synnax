@@ -28,6 +28,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -47,6 +48,8 @@ var (
 	channelSvc *channel.Service
 	framerSvc  *framer.Service
 	statusSvc  *status.Service
+	// host is the Core that the services run on, and peer is a second Core.
+	host, peer node.Key
 )
 
 func TestMQTT(t *testing.T) {
@@ -58,8 +61,10 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	node := mock.NewNode(ctx)
-	db = node.DB
+	cluster := mock.NewCluster(ctx, 0)
+	core := cluster.Provision(ctx)
+	host, peer = core.Cluster.HostKey(), cluster.Provision(ctx).Cluster.HostKey()
+	db = core.DB
 	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB:       db,
@@ -91,9 +96,9 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Rack:     rackSvc,
 	}))
 	channelSvc = MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
-		Channel:      node.Channel,
+		Channel:      core.Channel,
 		DB:           db,
-		HostProvider: node.Cluster,
+		HostProvider: core.Cluster,
 		Ontology:     otg,
 		Group:        groupSvc,
 		Status:       statusSvc,
@@ -105,7 +110,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
 		DB:           db,
-		Framer:       node.Framer,
+		Framer:       core.Framer,
 		Channel:      channelSvc,
 		ChannelGraph: channelGraph,
 	}))

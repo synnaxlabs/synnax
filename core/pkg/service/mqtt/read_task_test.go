@@ -54,6 +54,16 @@ func plainEntry(topic string, fields ...map[string]any) map[string]any {
 	}
 }
 
+// stampedEntry returns the config of a plain read entry that writes the "v" field of a
+// payload to data, stamped with its "ts" field in seconds.
+func stampedEntry(topic string, idx, data channel.Channel) map[string]any {
+	time := field("time", idx, "/ts")
+	time["time_format"] = "unix_sec"
+	entry := plainEntry(topic, time, field("v", data, "/v"))
+	entry["index"] = "time"
+	return entry
+}
+
 func readConfig(dev device.Device, entries ...map[string]any) msgpack.EncodedJSON {
 	list := make([]any, len(entries))
 	for i, e := range entries {
@@ -77,15 +87,22 @@ var _ = Describe("Read task", func() {
 		factory = newFactory(64)
 	})
 
-	// start configures and starts a read task, and waits for its subscriptions.
-	start := func(ctx context.Context, cfg msgpack.EncodedJSON) task.Task {
+	// run configures and starts t, and waits for its subscriptions. Each run forgets
+	// the timestamps of earlier runs.
+	run := func(ctx context.Context, t task.Task) driver.Task {
 		GinkgoHelper()
-		t := newTask(rackKey, mqtt.ReadTaskType, cfg)
 		configured := configure(ctx, factory, t)
 		Expect(configured.Exec(ctx, task.Command{Type: "start", Key: "start"})).
 			To(Succeed())
-		Eventually(broker.subscriptions).
-			Should(BeNumerically(">", 0))
+		Eventually(broker.subscriptions).Should(BeNumerically(">", 0))
+		return configured
+	}
+
+	// start configures and starts a new read task, and waits for its subscriptions.
+	start := func(ctx context.Context, cfg msgpack.EncodedJSON) task.Task {
+		GinkgoHelper()
+		t := newTask(rackKey, mqtt.ReadTaskType, cfg)
+		run(ctx, t)
 		return t
 	}
 
@@ -209,10 +226,7 @@ var _ = Describe("Read task", func() {
 		It("Should reject a timestamp that is not after the last one written",
 			func(ctx SpecContext) {
 				idx, data := createIndexed(ctx, telem.Float64T)
-				time := field("time", idx, "/ts")
-				time["time_format"] = "unix_sec"
-				entry := plainEntry("plant/line5", time, field("v", data[0], "/v"))
-				entry["index"] = "time"
+				entry := stampedEntry("plant/line5", idx, data[0])
 				t := start(ctx, readConfig(dev, entry))
 				broker.publish("plant/line5", `{"ts":10,"v":1}`, false)
 				broker.publish("plant/line5", `{"ts":10,"v":2}`, false)
@@ -246,28 +260,16 @@ var _ = Describe("Read task", func() {
 		It("Should skip a retained message that the stored data holds, with no warning",
 			func(ctx SpecContext) {
 				idx, data := createIndexed(ctx, telem.Float64T)
-				time := field("time", idx, "/ts")
-				time["time_format"] = "unix_sec"
-				entry := plainEntry("plant/line7", time, field("v", data[0], "/v"))
-				entry["index"] = "time"
+				entry := stampedEntry("plant/line7", idx, data[0])
 				t := newTask(rackKey, mqtt.ReadTaskType, readConfig(dev, entry))
-				// run configures t again, which forgets the timestamps of earlier runs.
-				run := func() driver.Task {
-					GinkgoHelper()
-					configured := configure(ctx, factory, t)
-					cmd := task.Command{Type: "start", Key: "start"}
-					Expect(configured.Exec(ctx, cmd)).To(Succeed())
-					Eventually(broker.subscriptions).Should(BeNumerically(">", 0))
-					return configured
-				}
-				first := run()
+				first := run(ctx, t)
 				broker.publish("plant/line7", `{"ts":10,"v":1}`, false)
 				broker.publish("plant/line7", `{"ts":20,"v":2}`, true)
 				Eventually(func() int64 { return stored(ctx, data[0]).Len() }).
 					Should(BeEquivalentTo(2))
 				Expect(first.Exec(ctx, task.Command{Type: "stop", Key: "stop"})).
 					To(Succeed())
-				run()
+				run(ctx, t)
 				broker.publish("plant/line7", `{"ts":30,"v":3}`, false)
 				Eventually(func() int64 { return stored(ctx, data[0]).Len() }).
 					Should(BeEquivalentTo(3))
@@ -277,6 +279,39 @@ var _ = Describe("Read task", func() {
 				Expect(stat.Variant).To(Equal(status.VariantSuccess))
 				Expect(stat.Details.Running).To(BeTrue())
 			},
+		)
+
+		DescribeTable("Should skip a retained message that the stored data holds when "+
+			"another Core holds an index with no data",
+			func(ctx SpecContext, dataOnPeer bool) {
+				full, empty := host, peer
+				if dataOnPeer {
+					full, empty = peer, host
+				}
+				idx, data := createIndexedOn(ctx, full, telem.Float64T)
+				emptyIdx, emptyData := createIndexedOn(ctx, empty, telem.Float64T)
+				t := newTask(rackKey, mqtt.ReadTaskType, readConfig(
+					dev,
+					stampedEntry("plant/line8", idx, data[0]),
+					stampedEntry("plant/line9", emptyIdx, emptyData[0]),
+				))
+				first := run(ctx, t)
+				broker.publish("plant/line8", `{"ts":10,"v":1}`, false)
+				broker.publish("plant/line8", `{"ts":20,"v":2}`, true)
+				Eventually(func() int64 { return stored(ctx, data[0]).Len() }).
+					Should(BeEquivalentTo(2))
+				Expect(first.Exec(ctx, task.Command{Type: "stop", Key: "stop"})).
+					To(Succeed())
+				run(ctx, t)
+				broker.publish("plant/line8", `{"ts":30,"v":3}`, false)
+				Eventually(func() int64 { return stored(ctx, data[0]).Len() }).
+					Should(BeEquivalentTo(3))
+				Expect(stored(ctx, data[0])).
+					To(telem.MatchSeriesData(telem.NewSeriesV[float64](1, 2, 3)))
+				Expect(taskStatus(ctx, t).Variant).To(Equal(status.VariantSuccess))
+			},
+			Entry("with the data on the host", false),
+			Entry("with the data on a peer", true),
 		)
 	})
 

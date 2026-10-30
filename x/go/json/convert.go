@@ -80,6 +80,20 @@ func (f TimeFormat) nanosPerUnit() int64 {
 	}
 }
 
+// nanosExponent returns the base 10 logarithm of nanosPerUnit.
+func (f TimeFormat) nanosExponent() int {
+	switch f {
+	case UnixSecond:
+		return 9
+	case UnixMillisecond:
+		return 6
+	case UnixMicrosecond:
+		return 3
+	default:
+		return 0
+	}
+}
+
 // NumberText is the text of a JSON number. It keeps the exact value of a number that a
 // float64 cannot hold, and marshals as the number itself.
 type NumberText string
@@ -260,12 +274,16 @@ func parseNumber(text string, dt telem.DataType) (number, error) {
 		return number{}, errNotNumber
 	}
 	if !isFloatType(dt) {
-		n, err := parseDecimal(text)
-		if err == nil {
+		n, fractional, err := parseDecimal(text, 0)
+		if fractional {
+			if n, err = parseFloat(text); err != nil {
+				return number{}, err
+			}
+			n.fractional = true
 			return n, nil
 		}
 		if !errors.Is(err, errNotDecimal) {
-			return number{}, err
+			return n, err
 		}
 	}
 	return parseFloat(text)
@@ -284,16 +302,17 @@ var errNotDecimal = errors.New("not decimal text")
 // maxDigits is the number of digits in the uint64 maximum.
 const maxDigits = 20
 
-// parseDecimal parses decimal text, such as "-1.25e3", as an exact integer, or as a
-// fractional float when its value has a fractional part. It returns errNotDecimal for
-// other text that strconv.ParseFloat accepts, such as "Inf" or a hexadecimal float.
-func parseDecimal(text string) (number, error) {
+// parseDecimal parses decimal text, such as "-1.25e3", times 10^scale as an exact
+// integer truncated toward zero. fractional reports whether the value had a fractional
+// part, even when err is not nil. It returns errNotDecimal for other text that
+// strconv.ParseFloat accepts, such as "Inf" or a hexadecimal float.
+func parseDecimal(text string, scale int) (n number, fractional bool, err error) {
 	mantissa, exp := text, 0
 	if i := strings.IndexAny(text, "eE"); i >= 0 {
 		// Atoi saturates an exponent beyond the int range, which keeps its meaning.
 		e, err := strconv.Atoi(text[i+1:])
 		if err != nil && !errors.Is(err, strconv.ErrRange) {
-			return number{}, errNotDecimal
+			return number{}, false, errNotDecimal
 		}
 		mantissa, exp = text[:i], e
 	}
@@ -303,38 +322,36 @@ func parseDecimal(text string) (number, error) {
 	}
 	whole, frac, _ := strings.Cut(mantissa, ".")
 	if len(whole)+len(frac) == 0 || !isDigits(whole) || !isDigits(frac) {
-		return number{}, errNotDecimal
+		return number{}, false, errNotDecimal
 	}
 	digits := strings.TrimLeft(whole+frac, "0")
 	significant := strings.TrimRight(digits, "0")
 	if significant == "" {
-		return number{kind: kindUint}, nil
+		return number{kind: kindUint}, false, nil
 	}
 	// The value is significant × 10^(exp+shift). The checks leave exp on one side,
 	// since adding to an exponent near the int limits overflows.
-	shift := len(digits) - len(significant) - len(frac)
-	if exp < -shift {
-		n, err := parseFloat(text)
-		if err != nil {
-			return number{}, err
-		}
-		n.fractional = true
-		return n, nil
+	shift := len(digits) - len(significant) - len(frac) + scale
+	if exp <= -shift-len(significant) {
+		return number{kind: kindUint}, true, nil
+	}
+	if fractional = exp < -shift; fractional {
+		significant, exp = significant[:len(significant)+exp+shift], -shift
 	}
 	if exp > maxDigits-len(significant)-shift {
-		return number{}, errOutOfBounds
+		return number{}, fractional, errOutOfBounds
 	}
 	u, err := strconv.ParseUint(significant+strings.Repeat("0", exp+shift), 10, 64)
 	if err != nil {
-		return number{}, errOutOfBounds
+		return number{}, fractional, errOutOfBounds
 	}
 	if !negative {
-		return number{kind: kindUint, u: u}, nil
+		return number{kind: kindUint, u: u}, fractional, nil
 	}
 	if u > 1<<63 {
-		return number{}, errOutOfBounds
+		return number{}, fractional, errOutOfBounds
 	}
-	return number{kind: kindInt, i: int64(-u)}, nil
+	return number{kind: kindInt, i: int64(-u)}, fractional, nil
 }
 
 // integer returns the number that holds v.
@@ -445,10 +462,11 @@ func appendNumber(dst []byte, dt telem.DataType, n number) ([]byte, error) {
 	case telem.Float64T:
 		return telem.ByteOrder.AppendUint64(dst, math.Float64bits(n.float64())), nil
 	case telem.Float32T:
-		return telem.ByteOrder.AppendUint32(
-			dst,
-			math.Float32bits(float32(n.float64())),
-		), nil
+		f := n.float64()
+		if math.Abs(f) > math.MaxFloat32 && !math.IsInf(f, 0) {
+			return dst, errOutOfBounds
+		}
+		return telem.ByteOrder.AppendUint32(dst, math.Float32bits(float32(f))), nil
 	case telem.Int64T, telem.Int32T, telem.Int16T, telem.Int8T:
 		i, err := n.int64()
 		if err != nil {
@@ -503,16 +521,31 @@ func toTimeStamp(value any, format TimeFormat) (telem.TimeStamp, error) {
 	default:
 		return 0, errIncompatible
 	}
-	n, err := parseNumber(text, telem.Int64T)
+	if format == ISO8601 {
+		return 0, errNumericISO8601
+	}
+	// Scaling the text, not a float64, keeps every digit down to the nanosecond.
+	n, _, err := parseDecimal(text, format.nanosExponent())
+	if errors.Is(err, errNotDecimal) {
+		if n, err = parseFloat(text); err != nil {
+			return 0, err
+		}
+		return scaleTimeStamp(n, format)
+	}
 	if err != nil {
 		return 0, err
 	}
-	return scaleTimeStamp(n, format)
+	nanos, err := n.int64()
+	return telem.TimeStamp(nanos), err
 }
+
+var errNumericISO8601 = errors.New(
+	"numeric values cannot be converted with ISO 8601 format",
+)
 
 func scaleTimeStamp(n number, format TimeFormat) (telem.TimeStamp, error) {
 	if format == ISO8601 {
-		return 0, errors.New("numeric values cannot be converted with ISO 8601 format")
+		return 0, errNumericISO8601
 	}
 	scale := format.nanosPerUnit()
 	if n.kind == kindFloat {

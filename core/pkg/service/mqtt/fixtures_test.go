@@ -18,6 +18,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
@@ -106,22 +107,44 @@ func createIndexed(
 	dataTypes ...telem.DataType,
 ) (channel.Channel, []channel.Channel) {
 	GinkgoHelper()
+	return createIndexedOn(ctx, host, dataTypes...)
+}
+
+// createIndexedOn is createIndexed on the Core that leaseholder names.
+func createIndexedOn(
+	ctx context.Context,
+	leaseholder node.Key,
+	dataTypes ...telem.DataType,
+) (channel.Channel, []channel.Channel) {
+	GinkgoHelper()
 	w := channelSvc.NewWriter(nil)
 	idx := channel.Channel{
-		Name:     UniqueChannelName(),
-		DataType: telem.TimestampT,
-		IsIndex:  true,
+		Name:        UniqueChannelName(),
+		DataType:    telem.TimestampT,
+		IsIndex:     true,
+		Leaseholder: leaseholder,
 	}
 	Expect(w.Create(ctx, &idx)).To(Succeed())
 	data := make([]channel.Channel, len(dataTypes))
 	for i, dt := range dataTypes {
 		data[i] = channel.Channel{
-			Name:       UniqueChannelName(),
-			DataType:   dt,
-			LocalIndex: idx.LocalKey,
+			Name:        UniqueChannelName(),
+			DataType:    dt,
+			Leaseholder: leaseholder,
+			LocalIndex:  idx.LocalKey,
 		}
 		Expect(w.Create(ctx, &data[i])).To(Succeed())
 	}
+	// A peer's channels reach the host by gossip.
+	keys := append(channel.Keys{idx.Key()}, channel.KeysFromChannels(data)...)
+	Eventually(func(g Gomega) {
+		var found []channel.Channel
+		g.Expect(channelSvc.NewRetrieve().
+			Where(channel.MatchKeys(keys...)).
+			Entries(&found).
+			Exec(ctx, nil)).To(Succeed())
+		g.Expect(found).To(HaveLen(len(keys)))
+	}).Should(Succeed())
 	return idx, data
 }
 
