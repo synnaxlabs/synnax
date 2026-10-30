@@ -23,11 +23,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/license"
-	svcmock "github.com/synnaxlabs/synnax/pkg/service/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
-	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 func TestAPILicense(t *testing.T) {
@@ -43,7 +43,7 @@ var (
 	licenseSvc *license.Service
 	apiSvc     *apilicense.Service
 	userSvc    *user.Service
-	signer     svcmock.Signer
+	signer     svctestutil.Signer
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -60,7 +60,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	rbacSvc = MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
 		DB: db, Ontology: otg, Group: g, User: userSvc,
 	}))
-	signer = svcmock.NewSigner()
+	signer = svctestutil.NewSigner()
 	licenseSvc = MustOpen(license.OpenService(ctx, license.ServiceConfig{
 		DB: kvDB, Anchors: signer.Anchors,
 	}))
@@ -75,7 +75,7 @@ func freshUser(ctx SpecContext) user.User {
 	GinkgoHelper()
 	return MustSucceed(
 		userSvc.NewWriter(nil).
-			Create(ctx, user.User{Username: "anon-" + uuid.New().String()}),
+			Create(ctx, user.User{Name: "anon-" + uuid.New().String()}),
 	)
 }
 

@@ -14,9 +14,10 @@
 # that needs a running Core also keys on core in ci.yaml rather than here, which keeps
 # the *_build keys free of server dependencies.
 
-ci: &ci
-  - .github/filters.yaml
-  - .github/workflows/ci.yaml
+actionlint:
+  - .github/actionlint.yaml
+  - .github/actions/**
+  - .github/workflows/**
 
 bazel: &bazel
   - .bazelignore
@@ -28,7 +29,6 @@ bazel: &bazel
 
 cpp: &cpp
   - *bazel
-  - *ci
   - .clang-format
   - .clang-format-ignore
   - .clang-tidy
@@ -41,25 +41,21 @@ cpp: &cpp
   - scripts/sanitizers/**
 
 go: &go
-  - *ci
+  - .github/scripts/go_mod_download.sh
   - .github/scripts/pin_mtimes.py
   - .github/workflows/test.go.yaml
   - .golangci.yaml
-  - codecov.yaml
   - scripts/check_go_generate.sh
 
 py: &py
-  - *ci
   - .github/workflows/test.py.yaml
-  - codecov.yaml
+  - .python-version
   - pyproject.toml
   - uv.lock
 
 ts: &ts
-  - *ci
   - .github/actions/setup-pnpm/**
   - .github/workflows/test.ts.yaml
-  - codecov.yaml
   - configs/**
   - knip.json
   - package.json
@@ -68,6 +64,17 @@ ts: &ts
   - turbo.json
 
 eslint_config:
+  - *ts
+
+stylelint:
+  - *ts
+  - console/index.html
+  - console/src/**
+  - lyra/src/**
+  - pluto/src/**
+  - site/*/src/**
+
+stylelint_config:
   - *ts
 
 vite_plugin:
@@ -109,13 +116,18 @@ oracle: &oracle
   - oracle/**
   - scripts/install_antlr4.sh
 
-arc_go: &arc_go
+arc_go_module: &arc_go_module
   - *alamos_go
   - *freighter_go
   - *go
   - *x_go
   - arc/go/**
   - scripts/install_antlr4.sh
+
+# The Arc tests compile every .arc file in the repository.
+arc_go:
+  - *arc_go_module
+  - "**/*.arc"
 
 aspen: &aspen
   - *alamos_go
@@ -133,7 +145,7 @@ freighter_integration: &freighter_integration
 
 core: &core
   - *alamos_go
-  - *arc_go
+  - *arc_go_module
   - *aspen
   - *cesium
   - *freighter_go
@@ -197,6 +209,7 @@ portal:
   - *lyra
   - *ts
   - *x_ts
+  - .github/workflows/build.site.yaml
   - site/portal/**
 
 console: &console
@@ -228,6 +241,7 @@ foundation:
   - *lyra
   - *site_common
   - *ts
+  - .github/workflows/build.site.yaml
   - site/foundation/**
 
 www:
@@ -235,6 +249,7 @@ www:
   - *lyra
   - *site_common
   - *ts
+  - .github/workflows/build.site.yaml
   - site/www/**
 
 knip:
@@ -242,6 +257,7 @@ knip:
   - *console
   - *ts
   - oracle/lsp/extensions/vscode/**
+  - scripts/check_exports_ts.py
   - site/common/**
   - site/docs/**
   - site/foundation/**
@@ -270,6 +286,17 @@ client_py: &client_py
   - *x_py
   - client/py/**
 
+exports_go:
+  - *core
+  - *freighter_integration
+  - *oracle
+
+exports_py:
+  - *client_py
+  - *py
+  - integration/**
+  - scripts/check_exports_py.py
+
 py_packages:
   - *client_py
   - .github/scripts/pin_internal_deps.sh
@@ -285,6 +312,8 @@ x_cpp: &x_cpp
   - *cpp
   - x/cpp/**
   - x/go/**/*.pb.go
+  - x/go/**/*.proto
+  - x/go/**/BUILD.bazel
 
 freighter_cpp: &freighter_cpp
   - *cpp
@@ -295,8 +324,12 @@ arc_cpp: &arc_cpp
   - *cpp
   - *freighter_cpp
   - *x_cpp
-  - arc/**
+  - arc/cpp/**
+  - arc/go/**/*.proto
+  - arc/go/**/BUILD.bazel
   - client/cpp/**
+  - core/**/*.proto
+  - core/**/BUILD.bazel
   - vendor/wasmtime/**
 
 client_cpp: &client_cpp
@@ -306,6 +339,8 @@ client_cpp: &client_cpp
   - arc/cpp/**
   - client/clib/**
   - client/cpp/**
+  - core/**/*.proto
+  - core/**/BUILD.bazel
   - vendor/wasmtime/**
 
 driver: &driver
@@ -321,12 +356,16 @@ soem:
   - *cpp
   - vendor/soem/**
 
+# Every path that changes a C++ CodeQL analysis.
+codeql_cpp:
+  - *driver
+  - .github/workflows/codeql.yaml
+
 buildifier:
   - "**/*.bzl"
   - "**/BUILD"
   - "**/BUILD.bazel"
   - *bazel
-  - *ci
   - .github/workflows/lint.buildifier.yaml
   - WORKSPACE
   - WORKSPACE.bazel
@@ -355,7 +394,6 @@ oracle_check:
 
 protobuf:
   - "**/*.proto"
-  - *ci
   - .github/workflows/test.protobuf.yaml
   - buf.gen.yaml
   - buf.yaml
@@ -363,11 +401,16 @@ protobuf:
 ci_scripts:
   - *py
   - .github/scripts/**
+  - .github/workflows/ci.yaml
   - deploy/preview/**
 
 scripts:
   - *py
   - scripts/**
+
+runners:
+  - *py
+  - scripts/runners/**
 
 console_build: &console_build
   - *console

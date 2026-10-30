@@ -1,0 +1,174 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Users"
+description:
+  "Register users, give them roles, and remove them. Includes the permissions of each
+  role."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Note } from "@/components/note";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import { Video } from "@/components/media/Media";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+Each person who uses a Synnax Core logs in as a user. A user's roles set what the user
+can see and change. Only users with the **Owner** role can register, change, or delete
+users.
+
+Owners manage users in the **Users** toolbar. To open it, click <Icon.User /> in the
+left navigation bar, or press **U**. Synnax Desktop has one user and no **Users**
+toolbar.
+
+<Divider.Divider x />
+
+## Register a user
+
+1. Run the "Register user" command, or click <Icon.Add /> in the **Users** toolbar.
+2. Enter the **First** name, **Last** name, **Username**, and **Password**.
+3. Select a **Role**.
+4. Click **Register**.
+
+Give the username and password to the person. They can log in at once.
+
+<Video id="console/users/register" />
+
+<Divider.Divider x />
+
+## Change a role
+
+1. In the **Users** toolbar, right-click the user and select **Change role**.
+2. Select a **Role**, then click **Assign**.
+
+The new role replaces the user's role. You cannot change your own role or the role of
+the root user.
+
+<Video id="console/users/modal-change-role" />
+
+<Divider.Divider x />
+
+## Change a username
+
+In the **Users** toolbar, right-click the user and select **Change username**. You
+cannot change your own username.
+
+<Divider.Divider x />
+
+## Delete users
+
+1. In the **Users** toolbar, select one or more users.
+2. Right-click and select **Delete**, then click **Delete** to confirm.
+
+The root user cannot be deleted. Deleting a user ends all of that user's sessions at
+once.
+
+<Divider.Divider x />
+
+## Change a password
+
+The Console has no password setting. A user can change their own password with the
+TypeScript client:
+
+```typescript
+await client.auth.changePassword("new-password");
+```
+
+A password change ends the user's other sessions. The session that changed the password
+stays open. A password cannot be empty, and it has no maximum length.
+
+An Owner cannot set the password of another user. To reset a forgotten password, delete
+the user and register them again.
+
+<Divider.Divider x />
+
+## Manage users from code
+
+Create a user, then give it a role:
+
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
+```python
+user = client.users.create(
+    username="jdoe", password="secret", first_name="Jane", last_name="Doe"
+)
+engineer = next(r for r in client.access.roles.retrieve() if r.name == "Engineer")
+client.access.roles.assign(user=user.key, role=engineer.key)
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const user = await client.users.create({
+  username: "jdoe",
+  password: "secret",
+  firstName: "Jane",
+  lastName: "Doe",
+});
+const roles = await client.access.roles.retrieve({});
+const engineer = roles.find((r) => r.name === "Engineer");
+await client.access.roles.assign({ user: user.key, role: engineer.key });
+```
+
+  </Fragment>
+
+</Client.Tabs>
+
+A user created from code has no role and no permissions until you assign one. A user can
+hold more than one role and gets the permissions of all of them. To take a role away,
+call `unassign` with the same arguments. To delete users, call `client.users.delete`
+with their keys.
+
+<Divider.Divider x />
+
+## The root user
+
+A Core starts with one root user, `synnax` with the password `seldon` by default. The
+root user always has the **Owner** role. At each start, the Core:
+
+- Creates the root user from `--username` and `--password` if no user has that username.
+  If a user has it, the Core makes that user the root user with the **Owner** role.
+- Sets the root password back to `--password`. A changed root password lasts only until
+  the next start.
+
+When you start the Core with a different `--username`, the previous root user stops
+being root but keeps the **Owner** role and its password. To remove it, delete it.
+
+<Note.Note variant="warning">
+  Do not change the username of the root user. At the next start, the Core creates a new
+  root user, and the renamed user keeps the **Owner** role.
+</Note.Note>
+
+To change the root password for good, or to recover a forgotten one, restart the Core
+with a new `--password`. See the
+[CLI reference](/reference/enterprise/cli-reference#start).
+
+<Divider.Divider x />
+
+## Roles
+
+A Core has five roles. **All** means create, read, change, and delete.
+
+| Resources                                     | Owner | Engineer | Operator | Driver          | Viewer |
+| --------------------------------------------- | ----- | -------- | -------- | --------------- | ------ |
+| Channels                                      | All   | All      | Read     | Read            | Read   |
+| Ranges                                        | All   | All      | All      | All             | Read   |
+| Live data                                     | All   | All      | All      | Read and write  | Read   |
+| Drivers                                       | All   | All      | Read     | Read and change | Read   |
+| Devices, tasks, Arc automations, and statuses | All   | All      | Read     | All             | Read   |
+| Projects, visualizations, labels, and aliases | All   | All      | Read     | None            | Read   |
+| Users and roles                               | All   | Read     | Read     | None            | Read   |
+
+- **Owner** -> runs the deployment and manages users.
+- **Engineer** -> sets up channels, hardware, automations, and visualizations.
+- **Operator** -> runs tests: writes live data to control hardware, and edits ranges. An
+  Operator cannot create visualizations.
+- **Driver** -> given to each rack, so a Driver logs in as its rack. It can change its
+  rack, but cannot create or delete racks.
+- **Viewer** -> sees everything and changes nothing.

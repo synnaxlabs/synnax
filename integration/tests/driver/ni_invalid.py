@@ -16,6 +16,7 @@ it with an error status when the task is started.
 import platform
 
 import synnax as sy
+from framework.hardware_case import HardwareCase
 from framework.test_case import TestCase
 from tests.driver.task import (
     DriverTask,
@@ -39,8 +40,7 @@ class NIInvalidConfig(TestCase):
 
     def setup(self) -> None:
         if platform.system().lower() != "windows":
-            self.auto_pass(msg="Windows DAQmx drivers required")
-            return
+            self.skip("Windows DAQmx drivers required")
         self.devices = {
             loc: self.client.devices.retrieve(location=loc) for loc in ["E101Mod4"]
         }
@@ -195,7 +195,7 @@ class NIInvalidConfig(TestCase):
         self.log(f"  Correctly rejected ({label}): {message}")
 
 
-class NIMissingLibraries(TestCase):
+class NIMissingLibraries(HardwareCase):
     """Verify the driver rejects NI tasks when DAQmx libraries are not installed.
 
     Only runs on non-Windows platforms where NI-DAQmx is unavailable.
@@ -203,10 +203,22 @@ class NIMissingLibraries(TestCase):
 
     def setup(self) -> None:
         if platform.system().lower() == "windows":
-            self.auto_pass(msg="NI-DAQmx is available on Windows")
+            self.skip("NI-DAQmx is available on Windows")
 
     def run(self) -> None:
         self.log("Testing: NI task on machine without DAQmx libraries")
+        rack = self.client.racks.retrieve(name=self.options.driver_rack)
+        [device] = self.create_test_devices(
+            [
+                sy.ni.Device(
+                    identifier="NoLibs",
+                    name="NI Missing Libraries Device",
+                    model="NI 9205",
+                    location="Dev1",
+                    rack=rack.key,
+                )
+            ]
+        )
         idx = create_index(self.client, "ni_no_libs_idx")
         ch_key = create_channel(
             self.client,
@@ -216,7 +228,7 @@ class NIMissingLibraries(TestCase):
         )
         task = sy.ni.AnalogReadTask(
             name="NI Missing Libraries Test",
-            device="nonexistent",
+            device=device.key,
             sample_rate=100 * sy.Rate.HZ,
             stream_rate=25 * sy.Rate.HZ,
             channels=[
@@ -232,8 +244,9 @@ class NIMissingLibraries(TestCase):
         message = assert_start_rejected(
             self.client, task, "NI task without DAQmx libraries"
         )
-        self.log(f"  Correctly rejected: {message}")
-        msg = message.lower()
-        assert "ni-daqmx" in msg and "libraries" in msg, (
-            f"Expected error about missing libraries, got: {message}"
+        expected = (
+            "Failed to configure task: National Instruments NI-DAQmx shared library "
+            "is not installed. Download here: "
+            "https://www.ni.com/en/support/downloads/drivers/download.ni-daq-mx.html."
         )
+        assert message == expected, f"Rejection should be {expected!r}, got {message!r}"

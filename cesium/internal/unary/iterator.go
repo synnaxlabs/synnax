@@ -63,7 +63,7 @@ func (i IteratorConfig) Validate() error {
 
 var (
 	_                     config.Config[IteratorConfig] = IteratorConfig{}
-	DefaultIteratorConfig                               = IteratorConfig{
+	defaultIteratorConfig                               = IteratorConfig{
 		AutoChunkSize: 1e5,
 	}
 )
@@ -108,7 +108,7 @@ func (db *DB) OpenIterator(cfgs ...IteratorConfig) (*Iterator, error) {
 	if db.closed.Load() {
 		return nil, db.wrapError(ErrDBClosed)
 	}
-	cfg, err := config.New(DefaultIteratorConfig, cfgs...)
+	cfg, err := config.New(defaultIteratorConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -499,9 +499,6 @@ func (i *Iterator) Prev(ctx context.Context, span telem.TimeSpan) (ok bool) {
 	}
 	return ok
 }
-
-// Len returns the number of samples in the iterator's frame.
-func (i *Iterator) Len() int64 { return i.frame.Len() }
 
 // Error returns the error that caused the iterator to stop moving. If the iterator is
 // still moving, Error returns nil.

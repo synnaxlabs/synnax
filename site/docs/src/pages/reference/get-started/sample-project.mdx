@@ -1,0 +1,126 @@
+---
+title: "Explore the sample project"
+description:
+  "Run a simulated tank pressurization test, take control of a valve, and abort the
+  test."
+layout: "@/layouts/Reference.astro"
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Video } from "@/components/media/Media";
+import Step from "@/components/text/Step.astro";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+The sample project is a simulated tank test. A nitrogen supply fills the tank through
+the press valve, and the vent valve empties it. An Arc automation pressurizes the tank,
+holds it, and vents it. You watch the test on a schematic and a line plot, take control
+of a valve, and abort the test. You need no hardware, and the tutorial takes about five
+minutes.
+
+You need [Synnax Desktop](/reference/get-started/install-desktop).
+
+<Divider.Divider x />
+
+## <Step step={1} level="h2">Open the sample project</Step>
+
+If the list of projects is empty, select **Open sample project**. If you already have
+projects, open one and run the "Open sample project" command from the
+[command palette](/reference/get-started/ui-overview#search-and-command-palette).
+
+If the sample project already exists, the Console asks whether to reset it. A reset
+removes your changes to the sample project and its Arc automations, so you can use it to
+start again.
+
+The Console creates a project with:
+
+| Item           | Kind                                         | What it does                                                                        |
+| -------------- | -------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Tank           | [Schematic](/reference/visualize/schematics) | Shows the tank, its valves, and its pressure, with **Start** and **Abort** buttons. |
+| Tank pressure  | [Line plot](/reference/visualize/line-plots) | Plots the tank pressure, and the state of each valve.                               |
+| Press sequence | [Arc automation](/reference/control/arc)     | Runs the test: pressurize, hold, and vent.                                          |
+| Tank simulator | Arc automation                               | Simulates the tank. It writes the pressure from the valve commands.                 |
+
+Both Arc automations start at once. The tank pressure is 0 psi, and both valves are
+closed.
+
+<Video id="get-started/sample-project/open" />
+
+<Divider.Divider x />
+
+## <Step step={2} level="h2">Run the test</Step>
+
+On the Tank schematic, click **Start**.
+
+The Press sequence opens the press valve, and the pressure climbs on the line plot. At
+300 psi, the sequence closes the press valve and holds for 10 seconds. Then it opens the
+vent valve until the pressure is below 5 psi, and waits for the next start.
+
+<Video id="get-started/sample-project/run-test" />
+
+<Divider.Divider x />
+
+## <Step step={3} level="h2">Take control of a valve</Step>
+
+The Press sequence has a higher [control authority](/reference/control/authority) (100)
+than the Tank schematic (1), so a click on a valve has no effect while the sequence
+runs. To take a valve from the sequence, click its control chip. The chip takes control
+at 255, the highest authority.
+
+1. Click the control chip next to **Vent valve**. The chip turns green.
+2. Click **Vent valve**. The vent valve opens.
+3. Click **Start**. The Press sequence opens the press valve, but its command to close
+   the vent valve has no effect. The pressure stops near 140 psi, because the gas goes
+   out through the vent valve as fast as it comes in.
+4. Click **Vent valve** to close it. The pressure climbs again.
+5. Click the green chip to give the vent valve back. The test continues as in step 2.
+
+The control chip next to each valve shows which writer has control. Hover over a chip to
+see a description. For more, see [manual control](/reference/control/manual).
+
+<Video id="get-started/sample-project/take-control" />
+
+<Divider.Divider x />
+
+## <Step step={4} level="h2">Abort the test</Step>
+
+1. Click **Start**.
+2. Before the hold ends, click **Abort**.
+
+The Press sequence closes the press valve and opens the vent valve. In the abort stage,
+the sequence raises its authority to 255, the same as a control chip, so its commands
+also reach a valve that an operator holds. See
+[virtual channels](/reference/control/authority#virtual-channels). The sequence also
+aborts by itself when the pressure goes above 450 psi.
+
+To run the test again after an abort, click **Start**.
+
+<Video id="get-started/sample-project/abort" />
+
+<Divider.Divider x />
+
+## <Step step={5} level="h2">Read the Press sequence</Step>
+
+The Press sequence tab on the right shows its code. The sequence has five
+[stages](/reference/control/arc/execution-model#steps-of-a-sequence). It is in one stage
+at a time, and it moves to the next stage when a condition is true.
+
+| Stage        | What it does                                                           | Moves to                                                     |
+| ------------ | ---------------------------------------------------------------------- | ------------------------------------------------------------ |
+| `idle`       | Closes both valves.                                                    | `pressurize` on **Start**.                                   |
+| `pressurize` | Takes authority 100, and opens the press valve.                        | `hold` above 300 psi; `abort` above 450 psi or on **Abort**. |
+| `hold`       | Closes the press valve.                                                | `vent` after 10 seconds; `abort` on **Abort**.               |
+| `vent`       | Opens the vent valve.                                                  | `idle` below 5 psi.                                          |
+| `abort`      | Closes the press valve, opens the vent valve, and takes authority 255. | `pressurize` on **Start**.                                   |
+
+To learn to write a sequence like this one, see
+[test sequences](/reference/control/arc/test-sequences).
+
+<Divider.Divider x />
+
+## Next steps
+
+- Build your own channels, Arc automation, plot, and range in
+  [your first run](/reference/get-started/first-run).
+- Learn the words the docs use in [Synnax concepts](/reference/get-started/concepts).
+- Connect real hardware with a [task](/reference/hardware/tasks).

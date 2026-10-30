@@ -19,28 +19,37 @@ export interface Server {
   server: fixtures.SimulatorOptions;
   /** The palette command that opens the connect dialog. */
   command: string;
+  /** The entry of the server in the dialog that the devices toolbar opens. */
+  title: string;
   /** The name the dialog starts with, which is also its placeholder. */
   defaultName: string;
   /** The name to give the server. */
   name: string;
-  /** Fills the fields of the protocol, under "Connect from". */
+  /** Fills the fields of the protocol. */
   fill: (session: capture.CaptureSession, modal: Locator) => Promise<void>;
 }
 
+/**
+ * The integrations of the servers. A connect video enables only these, so the Driver
+ * finds no hardware on the computer that records it.
+ */
+export const INTEGRATIONS = ["opc", "modbus", "http"];
+
 /** switchField returns the switch with the given label. */
 const switchField = (modal: Locator, label: string): Locator =>
-  fieldItem(modal, label).locator(".pluto-input__switch").first();
+  fieldItem(modal, label).locator(".lyra-input__switch").first();
 
 export const MODBUS: Server = {
   server: { protocol: "modbus", port: 5020 },
   command: "Connect Modbus server",
+  title: "Modbus TCP server",
   defaultName: "Modbus server",
   name: "Pump skid PLC",
   fill: async (session, modal) => {
     await session.click(modal.getByPlaceholder("localhost").first());
     await session.type("127.0.0.1");
     await session.hold(300);
-    await session.click(modal.getByPlaceholder("502").first());
+    await session.click(fieldItem(modal, "Port").locator("input").first());
     await session.press("ControlOrMeta+a");
     await session.type("5020");
   },
@@ -49,6 +58,7 @@ export const MODBUS: Server = {
 export const OPCUA: Server = {
   server: { protocol: "opcua", port: 4840 },
   command: "Connect OPC UA server",
+  title: "OPC UA server",
   defaultName: "OPC UA server",
   name: "Furnace controller",
   fill: async (session, modal) => {
@@ -61,6 +71,7 @@ export const OPCUA: Server = {
 export const HTTP: Server = {
   server: { protocol: "http", port: 8080 },
   command: "Connect HTTP server",
+  title: "HTTP server",
   defaultName: "HTTP server",
   name: "Weather station",
   fill: async (session, modal) => {
@@ -69,7 +80,12 @@ export const HTTP: Server = {
     await session.hold(300);
     await session.click(switchField(modal, "HTTPS"));
     await session.hold(400);
-    await session.click(modal.getByPlaceholder("/health").first());
+    await session.click(modal.getByRole("tab", { name: "Health check" }), {
+      text: true,
+    });
+    const path = modal.getByPlaceholder("/health").first();
+    await session.waitFor(path);
+    await session.click(path);
     await session.type("/health");
   },
 };
@@ -98,16 +114,15 @@ export const browseNodes =
   };
 
 /**
- * connect runs the connect command of a server, enters its name and the Driver, fills
- * the fields of the protocol, and waits for the Driver to test the connection.
+ * fillForm names the server in its open connect form, fills the fields of the protocol,
+ * and waits for the Driver to test the connection. The Driver is the only rack, so the
+ * form selects it.
  */
-const connect = async (
+const fillForm = async (
   session: capture.CaptureSession,
-  { command, defaultName, name, fill }: Server,
+  modal: Locator,
+  { defaultName, name, fill }: Server,
 ): Promise<void> => {
-  const { page } = session;
-  await capture.commandPalette(session, command);
-  const modal = page.locator(capture.MODAL).first();
   const nameInput = modal.getByPlaceholder(defaultName).first();
   await session.waitFor(nameInput);
   await session.zoom(modal);
@@ -118,21 +133,22 @@ const connect = async (
   await session.type(name);
   await session.hold(400);
 
-  await session.click(
-    fieldItem(modal, "Connect from").locator(".pluto-dialog__trigger").first(),
-  );
-  const rack = page.locator(".pluto-list__item").filter({ hasText: DRIVER }).first();
-  await session.waitFor(rack);
-  await session.hold(600);
-  await session.click(rack, { text: true });
-  await session.hold(400);
-
   await fill(session, modal);
+  await session.waitFor(fieldItem(modal, "Connect from").getByText(DRIVER));
   await session.hold(800);
 
   await capture.clickButton(session, "Connect");
   session.endZoom();
   await session.waitForHidden(modal);
+};
+
+/** connect connects a server through its palette command. */
+const connect = async (
+  session: capture.CaptureSession,
+  server: Server,
+): Promise<void> => {
+  await capture.commandPalette(session, server.command);
+  await fillForm(session, session.page.locator(capture.MODAL).first(), server);
 };
 
 /**
@@ -154,8 +170,8 @@ export const serverTaskScript =
   };
 
 /**
- * connectServerScript returns a script that connects a simulated server on camera. The
- * server then shows under the Driver in the devices toolbar. The script module must
+ * connectServerScript returns a script that connects a simulated server on camera from
+ * the devices toolbar. The server then shows under the Driver. The script module must
  * export `driver = true`.
  */
 export const connectServerScript =
@@ -171,10 +187,18 @@ export const connectServerScript =
       session.startRecording();
       await session.hold(1500);
 
-      await connect(session, server);
+      await capture.openToolbar(session, "device");
+      await session.hold(600);
+      await capture.clickToolbarCreate(session);
+      const modal = page.locator(capture.MODAL).first();
+      const entry = modal.getByRole("button").filter({ hasText: server.title }).first();
+      await session.waitFor(entry);
+      await session.zoom(modal);
+      await session.hold(1200);
+      await session.click(entry, { text: true, zoom: false });
+      await fillForm(session, modal, server);
       await session.hold(600);
 
-      await capture.openToolbar(session, "device");
       const driver = capture.treeItem(page, "rack:", DRIVER);
       await session.waitFor(driver);
       await session.click(driver, { text: true });

@@ -19,9 +19,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -145,7 +145,12 @@ var _ = Describe("Group", Ordered, func() {
 			_ = MustSucceed(w.Create(ctx, "child-blocking-delete", parent.OntologyID()))
 
 			err := w.Delete(ctx, parent.Key)
-			Expect(err).To(HaveOccurred())
+			Expect(
+				err,
+			).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("cannot delete a group with children")),
+			))
 			Expect(errors.Is(err, validate.ErrValidation)).To(BeTrue())
 		})
 
@@ -159,7 +164,7 @@ var _ = Describe("Group", Ordered, func() {
 					Where(group.MatchKeys(created.Key)).
 					Entry(new(group.Group)).
 					Exec(ctx, nil),
-			).To(HaveOccurred())
+			).To(MatchError(query.ErrNotFound))
 		})
 
 		It("Should delete multiple groups", func(ctx SpecContext) {
@@ -173,7 +178,8 @@ var _ = Describe("Group", Ordered, func() {
 			Expect(w.Delete(ctx, parent.Key)).To(Succeed())
 
 			Expect(svc.NewRetrieve().Where(group.MatchKeys(parent.Key, child.Key)).
-				Entry(new(group.Group)).Exec(ctx, nil)).To(HaveOccurred())
+				Entry(new(group.Group)).
+				Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 		})
 
 		It(
@@ -227,7 +233,7 @@ var _ = Describe("Group", Ordered, func() {
 							Where(group.MatchKeys(key)).
 							Entry(new(group.Group)).
 							Exec(ctx, nil),
-					).To(HaveOccurred())
+					).To(MatchError(query.ErrNotFound))
 				}
 			},
 		)

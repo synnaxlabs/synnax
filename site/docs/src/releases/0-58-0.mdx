@@ -2,10 +2,12 @@
 title: "Version 0.58 release notes"
 ---
 
+import { Hero } from "@/components/hero";
 import Release from "@/components/releases/Release.astro";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { mdxOverrides } from "@/components/mdxOverrides";
 import { Image } from "@/components/media/Media";
+import { Keys } from "@/components/keys/Keys";
 
 export const components = mdxOverrides;
 
@@ -15,7 +17,13 @@ export const components = mdxOverrides;
     title="Schematic grouping and Console improvements"
 >
 
-<Image id="releases/0-58-0/schematic-features" />
+<Hero.Hero
+  image="releases/0-58-0/schematic-features"
+  extension="webp"
+  layout="framed"
+  tone="soft"
+  palette="pink-orange"
+/>
 
 Synnax v0.58 brings grouping, cut, copy, and paste to schematics, consistent symbol
 sizes, off-page references to any page, custom ranges for line plots, and a collection
@@ -25,17 +33,17 @@ of smaller improvements across the Console.
 
 ### Schematic grouping
 
-Schematic symbols can now be grouped. Select the symbols and press `Ctrl + G`, or use
-the right-click menu. Clicking a member selects the whole group, and double-clicking
-edits a single symbol. Groups can be nested, locked to prevent edits, and ungrouped with
-`Ctrl + U`.
+Schematic symbols can now be grouped. Select the symbols and press <Keys
+trigger={["Control", "G"]} />, or use the right-click menu. Clicking a member selects
+the whole group, and double-clicking edits a single symbol. Groups can be nested, locked
+to prevent edits, and ungrouped with <Keys trigger={["Control", "U"]} />.
 
 <Divider.Divider x />
 
 ### Cut, copy, and paste
 
 Schematics and the Arc editor now support cut, copy, and paste from the right-click
-menu. `Ctrl + X` cuts the selection along with its connections.
+menu. <Keys trigger={["Control", "X"]} /> cuts the selection along with its connections.
 
 <Divider.Divider x />
 
@@ -60,7 +68,7 @@ schematics, and the symbol shows the icon of the page it points to.
 
 ### Custom plot ranges
 
-<Image id="releases/0-58-0/custom-plot-ranges" />
+<Image id="releases/0-58-0/custom-plot-ranges" extension="webp" />
 
 Line plots can now display a custom rolling time span. Pick `Custom` in the ranges
 dropdown and type a duration like `45m` or `1h 30m`. The built-in list also gains longer

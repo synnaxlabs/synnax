@@ -9,18 +9,23 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-input__item {
+.lyra-input__item {
     color: var(--pluto-primary-z);
-    & .pluto-input {
+
+    & .lyra-input {
         width: 100%;
     }
-    &:focus-within .pluto-input-label {
+
+    &:focus-within .lyra-input-label {
         color: var(--pluto-primary-z);
     }
-    &:has(.pluto--visible) .pluto-input-label {
+
+    &:has(.lyra--visible) .lyra-input-label {
         color: var(--pluto-primary-z);
     }
-    & > *:not(.pluto-input-label):not(.pluto-input-help-text) {
+    /* stylelint-disable-next-line selector-not-notation -- The chained form outranks
+       .lyra-flex.lyra--grow by one class; the merged form ties with it. */
+    & > *:not(.lyra-input-label):not(.lyra-input-help-text) {
         flex-grow: inherit;
     }
 }

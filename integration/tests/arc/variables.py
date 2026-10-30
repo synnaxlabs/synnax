@@ -170,7 +170,7 @@ sequence reset_matrix_main {
         counter_5 -> counter_out_5
 
         counter_5 >= 3 => reset_done_stage
-        time.wait{100ms} => s2
+        time.wait(100ms) => s2
     }
     stage s2 {
         1 => s1
@@ -288,24 +288,24 @@ sequence reassign_main {
 // ──────────────────── value variables as brace inputs ────────────────────
 vars_start => input_value_main
 
-func suffix{tag str} (s str) str {
+func suffix(tag str) {s str} str {
     return s + ":" + tag
 }
 sequence input_value_main {
     label str := "first"
-    input_value_src -> suffix{tag=label} -> input_value_out
+    input_value_src -> suffix(tag=label) -> input_value_out
     label = "second"
-    input_value_src -> suffix{tag=label} -> input_value_out
+    input_value_src -> suffix(tag=label) -> input_value_out
 }
 
 // ──────────────────── channel aliases as brace inputs ────────────────────
 vars_start => input_alias_main
 
-func chan_reader{channel chan str} (n u8) str {
+func chan_reader(channel chan str) {n u8} str {
     return channel
 }
 
-func chan_writer{channel chan str} (value str) str {
+func chan_writer(channel chan str) {value str} str {
     channel = value
     return value
 }
@@ -315,15 +315,15 @@ sequence input_alias_main {
     wr_alias := alias_dst_a
 
     rd_alias -> alias_probe
-    alias_fire -> chan_reader{channel=rd_alias} -> alias_out
-    alias_write_src -> chan_writer{channel=wr_alias}
+    alias_fire -> chan_reader(channel=rd_alias) -> alias_out
+    alias_write_src -> chan_writer(channel=wr_alias)
 
     rd_alias = alias_src_b
     wr_alias = alias_dst_b
 
     rd_alias -> alias_probe
-    alias_fire -> chan_reader{channel=rd_alias} -> alias_out
-    alias_write_src -> chan_writer{channel=wr_alias}
+    alias_fire -> chan_reader(channel=rd_alias) -> alias_out
+    alias_write_src -> chan_writer(channel=wr_alias)
 }
 """
 

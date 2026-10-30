@@ -9,7 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-list__item {
+.lyra-list__item {
     position: relative;
     cursor: pointer;
     padding: 1rem 2rem;
@@ -21,51 +21,68 @@
 
     /* Pairs with the hover and press gate in Button.css: a row that swallows its
        own click is a container, not a control. */
-    &.pluto-btn--prevent-click {
+    &.lyra-btn--prevent-click {
         cursor: default;
     }
 
-    /* Rows speak the list selection tier. The extra .pluto-btn outranks the
+    /* Rows speak the list selection tier. The extra .lyra-btn outranks the
        control-tier default in Button.css; color stays the plain text color because
        rows carry multi-color content. */
-    &.pluto-btn.pluto--selected {
+    &.lyra-btn.lyra--selected {
         --pluto-bg: var(--pluto-selected-list-bg);
         --pluto-hover-bg: var(--pluto-selected-list-hover-bg);
         --pluto-active-bg: var(--pluto-selected-list-active-bg);
         --pluto-border-color: var(--pluto-selected-list-border-color);
         --pluto-hover-border-color: var(--pluto-selected-list-border-color);
         --pluto-active-border-color: var(--pluto-selected-list-border-color);
+
         color: var(--pluto-text-color);
     }
 
     /* Contiguous selected rows merge into one box: only the run's first row keeps
        its top radius and only its last keeps the bottom. */
-    &.pluto--selected + &.pluto--selected {
+    &.lyra--selected + &.lyra--selected {
         border-top-left-radius: 0;
         border-top-right-radius: 0;
     }
 
-    &.pluto--selected:has(+ &.pluto--selected) {
+    &.lyra--selected:has(+ &.lyra--selected) {
         border-bottom-left-radius: 0;
         border-bottom-right-radius: 0;
     }
 
-    &.pluto--dragging-over {
+    &.lyra--dragging-over {
         background: var(--pluto-gray-l4);
+    }
+
+    /* A list prints its shortcuts as plain text, a step dimmer than the label. The
+       extra .lyra-text outranks the chip and gap defaults. */
+    & .lyra-triggers__keys.lyra-text {
+        --pluto-keycap-bg: none;
+        --pluto-keycap-border-color: transparent;
+        --pluto-keycap-color: var(--pluto-gray-l8);
+
+        gap: 0;
+        height: auto;
+        padding: 0;
+    }
+
+    & .lyra-text.lyra-text--keyboard {
+        min-width: 0;
     }
 }
 
 /* While an item holds the hover, the pointer tints no other item, so one item is marked
    at a time. */
-.pluto-list__scroll:has(.pluto-list__item.pluto--hovered)
-    .pluto-list__item:not(.pluto--hovered) {
+.lyra-list__scroll:has(.lyra-list__item.lyra--hovered)
+    .lyra-list__item:not(.lyra--hovered) {
     --pluto-hover-bg: var(--pluto-bg);
     --pluto-hover-border-color: var(--pluto-border-color);
 }
 
 /* The virtualizer positions rows itself, at offsets it assumes rather than measures, so
    a row shorter than the assumed pitch would leave a gap. */
-.pluto-list__scroll--virtual > .pluto-list__virtualizer .pluto-list__item {
+.lyra-list__scroll--virtual > .lyra-list__virtualizer .lyra-list__item {
     position: absolute;
     left: 0;
     min-height: var(--pluto-list-item-height);

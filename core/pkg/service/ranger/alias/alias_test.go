@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -40,7 +40,7 @@ var _ = Describe("Alias", Ordered, func() {
 	)
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
-		node := mock.NewNode(ctx)
+		node := testutil.NewNode(ctx)
 		db = node.DB
 		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
 		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
@@ -141,8 +141,10 @@ var _ = Describe("Alias", Ordered, func() {
 			}
 			Expect(rangerSvc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
 			ch := createChannel(ctx)
-			_, err := aliasSvc.NewReader(tx).Retrieve(ctx, r.Key, ch.Key())
-			Expect(err).To(HaveOccurred())
+			Expect(
+				aliasSvc.NewReader(tx).Retrieve(ctx, r.Key, ch.Key()),
+			).Error().
+				To(MatchError(query.ErrNotFound))
 		})
 
 		It(
@@ -190,8 +192,10 @@ var _ = Describe("Alias", Ordered, func() {
 				aliasSvc.NewWriter(tx).Set(ctx, r.Key, ch.Key(), "Alias"),
 			).To(Succeed())
 			Expect(aliasSvc.NewWriter(tx).Delete(ctx, r.Key, ch.Key())).To(Succeed())
-			_, err := aliasSvc.NewReader(tx).Retrieve(ctx, r.Key, ch.Key())
-			Expect(err).To(HaveOccurred())
+			Expect(
+				aliasSvc.NewReader(tx).Retrieve(ctx, r.Key, ch.Key()),
+			).Error().
+				To(MatchError(query.ErrNotFound))
 		})
 	})
 
@@ -228,8 +232,10 @@ var _ = Describe("Alias", Ordered, func() {
 				Expect(
 					aliasSvc.NewWriter(tx).Set(ctx, r.Key, ch.Key(), "Alias"),
 				).To(Succeed())
-				_, err := aliasSvc.NewReader(tx).Resolve(ctx, r.Key, "not_an_alias")
-				Expect(err).To(MatchError(query.ErrNotFound))
+				Expect(
+					aliasSvc.NewReader(tx).Resolve(ctx, r.Key, "not_an_alias"),
+				).Error().
+					To(MatchError(query.ErrNotFound))
 			},
 		)
 
@@ -288,8 +294,10 @@ var _ = Describe("Alias", Ordered, func() {
 					Parent: &parent,
 				}
 				Expect(rangerSvc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
-				_, err := aliasSvc.NewReader(tx).Resolve(ctx, r.Key, "not_an_alias")
-				Expect(err).To(HaveOccurred())
+				Expect(
+					aliasSvc.NewReader(tx).Resolve(ctx, r.Key, "not_an_alias"),
+				).Error().
+					To(MatchError(query.ErrNotFound))
 			},
 		)
 	})

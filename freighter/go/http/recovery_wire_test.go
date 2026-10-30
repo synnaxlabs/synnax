@@ -19,7 +19,7 @@ import (
 	"github.com/synnaxlabs/alamos"
 	fhttp "github.com/synnaxlabs/freighter/http"
 	"github.com/synnaxlabs/freighter/recovery"
-	"github.com/synnaxlabs/freighter/test"
+	"github.com/synnaxlabs/freighter/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -31,16 +31,16 @@ var _ = Describe("Recovery (wire)", func() {
 			func(c fiber.Ctx) error { return c.SendStatus(fiber.StatusOK) },
 		)
 		router := MustSucceed(fhttp.NewRouter())
-		server := router.NewUnaryServer[test.Request, test.Response]("/")
+		server := router.NewUnaryServer[testutil.Request, testutil.Response]("/")
 		server.Use(recovery.Middleware(alamos.Instrumentation{}))
 
 		panicNext := true
 		server.BindHandler(
-			func(_ context.Context, req test.Request) (test.Response, error) {
+			func(_ context.Context, req testutil.Request) (testutil.Response, error) {
 				if panicNext {
 					panic("boom in handler")
 				}
-				return test.Response(req), nil
+				return testutil.Response(req), nil
 			},
 		)
 		router.BindTo(app)
@@ -49,17 +49,21 @@ var _ = Describe("Recovery (wire)", func() {
 			g.Expect(pollHealth("http://" + addr.String() + "/health")).To(Succeed())
 		}).WithPolling(time.Millisecond).Should(Succeed())
 
-		client := MustSucceed(fhttp.NewUnaryClient[test.Request, test.Response]())
+		client := MustSucceed(
+			fhttp.NewUnaryClient[testutil.Request, testutil.Response](),
+		)
 
 		By(
 			"surfacing the panic to the client as a generic error, not a dropped connection",
 		)
-		Expect(client.Send(ctx, addr, test.Request{ID: 1})).
+		Expect(client.Send(ctx, addr, testutil.Request{ID: 1})).
 			Error().To(MatchError(ContainSubstring(recovery.ErrPanic.Error())))
 
 		By("continuing to serve subsequent requests")
 		panicNext = false
-		Expect(MustSucceed(client.Send(ctx, addr, test.Request{ID: 2, Message: "ok"}))).
-			To(Equal(test.Response{ID: 2, Message: "ok"}))
+		Expect(
+			MustSucceed(client.Send(ctx, addr, testutil.Request{ID: 2, Message: "ok"})),
+		).
+			To(Equal(testutil.Response{ID: 2, Message: "ok"}))
 	})
 })

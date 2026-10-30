@@ -75,7 +75,6 @@ var _ = Describe("Control", func() {
 					g, t := MustSucceed2(c.OpenGate(cfg))
 					Expect(t.Occurred()).To(BeTrue())
 					Expect(t.IsAcquire()).To(BeTrue())
-					Expect(t.IsTransfer()).To(BeFalse())
 					Expect(createCount()).To(Equal(1))
 					Expect(g).ToNot(BeNil())
 					Expect(g.Authority()).To(Equal(xcontrol.AuthorityAbsolute))
@@ -141,7 +140,6 @@ var _ = Describe("Control", func() {
 					Expect(g3).To(BeNil())
 					Expect(t3.Occurred()).To(BeFalse())
 					Expect(count3()).To(Equal(0))
-					Expect(err).To(HaveOccurred())
 					Expect(
 						err,
 					).To(MatchError(ContainSubstring("encountered multiple control regions")))
@@ -253,7 +251,6 @@ var _ = Describe("Control", func() {
 					Expect(t.Occurred()).To(BeFalse())
 					Expect(g1).To(BeNil())
 					Expect(t.Occurred()).To(BeFalse())
-					Expect(err).To(HaveOccurred())
 					Expect(
 						err,
 					).To(MatchError(ContainSubstring("overlaps with a controlled region")))
@@ -302,7 +299,6 @@ var _ = Describe("Control", func() {
 					Expect(createCount()).To(Equal(1))
 					Expect(t.Occurred()).To(BeTrue())
 					Expect(t.IsAcquire()).To(BeTrue())
-					Expect(t.IsTransfer()).To(BeFalse())
 					v := MustSucceed(g.Authorize())
 					Expect(v.value).To(Equal(10))
 				})
@@ -314,7 +310,6 @@ var _ = Describe("Control", func() {
 					Expect(createCount()).To(Equal(1))
 					Expect(t.Occurred()).To(BeTrue())
 					Expect(t.IsAcquire()).To(BeTrue())
-					Expect(t.IsTransfer()).To(BeFalse())
 					v := MustSucceed(g.Authorize())
 					Expect(v.value).To(Equal(10))
 				})
@@ -418,7 +413,8 @@ var _ = Describe("Control", func() {
 							cfg2.Authority = xcontrol.AuthorityAbsolute
 							g2, t := MustSucceed2(c.OpenGate(cfg2))
 							Expect(t.Occurred()).To(BeTrue())
-							Expect(t.IsTransfer()).To(BeTrue())
+							Expect(t.From).ToNot(BeNil())
+							Expect(t.To).ToNot(BeNil())
 							Expect(t.From.Subject.Key).To(Equal("g1"))
 							Expect(t.To.Subject.Key).To(Equal("g2"))
 
@@ -582,7 +578,8 @@ var _ = Describe("Control", func() {
 
 							v, t := g1.Release()
 							Expect(t.Occurred()).To(BeTrue())
-							Expect(t.IsTransfer()).To(BeTrue())
+							Expect(t.From).ToNot(BeNil())
+							Expect(t.To).ToNot(BeNil())
 							Expect(v.value).To(Equal(1))
 							Expect(g1.Authorize()).Error().
 								To(MatchError(xcontrol.ErrUnauthorized))
@@ -611,7 +608,8 @@ var _ = Describe("Control", func() {
 
 							v, t := g1.Release()
 							Expect(t.Occurred()).To(BeTrue())
-							Expect(t.IsTransfer()).To(BeTrue())
+							Expect(t.From).ToNot(BeNil())
+							Expect(t.To).ToNot(BeNil())
 							Expect(v.value).To(Equal(1))
 						})
 					})
@@ -675,7 +673,8 @@ var _ = Describe("Control", func() {
 
 								t = g2.SetAuthority(xcontrol.AuthorityAbsolute)
 								Expect(t.Occurred()).To(BeTrue())
-								Expect(t.IsTransfer()).To(BeTrue())
+								Expect(t.From).ToNot(BeNil())
+								Expect(t.To).ToNot(BeNil())
 
 								v, t := g1.Release()
 								Expect(t.Occurred()).To(BeFalse())
@@ -716,7 +715,6 @@ var _ = Describe("Control", func() {
 
 							v, t = g2.Release()
 							Expect(t.Occurred()).To(BeTrue())
-							Expect(t.IsTransfer()).To(BeFalse())
 							Expect(t.IsRelease()).To(BeTrue())
 							Expect(v.value).To(Equal(1))
 						})
@@ -733,7 +731,6 @@ var _ = Describe("Control", func() {
 						g1, t := MustSucceed2(c.OpenGate(cfg1))
 						Expect(t.Occurred()).To(BeTrue())
 						Expect(t.IsAcquire()).To(BeTrue())
-						Expect(t.IsTransfer()).To(BeFalse())
 						Expect(t.From).To(BeNil())
 						Expect(t.To).ToNot(BeNil())
 						Expect(t.To.Subject.Key).To(Equal("g1"))
@@ -743,7 +740,8 @@ var _ = Describe("Control", func() {
 						cfg2.Authority = xcontrol.AuthorityAbsolute - 1
 						g2, t := MustSucceed2(c.OpenGate(cfg2))
 						Expect(t.Occurred()).To(BeTrue())
-						Expect(t.IsTransfer()).To(BeTrue())
+						Expect(t.From).ToNot(BeNil())
+						Expect(t.To).ToNot(BeNil())
 						Expect(t.From.Subject.Key).To(Equal("g1"))
 						Expect(t.To.Subject.Key).To(Equal("g2"))
 
@@ -758,7 +756,8 @@ var _ = Describe("Control", func() {
 						cfg3.Authority = xcontrol.AuthorityAbsolute
 						g3, t := MustSucceed2(c.OpenGate(cfg3))
 						Expect(t.Occurred()).To(BeTrue())
-						Expect(t.IsTransfer()).To(BeTrue())
+						Expect(t.From).ToNot(BeNil())
+						Expect(t.To).ToNot(BeNil())
 						Expect(t.From.Subject.Key).To(Equal("g2"))
 						Expect(t.To.Subject.Key).To(Equal("g3"))
 
@@ -782,7 +781,6 @@ var _ = Describe("Control", func() {
 						g1, t := MustSucceed2(c.OpenGate(cfg1))
 						Expect(t.Occurred()).To(BeTrue())
 						Expect(t.IsAcquire()).To(BeTrue())
-						Expect(t.IsTransfer()).To(BeFalse())
 						Expect(t.From).To(BeNil())
 						Expect(t.To).ToNot(BeNil())
 						Expect(t.To.Subject.Key).To(Equal("g1"))
@@ -852,7 +850,8 @@ var _ = Describe("Control", func() {
 
 								v, t := g1.Release()
 								Expect(t.Occurred()).To(BeTrue())
-								Expect(t.IsTransfer()).To(BeTrue())
+								Expect(t.From).ToNot(BeNil())
+								Expect(t.To).ToNot(BeNil())
 								Expect(t.From.Subject.Key).To(Equal("g1"))
 								Expect(t.To.Subject.Key).To(Equal("g2"))
 								Expect(v.value).To(Equal(1))
@@ -904,7 +903,8 @@ var _ = Describe("Control", func() {
 
 								v, t := g1.Release()
 								Expect(t.Occurred()).To(BeTrue())
-								Expect(t.IsTransfer()).To(BeTrue())
+								Expect(t.From).ToNot(BeNil())
+								Expect(t.To).ToNot(BeNil())
 								Expect(t.From.Subject.Key).To(Equal("g1"))
 								Expect(t.To.Subject.Key).To(Equal("g3"))
 								Expect(v.value).To(Equal(1))
@@ -956,7 +956,8 @@ var _ = Describe("Control", func() {
 
 								v, t := g1.Release()
 								Expect(t.Occurred()).To(BeTrue())
-								Expect(t.IsTransfer()).To(BeTrue())
+								Expect(t.From).ToNot(BeNil())
+								Expect(t.To).ToNot(BeNil())
 								Expect(t.From.Subject.Key).To(Equal("g1"))
 								Expect(t.To.Subject.Key).To(Equal("g2"))
 								Expect(v.value).To(Equal(1))

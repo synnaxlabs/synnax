@@ -139,6 +139,9 @@ func (s *streamer[I, O]) Flow(sCtx signal.Context, opts ...confluence.Option) {
 				}
 				s.keys = set.New(s.translateRequest(req).Channels...)
 			case rf := <-frames.Outlet():
+				if !s.applyPendingRequests() {
+					return nil
+				}
 				if filtered := rf.frame.KeepKeys(s.keys); !filtered.Empty() {
 					if err := signal.SendUnderContext(
 						ctx,
@@ -153,4 +156,21 @@ func (s *streamer[I, O]) Flow(sCtx signal.Context, opts ...confluence.Option) {
 			}
 		}
 	}, o.Signal...)
+}
+
+// applyPendingRequests applies every key update already sent, so a frame written after
+// a request was sent is filtered with the new keys. It returns false when the request
+// stream is closed.
+func (s *streamer[I, O]) applyPendingRequests() bool {
+	for {
+		select {
+		case req, ok := <-s.In.Outlet():
+			if !ok {
+				return false
+			}
+			s.keys = set.New(s.translateRequest(req).Channels...)
+		default:
+			return true
+		}
+	}
 }

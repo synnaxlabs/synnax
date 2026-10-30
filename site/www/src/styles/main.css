@@ -9,12 +9,12 @@
  * included in the file licenses/APL.txt.
  */
 
-@layer reset, pluto, base;
+@layer reset, lyra, base;
 
-/* Lyra's component CSS arrives through each module's own import and lands in the
- * same layer through the PostCSS plugin in astro.config.ts. */
+/* Lyra's component CSS arrives through each module's own import and lands in
+ * lyra.components, above lyra.base, through the PostCSS plugin in astro.config.ts. */
 @import url("./reset.css") layer(reset);
-@import url("@synnaxlabs/lyra/dist/base.css") layer(pluto);
-@import url("@synnaxlabs/lyra/dist/theme-dark.css") layer(pluto);
+@import url("@synnaxlabs/lyra/dist/base.css") layer(lyra.base);
+@import url("@synnaxlabs/lyra/dist/theme-dark.css") layer(lyra.base);
 @import url("@synnaxlabs/site-common/base.css") layer(base);
 @import url("./base.css") layer(base);

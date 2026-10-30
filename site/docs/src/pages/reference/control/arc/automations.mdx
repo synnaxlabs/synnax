@@ -1,0 +1,140 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Arc automations"
+description: "Create, run, edit, and delete Arc automations in the Console."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Video } from "@/components/media/Media";
+import { Edition } from "@/components/edition";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+An Arc automation holds Arc code or a graph of blocks, and the Driver that runs it. You
+create, start, and edit automations in the Console. The Arcs toolbar lists them all. To
+learn what Arc is and where it can run, see the [Arc overview](/reference/control/arc).
+
+<Edition.Enterprise>
+
+Your role decides what you can do:
+
+- **Owner**, **Engineer**, and **Driver** can do all the tasks on this page.
+- **Operator** can open automations, and start and stop them from the editor, but cannot
+  choose a Driver.
+- **Viewer** can open automations and see their status.
+
+See [users and roles](/reference/enterprise/users#roles).
+
+</Edition.Enterprise>
+
+<Divider.Divider x />
+
+## Create an Arc automation
+
+1. In the left nav, click **Arcs** (<Icon.Arc />), or press **A**.
+2. In the Arcs toolbar, click **Create Arc automation** (<Icon.Add />).
+3. Type a name, and select an **Editor mode**:
+   - **Text** -> Write Arc code. Use it for sequences and for automations with many
+     conditions.
+   - **Graph** -> Connect blocks. See
+     [graph editor](/reference/control/arc/graph-editor).
+4. Click **Create**.
+
+The editor opens. You cannot change the editor mode later. You can also run the "Create
+Arc automation" command from the
+[command palette](/reference/get-started/ui-overview#search-and-command-palette).
+
+<Video id="control/arc/get-started/create-automation" />
+
+<Divider.Divider x />
+
+## Choose where it runs
+
+In the controls bar at the bottom of the editor, open the **Driver** list and select a
+Driver. The list shows only Drivers that can run Arc. To decide between the Core and a
+Driver, see
+[where an Arc automation runs](/reference/control/arc#where-an-arc-automation-runs).
+
+You cannot start an automation until you choose a Driver. To move a running automation
+to a different Driver, select the Driver, then click **Redeploy**.
+
+<Divider.Divider x />
+
+## Set the performance level
+
+In the controls bar, open the performance list next to the **Driver** list, and select
+**Auto**, **Low**, **Medium**, or **High**. A higher level holds timers closer to their
+deadlines and uses more CPU. To choose a level, see
+[performance levels](/reference/control/arc/timing#performance-levels).
+
+You can select a level only after you choose a Driver. A running automation keeps its
+old level until you click **Redeploy**. A redeploy starts the automation again from the
+start.
+
+<Divider.Divider x />
+
+## Start and stop an automation
+
+1. In the controls bar, click **Start** (<Icon.Play />). The status changes to "Started
+   task".
+2. To stop it, click **Stop** (<Icon.Stop />).
+
+You can also start and stop an automation from its entry in the Arcs toolbar.
+
+<Divider.Divider x />
+
+## Edit a running automation
+
+The editor saves each change as you type, and other users see it at once. A running
+automation keeps the code it started with until you redeploy it:
+
+1. Edit the code or the graph. A **Redeploy** button shows in the controls bar.
+2. Click **Redeploy**.
+
+The automation starts again with the new code. Its variables go back to their first
+values, and each sequence starts again. Stop and start also run the latest code.
+
+<Divider.Divider x />
+
+## Rename, copy a link, or delete an automation
+
+Right-click an automation in the Arcs toolbar, and select **Rename**, **Copy link** (not
+in Synnax Desktop), or **Delete**.
+
+Delete stops the automation. If its tab is open, the tab offers **Restore**, which
+brings back the code but not the Driver choice. The restored automation is stopped.
+
+<Divider.Divider x />
+
+## Find an automation
+
+The Arcs toolbar lists every automation. To search by name, click **Open Arc explorer**
+in the toolbar. Double-click an automation to open it.
+
+<Divider.Divider x />
+
+## Export and import an automation
+
+To save an automation as a JSON file, click **Export layout** in the component toolbar.
+To import a file, run the "Import components" command from the command palette.
+
+<Divider.Divider x />
+
+## Status messages
+
+The controls bar shows the status of the automation. Click the status to see its time,
+its full description, and **Copy diagnostics**.
+
+| Status                    | Meaning                                                                        |
+| ------------------------- | ------------------------------------------------------------------------------ |
+| Task not deployed         | The automation has not started since you created it or chose its Driver.       |
+| Started task              | The automation runs.                                                           |
+| Stopped task              | You stopped the automation.                                                    |
+| Node failed               | A part of the automation had a problem, and the automation keeps running.      |
+| Failed to run Arc program | A part of the automation had an error on a Driver, and the automation stopped. |
+| Failed to configure task  | The code did not compile. The description shows the line and the problem.      |
+
+For what to do about an error, see [errors](/reference/control/arc/reference/errors).
+For how the Core and a Driver handle errors, see
+[errors while it runs](/reference/control/arc/execution-model#errors-while-it-runs).

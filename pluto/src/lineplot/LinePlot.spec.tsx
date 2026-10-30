@@ -34,7 +34,7 @@ import { range } from "@/lineplot/range/aether";
 import { Ranger } from "@/ranger";
 import { renderHookSuspended } from "@/testutil/render";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
-import { canvasTest } from "@/vis/render/test";
+import { canvasTest } from "@/vis/render/testutil";
 
 const client = createTestClient();
 
@@ -62,13 +62,18 @@ const Probe = ({ plotKey }: { plotKey: string }): ReactElement => {
     <>
       <button onClick={undo}>Undo</button>
       <div data-testid="y1">{channels.join(",")}</div>
-      <div data-testid="x1-ranges">{ranges.x1.join(",")}</div>
+      <div data-testid="ranges">
+        {ranges.map((r) => (r.variant === "key" ? r.key : "")).join(",")}
+      </div>
     </>
   );
 };
 
 const LINE: lineplotClient.Line = {
   key: "line",
+  yAxis: "y1",
+  yChannel: 1,
+  xChannel: 0,
   color: color.construct("#00aaff"),
   strokeWidth: 2,
   aggregation: "min_max",
@@ -169,20 +174,20 @@ describe("LinePlot", () => {
     onViewportChange.mock.calls.filter(([e]) => e.mode === "zoomReset").length;
 
   describe("range drop", () => {
-    it("should add a range dropped on the plot area to the first X axis", async () => {
+    it("should add a range dropped on the plot area to the plot", async () => {
       const { drop, getByTestId } = await renderPlot([
         Ranger.createHaulItem(rng.payload),
       ]);
       drop();
-      await waitFor(() => expect(getByTestId("x1-ranges").textContent).toBe(rng.key));
+      await waitFor(() => expect(getByTestId("ranges").textContent).toBe(rng.key));
     });
 
-    it("should add a range dropped on an X axis to that axis", async () => {
+    it("should add a range dropped on an X axis to the plot", async () => {
       const { drop, xAxis, getByTestId } = await renderPlot([
         Ranger.createHaulItem(rng.payload),
       ]);
       drop(xAxis);
-      await waitFor(() => expect(getByTestId("x1-ranges").textContent).toBe(rng.key));
+      await waitFor(() => expect(getByTestId("ranges").textContent).toBe(rng.key));
     });
 
     it("should add the channels and the ranges of one drop", async () => {
@@ -194,7 +199,7 @@ describe("LinePlot", () => {
       drop();
       await waitFor(() => {
         expect(getByTestId("y1").textContent).toBe(String(first.key));
-        expect(getByTestId("x1-ranges").textContent).toBe(rng.key);
+        expect(getByTestId("ranges").textContent).toBe(rng.key);
       });
     });
 
@@ -205,11 +210,11 @@ describe("LinePlot", () => {
         Ranger.createHaulItem(rng.payload),
       ]);
       drop();
-      await waitFor(() => expect(getByTestId("x1-ranges").textContent).toBe(rng.key));
+      await waitFor(() => expect(getByTestId("ranges").textContent).toBe(rng.key));
       fireEvent.click(getByText("Undo"));
       await waitFor(() => {
         expect(getByTestId("y1").textContent).toBe("");
-        expect(getByTestId("x1-ranges").textContent).toBe("");
+        expect(getByTestId("ranges").textContent).toBe("");
       });
     });
 
@@ -220,7 +225,7 @@ describe("LinePlot", () => {
       );
       drop();
       await expect(
-        waitFor(() => expect(getByTestId("x1-ranges").textContent).not.toBe(""), {
+        waitFor(() => expect(getByTestId("ranges").textContent).not.toBe(""), {
           timeout: 300,
         }),
       ).rejects.toThrow();

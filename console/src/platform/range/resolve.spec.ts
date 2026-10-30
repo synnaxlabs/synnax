@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
+import { TimeRange, TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -67,7 +67,31 @@ describe("Range.useResolveMultiple", () => {
           variant: "persisted",
           key: created.key,
           name: created.name,
-          timeRange: created.timeRange.numeric,
+          timeRange: created.timeRange,
+        },
+      ]),
+    );
+  });
+
+  it("should keep the exact bounds of a Core range", async () => {
+    // A float64 holds this start only to the nearest 256 ns.
+    const start = new TimeStamp(TimeStamp.now().valueOf() + 1n);
+    const end = start.add(TimeSpan.seconds(10));
+    const created = await client.ranges.create({
+      name: uniqueRangeName(),
+      timeRange: new TimeRange(start, end),
+    });
+    const { result } = await renderResolveMultiple(
+      Session.Range.fromClient(created.payload),
+      [created.key],
+    );
+    await waitFor(() =>
+      expect(result.current).toEqual([
+        {
+          variant: "persisted",
+          key: created.key,
+          name: created.name,
+          timeRange: new TimeRange(start, end),
         },
       ]),
     );
@@ -107,7 +131,7 @@ describe("Range.useResolveMultiple", () => {
           variant: "persisted",
           key: created.key,
           name: created.name,
-          timeRange: created.timeRange.numeric,
+          timeRange: created.timeRange,
         },
       ]),
     );

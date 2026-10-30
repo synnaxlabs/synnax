@@ -1,0 +1,257 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Activate a license"
+description:
+  "Get a license from the Synnax portal, activate it on a Synnax Core, and renew it."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Note } from "@/components/note";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+A Synnax Core needs a license. A Core without a license starts, but it answers only
+login, the connectivity check, and license requests. It refuses all other requests until
+you activate a license, and the Console shows an activation screen.
+
+You get licenses from the Synnax portal at
+[portal.synnaxlabs.com](https://portal.synnaxlabs.com). A license is bound to the
+computer that the Core runs on. The license key holds the fingerprint of that computer:
+hashes of the MAC addresses of its network hardware. The Core checks the key on its own
+and needs no internet access. Only the portal needs internet access, and you can use it
+from any computer.
+
+To activate or replace a license, log in to the Core as a user with the **Owner** role.
+Synnax Desktop gets its own license when you log in to it. A Desktop license works only
+in Synnax Desktop.
+
+<Divider.Divider x />
+
+## Get a portal account
+
+Synnax Labs creates the organization of your company on the portal, and invites its
+admin by email. To get a license,
+[contact Synnax Labs](https://www.synnaxlabs.com/#contact).
+
+1. Open the invitation email and accept the invitation.
+2. Make your account with your email address, or log in with Google or Microsoft.
+
+The portal shows the licenses of your organization. To give a teammate access, open
+**Members** and click **Invite**.
+
+<Divider.Divider x />
+
+## Activate from the Console
+
+When you log in to a Core without a license, the Console shows **This Core needs a
+license**. When the license has expired, it shows **This Core's license has expired**.
+
+1. Log in to the Core.
+2. Click **Activate on the portal**, or **Get a new key on the portal** when the license
+   has expired. The portal opens with the machine filled in. Log in to your Synnax
+   account.
+3. Select the license, and enter a **Machine name**.
+4. Click **Activate**.
+
+The Console gets the license key from the portal and opens your projects. The Core
+stores the key, so it stays active after a restart. Each machine uses one seat of the
+license. A machine that you activate again keeps its seat.
+
+If someone else in your company manages the licenses, click **Copy link** and send them
+the link. Keep the activation screen open. When they activate the machine, the Console
+gets the key on its own.
+
+If the Console cannot reach the portal, the portal shows the key when you finish. Click
+**Copy key**, paste the key on the activation screen, and click **Activate**. Or click
+**Download key file**, and load the file with <Icon.Attachment /> on the activation
+screen.
+
+<Divider.Divider x />
+
+## Activate at start
+
+Use this method for a Core that no one logs in to, or a Core started with `--mem`, which
+keeps nothing between runs.
+
+1. Start the Core. Its log prints an activation link that starts with
+   `https://portal.synnaxlabs.com/licenses/activate`.
+2. Open the link on any computer. Select the license, check the **Machine name**, and
+   click **Activate**. If the log prints a fingerprint instead of a link, open
+   `https://portal.synnaxlabs.com/licenses/activate`, click **Enter a fingerprint
+   instead**, and paste the fingerprint.
+3. Click **Download key file**, and copy the file to the computer of the Core. Then
+   start the Core with the key file:
+
+   ```bash
+   synnax start --listen=synnax.example.com:9090 \
+     --license-file=/usr/local/synnax/synnax.lic
+   ```
+
+   Or put the key in the `SYNNAX_LICENSE_KEY` environment variable. The `--license-key`
+   flag also works, but it shows the key in the process list. When both a key and a file
+   are given, the key wins.
+
+<Note.Note variant="warning">
+  The Core activates the key from the flag, file, or environment variable at every
+  start. When you renew a license or move a Core, replace the key file or variable too.
+</Note.Note>
+
+If the Core refuses the key, it logs `refused the license key passed at startup` and the
+reason, such as "the license was not issued for this machine" or "invalid license". The
+Core then starts with the keys that it stored. If none of them applies, it starts
+without a license.
+
+<Divider.Divider x />
+
+## Check the license
+
+Run the "Show license info" command. The dialog shows:
+
+| Field           | Values                                                                  |
+| --------------- | ----------------------------------------------------------------------- |
+| Status          | **Active**, **Expiring**, **Expired**, or **Inactive**                  |
+| Machines        | Runs on any machine, Bound to this machine, or Bound to another machine |
+| Channels        | **Unlimited**, or the number of channels for each Core                  |
+| Expires or Term | The expiry date, or **Perpetual**                                       |
+
+When the license is about to expire, the Core badge in the status bar shows a warning
+too.
+
+To read the license from a script, log in, then call the retrieve endpoint:
+
+```bash
+TOKEN=$(curl -s -X POST https://synnax.example.com:9090/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"synnax","password":"seldon"}' | jq -r .token)
+curl -s -X POST https://synnax.example.com:9090/api/v1/license/retrieve \
+  -H "Content-Type: application/json" -H "Authorization: Bearer $TOKEN" -d '{}'
+```
+
+The response has `state` (`ok`, `missing`, or `expired`), `warning`, `fingerprint`, and
+`license`.
+
+<Divider.Divider x />
+
+## Renew or replace a license
+
+The Console shows the activation screen only when the Core refuses requests. To put a
+new key on a running Core:
+
+1. Run the "Show license info" command.
+2. Under **Update the license**, click **Get a new key on the portal**, and activate the
+   machine on the portal. The Console gets the new key on its own. Or paste a key, and
+   click **Activate**.
+
+A Core that gets its key at start activates that key again at every start. On the
+portal, open the menu of the machine and select **Download license key**. Replace the
+key file or the `SYNNAX_LICENSE_KEY` value with the new key, then restart the Core.
+
+When a Core holds more than one key, it uses a key that applies to the computer, and the
+newest of those.
+
+### Move a Core to a different computer
+
+A license has a fixed number of seats, and each machine uses one. To move a Core:
+
+1. On the portal, open the menu of the old machine and select **Release seat**.
+2. Activate the license for the new computer, then give the Core the new key.
+
+<Divider.Divider x />
+
+## Numeric license keys
+
+Core 0.60 and later accept only signed license keys from the portal. They refuse the old
+numeric keys, such as `######-########-##########`, with "numeric license keys are no
+longer accepted".
+
+Get a signed license key from the portal before you upgrade a Core to 0.60. After the
+upgrade, you cannot go back to 0.59, because Core 0.60 migrates the stored data. If you
+are not ready to change your key, stay on Core 0.59.
+
+To get the key while the Core still runs 0.59:
+
+1. In the Console, run the "Show license info" command, and click **Copy fingerprint**.
+2. Open `https://portal.synnaxlabs.com/licenses/activate`, click **Enter a fingerprint
+   instead**, and paste the fingerprint. Select the license, enter a **Machine name**,
+   click **Activate**, and then click **Download key file**.
+3. Upgrade the Core, and start it with `--license-file`. Or load the `.lic` file on the
+   activation screen of the Console.
+
+<Divider.Divider x />
+
+## Other setups
+
+### Docker
+
+The fingerprint comes from the network hardware (MAC) addresses of the computer. Docker
+gives each new container a random address, so the fingerprint changes when you recreate
+the container. Start the container with a fixed, locally administered address:
+
+```bash
+docker run --name synnax --mac-address 02:5a:00:00:00:01 ...
+```
+
+The license is bound to the `--mac-address`, so keep the same address when you recreate
+or upgrade the container. With `--network host`, the container uses the addresses of the
+host instead.
+
+### Kubernetes and CI
+
+Pods and CI runners get new network hardware addresses each time they start. For them,
+ask Synnax Labs for a floating license, which runs on any machine. Keep the key in a
+secret, and give it to the Core in the `SYNNAX_LICENSE_KEY` environment variable.
+
+On Kubernetes, create the secret:
+
+```bash
+kubectl create secret generic synnax-license --from-file=key=synnax.lic
+```
+
+Then add the variable to the container of the Core:
+
+```yaml
+env:
+  - name: SYNNAX_LICENSE_KEY
+    valueFrom:
+      secretKeyRef:
+        name: synnax-license
+        key: key
+```
+
+In CI, store the key as a secret of the pipeline, and set `SYNNAX_LICENSE_KEY` from it
+in the step that starts the Core.
+
+### Computers with no internet access
+
+The Core does not need internet access to check its license. To activate a Core on a
+computer with no internet access:
+
+1. On the activation screen of the Console, click **Copy link**. Or copy the activation
+   link from the log of the Core.
+2. On a different computer with internet access, open the link and activate the machine,
+   as in [activate at start](#activate-at-start). Then click **Download key file**.
+3. Copy the `.lic` file to the computer of the Core, for example with a USB drive.
+4. Give the key to the Core from the Console, or with `--license-file`.
+
+<Divider.Divider x />
+
+## Expiry
+
+1. **7 days before the expiry date** -> the Console warns: "license expires on ..."
+2. **Up to 14 days after the expiry date** -> the license still applies, with a warning
+   that names the end of the grace period.
+3. **After the grace period** -> a license with a version cap still covers Core versions
+   up to the cap. Otherwise the Core refuses requests and the Console shows **This
+   Core's license has expired**.
+
+The Core checks the term when it starts and when a key is activated. A running Core does
+not stop when its license expires. It keeps its license state until its next restart. If
+the system clock is more than 24 hours behind the last time the Core recorded, the Core
+cannot check the term and treats a license with an expiry date as expired.
+
+### Channel limit
+
+A license can set a limit on the number of channels. Virtual channels do not count. Past
+the limit, creating a channel fails with "using more channels than allowed by the
+license", and channels created past the limit cannot be read.

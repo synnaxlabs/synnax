@@ -16,14 +16,21 @@ from playwright.sync_api import Locator
 import synnax as sy
 from console.base import ResourceClient
 from console.layout import LayoutClient
+from console.notifications import NotificationsClient
 
 
 def fill_configure(
-    modal: Locator, *, name: str, identifier: str, action: str = "Save"
+    modal: Locator,
+    *,
+    notifications: NotificationsClient,
+    name: str,
+    identifier: str,
+    action: str = "Save",
 ) -> None:
     """Fill the open configure form of a device and submit it.
 
     :param modal: The modal that shows the form.
+    :param notifications: The notifications of the page that shows the modal.
     :param name: Name of the device.
     :param identifier: Prefix for the channels of the device.
     :param action: The submit button, "Save" or "Save and create read task".
@@ -31,6 +38,8 @@ def fill_configure(
     # A required field's label ends in an asterisk.
     modal.get_by_label(re.compile(r"^Name\b")).fill(name)
     modal.get_by_label(re.compile(r"^Identifier\b")).fill(identifier)
+    # Toasts stack over the modal footer and swallow the click.
+    notifications.close_all()
     modal.get_by_role("button", name=action, exact=True).click()
 
 
@@ -40,7 +49,7 @@ class DevicesClient(ResourceClient):
     RACK_PREFIX = "rack:"
     DEVICE_PREFIX = "device:"
 
-    def __init__(self, layout: LayoutClient, client: sy.Synnax):
+    def __init__(self, *, layout: LayoutClient, client: sy.Synnax):
         super().__init__(layout)
         self.client = client
 
@@ -223,9 +232,9 @@ class DevicesClient(ResourceClient):
             status_icon = item.locator("svg.pluto-rack__heartbeat")
         status_icon.wait_for(state="visible", timeout=2000)
         status_icon.hover()
-        # A tooltip from a previously hovered item lingers with pluto--closing
+        # A tooltip from a previously hovered item lingers with lyra--closing
         # while it fades out, so exclude it to keep the lookup unambiguous.
-        tooltip = self.layout.page.locator(".pluto-tooltip:not(.pluto--closing)")
+        tooltip = self.layout.page.locator(".lyra-tooltip:not(.lyra--closing)")
         tooltip.wait_for(state="visible", timeout=5000)
         message = tooltip.inner_text().strip()
         if is_device:
@@ -318,9 +327,7 @@ class DevicesClient(ResourceClient):
             parent = self.get(parent_name)
             if not self.tree.is_expanded(parent):
                 self.tree.expand(parent)
-            names = self.tree.get_children_names(
-                parent, self.DEVICE_PREFIX, parent_name
-            )
+            names = self.tree.list_nested_names(parent, prefix=self.DEVICE_PREFIX)
             if names:
                 return names
             self.layout.page.wait_for_timeout(200)
@@ -339,7 +346,7 @@ class DevicesClient(ResourceClient):
     def get_icon(self, name: str) -> str | None:
         """Get the icon type rendered for a device in the tree.
 
-        The icon's class list contains ``pluto-icon--logo-{make}``.
+        The icon's class list contains ``lyra-icon--logo-{make}``.
 
         :param name: Name of the device.
         :returns: The make slug (e.g. ``"ni"``, ``"labjack"``), or ``None``
@@ -347,12 +354,12 @@ class DevicesClient(ResourceClient):
         """
         device_item = self.get(name)
         icon = device_item.locator(
-            "svg.pluto-icon:not(.pluto-tree__expansion-indicator)"
+            "svg.lyra-icon:not(.lyra-tree__expansion-indicator)"
         ).first
         if icon.count() == 0:
             return None
         classes = icon.get_attribute("class") or ""
-        prefix = "pluto-icon--logo-"
+        prefix = "lyra-icon--logo-"
         idx = classes.find(prefix)
         if idx == -1:
             return None
@@ -376,7 +383,12 @@ class DevicesClient(ResourceClient):
         self.show_toolbar()
         self.ctx_menu.action(self.get(name), "Configure")
         self.modal.wait_for(state="visible", timeout=5000)
-        fill_configure(self.modal, name=device_name, identifier=identifier)
+        fill_configure(
+            self.modal,
+            notifications=self.layout.notifications,
+            name=device_name,
+            identifier=identifier,
+        )
         self.modal.wait_for(state="hidden", timeout=5000)
 
     @property
@@ -387,8 +399,8 @@ class DevicesClient(ResourceClient):
         """Open the connect picker from the "+" action of the toolbar."""
         self.show_toolbar()
         self.layout.page.locator(
-            ".console-nav__drawer.pluto--visible "
-            ".console-toolbar__action:has(.pluto-icon--add)"
+            ".console-nav__drawer.lyra--visible "
+            ".console-toolbar__action:has(.lyra-icon--add)"
         ).click(timeout=5000)
         self.modal.wait_for(state="visible", timeout=5000)
 
@@ -400,7 +412,7 @@ class DevicesClient(ResourceClient):
 
     def pick_integration(self, title: str) -> None:
         """Pick an integration, such as "NI hardware", in the open connect picker."""
-        self.modal.locator(".pluto-pane__button").filter(
+        self.modal.locator(".lyra-pane__button").filter(
             has_text=re.compile(f"^{re.escape(title)}")
         ).click(timeout=5000)
 
@@ -413,9 +425,16 @@ class DevicesClient(ResourceClient):
         self.layout.notifications.close_all()
         self.modal.get_by_role("button", name="Connect", exact=True).click(timeout=5000)
 
+    def fill_connect_serial(self, *, name: str, serial_port: str) -> None:
+        """Fill the open connect form of a serial device and click Connect."""
+        self.modal.get_by_label("Name", exact=True).fill(name)
+        self.modal.get_by_label(re.compile(r"^Serial port\b")).fill(serial_port)
+        self.layout.notifications.close_all()
+        self.modal.get_by_role("button", name="Connect", exact=True).click(timeout=5000)
+
     def found(self, name: str) -> Locator:
         """The item of a device in the open find view."""
-        return self.modal.locator(".pluto-pane__item").filter(has_text=name)
+        return self.modal.locator(".lyra-pane__item").filter(has_text=name)
 
     def configure_found(
         self, name: str, *, device_name: str, identifier: str, action: str = "Save"
@@ -431,7 +450,11 @@ class DevicesClient(ResourceClient):
             timeout=5000
         )
         fill_configure(
-            self.modal, name=device_name, identifier=identifier, action=action
+            self.modal,
+            notifications=self.layout.notifications,
+            name=device_name,
+            identifier=identifier,
+            action=action,
         )
 
     def copy_properties(self, name: str) -> dict[str, object]:
