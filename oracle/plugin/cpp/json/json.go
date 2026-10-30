@@ -329,7 +329,7 @@ func (p *Plugin) processStruct(
 		data.AddSystem("type_traits")
 	}
 
-	if resolver.CanUseInheritance(form, data.table) {
+	if resolver.CanUseInheritance(form, "cpp", data.table) {
 		serializer.HasExtends = true
 		for _, extendsRef := range form.Extends {
 			parent, ok := extendsRef.Resolve(data.table)
@@ -918,10 +918,14 @@ func (p *Plugin) toJSONExprForField(
 				if field.Optional {
 					src = "*" + src
 				}
-				// JSON object keys are strings, and obj[key] with an integer key indexes
+				// JSON object keys are strings, and obj[key] with an integer key
+				// indexes
 				// an array.
 				key := "key"
-				if resolution.PrimitiveBase(mapRef.TypeArgs[0], data.table) != "string" {
+				if resolution.PrimitiveBase(
+					mapRef.TypeArgs[0],
+					data.table,
+				) != "string" {
 					data.AddSystem("string")
 					key = "std::to_string(key)"
 				}
