@@ -19,8 +19,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 // closeOnCleanup fails b if err is not nil and closes v when b finishes.
