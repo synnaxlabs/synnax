@@ -15,6 +15,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"path"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -23,7 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
 	"github.com/synnaxlabs/synnax/pkg/security/cert/auto"
 	"github.com/synnaxlabs/synnax/pkg/security/cert/file"
-	"github.com/synnaxlabs/synnax/pkg/security/mock"
+	"github.com/synnaxlabs/synnax/pkg/security/testutil"
 	"github.com/synnaxlabs/synnax/pkg/server"
 	"github.com/synnaxlabs/x/address"
 	xfs "github.com/synnaxlabs/x/io/fs"
@@ -33,14 +34,14 @@ import (
 var _ = Describe("MultiListener", func() {
 	It("Should present each listener's own certificate", func() {
 		fs := xfs.NewMem()
-		mock.GenerateCerts(fs)
+		testutil.GenerateCerts(fs)
 		prov := MustSucceed(security.NewProvider(security.ProviderConfig{
 			FS:       fs,
 			Insecure: new(false),
 		}))
 		ca := MustSucceed(cert.NewFactory(cert.FactoryConfig{
 			FS:      fs,
-			KeySize: mock.SmallKeySize,
+			KeySize: testutil.SmallKeySize,
 		}))
 		srcA := MustSucceed(auto.NewSource(ca, "hostA:1"))
 		srcB := MustSucceed(auto.NewSource(ca, "hostB:1"))
@@ -61,21 +62,21 @@ var _ = Describe("MultiListener", func() {
 
 	It("Should serve certificates a client verifies with the trust anchor", func() {
 		fs := xfs.NewMem()
-		mock.GenerateCerts(fs)
+		testutil.GenerateCerts(fs)
 		prov := MustSucceed(security.NewProvider(security.ProviderConfig{
 			FS:       fs,
 			Insecure: new(false),
 		}))
 		ca := MustSucceed(cert.NewFactory(cert.FactoryConfig{
 			FS:      fs,
-			KeySize: mock.SmallKeySize,
+			KeySize: testutil.SmallKeySize,
 		}))
 		l := MustSucceed(cert.NewLoader(cert.LoaderConfig{FS: fs}))
 		autoSrc := MustSucceed(auto.NewSource(ca, "localhost:0"))
 		fileSrc := MustSucceed(file.NewSource(
 			fs,
-			l.Config().AbsoluteNodeCertPath(),
-			l.Config().AbsoluteNodeKeyPath(),
+			cert.DefaultLoaderConfig.AbsoluteNodeCertPath(),
+			cert.DefaultLoaderConfig.AbsoluteNodeKeyPath(),
 		))
 		s := MustSucceed(server.Serve(server.Config{
 			Listeners: []server.Listener{
@@ -93,7 +94,7 @@ var _ = Describe("MultiListener", func() {
 		// The node certificate anchors only itself, so on its own it cannot verify the
 		// separate certificate the auto source signs for its listener.
 		nodeOnly := certPool(
-			MustSucceed(readFile(fs, l.Config().AbsoluteNodeCertPath())),
+			MustSucceed(readFile(fs, cert.DefaultLoaderConfig.AbsoluteNodeCertPath())),
 		)
 		Expect(handshake(s.Addresses()[0], nodeOnly)).
 			To(MatchError(ContainSubstring("certificate signed by unknown authority")))
@@ -102,25 +103,25 @@ var _ = Describe("MultiListener", func() {
 
 	It("Should serve a node certificate an unrelated CA did not sign", func() {
 		fs := xfs.NewMem()
-		mock.GenerateCerts(fs)
+		testutil.GenerateCerts(fs)
 		l := MustSucceed(cert.NewLoader(cert.LoaderConfig{FS: fs}))
 		// Stand in for a Core whose node certificate came from outside, leaving a CA on
 		// disk that signed nothing the listeners serve.
 		foreign := xfs.NewMem()
-		mock.GenerateCerts(foreign)
-		foreignL := MustSucceed(cert.NewLoader(cert.LoaderConfig{FS: foreign}))
-		writeFile(fs, l.Config().AbsoluteCACertPath(), MustSucceed(readFile(
-			foreign,
-			foreignL.Config().AbsoluteCACertPath(),
-		)))
+		testutil.GenerateCerts(foreign)
+		caCertPath := path.Join(
+			cert.DefaultLoaderConfig.CertsDir,
+			cert.DefaultLoaderConfig.CACertPath,
+		)
+		writeFile(fs, caCertPath, MustSucceed(readFile(foreign, caCertPath)))
 		prov := MustSucceed(security.NewProvider(security.ProviderConfig{
 			FS:       fs,
 			Insecure: new(false),
 		}))
 		src := MustSucceed(file.NewSource(
 			fs,
-			l.Config().AbsoluteNodeCertPath(),
-			l.Config().AbsoluteNodeKeyPath(),
+			cert.DefaultLoaderConfig.AbsoluteNodeCertPath(),
+			cert.DefaultLoaderConfig.AbsoluteNodeKeyPath(),
 		))
 		s := MustSucceed(server.Serve(server.Config{
 			Listeners: []server.Listener{

@@ -45,7 +45,12 @@ export default defineConfig({
     exclude: ["**/node_modules/**", "**/dist/**"],
     coverage: {
       include: ["src/**/*.ts", "src/**/*.tsx"],
-      exclude: ["src/**/*.spec.ts", "src/**/*.spec.tsx", "src/**/*.bench.ts"],
+      exclude: [
+        "src/**/*.spec.ts",
+        "src/**/*.spec.tsx",
+        "src/**/*.bench.ts",
+        "src/**/*.gen.ts",
+      ],
     },
   },
 });

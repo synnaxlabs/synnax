@@ -194,10 +194,10 @@ const Internal = (): ReactElement => {
         <Base.Header>
           <Flex.Box x align="center">
             <Breadcrumb.Breadcrumb level="h5">
-              <Breadcrumb.Segment weight={500} color={10} level="h5">
+              <Base.TitleSegment>
                 <Icon.Schematic />
                 {name}
-              </Breadcrumb.Segment>
+              </Base.TitleSegment>
               {singleSelectedName !== null && (
                 <Breadcrumb.Segment weight={400} color={9} level="small">
                   {singleSelectedName}

@@ -88,7 +88,7 @@ def repo(tmp_path: Path) -> Repo:
     return Repo(tmp_path / "repo")
 
 
-def clang_format(repo: Repo, body: str) -> None:
+def clang_format(repo: Repo, *, body: str) -> None:
     """Puts scripts/clang_format.sh and a clang-format that runs body on PATH."""
     shutil.copy(ROOT / "scripts/clang_format.sh", repo.path / "scripts")
     bin = repo.path.parent / "bin"
@@ -192,13 +192,13 @@ class TestFix:
         assert not repo.header("b.sh")
 
     def test_should_pass_cpp_file_names_whole(self, repo: Repo) -> None:
-        clang_format(repo, 'for f in "${@:2}"; do echo \'// ok\' >> "$f"; done')
+        clang_format(repo, body='for f in "${@:2}"; do echo \'// ok\' >> "$f"; done')
         repo.write("a b.cpp", "int a;\n")
         assert repo.fix("a b.cpp").returncode == 0
         assert (repo.path / "a b.cpp").read_text().endswith("// ok\n")
 
     def test_should_fail_when_clang_format_fails(self, repo: Repo) -> None:
-        clang_format(repo, "exit 1")
+        clang_format(repo, body="exit 1")
         repo.write("a.cpp", "int a;\n")
         assert repo.fix("a.cpp").returncode != 0
 

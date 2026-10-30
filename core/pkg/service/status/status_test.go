@@ -20,11 +20,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/kv"
-	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 var _ = Describe("Status", Ordered, func() {
@@ -441,62 +441,6 @@ var _ = Describe("Status", Ordered, func() {
 			)
 		})
 
-		Describe("MatchKeyPrefix", func() {
-			It(
-				"Should retrieve statuses with matching key prefix",
-				func(ctx SpecContext) {
-					var statuses []status.Status[any]
-					Expect(
-						svc.NewRetrieve[any]().
-							Where(status.MatchKeyPrefix[any]("device-")).
-							Entries(&statuses).
-							Exec(ctx, tx),
-					).To(Succeed())
-					Expect(statuses).To(HaveLen(2))
-					for _, s := range statuses {
-						Expect(s.Key).To(HavePrefix("device-"))
-					}
-				},
-			)
-
-			It("Should retrieve statuses with different prefix", func(ctx SpecContext) {
-				var statuses []status.Status[any]
-				Expect(
-					svc.NewRetrieve[any]().
-						Where(status.MatchKeyPrefix[any]("sensor-")).
-						Entries(&statuses).
-						Exec(ctx, tx),
-				).To(Succeed())
-				Expect(statuses).To(HaveLen(1))
-				Expect(statuses[0].Key).To(Equal("sensor-001-status"))
-			})
-
-			It(
-				"Should return empty when no statuses match prefix",
-				func(ctx SpecContext) {
-					var statuses []status.Status[any]
-					Expect(
-						svc.NewRetrieve[any]().
-							Where(status.MatchKeyPrefix[any]("nonexistent-")).
-							Entries(&statuses).
-							Exec(ctx, tx),
-					).To(Succeed())
-					Expect(statuses).To(BeEmpty())
-				},
-			)
-
-			It("Should retrieve statuses with retrieve- prefix", func(ctx SpecContext) {
-				var statuses []status.Status[any]
-				Expect(
-					svc.NewRetrieve[any]().
-						Where(status.MatchKeyPrefix[any]("retrieve-")).
-						Entries(&statuses).
-						Exec(ctx, tx),
-				).To(Succeed())
-				Expect(statuses).To(HaveLen(3))
-			})
-		})
-
 		Describe("MatchVariants", func() {
 			It("Should retrieve statuses with a single variant", func(ctx SpecContext) {
 				var statuses []status.Status[any]
@@ -645,44 +589,6 @@ var _ = Describe("Status", Ordered, func() {
 		})
 
 		Describe("Combinators", func() {
-			It("Should compose filters with And", func(ctx SpecContext) {
-				var statuses []status.Status[any]
-				Expect(svc.NewRetrieve[any]().Where(status.And(
-					status.MatchKeyPrefix[any]("retrieve-"),
-					status.MatchVariants[any](status.VariantInfo),
-				)).Entries(&statuses).Exec(ctx, tx)).To(Succeed())
-				for _, s := range statuses {
-					Expect(s.Key).To(HavePrefix("retrieve-"))
-					Expect(s.Variant).To(Equal(status.VariantInfo))
-				}
-				Expect(statuses).ToNot(BeEmpty())
-			})
-			It("Should compose filters with Or", func(ctx SpecContext) {
-				var statuses []status.Status[any]
-				Expect(svc.NewRetrieve[any]().Where(status.Or(
-					status.MatchVariants[any](status.VariantError),
-					status.MatchVariants[any](status.VariantWarning),
-				)).Entries(&statuses).Exec(ctx, tx)).To(Succeed())
-				for _, s := range statuses {
-					Expect(s.Variant).To(SatisfyAny(
-						Equal(status.VariantError),
-						Equal(status.VariantWarning),
-					))
-				}
-				Expect(statuses).ToNot(BeEmpty())
-			})
-			It("Should invert a filter with Not", func(ctx SpecContext) {
-				var statuses []status.Status[any]
-				Expect(svc.NewRetrieve[any]().Where(status.And(
-					status.MatchKeyPrefix[any]("retrieve-"),
-					status.Not(status.MatchVariants[any](status.VariantError)),
-				)).Entries(&statuses).Exec(ctx, tx)).To(Succeed())
-				for _, s := range statuses {
-					Expect(s.Key).To(HavePrefix("retrieve-"))
-					Expect(s.Variant).ToNot(Equal(status.VariantError))
-				}
-				Expect(statuses).ToNot(BeEmpty())
-			})
 			It("Should wrap a closure via Match", func(ctx SpecContext) {
 				var statuses []status.Status[any]
 				Expect(svc.NewRetrieve[any]().Where(

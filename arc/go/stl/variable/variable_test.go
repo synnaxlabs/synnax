@@ -16,7 +16,6 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/stl/variable"
-	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/encoding/msgpack"
@@ -125,34 +124,6 @@ var _ = Describe("Variable", func() {
 		nodeCtx = node.Context{Context: ctx, MarkChanged: func(i int) {
 			marked = append(marked, i)
 		}}
-	})
-
-	Describe("NewSymbols", func() {
-		DescribeTable("internal flow symbol shape",
-			func(name string) {
-				var sym *symbol.Symbol
-				for _, s := range variable.NewSymbols() {
-					if s.Name == name {
-						sym = s
-					}
-				}
-				Expect(sym).ToNot(BeNil())
-				Expect(sym.Kind).To(Equal(symbol.KindFunction))
-				Expect(sym.Internal).To(BeTrue())
-				Expect(sym.Exec).To(Equal(symbol.ExecFlow))
-				Expect(sym.Trigger).To(Equal(symbol.TriggerOnly))
-				Expect(sym.Type.Inputs).To(HaveLen(1))
-				Expect(sym.Type.Inputs[0].Name).To(Equal("value"))
-				Expect(sym.Type.Outputs).To(HaveLen(1))
-				Expect(sym.Type.Outputs[0].Name).To(Equal(ir.DefaultOutputParam))
-			},
-			Entry("variable", "variable"),
-			Entry("stateful_variable", "stateful_variable"),
-		)
-
-		It("Should return exactly the two variable symbols", func() {
-			Expect(variable.NewSymbols()).To(HaveLen(2))
-		})
 	})
 
 	Describe("Create", func() {

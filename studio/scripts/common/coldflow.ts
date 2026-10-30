@@ -58,10 +58,10 @@ export const startColdflow = async (
   await capture.closeToolbar(session);
   await session.settle(500);
   const arcTab = page
-    .locator(".console-mosaic .pluto-tabs__tab")
+    .locator(".console-mosaic .lyra-tabs__tab")
     .filter({ hasText: "Ox Coldflow" })
     .first();
-  const bar = await fuel.locator(".pluto-tabs__selector").first().boundingBox();
+  const bar = await fuel.locator(".lyra-tabs__selector").first().boundingBox();
   if (bar == null) throw new Error("the fuel plot's tab bar is not on screen");
   await session.drag(arcTab, { x: bar.x + bar.width * 0.5, y: bar.y + bar.height / 2 });
   await session.settle(1500);
@@ -144,7 +144,7 @@ export const operationsLayout = async (
 export const openOperator = async (session: capture.CaptureSession): Promise<void> => {
   const { page } = session;
   const drawer = page
-    .locator(".console-nav__drawer.pluto--visible.pluto--location-bottom")
+    .locator(".console-nav__drawer.lyra--visible.lyra--location-bottom")
     .first();
   // The legend switch shows only while editing, and taking control ends editing.
   await session.click(page.getByText(PANEL, { exact: true }).first());
