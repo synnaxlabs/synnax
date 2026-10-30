@@ -9,22 +9,31 @@
 
 import { DataType, type lineplot, type ranger } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { dynamicWindow, TimeSpan } from "@synnaxlabs/x";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { dynamicWindow, staticWindow, TimeRange, TimeSpan } from "@synnaxlabs/x";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { client, renderLinePlot } from "@/feature/lineplot/testutil";
 import { Toolbar } from "@/feature/lineplot/toolbar";
-import { uniqueName } from "@/testutil";
-
-const PLACEHOLDER = "1h 30min";
+import { createTestRange } from "@/platform/range/testutil";
+import { Session } from "@/session";
+import { assertDefined, findTagCloseButton, uniqueName } from "@/testutil";
 
 // A separate client reads what the Core saved, not the rendering client's cache.
 const reader = createTestClient();
 
-const renderData = async (ranges?: lineplot.New["ranges"]) => {
+const renderData = async (
+  ranges?: lineplot.New["ranges"],
+  favorites: Session.Range.State[] = [],
+) => {
   const handle = await renderLinePlot(Toolbar, {
     linePlot: ranges === undefined ? {} : { ranges },
+    preloadedState: () => ({
+      [Session.Range.SLICE_NAME]: {
+        ...Session.Range.ZERO_SLICE_STATE,
+        ranges: favorites,
+      },
+    }),
   });
   await screen.findByText("Ranges");
   return handle;
@@ -35,44 +44,183 @@ const rolling = (span: TimeSpan): ranger.Ref => ({
   window: dynamicWindow(span),
 });
 
-// No session range spans two hours, so the plot shows this window as the custom entry.
-const CUSTOM_SELECTED: lineplot.New["ranges"] = [rolling(TimeSpan.hours(2))];
+const label = (span: TimeSpan): string => span.toString();
+
+const openSearch = (): HTMLElement => {
+  fireEvent.click(screen.getByRole("button", { name: "Ranges" }));
+  return screen.getByPlaceholderText("Search favorites or type a duration");
+};
+
+const search = (term: string): void => {
+  fireEvent.change(openSearch(), { target: { value: term } });
+};
+
+// The rolling window's tag shows its span too, so a preset is told apart by its toggle.
+const clickPreset = (span: TimeSpan): void => {
+  const preset = screen
+    .getAllByRole("button", { name: label(span) })
+    .find((b) => b.hasAttribute("aria-pressed"));
+  assertDefined(preset);
+  fireEvent.click(preset);
+};
+
+const findOption = (text: string): HTMLElement | undefined =>
+  screen.queryAllByRole("option").find((o) => o.textContent?.includes(text));
+
+const expectRanges = async (key: string, ranges: ranger.Ref[]): Promise<void> =>
+  await waitFor(async () =>
+    expect((await reader.lineplots.retrieve(key)).ranges).toEqual(ranges),
+  );
+
+const FIVE_MIN = TimeSpan.minutes(5);
+const FORTY_FIVE_MIN = TimeSpan.minutes(45);
 
 describe("lineplot/toolbar/Data", () => {
-  it("hides the custom range input when every window has a session range", async () => {
-    await renderData([rolling(TimeSpan.minutes(1))]);
-    expect(screen.queryByPlaceholderText(PLACEHOLDER)).toBeNull();
-  });
+  describe("rolling window", () => {
+    it("lists the presets as a row, apart from the favorites", async () => {
+      await renderData([]);
+      openSearch();
+      expect(screen.getByRole("button", { name: label(FIVE_MIN) })).toBeDefined();
+      expect(screen.queryAllByRole("option")).toHaveLength(0);
+    });
 
-  it("shows the custom range input for a window no session range shows", async () => {
-    await renderData(CUSTOM_SELECTED);
-    expect(await screen.findByPlaceholderText(PLACEHOLDER)).toBeDefined();
-  });
+    it("keeps one window, replacing it with the next preset picked", async () => {
+      const { key } = await renderData([]);
+      openSearch();
+      clickPreset(FIVE_MIN);
+      await expectRanges(key, [rolling(FIVE_MIN)]);
+      clickPreset(TimeSpan.hours(1));
+      await expectRanges(key, [rolling(TimeSpan.hours(1))]);
+    });
 
-  it("persists a parsed duration to the server", async () => {
-    const { key } = await renderData(CUSTOM_SELECTED);
-    const input = await screen.findByPlaceholderText(PLACEHOLDER);
-    fireEvent.change(input, { target: { value: "45m" } });
-    fireEvent.blur(input);
-    await waitFor(async () => {
-      const plot = await reader.lineplots.retrieve(key);
-      expect(plot.ranges).toEqual([rolling(TimeSpan.minutes(45))]);
+    it("keeps the other ranges when the window changes", async () => {
+      const created = await createTestRange(client);
+      const persisted: ranger.Ref = { variant: "key", key: created.key };
+      const { key } = await renderData([persisted, rolling(FIVE_MIN)]);
+      openSearch();
+      clickPreset(TimeSpan.hours(1));
+      await expectRanges(key, [persisted, rolling(TimeSpan.hours(1))]);
+    });
+
+    it("clears the window when its preset is clicked again", async () => {
+      const { key } = await renderData([rolling(FIVE_MIN)]);
+      openSearch();
+      clickPreset(FIVE_MIN);
+      await expectRanges(key, []);
+    });
+
+    it("offers a typed window when the search is a duration", async () => {
+      await renderData([]);
+      search("45m");
+      expect(findOption("45m")).toBeDefined();
+    });
+
+    it("offers no typed window when the search is not a duration", async () => {
+      await renderData([]);
+      const input = openSearch();
+      fireEvent.change(input, { target: { value: "banana" } });
+      expect(screen.queryAllByRole("option")).toHaveLength(0);
+      fireEvent.change(input, { target: { value: "0s" } });
+      expect(screen.queryAllByRole("option")).toHaveLength(0);
+    });
+
+    it("sets the window to the typed span", async () => {
+      const { key } = await renderData([rolling(FIVE_MIN)]);
+      search("1h 30m");
+      const option = findOption("1h 30m");
+      assertDefined(option);
+      fireEvent.click(option);
+      await expectRanges(key, [rolling(TimeSpan.minutes(90))]);
+    });
+
+    it("sets the window to the typed span with Enter", async () => {
+      const { key } = await renderData([]);
+      search("2w");
+      act(() => {
+        fireEvent.keyDown(window, { code: "Enter" });
+      });
+      await expectRanges(key, [rolling(TimeSpan.days(14))]);
+    });
+
+    it("clears the window from the typed option that matches it", async () => {
+      const { key } = await renderData([rolling(FORTY_FIVE_MIN)]);
+      search("45m");
+      const option = findOption("45m");
+      assertDefined(option);
+      expect(option.getAttribute("aria-selected")).toBe("true");
+      fireEvent.click(option);
+      await expectRanges(key, []);
+    });
+
+    it("edits the window from its tag", async () => {
+      const { key } = await renderData([rolling(FORTY_FIVE_MIN)]);
+      fireEvent.click(await screen.findByText(label(FORTY_FIVE_MIN)));
+      const field = screen.getByRole("textbox");
+      fireEvent.change(field, { target: { value: "10m" } });
+      fireEvent.keyDown(field, { key: "Enter" });
+      await expectRanges(key, [rolling(TimeSpan.minutes(10))]);
+    });
+
+    it("clears the window when its tag is closed", async () => {
+      const { key } = await renderData([rolling(FORTY_FIVE_MIN)]);
+      await screen.findByText(label(FORTY_FIVE_MIN));
+      fireEvent.click(screen.getByRole("button", { name: "Remove" }));
+      await expectRanges(key, []);
     });
   });
 
-  it("keeps the stored window when the input is unparseable", async () => {
-    const { key } = await renderData(CUSTOM_SELECTED);
-    const input = await screen.findByPlaceholderText(PLACEHOLDER);
-    fireEvent.change(input, { target: { value: "45m" } });
-    fireEvent.blur(input);
-    await waitFor(async () => {
-      const plot = await reader.lineplots.retrieve(key);
-      expect(plot.ranges).toEqual([rolling(TimeSpan.minutes(45))]);
+  describe("favorites", () => {
+    it("adds a favorite the session owns as a static window", async () => {
+      const favorite: Session.Range.StaticState = {
+        variant: "static",
+        key: "3a7b9c1d-5e2f-4a6b-8c0d-2e4f6a8b0c1d",
+        name: "Hot fire",
+        timeRange: { start: 1_000_000_000, end: 3_000_000_000 },
+      };
+      const { key } = await renderData([], [favorite]);
+      openSearch();
+      fireEvent.click(await screen.findByText("Hot fire"));
+      await expectRanges(key, [
+        {
+          variant: "window",
+          window: staticWindow(new TimeRange(1_000_000_000, 3_000_000_000)),
+        },
+      ]);
     });
-    fireEvent.change(input, { target: { value: "banana" } });
-    fireEvent.blur(input);
-    const plot = await reader.lineplots.retrieve(key);
-    expect(plot.ranges).toEqual([rolling(TimeSpan.minutes(45))]);
+
+    it("adds a favorite the Core holds as a key reference", async () => {
+      const created = await createTestRange(client);
+      const { key } = await renderData([], Session.Range.fromClient(created.payload));
+      openSearch();
+      fireEvent.click(await screen.findByText(created.name));
+      await expectRanges(key, [{ variant: "key", key: created.key }]);
+    });
+
+    it("names a key reference's tag after the Core range", async () => {
+      const created = await createTestRange(client);
+      await renderData([{ variant: "key", key: created.key }]);
+      expect(await screen.findByText(created.name)).toBeDefined();
+    });
+  });
+
+  it("marks a range the Core deleted and removes it when its tag is closed", async () => {
+    const created = await createTestRange(client);
+    await client.ranges.delete(created.key);
+    const { key } = await renderData([{ variant: "key", key: created.key }]);
+    await screen.findByText("Deleted range");
+    fireEvent.click(findTagCloseButton("Deleted range"));
+    await expectRanges(key, []);
+  });
+
+  it("removes a static window when its tag is closed", async () => {
+    const { key } = await renderData([
+      {
+        variant: "window",
+        window: staticWindow(new TimeRange(1_000_000_000, 2_000_000_000)),
+      },
+    ]);
+    fireEvent.click(await screen.findByRole("button", { name: "Remove" }));
+    await expectRanges(key, []);
   });
 
   it("clears the X channel with the clear button on its icon", async () => {
@@ -90,39 +238,5 @@ describe("lineplot/toolbar/Data", () => {
       expect(plot.channels.x1).toBe(0);
     });
     expect(screen.queryByLabelText(`Clear ${index.name}`)).toBeNull();
-  });
-
-  it("keeps the stored window when the input is zero", async () => {
-    const { key } = await renderData(CUSTOM_SELECTED);
-    const input = await screen.findByPlaceholderText(PLACEHOLDER);
-    fireEvent.change(input, { target: { value: "45m" } });
-    fireEvent.blur(input);
-    await waitFor(async () => {
-      const plot = await client.lineplots.retrieve(key);
-      expect(plot.ranges).toEqual([rolling(TimeSpan.minutes(45))]);
-    });
-    fireEvent.change(input, { target: { value: "0s" } });
-    fireEvent.blur(input);
-    const plot = await client.lineplots.retrieve(key);
-    expect(plot.ranges).toEqual([rolling(TimeSpan.minutes(45))]);
-  });
-
-  it("stores a custom span equal to a selected range once", async () => {
-    const { key } = await renderData([
-      rolling(TimeSpan.hours(1)),
-      rolling(TimeSpan.hours(2)),
-    ]);
-    const input = await screen.findByPlaceholderText(PLACEHOLDER);
-    fireEvent.change(input, { target: { value: "1h" } });
-    fireEvent.blur(input);
-    await waitFor(async () => {
-      const plot = await reader.lineplots.retrieve(key);
-      expect(plot.ranges).toEqual([rolling(TimeSpan.hours(1))]);
-    });
-  });
-
-  it("displays the stored rolling window", async () => {
-    await renderData([rolling(TimeSpan.minutes(45))]);
-    expect(await screen.findByDisplayValue("45min")).toBeDefined();
   });
 });
