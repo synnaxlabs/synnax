@@ -75,12 +75,14 @@ class TestModuleDir:
     ) -> None:
         (tmp_path / "app/src/kv/deep").mkdir(parents=True)
         (tmp_path / "app/src/kv/index.ts").touch()
-        assert module_dir(tmp_path, "app/src/kv/deep/a.ts") == tmp_path / "app/src/kv"
+        assert (
+            module_dir(tmp_path, file="app/src/kv/deep/a.ts") == tmp_path / "app/src/kv"
+        )
 
     def test_should_stop_at_the_source_root(self, tmp_path: Path) -> None:
         (tmp_path / "app/src/kv").mkdir(parents=True)
         (tmp_path / "app/index.ts").touch()
-        assert module_dir(tmp_path, "app/src/kv/a.ts") == tmp_path / "app/src/kv"
+        assert module_dir(tmp_path, file="app/src/kv/a.ts") == tmp_path / "app/src/kv"
 
 
 def report(*names: tuple[str, str]) -> str:
@@ -111,7 +113,9 @@ class TestCheck:
             "knip",
             lambda _, *args: outputs.get(args[0], trace),
         )
-        assert check(repo) == [Finding("app/src/kv/kv.ts", 1, "MemoryKV")]
+        assert check(repo) == [
+            Finding(path="app/src/kv/kv.ts", line=1, name="MemoryKV")
+        ]
 
     @pytest.mark.parametrize(
         ("export", "user", "flagged"),
@@ -160,5 +164,5 @@ class TestCheck:
             "knip",
             lambda _, *args: outputs.get(args[0], trace),
         )
-        expected = [Finding(export, 1, "MemoryKV")] if flagged else []
+        expected = [Finding(path=export, line=1, name="MemoryKV")] if flagged else []
         assert check(repo) == expected

@@ -120,7 +120,7 @@ def _pure_tsconvert(
     output_precision: TimeSpanUnits | None,
     ctx: Context,
 ) -> None:
-    reader = prompt_new_reader(ctx, input_path)
+    reader = prompt_new_reader(ctx, path=input_path)
     if reader is None:
         return
     input_path = reader.path()
@@ -181,7 +181,9 @@ def _pure_tsconvert(
             for chunk in reader:
                 t0 = time.perf_counter()
                 converted = convert_time_units(
-                    chunk[input_channel].to_numpy(), input_precision, output_precision
+                    chunk[input_channel].to_numpy(),
+                    _from=input_precision,
+                    to=output_precision,
                 )
                 chunk[output_channel] = converted
                 writer.write(chunk)

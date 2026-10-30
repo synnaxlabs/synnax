@@ -21,7 +21,7 @@ export const selectItem = async (
   text: string,
 ): Promise<void> => {
   const item = session.page
-    .locator(".pluto-list__item:not(.pluto-tree__item)")
+    .locator(".lyra-list__item:not(.lyra-tree__item)")
     .filter({ has: session.page.getByText(text, { exact: true }) })
     .first();
   await session.waitFor(item);

@@ -85,10 +85,3 @@ func (s *ProgramState) Clear() {
 	clear(s.strings)
 	s.counter = 1
 }
-
-// Reset removes all strings including literal strings.
-func (s *ProgramState) Reset() {
-	s.Clear()
-	clear(s.literalStrings)
-	s.literalStringCounter = literalHandleBase
-}

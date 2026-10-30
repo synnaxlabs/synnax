@@ -49,7 +49,7 @@ class PanelsClient:
     @property
     def create_button(self) -> Locator:
         """The strip's create button, also a drop target for mosaic tabs."""
-        return self.strip.locator("button:has(.pluto-icon--add)").first
+        return self.strip.locator("button:has(.lyra-icon--add)").first
 
     def create(self) -> None:
         """Create a panel and wait for its pill to appear selected."""
@@ -67,7 +67,7 @@ class PanelsClient:
     def rename(self, old_name: str, new_name: str) -> None:
         """Rename a panel through the strip's context menu."""
         self.ctx_menu.action(self.pill(old_name), "Rename")
-        editable = self.page.locator(".pluto-text--editable[contenteditable='true']")
+        editable = self.page.locator(".lyra-text--editable[contenteditable='true']")
         editable.wait_for(state="visible", timeout=5000)
         editable.fill(new_name)
         self.page.keyboard.press("Enter")
@@ -81,7 +81,7 @@ class PanelsClient:
         self.layout.confirm_delete()
         self.layout.wait_for_hidden(pill)
 
-    def reorder(self, name: str, target: str) -> None:
+    def reorder(self, name: str, *, target: str) -> None:
         """Drag the pill for ``name`` onto the pill for ``target``."""
         self.layout.drag(self.pill(name), self.pill(target))
 

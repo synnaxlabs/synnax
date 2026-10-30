@@ -13,7 +13,13 @@ import (
 	"github.com/synnaxlabs/gorp"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v0"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v2"
+	v3 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v3"
 )
 
 // Migrations is the ordered migration chain for stored logs.
-var Migrations = []gorp.Migration{v0.NormalizeKeys, v0.Migration, v2.Migration}
+var Migrations = []gorp.Migration{
+	v0.NormalizeKeys,
+	v0.Migration,
+	v2.Migration,
+	v3.Migration,
+}

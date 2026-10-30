@@ -11,7 +11,11 @@ from ..constants import ExcCodes
 from . import SimDevice
 
 class SimCore:
+    devices: dict[int, object]
     def __init__(self, devices: SimDevice | list[SimDevice]) -> None: ...
+    async def async_getValues(
+        self, device_id: int, func_code: int, address: int, count: int = 1
+    ) -> list[int] | list[bool] | ExcCodes: ...
     async def async_setValues(
         self,
         device_id: int,

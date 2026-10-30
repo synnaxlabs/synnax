@@ -96,105 +96,6 @@ var _ = Describe("Raw", func() {
 		})
 	})
 
-	Describe("SkipBool", func() {
-		It("Should skip 1 byte", func() {
-			data := orc.Raw([]byte{1, 42})
-			rest := data.SkipBool()
-			v, _ := rest.ReadUint8()
-			Expect(v).To(Equal(uint8(42)))
-		})
-	})
-
-	Describe("SkipUint16", func() {
-		It("Should skip 2 bytes", func() {
-			data := orc.Raw([]byte{0, 1, 42})
-			rest := data.SkipUint16()
-			v, _ := rest.ReadUint8()
-			Expect(v).To(Equal(uint8(42)))
-		})
-	})
-
-	Describe("SkipUint32", func() {
-		It("Should skip 4 bytes", func() {
-			data := orc.Raw([]byte{0, 0, 0, 1, 42})
-			rest := data.SkipUint32()
-			v, _ := rest.ReadUint8()
-			Expect(v).To(Equal(uint8(42)))
-		})
-	})
-
-	Describe("SkipUint64", func() {
-		It("Should skip 8 bytes", func() {
-			data := orc.Raw([]byte{0, 0, 0, 0, 0, 0, 0, 1, 42})
-			rest := data.SkipUint64()
-			v, _ := rest.ReadUint8()
-			Expect(v).To(Equal(uint8(42)))
-		})
-	})
-
-	Describe("SkipUint8", func() {
-		It("Should skip 1 byte", func() {
-			data := orc.Raw([]byte{99, 42})
-			rest := data.SkipUint8()
-			v, _ := rest.ReadUint8()
-			Expect(v).To(Equal(uint8(42)))
-		})
-	})
-
-	Describe("SkipInt8", func() {
-		It("Should skip 1 byte", func() {
-			data := orc.Raw([]byte{0xFF, 42})
-			rest := data.SkipInt8()
-			v, _ := rest.ReadUint8()
-			Expect(v).To(Equal(uint8(42)))
-		})
-	})
-
-	Describe("SkipInt16", func() {
-		It("Should skip 2 bytes", func() {
-			data := orc.Raw([]byte{0xFF, 0x00, 42})
-			rest := data.SkipInt16()
-			v, _ := rest.ReadUint8()
-			Expect(v).To(Equal(uint8(42)))
-		})
-	})
-
-	Describe("SkipInt32", func() {
-		It("Should skip 4 bytes", func() {
-			data := orc.Raw([]byte{0, 0, 0, 1, 42})
-			rest := data.SkipInt32()
-			v, _ := rest.ReadUint8()
-			Expect(v).To(Equal(uint8(42)))
-		})
-	})
-
-	Describe("SkipInt64", func() {
-		It("Should skip 8 bytes", func() {
-			data := orc.Raw([]byte{0, 0, 0, 0, 0, 0, 0, 1, 42})
-			rest := data.SkipInt64()
-			v, _ := rest.ReadUint8()
-			Expect(v).To(Equal(uint8(42)))
-		})
-	})
-
-	Describe("SkipFloat32", func() {
-		It("Should skip 4 bytes", func() {
-			data := orc.Raw([]byte{0, 0, 0, 0, 42})
-			rest := data.SkipFloat32()
-			v, _ := rest.ReadUint8()
-			Expect(v).To(Equal(uint8(42)))
-		})
-	})
-
-	Describe("SkipFloat64", func() {
-		It("Should skip 8 bytes", func() {
-			data := orc.Raw([]byte{0, 0, 0, 0, 0, 0, 0, 0, 42})
-			rest := data.SkipFloat64()
-			v, _ := rest.ReadUint8()
-			Expect(v).To(Equal(uint8(42)))
-		})
-	})
-
 	Describe("ReadUint8", func() {
 		It("Should return nil rest on empty data", func() {
 			_, rest := orc.Raw(nil).ReadUint8()
@@ -251,20 +152,6 @@ var _ = Describe("Raw", func() {
 		})
 	})
 
-	Describe("ReadBool", func() {
-		It("Should read a boolean", func() {
-			v, rest := orc.Raw([]byte{1, 0}).ReadBool()
-			Expect(v).To(BeTrue())
-			v, _ = rest.ReadBool()
-			Expect(v).To(BeFalse())
-		})
-
-		It("Should return nil rest on empty data", func() {
-			_, rest := orc.Raw(nil).ReadBool()
-			Expect(rest).To(BeNil())
-		})
-	})
-
 	Describe("ReadUint16", func() {
 		It("Should read a big-endian uint16", func() {
 			buf := make([]byte, 3)
@@ -298,58 +185,6 @@ var _ = Describe("Raw", func() {
 		})
 	})
 
-	Describe("ReadInt8", func() {
-		It("Should read a signed int8", func() {
-			v, _ := orc.Raw([]byte{0xFF}).ReadInt8()
-			Expect(v).To(Equal(int8(-1)))
-		})
-	})
-
-	Describe("ReadInt16", func() {
-		It("Should read a signed int16", func() {
-			w := orc.NewWriter(0)
-			w.Int16(-256)
-			v, _ := orc.Raw(w.Bytes()).ReadInt16()
-			Expect(v).To(Equal(int16(-256)))
-		})
-	})
-
-	Describe("ReadInt32", func() {
-		It("Should read a signed int32", func() {
-			w := orc.NewWriter(0)
-			w.Int32(-65536)
-			v, _ := orc.Raw(w.Bytes()).ReadInt32()
-			Expect(v).To(Equal(int32(-65536)))
-		})
-	})
-
-	Describe("ReadInt64", func() {
-		It("Should read a signed int64", func() {
-			w := orc.NewWriter(0)
-			w.Int64(-1)
-			v, _ := orc.Raw(w.Bytes()).ReadInt64()
-			Expect(v).To(Equal(int64(-1)))
-		})
-	})
-
-	Describe("ReadFloat32", func() {
-		It("Should read a float32", func() {
-			w := orc.NewWriter(0)
-			w.Float32(3.14)
-			v, _ := orc.Raw(w.Bytes()).ReadFloat32()
-			Expect(v).To(BeNumerically("~", float32(3.14), 1e-6))
-		})
-	})
-
-	Describe("ReadFloat64", func() {
-		It("Should read a float64", func() {
-			w := orc.NewWriter(0)
-			w.Float64(2.718281828)
-			v, _ := orc.Raw(w.Bytes()).ReadFloat64()
-			Expect(v).To(BeNumerically("~", 2.718281828, 1e-9))
-		})
-	})
-
 	Describe("Mixed field navigation", func() {
 		It("Should navigate a record with mixed field types", func() {
 			w := orc.NewWriter(0)
@@ -360,8 +195,7 @@ var _ = Describe("Raw", func() {
 
 			r := orc.Raw(w.Bytes())
 			r = r.SkipString()
-			r = r.SkipUint16()
-			r = r.SkipBool()
+			r = r.Skip(3)
 			val, rest := r.ReadString()
 			Expect(string(val)).To(Equal("target"))
 			Expect(rest).To(BeEmpty())
