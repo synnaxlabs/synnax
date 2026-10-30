@@ -151,8 +151,9 @@ inline ReadConfig ReadConfig::parse(x::json::Parser parser) {
 
 inline x::json::json ReadConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::task::PersistConfig::to_json().items())
-        j[k] = v;
+    if (const auto parent = ::synnax::task::PersistConfig::to_json();
+        parent.is_object())
+        j.update(parent);
     j["device"] = this->device;
     j["rate"] = this->rate;
     j["endpoints"] = x::json::to_array(this->endpoints);
@@ -263,8 +264,8 @@ inline WriteConfig WriteConfig::parse(x::json::Parser parser) {
 
 inline x::json::json WriteConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::task::StartConfig::to_json().items())
-        j[k] = v;
+    if (const auto parent = ::synnax::task::StartConfig::to_json(); parent.is_object())
+        j.update(parent);
     j["device"] = this->device;
     j["endpoints"] = x::json::to_array(this->endpoints);
     return j;
@@ -280,8 +281,8 @@ inline ScanConfig ScanConfig::parse(x::json::Parser parser) {
 
 inline x::json::json ScanConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::task::ScanConfig::to_json().items())
-        j[k] = v;
+    if (const auto parent = ::synnax::task::ScanConfig::to_json(); parent.is_object())
+        j.update(parent);
     return j;
 }
 
@@ -296,8 +297,8 @@ inline StaticWriteField StaticWriteField::parse(x::json::Parser parser) {
 
 inline x::json::json StaticWriteField::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseWriteField::to_json().items())
-        j[k] = v;
+    if (const auto parent = BaseWriteField::to_json(); parent.is_object())
+        j.update(parent);
     j["json_type"] = this->json_type;
     j["value"] = this->value;
     j["type"] = this->type;
@@ -315,8 +316,8 @@ inline GeneratedWriteField GeneratedWriteField::parse(x::json::Parser parser) {
 
 inline x::json::json GeneratedWriteField::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseWriteField::to_json().items())
-        j[k] = v;
+    if (const auto parent = BaseWriteField::to_json(); parent.is_object())
+        j.update(parent);
     j["generator"] = this->generator;
     j["time_format"] = this->time_format;
     j["type"] = this->type;

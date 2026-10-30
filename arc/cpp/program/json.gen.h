@@ -30,10 +30,10 @@ inline Program Program::parse(x::json::Parser parser) {
 
 inline x::json::json Program::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::arc::ir::IR::to_json().items())
-        j[k] = v;
-    for (auto &[k, v]: ::arc::compiler::Output::to_json().items())
-        j[k] = v;
+    if (const auto parent = ::arc::ir::IR::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = ::arc::compiler::Output::to_json(); parent.is_object())
+        j.update(parent);
     return j;
 }
 

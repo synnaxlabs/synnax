@@ -63,7 +63,7 @@ inline {{.Name}} {{.Name}}::parse(x::json::Parser parser) {
 inline x::json::json {{.Name}}::to_json() const {
     x::json::json j;
 {{- range .ParentTypes}}
-    for (auto& [k, v] : {{.QualifiedName}}::to_json().items()) j[k] = v;
+    if (const auto parent = {{.QualifiedName}}::to_json(); parent.is_object()) j.update(parent);
 {{- end}}
 {{- range .Fields}}
     {{.ToJSONExpr}}
