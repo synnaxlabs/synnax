@@ -27,6 +27,10 @@ std::string canonical_port(const std::string &port) {
     return path.string();
 }
 
+std::string port_name(const std::string &port) {
+    return port;
+}
+
 int PortLock::lock(const std::string &port) {
     const int fd = open(port.c_str(), O_RDWR | O_NOCTTY | O_NONBLOCK | O_CLOEXEC);
     if (fd == -1) return errno;

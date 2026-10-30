@@ -17,6 +17,15 @@
 #include "driver/modbus/scan_task.h"
 
 namespace driver::modbus {
+namespace {
+/// @returns whether two serial settings open separate connections: by another path to
+/// the port, or with other line settings.
+bool separate_connections(const device::Serial &a, const device::Serial &b) {
+    return device::port_name(a.port) != device::port_name(b.port) ||
+           a.line() != b.line();
+}
+}
+
 Scanner::Scanner(
     std::shared_ptr<task::Context> ctx,
     synnax::task::Task task,
@@ -67,8 +76,8 @@ void Scanner::release_stale(
     this->probed.wait(lock, [&] { return !this->probing.contains(endpoint); });
     std::erase_if(this->checks, [&](const auto &entry) {
         const auto &held = entry.second.dev->config();
-        return held.endpoint() == endpoint && (held.serial.port != cfg.serial.port ||
-                                               held.serial.line() != cfg.serial.line());
+        return held.endpoint() == endpoint &&
+               separate_connections(held.serial, cfg.serial);
     });
 }
 
@@ -93,9 +102,8 @@ void Scanner::check_device_health(synnax::device::Device &dev) {
 
     // The device's old check would hold its port through the old path or line settings.
     if (const auto held = this->checks.find(dev.key); held != this->checks.end()) {
-        const auto &serial = held->second.dev->config().serial;
-        if (serial.port != props.connection.serial.port ||
-            serial.line() != props.connection.serial.line())
+        const auto &old = held->second.dev->config().serial;
+        if (separate_connections(old, props.connection.serial))
             this->checks.erase(held);
     }
     auto [d, err] = this->devices->acquire(props.connection, props.requests);
