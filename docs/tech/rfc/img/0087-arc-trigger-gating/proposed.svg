@@ -1,0 +1,258 @@
+<!--
+  Copyright 2026 Synnax Labs, Inc.
+
+  Use of this software is governed by the Business Source License included in the file
+  licenses/BSL.txt.
+
+  As of the Change Date specified in that file, in accordance with the Business Source
+  License, use of this software will be governed by the Apache License, Version 2.0,
+  included in the file licenses/APL.txt.
+  -->
+<svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="480"
+    height="240"
+    viewBox="160 0 480 240"
+    role="img"
+    aria-label="Nodes x and y feed a func{x,y} box, which emits to an output node"
+>
+        <style>
+            svg {
+                color: #000000;
+                font-family: ui-monospace, Menlo, Consolas, monospace;
+            }
+
+            .wire {
+                stroke: currentColor;
+                stroke-width: 1.6;
+                fill: none;
+            }
+            .node {
+                fill: currentColor;
+                stroke: currentColor;
+                stroke-width: 1.6;
+            }
+            .label {
+                fill: currentColor;
+                font-size: 18px;
+                font-weight: 300;
+            }
+            .box {
+                fill: transparent;
+                stroke: currentColor;
+                stroke-width: 1.6;
+                animation: flash 4.607s linear infinite;
+            }
+            .dot {
+                fill: #2f6fd1;
+                animation: 4.607s linear infinite;
+            }
+            .x1 {
+                animation-name: x1;
+                fill: #d93025;
+            }
+            .x2 {
+                animation-name: x2;
+                fill: #f2b705;
+            }
+            .x3 {
+                animation-name: x3;
+            }
+            .y {
+                animation-name: y;
+            }
+            .out {
+                animation-name: emit;
+            }
+            @keyframes x1 {
+                0%,
+                0.000% {
+                    transform: translateX(0);
+                    opacity: 0;
+                }
+                2.084% {
+                    opacity: 1;
+                }
+                20.839% {
+                    transform: translateX(100px);
+                    opacity: 1;
+                }
+                46.310% {
+                    transform: translateX(100px);
+                    opacity: 1;
+                }
+                48.394%,
+                100% {
+                    transform: translateX(100px);
+                    opacity: 0;
+                }
+            }
+            @keyframes x2 {
+                0%,
+                25.470% {
+                    transform: translateX(0);
+                    opacity: 0;
+                }
+                27.554% {
+                    opacity: 1;
+                }
+                46.310% {
+                    transform: translateX(100px);
+                    opacity: 1;
+                }
+                71.780% {
+                    transform: translateX(100px);
+                    opacity: 1;
+                }
+                73.864%,
+                100% {
+                    transform: translateX(100px);
+                    opacity: 0;
+                }
+            }
+            @keyframes x3 {
+                0%,
+                50.941% {
+                    transform: translateX(0);
+                    opacity: 0;
+                }
+                53.025% {
+                    opacity: 1;
+                }
+                71.780% {
+                    transform: translateX(100px);
+                    opacity: 1;
+                }
+                84.631% {
+                    transform: translateX(100px);
+                    opacity: 1;
+                }
+                87.410%,
+                100% {
+                    transform: translateX(100px);
+                    opacity: 0;
+                }
+            }
+            @keyframes y {
+                0%,
+                59.624% {
+                    transform: translateX(0);
+                    opacity: 0;
+                }
+                61.708% {
+                    opacity: 1;
+                }
+                80.463% {
+                    transform: translateX(100px);
+                    opacity: 1;
+                }
+                84.631% {
+                    transform: translateX(100px);
+                    opacity: 1;
+                }
+                87.410%,
+                100% {
+                    transform: translateX(100px);
+                    opacity: 0;
+                }
+            }
+            @keyframes flash {
+                0%,
+                79.768% {
+                    fill: transparent;
+                    stroke: currentColor;
+                }
+                81.158%,
+                90.188% {
+                    fill: rgba(47, 111, 209, 0.25);
+                    stroke: #2f6fd1;
+                }
+                94.356%,
+                100% {
+                    fill: transparent;
+                    stroke: currentColor;
+                }
+            }
+            @keyframes emit {
+                0%,
+                80.463% {
+                    transform: translateX(0);
+                    opacity: 0;
+                }
+                81.548% {
+                    opacity: 1;
+                }
+                92.402% {
+                    transform: translateX(100px);
+                    opacity: 1;
+                }
+                94.573%,
+                100% {
+                    transform: translateX(100px);
+                    opacity: 0;
+                }
+            }
+            @media (prefers-reduced-motion: reduce) {
+                .box,
+                .dot {
+                    animation: none;
+                }
+                .dot {
+                    transform: translateX(50px);
+                    opacity: 1;
+                }
+            }
+                </style>
+            <rect x="160" y="0" width="480" height="240" fill="#f0f0f0" />
+            <line class="wire" x1="200" y1="95" x2="300" y2="95" />
+            <line class="wire" x1="200" y1="145" x2="300" y2="145" />
+            <line class="wire" x1="440" y1="120" x2="540" y2="120" />
+            <rect class="box" x="300" y="60" width="140" height="120" rx="8" />
+            <text
+        class="label"
+        x="370"
+        y="120"
+        text-anchor="middle"
+        dominant-baseline="central"
+    >
+                func{x,y}
+            </text>
+            <circle class="node" cx="200" cy="95" r="6" />
+            <circle class="node" cx="200" cy="145" r="6" />
+            <circle class="node" cx="540" cy="120" r="6" />
+            <text
+        class="label"
+        x="182"
+        y="95"
+        text-anchor="end"
+        dominant-baseline="central"
+    >
+                x
+            </text>
+            <text
+        class="label"
+        x="182"
+        y="145"
+        text-anchor="end"
+        dominant-baseline="central"
+    >
+                y
+            </text>
+            <text
+        class="label"
+        x="558"
+        y="120"
+        text-anchor="start"
+        dominant-baseline="central"
+    >
+                output
+            </text>
+            <circle class="node" cx="300" cy="95" r="5" />
+            <circle class="node" cx="300" cy="145" r="5" />
+            <circle class="node" cx="440" cy="120" r="5" />
+            <circle class="dot x1" cx="200" cy="95" r="6" />
+            <circle class="dot x2" cx="200" cy="95" r="6" />
+            <circle class="dot x3" cx="200" cy="95" r="6" />
+            <circle class="dot y" cx="200" cy="145" r="6" />
+            <circle class="dot out" cx="440" cy="120" r="6" />
+        </svg>
