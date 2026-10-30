@@ -13,7 +13,6 @@
 #include <condition_variable>
 #include <memory>
 #include <mutex>
-#include <optional>
 #include <string>
 #include <thread>
 #include <vector>
@@ -93,18 +92,13 @@ class Engine {
         void push(const uint8_t *image, x::telem::TimeStamp time);
     };
 
-    struct Command {
-        x::telem::SampleValue value;
-        /// @brief the order of this command across all writers.
-        uint64_t seq;
-    };
-
-    /// @brief the entries of one writer and the last command it sent for each.
+    /// @brief the entries of one writer and the value each takes when the writer
+    /// closes.
     struct Output {
         std::vector<pdo::Entry> entries;
         x::telem::Rate rate;
         std::vector<pdo::Offset> offsets;
-        std::vector<std::optional<Command>> commands;
+        std::vector<x::telem::SampleValue> stop_values;
     };
 
     /// @brief what the cycle thread reads each cycle: the bus rate and the readers due
@@ -134,10 +128,10 @@ class Engine {
     std::atomic<uint64_t> schedule_version{0};
 
     std::mutex write_mu;
+    /// @brief holds the latest command or stop value of each output entry. Zeroed when
+    /// the bus starts.
     std::vector<uint8_t> write_staging;
     std::vector<uint8_t> write_active;
-    /// @brief the seq of the latest command, guarded by write_mu.
-    uint64_t command_seq = 0;
 
     mutable std::mutex health_mu;
     std::vector<slave::Health> slave_health;
@@ -157,8 +151,9 @@ class Engine {
     /// @brief stops the bus when no reader or writer is open, and otherwise moves it to
     /// the slowest rate the open ones allow.
     void reschedule_locked();
-    void write_outputs();
-    void rebuild_outputs_locked();
+    /// @brief copies the staged outputs into the process image. Waits for write_mu when
+    /// wait is true, and otherwise keeps the last outputs while a writer holds it.
+    void write_outputs(bool wait);
     [[nodiscard]] x::errors::Error cycle_error() const;
     void close_input(const std::shared_ptr<Input> &input);
     void close_output(const std::shared_ptr<Output> &output);
@@ -195,12 +190,21 @@ public:
     };
 
     /// @brief proxy for writing output data to the EtherCAT cycle engine. Destroying
-    /// the writer returns its entries to zero.
+    /// the writer leaves its entries at their stop values until another writer commands
+    /// them or the bus stops, and the bus sends them before the slaves leave OP.
     class Writer {
         Engine &engine;
         std::shared_ptr<Output> output;
 
     public:
+        /// @brief a PDO entry a writer commands.
+        struct Entry {
+            /// @brief the entry's location and type in the process image.
+            pdo::Entry entry;
+            /// @brief the value the entry takes when the writer closes.
+            x::telem::SampleValue stop_value;
+        };
+
         /// @brief RAII batch writer that holds the write lock for multiple writes.
         class Transaction {
             Engine &engine;
@@ -258,11 +262,15 @@ public:
 
     /// @brief opens a writer for the entries. The bus cycles at least as fast as
     /// execution_rate while the writer is open. Starts the bus when it is not running.
+    /// An entry that a closed writer left at its stop value keeps that value until the
+    /// new writer commands one.
     /// @returns errors::RATE_MISMATCH when no bus rate suits every open task,
     /// errors::PDO_MAPPING_ERROR when an entry is not in the process image, or the
     /// error that kept the bus from starting.
-    [[nodiscard]] std::pair<std::unique_ptr<Writer>, x::errors::Error>
-    open_writer(const std::vector<pdo::Entry> &entries, x::telem::Rate execution_rate);
+    [[nodiscard]] std::pair<std::unique_ptr<Writer>, x::errors::Error> open_writer(
+        const std::vector<Writer::Entry> &entries,
+        x::telem::Rate execution_rate
+    );
 
     /// @brief returns true while the bus runs.
     [[nodiscard]] bool running() const { return this->bus.running(); }

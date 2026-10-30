@@ -121,8 +121,10 @@ that the scan cannot read is not supported yet.
   network cycle at 1 kHz. If no rate in that range is a multiple of every read rate,
   such as for 3 kHz and 4 kHz, the task fails to start.
 - **Outputs** -> Each output holds the last value a write task commanded. When a write
-  task stops, its outputs go to zero. An output that another running write task
-  commanded keeps the last value of that task instead.
+  task stops, its outputs go to their stop values and hold them while the network runs.
+  When the network stops, or the Driver loses contact with a module, the module sets its
+  outputs to its own safe value. When the network starts, each output is 0 until a write
+  task commands it.
 - **Lost modules** -> When a module stops responding, the network continues to cycle,
   and the Driver returns the module to operation when it responds again. Until then,
   every read task on the port pauses with the warning "Failed to read data", and its

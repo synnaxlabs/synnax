@@ -224,7 +224,7 @@ void Engine::run() {
         }
     };
 
-    this->write_outputs();
+    this->write_outputs(false);
     send();
     while (true) {
         if (this->schedule_version.load(std::memory_order_acquire) != version) {
@@ -288,11 +288,11 @@ void Engine::run() {
                 input->push(image, latched_at);
         }
 
-        this->write_outputs();
+        this->write_outputs(false);
         send();
     }
-    // Sends the zeroed outputs of the last writer to close before the slaves leave OP.
-    this->write_outputs();
+    // Sends the stop values of the last writer to close before the slaves leave OP.
+    this->write_outputs(true);
     send();
     if (const auto err = this->master->receive())
         LOG(WARNING) << "[ethercat] last cycle failed on " << iface << ": "
@@ -420,39 +420,16 @@ void Engine::reschedule_locked() {
     this->publish_schedule_locked(rate.first);
 }
 
-void Engine::write_outputs() {
-    if (std::unique_lock lock(this->write_mu, std::try_to_lock); lock.owns_lock())
-        this->write_active = this->write_staging;
+void Engine::write_outputs(const bool wait) {
+    std::unique_lock lock(this->write_mu, std::try_to_lock);
+    if (!lock.owns_lock() && wait) lock.lock();
+    if (lock.owns_lock()) this->write_active = this->write_staging;
     const auto outputs = this->master->output_data();
     std::memcpy(
         outputs.data(),
         this->write_active.data(),
         std::min(outputs.size(), this->write_active.size())
     );
-}
-
-void Engine::rebuild_outputs_locked() {
-    struct Applied {
-        const pdo::Entry *entry;
-        pdo::Offset offset;
-        const Command *command;
-    };
-    std::vector<Applied> applied;
-    for (const auto &output: this->outputs)
-        for (size_t i = 0; i < output->entries.size(); ++i)
-            if (const auto &command = output->commands[i]; command.has_value())
-                applied.push_back({&output->entries[i], output->offsets[i], &*command});
-    // Two writers can command the same output, so the latest command must land last.
-    std::ranges::sort(applied, {}, [](const Applied &a) { return a.command->seq; });
-    std::ranges::fill(this->write_staging, 0);
-    for (const auto &[entry, offset, command]: applied)
-        telem::write_pdo_from_value(
-            this->write_staging.data() + offset.byte,
-            offset.bit,
-            entry->bit_length,
-            entry->data_type,
-            command->value
-        );
 }
 
 x::errors::Error Engine::cycle_error() const {
@@ -471,7 +448,17 @@ void Engine::close_output(const std::shared_ptr<Output> &output) {
     {
         std::lock_guard write_lock(this->write_mu);
         std::erase(this->outputs, output);
-        this->rebuild_outputs_locked();
+        for (size_t i = 0; i < output->entries.size(); ++i) {
+            const auto &entry = output->entries[i];
+            const auto &offset = output->offsets[i];
+            telem::write_pdo_from_value(
+                this->write_staging.data() + offset.byte,
+                offset.bit,
+                entry.bit_length,
+                entry.data_type,
+                output->stop_values[i]
+            );
+        }
     }
     this->reschedule_locked();
 }
@@ -525,9 +512,17 @@ std::pair<std::unique_ptr<Engine::Reader>, x::errors::Error> Engine::open_reader
 }
 
 std::pair<std::unique_ptr<Engine::Writer>, x::errors::Error> Engine::open_writer(
-    const std::vector<pdo::Entry> &entries,
+    const std::vector<Writer::Entry> &entries,
     const x::telem::Rate execution_rate
 ) {
+    std::vector<pdo::Entry> pdo_entries;
+    std::vector<x::telem::SampleValue> stop_values;
+    pdo_entries.reserve(entries.size());
+    stop_values.reserve(entries.size());
+    for (const auto &[entry, stop_value]: entries) {
+        pdo_entries.push_back(entry);
+        stop_values.push_back(stop_value);
+    }
     std::lock_guard lock(this->mu);
     auto writes = this->write_rates_locked();
     writes.push_back(execution_rate);
@@ -542,7 +537,7 @@ std::pair<std::unique_ptr<Engine::Writer>, x::errors::Error> Engine::open_writer
         if (auto err = this->start_locked(rate); err) return {nullptr, err};
     auto [offsets, err] = resolve_offsets(
         *this->master,
-        entries,
+        pdo_entries,
         this->master->output_data().size()
     );
     if (err) {
@@ -550,10 +545,10 @@ std::pair<std::unique_ptr<Engine::Writer>, x::errors::Error> Engine::open_writer
         return {nullptr, err};
     }
     auto output = std::make_shared<Output>(Output{
-        .entries = entries,
+        .entries = std::move(pdo_entries),
         .rate = execution_rate,
         .offsets = std::move(offsets),
-        .commands = std::vector<std::optional<Command>>(entries.size()),
+        .stop_values = std::move(stop_values),
     });
     this->outputs.push_back(output);
     this->publish_schedule_locked(rate);

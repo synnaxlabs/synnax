@@ -79,6 +79,29 @@ slave::Properties padded_slave() {
     };
 }
 
+slave::Properties wide_output_slave() {
+    return slave::Properties{
+        .position = 2,
+        .name = "EL2252",
+        .output_pdos = {
+            {.pdo_index = 0x1600,
+             .index = 0x7000,
+             .sub_index = 1,
+             .bit_length = 64,
+             .is_input = false,
+             .name = "Count",
+             .data_type = x::telem::INT64_T},
+            {.pdo_index = 0x1600,
+             .index = 0x7000,
+             .sub_index = 2,
+             .bit_length = 32,
+             .is_input = false,
+             .name = "Setpoint",
+             .data_type = x::telem::FLOAT32_T},
+        },
+    };
+}
+
 nlohmann::json read_entry(
     const uint16_t index,
     const uint8_t sub_index,
@@ -450,6 +473,58 @@ TEST(Output, ReportsADataTypeWiderThanTheEntry) {
         "byte. Pick a 1 byte type."
     );
     ASSERT_EQ(ch->index, 0);
+}
+
+/// @brief it should reject an int64 stop value of 2^53 or more, which a double may have
+/// rounded.
+TEST(Output, ReportsAnInt64StopValueThatADoubleRounds) {
+    auto j = write_entry(0x7000, 1, "int64");
+    j["stop_value"] = 9007199254740993;
+    auto parser = x::json::Parser(j);
+    output(wide_output_slave(), parser);
+    const auto [path, message] = only_error(parser);
+    ASSERT_EQ(path, "stop_value");
+    ASSERT_EQ(
+        message,
+        "stop value 9007199254740992 does not fit entry 0x7000:01 on slave EL2252. "
+        "Pick a whole number from -9007199254740991 to 9007199254740991."
+    );
+}
+
+/// @brief it should accept the largest int64 stop value that a double holds exactly.
+TEST(Output, AcceptsTheLargestExactInt64StopValue) {
+    auto j = write_entry(0x7000, 1, "int64");
+    j["stop_value"] = -9007199254740991;
+    auto parser = x::json::Parser(j);
+    const auto ch = output(wide_output_slave(), parser);
+    ASSERT_TRUE(parser.ok()) << parser.error_json().dump();
+    ASSERT_EQ(ch->stop_value, -9007199254740991.0);
+}
+
+/// @brief it should skip the stop value check on a disabled channel.
+TEST(Output, SkipsTheStopValueCheckOnADisabledChannel) {
+    auto j = write_entry(0x7000, 2, "float32");
+    j["stop_value"] = 1e100;
+    j["disabled"] = true;
+    auto parser = x::json::Parser(j);
+    const auto ch = output(wide_output_slave(), parser);
+    ASSERT_TRUE(parser.ok()) << parser.error_json().dump();
+    ASSERT_FALSE(ch->enabled);
+}
+
+/// @brief it should reject a stop value outside the finite range of a float32 entry.
+TEST(Output, ReportsAFloat32StopValueOutsideItsRange) {
+    auto j = write_entry(0x7000, 2, "float32");
+    j["stop_value"] = 1e100;
+    auto parser = x::json::Parser(j);
+    output(wide_output_slave(), parser);
+    const auto [path, message] = only_error(parser);
+    ASSERT_EQ(path, "stop_value");
+    ASSERT_EQ(
+        message,
+        "stop value 1e+100 does not fit entry 0x7000:02 on slave EL2252. Pick a value "
+        "from -3.4028235e+38 to 3.4028235e+38."
+    );
 }
 
 /// @brief it should list each matching address when an unresolved name matches more

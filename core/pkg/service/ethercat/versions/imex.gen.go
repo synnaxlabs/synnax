@@ -16,6 +16,7 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/v2"
+	"github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/v3"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
@@ -23,7 +24,7 @@ import (
 // Latest is the portable schema version stamped on exported bodies of every type in
 // this package and the highest version import accepts. It equals the current schema
 // version.
-const Latest = v2.Version
+const Latest = v3.Version
 
 // ReadConfigLadder decodes ReadConfig bodies stamped at any exported version and
 // migrates them to the current shape.
@@ -50,6 +51,12 @@ func decodeReadConfig(
 		}
 		return t2, nil
 	case v2.Version:
+		t2, err := imex.DecodeBlob[v2.ReadConfig](data, "ethercat.ReadConfig", version)
+		if err != nil {
+			return ReadConfig{}, err
+		}
+		return t2, nil
+	case v3.Version:
 		return imex.DecodeBlob[ReadConfig](data, "ethercat.ReadConfig", version)
 	}
 	return ReadConfig{}, imex.NewErrUnsupportedVersion("ethercat.ReadConfig", version, Latest)
@@ -78,8 +85,22 @@ func decodeWriteConfig(
 		if err != nil {
 			return WriteConfig{}, err
 		}
-		return t2, nil
+		t3, err := v3.MigrateWriteConfig(ctx, t2)
+		if err != nil {
+			return WriteConfig{}, err
+		}
+		return t3, nil
 	case v2.Version:
+		t2, err := imex.DecodeBlob[v2.WriteConfig](data, "ethercat.WriteConfig", version)
+		if err != nil {
+			return WriteConfig{}, err
+		}
+		t3, err := v3.MigrateWriteConfig(ctx, t2)
+		if err != nil {
+			return WriteConfig{}, err
+		}
+		return t3, nil
+	case v3.Version:
 		return imex.DecodeBlob[WriteConfig](data, "ethercat.WriteConfig", version)
 	}
 	return WriteConfig{}, imex.NewErrUnsupportedVersion("ethercat.WriteConfig", version, Latest)
@@ -106,6 +127,12 @@ func decodeScanConfig(
 		}
 		return t1, nil
 	case v2.Version:
+		t2, err := imex.DecodeBlob[v2.ScanConfig](data, "ethercat.ScanConfig", version)
+		if err != nil {
+			return ScanConfig{}, err
+		}
+		return t2, nil
+	case v3.Version:
 		return imex.DecodeBlob[ScanConfig](data, "ethercat.ScanConfig", version)
 	}
 	return ScanConfig{}, imex.NewErrUnsupportedVersion("ethercat.ScanConfig", version, Latest)

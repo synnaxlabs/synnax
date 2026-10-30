@@ -36,9 +36,14 @@ The data type of a channel must be a number type of the same size as its entry, 
 bytes. Each EL2004 output is 1 bit, so it takes `uint8` or `int8`.
 
 All modules in a task must be on the same port. The network cycles at least as fast as
-the **Execution rate**, so a higher rate sends new commands to the modules sooner. When
-the task stops, its outputs go to zero, unless another running write task commanded
-them. See
+the **Execution rate**, so a higher rate sends new commands to the modules sooner.
+
+When the task stops, the Driver sends the **Stop value** of each channel to the modules
+before they leave the operational state. While other tasks keep the network running, the
+entry holds its stop value until a task commands it. After the modules leave the
+operational state, each module sets its outputs to its own safe value, which is often 0.
+An integer entry needs a whole number that fits it, from -9007199254740991
+to 9007199254740991. See
 [how the Driver runs a network](/reference/hardware/ethercat/configure-device#how-the-driver-runs-a-network).
 
 <Divider.Divider x />
@@ -196,10 +201,11 @@ the Console label of a setting, with its Python field under it.
 
 Writes one output entry at its CoE address.
 
-| Setting                                   | Default | Notes                                        |
-| ----------------------------------------- | ------- | -------------------------------------------- |
-| Entry <small>`index`, `sub_index`</small> |         | The CoE address, such as `0x7000:01`.        |
-| Data type <small>`data_type`</small>      |         | A number type of the same size as the entry. |
+| Setting                                   | Default | Notes                                          |
+| ----------------------------------------- | ------- | ---------------------------------------------- |
+| Entry <small>`index`, `sub_index`</small> |         | The CoE address, such as `0x7000:01`.          |
+| Data type <small>`data_type`</small>      |         | A number type of the same size as the entry.   |
+| Stop value <small>`stop_value`</small>    | 0       | The value the entry takes when the task stops. |
 
 </Channel.Type>
 

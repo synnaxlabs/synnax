@@ -26,7 +26,7 @@ x::errors::Error Engine::Writer::Transaction::write(
     const size_t pdo_index,
     const x::telem::SampleValue &value
 ) const {
-    auto &out = *this->writer.output;
+    const auto &out = *this->writer.output;
     if (pdo_index >= out.entries.size())
         return x::errors::Error(
             errors::PDO_MAPPING_ERROR,
@@ -42,7 +42,6 @@ x::errors::Error Engine::Writer::Transaction::write(
         entry.data_type,
         value
     );
-    out.commands[pdo_index] = Command{value, ++this->engine.command_seq};
     return x::errors::NIL;
 }
 

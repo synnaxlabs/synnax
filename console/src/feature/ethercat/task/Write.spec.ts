@@ -241,6 +241,29 @@ describe("Write", () => {
     expect(stateIndex.name).toBe(`${identifier}_state_time`);
   });
 
+  it("should save the stop value typed for a selected channel", async () => {
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: createPDOs(),
+    });
+    const { draft } = await renderWrite({
+      ...EtherCAT.Task.WRITE_SCHEMAS.config.parse({}),
+      channels: [createEntryWriteChannel(slave.key, CONTROL_ENTRY)],
+    });
+    fireEvent.click(await screen.findByRole("option", { name: /0x7000:01/ }));
+    const stopValue = await screen.findByLabelText("Stop value");
+    fireEvent.change(stopValue, { target: { value: "5" } });
+    fireEvent.blur(stopValue);
+    await waitFor(async () => {
+      const saved = await client.tasks.retrieve({
+        key: draft.key,
+        schemas: EtherCAT.Task.WRITE_SCHEMAS,
+      });
+      expect(saved.config.channels[0]).toMatchObject({ stopValue: 5 });
+    });
+  });
+
   it("should honor custom command and state channel names", async () => {
     const slave = await createSlaveDevice(client, testRack.key, {
       identifier: createIdentifier(),

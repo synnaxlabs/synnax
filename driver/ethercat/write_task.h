@@ -151,10 +151,12 @@ public:
         if (auto err = topology::validate(slaves, this->cfg.device_cache); err)
             return err;
 
-        std::vector<pdo::Entry> entries;
+        std::vector<engine::Engine::Writer::Entry> entries;
         entries.reserve(this->cfg.outputs.size());
-        for (const auto &ch: this->cfg.outputs)
-            entries.push_back(*ch);
+        for (const auto &ch: this->cfg.outputs) {
+            const pdo::Entry &entry = *ch;
+            entries.push_back({.entry = entry, .stop_value = ch->stop_value});
+        }
         auto [wtr, err] = this->engine->open_writer(entries, this->cfg.execution_rate);
         if (err) return err;
         this->writer = std::move(wtr);

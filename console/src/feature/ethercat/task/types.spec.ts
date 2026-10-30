@@ -218,13 +218,14 @@ describe("createWriteChannel", () => {
     expect(EtherCAT.Task.hasEntry(ch)).toBe(false);
   });
 
-  it("should copy the last channel but reset names, bindings, and the entry", () => {
+  it("should copy the last channel but reset names, bindings, the entry, and the stop value", () => {
     const last = createEntryWriteChannel("dev", STATUS_ENTRY, {
       cmdChannel: 5,
       stateChannel: 6,
       cmdChannelName: "cmd",
       stateChannelName: "state",
       name: "copied",
+      stopValue: 1,
     });
     const ch = EtherCAT.Task.createWriteChannel([last]);
     expect(ch).toMatchObject({
@@ -235,6 +236,7 @@ describe("createWriteChannel", () => {
       stateChannelName: "",
       name: "",
       index: 0,
+      stopValue: 0,
     });
     expect(ch.key).not.toBe(last.key);
   });

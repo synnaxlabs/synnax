@@ -582,6 +582,71 @@ TEST_F(EtherCATWriteTest, ParseConfigRejectsADataTypeWiderThanTheEntry) {
     );
 }
 
+/// @brief it should reject a stop value outside the range of its entry.
+TEST_F(EtherCATWriteTest, ParseConfigRejectsAStopValueOutsideTheEntry) {
+    const auto cmd_ch = create_command_channel("cmd", x::telem::INT16_T);
+    auto cfg = this->create_base_config();
+    auto ch = create_output_channel_config(cmd_ch.key, 0x7000, 1, "int16");
+    ch["stop_value"] = 40000;
+    cfg["channels"].push_back(ch);
+
+    auto parser = x::json::Parser(cfg);
+    WriteTaskConfig task_cfg(client, parser);
+    ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
+    const auto errors = parser.error_json()["errors"];
+    ASSERT_EQ(errors.size(), 1);
+    EXPECT_EQ(errors[0]["path"], "channels.0.stop_value");
+    EXPECT_EQ(
+        errors[0]["message"],
+        "stop value 40000 does not fit entry 0x7000:01 on slave Test Slave. Pick a "
+        "whole number from -32768 to 32767."
+    );
+}
+
+/// @brief it should reject a fractional stop value on an integer entry.
+TEST_F(EtherCATWriteTest, ParseConfigRejectsAFractionalStopValueOnAnIntegerEntry) {
+    const auto cmd_ch = create_command_channel("cmd", x::telem::INT32_T);
+    auto cfg = this->create_base_config();
+    auto ch = create_output_channel_config(cmd_ch.key, 0x7000, 2, "uint32");
+    ch["stop_value"] = 1.5;
+    cfg["channels"].push_back(ch);
+
+    auto parser = x::json::Parser(cfg);
+    WriteTaskConfig task_cfg(client, parser);
+    ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
+    const auto errors = parser.error_json()["errors"];
+    ASSERT_EQ(errors.size(), 1);
+    EXPECT_EQ(
+        errors[0]["message"],
+        "stop value 1.5 does not fit entry 0x7000:02 on slave Test Slave. Pick a whole "
+        "number from 0 to 4294967295."
+    );
+}
+
+/// @brief it should write the stop value of each channel when the task stops.
+TEST_F(EtherCATWriteTest, SinkWritesTheStopValueWhenTheTaskStops) {
+    const auto cmd_ch = create_command_channel("cmd", x::telem::INT16_T);
+    auto cfg = this->create_base_config();
+    auto ch = create_output_channel_config(cmd_ch.key, 0x7000, 1, "int16");
+    ch["stop_value"] = -3;
+    cfg["channels"].push_back(ch);
+    auto parser = x::json::Parser(cfg);
+    WriteTaskConfig task_cfg(this->client, parser);
+    ASSERT_NIL(parser.error());
+
+    auto sink = WriteTaskSink(this->engine, std::move(task_cfg));
+    ASSERT_NIL(sink.start());
+    x::telem::Frame frame(cmd_ch.key, x::telem::Series(static_cast<int16_t>(0x5678)));
+    ASSERT_NIL(sink.write(frame));
+    ASSERT_EVENTUALLY_EQ(
+        this->mock_master->get_output<int16_t>(0),
+        static_cast<int16_t>(0x5678)
+    );
+    ASSERT_NIL(sink.stop());
+    EXPECT_FALSE(this->engine->running());
+    EXPECT_EQ(this->mock_master->get_output<int16_t>(0), -3);
+}
+
 TEST_F(EtherCATWriteTest, SinkWritesDataToEngine) {
     auto cmd_ch = ASSERT_NIL_P(this->client->channels.create(
         make_unique_channel_name("cmd"),

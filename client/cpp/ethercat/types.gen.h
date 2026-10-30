@@ -118,6 +118,9 @@ struct EntryWriteChannel : public BaseWriteChannel {
     std::uint8_t sub_index = 0;
     /// @brief data_type is the data type of the PDO entry.
     ::x::telem::DataType data_type;
+    /// @brief stop_value is the value the entry takes when the task stops. The bus
+    /// sends it before the slaves leave OP.
+    double stop_value = 0;
 
     static EntryWriteChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
