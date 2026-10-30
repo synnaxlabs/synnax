@@ -26,12 +26,14 @@ import {
   PORTS,
   SCHEMAS,
 } from "@/feature/labjack/device/types";
+import { uniqueTerminalsZ } from "@/feature/labjack/task/checks";
 import {
   convertPortTypeToReadChannelType,
   convertReadChannelTypeToPortType,
 } from "@/feature/labjack/task/convertChannelTypeToPortType";
 import { getOpenPort } from "@/feature/labjack/task/getOpenPort";
 import { PortField } from "@/feature/labjack/task/PortField";
+import { terminalOf } from "@/feature/labjack/task/ports";
 import { PortsView } from "@/feature/labjack/task/PortsView";
 import { CustomScaleForm, FORMS } from "@/feature/labjack/task/ReadChannelForms";
 import {
@@ -65,20 +67,28 @@ const Properties = () => (
   </>
 );
 
-const getRenderedPort = (port: string, deviceModel: Model, type: ReadChannelType) => {
-  const portType = convertReadChannelTypeToPortType(type);
-  const portInfo = PORTS[deviceModel][portType].find(({ key }) => key === port);
-  return portInfo == null ? port : (portInfo.alias ?? portInfo.key);
-};
+/** The name a channel shows by: its own, or the one configuring the task gives it. */
+const channelName = (
+  { name, port }: Pick<ReadChannel, "name" | "port">,
+  identifier: string,
+): string => (primitive.isNonZero(name) ? name : `${identifier}_${port}`);
 
 interface ChannelListItemProps extends Task.ChannelListItemProps {
   onTare: (channelKey: channel.Key) => void;
-  deviceModel: Model;
+  model: Model;
+  /** The device's identifier, escaped for channel names. */
+  identifier: string;
 }
 
-const ChannelListItem = ({ onTare, deviceModel, ...rest }: ChannelListItemProps) => {
+const ChannelListItem = ({
+  onTare,
+  model,
+  identifier,
+  ...rest
+}: ChannelListItemProps) => {
   const path = `config.channels.${rest.itemKey}`;
   const channel = PForm.useFieldValue<channel.Key>(`${path}.channel`);
+  const name = PForm.useFieldValue<string>(`${path}.name`);
   const port = PForm.useFieldValue<string>(`${path}.port`);
   const disabled = PForm.useFieldValue<boolean>(`${path}.disabled`);
   const type = PForm.useFieldValue<ReadChannelType>(`${path}.type`);
@@ -86,35 +96,31 @@ const ChannelListItem = ({ onTare, deviceModel, ...rest }: ChannelListItemProps)
   const isRunning = Task.useIsRunning();
   const hasTareButton = channel !== 0 && type === "analog" && !isSnapshot;
   const canTare = !disabled && isRunning;
-  const renderedPort = getRenderedPort(port, deviceModel, type);
   return (
     <Task.Views.ListAndDetailsChannelItem
       {...rest}
-      port={renderedPort}
+      port={terminalOf(model, port)}
       canTare={canTare}
       onTare={onTare}
       path={path}
       hasTareButton={hasTareButton}
       channel={channel}
+      defaultName={channelName({ name, port }, identifier)}
       portMaxChars={5}
     />
   );
 };
 
-/** The name a channel shows by: its own, or the one configuring the task gives it. */
-const channelName = (c: ReadChannel, identifier: string): string =>
-  primitive.isNonZero(c.name) ? c.name : `${identifier}_${c.port}`;
-
 interface DetailsTitleProps extends Task.Views.DetailsProps {
-  deviceModel: Model;
+  model: Model;
 }
 
-const DetailsTitle = ({ path, deviceModel }: DetailsTitleProps) => {
+const DetailsTitle = ({ path, model }: DetailsTitleProps) => {
   const port = PForm.useFieldValue<string>(`${path}.port`);
   const type = PForm.useFieldValue<ReadChannelType>(`${path}.type`);
   return (
     <Task.Views.ItemLabel kind={READ_CHANNEL_TYPE_NAMES[type]}>
-      Port {getRenderedPort(port, deviceModel, type)}
+      Port {terminalOf(model, port)}
     </Task.Views.ItemLabel>
   );
 };
@@ -235,10 +241,17 @@ const ChannelsForm = ({ device }: ChannelsFormProps) => {
   const [tare, allowTare, handleTare] = Task.useTare({ isChannelTareable });
   const { model } = device;
   const identifier = channel.escapeInvalidName(device.properties.identifier);
+  Task.useConfigCheck(uniqueTerminalsZ(model));
   const createChannel = (channels: ReadChannel[], copy?: string) =>
     createNextChannel(channels, model, copy);
   const listItem = ({ key, ...p }: Task.ChannelListItemProps) => (
-    <ChannelListItem key={key} {...p} onTare={tare} deviceModel={model} />
+    <ChannelListItem
+      key={key}
+      {...p}
+      onTare={tare}
+      model={model}
+      identifier={identifier}
+    />
   );
   const details = (p: Task.Views.DetailsProps) => (
     <ChannelDetails {...p} device={device} />
@@ -248,11 +261,12 @@ const ChannelsForm = ({ device }: ChannelsFormProps) => {
       device.properties[convertReadChannelTypeToPortType(c.type)].channels[c.port] ?? 0,
   });
   const detailsTitle = (p: Task.Views.DetailsProps) => (
-    <DetailsTitle {...p} deviceModel={model} />
+    <DetailsTitle {...p} model={model} />
   );
   const ports = (p: Task.Views.PortsProps) => (
     <PortsView<ReadChannel, AIPort | DIPort>
       {...p}
+      model={model}
       ports={[...PORTS[model][AI_PORT_TYPE], ...PORTS[model][DI_PORT_TYPE]]}
       create={(channels, port) =>
         createChannelOn(
@@ -365,6 +379,10 @@ export const Read = Task.wrapForm({
   Form,
   schemas: READ_SCHEMAS,
   deployConfigZ: deployReadConfigZ,
+  deviceConfigZ: async (client, config) =>
+    uniqueTerminalsZ(
+      (await client.devices.retrieve({ key: config.device, schemas: SCHEMAS })).model,
+    ),
   type: "labjack_read",
   getInitialValues,
   onConfigure,

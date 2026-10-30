@@ -30,6 +30,7 @@ import {
   PORTS,
   SCHEMAS,
 } from "@/feature/labjack/device/types";
+import { uniqueTerminalsZ } from "@/feature/labjack/task/checks";
 import {
   convertPortTypeToWriteChannelType,
   convertWriteChannelTypeToPortType,
@@ -68,6 +69,12 @@ const commandName = (c: WriteChannel, identifier: string): string =>
   primitive.isNonZero(c.cmdChannelName)
     ? c.cmdChannelName
     : `${identifier}_${c.port}_cmd`;
+
+/** The name a channel's state channel shows by. */
+const stateName = (c: WriteChannel, identifier: string): string =>
+  primitive.isNonZero(c.stateChannelName)
+    ? c.stateChannelName
+    : `${identifier}_${c.port}_state`;
 
 interface ChannelListItemProps extends Task.ChannelListItemProps {
   device: Device;
@@ -133,6 +140,8 @@ const ChannelListItem = ({ device, ...rest }: ChannelListItemProps) => {
           stateChannel={stateChannel}
           cmdNamePath={`${path}.cmdChannelName`}
           stateNamePath={`${path}.stateChannelName`}
+          cmdDefaultName={commandName(item, identifier)}
+          stateDefaultName={stateName(item, identifier)}
         />
         <Task.EnabledCheckbox path={`${path}.disabled`} />
       </Flex.Box>
@@ -185,6 +194,7 @@ interface ChannelListProps {
 const ChannelList = ({ device }: ChannelListProps) => {
   const { model } = device;
   const identifier = channel.escapeInvalidName(device.properties.identifier);
+  Task.useConfigCheck(uniqueTerminalsZ(model));
   const createChannel = (channels: WriteChannel[]) =>
     createNextChannel(channels, model);
   const listItem = ({ key, ...p }: Task.ChannelListItemProps) => (
@@ -193,6 +203,7 @@ const ChannelList = ({ device }: ChannelListProps) => {
   const ports = (p: Task.Views.PortsProps) => (
     <PortsView<WriteChannel, AOPort | DOPort>
       {...p}
+      model={model}
       ports={[...PORTS[model][AO_PORT_TYPE], ...PORTS[model][DO_PORT_TYPE]]}
       create={(_, port) => createChannelOn(port)}
       name={(c) => commandName(c, identifier)}
@@ -290,12 +301,10 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
     if (stateChannelsToCreate.length > 0) {
       modified = true;
       const stateChannels = await client.channels.create(
-        stateChannelsToCreate.map(({ port, type, stateChannelName }) => ({
-          name: primitive.isNonZero(stateChannelName)
-            ? stateChannelName
-            : `${identifier}_${port}_state`,
+        stateChannelsToCreate.map((c) => ({
+          name: stateName(c, identifier),
           index: dev.properties.writeStateIndex,
-          dataType: type === "analog" ? "float32" : "uint8",
+          dataType: c.type === "analog" ? "float32" : "uint8",
         })),
       );
       stateChannels.forEach((c, i) => {
@@ -373,6 +382,10 @@ export const Write = Task.wrapForm({
   Form,
   schemas: WRITE_SCHEMAS,
   deployConfigZ: deployWriteConfigZ,
+  deviceConfigZ: async (client, config) =>
+    uniqueTerminalsZ(
+      (await client.devices.retrieve({ key: config.device, schemas: SCHEMAS })).model,
+    ),
   type: "labjack_write",
   getInitialValues,
   onConfigure,

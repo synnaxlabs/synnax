@@ -21,6 +21,7 @@ import {
   AO_PORT_TYPE,
   DI_PORT_TYPE,
   DO_PORT_TYPE,
+  type Model,
   type Port,
   type PortType,
 } from "@/feature/labjack/device/types";
@@ -29,6 +30,7 @@ import {
   type Claims,
   claims,
   describer,
+  terminal,
   usedCount,
 } from "@/feature/labjack/task/ports";
 import { type Channel } from "@/feature/labjack/task/types";
@@ -76,7 +78,7 @@ const Section = <P extends Port>({
     if (port == null) throw new Error(`LabJack port ${key} is not a ${type} port`);
     return port;
   };
-  const free = ports.find(({ key }) => !claims.has(key));
+  const free = ports.find((p) => !claims.has(terminal(p)));
   const renderMenu = ({ keys: [key] }: Menu.ContextMenuMenuProps) => (
     <ContextMenu.Menu>
       <Menu.Item itemKey="add" onClick={() => onAdd(portOf(key))}>
@@ -126,6 +128,7 @@ const Section = <P extends Port>({
 
 export interface PortsViewProps<C extends Channel, P extends Port>
   extends Task.Views.PortsProps {
+  model: Model;
   /** The ports the task's channels can use. Each type shows in a section of its own. */
   ports: P[];
   create: (channels: C[], port: P) => C;
@@ -139,6 +142,7 @@ export interface PortsViewProps<C extends Channel, P extends Port>
  * adds a channel on it.
  */
 export const PortsView = <C extends Channel, P extends Port>({
+  model,
   ports,
   create,
   name,
@@ -149,7 +153,7 @@ export const PortsView = <C extends Channel, P extends Port>({
   const { push } = Form.useFieldList<string, C>(CHANNELS_PATH);
   const channels = Form.useFieldValue<C[]>(CHANNELS_PATH);
   const editable = !Task.useIsPreview();
-  const portClaims = claims(channels);
+  const portClaims = claims(channels, model);
   const types = [...new Set(ports.map(({ type }) => type))];
   const add = (port: P) => {
     const channel = create(get<C[]>(CHANNELS_PATH).value, port);

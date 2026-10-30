@@ -25,8 +25,8 @@ import {
 const { PORTS, T4_MODEL, T7_MODEL, AI_PORT_TYPE, DI_PORT_TYPE } = LabJack.Device;
 
 const summary = (ports: LabJack.Device.Port[]) =>
-  banks(ports).map(({ prefix, ports }) => [
-    prefix,
+  banks(ports).map(({ title, ports }) => [
+    title,
     terminal(ports[0]),
     terminal(ports[ports.length - 1]),
   ]);
@@ -50,10 +50,10 @@ describe("ports", () => {
       ]);
     });
 
-    it("should split the ports where the numbers skip", () => {
+    it("should title the ports an accessory needs by the accessory", () => {
       expect(summary(PORTS[T7_MODEL][AI_PORT_TYPE])).toEqual([
         ["AIN", "AIN0", "AIN13"],
-        ["AIN", "AIN48", "AIN127"],
+        ["AIN (MUX80)", "AIN48", "AIN127"],
       ]);
     });
   });
@@ -68,7 +68,7 @@ describe("ports", () => {
       const third = createAnalogReadChannel("AIN1");
       const [{ cells }] = groups({
         bank: ain,
-        claims: claims([first, second, third]),
+        claims: claims([first, second, third], T4_MODEL),
         selected: [],
         describe: nameOf,
       });
@@ -105,7 +105,7 @@ describe("ports", () => {
       const ch = createAnalogReadChannel("AIN2");
       const [{ cells }] = groups({
         bank: ain,
-        claims: claims([ch]),
+        claims: claims([ch], T4_MODEL),
         selected: [ch.key],
         describe: nameOf,
       });
@@ -146,14 +146,37 @@ describe("ports", () => {
     });
   });
 
+  describe("claims", () => {
+    it("should claim the terminal that ports of two types share", () => {
+      const analog = createAnalogReadChannel("AIN4");
+      const digital = createDigitalReadChannel("DIO4");
+      expect(claims([analog, digital], T4_MODEL)).toEqual(
+        new Map([["FIO4", [analog.key, digital.key]]]),
+      );
+    });
+
+    it("should claim a port by its key on a model where no other port shares it", () => {
+      const analog = createAnalogReadChannel("AIN4");
+      const digital = createDigitalReadChannel("DIO4");
+      expect([...claims([analog, digital], T7_MODEL).keys()]).toEqual(["AIN4", "FIO4"]);
+    });
+
+    it("should claim a port the model lacks by its key", () => {
+      const ch = createAnalogReadChannel("AIN999");
+      expect([...claims([ch], T4_MODEL).keys()]).toEqual(["AIN999"]);
+    });
+  });
+
   describe("usedCount", () => {
-    it("should count the ports that hold a channel", () => {
+    it("should count the ports with a channel on their terminal", () => {
       const channels = [
         createAnalogReadChannel("AIN0"),
         createAnalogReadChannel("AIN0"),
         createDigitalReadChannel("DIO4"),
+        createDigitalReadChannel("DIO8"),
       ];
-      expect(usedCount(PORTS[T4_MODEL][AI_PORT_TYPE], claims(channels))).toBe(1);
+      const used = usedCount(PORTS[T4_MODEL][AI_PORT_TYPE], claims(channels, T4_MODEL));
+      expect(used).toBe(3);
     });
   });
 });

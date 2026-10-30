@@ -70,43 +70,6 @@ describe("readConfigZ", () => {
     );
   });
 
-  it("should reject a configuration with duplicate ports", () => {
-    const configWithDuplicatePorts = {
-      device: "labjack",
-      channels: [
-        {
-          key: "1",
-          channel: 1,
-          disabled: false,
-          type: "analog",
-          name: "Test_AI_Channel_1",
-          port: "AIN0",
-          scale: { type: "none" },
-          range: 10,
-        },
-        {
-          key: "2",
-          channel: 2,
-          disabled: false,
-          type: "analog",
-          name: "Test_AI_Channel_2",
-          port: "AIN0", // Duplicate port
-          scale: { type: "none" },
-          range: 10,
-        },
-      ],
-      sampleRate: 1000,
-      streamRate: 500,
-    };
-
-    const result = deployReadConfigZ.safeParse(configWithDuplicatePorts);
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error.issues.length).toBeGreaterThan(0);
-      expect(result.error.issues[0].message).toContain("has already been used");
-    }
-  });
-
   it("should reject a configuration with sampleRate exceeding the maximum", () => {
     const configWithInvalidSampleRate = {
       device: "labjack",
@@ -271,38 +234,6 @@ describe("writeConfigZ", () => {
     };
 
     expect(writeConfigZ.validate(validConfig)).toBe(true);
-  });
-
-  it("should reject a configuration with duplicate ports", () => {
-    const configWithDuplicatePorts = {
-      device: "labjack",
-      channels: [
-        {
-          key: "1",
-          disabled: false,
-          type: "analog",
-          port: "DAC0",
-          cmdChannel: 1,
-          stateChannel: 2,
-        },
-        {
-          key: "2",
-          disabled: false,
-          type: "analog",
-          port: "DAC0", // Duplicate port
-          cmdChannel: 3,
-          stateChannel: 4,
-        },
-      ],
-      stateRate: 1000,
-    };
-
-    const result = deployParse(configWithDuplicatePorts);
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error.issues.length).toBeGreaterThan(0);
-      expect(result.error.issues[0].message).toContain("has already been used");
-    }
   });
 
   it("should reject a configuration with duplicate command channels", () => {

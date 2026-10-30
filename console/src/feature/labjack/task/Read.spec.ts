@@ -344,7 +344,7 @@ describe("Read ports", () => {
     const dev = await createLabJackDevice(client);
     const draft = await createDraft(client, createConfig(dev.key, channels));
     const rendered = await renderRead({ client, taskKey: draft.key });
-    return { draft, ...rendered };
+    return { dev, draft, ...rendered };
   };
 
   const savedPorts = async (key: string) => {
@@ -481,5 +481,78 @@ describe("Read ports", () => {
         ["analog", "AIN1"],
       ]),
     );
+  });
+
+  it.each([
+    ["an analog", createAnalogReadChannel("AIN4"), "Digital inputs"],
+    ["a digital", createDigitalReadChannel("DIO4"), "Analog inputs"],
+  ])(
+    "should mark the terminal %s channel holds as used in the other type",
+    async (_, ch, other) => {
+      await renderWith([ch]);
+      await openPorts();
+      expect(cell("FIO4", other).className).toContain("console-port-grid__cell--used");
+    },
+  );
+
+  it.each([
+    ["analog", [createAnalogReadChannel("AIN4"), createDigitalReadChannel("DIO4")]],
+    ["digital", [createDigitalReadChannel("DIO4"), createAnalogReadChannel("AIN4")]],
+  ])(
+    "should mark a terminal two types share as a conflict, with the %s channel first",
+    async (_, channels) => {
+      await renderWith(channels);
+      await openPorts();
+      for (const section of ["Analog inputs", "Digital inputs"])
+        expect(cell("FIO4", section).className).toContain(
+          "console-port-grid__cell--conflict",
+        );
+      fireEvent.click(cell("FIO4", "Analog inputs"));
+      expect(await screen.findByText("Another channel uses FIO4")).toBeTruthy();
+    },
+  );
+
+  it("should skip a terminal another type holds when it adds a channel", async () => {
+    const { draft } = await renderWith([
+      createAnalogReadChannel("AIN4"),
+      createDigitalReadChannel("DIO6"),
+    ]);
+    fireEvent.click(await findChannelListItem("FIO6"));
+    fireEvent.click(screen.getByText("Add channel"));
+    await waitFor(async () =>
+      expect(await savedPorts(draft.key)).toEqual([
+        ["analog", "AIN4"],
+        ["digital", "DIO6"],
+        ["digital", "DIO5"],
+      ]),
+    );
+  });
+
+  it("should title the ports the MUX80 needs", async () => {
+    const dev = await createLabJackDevice(client, { model: LabJack.Device.T7_MODEL });
+    const draft = await createDraft(
+      client,
+      createConfig(dev.key, [createAnalogReadChannel("AIN0")]),
+    );
+    await renderRead({ client, taskKey: draft.key });
+    await openPorts();
+    const section = screen.getByRole("group", { name: "Analog inputs" });
+    expect(within(section).getByText("AIN (MUX80)")).toBeTruthy();
+    expect(
+      within(section).getByRole("group", { name: "AIN48 to AIN127" }),
+    ).toBeTruthy();
+  });
+});
+
+describe("Read channel names", () => {
+  it("should show the name configuring gives each channel in the list", async () => {
+    const dev = await createLabJackDevice(client);
+    const draft = await createDraft(
+      client,
+      createConfig(dev.key, [createAnalogReadChannel("AIN0")]),
+    );
+    await renderRead({ client, taskKey: draft.key });
+    const item = await findChannelListItem(`${dev.properties.identifier}_AIN0`);
+    expect(within(item).queryByText("No channel")).toBeNull();
   });
 });

@@ -38,7 +38,7 @@ export const PortField = <C extends Channel>({
       {({ onChange, preview }) => (
         <PortBanks
           ports={PORTS[model][type]}
-          claims={claims(channels)}
+          claims={claims(channels, model)}
           selected={[key]}
           describe={describer(channels, name)}
           onClick={(cell) => {

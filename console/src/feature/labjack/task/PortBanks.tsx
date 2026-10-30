@@ -27,7 +27,7 @@ export interface PortBanksProps extends Omit<GroupsProps, "bank"> {
   onContextMenu?: (e: MouseEvent) => void;
 }
 
-/** The ports as a grid for each bank, each under its terminal prefix. */
+/** The ports as a grid for each bank, each under its title. */
 export const PortBanks = ({
   ports,
   onClick,
@@ -38,7 +38,7 @@ export const PortBanks = ({
     {banks(ports).map((bank) => (
       <Flex.Box key={bank.ports[0].key} y gap="tiny">
         <Text.Text level="small" color={9}>
-          {bank.prefix}
+          {bank.title}
         </Text.Text>
         <Task.PortGrid
           label={`${terminal(bank.ports[0])} to ${terminal(bank.ports[bank.ports.length - 1])}`}

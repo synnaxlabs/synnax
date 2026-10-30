@@ -26,6 +26,7 @@ import { type Channel } from "@/feature/labjack/task/types";
 import { CSS } from "@/platform/css";
 
 interface GridProps<C extends Channel> {
+  model: Model;
   ports: Port[];
   channel: string;
   name: (channel: C) => string;
@@ -33,6 +34,7 @@ interface GridProps<C extends Channel> {
 }
 
 const Grid = <C extends Channel>({
+  model,
   ports,
   channel,
   name,
@@ -43,7 +45,7 @@ const Grid = <C extends Channel>({
   return (
     <PortBanks
       ports={ports}
-      claims={claims(channels)}
+      claims={claims(channels, model)}
       selected={[channel]}
       describe={describer(channels, name)}
       onClick={(cell) => {
@@ -95,7 +97,13 @@ export const PortPicker = <C extends Channel>({
         {children}
       </Flex.Box>
       <Dialog.Dialog className={CSS.BE("labjack-port-picker", "dialog")}>
-        <Grid<C> ports={ports} channel={channel} name={name} onChange={onChange} />
+        <Grid<C>
+          model={model}
+          ports={ports}
+          channel={channel}
+          name={name}
+          onChange={onChange}
+        />
       </Dialog.Dialog>
     </Dialog.Frame>
   );

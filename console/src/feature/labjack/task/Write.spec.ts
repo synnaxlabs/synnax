@@ -336,6 +336,19 @@ describe("Write", () => {
     );
   });
 
+  it("should show the names configuring gives each channel in the list", async () => {
+    const dev = await createLabJackDevice(client);
+    const draft = await createDraft(
+      client,
+      createConfig(dev.key, [createDigitalWriteChannel("DIO4")]),
+    );
+    await renderWrite({ client, taskKey: draft.key });
+    const { identifier } = dev.properties;
+    expect(await screen.findByText(`${identifier}_DIO4_cmd`)).toBeTruthy();
+    expect(screen.getByText(`${identifier}_DIO4_state`)).toBeTruthy();
+    expect(screen.queryByText("No command channel")).toBeNull();
+  });
+
   it("should create the task with one channel", async () => {
     const tsk = await createWithHook(
       LabJack.Task.useCreateWrite,
