@@ -10,7 +10,7 @@
 import { type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { type z } from "zod";
 
@@ -33,6 +33,7 @@ import {
 import {
   captureBrowserDownloads,
   fakePickedFile,
+  findDialogTriggerByText,
   getLabeledInput,
   interceptFilePicker,
   uniqueName,
@@ -476,6 +477,36 @@ describe("Read", () => {
         },
       ]),
     );
+  });
+
+  it("should browse the server of a device the task moves to", async () => {
+    const first = await createScannedDevice(client);
+    const second = await createScannedDevice(client);
+    const firstNode = createFolder();
+    const secondNode = createFolder();
+    const draft = await createDraft(client, createReadConfig(first.device.key, []));
+    const firstRoot = await answerNextCommand(client, first.scan, {
+      type: OPCUA.Task.BROWSE_COMMAND_TYPE,
+      data: { channels: [firstNode] },
+    });
+    await renderRead({ client, taskKey: draft.key });
+    await firstRoot.answered;
+    await screen.findByText(firstNode.name);
+    const secondRoot = await answerNextCommand(client, second.scan, {
+      type: OPCUA.Task.BROWSE_COMMAND_TYPE,
+      data: { channels: [secondNode] },
+    });
+    fireEvent.click(await findDialogTriggerByText(first.device.name));
+    const search = await waitFor(() => {
+      const dialog = screen.getAllByRole("dialog").at(-1);
+      if (dialog == null) throw new Error("the device list did not open");
+      return within(dialog).getByRole("textbox");
+    });
+    fireEvent.change(search, { target: { value: second.device.name } });
+    fireEvent.click(await screen.findByText(second.device.name));
+    await secondRoot.answered;
+    await screen.findByText(secondNode.name);
+    expect(screen.queryByText(firstNode.name)).toBeNull();
   });
 
   it("should warn and add nothing when a dropped folder holds no variables", async () => {
