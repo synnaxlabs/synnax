@@ -385,7 +385,8 @@ inline AnalogReadConfig AnalogReadConfig::parse(x::json::Parser parser) {
 
 inline x::json::json AnalogReadConfig::to_json() const {
     x::json::json j;
-    j.update(::synnax::task::ReadConfig::to_json());
+    if (const auto parent = ::synnax::task::ReadConfig::to_json(); parent.is_object())
+        j.update(parent);
     {
         auto arr = x::json::json::array();
         for (const auto &item: this->channels)
@@ -413,7 +414,8 @@ inline CounterReadConfig CounterReadConfig::parse(x::json::Parser parser) {
 
 inline x::json::json CounterReadConfig::to_json() const {
     x::json::json j;
-    j.update(::synnax::task::ReadConfig::to_json());
+    if (const auto parent = ::synnax::task::ReadConfig::to_json(); parent.is_object())
+        j.update(parent);
     {
         auto arr = x::json::json::array();
         for (const auto &item: this->channels)
@@ -437,7 +439,8 @@ inline WriteConfig WriteConfig::parse(x::json::Parser parser) {
 
 inline x::json::json WriteConfig::to_json() const {
     x::json::json j;
-    j.update(::synnax::task::WriteConfig::to_json());
+    if (const auto parent = ::synnax::task::WriteConfig::to_json(); parent.is_object())
+        j.update(parent);
     j["state_rate"] = this->state_rate;
     return j;
 }
@@ -458,7 +461,8 @@ inline AnalogWriteConfig AnalogWriteConfig::parse(x::json::Parser parser) {
 
 inline x::json::json AnalogWriteConfig::to_json() const {
     x::json::json j;
-    j.update(WriteConfig::to_json());
+    if (const auto parent = WriteConfig::to_json(); parent.is_object())
+        j.update(parent);
     {
         auto arr = x::json::json::array();
         for (const auto &item: this->channels)
@@ -483,7 +487,8 @@ inline DigitalReadConfig DigitalReadConfig::parse(x::json::Parser parser) {
 
 inline x::json::json DigitalReadConfig::to_json() const {
     x::json::json j;
-    j.update(::synnax::task::ReadConfig::to_json());
+    if (const auto parent = ::synnax::task::ReadConfig::to_json(); parent.is_object())
+        j.update(parent);
     j["device"] = this->device;
     j["channels"] = x::json::to_array(this->channels);
     return j;
@@ -501,7 +506,8 @@ inline DigitalWriteConfig DigitalWriteConfig::parse(x::json::Parser parser) {
 
 inline x::json::json DigitalWriteConfig::to_json() const {
     x::json::json j;
-    j.update(WriteConfig::to_json());
+    if (const auto parent = WriteConfig::to_json(); parent.is_object())
+        j.update(parent);
     j["channels"] = x::json::to_array(this->channels);
     return j;
 }
@@ -516,7 +522,8 @@ inline ScanConfig ScanConfig::parse(x::json::Parser parser) {
 
 inline x::json::json ScanConfig::to_json() const {
     x::json::json j;
-    j.update(::synnax::task::ScanConfig::to_json());
+    if (const auto parent = ::synnax::task::ScanConfig::to_json(); parent.is_object())
+        j.update(parent);
     return j;
 }
 
@@ -680,10 +687,12 @@ inline AIVoltageChannel AIVoltageChannel::parse(x::json::Parser parser) {
 
 inline x::json::json AIVoltageChannel::to_json() const {
     x::json::json j;
-    j.update(BaseAIChannel::to_json());
-    j.update(MinMaxVal::to_json());
-    j.update(Terminal::to_json());
-    j.update(CustomScale::to_json());
+    if (const auto parent = BaseAIChannel::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = MinMaxVal::to_json(); parent.is_object()) j.update(parent);
+    if (const auto parent = Terminal::to_json(); parent.is_object()) j.update(parent);
+    if (const auto parent = CustomScale::to_json(); parent.is_object())
+        j.update(parent);
     j["type"] = this->type;
     return j;
 }
@@ -707,12 +716,16 @@ inline AIAccelChannel AIAccelChannel::parse(x::json::Parser parser) {
 
 inline x::json::json AIAccelChannel::to_json() const {
     x::json::json j;
-    j.update(BaseAIChannel::to_json());
-    j.update(MinMaxVal::to_json());
-    j.update(Terminal::to_json());
-    j.update(Sensitivity::to_json());
-    j.update(CurrentExcitation::to_json());
-    j.update(CustomScale::to_json());
+    if (const auto parent = BaseAIChannel::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = MinMaxVal::to_json(); parent.is_object()) j.update(parent);
+    if (const auto parent = Terminal::to_json(); parent.is_object()) j.update(parent);
+    if (const auto parent = Sensitivity::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = CurrentExcitation::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = CustomScale::to_json(); parent.is_object())
+        j.update(parent);
     j["units"] = this->units;
     j["sensitivity_units"] = this->sensitivity_units;
     j["type"] = this->type;
@@ -733,11 +746,14 @@ inline AIBridgeChannel AIBridgeChannel::parse(x::json::Parser parser) {
 
 inline x::json::json AIBridgeChannel::to_json() const {
     x::json::json j;
-    j.update(BaseAIChannel::to_json());
-    j.update(MinMaxVal::to_json());
-    j.update(Bridge::to_json());
-    j.update(VoltageExcitation::to_json());
-    j.update(CustomScale::to_json());
+    if (const auto parent = BaseAIChannel::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = MinMaxVal::to_json(); parent.is_object()) j.update(parent);
+    if (const auto parent = Bridge::to_json(); parent.is_object()) j.update(parent);
+    if (const auto parent = VoltageExcitation::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = CustomScale::to_json(); parent.is_object())
+        j.update(parent);
     j["units"] = this->units;
     j["type"] = this->type;
     return j;
@@ -760,10 +776,12 @@ inline AICurrentChannel AICurrentChannel::parse(x::json::Parser parser) {
 
 inline x::json::json AICurrentChannel::to_json() const {
     x::json::json j;
-    j.update(BaseAIChannel::to_json());
-    j.update(MinMaxVal::to_json());
-    j.update(Terminal::to_json());
-    j.update(CustomScale::to_json());
+    if (const auto parent = BaseAIChannel::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = MinMaxVal::to_json(); parent.is_object()) j.update(parent);
+    if (const auto parent = Terminal::to_json(); parent.is_object()) j.update(parent);
+    if (const auto parent = CustomScale::to_json(); parent.is_object())
+        j.update(parent);
     j["shunt_resistor_loc"] = this->shunt_resistor_loc;
     j["ext_shunt_resistor_val"] = this->ext_shunt_resistor_val;
     j["type"] = this->type;
@@ -787,12 +805,15 @@ AIForceBridgeTableChannel::parse(x::json::Parser parser) {
 
 inline x::json::json AIForceBridgeTableChannel::to_json() const {
     x::json::json j;
-    j.update(BaseAIChannel::to_json());
-    j.update(MinMaxVal::to_json());
-    j.update(Bridge::to_json());
-    j.update(VoltageExcitation::to_json());
-    j.update(Table::to_json());
-    j.update(CustomScale::to_json());
+    if (const auto parent = BaseAIChannel::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = MinMaxVal::to_json(); parent.is_object()) j.update(parent);
+    if (const auto parent = Bridge::to_json(); parent.is_object()) j.update(parent);
+    if (const auto parent = VoltageExcitation::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = Table::to_json(); parent.is_object()) j.update(parent);
+    if (const auto parent = CustomScale::to_json(); parent.is_object())
+        j.update(parent);
     j["units"] = this->units;
     j["physical_units"] = this->physical_units;
     j["type"] = this->type;
@@ -816,12 +837,16 @@ AIForceBridgeTwoPointLinChannel::parse(x::json::Parser parser) {
 
 inline x::json::json AIForceBridgeTwoPointLinChannel::to_json() const {
     x::json::json j;
-    j.update(BaseAIChannel::to_json());
-    j.update(MinMaxVal::to_json());
-    j.update(Bridge::to_json());
-    j.update(VoltageExcitation::to_json());
-    j.update(TwoPointLin::to_json());
-    j.update(CustomScale::to_json());
+    if (const auto parent = BaseAIChannel::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = MinMaxVal::to_json(); parent.is_object()) j.update(parent);
+    if (const auto parent = Bridge::to_json(); parent.is_object()) j.update(parent);
+    if (const auto parent = VoltageExcitation::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = TwoPointLin::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = CustomScale::to_json(); parent.is_object())
+        j.update(parent);
     j["units"] = this->units;
     j["physical_units"] = this->physical_units;
     j["type"] = this->type;
@@ -847,12 +872,16 @@ inline AIForceIEPEChannel AIForceIEPEChannel::parse(x::json::Parser parser) {
 
 inline x::json::json AIForceIEPEChannel::to_json() const {
     x::json::json j;
-    j.update(BaseAIChannel::to_json());
-    j.update(MinMaxVal::to_json());
-    j.update(Terminal::to_json());
-    j.update(Sensitivity::to_json());
-    j.update(CurrentExcitation::to_json());
-    j.update(CustomScale::to_json());
+    if (const auto parent = BaseAIChannel::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = MinMaxVal::to_json(); parent.is_object()) j.update(parent);
+    if (const auto parent = Terminal::to_json(); parent.is_object()) j.update(parent);
+    if (const auto parent = Sensitivity::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = CurrentExcitation::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = CustomScale::to_json(); parent.is_object())
+        j.update(parent);
     j["units"] = this->units;
     j["sensitivity_units"] = this->sensitivity_units;
     j["type"] = this->type;
@@ -873,10 +902,13 @@ inline AIMicrophoneChannel AIMicrophoneChannel::parse(x::json::Parser parser) {
 
 inline x::json::json AIMicrophoneChannel::to_json() const {
     x::json::json j;
-    j.update(BaseAIChannel::to_json());
-    j.update(Terminal::to_json());
-    j.update(CurrentExcitation::to_json());
-    j.update(CustomScale::to_json());
+    if (const auto parent = BaseAIChannel::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = Terminal::to_json(); parent.is_object()) j.update(parent);
+    if (const auto parent = CurrentExcitation::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = CustomScale::to_json(); parent.is_object())
+        j.update(parent);
     j["mic_sensitivity"] = this->mic_sensitivity;
     j["max_snd_press_level"] = this->max_snd_press_level;
     j["type"] = this->type;
@@ -903,12 +935,15 @@ AIPressureBridgeTableChannel::parse(x::json::Parser parser) {
 
 inline x::json::json AIPressureBridgeTableChannel::to_json() const {
     x::json::json j;
-    j.update(BaseAIChannel::to_json());
-    j.update(MinMaxVal::to_json());
-    j.update(Bridge::to_json());
-    j.update(VoltageExcitation::to_json());
-    j.update(Table::to_json());
-    j.update(CustomScale::to_json());
+    if (const auto parent = BaseAIChannel::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = MinMaxVal::to_json(); parent.is_object()) j.update(parent);
+    if (const auto parent = Bridge::to_json(); parent.is_object()) j.update(parent);
+    if (const auto parent = VoltageExcitation::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = Table::to_json(); parent.is_object()) j.update(parent);
+    if (const auto parent = CustomScale::to_json(); parent.is_object())
+        j.update(parent);
     j["units"] = this->units;
     j["physical_units"] = this->physical_units;
     j["type"] = this->type;
@@ -935,12 +970,16 @@ AIPressureBridgeTwoPointLinChannel::parse(x::json::Parser parser) {
 
 inline x::json::json AIPressureBridgeTwoPointLinChannel::to_json() const {
     x::json::json j;
-    j.update(BaseAIChannel::to_json());
-    j.update(MinMaxVal::to_json());
-    j.update(Bridge::to_json());
-    j.update(VoltageExcitation::to_json());
-    j.update(TwoPointLin::to_json());
-    j.update(CustomScale::to_json());
+    if (const auto parent = BaseAIChannel::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = MinMaxVal::to_json(); parent.is_object()) j.update(parent);
+    if (const auto parent = Bridge::to_json(); parent.is_object()) j.update(parent);
+    if (const auto parent = VoltageExcitation::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = TwoPointLin::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = CustomScale::to_json(); parent.is_object())
+        j.update(parent);
     j["units"] = this->units;
     j["physical_units"] = this->physical_units;
     j["type"] = this->type;
@@ -960,11 +999,14 @@ inline AIResistanceChannel AIResistanceChannel::parse(x::json::Parser parser) {
 
 inline x::json::json AIResistanceChannel::to_json() const {
     x::json::json j;
-    j.update(BaseAIChannel::to_json());
-    j.update(MinMaxVal::to_json());
-    j.update(Resistance::to_json());
-    j.update(CurrentExcitation::to_json());
-    j.update(CustomScale::to_json());
+    if (const auto parent = BaseAIChannel::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = MinMaxVal::to_json(); parent.is_object()) j.update(parent);
+    if (const auto parent = Resistance::to_json(); parent.is_object()) j.update(parent);
+    if (const auto parent = CurrentExcitation::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = CustomScale::to_json(); parent.is_object())
+        j.update(parent);
     j["type"] = this->type;
     return j;
 }
@@ -984,10 +1026,12 @@ inline AIRTDChannel AIRTDChannel::parse(x::json::Parser parser) {
 
 inline x::json::json AIRTDChannel::to_json() const {
     x::json::json j;
-    j.update(BaseAIChannel::to_json());
-    j.update(MinMaxVal::to_json());
-    j.update(Resistance::to_json());
-    j.update(CurrentExcitation::to_json());
+    if (const auto parent = BaseAIChannel::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = MinMaxVal::to_json(); parent.is_object()) j.update(parent);
+    if (const auto parent = Resistance::to_json(); parent.is_object()) j.update(parent);
+    if (const auto parent = CurrentExcitation::to_json(); parent.is_object())
+        j.update(parent);
     j["units"] = this->units;
     j["rtd_type"] = this->rtd_type;
     j["r0"] = this->r0;
@@ -1013,10 +1057,13 @@ inline AIStrainGaugeChannel AIStrainGaugeChannel::parse(x::json::Parser parser) 
 
 inline x::json::json AIStrainGaugeChannel::to_json() const {
     x::json::json j;
-    j.update(BaseAIChannel::to_json());
-    j.update(MinMaxVal::to_json());
-    j.update(VoltageExcitation::to_json());
-    j.update(CustomScale::to_json());
+    if (const auto parent = BaseAIChannel::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = MinMaxVal::to_json(); parent.is_object()) j.update(parent);
+    if (const auto parent = VoltageExcitation::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = CustomScale::to_json(); parent.is_object())
+        j.update(parent);
     j["strain_config"] = this->strain_config;
     j["gage_factor"] = this->gage_factor;
     j["initial_bridge_voltage"] = this->initial_bridge_voltage;
@@ -1067,8 +1114,9 @@ inline AIThermocoupleChannel AIThermocoupleChannel::parse(x::json::Parser parser
 
 inline x::json::json AIThermocoupleChannel::to_json() const {
     x::json::json j;
-    j.update(BaseAIChannel::to_json());
-    j.update(MinMaxVal::to_json());
+    if (const auto parent = BaseAIChannel::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = MinMaxVal::to_json(); parent.is_object()) j.update(parent);
     j["units"] = this->units;
     j["thermocouple_type"] = this->thermocouple_type;
     j["cjc"] = ::synnax::ni::to_json(this->cjc);
@@ -1093,12 +1141,15 @@ AITorqueBridgeTableChannel::parse(x::json::Parser parser) {
 
 inline x::json::json AITorqueBridgeTableChannel::to_json() const {
     x::json::json j;
-    j.update(BaseAIChannel::to_json());
-    j.update(MinMaxVal::to_json());
-    j.update(Bridge::to_json());
-    j.update(VoltageExcitation::to_json());
-    j.update(Table::to_json());
-    j.update(CustomScale::to_json());
+    if (const auto parent = BaseAIChannel::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = MinMaxVal::to_json(); parent.is_object()) j.update(parent);
+    if (const auto parent = Bridge::to_json(); parent.is_object()) j.update(parent);
+    if (const auto parent = VoltageExcitation::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = Table::to_json(); parent.is_object()) j.update(parent);
+    if (const auto parent = CustomScale::to_json(); parent.is_object())
+        j.update(parent);
     j["units"] = this->units;
     j["physical_units"] = this->physical_units;
     j["type"] = this->type;
@@ -1122,12 +1173,16 @@ AITorqueBridgeTwoPointLinChannel::parse(x::json::Parser parser) {
 
 inline x::json::json AITorqueBridgeTwoPointLinChannel::to_json() const {
     x::json::json j;
-    j.update(BaseAIChannel::to_json());
-    j.update(MinMaxVal::to_json());
-    j.update(Bridge::to_json());
-    j.update(VoltageExcitation::to_json());
-    j.update(TwoPointLin::to_json());
-    j.update(CustomScale::to_json());
+    if (const auto parent = BaseAIChannel::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = MinMaxVal::to_json(); parent.is_object()) j.update(parent);
+    if (const auto parent = Bridge::to_json(); parent.is_object()) j.update(parent);
+    if (const auto parent = VoltageExcitation::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = TwoPointLin::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = CustomScale::to_json(); parent.is_object())
+        j.update(parent);
     j["units"] = this->units;
     j["physical_units"] = this->physical_units;
     j["type"] = this->type;
@@ -1153,12 +1208,16 @@ inline AIVelocityIEPEChannel AIVelocityIEPEChannel::parse(x::json::Parser parser
 
 inline x::json::json AIVelocityIEPEChannel::to_json() const {
     x::json::json j;
-    j.update(BaseAIChannel::to_json());
-    j.update(MinMaxVal::to_json());
-    j.update(Terminal::to_json());
-    j.update(Sensitivity::to_json());
-    j.update(CurrentExcitation::to_json());
-    j.update(CustomScale::to_json());
+    if (const auto parent = BaseAIChannel::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = MinMaxVal::to_json(); parent.is_object()) j.update(parent);
+    if (const auto parent = Terminal::to_json(); parent.is_object()) j.update(parent);
+    if (const auto parent = Sensitivity::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = CurrentExcitation::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = CustomScale::to_json(); parent.is_object())
+        j.update(parent);
     j["units"] = this->units;
     j["sensitivity_units"] = this->sensitivity_units;
     j["type"] = this->type;
@@ -1186,12 +1245,16 @@ AIAccel4WireDCVoltageChannel::parse(x::json::Parser parser) {
 
 inline x::json::json AIAccel4WireDCVoltageChannel::to_json() const {
     x::json::json j;
-    j.update(BaseAIChannel::to_json());
-    j.update(MinMaxVal::to_json());
-    j.update(Terminal::to_json());
-    j.update(Sensitivity::to_json());
-    j.update(VoltageExcitation::to_json());
-    j.update(CustomScale::to_json());
+    if (const auto parent = BaseAIChannel::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = MinMaxVal::to_json(); parent.is_object()) j.update(parent);
+    if (const auto parent = Terminal::to_json(); parent.is_object()) j.update(parent);
+    if (const auto parent = Sensitivity::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = VoltageExcitation::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = CustomScale::to_json(); parent.is_object())
+        j.update(parent);
     j["units"] = this->units;
     j["sensitivity_units"] = this->sensitivity_units;
     j["scaled_by_excitation"] = this->scaled_by_excitation;
@@ -1217,11 +1280,14 @@ inline AIAccelChargeChannel AIAccelChargeChannel::parse(x::json::Parser parser) 
 
 inline x::json::json AIAccelChargeChannel::to_json() const {
     x::json::json j;
-    j.update(BaseAIChannel::to_json());
-    j.update(MinMaxVal::to_json());
-    j.update(Terminal::to_json());
-    j.update(Sensitivity::to_json());
-    j.update(CustomScale::to_json());
+    if (const auto parent = BaseAIChannel::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = MinMaxVal::to_json(); parent.is_object()) j.update(parent);
+    if (const auto parent = Terminal::to_json(); parent.is_object()) j.update(parent);
+    if (const auto parent = Sensitivity::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = CustomScale::to_json(); parent.is_object())
+        j.update(parent);
     j["units"] = this->units;
     j["sensitivity_units"] = this->sensitivity_units;
     j["type"] = this->type;
@@ -1241,10 +1307,12 @@ inline AIChargeChannel AIChargeChannel::parse(x::json::Parser parser) {
 
 inline x::json::json AIChargeChannel::to_json() const {
     x::json::json j;
-    j.update(BaseAIChannel::to_json());
-    j.update(MinMaxVal::to_json());
-    j.update(Terminal::to_json());
-    j.update(CustomScale::to_json());
+    if (const auto parent = BaseAIChannel::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = MinMaxVal::to_json(); parent.is_object()) j.update(parent);
+    if (const auto parent = Terminal::to_json(); parent.is_object()) j.update(parent);
+    if (const auto parent = CustomScale::to_json(); parent.is_object())
+        j.update(parent);
     j["units"] = this->units;
     j["type"] = this->type;
     return j;
@@ -1267,10 +1335,12 @@ inline AICurrentRMSChannel AICurrentRMSChannel::parse(x::json::Parser parser) {
 
 inline x::json::json AICurrentRMSChannel::to_json() const {
     x::json::json j;
-    j.update(BaseAIChannel::to_json());
-    j.update(MinMaxVal::to_json());
-    j.update(Terminal::to_json());
-    j.update(CustomScale::to_json());
+    if (const auto parent = BaseAIChannel::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = MinMaxVal::to_json(); parent.is_object()) j.update(parent);
+    if (const auto parent = Terminal::to_json(); parent.is_object()) j.update(parent);
+    if (const auto parent = CustomScale::to_json(); parent.is_object())
+        j.update(parent);
     j["shunt_resistor_loc"] = this->shunt_resistor_loc;
     j["ext_shunt_resistor_val"] = this->ext_shunt_resistor_val;
     j["type"] = this->type;
@@ -1294,12 +1364,16 @@ AIForceBridgePolynomialChannel::parse(x::json::Parser parser) {
 
 inline x::json::json AIForceBridgePolynomialChannel::to_json() const {
     x::json::json j;
-    j.update(BaseAIChannel::to_json());
-    j.update(MinMaxVal::to_json());
-    j.update(Bridge::to_json());
-    j.update(VoltageExcitation::to_json());
-    j.update(BridgePolynomial::to_json());
-    j.update(CustomScale::to_json());
+    if (const auto parent = BaseAIChannel::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = MinMaxVal::to_json(); parent.is_object()) j.update(parent);
+    if (const auto parent = Bridge::to_json(); parent.is_object()) j.update(parent);
+    if (const auto parent = VoltageExcitation::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = BridgePolynomial::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = CustomScale::to_json(); parent.is_object())
+        j.update(parent);
     j["units"] = this->units;
     j["physical_units"] = this->physical_units;
     j["type"] = this->type;
@@ -1319,9 +1393,11 @@ inline AIFreqVoltageChannel AIFreqVoltageChannel::parse(x::json::Parser parser) 
 
 inline x::json::json AIFreqVoltageChannel::to_json() const {
     x::json::json j;
-    j.update(BaseAIChannel::to_json());
-    j.update(MinMaxVal::to_json());
-    j.update(CustomScale::to_json());
+    if (const auto parent = BaseAIChannel::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = MinMaxVal::to_json(); parent.is_object()) j.update(parent);
+    if (const auto parent = CustomScale::to_json(); parent.is_object())
+        j.update(parent);
     j["threshold_level"] = this->threshold_level;
     j["hysteresis"] = this->hysteresis;
     j["type"] = this->type;
@@ -1348,12 +1424,16 @@ AIPressureBridgePolynomialChannel::parse(x::json::Parser parser) {
 
 inline x::json::json AIPressureBridgePolynomialChannel::to_json() const {
     x::json::json j;
-    j.update(BaseAIChannel::to_json());
-    j.update(MinMaxVal::to_json());
-    j.update(Bridge::to_json());
-    j.update(VoltageExcitation::to_json());
-    j.update(BridgePolynomial::to_json());
-    j.update(CustomScale::to_json());
+    if (const auto parent = BaseAIChannel::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = MinMaxVal::to_json(); parent.is_object()) j.update(parent);
+    if (const auto parent = Bridge::to_json(); parent.is_object()) j.update(parent);
+    if (const auto parent = VoltageExcitation::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = BridgePolynomial::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = CustomScale::to_json(); parent.is_object())
+        j.update(parent);
     j["units"] = this->units;
     j["physical_units"] = this->physical_units;
     j["type"] = this->type;
@@ -1376,10 +1456,12 @@ inline AIThermistorIexChannel AIThermistorIexChannel::parse(x::json::Parser pars
 
 inline x::json::json AIThermistorIexChannel::to_json() const {
     x::json::json j;
-    j.update(BaseAIChannel::to_json());
-    j.update(MinMaxVal::to_json());
-    j.update(Resistance::to_json());
-    j.update(CurrentExcitation::to_json());
+    if (const auto parent = BaseAIChannel::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = MinMaxVal::to_json(); parent.is_object()) j.update(parent);
+    if (const auto parent = Resistance::to_json(); parent.is_object()) j.update(parent);
+    if (const auto parent = CurrentExcitation::to_json(); parent.is_object())
+        j.update(parent);
     j["units"] = this->units;
     j["a"] = this->a;
     j["b"] = this->b;
@@ -1405,10 +1487,12 @@ inline AIThermistorVexChannel AIThermistorVexChannel::parse(x::json::Parser pars
 
 inline x::json::json AIThermistorVexChannel::to_json() const {
     x::json::json j;
-    j.update(BaseAIChannel::to_json());
-    j.update(MinMaxVal::to_json());
-    j.update(Resistance::to_json());
-    j.update(VoltageExcitation::to_json());
+    if (const auto parent = BaseAIChannel::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = MinMaxVal::to_json(); parent.is_object()) j.update(parent);
+    if (const auto parent = Resistance::to_json(); parent.is_object()) j.update(parent);
+    if (const auto parent = VoltageExcitation::to_json(); parent.is_object())
+        j.update(parent);
     j["units"] = this->units;
     j["a"] = this->a;
     j["b"] = this->b;
@@ -1435,12 +1519,16 @@ AITorqueBridgePolynomialChannel::parse(x::json::Parser parser) {
 
 inline x::json::json AITorqueBridgePolynomialChannel::to_json() const {
     x::json::json j;
-    j.update(BaseAIChannel::to_json());
-    j.update(MinMaxVal::to_json());
-    j.update(Bridge::to_json());
-    j.update(VoltageExcitation::to_json());
-    j.update(BridgePolynomial::to_json());
-    j.update(CustomScale::to_json());
+    if (const auto parent = BaseAIChannel::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = MinMaxVal::to_json(); parent.is_object()) j.update(parent);
+    if (const auto parent = Bridge::to_json(); parent.is_object()) j.update(parent);
+    if (const auto parent = VoltageExcitation::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = BridgePolynomial::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = CustomScale::to_json(); parent.is_object())
+        j.update(parent);
     j["units"] = this->units;
     j["physical_units"] = this->physical_units;
     j["type"] = this->type;
@@ -1459,10 +1547,12 @@ inline AIVoltageRMSChannel AIVoltageRMSChannel::parse(x::json::Parser parser) {
 
 inline x::json::json AIVoltageRMSChannel::to_json() const {
     x::json::json j;
-    j.update(BaseAIChannel::to_json());
-    j.update(MinMaxVal::to_json());
-    j.update(Terminal::to_json());
-    j.update(CustomScale::to_json());
+    if (const auto parent = BaseAIChannel::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = MinMaxVal::to_json(); parent.is_object()) j.update(parent);
+    if (const auto parent = Terminal::to_json(); parent.is_object()) j.update(parent);
+    if (const auto parent = CustomScale::to_json(); parent.is_object())
+        j.update(parent);
     j["type"] = this->type;
     return j;
 }
@@ -1483,11 +1573,14 @@ AIVoltageWithExcitChannel::parse(x::json::Parser parser) {
 
 inline x::json::json AIVoltageWithExcitChannel::to_json() const {
     x::json::json j;
-    j.update(BaseAIChannel::to_json());
-    j.update(MinMaxVal::to_json());
-    j.update(Terminal::to_json());
-    j.update(VoltageExcitation::to_json());
-    j.update(CustomScale::to_json());
+    if (const auto parent = BaseAIChannel::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = MinMaxVal::to_json(); parent.is_object()) j.update(parent);
+    if (const auto parent = Terminal::to_json(); parent.is_object()) j.update(parent);
+    if (const auto parent = VoltageExcitation::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = CustomScale::to_json(); parent.is_object())
+        j.update(parent);
     j["bridge_config"] = this->bridge_config;
     j["scaled_by_excitation"] = this->scaled_by_excitation;
     j["type"] = this->type;
@@ -1513,9 +1606,11 @@ inline CIFrequencyChannel CIFrequencyChannel::parse(x::json::Parser parser) {
 
 inline x::json::json CIFrequencyChannel::to_json() const {
     x::json::json j;
-    j.update(BaseCIChannel::to_json());
-    j.update(CustomScale::to_json());
-    j.update(MinMaxVal::to_json());
+    if (const auto parent = BaseCIChannel::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = CustomScale::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = MinMaxVal::to_json(); parent.is_object()) j.update(parent);
     j["min_val"] = this->min_val;
     j["max_val"] = this->max_val;
     j["units"] = this->units;
@@ -1541,7 +1636,8 @@ inline CIEdgeCountChannel CIEdgeCountChannel::parse(x::json::Parser parser) {
 
 inline x::json::json CIEdgeCountChannel::to_json() const {
     x::json::json j;
-    j.update(BaseCIChannel::to_json());
+    if (const auto parent = BaseCIChannel::to_json(); parent.is_object())
+        j.update(parent);
     j["active_edge"] = this->active_edge;
     j["count_direction"] = this->count_direction;
     j["initial_count"] = this->initial_count;
@@ -1569,9 +1665,11 @@ inline CIPeriodChannel CIPeriodChannel::parse(x::json::Parser parser) {
 
 inline x::json::json CIPeriodChannel::to_json() const {
     x::json::json j;
-    j.update(BaseCIChannel::to_json());
-    j.update(CustomScale::to_json());
-    j.update(MinMaxVal::to_json());
+    if (const auto parent = BaseCIChannel::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = CustomScale::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = MinMaxVal::to_json(); parent.is_object()) j.update(parent);
     j["min_val"] = this->min_val;
     j["max_val"] = this->max_val;
     j["units"] = this->units;
@@ -1600,9 +1698,11 @@ inline CIPulseWidthChannel CIPulseWidthChannel::parse(x::json::Parser parser) {
 
 inline x::json::json CIPulseWidthChannel::to_json() const {
     x::json::json j;
-    j.update(BaseCIChannel::to_json());
-    j.update(CustomScale::to_json());
-    j.update(MinMaxVal::to_json());
+    if (const auto parent = BaseCIChannel::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = CustomScale::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = MinMaxVal::to_json(); parent.is_object()) j.update(parent);
     j["min_val"] = this->min_val;
     j["max_val"] = this->max_val;
     j["units"] = this->units;
@@ -1627,9 +1727,11 @@ inline CISemiPeriodChannel CISemiPeriodChannel::parse(x::json::Parser parser) {
 
 inline x::json::json CISemiPeriodChannel::to_json() const {
     x::json::json j;
-    j.update(BaseCIChannel::to_json());
-    j.update(CustomScale::to_json());
-    j.update(MinMaxVal::to_json());
+    if (const auto parent = BaseCIChannel::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = CustomScale::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = MinMaxVal::to_json(); parent.is_object()) j.update(parent);
     j["min_val"] = this->min_val;
     j["max_val"] = this->max_val;
     j["units"] = this->units;
@@ -1656,9 +1758,11 @@ inline CITwoEdgeSepChannel CITwoEdgeSepChannel::parse(x::json::Parser parser) {
 
 inline x::json::json CITwoEdgeSepChannel::to_json() const {
     x::json::json j;
-    j.update(BaseCIChannel::to_json());
-    j.update(CustomScale::to_json());
-    j.update(MinMaxVal::to_json());
+    if (const auto parent = BaseCIChannel::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = CustomScale::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = MinMaxVal::to_json(); parent.is_object()) j.update(parent);
     j["min_val"] = this->min_val;
     j["max_val"] = this->max_val;
     j["units"] = this->units;
@@ -1688,9 +1792,11 @@ inline CIVelocityLinearChannel CIVelocityLinearChannel::parse(x::json::Parser pa
 
 inline x::json::json CIVelocityLinearChannel::to_json() const {
     x::json::json j;
-    j.update(BaseCIChannel::to_json());
-    j.update(CustomScale::to_json());
-    j.update(MinMaxVal::to_json());
+    if (const auto parent = BaseCIChannel::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = CustomScale::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = MinMaxVal::to_json(); parent.is_object()) j.update(parent);
     j["min_val"] = this->min_val;
     j["max_val"] = this->max_val;
     j["units"] = this->units;
@@ -1721,9 +1827,11 @@ CIVelocityAngularChannel::parse(x::json::Parser parser) {
 
 inline x::json::json CIVelocityAngularChannel::to_json() const {
     x::json::json j;
-    j.update(BaseCIChannel::to_json());
-    j.update(CustomScale::to_json());
-    j.update(MinMaxVal::to_json());
+    if (const auto parent = BaseCIChannel::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = CustomScale::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = MinMaxVal::to_json(); parent.is_object()) j.update(parent);
     j["min_val"] = this->min_val;
     j["max_val"] = this->max_val;
     j["units"] = this->units;
@@ -1752,9 +1860,11 @@ inline CIPositionLinearChannel CIPositionLinearChannel::parse(x::json::Parser pa
 
 inline x::json::json CIPositionLinearChannel::to_json() const {
     x::json::json j;
-    j.update(BaseCIChannel::to_json());
-    j.update(CustomScale::to_json());
-    j.update(ZIndex::to_json());
+    if (const auto parent = BaseCIChannel::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = CustomScale::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = ZIndex::to_json(); parent.is_object()) j.update(parent);
     j["units"] = this->units;
     j["decoding_type"] = this->decoding_type;
     j["dist_per_pulse"] = this->dist_per_pulse;
@@ -1783,9 +1893,11 @@ CIPositionAngularChannel::parse(x::json::Parser parser) {
 
 inline x::json::json CIPositionAngularChannel::to_json() const {
     x::json::json j;
-    j.update(BaseCIChannel::to_json());
-    j.update(CustomScale::to_json());
-    j.update(ZIndex::to_json());
+    if (const auto parent = BaseCIChannel::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = CustomScale::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = ZIndex::to_json(); parent.is_object()) j.update(parent);
     j["units"] = this->units;
     j["decoding_type"] = this->decoding_type;
     j["pulses_per_rev"] = this->pulses_per_rev;
@@ -1811,9 +1923,11 @@ inline CIDutyCycleChannel CIDutyCycleChannel::parse(x::json::Parser parser) {
 
 inline x::json::json CIDutyCycleChannel::to_json() const {
     x::json::json j;
-    j.update(BaseCIChannel::to_json());
-    j.update(CustomScale::to_json());
-    j.update(MinMaxVal::to_json());
+    if (const auto parent = BaseCIChannel::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = CustomScale::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = MinMaxVal::to_json(); parent.is_object()) j.update(parent);
     j["min_val"] = this->min_val;
     j["max_val"] = this->max_val;
     j["active_edge"] = this->active_edge;
@@ -1833,9 +1947,11 @@ inline AOCurrentChannel AOCurrentChannel::parse(x::json::Parser parser) {
 
 inline x::json::json AOCurrentChannel::to_json() const {
     x::json::json j;
-    j.update(BaseAOChannel::to_json());
-    j.update(MinMaxVal::to_json());
-    j.update(CustomScale::to_json());
+    if (const auto parent = BaseAOChannel::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = MinMaxVal::to_json(); parent.is_object()) j.update(parent);
+    if (const auto parent = CustomScale::to_json(); parent.is_object())
+        j.update(parent);
     j["type"] = this->type;
     return j;
 }
@@ -1853,7 +1969,8 @@ inline AOFuncGenChannel AOFuncGenChannel::parse(x::json::Parser parser) {
 
 inline x::json::json AOFuncGenChannel::to_json() const {
     x::json::json j;
-    j.update(BaseAOChannel::to_json());
+    if (const auto parent = BaseAOChannel::to_json(); parent.is_object())
+        j.update(parent);
     j["wave_type"] = this->wave_type;
     j["frequency"] = this->frequency;
     j["amplitude"] = this->amplitude;
@@ -1873,9 +1990,11 @@ inline AOVoltageChannel AOVoltageChannel::parse(x::json::Parser parser) {
 
 inline x::json::json AOVoltageChannel::to_json() const {
     x::json::json j;
-    j.update(BaseAOChannel::to_json());
-    j.update(MinMaxVal::to_json());
-    j.update(CustomScale::to_json());
+    if (const auto parent = BaseAOChannel::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = MinMaxVal::to_json(); parent.is_object()) j.update(parent);
+    if (const auto parent = CustomScale::to_json(); parent.is_object())
+        j.update(parent);
     j["type"] = this->type;
     return j;
 }
