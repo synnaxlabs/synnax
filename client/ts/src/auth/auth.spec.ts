@@ -637,6 +637,20 @@ describe("auth", () => {
       }).retrieveSessions();
     });
 
+    it("should keep new credentials set while a password change runs", async () => {
+      const first = await createUser();
+      const second = await createUser();
+      const client = makeClient({
+        credentials: { username: first.username, password: "old" },
+      });
+      await client.retrieveSessions();
+      const change = client.setPassword({ password: "new", currentPassword: "old" });
+      client.setCredentials({ username: second.username, password: "old" });
+      await change;
+      await client.retrieveSessions();
+      expect(client.subject?.key).toEqual(second.subject.key);
+    });
+
     it("should keep working after a resumed client sets its own password", async () => {
       const { username } = await createUser();
       const opener = makeClient({ credentials: { username, password: "old" } });
