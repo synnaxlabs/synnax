@@ -130,6 +130,7 @@ func (l Line) Validate() error {
 	v.Ternaryf("y_axis", !l.YAxis.IsValid(), "invalid y_axis: %v", l.YAxis)
 	v.Ternaryf("aggregation", !l.Aggregation.IsValid(), "invalid aggregation: %v", l.Aggregation)
 	v.Ternaryf("detail", !l.Detail.IsValid(), "invalid detail: %v", l.Detail)
+	v.GreaterThanEq("stroke_width", l.StrokeWidth, 1)
 	return v.Error()
 }
 

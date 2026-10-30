@@ -17,6 +17,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	v6 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v6"
 	v7 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v7"
@@ -328,5 +329,20 @@ var _ = Describe("MigrateLine", func() {
 	It("Should reject a key that does not parse", func(ctx SpecContext) {
 		Expect(v8.MigrateLine(ctx, v7.Line{Key: "l1"})).Error().
 			To(MatchError(ContainSubstring(`malformed v7 line key "l1"`)))
+	})
+})
+
+var _ = Describe("RaiseStrokeWidths", func() {
+	It("Should raise widths below 1 to 1 and keep the rest", func(ctx SpecContext) {
+		in := v8.LinePlot{Lines: []v8.Line{
+			{StrokeWidth: 0},
+			{StrokeWidth: 0.5},
+			{StrokeWidth: 1},
+			{StrokeWidth: 3.5},
+		}}
+		out := MustSucceed(v8.RaiseStrokeWidths(ctx, in))
+		Expect(lo.Map(out.Lines, func(l v8.Line, _ int) float64 {
+			return l.StrokeWidth
+		})).To(Equal([]float64{1, 1, 1, 3.5}))
 	})
 })
