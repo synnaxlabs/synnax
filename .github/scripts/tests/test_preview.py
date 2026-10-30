@@ -146,6 +146,7 @@ class TestUp:
             "registry/synnax-preview:pr-12 --listen 0.0.0.0:9090 --insecure --mem "
             "--no-driver"
         )
+        assert docker[3] == "docker image prune --all --force"
         assert docker[-1] == (
             "docker exec caddy caddy reload --config /etc/caddy/Caddyfile"
         )
@@ -210,6 +211,18 @@ class TestCap:
             "docker rm --force synnax-pr-12",
             "docker rm --force synnax-pr-14",
         ]
+
+    def test_should_prune_images_only_after_the_new_core_starts(
+        self, host: Host
+    ) -> None:
+        host.ready()
+        host.containers((13, 200), (12, 100))
+        result = host.run("up", "14", "image")
+        assert result.returncode == 0, result.stderr
+        docker = [c for c in host.docker() if not c.startswith("docker ps")]
+        prune = docker.index("docker image prune --all --force")
+        assert docker[prune - 1].startswith("docker run --detach --name synnax-pr-14")
+        assert docker.count("docker image prune --all --force") == 1
 
     def test_should_remove_unmarked_previews_before_human_reviews(
         self, host: Host
@@ -358,6 +371,7 @@ class TestDown:
         assert host.docker() == [
             "docker rm --force synnax-pr-12",
             "docker exec caddy caddy reload --config /etc/caddy/Caddyfile",
+            "docker image prune --all --force",
         ]
         assert not host.site(12).exists()
         assert not host.mark(12).exists()
@@ -377,9 +391,12 @@ class TestSweep:
         assert removed == ["docker rm --force synnax-pr-12"]
         assert not host.site(12).exists()
         assert host.site(13).exists()
-        assert host.docker()[-1] == (
-            "docker image prune --all --force --filter until=168h"
-        )
+
+    def test_prunes_images_without_expired(self, host: Host) -> None:
+        host.containers((13, int(time.time())))
+        result = host.run("sweep")
+        assert result.returncode == 0, result.stderr
+        assert host.docker()[-1] == "docker image prune --all --force"
 
 
 class TestArguments:

@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	svcauth "github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -55,6 +56,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service
+	// Auth ends the sessions of the racks the service deletes.
+	//
+	// [REQUIRED]
+	Auth *svcauth.Service
 }
 
 var (
@@ -70,6 +75,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Task = override.Nil(c.Task, other.Task)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
+	c.Auth = override.Nil(c.Auth, other.Auth)
 	return c
 }
 
@@ -81,11 +87,13 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("task", c.Task)
 	v.NotNil("status", c.Status)
 	v.NotNil("rbac", c.RBAC)
+	v.NotNil("auth", c.Auth)
 	return v.Error()
 }
 
 type Service struct {
 	access *rbac.Service
+	auth   *svcauth.Service
 	rack   *rack.Service
 	device *device.Service
 	task   *task.Service
@@ -103,6 +111,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		task:   cfg.Task,
 		status: cfg.Status,
 		access: cfg.RBAC,
+		auth:   cfg.Auth,
 	}, nil
 }
 
@@ -303,5 +312,6 @@ func (s *Service) Delete(
 	if err := s.task.NewWriter(tx).DeleteByRacks(ctx, req.Keys...); err != nil {
 		return struct{}{}, err
 	}
-	return struct{}{}, nil
+	return struct{}{}, s.auth.NewWriter(tx).
+		DeleteFor(ctx, rack.OntologyIDs(req.Keys)...)
 }
