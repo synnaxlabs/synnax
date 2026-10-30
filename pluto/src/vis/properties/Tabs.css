@@ -14,21 +14,21 @@
     flex-grow: 1;
     height: 100%;
 
-    & > .pluto-tabs__selector.pluto--direction-y {
+    & > .lyra-tabs__selector.lyra--direction-y {
         width: 24rem;
         padding: 1.5rem;
         border-right: var(--pluto-border-l6);
 
-        .pluto-tabs__tab {
+        .lyra-tabs__tab {
             padding: 0 2rem;
 
-            & > .pluto-icon {
+            & > .lyra-icon {
                 margin: 0 1rem 0 0;
             }
         }
     }
 
-    & > .pluto-tabs__content {
+    & > .lyra-tabs__content {
         flex-grow: 1;
         min-width: 0;
         overflow: hidden;

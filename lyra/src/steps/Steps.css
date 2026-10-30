@@ -29,14 +29,14 @@
     initial-value: 0;
 }
 
-.pluto-steps {
+.lyra-steps {
     margin: 0;
     padding: 0;
     list-style: none;
 }
 
 /* Sizes are in em, so the markers keep their proportions at any type scale step. */
-.pluto-steps__item {
+.lyra-steps__item {
     --pluto-steps-line: 1lh;
     --pluto-steps-marker: round(max(1.6em, 3rem), 1px);
     --pluto-steps-digit: max(0.8em, 10px);
@@ -88,18 +88,18 @@
 
     /* A step starts with its text, so every block after it sits under that text.
        Inline content, such as an icon, takes no gap. */
-    & > :is(p, ul, ol, div, pre, figure, table, video, .pluto-btn):not(:first-child) {
+    & > :is(p, ul, ol, div, pre, figure, table, video, .lyra-btn):not(:first-child) {
         margin-top: 0.8em;
     }
 }
 
 /* The items carry the level, since the base styles give every li the p step. */
-.pluto-steps--p > .pluto-steps__item {
+.lyra-steps--p > .lyra-steps__item {
     font-size: var(--pluto-p-size);
     line-height: var(--pluto-p-line-height);
 }
 
-.pluto-steps--small > .pluto-steps__item {
+.lyra-steps--small > .lyra-steps__item {
     font-size: var(--pluto-small-size);
     line-height: var(--pluto-small-line-height);
 }

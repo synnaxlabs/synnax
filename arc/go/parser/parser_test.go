@@ -2211,7 +2211,7 @@ sequence main {
 			primary := postfix.PrimaryExpression()
 			qid := primary.QualifiedIdentifier()
 			Expect(qid).ToNot(BeNil())
-			Expect(parser.QualifiedName(qid)).To(Equal("math.avg"))
+			Expect(qid.GetText()).To(Equal("math.avg"))
 			funcCalls := postfix.AllFunctionCallSuffix()
 			Expect(funcCalls).To(HaveLen(1))
 			args := funcCalls[0].ArgumentList().AllExpression()
