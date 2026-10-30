@@ -760,6 +760,31 @@ TEST_F(ConnectionPoolTest, BrowseStopsAtChildLimit) {
     EXPECT_FALSE(again[0].truncated);
 }
 
+/// @brief it should stop following continuation points once its deadline passes, and
+/// mark each node that it cut short.
+TEST_F(ConnectionPoolTest, BrowseStopsAtDeadline) {
+    server_cfg_.generated_variables = 50;
+    server_cfg_.max_nodes_per_browse = 1;
+    server_cfg_.max_references_per_node = 1;
+    restart_server();
+    Pool pool(testutil::create_store());
+    const auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
+    server_->probe_delay = 100 * x::telem::MILLISECOND;
+    const auto start = std::chrono::steady_clock::now();
+    const auto results = ASSERT_NIL_P(conn.browse(
+        {UA_NODEID_STRING(1, const_cast<char *>("Generated")),
+         UA_NODEID_STRING(1, const_cast<char *>("Generated.Inner"))},
+        start + std::chrono::seconds(1)
+    ));
+    EXPECT_LT(std::chrono::steady_clock::now() - start, std::chrono::seconds(5));
+    EXPECT_GT(results[0].references.size(), 0);
+    EXPECT_LT(results[0].references.size(), 51);
+    EXPECT_TRUE(results[0].truncated);
+    EXPECT_TRUE(results[1].references.empty());
+    EXPECT_TRUE(results[1].truncated);
+    server_->probe_delay = x::telem::TimeSpan{};
+}
+
 /// @brief it should split a browse that names more nodes than the server allows, and
 /// keep the error of a node that fails without failing the others.
 TEST_F(ConnectionPoolTest, BrowseSplitsAtServerLimit) {

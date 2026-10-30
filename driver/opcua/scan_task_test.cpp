@@ -373,6 +373,36 @@ TEST_F(TestScanTask, testBrowsePrintsNamespaceURIs) {
     EXPECT_EQ((*it)["node_id"], "nsu=urn:open62541.server.application;s=TestBoolean");
 }
 
+/// @brief it should print the URI of a namespace that the server added after the
+/// connection opened.
+TEST_F(TestScanTask, testBrowsePrintsNamespaceAddedAfterConnect) {
+    Scanner scanner(ctx, task, conn_pool, store);
+    auto cmd = command(
+        BROWSE_CMD_TYPE,
+        "opc.tcp://localhost:4840",
+        {{"node_id", "i=85"}}
+    );
+    ASSERT_TRUE(scanner.exec(cmd, task, ctx));
+    UA_Float value = 5.0f;
+    UA_Variant variant;
+    UA_Variant_setScalar(&variant, &value, &UA_TYPES[UA_TYPES_FLOAT]);
+    server->add_namespace(
+        "urn:late",
+        {{0, "Late", &UA_TYPES[UA_TYPES_FLOAT], variant, "Late"}}
+    );
+    ASSERT_TRUE(scanner.exec(cmd, task, ctx));
+    ASSERT_EQ(ctx->statuses.size(), 2);
+    const auto &state = ctx->statuses[1];
+    ASSERT_EQ(state.variant, synnax::status::VARIANT_SUCCESS) << state.description;
+    const auto channels = x::json::json(state.details.data.value()).at("channels");
+    const auto it = std::ranges::find_if(channels, [](const auto &ch) {
+        return ch["name"] == "Late";
+    });
+    ASSERT_NE(it, channels.end());
+    EXPECT_EQ((*it)["node_id"], "nsu=urn:late;s=Late");
+    EXPECT_EQ(conn_pool->size(), 1);
+}
+
 /// @brief it should fail to browse from a node in a namespace that the server lacks.
 TEST_F(TestScanTask, testBrowseUnknownNamespace) {
     Scanner scanner(ctx, task, conn_pool, store);

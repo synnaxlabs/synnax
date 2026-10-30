@@ -435,20 +435,29 @@ Pool::Connection::write(const UA_WriteRequest &req) const {
     return {std::move(merged), x::errors::NIL};
 }
 
-std::pair<std::vector<types::BrowseResult>, x::errors::Error>
-Pool::Connection::browse(const std::vector<UA_NodeId> &nodes) const {
+std::pair<std::vector<types::BrowseResult>, x::errors::Error> Pool::Connection::browse(
+    const std::vector<UA_NodeId> &nodes,
+    const std::chrono::steady_clock::time_point deadline
+) const {
     std::vector<types::BrowseResult> results(nodes.size());
     const size_t limit = this->server_->max_nodes_per_browse;
     const size_t step = limit == 0 ? std::max<size_t>(nodes.size(), 1) : limit;
     size_t room = MAX_CHILDREN;
-    for (size_t offset = 0; offset < nodes.size(); offset += step)
+    for (size_t offset = 0; offset < nodes.size(); offset += step) {
+        if (offset > 0 && std::chrono::steady_clock::now() >= deadline) {
+            for (size_t i = offset; i < nodes.size(); ++i)
+                results[i].truncated = true;
+            break;
+        }
         if (auto err = this->browse(
                 nodes.data() + offset,
                 std::min(step, nodes.size() - offset),
                 results.data() + offset,
-                room
+                room,
+                deadline
             ))
             return {std::vector<types::BrowseResult>(), err};
+    }
     return {std::move(results), x::errors::NIL};
 }
 
@@ -456,7 +465,8 @@ x::errors::Error Pool::Connection::browse(
     const UA_NodeId *nodes,
     const size_t count,
     types::BrowseResult *results,
-    size_t &room
+    size_t &room,
+    const std::chrono::steady_clock::time_point deadline
 ) const {
     std::vector<UA_BrowseDescription> descriptions(count);
     for (size_t i = 0; i < count; ++i) {
@@ -495,6 +505,12 @@ x::errors::Error Pool::Connection::browse(
         namespaces
     );
     while (!pending.empty()) {
+        if (std::chrono::steady_clock::now() >= deadline) {
+            for (const auto i: pending.results)
+                results[i].truncated = true;
+            pending.release(this->get());
+            return x::errors::NIL;
+        }
         if (auto err = lost(this->get())) return err;
         types::BrowseNextResponse next(
             UA_Client_Service_browseNext(this->get(), pending.req)
