@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/io/fs"
+	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -193,7 +194,7 @@ var _ = Describe("Write", func() {
 					// Read, ReadAt, Write, and WriteAt against the underlying FS
 					// and asserting that nothing is written during the writer's
 					// session.
-					rec := fs.NewRecorder(fs.NewMem())
+					rec := NewRecorder(fs.NewMem())
 					virtualDB := MustSucceed(virtual.Open(ctx, virtual.Config{
 						MetaCodec: json.Codec,
 						Channel: channel.Channel{
@@ -215,7 +216,7 @@ var _ = Describe("Write", func() {
 					MustSucceed(w.Close())
 					Expect(virtualDB.Close()).To(Succeed())
 
-					Expect(rec.Count(fs.MatchOp(fs.OpWrite, fs.OpWriteAt))).To(BeZero())
+					Expect(rec.Count(MatchOp(OpWrite, OpWriteAt))).To(BeZero())
 				},
 			)
 		})

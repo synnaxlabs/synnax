@@ -919,7 +919,8 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 								Authority: control.AuthorityAbsolute,
 								Subject:   control.Subject{Key: "bar"},
 							}))
-							Expect(t.IsTransfer()).To(BeTrue())
+							Expect(t.From).ToNot(BeNil())
+							Expect(t.To).ToNot(BeNil())
 							for i := range telem.TimeStamp(10) {
 								MustSucceed(
 									w2.Write(telem.NewSeriesV(20*telem.SecondTS + i)),

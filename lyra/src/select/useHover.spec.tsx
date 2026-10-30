@@ -277,7 +277,7 @@ describe("Select keyboard hover", () => {
           </Dialog.Frame>
         </Triggers.Provider>,
       );
-      const scroller = c.container.querySelector<HTMLElement>(".pluto-list__scroll");
+      const scroller = c.container.querySelector<HTMLElement>(".lyra-list__scroll");
       if (scroller == null) throw new Error("scroll container not found");
       act(() => {
         scroller.scrollTop = 33;
@@ -313,7 +313,7 @@ describe("Select keyboard hover", () => {
           </Dialog.Frame>
         </Triggers.Provider>,
       );
-      const scroller = c.container.querySelector<HTMLElement>(".pluto-list__scroll");
+      const scroller = c.container.querySelector<HTMLElement>(".lyra-list__scroll");
       if (scroller == null) throw new Error("scroll container not found");
       const calls = onFetchMore.mock.calls.length;
       act(() => {
@@ -353,7 +353,7 @@ describe("Select keyboard hover", () => {
       const onChange = vi.fn();
       const data = Array.from({ length: 300 }, (_, i) => `${i}`);
       const c = renderRows(data, onChange, row, true);
-      const scroller = c.container.querySelector<HTMLElement>(".pluto-list__scroll");
+      const scroller = c.container.querySelector<HTMLElement>(".lyra-list__scroll");
       if (scroller == null) throw new Error("scroll container not found");
       act(() => {
         scroller.scrollTop = 200 * 33;

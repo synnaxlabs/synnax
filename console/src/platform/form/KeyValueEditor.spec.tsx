@@ -225,4 +225,54 @@ describe("KeyValueEditor", () => {
     expect(await screen.findByText("Headers")).toBeDefined();
     expect(onChange).not.toHaveBeenCalled();
   });
+
+  describe("errors", () => {
+    const schema = z.object({
+      [PATH]: z.array(
+        z.object({
+          name: z.string().min(1, "Name is required"),
+          value: z.string().min(1, "Value is required"),
+        }),
+      ),
+    });
+
+    const Validated = ({ valueFirst }: { valueFirst?: boolean }): ReactElement => {
+      const methods = PForm.use<typeof schema>({
+        values: {
+          [PATH]: [
+            { name: "Accept", value: "" },
+            { name: "", value: "json" },
+          ],
+        },
+        schema,
+      });
+      return (
+        <PForm.Form<typeof schema> {...methods}>
+          <Form.KeyValueEditor
+            path={PATH}
+            label="Headers"
+            keyField="name"
+            valueFirst={valueFirst}
+          />
+          <button onClick={() => methods.validate()}>Validate</button>
+        </PForm.Form>
+      );
+    };
+
+    const invalid = (row: HTMLElement, placeholder: string): string | null =>
+      within(row).getByPlaceholderText(placeholder).getAttribute("aria-invalid");
+
+    it.each([
+      ["the key column comes first", false],
+      ["the value column comes first", true],
+    ])("should mark each cell whose path holds an error when %s", async (_, first) => {
+      const { container } = await renderWithConsole(<Validated valueFirst={first} />);
+      fireEvent.click(await screen.findByRole("button", { name: "Validate" }));
+      const [accept, unnamed] = getKVRows(container);
+      await waitFor(() => expect(invalid(accept, "Value")).toBe("true"));
+      expect(invalid(accept, "Key")).toBeNull();
+      expect(invalid(unnamed, "Key")).toBe("true");
+      expect(invalid(unnamed, "Value")).toBeNull();
+    });
+  });
 });

@@ -34,12 +34,12 @@ class NoDevice(HardwareCase, ConsoleCase):
 
         rack_name = f"TestRack_{rand_int}"
         dev_name = f"USB-6000_{rand_int}"
-        self.create_rack(rack_name, dev_name)
+        self.create_rack(rack_name, dev_name=dev_name)
         self.initial_assertion(ni_ai)
-        self.configure_without_channels(ni_ai)
-        self.nominal_configuration(ni_ai, rack_name, dev_name)
+        self.configure_without_device(ni_ai)
+        self.nominal_configuration(ni_ai, rack_name=rack_name, dev_name=dev_name)
 
-    def create_rack(self, rack_name: str, dev_name: str) -> None:
+    def create_rack(self, rack_name: str, *, dev_name: str) -> None:
         self.log(f"Creating {rack_name} and devices")
 
         rack = self.create_test_rack(rack_name)
@@ -72,22 +72,21 @@ class NoDevice(HardwareCase, ConsoleCase):
             f"Task status msg <{msg}> should be <{msg_expected}>"
         )
 
-    def configure_without_channels(self, ni_ai: AnalogRead) -> None:
-        """Deploy without channels; the form blocks it at the channel list."""
+    def configure_without_device(self, ni_ai: AnalogRead) -> None:
+        """Deploy the first channel of a new task, which has no device; the form
+        blocks it at the device field."""
         ni_ai.deploy(expect=None)
 
-        msg_expected = "At least one enabled channel is required"
-        msg = ni_ai.channel_list_help_text()
-        assert msg_expected == msg, (
-            f"Channel list error <{msg}> should be <{msg_expected}>"
-        )
+        msg_expected = "Device is required"
+        msg = ni_ai.field_help_text("Device")
+        assert msg_expected == msg, f"Device error <{msg}> should be <{msg_expected}>"
 
         # Deploy rejects the config before it writes or starts anything, so the task
         # keeps the status it had.
         self.initial_assertion(ni_ai)
 
     def nominal_configuration(
-        self, ni_ai: AnalogRead, rack_name: str, dev_name: str
+        self, ni_ai: AnalogRead, *, rack_name: str, dev_name: str
     ) -> None:
         """Nominal configuration of task"""
         # Add channel
