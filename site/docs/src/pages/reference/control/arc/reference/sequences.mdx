@@ -24,7 +24,7 @@ import time
 sequence press {
     1 -> press_vlv_cmd
     tank_pt > 300 => next
-    time.wait{duration=10s}
+    time.wait(duration=10s)
     0 -> press_vlv_cmd
 }
 
@@ -41,12 +41,12 @@ To learn when a step moves on and when a sequence stops, see
 | Step          | Example                                     |
 | ------------- | ------------------------------------------- |
 | Write         | `1 -> press_vlv_cmd`                        |
-| Wait          | `time.wait{duration=10s}`                   |
+| Wait          | `time.wait(duration=10s)`                   |
 | Gate          | `tank_pt > 300 => next`, or `tank_pt > 300` |
 | Stage         | `stage hold { ... }`                        |
 | Sequence      | `sequence { ... }`                          |
 | Assignment    | `target = 400.0`                            |
-| Function call | `notify{}`                                  |
+| Function call | `notify()`                                  |
 
 A step that is not a stage or a sequence moves on when the last node of the step outputs
 a true value. When that node has no output, the step moves on after the node runs

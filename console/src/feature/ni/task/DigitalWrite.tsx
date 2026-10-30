@@ -91,6 +91,7 @@ const getInitialValues: Task.GetInitialValues<DigitalWriteSchemas> = ({
 }) => {
   const cfg = digitalWriteConfigZ.parse(config ?? {});
   if (deviceKey != null) cfg.device = deviceKey;
+  if (config == null) cfg.channels = [createNextDOChannel([])];
   return { name: "NI digital write task", type: DIGITAL_WRITE_TYPE, config: cfg };
 };
 

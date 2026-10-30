@@ -15,7 +15,6 @@ import z from "zod";
 import { type framer } from "@/framer";
 import { NotFoundError, ValidationError } from "@/index";
 import { query } from "@/query";
-import { Deleted } from "@/query/deleted";
 
 interface Thing extends record.Keyed<string> {
   key: string;
@@ -92,8 +91,8 @@ class Client extends query.Retriever<typeof paramsZ, string, Thing> {
 
 const expectDeleted = <D extends query.Data>(
   value: query.Cached<D> | undefined,
-): Deleted<D> => {
-  if (!Deleted.matches<D>(value)) throw new Error("expected a deleted answer");
+): query.Deleted<D> => {
+  if (!query.Deleted.matches<D>(value)) throw new Error("expected a deleted answer");
   return value;
 };
 
