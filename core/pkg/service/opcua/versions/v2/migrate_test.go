@@ -62,10 +62,11 @@ var _ = Describe("Migration", func() {
 			Expect(got.ArraySize).To(Equal(stored.ArraySize))
 			Expect(got.NanFillEnabled).To(BeFalse())
 			Expect(got.Channels).To(HaveLen(1))
-			Expect(got.Channels[0].BaseChannel).To(Equal(stored.Channels[0].BaseChannel))
-			Expect(got.Channels[0].Channel).To(Equal(stored.Channels[0].Channel))
-			Expect(got.Channels[0].IsIndex).To(BeTrue())
-			Expect(got.Channels[0].Field).To(BeEmpty())
+			ch, want := got.Channels[0], stored.Channels[0]
+			Expect(ch.BaseChannel).To(Equal(want.BaseChannel))
+			Expect(ch.Channel).To(Equal(want.Channel))
+			Expect(ch.IsIndex).To(BeTrue())
+			Expect(ch.Field).To(BeEmpty())
 		},
 	)
 })
