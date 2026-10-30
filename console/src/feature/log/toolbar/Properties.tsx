@@ -32,19 +32,22 @@ export const Properties = (): ReactElement => {
   const handleShowChannelNamesChange = (visible: boolean) =>
     dispatch(log.setChannelNamesHidden({ channelNamesHidden: !visible }));
 
-  const handleShowTimestampChange = (visible: boolean) =>
+  const handleShowTimestampsChange = (visible: boolean) =>
     dispatch(log.setReceiptTimestampHidden({ receiptTimestampHidden: !visible }));
 
   return (
     <Flex.Box x className={CSS.BE("log", "toolbar", "properties")}>
-      <Input.Item label="Show timestamp">
+      <Input.Item label="Show timestamps">
         <Input.Switch
           value={!receiptTimestampHidden}
-          onChange={handleShowTimestampChange}
+          onChange={handleShowTimestampsChange}
           disabled={!hasEditPermission}
         />
       </Input.Item>
-      <Input.Item label="Timestamp precision">
+      <Input.Item
+        label="Timestamp precision"
+        className={CSS.BE("log", "timestamp-precision")}
+      >
         <Input.Numeric
           value={timestampPrecision}
           onChange={handlePrecisionChange}

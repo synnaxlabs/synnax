@@ -35,7 +35,7 @@ describe("log/toolbar/Properties", () => {
     await renderProperties();
     expect(await screen.findByText("Show channel names")).toBeDefined();
     expect(screen.getByText("Timestamp precision")).toBeDefined();
-    expect(screen.getByText("Show timestamp")).toBeDefined();
+    expect(screen.getByText("Show timestamps")).toBeDefined();
   });
 
   it("reflects showChannelNames from the server", async () => {

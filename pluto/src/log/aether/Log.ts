@@ -527,9 +527,9 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     const pad = namePadding[chKeyStr] ?? "";
     let prefix: string;
     if (!receiptTimestampHidden && !channelNamesHidden)
-      prefix = `${ts} [${name}]${pad}  `;
+      prefix = `${ts} ${name}${pad}  `;
     else if (!receiptTimestampHidden) prefix = `${ts}  `;
-    else if (!channelNamesHidden) prefix = `[${name}]${pad}  `;
+    else if (!channelNamesHidden) prefix = `${name}${pad}  `;
     else prefix = "";
     // Continuation lines (\n) keep the prefix's alignment width as whitespace.
     if (entry.continuation) prefix = " ".repeat(prefix.length);

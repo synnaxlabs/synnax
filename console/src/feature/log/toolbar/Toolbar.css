@@ -19,6 +19,10 @@
     .console-log__toolbar-properties {
         padding: 2rem;
         gap: 5rem;
+
+        .console-log__timestamp-precision .lyra-input__container {
+            max-width: 90px;
+        }
     }
 
     .console-log__toolbar-channels {
