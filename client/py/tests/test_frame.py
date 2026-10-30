@@ -113,6 +113,29 @@ class TestFrame:
         f.names = {1: "big", 2: "big"}
         assert list(f[1]) == [1, 2]
 
+    def test_getitem_missing(self) -> None:
+        """Should return an empty MultiSeries for a channel not in the Frame"""
+        f = sy.Frame({"big": sy.Series([1, 2, 3, 4])})
+        assert len(f["small"]) == 0
+
+    def test_get(self) -> None:
+        """Should return the series of a channel in the Frame"""
+        f = sy.Frame({"big": sy.Series([1, 2, 3, 4])})
+        series = f.get("big")
+        assert series is not None
+        assert list(series) == [1, 2, 3, 4]
+
+    def test_get_missing(self) -> None:
+        """Should return None for a channel not in the Frame"""
+        f = sy.Frame({"big": sy.Series([1, 2, 3, 4])})
+        assert f.get("small") is None
+
+    def test_get_missing_default(self) -> None:
+        """Should return the default for a channel not in the Frame"""
+        f = sy.Frame({"big": sy.Series([1, 2, 3, 4])})
+        default = sy.MultiSeries([sy.Series([5])])
+        assert f.get("small", default) is default
+
 
 @pytest.mark.framer
 @pytest.mark.telem

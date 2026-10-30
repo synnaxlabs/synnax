@@ -30,6 +30,47 @@ const (
 	TickTypeTime   TickType = v6.TickTypeTime
 )
 
+// Aggregation selects how a line reduces the samples of one pixel group. min_max draws
+// the lowest and highest sample, and average draws the mean.
+type Aggregation string
+
+const (
+	AggregationMinMax  Aggregation = "min_max"
+	AggregationAverage Aggregation = "average"
+)
+
+// IsValid reports whether a is one of the defined Aggregation
+// values.
+func (a Aggregation) IsValid() bool {
+	switch a {
+	case AggregationMinMax, AggregationAverage:
+		return true
+	default:
+		return false
+	}
+}
+
+// Detail selects how many sample groups a line draws per pixel column: one per four,
+// two, or one pixel columns.
+type Detail string
+
+const (
+	DetailLow    Detail = "low"
+	DetailMedium Detail = "medium"
+	DetailHigh   Detail = "high"
+)
+
+// IsValid reports whether d is one of the defined Detail
+// values.
+func (d Detail) IsValid() bool {
+	switch d {
+	case DetailLow, DetailMedium, DetailHigh:
+		return true
+	default:
+		return false
+	}
+}
+
 // XAxisKey names one of the two x-axes. X-axes carry a single channel each.
 type XAxisKey = v6.XAxisKey
 
@@ -191,7 +232,6 @@ func (l *LinePlot) ApplyDefaults() {
 // schema constraints.
 func (l LinePlot) Validate() error {
 	v := validate.New("LinePlot")
-	v.NotEmptyString("name", l.Name)
 	v.Exec(func() error { return validate.PathedError(l.Title.Validate(), "title") })
 	v.Exec(func() error { return validate.PathedError(l.Legend.Validate(), "legend") })
 	v.Exec(func() error { return validate.PathedError(l.Axes.Validate(), "axes") })
@@ -202,45 +242,4 @@ func (l LinePlot) Validate() error {
 		v.Exec(func() error { return validate.PathedError(l.Rules[i].Validate(), "rules", strconv.Itoa(i)) })
 	}
 	return v.Error()
-}
-
-// Aggregation selects how a line reduces the samples of one pixel group. min_max draws
-// the lowest and highest sample, and average draws the mean.
-type Aggregation string
-
-const (
-	AggregationMinMax  Aggregation = "min_max"
-	AggregationAverage Aggregation = "average"
-)
-
-// IsValid reports whether a is one of the defined Aggregation
-// values.
-func (a Aggregation) IsValid() bool {
-	switch a {
-	case AggregationMinMax, AggregationAverage:
-		return true
-	default:
-		return false
-	}
-}
-
-// Detail selects how many sample groups a line draws per pixel column: one per four,
-// two, or one pixel columns.
-type Detail string
-
-const (
-	DetailLow    Detail = "low"
-	DetailMedium Detail = "medium"
-	DetailHigh   Detail = "high"
-)
-
-// IsValid reports whether d is one of the defined Detail
-// values.
-func (d Detail) IsValid() bool {
-	switch d {
-	case DetailLow, DetailMedium, DetailHigh:
-		return true
-	default:
-		return false
-	}
 }
