@@ -211,8 +211,7 @@ export const createStreamer = ({
       closed = true;
       // Interrupts an in-flight open's retry loop; opened then settles.
       hardened?.close();
-      if (opened == null) return;
-      const streamer = await opened.catch(() => null);
+      const streamer = await opened?.catch(() => null);
       if (streamer != null) await streamer.close();
       await Promise.all(handling);
     },
