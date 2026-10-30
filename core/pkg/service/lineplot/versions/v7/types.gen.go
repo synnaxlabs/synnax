@@ -142,6 +142,7 @@ func (l Line) Validate() error {
 	v := validate.New("Line")
 	v.Ternaryf("aggregation", !l.Aggregation.IsValid(), "invalid aggregation: %v", l.Aggregation)
 	v.Ternaryf("detail", !l.Detail.IsValid(), "invalid detail: %v", l.Detail)
+	v.GreaterThanEq("stroke_width", l.StrokeWidth, 1)
 	return v.Error()
 }
 

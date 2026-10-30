@@ -73,6 +73,13 @@ var _ = Describe("LinePlot", func() {
 			Expect(lp.Validate()).To(MatchError(ContainSubstring("name: required")))
 		})
 
+		It("Should reject a line stroke width below 1", func() {
+			lp := v7.LinePlot{Name: "valid", Lines: []v7.Line{{StrokeWidth: 0.5}}}
+			lp.ApplyDefaults()
+			Expect(lp.Validate()).
+				To(MatchError(ContainSubstring("lines.0.stroke_width")))
+		})
+
 		It("Should path errors to the offending line and rule", func() {
 			lp := v7.LinePlot{
 				Name:  "valid",
