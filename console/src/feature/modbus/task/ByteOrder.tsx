@@ -14,50 +14,47 @@ import { type CSSProperties, type ReactElement } from "react";
 
 import { useFromConfig } from "@/feature/modbus/device/queries";
 import {
+  BYTE_ORDERS,
+  type ByteOrder,
+  byteOrderOf,
+  swapsOf,
+} from "@/feature/modbus/device/types";
+import {
   MENU_PROPS,
   Option,
   SHADOW_TRIGGER_PROPS,
 } from "@/feature/modbus/task/Register";
 import { CSS } from "@/platform/css";
 
-type Swap = "none" | "bytes" | "words" | "both";
+type Order = "device" | ByteOrder;
 
-type Order = "device" | Swap;
-
-const SWAPS: Record<Swap, [bytes: boolean, words: boolean]> = {
-  none: [false, false],
-  bytes: [true, false],
-  words: [false, true],
-  both: [true, true],
+const ORDER_NAMES: Record<ByteOrder, string> = {
+  ABCD: "Big-endian",
+  BADC: "Byte swap",
+  CDAB: "Word swap",
+  DCBA: "Little-endian",
 };
-
-const SWAP_NAMES: Record<Swap, string> = {
-  none: "Big-endian",
-  bytes: "Byte swap",
-  words: "Word swap",
-  both: "Little-endian",
-};
-
-const MULTI_WORD_SWAPS: Swap[] = ["none", "bytes", "words", "both"];
 
 // A word has no word order, so its one swap reverses its bytes.
-const WORD_SWAPS: Swap[] = ["none", "both"];
+const WORD_ORDERS: ByteOrder[] = ["ABCD", "DCBA"];
 
 // The bytes in the order the device sends them, as letters with A the most
-// significant.
-const wireOrder = (size: number, [bytes, words]: [boolean, boolean]): string[] => {
+// significant. The Driver reads the low word first unless the words are swapped.
+const wireOrder = (size: number, order: ByteOrder): string[] => {
+  const { swapBytes, swapWords } = swapsOf(order);
   const pairs: string[][] = [];
   for (let i = 0; i < Math.max(size, 2); i += 2)
     pairs.push([String.fromCharCode(65 + i), String.fromCharCode(66 + i)]);
-  if (words) pairs.reverse();
-  return pairs.flatMap(([a, b]) => (bytes ? [b, a] : [a, b]));
+  if (!swapWords) pairs.reverse();
+  return pairs.flatMap(([a, b]) => (swapBytes ? [b, a] : [a, b]));
 };
 
-const swapOf = (size: number, [bytes, words]: [boolean, boolean]): Swap => {
-  if (size <= 2) return bytes ? "both" : "none";
-  if (bytes) return words ? "both" : "bytes";
-  return words ? "words" : "none";
-};
+const orderOf = (
+  multiWord: boolean,
+  swapBytes: boolean,
+  swapWords: boolean,
+): ByteOrder =>
+  multiWord ? byteOrderOf({ swapBytes, swapWords }) : swapBytes ? "DCBA" : "ABCD";
 
 const GLYPH_WIDTH = 30;
 
@@ -124,26 +121,22 @@ export const ByteOrderField = ({
   });
   const size = new DataType(dataType).density.valueOf();
   const multiWord = size > Density.BIT16.valueOf();
-  const device: [boolean, boolean] = [
-    connection?.swapBytes ?? false,
-    multiWord && (connection?.swapWords ?? false),
-  ];
+  const deviceBytes = connection?.swapBytes ?? false;
+  const deviceWords = connection?.swapWords ?? false;
+  const device = orderOf(multiWord, deviceBytes, deviceWords);
   const value: Order =
     bytesSwapped == null && wordsSwapped == null
       ? "device"
-      : swapOf(size, [
-          bytesSwapped ?? device[0],
-          multiWord && (wordsSwapped ?? device[1]),
-        ]);
+      : orderOf(multiWord, bytesSwapped ?? deviceBytes, wordsSwapped ?? deviceWords);
   const handleChange = (next: Order) => {
     if (next === "device") {
       ctx.set(bytesPath, undefined);
       ctx.set(wordsPath, undefined);
       return;
     }
-    const [bytes, words] = SWAPS[next];
-    ctx.set(bytesPath, bytes);
-    ctx.set(wordsPath, multiWord ? words : undefined);
+    const { swapBytes, swapWords } = swapsOf(next);
+    ctx.set(bytesPath, swapBytes);
+    ctx.set(wordsPath, multiWord ? swapWords : undefined);
   };
   return (
     <Select.Simple<Order>
@@ -159,17 +152,17 @@ export const ByteOrderField = ({
         <Option
           glyph={<Glyph order={wireOrder(size, device)} device />}
           name="From device"
-          description={SWAP_NAMES[swapOf(size, device)]}
+          description={ORDER_NAMES[device]}
         />
       </Select.Item>
-      {(multiWord ? MULTI_WORD_SWAPS : WORD_SWAPS).map((s) => {
-        const order = wireOrder(size, SWAPS[s]);
+      {(multiWord ? BYTE_ORDERS : WORD_ORDERS).map((order) => {
+        const wire = wireOrder(size, order);
         return (
-          <Select.Item<Order> key={s} itemKey={s}>
+          <Select.Item<Order> key={order} itemKey={order}>
             <Option
-              glyph={<Glyph order={order} />}
-              name={SWAP_NAMES[s]}
-              description={order.join("")}
+              glyph={<Glyph order={wire} />}
+              name={ORDER_NAMES[order]}
+              description={wire.join("")}
             />
           </Select.Item>
         );

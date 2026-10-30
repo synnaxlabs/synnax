@@ -321,10 +321,19 @@ describe("Read", () => {
       const { container } = await renderRead({ client, taskKey: draft.key });
       const trigger = await findByteOrder();
       within(trigger).getByText("From device");
-      within(trigger).getByText("Word swap");
+      within(trigger).getByText("Big-endian");
       const register = await deployRegister(container, draft.key);
       expect(register.bytesSwapped).toBeUndefined();
       expect(register.wordsSwapped).toBeUndefined();
+    });
+
+    it("should name a device without swaps a word swap, as the Driver reads the low word first", async () => {
+      const { draft } = await createRegisterDraft("float32", false);
+      await renderRead({ client, taskKey: draft.key });
+      const trigger = await findByteOrder();
+      within(trigger).getByText("Word swap");
+      fireEvent.click(trigger);
+      await screen.findByText("CDAB");
     });
 
     it("should store the override picked on a register channel", async () => {
@@ -334,7 +343,7 @@ describe("Read", () => {
       fireEvent.click(await screen.findByText("Byte swap"));
       const register = await deployRegister(container, draft.key);
       expect(register.bytesSwapped).toBe(true);
-      expect(register.wordsSwapped).toBe(false);
+      expect(register.wordsSwapped).toBe(true);
     });
 
     it("should not open the order options without permission to update the task", async () => {
