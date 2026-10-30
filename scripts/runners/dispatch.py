@@ -59,7 +59,7 @@ Handler = Callable[[str], str]
 Handlers = dict[str, dict[bool, Handler]]
 
 
-def handlers(aws: AWS, github: GitHub) -> Handlers:
+def handlers(*, aws: AWS, github: GitHub) -> Handlers:
     return {
         "ec2_cmd": {
             True: partial(ec2_on.run, aws=aws),
@@ -69,7 +69,7 @@ def handlers(aws: AWS, github: GitHub) -> Handlers:
 
 
 def existing_channels(
-    client: sy.Synnax, channels: dict[str, tuple[str, str]]
+    client: sy.Synnax, *, channels: dict[str, tuple[str, str]]
 ) -> tuple[list[str], dict[int | str, tuple[str, str]]]:
     """Returns the names of the command channels that exist so far, plus a lookup of
     runner and command by channel name and key, since a streamer may label frames by
@@ -89,6 +89,7 @@ def existing_channels(
 
 def dispatch(
     frame: sy.Frame,
+    *,
     lookup: dict[int | str, tuple[str, str]],
     commands: Handlers,
     log: Log,
@@ -115,13 +116,13 @@ def main() -> None:
     args = p.parse_args()
     patch_client()
     store = parameter_store()
-    client = connect(args, store)
-    creator = Channels(client, args.create_channels)
-    log = Log(client, creator, LOG)
-    commands = handlers(AWS(), GitHub(secret("GH_TOKEN", store)))
-    alive = Heartbeat(client, creator, HEARTBEAT)
-    channels = command_channels(known_runners(), tuple(commands))
-    names, lookup = existing_channels(client, channels)
+    client = connect(args, store=store)
+    creator = Channels(client=client, enabled=args.create_channels)
+    log = Log(client=client, channels=creator, channel=LOG)
+    commands = handlers(aws=AWS(), github=GitHub(secret("GH_TOKEN", store=store)))
+    alive = Heartbeat(client=client, channels=creator, name=HEARTBEAT)
+    channels = command_channels(known_runners(), commands=tuple(commands))
+    names, lookup = existing_channels(client, channels=channels)
     if not names:
         raise SystemExit("no command channels exist yet; run controller.py first")
     log(f"listening on {len(names)}/{len(channels)} channels")
@@ -131,9 +132,9 @@ def main() -> None:
             try:
                 if streamer is None:
                     streamer = client.open_streamer(names)
-                frame = streamer.read(READ_TIMEOUT)
+                frame = streamer.read(timeout=READ_TIMEOUT)
                 if frame is not None:
-                    dispatch(frame, lookup, commands, log)
+                    dispatch(frame, lookup=lookup, commands=commands, log=log)
             except Exception as e:
                 log.error("listener", e)
                 close_quietly(streamer)

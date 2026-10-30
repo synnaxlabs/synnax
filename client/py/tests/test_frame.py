@@ -84,6 +84,35 @@ class TestFrame:
         f = sy.Frame({"big": sy.Series([1, 2, 3, 4])})
         assert "small" not in f
 
+    def test_get_by_known_name(self) -> None:
+        """Should find a key column by the channel name the frame knows."""
+        f = sy.Frame({1: sy.Series([1, 2]), 2: sy.Series([3, 4])})
+        f.names = {1: "big", 2: "dog"}
+        assert list(f["dog"]) == [3, 4]
+        assert "dog" in f
+        assert "cat" not in f
+
+    def test_get_by_known_key(self) -> None:
+        """Should find a name column by the channel key the frame knows."""
+        f = sy.Frame({"big": sy.Series([1, 2])})
+        f.names = {1: "big"}
+        assert list(f[1]) == [1, 2]
+        assert 1 in f
+
+    def test_get_by_shared_name(self) -> None:
+        """Should raise when two key columns share the name."""
+        f = sy.Frame({1: sy.Series([1, 2]), 2: sy.Series([3, 4])})
+        f.names = {1: "big", 2: "big"}
+        with pytest.raises(sy.MultipleFoundError):
+            f["big"]
+        assert list(f[2]) == [3, 4]
+
+    def test_get_by_key_with_shared_name(self) -> None:
+        """Should not match a name column whose name two channels share."""
+        f = sy.Frame([1, "big"], [sy.Series([1, 2]), sy.Series([3, 4])])
+        f.names = {1: "big", 2: "big"}
+        assert list(f[1]) == [1, 2]
+
 
 @pytest.mark.framer
 @pytest.mark.telem
@@ -154,7 +183,7 @@ class TestWriteFrameAdapter:
             virtual=True,
             data_type=sy.DataType.FLOAT64,
         )
-        adapter = WriteFrameAdapter(client.channels._retriever)
+        adapter = WriteFrameAdapter(retriever=client.channels._retriever)
         adapter.update(ch.name)
 
         return adapter, ch
@@ -280,7 +309,7 @@ class TestWriteFrameAdapter:
                 data_type=sy.DataType.TIMESTAMP,
             )
         )
-        adapter = WriteFrameAdapter(client.channels._retriever)
+        adapter = WriteFrameAdapter(retriever=client.channels._retriever)
         adapter.update(ch.key)
         o = adapter.adapt({ch.name: sy.TimeStamp.now()})
         assert len(o.channels) == 1
@@ -404,7 +433,7 @@ class TestWriteFrameAdapter:
             virtual=True,
             data_type=sy.DataType.STRING,
         )
-        adapter = WriteFrameAdapter(client.channels._retriever)
+        adapter = WriteFrameAdapter(retriever=client.channels._retriever)
         adapter.update(ch.name)
         adapted = adapter.adapt({ch.name: "hello"})
         assert adapted[ch.key][0] == "hello"
@@ -415,7 +444,7 @@ class TestWriteFrameAdapter:
             virtual=True,
             data_type=sy.DataType.STRING,
         )
-        adapter = WriteFrameAdapter(client.channels._retriever)
+        adapter = WriteFrameAdapter(retriever=client.channels._retriever)
         adapter.update(ch.name)
         adapted = adapter.adapt(ch.name, "hello")
         assert adapted[ch.key][0] == "hello"

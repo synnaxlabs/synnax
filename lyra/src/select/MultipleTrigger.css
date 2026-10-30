@@ -9,9 +9,9 @@
  * included in the file licenses/APL.txt.
  */
 
-/* The placeholder is pluto-text too, so a bare class ties with its color and loses
+/* The placeholder is lyra-text too, so a bare class ties with its color and loses
    when its stylesheet loads first, in a build. */
-.pluto-text.pluto-select-multiple-trigger-placeholder {
+.lyra-text.lyra-select-multiple-trigger-placeholder {
     padding: 0 1rem;
     color: var(--pluto-text-placeholder);
 }

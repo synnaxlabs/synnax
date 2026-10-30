@@ -63,7 +63,7 @@ const renderSelect = ({
   );
 
 const hovered = (c: RenderResult): string | undefined =>
-  c.baseElement.querySelector(".pluto-list__item.pluto--hovered")?.id;
+  c.baseElement.querySelector(".lyra-list__item.lyra--hovered")?.id;
 
 const keyDown = (code: string): void => {
   act(() => {
@@ -80,7 +80,7 @@ describe("Select.Item", () => {
       const c = renderSelect({ value: "custom" });
       const trigger = c.getByRole("button");
       expect(trigger.textContent).toBe("Custom");
-      expect(trigger.querySelector(".pluto-select__label")).not.toBeNull();
+      expect(trigger.querySelector(".lyra-select__label")).not.toBeNull();
     });
 
     it("should not render unselected fixed items", () => {
@@ -202,7 +202,7 @@ describe("Select.MultipleTrigger", () => {
         </Select.Frame>
       </Dialog.Frame>,
     );
-    const tag = c.baseElement.querySelector(".pluto-tag");
+    const tag = c.baseElement.querySelector(".lyra-tag");
     expect(tag?.textContent).toContain("All");
     expect(tag?.className).not.toContain("error");
   });

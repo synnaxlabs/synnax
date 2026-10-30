@@ -18,8 +18,8 @@ describe("Summary", () => {
       const c = render(<Status.Summary variant="info" message="Connected" />);
       const el = c.getByText("Connected");
       expect(el.tagName).toBe("P");
-      expect(el.className).toContain("pluto-text--p");
-      expect(el.className).toContain("pluto-status__text");
+      expect(el.className).toContain("lyra-text--p");
+      expect(el.className).toContain("lyra-status__text");
     });
 
     it("should render children in place of the message", () => {
@@ -38,12 +38,12 @@ describe("Summary", () => {
       );
       const el = c.getByText("Connected");
       expect(el.tagName).toBe("H4");
-      expect(el.className).toContain("pluto-text--h4");
+      expect(el.className).toContain("lyra-text--h4");
     });
 
     it("should tint the message with the variant color", () => {
       const c = render(<Status.Summary variant="error" message="Failed" />);
-      expect(c.getByText("Failed").className).toContain("pluto--status-error");
+      expect(c.getByText("Failed").className).toContain("lyra--status-error");
     });
 
     it("should add a custom class to the message", () => {
@@ -65,20 +65,20 @@ describe("Summary", () => {
     it("should render the concentric indicator inside the message", () => {
       const c = render(<Status.Summary variant="success" message="Done" />);
       expect(
-        c.getByText("Done").querySelector(".pluto-icon--status-concentric"),
+        c.getByText("Done").querySelector(".lyra-icon--status-concentric"),
       ).not.toBeNull();
     });
 
     it("should render a spinner for the loading variant", () => {
       const c = render(<Status.Summary variant="loading" message="Loading" />);
       const el = c.getByText("Loading");
-      expect(el.querySelector(".pluto-icon--loading")).not.toBeNull();
-      expect(el.querySelector(".pluto-icon--status-concentric")).toBeNull();
+      expect(el.querySelector(".lyra-icon--loading")).not.toBeNull();
+      expect(el.querySelector(".lyra-icon--status-concentric")).toBeNull();
     });
 
     it("should not render an indicator when hideIcon is set", () => {
       const c = render(<Status.Summary variant="success" message="Done" hideIcon />);
-      expect(c.container.querySelector(".pluto-icon")).toBeNull();
+      expect(c.container.querySelector(".lyra-icon")).toBeNull();
     });
   });
 
@@ -88,10 +88,10 @@ describe("Summary", () => {
         <Status.Summary variant="error" message="Failed" description="Disk is full" />,
       );
       const description = c.getByText("Disk is full");
-      expect(description.className).toContain("pluto-text--small");
+      expect(description.className).toContain("lyra-text--small");
       const message = c.getByText("Failed");
       expect(message.parentElement).toBe(description.parentElement);
-      expect(message.className).not.toContain("pluto-status__text");
+      expect(message.className).not.toContain("lyra-status__text");
     });
 
     it("should stack the message and description in a vertical box", () => {
@@ -99,7 +99,7 @@ describe("Summary", () => {
         <Status.Summary variant="error" message="Failed" description="Disk is full" />,
       );
       const box = c.getByText("Failed").parentElement;
-      expect(box?.className).toContain("pluto--direction-y");
+      expect(box?.className).toContain("lyra--direction-y");
     });
 
     it("should forward extra props to the box instead of the message", () => {
@@ -154,7 +154,7 @@ describe("Summary", () => {
         description: "Disk is full",
       });
       const c = render(<Status.Summary status={status} />);
-      expect(c.getByText("Failed").className).toContain("pluto--status-error");
+      expect(c.getByText("Failed").className).toContain("lyra--status-error");
       expect(c.getByText("Disk is full")).toBeTruthy();
     });
 
@@ -164,7 +164,7 @@ describe("Summary", () => {
         <Status.Summary status={status} variant="success" message="Done" />,
       );
       const el = c.getByText("Failed");
-      expect(el.className).toContain("pluto--status-error");
+      expect(el.className).toContain("lyra--status-error");
       expect(c.queryByText("Done")).toBeNull();
     });
 
@@ -173,7 +173,7 @@ describe("Summary", () => {
       const c = render(<Status.Summary status={status} level="h4" />);
       const el = c.getByText("Failed");
       expect(el.tagName).toBe("H4");
-      expect(el.className).toContain("pluto-text--h4");
+      expect(el.className).toContain("lyra-text--h4");
     });
 
     it("should render the message at the given level with a description", () => {
@@ -183,7 +183,7 @@ describe("Summary", () => {
         description: "Disk is full",
       });
       const c = render(<Status.Summary status={status} level="small" />);
-      expect(c.getByText("Failed").className).toContain("pluto-text--small");
+      expect(c.getByText("Failed").className).toContain("lyra-text--small");
     });
 
     it("should add a custom class to the message", () => {
@@ -195,13 +195,13 @@ describe("Summary", () => {
     it("should not render an indicator when hideIcon is set", () => {
       const status = Status.create({ variant: "error", message: "Failed" });
       const c = render(<Status.Summary status={status} hideIcon />);
-      expect(c.container.querySelector(".pluto-icon")).toBeNull();
+      expect(c.container.querySelector(".lyra-icon")).toBeNull();
     });
 
     it("should render children in place of the status message", () => {
       const status = Status.create({ variant: "error", message: "Failed" });
       const c = render(<Status.Summary status={status}>Custom</Status.Summary>);
-      expect(c.getByText("Custom").className).toContain("pluto--status-error");
+      expect(c.getByText("Custom").className).toContain("lyra--status-error");
       expect(c.queryByText("Failed")).toBeNull();
     });
 
