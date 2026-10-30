@@ -27,17 +27,18 @@ LINUX = ["systemctl start github-runner.service"]
 WINDOWS = ["Start-ScheduledTask -TaskName 'GitHubActionsRunner'"]
 
 
-def run(runner: str, aws: AWS) -> str:
+def run(runner: str, *, aws: AWS) -> str:
     iid, info = aws.instance(runner)
     if not info["running"]:
         return f"{iid} is {info['state']}, nothing to enable"
-    return f"runner start sent to {iid} ({aws.run(iid, info, LINUX, WINDOWS)})"
+    result = aws.run(iid, info=info, linux=LINUX, windows=WINDOWS)
+    return f"runner start sent to {iid} ({result})"
 
 
 def main() -> None:
     p = argparse.ArgumentParser(description=(__doc__ or "").split("\n", 1)[0])
     p.add_argument("runner", help="runner name, e.g. windows-build-bot-i-0f44")
-    print(run(p.parse_args().runner, AWS()))
+    print(run(p.parse_args().runner, aws=AWS()))
 
 
 if __name__ == "__main__":

@@ -43,7 +43,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await isolateTab(session, "OX Pressures");
     await session.click(plot.getByText("OX Pressures", { exact: true }).first());
     await capture.showVisualizationToolbar(session);
-    const toolbar = page.locator(".console-nav__drawer.pluto--location-bottom").first();
+    const toolbar = page.locator(".console-nav__drawer.lyra--location-bottom").first();
     await session.waitFor(toolbar);
     // On the empty part of the main nav, so nothing on screen shows its hover state.
     await session.moveTo({ x: 26, y: 600 });

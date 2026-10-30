@@ -123,26 +123,6 @@ func Warningf(ctx antlr.ParserRuleContext, format string, args ...any) Diagnosti
 	return d
 }
 
-// Infof creates an info diagnostic with a formatted message.
-func Infof(ctx antlr.ParserRuleContext, format string, args ...any) Diagnostic {
-	d := Diagnostic{
-		Severity: protocol.DiagnosticSeverityInformation,
-		Message:  fmt.Sprintf(format, args...),
-	}
-	d.SetRange(ctx)
-	return d
-}
-
-// Hintf creates a hint diagnostic with a formatted message.
-func Hintf(ctx antlr.ParserRuleContext, format string, args ...any) Diagnostic {
-	d := Diagnostic{
-		Severity: protocol.DiagnosticSeverityHint,
-		Message:  fmt.Sprintf(format, args...),
-	}
-	d.SetRange(ctx)
-	return d
-}
-
 // WithCode returns a copy of the diagnostic with the given error code.
 func (d Diagnostic) WithCode(code ErrorCode) Diagnostic {
 	d.Code = code
@@ -160,21 +140,6 @@ func (d Diagnostic) WithRange(start, end protocol.Position) Diagnostic {
 func (d Diagnostic) WithNote(note string) Diagnostic {
 	if note != "" {
 		d.Notes = append(d.Notes, protocol.DiagnosticRelatedInformation{Message: note})
-	}
-	return d
-}
-
-// WithNoteAt returns a copy of the diagnostic with an additional note at the given
-// position.
-func (d Diagnostic) WithNoteAt(note string, pos protocol.Position) Diagnostic {
-	if note != "" {
-		d.Notes = append(d.Notes, protocol.DiagnosticRelatedInformation{
-			Message: note,
-			Location: protocol.Location{Range: protocol.Range{
-				Start: pos,
-				End:   protocol.Position{Line: pos.Line, Character: pos.Character + 1},
-			}},
-		})
 	}
 	return d
 }
@@ -242,17 +207,6 @@ func (d Diagnostics) Errors() []Diagnostic {
 		}
 	}
 	return errors
-}
-
-// Warnings returns only warning-level diagnostics.
-func (d Diagnostics) Warnings() []Diagnostic {
-	var warnings []Diagnostic
-	for _, diag := range d {
-		if diag.Severity == protocol.DiagnosticSeverityWarning {
-			warnings = append(warnings, diag)
-		}
-	}
-	return warnings
 }
 
 // String formats all diagnostics as a human-readable string with line:column severity:

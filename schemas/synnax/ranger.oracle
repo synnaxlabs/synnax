@@ -100,7 +100,6 @@ Ref union on variant {
     """
     @go marshal
     @pb omit
-    @py omit
 }
 
 New struct extends Range {

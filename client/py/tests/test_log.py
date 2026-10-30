@@ -24,7 +24,7 @@ class TestLog:
             {"name": "Events", "channels": [{"channel": 1, "color": "#00ff00"}]}
         )
         entry = lg.channels[0]
-        assert entry.precision == -1
+        assert entry.precision is None
         assert entry.notation == "standard"
         assert entry.timestamp == log.TimestampConfig(format="preciseDate", tz="local")
         assert log.Log.model_validate_json(lg.model_dump_json()) == lg
