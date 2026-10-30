@@ -14,7 +14,7 @@ import { fireEvent, render, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
-import { AliasInput } from "@/channel/AliasInput";
+import { Channel } from "@/channel";
 import { createAsyncSynnaxWrapper } from "@/testutil";
 
 const client = createTestClient();
@@ -56,7 +56,7 @@ describe("channel/AliasInput", () => {
   });
 
   const renderInput = (props: Record<string, unknown> = {}) =>
-    render(<AliasInput channel={1} value="" onChange={vi.fn()} {...props} />, {
+    render(<Channel.AliasInput channel={1} value="" onChange={vi.fn()} {...props} />, {
       wrapper: Wrapper,
     });
 

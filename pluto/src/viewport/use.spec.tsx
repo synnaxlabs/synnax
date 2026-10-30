@@ -14,16 +14,7 @@ import { act, fireEvent, renderHook } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement, type RefObject } from "react";
 import { afterEach, assert, describe, expect, it, type Mock, vi } from "vitest";
 
-import {
-  PAN_DEFAULT_TRIGGERS,
-  SELECT_DEFAULT_TRIGGERS,
-  use,
-  type UseEvent,
-  type UseHandler,
-  type UseProps,
-  type UseRefValue,
-  type UseReturn,
-} from "@/viewport/use";
+import { Viewport } from "@/viewport";
 
 const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
   <Triggers.Provider>{children}</Triggers.Provider>
@@ -44,10 +35,10 @@ const RIGHT = { button: Triggers.MOUSE_RIGHT_NUMBER };
 interface Handle {
   canvas: HTMLDivElement;
   measure: Mock<typeof HTMLElement.prototype.getBoundingClientRect>;
-  onChange: Mock<UseHandler>;
-  result: { current: UseReturn };
-  rerender: (props: UseProps) => void;
-  ref: RefObject<UseRefValue | undefined>;
+  onChange: Mock<Viewport.UseHandler>;
+  result: { current: Viewport.UseReturn };
+  rerender: (props: Viewport.UseProps) => void;
+  ref: RefObject<Viewport.UseRefValue | undefined>;
 }
 
 const canvases: HTMLElement[] = [];
@@ -57,9 +48,9 @@ afterEach(() => {
   canvases.length = 0;
 });
 
-const setup = (props: UseProps = {}, canvasBox: box.Box = CANVAS): Handle => {
-  const onChange = vi.fn<UseHandler>();
-  const ref: RefObject<UseRefValue | undefined> = { current: undefined };
+const setup = (props: Viewport.UseProps = {}, canvasBox: box.Box = CANVAS): Handle => {
+  const onChange = vi.fn<Viewport.UseHandler>();
+  const ref: RefObject<Viewport.UseRefValue | undefined> = { current: undefined };
   const canvas = document.createElement("div");
   const measure = mockBoundingClientRect(
     box.top(canvasBox),
@@ -71,14 +62,14 @@ const setup = (props: UseProps = {}, canvasBox: box.Box = CANVAS): Handle => {
   document.body.appendChild(canvas);
   canvases.push(canvas);
   const { result, rerender } = renderHook(
-    (p: UseProps) => use({ onChange, ref, ...p }),
+    (p: Viewport.UseProps) => Viewport.use({ onChange, ref, ...p }),
     { wrapper: Wrapper, initialProps: props },
   );
   result.current.ref.current = canvas;
   return { canvas, measure, onChange, result, rerender, ref };
 };
 
-const lastEvent = (onChange: Mock<UseHandler>): UseEvent => {
+const lastEvent = (onChange: Mock<Viewport.UseHandler>): Viewport.UseEvent => {
   const call = onChange.mock.lastCall;
   assert(call != null, "expected onChange to have been called");
   return call[0];
@@ -175,13 +166,13 @@ describe("viewport/use", () => {
     });
 
     it("should use the default mode when no trigger matches", () => {
-      const h = setup({ triggers: PAN_DEFAULT_TRIGGERS });
+      const h = setup({ triggers: Viewport.PAN_DEFAULT_TRIGGERS });
       drag(h.canvas, { x: 20, y: 20 }, { x: 80, y: 80 });
       expect(lastEvent(h.onChange).mode).toEqual("pan");
     });
 
     it("should honor a select default trigger set", () => {
-      const h = setup({ triggers: SELECT_DEFAULT_TRIGGERS });
+      const h = setup({ triggers: Viewport.SELECT_DEFAULT_TRIGGERS });
       drag(h.canvas, { x: 20, y: 20 }, { x: 80, y: 80 });
       expect(lastEvent(h.onChange).mode).toEqual("select");
     });
@@ -491,9 +482,9 @@ describe("viewport/use", () => {
   describe("mode preview", () => {
     it("should report the default mode at rest", () => {
       expect(setup().result.current.mode).toEqual("zoom");
-      expect(setup({ triggers: PAN_DEFAULT_TRIGGERS }).result.current.mode).toEqual(
-        "pan",
-      );
+      expect(
+        setup({ triggers: Viewport.PAN_DEFAULT_TRIGGERS }).result.current.mode,
+      ).toEqual("pan");
     });
 
     it.each([
@@ -563,12 +554,12 @@ describe("viewport/use", () => {
   });
 
   it("should not emit before the canvas element is attached", () => {
-    const onChange = vi.fn<UseHandler>();
+    const onChange = vi.fn<Viewport.UseHandler>();
     const detached = document.createElement("div");
     detached.getBoundingClientRect = mockBoundingClientRect(0, 0, 100, 100);
     document.body.appendChild(detached);
     canvases.push(detached);
-    renderHook(() => use({ onChange }), { wrapper: Wrapper });
+    renderHook(() => Viewport.use({ onChange }), { wrapper: Wrapper });
     drag(detached, { x: 20, y: 20 }, { x: 80, y: 80 });
     expect(onChange).not.toHaveBeenCalled();
   });
