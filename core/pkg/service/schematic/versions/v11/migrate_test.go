@@ -20,9 +20,9 @@ import (
 	v11 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/v11"
 	"github.com/synnaxlabs/x/border"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 // stored decodes a v10 config the way the v10 Core persists it.
