@@ -18,8 +18,8 @@
 #include "nlohmann/json.hpp"
 
 #include "client/cpp/synnax.h"
+#include "x/cpp/lib/lazy.h"
 
-#include "driver/common/lazy.h"
 #include "driver/common/scan_task.h"
 #include "driver/ni/ni.h"
 #include "driver/ni/syscfg/nisyscfg.h"
@@ -95,7 +95,7 @@ class Scanner final : public common::Scanner {
     const ScanTaskConfig cfg;
     const synnax::task::Task task;
     /// @brief loads the NI System Configuration library.
-    std::shared_ptr<common::Lazy<syscfg::SugaredAPI>> lib;
+    std::shared_ptr<x::lib::Lazy<syscfg::SugaredAPI>> lib;
     /// @brief the NI System Configuration library, set by the first open.
     std::shared_ptr<syscfg::SugaredAPI> syscfg;
     /// @brief ni system configuration session handle.
@@ -125,7 +125,7 @@ class Scanner final : public common::Scanner {
 
 public:
     explicit Scanner(
-        std::shared_ptr<common::Lazy<syscfg::SugaredAPI>> lib,
+        std::shared_ptr<x::lib::Lazy<syscfg::SugaredAPI>> lib,
         ScanTaskConfig cfg,
         synnax::task::Task task
     );
