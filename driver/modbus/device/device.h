@@ -18,6 +18,7 @@
 #include <cstdint>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <thread>
 #include <unordered_map>
@@ -50,6 +51,8 @@ const x::errors::Error UNREACHABLE = TEMPORARY_ERROR.sub("unreachable");
 const std::size_t DEMOTE_AFTER = 3;
 /// @brief the default time that the requests of a demoted unit fail at once.
 const x::telem::TimeSpan DEMOTION = x::telem::SECOND * 10;
+/// @brief the default time that a probe waits for its turn on a busy connection.
+const x::telem::TimeSpan PROBE_WAIT = x::telem::SECOND * 10;
 
 /// @brief classifies a libmodbus or system error number.
 /// @param errnum the value of errno after a failed libmodbus call.
@@ -465,21 +468,43 @@ private:
         Connection &conn;
 
     public:
-        Turn(Connection &conn, const bool write): conn(conn) {
+        /// @brief whether the request holds the turn. False if the wait ran out first.
+        bool held = false;
+
+        /// @param wait how long to wait for the turn. Waits without limit if empty.
+        Turn(
+            Connection &conn,
+            const bool write,
+            const std::optional<x::telem::TimeSpan> &wait
+        ):
+            conn(conn) {
             std::unique_lock lock(conn.mu);
             auto &waiting = write ? conn.waiting_writes : conn.waiting_reads;
             waiting++;
-            conn.released.wait(lock, [&] {
+            const auto ready = [&] {
                 if (conn.busy) return false;
                 if (write) return conn.waiting_reads == 0 || !conn.write_went_ahead;
                 return conn.waiting_writes == 0 || conn.write_went_ahead;
-            });
+            };
+            if (wait.has_value())
+                this->held = conn.released.wait_for(lock, wait->chrono(), ready);
+            else {
+                conn.released.wait(lock, ready);
+                this->held = true;
+            }
             waiting--;
+            if (!this->held) {
+                // One less waiting request can let another take the turn.
+                lock.unlock();
+                conn.released.notify_all();
+                return;
+            }
             conn.write_went_ahead = write && conn.waiting_reads > 0;
             conn.busy = true;
         }
 
         ~Turn() {
+            if (!this->held) return;
             {
                 std::lock_guard lock(conn.mu);
                 conn.busy = false;
@@ -613,20 +638,28 @@ public:
     /// connection waits at least its frame gap.
     /// @param write whether the request goes before waiting reads.
     /// @param request sends the request on the context and returns -1 on failure.
-    /// @returns NIL, or the classified error of the last attempt.
+    /// @param wait how long to wait for the turn. Waits without limit if empty.
+    /// @returns NIL, UNREACHABLE if other requests kept the connection busy for wait,
+    /// or the classified error of the last attempt.
     template<typename Request>
     x::errors::Error exec(
         const ConnectionConfig &cfg,
         const x::telem::TimeSpan delay,
         const bool write,
-        const Request &request
+        const Request &request,
+        const std::optional<x::telem::TimeSpan> &wait = std::nullopt
     ) {
-        Turn turn(*this, write);
+        Turn turn(*this, write, wait);
+        if (!turn.held)
+            return {
+                UNREACHABLE,
+                "other requests kept the connection busy for " + wait->to_string()
+            };
         if (auto err = this->demoted(cfg.unit_id)) return err;
-        const auto wait = std::max(delay, this->frame_gap);
+        const auto gap = std::max(delay, this->frame_gap);
         for (std::size_t i = 0;; i++) {
-            if (wait > x::telem::TimeSpan(0))
-                std::this_thread::sleep_until(this->last_request + wait.chrono());
+            if (gap > x::telem::TimeSpan(0))
+                std::this_thread::sleep_until(this->last_request + gap.chrono());
             const int errnum = this->attempt(cfg, request);
             this->last_request = Clock::now();
             if (errnum == 0 || answered(errnum)) this->replied(cfg.unit_id);
@@ -747,12 +780,19 @@ public:
     }
 
     /// @brief checks that the unit answers by reading holding register 0.
+    /// @param wait how long to wait for the turn on the shared connection.
     /// @returns NIL if the unit replied, an exception included, and the error of the
     /// request otherwise.
-    x::errors::Error probe() {
+    x::errors::Error probe(const x::telem::TimeSpan wait = PROBE_WAIT) {
         const auto start = Connection::Clock::now();
         std::uint16_t value = 0;
-        const auto err = this->read_registers(HoldingRegister, 0, 1, &value);
+        const auto err = this->conn->exec(
+            this->cfg,
+            this->requests.delay,
+            false,
+            [&](modbus_t *ctx) { return modbus_read_registers(ctx, 0, 1, &value); },
+            wait
+        );
         if (!err || this->last_reply() >= start) return x::errors::NIL;
         return err;
     }
