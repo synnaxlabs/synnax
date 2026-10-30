@@ -23,7 +23,7 @@ import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
@@ -45,7 +45,7 @@ import (
 var _ = Describe("Calculation", Ordered, func() {
 	var (
 		c             *calculation.Service
-		dist          mock.Node
+		dist          testutil.Node
 		statusSvc     *status.Service
 		channelSvc    *channel.Service
 		channelWriter channel.Writer
@@ -115,7 +115,7 @@ var _ = Describe("Calculation", Ordered, func() {
 
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
-		dist = mock.NewNode(ctx)
+		dist = testutil.NewNode(ctx)
 		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: dist.DB}))
 		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB:       dist.DB,

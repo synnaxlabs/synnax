@@ -33,8 +33,8 @@ cannot.
 
 ## State file
 
-The state file holds the connection parameters that `login` saves, and the rack key: the
-key that the Core knows this Driver by.
+The state file holds the connection parameters and the API key that `login` saves. Only
+its owner can read it.
 
 | Operating system   | Path                                                               |
 | ------------------ | ------------------------------------------------------------------ |
@@ -45,15 +45,8 @@ key that the Core knows this Driver by.
 The `--state-file` flag of `start --standalone`, `login`, and `clear` sets a different
 path. The service always uses the default path.
 
-<Note.Note variant="warning">
-  The state file holds the password as plain text, and each user of the computer can
-  read and change the file. Give the Driver a user with only the [Host
-  role](/reference/enterprise/users#roles).
-</Note.Note>
-
-To remove the saved login and the rack key, run `synnax-driver clear`. On the next
-start, the Driver shows in the devices toolbar as a new Driver. The old entry stays on
-the Core.
+To remove the saved login, run `synnax-driver clear`. Run `login` again before the next
+start.
 
 <Divider.Divider x />
 
@@ -65,8 +58,7 @@ upper case. The integrations have no variable.
 ```bash
 SYNNAX_DRIVER_HOST=10.0.0.45
 SYNNAX_DRIVER_PORT=9090
-SYNNAX_DRIVER_USERNAME=driver
-SYNNAX_DRIVER_PASSWORD=password
+SYNNAX_DRIVER_API_KEY=syk_...
 SYNNAX_DRIVER_SECURE=false
 SYNNAX_DRIVER_CORRECT_SKEW=true
 SYNNAX_DRIVER_OP_TIMEOUT=60
@@ -108,8 +100,7 @@ The file cannot hold comments.
   "connection": {
     "host": "10.0.0.45",
     "port": 9090,
-    "username": "driver",
-    "password": "password",
+    "api_key": "syk_...",
     "secure": false
   },
   "timing": {
@@ -125,9 +116,13 @@ The file cannot hold comments.
 }
 ```
 
-The `integrations` list replaces the default list. Leave out `remote_info`, so that the
-Driver registers with the Core on the first start and saves its rack key in the state
-file.
+The `integrations` list replaces the default list.
+
+A Driver with no API key logs in once with `username` and `password`, creates a rack and
+its API key, and saves the key in the state file. An upgraded Driver that saved a rack
+before does this at its first start and keeps its rack. If that user cannot create
+racks, the Driver keeps logging in with the password and tries again at each start. Once
+a key is saved, the Driver ignores a username and password and logs a warning.
 
 <Divider.Divider x />
 
@@ -143,12 +138,18 @@ file.
   The port of the Core.
 </Field.Item>
 
+<Field.Item name="api_key" default='""'>
+  The API key of the Driver's rack. The Driver logs in as that rack.
+</Field.Item>
+
 <Field.Item name="username" default="synnax">
-  The username of the Driver user.
+  The username to log in with once, to create a rack and its API key. Ignored when an
+  API key is set.
 </Field.Item>
 
 <Field.Item name="password" default="seldon">
-  The password of the Driver user.
+  The password to log in with once, to create a rack and its API key. Ignored when an
+  API key is set.
 </Field.Item>
 
 <Field.Item name="secure" default="false">
@@ -175,16 +176,6 @@ file.
 
 <Field.Item name="worker_count" default="4">
   The number of threads that run task operations. Use a value from 1 to 64.
-</Field.Item>
-
-<Field.Item name="rack_key" default="0">
-  The key that the Core knows this Driver by. With 0, or when the Core has no such key,
-  the Driver registers as a new Driver named after the host name of the computer.
-</Field.Item>
-
-<Field.Item name="cluster_key" default="nil UUID">
-  The key of the Core that owns `rack_key`. When it is not the key of the Core, the
-  Driver ignores `rack_key` and registers as a new Driver, so set both keys.
 </Field.Item>
 
 <Field.Item name="integrations" default="all">
