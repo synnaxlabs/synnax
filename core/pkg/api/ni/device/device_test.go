@@ -119,13 +119,14 @@ var _ = Describe("Service", func() {
 				testutil.AuthedCtx(ctx, u),
 				apidevice.RetrieveRequest{Keys: []device.Key{key}},
 			)).Error().To(MatchError(query.ErrNotFound))
-			Expect(apiSvc.Retrieve(
+			res := MustSucceed(apiSvc.Retrieve(
 				testutil.AuthedCtx(ctx, u),
 				apidevice.RetrieveRequest{
 					Keys:           []device.Key{key},
 					IgnoreNotFound: true,
 				},
-			)).To(Equal(apidevice.RetrieveResponse{}))
+			))
+			Expect(res.Devices).To(BeEmpty())
 		})
 	})
 
