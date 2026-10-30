@@ -58,24 +58,6 @@ func (c changingPassword) Authenticate(
 	return identity, err
 }
 
-// renewingPassword runs renew once, before the next read of a credential's version.
-type renewingPassword struct {
-	*password.Service
-	renew func(context.Context)
-}
-
-func (r *renewingPassword) Version(
-	ctx context.Context,
-	tx gorp.Tx,
-	credential uuid.UUID,
-) (telem.TimeStamp, error) {
-	if renew := r.renew; renew != nil {
-		r.renew = nil
-		renew(ctx)
-	}
-	return r.Service.Version(ctx, tx, credential)
-}
-
 var _ = Describe("ServiceConfig", func() {
 	var (
 		cfg   auth.ServiceConfig
@@ -158,34 +140,6 @@ var _ = Describe("Service", func() {
 	login := func(ctx SpecContext) (auth.Session, string) {
 		GinkgoHelper()
 		return MustSucceed2(svc.Login(ctx, proof(username, "secret")))
-	}
-	// openRenewing opens a service whose next version read first changes alice's
-	// password from the session the returned arm function is given, keeping it.
-	openRenewing := func(ctx SpecContext) (*auth.Service, func(auth.Session)) {
-		GinkgoHelper()
-		renewing := &renewingPassword{Service: pw}
-		racing := MustOpen(auth.OpenService(ctx, auth.ServiceConfig{
-			DB: db,
-			Authenticators: map[auth.Method]auth.Authenticator{
-				auth.MethodPassword: renewing,
-			},
-			Clock: clock,
-		}))
-		return racing, func(session auth.Session) {
-			renewing.renew = func(ctx context.Context) {
-				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-					if err := pw.NewWriter(tx).
-						ChangePassword(ctx, alice, "changed"); err != nil {
-						return err
-					}
-					return racing.NewWriter(tx).RevokeCredential(
-						ctx,
-						[]auth.SessionKey{session.Key},
-						session.Credential,
-					)
-				})).To(Succeed())
-			}
-		}
 	}
 	BeforeEach(func(ctx SpecContext) {
 		// Every spec gets its own db so sweeps and clocks never cross.
@@ -312,8 +266,7 @@ var _ = Describe("Service", func() {
 								ChangePassword(ctx, alice, "changed"); err != nil {
 								return err
 							}
-							return racing.NewWriter(tx).
-								RevokeCredential(ctx, nil, p.Key)
+							return racing.NewWriter(tx).RevokeCredential(ctx, p.Key)
 						})).To(Succeed())
 					},
 				}
@@ -330,15 +283,23 @@ var _ = Describe("Service", func() {
 			},
 		)
 		It(
-			"Should keep a session its password change renewed during the check",
+			"Should reject a session written back after its password changed",
 			func(ctx SpecContext) {
-				racing, arm := openRenewing(ctx)
-				session, token := MustSucceed2(
-					racing.Login(ctx, proof(username, "secret")),
-				)
-				arm(session)
-				MustSucceed(racing.Authenticate(ctx, token))
-				MustSucceed(racing.Authenticate(ctx, token))
+				session, token := login(ctx)
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					if err := pw.NewWriter(tx).
+						ChangePassword(ctx, alice, "changed"); err != nil {
+						return err
+					}
+					return svc.NewWriter(tx).RevokeCredential(ctx, session.Credential)
+				})).To(Succeed())
+				// as an activity write that read the session before the change does
+				Expect(gorp.WrapWriter[auth.SessionKey, auth.Session](db).
+					Set(ctx, session)).To(Succeed())
+				Expect(svc.Authenticate(ctx, token)).Error().
+					To(MatchError(auth.ErrInvalidToken))
+				Expect(svc.NewRetrieve().Where(auth.MatchKeys(session.Key)).
+					Exists(ctx, nil)).To(BeFalse())
 			},
 		)
 		It(
@@ -450,21 +411,6 @@ var _ = Describe("Service", func() {
 				Eventually(ended).Should(BeClosed())
 			},
 		)
-		It(
-			"Should keep a hold its password change renewed during the check",
-			func(ctx SpecContext) {
-				racing, arm := openRenewing(ctx)
-				session, token := MustSucceed2(
-					racing.Login(ctx, proof(username, "secret")),
-				)
-				ended, release := MustSucceed2(racing.Hold(ctx, session.Key))
-				defer release()
-				arm(session)
-				Expect(racing.CheckHolds(ctx)).To(Succeed())
-				Expect(ended).ToNot(BeClosed())
-				MustSucceed(racing.Authenticate(ctx, token))
-			},
-		)
 		It("Should check holds when nothing is held", func(ctx SpecContext) {
 			Expect(svc.CheckHolds(ctx)).To(Succeed())
 		})
@@ -513,11 +459,8 @@ var _ = Describe("Service", func() {
 				session, _ := login(ctx)
 				ended, release := MustSucceed2(svc.Hold(ctx, session.Key))
 				defer release()
-				Expect(svc.NewWriter(nil).RevokeCredential(
-					ctx,
-					nil,
-					session.Credential,
-				)).To(Succeed())
+				Expect(svc.NewWriter(nil).RevokeCredential(ctx, session.Credential)).
+					To(Succeed())
 				Eventually(ended).Should(BeClosed())
 			},
 		)
@@ -675,39 +618,16 @@ var _ = Describe("Service", func() {
 			})
 		})
 		Describe("RevokeCredential", func() {
-			It("Should end the credential's other sessions", func(ctx SpecContext) {
-				kept, keptToken := login(ctx)
-				_, otherToken := login(ctx)
-				Expect(svc.NewWriter(nil).RevokeCredential(
-					ctx,
-					[]auth.SessionKey{kept.Key},
-					kept.Credential,
-				)).To(Succeed())
-				MustSucceed(svc.Authenticate(ctx, keptToken))
-				Expect(svc.Authenticate(ctx, otherToken)).Error().
-					To(MatchError(auth.ErrInvalidToken))
-			})
-			It(
-				"Should keep a kept session through a change to its password",
-				func(ctx SpecContext) {
-					kept, keptToken := login(ctx)
-					_, otherToken := login(ctx)
-					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
-						if err := pw.NewWriter(tx).
-							ChangePassword(ctx, alice, "changed"); err != nil {
-							return err
-						}
-						return svc.NewWriter(tx).RevokeCredential(
-							ctx,
-							[]auth.SessionKey{kept.Key},
-							kept.Credential,
-						)
-					})).To(Succeed())
-					MustSucceed(svc.Authenticate(ctx, keptToken))
-					Expect(svc.Authenticate(ctx, otherToken)).Error().
+			It("Should end every session of the credential", func(ctx SpecContext) {
+				first, firstToken := login(ctx)
+				_, secondToken := login(ctx)
+				Expect(svc.NewWriter(nil).RevokeCredential(ctx, first.Credential)).
+					To(Succeed())
+				for _, token := range []string{firstToken, secondToken} {
+					Expect(svc.Authenticate(ctx, token)).Error().
 						To(MatchError(auth.ErrInvalidToken))
-				},
-			)
+				}
+			})
 			It("Should end the sessions of several credentials", func(ctx SpecContext) {
 				a, aToken := login(ctx)
 				bobName := uuid.New().String()
@@ -720,7 +640,6 @@ var _ = Describe("Service", func() {
 				)
 				Expect(svc.NewWriter(nil).RevokeCredential(
 					ctx,
-					nil,
 					a.Credential,
 					b.Credential,
 				)).To(Succeed())
@@ -731,12 +650,43 @@ var _ = Describe("Service", func() {
 			})
 			It("Should leave other credentials alone", func(ctx SpecContext) {
 				_, token := login(ctx)
-				Expect(svc.NewWriter(nil).RevokeCredential(
-					ctx,
-					nil,
-					uuid.New(),
-				)).To(Succeed())
+				Expect(svc.NewWriter(nil).RevokeCredential(ctx, uuid.New())).
+					To(Succeed())
 				MustSucceed(svc.Authenticate(ctx, token))
+			})
+		})
+		Describe("Open", func() {
+			It(
+				"Should open a session on the credential's version in the transaction",
+				func(ctx SpecContext) {
+					old, oldToken := login(ctx)
+					var (
+						session auth.Session
+						token   string
+					)
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						if err := pw.NewWriter(tx).
+							ChangePassword(ctx, alice, "changed"); err != nil {
+							return err
+						}
+						w := svc.NewWriter(tx)
+						if err := w.RevokeCredential(ctx, old.Credential); err != nil {
+							return err
+						}
+						var err error
+						session, token, err = w.Open(ctx, alice, old.Credential)
+						return err
+					})).To(Succeed())
+					Expect(session.Subject).To(Equal(alice))
+					Expect(session.Credential).To(Equal(old.Credential))
+					Expect(svc.Authenticate(ctx, token)).To(Equal(session))
+					Expect(svc.Authenticate(ctx, oldToken)).Error().
+						To(MatchError(auth.ErrInvalidToken))
+				},
+			)
+			It("Should reject an unknown credential", func(ctx SpecContext) {
+				Expect(svc.NewWriter(nil).Open(ctx, alice, uuid.New())).Error().
+					To(MatchError(query.ErrNotFound))
 			})
 		})
 	})
