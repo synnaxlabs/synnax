@@ -38,8 +38,6 @@ import { Session } from "@/session";
 
 const ROLLING_PRESETS = Session.Range.BUILT_IN.map(({ span }) => span);
 
-const TYPED_KEY = "typed-rolling";
-
 const liveIcon = <Icon.Dynamic className={CSS.BE("range-select", "live-icon")} />;
 
 interface RollingRef extends ranger.WindowRef {
@@ -65,31 +63,6 @@ const windowKey = ({ window }: ranger.WindowRef): string =>
   window.variant === "dynamic"
     ? `rolling/${window.timeSpan}`
     : `static/${window.timeRange.start}/${window.timeRange.end}`;
-
-interface RollingOptionProps {
-  span?: TimeSpan;
-  onChange: (span?: TimeSpan) => void;
-}
-
-const RollingOption = ({ span, onChange }: RollingOptionProps): ReactElement | null => {
-  const term = Select.useSearchTerm();
-  const typed = TimeSpan.parse(term);
-  if (typed == null || typed.isZero) return null;
-  // Typing the held window offers the window itself, so the option can deselect it.
-  const held = span != null && typed.equals(span);
-  return (
-    <Select.Item
-      itemKey={TYPED_KEY}
-      selected={held}
-      onSelect={() => onChange(held ? undefined : typed)}
-    >
-      <Text.Text>
-        {liveIcon}
-        {term.trim()}
-      </Text.Text>
-    </Select.Item>
-  );
-};
 
 const FavoriteItem = (props: List.ItemProps<string>): ReactElement | null => {
   const range = Range.useResolve(props.itemKey);
@@ -336,7 +309,7 @@ export const RangeSelect = (props: RangeSelectProps): ReactElement => {
   };
   return (
     <Input.Item x label="Ranges" {...props}>
-      <Dialog.Frame variant="connected">
+      <Dialog.Frame variant="floating">
         <Select.Frame<string>
           multiple
           value={entries.map(({ key }) => key)}
@@ -354,13 +327,9 @@ export const RangeSelect = (props: RangeSelectProps): ReactElement => {
             {renderTag}
           </Select.MultipleTrigger>
           <Select.Dialog>
-            <Select.Search
-              placeholder="Search favorites or type a duration"
-              onSearch={search}
-            />
+            <Select.Search placeholder="Search favorites" onSearch={search} />
             <LiveRow span={span} onChange={setRolling} />
             <Select.List bordered borderColor={6} grow rounded full="x">
-              <RollingOption span={span} onChange={setRolling} />
               <Select.Items<string> emptyContent={emptyContent}>
                 {favoriteItem}
               </Select.Items>

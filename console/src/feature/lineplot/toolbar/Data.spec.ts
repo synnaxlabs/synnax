@@ -54,7 +54,7 @@ const label = (span: TimeSpan): string => span.toString();
 
 const openSearch = (): HTMLElement => {
   fireEvent.click(screen.getByRole("button", { name: "Ranges" }));
-  return screen.getByPlaceholderText("Search favorites or type a duration");
+  return screen.getByPlaceholderText("Search favorites");
 };
 
 const search = (term: string): void => {
@@ -69,9 +69,6 @@ const clickPreset = (span: TimeSpan): void => {
   assertDefined(preset);
   fireEvent.click(preset);
 };
-
-const findOption = (text: string): HTMLElement | undefined =>
-  screen.queryAllByRole("option").find((o) => o.textContent?.includes(text));
 
 const expectRanges = async (key: string, ranges: ranger.Ref[]): Promise<void> =>
   await waitFor(async () =>
@@ -127,49 +124,6 @@ describe("lineplot/toolbar/Data", () => {
       const { key } = await renderData([rolling(FIVE_MIN)]);
       openSearch();
       clickPreset(FIVE_MIN);
-      await expectRanges(key, []);
-    });
-
-    it("offers a typed window when the search is a duration", async () => {
-      await renderData([]);
-      search("45m");
-      expect(findOption("45m")).toBeDefined();
-    });
-
-    it("offers no typed window when the search is not a duration", async () => {
-      await renderData([]);
-      const input = openSearch();
-      fireEvent.change(input, { target: { value: "banana" } });
-      expect(screen.queryAllByRole("option")).toHaveLength(0);
-      fireEvent.change(input, { target: { value: "0s" } });
-      expect(screen.queryAllByRole("option")).toHaveLength(0);
-    });
-
-    it("sets the window to the typed span", async () => {
-      const { key } = await renderData([rolling(FIVE_MIN)]);
-      search("1h 30m");
-      const option = findOption("1h 30m");
-      assertDefined(option);
-      fireEvent.click(option);
-      await expectRanges(key, [rolling(TimeSpan.minutes(90))]);
-    });
-
-    it("sets the window to the typed span with Enter", async () => {
-      const { key } = await renderData([]);
-      search("2w");
-      act(() => {
-        fireEvent.keyDown(window, { code: "Enter" });
-      });
-      await expectRanges(key, [rolling(TimeSpan.days(14))]);
-    });
-
-    it("clears the window from the typed option that matches it", async () => {
-      const { key } = await renderData([rolling(FORTY_FIVE_MIN)]);
-      search("45m");
-      const option = findOption("45m");
-      assertDefined(option);
-      expect(option.getAttribute("aria-selected")).toBe("true");
-      fireEvent.click(option);
       await expectRanges(key, []);
     });
 

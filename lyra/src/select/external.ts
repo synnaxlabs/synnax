@@ -19,7 +19,6 @@ export * from "@/select/Label";
 export * from "@/select/List";
 export * from "@/select/Multiple";
 export * from "@/select/MultipleTrigger";
-export { useSearchTerm } from "@/select/registry";
 export * from "@/select/Search";
 export * from "@/select/Simple";
 export * from "@/select/Single";

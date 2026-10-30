@@ -15,9 +15,8 @@
     filter: opacity(0.8);
 }
 
-/* The left inset lines the label's icon up with the icon of the typed window below. */
 .console-range-select__live {
-    padding: 0.5rem 1rem 0.5rem 3rem;
+    padding: 0.5rem 1rem;
     border: 0 solid var(--pluto-gray-l6);
     border-width: 0 var(--pluto-border-width);
 }
