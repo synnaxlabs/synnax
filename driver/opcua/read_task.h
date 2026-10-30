@@ -14,6 +14,7 @@
 #include <limits>
 #include <map>
 #include <memory>
+#include <numeric>
 #include <optional>
 #include <set>
 #include <string>
@@ -940,8 +941,8 @@ inline x::telem::TimeStamp change_time(const UA_DataValue &value) {
 /// change of each node after a subscribe repeats the value that the server has, as does
 /// history, so the source drops such a change without a warning when it is not after
 /// the last one. With history backfill, the source reads the history of each node that
-/// allows it from the last stored value to the start of the subscription, one page per
-/// read, and holds the changes of the node until its history is written.
+/// allows it from the last stored value to when the server began to monitor the node,
+/// one page per read, and holds the changes of the node until its history is written.
 class OnChangeReadTaskSource final : public BaseReadTaskSource {
     struct Change {
         x::telem::TimeStamp time;
@@ -979,8 +980,9 @@ class OnChangeReadTaskSource final : public BaseReadTaskSource {
     /// @brief the monitored item of each channel, by place in nodes, or nothing when
     /// the server lacks the channel's namespace.
     std::vector<std::optional<std::size_t>> items;
-    /// @brief when the subscription started, where history ends.
-    UA_DateTime started = 0;
+    /// @brief when the server began to monitor each monitored item, where its history
+    /// ends.
+    std::vector<UA_DateTime> monitored_at;
     /// @brief when the source last tried to subscribe to what the subscription lacks.
     x::telem::TimeStamp retried{};
 
@@ -1037,7 +1039,10 @@ class OnChangeReadTaskSource final : public BaseReadTaskSource {
         this->failed.assign(this->nodes.size(), x::errors::NIL);
         this->fresh.assign(this->nodes.size(), true);
         this->backfill.assign(this->nodes.size(), std::nullopt);
-        this->started = telem::to_date_time(x::telem::TimeStamp::now());
+        this->monitored_at.assign(
+            this->nodes.size(),
+            telem::to_date_time(x::telem::TimeStamp::now())
+        );
         this->retried = x::telem::TimeStamp::now();
         const connection::Intervals asked{
             .sampling = this->cfg.sample_rate.period(),
@@ -1062,7 +1067,9 @@ class OnChangeReadTaskSource final : public BaseReadTaskSource {
                             asked.sampling.to_string() + " and " +
                             asked.publishing.to_string() + " as the task asks.";
         if (!this->cfg.history_backfill_enabled) return x::errors::NIL;
-        return this->start_backfill();
+        std::vector<std::size_t> all(this->nodes.size());
+        std::iota(all.begin(), all.end(), 0);
+        return this->start_backfill(all);
     }
 
     /// @brief lists the channels whose nodes the subscription does not monitor.
@@ -1112,24 +1119,31 @@ class OnChangeReadTaskSource final : public BaseReadTaskSource {
                 retried_nodes.push_back(this->nodes[item]);
                 retried_items.push_back(item);
             }
+        const auto asked_at = telem::to_date_time(x::telem::TimeStamp::now());
         auto [monitored, err] = this->connection.monitor(retried_nodes, retried_items);
         if (err.matches(errors::UNREACHABLE)) return err;
-        // A failed request leaves its nodes and the ones after it unmonitored.
-        for (std::size_t k = 0; k < retried_items.size(); ++k)
-            this->failed[retried_items[k]] = k < monitored.errors.size()
-                                               ? monitored.errors[k]
-                                               : err;
+        std::vector<std::size_t> recovered;
+        for (std::size_t k = 0; k < retried_items.size(); ++k) {
+            const auto item = retried_items[k];
+            // A failed request leaves its nodes and the ones after it unmonitored.
+            this->failed[item] = k < monitored.errors.size() ? monitored.errors[k]
+                                                             : err;
+            if (this->failed[item]) continue;
+            this->monitored_at[item] = asked_at;
+            recovered.push_back(item);
+        }
         this->list_unmonitored();
-        return x::errors::NIL;
+        if (!this->cfg.history_backfill_enabled) return x::errors::NIL;
+        return this->start_backfill(recovered);
     }
 
-    /// @brief starts the backfill of each monitored node whose access level allows
-    /// history reads, and whose channels store values.
-    x::errors::Error start_backfill() {
-        if (this->nodes.empty()) return x::errors::NIL;
+    /// @brief starts the backfill of each item that the server monitors, whose access
+    /// level allows history reads, and whose channels store values.
+    x::errors::Error start_backfill(const std::vector<std::size_t> &items) {
+        if (items.empty()) return x::errors::NIL;
         types::ReadRequestBuilder builder;
-        for (const auto &node: this->nodes)
-            builder.add_node(node, UA_ATTRIBUTEID_ACCESSLEVEL);
+        for (const auto item: items)
+            builder.add_node(this->nodes[item], UA_ATTRIBUTEID_ACCESSLEVEL);
         auto [res, err] = this->connection.read(builder.build());
         if (err.matches(errors::UNREACHABLE)) return err;
         if (err) {
@@ -1138,42 +1152,50 @@ class OnChangeReadTaskSource final : public BaseReadTaskSource {
             );
             return x::errors::NIL;
         }
-        for (std::size_t item = 0; item < this->nodes.size(); ++item) {
-            const auto &level = res.get().results[item].value;
+        for (std::size_t k = 0; k < items.size(); ++k) {
+            const auto item = items[k];
+            const auto &level = res.get().results[k].value;
             if (this->failed[item] ||
                 !UA_Variant_hasScalarType(&level, &UA_TYPES[UA_TYPES_BYTE]) ||
                 (*static_cast<const UA_Byte *>(level.data) &
                  UA_ACCESSLEVELMASK_HISTORYREAD) == 0)
                 continue;
             auto from = x::telem::TimeStamp::max();
-            for (const auto i: this->readers[item])
-                from = std::min(from, this->last[this->cfg.indexes[i]]);
             // A channel that stores nothing yet has no gap to fill.
-            if (from == x::telem::TimeStamp::min()) continue;
+            for (const auto i: this->readers[item])
+                if (const auto stored = this->last[this->cfg.indexes[i]];
+                    stored != x::telem::TimeStamp::min())
+                    from = std::min(from, stored);
+            if (from == x::telem::TimeStamp::max()) continue;
             this->backfill[item] = telem::to_date_time(from) + 1;
         }
         return x::errors::NIL;
     }
 
     /// @brief reads the next page of history of each node that backfills. Nodes that
-    /// read from the same time share a request.
+    /// read the same span of time share a request.
     x::errors::Error read_history() {
-        std::map<UA_DateTime, std::vector<std::size_t>> starts;
+        std::map<std::pair<UA_DateTime, UA_DateTime>, std::vector<std::size_t>> spans;
         for (std::size_t item = 0; item < this->backfill.size(); ++item)
             if (const auto &from = this->backfill[item]; from.has_value())
-                starts[from.value()].push_back(item);
-        for (const auto &[start, pending]: starts)
-            if (auto err = this->read_page(start, pending)) return err;
+                spans[{from.value(), this->monitored_at[item]}].push_back(item);
+        for (const auto &[span, pending]: spans)
+            if (auto err = this->read_page(span.first, span.second, pending))
+                return err;
         return x::errors::NIL;
     }
 
-    /// @brief reads the next page of history of each item in pending, from start.
-    x::errors::Error
-    read_page(const UA_DateTime start, const std::vector<std::size_t> &pending) {
+    /// @brief reads the next page of history of each item in pending, from start to
+    /// end.
+    x::errors::Error read_page(
+        const UA_DateTime start,
+        const UA_DateTime end,
+        const std::vector<std::size_t> &pending
+    ) {
         UA_ReadRawModifiedDetails details;
         UA_ReadRawModifiedDetails_init(&details);
         details.startTime = start;
-        details.endTime = this->started;
+        details.endTime = end;
         details.numValuesPerNode = HISTORY_VALUES_PER_NODE;
         std::vector<UA_HistoryReadValueId> ids(pending.size());
         for (std::size_t k = 0; k < pending.size(); ++k) {

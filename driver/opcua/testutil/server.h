@@ -638,7 +638,8 @@ public:
 
     /// @brief adds a namespace with nodes to the running server, as a server that loads
     /// a model while it runs does. Each node goes in the new namespace, whatever its
-    /// ns. Blocks until the server adds them.
+    /// ns, and records history when ServerConfig::historizing is set. Blocks until the
+    /// server adds them.
     void add_namespace(const std::string &uri, std::vector<TestNode> nodes) {
         std::unique_lock lock(this->added_mu);
         this->added.emplace_back(uri, std::move(nodes));
@@ -1120,14 +1121,19 @@ private:
         UA_Server_addReference(server, inner, UA_NS0ID(ORGANIZES), target, true);
     }
 
-    /// @brief adds what add_namespace and add_motor asked for.
-    void add_requested(UA_Server *server, const UA_DataType &motor_type) {
+    /// @brief adds what add_namespace and add_motor asked for. Records the history of
+    /// each node of add_namespace when history is set.
+    void add_requested(
+        UA_Server *server,
+        const UA_DataType &motor_type,
+        const History *history
+    ) {
         std::lock_guard lock(this->added_mu);
         for (auto &[uri, nodes]: this->added) {
             const auto ns = UA_Server_addNamespace(server, uri.c_str());
             for (auto &node: nodes) {
                 node.ns = ns;
-                add_node(server, node);
+                add_node(server, node, history);
             }
         }
         this->added.clear();
@@ -1308,7 +1314,11 @@ public:
             this->emit_events(server);
             this->apply_changes(server);
             UA_Server_run_iterate(server, true);
-            this->add_requested(server, structures.motor());
+            this->add_requested(
+                server,
+                structures.motor(),
+                cfg.historizing ? &history : nullptr
+            );
             const auto stats = UA_Server_getStatistics(server);
             this->channels = stats.scs.currentChannelCount;
             this->sessions_created = stats.ss.cumulatedSessionCount;

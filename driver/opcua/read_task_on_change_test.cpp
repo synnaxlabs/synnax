@@ -541,6 +541,58 @@ TEST_F(TestOnChangeReadTask, testBackfillsEachNodeFromItsOwnStart) {
     ASSERT_NIL(src->stop());
 }
 
+/// @brief it should backfill a node from the earliest last value that its channels
+/// store, when another channel of the node stores none.
+TEST_F(TestOnChangeReadTask, testBackfillsNodeWithNewChannel) {
+    this->server_cfg.historizing = true;
+    this->start_server();
+    const auto added = this->create_channel("added");
+    const auto stored = at(-1 * x::telem::MINUTE);
+    this->store(this->value, stored, 0);
+    for (int i = 1; i <= 2; ++i)
+        this->change(i, stored + x::telem::SECOND * i);
+    this->wait_for(2);
+    auto cfg = this->config({
+        {"NS=1;S=TestDouble", this->value.key},
+        {"NS=1;S=TestDouble", added.key},
+    });
+    cfg["history_backfill_enabled"] = true;
+    const auto src = this->source(cfg);
+    ASSERT_NIL(src->start());
+    const auto written = read_values(*src, this->value, 2);
+    EXPECT_EQ(written.values, std::vector<double>({1, 2}));
+    ASSERT_NIL(src->stop());
+}
+
+/// @brief it should backfill the history of a node that the server monitors only after
+/// the start.
+TEST_F(TestOnChangeReadTask, testBackfillsNodeMonitoredLater) {
+    this->server_cfg.historizing = true;
+    this->start_server();
+    const auto later = this->create_channel("later");
+    const auto stored = at(-1 * x::telem::MINUTE);
+    this->store(later, stored, 0);
+    auto cfg = this->config({{"NS=1;S=Later", later.key}});
+    cfg["history_backfill_enabled"] = true;
+    const auto src = this->source(cfg);
+    ASSERT_NIL(src->start());
+    const auto missing = read_values(*src, later, 1, x::telem::SECOND);
+    ASSERT_TRUE(missing.warned("Failed to subscribe to some nodes"));
+    this->server->add_namespace(
+        testutil::SERVER_APPLICATION_URI,
+        {double_node("Later", 0)}
+    );
+    for (int i = 1; i <= 2; ++i)
+        this->server->change({
+            .node = "Later",
+            .value = static_cast<double>(i),
+            .time = stored + x::telem::SECOND * i,
+        });
+    const auto found = read_values(*src, later, 2, 15 * x::telem::SECOND);
+    EXPECT_EQ(found.values, std::vector<double>({1, 2}));
+    ASSERT_NIL(src->stop());
+}
+
 /// @brief it should fill the gap of an outage from the history when it subscribes
 /// again, on the same Session.
 TEST_F(TestOnChangeReadTask, testBackfillsOutageAfterReconnect) {
