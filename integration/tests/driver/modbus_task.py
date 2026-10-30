@@ -19,7 +19,7 @@ from pymodbus.client import ModbusTcpClient
 
 import synnax as sy
 from tests.driver.simulator_case import SimulatorCase
-from tests.driver.task import ReadTaskCase, WriteTaskCase
+from tests.driver.task import ReadTaskCase, WriteTaskCase, send_and_verify_commands
 
 
 def float32_words(value: float) -> list[int]:
@@ -139,4 +139,17 @@ class ModbusWriteTaskCase(SimulatorCase, WriteTaskCase[sy.modbus.WriteTask]):
             name=task_name,
             device=device.key,
             channels=channels,
+        )
+
+    def send_commands(self, values: list[list[float]]) -> None:
+        """Send two rounds of commands to the running task, one value per channel in
+        each."""
+        assert self.tsk is not None
+        send_and_verify_commands(
+            self.client,
+            cmd_keys=self._channel_keys(self.tsk),
+            writer_name=f"{self.task_name}_test_writer",
+            task_name=self.tsk.name,
+            task_key=self.tsk.key,
+            command_values=values,
         )

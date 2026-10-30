@@ -14,6 +14,7 @@ it with an error status when the task is started.
 """
 
 from examples.modbus import ModbusSim
+from examples.modbus.server import STRING_START
 
 import synnax as sy
 from tests.driver.simulator_case import SimulatorCase
@@ -38,6 +39,7 @@ class ModbusInvalidConfig(SimulatorCase):
         4. Nonexistent channel key — Synnax channel that doesn't exist.
         5. Invalid address — register address the device doesn't serve.
         6. Duplicate channel — two tasks using the same channel.
+        7. Wide string — a string longer than one request reads.
     """
 
     sim_classes = [ModbusSim]
@@ -53,6 +55,7 @@ class ModbusInvalidConfig(SimulatorCase):
         self.test_nonexistent_channel_key()
         self.test_invalid_address()
         self.test_duplicate_channel()
+        self.test_wide_string()
 
     def test_nonexistent_device(self) -> None:
         """Configure a read task with a device key that doesn't exist."""
@@ -185,6 +188,50 @@ class ModbusInvalidConfig(SimulatorCase):
         expected = (
             "Failed to read data: modbus_inv_addr_ch (input registers 65000): "
             "Illegal data address"
+        )
+        assert message == expected, f"Rejection should be {expected!r}, got {message!r}"
+
+    def test_wide_string(self) -> None:
+        """Start a read task with a string that needs more registers than the device
+        reads in one request."""
+        self.log("Testing: String wider than one request")
+        rack = self.client.racks.retrieve(name=self.options.driver_rack)
+        [narrow] = self.create_test_devices(
+            [
+                sy.modbus.Device(
+                    host=ModbusSim.host,
+                    port=ModbusSim.port,
+                    name="Modbus Two Register Requests",
+                    location=f"{ModbusSim.host}:{ModbusSim.port}",
+                    rack=rack.key,
+                    max_registers=2,
+                )
+            ]
+        )
+        idx = create_index(self.client, "modbus_inv_str_idx")
+        task = sy.modbus.ReadTask(
+            name="Modbus Wide String Test",
+            device=narrow.key,
+            sample_rate=50 * sy.Rate.HZ,
+            stream_rate=10 * sy.Rate.HZ,
+            channels=[
+                sy.modbus.HoldingRegisterReadChannel(
+                    channel=create_channel(
+                        self.client,
+                        name="modbus_inv_str_ch",
+                        data_type=sy.DataType.STRING,
+                        index=idx.key,
+                    ),
+                    address=STRING_START,
+                    data_type=sy.DataType.STRING,
+                    string_length=5,
+                ),
+            ],
+        )
+        message = assert_start_rejected(self.client, task, "wide string")
+        expected = (
+            "Failed to configure task: channels.0.string_length: needs 3 registers, "
+            "but the device reads at most 2 per request"
         )
         assert message == expected, f"Rejection should be {expected!r}, got {message!r}"
 

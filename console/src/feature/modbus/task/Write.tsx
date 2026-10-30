@@ -24,12 +24,14 @@ import { type FC } from "react";
 import { useFromConfig } from "@/feature/modbus/device/queries";
 import { Select as SelectDevice } from "@/feature/modbus/device/Select";
 import { SCHEMAS } from "@/feature/modbus/device/types";
+import { AddressField } from "@/feature/modbus/task/AddressField";
 import { OrderFields } from "@/feature/modbus/task/OrderFields";
 import { SelectWriteChannelTypeField } from "@/feature/modbus/task/SelectWriteChannelTypeField";
 import {
+  BIT_BOUNDS,
   deployWriteConfigZ,
-  nextAddress,
-  UNSUPPORTED_REGISTER_DATA_TYPES,
+  nextChannel,
+  UNSUPPORTED_WRITE_DATA_TYPES,
   WRITE_CHANNEL_SCHEMAS,
   WRITE_SCHEMAS,
   WRITE_TYPE,
@@ -75,12 +77,20 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
             });
           }}
         />
-        <PForm.NumericField
-          inputProps={{ showDragHandle: false }}
-          showLabel={false}
-          showHelpText={false}
-          path={`${path}.address`}
-        />
+        <AddressField path={path} />
+        {type === "holding_register_bit" && (
+          <PForm.NumericField
+            inputProps={{
+              showDragHandle: false,
+              bounds: BIT_BOUNDS,
+              startContent: "Bit",
+              "aria-label": "Bit",
+            }}
+            showLabel={false}
+            showHelpText={false}
+            path={`${path}.bit`}
+          />
+        )}
         {type === "holding_register" && (
           <PForm.Field<string>
             path={`${path}.dataType`}
@@ -108,7 +118,7 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
 
 const renderTelemSelectDataType = Component.renderProp(
   (props: Telem.SelectDataTypeProps) => (
-    <Telem.SelectDataType {...props} hideDataTypes={UNSUPPORTED_REGISTER_DATA_TYPES} />
+    <Telem.SelectDataType {...props} hideDataTypes={UNSUPPORTED_WRITE_DATA_TYPES} />
   ),
 );
 
@@ -118,13 +128,7 @@ const getOpenChannel = (channels: WriteChannel[]): WriteChannel => {
       ...WRITE_CHANNEL_SCHEMAS.coil.parse({ type: "coil" }),
       key: id.create(),
     };
-  const channelToCopy = channels[channels.length - 1];
-  return {
-    ...channelToCopy,
-    key: id.create(),
-    name: "",
-    address: nextAddress(channelToCopy),
-  };
+  return { ...nextChannel(channels[channels.length - 1]), key: id.create(), name: "" };
 };
 
 const listItem = Component.renderProp(ChannelListItem);
@@ -169,11 +173,13 @@ const Form: FC = () => {
 const NAME_TYPES: Record<WriteChannelType, string> = {
   coil: "coil_output",
   holding_register: "holding_register_output",
+  holding_register_bit: "holding_register_bit_output",
 };
 
 const writeMapKey = (channel: WriteChannel) => {
   let s = `${NAME_TYPES[channel.type]}-${channel.address.toString()}`;
   if (channel.type === "holding_register") s += `-${channel.dataType}`;
+  if (channel.type === "holding_register_bit") s += `-${channel.bit}`;
   return s.replaceAll("_", "-");
 };
 
@@ -216,6 +222,7 @@ const commandName = (deviceName: string, channel: WriteChannel) => {
   let s = `${deviceName}_${NAME_TYPES[channel.type]}_${channel.address}`;
   if (channel.type === "holding_register")
     s += `_${new DataType(channel.dataType).toString(true)}`;
+  if (channel.type === "holding_register_bit") s += `_${channel.bit}`;
   return `${s}_cmd`;
 };
 

@@ -47,6 +47,7 @@ describe("Modbus.Device.SCHEMAS", () => {
       maxRegisters: 125,
       maxGap: 125,
       writeCodes: "multiple",
+      maskWriteSupported: false,
       delayMs: 0,
     });
   });

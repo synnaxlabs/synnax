@@ -63,6 +63,7 @@ const ZERO_REQUESTS = {
   maxRegisters: 125,
   maxGap: 125,
   writeCodes: "multiple",
+  maskWriteSupported: false,
   delayMs: 0,
 } as const;
 
@@ -109,6 +110,7 @@ const propertiesZ = z.object({
       maxRegisters: wholeNumberZ("Max registers").default(ZERO_REQUESTS.maxRegisters),
       maxGap: wholeNumberZ("Max gap").default(ZERO_REQUESTS.maxGap),
       writeCodes: writeCodesZ.default(ZERO_REQUESTS.writeCodes),
+      maskWriteSupported: z.boolean().default(ZERO_REQUESTS.maskWriteSupported),
       delayMs: wholeNumberZ("Request delay").default(ZERO_REQUESTS.delayMs),
     })
     .default(() => ({ ...ZERO_REQUESTS })),

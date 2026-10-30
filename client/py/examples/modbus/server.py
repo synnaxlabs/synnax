@@ -36,6 +36,9 @@ GATEWAY_UNITS = (1, 2)
 # From TYPED_START: float32 1.5, int16 -2, and uint32 70000, low word first as the
 # Driver reads by default.
 TYPED_REGISTERS = [0x0000, 0x3FC0, 0xFFFE, 0x1170, 0x0001]
+# From STRING_START: "SYNNAX" and a NUL, two characters a register, high byte first.
+STRING_START = TYPED_START + len(TYPED_REGISTERS)
+STRING_REGISTERS = [0x5359, 0x4E4E, 0x4158, 0x0000]
 
 
 async def updating_writer(
@@ -130,7 +133,7 @@ async def run_server(
     """Run the Modbus TCP server."""
     fixed = range(FIXED_START, TYPED_START)
     bits = [False] * FIXED_START + [n % 2 == 1 for n in fixed]
-    registers = [0] * FIXED_START + list(fixed) + TYPED_REGISTERS
+    registers = [0] * FIXED_START + list(fixed) + TYPED_REGISTERS + STRING_REGISTERS
     dev = SimDevice(
         id=SLAVE_ID,
         simdata=(

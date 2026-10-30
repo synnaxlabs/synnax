@@ -9,6 +9,8 @@
 
 from typing import Any
 
+from examples.modbus import ModbusSim
+
 import synnax as sy
 from synnax import modbus
 from tests.driver.modbus_task import (
@@ -19,7 +21,7 @@ from tests.driver.modbus_task import (
     set_sim_coil,
     set_sim_register,
 )
-from tests.driver.task import create_channel, create_index, send_and_verify_commands
+from tests.driver.task import create_channel, create_index
 
 
 class ModbusWriteCoil(ModbusWriteTaskCase):
@@ -83,7 +85,7 @@ class ModbusWriteMixed(ModbusWriteTaskCase):
     @staticmethod
     def create_channels(client: sy.Synnax) -> list[sy.modbus.WriteChannel]:
         idx = create_index(client, "modbus_mixed_cmd_time")
-        return [
+        coils: list[sy.modbus.WriteChannel] = [
             modbus.CoilWriteChannel(
                 channel=create_channel(
                     client,
@@ -94,7 +96,8 @@ class ModbusWriteMixed(ModbusWriteTaskCase):
                 address=20 + i,
             )
             for i in range(2)
-        ] + [
+        ]
+        registers: list[sy.modbus.WriteChannel] = [
             modbus.HoldingRegisterWriteChannel(
                 channel=create_channel(
                     client,
@@ -107,6 +110,7 @@ class ModbusWriteMixed(ModbusWriteTaskCase):
             )
             for i in range(2)
         ]
+        return coils + registers
 
 
 class ModbusWriteWordOrder(ModbusWriteTaskCase):
@@ -190,17 +194,6 @@ class ModbusWriteGap(ModbusWriteTaskCase):
             assert_sim_registers(120, [5, 7, 6])
             assert_sim_coils(110, [True, False, False])
 
-    def send_commands(self, values: list[list[float]]) -> None:
-        assert self.tsk is not None
-        send_and_verify_commands(
-            self.client,
-            cmd_keys=self._channel_keys(self.tsk),
-            writer_name=f"{self.task_name}_test_writer",
-            task_name=self.tsk.name,
-            task_key=self.tsk.key,
-            command_values=values,
-        )
-
 
 class ModbusWriteCoilFloat(ModbusWriteTaskCase):
     """Drives a coil from a float32 command channel."""
@@ -225,3 +218,75 @@ class ModbusWriteCoilFloat(ModbusWriteTaskCase):
 
     def assert_written(self) -> None:
         assert_sim_coils(130, [True])
+
+
+# Holds 0b10001100. The bit cases write its bits 0 and 3.
+BIT_REGISTER = 140
+
+
+class ModbusWriteRegisterBits(ModbusWriteTaskCase):
+    """Writes two bits of one register in each command, while another client changes a
+    third bit between commands. The register keeps the other client's change."""
+
+    task_name = "Modbus Write Register Bits"
+
+    @staticmethod
+    def create_channels(client: sy.Synnax) -> list[sy.modbus.WriteChannel]:
+        idx = create_index(client, "modbus_bit_cmd_time")
+        return [
+            modbus.HoldingRegisterBitWriteChannel(
+                channel=create_channel(
+                    client,
+                    name=f"modbus_bit_cmd_{bit}",
+                    data_type=sy.DataType.UINT8,
+                    index=idx.key,
+                ),
+                address=BIT_REGISTER,
+                bit=bit,
+            )
+            for bit in (0, 3)
+        ]
+
+    def run(self) -> None:
+        assert self.tsk is not None
+        self.log("Testing: Write register bits around a bit another client changes")
+        with self.tsk.run():
+            self.send_commands([[1, 0], [1, 0]])
+            assert_sim_registers(BIT_REGISTER, [0b10000101])
+            set_sim_register(BIT_REGISTER, 0b00000101)
+            self.send_commands([[0, 1], [0, 1]])
+            assert_sim_registers(BIT_REGISTER, [0b00001100])
+
+
+class ModbusWriteRegisterBitsMasked(ModbusWriteRegisterBits):
+    """The same writes to a server that takes function code 22, which changes bits
+    without a read."""
+
+    task_name = "Modbus Write Register Bits Masked"
+
+    def create(
+        self,
+        *,
+        device: sy.Device,
+        task_name: str,
+        sample_rate: sy.Rate,
+        stream_rate: sy.Rate,
+    ) -> sy.modbus.WriteTask:
+        [masked] = self.create_test_devices(
+            [
+                modbus.Device(
+                    host=ModbusSim.host,
+                    port=ModbusSim.port,
+                    name="Modbus Mask Write Server",
+                    location=f"{ModbusSim.host}:{ModbusSim.port}",
+                    rack=device.rack,
+                    mask_write_supported=True,
+                )
+            ]
+        )
+        return super().create(
+            device=masked,
+            task_name=task_name,
+            sample_rate=sample_rate,
+            stream_rate=stream_rate,
+        )

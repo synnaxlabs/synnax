@@ -17,6 +17,7 @@ from synnax.exceptions import PathError, ValidationError
 from synnax.modbus.types_gen import (
     ReadChannel,
     ReadConfig,
+    RegisterBit,
     WriteChannel,
     WriteConfig,
 )
@@ -33,11 +34,14 @@ _READ_NAME_TYPES = {
     "discrete_input": "discrete_input",
     "holding_register": "holding_register_input",
     "input_register": "register_input",
+    "holding_register_bit": "holding_register_bit_input",
+    "input_register_bit": "register_bit_input",
 }
 
 _WRITE_NAME_TYPES = {
     "coil": "coil_output",
     "holding_register": "holding_register_output",
+    "holding_register_bit": "holding_register_bit_output",
 }
 
 # The rates libmodbus sets on Linux, macOS, and Windows. The Driver and the Console
@@ -62,8 +66,9 @@ class ReadTask(
         instead of saving it permanently within Synnax.
     :param auto_start: Whether to start the task automatically when it is created.
     :param channels: The input channels to acquire data from (ReadChannel variants:
-        CoilReadChannel, DiscreteInputReadChannel,
-        HoldingRegisterReadChannel, InputRegisterReadChannel).
+        CoilReadChannel, DiscreteInputReadChannel, HoldingRegisterReadChannel,
+        InputRegisterReadChannel, HoldingRegisterBitReadChannel,
+        InputRegisterBitReadChannel).
     """
 
     TYPE = "modbus_read"
@@ -101,7 +106,8 @@ class ReadTask(
 
         The key format follows Console's readMapKey convention:
         "{type}-{address}" for fixed-density channels, "{type}-{address}-{dataType}"
-        for register channels, with underscores replaced by hyphens.
+        for register channels, and "{type}-{address}-{bit}" for register bit
+        channels, with underscores replaced by hyphens.
         """
         dev = device_client.retrieve(key=self.config.device)
         props = dict(dev.properties)
@@ -112,6 +118,8 @@ class ReadTask(
             key = f"{_READ_NAME_TYPES[ch.type]}-{ch.address}"
             if hasattr(ch, "data_type"):
                 key += f"-{ch.data_type}"
+            if isinstance(ch, RegisterBit):
+                key += f"-{ch.bit}"
             key = key.replace("_", "-")
             channels[key] = ch.channel
         dev.properties = props
@@ -129,7 +137,8 @@ class WriteTask(
     :param name: A human-readable name for the task.
     :param auto_start: Whether to start the task automatically when it is created.
     :param channels: The output channels to write to (WriteChannel variants:
-        CoilWriteChannel, HoldingRegisterWriteChannel).
+        CoilWriteChannel, HoldingRegisterWriteChannel,
+        HoldingRegisterBitWriteChannel).
     """
 
     TYPE = "modbus_write"
@@ -160,8 +169,9 @@ class WriteTask(
         """Update device properties before task configuration.
 
         The key format follows Console's writeMapKey convention: "{type}-{address}"
-        for coils and "{type}-{address}-{dataType}" for holding registers, with
-        underscores replaced by hyphens.
+        for coils, "{type}-{address}-{dataType}" for holding registers, and
+        "{type}-{address}-{bit}" for register bits, with underscores replaced by
+        hyphens.
         """
         dev = device_client.retrieve(key=self.config.device)
         props = dict(dev.properties)
@@ -170,6 +180,8 @@ class WriteTask(
             key = f"{_WRITE_NAME_TYPES[ch.type]}-{ch.address}"
             if hasattr(ch, "data_type"):
                 key += f"-{ch.data_type}"
+            if isinstance(ch, RegisterBit):
+                key += f"-{ch.bit}"
             channels[key.replace("_", "-")] = ch.channel
         dev.properties = props
         return device_client.create(dev)
@@ -203,6 +215,9 @@ class Device(device.Device):
         0 reads only addresses that channels cover.
     :param write_codes: "multiple" writes with function codes 15 and 16. "single" writes
         each coil with 05 and each register with 06.
+    :param mask_write_supported: Whether the server takes function code 22, so a
+        register bit write is one request. Otherwise the Driver reads the register and
+        writes it back.
     :param delay_ms: The wait in milliseconds between requests on the connection,
         from 0 to 5000.
     :param name: Human-readable name for the device.
@@ -233,6 +248,7 @@ class Device(device.Device):
         max_registers: int = 125,
         max_gap: int = 125,
         write_codes: Literal["multiple", "single"] = "multiple",
+        mask_write_supported: bool = False,
         delay_ms: int = 0,
         name: str = "",
         location: str = "",
@@ -280,6 +296,7 @@ class Device(device.Device):
                 "max_registers": max_registers,
                 "max_gap": max_gap,
                 "write_codes": write_codes,
+                "mask_write_supported": mask_write_supported,
                 "delay_ms": delay_ms,
             },
             "read": {"index": 0, "channels": {}},
