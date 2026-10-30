@@ -19,7 +19,10 @@ class KeyboardShortcuts(ConsoleCase):
     FLOATING_DRAWER_SELECTOR = (
         ".console-nav__drawer.lyra--visible.console--hover:not(.lyra--location-bottom)"
     )
-    PINNED_DRAWER_SELECTOR = ".console-nav__drawer.lyra--visible:not(.console--hover):not(.lyra--location-bottom)"
+    PINNED_DRAWER_SELECTOR = (
+        ".console-nav__drawer.lyra--visible:not(.console--hover)"
+        ":not(.lyra--location-bottom)"
+    )
 
     TOOLBAR_SHORTCUTS = [
         ("a", "arc", "Arc"),

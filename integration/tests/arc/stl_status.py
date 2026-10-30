@@ -142,14 +142,14 @@ class StlStatus(ArcCase):
     collect_notifications = True
 
     def setup(self) -> None:
-        create_virtual_channel(self.client, TRIG_SET, sy.DataType.UINT8)
-        create_virtual_channel(self.client, TRIG_DUP_FUNC, sy.DataType.UINT8)
-        create_virtual_channel(self.client, TRIG_DUP_FLOW, sy.DataType.UINT8)
-        create_virtual_channel(self.client, TRIG_SEQ, sy.DataType.UINT8)
-        create_virtual_channel(self.client, DUP_FUNC_KEY, sy.DataType.STRING)
-        create_virtual_channel(self.client, SEQ_DONE, sy.DataType.UINT8)
+        create_virtual_channel(self.client, TRIG_SET, data_type=sy.DataType.UINT8)
+        create_virtual_channel(self.client, TRIG_DUP_FUNC, data_type=sy.DataType.UINT8)
+        create_virtual_channel(self.client, TRIG_DUP_FLOW, data_type=sy.DataType.UINT8)
+        create_virtual_channel(self.client, TRIG_SEQ, data_type=sy.DataType.UINT8)
+        create_virtual_channel(self.client, DUP_FUNC_KEY, data_type=sy.DataType.STRING)
+        create_virtual_channel(self.client, SEQ_DONE, data_type=sy.DataType.UINT8)
         for ch in KEY_CHANNELS:
-            create_virtual_channel(self.client, ch, sy.DataType.STRING)
+            create_virtual_channel(self.client, ch, data_type=sy.DataType.STRING)
         for c in CASES:
             self.client.statuses.set(
                 sy.Status(
@@ -224,7 +224,8 @@ class StlStatus(ArcCase):
         first = rows[DUP_KEYS[0]]
         if (first.variant, first.message) != (DUP_VARIANT, DUP_MESSAGE):
             self.fail(
-                f"first match {DUP_KEYS[0]}: expected ({DUP_VARIANT!r}, {DUP_MESSAGE!r}), "
+                f"first match {DUP_KEYS[0]}: expected ({DUP_VARIANT!r}, "
+                f"{DUP_MESSAGE!r}), "
                 f"got ({first.variant!r}, {first.message!r})"
             )
         second = rows[DUP_KEYS[1]]

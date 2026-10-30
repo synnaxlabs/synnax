@@ -174,6 +174,7 @@ const channelName = (deviceName: string, channel: ReadChannel) => {
 const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({ deviceKey }) => {
   const config = READ_SCHEMAS.config.parse({});
   if (deviceKey != null) config.device = deviceKey;
+  config.channels = [getOpenChannel([])];
   return { name: "Modbus read task", type: READ_TYPE, config };
 };
 
