@@ -549,7 +549,7 @@ const Way = ({ title, description, children }: WayProps): ReactElement => (
 /** Command shows a shell command with a button that copies it. */
 const Command = ({ text }: { text: string }): ReactElement => (
   <Flex.Box x align="center" justify="between" gap="small" className="portal-command">
-    <Text.Text level="small" variant="code" color={10} overflow="ellipsis">
+    <Text.Text level="small" variant="code" color={10} overflow="fade">
       {text}
     </Text.Text>
     <Button.Copy variant="text" size="small" text={text} tooltip="Copy" />

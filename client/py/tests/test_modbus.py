@@ -7,10 +7,13 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from typing import Any
+
 import pytest
 from pydantic import ValidationError
 
 import synnax as sy
+from synnax.exceptions import PathError
 from synnax.modbus.types import _READ_NAME_TYPES, _WRITE_NAME_TYPES
 from tests.json_value import arr, obj
 from x.strings import random_name
@@ -220,6 +223,24 @@ class TestModbusReadTask:
                 channel=1234,
                 data_type=sy.DataType.FLOAT32,
             )
+
+    def test_register_bit_bounds(self) -> None:
+        """Test that a register bit channel takes bits 0 to 15."""
+        ch = sy.modbus.InputRegisterBitReadChannel(
+            type="input_register_bit", address=3, channel=1234, bit=15
+        )
+        assert ch.bit == 15
+        with pytest.raises(ValidationError):
+            sy.modbus.InputRegisterBitReadChannel(
+                type="input_register_bit", address=3, channel=1234, bit=16
+            )
+
+    def test_register_channels_default_to_uint16(self) -> None:
+        """Test that a register channel without a data type reads uint16."""
+        ch = sy.modbus.HoldingRegisterReadChannel(
+            type="holding_register", address=0, channel=1234
+        )
+        assert ch.data_type == "uint16"
 
     def test_to_payload_serializes_config(self) -> None:
         """Test that to_payload() correctly serializes the config into the payload.
@@ -738,7 +759,7 @@ class TestModbusDevicePropertyUpdates:
         assert "write" in updated_device.properties
         assert "channels" in obj(updated_device.properties, "write")
 
-        # Verify channel keys match Console format (type-address, no dataType for write)
+        # Verify channel keys match Console format
         channels = obj(updated_device.properties, "write", "channels")
 
         # Check coil output mapping (type-address, underscores replaced with hyphens)
@@ -746,8 +767,125 @@ class TestModbusDevicePropertyUpdates:
         assert channels["coil-output-10"] == coil_cmd.key
 
         # Check holding register output mapping
-        assert "holding-register-output-20" in channels
-        assert channels["holding-register-output-20"] == holding_cmd.key
+        assert "holding-register-output-20-float32" in channels
+        assert channels["holding-register-output-20-float32"] == holding_cmd.key
+
+    def test_device_connection_defaults(self) -> None:
+        """Should store the defaults the Driver applies to absent fields."""
+        dev = sy.modbus.Device(host="10.0.0.7", port=502)
+        assert dev.properties["connection"] == {
+            "transport": "tcp",
+            "host": "10.0.0.7",
+            "port": 502,
+            "swap_bytes": False,
+            "swap_words": False,
+            "unit_id": 255,
+            "timeout_ms": 1000,
+            "retries": 1,
+        }
+        assert dev.properties["requests"] == {
+            "max_registers": 125,
+            "max_gap": 125,
+            "write_codes": "multiple",
+            "mask_write_supported": False,
+            "delay_ms": 0,
+        }
+
+    def test_device_unit_and_requests(self) -> None:
+        """Should store the unit, timing, and request settings it is given."""
+        dev = sy.modbus.Device(
+            host="gateway",
+            port=502,
+            unit_id=7,
+            timeout_ms=250,
+            retries=3,
+            max_registers=60,
+            max_gap=0,
+            write_codes="single",
+            mask_write_supported=True,
+            delay_ms=20,
+        )
+        connection = obj(dev.properties["connection"])
+        assert connection["unit_id"] == 7
+        assert connection["timeout_ms"] == 250
+        assert connection["retries"] == 3
+        assert dev.properties["requests"] == {
+            "max_registers": 60,
+            "max_gap": 0,
+            "write_codes": "single",
+            "mask_write_supported": True,
+            "delay_ms": 20,
+        }
+
+    def test_device_rtu_defaults(self) -> None:
+        """Should store an RTU connection at 19200 8E1 that addresses unit 1."""
+        dev = sy.modbus.Device(transport="rtu", serial_port="/dev/ttyUSB0")
+        assert dev.properties["connection"] == {
+            "transport": "rtu",
+            "serial_port": "/dev/ttyUSB0",
+            "baud_rate": 19200,
+            "parity": "even",
+            "stop_bits": 1,
+            "swap_bytes": False,
+            "swap_words": False,
+            "unit_id": 1,
+            "timeout_ms": 1000,
+            "retries": 1,
+        }
+
+    def test_device_rtu_line_settings(self) -> None:
+        """Should store the line settings and unit it is given."""
+        dev = sy.modbus.Device(
+            transport="rtu",
+            serial_port="COM3",
+            baud_rate=230400,
+            parity="none",
+            stop_bits=2,
+            unit_id=17,
+        )
+        connection = obj(dev.properties["connection"])
+        assert connection["serial_port"] == "COM3"
+        assert connection["baud_rate"] == 230400
+        assert connection["parity"] == "none"
+        assert connection["stop_bits"] == 2
+        assert connection["unit_id"] == 17
+
+    @pytest.mark.parametrize(
+        ("kwargs", "message"),
+        [
+            ({}, "a TCP device needs a host and a port"),
+            ({"host": "10.0.0.7"}, "a TCP device needs a host and a port"),
+            (
+                {"host": "10.0.0.7", "port": 502, "serial_port": "COM3"},
+                "a TCP device has no serial port",
+            ),
+            ({"transport": "rtu"}, "an RTU device needs a serial port"),
+            (
+                {"transport": "rtu", "serial_port": "COM3", "host": "10.0.0.7"},
+                "an RTU device has no host or port",
+            ),
+        ],
+    )
+    def test_device_rejects_fields_of_other_transport(
+        self, kwargs: dict[str, Any], message: str
+    ) -> None:
+        """Should reject a connection that lacks or mixes the fields of a transport."""
+        with pytest.raises(ValueError, match=f"^{message}$"):
+            sy.modbus.Device(**kwargs)
+
+    @pytest.mark.parametrize("baud_rate", [600, 14400, 460800])
+    def test_device_rejects_unsupported_baud_rate(self, baud_rate: int) -> None:
+        """Should reject a baud rate that libmodbus cannot set on every platform."""
+        with pytest.raises(
+            PathError,
+            match=r"^baud_rate: must be one of 1200, 2400, 4800, 9600, 19200, 38400, "
+            r"57600, 115200, 230400$",
+        ):
+            sy.modbus.Device(
+                transport="rtu",
+                serial_port="COM3",
+                baud_rate=baud_rate,  # type: ignore[arg-type]
+            )
 
     def test_device_property_key_format(self) -> None:
         """Test that map keys keep the released type spellings after the rename."""
@@ -788,3 +926,58 @@ class TestModbusDevicePropertyUpdates:
         expected_key3 = "coil-output-15"
         key3 = f"{_WRITE_NAME_TYPES[ch3.type]}-{ch3.address}".replace("_", "-")
         assert key3 == expected_key3
+
+    def test_bit_channels_update_device_properties(self, client: sy.Synnax) -> None:
+        """Test that register bit channels map by register and bit, so two bits of one
+        register bind to two channels."""
+        rack = client.racks.retrieve_embedded_rack()
+        device = sy.modbus.Device(
+            host="127.0.0.1",
+            port=502,
+            name="Test Modbus Bit Device",
+            location="127.0.0.1:502",
+            rack=rack.key,
+        )
+        client.devices.create(device)
+        suffix = random_name()
+        index = client.channels.create(
+            name=f"bit_time_{suffix}", data_type=sy.DataType.TIMESTAMP, is_index=True
+        )
+        chs = [
+            client.channels.create(
+                name=f"bit_{i}_{suffix}",
+                data_type=sy.DataType.UINT8,
+                index=index.key,
+            )
+            for i in range(3)
+        ]
+        read = sy.modbus.ReadTask(
+            name="Bit read task",
+            device=device.key,
+            channels=[
+                sy.modbus.HoldingRegisterBitReadChannel(
+                    type="holding_register_bit", channel=chs[0].key, address=4, bit=0
+                ),
+                sy.modbus.InputRegisterBitReadChannel(
+                    type="input_register_bit", channel=chs[1].key, address=4, bit=9
+                ),
+            ],
+        )
+        read.update_device_properties(client.devices)
+        write = sy.modbus.WriteTask(
+            name="Bit write task",
+            device=device.key,
+            channels=[
+                sy.modbus.HoldingRegisterBitWriteChannel(
+                    type="holding_register_bit", channel=chs[2].key, address=4, bit=3
+                ),
+            ],
+        )
+        write.update_device_properties(client.devices)
+
+        updated = client.devices.retrieve(key=device.key)
+        read_channels = obj(updated.properties, "read", "channels")
+        assert read_channels["holding-register-bit-input-4-0"] == chs[0].key
+        assert read_channels["register-bit-input-4-9"] == chs[1].key
+        write_channels = obj(updated.properties, "write", "channels")
+        assert write_channels["holding-register-bit-output-4-3"] == chs[2].key

@@ -27,7 +27,6 @@ cc_library(
         "//driver/ni/errors",
         "//driver/ni/syscfg:syscfg_official",
         "//x/cpp/lib",
-        "//x/cpp/os",
     ],
 )
 

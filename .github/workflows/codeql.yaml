@@ -67,6 +67,14 @@ jobs:
         needs.changes.outputs.cpp != 'true' }}
     steps:
       - uses: actions/checkout@v7
+      # The proxy drops streams at times, so a failed fetch falls back to the source.
+      - name: Download the Go modules
+        if: matrix.language == 'go'
+        env:
+          GOPROXY: https://proxy.golang.org|direct
+        run: |
+          .github/scripts/go_mod_download.sh alamos/go arc/go aspen cesium core \
+            freighter/go freighter/integration gorp oracle x/go
       - uses: github/codeql-action/init@v4
         if: env.PLACEHOLDER != 'true'
         with:
