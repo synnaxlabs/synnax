@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type rack, type Synnax as Client } from "@synnaxlabs/client";
+import { type rack, type Synnax } from "@synnaxlabs/client";
 import { waitForStreamLive } from "@synnaxlabs/client/testutil";
 import { Status } from "@synnaxlabs/lyra/status";
 import { TimeStamp } from "@synnaxlabs/x";
@@ -42,7 +42,7 @@ export const UncappedFeed = (): ReactElement => {
  * Writes an alarm and waits until it notifies. The Core streams statuses in write
  * order, so the forwarder has received every status written before it.
  */
-export const settleWrites = async (client: Client): Promise<void> => {
+export const settleWrites = async (client: Synnax): Promise<void> => {
   const message = uniqueName("settled");
   await client.statuses.set({
     key: uniqueName("alarm"),
@@ -58,7 +58,7 @@ export const settleWrites = async (client: Client): Promise<void> => {
  * @returns the key of a rack that the Core no longer has. The Core writes problems of
  * its own on the key of each rack that exists, but none on this key.
  */
-export const createRackKey = async (client: Client): Promise<rack.Key> => {
+export const createRackKey = async (client: Synnax): Promise<rack.Key> => {
   const { key } = await client.racks.create({ name: uniqueName("rack") });
   await client.racks.delete(key);
   return key;
@@ -87,7 +87,7 @@ export const close = async (message: string): Promise<void> => {
  * @returns the result of {@link Notifications.useProblems}.
  */
 export const renderForward = async (
-  client: Client,
+  client: Synnax,
   rules: Notifications.Rules,
   ui?: ReactNode,
 ): Promise<RenderHookResult<Notifications.Problem[], unknown>> => {
