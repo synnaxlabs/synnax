@@ -49,7 +49,8 @@ inline Type Type::parse(x::json::Parser parser) {
 
 inline x::json::json Type::to_json() const {
     x::json::json j;
-    j.update(FunctionProperties::to_json());
+    if (const auto parent = FunctionProperties::to_json(); parent.is_object())
+        j.update(parent);
     j["kind"] = this->kind;
     j["name"] = this->name;
     if (this->elem.has_value()) j["elem"] = this->elem->to_json();
