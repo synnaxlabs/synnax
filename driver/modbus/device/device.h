@@ -472,8 +472,9 @@ private:
         Connection &conn;
 
     public:
-        /// @brief whether the request holds the turn. False if the wait ran out first.
-        bool held = false;
+        /// @brief UNREACHABLE if the wait ran out before the turn came, and NIL if the
+        /// request holds the turn.
+        x::errors::Error err = x::errors::NIL;
 
         /// @param wait how long to wait for the turn. Waits without limit if empty.
         Turn(
@@ -490,14 +491,15 @@ private:
                 if (write) return conn.waiting_reads == 0 || !conn.write_went_ahead;
                 return conn.waiting_writes == 0 || conn.write_went_ahead;
             };
-            if (wait.has_value())
-                this->held = conn.released.wait_for(lock, wait->chrono(), ready);
-            else {
+            if (!wait.has_value())
                 conn.released.wait(lock, ready);
-                this->held = true;
-            }
+            else if (!conn.released.wait_for(lock, wait->chrono(), ready))
+                this->err = {
+                    UNREACHABLE,
+                    "other requests kept the connection busy for " + wait->to_string()
+                };
             waiting--;
-            if (!this->held) {
+            if (this->err) {
                 // One less waiting request can let another take the turn.
                 lock.unlock();
                 conn.released.notify_all();
@@ -508,7 +510,7 @@ private:
         }
 
         ~Turn() {
-            if (!this->held) return;
+            if (this->err) return;
             {
                 std::lock_guard lock(conn.mu);
                 conn.busy = false;
@@ -654,11 +656,7 @@ public:
         const std::optional<x::telem::TimeSpan> &wait = std::nullopt
     ) {
         Turn turn(*this, write, wait);
-        if (!turn.held)
-            return {
-                UNREACHABLE,
-                "other requests kept the connection busy for " + wait->to_string()
-            };
+        if (turn.err) return turn.err;
         if (auto err = this->demoted(cfg.unit_id)) return err;
         const auto gap = std::max(delay, this->frame_gap);
         for (std::size_t i = 0;; i++) {
