@@ -15,6 +15,7 @@ import {
   task,
 } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
+import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, assert, describe, expect, it } from "vitest";
@@ -33,6 +34,7 @@ import {
   createTaskStatus,
 } from "@/platform/task/testutil";
 import { Session } from "@/session";
+import { createCore, createCoreState } from "@/session/core/testutil";
 import {
   assertDefined,
   awaitTextEditing,
@@ -129,11 +131,17 @@ const getRow = (name: string): HTMLElement => {
   return row;
 };
 
+// A connected Core, so links to its cluster can be copied.
+const CORE = createCore("Core");
+
 const renderToolbar = async (
   as: Client = client,
   analytics: Analytics.Sink = Analytics.NOOP,
 ) => {
-  const { wrapper, store } = await createConsoleWrapper({ client: as });
+  const { wrapper, store } = await createConsoleWrapper({
+    client: as,
+    preloadedState: createCoreState([CORE], CORE.key),
+  });
   const created = await createSelectedPanel(store, client);
   render(
     <Analytics.Provider sink={analytics}>
@@ -505,6 +513,18 @@ describe("task/Toolbar", () => {
       } finally {
         streamer.close();
       }
+    });
+
+    it("copies a link to the Arc from the context menu", async () => {
+      const writeText = stubClipboardWriteText();
+      const { arc: a } = await createArcTask();
+      await renderToolbar();
+      await openContextMenu(a.name);
+      fireEvent.click(await screen.findByText("Copy link"));
+      await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+      expect(writeText.mock.calls[0][0]).toBe(
+        `synnax://cluster/${CORE.clusterKey}/arc/${a.key}`,
+      );
     });
 
     it("renames the Arc, and so its task, through the inline editor", async () => {

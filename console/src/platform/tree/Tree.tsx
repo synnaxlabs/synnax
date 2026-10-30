@@ -384,15 +384,6 @@ const Internal = ({
       .forEach(({ key }) => void watchChildren(ontology.parseID(key)));
   }, [filtering, nodes]);
 
-  // Selection drives the context menu, and a key with no node poisons every later
-  // right-click, so a node that leaves the tree leaves the selection with it.
-  useEffect(() => {
-    setSelected((prev) => {
-      const next = prev.filter((key) => Base.findNode({ tree: nodes, key }) != null);
-      return next.length === prev.length ? prev : next;
-    });
-  }, [nodes, setSelected]);
-
   const handleExpand = ({ action, clicked }: Base.HandleExpandProps) => {
     if (action === "contract") {
       // A hidden subtree needs no maintenance. Its answers stay cached, so a
@@ -445,6 +436,16 @@ const Internal = ({
   const visibleNodes = filtering
     ? filterNodes(nodes, accepts, getResourceByKey, isLoaded)
     : nodes;
+  // A selected key with no row poisons every later right-click or drag, so a row
+  // that leaves the tree or the filter leaves the selection with it.
+  useEffect(() => {
+    setSelected((prev) => {
+      const next = prev.filter(
+        (key) => Base.findNode({ tree: visibleNodes, key }) != null,
+      );
+      return next.length === prev.length ? prev : next;
+    });
+  }, [visibleNodes, setSelected]);
   const treeProps = Base.use({
     nodes: visibleNodes,
     onExpand: handleExpand,

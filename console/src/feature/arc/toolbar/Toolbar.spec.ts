@@ -14,7 +14,7 @@ import { describe, expect, it } from "vitest";
 import { Arc } from "@/feature/arc";
 import { Group } from "@/feature/group";
 import { clickFilterItem } from "@/platform/search/testutil";
-import { renderToolbar } from "@/platform/tree/menuTestutil";
+import { getTreeRow, renderToolbar } from "@/platform/tree/menuTestutil";
 import {
   findTreeRow,
   openTreeRootContextMenu,
@@ -28,6 +28,7 @@ import {
   selectTestProject,
   type TestStore,
   uniqueName,
+  withControlHeld,
 } from "@/testutil";
 
 const client = createTestClient();
@@ -109,6 +110,23 @@ describe("arc/Toolbar", () => {
     // Hiding the bar lifts its filter with it.
     toggleSearch();
     expect(await findTreeRow(module.name)).toBeTruthy();
+  });
+
+  it("drops a row the search hides from the selection", async () => {
+    const kept = await createArc();
+    const hidden = await createArc();
+    await renderArcToolbar();
+    fireEvent.click(await findTreeRow(kept.name));
+    withControlHeld(() => fireEvent.click(getTreeRow(hidden.name)));
+    toggleSearch();
+    fireEvent.change(await screen.findByPlaceholderText("Search..."), {
+      target: { value: kept.name },
+    });
+    await waitFor(() => expect(screen.queryByText(hidden.name)).toBeNull());
+    // Several selected Arcs hide Rename; one selected Arc offers it.
+    await openTreeRowContextMenu(kept.name);
+    await screen.findByText("Delete");
+    expect(screen.queryByText("Rename")).not.toBeNull();
   });
 
   it("opens the explorer view from the explorer action", async () => {

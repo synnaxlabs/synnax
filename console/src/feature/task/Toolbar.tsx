@@ -9,7 +9,7 @@
 
 import "@/feature/task/Toolbar.css";
 
-import { arc, task } from "@synnaxlabs/client";
+import { arc, type ontology, task } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -115,16 +115,19 @@ const Content = () => {
     keys.forEach((key) => setDataSaving({ key, dataSaving: true }));
   const handleDisableDataSaving = (keys: task.Key[]) =>
     keys.forEach((key) => setDataSaving({ key, dataSaving: false }));
-  // An Arc task opens and renames through its Arc. An Arc rename reaches the task,
-  // while a task rename would leave the Arc behind.
+  // An Arc task opens, links and renames through its Arc. An Arc rename reaches the
+  // task, while a task rename would leave the Arc behind.
   const arcKeyOf = (key: task.Key): arc.Key | null => {
     const tsk = getItem(key);
     if (tsk?.type !== "arc") return null;
     return arc.task.configZ.parse(tsk.config).arcKey;
   };
-  const handleEdit = (key: task.Key) => {
+  const resourceOf = (key: task.Key): ontology.ID => {
     const arcKey = arcKeyOf(key);
-    const resource = arcKey == null ? task.ontologyID(key) : arc.ontologyID(arcKey);
+    return arcKey == null ? task.ontologyID(key) : arc.ontologyID(arcKey);
+  };
+  const handleEdit = (key: task.Key) => {
+    const resource = resourceOf(key);
     openTab({ variant: "resource", resource });
   };
   const handleRename = ({ key, name }: Task.UseRenameParams) => {
@@ -141,6 +144,7 @@ const Content = () => {
       onStart={handleStart}
       onStop={handleStop}
       onEdit={handleEdit}
+      resourceOf={resourceOf}
       onEnableDataSaving={handleEnableDataSaving}
       onDisableDataSaving={handleDisableDataSaving}
     />
@@ -336,6 +340,8 @@ interface ContextMenuProps extends Store.UseItemsProps<task.Key, task.Task> {
   onStart: (keys: task.Key[]) => void;
   onStop: (keys: task.Key[]) => void;
   onEdit: (key: task.Key) => void;
+  /** The resource a task's link and editor open. */
+  resourceOf: (key: task.Key) => ontology.ID;
   onEnableDataSaving: (keys: task.Key[]) => void;
   onDisableDataSaving: (keys: task.Key[]) => void;
 }
@@ -348,6 +354,7 @@ const ContextMenu = ({
   onStart,
   onStop,
   onEdit,
+  resourceOf,
   onEnableDataSaving,
   onDisableDataSaving,
 }: ContextMenuProps) => {
@@ -407,7 +414,7 @@ const ContextMenu = ({
         message: "Failed to copy link",
         description: "The task no longer exists.",
       });
-    copyLinkToClipboard({ name, ontologyID: task.ontologyID(key) });
+    copyLinkToClipboard({ name, ontologyID: resourceOf(key) });
   };
   const showSnapshotToActiveRange =
     activeRange?.variant === "persisted" && selectedTasks.length > 0;
