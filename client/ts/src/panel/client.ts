@@ -162,15 +162,13 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pa
       .toArray(panels)
       .map((p) => zod.parse(panelZ, p, { label: "panel" }));
     // The cache keeps the optimistic docs: edits dispatched during the create replay
-    // onto them and reach the Core after it.
-    const { onOptimistic } = opts;
+    // onto them and reach the Core with or after it.
     const res = await this.dispatcher.create(optimistic, {
-      onCached:
-        onOptimistic != null ? async () => await onOptimistic(optimistic) : undefined,
-      send: async () =>
+      onCached: async () => await opts.onOptimistic?.(optimistic),
+      send: async (latest) =>
         await this.cfg.unary.send(
           "/panel/create",
-          { panels: optimistic },
+          { panels: latest },
           createReqZ,
           createResZ,
         ),

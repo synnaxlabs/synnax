@@ -18,7 +18,6 @@ import {
   type Reducer,
   type SendDispatch,
 } from "@/actions/controller";
-import { ValidationError } from "@/errors";
 import { Table } from "@/query/table";
 
 interface Doc {
@@ -772,9 +771,14 @@ describe("actions.Controller", () => {
     it("sends a dispatch made during the create after the create", async () => {
       const { docs, controller, send } = setupStore();
       const created = Promise.withResolvers<void>();
+      const sending = Promise.withResolvers<void>();
       const done = controller.create([{ key: "k", values: { a: 0 } }], {
-        send: async () => await created.promise,
+        send: async () => {
+          sending.resolve();
+          await created.promise;
+        },
       });
+      await sending.promise;
       const dispatched = controller.dispatch("k", [set("a", 1)]);
       expect(docs.get("k")?.values).toEqual({ a: 1 });
       expect(send).not.toHaveBeenCalled();
@@ -787,9 +791,14 @@ describe("actions.Controller", () => {
     it("rejects a dispatch made during a failed create and uncaches the doc", async () => {
       const { docs, controller, send } = setupStore();
       const created = Promise.withResolvers<void>();
+      const sending = Promise.withResolvers<void>();
       const done = controller.create([{ key: "k", values: { a: 0 } }], {
-        send: async () => await created.promise,
+        send: async () => {
+          sending.resolve();
+          await created.promise;
+        },
       });
+      await sending.promise;
       const dispatched = controller.dispatch("k", [set("a", 1)]);
       created.reject(new Error("create failed"));
       await expect(done).rejects.toThrow("create failed");
@@ -798,17 +807,18 @@ describe("actions.Controller", () => {
       expect(docs.get("k")).toBeUndefined();
       expect(controller.hasUndo("k")).toBe(false);
     });
-    it("rejects a dispatch made inside onCached and keeps the create pending on it", async () => {
+    it("carries a dispatch made inside onCached in the create", async () => {
       const { docs, controller, send } = setupStore();
-      const create = controller.create([{ key: "k", values: { a: 0 } }], {
+      const create = vi.fn(async (_: Doc[]) => {});
+      await controller.create([{ key: "k", values: { a: 0 } }], {
         onCached: async () => {
-          await controller.dispatch("k", [set("a", 1)]);
+          expect(await controller.dispatch("k", [set("a", 1)])).toBe(true);
         },
-        send: async () => {},
+        send: create,
       });
-      await expect(create).rejects.toThrow(ValidationError);
+      expect(create.mock.calls[0][0].map(({ values }) => values)).toEqual([{ a: 1 }]);
       expect(send).not.toHaveBeenCalled();
-      expect(docs.get("k")).toBeUndefined();
+      expect(docs.get("k")?.values).toEqual({ a: 1 });
     });
   });
 

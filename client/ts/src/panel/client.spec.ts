@@ -10,7 +10,6 @@
 import { id, uuid } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { ValidationError } from "@/errors";
 import { type ontology } from "@/ontology";
 import { panel } from "@/panel";
 import { type query } from "@/query";
@@ -64,6 +63,7 @@ describe("Panel Client", () => {
       expect(expectLive(client.ontology.getCached(panelID)).name).toEqual(pan.name);
     });
   });
+
   describe("create", () => {
     const createTab = () => panel.tabZ.parse({ variant: "view", type: "test" });
 
@@ -84,22 +84,19 @@ describe("Panel Client", () => {
       expect(panel.findTab(stored.root, tab.key)).toBeDefined();
     });
 
-    it("should reject a dispatch made inside onOptimistic", async () => {
+    it("should carry a dispatch made inside onOptimistic in the create", async () => {
       const key = uuid.create();
-      await expect(
-        client.panels.create(
-          { key, name: `panel-${id.create()}`, parent },
-          {
-            onOptimistic: async () => {
-              await client.panels.dispatch(
-                key,
-                panel.insertTabs({ tabs: [createTab()] }),
-              );
-            },
+      const tab = createTab();
+      await client.panels.create(
+        { key, name: `panel-${id.create()}`, parent },
+        {
+          onOptimistic: async () => {
+            await client.panels.dispatch(key, panel.insertTabs({ tabs: [tab] }));
           },
-        ),
-      ).rejects.toThrow(ValidationError);
-      expect(client.panels.getCached(key)).toBeUndefined();
+        },
+      );
+      const stored = await createTestClient().panels.retrieve(key);
+      expect(panel.findTab(stored.root, tab.key)).toBeDefined();
     });
   });
 });
