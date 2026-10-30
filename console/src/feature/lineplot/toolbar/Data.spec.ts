@@ -52,9 +52,11 @@ const rolling = (span: TimeSpan): ranger.Ref => ({
 
 const label = (span: TimeSpan): string => span.toString();
 
+const SEARCH_PLACEHOLDER = "Search favorites or type a duration";
+
 const openSearch = (): HTMLElement => {
   fireEvent.click(screen.getByRole("button", { name: "Ranges" }));
-  return screen.getByPlaceholderText("Search favorites or type a duration");
+  return screen.getByPlaceholderText(SEARCH_PLACEHOLDER);
 };
 
 const search = (term: string): void => {
@@ -133,6 +135,7 @@ describe("lineplot/toolbar/Data", () => {
       fireEvent.change(input, { target: { value: "45m" } });
       fireEvent.keyDown(input, { key: "Enter" });
       await expectRanges(key, [rolling(FORTY_FIVE_MIN)]);
+      expect(screen.queryByPlaceholderText(SEARCH_PLACEHOLDER)).toBeNull();
     });
 
     it("lists no option for a duration typed into the search", async () => {
@@ -151,6 +154,7 @@ describe("lineplot/toolbar/Data", () => {
       expect(
         await screen.findByText(label(FIVE_MIN), { selector: "span" }),
       ).toBeDefined();
+      expect(screen.getByPlaceholderText(SEARCH_PLACEHOLDER)).toBe(input);
       expect((await reader.lineplots.retrieve(key)).ranges).toEqual([
         rolling(FIVE_MIN),
       ]);
@@ -202,6 +206,25 @@ describe("lineplot/toolbar/Data", () => {
       openSearch();
       fireEvent.click(await screen.findByText(created.name));
       await expectRanges(key, [{ variant: "key", key: created.key }]);
+    });
+
+    it("marks each key reference's tag with the stage of its range", async () => {
+      const now = TimeStamp.now();
+      const create = async (start: TimeSpan, end: TimeSpan): Promise<ranger.Ref> => {
+        const { key } = await client.ranges.create({
+          name: uniqueName("range"),
+          timeRange: new TimeRange(now.add(start), now.add(end)),
+        });
+        return { variant: "key", key };
+      };
+      await renderData([
+        await create(TimeSpan.hours(-2), TimeSpan.hours(-1)),
+        await create(TimeSpan.hours(-1), TimeSpan.hours(1)),
+        await create(TimeSpan.hours(1), TimeSpan.hours(2)),
+      ]);
+      expect(await screen.findByLabelText("Completed")).toBeDefined();
+      expect(screen.getByLabelText("In progress")).toBeDefined();
+      expect(screen.getByLabelText("To do")).toBeDefined();
     });
 
     it("names a key reference's tag after the Core range", async () => {

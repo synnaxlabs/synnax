@@ -107,8 +107,12 @@ const KeyTag = ({ range: { key } }: KeyTagProps): ReactElement => {
   const result = Ranger.useResult({ key });
   let name = "";
   let tooltip: string | undefined;
-  if (result.variant === "success") name = result.data.name;
-  else if (result.variant === "error") {
+  let icon: Icon.ReactElement = <Icon.Loading />;
+  if (result.variant === "success") {
+    name = result.data.name;
+    icon = <Ranger.StageIcon timeRange={result.data.timeRange} />;
+  } else if (result.variant === "error") {
+    icon = <Icon.Range />;
     const { error } = result.status.details;
     const deleted =
       Flux.DeletedError.matches(error) || NotFoundError.matches(error.cause);
@@ -117,7 +121,7 @@ const KeyTag = ({ range: { key } }: KeyTagProps): ReactElement => {
   }
   return (
     <Tag.Tag
-      icon={result.variant === "loading" ? <Icon.Loading /> : <Icon.Range />}
+      icon={icon}
       onClose={onSelect}
       level="small"
       size="small"
@@ -210,6 +214,41 @@ const LiveRow = ({ span, onChange }: LiveRowProps): ReactElement => (
   </Flex.Box>
 );
 
+interface DurationSearchProps {
+  onSearch: (term: string) => void;
+  onDuration: (span: TimeSpan) => void;
+}
+
+// Enter on a typed duration sets the rolling window and closes the dialog.
+const DurationSearch = ({
+  onSearch,
+  onDuration,
+}: DurationSearchProps): ReactElement => {
+  const { close } = Dialog.useContext();
+  const [term, setTerm] = useState("");
+  return (
+    <Flex.Box
+      y
+      empty
+      onKeyDown={(e) => {
+        if (e.key !== "Enter") return;
+        const typed = TimeSpan.parse(term);
+        if (typed == null || typed.isZero) return;
+        onDuration(typed);
+        close();
+      }}
+    >
+      <Select.Search
+        placeholder="Search favorites or type a duration"
+        onSearch={(next) => {
+          setTerm(next);
+          onSearch(next);
+        }}
+      />
+    </Flex.Box>
+  );
+};
+
 const emptyContent = (
   <Status.Summary center variant="disabled">
     No favorite ranges found
@@ -238,7 +277,6 @@ export const RangeSelect = (props: RangeSelectProps): ReactElement => {
   const favorites = Range.useResolveMultiple().filter((r) => r.variant !== "dynamic");
   const { data, retrieve } = List.useStaticData<string>({ data: favorites });
   const { fetchMore, search } = List.usePager({ retrieve });
-  const [term, setTerm] = useState("");
   const entries = refs.map((ref): Entry => ({
     ref,
     key:
@@ -313,23 +351,7 @@ export const RangeSelect = (props: RangeSelectProps): ReactElement => {
             {renderTag}
           </Select.MultipleTrigger>
           <Select.Dialog>
-            <Flex.Box
-              y
-              empty
-              onKeyDown={(e) => {
-                if (e.key !== "Enter") return;
-                const typed = TimeSpan.parse(term);
-                if (typed != null && !typed.isZero) setRolling(typed);
-              }}
-            >
-              <Select.Search
-                placeholder="Search favorites or type a duration"
-                onSearch={(next) => {
-                  setTerm(next);
-                  search(next);
-                }}
-              />
-            </Flex.Box>
+            <DurationSearch onSearch={search} onDuration={setRolling} />
             <LiveRow span={span} onChange={setRolling} />
             <Select.List bordered borderColor={6} grow rounded full="x">
               <Select.Items<string> emptyContent={emptyContent}>
