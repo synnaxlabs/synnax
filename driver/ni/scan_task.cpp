@@ -17,6 +17,7 @@
 #if defined(__GNUC__) && !defined(__clang__)
 #pragma GCC diagnostic pop
 #endif
+#include <sstream>
 #include <string>
 #include <unordered_map>
 
@@ -249,27 +250,46 @@ Scanner::scan(const common::ScannerContext &ctx) {
     return {devices, close_err};
 }
 
+namespace {
+/// @brief false when the stored hardware is absent, does not parse, or is incomplete.
+bool has_complete_hardware(const x::json::json::object_t &properties) {
+    const auto it = properties.find(HARDWARE_KEY);
+    if (it == properties.end()) return false;
+    x::json::Parser parser(it->second);
+    const auto hardware = ::synnax::ni::Hardware::parse(parser);
+    return parser.ok() && is_complete(hardware);
+}
+}
+
 void Scanner::read_hardware(ni::Device &dev, const common::ScannerContext &ctx) {
     if (ctx.devices != nullptr)
         if (const auto it = ctx.devices->find(dev.key);
-            it != ctx.devices->end() && it->second.properties.contains(HARDWARE_KEY))
+            it != ctx.devices->end() && has_complete_hardware(it->second.properties))
             return;
     auto [dmx, err] = this->dmx->get();
     if (!err) {
         auto [hardware, probe_err] = probe(*dmx, dev.resource_name);
-        if (!probe_err) {
-            dev.hardware = std::move(hardware);
-            this->unread_keys.erase(dev.key);
-            return;
-        }
         err = probe_err;
+        if (!err) {
+            const bool complete = is_complete(hardware);
+            dev.hardware = std::move(hardware);
+            if (complete) {
+                this->unread_keys.erase(dev.key);
+                return;
+            }
+        }
     }
-    if (this->unread_keys.insert(dev.key).second)
-        LOG(WARNING) << SCAN_LOG_PREFIX << "failed to read the hardware of "
-                     << dev.resource_name << ": " << err;
+    std::ostringstream msg;
+    msg << SCAN_LOG_PREFIX << "failed to read the ";
+    if (err)
+        msg << "hardware of " << dev.resource_name << ": " << err;
     else
-        VLOG(1) << SCAN_LOG_PREFIX << "failed to read the hardware of "
-                << dev.resource_name << ": " << err;
+        msg << "default terminal configuration of some ports of " << dev.resource_name
+            << ". The next scan reads it again";
+    if (this->unread_keys.insert(dev.key).second)
+        LOG(WARNING) << msg.str();
+    else
+        VLOG(1) << msg.str();
 }
 
 x::errors::Error Scanner::stop() {

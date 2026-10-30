@@ -298,6 +298,12 @@ x::errors::Error read_ranges(
     return x::errors::NIL;
 }
 
+/// @brief whether probe reads the default terminal configuration of the port back from
+/// a task, because the port accepts more than one.
+bool reads_back_default(const AnalogInputPort &ai) {
+    return contains(ai.types, AI_VOLTAGE) && ai.terminal_configs.size() > 1;
+}
+
 /// @brief reads back what Cfg_Default gives on a port that accepts more than one
 /// terminal configuration. A failure leaves the default unknown and does not fail the
 /// probe.
@@ -312,10 +318,11 @@ std::optional<std::string> read_default_terminal_config(
         range = std::ranges::min(voltage_ranges, {}, [](const Range &r) {
             return r.high - r.low;
         });
+    // The scanner warns about the missing default, so these failures log at VLOG(1).
     TaskHandle task = nullptr;
     if (const auto err = dmx.CreateTask("", &task)) {
-        LOG(WARNING) << "[ni] failed to create a task to read the default terminal "
-                     << "configuration of " << port.name << ": " << err;
+        VLOG(1) << "[ni] failed to create a task to read the default terminal "
+                << "configuration of " << port.name << ": " << err;
         return std::nullopt;
     }
     int32 config = 0;
@@ -340,8 +347,8 @@ std::optional<std::string> read_default_terminal_config(
         LOG(WARNING) << "[ni] failed to clear the task that read the default terminal "
                      << "configuration of " << port.name << ": " << clear_err;
     if (err) {
-        LOG(WARNING) << "[ni] failed to read the default terminal configuration of "
-                     << port.name << ": " << err;
+        VLOG(1) << "[ni] failed to read the default terminal configuration of "
+                << port.name << ": " << err;
         return std::nullopt;
     }
     const auto it = TERMINAL_CONFIGS.find(config);
@@ -383,16 +390,14 @@ read_analog_inputs(daqmx::SugaredAPI &dmx, const std::string &device, Hardware &
                 ai.types
             ))
             return type_err;
-        if (contains(ai.types, AI_VOLTAGE)) {
-            if (ai.terminal_configs.size() == 1)
-                ai.default_terminal_config = ai.terminal_configs.front();
-            else if (ai.terminal_configs.size() > 1)
-                ai.default_terminal_config = read_default_terminal_config(
-                    dmx,
-                    port,
-                    hw.ai_voltage_ranges
-                );
-        }
+        if (reads_back_default(ai))
+            ai.default_terminal_config = read_default_terminal_config(
+                dmx,
+                port,
+                hw.ai_voltage_ranges
+            );
+        else if (contains(ai.types, AI_VOLTAGE) && ai.terminal_configs.size() == 1)
+            ai.default_terminal_config = ai.terminal_configs.front();
         hw.analog_inputs.push_back(std::move(ai));
     }
     return x::errors::NIL;
@@ -515,6 +520,12 @@ void pair_ports(Hardware &hw, const int32 category) {
             ai.negative = negative;
     }
 }
+}
+
+bool is_complete(const Hardware &hw) {
+    return std::ranges::none_of(hw.analog_inputs, [](const AnalogInputPort &ai) {
+        return reads_back_default(ai) && !ai.default_terminal_config.has_value();
+    });
 }
 
 std::pair<Hardware, x::errors::Error>
