@@ -153,12 +153,17 @@ references it, so it has no identifier and no channel maps.
 
 ### 4.1 Schemas
 
-Each resource is a struct in its integration's `.oracle` file, with the file's existing
-`@go`, `@ts`, `@py`, and `@cpp` outputs. Every struct carries `@create`, `@retrieve`,
-`@go marshal`, `@go migrate`, and `@ontology type`, and declares `key uuid = create`
-with `@key`, `rack rack.Key` with `@filter`, `name string` with `@filter` and `@search`,
-and a `status` of its own `Status` type with `@go marshal omit`. A base struct would
-carry nothing else, so the three fields repeat.
+Each resource is a struct in its own `.oracle` file with its own package, such as
+`ni_device.oracle` and `core/pkg/service/ni/device`, because Oracle allows one
+`@retrieve` per output. Each file has `@go`, `@ts`, `@py`, and `@cpp` outputs. Every
+struct carries `@create`, `@retrieve`, `@go marshal`, `@go migrate`, and
+`@ontology type`, and declares `key uuid = create` with `@key`, `rack rack.Key` with
+`@filter`, `name string` with `@filter` and `@search`, and a `status` of its own
+`Status` type with `@go marshal omit`. A base struct would carry nothing else, so the
+three fields repeat.
+
+Gorp names a table by its Go type, so each resource sets `CustomTypeName`. Otherwise
+`ni.Device` shares a table with the legacy `Device`.
 
 The NI resources are the pattern for every discovered make:
 
@@ -300,9 +305,10 @@ string and the `<master>.Slot <n>` location encoding are deleted.
 
 Each resource gets routes under its integration: `/ni/device/create`,
 `/ni/device/retrieve`, `/ni/device/update`, `/ni/device/delete`, and the same for
-`/ni/chassis`, `/ethercat/master`, `/opcua/server`, and the rest. Retrieve filters are
-the struct's `@filter` fields plus `search_term`, `include_status`, and
-`include_parent`. The generic `/device/*` routes are deleted.
+`/ni/chassis`, `/ethercat/master`, `/opcua/server`, and the rest. `update` is one route
+that dispatches on a union over the identity and configuration groups, so one request
+writes one group. Retrieve filters are the struct's `@filter` fields plus `search_term`,
+`include_status`, and `include_parent`. The generic `/device/*` routes are deleted.
 
 Clients expose one namespace per resource: `client.ni.devices`, `client.ni.chassis`,
 `client.labjack.devices`, `client.ethercat.masters`, `client.ethercat.slaves`,
