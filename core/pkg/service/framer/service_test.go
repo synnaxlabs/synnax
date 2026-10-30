@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/alamos"
+	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -149,7 +150,9 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext) {
 				Expect(framerSvc.OpenWriter(ctx, framer.WriterConfig{
 					Start: telem.SecondTS,
-					Keys:  []channel.Key{channel.NewKey(node.Cluster.HostKey(), 9999)},
+					Keys: []channel.Key{
+						distchannel.NewKey(node.Cluster.HostKey(), 9999),
+					},
 				})).Error().To(MatchError(query.ErrNotFound))
 			},
 		)
@@ -197,7 +200,9 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext) {
 				Expect(framerSvc.NewStreamWriter(ctx, framer.WriterConfig{
 					Start: telem.SecondTS,
-					Keys:  []channel.Key{channel.NewKey(node.Cluster.HostKey(), 9999)},
+					Keys: []channel.Key{
+						distchannel.NewKey(node.Cluster.HostKey(), 9999),
+					},
 				})).Error().To(MatchError(query.ErrNotFound))
 			},
 		)

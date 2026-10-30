@@ -13,7 +13,7 @@
 
 #include "client/cpp/auth/auth.h"
 #include "freighter/cpp/testutil/testutil.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "core/pkg/transport/grpc/auth/auth.pb.h"
 
@@ -37,7 +37,10 @@ std::shared_ptr<Middleware> middleware_with(
     if (renew == nullptr)
         renew = std::make_unique<freighter::testutil::UnaryClient<
             google::protobuf::Empty,
-            google::protobuf::Empty>>(google::protobuf::Empty(), x::errors::NIL);
+            grpc::auth::SessionRenewResponse>>(
+            grpc::auth::SessionRenewResponse(),
+            x::errors::NIL
+        );
     return std::make_shared<Middleware>(
         std::move(create),
         std::move(renew),
@@ -243,8 +246,8 @@ TEST(TestAuth, RenewForgetsEndedSession) {
     auto *create = mock_create_client.get();
     auto mock_renew_client = std::make_unique<freighter::testutil::UnaryClient<
         google::protobuf::Empty,
-        google::protobuf::Empty>>(
-        google::protobuf::Empty(),
+        grpc::auth::SessionRenewResponse>>(
+        grpc::auth::SessionRenewResponse(),
         x::errors::Error(ERR_SESSION_ENDED, "")
     );
     const auto mw = middleware_with(

@@ -13,6 +13,7 @@ load("@rules_cc//cc:cc_test.bzl", "cc_test")
 cc_library(
     name = "modbus",
     srcs = [
+        "block.h",
         "channels.h",
         "factory.cpp",
         "modbus.h",
@@ -33,6 +34,8 @@ cc_library(
         "//vendor/libmodbus",
         "//x/cpp/breaker",
         "//x/cpp/defer",
+        "//x/cpp/errors",
+        "//x/cpp/telem",
     ],
 )
 
@@ -49,7 +52,22 @@ cc_test(
         "//driver/modbus",
         "//driver/modbus/testutil",
         "//driver/pipeline/testutil",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "io_test",
+    srcs = [
+        "block_test.cpp",
+        "reader_test.cpp",
+        "writer_test.cpp",
+    ],
+    deps = [
+        "//driver/modbus",
+        "//driver/modbus/testutil",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )
@@ -63,7 +81,23 @@ cc_test(
         "//driver/modbus",
         "//driver/modbus/testutil",
         "//driver/pipeline/testutil",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "rtu_test",
+    srcs = ["rtu_test.cpp"],
+    # The test slave serves RTU on a POSIX pseudo-terminal.
+    target_compatible_with = select({
+        "@platforms//os:windows": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
+    deps = [
+        "//driver/modbus",
+        "//driver/modbus/testutil",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )

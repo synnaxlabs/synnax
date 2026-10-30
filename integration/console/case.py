@@ -7,7 +7,6 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import os
 import random
 from typing import Any, cast
 from urllib.request import urlopen
@@ -33,13 +32,8 @@ class ConsoleCase(TestCase):
     """
     Console TestCase implementation using Playwright
 
-    Environment Variables:
-    - PLAYWRIGHT_CONSOLE_HEADED: Run in headed mode (default: False).
-      Set by the ``--headed`` flag.
-    - PLAYWRIGHT_CONSOLE_SLOW_MO: Delay between Playwright actions in ms (default: 0).
-      Set by the ``--slow-mo MS`` flag.
-
-    Per-case ``headed`` and ``slow_mo`` parameters override the environment.
+    Per-case ``headed`` and ``slow_mo`` parameters override the ``--headed`` and
+    ``--slow-mo`` conductor options.
     """
 
     playwright: Playwright | None
@@ -53,22 +47,24 @@ class ConsoleCase(TestCase):
 
     def __init__(
         self,
-        synnax_connection: SynnaxConnection = DEFAULT_CONNECTION,
         *,
+        synnax_connection: SynnaxConnection = DEFAULT_CONNECTION,
         name: str,
         **params: Any,
     ) -> None:
-        super().__init__(synnax_connection, name=name, **params)
+        super().__init__(synnax_connection=synnax_connection, name=name, **params)
         self.playwright = None
         self._cleanup_pages: list[str] = []
         self._project: sy.Project | None = None
 
     def execute(self) -> None:
         # Teardown errors are logged, not raised, so a subclass cleanup that raises
-        # before super().teardown() would otherwise leave the driver running.
+        # before super().teardown() would otherwise lose the trace and leave the driver
+        # running.
         try:
             super().execute()
         finally:
+            self._stop_tracing()
             self._close_browser()
 
     def setup(self) -> None:
@@ -78,10 +74,8 @@ class ConsoleCase(TestCase):
         self._bootstrap_project()
 
     def _launch_browser(self) -> None:
-        env_headed = os.environ.get("PLAYWRIGHT_CONSOLE_HEADED", "0") == "1"
-        headed = self.params.get("headed", env_headed)
-        env_slow_mo = int(os.environ.get("PLAYWRIGHT_CONSOLE_SLOW_MO", "0"))
-        slow_mo = self.params.get("slow_mo", env_slow_mo)
+        headed = self.params.get("headed", self.options.headed)
+        slow_mo = self.params.get("slow_mo", self.options.slow_mo)
         default_timeout = self.params.get("default_timeout", 15000)  # 15s
         default_nav_timeout = self.params.get("default_nav_timeout", 15000)  # 15s
 
@@ -134,7 +128,9 @@ class ConsoleCase(TestCase):
         self.page.goto(f"http://{host}:{port}/{query}", timeout=20000)
 
         self.log(f"Console found on port {port}")
-        self.console = Console(self.page, self.client, self.results_dir)
+        self.console = Console(
+            page=self.page, client=self.client, results_dir=self.results_dir
+        )
 
     def _login(self) -> None:
         username = self.synnax_connection.username
@@ -177,10 +173,6 @@ class ConsoleCase(TestCase):
         self.console.notifications.close_connection()
 
     def teardown(self) -> None:
-        # Stop and persist the trace before cleanup; cleanup may mutate page state
-        # in ways that mask the failure we want to capture.
-        self._stop_tracing()
-
         if self._cleanup_pages:
             try:
                 self.console.pages.delete_many(self._cleanup_pages)

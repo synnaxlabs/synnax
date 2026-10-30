@@ -16,11 +16,12 @@
 #include "nlohmann/json.hpp"
 
 #include "client/cpp/testutil/testutil.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "driver/opcua/opcua.h"
 #include "driver/opcua/read_task.h"
 #include "driver/opcua/testutil/server.h"
+#include "driver/opcua/testutil/testutil.h"
 #include "driver/pipeline/testutil/pipeline.h"
 
 namespace driver::opcua {
@@ -141,7 +142,9 @@ protected:
             .make = "opc",
             .model = "OPC UA Server",
             .name = "OPC UA Read Task Test Server",
-            .properties = x::json::json::object({{"connection", conn_cfg.to_json()}}),
+            .properties = x::json::json::object(
+                {{"connection", testutil::connection_json(conn_cfg)}}
+            ),
         };
         ASSERT_NIL(client->devices.create(dev));
 
@@ -249,7 +252,7 @@ protected:
 
         ctx = std::make_shared<task::MockContext>(client);
         mock_factory = std::make_shared<pipeline::testutil::WriterFactory>();
-        conn_pool = std::make_shared<connection::Pool>();
+        conn_pool = std::make_shared<connection::Pool>(testutil::create_store());
 
         server = std::make_unique<testutil::Server>(server_cfg);
         server->start();
@@ -260,7 +263,7 @@ protected:
         test_conn_cfg.security_mode = "None";
         test_conn_cfg.security_policy = "None";
         auto test_client = ASSERT_EVENTUALLY_NIL_P_WITH_TIMEOUT(
-            connection::connect(test_conn_cfg, "test"),
+            connection::connect(test_conn_cfg, {}, "test"),
             (5 * x::telem::SECOND).chrono(),
             (250 * x::telem::MILLISECOND).chrono()
         );
@@ -275,7 +278,11 @@ protected:
             task,
             ctx,
             x::breaker::default_config(task.name),
-            std::make_unique<UnaryReadTaskSource>(conn_pool, std::move(*cfg)),
+            std::make_unique<UnaryReadTaskSource>(
+                ctx->client,
+                conn_pool,
+                std::move(*cfg)
+            ),
             mock_factory
         );
     }
@@ -361,7 +368,11 @@ TEST_F(TestReadTask, testInvalidNodeId) {
         task,
         ctx,
         x::breaker::default_config(task.name),
-        std::make_unique<UnaryReadTaskSource>(conn_pool, std::move(*bad_cfg)),
+        std::make_unique<UnaryReadTaskSource>(
+            ctx->client,
+            conn_pool,
+            std::move(*bad_cfg)
+        ),
         mock_factory
     );
 
@@ -550,6 +561,70 @@ TEST_F(TestReadTask, testConnectionPoolReuse) {
     EXPECT_EQ(conn_pool->available_count(endpoint), 1);
 }
 
+/// @brief it should retrieve the device on each start, so a changed endpoint takes
+/// effect without configuring the task again.
+TEST_F(TestReadTask, testStartUsesUpdatedDevice) {
+    const std::string endpoint = "opc.tcp://localhost:4859";
+    auto moved_server_cfg = testutil::ServerConfig::create_default();
+    moved_server_cfg.port = 4859;
+    testutil::Server moved_server(moved_server_cfg);
+    moved_server.start();
+    ASSERT_TRUE(moved_server.wait_until_ready());
+    const auto rt = create_task();
+    auto dev = ASSERT_NIL_P(
+        ctx->client->devices.retrieve(task_cfg_json["device"].get<std::string>())
+    );
+    connection::Config moved_cfg;
+    moved_cfg.endpoint = endpoint;
+    dev.properties["connection"] = testutil::connection_json(moved_cfg);
+    ASSERT_NIL(ctx->client->devices.create(dev));
+    rt->start("start");
+    ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
+    rt->stop("stop", true);
+    EXPECT_EQ(conn_pool->available_count(endpoint), 1);
+    EXPECT_EQ(conn_pool->available_count("opc.tcp://localhost:4840"), 0);
+}
+
+/// @brief it should keep reading after the Driver certificate changes and the server
+/// trusts only the new certificate.
+TEST_F(TestReadTask, testReadConnectsAgainWithNewCertificate) {
+    const auto store = testutil::create_store();
+    conn_pool = std::make_shared<connection::Pool>(store);
+    const auto old = ASSERT_NIL_P(store->current());
+    const auto server_id = ASSERT_NIL_P(testutil::create_server_identity());
+    auto secured_cfg = testutil::ServerConfig::create_default();
+    secured_cfg.port = 4861;
+    secured_cfg.identity = server_id;
+    secured_cfg.trusted_clients = {old.certificate};
+    auto secured = std::make_unique<testutil::Server>(secured_cfg);
+    secured->start();
+    ASSERT_TRUE(secured->wait_until_ready());
+    auto dev = ASSERT_NIL_P(
+        ctx->client->devices.retrieve(task_cfg_json["device"].get<std::string>())
+    );
+    connection::Config conn_cfg;
+    conn_cfg.endpoint = "opc.tcp://localhost:4861";
+    conn_cfg.security_mode = "SignAndEncrypt";
+    conn_cfg.security_policy = "Basic256Sha256";
+    conn_cfg.server_certificate = server_id.certificate;
+    dev.properties["connection"] = testutil::connection_json(conn_cfg);
+    ASSERT_NIL(ctx->client->devices.create(dev));
+    auto p = x::json::Parser(task_cfg_json);
+    UnaryReadTaskSource source(ctx->client, conn_pool, ReadTaskConfig(ctx->client, p));
+    ASSERT_NIL(source.start());
+    x::breaker::Breaker breaker;
+    x::telem::Frame fr;
+    ASSERT_NIL(source.read(breaker, fr).error);
+    const auto next = ASSERT_NIL_P(store->regenerate());
+    secured->stop();
+    secured_cfg.trusted_clients = {next.certificate};
+    secured = std::make_unique<testutil::Server>(secured_cfg);
+    secured->start();
+    ASSERT_TRUE(secured->wait_until_ready());
+    ASSERT_NIL(source.read(breaker, fr).error);
+    ASSERT_NIL(source.stop());
+}
+
 /// @brief it should create separate connections for concurrent tasks.
 TEST_F(TestReadTask, testConnectionPoolConcurrentTasks) {
     const std::string endpoint = "opc.tcp://localhost:4840";
@@ -606,7 +681,7 @@ TEST_F(TestReadTask, testInvalidDataHandlingInArrayMode) {
         task,
         ctx,
         x::breaker::default_config(task.name),
-        std::make_unique<ArrayReadTaskSource>(conn_pool, std::move(*cfg)),
+        std::make_unique<ArrayReadTaskSource>(ctx->client, conn_pool, std::move(*cfg)),
         mock_factory
     );
 
@@ -803,7 +878,7 @@ TEST_F(TestReadTask, testErrorAggregationInArrayMode) {
         task,
         ctx,
         x::breaker::default_config(task.name),
-        std::make_unique<ArrayReadTaskSource>(conn_pool, std::move(*cfg)),
+        std::make_unique<ArrayReadTaskSource>(ctx->client, conn_pool, std::move(*cfg)),
         mock_factory
     );
 
@@ -882,7 +957,7 @@ TEST_F(TestReadTask, testFrameClearedOnErrorInArrayMode) {
         task,
         ctx,
         x::breaker::default_config(task.name),
-        std::make_unique<ArrayReadTaskSource>(conn_pool, std::move(*cfg)),
+        std::make_unique<ArrayReadTaskSource>(ctx->client, conn_pool, std::move(*cfg)),
         mock_factory
     );
 
@@ -940,7 +1015,7 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidBooleanData) {
         .model = "OPC UA Server",
         .name = "OPC UA Invalid Data Test Server",
         .properties = x::json::json::object(
-            {{"connection", invalid_conn_cfg.to_json()}}
+            {{"connection", testutil::connection_json(invalid_conn_cfg)}}
         ),
     };
     ASSERT_NIL(ctx->client->devices.create(invalid_dev));
@@ -972,7 +1047,7 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidBooleanData) {
         task,
         ctx,
         x::breaker::default_config(task.name),
-        std::make_unique<UnaryReadTaskSource>(conn_pool, std::move(*cfg)),
+        std::make_unique<UnaryReadTaskSource>(ctx->client, conn_pool, std::move(*cfg)),
         mock_factory
     );
 
@@ -1022,7 +1097,7 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidFloatData) {
         .model = "OPC UA Server",
         .name = "OPC UA Invalid Float Server",
         .properties = x::json::json::object(
-            {{"connection", invalid_conn_cfg.to_json()}}
+            {{"connection", testutil::connection_json(invalid_conn_cfg)}}
         ),
     };
     ASSERT_NIL(ctx->client->devices.create(invalid_dev));
@@ -1053,7 +1128,7 @@ TEST_F(TestReadTask, testSkipSampleWithInvalidFloatData) {
         task,
         ctx,
         x::breaker::default_config(task.name),
-        std::make_unique<UnaryReadTaskSource>(conn_pool, std::move(*cfg)),
+        std::make_unique<UnaryReadTaskSource>(ctx->client, conn_pool, std::move(*cfg)),
         mock_factory
     );
 
@@ -1103,7 +1178,7 @@ TEST_F(TestReadTask, testFrameClearWithInvalidDoubleArrayData) {
         .model = "OPC UA Server",
         .name = "OPC UA Invalid Double Server",
         .properties = x::json::json::object(
-            {{"connection", invalid_conn_cfg.to_json()}}
+            {{"connection", testutil::connection_json(invalid_conn_cfg)}}
         ),
     };
     ASSERT_NIL(ctx->client->devices.create(invalid_dev));
@@ -1135,7 +1210,7 @@ TEST_F(TestReadTask, testFrameClearWithInvalidDoubleArrayData) {
         task,
         ctx,
         x::breaker::default_config(task.name),
-        std::make_unique<ArrayReadTaskSource>(conn_pool, std::move(*cfg)),
+        std::make_unique<ArrayReadTaskSource>(ctx->client, conn_pool, std::move(*cfg)),
         mock_factory
     );
 
@@ -1179,7 +1254,9 @@ TEST(OPCReadTaskConfig, testOPCDriverSetsAutoCommitTrue) {
         .make = "opc",
         .model = "OPC UA Server",
         .name = "OPC UA Test Device",
-        .properties = x::json::json::object({{"connection", conn_cfg.to_json()}}),
+        .properties = x::json::json::object(
+            {{"connection", testutil::connection_json(conn_cfg)}}
+        ),
     };
     ASSERT_NIL(client->devices.create(dev));
 
@@ -1250,7 +1327,7 @@ TEST_F(TestReadTask, testArrayTimestampsTrailTheClock) {
         task,
         ctx,
         x::breaker::default_config(task.name),
-        std::make_unique<ArrayReadTaskSource>(conn_pool, std::move(*cfg)),
+        std::make_unique<ArrayReadTaskSource>(ctx->client, conn_pool, std::move(*cfg)),
         mock_factory
     );
 

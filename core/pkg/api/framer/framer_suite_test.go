@@ -91,7 +91,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		RBAC:    svc.RBAC,
 	}))
 	Expect(svc.User.NewRetrieve().
-		Where(user.MatchUsernames(rootUsername)).
+		Where(user.MatchRootUser(true)).
 		Entry(&root).
 		Exec(ctx, nil)).To(Succeed())
 })
@@ -120,7 +120,7 @@ func createUserGranted(
 ) user.User {
 	GinkgoHelper()
 	u := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
-		Username: "api-framer-" + uuid.New().String(),
+		Name: "api-framer-" + uuid.New().String(),
 	}))
 	roleWriter := rbacSvc.Role.NewWriter(nil, true)
 	r := &role.Role{Name: "api-framer-" + uuid.New().String()}

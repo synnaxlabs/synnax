@@ -17,8 +17,10 @@ dependencies = [
     "opentelemetry-api>=1.45.1,<2",
     "opentelemetry-sdk>=1.45.1,<2",
     "pydantic>=2.14.1,<3",
-    "uptrace>=1.45.0,<2",
 ]
+
+[project.optional-dependencies]
+dev = ["uptrace>=1.45.0,<2"]
 
 [dependency-groups]
 dev = [
@@ -39,6 +41,7 @@ select = [
     "I",
     "B",
     "DTZ",
+    "E501",
     "E7",
     "E9",
     "PLE",

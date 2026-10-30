@@ -78,19 +78,7 @@ Examples:
 	// one.
 	cmd.SilenceUsage = true
 	cmd.SilenceErrors = true
-	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		err := runCheck(cmd, args)
-		if err == nil {
-			return nil
-		}
-		// Gate failures already rendered via check.Render; suppress the duplicate. Any
-		// other error (no schemas, repo not Git, render failure) is unexpected and gets
-		// printed once here so the user sees what went wrong.
-		if _, ok := err.(*exitCodeError); !ok {
-			printError(err.Error())
-		}
-		return err
-	}
+	cmd.RunE = runCheck
 	return cmd
 }
 

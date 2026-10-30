@@ -9,7 +9,7 @@
 
 #include "gtest/gtest.h"
 
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "driver/bypass/pipeline/streamer.h"
 #include "driver/pipeline/testutil/pipeline.h"

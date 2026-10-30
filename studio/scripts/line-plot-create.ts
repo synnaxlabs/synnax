@@ -40,7 +40,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.hold(800);
     await capture.zoomCenter(
       session,
-      page.locator(".console-nav__drawer.pluto--location-bottom").first(),
+      page.locator(".console-nav__drawer.lyra--location-bottom").first(),
       1.4,
     );
     const channel = fixture.channels[0];

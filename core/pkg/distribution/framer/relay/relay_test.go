@@ -112,7 +112,7 @@ var _ = Describe("Relay", func() {
 					series, ws := got[k], writeF.SeriesAt(i)
 					Expect(series.Data).To(Equal(ws.Data))
 					Expect(series.DataType).To(Equal(ws.DataType))
-					if !s.channels[i].Free() {
+					if !s.channels[i].Key().Free() {
 						Expect(series.Alignment).
 							To(BeNumerically(">", telem.Alignment(0)))
 					}

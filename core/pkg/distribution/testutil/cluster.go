@@ -30,10 +30,10 @@ import (
 type Cluster struct {
 	storage *storagetestutil.Cluster
 	// Nodes maps each provisioned node's host key to its Node.
-	Nodes       map[node.Key]Node
-	distNet     *transporttestutil.Network
-	aspenNet    *aspentransporttestutil.Network
-	addrFactory *address.Factory
+	Nodes    map[node.Key]Node
+	distNet  *transporttestutil.Network
+	aspenNet *aspentransporttestutil.Network
+	addrs    []address.Address
 }
 
 // NewCluster opens an n-node in-memory cluster and registers its teardown via
@@ -53,11 +53,10 @@ func NewCluster(ctx context.Context, n int) *Cluster {
 // returned Cluster to tear down all nodes and their storage.
 func OpenCluster(ctx context.Context, n int) *Cluster {
 	c := &Cluster{
-		storage:     storagetestutil.NewCluster(),
-		distNet:     transporttestutil.NewNetwork(),
-		aspenNet:    aspentransporttestutil.NewNetwork(),
-		addrFactory: address.NewLocalFactory(0),
-		Nodes:       make(map[node.Key]Node),
+		storage:  storagetestutil.NewCluster(),
+		distNet:  transporttestutil.NewNetwork(),
+		aspenNet: aspentransporttestutil.NewNetwork(),
+		Nodes:    make(map[node.Key]Node),
 	}
 	for range n {
 		c.Provision(ctx)
@@ -72,8 +71,8 @@ func (c *Cluster) Provision(
 	ctx context.Context, overrides ...distribution.LayerConfig,
 ) Node {
 	var (
-		peers        = c.addrFactory.Generated()
-		addr         = c.addrFactory.Next()
+		peers        = c.addrs
+		addr         = address.Newf("localhost:%d", len(c.addrs))
 		storageLayer = c.storage.Provision(ctx)
 		cfg          = distribution.LayerConfig{
 			Storage:          storageLayer,
@@ -88,6 +87,7 @@ func (c *Cluster) Provision(
 		cfgs              = append([]distribution.LayerConfig{cfg}, overrides...)
 		distributionLayer = testutil.MustSucceed(distribution.OpenLayer(ctx, cfgs...))
 	)
+	c.addrs = append(c.addrs, addr)
 	distributionLayer.Framer.SetFreeIndexResolver(nopFreeIndexResolver{})
 	node := Node{Layer: distributionLayer, Storage: storageLayer}
 	c.Nodes[distributionLayer.Cluster.HostKey()] = node

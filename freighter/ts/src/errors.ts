@@ -10,7 +10,7 @@
 import { errors, url } from "@synnaxlabs/x";
 
 /** Base class for all freighter-specific errors */
-class FreighterError extends errors.createTyped("freighter") {}
+export class FreighterError extends errors.createTyped("freighter") {}
 
 /** Error thrown when reaching the end of a file or stream */
 export class EOF extends FreighterError.sub("eof") {

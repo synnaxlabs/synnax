@@ -120,7 +120,7 @@ func authedCtx(ctx SpecContext, u user.User) freighter.Context {
 func newUser(ctx SpecContext) user.User {
 	GinkgoHelper()
 	return MustSucceed(userSvc.NewWriter(nil).
-		Create(ctx, user.User{Username: "user-" + uuid.New().String()}))
+		Create(ctx, user.User{Name: "user-" + uuid.New().String()}))
 }
 
 // grantOn assigns a role granting the given actions on the given objects to subject.

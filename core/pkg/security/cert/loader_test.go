@@ -11,6 +11,7 @@ package cert_test
 
 import (
 	"encoding/pem"
+	"path"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -48,8 +49,8 @@ var _ = Describe("Loader", func() {
 		It("Should return the node certificate when there is no CA", func() {
 			testutil.GenerateCerts(fs)
 			l := MustSucceed(cert.NewLoader(cert.LoaderConfig{FS: fs}))
-			cfg := l.Config()
-			Expect(cfg.FS.Remove(cfg.CACertPath)).To(Succeed())
+			def := cert.DefaultLoaderConfig
+			Expect(fs.Remove(path.Join(def.CertsDir, def.CACertPath))).To(Succeed())
 			Expect(countPEMBlocks(MustSucceed(l.TrustAnchorsPEM()))).To(Equal(1))
 		})
 

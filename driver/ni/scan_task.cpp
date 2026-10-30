@@ -8,6 +8,15 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+// Disable GCC 13 false positive warning in <regex> header
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
+#include <regex>
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic pop
+#endif
 #include <string>
 #include <unordered_map>
 
@@ -19,14 +28,16 @@
 
 namespace driver::ni {
 Scanner::Scanner(
-    const std::shared_ptr<syscfg::SugaredAPI> &syscfg,
+    std::shared_ptr<x::lib::Lazy<syscfg::SugaredAPI>> lib,
     ScanTaskConfig cfg,
     synnax::task::Task task
 ):
-    cfg(std::move(cfg)), task(std::move(task)), syscfg(syscfg) {}
+    cfg(cfg), task(std::move(task)), lib(std::move(lib)) {}
 
 const auto SKIP_DEVICE_ERR = x::errors::Error("ni.skip_device", "");
 const std::size_t NO_DEVICES_LOG_MULTIPLIER = 12;
+const std::string MODEL_PREFIX = MAKE + " ";
+const std::regex IGNORED_MODEL("(cRIO|Unknown).*");
 
 std::pair<Device, x::errors::Error>
 Scanner::parse_device(NISysCfgResourceHandle resource) {
@@ -73,7 +84,8 @@ Scanner::parse_device(NISysCfgResourceHandle resource) {
         return {Device(), SKIP_DEVICE_ERR};
     }
     dev.model = property_value_buf;
-    if (dev.model.size() > 3) dev.model = dev.model.substr(3);
+    if (dev.model.starts_with(MODEL_PREFIX))
+        dev.model = dev.model.substr(MODEL_PREFIX.size());
     dev.name = MAKE + " " + dev.model;
 
     if (const auto err = this->syscfg->GetResourceIndexedProperty(
@@ -144,10 +156,10 @@ Scanner::parse_device(NISysCfgResourceHandle resource) {
             << " provides=" << dev.provides_link_name;
 
     auto err = x::errors::NIL;
-    if (this->cfg.should_ignore(dev.model)) {
+    if (std::regex_match(dev.model, IGNORED_MODEL)) {
         if (this->ignored_keys.insert(dev.key).second)
             VLOG(1) << SCAN_LOG_PREFIX << "skipping " << dev.model << " (" << dev.key
-                    << "): model matches an ignored_models pattern";
+                    << "): model matches an ignored pattern";
         err = SKIP_DEVICE_ERR;
     } else {
         VLOG(1) << SCAN_LOG_PREFIX << "device validated successfully: " << dev.key
@@ -158,6 +170,12 @@ Scanner::parse_device(NISysCfgResourceHandle resource) {
 
 std::pair<std::vector<synnax::device::Device>, x::errors::Error>
 Scanner::scan(const common::ScannerContext &ctx) {
+    if (this->filter == nullptr) {
+        if (const auto err = this->open()) {
+            this->close();
+            return {{}, err};
+        }
+    }
     NISysCfgEnumResourceHandle resources = nullptr;
     NISysCfgResourceHandle curr_resource = nullptr;
 
@@ -229,11 +247,13 @@ Scanner::scan(const common::ScannerContext &ctx) {
 }
 
 x::errors::Error Scanner::stop() {
-    this->syscfg->CloseHandle(this->filter);
-    return this->syscfg->CloseHandle(this->session);
+    return this->close();
 }
 
-x::errors::Error Scanner::start() {
+x::errors::Error Scanner::open() {
+    auto [syscfg, load_err] = this->lib->get();
+    if (load_err) return load_err;
+    this->syscfg = std::move(syscfg);
     if (const auto err = this->syscfg->InitializeSession(
             nullptr,
             nullptr,
@@ -269,5 +289,16 @@ x::errors::Error Scanner::start() {
         ))
         return err;
     return x::errors::NIL;
+}
+
+x::errors::Error Scanner::close() {
+    if (this->filter != nullptr) {
+        this->syscfg->CloseHandle(this->filter);
+        this->filter = nullptr;
+    }
+    if (this->session == nullptr) return x::errors::NIL;
+    const auto err = this->syscfg->CloseHandle(this->session);
+    this->session = nullptr;
+    return err;
 }
 }
