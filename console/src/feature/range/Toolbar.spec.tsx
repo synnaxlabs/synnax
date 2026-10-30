@@ -362,11 +362,10 @@ describe("range/Toolbar", () => {
       fireEvent.click(await findIconButton(document.body, "star-outlined"));
       await screen.findByText("Are you sure you want to unfavorite 2 ranges?");
       fireEvent.click(findButton("Unfavorite"));
-      await waitFor(() =>
-        expect(
-          Session.Range.selectMultiple(store.getState(), [rng.key, local.key]),
-        ).toEqual([]),
-      );
+      await waitFor(() => {
+        expect(Session.Range.selectState(store.getState(), rng.key)).toBeUndefined();
+        expect(Session.Range.selectState(store.getState(), local.key)).toBeUndefined();
+      });
       expect(
         Session.Range.selectState(store.getState(), Session.Range.RECENT_KEY),
       ).toBeDefined();
