@@ -11,7 +11,7 @@ const NAV = ".page-nav";
 const TOGGLE = "[data-page-nav-toggle]";
 const SECTION = ".page-nav-section-header";
 const TOOLTIP = ".page-nav__tooltip";
-const CLOSING_CLASS = "pluto--closing";
+const CLOSING_CLASS = "lyra--closing";
 /** The browser storage key that remembers a collapsed sidebar. */
 export const STORAGE_KEY = "docs-page-nav-collapsed";
 /** The key that toggles the sidebar together with Cmd or Ctrl. */
@@ -108,7 +108,7 @@ export const start = (): void => {
     if (label != null)
       label.textContent = isToggle
         ? toggleLabel()
-        : (target.querySelector(".pluto-text")?.textContent ?? "");
+        : (target.querySelector(".lyra-text")?.textContent ?? "");
     if (keys != null) keys.hidden = !isToggle;
     anchor?.removeAttribute("aria-describedby");
     anchor = target;

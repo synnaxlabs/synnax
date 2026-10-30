@@ -66,8 +66,6 @@ var (
 	}
 )
 
-const AlwaysIndexPersistOnAutoCommit telem.TimeSpan = -1
-
 // domain returns the time range of the domain the configuration forms. If End is not
 // set, it assumes a zero span starting at Start.
 func (w WriterConfig) domain() telem.TimeRange {

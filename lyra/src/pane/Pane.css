@@ -9,7 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-pane {
+.lyra-pane {
     flex-shrink: 0;
     overflow: hidden;
     background: var(--pluto-gray-l0);
@@ -18,13 +18,13 @@
 }
 
 /* The bar at the top of a pane. A disclosure summary takes it too. */
-.pluto-pane > .pluto-pane__bar {
+.lyra-pane > .lyra-pane__bar {
     min-height: 7rem;
     padding: 0 3rem;
     background: var(--pluto-gray-l1);
 }
 
-.pluto-pane--disclosure {
+.lyra-pane--disclosure {
     interpolate-size: allow-keywords;
 
     /* Engines without interpolate-size open the panel with no animation. */
@@ -41,7 +41,7 @@
     }
 }
 
-.pluto-pane__summary {
+.lyra-pane__summary {
     display: flex;
     align-items: center;
     gap: 1.5rem;
@@ -66,18 +66,18 @@
 }
 
 /* The title flows as text, so a link or code in it sits with no gap. */
-.pluto-pane__title {
+.lyra-pane__title {
     flex: 1;
     min-width: 0;
 
-    & > .pluto-icon {
+    & > .lyra-icon {
         margin-right: 1rem;
         vertical-align: -0.125em;
         color: var(--pluto-gray-l8);
     }
 }
 
-.pluto-pane__indicator {
+.lyra-pane__indicator {
     flex-shrink: 0;
     width: 2.5rem;
     height: 2.5rem;
@@ -85,23 +85,23 @@
     transition: transform 0.2s;
 }
 
-.pluto-pane--disclosure[open] > .pluto-pane__summary {
+.lyra-pane--disclosure[open] > .lyra-pane__summary {
     border-bottom: var(--pluto-border);
 
-    & > .pluto-pane__indicator {
+    & > .lyra-pane__indicator {
         transform: rotate(90deg);
     }
 }
 
-.pluto-pane__item {
+.lyra-pane__item {
     padding: 2rem 3rem;
 }
 
-.pluto-pane__item + .pluto-pane__item {
+.lyra-pane__item + .lyra-pane__item {
     border-top: var(--pluto-border-width) solid var(--pluto-gray-l4);
 }
 
-.pluto-pane__button {
+.lyra-pane__button {
     gap: 2rem;
     width: 100%;
     height: auto;
@@ -112,7 +112,7 @@
     --pluto-hover-bg: var(--pluto-gray-l1);
     --pluto-active-bg: var(--pluto-gray-l2);
 
-    & > .pluto-pane__caret {
+    & > .lyra-pane__caret {
         flex-shrink: 0;
         margin-left: auto;
         color: var(--pluto-gray-l7);
@@ -121,7 +121,7 @@
             transform 0.15s ease-in-out;
     }
 
-    &:hover > .pluto-pane__caret {
+    &:hover > .lyra-pane__caret {
         color: var(--pluto-gray-l10);
         transform: translateX(0.5rem);
     }
