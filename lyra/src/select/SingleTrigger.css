@@ -9,13 +9,13 @@
  * included in the file licenses/APL.txt.
  */
 
-/* An empty trigger reads as a placeholder. The trigger is pluto-text too, so a bare
+/* An empty trigger reads as a placeholder. The trigger is lyra-text too, so a bare
    class ties with its color and loses when its stylesheet loads first, in a build. */
-.pluto-btn.pluto-select-single-trigger--empty {
+.lyra-btn.lyra-select-single-trigger--empty {
     color: var(--pluto-text-placeholder);
 
-    /* The label is pluto-text, whose own color would otherwise override the dim. */
-    > .pluto-select__label {
+    /* The label is lyra-text, whose own color would otherwise override the dim. */
+    > .lyra-select__label {
         color: inherit;
     }
 }
@@ -23,35 +23,32 @@
 /* The name fades rather than pushing the caret out, so the select may shrink below
    it. The floor keeps the icon and caret in view. A collapsible select's caller sets
    its width instead. */
-.pluto-dialog__frame:has(
-    > .pluto-dialog__trigger:not(.pluto-select-single-trigger--collapsible)
-        > .pluto-select__label
+.lyra-dialog__frame:has(
+    > .lyra-dialog__trigger:not(.lyra-select-single-trigger--collapsible)
+        > .lyra-select__label
 ) {
     min-width: 11rem;
 }
 
 /* Inline-size containment drops the name from the trigger's own width, so the caller
    must size the select's frame. */
-.pluto-select-single-trigger--collapsible {
+.lyra-select-single-trigger--collapsible {
     container-type: inline-size;
 }
 
 /* Below this width the name shows too few letters to read, so only the icon stays, or
    the caret when there is no icon. */
 @container (width < 16rem) {
-    .pluto-select-single-trigger--collapsible {
-        > .pluto-icon:first-child,
-        > .pluto-select-single-trigger__icon,
-        > .pluto-caret-animated {
+    .lyra-select-single-trigger--collapsible {
+        > .lyra-icon:first-child,
+        > .lyra-select-single-trigger__icon,
+        > .lyra-caret-animated {
             margin-inline: auto;
         }
 
-        > .pluto-select__label,
-        &:has(
-                > .pluto-icon:first-child,
-                > .pluto-select-single-trigger__icon:first-child
-            )
-            > .pluto-caret-animated {
+        > .lyra-select__label,
+        &:has(> .lyra-icon:first-child, > .lyra-select-single-trigger__icon:first-child)
+            > .lyra-caret-animated {
             display: none;
         }
     }
@@ -59,13 +56,13 @@
 
 /* The icon or caret alone sizes this box. The clear button covers it at the same size
    and takes its place while the trigger is hovered, so the trigger keeps its layout. */
-.pluto-select-single-trigger__icon {
+.lyra-select-single-trigger__icon {
     position: relative;
     display: inline-flex;
     align-items: center;
     justify-content: center;
 
-    > .pluto-btn.pluto-btn--close {
+    > .lyra-btn.lyra-btn--close {
         position: absolute;
         inset: 0;
         transform: none;
@@ -84,19 +81,19 @@
 
 /* The caret's box sits where the caret would. :where keeps it below a collapsed
    trigger's centering. */
-.pluto-select-single-trigger__icon:where(:has(> .pluto-caret-animated)) {
+.lyra-select-single-trigger__icon:where(:has(> .lyra-caret-animated)) {
     margin-left: auto;
 }
 
-.pluto-select-single-trigger--clearable:hover
-    > .pluto-select-single-trigger__icon
-    > .pluto-icon {
+.lyra-select-single-trigger--clearable:hover
+    > .lyra-select-single-trigger__icon
+    > .lyra-icon {
     visibility: hidden;
 }
 
 /* A shadow trigger reads as its value. An open menu keeps its box, so the menu points at
    the field. The caret keeps its space while hidden, so the label never moves. */
-.pluto-btn.pluto-dialog__trigger.pluto--shadow {
+.lyra-btn.lyra-dialog__trigger.lyra--shadow {
     --pluto-bg: transparent;
     --pluto-border-color: transparent;
     --pluto-hover-bg: var(--pluto-fill-hover);
@@ -109,12 +106,12 @@
         --pluto-border-color: var(--pluto-gray-l7);
     }
 
-    & .pluto-caret-animated {
+    & .lyra-caret-animated {
         color: var(--pluto-gray-l7);
         opacity: 0;
     }
 
-    &:is(:hover, :focus-visible, [aria-expanded="true"]) .pluto-caret-animated {
+    &:is(:hover, :focus-visible, [aria-expanded="true"]) .lyra-caret-animated {
         opacity: 1;
     }
 }

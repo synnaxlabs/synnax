@@ -19,6 +19,7 @@ import {
   type ReactNode,
   useEffect,
   useRef,
+  useState,
 } from "react";
 
 import { Button } from "@/button";
@@ -28,7 +29,9 @@ import { Icon } from "@/icon";
 import { Numeric } from "@/input/Numeric";
 import { Text as InputText } from "@/input/Text";
 import { type Control, type Variant } from "@/input/types";
+import { type Status } from "@/status";
 import { Text } from "@/text";
+import { Tooltip } from "@/tooltip";
 import { reactElementToArray } from "@/util/children";
 
 /** The value one {@link Table} cell holds. */
@@ -40,7 +43,10 @@ export interface TableCellProps<V extends TableCell = TableCell> extends Control
   preview?: boolean;
   /** The edit-in-place chassis every cell shares. Spread it onto the input. */
   variant?: Variant;
+  /** Marks the cell, such as for an error at its form path. */
+  status?: Status.Variant;
   "aria-label": string;
+  "aria-invalid"?: boolean;
 }
 
 interface BaseTableColumnProps {
@@ -90,8 +96,8 @@ const emptyCell = (column: TableColumnProps): TableCell =>
 
 /**
  * Reads a pasted cell as the type its column holds.
- * @returns null when a numeric column is given text that is not a number. A text
- * column takes anything.
+ * @returns null when a number column is given text that is not a number. A text column
+ * takes anything.
  */
 const parseCell = (text: string, column: TableColumnProps): TableCell | null => {
   if (column.type === "string") return text;
@@ -99,36 +105,42 @@ const parseCell = (text: string, column: TableColumnProps): TableCell | null => 
   return isFinite(value) ? value : null;
 };
 
-const isComplete = (row: (TableCell | null)[]): row is TableCell[] =>
-  row.every((cell) => cell != null);
+/** Pasted text bound for one cell, and its value when the cell's column reads it. */
+interface PastedCell {
+  text: string;
+  value: TableCell | null;
+}
 
 /**
- * Reads clipboard text as a grid of cell values, parsing each against the column it
- * lands on.
- * @returns null when the text is a single cell or holds a value its column rejects,
- * leaving the paste to the focused cell.
+ * A spreadsheet selection often carries a heading row: one with number cells, none of
+ * which parse.
+ */
+const isHeading = (row: PastedCell[], columns: TableColumnProps[]): boolean => {
+  const numbers = row.filter((_, j) => columns[j].type !== "string");
+  return numbers.length > 0 && numbers.every(({ value }) => value == null);
+};
+
+/**
+ * Reads clipboard text as a grid of cells, parsing each against the column it lands on.
+ * A first row that reads as a heading is dropped.
+ * @returns null when the text is a single cell, leaving the paste to the focused cell.
  */
 const parseBlock = (
   text: string,
   columns: TableColumnProps[],
   from: number,
-): TableCell[][] | null => {
-  if (from >= columns.length) return null;
-  const block: TableCell[][] = [];
-  for (const [i, cells] of csv.parseBlock(text).entries()) {
-    // The column count is fixed, so a block wider than the table loses its tail before
-    // it can reject anything.
-    const row = cells
-      .slice(0, columns.length - from)
-      .map((cell, j) => parseCell(cell, columns[from + j]));
-    if (!isComplete(row)) {
-      // A spreadsheet selection often carries a heading row, so a first row that does
-      // not parse is dropped. A later one rejects the whole paste.
-      if (i === 0) continue;
-      return null;
-    }
-    block.push(row);
-  }
+): PastedCell[][] | null => {
+  const targets = columns.slice(from);
+  if (targets.length === 0) return null;
+  // The column count is fixed, so a block wider than the table loses its tail.
+  const block = csv
+    .parseBlock(text)
+    .map((cells) =>
+      cells
+        .slice(0, targets.length)
+        .map((text, j) => ({ text, value: parseCell(text, targets[j]) })),
+    );
+  if (block.length > 0 && isHeading(block[0], targets)) block.shift();
   if (block.length === 0) return null;
   if (block.length === 1 && block[0].length === 1) return null;
   return block;
@@ -159,6 +171,8 @@ export interface TableProps
   createRow?: (value: TableCell[][]) => TableCell[];
   /** Names one row in the add and remove buttons ("header"). Defaults to "row". */
   resourceName?: string;
+  /** Reads a cell's status, such as an error at its form path. */
+  cellStatus?: (at: xy.XY) => Status.Crude | undefined;
 }
 
 /** A focused cell's value and text from when it took focus. */
@@ -167,12 +181,21 @@ interface Initial {
   text: string;
 }
 
+/** Pasted text that a cell could not read. */
+interface Rejection {
+  at: xy.XY;
+  text: string;
+  /** The value the cell kept in place of the text. */
+  kept: TableCell | undefined;
+}
+
 /**
  * An editable grid. The value is row-major: one entry per row, holding one value per
  * column. Enter and the down arrow move down a cell, and Shift+Enter and the up arrow
  * move up. Esc puts back the value a cell held when it took focus, and a second Esc
  * leaves the cell. Pasting a tab or comma delimited block into a focused cell fills the
- * grid from that cell, adding rows as needed.
+ * grid from that cell, adding rows as needed. A pasted cell that does not parse keeps
+ * its value and is marked until an edit.
  *
  * @example
  * <Input.Table value={rows} onChange={setRows}>
@@ -188,6 +211,7 @@ export const Table = ({
   rowLabel,
   createRow,
   resourceName = "row",
+  cellStatus,
   className,
   ...rest
 }: TableProps): ReactElement => {
@@ -199,6 +223,10 @@ export const Table = ({
   // The row that takes focus once an add or a remove renders.
   const pendingFocus = useRef<number | null>(null);
   const table = useRef<HTMLTableElement>(null);
+  const [rejections, setRejections] = useState<Rejection[]>([]);
+  // A cell that the caller gives another value drops its mark for good.
+  const marks = rejections.filter(({ at, kept }) => value[at.y]?.[at.x] === kept);
+  if (marks.length !== rejections.length) setRejections(marks);
   const columns = reactElementToArray<TableColumnProps>(children).map(
     ({ props }) => props,
   );
@@ -210,12 +238,15 @@ export const Table = ({
     rowLabel?.(index) ?? (index + 1).toString();
   const hasHeader = columns.some(({ name }) => name != null);
 
-  const handleCellChange = (at: xy.XY, next: TableCell) =>
+  const handleCellChange = (at: xy.XY, next: TableCell) => {
+    if (marks.some((mark) => xy.equals(mark.at, at)))
+      setRejections(marks.filter((mark) => !xy.equals(mark.at, at)));
     onChange(
       value.map((row, i) =>
         i === at.y ? row.map((cell, j) => (j === at.x ? next : cell)) : row,
       ),
     );
+  };
 
   const handlePaste = (e: ClipboardEvent) => {
     if (preview) return;
@@ -231,8 +262,21 @@ export const Table = ({
     const next = value.map((row) => [...row]);
     for (let row = dims.height; row < plan.dimensions.height; row++)
       next.push(emptyRow());
-    plan.writes.forEach(({ position: { x, y }, value }) => (next[y][x] = value));
+    const rejected: Rejection[] = [];
+    plan.writes.forEach(({ position: at, value: { text, value: parsed } }) => {
+      if (parsed != null) next[at.y][at.x] = parsed;
+      else rejected.push({ at, text, kept: next[at.y][at.x] });
+    });
+    const written = (at: xy.XY): boolean =>
+      plan.writes.some(({ position }) => xy.equals(position, at));
+    setRejections([...marks.filter(({ at }) => !written(at)), ...rejected]);
     onChange(next);
+  };
+
+  const statusAt = (at: xy.XY): Status.Crude | undefined => {
+    const rejection = marks.find((mark) => xy.equals(mark.at, at));
+    if (rejection == null) return cellStatus?.(at);
+    return { variant: "error", message: `"${rejection.text}" is not a number` };
   };
 
   // A gutter header shifts the data columns over by one.
@@ -256,6 +300,14 @@ export const Table = ({
 
   const handleRemove = (index: number) => {
     pendingFocus.current = index;
+    // Marks below the row move up with their rows.
+    setRejections(
+      marks.flatMap((mark) => {
+        if (mark.at.y < index) return [mark];
+        if (mark.at.y === index) return [];
+        return [{ ...mark, at: { x: mark.at.x, y: mark.at.y - 1 } }];
+      }),
+    );
     onChange(value.filter((_, i) => i !== index));
   };
 
@@ -335,22 +387,37 @@ export const Table = ({
                 </Text.Text>
               </th>
             )}
-            {columns.map((column, j) => (
-              <td
-                key={j}
-                onFocus={(e) => handleCellFocus(e, { x: j, y: i })}
-                onBlur={handleCellBlur}
-              >
-                {renderCell(column, {
-                  value: row[j] ?? emptyCell(column),
-                  onChange: (next) => handleCellChange({ x: j, y: i }, next),
-                  preview,
-                  variant: "shadow",
-                  "aria-label":
-                    column.name == null ? rowName(i) : `${column.name} ${rowName(i)}`,
-                })}
-              </td>
-            ))}
+            {columns.map((column, j) => {
+              const status = statusAt({ x: j, y: i });
+              const message = status?.message ?? "";
+              // The tooltip stays mounted, so a status that comes or goes never
+              // remounts the cell under the caret. A text element tip, unlike a string,
+              // never names the cell.
+              return (
+                <Tooltip.Dialog key={j} hide={message.length === 0}>
+                  <Text.Text level="small" color={11}>
+                    {message}
+                  </Text.Text>
+                  <td
+                    onFocus={(e) => handleCellFocus(e, { x: j, y: i })}
+                    onBlur={handleCellBlur}
+                  >
+                    {renderCell(column, {
+                      value: row[j] ?? emptyCell(column),
+                      onChange: (next) => handleCellChange({ x: j, y: i }, next),
+                      preview,
+                      variant: "shadow",
+                      status: status?.variant,
+                      "aria-label":
+                        column.name == null
+                          ? rowName(i)
+                          : `${column.name} ${rowName(i)}`,
+                      "aria-invalid": status?.variant === "error" ? true : undefined,
+                    })}
+                  </td>
+                </Tooltip.Dialog>
+              );
+            })}
             <td>
               {!preview && (
                 <Button.Button

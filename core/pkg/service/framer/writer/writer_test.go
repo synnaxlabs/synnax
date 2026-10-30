@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
+	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
@@ -84,7 +85,7 @@ var _ = Describe("Writer", func() {
 			func(ctx SpecContext) {
 				Expect(writerSvc.Open(ctx, writer.Config{
 					Keys: channel.Keys{
-						channel.NewKey(mockNode.Cluster.HostKey(), 9999),
+						distchannel.NewKey(mockNode.Cluster.HostKey(), 9999),
 					},
 					Start: telem.SecondTS,
 				})).Error().To(MatchError(query.ErrNotFound))
@@ -95,7 +96,7 @@ var _ = Describe("Writer", func() {
 			func(ctx SpecContext) {
 				Expect(writerSvc.NewStream(ctx, writer.Config{
 					Keys: channel.Keys{
-						channel.NewKey(mockNode.Cluster.HostKey(), 9999),
+						distchannel.NewKey(mockNode.Cluster.HostKey(), 9999),
 					},
 					Start: telem.SecondTS,
 				})).Error().To(MatchError(query.ErrNotFound))
@@ -105,7 +106,7 @@ var _ = Describe("Writer", func() {
 			"Should return an error when opening with a nonexistent free channel",
 			func(ctx SpecContext) {
 				Expect(writerSvc.Open(ctx, writer.Config{
-					Keys:  channel.Keys{channel.NewKey(node.KeyFree, 9999)},
+					Keys:  channel.Keys{distchannel.NewKey(node.KeyFree, 9999)},
 					Start: telem.SecondTS,
 				})).Error().To(MatchError(query.ErrNotFound))
 			},
@@ -115,7 +116,10 @@ var _ = Describe("Writer", func() {
 			func(ctx SpecContext) {
 				ch := createVirtual(ctx)
 				Expect(writerSvc.NewStream(ctx, writer.Config{
-					Keys:  channel.Keys{ch.Key(), channel.NewKey(node.KeyFree, 9999)},
+					Keys: channel.Keys{
+						ch.Key(),
+						distchannel.NewKey(node.KeyFree, 9999),
+					},
 					Start: telem.SecondTS,
 				})).Error().To(MatchError(query.ErrNotFound))
 			},
@@ -133,7 +137,7 @@ var _ = Describe("Writer", func() {
 					Sync:  new(true),
 				}))
 				Expect(w.Write(frame.NewMulti(
-					[]channel.Key{ch.Key(), channel.NewKey(12, 22)},
+					[]channel.Key{ch.Key(), distchannel.NewKey(12, 22)},
 					[]telem.Series{
 						telem.NewSeriesV[int64](1, 2, 3),
 						telem.NewSeriesV[int64](4, 5, 6),
@@ -281,7 +285,10 @@ var _ = Describe("Writer", func() {
 				Expect(writtenIdx).To(telem.MatchSeriesData(idx))
 				firstAlignment := writtenData.Alignment
 				groupDomain := firstAlignment.DomainIndex()
-				Expect(groupDomain).To(BeNumerically(">", cesium.ZeroLeadingAlignment))
+				Expect(groupDomain).To(BeNumerically(
+					">=",
+					MustSucceed(cesium.NewAlignmentCounter().Next()).DomainIndex(),
+				))
 				Expect(firstAlignment.SampleIndex()).To(BeEquivalentTo(0))
 				Expect(writtenIdx.Alignment).To(Equal(firstAlignment))
 
