@@ -13,7 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
@@ -21,10 +21,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 var _ = Describe("Device", func() {
@@ -58,7 +58,7 @@ var _ = Describe("Device", func() {
 			DB:           db,
 			Ontology:     otg,
 			Group:        groupSvc,
-			HostProvider: mock.NewStaticHostProvider(1),
+			HostProvider: testutil.NewStaticHostProvider(1),
 			Status:       stat,
 		}))
 		svc = MustOpen(device.OpenService(ctx, device.ServiceConfig{
@@ -1022,7 +1022,7 @@ var _ = Describe("Device", func() {
 					DB:                  db,
 					Ontology:            otg,
 					Group:               groupSvc,
-					HostProvider:        mock.NewStaticHostProvider(1),
+					HostProvider:        testutil.NewStaticHostProvider(1),
 					Status:              stat,
 					HealthCheckInterval: 10 * telem.Millisecond,
 				}))

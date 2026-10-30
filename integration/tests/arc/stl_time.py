@@ -131,7 +131,7 @@ class StlTime(ArcCase):
             ],
         )
         for name in ("toggle_cmd", "toggle_cmd_mod"):
-            create_indexed_pair(self.client, name, sy.DataType.UINT8)
+            create_indexed_pair(self.client, name, data_type=sy.DataType.UINT8)
         super().setup()
 
     def _test_now(self) -> None:
@@ -148,16 +148,19 @@ class StlTime(ArcCase):
         self.log("=== time.now() [Flow] ===")
         self.writer.write("time_now_flow_ts_trigger", 1.0)
         self.wait_for_gt("time_now_flow_ts_out", 0)
-        ts = self.read_tlm("time_now_flow_ts_out", 0)
-        now = int(sy.TimeStamp.now())
-        drift = abs(ts - now)
-        max_drift = 500 * int(sy.TimeSpan.MILLISECOND)
+        ts = self.read_tlm("time_now_flow_ts_out")
+        if not isinstance(ts, sy.TimeStamp):
+            self.fail(f"time.now{{}} wrote {ts!r}, not a TimeStamp")
+        now = sy.TimeStamp.now()
+        drift = abs(now - ts)
         self.log(
             f"time.now{{}} returned {ts}, current time {now}, "
-            f"drift {drift / 1e6:.1f}ms (max 500ms)"
+            f"drift {drift.milliseconds:.1f}ms (max 500ms)"
         )
-        if drift > max_drift:
-            self.fail(f"time.now{{}} drift {drift / 1e6:.1f}ms exceeds 500ms tolerance")
+        if drift > 500 * sy.TimeSpan.MILLISECOND:
+            self.fail(
+                f"time.now{{}} drift {drift.milliseconds:.1f}ms exceeds 500ms tolerance"
+            )
         self.log(
             f"Expecting time_now_flow_int_out > {JAN_2020_NANOS} (Jan 1, 2020 nanos)"
         )
