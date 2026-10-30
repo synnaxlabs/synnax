@@ -9,12 +9,7 @@
 
 import "@/feature/opcua/task/Task.css";
 
-import {
-  type channel,
-  DisconnectedError,
-  status,
-  type Synnax,
-} from "@synnaxlabs/client";
+import { channel, DisconnectedError, status, type Synnax } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { type Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -26,7 +21,7 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Synnax as PSynnax } from "@synnaxlabs/pluto";
-import { id, TimeSpan } from "@synnaxlabs/x";
+import { id, primitive, TimeSpan } from "@synnaxlabs/x";
 import { type FC, useState } from "react";
 
 import { Browser } from "@/feature/opcua/device/Browser";
@@ -268,6 +263,18 @@ const findVariables = async (
   return search;
 };
 
+const deployName = ({ name, nodeName }: Channel): string =>
+  channel.escapeInvalidName(primitive.isNonZero(name) ? name : nodeName, true);
+
+// The Core accepts two channels with one name, so a new channel gets a number at the
+// end of its node name when the task already has the name.
+const withFreeName = <C extends Channel>(ch: C, names: Set<string>): C => {
+  let free = ch;
+  for (let i = 2; names.has(deployName(free)); i++)
+    free = { ...ch, nodeName: `${ch.nodeName}_${i}` };
+  return free;
+};
+
 /** @returns why the found variables are not every variable, or null if they are. */
 const describeMissing = ({ truncated, skipped }: Search): string | null => {
   const notes: string[] = [];
@@ -315,13 +322,17 @@ const ChannelList = <C extends Channel>({
   const addStatus = Status.useAdder();
   const handleError = Status.useErrorHandler();
   const newChannels = (nodes: ScannedNode[]): C[] => {
-    const held = new Set(ctx.get<C[]>(CHANNELS_PATH).value.map(nodeIdentity));
+    const channels = ctx.get<C[]>(CHANNELS_PATH).value;
+    const held = new Set(channels.map(nodeIdentity));
+    const names = new Set(channels.map(deployName));
     return nodes
       .map((node) => convertNodeToChannel(node))
-      .filter((ch): ch is C => {
-        if (ch == null || held.has(nodeIdentity(ch))) return false;
+      .flatMap((ch) => {
+        if (ch == null || held.has(nodeIdentity(ch))) return [];
         held.add(nodeIdentity(ch));
-        return true;
+        const free = withFreeName(ch, names);
+        names.add(deployName(free));
+        return [free];
       });
   };
   const addFolders = (folders: HaulItem[]) =>

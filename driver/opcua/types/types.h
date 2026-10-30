@@ -145,6 +145,9 @@ struct BrowseResult {
     /// are then empty.
     x::errors::Error err;
     std::vector<Reference> references;
+    /// @brief whether the browse stopped at its limit before the server listed every
+    /// child, so references holds only the first ones.
+    bool truncated = false;
 };
 
 class Variant {
