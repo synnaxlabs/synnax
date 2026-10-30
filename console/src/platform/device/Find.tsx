@@ -126,12 +126,13 @@ const ScannerState = ({
         }
       />
     );
-  if (scanner.status?.variant === "error")
+  const scanStatus = scanner.status;
+  if (scanStatus?.variant === "error" || scanStatus?.variant === "warning")
     return (
       <State
-        variant="error"
-        message={scanner.status.message}
-        description={scanner.status.description}
+        variant={scanStatus.variant}
+        message={scanStatus.message}
+        description={scanStatus.description}
       />
     );
   return null;
