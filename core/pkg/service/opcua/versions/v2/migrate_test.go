@@ -86,19 +86,28 @@ var _ = Describe("Migration", func() {
 		"Should keep every write config field and write node values",
 		func(ctx SpecContext) {
 			stored := v1.WriteConfig{
-				Key:    uuid.New(),
-				Device: "dev",
+				Key:       uuid.New(),
+				AutoStart: true,
+				Device:    "dev",
 				Channels: []v1.WriteChannel{
-					{Key: "ch", NodeID: "NS=2;I=8", DataType: telem.Int16T, CmdChannel: 7},
+					{
+						Key:        "ch",
+						NodeID:     "NS=2;I=8",
+						DataType:   telem.Int16T,
+						CmdChannel: 7,
+					},
 				},
 			}
-			stored.AutoStart = true
 			db := DeferClose(gorp.Wrap(memkv.New()))
 			MustSucceed(
-				gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, v1.WriteConfig]{DB: db}),
+				gorp.OpenTable(
+					ctx,
+					gorp.TableConfig[uuid.UUID, v1.WriteConfig]{DB: db},
+				),
 			)
 			Expect(
-				gorp.NewCreate[uuid.UUID, v1.WriteConfig]().Entry(&stored).Exec(ctx, db),
+				gorp.NewCreate[uuid.UUID, v1.WriteConfig]().Entry(&stored).
+					Exec(ctx, db),
 			).
 				To(Succeed())
 			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{

@@ -17,8 +17,8 @@ import (
 	v1 "github.com/synnaxlabs/synnax/pkg/service/opcua/versions/v1"
 )
 
-// MigrateBaseChannel lifts the fields every v1 channel shares to v2. The data type moves
-// to the read and node write channels.
+// MigrateBaseChannel lifts the fields every v1 channel shares to v2. The data type
+// moves to the read and node write channels.
 func MigrateBaseChannel(ctx context.Context, old v1.BaseChannel) (BaseChannel, error) {
 	return autoMigrateBaseChannel(ctx, old)
 }
@@ -42,14 +42,20 @@ var ReadMigration = migrate.NewEntry("v61_nan_fill_enabled", MigrateReadConfig)
 
 // MigrateWriteChannel lifts a v1 write channel to v2, where it writes the value of its
 // node.
-func MigrateWriteChannel(ctx context.Context, old v1.WriteChannel) (WriteChannel, error) {
+func MigrateWriteChannel(
+	ctx context.Context,
+	old v1.WriteChannel,
+) (WriteChannel, error) {
 	base, err := MigrateBaseChannel(ctx, old.BaseChannel)
 	if err != nil {
 		return WriteChannel{}, err
 	}
 	return WriteChannel{Variant: NodeWriteChannel{
-		BaseWriteChannel: BaseWriteChannel{BaseChannel: base, CmdChannel: old.CmdChannel},
-		DataType:         old.DataType,
+		BaseWriteChannel: BaseWriteChannel{
+			BaseChannel: base,
+			CmdChannel:  old.CmdChannel,
+		},
+		DataType: old.DataType,
 	}}, nil
 }
 
