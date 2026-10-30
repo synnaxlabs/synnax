@@ -444,7 +444,7 @@ describe("Read", () => {
           },
         ],
         truncated: false,
-        skipped: 0,
+        skipped: [],
       },
     });
     await dragNode(folder.name, held.nodeName);
@@ -515,7 +515,7 @@ describe("Read", () => {
     const { scan, draft, statuses } = await renderWithNode(folder, [held]);
     const search = await answerNextCommand(client, scan, {
       type: OPCUA.Task.BROWSE_VARIABLES_COMMAND_TYPE,
-      data: { channels: [], truncated: false, skipped: 0 },
+      data: { channels: [], truncated: false, skipped: [] },
     });
     await dragNode(folder.name, held.nodeName);
     await search.answered;
@@ -541,7 +541,7 @@ describe("Read", () => {
       data: {
         channels: [{ ...createVariableNode("float64"), path: ["Pressure"] }],
         truncated: true,
-        skipped: 0,
+        skipped: [],
       },
     });
     await dragNode(folder.name, held.nodeName);
@@ -554,7 +554,7 @@ describe("Read", () => {
     ).toBeTruthy();
   });
 
-  it("should say how many objects the server did not browse", async () => {
+  it("should say why the server did not browse some objects", async () => {
     const folder = createFolder();
     const held = createReadChannel();
     const { scan } = await renderWithNode(folder, [held]);
@@ -563,7 +563,7 @@ describe("Read", () => {
       data: {
         channels: [{ ...createVariableNode("float64"), path: ["Pressure"] }],
         truncated: false,
-        skipped: 2,
+        skipped: ["ns=1;s=A: Access denied.", "ns=1;s=B: Access denied."],
       },
     });
     await dragNode(folder.name, held.nodeName);
@@ -571,7 +571,7 @@ describe("Read", () => {
     await screen.findByText(`Add 1 variable from ${folder.name}?`);
     expect(
       screen.getByText(
-        "The server did not browse 2 objects, so their variables are missing.",
+        "The server did not browse 2 objects, so their variables are missing. First failure: ns=1;s=A: Access denied.",
       ),
     ).toBeTruthy();
   });

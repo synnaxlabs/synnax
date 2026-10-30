@@ -1023,7 +1023,7 @@ TEST_F(TestScanTask, testBrowseVariables) {
     EXPECT_EQ(status.message, "Found variables");
     const x::json::json data = status.details.data.value();
     EXPECT_FALSE(data.at("truncated").get<bool>());
-    EXPECT_EQ(data.at("skipped").get<size_t>(), 0);
+    EXPECT_TRUE(data.at("skipped").empty());
     const auto &channels = data.at("channels");
     ASSERT_EQ(channels.size(), 4);
     EXPECT_EQ(channels[0]["name"], "V0");
@@ -1037,6 +1037,28 @@ TEST_F(TestScanTask, testBrowseVariables) {
     EXPECT_EQ(channels[2]["path"], x::json::json::array({"V2"}));
     EXPECT_EQ(channels[3]["name"], "Deep");
     EXPECT_EQ(channels[3]["path"], x::json::json::array({"Inner", "Deep"}));
+    generated->stop();
+}
+
+/// @brief it should return why it skipped a node that failed to browse.
+TEST_F(TestScanTask, testBrowseVariablesReturnsSkippedErrors) {
+    const auto generated = start_generated_server(1);
+    const auto status = run_command(
+        ctx,
+        task,
+        conn_pool,
+        store,
+        BROWSE_VARIABLES_CMD_TYPE,
+        4882,
+        {{"node_id", "NS=1;S=Missing"}}
+    );
+    ASSERT_EQ(status.variant, synnax::status::VARIANT_SUCCESS) << status.description;
+    const x::json::json data = status.details.data.value();
+    EXPECT_TRUE(data.at("channels").empty());
+    const auto &skipped = data.at("skipped");
+    ASSERT_EQ(skipped.size(), 1);
+    const auto text = skipped[0].get<std::string>();
+    EXPECT_TRUE(text.starts_with("NS=1;S=Missing: ")) << text;
     generated->stop();
 }
 
