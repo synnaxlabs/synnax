@@ -48,6 +48,7 @@ func RaiseStrokeWidths(_ context.Context, lp LinePlot) (LinePlot, error) {
 	return lp, nil
 }
 
+// StrokeWidthMigration raises stored line stroke widths below 1 to 1.
 var StrokeWidthMigration = migrate.NewEntry(
 	"v61_min_line_stroke_width",
 	RaiseStrokeWidths,
