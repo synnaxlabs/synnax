@@ -19,6 +19,9 @@ namespace driver {
 struct LibraryInfo {
     std::string name;
     std::string url;
+    /// @brief true when the Driver loads the library on first use and tries again on
+    /// each use until it loads, so an install needs no Driver restart.
+    bool lazy = false;
 };
 
 namespace errors {
@@ -38,8 +41,8 @@ const x::errors::Error NOMINAL_SHUTDOWN_ERROR = BASE_ERROR.sub("nominal_shutdown
 inline x::errors::Error missing_lib(const LibraryInfo &lib) {
     std::string message = lib.name + " library is not installed.";
     if (!lib.url.empty()) {
-        message += " Download here: " + lib.url +
-                   ". Restart Driver after installation.";
+        message += " Download here: " + lib.url + ".";
+        if (!lib.lazy) message += " Restart Driver after installation.";
     }
     return x::errors::Error(x::lib::LOAD_ERROR, message);
 }

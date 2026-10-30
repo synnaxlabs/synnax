@@ -5,7 +5,8 @@
 - **Related**: [RFC 0017 - General purpose device drivers](0017-drivers.md),
   [RFC 0034 - Gorp indexes](0034-gorp-indexes.md),
   [RFC 0053 - Oracle explicit schema versioning](0053-oracle-explicit-schema-versioning.md),
-  [RFC 0079 - Kafka integration](0079-kafka-integration.md)
+  [RFC 0079 - Kafka integration](0079-kafka-integration.md),
+  [RFC 0091 - Modbus driver](0091-modbus-driver.md)
 
 ## 0 Summary
 
@@ -218,8 +219,8 @@ Field groups per make:
 - **OPC UA server**: `connection` (endpoint, credentials, security mode and policy,
   certificates), `read_indexes`, node channel maps
   (`console/src/feature/opcua/device/types/v1.ts:18-30`).
-- **Modbus server**: `host`, `port`, `swap_bytes`, `swap_words`, `read_index`, register
-  channel maps.
+- **Modbus server**: `connection` and `requests` (RFC 0091 §2.0), `read_index`, register
+  channel maps. Its `StatusDetails` hold the request counts as `stats` (RFC 0091 §2.7).
 - **HTTP server**: `host`, `secure`, `verify_ssl`, `timeout`, `auth` (the existing
   union), `max_concurrent_requests`, `health_check`, per-path read and write channel
   maps (`console/src/feature/http/device/types.ts:224-239`). The `base_url` the Driver
