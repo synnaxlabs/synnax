@@ -11,6 +11,7 @@
 
 #include <algorithm>
 #include <memory>
+#include <utility>
 
 #include "wasmtime.hh"
 
@@ -21,6 +22,7 @@
 #include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/runtime/node/node.h"
 #include "arc/cpp/stl/stl.h"
+#include "arc/cpp/stl/strings/state.h"
 #include "arc/cpp/types/types.h"
 
 namespace arc::stl::time {
@@ -264,8 +266,13 @@ class Module : public stl::Module {
     /// pass. The `now` WASM binding is called from guest code, which has no node
     /// Context to read, so the value is pushed here instead.
     x::telem::TimeStamp now;
+    /// @brief backs the `format` return value.
+    std::shared_ptr<strings::State> str_state;
 
 public:
+    explicit Module(std::shared_ptr<strings::State> str_state):
+        str_state(std::move(str_state)) {}
+
     /// @brief binds the cycle stamp the `now` host function returns for the
     /// coming pass. The runtime loop calls it before every Scheduler::next.
     void set_now(const x::telem::TimeStamp now) { this->now = now; }
@@ -311,6 +318,16 @@ public:
                 MODULE_NAME,
                 "now",
                 [this]() -> int64_t { return this->now.nanoseconds(); }
+            )
+            .unwrap();
+        auto ss = this->str_state;
+        linker
+            .func_wrap(
+                MODULE_NAME,
+                "format",
+                [ss](const int64_t v) -> uint32_t {
+                    return ss->create(x::telem::TimeStamp(v).iso8601());
+                }
             )
             .unwrap();
     }

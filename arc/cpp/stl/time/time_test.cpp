@@ -7,6 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <cstdint>
+#include <memory>
+#include <string>
+#include <string_view>
+
 #include "gtest/gtest.h"
 
 #include "client/cpp/synnax.h"
@@ -19,6 +24,7 @@
 #include "arc/cpp/runtime/node/factory.h"
 #include "arc/cpp/runtime/state/state.h"
 #include "arc/cpp/runtime/testutil/compile.h"
+#include "arc/cpp/stl/strings/state.h"
 #include "arc/cpp/stl/time/time.h"
 
 namespace arc::stl::time {
@@ -192,7 +198,7 @@ TEST(TimeModuleTest, ReturnsNotFoundForWrongType) {
     auto ir_node = setup.ir.nodes[0];
     ir_node.type = "not_a_time_node";
 
-    Module factory;
+    Module factory(std::make_shared<strings::State>());
     ASSERT_OCCURRED_AS_P(
         factory.create(runtime::node::Config(setup.ir, ir_node, setup.make_node())),
         x::errors::NOT_FOUND
@@ -202,7 +208,7 @@ TEST(TimeModuleTest, ReturnsNotFoundForWrongType) {
 /// @brief Test that module creates an Interval node from valid configuration.
 TEST(TimeModuleTest, CreatesIntervalNode) {
     TestSetup setup("interval", "period", x::telem::SECOND.nanoseconds());
-    Module factory;
+    Module factory(std::make_shared<strings::State>());
     const auto node = ASSERT_NIL_P(factory.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[0], setup.make_node())
     ));
@@ -212,7 +218,7 @@ TEST(TimeModuleTest, CreatesIntervalNode) {
 /// @brief Test that MultiFactory strips prefix for qualified time.interval type.
 TEST(TimeModuleTest, CreatesIntervalNodeQualifiedViaMultiFactory) {
     TestSetup setup("time.interval", "period", x::telem::SECOND.nanoseconds());
-    auto module = std::make_shared<Module>();
+    auto module = std::make_shared<Module>(std::make_shared<strings::State>());
     runtime::node::MultiFactory multi({module});
     const auto node = ASSERT_NIL_P(multi.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[0], setup.make_node())
@@ -223,7 +229,7 @@ TEST(TimeModuleTest, CreatesIntervalNodeQualifiedViaMultiFactory) {
 /// @brief Test that module creates a Wait node from valid configuration.
 TEST(TimeModuleTest, CreatesWaitNode) {
     TestSetup setup("wait", "duration", x::telem::SECOND.nanoseconds());
-    Module factory;
+    Module factory(std::make_shared<strings::State>());
     const auto node = ASSERT_NIL_P(factory.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[0], setup.make_node())
     ));
@@ -233,7 +239,7 @@ TEST(TimeModuleTest, CreatesWaitNode) {
 /// @brief Test that MultiFactory strips prefix for qualified time.wait type.
 TEST(TimeModuleTest, CreatesWaitNodeQualifiedViaMultiFactory) {
     TestSetup setup("time.wait", "duration", x::telem::SECOND.nanoseconds());
-    auto module = std::make_shared<Module>();
+    auto module = std::make_shared<Module>(std::make_shared<strings::State>());
     runtime::node::MultiFactory multi({module});
     const auto node = ASSERT_NIL_P(multi.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[0], setup.make_node())
@@ -244,7 +250,7 @@ TEST(TimeModuleTest, CreatesWaitNodeQualifiedViaMultiFactory) {
 /// @brief Test that shortest_span is set to the first interval when uninitialized.
 TEST(TimeModuleTest, ShortestSpanSetToFirstInterval) {
     TestSetup setup("interval", "period", (500 * x::telem::MILLISECOND).nanoseconds());
-    Module factory;
+    Module factory(std::make_shared<strings::State>());
     ASSERT_NIL_P(factory.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[0], setup.make_node())
     ));
@@ -259,7 +265,7 @@ TEST(TimeModuleTest, ShortestSpanUnsetForZeroVarBoundPeriod) {
         .kind = types::Kind::VarRef,
         .elem = x::mem::indirect<types::Type>(types::Type{.kind = types::Kind::I64})
     };
-    Module factory;
+    Module factory(std::make_shared<strings::State>());
     ASSERT_NIL_P(
         factory.create(runtime::node::Config(setup.ir, ir_node, setup.make_node()))
     );
@@ -271,7 +277,7 @@ TEST(TimeModuleTest, ShortestSpanIsTheMinimumAcrossNodes) {
     TestSetup setup1("interval", "period", (600 * x::telem::MILLISECOND).nanoseconds());
     TestSetup setup2("wait", "duration", (400 * x::telem::MILLISECOND).nanoseconds());
 
-    Module factory;
+    Module factory(std::make_shared<strings::State>());
     ASSERT_NIL_P(factory.create(
         runtime::node::Config(setup1.ir, setup1.ir.nodes[0], setup1.make_node())
     ));
@@ -284,7 +290,7 @@ TEST(TimeModuleTest, ShortestSpanIsTheMinimumAcrossNodes) {
 /// @brief Test that the module rejects a non-positive literal span.
 TEST(TimeModuleTest, RejectsNonPositiveLiteralSpan) {
     TestSetup wait("wait", "duration", 0);
-    Module factory;
+    Module factory(std::make_shared<strings::State>());
     const auto result = factory.create(
         runtime::node::Config(wait.ir, wait.ir.nodes[0], wait.make_node())
     );
@@ -1110,7 +1116,7 @@ TEST(NowTest, IsOutputTruthyFalseForUnknownParam) {
 /// @brief Now node does not affect shortest_span.
 TEST(TimeModuleTest, NowDoesNotAffectShortestSpan) {
     NowTestSetup setup;
-    Module factory;
+    Module factory(std::make_shared<strings::State>());
     ASSERT_NIL_P(factory.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[0], setup.make_node())
     ));
@@ -1125,7 +1131,7 @@ class VarConfig {
     runtime::state::State state;
 
 public:
-    Module factory;
+    Module factory{std::make_shared<strings::State>()};
     std::unique_ptr<runtime::node::Node> node;
 
     VarConfig(
@@ -1354,7 +1360,7 @@ compile_shortest(const synnax::Synnax &client, const std::string &source) {
             b.name
         )
     );
-    auto factory = std::make_shared<Module>();
+    auto factory = std::make_shared<Module>(std::make_shared<strings::State>());
     runtime::state::State s(
         runtime::state::Config{.ir = static_cast<const ir::IR &>(prog), .channels = {}},
         runtime::errors::noop_handler
@@ -1601,4 +1607,56 @@ sequence main {
     ),
     [](const testing::TestParamInfo<ShortestCase> &info) { return info.param.name; }
 );
+
+const std::string_view FORMAT_WAT = R"wat(
+(module
+  (import "time" "format" (func $format (param i64) (result i32)))
+  (func (export "call_format") (param i64) (result i32)
+    (call $format (local.get 0)))
+)
+)wat";
+
+/// @brief binds the time module into a guest that imports only time.format.
+struct FormatFixture {
+    std::shared_ptr<strings::State> str_state;
+    Module mod;
+    wasmtime::Engine engine;
+    wasmtime::Store store;
+    wasmtime::Linker linker;
+    wasmtime::Instance instance;
+
+    FormatFixture():
+        str_state(std::make_shared<strings::State>()),
+        mod(str_state),
+        store(engine),
+        linker(engine),
+        instance(setup_instance()) {}
+
+    std::string format(const int64_t ns) {
+        auto fn = std::get<wasmtime::Func>(instance.get(store, "call_format").value());
+        const auto result = fn.call(store, {wasmtime::Val(ns)}).unwrap();
+        return str_state->get(result[0].i32());
+    }
+
+private:
+    wasmtime::Instance setup_instance() {
+        mod.bind_to(linker, store);
+        auto wasm_mod = wasmtime::Module::compile(engine, FORMAT_WAT).unwrap();
+        return linker.instantiate(store, wasm_mod).unwrap();
+    }
+};
+
+/// @brief time.format matches the Go vectors byte for byte.
+TEST(FormatTest, MatchesTheGoVectors) {
+    FormatFixture f;
+    EXPECT_EQ(f.format(0), "1970-01-01T00:00:00Z");
+    EXPECT_EQ(f.format(1'500'000'000), "1970-01-01T00:00:01.5Z");
+    EXPECT_EQ(f.format(1'000'000'001), "1970-01-01T00:00:01.000000001Z");
+    EXPECT_EQ(f.format(1'000'000'000'000'000'000), "2001-09-09T01:46:40Z");
+    EXPECT_EQ(f.format(-1'000'000'000'000'000'000), "1938-04-24T22:13:20Z");
+    EXPECT_EQ(f.format(1'326'789'125'000'000'000), "2012-01-17T08:32:05Z");
+    EXPECT_EQ(f.format(1'326'789'125'250'000'000), "2012-01-17T08:32:05.25Z");
+    EXPECT_EQ(f.format(1'709'251'199'999'999'999), "2024-02-29T23:59:59.999999999Z");
+    EXPECT_EQ(f.format(946'684'800'000'000'000), "2000-01-01T00:00:00Z");
+}
 }
