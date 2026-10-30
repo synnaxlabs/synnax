@@ -82,6 +82,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Migrations:         []gorp.Migration{v2.ReadMigration},
 			SetEntryKey:        (*ReadConfig).SetKey,
 			ApplyEntryDefaults: (*ReadConfig).ApplyDefaults,
+			ValidateEntry:      (*ReadConfig).Validate,
 		},
 	); !ok(err, s.Read) {
 		return nil, err
@@ -97,6 +98,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			Migrations:         []gorp.Migration{v2.WriteMigration},
 			SetEntryKey:        (*WriteConfig).SetKey,
 			ApplyEntryDefaults: (*WriteConfig).ApplyDefaults,
+			ValidateEntry:      (*WriteConfig).Validate,
 		},
 	); !ok(err, s.Write) {
 		return nil, err

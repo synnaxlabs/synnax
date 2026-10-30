@@ -52,7 +52,9 @@ describe("links", () => {
       const href = `https://docs.synnaxlabs.com${TARGET}#present`;
       const { failures, fetched } = await run(href);
       expect(failures).toEqual([]);
-      expect(fetched.filter((url) => url.includes("docs.synnaxlabs.com"))).toEqual([]);
+      expect(
+        fetched.filter((url) => new URL(url).host === "docs.synnaxlabs.com"),
+      ).toEqual([]);
     });
 
     it("should report a missing anchor on a built page", async () => {

@@ -15,9 +15,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -33,9 +34,12 @@ func TestAPIAuth(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
-	node        mock.Node
+	node        testutil.Node
 	authSvc     *auth.Service
 	passwordSvc *password.Service
+	apiKeySvc   *apikey.Service
+	rbacSvc     *rbac.Service
+	otg         *ontology.Ontology
 	userSvc     *user.Service
 	apiSvc      *apiauth.Service
 	root        user.User
@@ -44,9 +48,9 @@ var (
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	node = mock.NewNode(ctx)
+	node = testutil.NewNode(ctx)
 	db := node.DB
-	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB: db, Ontology: otg,
 	}))
@@ -55,7 +59,8 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 	passwordSvc = MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 	root, _ = MustSucceed2(user.ProvisionRoot(ctx, userSvc, passwordSvc, creds))
-	rbacSvc := MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
+	apiKeySvc = MustOpen(apikey.OpenService(ctx, apikey.ServiceConfig{DB: db}))
+	rbacSvc = MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 		Group:    groupSvc,
@@ -65,11 +70,14 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB: db,
 		Authenticators: map[auth.Method]auth.Authenticator{
 			auth.MethodPassword: passwordSvc,
+			auth.MethodAPIKey:   apiKeySvc,
 		},
 	}))
 	apiSvc = MustSucceed(apiauth.NewService(apiauth.ServiceConfig{
 		Auth:     authSvc,
 		Password: passwordSvc,
+		APIKey:   apiKeySvc,
+		Ontology: otg,
 		User:     userSvc,
 		RBAC:     rbacSvc,
 		Cluster:  node.Cluster,

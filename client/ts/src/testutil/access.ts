@@ -47,8 +47,7 @@ const createUser = async (client: Synnax) => {
   const u = await client.users.create({
     username,
     password: "test",
-    firstName: "test",
-    lastName: "test",
+    name: "test",
   });
   return { username, key: u.key };
 };
@@ -85,7 +84,7 @@ export const createTestClientWithPolicy = async (
 export const BUILT_IN_ROLES = [
   "Owner",
   "Engineer",
-  "Host",
+  "Driver",
   "Operator",
   "Viewer",
 ] as const;
