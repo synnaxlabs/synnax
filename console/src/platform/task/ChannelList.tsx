@@ -164,14 +164,22 @@ export const ChannelList = <C extends Channel>({
   const content = (
     <Flex.Box className={CSS.B("channel-list")} empty grow={grow} style={style}>
       {resolve != null && <BindChannels<C> path={path} resolve={resolve} />}
-      {header}
-      {columns != null && <List.Headings checkable={checkable} />}
       <Menu.ContextMenu
         {...menuProps}
         menu={(p) => <ContextMenu {...p} {...rest} />}
         onDragOver={onDragOver}
         onDrop={onDrop}
       >
+        {/* A header element that names a channel by data-menu-key opens its menu. */}
+        <Flex.Box
+          y
+          empty
+          className={menuProps.className}
+          onContextMenu={menuProps.open}
+        >
+          {header}
+          {columns != null && <List.Headings checkable={checkable} />}
+        </Flex.Box>
         <Select.Frame<string, C>
           multiple
           data={data}

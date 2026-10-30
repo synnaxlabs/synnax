@@ -81,7 +81,7 @@ const nextAddress = (channel: ReadChannel | WriteChannel): number => {
 };
 
 /** @returns the first and last addresses of a channel. */
-export const addressSpan = (channel: ReadChannel): [number, number] => [
+export const addressSpan = (channel: ReadChannel | WriteChannel): [number, number] => [
   channel.address,
   nextAddress(channel) - 1,
 ];

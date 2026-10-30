@@ -11,6 +11,7 @@ import "@/platform/task/views/ListChannelItem.css";
 
 import { type channel } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
@@ -50,25 +51,32 @@ export const ListChannelItem = ({
   children,
   className,
   ...rest
-}: ListChannelItemProps): ReactElement => (
-  <Select.Item
-    {...rest}
-    checkable
-    align="center"
-    className={CSS.cls(CSS.B("list-channel-item"), className)}
-  >
-    <List.Cells>
-      {children}
-      <Icon.Arrow.Right className={CSS.BE("list-channel-item", "flow")} />
-      <Flex.Box x align="center" justify="between" gap="large">
-        <ChannelName
-          channel={channel}
-          namePath={`${path}.name`}
-          defaultName={defaultName}
-          id={getChannelNameID(rest.itemKey)}
-        />
-        <EnabledCheckbox path={`${path}.disabled`} />
-      </Flex.Box>
-    </List.Cells>
-  </Select.Item>
-);
+}: ListChannelItemProps): ReactElement => {
+  const disabled = Form.useFieldValue<boolean>(`${path}.disabled`, { optional: true });
+  return (
+    <Select.Item
+      {...rest}
+      checkable
+      align="center"
+      className={CSS.cls(
+        CSS.B("list-channel-item"),
+        disabled === true && CSS.BM("list-channel-item", "disabled"),
+        className,
+      )}
+    >
+      <List.Cells className={CSS.BE("list-channel-item", "cells")}>
+        {children}
+        <Icon.Arrow.Right className={CSS.BE("list-channel-item", "flow")} />
+        <Flex.Box x align="center" justify="between" gap="large">
+          <ChannelName
+            channel={channel}
+            namePath={`${path}.name`}
+            defaultName={defaultName}
+            id={getChannelNameID(rest.itemKey)}
+          />
+          <EnabledCheckbox path={`${path}.disabled`} />
+        </Flex.Box>
+      </List.Cells>
+    </Select.Item>
+  );
+};

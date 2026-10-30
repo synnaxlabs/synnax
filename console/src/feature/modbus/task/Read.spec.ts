@@ -11,7 +11,7 @@ import { type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { Modbus } from "@/feature/modbus";
 import { createModbusDevice } from "@/feature/modbus/testutil";
@@ -429,6 +429,54 @@ describe("Read", () => {
         holding(10, "float32"),
       ]);
       expect(container.querySelectorAll(".console-modbus__overlap")).toHaveLength(1);
+    });
+
+    it("should show the Modicon address after the offset", async () => {
+      await renderChannels([holding(10, "float32")]);
+      expect(within(getItems()[0]).getByText("400011")).toBeTruthy();
+    });
+
+    it("should add a channel at the free address the map is clicked at", async () => {
+      const { container } = await renderChannels([
+        holding(0, "uint16"),
+        holding(3, "uint16"),
+      ]);
+      const track = container.querySelector<HTMLElement>(".console-modbus__track");
+      if (track == null) throw new Error("no track");
+      vi.spyOn(track, "getBoundingClientRect").mockReturnValue(
+        new DOMRect(0, 0, 400, 8),
+      );
+      fireEvent.pointerMove(track, { clientX: 150 });
+      fireEvent.click(track);
+      await waitFor(() => expect(getItems()).toHaveLength(3));
+      const address = within(getItems()[2]).getByRole<HTMLInputElement>("textbox", {
+        name: "Address",
+      });
+      expect(address.value).toBe("1");
+    });
+
+    it("should not add a channel when a used address is clicked", async () => {
+      const { container } = await renderChannels([coil(0), coil(1)]);
+      const segment = container.querySelector(".console-modbus__segment");
+      if (segment == null) throw new Error("no segment");
+      fireEvent.click(segment);
+      expect(getItems()).toHaveLength(2);
+    });
+
+    it("should open a channel's menu from its segment in the map", async () => {
+      const { container } = await renderChannels([coil(0), coil(1)]);
+      fireEvent.contextMenu(container.querySelectorAll(".console-modbus__segment")[1]);
+      fireEvent.click(await screen.findByText("Disable"));
+      await waitFor(() =>
+        expect(
+          getItems().map((item) =>
+            item.classList.contains("console-list-channel-item--disabled"),
+          ),
+        ).toEqual([false, true]),
+      );
+      expect(
+        container.querySelectorAll(".console-modbus__segment--disabled"),
+      ).toHaveLength(1);
     });
 
     it("should not select a channel when a field is edited", async () => {

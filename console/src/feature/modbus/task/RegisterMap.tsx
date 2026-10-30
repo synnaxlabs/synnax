@@ -9,10 +9,11 @@
 
 import { context } from "@synnaxlabs/lyra/context";
 import { Form } from "@synnaxlabs/lyra/form";
+import { Menu } from "@synnaxlabs/lyra/menu";
 import { Store } from "@synnaxlabs/lyra/store";
-import { Theming } from "@synnaxlabs/lyra/theming";
-import { color } from "@synnaxlabs/x";
+import { id } from "@synnaxlabs/x";
 import {
+  type PointerEvent,
   type PropsWithChildren,
   type ReactElement,
   type RefCallback,
@@ -29,9 +30,12 @@ import {
   addressSpan,
   findOverlaps,
   type Overlaps,
+  READ_CHANNEL_SCHEMAS,
   type ReadChannel,
+  type ReadChannelType,
 } from "@/feature/modbus/task/types";
 import { CSS } from "@/platform/css";
+import { Task } from "@/platform/task";
 
 const CHANNELS_PATH = "config.channels";
 
@@ -99,24 +103,12 @@ export const useHoveredRef = (key: string): RefCallback<HTMLElement> => {
   };
 };
 
-const usePalette = (): (string | undefined)[] =>
-  (Theming.use().colors.visualization.palettes.default ?? []).map((c) =>
-    color.cssString(c),
-  );
-
 // Subscribes to a value derived from the channels, so a component re-renders only
 // when that value changes, not on every edit to a channel.
 const useDerived = <T,>(derive: (channels: ReadChannel[]) => T): T => {
   const { get, bind } = Form.useContext();
   const getSnapshot = () => derive(get<ReadChannel[]>(CHANNELS_PATH).value);
   return useSyncExternalStore(bind, getSnapshot, getSnapshot);
-};
-
-/** @returns the plot palette's color at the channel's position in the list. */
-export const useColor = (key: string): string | undefined => {
-  const palette = usePalette();
-  const index = useDerived((channels) => channels.findIndex((c) => c.key === key));
-  return palette.at(index % palette.length);
 };
 
 /**
@@ -134,31 +126,56 @@ const MAX_TICKS = 128;
 const rangeText = ([lo, hi]: [number, number]): string =>
   lo === hi ? `${lo}` : `${lo}–${hi}`;
 
+interface Free {
+  type: ReadChannelType;
+  address: number;
+}
+
+const createChannel = ({ type, address }: Free): ReadChannel => ({
+  ...READ_CHANNEL_SCHEMAS[type].parse({ type, address }),
+  ...Task.READ_CHANNEL_OVERRIDE,
+  key: id.create(),
+});
+
 /**
  * The addresses that the channels read: a lane for each register type, on one address
- * scale. Each channel fills its addresses in its color, and a hatched band marks an
- * address that two channels read. Pointing at a segment marks its channel in the list,
- * and the other way around.
+ * scale. Used addresses fill, and a hatched band marks an address that two channels
+ * read. Pointing at a segment marks its channel in the list, and the other way around.
+ * A segment opens its channel's menu, and a click on a free address adds a channel
+ * there.
  */
 export const RegisterMap = (): ReactElement | null => {
   const channels = Form.useFieldValue<ReadChannel[]>(CHANNELS_PATH);
+  const { set } = Form.useContext();
   const hovered = Hovered.usePresent();
   const setHovered = useSetHovered();
   const find = useFindOverlaps("Modbus.RegisterMap");
-  const palette = usePalette();
+  const [free, setFree] = useState<Free>();
   if (channels.length === 0) return null;
   const { ranges } = find(channels);
-  const spans = channels.map((c, i) => ({
-    channel: c,
-    span: addressSpan(c),
-    color: palette.at(i % palette.length),
-  }));
+  const spans = channels.map((channel) => ({ channel, span: addressSpan(channel) }));
   const lo = Math.min(...spans.map(({ span }) => span[0]));
   const hi = Math.max(...spans.map(({ span }) => span[1]));
   const count = hi - lo + 1;
   const left = (address: number) => `${((address - lo) / count) * 100}%`;
   const width = ([a, b]: [number, number]) => `${((b - a + 1) / count) * 100}%`;
   const hoveredSpan = spans.find(({ channel }) => channel.key === hovered);
+  const axisSpan: [number, number] | undefined =
+    hoveredSpan?.span ?? (free == null ? undefined : [free.address, free.address]);
+  const handleTrackMove = (type: ReadChannelType, e: PointerEvent<HTMLElement>) => {
+    const box = e.currentTarget.getBoundingClientRect();
+    const address = lo + Math.floor(((e.clientX - box.left) / box.width) * count);
+    const used = spans.some(
+      ({ channel, span }) =>
+        channel.type === type && span[0] <= address && address <= span[1],
+    );
+    setFree(used ? undefined : { type, address });
+  };
+  const handleAdd = () => {
+    if (free == null) return;
+    set(CHANNELS_PATH, [...channels, createChannel(free)]);
+    setFree(undefined);
+  };
   return (
     <div
       className={CSS.cls(
@@ -180,7 +197,12 @@ export const RegisterMap = (): ReactElement | null => {
               <RegisterGlyph type={t} />
               {REGISTERS[t].name}
             </span>
-            <span className={CSS.BE("modbus", "track")}>
+            <span
+              className={CSS.BE("modbus", "track")}
+              onPointerMove={(e) => handleTrackMove(t, e)}
+              onPointerLeave={() => setFree(undefined)}
+              onClick={handleAdd}
+            >
               {count <= MAX_TICKS &&
                 Array.from({ length: count }, (_, i) => (
                   <span
@@ -189,21 +211,36 @@ export const RegisterMap = (): ReactElement | null => {
                     style={{ left: left(lo + i) }}
                   />
                 ))}
-              {lane.map(({ channel, span, color }) => (
+              {free?.type === t && (
+                <span
+                  className={CSS.BE("modbus", "free")}
+                  style={{
+                    left: left(free.address),
+                    width: width([free.address, free.address]),
+                  }}
+                />
+              )}
+              {lane.map(({ channel, span }) => (
                 <span
                   key={channel.key}
                   className={CSS.cls(
+                    Menu.CONTEXT_TARGET,
                     CSS.BE("modbus", "segment"),
                     channel.key === hovered && CSS.BEM("modbus", "segment", "hovered"),
+                    channel.disabled === true &&
+                      CSS.BEM("modbus", "segment", "disabled"),
                   )}
-                  style={{ left: left(span[0]), width: width(span), background: color }}
+                  data-menu-key={channel.key}
+                  style={{ left: left(span[0]), width: width(span) }}
                   onPointerEnter={() => setHovered(channel.key)}
                   onPointerLeave={() => setHovered()}
-                  onClick={() =>
+                  onPointerMove={(e) => e.stopPropagation()}
+                  onClick={(e) => {
+                    e.stopPropagation();
                     document
                       .getElementById(channel.key)
-                      ?.scrollIntoView({ block: "nearest", behavior: "smooth" })
-                  }
+                      ?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+                  }}
                 />
               ))}
               {ranges[t]?.map((span) => (
@@ -218,17 +255,19 @@ export const RegisterMap = (): ReactElement | null => {
         );
       })}
       <div className={CSS.BE("modbus", "axis")}>
-        <span className={CSS.BE("modbus", "scale")}>
+        <span
+          className={CSS.cls(
+            CSS.BE("modbus", "scale"),
+            axisSpan != null && CSS.BEM("modbus", "scale", "pointed"),
+          )}
+        >
           <span className={CSS.BE("modbus", "axis-end")}>{lo}</span>
-          {hoveredSpan != null && (
+          {axisSpan != null && (
             <span
               className={CSS.BE("modbus", "axis-hovered")}
-              style={{
-                left: left(hoveredSpan.span[0]),
-                width: width(hoveredSpan.span),
-              }}
+              style={{ left: left(axisSpan[0]), width: width(axisSpan) }}
             >
-              {rangeText(hoveredSpan.span)}
+              {rangeText(axisSpan)}
             </span>
           )}
           <span className={CSS.BE("modbus", "axis-end")}>{hi}</span>
