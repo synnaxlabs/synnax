@@ -465,6 +465,26 @@ var _ = Describe("C++ JSON Plugin", func() {
 				},
 			)
 			It(
+				"Should merge a parent into a child without iterating a temporary",
+				func(ctx SpecContext) {
+					source := `
+					@cpp output "client/cpp/task"
+
+					Base struct {
+						left uint32
+					}
+
+					Child struct extends Base {
+						right uint32
+					}
+				`
+					resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+
+					ExpectContent(resp, "json.gen.h").
+						ToContain(`j.update(Base::to_json());`)
+				},
+			)
+			It(
 				"Should assign a map of primitives directly",
 				func(ctx SpecContext) {
 					source := `

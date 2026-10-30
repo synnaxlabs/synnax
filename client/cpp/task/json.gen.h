@@ -115,8 +115,7 @@ inline StartConfig StartConfig::parse(x::json::Parser parser) {
 
 inline x::json::json StartConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: KeyedConfig::to_json().items())
-        j[k] = v;
+    j.update(KeyedConfig::to_json());
     j["auto_start"] = this->auto_start;
     return j;
 }
@@ -130,8 +129,7 @@ inline PersistConfig PersistConfig::parse(x::json::Parser parser) {
 
 inline x::json::json PersistConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: StartConfig::to_json().items())
-        j[k] = v;
+    j.update(StartConfig::to_json());
     j["data_saving_disabled"] = this->data_saving_disabled;
     return j;
 }
@@ -152,8 +150,7 @@ inline ReadConfig ReadConfig::parse(x::json::Parser parser) {
 
 inline x::json::json ReadConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: PersistConfig::to_json().items())
-        j[k] = v;
+    j.update(PersistConfig::to_json());
     j["sample_rate"] = this->sample_rate;
     j["stream_rate"] = this->stream_rate;
     return j;
@@ -168,8 +165,7 @@ inline WriteConfig WriteConfig::parse(x::json::Parser parser) {
 
 inline x::json::json WriteConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: PersistConfig::to_json().items())
-        j[k] = v;
+    j.update(PersistConfig::to_json());
     j["device"] = this->device;
     return j;
 }
@@ -184,8 +180,7 @@ inline ScanConfig ScanConfig::parse(x::json::Parser parser) {
 
 inline x::json::json ScanConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: KeyedConfig::to_json().items())
-        j[k] = v;
+    j.update(KeyedConfig::to_json());
     j["rate"] = this->rate;
     j["disabled"] = this->disabled;
     return j;
