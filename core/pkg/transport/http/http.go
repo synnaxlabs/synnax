@@ -118,7 +118,7 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/auth/password/rename",
 		),
-		AuthPasswordSet: unary[password.SetRequest, struct{}](
+		AuthPasswordSet: unary[password.SetRequest, password.SetResponse](
 			router,
 			"/api/v1/auth/password/set",
 		),

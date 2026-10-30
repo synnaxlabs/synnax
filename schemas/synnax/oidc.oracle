@@ -12,12 +12,12 @@ import "schemas/synnax/ontology"
 @go output "core/pkg/service/auth/oidc"
 @ts output "client/ts/src/auth/oidc"
 
-Key = uuid {
+LinkKey = uuid {
     @doc value "is a unique identifier for a provider link."
 }
 
 Link struct {
-    key      Key = create {
+    key      LinkKey = create {
         @doc value "is the unique identifier for this link."
         @key
     }

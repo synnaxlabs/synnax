@@ -133,6 +133,19 @@ const (
 	sessionKey = "Session"
 )
 
+// Deliver returns token, or with cookie set hands it to the transport through
+// [SessionCookieParam] and returns an empty token.
+func Deliver(ctx context.Context, svc *auth.Service, token string, cookie bool) string {
+	if !cookie {
+		return token
+	}
+	freighter.MDFromContext(ctx).Set(SessionCookieParam, SessionCookie{
+		Token:    token,
+		Lifetime: svc.IdleTimeout(),
+	})
+	return ""
+}
+
 // GetSubject returns the subject of the request's session.
 func GetSubject(ctx context.Context) ontology.ID {
 	s, ok := freighter.MDFromContext(ctx).Get(subjectKey)

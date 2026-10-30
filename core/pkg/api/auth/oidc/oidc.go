@@ -169,7 +169,7 @@ func (s *Service) Retrieve(
 // UnlinkRequest names provider links to remove.
 type UnlinkRequest struct {
 	// Keys are the links to remove.
-	Keys []oidc.Key `json:"keys" msgpack:"keys"`
+	Keys []oidc.LinkKey `json:"keys" msgpack:"keys"`
 }
 
 // Unlink removes the given provider links and ends the sessions they opened. A caller
@@ -199,9 +199,9 @@ func (s *Service) Unlink(
 	); err != nil {
 		return struct{}{}, err
 	}
-	stored := lo.Map(links, func(l oidc.Link, _ int) oidc.Key { return l.Key })
+	stored := lo.Map(links, func(l oidc.Link, _ int) oidc.LinkKey { return l.Key })
 	if err := s.oidc.NewWriter(tx).Delete(ctx, stored...); err != nil {
 		return struct{}{}, err
 	}
-	return struct{}{}, s.auth.NewWriter(tx).RevokeCredential(ctx, nil, stored...)
+	return struct{}{}, s.auth.NewWriter(tx).RevokeCredential(ctx, stored...)
 }

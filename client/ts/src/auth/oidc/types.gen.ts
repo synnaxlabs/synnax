@@ -14,8 +14,8 @@ import { z } from "zod";
 
 import { ontology } from "@/ontology";
 
-export const keyZ = z.uuid();
-export type Key = z.infer<typeof keyZ>;
+export const linkKeyZ = z.uuid();
+export type LinkKey = z.infer<typeof linkKeyZ>;
 
 /**
  * Link links an OpenID Connect provider account to a user. A user holds one link per
@@ -23,7 +23,7 @@ export type Key = z.infer<typeof keyZ>;
  */
 export const linkZ = z.object({
   /** key is the unique identifier for this link. */
-  key: keyZ.default(uuid.create),
+  key: linkKeyZ.default(uuid.create),
   /** subject is the user the provider account logs in as. */
   subject: ontology.idZ,
   /** provider is the name of the provider in the Core's settings. */
