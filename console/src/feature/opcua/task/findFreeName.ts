@@ -11,7 +11,7 @@ import { type Synnax } from "@synnaxlabs/client";
 
 /**
  * @returns base, or base with the lowest numeric suffix, such that no channel and no
- * name in reserved holds it or its index name. Adds the name to reserved.
+ * name in reserved holds it or its index name. Adds both names to reserved.
  */
 export const findFreeName = async (
   client: Synnax,
@@ -20,10 +20,11 @@ export const findFreeName = async (
 ): Promise<string> => {
   for (let n = 1; ; n++) {
     const name = n === 1 ? base : `${base}_${n}`;
-    if (reserved.has(name)) continue;
-    const taken = await client.channels.retrieve([name, `${name}_time`]);
+    const index = `${name}_time`;
+    if (reserved.has(name) || reserved.has(index)) continue;
+    const taken = await client.channels.retrieve([name, index]);
     if (taken.length > 0) continue;
-    reserved.add(name);
+    reserved.add(name).add(index);
     return name;
   }
 };

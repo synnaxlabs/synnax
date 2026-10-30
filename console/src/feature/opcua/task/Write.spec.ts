@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type opcua, type Synnax, type task } from "@synnaxlabs/client";
+import { type opcua, type Synnax, task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { type Status } from "@synnaxlabs/lyra/status";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { type z } from "zod";
@@ -20,9 +21,12 @@ import {
   createScannedDevice,
   createVariableNode,
   dragNode,
+  selectDevice,
 } from "@/feature/opcua/testutil";
 import {
+  answerCommand,
   answerNextCommand,
+  awaitCommand,
   awaitEditableForm,
   createChannelReadOnlyClient,
   deployAndAwaitTask,
@@ -375,6 +379,38 @@ describe("Write", () => {
       ]);
     });
 
+    it("should not give a free name whose index another method sets", async () => {
+      const dev = await createOPCDevice(client);
+      const nodeName = createMethodName();
+      const named = {
+        ...createMethodChannel(nodeName, [MODE, SPEED]),
+        name: `${nodeName}_cmd_time`,
+      };
+      const draft = await createDraft(
+        client,
+        createWriteConfig(dev.key, [
+          createMethodChannel(nodeName, [MODE, SPEED]),
+          named,
+        ]),
+      );
+      const { container } = await renderWrite({ client, taskKey: draft.key });
+      await screen.findAllByText(`Call ${nodeName}`);
+      const { config } = await deployAndAwaitTask(
+        client,
+        container,
+        draft.key,
+        OPCUA.Task.WRITE_SCHEMAS,
+      );
+      const commands = await client.channels.retrieve(
+        config.channels.map(({ cmdChannel }) => cmdChannel),
+      );
+      const names = new Map(commands.map(({ key, name }) => [key, name]));
+      expect(config.channels.map(({ cmdChannel }) => names.get(cmdChannel))).toEqual([
+        `${nodeName}_cmd_2`,
+        `${nodeName}_cmd_time`,
+      ]);
+    });
+
     it("should replace the command channel when the command moves to an argument of another type", async () => {
       const dev = await createOPCDevice(client);
       const ch = createMethodChannel(createMethodName(), [MODE, SPEED]);
@@ -482,6 +518,16 @@ describe("Write", () => {
       ]);
     });
 
+    const CONFIGURE: OPCUA.Task.ScannedNode = {
+      key: "ns=1;s=Pump.Configure",
+      nodeId: "ns=1;s=Pump.Configure",
+      name: "Configure",
+      nodeClass: "Method",
+      dataType: "",
+      isArray: false,
+      field: "",
+    };
+
     // Drops a method that takes the arguments onto a draft that holds one node, and
     // returns the method channel that the draft saves.
     const dropMethod = async (
@@ -490,33 +536,23 @@ describe("Write", () => {
       const { scan, device } = await createScannedDevice(client);
       const held = createWriteChannel();
       const draft = await createDraft(client, createWriteConfig(device.key, [held]));
-      const method: OPCUA.Task.ScannedNode = {
-        key: "ns=1;s=Pump.Configure",
-        nodeId: "ns=1;s=Pump.Configure",
-        name: "Configure",
-        nodeClass: "Method",
-        dataType: "",
-        isArray: false,
-        field: "",
-      };
       const root = await answerNextCommand(client, scan, {
         type: OPCUA.Task.BROWSE_COMMAND_TYPE,
-        data: { channels: [method] },
+        data: { channels: [CONFIGURE] },
       });
       await renderWrite({ client, taskKey: draft.key });
       await root.answered;
       const read = await answerNextCommand(client, scan, {
         type: OPCUA.Task.READ_NODE_COMMAND_TYPE,
         data: {
-          node: method,
+          node: CONFIGURE,
           nodeClass: "Method",
           browseName: "Configure",
           inputArguments,
         },
       });
-      fireEvent.dragStart(await screen.findByText("Configure"));
-      fireEvent.drop(await screen.findByText(new RegExp(held.nodeName)));
-      expect((await read.answered).args).toMatchObject({ nodeId: method.nodeId });
+      await dragNode(CONFIGURE.name, held.nodeName);
+      expect((await read.answered).args).toMatchObject({ nodeId: CONFIGURE.nodeId });
       const [first, added] = await waitFor(async () => {
         const { config } = await client.tasks.retrieve({
           key: draft.key,
@@ -557,6 +593,68 @@ describe("Write", () => {
       ).toMatchObject({
         arguments: [{ source: "value", value: "", name: "recipe", dataType: "" }],
       });
+    });
+
+    it("should add no method when the task moves to another server during the read", async () => {
+      const first = await createScannedDevice(client);
+      const second = await createScannedDevice(client);
+      const held = createWriteChannel();
+      const draft = await createDraft(
+        client,
+        createWriteConfig(first.device.key, [held]),
+      );
+      const root = await answerNextCommand(client, first.scan, {
+        type: OPCUA.Task.BROWSE_COMMAND_TYPE,
+        data: { channels: [CONFIGURE] },
+      });
+      const statuses: Status.NotificationSpec[] = [];
+      await renderWrite({
+        client,
+        taskKey: draft.key,
+        onStatuses: (next) => statuses.splice(0, statuses.length, ...next),
+      });
+      await root.answered;
+      const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+      let read: task.Command;
+      try {
+        await dragNode(CONFIGURE.name, held.nodeName);
+        read = await awaitCommand(
+          streamer,
+          first.scan.key,
+          OPCUA.Task.READ_NODE_COMMAND_TYPE,
+        );
+      } finally {
+        streamer.close();
+      }
+      const secondRoot = await answerNextCommand(client, second.scan, {
+        type: OPCUA.Task.BROWSE_COMMAND_TYPE,
+        data: { channels: [] },
+      });
+      await selectDevice(first.device.name, second.device.name);
+      await secondRoot.answered;
+      await answerCommand(client, first.scan, read, {
+        data: {
+          node: CONFIGURE,
+          nodeClass: "Method",
+          browseName: "Configure",
+          inputArguments: [],
+        },
+      });
+      await waitFor(() =>
+        expect(statuses).toContainEqual(
+          expect.objectContaining({
+            variant: "warning",
+            name: CONFIGURE.name,
+            message: "Added no methods",
+            description: "The task moved to another server before the Driver answered.",
+          }),
+        ),
+      );
+      const { config } = await client.tasks.retrieve({
+        key: draft.key,
+        schemas: OPCUA.Task.WRITE_SCHEMAS,
+      });
+      expect(config.channels).toEqual([held]);
     });
 
     it("should keep the object of a method dragged from the details", async () => {
