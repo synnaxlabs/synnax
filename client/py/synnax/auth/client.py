@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import base64
 from contextvars import ContextVar
 from uuid import UUID
 
@@ -27,6 +28,25 @@ from synnax.exceptions import ExpiredToken, InvalidToken, SessionEnded
 from synnax.user.payload import User
 from synnax.util.send_required import send_required
 from x.telem import TimeStamp
+
+_API_KEY_PREFIX = "syk_"
+
+
+def api_key_id(token: str) -> UUID:
+    """Returns the key of the API key record that token belongs to.
+
+    :raises InvalidToken: if token is not an API key.
+    """
+    if not token.startswith(_API_KEY_PREFIX):
+        raise InvalidToken("not an API key")
+    body = token.removeprefix(_API_KEY_PREFIX)
+    try:
+        raw = base64.urlsafe_b64decode(body + "=" * (-len(body) % 4))
+    except ValueError as e:
+        raise InvalidToken("malformed API key") from e
+    if len(raw) != 48:
+        raise InvalidToken("malformed API key")
+    return UUID(bytes=raw[:16])
 
 
 class _SessionCreateRequest(BaseModel):

@@ -16,6 +16,8 @@
 
 #include "client/clib/internal.h"
 #include "client/clib/synnax.h"
+#include "client/cpp/testutil/testutil.h"
+#include "x/cpp/testutil/testutil.h"
 
 namespace synnax::clib {
 constexpr int32_t OK = 0;
@@ -68,6 +70,7 @@ TEST(ClibClient, testOpenWithNullOutClientReturnsValidationError) {
         9090,
         "synnax",
         "seldon",
+        nullptr,
         0,
         0,
         0,
@@ -87,6 +90,7 @@ TEST(ClibClient, testOpenWithNullErrorDoesNotCrash) {
             9090,
             "synnax",
             "seldon",
+            nullptr,
             1,
             0,
             0,
@@ -111,6 +115,7 @@ TEST(ClibClient, testConnectsToLocalCluster) {
         9090,
         "synnax",
         "seldon",
+        nullptr,
         0,
         0,
         0,
@@ -120,6 +125,51 @@ TEST(ClibClient, testConnectsToLocalCluster) {
     ASSERT_EQ(code, OK) << err.message;
     ASSERT_NE(client, nullptr);
     synnax_client_close(client);
+}
+
+/// @brief it should connect with an API key in place of a username and password.
+TEST(ClibClient, ConnectsWithAPIKey) {
+    auto admin = new_test_client();
+    const auto created = ASSERT_NIL_P(admin.api_keys.create("clib"));
+    SynnaxError err;
+    SynnaxClient *client = nullptr;
+    const int32_t code = synnax_client_open(
+        "localhost",
+        9090,
+        nullptr,
+        nullptr,
+        created.token.c_str(),
+        0,
+        0,
+        0,
+        &client,
+        &err
+    );
+    ASSERT_EQ(code, OK) << err.message;
+    ASSERT_NE(client, nullptr);
+    synnax_client_close(client);
+    ASSERT_NIL(admin.api_keys.del({created.key.key}));
+}
+
+/// @brief it should reject an API key given alongside a username and password.
+TEST(ClibClient, OpenWithAPIKeyAndPasswordReturnsValidationError) {
+    SynnaxError err;
+    SynnaxClient *client = nullptr;
+    const int32_t code = synnax_client_open(
+        "localhost",
+        9090,
+        "synnax",
+        "seldon",
+        "syk_key",
+        0,
+        0,
+        0,
+        &client,
+        &err
+    );
+    EXPECT_NE(code, OK);
+    EXPECT_EQ(client, nullptr);
+    EXPECT_STREQ(err.type, "sy.validation");
 }
 
 /// @brief it should report a connection error and leave out_client null (without
@@ -132,6 +182,7 @@ TEST(ClibClient, testOpenAgainstUnreachableClusterReturnsError) {
         59999,
         "synnax",
         "seldon",
+        nullptr,
         0,
         1,
         0,
