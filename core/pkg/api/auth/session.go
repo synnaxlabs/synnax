@@ -68,7 +68,10 @@ func (s *Service) CreateSession(
 	if err != nil {
 		return SessionCreateResponse{}, err
 	}
-	res := SessionCreateResponse{Token: s.deliver(ctx, tk, req.Cookie), Session: session}
+	res := SessionCreateResponse{
+		Token:   s.deliver(ctx, tk, req.Cookie),
+		Session: session,
+	}
 	if res.User, err = s.userOf(ctx, session.Subject); err != nil {
 		return SessionCreateResponse{}, err
 	}
