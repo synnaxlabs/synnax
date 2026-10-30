@@ -19,7 +19,7 @@ import synnax.channel.payload as channel
 from freighter import (
     EOF,
     AsyncStream,
-    AsyncWebsocketClient,
+    AsyncStreamClient,
     Stream,
     Unreachable,
     WebsocketClient,
@@ -286,13 +286,13 @@ class AsyncStreamer:
     """
 
     _stream: AsyncStream[_Request, _Response]
-    _client: AsyncWebsocketClient
+    _client: AsyncStreamClient
     _adapter: ReadFrameAdapter
 
     def __init__(
         self,
         *,
-        client: AsyncWebsocketClient,
+        client: AsyncStreamClient,
         adapter: ReadFrameAdapter,
         downsample_factor: int,
         throttle_rate: float = 0,

@@ -32,6 +32,7 @@ const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "barrel-impor
   "src/a/child/x.ts",
   "src/b/index.ts",
   "src/b/z.ts",
+  "src/b/external.ts",
   "src/loose/w.ts",
   "src/pages/api/index.ts",
   "src/pages/api/route.ts",
@@ -63,10 +64,26 @@ tester.run("barrel-imports", barrelImports, {
       filename: file("src/b/z.spec.ts"),
       code: 'import { render } from "@/a/testutil";',
     },
+    { filename: file("src/b/external.ts"), code: 'export * from "@/a/external";' },
     { filename: file("src/loose/w.spec.ts"), code: 'import { w } from "./w";' },
     { filename: file("vite.config.ts"), code: 'import { B } from "./src/a/Button";' },
   ],
   invalid: [
+    {
+      filename: file("src/b/external.ts"),
+      code: 'export * as A from "@/a/external";',
+      errors: [{ messageId: "deep", data: { module: "@/a" } }],
+    },
+    {
+      filename: file("src/b/external.ts"),
+      code: 'export { a } from "@/a/external";',
+      errors: [{ messageId: "deep", data: { module: "@/a" } }],
+    },
+    {
+      filename: file("src/b/z.ts"),
+      code: 'export * from "@/a/external";',
+      errors: [{ messageId: "deep", data: { module: "@/a" } }],
+    },
     {
       filename: file("src/b/z.ts"),
       code: 'import { B } from "@/a/Button";',
