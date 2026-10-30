@@ -248,17 +248,6 @@ func (s *Service) RetrieveOrCreateEmbedded(
 
 func (s *Service) Close() error { return s.closer.Close() }
 
-func (s *Service) RetrieveStatus(ctx context.Context, key Key) (Status, error) {
-	var stat Status
-	if err := s.Status.NewRetrieve[StatusDetails]().
-		Where(status.MatchKeys[StatusDetails](key.OntologyID().String())).
-		Entry(&stat).
-		Exec(ctx, nil); err != nil {
-		return Status{}, err
-	}
-	return stat, nil
-}
-
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	tx = gorp.OverrideTx(s.DB, tx)
 	return Writer{

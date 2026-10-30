@@ -42,14 +42,14 @@ class TestSugared:
         """Should ask again after an empty answer when no default is given."""
         output = Output()
         prompt = _ScriptedPrompt([None, None, "secret"])
-        c = console.Sugared(prompt=prompt, print=MockPrint(output))
-        assert c.ask("Password", str, password=True) == "secret"
+        c = console.Sugared(prompt=prompt, print=MockPrint(output=output))
+        assert c.ask("Password", type_=str, password=True) == "secret"
         assert prompt.passwords == [True, True, True]
         assert len(output.entries) == 2
 
     def test_ask_returns_none_with_none_default(self) -> None:
         """Should return None for an empty answer when the default is None."""
         prompt = _ScriptedPrompt([None])
-        c = console.Sugared(prompt=prompt, print=MockPrint(Output()))
-        assert c.ask("Name", str, default=None) is None
+        c = console.Sugared(prompt=prompt, print=MockPrint(output=Output()))
+        assert c.ask("Name", type_=str, default=None) is None
         assert len(prompt.passwords) == 1

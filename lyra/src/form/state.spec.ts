@@ -394,6 +394,14 @@ describe("use", () => {
       expect(fieldState.status).toEqual(status);
     });
 
+    it("should key a status by its path", () => {
+      const state = create(initialValues, basicSchema);
+      state.setStatus("name", { variant: "error", message: "Taken" });
+      expect(state.getStatuses()).toEqual([
+        { key: "name", variant: "error", message: "Taken" },
+      ]);
+    });
+
     it("should clear every status when no path is given", () => {
       const state = create(initialValues, basicSchema);
       state.setStatus("name", { key: "name", variant: "error", message: "Taken" });

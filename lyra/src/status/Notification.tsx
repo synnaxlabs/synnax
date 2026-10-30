@@ -99,7 +99,7 @@ export const Notification = ({
             level="small"
             status={variant}
             weight={500}
-            overflow="ellipsis"
+            overflow="fade"
             className={CSS.BE("notification", "name")}
           >
             {name}

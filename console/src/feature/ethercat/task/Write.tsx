@@ -105,11 +105,11 @@ const Form: FC = () => {
   );
 };
 
-const getInitialValues: Task.GetInitialValues<WriteSchemas> = ({ config }) => ({
-  name: "EtherCAT write task",
-  type: WRITE_TYPE,
-  config: WRITE_SCHEMAS.config.parse(config ?? {}),
-});
+const getInitialValues: Task.GetInitialValues<WriteSchemas> = ({ config }) => {
+  const cfg = WRITE_SCHEMAS.config.parse(config ?? {});
+  if (config == null) cfg.channels = [createWriteChannel([])];
+  return { name: "EtherCAT write task", type: WRITE_TYPE, config: cfg };
+};
 
 const WRITE_INDEX_OPTIONS = {
   indexProperty: "writeStateIndex" as const,

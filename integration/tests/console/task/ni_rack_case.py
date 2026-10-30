@@ -17,7 +17,7 @@ from framework.hardware_case import HardwareCase
 class NIRackCase(HardwareCase, ConsoleCase):
     """ConsoleCase with a helper to create the NI test rack the form tests share."""
 
-    def create_test_ni_rack(self, rack_name: str, device_name: str) -> None:
+    def create_test_ni_rack(self, rack_name: str, *, device_name: str) -> None:
         """Create a rack holding one NI 9229 module, both deleted in teardown."""
         rack = self.create_test_rack(rack_name)
         # The key derives from the device name so a rerun after a killed teardown

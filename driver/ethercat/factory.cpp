@@ -15,7 +15,6 @@
 #include "driver/common/read_task.h"
 #include "driver/common/scan_task.h"
 #include "driver/common/write_task.h"
-#include "driver/errors/errors.h"
 #include "driver/ethercat/ethercat.h"
 #include "driver/ethercat/read_task.h"
 #include "driver/ethercat/scan_task.h"
@@ -61,10 +60,7 @@ std::unique_ptr<master::Manager> default_manager() {
     LOG(INFO) << "[ethercat] IgH unavailable, falling back to SOEM backend";
 #else
     LOG(INFO) << "[ethercat] using SOEM backend";
-    if (!check_pcap_available()) {
-        LOG(WARNING) << "[ethercat] " << driver::errors::missing_lib(PCAP_LIBRARY_INFO);
-        return nullptr;
-    }
+    if (!check_pcap_available()) return nullptr;
 #endif
     return std::make_unique<soem::Manager>();
 }

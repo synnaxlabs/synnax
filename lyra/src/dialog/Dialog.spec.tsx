@@ -250,7 +250,7 @@ describe("Dialog", () => {
         fireEvent.click(c.getByText("Toggle"));
         expect(c.getByText("Content")).toBeTruthy();
         expect(c.getByRole("dialog")).toBeTruthy();
-        expect(c.getByRole("dialog").classList).toContain(`pluto--${variant}`);
+        expect(c.getByRole("dialog").classList).toContain(`lyra--${variant}`);
       });
     });
   });
@@ -326,11 +326,11 @@ describe("Dialog", () => {
       vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (
         this: Element,
       ) {
-        if (this.classList.contains("pluto-dialog__frame")) return target;
+        if (this.classList.contains("lyra-dialog__frame")) return target;
         return rect(0, 0, 0, 0);
       });
       const isDialog = (el: HTMLElement): boolean =>
-        el.classList.contains("pluto-dialog__dialog");
+        el.classList.contains("lyra-dialog__dialog");
       vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockImplementation(
         function (this: HTMLElement) {
           return isDialog(this) ? dialog.width : 0;
@@ -398,7 +398,7 @@ describe("Dialog", () => {
       expect(el.style.left).toBe("400px");
       vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockImplementation(
         function (this: HTMLElement) {
-          return this.classList.contains("pluto-dialog__dialog") ? 620 : 0;
+          return this.classList.contains("lyra-dialog__dialog") ? 620 : 0;
         },
       );
       resize();
@@ -458,7 +458,7 @@ describe("Dialog", () => {
       const grow = (natural: number): void => {
         vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockImplementation(
           function (this: HTMLElement) {
-            if (!this.classList.contains("pluto-dialog__dialog")) return 0;
+            if (!this.classList.contains("lyra-dialog__dialog")) return 0;
             const available = parseFloat(variable(this, "available-height"));
             return Math.min(
               natural,

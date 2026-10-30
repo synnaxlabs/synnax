@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type observe, primitive, record } from "@synnaxlabs/x";
+import { array, type observe, primitive } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type connection } from "@/connection";
@@ -56,11 +56,7 @@ const createReqZ = z.object({ users: newZ.array() });
 const createResZ = z.object({ users: userZ.array() });
 const changeUsernameReqZ = z.object({ key: keyZ, username: z.string().min(1) });
 const changeUsernameResZ = z.object({});
-const renameReqZ = z.object({
-  key: keyZ,
-  firstName: z.string().optional(),
-  lastName: z.string().optional(),
-});
+const renameReqZ = z.object({ key: keyZ, name: z.string() });
 const renameResZ = z.object({});
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const deleteResZ = z.object({});
@@ -81,15 +77,11 @@ const singleIdentifier = (params: SingleParams): string =>
 
 const requestFilter = (req: RetrieveRequest): ((u: User) => boolean) => {
   const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
-  const usernameSet = primitive.isNonZero(req.usernames)
-    ? new Set(req.usernames)
-    : undefined;
-  return (u) => {
-    if (keySet != null && !keySet.has(u.key)) return false;
-    if (usernameSet != null && !usernameSet.has(u.username)) return false;
-    return true;
-  };
+  return (u) => keySet == null || keySet.has(u.key);
 };
+
+// The username lives on the user's password, so only the Core can match it.
+const SERVER_FIELDS = ["searchTerm", "limit", "offset", "usernames"] as const;
 
 export interface ClientConfig {
   unary: UnaryClient;
@@ -127,10 +119,6 @@ export class Client extends query.Retriever<
       name: "user",
       table: store,
       fetch: async (params) => {
-        if (!("key" in params)) {
-          const [cached] = store.get((u) => u.username === params.username);
-          if (cached != null) return [cached.key];
-        }
         const users = await this.execRetrieve(params);
         checkSingle(params, users);
         store.ingest(users);
@@ -138,8 +126,6 @@ export class Client extends query.Retriever<
       },
       compose: (records) => records[0],
       keyOf: (params) => ("key" in params ? params.key : null),
-      matches: (u, params) =>
-        "key" in params ? u.key === params.key : u.username === params.username,
       single: true,
     });
     super(cache, {
@@ -149,6 +135,7 @@ export class Client extends query.Retriever<
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
         matches: (u, req) => requestFilter(req)(u),
+        serverFields: SERVER_FIELDS,
       },
       single: { schema: singleParamsZ, space: single },
     });
@@ -176,48 +163,26 @@ export class Client extends query.Retriever<
     return isMany ? res.users : res.users[0];
   }
 
-  async changeUsername(
-    key: Key,
-    newUsername: string,
-    opts: query.WriteOptions = {},
-  ): Promise<void> {
-    const update = () => [
-      query.partialUpdate(this.store, key, { username: newUsername }),
-      this.cfg.ontology.cache.renameResource(ontologyID(key), newUsername),
-    ];
-    await query.optimistic({
-      rollbacks: update(),
-      onOptimistic: opts.onOptimistic,
-      commit: async () =>
-        await this.cfg.unary.send(
-          "/user/change-username",
-          { key, username: newUsername },
-          changeUsernameReqZ,
-          changeUsernameResZ,
-        ),
-    });
-    update();
+  async changeUsername(key: Key, newUsername: string): Promise<void> {
+    await this.cfg.unary.send(
+      "/user/change-username",
+      { key, username: newUsername },
+      changeUsernameReqZ,
+      changeUsernameResZ,
+    );
   }
 
-  async rename(
-    key: Key,
-    firstName?: string,
-    lastName?: string,
-    opts: query.WriteOptions = {},
-  ): Promise<void> {
+  async rename(key: Key, name: string, opts: query.WriteOptions = {}): Promise<void> {
     await query.optimistic({
       rollbacks: [
-        query.partialUpdate(
-          this.store,
-          key,
-          record.purgeUndefined({ firstName, lastName }),
-        ),
+        query.partialUpdate(this.store, key, { name }),
+        this.cfg.ontology.cache.renameResource(ontologyID(key), name),
       ],
       onOptimistic: opts.onOptimistic,
       commit: async () =>
         await this.cfg.unary.send(
           "/user/rename",
-          { key, firstName, lastName },
+          { key, name },
           renameReqZ,
           renameResZ,
         ),

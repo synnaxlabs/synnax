@@ -186,7 +186,7 @@ var _ = Describe("Streamer", Ordered, func() {
 				Eventually(outlet.Outlet()).Should(BeClosed())
 			},
 			Entry("no throttle", streamer.Config{}),
-			Entry("a throttle", streamer.Config{ThrottleRate: 5 * telem.Hertz}),
+			Entry("a throttle", streamer.Config{ThrottleRate: telem.Rate(5)}),
 			Entry("a downsampler", streamer.Config{DownsampleFactor: 2}),
 		)
 	})
@@ -669,7 +669,7 @@ var _ = Describe("Streamer", Ordered, func() {
 				Keys:  keys,
 			}))
 
-			throttleRate := 5 * telem.Hertz
+			throttleRate := telem.Rate(5)
 			s := MustSucceed(streamerSvc.New(ctx, streamer.Config{
 				Keys:         keys,
 				SendOpenAck:  true,
@@ -748,7 +748,7 @@ var _ = Describe("Streamer", Ordered, func() {
 				Keys:             keys,
 				SendOpenAck:      true,
 				DownsampleFactor: 2,
-				ThrottleRate:     5 * telem.Hertz,
+				ThrottleRate:     telem.Rate(5),
 			}))
 
 			sCtx, cancel := signal.Isolated()
@@ -787,7 +787,7 @@ var _ = Describe("Streamer", Ordered, func() {
 				Keys:  keys,
 			}))
 
-			throttleRate := 5 * telem.Hertz
+			throttleRate := telem.Rate(5)
 			s := MustSucceed(streamerSvc.New(ctx, streamer.Config{
 				Keys:         keys,
 				SendOpenAck:  true,
@@ -866,7 +866,7 @@ var _ = Describe("Streamer", Ordered, func() {
 				Keys:             keys,
 				SendOpenAck:      true,
 				DownsampleFactor: 2,
-				ThrottleRate:     5 * telem.Hertz,
+				ThrottleRate:     telem.Rate(5),
 			}))
 
 			sCtx, cancel := signal.Isolated()
