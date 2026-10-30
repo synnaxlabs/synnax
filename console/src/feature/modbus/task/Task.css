@@ -47,9 +47,8 @@
     color: var(--pluto-gray-l9);
 }
 
-/* A selected register type takes the color of its channel. */
 .console-modbus__trigger .console-modbus__glyph {
-    color: var(--console-modbus-color, var(--pluto-gray-l9));
+    color: var(--pluto-gray-l9);
 }
 
 .console-modbus__menu {
@@ -175,6 +174,7 @@
     height: 2rem;
     border-radius: 1px;
     background: var(--pluto-gray-l2);
+    cursor: pointer;
 }
 
 .console-modbus__tick {
@@ -186,11 +186,18 @@
 }
 
 .console-modbus__segment {
+    --console-modbus-used: color-mix(
+        in oklch,
+        var(--pluto-primary-z) 42%,
+        var(--pluto-gray-l1)
+    );
+
     position: absolute;
     top: 0;
     bottom: 0;
     min-width: 0.5rem;
     border-radius: 1px;
+    background: var(--console-modbus-used);
     box-shadow: inset -1px 0 0 var(--pluto-gray-l0);
     cursor: pointer;
     transition:
@@ -212,8 +219,34 @@
 }
 
 .console-modbus__segment--hovered {
+    --console-modbus-used: color-mix(
+        in oklch,
+        var(--pluto-primary-z) 58%,
+        var(--pluto-gray-l1)
+    );
+
     top: -0.25rem;
     bottom: -0.25rem;
+}
+
+/* A disabled channel keeps its addresses in stripes, as a calendar marks a tentative
+   event. */
+.console-modbus__segment--disabled {
+    background: repeating-linear-gradient(
+        -45deg,
+        var(--console-modbus-used) 0 2px,
+        var(--pluto-gray-l1) 2px 5px
+    );
+}
+
+.console-modbus__free {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    min-width: 0.5rem;
+    border-radius: 1px;
+    pointer-events: none;
+    background: var(--pluto-gray-l5);
 }
 
 .console-modbus__overlap {
@@ -248,7 +281,7 @@
 .console-modbus__axis-end {
     transition: opacity 0.12s ease-out;
 
-    .console-modbus__map--hovered & {
+    .console-modbus__scale--pointed & {
         opacity: 0;
     }
 }

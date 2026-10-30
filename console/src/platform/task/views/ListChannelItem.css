@@ -12,3 +12,11 @@
 .console-list-channel-item__flow {
     color: var(--pluto-gray-l6);
 }
+
+/* The enabled dot stays at full strength, as the way to enable the channel again. */
+.console-list-channel-item--disabled
+    .console-list-channel-item__cells
+    > :not(:last-child),
+.console-list-channel-item--disabled .console-task-channel-name {
+    opacity: 0.5;
+}

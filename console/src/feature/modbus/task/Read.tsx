@@ -15,28 +15,25 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Header } from "@synnaxlabs/lyra/header";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
 import { Telem } from "@synnaxlabs/pluto";
 import { DataType, errors, id, primitive } from "@synnaxlabs/x";
-import { type CSSProperties, type FC, type ReactElement } from "react";
+import { type FC, type ReactElement } from "react";
 
 import { useFromConfig } from "@/feature/modbus/device/queries";
 import { Select as SelectDevice } from "@/feature/modbus/device/Select";
 import { SCHEMAS } from "@/feature/modbus/device/types";
-import { parseAddress, toModicon } from "@/feature/modbus/task/address";
+import { AddressField } from "@/feature/modbus/task/AddressField";
 import { ByteOrderField } from "@/feature/modbus/task/ByteOrder";
 import { RegisterField, SHADOW_TRIGGER_PROPS } from "@/feature/modbus/task/Register";
 import {
   RegisterMap,
   RegisterMapProvider,
-  useColor,
   useHoveredRef,
   useIsHovered,
   useOverlaps,
 } from "@/feature/modbus/task/RegisterMap";
 import {
-  addressSpan,
   BIT_BOUNDS,
   deployReadConfigZ,
   isStringChannel,
@@ -75,54 +72,6 @@ const COLUMNS: List.Column[] = [
   { name: "Data type", width: "32rem", field: true },
   { name: "Byte order", width: "27rem", field: true },
 ];
-
-interface AddressFieldProps {
-  path: string;
-  channel: ReadChannel;
-}
-
-// A channel that spans several addresses shows its last one after the first. An
-// address that another channel also reads shows in red. The field takes a zero-based
-// offset or a six-digit Modicon address, and its tooltip shows the Modicon form. Text
-// that does not parse keeps the stored address and marks the field until a valid entry.
-const AddressField = ({ path, channel }: AddressFieldProps): ReactElement | null => {
-  const field = PForm.useField<number>(`${path}.address`);
-  const overlapping = useOverlaps(channel.key);
-  if (field == null) return null;
-  const invalid = field.status.variant !== "success";
-  const [lo, hi] = addressSpan(channel);
-  return (
-    <div
-      className={CSS.cls(
-        CSS.BE("modbus", "address"),
-        overlapping && CSS.BEM("modbus", "address", "overlap"),
-      )}
-      style={{ "--console-modbus-digits": String(lo).length } as CSSProperties}
-    >
-      <Input.Text
-        value={field.value.toString()}
-        onChange={(raw) => {
-          const parsed = parseAddress(channel.type, raw);
-          if ("error" in parsed)
-            return field.setStatus({ variant: "error", message: parsed.error });
-          // The status clears on its own only when the value changes.
-          if (invalid) field.setStatus({ variant: "success", message: "" });
-          field.onChange(parsed.address);
-        }}
-        onlyChangeOnBlur
-        selectOnFocus
-        preview={field.preview}
-        variant="shadow"
-        status={invalid ? field.status.variant : undefined}
-        tooltip={
-          invalid ? field.status.message : `Modicon ${toModicon(channel.type, lo)}`
-        }
-        aria-label="Address"
-      />
-      {hi > lo && <span className={CSS.BE("modbus", "address-end")}>{`–${hi}`}</span>}
-    </div>
-  );
-};
 
 const DataTypeField = ({ path }: { path: string }): ReactElement | null => {
   const field = PForm.useField<string>(`${path}.dataType`);
@@ -201,7 +150,7 @@ const ChannelListItem = ({ itemKey, ...rest }: Task.ChannelListItemProps) => {
   const dev = useFromConfig();
   const hovered = useIsHovered(itemKey);
   const hoveredRef = useHoveredRef(itemKey);
-  const color = useColor(itemKey);
+  const overlapping = useOverlaps(itemKey);
   return (
     <Task.Views.ListChannelItem
       {...rest}
@@ -215,13 +164,12 @@ const ChannelListItem = ({ itemKey, ...rest }: Task.ChannelListItemProps) => {
       }
       ref={hoveredRef}
       hovered={hovered}
-      style={{ "--console-modbus-color": color } as CSSProperties}
     >
       <List.Cell>
         <RegisterField path={path} />
       </List.Cell>
       <List.Cell>
-        <AddressField path={path} channel={ch} />
+        <AddressField path={path} variant="shadow" overlapping={overlapping} />
       </List.Cell>
       <List.Cell>
         <DataTypeCell path={path} channel={ch} />
