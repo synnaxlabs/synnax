@@ -34,6 +34,7 @@ import { executeScanCommand } from "@/feature/opcua/device/scanCommand";
 import { type ConnectionConfig, type Device } from "@/feature/opcua/device/types";
 import {
   BROWSE_COMMAND_TYPE,
+  type BrowseResponse,
   browseResponseZ,
   nodeIdentity,
   type ScannedNode,
@@ -109,14 +110,12 @@ const browseNodes = async (
   rack: rack.Key,
   connection: ConnectionConfig,
   parent?: ScannedNode,
-): Promise<ScannedNode[]> => {
-  const { channels } = await executeScanCommand(client, rack, {
+): Promise<BrowseResponse> =>
+  await executeScanCommand(client, rack, {
     type: BROWSE_COMMAND_TYPE,
     args: { connection, node_id: parent?.nodeId ?? "", field: parent?.field ?? "" },
     schema: browseResponseZ,
   });
-  return channels;
-};
 
 /** @returns the nodes that match, or that hold a node that matches. */
 const filterNodes = (
@@ -153,6 +152,7 @@ export const Browser = ({ device }: BrowserProps) => {
   const [query, setQuery] = useState("");
   const [lookup, setLookup] = useState<Lookup | null>(null);
   const client = Synnax.use();
+  const addStatus = Status.useAdder();
   const handleError = Status.useErrorHandler();
   const retrieveNodes = (parent?: BrowserNode) => {
     if (client == null) return;
@@ -160,14 +160,15 @@ export const Browser = ({ device }: BrowserProps) => {
       setStat(status.create({ variant: "loading", message: "Browsing OPC UA nodes" }));
     handleError(async () => {
       let channels: ScannedNode[] = [];
+      let truncated = false;
       let failure: status.Status | null = null;
       try {
-        channels = await browseNodes(
+        ({ channels, truncated } = await browseNodes(
           client,
           device.rack,
           device.properties.connection,
           parent,
-        );
+        ));
       } catch (e) {
         failure = status.fromException(e, "Failed to browse OPC UA nodes");
       }
@@ -178,6 +179,14 @@ export const Browser = ({ device }: BrowserProps) => {
         if (parent == null) setStat(failure);
         return;
       }
+      if (truncated)
+        addStatus({
+          variant: "warning",
+          name: parent?.name ?? device.name,
+          message: `Showing the first ${channels.length.toLocaleString()} nodes`,
+          description:
+            "The server lists more nodes than the Driver loads. Enter a node ID in the search to open a node that is not shown.",
+        });
       setStat(status.create({ variant: "success", message: "Browsed OPC UA nodes" }));
       // A member's name carries its structure's name, so channels made from members of
       // different structures do not collide.

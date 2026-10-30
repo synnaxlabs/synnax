@@ -363,7 +363,9 @@ TEST_F(TestScanTask, testBrowsePrintsNamespaceURIs) {
     ASSERT_EQ(ctx->statuses.size(), 1);
     const auto &state = ctx->statuses[0];
     ASSERT_EQ(state.variant, synnax::status::VARIANT_SUCCESS) << state.description;
-    const auto channels = x::json::json(state.details.data.value()).at("channels");
+    const x::json::json data = state.details.data.value();
+    EXPECT_FALSE(data.at("truncated").get<bool>());
+    const auto &channels = data.at("channels");
     const auto it = std::ranges::find_if(channels, [](const auto &ch) {
         return ch["name"] == "TestBoolean";
     });
@@ -1078,6 +1080,26 @@ TEST_F(TestScanTask, testBrowseVariablesStopsAtLimit) {
     const x::json::json data = status.details.data.value();
     EXPECT_TRUE(data.at("truncated").get<bool>());
     EXPECT_EQ(data.at("channels").size(), MAX_VARIABLES);
+    generated->stop();
+}
+
+/// @brief it should return the first children of a node that has more than the most
+/// that a browse lists, and say so.
+TEST_F(TestScanTask, testBrowseStopsAtChildLimit) {
+    const auto generated = start_generated_server(connection::MAX_CHILDREN + 1);
+    const auto status = run_command(
+        ctx,
+        task,
+        conn_pool,
+        store,
+        BROWSE_CMD_TYPE,
+        4882,
+        {{"node_id", "NS=1;S=Generated"}}
+    );
+    ASSERT_EQ(status.variant, synnax::status::VARIANT_SUCCESS) << status.description;
+    const x::json::json data = status.details.data.value();
+    EXPECT_TRUE(data.at("truncated").get<bool>());
+    EXPECT_EQ(data.at("channels").size(), connection::MAX_CHILDREN);
     generated->stop();
 }
 

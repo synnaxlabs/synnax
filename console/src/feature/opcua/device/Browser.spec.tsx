@@ -12,7 +12,7 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Haul } from "@synnaxlabs/lyra/haul";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { scheduler } from "@synnaxlabs/x";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { OPCUA } from "@/feature/opcua";
@@ -295,5 +295,51 @@ describe("Browser details", () => {
     await browse.answered;
     await screen.findByLabelText(/BadUserAccessDenied/);
     expect(screen.getByText("PumpSpeed")).toBeTruthy();
+  });
+});
+
+describe("Browser limits", () => {
+  it("should warn only when the server lists more nodes than the Driver loads", async () => {
+    const client = createTestClient();
+    const rack = await createRunningRack(client, "opc");
+    const scan = await rack.createTask({
+      name: uniqueName("opcua_scan"),
+      type: OPCUA.Task.SCAN_TYPE,
+      config: {},
+    });
+    const dev = await createOPCDevice(client, { rack: rack.key });
+    const root = await answerNextCommand(client, scan, {
+      type: OPCUA.Task.BROWSE_COMMAND_TYPE,
+      data: { channels: [TANK, PUMP], truncated: true },
+    });
+    const { wrapper } = await createConsoleWrapper({ client });
+    let statuses: Status.NotificationSpec[] = [];
+    render(
+      <>
+        <OPCUA.Device.Browser device={dev} />
+        <CaptureStatuses onStatuses={(s) => (statuses = s)} />
+      </>,
+      { wrapper },
+    );
+    await root.answered;
+    await waitFor(() =>
+      expect(statuses).toEqual([
+        expect.objectContaining({
+          variant: "warning",
+          name: dev.name,
+          message: "Showing the first 2 nodes",
+          description:
+            "The server lists more nodes than the Driver loads. Enter a node ID in the search to open a node that is not shown.",
+        }),
+      ]),
+    );
+    const child = await answerNextCommand(client, scan, {
+      type: OPCUA.Task.BROWSE_COMMAND_TYPE,
+      data: { channels: [variable("TankLevel")], truncated: false },
+    });
+    fireEvent.click(screen.getByText("TankPressure"));
+    await child.answered;
+    await screen.findByText("TankLevel");
+    expect(statuses).toHaveLength(1);
   });
 });

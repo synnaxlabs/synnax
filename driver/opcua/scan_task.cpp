@@ -469,7 +469,7 @@ struct Found {
 /// @brief what a search for the variables under a node found.
 struct Search {
     std::vector<Found> variables;
-    /// @brief whether the search stopped at a limit before it visited every object.
+    /// @brief whether the search stopped at a limit before it found every variable.
     bool truncated = false;
     /// @brief why each object that failed to browse was skipped.
     std::vector<x::errors::Error> skipped;
@@ -518,6 +518,7 @@ find_variables(const connection::Pool::Connection &conn, const UA_NodeId &start)
                 );
                 continue;
             }
+            search.truncated = search.truncated || results[i].truncated;
             for (auto &ref: results[i].references) {
                 if (ref.node_class != UA_NODECLASS_VARIABLE &&
                     ref.node_class != UA_NODECLASS_OBJECT)
@@ -742,10 +743,14 @@ void Scanner::browse_nodes(const synnax::task::Command &cmd) const {
 
     x::errors::Error err;
     std::vector<types::Node> nodes;
+    bool truncated = false;
     if (args.field.empty()) {
         auto [results, browse_err] = connection.browse({start});
         err = browse_err ? browse_err : results[0].err;
-        if (!err) std::tie(nodes, err) = to_nodes(connection, results[0].references);
+        if (!err) {
+            truncated = results[0].truncated;
+            std::tie(nodes, err) = to_nodes(connection, results[0].references);
+        }
     }
     if (!err) {
         auto [members, members_err] = structure_members(
@@ -770,7 +775,7 @@ void Scanner::browse_nodes(const synnax::task::Command &cmd) const {
         channels.push_back(node.to_json());
     status.message = "Browsed nodes";
     status.variant = synnax::status::VARIANT_SUCCESS;
-    status.details.data = {{"channels", channels}};
+    status.details.data = {{"channels", channels}, {"truncated", truncated}};
     ctx->set_status(status);
 }
 
