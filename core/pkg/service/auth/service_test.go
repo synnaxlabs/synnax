@@ -278,6 +278,7 @@ var _ = Describe("Service", func() {
 				changing := changingPassword{
 					Service: pw,
 					change: func(ctx context.Context) {
+						GinkgoHelper()
 						Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
 							var p password.Password
 							if err := pw.NewRetrieve().
