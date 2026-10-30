@@ -9,6 +9,7 @@
 
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
+import { box } from "@synnaxlabs/x";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
