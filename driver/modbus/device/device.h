@@ -18,6 +18,7 @@
 #include <cstdint>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <thread>
 #include <unordered_map>
@@ -50,6 +51,8 @@ const x::errors::Error UNREACHABLE = TEMPORARY_ERROR.sub("unreachable");
 const std::size_t DEMOTE_AFTER = 3;
 /// @brief the default time that the requests of a demoted unit fail at once.
 const x::telem::TimeSpan DEMOTION = x::telem::SECOND * 10;
+/// @brief the default time that a probe waits for its turn on a busy connection.
+const x::telem::TimeSpan PROBE_WAIT = x::telem::SECOND * 10;
 
 /// @brief classifies a libmodbus or system error number.
 /// @param errnum the value of errno after a failed libmodbus call.
@@ -310,8 +313,8 @@ struct ConnectionConfig {
         return j;
     }
 
-    /// @returns the key of the link that devices on it share a connection to: the host
-    /// and port for TCP, or the canonical serial port for RTU.
+    /// @returns the host and port for TCP, or the file that the serial port resolves to
+    /// now for RTU.
     [[nodiscard]] std::string endpoint() const {
         if (this->transport == Transport::RTU) return canonical_port(this->serial.port);
         return host + ":" + std::to_string(port);
@@ -469,21 +472,43 @@ private:
         Connection &conn;
 
     public:
-        Turn(Connection &conn, const bool write): conn(conn) {
+        /// @brief whether the request holds the turn. False if the wait ran out first.
+        bool held = false;
+
+        /// @param wait how long to wait for the turn. Waits without limit if empty.
+        Turn(
+            Connection &conn,
+            const bool write,
+            const std::optional<x::telem::TimeSpan> &wait
+        ):
+            conn(conn) {
             std::unique_lock lock(conn.mu);
             auto &waiting = write ? conn.waiting_writes : conn.waiting_reads;
             waiting++;
-            conn.released.wait(lock, [&] {
+            const auto ready = [&] {
                 if (conn.busy) return false;
                 if (write) return conn.waiting_reads == 0 || !conn.write_went_ahead;
                 return conn.waiting_writes == 0 || conn.write_went_ahead;
-            });
+            };
+            if (wait.has_value())
+                this->held = conn.released.wait_for(lock, wait->chrono(), ready);
+            else {
+                conn.released.wait(lock, ready);
+                this->held = true;
+            }
             waiting--;
+            if (!this->held) {
+                // One less waiting request can let another take the turn.
+                lock.unlock();
+                conn.released.notify_all();
+                return;
+            }
             conn.write_went_ahead = write && conn.waiting_reads > 0;
             conn.busy = true;
         }
 
         ~Turn() {
+            if (!this->held) return;
             {
                 std::lock_guard lock(conn.mu);
                 conn.busy = false;
@@ -586,10 +611,10 @@ private:
         const Request &request
     ) {
         if (auto err = this->demoted(cfg.unit_id)) return err;
-        const auto wait = std::max(delay, this->frame_gap);
+        const auto gap = std::max(delay, this->frame_gap);
         for (std::size_t i = 0;; i++) {
-            if (wait > x::telem::TimeSpan(0))
-                std::this_thread::sleep_until(this->last_request + wait.chrono());
+            if (gap > x::telem::TimeSpan(0))
+                std::this_thread::sleep_until(this->last_request + gap.chrono());
             const int errnum = this->attempt(cfg, request);
             this->last_request = Clock::now();
             if (errnum == 0 || answered(errnum)) this->replied(cfg.unit_id);
@@ -640,31 +665,47 @@ public:
     /// connection waits at least its frame gap.
     /// @param write whether the request goes before waiting reads.
     /// @param request sends the request on the context and returns -1 on failure.
-    /// @returns NIL, or the classified error of the last attempt.
+    /// @param wait how long to wait for the turn. Waits without limit if empty.
+    /// @returns NIL, UNREACHABLE if other requests kept the connection busy for wait,
+    /// or the classified error of the last attempt.
     template<typename Request>
     x::errors::Error exec(
         const ConnectionConfig &cfg,
         const x::telem::TimeSpan delay,
         const bool write,
-        const Request &request
+        const Request &request,
+        const std::optional<x::telem::TimeSpan> &wait = std::nullopt
     ) {
-        return this->sequence(cfg, delay, write, [&](const auto &send) {
-            return send(request);
-        });
+        return this->sequence(
+            cfg,
+            delay,
+            write,
+            [&](const auto &send) { return send(request); },
+            wait
+        );
     }
 
     /// @brief runs several requests for a unit in one turn, so that no other request on
     /// the connection comes between them. Each request runs as exec runs it.
     /// @param run calls its argument with each request, which returns the request's
     /// error, and returns NIL or the error to stop at.
+    /// @param wait how long to wait for the turn. Waits without limit if empty.
+    /// @returns the error of run, or UNREACHABLE if other requests kept the connection
+    /// busy for wait.
     template<typename Run>
     x::errors::Error sequence(
         const ConnectionConfig &cfg,
         const x::telem::TimeSpan delay,
         const bool write,
-        const Run &run
+        const Run &run,
+        const std::optional<x::telem::TimeSpan> &wait = std::nullopt
     ) {
-        Turn turn(*this, write);
+        Turn turn(*this, write, wait);
+        if (!turn.held)
+            return {
+                UNREACHABLE,
+                "other requests kept the connection busy for " + wait->to_string()
+            };
         return run([&](const auto &request) {
             return this->send(cfg, delay, request);
         });
@@ -674,13 +715,6 @@ public:
     Clock::time_point last_reply(const std::uint8_t unit_id) {
         std::lock_guard lock(this->mu);
         return this->units[unit_id].last_reply;
-    }
-
-    /// @returns the host and port for TCP, or the file the serial port resolves to now.
-    /// A link that moves to a new port, as after a replug, resolves to the new file.
-    [[nodiscard]] std::string endpoint() const {
-        if (this->transport == Transport::RTU) return canonical_port(this->serial.port);
-        return this->address;
     }
 };
 
@@ -815,12 +849,19 @@ public:
     }
 
     /// @brief checks that the unit answers by reading holding register 0.
+    /// @param wait how long to wait for the turn on the shared connection.
     /// @returns NIL if the unit replied, an exception included, and the error of the
     /// request otherwise.
-    x::errors::Error probe() {
+    x::errors::Error probe(const x::telem::TimeSpan wait = PROBE_WAIT) {
         const auto start = Connection::Clock::now();
         std::uint16_t value = 0;
-        const auto err = this->read_registers(HoldingRegister, 0, 1, &value);
+        const auto err = this->conn->exec(
+            this->cfg,
+            this->requests.delay,
+            false,
+            [&](modbus_t *ctx) { return modbus_read_registers(ctx, 0, 1, &value); },
+            wait
+        );
         if (!err || this->last_reply() >= start) return x::errors::NIL;
         return err;
     }
@@ -835,11 +876,11 @@ public:
 };
 
 /// @brief shares one connection among the devices on each endpoint: a TCP host and
-/// port, or a serial port. Safe for concurrent use.
+/// port, or a serial port path. Devices that name one serial port by different paths
+/// get separate connections, and the port lock lets one of them use the port at a time.
+/// Safe for concurrent use.
 class Manager {
     std::mutex mu;
-    /// @brief the open connections, searched at each acquire because the file a serial
-    /// port resolves to changes when its link moves.
     std::vector<std::weak_ptr<Connection>> connections;
     /// @brief how long the requests of a demoted unit fail at once.
     x::telem::TimeSpan demotion;
@@ -866,13 +907,14 @@ class Manager {
         return std::make_shared<Connection>(ctx, cfg.endpoint(), this->demotion);
     }
 
-    /// @returns the open connection to the endpoint of cfg, or nullptr if none.
+    /// @returns the open connection to the TCP endpoint or serial port path of cfg, or
+    /// nullptr if none.
     [[nodiscard]] std::shared_ptr<Connection> find(const ConnectionConfig &cfg) const {
-        const auto endpoint = cfg.endpoint();
         for (const auto &weak: this->connections) {
             auto conn = weak.lock();
-            if (conn != nullptr && conn->transport == cfg.transport &&
-                conn->endpoint() == endpoint)
+            if (conn == nullptr || conn->transport != cfg.transport) continue;
+            if (cfg.transport == Transport::RTU ? conn->serial.port == cfg.serial.port
+                                                : conn->address == cfg.endpoint())
                 return conn;
         }
         return nullptr;
