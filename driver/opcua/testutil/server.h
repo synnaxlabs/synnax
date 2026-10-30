@@ -25,6 +25,7 @@
 #include <vector>
 
 #include "absl/log/log.h"
+#include "open62541/plugin/accesscontrol_default.h"
 #include "open62541/plugin/certificategroup_default.h"
 #include "open62541/server.h"
 #include "open62541/server_config_default.h"
@@ -314,6 +315,9 @@ struct ServerConfig {
     /// @brief the value of the NS=1;S=TestMotor node, of the Motor data type. The
     /// server adds the node only when it is set.
     std::optional<Motor> motor;
+    /// @brief the usernames and passwords that the server accepts besides anonymous
+    /// logins. The server accepts a password only on an encrypted channel.
+    std::vector<std::pair<std::string, std::string>> users;
 
     // Create default test nodes for comprehensive testing
     static ServerConfig create_default() {
@@ -754,6 +758,22 @@ public:
         }
         if (cfg.motor.has_value())
             add_motor_node(server, structures.motor(), *cfg.motor);
+        if (!cfg.users.empty()) {
+            std::vector<UA_UsernamePasswordLogin> logins;
+            logins.reserve(cfg.users.size());
+            for (const auto &[username, password]: cfg.users)
+                logins.push_back({
+                    .username = UA_STRING(const_cast<char *>(username.c_str())),
+                    .password = UA_STRING(const_cast<char *>(password.c_str())),
+                });
+            UA_AccessControl_default(
+                server_config,
+                true,
+                nullptr,
+                logins.size(),
+                logins.data()
+            );
+        }
 
         for (const auto &node: cfg.test_nodes)
             add_node(server, node);
