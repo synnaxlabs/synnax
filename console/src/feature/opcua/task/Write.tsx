@@ -328,8 +328,8 @@ const bindNodeCommands = async (
 };
 
 /**
- * @returns the new command channel of each method that has no channel, or whose
- * command now takes another type.
+ * @returns the new command channel of each method that has no channel, or whose command
+ * now takes another type.
  */
 const createMethodCommands = async (
   client: Synnax,

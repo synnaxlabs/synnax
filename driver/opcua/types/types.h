@@ -430,8 +430,8 @@ public:
 };
 // NOLINTEND(misc-explicit-constructor)
 
-/// @brief a path of browse names from a node, such as the path to a field from an
-/// event type.
+/// @brief a path of browse names from a node, such as the path to a field from an event
+/// type.
 class BrowsePath {
     struct Name {
         /// @brief the URI of the namespace of the name. Empty when index names it.
@@ -444,8 +444,8 @@ class BrowsePath {
 public:
     /// @brief parses browse names joined with '/', such as "EnabledState/Id". A name
     /// can start with `nsu=<uri>;` or `<index>:` to name its namespace, as in
-    /// "nsu=urn:pump;Level" or "2:Level". Other names are in namespace 0. A URI ends
-    /// at the first ';' and escapes it as %3B, as in a node ID.
+    /// "nsu=urn:pump;Level" or "2:Level". Other names are in namespace 0. A URI ends at
+    /// the first ';' and escapes it as %3B, as in a node ID.
     /// @returns x::errors::VALIDATION when a name is empty or a URI is invalid.
     static std::pair<BrowsePath, x::errors::Error> parse(const std::string &path);
 
