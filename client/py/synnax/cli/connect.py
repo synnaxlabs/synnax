@@ -28,7 +28,7 @@ def prompt_client_options(ctx: Context) -> Options:
     host = ctx.console.ask("Host", default="localhost")
     port = ctx.console.ask("Port", type_=int, default=9090)
     username = ctx.console.ask("Username", default="synnax")
-    password = ctx.console.ask("Password", str, password=True)
+    password = ctx.console.ask("Password", type_=str, password=True)
     secure = ctx.console.ask("Secure Connection?", type_=bool, default=False)
     ca_cert = None
     if secure:
@@ -47,7 +47,7 @@ def prompt_client_options(ctx: Context) -> Options:
     )
 
 
-def from_context(ctx: Context, opts: Options | None = None) -> Synnax | None:
+def from_context(ctx: Context, *, opts: Options | None = None) -> Synnax | None:
     """Connects to a Synnax server. Prints user-friendly messages to the console if
     the connection fails.
 

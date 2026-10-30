@@ -84,12 +84,14 @@ outlined button) has fill l2 and border l4, and its caret has the disabled text 
 
 ### Keycaps
 
-- Tooltips and buttons show keys as boxed caps: 20 px tall, a 12 px glyph, a fill, and
-  no border. Inside a tooltip, the fill is one step darker.
-- Menus and the palette show a shortcut as plain gray glyph text ("⌘E") at the trailing
-  edge.
+- Tooltips and buttons show a shortcut as one chip: 18 px tall, a faint fill, a faint
+  hairline, 11 px glyphs at gray step 9, and 3 px between keys. Inside a tooltip, the
+  fill is one step darker. On a filled button, the chip mixes the label color.
+- Menus and the palette show a shortcut as plain glyph text at gray step 8 ("⌘E"), with
+  no chip.
 - The label comes first, and the keys follow it. Word keys start with a capital (Esc,
-  Tab). On macOS, modifiers follow Apple's order: ⌃ ⌥ ⇧ ⌘.
+  Tab). On macOS, modifiers follow Apple's order: ⌃ ⌥ ⇧ ⌘. Windows and Linux spell them
+  out: Ctrl, Alt, Shift.
 - A modal shows its commit shortcut in its primary button ("Create ⌘↵"), never as a hint
   in the footer.
 
@@ -126,9 +128,13 @@ outlined button) has fill l2 and border l4, and its caret has the disabled text 
 ### Overflow
 
 - Cut text fades at its end (`Text` with `overflow="fade"`) everywhere: trees, tabs,
-  selects, tags, toasts, table cells, and titles. No "…" and no cut in the middle.
-- A cut name shows its full text in a tooltip on hover, only when it is cut. Test
-  `scrollWidth > clientWidth` in a pointer handler, never during render.
+  selects, tags, toasts, table cells, and titles. No "…" and no cut in the middle. Text
+  with `lineClamp` fades the end of its last line. A cut input value fades until the
+  input takes focus.
+- A cut name shows its full text in a tooltip on hover, only when it is cut.
+  `Tooltip.Overflow`, mounted once, does this for every `overflow="fade"` label. An
+  element's own tooltip wins over it.
+- A name under edit stays inside its box and scrolls to the caret, with no fade.
 - Prose wraps with `overflow-wrap: anywhere` and is never cut: modal text, toasts,
   confirmations, errors, and tooltips.
 - A number never clips, because a clipped number reads as a different valid number.

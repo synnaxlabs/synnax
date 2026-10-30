@@ -106,7 +106,8 @@ describe("Core.Badge", () => {
     clickCoreBadge(container);
     const dialog = await screen.findByRole("dialog");
     await within(dialog).findByText("Connected");
-    expect(within(dialog).getByText(/^Core v/)).toBeTruthy();
+    // The stream can report the connection before the check reports the version.
+    expect(await within(dialog).findByText(/^Core v/)).toBeTruthy();
   });
 
   it("should close the dialog and open the connect modal from the name row", async () => {

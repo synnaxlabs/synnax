@@ -36,7 +36,7 @@
             background: var(--pluto-gray-l1);
             border-color: var(--pluto-gray-l6);
 
-            .pluto-header {
+            .lyra-header {
                 background: var(--pluto-gray-l2);
             }
         }
@@ -44,7 +44,7 @@
         .console-channel-list {
             overflow: hidden;
 
-            & .pluto-list__scroll {
+            & .lyra-list__scroll {
                 overflow-x: hidden;
             }
         }

@@ -22,10 +22,10 @@ and sequences, start with the [Arc overview](/reference/control/arc).
 A cycle starts when a channel that the automation reads gets new data, or when a timer
 such as `time.interval` or `time.wait` fires. There is no fixed rate.
 
-In a cycle, a flow runs when one of its inputs has a new value, after each input has its
-first value. The whole flow runs in the same cycle, from the first channel to the last.
-Every part of the cycle sees the same channel values. Values that the automation writes
-in a cycle are sent at the end of the cycle.
+In a cycle, a flow runs when one of its triggers has a new value, after each trigger has
+its first value. The whole flow runs in the same cycle, from the first channel to the
+last. Every part of the cycle sees the same channel values. Values that the automation
+writes in a cycle are sent at the end of the cycle.
 
 <Divider.Divider x />
 
@@ -36,7 +36,7 @@ A sequence runs its steps in order:
 | Step           | Example                   | Moves on                             |
 | -------------- | ------------------------- | ------------------------------------ |
 | Write          | `1 -> press_vlv_cmd`      | At once, after the write.            |
-| Wait           | `time.wait{duration=10s}` | When the time is up.                 |
+| Wait           | `time.wait(duration=10s)` | When the time is up.                 |
 | Condition gate | `tank_pt > 300 => next`   | When the condition is true.          |
 | Stage          | `stage pressurize { }`    | When one of its transitions is true. |
 
@@ -106,9 +106,9 @@ Several top-level sequences and flows can run at the same time.
 
 When a stage starts:
 
-- **Writes** -> a flow with no input, such as `1 -> press_vlv_cmd`, runs once each time
-  the stage starts. A function call with no input that reads a channel in its body is
-  different: it runs in every cycle while the stage is active.
+- **Writes** -> a flow with no upstream trigger, such as `1 -> press_vlv_cmd`, runs once
+  each time the stage starts. A function call with no trigger that reads a channel in
+  its body is different: it runs in every cycle while the stage is active.
 - **Earlier values** -> the stage reacts only to values that arrive after it starts. A
   condition such as `tank_pt > 300` waits for the next `tank_pt` value, even when the
   last value was 400.
@@ -144,8 +144,8 @@ the stage the inner sequence entered stops at once.
 ## Writes
 
 An automation sends every value it writes, in the order of the code, not only the last
-value of a cycle. A flow such as `tank_pt -> scale{} -> tank_pt_kpa` writes each value
-with the timestamp of the input value it came from. Values that a function body writes
+value of a cycle. A flow such as `tank_pt -> scale() -> tank_pt_kpa` writes each value
+with the timestamp of the trigger value it came from. Values that a function body writes
 to a channel get the current time, 1 ns apart. A function that reads a channel gets its
 latest value, or 0 before the first value.
 
