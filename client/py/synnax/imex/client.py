@@ -45,7 +45,7 @@ class Client:
         :returns: the new resource's ontology ID.
         """
         return self._file_transport.upload(
-            "/imex/import", source, ontology.ID, {"parent": str(parent)}
+            "/imex/import", source, ontology.ID, params={"parent": str(parent)}
         )
 
     def export(self, id: ontology.ID, dest: FilePath) -> None:
@@ -57,4 +57,4 @@ class Client:
         :param id: the ontology ID of the resource to export.
         :param dest: a file path to stream the response body into.
         """
-        self._file_transport.download("/imex/export", id, dest)
+        self._file_transport.download("/imex/export", id, dest=dest)

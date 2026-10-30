@@ -288,6 +288,7 @@ const Item = ({ itemKey }: ItemProps): ReactElement | null => {
         id={List.itemNameID(itemKey)}
         value={name}
         allowDoubleClick={false}
+        overflow="fade"
         onChange={canRename && item.static !== true ? handleRename : undefined}
       />
     </Tabs.Tab>

@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer"
 	"github.com/synnaxlabs/arc/analyzer/context"
+	"github.com/synnaxlabs/arc/analyzer/testutil"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
@@ -1571,7 +1572,7 @@ var _ = Describe("Expressions", func() {
 				aCtx := context.NewRoot(ctx, ast, buildExpressionRoot(nil))
 				analyzer.AnalyzeProgram(aCtx)
 				Expect(aCtx.Diagnostics.Ok()).To(BeTrue(), aCtx.Diagnostics.String())
-				warnings := aCtx.Diagnostics.Warnings()
+				warnings := testutil.Warnings(aCtx.Diagnostics)
 				Expect(warnings).To(HaveLen(warningCount))
 				for _, w := range warnings {
 					Expect(w.Message).To(ContainSubstring("is experimental"))

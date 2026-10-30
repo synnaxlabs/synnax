@@ -115,7 +115,7 @@ sequence one_shot_seq {
         range_one_shot_tick -> range_one_shot_echo // For verification
     }
 }
-"""
+"""  # noqa: E501
 
 
 class Case(NamedTuple):
@@ -185,10 +185,16 @@ class StlRanges(ArcCase):
     collect_task_status = True
 
     def setup(self) -> None:
-        create_virtual_channel(self.client, DONE, sy.DataType.UINT8)
-        create_virtual_channel(self.client, FLOW_PARENT_KEY_OUT, sy.DataType.STRING)
-        create_virtual_channel(self.client, "range_one_shot_tick", sy.DataType.UINT8)
-        create_virtual_channel(self.client, "range_one_shot_echo", sy.DataType.UINT8)
+        create_virtual_channel(self.client, DONE, data_type=sy.DataType.UINT8)
+        create_virtual_channel(
+            self.client, FLOW_PARENT_KEY_OUT, data_type=sy.DataType.STRING
+        )
+        create_virtual_channel(
+            self.client, "range_one_shot_tick", data_type=sy.DataType.UINT8
+        )
+        create_virtual_channel(
+            self.client, "range_one_shot_echo", data_type=sy.DataType.UINT8
+        )
         # A leftover row from a prior run would break the one-shot count.
         leftover = self.client.ranges.retrieve(names=["RangeOneShot"])
         if leftover:

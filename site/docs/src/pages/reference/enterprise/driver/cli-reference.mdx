@@ -48,7 +48,8 @@ exists, `install` stops it and removes it first. On Linux, run `systemctl enable
 
 ## login
 
-Asks for the address of the Core, the username, and the password, and saves them in the
+Asks for the address of the Core, the username, and the password. It creates a rack for
+the Driver and an API key for that rack, and saves only the key in the
 [state file](/reference/enterprise/driver/configuration#state-file).
 
 ```bash
@@ -66,7 +67,7 @@ Password:
 On Linux, run `login` with `sudo`, and on NI Linux Real-Time as `admin`, because it
 reads the
 [environment file](/reference/enterprise/driver/configuration#environment-file). Restart
-a running Driver to use the new login.
+a running Driver to use the new key.
 
 | Flag           | Default                                                                 | Description                 |
 | -------------- | ----------------------------------------------------------------------- | --------------------------- |
@@ -126,12 +127,18 @@ or `false`.
   The port of the Core.
 </Field.Item>
 
+<Field.Item name="--api-key" default='""'>
+  The API key of the Driver's rack. The Driver logs in as that rack.
+</Field.Item>
+
 <Field.Item name="--username" default="synnax">
-  The username of the Driver user.
+  The username to log in with once, to create a rack and its API key. Ignored when an
+  API key is set.
 </Field.Item>
 
 <Field.Item name="--password" default="seldon">
-  The password of the Driver user.
+  The password to log in with once, to create a rack and its API key. Ignored when an
+  API key is set.
 </Field.Item>
 
 <Field.Item name="--secure" default="false">
@@ -158,16 +165,6 @@ or `false`.
 
 <Field.Item name="--worker-count" default="4">
   The number of threads that run task operations, from 1 to 64.
-</Field.Item>
-
-<Field.Item name="--rack-key" default="0">
-  The key that the Core knows this Driver by. With 0, the Driver registers as a new
-  Driver. Set `--cluster-key` too.
-</Field.Item>
-
-<Field.Item name="--cluster-key" default="00000000-0000-0000-0000-000000000000">
-  The key of the Core that issued `--rack-key`. When it is not the key of the Core, the
-  Driver registers as a new Driver.
 </Field.Item>
 
 <Field.Item name="--enable-integrations">
@@ -238,9 +235,8 @@ shows `/var/log/synnax-driver.log`.
 
 ## clear
 
-Deletes the saved login and the rack key from the state file. On the next start, the
-Driver uses its other sources, or the defaults, and shows in the devices toolbar as a
-new Driver. The old entry stays on the Core.
+Deletes the saved connection parameters and API key from the state file. Run `login`
+again before the next start.
 
 ```bash
 sudo synnax-driver clear
