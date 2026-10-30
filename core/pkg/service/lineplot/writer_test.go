@@ -17,6 +17,8 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
+	v8 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v8"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/telem"
@@ -25,6 +27,34 @@ import (
 	"github.com/synnaxlabs/x/union"
 	"github.com/synnaxlabs/x/validate"
 )
+
+func keyRef(key string) ranger.Ref {
+	return ranger.Ref{Variant: ranger.KeyRef{Key: uuid.MustParse(key)}}
+}
+
+// rk1 and rk2 are saved range keys for specs that need fixed keys.
+const (
+	rk1 = "00000000-0000-4000-8000-000000000001"
+	rk2 = "00000000-0000-4000-8000-000000000002"
+)
+
+// recentRef is the window reference a v6 "recent" range key migrates to.
+var recentRef = ranger.Ref{Variant: ranger.WindowRef{
+	Window: telem.Window{Variant: telem.DynamicWindow{TimeSpan: 30 * telem.Second}},
+}}
+
+func refs(keys ...string) []ranger.Ref {
+	out := make([]ranger.Ref, len(keys))
+	for i, k := range keys {
+		out[i] = keyRef(k)
+	}
+	return out
+}
+
+// lk is the key of the plot's y1 line plotting yChannel against xChannel.
+func lk(plot lineplot.Key, xChannel, yChannel channel.Key) string {
+	return v8.LineKey(plot, lineplot.YAxisKeyY1, yChannel, xChannel)
+}
 
 func lineKeysOf(lines []lineplot.Line) []string {
 	keys := make([]string, len(lines))
@@ -55,7 +85,7 @@ var _ = Describe("Writer", func() {
 				plot := lineplot.LinePlot{
 					Name:     "test",
 					Channels: lineplot.Channels{X1: 10, Y1: []channel.Key{5, 6}},
-					Ranges:   lineplot.Ranges{X1: []string{"r1"}},
+					Ranges:   refs(rk1),
 				}
 				Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &plot)).To(Succeed())
 				var res lineplot.LinePlot
@@ -68,7 +98,7 @@ var _ = Describe("Writer", func() {
 					To(Succeed())
 				Expect(
 					lineKeysOf(res.Lines),
-				).To(ConsistOf("y1---x1---r1---10---5", "y1---x1---r1---10---6"))
+				).To(ConsistOf(lk(plot.Key, 10, 5), lk(plot.Key, 10, 6)))
 			},
 		)
 	})
@@ -92,12 +122,12 @@ var _ = Describe("Writer", func() {
 
 	Describe("eager line creation", func() {
 		It(
-			"Should materialize a line per range when a channel is added",
+			"Should materialize one line per channel across every range",
 			func(ctx SpecContext) {
 				plot := lineplot.LinePlot{
 					Name:     "test",
 					Channels: lineplot.Channels{X1: 10},
-					Ranges:   lineplot.Ranges{X1: []string{"r1", "r2"}},
+					Ranges:   refs(rk1, rk2),
 				}
 				Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &plot)).To(Succeed())
 				Expect(
@@ -116,7 +146,7 @@ var _ = Describe("Writer", func() {
 				).
 					To(Succeed())
 				Expect(lineKeysOf(res.Lines)).
-					To(ConsistOf("y1---x1---r1---10---5", "y1---x1---r2---10---5"))
+					To(ConsistOf(lk(plot.Key, 10, 5)))
 			},
 		)
 
@@ -126,7 +156,7 @@ var _ = Describe("Writer", func() {
 				plot := lineplot.LinePlot{
 					Name:     "test",
 					Channels: lineplot.Channels{X1: 10},
-					Ranges:   lineplot.Ranges{X1: []string{"r1"}},
+					Ranges:   refs(rk1),
 				}
 				Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &plot)).To(Succeed())
 				Expect(
@@ -157,7 +187,7 @@ var _ = Describe("Writer", func() {
 				plot := lineplot.LinePlot{
 					Name:     "test",
 					Channels: lineplot.Channels{X1: 10, Y1: []channel.Key{5, 6}},
-					Ranges:   lineplot.Ranges{X1: []string{"r1"}},
+					Ranges:   refs(rk1),
 				}
 				Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &plot)).To(Succeed())
 				Expect(
@@ -175,7 +205,7 @@ var _ = Describe("Writer", func() {
 						Exec(ctx, tx),
 				).
 					To(Succeed())
-				Expect(lineKeysOf(res.Lines)).To(ConsistOf("y1---x1---r1---10---6"))
+				Expect(lineKeysOf(res.Lines)).To(ConsistOf(lk(plot.Key, 10, 6)))
 			},
 		)
 
@@ -185,7 +215,7 @@ var _ = Describe("Writer", func() {
 				plot := lineplot.LinePlot{
 					Name:     "test",
 					Channels: lineplot.Channels{X1: 10, Y1: []channel.Key{5}},
-					Ranges:   lineplot.Ranges{X1: []string{"r1"}},
+					Ranges:   refs(rk1),
 				}
 				Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &plot)).To(Succeed())
 				Expect(
@@ -203,7 +233,7 @@ var _ = Describe("Writer", func() {
 						Exec(ctx, tx),
 				).
 					To(Succeed())
-				Expect(lineKeysOf(res.Lines)).To(ConsistOf("y1---x1---r1---20---5"))
+				Expect(lineKeysOf(res.Lines)).To(ConsistOf(lk(plot.Key, 20, 5)))
 			},
 		)
 	})
@@ -459,7 +489,7 @@ var _ = Describe("Writer", func() {
 					plot := lineplot.LinePlot{
 						Name:     "test",
 						Channels: lineplot.Channels{X1: 10, Y1: []channel.Key{5}},
-						Ranges:   lineplot.Ranges{X1: []string{"r1"}},
+						Ranges:   refs(rk1),
 					}
 					Expect(
 						svc.NewWriter(nil).Create(ctx, proj.Key, &plot),
@@ -482,7 +512,7 @@ var _ = Describe("Writer", func() {
 							Exec(ctx, tx),
 					).
 						To(Succeed())
-					Expect(lineKeysOf(res.Lines)).To(ConsistOf("y1---x1---r1---10---6"))
+					Expect(lineKeysOf(res.Lines)).To(ConsistOf(lk(plot.Key, 10, 6)))
 				},
 			)
 
@@ -492,13 +522,13 @@ var _ = Describe("Writer", func() {
 					plot := lineplot.LinePlot{
 						Name:     "test",
 						Channels: lineplot.Channels{X1: 10, Y1: []channel.Key{5, 6}},
-						Ranges:   lineplot.Ranges{X1: []string{"r1"}},
+						Ranges:   refs(rk1),
 					}
 					Expect(
 						svc.NewWriter(nil).Create(ctx, proj.Key, &plot),
 					).To(Succeed())
 					keep := lineplot.NewSetLineColorAction(lineplot.SetLineColorPayload{
-						Key:   "y1---x1---r1---10---5",
+						Key:   lk(plot.Key, 10, 5),
 						Color: new(MustSucceed(color.FromHex("#ff0000"))),
 					})
 					Expect(
@@ -606,15 +636,15 @@ var _ = Describe("Writer", func() {
 				r2 := uuid.New().String()
 				Expect(
 					svc.Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
-						lineplot.NewAddRangeAction(lineplot.AddRangePayload{
-							AxisKey: lineplot.XAxisKeyX1, Range: r1,
-						}),
-						lineplot.NewAddRangeAction(lineplot.AddRangePayload{
-							AxisKey: lineplot.XAxisKeyX1, Range: r2,
-						}),
-						lineplot.NewRemoveRangeAction(lineplot.RemoveRangePayload{
-							AxisKey: lineplot.XAxisKeyX1, Range: r1,
-						}),
+						lineplot.NewAddRangeAction(
+							lineplot.AddRangePayload{Range: keyRef(r1)},
+						),
+						lineplot.NewAddRangeAction(
+							lineplot.AddRangePayload{Range: keyRef(r2)},
+						),
+						lineplot.NewRemoveRangeAction(
+							lineplot.RemoveRangePayload{Range: keyRef(r1)},
+						),
 					}),
 				).To(Succeed())
 				var res lineplot.LinePlot
@@ -625,27 +655,8 @@ var _ = Describe("Writer", func() {
 						Exec(ctx, tx),
 				).
 					To(Succeed())
-				Expect(res.Ranges.X1).To(Equal([]string{r2}))
+				Expect(res.Ranges).To(Equal(refs(r2)))
 			})
-
-			It(
-				"Should reject range actions targeting a y-axis with validate.ErrValidation",
-				func(ctx SpecContext) {
-					plot := lineplot.LinePlot{Name: "test"}
-					Expect(
-						svc.NewWriter(nil).Create(ctx, proj.Key, &plot),
-					).To(Succeed())
-					Expect(
-						svc.Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
-							lineplot.NewAddRangeAction(lineplot.AddRangePayload{
-								AxisKey: lineplot.XAxisKey("y1"),
-								Range:   uuid.New().String(),
-							}),
-						}),
-					).Error().
-						To(MatchError(validate.ErrValidation))
-				},
-			)
 
 			It(
 				"Should replace an x-axis's whole range set via SetRanges",
@@ -655,17 +666,16 @@ var _ = Describe("Writer", func() {
 						uuid.New().String()
 					plot := lineplot.LinePlot{
 						Name:   "test",
-						Ranges: lineplot.Ranges{X1: []string{r1, r2}},
+						Ranges: refs(r1, r2),
 					}
 					Expect(
 						svc.NewWriter(nil).Create(ctx, proj.Key, &plot),
 					).To(Succeed())
 					Expect(
 						svc.Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
-							lineplot.NewSetRangesAction(lineplot.SetRangesPayload{
-								AxisKey: lineplot.XAxisKeyX1,
-								Ranges:  []string{r2, r3},
-							}),
+							lineplot.NewSetRangesAction(
+								lineplot.SetRangesPayload{Ranges: refs(r2, r3)},
+							),
 						}),
 					).To(Succeed())
 					var res lineplot.LinePlot
@@ -676,27 +686,26 @@ var _ = Describe("Writer", func() {
 							Exec(ctx, tx),
 					).
 						To(Succeed())
-					Expect(res.Ranges.X1).To(Equal([]string{r2, r3}))
+					Expect(res.Ranges).To(Equal(refs(r2, r3)))
 				},
 			)
 
 			It(
-				"Should reconcile lines when SetRanges replaces the range set",
+				"Should keep a channel's line when SetRanges replaces the range set",
 				func(ctx SpecContext) {
 					plot := lineplot.LinePlot{
 						Name:     "test",
 						Channels: lineplot.Channels{X1: 10, Y1: []channel.Key{5}},
-						Ranges:   lineplot.Ranges{X1: []string{"r1"}},
+						Ranges:   refs(rk1),
 					}
 					Expect(
 						svc.NewWriter(nil).Create(ctx, proj.Key, &plot),
 					).To(Succeed())
 					Expect(
 						svc.Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
-							lineplot.NewSetRangesAction(lineplot.SetRangesPayload{
-								AxisKey: lineplot.XAxisKeyX1,
-								Ranges:  []string{"r2"},
-							}),
+							lineplot.NewSetRangesAction(
+								lineplot.SetRangesPayload{Ranges: refs(rk2)},
+							),
 						}),
 					).To(Succeed())
 					var res lineplot.LinePlot
@@ -707,83 +716,74 @@ var _ = Describe("Writer", func() {
 							Exec(ctx, tx),
 					).
 						To(Succeed())
-					Expect(lineKeysOf(res.Lines)).To(ConsistOf("y1---x1---r2---10---5"))
+					Expect(lineKeysOf(res.Lines)).To(ConsistOf(lk(plot.Key, 10, 5)))
 				},
 			)
 
 			It(
-				"Should reject SetRanges targeting a y-axis with validate.ErrValidation",
+				"Should edit a window in place via SetRanges and keep the plot's lines",
 				func(ctx SpecContext) {
-					plot := lineplot.LinePlot{Name: "test"}
+					window := func(span telem.TimeSpan) ranger.Ref {
+						return ranger.Ref{Variant: ranger.WindowRef{
+							Window: telem.Window{
+								Variant: telem.DynamicWindow{TimeSpan: span},
+							},
+						}}
+					}
+					plot := lineplot.LinePlot{
+						Name:     "test",
+						Channels: lineplot.Channels{X1: 10, Y1: []channel.Key{5}},
+						Ranges:   []ranger.Ref{window(telem.Minute)},
+					}
 					Expect(
 						svc.NewWriter(nil).Create(ctx, proj.Key, &plot),
 					).To(Succeed())
 					Expect(
 						svc.Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
 							lineplot.NewSetRangesAction(lineplot.SetRangesPayload{
-								AxisKey: lineplot.XAxisKey("y1"),
-								Ranges:  []string{uuid.New().String()},
+								Ranges: []ranger.Ref{window(telem.Hour)},
 							}),
 						}),
-					).Error().
-						To(MatchError(validate.ErrValidation))
+					).To(Succeed())
+					var res lineplot.LinePlot
+					Expect(
+						svc.NewRetrieve().
+							Where(lineplot.MatchKeys(plot.Key)).
+							Entry(&res).
+							Exec(ctx, tx),
+					).To(Succeed())
+					Expect(res.Ranges).To(Equal([]ranger.Ref{window(telem.Hour)}))
+					Expect(res.Lines).To(Equal(plot.Lines))
 				},
 			)
 
 			It(
-				"Should set, replace, and clear the custom range via SetCustomRange",
+				"Should ignore AddRange for a reference the plot already holds",
 				func(ctx SpecContext) {
-					plot := lineplot.LinePlot{Name: "test"}
+					plot := lineplot.LinePlot{Name: "test", Ranges: refs(rk1)}
 					Expect(
 						svc.NewWriter(nil).Create(ctx, proj.Key, &plot),
 					).To(Succeed())
-					retrieve := func() lineplot.LinePlot {
-						GinkgoHelper()
-						var res lineplot.LinePlot
-						Expect(
-							svc.NewRetrieve().
-								Where(lineplot.MatchKeys(plot.Key)).
-								Entry(&res).
-								Exec(ctx, tx),
-						).
-							To(Succeed())
-						return res
-					}
-					dynamic := lineplot.CustomRange{
-						Variant: lineplot.DynamicCustomRange{Span: telem.Minute},
-					}
 					Expect(
 						svc.Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
-							lineplot.NewSetCustomRangeAction(
-								lineplot.SetCustomRangePayload{Custom: &dynamic},
+							lineplot.NewAddRangeAction(
+								lineplot.AddRangePayload{Range: keyRef(rk1)},
 							),
 						}),
 					).To(Succeed())
-					Expect(retrieve().Ranges.Custom).To(Equal(&dynamic))
-					static := lineplot.CustomRange{
-						Variant: lineplot.StaticCustomRange{Start: 0, End: 1000},
-					}
+					var res lineplot.LinePlot
 					Expect(
-						svc.Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
-							lineplot.NewSetCustomRangeAction(
-								lineplot.SetCustomRangePayload{Custom: &static},
-							),
-						}),
+						svc.NewRetrieve().
+							Where(lineplot.MatchKeys(plot.Key)).
+							Entry(&res).
+							Exec(ctx, tx),
 					).To(Succeed())
-					Expect(retrieve().Ranges.Custom).To(Equal(&static))
-					Expect(
-						svc.Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
-							lineplot.NewSetCustomRangeAction(
-								lineplot.SetCustomRangePayload{},
-							),
-						}),
-					).To(Succeed())
-					Expect(retrieve().Ranges.Custom).To(BeNil())
+					Expect(res.Ranges).To(Equal(refs(rk1)))
 				},
 			)
 
 			It(
-				"Should reject a SetCustomRange action with no payload",
+				"Should reject a RemoveRange action with no payload",
 				func(ctx SpecContext) {
 					plot := lineplot.LinePlot{Name: "test"}
 					Expect(
@@ -791,7 +791,7 @@ var _ = Describe("Writer", func() {
 					).To(Succeed())
 					Expect(
 						svc.Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
-							{Type: lineplot.ActionTypeSetCustomRange},
+							{Type: lineplot.ActionTypeRemoveRange},
 						}),
 					).To(MatchError(union.ErrMissingPayload))
 				},
@@ -865,9 +865,9 @@ var _ = Describe("Writer", func() {
 							lineplot.NewAddChannelAction(lineplot.AddChannelPayload{
 								AxisKey: lineplot.YAxisKeyY1, Channel: 1,
 							}),
-							lineplot.NewAddRangeAction(lineplot.AddRangePayload{
-								AxisKey: lineplot.XAxisKeyX1, Range: "r1",
-							}),
+							lineplot.NewAddRangeAction(
+								lineplot.AddRangePayload{Range: keyRef(rk1)},
+							),
 						}),
 					).To(Succeed())
 					var res lineplot.LinePlot
@@ -955,9 +955,9 @@ var _ = Describe("Writer", func() {
 							lineplot.NewAddChannelAction(lineplot.AddChannelPayload{
 								AxisKey: lineplot.YAxisKeyY1, Channel: 1,
 							}),
-							lineplot.NewAddRangeAction(lineplot.AddRangePayload{
-								AxisKey: lineplot.XAxisKeyX1, Range: "r1",
-							}),
+							lineplot.NewAddRangeAction(
+								lineplot.AddRangePayload{Range: keyRef(rk1)},
+							),
 						}),
 					).To(Succeed())
 					var res lineplot.LinePlot
@@ -1007,7 +1007,7 @@ var _ = Describe("Writer", func() {
 				plot := lineplot.LinePlot{Name: "test"}
 				Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &plot)).To(Succeed())
 				rule := lineplot.Rule{
-					Key:       "r1",
+					Key:       rk1,
 					Label:     "ceiling",
 					Color:     new(MustSucceed(color.FromHex("#888888"))),
 					Axis:      lineplot.AxisKeyY1,
@@ -1041,7 +1041,7 @@ var _ = Describe("Writer", func() {
 				Expect(
 					svc.Dispatch(ctx, plot.Key, "d3", []lineplot.Action{
 						lineplot.NewRemoveRuleAction(
-							lineplot.RemoveRulePayload{Key: "r1"},
+							lineplot.RemoveRulePayload{Key: rk1},
 						),
 					}),
 				).To(Succeed())
@@ -1066,7 +1066,7 @@ var _ = Describe("Writer", func() {
 						svc.Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
 							lineplot.NewSetRuleAction(
 								lineplot.SetRulePayload{Rule: lineplot.Rule{
-									Key:   "r1",
+									Key:   rk1,
 									Label: "ceiling",
 									Axis:  lineplot.AxisKeyY1,
 								}},
@@ -1077,17 +1077,17 @@ var _ = Describe("Writer", func() {
 						svc.Dispatch(ctx, plot.Key, "d2", []lineplot.Action{
 							lineplot.NewSetRuleLabelAction(
 								lineplot.SetRuleLabelPayload{
-									Key: "r1", Label: "max",
+									Key: rk1, Label: "max",
 								},
 							),
 							lineplot.NewSetRulePositionAction(
 								lineplot.SetRulePositionPayload{
-									Key: "r1", Position: 42,
+									Key: rk1, Position: 42,
 								},
 							),
 							lineplot.NewSetRuleAxisAction(
 								lineplot.SetRuleAxisPayload{
-									Key: "r1", Axis: lineplot.AxisKeyY2,
+									Key: rk1, Axis: lineplot.AxisKeyY2,
 								},
 							),
 						}),
@@ -1118,9 +1118,9 @@ var _ = Describe("Writer", func() {
 						lineplot.NewSetXChannelAction(lineplot.SetXChannelPayload{
 							AxisKey: lineplot.XAxisKeyX1, Channel: 1,
 						}),
-						lineplot.NewAddRangeAction(lineplot.AddRangePayload{
-							AxisKey: lineplot.XAxisKeyX1, Range: r,
-						}),
+						lineplot.NewAddRangeAction(
+							lineplot.AddRangePayload{Range: keyRef(r)},
+						),
 						lineplot.NewAddChannelAction(lineplot.AddChannelPayload{
 							AxisKey: lineplot.YAxisKeyY1, Channel: 10,
 						}),
@@ -1135,7 +1135,7 @@ var _ = Describe("Writer", func() {
 				).
 					To(Succeed())
 				Expect(res.Channels.X1).To(BeEquivalentTo(1))
-				Expect(res.Ranges.X1).To(Equal([]string{r}))
+				Expect(res.Ranges).To(Equal(refs(r)))
 				Expect(res.Channels.Y1).To(ConsistOf(channel.Key(10)))
 			})
 
