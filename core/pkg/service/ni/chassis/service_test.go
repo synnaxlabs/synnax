@@ -11,6 +11,8 @@ package chassis_test
 
 import (
 	"context"
+	"iter"
+	"slices"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -25,6 +27,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
@@ -141,13 +144,25 @@ var _ = Describe("Service", func() {
 	}
 
 	Describe("OpenService", func() {
-		It("Should reject a config missing the device service", func(ctx SpecContext) {
-			Expect(chassis.OpenService(ctx, chassis.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
-				Status:   stat,
-			})).Error().To(MatchError(ContainSubstring("device: must be non-nil")))
-		})
+		DescribeTable("Should reject a config missing a required field",
+			func(ctx SpecContext, field string, unset func(*chassis.ServiceConfig)) {
+				cfg := chassis.ServiceConfig{
+					DB:       db,
+					Ontology: otg,
+					Status:   stat,
+					Device:   devices,
+				}
+				unset(&cfg)
+				Expect(chassis.OpenService(ctx, cfg)).Error().
+					To(MatchError(ContainSubstring(field + ": must be non-nil")))
+			},
+			Entry("db", "db", func(c *chassis.ServiceConfig) { c.DB = nil }),
+			Entry("ontology", "ontology", func(c *chassis.ServiceConfig) {
+				c.Ontology = nil
+			}),
+			Entry("status", "status", func(c *chassis.ServiceConfig) { c.Status = nil }),
+			Entry("device", "device", func(c *chassis.ServiceConfig) { c.Device = nil }),
+		)
 	})
 
 	Describe("Create", func() {
@@ -238,6 +253,56 @@ var _ = Describe("Service", func() {
 			Expect(parents(ctx, c.OntologyID())).To(ConsistOf(other.OntologyID()))
 		})
 
+		It("Should move the status with the rack", func(ctx SpecContext) {
+			c := create(ctx)
+			s := retrieveStatus(ctx, c.Key)
+			s.Variant = status.VariantSuccess
+			s.Message = "Connected"
+			Expect(stat.NewWriter(tx).Set(ctx, &s)).To(Succeed())
+			other := rack.Rack{Name: "Other"}
+			Expect(rackSvc.NewWriter(tx).Create(ctx, &other)).To(Succeed())
+			Expect(svc.NewWriter(tx).Update(
+				ctx,
+				c.Key,
+				func(c chassis.Chassis) (chassis.Chassis, error) {
+					c.Rack = other.Key
+					return c, nil
+				},
+			)).To(Succeed())
+			got := retrieveStatus(ctx, c.Key)
+			Expect(got.Details.Rack).To(Equal(other.Key))
+			Expect(got.Variant).To(Equal(status.VariantSuccess))
+			Expect(got.Message).To(Equal("Connected"))
+		})
+
+		It("Should keep the row when its status write fails without a tx", func(
+			ctx SpecContext,
+		) {
+			c := chassis.Chassis{Rack: rackKey, Name: "Chassis"}
+			Expect(svc.NewWriter(nil).Create(ctx, &c)).To(Succeed())
+			DeferCleanup(func(ctx SpecContext) {
+				Expect(svc.NewWriter(nil).Delete(ctx, c.Key)).To(Succeed())
+			})
+			Expect(stat.NewWriter(nil).Delete(
+				ctx,
+				chassis.OntologyID(c.Key).String(),
+			)).To(Succeed())
+			Expect(svc.NewWriter(nil).Update(
+				ctx,
+				c.Key,
+				func(c chassis.Chassis) (chassis.Chassis, error) {
+					c.Name = "Renamed"
+					return c, nil
+				},
+			)).To(MatchError(query.ErrNotFound))
+			var got chassis.Chassis
+			Expect(svc.NewRetrieve().
+				Where(chassis.MatchKeys(c.Key)).
+				Entry(&got).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(got.Name).To(Equal("Chassis"))
+		})
+
 		It("Should return the error change returns", func(ctx SpecContext) {
 			c := create(ctx)
 			err := errors.New("change failed")
@@ -307,6 +372,56 @@ var _ = Describe("Service", func() {
 	})
 
 	Describe("Ontology", func() {
+		It("Should report its resource type", func() {
+			Expect(svc.Type()).To(Equal(ontology.ResourceTypeNiChassis))
+		})
+
+		It("Should return one ontology ID per key", func() {
+			key := uuid.New()
+			Expect(chassis.OntologyIDs([]chassis.Key{key})).
+				To(ConsistOf(chassis.OntologyID(key)))
+		})
+
+		Describe("OnChange", func() {
+			var (
+				changes    []ontology.Change
+				disconnect func()
+			)
+			BeforeEach(func() {
+				changes = nil
+				disconnect = svc.OnChange(func(
+					_ context.Context,
+					reader iter.Seq[ontology.Change],
+				) {
+					changes = append(changes, slices.Collect(reader)...)
+				})
+				DeferCleanup(func() { disconnect() })
+			})
+
+			It("Should translate a set and a key-only delete", func(ctx SpecContext) {
+				c := chassis.Chassis{Rack: rackKey, Name: "Chassis"}
+				Expect(svc.NewWriter(nil).Create(ctx, &c)).To(Succeed())
+				Expect(svc.NewWriter(nil).Delete(ctx, c.Key)).To(Succeed())
+				id := chassis.OntologyID(c.Key).String()
+				Expect(changes).To(HaveLen(2))
+				Expect(changes[0].Variant).To(Equal(change.VariantSet))
+				Expect(changes[0].Key).To(Equal(id))
+				Expect(changes[0].Value.Name).To(Equal(c.Name))
+				Expect(changes[1].Variant).To(Equal(change.VariantDelete))
+				Expect(changes[1].Key).To(Equal(id))
+			})
+
+			It("Should stop after disconnecting", func(ctx SpecContext) {
+				disconnect()
+				c := chassis.Chassis{Rack: rackKey, Name: "Chassis"}
+				Expect(svc.NewWriter(nil).Create(ctx, &c)).To(Succeed())
+				DeferCleanup(func(ctx SpecContext) {
+					Expect(svc.NewWriter(nil).Delete(ctx, c.Key)).To(Succeed())
+				})
+				Expect(changes).To(BeEmpty())
+			})
+		})
+
 		It("Should retrieve a chassis as a resource", func(ctx SpecContext) {
 			c := create(ctx)
 			res := MustSucceed(svc.RetrieveResource(ctx, c.Key.String(), tx))

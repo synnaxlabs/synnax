@@ -43,6 +43,8 @@ type ServiceConfig struct {
 	// Signals publishes sy_ni_chassis_set and sy_ni_chassis_delete.
 	// [OPTIONAL]
 	Signals *signals.Provider
+	// Instrumentation is used for logging, tracing, and metrics.
+	// [OPTIONAL]
 	alamos.Instrumentation
 }
 
@@ -110,14 +112,16 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 // call concurrently with any other service methods.
 func (s *Service) Close() error { return s.closer.Close() }
 
-// NewWriter opens a writer that runs its operations in tx. A nil tx runs each write
-// directly on the database.
+// NewWriter opens a writer that runs its operations in tx. A nil tx runs each operation
+// in its own transaction.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	tx = gorp.OverrideTx(s.cfg.DB, tx)
+	resolved := gorp.OverrideTx(s.cfg.DB, tx)
 	return Writer{
-		tx:      tx,
-		otg:     s.cfg.Ontology.NewWriter(tx),
-		status:  s.cfg.Status.NewWriter(tx),
+		service: s,
+		tx:      resolved,
+		ownsTx:  tx == nil,
+		otg:     s.cfg.Ontology.NewWriter(resolved),
+		status:  s.cfg.Status.NewWriter(resolved),
 		table:   s.table,
 		devices: s.cfg.Device,
 	}
