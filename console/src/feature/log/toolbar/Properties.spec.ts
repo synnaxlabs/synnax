@@ -53,7 +53,7 @@ describe("log/toolbar/Properties", () => {
   it("disables the timestamp precision while timestamps are hidden", async () => {
     await renderProperties({ timestampsHidden: true });
     await waitFor(() =>
-      expect((screen.getByRole("textbox") as HTMLInputElement).disabled).toBe(true),
+      expect(screen.getByRole<HTMLInputElement>("textbox").disabled).toBe(true),
     );
   });
 
