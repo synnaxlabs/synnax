@@ -11,10 +11,12 @@
 
 /* A box is a frame around other symbols, so only its border catches the pointer. */
 .pluto-schematic .react-flow__node:has(.pluto-box) {
+    /* stylelint-disable-next-line declaration-no-important -- outranks the
+       pointer-events React Flow sets inline on nodes */
     pointer-events: none !important;
 
     .react-flow__resize-control,
-    .pluto-grid__item.pluto-haul-drop-region {
+    .pluto-grid__item.lyra-haul-drop-region {
         pointer-events: auto;
     }
 }

@@ -295,11 +295,12 @@ export class StreamMultiChannelLog
       this.onStatusChange?.(telem.DISCONNECTED_STATUS);
       return;
     }
-    if (this.subscription == null) this.status = telem.LOADING_STATUS;
+    const isMissing = (k: channel.Key): boolean =>
+      !this.metas.has(k) && this.unresolved.get(k)?.definitive !== true;
+    if (this.subscription == null || this._channels.some(isMissing))
+      this.status = telem.LOADING_STATUS;
     while (generation === this.generation) {
-      const missing = this._channels.filter(
-        (k) => !this.metas.has(k) && this.unresolved.get(k)?.definitive !== true,
-      );
+      const missing = this._channels.filter(isMissing);
       const results = await Promise.allSettled(
         missing.map(async (k) => await client.channels.retrieve(k)),
       );
@@ -348,9 +349,10 @@ export class StreamMultiChannelLog
   }
 
   // Adds the samples each channel received since the last pull, and returns whether
-  // the entries changed. A channel's entries wait while it or its index loads, so its
-  // history lands in one pull before its live samples. Reading a snapshot lets the feed
-  // drop the samples it held unread, so a channel is not read while its index loads.
+  // the entries or the status changed. A channel's entries wait while it or its index
+  // loads, so its history lands in one pull before its live samples. Reading a snapshot
+  // lets the feed drop the samples it held unread, so a channel is not read while its
+  // index loads.
   private pull(subscription: framer.Subscription): boolean {
     let worst: cstatus.Status = telem.SUCCESS_STATUS;
     const snapshots = new Map<channel.Key, framer.Snapshot>();
@@ -373,9 +375,10 @@ export class StreamMultiChannelLog
       this.drain(key, meta, index?.series ?? null, groups);
     });
     this.unresolved.forEach((f) => (worst = cstatus.worst(worst, f.status)!));
+    const statusChanged = worst !== this.status;
     this.status = worst;
     this.failures.observe(worst);
-    if (groups.length === 0) return false;
+    if (groups.length === 0) return statusChanged;
     this.insert(groups);
     this.evict();
     return true;

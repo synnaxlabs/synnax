@@ -11,7 +11,7 @@
 
 /* Frosted ring: the sharp fill sits inside a milky, translucent twin of the same
    gradient. */
-.pluto-avatar {
+.lyra-avatar {
     --pluto-avatar-size: var(--pluto-height-medium);
 
     display: flex;
@@ -28,24 +28,24 @@
     box-shadow: var(--pluto-shadow-lift);
     user-select: none;
 
-    &.pluto--height-tiny {
+    &.lyra--height-tiny {
         --pluto-avatar-size: var(--pluto-height-tiny);
     }
 
-    &.pluto--height-small {
+    &.lyra--height-small {
         --pluto-avatar-size: var(--pluto-height-small);
     }
 
-    &.pluto--height-large {
+    &.lyra--height-large {
         --pluto-avatar-size: var(--pluto-height-large);
     }
 
-    &.pluto--height-huge {
+    &.lyra--height-huge {
         --pluto-avatar-size: var(--pluto-height-huge);
     }
 }
 
-.pluto-avatar__fill {
+.lyra-avatar__fill {
     display: flex;
     flex: 1;
     align-items: center;

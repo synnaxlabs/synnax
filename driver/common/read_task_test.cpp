@@ -7,8 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <future>
+
 #include "gtest/gtest.h"
 
+#include "x/cpp/defer/defer.h"
 #include "x/cpp/testutil/testutil.h"
 
 #include "driver/common/read_task.h"
@@ -54,6 +57,39 @@ public:
         pipeline::Authorities authorities;
         res.error = this->wrapped.read(breaker, data, authorities);
         return res;
+    }
+};
+
+/// @brief a source that reads as inner does, and whose stop waits until released.
+class BlockingStopSource final : public Source {
+    std::unique_ptr<Source> inner;
+    std::shared_future<void> released;
+
+public:
+    std::atomic<bool> stopping = false;
+
+    BlockingStopSource(
+        std::unique_ptr<Source> inner,
+        std::shared_future<void> released
+    ):
+        inner(std::move(inner)), released(std::move(released)) {}
+
+    [[nodiscard]] synnax::framer::WriterConfig writer_config() const override {
+        return this->inner->writer_config();
+    }
+
+    [[nodiscard]] std::vector<synnax::channel::Channel> channels() const override {
+        return this->inner->channels();
+    }
+
+    ReadResult read(x::breaker::Breaker &breaker, x::telem::Frame &data) override {
+        return this->inner->read(breaker, data);
+    }
+
+    x::errors::Error stop() override {
+        this->stopping = true;
+        this->released.wait();
+        return this->inner->stop();
     }
 };
 
@@ -524,8 +560,14 @@ TEST(TestCommonReadTask, testTemporaryErrorWarning) {
     EXPECT_EQ(warning_state.message, "Failed to read data");
     EXPECT_EQ(warning_state.description, "Next retry 1/50 in 0.0 s.");
 
-    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 3);
-    auto recovered_state = ctx->statuses[2];
+    // The recovery comes inside the status window, so it waits for the window to end.
+    ASSERT_EVENTUALLY_GE_WITH_TIMEOUT(
+        ctx->snapshot().size(),
+        3,
+        std::chrono::seconds(3),
+        std::chrono::milliseconds(10)
+    );
+    auto recovered_state = ctx->snapshot()[2];
     EXPECT_EQ(recovered_state.key, synnax::task::status_key(t));
     EXPECT_EQ(recovered_state.details.cmd, driver::task::NO_COMMAND);
     EXPECT_EQ(recovered_state.variant, synnax::status::VARIANT_SUCCESS);
@@ -541,8 +583,8 @@ TEST(TestCommonReadTask, testTemporaryErrorWarning) {
     EXPECT_EQ(stop_state.message, "Stopped task");
 }
 
-/// @brief it should show the retry count and the backoff interval in the warning for
-/// each consecutive temporary error.
+/// @brief it should show the retry count and the backoff interval in the warning for a
+/// temporary error, then send only the latest state once the status window ends.
 TEST(TestCommonReadTask, testTemporaryErrorWarningShowsRetry) {
     const auto
         mock_writer_factory = std::make_shared<pipeline::testutil::WriterFactory>();
@@ -568,13 +610,60 @@ TEST(TestCommonReadTask, testTemporaryErrorWarningShowsRetry) {
     ReadTask
         read_task(t, ctx, breaker_config, std::move(mock_source), mock_writer_factory);
     read_task.start("start_cmd");
-    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 4);
-    EXPECT_EQ(ctx->statuses[1].variant, synnax::status::VARIANT_WARNING);
-    EXPECT_EQ(ctx->statuses[1].description, "Next retry 1/3 in 0.1 s.");
-    EXPECT_EQ(ctx->statuses[2].variant, synnax::status::VARIANT_WARNING);
-    EXPECT_EQ(ctx->statuses[2].description, "Next retry 2/3 in 0.2 s.");
-    EXPECT_EQ(ctx->statuses[3].variant, synnax::status::VARIANT_SUCCESS);
+    ASSERT_EVENTUALLY_GE_WITH_TIMEOUT(
+        ctx->snapshot().size(),
+        3,
+        std::chrono::seconds(3),
+        std::chrono::milliseconds(10)
+    );
+    const auto statuses = ctx->snapshot();
+    EXPECT_EQ(statuses[1].variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(statuses[1].description, "Next retry 1/3 in 0.1 s.");
+    EXPECT_EQ(statuses[2].variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(statuses[2].message, "Task running");
     read_task.stop("stop_cmd", true);
+}
+
+/// @brief it should send no queued status while the stop of a removed task waits on
+/// hardware.
+TEST(TestCommonReadTask, testRemovalSendsNoQueuedStatus) {
+    const auto
+        mock_writer_factory = std::make_shared<pipeline::testutil::WriterFactory>();
+    synnax::task::Task t;
+    t.key = x::uuid::create();
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    auto reads = std::make_shared<std::vector<x::telem::Frame>>();
+    const auto s = x::telem::Series(x::telem::TimeStamp::now());
+    for (int i = 0; i < 30; i++)
+        reads->emplace_back(i, s.deep_copy());
+    std::promise<void> release;
+    auto source = std::make_unique<BlockingStopSource>(
+        std::make_unique<MockSource>(
+            reads,
+            std::make_shared<std::vector<x::errors::Error>>(std::vector{
+                x::errors::NIL,
+                errors::TEMPORARY_HARDWARE_ERROR,
+                x::errors::NIL
+            })
+        ),
+        release.get_future().share()
+    );
+    const auto *blocking = source.get();
+    auto breaker_config = x::breaker::default_config("cat");
+    breaker_config.base_interval = 10 * x::telem::MILLISECOND;
+    ReadTask read_task(t, ctx, breaker_config, std::move(source), mock_writer_factory);
+    read_task.start("start_cmd");
+    ASSERT_EVENTUALLY_GE(ctx->snapshot().size(), 2);
+    // The recovery read follows the warning inside the window, so its status waits.
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    std::thread stopper([&] { read_task.stop(true); });
+    x::defer::defer join([&] {
+        release.set_value();
+        stopper.join();
+    });
+    ASSERT_EVENTUALLY_TRUE(blocking->stopping.load());
+    std::this_thread::sleep_for(std::chrono::milliseconds(1500));
+    EXPECT_EQ(ctx->snapshot().size(), 2);
 }
 
 /// @brief it should parse valid base read task configuration.

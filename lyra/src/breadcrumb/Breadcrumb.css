@@ -9,16 +9,16 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-breadcrumb {
+.lyra-breadcrumb {
     color: inherit;
 
-    & .pluto-text {
+    & .lyra-text {
         font-weight: inherit;
         font-size: inherit;
         line-height: inherit;
     }
 
-    &.pluto-breadcrumb--highlight-last {
+    &.lyra-breadcrumb--highlight-last {
         & > :not(:last-child) {
             color: var(--pluto-gray-l9);
             font-weight: 350;
@@ -31,7 +31,7 @@
         }
     }
 
-    &.pluto-breadcrumb--highlight-first {
+    &.lyra-breadcrumb--highlight-first {
         & > :first-child {
             color: var(--pluto-gray-l11);
         }
@@ -42,12 +42,12 @@
         }
     }
 
-    & .pluto-breadcrumb__separator {
+    & .lyra-breadcrumb__separator {
         color: var(--pluto-gray-l9);
         transform: scale(0.9);
     }
 
-    & a.pluto-text {
+    & a.lyra-text {
         text-decoration: none;
         transition: color 0.1s ease-in-out;
 
