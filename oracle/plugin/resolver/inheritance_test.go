@@ -518,6 +518,27 @@ var _ = Describe("Inheritance", func() {
 			Expect(fieldNames(declared)).ToNot(ContainElement("name"))
 		})
 
+		It("Should apply a flattened generic base's type arguments", func(
+			ctx SpecContext,
+		) {
+			form, v, table := analyzeUnion(ctx, `
+				@go output "pkg/test"
+
+				Record struct<T> {
+					value T
+					@go omit
+				}
+
+				Chan union on type {
+					ai extends Record<string> {}
+				}
+			`, "Chan", "ai")
+			inherited, declared := resolver.VariantBases(form, v, "go", table)
+			Expect(inherited).To(BeEmpty())
+			Expect(declared).To(HaveLen(1))
+			Expect(declared[0].Type.Name).To(Equal("string"))
+		})
+
 		It("Should not declare a field the variant declares itself", func(
 			ctx SpecContext,
 		) {

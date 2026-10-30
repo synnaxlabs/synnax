@@ -184,11 +184,21 @@ func VariantBases(
 	})...)
 	var flattened [][]resolution.Field
 	for _, ref := range bases {
-		base, _, ok := resolution.Dealias(ref, table)
+		base, baseRef, ok := resolution.Dealias(ref, table)
 		if !ok {
 			continue
 		}
-		fields := resolution.UnifiedFields(base, table)
+		typeArgs := resolution.TypeArgMap(
+			resolution.TypeParams(base.Form),
+			baseRef.TypeArgs,
+		)
+		fields := lo.Map(
+			resolution.UnifiedFields(base, table),
+			func(f resolution.Field, _ int) resolution.Field {
+				f.Type = resolution.SubstituteTypeRef(f.Type, typeArgs)
+				return f
+			},
+		)
 		if !ParentsExist([]resolution.TypeRef{ref}, lang, table) ||
 			lo.SomeBy(fields, func(f resolution.Field) bool {
 				return drop.Contains(f.Name)
