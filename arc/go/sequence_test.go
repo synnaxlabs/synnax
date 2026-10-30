@@ -5095,6 +5095,153 @@ var _ = Describe("Sequence", func() {
 		)
 	})
 
+	Describe("Computed stateful initializers", func() {
+		// drainI64 collects every i64 value flushed to a channel in order.
+		drainI64 := func(fr telem.Frame[uint32], key uint32) []int64 {
+			var out []int64
+			for _, ser := range fr.Get(key).Series {
+				out = append(out, ser.Unmarshal[int64]()...)
+			}
+			return out
+		}
+
+		It(
+			"Reads a computed stateful's initial value in flow reads",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(map[string]channelDef{
+					"start_cmd": {types.U8(), 100},
+					"out":       {types.U8(), 101},
+					"out2":      {types.U8(), 102},
+				})
+				h := newRuntimeHarness(ctx, `
+				sequence main {
+				    x u8 $= 2 + 3
+				    stage s1 {
+				        x -> out
+				        x * 2 -> out2
+				    }
+				}
+				start_cmd => main`, resolver,
+					channels.Digest{Key: 100, DataType: telem.Uint8T},
+					channels.Digest{Key: 101, DataType: telem.Uint8T},
+					channels.Digest{Key: 102, DataType: telem.Uint8T},
+				)
+				defer h.Close(ctx)
+
+				trigger(h, ctx, 100)
+				out, _ := h.Flush()
+				Expect(lastU8(out, 101)).To(Equal(uint8(5)))
+				Expect(lastU8(out, 102)).To(Equal(uint8(10)))
+			},
+		)
+
+		It("Interpolates a computed stateful's initial value", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"out":       {types.String(), 101},
+			})
+			h := newRuntimeHarness(ctx, `
+				sequence main {
+				    x u8 $= 2 + 3
+				    stage s1 {
+				        `+`f"x: {x}"`+` -> out
+				    }
+				}
+				start_cmd => main`, resolver,
+				channels.Digest{Key: 100, DataType: telem.Uint8T},
+				channels.Digest{Key: 101, DataType: telem.StringT},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			out, _ := h.Flush()
+			Expect(lastString(out, 101)).To(Equal("x: 5"))
+		})
+
+		It(
+			"Persists a written computed stateful across stage re-entries",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(map[string]channelDef{
+					"start_cmd": {types.U8(), 100},
+					"out":       {types.U8(), 101},
+					"go2":       {types.U8(), 102},
+					"go1":       {types.U8(), 103},
+				})
+				h := newRuntimeHarness(ctx, `
+				sequence main {
+				    x u8 $= 2 + 3
+				    stage s1 {
+				        x = x + 1
+				        x -> out
+				        go2 => next
+				    }
+				    stage s2 {
+				        go1 => s1
+				    }
+				}
+				start_cmd => main`, resolver,
+					channels.Digest{Key: 100, DataType: telem.Uint8T},
+					channels.Digest{Key: 101, DataType: telem.Uint8T},
+					channels.Digest{Key: 102, DataType: telem.Uint8T},
+					channels.Digest{Key: 103, DataType: telem.Uint8T},
+				)
+				defer h.Close(ctx)
+
+				trigger(h, ctx, 100)
+				out, _ := h.Flush()
+				Expect(lastU8(out, 101)).To(Equal(uint8(6)))
+				trigger(h, ctx, 102)
+				trigger(h, ctx, 103)
+				out, _ = h.Flush()
+				Expect(lastU8(out, 101)).To(Equal(uint8(7)))
+			},
+		)
+
+		It(
+			"Keeps a computed stateful's first value across stage re-entries",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(map[string]channelDef{
+					"start_cmd": {types.U8(), 100},
+					"rd":        {types.U8(), 101},
+					"go2":       {types.U8(), 102},
+					"go1":       {types.U8(), 103},
+					"out":       {types.I64(), 104},
+				})
+				h := newRuntimeHarness(ctx, `
+				import time
+				sequence main {
+				    start $= time.now()
+				    stage s1 {
+				        rd -> start + 0 -> out
+				        go2 => next
+				    }
+				    stage s2 {
+				        go1 => s1
+				    }
+				}
+				start_cmd => main`, resolver,
+					channels.Digest{Key: 104, DataType: telem.Int64T},
+				)
+				defer h.Close(ctx)
+
+				advance(h, ctx, telem.Millisecond)
+				startedAt := int64(h.cycleNow)
+				advance(h, ctx, 10*telem.Millisecond)
+				trigger(h, ctx, 100)
+				trigger(h, ctx, 101)
+				out, _ := h.Flush()
+				Expect(drainI64(out, 104)).To(Equal([]int64{startedAt}),
+					"the initializer runs once at program start")
+				trigger(h, ctx, 102)
+				trigger(h, ctx, 103)
+				trigger(h, ctx, 101)
+				out, _ = h.Flush()
+				Expect(drainI64(out, 104)).To(Equal([]int64{startedAt}),
+					"re-entry must keep the first value")
+			},
+		)
+	})
+
 	Describe("Computed initializers", func() {
 		// drainI64 collects every i64 value flushed to a channel in order.
 		drainI64 := func(fr telem.Frame[uint32], key uint32) []int64 {

@@ -107,10 +107,8 @@ func inferVarKind(ctx context.Context[parser.IVariableDeclarationContext]) {
 			))
 			return
 		}
-		// SY-4474: Enable const-expression initializers for variables
-		if expr != nil && !parser.IsLiteral(expr) {
-			ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
-				"stateful variable initializer must be a literal value"))
+		if expr != nil && sym.DefaultValue == nil {
+			flow.AnalyzeSingleExpression(ctx.Child(expr))
 		}
 		return
 	}

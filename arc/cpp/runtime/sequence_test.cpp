@@ -3403,6 +3403,122 @@ TEST(VariableCaptureDispatchTest, ExecutesAOneShotCaptureChainExactlyOnce) {
     EXPECT_EQ(count_of(out, h.key("fp_out"), "parent"), 0);
 }
 
+TEST(ComputedStatefulInitializersTest, ReadsAComputedStatefulsInitialValueInFlowReads) {
+    Sequence h(
+        R"(
+    sequence main {
+        x u8 $= 2 + 3
+        stage s1 {
+            x -> %out%
+            x * 2 -> %out2%
+        }
+    }
+    %start_cmd% => main)",
+        {{"start_cmd", x::telem::UINT8_T},
+         {"out", x::telem::UINT8_T},
+         {"out2", x::telem::UINT8_T}}
+    );
+
+    h.trigger("start_cmd");
+    const auto out = h.flush();
+    EXPECT_EQ(last<std::uint8_t>(out, h.key("out")), 5);
+    EXPECT_EQ(last<std::uint8_t>(out, h.key("out2")), 10);
+}
+
+TEST(ComputedStatefulInitializersTest, InterpolatesAComputedStatefulsInitialValue) {
+    Sequence h(
+        R"(
+    sequence main {
+        x u8 $= 2 + 3
+        stage s1 {
+            f"x: {x}" -> %out%
+        }
+    }
+    %start_cmd% => main)",
+        {{"start_cmd", x::telem::UINT8_T}, {"out", x::telem::STRING_T}}
+    );
+
+    h.trigger("start_cmd");
+    const auto out = h.flush();
+    EXPECT_EQ(last<std::string>(out, h.key("out")), "x: 5");
+}
+
+TEST(
+    ComputedStatefulInitializersTest,
+    PersistsAWrittenComputedStatefulAcrossStageReEntries
+) {
+    Sequence h(
+        R"(
+    sequence main {
+        x u8 $= 2 + 3
+        stage s1 {
+            x = x + 1
+            x -> %out%
+            %go2% => next
+        }
+        stage s2 {
+            %go1% => s1
+        }
+    }
+    %start_cmd% => main)",
+        {{"start_cmd", x::telem::UINT8_T},
+         {"out", x::telem::UINT8_T},
+         {"go2", x::telem::UINT8_T},
+         {"go1", x::telem::UINT8_T}}
+    );
+
+    h.trigger("start_cmd");
+    auto out = h.flush();
+    EXPECT_EQ(last<std::uint8_t>(out, h.key("out")), 6);
+    h.trigger("go2");
+    h.trigger("go1");
+    out = h.flush();
+    EXPECT_EQ(last<std::uint8_t>(out, h.key("out")), 7);
+}
+
+TEST(
+    ComputedStatefulInitializersTest,
+    KeepsAComputedStatefulsFirstValueAcrossStageReEntries
+) {
+    Sequence h(
+        R"(
+    import time
+    sequence main {
+        start $= time.now()
+        stage s1 {
+            %rd% -> start + 0 -> %out%
+            %go2% => next
+        }
+        stage s2 {
+            %go1% => s1
+        }
+    }
+    %start_cmd% => main)",
+        {{"start_cmd", x::telem::UINT8_T},
+         {"rd", x::telem::UINT8_T},
+         {"go2", x::telem::UINT8_T},
+         {"go1", x::telem::UINT8_T},
+         {"out", x::telem::INT64_T}}
+    );
+
+    h.advance(x::telem::MILLISECOND);
+    const auto started_at = h.now().nanoseconds();
+    h.advance(10 * x::telem::MILLISECOND);
+    h.trigger("start_cmd");
+    h.trigger("rd");
+    EXPECT_EQ(
+        collect<std::int64_t>(h.flush(), h.key("out")),
+        (std::vector<std::int64_t>{started_at})
+    ) << "the initializer runs once at program start";
+    h.trigger("go2");
+    h.trigger("go1");
+    h.trigger("rd");
+    EXPECT_EQ(
+        collect<std::int64_t>(h.flush(), h.key("out")),
+        (std::vector<std::int64_t>{started_at})
+    ) << "re-entry must keep the first value";
+}
+
 TEST(ComputedCallInputsTest, PassesTheTriggerTimeStampToAFunctionInput) {
     Sequence h(
         R"(

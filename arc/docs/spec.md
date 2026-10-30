@@ -208,8 +208,7 @@ Assignment ::= Identifier '=' Expression
 A variable's kind is inferred from its initializer:
 
 - **Literal**: a held value (`gain := 6`). Resets to its initial value on each entry
-  into its declaring scope. `$=` makes a literal stateful, keeping its value across
-  entries; only literals can be stateful.
+  into its declaring scope. `$=` makes it stateful, keeping its value across entries.
 - **Computed**: an expression that reads no channel (`start := now()`,
   `gain := 2 * 3`). It runs once on each entry into its declaring scope, at the same
   moment a literal resets, and the variable holds the result. A later `=` replaces the
@@ -443,7 +442,7 @@ func counter() i64 {
 }
 ```
 
-A `$=` initializer must be a literal value; only literal variables can be stateful.
+A `$=` initializer is a literal or an expression that reads no channel.
 `true` and `false` are literals.
 
 ### Channel operations in functions

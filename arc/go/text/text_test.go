@@ -2572,22 +2572,38 @@ var _ = Describe("Text", func() {
 		)
 
 		It(
-			"Should reject a computed stateful variable initializer",
+			"Should lower a computed stateful initializer as a root entry node",
 			func(ctx SpecContext) {
 				source := `
 			sequence main {
 				c i64 $= 2 + 3
-			}`
+				stage s1 {
+					c -> out_ch
+				}
+			}
+			flag_ch => main`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				_, diagnostics := text.Analyze(
+				inter, diagnostics := text.Analyze(
 					ctx,
 					parsedText,
 					NewRoot(nil, varResolver...),
 				)
-				Expect(diagnostics.Ok()).To(BeFalse(), diagnostics.String())
-				Expect(diagnostics.String()).To(ContainSubstring(
-					"stateful variable initializer must be a literal value",
-				))
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				register := findNodeByType(inter.Nodes, "stateful_variable")
+				Expect(register.Inputs).To(HaveLen(1), "the initializer feeds f0")
+				var init ir.Node
+				for _, e := range inter.Edges {
+					if e.Target.Node == register.Key && e.Target.Param == "f0" {
+						init = findNodeByKey(inter.Nodes, e.Source.Node)
+					}
+				}
+				Expect(init.Type).To(HavePrefix("expression_"))
+				rootRefs := scopeNodeRefs(inter.Root)
+				Expect(rootRefs).To(ContainElement(init.Key),
+					"a stateful initializer fires once per run, so it lives at root")
+				main := findTopLevelScope(inter, "main")
+				Expect(scopeNodeRefs(main)).To(ContainElement(register.Key))
+				Expect(scopeNodeRefs(main)).ToNot(ContainElement(init.Key))
 			},
 		)
 

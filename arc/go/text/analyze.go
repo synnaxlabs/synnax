@@ -671,19 +671,25 @@ func lowerVarDecl(
 	kg *keyGenerator,
 	shell *shellBuilder,
 ) (varEntry, bool) {
-	local := ctx.AST.LocalVariable()
-	if local == nil {
+	var (
+		ident string
+		expr  parser.IExpressionContext
+	)
+	switch {
+	case ctx.AST.LocalVariable() != nil:
+		local := ctx.AST.LocalVariable()
+		ident, expr = local.IDENTIFIER().GetText(), local.Expression()
+	case ctx.AST.StatefulVariable() != nil:
+		stateful := ctx.AST.StatefulVariable()
+		ident, expr = stateful.IDENTIFIER().GetText(), stateful.Expression()
+	default:
 		return varEntry{}, true
 	}
-	sym, err := ctx.Scope.Resolve(ctx, local.IDENTIFIER().GetText())
-	if err != nil {
+	sym, err := ctx.Scope.Resolve(ctx, ident)
+	if err != nil || expr == nil {
 		return varEntry{}, true
 	}
 	e := shell.varNodes[sym]
-	expr := local.Expression()
-	if expr == nil {
-		return varEntry{}, true
-	}
 	if sym.IsComputed() {
 		return lowerComputedDecl(ctx, expr, sym, e, kg, shell)
 	}
@@ -716,11 +722,18 @@ func lowerComputedDecl(
 	if !ok {
 		return varEntry{}, false
 	}
-	e.init = &res.node
-	shell.varNodes[sym] = e
+	var target ir.Handle
+	if sym.Kind == symbol.KindStatefulVariable {
+		shell.rootNodes = append(shell.rootNodes, &res.node)
+		target = ir.Handle{Node: e.register.Key, Param: e.register.Inputs[0].Name}
+	} else {
+		e.init = &res.node
+		shell.varNodes[sym] = e
+		target = varFeederRef(e.register).input
+	}
 	shell.edges = append(shell.edges, ir.Edge{
 		Source: res.output,
-		Target: varFeederRef(e.register).input,
+		Target: target,
 		Kind:   ir.EdgeKindContinuous,
 	})
 	return e, true
