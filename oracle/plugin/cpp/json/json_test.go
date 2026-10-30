@@ -374,6 +374,68 @@ var _ = Describe("C++ JSON Plugin", func() {
 						)
 				},
 			)
+			It(
+				"Should serialize each value of a map of structs",
+				func(ctx SpecContext) {
+					source := `
+					@cpp output "client/cpp/task"
+
+					Pair struct {
+						left uint32
+					}
+
+					Task struct {
+						pairs map<string, Pair>
+					}
+				`
+					resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+
+					ExpectContent(resp, "json.gen.h").
+						ToContain(
+							`for (const auto& [key, item] : this->pairs) obj[key] = item.to_json();`,
+							`j["pairs"] = obj;`,
+						)
+				},
+			)
+			It(
+				"Should unwrap an optional map of structs",
+				func(ctx SpecContext) {
+					source := `
+					@cpp output "client/cpp/task"
+
+					Pair struct {
+						left uint32
+					}
+
+					Task struct {
+						pairs map<string, Pair>?
+					}
+				`
+					resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+
+					ExpectContent(resp, "json.gen.h").
+						ToContain(
+							`if (this->pairs.has_value()) {`,
+							`for (const auto& [key, item] : *this->pairs) obj[key] = item.to_json();`,
+						)
+				},
+			)
+			It(
+				"Should assign a map of primitives directly",
+				func(ctx SpecContext) {
+					source := `
+					@cpp output "client/cpp/task"
+
+					Task struct {
+						metadata map<string, string>
+					}
+				`
+					resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+
+					ExpectContent(resp, "json.gen.h").
+						ToContain(`j["metadata"] = this->metadata;`)
+				},
+			)
 		})
 
 		Context("complex type structure from arc/types", func() {
