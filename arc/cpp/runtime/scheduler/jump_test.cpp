@@ -14,7 +14,7 @@
 
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/telem/telem.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "arc/cpp/ir/ir.h"
 #include "arc/cpp/runtime/node/node.h"
@@ -51,6 +51,7 @@ ir::Scope main_seq(
     std::vector<ir::Transition> transitions
 ) {
     std::vector<ir::Member> members;
+    members.reserve(keys.size());
     for (const auto &k: keys)
         members.push_back(ir::node_member(k));
     auto s = parallel_scope("s", {stratum_of(std::move(members))});

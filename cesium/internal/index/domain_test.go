@@ -15,6 +15,7 @@ import (
 	. "github.com/synnaxlabs/alamos/testutil"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
+	"github.com/synnaxlabs/cesium/internal/testutil"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
@@ -59,7 +60,7 @@ var _ = Describe("Domain", func() {
 				MustSucceed(w.Write(telem.NewSeriesSecondsTSV(25, 26).Data))
 				Expect(w.Commit(ctx, 26*telem.SecondTS+1)).To(Succeed())
 				Expect(w.Close()).To(Succeed())
-				Expect(domain.Write(
+				Expect(testutil.WriteDomain(
 					ctx,
 					db,
 					(30 * telem.SecondTS).Range(33*telem.SecondTS+1),
@@ -71,7 +72,7 @@ var _ = Describe("Domain", func() {
 			Describe("Distance", func() {
 				Context("Continuous", func() {
 					BeforeEach(func(ctx SpecContext) {
-						Expect(domain.Write(
+						Expect(testutil.WriteDomain(
 							ctx,
 							db,
 							(1 * telem.SecondTS).Range(20*telem.SecondTS+1),
@@ -179,7 +180,7 @@ var _ = Describe("Domain", func() {
 
 				Context("Discontinuous", func() {
 					BeforeEach(func(ctx SpecContext) {
-						Expect(domain.Write(
+						Expect(testutil.WriteDomain(
 							ctx,
 							db,
 							(1 * telem.SecondTS).Range(20*telem.SecondTS+1),
@@ -195,13 +196,13 @@ var _ = Describe("Domain", func() {
 								20,
 							).Data,
 						)).To(Succeed())
-						Expect(domain.Write(
+						Expect(testutil.WriteDomain(
 							ctx,
 							db,
 							(25 * telem.SecondTS).Range(30*telem.SecondTS+1),
 							telem.NewSeriesSecondsTSV(25, 26, 28, 30).Data,
 						)).To(Succeed())
-						Expect(domain.Write(
+						Expect(testutil.WriteDomain(
 							ctx,
 							db,
 							(40 * telem.SecondTS).Range(43*telem.SecondTS+1),
@@ -343,6 +344,115 @@ var _ = Describe("Domain", func() {
 							),
 							index.Between[int64](6, 8),
 							nil,
+						),
+					)
+				})
+			})
+
+			Describe("EndAfter", func() {
+				BeforeEach(func(ctx SpecContext) {
+					Expect(testutil.WriteDomain(
+						ctx,
+						db,
+						(1 * telem.SecondTS).Range(5*telem.SecondTS+1),
+						telem.NewSeriesSecondsTSV(1, 2, 3, 5).Data,
+					)).To(Succeed())
+					Expect(testutil.WriteDomain(
+						ctx,
+						db,
+						(10 * telem.SecondTS).Range(12*telem.SecondTS+1),
+						telem.NewSeriesSecondsTSV(10, 11, 12).Data,
+					)).To(Succeed())
+				})
+				DescribeTable(
+					"returns the end of the range holding n samples",
+					func(
+						ctx SpecContext,
+						ref telem.TimeStamp,
+						n int64,
+						expected telem.TimeStamp,
+					) {
+						Expect(idx.EndAfter(ctx, ref, n)).To(Equal(expected))
+					},
+					Entry(
+						"zero samples, after ref",
+						1*telem.SecondTS,
+						int64(0),
+						1*telem.SecondTS+1,
+					),
+					Entry(
+						"inside the first domain",
+						1*telem.SecondTS,
+						int64(2),
+						3*telem.SecondTS,
+					),
+					Entry(
+						"from a stamp between samples",
+						4*telem.SecondTS,
+						int64(1),
+						10*telem.SecondTS,
+					),
+					Entry(
+						"across the gap between domains",
+						2*telem.SecondTS,
+						int64(4),
+						11*telem.SecondTS,
+					),
+					Entry(
+						"from a stamp inside the gap",
+						7*telem.SecondTS,
+						int64(2),
+						12*telem.SecondTS,
+					),
+					Entry(
+						"before the first domain",
+						telem.TimeStamp(0),
+						int64(1),
+						2*telem.SecondTS,
+					),
+					Entry(
+						"past the last sample",
+						1*telem.SecondTS,
+						int64(7),
+						telem.TimeStampMax,
+					),
+					Entry(
+						"after every domain",
+						20*telem.SecondTS,
+						int64(1),
+						telem.TimeStampMax,
+					),
+				)
+				Context("Equal timestamps", func() {
+					BeforeEach(func(ctx SpecContext) {
+						Expect(testutil.WriteDomain(
+							ctx,
+							db,
+							(19 * telem.SecondTS).Range(21*telem.SecondTS+1),
+							telem.NewSeriesSecondsTSV(19, 20, 20, 20, 21).Data,
+						)).To(Succeed())
+					})
+					DescribeTable(
+						"ends after the whole run of equal timestamps",
+						func(
+							ctx SpecContext,
+							ref telem.TimeStamp,
+							n int64,
+							expected telem.TimeStamp,
+						) {
+							Expect(idx.EndAfter(ctx, ref, n)).To(Equal(expected))
+						},
+						Entry(
+							"inside the run",
+							20*telem.SecondTS,
+							int64(1),
+							20*telem.SecondTS+1,
+						),
+						Entry(
+							"past the run",
+							20*telem.SecondTS,
+							int64(2),
+							21*telem.SecondTS,
 						),
 					)
 				})
@@ -512,7 +622,7 @@ var _ = Describe("Domain", func() {
 				Context("Forward", func() {
 					Context("Continuous", func() {
 						BeforeEach(func(ctx SpecContext) {
-							Expect(domain.Write(
+							Expect(testutil.WriteDomain(
 								ctx,
 								db,
 								(1 * telem.SecondTS).SpanRange(19*telem.Second+1),
@@ -595,7 +705,7 @@ var _ = Describe("Domain", func() {
 
 					Context("Quasi-Continuous (Many Continuous domains)", func() {
 						BeforeEach(func(ctx SpecContext) {
-							Expect(domain.Write(
+							Expect(testutil.WriteDomain(
 								ctx,
 								db,
 								(1 * telem.SecondTS).Range(19*telem.SecondTS+1),
@@ -611,14 +721,14 @@ var _ = Describe("Domain", func() {
 								).Data,
 							)).To(Succeed())
 
-							Expect(domain.Write(
+							Expect(testutil.WriteDomain(
 								ctx,
 								db,
 								(19*telem.SecondTS + 1).Range(26*telem.SecondTS+1),
 								telem.NewSeriesSecondsTSV(20, 21, 22, 23, 25, 26).Data,
 							)).To(Succeed())
 
-							Expect(domain.Write(
+							Expect(testutil.WriteDomain(
 								ctx,
 								db,
 								(26*telem.SecondTS + 1).Range(35*telem.SecondTS+1),
@@ -633,7 +743,7 @@ var _ = Describe("Domain", func() {
 								).Data,
 							)).To(Succeed())
 
-							Expect(domain.Write(
+							Expect(testutil.WriteDomain(
 								ctx,
 								db,
 								(40 * telem.SecondTS).Range(45*telem.SecondTS+1),
@@ -764,7 +874,7 @@ var _ = Describe("Domain", func() {
 					Specify(
 						"Quasi-Continuous Without Ending Domain",
 						func(ctx SpecContext) {
-							Expect(domain.Write(
+							Expect(testutil.WriteDomain(
 								ctx,
 								db,
 								(1 * telem.SecondTS).Range(19*telem.SecondTS+1),
@@ -780,14 +890,14 @@ var _ = Describe("Domain", func() {
 								).Data,
 							)).To(Succeed())
 
-							Expect(domain.Write(
+							Expect(testutil.WriteDomain(
 								ctx,
 								db,
 								(19*telem.SecondTS + 1).Range(26*telem.SecondTS+1),
 								telem.NewSeriesSecondsTSV(20, 21, 22, 23, 25, 26).Data,
 							)).To(Succeed())
 
-							Expect(domain.Write(
+							Expect(testutil.WriteDomain(
 								ctx,
 								db,
 								(26*telem.SecondTS + 1).Range(35*telem.SecondTS+1),
@@ -820,7 +930,7 @@ var _ = Describe("Domain", func() {
 
 					Context("Discontinuous", func() {
 						BeforeEach(func(ctx SpecContext) {
-							Expect(domain.Write(
+							Expect(testutil.WriteDomain(
 								ctx,
 								db,
 								(1 * telem.SecondTS).Range(20*telem.SecondTS+1),
@@ -836,7 +946,7 @@ var _ = Describe("Domain", func() {
 									20,
 								).Data,
 							)).To(Succeed())
-							Expect(domain.Write(
+							Expect(testutil.WriteDomain(
 								ctx,
 								db,
 								(30 * telem.SecondTS).Range(40*telem.SecondTS+1),
@@ -854,7 +964,7 @@ var _ = Describe("Domain", func() {
 									40,
 								).Data,
 							)).To(Succeed())
-							Expect(domain.Write(
+							Expect(testutil.WriteDomain(
 								ctx,
 								db,
 								(55 * telem.SecondTS).Range(65*telem.SecondTS+1),
@@ -924,7 +1034,7 @@ var _ = Describe("Domain", func() {
 				Context("Backward", func() {
 					Context("Continuous", func() {
 						BeforeEach(func(ctx SpecContext) {
-							Expect(domain.Write(
+							Expect(testutil.WriteDomain(
 								ctx,
 								db,
 								(1 * telem.SecondTS).Range(19*telem.SecondTS+1),
@@ -989,7 +1099,7 @@ var _ = Describe("Domain", func() {
 
 					Context("Quasi-Continuous (Many Continuous domains)", func() {
 						BeforeEach(func(ctx SpecContext) {
-							Expect(domain.Write(
+							Expect(testutil.WriteDomain(
 								ctx,
 								db,
 								(1 * telem.SecondTS).Range(19*telem.SecondTS+1),
@@ -1005,14 +1115,14 @@ var _ = Describe("Domain", func() {
 								).Data,
 							)).To(Succeed())
 
-							Expect(domain.Write(
+							Expect(testutil.WriteDomain(
 								ctx,
 								db,
 								(19*telem.SecondTS + 1).Range(26*telem.SecondTS+1),
 								telem.NewSeriesSecondsTSV(20, 21, 22, 23, 25, 26).Data,
 							)).To(Succeed())
 
-							Expect(domain.Write(
+							Expect(testutil.WriteDomain(
 								ctx,
 								db,
 								(26*telem.SecondTS + 1).Range(35*telem.SecondTS+1),
@@ -1027,7 +1137,7 @@ var _ = Describe("Domain", func() {
 								).Data,
 							)).To(Succeed())
 
-							Expect(domain.Write(
+							Expect(testutil.WriteDomain(
 								ctx,
 								db,
 								(40 * telem.SecondTS).Range(45*telem.SecondTS+1),
@@ -1157,7 +1267,7 @@ var _ = Describe("Domain", func() {
 
 					Context("Discontinuous", func() {
 						BeforeEach(func(ctx SpecContext) {
-							Expect(domain.Write(
+							Expect(testutil.WriteDomain(
 								ctx,
 								db,
 								(1 * telem.SecondTS).Range(20*telem.SecondTS+1),
@@ -1173,7 +1283,7 @@ var _ = Describe("Domain", func() {
 									20,
 								).Data,
 							)).To(Succeed())
-							Expect(domain.Write(
+							Expect(testutil.WriteDomain(
 								ctx,
 								db,
 								(30 * telem.SecondTS).Range(40*telem.SecondTS+1),
@@ -1191,7 +1301,7 @@ var _ = Describe("Domain", func() {
 									40,
 								).Data,
 							)).To(Succeed())
-							Expect(domain.Write(
+							Expect(testutil.WriteDomain(
 								ctx,
 								db,
 								(55 * telem.SecondTS).Range(65*telem.SecondTS+1),

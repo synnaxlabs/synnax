@@ -90,7 +90,7 @@ const List = (): ReactElement => {
   );
 };
 
-const listItem = Component.renderProp((props: BaseList.ItemProps<string>) => {
+const ListItem = (props: BaseList.ItemProps<string>) => {
   const { itemKey } = props;
   const entry = Range.useResolve(itemKey);
   const isLocal = entry != null && entry.variant !== "persisted";
@@ -127,7 +127,7 @@ const listItem = Component.renderProp((props: BaseList.ItemProps<string>) => {
           allowDoubleClick={false}
         />
       </Flex.Box>
-      <Telem.Text.TimeRange level="small">{timeRange}</Telem.Text.TimeRange>
+      <Telem.Text.TimeRange level="tiny">{timeRange}</Telem.Text.TimeRange>
       {labels.length > 0 && (
         <Flex.Box x gap="small" wrap className={CSS.B("range-list-item-labels")}>
           {labels.map((l) => (
@@ -139,7 +139,9 @@ const listItem = Component.renderProp((props: BaseList.ItemProps<string>) => {
       )}
     </Select.Item>
   );
-});
+};
+
+const listItem = Component.renderProp(ListItem);
 
 const UnfavoriteAllAction = (): ReactElement | null => {
   const dispatch = Session.useDispatch();
@@ -185,11 +187,7 @@ const Actions = (): ReactElement => {
         </Toolbar.Action>
       )}
       {hasCreatePermission && (
-        <Toolbar.Action
-          tooltip="Create range"
-          onClick={() => openCreate()}
-          variant="filled"
-        >
+        <Toolbar.Action tooltip="Create range" onClick={() => openCreate()}>
           <Icon.Add />
         </Toolbar.Action>
       )}

@@ -14,36 +14,16 @@ import "@synnaxlabs/lyra/dist/tree/Item.css";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Caret } from "@synnaxlabs/lyra/caret";
 import { type CSS } from "@synnaxlabs/lyra/css";
-import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 
+import { SECTION_ICONS } from "@/components/nav/icons";
+import { ancestry, type PageNavNode } from "@/components/nav/tree";
 import { InlineCode } from "@/components/text/InlineCode";
-import { type Flag } from "@/flags";
 import { normalizeRoute } from "@/util/route";
 
-const SECTION_ICONS: Record<string, ReactElement> = {
-  concepts: <Icon.Reference />,
-  core: <Icon.Core />,
-  client: <Icon.Terminal />,
-  control: <Icon.Control />,
-  console: <Icon.Dashboard />,
-  driver: <Icon.Device />,
-  pluto: <Icon.Visualize />,
-};
-
-export interface PageNavNode {
-  key: string;
-  name: string;
-  href?: string;
-  icon?: string;
-  /** Hides the node and its children while the flag is off. */
-  flag?: Flag;
-  children?: PageNavNode[];
-}
-
-const ITEM_CLASS = "pluto-tree__item pluto--margin pluto-list__item";
-const SELECTED_CLASS = "pluto--selected";
+const ITEM_CLASS = "lyra-tree__item lyra--margin lyra-list__item";
+const SELECTED_CLASS = "lyra--selected";
 
 interface Row {
   node: PageNavNode;
@@ -52,16 +32,18 @@ interface Row {
   hidden: boolean;
 }
 
+const idOf = (node: PageNavNode): string => node.href ?? node.key;
+
 // Lists every node in reading order, as Lyra's tree does, so a collapsed node's
 // descendants follow it and hide with it.
 const rows = (
   nodes: PageNavNode[],
-  open: Set<string>,
+  open: Set<PageNavNode>,
   depth = 0,
   hidden = false,
 ): Row[] =>
   nodes.flatMap((node) => {
-    const expanded = depth === 0 || open.has(node.key);
+    const expanded = depth === 0 || open.has(node);
     return [
       { node, depth, expanded, hidden },
       ...rows(node.children ?? [], open, depth + 1, hidden || !expanded),
@@ -70,7 +52,7 @@ const rows = (
 
 const caret = (expanded: boolean): ReactElement => (
   <Caret.Animated
-    className="pluto-tree__expansion-indicator"
+    className="lyra-tree__expansion-indicator"
     enabled={expanded}
     enabledLoc="bottom"
     disabledLoc="right"
@@ -80,8 +62,6 @@ const caret = (expanded: boolean): ReactElement => (
 const SECTION_STYLE: CSS.VarProperties = {
   "--pluto-tree-item-offset": "1.5rem",
   textDecoration: "none",
-  paddingLeft: "0.5rem",
-  paddingRight: "0.5rem",
 };
 
 const Section = ({ node }: Row): ReactElement => (
@@ -98,7 +78,7 @@ const Section = ({ node }: Row): ReactElement => (
     style={SECTION_STYLE}
   >
     {caret(true)}
-    {SECTION_ICONS[node.key]}
+    {SECTION_ICONS[idOf(node)]}
     <Text.Text level="p" weight={500}>
       <InlineCode text={node.name} />
     </Text.Text>
@@ -125,7 +105,7 @@ const Item = ({
       el="a"
       variant="text"
       href={node.href}
-      className={`${ITEM_CLASS} ${depth !== 0 ? "pluto--show-rules" : ""} ${selected ? SELECTED_CLASS : ""}`}
+      className={`${ITEM_CLASS} ${depth !== 0 ? "lyra--show-rules" : ""} ${selected ? SELECTED_CLASS : ""}`}
       role="treeitem"
       aria-level={depth + 1}
       aria-expanded={parent ? expanded : undefined}
@@ -148,6 +128,7 @@ export interface PageProps {
 }
 
 export interface TreeProps extends PageProps {
+  id?: string;
   nodes: PageNavNode[];
 }
 
@@ -156,20 +137,21 @@ export interface TreeProps extends PageProps {
  * ancestors expanded. The script in `@/components/nav/sidebar` expands nodes and
  * follows page swaps, so the tree never hydrates.
  */
-export const Page = ({ nodes, currentPage: path }: TreeProps): ReactElement => {
+export const Page = ({ id, nodes, currentPage: path }: TreeProps): ReactElement => {
   const currentPage = normalizeRoute(path);
-  const open = new Set(currentPage.split("/").filter((part) => part !== ""));
+  const open = new Set(ancestry(nodes, currentPage));
   return (
     <div
-      className="pluto-tree tree reference-tree styled-scrollbar pluto-list__scroll pluto-flex pluto--full-y"
+      id={id}
+      className="lyra-tree tree reference-tree styled-scrollbar lyra-list__scroll lyra-flex lyra--full-y"
       role="tree"
     >
-      <div className="pluto-list__virtualizer">
+      <div className="lyra-list__virtualizer">
         {rows(nodes, open).map((row) =>
           row.depth === 0 && row.node.children != null ? (
-            <Section key={row.node.key} {...row} />
+            <Section key={idOf(row.node)} {...row} />
           ) : (
-            <Item key={row.node.key} {...row} currentPage={currentPage} />
+            <Item key={idOf(row.node)} {...row} currentPage={currentPage} />
           ),
         )}
       </div>

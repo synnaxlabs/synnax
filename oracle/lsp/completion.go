@@ -174,7 +174,7 @@ var (
 		{
 			Label:  "search",
 			Kind:   protocol.CompletionItemKindProperty,
-			Detail: protocol.NewOptional("Index the resource for search"),
+			Detail: protocol.NewOptional("Retrieve requests can search the field"),
 		},
 		{
 			Label:  "index",
@@ -270,6 +270,11 @@ var (
 			Label:  "wire",
 			Kind:   protocol.CompletionItemKindValue,
 			Detail: protocol.NewOptional("Omit a field from JSON and msgpack"),
+		},
+		protocol.CompletionItem{
+			Label:  "to_any",
+			Kind:   protocol.CompletionItemKindValue,
+			Detail: protocol.NewOptional("Generate ToAny on a generic struct"),
 		},
 	)
 

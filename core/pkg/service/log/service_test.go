@@ -12,7 +12,7 @@ package log_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -21,7 +21,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	. "github.com/synnaxlabs/x/testutil"
@@ -33,7 +32,6 @@ var _ = Describe("ServiceConfig", func() {
 			cfg := log.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
-				Search:   &search.Index{},
 				ImEx:     imex.NewService(),
 			}
 			Expect(cfg.Validate()).To(Succeed())
@@ -42,7 +40,6 @@ var _ = Describe("ServiceConfig", func() {
 		It("Should fail when DB is nil", func() {
 			cfg := log.ServiceConfig{
 				Ontology: otg,
-				Search:   &search.Index{},
 				ImEx:     imex.NewService(),
 			}
 			Expect(cfg.Validate()).To(MatchError(ContainSubstring("db")))
@@ -50,27 +47,16 @@ var _ = Describe("ServiceConfig", func() {
 
 		It("Should fail when Ontology is nil", func() {
 			cfg := log.ServiceConfig{
-				DB:     db,
-				Search: &search.Index{},
-				ImEx:   imex.NewService(),
+				DB:   db,
+				ImEx: imex.NewService(),
 			}
 			Expect(cfg.Validate()).To(MatchError(ContainSubstring("ontology")))
-		})
-
-		It("Should fail when Search is nil", func() {
-			cfg := log.ServiceConfig{
-				DB:       db,
-				Ontology: otg,
-				ImEx:     imex.NewService(),
-			}
-			Expect(cfg.Validate()).To(MatchError(ContainSubstring("search")))
 		})
 
 		It("Should fail when ImEx is nil", func() {
 			cfg := log.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
-				Search:   &search.Index{},
 			}
 			Expect(cfg.Validate()).To(MatchError(ContainSubstring("imex")))
 		})
@@ -82,13 +68,11 @@ var _ = Describe("ServiceConfig", func() {
 			other := log.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
-				Search:   &search.Index{},
 				ImEx:     imex.NewService(),
 			}
 			merged := initial.Override(other)
 			Expect(merged.DB).To(BeIdenticalTo(other.DB))
 			Expect(merged.Ontology).To(BeIdenticalTo(other.Ontology))
-			Expect(merged.Search).To(BeIdenticalTo(other.Search))
 			Expect(merged.ImEx).To(BeIdenticalTo(other.ImEx))
 		})
 
@@ -96,13 +80,11 @@ var _ = Describe("ServiceConfig", func() {
 			initial := log.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
-				Search:   &search.Index{},
 				ImEx:     imex.NewService(),
 			}
 			merged := initial.Override(log.ServiceConfig{})
 			Expect(merged.DB).To(BeIdenticalTo(initial.DB))
 			Expect(merged.Ontology).To(BeIdenticalTo(initial.Ontology))
-			Expect(merged.Search).To(BeIdenticalTo(initial.Search))
 			Expect(merged.ImEx).To(BeIdenticalTo(initial.ImEx))
 		})
 	})
@@ -129,26 +111,22 @@ var _ = Describe("OpenService", func() {
 	)
 
 	It("Should wire up signals when a provider is configured", func(ctx SpecContext) {
-		node := mock.NewNode(ctx)
+		node := testutil.NewNode(ctx)
 		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
-		searchIdx := MustOpen(search.OpenIndex())
 		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB:       node.DB,
 			Ontology: otg,
-			Search:   searchIdx,
 		}))
 		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       node.DB,
 			Ontology: otg,
 			Group:    groupSvc,
-			Search:   searchIdx,
 		}))
 		statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			DB:       node.DB,
 			Ontology: otg,
 			Group:    groupSvc,
 			Label:    labelSvc,
-			Search:   searchIdx,
 		}))
 		channelSvc := MustOpen(channel.OpenService(ctx, channel.ServiceConfig{
 			Channel:      node.Channel,
@@ -156,7 +134,6 @@ var _ = Describe("OpenService", func() {
 			HostProvider: node.Cluster,
 			Ontology:     otg,
 			Group:        groupSvc,
-			Search:       searchIdx,
 			Status:       statusSvc,
 		}))
 		channelGraph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
@@ -178,7 +155,6 @@ var _ = Describe("OpenService", func() {
 		MustOpen(log.OpenService(ctx, log.ServiceConfig{
 			DB:       node.DB,
 			Ontology: otg,
-			Search:   searchIdx,
 			ImEx:     imex.NewService(),
 			Signals:  sigs,
 		}))

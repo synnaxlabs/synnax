@@ -569,25 +569,29 @@ export const gaugeNodeConfigZ = labeledConfigZ
     /** location is the anchor of the value within the gauge. */
     location: spatial.locationXYZ.prefault({ x: "left", y: "center" }),
     /** units is the unit suffix displayed after the value. */
-    units: z.string().default("RPM"),
+    units: z.string().default(""),
     /** level is the typography level of the displayed value. */
     level: text.levelZ.default("h5"),
   });
 export interface GaugeNodeConfig extends z.infer<typeof gaugeNodeConfigZ> {}
 
 /** InputNodeConfig is the configuration for free-form input symbols. */
-export const inputNodeConfigZ = labeledConfigZ.extend({
+export const inputNodeConfigZ = labeledConfigZ.extend(stalenessConfigZ.shape).extend({
   variant: z.literal("input"),
   /** size is the rendered size preset of the input. */
   size: componentSizeZ.default("medium"),
   /** commandChannel is the channel submitted values are written to. */
   commandChannel: channel.keyZ.optional(),
+  /** stateChannel is the channel that reports the value the device holds. */
+  stateChannel: channel.keyZ.optional(),
   /** dimensions is the rendered size of the input in pixels. */
   dimensions: spatial.dimensionsZ.optional(),
-  /** fillColor is the fill color of the send button, which the input border follows. */
+  /** fillColor is the fill color of the Set button, which the input border follows. */
   fillColor: color.colorZ.optional(),
   /** disabled indicates whether the input rejects interaction. */
   disabled: z.boolean().default(false),
+  /** inlineSize is the width of the field in pixels, not counting the Set button. */
+  inlineSize: z.number().default(150),
   /** onClickDelay is the debounce delay applied to clicks, in milliseconds. */
   onClickDelay: z.number().default(0),
   /** control is the control state display configuration. */
@@ -666,17 +670,17 @@ export const polygonNodeConfigZ = labeledConfigZ.extend({
 export interface PolygonNodeConfig extends z.infer<typeof polygonNodeConfigZ> {}
 
 /** SelectNodeConfig is the configuration for select symbols. */
-export const selectNodeConfigZ = labeledConfigZ.extend({
+export const selectNodeConfigZ = labeledConfigZ.extend(stalenessConfigZ.shape).extend({
   variant: z.literal("select"),
   /** size is the rendered size preset of the select. */
   size: componentSizeZ.default("medium"),
   /** commandChannel is the channel the selected value is written to. */
   commandChannel: channel.keyZ.optional(),
-  /**
-   * fillColor is the fill color of the send button, which the select border follows.
-   */
+  /** stateChannel is the channel that reports the state the device holds. */
+  stateChannel: channel.keyZ.optional(),
+  /** fillColor is the fill color of the Set button, which the select border follows. */
   fillColor: color.colorZ.optional(),
-  /** inlineSize is the inline size of the select in pixels. */
+  /** inlineSize is the width of the field in pixels, not counting the Set button. */
   inlineSize: z.number().default(100),
   /** options is the set of selectable states. */
   options: stateMappingZ.array().default(() => []),
@@ -710,27 +714,33 @@ export const scaleNodeConfigZ = labeledConfigZ
 export interface ScaleNodeConfig extends z.infer<typeof scaleNodeConfigZ> {}
 
 /** SetpointNodeConfig is the configuration for numeric setpoint symbols. */
-export const setpointNodeConfigZ = labeledConfigZ.extend({
-  variant: z.literal("setpoint"),
-  /** size is the rendered size preset of the setpoint. */
-  size: componentSizeZ.default("medium"),
-  /** commandChannel is the channel submitted setpoints are written to. */
-  commandChannel: channel.keyZ.optional(),
-  /** dimensions is the rendered size of the setpoint in pixels. */
-  dimensions: spatial.dimensionsZ.optional(),
-  /**
-   * fillColor is the fill color of the set button, which the setpoint border follows.
-   */
-  fillColor: color.colorZ.optional(),
-  /** units is the unit suffix displayed after the value. */
-  units: z.string().default("mV"),
-  /** disabled indicates whether the setpoint rejects interaction. */
-  disabled: z.boolean().default(false),
-  /** onClickDelay is the debounce delay applied to clicks, in milliseconds. */
-  onClickDelay: z.number().default(0),
-  /** control is the control state display configuration. */
-  control: controlStateConfigZ.optional(),
-});
+export const setpointNodeConfigZ = labeledConfigZ
+  .extend(stalenessConfigZ.shape)
+  .extend({
+    variant: z.literal("setpoint"),
+    /** size is the rendered size preset of the setpoint. */
+    size: componentSizeZ.default("medium"),
+    /** commandChannel is the channel submitted setpoints are written to. */
+    commandChannel: channel.keyZ.optional(),
+    /** stateChannel is the channel that reports the value the device holds. */
+    stateChannel: channel.keyZ.optional(),
+    /** dimensions is the rendered size of the setpoint in pixels. */
+    dimensions: spatial.dimensionsZ.optional(),
+    /**
+     * fillColor is the fill color of the Set button, which the setpoint border follows.
+     */
+    fillColor: color.colorZ.optional(),
+    /** units is the unit suffix displayed after the value. */
+    units: z.string().default(""),
+    /** disabled indicates whether the setpoint rejects interaction. */
+    disabled: z.boolean().default(false),
+    /** inlineSize is the width of the field in pixels, not counting the Set button. */
+    inlineSize: z.number().default(100),
+    /** onClickDelay is the debounce delay applied to clicks, in milliseconds. */
+    onClickDelay: z.number().default(0),
+    /** control is the control state display configuration. */
+    control: controlStateConfigZ.optional(),
+  });
 export interface SetpointNodeConfig extends z.infer<typeof setpointNodeConfigZ> {}
 
 /** StateIndicatorNodeConfig is the configuration for multi-state indicator symbols. */
@@ -811,7 +821,7 @@ export const valueNodeConfigZ = labeledConfigZ
     position: spatial.xyZ.optional(),
     /** strokeColor is the color of the value's border and units divider. */
     strokeColor: color.colorZ.optional(),
-    /** textColor is the color of the displayed value and its units. */
+    /** textColor is the color of the displayed value. */
     textColor: color.colorZ.optional(),
     /**
      * fillColor is the fill behind the value where no redline band paints. When absent
@@ -826,7 +836,7 @@ export const valueNodeConfigZ = labeledConfigZ
     /** redline is the threshold band mapping applied to the background. */
     redline: color.scaleZ.prefault({}),
     /** units is the unit suffix displayed after the value. */
-    units: z.string().default("psi"),
+    units: z.string().default(""),
     /** inlineSize is the inline size of the value in pixels. */
     inlineSize: z.number().default(70),
     /** level is the typography level of the displayed value. */
@@ -1951,30 +1961,36 @@ export const gaugeElementConfigZ = labeledConfigZ
     /** location is the anchor of the value within the gauge. */
     location: spatial.locationXYZ.prefault({ x: "left", y: "center" }),
     /** units is the unit suffix displayed after the value. */
-    units: z.string().default("RPM"),
+    units: z.string().default(""),
     /** level is the typography level of the displayed value. */
     level: text.levelZ.default("h5"),
   });
 export interface GaugeElementConfig extends z.infer<typeof gaugeElementConfigZ> {}
 
 /** InputElementConfig is the configuration for free-form input symbols. */
-export const inputElementConfigZ = labeledConfigZ.extend({
-  variant: z.literal("input"),
-  /** size is the rendered size preset of the input. */
-  size: componentSizeZ.default("medium"),
-  /** commandChannel is the channel submitted values are written to. */
-  commandChannel: channel.keyZ.optional(),
-  /** dimensions is the rendered size of the input in pixels. */
-  dimensions: spatial.dimensionsZ.optional(),
-  /** fillColor is the fill color of the send button, which the input border follows. */
-  fillColor: color.colorZ.optional(),
-  /** disabled indicates whether the input rejects interaction. */
-  disabled: z.boolean().default(false),
-  /** onClickDelay is the debounce delay applied to clicks, in milliseconds. */
-  onClickDelay: z.number().default(0),
-  /** control is the control state display configuration. */
-  control: controlStateConfigZ.optional(),
-});
+export const inputElementConfigZ = labeledConfigZ
+  .extend(stalenessConfigZ.shape)
+  .extend({
+    variant: z.literal("input"),
+    /** size is the rendered size preset of the input. */
+    size: componentSizeZ.default("medium"),
+    /** commandChannel is the channel submitted values are written to. */
+    commandChannel: channel.keyZ.optional(),
+    /** stateChannel is the channel that reports the value the device holds. */
+    stateChannel: channel.keyZ.optional(),
+    /** dimensions is the rendered size of the input in pixels. */
+    dimensions: spatial.dimensionsZ.optional(),
+    /** fillColor is the fill color of the Set button, which the input border follows. */
+    fillColor: color.colorZ.optional(),
+    /** disabled indicates whether the input rejects interaction. */
+    disabled: z.boolean().default(false),
+    /** inlineSize is the width of the field in pixels, not counting the Set button. */
+    inlineSize: z.number().default(150),
+    /** onClickDelay is the debounce delay applied to clicks, in milliseconds. */
+    onClickDelay: z.number().default(0),
+    /** control is the control state display configuration. */
+    control: controlStateConfigZ.optional(),
+  });
 export interface InputElementConfig extends z.infer<typeof inputElementConfigZ> {}
 
 /** LightElementConfig is the configuration for indicator light symbols. */
@@ -2050,27 +2066,29 @@ export const polygonElementConfigZ = labeledConfigZ.extend({
 export interface PolygonElementConfig extends z.infer<typeof polygonElementConfigZ> {}
 
 /** SelectElementConfig is the configuration for select symbols. */
-export const selectElementConfigZ = labeledConfigZ.extend({
-  variant: z.literal("select"),
-  /** size is the rendered size preset of the select. */
-  size: componentSizeZ.default("medium"),
-  /** commandChannel is the channel the selected value is written to. */
-  commandChannel: channel.keyZ.optional(),
-  /**
-   * fillColor is the fill color of the send button, which the select border follows.
-   */
-  fillColor: color.colorZ.optional(),
-  /** inlineSize is the inline size of the select in pixels. */
-  inlineSize: z.number().default(100),
-  /** options is the set of selectable states. */
-  options: stateMappingZ.array().default(() => []),
-  /** disabled indicates whether the select rejects interaction. */
-  disabled: z.boolean().default(false),
-  /** onClickDelay is the debounce delay applied to clicks, in milliseconds. */
-  onClickDelay: z.number().default(0),
-  /** control is the control state display configuration. */
-  control: controlStateConfigZ.optional(),
-});
+export const selectElementConfigZ = labeledConfigZ
+  .extend(stalenessConfigZ.shape)
+  .extend({
+    variant: z.literal("select"),
+    /** size is the rendered size preset of the select. */
+    size: componentSizeZ.default("medium"),
+    /** commandChannel is the channel the selected value is written to. */
+    commandChannel: channel.keyZ.optional(),
+    /** stateChannel is the channel that reports the state the device holds. */
+    stateChannel: channel.keyZ.optional(),
+    /** fillColor is the fill color of the Set button, which the select border follows. */
+    fillColor: color.colorZ.optional(),
+    /** inlineSize is the width of the field in pixels, not counting the Set button. */
+    inlineSize: z.number().default(100),
+    /** options is the set of selectable states. */
+    options: stateMappingZ.array().default(() => []),
+    /** disabled indicates whether the select rejects interaction. */
+    disabled: z.boolean().default(false),
+    /** onClickDelay is the debounce delay applied to clicks, in milliseconds. */
+    onClickDelay: z.number().default(0),
+    /** control is the control state display configuration. */
+    control: controlStateConfigZ.optional(),
+  });
 export interface SelectElementConfig extends z.infer<typeof selectElementConfigZ> {}
 
 /** ScaleElementConfig is the configuration for standalone scale symbols. */
@@ -2094,27 +2112,33 @@ export const scaleElementConfigZ = labeledConfigZ
 export interface ScaleElementConfig extends z.infer<typeof scaleElementConfigZ> {}
 
 /** SetpointElementConfig is the configuration for numeric setpoint symbols. */
-export const setpointElementConfigZ = labeledConfigZ.extend({
-  variant: z.literal("setpoint"),
-  /** size is the rendered size preset of the setpoint. */
-  size: componentSizeZ.default("medium"),
-  /** commandChannel is the channel submitted setpoints are written to. */
-  commandChannel: channel.keyZ.optional(),
-  /** dimensions is the rendered size of the setpoint in pixels. */
-  dimensions: spatial.dimensionsZ.optional(),
-  /**
-   * fillColor is the fill color of the set button, which the setpoint border follows.
-   */
-  fillColor: color.colorZ.optional(),
-  /** units is the unit suffix displayed after the value. */
-  units: z.string().default("mV"),
-  /** disabled indicates whether the setpoint rejects interaction. */
-  disabled: z.boolean().default(false),
-  /** onClickDelay is the debounce delay applied to clicks, in milliseconds. */
-  onClickDelay: z.number().default(0),
-  /** control is the control state display configuration. */
-  control: controlStateConfigZ.optional(),
-});
+export const setpointElementConfigZ = labeledConfigZ
+  .extend(stalenessConfigZ.shape)
+  .extend({
+    variant: z.literal("setpoint"),
+    /** size is the rendered size preset of the setpoint. */
+    size: componentSizeZ.default("medium"),
+    /** commandChannel is the channel submitted setpoints are written to. */
+    commandChannel: channel.keyZ.optional(),
+    /** stateChannel is the channel that reports the value the device holds. */
+    stateChannel: channel.keyZ.optional(),
+    /** dimensions is the rendered size of the setpoint in pixels. */
+    dimensions: spatial.dimensionsZ.optional(),
+    /**
+     * fillColor is the fill color of the Set button, which the setpoint border follows.
+     */
+    fillColor: color.colorZ.optional(),
+    /** units is the unit suffix displayed after the value. */
+    units: z.string().default(""),
+    /** disabled indicates whether the setpoint rejects interaction. */
+    disabled: z.boolean().default(false),
+    /** inlineSize is the width of the field in pixels, not counting the Set button. */
+    inlineSize: z.number().default(100),
+    /** onClickDelay is the debounce delay applied to clicks, in milliseconds. */
+    onClickDelay: z.number().default(0),
+    /** control is the control state display configuration. */
+    control: controlStateConfigZ.optional(),
+  });
 export interface SetpointElementConfig extends z.infer<typeof setpointElementConfigZ> {}
 
 /**
@@ -2197,7 +2221,7 @@ export const valueElementConfigZ = labeledConfigZ
     position: spatial.xyZ.optional(),
     /** strokeColor is the color of the value's border and units divider. */
     strokeColor: color.colorZ.optional(),
-    /** textColor is the color of the displayed value and its units. */
+    /** textColor is the color of the displayed value. */
     textColor: color.colorZ.optional(),
     /**
      * fillColor is the fill behind the value where no redline band paints. When absent
@@ -2212,7 +2236,7 @@ export const valueElementConfigZ = labeledConfigZ
     /** redline is the threshold band mapping applied to the background. */
     redline: color.scaleZ.prefault({}),
     /** units is the unit suffix displayed after the value. */
-    units: z.string().default("psi"),
+    units: z.string().default(""),
     /** inlineSize is the inline size of the value in pixels. */
     inlineSize: z.number().default(70),
     /** level is the typography level of the displayed value. */

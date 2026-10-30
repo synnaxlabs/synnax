@@ -20,7 +20,7 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, type Flux, Project } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
-import { type MouseEvent, type ReactElement, useCallback, useState } from "react";
+import { type MouseEvent, type ReactElement, useState } from "react";
 
 import { Button } from "@/platform/button";
 import { ContextMenu as CMenu } from "@/platform/context-menu";
@@ -35,37 +35,34 @@ const stopClicksWhileEditing = (e: MouseEvent<HTMLDivElement>): void => {
   if ((e.target as HTMLElement).isContentEditable) e.stopPropagation();
 };
 
-export const listItem = Component.renderProp(
-  (props: List.ItemProps<project.Key>): ReactElement | null => {
-    const { itemKey } = props;
-    const proj = List.useItem<project.Key, project.Project>(itemKey);
-    const { update: rename } = Project.useRename();
-    const canRename = Access.useUpdateGranted(project.ontologyID(itemKey));
-    const handleRename = useCallback(
-      (name: string) => rename({ key: itemKey, name }),
-      [itemKey, rename],
-    );
-    if (proj == null) return null;
-    return (
-      <Select.Item
-        {...props}
-        className={Menu.CONTEXT_TARGET}
-        data-menu-key={itemKey}
-        onClickCapture={stopClicksWhileEditing}
-      >
-        <Avatar.Avatar name={proj.name} size="small" />
-        <Text.MaybeEditable
-          id={PCSS.B(`project-${itemKey}`)}
-          value={proj.name}
-          onChange={canRename ? handleRename : undefined}
-          allowDoubleClick={false}
-          className={CSS.BE("project", "name")}
-          overflow="ellipsis"
-        />
-      </Select.Item>
-    );
-  },
-);
+const ListItem = (props: List.ItemProps<project.Key>): ReactElement | null => {
+  const { itemKey } = props;
+  const proj = List.useItem<project.Key, project.Project>(itemKey);
+  const { update: rename } = Project.useRename();
+  const canRename = Access.useUpdateGranted(project.ontologyID(itemKey));
+  const handleRename = (name: string) => rename({ key: itemKey, name });
+  if (proj == null) return null;
+  return (
+    <Select.Item
+      {...props}
+      className={Menu.CONTEXT_TARGET}
+      data-menu-key={itemKey}
+      onClickCapture={stopClicksWhileEditing}
+    >
+      <Avatar.Avatar name={proj.name} size="small" />
+      <Text.MaybeEditable
+        id={PCSS.B(`project-${itemKey}`)}
+        value={proj.name}
+        onChange={canRename ? handleRename : undefined}
+        allowDoubleClick={false}
+        className={CSS.BE("project", "name")}
+        overflow="fade"
+      />
+    </Select.Item>
+  );
+};
+
+export const listItem = Component.renderProp(ListItem);
 
 export interface ContextMenuProps extends Menu.ContextMenuMenuProps {
   getItem: (key: project.Key) => project.Project | undefined;
@@ -80,18 +77,17 @@ export const ContextMenu = ({
   const hasDeletePermission = Access.useDeleteGranted(ids);
   const confirm = Modals.useConfirmDelete({ type: "Project" });
   const { update: del } = Project.useDelete({
-    beforeUpdate: useCallback(
-      async ({ data }: Flux.BeforeUpdateParams<project.Key | project.Key[]>) => {
-        const selected = array
-          .toArray(data)
-          .map(getItem)
-          .filter((p) => p != null);
-        if (selected.length === 0) return false;
-        if (!(await confirm(selected))) return false;
-        return data;
-      },
-      [confirm, getItem],
-    ),
+    beforeUpdate: async ({
+      data,
+    }: Flux.BeforeUpdateParams<project.Key | project.Key[]>) => {
+      const selected = array
+        .toArray(data)
+        .map(getItem)
+        .filter((p) => p != null);
+      if (selected.length === 0) return false;
+      if (!(await confirm(selected))) return false;
+      return data;
+    },
   });
   if (keys.length === 0)
     return (
@@ -135,24 +131,20 @@ export const Selector = (): ReactElement | null => {
   const { data, retrieve, getItem, subscribe } = Project.useList();
   const { fetchMore, search } = List.usePager({ retrieve, pageSize: 20 });
   const hasCreatePermission = Access.useCreateGranted(project.TYPE_ONTOLOGY_ID);
-  const handleChange = useCallback(
-    (key: project.Key | null) => {
-      if (key == null) return;
-      const proj = getItem(key);
-      if (proj == null) throw new UnexpectedError(`Project ${key} not found`);
-      dispatch(Session.Project.select(proj.key));
-      setDialogVisible(false);
-    },
-    [dispatch, getItem],
-  );
-  const handleCreate = useCallback(() => {
+  const handleChange = (key: project.Key | null) => {
+    if (key == null) return;
+    const proj = getItem(key);
+    if (proj == null) throw new UnexpectedError(`Project ${key} not found`);
+    dispatch(Session.Project.select(proj.key));
+    setDialogVisible(false);
+  };
+  const handleCreate = () => {
     setDialogVisible(false);
     openCreate();
-  }, [openCreate]);
+  };
   const hasRetrievePermission = Access.useRetrieveGranted(project.TYPE_ONTOLOGY_ID);
-  const contextMenu = useCallback<NonNullable<Menu.ContextMenuProps["menu"]>>(
-    (props) => <ContextMenu {...props} getItem={getItem} />,
-    [getItem],
+  const contextMenu: NonNullable<Menu.ContextMenuProps["menu"]> = (props) => (
+    <ContextMenu {...props} getItem={getItem} />
   );
   const menuProps = Menu.useContextMenu();
   if (!hasRetrievePermission) return null;

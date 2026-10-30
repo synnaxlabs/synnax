@@ -25,7 +25,6 @@ from console.log import Log
 from console.page import ConsolePage
 from console.schematic.schematic import Schematic
 from console.table import Table
-from framework.run_dir import resolve_results_path
 from framework.utils import get_core_fixture_path, named_envelope_copy
 from x import random_name
 
@@ -62,11 +61,13 @@ class FileDrop(ConsoleCase):
         self.log("Dropping a single golden file")
         name = f"drop_schematic_{self.suffix}"
         path = get_core_fixture_path("schematic/versions/testdata/import_v7.json")
-        with named_envelope_copy(path, name) as tmp_path:
+        with named_envelope_copy(path, name=name) as tmp_path:
             self.console.layout.drop_files([tmp_path])
             self.console.layout.wait_for_tab(name)
         self._cleanup_pages.append(name)
-        page = Schematic.from_open_page(self.console.layout, self.client, name)
+        page = Schematic.from_open_page(
+            layout=self.console.layout, client=self.client, name=name
+        )
         assert page.is_pane_visible, "dropped schematic pane not visible"
         page.close()
 
@@ -84,7 +85,7 @@ class FileDrop(ConsoleCase):
         with ExitStack() as stack:
             paths = [
                 stack.enter_context(
-                    named_envelope_copy(get_core_fixture_path(relative_path), name)
+                    named_envelope_copy(get_core_fixture_path(relative_path), name=name)
                 )
                 for relative_path, name, _ in goldens
             ]
@@ -96,7 +97,9 @@ class FileDrop(ConsoleCase):
             # Both tabs open as one batch with the last one selected, so each
             # page is brought to the front before its pane is checked.
             self.console.layout.get_tab(name).click()
-            page = page_class.from_open_page(self.console.layout, self.client, name)
+            page = page_class.from_open_page(
+                layout=self.console.layout, client=self.client, name=name
+            )
             assert page.is_pane_visible, f"dropped {name} pane not visible"
             page.close()
 
@@ -104,11 +107,11 @@ class FileDrop(ConsoleCase):
         """Drop a non-JSON file and assert the failure surfaces."""
         self.log("Dropping a non-JSON file")
         file_name = f"drop_notes_{self.suffix}.txt"
-        path = resolve_results_path(file_name)
+        path = str(self.results_dir / file_name)
         with open(path, "w", encoding="utf-8") as f:
             f.write("not an envelope")
         self.console.layout.drop_files([path])
-        if not self.console.notifications.wait_for(f"Failed to import {file_name}"):
+        if not self.console.notifications.wait_for("Failed to import", name=file_name):
             raise AssertionError(
                 "Dropping a non-JSON file did not surface a failure notification"
             )

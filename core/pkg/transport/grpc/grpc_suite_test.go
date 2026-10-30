@@ -15,8 +15,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/api"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	svcmock "github.com/synnaxlabs/synnax/pkg/service/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -24,13 +24,13 @@ var apiLayer *api.Layer
 
 func TestGRPC(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Transport gRPC Suite")
+	RunSpecs(t, "Transport gRPC Suite", SuiteConfig())
 }
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	node := mock.NewNode(ctx)
-	svc := MustOpen(svcmock.OpenLayer(ctx, node))
+	node := testutil.NewNode(ctx)
+	svc := MustOpen(svctestutil.OpenLayer(ctx, node))
 	apiLayer = MustSucceed(api.NewLayer(api.LayerConfig{
 		Service:      svc,
 		Distribution: node.Layer,

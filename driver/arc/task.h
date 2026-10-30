@@ -10,6 +10,7 @@
 #pragma once
 
 #include <memory>
+#include <mutex>
 #include <vector>
 
 #include "absl/log/log.h"
@@ -44,9 +45,9 @@ struct TaskConfig : ::synnax::task::PersistConfig {
 
     TaskConfig(TaskConfig &&other) noexcept:
         ::synnax::task::PersistConfig(std::move(other)),
-        arc_key(std::move(other.arc_key)),
+        arc_key(other.arc_key),
         program(std::move(other.program)),
-        loop(std::move(other.loop)) {}
+        loop(other.loop) {}
 
     TaskConfig(const TaskConfig &) = delete;
     const TaskConfig &operator=(const TaskConfig &) = delete;
@@ -66,7 +67,13 @@ struct TaskConfig : ::synnax::task::PersistConfig {
         );
         if (arc_err) return {std::move(cfg), arc_err};
         if (!arc_data.program.has_value())
-            return {std::move(cfg), x::errors::Error("arc module not compiled")};
+            return {
+                std::move(cfg),
+                x::errors::Error(
+                    x::errors::INTERNAL,
+                    "The Arc program is not compiled."
+                )
+            };
         cfg.program = *arc_data.program;
         return {std::move(cfg), x::errors::NIL};
     }
@@ -77,7 +84,22 @@ class Task final : public task::Task {
     std::shared_ptr<::arc::runtime::Runtime> runtime;
     std::unique_ptr<pipeline::Acquisition> acquisition;
     std::unique_ptr<pipeline::Control> control;
+    /// @brief guards state, opening, and pending_starts, which the command, pipeline,
+    /// and runtime threads all touch.
+    std::mutex state_mu;
     common::StatusHandler state;
+    /// @brief true from a start until the command streamer opens or fails to open.
+    bool opening = false;
+    /// @brief the start commands to answer once the command streamer opens.
+    std::vector<std::string> pending_starts;
+
+    /// @brief answers every pending start with the current status. Requires state_mu.
+    void answer_pending_starts() {
+        for (const auto &key: this->pending_starts)
+            this->state.send_start(key);
+        this->pending_starts.clear();
+        this->opening = false;
+    }
 
     /// @brief source that reads output data from the arc runtime.
     class Source final : public pipeline::Source {
@@ -103,7 +125,10 @@ class Task final : public task::Task {
         }
 
         void stopped_with_err(const x::errors::Error &err) override {
-            this->task.state.error(err);
+            {
+                std::lock_guard lock(this->task.state_mu);
+                this->task.state.error(err, "Failed to run Arc program");
+            }
             this->task.stop("", true);
         }
     };
@@ -118,6 +143,24 @@ class Task final : public task::Task {
         x::errors::Error write(x::telem::Frame &frame) override {
             if (frame.empty()) return x::errors::NIL;
             return this->task.runtime->write(std::move(frame));
+        }
+
+        // The start status waits for the streamer, so a client that waits for it can
+        // send commands at once.
+        void opened() override {
+            std::lock_guard lock(this->task.state_mu);
+            if (this->task.opening) this->task.answer_pending_starts();
+        }
+
+        void stopped_with_err(const x::errors::Error &err) override {
+            std::lock_guard lock(this->task.state_mu);
+            const std::string message = "Failed to stream commands to the Arc program";
+            if (!this->task.opening) {
+                this->task.state.send_error(err, message);
+                return;
+            }
+            this->task.state.error(err, message);
+            this->task.answer_pending_starts();
         }
     };
 
@@ -134,7 +177,7 @@ public:
         const TaskConfig &cfg,
         std::shared_ptr<pipeline::WriterFactory> writer_factory = nullptr,
         std::shared_ptr<pipeline::StreamerFactory> streamer_factory = nullptr,
-        std::shared_ptr<x::thread::rt::Manager> rt_manager = nullptr
+        const std::shared_ptr<x::thread::rt::Manager> &rt_manager = nullptr
     ) {
         auto task = std::unique_ptr<Task>(new Task(task_meta, ctx));
 
@@ -169,29 +212,47 @@ public:
                 {
                     std::make_shared<::driver::arc::status::Module>(
                         ctx->client,
-                        [task_ptr = task.get()](const std::string &message) {
-                            task_ptr->state.send_warning(message);
+                        [task_ptr = task.get()](
+                            const std::string &message,
+                            const std::string &description
+                        ) {
+                            std::lock_guard lock(task_ptr->state_mu);
+                            task_ptr->state.send_warning(message, description);
                         }
                     ),
                     std::make_shared<::driver::arc::ranges::Module>(
                         ctx->client,
-                        [task_ptr = task.get()](const std::string &message) {
-                            task_ptr->state.send_warning(message);
+                        [task_ptr = task.get()](
+                            const std::string &message,
+                            const std::string &description
+                        ) {
+                            std::lock_guard lock(task_ptr->state_mu);
+                            task_ptr->state.send_warning(message, description);
                         }
                     ),
                 },
             .rt_handle = rt_handle,
         };
 
+        const auto fail = [task_ptr = task.get()](const x::errors::Error &err) {
+            {
+                std::lock_guard lock(task_ptr->state_mu);
+                task_ptr->state.send_error(err, "Failed to run Arc program");
+            }
+            task_ptr->runtime->close_outputs();
+        };
         auto [rt, err] = ::arc::runtime::load(
             runtime_cfg,
-            [task_ptr = task.get()](const x::errors::Error &err) {
-                if (err.matches(::arc::runtime::errors::WARNING))
-                    task_ptr->state.send_warning(err);
-                else {
-                    task_ptr->state.send_error(err);
-                    task_ptr->runtime->close_outputs();
-                }
+            fail,
+            [task_ptr = task.get(),
+             fail](const ::arc::ir::Node &node, const x::errors::Error &err) {
+                const auto description = "The " + node.type +
+                                         " node failed: " + err.data;
+                if (err.matches(::arc::runtime::errors::WARNING)) {
+                    std::lock_guard lock(task_ptr->state_mu);
+                    task_ptr->state.send_warning("Node failed", description);
+                } else
+                    fail(x::errors::Error(err, description));
             }
         );
         if (err) return {nullptr, err};
@@ -252,15 +313,26 @@ public:
     bool start(const std::string &cmd_key) {
         const auto start = x::telem::TimeStamp::now();
         if (!this->runtime->start()) {
-            this->state.ack(cmd_key, true);
+            std::lock_guard lock(this->state_mu);
+            if (this->opening)
+                this->pending_starts.push_back(cmd_key);
+            else
+                this->state.ack(cmd_key, true);
             return false;
         }
         auto acq_started = true;
         if (this->acquisition) acq_started = this->acquisition->start(start);
-        auto control_started = true;
-        if (this->control) control_started = this->control->start();
-        this->state.send_start(cmd_key);
-        return acq_started && control_started;
+        if (!this->control) {
+            std::lock_guard lock(this->state_mu);
+            this->state.send_start(cmd_key);
+            return acq_started;
+        }
+        {
+            std::lock_guard lock(this->state_mu);
+            this->opening = true;
+            this->pending_starts = {cmd_key};
+        }
+        return this->control->start() && acq_started;
     }
 
     bool stop(const std::string &cmd_key, const bool propagate_state) {
@@ -270,6 +342,12 @@ public:
         auto acq_stopped = true;
         if (this->acquisition) acq_stopped = this->acquisition->stop();
         const auto runtime_stopped = this->runtime->stop();
+        std::lock_guard lock(this->state_mu);
+        // A start the streamer never answered still needs its reply.
+        for (const auto &key: this->pending_starts)
+            this->state.ack(key, false);
+        this->pending_starts.clear();
+        this->opening = false;
         if (propagate_state) this->state.send_stop(cmd_key);
         return control_stopped && acq_stopped && runtime_stopped;
     }
@@ -284,6 +362,7 @@ public:
     }
 
     void stop(const bool will_reconfigure) override {
+        if (will_reconfigure) this->state.close();
         this->stop("", !will_reconfigure);
     }
 

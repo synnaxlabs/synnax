@@ -10,6 +10,7 @@
 
 import { Breadcrumb } from "@/components/article/Breadcrumb";
 import NextPrev from "@/components/article/NextPrev.astro";
+import { Edition } from "@/components/edition";
 import { InlineCode } from "@/components/text/InlineCode";
 import { Text } from "@synnaxlabs/lyra/text";
 const {
@@ -20,11 +21,14 @@ const {
     prev,
     nextURL,
     prevURL,
+    nextGroup,
+    prevGroup,
     showBreadcrumb = true,
     published,
     author,
     authorImage,
     authorLink,
+    edition,
 } = Astro.props;
 
 const visibleTitleLength = String(title ?? "").replace(/`/g, "").length;
@@ -38,10 +42,13 @@ const publishedLabel =
     });
 ---
 
-<article>
-    {showBreadcrumb && url.split("/").length > 2 && (
-        <Breadcrumb url={url} title={title} />
-    )}
+<article class="docs-article" data-edition={edition}>
+    <div class="article-top">
+        {showBreadcrumb && url.split("/").length > 2 && (
+            <Breadcrumb url={url} title={title} />
+        )}
+        {edition && <Edition.Badge edition={edition} />}
+    </div>
     {published && (
         <div class="blog-meta">
             <time class="blog-published" datetime={published}>
@@ -58,7 +65,7 @@ const publishedLabel =
             <InlineCode text={title} />
         </span>
     </Text.Text>
-    <h4 class="article-description">{description}</h4>
+    <p class="article-description">{description}</p>
     {author && (
         <a
             class="blog-author"
@@ -75,55 +82,80 @@ const publishedLabel =
         </a>
     )}
     <slot />
-    <NextPrev prev={prev} next={next} prevURL={prevURL} nextURL={nextURL} />
+    <NextPrev
+        prev={prev}
+        next={next}
+        prevURL={prevURL}
+        nextURL={nextURL}
+        prevGroup={prevGroup}
+        nextGroup={nextGroup}
+    />
 </article>
 
 <style is:global>
-    article {
+    /* These rules can ship to pages with other articles, such as the releases page, so
+       they match only this article. :where keeps the specificity of a bare article.
+       Content-box, so the cap holds the text column at every padding. */
+    article:where(.docs-article) {
         position: relative;
-        flex-basis: 840px;
-        flex-shrink: 1;
-        flex-grow: 1;
+        box-sizing: content-box;
+        flex: 1 1 122rem;
+        max-width: 122rem;
         margin-bottom: 25rem;
         min-width: 0;
         overflow-x: clip;
+
         .article-title {
             display: inline-block;
             width: fit-content;
         }
 
-        & .pluto-breadcrumb {
-            & a.pluto-text {
+        & .lyra-breadcrumb {
+            flex-wrap: wrap;
+            row-gap: 0.5rem;
+
+            & a.lyra-text {
+                white-space: nowrap;
                 color: var(--pluto-gray-l8);
                 font-weight: 375;
                 font-size: var(--pluto-p-size);
+
                 &:last-child {
                     color: var(--pluto-gray-l10);
                     font-weight: 450;
                 }
+
                 &:hover {
                     color: var(--pluto-gray-l10);
                     text-decoration: none;
                 }
+
+                /* A taller touch target that leaves the line in place. */
+                @media (pointer: coarse) {
+                    padding-block: 1.25rem;
+                    margin-block: -1.25rem;
+                }
             }
         }
 
-        & .pluto-icon--caret-right {
-            transform: translateY(0px);
+        & .lyra-icon--caret-right {
+            transform: translateY(0);
             width: 2rem;
             height: 2rem;
             color: var(--pluto-gray-l6);
+
             &:first-child {
                 display: none;
             }
         }
 
         padding: 5rem 8rem;
-        @media (max-width: 1100px) {
+
+        @media (width <= 1100px) {
             padding-right: 2rem;
         }
 
-        @media (max-width: 800px) {
+        @media (width <= 800px) {
             padding: 5rem 2rem;
             margin-bottom: 0;
         }
@@ -137,13 +169,36 @@ const publishedLabel =
             background: var(--pluto-primary-z);
         }
 
+        .article-top {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 1rem 2rem;
+
+            > .edition-badge {
+                margin-left: auto;
+            }
+
+            /* A narrow breadcrumb wraps, so the badge takes its own line. */
+            @media (width <= 800px) {
+                flex-direction: column;
+                align-items: flex-start;
+
+                > .edition-badge {
+                    margin-left: 0;
+                }
+            }
+        }
+
         .article-description {
             color: var(--pluto-gray-l9);
+            font-size: var(--pluto-h4-size);
+            line-height: var(--pluto-h4-line-height);
             font-weight: 350;
             margin-top: 1.15rem;
             margin-bottom: 6.9rem;
 
-            & + :is(h2, h2.pluto-text) {
+            & + :is(h2, h2.lyra-text) {
                 margin-top: 4rem;
             }
 
@@ -152,26 +207,15 @@ const publishedLabel =
             }
         }
 
-        & video,
-        img:not(.diagram img):not(.blog-author__photo) {
-            border-radius: 1rem;
-            border: var(--pluto-border);
-            box-shadow: 0 0 1rem 0 var(--pluto-gray-l4);
-
-            @media (prefers-color-scheme: dark) {
-                box-shadow: 0 0 2rem 0 rgba(50, 50, 50, 0.1);
-            }
-        }
-
-        .pluto-divider {
+        .lyra-divider {
             border-top: var(--pluto-border);
             margin: 5rem 0;
 
-            & + :is(h2, h2.pluto-text) {
+            & + :is(h2, h2.lyra-text) {
                 margin-top: 4rem !important;
             }
 
-            & + :is(h3, h3.pluto-text) {
+            & + :is(h3, h3.lyra-text) {
                 margin-top: 3rem;
             }
 
@@ -188,39 +232,9 @@ const publishedLabel =
             }
         }
 
-        p .pluto-icon {
-            vertical-align: middle;
-        }
-
-        /* Padding carries the vertical space, so inline and block content match. */
-        .pluto-note {
-            display: block;
-            margin: var(--docs-block-gap) var(--docs-block-inset);
-            padding: var(--docs-block-padding) var(--note-padding-inline, 3.5rem);
-            font-size: var(--pluto-small-size);
-            font-family: var(--pluto-font-family);
-            font-weight: 450;
-            line-height: var(--pluto-small-line-height);
-            @media (max-width: 800px) {
-                font-size: calc(var(--pluto-small-size) * 0.9);
-            }
-            & :is(p, li) {
-                font: inherit;
-            }
-            & > :first-child {
-                margin-top: 0;
-            }
-            & > :last-child {
-                margin-bottom: 0;
-            }
-        }
-
-        .pluto-note.compact {
-            --note-padding-inline: 2rem;
-        }
-
-        .pluto-tabs__content > .pluto-note:first-child {
-            margin-top: 0;
+        /* An icon in text centers on the capitals. */
+        :is(p, li) .lyra-icon {
+            vertical-align: -0.125em;
         }
 
         table {
@@ -233,6 +247,7 @@ const publishedLabel =
             display: flex;
             flex-direction: column;
             align-items: center;
+
             figcaption {
                 font-family: var(--pluto-font-family);
                 font-size: var(--pluto-small-size);
@@ -242,11 +257,118 @@ const publishedLabel =
                 text-align: center;
                 text-wrap: balance;
             }
+
             img {
                 width: 100%;
                 margin-bottom: 2rem;
                 margin-top: -2rem;
             }
+        }
+    }
+
+    /* A pane owns the space at its edges, so the first and last blocks in it drop their
+       outer margins. A tab panel and a disclosure are both panes. */
+    article:where(.docs-article) :is(.lyra-tabs__content, .docs-details > .content) {
+        & > :first-child {
+            margin-top: 0;
+        }
+
+        & > :last-child {
+            margin-bottom: 0;
+        }
+    }
+
+    /* Registered so that it resolves against the line height of the item, not the
+       marker. */
+    @property --docs-step-line {
+        syntax: "<length>";
+        inherits: true;
+        initial-value: 28px;
+    }
+
+    /* Every ordered list in an article is a list of steps: a numbered square per step,
+       joined by a line, with the content of each step in one column. The built-in
+       list-item counter keeps the start of a list that continues after a block. */
+    article:where(.docs-article) ol:not([class]) {
+        margin: 3rem 0;
+        padding: 0;
+        list-style: none;
+
+        & > li {
+            --docs-step-line: 1lh;
+
+            position: relative;
+            margin: 0;
+            padding: 0 0 3rem 6rem;
+
+            &::before {
+                content: counter(list-item);
+                position: absolute;
+                top: calc(var(--docs-step-line) / 2 - 12px);
+                left: 0;
+                display: grid;
+                place-items: center;
+                width: 24px;
+                height: 24px;
+                box-sizing: border-box;
+                border: 1px solid var(--pluto-gray-l3);
+                border-radius: var(--pluto-border-radius-small);
+                background: var(--pluto-gray-l2);
+                font:
+                    500 12px/1 "Geist Mono",
+                    monospace;
+                color: var(--pluto-gray-l9);
+            }
+
+            &::after {
+                content: "";
+                position: absolute;
+                top: calc(var(--docs-step-line) / 2 + 16px);
+                bottom: 4px;
+                left: 12px;
+                border-left: 1px solid var(--pluto-gray-l3);
+            }
+
+            &:last-child {
+                padding-bottom: 0;
+
+                &::after {
+                    display: none;
+                }
+            }
+
+            & > * {
+                margin: 0;
+            }
+
+            /* A step starts with its text, so every block but a leading paragraph sits
+               under text. Inline content, such as an icon, takes no gap. */
+            & > :is(p, ul, ol, div, pre, figure, table, video, .lyra-btn) {
+                margin-top: 2rem;
+            }
+
+            & > p:first-child {
+                margin-top: 0;
+            }
+        }
+    }
+
+    /* A wide block is centered on the prose and kept clear of the page navigation
+       on both sides. */
+    @media (width >= 801px) {
+        main > section:has(.docs-wide),
+        main > section article:has(.docs-wide) {
+            overflow-x: visible;
+        }
+
+        article .docs-wide {
+            --docs-wide-width: max(
+                100%,
+                min(1080px, 100vw - 2 * (var(--docs-page-nav-width) + 4rem))
+            );
+
+            width: var(--docs-wide-width);
+            margin-inline: calc((100% - var(--docs-wide-width)) / 2);
         }
     }
 </style>

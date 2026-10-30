@@ -16,16 +16,16 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/gorp/migrate"
 	label "github.com/synnaxlabs/synnax/pkg/service/label/versions/v0"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v1"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 var _ = Describe("MigrateTask", func() {
@@ -36,7 +36,7 @@ var _ = Describe("MigrateTask", func() {
 		Expect(gorp.NewCreate[v0.Key, v0.Task]().
 			Entry(&seed).Exec(ctx, db)).To(Succeed())
 		v0Chain := v0.NewMigrations(v0.MigrationConfig{})
-		v0Applied := gorp.NewMigration(
+		v0Applied := migrate.New(
 			v0Chain[0].Key(),
 			func(context.Context, gorp.Tx, alamos.Instrumentation) error { return nil },
 		)
@@ -44,7 +44,7 @@ var _ = Describe("MigrateTask", func() {
 			DB:        db,
 			Namespace: "Task",
 			Migrations: append(
-				append([]migrate.Migration{v0Applied}, v0Chain[1:]...), v1.Migration,
+				append([]gorp.Migration{v0Applied}, v0Chain[1:]...), v1.Migration,
 			),
 		})).To(Succeed())
 		var got v1.Task

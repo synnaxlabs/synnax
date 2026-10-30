@@ -13,8 +13,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/kv"
-	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 var _ = Describe("Counter", Ordered, func() {
@@ -42,10 +42,6 @@ var _ = Describe("Counter", Ordered, func() {
 			It("Should increment the number by a set value", func(ctx SpecContext) {
 				Expect(c.Add(ctx, 10)).To(Equal(int64(11)))
 			})
-			It("Should set the counter value directly", func(ctx SpecContext) {
-				Expect(c.Set(ctx, 421)).To(Succeed())
-				Expect(c.Value()).To(Equal(int64(421)))
-			})
 		})
 		Context("Existing Counter", func() {
 			It("Should load the value of the existing counter", func(ctx SpecContext) {
@@ -68,11 +64,6 @@ var _ = Describe("Counter", Ordered, func() {
 				Expect(c.Value()).To(Equal(int64(7)))
 				Expect(c.Add(ctx, -3)).To(Equal(int64(4)))
 				Expect(c.Value()).To(Equal(int64(4)))
-			})
-			It("Should reflect the latest value after Set", func(ctx SpecContext) {
-				c := MustSucceed(kv.NewCounter(ctx, db, []byte("value-set")))
-				Expect(c.Set(ctx, 99)).To(Succeed())
-				Expect(c.Value()).To(Equal(int64(99)))
 			})
 		})
 	})

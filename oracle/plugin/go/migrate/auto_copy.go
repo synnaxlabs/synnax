@@ -352,29 +352,40 @@ func (c *collector) aliasFunc(typ resolution.Type, form resolution.AliasForm) fu
 	goName := naming.GetGoName(typ)
 	oldName := c.resolveTypeName(typ, c.oldTable)
 	newName := c.resolveNewTypeName(typ)
-	if isArr, elemRef := isArrayAlias(form, c.oldTable); isArr {
+	if elemRef, isArr := arrayBaseRef(typ, c.oldTable); isArr {
 		return decorateWithTypeParams(
 			c.sliceFunc(typ, goName, oldName, newName, elemRef), form.TypeParams,
 		)
 	}
-	targetResolved, ok := form.Target.Resolve(c.oldTable)
+	targetResolved, targetRef, ok := resolution.Dealias(form.Target, c.oldTable)
 	if !ok {
+		targetRef = form.Target
 		targetResolved, ok = c.oldTable.Lookup(typ.Namespace, form.Target.Name)
 	}
 	if ok {
 		if sf, isStruct := targetResolved.Form.(resolution.StructForm); isStruct {
 			newTarget, _ := c.newCounterpart(targetResolved)
 			newSF, _ := newTarget.Form.(resolution.StructForm)
-			oldSF := substituteTypeParams(sf, form.Target.TypeArgs)
+			oldSF := substituteTypeParams(sf, targetRef.TypeArgs)
 			if newAlias, ok := c.newCounterpart(typ); ok {
 				if af, ok := newAlias.Form.(resolution.AliasForm); ok {
-					newSF = substituteTypeParams(newSF, af.Target.TypeArgs)
+					if _, newTargetRef, ok := resolution.Dealias(
+						af.Target, c.newTable,
+					); ok {
+						newSF = substituteTypeParams(newSF, newTargetRef.TypeArgs)
+					}
 				}
 			}
 			return decorateWithTypeParams(
 				c.structFuncFromForms(goName, oldName, newName, "old", oldSF, newSF),
 				form.TypeParams,
 			)
+		}
+		// A Go alias is its target's type, so the variants keep the union's names.
+		if uf, isUnion := targetResolved.Form.(resolution.UnionForm); isUnion {
+			fn := c.unionFunc(targetResolved, uf)
+			fn.GoName, fn.OldTypeName, fn.NewTypeName = goName, oldName, newName
+			return fn
 		}
 	}
 	return decorateWithTypeParams(c.castFunc(typ), form.TypeParams)
@@ -387,10 +398,9 @@ func (c *collector) distinctFunc(
 	goName := naming.GetGoName(typ)
 	oldName := c.resolveTypeName(typ, c.oldTable)
 	newName := c.resolveNewTypeName(typ)
-	if form.Base.Name == "Array" && len(form.Base.TypeArgs) > 0 {
+	if elemRef, isArr := arrayBaseRef(typ, c.oldTable); isArr {
 		return decorateWithTypeParams(
-			c.sliceFunc(typ, goName, oldName, newName, form.Base.TypeArgs[0]),
-			form.TypeParams,
+			c.sliceFunc(typ, goName, oldName, newName, elemRef), form.TypeParams,
 		)
 	}
 	return decorateWithTypeParams(c.castFunc(typ), form.TypeParams)
@@ -520,7 +530,7 @@ func variantForm(
 		return resolution.StructForm{}
 	}
 	pform, _ := payload.Form.(resolution.StructForm)
-	inherited, declared := resolver.VariantBases(uf, v, table)
+	inherited, declared := resolver.VariantBases(uf, v, "go", table)
 	defaultOnly := resolver.DefaultOnlyOverrides(inherited, pform.Fields, table)
 	fields := slices.Clone(declared)
 	for _, f := range pform.Fields {
@@ -614,7 +624,7 @@ func leafPrimitive(ref resolution.TypeRef, table *resolution.Table) (string, boo
 // isUnionIn reports whether a type reference resolves to a discriminated
 // union within the given table.
 func isUnionIn(ref resolution.TypeRef, table *resolution.Table) bool {
-	resolved, ok := ref.Resolve(table)
+	resolved, _, ok := resolution.Dealias(ref, table)
 	if !ok {
 		return false
 	}
@@ -716,7 +726,7 @@ func (c *collector) classifyField(
 		}
 		return classification{inline: accessor}
 	}
-	if elemRef, ok := arrayBaseRef(resolved); ok {
+	if elemRef, ok := arrayBaseRef(resolved, c.oldTable); ok {
 		return c.classifySlice(elemRef, accessor, goName)
 	}
 	if !c.isOracleDefined(resolved) {
@@ -970,7 +980,7 @@ func (c *collector) isStructLike(typ resolution.Type) bool {
 	case resolution.AliasForm:
 		// An alias to an array of an oracle struct (e.g. Members = Member[]) is
 		// struct-like: its elements need a per-element migrate, not a slice cast.
-		if elemRef, isArr := arrayBaseRef(typ); isArr {
+		if elemRef, isArr := arrayBaseRef(typ, c.oldTable); isArr {
 			if elem, ok := c.resolveRef(elemRef); ok {
 				return c.isStructLike(elem)
 			}
@@ -981,7 +991,7 @@ func (c *collector) isStructLike(typ resolution.Type) bool {
 			}
 		}
 	case resolution.DistinctForm:
-		if elemRef, isArr := arrayBaseRef(typ); isArr {
+		if elemRef, isArr := arrayBaseRef(typ, c.oldTable); isArr {
 			if elem, ok := c.resolveRef(elemRef); ok {
 				return c.isStructLike(elem)
 			}
@@ -1091,35 +1101,29 @@ func findField(fields []resolution.Field, name string) *resolution.Field {
 	return nil
 }
 
-func isArrayAlias(
-	form resolution.AliasForm,
+// arrayBaseRef returns the element of the array that the Go type of an alias or
+// distinct type is, through any chain of aliases and distinct types.
+func arrayBaseRef(
+	typ resolution.Type,
 	table *resolution.Table,
-) (bool, resolution.TypeRef) {
-	if form.Target.Name == "Array" && len(form.Target.TypeArgs) > 0 {
-		return true, form.Target.TypeArgs[0]
-	}
-	if t, ok := form.Target.Resolve(table); ok {
-		if bgf, ok := t.Form.(resolution.BuiltinGenericForm); ok &&
-			bgf.Name == "Array" &&
-			len(form.Target.TypeArgs) > 0 {
-			return true, form.Target.TypeArgs[0]
-		}
-	}
-	return false, resolution.TypeRef{}
-}
-
-func arrayBaseRef(typ resolution.Type) (resolution.TypeRef, bool) {
+) (resolution.TypeRef, bool) {
+	var base resolution.TypeRef
 	switch form := typ.Form.(type) {
 	case resolution.AliasForm:
-		if form.Target.Name == "Array" && len(form.Target.TypeArgs) > 0 {
-			return form.Target.TypeArgs[0], true
-		}
+		base = form.Target
 	case resolution.DistinctForm:
-		if form.Base.Name == "Array" && len(form.Base.TypeArgs) > 0 {
-			return form.Base.TypeArgs[0], true
-		}
+		base = form.Base
+	default:
+		return resolution.TypeRef{}, false
 	}
-	return resolution.TypeRef{}, false
+	target, targetRef, ok := resolution.Dealias(base, table)
+	if !ok {
+		return resolution.TypeRef{}, false
+	}
+	if targetRef.Name == "Array" && len(targetRef.TypeArgs) > 0 {
+		return targetRef.TypeArgs[0], true
+	}
+	return arrayBaseRef(target, table)
 }
 
 func substituteTypeParams(

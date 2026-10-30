@@ -121,6 +121,90 @@ describe("State", () => {
       });
     });
 
+    describe("identity", () => {
+      interface Keyed {
+        channels: { key: string; port: number }[];
+        other: { x: number };
+      }
+      const keyed = (): Keyed => ({
+        channels: [
+          { key: "a", port: 1 },
+          { key: "b", port: 2 },
+        ],
+        other: { x: 1 },
+      });
+
+      it("should give every ancestor of the written path a new identity", () => {
+        const state = new State(initialValues, basicSchema);
+        const { values } = state;
+        const { profile } = values;
+        state.setValue("profile.bio", "Updated bio");
+        expect(state.values).not.toBe(values);
+        expect(state.values.profile).not.toBe(profile);
+        expect(profile.bio).toBe("Software developer");
+      });
+
+      it("should keep the identity of untouched siblings", () => {
+        const state = new State(initialValues, basicSchema);
+        const { tags } = state.values;
+        state.setValue("profile.bio", "Updated bio");
+        expect(state.values.tags).toBe(tags);
+      });
+
+      it("should copy an array entry reached through its key", () => {
+        const state = new State<z.ZodType<Keyed>>(keyed());
+        const { channels, other } = state.values;
+        state.setValue("channels.b.port", 3);
+        expect(state.values.channels).not.toBe(channels);
+        expect(state.values.channels[1]).not.toBe(channels[1]);
+        expect(state.values.channels[1].port).toBe(3);
+        expect(state.values.channels[0]).toBe(channels[0]);
+        expect(state.values.other).toBe(other);
+        expect(channels[1].port).toBe(2);
+      });
+
+      it("should give a field's state a new value after a write below it", () => {
+        const state = new State<z.ZodType<Keyed>>(keyed());
+        const before = state.getState<{ port: number }>("channels.0").value;
+        state.setValue("channels.0.port", 3);
+        const after = state.getState<{ port: number }>("channels.0").value;
+        expect(after).not.toBe(before);
+        expect(after.port).toBe(3);
+        expect(before.port).toBe(1);
+      });
+
+      it("should keep the state object of a sibling the write left unchanged", () => {
+        const state = new State(initialValues, basicSchema);
+        const sibling = state.getState("email");
+        const written = state.getState("name");
+        state.setValue("name", "Jane Doe");
+        expect(state.getState("email")).toBe(sibling);
+        expect(state.getState("name")).not.toBe(written);
+        expect(state.getState("name").value).toBe("Jane Doe");
+      });
+
+      it("should give the ancestors of a removed path a new identity", () => {
+        const state = new State<z.ZodType<Keyed>>(keyed());
+        const { channels } = state.values;
+        state.remove("channels.0");
+        expect(state.values.channels).not.toBe(channels);
+        expect(state.values.channels).toEqual([{ key: "b", port: 2 }]);
+        expect(channels).toHaveLength(2);
+      });
+
+      it("should leave the older value unchanged when a shorter key also matches", () => {
+        const state = new State<z.ZodType<Record<string, object>>>({
+          a: {},
+          "a.b": { x: 1, y: 2 },
+        });
+        const { values } = state;
+        state.remove("a.b.x");
+        expect(state.values).toEqual({ a: {}, "a.b": { y: 2 } });
+        expect(state.values["a.b"]).not.toBe(values["a.b"]);
+        expect(values).toEqual({ a: {}, "a.b": { x: 1, y: 2 } });
+      });
+    });
+
     it("should set a top-level value", () => {
       const state = new State(initialValues, basicSchema);
       state.setValue("name", "Jane Doe");
@@ -304,6 +388,14 @@ describe("State", () => {
       expect(fieldState.status).toEqual(status);
     });
 
+    it("should key a status by its path", () => {
+      const state = new State(initialValues, basicSchema);
+      state.setStatus("name", { variant: "error", message: "Taken" });
+      expect(state.getStatuses()).toEqual([
+        { key: "name", variant: "error", message: "Taken" },
+      ]);
+    });
+
     it("should clear status for a field", () => {
       const state = new State(initialValues, basicSchema);
       const status = {
@@ -315,6 +407,80 @@ describe("State", () => {
       state.clearStatus("name");
       const fieldState = state.getState("name");
       expect(fieldState.status.variant).toBe("success");
+    });
+
+    it("should clear every status when no path is given", () => {
+      const state = new State(initialValues, basicSchema);
+      state.setStatus("name", { key: "name", variant: "error", message: "Taken" });
+      state.setStatus("age", { key: "age", variant: "warning", message: "Old" });
+      state.clearStatus();
+      expect(state.getStatuses()).toEqual([]);
+    });
+
+    describe("external statuses", () => {
+      const taken = { key: "name", variant: "error" as const, message: "Taken" };
+
+      it("should survive validation after an edit to another field", () => {
+        const state = new State(initialValues, basicSchema);
+        state.setStatus("name", taken);
+        state.setValue("age", 30);
+        state.validate();
+        expect(state.getState("name").status).toEqual(taken);
+      });
+
+      it("should clear the status when the value at its path changes", () => {
+        const state = new State(initialValues, basicSchema);
+        state.setStatus("name", taken);
+        state.setValue("name", "Jane Doe");
+        expect(state.getState("name").status.variant).toBe("success");
+      });
+
+      it("should keep the status when a write to its parent keeps its value", () => {
+        const state = new State(initialValues, basicSchema);
+        const status = {
+          key: "profile.bio",
+          variant: "warning" as const,
+          message: "Short",
+        };
+        state.setStatus("profile.bio", status);
+        state.setValue("profile", {
+          ...initialValues.profile,
+          website: "https://x.com",
+        });
+        expect(state.getState("profile.bio").status).toEqual(status);
+      });
+
+      it("should clear the status when its path is removed", () => {
+        const state = new State(initialValues, basicSchema);
+        state.setStatus("tags.1", { key: "tags.1", variant: "error", message: "Bad" });
+        state.remove("tags.1");
+        expect(state.getStatuses()).toEqual([]);
+      });
+
+      it("should survive the removal of a form-level validation error", () => {
+        const schema = z
+          .object({ a: z.string(), b: z.string() })
+          .refine(({ a, b }) => a !== b, "Must differ");
+        const state = new State({ a: "x", b: "x" }, schema);
+        state.validate(true);
+        expect(state.getStatuses().map(({ message }) => message)).toEqual([
+          "Must differ",
+        ]);
+        state.setStatus("a", { key: "a", variant: "error", message: "Taken" });
+        state.setValue("b", "y");
+        state.validate(true);
+        expect(state.getStatuses().map(({ message }) => message)).toEqual(["Taken"]);
+      });
+
+      it("should yield to a status that validation sets at its path", () => {
+        const state = new State({ ...initialValues, email: "invalid" }, basicSchema);
+        state.setStatus("email", { key: "email", variant: "error", message: "Taken" });
+        state.validate(true);
+        expect(state.getState("email").status.message).toBe("Invalid email format");
+        state.setValue("name", "Jane Doe");
+        state.validate();
+        expect(state.getState("email").status.variant).toBe("success");
+      });
     });
   });
 
@@ -476,6 +642,16 @@ describe("State", () => {
       expect(state.getState("email").status.variant).toBe("success");
     });
 
+    it("should keep the status object of a field whose result did not change", () => {
+      const state = new State({ ...initialValues, email: "invalid" }, basicSchema);
+      state.setTouched("email");
+      state.validate();
+      const status = state.getState("email").status;
+      state.setValue("name", "Jane Doe");
+      state.validate();
+      expect(state.getState("email").status).toBe(status);
+    });
+
     it("should return true when no schema is provided", () => {
       const state = new State(initialValues);
       const isValid = state.validate();
@@ -632,6 +808,43 @@ describe("State", () => {
       expect(state.getState("optionalField").required).toBe(false);
     });
 
+    describe("required", () => {
+      const schema = z.object({
+        free: z.string(),
+        count: z.number(),
+        on: z.boolean(),
+        tags: z.array(z.string()).min(1),
+        open: z.array(z.string()),
+      });
+      const values = { free: "a", count: 1, on: true, tags: ["t"], open: [] };
+
+      it("should not require a string the schema accepts empty", () => {
+        expect(new State(values, schema).getState("free").required).toBe(false);
+      });
+
+      it("should not require a value no input can empty", () => {
+        const state = new State(values, schema);
+        expect(state.getState("count").required).toBe(false);
+        expect(state.getState("on").required).toBe(false);
+      });
+
+      it("should require a list the schema refuses empty", () => {
+        expect(new State(values, schema).getState("tags").required).toBe(true);
+      });
+
+      it("should not require a list the schema accepts empty", () => {
+        expect(new State(values, schema).getState("open").required).toBe(false);
+      });
+
+      it("should not require a field whose schema checks asynchronously", () => {
+        const asyncSchema = z.object({
+          name: z.string().refine(async (v) => v !== "taken"),
+        });
+        const state = new State({ name: "a" }, asyncSchema);
+        expect(state.getState("name").required).toBe(false);
+      });
+    });
+
     it("should return cached reference for performance", () => {
       const state = new State(initialValues, basicSchema);
       const fieldState1 = state.getState("name");
@@ -643,20 +856,20 @@ describe("State", () => {
       const build = () => {
         let checks = 0;
         const schema = z.object({
-          tracked: z.unknown().check(() => {
+          tracked: z.string().check(() => {
             checks++;
           }),
           other: z.string(),
           config: z.discriminatedUnion("type", [
-            z.object({ type: z.literal("a"), value: z.number() }),
+            z.object({ type: z.literal("a"), value: z.string().min(1) }),
             z.object({ type: z.literal("b"), value: z.string().optional() }),
           ]),
           nested: z.object({ leaf: z.string() }),
         });
         const values: z.infer<typeof schema> = {
-          tracked: 1,
+          tracked: "a",
           other: "x",
-          config: { type: "a", value: 1 },
+          config: { type: "a", value: "v" },
           nested: { leaf: "l" },
         };
         return { state: new State(values, schema), checks: () => checks };
@@ -672,8 +885,8 @@ describe("State", () => {
       it("should consult the schema again after the field changes", () => {
         const { state, checks } = build();
         state.getState("tracked");
-        state.setValue("tracked", 2);
-        expect(state.getState("tracked").value).toBe(2);
+        state.setValue("tracked", "b");
+        expect(state.getState("tracked").value).toBe("b");
         expect(checks()).toBe(2);
       });
 

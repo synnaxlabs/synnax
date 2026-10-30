@@ -9,16 +9,18 @@
 
 import "@/schematic/node/general/switch/switch.css";
 
-import { CSS } from "@synnaxlabs/lyra/css";
 import { useHold } from "@synnaxlabs/lyra/hooks";
 import { Input as BaseInput } from "@synnaxlabs/lyra/input";
 import { blockActivation } from "@synnaxlabs/lyra/util";
 import { color, location } from "@synnaxlabs/x";
 import { type CSSProperties, type MouseEventHandler, type ReactElement } from "react";
 
+import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { type Toggle } from "@/schematic/node/common/toggle";
+
+const SWITCH_SCALE = CSS.variable("switch-scale");
 
 export interface Props
   extends Omit<Toggle.ButtonProps, "onClick" | "onMouseDown">, Primitive.SVGBasedProps {
@@ -38,17 +40,17 @@ export const Switch = ({
   const hold = useHold<HTMLElement>({ onClick, onClickDelay, disabled });
   const delayed = !hold.delay.isZero;
   const style: CSSProperties = {
-    [CSS.variable("switch-scale")]: Primitive.resolveScale(scale),
-    [CSS.variable("symbol-color")]: colorVar,
+    [SWITCH_SCALE]: Primitive.resolveScale(scale),
+    [Primitive.SYMBOL_COLOR]: colorVar,
     ...(delayed && {
-      [CSS.variable("toggle-delay")]: `${hold.delay.seconds.toString()}s`,
+      [Primitive.TOGGLE_DELAY]: `${hold.delay.seconds.toString()}s`,
     }),
   };
   return (
     <Primitive.Div
       orientation={orientation}
       className={CSS.cls(
-        colorVar != null && CSS.B("symbol-colored"),
+        colorVar != null && CSS.symbolColored,
         colorVar != null && CSS.BM("switch-symbol", "colored"),
         delayed && CSS.BM("switch-symbol", "delayed"),
         hold.pressed && CSS.M("pressed"),

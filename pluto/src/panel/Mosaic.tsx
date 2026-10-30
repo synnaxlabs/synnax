@@ -12,7 +12,6 @@ import "@/panel/Mosaic.css";
 import { panel, query } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { type Component } from "@synnaxlabs/lyra/component";
-import { CSS } from "@synnaxlabs/lyra/css";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
@@ -22,14 +21,9 @@ import { Status } from "@synnaxlabs/lyra/status";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { type direction } from "@synnaxlabs/x";
-import {
-  type DragEventHandler,
-  memo,
-  type ReactElement,
-  type ReactNode,
-  useCallback,
-} from "react";
+import { type DragEventHandler, memo, type ReactElement, type ReactNode } from "react";
 
+import { CSS } from "@/css";
 import { Errors } from "@/errors";
 import { Mosaic as Base } from "@/mosaic";
 import { createTabDragPayload, parseTabDragPayload } from "@/panel/haul";
@@ -80,17 +74,14 @@ const Tab = ({ tabKey, tabName, onClose, canEdit }: TabProps): ReactElement => {
   const { startDrag, onDragEnd } = Base.useDragTab();
   const key = Scope.use();
   const client = Synnax.use();
-  const handleDragStart = useCallback<DragEventHandler<HTMLDivElement>>(
-    (e) => {
-      const cached = client?.panels.getCached(key);
-      if (!query.isLive(cached)) return;
-      const tab = panel.findTab(cached.root, tabKey);
-      if (tab == null) return;
-      startDrag(e, tabKey, createTabDragPayload(key, tab));
-    },
-    [tabKey, startDrag, key, client],
-  );
-  const handleClose = useCallback(() => onClose(tabKey), [tabKey, onClose]);
+  const handleDragStart: DragEventHandler<HTMLDivElement> = (e) => {
+    const cached = client?.panels.getCached(key);
+    if (!query.isLive(cached)) return;
+    const tab = panel.findTab(cached.root, tabKey);
+    if (tab == null) return;
+    startDrag(e, tabKey, createTabDragPayload(key, tab));
+  };
+  const handleClose = () => onClose(tabKey);
   return (
     <Tabs.Tab
       key={tabKey}
@@ -165,11 +156,8 @@ const Leaf = memo(
     const { tabs } = useLeafNode({ nodeKey });
     const selected = Select.useSelectedAmong(tabs) ?? tabs[0];
     const { onSelect } = Select.useContext();
-    const handleAdd = useCallback(() => onAdd(nodeKey), [nodeKey, onAdd]);
-    const handleSelectContent = useCallback(
-      () => onSelect(selected),
-      [onSelect, selected],
-    );
+    const handleAdd = () => onAdd(nodeKey);
+    const handleSelectContent = () => onSelect(selected);
     const selectorDropProps = Base.useSelectorDropProps({ nodeKey, tabKeys: tabs });
     return (
       <Base.Leaf nodeKey={nodeKey} grow>
@@ -284,10 +272,7 @@ export const CloseTabMenuItem = ({
   const tabKey = TabScope.use();
   const dispatch = useSingleDispatch();
   const canEdit = useCanEdit({});
-  const handleClose = useCallback(
-    () => dispatch(panel.removeTab({ key: tabKey })),
-    [dispatch, tabKey],
-  );
+  const handleClose = () => dispatch(panel.removeTab({ key: tabKey }));
   if (!canEdit) return null;
   return (
     <Menu.Item
@@ -309,11 +294,8 @@ export const SplitTabMenuItems = (): ReactElement | null => {
   const dispatch = useSingleDispatch();
   const root = useRoot({});
   const canEdit = useCanEdit({});
-  const handleSplit = useCallback(
-    (direction: direction.Direction) =>
-      dispatch(panel.splitTab({ key: tabKey, direction })),
-    [dispatch, tabKey],
-  );
+  const handleSplit = (direction: direction.Direction) =>
+    dispatch(panel.splitTab({ key: tabKey, direction }));
   if (!canEdit || !panel.canSplitTab(root, tabKey)) return null;
   return (
     <>
@@ -386,85 +368,68 @@ export const Mosaic = ({
   const moveToPanel = useMoveTabToPanel();
   const handleError = Status.useErrorHandler();
 
-  const handleDrop = useCallback(
-    ({ nodeKey, tabKey, location, index, data }: Base.OnDropProps) => {
-      const source = parseTabDragPayload(data);
-      if (source == null || source.panel === key) {
-        dispatch(panel.moveTab({ key: tabKey, targetLeaf: nodeKey, index, location }));
-        // Another client can close the tab mid-drag, leaving the move a no-op and
-        // the key naming a tab this panel no longer holds.
-        const cached = client?.panels.getCached(key);
-        if (query.isLive(cached) && panel.findTab(cached.root, tabKey) != null)
-          onSelect?.(tabKey);
-        return;
-      }
-      handleError(async () => {
-        const landed = await moveToPanel({
-          source: source.panel,
-          destination: key,
-          tab: source.tab,
-          targetLeaf: nodeKey,
-          index,
-          location,
-        });
-        if (landed != null) onSelect?.(landed);
-      }, "Failed to move tab");
-    },
-    [client, dispatch, moveToPanel, key, onSelect, handleError],
-  );
+  const handleDrop = ({ nodeKey, tabKey, location, index, data }: Base.OnDropProps) => {
+    const source = parseTabDragPayload(data);
+    if (source == null || source.panel === key) {
+      dispatch(panel.moveTab({ key: tabKey, targetLeaf: nodeKey, index, location }));
+      // Another client can close the tab mid-drag, leaving the move a no-op and
+      // the key naming a tab this panel no longer holds.
+      const cached = client?.panels.getCached(key);
+      if (query.isLive(cached) && panel.findTab(cached.root, tabKey) != null)
+        onSelect?.(tabKey);
+      return;
+    }
+    handleError(async () => {
+      const landed = await moveToPanel({
+        source: source.panel,
+        destination: key,
+        tab: source.tab,
+        targetLeaf: nodeKey,
+        index,
+        location,
+      });
+      if (landed != null) onSelect?.(landed);
+    }, "Failed to move tab");
+  };
 
-  const handleResize = useCallback(
-    (split: number, size: number) => dispatch(panel.resizeSplit({ split, size })),
-    [dispatch],
-  );
+  const handleResize = (split: number, size: number) =>
+    dispatch(panel.resizeSplit({ split, size }));
 
-  const handleClose = useCallback(
-    (key: string) => dispatch(panel.removeTab({ key })),
-    [dispatch],
-  );
+  const handleClose = (key: string) => dispatch(panel.removeTab({ key }));
 
-  const handleAdd = useCallback(
-    (path: number) => {
-      const tab = onCreateTab?.();
-      if (tab == null) return;
-      const action = panel.insertTabs({ tabs: [tab], targetLeaf: path });
-      dispatch(action);
-      const inserted =
-        action.type === "insert_tabs" ? action.insertTabs.tabs[0] : undefined;
-      if (inserted != null) onSelect?.(inserted.key);
-    },
-    [dispatch, onSelect, onCreateTab],
-  );
+  const handleAdd = (path: number) => {
+    const tab = onCreateTab?.();
+    if (tab == null) return;
+    const action = panel.insertTabs({ tabs: [tab], targetLeaf: path });
+    dispatch(action);
+    const inserted =
+      action.type === "insert_tabs" ? action.insertTabs.tabs[0] : undefined;
+    if (inserted != null) onSelect?.(inserted.key);
+  };
 
-  const handleCreate = useCallback(
-    ({ nodeKey, location, tabKeys, index }: Base.OnCreateProps) => {
-      const tabs = tabKeys
-        .map((tabKey) => resolveDroppedTab?.(tabKey))
-        .filter((tab): tab is panel.NewTab => tab != null);
-      if (tabs.length === 0) return;
-      const action = panel.insertTabs({ tabs, targetLeaf: nodeKey, location, index });
-      dispatch(action);
-      const last =
-        action.type === "insert_tabs" ? action.insertTabs.tabs.at(-1) : undefined;
-      if (last != null) onSelect?.(last.key);
-    },
-    [dispatch, onSelect, resolveDroppedTab],
-  );
+  const handleCreate = ({ nodeKey, location, tabKeys, index }: Base.OnCreateProps) => {
+    const tabs = tabKeys
+      .map((tabKey) => resolveDroppedTab?.(tabKey))
+      .filter((tab): tab is panel.NewTab => tab != null);
+    if (tabs.length === 0) return;
+    const action = panel.insertTabs({ tabs, targetLeaf: nodeKey, location, index });
+    dispatch(action);
+    const last =
+      action.type === "insert_tabs" ? action.insertTabs.tabs.at(-1) : undefined;
+    if (last != null) onSelect?.(last.key);
+  };
 
   const menuProps = Menu.useContextMenu();
-  const renderMenu = useCallback<Component.RenderProp<Menu.ContextMenuMenuProps>>(
-    (props) => {
-      const tabKey: panel.TabKey | undefined = props.keys[0];
-      const content = (
-        <Menu.Menu level="small" gap="small">
-          {contextMenu?.(props)}
-        </Menu.Menu>
-      );
-      if (tabKey == null) return content;
-      return <TabScope.Provider value={tabKey}>{content}</TabScope.Provider>;
-    },
-    [contextMenu],
-  );
+  const renderMenu: Component.RenderProp<Menu.ContextMenuMenuProps> = (props) => {
+    const tabKey: panel.TabKey | undefined = props.keys[0];
+    const content = (
+      <Menu.Menu level="small" gap="small">
+        {contextMenu?.(props)}
+      </Menu.Menu>
+    );
+    if (tabKey == null) return content;
+    return <TabScope.Provider value={tabKey}>{content}</TabScope.Provider>;
+  };
 
   return (
     <Portal.Context>

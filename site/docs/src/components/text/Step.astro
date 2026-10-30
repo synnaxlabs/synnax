@@ -8,26 +8,36 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
+
 export interface StepTextProps extends Text.TextProps {
     step: string | number;
 }
+
 const { step, level, name = "Step", ...rest } = Astro.props;
-// A step always sits inside a Markdown heading, so it renders a span, not a heading.
 ---
 
 <Text.Text className="no-link" el="span" level={level} {...rest}>
-    <span
-        class="step-label"
-        style={{
-            color: "var(--pluto-gray-l8)",
-            display: "inline-flex",
-            alignItems: "center",
-        }}
-    >
-        {`${name} ${step}`}
-        <Icon.Arrow.Right style={{ margin: "0 1rem" }} />{" "}
-    </span>
+    <span class="step-label">{`${name} ${step}`}</span>
     <slot />
 </Text.Text>
+
+<style is:global>
+    /* A step heading carries its number as an eyebrow, so the numbered lists inside the
+       step keep the only step markers. */
+    .lyra-text:has(> .step-label) {
+        flex-wrap: wrap;
+        color: inherit;
+    }
+
+    .step-label {
+        flex-basis: 100%;
+        margin-bottom: 0.5rem;
+        font:
+            500 14px/20px "Geist Mono",
+            monospace;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--pluto-gray-l8);
+    }
+</style>

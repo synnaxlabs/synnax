@@ -12,22 +12,19 @@ package status
 import (
 	"context"
 	"slices"
-	"strings"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
-	"github.com/synnaxlabs/x/gorp"
 )
 
 // Retrieve is used to retrieve statuses from the cluster using a builder pattern.
 type Retrieve[D any] struct {
-	baseTX     gorp.Tx
-	gorp       gorp.Retrieve[Key, Status[D]]
-	search     *search.Index
-	label      *label.Service
-	searchTerm string
+	baseTX gorp.Tx
+	gorp   gorp.Retrieve[Key, Status[D]]
+	// search indexes the table, whose entries hold details of any type.
+	search *gorp.SearchIndex[Key, Status[any]]
+	label  *label.Service
 }
 
 // Filter is a per-service filter that is bound to the Retrieve when passed to Where.
@@ -45,38 +42,6 @@ func Match[D any](
 		})
 	}
 }
-
-// And returns a filter that matches when all provided filters match.
-func And[D any](fs ...Filter[D]) Filter[D] {
-	return func(r Retrieve[D]) gorp.Filter[Key, Status[D]] {
-		inner := make([]gorp.Filter[Key, Status[D]], len(fs))
-		for i, f := range fs {
-			inner[i] = f(r)
-		}
-		return gorp.And(inner...)
-	}
-}
-
-// Or returns a filter that matches when any provided filter matches.
-func Or[D any](fs ...Filter[D]) Filter[D] {
-	return func(r Retrieve[D]) gorp.Filter[Key, Status[D]] {
-		inner := make([]gorp.Filter[Key, Status[D]], len(fs))
-		for i, f := range fs {
-			inner[i] = f(r)
-		}
-		return gorp.Or(inner...)
-	}
-}
-
-// Not returns a filter that inverts the provided filter.
-func Not[D any](f Filter[D]) Filter[D] {
-	return func(r Retrieve[D]) gorp.Filter[Key, Status[D]] {
-		return gorp.Not(f(r))
-	}
-}
-
-// Search sets a fuzzy search term that Retrieve will use to filter results.
-func (r Retrieve[D]) Search(term string) Retrieve[D] { r.searchTerm = term; return r }
 
 // Entry binds the Status that Retrieve will fill results into. If multiple results
 // match the query, only the first result will be filled into the provided Status.
@@ -103,9 +68,8 @@ func (r Retrieve[D]) Entries(s *[]Status[D]) Retrieve[D] {
 	return r
 }
 
-// Where applies the provided filter to the query, binding it to the Retrieve
-// so service-bound filters can read from r.label, r.search, etc. To compose
-// multiple filters, chain Where calls or pass a combined filter via And / Or.
+// Where applies the provided filter to the query, binding it to the Retrieve so
+// service-bound filters can read from r.label. A status must match every chained Where.
 func (r Retrieve[D]) Where(filter Filter[D]) Retrieve[D] {
 	r.gorp = r.gorp.Where(filter(r))
 	return r
@@ -119,16 +83,6 @@ func MatchKeys[D any](keys ...Key) Filter[D] {
 	}
 }
 
-// MatchKeyPrefix returns a filter for statuses whose key starts with the provided
-// prefix.
-func MatchKeyPrefix[D any](prefix Key) Filter[D] {
-	return func(_ Retrieve[D]) gorp.Filter[Key, Status[D]] {
-		return gorp.Match(func(_ gorp.Context, s *Status[D]) (bool, error) {
-			return strings.HasPrefix(s.Key, prefix), nil
-		})
-	}
-}
-
 // MatchNames returns a filter for statuses whose name matches any of the provided
 // values.
 func MatchNames[D any](names ...string) Filter[D] {
@@ -136,6 +90,15 @@ func MatchNames[D any](names ...string) Filter[D] {
 		return gorp.Match(func(_ gorp.Context, s *Status[D]) (bool, error) {
 			return slices.Contains(names, s.Name), nil
 		})
+	}
+}
+
+// MatchSearch returns a filter for statuses whose name matches term, closest match
+// first. An empty term matches no status. Only a Retrieve[any] can search, because the
+// search index holds details of any type.
+func MatchSearch(term string) Filter[any] {
+	return func(r Retrieve[any]) gorp.Filter[Key, Status[any]] {
+		return r.search.Filter(term)
 	}
 }
 
@@ -166,20 +129,7 @@ func MatchLabels[D any](matchLabels ...label.Key) Filter[D] {
 }
 
 // Exec executes the query and fills the results into the provided Status or slice of
-// Statuses. It's important to note that fuzzy search will not be aware of any writes/
-// deletes executed on the tx, and will only search the underlying database.
+// Statuses.
 func (r Retrieve[D]) Exec(ctx context.Context, tx gorp.Tx) error {
-	tx = gorp.OverrideTx(r.baseTX, tx)
-	if r.searchTerm != "" {
-		ids, err := r.search.Search(ctx, search.Request{
-			Type: ontology.ResourceTypeStatus,
-			Term: r.searchTerm,
-		})
-		if err != nil {
-			return err
-		}
-		keys := KeysFromOntologyIDs(ids)
-		r = r.Where(MatchKeys[D](keys...))
-	}
-	return r.gorp.Exec(ctx, tx)
+	return r.gorp.Exec(ctx, gorp.OverrideTx(r.baseTX, tx))
 }

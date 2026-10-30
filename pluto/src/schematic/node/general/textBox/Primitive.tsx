@@ -10,11 +10,11 @@
 import "@/schematic/node/general/textBox/textBox.css";
 
 import { type schematic } from "@synnaxlabs/client";
-import { CSS } from "@synnaxlabs/lyra/css";
 import { Text } from "@synnaxlabs/lyra/text";
 import { color, direction } from "@synnaxlabs/x";
-import { type CSSProperties, type ReactElement, useMemo } from "react";
+import { type CSSProperties, type ReactElement } from "react";
 
+import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 
@@ -39,14 +39,11 @@ export const TextBox = ({
 }: RenderProps): ReactElement => {
   const isVertical = direction.construct(orientation) === "y";
   const size = autoFitDisabled ? width : "fit-content";
-  const style = useMemo<CSSProperties>(
-    () => ({
-      textAlign: align as CSSProperties["textAlign"],
-      [CSS.variable("symbol-color")]: color.rgbaString(textColor),
-      ...(isVertical ? { height: size } : { width: size }),
-    }),
-    [align, textColor, isVertical, size],
-  );
+  const style: CSSProperties = {
+    textAlign: align as CSSProperties["textAlign"],
+    [Primitive.SYMBOL_COLOR]: color.rgbaString(textColor),
+    ...(isVertical ? { height: size } : { width: size }),
+  };
 
   return (
     <Primitive.Div
@@ -54,7 +51,7 @@ export const TextBox = ({
       orientation={orientation}
       className={CSS.cls(
         CSS.B("text-box"),
-        CSS.B("symbol-colored"),
+        CSS.symbolColored,
         CSS.loc(orientation),
         className,
       )}

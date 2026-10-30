@@ -126,7 +126,7 @@ describe("Core List", () => {
     fireEvent.click(await screen.findByText("Refresh connection"));
     await waitFor(() => expect(screen.queryByText("Refresh connection")).toBeNull());
     // The address is the key, so a connection tells the session nothing new about it.
-    const cores = Session.Core.selectMany(store.getState());
+    const cores = Object.values(store.getState()[Session.Core.SLICE_NAME].cores);
     expect(cores).toHaveLength(1);
     expect(cores[0].key).toBe(ALPHA.key);
   });
@@ -187,12 +187,27 @@ describe("Core List", () => {
     );
     const addButton = screen
       .getAllByRole("button")
-      .find((b) => b.querySelector("svg.pluto-icon--add"));
+      .find((b) => b.querySelector("svg.lyra-icon--add"));
     if (addButton == null) throw new Error("add button not found");
     fireEvent.click(addButton);
     await waitFor(() => {
       const nameInput = screen.getByPlaceholderText<HTMLInputElement>("Synnax Core");
       expect(nameInput.value).toEqual("");
     });
+  });
+
+  it("should show why a Core is unreachable in its status tooltip", async () => {
+    await renderCoreUI(
+      <Core.List value={BRAVO.key} onChange={vi.fn()} />,
+      createCoreState([BRAVO], BRAVO.key),
+    );
+    fireEvent.pointerOver(await screen.findByText("Unreachable"), {
+      pointerType: "mouse",
+    });
+    const tooltip = await screen.findByRole("tooltip");
+    expect(within(tooltip).getByText("Cannot reach Core")).toBeTruthy();
+    expect(
+      within(tooltip).getByText(`Cannot reach Core at ${BRAVO.host}:${BRAVO.port}`),
+    ).toBeTruthy();
   });
 });

@@ -52,25 +52,26 @@ describe("fromPage", () => {
 
   it("should quote notes and the page description", () => {
     const html = page(
-      `<h4 class="article-description">About channels.</h4><div class="pluto-note"><p>Careful.</p></div>`,
+      `<p class="article-description">About channels.</p><div class="lyra-note"><p>Careful.</p></div>`,
     );
     expect(fromPage(html, PAGE_URL)).toBe("> About channels.\n\n> Careful.\n");
   });
 
   it("should drop an empty page description", () => {
     expect(
-      fromPage(page(`<h4 class="article-description"></h4><p>Body.</p>`), PAGE_URL),
+      fromPage(page(`<p class="article-description"></p><p>Body.</p>`), PAGE_URL),
     ).toBe("Body.\n");
   });
 
   it("should drop site controls", () => {
     const html = page(`
-      <small class="pluto-breadcrumb"><a href="/reference">Reference</a></small>
+      <small class="lyra-breadcrumb"><a href="/reference">Reference</a></small>
       <h2 id="a">Create<a href="#a" class="heading-anchor"><svg></svg></a></h2>
       <details class="table-collapse" open><summary><p>Table</p></summary>
         <table><thead><tr><th>Flag</th></tr></thead><tbody><tr><td>-v</td></tr></tbody></table>
       </details>
       <div class="next-prev"><a href="/next">Next</a></div>
+      <div class="docs-ui"><p>Step 1 of 4</p></div>
       <script>alert(1)</script><style>p{}</style>`);
     expect(fromPage(html, PAGE_URL)).toBe(
       "## Create\n\n| Flag |\n| ---- |\n| -v   |\n",

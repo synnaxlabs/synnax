@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic } from "@synnaxlabs/client";
-import { CSS } from "@synnaxlabs/lyra/css";
 import { type ReactElement } from "react";
 
+import { CSS } from "@/css";
 import { colorFallbacks, InputForm } from "@/schematic/node/general/input/Form";
 import { Input } from "@/schematic/node/general/input/Primitive";
 import { Symbol } from "@/schematic/node/general/input/Symbol";
@@ -22,7 +22,7 @@ const Preview = ({
   size,
 }: schematic.InputNodeConfig): ReactElement => (
   <Input
-    initialValue="send message"
+    value="send message"
     fillColor={fillColor}
     orientation={orientation}
     size={size}
@@ -33,10 +33,11 @@ const Preview = ({
 
 export const spec: Spec<"input", schematic.InputNodeConfig> = {
   key: "input",
-  name: "Input",
+  name: "Text input",
   Form: InputForm,
   Node: Symbol,
   Preview,
   zIndex: 4,
   colorFallbacks,
+  needsPosition: true,
 };

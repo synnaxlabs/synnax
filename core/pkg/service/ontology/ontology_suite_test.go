@@ -11,26 +11,23 @@ package ontology_test
 
 import (
 	"context"
-	"io"
 	"iter"
-	"slices"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/x/gorp"
-	xio "github.com/synnaxlabs/x/io"
-	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/observe"
+	"github.com/synnaxlabs/x/search"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 	"github.com/synnaxlabs/x/zyn"
 )
 
 func TestOntology(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Service Ontology Suite")
+	RunSpecs(t, "Service Ontology Suite", SuiteConfig())
 }
 
 type sampleService struct {
@@ -59,12 +56,13 @@ func (s *sampleService) RetrieveResource(
 	), nil
 }
 
-func (s *sampleService) OpenNexter(
+func (*sampleService) Search(
 	context.Context,
-) (iter.Seq[ontology.Resource], io.Closer, error) {
-	return slices.Values([]ontology.Resource{
-		lo.Must(s.RetrieveResource(context.Background(), "", nil)),
-	}), xio.NopCloser, nil
+	gorp.Tx,
+	string,
+	int,
+) (search.Result[ontology.ID], error) {
+	return search.Result[ontology.ID]{}, nil
 }
 
 var (

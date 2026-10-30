@@ -18,7 +18,7 @@ class ArcClient(ResourceClient):
 
     TOOLBAR_CLASS = ".console-arc-toolbar"
     CONTROLS_CLASS = ".console-arc-editor__controls"
-    LIST_ITEM_CLASS = ".pluto-list__item"
+    LIST_ITEM_CLASS = ".lyra-list__item"
 
     def _show_arc_panel(self) -> None:
         """Show the Arc panel in the navigation drawer.
@@ -43,7 +43,7 @@ class ArcClient(ResourceClient):
         controls.wait_for(state="visible", timeout=5000)
         return controls
 
-    def create(self, name: str, source: str, mode: str = "Text") -> None:
+    def create(self, name: str, *, source: str, mode: str = "Text") -> None:
         """Create a new Arc automation via Console UI.
 
         Args:
@@ -194,9 +194,8 @@ class ArcClient(ResourceClient):
         """Deploy the Arc from the editor controls.
 
         Play deploys and starts a stopped task; a drifted deployment shows a
-        Redeploy button instead. Waits for either "Task configured
-        successfully" or "Task started successfully" and retries once on
-        timeout to handle transient driver slowness.
+        Redeploy button instead. Waits for "Started task" and retries once on
+        timeout to handle transient Driver slowness.
         """
         for attempt in range(2):
             controls = self._get_controls()
@@ -205,13 +204,12 @@ class ArcClient(ResourceClient):
             if redeploy_btn.count() > 0:
                 redeploy_btn.click()
             else:
-                play_btn = controls.locator("button:has(.pluto-icon--play)")
+                play_btn = controls.locator("button:has(.lyra-icon--play)")
                 play_btn.wait_for(state="visible", timeout=5000)
                 play_btn.click()
-            configured = controls.locator("text=Task configured successfully")
-            started = controls.locator("text=Task started successfully")
+            started = controls.locator("text=Started task")
             try:
-                configured.or_(started).wait_for(state="visible", timeout=30000)
+                started.wait_for(state="visible", timeout=30000)
                 return
             except PlaywrightTimeoutError:
                 if attempt == 1:
@@ -252,17 +250,15 @@ class ArcClient(ResourceClient):
     def stop(self) -> None:
         """Click the Stop button to stop the Arc.
 
-        Waits for the "Task stopped successfully" message to appear.
+        Waits for the "Stopped task" message to appear.
         """
         self._show_arc_panel()
         controls = self._get_controls()
-        stop_btn = controls.locator("button:has(.pluto-icon--stop)")
+        stop_btn = controls.locator("button:has(.lyra-icon--stop)")
         stop_btn.wait_for(state="visible", timeout=5000)
         self.notifications.close_all()
         stop_btn.click()
-        controls.locator("text=Task stopped successfully").wait_for(
-            state="visible", timeout=30000
-        )
+        controls.locator("text=Stopped task").wait_for(state="visible", timeout=30000)
 
     def is_running(self) -> bool:
         """Check if the Arc is currently running by looking for the stop button.
@@ -274,7 +270,7 @@ class ArcClient(ResourceClient):
         controls = self.layout.page.locator(self.CONTROLS_CLASS)
         if controls.count() == 0:
             return False
-        stop_btn = controls.locator("button:has(.pluto-icon--stop)")
+        stop_btn = controls.locator("button:has(.lyra-icon--stop)")
         return stop_btn.count() > 0 and stop_btn.is_visible()
 
     def rename(self, *, old_name: str, new_name: str) -> None:

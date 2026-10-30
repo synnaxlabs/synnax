@@ -8,11 +8,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-const { preview, variant, ...rest } = Astro.props;
+const { variant, ...rest } = Astro.props;
 ---
 
-<div class=`diagram ${preview ? "preview" : ""} ${variant ?? ""}` {...rest}>
-    <div class="internal"></div>
+<div class=`diagram ${variant ?? ""}` {...rest}>
     <slot />
 </div>
 
@@ -23,8 +22,8 @@ const { preview, variant, ...rest } = Astro.props;
         flex-direction: column;
         justify-content: center;
         align-items: center;
-        margin: 5rem var(--docs-block-inset) var(--docs-block-gap);
-        width: calc(100% - 2 * var(--docs-block-inset));
+        margin: 5rem 0 var(--docs-block-gap);
+        width: 100%;
         border-radius: 1.5rem;
         border: var(--pluto-border);
         box-shadow: var(--pluto-shadow-v1);
@@ -50,51 +49,20 @@ const { preview, variant, ...rest } = Astro.props;
                 var(--pluto-gray-l7) 0.5px,
                 var(--pluto-gray-l0) 1px
             );
+
             :global(.box) {
                 fill: var(--pluto-gray-l0);
                 stroke: var(--pluto-gray-l8);
             }
+
             :global(.arrow) {
                 fill: var(--pluto-gray-l11);
                 stroke: var(--pluto-gray-l11);
             }
+
             :global(.label) {
                 fill: var(--pluto-text-color);
                 font-family: var(--pluto-font-family);
-            }
-        }
-
-        &.preview {
-            justify-content: unset;
-            align-items: unset;
-            padding: 10rem 20rem;
-            background-image: radial-gradient(
-                var(--pluto-gray-l5-70) 0.5px,
-                transparent 0.5px
-            );
-            @media (prefers-color-scheme: dark) {
-                background-image: radial-gradient(
-                    var(--pluto-dark-gray-l3) 0.5px,
-                    transparent 0.5px
-                );
-            }
-            img {
-                width: 100%;
-                border-radius: 1rem;
-                z-index: 3;
-            }
-            & .internal {
-                position: absolute;
-                z-index: 0;
-                top: 0;
-                left: 0;
-                height: 100%;
-                width: 100%;
-                background: linear-gradient(
-                    45deg,
-                    var(--pluto-primary-z-50),
-                    #ff007b66
-                );
             }
         }
 

@@ -12,12 +12,12 @@ import { type Locator, type Page } from "playwright";
 import { type CaptureSession } from "@/capture/rig";
 
 /**
- * control returns a visualization control button (zoom, pan, selection, rule,
- * ...) by the name of the icon it carries. The buttons have no accessible
+ * control returns the first visualization control button (zoom, pan, selection, rule,
+ * ...) in `scope` by the name of the icon it carries. The buttons have no accessible
  * name of their own.
  */
-export const control = (page: Page, icon: string): Locator =>
-  page.locator(`.console-controls button:has(.pluto-icon--${icon})`).first();
+export const control = (scope: Page | Locator, icon: string): Locator =>
+  scope.locator(`.console-controls button:has(.lyra-icon--${icon})`).first();
 
 /**
  * showVisualizationToolbar opens the bottom visualization drawer if it is not
@@ -58,7 +58,7 @@ export const addChannels = async (
     .locator("label")
     .filter({ hasText: axis })
     .locator("..")
-    .locator(".pluto-dialog__trigger")
+    .locator(".lyra-dialog__trigger")
     .first();
   // Wide rows are mostly empty space: click their left-aligned text so the
   // cursor lands where a person aims and the camera gets a rect worth framing.
@@ -73,8 +73,8 @@ export const addChannels = async (
   if (search != null) await session.type(search);
   for (const channel of channels) {
     const item = page
-      .locator(".pluto-list__item:not(.pluto-tree__item)")
-      .filter({ hasText: channel })
+      .locator(".lyra-list__item:not(.lyra-tree__item)")
+      .filter({ has: page.getByText(channel, { exact: true }) })
       .first();
     await session.waitFor(item);
     await session.click(item.getByText(channel, { exact: true }).first(), {

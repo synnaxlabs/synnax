@@ -11,8 +11,8 @@ import { renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { noopBooleanSinkSpec, noopBooleanSourceSpec } from "@/telem/aether/noop";
-import { telemTest } from "@/telem/aether/test";
-import { TelemTest } from "@/telem/test";
+import { telemTest } from "@/telem/aether/testutil";
+import { TelemTest } from "@/telem/testutil";
 import { renderAether } from "@/testutil/renderAether";
 import { Toggle } from "@/vis/toggle";
 import { toggle } from "@/vis/toggle/aether";
@@ -191,8 +191,8 @@ describe("toggle/aether/Toggle", () => {
     });
   });
 
-  // The aether Toggle carries the behavior above; Toggle.use is a thin React adapter
-  // over its RPC method. This test covers only that adapter wiring.
+  // The aether Toggle carries the behavior above; Toggle.use is a thin React
+  // adapter over its RPC method. This test covers only that adapter wiring.
   describe("Toggle.use (React adapter)", () => {
     const TestWrapper = TelemTest.createTestWrapper({ registry: toggle.REGISTRY });
 

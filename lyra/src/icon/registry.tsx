@@ -34,7 +34,7 @@ import {
   BsBorderWidth,
   BsFillInfoSquareFill,
   BsLightbulbFill,
-  BsShiftFill,
+  BsShift,
 } from "react-icons/bs";
 import {
   FaAlignCenter,
@@ -160,6 +160,7 @@ import {
   MdPolicy,
   MdQuestionMark,
   MdRedo,
+  MdReplay,
   MdRotate90DegreesCcw,
   MdRotate90DegreesCw,
   MdRotateLeft,
@@ -225,6 +226,8 @@ import {
   TbColumnInsertLeft,
   TbColumnInsertRight,
   TbColumnRemove,
+  TbDatabase,
+  TbDatabaseOff,
   TbDecimal,
   TbEraser,
   TbLayoutSidebar,
@@ -265,6 +268,7 @@ import { Valve } from "@/icon/Valve";
 
 export const Pause = wrapSVGIcon(MdPause, "pause");
 export const Play = wrapSVGIcon(MdPlayArrow, "play");
+export const Replay = wrapSVGIcon(MdReplay, "replay");
 export const Stop = wrapSVGIcon(MdStop, "stop");
 export const Circle = wrapSVGIcon(MdFiberManualRecord, "circle");
 export const Square = wrapSVGIcon(MdSquare, "square");
@@ -406,7 +410,7 @@ export const Keyboard = {
   },
   Alt: wrapSVGIcon(MdKeyboardAlt, "keyboard-alt"),
   Option: wrapSVGIcon(MdKeyboardOptionKey, "keyboard-option"),
-  Shift: wrapSVGIcon(BsShiftFill, "keyboard-shift"),
+  Shift: wrapSVGIcon(BsShift, "keyboard-shift"),
 };
 export const Tooltip = wrapSVGIcon(MdInsights, "tooltip");
 export const Annotate = wrapSVGIcon(MdLabel, "annotate");
@@ -462,6 +466,8 @@ export const Connect = wrapSVGIcon(TbPlugConnected, "connect");
 export const Disconnect = wrapSVGIcon(TbPlugConnectedX, "disconnect");
 export const Hardware = wrapSVGIcon(MdHardware, "hardware");
 export const Save = wrapSVGIcon(MdSaveAlt, "save");
+export const Database = wrapSVGIcon(TbDatabase, "database");
+export const DatabaseOff = wrapSVGIcon(TbDatabaseOff, "database-off");
 export const Task = wrapSVGIcon(TbRadarFilled, "task");
 export const Computer = wrapSVGIcon(MdComputer, "computer");
 export const Link = wrapSVGIcon(MdLink, "link");
@@ -652,6 +658,8 @@ const icons = {
   Disconnect,
   Hardware,
   Save,
+  Database,
+  DatabaseOff,
   Task,
   Device,
   Computer,

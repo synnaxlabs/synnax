@@ -7,29 +7,32 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { primitive } from "@synnaxlabs/x";
-import { type FC, useCallback } from "react";
+import { type FC } from "react";
 
 import { useSlavesByKeys } from "@/feature/ethercat/device/queries";
-import { WriteChannelDetails } from "@/feature/ethercat/task/ChannelDetails";
+import {
+  WriteChannelDetails,
+  WriteDetailsTitle,
+} from "@/feature/ethercat/task/ChannelDetails";
 import {
   checkOrCreateIndex,
   findChannelsToCreate,
   retrieveAndValidateSlaves,
 } from "@/feature/ethercat/task/configure";
 import {
-  channelMapKey,
+  addressKey,
   createWriteChannel,
   deployWriteConfigZ,
-  getChannelByMapKey,
-  getPDOName,
+  type EntryWriteChannel,
+  getEntryChannelName,
   getPortLabel,
-  resolvePDODataType,
+  hasEntry,
+  stateKey,
   WRITE_SCHEMAS,
   WRITE_TYPE,
   type WriteChannel,
@@ -37,8 +40,6 @@ import {
 } from "@/feature/ethercat/task/types";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
-
-const STATE_KEY_SUFFIX = "_state";
 
 const Properties = () => (
   <Flex.Box x grow>
@@ -63,6 +64,7 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
     <Task.Views.ListAndDetailsChannelItem
       {...props}
       port={getPortLabel(ch)}
+      status={ch.type === "unresolved" ? "error" : undefined}
       path={path}
       channel={ch.cmdChannel}
       stateChannel={ch.stateChannel}
@@ -76,34 +78,21 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
 
 const channelDetails = Component.renderProp(WriteChannelDetails);
 
-const DetailsTitle = ({ path }: Task.Views.DetailsProps) => {
-  const ch = PForm.useFieldValue<WriteChannel>(path);
-  return (
-    <Task.Views.ItemLabel kind={ch.type === "automatic" ? "PDO" : "Manual"}>
-      {getPortLabel(ch)}
-    </Task.Views.ItemLabel>
-  );
-};
-
-const detailsTitle = Component.renderProp(DetailsTitle);
+const detailsTitle = Component.renderProp(WriteDetailsTitle);
 
 const listItem = Component.renderProp(ChannelListItem);
 
 const Form: FC = () => {
   const slaves = useSlavesByKeys(Task.useChannelDeviceKeys());
-  const resolve = useCallback(
-    (ch: WriteChannel) => {
-      const slave = slaves?.find(({ key }) => key === ch.device);
-      if (slave == null) return null;
-      const { channels } = slave.properties.write;
-      const mapKey = channelMapKey(ch);
-      return {
-        cmdChannel: getChannelByMapKey(channels, mapKey),
-        stateChannel: getChannelByMapKey(channels, `${mapKey}${STATE_KEY_SUFFIX}`),
-      };
-    },
-    [slaves],
-  );
+  const resolve = (ch: WriteChannel) => {
+    const slave = slaves?.find(({ key }) => key === ch.device);
+    if (slave == null || !hasEntry(ch)) return null;
+    const { channels } = slave.properties.write;
+    return {
+      cmdChannel: channels[addressKey(ch)] ?? 0,
+      stateChannel: channels[stateKey(ch)] ?? 0,
+    };
+  };
   return (
     <Task.Views.ListAndDetails<WriteChannel>
       listItem={listItem}
@@ -116,11 +105,11 @@ const Form: FC = () => {
   );
 };
 
-const getInitialValues: Task.GetInitialValues<WriteSchemas> = ({ config }) => ({
-  name: "EtherCAT write task",
-  type: WRITE_TYPE,
-  config: WRITE_SCHEMAS.config.parse(config ?? {}),
-});
+const getInitialValues: Task.GetInitialValues<WriteSchemas> = ({ config }) => {
+  const cfg = WRITE_SCHEMAS.config.parse(config ?? {});
+  if (config == null) cfg.channels = [createWriteChannel([])];
+  return { name: "EtherCAT write task", type: WRITE_TYPE, config: cfg };
+};
 
 const WRITE_INDEX_OPTIONS = {
   indexProperty: "writeStateIndex" as const,
@@ -133,7 +122,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
   config,
 ) => {
   const { slaves, rack, channelsBySlaveKey } =
-    await retrieveAndValidateSlaves<WriteChannel>(client, config.channels);
+    await retrieveAndValidateSlaves<WriteChannel>(client, config.channels, "outputs");
 
   for (const slave of slaves) {
     const channels = channelsBySlaveKey.get(slave.key) ?? [];
@@ -146,74 +135,61 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
       client,
       channels,
       existingChannels,
-      STATE_KEY_SUFFIX,
+      stateKey,
     );
-    const identifier = channel.escapeInvalidName(slave.properties.identifier);
-    const describe = (ch: WriteChannel) => ({
-      ch,
-      pdoName: getPDOName(ch),
-      dataType:
-        ch.type === "automatic"
-          ? resolvePDODataType(slave, ch.pdo, "outputs")
-          : ch.dataType,
-    });
+    const { identifier, pdos } = slave.properties;
+    const baseName = (ch: EntryWriteChannel) =>
+      getEntryChannelName(identifier, pdos.outputs, ch);
 
     if (cmdToCreate.length > 0) {
       modified = true;
-      const channelData = cmdToCreate.map(describe);
-
       const cmdIndexes = await client.channels.create(
-        channelData.map(({ ch, pdoName }) => ({
+        cmdToCreate.map((ch) => ({
           name: primitive.isNonZero(ch.cmdChannelName)
             ? `${ch.cmdChannelName}_cmd_time`
-            : `${identifier}_${pdoName}_cmd_time`,
+            : `${baseName(ch)}_cmd_time`,
           dataType: "timestamp",
           isIndex: true,
         })),
       );
 
       const cmdChannels = await client.channels.create(
-        channelData.map(({ ch, pdoName, dataType }, i) => ({
+        cmdToCreate.map((ch, i) => ({
           name: primitive.isNonZero(ch.cmdChannelName)
             ? ch.cmdChannelName
-            : `${identifier}_${pdoName}_cmd`,
-          dataType,
+            : `${baseName(ch)}_cmd`,
+          dataType: ch.dataType,
           index: cmdIndexes[i].key,
         })),
       );
 
       cmdToCreate.forEach((ch, i) => {
-        existingChannels[channelMapKey(ch)] = cmdChannels[i].key;
+        existingChannels[addressKey(ch)] = cmdChannels[i].key;
       });
     }
 
     if (stateToCreate.length > 0) {
       modified = true;
       const stateChannels = await client.channels.create(
-        stateToCreate.map(describe).map(({ ch, pdoName, dataType }) => ({
+        stateToCreate.map((ch) => ({
           name: primitive.isNonZero(ch.stateChannelName)
             ? ch.stateChannelName
-            : `${identifier}_${pdoName}_state`,
-          dataType,
+            : `${baseName(ch)}_state`,
+          dataType: ch.dataType,
           index: slave.properties.writeStateIndex,
         })),
       );
 
       stateToCreate.forEach((ch, i) => {
-        existingChannels[`${channelMapKey(ch)}${STATE_KEY_SUFFIX}`] =
-          stateChannels[i].key;
+        existingChannels[stateKey(ch)] = stateChannels[i].key;
       });
     }
 
     if (modified) await client.devices.create(slave);
 
     channels.forEach((ch) => {
-      const mapKey = channelMapKey(ch);
-      ch.cmdChannel = getChannelByMapKey(existingChannels, mapKey);
-      ch.stateChannel = getChannelByMapKey(
-        existingChannels,
-        `${mapKey}${STATE_KEY_SUFFIX}`,
-      );
+      ch.cmdChannel = existingChannels[addressKey(ch)];
+      ch.stateChannel = existingChannels[stateKey(ch)];
     });
   }
 

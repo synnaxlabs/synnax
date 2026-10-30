@@ -7,14 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, ethercat, type task, UnexpectedError } from "@synnaxlabs/client";
-import { caseconv, id } from "@synnaxlabs/x";
+import { channel, ethercat, type task } from "@synnaxlabs/client";
+import { id } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type SlaveDevice } from "@/feature/ethercat/device/types";
 import { Task } from "@/platform/task";
 
 export const PREFIX = "ethercat";
+
+export const SCAN_TYPE = `${PREFIX}_scan`;
 
 export type ReadChannel = ethercat.ReadChannel;
 
@@ -26,16 +28,13 @@ export const WRITE_CHANNEL_SCHEMAS = ethercat.WRITE_CHANNEL_SCHEMAS;
 
 export type Channel = ReadChannel | WriteChannel;
 
-export type ChannelMode = Channel["type"];
-
-export type ChannelSchemas = typeof READ_CHANNEL_SCHEMAS | typeof WRITE_CHANNEL_SCHEMAS;
-
 export const READ_TYPE = `${PREFIX}_read`;
 
 const readConfigZ = ethercat.readConfigZ;
 
 export const deployReadConfigZ = ethercat.readConfigZ
   .extend({
+    channels: ethercat.readConfigZ.shape.channels.check(Task.validateEnabledChannel),
     sampleRate: z.number().positive(),
     streamRate: z.number().positive(),
   })
@@ -58,13 +57,12 @@ export const READ_SCHEMAS = {
 
 export type ReadSchemas = typeof READ_SCHEMAS;
 
-export interface ReadPayload extends task.Payload<ReadSchemas> {}
-
 export const WRITE_TYPE = `${PREFIX}_write`;
 
 const writeConfigZ = ethercat.writeConfigZ;
 
 export const deployWriteConfigZ = ethercat.writeConfigZ.extend({
+  channels: ethercat.writeConfigZ.shape.channels.check(Task.validateEnabledChannel),
   stateRate: z.number().positive(),
   executionRate: z.number().positive(),
 });
@@ -86,72 +84,141 @@ export const WRITE_SCHEMAS = {
 
 export type WriteSchemas = typeof WRITE_SCHEMAS;
 
-export interface WritePayload extends task.Payload<WriteSchemas> {}
+export type EntryReadChannel = ethercat.EntryReadChannel;
 
-/** Generates a unique map key for a channel configuration within a slave. */
-export const channelMapKey = (ch: Channel): string => {
-  if (ch.type === "automatic") return `auto_${ch.pdo}`;
-  return `manual_${ch.index}_${ch.subIndex}`;
+export type EntryWriteChannel = ethercat.EntryWriteChannel;
+
+export type EntryChannel = EntryReadChannel | EntryWriteChannel;
+
+/**
+ * The side of the process image a task reaches: inputs for reads, outputs for writes.
+ */
+export type PDOType = "inputs" | "outputs";
+
+export interface Address {
+  index: number;
+  subIndex: number;
+}
+
+const ZERO_ENTRY = { index: 0, subIndex: 0, dataType: "" } as const;
+
+/** @returns whether the channel has an entry picked. */
+export const hasEntry = <C extends Channel>(ch: C): ch is Extract<C, EntryChannel> =>
+  ch.type === "entry" && ch.index !== 0;
+
+/** The word for the direction of each side of the process image. */
+export const DIRECTIONS: Record<PDOType, string> = {
+  inputs: "input",
+  outputs: "output",
 };
 
-/** Creates a new read channel, copying from the last channel if available. */
-export const createReadChannel = (channels: ReadChannel[]): ReadChannel => {
-  if (channels.length === 0)
-    return {
-      ...READ_CHANNEL_SCHEMAS.automatic.parse({ type: "automatic" }),
-      key: id.create(),
-    };
-  const last = channels[channels.length - 1];
-  return { ...last, ...Task.READ_CHANNEL_OVERRIDE, key: id.create() };
+/**
+ * @returns the key that maps the entry at the address to its Synnax channel in the
+ * slave's device properties. The key survives the wire's case conversion unchanged.
+ */
+export const addressKey = ({ index, subIndex }: Address): string =>
+  `${index}_${subIndex}`;
+
+/** @returns the device properties key of the write state channel at the address. */
+export const stateKey = (address: Address): string => `state_${addressKey(address)}`;
+
+/** @returns the entries of a slave with each address listed once. */
+export const uniqueEntries = (entries: ethercat.PDOEntry[]): ethercat.PDOEntry[] => {
+  const seen = new Set<string>();
+  return entries.filter((entry) => {
+    const key = addressKey(entry);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 };
 
-/** Creates a new write channel, copying from the last channel if available. */
-export const createWriteChannel = (channels: WriteChannel[]): WriteChannel => {
-  if (channels.length === 0)
-    return {
-      ...WRITE_CHANNEL_SCHEMAS.automatic.parse({ type: "automatic" }),
-      key: id.create(),
-    };
-  const last = channels[channels.length - 1];
-  return {
-    ...last,
-    key: id.create(),
-    name: "",
-    cmdChannel: 0,
-    stateChannel: 0,
-    cmdChannelName: "",
-    stateChannelName: "",
-  };
-};
+/** @returns the entry at the address, or undefined if the slave has none there. */
+export const entryAt = (
+  entries: ethercat.PDOEntry[],
+  { index, subIndex }: Address,
+): ethercat.PDOEntry | undefined =>
+  entries.find((e) => e.index === index && e.subIndex === subIndex);
 
-/** Gets a channel key from a map, trying both the original key and camelCase. */
-export const getChannelByMapKey = (
-  channels: Record<string, number>,
-  mapKey: string,
-): number => channels[mapKey] ?? channels[caseconv.snakeToCamel(mapKey)] ?? 0;
+/** @returns the entry label, e.g. "Channel 2 › Input", or the name alone. */
+export const getEntryLabel = ({ name, pdoName }: ethercat.PDOEntry): string =>
+  pdoName == null || pdoName === "" ? name : `${pdoName} › ${name}`;
 
-/** Resolves the data type for a PDO entry on a slave device. */
-export const resolvePDODataType = (
-  slave: SlaveDevice,
+/**
+ * @returns the error for a channel whose entry name matches no single entry, listing
+ * the entries on the slave that carry the name.
+ */
+export const getUnresolvedMessage = (
   pdo: string,
-  pdoType: "inputs" | "outputs",
+  { name, properties }: Pick<SlaveDevice, "name" | "properties">,
+  pdoType: PDOType,
 ): string => {
-  const pdoEntry = slave.properties.pdos[pdoType].find((p) => p.name === pdo);
-  if (pdoEntry == null)
-    throw new UnexpectedError(
-      `PDO "${pdo}" not found in ${pdoType} on slave "${slave.properties.name}"`,
-    );
-  return pdoEntry.dataType;
+  const direction = DIRECTIONS[pdoType];
+  const matches = uniqueEntries(properties.pdos[pdoType])
+    .filter((e) => e.name === pdo)
+    .map(ethercat.formatEntry);
+  const slave = `on slave ${name}`;
+  let found: string;
+  if (matches.length === 0) found = `no ${direction} entry ${slave}`;
+  else if (matches.length === 1) found = `${direction} entry ${matches[0]} ${slave}`;
+  else found = `more than one ${direction} entry ${slave}: ${matches.join(", ")}`;
+  return `'${pdo}' matches ${found}. Pick an entry.`;
 };
 
-/** Generates a display label for a channel's port/address. */
-export const getPortLabel = (ch: Channel): string =>
-  ch.type === "automatic"
-    ? ch.pdo || "No PDO"
-    : `0x${ch.index.toString(16).padStart(4, "0")}:${ch.subIndex}`;
+/** Creates a new read channel, copying the slave of the last channel if available. */
+export const createReadChannel = (channels: ReadChannel[]): ReadChannel => {
+  const base = channels.length === 0 ? {} : channels[channels.length - 1];
+  return READ_CHANNEL_SCHEMAS.entry.parse({
+    ...base,
+    ...Task.READ_CHANNEL_OVERRIDE,
+    ...ZERO_ENTRY,
+    type: "entry",
+    key: id.create(),
+  });
+};
 
-/** Generates a safe name for a PDO channel. */
-export const getPDOName = (ch: Channel): string =>
-  channel.escapeInvalidName(
-    ch.type === "automatic" ? ch.pdo : `0x${ch.index.toString(16)}_${ch.subIndex}`,
-  );
+/** Creates a new write channel, copying the slave of the last channel if available. */
+export const createWriteChannel = (channels: WriteChannel[]): WriteChannel => {
+  const base = channels.length === 0 ? {} : channels[channels.length - 1];
+  return WRITE_CHANNEL_SCHEMAS.entry.parse({
+    ...base,
+    ...Task.WRITE_CHANNEL_OVERRIDE,
+    ...ZERO_ENTRY,
+    type: "entry",
+    name: "",
+    key: id.create(),
+  });
+};
+
+/** @returns the short label of a channel's entry for lists and titles. */
+export const getPortLabel = (ch: Channel): string => {
+  if (ch.type === "unresolved") return ch.pdo;
+  if (!hasEntry(ch)) return "No entry";
+  return ethercat.formatAddress(ch);
+};
+
+/**
+ * @returns a valid Synnax channel name for the entry at the address on a slave. The
+ * entry name alone is used when it is unique among the slave's entries; otherwise the
+ * PDO name, or the address when the slave has no PDO name, tells it apart.
+ * @throws {Error} if the slave has no entry at the address.
+ */
+export const getEntryChannelName = (
+  identifier: string,
+  entries: ethercat.PDOEntry[],
+  address: Address,
+): string => {
+  const entry = entryAt(entries, address);
+  if (entry == null)
+    throw new Error(`The slave has no entry at ${ethercat.formatAddress(address)}`);
+  let part: string;
+  if (uniqueEntries(entries).filter((e) => e.name === entry.name).length === 1)
+    part = entry.name;
+  else if (entry.pdoName != null && entry.pdoName !== "")
+    part = `${entry.pdoName}_${entry.name}`;
+  else {
+    const hex = ethercat.formatAddress(address).slice(2).replace(":", "_");
+    part = `${entry.name}_${hex}`;
+  }
+  return channel.escapeInvalidName(`${identifier}_${part}`);
+};

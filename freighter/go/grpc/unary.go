@@ -52,11 +52,11 @@ type UnaryClient[RQ, RQT, RS, RST freighter.Payload] struct {
 
 type UnaryServer[RQ, RQT, RS, RST freighter.Payload] struct {
 	// RequestTranslator translates the given GRPC request into a go type.
-	// See Translator for more information.
-	RequestTranslator Translator[RQ, RQT]
+	// See BackwardTranslator for more information.
+	RequestTranslator BackwardTranslator[RQ, RQT]
 	// ResponseTranslator translates the given go response into a GRPC payload.
-	// See Translator for more information.
-	ResponseTranslator Translator[RS, RST]
+	// See ForwardTranslator for more information.
+	ResponseTranslator ForwardTranslator[RS, RST]
 	// ServiceDesc is the gRPC service description that the transport will use to bind
 	// to a gRPC service registrar.
 	ServiceDesc *grpc.ServiceDesc
@@ -135,7 +135,7 @@ func (u *UnaryServer[RQ, RQT, RS, RST]) Exec(
 	ctx context.Context,
 	tReq RQT,
 ) (tRes RST, err error) {
-	oCtx, err := u.MiddlewareCollector.Exec(
+	_, err = u.MiddlewareCollector.Exec(
 		parseServerContext(ctx, u.ServiceDesc.ServiceName, freighter.VariantUnary),
 		freighter.FinalizerFunc(func(ctx freighter.Context) (freighter.Context, error) {
 			oCtx := freighter.Context{
@@ -162,11 +162,11 @@ func (u *UnaryServer[RQ, RQT, RS, RST]) Exec(
 		},
 		),
 	)
-	oCtx = attachContext(oCtx)
-	if err == nil {
-		return tRes, nil
+	if err != nil {
+		var zero RST
+		return zero, errors.Encode(ctx, err, u.Internal)
 	}
-	return tRes, errors.Encode(oCtx, err, u.Internal)
+	return tRes, nil
 }
 
 func (u *UnaryServer[RQ, RQT, RS, RST]) BindHandler(

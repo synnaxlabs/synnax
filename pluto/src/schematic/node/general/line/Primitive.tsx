@@ -9,9 +9,11 @@
 
 import "@/schematic/node/general/line/line.css";
 
-import { CSS } from "@synnaxlabs/lyra/css";
 import { color, type xy } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
+
+import { CSS } from "@/css";
+import { Primitive } from "@/schematic/node/common/primitive";
 
 export interface LineProps {
   className?: string;
@@ -34,10 +36,10 @@ export const Line = ({
   const ends = { x1: start.x, y1: start.y, x2: end.x, y2: end.y };
   return (
     <svg
-      className={CSS.cls(className, CSS.B("line"), CSS.B("symbol-colored"))}
+      className={CSS.cls(className, CSS.B("line"), CSS.symbolColored)}
       width={width}
       height={height}
-      style={{ [CSS.variable("symbol-color")]: color.rgbaString(strokeColor) }}
+      style={{ [Primitive.SYMBOL_COLOR]: color.rgbaString(strokeColor) }}
     >
       <line className={CSS.BE("line", "hit")} {...ends} />
       <line strokeWidth={strokeWidth} {...ends} />

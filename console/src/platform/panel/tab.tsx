@@ -21,7 +21,10 @@ import { Access, type Flux, Panel } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
 import { type FC, lazy, type LazyExoticComponent, type ReactElement } from "react";
 
-export interface TabNameProps {
+export interface TabNameProps extends Pick<
+  Text.TextProps,
+  "level" | "weight" | "color"
+> {
   /** Whether the render site permits renaming the tab in place. Defaults to true. */
   allowRename?: boolean;
 }
@@ -36,10 +39,13 @@ export interface RestoreParams {
   resource: ontology.ID;
 }
 
-/** Reads the corpse of the surrounding tab's resource, null while it is present. */
-export interface UseTombstone {
-  (): Flux.Tombstone | null;
+export interface ResourceGuardProps {
+  /** Rendered in place of children while the tab's resource is deleted. */
+  FallbackComponent: FC<Flux.Tombstone>;
+  children: ReactElement;
 }
+
+export interface Guard extends FC<ResourceGuardProps> {}
 
 export interface Tab {
   Content: Content | LazyExoticComponent<Content>;
@@ -56,10 +62,10 @@ export interface Tab {
    */
   restore?: (params: RestoreParams) => Promise<void>;
   /**
-   * Reads whether the tab's resource has been deleted. Absent for view tabs,
-   * which address no resource of their own.
+   * Renders the fallback in place of children while the tab's resource is deleted.
+   * Absent for view tabs, which address no resource of their own.
    */
-  useTombstone?: UseTombstone;
+  Guard?: Guard;
 }
 
 export interface Tabs extends Record<string, Tab> {}
@@ -94,36 +100,15 @@ export interface TombstoneService {
   useTombstone: (query: { key: string }) => Flux.Tombstone | null;
 }
 
-/** Binds a domain's tombstone read to the surrounding tab's resource. */
-export const createTombstoneReader = (service: TombstoneService): UseTombstone => {
-  const useRead: UseTombstone = () => {
+/** Builds a {@link Guard} that reads a domain's tombstone for the tab's resource. */
+export const createGuard = ({ useTombstone }: TombstoneService): Guard => {
+  const Guard: Guard = ({ FallbackComponent, children }) => {
     const { key } = Panel.useTabResource();
-    return service.useTombstone({ key });
+    const tombstone = useTombstone({ key });
+    if (tombstone == null) return children;
+    return <FallbackComponent {...tombstone} />;
   };
-  return useRead;
-};
-
-export interface ResourceGuardProps {
-  /** Rendered in place of children while the tab's resource is deleted. */
-  FallbackComponent: FC<Flux.Tombstone>;
-  children: ReactElement;
-}
-
-interface DeletableProps extends ResourceGuardProps {
-  useTombstone: UseTombstone;
-}
-
-// Split from ResourceGuard so the tombstone read is unconditional: a tab type
-// addressing no resource must not change the hook count of the component that
-// renders one that does.
-const Deletable = ({
-  useTombstone,
-  FallbackComponent,
-  children,
-}: DeletableProps): ReactElement => {
-  const tombstone = useTombstone();
-  if (tombstone == null) return children;
-  return <FallbackComponent {...tombstone} />;
+  return Guard;
 };
 
 /**
@@ -135,13 +120,9 @@ export const ResourceGuard = ({
   FallbackComponent,
   children,
 }: ResourceGuardProps): ReactElement => {
-  const { useTombstone } = useTab();
-  if (useTombstone == null) return children;
-  return (
-    <Deletable useTombstone={useTombstone} FallbackComponent={FallbackComponent}>
-      {children}
-    </Deletable>
-  );
+  const { Guard } = useTab();
+  if (Guard == null) return children;
+  return <Guard FallbackComponent={FallbackComponent}>{children}</Guard>;
 };
 
 export interface CreateStaticTabNameParams {
@@ -153,10 +134,12 @@ export const createStaticTabName = ({
   icon,
   name,
 }: CreateStaticTabNameParams): TabName => {
-  const Name: TabName = () => (
+  const Name: TabName = ({ level, weight, color }) => (
     <>
       {icon}
-      <Text.Text>{name}</Text.Text>
+      <Text.Text overflow="fade" level={level} weight={weight} color={color}>
+        {name}
+      </Text.Text>
     </>
   );
   return Name;
@@ -188,7 +171,7 @@ export const createEditableTabName = (
   { useEnsure, useName, useRename }: EditableTabNameService,
   icon: Icon.ReactElement,
 ): TabName => {
-  const Name: TabName = ({ allowRename = true }) => {
+  const Name: TabName = ({ allowRename = true, ...rest }) => {
     const tabKey = Panel.useTabKey();
     const resource = Panel.useTabResource();
     const { key } = resource;
@@ -202,8 +185,10 @@ export const createEditableTabName = (
         <Text.MaybeEditable
           id={tabNameID(tabKey)}
           value={name}
+          overflow="fade"
           disabled={!allowRename || !canRename}
           onChange={(name) => update({ key, name })}
+          {...rest}
         />
       </>
     );

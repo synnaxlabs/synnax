@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <cstddef>
 #include <memory>
 #include <string>
 #include <thread>
@@ -19,11 +20,11 @@
 
 #include "x/cpp/base64/base64.h"
 #include "x/cpp/telem/telem.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "driver/http/errors/errors.h"
-#include "driver/http/mock/server.h"
 #include "driver/http/processor/processor.h"
+#include "driver/http/testutil/server.h"
 
 namespace driver::http {
 namespace {
@@ -54,7 +55,8 @@ Request make_gated_request(
     return req;
 }
 
-mock::Route delayed_route(const std::string &path, const x::telem::TimeSpan &delay) {
+testutil::Route
+delayed_route(const std::string &path, const x::telem::TimeSpan &delay) {
     return {
         .method = Method::GET,
         .path = path,
@@ -67,14 +69,14 @@ mock::Route delayed_route(const std::string &path, const x::telem::TimeSpan &del
 }
 
 TEST(ProcessorTest, GETRequest) {
-    mock::ServerConfig server_cfg;
+    testutil::ServerConfig server_cfg;
     server_cfg.routes = {{
         .method = Method::GET,
         .path = "/api/data",
         .status_code = 200,
         .response_body = R"({"value": 42})",
     }};
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/api/data");
@@ -89,14 +91,14 @@ TEST(ProcessorTest, GETRequest) {
 }
 
 TEST(ProcessorTest, POSTRequestWithBody) {
-    mock::ServerConfig server_cfg;
+    testutil::ServerConfig server_cfg;
     server_cfg.routes = {{
         .method = Method::POST,
         .path = "/api/submit",
         .status_code = 201,
         .response_body = R"({"id": 1})",
     }};
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/api/submit", Method::POST);
@@ -116,7 +118,7 @@ TEST(ProcessorTest, POSTRequestWithBody) {
 }
 
 TEST(ProcessorTest, CustomHeaders) {
-    mock::ServerConfig server_cfg;
+    testutil::ServerConfig server_cfg;
     server_cfg.routes = {{
         .method = Method::GET,
         .path = "/api/check",
@@ -124,12 +126,12 @@ TEST(ProcessorTest, CustomHeaders) {
         .response_body = "ok",
         .content_type = "text/plain",
     }};
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/api/check");
-    req.headers.push_back("X-Global: global-val");
-    req.headers.push_back("X-Request: req-val");
+    req.headers.emplace_back("X-Global: global-val");
+    req.headers.emplace_back("X-Request: req-val");
 
     Processor proc;
     const auto resp = ASSERT_NIL_P(proc.execute(req));
@@ -145,7 +147,7 @@ TEST(ProcessorTest, CustomHeaders) {
 }
 
 TEST(ProcessorTest, BasicAuth) {
-    mock::ServerConfig server_cfg;
+    testutil::ServerConfig server_cfg;
     server_cfg.routes = {{
         .method = Method::GET,
         .path = "/api/secure",
@@ -153,7 +155,7 @@ TEST(ProcessorTest, BasicAuth) {
         .response_body = "ok",
         .content_type = "text/plain",
     }};
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/api/secure");
@@ -172,7 +174,7 @@ TEST(ProcessorTest, BasicAuth) {
 }
 
 TEST(ProcessorTest, BearerAuth) {
-    mock::ServerConfig server_cfg;
+    testutil::ServerConfig server_cfg;
     server_cfg.routes = {{
         .method = Method::GET,
         .path = "/api/secure",
@@ -180,11 +182,11 @@ TEST(ProcessorTest, BearerAuth) {
         .response_body = "ok",
         .content_type = "text/plain",
     }};
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/api/secure");
-    req.headers.push_back("Authorization: Bearer my-token");
+    req.headers.emplace_back("Authorization: Bearer my-token");
 
     Processor proc;
     const auto resp = ASSERT_NIL_P(proc.execute(req));
@@ -198,7 +200,7 @@ TEST(ProcessorTest, BearerAuth) {
 }
 
 TEST(ProcessorTest, APIKeyAuthAsHeader) {
-    mock::ServerConfig server_cfg;
+    testutil::ServerConfig server_cfg;
     server_cfg.routes = {{
         .method = Method::GET,
         .path = "/api/keyed",
@@ -206,11 +208,11 @@ TEST(ProcessorTest, APIKeyAuthAsHeader) {
         .response_body = "ok",
         .content_type = "text/plain",
     }};
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/api/keyed");
-    req.headers.push_back("X-API-Key: secret123");
+    req.headers.emplace_back("X-API-Key: secret123");
 
     Processor proc;
     const auto resp = ASSERT_NIL_P(proc.execute(req));
@@ -223,7 +225,7 @@ TEST(ProcessorTest, APIKeyAuthAsHeader) {
 }
 
 TEST(ProcessorTest, APIKeyAuthAsQueryParam) {
-    mock::ServerConfig server_cfg;
+    testutil::ServerConfig server_cfg;
     server_cfg.routes = {{
         .method = Method::GET,
         .path = "/api/keyed",
@@ -231,7 +233,7 @@ TEST(ProcessorTest, APIKeyAuthAsQueryParam) {
         .response_body = "ok",
         .content_type = "text/plain",
     }};
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/api/keyed?api_key=secret123");
@@ -248,7 +250,7 @@ TEST(ProcessorTest, APIKeyAuthAsQueryParam) {
 }
 
 TEST(ProcessorTest, QueryParams) {
-    mock::ServerConfig server_cfg;
+    testutil::ServerConfig server_cfg;
     server_cfg.routes = {{
         .method = Method::GET,
         .path = "/api/search",
@@ -256,7 +258,7 @@ TEST(ProcessorTest, QueryParams) {
         .response_body = "found",
         .content_type = "text/plain",
     }};
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/api/search?q=hello&limit=10");
@@ -269,7 +271,7 @@ TEST(ProcessorTest, QueryParams) {
 }
 
 TEST(ProcessorTest, QueryParamsPercentEncoded) {
-    mock::ServerConfig server_cfg;
+    testutil::ServerConfig server_cfg;
     server_cfg.routes = {{
         .method = Method::GET,
         .path = "/api/search",
@@ -277,7 +279,7 @@ TEST(ProcessorTest, QueryParamsPercentEncoded) {
         .response_body = "found",
         .content_type = "text/plain",
     }};
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     ASSERT_NIL(server.start());
 
     auto req = make_request(
@@ -298,7 +300,7 @@ TEST(ProcessorTest, QueryParamsPercentEncoded) {
 }
 
 TEST(ProcessorTest, MergedQueryParams) {
-    mock::ServerConfig server_cfg;
+    testutil::ServerConfig server_cfg;
     server_cfg.routes = {{
         .method = Method::GET,
         .path = "/api/data",
@@ -306,7 +308,7 @@ TEST(ProcessorTest, MergedQueryParams) {
         .response_body = "ok",
         .content_type = "text/plain",
     }};
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/api/data?api_key=secret&limit=10");
@@ -323,7 +325,7 @@ TEST(ProcessorTest, MergedQueryParams) {
 }
 
 TEST(ProcessorTest, TimeoutError) {
-    mock::ServerConfig server_cfg;
+    testutil::ServerConfig server_cfg;
     server_cfg.routes = {{
         .method = Method::GET,
         .path = "/api/slow",
@@ -332,7 +334,7 @@ TEST(ProcessorTest, TimeoutError) {
         .content_type = "text/plain",
         .delay = 2 * x::telem::SECOND,
     }};
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/api/slow");
@@ -356,7 +358,7 @@ TEST(ProcessorTest, UnreachableError) {
 }
 
 TEST(ProcessorTest, ErrorStatusCodesReturnResponse) {
-    mock::ServerConfig server_cfg;
+    testutil::ServerConfig server_cfg;
     server_cfg.routes = {
         {
             .method = Method::GET,
@@ -371,7 +373,7 @@ TEST(ProcessorTest, ErrorStatusCodesReturnResponse) {
             .response_body = R"({"error": "internal"})",
         },
     };
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     ASSERT_NIL(server.start());
 
     Processor proc;
@@ -394,7 +396,7 @@ TEST(ProcessorTest, ErrorStatusCodesReturnResponse) {
 }
 
 TEST(ProcessorTest, ParallelRequests) {
-    mock::ServerConfig server_cfg;
+    testutil::ServerConfig server_cfg;
     server_cfg.routes = {
         {.method = Method::GET,
          .path = "/api/a",
@@ -409,7 +411,7 @@ TEST(ProcessorTest, ParallelRequests) {
          .status_code = 200,
          .response_body = "C"},
     };
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     ASSERT_NIL(server.start());
 
     std::vector<Request> reqs = {
@@ -421,7 +423,7 @@ TEST(ProcessorTest, ParallelRequests) {
     Processor proc;
     const auto results = proc.execute(reqs);
     ASSERT_EQ(results.size(), 3);
-    for (auto &[resp, err]: results) {
+    for (const auto &[resp, err]: results) {
         ASSERT_NIL(err);
         EXPECT_EQ(resp.status_code, 200);
     }
@@ -433,7 +435,7 @@ TEST(ProcessorTest, ParallelRequests) {
 }
 
 TEST(ProcessorTest, ParallelRequestsWithMixedStatusCodes) {
-    mock::ServerConfig server_cfg;
+    testutil::ServerConfig server_cfg;
     server_cfg.routes = {
         {.method = Method::GET,
          .path = "/ok",
@@ -448,7 +450,7 @@ TEST(ProcessorTest, ParallelRequestsWithMixedStatusCodes) {
          .status_code = 500,
          .response_body = R"({"error": "internal"})"},
     };
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     ASSERT_NIL(server.start());
 
     std::vector<Request> reqs = {
@@ -460,7 +462,7 @@ TEST(ProcessorTest, ParallelRequestsWithMixedStatusCodes) {
     Processor proc;
     const auto results = proc.execute(reqs);
     ASSERT_EQ(results.size(), 3);
-    for (auto &[resp, err]: results)
+    for (const auto &[resp, err]: results)
         ASSERT_NIL(err);
     EXPECT_EQ(results[0].first.body, "success");
     EXPECT_EQ(results[0].first.status_code, 200);
@@ -473,7 +475,7 @@ TEST(ProcessorTest, ParallelRequestsWithMixedStatusCodes) {
 }
 
 TEST(ProcessorTest, ParallelOneTimesOut) {
-    mock::ServerConfig server_cfg;
+    testutil::ServerConfig server_cfg;
     server_cfg.routes = {
         {.method = Method::GET,
          .path = "/fast",
@@ -485,7 +487,7 @@ TEST(ProcessorTest, ParallelOneTimesOut) {
          .response_body = "slow",
          .delay = 2 * x::telem::SECOND},
     };
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     ASSERT_NIL(server.start());
 
     auto fast = make_request(server.base_url(), "/fast");
@@ -506,7 +508,7 @@ TEST(ProcessorTest, ParallelOneTimesOut) {
 }
 
 TEST(ProcessorTest, RepeatedGETRequests) {
-    mock::ServerConfig server_cfg;
+    testutil::ServerConfig server_cfg;
     server_cfg.routes = {{
         .method = Method::GET,
         .path = "/api/poll",
@@ -514,7 +516,7 @@ TEST(ProcessorTest, RepeatedGETRequests) {
         .response_body = "ok",
         .content_type = "text/plain",
     }};
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/api/poll");
@@ -532,7 +534,7 @@ TEST(ProcessorTest, RepeatedGETRequests) {
 }
 
 TEST(ProcessorTest, RepeatedPOSTRequests) {
-    mock::ServerConfig server_cfg;
+    testutil::ServerConfig server_cfg;
     server_cfg.routes = {{
         .method = Method::POST,
         .path = "/api/send",
@@ -540,7 +542,7 @@ TEST(ProcessorTest, RepeatedPOSTRequests) {
         .response_body = "created",
         .content_type = "text/plain",
     }};
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/api/send", Method::POST);
@@ -563,13 +565,13 @@ TEST(ProcessorTest, RepeatedPOSTRequests) {
 }
 
 TEST(ProcessorTest, DELETERequest) {
-    mock::ServerConfig server_cfg;
+    testutil::ServerConfig server_cfg;
     server_cfg.routes = {{
         .method = Method::DEL,
         .path = "/api/item/42",
         .status_code = 204,
     }};
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/api/item/42", Method::DEL);
@@ -582,14 +584,14 @@ TEST(ProcessorTest, DELETERequest) {
 }
 
 TEST(ProcessorTest, PUTRequest) {
-    mock::ServerConfig server_cfg;
+    testutil::ServerConfig server_cfg;
     server_cfg.routes = {{
         .method = Method::PUT,
         .path = "/api/item/1",
         .status_code = 200,
         .response_body = R"({"updated": true})",
     }};
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/api/item/1", Method::PUT);
@@ -607,7 +609,7 @@ TEST(ProcessorTest, PUTRequest) {
 }
 
 TEST(ProcessorTest, EmptyPath) {
-    mock::ServerConfig server_cfg;
+    testutil::ServerConfig server_cfg;
     server_cfg.routes = {{
         .method = Method::GET,
         .path = "/",
@@ -615,7 +617,7 @@ TEST(ProcessorTest, EmptyPath) {
         .response_body = "root",
         .content_type = "text/plain",
     }};
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/");
@@ -629,17 +631,17 @@ TEST(ProcessorTest, EmptyPath) {
 }
 
 TEST(ProcessorTest, HTTPSGETRequest) {
-    mock::ServerConfig server_cfg;
+    testutil::ServerConfig server_cfg;
     server_cfg.secure = true;
-    server_cfg.cert_path = "driver/http/mock/test_cert.pem";
-    server_cfg.key_path = "driver/http/mock/test_key.pem";
+    server_cfg.cert_path = "driver/http/testutil/test_cert.pem";
+    server_cfg.key_path = "driver/http/testutil/test_key.pem";
     server_cfg.routes = {{
         .method = Method::GET,
         .path = "/api/secure",
         .status_code = 200,
         .response_body = R"({"secure": true})",
     }};
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/api/secure");
@@ -654,7 +656,7 @@ TEST(ProcessorTest, HTTPSGETRequest) {
 }
 
 TEST(ProcessorTest, ContentTypeValidation) {
-    mock::ServerConfig server_cfg;
+    testutil::ServerConfig server_cfg;
     server_cfg.routes = {{
         .method = Method::GET,
         .path = "/api/json",
@@ -662,11 +664,11 @@ TEST(ProcessorTest, ContentTypeValidation) {
         .response_body = R"({"ok": true})",
         .content_type = "application/json",
     }};
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/api/json");
-    req.headers.push_back("Accept: application/json");
+    req.headers.emplace_back("Accept: application/json");
 
     Processor proc;
     const auto resp = ASSERT_NIL_P(proc.execute(req));
@@ -677,7 +679,7 @@ TEST(ProcessorTest, ContentTypeValidation) {
 }
 
 TEST(ProcessorTest, ContentTypeMismatchStillSucceeds) {
-    mock::ServerConfig server_cfg;
+    testutil::ServerConfig server_cfg;
     server_cfg.routes = {{
         .method = Method::GET,
         .path = "/api/text",
@@ -685,11 +687,11 @@ TEST(ProcessorTest, ContentTypeMismatchStillSucceeds) {
         .response_body = "not json",
         .content_type = "text/plain",
     }};
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/api/text");
-    req.headers.push_back("Accept: application/json");
+    req.headers.emplace_back("Accept: application/json");
 
     Processor proc;
     const auto resp = ASSERT_NIL_P(proc.execute(req));
@@ -700,7 +702,7 @@ TEST(ProcessorTest, ContentTypeMismatchStillSucceeds) {
 }
 
 TEST(ProcessorTest, ContentTypeHeaderSent) {
-    mock::ServerConfig server_cfg;
+    testutil::ServerConfig server_cfg;
     server_cfg.routes = {{
         .method = Method::POST,
         .path = "/api/xml",
@@ -708,11 +710,11 @@ TEST(ProcessorTest, ContentTypeHeaderSent) {
         .response_body = "<ok/>",
         .content_type = "application/xml",
     }};
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/api/xml", Method::POST);
-    req.headers.push_back("Content-Type: application/xml");
+    req.headers.emplace_back("Content-Type: application/xml");
     req.body = "<req/>";
 
     Processor proc;
@@ -729,7 +731,7 @@ TEST(ProcessorTest, ContentTypeHeaderSent) {
 }
 
 TEST(ProcessorTest, AcceptHeaderSent) {
-    mock::ServerConfig server_cfg;
+    testutil::ServerConfig server_cfg;
     server_cfg.routes = {{
         .method = Method::GET,
         .path = "/api/accept",
@@ -737,11 +739,11 @@ TEST(ProcessorTest, AcceptHeaderSent) {
         .response_body = R"({"ok": true})",
         .content_type = "application/json",
     }};
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/api/accept");
-    req.headers.push_back("Accept: application/json");
+    req.headers.emplace_back("Accept: application/json");
 
     Processor proc;
     const auto resp = ASSERT_NIL_P(proc.execute(req));
@@ -755,14 +757,14 @@ TEST(ProcessorTest, AcceptHeaderSent) {
 }
 
 TEST(ProcessorTest, GETIgnoresRequestBody) {
-    mock::ServerConfig server_cfg;
+    testutil::ServerConfig server_cfg;
     server_cfg.routes = {{
         .method = Method::GET,
         .path = "/api/data",
         .status_code = 200,
         .response_body = R"({"value": 42})",
     }};
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/api/data");
@@ -781,14 +783,14 @@ TEST(ProcessorTest, GETIgnoresRequestBody) {
 }
 
 TEST(ProcessorTest, ConcurrentExecuteFromMultipleThreads) {
-    mock::ServerConfig server_cfg;
+    testutil::ServerConfig server_cfg;
     server_cfg.routes = {{
         .method = Method::GET,
         .path = "/api/data",
         .status_code = 200,
         .response_body = R"({"ok": true})",
     }};
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     ASSERT_NIL(server.start());
 
     Processor proc;
@@ -798,6 +800,7 @@ TEST(ProcessorTest, ConcurrentExecuteFromMultipleThreads) {
     std::vector<std::thread> threads;
     std::atomic<int> success_count{0};
 
+    threads.reserve(num_threads);
     for (int t = 0; t < num_threads; t++) {
         threads.emplace_back([&] {
             for (int i = 0; i < requests_per_thread; i++) {
@@ -816,7 +819,7 @@ TEST(ProcessorTest, ConcurrentExecuteFromMultipleThreads) {
 }
 
 TEST(ProcessorTest, DestructorCleansUpGracefully) {
-    mock::ServerConfig server_cfg;
+    testutil::ServerConfig server_cfg;
     server_cfg.routes = {{
         .method = Method::GET,
         .path = "/api/data",
@@ -824,7 +827,7 @@ TEST(ProcessorTest, DestructorCleansUpGracefully) {
         .response_body = "ok",
         .content_type = "text/plain",
     }};
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/api/data");
@@ -840,17 +843,17 @@ TEST(ProcessorTest, DestructorCleansUpGracefully) {
 }
 
 TEST(ProcessorTest, HTTPSPOSTRequestWithBody) {
-    mock::ServerConfig server_cfg;
+    testutil::ServerConfig server_cfg;
     server_cfg.secure = true;
-    server_cfg.cert_path = "driver/http/mock/test_cert.pem";
-    server_cfg.key_path = "driver/http/mock/test_key.pem";
+    server_cfg.cert_path = "driver/http/testutil/test_cert.pem";
+    server_cfg.key_path = "driver/http/testutil/test_key.pem";
     server_cfg.routes = {{
         .method = Method::POST,
         .path = "/api/submit",
         .status_code = 201,
         .response_body = R"({"id": 1})",
     }};
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/api/submit", Method::POST);
@@ -869,7 +872,7 @@ TEST(ProcessorTest, HTTPSPOSTRequestWithBody) {
 }
 
 TEST(ProcessorTest, ContentTypeNotCheckedWhenEmpty) {
-    mock::ServerConfig server_cfg;
+    testutil::ServerConfig server_cfg;
     server_cfg.routes = {{
         .method = Method::GET,
         .path = "/api/any",
@@ -877,7 +880,7 @@ TEST(ProcessorTest, ContentTypeNotCheckedWhenEmpty) {
         .response_body = "whatever",
         .content_type = "text/plain",
     }};
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/api/any");
@@ -890,7 +893,7 @@ TEST(ProcessorTest, ContentTypeNotCheckedWhenEmpty) {
 }
 
 TEST(ProcessorTest, ContentTypeCharsetSuffix) {
-    mock::ServerConfig server_cfg;
+    testutil::ServerConfig server_cfg;
     server_cfg.routes = {{
         .method = Method::GET,
         .path = "/api/charset",
@@ -898,11 +901,11 @@ TEST(ProcessorTest, ContentTypeCharsetSuffix) {
         .response_body = R"({"ok": true})",
         .content_type = "application/json; charset=utf-8",
     }};
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/api/charset");
-    req.headers.push_back("Accept: application/json");
+    req.headers.emplace_back("Accept: application/json");
 
     Processor proc;
     const auto resp = ASSERT_NIL_P(proc.execute(req));
@@ -912,7 +915,7 @@ TEST(ProcessorTest, ContentTypeCharsetSuffix) {
 }
 
 TEST(ProcessorTest, RequestContentTypeOmittedWhenEmpty) {
-    mock::ServerConfig server_cfg;
+    testutil::ServerConfig server_cfg;
     server_cfg.routes = {{
         .method = Method::POST,
         .path = "/api/raw",
@@ -920,11 +923,11 @@ TEST(ProcessorTest, RequestContentTypeOmittedWhenEmpty) {
         .response_body = "ok",
         .content_type = "text/plain",
     }};
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/api/raw", Method::POST);
-    req.headers.push_back("Content-Type: ");
+    req.headers.emplace_back("Content-Type: ");
     req.body = "data";
 
     Processor proc;
@@ -939,14 +942,14 @@ TEST(ProcessorTest, RequestContentTypeOmittedWhenEmpty) {
 }
 
 TEST(ProcessorTest, DELETEIgnoresRequestBody) {
-    mock::ServerConfig server_cfg;
+    testutil::ServerConfig server_cfg;
     server_cfg.routes = {{
         .method = Method::DEL,
         .path = "/api/items",
         .status_code = 200,
         .response_body = R"({"deleted": 3})",
     }};
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/api/items", Method::DEL);
@@ -965,7 +968,7 @@ TEST(ProcessorTest, DELETEIgnoresRequestBody) {
 }
 
 TEST(ProcessorTest, OPTIONSRequest) {
-    mock::ServerConfig server_cfg;
+    testutil::ServerConfig server_cfg;
     server_cfg.routes = {{
         .method = Method::OPTIONS,
         .path = "/api/opts",
@@ -973,7 +976,7 @@ TEST(ProcessorTest, OPTIONSRequest) {
         .response_body = "",
         .content_type = "text/plain",
     }};
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/api/opts", Method::OPTIONS);
@@ -987,7 +990,7 @@ TEST(ProcessorTest, OPTIONSRequest) {
 }
 
 TEST(ProcessorTest, MixedGETAndPOST) {
-    mock::ServerConfig server_cfg;
+    testutil::ServerConfig server_cfg;
     server_cfg.routes = {
         {.method = Method::GET,
          .path = "/api/read",
@@ -1000,7 +1003,7 @@ TEST(ProcessorTest, MixedGETAndPOST) {
          .response_body = "write-ok",
          .content_type = "text/plain"},
     };
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     ASSERT_NIL(server.start());
 
     auto get_req = make_request(server.base_url(), "/api/read");
@@ -1022,7 +1025,7 @@ TEST(ProcessorTest, MixedGETAndPOST) {
 }
 
 TEST(ProcessorTest, POSTWithEmptyBody) {
-    mock::ServerConfig server_cfg;
+    testutil::ServerConfig server_cfg;
     server_cfg.routes = {{
         .method = Method::POST,
         .path = "/api/ping",
@@ -1030,7 +1033,7 @@ TEST(ProcessorTest, POSTWithEmptyBody) {
         .response_body = "pong",
         .content_type = "text/plain",
     }};
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/api/ping", Method::POST);
@@ -1044,18 +1047,18 @@ TEST(ProcessorTest, POSTWithEmptyBody) {
 }
 
 TEST(ProcessorTest, SerialGETRequestsReuseHandles) {
-    mock::ServerConfig server_cfg;
+    testutil::ServerConfig server_cfg;
     server_cfg.routes = {{
         .method = Method::GET,
         .path = "/api/data",
         .status_code = 200,
         .response_body = R"({"value": 1})",
     }};
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/api/data");
-    req.headers.push_back("X-Header: test-value");
+    req.headers.emplace_back("X-Header: test-value");
 
     Processor proc;
     for (int i = 0; i < 3; i++) {
@@ -1074,14 +1077,14 @@ TEST(ProcessorTest, SerialGETRequestsReuseHandles) {
 }
 
 TEST(ProcessorTest, SerialPOSTRequestsWithDifferentBodies) {
-    mock::ServerConfig server_cfg;
+    testutil::ServerConfig server_cfg;
     server_cfg.routes = {{
         .method = Method::POST,
         .path = "/api/submit",
         .status_code = 201,
         .response_body = R"({"ok": true})",
     }};
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/api/submit", Method::POST);
@@ -1109,7 +1112,7 @@ TEST(ProcessorTest, SerialPOSTRequestsWithDifferentBodies) {
 }
 
 TEST(ProcessorTest, SerialRequestsRecoverFromServerError) {
-    mock::ServerConfig server_cfg;
+    testutil::ServerConfig server_cfg;
     server_cfg.routes = {
         {
             .method = Method::GET,
@@ -1124,7 +1127,7 @@ TEST(ProcessorTest, SerialRequestsRecoverFromServerError) {
             .response_body = R"({"error": "internal"})",
         },
     };
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     ASSERT_NIL(server.start());
 
     std::vector<Request> reqs = {
@@ -1151,14 +1154,14 @@ TEST(ProcessorTest, SerialRequestsRecoverFromServerError) {
 }
 
 TEST(ProcessorTest, SerialSingleHandleRecoveryFromServerError) {
-    mock::ServerConfig server_cfg;
+    testutil::ServerConfig server_cfg;
     server_cfg.routes = {{
         .method = Method::POST,
         .path = "/api/action",
         .status_code = 500,
         .response_body = R"({"error": "broken"})",
     }};
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/api/action", Method::POST);
@@ -1183,7 +1186,7 @@ TEST(ProcessorTest, SerialSingleHandleRecoveryFromServerError) {
 }
 
 TEST(ProcessorTest, ParallelFirstTimesOutSecondSucceeds) {
-    mock::ServerConfig server_cfg;
+    testutil::ServerConfig server_cfg;
     server_cfg.routes = {
         {.method = Method::GET,
          .path = "/slow",
@@ -1195,7 +1198,7 @@ TEST(ProcessorTest, ParallelFirstTimesOutSecondSucceeds) {
          .status_code = 200,
          .response_body = "fast"},
     };
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     ASSERT_NIL(server.start());
 
     auto slow = make_request(server.base_url(), "/slow");
@@ -1217,7 +1220,7 @@ TEST(ProcessorTest, ParallelFirstTimesOutSecondSucceeds) {
 }
 
 TEST(ProcessorTest, ParallelPerResponseTimeRanges) {
-    mock::ServerConfig server_cfg;
+    testutil::ServerConfig server_cfg;
     server_cfg.routes = {
         {.method = Method::GET,
          .path = "/fast",
@@ -1231,7 +1234,7 @@ TEST(ProcessorTest, ParallelPerResponseTimeRanges) {
          .content_type = "text/plain",
          .delay = 50 * x::telem::MILLISECOND},
     };
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     ASSERT_NIL(server.start());
 
     std::vector<Request> reqs = {
@@ -1269,8 +1272,8 @@ TEST(ProcessorTest, EmptyBatchExecute) {
 }
 
 TEST(ProcessorTest, LargeResponseBody) {
-    const std::string large_body(256 * 1024, 'X');
-    mock::ServerConfig server_cfg;
+    const std::string large_body(size_t{256} * 1024, 'X');
+    testutil::ServerConfig server_cfg;
     server_cfg.routes = {{
         .method = Method::GET,
         .path = "/api/large",
@@ -1278,7 +1281,7 @@ TEST(ProcessorTest, LargeResponseBody) {
         .response_body = large_body,
         .content_type = "application/octet-stream",
     }};
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/api/large");
@@ -1298,7 +1301,7 @@ TEST(ProcessorTest, BinaryNullBytesInResponse) {
     binary_body.push_back('\0');
     binary_body += "after";
 
-    mock::ServerConfig server_cfg;
+    testutil::ServerConfig server_cfg;
     server_cfg.routes = {{
         .method = Method::GET,
         .path = "/api/binary",
@@ -1306,7 +1309,7 @@ TEST(ProcessorTest, BinaryNullBytesInResponse) {
         .response_body = binary_body,
         .content_type = "application/octet-stream",
     }};
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/api/binary");
@@ -1321,17 +1324,17 @@ TEST(ProcessorTest, BinaryNullBytesInResponse) {
 }
 
 TEST(ProcessorTest, VerifySSLTrueRejectsSelfSigned) {
-    mock::ServerConfig server_cfg;
+    testutil::ServerConfig server_cfg;
     server_cfg.secure = true;
-    server_cfg.cert_path = "driver/http/mock/test_cert.pem";
-    server_cfg.key_path = "driver/http/mock/test_key.pem";
+    server_cfg.cert_path = "driver/http/testutil/test_cert.pem";
+    server_cfg.key_path = "driver/http/testutil/test_key.pem";
     server_cfg.routes = {{
         .method = Method::GET,
         .path = "/api/secure",
         .status_code = 200,
         .response_body = "ok",
     }};
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/api/secure");
@@ -1344,7 +1347,7 @@ TEST(ProcessorTest, VerifySSLTrueRejectsSelfSigned) {
 }
 
 TEST(ProcessorTest, RapidInterleavedBatchAndSingle) {
-    mock::ServerConfig server_cfg;
+    testutil::ServerConfig server_cfg;
     server_cfg.routes = {
         {.method = Method::GET,
          .path = "/api/a",
@@ -1355,7 +1358,7 @@ TEST(ProcessorTest, RapidInterleavedBatchAndSingle) {
          .status_code = 201,
          .response_body = "B"},
     };
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     ASSERT_NIL(server.start());
 
     Processor proc;
@@ -1365,6 +1368,7 @@ TEST(ProcessorTest, RapidInterleavedBatchAndSingle) {
     std::vector<std::thread> threads;
     std::atomic<int> success_count{0};
 
+    threads.reserve(num_threads);
     for (int t = 0; t < num_threads; t++) {
         threads.emplace_back([&, t] {
             for (int i = 0; i < iters_per_thread; i++) {
@@ -1406,7 +1410,7 @@ TEST(ProcessorTest, RapidInterleavedBatchAndSingle) {
 }
 
 TEST(ProcessorTest, RedirectSingleHop) {
-    mock::ServerConfig server_cfg;
+    testutil::ServerConfig server_cfg;
     server_cfg.routes = {
         {
             .method = Method::GET,
@@ -1422,7 +1426,7 @@ TEST(ProcessorTest, RedirectSingleHop) {
             .content_type = "text/plain",
         },
     };
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/old");
@@ -1441,7 +1445,7 @@ TEST(ProcessorTest, RedirectSingleHop) {
 }
 
 TEST(ProcessorTest, RedirectMultipleHops) {
-    mock::ServerConfig server_cfg;
+    testutil::ServerConfig server_cfg;
     server_cfg.routes = {
         {
             .method = Method::GET,
@@ -1463,7 +1467,7 @@ TEST(ProcessorTest, RedirectMultipleHops) {
             .content_type = "text/plain",
         },
     };
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/hop1");
@@ -1483,24 +1487,24 @@ TEST(ProcessorTest, RedirectMultipleHops) {
 }
 
 TEST(ProcessorTest, MultipleServersBothSucceed) {
-    mock::ServerConfig cfg_a;
+    testutil::ServerConfig cfg_a;
     cfg_a.routes = {{
         .method = Method::GET,
         .path = "/api/a",
         .status_code = 200,
         .response_body = R"({"source": "A"})",
     }};
-    mock::Server server_a(cfg_a);
+    testutil::Server server_a(cfg_a);
     ASSERT_NIL(server_a.start());
 
-    mock::ServerConfig cfg_b;
+    testutil::ServerConfig cfg_b;
     cfg_b.routes = {{
         .method = Method::POST,
         .path = "/api/b",
         .status_code = 201,
         .response_body = R"({"source": "B"})",
     }};
-    mock::Server server_b(cfg_b);
+    testutil::Server server_b(cfg_b);
     ASSERT_NIL(server_b.start());
 
     std::vector<Request> reqs = {
@@ -1526,17 +1530,17 @@ TEST(ProcessorTest, MultipleServersBothSucceed) {
 }
 
 TEST(ProcessorTest, MultipleServersOneTimesOut) {
-    mock::ServerConfig cfg_fast;
+    testutil::ServerConfig cfg_fast;
     cfg_fast.routes = {{
         .method = Method::GET,
         .path = "/api/fast",
         .status_code = 200,
         .response_body = "fast",
     }};
-    mock::Server server_fast(cfg_fast);
+    testutil::Server server_fast(cfg_fast);
     ASSERT_NIL(server_fast.start());
 
-    mock::ServerConfig cfg_slow;
+    testutil::ServerConfig cfg_slow;
     cfg_slow.routes = {{
         .method = Method::GET,
         .path = "/api/slow",
@@ -1544,7 +1548,7 @@ TEST(ProcessorTest, MultipleServersOneTimesOut) {
         .response_body = "slow",
         .delay = 2 * x::telem::SECOND,
     }};
-    mock::Server server_slow(cfg_slow);
+    testutil::Server server_slow(cfg_slow);
     ASSERT_NIL(server_slow.start());
 
     auto fast = make_request(server_fast.base_url(), "/api/fast");
@@ -1568,7 +1572,7 @@ TEST(ProcessorTest, MultipleServersOneTimesOut) {
 }
 
 TEST(ProcessorTest, MultiThreadedParallelBatches) {
-    mock::ServerConfig server_cfg;
+    testutil::ServerConfig server_cfg;
     server_cfg.routes = {
         {.method = Method::GET,
          .path = "/api/a",
@@ -1579,7 +1583,7 @@ TEST(ProcessorTest, MultiThreadedParallelBatches) {
          .status_code = 201,
          .response_body = "B"},
     };
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     ASSERT_NIL(server.start());
 
     Processor proc;
@@ -1589,6 +1593,7 @@ TEST(ProcessorTest, MultiThreadedParallelBatches) {
     std::vector<std::thread> threads;
     std::atomic<int> success_count{0};
 
+    threads.reserve(num_threads);
     for (int t = 0; t < num_threads; t++) {
         threads.emplace_back([&, t] {
             for (int i = 0; i < iters_per_thread; i++) {
@@ -1625,13 +1630,13 @@ TEST(ProcessorTest, MultiThreadedParallelBatches) {
 
 TEST(ProcessorTest, GateRunsRequestsAboveCapInOrder) {
     const auto delay = 30 * x::telem::MILLISECOND;
-    mock::ServerConfig server_cfg;
+    testutil::ServerConfig server_cfg;
     server_cfg.routes = {
         delayed_route("/a", delay),
         delayed_route("/b", delay),
         delayed_route("/c", delay),
     };
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     ASSERT_NIL(server.start());
 
     std::vector<Request> reqs = {
@@ -1659,13 +1664,13 @@ TEST(ProcessorTest, GateRunsRequestsAboveCapInOrder) {
 
 TEST(ProcessorTest, GateRunsUpToCapInParallel) {
     const auto delay = 50 * x::telem::MILLISECOND;
-    mock::ServerConfig server_cfg;
+    testutil::ServerConfig server_cfg;
     server_cfg.routes = {
         delayed_route("/a", delay),
         delayed_route("/b", delay),
         delayed_route("/c", delay),
     };
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     ASSERT_NIL(server.start());
 
     std::vector<Request> reqs = {
@@ -1690,14 +1695,14 @@ TEST(ProcessorTest, GateRunsUpToCapInParallel) {
 
 TEST(ProcessorTest, GateIsPerBaseURL) {
     const auto delay = 50 * x::telem::MILLISECOND;
-    mock::ServerConfig cfg_a;
+    testutil::ServerConfig cfg_a;
     cfg_a.routes = {delayed_route("/a", delay)};
-    mock::Server server_a(cfg_a);
+    testutil::Server server_a(cfg_a);
     ASSERT_NIL(server_a.start());
 
-    mock::ServerConfig cfg_b;
+    testutil::ServerConfig cfg_b;
     cfg_b.routes = {delayed_route("/b", delay)};
-    mock::Server server_b(cfg_b);
+    testutil::Server server_b(cfg_b);
     ASSERT_NIL(server_b.start());
 
     std::vector<Request> reqs = {
@@ -1717,13 +1722,13 @@ TEST(ProcessorTest, GateIsPerBaseURL) {
 }
 
 TEST(ProcessorTest, UnreachableSkipsWaitingRequests) {
-    mock::ServerConfig server_cfg;
+    testutil::ServerConfig server_cfg;
     server_cfg.routes = {
         delayed_route("/slow", 2 * x::telem::SECOND),
         delayed_route("/a", x::telem::TimeSpan::ZERO()),
         delayed_route("/b", x::telem::TimeSpan::ZERO()),
     };
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     ASSERT_NIL(server.start());
 
     std::vector<Request> reqs = {
@@ -1750,12 +1755,12 @@ TEST(ProcessorTest, UnreachableSkipsWaitingRequests) {
 }
 
 TEST(ProcessorTest, UnreachableKeepsWaitingRequestsWhenDeviceResponds) {
-    mock::ServerConfig server_cfg;
+    testutil::ServerConfig server_cfg;
     server_cfg.routes = {
         delayed_route("/slow", 2 * x::telem::SECOND),
         delayed_route("/fast", 50 * x::telem::MILLISECOND),
     };
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     ASSERT_NIL(server.start());
 
     auto slow = make_gated_request(server.base_url(), "/slow", 2);
@@ -1778,12 +1783,13 @@ TEST(ProcessorTest, UnreachableKeepsWaitingRequestsWhenDeviceResponds) {
 }
 
 TEST(ProcessorTest, ShutdownFailsActiveAndWaitingRequests) {
-    mock::ServerConfig server_cfg;
+    testutil::ServerConfig server_cfg;
     server_cfg.routes = {delayed_route("/slow", 2 * x::telem::SECOND)};
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     ASSERT_NIL(server.start());
 
     std::vector<Request> reqs;
+    reqs.reserve(3);
     for (int i = 0; i < 3; i++)
         reqs.push_back(make_gated_request(server.base_url(), "/slow", 1));
 
@@ -1812,9 +1818,9 @@ TEST(ProcessorTest, ShutdownFailsActiveAndWaitingRequests) {
 }
 
 TEST(ProcessorTest, PollTimeoutDoesNotDelayRequestTimeout) {
-    mock::ServerConfig server_cfg;
+    testutil::ServerConfig server_cfg;
     server_cfg.routes = {delayed_route("/slow", 500 * x::telem::MILLISECOND)};
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/slow");
@@ -1829,9 +1835,9 @@ TEST(ProcessorTest, PollTimeoutDoesNotDelayRequestTimeout) {
 }
 
 TEST(ProcessorTest, PollTimeoutDoesNotDelayCompletion) {
-    mock::ServerConfig server_cfg;
+    testutil::ServerConfig server_cfg;
     server_cfg.routes = {delayed_route("/fast", 50 * x::telem::MILLISECOND)};
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/fast");
@@ -1845,12 +1851,12 @@ TEST(ProcessorTest, PollTimeoutDoesNotDelayCompletion) {
 }
 
 TEST(ProcessorTest, PollTimeoutDoesNotDelaySubmissionWhileActive) {
-    mock::ServerConfig server_cfg;
+    testutil::ServerConfig server_cfg;
     server_cfg.routes = {
         delayed_route("/slow", 500 * x::telem::MILLISECOND),
         delayed_route("/fast", x::telem::TimeSpan()),
     };
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     ASSERT_NIL(server.start());
 
     auto slow = make_request(server.base_url(), "/slow");
@@ -1876,9 +1882,9 @@ TEST(ProcessorTest, DefaultPollTimeoutIs100ms) {
 
 TEST(ProcessorTest, PollTimeoutDoesNotDelayGateDispatch) {
     const auto delay = 50 * x::telem::MILLISECOND;
-    mock::ServerConfig server_cfg;
+    testutil::ServerConfig server_cfg;
     server_cfg.routes = {delayed_route("/a", delay), delayed_route("/b", delay)};
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     ASSERT_NIL(server.start());
 
     std::vector<Request> reqs = {
@@ -1899,9 +1905,9 @@ TEST(ProcessorTest, PollTimeoutDoesNotDelayGateDispatch) {
 }
 
 TEST(ProcessorTest, PollTimeoutDoesNotDelaySkip) {
-    mock::ServerConfig server_cfg;
+    testutil::ServerConfig server_cfg;
     server_cfg.routes = {delayed_route("/slow", 500 * x::telem::MILLISECOND)};
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     ASSERT_NIL(server.start());
 
     std::vector<Request> reqs = {
@@ -1922,13 +1928,13 @@ TEST(ProcessorTest, PollTimeoutDoesNotDelaySkip) {
 }
 
 TEST(ProcessorTest, PollTimeoutDoesNotDelayFasterServer) {
-    mock::ServerConfig slow_cfg;
+    testutil::ServerConfig slow_cfg;
     slow_cfg.routes = {delayed_route("/slow", 500 * x::telem::MILLISECOND)};
-    mock::Server slow_server(slow_cfg);
+    testutil::Server slow_server(slow_cfg);
     ASSERT_NIL(slow_server.start());
-    mock::ServerConfig fast_cfg;
+    testutil::ServerConfig fast_cfg;
     fast_cfg.routes = {delayed_route("/fast", x::telem::TimeSpan())};
-    mock::Server fast_server(fast_cfg);
+    testutil::Server fast_server(fast_cfg);
     ASSERT_NIL(fast_server.start());
 
     std::vector<Request> reqs = {
@@ -1950,9 +1956,9 @@ TEST(ProcessorTest, PollTimeoutDoesNotDelayFasterServer) {
 }
 
 TEST(ProcessorTest, SubmissionWakesIdleLoop) {
-    mock::ServerConfig server_cfg;
+    testutil::ServerConfig server_cfg;
     server_cfg.routes = {delayed_route("/fast", x::telem::TimeSpan())};
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/fast");
@@ -1968,9 +1974,9 @@ TEST(ProcessorTest, SubmissionWakesIdleLoop) {
 }
 
 TEST(ProcessorTest, ShutdownWakesActivePoll) {
-    mock::ServerConfig server_cfg;
+    testutil::ServerConfig server_cfg;
     server_cfg.routes = {delayed_route("/slow", 500 * x::telem::MILLISECOND)};
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     ASSERT_NIL(server.start());
 
     auto req = make_request(server.base_url(), "/slow");
@@ -2001,13 +2007,13 @@ TEST(ProcessorTest, ShutdownWakesActivePoll) {
 
 TEST(ProcessorTest, GateKeepsCapOfFirstRequest) {
     const auto delay = 50 * x::telem::MILLISECOND;
-    mock::ServerConfig server_cfg;
+    testutil::ServerConfig server_cfg;
     server_cfg.routes = {
         delayed_route("/a", delay),
         delayed_route("/b", delay),
         delayed_route("/c", delay),
     };
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     ASSERT_NIL(server.start());
 
     std::vector<Request> reqs = {
@@ -2032,14 +2038,14 @@ TEST(ProcessorTest, GateKeepsCapOfFirstRequest) {
 
 TEST(ProcessorTest, GateRefillsEverySlotFreedInOneBatch) {
     const auto delay = 50 * x::telem::MILLISECOND;
-    mock::ServerConfig server_cfg;
+    testutil::ServerConfig server_cfg;
     server_cfg.routes = {
         delayed_route("/a", delay),
         delayed_route("/b", delay),
         delayed_route("/c", delay),
         delayed_route("/d", delay),
     };
-    mock::Server server(server_cfg);
+    testutil::Server server(server_cfg);
     ASSERT_NIL(server.start());
 
     std::vector<Request> reqs = {

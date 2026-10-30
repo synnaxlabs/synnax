@@ -34,6 +34,7 @@
 #include "driver/common/sample_clock.h"
 #include "driver/errors/errors.h"
 #include "driver/opcua/connection/connection.h"
+#include "driver/opcua/device/device.h"
 #include "driver/opcua/errors/errors.h"
 #include "driver/opcua/telem/telem.h"
 #include "driver/opcua/types/types.h"
@@ -76,9 +77,6 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     const bool array_mode;
     /// @brief the number of samples in each array when array_mode is true.
     const size_t array_size;
-    /// @brief the config for connecting to the OPC UA server.
-    /// Dynamically populated from device properties.
-    connection::Config connection;
     /// @brief keys of the index channels for the input channels.
     /// Dynamically populated by querying the core.
     std::set<synnax::channel::Key> index_keys;
@@ -93,7 +91,6 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         device_key(other.device_key),
         array_mode(other.array_mode),
         array_size(other.array_size),
-        connection(std::move(other.connection)),
         index_keys(std::move(other.index_keys)),
         channels(std::move(other.channels)),
         samples_per_chan(other.samples_per_chan) {}
@@ -127,15 +124,9 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             parser.field_err("channels", "task must have at least one enabled channel");
             return;
         }
-        auto [dev, err] = client->devices.retrieve(this->device_key);
-        if (err) {
-            parser.field_err("device", "failed to retrieve device: " + err.message());
-            return;
-        }
-        const auto properties = x::json::Parser(dev.properties);
-        this->connection = connection::Config(properties.child("connection"));
-        if (properties.error()) {
-            parser.field_err("device", properties.error().message());
+        if (const auto err = device::retrieve_connection(*client, this->device_key)
+                                 .second) {
+            parser.field_err("device", common::config_err_description(err));
             return;
         }
         std::vector<synnax::channel::Key> keys;
@@ -144,10 +135,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             keys.push_back(ch->synnax_key);
         auto [sy_channels, ch_err] = client->channels.retrieve(keys);
         if (ch_err) {
-            parser.field_err(
-                "channels",
-                "failed to retrieve channels: " + ch_err.message()
-            );
+            parser.field_err("channels", "failed to retrieve channels: " + ch_err.data);
             return;
         }
         for (std::size_t i = 0; i < sy_channels.size(); i++) {
@@ -155,14 +143,13 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             if (ch.index != 0) this->index_keys.insert(ch.index);
             this->channels[i]->ch = ch;
         }
-        for (std::size_t i = 0; i < sy_channels.size(); i++) {
-            auto ch = sy_channels[i];
-            if (ch.is_index && this->index_keys.find(ch.key) != this->index_keys.end())
+        for (const auto &ch: sy_channels) {
+            if (ch.is_index && this->index_keys.contains(ch.key))
                 this->index_keys.erase(ch.key);
         }
     }
 
-    std::vector<synnax::channel::Channel> sy_channels() const {
+    [[nodiscard]] std::vector<synnax::channel::Channel> sy_channels() const {
         std::vector<synnax::channel::Channel> chs;
         chs.reserve(this->channels.size());
         for (const auto &ch: this->channels)
@@ -204,22 +191,63 @@ static types::ReadRequestBuilder create_read_request(const ReadTaskConfig &cfg) 
 class BaseReadTaskSource : public common::Source {
 protected:
     const ReadTaskConfig cfg;
+    std::shared_ptr<synnax::Synnax> client;
     std::shared_ptr<connection::Pool> pool;
+    /// @brief the device's connection settings as of the last start.
+    connection::Config conn_cfg;
     connection::Pool::Connection connection;
     types::ReadRequestBuilder request_builder;
 
-    BaseReadTaskSource(std::shared_ptr<connection::Pool> pool, ReadTaskConfig cfg):
+    /// @brief reads the value of every channel. When the read fails after the client
+    /// certificate changed, connects again with the new certificate and reads again.
+    std::pair<types::ReadResponse, x::errors::Error> read_values() {
+        types::ReadResponse res(UA_Client_Service_read(
+            this->connection.get(),
+            this->request_builder.build()
+        ));
+        auto err = errors::parse(res.get().responseHeader.serviceResult);
+        if (!err) return {std::move(res), x::errors::NIL};
+        auto [refreshed, refresh_err] = this->pool->refresh(
+            this->connection,
+            this->conn_cfg,
+            "[opc.read] "
+        );
+        if (refresh_err) return {std::move(res), refresh_err};
+        if (!refreshed) return {std::move(res), err};
+        types::ReadResponse retry(UA_Client_Service_read(
+            this->connection.get(),
+            this->request_builder.build()
+        ));
+        err = errors::parse(retry.get().responseHeader.serviceResult);
+        return {std::move(retry), err};
+    }
+
+    BaseReadTaskSource(
+        std::shared_ptr<synnax::Synnax> client,
+        std::shared_ptr<connection::Pool> pool,
+        ReadTaskConfig cfg
+    ):
         cfg(std::move(cfg)),
+        client(std::move(client)),
         pool(std::move(pool)),
         connection(nullptr, nullptr, ""),
         request_builder(create_read_request(this->cfg)) {}
 
-    synnax::framer::WriterConfig writer_config() const override {
+public:
+    [[nodiscard]] synnax::framer::WriterConfig writer_config() const override {
         return this->cfg.writer_config();
     }
 
+    /// @brief retrieves the device again, so a changed endpoint or trusted server
+    /// certificate takes effect on restart.
     x::errors::Error start() override {
-        auto [c, err] = pool->acquire(cfg.connection, "[opc.read] ");
+        auto [conn_cfg, conn_err] = device::retrieve_connection(
+            *this->client,
+            this->cfg.device_key
+        );
+        if (conn_err) return conn_err;
+        this->conn_cfg = std::move(conn_cfg);
+        auto [c, err] = this->pool->acquire(this->conn_cfg, "[opc.read] ");
         if (err) return err;
         connection = std::move(c);
         return x::errors::NIL;
@@ -236,8 +264,12 @@ class ArrayReadTaskSource final : public BaseReadTaskSource {
     common::SoftwareTimedSampleClock sample_clock;
 
 public:
-    ArrayReadTaskSource(std::shared_ptr<connection::Pool> pool, ReadTaskConfig cfg):
-        BaseReadTaskSource(std::move(pool), std::move(cfg)),
+    ArrayReadTaskSource(
+        std::shared_ptr<synnax::Synnax> client,
+        std::shared_ptr<connection::Pool> pool,
+        ReadTaskConfig cfg
+    ):
+        BaseReadTaskSource(std::move(client), std::move(pool), std::move(cfg)),
         sample_clock(this->cfg.sample_rate / this->cfg.array_size) {}
 
     /// @brief re-arms the block timer. Without it, the first block after a restart
@@ -249,7 +281,7 @@ public:
         return BaseReadTaskSource::start();
     }
 
-    std::vector<synnax::channel::Channel> channels() const override {
+    [[nodiscard]] std::vector<synnax::channel::Channel> channels() const override {
         return this->cfg.sy_channels();
     }
 
@@ -257,13 +289,8 @@ public:
     read(x::breaker::Breaker &breaker, ::x::telem::Frame &fr) override {
         common::ReadResult res;
         const auto start = this->sample_clock.wait(breaker);
-        types::ReadResponse ua_res(UA_Client_Service_read(
-            this->connection.get(),
-            this->request_builder.build()
-        ));
-        if (res.error = errors::parse(ua_res.get().responseHeader.serviceResult);
-            res.error)
-            return res;
+        auto [ua_res, read_err] = this->read_values();
+        if (res.error = read_err; res.error) return res;
         common::initialize_frame(
             fr,
             this->cfg.channels,
@@ -290,17 +317,19 @@ public:
                 this->cfg.array_size,
                 ch->ch.name
             );
-            if (err || written == 0) {
-                std::string
-                    msg = err ? err.message()
-                              : "Invalid OPC UA array data detected for channel " +
-                                    ch->ch.name;
-                error_messages.push_back(msg);
-            }
+            if (err || written == 0)
+                error_messages.push_back(
+                    err ? err.data
+                        : "Invalid OPC UA array data detected for channel " +
+                              ch->ch.name
+                );
         }
         if (!error_messages.empty()) {
             fr.clear();
-            res.warning = x::strings::join(error_messages, "; ");
+            res.warning = {
+                .message = "Skipped invalid data",
+                .description = x::strings::join(error_messages, "; "),
+            };
             return res;
         }
         // Stamping ahead of the clock would make the next run of this task open its
@@ -322,8 +351,12 @@ class UnaryReadTaskSource final : public BaseReadTaskSource {
     x::loop::Timer timer;
 
 public:
-    UnaryReadTaskSource(std::shared_ptr<connection::Pool> pool, ReadTaskConfig cfg):
-        BaseReadTaskSource(std::move(pool), std::move(cfg)),
+    UnaryReadTaskSource(
+        std::shared_ptr<synnax::Synnax> client,
+        std::shared_ptr<connection::Pool> pool,
+        ReadTaskConfig cfg
+    ):
+        BaseReadTaskSource(std::move(client), std::move(pool), std::move(cfg)),
         timer(this->cfg.sample_rate) {}
 
     common::ReadResult
@@ -339,13 +372,8 @@ public:
             s.clear();
         for (std::size_t i = 0; i < this->cfg.samples_per_chan; i++) {
             const auto start = ::x::telem::TimeStamp::now();
-            types::ReadResponse ua_res(UA_Client_Service_read(
-                this->connection.get(),
-                this->request_builder.build()
-            ));
-            if (res.error = errors::parse(ua_res.get().responseHeader.serviceResult);
-                res.error)
-                return res;
+            auto [ua_res, read_err] = this->read_values();
+            if (res.error = read_err; res.error) return res;
             bool skip_sample = false;
             for (std::size_t j = 0; j < ua_res.get().resultsSize; ++j) {
                 UA_DataValue &result = ua_res.get().results[j];
@@ -364,9 +392,11 @@ public:
                 );
                 if (write_err) {
                     skip_sample = true;
-                    res.warning = "Invalid OPC UA data detected for channel " +
-                                  ch->ch.name + ": " + write_err.message() +
-                                  ", skipping frame";
+                    res.warning = {
+                        .message = "Skipped invalid data",
+                        .description = "Invalid OPC UA data detected for channel " +
+                                       ch->ch.name + ": " + write_err.data,
+                    };
                     break;
                 }
             }
@@ -381,11 +411,11 @@ public:
             this->timer.wait(breaker);
         }
         // Do not write empty frames
-        if (!fr.series->empty() && fr.series->at(0).size() == 0) { fr.clear(); }
+        if (!fr.series->empty() && fr.series->at(0).empty()) { fr.clear(); }
         return res;
     }
 
-    std::vector<synnax::channel::Channel> channels() const override {
+    [[nodiscard]] std::vector<synnax::channel::Channel> channels() const override {
         return this->cfg.sy_channels();
     }
 };

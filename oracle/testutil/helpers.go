@@ -22,8 +22,27 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/analyzer"
 	"github.com/synnaxlabs/oracle/plugin"
+	"github.com/synnaxlabs/oracle/resolution"
+	"github.com/synnaxlabs/x/diagnostics"
 	xtestutil "github.com/synnaxlabs/x/testutil"
 )
+
+// Analyze analyzes source as the schema of namespace, loading its imports through
+// loader. It returns a nil table when analysis fails.
+func Analyze(
+	ctx context.Context,
+	source, namespace string,
+	loader analyzer.FileLoader,
+) (*resolution.Table, *diagnostics.Files) {
+	table := resolution.NewTable()
+	diag := analyzer.AnalyzeSeeded(
+		ctx, source, namespace+".oracle", namespace, loader, table,
+	)
+	if !diag.Ok() {
+		return nil, diag
+	}
+	return table, diag
+}
 
 // generateRequest creates a plugin request from a source string by analyzing the source
 // and returning a request with the resolution table.
@@ -33,12 +52,9 @@ func generateRequest(
 	namespace string,
 	loader *MockFileLoader,
 ) (*plugin.Request, error) {
-	table, diag := analyzer.AnalyzeSource(ctx, source, namespace, loader)
+	table, diag := Analyze(ctx, source, namespace, loader)
 	if diag != nil && !diag.Ok() {
-		errors := diag.Errors()
-		if len(errors) > 0 {
-			return nil, diag
-		}
+		return nil, diag
 	}
 	return &plugin.Request{
 		Resolutions: table,
@@ -74,8 +90,8 @@ func MustGenerateMulti(
 		files = append(files, path)
 	}
 	table, diag := analyzer.Analyze(ctx, files, loader)
-	if diag != nil && !diag.Ok() {
-		gomega.Expect(diag.Errors()).To(gomega.BeEmpty(), "failed to analyze sources")
+	if diag != nil {
+		gomega.Expect(diag.Ok()).To(gomega.BeTrue(), diag.String)
 	}
 	req := &plugin.Request{Resolutions: table, RepoRoot: loader.RepoRoot()}
 	resp, err := p.Generate(req)
@@ -120,8 +136,8 @@ func MustContentOf(resp *plugin.Response, pathSuffix string) string {
 }
 
 // DenyDirRead revokes read permission on dir so directory listings fail, and registers
-// a DeferCleanup that restores access. It skips the calling spec when running as root
-// on Unix, where permission checks are bypassed.
+// a DeferCleanup that restores access. It skips the calling spec when permission checks
+// are bypassed: as root on Unix, or with the backup privilege enabled on Windows.
 func DenyDirRead(dir string) {
 	ginkgo.GinkgoHelper()
 	if runtime.GOOS == "windows" {
@@ -135,6 +151,11 @@ func DenyDirRead(dir string) {
 				exec.Command("icacls", dir, "/remove:d", "*S-1-1-0").Run(),
 			).To(gomega.Succeed())
 		})
+		// Git Bash enables the backup privilege for administrators, and Go opens
+		// directories with backup semantics, which skip the deny entry.
+		if _, err := os.ReadDir(dir); err == nil {
+			ginkgo.Skip("the backup privilege bypasses directory permissions")
+		}
 		return
 	}
 	if os.Geteuid() == 0 {

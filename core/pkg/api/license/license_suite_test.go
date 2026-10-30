@@ -15,28 +15,24 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	apicfg "github.com/synnaxlabs/synnax/pkg/api/config"
+	"github.com/synnaxlabs/gorp"
 	apilicense "github.com/synnaxlabs/synnax/pkg/api/license"
-	"github.com/synnaxlabs/synnax/pkg/distribution"
-	svc "github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/license"
-	svcmock "github.com/synnaxlabs/synnax/pkg/service/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
+	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
-	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 func TestAPILicense(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "API License Suite")
+	RunSpecs(t, "API License Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
@@ -47,7 +43,7 @@ var (
 	licenseSvc *license.Service
 	apiSvc     *apilicense.Service
 	userSvc    *user.Service
-	signer     svcmock.Signer
+	signer     svctestutil.Signer
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -55,23 +51,22 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	kvDB := memkv.New()
 	db = DeferClose(gorp.Wrap(kvDB))
 	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-	searchIdx := MustOpen(search.OpenIndex())
 	g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB: db, Ontology: otg, Search: searchIdx,
+		DB: db, Ontology: otg,
 	}))
 	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
-		DB: db, Ontology: otg, Group: g, Search: searchIdx,
+		DB: db, Ontology: otg, Group: g,
 	}))
 	rbacSvc = MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
-		DB: db, Ontology: otg, Group: g, Search: searchIdx, User: userSvc,
+		DB: db, Ontology: otg, Group: g, User: userSvc,
 	}))
-	signer = svcmock.NewSigner()
+	signer = svctestutil.NewSigner()
 	licenseSvc = MustOpen(license.OpenService(ctx, license.ServiceConfig{
 		DB: kvDB, Anchors: signer.Anchors,
 	}))
-	apiSvc = MustSucceed(apilicense.NewService(apicfg.LayerConfig{
-		Distribution: &distribution.Layer{DB: db},
-		Service:      &svc.Layer{RBAC: rbacSvc, License: licenseSvc},
+	apiSvc = MustSucceed(apilicense.NewService(apilicense.ServiceConfig{
+		RBAC:    rbacSvc,
+		License: licenseSvc,
 	}))
 })
 
@@ -80,7 +75,7 @@ func freshUser(ctx SpecContext) user.User {
 	GinkgoHelper()
 	return MustSucceed(
 		userSvc.NewWriter(nil).
-			Create(ctx, user.User{Username: "anon-" + uuid.New().String()}),
+			Create(ctx, user.User{Name: "anon-" + uuid.New().String()}),
 	)
 }
 

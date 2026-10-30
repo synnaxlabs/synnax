@@ -14,16 +14,15 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	legacyv1 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/legacy/v1"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v0"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/schematic/symbol/versions/v2"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 var _ = Describe("Migration", func() {
@@ -46,7 +45,7 @@ var _ = Describe("Migration", func() {
 		t := MustOpen(gorp.OpenTable(
 			ctx, gorp.TableConfig[v2.Key, v2.Symbol]{
 				DB:         db,
-				Migrations: []migrate.Migration{v2.Migration},
+				Migrations: []gorp.Migration{v2.Migration},
 			},
 		))
 		var got v2.Symbol
@@ -96,7 +95,7 @@ var _ = Describe("Migration", func() {
 			Expect(region.Key).To(Equal("body"))
 			Expect(
 				region.StrokeColor,
-			).To(HaveValue(Equal(color.MustFromHex("#ffffff"))))
+			).To(HaveValue(Equal(MustSucceed(color.FromHex("#ffffff")))))
 			Expect(region.Selectors).To(ConsistOf(".body"))
 		},
 	)
@@ -128,7 +127,7 @@ var _ = Describe("SpecFromConsole", func() {
 					Key:         "r1",
 					Name:        "Body",
 					Selectors:   []string{"#body"},
-					StrokeColor: new(color.MustFromHex("#ff0000")),
+					StrokeColor: new(MustSucceed(color.FromHex("#ff0000"))),
 				}},
 			}},
 			Handles: []legacyv1.Handle{{
@@ -150,7 +149,7 @@ var _ = Describe("SpecFromConsole", func() {
 				Key:         "r1",
 				Name:        "Body",
 				Selectors:   []string{"#body"},
-				StrokeColor: new(color.MustFromHex("#ff0000")),
+				StrokeColor: new(MustSucceed(color.FromHex("#ff0000"))),
 			}},
 		}}))
 		Expect(out.Handles).To(Equal([]v2.Handle{{

@@ -16,14 +16,14 @@
 
 namespace driver::pipeline {
 Control::Control(
-    std::shared_ptr<synnax::Synnax> client,
+    const std::shared_ptr<synnax::Synnax> &client,
     const synnax::framer::StreamerConfig &streamer_config,
     const std::shared_ptr<Sink> &sink,
     const x::breaker::Config &breaker_config,
     std::string thread_name
 ):
     Control(
-        std::make_shared<SynnaxStreamerFactory>(std::move(client)),
+        std::make_shared<SynnaxStreamerFactory>(client),
         streamer_config,
         sink,
         breaker_config,
@@ -53,10 +53,14 @@ void Control::run() {
     this->streamer = std::move(s);
     if (open_err) {
         if (synnax::errors::is_temporarily_unavailable(open_err) &&
-            breaker.wait(open_err.message()))
-            return this->run();
-        return this->sink->stopped_with_err(open_err);
+            breaker.wait(open_err.message())) {
+            this->run();
+            return;
+        }
+        this->sink->stopped_with_err(open_err);
+        return;
     }
+    this->sink->opened();
 
     x::errors::Error sink_err = x::errors::NIL;
     while (breaker.running()) {
@@ -71,8 +75,10 @@ void Control::run() {
         this->breaker.reset();
     }
     const auto close_err = this->streamer->close();
-    if (synnax::errors::is_temporarily_unavailable(close_err) && breaker.wait())
-        return this->run();
+    if (synnax::errors::is_temporarily_unavailable(close_err) && breaker.wait()) {
+        this->run();
+        return;
+    }
     if (sink_err)
         this->sink->stopped_with_err(sink_err);
     else if (close_err)
@@ -97,7 +103,7 @@ void SynnaxStreamer::close_send() {
 SynnaxStreamerFactory::SynnaxStreamerFactory(
     const std::shared_ptr<synnax::Synnax> &client
 ):
-    client(std::move(client)) {}
+    client(client) {}
 
 std::pair<std::unique_ptr<Streamer>, x::errors::Error>
 SynnaxStreamerFactory::open_streamer(synnax::framer::StreamerConfig config) {

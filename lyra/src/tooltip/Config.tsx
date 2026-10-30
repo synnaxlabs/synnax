@@ -13,20 +13,17 @@ import {
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
-import {
-  type PropsWithChildren,
-  type ReactElement,
-  useCallback,
-  useMemo,
-  useRef,
-} from "react";
+import { type PropsWithChildren, type ReactElement, useRef } from "react";
 
 import { context } from "@/context";
+import { useSyncedRef } from "@/hooks";
 
 export interface ContextValue {
   delay: CrudeTimeSpan;
   /** Returns true if a tooltip closed recently enough to skip the open delay. */
   isWarm: () => boolean;
+  /** Returns true while a tooltip is open. */
+  isOpen: () => boolean;
   /** Records a tooltip close, starting the warm window. */
   markClosed: () => void;
   /**
@@ -48,6 +45,7 @@ const [Context, useConfig] = context.create<ContextValue>({
   defaultValue: {
     delay: DEFAULT_DELAY,
     isWarm: () => false,
+    isOpen: () => false,
     markClosed: () => {},
     acquire: () => () => {},
   },
@@ -69,28 +67,25 @@ export const Config = ({
 }: ConfigProps): ReactElement => {
   const lastClosed = useRef<TimeStamp | null>(null);
   const open = useRef<(() => void) | null>(null);
-  const skipDelayRef = useRef(skipDelay);
-  skipDelayRef.current = skipDelay;
+  const skipDelayRef = useSyncedRef(skipDelay);
 
-  const isWarm = useCallback((): boolean => {
+  const isWarm = (): boolean => {
     if (lastClosed.current == null) return false;
     const since = TimeStamp.since(lastClosed.current);
     return since.valueOf() < new TimeSpan(skipDelayRef.current).valueOf();
-  }, []);
-  const markClosed = useCallback((): void => {
+  };
+  const isOpen = (): boolean => open.current != null;
+  const markClosed = (): void => {
     lastClosed.current = TimeStamp.now();
-  }, []);
-  const acquire = useCallback((close: () => void): destructor.Destructor => {
+  };
+  const acquire = (close: () => void): destructor.Destructor => {
     if (open.current !== close) open.current?.();
     open.current = close;
     return () => {
       if (open.current === close) open.current = null;
     };
-  }, []);
+  };
 
-  const value = useMemo<ContextValue>(
-    () => ({ delay, isWarm, markClosed, acquire }),
-    [delay, isWarm, markClosed, acquire],
-  );
+  const value: ContextValue = { delay, isWarm, isOpen, markClosed, acquire };
   return <Context value={value}>{children}</Context>;
 };

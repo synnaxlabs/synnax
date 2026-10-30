@@ -120,7 +120,7 @@ func processUnion(entry resolution.Type, data *templateData) unionData {
 		return casing.VariantConstName(name, v.Name)
 	}
 	if form.BorrowsEnum() {
-		enumType, ok := form.Enum.Resolve(data.table)
+		enumType, enumRef, ok := resolution.Dealias(form.Enum, data.table)
 		if !ok {
 			panic(fmt.Sprintf(
 				"union %s borrows unresolved enum %s as its discriminator",
@@ -129,7 +129,11 @@ func processUnion(entry resolution.Type, data *templateData) unionData {
 		}
 		ud.BorrowsEnum = true
 		ud.DiscType = data.resolver.ResolveTypeRef(form.Enum, data.ctx)
-		prefix, _, _ := strings.Cut(ud.DiscType, naming.GetGoName(enumType))
+		// An alias need not re-declare its enum's members, so name them through the
+		// package that declares the enum.
+		prefix, _, _ := strings.Cut(
+			data.resolver.ResolveTypeRef(enumRef, data.ctx), naming.GetGoName(enumType),
+		)
 		constName = func(v resolution.UnionVariant) string {
 			return prefix + enumConstName(enumType, v.Name)
 		}
@@ -164,7 +168,7 @@ func processUnion(entry resolution.Type, data *templateData) unionData {
 		if v.Inline {
 			if payload, ok := v.Type.Resolve(data.table); ok {
 				pform := payload.Form.(resolution.StructForm)
-				inherited, declared := resolver.VariantBases(form, v, data.table)
+				inherited, declared := resolver.VariantBases(form, v, "go", data.table)
 				embeds = embedBases(inherited)
 				inlineFields = append(slices.Clone(declared), pform.Fields...)
 				// A field that only restates an inherited default keeps the

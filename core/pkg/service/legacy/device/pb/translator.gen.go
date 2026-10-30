@@ -28,7 +28,14 @@ import (
 func StatusDetailsToPB(r device.StatusDetails) (*StatusDetails, error) {
 	pb := &StatusDetails{
 		Rack:   uint32(r.Rack),
-		Device: string(r.Device),
+		Device: r.Device,
+	}
+	if r.Data != nil {
+		var err error
+		pb.Data, err = structpb.NewStruct(r.Data)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return pb, nil
 }
@@ -40,7 +47,10 @@ func StatusDetailsFromPB(pb *StatusDetails) (device.StatusDetails, error) {
 		return r, nil
 	}
 	r.Rack = rack.Key(pb.Rack)
-	r.Device = device.Key(pb.Device)
+	r.Device = pb.Device
+	if pb.Data != nil {
+		r.Data = pb.Data.AsMap()
+	}
 	return r, nil
 }
 
@@ -80,7 +90,7 @@ func DeviceToPB(
 		return nil, err
 	}
 	pb := &Device{
-		Key:        string(r.Key),
+		Key:        r.Key,
 		Rack:       uint32(r.Rack),
 		Location:   r.Location,
 		Make:       r.Make,
@@ -116,7 +126,7 @@ func DeviceFromPB(
 		return r, nil
 	}
 	r.Properties = pb.Properties.AsMap()
-	r.Key = device.Key(pb.Key)
+	r.Key = pb.Key
 	r.Rack = rack.Key(pb.Rack)
 	r.Location = pb.Location
 	r.Make = pb.Make

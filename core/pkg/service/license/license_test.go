@@ -17,6 +17,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"net"
+	"net/url"
 	"reflect"
 	"strings"
 	"sync"
@@ -30,9 +31,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/license"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
-	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 	"golang.org/x/crypto/argon2"
 )
 
@@ -59,6 +59,9 @@ func (p *pausedDB) OpenIterator(opts kv.IteratorOptions) (kv.Iterator, error) {
 	}
 	return iter, err
 }
+
+// numericKey is an unsigned numeric license key.
+const numericKey = "885508-64317384-0400500005"
 
 func seconds(t time.Time) *uint32 { return new(uint32(t.Unix())) }
 
@@ -141,6 +144,8 @@ var _ = Describe("License", func() {
 			),
 			Entry("rollback", "rollback",
 				func(c *license.ServiceConfig) { c.Rollback = 0 }),
+			Entry("loopback", "loopback",
+				func(c *license.ServiceConfig) { c.Loopback = nil }),
 		)
 		It("should keep defaults the override leaves zero", func() {
 			c := license.DefaultServiceConfig.Override(cfg)
@@ -260,6 +265,24 @@ var _ = Describe("License", func() {
 				true,
 			),
 		)
+
+		Describe("ActivationURL", func() {
+			It("Should open the portal with the fingerprint and the name", func() {
+				u := MustSucceed(url.Parse(fingerprint.ActivationURL("stand 3")))
+				Expect(u.Scheme + "://" + u.Host + u.Path).To(Equal(
+					"https://portal.synnaxlabs.com/licenses/activate",
+				))
+				Expect(u.Query()).To(Equal(url.Values{
+					"fingerprint": {"aaaa,bbbb"},
+					"name":        {"stand 3"},
+				}))
+			})
+
+			It("Should leave out an empty name", func() {
+				u := MustSucceed(url.Parse(fingerprint.ActivationURL("")))
+				Expect(u.Query()).To(Equal(url.Values{"fingerprint": {"aaaa,bbbb"}}))
+			})
+		})
 	})
 
 	Describe("Open", func() {
@@ -268,10 +291,8 @@ var _ = Describe("License", func() {
 			info := svc.Retrieve()
 			Expect(info.State).To(Equal(license.StateMissing))
 			Expect(info.License).To(BeNil())
-			Expect(info.Warning).To(ContainSubstring("limited to 50 channels"))
-			Expect(svc.Check()).To(Succeed())
-			Expect(svc.CheckChannelLimit(50)).To(Succeed())
-			Expect(svc.CheckChannelLimit(51)).To(MatchError(license.ErrTooMany))
+			Expect(svc.Check()).To(MatchError(license.ErrMissing))
+			Expect(svc.CheckChannelLimit(1000)).To(Succeed())
 		})
 		It(
 			"should accept a license key on open and load it on the next",
@@ -288,35 +309,44 @@ var _ = Describe("License", func() {
 			},
 		)
 		It(
-			"should fail to open on a license key that does not verify",
+			"should open missing on a license key that does not verify",
 			func(ctx SpecContext) {
-				Expect(license.OpenService(ctx, cfg, license.ServiceConfig{
-					Key: "garbage",
-				})).Error().To(MatchError(license.ErrInvalid))
+				svc := open(ctx, license.ServiceConfig{Key: "garbage"})
+				Expect(svc.Retrieve().State).To(Equal(license.StateMissing))
+				Expect(svc.Check()).To(MatchError(license.ErrMissing))
 			},
 		)
-		Describe("Numeric key stored by an earlier Core", func() {
-			legacy := []byte("bGljZW5zZUtleQ==")
-			It("should apply the key and move its entry", func(ctx SpecContext) {
-				key := numericKey(now.Add(30*day), 100)
-				Expect(db.Set(ctx, legacy, []byte(key))).To(Succeed())
-				svc := open(ctx)
+		It(
+			"should keep the stored license when the key passed on open is refused",
+			func(ctx SpecContext) {
+				lic := newLicense()
+				store(ctx, lic)
+				expired := newLicense()
+				expired.Exp = seconds(now.Add(-100 * day))
+				svc := open(ctx, license.ServiceConfig{Key: sign(expired)})
 				info := svc.Retrieve()
 				Expect(info.State).To(Equal(license.StateOk))
-				Expect(*info.License).To(Equal(MustSucceed(license.ParseLegacy(key))))
-				Expect(svc.Close()).To(Succeed())
-				Expect(db.Get(ctx, legacy)).Error().To(MatchError(query.ErrNotFound))
-				Expect(open(ctx).Retrieve().State).To(Equal(license.StateOk))
-			})
-			It(
-				"should fail to open on a key that does not parse",
-				func(ctx SpecContext) {
-					Expect(db.Set(ctx, legacy, []byte("old"))).To(Succeed())
-					Expect(license.OpenService(ctx, cfg)).Error().
-						To(MatchError(license.ErrInvalid))
-				},
-			)
-		})
+				Expect(*info.License).To(Equal(lic))
+			},
+		)
+		DescribeTable(
+			"should ignore and keep a numeric key an earlier Core stored",
+			func(ctx SpecContext, key []byte) {
+				Expect(db.Set(ctx, key, []byte(numericKey))).To(Succeed())
+				Expect(open(ctx).Retrieve().State).To(Equal(license.StateMissing))
+				value, closer := MustSucceed2(db.Get(ctx, key))
+				Expect(string(value)).To(Equal(numericKey))
+				Expect(closer.Close()).To(Succeed())
+			},
+			Entry(
+				"at the key Cores used before signed keys",
+				[]byte("bGljZW5zZUtleQ=="),
+			),
+			Entry(
+				"under the license prefix",
+				append([]byte("license/"), uuid.New().String()...),
+			),
+		)
 		It("should prefer a covering entry over an expired one", func(ctx SpecContext) {
 			expired := newLicense()
 			expired.Exp = seconds(now.Add(-100 * day))
@@ -342,7 +372,7 @@ var _ = Describe("License", func() {
 				store(ctx, lic)
 				svc := open(ctx)
 				Expect(svc.Retrieve().State).To(Equal(license.StateMissing))
-				Expect(svc.Check()).To(Succeed())
+				Expect(svc.Check()).To(MatchError(license.ErrMissing))
 			},
 		)
 		It(
@@ -354,7 +384,7 @@ var _ = Describe("License", func() {
 					Anchors: license.Anchors{keyID: other.PublicKey()},
 				})
 				Expect(svc.Retrieve().State).To(Equal(license.StateMissing))
-				Expect(svc.Check()).To(Succeed())
+				Expect(svc.Check()).To(MatchError(license.ErrMissing))
 			},
 		)
 		It("should report a stored entry that no longer covers", func(ctx SpecContext) {
@@ -510,56 +540,13 @@ var _ = Describe("License", func() {
 			Expect(info.State).To(Equal(license.StateOk))
 			Expect(info.Warning).To(BeEmpty())
 		})
-		It("should accept a numeric key and cap its channels", func(ctx SpecContext) {
-			info := MustSucceed(svc.Activate(ctx, numericKey(now.Add(30*day), 100)))
-			Expect(info.State).To(Equal(license.StateOk))
-			Expect(svc.CheckChannelLimit(100)).To(Succeed())
-			Expect(svc.CheckChannelLimit(101)).To(MatchError(license.ErrTooMany))
-		})
-		It(
-			"should cap a numeric key past its grace period at the free channels",
-			func(ctx SpecContext) {
-				info := MustSucceed(
-					svc.Activate(ctx, numericKey(now.Add(-30*day), 100)),
-				)
-				Expect(info.State).To(Equal(license.StateOk))
-				Expect(info.Warning).To(ContainSubstring("limited to 50 channels"))
-				Expect(info.License.Channels).To(BeEquivalentTo(license.FreeChannels))
-				Expect(svc.CheckChannelLimit(50)).To(Succeed())
-				Expect(svc.CheckChannelLimit(51)).To(MatchError(license.ErrTooMany))
-			},
-		)
-		It(
-			"should keep an unexpired numeric key over expired ones",
-			func(ctx SpecContext) {
-				for channels := 100; channels < 108; channels++ {
-					MustSucceed(
-						svc.Activate(ctx, numericKey(now.Add(-30*day), channels)),
-					)
-				}
-				info := MustSucceed(svc.Activate(ctx, numericKey(now.Add(30*day), 200)))
-				Expect(info.License.Channels).To(BeEquivalentTo(200))
-				for channels := 108; channels < 116; channels++ {
-					info = MustSucceed(
-						svc.Activate(ctx, numericKey(now.Add(-30*day), channels)),
-					)
-				}
-				Expect(info.License.Channels).To(BeEquivalentTo(200))
-			},
-		)
-		It(
-			"should keep the count of a numeric key inside its grace period",
-			func(ctx SpecContext) {
-				info := MustSucceed(svc.Activate(ctx, numericKey(now.Add(-5*day), 100)))
-				Expect(info.Warning).To(ContainSubstring("grace period ends"))
-				Expect(info.License.Channels).To(BeEquivalentTo(100))
-			},
-		)
-		It("should keep a signed license over a numeric key", func(ctx SpecContext) {
-			lic := newLicense()
-			MustSucceed(svc.Activate(ctx, sign(lic)))
-			info := MustSucceed(svc.Activate(ctx, numericKey(now.Add(30*day), 100)))
-			Expect(*info.License).To(Equal(lic))
+		It("should refuse a numeric key", func(ctx SpecContext) {
+			Expect(svc.Activate(ctx, numericKey)).Error().To(SatisfyAll(
+				MatchError(license.ErrInvalid),
+				MatchError(
+					ContainSubstring("numeric license keys are no longer accepted"),
+				),
+			))
 		})
 		It(
 			"should keep a newer license over an older activation",
@@ -695,6 +682,31 @@ var _ = Describe("License", func() {
 					To(MatchError(license.ErrExpired))
 			},
 		)
+		It(
+			"should refuse a Desktop license on a Core that is not loopback",
+			func(ctx SpecContext) {
+				lic := newLicense()
+				lic.Edition = license.EditionDesktop
+				Expect(svc.Activate(ctx, sign(lic))).Error().
+					To(MatchError(license.ErrEdition))
+			},
+		)
+		It("should accept a Desktop license on a loopback Core", func(ctx SpecContext) {
+			svc = open(ctx, license.ServiceConfig{Loopback: new(true)})
+			lic := newLicense()
+			lic.Edition = license.EditionDesktop
+			Expect(MustSucceed(svc.Activate(ctx, sign(lic))).State).
+				To(Equal(license.StateOk))
+		})
+		It(
+			"should skip a stored Desktop license once the Core is not loopback",
+			func(ctx SpecContext) {
+				lic := newLicense()
+				lic.Edition = license.EditionDesktop
+				store(ctx, lic)
+				Expect(open(ctx).Retrieve().State).To(Equal(license.StateMissing))
+			},
+		)
 		It("should refuse a license bound to other machines", func(ctx SpecContext) {
 			lic := newLicense()
 			lic.Fingerprints = []string{"0000"}
@@ -795,7 +807,7 @@ var _ = Describe("License", func() {
 			info := MustSucceed(svc.Deactivate(ctx, lic.Jti))
 			Expect(info.State).To(Equal(license.StateMissing))
 			Expect(info.License).To(BeNil())
-			Expect(svc.Check()).To(Succeed())
+			Expect(svc.Check()).To(MatchError(license.ErrMissing))
 		})
 		It("should keep the license removed across a reopen", func(ctx SpecContext) {
 			lic := newLicense()

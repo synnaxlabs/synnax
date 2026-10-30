@@ -14,19 +14,19 @@ from console.base import ResourceClient
 FAVORITE_ACTIONS = ("Add to favorites", "Favorite")
 UNFAVORITE_ACTIONS = ("Remove from favorites", "Unfavorite")
 CREATE_MODAL_SELECTOR = ".console-range-create-layout"
-NAME_INPUT_PLACEHOLDER = "Name"
-STAGE_MENU_SELECTOR = ".pluto-stage-button__menu"
+_NAME_INPUT_PLACEHOLDER = "Range name"
+_STAGE_MENU_SELECTOR = ".pluto-stage-button__menu"
 
 # The stage menu names its items by action, not by the stage they reach.
-STAGE_TRANSITIONS: dict[str, tuple[str, ...]] = {
+_STAGE_TRANSITIONS: dict[str, tuple[str, ...]] = {
     "To do": ("Move to to do",),
     "In progress": ("Start", "Reopen"),
     "Completed": ("Complete",),
 }
-STAGE_ICONS: dict[str, str] = {
-    "To do": "pluto-icon--to-do",
-    "In progress": "pluto-icon--in-progress",
-    "Completed": "pluto-icon--completed",
+_STAGE_ICONS: dict[str, str] = {
+    "To do": "lyra-icon--to-do",
+    "In progress": "lyra-icon--in-progress",
+    "Completed": "lyra-icon--completed",
 }
 
 
@@ -61,11 +61,11 @@ class Surface(ResourceClient):
         Does nothing when the chip already shows the stage, since the menu offers
         no transition into the current stage.
         """
-        if stage_button.locator(f"svg.{STAGE_ICONS[stage]}").count() > 0:
+        if stage_button.locator(f"svg.{_STAGE_ICONS[stage]}").count() > 0:
             return
         stage_button.click()
-        menu = self.layout.page.locator(STAGE_MENU_SELECTOR)
-        names = STAGE_TRANSITIONS[stage]
+        menu = self.layout.page.locator(_STAGE_MENU_SELECTOR)
+        names = _STAGE_TRANSITIONS[stage]
         item = menu.get_by_role("menuitem", name=names[0], exact=True)
         for name in names[1:]:
             item = item.or_(menu.get_by_role("menuitem", name=name, exact=True))
@@ -88,7 +88,7 @@ class Surface(ResourceClient):
         modal = self.layout.page.locator(CREATE_MODAL_SELECTOR)
         # Scope to the modal: the range overview page has a name input with the
         # same placeholder.
-        name_input = modal.locator(f"input[placeholder='{NAME_INPUT_PLACEHOLDER}']")
+        name_input = modal.locator(f"input[placeholder='{_NAME_INPUT_PLACEHOLDER}']")
         name_input.fill(name)
 
         if stage is not None:
@@ -107,7 +107,7 @@ class Surface(ResourceClient):
             # Scope to the picker dropdown: the explorer view has a search
             # input with the same placeholder.
             search_input = self.layout.page.locator(
-                ".pluto-dialog__dialog.pluto--visible "
+                ".lyra-dialog__dialog.lyra--visible "
                 "input[placeholder='Search ranges...']"
             )
             search_input.fill(parent)

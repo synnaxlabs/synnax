@@ -21,9 +21,6 @@
 //
 // It also serves our users by allowing them to query the topology of the cluster by
 // traversing relationships (such as a browsable tree).
-//
-// For more information, see the [ontology RFC]:
-// https://docs.synnaxlabs.com/rfc/5-220716-ontology.
 package ontology
 
 import (
@@ -31,12 +28,13 @@ import (
 	"iter"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology/versions"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/search"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
@@ -73,9 +71,12 @@ func (c Config) Override(other Config) Config {
 
 // Ontology exposes an ontology stored in a key-value database for reading and writing.
 type Ontology struct {
-	cfg                 Config
-	resourceObserver    observe.Observer[iter.Seq[Change]]
-	registrar           serviceRegistrar
+	cfg              Config
+	resourceObserver observe.Observer[iter.Seq[Change]]
+	registrar        serviceRegistrar
+	// services holds every registered Service in registration order, so Search ranks
+	// equal matches the same way on every call.
+	services            []Service
 	disconnectObservers []observe.Disconnect
 	closer              io.MultiCloser
 	resourceTable       *gorp.Table[string, Resource]
@@ -90,10 +91,12 @@ func Open(ctx context.Context, configs ...Config) (_ *Ontology, err error) {
 	if err != nil {
 		return nil, err
 	}
+	builtin := &builtinService{}
 	o := &Ontology{
 		cfg:              cfg,
 		resourceObserver: observe.New[iter.Seq[Change]](),
-		registrar:        serviceRegistrar{ResourceTypeBuiltin: &builtinService{}},
+		registrar:        serviceRegistrar{ResourceTypeBuiltin: builtin},
+		services:         []Service{builtin},
 		relIndexes:       newRelationshipIndexes(),
 	}
 	cleanup, ok := service.NewOpener(ctx, &o.closer)
@@ -173,11 +176,33 @@ func (o *Ontology) RelationshipExists(
 // given Type.
 func (o *Ontology) RegisterService(svc Service) {
 	o.cfg.L.Debug("registering service", zap.Stringer("type", svc.Type()))
-	o.registrar.register(svc)
+	if !o.registrar.register(svc) {
+		return
+	}
+	o.services = append(o.services, svc)
 	o.disconnectObservers = append(
 		o.disconnectObservers,
 		svc.OnChange(o.resourceObserver.Notify),
 	)
+}
+
+// searchLimit is the maximum number of IDs that Search returns.
+const searchLimit = 100
+
+// Search returns the IDs of the resources of every registered type whose text matches
+// term, closest match first. It returns at most 100 IDs. Search reads the changes
+// staged against tx, falling back to the underlying database when tx is nil.
+func (o *Ontology) Search(ctx context.Context, tx gorp.Tx, term string) ([]ID, error) {
+	tx = o.cfg.DB.OverrideTx(tx)
+	results := make([]search.Result[ID], len(o.services))
+	for i, svc := range o.services {
+		res, err := svc.Search(ctx, tx, term, searchLimit)
+		if err != nil {
+			return nil, err
+		}
+		results[i] = res
+	}
+	return search.Merge(searchLimit, results...).Keys, nil
 }
 
 // Close closes the ontology and all of its observers and releases all resources.

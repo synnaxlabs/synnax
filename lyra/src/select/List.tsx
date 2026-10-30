@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactNode, useMemo } from "react";
+import { type ReactNode } from "react";
 
 import { List as BaseList } from "@/list";
 import { useVisibleCount } from "@/select/registry";
@@ -24,10 +24,7 @@ const LIST_BUDGET = 220;
  */
 const useDisplayItems = (): number => {
   const itemHeight = BaseList.useItemHeight();
-  return useMemo(
-    () => (itemHeight == null ? 1 : Math.max(1, Math.floor(LIST_BUDGET / itemHeight))),
-    [itemHeight],
-  );
+  return itemHeight == null ? 1 : Math.max(1, Math.floor(LIST_BUDGET / itemHeight));
 };
 
 /** Props for {@link List}. */

@@ -10,11 +10,12 @@
 import "@/rack/StatusIndicator.css";
 
 import { type rack } from "@synnaxlabs/client";
-import { CSS } from "@synnaxlabs/lyra/css";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useRef } from "react";
+
+import { CSS } from "@/css";
 
 export interface StatusIndicatorProps {
   status?: rack.Status;
@@ -27,10 +28,7 @@ export const StatusIndicator = ({
 }: StatusIndicatorProps) => {
   const heartRef = useRef<SVGSVGElement>(null);
   const variant = status?.variant ?? "disabled";
-  const heartStyle = useMemo(
-    () => ({ color: Status.VARIANT_COLORS[variant] }),
-    [variant],
-  );
+  const heartStyle = { color: Status.VARIANT_COLORS[variant] };
   useEffect(() => {
     if (variant !== "success") return;
     const heart = heartRef.current;

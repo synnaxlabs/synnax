@@ -14,14 +14,13 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
-	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 var _ = Describe("Service", func() {
@@ -29,18 +28,15 @@ var _ = Describe("Service", func() {
 		It("Should create a service and its permanent group", func(ctx SpecContext) {
 			testDB := DeferClose(gorp.Wrap(memkv.New()))
 			testOtg := MustOpen(ontology.Open(ctx, ontology.Config{DB: testDB}))
-			testSearchIdx := MustOpen(search.OpenIndex())
 			testGroup := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 				DB:       testDB,
 				Ontology: testOtg,
-				Search:   testSearchIdx,
 			}))
 
 			testSvc := MustOpen(symbol.OpenService(ctx, symbol.ServiceConfig{
 				DB:       testDB,
 				Ontology: testOtg,
 				Group:    testGroup,
-				Search:   testSearchIdx,
 				ImEx:     imex.NewService(),
 			}))
 			Expect(testSvc).ToNot(BeNil())
@@ -60,18 +56,15 @@ var _ = Describe("Service", func() {
 		It("Should apply later configurations as overrides", func(ctx SpecContext) {
 			testDB := DeferClose(gorp.Wrap(memkv.New()))
 			testOtg := MustOpen(ontology.Open(ctx, ontology.Config{DB: testDB}))
-			testSearchIdx := MustOpen(search.OpenIndex())
 			testGroup := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 				DB:       testDB,
 				Ontology: testOtg,
-				Search:   testSearchIdx,
 			}))
 			// cfg1 omits the DB; cfg2 supplies it. OpenService merges later configs
 			// over earlier ones, so the service opens only because cfg2 fills the gap.
 			cfg1 := symbol.ServiceConfig{
 				Ontology: testOtg,
 				Group:    testGroup,
-				Search:   testSearchIdx,
 				ImEx:     imex.NewService(),
 			}
 			cfg2 := symbol.ServiceConfig{DB: testDB}
@@ -104,18 +97,15 @@ var _ = Describe("Service", func() {
 			testOtg := MustOpen(ontology.Open(ctx, ontology.Config{
 				DB: testDB,
 			}))
-			testSearchIdx := MustOpen(search.OpenIndex())
 			testGroup := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 				DB:       testDB,
 				Ontology: testOtg,
-				Search:   testSearchIdx,
 			}))
 
 			testSvc := MustOpen(symbol.OpenService(ctx, symbol.ServiceConfig{
 				DB:       testDB,
 				Ontology: testOtg,
 				Group:    testGroup,
-				Search:   testSearchIdx,
 				ImEx:     imex.NewService(),
 			}))
 

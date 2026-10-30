@@ -12,12 +12,12 @@
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/defer/defer.h"
 #include "x/cpp/telem/frame.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
-#include "driver/modbus/mock/slave.h"
 #include "driver/modbus/modbus.h"
+#include "driver/modbus/testutil/slave.h"
 #include "driver/modbus/write_task.h"
-#include "driver/pipeline/mock/pipeline.h"
+#include "driver/pipeline/testutil/pipeline.h"
 
 namespace driver::modbus {
 class ModbusWriteTest : public ::testing::Test {
@@ -26,7 +26,7 @@ protected:
     synnax::task::Task task;
     std::unique_ptr<WriteTaskConfig> cfg;
     std::shared_ptr<task::MockContext> ctx;
-    std::shared_ptr<pipeline::mock::StreamerFactory> mock_streamer_factory;
+    std::shared_ptr<pipeline::testutil::StreamerFactory> mock_streamer_factory;
     std::shared_ptr<device::Manager> devs;
     synnax::channel::Channel coil_ch;
     synnax::channel::Channel reg_ch;
@@ -75,14 +75,45 @@ protected:
     }
 };
 
+/// @brief it should take the device's order for a register with no override and
+/// let an override win.
+TEST(ModbusChannels, OutputRegisterResolvesDeviceOrder) {
+    auto inherit = x::json::Parser(
+        x::json::json{{"type", "holding_register"}, {"data_type", "float32"}}
+    );
+    const auto inherit_cfg = ::synnax::modbus::HoldingRegisterWriteChannel::parse(
+        inherit
+    );
+    ASSERT_NIL(inherit.error());
+    const device::ConnectionConfig conn("h", 1, true, true);
+    const channel::OutputHoldingRegister inherited(inherit_cfg, conn);
+    EXPECT_TRUE(inherited.bytes_swapped);
+    EXPECT_TRUE(inherited.words_swapped);
+
+    auto override = x::json::Parser(
+        x::json::json{
+            {"type", "holding_register"},
+            {"data_type", "float32"},
+            {"bytes_swapped", false}
+        }
+    );
+    const auto override_cfg = ::synnax::modbus::HoldingRegisterWriteChannel::parse(
+        override
+    );
+    ASSERT_NIL(override.error());
+    const channel::OutputHoldingRegister overridden(override_cfg, conn);
+    EXPECT_FALSE(overridden.bytes_swapped);
+    EXPECT_TRUE(overridden.words_swapped);
+}
+
 /// @brief it should write coil and register values to Modbus device.
 TEST_F(ModbusWriteTest, testBasicWrite) {
     this->setup_task_config();
-    mock::SlaveConfig slave_cfg;
+    testutil::SlaveConfig slave_cfg;
     slave_cfg.host = "127.0.0.1";
     slave_cfg.port = 1502;
 
-    auto slave = mock::Slave(slave_cfg);
+    auto slave = testutil::Slave(slave_cfg);
     ASSERT_NIL(slave.start());
     x::defer::defer stop_slave([&slave] { slave.stop(); });
 
@@ -111,7 +142,7 @@ TEST_F(ModbusWriteTest, testBasicWrite) {
     fr.emplace(reg_ch.key, x::telem::Series(static_cast<uint16_t>(12345)));
     reads->push_back(std::move(fr));
 
-    mock_streamer_factory = driver::pipeline::mock::simple_streamer_factory(
+    mock_streamer_factory = driver::pipeline::testutil::simple_streamer_factory(
         {coil_ch.key, reg_ch.key},
         reads
     );
@@ -138,11 +169,11 @@ TEST_F(ModbusWriteTest, testBasicWrite) {
 /// @brief it should write multiple data types to holding registers.
 TEST_F(ModbusWriteTest, testMultipleDataTypes) {
     this->setup_task_config();
-    mock::SlaveConfig slave_cfg;
+    testutil::SlaveConfig slave_cfg;
     slave_cfg.host = "127.0.0.1";
     slave_cfg.port = 1502;
 
-    auto slave = mock::Slave(slave_cfg);
+    auto slave = testutil::Slave(slave_cfg);
     ASSERT_NIL(slave.start());
     x::defer::defer stop_slave([&slave] { slave.stop(); });
 
@@ -213,11 +244,11 @@ TEST_F(ModbusWriteTest, testMultipleDataTypes) {
     fr.emplace(int16_ch.key, x::telem::Series(static_cast<int16_t>(-1234)));
     fr.emplace(uint32_ch.key, x::telem::Series(static_cast<uint32_t>(0xDEADBEEF)));
     fr.emplace(int32_ch.key, x::telem::Series(static_cast<int32_t>(-2147483648)));
-    fr.emplace(float32_ch.key, x::telem::Series(static_cast<float>(3.14159f)));
-    fr.emplace(float64_ch.key, x::telem::Series(static_cast<double>(2.71828)));
+    fr.emplace(float32_ch.key, x::telem::Series(3.14159f));
+    fr.emplace(float64_ch.key, x::telem::Series(2.71828));
     reads->push_back(std::move(fr));
 
-    mock_streamer_factory = driver::pipeline::mock::simple_streamer_factory(
+    mock_streamer_factory = driver::pipeline::testutil::simple_streamer_factory(
         {int16_ch.key, uint32_ch.key, int32_ch.key, float32_ch.key, float64_ch.key},
         reads
     );
@@ -309,11 +340,11 @@ TEST_F(ModbusWriteTest, testUnboundDisabledChannel) {
 /// @brief it should handle concurrent writes to multiple channels.
 TEST_F(ModbusWriteTest, testConcurrentWrites) {
     this->setup_task_config();
-    mock::SlaveConfig slave_cfg;
+    testutil::SlaveConfig slave_cfg;
     slave_cfg.host = "127.0.0.1";
     slave_cfg.port = 1502;
 
-    auto slave = mock::Slave(slave_cfg);
+    auto slave = testutil::Slave(slave_cfg);
     ASSERT_NIL(slave.start());
     x::defer::defer stop_slave([&slave] { slave.stop(); });
 
@@ -375,7 +406,7 @@ TEST_F(ModbusWriteTest, testConcurrentWrites) {
     fr.emplace(reg2.key, x::telem::Series(static_cast<uint16_t>(2000)));
     reads->push_back(std::move(fr));
 
-    mock_streamer_factory = driver::pipeline::mock::simple_streamer_factory(
+    mock_streamer_factory = driver::pipeline::testutil::simple_streamer_factory(
         {coil1.key, coil2.key, reg1.key, reg2.key},
         reads
     );
@@ -404,14 +435,14 @@ TEST_F(ModbusWriteTest, testConcurrentWrites) {
 /// @brief it should verify written values match expected values.
 TEST_F(ModbusWriteTest, testWriteVerification) {
     this->setup_task_config();
-    mock::SlaveConfig slave_cfg;
+    testutil::SlaveConfig slave_cfg;
     slave_cfg.host = "127.0.0.1";
     slave_cfg.port = 1502;
     slave_cfg.coils[0] = 0;
     slave_cfg.holding_registers[0] = 0;
     slave_cfg.holding_registers[1] = 0;
 
-    auto slave = mock::Slave(slave_cfg);
+    auto slave = testutil::Slave(slave_cfg);
     ASSERT_NIL(slave.start());
     x::defer::defer stop_slave([&slave] { slave.stop(); });
 
@@ -441,7 +472,7 @@ TEST_F(ModbusWriteTest, testWriteVerification) {
     fr.emplace(reg_ch.key, x::telem::Series(static_cast<uint16_t>(42)));
     reads->push_back(std::move(fr));
 
-    mock_streamer_factory = driver::pipeline::mock::simple_streamer_factory(
+    mock_streamer_factory = driver::pipeline::testutil::simple_streamer_factory(
         {coil_ch.key, reg_ch.key},
         reads
     );
@@ -488,11 +519,11 @@ TEST_F(ModbusWriteTest, testWriteVerification) {
 /// sample should be written to hardware.
 TEST_F(ModbusWriteTest, testLastWriteWins) {
     this->setup_task_config();
-    mock::SlaveConfig slave_cfg;
+    testutil::SlaveConfig slave_cfg;
     slave_cfg.host = "127.0.0.1";
     slave_cfg.port = 1502;
 
-    auto slave = mock::Slave(slave_cfg);
+    auto slave = testutil::Slave(slave_cfg);
     ASSERT_NIL(slave.start());
     x::defer::defer stop_slave([&slave] { slave.stop(); });
 
@@ -522,7 +553,7 @@ TEST_F(ModbusWriteTest, testLastWriteWins) {
     fr.emplace(reg_ch.key, x::telem::Series(std::vector<uint16_t>{100, 200, 300}));
     reads->push_back(std::move(fr));
 
-    mock_streamer_factory = pipeline::mock::simple_streamer_factory(
+    mock_streamer_factory = pipeline::testutil::simple_streamer_factory(
         {coil_ch.key, reg_ch.key},
         reads
     );
@@ -553,11 +584,11 @@ TEST_F(ModbusWriteTest, testLastWriteWins) {
 /// division).
 TEST_F(ModbusWriteTest, testMultipleUint8HoldingRegisters) {
     this->setup_task_config();
-    mock::SlaveConfig slave_cfg;
+    testutil::SlaveConfig slave_cfg;
     slave_cfg.host = "127.0.0.1";
     slave_cfg.port = 1502;
 
-    auto slave = mock::Slave(slave_cfg);
+    auto slave = testutil::Slave(slave_cfg);
     ASSERT_NIL(slave.start());
     x::defer::defer stop_slave([&slave] { slave.stop(); });
 
@@ -611,7 +642,7 @@ TEST_F(ModbusWriteTest, testMultipleUint8HoldingRegisters) {
     fr.emplace(holding2.key, x::telem::Series(static_cast<uint8_t>(150)));
     reads->push_back(std::move(fr));
 
-    mock_streamer_factory = driver::pipeline::mock::simple_streamer_factory(
+    mock_streamer_factory = driver::pipeline::testutil::simple_streamer_factory(
         {holding0.key, holding1.key, holding2.key},
         reads
     );
@@ -635,5 +666,167 @@ TEST_F(ModbusWriteTest, testMultipleUint8HoldingRegisters) {
     ASSERT_EVENTUALLY_EQ(slave.get_holding_register(1), 100);
     ASSERT_EVENTUALLY_EQ(slave.get_holding_register(2), 150);
     wt->stop("stop_cmd", true);
+}
+
+/// @brief it should retry a command on a new connection after the server drops the old
+/// one.
+TEST_F(ModbusWriteTest, testRetriesAfterDroppedConnection) {
+    this->setup_task_config();
+    testutil::SlaveConfig slave_cfg;
+    slave_cfg.port = 1502;
+    testutil::Slave slave(slave_cfg);
+    ASSERT_NIL(slave.start());
+    x::defer::defer stop_slave([&slave] { slave.stop(); });
+
+    x::json::json task_cfg{
+        {"device", "modbus_test_dev"},
+        {"channels",
+         x::json::json::array(
+             {{{"type", "coil"}, {"address", 0}, {"channel", coil_ch.key}}}
+         )}
+    };
+    auto p = x::json::Parser(task_cfg);
+    cfg = std::make_unique<WriteTaskConfig>(client, p);
+    ASSERT_NIL(p.error());
+    WriteTaskSink sink(devs, std::move(*cfg));
+    ASSERT_NIL(sink.start());
+
+    x::telem::Frame on(1);
+    on.emplace(coil_ch.key, x::telem::Series(static_cast<uint8_t>(1)));
+    ASSERT_NIL(sink.write(on));
+    EXPECT_EQ(slave.get_coil(0), 1);
+
+    slave.drop_connections();
+    x::telem::Frame off(1);
+    off.emplace(coil_ch.key, x::telem::Series(static_cast<uint8_t>(0)));
+    ASSERT_NIL(sink.write(off));
+    EXPECT_EQ(slave.get_coil(0), 0);
+    ASSERT_NIL(sink.stop());
+}
+
+/// @brief it should reject two holding registers whose addresses overlap.
+TEST_F(ModbusWriteTest, testOverlappingRegistersRejected) {
+    this->setup_task_config();
+    x::json::json task_cfg{
+        {"device", "modbus_test_dev"},
+        {"channels",
+         x::json::json::array(
+             {{{"type", "holding_register"},
+               {"address", 0},
+               {"channel", reg_ch.key},
+               {"data_type", "float32"}},
+              {{"type", "holding_register"},
+               {"address", 1},
+               {"channel", coil_ch.key},
+               {"data_type", "uint16"}}}
+         )}
+    };
+    auto p = x::json::Parser(task_cfg);
+    WriteTaskConfig write_cfg(client, p);
+    ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
+    const auto errors = p.error_json()["errors"];
+    ASSERT_EQ(errors.size(), 1);
+    EXPECT_EQ(errors[0]["path"], "channels.1.address");
+    EXPECT_EQ(errors[0]["message"], "overlaps the holding register at address 0");
+}
+
+/// @brief it should reject a holding register data type the Driver cannot encode.
+TEST_F(ModbusWriteTest, testUnsupportedDataTypeRejected) {
+    this->setup_task_config();
+    x::json::json task_cfg{
+        {"device", "modbus_test_dev"},
+        {"channels",
+         x::json::json::array(
+             {{{"type", "holding_register"},
+               {"address", 0},
+               {"channel", reg_ch.key},
+               {"data_type", "string"}}}
+         )}
+    };
+    auto p = x::json::Parser(task_cfg);
+    WriteTaskConfig write_cfg(client, p);
+    ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
+    const auto errors = p.error_json()["errors"];
+    ASSERT_EQ(errors.size(), 1);
+    EXPECT_EQ(errors[0]["path"], "channels.0.data_type");
+    EXPECT_EQ(errors[0]["message"], "unsupported data type: string");
+}
+
+/// @brief it should accept two bits of one register, and reject a bit inside a register
+/// value, a second channel on the same bit, and a bit past 15.
+TEST_F(ModbusWriteTest, testRegisterBitOverlaps) {
+    this->setup_task_config();
+    auto third = ASSERT_NIL_P(client->channels.create(
+        make_unique_channel_name("bit"),
+        x::telem::UINT8_T,
+        true
+    ));
+    const auto bit =
+        [](const synnax::channel::Key key, const int address, const int b) {
+            return x::json::json{
+                {"type", "holding_register_bit"},
+                {"address", address},
+                {"channel", key},
+                {"bit", b}
+            };
+        };
+    x::json::json task_cfg{
+        {"device", "modbus_test_dev"},
+        {"channels",
+         x::json::json::array(
+             {{{"type", "holding_register"},
+               {"address", 0},
+               {"channel", reg_ch.key},
+               {"data_type", "float32"}},
+              bit(coil_ch.key, 2, 1),
+              bit(third.key, 2, 2),
+              bit(third.key, 1, 0),
+              bit(third.key, 2, 1),
+              bit(third.key, 3, 16)}
+         )}
+    };
+    auto p = x::json::Parser(task_cfg);
+    WriteTaskConfig write_cfg(client, p);
+    ASSERT_OCCURRED_AS(p.error(), x::errors::VALIDATION);
+    const auto errors = p.error_json()["errors"];
+    ASSERT_EQ(errors.size(), 3);
+    EXPECT_EQ(errors[0]["path"], "channels.3.address");
+    EXPECT_EQ(errors[0]["message"], "overlaps the holding register at address 0");
+    EXPECT_EQ(errors[1]["path"], "channels.4.bit");
+    EXPECT_EQ(errors[1]["message"], "another channel writes this bit of the register");
+    EXPECT_EQ(errors[2]["path"], "channels.5.bit");
+    EXPECT_EQ(errors[2]["message"], "must be from 0 to 15");
+}
+
+/// @brief it should set one bit of a holding register and keep its other bits.
+TEST_F(ModbusWriteTest, testRegisterBitWrite) {
+    this->setup_task_config();
+    testutil::SlaveConfig slave_cfg;
+    slave_cfg.port = 1502;
+    slave_cfg.holding_registers[4] = static_cast<uint16_t>(0xFF00);
+    testutil::Slave slave(slave_cfg);
+    ASSERT_NIL(slave.start());
+    x::defer::defer stop_slave([&slave] { slave.stop(); });
+
+    x::json::json task_cfg{
+        {"device", "modbus_test_dev"},
+        {"channels",
+         x::json::json::array(
+             {{{"type", "holding_register_bit"},
+               {"address", 4},
+               {"channel", coil_ch.key},
+               {"bit", 3}}}
+         )}
+    };
+    auto p = x::json::Parser(task_cfg);
+    cfg = std::make_unique<WriteTaskConfig>(client, p);
+    ASSERT_NIL(p.error());
+    WriteTaskSink sink(devs, std::move(*cfg));
+    ASSERT_NIL(sink.start());
+    x::telem::Frame on(1);
+    on.emplace(coil_ch.key, x::telem::Series(static_cast<uint8_t>(1)));
+    ASSERT_NIL(sink.write(on));
+    EXPECT_EQ(slave.get_holding_register(4), 0xFF08);
+    ASSERT_NIL(sink.stop());
 }
 }

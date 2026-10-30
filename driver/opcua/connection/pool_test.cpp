@@ -12,18 +12,22 @@
 
 #include "gtest/gtest.h"
 
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "driver/opcua/connection/connection.h"
-#include "driver/opcua/mock/server.h"
+#include "driver/opcua/testutil/server.h"
+#include "driver/opcua/testutil/testutil.h"
 
 namespace driver::opcua::connection {
+const std::string BREAKER_OPEN_TEXT = "The Driver paused new connections to the server "
+                                      "after too many failed attempts in a row.";
+
 class ConnectionPoolTest : public ::testing::Test {
 protected:
     void SetUp() override {
-        server_cfg_ = mock::ServerConfig::create_default();
+        server_cfg_ = testutil::ServerConfig::create_default();
         server_cfg_.port = 4845;
-        server_ = std::make_unique<mock::Server>(server_cfg_);
+        server_ = std::make_unique<testutil::Server>(server_cfg_);
         server_->start();
         ASSERT_TRUE(server_->wait_until_ready());
 
@@ -36,14 +40,14 @@ protected:
         if (server_) { server_->stop(); }
     }
 
-    mock::ServerConfig server_cfg_;
-    std::unique_ptr<mock::Server> server_;
+    testutil::ServerConfig server_cfg_;
+    std::unique_ptr<testutil::Server> server_;
     Config conn_cfg_;
 };
 
 /// @brief it should acquire a new connection from empty pool.
 TEST_F(ConnectionPoolTest, AcquireNewConnection) {
-    Pool pool;
+    Pool pool(testutil::create_store());
 
     const auto connection = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
     ASSERT_NE(connection.get(), nullptr);
@@ -54,7 +58,7 @@ TEST_F(ConnectionPoolTest, AcquireNewConnection) {
 
 /// @brief it should reuse released connection from pool.
 TEST_F(ConnectionPoolTest, ReuseConnection) {
-    Pool pool;
+    Pool pool(testutil::create_store());
 
     { auto conn1 = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] ")); }
 
@@ -68,7 +72,7 @@ TEST_F(ConnectionPoolTest, ReuseConnection) {
 
 /// @brief it should create multiple simultaneous connections.
 TEST_F(ConnectionPoolTest, MultipleSimultaneousConnections) {
-    Pool pool;
+    Pool pool(testutil::create_store());
 
     auto conn1 = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
     auto conn2 = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
@@ -81,16 +85,16 @@ TEST_F(ConnectionPoolTest, MultipleSimultaneousConnections) {
 
 /// @brief it should create separate connections for different endpoints.
 TEST_F(ConnectionPoolTest, DifferentEndpoints) {
-    mock::ServerConfig server2_cfg = mock::ServerConfig::create_default();
+    testutil::ServerConfig server2_cfg = testutil::ServerConfig::create_default();
     server2_cfg.port = 4846;
-    mock::Server server2(server2_cfg);
+    testutil::Server server2(server2_cfg);
     server2.start();
     ASSERT_TRUE(server2.wait_until_ready());
 
     Config cfg2 = conn_cfg_;
     cfg2.endpoint = "opc.tcp://localhost:4846";
 
-    Pool pool;
+    Pool pool(testutil::create_store());
 
     auto conn1 = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
     auto conn2 = ASSERT_NIL_P(pool.acquire(cfg2, "[test] "));
@@ -102,8 +106,9 @@ TEST_F(ConnectionPoolTest, DifferentEndpoints) {
 }
 
 /// @brief it should properly transfer ownership with move semantics.
+// NOLINTBEGIN(bugprone-use-after-move): the tests check the moved-from state.
 TEST_F(ConnectionPoolTest, MoveSemantics) {
-    Pool pool;
+    Pool pool(testutil::create_store());
 
     auto conn1 = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
 
@@ -117,16 +122,18 @@ TEST_F(ConnectionPoolTest, MoveSemantics) {
     EXPECT_EQ(conn3.get(), original_ptr);
     EXPECT_FALSE(conn2);
 }
+// NOLINTEND(bugprone-use-after-move)
 
 /// @brief it should handle concurrent access from multiple threads safely.
 TEST_F(ConnectionPoolTest, ThreadSafety) {
-    Pool pool;
+    Pool pool(testutil::create_store());
     const int num_threads = 10;
     const int acquisitions_per_thread = 5;
 
     std::vector<std::thread> threads;
     std::atomic<int> success_count{0};
 
+    threads.reserve(num_threads);
     for (int i = 0; i < num_threads; ++i) {
         threads.emplace_back([&pool, &success_count, this]() {
             for (int j = 0; j < acquisitions_per_thread; ++j) {
@@ -148,7 +155,7 @@ TEST_F(ConnectionPoolTest, ThreadSafety) {
 
 /// @brief it should replace invalidated connections with new ones.
 TEST_F(ConnectionPoolTest, ConnectionInvalidation) {
-    Pool pool;
+    Pool pool(testutil::create_store());
 
     auto conn1 = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
     auto client_ptr = conn1.shared();
@@ -165,7 +172,7 @@ TEST_F(ConnectionPoolTest, ConnectionInvalidation) {
 
 /// @brief it should create separate connections for different credentials.
 TEST_F(ConnectionPoolTest, DifferentCredentials) {
-    Pool pool;
+    Pool pool(testutil::create_store());
 
     auto conn1 = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
 
@@ -186,7 +193,7 @@ TEST_F(ConnectionPoolTest, DifferentCredentials) {
 
 /// @brief it should return error when connecting to unavailable server.
 TEST_F(ConnectionPoolTest, AcquireFromBadServer) {
-    Pool pool;
+    Pool pool(testutil::create_store());
     Config bad_cfg = conn_cfg_;
     bad_cfg.endpoint = "opc.tcp://localhost:9999";
 
@@ -197,7 +204,7 @@ TEST_F(ConnectionPoolTest, AcquireFromBadServer) {
 
 /// @brief it should automatically reconnect when stale connection is detected.
 TEST_F(ConnectionPoolTest, StaleConnectionAutoReconnect) {
-    Pool pool;
+    Pool pool(testutil::create_store());
 
     auto conn1 = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
 
@@ -207,7 +214,7 @@ TEST_F(ConnectionPoolTest, StaleConnectionAutoReconnect) {
     server_->stop();
     server_.reset();
 
-    server_ = std::make_unique<mock::Server>(server_cfg_);
+    server_ = std::make_unique<testutil::Server>(server_cfg_);
     server_->start();
     ASSERT_TRUE(server_->wait_until_ready());
 
@@ -216,7 +223,7 @@ TEST_F(ConnectionPoolTest, StaleConnectionAutoReconnect) {
 
 /// @brief it should create new connection after server restart.
 TEST_F(ConnectionPoolTest, NewConnectionAfterServerRestart) {
-    Pool pool;
+    Pool pool(testutil::create_store());
 
     auto conn1 = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
 
@@ -225,7 +232,7 @@ TEST_F(ConnectionPoolTest, NewConnectionAfterServerRestart) {
     server_->stop();
     server_.reset();
 
-    server_ = std::make_unique<mock::Server>(server_cfg_);
+    server_ = std::make_unique<testutil::Server>(server_cfg_);
     server_->start();
     ASSERT_TRUE(server_->wait_until_ready());
 
@@ -235,7 +242,7 @@ TEST_F(ConnectionPoolTest, NewConnectionAfterServerRestart) {
 /// @brief Tests that when run_iterate fails on a cached connection, the pool
 /// discards it and creates a new connection.
 TEST_F(ConnectionPoolTest, RunIterateFailureFallsThrough) {
-    Pool pool;
+    Pool pool(testutil::create_store());
 
     // Create and release a connection
     auto conn1 = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
@@ -258,7 +265,7 @@ TEST_F(ConnectionPoolTest, RunIterateFailureFallsThrough) {
 
 /// @brief Tests that when all cached connections fail, a new connection is created.
 TEST_F(ConnectionPoolTest, AllCachedFailCreateNew) {
-    Pool pool;
+    Pool pool(testutil::create_store());
 
     // Create and release a connection
     auto conn1 = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
@@ -281,7 +288,7 @@ TEST_F(ConnectionPoolTest, AllCachedFailCreateNew) {
 /// @brief Tests that when the server stops, acquire returns an error and
 /// cleans up the broken connection from the pool.
 TEST_F(ConnectionPoolTest, ServerStopsDuringAcquire) {
-    Pool pool;
+    Pool pool(testutil::create_store());
 
     // Create and release connection
     { auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] ")); }
@@ -305,7 +312,7 @@ TEST_F(ConnectionPoolTest, ServerStopsDuringAcquire) {
 /// @brief Tests that after a server restart, the pool can recover and
 /// provide working connections.
 TEST_F(ConnectionPoolTest, ServerRestartRecovery) {
-    Pool pool;
+    Pool pool(testutil::create_store());
 
     // Create and hold connection
     auto conn1 = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
@@ -314,7 +321,7 @@ TEST_F(ConnectionPoolTest, ServerRestartRecovery) {
     server_->stop();
     server_.reset();
 
-    server_ = std::make_unique<mock::Server>(server_cfg_);
+    server_ = std::make_unique<testutil::Server>(server_cfg_);
     server_->start();
     ASSERT_TRUE(server_->wait_until_ready());
 
@@ -325,8 +332,8 @@ TEST_F(ConnectionPoolTest, ServerRestartRecovery) {
     auto conn2 = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
 
     // Verify connection is actually functional by checking session state
-    UA_SessionState session_state;
-    UA_SecureChannelState channel_state;
+    UA_SessionState session_state = UA_SESSIONSTATE_CLOSED;
+    UA_SecureChannelState channel_state = UA_SECURECHANNELSTATE_CLOSED;
     UA_Client_getState(conn2.get(), &channel_state, &session_state, nullptr);
     EXPECT_EQ(session_state, UA_SESSIONSTATE_ACTIVATED);
 }
@@ -334,7 +341,7 @@ TEST_F(ConnectionPoolTest, ServerRestartRecovery) {
 /// @brief Tests that connection errors are properly propagated with the
 /// correct error type.
 TEST_F(ConnectionPoolTest, ErrorStatusPropagation) {
-    Pool pool;
+    Pool pool(testutil::create_store());
 
     // Create and release connection
     { auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] ")); }
@@ -354,7 +361,7 @@ TEST_F(ConnectionPoolTest, ErrorStatusPropagation) {
 
 /// @brief Tests that multiple threads can recover after server restart.
 TEST_F(ConnectionPoolTest, ConcurrentRecoveryAfterFailure) {
-    Pool pool;
+    Pool pool(testutil::create_store());
 
     // Create initial connections
     {
@@ -368,7 +375,7 @@ TEST_F(ConnectionPoolTest, ConcurrentRecoveryAfterFailure) {
     server_->stop();
     server_.reset();
 
-    server_ = std::make_unique<mock::Server>(server_cfg_);
+    server_ = std::make_unique<testutil::Server>(server_cfg_);
     server_->start();
     ASSERT_TRUE(server_->wait_until_ready());
 
@@ -377,13 +384,14 @@ TEST_F(ConnectionPoolTest, ConcurrentRecoveryAfterFailure) {
     std::vector<std::thread> threads;
     std::atomic<int> success_count{0};
 
+    threads.reserve(num_threads);
     for (int i = 0; i < num_threads; ++i) {
         threads.emplace_back([&pool, &success_count, this]() {
             auto [conn, err] = pool.acquire(conn_cfg_, "[test] ");
             if (!err && conn) {
                 // Verify connection is functional
-                UA_SessionState session_state;
-                UA_SecureChannelState channel_state;
+                UA_SessionState session_state = UA_SESSIONSTATE_CLOSED;
+                UA_SecureChannelState channel_state = UA_SECURECHANNELSTATE_CLOSED;
                 UA_Client_getState(conn.get(), &channel_state, &session_state, nullptr);
                 if (session_state == UA_SESSIONSTATE_ACTIVATED) { success_count++; }
             }
@@ -418,16 +426,16 @@ TEST_F(ConnectionPoolTest, ConcurrentRecoveryAfterFailure) {
 ///   main:   thread B waits ~2s behind thread A's lock      → FAIL
 ///   update: thread B runs concurrently, completes quickly   → PASS
 TEST_F(ConnectionPoolTest, HealthyEndpointNotBlockedBySlowProbe) {
-    mock::ServerConfig server2_cfg = mock::ServerConfig::create_default();
+    testutil::ServerConfig server2_cfg = testutil::ServerConfig::create_default();
     server2_cfg.port = 4846;
-    mock::Server server2(server2_cfg);
+    testutil::Server server2(server2_cfg);
     server2.start();
     ASSERT_TRUE(server2.wait_until_ready());
 
     Config cfg2 = conn_cfg_;
     cfg2.endpoint = "opc.tcp://localhost:4846";
 
-    Pool pool;
+    Pool pool(testutil::create_store());
 
     // Prime both endpoints with cached connections
     { auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] ")); }
@@ -487,7 +495,7 @@ TEST_F(ConnectionPoolTest, HealthyEndpointNotBlockedBySlowProbe) {
 /// @brief Tests that the default client timeout is 5 seconds when
 /// client_timeout_ms is 0 (the default).
 TEST_F(ConnectionPoolTest, DefaultClientTimeout) {
-    Pool pool;
+    Pool pool(testutil::create_store());
     Config cfg = conn_cfg_;
     cfg.client_timeout_ms = 0; // Use default
 
@@ -498,7 +506,7 @@ TEST_F(ConnectionPoolTest, DefaultClientTimeout) {
 
 /// @brief Tests that custom client timeout overrides the default.
 TEST_F(ConnectionPoolTest, CustomClientTimeout) {
-    Pool pool;
+    Pool pool(testutil::create_store());
     Config cfg = conn_cfg_;
     cfg.client_timeout_ms = 15000;
 
@@ -510,7 +518,7 @@ TEST_F(ConnectionPoolTest, CustomClientTimeout) {
 /// @brief Tests that the default secure channel lifetime is 10 minutes
 /// and session timeout is 20 minutes.
 TEST_F(ConnectionPoolTest, DefaultSessionAndChannelTimeouts) {
-    Pool pool;
+    Pool pool(testutil::create_store());
     Config cfg = conn_cfg_;
     cfg.secure_channel_lifetime_ms = 0;
     cfg.session_timeout_ms = 0;
@@ -523,7 +531,7 @@ TEST_F(ConnectionPoolTest, DefaultSessionAndChannelTimeouts) {
 
 /// @brief Tests that custom secure channel and session timeouts override defaults.
 TEST_F(ConnectionPoolTest, CustomSessionAndChannelTimeouts) {
-    Pool pool;
+    Pool pool(testutil::create_store());
     Config cfg = conn_cfg_;
     cfg.secure_channel_lifetime_ms = 30000;
     cfg.session_timeout_ms = 60000;
@@ -537,10 +545,10 @@ TEST_F(ConnectionPoolTest, CustomSessionAndChannelTimeouts) {
 class SessionLimitPoolTest : public ::testing::Test {
 protected:
     void SetUp() override {
-        server_cfg_ = mock::ServerConfig::create_default();
+        server_cfg_ = testutil::ServerConfig::create_default();
         server_cfg_.port = 4860;
         server_cfg_.max_sessions = 2;
-        server_ = std::make_unique<mock::Server>(server_cfg_);
+        server_ = std::make_unique<testutil::Server>(server_cfg_);
         server_->start();
         ASSERT_TRUE(server_->wait_until_ready());
 
@@ -553,14 +561,14 @@ protected:
         if (server_) server_->stop();
     }
 
-    mock::ServerConfig server_cfg_;
-    std::unique_ptr<mock::Server> server_;
+    testutil::ServerConfig server_cfg_;
+    std::unique_ptr<testutil::Server> server_;
     Config conn_cfg_;
 };
 
 /// @brief it should reject connections when server session limit is reached.
 TEST_F(SessionLimitPoolTest, ServerRejectsWhenSessionLimitReached) {
-    Pool pool;
+    Pool pool(testutil::create_store());
 
     auto conn1 = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
     auto conn2 = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
@@ -577,7 +585,7 @@ TEST_F(SessionLimitPoolTest, ServerRejectsWhenSessionLimitReached) {
 /// @brief it should reuse connections within session limit instead of creating
 /// new ones.
 TEST_F(SessionLimitPoolTest, ReusePreventsSessionExhaustion) {
-    Pool pool;
+    Pool pool(testutil::create_store());
 
     // Acquire and release — connection goes back to pool as cached
     { auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] ")); }
@@ -596,7 +604,7 @@ TEST_F(SessionLimitPoolTest, ReusePreventsSessionExhaustion) {
 /// @brief it should exhaust sessions when connections are discarded and
 /// recreated rapidly (documents the churn problem).
 TEST_F(SessionLimitPoolTest, ConnectionChurnExhaustsSessions) {
-    Pool pool;
+    Pool pool(testutil::create_store());
 
     // Acquire and release 2 connections — they go back to pool as cached
     {
@@ -612,7 +620,7 @@ TEST_F(SessionLimitPoolTest, ConnectionChurnExhaustsSessions) {
     server_.reset();
 
     server_cfg_.max_sessions = 2;
-    server_ = std::make_unique<mock::Server>(server_cfg_);
+    server_ = std::make_unique<testutil::Server>(server_cfg_);
     server_->start();
     ASSERT_TRUE(server_->wait_until_ready());
 
@@ -645,7 +653,7 @@ TEST_F(SessionLimitPoolTest, ConnectionChurnExhaustsSessions) {
 /// With the update: after BREAKER_THRESHOLD (3) failures, the breaker opens
 /// and acquire() returns an error instantly during the cooldown window.
 TEST_F(SessionLimitPoolTest, CircuitBreakerTripsAfterFailures) {
-    Pool pool;
+    Pool pool(testutil::create_store());
 
     // Stop server so all connection attempts fail
     server_->stop();
@@ -675,8 +683,7 @@ TEST_F(SessionLimitPoolTest, CircuitBreakerTripsAfterFailures) {
         << "Breaker should reject instantly, but took " << elapsed.count() << "ms";
 
     // Error message should mention circuit breaker
-    EXPECT_NE(err.message().find("circuit breaker"), std::string::npos)
-        << "Error should mention circuit breaker: " << err.message();
+    EXPECT_EQ(err.data, BREAKER_OPEN_TEXT);
 }
 
 /// @brief After the circuit breaker trips, acquire() must reject instantly
@@ -690,7 +697,7 @@ TEST_F(SessionLimitPoolTest, CircuitBreakerTripsAfterFailures) {
 /// the breaker via BREAKER_THRESHOLD failures, then verifies the next acquire()
 /// returns in <500ms — proving cleanup was skipped, not blocking the caller.
 TEST_F(SessionLimitPoolTest, CircuitBreakerSkipsCleanupWhenTripped) {
-    Pool pool;
+    Pool pool(testutil::create_store());
 
     // Prime pool with one cached connection
     { auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] ")); }
@@ -721,8 +728,7 @@ TEST_F(SessionLimitPoolTest, CircuitBreakerSkipsCleanupWhenTripped) {
     EXPECT_LT(elapsed.count(), 500)
         << "Breaker should reject before cleanup_stale_entries, but took "
         << elapsed.count() << "ms";
-    EXPECT_NE(err.message().find("circuit breaker"), std::string::npos)
-        << "Error should mention circuit breaker: " << err.message();
+    EXPECT_EQ(err.data, BREAKER_OPEN_TEXT);
 }
 
 /// @brief After the circuit breaker trips and the cooldown expires, a
@@ -732,7 +738,7 @@ TEST_F(SessionLimitPoolTest, CircuitBreakerSkipsCleanupWhenTripped) {
 /// On main: no breaker, so this test structure doesn't apply — but it
 /// validates that the breaker doesn't permanently lock out an endpoint.
 TEST_F(SessionLimitPoolTest, CircuitBreakerResetsOnSuccess) {
-    Pool pool;
+    Pool pool(testutil::create_store());
 
     // Stop server to trip the breaker
     server_->stop();
@@ -749,12 +755,12 @@ TEST_F(SessionLimitPoolTest, CircuitBreakerResetsOnSuccess) {
     {
         auto [conn, err] = pool.acquire(conn_cfg_, "[test] ");
         ASSERT_TRUE(err);
-        EXPECT_NE(err.message().find("circuit breaker"), std::string::npos);
+        EXPECT_EQ(err.data, BREAKER_OPEN_TEXT);
     }
 
     // Restart server
     server_cfg_.max_sessions = 2;
-    server_ = std::make_unique<mock::Server>(server_cfg_);
+    server_ = std::make_unique<testutil::Server>(server_cfg_);
     server_->start();
     ASSERT_TRUE(server_->wait_until_ready());
 
@@ -767,8 +773,8 @@ TEST_F(SessionLimitPoolTest, CircuitBreakerResetsOnSuccess) {
     ASSERT_NE(conn.get(), nullptr);
 
     // Verify connection is functional
-    UA_SessionState ss;
-    UA_SecureChannelState cs;
+    UA_SessionState ss = UA_SESSIONSTATE_CLOSED;
+    UA_SecureChannelState cs = UA_SECURECHANNELSTATE_CLOSED;
     UA_Client_getState(conn.get(), &cs, &ss, nullptr);
     EXPECT_EQ(ss, UA_SESSIONSTATE_ACTIVATED);
 
@@ -787,7 +793,7 @@ TEST_F(SessionLimitPoolTest, CircuitBreakerResetsOnSuccess) {
 /// With the update: only one thread connects at a time (serialized via
 /// connect_cv_). Other threads wait and reuse the newly created connection.
 TEST_F(SessionLimitPoolTest, ConcurrentChurnExhaustsSessions) {
-    Pool pool;
+    Pool pool(testutil::create_store());
 
     // Prime with 2 cached connections
     {
@@ -801,7 +807,7 @@ TEST_F(SessionLimitPoolTest, ConcurrentChurnExhaustsSessions) {
     server_.reset();
 
     server_cfg_.max_sessions = 2;
-    server_ = std::make_unique<mock::Server>(server_cfg_);
+    server_ = std::make_unique<testutil::Server>(server_cfg_);
     server_->start();
     ASSERT_TRUE(server_->wait_until_ready());
 
@@ -812,6 +818,7 @@ TEST_F(SessionLimitPoolTest, ConcurrentChurnExhaustsSessions) {
     std::atomic<int> success_count{0};
     std::atomic<int> error_count{0};
 
+    threads.reserve(num_threads);
     for (int i = 0; i < num_threads; ++i) {
         threads.emplace_back([&pool, &success_count, &error_count, this]() {
             auto [conn, err] = pool.acquire(conn_cfg_, "[test] ");

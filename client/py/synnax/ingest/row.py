@@ -25,7 +25,7 @@ from synnax.io import RowFileReader
 from synnax.telem import Size, TimeStamp
 
 
-class RowIngestionEngine:
+class Engine:
     """An ingestion engine that reads data from a row-based reader and writes it to a
     Synnax cluster.
     """
@@ -39,6 +39,7 @@ class RowIngestionEngine:
 
     def __init__(
         self,
+        *,
         client: Synnax,
         reader: RowFileReader,
         channels: list[Channel],

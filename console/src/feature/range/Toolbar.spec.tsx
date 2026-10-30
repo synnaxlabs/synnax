@@ -147,7 +147,7 @@ describe("range/Toolbar", () => {
     const rng = createLocalRangeState(uniqueRangeName("a-very-long-range-name"));
     await renderToolbar({ ranges: [rng] });
     const name = await screen.findByText(rng.name);
-    expect(name.className).toContain("pluto-text--overflow-fade");
+    expect(name.className).toContain("lyra-text--overflow-fade");
     expect(name.closest(".console-range-list-item__name")).not.toBeNull();
   });
 
@@ -159,7 +159,7 @@ describe("range/Toolbar", () => {
     // detaching a match held across an await before the click lands.
     fireEvent.click(screen.getByText(rng.name));
     await waitFor(() =>
-      expect(Session.Range.selectSelectedKey(store.getState())).toBe(rng.key),
+      expect(store.getState()[Session.Range.SLICE_NAME].selected).toBe(rng.key),
     );
   });
 
@@ -185,7 +185,7 @@ describe("range/Toolbar", () => {
       await openContextMenu(rng.name);
       fireEvent.click(await screen.findByText("Set as active range"));
       await waitFor(() =>
-        expect(Session.Range.selectSelectedKey(store.getState())).toBe(rng.key),
+        expect(store.getState()[Session.Range.SLICE_NAME].selected).toBe(rng.key),
       );
     });
 
@@ -205,7 +205,7 @@ describe("range/Toolbar", () => {
       await openContextMenu(rng.name);
       fireEvent.click(await screen.findByText("Clear active range"));
       await waitFor(() =>
-        expect(Session.Range.selectSelectedKey(store.getState())).toBeUndefined(),
+        expect(store.getState()[Session.Range.SLICE_NAME].selected).toBeUndefined(),
       );
     });
 
@@ -388,26 +388,6 @@ describe("range/Toolbar", () => {
       await screen.findByText("No favorited ranges");
       expect(queryIconButton(document.body, "star-outlined")).toBeNull();
     });
-  });
-});
-
-describe("Range.fetchIfNotInState", () => {
-  it("returns the state already in the store without hitting the Core", async () => {
-    const local = createLocalRangeState(uniqueRangeName("cached"));
-    const { store } = await createConsoleWrapper({ client });
-    store.dispatch(Session.Range.add(local));
-    const result = await Range.fetchIfNotInState(store, client, local.key);
-    expect(nameOf(result)).toBe(local.name);
-  });
-
-  it("fetches a missing range from the Core and adds it to the store", async () => {
-    const created = await createTestRange(client);
-    const { store } = await createConsoleWrapper({ client });
-    const result = await Range.fetchIfNotInState(store, client, created.key);
-    expect(result.key).toBe(created.key);
-    expect(Session.Range.selectState(store.getState(), created.key)?.variant).toBe(
-      "persisted",
-    );
   });
 });
 

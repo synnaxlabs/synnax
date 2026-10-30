@@ -10,17 +10,22 @@
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { type PropsWithChildren, type ReactElement } from "react";
+import { type ReactElement } from "react";
 
-export interface SearchProps extends PropsWithChildren {
+import { Keys } from "@/components/keys/Keys";
+import { Results } from "@/components/search/Results";
+
+const TRIGGER: Triggers.Trigger = ["Control", "K"];
+
+export interface SearchProps {
   initialVisible?: boolean;
 }
 
 /**
- * Renders the search button and dialog. The page renders it closed and empty, and the
- * search island mounts it open with the results as children.
+ * Renders the search button and dialog. The page renders it closed, which also puts
+ * the results' styles in the page, and the search island mounts it open.
  */
-export const Search = ({ initialVisible, children }: SearchProps): ReactElement => (
+export const Search = ({ initialVisible }: SearchProps): ReactElement => (
   <Triggers.Provider>
     <Dialog.Frame
       variant="modal"
@@ -32,11 +37,11 @@ export const Search = ({ initialVisible, children }: SearchProps): ReactElement 
         justify="center"
         size="medium"
         textColor={8}
-        trigger={["Control", "K"]}
-        triggerIndicator
+        trigger={TRIGGER}
       >
         <Icon.Search />
         Search
+        <Keys trigger={TRIGGER} className="search-box__keys" />
       </Dialog.Trigger>
       <Dialog.Dialog
         bordered={false}
@@ -44,7 +49,7 @@ export const Search = ({ initialVisible, children }: SearchProps): ReactElement 
         rounded={1}
         className="search-results__content"
       >
-        {children}
+        <Results />
       </Dialog.Dialog>
     </Dialog.Frame>
   </Triggers.Provider>

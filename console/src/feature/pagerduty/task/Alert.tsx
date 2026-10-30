@@ -26,7 +26,7 @@ import { Status as Base } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Rack, Status } from "@synnaxlabs/pluto";
 import { id } from "@synnaxlabs/x";
-import { type FC, useCallback, useState } from "react";
+import { type FC, useState } from "react";
 
 import {
   ALERT_SCHEMAS,
@@ -129,7 +129,7 @@ const useAlertStatus = (itemKey: string): status.Status | undefined => {
 const AlertTitle = ({ itemKey }: { itemKey: string }) => {
   const name = useAlertStatus(itemKey)?.name;
   return (
-    <Text.Text level="p" weight={500} color={name == null ? 8 : 10} overflow="ellipsis">
+    <Text.Text level="p" weight={500} color={name == null ? 8 : 10} overflow="fade">
       {name ?? "New alert"}
     </Text.Text>
   );
@@ -206,36 +206,23 @@ const Form: FC = () => {
   const [selected, setSelected] = useState<string[]>([]);
   const menuProps = PMenu.useContextMenu();
 
-  const handleAdd = useCallback(() => {
+  const handleAdd = () => {
     const alert: AlertConfig = { ...pagerduty.alertZ.parse({}), key: id.create() };
     push(alert);
     setSelected([alert.key]);
-  }, [push]);
+  };
 
-  const handleRemove = useCallback(
-    (keys: string[]) => {
-      remove(keys);
-      setSelected([]);
-    },
-    [remove],
-  );
+  const handleRemove = (keys: string[]) => {
+    remove(keys);
+    setSelected([]);
+  };
 
-  const handleSetEnabled = useCallback(
-    (keys: string[], enabled: boolean) => {
-      for (const key of keys) set(`config.alerts.${key}.disabled`, !enabled);
-    },
-    [set],
-  );
+  const handleSetEnabled = (keys: string[], enabled: boolean) => {
+    for (const key of keys) set(`config.alerts.${key}.disabled`, !enabled);
+  };
 
-  const alertContextMenu = useCallback(
-    (p: PMenu.ContextMenuMenuProps) => (
-      <AlertContextMenu
-        {...p}
-        onRemove={handleRemove}
-        onSetEnabled={handleSetEnabled}
-      />
-    ),
-    [handleRemove, handleSetEnabled],
+  const alertContextMenu = (p: PMenu.ContextMenuMenuProps) => (
+    <AlertContextMenu {...p} onRemove={handleRemove} onSetEnabled={handleSetEnabled} />
   );
 
   const current = selected.length > 0 ? selected[0] : null;

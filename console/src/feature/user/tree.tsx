@@ -13,7 +13,6 @@ import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Access, type Flux, User } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
 
 import { ContextMenu } from "@/platform/context-menu";
 import { Tree } from "@/platform/tree";
@@ -21,7 +20,7 @@ import { User as PlatformUser } from "@/platform/user";
 
 const useDelete = Tree.createUseDelete({
   type: "User",
-  query: User.useDelete,
+  useUpdate: User.useDelete,
   convertKey: String,
 });
 
@@ -31,39 +30,29 @@ const useRename = ({
   },
   state: { getResource },
 }: Tree.ContextMenuProps): (() => void) => {
-  const beforeUpdate = useCallback(
-    async ({ data }: Flux.BeforeUpdateParams<User.ChangeUsernameParams>) => {
-      const [username, renamed] = await Text.asyncEdit(
-        List.itemNameID(ontology.idToString(firstID)),
-      );
-      if (!renamed) return false;
-      return { ...data, username };
-    },
-    [firstID],
-  );
+  const beforeUpdate = async ({ data }: Flux.BeforeUpdateParams<User.RenameParams>) => {
+    const [name, renamed] = await Text.asyncEdit(
+      List.itemNameID(ontology.idToString(firstID)),
+    );
+    if (!renamed) return false;
+    return { ...data, name };
+  };
   const { update } = User.useRename({ beforeUpdate });
-  return useCallback(
-    () => update({ key: firstID.key, username: getResource(firstID).name }),
-    [update, firstID, getResource],
-  );
+  return () => update({ key: firstID.key, name: getResource(firstID).name });
 };
 
 const useAssignRole = (): ((props: Tree.ContextMenuProps) => void) => {
   const openAssignRole = PlatformUser.useAssignRoleModal();
 
-  return useCallback(
-    ({ selection: { ids }, state: { getResource } }: Tree.ContextMenuProps) => {
-      const resource = getResource(ids[0]);
-      openAssignRole({ userKey: ids[0].key, title: ["Role", "Assign", resource.name] });
-    },
-    [openAssignRole],
-  );
+  return ({ selection: { ids }, state: { getResource } }: Tree.ContextMenuProps) => {
+    const resource = getResource(ids[0]);
+    openAssignRole({ userKey: ids[0].key, title: ["Role", "Assign", resource.name] });
+  };
 };
 
 const TreeContextMenu: Tree.ContextMenu = (props) => {
   const {
-    client,
-    state: { getResource },
+    state,
     selection: { ids },
   } = props;
   const hasUpdatePermission = Access.useUpdateGranted(ids);
@@ -72,8 +61,10 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const rename = useRename(props);
   const handleAssignRole = useAssignRole();
   const singleResource = ids.length === 1;
-  const isNotCurrentUser = getResource(ids[0]).name !== client.params.username;
-  const isRootUser = getResource(ids[0]).data?.root_user === true;
+  const first = Tree.useResource(state, ids[0]);
+  const { data: currentKey } = User.useResultKey({});
+  const isNotCurrentUser = first != null && first.id.key !== currentKey;
+  const isRootUser = first?.data?.root_user === true;
 
   return (
     <ContextMenu.Menu>
@@ -81,7 +72,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
         <>
           <Menu.Item itemKey="rename" onClick={rename}>
             <Icon.Rename />
-            Change username
+            Rename
           </Menu.Item>
           {!isRootUser && (
             <Menu.Item itemKey="assignRole" onClick={() => handleAssignRole(props)}>

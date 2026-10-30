@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
+	"github.com/synnaxlabs/cesium/internal/alignment"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
@@ -261,8 +262,10 @@ var _ = Describe("Alignment", func() {
 									[]cesium.ChannelKey{idxKey},
 									dataKeys...,
 								),
-								AutoChunkSize:    r.chunk,
-								DownsampleFactor: r.factor,
+								AutoChunkSize: r.chunk,
+								Reduction: telem.Reduction{
+									Variant: telem.StrideReduction{Factor: r.factor},
+								},
 							}))
 							seek, step := i.SeekFirst, i.Next
 							if r.backward {
@@ -273,8 +276,11 @@ var _ = Describe("Alignment", func() {
 							collect := func() {
 								GinkgoHelper()
 								for key, s := range i.Value().Entries() {
+									Expect(s.Multiple()).To(Equal(factor))
 									for j, ts := range stampsOf(s) {
-										a := s.Alignment.AddSamples(uint32(j) * factor)
+										a := s.Alignment.AddSamples(
+											uint32(j) * s.Multiple(),
+										)
 										Expect(stampAt).To(
 											HaveKeyWithValue(a, ts),
 											"channel %d sample at %s has alignment %s",
@@ -459,4 +465,12 @@ var _ = Describe("Alignment", func() {
 			}
 		})
 	}
+})
+
+var _ = Describe("NewAlignmentCounter", func() {
+	It("Should hand out leading domains after the zero leading alignment", func() {
+		c := cesium.NewAlignmentCounter()
+		Expect(c.Next()).To(Equal(alignment.Leading(1, 0)))
+		Expect(c.Next()).To(Equal(alignment.Leading(2, 0)))
+	})
 })

@@ -11,7 +11,6 @@ import "@/vis/value/RedlineForm.css";
 
 import { Button } from "@synnaxlabs/lyra/button";
 import { Color } from "@synnaxlabs/lyra/color";
-import { CSS } from "@synnaxlabs/lyra/css";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -21,6 +20,8 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { color, type compare, id } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement } from "react";
+
+import { CSS } from "@/css";
 
 const ascending: compare.Comparator<color.Band> = (a, b) => a.threshold - b.threshold;
 
@@ -190,8 +191,6 @@ export const RedlineForm = ({ path }: RedlineFormProps): ReactElement => {
     Form.useFieldValue<color.Color>("fillColor", { optional: true }) ?? undefined;
   const { push, remove } = Form.useFieldListUtils<string, color.Band>(bandsPath);
   const theme = Theming.use();
-  // The form edits values in place, so values read here keep their identity across
-  // edits and cannot key a memo.
   const { bands, smooth } = redline;
   const sorted = bands.toSorted(ascending);
   const keys = sorted.map(({ key }) => key);

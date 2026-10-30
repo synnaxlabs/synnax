@@ -17,7 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/synnax/pkg/security/cert/file"
-	"github.com/synnaxlabs/synnax/pkg/security/mock"
+	"github.com/synnaxlabs/synnax/pkg/security/testutil"
 	"github.com/synnaxlabs/synnax/pkg/server"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/testutil"
@@ -26,7 +26,7 @@ import (
 var _ = Describe("HttpRedirect", func() {
 	It("Should redirect HTTP requests to HTTPS", func() {
 		fs := xfs.NewMem()
-		mock.GenerateCerts(fs)
+		testutil.GenerateCerts(fs)
 		prov := MustSucceed(security.NewProvider(security.ProviderConfig{
 			FS:       fs,
 			Insecure: new(false),

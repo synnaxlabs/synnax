@@ -11,19 +11,17 @@ package ranger
 
 import (
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/telem"
 )
 
 // Retrieve is used to retrieve ranges from the cluster using a builder pattern.
 type Retrieve struct {
-	baseTX     gorp.Tx
-	gorp       gorp.Retrieve[Key, Range]
-	search     *search.Index
-	label      *label.Service
-	searchTerm string
+	baseTX  gorp.Tx
+	gorp    gorp.Retrieve[Key, Range]
+	indexes indexes
+	label   *label.Service
 }
 
 // MatchOverlap returns a filter that matches ranges whose TimeRange overlaps

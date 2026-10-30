@@ -15,29 +15,31 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
-	apicfg "github.com/synnaxlabs/synnax/pkg/api/config"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	svc "github.com/synnaxlabs/synnax/pkg/service"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestAPIAuth(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "API Auth Suite")
+	RunSpecs(t, "API Auth Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
-	node        mock.Node
+	node        testutil.Node
 	authSvc     *auth.Service
 	passwordSvc *password.Service
+	apiKeySvc   *apikey.Service
+	rbacSvc     *rbac.Service
+	otg         *ontology.Ontology
 	userSvc     *user.Service
 	apiSvc      *apiauth.Service
 	root        user.User
@@ -46,30 +48,38 @@ var (
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	node = mock.NewNode(ctx)
+	node = testutil.NewNode(ctx)
 	db := node.DB
-	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-	searchIdx := MustOpen(search.OpenIndex())
+	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-		DB: db, Ontology: otg, Search: searchIdx,
+		DB: db, Ontology: otg,
 	}))
 	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
-		DB: db, Ontology: otg, Group: groupSvc, Search: searchIdx,
+		DB: db, Ontology: otg, Group: groupSvc,
 	}))
 	passwordSvc = MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 	root, _ = MustSucceed2(user.ProvisionRoot(ctx, userSvc, passwordSvc, creds))
+	apiKeySvc = MustOpen(apikey.OpenService(ctx, apikey.ServiceConfig{DB: db}))
+	rbacSvc = MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+		Group:    groupSvc,
+		User:     userSvc,
+	}))
 	authSvc = MustOpen(auth.OpenService(ctx, auth.ServiceConfig{
 		DB: db,
 		Authenticators: map[auth.Method]auth.Authenticator{
 			auth.MethodPassword: passwordSvc,
+			auth.MethodAPIKey:   apiKeySvc,
 		},
 	}))
-	apiSvc = MustSucceed(apiauth.NewService(apicfg.LayerConfig{
-		Distribution: node.Layer,
-		Service: &svc.Layer{
-			Auth:     authSvc,
-			Password: passwordSvc,
-			User:     userSvc,
-		},
+	apiSvc = MustSucceed(apiauth.NewService(apiauth.ServiceConfig{
+		Auth:     authSvc,
+		Password: passwordSvc,
+		APIKey:   apiKeySvc,
+		Ontology: otg,
+		User:     userSvc,
+		RBAC:     rbacSvc,
+		Cluster:  node.Cluster,
 	}))
 })

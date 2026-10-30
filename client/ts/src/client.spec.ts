@@ -10,14 +10,14 @@
 import { TimeSpan } from "@synnaxlabs/x";
 import { afterEach, assert, describe, expect, it, vi } from "vitest";
 
-import type Synnax from "@/client";
+import { type default as Synnax } from "@/client";
 import { type connection } from "@/connection";
 import { AuthError, DisconnectedError } from "@/errors";
 import { label } from "@/label";
 import {
   createTestClient,
   createTestClientWithPolicy,
-  TEST_CLIENT_PARAMS,
+  TEST_CREDENTIALS,
 } from "@/testutil";
 
 const reasonOf = (status: connection.Status): connection.Reason | undefined =>
@@ -65,12 +65,16 @@ describe("connect", () => {
     const client = createTestClient({ password: "definitely-wrong" });
     await expect(client.connect()).rejects.toThrow(AuthError);
     expect(reasonOf(client.connection.status)).toEqual("auth");
-    client.reauthenticate({
-      username: TEST_CLIENT_PARAMS.username,
-      password: TEST_CLIENT_PARAMS.password,
-    });
+    client.reauthenticate(TEST_CREDENTIALS);
     const state = await client.connect();
     expect(state.variant).toEqual("success");
+    await client.close();
+  });
+
+  it("should reject bad credentials without a change stream", async () => {
+    const client = createTestClient({ password: "definitely-wrong", cache: false });
+    await expect(client.connect()).rejects.toThrow(AuthError);
+    expect(reasonOf(client.connection.status)).toEqual("auth");
     await client.close();
   });
 
@@ -156,6 +160,15 @@ describe("close", () => {
   afterEach(() => {
     vi.restoreAllMocks();
   });
+
+  it("should not wait past the deadline for a logout the Core never answers", async () => {
+    const client = createTestClient();
+    await client.connect();
+    vi.spyOn(client.auth, "logout").mockReturnValue(new Promise(() => {}));
+    const start = performance.now();
+    await client.close();
+    expect(performance.now() - start).toBeLessThan(5000);
+  }, 10_000);
 
   it("should settle the connection status on disabled", async () => {
     const client = createTestClient();

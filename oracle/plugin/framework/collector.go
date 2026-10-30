@@ -10,19 +10,19 @@
 package framework
 
 import (
-	"github.com/cockroachdb/errors"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
+	"github.com/synnaxlabs/x/errors"
 )
 
 type OutputPathFunc func(typ resolution.Type) string
 
 type SkipFunc func(typ resolution.Type) bool
 
-type PathEntry struct {
+type pathEntry struct {
 	Path  string
 	Types []resolution.Type
 }
@@ -31,13 +31,13 @@ type Collector struct {
 	request       *plugin.Request
 	pathFunc      OutputPathFunc
 	skipFunc      SkipFunc
-	entries       []PathEntry
+	entries       []pathEntry
 	validatePaths bool
 }
 
 func NewCollector(domain string, req *plugin.Request) *Collector {
 	return &Collector{
-		entries:       make([]PathEntry, 0),
+		entries:       make([]pathEntry, 0),
 		pathFunc:      func(typ resolution.Type) string { return output.GetPath(typ, domain) },
 		skipFunc:      func(typ resolution.Type) bool { return omit.IsSkipped(typ, domain) },
 		validatePaths: req.RepoRoot != "",
@@ -81,7 +81,7 @@ func (c *Collector) Add(typ resolution.Type) error {
 	if idx == -1 {
 		c.entries = append(
 			c.entries,
-			PathEntry{Path: outputPath, Types: []resolution.Type{typ}},
+			pathEntry{Path: outputPath, Types: []resolution.Type{typ}},
 		)
 	} else {
 		c.entries[idx].Types = append(c.entries[idx].Types, typ)
@@ -99,11 +99,11 @@ func (c *Collector) AddAll(types []resolution.Type) error {
 }
 
 func (c *Collector) Paths() []string {
-	return lo.Map(c.entries, func(e PathEntry, _ int) string { return e.Path })
+	return lo.Map(c.entries, func(e pathEntry, _ int) string { return e.Path })
 }
 
 func (c *Collector) Get(path string) []resolution.Type {
-	entry, found := lo.Find(c.entries, func(e PathEntry) bool { return e.Path == path })
+	entry, found := lo.Find(c.entries, func(e pathEntry) bool { return e.Path == path })
 	if !found {
 		return nil
 	}
@@ -121,7 +121,7 @@ func (c *Collector) Remove(path string) []resolution.Type {
 }
 
 func (c *Collector) Has(path string) bool {
-	entry, found := lo.Find(c.entries, func(e PathEntry) bool { return e.Path == path })
+	entry, found := lo.Find(c.entries, func(e pathEntry) bool { return e.Path == path })
 	return found && len(entry.Types) > 0
 }
 

@@ -91,7 +91,7 @@ class Parser {
             for (const auto &name: {names...}) {
                 auto norm = normalize_arg_name(name);
                 std::string prefix = norm.double_ + "=";
-                if (arg.compare(0, prefix.length(), prefix) == 0) {
+                if (arg.starts_with(prefix)) {
                     last_found = {arg.substr(arg.find('=') + 1), true};
                     continue;
                 }

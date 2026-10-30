@@ -9,10 +9,10 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-select__dialog.console-performance-select__dialog {
+.lyra-select__dialog.console-performance-select__dialog {
     width: 320px;
 
-    &.pluto--visible {
+    &.lyra--visible {
         max-height: none;
     }
 }
@@ -21,13 +21,7 @@
     margin-top: 1rem;
 }
 
-.console-performance-select__meter {
-    width: 1em;
-    height: 1em;
-    flex-shrink: 0;
-}
-
-.pluto-icon.console-performance-select__auto {
+.lyra-icon.console-performance-select__auto {
     color: #635bff;
 }
 
@@ -47,7 +41,11 @@
     fill: var(--pluto-error-z);
 }
 
-/* The trigger shows the selected level's name alone. */
-.console-performance-select__trigger .console-performance-select__description {
-    display: none;
+/* The trigger shows the selected level's glyph as its icon, so its label shows the name
+   alone. */
+.console-performance-select__trigger .lyra-select__label {
+    .lyra-icon,
+    .console-performance-select__description {
+        display: none;
+    }
 }

@@ -11,7 +11,6 @@ import "@/vis/diagram/Diagram.css";
 import "@xyflow/react/dist/base.css";
 
 import { type Component } from "@synnaxlabs/lyra/component";
-import { CSS } from "@synnaxlabs/lyra/css";
 import {
   useCombinedRefs,
   useDebouncedCallback,
@@ -48,15 +47,14 @@ import {
   type MouseEvent as ReactMouseEvent,
   type PropsWithChildren,
   type ReactElement,
-  useCallback,
   useEffect,
-  useMemo,
   useRef,
   useState,
 } from "react";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
+import { CSS } from "@/css";
 import { Viewport as BaseViewport } from "@/viewport";
 import { Canvas } from "@/vis/canvas";
 import { diagram } from "@/vis/diagram/aether";
@@ -224,7 +222,7 @@ export const create = ({
       selected = false,
       draggable = true,
     }: RFNodeProps): ReactElement => {
-      const position = useMemo(() => ({ x, y }), [x, y]);
+      const position = { x, y };
       return nodeRenderer({ nodeKey: id, position, selected, draggable });
     },
   );
@@ -245,14 +243,8 @@ export const create = ({
       target,
       selected = false,
     }: RFEdgeProps): ReactElement => {
-      const s = useMemo(
-        () => diagram.createEndpoint(sourceX, sourceY, sourcePosition),
-        [sourceX, sourceY, sourcePosition],
-      );
-      const t = useMemo(
-        () => diagram.createEndpoint(targetX, targetY, targetPosition),
-        [targetX, targetY, targetPosition],
-      );
+      const s = diagram.createEndpoint(sourceX, sourceY, sourcePosition);
+      const t = diagram.createEndpoint(targetX, targetY, targetPosition);
       return edgeRenderer!({
         edgeKey: id,
         source: s,
@@ -316,7 +308,7 @@ export const create = ({
     onContextMenu,
     ...rest
   }: DiagramProps): ReactElement => {
-    const [{ path }, , setState] = Aether.use({
+    const { path, setState } = Aether.useLifecycle({
       aetherKey,
       type: diagram.Diagram.TYPE,
       schema: diagram.diagramStateZ,
@@ -344,16 +336,11 @@ export const create = ({
     // against an unsized one (a tab whose content is not currently hosted in the DOM)
     // would report a nonsense viewport to the caller.
     const [isSized, setIsSized] = useState(false);
-    const resizeRef = Canvas.useRegion(
-      useCallback(
-        (region) => {
-          setIsSized(!box.areaIsZero(region));
-          if (fitViewOnResize) debouncedFitView(fitViewOptions);
-          setState((prev) => ({ ...prev, region }));
-        },
-        [setState, debouncedFitView, fitViewOnResize],
-      ),
-    );
+    const resizeRef = Canvas.useRegion((region) => {
+      setIsSized(!box.areaIsZero(region));
+      if (fitViewOnResize) debouncedFitView(fitViewOptions);
+      setState((prev) => ({ ...prev, region }));
+    });
 
     useInitialFitView(visible && isSized, fitViewOptions);
 
@@ -363,226 +350,163 @@ export const create = ({
       [pTriggers],
     );
 
+    const triggerRef = useRef<HTMLDivElement>(null);
     const viewportRef = useRef<RFViewport | null>(null);
-    const handleViewportChange = useCallback(
-      (vp: RFViewport): void => {
-        // Set before the dedupe: a remounted React Flow reports an unchanged viewport
-        // on a fresh element that has no variable yet.
-        triggerRef.current?.style.setProperty(
-          CSS.variable("diagram-zoom"),
-          `${vp.zoom}`,
-        );
-        const prev = viewportRef.current;
-        if (prev != null && prev.x === vp.x && prev.y === vp.y && prev.zoom === vp.zoom)
-          return;
-        viewportRef.current = vp;
-        if (isNaN(vp.x) || isNaN(vp.y) || isNaN(vp.zoom)) return;
-        setState((prev) => ({ ...prev, position: vp, zoom: vp.zoom }));
-        onViewportChange(translateViewportBackward(vp));
-      },
-      [setState, onViewportChange],
-    );
+    const handleViewportChange = (vp: RFViewport): void => {
+      // Set before the dedupe: a remounted React Flow reports an unchanged viewport
+      // on a fresh element that has no variable yet.
+      triggerRef.current?.style.setProperty(CSS.variable("diagram-zoom"), `${vp.zoom}`);
+      const prev = viewportRef.current;
+      if (prev != null && prev.x === vp.x && prev.y === vp.y && prev.zoom === vp.zoom)
+        return;
+      viewportRef.current = vp;
+      if (isNaN(vp.x) || isNaN(vp.y) || isNaN(vp.zoom)) return;
+      setState((prev) => ({ ...prev, position: vp, zoom: vp.zoom }));
+      onViewportChange(translateViewportBackward(vp));
+    };
     useOnViewportChange(handleViewportChange);
 
-    const selectedSet = useMemo(() => new Set(selected), [selected]);
+    const selectedSet = new Set(selected);
     const selectedRef = useSyncedRef(selectedSet);
 
-    const rfEdges = useMemo(
-      () => translateEdgesForward(edges, selectedSet),
-      [edges, selectedSet],
-    );
+    const rfEdges = translateEdgesForward(edges, selectedSet);
     const [measured, setMeasured] = useState<Record<string, dimensions.Dimensions>>({});
-    const rfNodes = useMemo(
-      () =>
-        translateNodesForward(nodes, selectedSet, dragHandleSelector).map((node) => ({
-          ...node,
-          measured: measured[node.id],
-        })),
-      [nodes, selectedSet, dragHandleSelector, measured],
+    const rfNodes = translateNodesForward(nodes, selectedSet, dragHandleSelector).map(
+      (node) => ({
+        ...node,
+        measured: measured[node.id],
+      }),
     );
 
-    const processChanges = useCallback(
-      <
-        RFChange extends RFEdgeChange | RFNodeChange,
-        Change extends EdgeChange | NodeChange,
-      >(
-        rfChanges: RFChange[],
-        translate: (c: RFChange) => Change | null,
-        onMutations: (changes: Change[]) => void,
-      ): void => {
-        const mutations: Change[] = [];
-        let nextSelected: Set<string> | undefined;
-        for (const change of rfChanges) {
-          const translated = translate(change);
-          if (translated == null) continue;
-          if (translated.type === "select") {
-            if (nextSelected === undefined) nextSelected = new Set(selectedRef.current);
-            if (translated.selected) nextSelected.add(translated.key);
-            else nextSelected.delete(translated.key);
-            continue;
-          }
-          if (translated.type === "remove") {
-            if (nextSelected === undefined) nextSelected = new Set(selectedRef.current);
-            nextSelected.delete(translated.key);
-          }
-          mutations.push(translated);
+    const processChanges = <
+      RFChange extends RFEdgeChange | RFNodeChange,
+      Change extends EdgeChange | NodeChange,
+    >(
+      rfChanges: RFChange[],
+      translate: (c: RFChange) => Change | null,
+      onMutations: (changes: Change[]) => void,
+    ): void => {
+      const mutations: Change[] = [];
+      let nextSelected: Set<string> | undefined;
+      for (const change of rfChanges) {
+        const translated = translate(change);
+        if (translated == null) continue;
+        if (translated.type === "select") {
+          if (nextSelected === undefined) nextSelected = new Set(selectedRef.current);
+          if (translated.selected) nextSelected.add(translated.key);
+          else nextSelected.delete(translated.key);
+          continue;
         }
-        if (nextSelected !== undefined) {
-          selectedRef.current = nextSelected;
-          onSelectionChange?.([...nextSelected]);
+        if (translated.type === "remove") {
+          if (nextSelected === undefined) nextSelected = new Set(selectedRef.current);
+          nextSelected.delete(translated.key);
         }
-        if (mutations.length > 0) onMutations(mutations);
-      },
-      [onSelectionChange],
-    );
+        mutations.push(translated);
+      }
+      if (nextSelected !== undefined) {
+        selectedRef.current = nextSelected;
+        onSelectionChange?.([...nextSelected]);
+      }
+      if (mutations.length > 0) onMutations(mutations);
+    };
 
-    const handleNodesChange = useCallback(
-      (changes: RFNodeChange[]) => {
-        const { passthrough, sizes, removed } = partitionNodeChanges(changes);
-        if (sizes.length > 0 || removed.length > 0)
-          setMeasured((prev) => {
-            const next = { ...prev };
-            for (const [key, d] of sizes) next[key] = d;
-            for (const key of removed) delete next[key];
-            return next;
-          });
-        if (passthrough.length > 0)
-          processChanges(passthrough, translateNodeChangeForward, onNodesChange);
-      },
-      [processChanges, onNodesChange],
-    );
+    const handleNodesChange = (changes: RFNodeChange[]) => {
+      const { passthrough, sizes, removed } = partitionNodeChanges(changes);
+      if (sizes.length > 0 || removed.length > 0)
+        setMeasured((prev) => {
+          const next = { ...prev };
+          for (const [key, d] of sizes) next[key] = d;
+          for (const key of removed) delete next[key];
+          return next;
+        });
+      if (passthrough.length > 0)
+        processChanges(passthrough, translateNodeChangeForward, onNodesChange);
+    };
 
-    const handleEdgesChange = useCallback(
-      (changes: RFEdgeChange[]) =>
-        processChanges(changes, translateEdgeChangeForward, onEdgesChange),
-      [processChanges, onEdgesChange],
-    );
+    const handleEdgesChange = (changes: RFEdgeChange[]) =>
+      processChanges(changes, translateEdgeChangeForward, onEdgesChange);
 
-    const handleConnect = useCallback(
-      (conn: RFConnection) =>
-        onEdgesChange([{ type: "add", edge: diagram.createEdgeFromConnection(conn) }]),
-      [onEdgesChange],
-    );
+    const handleConnect = (conn: RFConnection) =>
+      onEdgesChange([{ type: "add", edge: diagram.createEdgeFromConnection(conn) }]);
 
-    const handleReconnect = useCallback(
-      (oldEdge: RFEdge, conn: RFConnection) =>
-        onEdgesChange([diagram.createReconnect(oldEdge.id, conn)]),
-      [onEdgesChange],
-    );
+    const handleReconnect = (oldEdge: RFEdge, conn: RFConnection) =>
+      onEdgesChange([diagram.createReconnect(oldEdge.id, conn)]);
 
     const editableProps = editable ? EDITABLE_PROPS : NOT_EDITABLE_PROPS;
 
-    const triggerRef = useRef<HTMLDivElement>(null);
     Triggers.use({
       triggers: triggers.modes.zoomReset,
-      callback: useCallback(
-        ({ stage, cursor, target }: Triggers.UseEvent) => {
-          const reg = triggerRef.current;
-          if (reg == null || stage !== "start" || !box.contains(reg, cursor)) return;
-          if (target.closest(ELEMENT_SELECTOR) != null) return;
-          fitView();
-        },
-        [fitView],
-      ),
+      callback: ({ stage, cursor, target }: Triggers.UseEvent) => {
+        const reg = triggerRef.current;
+        if (reg == null || stage !== "start" || !box.contains(reg, cursor)) return;
+        if (target.closest(ELEMENT_SELECTOR) != null) return;
+        fitView();
+      },
     });
 
-    const triggerProps = useMemo<Partial<ReactFlowProps>>(() => {
-      const { select, pan, zoom } = triggers.modes;
-      const selectTriggers = Triggers.purgeMouse(select)[0] ?? null;
-      const panTriggers = Triggers.purgeMouse(pan)[0] ?? null;
-      const zoomTriggers = Triggers.purgeMouse(zoom)[0] ?? null;
-      return {
-        selectionOnDrag: selectTriggers == null,
-        panOnDrag: panTriggers == null,
-        selectionKeyCode: selectTriggers,
-        panActivationKeyCode: panTriggers,
-        zoomActivationKeyCode: zoomTriggers,
-      };
-    }, [triggers]);
+    const { select, pan, zoom } = triggers.modes;
+    const selectTriggers = Triggers.purgeMouse(select)[0] ?? null;
+    const panTriggers = Triggers.purgeMouse(pan)[0] ?? null;
+    const zoomTriggers = Triggers.purgeMouse(zoom)[0] ?? null;
+    const triggerProps: Partial<ReactFlowProps> = {
+      selectionOnDrag: selectTriggers == null,
+      panOnDrag: panTriggers == null,
+      selectionKeyCode: selectTriggers,
+      panActivationKeyCode: panTriggers,
+      zoomActivationKeyCode: zoomTriggers,
+    };
 
     const containerRefs = useCombinedRefs(ref, resizeRef);
 
-    const ctxValue = useMemo(
-      () => ({
-        visible,
-        editable,
-        onEditableChange,
-        fitViewOnResize,
-        setFitViewOnResize,
-        fitViewOptions,
-        viewportMode,
-        onViewportModeChange,
-      }),
-      [
-        editable,
-        visible,
-        onEditableChange,
-        fitViewOnResize,
-        fitViewOptions,
-        viewportMode,
-        onViewportModeChange,
-      ],
-    );
+    const ctxValue = {
+      visible,
+      editable,
+      onEditableChange,
+      fitViewOnResize,
+      setFitViewOnResize,
+      fitViewOptions,
+      viewportMode,
+      onViewportModeChange,
+    };
 
-    const defautlViewport = useMemo(
-      () => translateViewportForward(viewport),
-      [viewport],
-    );
+    const defautlViewport = translateViewportForward(viewport);
 
     const viewportSyncRef = useSyncedRef(viewport);
     const cursorRef = useRef<xy.XY>(xy.ZERO);
 
-    const handleMouseMove = useCallback(
-      (e: ReactMouseEvent<HTMLDivElement>): void => {
-        cursorRef.current = xy.construct(e.nativeEvent);
-        onMouseMove?.(e);
-      },
-      [onMouseMove],
-    );
+    const handleMouseMove = (e: ReactMouseEvent<HTMLDivElement>): void => {
+      cursorRef.current = xy.construct(e.nativeEvent);
+      onMouseMove?.(e);
+    };
 
-    const cursorInDiagramSpace = useCallback(
-      (target: HTMLDivElement): xy.XY =>
-        calculateCursorPosition(
-          box.construct(target),
-          cursorRef.current,
-          viewportSyncRef.current,
-        ),
-      [],
-    );
+    const cursorInDiagramSpace = (target: HTMLDivElement): xy.XY =>
+      calculateCursorPosition(
+        box.construct(target),
+        cursorRef.current,
+        viewportSyncRef.current,
+      );
 
-    const handleCopy = useCallback(
-      (e: ReactClipboardEvent<HTMLDivElement>): void => {
-        onCopy?.(e, cursorInDiagramSpace(e.currentTarget));
-      },
-      [onCopy, cursorInDiagramSpace],
-    );
+    const handleCopy = (e: ReactClipboardEvent<HTMLDivElement>): void => {
+      onCopy?.(e, cursorInDiagramSpace(e.currentTarget));
+    };
 
-    const handleCut = useCallback(
-      (e: ReactClipboardEvent<HTMLDivElement>): void => {
-        if (!editable) return;
-        onCut?.(e, cursorInDiagramSpace(e.currentTarget));
-      },
-      [onCut, editable, cursorInDiagramSpace],
-    );
+    const handleCut = (e: ReactClipboardEvent<HTMLDivElement>): void => {
+      if (!editable) return;
+      onCut?.(e, cursorInDiagramSpace(e.currentTarget));
+    };
 
-    const handlePaste = useCallback(
-      (e: ReactClipboardEvent<HTMLDivElement>): void => {
-        onPaste?.(e, cursorInDiagramSpace(e.currentTarget));
-      },
-      [onPaste, cursorInDiagramSpace],
-    );
+    const handlePaste = (e: ReactClipboardEvent<HTMLDivElement>): void => {
+      onPaste?.(e, cursorInDiagramSpace(e.currentTarget));
+    };
 
     // Space and Enter would click whichever control holds focus. Triggers and React
     // Flow ignore defaultPrevented, so shortcuts and selection still fire. A dialog
     // opened from a node portals out of this element, hence the contains check.
-    const handleActivationKey = useCallback(
-      (e: KeyboardEvent<HTMLDivElement>): void => {
-        if (!(e.target instanceof Node) || !e.currentTarget.contains(e.target)) return;
-        if (isInputOrContentEditable(e)) return;
-        blockActivation(e);
-      },
-      [],
-    );
+    const handleActivationKey = (e: KeyboardEvent<HTMLDivElement>): void => {
+      if (!(e.target instanceof Node) || !e.currentTarget.contains(e.target)) return;
+      if (isInputOrContentEditable(e)) return;
+      blockActivation(e);
+    };
 
     return (
       <div

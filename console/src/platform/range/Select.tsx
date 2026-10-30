@@ -36,46 +36,44 @@ interface SelectMultipleRangesProps extends Omit<
 
 const dynamicIcon = <Icon.Dynamic className={CSS.BE("range-select", "dynamic-icon")} />;
 
-const DynamicListItem = Component.renderProp(
-  (props: List.ItemProps<string> & { range: Session.Range.DynamicState }) => {
-    const { range } = props;
-    return (
-      <Select.Item {...props} justify="between">
-        <Text.Text className={CSS.BE("range-select", "dynamic-name")}>
-          {range.name}
-        </Text.Text>
-        <Text.Text>
-          {new TimeSpan(range.span).toString()}
-          {dynamicIcon}
-        </Text.Text>
-      </Select.Item>
-    );
-  },
-);
+const DynamicListItem = (
+  props: List.ItemProps<string> & { range: Session.Range.DynamicState },
+) => {
+  const { range } = props;
+  return (
+    <Select.Item {...props} justify="between">
+      <Text.Text className={CSS.BE("range-select", "dynamic-name")}>
+        {range.name}
+      </Text.Text>
+      <Text.Text>
+        {new TimeSpan(range.span).toString()}
+        {dynamicIcon}
+      </Text.Text>
+    </Select.Item>
+  );
+};
 
-const StaticListItem = Component.renderProp(
-  (
-    props: List.ItemProps<string> & {
-      range: Exclude<Resolved, Session.Range.DynamicState>;
-    },
-  ) => {
-    const { range } = props;
-    const { data: parent } = Ranger.useResultParent({
-      id: ranger.ontologyID(range.key),
-    });
-    return (
-      <Select.Item {...props} justify="between">
-        <Ranger.Breadcrumb
-          key={range.key}
-          name={range.name}
-          parent={parent}
-          timeRange={range.timeRange}
-        />
-        <Telem.Text.TimeRange level="small">{range.timeRange}</Telem.Text.TimeRange>
-      </Select.Item>
-    );
+const StaticListItem = (
+  props: List.ItemProps<string> & {
+    range: Exclude<Resolved, Session.Range.DynamicState>;
   },
-);
+) => {
+  const { range } = props;
+  const { data: parent } = Ranger.useResultParent({
+    id: ranger.ontologyID(range.key),
+  });
+  return (
+    <Select.Item {...props} justify="between">
+      <Ranger.Breadcrumb
+        key={range.key}
+        name={range.name}
+        parent={parent}
+        timeRange={range.timeRange}
+      />
+      <Telem.Text.TimeRange level="tiny">{range.timeRange}</Telem.Text.TimeRange>
+    </Select.Item>
+  );
+};
 
 /** Selecting this entry reveals the consumer's custom range controls. */
 export const CUSTOM_KEY = "custom";
@@ -87,12 +85,14 @@ const customItem = (
   </Select.Item>
 );
 
-const listItem = Component.renderProp((props: List.ItemProps<string>) => {
+const ListItem = (props: List.ItemProps<string>) => {
   const range = useResolve(props.itemKey);
   if (range == null) return null;
   if (range.variant === "dynamic") return <DynamicListItem {...props} range={range} />;
   return <StaticListItem {...props} range={range} />;
-});
+};
+
+const listItem = Component.renderProp(ListItem);
 
 interface RenderTagProps {
   itemKey: string;

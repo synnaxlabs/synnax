@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+export * from "@/feature/account/commands";
 export * from "@/feature/account/Guard";
 export * from "@/feature/account/handoff";
 export * from "@/feature/account/machine";

@@ -24,14 +24,6 @@ const (
 	TickTypeTime   TickType = versions.TickTypeTime
 )
 
-// DownsampleMode selects how a line condenses samples that map to the same pixel.
-type DownsampleMode = versions.DownsampleMode
-
-const (
-	DownsampleModeAverage  DownsampleMode = versions.DownsampleModeAverage
-	DownsampleModeDecimate DownsampleMode = versions.DownsampleModeDecimate
-)
-
 // XAxisKey names one of the two x-axes. X-axes carry a single channel each.
 type XAxisKey = versions.XAxisKey
 
@@ -72,27 +64,6 @@ type Legend = versions.Legend
 // carry zero or more channels each.
 type Channels = versions.Channels
 
-// CustomRange is the window a plot's synthetic "custom" range key resolves to.
-type CustomRange = versions.CustomRange
-type CustomRangeVariant = versions.CustomRangeVariant
-type CustomRangeType = versions.CustomRangeType
-
-const (
-	// DynamicCustomRangeType is a rolling window.
-	DynamicCustomRangeType CustomRangeType = versions.DynamicCustomRangeType
-	// StaticCustomRangeType is a fixed window.
-	StaticCustomRangeType CustomRangeType = versions.StaticCustomRangeType
-)
-
-// DynamicCustomRange is a rolling window.
-type DynamicCustomRange = versions.DynamicCustomRange
-
-// StaticCustomRange is a fixed window.
-type StaticCustomRange = versions.StaticCustomRange
-
-// Ranges binds range keys to each x-axis.
-type Ranges = versions.Ranges
-
 // ManualBounds controls whether an axis uses a manually-set bound on each side
 // independently. When a side is false (the default), the corresponding entry in
 // Axis.bounds is recomputed locally from the rendered data window and never broadcast
@@ -105,7 +76,7 @@ type Axis = versions.Axis
 // Axes bundles configuration for all six fixed plot axes.
 type Axes = versions.Axes
 
-// Line is the per-line styling and downsampling configuration.
+// Line is the per-line styling and reduction configuration.
 type Line = versions.Line
 
 // Rule is a horizontal or vertical annotation line drawn over the plot.
@@ -115,3 +86,22 @@ type Rule = versions.Rule
 // plots support multiple channels, real-time streaming, and historical data display
 // with zoom and pan capabilities.
 type LinePlot = versions.LinePlot
+
+// Aggregation selects how a line reduces the samples of one pixel group. min_max draws
+// the lowest and highest sample, and average draws the mean.
+type Aggregation = versions.Aggregation
+
+const (
+	AggregationMinMax  Aggregation = versions.AggregationMinMax
+	AggregationAverage Aggregation = versions.AggregationAverage
+)
+
+// Detail selects how many sample groups a line draws per pixel column: one per four,
+// two, or one pixel columns.
+type Detail = versions.Detail
+
+const (
+	DetailLow    Detail = versions.DetailLow
+	DetailMedium Detail = versions.DetailMedium
+	DetailHigh   Detail = versions.DetailHigh
+)

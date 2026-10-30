@@ -1,0 +1,24 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { addChannel, NI_DAQ, taskScript } from "./common/task";
+
+/**
+ * Docs `reference/hardware/ni/digital-write-task` (Create a digital write task): set
+ * the state update rate, add two lines, and start the task.
+ */
+export default taskScript({
+  device: NI_DAQ,
+  item: "Create digital write task",
+  rates: { "State update rate": "20" },
+  channels: async (session, form) => {
+    await addChannel(session, form);
+    await addChannel(session, form);
+  },
+});

@@ -10,14 +10,14 @@
 #include "gtest/gtest.h"
 
 #include "x/cpp/json/json.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 namespace x::json {
 /// @brief it should parse valid JSON fields successfully.
 TEST(testConfig, testParserHappyPath) {
     struct MyConfig {
         std::string name;
-        float dog;
+        float dog{};
     };
     MyConfig v;
 
@@ -70,7 +70,7 @@ TEST(testConfig, testParserFieldHasInvalidType) {
 TEST(testConfig, testParserFieldChildHappyPath) {
     struct MyChildConfig {
         std::string name;
-        float dog;
+        float dog{};
     };
 
     struct MyConfig {
@@ -92,7 +92,7 @@ TEST(testConfig, testParserFieldChildHappyPath) {
 TEST(testConfig, testParserFieldChildDoesNotExist) {
     struct MyChildConfig {
         std::string name;
-        float dog;
+        float dog{};
     };
 
     struct MyConfig {
@@ -116,7 +116,7 @@ TEST(testConfig, testParserFieldChildDoesNotExist) {
 TEST(testConfig, testParserChildFieldInvalidType) {
     struct MyChildConfig {
         std::string name;
-        float dog;
+        float dog{};
     };
 
     struct MyConfig {
@@ -140,7 +140,7 @@ TEST(testConfig, testParserChildFieldInvalidType) {
 TEST(testConfig, testIterHappyPath) {
     struct MyChildConfig {
         std::string name;
-        float dog;
+        float dog{};
     };
 
     struct MyConfig {
@@ -170,7 +170,7 @@ TEST(testConfig, testIterHappyPath) {
 TEST(testConfig, testIterFieldDoesNotExist) {
     struct MyChildConfig {
         std::string name;
-        float dog;
+        float dog{};
     };
 
     struct MyConfig {
@@ -197,7 +197,7 @@ TEST(testConfig, testIterFieldDoesNotExist) {
 TEST(testConfig, testIterFieldIsNotArray) {
     struct MyChildConfig {
         std::string name;
-        float dog;
+        float dog{};
     };
 
     struct MyConfig {
@@ -224,7 +224,7 @@ TEST(testConfig, testIterFieldIsNotArray) {
 TEST(testConfig, testIterFieldChildFieldInvalidType) {
     struct MyChildConfig {
         std::string name;
-        float dog;
+        float dog{};
     };
 
     struct MyConfig {
@@ -257,7 +257,7 @@ TEST(testConfig, testInterpretStringAsNumber) {
         float dog;
     };
     const json j = {{"dog", "1.232"}};
-    MyConfig v;
+    MyConfig v{};
     Parser parser(j);
     v.dog = parser.field<float>("dog");
     EXPECT_TRUE(parser.ok());
@@ -329,7 +329,7 @@ TEST(testConfig, testNoError) {
 TEST(testConfig, testParseFromFileSuccess) {
     struct MyConfig {
         std::string name;
-        float value;
+        float value{};
     };
 
     // Create a temporary test file
@@ -380,9 +380,7 @@ TEST(testConfig, testParseFromFileInvalidJSON) {
     EXPECT_EQ(parser.errors->size(), 1);
     auto err = parser.errors->at(0);
     EXPECT_EQ(err["path"], "");
-    EXPECT_TRUE(
-        err["message"].get<std::string>().find("parse error") != std::string::npos
-    );
+    EXPECT_TRUE(err["message"].get<std::string>().contains("parse error"));
 
     // Clean up
     std::remove(test_file.c_str());
@@ -400,10 +398,7 @@ TEST(testConfig, testFieldErrWithXError) {
     EXPECT_EQ(parser.errors->size(), 1);
     auto err = parser.errors->at(0);
     EXPECT_EQ(err["path"], "test_field");
-    EXPECT_TRUE(
-        err["message"].get<std::string>().find("Custom validation error") !=
-        std::string::npos
-    );
+    EXPECT_TRUE(err["message"].get<std::string>().contains("Custom validation error"));
 }
 
 struct BasicConstructibleConfig {
@@ -434,7 +429,7 @@ struct NestedOuterConfig {
         name(p.field<std::string>("name")),
         inner(p.field<NestedInnerConfig>("inner")) {}
 
-    NestedOuterConfig() {}
+    NestedOuterConfig() = default;
 };
 
 struct MissingFieldConfig {
@@ -474,7 +469,7 @@ struct NestedErrorOuterConfig {
         name(p.field<std::string>("name")),
         inner(p.field<NestedErrorInnerConfig>("inner")) {}
 
-    NestedErrorOuterConfig() {}
+    NestedErrorOuterConfig() = default;
 };
 
 struct ArrayItem {
@@ -515,7 +510,7 @@ struct ParentMissingConfig {
 
     explicit ParentMissingConfig(Parser p): name(p.field<std::string>("name")) {}
 
-    ParentMissingConfig() {}
+    ParentMissingConfig() = default;
 };
 
 struct ParentInvalidTypeConfig {
@@ -523,7 +518,7 @@ struct ParentInvalidTypeConfig {
 
     explicit ParentInvalidTypeConfig(Parser p): name(p.field<std::string>("name")) {}
 
-    ParentInvalidTypeConfig() {}
+    ParentInvalidTypeConfig() = default;
 };
 
 struct OptionalConfig {
@@ -596,9 +591,7 @@ TEST(testConfig, testConstructibleTypeWithInvalidType) {
     EXPECT_EQ(parser.errors->size(), 1);
     auto err = parser.errors->at(0);
     EXPECT_EQ(err["path"], "config.value");
-    EXPECT_TRUE(
-        err["message"].get<std::string>().find("expected a number") != std::string::npos
-    );
+    EXPECT_TRUE(err["message"].get<std::string>().contains("expected a number"));
 }
 
 /// @brief it should report nested error path for constructible type errors.
@@ -947,9 +940,7 @@ TEST(testConfig, testMapWithInvalidValueType) {
     EXPECT_EQ(parser.errors->size(), 1);
     auto err = parser.errors->at(0);
     EXPECT_EQ(err["path"], "servers.host1");
-    EXPECT_TRUE(
-        err["message"].get<std::string>().find("expected a number") != std::string::npos
-    );
+    EXPECT_TRUE(err["message"].get<std::string>().contains("expected a number"));
 }
 
 /// @brief it should parse nested maps successfully.
@@ -1261,6 +1252,7 @@ TEST(testConfig, testAlternativePathsNoneFound) {
     const auto version = parser.field<std::string>(
         std::vector<std::string>{"version", "version_v1", "version_v2", "version_v3"}
     );
+    EXPECT_TRUE(version.empty());
     EXPECT_FALSE(parser.ok());
     EXPECT_EQ(parser.errors->size(), 1);
     auto err = parser.errors->at(0);
@@ -1298,6 +1290,7 @@ TEST(testConfig, testAlternativePathsEmptyVector) {
     Parser parser(j);
     std::vector<std::string> empty_paths;
     const auto version = parser.field<std::string>(empty_paths);
+    EXPECT_TRUE(version.empty());
     EXPECT_FALSE(parser.ok());
     EXPECT_EQ(parser.errors->size(), 1);
     auto err = parser.errors->at(0);
@@ -1472,6 +1465,7 @@ TEST(testConfig, testOptionalChildMissing) {
     EXPECT_TRUE(parser.ok());
     // Trying to use the child parser should be a noop
     const auto name = child.field<std::string>("name");
+    EXPECT_TRUE(name.empty());
     EXPECT_TRUE(parser.ok()); // Still ok because child is noop
 }
 
@@ -1610,7 +1604,7 @@ TEST(testConfig, testOptionalFieldPresent) {
     const auto result = parser.field<std::optional<int>>("value");
     EXPECT_TRUE(parser.ok());
     ASSERT_TRUE(result.has_value());
-    EXPECT_EQ(*result, 42);
+    EXPECT_EQ(result.value(), 42);
 }
 
 TEST(testConfig, testOptionalFieldMissing) {

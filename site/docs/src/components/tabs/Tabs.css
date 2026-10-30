@@ -1,0 +1,40 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+article .docs-tabs__header {
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+    padding: 0 2.5rem 0 1rem;
+    border-bottom: var(--pluto-border);
+    background: var(--pluto-gray-l1);
+}
+
+/* The edition mark describes the open panel, so it shows only while the selected tab
+   needs that edition. */
+.docs-tabs__edition {
+    display: none;
+    flex-shrink: 0;
+    text-decoration: none;
+
+    &:hover {
+        text-decoration: none;
+
+        & .edition-badge {
+            border-color: color-mix(in srgb, var(--pluto-primary-z) 60%, transparent);
+        }
+    }
+}
+
+.docs-tabs__header:has(.lyra--selected[data-edition="enterprise"])
+    > .docs-tabs__edition[data-edition="enterprise"] {
+    display: inline-flex;
+}

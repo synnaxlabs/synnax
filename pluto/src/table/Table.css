@@ -35,6 +35,7 @@
     --pluto-table-indicator-size: 4.5rem;
     --pluto-table-add-control-size: 10rem;
 
+    position: relative;
     display: grid;
     width: fit-content;
 
@@ -43,7 +44,7 @@
      * track reserves its space even when empty, overflowing the scroll
      * container before the table reaches the edge.
      */
-    &.pluto--editable {
+    &.lyra--editable {
         grid-template-rows: auto var(--pluto-table-add-control-size);
         grid-template-columns: auto var(--pluto-table-add-control-size);
         gap: 1.5rem;
@@ -55,28 +56,37 @@
         outline: none;
     }
 
-    &.pluto--editable .pluto-table__resizer,
-    &.pluto--editable .pluto-table__select-all {
+    &.lyra--editable .pluto-table__resizer,
+    &.lyra--editable .pluto-table__select-all {
         cursor: pointer;
     }
 
+    &.lyra--editable .pluto-table__label {
+        cursor: grab;
+    }
+
+    & .pluto-table-frame__move-source {
+        position: absolute;
+        z-index: 1;
+        pointer-events: none;
+        background: var(--pluto-primary-z-15);
+        border-radius: var(--pluto-border-radius-small);
+        box-shadow:
+            inset 0 0 0 1px var(--pluto-primary-z),
+            var(--pluto-shadow-overlay);
+    }
+
     & .pluto-table-frame__add-col {
-        grid-column-start: 2;
-        grid-column-end: 2;
-        grid-row-start: 1;
-        grid-row-end: 1;
-        justify-self: start;
-        align-self: start;
+        grid-column: 2 / 2;
+        grid-row: 1 / 1;
+        place-self: start start;
         margin-top: 1.5rem;
     }
 
     & .pluto-table-frame__add-row {
-        grid-column-start: 1;
-        grid-column-end: 1;
-        grid-row-start: 2;
-        grid-row-end: 2;
-        justify-self: start;
-        align-self: start;
+        grid-column: 1 / 1;
+        grid-row: 2 / 2;
+        place-self: start start;
         margin-left: 1.5rem;
     }
 }
@@ -116,17 +126,21 @@
     }
 
     .pluto-table__row:not(.pluto-table__col-resizer) {
-        &:has(.pluto--selected) {
+        &:has(.lyra--selected) {
             .pluto-table__resizer {
                 background: var(--pluto-primary-z-30);
-                .pluto-text {
+
+                .lyra-text {
+                    /* stylelint-disable-next-line declaration-no-important -- a
+                       selected row's resizer text keeps this color whatever the text
+                       sets */
                     color: var(--pluto-gray-l11) !important;
                 }
             }
         }
     }
 
-    .pluto-table__row:not(.pluto-table__col-resizer):has(.pluto--selected)
+    .pluto-table__row:not(.pluto-table__col-resizer):has(.lyra--selected)
         .pluto-table__resizer {
         background: var(--pluto-primary-z-15);
     }
@@ -135,11 +149,17 @@
         position: relative;
         background: var(--pluto-gray-l2);
         z-index: 6;
-        &.pluto--selected {
+
+        & .pluto-table__label {
+            position: absolute;
+            inset: 0;
+        }
+
+        &.lyra--selected {
             background: var(--pluto-primary-z-15);
         }
 
-        &.pluto--direction-y {
+        &.lyra--direction-y {
             border-right: var(--pluto-border-l6);
             border-bottom: var(--pluto-border-l6);
 
@@ -161,7 +181,7 @@
             }
         }
 
-        &.pluto--direction-x {
+        &.lyra--direction-x {
             height: var(--pluto-table-indicator-size);
             border-bottom: var(--pluto-border-l6);
             border-right: var(--pluto-border-l6);
@@ -172,6 +192,7 @@
                 cursor: col-resize;
                 height: 100%;
                 width: 6px;
+
                 &::after {
                     content: "";
                     position: absolute;
@@ -182,6 +203,7 @@
                 }
             }
         }
+
         & button {
             border: none;
             z-index: 10;
@@ -221,6 +243,7 @@
             width: 100%;
             height: 100%;
         }
+
         &::after {
             content: "";
             box-sizing: content-box;
@@ -233,9 +256,11 @@
             border-radius: inherit;
             z-index: 7;
         }
-        &.pluto--selected {
+
+        &.lyra--selected {
             border: none;
             z-index: 8;
+
             &::after {
                 opacity: 1;
                 border-color: var(--pluto-primary-z);
@@ -254,8 +279,18 @@
             border-bottom: var(--pluto-border-l6);
             background: var(--pluto-gray-l2);
         }
-        & > .pluto-table__select-all.pluto--selected {
+
+        & > .pluto-table__select-all.lyra--selected {
             background: var(--pluto-primary-z-15);
         }
     }
+}
+
+/*
+ * Cells only ease while a move previews, so the drop lands without sliding back from
+ * the old layout.
+ */
+.pluto-table-frame--moving
+    :is(.pluto-table__cell, .pluto-table__resizer, .pluto-table-frame__move-source) {
+    transition: transform 0.15s cubic-bezier(0.33, 1, 0.68, 1);
 }

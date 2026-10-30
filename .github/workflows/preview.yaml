@@ -1,0 +1,163 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# Deploys a live Core with the Console embedded for each pull request with the preview
+# label, again on each push while the label stays, and removes it when the pull request
+# closes. The host is in deploy/preview. Fork pull requests never deploy: their code
+# must not reach the AWS role. Nothing runs until the PREVIEW_* variables exist.
+
+name: Preview
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, closed]
+
+# A new push or the close cancels the run it replaces. Any other label gets a group of
+# its own, so it skips without cancelling a deploy or a teardown.
+concurrency:
+  group:
+    preview-${{ github.event.pull_request.number }}${{ github.event.action == 'labeled'
+    && github.event.label.name != 'preview' && format('-{0}', github.run_id) || '' }}
+  cancel-in-progress: true
+
+permissions: {}
+
+env:
+  PR: ${{ github.event.pull_request.number }}
+  URL: https://pr-${{ github.event.pull_request.number }}.${{ vars.PREVIEW_DOMAIN }}
+
+jobs:
+  deploy:
+    if:
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      vars.PREVIEW_INSTANCE_ID != '' && github.event.action != 'closed' &&
+      contains(github.event.pull_request.labels.*.name, 'preview') &&
+      (github.event.action != 'labeled' || github.event.label.name == 'preview')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ./.github/actions/setup-pnpm
+
+      - name: Build the Console
+        env:
+          NODE_OPTIONS: --max_old_space_size=8192
+        run: |
+          pnpm build:console-vite
+          cp -r console/dist/* core/pkg/console/dist/
+
+      - uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ vars.PREVIEW_ROLE_ARN }}
+          aws-region: ${{ vars.PREVIEW_REGION }}
+
+      - uses: aws-actions/amazon-ecr-login@v2
+        id: ecr
+
+      - name: Tag the image
+        id: tag
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+          SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          echo "image=$REGISTRY/synnax-preview:pr-$PR-$SHA" >> "$GITHUB_OUTPUT"
+          echo "go=$(awk '$1 == "go" { print $2 }' core/go.mod)" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./core/Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: ${{ steps.tag.outputs.image }}
+          cache-from: type=gha,scope=synnax-docker-core
+          build-args: |
+            GO_VERSION=${{ steps.tag.outputs.go }}
+            CONSOLE_ENABLED=true
+            GIT_COMMIT=${{ github.event.pull_request.head.sha }}
+
+      - name: Deploy the preview
+        env:
+          COMMAND: >-
+            /usr/local/bin/preview up ${{ env.PR }} ${{ steps.tag.outputs.image }}
+          INSTANCE: ${{ vars.PREVIEW_INSTANCE_ID }}
+        run: .github/scripts/run_preview_command.sh
+
+      # Caddy gets the certificate for a new preview name on its first request, so the
+      # URL can fail TLS for a short time after the deploy.
+      - name: Wait for the preview
+        run: |
+          deadline=$((SECONDS + 180))
+          delay=2
+          until curl -fsS -o /dev/null --max-time 10 -X POST \
+            -H "Content-Type: application/json" -d '{}' \
+            "$URL/api/v1/connectivity/check"; do
+            if ((SECONDS + delay > deadline)); then
+              echo "::error::$URL did not answer over HTTPS within 3 minutes."
+              exit 1
+            fi
+            sleep "$delay"
+            delay=$((delay * 2 > 30 ? 30 : delay * 2))
+          done
+
+      - name: Create the sample project
+        run: node console/scripts/create_sample.ts "$URL"
+
+      - uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: preview
+          message: |
+            ### Preview
+
+            Core and Console: ${{ env.URL }}
+
+            Log in with username `synnax` and password `seldon`. The preview is a
+            throwaway Core with in-memory storage, and a push rebuilds it from empty.
+            It has no Driver, so it has no hardware tasks. Open the sample project
+            for a simulated tank pressurization.
+
+            Built from ${{ github.event.pull_request.head.sha }}.
+
+  teardown:
+    if:
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      vars.PREVIEW_INSTANCE_ID != '' && github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ vars.PREVIEW_ROLE_ARN }}
+          aws-region: ${{ vars.PREVIEW_REGION }}
+
+      - name: Remove the preview
+        env:
+          COMMAND: /usr/local/bin/preview down ${{ env.PR }}
+          INSTANCE: ${{ vars.PREVIEW_INSTANCE_ID }}
+        run: .github/scripts/run_preview_command.sh
+
+      - uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: preview
+          only_update: true
+          message: |
+            ### Preview
+
+            Removed when the pull request closed.

@@ -27,7 +27,6 @@ cc_library(
         "//driver/ni/daqmx:nidaqmx_official",
         "//driver/ni/errors",
         "//x/cpp/lib",
-        "//x/cpp/os",
     ],
 )
 
@@ -47,6 +46,8 @@ cc_library(
     hdrs = [
         "nidaqmx.h",
     ],
+    # Vendor SDK headers follow the vendor's conventions.
+    tags = ["no-clang-tidy"],
     deps = [],
 )
 

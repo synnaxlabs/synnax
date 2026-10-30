@@ -1,0 +1,221 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Find ranges"
+description: "Find, open, and retrieve ranges in the Console or in code."
+clients: ["console", "python", "typescript"]
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import { Video } from "@/components/media/Media";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+Find a range in the Console and open its range overview, or retrieve it in code.
+
+<Divider.Divider x />
+
+## Range explorer
+
+The range explorer lists all the ranges in Synnax. To open it, click <Icon.Explore /> in
+the ranges toolbar, or run the "Open range explorer" command from the
+[command palette](/reference/get-started/ui-overview#search-and-command-palette).
+
+In the range explorer, you can:
+
+- Search for a range by name, and filter the list by label.
+- Click a range to open its [range overview](#range-overview).
+- Click the stage icon of a range to start, complete, or reopen it.
+- Hold **Shift** or **Ctrl** (**Cmd** on macOS) and click to select more than one range.
+- Right-click a range to rename, favorite, or delete it, or to create a child range.
+
+<Divider.Divider x />
+
+## Favorites
+
+The ranges toolbar shows your favorite ranges. A range joins the ranges toolbar when you
+create it, add it to a plot, open it from the command palette or from a link, or drag it
+onto the toolbar. To add a range, click <Icon.StarOutlined /> beside it in the range
+explorer or on its range overview, or right-click it in the range explorer and select
+**Favorite**.
+
+To remove a range from the ranges toolbar, right-click it and select **Unfavorite**.
+Unfavorite deletes a [local range](/reference/ranges/reference#saved-and-local-ranges),
+because the toolbar is the only place it lives.
+
+<Divider.Divider x />
+
+## Active range
+
+The Console uses the active range in these places:
+
+- A new line plot shows the active range instead of the last 30 seconds.
+- **Set alias** and **Remove alias** in the channels toolbar apply to the active range.
+  Channel searches show its [aliases](/reference/ranges/aliases).
+- **Snapshot to** attaches [snapshots](/reference/ranges/snapshots) to it.
+
+To make a range active, click it in the ranges toolbar, or right-click it and select
+**Set as active range**. Opening a link to a range also makes it active. To clear it,
+right-click the active range and select **Clear active range**.
+
+<Video id="console/ranges/active" />
+
+<Divider.Divider x />
+
+## Range overview
+
+The range overview shows all the information about one range. To open it, do one of
+these steps:
+
+- Click the range in the range explorer.
+- Right-click the range in the ranges toolbar and select **View details**.
+- Right-click a range annotation on a line plot and select **View details**.
+
+The range overview has these parts:
+
+- **Name** -> click the name to change it.
+- **Child range of** -> a child range shows a link to its parent range.
+- **Timeline** -> click the stage to start, complete, or reopen the range. Click the
+  start or end time to change it. See [stages](/reference/ranges/reference#stages).
+- **Labels** -> add or remove [labels](/reference/ranges/metadata#labels).
+- **Child ranges** -> lists the child ranges. Click <Icon.Add /> to add one.
+- **Metadata** -> lists the [metadata](/reference/ranges/metadata) of the range.
+- **Snapshots** -> lists the [snapshots](/reference/ranges/snapshots) of the range.
+
+The Console saves each change at once. Buttons in the header download the data as CSV
+(see [export data](/reference/ranges/export)), copy Python or TypeScript code that
+retrieves the range, and copy a link to it. Synnax Desktop does not show the copy link
+button.
+
+<Divider.Divider x />
+
+## Retrieve ranges
+
+### Single
+
+Retrieve a range by its name or key. In Python, catch `QueryError` when no range or more
+than one range matches. In TypeScript, the client throws `NotFoundError` or
+`MultipleFoundError`.
+
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
+```python
+# By name
+my_range = client.ranges.retrieve(name="My Range")
+
+# By key
+my_range = client.ranges.retrieve(key=my_range.key)
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+// By name
+const myRange = await client.ranges.retrieve("My Range");
+
+// By key
+const sameRange = await client.ranges.retrieve(myRange.key);
+```
+
+  </Fragment>
+</Client.Tabs>
+
+### Multiple
+
+Pass a list of names or keys to retrieve several ranges. A name that matches no range is
+left out of the result. In TypeScript, a missing key is left out too. In Python, a
+missing key raises `NotFoundError`.
+
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
+```python
+# By name
+my_ranges = client.ranges.retrieve(names=["My Range", "My Other Range"])
+
+# By key
+my_ranges = client.ranges.retrieve(keys=[my_range.key, my_other_range.key])
+
+# By search term
+ranges = client.ranges.retrieve(search_term="Hotfire")
+
+# By label
+passed = client.ranges.retrieve(has_labels=[pass_label.key])
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+// By name
+const myRanges = await client.ranges.retrieve(["My Range", "My Other Range"]);
+
+// By key
+const myRanges = await client.ranges.retrieve([myRange.key, myOtherRange.key]);
+
+// By search term
+const ranges = await client.ranges.retrieve({ searchTerm: "Hotfire" });
+
+// By label
+const passed = await client.ranges.retrieve({ hasLabels: [passLabel.key] });
+```
+
+  </Fragment>
+</Client.Tabs>
+
+### Child
+
+If a range has child ranges, you can retrieve them directly from the parent range.
+
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
+```python
+child_ranges = my_range.children
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const childRanges = await myRange.retrieveChildren();
+```
+
+  </Fragment>
+</Client.Tabs>
+
+### Parent
+
+Navigate up the hierarchy by retrieving a child range's parent.
+
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
+```python
+my_range = client.ranges.retrieve(key=my_range.key, include_parent=True)
+parent = my_range.parent
+```
+
+`parent` is the parent range payload, or `None` when the range has no parent.
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const parentRange = await myRange.retrieveParent();
+```
+
+  </Fragment>
+</Client.Tabs>

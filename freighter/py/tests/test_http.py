@@ -7,15 +7,18 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import itertools
 import json
 import socket
 import ssl
+import threading
 import uuid
 import warnings
 from pathlib import Path
 
 import pytest
 from urllib3 import Retry
+from urllib3.exceptions import ProtocolError
 
 import freighter
 from freighter import URL
@@ -24,24 +27,31 @@ from freighter.http import HTTPClient
 from freighter.transport import Next
 from x.codec import JSONCodec
 
-from .interface import Error, Message
+from .interface import Error, Message, create_registry
 
 
 @pytest.fixture
 def client(endpoint: URL) -> HTTPClient:
-    return HTTPClient(endpoint.child("unary"), JSONCodec())
+    return HTTPClient(
+        url=endpoint.child("unary"), codec=JSONCodec(), registry=create_registry()
+    )
 
 
 class TestConstruction:
     def test_url_unchanged(self, endpoint: URL) -> None:
         """Should not change the protocol of the URL passed by the caller."""
-        HTTPClient(endpoint, JSONCodec(), ssl_context=ssl.create_default_context())
+        HTTPClient(
+            url=endpoint,
+            codec=JSONCodec(),
+            registry=create_registry(),
+            ssl_context=ssl.create_default_context(),
+        )
         assert endpoint.protocol == ""
 
     def test_warning_filters_unchanged(self, endpoint: URL) -> None:
         """Should not change the process warning filters."""
         before = list(warnings.filters)
-        HTTPClient(endpoint, JSONCodec())
+        HTTPClient(url=endpoint, codec=JSONCodec(), registry=create_registry())
         assert warnings.filters == before
 
 
@@ -51,7 +61,11 @@ def unreachable_client() -> HTTPClient:
     with socket.socket() as sock:
         sock.bind(("localhost", 0))
         port = sock.getsockname()[1]
-    return HTTPClient(URL("localhost", port), JSONCodec())
+    return HTTPClient(
+        url=URL(host="localhost", port=port),
+        codec=JSONCodec(),
+        registry=create_registry(),
+    )
 
 
 class TestUnreachable:
@@ -143,7 +157,9 @@ class TestUpload:
         automatic file_name key."""
         path = tmp_path / "Metrics Log.json"
         path.write_bytes(JSONCodec().encode(Message(id=1, message="params")))
-        res = client.upload("/paramEcho", path, Message, {"project": "project:abc"})
+        res = client.upload(
+            "/paramEcho", path, Message, params={"project": "project:abc"}
+        )
         assert json.loads(res.message or "") == {
             "file_name": "Metrics Log.json",
             "project": "project:abc",
@@ -156,7 +172,9 @@ class TestUpload:
         the path."""
         path = tmp_path / "in.json"
         path.write_bytes(JSONCodec().encode(Message(id=1, message="params")))
-        res = client.upload("/paramEcho", path, Message, {"file_name": "Override.json"})
+        res = client.upload(
+            "/paramEcho", path, Message, params={"file_name": "Override.json"}
+        )
         assert json.loads(res.message or "") == {"file_name": "Override.json"}
 
     def test_params_keys_never_travel_individually(
@@ -166,7 +184,9 @@ class TestUpload:
         request params."""
         path = tmp_path / "in.json"
         path.write_bytes(JSONCodec().encode(Message(id=1, message="file_name,project")))
-        res = client.upload("/paramEcho", path, Message, {"project": "project:abc"})
+        res = client.upload(
+            "/paramEcho", path, Message, params={"project": "project:abc"}
+        )
         assert res.message == "|"
 
 
@@ -187,8 +207,9 @@ class TestRetries:
     @staticmethod
     def _retrying_client(endpoint: URL) -> HTTPClient:
         return HTTPClient(
-            endpoint.child("unary"),
-            JSONCodec(),
+            url=endpoint.child("unary"),
+            codec=JSONCodec(),
+            registry=create_registry(),
             retries=Retry(total=2, status_forcelist=[503], allowed_methods=None),
         )
 
@@ -217,7 +238,7 @@ class TestDownload:
         self, client: HTTPClient, tmp_path: Path
     ) -> None:
         out = tmp_path / "out.json"
-        client.download("/echo", Message(id=1, message="hello"), out)
+        client.download("/echo", Message(id=1, message="hello"), dest=out)
         parsed = Message.model_validate_json(out.read_bytes())
         assert parsed.message == "hello"
         assert parsed.id == 2
@@ -229,7 +250,7 @@ class TestDownload:
         is rejected before any request is sent."""
         out = tmp_path / "out.msgpack"
         with pytest.raises(ValueError, match="msgpack"):
-            client.download("/echo", Message(id=1, message="x"), out)
+            client.download("/echo", Message(id=1, message="x"), dest=out)
 
     def test_unsupported_dest_extension_raises_value_error(
         self, client: HTTPClient, tmp_path: Path
@@ -237,7 +258,7 @@ class TestDownload:
         """Should reject destinations whose extension has no registered codec."""
         out = tmp_path / "out.unknownext"
         with pytest.raises(ValueError, match="unknownext"):
-            client.download("/echo", Message(id=1, message="x"), out)
+            client.download("/echo", Message(id=1, message="x"), dest=out)
 
     def test_empty_response_raises_and_preserves_dest(
         self, client: HTTPClient, tmp_path: Path
@@ -247,21 +268,141 @@ class TestDownload:
         out = tmp_path / "out.json"
         out.write_bytes(b'{"old": true}')
         with pytest.raises(ValueError, match="empty"):
-            client.download("/emptyResponse", Message(id=1, message="x"), out)
+            client.download("/emptyResponse", Message(id=1, message="x"), dest=out)
         assert out.read_bytes() == b'{"old": true}'
 
     def test_large_response_streams(self, client: HTTPClient, tmp_path: Path) -> None:
         big = "a" * (1024 * 1024)
         out = tmp_path / "big.json"
-        client.download("/echo", Message(id=1, message=big), out)
+        client.download("/echo", Message(id=1, message=big), dest=out)
         parsed = Message.model_validate_json(out.read_bytes())
         assert parsed.message == big
+
+
+def _send_within(client: HTTPClient, seconds: float) -> Message | None:
+    """Sends a request on another thread and returns its response, or None when it
+    takes longer than seconds. A request on a pool whose one connection leaked never
+    completes."""
+    res: list[Message] = []
+
+    def send() -> None:
+        res.append(client.send("/echo", Message(id=1, message="x"), Message))
+
+    thread = threading.Thread(target=send, daemon=True)
+    thread.start()
+    thread.join(seconds)
+    return res[0] if res else None
+
+
+@pytest.mark.http
+class TestStream:
+    def test_yields_the_body(self, client: HTTPClient) -> None:
+        """Should hand back the response body in chunks the caller joins."""
+        with client.stream(
+            "/echo", Message(id=1, message="hello"), accept="application/json"
+        ) as body:
+            parsed = Message.model_validate_json(b"".join(body))
+        assert parsed.id == 2
+        assert parsed.message == "hello"
+
+    def test_large_body(self, client: HTTPClient) -> None:
+        big = "a" * (1024 * 1024)
+        with client.stream(
+            "/echo", Message(id=1, message=big), accept="application/json"
+        ) as body:
+            assert Message.model_validate_json(b"".join(body)).message == big
+
+    def test_server_error_raises_before_the_first_chunk(
+        self, client: HTTPClient
+    ) -> None:
+        with (
+            pytest.raises(Error),
+            client.stream(
+                "/middlewareCheck",
+                Message(id=1, message="x"),
+                accept="application/json",
+            ),
+        ):
+            pass
+
+    def test_encoder_failing_before_it_writes_raises(self, client: HTTPClient) -> None:
+        """Should raise the error of an encoder that fails before it writes."""
+        with (
+            pytest.raises(Exception, match="truncating encoder failed partway"),
+            client.stream(
+                "/truncated",
+                Message(id=0, message="ab"),
+                accept="application/x-truncated",
+            ),
+        ):
+            pass
+
+    def test_body_cut_short_raises(self, client: HTTPClient) -> None:
+        """Should raise when the server cuts the body short."""
+        with (
+            client.stream(
+                "/truncated",
+                Message(id=1 << 14, message="ab"),
+                accept="application/x-truncated",
+            ) as body,
+            pytest.raises(ProtocolError, match="Response ended prematurely"),
+        ):
+            b"".join(body)
+
+    @pytest.mark.parametrize("chunks", [0, 1, None])
+    def test_leaving_releases_the_connection(
+        self, endpoint: URL, chunks: int | None
+    ) -> None:
+        """Should release the connection when the caller leaves the context, however
+        much of the body it read."""
+        client = HTTPClient(
+            url=endpoint.child("unary"),
+            codec=JSONCodec(),
+            registry=create_registry(),
+            maxsize=1,
+            block=True,
+        )
+        with client.stream(
+            "/echo", Message(id=1, message="a" * (1 << 20)), accept="application/json"
+        ) as body:
+            for _ in itertools.islice(body, chunks):
+                pass
+        assert _send_within(client, 5) == Message(id=2, message="x")
+
+    def test_middleware_failure_releases_the_connection(self, endpoint: URL) -> None:
+        """Should release the connection when a middleware fails after the request."""
+        client = HTTPClient(
+            url=endpoint.child("unary"),
+            codec=JSONCodec(),
+            registry=create_registry(),
+            maxsize=1,
+            block=True,
+        )
+        failures = [RuntimeError("stop")]
+
+        def mw(ctx: Context, next: Next) -> Context:
+            out = next(ctx)
+            if failures:
+                raise failures.pop()
+            return out
+
+        client.use(mw)
+        with (
+            pytest.raises(RuntimeError, match="stop"),
+            client.stream(
+                "/echo", Message(id=1, message="x"), accept="application/json"
+            ),
+        ):
+            pass
+        assert _send_within(client, 5) == Message(id=2, message="x")
 
 
 class TestContext:
     def test_protocol_and_target(self, endpoint: URL) -> None:
         """Should give middleware the protocol and the full request URL as target."""
-        client = HTTPClient(endpoint.child("unary"), JSONCodec())
+        client = HTTPClient(
+            url=endpoint.child("unary"), codec=JSONCodec(), registry=create_registry()
+        )
         contexts: list[Context] = []
 
         def mw(ctx: Context, _: Next) -> Context:

@@ -38,10 +38,10 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await capture.login(session);
 
   await capture.searchPalette(session, "My Range");
-  const trigger = page.getByText("Select labels", { exact: true }).first();
+  const trigger = page.getByText(/^(Select labels|Labels)$/).first();
   const listItem = (name: string) =>
     page
-      .locator(".pluto-list__item:not(.pluto-tree__item)")
+      .locator(".lyra-list__item:not(.lyra-tree__item)")
       .filter({ hasText: name })
       .first();
   // No labels are selected until the end, so the placeholder trigger opens the
@@ -61,20 +61,20 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   // stays on the Details block.
   await page.evaluate(() => {
     const hide = ["Child ranges", "Metadata", "Snapshots"];
-    for (const el of document.querySelectorAll(".pluto-header"))
+    for (const el of document.querySelectorAll(".lyra-header"))
       if (hide.includes(el.textContent?.trim() ?? ""))
         el.parentElement?.style.setProperty("display", "none");
   });
 
-  await session.moveTo({ x: 756, y: 400 });
+  await session.moveTo({ x: 800, y: 450 });
 
   session.startRecording();
-  await session.hold(1000);
+  await session.hold(1500);
 
   // Create the new label through the selector's "New label" button.
   await openSelector();
   const newLabel = page
-    .locator(".pluto-dialog__dialog")
+    .locator(".lyra-dialog__dialog")
     .getByText("New label", { exact: true })
     .first();
   await session.waitFor(newLabel);
@@ -85,6 +85,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   const modal = page.locator(".console-label__edit");
   await session.waitFor(modal);
   await session.hold(400);
+  await session.zoom(modal);
   await session.click(modal.getByText("New label", { exact: true }).first(), {
     text: true,
   });
@@ -96,9 +97,13 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.hold(300);
 
   // Set the color by hex, then close the picker so the swatch commits on blur.
-  const swatch = modal.locator(".pluto-color-swatch").first();
+  const swatch = modal.locator(".lyra-color-swatch").first();
   await session.click(swatch);
-  const hex = page.locator(".pluto-color-picker").getByLabel("Hex");
+  const hex = page
+    .locator(
+      ".lyra-color-picker :is(input.lyra-color-hex-text, .lyra-color-hex-text input)",
+    )
+    .first();
   await session.waitFor(hex);
   await session.hold(200);
   await session.click(hex);
@@ -112,21 +117,25 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.click(swatch);
   await session.hold(300);
 
-  await session.click(modal.locator("button:has(.pluto-icon--check)").first());
+  await session.click(modal.locator("button:has(.lyra-icon--check)").first());
   await session.hold(400);
-  await session.click(modal.locator("button:has(.pluto-icon--close)").first());
+  session.endZoom();
+  await session.click(modal.locator("button:has(.lyra-icon--close)").first());
   await session.hold(300);
 
   // Open the selector once and add both labels; multi-select stays open.
+  // The Details block of the range overview holds the label selector.
+  await session.zoom(page.locator(".console-range__overview > div > *").first());
   await openSelector();
   await pick(NEW_LABEL);
   await pick("Nominal");
+  session.endZoom();
   await session.press("Escape");
   await session.waitFor(
-    page.locator(".pluto-tag").filter({ hasText: NEW_LABEL }).first(),
+    page.locator(".lyra-tag").filter({ hasText: NEW_LABEL }).first(),
   );
   await session.waitFor(
-    page.locator(".pluto-tag").filter({ hasText: "Nominal" }).first(),
+    page.locator(".lyra-tag").filter({ hasText: "Nominal" }).first(),
   );
-  await session.hold(1500);
+  await session.hold(3000);
 };

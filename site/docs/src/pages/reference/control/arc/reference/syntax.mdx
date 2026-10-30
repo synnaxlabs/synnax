@@ -2,448 +2,247 @@
 layout: "@/layouts/Reference.astro"
 title: "Syntax"
 description:
-  "Arc language syntax reference for comments, identifiers, literals, and statement
-  structure"
-prev: "Language reference"
-prevURL: "/reference/control/arc/reference"
-next: "Types"
-nextURL: "/reference/control/arc/reference/types"
+  "Look up the comments, identifiers, keywords, literals, imports, and top-level
+  structure of an Arc program."
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
-import { Icon } from "@synnaxlabs/lyra/icon";
-import { Note } from "@synnaxlabs/lyra/note";
-import { Text } from "@synnaxlabs/lyra/text";
-import Details from "@/components/details/Details.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
-
 export const components = mdxOverrides;
+
+This page lists the parts of an Arc program as you write them in the text editor.
+
+<Divider.Divider x />
 
 ## Comments
 
-Single-line comments start with `//`. Multi-line comments use `/* */`.
+`//` starts a comment that ends at the end of the line. `/* */` encloses a comment that
+can span lines.
 
-```arc
-// This is a single-line comment
-/* This is a
-   multi-line comment */
-x := 42 // Comments can follow code
+```arc channels="tank_pt, tank_pt_kpa"
+// Convert psi to kPa.
+/* A block comment
+   can span lines. */
+tank_pt * 6.895 -> tank_pt_kpa // A comment after code
 ```
 
 <Divider.Divider x />
 
 ## Identifiers
 
-Identifiers name variables, functions, sequences, stages, and channels.
+An identifier names a variable, function, sequence, stage, or channel.
 
-**Rules:**
+- It starts with a letter or `_`.
+- It continues with letters, digits, or `_`.
+- It is case-sensitive: `tank_pt` and `Tank_PT` are different names.
+- It cannot be a keyword.
 
-- Start with a letter (`a-z`, `A-Z`) or underscore (`_`)
-- Contain letters, digits (`0-9`), or underscores
-- Case-sensitive (`ox_pt_1` and `Ox_Pt_1` are different)
+A `-` is not part of an identifier, so `ox-pt-1` reads as `ox - pt - 1`. The exception
+is a Core that runs with channel name validation off (see the
+[CLI reference](/reference/enterprise/cli-reference)). Then `-` joins an identifier,
+except where it starts `->` or `-=`.
 
-```arc
-valid_name
-_private
-sensor1
-ox_pt_1
-```
+### Keywords
 
-**Reserved keywords** cannot be used as identifiers:
+These words are reserved. You cannot use them as identifiers.
 
-| Category        | Keywords                                                                                    |
-| --------------- | ------------------------------------------------------------------------------------------- |
-| Functions       | `func` `return`                                                                             |
-| Conditionals    | `if` `else`                                                                                 |
-| Loops           | `for` `break` `continue`                                                                    |
-| Operators       | `and` `or` `not`                                                                            |
-| Sequences       | `sequence` `stage` `next`                                                                   |
-| Control         | `authority`                                                                                 |
-| Literals        | `true` `false`                                                                              |
-| Data types      | `i8` `i16` `i32` `i64` <br /> `u8` `u16` `u32` `u64` <br /> `f32` `f64` <br /> `str` `bool` |
-| Composite types | `chan` `series`                                                                             |
+| Group       | Keywords                                                               |
+| ----------- | ---------------------------------------------------------------------- |
+| Declaration | `func` `sequence` `stage` `authority` `import` `as`                    |
+| Control     | `if` `else` `for` `break` `continue` `return` `next`                   |
+| Operators   | `and` `or` `not`                                                       |
+| Literals    | `true` `false`                                                         |
+| Types       | `i8` `i16` `i32` `i64` `u8` `u16` `u32` `u64` `f32` `f64` `str` `bool` |
+| Type forms  | `chan` `series`                                                        |
+
+Arc has no `while` keyword. Loops use `for`. See
+[statements](/reference/control/arc/reference/statements).
 
 <Divider.Divider x />
 
 ## Literals
 
-### Numeric literals
+| Literal         | Form                       | Default type                                          |
+| --------------- | -------------------------- | ----------------------------------------------------- |
+| Integer         | `42`, `-7`                 | `i64`                                                 |
+| Float           | `3.14`, `5.`, `.25`        | `f64`                                                 |
+| Number and unit | `50ms`, `10min`, `14.7psi` | The value in the base unit: `50ms` is `50000000` (ns) |
+| Boolean         | `true`, `false`            | `bool`                                                |
+| String          | `"text"`, `` `text` ``     | `str`                                                 |
+| Series          | `[1.0, 2.0, 3.0]`          | `series f64`                                          |
 
-Integer literals default to `i64`. Float literals default to `f64`.
+Numbers are decimal only. Hex (`0xFF`), scientific (`1e3`), and `_` separators (`1_000`)
+are not numbers: Arc reads the part after the digits as a unit and fails with
+`unknown unit: xFF`. A literal takes its type from where you use it. See
+[numeric literals](/reference/control/arc/reference/types#numeric-literals).
 
-```arc
-42 // i64
-3.14 // f64
-0.5 // f64
-.25 // f64 (leading dot allowed)
-```
+### Units
 
-### Numeric literals with units
+A unit name directly after a number, with no space, gives the number a unit: `50ms`,
+`10min`. Arc stores the value in the base unit, so `14.7psi` is `101352.97` (Pa). See
+[units](/reference/control/arc/reference/types#units).
 
-Unit suffixes attach directly to numbers (no whitespace):
+### Strings
 
-```arc
-100ms // 100 milliseconds
-5s    // 5 seconds
-1min  // 1 minute
-2h    // 2 hours
-10hz  // 10 hertz
-1khz  // 1 kilohertz
-```
+A string in `"..."` stays on one line. A string in `` `...` `` can span lines.
 
-A suffix tags the literal with a dimensioned unit from the built-in registry. The
-compiler tracks dimensions (time, frequency, length, pressure, etc.) but does not
-implicitly convert between them. A `10hz` value is a frequency and will not satisfy a
-parameter that expects a time span.
+| Escape   | Meaning                             |
+| -------- | ----------------------------------- |
+| `\n`     | Newline                             |
+| `\t`     | Tab                                 |
+| `\r`     | Carriage return                     |
+| `\b`     | Backspace                           |
+| `\f`     | Form feed                           |
+| `\\`     | Backslash                           |
+| `\"`     | Double quote, in `"..."` only       |
+| `` \` `` | Backtick, in `` `...` `` only       |
+| `\uXXXX` | Unicode character with 4 hex digits |
 
-| Temporal units | Meaning      |
-| -------------- | ------------ |
-| `ns`           | nanoseconds  |
-| `us`           | microseconds |
-| `ms`           | milliseconds |
-| `s`            | seconds      |
-| `min`          | minutes      |
-| `h`            | hours        |
+Arc keeps any other `\` sequence as written: `"\z"` is the two characters `\z`.
 
-| Frequency units | Meaning   |
-| --------------- | --------- |
-| `hz`            | hertz     |
-| `khz`           | kilohertz |
-| `mhz`           | megahertz |
+A prefix before the quote changes the string:
 
-### Boolean literals
-
-`true` and `false`.
-
-### String literals
-
-Two forms, distinguished by delimiter:
-
-- `"..."` — single-line, double-quoted. Cannot contain unescaped newlines.
-- `` `...` `` — multi-line, backtick-delimited. Newlines and `"` characters are allowed
-  verbatim in the body; the string ends at the next `` ` ``.
-
-```arc
-"hello"
-"tab\there"
-`line1
-line2`
-```
-
-| Escape   | Meaning                         |
-| -------- | ------------------------------- |
-| `\b`     | backspace                       |
-| `\t`     | tab                             |
-| `\n`     | newline                         |
-| `\f`     | form feed                       |
-| `\r`     | carriage return                 |
-| `\"`     | double quote (single-line only) |
-| `` \` `` | backtick (multi-line only)      |
-| `\\`     | backslash                       |
-| `\uXXXX` | 4-digit Unicode escape          |
-
-The delimiter escape is asymmetric: `\"` is interpreted only inside `"..."`, and
-`` \` `` only inside `` `...` ``. The other character is a literal everywhere it is not
-the delimiter, so no escape is needed. Any other backslash sequence (e.g., `\z`) is
-preserved as the two literal characters.
-
-### Raw strings
-
-Prefix with `r` to disable escape processing. Every character in the body is verbatim —
-`\n` is the two characters `\` and `n`, not a newline:
-
-```arc
-r"C:\Users\path"
-r`line one
-line two`
-```
-
-In a raw string, the delimiter escape is still accepted by the lexer so the delimiter
-character can appear in the body, but the backslash is preserved in the value (`r"a\"b"`
-yields `a\"b`, four characters; `` r`a\`b` `` yields ``a\`b``).
+| Prefix       | Effect                                                    |
+| ------------ | --------------------------------------------------------- |
+| `r`          | Raw: escapes stay as written. `r"C:\data"` keeps the `\`. |
+| `f`          | Format: `{expr}` inserts the value of an expression.      |
+| `rf` or `fr` | Raw and format.                                           |
 
 ### Format strings
 
-Prefix with `f` to enable `{expr}` placeholders, with an optional format spec after `:`.
-Combine with `r` (as `rf` or `fr`) for raw + format.
+In an `f` string, `{expr}` inserts the value of `expr`. `{expr:spec}` formats the value
+with a spec. A placeholder can hold a number, a `str`, or a `bool`. With no spec, a
+number prints in its shortest form: `{p}` with `3.0` gives `3`. A `bool` takes no spec:
+`{b:s}` fails with `cannot format type bool`. Write `{{` for a literal `{` and `}}` for
+a literal `}`.
 
-```arc channels="pressure, pump_err_code"
-f"Data: {pressure:.1f} psi"  // "Data: 523.7 psi"
-f"Code: {pump_err_code:#x}"  // "Code: 0xff00"
-f"Math: {(2.0 + 4.0)/2.0}"   // "Math: 3"
-rf"C:\logs\{name}.txt"       // backslashes literal; {name} substituted
+```arc channels="tank_pt, tank_msg" bodies="describe"
+func describe() {p f64} str {
+    return f"Tank at {p:.1f} psi"
+}
+
+tank_pt -> describe() -> tank_msg
 ```
 
-Each placeholder is a regular Arc expression. Numeric values are converted to their
-default string form unless a format spec is given. A `bool` renders as `true` or
-`false`. Format specs follow printf-style conventions and are validated against the
-placeholder type at compile time.
+A spec has the form `[flags][width][.precision]verb`. Only the verb is necessary. The
+compiler checks the verb against the type of the value.
 
-| Form          | Meaning                                               |
-| ------------- | ----------------------------------------------------- |
-| `{expr}`      | Insert `expr` using its default string form           |
-| `{expr:spec}` | Format `expr` using a printf-style spec (e.g., `.2f`) |
+| Verb     | Types   | Output                      | Example                  |
+| -------- | ------- | --------------------------- | ------------------------ |
+| `d`      | Integer | Decimal                     | `42` -> `42`             |
+| `b`      | Integer | Binary                      | `5` -> `101`             |
+| `o`, `O` | Integer | Octal, `O` adds `0o`        | `8` -> `10`, `0o10`      |
+| `x`, `X` | Integer | Hex, lowercase or uppercase | `255` -> `ff`, `FF`      |
+| `c`      | Integer | Unicode character           | `65` -> `A`              |
+| `f`      | Float   | Decimal                     | `3.14` -> `3.140000`     |
+| `e`, `E` | Float   | Scientific                  | `3.14` -> `3.140000e+00` |
+| `g`, `G` | Float   | Shortest form               | `3.14` -> `3.14`         |
+| `s`      | `str`   | The string                  | `ok` -> `ok`             |
+| `q`      | `str`   | Quoted, with escapes        | `ok` -> `"ok"`           |
 
-<Details>
-<Text.Text slot="summary" level="p"><Icon.Reference /> Format spec reference</Text.Text>
+| Flag    | Effect                                       | Example              |
+| ------- | -------------------------------------------- | -------------------- |
+| `#`     | Adds `0b`, `0`, or `0x` for `b`, `o`, or `x` | `{n:#x}` -> `0xff`   |
+| `+`     | Shows the sign of a positive number          | `{n:+d}` -> `+42`    |
+| (space) | Puts a space before a positive number        | `{n: d}` -> ` 42`    |
+| `-`     | Aligns left in the width                     | `{n:-5d}` -> `42   ` |
+| `0`     | Pads with zeros to the width                 | `{n:05d}` -> `00042` |
 
-A format spec has the form:
-
-```
-[flags][width][.precision]verb
-```
-
-Only the verb is required. Each bracketed part is optional. If `precision` is given, the
-leading `.` must accompany it. Each part is described below.
-
-#### Verb
-
-The verb selects the conversion. Each verb accepts specific placeholder types.
-
-| Verb | Types | Use               | Example                 |
-| ---- | ----- | ----------------- | ----------------------- |
-| `d`  | int   | Decimal           | `42` → `42`             |
-| `b`  | int   | Binary            | `5` → `101`             |
-| `o`  | int   | Octal             | `8` → `10`              |
-| `x`  | int   | Hex               | `255` → `ff`            |
-| `c`  | int   | Unicode character | `65` → `A`              |
-| `f`  | float | Decimal           | `3.14` → `3.140000`     |
-| `e`  | float | Scientific        | `3.14` → `3.140000e+00` |
-| `g`  | float | Compact           | `3.14` → `3.14`         |
-| `s`  | str   | String            | `hello` → `hello`       |
-| `q`  | str   | Quoted string     | `hello` → `"hello"`     |
-
-Verbs `x`, `e`, and `g` have uppercase variants `X`, `E`, and `G` that uppercase their
-output (e.g., `X` of `255` → `FF`). `O` is `o` with a leading `0o` prefix (e.g., `O` of
-`8` → `0o10`).
-
-`s` outputs the string as-is, identical to the default `{name}` form. Its practical use
-is as the anchor verb when applying width or padding modifiers to a string: `{name:5s}`
-pads to width 5, `{name:-10s}` left-aligns within width 10. See the Examples section
-below.
-
-`q` wraps the string in double quotes and escapes special characters so the result is a
-valid string literal: an embedded `"` becomes `\"`, a newline becomes `\n`, and so on.
-For example, `q` of `say "hi"` produces `"say \"hi\""`.
-
-#### Flags
-
-Flags are zero or more of the following characters, in any order, placed at the start of
-the spec.
-
-| Flag | Use                                                               |
-| ---- | ----------------------------------------------------------------- |
-| `#`  | Alternate form: adds `0b` / `0` / `0x` prefix for `b` / `o` / `x` |
-| `+`  | Force sign on positive numbers                                    |
-| ` `  | Leading space for positive numbers                                |
-| `-`  | Left-align within width                                           |
-| `0`  | Zero-pad to width                                                 |
-
-#### Width
-
-A digit count specifying the minimum output width. The value is padded with spaces (or
-zeros, with the `0` flag) up to this width. For example, `5d` of `42` → `␣␣␣42`.
-
-#### Precision
-
-A `.` followed by a digit count specifying digits after the decimal point. For example,
-`.2f` of `3.14159` → `3.14`.
-
-#### Examples
-
-Flags, width, and precision compose in spec order:
-
-| Spec     | Value     | Output         |
-| -------- | --------- | -------------- |
-| `#b`     | `5`       | `0b101`        |
-| `#o`     | `8`       | `010`          |
-| `#x`     | `255`     | `0xff`         |
-| `X`      | `255`     | `FF`           |
-| `E`      | `3.14`    | `3.140000E+00` |
-| `G`      | `3.14`    | `3.14`         |
-| `+d`     | `42`      | `+42`          |
-| ` d`     | `42`      | `␣42`          |
-| `5d`     | `42`      | `␣␣␣42`        |
-| `-5d`    | `42`      | `42␣␣␣`        |
-| `05d`    | `42`      | `00042`        |
-| `5s`     | `"ok"`    | `␣␣␣ok`        |
-| `-5s`    | `"ok"`    | `ok␣␣␣`        |
-| `.2f`    | `3.14159` | `3.14`         |
-| `+f`     | `3.14`    | `+3.140000`    |
-| `6.2f`   | `3.14`    | `␣␣3.14`       |
-| `+08.2f` | `3.14`    | `+0003.14`     |
-| `#06x`   | `255`     | `0x0000ff`     |
-
-</Details>
-
-Inside a format string, `{` opens a placeholder. To write a literal `{`, double it as
-`{{`; to write a literal `}`, double it as `}}`. A single `}` outside a placeholder is
-treated as plain text.
-
-| Escape | Meaning     |
-| ------ | ----------- |
-| `{{`   | Literal `{` |
-| `}}`   | Literal `}` |
-
-```arc
-msg := f"progress: {{{50}}}" // "progress: {50}"
-```
-
-The `{{` / `}}` escape mechanism is independent of the `r` prefix, so backslashes never
-interfere with placeholder parsing. `rf"C:\logs\{name}.txt"` interpolates `{name}` and
-keeps every backslash literal.
-
-### Series literals
-
-Series (arrays) use square brackets:
-
-```arc
-[1, 2, 3] // series i64
-[1.0, 2.0, 3.0] // series f64
-[] // empty (requires type annotation)
-```
-
-Empty series require an explicit type:
-
-```arc
-empty series f64 := []
-```
+The width is the minimum number of characters: `{n:5d}` gives `   42`. The precision is
+the number of digits after the decimal point: `{p:.2f}` gives `3.14`.
 
 <Divider.Divider x />
 
 ## Imports
 
-Modules must be imported before their qualified members (`time.now`,
-`control.set_authority`, `status.set`, …) can be used. A single import uses the bare
-form; multiple imports go in an `import ( … )` block.
+The standard library is in modules. Import a module before you use its members.
 
-### Single module
+| Form  | Example                 | Use the member as |
+| ----- | ----------------------- | ----------------- |
+| One   | `import time`           | `time.wait()`     |
+| Alias | `import time as t`      | `t.wait()`        |
+| Group | `import ( math  time )` | `math.avg()`      |
 
-```arc channels="trig, ts_out"
-import time
+The modules are `control`, `math`, `ranges`, `stable`, `status`, and `time`. See the
+[standard library](/reference/control/arc/standard-library).
 
-trig -> time.now{} -> ts_out
-```
-
-### Aliased
-
-Rename the qualifier with `as`:
-
-```arc channels="trig, ts_out"
-import time as t
-
-trig -> t.now{} -> ts_out
-```
-
-### Multiple modules
-
-List several modules in one block, separated by whitespace:
-
-```arc
+```arc channels="tank_pt, tank_pt_avg, vent_vlv_cmd"
 import (
-    control
-    status
+    math
     time as t
 )
+
+tank_pt -> math.avg(duration=1s) -> tank_pt_avg
+t.interval(period=1min) -> vent_vlv_cmd
 ```
+
+| Rule                                   | Error                                                                   |
+| -------------------------------------- | ----------------------------------------------------------------------- |
+| Imports come before all other code.    | `import statements must appear before any other top-level declarations` |
+| Each module must exist.                | `unknown module "foo"`                                                  |
+| Each import must be used.              | `imported module "time" is unused` (code `ARC5001`)                     |
+| A member of a module needs the import. | `undefined symbol: time`, with a note to add `import time`              |
+
+The graph editor adds imports for you.
 
 <Divider.Divider x />
 
-## Authority declarations
+## Authority declaration
 
-Authority declarations set the
-[control authority](/reference/control/arc/reference/standard-library/control#authority)
-for channels written by the program. They must appear before any `func`, `sequence`, or
-flow declarations.
+An `authority` declaration sets the control authority of the automation on the channels
+that it writes. Values are integers from 0 to 255.
 
-### Default authority
+| Form                 | Example                            |
+| -------------------- | ---------------------------------- |
+| Default              | `authority 100`                    |
+| Default and channels | `authority (100 vent_vlv_cmd 200)` |
+| Channels only        | `authority (vent_vlv_cmd 200)`     |
 
-Set a default authority for all channels:
+Authority declarations come after the imports and before all other code. You can write
+more than one. A second default fails with `multiple default authority values`, and a
+repeated channel fails with `duplicate authority for 'vent_vlv_cmd'`.
 
-```arc
-authority 200
-```
-
-When omitted, the system default is 255 (maximum).
-
-### Per-channel authority
-
-Set authority for specific channels using a grouped form:
-
-```arc channels="valve_cmd, vent_cmd"
-authority (
-    200
-    valve_cmd 100
-    vent_cmd 150
-)
-```
-
-This sets a default of 200, then overrides `valve_cmd` to 100 and `vent_cmd` to 150.
-
-You can also set per-channel authority without a default:
-
-```arc channels="valve_cmd, vent_cmd"
-authority (
-    valve_cmd 100
-    vent_cmd 150
-)
-```
-
-### Summary
-
-| Form                 | Syntax                                   | Description                        |
-| -------------------- | ---------------------------------------- | ---------------------------------- |
-| Default only         | `authority 200`                          | Sets authority for all channels    |
-| Grouped with default | `authority (200 valve_cmd 100)`          | Default plus per-channel overrides |
-| Per-channel only     | `authority (valve_cmd 100 vent_cmd 150)` | Only named channels                |
-
-Authority values are `u8` integers in the range 0-255.
-
-<Note.Note variant="info">
-  To change authority at runtime, use the
-  [`control.set_authority`](/reference/control/arc/reference/standard-library/control#set_authority)
-  standard library function inside stage bodies.
-</Note.Note>
+With no declaration, the automation writes at 255. Always give a default. A per-channel
+form without a default leaves the other channels, and their index channels, at 255. See
+[set authority in an Arc automation](/reference/control/authority?client=arc#set-authority).
 
 <Divider.Divider x />
 
-## Blocks
+## Program structure
 
-Braces `{}` delimit blocks. Blocks contain statements (function bodies), flow statements
-(stage bodies), or items (sequence bodies).
+A program is a list of top-level items, in this order:
 
-```arc
-func example() {
-// statements in function block
+1. Imports.
+2. Authority declarations, if you need them.
+3. Functions, flows, sequences, stages, and constants, in any order.
+
+```arc channels="tank_pt, high_alarm, press_vlv_cmd, start_cmd" bodies="over, press"
+import time
+
+authority 100
+
+limit := 500.0
+
+func over() {p f64} u8 {
+    if p > limit {
+        return 1
+    }
+    return 0
 }
 
-stage pressurize {
-    // flow statements in stage block
+tank_pt -> over() -> high_alarm
+
+sequence press {
+    1 -> press_vlv_cmd
+    time.wait(duration=5s)
+    0 -> press_vlv_cmd
 }
 
-sequence prime {
-    // items in sequence block
-}
+start_cmd == 1 => press
 ```
 
-Stage bodies contain flow statements; newlines separate them.
+You cannot reassign a top-level variable. To change a value, declare it in a function,
+stage, or sequence. See [variables](/reference/control/arc/reference/variables).
 
-```arc channels="valve, sensor, pressure"
-stage pressurize {
-    true -> valve
-    sensor -> controller{}
-    pressure > 500 => next
-}
-```
-
-Sequence bodies contain items that run in order: writes, waits, condition gates, stages,
-and nested sequences.
-
-```arc channels="press_vlv_cmd, tank_pressure"
-sequence prime {
-    true -> press_vlv_cmd
-    time.wait{5s}
-    tank_pressure > 500
-    false -> press_vlv_cmd
-}
-```
+Braces enclose the body of a function, sequence, or stage. In a sequence or stage body,
+newlines, commas, or both separate the items.

@@ -33,7 +33,14 @@ export const FREIGHTER_METADATA_PREFIX = "freighterctx";
 const ENCODING_CONTENT_TYPES: Record<FileEncoding, string> = {
   JSON: "application/json",
   ZIP: "application/zip",
+  CSV: "text/csv",
+  TDMS: "application/x-tdms",
 };
+
+const contentType = (encoding: FileOptions["encoding"]): string =>
+  typeof encoding === "string"
+    ? ENCODING_CONTENT_TYPES[encoding]
+    : encoding.contentType;
 
 const UNREACHABLE_CODES = new Set([
   "ECONNREFUSED",
@@ -161,11 +168,12 @@ export class HTTPClient
     req: z.input<RQ> | z.infer<RQ>,
     reqSchema: RQ,
     resSchema: RS,
+    params: Record<string, string> = {},
   ): Promise<z.infer<RS>> {
     let res: z.infer<RS> | null = null;
     const url = this.endpoint.child(target);
     await this.executeMiddleware(
-      this.context(url),
+      { ...this.context(url), params: { ...params } },
       async (ctx: Context): Promise<Context> => {
         const outCtx: Context = { ...ctx, params: {} };
         const httpRes = await this.fetch(url, ctx.target, {
@@ -207,7 +215,7 @@ export class HTTPClient
           body: await toSendableBody(body),
           headers: {
             ...this.defaultHeaders,
-            [CONTENT_TYPE_HEADER_KEY]: ENCODING_CONTENT_TYPES[options.encoding],
+            [CONTENT_TYPE_HEADER_KEY]: contentType(options.encoding),
             ...ctx.params,
           },
           duplex: "half",
@@ -248,7 +256,7 @@ export class HTTPClient
           body: this.encoder.encode(req, reqSchema),
           headers: {
             ...this.defaultHeaders,
-            [ACCEPT_HEADER_KEY]: ENCODING_CONTENT_TYPES[options.encoding],
+            [ACCEPT_HEADER_KEY]: contentType(options.encoding),
             ...ctx.params,
           },
         });

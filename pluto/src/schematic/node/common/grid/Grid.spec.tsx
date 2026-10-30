@@ -9,7 +9,7 @@
 
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { type location } from "@synnaxlabs/x";
-import { fireEvent, render } from "@testing-library/react";
+import { fireEvent, render, renderHook } from "@testing-library/react";
 import { type Node, ReactFlowProvider, ResizeControlVariant } from "@xyflow/react";
 import {
   type PropsWithChildren,
@@ -49,7 +49,7 @@ const GridHost = ({ children, initialNodes, ...rest }: GridHostProps): ReactElem
 );
 
 const slot = (container: HTMLElement, loc: location.Location): HTMLElement | null =>
-  container.querySelector(`.pluto-grid__item.pluto--location-${loc}`);
+  container.querySelector(`.pluto-grid__item.lyra--location-${loc}`);
 
 const dragHandle = (container: HTMLElement): HTMLElement | null =>
   container.querySelector(".pluto-drag-handle");
@@ -498,7 +498,7 @@ describe("Grid drag-and-drop", () => {
     fireEvent.dragStart(draggable(container, "x"));
     expect(top.className).toContain("pluto-dragging");
     expect(right.className).toContain("pluto-dragging");
-    expect(top.className).toContain("pluto-haul-drop-region");
+    expect(top.className).toContain("lyra-haul-drop-region");
   });
 
   it("should mark the hovered slot with the dragging-over class and clear it on dragLeave", () => {
@@ -611,5 +611,24 @@ describe("Grid resize controls", () => {
         ).toBe(true);
       });
     });
+  });
+});
+
+describe("Grid inline resize", () => {
+  it("should change the inline size by the change in dragged width", () => {
+    const onChange = vi.fn();
+    const { result } = renderHook(() => Grid.useInlineResize(100, onChange));
+    expect(result.current.resizeHandles).toEqual(["left", "right"]);
+    result.current.onResizeStart?.({ width: 150, height: 40 });
+    result.current.onResize?.({ width: 210, height: 40 });
+    expect(onChange).toHaveBeenLastCalledWith(160);
+  });
+
+  it("should not shrink the inline size below the minimum", () => {
+    const onChange = vi.fn();
+    const { result } = renderHook(() => Grid.useInlineResize(100, onChange));
+    result.current.onResizeStart?.({ width: 150, height: 40 });
+    result.current.onResize?.({ width: 10, height: 40 });
+    expect(onChange).toHaveBeenLastCalledWith(40);
   });
 });

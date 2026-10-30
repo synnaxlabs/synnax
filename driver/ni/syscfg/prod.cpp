@@ -9,11 +9,8 @@
 
 /// std. lib.
 #include <cstdarg>
+#include <cstdio>
 #include <cstring>
-
-#include <stdio.h>
-
-#include "x/cpp/os/os.h"
 
 #include "driver/errors/errors.h"
 #include "driver/ni/syscfg/nisyscfg.h"
@@ -30,7 +27,6 @@ namespace driver::ni::syscfg {
 const auto LOAD_ERROR = errors::missing_lib(LIBRARY_INFO);
 
 std::pair<std::shared_ptr<API>, x::errors::Error> ProdAPI::load() {
-    if (x::os::get() == x::os::MACOS_NAME) return {nullptr, x::errors::NIL};
     auto lib = std::make_unique<x::lib::Shared>(LIB_NAME);
     if (!lib->load()) return {nullptr, LOAD_ERROR};
     return {std::make_shared<ProdAPI>(lib), x::errors::NIL};
@@ -125,7 +121,7 @@ NISYSCFGCDECL ProdAPI::SetFilterProperty(
     NISysCfgFilterProperty propertyID,
     ...
 ) {
-    va_list args;
+    va_list args{};
     // Note: Enum types undergo default argument promotion to int in varargs.
     // This is a known limitation of C varargs but is how the NI API is designed.
     // Suppressing the warning to maintain semantic type safety of the enum.

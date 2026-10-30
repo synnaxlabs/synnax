@@ -11,10 +11,12 @@ import { type device } from "@synnaxlabs/client";
 import { migrate } from "@synnaxlabs/x";
 import z from "zod";
 
-import * as v0 from "@/feature/opcua/device/types/v0";
-import * as v1 from "@/feature/opcua/device/types/v1";
+import { v0, v1, v2 } from "@/feature/opcua/device/types/versions";
 
 export const MAKE = v0.MAKE;
+
+/** The name a rack lists in its integrations when its Driver runs this one. */
+export const INTEGRATION = "opc";
 export const makeZ = v0.makeZ;
 
 export const NO_SECURITY_MODE = v0.NO_SECURITY_MODE;
@@ -32,22 +34,23 @@ export const AES256_SHA256_RSAPSS_SECURITY_POLICY =
   v0.AES256_SHA256_RSAPSS_SECURITY_POLICY;
 export type SecurityPolicy = v0.SecurityPolicy;
 
-export const connectionConfigZ = v0.connectionConfigZ;
-export type ConnectionConfig = v0.ConnectionConfig;
-export const ZERO_CONNECTION_CONFIG = v0.ZERO_CONNECTION_CONFIG;
+export type ConnectionConfig = v2.ConnectionConfig;
 
-export const propertiesZ: z.ZodType<v1.Properties> = v1.propertiesZ.or(
-  v0.propertiesZ.transform(v1.propertiesMigration),
-);
-export interface Properties extends v1.Properties {}
-export const ZERO_PROPERTIES = v1.ZERO_PROPERTIES;
+export const propertiesZ: z.ZodType<v2.Properties> = v2.propertiesZ
+  .or(v1.propertiesZ.transform(v2.propertiesMigration))
+  .or(
+    v0.propertiesZ.transform(v1.propertiesMigration).transform(v2.propertiesMigration),
+  );
+export interface Properties extends v2.Properties {}
+export const ZERO_PROPERTIES = v2.ZERO_PROPERTIES;
 
-export interface Device extends v1.Device {}
+export interface Device extends v2.Device {}
 
 const PROPERTIES_MIGRATIONS: migrate.Migrations = {
   [v0.VERSION]: v1.propertiesMigration,
+  [v1.VERSION]: v2.propertiesMigration,
 };
-export type AnyProperties = v0.Properties | v1.Properties;
+export type AnyProperties = v0.Properties | v1.Properties | v2.Properties;
 
 export const SCHEMAS = {
   properties: propertiesZ,
@@ -55,9 +58,9 @@ export const SCHEMAS = {
   model: z.string(),
 } as const satisfies device.DeviceSchemas<typeof propertiesZ, typeof makeZ>;
 
-export const migrateProperties = migrate.migrator<AnyProperties, v1.Properties>({
+export const migrateProperties = migrate.migrator<AnyProperties, v2.Properties>({
   name: v1.PROPERTIES_MIGRATION_NAME,
   migrations: PROPERTIES_MIGRATIONS,
   defaultVersion: v0.VERSION,
-  def: v1.ZERO_PROPERTIES,
+  def: v2.ZERO_PROPERTIES,
 });

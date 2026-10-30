@@ -9,6 +9,7 @@
 
 import { type Locator, type Page } from "playwright";
 
+import { control } from "@/capture/plot";
 import { type CaptureSession } from "@/capture/rig";
 import { type Point } from "@/timeline";
 
@@ -28,7 +29,7 @@ export interface CanvasPosition {
 export const canvas = (page: Page): Locator =>
   page.locator(".react-flow__pane").first();
 
-/** symbols returns every symbol on the canvas, in the order they were added. */
+/** symbols returns every symbol on the canvas, in no fixed order. */
 const symbols = (page: Page): Locator => page.locator(".react-flow__node");
 
 /**
@@ -45,9 +46,9 @@ export const handle = (symbol: Locator, side: Side, index = 0): Locator =>
  * own, and the create/import pairs differ only by their corner icon.
  */
 export const toolbarButton = (page: Page, ...icons: string[]): Locator => {
-  let button = page.locator(".console-nav__drawer.pluto--location-bottom button");
+  let button = page.locator(".console-nav__drawer.lyra--location-bottom button");
   for (const icon of icons)
-    button = button.filter({ has: page.locator(`svg.pluto-icon--${icon}`) });
+    button = button.filter({ has: page.locator(`svg.lyra-icon--${icon}`) });
   return button.first();
 };
 
@@ -58,7 +59,7 @@ const point = async (page: Page, { x, y }: CanvasPosition): Promise<Point> => {
 };
 
 const drawer = (page: Page): Locator =>
-  page.locator(".console-nav__drawer.pluto--location-bottom").first();
+  page.locator(".console-nav__drawer.lyra--location-bottom").first();
 
 /**
  * selectToolbarTab opens a tab of the schematic's bottom toolbar, opening the
@@ -102,10 +103,22 @@ export const place = async (
     .filter({ has: page.getByText(name, { exact: true }) })
     .first();
   await session.waitFor(button);
-  const before = await symbols(page).count();
+  const ids = async (): Promise<string[]> =>
+    (
+      await symbols(page).evaluateAll((nodes) =>
+        nodes.map((n) => n.getAttribute("data-id")),
+      )
+    ).filter((id): id is string => id != null);
+  const before = new Set(await ids());
   await session.click(button, { zoom: false });
-  const symbol = symbols(page).nth(before);
-  await session.waitFor(symbol);
+  // React Flow does not keep nodes in creation order, so find the new one by id.
+  let id: string | undefined;
+  for (let tries = 0; id == null; tries++) {
+    if (tries > 200) throw new Error(`placing ${name} added no schematic node`);
+    id = (await ids()).find((i) => !before.has(i));
+    if (id == null) await session.settle(50);
+  }
+  const symbol = page.locator(`.react-flow__node[data-id="${id}"]`);
   await search.fill("");
   // Only the symbol's body starts a node drag; the node box also spans its
   // label slots.
@@ -136,6 +149,62 @@ export const selectSymbols = async (
     y: Math.max(...found.map((b) => b.y + b.height)) + padding,
   };
   await session.drag(from, to, { zoom: false });
+};
+
+/**
+ * channelField returns the Channel field of a section, such as "State" or "Command",
+ * in the selected symbol's Control tab.
+ */
+export const channelField = (properties: Locator, section: string): Locator =>
+  properties
+    .locator(".lyra-form-section")
+    .filter({
+      has: properties
+        .page()
+        .locator(".lyra-form-section__header")
+        .getByText(section, { exact: true }),
+    })
+    .locator(".lyra-input__item")
+    .filter({ hasText: "Channel" })
+    .first();
+
+/**
+ * bindChannel picks `channel` for a section's Channel field in the selected symbol's
+ * open properties tab. It fills the search instead of typing, so it suits setup, not
+ * a recorded beat.
+ */
+export const bindChannel = async (
+  session: CaptureSession,
+  section: string,
+  channel: string,
+): Promise<void> => {
+  const { page } = session;
+  const properties = page.locator(".console-schematic__properties").first();
+  const item = channelField(properties, section);
+  await session.click(item.getByText("Select channel", { exact: true }).first(), {
+    zoom: false,
+  });
+  const search = page.getByPlaceholder("Search channels...").first();
+  await session.waitFor(search);
+  await search.fill(channel);
+  const option = page
+    .locator(".lyra-list__item")
+    .filter({ has: page.getByText(channel, { exact: true }) })
+    .first();
+  await session.waitFor(option);
+  await session.click(option, { zoom: false });
+  await session.settle(400);
+};
+
+/**
+ * fitView fits and centers the schematic in its pane, off camera. Each click on the
+ * control also toggles fit on resize, so a second click turns it back off.
+ */
+export const fitView = async (session: CaptureSession): Promise<void> => {
+  const button = control(session.page, "expand");
+  await button.click({ timeout: 5000 });
+  await button.click({ timeout: 5000 });
+  await session.settle(300);
 };
 
 /**

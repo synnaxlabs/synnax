@@ -122,7 +122,7 @@ describe("auth guard", () => {
     expect(screen.queryByText("authenticated content")).toBeNull();
     submitCredentials("synnax", "seldon");
     await waitFor(
-      () => expect(document.querySelector(".pluto--status-success")).toBeTruthy(),
+      () => expect(document.querySelector(".lyra--status-success")).toBeTruthy(),
       { timeout: 10000 },
     );
     // The login sequence swaps the Core and project partitions in turn; the workspace
@@ -135,9 +135,9 @@ describe("auth guard", () => {
     // duplicate.
     const selected = Session.Core.selectSelectedKey(store.getState());
     expect(selected).toBe(key);
-    const added = Session.Core.selectMany(store.getState())
+    const added = Object.values(store.getState()[Session.Core.SLICE_NAME].cores)
       .map(({ key: k }) => k)
-      .filter((k) => k !== Session.Core.LOCAL_KEY && k !== Session.Core.DEMO_KEY);
+      .filter((k) => k !== "LOCAL" && k !== "DEMO");
     expect(added).toEqual([selected]);
   });
 
@@ -294,8 +294,8 @@ describe("connection guard permissions", () => {
 
   it("should explain a denied policy fetch and recover through Retry", async () => {
     const client = createTestClient();
-    // The Host role cannot retrieve policies, so the permissions fetch is denied.
-    const { username, key } = await createUserWithRole(client, "Host");
+    // The Driver role cannot retrieve policies, so the permissions fetch is denied.
+    const { username, key } = await createUserWithRole(client, "Driver");
     await renderGuardedContent();
     submitCredentials(username, PASSWORD);
     expect(
@@ -314,7 +314,7 @@ describe("connection guard permissions", () => {
 
   it("should return to the login surface through Log out", async () => {
     const client = createTestClient();
-    const { username } = await createUserWithRole(client, "Host");
+    const { username } = await createUserWithRole(client, "Driver");
     await renderGuardedContent();
     submitCredentials(username, PASSWORD);
     await screen.findByText("Console access denied", {}, { timeout: 10000 });

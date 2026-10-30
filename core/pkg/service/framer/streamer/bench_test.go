@@ -18,7 +18,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
@@ -27,7 +27,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/io"
@@ -37,7 +36,7 @@ import (
 
 type benchStreamerEnv struct {
 	ctx           context.Context
-	node          mock.Node
+	node          testutil.Node
 	closer        io.MultiCloser
 	channelSvc    *channel.Service
 	channelWriter channel.Writer
@@ -46,22 +45,16 @@ type benchStreamerEnv struct {
 
 func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 	RegisterTestingT(b)
-	node := mock.OpenNode(b.Context())
+	node := testutil.OpenNode(b.Context())
 
 	otg, err := ontology.Open(b.Context(), ontology.Config{DB: node.DB})
 	if err != nil {
 		b.Fatalf("failed to open ontology: %v", err)
 	}
 
-	searchIdx, err := search.OpenIndex()
-	if err != nil {
-		b.Fatalf("failed to open search index: %v", err)
-	}
-
 	groupSvc, err := group.OpenService(b.Context(), group.ServiceConfig{
 		DB:       node.DB,
 		Ontology: otg,
-		Search:   searchIdx,
 	})
 	if err != nil {
 		b.Fatalf("failed to open group service: %v", err)
@@ -71,7 +64,6 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 		DB:       node.DB,
 		Ontology: otg,
 		Group:    groupSvc,
-		Search:   searchIdx,
 	})
 	if err != nil {
 		b.Fatalf("failed to open label service: %v", err)
@@ -82,7 +74,6 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 		Group:    groupSvc,
 		Ontology: otg,
 		Label:    labelSvc,
-		Search:   searchIdx,
 	})
 	if err != nil {
 		b.Fatalf("failed to open status service: %v", err)
@@ -94,7 +85,6 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 		HostProvider: node.Cluster,
 		Ontology:     otg,
 		Group:        groupSvc,
-		Search:       searchIdx,
 		Status:       statusSvc,
 	})
 	if err != nil {
@@ -139,7 +129,7 @@ func newBenchStreamerEnv(b *testing.B) *benchStreamerEnv {
 		ctx:  b.Context(),
 		node: node,
 		closer: io.MultiCloser{
-			calc, channelSvc, statusSvc, labelSvc, groupSvc, searchIdx, otg, node,
+			calc, channelSvc, statusSvc, labelSvc, groupSvc, otg, node,
 		},
 		channelSvc:    channelSvc,
 		channelWriter: channelSvc.NewWriter(nil),

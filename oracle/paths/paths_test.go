@@ -173,6 +173,25 @@ var _ = Describe("Paths", func() {
 		})
 	})
 
+	Describe("Version", func() {
+		It("Should parse a version name", func() {
+			Expect(MustBeOk(paths.Version("v0"))).To(Equal(0))
+			Expect(MustBeOk(paths.Version("v12"))).To(Equal(12))
+		})
+
+		DescribeTable("Should reject a name that is not a version", func(name string) {
+			_, ok := paths.Version(name)
+			Expect(ok).To(BeFalse())
+		},
+			Entry("a leading zero", "v03"),
+			Entry("no number", "v"),
+			Entry("another prefix", "x1"),
+			Entry("an uppercase prefix", "V1"),
+			Entry("a suffix", "v1a"),
+			Entry("a number that overflows", "v99999999999999999999"),
+		)
+	})
+
 	Describe("VersionFile", func() {
 		It("Should recognize version file paths", func() {
 			resource, version, ok := paths.VersionFile(
@@ -205,28 +224,9 @@ var _ = Describe("Paths", func() {
 				Expect(ok).To(BeFalse())
 			},
 			Entry("version file", "schemas/synnax/versions/channel/v0.oracle"),
+			Entry("too shallow", "schemas/channel.oracle"),
 			Entry("nested path", "schemas/synnax/nested/channel.oracle"),
 			Entry("outside schemas", "client/ts/channel.oracle"),
-		)
-	})
-
-	Describe("LiveSchema", func() {
-		It("Should return the domain and resource for a live schema", func() {
-			domain, resource, ok := paths.LiveSchema("schemas/x/telem.oracle")
-			Expect(ok).To(BeTrue())
-			Expect(domain).To(Equal("x"))
-			Expect(resource).To(Equal("telem"))
-		})
-
-		DescribeTable("Should report false for non-live paths",
-			func(path string) {
-				_, _, ok := paths.LiveSchema(path)
-				Expect(ok).To(BeFalse())
-			},
-			Entry("version file", "schemas/x/versions/telem/v0.oracle"),
-			Entry("too shallow", "schemas/telem.oracle"),
-			Entry("too deep", "schemas/x/nested/telem.oracle"),
-			Entry("outside schemas", "client/x/telem.oracle"),
 		)
 	})
 

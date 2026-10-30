@@ -7,27 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type destructor, TimeSpan } from "@synnaxlabs/x";
 import {
   cloneElement,
   isValidElement,
   type ReactElement,
   type ReactNode,
   type Ref,
-  useCallback,
   useEffect,
   useId,
-  useRef,
-  useState,
 } from "react";
 
 import { CSS } from "@/css";
-import { useCombinedRefs, useSyncedRef } from "@/hooks";
+import { useSyncedRef } from "@/hooks";
 import { type position } from "@/position";
 import { Text } from "@/text";
-import { useConfig } from "@/tooltip/Config";
 import { Frame } from "@/tooltip/Frame";
-import { Triggers } from "@/triggers";
+import { useVisibility } from "@/tooltip/useVisibility";
 
 interface ChildProps {
   ref?: Ref<HTMLElement>;
@@ -58,8 +53,14 @@ export interface ExtensionProps {
   hideTooltip?: DialogProps["hide"];
 }
 
-const CLOSE_DURATION = TimeSpan.milliseconds(150);
-const ESCAPE_TRIGGERS: Triggers.Trigger[] = [Triggers.ESCAPE];
+interface AnchorProps extends ChildProps {
+  element: ReactElement<ChildProps>;
+}
+
+// Clones in its own component because the compiler cannot tell that cloneElement never
+// calls the handlers it receives, while it knows render never calls a JSX prop.
+const Anchor = ({ element, ...props }: AnchorProps): ReactElement =>
+  cloneElement(element, props);
 
 /**
  * A tooltip that appears when the user hovers or keyboard-focuses an element.
@@ -78,130 +79,35 @@ export const Dialog = ({
   location: locationProp,
   hide = false,
 }: DialogProps): ReactElement => {
-  const { delay, isWarm, markClosed, acquire } = useConfig();
-  const [visible, setVisible] = useState(false);
-  const [closing, setClosing] = useState(false);
+  const { anchor, closing, hover, open, close } = useVisibility();
+  const visible = anchor != null;
   const id = useId();
-
-  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
-  const anchorRef = useRef<HTMLElement | null>(null);
-  const openTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const closeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const releaseRef = useRef<destructor.Destructor | null>(null);
-  const visibleRef = useSyncedRef(visible);
   const hideRef = useSyncedRef(hide);
-  const hidden = useCallback((anchor: HTMLElement): boolean => {
+  const hidden = (anchor: HTMLElement): boolean => {
     const h = hideRef.current;
     return typeof h === "function" ? h(anchor) : h;
-  }, []);
-  const delayRef = useSyncedRef(delay);
+  };
+  const closeNow = (): void => close(true);
 
-  const clearOpenTimeout = useCallback((): void => {
-    if (openTimeoutRef.current == null) return;
-    clearTimeout(openTimeoutRef.current);
-    openTimeoutRef.current = null;
-  }, []);
-  const clearCloseTimeout = useCallback((): void => {
-    if (closeTimeoutRef.current == null) return;
-    clearTimeout(closeTimeoutRef.current);
-    closeTimeoutRef.current = null;
-  }, []);
-
-  const close = useCallback((immediate: boolean = false): void => {
-    clearOpenTimeout();
-    if (!visibleRef.current) return;
-    markClosed();
-    releaseRef.current?.();
-    releaseRef.current = null;
-    if (immediate) {
-      clearCloseTimeout();
-      setClosing(false);
-      setVisible(false);
-      return;
-    }
-    if (closeTimeoutRef.current != null) return;
-    setClosing(true);
-    closeTimeoutRef.current = setTimeout(() => {
-      closeTimeoutRef.current = null;
-      setClosing(false);
-      setVisible(false);
-    }, CLOSE_DURATION.milliseconds);
-  }, []);
-  const closeNow = useCallback((): void => close(true), [close]);
-
-  const open = useCallback((): void => {
-    clearCloseTimeout();
-    setClosing(false);
-    releaseRef.current?.();
-    releaseRef.current = acquire(closeNow);
-    // Set from the ref on open so mounting alone never re-renders the dialog
-    setAnchor(anchorRef.current);
-    setVisible(true);
-  }, []);
-
-  const handlePointerEnter = useCallback(
-    (e: React.PointerEvent<HTMLElement>): void => {
-      if (e.pointerType === "touch" || hidden(e.currentTarget)) return;
-      clearOpenTimeout();
-      if (visibleRef.current || isWarm()) return open();
-      openTimeoutRef.current = setTimeout(
-        open,
-        new TimeSpan(delayRef.current).milliseconds,
-      );
-    },
-    [open, hidden],
-  );
-  const handlePointerLeave = useCallback((): void => close(), [close]);
-  const handleFocus = useCallback(
-    (e: React.FocusEvent<HTMLElement>): void => {
-      if (!e.currentTarget.matches(":focus-visible") || hidden(e.currentTarget)) return;
-      open();
-    },
-    [open, hidden],
-  );
-
-  useEffect(() => {
-    if (!visible) return;
-    const handleScroll = (e: Event): void => {
-      const anchor = anchorRef.current;
-      if (
-        e.target instanceof Node &&
-        anchor != null &&
-        (e.target === anchor || e.target.contains(anchor))
-      )
-        close(true);
-    };
-    window.addEventListener("scroll", handleScroll, { capture: true, passive: true });
-    return () => window.removeEventListener("scroll", handleScroll, { capture: true });
-  }, [visible, close]);
-
-  const handleEscape = useCallback(
-    ({ stage }: Triggers.UseEvent): void => {
-      if (stage === "start" && visibleRef.current) close(true);
-    },
-    [close],
-  );
-  Triggers.use({ triggers: ESCAPE_TRIGGERS, callback: handleEscape, priority: 200 });
+  const handlePointerEnter = (e: React.PointerEvent<HTMLElement>): void => {
+    if (e.pointerType === "touch" || hidden(e.currentTarget)) return;
+    hover(e.currentTarget);
+  };
+  const handlePointerLeave = (): void => close();
+  const handleFocus = (e: React.FocusEvent<HTMLElement>): void => {
+    if (!e.currentTarget.matches(":focus-visible") || hidden(e.currentTarget)) return;
+    open(e.currentTarget);
+  };
 
   useEffect(() => {
     if (hide === true) close(true);
   }, [hide, close]);
 
-  useEffect(
-    () => () => {
-      clearOpenTimeout();
-      clearCloseTimeout();
-      releaseRef.current?.();
-    },
-    [],
-  );
-
   const [tip, children_] = children;
-  const combinedAnchorRef = useCombinedRefs(anchorRef, children_.props.ref);
 
   return (
     <>
-      {visible && anchor != null && (
+      {anchor != null && (
         <Frame
           id={id}
           anchor={anchor}
@@ -212,38 +118,39 @@ export const Dialog = ({
           {formatTip(tip)}
         </Frame>
       )}
-      {cloneElement(children_, {
-        ref: combinedAnchorRef,
-        "aria-describedby": visible ? id : children_.props["aria-describedby"],
-        // A string tip doubles as an icon-only anchor's accessible name. An
-        // anchor with visible text keeps that text as its name: aria-label
-        // would override it, breaking label-in-name.
-        "aria-label":
+      <Anchor
+        element={children_}
+        aria-describedby={visible ? id : children_.props["aria-describedby"]}
+        // A string tip doubles as an icon-only anchor's accessible name. An anchor with
+        // visible text keeps that text as its name: aria-label would override it,
+        // breaking label-in-name.
+        aria-label={
           children_.props["aria-label"] ??
           (typeof tip === "string" && Text.isSquare(children_.props.children)
             ? tip
-            : undefined),
-        onPointerEnter: (e) => {
+            : undefined)
+        }
+        onPointerEnter={(e) => {
           handlePointerEnter(e);
           children_.props.onPointerEnter?.(e);
-        },
-        onPointerLeave: (e) => {
+        }}
+        onPointerLeave={(e) => {
           handlePointerLeave();
           children_.props.onPointerLeave?.(e);
-        },
-        onPointerDown: (e) => {
+        }}
+        onPointerDown={(e) => {
           closeNow();
           children_.props.onPointerDown?.(e);
-        },
-        onFocus: (e) => {
+        }}
+        onFocus={(e) => {
           handleFocus(e);
           children_.props.onFocus?.(e);
-        },
-        onBlur: (e) => {
+        }}
+        onBlur={(e) => {
           closeNow();
           children_.props.onBlur?.(e);
-        },
-      })}
+        }}
+      />
     </>
   );
 };

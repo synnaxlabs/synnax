@@ -14,6 +14,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/builtin"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/migrations"
@@ -21,12 +22,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
@@ -60,11 +59,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Group *group.Service
-	// Search is the search index used by the role and policy sub-services for name
-	// lookups.
-	//
-	// [REQUIRED]
-	Search *search.Index
 	// User is the user service used to load existing root users so the Owner role can
 	// be assigned to them during startup.
 	//
@@ -81,7 +75,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Group = override.Nil(c.Group, other.Group)
-	c.Search = override.Nil(c.Search, other.Search)
 	c.User = override.Nil(c.User, other.User)
 	return c
 }
@@ -92,7 +85,6 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("db", c.DB)
 	v.NotNil("ontology", c.Ontology)
 	v.NotNil("group", c.Group)
-	v.NotNil("search", c.Search)
 	v.NotNil("user", c.User)
 	return v.Error()
 }
@@ -100,23 +92,14 @@ func (c ServiceConfig) Validate() error {
 type Service struct {
 	Policy *policy.Service
 	Role   *role.Service
-	closer io.MultiCloser
-	cfg    ServiceConfig
+	// Builtin holds the keys of the built-in roles.
+	Builtin builtin.ProvisionResult
+	closer  io.MultiCloser
+	cfg     ServiceConfig
 }
 
 // Close shuts down the RBAC service and its sub-services.
 func (s *Service) Close() error { return s.closer.Close() }
-
-// RetrievePoliciesForSubject retrieves all policies that apply to the given subject.
-// This includes all policies from roles assigned to the subject via ontology
-// relationships.
-func (s *Service) RetrievePoliciesForSubject(
-	ctx context.Context,
-	subject ontology.ID,
-	tx gorp.Tx,
-) ([]policy.Policy, error) {
-	return s.NewEnforcer(tx).retrievePolicies(ctx, subject)
-}
 
 // OpenService creates a new RBAC service with both Policy and Role sub-services. It
 // also provisions built-in roles/policies and runs legacy permission migrations.
@@ -136,7 +119,6 @@ func OpenService(
 		DB:              cfg.DB,
 		Signals:         cfg.Signals,
 		Ontology:        cfg.Ontology,
-		Search:          cfg.Search,
 	}); !ok(err, s.Policy) {
 		return nil, err
 	}
@@ -146,13 +128,12 @@ func OpenService(
 		Ontology:        cfg.Ontology,
 		Signals:         cfg.Signals,
 		Group:           cfg.Group,
-		Search:          cfg.Search,
 	}); !ok(err, s.Role) {
 		return nil, err
 	}
 	// Provision built-in roles and policies. This is idempotent and runs every startup
 	// to ensure policy definitions stay up to date.
-	builtinRoles, err := builtin.Provision(ctx, cfg.DB, s.Policy, s.Role)
+	s.Builtin, err = builtin.Provision(ctx, cfg.DB, s.Policy, s.Role)
 	if !ok(err, nil) {
 		return nil, err
 	}
@@ -167,7 +148,7 @@ func OpenService(
 			User:     cfg.User,
 			Ontology: cfg.Ontology,
 			Role:     s.Role,
-			Roles:    builtinRoles,
+			Roles:    s.Builtin,
 		}),
 	}); !ok(err, nil) {
 		return nil, err
@@ -175,7 +156,7 @@ func OpenService(
 	// assignOwnerToRoots ensures every user with RootUser=true holds the Owner role.
 	// Reconciliation of which users are flagged as root happens earlier in
 	// user.OpenService; this step only wires the role assignment.
-	if err = s.assignOwnerToRoots(ctx, builtinRoles.OwnerKey); !ok(err, nil) {
+	if err = s.assignOwnerToRoots(ctx, s.Builtin.OwnerKey); !ok(err, nil) {
 		return nil, err
 	}
 	return s, nil
@@ -202,7 +183,7 @@ func (s *Service) assignOwnerToRoots(ctx context.Context, ownerKey role.Key) err
 				return errors.Wrapf(
 					err,
 					"assign Owner role to root user %q",
-					r.Username,
+					r.Name,
 				)
 			}
 		}

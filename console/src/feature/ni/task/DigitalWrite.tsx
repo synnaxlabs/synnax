@@ -12,11 +12,11 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { errors, type optional, primitive } from "@synnaxlabs/x";
-import { type FC, useCallback } from "react";
+import { type FC } from "react";
 
 import { useFromConfig } from "@/feature/ni/device/queries";
 import { Select } from "@/feature/ni/device/Select";
-import * as Device from "@/feature/ni/device/types";
+import { SCHEMAS } from "@/feature/ni/device/types";
 import { createNextDOChannel } from "@/feature/ni/task/createChannel";
 import {
   DigitalChannelList,
@@ -68,16 +68,13 @@ const name = Component.renderProp(NameComponent);
 
 const Form: FC = () => {
   const dev = useFromConfig();
-  const resolve = useCallback(
-    (ch: DOChannel) => {
-      if (dev == null) return null;
-      const pair =
-        dev.properties.digitalOutput.channels[getDigitalChannelDeviceKey(ch)] ??
-        PlatformDevice.ZERO_COMMAND_STATE_PAIR;
-      return { cmdChannel: pair.command, stateChannel: pair.state };
-    },
-    [dev],
-  );
+  const resolve = (ch: DOChannel) => {
+    if (dev == null) return null;
+    const pair =
+      dev.properties.digitalOutput.channels[getDigitalChannelDeviceKey(ch)] ??
+      PlatformDevice.ZERO_COMMAND_STATE_PAIR;
+    return { cmdChannel: pair.command, stateChannel: pair.state };
+  };
   return (
     <DigitalChannelList
       createChannel={createNextDOChannel}
@@ -94,6 +91,7 @@ const getInitialValues: Task.GetInitialValues<DigitalWriteSchemas> = ({
 }) => {
   const cfg = digitalWriteConfigZ.parse(config ?? {});
   if (deviceKey != null) cfg.device = deviceKey;
+  if (config == null) cfg.channels = [createNextDOChannel([])];
   return { name: "NI digital write task", type: DIGITAL_WRITE_TYPE, config: cfg };
 };
 
@@ -103,7 +101,7 @@ const onConfigure: Task.OnConfigure<typeof digitalWriteConfigZ> = async (
 ) => {
   const dev = await client.devices.retrieve({
     key: config.device,
-    schemas: Device.SCHEMAS,
+    schemas: SCHEMAS,
   });
   PlatformDevice.checkConfigured(dev);
   let modified = false;
@@ -199,7 +197,7 @@ const onConfigure: Task.OnConfigure<typeof digitalWriteConfigZ> = async (
       });
     }
   } finally {
-    if (modified) await client.devices.create(dev, Device.SCHEMAS);
+    if (modified) await client.devices.create(dev, SCHEMAS);
   }
   config.channels = config.channels.map((c) => {
     const key = getDigitalChannelDeviceKey(c);

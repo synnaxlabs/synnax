@@ -11,6 +11,8 @@
 
 #include <algorithm>
 #include <mutex>
+#include <ranges>
+#include <set>
 #include <thread>
 #include <unordered_set>
 
@@ -23,6 +25,7 @@
 #include "x/cpp/thread/thread.h"
 
 #include "driver/common/status.h"
+#include "driver/errors/errors.h"
 #include "driver/pipeline/base.h"
 #include "driver/pipeline/control.h"
 #include "driver/task/task.h"
@@ -44,7 +47,7 @@ inline x::json::json merge_device_properties(
     x::json::json merged = remote_props.is_object() ? remote_props
                                                     : x::json::json::object();
     if (scanned_props.is_object()) {
-        for (auto &[k, v]: scanned_props.items())
+        for (const auto &[k, v]: scanned_props.items())
             merged[k] = v;
     }
     return merged;
@@ -59,6 +62,12 @@ struct ScanTaskConfig : ::synnax::task::ScanConfig {
     explicit ScanTaskConfig(x::json::Parser &cfg):
         ::synnax::task::ScanConfig(::synnax::task::ScanConfig::parse(cfg)) {}
 };
+
+/// @brief returned by a scanner whose scan failed in part, together with the devices it
+/// found. The scan task keeps the devices and reports the error as a warning.
+const x::errors::Error PARTIAL_SCAN_ERROR = driver::errors::BASE_ERROR.sub(
+    "partial_scan"
+);
 
 struct ScannerContext {
     /// @brief the number of scans run before the current one.
@@ -82,7 +91,7 @@ struct Scanner {
     virtual ~Scanner() = default;
 
     /// @brief Returns the scanner configuration.
-    virtual ScannerConfig config() const = 0;
+    [[nodiscard]] virtual ScannerConfig config() const = 0;
 
     /// @brief Lifecycle method called when the scan task starts.
     virtual x::errors::Error start() { return x::errors::NIL; }
@@ -90,7 +99,8 @@ struct Scanner {
     /// @brief Lifecycle method called when the scan task stops.
     virtual x::errors::Error stop() { return x::errors::NIL; }
 
-    /// @brief Periodic scan method to discover/update devices.
+    /// @brief Periodic scan method to discover/update devices. Returns
+    /// PARTIAL_SCAN_ERROR with the devices found when part of the scan fails.
     virtual std::pair<std::vector<synnax::device::Device>, x::errors::Error>
     scan(const ScannerContext &ctx) = 0;
 
@@ -192,6 +202,9 @@ class ScanTask final : public task::Task, public pipeline::Base {
     ScannerContext scanner_ctx;
     std::unique_ptr<ClusterAPI> client;
     std::unordered_map<std::string, synnax::device::Device> dev_states;
+    /// @brief the keys of devices that the last save failed to write. dev_states
+    /// already holds their changes, so the next scan saves them again.
+    std::set<std::string> unsaved;
     std::string log_prefix;
 
     // Signal monitoring infrastructure
@@ -209,12 +222,41 @@ class ScanTask final : public task::Task, public pipeline::Base {
         this->status.details.cmd = driver::task::NO_COMMAND;
     }
 
+    /// @brief sets the status variant and text, then sends it.
+    void send_status(
+        const std::string &variant,
+        const std::string &message,
+        const std::string &description = ""
+    ) {
+        this->status.variant = variant;
+        this->status.message = message;
+        this->status.description = description;
+        this->send_status();
+    }
+
+    /// @brief sends a warning when the scan error changes, and a success once scans
+    /// recover.
+    void report_scan(const x::errors::Error &err) {
+        if (err) {
+            if (this->status.variant == synnax::status::VARIANT_WARNING &&
+                this->status.description == err.data)
+                return;
+            LOG(WARNING) << this->log_prefix << "failed to scan for devices: " << err;
+            this->send_status(
+                synnax::status::VARIANT_WARNING,
+                "Failed to scan for devices",
+                err.data
+            );
+        } else if (this->status.variant != synnax::status::VARIANT_SUCCESS)
+            this->send_status(synnax::status::VARIANT_SUCCESS, "Scan task running");
+    }
+
     [[nodiscard]] bool update_threshold_exceeded(const std::string &dev_key) {
         auto last_updated = x::telem::TimeStamp(0);
         if (const auto dev_state = this->dev_states.find(dev_key);
-            dev_state != this->dev_states.end() &&
-            dev_state->second.status.has_value()) {
-            last_updated = dev_state->second.status->time;
+            dev_state != this->dev_states.end()) {
+            if (const auto &status = dev_state->second.status; status.has_value())
+                last_updated = status->time;
         }
         const auto delta = x::telem::TimeStamp::now() - last_updated;
         return delta > x::telem::SECOND * 30;
@@ -364,16 +406,20 @@ public:
     void run() override {
         this->status.details.running = false;
         if (const auto err = this->init()) {
-            this->status.variant = synnax::status::VARIANT_ERROR;
-            this->status.message = err.message();
-            this->send_status();
+            this->send_status(
+                synnax::status::VARIANT_ERROR,
+                "Failed to start scan task",
+                err.data
+            );
             return;
         }
 
         if (const auto err = this->scanner->start()) {
-            this->status.variant = synnax::status::VARIANT_ERROR;
-            this->status.message = err.message();
-            this->send_status();
+            this->send_status(
+                synnax::status::VARIANT_ERROR,
+                "Failed to start scan task",
+                err.data
+            );
             return;
         }
 
@@ -381,31 +427,23 @@ public:
             LOG(WARNING) << this->log_prefix
                          << "failed to start signal monitoring: " << err;
 
-        this->status.variant = synnax::status::VARIANT_SUCCESS;
         this->status.details.running = true;
-        this->status.message = "Scan task started";
-        this->send_status();
+        this->send_status(synnax::status::VARIANT_SUCCESS, "Started scan task");
         while (this->breaker.running()) {
-            if (const auto err = this->scan()) {
-                this->status.variant = synnax::status::VARIANT_WARNING;
-                this->status.message = err.message();
-                this->send_status();
-                LOG(WARNING) << this->log_prefix
-                             << "failed to scan for devices: " << err;
-            }
+            this->report_scan(this->scan());
             this->timer.wait(this->breaker);
         }
 
         this->stop_signal_monitoring();
-        if (const auto err = this->scanner->stop()) {
-            this->status.variant = synnax::status::VARIANT_ERROR;
-            this->status.message = err.message();
-        } else {
-            this->status.variant = synnax::status::VARIANT_SUCCESS;
-            this->status.message = "scan task stopped";
-        }
         this->status.details.running = false;
-        this->send_status();
+        if (const auto err = this->scanner->stop())
+            this->send_status(
+                synnax::status::VARIANT_ERROR,
+                "Failed to stop scan task",
+                err.data
+            );
+        else
+            this->send_status(synnax::status::VARIANT_SUCCESS, "Stopped scan task");
     }
 
     void exec(synnax::task::Command &cmd) override {
@@ -421,11 +459,15 @@ public:
             return;
         }
         if (cmd.type == common::SCAN_CMD_TYPE) {
-            const auto err = this->scan();
-            this->status.variant = err ? synnax::status::VARIANT_ERROR
-                                       : synnax::status::VARIANT_SUCCESS;
-            this->status.message = err ? err.message() : "Scan complete";
-            this->send_status();
+            if (const auto err = this->scan())
+                this->send_status(
+                    err.matches(PARTIAL_SCAN_ERROR) ? synnax::status::VARIANT_WARNING
+                                                    : synnax::status::VARIANT_ERROR,
+                    "Failed to scan for devices",
+                    err.data
+                );
+            else
+                this->send_status(synnax::status::VARIANT_SUCCESS, "Scan complete");
             return;
         }
         // The scanner answers the commands it handles with its own status.
@@ -434,12 +476,15 @@ public:
             return;
         }
         LOG(ERROR) << this->log_prefix << "unknown command type: " << cmd.type;
-        this->status.variant = synnax::status::VARIANT_ERROR;
-        this->status.message = "Unknown command type '" + cmd.type + "'";
-        this->send_status();
+        this->send_status(
+            synnax::status::VARIANT_ERROR,
+            "Failed to execute command",
+            "Unknown command type '" + cmd.type + "'."
+        );
     }
 
     x::errors::Error scan() {
+        x::errors::Error scan_err;
         std::vector<synnax::device::Device> to_create;
         std::vector<synnax::device::Status> statuses;
         {
@@ -448,7 +493,8 @@ public:
             // Step 1: Scanner produces list of devices.
             this->scanner_ctx.devices = &this->dev_states;
             auto [scanned_devs, err] = this->scanner->scan(scanner_ctx);
-            if (err) return err;
+            if (err && !err.matches(PARTIAL_SCAN_ERROR)) return err;
+            scan_err = err;
             this->scanner_ctx.count++;
 
             // Step 1.5: Deduplicate by key (keep last). During physical device
@@ -456,12 +502,12 @@ public:
             {
                 std::unordered_set<std::string> seen;
                 std::vector<synnax::device::Device> deduped;
-                for (auto it = scanned_devs.rbegin(); it != scanned_devs.rend(); ++it) {
-                    if (seen.count(it->key)) continue;
-                    seen.insert(it->key);
-                    deduped.push_back(std::move(*it));
+                for (auto &dev: std::views::reverse(scanned_devs)) {
+                    if (seen.contains(dev.key)) continue;
+                    seen.insert(dev.key);
+                    deduped.push_back(std::move(dev));
                 }
-                std::reverse(deduped.begin(), deduped.end());
+                std::ranges::reverse(deduped);
                 scanned_devs = std::move(deduped);
             }
 
@@ -480,7 +526,7 @@ public:
                     continue;
                 }
                 const auto &remote_dev = iter->second;
-                bool needs_update = false;
+                bool needs_update = this->unsaved.contains(dev.key);
 
                 if (dev.location != remote_dev.location) {
                     LOG(INFO) << this->log_prefix << "device location changed from "
@@ -524,10 +570,15 @@ public:
             }
 
             for (auto &[key, dev]: this->dev_states) {
-                if (present.find(key) != present.end()) continue;
-                if (!dev.status.has_value()) dev.status = synnax::device::Status{};
+                if (present.contains(key)) continue;
+                if (!dev.status.has_value())
+                    dev.status = synnax::device::Status{
+                        .key = synnax::device::status_key(dev),
+                        .name = dev.name,
+                    };
                 dev.status->variant = synnax::status::VARIANT_WARNING;
                 dev.status->message = "Device disconnected";
+                dev.status->description = "";
             }
 
             statuses.reserve(this->dev_states.size());
@@ -539,15 +590,24 @@ public:
             LOG(ERROR) << this->log_prefix
                        << "failed to propagate statuses: " << state_err;
 
-        if (to_create.empty()) return x::errors::NIL;
+        if (to_create.empty()) return scan_err;
 
-        if (const auto err = this->client->create_devices(to_create)) {
+        const auto err = this->client->create_devices(to_create);
+        {
+            std::lock_guard lock(this->mu);
+            for (const auto &dev: to_create)
+                if (err)
+                    this->unsaved.insert(dev.key);
+                else
+                    this->unsaved.erase(dev.key);
+        }
+        if (err) {
             LOG(WARNING) << this->log_prefix << "failed to create devices: " << err;
             return err;
         }
         for (const auto &dev: to_create)
             LOG(INFO) << this->log_prefix << "successfully created device " << dev.key;
-        return x::errors::NIL;
+        return scan_err;
     }
 
     std::string name() const override { return this->task.name; }

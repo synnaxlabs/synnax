@@ -9,21 +9,15 @@
 
 import { control as clientControl, type status } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
-import { CSS } from "@synnaxlabs/lyra/css";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
 import { Text } from "@synnaxlabs/lyra/text";
 import { location, TimeStamp } from "@synnaxlabs/x";
-import {
-  type CSSProperties,
-  type ReactElement,
-  useCallback,
-  useEffect,
-  useMemo,
-} from "react";
+import { type CSSProperties, type ReactElement, useEffect } from "react";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
+import { CSS } from "@/css";
 import { control } from "@/telem/control/aether";
 
 export interface ChipProps
@@ -109,10 +103,8 @@ export const Chip = ({ source, sink, className, ...rest }: ChipProps): ReactElem
     setState((state) => ({ ...state, ...memoProps }));
   }, [memoProps, setState]);
 
-  const handleToggle = useCallback(
-    () => setState((state) => ({ ...state, triggered: !state.triggered })),
-    [setState],
-  );
+  const handleToggle = () =>
+    setState((state) => ({ ...state, triggered: !state.triggered }));
 
   const {
     message,
@@ -120,7 +112,7 @@ export const Chip = ({ source, sink, className, ...rest }: ChipProps): ReactElem
     chipIcon: ChipIcon,
     buttonStyle,
     disabled,
-  } = useMemo(() => tooltipMessage(status), [status]);
+  } = tooltipMessage(status);
 
   return (
     <Button.Button

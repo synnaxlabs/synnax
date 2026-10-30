@@ -49,7 +49,7 @@ const Content: Panel.Content = () => {
   return <Form taskKey={key} />;
 };
 
-const Name: Panel.TabName = ({ allowRename = true }) => {
+const Name: Panel.TabName = ({ allowRename = true, ...rest }) => {
   const tabKey = PPanel.useTabKey();
   const resource = PPanel.useTabResource();
   const { key } = resource;
@@ -66,6 +66,7 @@ const Name: Panel.TabName = ({ allowRename = true }) => {
         value={name}
         disabled={!allowRename || !canRename}
         onChange={(name) => rename({ key, name })}
+        {...rest}
       />
     </>
   );
@@ -88,5 +89,5 @@ export const TAB: Panel.Tab = {
     await client.tasks.create({ ...corpse.payload, status: undefined });
   },
   // Only these hooks, so the bundler can drop the rest of the namespace.
-  useTombstone: Panel.createTombstoneReader({ useTombstone: Base.useTombstone }),
+  Guard: Panel.createGuard({ useTombstone: Base.useTombstone }),
 };

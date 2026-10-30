@@ -16,6 +16,7 @@
 #include <limits>
 #include <memory>
 #include <string>
+#include <utility>
 
 #include "wasmtime.hh"
 
@@ -148,7 +149,7 @@ inline std::string utf8_truncate(const std::string &s, int n) {
     if (n <= 0) return "";
     int count = 0;
     for (size_t i = 0; i < s.size(); ++i) {
-        const unsigned char c = static_cast<unsigned char>(s[i]);
+        const auto c = static_cast<unsigned char>(s[i]);
         if ((c & 0xC0) != 0x80) {
             if (count == n) return s.substr(0, i);
             ++count;
@@ -195,7 +196,7 @@ format_int_value(const std::string &spec_str, int64_t value, bool is_signed) {
                          : std::to_string(static_cast<uint64_t>(value));
     const FormatSpec f = parse_format_spec(spec_str);
     const bool neg = is_signed && value < 0;
-    uint64_t abs_v;
+    uint64_t abs_v = 0;
     if (is_signed) {
         if (value == std::numeric_limits<int64_t>::min())
             abs_v = static_cast<uint64_t>(std::numeric_limits<int64_t>::max()) + 1;
@@ -303,7 +304,7 @@ format_int_value(const std::string &spec_str, int64_t value, bool is_signed) {
                     body_q += utf8_encode(value);
                 }
             }
-            body_q += "'";
+            body_q += '\'';
             if (f.width <= 0) return body_q;
             const int body_runes = utf8_rune_count(body_q);
             if (body_runes >= f.width) return body_q;
@@ -326,8 +327,8 @@ format_int_value(const std::string &spec_str, int64_t value, bool is_signed) {
     // Go suppresses the '#' prefix only on `%#o` of zero, because the body
     // "0" already carries the implicit octal prefix. `%#x`, `%#X`, and
     // `%#b` keep their prefixes (0x0, 0X0, 0b0) even when the value is 0.
-    if (f.alt && alt_applies && !(f.verb == 'o' && abs_v == 0)) prefix = alt_prefix;
-    if (f.precision > 0 && static_cast<int>(body.size()) < f.precision)
+    if (f.alt && alt_applies && (f.verb != 'o' || abs_v != 0)) prefix = alt_prefix;
+    if (f.precision > 0 && std::cmp_less(body.size(), f.precision))
         body = std::string(f.precision - body.size(), '0') + body;
     else if (f.precision == 0 && abs_v == 0)
         body = "";
@@ -412,7 +413,7 @@ inline std::string format_float_value(const std::string &spec_str, double v) {
         default:
             return "";
     }
-    if (n < 0 || n >= static_cast<int>(sizeof(buf))) return "";
+    if (n < 0 || std::cmp_greater_equal(n, sizeof(buf))) return "";
     std::string body(buf, n);
     std::string sign;
     if (!body.empty() && (body[0] == '-' || body[0] == '+')) {
@@ -464,9 +465,7 @@ inline std::string go_quote(const std::string &s) {
                 out += "\\v";
                 break;
             default:
-                if (c >= 0x20 && c < 0x7F) {
-                    out += static_cast<char>(c);
-                } else if (c >= 0x80) {
+                if ((c >= 0x20 && c < 0x7F) || c >= 0x80) {
                     out += static_cast<char>(c);
                 } else {
                     char hexbuf[8];
@@ -528,7 +527,7 @@ class Module : public stl::Module {
 
     /// Reads `len` bytes at `ptr` from WASM memory. Returns empty string if
     /// memory has not been bound or the read would be out of bounds.
-    std::string read_memory_string(uint32_t ptr, uint32_t len) const {
+    [[nodiscard]] std::string read_memory_string(uint32_t ptr, uint32_t len) const {
         if (!this->memory || !this->store) return "";
         const auto mem_span = this->memory->data(*this->store);
         if (static_cast<size_t>(ptr) + len > mem_span.size()) return "";
@@ -543,7 +542,7 @@ public:
         // SAFETY: raw `this` capture is safe because wasm::Module owns this
         // stl::Module via cfg.modules (shared_ptr), and Store/Memory are
         // stable members of the heap-pinned wasm::Module.
-        auto self = this;
+        auto *self = this;
         auto ss = this->str_state;
         linker
             .func_wrap(

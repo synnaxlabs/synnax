@@ -15,7 +15,6 @@ import {
 } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Synnax } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
 
 import { Runtime } from "@/platform/runtime";
 
@@ -36,15 +35,15 @@ export const use = (): ((params: Params) => void) => {
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   const download = Runtime.useDownload();
-  return useCallback(
-    ({ stream, name, extension }: Params) => {
-      handleError(async () => {
+  return ({ stream, name, extension }: Params) => {
+    handleError(
+      async () => {
         if (client == null) throw new DisconnectedError();
         await download({ stream: await stream(client), name, extension });
-      }, `Failed to export ${name}`);
-    },
-    [client, handleError, download],
-  );
+      },
+      { message: "Failed to export", name },
+    );
+  };
 };
 
 /**
@@ -55,18 +54,15 @@ export const useResource = (): ((id: ontology.ID) => void) => {
   const client = Synnax.use();
   const export_ = use();
   const handleError = Status.useErrorHandler();
-  return useCallback(
-    (id: ontology.ID) => {
-      handleError(async () => {
-        if (client == null) throw new DisconnectedError();
-        const { name } = await client.ontology.retrieve(id);
-        export_({
-          stream: async (client) => await client.imex.export(id, imex.JSON_OPTIONS),
-          name,
-          extension: "json",
-        });
-      }, "Failed to export resource");
-    },
-    [client, export_, handleError],
-  );
+  return (id: ontology.ID) => {
+    handleError(async () => {
+      if (client == null) throw new DisconnectedError();
+      const { name } = await client.ontology.retrieve(id);
+      export_({
+        stream: async (client) => await client.imex.export(id, imex.JSON_OPTIONS),
+        name,
+        extension: "json",
+      });
+    }, "Failed to export resource");
+  };
 };

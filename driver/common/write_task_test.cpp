@@ -7,17 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <future>
+
 #include "gtest/gtest.h"
 
 #include "x/cpp/sync/list.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 #include "x/cpp/uuid/uuid.h"
 
 #include "driver/common/write_task.h"
-#include "driver/pipeline/mock/pipeline.h"
+#include "driver/pipeline/testutil/pipeline.h"
 
 namespace driver::common {
-class MockSink final : public Sink, public pipeline::mock::Sink {
+class MockSink final : public Sink, public pipeline::testutil::Sink {
 public:
     /// @brief number of times start() was called.
     size_t start_count = 0;
@@ -26,21 +28,13 @@ public:
 
     MockSink(
         const x::telem::Rate state_rate,
-        const std::set<synnax::channel::Key> &state_indexes,
-        const std::vector<synnax::channel::Channel> &state_channels,
-        const std::vector<synnax::channel::Key> &cmd_channels,
+        const std::vector<Output> &outputs,
         const bool data_saving_disabled,
         const std::shared_ptr<x::sync::List<x::telem::Frame>> &writes,
         const std::shared_ptr<std::vector<x::errors::Error>> &errors
     ):
-        common::Sink(
-            state_rate,
-            state_indexes,
-            state_channels,
-            cmd_channels,
-            data_saving_disabled
-        ),
-        driver::pipeline::mock::Sink(writes, errors) {}
+        common::Sink(state_rate, outputs, data_saving_disabled),
+        driver::pipeline::testutil::Sink(writes, errors) {}
 
     x::errors::Error start() override {
         this->start_count++;
@@ -53,7 +47,7 @@ public:
     }
 
     x::errors::Error write(x::telem::Frame &frame) override {
-        auto err = pipeline::mock::Sink::write(frame);
+        auto err = pipeline::testutil::Sink::write(frame);
         this->set_state(frame);
         return err;
     }
@@ -81,9 +75,7 @@ TEST(TestCommonWriteTask, testSetStateUsesLastSample) {
 
     auto sink = std::make_unique<MockSink>(
         x::telem::HERTZ * 10,
-        std::set<synnax::channel::Key>{2},
-        std::vector{state},
-        std::vector<synnax::channel::Key>{1},
+        std::vector<Sink::Output>{{1, state}},
         false,
         writes,
         errors
@@ -93,10 +85,10 @@ TEST(TestCommonWriteTask, testSetStateUsesLastSample) {
     fr.emplace(1, x::telem::Series(std::vector<uint8_t>{10, 20, 30}));
     ASSERT_NIL(sink->write(fr));
 
-    auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
+    auto mock_writer_factory = std::make_shared<pipeline::testutil::WriterFactory>();
     auto cmd_reads = std::make_shared<std::vector<x::telem::Frame>>();
     cmd_reads->push_back(std::move(fr));
-    auto mock_streamer_factory = pipeline::mock::simple_streamer_factory(
+    auto mock_streamer_factory = pipeline::testutil::simple_streamer_factory(
         std::vector<synnax::channel::Key>{1},
         cmd_reads
     );
@@ -131,13 +123,42 @@ TEST(TestCommonWriteTask, testSetStateUsesLastSample) {
     ASSERT_TRUE(write_task.stop(stop_cmd_key, true));
 }
 
+/// @brief it should stream every command channel but report state only for the outputs
+/// that have a state channel.
+TEST(TestCommonWriteTask, OutputWithoutStateChannelReportsNoState) {
+    synnax::channel::Channel state;
+    state.key = 3;
+    state.data_type = x::telem::UINT8_T;
+    state.index = 2;
+    MockSink sink(
+        x::telem::HERTZ * 10,
+        {{1, std::nullopt}, {4, state}},
+        false,
+        std::make_shared<x::sync::List<x::telem::Frame>>(),
+        std::make_shared<std::vector<x::errors::Error>>()
+    );
+    EXPECT_EQ(
+        sink.streamer_config().channels,
+        (std::vector<synnax::channel::Key>{1, 4})
+    );
+    EXPECT_EQ(sink.writer_config().channels, (std::vector<synnax::channel::Key>{3, 2}));
+    x::telem::Frame fr(1);
+    fr.emplace(1, x::telem::Series(static_cast<uint8_t>(10)));
+    ASSERT_NIL(sink.write(fr));
+    EXPECT_EQ(std::get<uint8_t>(sink.chan_state.at(3)), 0);
+    x::telem::Frame fr_2(1);
+    fr_2.emplace(4, x::telem::Series(static_cast<uint8_t>(20)));
+    ASSERT_NIL(sink.write(fr_2));
+    EXPECT_EQ(std::get<uint8_t>(sink.chan_state.at(3)), 20);
+}
+
 /// @brief it should process command frames and write state updates.
 TEST(TestCommonWriteTask, testBasicOperation) {
-    auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
+    auto mock_writer_factory = std::make_shared<pipeline::testutil::WriterFactory>();
     const auto cmd_reads = std::make_shared<std::vector<x::telem::Frame>>();
     const auto s = x::telem::Series(static_cast<uint8_t>(1), x::telem::UINT8_T);
-    cmd_reads->emplace_back(x::telem::Frame(1, s.deep_copy()));
-    auto mock_streamer_factory = pipeline::mock::simple_streamer_factory(
+    cmd_reads->emplace_back(1, s.deep_copy());
+    auto mock_streamer_factory = pipeline::testutil::simple_streamer_factory(
         std::vector<synnax::channel::Key>{1},
         cmd_reads
     );
@@ -161,9 +182,7 @@ TEST(TestCommonWriteTask, testBasicOperation) {
 
     auto sink = std::make_unique<MockSink>(
         x::telem::HERTZ * 10,
-        std::set<synnax::channel::Key>{2},
-        std::vector{state},
-        std::vector<synnax::channel::Key>{1},
+        std::vector<Sink::Output>{{1, state}},
         false,
         writes,
         errors
@@ -193,7 +212,7 @@ TEST(TestCommonWriteTask, testBasicOperation) {
     EXPECT_EQ(start_state.details.cmd, cmd_key);
     EXPECT_EQ(start_state.details.task, task.key);
     EXPECT_EQ(start_state.variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(start_state.message, "Task started successfully");
+    EXPECT_EQ(start_state.message, "Started task");
 
     ASSERT_EVENTUALLY_GE(
         mock_writer_factory->writer_opens.load(std::memory_order_acquire),
@@ -211,7 +230,7 @@ TEST(TestCommonWriteTask, testBasicOperation) {
                             ->at(mock_writer_factory->writes->size() - 1)
                             .deep_copy();
         if (fr.size() < 2) return 0;
-        if (fr.length() < 1) return 0;
+        if (fr.empty()) return 0;
         if (!fr.contains(3)) return 0;
         return fr.at<uint8_t>(3, 0);
     };
@@ -225,7 +244,7 @@ TEST(TestCommonWriteTask, testBasicOperation) {
     EXPECT_EQ(stop_state.details.cmd, stop_cmd_key);
     EXPECT_EQ(stop_state.details.task, task.key);
     EXPECT_EQ(stop_state.variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(stop_state.message, "Task stopped successfully");
+    EXPECT_EQ(stop_state.message, "Stopped task");
 
     auto write_fr = writes->at(0).deep_copy();
     ASSERT_EQ(write_fr.size(), 1);
@@ -250,9 +269,9 @@ TEST(TestCommonWriteTask, testBasicOperation) {
 /// @brief a start on a running task should ack the command without reopening
 /// the sink.
 TEST(TestCommonWriteTask, testStartWhileRunningAcks) {
-    auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
+    auto mock_writer_factory = std::make_shared<pipeline::testutil::WriterFactory>();
     const auto cmd_reads = std::make_shared<std::vector<x::telem::Frame>>();
-    auto mock_streamer_factory = pipeline::mock::simple_streamer_factory(
+    auto mock_streamer_factory = pipeline::testutil::simple_streamer_factory(
         std::vector<synnax::channel::Key>{1},
         cmd_reads
     );
@@ -264,9 +283,7 @@ TEST(TestCommonWriteTask, testStartWhileRunningAcks) {
     auto errors = std::make_shared<std::vector<x::errors::Error>>();
     auto sink = std::make_unique<MockSink>(
         x::telem::HERTZ * 10,
-        std::set<synnax::channel::Key>{2},
-        std::vector{state},
-        std::vector<synnax::channel::Key>{1},
+        std::vector<Sink::Output>{{1, state}},
         false,
         writes,
         errors
@@ -294,28 +311,107 @@ TEST(TestCommonWriteTask, testStartWhileRunningAcks) {
     EXPECT_EQ(ack_state.key, synnax::task::status_key(task));
     EXPECT_EQ(ack_state.details.cmd, "cmd_2");
     EXPECT_EQ(ack_state.variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(ack_state.message, "Task started successfully");
+    EXPECT_EQ(ack_state.message, "Started task");
     EXPECT_EQ(ack_state.details.running, true);
     // The live sink was not closed and reopened.
     EXPECT_EQ(mock_streamer_factory->streamer_opens.load(std::memory_order_acquire), 1);
     ASSERT_TRUE(write_task.stop("stop_cmd", true));
 }
 
+namespace {
+/// @brief creates a write task with one command channel and no state channels.
+std::unique_ptr<WriteTask> create_write_task(
+    const std::shared_ptr<driver::task::MockContext> &ctx,
+    const std::shared_ptr<pipeline::testutil::StreamerFactory> &streamer_factory,
+    MockSink *&sink
+) {
+    auto s = std::make_unique<MockSink>(
+        x::telem::Rate(0),
+        std::vector<Sink::Output>{{1, std::nullopt}},
+        false,
+        std::make_shared<x::sync::List<x::telem::Frame>>(),
+        std::make_shared<std::vector<x::errors::Error>>()
+    );
+    sink = s.get();
+    synnax::task::Task task;
+    task.key = x::uuid::create();
+    return std::make_unique<WriteTask>(
+        task,
+        ctx,
+        x::breaker::default_config("cat"),
+        std::move(s),
+        std::make_shared<pipeline::testutil::WriterFactory>(),
+        streamer_factory
+    );
+}
+}
+
+/// @brief it should answer a start only after the command streamer opens, so a
+/// command written after the answer reaches the sink.
+TEST(TestCommonWriteTask, StartAnsweredAfterStreamerOpens) {
+    auto streamer_factory = pipeline::testutil::simple_streamer_factory(
+        std::vector<synnax::channel::Key>{1},
+        std::make_shared<std::vector<x::telem::Frame>>()
+    );
+    std::promise<void> open;
+    streamer_factory->open_gate = open.get_future().share();
+    auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    MockSink *sink = nullptr;
+    auto write_task = create_write_task(ctx, streamer_factory, sink);
+
+    ASSERT_TRUE(write_task->start("start_cmd"));
+    ASSERT_FALSE(write_task->start("start_cmd_2"));
+    EXPECT_TRUE(ctx->snapshot().empty());
+    open.set_value();
+    ASSERT_EVENTUALLY_EQ(ctx->snapshot().size(), 2);
+    const auto statuses = ctx->snapshot();
+    EXPECT_EQ(statuses[0].details.cmd, "start_cmd");
+    EXPECT_EQ(statuses[1].details.cmd, "start_cmd_2");
+    for (const auto &status: statuses) {
+        EXPECT_EQ(status.variant, synnax::status::VARIANT_SUCCESS);
+        EXPECT_EQ(status.message, "Started task");
+        EXPECT_TRUE(status.details.running);
+    }
+    ASSERT_TRUE(write_task->stop("stop_cmd", true));
+}
+
+/// @brief it should report a failed start and release the sink when the command
+/// streamer fails to open.
+TEST(TestCommonWriteTask, StreamerOpenErrorFailsStart) {
+    auto streamer_factory = std::make_shared<pipeline::testutil::StreamerFactory>(
+        std::vector{x::errors::UNKNOWN},
+        std::make_shared<std::vector<pipeline::testutil::StreamerConfig>>()
+    );
+    auto ctx = std::make_shared<driver::task::MockContext>(nullptr);
+    MockSink *sink = nullptr;
+    auto write_task = create_write_task(ctx, streamer_factory, sink);
+
+    write_task->start("start_cmd");
+    // The failed start sends its reply, then a stop status.
+    ASSERT_EVENTUALLY_EQ(ctx->snapshot().size(), 2);
+    const auto status = ctx->snapshot()[0];
+    EXPECT_EQ(status.details.cmd, "start_cmd");
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(status.message, "Failed to start task");
+    EXPECT_FALSE(status.details.running);
+    EXPECT_EQ(sink->stop_count, 1);
+    write_task->stop("stop_cmd", true);
+    EXPECT_EQ(sink->stop_count, 1);
+}
+
 /// @brief a task whose sink has no state channels never starts the state pipeline.
 /// Stopping it must still release the sink, and must release it exactly once, so a
 /// sink that claims hardware on start does not hold it while the task is stopped.
 TEST(TestCommonWriteTask, testStopReleasesSinkWithoutStateChannels) {
-    auto mock_writer_factory = std::make_shared<pipeline::mock::WriterFactory>();
+    auto mock_writer_factory = std::make_shared<pipeline::testutil::WriterFactory>();
     const auto cmd_reads = std::make_shared<std::vector<x::telem::Frame>>();
-    auto mock_streamer_factory = pipeline::mock::simple_streamer_factory(
+    auto mock_streamer_factory = pipeline::testutil::simple_streamer_factory(
         std::vector<synnax::channel::Key>{1},
         cmd_reads
     );
     auto sink = std::make_unique<MockSink>(
         x::telem::Rate(0),
-        std::set<synnax::channel::Key>{},
-        std::vector<synnax::channel::Channel>{},
-        std::vector<synnax::channel::Key>{1},
+        std::vector<Sink::Output>{{1, std::nullopt}},
         false,
         std::make_shared<x::sync::List<x::telem::Frame>>(),
         std::make_shared<std::vector<x::errors::Error>>()

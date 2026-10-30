@@ -17,7 +17,7 @@
 #include "client/cpp/synnax.h"
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/telem/telem.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/runtime/state/state.h"
@@ -36,7 +36,10 @@
 #include "arc/cpp/stl/time/time.h"
 
 namespace arc::runtime {
+// NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables): one seed per suite,
+// printed so that a failing run can be replayed.
 std::mt19937 gen_rand = random_generator("Node Tests");
+// NOLINTEND(cppcoreguidelines-avoid-non-const-global-variables)
 
 std::string random_name(const std::string &prefix) {
     std::uniform_int_distribution<> dis(10000, 99999);
@@ -63,6 +66,7 @@ node::Context make_context() {
     return node::Context{
         .cycle = {.elapsed = x::telem::SECOND},
         .mark_changed = [](size_t) {},
+        .mark_done = [] {},
         .report_error = [](const x::errors::Error &) {},
         .reserve_stamps = testutil::reserve_stamps(),
     };
@@ -136,10 +140,10 @@ TEST(FactoryTest, HandlesReturnsTrueForExistingFunction) {
     );
 
     const std::string source = R"(
-func double(val f32) f32 {
+func double() {val f32} f32 {
     return val * 2.0
 }
-)" + ch.name + " -> double{}";
+)" + ch.name + " -> double()";
 
     auto mod = testutil::compile_text(client, source);
     auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
@@ -157,10 +161,10 @@ TEST(FactoryTest, CreateReturnsErrorWhenFunctionNotFound) {
     );
 
     const std::string source = R"(
-func double(val f32) f32 {
+func double() {val f32} f32 {
     return val * 2.0
 }
-)" + ch.name + " -> double{}";
+)" + ch.name + " -> double()";
 
     auto mod = testutil::compile_text(client, source);
     auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
@@ -171,12 +175,12 @@ func double(val f32) f32 {
     fake_node.type = "nonexistent";
 
     state::State state(
-        state::Config{.ir = (static_cast<arc::ir::IR>(mod)), .channels = {}},
+        state::Config{.ir = static_cast<const arc::ir::IR &>(mod), .channels = {}},
         arc::runtime::errors::noop_handler
     );
     auto node_state = ASSERT_NIL_P(state.node(mod.nodes[0].key));
 
-    const arc::ir::IR prog = static_cast<arc::ir::IR>(mod);
+    const arc::ir::IR &prog = mod;
     node::Config cfg(prog, fake_node, std::move(node_state));
     ASSERT_OCCURRED_AS_P(factory.create(std::move(cfg)), x::errors::NOT_FOUND);
 }
@@ -189,10 +193,10 @@ TEST(FactoryTest, CreateSucceedsWithValidConfig) {
     );
 
     const std::string source = R"(
-func double(val f32) f32 {
+func double() {val f32} f32 {
     return val * 2.0
 }
-)" + ch.name + " -> double{}";
+)" + ch.name + " -> double()";
 
     auto mod = testutil::compile_text(client, source);
     auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
@@ -202,12 +206,12 @@ func double(val f32) f32 {
     ASSERT_NE(func_node, nullptr);
 
     state::State state(
-        state::Config{.ir = (static_cast<arc::ir::IR>(mod)), .channels = {}},
+        state::Config{.ir = static_cast<const arc::ir::IR &>(mod), .channels = {}},
         arc::runtime::errors::noop_handler
     );
     auto node_state = ASSERT_NIL_P(state.node(func_node->key));
 
-    const arc::ir::IR prog = static_cast<arc::ir::IR>(mod);
+    const arc::ir::IR &prog = mod;
     node::Config cfg(prog, *func_node, std::move(node_state));
     auto node = ASSERT_NIL_P(factory.create(std::move(cfg)));
     ASSERT_NE(node, nullptr);
@@ -221,10 +225,10 @@ TEST(FactoryTest, CreateReturnsErrorWhenParamsMismatchSignature) {
     );
 
     const std::string source = R"(
-func double(val f32) f32 {
+func double() {val f32} f32 {
     return val * 2.0
 }
-)" + ch.name + " -> double{}";
+)" + ch.name + " -> double()";
 
     auto mod = testutil::compile_text(client, source);
     auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
@@ -234,12 +238,12 @@ func double(val f32) f32 {
     ASSERT_NE(func_node, nullptr);
 
     state::State state(
-        state::Config{.ir = (static_cast<arc::ir::IR>(mod)), .channels = {}},
+        state::Config{.ir = static_cast<const arc::ir::IR &>(mod), .channels = {}},
         arc::runtime::errors::noop_handler
     );
     auto node_state = ASSERT_NIL_P(state.node(func_node->key));
 
-    const arc::ir::IR prog = static_cast<arc::ir::IR>(mod);
+    const arc::ir::IR &prog = mod;
     auto mismatched = *func_node;
     mismatched.outputs.clear();
     node::Config cfg(prog, mismatched, std::move(node_state));
@@ -254,10 +258,10 @@ TEST(NodeTest, NextReturnsEarlyWhenNoInputsRefreshed) {
     );
 
     const std::string source = R"(
-func double(val f32) f32 {
+func double() {val f32} f32 {
     return val * 2.0
 }
-)" + ch.name + " -> double{}";
+)" + ch.name + " -> double()";
 
     auto mod = testutil::compile_text(client, source);
     auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
@@ -265,7 +269,7 @@ func double(val f32) f32 {
     ASSERT_NE(func_node, nullptr);
 
     state::State state(
-        state::Config{.ir = (static_cast<arc::ir::IR>(mod)), .channels = {}},
+        state::Config{.ir = static_cast<const arc::ir::IR &>(mod), .channels = {}},
         arc::runtime::errors::noop_handler
     );
     auto node_state = ASSERT_NIL_P(state.node(func_node->key));
@@ -279,8 +283,12 @@ func double(val f32) f32 {
         changed_outputs.push_back(func_node->outputs[i].name);
     };
 
+    bool done = false;
+    ctx.mark_done = [&] { done = true; };
+
     ASSERT_NIL(node.next(ctx));
     EXPECT_TRUE(changed_outputs.empty());
+    EXPECT_FALSE(done);
 }
 
 /// @brief reset() keeps a consumed edge-fed input on stage re-entry.
@@ -304,10 +312,10 @@ TEST(NodeTest, ResetKeepsConsumedEdgeFedInput) {
     ASSERT_NIL(client.channels.create(input_ch));
 
     const std::string source = R"(
-func double(val f32) f32 {
+func double() {val f32} f32 {
     return val * 2.0
 }
-)" + input_name + " -> double{}";
+)" + input_name + " -> double()";
 
     auto mod = testutil::compile_text(client, source);
     auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
@@ -316,7 +324,7 @@ func double(val f32) f32 {
 
     state::State state(
         state::Config{
-            .ir = (static_cast<arc::ir::IR>(mod)),
+            .ir = static_cast<const arc::ir::IR &>(mod),
             .channels =
                 {{input_idx.key, x::telem::TIMESTAMP_T, 0},
                  {input_ch.key, x::telem::FLOAT32_T, input_idx.key}}
@@ -416,10 +424,10 @@ TEST(NodeTest, NextExecutesFunctionAndProducesOutput) {
     ASSERT_NIL(client.channels.create(output_ch));
 
     const std::string source = R"(
-func double(val f32) f32 {
+func double() {val f32} f32 {
     return val * 2.0
 }
-)" + input_name + " -> double{} -> " +
+)" + input_name + " -> double() -> " +
                                output_name;
 
     auto mod = testutil::compile_text(client, source);
@@ -429,7 +437,7 @@ func double(val f32) f32 {
 
     state::State state(
         state::Config{
-            .ir = (static_cast<arc::ir::IR>(mod)),
+            .ir = static_cast<const arc::ir::IR &>(mod),
             .channels =
                 {{input_idx.key, x::telem::TIMESTAMP_T, 0},
                  {input_ch.key, x::telem::FLOAT32_T, input_idx.key},
@@ -478,8 +486,12 @@ func double(val f32) f32 {
         changed_outputs.push_back(func_node->outputs[i].name);
     };
 
+    bool done = false;
+    ctx.mark_done = [&] { done = true; };
+
     ASSERT_NIL(node.next(ctx));
     ASSERT_EQ(changed_outputs.size(), 1);
+    EXPECT_TRUE(done);
 
     // Verify the double node's output
     auto double_node_state = ASSERT_NIL_P(state.node(func_node->key));
@@ -551,7 +563,7 @@ struct AddProgram {
         const std::uint32_t domain,
         const std::vector<x::telem::TimeStamp> &stamps,
         const std::vector<float> &values
-    ) {
+    ) const {
         auto [src, err] = state->node(source);
         if (err) throw std::runtime_error(err.message());
         auto data = x::telem::Series(values);
@@ -572,17 +584,18 @@ struct AddProgram {
         ctx.mark_changed = [&](size_t i) {
             changed_outputs.push_back(ir.nodes.back().outputs[i].name);
         };
-        if (const auto err = node->next(ctx)) throw std::runtime_error(err.message());
+        if (const auto err = node.value().next(ctx))
+            throw std::runtime_error(err.message());
         return !changed_outputs.empty();
     }
 
-    [[nodiscard]] state::Series output() {
+    [[nodiscard]] state::Series output() const {
         auto [n, err] = state->node("add");
         if (err) throw std::runtime_error(err.message());
         return n.output(0);
     }
 
-    [[nodiscard]] state::Series output_time() {
+    [[nodiscard]] state::Series output_time() const {
         auto [n, err] = state->node("add");
         if (err) throw std::runtime_error(err.message());
         return n.output_time(0);
@@ -591,6 +604,7 @@ struct AddProgram {
 
 std::vector<x::telem::TimeStamp> seconds(const std::vector<int64_t> &values) {
     std::vector<x::telem::TimeStamp> out;
+    out.reserve(values.size());
     for (const auto v: values)
         out.emplace_back(v * x::telem::SECOND);
     return out;
@@ -682,10 +696,10 @@ TEST(NodeTest, NextReportsErrorOnWasmTrap) {
     ASSERT_NIL(client.channels.create(output_ch));
 
     const std::string source = R"(
-func divide_by_zero(val i32) i32 {
+func divide_by_zero() {val i32} i32 {
     return val / 0
 }
-)" + input_name + " -> divide_by_zero{} -> " +
+)" + input_name + " -> divide_by_zero() -> " +
                                output_name;
 
     auto mod = testutil::compile_text(client, source);
@@ -695,7 +709,7 @@ func divide_by_zero(val i32) i32 {
 
     state::State state(
         state::Config{
-            .ir = (static_cast<arc::ir::IR>(mod)),
+            .ir = static_cast<const arc::ir::IR &>(mod),
             .channels =
                 {{index_ch.key, x::telem::TIMESTAMP_T, 0},
                  {input_ch.key, x::telem::INT32_T, index_ch.key},
@@ -732,8 +746,12 @@ func divide_by_zero(val i32) i32 {
         reported_errors.push_back(err);
     };
 
+    bool done = false;
+    ctx.mark_done = [&] { done = true; };
+
     ASSERT_NIL(node.next(ctx));
     EXPECT_GE(reported_errors.size(), 1);
+    EXPECT_FALSE(done);
 }
 
 /// @brief Node::is_output_truthy returns false for nonexistent outputs.
@@ -744,10 +762,10 @@ TEST(NodeTest, IsOutputTruthyReturnsFalseForNonexistent) {
     );
 
     const std::string source = R"(
-func double(val f32) f32 {
+func double() {val f32} f32 {
     return val * 2.0
 }
-)" + ch.name + " -> double{}";
+)" + ch.name + " -> double()";
 
     auto mod = testutil::compile_text(client, source);
     auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
@@ -755,7 +773,7 @@ func double(val f32) f32 {
     ASSERT_NE(func_node, nullptr);
 
     state::State state(
-        state::Config{.ir = (static_cast<arc::ir::IR>(mod)), .channels = {}},
+        state::Config{.ir = static_cast<const arc::ir::IR &>(mod), .channels = {}},
         arc::runtime::errors::noop_handler
     );
     auto node_state = ASSERT_NIL_P(state.node(func_node->key));
@@ -794,10 +812,10 @@ TEST(NodeTest, IsOutputTruthyEvaluatesOutputValues) {
     ASSERT_NIL(client.channels.create(output_ch));
 
     const std::string source = R"(
-func passthrough(val f32) f32 {
+func passthrough() {val f32} f32 {
     return val
 }
-)" + input_name + " -> passthrough{} -> " +
+)" + input_name + " -> passthrough() -> " +
                                output_name;
 
     auto mod = testutil::compile_text(client, source);
@@ -807,7 +825,7 @@ func passthrough(val f32) f32 {
 
     state::State state(
         state::Config{
-            .ir = (static_cast<arc::ir::IR>(mod)),
+            .ir = static_cast<const arc::ir::IR &>(mod),
             .channels =
                 {{index_ch.key, x::telem::TIMESTAMP_T, 0},
                  {input_ch.key, x::telem::FLOAT32_T, index_ch.key},
@@ -868,7 +886,7 @@ TEST(NodeTest, NoInputNodeExecutesOnEveryNext) {
 func constant() i64 {
     return 42
 }
-constant{} -> )" + output_name;
+constant() -> )" + output_name;
 
     auto mod = testutil::compile_text(client, source);
     auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
@@ -876,7 +894,7 @@ constant{} -> )" + output_name;
     ASSERT_NE(func_node, nullptr);
     state::State state(
         state::Config{
-            .ir = (static_cast<arc::ir::IR>(mod)),
+            .ir = static_cast<const arc::ir::IR &>(mod),
             .channels =
                 {{output_idx.key, x::telem::TIMESTAMP_T, 0},
                  {output_ch.key, x::telem::INT64_T, output_idx.key}}
@@ -957,7 +975,7 @@ TEST(NodeTest, DispatcherStampsEachSampleOfABatch) {
     ASSERT_NE(on_node, nullptr);
     state::State state(
         state::Config{
-            .ir = (static_cast<arc::ir::IR>(mod)),
+            .ir = static_cast<const arc::ir::IR &>(mod),
             .channels =
                 {{count_idx.key, x::telem::TIMESTAMP_T, 0},
                  {count_ch.key, x::telem::INT64_T, count_idx.key}}
@@ -1038,10 +1056,10 @@ TEST(NodeTest, NodeWithInputsExecutesNormally) {
     ASSERT_NIL(client.channels.create(output_ch));
 
     const std::string source = R"(
-func double(val i64) i64 {
+func double() {val i64} i64 {
     return val * 2
 }
-)" + input_name + " -> double{} -> " +
+)" + input_name + " -> double() -> " +
                                output_name;
 
     auto mod = testutil::compile_text(client, source);
@@ -1051,7 +1069,7 @@ func double(val i64) i64 {
 
     state::State state(
         state::Config{
-            .ir = (static_cast<arc::ir::IR>(mod)),
+            .ir = static_cast<const arc::ir::IR &>(mod),
             .channels =
                 {{input_idx.key, x::telem::TIMESTAMP_T, 0},
                  {input_ch.key, x::telem::INT64_T, input_idx.key},
@@ -1133,7 +1151,7 @@ TEST(NodeTest, FlowExpressionExecutesEveryTime) {
 func counter() i64 {
     return 42
 }
-counter{} -> )" + output_name;
+counter() -> )" + output_name;
 
     auto mod = testutil::compile_text(client, source);
     auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
@@ -1142,7 +1160,7 @@ counter{} -> )" + output_name;
 
     state::State state(
         state::Config{
-            .ir = (static_cast<arc::ir::IR>(mod)),
+            .ir = static_cast<const arc::ir::IR &>(mod),
             .channels =
                 {{output_idx.key, x::telem::TIMESTAMP_T, 0},
                  {output_ch.key, x::telem::INT64_T, output_idx.key}}
@@ -1197,7 +1215,7 @@ TEST(NodeTest, FlowExpressionContinuesAfterReset) {
 func counter() i64 {
     return 42
 }
-counter{} -> )" + output_name;
+counter() -> )" + output_name;
 
     auto mod = testutil::compile_text(client, source);
     auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
@@ -1206,7 +1224,7 @@ counter{} -> )" + output_name;
 
     state::State state(
         state::Config{
-            .ir = (static_cast<arc::ir::IR>(mod)),
+            .ir = static_cast<const arc::ir::IR &>(mod),
             .channels =
                 {{output_idx.key, x::telem::TIMESTAMP_T, 0},
                  {output_ch.key, x::telem::INT64_T, output_idx.key}}
@@ -1263,7 +1281,7 @@ TEST(NodeTest, NonExpressionNodeNotTreatedAsExpression) {
 func counter() i64 {
     return 42
 }
-counter{} -> )" + output_name;
+counter() -> )" + output_name;
 
     auto mod = testutil::compile_text(client, source);
     auto wasm_mod = ASSERT_NIL_P(wasm::Module::open({.program = mod}));
@@ -1272,7 +1290,7 @@ counter{} -> )" + output_name;
 
     state::State state(
         state::Config{
-            .ir = (static_cast<arc::ir::IR>(mod)),
+            .ir = static_cast<const arc::ir::IR &>(mod),
             .channels =
                 {{output_idx.key, x::telem::TIMESTAMP_T, 0},
                  {output_ch.key, x::telem::INT64_T, output_idx.key}}
@@ -1338,10 +1356,10 @@ TEST(NodeTest, ConfigParametersPassedToWasm) {
     // Function with config parameter 'x' and input parameter 'y'
     // Use i32 since integer literals default to i32
     const std::string source = R"(
-func add_config{x i32}(y i32) i32 {
+func add_config(x i32){y i32} i32 {
     return x + y
 }
-)" + input_name + " -> add_config{x=10} -> " +
+)" + input_name + " -> add_config(x=10) -> " +
                                output_name;
 
     auto mod = testutil::compile_text(client, source);
@@ -1351,7 +1369,7 @@ func add_config{x i32}(y i32) i32 {
 
     state::State state(
         state::Config{
-            .ir = (static_cast<arc::ir::IR>(mod)),
+            .ir = static_cast<const arc::ir::IR &>(mod),
             .channels =
                 {{input_idx.key, x::telem::TIMESTAMP_T, 0},
                  {input_ch.key, x::telem::INT32_T, input_idx.key},
@@ -1432,10 +1450,10 @@ TEST(NodeTest, MultipleConfigParametersPassedToWasm) {
 
     // Function with two config parameters 'a', 'b' and input parameter 'c'
     const std::string source = R"(
-func multi_config{a i32, b i32}(c i32) i32 {
+func multi_config(a i32, b i32){c i32} i32 {
     return a + b + c
 }
-)" + input_name + " -> multi_config{a=5, b=10} -> " +
+)" + input_name + " -> multi_config(a=5, b=10) -> " +
                                output_name;
 
     auto mod = testutil::compile_text(client, source);
@@ -1445,7 +1463,7 @@ func multi_config{a i32, b i32}(c i32) i32 {
 
     state::State state(
         state::Config{
-            .ir = (static_cast<arc::ir::IR>(mod)),
+            .ir = static_cast<const arc::ir::IR &>(mod),
             .channels =
                 {{input_idx.key, x::telem::TIMESTAMP_T, 0},
                  {input_ch.key, x::telem::INT32_T, input_idx.key},
@@ -1527,14 +1545,14 @@ TEST(NodeTest, StatefulVariablesAreIsolatedBetweenNodeInstances) {
     ASSERT_NIL(client.channels.create(output_b_ch));
 
     const std::string source = R"(
-func counter(trigger i64) i64 {
+func counter() {trigger i64} i64 {
     count i64 $= 0
     count = count + 1
     return count
 }
-)" + trigger_name + " -> counter{} -> " +
+)" + trigger_name + " -> counter() -> " +
                                output_a_name + "\n" + trigger_name +
-                               " -> counter{} -> " + output_b_name;
+                               " -> counter() -> " + output_b_name;
 
     auto mod = testutil::compile_text(client, source);
 
@@ -1551,7 +1569,7 @@ func counter(trigger i64) i64 {
     auto var_st = std::make_shared<stl::stateful::Variables>();
     auto state = std::make_shared<state::State>(
         state::Config{
-            .ir = (static_cast<arc::ir::IR>(mod)),
+            .ir = static_cast<const arc::ir::IR &>(mod),
             .channels =
                 {{index_ch.key, x::telem::TIMESTAMP_T, 0},
                  {trigger_ch.key, x::telem::INT64_T, index_ch.key},
@@ -1664,7 +1682,7 @@ func counter() i64 {
     count = count + 1
     return count
 }
-counter{} -> )" + output_name;
+counter() -> )" + output_name;
 
     auto mod = testutil::compile_text(client, source);
 
@@ -1679,7 +1697,7 @@ counter{} -> )" + output_name;
     auto var_st = std::make_shared<stl::stateful::Variables>();
     auto state = std::make_shared<state::State>(
         state::Config{
-            .ir = (static_cast<arc::ir::IR>(mod)),
+            .ir = static_cast<const arc::ir::IR &>(mod),
             .channels =
                 {{output_idx.key, x::telem::TIMESTAMP_T, 0},
                  {output_ch.key, x::telem::INT64_T, output_idx.key}}
@@ -1756,8 +1774,8 @@ func counter() i64 {
     count = count + 1
     return count
 }
-counter{} -> )" + output_a_name +
-                               "\ncounter{} -> " + output_b_name;
+counter() -> )" + output_a_name +
+                               "\ncounter() -> " + output_b_name;
 
     auto mod = testutil::compile_text(client, source);
 
@@ -1771,7 +1789,7 @@ counter{} -> )" + output_a_name +
     auto series_st = std::make_shared<stl::series::State>();
     auto var_st = std::make_shared<stl::stateful::Variables>();
     auto state = std::make_shared<state::State>(
-        state::Config{.ir = (static_cast<arc::ir::IR>(mod)), .channels = digests},
+        state::Config{.ir = static_cast<const arc::ir::IR &>(mod), .channels = digests},
         channel_st,
         str_st,
         series_st,
@@ -1873,11 +1891,11 @@ TEST(NodeTest, ChannelConfigParamReadsChannelData) {
     // Function with a channel-typed config param.
     // 'ch + f32(0.0)' forces a channel read (rather than a channel alias).
     const std::string source = R"(
-func read_chan{ch chan f32}(trigger u8) f32 {
+func read_chan(ch chan f32){trigger u8} f32 {
     return ch + f32(0.0)
 }
 )" + trigger_name +
-                               " -> read_chan{ch=" + data_name + "} -> " + output_name;
+                               " -> read_chan(ch=" + data_name + ") -> " + output_name;
 
     auto mod = testutil::compile_text(client, source);
 
@@ -1914,7 +1932,7 @@ func read_chan{ch chan f32}(trigger u8) f32 {
     auto var_st = std::make_shared<stl::stateful::Variables>();
     auto state = std::make_shared<state::State>(
         state::Config{
-            .ir = (static_cast<arc::ir::IR>(mod)),
+            .ir = static_cast<const arc::ir::IR &>(mod),
             .channels =
                 {{trigger_idx.key, x::telem::TIMESTAMP_T, 0},
                  {trigger_ch.key, x::telem::UINT8_T, trigger_idx.key},
@@ -2020,10 +2038,10 @@ TEST(NodeTest, StringChannelInputConvertedToHandles) {
     ASSERT_NIL(client.channels.create(output_ch));
 
     const std::string source = R"(
-func str_len(s str) i64 {
+func str_len() {s str} i64 {
     return len(s)
 }
-)" + input_name + " -> str_len{} -> " +
+)" + input_name + " -> str_len() -> " +
                                output_name;
 
     auto str_st = std::make_shared<stl::strings::State>();
@@ -2046,7 +2064,7 @@ func str_len(s str) i64 {
 
     state::State state(
         state::Config{
-            .ir = (static_cast<arc::ir::IR>(mod)),
+            .ir = static_cast<const arc::ir::IR &>(mod),
             .channels =
                 {{index_ch.key, x::telem::TIMESTAMP_T, 0},
                  {input_ch.key, x::telem::STRING_T, index_ch.key},
@@ -2147,12 +2165,12 @@ TEST(NodeTest, NamedStringOutputMemoryLayout) {
 
     const std::string source =
         R"arc(
-func labeler(x i64) (label str, value i64) {
+func labeler() {x i64} (label str, value i64) {
     label = "ok"
     value = x * 2
 }
 )arc" + input_name +
-        " -> labeler{} -> {label: \"ok\" -> " + label_out_name + ", value: 0 -> " +
+        " -> labeler() -> {label: \"ok\" -> " + label_out_name + ", value: 0 -> " +
         value_out_name + "}";
 
     auto str_st = std::make_shared<stl::strings::State>();
@@ -2175,7 +2193,7 @@ func labeler(x i64) (label str, value i64) {
 
     state::State state(
         state::Config{
-            .ir = (static_cast<arc::ir::IR>(mod)),
+            .ir = static_cast<const arc::ir::IR &>(mod),
             .channels =
                 {{index_ch.key, x::telem::TIMESTAMP_T, 0},
                  {input_ch.key, x::telem::INT64_T, index_ch.key},
@@ -2267,10 +2285,10 @@ TEST(NodeTest, StringChannelInputWithQualifiedStringLen) {
     ASSERT_NIL(client.channels.create(output_ch));
 
     const std::string source = R"(
-func qstr_len(s str) i64 {
+func qstr_len() {s str} i64 {
     return len(s)
 }
-)" + input_name + " -> qstr_len{} -> " +
+)" + input_name + " -> qstr_len() -> " +
                                output_name;
 
     auto str_st = std::make_shared<stl::strings::State>();
@@ -2293,7 +2311,7 @@ func qstr_len(s str) i64 {
 
     state::State state(
         state::Config{
-            .ir = (static_cast<arc::ir::IR>(mod)),
+            .ir = static_cast<const arc::ir::IR &>(mod),
             .channels =
                 {{index_ch.key, x::telem::TIMESTAMP_T, 0},
                  {input_ch.key, x::telem::STRING_T, index_ch.key},
@@ -2364,7 +2382,7 @@ TEST(NodeTest, FlowExpressionStringDefaultOutput) {
 func produce_str() str {
     return str(42)
 }
-produce_str{} -> )" + output_name;
+produce_str() -> )" + output_name;
 
     auto str_st = std::make_shared<stl::strings::State>();
     auto series_st = std::make_shared<stl::series::State>();
@@ -2386,7 +2404,7 @@ produce_str{} -> )" + output_name;
 
     state::State state(
         state::Config{
-            .ir = (static_cast<arc::ir::IR>(mod)),
+            .ir = static_cast<const arc::ir::IR &>(mod),
             .channels = {{output_ch.key, x::telem::STRING_T, 0}}
         },
         arc::runtime::errors::noop_handler
@@ -2433,7 +2451,7 @@ TEST(NodeTest, FlowExpressionStringConcatDefaultOutput) {
 func produce_str() str {
     return "value=" + str(42) + " items"
 }
-produce_str{} -> )" + output_name;
+produce_str() -> )" + output_name;
 
     auto str_st = std::make_shared<stl::strings::State>();
     auto series_st = std::make_shared<stl::series::State>();
@@ -2455,7 +2473,7 @@ produce_str{} -> )" + output_name;
 
     state::State state(
         state::Config{
-            .ir = (static_cast<arc::ir::IR>(mod)),
+            .ir = static_cast<const arc::ir::IR &>(mod),
             .channels = {{output_ch.key, x::telem::STRING_T, 0}}
         },
         arc::runtime::errors::noop_handler
@@ -2525,11 +2543,11 @@ TEST(NodeTest, DISABLED_StringConcatWithChannelData) {
     ASSERT_NIL(client.channels.create(output_ch));
 
     const std::string source = R"(
-func concat_len(a str, b str) i64 {
+func concat_len() {a str, b str} i64 {
     return len(a + b)
 }
 )" + input_a_name + ", " + input_b_name +
-                               " -> concat_len{} -> " + output_name;
+                               " -> concat_len() -> " + output_name;
 
     auto str_st = std::make_shared<stl::strings::State>();
     auto series_st = std::make_shared<stl::series::State>();
@@ -2551,7 +2569,7 @@ func concat_len(a str, b str) i64 {
 
     state::State state(
         state::Config{
-            .ir = (static_cast<arc::ir::IR>(mod)),
+            .ir = static_cast<const arc::ir::IR &>(mod),
             .channels =
                 {{index_ch.key, x::telem::TIMESTAMP_T, 0},
                  {input_a_ch.key, x::telem::STRING_T, index_ch.key},
@@ -2872,35 +2890,6 @@ func range_pos_to_neg() i64 { sum i64 := 0
     EXPECT_EQ(v, 3);
 }
 
-/// @brief range with mixed i32 start and i64 end.
-TEST(ForLoopTest, MixedI32I64Range) {
-    const auto c = new_test_client();
-    const auto v = call_func<int64_t>(c, R"arc(
-func range_mixed() i64 {
-    lo i32 := 1
-    hi i64 := 5
-    sum i64 := 0
-    for i := range(lo, hi) { sum = sum + i }
-    return sum
-})arc");
-    EXPECT_EQ(v, 10);
-}
-
-/// @brief range with mixed i32/i64 bounds and i32 step.
-TEST(ForLoopTest, MixedI32I64RangeWithStep) {
-    const auto c = new_test_client();
-    const auto v = call_func<int64_t>(c, R"arc(
-func range_3arg_mixed() i64 {
-    lo i32 := 0
-    hi i64 := 10
-    s i32 := 3
-    sum i64 := 0
-    for i := range(lo, hi, s) { sum = sum + i }
-    return sum
-})arc");
-    EXPECT_EQ(v, 18);
-}
-
 /// @brief for x := data sums series elements.
 TEST(ForLoopTest, SeriesSumSingleIdent) {
     const auto c = new_test_client();
@@ -3087,34 +3076,6 @@ func series_range_nested() i32 {
     EXPECT_EQ(v, 6);
 }
 
-/// @brief range with mixed i16 start and i32 end.
-TEST(ForLoopTest, MixedI16I32Range) {
-    const auto c = new_test_client();
-    const auto v = call_func<int32_t>(c, R"arc(
-func range_i16_i32() i32 {
-    lo i16 := 0
-    hi i32 := 4
-    sum i32 := 0
-    for i := range(lo, hi) { sum = sum + i }
-    return sum
-})arc");
-    EXPECT_EQ(v, 6);
-}
-
-/// @brief range with mixed u8 start and u32 end.
-TEST(ForLoopTest, MixedU8U32Range) {
-    const auto c = new_test_client();
-    const auto v = call_func<uint32_t>(c, R"arc(
-func range_u8_u32() u32 {
-    lo u8 := 1
-    hi u32 := 4
-    sum u32 := 0
-    for i := range(lo, hi) { sum = sum + i }
-    return sum
-})arc");
-    EXPECT_EQ(v, 6);
-}
-
 /// @brief range with u8 bounds.
 TEST(ForLoopTest, U8RangeBounds) {
     const auto c = new_test_client();
@@ -3163,35 +3124,6 @@ func range_i16_only() i16 {
     EXPECT_EQ(v, 15);
 }
 
-/// @brief range with mixed i8 start and i16 end.
-TEST(ForLoopTest, MixedI8I16Range) {
-    const auto c = new_test_client();
-    const auto v = call_func<int16_t>(c, R"arc(
-func range_i8_i16() i16 {
-    lo i8 := 0
-    hi i16 := 5
-    sum i16 := 0
-    for i := range(lo, hi) { sum = sum + i }
-    return sum
-})arc");
-    EXPECT_EQ(v, 10);
-}
-
-/// @brief range with mixed u8/u16 bounds and u8 step.
-TEST(ForLoopTest, MixedU8U16RangeWithStep) {
-    const auto c = new_test_client();
-    const auto v = call_func<uint16_t>(c, R"arc(
-func range_u8_u16_step() u16 {
-    lo u8 := 0
-    hi u16 := 10
-    s u8 := 2
-    sum u16 := 0
-    for i := range(lo, hi, s) { sum = sum + i }
-    return sum
-})arc");
-    EXPECT_EQ(v, 20);
-}
-
 /// @brief stateful variable ($=) in a for loop accumulates across reactive executions.
 TEST(ForLoopTest, DISABLED_StatefulAccumulationAcrossCalls) {
     const auto client = new_test_client();
@@ -3226,14 +3158,14 @@ TEST(ForLoopTest, DISABLED_StatefulAccumulationAcrossCalls) {
     ASSERT_NIL(client.channels.create(output_ch));
 
     const std::string source = R"(
-func loop_state(trigger i64) i64 {
+func loop_state() {trigger i64} i64 {
     total i64 $= 0
     for i := range(3) {
         total = total + 1
     }
     return total
 }
-)" + trigger_name + " -> loop_state{} -> " +
+)" + trigger_name + " -> loop_state() -> " +
                                output_name;
 
     auto channel_st = std::make_shared<stl::channels::State>(
@@ -3252,7 +3184,7 @@ func loop_state(trigger i64) i64 {
     auto mod = testutil::compile_text(client, source);
     auto state = std::make_shared<state::State>(
         state::Config{
-            .ir = (static_cast<arc::ir::IR>(mod)),
+            .ir = static_cast<const arc::ir::IR &>(mod),
             .channels =
                 {{index_ch.key, x::telem::TIMESTAMP_T, 0},
                  {trigger_ch.key, x::telem::INT64_T, index_ch.key},
@@ -3344,10 +3276,10 @@ TEST(ModuleFuncTest, ReturnsErrorForUnresolvedOutputType) {
     );
 
     const std::string source = R"(
-func double(val f32) f32 {
+func double() {val f32} f32 {
     return val * 2.0
 }
-)" + ch.name + " -> double{}";
+)" + ch.name + " -> double()";
 
     auto mod = testutil::compile_text(client, source);
 
@@ -3368,7 +3300,7 @@ func double(val f32) f32 {
 TEST(NodeEdgeFedTest, EdgeFedHonorsLiteralInputBeforeEdgeFedInput) {
     const auto client = new_test_client();
     const std::string func_def = R"(
-func sum2(x i32, y i32) i32 {
+func sum2() {x i32, y i32} i32 {
     return x + y
 }
 )";

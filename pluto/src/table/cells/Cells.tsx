@@ -10,12 +10,12 @@
 import "@/table/cells/Cells.css";
 
 import { table } from "@synnaxlabs/client";
-import { CSS } from "@synnaxlabs/lyra/css";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text as BaseText } from "@synnaxlabs/lyra/text";
 import { type border, box, color } from "@synnaxlabs/x";
-import { type ReactElement, useMemo } from "react";
+import { type ReactElement } from "react";
 
+import { CSS } from "@/css";
 import { Cell as Base } from "@/table/cells/Cell";
 import { Value as BaseValue } from "@/vis/value";
 
@@ -53,11 +53,11 @@ export const Text = ({
   const handleSelect = (e: React.MouseEvent) => onSelect(cellKey, e);
   const handleValueChange = (value: string) =>
     onChange({ variant: "text", value, level, weight, align, fillColor, textColor });
-  const cellStyle = useMemo(
-    () => ({ backgroundColor: color.cssString(fillColor), width: box.width(b) }),
-    [fillColor, b],
-  );
-  const editableStyle = useMemo(() => ({ justifyContent: align }), [align]);
+  const cellStyle = {
+    backgroundColor: color.cssString(fillColor),
+    width: box.width(b),
+  };
+  const editableStyle = { justifyContent: align };
   return (
     <Base
       id={cellKey}
@@ -107,14 +107,8 @@ export const Value = ({
   stalenessTimeout = 5,
   stalenessColor,
 }: CellProps<ValueConfig>) => {
-  const t = useMemo(
-    () => BaseValue.stringSource({ channel, rollingAverage, precision, notation }),
-    [channel, rollingAverage, precision, notation],
-  );
-  const backgroundTelem = useMemo(
-    () => BaseValue.backgroundTelem(t, redline, fillColor),
-    [t, redline, fillColor],
-  );
+  const t = BaseValue.stringSource({ channel, rollingAverage, precision, notation });
+  const backgroundTelem = BaseValue.backgroundTelem(t, redline, fillColor);
   BaseValue.use({
     aetherKey: cellKey,
     box: b,
@@ -133,7 +127,7 @@ export const Value = ({
   // row indicators are hidden, the first data row determines column widths via
   // table-layout: fixed, so the cell must be locked to the stored column size
   // or canvas/DOM alignment drifts.
-  const cellStyle = useMemo(() => ({ width: box.width(b) }), [b]);
+  const cellStyle = { width: box.width(b) };
 
   return (
     <Base

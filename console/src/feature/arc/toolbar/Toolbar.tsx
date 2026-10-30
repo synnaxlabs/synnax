@@ -21,7 +21,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { stopPropagation } from "@synnaxlabs/lyra/util";
 import { Access, Arc } from "@synnaxlabs/pluto";
-import { type ReactElement, useCallback, useState } from "react";
+import { type ReactElement, useState } from "react";
 
 import { Explorer } from "@/feature/arc/explorer";
 import { Arc as PlatformArc } from "@/platform/arc";
@@ -56,16 +56,13 @@ const Content = () => {
 
   const { update: handleRename } = Arc.useRename();
 
-  const handleEdit = useCallback(
-    (key: arc.Key) => openTab({ variant: "resource", resource: arc.ontologyID(key) }),
-    [openTab],
-  );
+  const handleEdit = (key: arc.Key) =>
+    openTab({ variant: "resource", resource: arc.ontologyID(key) });
 
   const create = PlatformArc.useCreate();
 
-  const contextMenu = useCallback<NonNullable<Menu.ContextMenuProps["menu"]>>(
-    (props) => <PlatformArc.ContextMenu {...props} getItem={getItem} />,
-    [getItem],
+  const contextMenu: NonNullable<Menu.ContextMenuProps["menu"]> = (props) => (
+    <PlatformArc.ContextMenu {...props} getItem={getItem} />
   );
 
   return (
@@ -127,11 +124,7 @@ const Actions = ({ handleCreate }: ActionsProps): ReactElement | null => {
         </Toolbar.Action>
       )}
       {hasCreatePermission && (
-        <Toolbar.Action
-          tooltip="Create Arc automation"
-          onClick={handleCreate}
-          variant="filled"
-        >
+        <Toolbar.Action tooltip="Create Arc automation" onClick={handleCreate}>
           <Icon.Add />
         </Toolbar.Action>
       )}
@@ -159,11 +152,8 @@ const ArcListItem = ({ onRename, onEdit, ...rest }: ArcListItemProps) => {
   const { itemKey } = rest;
   const arcItem = List.useItem<arc.Key, arc.Arc>(itemKey);
   const hasUpdatePermission = Access.useUpdateGranted(arc.ontologyID(itemKey));
-  const handleRename = useCallback(
-    (name: string) => onRename({ key: itemKey, name }),
-    [onRename, itemKey],
-  );
-  const handleDoubleClick = useCallback(() => onEdit(itemKey), [onEdit, itemKey]);
+  const handleRename = (name: string) => onRename({ key: itemKey, name });
+  const handleDoubleClick = () => onEdit(itemKey);
   const captureDeploy = PlatformArc.useCaptureDeploy();
   const {
     running,
@@ -195,7 +185,7 @@ const ArcListItem = ({ onRename, onEdit, ...rest }: ArcListItemProps) => {
             value={arcItem?.name ?? ""}
             onChange={hasUpdatePermission ? handleRename : undefined}
             allowDoubleClick={false}
-            overflow="ellipsis"
+            overflow="fade"
             weight={500}
           />
           {drifted && (

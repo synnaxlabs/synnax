@@ -11,8 +11,8 @@ from typing import Any
 
 import pytest
 
+from synnax.cli import console
 from synnax.cli.console.mock import MockPrint, Output
-from synnax.cli.console.sugared import SugaredConsole
 
 
 class _ScriptedPrompt:
@@ -35,21 +35,21 @@ class _ScriptedPrompt:
 
 
 @pytest.mark.cli
-class TestSugaredConsole:
-    """Tests for the prompt flow of SugaredConsole.ask."""
+class TestSugared:
+    """Tests for the prompt flow of Sugared.ask."""
 
     def test_ask_repeats_until_answered(self) -> None:
         """Should ask again after an empty answer when no default is given."""
         output = Output()
         prompt = _ScriptedPrompt([None, None, "secret"])
-        console = SugaredConsole(prompt=prompt, print=MockPrint(output))
-        assert console.ask("Password", str, password=True) == "secret"
+        c = console.Sugared(prompt=prompt, print=MockPrint(output=output))
+        assert c.ask("Password", type_=str, password=True) == "secret"
         assert prompt.passwords == [True, True, True]
         assert len(output.entries) == 2
 
     def test_ask_returns_none_with_none_default(self) -> None:
         """Should return None for an empty answer when the default is None."""
         prompt = _ScriptedPrompt([None])
-        console = SugaredConsole(prompt=prompt, print=MockPrint(Output()))
-        assert console.ask("Name", str, default=None) is None
+        c = console.Sugared(prompt=prompt, print=MockPrint(output=Output()))
+        assert c.ask("Name", type_=str, default=None) is None
         assert len(prompt.passwords) == 1

@@ -14,10 +14,11 @@ import {
   type TimeSpan as XTimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
-import { type ReactElement, type ReactNode, useCallback } from "react";
+import { type ReactElement, type ReactNode } from "react";
 
 import { type Component } from "@/component";
 import { CSS } from "@/css";
+import { useNow } from "@/hooks";
 import { Icon } from "@/icon";
 import { type Action, type BaseProps, Editor } from "@/input/time/Editor";
 import {
@@ -127,19 +128,18 @@ export const DateTime = ({
   const stamp = isEmpty ? null : fromNumeric(value);
   const formatted = stamp?.toPreciseString("local") ?? "";
   const parentStart = parent?.start;
-  const languageReady = useLanguage();
+  const language = useLanguage();
+  const today = useNow(TelemText.nextMidnight);
 
   // Editor memoizes the readings on this function. Anchors resolve on each call, so
   // `now` inside a reading is the moment of the edit.
-  const suggest = useCallback(
-    (text: string) =>
-      suggestTimeStamps(text, {
-        anchors: resolveAnchors(start, end, parentStart),
-        current: isEmpty ? undefined : fromNumeric(value),
-        bound,
-      }),
-    [start, end, parentStart, isEmpty, value, bound, languageReady],
-  );
+  const suggest = (text: string) =>
+    suggestTimeStamps(text, {
+      anchors: resolveAnchors(start, end, parentStart),
+      language,
+      current: isEmpty ? undefined : fromNumeric(value),
+      bound,
+    });
 
   // Digits in the fixed layout nudge; a phrase walks its readings.
   const nudgeText = (text: string, caret: number, steps: number): string | null => {
@@ -192,7 +192,7 @@ export const DateTime = ({
       <>
         {showDay && (
           <span className={CSS.BE("datetime", "day")}>
-            {TelemText.describeDay(stamp, TimeStamp.now())}
+            {TelemText.describeDay(stamp, today)}
           </span>
         )}
         <span>{TelemText.formatTime(stamp, resolution)}</span>
@@ -241,7 +241,7 @@ export const DateTime = ({
             <Text.Text
               level="small"
               color={9}
-              overflow="ellipsis"
+              overflow="fade"
               className={CSS.BE("time-editor", "detail")}
             >
               {details.filter((d) => d.length > 0).join(" · ")}

@@ -28,12 +28,14 @@ class RegisterValue(BaseModel):
     Attributes:
         data_type: Is the data type the register contents are interpreted as.
         bytes_swapped: Is true when the byte order within each 16-bit word is swapped.
+            When absent, the device's byte order applies.
         words_swapped: Is true when the word order of multi-register values is swapped.
+            When absent, the device's word order applies.
     """
 
-    data_type: telem.DataType = telem.DataType("uint8")
-    bytes_swapped: bool = False
-    words_swapped: bool = False
+    data_type: telem.DataType = telem.DataType("uint16")
+    bytes_swapped: bool | None = None
+    words_swapped: bool | None = None
 
 
 class BaseReadChannel(BaseModel):
@@ -85,6 +87,16 @@ class ScanConfig(task.ScanConfig):
         return hash(self.key)
 
 
+class RegisterBit(BaseModel):
+    """Addresses one bit of a 16-bit register.
+
+    Attributes:
+        bit: Is the bit index, from 0 (least significant) to 15.
+    """
+
+    bit: int = Field(le=15, default=0, ge=0)
+
+
 class CoilReadChannel(BaseReadChannel):
     """Reads a single bit from a coil."""
 
@@ -111,13 +123,27 @@ class InputRegisterReadChannel(BaseReadChannel, RegisterValue):
     string_length: int = Field(default=0, ge=-2147483648, le=2147483647)
 
 
+class HoldingRegisterBitReadChannel(BaseReadChannel, RegisterBit):
+    """Reads one bit of a holding register."""
+
+    type: Literal["holding_register_bit"] = "holding_register_bit"
+
+
+class InputRegisterBitReadChannel(BaseReadChannel, RegisterBit):
+    """Reads one bit of an input register."""
+
+    type: Literal["input_register_bit"] = "input_register_bit"
+
+
 # Is a single Modbus read channel. The type field selects the register space the
 # channel reads from and the fields that accompany it.
 ReadChannel = Annotated[
     CoilReadChannel
     | DiscreteInputReadChannel
     | HoldingRegisterReadChannel
-    | InputRegisterReadChannel,
+    | InputRegisterReadChannel
+    | HoldingRegisterBitReadChannel
+    | InputRegisterBitReadChannel,
     Field(discriminator="type"),
 ]
 
@@ -134,10 +160,16 @@ class HoldingRegisterWriteChannel(BaseWriteChannel, RegisterValue):
     type: Literal["holding_register"] = "holding_register"
 
 
+class HoldingRegisterBitWriteChannel(BaseWriteChannel, RegisterBit):
+    """Writes one bit of a holding register."""
+
+    type: Literal["holding_register_bit"] = "holding_register_bit"
+
+
 # Is a single Modbus write channel. The type field selects the register space the
 # channel writes to and the fields that accompany it.
 WriteChannel = Annotated[
-    CoilWriteChannel | HoldingRegisterWriteChannel,
+    CoilWriteChannel | HoldingRegisterWriteChannel | HoldingRegisterBitWriteChannel,
     Field(discriminator="type"),
 ]
 

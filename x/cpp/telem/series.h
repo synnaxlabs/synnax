@@ -31,7 +31,7 @@
 constexpr size_t VARIABLE_LENGTH_PREFIX_SIZE = sizeof(uint32_t);
 
 static inline uint32_t read_u32_le(const std::byte *ptr) {
-    uint32_t v;
+    uint32_t v = 0;
     memcpy(&v, ptr, VARIABLE_LENGTH_PREFIX_SIZE);
     return v;
 }
@@ -41,12 +41,14 @@ static inline void write_u32_le(std::byte *ptr, uint32_t v) {
 }
 
 namespace x::telem {
+// NOLINTBEGIN(bugprone-signed-char-misuse): an int8_t sign-extends on purpose.
 template<typename DestType, typename SrcType>
 static void cast_to_type(std::byte *dest, SrcType *src, const size_t count) {
     auto *typed_dest = reinterpret_cast<DestType *>(dest);
     for (size_t i = 0; i < count; i++)
         typed_dest[i] = static_cast<DestType>(src[i]);
 }
+// NOLINTEND(bugprone-signed-char-misuse)
 
 template<typename T>
 void output_partial_vector(std::ostream &os, const std::vector<T> &v) {
@@ -114,6 +116,15 @@ class Series {
         }
     }
 
+    /// @brief moves the data into a buffer of byte_cap bytes.
+    void reserve_bytes(const size_t byte_cap) {
+        auto data = alloc(byte_cap);
+        if (this->byte_size() > 0)
+            memcpy(data.get(), this->data_.get(), this->byte_size());
+        this->data_ = std::move(data);
+        this->cached_byte_cap = byte_cap;
+    }
+
 public:
     /// @brief an optional property that defines the time range occupied by the
     /// Series' data_. This property is guaranteed to be defined when reading data
@@ -130,7 +141,7 @@ public:
     /// @brief alignment defines the location of the series relative to other series in
     /// a logical group. This is typically used to define the location of the series
     /// within a channel's data.
-    Alignment alignment = Alignment();
+    Alignment alignment;
 
 private:
     /// @brief validates the input index is within the bounds of the series. If the
@@ -299,9 +310,7 @@ private:
             apply_comparison_op_typed<uint32_t>(other, result, op);
         else if (dt == UINT16_T)
             apply_comparison_op_typed<uint16_t>(other, result, op);
-        else if (dt == UINT8_T)
-            apply_comparison_op_typed<uint8_t>(other, result, op);
-        else if (dt == BOOLEAN_T)
+        else if (dt == UINT8_T || dt == BOOLEAN_T)
             apply_comparison_op_typed<uint8_t>(other, result, op);
 
         return result;
@@ -377,9 +386,7 @@ private:
             apply_scalar_comparison_op_typed<uint32_t>(scalar, result, op);
         else if (dt == UINT16_T)
             apply_scalar_comparison_op_typed<uint16_t>(scalar, result, op);
-        else if (dt == UINT8_T)
-            apply_scalar_comparison_op_typed<uint8_t>(scalar, result, op);
-        else if (dt == BOOLEAN_T)
+        else if (dt == UINT8_T || dt == BOOLEAN_T)
             apply_scalar_comparison_op_typed<uint8_t>(scalar, result, op);
 
         return result;
@@ -505,6 +512,7 @@ public:
         data_type_(std::move(other.data_type_)),
         cap_(other.cap_),
         cached_byte_size(other.cached_byte_size),
+        cached_byte_cap(other.cached_byte_cap),
         size_(other.size_),
         data_(std::move(other.data_)),
         time_range(other.time_range),
@@ -518,6 +526,7 @@ public:
             data_type_ = std::move(other.data_type_);
             cap_ = other.cap_;
             cached_byte_size = other.cached_byte_size;
+            cached_byte_cap = other.cached_byte_cap;
             size_ = other.size_;
             data_ = std::move(other.data_);
             time_range = other.time_range;
@@ -690,9 +699,11 @@ public:
             return;
         }
         std::visit(
-            [this]<typename IT>(IT &&arg) {
-                this->data_ = alloc(this->byte_size());
-                memcpy(data_.get(), &arg, this->byte_size());
+            [this]<typename IT>(const IT &arg) {
+                if constexpr (std::is_trivially_copyable_v<IT>) {
+                    this->data_ = alloc(this->byte_size());
+                    memcpy(this->data_.get(), &arg, this->byte_size());
+                }
             },
             v
         );
@@ -702,7 +713,6 @@ public:
     /// @param values the vector of JSON values to be used.
     explicit Series(const std::vector<json::json> &values):
         data_type_(JSON_T), cap_(values.size()), size_(values.size()) {
-        this->cached_byte_size = 0;
         for (const auto &value: values)
             this->cached_byte_size += value.dump().size() + VARIABLE_LENGTH_PREFIX_SIZE;
 
@@ -751,6 +761,7 @@ public:
     /// treated as an offset from the end of the series.
     /// @param value the value to set. The value will be cast to match the series'
     /// data type.
+    // NOLINTBEGIN(bugprone-signed-char-misuse): an int8_t sign-extends on purpose.
     template<typename NumericType>
     void set(const int &index, const NumericType value) {
         static_assert(
@@ -788,6 +799,7 @@ public:
             );
         }
     }
+    // NOLINTEND(bugprone-signed-char-misuse)
 
     /// @brief sets a TimeStamp at an index.
     /// @param index the index to set the timestamp at. If negative, the index is
@@ -859,40 +871,23 @@ public:
         this->set(d.data_(), index, d.size());
     }
 
-public:
-    /// @brief writes the given vector of numeric data to the series.
-    /// @param d the vector of numeric data to be written.
-    /// @returns the number of samples written. If the capacity of the series is
-    /// exceeded, it will only write as many samples as it can hold.
+    /// @brief writes the given vector of numbers or strings to the series. A string or
+    /// JSON series grows its buffer to fit the strings.
+    /// @param d the vector of data to be written.
+    /// @returns the number of samples written. A numeric series writes only as many
+    /// samples as its capacity holds.
     template<typename T>
     size_t write(const std::vector<T> &d) {
-        this->ensure_exclusive();
         if constexpr (std::is_same_v<T, std::string>) {
-            if (!this->data_type().matches({STRING_T, JSON_T}))
-                throw std::runtime_error(
-                    "cannot write strings to non-string/JSON series"
-                );
-            const size_t count = std::min(d.size(), this->cap() - this->size());
-            if (count == 0) return 0;
-            size_t offset = this->cached_byte_size;
-            for (size_t i = 0; i < count; i++) {
-                const auto &s = d[i];
-                write_u32_le(
-                    this->data_.get() + offset,
-                    static_cast<uint32_t>(s.size())
-                );
-                offset += 4;
-                memcpy(this->data_.get() + offset, s.data(), s.size());
-                offset += s.size();
-            }
-            this->cached_byte_size = offset;
-            this->size_ += count;
-            return count;
+            for (const auto &s: d)
+                this->write(s);
+            return d.size();
         } else {
             static_assert(
                 std::is_arithmetic_v<T>,
                 "T must be a numeric type or string"
             );
+            this->ensure_exclusive();
             const size_t count = std::min(d.size(), this->cap() - this->size());
             if (count == 0) return 0;
             memcpy(
@@ -915,9 +910,10 @@ public:
         return std::visit([this](const auto &v) { return this->write(v); }, value);
     }
 
-    /// @brief writes a single number to the series.
-    /// @param d the number to be written.
-    /// @returns 1 if the number was written, 0 if the series is at capacity and the
+    /// @brief writes a single number or string to the series. A string or JSON series
+    /// grows its buffer to fit the string.
+    /// @param d the number or string to be written.
+    /// @returns 1 if the sample was written, 0 if the series is at capacity and the
     /// sample was not written.
     template<typename T>
     size_t write(const T &d) {
@@ -930,10 +926,9 @@ public:
                 throw std::runtime_error(
                     "cannot write string to non-string/JSON series"
                 );
-            if (this->size() >= this->cap()) return 0;
 
-            const char *str_data;
-            size_t str_len;
+            const char *str_data = nullptr;
+            size_t str_len = 0;
             if constexpr (std::is_same_v<T, std::string>) {
                 str_data = d.c_str();
                 str_len = d.length();
@@ -942,6 +937,10 @@ public:
                 str_len = strlen(d);
             }
 
+            const auto needed = this->cached_byte_size + VARIABLE_LENGTH_PREFIX_SIZE +
+                                str_len;
+            if (needed > this->byte_cap())
+                this->reserve_bytes(std::max(needed, 2 * this->byte_cap()));
             write_u32_le(
                 this->data_.get() + this->cached_byte_size,
                 static_cast<uint32_t>(str_len)
@@ -949,6 +948,7 @@ public:
             memcpy(this->data_.get() + this->cached_byte_size + 4, str_data, str_len);
             this->cached_byte_size += str_len + VARIABLE_LENGTH_PREFIX_SIZE;
             this->size_++;
+            this->cap_ = this->size_;
             return 1;
         } else if constexpr (std::is_same_v<T, TimeStamp>) {
             if (this->size() >= this->cap()) return 0;
@@ -1033,7 +1033,7 @@ public:
         v.reserve(this->size());
         const auto *ptr = this->data_.get();
         for (size_t i = 0; i < this->size(); i++, ptr += x::uuid::UUID::size()) {
-            std::array<std::uint8_t, 16> bytes;
+            std::array<std::uint8_t, 16> bytes{};
             std::memcpy(bytes.data(), ptr, bytes.size());
             v.emplace_back(bytes);
         }
@@ -1156,9 +1156,7 @@ public:
             output_partial_vector(os, s.values<int64_t>());
         else if (dt == UINT64_T)
             output_partial_vector(os, s.values<uint64_t>());
-        else if (dt == UINT8_T)
-            output_partial_vector_byte(os, s.values<uint8_t>());
-        else if (dt == BOOLEAN_T)
+        else if (dt == UINT8_T || dt == BOOLEAN_T)
             output_partial_vector_byte(os, s.values<uint8_t>());
         else if (dt == INT32_T)
             output_partial_vector(os, s.values<int32_t>());
@@ -1730,43 +1728,49 @@ public:
         const auto size = this->size();
 
         if (this->data_type() == FLOAT64_T) {
-            auto *data_ptr = reinterpret_cast<const double *>(this->data_.get());
+            const auto *data_ptr = reinterpret_cast<const double *>(this->data_.get());
             for (size_t i = 0; i < size; i++)
                 sum += static_cast<T>(data_ptr[i]);
         } else if (this->data_type() == FLOAT32_T) {
-            auto *data_ptr = reinterpret_cast<const float *>(this->data_.get());
+            const auto *data_ptr = reinterpret_cast<const float *>(this->data_.get());
             for (size_t i = 0; i < size; i++)
                 sum += static_cast<T>(data_ptr[i]);
         } else if (this->data_type() == INT64_T) {
-            auto *data_ptr = reinterpret_cast<const int64_t *>(this->data_.get());
+            const auto *data_ptr = reinterpret_cast<const int64_t *>(this->data_.get());
             for (size_t i = 0; i < size; i++)
                 sum += static_cast<T>(data_ptr[i]);
         } else if (this->data_type() == INT32_T) {
-            auto *data_ptr = reinterpret_cast<const int32_t *>(this->data_.get());
+            const auto *data_ptr = reinterpret_cast<const int32_t *>(this->data_.get());
             for (size_t i = 0; i < size; i++)
                 sum += static_cast<T>(data_ptr[i]);
         } else if (this->data_type() == INT16_T) {
-            auto *data_ptr = reinterpret_cast<const int16_t *>(this->data_.get());
+            const auto *data_ptr = reinterpret_cast<const int16_t *>(this->data_.get());
             for (size_t i = 0; i < size; i++)
                 sum += static_cast<T>(data_ptr[i]);
         } else if (this->data_type() == INT8_T) {
-            auto *data_ptr = reinterpret_cast<const int8_t *>(this->data_.get());
+            const auto *data_ptr = reinterpret_cast<const int8_t *>(this->data_.get());
             for (size_t i = 0; i < size; i++)
                 sum += static_cast<T>(data_ptr[i]);
         } else if (this->data_type() == UINT64_T) {
-            auto *data_ptr = reinterpret_cast<const uint64_t *>(this->data_.get());
+            const auto *data_ptr = reinterpret_cast<const uint64_t *>(
+                this->data_.get()
+            );
             for (size_t i = 0; i < size; i++)
                 sum += static_cast<T>(data_ptr[i]);
         } else if (this->data_type() == UINT32_T) {
-            auto *data_ptr = reinterpret_cast<const uint32_t *>(this->data_.get());
+            const auto *data_ptr = reinterpret_cast<const uint32_t *>(
+                this->data_.get()
+            );
             for (size_t i = 0; i < size; i++)
                 sum += static_cast<T>(data_ptr[i]);
         } else if (this->data_type() == UINT16_T) {
-            auto *data_ptr = reinterpret_cast<const uint16_t *>(this->data_.get());
+            const auto *data_ptr = reinterpret_cast<const uint16_t *>(
+                this->data_.get()
+            );
             for (size_t i = 0; i < size; i++)
                 sum += static_cast<T>(data_ptr[i]);
         } else if (this->data_type() == UINT8_T) {
-            auto *data_ptr = reinterpret_cast<const uint8_t *>(this->data_.get());
+            const auto *data_ptr = reinterpret_cast<const uint8_t *>(this->data_.get());
             for (size_t i = 0; i < size; i++)
                 sum += static_cast<T>(data_ptr[i]);
         } else if (this->data_type() == TIMESTAMP_T) {

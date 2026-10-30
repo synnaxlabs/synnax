@@ -15,8 +15,6 @@ import {
   type KeyboardEventHandler,
   type MouseEvent as ReactMouseEvent,
   type ReactElement,
-  useCallback,
-  useMemo,
   useRef,
 } from "react";
 
@@ -33,8 +31,12 @@ import { Triggers } from "@/triggers";
 /** The elements a Button can render as. `a` makes it a link, `label` a form control. */
 export type ElementType = "button" | "a" | "div" | "label" | "textarea";
 
-/** The rest-state emphasis of the button chassis. */
-export type Variant = "filled" | "outlined" | "text";
+/**
+ * The rest-state emphasis of the button chassis. A glyph button never fills, so its
+ * icon alone shows hover and press. Use it for an action inside another control, such
+ * as a tab's close button.
+ */
+export type Variant = "filled" | "outlined" | "text" | "glyph";
 
 /** The button-specific props {@link ButtonProps} adds to its element's own props. */
 export interface ExtensionProps
@@ -62,7 +64,7 @@ export interface ExtensionProps
   /** Holds onClick until the button has been held this long, filling a progress bar
    * meanwhile. Use it to guard a destructive action. */
   onClickDelay?: number | TimeSpan;
-  /** Marks the button as a hidden action its pluto--reveals container shows. */
+  /** Marks the button as a hidden action its lyra--reveals container shows. */
   reveal?: boolean;
 }
 
@@ -78,6 +80,9 @@ export type ButtonProps<E extends ElementType = "button"> = Omit<
   };
 
 const MODULE_CLASS = "btn";
+const COLOR_VARIABLE = CSS.variable("btn-color");
+const TEXT_COLOR_VARIABLE = CSS.variable("btn-text-color");
+const DELAY_VARIABLE = CSS.variable("btn-delay");
 
 const resolveTriggerIndicator = (
   triggerIndicator: boolean | Triggers.Trigger | undefined,
@@ -196,13 +201,10 @@ export const Button = <E extends ElementType = "button">(
 
   Triggers.use({
     triggers: trigger,
-    callback: useCallback<(e: Triggers.UseEvent) => void>(
-      ({ stage }) => {
-        if (stage !== "end" || isDisabled || preview === true) return;
-        elRef.current?.click();
-      },
-      [isDisabled, preview],
-    ),
+    callback: ({ stage }: Triggers.UseEvent) => {
+      if (stage !== "end" || isDisabled || preview === true) return;
+      elRef.current?.click();
+    },
   });
 
   const res = color.colorZ.safeParse(colorVal);
@@ -210,30 +212,24 @@ export const Button = <E extends ElementType = "button">(
     res.success && (variant === "filled" || variant === "outlined");
   const theme = Theming.use();
 
-  const pStyle = useMemo(() => {
-    let s = style;
-    if (hasCustomColor)
-      s = {
-        ...s,
-        [CSS.variable("btn-color")]: color.rgbString(res.data),
-        [CSS.variable("btn-text-color")]: color.rgbCSS(
-          color.pickByContrast(res.data, theme.colors.text, theme.colors.textInverted),
-        ),
-      };
-    if (!hold.delay.isZero)
-      s = {
-        ...s,
-        [CSS.variable("btn-delay")]: `${hold.delay.seconds.toString()}s`,
-      };
-    return s;
-  }, [style, hasCustomColor, colorVal, theme, hold.delay]);
+  let pStyle = style;
+  if (hasCustomColor)
+    pStyle = {
+      ...pStyle,
+      [COLOR_VARIABLE]: color.rgbString(res.data),
+      [TEXT_COLOR_VARIABLE]: color.rgbCSS(
+        color.pickByContrast(res.data, theme.colors.text, theme.colors.textInverted),
+      ),
+    };
+  if (!hold.delay.isZero)
+    pStyle = { ...pStyle, [DELAY_VARIABLE]: `${hold.delay.seconds.toString()}s` };
 
   let size = sizeProp;
   let level = levelProp;
   if (size == null && level != null) size = TEXT_LEVEL_SIZES[level];
   else if (size != null && level == null) level = SIZE_TEXT_LEVELS[size];
-  else if (defaultEl !== "div") size ??= "medium";
-  level ??= "p";
+  else if (defaultEl !== "div" && size == null) size = "medium";
+  if (level == null) level = "p";
 
   const isLoading = status === "loading";
   const square = Text.isSquare(children);
@@ -266,7 +262,7 @@ export const Button = <E extends ElementType = "button">(
       style={pStyle}
       color={textColor}
       gap={size === "small" || size === "tiny" ? "small" : undefined}
-      bordered={variant !== "text"}
+      bordered={variant === "filled" || variant === "outlined"}
       level={level}
       variant={textVariant}
       square={square}

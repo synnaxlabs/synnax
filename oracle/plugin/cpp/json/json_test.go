@@ -170,10 +170,10 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 				ExpectContent(resp, "json.gen.h").
 					ToContain(
-						// Optional (?) wrapper types still use field<> with wrapper
-						// type
-						`parser.field<Params>("inputs")`,
-						`parser.field<Params>("outputs")`,
+						`parser.field<std::optional<Params>>("inputs")`,
+						`parser.field<std::optional<Params>>("outputs")`,
+						`if (this->inputs.has_value()) `+
+							`j["inputs"] = this->inputs->to_json();`,
 					)
 			})
 		})
@@ -408,11 +408,9 @@ var _ = Describe("C++ JSON Plugin", func() {
 
 					ExpectContent(resp, "json.gen.h").
 						ToContain(
-							// FunctionProperties fields use wrapper type (optional uses
-							// bare type)
-							`parser.field<Params>("inputs")`,
-							`parser.field<Params>("outputs")`,
-							`parser.field<Params>("config")`,
+							`parser.field<std::optional<Params>>("inputs")`,
+							`parser.field<std::optional<Params>>("outputs")`,
+							`parser.field<std::optional<Params>>("config")`,
 							// Type fields should use indirect<T> with implicit nullptr
 							// default
 							`parser.field<x::mem::indirect<Type>>("elem")`,
@@ -541,6 +539,44 @@ var _ = Describe("C++ JSON Plugin", func() {
 							"inline x::json::json Params::to_json() const {",
 							"j.push_back(item.to_json())",
 						)
+				},
+			)
+
+			DescribeTable(
+				"Should generate parse/to_json for fixed-size array wrappers",
+				func(ctx SpecContext, decls string) {
+					source := `
+					@cpp output "arc/cpp/types"
+				` + decls
+					resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+
+					ExpectContent(resp, "json.gen.h").
+						ToContain(
+							"#include <algorithm>",
+							"#include <string>",
+							"inline Corners Corners::parse(x::json::Parser parser) {",
+							"auto items = parser.field<std::vector<double>>();",
+							"if (items.size() != result.size()) {",
+							`"expected 4 elements, got " + std::to_string(`,
+							"std::move(items.begin(), items.end(), result.begin());",
+							"inline x::json::json Corners::to_json() const {",
+						).
+						ToNotContain("result.push_back")
+				},
+				Entry("over an array", "Corners float64[4]"),
+				Entry("over an alias of an array", "Quad = float64[4]\nCorners Quad"),
+			)
+
+			It(
+				"Should leave a fixed-size uint8 array to its hand-written header",
+				func(ctx SpecContext) {
+					source := `
+					@cpp output "arc/cpp/types"
+
+					Hash uint8[32]
+				`
+					resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+					Expect(resp.Files).To(BeEmpty())
 				},
 			)
 		})
@@ -872,6 +908,59 @@ var _ = Describe("C++ JSON Plugin", func() {
 						)
 				},
 			)
+		})
+
+		Context("parent omitted in C++", func() {
+			It("Should serialize an inline variant's inherited fields", func(
+				ctx SpecContext,
+			) {
+				source := `
+					@go output "core/pkg/service/auth"
+					@cpp output "client/cpp/auth"
+
+					Base struct {
+						port string
+					}
+
+					Record struct {
+						key  uint32
+						name string
+						@cpp omit
+					}
+
+					Chan union on type extends Base {
+						ai extends Record {
+							rate float64
+						}
+					}
+				`
+				resp := MustGenerate(ctx, source, "auth", loader, jsonPlugin)
+				ExpectContent(resp, "auth/json.gen.h").
+					ToContain(`"key"`, `"name"`, `"rate"`).
+					ToNotContain("Record")
+			})
+
+			It("Should serialize the inherited fields", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/auth"
+					@cpp output "client/cpp/auth"
+
+					Record struct {
+						key    uint32
+						name   string
+						secret string
+						@cpp omit
+					}
+
+					Shape struct extends Record {
+						-secret
+					}
+				`
+				resp := MustGenerate(ctx, source, "auth", loader, jsonPlugin)
+				ExpectContent(resp, "auth/json.gen.h").
+					ToContain(`"key"`, `"name"`).
+					ToNotContain("secret", "Record")
+			})
 		})
 
 		Context("package with nothing to serialize", func() {

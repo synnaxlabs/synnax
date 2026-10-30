@@ -29,15 +29,16 @@ export interface SelectPortProps
   extends
     Omit<
       Select.SingleProps<string, Port | undefined>,
-      "resourceName" | "data" | "children"
+      "resourceName" | "data" | "children" | "triggerProps"
     >,
     Omit<List.UseStaticDataParams<string, Port>, "data"> {
   model: Model;
   portType: PortType;
   children?: ReactNode;
+  triggerProps?: Dialog.TriggerProps;
 }
 
-const listItem = Component.renderProp((props: List.ItemProps<string>) => {
+const ListItem = (props: List.ItemProps<string>) => {
   const port = List.useItem<string, Port>(props.itemKey);
   if (port == null) return null;
   const { alias, key } = port;
@@ -53,7 +54,9 @@ const listItem = Component.renderProp((props: List.ItemProps<string>) => {
       )}
     </Select.Item>
   );
-});
+};
+
+const listItem = Component.renderProp(ListItem);
 
 export const SelectPort = ({
   model,

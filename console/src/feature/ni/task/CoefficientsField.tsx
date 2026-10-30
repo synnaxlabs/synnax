@@ -9,7 +9,7 @@
 
 import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
-import { type ReactElement, useMemo } from "react";
+import { type ReactElement } from "react";
 
 export interface CoefficientsFieldProps {
   path: string;
@@ -27,7 +27,7 @@ export const CoefficientsField = ({
   label,
 }: CoefficientsFieldProps): ReactElement => {
   const { value, onChange, preview, status } = Form.useField<number[]>(path);
-  const rows = useMemo(() => value.map((coeff) => [coeff]), [value]);
+  const rows = value.map((coeff) => [coeff]);
   return (
     <Input.Item
       label={label}
@@ -40,6 +40,7 @@ export const CoefficientsField = ({
         onChange={(next) => onChange(next.map(([coeff]) => Number(coeff)))}
         rowLabel={(index) => `c${index}`}
         preview={preview}
+        resourceName="coefficient"
       >
         <Input.TableColumn />
       </Input.Table>

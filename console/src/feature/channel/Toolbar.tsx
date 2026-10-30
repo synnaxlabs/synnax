@@ -10,7 +10,7 @@
 import { channel, group } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Access, Channel } from "@synnaxlabs/pluto";
-import { type ReactElement, useMemo } from "react";
+import { type ReactElement } from "react";
 
 import { Channel as PlatformChannel } from "@/platform/channel";
 import { Empty } from "@/platform/empty";
@@ -28,15 +28,10 @@ const Actions = (): ReactElement | null => {
       <Toolbar.Action
         onClick={() => openCalculated()}
         tooltip="Create calculated channel"
-        variant="filled"
       >
         <Channel.CreateCalculatedIcon />
       </Toolbar.Action>
-      <Toolbar.Action
-        onClick={() => openCreate()}
-        tooltip="Create channel"
-        variant="filled"
-      >
+      <Toolbar.Action onClick={() => openCreate()} tooltip="Create channel">
         <Icon.Add />
       </Toolbar.Action>
     </Toolbar.Actions>
@@ -60,7 +55,7 @@ const Content = (): ReactElement => (
 
 const Body = (): ReactElement => {
   const g = Channel.useGroup({});
-  const root = useMemo(() => group.ontologyID(g.key), [g.key]);
+  const root = group.ontologyID(g.key);
   return <Tree.Tree root={root} emptyContent={<EmptyContent />} />;
 };
 

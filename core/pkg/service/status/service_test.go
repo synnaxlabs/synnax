@@ -14,16 +14,15 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -44,17 +43,15 @@ var _ = Describe("Dispatch", Ordered, func() {
 		ShouldNotLeakGoroutines()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		searchIdx := MustOpen(search.OpenIndex())
 		g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
-			DB: db, Ontology: otg, Search: searchIdx,
+			DB: db, Ontology: otg,
 		}))
 		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
-			DB: db, Ontology: otg, Group: g, Search: searchIdx,
+			DB: db, Ontology: otg, Group: g,
 		}))
 		svc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
-			DB: db, Ontology: otg, Group: g, Label: labelSvc, Search: searchIdx,
+			DB: db, Ontology: otg, Group: g, Label: labelSvc,
 		}))
-		Expect(searchIdx.Initialize(ctx)).To(Succeed())
 	})
 
 	Describe("SetByKeyOrName", func() {
@@ -139,6 +136,33 @@ var _ = Describe("Dispatch", Ordered, func() {
 					Expect(s.Variant).To(Equal(status.VariantWarning))
 					Expect(s.Message).To(Equal("new"))
 					Expect(s.Time).ToNot(BeZero())
+				},
+			)
+
+			It(
+				"Should clear the description that explained the previous message",
+				func(ctx SpecContext) {
+					key := uuid.New().String()
+					Expect(setStatus(ctx, &status.Status[any]{
+						Key:         key,
+						Name:        "by_key_described",
+						Variant:     status.VariantError,
+						Message:     "old",
+						Description: "The old cause.",
+						Time:        telem.Now(),
+					})).To(Succeed())
+					MustSucceed2(
+						svc.SetByKeyOrName(ctx, key, "new", string(status.VariantInfo)),
+					)
+					var s status.Status[any]
+					Expect(
+						svc.NewRetrieve[any]().
+							Where(status.MatchKeys[any](key)).
+							Entry(&s).
+							Exec(ctx, nil),
+					).To(Succeed())
+					Expect(s.Message).To(Equal("new"))
+					Expect(s.Description).To(BeEmpty())
 				},
 			)
 

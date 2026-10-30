@@ -10,10 +10,11 @@
 import "@/mosaic/Mosaic.css";
 
 import { context } from "@synnaxlabs/lyra/context";
-import { CSS } from "@synnaxlabs/lyra/css";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { type location, type record } from "@synnaxlabs/x";
-import { type DragEvent, type ReactElement, useMemo } from "react";
+import { type DragEvent, type ReactElement } from "react";
+
+import { CSS } from "@/css";
 
 /**
  * Where a drop landed within a {@link Leaf}: a drop on the leaf's body carries the
@@ -117,10 +118,7 @@ export const Frame = ({
   disabled,
   ...rest
 }: FrameProps): ReactElement => {
-  const ctx = useMemo<ContextValue>(
-    () => ({ onDrop, onCreate, onFileDrop, onResize, disabled }),
-    [onDrop, onCreate, onFileDrop, onResize, disabled],
-  );
+  const ctx: ContextValue = { onDrop, onCreate, onFileDrop, onResize, disabled };
   return (
     <Context value={ctx}>
       <Flex.Box empty={empty} className={CSS.cls(CSS.B("mosaic"), className)} {...rest}>

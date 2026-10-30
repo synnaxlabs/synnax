@@ -28,7 +28,7 @@ import {
   TimeRange,
   TimeStamp,
 } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useState } from "react";
+import { type ReactElement, useState } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/platform/css";
@@ -82,23 +82,21 @@ const FormStep = ({ onNext }: FormStepProps): ReactElement => {
   const end = Form.useFieldValue<number>("timeRange.end");
   const isFromBeginning = start === TimeRange.MAX.numeric.start;
   const isToEnd = end === TimeRange.MAX.numeric.end;
-  const handleNext = useCallback(() => {
+  const handleNext = () => {
     if (validate()) onNext();
-  }, [validate, onNext]);
+  };
   const footer = (
-    <>
-      <Triggers.SaveHelpText action="Next" />
-      <Nav.Bar.End>
-        <Button.Button
-          variant="filled"
-          disabled={channelKeys.length === 0}
-          onClick={handleNext}
-          trigger={Triggers.SAVE}
-        >
-          Next
-        </Button.Button>
-      </Nav.Bar.End>
-    </>
+    <Nav.Bar.End>
+      <Button.Button
+        variant="filled"
+        disabled={channelKeys.length === 0}
+        onClick={handleNext}
+        trigger={Triggers.SAVE}
+        triggerIndicator
+      >
+        Next
+      </Button.Button>
+    </Nav.Bar.End>
   );
   return (
     <>
@@ -220,7 +218,7 @@ const ConfirmStep = ({ onBack, onClose }: ConfirmStepProps): ReactElement => {
   const client = Synnax.use();
   const addStatus = Status.useAdder();
   const handleError = Status.useErrorHandler();
-  const handleDelete = useCallback(() => {
+  const handleDelete = () => {
     const keys = get<channel.Key[]>("channels").value;
     const tr = get<NumericTimeRange>("timeRange").value;
     onClose();
@@ -232,7 +230,7 @@ const ConfirmStep = ({ onBack, onClose }: ConfirmStepProps): ReactElement => {
         message: `Deleted data from ${newChannelStr(keys)}`,
       });
     }, "Failed to delete data");
-  }, [get, onClose, handleError, client, addStatus]);
+  };
 
   const channelStr = newChannelStr(channelKeys);
   const footer = (

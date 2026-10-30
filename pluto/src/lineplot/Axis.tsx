@@ -9,7 +9,6 @@
 
 import "@/lineplot/Axis.css";
 
-import { CSS } from "@synnaxlabs/lyra/css";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { useUniqueKey } from "@synnaxlabs/lyra/hooks";
 import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
@@ -21,12 +20,12 @@ import {
   type PropsWithChildren,
   type ReactElement,
   useEffect,
-  useMemo,
   useRef,
 } from "react";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
+import { CSS } from "@/css";
 import { lineplot } from "@/lineplot/aether";
 import { baseAxisStateZ, withinSizeThreshold } from "@/lineplot/aether/axis";
 import { useGridEntry } from "@/lineplot/Frame";
@@ -101,7 +100,7 @@ export const axisFactory = (dir: direction.Direction): FC<AxisProps> => {
 
     const font = Theming.useTypography(labelLevel).toString();
 
-    const axisStyle = useMemo(() => ({ ...style, ...gridStyle }), [style, gridStyle]);
+    const axisStyle = { ...style, ...gridStyle };
 
     const prevLabelSize = useRef(0);
 

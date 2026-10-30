@@ -25,7 +25,7 @@ var ErrFault = errors.New("faulty file system")
 type FaultOp string
 
 const (
-	// FaultOpOpen names FS.Open.
+	// FaultOpOpen names FS.Open. Only WithFailAfter takes it.
 	FaultOpOpen FaultOp = "open"
 	// FaultOpReadAt names File.ReadAt.
 	FaultOpReadAt FaultOp = "read_at"
@@ -35,7 +35,7 @@ const (
 	FaultOpRename FaultOp = "rename"
 	// FaultOpStat names FS.Stat.
 	FaultOpStat FaultOp = "stat"
-	// FaultOpRemove names FS.Remove.
+	// FaultOpRemove names FS.Remove. Only WithFailAfter takes it.
 	FaultOpRemove FaultOp = "remove"
 )
 
@@ -69,9 +69,6 @@ func failOn(op FaultOp, names []string) FaultyFSOption {
 	}
 }
 
-// WithFailOpen fails Open on each of the given paths. With no path, every Open fails.
-func WithFailOpen(names ...string) FaultyFSOption { return failOn(FaultOpOpen, names) }
-
 // WithFailReadAt fails ReadAt on each of the given paths. With no path, every ReadAt
 // fails.
 func WithFailReadAt(names ...string) FaultyFSOption {
@@ -92,12 +89,6 @@ func WithFailRename(names ...string) FaultyFSOption {
 
 // WithFailStat fails Stat on each of the given paths. With no path, every Stat fails.
 func WithFailStat(names ...string) FaultyFSOption { return failOn(FaultOpStat, names) }
-
-// WithFailRemove fails Remove on each of the given paths. With no path, every Remove
-// fails.
-func WithFailRemove(names ...string) FaultyFSOption {
-	return failOn(FaultOpRemove, names)
-}
 
 // WithFailAfter holds every failure back until op has run at least once, so a test can
 // fail the second half of a sequence.
@@ -142,6 +133,13 @@ func (fs *FaultyFS) SetOptions(opts ...FaultyFSOption) {
 // OpenFiles returns the number of handles opened through the FS and not yet closed.
 func (fs *FaultyFS) OpenFiles() int { return int(fs.open.Load()) }
 
+// run records that op ran, releasing failures that WithFailAfter holds back on it.
+func (fs *FaultyFS) run(op FaultOp) {
+	fs.mu.Lock()
+	defer fs.mu.Unlock()
+	fs.mu.ran.Add(op)
+}
+
 func (fs *FaultyFS) fault(op FaultOp, name string) error {
 	fs.mu.Lock()
 	defer fs.mu.Unlock()
@@ -167,12 +165,9 @@ func (fs *FaultyFS) Sub(name string) (xfs.FS, error) {
 }
 
 // Open opens the file, counting the handle it returns until that handle is closed.
-// Reads and writes through the handle fail as the options select. Open returns ErrFault
-// when WithFailOpen covers name.
+// Reads and writes through the handle fail as the options select.
 func (fs *FaultyFS) Open(name string, flag int) (xfs.File, error) {
-	if err := fs.fault(FaultOpOpen, name); err != nil {
-		return nil, err
-	}
+	fs.run(FaultOpOpen)
 	f, err := fs.wrapped.Open(name, flag)
 	if err != nil {
 		return nil, err
@@ -197,11 +192,9 @@ func (fs *FaultyFS) Stat(name string) (xfs.FileInfo, error) {
 	return fs.wrapped.Stat(name)
 }
 
-// Remove returns ErrFault when WithFailRemove covers name, and removes otherwise.
+// Remove passes through to the wrapped FS. No option fails it.
 func (fs *FaultyFS) Remove(name string) error {
-	if err := fs.fault(FaultOpRemove, name); err != nil {
-		return err
-	}
+	fs.run(FaultOpRemove)
 	return fs.wrapped.Remove(name)
 }
 

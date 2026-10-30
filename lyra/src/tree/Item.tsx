@@ -10,7 +10,7 @@
 import "@/tree/Item.css";
 
 import { type record } from "@synnaxlabs/x";
-import { type MouseEvent, useMemo } from "react";
+import { type MouseEvent } from "react";
 
 import { type Button } from "@/button";
 import { Caret } from "@/caret";
@@ -29,25 +29,28 @@ export type ItemProps<
   offsetMultiplier?: number;
 };
 
+const OFFSET_VARIABLE = CSS.variable("tree-item-offset");
+const STEP_VARIABLE = CSS.variable("tree-item-step");
+const RULES_WIDTH_VARIABLE = CSS.variable("tree-item-rules-width");
+
 export const Item = <K extends record.Key, E extends Button.ElementType = "div">({
   children,
   style,
   className,
   loading,
   useMargin = false,
-  offsetMultiplier = 3,
+  offsetMultiplier = 2.5,
   ...rest
 }: ItemProps<K, E>) => {
   const { index } = rest;
   const { nodes, toggle } = useContext("Tree.Item");
   const { expanded, depth, hasChildren } = nodes[index];
-  const itemStyle = useMemo(
-    () => ({
-      [CSS.variable("tree-item-offset")]: `${depth * offsetMultiplier + 1.5}rem`,
-      ...style,
-    }),
-    [depth, offsetMultiplier, style],
-  );
+  const itemStyle = {
+    [OFFSET_VARIABLE]: `${depth * offsetMultiplier + 1.5}rem`,
+    [STEP_VARIABLE]: `${offsetMultiplier}rem`,
+    [RULES_WIDTH_VARIABLE]: `${depth * offsetMultiplier}rem`,
+    ...style,
+  };
   return (
     <Select.Item
       className={CSS.cls(

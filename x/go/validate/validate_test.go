@@ -12,6 +12,7 @@ package validate_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -31,12 +32,31 @@ var _ = Describe("Validate", func() {
 	Describe("Ternary", func() {
 		It("Should accumulate the error if the condition is met", func() {
 			v.Ternary("field", true, "error message")
-			Expect(v.Error()).To(HaveOccurred())
+			Expect(v.Error()).To(MatchError(ContainSubstring("field: error message")))
 		})
 
 		It("Should not accumulate the error if the condition is not met", func() {
 			v.Ternary("field", false, "error message")
 			Expect(v.Error()).NotTo(HaveOccurred())
+		})
+
+		It("Should keep one error when later checks pass", func() {
+			v.Ternary("field", true, "error message")
+			for range 64 {
+				v.Ternary("other", false, "other message")
+			}
+			Expect(errors.UnwrapMulti(v.Error())).To(BeNil())
+			Expect(v.Error()).To(MatchError("field: error message"))
+		})
+
+		It("Should keep every failure flat when later checks pass", func() {
+			v.Ternary("first", true, "first message")
+			v.Ternary("second", true, "second message")
+			for range 64 {
+				v.Ternary("other", false, "other message")
+			}
+			Expect(errors.UnwrapMulti(v.Error())).To(HaveLen(2))
+			Expect(v.Error()).To(MatchError(ContainSubstring("second: second message")))
 		})
 
 		It("Should return true if an error was accumulated", func() {
@@ -92,7 +112,9 @@ var _ = Describe("Validate", func() {
 
 				It("Should catch non-positive numbers", func() {
 					Expect(v.Positive("field", 0)).To(BeTrue())
-					Expect(v.Error()).To(HaveOccurred())
+					Expect(
+						v.Error(),
+					).To(MatchError(ContainSubstring("field: must be positive")))
 				})
 			})
 
@@ -104,7 +126,9 @@ var _ = Describe("Validate", func() {
 
 				It("Should catch numbers less than or equal to threshold", func() {
 					Expect(v.GreaterThan("field", 5, 5)).To(BeTrue())
-					Expect(v.Error()).To(HaveOccurred())
+					Expect(
+						v.Error(),
+					).To(MatchError(ContainSubstring("field: must be greater than 5")))
 				})
 			})
 
@@ -121,17 +145,23 @@ var _ = Describe("Validate", func() {
 
 				It("Should reject values at upper bound (exclusive)", func() {
 					Expect(v.InBounds("field", 10, 1, 10)).To(BeTrue())
-					Expect(v.Error()).To(HaveOccurred())
+					Expect(v.Error()).To(MatchError(
+						ContainSubstring("field: must be in bounds [1, 10)"),
+					))
 				})
 
 				It("Should reject values below lower bound", func() {
 					Expect(v.InBounds("field", 0, 1, 10)).To(BeTrue())
-					Expect(v.Error()).To(HaveOccurred())
+					Expect(v.Error()).To(MatchError(
+						ContainSubstring("field: must be in bounds [1, 10)"),
+					))
 				})
 
 				It("Should reject values above upper bound", func() {
 					Expect(v.InBounds("field", 11, 1, 10)).To(BeTrue())
-					Expect(v.Error()).To(HaveOccurred())
+					Expect(v.Error()).To(MatchError(
+						ContainSubstring("field: must be in bounds [1, 10)"),
+					))
 				})
 
 				It("Should work with float values", func() {
@@ -157,7 +187,9 @@ var _ = Describe("Validate", func() {
 				It("Should catch empty slices", func() {
 					slice := []int{}
 					Expect(v.NotEmptySlice("field", slice)).To(BeTrue())
-					Expect(v.Error()).To(HaveOccurred())
+					Expect(
+						v.Error(),
+					).To(MatchError(ContainSubstring("field: must be non-empty")))
 				})
 			})
 
@@ -169,7 +201,9 @@ var _ = Describe("Validate", func() {
 
 				It("Should catch empty strings", func() {
 					Expect(v.NotEmptyString("field", "")).To(BeTrue())
-					Expect(v.Error()).To(HaveOccurred())
+					Expect(
+						v.Error(),
+					).To(MatchError(ContainSubstring("field: required")))
 				})
 			})
 		})
@@ -184,7 +218,9 @@ var _ = Describe("Validate", func() {
 			It("Should catch zero zeroables", func() {
 				z := testZeroable{value: 0}
 				Expect(v.NonZeroable("field", z)).To(BeTrue())
-				Expect(v.Error()).To(HaveOccurred())
+				Expect(
+					v.Error(),
+				).To(MatchError(ContainSubstring("field: must be non-zero")))
 			})
 		})
 	})

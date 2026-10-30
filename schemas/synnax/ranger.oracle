@@ -29,6 +29,7 @@ Range struct {
     name       string          {
         @doc value           "is a human-readable name for the range."
         @filter
+        @search
         @validate min_length 1
     }
     time_range telem.TimeRange {
@@ -73,7 +74,6 @@ Range struct {
     @pb
     @py name         "Payload"
     @retrieve custom
-    @search
     @ts name         "Payload"
 }
 

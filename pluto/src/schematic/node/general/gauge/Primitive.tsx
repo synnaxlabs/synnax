@@ -10,10 +10,12 @@
 import "@/schematic/node/general/gauge/gauge.css";
 
 import { type schematic } from "@synnaxlabs/client";
-import { CSS } from "@synnaxlabs/lyra/css";
 import { Text } from "@synnaxlabs/lyra/text";
 import { color } from "@synnaxlabs/x";
-import { type CSSProperties, type ReactElement, useMemo } from "react";
+import { type CSSProperties, type ReactElement } from "react";
+
+import { CSS } from "@/css";
+import { Primitive } from "@/schematic/node/common/primitive";
 
 interface RenderProps extends Omit<
   schematic.GaugeNodeConfig,
@@ -43,18 +45,13 @@ export const Gauge = ({ strokeColor, className }: RenderProps): ReactElement => 
     A ${radius} ${radius} 0 ${valueAngle - 135 > 180 ? 1 : 0} 1 ${centerX + radius * Math.cos(valueEndAngle)} ${centerY + radius * Math.sin(valueEndAngle)}
   `;
 
-  const style = useMemo<CSSProperties>(
-    () => ({ [CSS.variable("symbol-color")]: color.rgbaString(strokeColor) }),
-    [strokeColor],
-  );
+  const style: CSSProperties = {
+    [Primitive.SYMBOL_COLOR]: color.rgbaString(strokeColor),
+  };
 
   return (
     <div
-      className={CSS.cls(
-        CSS.B("symbol-colored"),
-        CSS.BE("gauge", "container"),
-        className,
-      )}
+      className={CSS.cls(CSS.symbolColored, CSS.BE("gauge", "container"), className)}
       style={style}
     >
       <svg width="67" height="67" className={CSS.BE("gauge", "svg")}>

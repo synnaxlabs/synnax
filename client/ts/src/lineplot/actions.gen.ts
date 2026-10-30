@@ -15,9 +15,9 @@ import { z } from "zod";
 import { actions } from "@/actions";
 import { channel } from "@/channel";
 import {
+  aggregationZ,
   axisKeyZ,
-  customRangeZ,
-  downsampleModeZ,
+  detailZ,
   keyZ,
   type LinePlot,
   linePlotZ,
@@ -28,6 +28,7 @@ import {
   xAxisKeyZ,
   yAxisKeyZ,
 } from "@/lineplot/types.gen";
+import { ranger } from "@/ranger";
 
 /**
  * Create replaces the document with the given created state. Emitted by the Core on
@@ -119,51 +120,34 @@ export const setXChannelPayloadZ = z.object({
 export type SetXChannelPayload = z.infer<typeof setXChannelPayloadZ>;
 
 /**
- * AddRange appends the range key to the ranges array bound to the x-axis named by
- * axis_key. No-op when the range is already present.
+ * AddRange appends the range reference to the plot's ranges. No-op when an equal
+ * reference is already present.
  */
 export const addRangePayloadZ = z.object({
-  axisKey: xAxisKeyZ,
-  range: z.string(),
+  range: ranger.refZ,
 });
 
 export type AddRangePayload = z.infer<typeof addRangePayloadZ>;
 
 /**
- * RemoveRange removes the range key from the x-axis named by axis_key. No-op when the
- * range is not present.
+ * RemoveRange removes the reference equal to range from the plot's ranges. No-op when
+ * no reference is equal.
  */
 export const removeRangePayloadZ = z.object({
-  axisKey: xAxisKeyZ,
-  range: z.string(),
+  range: ranger.refZ,
 });
 
 export type RemoveRangePayload = z.infer<typeof removeRangePayloadZ>;
 
 /**
- * SetRanges replaces the entire set of range keys bound to the x-axis named by axis_key
- * with ranges. Ranges absent from the new set are removed and their lines dropped;
- * ranges not previously present are added. Existing ranges keep their line styling.
+ * SetRanges replaces the plot's range references with ranges, such as when the user
+ * edits a window. Lines style channels, so they are unaffected.
  */
 export const setRangesPayloadZ = z.object({
-  axisKey: xAxisKeyZ,
-  ranges: z
-    .string()
-    .array()
-    .default(() => []),
+  ranges: ranger.refZ.array().default(() => []),
 });
 
 export type SetRangesPayload = z.infer<typeof setRangesPayloadZ>;
-
-/**
- * SetCustomRange sets the window the "custom" range key resolves to. A null custom
- * clears the window.
- */
-export const setCustomRangePayloadZ = z.object({
-  custom: zod.nullToUndefined(customRangeZ),
-});
-
-export type SetCustomRangePayload = z.infer<typeof setCustomRangePayloadZ>;
 
 /** SetAxisLabel sets the label rendered along the axis identified by key. */
 export const setAxisLabelPayloadZ = z.object({
@@ -255,26 +239,21 @@ export const setLineStrokeWidthPayloadZ = z.object({
 
 export type SetLineStrokeWidthPayload = z.infer<typeof setLineStrokeWidthPayloadZ>;
 
-/** SetLineDownsample sets the downsample factor of the line identified by key. */
-export const setLineDownsamplePayloadZ = z.object({
+/** SetLineAggregation sets how the line identified by key reduces a pixel group. */
+export const setLineAggregationPayloadZ = z.object({
   key: z.string(),
-  downsample: z.uint32(),
+  aggregation: aggregationZ,
 });
 
-export type SetLineDownsamplePayload = z.infer<typeof setLineDownsamplePayloadZ>;
+export type SetLineAggregationPayload = z.infer<typeof setLineAggregationPayloadZ>;
 
-/**
- * SetLineDownsampleMode sets how the downsample factor is applied for the line
- * identified by key.
- */
-export const setLineDownsampleModePayloadZ = z.object({
+/** SetLineDetail sets the number of sample groups per pixel column of the line. */
+export const setLineDetailPayloadZ = z.object({
   key: z.string(),
-  downsampleMode: downsampleModeZ,
+  detail: detailZ,
 });
 
-export type SetLineDownsampleModePayload = z.infer<
-  typeof setLineDownsampleModePayloadZ
->;
+export type SetLineDetailPayload = z.infer<typeof setLineDetailPayloadZ>;
 
 /**
  * SetLine replaces the line with line.key in place, inserting it when no such line
@@ -379,7 +358,6 @@ export type Action =
   | { type: "add_range"; addRange: AddRangePayload }
   | { type: "remove_range"; removeRange: RemoveRangePayload }
   | { type: "set_ranges"; setRanges: SetRangesPayload }
-  | { type: "set_custom_range"; setCustomRange: SetCustomRangePayload }
   | { type: "set_axis_label"; setAxisLabel: SetAxisLabelPayload }
   | {
       type: "set_axis_label_direction";
@@ -392,11 +370,8 @@ export type Action =
   | { type: "set_line_label"; setLineLabel: SetLineLabelPayload }
   | { type: "set_line_color"; setLineColor: SetLineColorPayload }
   | { type: "set_line_stroke_width"; setLineStrokeWidth: SetLineStrokeWidthPayload }
-  | { type: "set_line_downsample"; setLineDownsample: SetLineDownsamplePayload }
-  | {
-      type: "set_line_downsample_mode";
-      setLineDownsampleMode: SetLineDownsampleModePayload;
-    }
+  | { type: "set_line_aggregation"; setLineAggregation: SetLineAggregationPayload }
+  | { type: "set_line_detail"; setLineDetail: SetLineDetailPayload }
   | { type: "set_line"; setLine: SetLinePayload }
   | { type: "set_rule"; setRule: SetRulePayload }
   | { type: "set_rule_label"; setRuleLabel: SetRuleLabelPayload }
@@ -434,10 +409,6 @@ export const actionZ: z.ZodType<Action> = z.discriminatedUnion("type", [
   z.object({ type: z.literal("add_range"), addRange: addRangePayloadZ }),
   z.object({ type: z.literal("remove_range"), removeRange: removeRangePayloadZ }),
   z.object({ type: z.literal("set_ranges"), setRanges: setRangesPayloadZ }),
-  z.object({
-    type: z.literal("set_custom_range"),
-    setCustomRange: setCustomRangePayloadZ,
-  }),
   z.object({ type: z.literal("set_axis_label"), setAxisLabel: setAxisLabelPayloadZ }),
   z.object({
     type: z.literal("set_axis_label_direction"),
@@ -463,12 +434,12 @@ export const actionZ: z.ZodType<Action> = z.discriminatedUnion("type", [
     setLineStrokeWidth: setLineStrokeWidthPayloadZ,
   }),
   z.object({
-    type: z.literal("set_line_downsample"),
-    setLineDownsample: setLineDownsamplePayloadZ,
+    type: z.literal("set_line_aggregation"),
+    setLineAggregation: setLineAggregationPayloadZ,
   }),
   z.object({
-    type: z.literal("set_line_downsample_mode"),
-    setLineDownsampleMode: setLineDownsampleModePayloadZ,
+    type: z.literal("set_line_detail"),
+    setLineDetail: setLineDetailPayloadZ,
   }),
   z.object({ type: z.literal("set_line"), setLine: setLinePayloadZ }),
   z.object({ type: z.literal("set_rule"), setRule: setRulePayloadZ }),
@@ -592,15 +563,6 @@ export const setRanges = (payload: z.input<typeof setRangesPayloadZ>): Action =>
   }),
 });
 
-export const setCustomRange = (
-  payload: z.input<typeof setCustomRangePayloadZ>,
-): Action => ({
-  type: "set_custom_range",
-  setCustomRange: zod.parse(setCustomRangePayloadZ, payload, {
-    label: "line plot set_custom_range action payload",
-  }),
-});
-
 export const setAxisLabel = (
   payload: z.input<typeof setAxisLabelPayloadZ>,
 ): Action => ({
@@ -680,21 +642,21 @@ export const setLineStrokeWidth = (
   }),
 });
 
-export const setLineDownsample = (
-  payload: z.input<typeof setLineDownsamplePayloadZ>,
+export const setLineAggregation = (
+  payload: z.input<typeof setLineAggregationPayloadZ>,
 ): Action => ({
-  type: "set_line_downsample",
-  setLineDownsample: zod.parse(setLineDownsamplePayloadZ, payload, {
-    label: "line plot set_line_downsample action payload",
+  type: "set_line_aggregation",
+  setLineAggregation: zod.parse(setLineAggregationPayloadZ, payload, {
+    label: "line plot set_line_aggregation action payload",
   }),
 });
 
-export const setLineDownsampleMode = (
-  payload: z.input<typeof setLineDownsampleModePayloadZ>,
+export const setLineDetail = (
+  payload: z.input<typeof setLineDetailPayloadZ>,
 ): Action => ({
-  type: "set_line_downsample_mode",
-  setLineDownsampleMode: zod.parse(setLineDownsampleModePayloadZ, payload, {
-    label: "line plot set_line_downsample_mode action payload",
+  type: "set_line_detail",
+  setLineDetail: zod.parse(setLineDetailPayloadZ, payload, {
+    label: "line plot set_line_detail action payload",
   }),
 });
 
@@ -813,10 +775,6 @@ export interface Handlers {
   addRange: (state: Draft<LinePlot>, payload: AddRangePayload) => HandlerResult;
   removeRange: (state: Draft<LinePlot>, payload: RemoveRangePayload) => HandlerResult;
   setRanges: (state: Draft<LinePlot>, payload: SetRangesPayload) => HandlerResult;
-  setCustomRange: (
-    state: Draft<LinePlot>,
-    payload: SetCustomRangePayload,
-  ) => HandlerResult;
   setAxisLabel: (state: Draft<LinePlot>, payload: SetAxisLabelPayload) => HandlerResult;
   setAxisLabelDirection: (
     state: Draft<LinePlot>,
@@ -841,13 +799,13 @@ export interface Handlers {
     state: Draft<LinePlot>,
     payload: SetLineStrokeWidthPayload,
   ) => HandlerResult;
-  setLineDownsample: (
+  setLineAggregation: (
     state: Draft<LinePlot>,
-    payload: SetLineDownsamplePayload,
+    payload: SetLineAggregationPayload,
   ) => HandlerResult;
-  setLineDownsampleMode: (
+  setLineDetail: (
     state: Draft<LinePlot>,
-    payload: SetLineDownsampleModePayload,
+    payload: SetLineDetailPayload,
   ) => HandlerResult;
   setLine: (state: Draft<LinePlot>, payload: SetLinePayload) => HandlerResult;
   setRule: (state: Draft<LinePlot>, payload: SetRulePayload) => HandlerResult;
@@ -899,8 +857,6 @@ export const createReduceAll = (handlers: Handlers) =>
         return handlers.removeRange(state, action.removeRange);
       case "set_ranges":
         return handlers.setRanges(state, action.setRanges);
-      case "set_custom_range":
-        return handlers.setCustomRange(state, action.setCustomRange);
       case "set_axis_label":
         return handlers.setAxisLabel(state, action.setAxisLabel);
       case "set_axis_label_direction":
@@ -919,10 +875,10 @@ export const createReduceAll = (handlers: Handlers) =>
         return handlers.setLineColor(state, action.setLineColor);
       case "set_line_stroke_width":
         return handlers.setLineStrokeWidth(state, action.setLineStrokeWidth);
-      case "set_line_downsample":
-        return handlers.setLineDownsample(state, action.setLineDownsample);
-      case "set_line_downsample_mode":
-        return handlers.setLineDownsampleMode(state, action.setLineDownsampleMode);
+      case "set_line_aggregation":
+        return handlers.setLineAggregation(state, action.setLineAggregation);
+      case "set_line_detail":
+        return handlers.setLineDetail(state, action.setLineDetail);
       case "set_line":
         return handlers.setLine(state, action.setLine);
       case "set_rule":

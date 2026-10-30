@@ -11,19 +11,28 @@ package ontology_test
 
 import (
 	"context"
-	"io"
 	"iter"
-	"slices"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/x/gorp"
-	xio "github.com/synnaxlabs/x/io"
-	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/observe"
+	"github.com/synnaxlabs/x/search"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
+
+func newNameIndex() *gorp.SearchIndex[string, ontology.Resource] {
+	return gorp.NewSearchIndex("name", func(r *ontology.Resource) []string {
+		return []string{r.Name}
+	})
+}
+
+func parseID(key string) ontology.ID {
+	GinkgoHelper()
+	return MustSucceed(ontology.ParseID(key))
+}
 
 // constService is an ontology.Service whose resources always carry a fixed name, used
 // to distinguish which of several registered services answered a retrieval.
@@ -43,11 +52,61 @@ func (s constService) RetrieveResource(
 	), nil
 }
 
-func (s constService) OpenNexter(
+func (constService) Search(
 	context.Context,
-) (iter.Seq[ontology.Resource], io.Closer, error) {
-	return slices.Values([]ontology.Resource{}), xio.NopCloser, nil
+	gorp.Tx,
+	string,
+	int,
+) (search.Result[ontology.ID], error) {
+	return search.Result[ontology.ID]{}, nil
 }
+
+var _ = Describe("SearchIndex", func() {
+	var (
+		d   *gorp.DB
+		idx *gorp.SearchIndex[string, ontology.Resource]
+	)
+	BeforeEach(func(ctx SpecContext) {
+		d = DeferClose(gorp.Wrap(memkv.New()))
+		idx = newNameIndex()
+		table := MustOpen(
+			gorp.OpenTable(ctx, gorp.TableConfig[string, ontology.Resource]{
+				DB:      d,
+				Indexes: []gorp.Index[string, ontology.Resource]{idx},
+			}),
+		)
+		resources := []ontology.Resource{
+			ontology.NewResource(
+				schema, newSampleType("a"), "turbopump inlet", Sample{Key: "a"},
+			),
+			ontology.NewResource(
+				schema,
+				newSampleType("b"),
+				"turbopump",
+				Sample{Key: "b"},
+			),
+		}
+		Expect(table.NewCreate().Entries(&resources).Exec(ctx, d)).To(Succeed())
+	})
+
+	DescribeTable("Should return the IDs of at most limit matches, closest match first",
+		func(ctx SpecContext, limit int, expected []ontology.ID) {
+			Expect(MustSucceed(
+				ontology.SearchIndex(ctx, d, idx, "turbopump", limit, parseID),
+			).Keys).To(Equal(expected))
+		},
+		Entry("every match", 10, []ontology.ID{newSampleType("b"), newSampleType("a")}),
+		Entry("the first match", 1, []ontology.ID{newSampleType("b")}),
+	)
+
+	It("Should return the error of the index search", func(ctx SpecContext) {
+		canceled, cancel := context.WithCancel(ctx)
+		cancel()
+		Expect(ontology.SearchIndex(
+			canceled, d, newNameIndex(), "turbopump", 10, parseID,
+		)).Error().To(MatchError(context.Canceled))
+	})
+})
 
 var _ = Describe("Service", func() {
 	It(
@@ -57,7 +116,9 @@ var _ = Describe("Service", func() {
 			Expect(otg.NewWriter(tx).DefineResources(ctx, id)).To(Succeed())
 			var res ontology.Resource
 			Expect(func() {
-				_ = otg.NewRetrieve().WhereIDs(id).Entry(&res).Exec(ctx, tx)
+				Expect(
+					otg.NewRetrieve().WhereIDs(id).Entry(&res).Exec(ctx, tx),
+				).To(Succeed())
 			}).To(PanicWith(ContainSubstring("service user not found")))
 		},
 	)

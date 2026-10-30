@@ -16,9 +16,15 @@
 
 #include "x/cpp/errors/errors.h"
 
+#include "driver/errors/errors.h"
 #include "driver/ethercat/engine/engine.h"
 
 namespace driver::ethercat::engine {
+/// @brief library info for the packet capture dependency required by SOEM.
+const LibraryInfo PCAP_LIBRARY_INFO = {
+    "Npcap (packet capture for EtherCAT)",
+    "https://npcap.com/#download"
+};
 
 /// @brief manages a pool of EtherCAT engines keyed by master identifier.
 class Pool {
@@ -37,12 +43,20 @@ public:
     /// @brief returns all available EtherCAT masters discovered by the manager.
     [[nodiscard]] std::vector<master::Info> enumerate() const;
 
+    /// @brief returns why no master can be created, or NIL when masters are available.
+    /// A pool built without a manager reports the missing packet capture library.
+    [[nodiscard]] x::errors::Error check_available() const;
+
     /// @brief acquires or creates an engine for the specified master key.
     std::pair<std::shared_ptr<Engine>, x::errors::Error>
     acquire(const std::string &key);
 
     /// @brief checks if a master has an active (running) engine.
     [[nodiscard]] bool is_active(const std::string &key) const;
+
+    /// @brief returns the latest condition of each enabled slave on a master, or an
+    /// empty list when its bus is not running.
+    [[nodiscard]] std::vector<slave::Health> health(const std::string &key) const;
 
     /// @brief returns cached slave information from a master's engine.
     [[nodiscard]] std::vector<slave::DiscoveryResult>
@@ -54,11 +68,6 @@ public:
     /// @return Pair of slave list and error.
     [[nodiscard]] std::pair<std::vector<slave::DiscoveryResult>, x::errors::Error>
     discover_slaves(const std::string &key);
-
-private:
-    /// @brief acquires or creates an engine without locking. Caller must hold mu.
-    std::pair<std::shared_ptr<Engine>, x::errors::Error>
-    acquire_unlocked(const std::string &key);
 };
 
 }

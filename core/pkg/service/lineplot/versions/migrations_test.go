@@ -13,8 +13,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot/versions"
-	"github.com/synnaxlabs/x/migrate"
 )
 
 var _ = Describe("Migrations", func() {
@@ -24,12 +24,14 @@ var _ = Describe("Migrations", func() {
 	It("Should pin the migration chain keys in order", func() {
 		Expect(lo.Map(
 			versions.Migrations,
-			func(m migrate.Migration, _ int) string { return m.Key() },
+			func(m gorp.Migration, _ int) string { return m.Key() },
 		)).To(Equal([]string{
 			"normalize_keys",
 			"msgpack_to_orc",
 			"v55_lift_typed_lineplot",
 			"v58_custom_range",
+			"v59_line_reduction",
+			"v61_lineplot_ranger_refs",
 		}))
 	})
 })

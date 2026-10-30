@@ -43,37 +43,37 @@ SEQ_EXPECTED = {
 ARC_STL_STATUS_SOURCE = """
 import status
 
-trig_status_set -> status.set{
+trig_status_set -> status.set(
     key_or_name="status_flow_byname",
     message="set by name (flow)",
     variant="info"
-} -> flow_byname_key
-trig_status_set -> status.set{
+) -> flow_byname_key
+trig_status_set -> status.set(
     key_or_name="11110002",
     message="set by key (flow)",
     variant="warning"
-} -> flow_bykey_key
+) -> flow_bykey_key
 
 func set_func_byname() {
     func_byname_key = status.set("status_func_byname", "set by name (func)", "success")
 }
-trig_status_set -> set_func_byname{}
+trig_status_set -> set_func_byname()
 func set_func_bykey() {
     func_bykey_key = status.set("22220002", "set by key (func)", "error")
 }
-trig_status_set -> set_func_bykey{}
+trig_status_set -> set_func_bykey()
 
 func set_duplicate() {
     dup_func_key = status.set("duplicate_status_name", "some message", "info")
 }
-trig_dup_func -> set_duplicate{}
-trig_dup_flow -> status.set{"duplicate_status_name", "some message", "info"}
+trig_dup_func -> set_duplicate()
+trig_dup_flow -> status.set("duplicate_status_name", "some message", "info")
 
 sequence status_seq {
-    status.set{"status_seq_a", "seq step a", "info"},
-    status.set{"status_seq_b", "seq step b", "warning"},
-    status.set{"status_seq_c", "seq step c", "error"},
-    status.set{"status_seq_d", "seq step d", "loading"},
+    status.set("status_seq_a", "seq step a", "info"),
+    status.set("status_seq_b", "seq step b", "warning"),
+    status.set("status_seq_c", "seq step c", "error"),
+    status.set("status_seq_d", "seq step d", "loading"),
     1 -> seq_status_done
 }
 trig_status_seq => status_seq
@@ -142,14 +142,14 @@ class StlStatus(ArcCase):
     collect_notifications = True
 
     def setup(self) -> None:
-        create_virtual_channel(self.client, TRIG_SET, sy.DataType.UINT8)
-        create_virtual_channel(self.client, TRIG_DUP_FUNC, sy.DataType.UINT8)
-        create_virtual_channel(self.client, TRIG_DUP_FLOW, sy.DataType.UINT8)
-        create_virtual_channel(self.client, TRIG_SEQ, sy.DataType.UINT8)
-        create_virtual_channel(self.client, DUP_FUNC_KEY, sy.DataType.STRING)
-        create_virtual_channel(self.client, SEQ_DONE, sy.DataType.UINT8)
+        create_virtual_channel(self.client, TRIG_SET, data_type=sy.DataType.UINT8)
+        create_virtual_channel(self.client, TRIG_DUP_FUNC, data_type=sy.DataType.UINT8)
+        create_virtual_channel(self.client, TRIG_DUP_FLOW, data_type=sy.DataType.UINT8)
+        create_virtual_channel(self.client, TRIG_SEQ, data_type=sy.DataType.UINT8)
+        create_virtual_channel(self.client, DUP_FUNC_KEY, data_type=sy.DataType.STRING)
+        create_virtual_channel(self.client, SEQ_DONE, data_type=sy.DataType.UINT8)
         for ch in KEY_CHANNELS:
-            create_virtual_channel(self.client, ch, sy.DataType.STRING)
+            create_virtual_channel(self.client, ch, data_type=sy.DataType.STRING)
         for c in CASES:
             self.client.statuses.set(
                 sy.Status(
@@ -216,13 +216,16 @@ class StlStatus(ArcCase):
         self.log("Firing set duplicate: warn and set only the first status")
         self.writer.write(TRIG_DUP_FUNC, 1)
         self.wait_for_eq(DUP_FUNC_KEY, DUP_KEYS[0])
-        if not self.wait_for_notification(f'multiple statuses named "{DUP_NAME}"'):
+        if not self.wait_for_notification("Found duplicate status names"):
             self.fail("duplicate set did not surface a multi-match warning")
+        if not self.wait_for_notification(f'Several statuses are named "{DUP_NAME}"'):
+            self.fail("the multi-match warning did not name the duplicate status")
         rows = {s.key: s for s in self._rows(DUP_NAME)}
         first = rows[DUP_KEYS[0]]
         if (first.variant, first.message) != (DUP_VARIANT, DUP_MESSAGE):
             self.fail(
-                f"first match {DUP_KEYS[0]}: expected ({DUP_VARIANT!r}, {DUP_MESSAGE!r}), "
+                f"first match {DUP_KEYS[0]}: expected ({DUP_VARIANT!r}, "
+                f"{DUP_MESSAGE!r}), "
                 f"got ({first.variant!r}, {first.message!r})"
             )
         second = rows[DUP_KEYS[1]]

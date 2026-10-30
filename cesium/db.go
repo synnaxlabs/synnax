@@ -29,12 +29,13 @@ type (
 	Channel    = channel.Channel
 	ChannelKey = channel.Key
 	Frame      = channel.Frame
+	// AlignmentCounter hands out the leading alignment domains of new writers.
+	AlignmentCounter = alignment.Counter
 )
 
 var (
-	ErrDBClosed          = resource.NewClosedError("cesium.db")
-	ErrChannelNotFound   = channel.ErrNotFound
-	ZeroLeadingAlignment = alignment.ZeroLeading
+	ErrDBClosed        = resource.NewClosedError("cesium.db")
+	ErrChannelNotFound = channel.ErrNotFound
 )
 
 // Metrics contains statistics about the cesium database.
@@ -43,10 +44,10 @@ type Metrics struct {
 	DiskSize telem.Size
 }
 
-// LeadingAlignment returns an Alignment whose array index is the maximum possible value
-// and whose sample index is the provided value.
-func LeadingAlignment(domainIdx, sampleIdx uint32) telem.Alignment {
-	return alignment.Leading(domainIdx, sampleIdx)
+// NewAlignmentCounter returns an AlignmentCounter whose first domain follows the zero
+// leading alignment.
+func NewAlignmentCounter() *AlignmentCounter {
+	return alignment.NewCounter(alignment.ZeroLeading)
 }
 
 type DB struct {
@@ -55,6 +56,7 @@ type DB struct {
 	relay *relay
 	// controlUpdates notifies subscribers of every control transfer the DB arbitrates.
 	controlUpdates observe.Observer[ControlUpdate]
+	historyChanges observe.Observer[HistoryChange]
 	closed         *atomic.Bool
 	mu             struct {
 		dbs struct {

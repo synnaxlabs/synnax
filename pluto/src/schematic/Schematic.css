@@ -9,6 +9,9 @@
  * included in the file licenses/APL.txt.
  */
 
+/* stylelint-disable declaration-no-important -- restyles React Flow, which styles these
+   parts in its own stylesheet and inline */
+
 .pluto-schematic__empty {
     position: absolute;
     inset: 0;
@@ -16,6 +19,8 @@
 }
 
 .pluto-schematic {
+    --xy-resize-background-color: var(--pluto-primary-z);
+
     .react-flow__node.selected .pluto-symbol-primitive {
         /* make an inset box shadow to simulate a background */
         box-shadow: 0 0 0 1000px var(--pluto-primary-z-20) inset !important;
@@ -29,12 +34,28 @@
         display: block;
     }
 
+    /* The node draws the ring, so the lines are clear grab zones that cover it. */
+    .react-flow__resize-control.line {
+        border-color: transparent;
+
+        &.left,
+        &.right {
+            width: 8px;
+        }
+
+        &.top,
+        &.bottom {
+            height: 8px;
+        }
+    }
+
     .react-flow__handle {
         background: none !important;
         border: var(--pluto-border) !important;
         border-color: transparent !important;
         pointer-events: none !important;
         border-radius: 50%;
+
         /* React Flow pins the opposite edge (bottom/right) for handles facing those
            directions. Pluto positions every handle via top/left, so the extra pin
            stretches the element across the node and throws off the edge anchor. */
@@ -54,7 +75,8 @@
     .react-flow__edge {
         & .react-flow__edge-path {
             stroke-width: 2px !important;
-            &.pluto--thin {
+
+            &.lyra--thin {
                 stroke-width: 1px !important;
             }
         }
@@ -63,10 +85,12 @@
     .react-flow__edges {
         z-index: 6 !important;
     }
-    &.pluto--editable {
+
+    &.lyra--editable {
         .react-flow__pane.selection {
             cursor: pointer !important;
         }
+
         & .pluto-symbol-primitive,
         .pluto-control-chip {
             pointer-events: none;
@@ -83,13 +107,29 @@
             border-radius: 50%;
             z-index: 1;
         }
+
+        /* Lyra controls set their own z-index, which paints them over the handles.
+           Isolating each part of a symbol keeps the handles on top. */
+        & .pluto-symbol-primitive > :not(.react-flow__handle) {
+            isolation: isolate;
+        }
+
         .react-flow__node:focus {
             outline: none;
         }
+
+        /* After the focus rule, so a focused node keeps its ring. */
+        .react-flow__node.selected {
+            border-radius: var(--pluto-border-radius);
+            outline: 1px solid var(--pluto-primary-z-60);
+            outline-offset: 2px;
+        }
+
         & .react-flow__node.draggable:hover {
             .react-flow__handle {
                 border-color: var(--pluto-primary-z) !important;
                 background: var(--pluto-text-color) !important;
+
                 &:hover {
                     background: var(--pluto-primary-z) !important;
                 }
@@ -100,6 +140,7 @@
             & .react-flow__handle {
                 border-color: var(--pluto-primary-z) !important;
                 background: var(--pluto-text-color) !important;
+
                 &:hover {
                     background: var(--pluto-primary-z) !important;
                 }

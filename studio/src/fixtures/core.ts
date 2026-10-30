@@ -26,6 +26,8 @@ export interface CoreOptions {
   /** Enable the embedded driver. Off by default so captures never show rack or
    * driver state that isn't part of the script. */
   driver?: boolean;
+  /** The integrations the driver enables. Every one when left out. */
+  integrations?: string[];
 }
 
 export interface Core {
@@ -52,7 +54,8 @@ const findBinary = (): string => {
   );
 };
 
-const portInUse = async (port: number): Promise<boolean> =>
+/** portInUse returns true when a server accepts connections on the local port. */
+export const portInUse = async (port: number): Promise<boolean> =>
   await new Promise((resolve) => {
     const socket = net.connect({ port, host: "localhost" });
     socket.once("connect", () => {
@@ -87,6 +90,7 @@ export const startCore = async ({
   port = 9090,
   outDir,
   driver = false,
+  integrations,
 }: CoreOptions): Promise<Core> => {
   if (await portInUse(port))
     throw new Error(
@@ -98,6 +102,8 @@ export const startCore = async ({
   const log = createWriteStream(path.join(outDir, "core.log"));
   const args = ["start", "-mi", "-l", `localhost:${port}`];
   if (!driver) args.push("--no-driver");
+  else if (integrations != null)
+    args.push(`--enable-integrations=${integrations.join(",")}`);
   const proc = spawn(binary, args, { stdio: ["ignore", "pipe", "pipe"] });
   proc.stdout.pipe(log);
   proc.stderr.pipe(log);

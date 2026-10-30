@@ -33,10 +33,10 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.moveTo({ x: 756, y: 500 });
 
   session.startRecording();
-  await session.hold(1000);
+  await session.hold(1800);
 
   await capture.contextMenu(session, item, "Change role");
-  const modal = page.locator(".console-modal").first();
+  const modal = page.locator(capture.MODAL).first();
   // The select opens on the current role rather than a placeholder.
   const role = modal.getByText("Viewer", { exact: true }).first();
   await session.waitFor(role);
@@ -50,7 +50,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.hold(400);
   await session.type("Engineer");
   const option = page
-    .locator(".pluto-list__item:not(.pluto-tree__item)")
+    .locator(".lyra-list__item:not(.lyra-tree__item)")
     .filter({ hasText: "Engineer" })
     .first();
   await session.waitFor(option);
@@ -71,5 +71,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     zoom: false,
   });
   await session.waitFor(capture.treeItem(page, "user:", "grace"));
-  await session.hold(500);
+  // Park clear of the component buttons, so none shows a hover state.
+  await session.moveTo({ x: 1300, y: 780 });
+  await session.hold(2800);
 };

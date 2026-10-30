@@ -9,6 +9,7 @@
 
 export * from "@/ui/auth/Card";
 export * from "@/ui/auth/Login";
+export * from "@/ui/auth/redirect";
 export * from "@/ui/auth/Reset";
 export * from "@/ui/auth/SignUp";
 export * from "@/ui/auth/SSOCallback";

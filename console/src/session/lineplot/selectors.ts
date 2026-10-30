@@ -7,17 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type lineplot as client,
-  panel,
-  query,
-  type Synnax as Client,
-} from "@synnaxlabs/client";
-import { LinePlot, Synnax, type Viewport } from "@synnaxlabs/pluto";
+import { type lineplot as client, panel, query } from "@synnaxlabs/client";
+import { LinePlot, Panel as PPanel, Synnax, type Viewport } from "@synnaxlabs/pluto";
 import { type lineplot } from "@synnaxlabs/pluto/ether";
 import { type record } from "@synnaxlabs/x";
-import { useCallback } from "react";
-import { useStore } from "react-redux";
 
 import {
   type ControlState,
@@ -34,50 +27,32 @@ import { Panel } from "@/session/panel";
 import { Select } from "@/session/select";
 import { Window } from "@/session/window";
 
-export const selectSliceState = (state: StoreState): SliceState => state[SLICE_NAME];
+const selectSliceState = (state: StoreState): SliceState => state[SLICE_NAME];
 
 export interface KeyedSelectorParams extends record.Keyed<client.Key> {
   state: StoreState;
 }
 
-const createSelector = <R>(selector: (params: KeyedSelectorParams) => R) =>
-  LinePlot.Scope.bindHook(({ key }: Omit<KeyedSelectorParams, "state">): R =>
-    Select.useMemo((state: StoreState) => selector({ state, key }), [key]),
-  );
-
-const createGetter =
-  <R>(selector: (params: KeyedSelectorParams) => R) =>
-  (): ((args?: { key?: client.Key }) => R) => {
-    const store = useStore<StoreState>();
-    const scopeKey = LinePlot.Scope.useOptional();
-    return useCallback(
-      (args) =>
-        selector({
-          state: store.getState(),
-          key: LinePlot.Scope.require(args?.key ?? scopeKey),
-        }),
-      [store, scopeKey],
-    );
-  };
+const createSelector = <R>(selector: (params: KeyedSelectorParams) => R) => {
+  const useSelector = ({ key }: Omit<KeyedSelectorParams, "state">): R =>
+    Select.useMemo((state: StoreState) => selector({ state, key }), [key]);
+  return LinePlot.Scope.bindHook(useSelector);
+};
 
 const selectState = ({ state, key }: KeyedSelectorParams): State =>
   Window.selectDocument(state, selectSliceState(state), key) ?? ZERO_STATE;
 
 export const useSelect = createSelector(selectState);
-export const useGet = createGetter(selectState);
 
 const selectToolbar = (params: KeyedSelectorParams): ToolbarState =>
   selectState(params).toolbar;
 
-export const useSelectToolbar = createSelector(selectToolbar);
-
-export const selectActiveToolbarTab = (params: KeyedSelectorParams): ToolbarTab =>
+const selectActiveToolbarTab = (params: KeyedSelectorParams): ToolbarTab =>
   selectToolbar(params).activeTab;
 
 export const useSelectActiveToolbarTab = createSelector(selectActiveToolbarTab);
-export const useGetActiveToolbarTab = createGetter(selectActiveToolbarTab);
 
-export const selectControlState = (params: KeyedSelectorParams): ControlState =>
+const selectControlState = (params: KeyedSelectorParams): ControlState =>
   selectState(params).control;
 
 export const useSelectControlState = createSelector(selectControlState);
@@ -86,7 +61,6 @@ const selectViewportMode = (params: KeyedSelectorParams): Viewport.Mode =>
   selectState(params).mode;
 
 export const useSelectViewportMode = createSelector(selectViewportMode);
-export const useGetViewportMode = createGetter(selectViewportMode);
 
 const selectHiddenLines = (params: KeyedSelectorParams): string[] =>
   selectState(params).hiddenLines;
@@ -103,7 +77,7 @@ const selectSelection = (params: KeyedSelectorParams): SelectionState =>
 
 export const useSelectSelection = createSelector(selectSelection);
 
-export const selectSelectedRules = (params: KeyedSelectorParams): string[] =>
+const selectSelectedRules = (params: KeyedSelectorParams): string[] =>
   selectState(params).selectedRules;
 
 export const useSelectSelectedRules = createSelector(selectSelectedRules);
@@ -114,14 +88,11 @@ const selectAnnotationsVisible = (params: KeyedSelectorParams): boolean =>
 export const useSelectAnnotationsVisible = createSelector(selectAnnotationsVisible);
 
 const focusedKey = (
-  synnax: Client | null,
-  panelKey: panel.Key | undefined,
+  pan: panel.Panel | undefined,
   tabKey: panel.TabKey | undefined,
 ): client.Key | undefined => {
-  if (panelKey == null || tabKey == null) return undefined;
-  const cached = synnax?.panels.getCached(panelKey);
-  if (!query.isLive(cached)) return undefined;
-  const tab = panel.findTab(cached.root, tabKey);
+  if (pan == null || tabKey == null) return undefined;
+  const tab = panel.findTab(pan.root, tabKey);
   if (tab?.variant === "resource" && tab.resource.type === "lineplot")
     return tab.resource.key;
   return undefined;
@@ -136,15 +107,21 @@ export const useGetFocusedKey = (): (() => client.Key | undefined) => {
   const getSelectedPanel = Panel.useGetSelected();
   const getFocusedTabKey = Panel.useGetFocusedTab();
   const synnax = Synnax.use();
-  return useCallback(
-    () => focusedKey(synnax, getSelectedPanel(), getFocusedTabKey()),
-    [getSelectedPanel, getFocusedTabKey, synnax],
-  );
+  return () => {
+    const panelKey = getSelectedPanel();
+    if (panelKey == null) return undefined;
+    const cached = synnax?.panels.getCached(panelKey);
+    return focusedKey(query.isLive(cached) ? cached : undefined, getFocusedTabKey());
+  };
 };
 
 /**
  * @returns the key of the focused line plot, as {@link useGetFocusedKey}, re-rendering
- * when the selected panel or its focused tab changes.
+ * when the selected panel, its focused tab, or the content of that tab changes.
  */
-export const useSelectFocusedKey = (): client.Key | undefined =>
-  focusedKey(Synnax.use(), Panel.useSelectSelected(), Panel.useSelectFocusedTab());
+export const useSelectFocusedKey = (): client.Key | undefined => {
+  const panelKey = Panel.useSelectSelected();
+  const tabKey = Panel.useSelectFocusedTab();
+  const { data } = PPanel.useResult(panelKey == null ? null : { key: panelKey });
+  return focusedKey(data, tabKey);
+};

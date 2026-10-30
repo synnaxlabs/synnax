@@ -8,12 +8,48 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@synnaxlabs/lyra/dist/tooltip/Frame.css";
+
+import { Button } from "@synnaxlabs/lyra/button";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Text } from "@synnaxlabs/lyra/text";
+
+import { Keys } from "@/components/keys/Keys";
+import { SHORTCUT } from "@/components/nav/collapse";
 import { Page as P } from "@/components/nav/Page";
 import { REFERENCE_PAGES } from "@/pages/_nav";
+
+const TREE_ID = "page-nav-tree";
 ---
 
 <nav class="page-nav" transition:persist>
-    <P nodes={REFERENCE_PAGES} currentPage={Astro.url.pathname} />
+    <div class="page-nav__panel">
+        <div class="page-nav__header">
+            <Button.Button
+                variant="text"
+                size="small"
+                className="page-nav__toggle"
+                aria-label="Collapse sidebar"
+                aria-expanded="true"
+                aria-controls={TREE_ID}
+                data-page-nav-toggle
+            >
+                <Icon.Sidebar />
+            </Button.Button>
+        </div>
+        <P id={TREE_ID} nodes={REFERENCE_PAGES} currentPage={Astro.url.pathname} />
+    </div>
+    <div
+        class="lyra-tooltip page-nav__tooltip"
+        role="tooltip"
+        id="page-nav-tooltip"
+        hidden
+    >
+        <Text.Text level="small" color={11}>
+            <span data-tooltip-label></span>
+            <Keys trigger={["Control", SHORTCUT]} level="small" data-tooltip-keys />
+        </Text.Text>
+    </div>
 </nav>
 
 <style is:global>
@@ -22,20 +58,3 @@ import { REFERENCE_PAGES } from "@/pages/_nav";
         display: none;
     }
 </style>
-
-<script>
-    const SCROLL_KEY = "page-nav-scroll";
-    const tree = document.querySelector(".page-nav .reference-tree");
-    if (tree != null) {
-        const saved = sessionStorage.getItem(SCROLL_KEY);
-        if (saved != null) tree.scrollTop = parseFloat(saved);
-        let scrollTimer: ReturnType<typeof setTimeout> | null = null;
-        tree.addEventListener("scroll", () => {
-            if (scrollTimer != null) clearTimeout(scrollTimer);
-            scrollTimer = setTimeout(
-                () => sessionStorage.setItem(SCROLL_KEY, String(tree.scrollTop)),
-                100,
-            );
-        });
-    }
-</script>

@@ -9,14 +9,38 @@
  * included in the file licenses/APL.txt.
  */
 
+/* Cards share the width equally and stack their content from the top. */
+.lyra-select-btns--card > .lyra-select-btn {
+    flex: 1 1 0;
+    flex-direction: column;
+    gap: 1rem;
+    align-items: flex-start;
+    justify-content: flex-start;
+    height: auto;
+    padding: 2.5rem 3rem;
+    text-align: start;
+    white-space: normal;
+    border-radius: var(--pluto-border-radius-medium);
+}
+
+/* An unselected card is a pane: no fill until hover. */
+.lyra-select-btns--card > .lyra-select-btn:not(.lyra--selected) {
+    --pluto-bg: var(--pluto-gray-l0);
+    --pluto-hover-bg: var(--pluto-gray-l1);
+    --pluto-active-bg: var(--pluto-gray-l2);
+    --pluto-border-color: var(--pluto-gray-l6);
+    --pluto-hover-border-color: var(--pluto-gray-l7);
+    --pluto-active-border-color: var(--pluto-gray-l7);
+}
+
 /* One shade under the text color, so the choice stands out; hover restores it. */
-.pluto-select-btns--text > .pluto-select-btn:not(.pluto--selected, .pluto--disabled) {
+.lyra-select-btns--text > .lyra-select-btn:not(.lyra--selected, .lyra--disabled) {
     color: var(--pluto-gray-l9);
 }
 
 /* Subtle tier, as the tabs selector: only the chosen button carries a chassis, drawn
    inset because a text button has no border of its own. */
-.pluto-select-btns--text > .pluto-select-btn.pluto--selected {
+.lyra-select-btns--text > .lyra-select-btn.lyra--selected {
     --pluto-bg: var(--pluto-selected-subtle-bg);
     --pluto-hover-bg: var(--pluto-selected-subtle-hover-bg);
     --pluto-active-bg: var(--pluto-selected-subtle-active-bg);

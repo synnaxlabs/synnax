@@ -34,7 +34,7 @@ import (
 
 func TestGoTypes(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Plugin Go Types Suite")
+	RunSpecs(t, "Plugin Go Types Suite", SuiteConfig())
 }
 
 // chainGenerate writes files into a temp repo, analyzes the schema at mainRel
@@ -158,7 +158,7 @@ var _ = Describe("Go Types Plugin", func() {
 					tags string[]
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "ranger", loader)
+				table, diag := Analyze(ctx, source, "ranger", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -190,7 +190,7 @@ var _ = Describe("Go Types Plugin", func() {
 					my_long_field_name string
 				}
 			`
-					table, diag := analyzer.AnalyzeSource(ctx, source, "ranger", loader)
+					table, diag := Analyze(ctx, source, "ranger", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					req := &plugin.Request{
@@ -218,7 +218,7 @@ var _ = Describe("Go Types Plugin", func() {
 					CPU_ID uint32
 				}
 			`
-					table, diag := analyzer.AnalyzeSource(
+					table, diag := Analyze(
 						ctx,
 						source,
 						"compiler",
@@ -303,7 +303,7 @@ var _ = Describe("Go Types Plugin", func() {
 					name string
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
+				table, diag := Analyze(ctx, source, "user", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -330,7 +330,7 @@ var _ = Describe("Go Types Plugin", func() {
 						name string
 					}
 				`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "status", loader)
+				table, diag := Analyze(ctx, source, "status", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -356,7 +356,7 @@ var _ = Describe("Go Types Plugin", func() {
 					key uuid
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
+				table, diag := Analyze(ctx, source, "user", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -387,7 +387,7 @@ var _ = Describe("Go Types Plugin", func() {
 					name string
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
+				table, diag := Analyze(ctx, source, "user", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -409,7 +409,7 @@ var _ = Describe("Go Types Plugin", func() {
 				Empty struct {
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "empty", loader)
+				table, diag := Analyze(ctx, source, "empty", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -435,7 +435,7 @@ var _ = Describe("Go Types Plugin", func() {
 					count int32
 				}
 			`
-					table, diag := analyzer.AnalyzeSource(ctx, source, "simple", loader)
+					table, diag := Analyze(ctx, source, "simple", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					req := &plugin.Request{
@@ -469,7 +469,7 @@ var _ = Describe("Go Types Plugin", func() {
 					first_name string
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
+				table, diag := Analyze(ctx, source, "user", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -510,7 +510,7 @@ var _ = Describe("Go Types Plugin", func() {
 					message string
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "status", loader)
+				table, diag := Analyze(ctx, source, "status", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -546,7 +546,7 @@ var _ = Describe("Go Types Plugin", func() {
 					rtd_type RTDType
 				}
 			`
-					table, diag := analyzer.AnalyzeSource(ctx, source, "ni", loader)
+					table, diag := Analyze(ctx, source, "ni", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					req := &plugin.Request{
@@ -582,7 +582,7 @@ var _ = Describe("Go Types Plugin", func() {
 					name string
 				}
 			`
-					table, diag := analyzer.AnalyzeSource(
+					table, diag := Analyze(
 						ctx,
 						source,
 						"priority",
@@ -618,7 +618,7 @@ var _ = Describe("Go Types Plugin", func() {
 					@doc value "indicates a compass direction."
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "direction", loader)
+				table, diag := Analyze(ctx, source, "direction", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -646,7 +646,7 @@ var _ = Describe("Go Types Plugin", func() {
 						error = "error"
 					}
 				`
-					table, diag := analyzer.AnalyzeSource(ctx, source, "status", loader)
+					table, diag := Analyze(ctx, source, "status", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					resp := MustSucceed(
@@ -680,7 +680,7 @@ var _ = Describe("Go Types Plugin", func() {
 						high = 2
 					}
 				`
-					table, diag := analyzer.AnalyzeSource(
+					table, diag := Analyze(
 						ctx,
 						source,
 						"priority",
@@ -718,7 +718,7 @@ var _ = Describe("Go Types Plugin", func() {
 
 					AxisKey enum extends XAxisKey, YAxisKey {}
 				`
-					table, diag := analyzer.AnalyzeSource(
+					table, diag := Analyze(
 						ctx,
 						source,
 						"lineplot",
@@ -751,7 +751,7 @@ var _ = Describe("Go Types Plugin", func() {
 					counts map<string, int32>
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "config", loader)
+				table, diag := Analyze(ctx, source, "config", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -778,7 +778,7 @@ var _ = Describe("Go Types Plugin", func() {
 					label string
 				}
 			`
-					table, diag := analyzer.AnalyzeSource(
+					table, diag := Analyze(
 						ctx,
 						source,
 						"container",
@@ -809,7 +809,7 @@ var _ = Describe("Go Types Plugin", func() {
 					name string
 				}
 			`
-					table, diag := analyzer.AnalyzeSource(
+					table, diag := Analyze(
 						ctx,
 						source,
 						"container",
@@ -842,7 +842,7 @@ var _ = Describe("Go Types Plugin", func() {
 					name string
 				}
 			`
-					table, diag := analyzer.AnalyzeSource(
+					table, diag := Analyze(
 						ctx,
 						source,
 						"container",
@@ -865,6 +865,152 @@ var _ = Describe("Go Types Plugin", func() {
 			)
 		})
 
+		Context("to_any", func() {
+			It(
+				"Should convert every field to the any instantiation",
+				func(ctx SpecContext) {
+					source := `
+				@go output "core/pair"
+
+				Kind enum {
+					small = "small"
+				}
+
+				Pair struct<A, B extends record, K extends Kind = Kind> {
+					first  A
+					second B
+					kind   K
+					label  string?
+					tags   string[]
+
+					@go to_any
+				}
+			`
+					resp := MustGenerate(ctx, source, "pair", loader, goPlugin)
+					ExpectContent(resp, "types.gen.go").ToContain(`
+// ToAny converts p to a Pair[any, any].
+func (p Pair[A, B]) ToAny() Pair[any, any] {
+	return Pair[any, any]{
+		First: p.First,
+		Second: p.Second,
+		Kind: p.Kind,
+		Label: p.Label,
+		Tags: p.Tags,
+	}
+}`)
+				},
+			)
+
+			It("Should not convert an unmarked struct", func(ctx SpecContext) {
+				source := `
+				@go output "core/box"
+
+				Box struct<T> {
+					value T
+				}
+			`
+				resp := MustGenerate(ctx, source, "box", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").ToNotContain("ToAny")
+			})
+
+			DescribeTable(
+				"Should reject a type that ToAny cannot convert",
+				func(ctx SpecContext, source, msg string) {
+					table, diag := Analyze(ctx, source, "box", loader)
+					Expect(diag.Ok()).To(BeTrue(), diag.String())
+					req := &plugin.Request{Resolutions: table}
+					Expect(goPlugin.Generate(req)).Error().To(MatchError(
+						"failed to generate core/box: " + msg,
+					))
+				},
+				Entry("that is not a struct", `
+				@go output "core/box"
+
+				Kind enum {
+					small = "small"
+
+					@go to_any
+				}
+			`, "box.Kind: @go to_any goes on a struct"),
+				Entry("without a type parameter", `
+				@go output "core/box"
+
+				Box struct {
+					value string
+
+					@go to_any
+				}
+			`, "box.Box: @go to_any needs a type parameter"),
+				Entry("with a constrained type parameter", `
+				@go output "core/box"
+
+				Box struct<K extends comparable> {
+					key K
+
+					@go to_any
+				}
+			`, "box.Box: @go to_any needs type parameter K to be unconstrained, "+
+					"not comparable"),
+				Entry("with extends", `
+				@go output "core/box"
+
+				Base struct<T> {
+					value T
+				}
+
+				Box struct<T> extends Base<T> {
+					name string
+
+					@go to_any
+				}
+			`, "box.Box: @go to_any does not support extends"),
+				Entry("with hand-written fields", `
+				@go output "core/box"
+
+				Box struct<T> {
+					value T
+
+					@go fields "Extra int"
+					@go to_any
+				}
+			`, "box.Box: @go to_any cannot copy hand-written @go fields"),
+				Entry("with an optional type parameter field", `
+				@go output "core/box"
+
+				Box struct<T> {
+					value T?
+
+					@go to_any
+				}
+			`, "box.Box: @go to_any cannot convert field value; a type parameter "+
+					"must be the whole type of a required field"),
+				Entry("with an array of a type parameter", `
+				@go output "core/box"
+
+				Box struct<T> {
+					values T[]
+
+					@go to_any
+				}
+			`, "box.Box: @go to_any cannot convert field values; a type parameter "+
+					"must be the whole type of a required field"),
+				Entry("with a type parameter as a type argument", `
+				@go output "core/box"
+
+				Inner struct<T> {
+					value T
+				}
+
+				Box struct<T> {
+					inner Inner<T>
+
+					@go to_any
+				}
+			`, "box.Box: @go to_any cannot convert field inner; a type parameter "+
+					"must be the whole type of a required field"),
+			)
+		})
+
 		Context("type aliases", func() {
 			It("Should generate type alias", func(ctx SpecContext) {
 				source := `
@@ -877,7 +1023,7 @@ var _ = Describe("Go Types Plugin", func() {
 
 				Alias = Original
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "alias", loader)
+				table, diag := Analyze(ctx, source, "alias", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -897,7 +1043,7 @@ var _ = Describe("Go Types Plugin", func() {
 
 				Stratum = string[]
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "ir", loader)
+				table, diag := Analyze(ctx, source, "ir", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -922,7 +1068,7 @@ var _ = Describe("Go Types Plugin", func() {
 					@doc value "is a numeric value representing control authority."
 				}
 			`
-					table, diag := analyzer.AnalyzeSource(
+					table, diag := Analyze(
 						ctx,
 						source,
 						"control",
@@ -952,7 +1098,7 @@ var _ = Describe("Go Types Plugin", func() {
 					@doc value "is the unique identifier for the label."
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "label", loader)
+				table, diag := Analyze(ctx, source, "label", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -987,7 +1133,7 @@ var _ = Describe("Go Types Plugin", func() {
 					address Address
 				}
 			`
-					table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
+					table, diag := Analyze(ctx, source, "user", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					req := &plugin.Request{
@@ -1026,7 +1172,7 @@ var _ = Describe("Go Types Plugin", func() {
 					status status.Status
 				}
 			`
-					table, diag := analyzer.AnalyzeSource(ctx, source, "task", loader)
+					table, diag := Analyze(ctx, source, "task", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					req := &plugin.Request{
@@ -1078,7 +1224,7 @@ var _ = Describe("Go Types Plugin", func() {
 					variant status.Variant
 				}
 			`
-					table, diag := analyzer.AnalyzeSource(ctx, source, "task", loader)
+					table, diag := Analyze(ctx, source, "task", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					req := &plugin.Request{
@@ -1120,7 +1266,7 @@ var _ = Describe("Go Types Plugin", func() {
 					email string
 				}
 			`
-					table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
+					table, diag := Analyze(ctx, source, "user", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					req := &plugin.Request{
@@ -1159,7 +1305,7 @@ var _ = Describe("Go Types Plugin", func() {
 					email string
 				}
 			`
-					table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
+					table, diag := Analyze(ctx, source, "user", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					req := &plugin.Request{
@@ -1230,6 +1376,87 @@ var _ = Describe("Go Types Plugin", func() {
 					Expect(content).To(ContainSubstring(`Name string`))
 				},
 			)
+
+			Context("parent omitted in Go", func() {
+				schema := func(parentDomain, childBody string) string {
+					return `
+				@go output "core/user"
+
+				Record struct {
+					key    uint32
+					name   string
+					secret string
+					` + parentDomain + `
+				}
+
+				Shape struct extends Record {
+					` + childBody + `
+				}
+			`
+				}
+
+				It(
+					"Should declare an inline variant's inherited fields",
+					func(ctx SpecContext) {
+						source := `
+						@go output "core/pkg/service/auth"
+						
+
+						Record struct {
+							key  uint32
+							name string
+							@go omit
+						}
+
+						Chan union on type {
+							ai extends Record {
+								rate float64
+							}
+						}
+					`
+						resp := MustGenerate(ctx, source, "auth", loader, goPlugin)
+						ExpectContent(resp, "types.gen.go").
+							ToContain("Key uint32", "Name string", "Rate float64").
+							ToNotContain("Record")
+					},
+				)
+
+				It("Should declare the inherited fields", func(ctx SpecContext) {
+					resp := MustGenerate(
+						ctx,
+						schema("@go omit", "rate float64"),
+						"user",
+						loader,
+						goPlugin,
+					)
+					ExpectContent(resp, "types.gen.go").
+						ToContain(
+							"type Shape struct {",
+							"Key uint32",
+							"Name string",
+							"Secret string",
+							"Rate float64",
+						).
+						ToNotContain("type Record struct", "\tRecord\n")
+				})
+
+				It("Should leave out a removed field", func(ctx SpecContext) {
+					resp := MustGenerate(
+						ctx, schema("@go omit", "-secret"), "user", loader, goPlugin,
+					)
+					ExpectContent(resp, "types.gen.go").
+						ToContain("type Shape struct {", "Name string").
+						ToNotContain("Secret", "type Record struct")
+				})
+
+				It("Should embed a parent that generates", func(ctx SpecContext) {
+					resp := MustGenerate(
+						ctx, schema("", "rate float64"), "user", loader, goPlugin,
+					)
+					ExpectContent(resp, "types.gen.go").
+						ToContain("type Shape struct {\n\tRecord\n")
+				})
+			})
 
 			It(
 				"Should flatten when two parents promote one name",
@@ -1395,7 +1622,7 @@ var _ = Describe("Go Types Plugin", func() {
 					email string
 				}
 			`
-					table, diag := analyzer.AnalyzeSource(ctx, source, "child", loader)
+					table, diag := Analyze(ctx, source, "child", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					req := &plugin.Request{
@@ -1441,7 +1668,7 @@ var _ = Describe("Go Types Plugin", func() {
 					timestamp int64
 				}
 			`
-					table, diag := analyzer.AnalyzeSource(ctx, source, "status", loader)
+					table, diag := Analyze(ctx, source, "status", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					req := &plugin.Request{
@@ -1473,7 +1700,7 @@ var _ = Describe("Go Types Plugin", func() {
 					timestamp int64
 				}
 			`
-					table, diag := analyzer.AnalyzeSource(ctx, source, "status", loader)
+					table, diag := Analyze(ctx, source, "status", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					req := &plugin.Request{
@@ -1511,7 +1738,7 @@ var _ = Describe("Go Types Plugin", func() {
 					c bool
 				}
 			`
-					table, diag := analyzer.AnalyzeSource(
+					table, diag := Analyze(
 						ctx,
 						source,
 						"entities",
@@ -1554,7 +1781,7 @@ var _ = Describe("Go Types Plugin", func() {
 					c bool
 				}
 			`
-					table, diag := analyzer.AnalyzeSource(
+					table, diag := Analyze(
 						ctx,
 						source,
 						"entities",
@@ -1599,7 +1826,7 @@ var _ = Describe("Go Types Plugin", func() {
 					ripe bool
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "animals", loader)
+				table, diag := Analyze(ctx, source, "animals", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1626,7 +1853,7 @@ var _ = Describe("Go Types Plugin", func() {
 					mango bool
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "order", loader)
+				table, diag := Analyze(ctx, source, "order", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1658,7 +1885,7 @@ var _ = Describe("Go Types Plugin", func() {
 					age int32?
 				}
 			`
-					table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
+					table, diag := Analyze(ctx, source, "user", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					req := &plugin.Request{
@@ -1694,7 +1921,7 @@ var _ = Describe("Go Types Plugin", func() {
 					counts int32[]?
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "config", loader)
+				table, diag := Analyze(ctx, source, "config", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1722,7 +1949,7 @@ var _ = Describe("Go Types Plugin", func() {
 					settings map<string, string>?
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "config", loader)
+				table, diag := Analyze(ctx, source, "config", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1749,7 +1976,7 @@ var _ = Describe("Go Types Plugin", func() {
 					blob bytes
 				}
 			`
-					table, diag := analyzer.AnalyzeSource(ctx, source, "config", loader)
+					table, diag := Analyze(ctx, source, "config", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					req := &plugin.Request{
@@ -1795,7 +2022,7 @@ var _ = Describe("Go Types Plugin", func() {
 						targetKey string
 					}
 				`
-					table, diag := analyzer.AnalyzeSource(
+					table, diag := Analyze(
 						ctx,
 						source,
 						"compiler",
@@ -1843,7 +2070,7 @@ var _ = Describe("Go Types Plugin", func() {
 						axis_3_label string
 					}
 				`
-					table, diag := analyzer.AnalyzeSource(
+					table, diag := Analyze(
 						ctx,
 						source,
 						"lineplot",
@@ -1887,7 +2114,7 @@ var _ = Describe("Go Types Plugin", func() {
 						details Details
 					}
 				`
-					table, diag := analyzer.AnalyzeSource(ctx, source, "rack", loader)
+					table, diag := Analyze(ctx, source, "rack", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					req := &plugin.Request{
@@ -1917,7 +2144,7 @@ var _ = Describe("Go Types Plugin", func() {
 						name string
 					}
 				`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "channel", loader)
+				table, diag := Analyze(ctx, source, "channel", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1958,7 +2185,7 @@ var _ = Describe("Go Types Plugin", func() {
 						name string
 					}
 				`
-					table, diag := analyzer.AnalyzeSource(ctx, source, "module", loader)
+					table, diag := Analyze(ctx, source, "module", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					req := &plugin.Request{
@@ -2003,7 +2230,7 @@ var _ = Describe("Go Types Plugin", func() {
 						metadata string
 					}
 				`
-					table, diag := analyzer.AnalyzeSource(ctx, source, "ir", loader)
+					table, diag := Analyze(ctx, source, "ir", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					req := &plugin.Request{
@@ -2108,7 +2335,7 @@ var _ = Describe("Go Types Plugin", func() {
 						@go imports "github.com/synnaxlabs/synnax/arc/go/types"
 					}
 				`
-					table, diag := analyzer.AnalyzeSource(ctx, source, "ir", loader)
+					table, diag := Analyze(ctx, source, "ir", loader)
 					Expect(diag.Ok()).To(BeTrue())
 
 					req := &plugin.Request{

@@ -10,26 +10,26 @@
 import "@/schematic/Schematic.css";
 
 import { type Component } from "@synnaxlabs/lyra/component";
-import { CSS } from "@synnaxlabs/lyra/css";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { type Triggers } from "@synnaxlabs/lyra/triggers";
 import { box, TimeSpan, xy } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useMemo, useRef, useState } from "react";
+import { type ReactElement, useRef, useState } from "react";
 
+import { CSS } from "@/css";
 import { useClipboard } from "@/schematic/clipboard";
 import {
   Diagram,
   edgeChangesToActions,
   nodeChangesToActions,
 } from "@/schematic/Diagram";
+import { useAddNode } from "@/schematic/editor";
 import { Group } from "@/schematic/group";
 import { canDropHaulItem, filterHaulItems } from "@/schematic/haul";
 import { Node } from "@/schematic/node";
 import {
-  useAddNode,
   useAllConfigs,
   useAllEdges,
   useAllNodes,
@@ -94,43 +94,33 @@ export const Schematic = ({
   const selectedRef = useSyncedRef(selected);
   const parentOf = useParentOf();
   const parentOfRef = useSyncedRef(parentOf);
-  const lockedNodes = useMemo(
-    () => Group.lockMembers(nodes, parentOf, configs),
-    [nodes, parentOf, configs],
-  );
+  const lockedNodes = Group.lockMembers(nodes, parentOf, configs);
   const dispatch = useSingleDispatch();
-  const handleNodesChange = useCallback(
-    (changes: BaseDiagram.NodeChange[]) => dispatch(nodeChangesToActions(changes)),
-    [dispatch],
-  );
+  const handleNodesChange = (changes: BaseDiagram.NodeChange[]) =>
+    dispatch(nodeChangesToActions(changes));
 
-  const handleEdgesChange = useCallback(
-    (changes: BaseDiagram.EdgeChange[]) => dispatch(edgeChangesToActions(changes)),
-    [dispatch],
-  );
+  const handleEdgesChange = (changes: BaseDiagram.EdgeChange[]) =>
+    dispatch(edgeChangesToActions(changes));
 
   const handleAddNode = useAddNode();
   const ref = useRef<HTMLDivElement>(null);
   const viewportRef = useSyncedRef(viewport);
-  const calculateCursorPosition = useCallback((cursor: xy.Crude) => {
+  const calculateCursorPosition = (cursor: xy.Crude) => {
     if (ref.current == null) return xy.ZERO;
     return BaseDiagram.calculateCursorPosition(
       box.construct(ref.current),
       cursor,
       viewportRef.current,
     );
-  }, []);
+  };
 
-  const handleDrop = useCallback(
-    ({ items, event }: Haul.OnDropProps): Haul.Item[] => {
-      const valid = filterHaulItems(items);
-      if (event == null) return valid;
-      const position = xy.truncate(calculateCursorPosition(event), 0);
-      valid.forEach(({ data }) => handleAddNode({ ...data, position }));
-      return valid;
-    },
-    [handleAddNode, calculateCursorPosition],
-  );
+  const handleDrop = ({ items, event }: Haul.OnDropProps): Haul.Item[] => {
+    const valid = filterHaulItems(items);
+    if (event == null) return valid;
+    const position = xy.truncate(calculateCursorPosition(event), 0);
+    valid.forEach(({ data }) => handleAddNode({ ...data, position }));
+    return valid;
+  };
 
   const dropProps = Haul.useDrop({
     type: "Schematic",
@@ -139,16 +129,13 @@ export const Schematic = ({
     onDrop: handleDrop,
   });
 
-  const handleClearSelection = useCallback(
-    () => onSelectionChange?.([]),
-    [onSelectionChange],
-  );
-  const handleSelectAll = useCallback(() => {
+  const handleClearSelection = () => onSelectionChange?.([]);
+  const handleSelectAll = () => {
     onSelectionChange?.([
       ...nodesRef.current.map((n) => n.key),
       ...edgesRef.current.map((e) => e.key),
     ]);
-  }, [onSelectionChange]);
+  };
   const { undo, canUndo } = useUndo();
   const { redo, canRedo } = useRedo();
 
@@ -161,50 +148,38 @@ export const Schematic = ({
 
   const group = useGroup();
   const ungroup = useUngroup();
-  const handleGroup = useCallback(() => {
+  const handleGroup = () => {
     const selection = group(selectedRef.current ?? []);
     if (selection != null) onSelectionChange?.(selection);
-  }, [group, onSelectionChange]);
-  const handleUngroup = useCallback(() => {
+  };
+  const handleUngroup = () => {
     const freed = ungroup(selectedRef.current ?? []);
     if (freed != null) onSelectionChange?.(freed);
-  }, [ungroup, onSelectionChange]);
+  };
 
-  const canGroup = useMemo(
-    () => Group.canGroup(selected ?? [], nodes, parentOf),
-    [selected, nodes, parentOf],
-  );
-  const canUngroup = useMemo(
-    () => Group.canUngroup(selected ?? [], configs),
-    [selected, configs],
-  );
+  const canGroup = Group.canGroup(selected ?? [], nodes, parentOf);
+  const canUngroup = Group.canUngroup(selected ?? [], configs);
 
   // Clicking a member selects its whole group; delete, copy, and cut then cover it.
-  const handleSelectionChange = useCallback(
-    (keys: string[]) =>
-      onSelectionChange?.(Group.closure(keys, parentOfRef.current, configsRef.current)),
-    [onSelectionChange],
-  );
+  const handleSelectionChange = (keys: string[]) =>
+    onSelectionChange?.(Group.closure(keys, parentOfRef.current, configsRef.current));
 
   // Double-clicking a grouped member drills in, selecting only that member.
-  const handleNodeDoubleClick = useCallback<
-    NonNullable<BaseDiagram.DiagramProps["onNodeDoubleClick"]>
-  >(
-    (e, node) => {
-      if (editable) {
-        const drilled = Group.drillIn(node.id, parentOfRef.current, configsRef.current);
-        if (drilled != null) onSelectionChange?.(drilled);
-      }
-      onNodeDoubleClick?.(e, node);
-    },
-    [editable, onSelectionChange, onNodeDoubleClick],
-  );
+  const handleNodeDoubleClick: NonNullable<
+    BaseDiagram.DiagramProps["onNodeDoubleClick"]
+  > = (e, node) => {
+    if (editable) {
+      const drilled = Group.drillIn(node.id, parentOfRef.current, configsRef.current);
+      if (drilled != null) onSelectionChange?.(drilled);
+    }
+    onNodeDoubleClick?.(e, node);
+  };
 
   const [hovered, setHovered] = useState<Hovered | null>(null);
   // The control chip is inside the node, so moves over it close the tooltip instead.
-  const handleNodeMouseMove = useCallback<
-    NonNullable<BaseDiagram.DiagramProps["onNodeMouseMove"]>
-  >((e, node) => {
+  const handleNodeMouseMove: NonNullable<
+    BaseDiagram.DiagramProps["onNodeMouseMove"]
+  > = (e, node) => {
     const { target, currentTarget: anchor } = e;
     const overControl =
       target instanceof Element && target.closest(CONTROL_STATE_SELECTOR) != null;
@@ -213,8 +188,8 @@ export const Schematic = ({
       if (prev?.nodeKey === node.id) return prev;
       return { nodeKey: node.id, anchor };
     });
-  }, []);
-  const clearHovered = useCallback(() => setHovered(null), []);
+  };
+  const clearHovered = () => setHovered(null);
   const hoveredConfig = hovered == null ? undefined : configs[hovered.nodeKey];
 
   BaseDiagram.useTriggers({
@@ -229,57 +204,39 @@ export const Schematic = ({
   });
 
   const contextMenu = Menu.useContextMenu();
-  const renderMenu = useCallback<Component.RenderProp<Menu.ContextMenuMenuProps>>(
-    (menuProps) => (
-      <Menu.Menu level="small" gap="small">
-        {editable && (
-          <>
-            <BaseDiagram.Menu.ClipboardItems
-              cut={cut}
-              copy={copy}
-              paste={paste}
-              hasSelection={(selected?.length ?? 0) > 0}
-            />
-            {(canGroup || canUngroup) && (
-              <>
-                <Menu.Divider />
-                <BaseDiagram.Menu.GroupItems
-                  group={handleGroup}
-                  ungroup={handleUngroup}
-                  canGroup={canGroup}
-                  canUngroup={canUngroup}
-                />
-              </>
-            )}
-            <Menu.Divider />
-            <Menu.UndoRedoItems
-              undo={undo}
-              redo={redo}
-              canUndo={canUndo}
-              canRedo={canRedo}
-            />
-            {extraMenuItems != null && <Menu.Divider />}
-          </>
-        )}
-        {extraMenuItems?.(menuProps)}
-      </Menu.Menu>
-    ),
-    [
-      undo,
-      redo,
-      canUndo,
-      canRedo,
-      editable,
-      extraMenuItems,
-      selected,
-      cut,
-      copy,
-      paste,
-      canGroup,
-      canUngroup,
-      handleGroup,
-      handleUngroup,
-    ],
+  const renderMenu: Component.RenderProp<Menu.ContextMenuMenuProps> = (menuProps) => (
+    <Menu.Menu level="small" gap="small">
+      {editable && (
+        <>
+          <BaseDiagram.Menu.ClipboardItems
+            cut={cut}
+            copy={copy}
+            paste={paste}
+            hasSelection={(selected?.length ?? 0) > 0}
+          />
+          {(canGroup || canUngroup) && (
+            <>
+              <Menu.Divider />
+              <BaseDiagram.Menu.GroupItems
+                group={handleGroup}
+                ungroup={handleUngroup}
+                canGroup={canGroup}
+                canUngroup={canUngroup}
+              />
+            </>
+          )}
+          <Menu.Divider />
+          <Menu.UndoRedoItems
+            undo={undo}
+            redo={redo}
+            canUndo={canUndo}
+            canRedo={canRedo}
+          />
+          {extraMenuItems != null && <Menu.Divider />}
+        </>
+      )}
+      {extraMenuItems?.(menuProps)}
+    </Menu.Menu>
   );
 
   return (

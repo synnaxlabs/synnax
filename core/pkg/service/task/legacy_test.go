@@ -10,6 +10,7 @@
 package task_test
 
 import (
+	"context"
 	"encoding/json/jsontext"
 	"encoding/json/v2"
 	"fmt"
@@ -20,7 +21,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/ethercat"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -28,6 +30,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/labjack"
+	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/modbus"
 	"github.com/synnaxlabs/synnax/pkg/service/ni"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -35,15 +38,14 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktask "github.com/synnaxlabs/synnax/pkg/service/rack/task"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
+	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
-	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 // asFloat normalizes any numeric type to float64. The fixtures decode from JSON as
@@ -91,6 +93,14 @@ var legacyDiscarded = map[string]set.Set[string]{
 	"ni_digital_write": set.New("type"),
 }
 
+// legacyReimportErrors holds, for each task type whose current shape the legacy rewrite
+// cannot read, the error that normalizing an unversioned copy of its stored config
+// returns.
+var legacyReimportErrors = map[string]string{
+	"ethercat_read":  `within "/channels/0": ReadChannel: unknown type "unresolved"`,
+	"ethercat_write": `within "/channels/0": WriteChannel: unknown type "unresolved"`,
+}
+
 // legacyVariantDiscarded lists the keys a rewrite drops on purpose from one union
 // variant, keyed by the variant's type tag. It scopes a drop that legacyDiscarded
 // would apply to every variant of the task type. NI-DAQmx accepts one unit for each
@@ -113,6 +123,9 @@ var legacyVariantDiscarded = map[string]set.Set[string]{
 	"ai_voltage_with_excit": set.New("units"),
 	"ao_current":            set.New("units"),
 	"ao_voltage":            set.New("units"),
+	// An EtherCAT entry channel reads its bit length from the slave's discovered
+	// entry.
+	"manual": set.New("bit_length"),
 }
 
 // The three tables below map a legacy key to where its value lands in the stored
@@ -300,33 +313,36 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 		ShouldNotLeakGoroutines()
 		db := DeferClose(gorp.Wrap(memkv.New()))
 		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		searchIdx := MustOpen(search.OpenIndex())
 		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
-			Search:   searchIdx,
 		}))
 		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    groupSvc,
-			Search:   searchIdx,
 		}))
 		statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    groupSvc,
 			Label:    labelSvc,
-			Search:   searchIdx,
 		}))
 		rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:                  db,
 			Ontology:            otg,
 			Group:               groupSvc,
-			HostProvider:        mock.NewStaticHostProvider(1),
+			HostProvider:        testutil.NewStaticHostProvider(1),
 			Status:              statusSvc,
 			HealthCheckInterval: 10 * telem.Millisecond,
-			Search:              searchIdx,
+			DriverRole:          MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
+		}))
+		deviceSvc := MustOpen(device.OpenService(ctx, device.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+			Group:    groupSvc,
+			Status:   statusSvc,
+			Rack:     rackSvc,
 		}))
 		var stores []config.Store
 		stores = append(
@@ -338,7 +354,8 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 		stores = append(
 			stores,
 			MustOpen(ethercat.OpenService(ctx, ethercat.ServiceConfig{
-				DB: db,
+				DB:     db,
+				Device: deviceSvc,
 			})).Stores()...,
 		)
 		stores = append(stores, MustOpen(http.OpenService(ctx, http.ServiceConfig{
@@ -376,7 +393,6 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 			Group:    groupSvc,
 			Rack:     rackSvc,
 			Status:   statusSvc,
-			Search:   searchIdx,
 			ImEx:     imexSvc,
 			Configs:  configs,
 		}))
@@ -430,25 +446,36 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 	// fixture key reaches the stored record, catching one the rewrite drops, and the
 	// rewrite's output is a subset of the stored record, catching a key the new
 	// schema does not accept, a mis-renamed key, or a corrupted value.
+	// importFile imports raw as a task file named name and returns its envelope and the
+	// stored task.
+	importFile := func(ctx context.Context, raw []byte, name string) (
+		imex.Envelope,
+		task.Task,
+	) {
+		GinkgoHelper()
+		var env imex.Envelope
+		Expect(json.Unmarshal(raw, &env)).To(Succeed())
+		id := MustSucceed(imexSvc.Import(ctx, nil, env, imex.ImportOptions{
+			Parent:   ontology.RootID,
+			FileName: name + ".json",
+		}))
+		var imported task.Task
+		Expect(svc.NewRetrieve().
+			Where(task.MatchKeys(uuid.MustParse(id.Key))).
+			Entry(&imported).
+			Exec(ctx, nil)).To(Succeed())
+		return env, imported
+	}
+
 	DescribeTable("preserves every field of a released Console export",
 		func(ctx SpecContext, fixture string) {
 			raw := MustSucceed(os.ReadFile(
 				filepath.Join("testdata", "legacy", fixture+".json"),
 			))
-			var env imex.Envelope
-			Expect(json.Unmarshal(raw, &env)).To(Succeed())
+			env, imported := importFile(ctx, raw, fixture)
 			Expect(strings.HasPrefix(fixture, env.Type)).To(
 				BeTrue(), "fixture %q must be named for its type %q", fixture, env.Type,
 			)
-			id := MustSucceed(imexSvc.Import(ctx, nil, env, imex.ImportOptions{
-				Parent:   ontology.RootID,
-				FileName: fixture + ".json",
-			}))
-			var imported task.Task
-			Expect(svc.NewRetrieve().
-				Where(task.MatchKeys(uuid.MustParse(id.Key))).
-				Entry(&imported).
-				Exec(ctx, nil)).To(Succeed())
 			Expect(imported.Type).To(Equal(env.Type))
 			Expect(imported.Name).To(Equal(fixture))
 
@@ -466,17 +493,25 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 			Expect(json.Unmarshal(raw, &legacy)).To(Succeed())
 			delete(legacy, "type")
 			store := MustBeOk(configs.Store(env.Type))
-			expected := MustSucceed(store.Normalize(0, legacy))
+			expected := MustSucceed(store.Normalize(ctx, 0, legacy))
+			// The store assigns the key on write.
+			delete(expected, "key")
 			expectSubset(
 				"config",
 				map[string]any(expected),
 				map[string]any(imported.Config),
 			)
 
-			// A canonical config must pass through the legacy rewrite unchanged, so
-			// re-importing an unversioned copy of a current export never rewrites it.
-			Expect(store.Normalize(0, imported.Config)).
-				To(Equal(imported.Config))
+			// The rewrite and the ladder must leave their own output unchanged.
+			if reimportErr, ok := legacyReimportErrors[env.Type]; ok {
+				Expect(store.Normalize(ctx, 0, imported.Config)).Error().
+					To(MatchError(ContainSubstring(reimportErr)))
+				Expect(store.Normalize(ctx, store.Version(), imported.Config)).
+					To(Equal(imported.Config))
+			} else {
+				Expect(store.Normalize(ctx, 0, imported.Config)).
+					To(Equal(imported.Config))
+			}
 
 			// The golden file freezes the canonical stored record independently of
 			// the rewrite under test: a rewrite edit that silently drops a released
@@ -540,5 +575,53 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 		Entry(nil, "opc_read_array"),
 		Entry(nil, "opc_write"),
 		Entry(nil, "pagerduty_alert"),
+	)
+
+	// Each file in testdata/released/<release> is what that stable Core exported after
+	// importing the Console fixture of the same name. Importing it must store the same
+	// record as importing the fixture, which the fixture's golden freezes.
+	DescribeTable("stores a released Core export as its Console fixture",
+		func(ctx SpecContext, release, fixture string) {
+			raw := MustSucceed(os.ReadFile(
+				filepath.Join("testdata", "released", release, fixture+".json"),
+			))
+			_, imported := importFile(ctx, raw, fixture)
+			config := map[string]any(imported.Config)
+			delete(config, "key")
+			golden := MustSucceed(os.ReadFile(
+				filepath.Join("testdata", "legacy", "expected", fixture+".json"),
+			))
+			Expect(MustSucceed(json.Marshal(config))).To(MatchJSON(golden))
+		},
+		Entry(nil, "v0.58.2", "http_read"),
+		Entry(nil, "v0.58.2", "http_read_list"),
+		Entry(nil, "v0.58.2", "http_write"),
+		Entry(nil, "v0.59.0", "http_read"),
+		Entry(nil, "v0.59.0", "http_read_list"),
+		Entry(nil, "v0.59.2", "ethercat_read"),
+		Entry(nil, "v0.59.2", "ethercat_write"),
+		Entry(nil, "v0.59.2", "http_read"),
+		Entry(nil, "v0.59.2", "http_read_list"),
+		Entry(nil, "v0.59.2", "http_write"),
+		Entry(nil, "v0.59.2", "labjack_read"),
+		Entry(nil, "v0.59.2", "labjack_read_py_no_scale"),
+		Entry(nil, "v0.59.2", "labjack_write"),
+		Entry(nil, "v0.59.2", "labjack_write_cmd_key"),
+		Entry(nil, "v0.59.2", "modbus_read"),
+		Entry(nil, "v0.59.2", "modbus_write"),
+		Entry(nil, "v0.59.2", "ni_analog_read"),
+		Entry(nil, "v0.59.2", "ni_analog_read_config_device"),
+		Entry(nil, "v0.59.2", "ni_analog_read_py"),
+		Entry(nil, "v0.59.2", "ni_analog_write"),
+		Entry(nil, "v0.59.2", "ni_counter_read"),
+		Entry(nil, "v0.59.2", "ni_counter_read_py"),
+		Entry(nil, "v0.59.2", "ni_counter_read_py_ext_controlled"),
+		Entry(nil, "v0.59.2", "ni_counter_read_py_velocity"),
+		Entry(nil, "v0.59.2", "ni_digital_read"),
+		Entry(nil, "v0.59.2", "ni_digital_write"),
+		Entry(nil, "v0.59.2", "opc_read"),
+		Entry(nil, "v0.59.2", "opc_read_array"),
+		Entry(nil, "v0.59.2", "opc_write"),
+		Entry(nil, "v0.59.2", "pagerduty_alert"),
 	)
 })

@@ -14,24 +14,24 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/gorp"
+	gorptestutil "github.com/synnaxlabs/gorp/testutil"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
+	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/gorp"
-	gorptestutil "github.com/synnaxlabs/x/gorp/testutil"
-	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 var _ = Describe("Pre-v0.54 task key normalization", func() {
@@ -41,32 +41,28 @@ var _ = Describe("Pre-v0.54 task key normalization", func() {
 			kvDB := memkv.New()
 			db := DeferClose(gorp.Wrap(kvDB))
 			otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-			searchIdx := MustOpen(search.OpenIndex())
 			g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
-				Search:   searchIdx,
 			}))
 			labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
 				Group:    g,
-				Search:   searchIdx,
 			}))
 			stat := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 				Ontology: otg,
 				DB:       db,
 				Group:    g,
 				Label:    labelSvc,
-				Search:   searchIdx,
 			}))
 			rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 				DB:           db,
 				Ontology:     otg,
 				Group:        g,
-				HostProvider: mock.NewStaticHostProvider(1),
+				HostProvider: testutil.NewStaticHostProvider(1),
 				Status:       stat,
-				Search:       searchIdx,
+				DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
 			}))
 			testRack := &rack.Rack{Name: "Ancient Rack"}
 			Expect(rackSvc.NewWriter(nil).Create(ctx, testRack)).To(Succeed())
@@ -95,7 +91,6 @@ var _ = Describe("Pre-v0.54 task key normalization", func() {
 				Group:    g,
 				Rack:     rackSvc,
 				Status:   stat,
-				Search:   searchIdx,
 				ImEx:     imex.NewService(),
 				Configs:  configs,
 			}))

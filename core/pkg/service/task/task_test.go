@@ -17,7 +17,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -28,16 +29,15 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
+	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -59,33 +59,29 @@ var _ = Describe("Task", Ordered, func() {
 		ShouldNotLeakGoroutines()
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		searchIdx := MustOpen(search.OpenIndex())
 		g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
-			Search:   searchIdx,
 		}))
 		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    g,
-			Search:   searchIdx,
 		}))
 		stat = MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			Ontology: otg,
 			DB:       db,
 			Group:    g,
 			Label:    labelSvc,
-			Search:   searchIdx,
 		}))
 		rackService = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:                  db,
 			Ontology:            otg,
 			Group:               g,
-			HostProvider:        mock.NewStaticHostProvider(1),
+			HostProvider:        testutil.NewStaticHostProvider(1),
 			Status:              stat,
 			HealthCheckInterval: 10 * telem.Millisecond,
-			Search:              searchIdx,
+			DriverRole:          MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
 		}))
 		pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: db}))
 		at := MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{DB: db}))
@@ -99,7 +95,6 @@ var _ = Describe("Task", Ordered, func() {
 			Group:    g,
 			Rack:     rackService,
 			Status:   stat,
-			Search:   searchIdx,
 			ImEx:     imex.NewService(),
 			Configs:  configs,
 		}))
@@ -1085,7 +1080,7 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(taskStatus.Variant).To(Equal(status.VariantDisabled))
 				Expect(
 					taskStatus.Message,
-				).To(Equal("Status Test Task has not been deployed"))
+				).To(Equal("Task not deployed"))
 				Expect(taskStatus.Details.Task).To(Equal(m.Key))
 			},
 		)
@@ -1174,7 +1169,7 @@ var _ = Describe("Task", Ordered, func() {
 					Exec(ctx, tx)).To(Succeed())
 				Expect(healed.Details.Task).To(Equal(t.Key))
 				Expect(healed.Variant).To(Equal(status.VariantWarning))
-				Expect(healed.Message).To(Equal("Self Heal Task status unknown"))
+				Expect(healed.Message).To(Equal("Task status unknown"))
 			},
 		)
 
@@ -1252,7 +1247,7 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(m.Status.Variant).To(Equal(status.VariantDisabled))
 				Expect(
 					m.Status.Message,
-				).To(Equal("Returned Status Task has not been deployed"))
+				).To(Equal("Task not deployed"))
 				Expect(m.Status.Details.Task).To(Equal(m.Key))
 			},
 		)
@@ -1302,45 +1297,28 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(copiedStatus.Variant).To(Equal(status.VariantDisabled))
 				Expect(
 					copiedStatus.Message,
-				).To(Equal("Copied Task has not been deployed"))
+				).To(Equal("Task not deployed"))
 				Expect(copiedStatus.Details.Task).To(Equal(copied.Key))
 			},
 		)
 	})
 
 	Describe("Suspect Rack", func() {
+		retrieveStatus := func(ctx context.Context, t *task.Task) task.Status {
+			GinkgoHelper()
+			var got task.Status
+			Expect(stat.NewRetrieve[task.StatusDetails]().
+				Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
+				Entry(&got).
+				Exec(ctx, nil)).To(Succeed())
+			return got
+		}
+
 		It(
-			"Should propagate rack warning status to tasks on that rack",
+			"Should copy the rack's problem onto a running task",
 			func(ctx SpecContext) {
 				r := rack.Rack{Name: "suspect rack"}
 				Expect(rackService.NewWriter(nil).Create(ctx, &r)).To(Succeed())
-
-				t := &task.Task{
-					Type: testType,
-					Rack: r.Key,
-					Name: "Test Task",
-				}
-				Expect(svc.NewWriter(nil).Create(ctx, t)).To(Succeed())
-
-				Eventually(func(g Gomega) {
-					var taskStatus task.Status
-					g.Expect(stat.NewRetrieve[task.StatusDetails]().
-						Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
-						Entry(&taskStatus).
-						Exec(ctx, nil)).To(Succeed())
-					g.Expect(taskStatus.Variant).To(Equal(status.VariantWarning))
-					g.Expect(taskStatus.Message).To(ContainSubstring("not running"))
-					g.Expect(taskStatus.Details.Task).To(Equal(t.Key))
-				}).Should(Succeed())
-			},
-		)
-
-		It(
-			"Should preserve the config hash and rack the Driver reported",
-			func(ctx SpecContext) {
-				r := rack.Rack{Name: "suspect rack"}
-				Expect(rackService.NewWriter(nil).Create(ctx, &r)).To(Succeed())
-
 				t := &task.Task{
 					Type: testType,
 					Rack: r.Key,
@@ -1352,7 +1330,6 @@ var _ = Describe("Task", Ordered, func() {
 						Details: task.StatusDetails{
 							Running:    true,
 							ConfigHash: "deployed",
-							Rack:       r.Key,
 						},
 					},
 				}
@@ -1364,11 +1341,72 @@ var _ = Describe("Task", Ordered, func() {
 						Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
 						Entry(&taskStatus).
 						Exec(ctx, nil)).To(Succeed())
+					g.Expect(taskStatus.Message).To(Equal("Task stopped responding"))
 					g.Expect(taskStatus.Variant).To(Equal(status.VariantWarning))
-					g.Expect(taskStatus.Details.Running).To(BeFalse())
-					g.Expect(taskStatus.Details.ConfigHash).To(Equal("deployed"))
-					g.Expect(taskStatus.Details.Rack).To(Equal(r.Key))
+					g.Expect(taskStatus.Name).To(Equal("Test Task"))
+					g.Expect(taskStatus.Description).To(Equal(
+						"The Core lost contact with the Driver on suspect rack " +
+							"while the task was running.",
+					))
+					g.Expect(taskStatus.Details).To(Equal(task.StatusDetails{
+						Task:       t.Key,
+						Running:    false,
+						ConfigHash: "deployed",
+						Rack:       r.Key,
+					}))
 				}).Should(Succeed())
+			},
+		)
+
+		It(
+			"Should not copy the rack's problem onto a task that is not running",
+			func(ctx SpecContext) {
+				r := rack.Rack{Name: "suspect rack"}
+				Expect(rackService.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+				running := &task.Task{
+					Type: testType,
+					Rack: r.Key,
+					Name: "Running Task",
+					Status: &task.Status{
+						Variant: status.VariantSuccess,
+						Message: "Task is running",
+						Time:    telem.Now(),
+						Details: task.StatusDetails{Running: true},
+					},
+				}
+				Expect(svc.NewWriter(nil).Create(ctx, running)).To(Succeed())
+				stopped := &task.Task{
+					Type: testType,
+					Rack: r.Key,
+					Name: "Stopped Task",
+					Status: &task.Status{
+						Variant: status.VariantSuccess,
+						Message: "Task stopped",
+						Time:    telem.Now(),
+					},
+				}
+				Expect(svc.NewWriter(nil).Create(ctx, stopped)).To(Succeed())
+				undeployed := &task.Task{Type: testType, Rack: r.Key, Name: "New Task"}
+				Expect(svc.NewWriter(nil).Create(ctx, undeployed)).To(Succeed())
+
+				By("Waiting for the copy onto the running task, written in one batch")
+				Eventually(func(g Gomega) {
+					var taskStatus task.Status
+					g.Expect(stat.NewRetrieve[task.StatusDetails]().
+						Where(status.MatchKeys[task.StatusDetails](
+							running.OntologyID().String(),
+						)).
+						Entry(&taskStatus).
+						Exec(ctx, nil)).To(Succeed())
+					g.Expect(taskStatus.Message).To(Equal("Task stopped responding"))
+				}).Should(Succeed())
+
+				stoppedStatus := retrieveStatus(ctx, stopped)
+				Expect(stoppedStatus.Variant).To(Equal(status.VariantSuccess))
+				Expect(stoppedStatus.Message).To(Equal("Task stopped"))
+				undeployedStatus := retrieveStatus(ctx, undeployed)
+				Expect(undeployedStatus.Variant).To(Equal(status.VariantDisabled))
+				Expect(undeployedStatus.Message).To(Equal("Task not deployed"))
 			},
 		)
 	})
@@ -1433,5 +1471,42 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(tx.Commit(ctx)).To(Succeed())
 			Expect(called).To(BeTrue())
 		})
+	})
+
+	Describe("Search", func() {
+		create := func(ctx SpecContext, name string) ontology.ID {
+			GinkgoHelper()
+			t := task.Task{Type: testType, Rack: testRack.Key, Name: name}
+			Expect(w.Create(ctx, &t)).To(Succeed())
+			return task.OntologyID(t.Key)
+		}
+
+		It(
+			"Should return the matching tasks, closest match first",
+			func(ctx SpecContext) {
+				a := create(ctx, "turbopump test")
+				b := create(ctx, "turbopump")
+				Expect(MustSucceed(svc.Search(ctx, tx, "turbopump", 0)).Keys).
+					To(Equal([]ontology.ID{b, a}))
+				Expect(MustSucceed(svc.Search(ctx, tx, "turbopump", 1)).Keys).
+					To(Equal([]ontology.ID{b}))
+			},
+		)
+
+		It("Should match a task by its type", func(ctx SpecContext) {
+			id := create(ctx, "igniter")
+			Expect(MustSucceed(svc.Search(ctx, tx, testType, 0)).Keys).
+				To(ContainElement(id))
+		})
+
+		It(
+			"Should not match a staged task outside its transaction",
+			func(ctx SpecContext) {
+				create(ctx, "injector")
+				Expect(
+					MustSucceed(svc.Search(ctx, db, "injector", 0)).Keys,
+				).To(BeEmpty())
+			},
+		)
 	})
 })

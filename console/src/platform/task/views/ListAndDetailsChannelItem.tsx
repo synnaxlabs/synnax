@@ -16,7 +16,7 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { type direction, type record } from "@synnaxlabs/x";
-import { cloneElement, type CSSProperties, type JSX, useMemo } from "react";
+import { cloneElement, type CSSProperties, type JSX } from "react";
 
 import { CSS } from "@/platform/css";
 import { ChannelName, type ChannelNameProps } from "@/platform/task/ChannelName";
@@ -55,7 +55,7 @@ const getChannelNameProps = (
     CSS.BE("channel-item", "name"),
     hasIcon && CSS.BEM("channel-item", "name", "with-icon"),
   ),
-  overflow: "ellipsis",
+  overflow: "fade",
 });
 
 export const ListAndDetailsChannelItem = <K extends string>({
@@ -75,10 +75,7 @@ export const ListAndDetailsChannelItem = <K extends string>({
   const hasStateChannel = stateChannel != null;
   const hasIcon = icon != null;
   const channelNameProps = getChannelNameProps(hasIcon);
-  const portStyle = useMemo<CSSProperties>(
-    () => ({ width: `${portMaxChars * 1.25}rem` }),
-    [portMaxChars],
-  );
+  const portStyle: CSSProperties = { width: `${portMaxChars * 1.25}rem` };
   return (
     <Select.Item
       {...rest}

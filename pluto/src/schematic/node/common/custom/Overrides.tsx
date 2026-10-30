@@ -12,15 +12,15 @@ import "@/schematic/node/common/custom/Overrides.css";
 import { type schematic } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Color } from "@synnaxlabs/lyra/color";
-import { CSS } from "@synnaxlabs/lyra/css";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { caseconv, deep } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useEffect, useMemo, useState } from "react";
+import { type ReactElement, useEffect, useState } from "react";
 
+import { CSS } from "@/css";
 import { Region } from "@/schematic/node/common/region";
 import { Symbol } from "@/schematic/symbol";
 
@@ -92,10 +92,7 @@ const RegionControls = ({
   const name = Form.useFieldValue<string>(`${path}.name`);
   const region = Form.useFieldValue<schematic.symbol.Region>(path);
   const { set } = Form.useContext();
-  const paint = useMemo(
-    () => Region.paint(svg, region.selectors),
-    [svg, region.selectors],
-  );
+  const paint = Region.paint(svg, region.selectors);
   const originalRegion = getOriginalRegion(path);
   const canBeReset = !deep.equal(region, originalRegion);
   return (
@@ -104,7 +101,7 @@ const RegionControls = ({
         level="small"
         color={9}
         className={CSS.B("schematic-region-name")}
-        overflow="ellipsis"
+        overflow="fade"
       >
         {caseconv.capitalize(name)}
       </Text.Text>
@@ -172,25 +169,22 @@ export const StateOverrideForm = (): ReactElement => {
   );
   const [selectedState, setSelectedState] = useState<string | undefined>(states?.[0]);
 
-  const applySymbol = useCallback(
-    (symbol: schematic.symbol.Symbol) => {
-      if (symbol.data == null) return;
-      const symbolSpec = symbol.data;
-      setOriginalStates(deep.copy(symbolSpec.states));
-      const currentOverrides = form.get<schematic.symbol.State[]>("stateOverrides");
-      if (currentOverrides.value?.length === 0) {
-        form.set("stateOverrides", deep.copy(symbolSpec.states));
-        setSelectedState(symbolSpec.states[0].key);
-      } else {
-        const syncedStates = syncStateOverrides(
-          currentOverrides.value,
-          symbolSpec.states,
-        );
-        form.set("stateOverrides", syncedStates);
-      }
-    },
-    [form],
-  );
+  const applySymbol = (symbol: schematic.symbol.Symbol) => {
+    if (symbol.data == null) return;
+    const symbolSpec = symbol.data;
+    setOriginalStates(deep.copy(symbolSpec.states));
+    const currentOverrides = form.get<schematic.symbol.State[]>("stateOverrides");
+    if (currentOverrides.value?.length === 0) {
+      form.set("stateOverrides", deep.copy(symbolSpec.states));
+      setSelectedState(symbolSpec.states[0].key);
+    } else {
+      const syncedStates = syncStateOverrides(
+        currentOverrides.value,
+        symbolSpec.states,
+      );
+      form.set("stateOverrides", syncedStates);
+    }
+  };
   // A dangling spec key must not throw here: the owner renders a repair form for it.
   const { symbol } = Symbol.useResolved(specKey);
   useEffect(() => {
@@ -198,23 +192,17 @@ export const StateOverrideForm = (): ReactElement => {
     applySymbol(symbol);
   }, [symbol, applySymbol]);
 
-  const resetRegion = useCallback(
-    (path: string) => {
-      const parsedPath = path.split(".").slice(1).join(".");
-      const prev = deep.get(originalStates, parsedPath, { optional: true });
-      if (prev == null) return;
-      form.set(path, deep.copy(prev));
-    },
-    [form.set, originalStates],
-  );
+  const resetRegion = (path: string) => {
+    const parsedPath = path.split(".").slice(1).join(".");
+    const prev = deep.get(originalStates, parsedPath, { optional: true });
+    if (prev == null) return;
+    form.set(path, deep.copy(prev));
+  };
 
-  const getOriginalRegion = useCallback(
-    (path: string): schematic.symbol.Region | null => {
-      const parsedPath = path.split(".").slice(1).join(".");
-      return deep.get(originalStates, parsedPath, { optional: true }) ?? null;
-    },
-    [originalStates],
-  );
+  const getOriginalRegion = (path: string): schematic.symbol.Region | null => {
+    const parsedPath = path.split(".").slice(1).join(".");
+    return deep.get(originalStates, parsedPath, { optional: true }) ?? null;
+  };
 
   // The form can swap to a different symbol's overrides beneath the locally
   // held selection, so fall back to the first state when the key disappears.

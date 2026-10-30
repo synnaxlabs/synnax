@@ -9,14 +9,15 @@
 
 import "@/vis/legend/Container.css";
 
-import { CSS } from "@synnaxlabs/lyra/css";
 import { Cursor } from "@synnaxlabs/lyra/cursor";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { type Input } from "@synnaxlabs/lyra/input";
 import { state } from "@synnaxlabs/lyra/state";
 import { box, location, scale, sticky, xy } from "@synnaxlabs/x";
-import { memo, type ReactElement, useCallback, useMemo, useRef } from "react";
+import { memo, type ReactElement, useRef } from "react";
+
+import { CSS } from "@/css";
 
 export interface ContainerProps
   extends Omit<Flex.BoxProps, "onChange">, Partial<Input.OptionalControl<sticky.XY>> {
@@ -49,15 +50,13 @@ export const Container = memo(
       initialValue: initial,
     });
     const positionRef = useRef<sticky.XY>(position);
-    const disabled = useSyncedRef(draggable === false);
+    const disabledRef = useSyncedRef(draggable === false);
     const ref = useRef<HTMLDivElement | null>(null);
 
-    const mergedStyle = useMemo(
-      () => (position !== null ? { ...style, ...sticky.toCSS(position) } : style),
-      [position, style],
-    );
+    const mergedStyle =
+      position !== null ? { ...style, ...sticky.toCSS(position) } : style;
 
-    const calculatePosition = useCallback((drag: box.Box): sticky.XY | null => {
+    const calculatePosition = (drag: box.Box): sticky.XY | null => {
       if (ref.current?.parentElement == null) return positionRef.current;
       const bounds = box.construct(ref.current.parentElement);
       const decimalScale = scale.XY.scale(bounds).scale(TOP_LEFT_DECIMAL);
@@ -83,10 +82,10 @@ export const Container = memo(
         element: box.construct(ref.current),
         container: bounds,
       });
-    }, []);
+    };
 
     const handleCursorDragStart = Cursor.useDrag({
-      onStart: useCallback(() => {
+      onStart: () => {
         // When we start dragging, we need to re-calculate the sticky position of the
         // element based on the new dimensions of the parent. This removes strange
         // 'jumping' behavior when starting to drag.
@@ -100,23 +99,17 @@ export const Container = memo(
           root: location.TOP_LEFT,
           units: { x: "decimal", y: "decimal" },
         };
-      }, []),
-      onMove: useCallback(
-        (box: box.Box) => {
-          if (disabled.current) return;
-          const pos = calculatePosition(box);
-          if (pos !== null) setPosition(pos);
-        },
-        [calculatePosition, setPosition],
-      ),
-      onEnd: useCallback(
-        (box: box.Box) => {
-          if (disabled.current) return;
-          const pos = calculatePosition(box);
-          if (pos !== null) positionRef.current = pos;
-        },
-        [calculatePosition],
-      ),
+      },
+      onMove: (box: box.Box) => {
+        if (disabledRef.current) return;
+        const pos = calculatePosition(box);
+        if (pos !== null) setPosition(pos);
+      },
+      onEnd: (box: box.Box) => {
+        if (disabledRef.current) return;
+        const pos = calculatePosition(box);
+        if (pos !== null) positionRef.current = pos;
+      },
     });
 
     return (

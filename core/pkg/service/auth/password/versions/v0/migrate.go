@@ -15,12 +15,12 @@ import (
 	"uuid"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/gorp/migrate"
 	authv1 "github.com/synnaxlabs/synnax/pkg/service/auth/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	userv0 "github.com/synnaxlabs/synnax/pkg/service/user/versions/v0"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
 )
@@ -41,9 +41,9 @@ func migratedKey(subject ontology.ID) Key {
 
 // NewMove returns the migration that moves each stored credential to the user with its
 // username, keeping the bcrypt hash. A credential no user holds is dropped with a
-// warning. It reads users in their v0 shape, so it runs after the user migrations.
-func NewMove() migrate.Migration {
-	return gorp.NewMigration("v0.move_credentials_to_passwords", move)
+// warning. It reads users in their v0 shape, so it runs after the user v0 migrations.
+func NewMove() gorp.Migration {
+	return migrate.New("v0.move_credentials_to_passwords", move)
 }
 
 func subjectsByUsername(

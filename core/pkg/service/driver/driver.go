@@ -16,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -26,7 +27,6 @@ import (
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/service"
@@ -37,11 +37,10 @@ import (
 
 // Driver is the Go task executor that handles task lifecycle and command processing.
 type Driver struct {
-	cfg              Config
-	closer           io.MultiCloser
-	streamerRequests confluence.Inlet[framer.StreamerRequest]
-	rack             rack.Rack
-	mu               struct {
+	cfg    Config
+	closer io.MultiCloser
+	rack   rack.Rack
+	mu     struct {
 		instances map[task.Key]instance
 		sync.RWMutex
 	}
@@ -153,7 +152,7 @@ func (d *Driver) startCommandStreaming(ctx context.Context) error {
 	p.MustConnect[framer.StreamerResponse]("streamer", "driver", 10)
 	streamerRequests := confluence.NewStream[framer.StreamerRequest]()
 	streamer.InFrom(streamerRequests)
-	d.streamerRequests = streamerRequests
+	d.closer = append(d.closer, io.NoFailCloserFunc(streamerRequests.Close))
 	p.Flow(
 		sCtx,
 		confluence.CloseOutputInletsOnExit(),
@@ -161,7 +160,6 @@ func (d *Driver) startCommandStreaming(ctx context.Context) error {
 	)
 	select {
 	case <-ctx.Done():
-		streamerRequests.Close()
 		return ctx.Err()
 	case <-open:
 		return nil
@@ -287,18 +285,14 @@ func (d *Driver) ackFailure(
 	cmd task.Command,
 	err error,
 ) {
-	details := task.NewStatusDetails(t, false)
-	details.Cmd = cmd.Key
-	if sErr := d.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		return d.cfg.Status.NewWriter(tx).Set(ctx, &status.Status[task.StatusDetails]{
-			Key:     task.OntologyID(t.Key).String(),
-			Name:    t.Name,
-			Time:    telem.Now(),
-			Variant: status.VariantError,
-			Message: err.Error(),
-			Details: details,
-		})
-	}); sErr != nil {
+	if sErr := NewStatusHandler(d.cfg.DB, d.cfg.Status, t).Send(
+		ctx,
+		cmd.Key,
+		status.VariantError,
+		false,
+		"Failed to start task",
+		err.Error(),
+	); sErr != nil {
 		d.cfg.L.Error("failed to write start failure status", zap.Error(sErr))
 	}
 }
@@ -460,8 +454,5 @@ func (d *Driver) Close() error {
 	}
 	clear(d.mu.instances)
 	d.mu.Unlock()
-	if d.streamerRequests != nil {
-		d.streamerRequests.Close()
-	}
 	return d.closer.Close()
 }

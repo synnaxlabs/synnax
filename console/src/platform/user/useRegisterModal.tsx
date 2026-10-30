@@ -16,23 +16,15 @@ import { type Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Access, Synnax, User } from "@synnaxlabs/pluto";
-import { useCallback } from "react";
 
 import { Modals } from "@/platform/modals";
 import { Triggers } from "@/platform/triggers";
 
-const FIRST_NAME_INPUT_PROPS: Partial<Input.TextProps> = {
+const NAME_INPUT_PROPS: Partial<Input.TextProps> = {
   variant: "text",
   level: "h2",
   autoFocus: true,
-  placeholder: "Richard",
-  full: "x",
-};
-
-const LAST_NAME_INPUT_PROPS: Partial<Input.TextProps> = {
-  variant: "text",
-  level: "h2",
-  placeholder: "Feynman",
+  placeholder: "Richard Feynman",
   full: "x",
 };
 
@@ -47,11 +39,11 @@ const PASSWORD_INPUT_PROPS: Partial<Input.TextProps> = {
   full: "x",
 };
 
-export const useRegisterModal = Modals.create(({ close }) => {
+const Register = ({ close }: Modals.ContentProps<Record<never, never>, void>) => {
   const client = Synnax.use();
   const { form, save, variant } = User.useForm({
     query: null,
-    afterSave: useCallback(() => close(), [close]),
+    afterSave: () => close(),
   });
 
   return (
@@ -60,18 +52,7 @@ export const useRegisterModal = Modals.create(({ close }) => {
       <Modal.Body>
         <Form.Form<typeof User.formSchema> {...form}>
           <Flex.Box y>
-            <Flex.Box x grow>
-              <Form.TextField
-                path="firstName"
-                label="First"
-                inputProps={FIRST_NAME_INPUT_PROPS}
-              />
-              <Form.TextField
-                path="lastName"
-                label="Last"
-                inputProps={LAST_NAME_INPUT_PROPS}
-              />
-            </Flex.Box>
+            <Form.TextField path="name" label="Name" inputProps={NAME_INPUT_PROPS} />
             <Form.TextField
               path="username"
               label="Username"
@@ -91,13 +72,13 @@ export const useRegisterModal = Modals.create(({ close }) => {
         </Form.Form>
       </Modal.Body>
       <Modal.Footer>
-        <Triggers.SaveHelpText action="Register" />
         <Nav.Bar.End>
           <Button.Button
             onClick={() => save()}
             status={status.keepVariants(variant, "loading")}
             disabled={client == null}
             trigger={Triggers.SAVE}
+            triggerIndicator
             variant="filled"
           >
             Register
@@ -106,4 +87,6 @@ export const useRegisterModal = Modals.create(({ close }) => {
       </Modal.Footer>
     </Modal.Frame>
   );
-});
+};
+
+export const useRegisterModal = Modals.create(Register);

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/client";
+import { type status, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/client";
 
 import { connect, type ConnectionOptions } from "@/fixtures/client";
 
@@ -278,6 +278,28 @@ export const createStaticTelemetry = async ({
     });
     await client.write(start, frame);
     return data.map((ch) => ch.name);
+  } finally {
+    await client.close();
+  }
+};
+
+export interface StatusSpec {
+  key: string;
+  name: string;
+  variant?: status.Variant;
+  message?: string;
+}
+
+/** createStatuses sets statuses on the cluster, so alert shots have one to watch. */
+export const createStatuses = async (
+  specs: StatusSpec[],
+  opts: ConnectionOptions = {},
+): Promise<void> => {
+  const client = connect(opts);
+  try {
+    await client.statuses.set(
+      specs.map((s): status.New => ({ variant: "success", message: "Nominal", ...s })),
+    );
   } finally {
     await client.close();
   }

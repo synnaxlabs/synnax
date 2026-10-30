@@ -10,28 +10,10 @@
  */
 
 .console-opc-connect {
-    position: relative;
     width: 155rem;
-    height: 125rem;
 
-    & .console-description {
-        width: 100%;
-        max-width: 450px;
-        padding: 4rem;
-
-        & *:not(button) > p {
-            font-size: var(--pluto-h5-size);
-            line-height: 150%;
-        }
-    }
-
-    .pluto-navbar {
-        .pluto--start {
-            padding-left: 2rem;
-        }
-
-        .pluto--end {
-            padding-right: 2rem;
-        }
+    /* Fits the longest label, so the column holds still as fields show and hide. */
+    .lyra-form-sections.lyra--direction-y {
+        grid-template-columns: minmax(18rem, max-content) minmax(0, 1fr);
     }
 }

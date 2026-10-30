@@ -11,29 +11,31 @@ package task
 
 import (
 	"context"
+	"fmt"
 	"io"
+	"maps"
 	"slices"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/synnax/pkg/service/task/versions"
 	xconfig "github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
-	"go.uber.org/zap"
 )
 
 // ServiceConfig is the configuration for creating a Service.
@@ -63,10 +65,6 @@ type ServiceConfig struct {
 	//
 	// [OPTIONAL]
 	Channel *channel.Service
-	// Search is the search index for fuzzy searching tasks.
-	//
-	// [REQUIRED]
-	Search *search.Index
 	// Signals is used to propagate task changes through the Synnax signals' channel
 	// communication mechanism.
 	//
@@ -103,7 +101,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Rack = override.Nil(c.Rack, other.Rack)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.Channel = override.Nil(c.Channel, other.Channel)
-	c.Search = override.Nil(c.Search, other.Search)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.ImEx = override.Nil(c.ImEx, other.ImEx)
 	c.Configs = override.Zero(c.Configs, other.Configs)
@@ -119,7 +116,6 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("group", c.Group)
 	v.NotNil("rack", c.Rack)
 	v.NotNil("status", c.Status)
-	v.NotNil("search", c.Search)
 	v.NotNil("imex", c.ImEx)
 	v.Ternary("configs", c.Configs.IsZero(), "must be non-zero")
 	return v.Error()
@@ -130,6 +126,7 @@ type Service struct {
 	closer            xio.MultiCloser
 	group             group.Group
 	table             *gorp.Table[Key, Task]
+	search            *gorp.SearchIndex[Key, Task]
 	commandChannelKey channel.Key
 }
 
@@ -146,11 +143,12 @@ func OpenService(
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{cfg: cfg}
+	s = &Service{cfg: cfg, search: newSearchIndex()}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Task]{
-		DB: cfg.DB,
+		DB:      cfg.DB,
+		Indexes: []gorp.Index[Key, Task]{s.search},
 		Migrations: versions.NewMigrations(versions.MigrationsConfig{
 			Status:   cfg.Status,
 			Ontology: cfg.Ontology,
@@ -171,7 +169,6 @@ func OpenService(
 		return nil, err
 	}
 	cfg.Ontology.RegisterService(s)
-	cfg.Search.RegisterService(s)
 	if err = cfg.ImEx.RegisterExporter(s); !ok(err, nil) {
 		return nil, err
 	}
@@ -247,7 +244,7 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		search:  s.cfg.Search,
+		search:  s.search,
 		baseTX:  s.cfg.DB,
 		gorp:    s.table.NewRetrieve(),
 		otg:     s.cfg.Ontology,
@@ -255,50 +252,58 @@ func (s *Service) NewRetrieve() Retrieve {
 	}
 }
 
-func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) {
+func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) error {
 	var tasks []Task
 	if err := s.NewRetrieve().Where(MatchRacks(rackStat.Details.Rack)).
 		Entries(&tasks).
 		Exec(ctx, nil); err != nil {
-		s.cfg.L.Error("failed to retrieve tasks on suspect rack", zap.Error(err))
+		return errors.Wrap(err, "failed to retrieve tasks on suspect rack")
 	}
-	statuses := make([]Status, len(tasks))
-	keys := make([]string, len(tasks))
-	for i, tsk := range tasks {
-		keys[i] = tsk.OntologyID().String()
+	if len(tasks) == 0 {
+		return nil
 	}
-	// A silent rack does not undo the deploy the Driver reported, so its config hash
-	// and rack are carried across rather than rebuilt.
+	byKey := make(map[string]Task, len(tasks))
+	for _, tsk := range tasks {
+		byKey[tsk.OntologyID().String()] = tsk
+	}
+	// A task without a status has never reported running, so it gets no copy.
 	var reported []Status
 	if err := s.cfg.Status.NewRetrieve[StatusDetails]().
-		Where(status.MatchKeys[StatusDetails](keys...)).
+		Where(status.MatchKeys[StatusDetails](slices.Collect(maps.Keys(byKey))...)).
 		Entries(&reported).
-		Exec(ctx, nil); err != nil {
-		s.cfg.L.Error("failed to retrieve statuses on suspect rack", zap.Error(err))
+		Exec(ctx, nil); errors.Skip(err, query.ErrNotFound) != nil {
+		return errors.Wrap(err, "failed to retrieve statuses on suspect rack")
 	}
-	deployed := make(map[string]StatusDetails, len(reported))
-	for _, stat := range reported {
-		deployed[stat.Key] = stat.Details
-	}
-	for i, tsk := range tasks {
-		details := StatusDetails{Task: tsk.Key, Running: false}
-		if prev, ok := deployed[keys[i]]; ok {
-			details.ConfigHash = prev.ConfigHash
-			details.Rack = prev.Rack
+	statuses := make([]Status, 0, len(reported))
+	for _, prev := range reported {
+		if !prev.Details.Running {
+			continue
 		}
-		statuses[i] = Status{
-			Key:         keys[i],
-			Time:        telem.Now(),
-			Name:        tsk.Name,
-			Variant:     rackStat.Variant,
-			Message:     rackStat.Message,
-			Description: rackStat.Description,
-			Details:     details,
-		}
+		tsk := byKey[prev.Key]
+		// A silent rack does not undo the deploy the Driver reported, so the config
+		// hash is carried across.
+		statuses = append(statuses, Status{
+			Key:     prev.Key,
+			Time:    telem.Now(),
+			Name:    tsk.Name,
+			Variant: rackStat.Variant,
+			Message: "Task stopped responding",
+			Description: fmt.Sprintf(
+				"The Core lost contact with the Driver on %s while the task was "+
+					"running.",
+				rackStat.Name,
+			),
+			Details: StatusDetails{
+				Task:       tsk.Key,
+				ConfigHash: prev.Details.ConfigHash,
+				Rack:       rackStat.Details.Rack,
+			},
+		})
 	}
-	if err := s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+	if len(statuses) == 0 {
+		return nil
+	}
+	return s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
 		return s.cfg.Status.NewWriter(tx).SetMany(ctx, &statuses)
-	}); err != nil {
-		s.cfg.L.Error("failed to set statuses on suspect rack", zap.Error(err))
-	}
+	})
 }

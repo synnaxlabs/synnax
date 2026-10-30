@@ -1,0 +1,172 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Execution model"
+description:
+  "Learn when an Arc automation runs each part of its code, so you can predict what it
+  does."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+An Arc automation does not run from top to bottom. Synnax turns the code into a graph,
+and runs the graph in cycles. Each time new data arrives or a timer fires, Synnax runs
+the parts of the graph that use it. This page tells you when each part runs. For flows
+and sequences, start with the [Arc overview](/reference/control/arc).
+
+<Divider.Divider x />
+
+## Cycles
+
+A cycle starts when a channel that the automation reads gets new data, or when a timer
+such as `time.interval` or `time.wait` fires. There is no fixed rate.
+
+In a cycle, a flow runs when one of its triggers has a new value, after each trigger has
+its first value. The whole flow runs in the same cycle, from the first channel to the
+last. Every part of the cycle sees the same channel values. Values that the automation
+writes in a cycle are sent at the end of the cycle.
+
+<Divider.Divider x />
+
+## Steps of a sequence
+
+A sequence runs its steps in order:
+
+| Step           | Example                   | Moves on                             |
+| -------------- | ------------------------- | ------------------------------------ |
+| Write          | `1 -> press_vlv_cmd`      | At once, after the write.            |
+| Wait           | `time.wait(duration=10s)` | When the time is up.                 |
+| Condition gate | `tank_pt > 300 => next`   | When the condition is true.          |
+| Stage          | `stage pressurize { }`    | When one of its transitions is true. |
+
+A step that calls a function moves on when the first output of the function is true. A
+function with no output moves on after it runs without an error. A known bug stops the
+sequence at a function or an assignment step whose value is 0.
+
+Only the active step of a sequence runs. While a gate or a wait holds, nothing else in
+that sequence runs:
+
+```arc channels="press_vlv_cmd, tank_pt, start_cmd" bodies="fill"
+sequence fill {
+    1 -> press_vlv_cmd
+    tank_pt > 300 => next
+    0 -> press_vlv_cmd
+}
+
+start_cmd == 1 => fill
+```
+
+Several flows can start the same top-level sequence or stage. A flow at the top level
+starts its target without stopping other sequences or stages.
+
+While `fill` waits for 300 psi, it checks nothing else. To watch for unsafe values
+during a step, put the step in a stage. All the flows in a stage run at the same time.
+
+`=> next` moves to the next step in the code. `=> name` moves to the named stage of the
+same sequence. A `=> name` to a top-level sequence or stage stops the whole top-level
+sequence or stage that holds the transition, including its nested items, then starts the
+target in the same cycle. Nothing in the stopped scope resumes:
+
+```arc channels="press_vlv_cmd, vent_vlv_cmd, tank_pt, start_cmd" bodies="fill, pressurize, vent"
+sequence fill {
+    stage pressurize {
+        1 -> press_vlv_cmd
+        tank_pt > 450 => vent
+        tank_pt > 300 => next
+    }
+    0 -> press_vlv_cmd
+}
+
+sequence vent {
+    0 -> press_vlv_cmd
+    1 -> vent_vlv_cmd
+}
+
+start_cmd == 1 => fill
+```
+
+A write, a wait, or a gate also moves on to the next step in the code, even when that
+step is a named stage. Do not put a stage that only a condition must reach, such as an
+abort stage, right after one of those steps.
+
+### When a sequence stops
+
+A sequence stops when its last step finishes, if that step is a write, a wait, or a
+gate. Then the next new true value of its start condition starts it again, at the first
+step. A sequence that ends with a stage never stops by itself.
+
+Starting a sequence that runs has no effect, except when a transition inside that
+sequence targets the sequence itself. That transition leaves and restarts the sequence.
+Several top-level sequences and flows can run at the same time.
+
+<Divider.Divider x />
+
+## Entering a stage
+
+When a stage starts:
+
+- **Writes** -> a flow with no upstream trigger, such as `1 -> press_vlv_cmd`, runs once
+  each time the stage starts. A function call with no trigger that reads a channel in
+  its body is different: it runs in every cycle while the stage is active.
+- **Earlier values** -> the stage reacts only to values that arrive after it starts. A
+  condition such as `tank_pt > 300` waits for the next `tank_pt` value, even when the
+  last value was 400.
+- **Timers** -> `time.wait` counts from zero, and `time.interval` fires at once, then
+  once each period.
+- **Variables** -> variables declared with `:=` in the stage or the sequence go back to
+  their first value. Variables declared with `$=` in the stage or the sequence keep
+  their value. Each function called in the stage starts again too, so its `$=` variables
+  go back to their first value.
+
+When a stage stops, its flows stop, and their state stays as it was until the stage
+starts again.
+
+<Divider.Divider x />
+
+## Conditions and transitions
+
+A `=>` passes a value only when the value is true and new in this cycle. A condition
+that stays true does not fire again until a new value arrives on its channel. When a
+sequence stops, its start condition can start it again on the next true value. A start
+condition on a channel that stays true starts the sequence each time it stops.
+
+When more than one transition in a stage is true in the same cycle, the first one in the
+code wins. Put safety checks before the other transitions.
+
+Between a stage and a sequence declared inside it, line order decides only when both
+transitions target a top-level sequence or stage. A transition inside the inner
+sequence, such as `=> next`, acts first. The outer jump then acts in the same cycle, so
+the stage the inner sequence entered stops at once.
+
+<Divider.Divider x />
+
+## Writes
+
+An automation sends every value it writes, in the order of the code, not only the last
+value of a cycle. A flow such as `tank_pt -> scale() -> tank_pt_kpa` writes each value
+with the timestamp of the trigger value it came from. Values that a function body writes
+to a channel get the current time, 1 ns apart. A function that reads a channel gets its
+latest value, or 0 before the first value.
+
+<Divider.Divider x />
+
+## Flows and timers outside a sequence
+
+A flow outside a sequence runs for as long as the automation runs. A `time.interval`
+outside a sequence fires when the automation starts, then once each period. A
+`time.wait` outside a sequence fires once. A top-level sequence runs only when a
+condition or a flow starts it.
+
+<Divider.Divider x />
+
+## Errors while it runs
+
+| Where it runs | When a part of the automation has an error                                                             |
+| ------------- | ------------------------------------------------------------------------------------------------------ |
+| The Core      | Synnax drops the output of that part for the cycle, shows a warning, and keeps running.                |
+| A Driver      | Synnax stops the automation and shows an error. A warning, such as a skipped sample, does not stop it. |
+
+An index outside a series gives 0 on the Core, and an error on a Driver. To choose where
+an automation runs, see
+[where an Arc automation runs](/reference/control/arc#where-an-arc-automation-runs).

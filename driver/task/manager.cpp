@@ -90,6 +90,7 @@ void Manager::remove(const synnax::task::Key &key, const bool even_if_processing
     // keeps relevant()'s instance read claim-free.
     if (!even_if_processing && it->second->processing) return;
     if (it->second->relevant(this->rack.key)) return;
+    this->statuses->drop(key);
     this->entries.erase(it);
 }
 
@@ -147,7 +148,7 @@ void Manager::stop() {
     if (this->streamer != nullptr) this->streamer->close_send();
 }
 
-x::errors::Error Manager::run(std::function<void()> on_started) {
+x::errors::Error Manager::run(const std::function<void()> &on_started) {
     if (this->exit_early) {
         VLOG(1) << "exiting early";
         return x::errors::NIL;
@@ -256,9 +257,7 @@ void Manager::process_task_set(const x::telem::Series &series) {
         if (snapshot) continue;
         std::lock_guard<std::mutex> lock(this->mu);
         // An untracked task becomes ours only when its row lands on this rack.
-        if (this->entries.find(task_key) == this->entries.end() &&
-            rack_key != this->rack.key)
-            continue;
+        if (!this->entries.contains(task_key) && rack_key != this->rack.key) continue;
         const auto entry = this->entry_for(task_key);
         {
             std::lock_guard entry_lock{entry->mu};
@@ -288,7 +287,7 @@ void Manager::process_task_cmd(const x::telem::Series &series) {
         // Non-start commands go to whichever driver holds the live instance, even
         // when the stored row has moved to another rack.
         std::lock_guard<std::mutex> lock(this->mu);
-        if (this->entries.find(cmd.task) == this->entries.end()) continue;
+        if (!this->entries.contains(cmd.task)) continue;
         VLOG(1) << "queuing " << cmd.type << " command for task " << cmd.task;
         this->op_queue.push_back(Op{Op::Type::COMMAND, cmd.task, {}, cmd});
         this->cv.notify_one();
@@ -299,7 +298,7 @@ void Manager::process_start(const synnax::task::Command &cmd) {
     std::lock_guard<std::mutex> lock(this->mu);
     if (const auto it = this->entries.find(cmd.task); it != this->entries.end()) {
         const auto entry = it->second;
-        bool ours;
+        bool ours = false;
         std::string deployed, wanted;
         {
             std::lock_guard entry_lock{entry->mu};
@@ -370,7 +369,7 @@ void Manager::stop_all_tasks() {
 void Manager::process_task_delete(const x::telem::Series &series) {
     for (const auto &task_key: series.uuids()) {
         std::lock_guard<std::mutex> lock(this->mu);
-        if (this->entries.find(task_key) == this->entries.end()) continue;
+        if (!this->entries.contains(task_key)) continue;
         this->op_queue.push_back(Op{Op::Type::REMOVE, task_key, {}, {}});
         this->cv.notify_one();
     }
@@ -495,7 +494,9 @@ void Manager::monitor_loop() {
                     synnax::task::Status status;
                     status.key = synnax::task::ontology_id(key).string();
                     status.variant = synnax::status::VARIANT_ERROR;
-                    status.message = "operation timed out";
+                    status.message = "Failed to complete task operation";
+                    status.description = "The operation did not finish within " +
+                                         this->op_timeout.to_string() + ".";
                     status.details.task = key;
                     {
                         std::lock_guard entry_lock{entry->mu};
@@ -518,6 +519,7 @@ void Manager::monitor_loop() {
 void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
     switch (op.type) {
         case Op::Type::DEPLOY: {
+            this->statuses->claim(op.task_key);
             auto tsk = op.task;
             // An op without the task body needs the fetch, done here to keep
             // the streamer loop off the network.
@@ -532,7 +534,8 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
                         synnax::task::Status status;
                         status.key = synnax::task::ontology_id(op.task_key).string();
                         status.variant = synnax::status::VARIANT_ERROR;
-                        status.message = err.message();
+                        status.message = "Failed to start task";
+                        status.description = err.data;
                         status.details.task = op.task_key;
                         status.details.cmd = op.cmd.key;
                         {
@@ -563,6 +566,7 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
                         entry->instance = nullptr;
                     }
                     this->clear_deploy(entry);
+                    this->statuses->drop(op.task_key);
                     std::lock_guard lock{this->mu};
                     this->remove(op.task_key, true);
                     break;
@@ -620,8 +624,11 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
                     status.key = synnax::task::status_key(tsk);
                     status.name = tsk.name;
                     status.variant = synnax::status::VARIANT_ERROR;
-                    status.message = "no driver integration handles task type '" +
-                                     tsk.type + "'";
+                    status.message = "Failed to configure task";
+                    status.description = "No integration on this Driver runs '" +
+                                         tsk.type +
+                                         "' tasks. Check that the Driver and the "
+                                         "Core run the same version.";
                     status.details.task = op.task_key;
                     status.details.running = false;
                     status.details.cmd = op.cmd.key;
@@ -658,6 +665,7 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
                 entry->instance = nullptr;
             }
             this->clear_deploy(entry);
+            this->statuses->drop(op.task_key);
             // The row is gone from the cluster, so the entry goes unconditionally.
             std::lock_guard lock{this->mu};
             this->entries.erase(op.task_key);
@@ -673,6 +681,7 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
             // The row may have moved back to this rack while the release was queued,
             // so the entry can survive and must not keep a stale hash.
             this->clear_deploy(entry);
+            this->statuses->drop(op.task_key);
             std::lock_guard lock{this->mu};
             this->remove(op.task_key, true);
             break;

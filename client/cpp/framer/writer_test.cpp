@@ -13,7 +13,7 @@
 
 #include "client/cpp/synnax.h"
 #include "client/cpp/testutil/testutil.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 namespace synnax::framer {
 /// @brief it should correctly write a frame of telemetry to the DB.
@@ -289,7 +289,7 @@ TEST(WriterTests, testWriteErrOnUnauthorized) {
         }
     );
     ASSERT_OCCURRED_AS(err, x::errors::UNAUTHORIZED);
-    ASSERT_TRUE(err.message().find("test_writer_1") != std::string::npos);
+    ASSERT_TRUE(err.message().contains("test_writer_1"));
 }
 
 /// @brief it should correctly change the authority of a writer.

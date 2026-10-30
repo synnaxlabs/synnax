@@ -17,10 +17,10 @@ import (
 	"strings"
 	"uuid"
 
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
@@ -137,21 +137,6 @@ func GorpPublisherConfigUUID[E gorp.Entry[uuid.UUID]](
 		SetDataType:    telem.JSONT,
 		MarshalDelete:  func(k uuid.UUID) ([]byte, error) { return k[:], nil },
 		MarshalSet:     MarshalJSON,
-	}
-}
-
-func GorpPublisherConfigPureNumeric[K types.SizedNumeric, E gorp.Entry[K]](
-	obs observe.Observable[gorp.TxReader[K, E]],
-	dt telem.DataType,
-) GorpPublisherConfig[K, E] {
-	return GorpPublisherConfig[K, E]{
-		Observable:     obs,
-		DeleteDataType: dt,
-		SetDataType:    dt,
-		MarshalDelete:  func(k K) ([]byte, error) { return unsafe.CastToBytes(k), nil },
-		MarshalSet: func(e E) ([]byte, error) {
-			return unsafe.CastToBytes(e.GorpKey()), nil
-		},
 	}
 }
 

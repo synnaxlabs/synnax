@@ -1,0 +1,126 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/versions/device/v0"
+import "schemas/synnax/versions/task/v2"
+import "schemas/x/versions/telem/v0"
+
+RegisterValue struct {
+    data_type     telem.DataType = "uint16" {
+        @doc value "is the data type the register contents are interpreted as."
+    }
+    bytes_swapped bool?          {
+        @doc value """
+            is true when the byte order within each 16-bit word is swapped. When absent,
+            the device's byte order applies.
+        """
+    }
+    words_swapped bool?          {
+        @doc value """
+            is true when the word order of multi-register values is swapped. When
+            absent, the device's word order applies.
+        """
+    }
+
+    @doc value  "interprets one or more 16-bit registers as a single typed value."
+    @go marshal
+}
+
+RegisterBit struct {
+    bit uint8 = 0 {
+        @doc value "is the bit index, from 0 (least significant) to 15."
+    }
+
+    @doc value  "addresses one bit of a 16-bit register."
+    @go marshal
+}
+
+BaseReadChannel = v1.BaseReadChannel
+
+ReadChannel union on type extends v1.BaseReadChannel {
+    coil {
+        @doc value "reads a single bit from a coil."
+    }
+    discrete_input {
+        @doc value "reads a single bit from a discrete input."
+    }
+    holding_register extends RegisterValue {
+        string_length int32 = 0 {
+            @doc value "is the length, in characters, when data_type is a string."
+        }
+
+        @doc value "reads a typed value from one or more holding registers."
+    }
+    input_register extends RegisterValue {
+        string_length int32 = 0 {
+            @doc value "is the length, in characters, when data_type is a string."
+        }
+
+        @doc value "reads a typed value from one or more input registers."
+    }
+    holding_register_bit extends RegisterBit {
+        @doc value "reads one bit of a holding register."
+    }
+    input_register_bit extends RegisterBit {
+        @doc value "reads one bit of an input register."
+    }
+
+    @doc value  """
+        is a single Modbus read channel. The type field selects the register space the
+        channel reads from and the fields that accompany it.
+    """
+    @go marshal
+}
+
+BaseWriteChannel = v1.BaseWriteChannel
+
+WriteChannel union on type extends v1.BaseWriteChannel {
+    coil {
+        @doc value "writes a single bit to a coil."
+    }
+    holding_register extends RegisterValue {
+        @doc value "writes a typed value to one or more holding registers."
+    }
+    holding_register_bit extends RegisterBit {
+        @doc value "writes one bit of a holding register."
+    }
+
+    @doc value  """
+        is a single Modbus write channel. The type field selects the register space the
+        channel writes to and the fields that accompany it.
+    """
+    @go marshal
+}
+
+ReadConfig struct extends task.ReadConfig {
+    device   device.Key = "" {
+        @doc value "is the key of the device the task acquires from."
+    }
+    channels ReadChannel[] {
+        @doc value "are the channels the task acquires."
+    }
+
+    @doc value  "configures a Modbus read task."
+    @go imex    body
+    @go marshal
+    @go migrate
+}
+
+WriteConfig struct extends task.WriteConfig {
+    channels WriteChannel[] {
+        @doc value "are the channels the task drives."
+    }
+
+    @doc value  "configures a Modbus write task."
+    @go imex    body
+    @go marshal
+    @go migrate
+}
+
+ScanConfig = v1.ScanConfig

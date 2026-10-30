@@ -17,13 +17,12 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/telem"
@@ -31,7 +30,7 @@ import (
 
 type benchIterEnv struct {
 	ctx           context.Context
-	node          mock.Node
+	node          testutil.Node
 	closer        io.MultiCloser
 	channelSvc    *channel.Service
 	channelWriter channel.Writer
@@ -40,22 +39,16 @@ type benchIterEnv struct {
 
 func newBenchIterEnv(b *testing.B) *benchIterEnv {
 	gomega.RegisterTestingT(b)
-	node := mock.OpenNode(b.Context())
+	node := testutil.OpenNode(b.Context())
 
 	otg, err := ontology.Open(b.Context(), ontology.Config{DB: node.DB})
 	if err != nil {
 		b.Fatalf("failed to open ontology: %v", err)
 	}
 
-	searchIdx, err := search.OpenIndex()
-	if err != nil {
-		b.Fatalf("failed to open search index: %v", err)
-	}
-
 	groupSvc, err := group.OpenService(b.Context(), group.ServiceConfig{
 		DB:       node.DB,
 		Ontology: otg,
-		Search:   searchIdx,
 	})
 	if err != nil {
 		b.Fatalf("failed to open group service: %v", err)
@@ -65,7 +58,6 @@ func newBenchIterEnv(b *testing.B) *benchIterEnv {
 		DB:       node.DB,
 		Ontology: otg,
 		Group:    groupSvc,
-		Search:   searchIdx,
 	})
 	if err != nil {
 		b.Fatalf("failed to open label service: %v", err)
@@ -76,7 +68,6 @@ func newBenchIterEnv(b *testing.B) *benchIterEnv {
 		Ontology: otg,
 		Group:    groupSvc,
 		Label:    labelSvc,
-		Search:   searchIdx,
 	})
 	if err != nil {
 		b.Fatalf("failed to open status service: %v", err)
@@ -88,7 +79,6 @@ func newBenchIterEnv(b *testing.B) *benchIterEnv {
 		HostProvider: node.Cluster,
 		Ontology:     otg,
 		Group:        groupSvc,
-		Search:       searchIdx,
 		Status:       statusSvc,
 	})
 	if err != nil {
@@ -107,7 +97,7 @@ func newBenchIterEnv(b *testing.B) *benchIterEnv {
 		ctx:  b.Context(),
 		node: node,
 		closer: io.MultiCloser{
-			node, otg, searchIdx, groupSvc, channelSvc, statusSvc, labelSvc,
+			node, otg, groupSvc, channelSvc, statusSvc, labelSvc,
 		},
 		channelSvc:    channelSvc,
 		channelWriter: channelSvc.NewWriter(nil),

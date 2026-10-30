@@ -19,6 +19,8 @@ export interface CloseProps extends Omit<ButtonProps, "el"> {
   el?: Extract<ElementType, "button" | "div">;
 }
 
+const CLOSE_ICON = <Icon.Close />;
+
 /**
  * A destructive glyph close that overlays its host's leading icon and reveals on
  * host hover. The host marks itself as a reveal container. Not a tab stop: the
@@ -26,21 +28,16 @@ export interface CloseProps extends Omit<ButtonProps, "el"> {
  */
 export const Close = ({
   className,
-  children = <Icon.Close />,
+  children = CLOSE_ICON,
   ...rest
 }: CloseProps): ReactElement => (
   <Button<ElementType>
     aria-label="Close"
-    variant="text"
+    variant="glyph"
     sharp
     tabIndex={-1}
     reveal
-    className={CSS.cls(
-      CSS.BM("btn", "close"),
-      CSS.BM("btn", "glyph"),
-      CSS.M("destructive"),
-      className,
-    )}
+    className={CSS.cls(CSS.BM("btn", "close"), CSS.M("destructive"), className)}
     {...rest}
   >
     {children}

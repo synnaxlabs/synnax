@@ -1,0 +1,47 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.lyra-icon-tile {
+    display: inline-grid;
+    flex-shrink: 0;
+    place-items: center;
+    width: var(--pluto-icon-tile-size);
+    height: var(--pluto-icon-tile-size);
+    color: var(--pluto-gray-l10);
+    background: var(--pluto-gray-l2);
+    border: var(--pluto-border-width) solid var(--pluto-gray-l4);
+    border-radius: var(--pluto-border-radius-small);
+
+    & > .lyra-icon {
+        width: 50%;
+        height: 50%;
+    }
+
+    &.lyra-icon-tile--tiny {
+        --pluto-icon-tile-size: var(--pluto-height-tiny);
+    }
+
+    &.lyra-icon-tile--small {
+        --pluto-icon-tile-size: var(--pluto-height-small);
+    }
+
+    &.lyra-icon-tile--medium {
+        --pluto-icon-tile-size: var(--pluto-height-medium);
+    }
+
+    &.lyra-icon-tile--large {
+        --pluto-icon-tile-size: var(--pluto-height-large);
+    }
+
+    &.lyra-icon-tile--huge {
+        --pluto-icon-tile-size: var(--pluto-height-huge);
+    }
+}

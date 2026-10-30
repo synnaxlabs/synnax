@@ -12,14 +12,13 @@ package v1_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/auth/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/auth/versions/v1"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/encoding/orc"
-	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/migrate"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 var _ = Describe("Migration", func() {
@@ -45,7 +44,7 @@ var _ = Describe("Migration", func() {
 		t := MustOpen(gorp.OpenTable(
 			ctx, gorp.TableConfig[string, v1.SecureCredentials]{
 				DB:         db,
-				Migrations: []migrate.Migration{v1.Migration},
+				Migrations: []gorp.Migration{v1.Migration},
 			},
 		))
 		var got v1.SecureCredentials
@@ -80,7 +79,7 @@ var _ = Describe("Migration", func() {
 			t := MustOpen(gorp.OpenTable(
 				ctx, gorp.TableConfig[string, v1.SecureCredentials]{
 					DB:         orcDB,
-					Migrations: []migrate.Migration{v1.Migration},
+					Migrations: []gorp.Migration{v1.Migration},
 				},
 			))
 			var got v1.SecureCredentials

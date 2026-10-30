@@ -10,32 +10,25 @@
  */
 
 .console-modbus-connect {
-    position: relative;
     width: 155rem;
-    height: 100rem;
+}
 
-    .console-content {
-        width: 100%;
-        flex-grow: 1;
-        padding: 3rem 4rem;
-    }
+/* Fits the longest label, so the column holds still between tabs. */
+.console-modbus-connect__sections {
+    grid-template-columns: minmax(18rem, max-content) minmax(0, 1fr);
+}
 
-    & .console-description {
-        width: 100%;
-        max-width: 450px;
-        padding: 4rem;
-        & *:not(button) > p {
-            font-size: var(--pluto-h5-size);
-            line-height: 150%;
-        }
-    }
+/* Fits the advanced tab, so the dialog keeps its size between tabs. */
+.console-modbus-connect__content {
+    min-height: 60rem;
+}
 
-    .pluto-navbar {
-        .pluto--start {
-            padding-left: 2rem;
-        }
-        .pluto--end {
-            padding-right: 2rem;
-        }
-    }
+/* The hairline matches the one after a section title. */
+.console-modbus-connect__selector::after {
+    content: "";
+    flex-grow: 1;
+    align-self: center;
+    height: var(--pluto-border-width);
+    margin-left: 2rem;
+    background: var(--pluto-gray-l6);
 }

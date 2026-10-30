@@ -1,0 +1,119 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# Calls one agent per theme each night to improve the repo. The prompts in
+# .github/agents/nightly say when to open a PR and when to open none.
+
+name: Agent - Nightly
+
+on:
+  schedule:
+    - cron: "0 7 * * *" # 7am UTC, after the Nightly CI run
+  workflow_dispatch:
+    inputs:
+      theme:
+        description: The theme to run
+        required: false
+        type: choice
+        default: all
+        options:
+          - all
+          - flake-hunt
+          - slop
+          - dead-code
+          - test-quality
+          - docs-drift
+          - duplication-go
+          - duplication-ts
+          - duplication-python
+          - duplication-cpp
+
+permissions: {}
+
+jobs:
+  prompt:
+    name: Write the prompts
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      themes: ${{ steps.prompt.outputs.themes }}
+      flake-hunt: ${{ steps.prompt.outputs.flake-hunt }}
+      slop: ${{ steps.prompt.outputs.slop }}
+      dead-code: ${{ steps.prompt.outputs.dead-code }}
+      test-quality: ${{ steps.prompt.outputs.test-quality }}
+      docs-drift: ${{ steps.prompt.outputs.docs-drift }}
+      duplication-go: ${{ steps.prompt.outputs.duplication-go }}
+      duplication-ts: ${{ steps.prompt.outputs.duplication-ts }}
+      duplication-python: ${{ steps.prompt.outputs.duplication-python }}
+      duplication-cpp: ${{ steps.prompt.outputs.duplication-cpp }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Find duplicated code
+        if:
+          inputs.theme == '' || inputs.theme == 'all' || startsWith(inputs.theme,
+          'duplication-')
+        run:
+          npx --yes jscpd@5.4.1 --config .github/agents/nightly/jscpd.json --output
+          "$RUNNER_TEMP/jscpd" .
+
+      - name: Write the prompts
+        id: prompt
+        env:
+          THEME: ${{ inputs.theme || 'all' }}
+        run: |
+          THEMES=(flake-hunt slop dead-code test-quality docs-drift duplication-go
+            duplication-ts duplication-python duplication-cpp)
+          [ "$THEME" = all ] || THEMES=("$THEME")
+          echo "themes=$(jq --compact-output --null-input '$ARGS.positional' \
+            --args "${THEMES[@]}")" >> "$GITHUB_OUTPUT"
+          for theme in "${THEMES[@]}"; do
+            EOF=$(openssl rand -hex 16)
+            {
+              echo "$theme<<$EOF"
+              cat .github/agents/nightly/rules.md
+              echo
+              if [[ $theme == duplication-* ]]; then
+                cat .github/agents/nightly/duplication.md
+                printf '\n## Clone groups\n\n'
+                python3 -I .github/scripts/clones.py "$RUNNER_TEMP/jscpd/jscpd-report.json" \
+                  --language "${theme#duplication-}" --top 40
+              else
+                cat ".github/agents/nightly/$theme.md"
+              fi
+              printf '\nToday is %s. The theme is %s.\n' "$(date -u +%F)" "$theme"
+              echo "$EOF"
+            } >> "$GITHUB_OUTPUT"
+          done
+
+  agent:
+    name: Agent (${{ matrix.theme }})
+    needs: prompt
+    strategy:
+      fail-fast: false
+      matrix:
+        theme: ${{ fromJSON(needs.prompt.outputs.themes) }}
+    concurrency:
+      group: agent-nightly-${{ matrix.theme }}
+      cancel-in-progress: false
+    permissions:
+      actions: read
+      contents: write
+      id-token: write
+      issues: write
+      pull-requests: write
+    uses: ./.github/workflows/agent.yaml
+    with:
+      prompt: ${{ needs.prompt.outputs[matrix.theme] }}
+      agent: ${{ vars.AGENT_DEFAULT || 'claude' }}
+      output: report
+      timeout-minutes: 180
+    secrets: inherit

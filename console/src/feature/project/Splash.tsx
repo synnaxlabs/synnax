@@ -20,24 +20,39 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Access, Project as PProject } from "@synnaxlabs/pluto";
-import { type ReactElement, useCallback, useEffect, useState } from "react";
+import { type ReactElement, useEffect, useState } from "react";
 
 import { ContextMenu, listItem } from "@/feature/project/Selector";
+import { useOpenSample } from "@/feature/project/useOpenSample";
 import { Shell } from "@/feature/shell";
 import { Button } from "@/platform/button";
+import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { Project as PlatformProject } from "@/platform/project";
 import { Session } from "@/session";
 
+const LogOutAction = (): ReactElement => {
+  const logout = Core.useLogout();
+  return (
+    <Header.Actions>
+      <PButton.Button variant="text" textColor={9} size="medium" onClick={logout}>
+        <Icon.Logout />
+        Log out
+      </PButton.Button>
+    </Header.Actions>
+  );
+};
+
 /** Full-window project picker shown when the session has no active project. */
 export const Splash = (): ReactElement => {
   const dispatch = Session.useDispatch();
-  const logout = Session.useLogout();
   const activeCore = Session.Core.useSelectSelected();
   const hasRetrievePermission = Access.useRetrieveGranted(project.TYPE_ONTOLOGY_ID);
   const hasCreatePermission = Access.useCreateGranted(project.TYPE_ONTOLOGY_ID);
   const openCreate = PlatformProject.useCreateModal();
+  const openSample = useOpenSample();
+  const sampleVisible = Session.Runtime.CORE_EMBEDDED && hasCreatePermission;
   const { data, retrieve, getItem, subscribe, answered, status } = PProject.useList();
   const { fetchMore, search } = List.usePager({ retrieve, pageSize: 20 });
   const [searchTerm, setSearchTerm] = useState("");
@@ -48,27 +63,20 @@ export const Splash = (): ReactElement => {
     fetchMore();
   }, [fetchMore]);
 
-  const handleSearch = useCallback(
-    (term: string) => {
-      setSearchTerm(term);
-      search(term);
-    },
-    [search],
-  );
+  const handleSearch = (term: string) => {
+    setSearchTerm(term);
+    search(term);
+  };
 
-  const handleSelect = useCallback(
-    (key: project.Key | null) => {
-      if (key == null) return;
-      const p = getItem(key);
-      if (p == null) throw new UnexpectedError(`Project ${key} not found`);
-      dispatch(Session.Project.select(p.key));
-    },
-    [dispatch, getItem],
-  );
+  const handleSelect = (key: project.Key | null) => {
+    if (key == null) return;
+    const p = getItem(key);
+    if (p == null) throw new UnexpectedError(`Project ${key} not found`);
+    dispatch(Session.Project.select(p.key));
+  };
 
-  const contextMenu = useCallback<NonNullable<Menu.ContextMenuProps["menu"]>>(
-    (props) => <ContextMenu {...props} getItem={getItem} />,
-    [getItem],
+  const contextMenu: NonNullable<Menu.ContextMenuProps["menu"]> = (props) => (
+    <ContextMenu {...props} getItem={getItem} />
   );
   const menuProps = Menu.useContextMenu();
   const getIsAnyModalOpen = Session.Modals.useGetIsAnyOpen();
@@ -99,19 +107,7 @@ export const Splash = (): ReactElement => {
               <Icon.Project />
               Projects
             </Header.Title>
-            {!Session.Runtime.CORE_EMBEDDED && (
-              <Header.Actions>
-                <PButton.Button
-                  variant="text"
-                  textColor={9}
-                  size="medium"
-                  onClick={logout}
-                >
-                  <Icon.Logout />
-                  Log out
-                </PButton.Button>
-              </Header.Actions>
-            )}
+            {!Session.Runtime.CORE_EMBEDDED && <LogOutAction />}
           </Header.Header>
           {awaitingProject && (
             <Status.Summary
@@ -148,6 +144,10 @@ export const Splash = (): ReactElement => {
             <Empty.Action
               grow
               message={searchTerm === "" ? "No projects" : "No matching projects"}
+              action={
+                sampleVisible && searchTerm === "" ? "Open sample project" : undefined
+              }
+              onClick={openSample}
             />
           ) : (
             <Flex.Box grow center>

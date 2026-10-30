@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { id } from "@synnaxlabs/x";
-import { assert, beforeAll, describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { type Action } from "@/access/action/types.gen";
 import { type role } from "@/access/role";
@@ -105,8 +105,7 @@ describe("role", () => {
       const u = await client.users.create({
         username,
         password: "test",
-        firstName: "test",
-        lastName: "test",
+        name: "test",
       });
       await client.access.roles.assign({
         user: u.key,
@@ -119,8 +118,8 @@ describe("role", () => {
     it("should connect a client holding a built-in role's permissions", async () => {
       const viewer = await createTestClientWithRole(client, "Viewer");
       await viewer.connect();
-      assert(viewer.auth?.user != null);
-      const subject = user.ontologyID(viewer.auth.user.key);
+      const { key } = await viewer.users.current.retrieve();
+      const subject = user.ontologyID(key);
       const granted = async (action: Action) =>
         await viewer.access.granted.retrieve(subject, {
           objects: channel.TYPE_ONTOLOGY_ID,

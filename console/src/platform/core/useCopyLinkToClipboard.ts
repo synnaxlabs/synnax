@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { type ontology } from "@synnaxlabs/client";
-import { useCallback } from "react";
 
 import { Link } from "@/platform/link";
 import { Session } from "@/session";
@@ -25,8 +24,5 @@ export interface CopyLinkToClipboard {
 export const useCopyLinkToClipboard = (): CopyLinkToClipboard => {
   const copyLink = Link.useCopyToClipboard();
   const clusterKey = Session.Core.useSelectClusterKey();
-  return useCallback(
-    (params) => copyLink({ ...params, clusterKey }),
-    [copyLink, clusterKey],
-  );
+  return (params) => copyLink({ ...params, clusterKey });
 };

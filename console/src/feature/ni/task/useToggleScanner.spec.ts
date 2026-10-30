@@ -9,6 +9,7 @@
 
 import { ni } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { Status } from "@synnaxlabs/lyra/status";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -74,5 +75,39 @@ describe("useToggleScanner", () => {
       schemas: NI.Task.SCAN_SCHEMAS,
     });
     expect(afterB.config.disabled).toBe(taskB.config.disabled);
+  });
+
+  it("should report whether it disabled or enabled scanning", async () => {
+    const { rack } = await createNIRackWithScanner();
+    const { wrapper } = await createConsoleWrapper({ client });
+    const { result } = renderHook(
+      () => ({
+        toggle: NI.Task.useToggleScanner(rack.key),
+        notifications: Status.useNotifications(),
+      }),
+      { wrapper },
+    );
+    await act(async () => {
+      result.current.toggle();
+    });
+    await waitFor(() =>
+      expect(result.current.notifications.statuses).toContainEqual(
+        expect.objectContaining({
+          variant: "success",
+          message: "Disabled NI device scanning",
+        }),
+      ),
+    );
+    await act(async () => {
+      result.current.toggle();
+    });
+    await waitFor(() =>
+      expect(result.current.notifications.statuses).toContainEqual(
+        expect.objectContaining({
+          variant: "success",
+          message: "Enabled NI device scanning",
+        }),
+      ),
+    );
   });
 });

@@ -20,13 +20,12 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/table/versions/v1"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/migrate"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 //go:embed testdata/*.json
@@ -65,7 +64,7 @@ func migrateSeed(ctx SpecContext, seed v0.Table) v1.Table {
 	Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 		DB:         db,
 		Namespace:  "Table",
-		Migrations: []migrate.Migration{v0.Migration, v1.Migration},
+		Migrations: []gorp.Migration{v0.Migration, v1.Migration},
 	})).To(Succeed())
 	var got v1.Table
 	Expect(gorp.NewRetrieve[v1.Key, v1.Table]().
@@ -279,7 +278,7 @@ var _ = Describe("MigrateTable", func() {
 			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 				DB:         db,
 				Namespace:  "Table",
-				Migrations: []migrate.Migration{v0.Migration, v1.Migration},
+				Migrations: []gorp.Migration{v0.Migration, v1.Migration},
 			})).To(MatchError(ContainSubstring("table data")))
 		})
 	})

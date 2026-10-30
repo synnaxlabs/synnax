@@ -28,14 +28,16 @@ const SearchListItem: Search.ListItem = (props) => {
   const openTab = Panel.useOpenTab();
   const handleError = Status.useErrorHandler();
   const handleSelect = () => {
-    const name = resource?.name ?? "range";
-    handleError(async () => {
-      if (client == null || resource == null) return;
-      const { id } = resource;
-      const ranges = await client.ranges.retrieve([id.key]);
-      store.dispatch(Session.Range.add(Session.Range.fromClient(ranges)));
-      openTab({ variant: "resource", resource: ranger.ontologyID(ranges[0].key) });
-    }, `Failed to select ${name}`);
+    handleError(
+      async () => {
+        if (client == null || resource == null) return;
+        const { id } = resource;
+        const ranges = await client.ranges.retrieve([id.key]);
+        store.dispatch(Session.Range.add(Session.Range.fromClient(ranges)));
+        openTab({ variant: "resource", resource: ranger.ontologyID(ranges[0].key) });
+      },
+      { message: "Failed to select range", name: resource?.name ?? "" },
+    );
   };
   if (resource == null) return null;
   return (
@@ -44,7 +46,7 @@ const SearchListItem: Search.ListItem = (props) => {
         <Icon.Range />
         {resource?.name}
       </Text.Text>
-      <Telem.Text.TimeRange level="small">
+      <Telem.Text.TimeRange level="tiny">
         {resource?.data?.timeRange as CrudeTimeRange}
       </Telem.Text.TimeRange>
     </Palette.ListItem>

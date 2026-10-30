@@ -19,6 +19,7 @@ import { List } from "@/list";
 import { Select } from "@/select";
 import { mockGeometry } from "@/testutil/dom";
 import { Text } from "@/text";
+import { Triggers } from "@/triggers";
 
 describe("Select.Single", () => {
   beforeAll(() => mockGeometry(100, 100));
@@ -85,6 +86,14 @@ describe("Select.Single", () => {
     const { SelectSingle } = createSelectSingle();
     const c = render(<SelectSingle />);
     expect(c.getByText("Test Item")).toBeTruthy();
+  });
+
+  it("should close the selection dialog on one Escape from the search field", () => {
+    const { SelectSingle } = createSelectSingle();
+    const c = render(<SelectSingle />, { wrapper: Triggers.Provider });
+    fireEvent.click(c.getByText("Test Item"));
+    fireEvent.keyDown(c.getByRole("textbox"), { key: "Escape", code: "Escape" });
+    expect(c.queryByRole("option", { name: "First Item Option" })).toBeNull();
   });
 
   it("should open the selection dialog when the trigger is clicked", () => {
@@ -244,7 +253,7 @@ describe("Select.Single", () => {
     fireEvent.click(c.getByText("Test Item"));
     fireEvent.click(c.getByText("First Item Option"));
     expect(c.getByRole("option", { name: "First Item Option" }).classList).toContain(
-      "pluto-btn--prevent-click",
+      "lyra-btn--prevent-click",
     );
   });
 
@@ -256,7 +265,7 @@ describe("Select.Single", () => {
     fireEvent.click(c.getByText("First Item"));
     expect(
       c.getByRole("option", { name: "First Item Option" }).classList,
-    ).not.toContain("pluto-btn--prevent-click");
+    ).not.toContain("lyra-btn--prevent-click");
   });
 
   describe("narrow layout", () => {
@@ -276,22 +285,22 @@ describe("Select.Single", () => {
     };
 
     const getTooltip = (): HTMLElement | null =>
-      document.querySelector<HTMLElement>(".pluto-tooltip");
+      document.querySelector<HTMLElement>(".lyra-tooltip");
 
     it("should show the selected name in a label that fades on overflow", () => {
       const { SelectSingle } = createSelectSingle();
       const c = render(<SelectSingle />);
       select(c);
       const label = c.getByText("First Item");
-      expect(label.classList).toContain("pluto-select__label");
-      expect(label.classList).toContain("pluto-text--overflow-fade");
+      expect(label.classList).toContain("lyra-select__label");
+      expect(label.classList).toContain("lyra-text--overflow-fade");
     });
 
     it("should mark a collapsible trigger", () => {
       const { SelectSingle } = createSelectSingle();
       const c = render(<SelectSingle triggerProps={{ collapsible: true }} />);
       expect(c.getByRole("button", { name: "Test Item" }).classList).toContain(
-        "pluto-select-single-trigger--collapsible",
+        "lyra-select-single-trigger--collapsible",
       );
     });
 
@@ -412,7 +421,7 @@ describe("Select.Single", () => {
       const { SelectSingle } = createSelectSingle();
       const c = render(<SelectSingle preview />);
       expect(c.getByText("None").closest("button")?.classList).toContain(
-        "pluto-btn--preview",
+        "lyra-btn--preview",
       );
     });
 
@@ -433,6 +442,15 @@ describe("Select.Single", () => {
 
   describe("drag", () => {
     const HAUL_TYPE = "test-item";
+    const MIXED: Haul.Item[] = [
+      { type: "foreign", key: "1" },
+      { type: HAUL_TYPE, key: "3" },
+    ];
+
+    const MixedSource = () => {
+      const { startDrag } = Haul.useDrag({ type: "foreign", key: "mixed" });
+      return <button aria-label="Mixed drag" onClick={() => startDrag(MIXED)} />;
+    };
 
     const renderPair = (
       singleProps: Partial<Select.SingleProps<string, TestEntry>> = {},
@@ -466,13 +484,15 @@ describe("Select.Single", () => {
             >
               {listItemRenderProp}
             </Select.Multiple>
+            <MixedSource />
           </Haul.Provider>
         );
       };
       const c = render(<Pair />);
       const source = c.getByRole("button", { name: /^Source/ });
       const target = c.getByRole("button", { name: "Targets" });
-      return { source, target, onSingleChange, onMultipleChange };
+      const mixed = c.getByRole("button", { name: "Mixed drag" });
+      return { source, target, mixed, onSingleChange, onMultipleChange };
     };
 
     it("should copy the selection into a select it is dropped on", () => {
@@ -482,6 +502,23 @@ describe("Select.Single", () => {
       fireEvent.drop(target);
       expect(onMultipleChange).toHaveBeenCalledWith(["2"], expect.anything());
       expect(onSingleChange).not.toHaveBeenCalled();
+    });
+
+    it("should drop only the entries of its own type on a single select", () => {
+      const { source, mixed, onSingleChange } = renderPair();
+      fireEvent.click(mixed);
+      fireEvent.drop(source);
+      expect(onSingleChange).toHaveBeenCalledExactlyOnceWith("3", expect.anything());
+    });
+
+    it("should drop only the entries of its own type on a multiple select", () => {
+      const { target, mixed, onMultipleChange } = renderPair();
+      fireEvent.click(mixed);
+      fireEvent.drop(target);
+      expect(onMultipleChange).toHaveBeenCalledExactlyOnceWith(
+        ["3"],
+        expect.anything(),
+      );
     });
 
     it("should not be draggable while disabled", () => {

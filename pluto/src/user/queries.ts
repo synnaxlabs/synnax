@@ -7,13 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  access,
-  ontology,
-  type Synnax,
-  UnexpectedError,
-  user,
-} from "@synnaxlabs/client";
+import { access, ontology, user } from "@synnaxlabs/client";
 import { array, uuid, verbs } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -39,14 +33,14 @@ export type RetrieveQuery = {
   key: user.Key;
 };
 
-export interface ChangeUsernameParams extends Pick<user.User, "key" | "username"> {}
+export interface RenameParams extends Pick<user.User, "key" | "name"> {}
 
-export const { useUpdate: useRename } = Flux.createUpdate<ChangeUsernameParams>({
+export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
   name: RESOURCE_NAME,
   verbs: verbs.RENAME,
   update: async ({ client, data, onOptimisticComplete }) => {
-    const { key, username } = data;
-    await client.users.changeUsername(key, username, {
+    const { key, name } = data;
+    await client.users.rename(key, name, {
       onOptimistic: async () => await onOptimisticComplete(data),
     });
     return data;
@@ -67,9 +61,9 @@ export const { use: useGroupID } = Flux.createRetrieve<
 });
 
 export const formSchema = user.newZ.extend({
+  username: z.string().min(1, "username is required"),
   password: z.string().min(1, "Password is required"),
-  firstName: z.string().min(1, "First name is required"),
-  lastName: z.string().min(1, "Last name is required"),
+  name: z.string().min(1, "Name is required"),
   role: access.role.keyZ,
 });
 
@@ -79,8 +73,7 @@ export type FormQuery = {
 
 const ZERO_FORM_VALUES: z.infer<typeof formSchema> = {
   username: "",
-  firstName: "",
-  lastName: "",
+  name: "",
   password: "",
   role: "",
 };
@@ -89,11 +82,6 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   name: "user",
   schema: formSchema,
   initialValues: ZERO_FORM_VALUES,
-  retrieve: async ({ client, query: { key } }) => ({
-    ...(await client.users.retrieve(key)),
-    password: "",
-    role: "",
-  }),
   update: async ({ client, value }) => {
     const v = value();
     const createdUser = await client.users.create({ key: uuid.create(), ...v });
@@ -105,44 +93,23 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
   },
 });
 
-const retrieveCurrent = async (client: Synnax): Promise<user.User> => {
-  const user = client.auth?.user;
-  if (user == null) {
-    await client.connect();
-    if (client.auth?.user == null)
-      throw new UnexpectedError(
-        "Expected user to be available after successfully connecting to cluster",
-      );
-    return client.auth.user;
-  }
-  return user;
-};
-
 export const { use, useResult, createResultSelector } = Flux.createRetrieve<
   Partial<RetrieveQuery>,
   user.User
 >({
   name: RESOURCE_NAME,
-  retrieve: async ({ client, query: { key } }) => {
-    if (key == null) return await retrieveCurrent(client);
-    return await client.users.retrieve(key);
-  },
-  onChange: ({ client, query: { key } }, handler) => {
-    key ??= client.auth?.user?.key;
-    if (key == null) return () => {};
-    return client.users.onChange(key, handler);
-  },
-  getCached: ({ client, query: { key } }) => {
-    key ??= client.auth?.user?.key;
-    if (key == null) return undefined;
-    return client.users.getCached(key);
-  },
+  retrieve: async ({ client, query: { key } }) =>
+    key == null
+      ? await client.users.current.retrieve()
+      : await client.users.retrieve(key),
+  onChange: ({ client, query: { key } }, handler) =>
+    key == null
+      ? client.users.current.onChange(handler)
+      : client.users.onChange(key, handler),
+  getCached: ({ client, query: { key } }) =>
+    key == null ? client.users.current.getCached() : client.users.getCached(key),
 });
 
 export const useResultKey = createResultSelector(({ key }) => key);
 
-export const useResultUsername = createResultSelector(({ username }) => username);
-
-export const useResultFirstName = createResultSelector(({ firstName }) => firstName);
-
-export const useResultLastName = createResultSelector(({ lastName }) => lastName);
+export const useResultName = createResultSelector(({ name }) => name);

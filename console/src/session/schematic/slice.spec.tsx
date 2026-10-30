@@ -83,14 +83,14 @@ describe("Schematic Slice", () => {
 
     it("should apply provided fields over the defaults", () => {
       store.dispatch(Schematic.create({ key: KEY, editable: true }));
-      expect(read(Schematic.useGetEditable)).toBe(true);
+      expect(read(Schematic.useGet).editable).toBe(true);
     });
 
     it("should not overwrite an existing entry", () => {
       store.dispatch(Schematic.create({ key: KEY }));
       store.dispatch(Schematic.setEditable({ key: KEY, editable: true }));
       store.dispatch(Schematic.create({ key: KEY }));
-      expect(read(Schematic.useGetEditable)).toBe(true);
+      expect(read(Schematic.useGet).editable).toBe(true);
     });
   });
 
@@ -98,25 +98,25 @@ describe("Schematic Slice", () => {
     it("should set the selected elements", () => {
       store.dispatch(Schematic.create({ key: KEY }));
       store.dispatch(Schematic.setSelected({ key: KEY, selected: ["a", "b"] }));
-      expect(read(Schematic.useGetSelected)).toEqual(["a", "b"]);
+      expect(read(Schematic.useGet).selected).toEqual(["a", "b"]);
     });
 
     it("should switch the toolbar to properties when something is selected", () => {
       store.dispatch(Schematic.create({ key: KEY }));
       store.dispatch(Schematic.setSelected({ key: KEY, selected: ["a"] }));
-      expect(read(Schematic.useGetActiveToolbarTab)).toBe("properties");
+      expect(read(Schematic.useGet).toolbar.selectedTab).toBe("properties");
     });
 
     it("should switch the toolbar back to symbols when nothing is selected", () => {
       store.dispatch(Schematic.create({ key: KEY }));
       store.dispatch(Schematic.setSelected({ key: KEY, selected: ["a"] }));
       store.dispatch(Schematic.setSelected({ key: KEY, selected: [] }));
-      expect(read(Schematic.useGetActiveToolbarTab)).toBe("symbols");
+      expect(read(Schematic.useGet).toolbar.selectedTab).toBe("symbols");
     });
 
     it("should lazily create the entry when the key does not exist", () => {
       store.dispatch(Schematic.setSelected({ key: KEY, selected: ["a"] }));
-      expect(read(Schematic.useGetSelected)).toEqual(["a"]);
+      expect(read(Schematic.useGet).selected).toEqual(["a"]);
     });
   });
 
@@ -132,15 +132,15 @@ describe("Schematic Slice", () => {
       store.dispatch(Schematic.setSelected({ key: KEY, selected: ["a"] }));
       store.dispatch(Schematic.setEditable({ key: KEY, editable: true }));
       store.dispatch(Schematic.setControlStatus({ key: KEY, status: "acquired" }));
-      expect(read(Schematic.useGetSelected)).toEqual([]);
-      expect(read(Schematic.useGetEditable)).toBe(false);
+      expect(read(Schematic.useGet).selected).toEqual([]);
+      expect(read(Schematic.useGet).editable).toBe(false);
     });
 
     it("should leave the properties tab when control clears the selection", () => {
       store.dispatch(Schematic.create({ key: KEY }));
       store.dispatch(Schematic.setSelected({ key: KEY, selected: ["a"] }));
       store.dispatch(Schematic.setControlStatus({ key: KEY, status: "acquired" }));
-      expect(read(Schematic.useGetActiveToolbarTab)).toBe("symbols");
+      expect(read(Schematic.useGet).toolbar.selectedTab).toBe("symbols");
     });
 
     it("should keep a tab that does not depend on the selection", () => {
@@ -148,7 +148,7 @@ describe("Schematic Slice", () => {
       store.dispatch(Schematic.setSelected({ key: KEY, selected: ["a"] }));
       store.dispatch(Schematic.selectToolbarTab({ key: KEY, tab: "control" }));
       store.dispatch(Schematic.setControlStatus({ key: KEY, status: "acquired" }));
-      expect(read(Schematic.useGetActiveToolbarTab)).toBe("control");
+      expect(read(Schematic.useGet).toolbar.selectedTab).toBe("control");
     });
 
     it("should not touch selection or editing for non-acquired statuses", () => {
@@ -156,8 +156,8 @@ describe("Schematic Slice", () => {
       store.dispatch(Schematic.setSelected({ key: KEY, selected: ["a"] }));
       store.dispatch(Schematic.setEditable({ key: KEY, editable: true }));
       store.dispatch(Schematic.setControlStatus({ key: KEY, status: "released" }));
-      expect(read(Schematic.useGetSelected)).toEqual(["a"]);
-      expect(read(Schematic.useGetEditable)).toBe(true);
+      expect(read(Schematic.useGet).selected).toEqual(["a"]);
+      expect(read(Schematic.useGet).editable).toBe(true);
     });
   });
 
@@ -200,7 +200,7 @@ describe("Schematic Slice", () => {
     it("should set the active toolbar tab", () => {
       store.dispatch(Schematic.create({ key: KEY }));
       store.dispatch(Schematic.selectToolbarTab({ key: KEY, tab: "properties" }));
-      expect(read(Schematic.useGetActiveToolbarTab)).toBe("properties");
+      expect(read(Schematic.useGet).toolbar.selectedTab).toBe("properties");
     });
 
     it("should set the selected symbol group", () => {
@@ -220,6 +220,51 @@ describe("Schematic Slice", () => {
       expect(read(Schematic.useGet).toolbar.propertiesTab).toBe("style");
     });
 
+    it("should open the symbols tab to change the selected symbols", () => {
+      store.dispatch(Schematic.create({ key: KEY }));
+      store.dispatch(Schematic.setSelected({ key: KEY, selected: ["a"] }));
+      store.dispatch(Schematic.setChanging({ key: KEY, changing: true }));
+      expect(read(Schematic.useGet).toolbar).toMatchObject({
+        selectedTab: "symbols",
+        changing: true,
+      });
+    });
+
+    it("should return to the properties tab when a change ends", () => {
+      store.dispatch(Schematic.create({ key: KEY }));
+      store.dispatch(Schematic.setSelected({ key: KEY, selected: ["a"] }));
+      store.dispatch(Schematic.setChanging({ key: KEY, changing: true }));
+      store.dispatch(Schematic.setChanging({ key: KEY, changing: false }));
+      expect(read(Schematic.useGet).toolbar).toMatchObject({
+        selectedTab: "properties",
+        changing: false,
+      });
+    });
+
+    it("should end a change when the tab changes", () => {
+      store.dispatch(Schematic.create({ key: KEY }));
+      store.dispatch(Schematic.setSelected({ key: KEY, selected: ["a"] }));
+      store.dispatch(Schematic.setChanging({ key: KEY, changing: true }));
+      store.dispatch(Schematic.selectToolbarTab({ key: KEY, tab: "symbols" }));
+      expect(read(Schematic.useGet).toolbar.changing).toBe(false);
+    });
+
+    it("should end a change when the selection changes", () => {
+      store.dispatch(Schematic.create({ key: KEY }));
+      store.dispatch(Schematic.setSelected({ key: KEY, selected: ["a"] }));
+      store.dispatch(Schematic.setChanging({ key: KEY, changing: true }));
+      store.dispatch(Schematic.setSelected({ key: KEY, selected: ["b"] }));
+      expect(read(Schematic.useGet).toolbar.changing).toBe(false);
+    });
+
+    it("should end a change when editing is disabled", () => {
+      store.dispatch(Schematic.create({ key: KEY }));
+      store.dispatch(Schematic.setSelected({ key: KEY, selected: ["a"] }));
+      store.dispatch(Schematic.setChanging({ key: KEY, changing: true }));
+      store.dispatch(Schematic.setEditable({ key: KEY, editable: false }));
+      expect(read(Schematic.useGet).toolbar.changing).toBe(false);
+    });
+
     it("should keep the properties tab when the selection changes", () => {
       store.dispatch(Schematic.create({ key: KEY }));
       store.dispatch(Schematic.setPropertiesTab({ key: KEY, tab: "style" }));
@@ -233,21 +278,21 @@ describe("Schematic Slice", () => {
     it("should enable editing", () => {
       store.dispatch(Schematic.create({ key: KEY }));
       store.dispatch(Schematic.setEditable({ key: KEY, editable: true }));
-      expect(read(Schematic.useGetEditable)).toBe(true);
+      expect(read(Schematic.useGet).editable).toBe(true);
     });
 
     it("should clear the selection when editing is disabled", () => {
       store.dispatch(Schematic.create({ key: KEY }));
       store.dispatch(Schematic.setSelected({ key: KEY, selected: ["a"] }));
       store.dispatch(Schematic.setEditable({ key: KEY, editable: false }));
-      expect(read(Schematic.useGetSelected)).toEqual([]);
+      expect(read(Schematic.useGet).selected).toEqual([]);
     });
 
     it("should leave the properties tab when disabling editing clears the selection", () => {
       store.dispatch(Schematic.create({ key: KEY }));
       store.dispatch(Schematic.setSelected({ key: KEY, selected: ["a"] }));
       store.dispatch(Schematic.setEditable({ key: KEY, editable: false }));
-      expect(read(Schematic.useGetActiveToolbarTab)).toBe("symbols");
+      expect(read(Schematic.useGet).toolbar.selectedTab).toBe("symbols");
     });
   });
 
@@ -255,7 +300,7 @@ describe("Schematic Slice", () => {
     it("should set fit view on resize", () => {
       store.dispatch(Schematic.create({ key: KEY }));
       store.dispatch(Schematic.setFitViewOnResize({ key: KEY, fitViewOnResize: true }));
-      expect(read(Schematic.useGetFitViewOnResize)).toBe(true);
+      expect(read(Schematic.useGet).fitViewOnResize).toBe(true);
     });
   });
 
@@ -320,74 +365,71 @@ describe("Schematic Slice", () => {
     });
   });
 
-  describe("stateZ schema", () => {
-    it("should accept the zero state", () => {
-      expect(() => Schematic.stateZ.parse(Schematic.ZERO_STATE)).not.toThrow();
-    });
-
-    it("should apply prefaulted defaults when nested objects are missing", () => {
-      const parsed = Schematic.stateZ.parse({});
-      expect(parsed.control.authority).toBe(1);
-      expect(parsed.control.status).toBe("released");
-      expect(parsed.legend.visible).toBe(true);
-      expect(parsed.toolbar.selectedTab).toBe("symbols");
-      expect(parsed.viewport.zoom).toBe(1);
-      expect(parsed.editable).toBe(true);
-      expect(parsed.fitViewOnResize).toBe(false);
-      expect(parsed.tooltipsDisabled).toBe(false);
-      expect(parsed.selected).toEqual([]);
+  describe("zero state", () => {
+    it("should hold the defaults for a new schematic", () => {
+      const zero = Schematic.ZERO_STATE;
+      expect(zero.control.authority).toBe(1);
+      expect(zero.control.status).toBe("released");
+      expect(zero.legend.visible).toBe(true);
+      expect(zero.toolbar.selectedTab).toBe("symbols");
+      expect(zero.viewport.zoom).toBe(1);
+      expect(zero.editable).toBe(true);
+      expect(zero.fitViewOnResize).toBe(false);
+      expect(zero.tooltipsDisabled).toBe(false);
+      expect(zero.selected).toEqual([]);
     });
   });
+});
 
-  describe("purgeState", () => {
-    it("should reset the control status to released", () => {
-      const state = Schematic.stateZ.parse({ control: { status: "acquired" } });
-      expect(Schematic.purgeState(state).control.status).toBe("released");
+describe("persistence", () => {
+  const createAcquired = (): Schematic.State => ({
+    ...structuredClone(Schematic.ZERO_STATE),
+    control: { ...Schematic.ZERO_STATE.control, status: "acquired" },
+  });
+
+  const persist = (documents: Record<string, Schematic.State>) => {
+    const stored = {
+      ...DRIFT_STATE,
+      [Schematic.SLICE_NAME]: {
+        version: 0 as const,
+        windows: inWindow(structuredClone(documents)),
+      },
+    };
+    Schematic.PERSIST_EXCLUDE.forEach((exclude) => exclude(stored));
+    return (key: string = KEY) => documentIn(stored[Schematic.SLICE_NAME], key);
+  };
+
+  it("should release control on every schematic", () => {
+    const purged = persist({
+      "schematic-1": createAcquired(),
+      "schematic-2": createAcquired(),
     });
+    expect(purged("schematic-1")?.control.status).toBe("released");
+    expect(purged("schematic-2")?.control.status).toBe("released");
+  });
 
-    // A selection is the state of an edit in progress, so it does not outlive the
-    // session that made it.
-    it("should clear the selection", () => {
-      const state = Schematic.stateZ.parse({ selected: ["a", "b"] });
-      expect(Schematic.purgeState(state).selected).toEqual([]);
+  // A selection is the state of an edit in progress, so it does not outlive the
+  // session that made it.
+  it("should clear the selection", () => {
+    const purged = persist({
+      [KEY]: { ...Schematic.ZERO_STATE, selected: ["a", "b"] },
     });
+    expect(purged()?.selected).toEqual([]);
+  });
 
-    it("should leave the properties tab with the selection", () => {
-      const state = Schematic.stateZ.parse({
+  it("should leave the properties tab with the selection", () => {
+    const purged = persist({
+      [KEY]: {
+        ...Schematic.ZERO_STATE,
         selected: ["a"],
-        toolbar: { selectedTab: "properties" },
-      });
-      expect(Schematic.purgeState(state).toolbar.selectedTab).toBe("symbols");
+        toolbar: { ...Schematic.ZERO_STATE.toolbar, selectedTab: "properties" },
+      },
     });
-
-    it("should leave other fields untouched", () => {
-      const state = Schematic.stateZ.parse({
-        control: { status: "acquired" },
-        editable: true,
-      });
-      expect(Schematic.purgeState(state).editable).toBe(true);
-    });
+    expect(purged()?.toolbar.selectedTab).toBe("symbols");
   });
 
-  describe("purgeSliceState", () => {
-    it("should release control on every schematic in the slice", () => {
-      const state: Schematic.StoreState = {
-        ...DRIFT_STATE,
-        [Schematic.SLICE_NAME]: {
-          version: 0,
-          windows: inWindow({
-            "schematic-1": Schematic.stateZ.parse({ control: { status: "acquired" } }),
-            "schematic-2": Schematic.stateZ.parse({ control: { status: "acquired" } }),
-          }),
-        },
-      };
-      const purged = Schematic.purgeSliceState(state);
-      expect(
-        documentIn(purged[Schematic.SLICE_NAME], "schematic-1")?.control.status,
-      ).toBe("released");
-      expect(
-        documentIn(purged[Schematic.SLICE_NAME], "schematic-2")?.control.status,
-      ).toBe("released");
-    });
+  it("should leave other fields untouched", () => {
+    const purged = persist({ [KEY]: { ...createAcquired(), tooltipsDisabled: true } });
+    expect(purged()?.tooltipsDisabled).toBe(true);
   });
 });

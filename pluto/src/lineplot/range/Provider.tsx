@@ -10,14 +10,14 @@
 import "@/lineplot/range/Provider.css";
 
 import { type Component } from "@synnaxlabs/lyra/component";
-import { CSS } from "@synnaxlabs/lyra/css";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { useSyncedRef, useUniqueKey } from "@synnaxlabs/lyra/hooks";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { box, xy } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useEffect } from "react";
+import { type ReactElement, useEffect } from "react";
 
 import { Aether } from "@/aether";
+import { CSS } from "@/css";
 import { useContext, useGridEntry } from "@/lineplot/Frame";
 import { range } from "@/lineplot/range/aether";
 
@@ -41,10 +41,8 @@ export const Provider = ({
     type: range.Provider.TYPE,
     schema: range.providerStateZ,
     initialState: { ...rest, visible, cursor: null, hovered: null, count: 0 },
-    onAetherChange: useCallback(
-      ({ count }: range.ProviderState) => onHasAnnotationsChange?.(count > 0),
-      [onHasAnnotationsChange],
-    ),
+    onAetherChange: ({ count }: range.ProviderState) =>
+      onHasAnnotationsChange?.(count > 0),
   });
   useEffect(() => {
     setState((s) => ({ ...s, visible }));
@@ -58,14 +56,12 @@ export const Provider = ({
   const menuProps = Menu.useContextMenu();
   const visibleRef = useSyncedRef(menuProps.visible);
 
-  const handleMouseMove: React.MouseEventHandler<HTMLDivElement> = useCallback(
-    (e) => setState((state) => ({ ...state, cursor: { x: e.clientX, y: e.clientY } })),
-    [setState],
-  );
+  const handleMouseMove: React.MouseEventHandler<HTMLDivElement> = (e) =>
+    setState((state) => ({ ...state, cursor: { x: e.clientX, y: e.clientY } }));
 
-  const handleMouseLeave: React.MouseEventHandler<HTMLDivElement> = useCallback(() => {
+  const handleMouseLeave: React.MouseEventHandler<HTMLDivElement> = () => {
     if (!visibleRef.current) setState((state) => ({ ...state, cursor: null }));
-  }, [setState, visibleRef]);
+  };
 
   return (
     <Menu.ContextMenu

@@ -14,20 +14,20 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestConnectivity(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "API Connectivity Suite")
+	RunSpecs(t, "API Connectivity Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
-var node mock.Node
+var node testutil.Node
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	node = mock.NewNode(ctx)
+	node = testutil.NewNode(ctx)
 })

@@ -15,12 +15,14 @@ import (
 	"encoding/json/v2"
 	"fmt"
 	"math/rand/v2"
+	"runtime"
 	"slices"
+	"sync"
+	"sync/atomic"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
@@ -87,6 +89,9 @@ func (r configResolver) RetrieveDataTypes(
 func (r configResolver) RetrieveName(context.Context, channel.Key) string {
 	return r.name
 }
+
+// leadingDomain is where Cesium starts the alignment domains of unpersisted writes.
+const leadingDomain uint32 = 1 << 31
 
 var _ = Describe("Codec", func() {
 	DescribeTable("Encode + Decode", func(
@@ -234,6 +239,47 @@ var _ = Describe("Codec", func() {
 				},
 			),
 		),
+		Entry("Alignment Multiples",
+			channel.Keys{1, 2},
+			[]telem.DataType{telem.TimestampT, telem.Float32T},
+			frame.NewMulti(
+				channel.Keys{1, 2},
+				[]telem.Series{
+					{
+						DataType:          telem.TimestampT,
+						Data:              telem.NewSeriesSecondsTSV(1, 2).Data,
+						Alignment:         telem.NewAlignment(1, 4),
+						AlignmentMultiple: 4,
+					},
+					{
+						DataType:          telem.Float32T,
+						Data:              telem.NewSeriesV[float32](1, 2).Data,
+						Alignment:         telem.NewAlignment(1, 4),
+						AlignmentMultiple: 4,
+					},
+				},
+			),
+		),
+		Entry("Mixed Alignment Multiples",
+			channel.Keys{1, 2},
+			[]telem.DataType{telem.Uint8T, telem.Float32T},
+			frame.NewMulti(
+				channel.Keys{1, 2},
+				[]telem.Series{
+					{
+						DataType:  telem.Uint8T,
+						Data:      []byte{1, 2},
+						Alignment: 5,
+					},
+					{
+						DataType:          telem.Float32T,
+						Data:              telem.NewSeriesV[float32](1, 2).Data,
+						Alignment:         10,
+						AlignmentMultiple: 3,
+					},
+				},
+			),
+		),
 		Entry("Variable Data Types",
 			channel.Keys{1, 2, 3},
 			[]telem.DataType{telem.Uint8T, telem.StringT, telem.JSONT},
@@ -354,7 +400,7 @@ var _ = Describe("Codec", func() {
 				s3.TimeRange = telem.NewRangeSeconds(1, 5)
 				s3.Alignment = 5
 				s4 := telem.MakeSeries(telem.Uint8T, 5000)
-				s4.Alignment = cesium.LeadingAlignment(5000, 5)
+				s4.Alignment = telem.NewAlignment(leadingDomain+5000, 5)
 				s4.TimeRange = telem.NewRangeSeconds(9999999, 999999999)
 				originalFrame := frame.NewMulti(
 					keys,
@@ -379,11 +425,11 @@ var _ = Describe("Codec", func() {
 				// which is what the accumulation throttle produces when it batches
 				// several writes into one streamed frame.
 				s1a := telem.NewSeriesV[int64](1, 2)
-				s1a.Alignment = cesium.LeadingAlignment(4, 100) // [100, 102)
+				s1a.Alignment = telem.NewAlignment(leadingDomain+4, 100) // [100, 102)
 				s1b := telem.NewSeriesV[int64](3, 4)
-				s1b.Alignment = cesium.LeadingAlignment(4, 102) // [102, 104)
+				s1b.Alignment = telem.NewAlignment(leadingDomain+4, 102) // [102, 104)
 				s2 := telem.NewSeriesV[int64](5, 6)
-				s2.Alignment = cesium.LeadingAlignment(4, 100)
+				s2.Alignment = telem.NewAlignment(leadingDomain+4, 100)
 				fr := frame.NewMulti(
 					channel.Keys{1, 1, 2},
 					[]telem.Series{s1a, s1b, s2},
@@ -413,7 +459,7 @@ var _ = Describe("Codec", func() {
 				// next.Lower.
 				Expect(
 					ch1[0].AlignmentBounds().Lower,
-				).To(Equal(cesium.LeadingAlignment(4, 100)))
+				).To(Equal(telem.NewAlignment(leadingDomain+4, 100)))
 				var total int64
 				for i, s := range ch1 {
 					total += s.Len()
@@ -425,7 +471,7 @@ var _ = Describe("Codec", func() {
 				}
 				Expect(total).To(Equal(int64(4)))
 				Expect(ch1[len(ch1)-1].AlignmentBounds().Upper).To(
-					Equal(cesium.LeadingAlignment(4, 104)),
+					Equal(telem.NewAlignment(leadingDomain+4, 104)),
 				)
 			},
 		)
@@ -443,6 +489,25 @@ var _ = Describe("Codec", func() {
 				encoded, err := c.Encode(ctx, fr)
 				Expect(encoded).To(BeEmpty())
 				Expect(err).To(MatchError(validate.ErrValidation))
+			},
+		)
+	})
+
+	Describe("Extended Flags", func() {
+		It(
+			"Should reject a frame that sets the extended flags bit",
+			func(ctx SpecContext) {
+				c := codec.NewStatic(channel.Keys{1}, []telem.DataType{telem.Int32T})
+				encoded := MustSucceed(
+					c.Encode(ctx, frame.NewUnary(1, telem.NewSeriesV[int32](1))),
+				)
+				encoded[0] |= 1 << 7
+				Expect(c.Decode(encoded)).Error().To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(
+						"remote sent an extended flags byte, which this codec does not support: validation error",
+					),
+				))
 			},
 		)
 	})
@@ -538,8 +603,8 @@ var _ = Describe("Codec", func() {
 			codec := codec.NewDynamic(nil)
 			Expect(func() {
 				fr := framer.Frame{}
-				_, _ = codec.Encode(ctx, fr)
-			}).To(Panic())
+				MustSucceed(codec.Encode(ctx, fr))
+			}).To(PanicWith("dynamic codec was not updated for first call to Encode"))
 		})
 
 		It(
@@ -581,6 +646,54 @@ var _ = Describe("Codec", func() {
 		)
 
 		It(
+			"Should reject a frame encoded with keys older than the last frame decoded",
+			func(ctx SpecContext) {
+				enc := codec.NewDynamic(resolver)
+				dec := codec.NewDynamic(resolver)
+				Expect(dec.Update(ctx, []channel.Key{idxCh})).To(Succeed())
+				Expect(enc.Update(ctx, []channel.Key{idxCh})).To(Succeed())
+				fr := frame.NewUnary(idxCh, telem.NewSeriesSecondsTSV(1, 2, 3))
+				stale := MustSucceed(enc.Encode(ctx, fr))
+				Expect(dec.Update(ctx, []channel.Key{idxCh, dataCh})).To(Succeed())
+				Expect(enc.Update(ctx, []channel.Key{idxCh, dataCh})).To(Succeed())
+				MustSucceed(dec.Decode(MustSucceed(enc.Encode(ctx, fr))))
+				Expect(dec.Decode(stale)).Error().To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(
+						ContainSubstring("remote sent invalid sequence number 1"),
+					),
+				))
+			},
+		)
+
+		It(
+			"Should not hold the keys of an update that a later update replaced",
+			func(ctx SpecContext) {
+				keys := make(channel.Keys, 2000)
+				r := make(mapResolver, len(keys))
+				for i := range keys {
+					keys[i] = channel.Key(i + 1)
+					r[keys[i]] = telem.Float32T
+				}
+				enc := codec.NewDynamic(r)
+				heap := func() int64 {
+					runtime.GC()
+					var m runtime.MemStats
+					runtime.ReadMemStats(&m)
+					return int64(m.HeapAlloc)
+				}
+				before := heap()
+				for range 200 {
+					Expect(enc.Update(ctx, keys)).To(Succeed())
+					MustSucceed(enc.Encode(ctx, framer.Frame{}))
+				}
+				// Each update of 2000 keys that the encoder holds takes about 150 KB.
+				Expect(heap() - before).To(BeNumerically("<", 5<<20))
+				runtime.KeepAlive(enc)
+			},
+		)
+
+		It(
 			"Should preserve alignment across rapid key churn (schematic pattern)",
 			func(ctx SpecContext) {
 				enc := codec.NewDynamic(resolver)
@@ -610,7 +723,7 @@ var _ = Describe("Codec", func() {
 						Expect(enc.Update(ctx, only)).To(Succeed())
 					}
 					s := telem.NewSeriesV(float32(i))
-					s.Alignment = cesium.LeadingAlignment(1, sample)
+					s.Alignment = telem.NewAlignment(leadingDomain+1, sample)
 					fr := frame.NewUnary(dataCh, s)
 					decoded := MustSucceed(dec.Decode(MustSucceed(enc.Encode(ctx, fr))))
 					for k, ds := range decoded.Entries() {
@@ -625,6 +738,116 @@ var _ = Describe("Codec", func() {
 					}
 					sample++
 				}
+			},
+		)
+
+		It(
+			"Should accept updates while no frame is encoded or decoded",
+			func(ctx SpecContext) {
+				enc := codec.NewDynamic(resolver)
+				dec := codec.NewDynamic(resolver)
+				only := channel.Keys{dataCh}
+				both := channel.Keys{dataCh, idxCh}
+				done := make(chan struct{})
+				go func() {
+					defer GinkgoRecover()
+					defer close(done)
+					for i := range 100 {
+						keys := only
+						if i%2 == 1 {
+							keys = both
+						}
+						Expect(enc.Update(ctx, keys)).To(Succeed())
+						Expect(dec.Update(ctx, keys)).To(Succeed())
+					}
+				}()
+				Eventually(done).Should(BeClosed())
+				fr := frame.NewMulti(
+					both,
+					[]telem.Series{
+						telem.NewSeriesV[float32](1, 2),
+						telem.NewSeriesSecondsTSV(1, 2),
+					},
+				)
+				decoded := MustSucceed(dec.Decode(MustSucceed(enc.Encode(ctx, fr))))
+				Expect(decoded.Frame).To(telem.MatchFrame(fr.Frame))
+			},
+		)
+
+		It(
+			"Should encode the first frame after an update with the updated keys",
+			func(ctx SpecContext) {
+				enc := codec.NewDynamic(resolver)
+				dec := codec.NewDynamic(resolver)
+				only := channel.Keys{dataCh}
+				both := channel.Keys{dataCh, idxCh}
+				Expect(enc.Update(ctx, only)).To(Succeed())
+				Expect(dec.Update(ctx, only)).To(Succeed())
+				fr := frame.NewMulti(
+					both,
+					[]telem.Series{
+						telem.NewSeriesV[float32](1),
+						telem.NewSeriesSecondsTSV(1),
+					},
+				)
+				var (
+					// Encode is not safe for concurrent use, so encodeMu orders the two
+					// routines that encode, and checking keeps the loop from starving
+					// the check. Update takes no lock and races both.
+					encodeMu  sync.Mutex
+					checking  atomic.Bool
+					stop      = make(chan struct{})
+					stopped   = make(chan struct{})
+					encodeErr error
+				)
+				DeferCleanup(func() {
+					close(stop)
+					Eventually(stopped).Should(BeClosed())
+					Expect(encodeErr).To(Succeed())
+				})
+				// Encodes in a loop beside Update, as a stream's sending routine does,
+				// so an update can land in the middle of an encode. An assertion per
+				// pass slows the loop until it rarely hits the race, so the cleanup
+				// asserts the first error instead.
+				go func() {
+					defer close(stopped)
+					var buf bytes.Buffer
+					for encodeErr == nil {
+						select {
+						case <-stop:
+							return
+						default:
+						}
+						if checking.Load() {
+							continue
+						}
+						encodeMu.Lock()
+						buf.Reset()
+						encodeErr = enc.EncodeStream(ctx, &buf, framer.Frame{})
+						encodeMu.Unlock()
+					}
+				}()
+				mismatches := 0
+				for i := range 200_000 {
+					keys := only
+					if i%2 == 0 {
+						keys = both
+					}
+					Expect(enc.Update(ctx, keys)).To(Succeed())
+					Expect(dec.Update(ctx, keys)).To(Succeed())
+					checking.Store(true)
+					encoded := func() []byte {
+						encodeMu.Lock()
+						defer encodeMu.Unlock()
+						return MustSucceed(enc.Encode(ctx, fr))
+					}()
+					checking.Store(false)
+					decoded := MustSucceed(dec.Decode(encoded))
+					if (decoded.Get(idxCh).Len() > 0) != (len(keys) == 2) {
+						mismatches++
+					}
+				}
+				Expect(mismatches).To(BeZero())
 			},
 		)
 
@@ -1103,6 +1326,42 @@ var _ = Describe("Codec", func() {
 			},
 		)
 
+		It(
+			"Should merge contiguous series that share an alignment multiple",
+			func(ctx SpecContext) {
+				c := codec.NewStatic(channel.Keys{1}, []telem.DataType{telem.Int32T})
+				s1 := telem.NewSeriesV[int32](1, 2)
+				s1.Alignment = telem.NewAlignment(0, 0)
+				s1.AlignmentMultiple = 3
+				s2 := telem.NewSeriesV[int32](3, 4)
+				s2.Alignment = telem.NewAlignment(0, 6)
+				s2.AlignmentMultiple = 3
+				fr := frame.NewMulti(channel.Keys{1, 1}, []telem.Series{s1, s2})
+				decoded := MustSucceed(c.Decode(MustSucceed(c.Encode(ctx, fr))))
+				Expect(decoded.Count()).To(Equal(1))
+				merged := decoded.SeriesAt(0)
+				Expect(merged.Unmarshal[int32]()).To(Equal([]int32{1, 2, 3, 4}))
+				Expect(merged.AlignmentMultiple).To(Equal(uint32(3)))
+			},
+		)
+
+		It(
+			"Should not merge series with different alignment multiples",
+			func(ctx SpecContext) {
+				c := codec.NewStatic(channel.Keys{1}, []telem.DataType{telem.Int32T})
+				s1 := telem.NewSeriesV[int32](1, 2)
+				s1.Alignment = telem.NewAlignment(0, 0)
+				s1.AlignmentMultiple = 2
+				s2 := telem.NewSeriesV[int32](3, 4)
+				s2.Alignment = telem.NewAlignment(0, 4)
+				fr := frame.NewMulti(channel.Keys{1, 1}, []telem.Series{s1, s2})
+				decoded := MustSucceed(c.Decode(MustSucceed(c.Encode(ctx, fr))))
+				Expect(decoded.Count()).To(Equal(2))
+				Expect(decoded.SeriesAt(0).AlignmentMultiple).To(Equal(uint32(2)))
+				Expect(decoded.SeriesAt(1).AlignmentMultiple).To(BeZero())
+			},
+		)
+
 		It("Should merge series with zero alignments", func(ctx SpecContext) {
 			keys := channel.Keys{1}
 			dataTypes := []telem.DataType{telem.Int32T}
@@ -1336,6 +1595,72 @@ var _ = Describe("Codec", func() {
 	})
 })
 
+var _ = Describe("Bool Bit Packing", func() {
+	newCodec := func() *codec.Codec {
+		return codec.NewStatic(channel.Keys{1}, []telem.DataType{telem.BooleanT})
+	}
+	encodeBools := func(ctx SpecContext, samples ...bool) []byte {
+		GinkgoHelper()
+		return MustSucceed(
+			newCodec().Encode(ctx, frame.NewUnary(1, telem.NewSeriesV(samples...))),
+		)
+	}
+
+	// The reference vector below must produce the exact same packed bytes in every
+	// language's frame codec. A divergence here is a cross-language wire-format bug.
+	Describe("Reference Vector", func() {
+		var (
+			samples = []bool{true, false, true, true, false, false, false, true, true}
+			packed  = []byte{0x8D, 0x01}
+		)
+
+		It("Should pack samples LSB-first", func(ctx SpecContext) {
+			encoded := encodeBools(ctx, samples...)
+			Expect(encoded[len(encoded)-len(packed):]).To(Equal(packed))
+		})
+
+		It("Should unpack samples LSB-first", func(ctx SpecContext) {
+			encoded := encodeBools(ctx, make([]bool, len(samples))...)
+			copy(encoded[len(encoded)-len(packed):], packed)
+			decoded := MustSucceed(newCodec().Decode(encoded))
+			Expect(decoded.SeriesAt(0)).To(
+				telem.MatchSeriesData(telem.NewSeriesV(samples...)),
+			)
+		})
+	})
+
+	DescribeTable(
+		"Should round-trip samples at one bit per sample",
+		func(ctx SpecContext, samples []bool) {
+			header := len(encodeBools(ctx))
+			encoded := encodeBools(ctx, samples...)
+			Expect(encoded).To(HaveLen(header + (len(samples)+7)/8))
+			decoded := MustSucceed(newCodec().Decode(encoded))
+			Expect(decoded.SeriesAt(0)).To(
+				telem.MatchSeriesData(telem.NewSeriesV(samples...)),
+			)
+		},
+		Entry("empty", []bool{}),
+		Entry("one bit", []bool{true}),
+		Entry("seven bits", []bool{true, false, true, true, false, false, true}),
+		Entry(
+			"eight bits",
+			[]bool{true, false, true, false, true, false, true, false},
+		),
+		Entry(
+			"nine bits",
+			[]bool{true, false, true, false, true, false, true, false, true},
+		),
+		Entry(
+			"sixteen bits",
+			[]bool{
+				true, false, true, true, false, false, true, false,
+				false, true, false, true, true, true, false, true,
+			},
+		),
+	)
+})
+
 func BenchmarkEncode(b *testing.B) {
 	dataTypes := []telem.DataType{"int32"}
 	keys := channel.Keys{1}
@@ -1422,15 +1747,6 @@ func BenchmarkAlignmentCompression_SingleSeries(b *testing.B) {
 			}
 		}
 	})
-
-	b.Run("Disabled", func(b *testing.B) {
-		cd := codec.NewStatic(keys, dataTypes, codec.DisableAlignmentCompression())
-		for b.Loop() {
-			if _, err := cd.Encode(b.Context(), frame); err != nil {
-				b.Fatalf("failed to encode: %v", err)
-			}
-		}
-	})
 }
 
 // Benchmark alignment compression with two contiguous series
@@ -1447,15 +1763,6 @@ func BenchmarkAlignmentCompression_TwoContiguous(b *testing.B) {
 
 	b.Run("Enabled", func(b *testing.B) {
 		cd := codec.NewStatic(keys, dataTypes)
-		for b.Loop() {
-			if _, err := cd.Encode(b.Context(), frame); err != nil {
-				b.Fatalf("failed to encode: %v", err)
-			}
-		}
-	})
-
-	b.Run("Disabled", func(b *testing.B) {
-		cd := codec.NewStatic(keys, dataTypes, codec.DisableAlignmentCompression())
 		for b.Loop() {
 			if _, err := cd.Encode(b.Context(), frame); err != nil {
 				b.Fatalf("failed to encode: %v", err)
@@ -1483,15 +1790,6 @@ func BenchmarkAlignmentCompression_ManyContiguous(b *testing.B) {
 
 	b.Run("Enabled", func(b *testing.B) {
 		cd := codec.NewStatic(keys, dataTypes)
-		for b.Loop() {
-			if _, err := cd.Encode(b.Context(), frame); err != nil {
-				b.Fatalf("failed to encode: %v", err)
-			}
-		}
-	})
-
-	b.Run("Disabled", func(b *testing.B) {
-		cd := codec.NewStatic(keys, dataTypes, codec.DisableAlignmentCompression())
 		for b.Loop() {
 			if _, err := cd.Encode(b.Context(), frame); err != nil {
 				b.Fatalf("failed to encode: %v", err)
@@ -1527,15 +1825,6 @@ func BenchmarkAlignmentCompression_MixedContiguity(b *testing.B) {
 
 	b.Run("Enabled", func(b *testing.B) {
 		cd := codec.NewStatic(keys, dataTypes)
-		for b.Loop() {
-			if _, err := cd.Encode(b.Context(), frame); err != nil {
-				b.Fatalf("failed to encode: %v", err)
-			}
-		}
-	})
-
-	b.Run("Disabled", func(b *testing.B) {
-		cd := codec.NewStatic(keys, dataTypes, codec.DisableAlignmentCompression())
 		for b.Loop() {
 			if _, err := cd.Encode(b.Context(), frame); err != nil {
 				b.Fatalf("failed to encode: %v", err)
@@ -1584,15 +1873,6 @@ func BenchmarkAlignmentCompression_MultiChannel(b *testing.B) {
 			}
 		}
 	})
-
-	b.Run("Disabled", func(b *testing.B) {
-		cd := codec.NewStatic(keys, dataTypes, codec.DisableAlignmentCompression())
-		for b.Loop() {
-			if _, err := cd.Encode(b.Context(), frame); err != nil {
-				b.Fatalf("failed to encode: %v", err)
-			}
-		}
-	})
 }
 
 // Benchmark bandwidth savings - measure encoded size
@@ -1614,20 +1894,6 @@ func BenchmarkAlignmentCompression_BandwidthSavings(b *testing.B) {
 
 	b.Run("Enabled", func(b *testing.B) {
 		cd := codec.NewStatic(keys, dataTypes)
-		encoded, err := cd.Encode(b.Context(), frame)
-		if err != nil {
-			b.Fatalf("failed to encode: %v", err)
-		}
-		b.ReportMetric(float64(len(encoded)), "bytes")
-		for b.Loop() {
-			if _, err := cd.Encode(b.Context(), frame); err != nil {
-				b.Fatalf("failed to encode: %v", err)
-			}
-		}
-	})
-
-	b.Run("Disabled", func(b *testing.B) {
-		cd := codec.NewStatic(keys, dataTypes, codec.DisableAlignmentCompression())
 		encoded, err := cd.Encode(b.Context(), frame)
 		if err != nil {
 			b.Fatalf("failed to encode: %v", err)

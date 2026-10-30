@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/query"
-	"github.com/synnaxlabs/x/set"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -83,24 +82,6 @@ var _ = Describe("Ontology", func() {
 				ontology.ID{Type: ontology.ResourceTypeProject},
 				`invalid project key ""`),
 		)
-	})
-	Describe("KeysFromOntologyIDs", func() {
-		It("Should round-trip keys through ontology IDs", func() {
-			a, b := uuid.New(), uuid.New()
-			Expect(project.KeysFromOntologyIDs([]ontology.ID{
-				project.OntologyID(a), project.OntologyID(b),
-			})).To(Equal([]project.Key{a, b}))
-		})
-		It("Should return an error when an ID key is not a valid UUID", func() {
-			Expect(project.KeysFromOntologyIDs([]ontology.ID{{
-				Type: ontology.ResourceTypeProject, Key: "not-a-uuid",
-			}})).Error().To(MatchError(ContainSubstring("invalid project key")))
-		})
-		It("Should return an error when an ID is not a project", func() {
-			Expect(project.KeysFromOntologyIDs([]ontology.ID{
-				{Type: ontology.ResourceTypeGroup, Key: uuid.New().String()},
-			})).Error().To(MatchError(ContainSubstring("must be a project")))
-		})
 	})
 	Describe("Type", func() {
 		It("Should return the project resource type", func() {
@@ -174,24 +155,19 @@ var _ = Describe("Ontology", func() {
 			},
 		)
 	})
-	Describe("OpenNexter", func() {
-		It("Should iterate over all projects currently stored", func(ctx SpecContext) {
-			a := project.Project{Key: uuid.New(), Name: "a"}
-			b := project.Project{Key: uuid.New(), Name: "b"}
-			Expect(writer.Create(ctx, &a)).To(Succeed())
-			Expect(writer.Create(ctx, &b)).To(Succeed())
-
-			seq, closer := MustSucceed2(svc.OpenNexter(ctx))
-			DeferClose(closer)
-
-			seen := set.New[string]()
-			for resource := range seq {
-				seen.Add(resource.ID.String())
-			}
-			Expect(seen).To(SatisfyAll(
-				HaveKey(a.OntologyID().String()),
-				HaveKey(b.OntologyID().String()),
-			))
-		})
+	Describe("Search", func() {
+		It(
+			"Should return the projects whose name matches the term",
+			func(ctx SpecContext) {
+				a := project.Project{Key: uuid.New(), Name: "turbopump test"}
+				b := project.Project{Key: uuid.New(), Name: "turbopump"}
+				Expect(writer.Create(ctx, &a)).To(Succeed())
+				Expect(writer.Create(ctx, &b)).To(Succeed())
+				Expect(MustSucceed(svc.Search(ctx, db, "turbopump", 10)).Keys).
+					To(Equal([]ontology.ID{b.OntologyID(), a.OntologyID()}))
+				Expect(MustSucceed(svc.Search(ctx, db, "turbopump", 1)).Keys).
+					To(Equal([]ontology.ID{b.OntologyID()}))
+			},
+		)
 	})
 })

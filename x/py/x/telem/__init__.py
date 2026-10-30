@@ -10,6 +10,7 @@
 from x.control import Authority, CrudeAuthority, Subject
 from x.telem.clock_skew import ClockSkewCalculator
 from x.telem.series import (
+    CrudeSample,
     CrudeSeries,
     MultiSeries,
     SampleValue,
@@ -40,8 +41,15 @@ from x.telem.telem import (
     convert_time_units,
     seconds_linspace,
 )
+from x.telem.types_gen import (
+    Aggregation,
+    LimitReduction,
+    Reduction,
+    StrideReduction,
+)
 
 __all__ = [
+    "Aggregation",
     "Alignment",
     "Authority",
     "Bounds",
@@ -51,17 +59,21 @@ __all__ = [
     "CrudeDataType",
     "CrudeDensity",
     "CrudeRate",
+    "CrudeSample",
     "CrudeSeries",
     "CrudeSize",
     "CrudeTimeSpan",
     "CrudeTimeStamp",
     "DataType",
     "Density",
+    "LimitReduction",
     "MultiSeries",
     "Rate",
+    "Reduction",
     "SampleValue",
     "Series",
     "Size",
+    "StrideReduction",
     "Subject",
     "TimeRange",
     "TimeSpan",

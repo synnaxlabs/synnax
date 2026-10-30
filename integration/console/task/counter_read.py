@@ -26,7 +26,7 @@ from console.task.channels.counter_input import (
 from console.task.ni import NIChannel, NITask
 
 # Valid channel types for NI Counter Read tasks
-COUNTER_READ_CHANNEL_TYPES: dict[str, type[Counter]] = {
+_COUNTER_READ_CHANNEL_TYPES: dict[str, type[Counter]] = {
     "Position angular": AngularPosition,
     "Velocity angular": AngularVelocity,
     "Duty cycle": DutyCycle,
@@ -50,6 +50,7 @@ class CounterRead(NITask):
     def add_channel(
         self,
         name: str,
+        *,
         chan_type: str,
         device: str,
         dev_name: str | None = None,
@@ -71,16 +72,16 @@ class CounterRead(NITask):
         Raises:
             ValueError: If channel type is not valid for counter read tasks
         """
-        if chan_type not in COUNTER_READ_CHANNEL_TYPES:
+        if chan_type not in _COUNTER_READ_CHANNEL_TYPES:
             raise ValueError(
                 f"Invalid channel type for NI Counter Read: {chan_type}. "
-                f"Valid types: {list(COUNTER_READ_CHANNEL_TYPES.keys())}"
+                f"Valid types: {list(_COUNTER_READ_CHANNEL_TYPES.keys())}"
             )
 
         return self._add_channel_helper(
             name=name,
             device=device,
             dev_name=dev_name,
-            channel_class=COUNTER_READ_CHANNEL_TYPES[chan_type],
+            channel_class=_COUNTER_READ_CHANNEL_TYPES[chan_type],
             **kwargs,
         )

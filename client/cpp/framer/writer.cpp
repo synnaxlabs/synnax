@@ -32,12 +32,12 @@ std::pair<Writer, x::errors::Error> Client::open_writer(const WriterConfig &cfg)
         return {Writer(), cfg_err};
     if (!net_writer->send(req).ok()) net_writer->close_send();
     auto [_, res_exc] = net_writer->receive();
-    auto writer = Writer(std::move(net_writer), cfg, codec);
+    auto writer = Writer(std::move(net_writer), cfg, std::move(codec));
     return {std::move(writer), res_exc};
 }
 
-Writer::Writer(std::unique_ptr<WriterStream> s, WriterConfig cfg, const Codec &codec):
-    cfg(std::move(cfg)), codec(codec), stream(std::move(s)) {}
+Writer::Writer(std::unique_ptr<WriterStream> s, WriterConfig cfg, Codec codec):
+    cfg(std::move(cfg)), codec(std::move(codec)), stream(std::move(s)) {}
 
 x::errors::Error WriterConfig::to_proto(grpc::framer::WriterConfig *f) const {
     auto [pb, pb_err] = this->subject.to_proto();

@@ -14,12 +14,12 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/x/gorp"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -32,7 +32,6 @@ var _ = Describe("ServiceConfig", func() {
 			DB:       db,
 			Ontology: otg,
 			Group:    groupSvc,
-			Search:   searchIdx,
 			User:     userSvc,
 		}
 	})
@@ -44,7 +43,6 @@ var _ = Describe("ServiceConfig", func() {
 				Expect(result.DB).To(Equal(db))
 				Expect(result.Ontology).To(Equal(otg))
 				Expect(result.Group).To(Equal(groupSvc))
-				Expect(result.Search).To(Equal(searchIdx))
 				Expect(result.User).To(Equal(userSvc))
 			},
 		)
@@ -55,7 +53,6 @@ var _ = Describe("ServiceConfig", func() {
 				Expect(result.DB).To(Equal(db))
 				Expect(result.Ontology).To(Equal(otg))
 				Expect(result.Group).To(Equal(groupSvc))
-				Expect(result.Search).To(Equal(searchIdx))
 				Expect(result.User).To(Equal(userSvc))
 			},
 		)
@@ -86,11 +83,6 @@ var _ = Describe("ServiceConfig", func() {
 				"group: must be non-nil",
 			),
 			Entry(
-				"search",
-				func(c *rbac.ServiceConfig) { c.Search = nil },
-				"search: must be non-nil",
-			),
-			Entry(
 				"user",
 				func(c *rbac.ServiceConfig) { c.User = nil },
 				"user: must be non-nil",
@@ -110,7 +102,6 @@ var _ = Describe("Service", func() {
 				DB:       db,
 				Ontology: otg,
 				Group:    groupSvc,
-				Search:   searchIdx,
 				User:     userSvc,
 			}))
 			Expect(s).ToNot(BeNil())
@@ -427,7 +418,7 @@ var _ = Describe("Service", func() {
 		)
 	})
 
-	Describe("RetrievePoliciesForSubject", func() {
+	Describe("Role policies", func() {
 		var (
 			policyWriter policy.Writer
 			roleWriter   role.Writer
@@ -440,7 +431,7 @@ var _ = Describe("Service", func() {
 			Expect(otg.NewWriter(tx).DefineResources(ctx, subject)).To(Succeed())
 		})
 
-		It("Should retrieve policies from assigned roles", func(ctx SpecContext) {
+		It("Should enforce the policies of an assigned role", func(ctx SpecContext) {
 			r := &role.Role{
 				Name:        "admin",
 				Description: "Administrator role",
@@ -464,19 +455,30 @@ var _ = Describe("Service", func() {
 			Expect(policyWriter.SetOnRole(ctx, r.Key, p1.Key, p2.Key)).To(Succeed())
 			Expect(roleWriter.AssignRole(ctx, subject, r.Key)).To(Succeed())
 
-			policies := MustSucceed(
-				rbacSvc.RetrievePoliciesForSubject(ctx, subject, tx),
-			)
-			Expect(policies).To(HaveLen(2))
-			policyKeys := []uuid.UUID{policies[0].Key, policies[1].Key}
-			Expect(policyKeys).To(ContainElements(p1.Key, p2.Key))
+			enforcer := rbacSvc.NewEnforcer(tx)
+			Expect(enforcer.Enforce(ctx, access.Request{
+				Subject: subject,
+				Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
+				Action:  access.ActionDelete,
+			})).To(Succeed())
+			Expect(enforcer.Enforce(ctx, access.Request{
+				Subject: subject,
+				Objects: []ontology.ID{{Type: "project", Key: "p1"}},
+				Action:  access.ActionRetrieve,
+			})).To(Succeed())
+			Expect(enforcer.Enforce(ctx, access.Request{
+				Subject: subject,
+				Objects: []ontology.ID{{Type: "project", Key: "p1"}},
+				Action:  access.ActionUpdate,
+			})).To(MatchError(access.ErrDenied))
 		})
 
-		It("Should return empty list when no roles assigned", func(ctx SpecContext) {
-			policies := MustSucceed(
-				rbacSvc.RetrievePoliciesForSubject(ctx, subject, tx),
-			)
-			Expect(policies).To(BeEmpty())
+		It("Should deny a subject with no assigned roles", func(ctx SpecContext) {
+			Expect(rbacSvc.NewEnforcer(tx).Enforce(ctx, access.Request{
+				Subject: subject,
+				Objects: []ontology.ID{{Type: "channel", Key: "ch1"}},
+				Action:  access.ActionRetrieve,
+			})).To(MatchError(access.ErrDenied))
 		})
 	})
 

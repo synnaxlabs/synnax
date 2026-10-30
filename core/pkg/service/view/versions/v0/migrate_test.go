@@ -14,11 +14,10 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/view/versions/v0"
-	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/migrate"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 var _ = Describe("NameMigration", func() {
@@ -30,7 +29,7 @@ var _ = Describe("NameMigration", func() {
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 			DB:         db,
 			Namespace:  "View",
-			Migrations: []migrate.Migration{v0.NameMigration},
+			Migrations: []gorp.Migration{v0.NameMigration},
 		})).To(Succeed())
 		var out v0.View
 		Expect(gorp.NewRetrieve[v0.Key, v0.View]().

@@ -49,10 +49,8 @@ describe("Controls.Controls", () => {
       <Task.Controls.Controls onDeploy={vi.fn()} onStop={vi.fn()} />,
       { client, values: { snapshot: true } },
     );
-    await waitFor(() =>
-      expect(screen.getByText("Test Task has not been deployed")).toBeTruthy(),
-    );
-    expect(container.querySelector("[aria-label='pluto-icon--play']")).toBeNull();
+    await waitFor(() => expect(screen.getByText("Task not deployed")).toBeTruthy());
+    expect(container.querySelector("[aria-label='lyra-icon--play']")).toBeNull();
   });
 
   it("should invoke onDeploy when the start button is pressed", async () => {

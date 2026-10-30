@@ -7,18 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
+#include <future>
+#include <thread>
+
 #include "gtest/gtest.h"
 
 #include "client/cpp/testutil/testutil.h"
 #include "x/cpp/defer/defer.h"
 #include "x/cpp/sync/list.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 #include "arc/cpp/runtime/errors/errors.h"
 #include "arc/cpp/runtime/loop/loop.h"
 #include "driver/arc/arc.h"
 #include "driver/arc/task.h"
-#include "driver/pipeline/mock/pipeline.h"
+#include "driver/pipeline/testutil/pipeline.h"
 #include "driver/task/task.h"
 
 namespace driver::arc {
@@ -108,10 +112,10 @@ TEST(ArcTests, testCalcDoubling) {
         .mode = synnax::arc::MODE_TEXT
     };
     arc_prog.text = ::arc::text::Text{
-        .raw = "func calc(val f32) f32 {\n"
+        .raw = "func calc() {val f32} f32 {\n"
                "    return val * 2\n"
                "}\n" +
-               input_name + " -> calc{} -> " + output_name + "\n"
+               input_name + " -> calc() -> " + output_name + "\n"
     };
     ASSERT_NIL(client->arcs.create(arc_prog));
 
@@ -130,7 +134,7 @@ TEST(ArcTests, testCalcDoubling) {
     auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
 
-    auto mock_writer = std::make_shared<driver::pipeline::mock::WriterFactory>();
+    auto mock_writer = std::make_shared<driver::pipeline::testutil::WriterFactory>();
 
     auto input_frames = std::make_shared<std::vector<x::telem::Frame>>();
     x::telem::Frame input_fr(2);
@@ -143,7 +147,7 @@ TEST(ArcTests, testCalcDoubling) {
     input_fr.emplace(input_ch.key, std::move(input_val_series));
     input_frames->push_back(std::move(input_fr));
 
-    auto mock_streamer = driver::pipeline::mock::simple_streamer_factory(
+    auto mock_streamer = driver::pipeline::testutil::simple_streamer_factory(
         {input_idx.key, input_ch.key},
         input_frames
     );
@@ -160,7 +164,7 @@ TEST(ArcTests, testCalcDoubling) {
     ASSERT_EVENTUALLY_GE(mock_writer->writer_opens.load(std::memory_order_acquire), 1);
     ASSERT_EVENTUALLY_GE(mock_writer->writes->size(), 1);
 
-    auto &output_fr = mock_writer->writes->at(0);
+    const auto &output_fr = mock_writer->writes->at(0);
     ASSERT_TRUE(output_fr.contains(output_ch.key));
     auto output_val = output_fr.at<float>(output_ch.key, 0);
     EXPECT_FLOAT_EQ(output_val, 10.0f);
@@ -242,7 +246,7 @@ TEST(ArcTests, testBasicSequence) {
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
 
     // Setup mock writer to capture outputs
-    auto mock_writer = std::make_shared<driver::pipeline::mock::WriterFactory>();
+    auto mock_writer = std::make_shared<driver::pipeline::testutil::WriterFactory>();
 
     // Setup mock streamer to send trigger frame
     auto input_frames = std::make_shared<std::vector<x::telem::Frame>>();
@@ -256,7 +260,7 @@ TEST(ArcTests, testBasicSequence) {
     trigger_fr.emplace(start_cmd_ch.key, std::move(trigger_val_series));
     input_frames->push_back(std::move(trigger_fr));
 
-    auto mock_streamer = driver::pipeline::mock::simple_streamer_factory(
+    auto mock_streamer = driver::pipeline::testutil::simple_streamer_factory(
         {start_cmd_idx.key, start_cmd_ch.key},
         input_frames
     );
@@ -365,7 +369,7 @@ TEST(ArcTests, testOneShotTruthiness) {
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
 
     // Setup mock writer to capture outputs
-    auto mock_writer = std::make_shared<driver::pipeline::mock::WriterFactory>();
+    auto mock_writer = std::make_shared<driver::pipeline::testutil::WriterFactory>();
 
     // Setup mock streamer to send TWO frames:
     // 1. First frame with value 0 (should NOT trigger)
@@ -394,7 +398,7 @@ TEST(ArcTests, testOneShotTruthiness) {
     truthy_trigger_fr.emplace(start_cmd_ch.key, std::move(truthy_val_series));
     input_frames->push_back(std::move(truthy_trigger_fr));
 
-    auto mock_streamer = driver::pipeline::mock::simple_streamer_factory(
+    auto mock_streamer = driver::pipeline::testutil::simple_streamer_factory(
         {start_cmd_idx.key, start_cmd_ch.key},
         input_frames
     );
@@ -543,7 +547,7 @@ TEST(ArcTests, testTwoStageSequenceWithTransition) {
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
 
     // Setup mock writer to capture outputs
-    auto mock_writer = std::make_shared<driver::pipeline::mock::WriterFactory>();
+    auto mock_writer = std::make_shared<driver::pipeline::testutil::WriterFactory>();
 
     // Setup mock streamer to send frames:
     // 1. Trigger frame to start the sequence
@@ -590,7 +594,7 @@ TEST(ArcTests, testTwoStageSequenceWithTransition) {
     high_pressure_fr.emplace(pressure_ch.key, std::move(high_pressure_val_series));
     input_frames->push_back(std::move(high_pressure_fr));
 
-    auto mock_streamer = driver::pipeline::mock::simple_streamer_factory(
+    auto mock_streamer = driver::pipeline::testutil::simple_streamer_factory(
         {start_cmd_idx.key, start_cmd_ch.key, pressure_idx.key, pressure_ch.key},
         input_frames
     );
@@ -652,7 +656,7 @@ void expect_status(
     EXPECT_EQ(status.variant, expected_variant);
     EXPECT_EQ(status.details.running, expected_running);
     if (!message_contains.empty()) {
-        EXPECT_TRUE(status.message.find(message_contains) != std::string::npos)
+        EXPECT_TRUE(status.message.contains(message_contains))
             << "Expected message to contain '" << message_contains
             << "' but got: " << status.message;
     }
@@ -701,8 +705,8 @@ TEST(ArcErrorHandling, WasmTrapTriggersFatalError) {
         .mode = synnax::arc::MODE_TEXT
     };
     arc_prog.text = ::arc::text::Text{
-        .raw = "func divide_by_zero(val i32) i32 { return val / 0 }\n" + input_name +
-               " -> divide_by_zero{} -> " + output_name + "\n"
+        .raw = "func divide_by_zero() {val i32} i32 { return val / 0 }\n" + input_name +
+               " -> divide_by_zero() -> " + output_name + "\n"
     };
     ASSERT_NIL(client->arcs.create(arc_prog));
 
@@ -721,7 +725,7 @@ TEST(ArcErrorHandling, WasmTrapTriggersFatalError) {
     auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
 
-    auto mock_writer = std::make_shared<pipeline::mock::WriterFactory>();
+    auto mock_writer = std::make_shared<pipeline::testutil::WriterFactory>();
 
     auto input_frames = std::make_shared<std::vector<x::telem::Frame>>();
     x::telem::Frame trigger_fr(2);
@@ -734,7 +738,7 @@ TEST(ArcErrorHandling, WasmTrapTriggersFatalError) {
     trigger_fr.emplace(input_ch.key, std::move(trigger_val_series));
     input_frames->push_back(std::move(trigger_fr));
 
-    auto mock_streamer = pipeline::mock::simple_streamer_factory(
+    auto mock_streamer = pipeline::testutil::simple_streamer_factory(
         {input_idx.key, input_ch.key},
         input_frames
     );
@@ -756,6 +760,124 @@ TEST(ArcErrorHandling, WasmTrapTriggersFatalError) {
     );
     ASSERT_NE(error_status, nullptr) << "Fatal WASM trap should produce error status";
     expect_status(*error_status, synnax::status::VARIANT_ERROR, false);
+    EXPECT_EQ(error_status->message, "Failed to run Arc program");
+    EXPECT_TRUE(
+        error_status->description.starts_with("The divide_by_zero node failed: ")
+    );
+
+    task->stop("test_stop", true);
+}
+
+TEST(ArcErrorHandling, NodeWarningKeepsProgramRunning) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+
+    auto input_idx = synnax::channel::Channel{
+        .name = make_unique_channel_name("parked_input_idx"),
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+        .index = 0
+    };
+    ASSERT_NIL(client->channels.create(input_idx));
+    auto output_idx = synnax::channel::Channel{
+        .name = make_unique_channel_name("parked_output_idx"),
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+        .index = 0
+    };
+    ASSERT_NIL(client->channels.create(output_idx));
+    auto input_ch = synnax::channel::Channel{
+        .name = make_unique_channel_name("parked_input"),
+        .data_type = x::telem::UINT8_T,
+        .is_index = false,
+        .index = input_idx.key
+    };
+    auto output_ch = synnax::channel::Channel{
+        .name = make_unique_channel_name("parked_output"),
+        .data_type = x::telem::UINT8_T,
+        .is_index = false,
+        .index = output_idx.key
+    };
+    ASSERT_NIL(client->channels.create(input_ch));
+    ASSERT_NIL(client->channels.create(output_ch));
+
+    synnax::arc::Arc arc_prog{
+        .name = make_unique_channel_name("parked_test"),
+        .mode = synnax::arc::MODE_TEXT
+    };
+    arc_prog.text = ::arc::text::Text{
+        .raw = "import time\n"
+               "sequence main {\n"
+               "    hold := i64 ns(0s)\n"
+               "    stage parked {\n"
+               "        time.wait(duration=hold) -> " +
+               output_ch.name +
+               "\n"
+               "        time.wait(2s) => reenter\n"
+               "    }\n"
+               "    stage reenter {\n"
+               "        time.wait(10ms) -> sequence { hold = i64 ns(100ms) }\n"
+               "        time.wait(50ms) => parked\n"
+               "    }\n"
+               "}\n" +
+               input_ch.name + " => main\n"
+    };
+    ASSERT_NIL(client->arcs.create(arc_prog));
+
+    auto rack = ASSERT_NIL_P(
+        client->racks.create(make_unique_channel_name("arc_parked_test_rack"))
+    );
+    synnax::task::Task task_meta{
+        .rack = rack.key,
+        .name = "arc_parked_test",
+        .type = "arc_runtime",
+    };
+    task_meta.config = nlohmann::json{{"arc_key", arc_prog.key.to_string()}};
+    auto parser = x::json::Parser(task_meta.config);
+    auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
+
+    auto input_frames = std::make_shared<std::vector<x::telem::Frame>>();
+    x::telem::Frame trigger_fr(2);
+    auto idx_series = x::telem::Series(x::telem::TimeStamp::now());
+    idx_series.alignment = x::telem::Alignment(1, 0);
+    auto val_series = x::telem::Series(static_cast<uint8_t>(1));
+    val_series.alignment = x::telem::Alignment(1, 0);
+    trigger_fr.emplace(input_idx.key, std::move(idx_series));
+    trigger_fr.emplace(input_ch.key, std::move(val_series));
+    input_frames->push_back(std::move(trigger_fr));
+
+    auto ctx = std::make_shared<task::MockContext>(client);
+    auto task = ASSERT_NIL_P(
+        arc::Task::create(
+            task_meta,
+            ctx,
+            task_cfg,
+            std::make_shared<pipeline::testutil::WriterFactory>(),
+            pipeline::testutil::simple_streamer_factory(
+                {input_idx.key, input_ch.key},
+                input_frames
+            )
+        )
+    );
+
+    task->start("test_start");
+    ASSERT_EVENTUALLY_TRUE(
+        find_status_by_variant(ctx->statuses, synnax::status::VARIANT_WARNING) !=
+        nullptr
+    );
+    const auto *warning = find_status_by_variant(
+        ctx->statuses,
+        synnax::status::VARIANT_WARNING
+    );
+    expect_status(*warning, synnax::status::VARIANT_WARNING, true);
+    EXPECT_EQ(warning->message, "Node failed");
+    EXPECT_EQ(
+        warning->description,
+        "The time.wait node failed: The wait duration must be positive, not 0ns."
+    );
+    EXPECT_EQ(
+        find_status_by_variant(ctx->statuses, synnax::status::VARIANT_ERROR),
+        nullptr
+    );
 
     task->stop("test_stop", true);
 }
@@ -803,11 +925,11 @@ TEST(ArcErrorHandling, RestartAfterWasmTrap) {
         .mode = synnax::arc::MODE_TEXT
     };
     arc_prog.text = ::arc::text::Text{
-        .raw = "func maybe_trap(val i32) i32 {\n"
+        .raw = "func maybe_trap() {val i32} i32 {\n"
                "    if val == 0 { return 1 / val }\n"
                "    return val * 2\n"
                "}\n" +
-               input_name + " -> maybe_trap{} -> " + output_name + "\n"
+               input_name + " -> maybe_trap() -> " + output_name + "\n"
     };
     ASSERT_NIL(client->arcs.create(arc_prog));
 
@@ -826,7 +948,7 @@ TEST(ArcErrorHandling, RestartAfterWasmTrap) {
     auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
 
-    auto mock_writer = std::make_shared<pipeline::mock::WriterFactory>();
+    auto mock_writer = std::make_shared<pipeline::testutil::WriterFactory>();
     auto input_frames = std::make_shared<std::vector<x::telem::Frame>>();
 
     x::telem::Frame trap_trigger(2);
@@ -839,7 +961,7 @@ TEST(ArcErrorHandling, RestartAfterWasmTrap) {
     trap_trigger.emplace(input_ch.key, std::move(trap_val));
     input_frames->push_back(std::move(trap_trigger));
 
-    auto mock_streamer = pipeline::mock::simple_streamer_factory(
+    auto mock_streamer = pipeline::testutil::simple_streamer_factory(
         {input_idx.key, input_ch.key},
         input_frames
     );
@@ -938,8 +1060,8 @@ TEST(ArcErrorHandling, MultipleErrorRecoveryCycles) {
         .mode = synnax::arc::MODE_TEXT
     };
     arc_prog.text = ::arc::text::Text{
-        .raw = "func double(val f32) f32 { return val * 2 }\n" + input_name +
-               " -> double{} -> " + output_name + "\n"
+        .raw = "func double() {val f32} f32 { return val * 2 }\n" + input_name +
+               " -> double() -> " + output_name + "\n"
     };
     ASSERT_NIL(client->arcs.create(arc_prog));
 
@@ -958,10 +1080,10 @@ TEST(ArcErrorHandling, MultipleErrorRecoveryCycles) {
     auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
 
-    auto mock_writer = std::make_shared<pipeline::mock::WriterFactory>();
+    auto mock_writer = std::make_shared<pipeline::testutil::WriterFactory>();
     auto input_frames = std::make_shared<std::vector<x::telem::Frame>>();
 
-    auto mock_streamer = pipeline::mock::simple_streamer_factory(
+    auto mock_streamer = pipeline::testutil::simple_streamer_factory(
         {input_idx.key, input_ch.key},
         input_frames
     );
@@ -1050,8 +1172,8 @@ TEST(ArcStatusVerification, StartStatusHasCorrectVariantAndRunning) {
         .mode = synnax::arc::MODE_TEXT
     };
     arc_prog.text = ::arc::text::Text{
-        .raw = "func pass(val f32) f32 { return val }\n" + input_name +
-               " -> pass{} -> " + output_name + "\n"
+        .raw = "func pass() {val f32} f32 { return val }\n" + input_name +
+               " -> pass() -> " + output_name + "\n"
     };
     ASSERT_NIL(client->arcs.create(arc_prog));
 
@@ -1070,7 +1192,7 @@ TEST(ArcStatusVerification, StartStatusHasCorrectVariantAndRunning) {
     auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
 
-    auto mock_writer = std::make_shared<pipeline::mock::WriterFactory>();
+    auto mock_writer = std::make_shared<pipeline::testutil::WriterFactory>();
     auto input_frames = std::make_shared<std::vector<x::telem::Frame>>();
 
     x::telem::Frame input_fr(2);
@@ -1083,10 +1205,13 @@ TEST(ArcStatusVerification, StartStatusHasCorrectVariantAndRunning) {
     input_fr.emplace(input_ch.key, std::move(val_series));
     input_frames->push_back(std::move(input_fr));
 
-    auto mock_streamer = pipeline::mock::simple_streamer_factory(
+    auto mock_streamer = pipeline::testutil::simple_streamer_factory(
         {input_idx.key, input_ch.key},
         input_frames
     );
+
+    std::promise<void> open;
+    mock_streamer->open_gate = open.get_future().share();
 
     auto ctx = std::make_shared<task::MockContext>(client);
 
@@ -1094,15 +1219,33 @@ TEST(ArcStatusVerification, StartStatusHasCorrectVariantAndRunning) {
         arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
     );
 
+    // An automatic start has no command key. A second start arrives while the first
+    // waits for the command streamer.
+    task->start("");
     task->start("verify_start");
-    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+    // A client that waits for the start status must be able to send commands at once.
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    EXPECT_EQ(
+        find_status_by_variant(ctx->statuses, synnax::status::VARIANT_SUCCESS),
+        nullptr
+    );
+    open.set_value();
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 2);
+    for (const std::string key: {"", "verify_start"})
+        EXPECT_TRUE(
+            std::ranges::any_of(
+                ctx->statuses,
+                [&](const auto &s) { return s.details.cmd == key && s.details.running; }
+            )
+        ) << "no running status for start "
+          << key;
 
     auto *start_status = find_status_by_variant(
         ctx->statuses,
         synnax::status::VARIANT_SUCCESS
     );
     ASSERT_NE(start_status, nullptr) << "Should have a success status after start";
-    expect_status(*start_status, synnax::status::VARIANT_SUCCESS, true, "started");
+    expect_status(*start_status, synnax::status::VARIANT_SUCCESS, true, "Started task");
 
     task->stop("verify_stop", true);
 
@@ -1166,8 +1309,8 @@ TEST(ArcStatusVerification, StopCommandStatusCarriesCommandKey) {
         .mode = synnax::arc::MODE_TEXT
     };
     arc_prog.text = ::arc::text::Text{
-        .raw = "func pass(val f32) f32 { return val }\n" + input_name +
-               " -> pass{} -> " + output_name + "\n"
+        .raw = "func pass() {val f32} f32 { return val }\n" + input_name +
+               " -> pass() -> " + output_name + "\n"
     };
     ASSERT_NIL(client->arcs.create(arc_prog));
 
@@ -1185,9 +1328,9 @@ TEST(ArcStatusVerification, StopCommandStatusCarriesCommandKey) {
     auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
 
-    auto mock_writer = std::make_shared<pipeline::mock::WriterFactory>();
+    auto mock_writer = std::make_shared<pipeline::testutil::WriterFactory>();
     auto input_frames = std::make_shared<std::vector<x::telem::Frame>>();
-    auto mock_streamer = pipeline::mock::simple_streamer_factory(
+    auto mock_streamer = pipeline::testutil::simple_streamer_factory(
         {input_idx.key, input_ch.key},
         input_frames
     );
@@ -1266,8 +1409,8 @@ TEST(ArcEdgeCases, RapidStartStop) {
         .mode = synnax::arc::MODE_TEXT
     };
     arc_prog.text = ::arc::text::Text{
-        .raw = "func pass(val f32) f32 { return val }\n" + input_name +
-               " -> pass{} -> " + output_name + "\n"
+        .raw = "func pass() {val f32} f32 { return val }\n" + input_name +
+               " -> pass() -> " + output_name + "\n"
     };
     ASSERT_NIL(client->arcs.create(arc_prog));
 
@@ -1286,10 +1429,10 @@ TEST(ArcEdgeCases, RapidStartStop) {
     auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
 
-    auto mock_writer = std::make_shared<pipeline::mock::WriterFactory>();
+    auto mock_writer = std::make_shared<pipeline::testutil::WriterFactory>();
     auto input_frames = std::make_shared<std::vector<x::telem::Frame>>();
 
-    auto mock_streamer = pipeline::mock::simple_streamer_factory(
+    auto mock_streamer = pipeline::testutil::simple_streamer_factory(
         {input_idx.key, input_ch.key},
         input_frames
     );
@@ -1361,8 +1504,8 @@ TEST(ArcEdgeCases, StopWithoutStart) {
         .mode = synnax::arc::MODE_TEXT
     };
     arc_prog.text = ::arc::text::Text{
-        .raw = "func pass(val f32) f32 { return val }\n" + input_name +
-               " -> pass{} -> " + output_name + "\n"
+        .raw = "func pass() {val f32} f32 { return val }\n" + input_name +
+               " -> pass() -> " + output_name + "\n"
     };
     ASSERT_NIL(client->arcs.create(arc_prog));
 
@@ -1381,10 +1524,10 @@ TEST(ArcEdgeCases, StopWithoutStart) {
     auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
 
-    auto mock_writer = std::make_shared<pipeline::mock::WriterFactory>();
+    auto mock_writer = std::make_shared<pipeline::testutil::WriterFactory>();
     auto input_frames = std::make_shared<std::vector<x::telem::Frame>>();
 
-    auto mock_streamer = pipeline::mock::simple_streamer_factory(
+    auto mock_streamer = pipeline::testutil::simple_streamer_factory(
         {input_idx.key, input_ch.key},
         input_frames
     );
@@ -1472,10 +1615,10 @@ TEST(ArcTests, testChannelConfigParam) {
         .mode = synnax::arc::MODE_TEXT
     };
     arc_prog.text = ::arc::text::Text{
-        .raw = "func read_data{ch chan f32}(trigger u8) f32 {\n"
+        .raw = "func read_data(ch chan f32) {trigger u8} f32 {\n"
                "    return ch + f32(0.0)\n"
                "}\n" +
-               trigger_name + " -> read_data{ch=" + data_name + "} -> " + output_name +
+               trigger_name + " -> read_data(ch=" + data_name + ") -> " + output_name +
                "\n"
     };
     ASSERT_NIL(client->arcs.create(arc_prog));
@@ -1495,7 +1638,7 @@ TEST(ArcTests, testChannelConfigParam) {
     auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
 
-    auto mock_writer = std::make_shared<pipeline::mock::WriterFactory>();
+    auto mock_writer = std::make_shared<pipeline::testutil::WriterFactory>();
 
     // Build input frames: trigger + data channel values in same frame
     auto input_frames = std::make_shared<std::vector<x::telem::Frame>>();
@@ -1518,7 +1661,7 @@ TEST(ArcTests, testChannelConfigParam) {
 
     input_frames->push_back(std::move(input_fr));
 
-    auto mock_streamer = pipeline::mock::simple_streamer_factory(
+    auto mock_streamer = pipeline::testutil::simple_streamer_factory(
         {trigger_idx.key, trigger_ch.key, data_idx.key, data_ch.key},
         input_frames
     );
@@ -1620,7 +1763,7 @@ TEST(ArcTests, testChannelConfigParamReadWrite) {
     };
     arc_prog.text = ::arc::text::Text{
         .raw =
-            "func count_rising_test{counter_ch chan f32, max_ch chan f32}(input u8) {\n"
+            "func count_rising_test(counter_ch chan f32, max_ch chan f32) {input u8} {\n"
             "    prev u8 $= input\n"
             "    counter f32 $= 0.0\n"
             "    read_val := max_ch + f32(0.0)\n"
@@ -1633,8 +1776,8 @@ TEST(ArcTests, testChannelConfigParamReadWrite) {
             "    counter_ch = counter\n"
             "    prev = input\n"
             "}\n" +
-            input_name + " -> count_rising_test{counter_ch=" + counter_name +
-            ", max_ch=" + max_name + "}\n"
+            input_name + " -> count_rising_test(counter_ch=" + counter_name +
+            ", max_ch=" + max_name + ")\n"
     };
     ASSERT_NIL(client->arcs.create(arc_prog));
 
@@ -1653,7 +1796,7 @@ TEST(ArcTests, testChannelConfigParamReadWrite) {
     auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
 
-    auto mock_writer = std::make_shared<pipeline::mock::WriterFactory>();
+    auto mock_writer = std::make_shared<pipeline::testutil::WriterFactory>();
 
     // Frame: trigger=1 (rising edge from 0), max_ch=100.0
     auto input_frames = std::make_shared<std::vector<x::telem::Frame>>();
@@ -1676,7 +1819,7 @@ TEST(ArcTests, testChannelConfigParamReadWrite) {
 
     input_frames->push_back(std::move(input_fr));
 
-    auto mock_streamer = pipeline::mock::simple_streamer_factory(
+    auto mock_streamer = pipeline::testutil::simple_streamer_factory(
         {input_idx.key, input_ch.key, max_idx.key, max_ch.key},
         input_frames
     );
@@ -1756,8 +1899,8 @@ TEST(ArcEdgeCases, DoubleStart) {
         .mode = synnax::arc::MODE_TEXT
     };
     arc_prog.text = ::arc::text::Text{
-        .raw = "func pass(val f32) f32 { return val }\n" + input_name +
-               " -> pass{} -> " + output_name + "\n"
+        .raw = "func pass() {val f32} f32 { return val }\n" + input_name +
+               " -> pass() -> " + output_name + "\n"
     };
     ASSERT_NIL(client->arcs.create(arc_prog));
 
@@ -1776,7 +1919,7 @@ TEST(ArcEdgeCases, DoubleStart) {
     auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
 
-    auto mock_writer = std::make_shared<pipeline::mock::WriterFactory>();
+    auto mock_writer = std::make_shared<pipeline::testutil::WriterFactory>();
     auto input_frames = std::make_shared<std::vector<x::telem::Frame>>();
 
     x::telem::Frame fr(2);
@@ -1789,7 +1932,7 @@ TEST(ArcEdgeCases, DoubleStart) {
     fr.emplace(input_ch.key, std::move(val));
     input_frames->push_back(std::move(fr));
 
-    auto mock_streamer = pipeline::mock::simple_streamer_factory(
+    auto mock_streamer = pipeline::testutil::simple_streamer_factory(
         {input_idx.key, input_ch.key},
         input_frames
     );
@@ -1853,12 +1996,12 @@ TEST(ArcTests, testRestartResetsState) {
         .mode = synnax::arc::MODE_TEXT
     };
     arc_prog.text = ::arc::text::Text{
-        .raw = "func counter(trigger i64) i64 {\n"
+        .raw = "func counter() {trigger i64} i64 {\n"
                "    count $= 0\n"
                "    count = count + trigger\n"
                "    return count\n"
                "}\n" +
-               input_name + " -> counter{} -> " + output_name + "\n"
+               input_name + " -> counter() -> " + output_name + "\n"
     };
     ASSERT_NIL(client->arcs.create(arc_prog));
 
@@ -1877,7 +2020,7 @@ TEST(ArcTests, testRestartResetsState) {
     auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
 
-    auto mock_writer = std::make_shared<pipeline::mock::WriterFactory>();
+    auto mock_writer = std::make_shared<pipeline::testutil::WriterFactory>();
 
     auto input_frames = std::make_shared<std::vector<x::telem::Frame>>();
     x::telem::Frame input_fr(2);
@@ -1890,7 +2033,7 @@ TEST(ArcTests, testRestartResetsState) {
     input_fr.emplace(input_ch.key, std::move(input_val_series));
     input_frames->push_back(std::move(input_fr));
 
-    auto mock_streamer = pipeline::mock::simple_streamer_factory(
+    auto mock_streamer = pipeline::testutil::simple_streamer_factory(
         {input_idx.key, input_ch.key},
         input_frames
     );
@@ -1906,7 +2049,7 @@ TEST(ArcTests, testRestartResetsState) {
     ASSERT_EVENTUALLY_GE(mock_writer->writer_opens.load(std::memory_order_acquire), 1);
     ASSERT_EVENTUALLY_GE(mock_writer->writes->size(), 1);
 
-    auto &output_fr_1 = mock_writer->writes->at(0);
+    const auto &output_fr_1 = mock_writer->writes->at(0);
     ASSERT_TRUE(output_fr_1.contains(output_ch.key));
     auto output_val_1 = output_fr_1.at<int64_t>(output_ch.key, 0);
     EXPECT_EQ(output_val_1, 1);
@@ -1933,7 +2076,7 @@ TEST(ArcTests, testRestartResetsState) {
     ASSERT_EVENTUALLY_GE(mock_writer->writer_opens.load(std::memory_order_acquire), 1);
     ASSERT_EVENTUALLY_GE(mock_writer->writes->size(), 1);
 
-    auto &output_fr_2 = mock_writer->writes->at(0);
+    const auto &output_fr_2 = mock_writer->writes->at(0);
     ASSERT_TRUE(output_fr_2.contains(output_ch.key));
     auto output_val_2 = output_fr_2.at<int64_t>(output_ch.key, 0);
     EXPECT_EQ(output_val_2, 1) << "State should be reset on restart, count should be 1";
@@ -1981,10 +2124,10 @@ TEST(ArcTests, testStaticAuthorityConfig) {
     };
     arc_prog.text = ::arc::text::Text{
         .raw = "authority 200\n"
-               "func calc(val f32) f32 {\n"
+               "func calc() {val f32} f32 {\n"
                "    return val * 2\n"
                "}\n" +
-               input_name + " -> calc{} -> " + output_name + "\n"
+               input_name + " -> calc() -> " + output_name + "\n"
     };
     ASSERT_NIL(client->arcs.create(arc_prog));
 
@@ -2003,7 +2146,7 @@ TEST(ArcTests, testStaticAuthorityConfig) {
     auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
 
-    auto mock_writer = std::make_shared<pipeline::mock::WriterFactory>();
+    auto mock_writer = std::make_shared<pipeline::testutil::WriterFactory>();
 
     auto input_frames = std::make_shared<std::vector<x::telem::Frame>>();
     x::telem::Frame input_fr(2);
@@ -2016,7 +2159,7 @@ TEST(ArcTests, testStaticAuthorityConfig) {
     input_fr.emplace(input_ch.key, std::move(input_val_series));
     input_frames->push_back(std::move(input_fr));
 
-    auto mock_streamer = pipeline::mock::simple_streamer_factory(
+    auto mock_streamer = pipeline::testutil::simple_streamer_factory(
         {input_idx.key, input_ch.key},
         input_frames
     );
@@ -2029,7 +2172,7 @@ TEST(ArcTests, testStaticAuthorityConfig) {
 
     ASSERT_TRUE(task_cfg.program.authorities.default_.has_value())
         << "IR AuthorityConfig.default_ should be set from 'authority 200'";
-    EXPECT_EQ(*task_cfg.program.authorities.default_, 200);
+    EXPECT_EQ(task_cfg.program.authorities.default_.value(), 200);
 
     task->start("test_start");
     ASSERT_EVENTUALLY_GE(mock_writer->writer_opens.load(std::memory_order_acquire), 1);
@@ -2101,11 +2244,11 @@ TEST(ArcTests, testPerChannelAuthorityConfig) {
                out_a_name +
                " 200\n"
                ")\n"
-               "func calc(val f32) f32 {\n"
+               "func calc() {val f32} f32 {\n"
                "    return val * 2\n"
                "}\n" +
-               input_name + " -> calc{} -> " + out_a_name + "\n" + input_name +
-               " -> calc{} -> " + out_b_name + "\n"
+               input_name + " -> calc() -> " + out_a_name + "\n" + input_name +
+               " -> calc() -> " + out_b_name + "\n"
     };
     ASSERT_NIL(client->arcs.create(arc_prog));
 
@@ -2125,11 +2268,11 @@ TEST(ArcTests, testPerChannelAuthorityConfig) {
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
 
     ASSERT_TRUE(task_cfg.program.authorities.default_.has_value());
-    EXPECT_EQ(*task_cfg.program.authorities.default_, 100);
+    EXPECT_EQ(task_cfg.program.authorities.default_.value(), 100);
     ASSERT_EQ(task_cfg.program.authorities.channels.count(out_a_ch.key), 1);
     EXPECT_EQ(task_cfg.program.authorities.channels.at(out_a_ch.key), 200);
 
-    auto mock_writer = std::make_shared<pipeline::mock::WriterFactory>();
+    auto mock_writer = std::make_shared<pipeline::testutil::WriterFactory>();
 
     auto input_frames = std::make_shared<std::vector<x::telem::Frame>>();
     x::telem::Frame input_fr(2);
@@ -2142,7 +2285,7 @@ TEST(ArcTests, testPerChannelAuthorityConfig) {
     input_fr.emplace(input_ch.key, std::move(input_val_series));
     input_frames->push_back(std::move(input_fr));
 
-    auto mock_streamer = pipeline::mock::simple_streamer_factory(
+    auto mock_streamer = pipeline::testutil::simple_streamer_factory(
         {input_idx.key, input_ch.key},
         input_frames
     );
@@ -2218,7 +2361,7 @@ TEST(ArcTests, testDynamicSetAuthorityInSequence) {
                "        1 -> " +
                valve_cmd_name +
                "\n"
-               "        set_authority{value=150}\n"
+               "        set_authority(value=150)\n"
                "    }\n"
                "}\n"
                "\n" +
@@ -2241,7 +2384,7 @@ TEST(ArcTests, testDynamicSetAuthorityInSequence) {
     auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
 
-    auto mock_writer = std::make_shared<pipeline::mock::WriterFactory>();
+    auto mock_writer = std::make_shared<pipeline::testutil::WriterFactory>();
 
     auto input_frames = std::make_shared<std::vector<x::telem::Frame>>();
     x::telem::Frame trigger_fr(2);
@@ -2254,7 +2397,7 @@ TEST(ArcTests, testDynamicSetAuthorityInSequence) {
     trigger_fr.emplace(start_cmd_ch.key, std::move(trigger_val_series));
     input_frames->push_back(std::move(trigger_fr));
 
-    auto mock_streamer = pipeline::mock::simple_streamer_factory(
+    auto mock_streamer = pipeline::testutil::simple_streamer_factory(
         {start_cmd_idx.key, start_cmd_ch.key},
         input_frames
     );
@@ -2323,9 +2466,9 @@ TEST(ArcTests, testDynamicPerChannelSetAuthority) {
                "        1 -> " +
                valve_cmd_name +
                "\n"
-               "        set_authority{value=200, channel=" +
+               "        set_authority(value=200, channel=" +
                valve_cmd_name +
-               "}\n"
+               ")\n"
                "    }\n"
                "}\n"
                "\n" +
@@ -2348,7 +2491,7 @@ TEST(ArcTests, testDynamicPerChannelSetAuthority) {
     auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
 
-    auto mock_writer = std::make_shared<pipeline::mock::WriterFactory>();
+    auto mock_writer = std::make_shared<pipeline::testutil::WriterFactory>();
 
     auto input_frames = std::make_shared<std::vector<x::telem::Frame>>();
     x::telem::Frame trigger_fr(2);
@@ -2361,7 +2504,7 @@ TEST(ArcTests, testDynamicPerChannelSetAuthority) {
     trigger_fr.emplace(start_cmd_ch.key, std::move(trigger_val_series));
     input_frames->push_back(std::move(trigger_fr));
 
-    auto mock_streamer = pipeline::mock::simple_streamer_factory(
+    auto mock_streamer = pipeline::testutil::simple_streamer_factory(
         {start_cmd_idx.key, start_cmd_ch.key},
         input_frames
     );
@@ -2427,11 +2570,11 @@ TEST(ArcTests, testSetAuthorityWithCalcInTopLevelFlow) {
         .mode = synnax::arc::MODE_TEXT
     };
     arc_prog.text = ::arc::text::Text{
-        .raw = "func double(val u8) u8 {\n"
+        .raw = "func double() {val u8} u8 {\n"
                "    return val * 2\n"
                "}\n" +
-               input_name + " -> double{} -> " + output_name + "\n" + input_name +
-               " -> set_authority{value=100}\n"
+               input_name + " -> double() -> " + output_name + "\n" + input_name +
+               " -> set_authority(value=100)\n"
     };
     ASSERT_NIL(client->arcs.create(arc_prog));
 
@@ -2450,7 +2593,7 @@ TEST(ArcTests, testSetAuthorityWithCalcInTopLevelFlow) {
     auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
 
-    auto mock_writer = std::make_shared<pipeline::mock::WriterFactory>();
+    auto mock_writer = std::make_shared<pipeline::testutil::WriterFactory>();
 
     auto input_frames = std::make_shared<std::vector<x::telem::Frame>>();
     x::telem::Frame input_fr(2);
@@ -2463,7 +2606,7 @@ TEST(ArcTests, testSetAuthorityWithCalcInTopLevelFlow) {
     input_fr.emplace(input_ch.key, std::move(input_val_series));
     input_frames->push_back(std::move(input_fr));
 
-    auto mock_streamer = pipeline::mock::simple_streamer_factory(
+    auto mock_streamer = pipeline::testutil::simple_streamer_factory(
         {input_idx.key, input_ch.key},
         input_frames
     );
@@ -2540,10 +2683,10 @@ TEST(ArcTests, testWriterOpensWithErrOnUnauthorizedFalse) {
         .mode = synnax::arc::MODE_TEXT
     };
     arc_prog.text = ::arc::text::Text{
-        .raw = "func calc(val f32) f32 {\n"
+        .raw = "func calc() {val f32} f32 {\n"
                "    return val * 2\n"
                "}\n" +
-               input_name + " -> calc{} -> " + output_name + "\n"
+               input_name + " -> calc() -> " + output_name + "\n"
     };
     ASSERT_NIL(client->arcs.create(arc_prog));
 
@@ -2562,7 +2705,7 @@ TEST(ArcTests, testWriterOpensWithErrOnUnauthorizedFalse) {
     auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
 
-    auto mock_writer = std::make_shared<pipeline::mock::WriterFactory>();
+    auto mock_writer = std::make_shared<pipeline::testutil::WriterFactory>();
 
     auto input_frames = std::make_shared<std::vector<x::telem::Frame>>();
     x::telem::Frame input_fr(2);
@@ -2575,7 +2718,7 @@ TEST(ArcTests, testWriterOpensWithErrOnUnauthorizedFalse) {
     input_fr.emplace(input_ch.key, std::move(input_val_series));
     input_frames->push_back(std::move(input_fr));
 
-    auto mock_streamer = pipeline::mock::simple_streamer_factory(
+    auto mock_streamer = pipeline::testutil::simple_streamer_factory(
         {input_idx.key, input_ch.key},
         input_frames
     );
@@ -2635,8 +2778,8 @@ TEST(ArcErrorHandling, WriterFailurePropagatesErrorStatus) {
         .mode = synnax::arc::MODE_TEXT
     };
     arc_prog.text = ::arc::text::Text{
-        .raw = "func double(val i32) i32 { return val * 2 }\n" + input_name +
-               " -> double{} -> " + output_name + "\n"
+        .raw = "func double() {val i32} i32 { return val * 2 }\n" + input_name +
+               " -> double() -> " + output_name + "\n"
     };
     ASSERT_NIL(client->arcs.create(arc_prog));
 
@@ -2657,7 +2800,7 @@ TEST(ArcErrorHandling, WriterFailurePropagatesErrorStatus) {
 
     // Configure mock writer factory to fail when opening the writer.
     // Writer open errors are propagated through stopped_with_err.
-    auto mock_writer = std::make_shared<pipeline::mock::WriterFactory>(
+    auto mock_writer = std::make_shared<pipeline::testutil::WriterFactory>(
         std::make_shared<x::sync::List<x::telem::Frame>>(),
         std::vector<x::errors::Error>{x::errors::VALIDATION}
     );
@@ -2673,7 +2816,7 @@ TEST(ArcErrorHandling, WriterFailurePropagatesErrorStatus) {
     trigger_fr.emplace(input_ch.key, std::move(trigger_val_series));
     input_frames->push_back(std::move(trigger_fr));
 
-    auto mock_streamer = pipeline::mock::simple_streamer_factory(
+    auto mock_streamer = pipeline::testutil::simple_streamer_factory(
         {input_idx.key, input_ch.key},
         input_frames
     );
@@ -2741,10 +2884,10 @@ TEST(ArcTests, testWriterOpensEagerlyBeforeFirstFrame) {
         .mode = synnax::arc::MODE_TEXT
     };
     arc_prog.text = ::arc::text::Text{
-        .raw = "func calc(val f32) f32 {\n"
+        .raw = "func calc() {val f32} f32 {\n"
                "    return val * 2\n"
                "}\n" +
-               input_name + " -> calc{} -> " + output_name + "\n"
+               input_name + " -> calc() -> " + output_name + "\n"
     };
     ASSERT_NIL(client->arcs.create(arc_prog));
 
@@ -2763,10 +2906,10 @@ TEST(ArcTests, testWriterOpensEagerlyBeforeFirstFrame) {
     auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
 
-    auto mock_writer = std::make_shared<pipeline::mock::WriterFactory>();
+    auto mock_writer = std::make_shared<pipeline::testutil::WriterFactory>();
 
     auto empty_input_frames = std::make_shared<std::vector<x::telem::Frame>>();
-    auto mock_streamer = pipeline::mock::simple_streamer_factory(
+    auto mock_streamer = pipeline::testutil::simple_streamer_factory(
         {input_idx.key, input_ch.key},
         empty_input_frames
     );
@@ -2825,18 +2968,18 @@ TEST(ArcTests, testReadOnlyNoWriteChannels) {
                "    stage on {\n"
                "        " +
                input_name +
-               " > 305 => status.set{\n"
+               " > 305 => status.set(\n"
                "            key_or_name = \"tstill_status\",\n"
                "            message = \"TStill too warm\",\n"
                "            variant = \"error\"\n"
-               "        }\n"
+               "        )\n"
                "        " +
                input_name +
-               " < 305 => status.set{\n"
+               " < 305 => status.set(\n"
                "            key_or_name = \"tstill_status\",\n"
                "            message = \"TStill nominal\",\n"
                "            variant = \"success\"\n"
-               "        }\n"
+               "        )\n"
                "    }\n"
                "}\n"
     };
@@ -2857,7 +3000,7 @@ TEST(ArcTests, testReadOnlyNoWriteChannels) {
     auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
 
-    auto mock_writer = std::make_shared<pipeline::mock::WriterFactory>();
+    auto mock_writer = std::make_shared<pipeline::testutil::WriterFactory>();
 
     auto input_frames = std::make_shared<std::vector<x::telem::Frame>>();
     x::telem::Frame input_fr(2);
@@ -2870,7 +3013,7 @@ TEST(ArcTests, testReadOnlyNoWriteChannels) {
     input_fr.emplace(input_ch.key, std::move(input_val_series));
     input_frames->push_back(std::move(input_fr));
 
-    auto mock_streamer = pipeline::mock::simple_streamer_factory(
+    auto mock_streamer = pipeline::testutil::simple_streamer_factory(
         {input_idx.key, input_ch.key},
         input_frames
     );
@@ -2921,7 +3064,7 @@ TEST(ArcTests, testWriteOnlyNoReadChannels) {
                output_name +
                " = 1\n"
                "}\n"
-               "interval{period=100ms} -> write_valve{}\n"
+               "interval(period=100ms) -> write_valve()\n"
     };
     ASSERT_NIL(client->arcs.create(arc_prog));
 
@@ -2940,9 +3083,9 @@ TEST(ArcTests, testWriteOnlyNoReadChannels) {
     auto parser = x::json::Parser(task_meta.config);
     auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
 
-    auto mock_writer = std::make_shared<pipeline::mock::WriterFactory>();
+    auto mock_writer = std::make_shared<pipeline::testutil::WriterFactory>();
     auto empty_frames = std::make_shared<std::vector<x::telem::Frame>>();
-    auto mock_streamer = pipeline::mock::simple_streamer_factory({}, empty_frames);
+    auto mock_streamer = pipeline::testutil::simple_streamer_factory({}, empty_frames);
 
     auto ctx = std::make_shared<task::MockContext>(client);
 

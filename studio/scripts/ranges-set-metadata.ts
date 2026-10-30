@@ -33,28 +33,29 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await capture.login(session);
 
   await capture.searchPalette(session, "My Range");
-  const section = page.locator(".pluto-header").filter({ hasText: "Metadata" });
+  const section = page.locator(".lyra-header").filter({ hasText: "Metadata" });
   await session.waitFor(section.first());
 
   // Script-local override: drop the Snapshots section so the shot stays on the
   // Metadata block.
   await page.evaluate(() => {
-    for (const el of document.querySelectorAll(".pluto-header"))
+    for (const el of document.querySelectorAll(".lyra-header"))
       if (el.textContent?.trim() === "Snapshots")
         el.parentElement?.style.setProperty("display", "none");
   });
 
-  await session.moveTo({ x: 756, y: 400 });
+  await session.moveTo({ x: 800, y: 450 });
 
   session.startRecording();
-  await session.hold(1000);
+  await session.hold(1500);
+  await session.zoom(section.first().locator("xpath=.."));
 
   const pairs: [string, string][] = [
     ["test_configuration", "Test 1"],
     ["part_number", "12345"],
   ];
 
-  for (const [k, v] of pairs) {
+  for (const [i, [k, v]] of pairs.entries()) {
     await session.click(section.locator("button").first());
     const key = page.getByPlaceholder("Key").first();
     await session.waitFor(key);
@@ -65,10 +66,11 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.click(page.getByPlaceholder("Value").first());
     await session.type(v);
     await session.hold(200);
+    if (i === pairs.length - 1) session.endZoom();
     await session.press("Enter");
 
     await session.waitFor(page.getByText(k, { exact: true }).first());
     await session.hold(200);
   }
-  await session.hold(1000);
+  await session.hold(3000);
 };

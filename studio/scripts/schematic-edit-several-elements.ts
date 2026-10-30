@@ -25,20 +25,21 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   const pump = await capture.place(session, "Pump", { x: 830, y: 160 });
   const light = await capture.place(session, "Light", { x: 515, y: 160 });
   await capture.deselect(session, { x: 100, y: 290 });
-  await session.moveTo({ x: 150, y: 350 });
+  await capture.fitView(session);
+  await session.moveTo({ x: 800, y: 620 });
 
   session.startRecording();
-  await session.hold(500);
+  await session.hold(1800);
 
   await capture.selectSymbols(session, [gate, light, pump]);
   await session.hold(1000);
 
-  const swatch = page.locator(".console-multiedit-colors .pluto-color-swatch").first();
+  const swatch = page.locator(".console-multiedit-colors .lyra-color-swatch").first();
   await session.waitFor(swatch);
   await session.click(swatch, { zoom: false });
-  const hex = page.locator(".pluto-color-picker .pluto-color-hex-text input");
+  const hex = page.locator(".lyra-color-picker .lyra-color-hex-text input");
   await session.waitFor(hex);
-  await session.zoom(page.locator(".pluto-color-picker").first());
+  await session.zoom(page.locator(".lyra-color-picker").first());
   await session.hold(600);
 
   await session.click(hex, { zoom: false });
@@ -58,6 +59,6 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     { x: colors.x + colors.width / 2, y: colors.y + colors.height - 8 },
     { zoom: false },
   );
-  await session.moveTo({ x: 150, y: 350 });
-  await session.hold(1000);
+  await session.moveTo({ x: 800, y: 620 });
+  await session.hold(2800);
 };

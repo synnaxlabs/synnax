@@ -11,42 +11,42 @@ import "@/access/role/Select.css";
 
 import { type access } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
-import { CSS } from "@synnaxlabs/lyra/css";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select as Base } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 
 import { type ListQuery, useList } from "@/access/role/queries";
+import { CSS } from "@/css";
 import { type Flux } from "@/flux";
 
-const listItemRenderProp = Component.renderProp(
-  ({
-    itemKey,
-    className,
-    ...rest
-  }: List.ItemRenderProps<access.role.Key>): ReactElement | null => {
-    const item = List.useItem<access.role.Key, access.role.Role>(itemKey);
-    if (item == null) return null;
-    const { name, description } = item;
-    return (
-      <Base.Item
-        itemKey={itemKey}
-        y
-        gap="small"
-        {...rest}
-        className={CSS.cls(className, CSS.BE("access-role", "item"))}
-      >
-        <Text.Text level="p">{name}</Text.Text>
-        {item?.description != null && (
-          <Text.Text level="small" color={9} overflow="wrap">
-            {description}
-          </Text.Text>
-        )}
-      </Base.Item>
-    );
-  },
-);
+const ListItem = ({
+  itemKey,
+  className,
+  ...rest
+}: List.ItemRenderProps<access.role.Key>): ReactElement | null => {
+  const item = List.useItem<access.role.Key, access.role.Role>(itemKey);
+  if (item == null) return null;
+  const { name, description } = item;
+  return (
+    <Base.Item
+      itemKey={itemKey}
+      y
+      gap="small"
+      {...rest}
+      className={CSS.cls(className, CSS.BE("access-role", "item"))}
+    >
+      <Text.Text level="p">{name}</Text.Text>
+      {item?.description != null && (
+        <Text.Text level="small" color={9} overflow="wrap">
+          {description}
+        </Text.Text>
+      )}
+    </Base.Item>
+  );
+};
+
+const listItemRenderProp = Component.renderProp(ListItem);
 
 export interface SelectProps
   extends

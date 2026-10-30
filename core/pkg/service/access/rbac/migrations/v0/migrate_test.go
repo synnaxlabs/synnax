@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/builtin"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/access/rbac/migrations/v0"
@@ -25,13 +26,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/migrate"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 func userHasSpecificRole(
@@ -69,11 +67,9 @@ var _ = Describe("Legacy Permission Migration", func() {
 			db := gorp.Wrap(kvDB)
 			legacyDB := gorp.Wrap(kvDB, gorp.WithCodec(msgpack.Codec))
 			otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-			searchIdx := MustOpen(search.OpenIndex())
 			groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
-				Search:   searchIdx,
 			}))
 			passwordSvc := MustOpen(
 				password.OpenService(ctx, password.ServiceConfig{DB: db}),
@@ -82,7 +78,6 @@ var _ = Describe("Legacy Permission Migration", func() {
 				DB:       db,
 				Ontology: otg,
 				Group:    groupSvc,
-				Search:   searchIdx,
 			}))
 			MustSucceed2(
 				user.ProvisionRoot(
@@ -98,14 +93,14 @@ var _ = Describe("Legacy Permission Migration", func() {
 			w := userSvc.NewWriter(tx)
 			var rootUser user.User
 			Expect(userSvc.NewRetrieve().
-				Where(user.MatchUsernames("root")).
+				Where(user.MatchRootUser(true)).
 				Entry(&rootUser).
 				Exec(ctx, tx)).To(Succeed())
-			adminUser := MustSucceed(w.Create(ctx, user.User{Username: "admin"}))
+			adminUser := MustSucceed(w.Create(ctx, user.User{Name: "admin"}))
 			schematicUser := MustSucceed(w.Create(ctx, user.User{
-				Username: "schematicuser",
+				Name: "schematicuser",
 			}))
-			regularUser := MustSucceed(w.Create(ctx, user.User{Username: "regular"}))
+			regularUser := MustSucceed(w.Create(ctx, user.User{Name: "regular"}))
 
 			// Seed legacy policies with Subjects field
 			adminPolicy := policyv0.Policy{
@@ -131,19 +126,17 @@ var _ = Describe("Legacy Permission Migration", func() {
 			policySvc := MustOpen(policy.OpenService(ctx, policy.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
-				Search:   searchIdx,
 			}))
 			roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
 				Group:    groupSvc,
-				Search:   searchIdx,
 			}))
 			builtinRoles := MustSucceed(builtin.Provision(ctx, db, policySvc, roleSvc))
 			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 				DB:        db,
 				Namespace: "RBAC",
-				Migrations: []migrate.Migration{
+				Migrations: []gorp.Migration{
 					v0.NewMigration(v0.MigrationConfig{
 						User:     userSvc,
 						Ontology: otg,
@@ -236,11 +229,9 @@ var _ = Describe("Legacy Permission Migration", func() {
 	It("Should be idempotent across repeated runs", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		searchIdx := MustOpen(search.OpenIndex())
 		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
-			Search:   searchIdx,
 		}))
 		passwordSvc := MustOpen(
 			password.OpenService(ctx, password.ServiceConfig{DB: db}),
@@ -249,7 +240,6 @@ var _ = Describe("Legacy Permission Migration", func() {
 			DB:       db,
 			Ontology: otg,
 			Group:    groupSvc,
-			Search:   searchIdx,
 		}))
 		MustSucceed2(
 			user.ProvisionRoot(
@@ -263,13 +253,11 @@ var _ = Describe("Legacy Permission Migration", func() {
 		policySvc := MustOpen(policy.OpenService(ctx, policy.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
-			Search:   searchIdx,
 		}))
 		roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    groupSvc,
-			Search:   searchIdx,
 		}))
 		run := func() error {
 			builtinRoles, err := builtin.Provision(ctx, db, policySvc, roleSvc)
@@ -279,7 +267,7 @@ var _ = Describe("Legacy Permission Migration", func() {
 			return gorp.Migrate(ctx, gorp.MigrateConfig{
 				DB:        db,
 				Namespace: "RBAC",
-				Migrations: []migrate.Migration{
+				Migrations: []gorp.Migration{
 					v0.NewMigration(v0.MigrationConfig{
 						User:     userSvc,
 						Ontology: otg,
@@ -298,11 +286,9 @@ var _ = Describe("Legacy Permission Migration", func() {
 	) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-		searchIdx := MustOpen(search.OpenIndex())
 		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
-			Search:   searchIdx,
 		}))
 		passwordSvc := MustOpen(
 			password.OpenService(ctx, password.ServiceConfig{DB: db}),
@@ -311,7 +297,6 @@ var _ = Describe("Legacy Permission Migration", func() {
 			DB:       db,
 			Ontology: otg,
 			Group:    groupSvc,
-			Search:   searchIdx,
 		}))
 		MustSucceed2(
 			user.ProvisionRoot(
@@ -324,13 +309,11 @@ var _ = Describe("Legacy Permission Migration", func() {
 		policySvc := MustOpen(policy.OpenService(ctx, policy.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
-			Search:   searchIdx,
 		}))
 		roleSvc := MustOpen(role.OpenService(ctx, role.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    groupSvc,
-			Search:   searchIdx,
 		}))
 		builtinRoles := MustSucceed(builtin.Provision(ctx, db, policySvc, roleSvc))
 		// Cores up to v0.53 converted permissions to roles and set this flag.
@@ -338,7 +321,7 @@ var _ = Describe("Legacy Permission Migration", func() {
 			To(Succeed())
 		tx := DeferClose(db.OpenTx())
 		viewer := MustSucceed(userSvc.NewWriter(tx).Create(ctx, user.User{
-			Username: "viewer",
+			Name: "viewer",
 		}))
 		Expect(roleSvc.NewWriter(tx, true).AssignRole(
 			ctx, viewer.OntologyID(), builtinRoles.ViewerKey,
@@ -347,7 +330,7 @@ var _ = Describe("Legacy Permission Migration", func() {
 		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 			DB:        db,
 			Namespace: "RBAC",
-			Migrations: []migrate.Migration{v0.NewMigration(v0.MigrationConfig{
+			Migrations: []gorp.Migration{v0.NewMigration(v0.MigrationConfig{
 				User:     userSvc,
 				Ontology: otg,
 				Role:     roleSvc,

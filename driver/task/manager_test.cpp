@@ -7,14 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
+#include <condition_variable>
+#include <functional>
 #include <future>
+#include <unordered_map>
+#include <utility>
 
 #include "gtest/gtest.h"
 #include "nlohmann/json.hpp"
 
 #include "client/cpp/status/status.h"
 #include "client/cpp/testutil/testutil.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 #include "x/cpp/uuid/uuid.h"
 
 #include "driver/task/task.h"
@@ -36,7 +41,7 @@ public:
         ctx->set_status(status);
     }
 
-    std::string name() const override { return "echo"; }
+    [[nodiscard]] std::string name() const override { return "echo"; }
 
     void exec(synnax::task::Command &cmd) override {
         synnax::task::Status status{
@@ -103,7 +108,7 @@ public:
         ctx->set_status(status);
     }
 
-    std::string name() const override { return "blocking"; }
+    [[nodiscard]] std::string name() const override { return "blocking"; }
     void exec(synnax::task::Command &) override {}
     void stop(bool) override {}
 };
@@ -164,7 +169,7 @@ public:
         ctx->set_status(status);
     }
 
-    std::string name() const override { return "tracking"; }
+    [[nodiscard]] std::string name() const override { return "tracking"; }
 
     void exec(synnax::task::Command &cmd) override {
         state->exec_count++;
@@ -177,7 +182,7 @@ public:
         state->stop_will_reconfigure = will_reconfigure;
     }
 
-    std::vector<std::string> get_cmd_order() {
+    [[nodiscard]] std::vector<std::string> get_cmd_order() const {
         std::lock_guard lock(state->cmd_order_mu);
         return state->cmd_order;
     }
@@ -222,7 +227,7 @@ public:
         cv.wait(lock, [&] { return this->release.load(); });
     }
 
-    std::string name() const override { return "timeout"; }
+    [[nodiscard]] std::string name() const override { return "timeout"; }
     void exec(synnax::task::Command &) override {}
     void stop(bool) override {}
 };
@@ -287,7 +292,7 @@ synnax::task::Status wait_for_task_status(
     x::telem::TimeSpan timeout = 5 * x::telem::SECOND
 ) {
     synnax::task::Status result;
-    x::test::eventually(
+    x::testutil::eventually(
         [&]() {
             auto [frame, err] = streamer.read();
             if (err) return false;
@@ -319,7 +324,7 @@ synnax::task::Status wait_for_task_status(
     )
 
 #define EVENTUALLY(condition, failure_message, ...)                                    \
-    ::x::test::eventually(                                                             \
+    ::x::testutil::eventually(                                                         \
         condition,                                                                     \
         failure_message,                                                               \
         __FILE__,                                                                      \
@@ -383,6 +388,45 @@ protected:
         streamer.close_send();
         reader.join();
         ASSERT_FALSE(received);
+    }
+
+    /// @brief reads the statuses that a Driver on this rack stamped at or after since,
+    /// keyed by task, until done returns true for them. Fails the spec after 5 seconds.
+    std::unordered_map<synnax::task::Key, synnax::task::Status> read_statuses_since(
+        const x::telem::TimeStamp since,
+        const std::function<
+            bool(const std::unordered_map<synnax::task::Key, synnax::task::Status> &)>
+            &done
+    ) {
+        std::unordered_map<synnax::task::Key, synnax::task::Status> statuses;
+        std::promise<bool> ended;
+        auto read_all = ended.get_future();
+        std::thread reader([&] {
+            while (true) {
+                auto [frame, err] = streamer.read();
+                if (err) {
+                    ended.set_value(false);
+                    return;
+                }
+                for (const auto &j: frame.series->at(0).json_values()) {
+                    auto parser = x::json::Parser(j);
+                    auto s = synnax::task::Status::parse(parser);
+                    if (s.details.rack == rack.key && s.time >= since)
+                        statuses[s.details.task] = s;
+                }
+                if (done(statuses)) {
+                    ended.set_value(true);
+                    return;
+                }
+            }
+        });
+        // read has no deadline, so closing the stream is what ends a read that waits
+        // for a status that never comes.
+        if (read_all.wait_for(std::chrono::seconds(5)) != std::future_status::ready)
+            streamer.close_send();
+        reader.join();
+        if (!read_all.get()) ADD_FAILURE() << "Timed out waiting for task statuses";
+        return statuses;
     }
 
     void TearDown() override {
@@ -507,7 +551,7 @@ TEST_F(TaskManagerTest, Command) {
     auto s = WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
         return s.details.cmd == "cmd1";
     });
-    ASSERT_EQ((*s.details.data)["msg"], "hi");
+    ASSERT_EQ((s.details.data.value())["msg"], "hi");
 }
 
 TEST_F(TaskManagerTest, IgnoresForeignRack) {
@@ -535,6 +579,29 @@ TEST_F(TaskManagerTest, StartForNonexistentTaskStaysSilent) {
     };
     send_start(client, task);
     expect_no_driver_status(task, true);
+}
+
+/// @brief a start for a task type no integration handles should answer with an error.
+TEST_F(TaskManagerTest, StartForUnhandledTypeAnswersWithError) {
+    start_manager(std::make_unique<EchoTaskFactory>());
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = ALT_SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task);
+    auto s = WAIT_FOR_TASK_STATUS(streamer, task, [](const synnax::task::Status &s) {
+        return s.variant == synnax::status::VARIANT_ERROR;
+    });
+    EXPECT_EQ(s.name, task.name);
+    EXPECT_EQ(s.message, "Failed to configure task");
+    EXPECT_EQ(
+        s.description,
+        "No integration on this Driver runs '" + ALT_SYNTHETIC_TASK_TYPE +
+            "' tasks. Check that the Driver and the Core run the same version."
+    );
+    EXPECT_EQ(s.details.cmd, "start-cmd");
 }
 
 TEST_F(TaskManagerTest, StopOnShutdown) {
@@ -793,11 +860,16 @@ TEST_F(TaskManagerTest, Timeout) {
         task,
         [](const synnax::task::Status &s) {
             return s.variant == synnax::status::VARIANT_ERROR &&
-                   s.message == "operation timed out";
+                   s.message == "Failed to complete task operation";
         },
         5 * x::telem::SECOND
     );
     ASSERT_EQ(s.details.task, task.key);
+    ASSERT_EQ(
+        s.description,
+        "The operation did not finish within " +
+            (500 * x::telem::MILLISECOND).to_string() + "."
+    );
     // The timeout report is the only signal a stuck task gives, so it carries
     // everything needed to identify what hung: the command waiting on it, the task,
     // and the config the stuck operation is deploying.
@@ -915,7 +987,7 @@ public:
         if (destroyed != nullptr) *destroyed = true;
     }
 
-    std::string name() const override { return "destructor_tracking"; }
+    [[nodiscard]] std::string name() const override { return "destructor_tracking"; }
 
     void exec(synnax::task::Command &) override {}
 
@@ -1057,7 +1129,7 @@ public:
     ):
         stop_called(stop_called), release(release), cv(cv), mu(mu) {}
 
-    std::string name() const override { return "blocking_stop"; }
+    [[nodiscard]] std::string name() const override { return "blocking_stop"; }
     void exec(synnax::task::Command &) override {}
 
     void stop(bool) override {
@@ -1144,7 +1216,7 @@ public:
     SlowStopTask(x::telem::TimeSpan duration, std::atomic<bool> &stopped):
         stop_duration(duration), stopped(stopped) {}
 
-    std::string name() const override { return "slow_stop"; }
+    [[nodiscard]] std::string name() const override { return "slow_stop"; }
     void exec(synnax::task::Command &) override {}
 
     void stop(bool) override {
@@ -1167,7 +1239,7 @@ public:
         const std::string &
     ) override {
         if (task.type == SYNTHETIC_TASK_TYPE) {
-            auto flag = new std::atomic<bool>(false);
+            auto *flag = new std::atomic<bool>(false);
             std::lock_guard lock(mu);
             stopped_flags.push_back(flag);
             return {std::make_unique<SlowStopTask>(stop_duration, *flag), true};
@@ -1433,5 +1505,188 @@ TEST_F(TaskManagerTest, RetrievesInitialControlStateOnStart) {
     ASSERT_TRUE(states->is_authorized(data_ch.key, writer_sub));
 
     ASSERT_NIL(writer.close());
+}
+
+using SynnaxContextTest = TaskManagerTest;
+
+/// @brief it should send the latest status of each task again, with no command key.
+TEST_F(SynnaxContextTest, ResendsLatestStatuses) {
+    const auto ctx = std::make_shared<SynnaxContext>(
+        client,
+        std::make_shared<StatusCache>(client->statuses),
+        nullptr,
+        nullptr,
+        rack.key
+    );
+    auto running = synnax::task::Task{
+        .rack = rack.key,
+        .name = "running",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    auto failed = synnax::task::Task{
+        .rack = rack.key,
+        .name = "failed",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(running));
+    ASSERT_NIL(rack.tasks.create(failed));
+    synnax::task::Status configured{
+        .key = synnax::task::status_key(running),
+        .variant = synnax::status::VARIANT_SUCCESS,
+        .message = "Task configured",
+        .details = {.task = running.key},
+    };
+    ctx->set_status(configured);
+    synnax::task::Status started{
+        .key = synnax::task::status_key(running),
+        .variant = synnax::status::VARIANT_SUCCESS,
+        .message = "Task started",
+        .details = {.task = running.key, .running = true, .cmd = "start-cmd"},
+    };
+    ctx->set_status(started);
+    synnax::task::Status error{
+        .key = synnax::task::status_key(failed),
+        .variant = synnax::status::VARIANT_ERROR,
+        .message = "Failed to start task",
+        .details = {.task = failed.key, .cmd = "start-cmd"},
+    };
+    ctx->set_status(error);
+
+    const auto since = x::telem::TimeStamp::now();
+    ASSERT_NIL(ctx->resend_statuses());
+    auto statuses = read_statuses_since(since, [](const auto &s) {
+        return s.size() == 2;
+    });
+    const auto &resent_running = statuses.at(running.key);
+    EXPECT_EQ(resent_running.message, "Task started");
+    EXPECT_TRUE(resent_running.details.running);
+    EXPECT_EQ(resent_running.details.cmd, NO_COMMAND);
+    const auto &resent_failed = statuses.at(failed.key);
+    EXPECT_EQ(resent_failed.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(resent_failed.message, "Failed to start task");
+    EXPECT_EQ(resent_failed.details.cmd, NO_COMMAND);
+}
+
+/// @brief it should not send the status of a task moved to another rack again.
+TEST_F(TaskManagerTest, RackMoveDropsStatusFromResend) {
+    auto factory = std::make_unique<ContextCaptureFactory>();
+    auto *f = factory.get();
+    start_manager(std::move(factory));
+    auto kept = synnax::task::Task{
+        .rack = rack.key,
+        .name = "kept",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    auto moved = synnax::task::Task{
+        .rack = rack.key,
+        .name = "moved",
+        .type = ALT_SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(kept));
+    ASSERT_NIL(rack.tasks.create(moved));
+    send_start(client, kept);
+    WAIT_FOR_TASK_STATUS(streamer, kept, [](const synnax::task::Status &s) {
+        return s.details.running;
+    });
+    send_start(client, moved);
+    WAIT_FOR_TASK_STATUS(streamer, moved, [](const synnax::task::Status &s) {
+        return s.message == "Failed to configure task";
+    });
+
+    auto other = ASSERT_NIL_P(client->racks.create("move_target"));
+    moved.rack = other.key;
+    ASSERT_NIL(other.tasks.create(moved));
+    // The set event that moves the task carries no signal that it was handled.
+    std::this_thread::sleep_for((200 * x::telem::MILLISECOND).chrono());
+
+    const auto since = x::telem::TimeStamp::now();
+    ASSERT_NIL(f->captured_ctx->resend_statuses());
+    const auto statuses = read_statuses_since(since, [&](const auto &s) {
+        return s.contains(kept.key);
+    });
+    EXPECT_TRUE(statuses.at(kept.key).details.running);
+    EXPECT_FALSE(statuses.contains(moved.key));
+    expect_no_driver_status(moved);
+}
+
+/// @brief it should write the statuses of a task that moves back to this rack.
+TEST_F(TaskManagerTest, RackMoveBackWritesStatusesAgain) {
+    auto factory = std::make_unique<TrackingTaskFactory>();
+    auto *f = factory.get();
+    start_manager(std::move(factory));
+    auto task = synnax::task::Task{
+        .rack = rack.key,
+        .name = "t",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(task));
+    send_start(client, task, "s1");
+    EVENTUALLY(
+        [&] {
+            std::lock_guard lock(f->mu);
+            return f->task_states.size() == 1;
+        },
+        [] { return "task not deployed"; }
+    );
+    const auto first = f->task_states[0];
+
+    auto other = ASSERT_NIL_P(client->racks.create("move_target"));
+    task.rack = other.key;
+    ASSERT_NIL(other.tasks.create(task));
+    send_start(client, task, "s2");
+    EVENTUALLY([&] { return first->stopped.load(); }, [] { return "not stopped"; });
+    // The worker drops the status after the instance stops and is destroyed.
+    std::this_thread::sleep_for((200 * x::telem::MILLISECOND).chrono());
+
+    task.rack = rack.key;
+    ASSERT_NIL(rack.tasks.create(task));
+    const auto since = x::telem::TimeStamp::now();
+    send_start(client, task, "s3");
+    WAIT_FOR_TASK_STATUS(streamer, task, [&](const synnax::task::Status &s) {
+        return s.message == "configured" && s.details.rack == rack.key &&
+               s.time >= since;
+    });
+}
+
+/// @brief it should not send the status of a deleted task again.
+TEST_F(TaskManagerTest, DeleteDropsStatusFromResend) {
+    auto factory = std::make_unique<ContextCaptureFactory>();
+    auto *f = factory.get();
+    start_manager(std::move(factory));
+    auto kept = synnax::task::Task{
+        .rack = rack.key,
+        .name = "kept",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    auto deleted = synnax::task::Task{
+        .rack = rack.key,
+        .name = "deleted",
+        .type = SYNTHETIC_TASK_TYPE,
+    };
+    ASSERT_NIL(rack.tasks.create(kept));
+    ASSERT_NIL(rack.tasks.create(deleted));
+    const auto is_running = [](const synnax::task::Status &s) {
+        return s.details.running;
+    };
+    send_start(client, kept);
+    WAIT_FOR_TASK_STATUS(streamer, kept, is_running);
+    send_start(client, deleted);
+    WAIT_FOR_TASK_STATUS(streamer, deleted, is_running);
+
+    ASSERT_NIL(rack.tasks.del(deleted.key));
+    WAIT_FOR_TASK_STATUS(streamer, deleted, [](const synnax::task::Status &s) {
+        return s.message == "stopped";
+    });
+    // The worker drops the status after the instance stops and is destroyed.
+    std::this_thread::sleep_for((200 * x::telem::MILLISECOND).chrono());
+
+    const auto since = x::telem::TimeStamp::now();
+    ASSERT_NIL(f->captured_ctx->resend_statuses());
+    const auto statuses = read_statuses_since(since, [&](const auto &s) {
+        return s.contains(kept.key);
+    });
+    EXPECT_TRUE(statuses.at(kept.key).details.running);
+    EXPECT_FALSE(statuses.contains(deleted.key));
+    expect_no_driver_status(deleted, true);
 }
 }

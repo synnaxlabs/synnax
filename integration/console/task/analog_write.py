@@ -14,7 +14,7 @@ from console.task.channels.analog_output import Current, Voltage
 from console.task.ni import NIChannel, NITask
 
 # Channel type registry for NI Analog Output
-AO_CHANNEL_TYPES: dict[str, type[Analog]] = {
+_AO_CHANNEL_TYPES: dict[str, type[Analog]] = {
     "Voltage": Voltage,
     "Current": Current,
 }
@@ -29,6 +29,7 @@ class AnalogWrite(NITask):
     def add_channel(
         self,
         name: str,
+        *,
         chan_type: str,
         device: str,
         dev_name: str | None = None,
@@ -50,17 +51,17 @@ class AnalogWrite(NITask):
         Raises:
             ValueError: If channel type is not valid for analog write tasks
         """
-        if chan_type not in AO_CHANNEL_TYPES:
+        if chan_type not in _AO_CHANNEL_TYPES:
             raise ValueError(
                 f"Invalid channel type for NI Analog Write: {chan_type}. "
-                f"Valid types: {list(AO_CHANNEL_TYPES.keys())}"
+                f"Valid types: {list(_AO_CHANNEL_TYPES.keys())}"
             )
 
         return self._add_channel_helper(
             name=name,
             device=device,
             dev_name=dev_name,
-            channel_class=AO_CHANNEL_TYPES[chan_type],
+            channel_class=_AO_CHANNEL_TYPES[chan_type],
             **kwargs,
         )
 

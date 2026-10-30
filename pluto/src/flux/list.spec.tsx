@@ -9,18 +9,19 @@
 
 import { type query, type ranger, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { List } from "@synnaxlabs/lyra/list";
 import { type record, TimeRange, TimeSpan, uuid } from "@synnaxlabs/x";
 import { expectAlways } from "@synnaxlabs/x/testutil";
 import { act, render, renderHook, waitFor } from "@testing-library/react";
 import { memo, type PropsWithChildren, type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { aetherTest } from "@/aether/test";
 import { Flux } from "@/flux";
 import { Status } from "@/status";
 import { status } from "@/status/aether";
 import { Synnax } from "@/synnax";
 import { synnax } from "@/synnax/aether";
+import { createAetherProvider } from "@/testutil/Aether";
 import { createSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
@@ -788,6 +789,157 @@ describe("list", () => {
     });
   });
 
+  describe("debounced retrieves", () => {
+    type Page = record.Keyed<number>[];
+
+    const renderPagedList = (
+      retrieve = vi.fn(async (_: { query: List.PagerParams }): Promise<Page> => [
+        { key: 1 },
+      ]),
+    ) => {
+      const useList = Flux.createList<List.PagerParams, number, record.Keyed<number>>({
+        name: "Resource",
+        retrieve,
+        retrieveByKey: async ({ key }) => ({ key }),
+      });
+      const { result } = renderHook(
+        () => {
+          const list = useList();
+          const pager = List.usePager({ retrieve: list.retrieve, pageSize: 20 });
+          return { ...list, ...pager };
+        },
+        { wrapper },
+      );
+      return { retrieve, result };
+    };
+
+    const SEARCH_PAGES = [
+      { searchTerm: "pump", offset: 0, limit: 20 },
+      { searchTerm: "pump", offset: 20, limit: 20 },
+    ];
+
+    it("should fetch the next page of a search when a fetch for more follows it", async () => {
+      const { retrieve, result } = renderPagedList();
+      act(() => {
+        result.current.search("pump");
+        result.current.fetchMore();
+      });
+      await waitFor(() => {
+        expect(retrieve).toHaveBeenCalledTimes(2);
+        expect(result.current.variant).toEqual("success");
+      });
+      expect(retrieve.mock.calls.map(([{ query }]) => query)).toEqual(SEARCH_PAGES);
+    });
+
+    it("should fetch the next page of a search that follows a fetch for more", async () => {
+      const { retrieve, result } = renderPagedList();
+      act(() => {
+        result.current.fetchMore();
+        result.current.search("pump");
+      });
+      await waitFor(() => {
+        expect(retrieve).toHaveBeenCalledTimes(2);
+        expect(result.current.variant).toEqual("success");
+      });
+      expect(retrieve.mock.calls.map(([{ query }]) => query)).toEqual(SEARCH_PAGES);
+    });
+
+    it("should fetch one page for repeated fetches for more", async () => {
+      const { retrieve, result } = renderPagedList();
+      act(() => {
+        result.current.fetchMore();
+        result.current.fetchMore();
+      });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      expect(retrieve).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({ query: { searchTerm: "", offset: 0, limit: 20 } }),
+      );
+    });
+
+    interface Answer {
+      resolve: (page: Page) => void;
+      reject: (error: Error) => void;
+    }
+
+    /** A retrieve that answers each page, keyed by `searchTerm:offset`, on demand. */
+    const answerOnDemand = () => {
+      const answers = new Map<string, Answer>();
+      const retrieve = vi.fn(
+        ({ query: { searchTerm, offset } }: { query: List.PagerParams }) =>
+          new Promise<Page>((resolve, reject) =>
+            answers.set(`${searchTerm}:${offset}`, { resolve, reject }),
+          ),
+      );
+      const settle = async (key: string, settle: (answer: Answer) => void) => {
+        await waitFor(() => expect(answers.has(key)).toBe(true));
+        await act(async () => {
+          const answer = answers.get(key);
+          if (answer != null) settle(answer);
+        });
+      };
+      const answer = (key: string, page: Page) =>
+        settle(key, ({ resolve }) => resolve(page));
+      const fail = (key: string) =>
+        settle(key, ({ reject }) => reject(new Error("unreachable")));
+      return { retrieve, answer, fail };
+    };
+
+    it("should keep the first page of a search when an append starts while it loads", async () => {
+      const { retrieve, answer } = answerOnDemand();
+      const { result } = renderPagedList(retrieve);
+      act(() => result.current.search("p"));
+      await waitFor(() => expect(retrieve).toHaveBeenCalledTimes(1));
+      act(() => {
+        void result.current.retrieveAsync((p) => List.page(p, 20), { mode: "append" });
+      });
+      await answer("p:0", [{ key: 1 }]);
+      await answer("p:20", [{ key: 2 }]);
+      await waitFor(() => expect(result.current.data).toEqual([1, 2]));
+    });
+
+    it("should page from the newest search when an older search's fetch for more runs", async () => {
+      const { retrieve, answer } = answerOnDemand();
+      const { result } = renderPagedList(retrieve);
+      act(() => {
+        result.current.search("p");
+        result.current.fetchMore();
+      });
+      await waitFor(() => expect(retrieve).toHaveBeenCalledTimes(1));
+      act(() => result.current.search("pu"));
+      await waitFor(() => expect(retrieve).toHaveBeenCalledTimes(2));
+      await answer("p:0", [{ key: 1 }]);
+      await answer("pu:0", [{ key: 2 }]);
+      await answer("pu:20", [{ key: 3 }]);
+      await waitFor(() => expect(result.current.data).toEqual([2, 3]));
+    });
+
+    it("should not fetch more after the search it waits for fails", async () => {
+      const { retrieve, fail } = answerOnDemand();
+      const { result } = renderPagedList(retrieve);
+      act(() => {
+        result.current.search("p");
+        result.current.fetchMore();
+      });
+      await fail("p:0");
+      await expectAlways(() => {
+        expect(retrieve).toHaveBeenCalledOnce();
+        expect(result.current.variant).toEqual("error");
+      });
+    });
+
+    it("should keep every query change made within the debounce", async () => {
+      const { retrieve, result } = renderPagedList();
+      act(() => {
+        result.current.retrieve((p) => ({ ...p, searchTerm: "pump" }));
+        result.current.retrieve((p) => ({ ...p, limit: 5 }));
+      });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      expect(retrieve).toHaveBeenCalledExactlyOnceWith(
+        expect.objectContaining({ query: { searchTerm: "pump", limit: 5 } }),
+      );
+    });
+  });
+
   describe("getCached", () => {
     it("should use cached data as initial state when available", () => {
       const cachedItems = [
@@ -814,7 +966,6 @@ describe("list", () => {
       expect(result.current.variant).toEqual("loading");
       expect(result.current.data).toEqual([1, 2]);
       expect(result.current.answered).toBe(true);
-      expect(getCached).toHaveBeenCalledTimes(1);
     });
 
     it("should answer from a cached answer that is empty", () => {
@@ -938,6 +1089,30 @@ describe("list", () => {
         expect(result.current.data).toEqual([1, 2, 3]);
         expect(result.current.getItem(3)?.value).toEqual("fresh-3");
       });
+    });
+
+    it("should replace cached data with the first appended page", async () => {
+      const getCached = vi.fn().mockReturnValue(changed([{ key: 1 }, { key: 2 }]));
+      const retrieve = vi.fn().mockResolvedValue([{ key: 2 }]);
+      const { result } = renderHook(
+        () =>
+          Flux.createList<{}, number, record.Keyed<number>>({
+            name: "Resource",
+            retrieve,
+            retrieveByKey: async ({ key }) => ({ key }),
+            getCached,
+            onChange: () => () => {},
+          })(),
+        { wrapper },
+      );
+      expect(result.current.data).toEqual([1, 2]);
+      await act(async () => {
+        await result.current.retrieveAsync(
+          {},
+          { mode: "append", signal: controller.signal },
+        );
+      });
+      expect(result.current.data).toEqual([2]);
     });
 
     it("should work without getCached defined", async () => {
@@ -1371,7 +1546,7 @@ describe("list", () => {
       });
     });
 
-    it("should not subscribe immediately when getCached returns data", () => {
+    it("should subscribe to the cached query when getCached returns data", () => {
       const subscribe = vi.fn().mockReturnValue(() => {});
       const getCached = vi.fn().mockReturnValue(changed([{ key: 1 }, { key: 2 }]));
 
@@ -1387,7 +1562,8 @@ describe("list", () => {
         { wrapper },
       );
 
-      expect(subscribe).not.toHaveBeenCalled();
+      expect(subscribe).toHaveBeenCalledTimes(1);
+      expect(subscribe.mock.calls[0][0].query).toEqual({});
     });
 
     it("should serve getItem from cached initial data without fetching", async () => {
@@ -1412,6 +1588,46 @@ describe("list", () => {
   });
 
   describe("subscriptions against a live client", () => {
+    const useRangeList = Flux.createList<
+      { keys?: ranger.Key[]; names?: string[] },
+      ranger.Key,
+      ranger.Range
+    >({
+      name: "Resource",
+      retrieve: async ({ client, query }) => await client.ranges.retrieve(query),
+      retrieveByKey: async ({ client, key }) => await client.ranges.retrieve(key),
+      onChange: ({ client, query }, handler) => client.ranges.onChange(query, handler),
+      onChangeByKey: ({ client, key }, handler) => client.ranges.onChange(key, handler),
+      getCached: ({ client, query }) => client.ranges.getCached(query),
+    });
+
+    const createRange = async (name: string): Promise<ranger.Range> =>
+      await client.ranges.create({
+        name,
+        timeRange: new TimeRange({
+          start: TimeSpan.seconds(12),
+          end: TimeSpan.seconds(13),
+        }),
+      });
+
+    it("should return the same functions after the list answers", async () => {
+      const rng = await createRange("stable");
+      const { result } = renderHook(() => useRangeList(), { wrapper });
+      const { retrieve, retrieveAsync, getItem, subscribe } = result.current;
+      await act(
+        async () =>
+          await result.current.retrieveAsync(
+            { keys: [rng.key] },
+            { signal: controller.signal },
+          ),
+      );
+      expect(result.current.data).toEqual([rng.key]);
+      expect(result.current.retrieve).toBe(retrieve);
+      expect(result.current.retrieveAsync).toBe(retrieveAsync);
+      expect(result.current.getItem).toBe(getItem);
+      expect(result.current.subscribe).toBe(subscribe);
+    });
+
     it("should correctly update a list item when the subscribed answer changes", async () => {
       const rng = await client.ranges.create({
         name: "Test Range",
@@ -1559,6 +1775,133 @@ describe("list", () => {
       await waitFor(() => {
         expect(result.current.value?.name).toEqual("Test Range 2");
       });
+    });
+
+    it("should update a read item that the list painted from the cache", async () => {
+      const rng = await createRange("Test Range");
+      await client.ranges.retrieve({ keys: [rng.key] });
+      const { result } = renderHook(
+        () => {
+          const { getItem, subscribe } = useRangeList({
+            initialQuery: { keys: [rng.key] },
+          });
+          return Flux.useListItem<ranger.Key, ranger.Range>({
+            subscribe,
+            getItem,
+            key: rng.key,
+          });
+        },
+        { wrapper },
+      );
+      expect(result.current?.name).toEqual("Test Range");
+      await act(async () => await client.ranges.rename(rng.key, "Test Range 2"));
+      await waitFor(() => expect(result.current?.name).toEqual("Test Range 2"));
+    });
+
+    it("should keep a read item that a rename moves out of the cached query", async () => {
+      const name = `Test Range ${uuid.create()}`;
+      const rng = await createRange(name);
+      await client.ranges.retrieve({ names: [name] });
+      const { result } = renderHook(
+        () => {
+          const { getItem, subscribe } = useRangeList({
+            initialQuery: { names: [name] },
+          });
+          return Flux.useListItem<ranger.Key, ranger.Range>({
+            subscribe,
+            getItem,
+            key: rng.key,
+          });
+        },
+        { wrapper },
+      );
+      expect(result.current?.name).toEqual(name);
+      await act(async () => await client.ranges.rename(rng.key, `${name} 2`));
+      await waitFor(() => expect(result.current?.name).toEqual(`${name} 2`));
+    });
+
+    it("should clear a read item painted from the cache when it is deleted", async () => {
+      const rng = await createRange("Test Range");
+      await client.ranges.retrieve({ keys: [rng.key] });
+      const { result } = renderHook(
+        () => {
+          const { getItem, subscribe } = useRangeList({
+            initialQuery: { keys: [rng.key] },
+          });
+          return Flux.useListItem<ranger.Key, ranger.Range>({
+            subscribe,
+            getItem,
+            key: rng.key,
+          });
+        },
+        { wrapper },
+      );
+      expect(result.current?.name).toEqual("Test Range");
+      await act(async () => await client.ranges.delete(rng.key));
+      await waitFor(() => expect(result.current).toBeNull());
+    });
+
+    it.each(["append", "replace"] as const)(
+      "should update an item painted from the cache after a %s retrieve leaves it out",
+      async (mode) => {
+        const rng = await createRange("Test Range");
+        const other = await createRange("Other Range");
+        await client.ranges.retrieve({ keys: [rng.key, other.key] });
+        const { result, rerender } = renderHook(
+          ({ key }: { key: ranger.Key }) => {
+            const { getItem, subscribe, retrieveAsync } = useRangeList({
+              initialQuery: { keys: [rng.key, other.key] },
+            });
+            const value = Flux.useListItem<ranger.Key, ranger.Range>({
+              subscribe,
+              getItem,
+              key,
+            });
+            return { retrieveAsync, value };
+          },
+          { wrapper, initialProps: { key: "" } },
+        );
+        await act(async () => {
+          await result.current.retrieveAsync(
+            { keys: [other.key] },
+            { mode, signal: controller.signal },
+          );
+        });
+        await act(async () => await client.ranges.rename(rng.key, "Test Range 2"));
+        rerender({ key: rng.key });
+        await waitFor(() => expect(result.current.value?.name).toEqual("Test Range 2"));
+      },
+    );
+
+    it("should keep a read item live without a fetch after an append retrieve replaces the cached page", async () => {
+      const rng = await createRange("Test Range");
+      const other = await createRange("Other Range");
+      await client.ranges.retrieve({ keys: [rng.key, other.key] });
+      const retrieve = vi.spyOn(client.ranges, "retrieve");
+      const { result } = renderHook(
+        () => {
+          const { getItem, subscribe, retrieveAsync } = useRangeList({
+            initialQuery: { keys: [rng.key, other.key] },
+          });
+          const value = Flux.useListItem<ranger.Key, ranger.Range>({
+            subscribe,
+            getItem,
+            key: rng.key,
+          });
+          return { retrieveAsync, value };
+        },
+        { wrapper },
+      );
+      await act(async () => {
+        await result.current.retrieveAsync(
+          { keys: [other.key] },
+          { mode: "append", signal: controller.signal },
+        );
+      });
+      await act(async () => await client.ranges.rename(rng.key, "Test Range 2"));
+      await waitFor(() => expect(result.current.value?.name).toEqual("Test Range 2"));
+      expect(retrieve).not.toHaveBeenCalledWith(rng.key);
+      retrieve.mockRestore();
     });
 
     it("should correctly remove a list item when it gets deleted", async () => {
@@ -1717,7 +2060,7 @@ describe("list", () => {
       key: string;
       name: string;
     }
-    const ReconnectAetherProvider = aetherTest.createProvider({
+    const ReconnectAetherProvider = createAetherProvider({
       ...synnax.REGISTRY,
       ...status.REGISTRY,
     });
@@ -1818,6 +2161,32 @@ describe("list", () => {
       await waitFor(() => expect(result.current.data).toContain("after"));
     });
 
+    it("should fetch more through the new client when it changes while a search loads", async () => {
+      const { wrapper, reconnect } = createReconnectSetup();
+      const answers: { client: string; resolve: (docs: Doc[]) => void }[] = [];
+      const useList = Flux.createList<{ offset?: number }, string, Doc>({
+        name: "Doc",
+        retrieve: ({ client }) =>
+          new Promise((resolve) => answers.push({ client: client.key, resolve })),
+        retrieveByKey: async ({ key }) => ({ key, name: key }),
+      });
+      const { result, rerender } = renderHook(() => useList(), { wrapper });
+      act(() => {
+        void result.current.retrieveAsync({ offset: 0 });
+        void result.current.retrieveAsync((p) => ({ ...p, offset: 1 }), {
+          mode: "append",
+        });
+      });
+      reconnect();
+      rerender();
+      await waitFor(() => expect(answers).toHaveLength(2));
+      await act(async () =>
+        answers.forEach(({ resolve }) => resolve([{ key: "k", name: "k" }])),
+      );
+      await waitFor(() => expect(answers).toHaveLength(3));
+      expect(answers.map(({ client }) => client)).toEqual(["a", "b", "b"]);
+    });
+
     it("should re-subscribe item lookups without running a list retrieve when no query was issued", async () => {
       const { domain, wrapper, reconnect } = createReconnectSetup();
       const retrieve = vi.fn(async () => [] as Doc[]);
@@ -1854,6 +2223,34 @@ describe("list", () => {
       await waitFor(() => expect(result.current.value?.name).toBe("B"));
       expect(result.current.list.data).toEqual([]);
       expect(retrieve).not.toHaveBeenCalled();
+    });
+
+    it("should give a read item from the cache its own feed after the client changes", async () => {
+      const { domain, wrapper, reconnect } = createReconnectSetup();
+      domain.answers.a = [{ key: "k", name: "A" }];
+      const useList = Flux.createList<{}, string, Doc>({
+        name: "Doc",
+        retrieve: async ({ client }) => domain.answers[client.key],
+        retrieveByKey: async ({ key }) => ({ key, name: key }),
+        onChange: ({ client }, handler) => domain.onChange(client.key, handler),
+        onChangeByKey: ({ client, key }, handler) =>
+          domain.subscribeItem(client.key, key, handler),
+        getCached: ({ client }) => domain.answers[client.key],
+      });
+      const { result, rerender } = renderHook(
+        () => {
+          const { subscribe, getItem } = useList();
+          return Flux.useListItem<string, Doc>({ subscribe, getItem, key: "k" });
+        },
+        { wrapper },
+      );
+      expect(result.current?.name).toBe("A");
+
+      reconnect();
+      rerender();
+
+      act(() => domain.pushItem("b", { key: "k", name: "B" }));
+      await waitFor(() => expect(result.current?.name).toBe("B"));
     });
   });
 });

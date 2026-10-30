@@ -11,6 +11,8 @@
 import { Logo } from "@synnaxlabs/lyra/logo";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Button } from "@synnaxlabs/lyra/button";
+import { Divider } from "@synnaxlabs/lyra/divider";
+import Arrow from "@/components/common/Arrow.astro";
 import { Nav } from "@/components/Nav";
 import Drawer from "@synnaxlabs/site-common/Drawer.astro";
 import MenuButton from "@synnaxlabs/site-common/MenuButton.astro";
@@ -25,9 +27,19 @@ import MenuButton from "@synnaxlabs/site-common/MenuButton.astro";
             <div class="header-nav">
                 <Nav />
             </div>
-            <Button.Button variant="filled" href="/#contact">
-                Book a demo
-            </Button.Button>
+            <Flex.Box x gap="small" align="center" className="header-actions">
+                <Button.Button href="/#contact" className="header-contact">
+                    Talk to an engineer
+                </Button.Button>
+                <Button.Button
+                    variant="filled"
+                    href="https://docs.synnaxlabs.com/releases/desktop/download"
+                    data-event="desktop_download_clicked"
+                    data-location="header"
+                >
+                    Download
+                </Button.Button>
+            </Flex.Box>
             <MenuButton />
         </Flex.Box>
     </Flex.Box>
@@ -54,17 +66,39 @@ import MenuButton from "@synnaxlabs/site-common/MenuButton.astro";
         <a href="/#sdks" class="mobile-drawer-link mobile-product-link">
             <span class="mobile-product-section">7 &rarr;</span> Extend with SDKs
         </a>
-        <div class="mobile-drawer-divider"></div>
+        <Divider.Divider x className="mobile-drawer-divider" />
         <a href="/company" class="mobile-drawer-link">
             Company
         </a>
         <a href="https://docs.synnaxlabs.com/reference" class="mobile-drawer-link">
             Docs
         </a>
-        <div class="mobile-drawer-divider"></div>
-        <a href="/#contact" class="mobile-drawer-cta">
-            Book a demo
-        </a>
+        <Divider.Divider x className="mobile-drawer-divider" />
+        <Flex.Box y gap="small" className="mobile-drawer-cta">
+            <Button.Button
+                variant="filled"
+                size="huge"
+                level="p"
+                full="x"
+                justify="center"
+                href="https://docs.synnaxlabs.com/releases/desktop/download"
+                data-event="desktop_download_clicked"
+                data-location="drawer"
+            >
+                Download Synnax Desktop
+                <Arrow direction="down" />
+            </Button.Button>
+            <Button.Button
+                size="huge"
+                level="p"
+                full="x"
+                justify="center"
+                href="/#contact"
+            >
+                Talk to an engineer
+                <Arrow direction="right" />
+            </Button.Button>
+        </Flex.Box>
     </div>
 </Drawer>
 
@@ -97,7 +131,9 @@ import MenuButton from "@synnaxlabs/site-common/MenuButton.astro";
         padding: 0 var(--content-padding);
     }
 
-    .header .logo-link {
+    /* The drawer header repeats the page header, so the logo keeps its place and size
+       when the drawer opens. */
+    :is(.header, .mobile-drawer-header) .logo-link {
         text-decoration: none;
         display: flex;
         align-items: center;
@@ -107,12 +143,13 @@ import MenuButton from "@synnaxlabs/site-common/MenuButton.astro";
         }
     }
 
-    .header .pluto-btn.pluto-btn--filled {
+    .header .header-actions .lyra-btn {
         padding: clamp(0.6rem, 0.3rem + 0.5vw, 1rem) clamp(1.2rem, 0.8rem + 0.8vw, 2rem);
         font-weight: 550;
+        border-radius: var(--pluto-border-radius-small);
     }
 
-    .header .pluto-btn.pluto-btn--text .pluto-icon {
+    .header .lyra-btn.lyra-btn--text .lyra-icon {
         color: var(--pluto-gray-l8);
         height: 3rem;
         width: 3rem;
@@ -166,16 +203,16 @@ import MenuButton from "@synnaxlabs/site-common/MenuButton.astro";
         position: absolute;
         top: calc(100% + 1.5rem);
         left: 50%;
-        transform: translateX(-50%);
         width: 680px;
         padding: 2rem;
         box-shadow:
-            0 4px 12px rgba(0, 0, 0, 0.15),
-            0 16px 40px rgba(0, 0, 0, 0.2);
+            0 4px 12px rgb(0 0 0 / 15%),
+            0 16px 40px rgb(0 0 0 / 20%);
         z-index: 20;
         visibility: hidden;
         opacity: 0;
         transform: translateX(-50%) translateY(-6px) scale(0.98);
+
         /* Stays open briefly after the pointer leaves. */
         transition:
             visibility 0s 0.15s,
@@ -260,13 +297,17 @@ import MenuButton from "@synnaxlabs/site-common/MenuButton.astro";
 
     /* ── Mobile drawer ───────────────────────────────────────── */
 
-    .mobile-menu-btn,
+    .header .mobile-menu-btn,
     .mobile-drawer {
         display: none;
     }
 
+    .mobile-drawer {
+        --mobile-drawer-inset: var(--content-padding);
+    }
+
     .mobile-product-link {
-        padding-left: 2.5rem;
+        padding-left: calc(var(--mobile-drawer-inset) + 0.5rem);
     }
 
     .mobile-product-section {
@@ -276,36 +317,33 @@ import MenuButton from "@synnaxlabs/site-common/MenuButton.astro";
         margin-right: 0.5rem;
     }
 
-    .mobile-drawer-cta {
-        display: block;
-        margin: 0.5rem 2rem;
-        padding: 1.2rem 2rem;
-        background: var(--pluto-primary-p1);
-        color: var(--pluto-text-on-primary);
-        font-size: 1.8rem;
-        font-weight: 550;
-        text-align: center;
-        text-decoration: none;
-        border-radius: 0.8rem;
+    .mobile-drawer .mobile-drawer-cta {
+        margin: 0.5rem var(--mobile-drawer-inset);
 
-        &:hover {
-            text-decoration: none;
+        .lyra-btn {
+            font-size: 2.5rem;
+            font-weight: 550;
+            border-radius: var(--pluto-border-radius-small);
         }
     }
 
-    @media (max-width: 600px) {
-        .header {
-            .header-nav {
-                display: none;
-            }
+    /* The pair crowds the nav at this width, so only Download stays. */
+    @media (width <= 900px) {
+        .header-actions .header-contact {
+            display: none;
+        }
+    }
 
-            .pluto-btn.pluto-btn--filled {
+    @media (width <= 600px) {
+        .header {
+            .header-nav,
+            .header-actions {
                 display: none;
             }
         }
 
-        .mobile-menu-btn {
-            display: block;
+        .header .mobile-menu-btn {
+            display: flex;
         }
 
         .mobile-drawer {

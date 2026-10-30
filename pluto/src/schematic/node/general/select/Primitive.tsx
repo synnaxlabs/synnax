@@ -11,12 +11,13 @@ import "@/schematic/node/general/select/select.css";
 
 import { type schematic } from "@synnaxlabs/client";
 import { Button as BaseButton } from "@synnaxlabs/lyra/button";
-import { CSS } from "@synnaxlabs/lyra/css";
 import { type Dialog } from "@synnaxlabs/lyra/dialog";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Select as BaseSelect } from "@synnaxlabs/lyra/select";
-import { type ReactElement, useMemo } from "react";
+import { color } from "@synnaxlabs/x";
+import { type CSSProperties, type ReactElement, type ReactNode } from "react";
 
+import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 
@@ -28,10 +29,16 @@ interface RenderProps extends Partial<
 > {
   options: schematic.SelectNodeConfig["options"];
   className?: string;
-  value?: string;
-  onChange: (key: string | null) => void;
-  onSend?: (value: number) => void;
+  /** value is the key of the last sent option, or null when none is known. */
+  value?: string | null;
+  /** readback renders under the field and shows the state the device holds. */
+  readback?: ReactNode;
+  onSend: (value: number) => void;
 }
+
+/** @returns the name an option shows, falling back to its value. */
+export const optionName = (o: schematic.SelectNodeConfig["options"][number]): string =>
+  o.name || `Option ${o.value}`;
 
 const DIALOG_PROPS: Dialog.DialogProps = {
   className: CSS.BE("select-symbol", "dialog"),
@@ -41,8 +48,8 @@ export const Select = ({
   className,
   orientation = "left",
   fillColor,
-  value,
-  onChange,
+  value = null,
+  readback,
   onSend,
   options,
   size,
@@ -50,12 +57,25 @@ export const Select = ({
   inlineSize,
   onClickDelay,
 }: RenderProps): ReactElement => {
-  const matched = options.find((o) => o.key === value);
-  const triggerStyle = useMemo(() => ({ minWidth: inlineSize }), [inlineSize]);
+  const draft = Primitive.useDraft(value);
+  const matched = options.find((o) => o.key === draft.value);
+  const symbolColor = color.rgbaString(fillColor);
+  const style: CSSProperties = {
+    [Primitive.SYMBOL_COLOR]: symbolColor,
+    [Primitive.SYMBOL_FIELD_WIDTH]: inlineSize && `${inlineSize}px`,
+  };
   return (
     <Primitive.Div
       orientation={orientation}
-      className={CSS.cls(CSS.B("select-symbol"), className)}
+      className={CSS.cls(
+        CSS.B("select-symbol"),
+        CSS.symbolColored,
+        CSS.B("symbol-field"),
+        symbolColor != null && CSS.M("colored"),
+        draft.dirty && CSS.M("dirty"),
+        className,
+      )}
+      style={style}
     >
       <Handle.Boundary orientation={orientation}>
         <Handle.Handle
@@ -87,36 +107,37 @@ export const Select = ({
           id="4"
         />
       </Handle.Boundary>
-      <Flex.Box x pack size={size}>
-        <BaseSelect.Simple<string>
-          value={value}
-          onChange={(key: string | null) => onChange(key)}
-          disabled={disabled}
-          resourceName="option"
-          triggerProps={{ color: fillColor, size }}
-          dialogProps={DIALOG_PROPS}
-          style={triggerStyle}
-        >
-          {options.map((o) => (
-            <BaseSelect.Item key={o.key} itemKey={o.key}>
-              {o.name || `Option ${o.value}`}
-            </BaseSelect.Item>
-          ))}
-        </BaseSelect.Simple>
-        {onSend != null && (
+      <Flex.Box y align="stretch" gap={0}>
+        <Flex.Box x pack size={size}>
+          <BaseSelect.Simple<string>
+            value={draft.value ?? undefined}
+            onChange={draft.edit}
+            disabled={disabled}
+            resourceName="option"
+            triggerProps={{ size, className: CSS.BE("symbol-field", "control") }}
+            dialogProps={DIALOG_PROPS}
+          >
+            {options.map((o) => (
+              <BaseSelect.Item key={o.key} itemKey={o.key}>
+                {optionName(o)}
+              </BaseSelect.Item>
+            ))}
+          </BaseSelect.Simple>
           <BaseButton.Button
             variant="filled"
             size={size}
             onClick={() => {
-              if (matched != null) onSend?.(matched.value);
+              if (matched == null) return;
+              onSend(matched.value);
+              draft.send();
             }}
             onClickDelay={onClickDelay}
-            color={fillColor}
             disabled={disabled}
           >
-            Send
+            Set
           </BaseButton.Button>
-        )}
+        </Flex.Box>
+        {readback}
       </Flex.Box>
     </Primitive.Div>
   );

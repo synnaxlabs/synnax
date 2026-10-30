@@ -67,8 +67,10 @@ var _ = Describe("ConvertLiteralValue", func() {
 
 	DescribeTable("unsupported types return an error instead of panicking",
 		func(v any) {
-			_, err := wasm.ConvertLiteralValue(v)
-			Expect(err).To(HaveOccurred())
+			Expect(
+				wasm.ConvertLiteralValue(v),
+			).Error().
+				To(MatchError(ContainSubstring("unsupported literal value type")))
 		},
 		Entry("string", "x"),
 	)
@@ -85,6 +87,7 @@ type testHarness struct {
 	analyzed     ir.IR
 	graph        arc.Graph
 	errors       []error
+	done         bool
 }
 
 func (h *testHarness) ChannelState() *channels.ProgramState { return h.channelState }
@@ -182,9 +185,11 @@ func (h *testHarness) NextChanged(
 	outputs := h.analyzed.Nodes.Get(nodeKey).Outputs
 	changed := make(set.Set[string])
 	h.errors = nil
+	h.done = false
 	n.Next(node.Context{
 		Context:       ctx,
 		ReserveStamps: testutil.ReserveStamps(0),
+		MarkDone:      func() { h.done = true },
 		MarkChanged: func(i int) {
 			if i >= 0 && i < len(outputs) {
 				changed.Add(outputs[i].Name)
@@ -196,6 +201,8 @@ func (h *testHarness) NextChanged(
 }
 
 func (h *testHarness) Errors() []error { return h.errors }
+
+func (h *testHarness) Done() bool { return h.done }
 
 func (h *testHarness) Outputs(nodeKey string) types.Params {
 	return h.analyzed.Nodes.Get(nodeKey).Outputs
@@ -548,6 +555,66 @@ var _ = Describe("WASM", func() {
 		)
 	})
 
+	Describe("Done marks", func() {
+		It(
+			"Should mark done only after a function without outputs runs",
+			func(ctx SpecContext) {
+				g := binaryOpGraph("sink", "lhs", "rhs", types.I64(), types.I64(), `{}`)
+				g.Functions[0].Outputs = nil
+				h := newHarness(ctx, g, nil)
+				DeferCleanup(h.Close)
+				n := h.CreateNode(ctx, "sink")
+				h.SetInput(
+					"lhs",
+					0,
+					telem.NewSeriesV[int64](1),
+					telem.NewSeriesSecondsTSV(1),
+				)
+				h.NextChanged(ctx, n, "sink")
+				Expect(h.Done()).To(BeFalse())
+				h.SetInput(
+					"rhs",
+					0,
+					telem.NewSeriesV[int64](2),
+					telem.NewSeriesSecondsTSV(1),
+				)
+				h.NextChanged(ctx, n, "sink")
+				Expect(h.Done()).To(BeTrue())
+			},
+		)
+
+		It("Should not mark done when the function traps", func(ctx SpecContext) {
+			g := binaryOpGraph(
+				"div",
+				"lhs",
+				"rhs",
+				types.I32(),
+				types.I32(),
+				`{ return lhs / rhs }`,
+			)
+			h := newHarness(ctx, g, nil)
+			DeferCleanup(h.Close)
+			h.SetInput(
+				"lhs",
+				0,
+				telem.NewSeriesV[int32](1),
+				telem.NewSeriesSecondsTSV(1),
+			)
+			h.SetInput(
+				"rhs",
+				0,
+				telem.NewSeriesV[int32](0),
+				telem.NewSeriesSecondsTSV(1),
+			)
+			h.Execute(ctx, "div")
+			Expect(h.Errors()).To(HaveLen(1))
+			Expect(h.Errors()[0]).To(MatchError(ContainSubstring(
+				"WASM execution failed in node div",
+			)))
+			Expect(h.Done()).To(BeFalse())
+		})
+	})
+
 	Describe("Next with multiple outputs", func() {
 		It(
 			"Should handle functions with multiple outputs and mismatched input lengths",
@@ -715,6 +782,7 @@ var _ = Describe("WASM", func() {
 				nCtx := node.Context{
 					Context:       ctx,
 					ReserveStamps: testutil.ReserveStamps(0),
+					MarkDone:      func() {},
 					MarkChanged:   func(int) {},
 				}
 
@@ -779,6 +847,7 @@ var _ = Describe("WASM", func() {
 				nCtx := node.Context{
 					Context:       ctx,
 					ReserveStamps: testutil.ReserveStamps(0),
+					MarkDone:      func() {},
 					MarkChanged:   func(int) {},
 				}
 
@@ -1087,11 +1156,11 @@ var _ = Describe("WASM", func() {
 				}
 
 				source := `
-func emit_period{period i64 ns} (trigger f32) i64 {
+func emit_period(period i64 ns) {trigger f32} i64 {
     return period
 }
 
-trigger_ch -> emit_period{period=1s}
+trigger_ch -> emit_period(period=1s)
 `
 				h := newTextHarness(ctx, source, chans,
 					channels.Digest{Key: 100, DataType: telem.Float32T},
@@ -1148,6 +1217,7 @@ sequence main {
 				Context:       ctx,
 				Now:           now,
 				ReserveStamps: testutil.ReserveStamps(now),
+				MarkDone:      func() {},
 				MarkChanged:   func(int) {},
 			})
 			Expect(h.Output("disp_r_0", 0).Len()).To(Equal(int64(3)))
@@ -2698,6 +2768,7 @@ sequence main {
 				node.Context{
 					Context:       ctx,
 					ReserveStamps: testutil.ReserveStamps(0),
+					MarkDone:      func() {},
 					MarkChanged:   func(i int) { changed.Add(i) },
 				},
 			)
@@ -2763,6 +2834,7 @@ sequence main {
 				node.Context{
 					Context:       ctx,
 					ReserveStamps: testutil.ReserveStamps(0),
+					MarkDone:      func() {},
 					MarkChanged:   func(i int) { changed.Add(i) },
 				},
 			)
@@ -2960,6 +3032,7 @@ sequence main {
 							node.Context{
 								Context:       ctx,
 								ReserveStamps: testutil.ReserveStamps(0),
+								MarkDone:      func() {},
 								MarkChanged:   func(int) {},
 							},
 						)
@@ -3311,6 +3384,7 @@ sequence main {
 				nCtx := node.Context{
 					Context:       ctx,
 					ReserveStamps: testutil.ReserveStamps(0),
+					MarkDone:      func() {},
 					MarkChanged:   func(int) {},
 				}
 
@@ -3351,6 +3425,7 @@ sequence main {
 				nCtx := node.Context{
 					Context:       ctx,
 					ReserveStamps: testutil.ReserveStamps(0),
+					MarkDone:      func() {},
 					MarkChanged:   func(int) {},
 				}
 
@@ -3387,6 +3462,7 @@ sequence main {
 				nCtx := node.Context{
 					Context:       ctx,
 					ReserveStamps: testutil.ReserveStamps(0),
+					MarkDone:      func() {},
 					MarkChanged:   func(int) { executions++ },
 				}
 
@@ -3488,7 +3564,7 @@ sequence main {
 					},
 				}
 
-				// Original example: func count_rising{counter chan f32}(input u8) {
+				// Original example: func count_rising(counter chan f32) {input u8} {
 				//     prev u8 $= input
 				//     if input != 0 and prev == 0 { counter = counter + 1.0 }
 				//     prev = input
@@ -4073,12 +4149,12 @@ sequence main {
 				}
 
 				source := `
-func tolerance_alarm{
+func tolerance_alarm(
     tolerance_upper f32,
     tolerance_lower f32,
     set_point chan f32,
     samples i64
-} (value f32) u8 {
+) {value f32} u8 {
     count i64 $= 0
     sp := set_point
 
@@ -4096,7 +4172,7 @@ func tolerance_alarm{
     return 0
 }
 
-input_val -> tolerance_alarm{tolerance_upper=10.0, tolerance_lower=5.0, set_point=set_point_ch, samples=3} -> output_ch
+input_val -> tolerance_alarm(tolerance_upper=10.0, tolerance_lower=5.0, set_point=set_point_ch, samples=3) -> output_ch
 `
 				h := newTextHarness(ctx, source, chans,
 					channels.Digest{Key: 100, DataType: telem.Float32T},
@@ -4219,15 +4295,15 @@ input_val -> tolerance_alarm{tolerance_upper=10.0, tolerance_lower=5.0, set_poin
 				}
 
 				source := `
-func writer{
+func writer(
     output chan f32
-} (value f32) u8 {
+) {value f32} u8 {
     out := output
     out = value * 2.0
     return 0
 }
 
-input_ch -> writer{output=write_target} -> sink_ch
+input_ch -> writer(output=write_target) -> sink_ch
 `
 				h := newTextHarness(ctx, source, chans,
 					channels.Digest{Key: 100, DataType: telem.Float32T},
@@ -4283,16 +4359,16 @@ input_ch -> writer{output=write_target} -> sink_ch
 				}
 
 				source := `
-func writer{
+func writer(
     output chan f32
-} (value f32) u8 {
+) {value f32} u8 {
     out := output
     out2 := out
     out2 = value * 3.0
     return 0
 }
 
-input_ch -> writer{output=write_target} -> sink_ch
+input_ch -> writer(output=write_target) -> sink_ch
 `
 				h := newTextHarness(ctx, source, chans,
 					channels.Digest{Key: 100, DataType: telem.Float32T},
@@ -4347,13 +4423,13 @@ input_ch -> writer{output=write_target} -> sink_ch
 				}
 
 				source := `
-func writer{} (value f32) u8 {
+func writer() {value f32} u8 {
     out := output_ch
     out = value * 4.0
     return 0
 }
 
-input_ch -> writer{} -> sink_ch
+input_ch -> writer() -> sink_ch
 `
 				h := newTextHarness(ctx, source, chans,
 					channels.Digest{Key: 100, DataType: telem.Float32T},
@@ -4410,7 +4486,7 @@ input_ch -> writer{} -> sink_ch
 				}
 
 				source := `
-func writer{} (value f32) u8 {
+func writer() {value f32} u8 {
     a := output_ch
     b := a
     c := b
@@ -4418,7 +4494,7 @@ func writer{} (value f32) u8 {
     return 0
 }
 
-input_ch -> writer{} -> sink_ch
+input_ch -> writer() -> sink_ch
 `
 				h := newTextHarness(ctx, source, chans,
 					channels.Digest{Key: 100, DataType: telem.Float32T},
@@ -4474,7 +4550,7 @@ input_ch -> writer{} -> sink_ch
 				}
 
 				source := `
-func writer{} (value f32) u8 {
+func writer() {value f32} u8 {
     out1 := output_ch
     out2 := output_ch
     out1 = value * 2.0
@@ -4482,7 +4558,7 @@ func writer{} (value f32) u8 {
     return 0
 }
 
-input_ch -> writer{} -> sink_ch
+input_ch -> writer() -> sink_ch
 `
 				h := newTextHarness(ctx, source, chans,
 					channels.Digest{Key: 100, DataType: telem.Float32T},
@@ -4542,7 +4618,7 @@ input_ch -> writer{} -> sink_ch
 				}
 
 				source := `
-func checker{} (value f32) u8 {
+func checker() {value f32} u8 {
     sp := set_point_ch
     threshold := sp
     if (value > threshold) {
@@ -4551,7 +4627,7 @@ func checker{} (value f32) u8 {
     return 0
 }
 
-input_ch -> checker{} -> output_ch
+input_ch -> checker() -> output_ch
 `
 				h := newTextHarness(ctx, source, chans,
 					channels.Digest{Key: 100, DataType: telem.Float32T},
@@ -4632,17 +4708,17 @@ input_ch -> checker{} -> output_ch
 				}
 
 				source := `
-func increment{
+func increment(
     counter chan f32
-} (trigger u8) u8 {
+) {trigger u8} u8 {
     if trigger != 0 {
         counter = counter + 1.0
     }
     return 0
 }
 
-input_1 -> increment{counter=counter_1} -> sink_1
-input_2 -> increment{counter=counter_2} -> sink_2
+input_1 -> increment(counter=counter_1) -> sink_1
+input_2 -> increment(counter=counter_2) -> sink_2
 `
 				h := newTextHarness(ctx, source, chans,
 					channels.Digest{Key: 101, DataType: telem.Uint8T},
@@ -4717,7 +4793,7 @@ input_2 -> increment{counter=counter_2} -> sink_2
 				}
 
 				source := `
-func count_local (trigger u8) u8 {
+func count_local() {trigger u8} u8 {
     counter $= counter_ch
     prev $= trigger
     if trigger != 0 and prev == 0 {
@@ -4727,7 +4803,7 @@ func count_local (trigger u8) u8 {
     return 0
 }
 
-input_ch -> count_local{} -> sink_ch
+input_ch -> count_local() -> sink_ch
 `
 				h := newTextHarness(ctx, source, chans,
 					channels.Digest{Key: 100, DataType: telem.Uint8T},
@@ -4915,90 +4991,7 @@ input_ch -> count_local{} -> sink_ch
 					nil,
 					int64(3),
 				),
-				Entry("mixed i32 start with i64 end", "range_mixed", types.I64(), `{
-					lo i32 := 1
-					hi i64 := 5
-					sum i64 := 0
-					for i := range(lo, hi) {
-						sum = sum + i
-					}
-					return sum
-				}`, nil, int64(10)),
-				Entry(
-					"mixed i32 start with i64 end and i32 step",
-					"range_3arg_mixed",
-					types.I64(),
-					`{
-					lo i32 := 0
-					hi i64 := 10
-					s i32 := 3
-					sum i64 := 0
-					for i := range(lo, hi, s) {
-						sum = sum + i
-					}
-					return sum
-				}`,
-					nil,
-					int64(18),
-				),
-				Entry(
-					"mixed types with negative start",
-					"range_mixed_neg",
-					types.I64(),
-					`{
-					lo i32 := -5
-					hi i64 := 5
-					sum i64 := 0
-					for i := range(lo, hi) {
-						sum = sum + i
-					}
-					return sum
-				}`,
-					nil,
-					int64(-5),
-				),
-				Entry(
-					"mixed types descending with negative step",
-					"range_mixed_desc",
-					types.I64(),
-					`{
-					hi i64 := 5
-					lo i32 := -5
-					s i32 := -2
-					sum i64 := 0
-					for i := range(hi, lo, s) {
-						sum = sum + i
-					}
-					return sum
-				}`,
-					nil,
-					int64(5),
-				),
 			)
-
-			It("Should handle mixed i16 start with i32 end", func(ctx SpecContext) {
-				expectOutput(ctx, "range_i16_i32", types.I32(), `{
-					lo i16 := 0
-					hi i32 := 4
-					sum i32 := 0
-					for i := range(lo, hi) {
-						sum = sum + i
-					}
-					return sum
-				}`, nil, int32(6))
-			})
-
-			It("Should handle mixed u8 start with u32 end", func(ctx SpecContext) {
-				expectOutput(ctx, "range_u8_u32", types.U32(), `{
-					lo u8 := 1
-					hi u32 := 4
-					sum u32 := 0
-					for i := range(lo, hi) {
-						sum = sum + i
-					}
-					return sum
-				}`, nil, uint32(6))
-			})
 
 			It("Should handle u8 range bounds", func(ctx SpecContext) {
 				expectOutput(ctx, "range_u8_only", types.U8(), `{
@@ -5039,34 +5032,6 @@ input_ch -> count_local{} -> sink_ch
 					return sum
 				}`, nil, int16(15))
 			})
-
-			It("Should handle mixed i8 start with i16 end", func(ctx SpecContext) {
-				expectOutput(ctx, "range_i8_i16", types.I16(), `{
-					lo i8 := 0
-					hi i16 := 5
-					sum i16 := 0
-					for i := range(lo, hi) {
-						sum = sum + i
-					}
-					return sum
-				}`, nil, int16(10))
-			})
-
-			It(
-				"Should handle mixed u8 start with u16 end and u8 step",
-				func(ctx SpecContext) {
-					expectOutput(ctx, "range_u8_u16_step", types.U16(), `{
-					lo u8 := 0
-					hi u16 := 10
-					s u8 := 2
-					sum u16 := 0
-					for i := range(lo, hi, s) {
-						sum = sum + i
-					}
-					return sum
-				}`, nil, uint16(20))
-				},
-			)
 		})
 
 		Describe("Series iteration", func() {
@@ -5295,6 +5260,7 @@ input_ch -> count_local{} -> sink_ch
 				nCtx := node.Context{
 					Context:       ctx,
 					ReserveStamps: testutil.ReserveStamps(0),
+					MarkDone:      func() {},
 					MarkChanged:   func(int) {},
 				}
 

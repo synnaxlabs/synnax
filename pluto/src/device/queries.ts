@@ -168,6 +168,17 @@ export const createRetrieveMultiple = <
   });
 };
 
+export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRetrieve<
+  RetrieveMultipleQuery,
+  device.Device[]
+>({
+  name: PLURAL_RESOURCE_NAME,
+  normalizeQuery: (query) => ({ ...BASE_QUERY, ...query }),
+  retrieve: async ({ client, query }) => await client.devices.retrieve(query),
+  onChange: ({ client, query }, handler) => client.devices.onChange(query, handler),
+  getCached: ({ client, query }) => client.devices.getCached(query),
+});
+
 /** Compared by variant and message: a heartbeat that changes neither is silenced. */
 export const useResultStatus = createResultSelector(
   ({ status }) => status,

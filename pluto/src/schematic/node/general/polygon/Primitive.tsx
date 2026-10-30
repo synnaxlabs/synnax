@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic } from "@synnaxlabs/client";
-import { CSS } from "@synnaxlabs/lyra/css";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { color } from "@synnaxlabs/x";
-import { type ReactElement, useMemo } from "react";
+import { type ReactElement } from "react";
 
+import { CSS } from "@/css";
 import { Primitive } from "@/schematic/node/common/primitive";
 
 interface RenderProps extends Omit<
@@ -99,19 +99,10 @@ export const Polygon = ({
   strokeWidth,
 }: RenderProps): ReactElement => {
   const theme = Theming.use();
-  const padding = useMemo(() => 2 * ((strokeWidth ?? 2) + 1), [strokeWidth]);
-  const vertices = useMemo(
-    () => calculatePolygonVertices(numSides, sideLength, rotation, padding),
-    [numSides, sideLength, rotation, padding],
-  );
-  const path = useMemo(
-    () => generateRoundedPolygonPath(vertices, sideLength, cornerRounding ?? 0),
-    [vertices, sideLength, cornerRounding],
-  );
-  const size = useMemo(
-    () => 2 * (sideLength / (2 * Math.sin(Math.PI / numSides))) + padding,
-    [sideLength, numSides, padding],
-  );
+  const padding = 2 * ((strokeWidth ?? 2) + 1);
+  const vertices = calculatePolygonVertices(numSides, sideLength, rotation, padding);
+  const path = generateRoundedPolygonPath(vertices, sideLength, cornerRounding ?? 0);
+  const size = 2 * (sideLength / (2 * Math.sin(Math.PI / numSides))) + padding;
   return (
     <Primitive.Div className={CSS.cls(className, CSS.B("polygon"))}>
       <Primitive.SVG

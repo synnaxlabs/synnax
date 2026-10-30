@@ -12,27 +12,24 @@ package node_test
 import (
 	"context"
 	"iter"
-	"slices"
 	"strconv"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/aspen"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/cluster"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
-	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
-// openTestService spins up a fresh ontology + search index against the supplied
-// cluster and returns a node Service registered with them. Test fixtures use this
-// instead of the mock cluster's pre-registered services so that the test owns the
-// ontology lifecycle and avoids duplicate-registration panics.
+// openTestService spins up a fresh ontology against the supplied cluster and returns a
+// node Service registered with it. Test fixtures use this instead of the mock cluster's
+// pre-registered services so that the test owns the ontology lifecycle and avoids
+// duplicate-registration panics.
 func openTestService(
 	ctx context.Context,
 	c cluster.Cluster,
@@ -40,24 +37,22 @@ func openTestService(
 	GinkgoHelper()
 	db := DeferClose(gorp.Wrap(memkv.New()))
 	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
-	idx := MustOpen(search.OpenIndex())
 	svc := MustSucceed(node.NewService(ctx, node.ServiceConfig{
 		Cluster:  c,
 		Ontology: otg,
-		Search:   idx,
 	}))
 	return svc, otg
 }
 
 var (
-	testCluster *mock.Cluster
+	testCluster *testutil.Cluster
 	testSvc     *node.Service
 	testOtg     *ontology.Ontology
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	testCluster = mock.NewCluster(ctx, 2)
+	testCluster = testutil.NewCluster(ctx, 2)
 	testSvc, testOtg = openTestService(ctx, testCluster.Nodes[1].Cluster)
 })
 
@@ -121,24 +116,19 @@ var _ = Describe("Ontology", func() {
 			})
 		})
 
-		Describe("OpenNexter", func() {
-			It(
-				"Should iterate over every node currently in the cluster",
-				func(ctx SpecContext) {
-					seq, closer := MustSucceed2(testSvc.OpenNexter(ctx))
-					DeferClose(closer)
-					resources := slices.Collect(seq)
-					expected := lo.MapToSlice(
-						testCluster.Nodes,
-						func(k node.Key, _ mock.Node) string {
-							return strconv.Itoa(int(k))
-						},
-					)
-					keys := lo.Map(resources, func(r ontology.Resource, _ int) string {
-						return r.ID.Key
-					})
-					Expect(keys).To(ConsistOf(expected))
+		Describe("Search", func() {
+			DescribeTable("Should search the nodes currently in the cluster",
+				func(ctx SpecContext, term string, limit int, expected []ontology.ID) {
+					Expect(MustSucceed(testSvc.Search(ctx, nil, term, limit)).Keys).
+						To(Equal(expected))
 				},
+				Entry("every node", "node", 10,
+					[]ontology.ID{node.OntologyID(1), node.OntologyID(2)}),
+				Entry("the closest node first", "node 2", 10,
+					[]ontology.ID{node.OntologyID(2), node.OntologyID(1)}),
+				Entry("at most the limit", "node", 1,
+					[]ontology.ID{node.OntologyID(1)}),
+				Entry("no match", "valve", 10, []ontology.ID{}),
 			)
 		})
 
@@ -146,7 +136,7 @@ var _ = Describe("Ontology", func() {
 			It(
 				"Should translate cluster changes into ontology changes when a node joins",
 				func(ctx SpecContext) {
-					ephemeral := mock.NewCluster(ctx, 1)
+					ephemeral := testutil.NewCluster(ctx, 1)
 					ephemeralSvc, _ := openTestService(ctx, ephemeral.Nodes[1].Cluster)
 
 					received := make(chan ontology.Change, 8)

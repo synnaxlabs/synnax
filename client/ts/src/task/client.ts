@@ -11,19 +11,21 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import {
   array,
   binary,
-  caseconv,
   type CrudeTimeSpan,
   deep,
   type destructor,
+  errors,
   id,
   primitive,
   type record,
   strings,
+  sync,
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { AccessDeniedError } from "@/errors";
 import { type framer } from "@/framer";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
@@ -89,11 +91,9 @@ const HEALTHY_RACK_VARIANTS: status.Variant[] = ["success", "info"];
 /** How long a command waits for the Driver before the wait is called off. */
 const COMMAND_DEADLINE = TimeSpan.seconds(10);
 
-const STATUS_NAME = "Task Status";
-
 /** A command awaiting the Driver's reply, with the timer that gives up on it. */
 interface CommandDeadline {
-  cmd: string;
+  cmd: Command;
   timer: NodeJS.Timeout;
 }
 
@@ -448,10 +448,15 @@ export class Client extends query.Retriever<
             // The set signal omits config: a changed hash makes the cached one stale.
             onChange: async (changed: SetSignal[]) => {
               const stale: Key[] = [];
+              const unheld: Key[] = [];
               table.batch(() =>
                 changed.forEach((sig) => {
                   const cached = table.get(sig.key);
-                  if (cached == null || cached.configHash !== sig.configHash) {
+                  if (cached == null) {
+                    unheld.push(sig.key);
+                    return;
+                  }
+                  if (cached.configHash !== sig.configHash) {
                     stale.push(sig.key);
                     return;
                   }
@@ -461,6 +466,17 @@ export class Client extends query.Retriever<
                 }),
               );
               if (stale.length > 0) await table.retrieve(stale, { refresh: true });
+              // The signal reaches users who cannot read every task, so each key is
+              // fetched alone and a denied one stays out of the table.
+              await Promise.all(
+                unheld.map(async (key) => {
+                  try {
+                    await table.retrieve([key], { refresh: true });
+                  } catch (e) {
+                    if (!AccessDeniedError.matches(e)) throw errors.fromUnknown(e);
+                  }
+                }),
+              );
             },
           }),
         },
@@ -480,8 +496,7 @@ export class Client extends query.Retriever<
             if (store.get(changed.task) == null && statusStore.get(key) == null) return;
             const optimistic = this.optimisticStatus(changed);
             statusStore.set(key, optimistic);
-            if (optimistic.variant === "loading")
-              this.armCommandDeadline(changed, optimistic);
+            this.armCommandDeadline(changed, optimistic);
           }),
         ),
     });
@@ -490,9 +505,13 @@ export class Client extends query.Retriever<
     statusStore.subscribe((event) => {
       if (event.variant !== "set") return;
       const task = statusTaskKey(event.value);
-      if (task == null) return;
+      if (task == null) {
+        this.standInForDownRack(event.value);
+        return;
+      }
       const pending = this.commandDeadlines.get(task);
-      if (pending == null || status.detailsOf(event.value)?.cmd !== pending.cmd) return;
+      if (pending == null || status.detailsOf(event.value)?.cmd !== pending.cmd.key)
+        return;
       clearTimeout(pending.timer);
       this.commandDeadlines.delete(task);
     });
@@ -698,18 +717,20 @@ export class Client extends query.Retriever<
       rack: latest?.details.rack ?? 0,
       data: {},
     };
-    const down = this.downRackStatus(this.store.get(cmd.task)?.rack);
+    const cached = this.store.get(cmd.task);
+    const name = cached?.name ?? latest?.name ?? "";
+    const down = this.downRackStatus(cached?.rack);
     if (down == null)
       return status.create<StatusDetailsZodObject>({
         key,
-        name: STATUS_NAME,
+        name,
         variant: "loading",
-        message: `Running ${cmd.type} command...`,
+        message: `Sending ${cmd.type} command`,
         details: { ...details, running: true },
       });
     return status.create<StatusDetailsZodObject>({
       key,
-      name: STATUS_NAME,
+      name,
       variant: "warning",
       message: down.message,
       description: down.description,
@@ -717,8 +738,22 @@ export class Client extends query.Retriever<
     });
   }
 
-  // Nothing else retires the loading status: a task on a silent rack waits on the
-  // Core's next dead-rack alert, which dampens to once a minute.
+  // A waiting command shows each new problem of its rack, since the Core copies an
+  // outage onto running tasks only.
+  private standInForDownRack(rackStatus: status.Status): void {
+    for (const [task, pending] of this.commandDeadlines) {
+      const down = this.downRackStatus(this.store.get(task)?.rack);
+      if (down?.key !== rackStatus.key) continue;
+      // A batch stores a reply before it delivers the reply's event.
+      const answered = this.statusesByTask
+        .get(task)
+        .some((s) => status.detailsOf(s)?.cmd === pending.cmd.key);
+      if (answered) continue;
+      this.cfg.statusStore.set(statusKey(task), this.optimisticStatus(pending.cmd));
+    }
+  }
+
+  // Only a reply ends the wait sooner. The problem of a down rack outlasts the wait.
   private armCommandDeadline(cmd: Command, optimistic: Status): void {
     const { statusStore } = this.cfg;
     const key = statusKey(cmd.task);
@@ -727,11 +762,12 @@ export class Client extends query.Retriever<
     const timer = setTimeout(() => {
       this.commandDeadlines.delete(cmd.task);
       if (statusStore.get(key) == null) return;
+      if (this.downRackStatus(this.store.get(cmd.task)?.rack) != null) return;
       statusStore.set(
         key,
         status.create<StatusDetailsZodObject>({
           key,
-          name: STATUS_NAME,
+          name: optimistic.name,
           variant: "warning",
           message: `No response to the ${cmd.type} command`,
           description: `The Driver did not respond within ${COMMAND_DEADLINE.toString()}.`,
@@ -740,7 +776,7 @@ export class Client extends query.Retriever<
         }),
       );
     }, COMMAND_DEADLINE.milliseconds);
-    this.commandDeadlines.set(cmd.task, { cmd: cmd.key, timer });
+    this.commandDeadlines.set(cmd.task, { cmd, timer });
   }
 
   // A task's status may live under the "task:<key>" row or under any status whose
@@ -1037,20 +1073,10 @@ const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodNever>({
   const streamer = await frameClient.openStreamer(status.SET_CHANNEL_NAME);
   const cmdKeys = await executeCommands({ frameClient, commands });
   const parsedTimeout = new TimeSpan(timeout);
-  let states: Status<StatusData>[] = [];
-  let timeoutID: NodeJS.Timeout | undefined;
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    timeoutID = setTimeout(() => {
-      const taskKeys = commands.map((c) => c.task);
-      formatTimeoutError("command", taskName, parsedTimeout, taskKeys).then(
-        reject,
-        reject,
-      );
-    }, parsedTimeout.milliseconds);
-  });
-  try {
+  const collect = async (): Promise<Status<StatusData>[]> => {
+    let states: Status<StatusData>[] = [];
     while (true) {
-      const frame = await Promise.race([streamer.read(), timeoutPromise]);
+      const frame = await streamer.read();
       // A frame can hold statuses for other tasks and racks, which have a different
       // shape and fail to parse.
       for (const str of frame.get(status.SET_CHANNEL_NAME).toStrings()) {
@@ -1062,19 +1088,28 @@ const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodNever>({
         if (states.length === cmdKeys.length) return states;
       }
     }
+  };
+  try {
+    return await sync.withTimeout(
+      collect(),
+      parsedTimeout,
+      async () =>
+        await formatTimeoutError(
+          taskName,
+          parsedTimeout,
+          commands.map((c) => c.task),
+        ),
+    );
   } finally {
-    clearTimeout(timeoutID);
     streamer.close();
   }
 };
 
 const formatTimeoutError = async (
-  type: string,
   name: string | string[] | (() => Promise<string | string[]>),
   timeout: TimeSpan,
   key: Key | Key[],
 ): Promise<Error> => {
-  const formattedType = caseconv.capitalize(type);
   const formattedTimeout = timeout.toString();
   try {
     let names: string[];
@@ -1082,13 +1117,11 @@ const formatTimeoutError = async (
     else if (Array.isArray(name)) names = name;
     else names = array.toArray(await name());
     const formattedName = strings.naturalLanguageJoin(names);
-    return new Error(
-      `${formattedType} command to ${formattedName} timed out after ${formattedTimeout}`,
-    );
+    return new Error(`Command to ${formattedName} timed out after ${formattedTimeout}`);
   } catch (e) {
     console.error("Failed to retrieve task name for timeout error:", e);
     return new Error(
-      `${formattedType} command to task with key ${strings.naturalLanguageJoin(array.toArray(key).map((k) => k.toString()))} timed out after ${formattedTimeout}`,
+      `Command to task with key ${strings.naturalLanguageJoin(array.toArray(key).map((k) => k.toString()))} timed out after ${formattedTimeout}`,
     );
   }
 };

@@ -9,14 +9,15 @@
 
 import "@/telem/SelectTimestampFormat.css";
 
-import { CSS } from "@synnaxlabs/lyra/css";
 import { Select } from "@synnaxlabs/lyra/select";
 import { type TimestampFormat } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
+import { CSS } from "@/css";
+
 export interface SelectTimestampFormatProps extends Omit<
   Select.SingleSimpleProps<TimestampFormat>,
-  "children" | "resourceName"
+  "children" | "resourceName" | "searchName"
 > {}
 
 export const SelectTimestampFormat = ({
@@ -33,6 +34,7 @@ export const SelectTimestampFormat = ({
       ),
     }}
     resourceName="timestamp format"
+    searchName="format"
   >
     <Select.Item itemKey="ISO">ISO 8601</Select.Item>
     <Select.Item itemKey="ISODate">ISO date</Select.Item>

@@ -20,10 +20,10 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     const { page } = session;
     await capture.login(session);
     await capture.clearPanel(session);
-    await session.moveTo({ x: 756, y: 500 });
+    await session.moveTo({ x: 800, y: 450 });
 
     session.startRecording();
-    await session.hold(500);
+    await session.hold(1800);
 
     await capture.clickPanelCreate(session);
     await session.hold(800);
@@ -31,7 +31,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.waitFor(page.locator(".pluto-log").first());
     await session.hold(1200);
 
-    const drawer = page.locator(".console-nav__drawer.pluto--location-bottom").first();
+    const drawer = page.locator(".console-nav__drawer.lyra--location-bottom").first();
     const add = page.getByText("Add channel", { exact: true }).first();
     if (!(await add.isVisible().catch(() => false)))
       await session.click(page.locator(".console-main-nav__item").last(), {
@@ -39,6 +39,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
       });
     await session.waitFor(add);
     await session.hold(600);
+    await capture.zoomCenter(session, drawer, 1.4);
 
     for (const channel of fixture.channels) {
       await session.click(page.getByText("Add channel", { exact: true }).first(), {
@@ -50,7 +51,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
       await session.hold(400);
       await session.type(channel);
       const item = page
-        .locator(".pluto-list__item:not(.pluto-tree__item)")
+        .locator(".lyra-list__item:not(.lyra-tree__item)")
         .filter({ hasText: channel })
         .first();
       await session.waitFor(item);
@@ -71,7 +72,9 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.press("ControlOrMeta+a");
     await session.type("3");
     await session.press("Enter");
-    await session.hold(500);
+    session.endZoom();
+    await session.moveTo({ x: 1200, y: 300 });
+    await session.hold(3000);
   } finally {
     await fixture.stop();
   }

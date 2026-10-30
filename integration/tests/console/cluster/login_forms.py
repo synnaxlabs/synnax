@@ -81,9 +81,9 @@ class LoginForms(ConsoleCase):
         """Refresh connection reports success against the live Core."""
         self.log(f"Refreshing connection for {self.core_name}")
         self.console.cluster.refresh_core(self.core_name)
-        assert self.console.notifications.wait_for(f"Connected to {self.core_name}"), (
-            "refresh should raise a success notification"
-        )
+        assert self.console.notifications.wait_for(
+            "Connected to Core", name=self.core_name
+        ), "refresh should raise a success notification"
         self.console.notifications.close_all()
 
     def test_copy_link(self) -> None:
@@ -92,7 +92,7 @@ class LoginForms(ConsoleCase):
         link = self.console.cluster.copy_core_link(self.core_name)
         assert link == "", f"expected no link, got {link!r}"
         assert self.console.notifications.wait_for(
-            f"Failed to copy link to {self.core_name}"
+            "Failed to copy link", name=self.core_name
         ), "copying without a connection should raise an error notification"
         self.console.notifications.close_all()
 
@@ -122,7 +122,7 @@ class LoginForms(ConsoleCase):
         password = self.page.get_by_label("Password", exact=True).first
         password.fill("wrong-password")
         self.page.get_by_role("button", name="Log in").click(timeout=5000)
-        self._wait(self.page.locator(".console-login__status .pluto--status-error"))
+        self._wait(self.page.locator(".console-login__status .lyra--status-error"))
 
         self.log("Submitting good credentials")
         password.fill(self.synnax_connection.password)

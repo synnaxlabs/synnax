@@ -10,13 +10,30 @@
  */
 
 .console-http-connect {
-    position: relative;
     width: 155rem;
-    max-height: 145rem;
 
-    .console-content {
-        width: 100%;
-        padding: 3rem 4rem;
-        overflow-y: auto;
+    /* Fits the longest label, so the column holds still as fields show and hide. */
+    .lyra-form-sections.lyra--direction-y {
+        grid-template-columns: minmax(18rem, max-content) minmax(0, 1fr);
+    }
+
+    /* A switch in a field fills the field; this one leaves room for the next. */
+    .console-http-connect__secure > .lyra-input__switch {
+        width: auto;
+    }
+
+    /* Fits the health check tab, so the dialog keeps its size between tabs. */
+    .console-http-connect__tabs .lyra-tabs__content {
+        min-height: 60rem;
+    }
+
+    /* The hairline matches the one after a section title. */
+    .console-http-connect__tabs .lyra-tabs__selector::after {
+        content: "";
+        flex-grow: 1;
+        align-self: center;
+        height: var(--pluto-border-width);
+        margin-left: 2rem;
+        background: var(--pluto-gray-l6);
     }
 }

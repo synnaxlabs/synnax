@@ -10,14 +10,16 @@
 import "@/table/Table.css";
 
 import { type table } from "@synnaxlabs/client";
-import { CSS } from "@synnaxlabs/lyra/css";
 import { Cursor } from "@synnaxlabs/lyra/cursor";
 import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text } from "@synnaxlabs/lyra/text";
 import { stopPropagation } from "@synnaxlabs/lyra/util";
-import { box, direction } from "@synnaxlabs/x";
-import { memo, type ReactElement, useCallback, useMemo, useRef } from "react";
+import { box, direction, xy } from "@synnaxlabs/x";
+import { memo, type ReactElement, useRef } from "react";
+
+import { CSS } from "@/css";
+import { transform } from "@/table/shift";
 
 const ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
@@ -34,14 +36,16 @@ export const getCellColumn = (index: number): string => {
   return label;
 };
 
-export interface ColumnIndicatorsProps {
-  columns: number[];
+export interface ColumnIndicatorsProps extends Pick<IndicatorProps, "onMovePress"> {
+  columns: table.Column[];
   rows: table.Row[];
   selected: string[];
   editable: boolean;
   onSelect: (index: number, ev: React.MouseEvent) => void;
   onSelectAll: () => void;
-  onResize: (size: number, index: number) => void;
+  onResize: (size: number, key: string) => void;
+  /** How far each column slides while a move previews where it lands. */
+  shifts?: number[];
 }
 
 export const ColumnIndicators = memo(
@@ -53,26 +57,21 @@ export const ColumnIndicators = memo(
     onSelect,
     onSelectAll,
     onResize,
+    onMovePress,
+    shifts,
   }: ColumnIndicatorsProps): ReactElement => {
     // cellToCol indexes the rows once per layout change so selectedCols can
     // resolve each selected cell to its column in O(1).
-    const cellToCol = useMemo(() => {
-      const map = new Map<string, number>();
-      for (const row of rows) row.cells.forEach((k, i) => map.set(k, i));
-      return map;
-    }, [rows]);
-    const selectedCols = useMemo(() => {
-      const cols = new Set<number>();
-      for (const k of selected) {
-        const idx = cellToCol.get(k);
-        if (idx !== undefined) cols.add(idx);
-      }
-      return cols;
-    }, [cellToCol, selected]);
-    const totalCells = useMemo(
-      () => rows.reduce((n, r) => n + r.cells.length, 0),
-      [rows],
-    );
+    const map = new Map<string, number>();
+    for (const row of rows) row.cells.forEach((k, i) => map.set(k, i));
+    const cellToCol = map;
+    const cols = new Set<number>();
+    for (const k of selected) {
+      const idx = cellToCol.get(k);
+      if (idx !== undefined) cols.add(idx);
+    }
+    const selectedCols = cols;
+    const totalCells = rows.reduce((n, r) => n + r.cells.length, 0);
     const allSelected = totalCells > 0 && selected.length >= totalCells;
     return (
       <tr className={CSS.cls(CSS.BE("table", "row"), CSS.BE("table", "col-resizer"))}>
@@ -81,16 +80,19 @@ export const ColumnIndicators = memo(
           onClick={onSelectAll}
           onContextMenu={onSelectAll}
         />
-        {columns.map((size, i) => (
+        {columns.map((col, i) => (
           <Indicator
-            key={i}
+            key={col.key}
             direction="x"
             index={i}
-            value={size}
+            itemKey={col.key}
+            value={col.size}
             selected={selectedCols.has(i)}
             editable={editable}
             onChange={onResize}
             onSelect={onSelect}
+            onMovePress={onMovePress}
+            shift={shifts?.[i]}
           />
         ))}
       </tr>
@@ -102,38 +104,48 @@ ColumnIndicators.displayName = "ColumnIndicators";
 export interface IndicatorProps {
   direction: direction.Direction;
   index: number;
+  /** Key of the row or column. */
+  itemKey: string;
   value: number;
   editable: boolean;
   selected?: boolean;
-  onChange: (size: number, index: number) => void;
+  onChange: (size: number, key: string) => void;
   onSelect: (index: number, ev: React.MouseEvent) => void;
+  /**
+   * Handles a press on the label, which moves the row or column once the pointer
+   * travels. The label does not move anything when absent.
+   */
+  onMovePress?: (key: string, ev: React.PointerEvent) => void;
+  /** How far the row or column slides while a move previews where it lands. */
+  shift?: number;
 }
 
 export const Indicator = ({
   direction: dir,
   index,
+  itemKey,
   value,
   editable,
   selected = false,
   onChange,
   onSelect,
+  onMovePress,
+  shift = 0,
 }: IndicatorProps): ReactElement => {
   const valueRef = useSyncedRef(value);
   const sizeRef = useRef(value);
   const onDragStart = Cursor.useDrag({
-    onStart: useCallback(() => {
+    onStart: () => {
       sizeRef.current = valueRef.current;
-    }, []),
-    onMove: useCallback(
-      (b: box.Box) => onChange(sizeRef.current + box.dim(b, dir, true), index),
-      [onChange, index, dir],
-    ),
+    },
+    onMove: (b: box.Box) => onChange(sizeRef.current + box.dim(b, dir, true), itemKey),
   });
-  const style = useMemo(() => ({ [direction.dimension(dir)]: value }), [dir, value]);
+  const dim = direction.dimension(dir);
+  const style = { [dim]: value, transform: transform(xy.construct(dir, shift)) };
   const label = dir === "x" ? getCellColumn(index) : index + 1;
   return (
     <td
-      id={`resizer-${dir}-${index}`}
+      id={`resizer-${dir}-${itemKey}`}
       className={CSS.cls(
         CSS.BE("table", "resizer"),
         CSS.dir(dir),
@@ -145,7 +157,16 @@ export const Indicator = ({
       onClick={(e) => onSelect(index, e)}
       onContextMenu={(e) => onSelect(index, e)}
     >
-      <Text.Text full="x" justify="center" align="center" square={false}>
+      <Text.Text
+        className={CSS.cls(
+          CSS.BE("table", "label"),
+          onMovePress != null && Cursor.DRAG_CLASS,
+        )}
+        justify="center"
+        align="center"
+        square={false}
+        onPointerDown={onMovePress == null ? undefined : (e) => onMovePress(itemKey, e)}
+      >
         {label}
       </Text.Text>
       {editable && (

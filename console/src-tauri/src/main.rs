@@ -10,15 +10,9 @@
 // Prevents additional console window on Windows in release, DO NOT REMOVE!!
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-#[cfg(target_os = "macos")]
-extern crate objc2;
-#[cfg(target_os = "macos")]
-extern crate objc2_app_kit;
-#[cfg(target_os = "macos")]
-extern crate objc2_foundation;
-
 #[cfg(feature = "desktop")]
 mod install;
+mod keychain;
 #[cfg(feature = "desktop")]
 mod supervisor;
 
@@ -31,65 +25,27 @@ use std::time::Duration;
 #[cfg(target_os = "macos")]
 use tauri::Emitter;
 
-use tauri::{Manager, Window};
+use tauri::Manager;
 
 use tauri_plugin_prevent_default::KeyboardShortcut;
 use tauri_plugin_prevent_default::ModifierKey::MetaKey;
-
-#[cfg(target_os = "macos")]
-fn set_transparent_titlebar(win: &Window, transparent: bool) {
-    use objc2::rc::Retained;
-    use objc2::runtime::AnyObject;
-    use objc2_app_kit::{NSWindow, NSWindowButton, NSWindowStyleMask, NSWindowTitleVisibility};
-
-    let ns_window = win.ns_window().expect("Failed to create window handle") as *mut AnyObject;
-    let window: Retained<NSWindow> =
-        unsafe { Retained::retain(ns_window as *mut NSWindow).unwrap() };
-
-    let fullscreen = window.styleMask().contains(NSWindowStyleMask::FullScreen);
-    if !fullscreen {
-        let mut style_mask = window.styleMask();
-        if transparent {
-            style_mask.insert(NSWindowStyleMask::FullSizeContentView);
-        } else {
-            style_mask.remove(NSWindowStyleMask::FullSizeContentView);
-        }
-        window.setStyleMask(style_mask);
-
-        window.setTitleVisibility(if transparent {
-            NSWindowTitleVisibility::Hidden
-        } else {
-            NSWindowTitleVisibility::Visible
-        });
-
-        window.setTitlebarAppearsTransparent(true);
-    }
-
-    // Hide rather than remove: AppKit re-attaches removed standard buttons when it
-    // relays out the titlebar (e.g. on setTitle), while hidden instances stay hidden.
-    // In fullscreen the native buttons are the only way out, so they come back.
-    let hide = transparent && !fullscreen;
-    if let Some(close) = window.standardWindowButton(NSWindowButton::CloseButton) {
-        close.setHidden(hide);
-    }
-    if let Some(miniaturize) = window.standardWindowButton(NSWindowButton::MiniaturizeButton) {
-        miniaturize.setHidden(hide);
-    }
-    if let Some(zoom) = window.standardWindowButton(NSWindowButton::ZoomButton) {
-        zoom.setHidden(hide);
-    }
-}
-
-#[cfg(not(target_os = "macos"))]
-fn set_transparent_titlebar(_: &Window, _: bool) {}
 
 fn main() {
     let prevent = tauri_plugin_prevent_default::Builder::new()
         .shortcut(KeyboardShortcut::with_modifiers("W", &[MetaKey]))
         .build();
     let builder = tauri::Builder::default();
+    #[cfg(not(feature = "desktop"))]
+    let builder = builder.invoke_handler(tauri::generate_handler![
+        keychain::keychain_get,
+        keychain::keychain_set,
+        keychain::keychain_delete,
+    ]);
     #[cfg(feature = "desktop")]
     let builder = builder.invoke_handler(tauri::generate_handler![
+        keychain::keychain_get,
+        keychain::keychain_set,
+        keychain::keychain_delete,
         supervisor::commands::supervisor_status,
         supervisor::commands::supervisor_history,
         supervisor::commands::supervisor_restart,
@@ -103,24 +59,6 @@ fn main() {
         install::install_info,
     ]);
     builder
-        .on_page_load(|window, _| {
-            set_transparent_titlebar(&window.window(), true);
-        })
-        .on_window_event(move |win, event| match event {
-            tauri::WindowEvent::Focused { .. } => {
-                set_transparent_titlebar(win, true);
-            }
-            tauri::WindowEvent::ThemeChanged { .. } => {
-                set_transparent_titlebar(win, true);
-            }
-            tauri::WindowEvent::Resized(_) => {
-                set_transparent_titlebar(win, true);
-            }
-            tauri::WindowEvent::Moved(position) if position.x != 0 && position.y != 0 => {
-                set_transparent_titlebar(win, true);
-            }
-            _ => (),
-        })
         .plugin(prevent)
         .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
             if let Some(win) = app.get_webview_window("main") {

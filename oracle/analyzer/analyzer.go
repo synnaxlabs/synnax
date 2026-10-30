@@ -35,6 +35,18 @@ type analysisCtx struct {
 	ast         parser.ISchemaContext
 	filePath    string
 	namespace   string
+	// copied holds the earlier-version declarations the file copies. Their references
+	// count as the file's own when checking for unused imports.
+	copied []parsedRule
+	// removals holds the fields patches removed from copied declarations, for
+	// omitRemovedFields.
+	removals []removal
+}
+
+// parsedRule is a parsed rule together with the parser that holds its tokens.
+type parsedRule interface {
+	antlr.ParserRuleContext
+	GetParser() antlr.Parser
 }
 
 // report records a diagnostic against the file currently being analyzed.
@@ -85,38 +97,6 @@ func Analyze(
 	return table, diag
 }
 
-func AnalyzeSource(
-	ctx context.Context,
-	source, namespace string,
-	loader FileLoader,
-) (*resolution.Table, *diagnostics.Files) {
-	diag := diagnostics.NewFiles()
-	table := resolution.NewTable()
-
-	ast, parseDiag := parser.Parse(source)
-	if parseDiag != nil && !parseDiag.Ok() {
-		diag.MergeFile(namespace+".oracle", *parseDiag)
-		return nil, diag
-	}
-	c := &analysisCtx{
-		Context:     ctx,
-		diag:        diag,
-		table:       table,
-		loader:      loader,
-		ast:         ast,
-		filePath:    namespace + ".oracle",
-		namespace:   namespace,
-		fileDomains: make(map[string]resolution.Domain),
-	}
-	analyze(c)
-	if !diag.Ok() {
-		return nil, diag
-	}
-	detectRecursiveTypes(table)
-	validateDomainOmits(table, diag)
-	return table, diag
-}
-
 // AnalyzeSeeded analyzes source into an existing table under an explicit namespace.
 // Callers pre-register the namespaces the source resolves against (sibling schema
 // versions, pinned dependency surfaces) and mark their import paths on the table so the
@@ -152,49 +132,57 @@ func AnalyzeSeeded(
 	return diag
 }
 
-// usedQualifiers collects the package qualifiers the file references: every identifier
-// immediately followed by a dot, in any position (type references, extends clauses,
-// domain expressions).
-func usedQualifiers(ast parser.ISchemaContext) set.Set[string] {
-	used := make(set.Set[string])
-	stream, ok := ast.GetParser().GetTokenStream().(*antlr.CommonTokenStream)
-	if !ok {
-		return used
-	}
-	var defaultChan []antlr.Token
-	for _, tok := range stream.GetAllTokens() {
-		if tok.GetChannel() == antlr.TokenDefaultChannel {
-			defaultChan = append(defaultChan, tok)
+// defaultTokens returns the default-channel tokens of each rule, in order.
+func defaultTokens(rules ...parsedRule) [][]antlr.Token {
+	out := make([][]antlr.Token, 0, len(rules))
+	for _, rule := range rules {
+		stream, ok := rule.GetParser().GetTokenStream().(*antlr.CommonTokenStream)
+		if !ok {
+			continue
 		}
+		// An empty file has no stop token.
+		start, stop := rule.GetStart(), rule.GetStop()
+		if start == nil || stop == nil {
+			continue
+		}
+		var toks []antlr.Token
+		for i := start.GetTokenIndex(); i <= stop.GetTokenIndex(); i++ {
+			if tok := stream.Get(i); tok.GetChannel() == antlr.TokenDefaultChannel {
+				toks = append(toks, tok)
+			}
+		}
+		out = append(out, toks)
 	}
-	for i := 0; i+1 < len(defaultChan); i++ {
-		if defaultChan[i].GetTokenType() == parser.OracleLexerIDENT &&
-			defaultChan[i+1].GetTokenType() == parser.OracleLexerDOT {
-			used.Add(defaultChan[i].GetText())
+	return out
+}
+
+// usedQualifiers collects the package qualifiers the token runs reference: every
+// identifier immediately followed by a dot, in any position (type references, extends
+// clauses, domain expressions).
+func usedQualifiers(runs [][]antlr.Token) set.Set[string] {
+	used := make(set.Set[string])
+	for _, toks := range runs {
+		for i := 0; i+1 < len(toks); i++ {
+			if toks[i].GetTokenType() == parser.OracleLexerIDENT &&
+				toks[i+1].GetTokenType() == parser.OracleLexerDOT {
+				used.Add(toks[i].GetText())
+			}
 		}
 	}
 	return used
 }
 
-// usedQualifiedNames collects every qualified reference in the file as a
+// usedQualifiedNames collects every qualified reference in the token runs as a
 // "qualifier.member" string: an identifier, a dot, and an identifier, in any position.
-func usedQualifiedNames(ast parser.ISchemaContext) set.Set[string] {
+func usedQualifiedNames(runs [][]antlr.Token) set.Set[string] {
 	used := make(set.Set[string])
-	stream, ok := ast.GetParser().GetTokenStream().(*antlr.CommonTokenStream)
-	if !ok {
-		return used
-	}
-	var defaultChan []antlr.Token
-	for _, tok := range stream.GetAllTokens() {
-		if tok.GetChannel() == antlr.TokenDefaultChannel {
-			defaultChan = append(defaultChan, tok)
-		}
-	}
-	for i := 0; i+2 < len(defaultChan); i++ {
-		if defaultChan[i].GetTokenType() == parser.OracleLexerIDENT &&
-			defaultChan[i+1].GetTokenType() == parser.OracleLexerDOT &&
-			defaultChan[i+2].GetTokenType() == parser.OracleLexerIDENT {
-			used.Add(defaultChan[i].GetText() + "." + defaultChan[i+2].GetText())
+	for _, toks := range runs {
+		for i := 0; i+2 < len(toks); i++ {
+			if toks[i].GetTokenType() == parser.OracleLexerIDENT &&
+				toks[i+1].GetTokenType() == parser.OracleLexerDOT &&
+				toks[i+2].GetTokenType() == parser.OracleLexerIDENT {
+				used.Add(toks[i].GetText() + "." + toks[i+2].GetText())
+			}
 		}
 	}
 	return used
@@ -213,8 +201,9 @@ type importUse struct {
 // behind a used sibling. Runs after imports load, so provenance comes from the table's
 // declared file paths.
 func reportUnusedImports(c *analysisCtx, imports []importUse) {
-	qualifiers := usedQualifiers(c.ast)
-	names := usedQualifiedNames(c.ast)
+	runs := defaultTokens(append([]parsedRule{c.ast}, c.copied...)...)
+	qualifiers := usedQualifiers(runs)
+	names := usedQualifiedNames(runs)
 	byNS := make(map[string][]importUse)
 	for _, iu := range imports {
 		ns := paths.DeriveNamespace(iu.path)
@@ -346,6 +335,7 @@ func analyze(c *analysisCtx) {
 			}
 		}
 	}
+	omitRemovedFields(c)
 
 	finalizeEnumExtensions(c)
 	finalizeUnionExtensions(c)
@@ -371,7 +361,7 @@ func analyze(c *analysisCtx) {
 // desugarPartialOverrides rewrites each struct's typeless override fields into complete
 // fields, resolving the inherited type, optionality, (when omitted) default, and
 // domains from the parent. The field's own domains win on a name conflict, matching
-// mergeOverrideField. After this pass a typeless override (key?) is indistinguishable
+// MergeOverrideField. After this pass a typeless override (key?) is indistinguishable
 // from a full restatement (key Key?), so the code generators make the same
 // embed-vs-flatten decision and emit identical output. Domain removal (-@domain) is
 // intentionally left for the generators to handle, since it has no full-restatement
@@ -389,7 +379,7 @@ func desugarPartialOverrides(c *analysisCtx) {
 		if hasCircularInheritance(typ, c.table, make(set.Set[string])) {
 			continue
 		}
-		parents := resolvedParentFields(c, form)
+		parents := resolution.InheritedFields(form.Extends, c.table)
 		fields := make([]resolution.Field, len(form.Fields))
 		copy(fields, form.Fields)
 		var changed bool
@@ -435,40 +425,6 @@ func desugarPartialOverrides(c *analysisCtx) {
 	}
 }
 
-// resolvedParentFields collects the fields a struct inherits, keyed by name, with
-// generic type parameters substituted. The first parent wins on a name conflict,
-// matching UnifiedFields.
-func resolvedParentFields(
-	c *analysisCtx,
-	form resolution.StructForm,
-) map[string]resolution.Field {
-	out := make(map[string]resolution.Field)
-	for _, ext := range form.Extends {
-		parent, ok := ext.Resolve(c.table)
-		if !ok {
-			continue
-		}
-		parentForm, ok := parent.Form.(resolution.StructForm)
-		if !ok {
-			continue
-		}
-		typeArgMap := make(map[string]resolution.TypeRef)
-		for i, tp := range parentForm.TypeParams {
-			if i < len(ext.TypeArgs) {
-				typeArgMap[tp.Name] = ext.TypeArgs[i]
-			}
-		}
-		for _, pf := range resolution.UnifiedFields(parent, c.table) {
-			if _, exists := out[pf.Name]; exists {
-				continue
-			}
-			pf.Type = resolution.SubstituteTypeRef(pf.Type, typeArgMap)
-			out[pf.Name] = pf
-		}
-	}
-	return out
-}
-
 // validateFieldOverrides reports partial-override syntax that cannot resolve: a field
 // that omits its type, or removes a domain with `-@domain`, must name a field inherited
 // from a parent struct to inherit from. Outside an extends chain, or naming no parent
@@ -485,7 +441,7 @@ func validateFieldOverrides(c *analysisCtx, typ resolution.Type) {
 	}
 	parentFields := make(set.Set[string])
 	for _, extendsRef := range form.Extends {
-		parent, ok := extendsRef.Resolve(c.table)
+		parent, _, ok := resolution.Dealias(extendsRef, c.table)
 		if !ok {
 			continue
 		}
@@ -594,7 +550,7 @@ func effectiveEnumValues(
 	}
 
 	for i := range form.Extends {
-		parent, ok := c.table.Get(form.Extends[i].Name)
+		parent, _, ok := resolution.Dealias(form.Extends[i], c.table)
 		if !ok {
 			addTypeDiag(
 				c,
@@ -692,7 +648,7 @@ func finalizeUnionExtensions(c *analysisCtx) {
 // union.
 func hasUnionBases(form resolution.UnionForm, table *resolution.Table) bool {
 	for _, ref := range form.Extends {
-		if base, ok := ref.Resolve(table); ok {
+		if base, _, ok := resolution.Dealias(ref, table); ok {
 			if _, isUnion := base.Form.(resolution.UnionForm); isUnion {
 				return true
 			}
@@ -743,7 +699,7 @@ func effectiveUnionVariants(
 	}
 
 	for i := range form.Extends {
-		parent, ok := form.Extends[i].Resolve(c.table)
+		parent, _, ok := resolution.Dealias(form.Extends[i], c.table)
 		if !ok {
 			addTypeDiag(c, typ, "union %s extends unresolved type: %s",
 				typ.QualifiedName, form.Extends[i].Name)
@@ -818,53 +774,96 @@ func collectStructFull(c *analysisCtx, def *parser.StructFullContext) {
 		return
 	}
 
-	form := resolution.StructForm{
-		TypeParams: collectTypeParams(def.TypeParams()),
+	decl, ok := collectStructDecl(c, def, fileVersion(c))
+	if !ok {
+		return
 	}
-
-	if def.EXTENDS() != nil {
-		if typeRefList := def.TypeRefList(); typeRefList != nil {
-			for _, tr := range typeRefList.AllTypeRef() {
-				ext := collectTypeRef(tr, nil)
-				form.Extends = append(form.Extends, ext)
-			}
-		}
-	}
-
-	domains := make(map[string]resolution.Domain)
-	maps.Copy(domains, c.fileDomains)
-
-	if body := def.StructBody(); body != nil {
-		for _, f := range body.AllFieldDef() {
-			field := collectField(f, form.TypeParams)
-			form.Fields = append(form.Fields, field)
-		}
-		for _, fo := range body.AllFieldOmit() {
-			form.OmittedFields = append(form.OmittedFields, fo.IDENT().GetText())
-		}
-		for _, a := range body.AllActionDef() {
-			action := collectAction(c, a, form.TypeParams)
-			form.Actions = append(form.Actions, action)
-		}
-		for _, d := range body.AllDomain() {
-			de := collectDomain(d)
-			if existing, ok := domains[de.Name]; ok {
-				domains[de.Name] = de.Merge(existing)
-			} else {
-				domains[de.Name] = de
-			}
-		}
-	}
-
 	lo.Must0(c.table.Add(resolution.Type{
 		Name:          name,
 		Namespace:     c.namespace,
 		QualifiedName: qname,
 		FilePath:      c.filePath,
-		Form:          form,
-		Domains:       domains,
+		Form:          decl.form,
+		Domains:       mergeDomains(c.fileDomains, decl.domains),
 		AST:           def,
 	}))
+	if len(decl.removed) > 0 {
+		c.removals = append(c.removals, removal{typ: qname, fields: decl.removed})
+	}
+}
+
+// structDecl is a struct declaration collected but not yet registered. Its domains
+// leave out the file's domains.
+type structDecl struct {
+	form    resolution.StructForm
+	domains map[string]resolution.Domain
+	// removed names the copied fields a patch removed. See omitRemovedFields.
+	removed []string
+}
+
+// collectStructDecl collects def, declared in version below of the file's chain (0
+// outside a version file). See copyStruct for an extends entry naming an earlier
+// version.
+func collectStructDecl(
+	c *analysisCtx, def *parser.StructFullContext, below int,
+) (structDecl, bool) {
+	decl := structDecl{
+		form:    resolution.StructForm{TypeParams: collectTypeParams(def.TypeParams())},
+		domains: make(map[string]resolution.Domain),
+	}
+	if def.EXTENDS() != nil {
+		if typeRefList := def.TypeRefList(); typeRefList != nil {
+			for _, tr := range typeRefList.AllTypeRef() {
+				decl.form.Extends = append(decl.form.Extends, collectTypeRef(tr, nil))
+			}
+		}
+	}
+	if body := def.StructBody(); body != nil {
+		for _, f := range body.AllFieldDef() {
+			decl.form.Fields = append(
+				decl.form.Fields,
+				collectField(f, decl.form.TypeParams),
+			)
+		}
+		for _, fo := range body.AllFieldOmit() {
+			decl.form.OmittedFields = append(
+				decl.form.OmittedFields,
+				fo.IDENT().GetText(),
+			)
+		}
+		for _, a := range body.AllActionDef() {
+			decl.form.Actions = append(
+				decl.form.Actions,
+				collectAction(c, a, decl.form.TypeParams),
+			)
+		}
+		for _, d := range body.AllDomain() {
+			addDomain(decl.domains, collectDomain(d))
+		}
+	}
+	return copyStruct(c, def, decl, below)
+}
+
+// addDomain adds d to domains, merging it over a domain of the same name.
+func addDomain(domains map[string]resolution.Domain, d resolution.Domain) {
+	if existing, ok := domains[d.Name]; ok {
+		domains[d.Name] = d.Merge(existing)
+	} else {
+		domains[d.Name] = d
+	}
+}
+
+// mergeDomains returns child merged over parent. A domain in both takes child's
+// expressions where their names match.
+func mergeDomains(
+	parent, child map[string]resolution.Domain,
+) map[string]resolution.Domain {
+	out := make(map[string]resolution.Domain, len(parent)+len(child))
+	maps.Copy(out, parent)
+	for _, d := range child {
+		addDomain(out, d)
+	}
+	return out
 }
 
 // collectAction translates a parsed action block into a resolution.Action, reusing
@@ -1319,32 +1318,14 @@ func collectUnion(c *analysisCtx, def parser.IUnionDefContext) {
 		form.Enum = collectTypeRef(tr, nil)
 	}
 
-	if def.EXTENDS() != nil {
-		if typeRefList := def.TypeRefList(); typeRefList != nil {
-			for _, tr := range typeRefList.AllTypeRef() {
-				form.Extends = append(form.Extends, collectTypeRef(tr, nil))
-			}
-		}
+	decl, ok := collectUnionDecl(c, name, def, fileVersion(c))
+	if !ok {
+		return
 	}
-
-	domains := make(map[string]resolution.Domain)
-	maps.Copy(domains, c.fileDomains)
-
-	if body := def.UnionBody(); body != nil {
-		for _, d := range body.AllDomain() {
-			de := collectDomain(d)
-			if existing, ok := domains[de.Name]; ok {
-				domains[de.Name] = de.Merge(existing)
-			} else {
-				domains[de.Name] = de
-			}
-		}
-		for _, v := range body.AllUnionVariant() {
-			form.Variants = append(
-				form.Variants,
-				collectUnionVariant(c, name, domains, v),
-			)
-		}
+	form.Extends = decl.extends
+	domains := mergeDomains(c.fileDomains, decl.domains)
+	for _, v := range decl.variants {
+		form.Variants = append(form.Variants, registerVariant(c, name, domains, v))
 	}
 
 	lo.Must0(c.table.Add(resolution.Type{
@@ -1358,12 +1339,49 @@ func collectUnion(c *analysisCtx, def parser.IUnionDefContext) {
 	}))
 }
 
-func collectUnionVariant(
-	c *analysisCtx,
-	unionName string,
-	unionDomains map[string]resolution.Domain,
-	def parser.IUnionVariantContext,
-) resolution.UnionVariant {
+// unionDecl is a union declaration collected but not yet registered: no inline payload
+// is in the table yet. Its domains leave out the file's domains.
+type unionDecl struct {
+	extends  []resolution.TypeRef
+	variants []variantDecl
+	domains  map[string]resolution.Domain
+}
+
+// variantDecl is a union variant collected but not yet registered. payload holds the
+// body of an inline variant and is nil for a named one.
+type variantDecl struct {
+	variant resolution.UnionVariant
+	payload *structDecl
+}
+
+// collectUnionDecl collects the extends clause and body of def, the declaration of
+// union name in version below of the file's chain (0 outside a version file). See
+// copyUnion for an extends entry naming an earlier version.
+func collectUnionDecl(
+	c *analysisCtx, name string, def parser.IUnionDefContext, below int,
+) (unionDecl, bool) {
+	decl := unionDecl{domains: make(map[string]resolution.Domain)}
+	if def.EXTENDS() != nil {
+		if typeRefList := def.TypeRefList(); typeRefList != nil {
+			for _, tr := range typeRefList.AllTypeRef() {
+				decl.extends = append(decl.extends, collectTypeRef(tr, nil))
+			}
+		}
+	}
+	if body := def.UnionBody(); body != nil {
+		for _, d := range body.AllDomain() {
+			addDomain(decl.domains, collectDomain(d))
+		}
+		for _, v := range body.AllUnionVariant() {
+			decl.variants = append(decl.variants, collectVariantDecl(c, name, v))
+		}
+	}
+	return copyUnion(c, def, decl, below)
+}
+
+func collectVariantDecl(
+	c *analysisCtx, unionName string, def parser.IUnionVariantContext,
+) variantDecl {
 	switch v := def.(type) {
 	case *parser.NamedVariantContext:
 		variant := resolution.UnionVariant{
@@ -1378,33 +1396,28 @@ func collectUnionVariant(
 				variant.Domains[de.Name] = de
 			}
 		}
-		return variant
+		return variantDecl{variant: variant}
 	case *parser.InlineVariantContext:
-		return collectInlineVariant(c, unionName, unionDomains, v)
+		return collectInlineVariantDecl(c, unionName, v)
 	default:
-		return resolution.UnionVariant{}
+		return variantDecl{}
 	}
 }
 
-// collectInlineVariant desugars an inline variant body into a Synthetic struct type
-// registered in the table, so the variant resolves and validates like a named payload
-// while generators flatten its fields into the variant member instead of emitting a
-// standalone type. The payload takes every omit of the union.
-func collectInlineVariant(
-	c *analysisCtx,
-	unionName string,
-	unionDomains map[string]resolution.Domain,
-	def *parser.InlineVariantContext,
-) resolution.UnionVariant {
+func collectInlineVariantDecl(
+	c *analysisCtx, unionName string, def *parser.InlineVariantContext,
+) variantDecl {
 	variantName := def.VariantName().GetText()
-	variant := resolution.UnionVariant{
-		Name:    variantName,
-		Domains: make(map[string]resolution.Domain),
-		AST:     def,
-		Inline:  true,
+	decl := variantDecl{
+		variant: resolution.UnionVariant{
+			Name:    variantName,
+			Domains: make(map[string]resolution.Domain),
+			AST:     def,
+			Inline:  true,
+		},
+		payload: &structDecl{},
 	}
-
-	form := resolution.StructForm{}
+	form := &decl.payload.form
 	if def.EXTENDS() != nil {
 		if typeRefList := def.TypeRefList(); typeRefList != nil {
 			for _, tr := range typeRefList.AllTypeRef() {
@@ -1414,10 +1427,7 @@ func collectInlineVariant(
 	}
 	if body := def.StructBody(); body != nil {
 		for _, f := range body.AllFieldDef() {
-			form.Fields = append(
-				form.Fields,
-				collectField(f, nil),
-			)
+			form.Fields = append(form.Fields, collectField(f, nil))
 		}
 		for _, fo := range body.AllFieldOmit() {
 			form.OmittedFields = append(form.OmittedFields, fo.IDENT().GetText())
@@ -1433,18 +1443,35 @@ func collectInlineVariant(
 		}
 		for _, d := range body.AllDomain() {
 			de := collectDomain(d)
-			variant.Domains[de.Name] = de
+			decl.variant.Domains[de.Name] = de
 		}
 	}
+	return decl
+}
 
-	name := unionName + pascalIdent(variantName) + "Payload"
+// registerVariant registers the payload of an inline variant as a Synthetic struct
+// type, so the variant resolves and validates like a named payload while generators
+// flatten its fields into the variant member instead of emitting a standalone type.
+// The payload takes every omit of the union. It returns the variant, which references
+// the payload.
+func registerVariant(
+	c *analysisCtx,
+	unionName string,
+	unionDomains map[string]resolution.Domain,
+	decl variantDecl,
+) resolution.UnionVariant {
+	variant := decl.variant
+	if decl.payload == nil {
+		return variant
+	}
+	name := unionName + pascalIdent(variant.Name) + "Payload"
 	qname := c.namespace + "." + name
 	if _, exists := c.table.Get(qname); exists {
 		d := diagnostics.Errorf(
-			def,
+			ruleCtx(variant.AST),
 			"union %s variant %q: inline payload name %s collides with an existing type",
 			unionName,
-			variantName,
+			variant.Name,
 			qname,
 		)
 		c.report(d)
@@ -1458,11 +1485,18 @@ func collectInlineVariant(
 		Namespace:     c.namespace,
 		QualifiedName: qname,
 		FilePath:      c.filePath,
-		Form:          form,
+		Form:          decl.payload.form,
 		Domains:       domains,
-		AST:           def,
+		AST:           variant.AST,
 		Synthetic:     true,
 	}))
+	if len(decl.payload.removed) > 0 {
+		c.removals = append(c.removals, removal{
+			typ:    qname,
+			union:  c.namespace + "." + unionName,
+			fields: decl.payload.removed,
+		})
+	}
 	variant.Type = resolution.TypeRef{Name: name}
 	return variant
 }
@@ -1737,6 +1771,12 @@ func resolveTypeRef(
 		name,
 	); ok {
 		ref.Name = typ.QualifiedName
+		// An omitted optional type argument is nil.
+		params := resolution.TypeParams(typ.Form)
+		for i := len(ref.TypeArgs); i < len(params) &&
+			params[i].Optional && !params[i].HasDefault(); i++ {
+			ref.TypeArgs = append(ref.TypeArgs, resolution.TypeRef{Name: "nil"})
+		}
 	} else {
 		d := diagnostics.Warningf(nil, "unresolved type: %s", ref.Name)
 		c.report(d)
@@ -1803,12 +1843,12 @@ func validateExtends(c *analysisCtx, typ resolution.Type) {
 		return
 	}
 
-	for i, extendsRef := range form.Extends {
-		parent, ok := extendsRef.Resolve(c.table)
+	for i, declared := range form.Extends {
+		parent, extendsRef, ok := resolution.Dealias(declared, c.table)
 		if !ok {
 			d := diagnostics.Errorf(nil,
 				"struct %s extends unresolved type at position %d: %s",
-				typ.Name, i+1, extendsRef.Name)
+				typ.Name, i+1, declared.Name)
 			c.report(d)
 			continue
 		}
@@ -1867,7 +1907,7 @@ func validateExtends(c *analysisCtx, typ resolution.Type) {
 	}
 	allParentFields := make(set.Set[string])
 	for _, extendsRef := range form.Extends {
-		parent, ok := extendsRef.Resolve(c.table)
+		parent, _, ok := resolution.Dealias(extendsRef, c.table)
 		if !ok {
 			continue
 		}
@@ -1900,7 +1940,7 @@ func reportInheritedFieldConflicts(
 	}
 	inheritedFrom := make(map[string]string)
 	for _, ext := range extends {
-		parent, ok := ext.Resolve(c.table)
+		parent, _, ok := resolution.Dealias(ext, c.table)
 		if !ok {
 			continue
 		}
@@ -1936,12 +1976,12 @@ func validateActionExtends(c *analysisCtx, typ resolution.Type) {
 		return
 	}
 	for _, action := range form.Actions {
-		for i, ext := range action.Extends {
-			parent, ok := ext.Resolve(c.table)
+		for i, declared := range action.Extends {
+			parent, ext, ok := resolution.Dealias(declared, c.table)
 			if !ok {
 				d := diagnostics.Errorf(nil,
 					"action %s extends unresolved type at position %d: %s",
-					action.Name, i+1, ext.Name)
+					action.Name, i+1, declared.Name)
 				c.report(d)
 				continue
 			}
@@ -2014,8 +2054,8 @@ func unifyActionFields(c *analysisCtx, action resolution.Action) []resolution.Fi
 	}
 	seen := make(set.Set[string])
 	var inherited []resolution.Field
-	for _, ext := range action.Extends {
-		parent, ok := ext.Resolve(c.table)
+	for _, declared := range action.Extends {
+		parent, ext, ok := resolution.Dealias(declared, c.table)
 		if !ok {
 			continue
 		}
@@ -2045,21 +2085,9 @@ func unifyActionFields(c *analysisCtx, action resolution.Action) []resolution.Fi
 	return append(inherited, action.Fields...)
 }
 
-func typeParamsOf(form resolution.TypeForm) []resolution.TypeParam {
-	switch f := form.(type) {
-	case resolution.StructForm:
-		return f.TypeParams
-	case resolution.AliasForm:
-		return f.TypeParams
-	case resolution.DistinctForm:
-		return f.TypeParams
-	}
-	return nil
-}
-
 func validateTypeParams(c *analysisCtx, typ resolution.Type) {
 	var omittable string
-	for _, tp := range typeParamsOf(typ.Form) {
+	for _, tp := range resolution.TypeParams(typ.Form) {
 		if tp.Default != nil || tp.Optional {
 			omittable = tp.Name
 		} else if omittable != "" {
@@ -2113,7 +2141,7 @@ func validateUnionEnum(c *analysisCtx, typ resolution.Type, form resolution.Unio
 	if !form.BorrowsEnum() {
 		return
 	}
-	enumType, ok := form.Enum.Resolve(c.table)
+	enumType, _, ok := resolution.Dealias(form.Enum, c.table)
 	if !ok {
 		c.report(diagnostics.Errorf(ruleCtx(typ.AST),
 			"union %s borrows unresolved type %s as its discriminator",
@@ -2207,7 +2235,7 @@ func validateUnion(c *analysisCtx, typ resolution.Type) {
 
 	baseFields := set.New[string]()
 	for i, baseRef := range form.Extends {
-		base, ok := baseRef.Resolve(c.table)
+		base, _, ok := resolution.Dealias(baseRef, c.table)
 		if !ok {
 			d := diagnostics.Errorf(nil,
 				"union %s extends unresolved type at position %d: %s",
@@ -2260,7 +2288,7 @@ func validateUnion(c *analysisCtx, typ resolution.Type) {
 			)
 			c.report(d)
 		}
-		variantType, ok := variant.Type.Resolve(c.table)
+		variantType, _, ok := resolution.Dealias(variant.Type, c.table)
 		if !ok {
 			d := diagnostics.Errorf(nil,
 				"union %s variant %q references unresolved type: %s",
@@ -2309,7 +2337,7 @@ func validateVariantOmissions(
 	}
 	inherited := baseFields.Copy()
 	for _, ext := range variantForm.Extends {
-		parent, ok := ext.Resolve(c.table)
+		parent, _, ok := resolution.Dealias(ext, c.table)
 		if !ok {
 			continue
 		}
@@ -2355,7 +2383,7 @@ func hasCircularInheritance(
 	}
 	visited.Add(typ.QualifiedName)
 	for _, extendsRef := range form.Extends {
-		parent, ok := extendsRef.Resolve(table)
+		parent, _, ok := resolution.Dealias(extendsRef, table)
 		if !ok {
 			continue
 		}

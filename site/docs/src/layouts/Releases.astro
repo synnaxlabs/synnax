@@ -8,6 +8,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import type { MarkdownHeading } from "astro";
+
+import OutlineBar from "@/components/nav/OutlineBar.astro";
 import Root from "@/layouts/Root.astro";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -17,6 +20,11 @@ const { headings, frontmatter } = Astro.props;
 ---
 
 <Root frontmatter={{ title: "Releases", description: frontmatter.description }}>
+    <OutlineBar
+        slot="subheader"
+        headings={headings.filter(({ depth }: MarkdownHeading) => depth === 6)}
+        select="article h6"
+    />
     <section>
         <Flex.Box direction="y" className="releases" el="article" grow>
             <Flex.Box direction="x" className="header" justify="between" align="center">
@@ -56,14 +64,14 @@ const { headings, frontmatter } = Astro.props;
     }
 
     .releases {
-        flex-basis: 840px;
-        flex-shrink: 1;
-        flex-grow: 1;
+        flex: 1 1 840px;
         min-width: 0;
         padding: 5rem 8rem;
+
         & .release-wrapper {
             position: relative;
         }
+
         & h6 {
             position: absolute;
             width: 100%;
@@ -71,8 +79,8 @@ const { headings, frontmatter } = Astro.props;
             opacity: 0;
             margin: 0 !important;
         }
+
         .header {
-            width: 100%;
             min-height: 260px;
             height: 35vh;
             margin: 0 -8rem;
@@ -95,23 +103,24 @@ const { headings, frontmatter } = Astro.props;
                 font-weight: 700;
                 color: var(--pluto-gray-l3-45);
             }
-            @media (max-width: 1100px) {
+
+            @media (width <= 1100px) {
                 .latest {
                     display: none;
                 }
             }
         }
-        & video,
-        img:not(.diagram img) {
+
+        & video:not(.docs-hero video),
+        img:not(.diagram img, .docs-hero img) {
             width: 100%;
             border-radius: 1.5rem !important;
             border: var(--pluto-border);
-            box-shadow: var(--pluto-shadow-l4);
             margin: 3rem 0;
             box-shadow: var(--pluto-shadow-v1);
 
             @media (prefers-color-scheme: dark) {
-                box-shadow: 0 0 2rem 0 rgba(50, 50, 50, 0.1);
+                box-shadow: 0 0 2rem 0 rgb(50 50 50 / 10%);
             }
         }
     }

@@ -14,9 +14,12 @@
     background-color: var(--pluto-gray-l1);
     flex-basis: content;
 
+    /* The status takes the space the actions leave, down to its minimum. Below that,
+       the actions shrink instead. */
     > .console-task-status {
         position: relative;
-        flex: 1 1 auto;
+        flex: 1 1 0;
+        min-width: 25rem;
         height: auto;
         min-height: 100%;
         width: 100%;
@@ -24,6 +27,7 @@
         padding: 2rem;
         cursor: pointer;
         transition: none !important;
+
         &:hover {
             background: var(--pluto-gray-l2);
         }
@@ -42,8 +46,14 @@
         padding-right: 4rem;
     }
 
-    .console-task-status__message-content {
+    .console-task-status__message-content,
+    .console-task-status__message-body {
         min-width: 0;
+    }
+
+    /* The indicator draws at 1em, so the margin centers it on the first line. */
+    .console-task-status__indicator {
+        margin-top: calc((var(--pluto-p-line-height) - 1em) / 2);
     }
 
     .console-task-status__message-text {
@@ -61,10 +71,10 @@
 
     .console-task-status__description {
         max-height: 150px;
-        overflow-y: auto;
-        overflow-x: hidden;
+        overflow: hidden auto;
         white-space: pre-wrap;
-        word-break: break-word;
+        word-break: normal;
+        overflow-wrap: anywhere;
         user-select: text !important;
         -webkit-user-select: text !important;
         padding: 1rem;
@@ -79,7 +89,6 @@
     .console-task-controls__actions {
         padding: 2rem;
         gap: 1rem;
-        flex-shrink: 0;
     }
 
     /* Collapsed by default; --visible expands the grid track to reveal the
@@ -87,6 +96,7 @@
      * negative margin cancels the action row gap while collapsed. */
     .console-task-redeploy {
         display: grid;
+        flex-shrink: 0;
         grid-template-columns: 0fr;
         opacity: 0;
         visibility: hidden;
@@ -129,6 +139,7 @@
             border-right: none;
             border-bottom: var(--pluto-border);
             min-height: auto;
+
             &:hover {
                 background: var(--pluto-gray-l2);
             }
@@ -152,25 +163,25 @@
 
         .console-task-controls__actions {
             width: 100%;
+            align-self: flex-end;
         }
 
         .console-task-status__copy-button {
             font-size: 0;
             gap: 0;
+
             & svg {
                 font-size: 2rem;
             }
         }
 
         .console-task-status {
+            flex-basis: auto;
+            min-width: 0;
             min-height: 10rem;
             border-right: none !important;
             border-bottom: var(--pluto-border);
             border-bottom-left-radius: 0 !important;
-        }
-
-        .console-task-controls__actions {
-            align-self: flex-end;
         }
     }
 }

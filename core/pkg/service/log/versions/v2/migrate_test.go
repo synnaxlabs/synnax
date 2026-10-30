@@ -20,18 +20,17 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/log/versions/legacy"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v0"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/log/versions/v2"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/notation"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
@@ -96,7 +95,7 @@ var _ = Describe("MigrateLog", func() {
 		Expect(out.ReceiptTimestampHidden).To(BeFalse())
 		Expect(out.Channels).To(HaveLen(1))
 		Expect(out.Channels[0].Channel).To(BeEquivalentTo(42))
-		Expect(out.Channels[0].Color).To(Equal(color.MustFromHex("#ff0000")))
+		Expect(out.Channels[0].Color).To(Equal(MustSucceed(color.FromHex("#ff0000"))))
 		Expect(out.Channels[0].Notation).To(Equal(notation.NotationScientific))
 		Expect(out.Channels[0].Precision).To(Equal(int32(3)))
 		Expect(out.Channels[0].Alias).To(Equal("temp"))
@@ -280,7 +279,9 @@ var _ = Describe("MigrateLog", func() {
 			Expect(out.Name).To(Equal("Test Log V1"))
 			Expect(out.Channels).To(HaveLen(2))
 			Expect(out.Channels[0].Channel).To(BeEquivalentTo(1))
-			Expect(out.Channels[0].Color).To(Equal(color.MustFromHex("#ff0000")))
+			Expect(
+				out.Channels[0].Color,
+			).To(Equal(MustSucceed(color.FromHex("#ff0000"))))
 			Expect(out.Channels[0].Notation).To(Equal(notation.NotationScientific))
 			Expect(out.Channels[0].Precision).To(Equal(int32(2)))
 			Expect(out.Channels[0].Alias).To(Equal("temp"))
@@ -364,7 +365,7 @@ var _ = Describe("MigrateLog", func() {
 				Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 					DB:         db,
 					Namespace:  "Log",
-					Migrations: []migrate.Migration{v0.Migration, v2.Migration},
+					Migrations: []gorp.Migration{v0.Migration, v2.Migration},
 				})).To(Succeed())
 
 				var got v2.Log
@@ -375,7 +376,9 @@ var _ = Describe("MigrateLog", func() {
 				Expect(got.Name).To(Equal("chain-log"))
 				Expect(got.Channels).To(HaveLen(1))
 				Expect(got.Channels[0].Channel).To(BeEquivalentTo(42))
-				Expect(got.Channels[0].Color).To(Equal(color.MustFromHex("#ff0000")))
+				Expect(
+					got.Channels[0].Color,
+				).To(Equal(MustSucceed(color.FromHex("#ff0000"))))
 				Expect(got.ChannelNamesHidden).To(BeTrue())
 				Expect(got.ReceiptTimestampHidden).To(BeFalse())
 			},
@@ -407,7 +410,7 @@ var _ = Describe("Migration", func() {
 			Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
 			DB:              db,
 			Namespace:       "Log",
-			Migrations:      []migrate.Migration{v0.Migration, v2.Migration},
+			Migrations:      []gorp.Migration{v0.Migration, v2.Migration},
 		})).To(Succeed())
 		var got v2.Log
 		Expect(gorp.NewRetrieve[v2.Key, v2.Log]().

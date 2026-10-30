@@ -16,7 +16,6 @@
 #include "x/cpp/thread/rt/rt.h"
 
 #include "driver/common/common.h"
-#include "driver/errors/errors.h"
 #include "driver/ethercat/engine/pool.h"
 #include "driver/task/task.h"
 
@@ -25,11 +24,6 @@ namespace driver::ethercat {
 /// @brief integration name for EtherCAT.
 const std::string INTEGRATION_NAME = "ethercat";
 
-/// @brief library info for the packet capture dependency required by SOEM.
-const LibraryInfo PCAP_LIBRARY_INFO = {
-    "Npcap (packet capture for EtherCAT)",
-    "https://npcap.com/#download"
-};
 /// @brief device make identifier.
 const std::string DEVICE_MAKE = INTEGRATION_NAME;
 /// @brief device model for slave devices.
@@ -47,12 +41,12 @@ std::unique_ptr<master::Manager> default_manager();
 class Factory final : public task::Factory {
     std::shared_ptr<engine::Pool> pool;
 
-    std::pair<common::ConfigureResult, x::errors::Error> configure_read(
+    [[nodiscard]] std::pair<common::ConfigureResult, x::errors::Error> configure_read(
         const std::shared_ptr<task::Context> &ctx,
         const synnax::task::Task &task
     ) const;
 
-    std::pair<common::ConfigureResult, x::errors::Error> configure_write(
+    [[nodiscard]] std::pair<common::ConfigureResult, x::errors::Error> configure_write(
         const std::shared_ptr<task::Context> &ctx,
         const synnax::task::Task &task
     ) const;
@@ -67,7 +61,7 @@ public:
     explicit Factory(std::shared_ptr<x::thread::rt::Manager> rt_manager = nullptr);
 
     /// @brief constructs a Factory with custom manager.
-    Factory(
+    explicit Factory(
         std::unique_ptr<master::Manager> manager,
         std::shared_ptr<x::thread::rt::Manager> rt_manager = nullptr
     );
@@ -92,10 +86,11 @@ public:
     ) override;
 
     /// @brief checks if a master has an active engine.
-    bool is_interface_active(const std::string &key) const;
+    [[nodiscard]] bool is_interface_active(const std::string &key) const;
 
     /// @brief returns cached slaves for a master.
-    std::vector<slave::Properties> get_cached_slaves(const std::string &key) const;
+    [[nodiscard]] std::vector<slave::Properties>
+    get_cached_slaves(const std::string &key) const;
 };
 
 }

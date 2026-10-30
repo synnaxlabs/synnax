@@ -29,6 +29,9 @@ StatusDetails struct {
     device Key      {
         @doc value "is the device identifier."
     }
+    data   record?  {
+        @doc value "contains device-specific status data."
+    }
 
     @doc value """
         contains device-specific status details identifying the device and its
@@ -60,6 +63,7 @@ Device struct<
     location   string       {
         @doc value         "is the physical location or address of the device."
         @filter
+        @search
         @validate required
     }
     make       Make         {
@@ -67,16 +71,19 @@ Device struct<
             is the manufacturer of the device (e.g., 'LabJack', 'National Instruments').
         """
         @filter
+        @search
         @validate required
     }
     model      Model        {
         @doc value         "is the device model identifier."
         @filter
+        @search
         @validate required
     }
     name       string       {
         @doc value         "is a human-readable name for the device."
         @filter
+        @search
         @validate required
     }
     configured bool = false {
@@ -113,6 +120,5 @@ Device struct<
     @go migrate
     @ontology type     "device"
     @retrieve
-    @search
     @ts concrete_types
 }

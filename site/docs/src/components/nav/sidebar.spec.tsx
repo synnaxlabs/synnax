@@ -8,19 +8,19 @@
 // included in the file licenses/APL.txt.
 
 import { renderToString } from "react-dom/server";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 
-import { Page, type PageNavNode } from "@/components/nav/Page";
+import { Page } from "@/components/nav/Page";
 import { start } from "@/components/nav/sidebar";
+import { type PageNavNode } from "@/components/nav/tree";
 
 const NODES: PageNavNode[] = [
   {
     key: "channels",
     name: "Channels",
     children: [
-      { key: "/reference/channels", href: "/reference/channels", name: "Overview" },
+      { href: "/reference/channels", name: "Overview" },
       {
-        key: "/reference/channels/create",
         href: "/reference/channels/create",
         name: "Create channels",
       },
@@ -31,12 +31,10 @@ const NODES: PageNavNode[] = [
     name: "Control",
     children: [
       {
-        key: "arc",
         name: "Arc",
         href: "/reference/control/arc",
         children: [
           {
-            key: "/reference/control/arc/get-started",
             href: "/reference/control/arc/get-started",
             name: "Get started",
           },
@@ -45,7 +43,6 @@ const NODES: PageNavNode[] = [
             name: "Concepts",
             children: [
               {
-                key: "/reference/control/arc/concepts/stages",
                 href: "/reference/control/arc/concepts/stages",
                 name: "Stages",
               },
@@ -57,9 +54,9 @@ const NODES: PageNavNode[] = [
   },
 ];
 
-const show = (path: string): void => {
+const show = (path: string, nodes: PageNavNode[] = NODES): void => {
   window.history.replaceState(null, "", path);
-  document.body.innerHTML = renderToString(<Page nodes={NODES} currentPage={path} />);
+  document.body.innerHTML = renderToString(<Page nodes={nodes} currentPage={path} />);
 };
 
 const item = (name: string): HTMLElement => {
@@ -81,7 +78,7 @@ const selected = (): string[] =>
   );
 
 const caret = (name: string): Element => {
-  const found = item(name).querySelector(".pluto-tree__expansion-indicator");
+  const found = item(name).querySelector(".lyra-tree__expansion-indicator");
   if (found == null) throw new Error(`no caret on ${name}`);
   return found;
 };
@@ -128,6 +125,45 @@ describe("sidebar", () => {
       expect(item("Arc").getAttribute("aria-expanded")).toBe("false");
       expect(selected()).toEqual(["Create channels"]);
     });
+
+    it("should expand a group whose key is not part of the page's path", () => {
+      show("/reference/enterprise/certificates", [
+        {
+          key: "enterprise",
+          name: "Enterprise",
+          children: [
+            {
+              key: "tls",
+              name: "TLS",
+              children: [
+                { href: "/reference/enterprise/certificates", name: "Certificates" },
+              ],
+            },
+          ],
+        },
+      ]);
+      expect(visible()).toEqual(["Enterprise", "TLS", "Certificates"]);
+    });
+
+    it("should collapse a group whose key matches another part of the path", () => {
+      show("/reference/control/arc", [
+        {
+          key: "control",
+          name: "Control",
+          children: [
+            { href: "/reference/control/arc", name: "Arc" },
+            {
+              key: "reference",
+              name: "Language reference",
+              children: [
+                { href: "/reference/control/arc/reference/syntax", name: "Syntax" },
+              ],
+            },
+          ],
+        },
+      ]);
+      expect(visible()).toEqual(["Control", "Arc", "Language reference"]);
+    });
   });
 
   describe("clicks", () => {
@@ -135,7 +171,7 @@ describe("sidebar", () => {
       show("/reference/channels");
       click(caret("Arc"));
       expect(item("Arc").getAttribute("aria-expanded")).toBe("true");
-      expect(caret("Arc").classList).toContain("pluto--location-bottom");
+      expect(caret("Arc").classList).toContain("lyra--location-bottom");
       expect(visible()).toContain("Get started");
       expect(visible()).not.toContain("Stages");
     });
@@ -143,7 +179,7 @@ describe("sidebar", () => {
     it("should hide every descendant when a node collapses", () => {
       show("/reference/control/arc/concepts/stages");
       click(caret("Arc"));
-      expect(caret("Arc").classList).toContain("pluto--location-right");
+      expect(caret("Arc").classList).toContain("lyra--location-right");
       expect(visible()).toEqual([
         "Channels",
         "Overview",
@@ -197,5 +233,53 @@ describe("sidebar", () => {
       swap("/reference/unknown");
       expect(selected()).toEqual([]);
     });
+  });
+
+  describe("scroll", () => {
+    const place = (el: Element, top: number, height: number): void => {
+      el.getBoundingClientRect = () =>
+        ({ top, bottom: top + height, height }) as DOMRect;
+    };
+
+    const scrollable = (): (() => number) => {
+      const tree = document.querySelector(".reference-tree");
+      if (tree == null) throw new Error("no tree");
+      let scrollTop = 0;
+      Object.defineProperty(tree, "scrollTop", {
+        get: () => scrollTop,
+        set: (value: number) => {
+          scrollTop = value;
+        },
+      });
+      place(tree, 0, 100);
+      return () => scrollTop;
+    };
+
+    it("should center the new page when it is out of view", () => {
+      show("/reference/channels");
+      const scrollTop = scrollable();
+      place(item("Stages"), 300, 20);
+      swap("/reference/control/arc/concepts/stages");
+      expect(scrollTop()).toBe(260);
+    });
+
+    it("should not scroll when the new page is in view", () => {
+      show("/reference/channels");
+      const scrollTop = scrollable();
+      place(item("Create channels"), 40, 20);
+      swap("/reference/channels/create");
+      expect(scrollTop()).toBe(0);
+    });
+  });
+
+  // Last, because start adds a second set of document listeners.
+  it("should start when the browser blocks storage", () => {
+    vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+      throw new DOMException("blocked", "SecurityError");
+    });
+    document.body.innerHTML = `<nav class="page-nav">${renderToString(
+      <Page nodes={NODES} currentPage="/reference/channels" />,
+    )}</nav>`;
+    expect(() => start()).not.toThrow();
   });
 });

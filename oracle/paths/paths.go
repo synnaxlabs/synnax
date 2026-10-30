@@ -178,24 +178,34 @@ func DeriveNamespace(path string) string {
 // VersionsDirName is the directory holding a schema domain's version chains.
 const VersionsDirName = "versions"
 
-// versionFileName matches a version file's base name ("v0", "v12").
-var versionFileName = regexp.MustCompile(`^v(0|[1-9][0-9]*)$`)
+// versionName matches a version name ("v0", "v12").
+var versionName = regexp.MustCompile(`^v(0|[1-9][0-9]*)$`)
+
+// Version parses a version name, which is both a version file's base name and the
+// namespace a version file analyzes under ("v12" is 12). It reports false for any other
+// name.
+func Version(name string) (int, bool) {
+	m := versionName.FindStringSubmatch(name)
+	if m == nil {
+		return 0, false
+	}
+	version, err := strconv.Atoi(m[1])
+	if err != nil {
+		return 0, false
+	}
+	return version, true
+}
 
 // VersionFile reports whether path names a schema version file
 // (".../versions/<resource>/vN.oracle" or the extensionless import form) and
 // returns its resource and version.
 func VersionFile(path string) (resource string, version int, ok bool) {
-	base := strings.TrimSuffix(filepath.Base(path), ".oracle")
-	m := versionFileName.FindStringSubmatch(base)
-	if m == nil {
+	version, ok = Version(strings.TrimSuffix(filepath.Base(path), ".oracle"))
+	if !ok {
 		return "", 0, false
 	}
 	dir := filepath.Dir(path)
 	if filepath.Base(filepath.Dir(dir)) != VersionsDirName {
-		return "", 0, false
-	}
-	version, err := strconv.Atoi(m[1])
-	if err != nil {
 		return "", 0, false
 	}
 	return filepath.Base(dir), version, true
@@ -204,7 +214,7 @@ func VersionFile(path string) (resource string, version int, ok bool) {
 // VersionsDir returns the directory holding a live schema's version chain. It reports
 // false for a path that does not name a live resource schema.
 func VersionsDir(livePath string) (string, bool) {
-	domain, resource, ok := LiveSchema(livePath)
+	domain, resource, ok := liveSchema(livePath)
 	if !ok {
 		return "", false
 	}
@@ -213,11 +223,11 @@ func VersionsDir(livePath string) (string, bool) {
 	), true
 }
 
-// LiveSchema reports whether path names a live resource schema — the
+// liveSchema reports whether path names a live resource schema — the
 // "schemas/<domain>/<resource>.oracle" shape whose history lives at
 // "schemas/<domain>/versions/<resource>/vN.oracle" — and returns its domain and
 // resource.
-func LiveSchema(path string) (domain, resource string, ok bool) {
+func liveSchema(path string) (domain, resource string, ok bool) {
 	if _, _, isVersion := VersionFile(path); isVersion {
 		return "", "", false
 	}

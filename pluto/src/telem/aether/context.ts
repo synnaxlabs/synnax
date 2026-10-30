@@ -8,14 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { UnexpectedError } from "@synnaxlabs/client";
-import {
-  array,
-  deep,
-  type destructor,
-  id,
-  type observe,
-  type TimeStamp,
-} from "@synnaxlabs/x";
+import { array, deep, type destructor, id, type observe } from "@synnaxlabs/x";
 
 import { type aether } from "@/aether/aether";
 import {
@@ -24,7 +17,13 @@ import {
   type Factory,
 } from "@/telem/aether/factory";
 import { PipelineFactory } from "@/telem/aether/pipeline";
-import { type Sink, type Source, type Spec } from "@/telem/aether/telem";
+import {
+  type Result,
+  type Sink,
+  type Source,
+  type Spec,
+  type ValueProps,
+} from "@/telem/aether/telem";
 
 /** Provides utilities for creating and managing telemetry sources and sinks. */
 export class Context {
@@ -94,16 +93,8 @@ class Memoized<V> {
 }
 
 export class MemoizedSource<V, S extends Source<V> = Source<V>> extends Memoized<S> {
-  value(): V {
-    return this.wrapped.value();
-  }
-
-  loading(): boolean {
-    return this.wrapped.loading?.() ?? false;
-  }
-
-  sampleTime(): TimeStamp | null {
-    return this.wrapped.sampleTime?.() ?? null;
+  value(props?: ValueProps): Result<V> {
+    return this.wrapped.value(props);
   }
 
   cleanup(): void {

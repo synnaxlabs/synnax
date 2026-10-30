@@ -13,7 +13,7 @@ from console.schematic.symbol import Symbol
 
 
 class Select(Symbol):
-    """Schematic select symbol (write-only dropdown + send button)"""
+    """Schematic select symbol (dropdown, Set button, and optional read-back)"""
 
     _symbol_group = "General"
 
@@ -31,7 +31,7 @@ class Select(Symbol):
             channel_name: Channel name for the select output
             options: List of option dicts with "name" and "value" keys
         """
-        super().__init__(label, symbol_type="Select", rotatable=False)
+        super().__init__(label=label, symbol_type="Select", rotatable=False)
         self.channel_name = channel_name
         self.options = options or []
 
@@ -40,6 +40,7 @@ class Select(Symbol):
 
     def set_properties(
         self,
+        *,
         channel_name: str | None = None,
         options: list[dict[str, Any]] | None = None,
         **kwargs: Any,
@@ -66,7 +67,7 @@ class Select(Symbol):
                     self.page.get_by_text("Add option", exact=True).dispatch_event(
                         "click"
                     )
-                items = self.page.locator(".pluto-list__item").all()
+                items = self.page.locator(".lyra-list__item").all()
                 last_item = items[-1]
                 name_input = last_item.locator("input").first
                 name_input.fill(option["name"])
@@ -77,7 +78,7 @@ class Select(Symbol):
         return applied_properties
 
     def send(self, option_name: str) -> None:
-        """Select an option from the dropdown and click Send.
+        """Select an option from the dropdown and click Set.
 
         Args:
             option_name: The display name of the option to select
@@ -86,9 +87,9 @@ class Select(Symbol):
         self.notifications.close_all()
         self.page.wait_for_timeout(300)
 
-        trigger = self.locator.locator(".pluto-dialog__trigger").first
+        trigger = self.locator.locator(".lyra-dialog__trigger").first
         trigger.click()
         self.layout.select_from_dropdown(option_name)
 
-        send_button = self.locator.locator("button").filter(has_text="Send")
-        send_button.click(timeout=2000)
+        set_button = self.locator.locator("button").filter(has_text="Set")
+        set_button.click(timeout=2000)

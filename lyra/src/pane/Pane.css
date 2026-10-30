@@ -1,0 +1,128 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.lyra-pane {
+    flex-shrink: 0;
+    overflow: hidden;
+    background: var(--pluto-gray-l0);
+    border: var(--pluto-border);
+    border-radius: var(--pluto-border-radius-medium);
+}
+
+/* The bar at the top of a pane. A disclosure summary takes it too. */
+.lyra-pane > .lyra-pane__bar {
+    min-height: 7rem;
+    padding: 0 3rem;
+    background: var(--pluto-gray-l1);
+}
+
+.lyra-pane--disclosure {
+    interpolate-size: allow-keywords;
+
+    /* Engines without interpolate-size open the panel with no animation. */
+    &::details-content {
+        height: 0;
+        overflow: clip;
+        transition:
+            height 0.25s ease,
+            content-visibility 0.25s allow-discrete;
+    }
+
+    &[open]::details-content {
+        height: auto;
+    }
+}
+
+.lyra-pane__summary {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    font-family: var(--pluto-font-family);
+    font-size: var(--pluto-p-size);
+    font-weight: 500;
+    line-height: var(--pluto-p-line-height);
+    color: var(--pluto-gray-l10);
+    list-style: none;
+    cursor: pointer;
+    transition: background-color 0.2s;
+
+    &::marker,
+    &::-webkit-details-marker {
+        display: none;
+        content: none;
+    }
+
+    &:hover {
+        background: var(--pluto-gray-l2);
+    }
+}
+
+/* The title flows as text, so a link or code in it sits with no gap. */
+.lyra-pane__title {
+    flex: 1;
+    min-width: 0;
+
+    & > .lyra-icon {
+        margin-right: 1rem;
+        vertical-align: -0.125em;
+        color: var(--pluto-gray-l8);
+    }
+}
+
+.lyra-pane__indicator {
+    flex-shrink: 0;
+    width: 2.5rem;
+    height: 2.5rem;
+    color: var(--pluto-gray-l8);
+    transition: transform 0.2s;
+}
+
+.lyra-pane--disclosure[open] > .lyra-pane__summary {
+    border-bottom: var(--pluto-border);
+
+    & > .lyra-pane__indicator {
+        transform: rotate(90deg);
+    }
+}
+
+.lyra-pane__item {
+    padding: 2rem 3rem;
+}
+
+.lyra-pane__item + .lyra-pane__item {
+    border-top: var(--pluto-border-width) solid var(--pluto-gray-l4);
+}
+
+.lyra-pane__button {
+    gap: 2rem;
+    width: 100%;
+    height: auto;
+    border-radius: 0;
+    text-align: start;
+    white-space: normal;
+
+    --pluto-hover-bg: var(--pluto-gray-l1);
+    --pluto-active-bg: var(--pluto-gray-l2);
+
+    & > .lyra-pane__caret {
+        flex-shrink: 0;
+        margin-left: auto;
+        color: var(--pluto-gray-l7);
+        transition:
+            color 0.15s ease-in-out,
+            transform 0.15s ease-in-out;
+    }
+
+    &:hover > .lyra-pane__caret {
+        color: var(--pluto-gray-l10);
+        transform: translateX(0.5rem);
+    }
+}

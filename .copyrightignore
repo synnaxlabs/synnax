@@ -8,7 +8,6 @@
 **/nisyscfg.h
 **/nidaqmx.h
 vendor/open62541/open62541/**
-vendor/mbedtls/mbedtls/**
 vendor/wasmtime/wasmtime/**
 vendor/libmodbus/libmodbus/**
 vendor/soem/SOEM/**
@@ -28,3 +27,9 @@ site/www/public/images/us-flag.svg
 site/www/src/components/company/nasa.svg
 site/www/src/components/company/yc.svg
 site/www/src/components/sponsorships/*.svg
+
+# Module versions copied from the Bazel Central Registry
+vendor/registry/**
+
+# Arc programs the Console shows to users verbatim
+console/src/feature/project/*.arc

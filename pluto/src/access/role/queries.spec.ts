@@ -207,8 +207,7 @@ describe("queries", () => {
     const createUser = async (prefix: string) =>
       await client.users.create({
         username: `${prefix}-${id.create()}`,
-        firstName: "Test",
-        lastName: "User",
+        name: "Test User",
         password: "password123",
       });
 
@@ -252,6 +251,27 @@ describe("queries", () => {
       await remote.access.roles.assign({ user: u.key, role: role.key });
       await waitFor(() => expect(result.current.data).toHaveLength(1));
       expect(result.current.data?.[0].key).toEqual(role.key);
+    });
+
+    it("should pick up an edit to an assigned role by another client", async () => {
+      const remote = createTestClient();
+      const role = await client.access.roles.create({
+        name: `edited-${id.create()}`,
+        description: "Before",
+      });
+      const u = await createUser("role-edit");
+      await client.access.roles.assign({ user: u.key, role: role.key });
+
+      const { result } = renderHook(() => Role.useResultForUser({ user: u.key }), {
+        wrapper,
+      });
+      await waitFor(() =>
+        expect(result.current.data?.[0]?.description).toEqual("Before"),
+      );
+      await remote.access.roles.create({ ...role, description: "After" });
+      await waitFor(() =>
+        expect(result.current.data?.[0]?.description).toEqual("After"),
+      );
     });
 
     it("should not read at all when the query is null", async () => {
@@ -347,8 +367,7 @@ describe("queries", () => {
       });
       const testUser = await client.users.create({
         username: `retrieve-for-${Date.now()}`,
-        firstName: "Test",
-        lastName: "User",
+        name: "Test User",
         password: "password123",
       });
       await client.access.roles.assign({
@@ -368,8 +387,7 @@ describe("queries", () => {
     it("should have empty role when user has no role assigned", async () => {
       const testUser = await client.users.create({
         username: `no-role-${Date.now()}`,
-        firstName: "No",
-        lastName: "Role",
+        name: "No Role",
         password: "password123",
       });
 
@@ -393,8 +411,7 @@ describe("queries", () => {
       });
       const testUser = await client.users.create({
         username: `change-role-${Date.now()}`,
-        firstName: "Change",
-        lastName: "Role",
+        name: "Change Role",
         password: "password123",
       });
       await client.access.roles.assign({
@@ -436,8 +453,7 @@ describe("queries", () => {
       });
       const testUser = await client.users.create({
         username: `no-prev-role-${Date.now()}`,
-        firstName: "No",
-        lastName: "Previous",
+        name: "No Previous",
         password: "password123",
       });
 

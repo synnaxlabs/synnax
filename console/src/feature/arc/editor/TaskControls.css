@@ -23,6 +23,9 @@
             right: 0;
             height: 5rem;
             background: linear-gradient(to bottom, transparent, var(--pluto-gray-l0));
+
+            /* The fade covers Monaco's horizontal scrollbar. */
+            pointer-events: none;
         }
     }
 
@@ -36,13 +39,17 @@
         right: 2rem;
         box-shadow: var(--pluto-shadow-overlay);
 
-        & .console-rack-select {
-            flex-grow: 1;
-            min-width: 200px;
+        /* The selects take these widths, not the widths of their names. The rack select
+           takes the space that is left. */
+        .console-rack-select {
+            flex: 1 1 auto;
+            width: 33rem;
+            min-width: var(--pluto-height-medium);
         }
 
-        & .console-performance-select {
-            min-width: 160px;
+        .console-performance-select {
+            flex-shrink: 0;
+            width: 21rem;
         }
     }
 }
@@ -53,38 +60,32 @@
     }
 }
 
-@container (max-width: 400px) {
-    /* The rack select takes its own line, and the performance select shrinks to the
-       glyph of the selected level. */
-    .console-arc .pluto-editor {
-        padding-bottom: 27rem;
+/* Below this width the rack select would drop to its icon, so the performance select
+   shows only its glyph instead. The width counts redeploy even when it is hidden, so
+   the controls keep their layout when the program changes. */
+@container (max-width: 450px) {
+    .console-arc .console-arc-editor__controls .console-performance-select {
+        width: var(--pluto-height-medium);
     }
 
-    .console-arc .console-arc-editor__controls {
-        .console-task-controls__actions {
-            flex-wrap: wrap;
-        }
-
-        .console-rack-select {
-            flex: 1 0 100%;
-            min-width: 0;
-
-            .pluto-dialog__trigger {
-                min-width: 0;
-                overflow: hidden;
-            }
-        }
-
-        .console-performance-select {
-            min-width: 0;
-            flex-shrink: 0;
-        }
+    /* A square button has no side padding, so the glyph centers. */
+    .console-arc .console-performance-select__trigger {
+        padding-inline: 0;
     }
+}
 
-    .console-performance-select__trigger {
-        .console-performance-select__name,
-        .pluto-caret-animated {
-            display: none;
+/* Both selects show only their icons at this width, so redeploy drops its label to keep
+   the row inside the controls. */
+@container (max-width: 260px) {
+    .console-arc .console-task-redeploy .lyra-btn {
+        width: var(--pluto-height-medium);
+        justify-content: center;
+        padding: 0;
+        font-size: 0;
+        gap: 0;
+
+        & svg {
+            font-size: var(--pluto-p-size);
         }
     }
 }

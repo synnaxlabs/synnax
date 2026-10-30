@@ -26,35 +26,33 @@ import (
 
 type (
 	Frame          = framer.Frame
-	WriterConfig   = framer.WriterConfig
 	WriterRequest  = framer.WriterRequest
 	WriterResponse = framer.WriterResponse
 
-	IteratorCommand  = framer.IteratorCommand
 	IteratorRequest  = framer.IteratorRequest
 	IteratorResponse = framer.IteratorResponse
 	StreamerRequest  = framer.StreamerRequest
 	StreamerResponse = framer.StreamerResponse
 	DeleteRequest    = framer.DeleteRequest
+	ReadRequest      = framer.ReadRequest
+	ReadResponse     = framer.ReadResponse
 )
 
 const (
-	WriterCommandOpen           = framer.WriterCommandOpen
-	WriterCommandWrite          = framer.WriterCommandWrite
-	WriterCommandCommit         = framer.WriterCommandCommit
-	WriterCommandSetAuthority   = framer.WriterCommandSetAuthority
-	IteratorCommandNext         = framer.IteratorCommandNext
-	IteratorCommandPrev         = framer.IteratorCommandPrev
-	IteratorCommandSeekFirst    = framer.IteratorCommandSeekFirst
-	IteratorCommandSeekLast     = framer.IteratorCommandSeekLast
-	IteratorCommandSeekLE       = framer.IteratorCommandSeekLE
-	IteratorCommandSeekGE       = framer.IteratorCommandSeekGE
-	IteratorCommandValid        = framer.IteratorCommandValid
-	IteratorCommandError        = framer.IteratorCommandError
-	IteratorCommandSetBounds    = framer.IteratorCommandSetBounds
-	IteratorResponseVariantAck  = framer.IteratorResponseVariantAck
-	IteratorResponseVariantData = framer.IteratorResponseVariantData
+	WriterCommandCommit      = framer.WriterCommandCommit
+	IteratorCommandPrev      = framer.IteratorCommandPrev
+	IteratorCommandSeekFirst = framer.IteratorCommandSeekFirst
+	IteratorCommandSeekLast  = framer.IteratorCommandSeekLast
+	IteratorCommandSeekLE    = framer.IteratorCommandSeekLE
+	IteratorCommandSeekGE    = framer.IteratorCommandSeekGE
+	IteratorCommandValid     = framer.IteratorCommandValid
+	IteratorCommandError     = framer.IteratorCommandError
+	IteratorCommandSetBounds = framer.IteratorCommandSetBounds
+	IteratorAutoSpan         = framer.IteratorAutoSpan
 )
+
+// frameContentType is the media type of the binary frame encoding.
+const frameContentType = "application/vnd.synnax.frame"
 
 type Codec struct {
 	*codec.Codec
@@ -344,7 +342,7 @@ func (c *Codec) encodeIteratorResponse(
 // framer codec is stateful (it tracks the channel keys for the active stream).
 func WithCodec(channelResolver codec.ChannelResolver) http.StreamServerOption {
 	return http.WithAdditionalCodec(
-		"application/vnd.synnax.frame",
+		frameContentType,
 		func() encoding.Codec {
 			return &Codec{
 				LowerPerfCodec: json.Codec,

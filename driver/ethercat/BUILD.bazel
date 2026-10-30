@@ -38,8 +38,8 @@ cc_library(
         "//driver/ethercat/engine",
         "//driver/ethercat/errors",
         "//driver/ethercat/master",
-        "//driver/ethercat/mock",
         "//driver/ethercat/soem",
+        "//driver/ethercat/telem",
         "//driver/ethercat/topology",
         "//driver/pipeline",
         "//driver/task",
@@ -69,23 +69,9 @@ cc_test(
     deps = [
         "//client/cpp/testutil",
         "//driver/ethercat",
-        "//driver/ethercat/mock",
-        "//driver/pipeline/mock",
-        "//x/cpp/test",
-        "@googletest//:gtest_main",
-    ],
-)
-
-cc_test(
-    name = "master_test",
-    srcs = ["master_test.cpp"],
-    visibility = ["//visibility:public"],
-    deps = [
-        "//client/cpp/testutil",
-        "//driver/ethercat",
-        "//driver/ethercat/mock",
-        "//driver/pipeline/mock",
-        "//x/cpp/test",
+        "//driver/ethercat/testutil",
+        "//driver/pipeline/testutil",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )
@@ -103,7 +89,7 @@ cc_test(
         "//driver/ethercat",
         "//driver/ethercat/soem",
         "//x/cpp/telem",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )

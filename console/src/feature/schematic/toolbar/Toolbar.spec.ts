@@ -7,14 +7,62 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { group, type schematic } from "@synnaxlabs/client";
+import { Schematic } from "@synnaxlabs/pluto";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { renderSchematic } from "@/feature/schematic/testutil";
+import {
+  client,
+  createSymbolPayload,
+  renderSchematic,
+} from "@/feature/schematic/testutil";
 import { Toolbar } from "@/feature/schematic/toolbar/Toolbar";
 import { getSwitch } from "@/platform/modals/testutil";
 import { Session } from "@/session";
-import { captureBrowserDownloads, getIconButton, uniqueName } from "@/testutil";
+import { documentIn } from "@/session/window/testutil";
+import {
+  assertDefined,
+  captureBrowserDownloads,
+  getIconButton,
+  uniqueName,
+} from "@/testutil";
+
+const renderSelected = async (configs: Record<string, schematic.NodeConfig>) => {
+  const keys = Object.keys(configs);
+  return await renderSchematic(Toolbar, {
+    schematic: {
+      nodes: keys.map((key) => ({ key, position: { x: 0, y: 0 } })),
+      configs,
+    },
+    sessionState: {
+      editable: true,
+      selected: keys,
+      toolbar: {
+        selectedTab: "properties",
+        selectedSymbolGroup: "general",
+        changing: false,
+      },
+    },
+  });
+};
+
+// Starts a change, searches the symbols tab for the name, and clicks the symbol.
+const pickSymbol = async (name: string): Promise<void> => {
+  fireEvent.click(await screen.findByLabelText("Change symbol"));
+  const symbols = await waitFor(() => {
+    const el = document.querySelector<HTMLElement>(".console-schematic__symbols");
+    assertDefined(el);
+    return el;
+  });
+  fireEvent.change(within(symbols).getByPlaceholderText("Search symbols..."), {
+    target: { value: name },
+  });
+  fireEvent.click(await within(symbols).findByText(name, { selector: "small" }));
+};
+
+const retrieveConfigs = async (key: string) =>
+  (await client.schematics.retrieve(key)).configs;
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -32,7 +80,7 @@ describe("Toolbar", () => {
       fireEvent.click(await screen.findByText("Enable editing"));
       await waitFor(() =>
         expect(
-          Session.Schematic.selectState({ state: store.getState(), key }).editable,
+          documentIn(store.getState()[Session.Schematic.SLICE_NAME], key)?.editable,
         ).toBe(true),
       );
       expect(await screen.findByPlaceholderText("Search symbols...")).toBeDefined();
@@ -50,7 +98,7 @@ describe("Toolbar", () => {
       fireEvent.click(await screen.findByText("Release control and enable editing"));
       await waitFor(() =>
         expect(
-          Session.Schematic.selectState({ state: store.getState(), key }).editable,
+          documentIn(store.getState()[Session.Schematic.SLICE_NAME], key)?.editable,
         ).toBe(true),
       );
     });
@@ -64,7 +112,8 @@ describe("Toolbar", () => {
       fireEvent.click(await screen.findByText("Properties"));
       await waitFor(() =>
         expect(
-          Session.Schematic.selectToolbar({ state: store.getState(), key }).selectedTab,
+          documentIn(store.getState()[Session.Schematic.SLICE_NAME], key)?.toolbar
+            .selectedTab,
         ).toBe("properties"),
       );
       expect(
@@ -82,12 +131,13 @@ describe("Toolbar", () => {
       await screen.findByText("Control authority");
       const switchInput = getSwitch("Show control state legend");
       expect(
-        Session.Schematic.selectLegend({ state: store.getState(), key }).visible,
+        documentIn(store.getState()[Session.Schematic.SLICE_NAME], key)?.legend.visible,
       ).toBe(true);
       fireEvent.click(switchInput);
       await waitFor(() =>
         expect(
-          Session.Schematic.selectLegend({ state: store.getState(), key }).visible,
+          documentIn(store.getState()[Session.Schematic.SLICE_NAME], key)?.legend
+            .visible,
         ).toBe(false),
       );
     });
@@ -110,7 +160,148 @@ describe("Toolbar", () => {
       );
       // The Core serializes the schematic into the flat imex envelope: numeric version,
       // and the resource key is dropped.
-      expect(contents).toMatchObject({ name, type: "schematic", version: 9 });
+      expect(contents).toMatchObject({ name, type: "schematic", version: 10 });
+    });
+  });
+
+  describe("changing symbols", () => {
+    it("keeps the settings the new symbol accepts", async () => {
+      const { key } = await renderSelected({
+        n1: Schematic.Node.createConfig({
+          variant: "valve",
+          label: { label: "OX-1" },
+          orientation: "top",
+        }),
+      });
+      expect(await screen.findByText("Valve")).toBeDefined();
+      await pickSymbol("Solenoid");
+      await waitFor(async () =>
+        expect((await retrieveConfigs(key)).n1).toMatchObject({
+          variant: "solenoid_valve",
+          label: { label: "OX-1" },
+          orientation: "top",
+        }),
+      );
+    });
+
+    it("opens the symbols tab to pick the new symbol", async () => {
+      const { key, store } = await renderSelected({
+        n1: Schematic.Node.createConfig({ variant: "valve" }),
+      });
+      fireEvent.click(await screen.findByLabelText("Change symbol"));
+      await waitFor(() =>
+        expect(
+          documentIn(store.getState()[Session.Schematic.SLICE_NAME], key)?.toolbar,
+        ).toMatchObject({ selectedTab: "symbols", changing: true }),
+      );
+      expect(await screen.findByText("Changing Valve")).toBeDefined();
+      expect(screen.queryByLabelText("Change symbol")).toBeNull();
+    });
+
+    it("marks the current symbol in the symbols tab", async () => {
+      await renderSelected({ n1: Schematic.Node.createConfig({ variant: "valve" }) });
+      fireEvent.click(await screen.findByLabelText("Change symbol"));
+      const symbols = await waitFor(() => {
+        const el = document.querySelector<HTMLElement>(".console-schematic__symbols");
+        assertDefined(el);
+        return el;
+      });
+      fireEvent.change(within(symbols).getByPlaceholderText("Search symbols..."), {
+        target: { value: "Generic" },
+      });
+      const current = (
+        await within(symbols).findByText("Generic", { selector: "small" })
+      ).parentElement;
+      expect(current?.classList.contains("lyra--selected")).toBe(true);
+    });
+
+    it("changes the symbol without adding one", async () => {
+      const { key } = await renderSelected({
+        n1: Schematic.Node.createConfig({ variant: "valve" }),
+      });
+      await pickSymbol("Solenoid");
+      await waitFor(async () =>
+        expect((await retrieveConfigs(key)).n1.variant).toBe("solenoid_valve"),
+      );
+      expect(Object.keys(await retrieveConfigs(key))).toEqual(["n1"]);
+    });
+
+    it("leaves the symbols unchanged on cancel", async () => {
+      const { key, store } = await renderSelected({
+        n1: Schematic.Node.createConfig({ variant: "valve" }),
+      });
+      fireEvent.click(await screen.findByLabelText("Change symbol"));
+      fireEvent.click(await screen.findByLabelText("Cancel symbol change"));
+      await waitFor(() =>
+        expect(
+          documentIn(store.getState()[Session.Schematic.SLICE_NAME], key)?.toolbar,
+        ).toMatchObject({ selectedTab: "properties", changing: false }),
+      );
+      expect((await retrieveConfigs(key)).n1.variant).toBe("valve");
+    });
+
+    it("renames a label that still reads the old symbol's name", async () => {
+      const { key } = await renderSelected({
+        n1: Schematic.Node.createConfig({ variant: "valve" }),
+      });
+      await pickSymbol("Solenoid");
+      await waitFor(async () =>
+        expect((await retrieveConfigs(key)).n1).toMatchObject({
+          variant: "solenoid_valve",
+          label: { label: "Solenoid" },
+        }),
+      );
+    });
+
+    it("changes every selected symbol", async () => {
+      const { key } = await renderSelected({
+        n1: Schematic.Node.createConfig({ variant: "valve" }),
+        n2: Schematic.Node.createConfig({ variant: "tank" }),
+      });
+      expect(await screen.findByText("Mixed")).toBeDefined();
+      await pickSymbol("Ball");
+      await waitFor(async () => {
+        const configs = await retrieveConfigs(key);
+        expect([configs.n1.variant, configs.n2.variant]).toEqual([
+          "ball_valve",
+          "ball_valve",
+        ]);
+      });
+    });
+
+    it("changes a symbol to a custom symbol", async () => {
+      const root = await client.schematics.symbols.retrieveGroup();
+      const symbol = await client.schematics.symbols.create({
+        ...createSymbolPayload(uniqueName("custom")),
+        parent: group.ontologyID(root.key),
+      });
+      const { key } = await renderSelected({
+        n1: Schematic.Node.createConfig({ variant: "valve" }),
+      });
+      await pickSymbol(symbol.name);
+      await waitFor(async () =>
+        expect((await retrieveConfigs(key)).n1).toMatchObject({
+          variant: "custom_static",
+          specKey: symbol.key,
+          label: { label: symbol.name },
+        }),
+      );
+    });
+
+    it("shows the form of the new symbol", async () => {
+      await renderSelected({ n1: Schematic.Node.createConfig({ variant: "valve" }) });
+      await screen.findByText("Style");
+      expect(screen.queryByText("Wrap width")).toBeNull();
+      await pickSymbol("Text box");
+      expect(await screen.findByText("Wrap width")).toBeDefined();
+    });
+
+    it("shows no symbol picker when only a group box is selected", async () => {
+      await renderSelected({
+        g1: Schematic.Node.createConfig({ variant: "group_box" }),
+      });
+      await screen.findByText("Properties");
+      expect(screen.queryByLabelText("Change symbol")).toBeNull();
     });
   });
 });

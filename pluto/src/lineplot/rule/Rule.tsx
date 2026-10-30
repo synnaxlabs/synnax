@@ -9,7 +9,6 @@
 
 import "@/lineplot/rule/Rule.css";
 
-import { CSS } from "@synnaxlabs/lyra/css";
 import { Cursor } from "@synnaxlabs/lyra/cursor";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -17,11 +16,12 @@ import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { state } from "@synnaxlabs/lyra/state";
 import { Text } from "@synnaxlabs/lyra/text";
 import { box, color } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useEffect, useMemo, useRef } from "react";
+import { type ReactElement, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
+import { CSS } from "@/css";
 import { useContext } from "@/lineplot/Frame";
 import { rule } from "@/lineplot/rule/aether";
 
@@ -73,22 +73,15 @@ export const Rule = ({
       lineWidth,
       lineDash,
     },
-    onAetherChange: useCallback(
-      ({ position }: z.infer<typeof rule.ruleStateZ>) => {
-        if (position == null) return;
-        onPositionChangeRef.current?.(position);
-      },
-      [onPositionChangeRef],
-    ),
+    onAetherChange: ({ position }: z.infer<typeof rule.ruleStateZ>) => {
+      if (position == null) return;
+      onPositionChangeRef.current?.(position);
+    },
   });
 
-  const pixelPosRef = useRef(pixelPosition);
-  if (pixelPosition !== pixelPosRef.current) pixelPosRef.current = pixelPosition;
+  const pixelPosRef = useSyncedRef(pixelPosition);
 
-  const { id } = useContext("Rule.Rule");
-
-  const plotEl = document.getElementById(id);
-  const viewportEl = plotEl?.querySelector(".pluto-line-plot__viewport");
+  const { viewportElement } = useContext("Rule.Rule");
 
   const dragStartRef = useRef(pixelPosition);
 
@@ -103,41 +96,35 @@ export const Rule = ({
   }, [propsPosition, colorVal, lineWidth, lineDash]);
 
   const handleDragStart = Cursor.useDrag({
-    onStart: useCallback(() => {
+    onStart: () => {
       onSelect?.();
       setState((p) => ({ ...p, dragging: true }));
       dragStartRef.current = pixelPosRef.current;
-    }, []),
+    },
     onMove: (b: box.Box) => {
       setState((p) => ({
         ...p,
         pixelPosition: (dragStartRef.current ?? 0) + box.signedHeight(b),
       }));
     },
-    onEnd: useCallback(() => {
+    onEnd: () => {
       setState((p) => ({ ...p, dragging: false }));
-      dragStartRef.current = pixelPosition;
-    }, []),
+    },
   });
 
   const ref = useRef<HTMLDivElement>(null);
 
-  const topStyle = useMemo(
-    () => ({ top: `calc(${pixelPosition}px - 0.5rem)` }),
-    [pixelPosition],
-  );
+  const topStyle = { top: `calc(${pixelPosition}px - 0.5rem)` };
 
-  const colorStyles = useMemo(() => {
-    const borderColor = color.cssString(colorVal);
-    return {
-      tag: {
-        borderColor,
-        backgroundColor: color.hex(color.setAlpha(colorVal, 0.75)),
-        ...style,
-      },
-      divider: { borderColor },
-    };
-  }, [colorVal, style]);
+  const borderColor = color.cssString(colorVal);
+  const colorStyles = {
+    tag: {
+      borderColor,
+      backgroundColor: color.hex(color.setAlpha(colorVal, 0.75)),
+      ...style,
+    },
+    divider: { borderColor },
+  };
 
   if (propsPosition == null || pixelPosition == null) return null;
 
@@ -192,6 +179,6 @@ export const Rule = ({
     </div>
   );
 
-  if (viewportEl == null) return content;
-  return createPortal(content, viewportEl);
+  if (viewportElement == null) return content;
+  return createPortal(content, viewportElement);
 };

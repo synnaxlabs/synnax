@@ -13,6 +13,7 @@ package lineplot
 
 import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/spatial"
 	"github.com/synnaxlabs/x/text"
@@ -33,7 +34,6 @@ const (
 	ActionTypeAddRange              = "add_range"
 	ActionTypeRemoveRange           = "remove_range"
 	ActionTypeSetRanges             = "set_ranges"
-	ActionTypeSetCustomRange        = "set_custom_range"
 	ActionTypeSetAxisLabel          = "set_axis_label"
 	ActionTypeSetAxisLabelDirection = "set_axis_label_direction"
 	ActionTypeSetAxisLabelLevel     = "set_axis_label_level"
@@ -43,8 +43,8 @@ const (
 	ActionTypeSetLineLabel          = "set_line_label"
 	ActionTypeSetLineColor          = "set_line_color"
 	ActionTypeSetLineStrokeWidth    = "set_line_stroke_width"
-	ActionTypeSetLineDownsample     = "set_line_downsample"
-	ActionTypeSetLineDownsampleMode = "set_line_downsample_mode"
+	ActionTypeSetLineAggregation    = "set_line_aggregation"
+	ActionTypeSetLineDetail         = "set_line_detail"
 	ActionTypeSetLine               = "set_line"
 	ActionTypeSetRule               = "set_rule"
 	ActionTypeSetRuleLabel          = "set_rule_label"
@@ -118,33 +118,22 @@ type SetXChannelPayload struct {
 	Channel channel.Key `json:"channel" msgpack:"channel"`
 }
 
-// AddRangePayload appends the range key to the ranges array bound to the x-axis named
-// by axis_key. No-op when the range is already present.
+// AddRangePayload appends the range reference to the plot's ranges. No-op when an equal
+// reference is already present.
 type AddRangePayload struct {
-	AxisKey XAxisKey `json:"axis_key" msgpack:"axis_key"`
-	Range   string   `json:"range" msgpack:"range"`
+	Range ranger.Ref `json:"range" msgpack:"range"`
 }
 
-// RemoveRangePayload removes the range key from the x-axis named by axis_key. No-op
-// when the range is not present.
+// RemoveRangePayload removes the reference equal to range from the plot's ranges. No-op
+// when no reference is equal.
 type RemoveRangePayload struct {
-	AxisKey XAxisKey `json:"axis_key" msgpack:"axis_key"`
-	Range   string   `json:"range" msgpack:"range"`
+	Range ranger.Ref `json:"range" msgpack:"range"`
 }
 
-// SetRangesPayload replaces the entire set of range keys bound to the x-axis named by
-// axis_key with ranges. Ranges absent from the new set are removed and their lines
-// dropped; ranges not previously present are added. Existing ranges keep their line
-// styling.
+// SetRangesPayload replaces the plot's range references with ranges, such as when the
+// user edits a window. Lines style channels, so they are unaffected.
 type SetRangesPayload struct {
-	AxisKey XAxisKey `json:"axis_key" msgpack:"axis_key"`
-	Ranges  []string `json:"ranges" msgpack:"ranges"`
-}
-
-// SetCustomRangePayload sets the window the "custom" range key resolves to. A null
-// custom clears the window.
-type SetCustomRangePayload struct {
-	Custom *CustomRange `json:"custom,omitzero" msgpack:"custom,omitempty"`
+	Ranges []ranger.Ref `json:"ranges" msgpack:"ranges"`
 }
 
 // SetAxisLabelPayload sets the label rendered along the axis identified by key.
@@ -210,17 +199,16 @@ type SetLineStrokeWidthPayload struct {
 	StrokeWidth float64 `json:"stroke_width" msgpack:"stroke_width"`
 }
 
-// SetLineDownsamplePayload sets the downsample factor of the line identified by key.
-type SetLineDownsamplePayload struct {
-	Key        string `json:"key" msgpack:"key"`
-	Downsample uint32 `json:"downsample" msgpack:"downsample"`
+// SetLineAggregationPayload sets how the line identified by key reduces a pixel group.
+type SetLineAggregationPayload struct {
+	Key         string      `json:"key" msgpack:"key"`
+	Aggregation Aggregation `json:"aggregation" msgpack:"aggregation"`
 }
 
-// SetLineDownsampleModePayload sets how the downsample factor is applied for the line
-// identified by key.
-type SetLineDownsampleModePayload struct {
-	Key            string         `json:"key" msgpack:"key"`
-	DownsampleMode DownsampleMode `json:"downsample_mode" msgpack:"downsample_mode"`
+// SetLineDetailPayload sets the number of sample groups per pixel column of the line.
+type SetLineDetailPayload struct {
+	Key    string `json:"key" msgpack:"key"`
+	Detail Detail `json:"detail" msgpack:"detail"`
 }
 
 // SetLinePayload replaces the line with line.key in place, inserting it when no such
@@ -305,7 +293,6 @@ type Action struct {
 	AddRange              *AddRangePayload              `json:"add_range,omitzero" msgpack:"add_range,omitempty"`
 	RemoveRange           *RemoveRangePayload           `json:"remove_range,omitzero" msgpack:"remove_range,omitempty"`
 	SetRanges             *SetRangesPayload             `json:"set_ranges,omitzero" msgpack:"set_ranges,omitempty"`
-	SetCustomRange        *SetCustomRangePayload        `json:"set_custom_range,omitzero" msgpack:"set_custom_range,omitempty"`
 	SetAxisLabel          *SetAxisLabelPayload          `json:"set_axis_label,omitzero" msgpack:"set_axis_label,omitempty"`
 	SetAxisLabelDirection *SetAxisLabelDirectionPayload `json:"set_axis_label_direction,omitzero" msgpack:"set_axis_label_direction,omitempty"`
 	SetAxisLabelLevel     *SetAxisLabelLevelPayload     `json:"set_axis_label_level,omitzero" msgpack:"set_axis_label_level,omitempty"`
@@ -315,8 +302,8 @@ type Action struct {
 	SetLineLabel          *SetLineLabelPayload          `json:"set_line_label,omitzero" msgpack:"set_line_label,omitempty"`
 	SetLineColor          *SetLineColorPayload          `json:"set_line_color,omitzero" msgpack:"set_line_color,omitempty"`
 	SetLineStrokeWidth    *SetLineStrokeWidthPayload    `json:"set_line_stroke_width,omitzero" msgpack:"set_line_stroke_width,omitempty"`
-	SetLineDownsample     *SetLineDownsamplePayload     `json:"set_line_downsample,omitzero" msgpack:"set_line_downsample,omitempty"`
-	SetLineDownsampleMode *SetLineDownsampleModePayload `json:"set_line_downsample_mode,omitzero" msgpack:"set_line_downsample_mode,omitempty"`
+	SetLineAggregation    *SetLineAggregationPayload    `json:"set_line_aggregation,omitzero" msgpack:"set_line_aggregation,omitempty"`
+	SetLineDetail         *SetLineDetailPayload         `json:"set_line_detail,omitzero" msgpack:"set_line_detail,omitempty"`
 	SetLine               *SetLinePayload               `json:"set_line,omitzero" msgpack:"set_line,omitempty"`
 	SetRule               *SetRulePayload               `json:"set_rule,omitzero" msgpack:"set_rule,omitempty"`
 	SetRuleLabel          *SetRuleLabelPayload          `json:"set_rule_label,omitzero" msgpack:"set_rule_label,omitempty"`
@@ -403,11 +390,6 @@ func Reduce(state LinePlot, actions ...Action) (LinePlot, error) {
 				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetRanges.Handle(state)
-		case ActionTypeSetCustomRange:
-			if a.SetCustomRange == nil {
-				return state, union.MissingPayload(a.Type)
-			}
-			state, err = a.SetCustomRange.Handle(state)
 		case ActionTypeSetAxisLabel:
 			if a.SetAxisLabel == nil {
 				return state, union.MissingPayload(a.Type)
@@ -453,16 +435,16 @@ func Reduce(state LinePlot, actions ...Action) (LinePlot, error) {
 				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetLineStrokeWidth.Handle(state)
-		case ActionTypeSetLineDownsample:
-			if a.SetLineDownsample == nil {
+		case ActionTypeSetLineAggregation:
+			if a.SetLineAggregation == nil {
 				return state, union.MissingPayload(a.Type)
 			}
-			state, err = a.SetLineDownsample.Handle(state)
-		case ActionTypeSetLineDownsampleMode:
-			if a.SetLineDownsampleMode == nil {
+			state, err = a.SetLineAggregation.Handle(state)
+		case ActionTypeSetLineDetail:
+			if a.SetLineDetail == nil {
 				return state, union.MissingPayload(a.Type)
 			}
-			state, err = a.SetLineDownsampleMode.Handle(state)
+			state, err = a.SetLineDetail.Handle(state)
 		case ActionTypeSetLine:
 			if a.SetLine == nil {
 				return state, union.MissingPayload(a.Type)
@@ -588,11 +570,6 @@ func NewSetRangesAction(p SetRangesPayload) Action {
 	return Action{Type: ActionTypeSetRanges, SetRanges: &p}
 }
 
-// NewSetCustomRangeAction wraps a SetCustomRangePayload in an Action envelope.
-func NewSetCustomRangeAction(p SetCustomRangePayload) Action {
-	return Action{Type: ActionTypeSetCustomRange, SetCustomRange: &p}
-}
-
 // NewSetAxisLabelAction wraps a SetAxisLabelPayload in an Action envelope.
 func NewSetAxisLabelAction(p SetAxisLabelPayload) Action {
 	return Action{Type: ActionTypeSetAxisLabel, SetAxisLabel: &p}
@@ -638,14 +615,14 @@ func NewSetLineStrokeWidthAction(p SetLineStrokeWidthPayload) Action {
 	return Action{Type: ActionTypeSetLineStrokeWidth, SetLineStrokeWidth: &p}
 }
 
-// NewSetLineDownsampleAction wraps a SetLineDownsamplePayload in an Action envelope.
-func NewSetLineDownsampleAction(p SetLineDownsamplePayload) Action {
-	return Action{Type: ActionTypeSetLineDownsample, SetLineDownsample: &p}
+// NewSetLineAggregationAction wraps a SetLineAggregationPayload in an Action envelope.
+func NewSetLineAggregationAction(p SetLineAggregationPayload) Action {
+	return Action{Type: ActionTypeSetLineAggregation, SetLineAggregation: &p}
 }
 
-// NewSetLineDownsampleModeAction wraps a SetLineDownsampleModePayload in an Action envelope.
-func NewSetLineDownsampleModeAction(p SetLineDownsampleModePayload) Action {
-	return Action{Type: ActionTypeSetLineDownsampleMode, SetLineDownsampleMode: &p}
+// NewSetLineDetailAction wraps a SetLineDetailPayload in an Action envelope.
+func NewSetLineDetailAction(p SetLineDetailPayload) Action {
+	return Action{Type: ActionTypeSetLineDetail, SetLineDetail: &p}
 }
 
 // NewSetLineAction wraps a SetLinePayload in an Action envelope.

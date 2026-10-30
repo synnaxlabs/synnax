@@ -11,11 +11,11 @@ package calculation
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation"
@@ -28,7 +28,6 @@ import (
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
@@ -145,39 +144,56 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	return s, nil
 }
 
-func (s *Service) setStatus(
+// report saves a status a calculator reports for the channel with the given key.
+func (s *Service) report(ctx context.Context, key channel.Key, st Status) bool {
+	st.Time = telem.Now()
+	if err := s.cfg.ChannelGraph.SetRuntimeStatus(ctx, key, &st); err != nil {
+		s.cfg.L.Error(
+			"failed to set status",
+			zap.Error(err),
+			zap.Stringer("channel", key),
+		)
+		return false
+	}
+	return true
+}
+
+// rejectDefinition reports that the Service cannot compile or request ch.
+func (s *Service) rejectDefinition(
 	ctx context.Context,
-	statuses ...calculator.Status,
+	ch channel.Channel,
+	message string,
+	err error,
 ) {
-	for _, st := range statuses {
-		chKey, err := channel.ParseKey(st.Key)
-		if err != nil {
-			s.cfg.L.Error(
-				"failed to parse channel key from status",
-				zap.Error(err),
-				zap.String("key", st.Key),
-			)
-			continue
-		}
-		s.cfg.L.Warn(st.String())
-		if err = s.cfg.ChannelGraph.SetRuntimeStatus(ctx, chKey, &Status{
-			Name:        st.Name,
-			Variant:     st.Variant,
-			Message:     st.Message,
-			Description: st.Description,
-			Time:        telem.Now(),
-		}); err != nil {
-			s.cfg.L.Error(
-				"failed to set status",
-				zap.Error(err),
-				zap.Stringer("channel", chKey),
-			)
-		}
+	st := &Status{
+		Name:        ch.Name,
+		Variant:     status.VariantError,
+		Message:     message,
+		Description: err.Error(),
+		Time:        telem.Now(),
+	}
+	s.cfg.L.Warn(st.String())
+	if err := s.cfg.ChannelGraph.RejectDefinition(ctx, ch.Key(), st); err != nil {
+		s.cfg.L.Error(
+			"failed to set status",
+			zap.Error(err),
+			zap.Stringer("channel", ch.Key()),
+		)
 	}
 }
 
 func (s *Service) clearStatus(ctx context.Context, key channel.Key) {
 	if err := s.cfg.ChannelGraph.ClearRuntimeStatus(ctx, key); err != nil {
+		s.cfg.L.Error(
+			"failed to clear status",
+			zap.Error(err),
+			zap.Stringer("channel", key),
+		)
+	}
+}
+
+func (s *Service) acceptDefinition(ctx context.Context, key channel.Key) {
+	if err := s.cfg.ChannelGraph.AcceptDefinition(ctx, key); err != nil {
 		s.cfg.L.Error(
 			"failed to clear status",
 			zap.Error(err),
@@ -200,17 +216,9 @@ func (s *Service) handleChange(ctx context.Context, reader channelgraph.Changes)
 			continue
 		}
 		if err := s.updateCalculation(ctx, ch); err != nil {
-			s.setStatus(ctx, calculator.Status{
-				Key:     ch.Key().String(),
-				Name:    ch.Name,
-				Variant: status.VariantError,
-				Message: fmt.Sprintf(
-					"failed to compile calculation for %s", ch.Name,
-				),
-				Description: err.Error(),
-			})
+			s.rejectDefinition(ctx, ch, "Failed to compile calculation", err)
 		} else {
-			s.clearStatus(ctx, ch.Key())
+			s.acceptDefinition(ctx, ch.Key())
 		}
 		s.mu.Unlock()
 	}
@@ -231,7 +239,11 @@ func (s *Service) openOrGetCalculator(
 	ctx context.Context,
 	mod compiler.Module,
 ) (*calculator.Calculator, error) {
-	calc, err := calculator.Open(ctx, calculator.Config{Module: mod})
+	failed, err := s.cfg.ChannelGraph.Failed(ctx, mod.Channel.Key())
+	if err != nil {
+		return nil, err
+	}
+	calc, err := calculator.Open(ctx, calculator.Config{Module: mod, Failed: failed})
 	if err != nil {
 		return nil, errors.Wrapf(
 			err, "failed to open calculator for channel %s", mod.Channel,
@@ -287,7 +299,7 @@ func (s *Service) updateGroup(
 		groupConfig{
 			Instrumentation: s.cfg.Child("group"),
 			calculators:     calculators,
-			onStatusChange:  s.setStatus,
+			report:          s.report,
 			framer:          s.cfg.Framer,
 			writer:          s.cfg.Writer,
 		},
@@ -354,10 +366,7 @@ func (s *Service) Close() error {
 func (s *Service) updateRequests(
 	ctx context.Context, added, removed []channel.Key,
 ) error {
-	var (
-		channels []channel.Channel
-		statuses []calculator.Status
-	)
+	var channels []channel.Channel
 	if err := s.cfg.Channel.NewRetrieve().
 		Where(channel.MatchKeys(added...)).
 		Entries(&channels).
@@ -377,25 +386,22 @@ func (s *Service) updateRequests(
 			graphChanged = true
 		}
 	}
+	running := s.mu.graph.CalculatedKeys()
 	for _, ch := range channels {
 		if !ch.IsCalculated() {
 			continue
 		}
 		if err := s.mu.graph.Add(ctx, ch); err != nil {
-			statuses = append(statuses, calculator.Status{
-				Key:         ch.Key().String(),
-				Name:        ch.Name,
-				Variant:     status.VariantError,
-				Message:     fmt.Sprintf("Failed to request calculation for %s", ch),
-				Description: err.Error(),
-			})
-		} else {
-			s.clearStatus(ctx, ch.Key())
+			s.rejectDefinition(ctx, ch, "Failed to request calculation", err)
 		}
 		graphChanged = true
 	}
-	if len(statuses) > 0 {
-		s.setStatus(ctx, statuses...)
+	// A calculation that already runs owns its status, so only a new one clears it.
+	// Dependencies start with the channel that reads them.
+	for k := range s.mu.graph.CalculatedKeys() {
+		if !running.Contains(k) {
+			s.clearStatus(ctx, k)
+		}
 	}
 	if graphChanged {
 		if err := s.rebuildGroups(ctx); err != nil {

@@ -16,7 +16,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Text } from "@synnaxlabs/lyra/text";
-import { type ReactElement, type SubmitEvent, useState } from "react";
+import { type ReactElement, type SubmitEvent, useEffect, useState } from "react";
 import { z } from "zod";
 
 const formSchema = z.object({
@@ -25,8 +25,6 @@ const formSchema = z.object({
   description: z.string().min(1, "Please enter a message"),
 });
 
-const REQUIRED_PATHS = ["name", "email", "description"] as const;
-
 interface SendButtonProps {
   loading: boolean;
   success: boolean;
@@ -34,7 +32,11 @@ interface SendButtonProps {
 }
 
 const SendButton = ({ loading, success, onClick }: SendButtonProps): ReactElement => {
-  const values = REQUIRED_PATHS.map((path) => Base.useFieldValue<string>(path));
+  const values = [
+    Base.useFieldValue<string>("name"),
+    Base.useFieldValue<string>("email"),
+    Base.useFieldValue<string>("description"),
+  ];
   const incomplete = values.some((v) => v == null || v.trim().length === 0);
   return (
     <Button.Button
@@ -55,6 +57,12 @@ export const Form = (): ReactElement => {
   const { close } = Dialog.useContext();
   const [loading, setLoading] = useState(false);
   const [softSuccess, setSuccess] = useState(false);
+
+  useEffect(() => {
+    if (!softSuccess) return;
+    const timeout = setTimeout(close, 300);
+    return () => clearTimeout(timeout);
+  }, [softSuccess, close]);
 
   const methods = Base.use<typeof formSchema>({
     schema: formSchema,
@@ -85,12 +93,8 @@ export const Form = (): ReactElement => {
         headers: { Accept: "application/json" },
       });
       setLoading(false);
-      if (res.ok) {
-        setSuccess(true);
-        setTimeout(() => {
-          close();
-        }, 300);
-      } else {
+      if (res.ok) setSuccess(true);
+      else {
         console.error(res);
         window.alert("Something went wrong. Please try again later");
       }

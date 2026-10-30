@@ -12,11 +12,11 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { errors, primitive } from "@synnaxlabs/x";
-import { type FC, useCallback } from "react";
+import { type FC } from "react";
 
 import { useFromConfig } from "@/feature/ni/device/queries";
 import { Select } from "@/feature/ni/device/Select";
-import * as Device from "@/feature/ni/device/types";
+import { SCHEMAS } from "@/feature/ni/device/types";
 import { createNextDIChannel } from "@/feature/ni/task/createChannel";
 import {
   DigitalChannelList,
@@ -62,16 +62,13 @@ const name = Component.renderProp(NameComponent);
 
 const Form: FC = () => {
   const dev = useFromConfig();
-  const resolve = useCallback(
-    (ch: DIChannel) =>
-      dev == null
-        ? null
-        : {
-            channel:
-              dev.properties.digitalInput.channels[getDigitalChannelDeviceKey(ch)] ?? 0,
-          },
-    [dev],
-  );
+  const resolve = (ch: DIChannel) =>
+    dev == null
+      ? null
+      : {
+          channel:
+            dev.properties.digitalInput.channels[getDigitalChannelDeviceKey(ch)] ?? 0,
+        };
   return (
     <DigitalChannelList<DIChannel>
       createChannel={createNextDIChannel}
@@ -88,6 +85,7 @@ const getInitialValues: Task.GetInitialValues<DigitalReadSchemas> = ({
 }) => {
   const cfg = digitalReadConfigZ.parse(config ?? {});
   if (deviceKey != null) cfg.device = deviceKey;
+  if (config == null) cfg.channels = [createNextDIChannel([])];
   return { name: "NI digital read task", type: DIGITAL_READ_TYPE, config: cfg };
 };
 
@@ -97,7 +95,7 @@ const onConfigure: Task.OnConfigure<typeof digitalReadConfigZ> = async (
 ) => {
   const dev = await client.devices.retrieve({
     key: config.device,
-    schemas: Device.SCHEMAS,
+    schemas: SCHEMAS,
   });
   PlatformDevice.checkConfigured(dev);
   let modified = false;
@@ -151,7 +149,7 @@ const onConfigure: Task.OnConfigure<typeof digitalReadConfigZ> = async (
       });
     }
   } finally {
-    if (modified) await client.devices.create(dev, Device.SCHEMAS);
+    if (modified) await client.devices.create(dev, SCHEMAS);
   }
   config.channels.forEach((c) => {
     const key = getDigitalChannelDeviceKey(c);

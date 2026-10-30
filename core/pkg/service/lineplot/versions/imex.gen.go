@@ -17,11 +17,13 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v5"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v6"
+	"github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v7"
+	"github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v8"
 )
 
 // Latest is the portable schema version stamped on exported LinePlot envelopes and the
 // highest version import accepts. It equals the resource's current schema version.
-const Latest = v6.Version
+const Latest = v8.Version
 
 // autoDecodeEnvelope decodes a server-exported envelope as its version's LinePlot
 // shape and lifts it through the per-version migration chain to the current shape. A
@@ -37,9 +39,59 @@ func autoDecodeEnvelope(ctx context.Context, env imex.Envelope) (LinePlot, error
 		if err != nil {
 			return LinePlot{}, err
 		}
-		return t6, nil
+		t7, err := v7.MigrateLinePlot(ctx, t6)
+		if err != nil {
+			return LinePlot{}, err
+		}
+		t8, err := v8.MigrateLinePlot(ctx, t7)
+		if err != nil {
+			return LinePlot{}, err
+		}
+		return t8, nil
 	case v6.Version:
+		t6, err := env.Decode[v6.LinePlot](ctx)
+		if err != nil {
+			return LinePlot{}, err
+		}
+		t7, err := v7.MigrateLinePlot(ctx, t6)
+		if err != nil {
+			return LinePlot{}, err
+		}
+		t8, err := v8.MigrateLinePlot(ctx, t7)
+		if err != nil {
+			return LinePlot{}, err
+		}
+		return t8, nil
+	case v7.Version:
+		t7, err := env.Decode[v7.LinePlot](ctx)
+		if err != nil {
+			return LinePlot{}, err
+		}
+		t8, err := v8.MigrateLinePlot(ctx, t7)
+		if err != nil {
+			return LinePlot{}, err
+		}
+		return t8, nil
+	case v8.Version:
 		return env.Decode[LinePlot](ctx)
 	}
 	return LinePlot{}, imex.NewErrUnsupportedVersion(env.Type, env.Version, Latest)
+}
+
+// liftFirst lifts the first exported LinePlot shape to the current shape. A decoder
+// of an older shape builds the first exported shape and enters the ladder here.
+func liftFirst(ctx context.Context, t5 v5.LinePlot) (LinePlot, error) {
+	t6, err := v6.MigrateLinePlot(ctx, t5)
+	if err != nil {
+		return LinePlot{}, err
+	}
+	t7, err := v7.MigrateLinePlot(ctx, t6)
+	if err != nil {
+		return LinePlot{}, err
+	}
+	t8, err := v8.MigrateLinePlot(ctx, t7)
+	if err != nil {
+		return LinePlot{}, err
+	}
+	return t8, nil
 }

@@ -11,7 +11,6 @@ import { lineplot, log, type ontology, panel } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Synnax } from "@synnaxlabs/pluto";
 import { color } from "@synnaxlabs/x";
-import { useCallback } from "react";
 
 import { Analytics } from "@/platform/analytics";
 import { LinePlot } from "@/platform/lineplot";
@@ -33,68 +32,52 @@ export const useOpen = (): ((resource: ontology.Resource) => void) => {
   const getFocusedTab = Session.Panel.useGetFocusedTab();
   const getSelectedPanel = Session.Panel.useGetSelected();
   const getSelectedProject = Session.Project.useGetSelected();
-  const getSelectedRange = Session.Range.useGetSelectedKey();
+  const getSelectedRef = Session.Range.useGetSelectedRef();
   const store = Session.useStore();
   const handleError = Status.useErrorHandler();
   const { capture } = Analytics.use();
-  return useCallback(
-    (resource) => {
-      if (client == null) return;
-      const channelKey = Number(resource.id.key);
-      const virtual = isPlainVirtual(resource);
-      handleError(
-        async () => {
-          const focusedTab = getFocusedTab();
-          const panelKey = getSelectedPanel();
-          if (focusedTab != null && panelKey != null) {
-            const doc = await client.panels.retrieve(panelKey);
-            const tab = panel.findTab(doc.root, focusedTab);
-            if (tab?.variant === "resource")
-              if (virtual && tab.resource.type === "log") {
-                await Log.addChannelsToActiveLog(client, tab.resource.key, [
-                  channelKey,
-                ]);
-                return;
-              } else if (!virtual && tab.resource.type === "lineplot") {
-                await LinePlot.addChannelsToActivePlot(client, tab.resource.key, [
-                  channelKey,
-                ]);
-                return;
-              }
-          }
-          const project = getSelectedProject();
-          if (virtual) {
-            const { key } = await client.logs.create(project, {
-              name: "Log",
-              channels: [{ channel: channelKey, color: color.ZERO }],
-            });
-            store.dispatch(Session.Log.create({ key }));
-            openTab({ variant: "resource", resource: log.ontologyID(key) });
-            return;
-          }
-          const selectedRange = getSelectedRange() ?? Session.Range.RECENT_KEY;
-          const { key } = await client.lineplots.create(project, {
-            name: "Line plot",
-            channels: { y1: [channelKey] },
-            ranges: { x1: [selectedRange] },
+  return (resource) => {
+    if (client == null) return;
+    const channelKey = Number(resource.id.key);
+    const virtual = isPlainVirtual(resource);
+    handleError(
+      async () => {
+        const focusedTab = getFocusedTab();
+        const panelKey = getSelectedPanel();
+        if (focusedTab != null && panelKey != null) {
+          const doc = await client.panels.retrieve(panelKey);
+          const tab = panel.findTab(doc.root, focusedTab);
+          if (tab?.variant === "resource")
+            if (virtual && tab.resource.type === "log") {
+              await Log.addChannelsToActiveLog(client, tab.resource.key, [channelKey]);
+              return;
+            } else if (!virtual && tab.resource.type === "lineplot") {
+              await LinePlot.addChannelsToActivePlot(client, tab.resource.key, [
+                channelKey,
+              ]);
+              return;
+            }
+        }
+        const project = getSelectedProject();
+        if (virtual) {
+          const { key } = await client.logs.create(project, {
+            name: "Log",
+            channels: [{ channel: channelKey, color: color.ZERO }],
           });
-          capture("plot_created", {});
-          store.dispatch(Session.LinePlot.create({ key }));
-          openTab({ variant: "resource", resource: lineplot.ontologyID(key) });
-        },
-        virtual ? "Failed to add channel to log" : "Failed to add channel to plot",
-      );
-    },
-    [
-      client,
-      openTab,
-      getFocusedTab,
-      getSelectedPanel,
-      getSelectedProject,
-      getSelectedRange,
-      store,
-      handleError,
-      capture,
-    ],
-  );
+          store.dispatch(Session.Log.create({ key }));
+          openTab({ variant: "resource", resource: log.ontologyID(key) });
+          return;
+        }
+        const { key } = await client.lineplots.create(project, {
+          name: "Line plot",
+          channels: { y1: [channelKey] },
+          ranges: [getSelectedRef()],
+        });
+        capture("plot_created", {});
+        store.dispatch(Session.LinePlot.create({ key }));
+        openTab({ variant: "resource", resource: lineplot.ontologyID(key) });
+      },
+      virtual ? "Failed to add channel to log" : "Failed to add channel to plot",
+    );
+  };
 };

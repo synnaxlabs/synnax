@@ -12,18 +12,19 @@ import { z } from "zod";
 import { type Analytics } from "@/platform/analytics";
 
 /**
- * The Desktop project. The key is public, and every install carries it: it grants
- * nothing but writing events into that one project.
+ * The Synnax project, which the websites share. The key is public, and every install
+ * carries it: it grants nothing but writing events into that one project.
  */
 const KEY = "phc_CaKeC8DVDWCYaiYSnUpEaWWXLrWptuXwgF7tTY3U6Q7t";
 
-const API_HOST = "https://us.i.posthog.com";
+/** Our own address for PostHog, which ad blockers do not know. */
+const API_HOST = "https://t.synnaxlabs.com";
 
-/** Pinned, so a posthog release cannot change the behavior of a shipped install. */
+/** Pinned, so a PostHog release cannot change the behavior of a shipped install. */
 const DEFAULTS = "2026-08-30";
 
 /**
- * Properties posthog reads off the host page. The window title holds the project name,
+ * Properties PostHog reads off the host page. The window title holds the project name,
  * and the rest describe a `tauri://` origin that means nothing. Screens carry a
  * synthesized address instead.
  */
@@ -50,29 +51,28 @@ const monacoCancellationZ = z
 const isMonacoCancellation = (exceptions: unknown): boolean =>
   monacoCancellationZ.safeParse(exceptions).success;
 
-/**
- * Attributes that hold readable text, such as a range name in an `aria-label`. Replays
- * keep every other attribute, since classes and styles render the recording.
- */
-const TEXT_ATTRIBUTES = new Set([
-  "aria-label",
-  "aria-description",
-  "aria-valuetext",
-  "aria-placeholder",
-  "title",
-  "alt",
-  "placeholder",
-]);
-
-const maskAttribute = (name: string, value: string): string =>
-  TEXT_ATTRIBUTES.has(name) ? "*".repeat(value.length) : value;
-
 export interface Params {
   /** Identifies the install across launches and across a webview data wipe. */
   installID: string;
 }
 
-const init = async (installID: string) => {
+/**
+ * The PostHog session that every window of a launch reports in. PostHog reads another
+ * window's session from storage only at init and after an idle time, so windows would
+ * otherwise each move to sessions of their own.
+ */
+export interface SharedSession {
+  /** Resolves to the session once the main window has started one. */
+  join: () => Promise<string>;
+  /** Returns the session that the windows share now. */
+  current: () => string | undefined;
+  /** Shares a session that PostHog moved this window to, such as after an idle time. */
+  share: (id: string) => void;
+  /** Calls the listener on each change to the shared session, until unsubscribed. */
+  subscribe: (listener: (id: string) => void) => () => void;
+}
+
+const importPostHog = async () => {
   const [{ default: posthog }] = await Promise.all([
     import("posthog-js/dist/module.no-external"),
     // Static bundles, because remote script loading stays off. All must load before
@@ -81,9 +81,36 @@ const init = async (installID: string) => {
     import("posthog-js/dist/exception-autocapture"),
     import("posthog-js/dist/posthog-recorder"),
   ]);
+  return posthog;
+};
+
+type PostHog = Awaited<ReturnType<typeof importPostHog>>;
+
+/** Tags every later event with the environment and the install. A reset clears both. */
+const attach = (posthog: PostHog, installID: string): void => {
+  // Local and test builds otherwise report as ordinary installs, so every count needs
+  // this to leave them out.
+  posthog.register({
+    environment: RELEASE ? "production" : "development",
+    install_id: installID,
+  });
+};
+
+/** Captures again after a stop. PostHog stores the opt-out, so it outlives a launch. */
+const resume = (posthog: PostHog, installID: string): void => {
+  if (posthog.has_opted_out_capturing())
+    posthog.opt_in_capturing({ captureEventName: false });
+  attach(posthog, installID);
+};
+
+const init = (posthog: PostHog, installID: string, sessionID: string): void => {
   posthog.init(KEY, {
     api_host: API_HOST,
+    ui_host: "https://us.posthog.com",
     defaults: DEFAULTS,
+    // The defaults mark a `localhost` host as a test user, and macOS serves the app
+    // from `tauri://localhost`.
+    internal_or_test_user_hostname: null,
     // Logs every event to the console of the window, so a dev run can be read without
     // waiting for the project to ingest it.
     debug: IS_DEV,
@@ -91,7 +118,7 @@ const init = async (installID: string) => {
     persistence: "localStorage",
     // The install starts anonymous. Signing in identifies the account, which merges the
     // events before it into the account's person.
-    bootstrap: { distinctID: installID },
+    bootstrap: { distinctID: installID, sessionID },
     // Element text is channel, device, and schematic names, so autocapture keeps the
     // shape of an interaction and drops every string in it.
     autocapture: true,
@@ -100,13 +127,9 @@ const init = async (installID: string) => {
     // Screens are synthesized from the focused tab; there is no navigation to observe.
     capture_pageview: false,
     capture_pageleave: false,
-    // Replays mask every string for the same reason as autocapture. Plots, logs, and
-    // values draw on canvases in a worker, which replays show blank.
-    session_recording: {
-      maskAllInputs: true,
-      maskTextSelector: "*",
-      maskAttributeFn: maskAttribute,
-    },
+    // Replays show the text of the app and what the user types, except passwords.
+    // Plots, logs, and values draw on canvases in a worker, which replays show blank.
+    session_recording: { maskAllInputs: false },
     capture_exceptions: true,
     capture_heatmaps: false,
     capture_dead_clicks: false,
@@ -120,20 +143,7 @@ const init = async (installID: string) => {
         ? null
         : event,
   });
-  attach(posthog, installID);
-  return posthog;
-};
-
-type PostHog = Awaited<ReturnType<typeof init>>;
-
-/** Tags every later event with the environment and the install. A reset clears both. */
-const attach = (posthog: PostHog, installID: string): void => {
-  // A dev run reports as an ordinary install otherwise, so every count needs this to
-  // separate the two.
-  posthog.register({
-    environment: IS_DEV ? "development" : "production",
-    install_id: installID,
-  });
+  resume(posthog, installID);
 };
 
 interface Loaded {
@@ -142,41 +152,94 @@ interface Loaded {
 }
 
 /**
- * Returns a transport over posthog right away and loads posthog behind it. Calls made
- * while it loads run once it is there, so the first seconds of a launch report like
- * any other. The import is dynamic, so the Console build, where this module is
- * unreachable, carries no analytics code at all.
+ * Makes PostHog forget the account. The session stays the shared one: a plain reset
+ * goes back to the session this window joined at init.
  */
-export const create = (params: Promise<Params>): Analytics.Transport => {
-  let loaded: Loaded | null = null;
+const forget = ({ posthog, installID }: Loaded, session: SharedSession): void =>
+  posthog.reset({ bootstrap: { distinctID: installID, sessionID: session.current() } });
+
+/** A transport that loads nothing and sends nothing until it starts. */
+export interface Transport extends Analytics.Transport {
+  /** Loads PostHog on the first call, then sends every call until {@link stop}. */
+  start: () => void;
+  /** Drops every later call, then resets PostHog and opts it out of all requests. */
+  stop: () => void;
+}
+
+/**
+ * Returns a transport over PostHog right away. PostHog loads on the first start, and
+ * calls made while it loads run once it is there, so the first seconds of a launch
+ * report like any other. The import is dynamic, so the Console build, where this module
+ * is unreachable, carries no analytics code at all.
+ */
+export const create = (params: Promise<Params>, session: SharedSession): Transport => {
+  let started = false;
+  let loading = false;
   let failed = false;
+  let loaded: Loaded | null = null;
   let waiting: Array<(loaded: Loaded) => void> = [];
   const load = async (): Promise<void> => {
+    loading = true;
     try {
-      const { installID } = await params;
-      const next = { posthog: await init(installID), installID };
-      loaded = next;
-      waiting.forEach((run) => run(next));
+      const [{ installID }, posthog] = await Promise.all([params, importPostHog()]);
+      const sessionID = await session.join();
+      // PostHog sends from init on, and the user can refuse while the bundles load.
+      if (started) {
+        init(posthog, installID, sessionID);
+        posthog.onSessionId(session.share);
+        // Setting the session calls no onSessionId listener, so a move made in another
+        // window is not shared back.
+        session.subscribe((id) => {
+          if (id !== posthog.get_session_id())
+            posthog.sessionManager?.setBootstrapSessionId(id);
+        });
+        const next = { posthog, installID };
+        loaded = next;
+        waiting.forEach((run) => run(next));
+      }
     } catch (err) {
       failed = true;
       console.error("failed to load analytics", err);
     } finally {
+      loading = false;
       waiting = [];
     }
   };
-  void load();
   const run = (call: (loaded: Loaded) => void): void => {
+    if (!started) return;
     if (loaded != null) call(loaded);
     else if (!failed) waiting.push(call);
   };
   return {
+    start: () => {
+      if (started) return;
+      started = true;
+      if (loaded == null) {
+        if (!loading && !failed) void load();
+        return;
+      }
+      loaded.posthog.set_config({ advanced_disable_flags: false });
+      resume(loaded.posthog, loaded.installID);
+    },
+    stop: () => {
+      if (!started) return;
+      started = false;
+      waiting = [];
+      if (loaded == null) return;
+      const { posthog } = loaded;
+      // A reset reloads feature flags, which PostHog requests even while opted out.
+      posthog.set_config({ advanced_disable_flags: true });
+      // A reset clears the opt-out that PostHog stores, so the reset goes first.
+      forget(loaded, session);
+      posthog.opt_out_capturing();
+    },
     capture: (event, properties) =>
       run(({ posthog }) => posthog.capture(event, properties)),
     identify: ({ id, email }) => run(({ posthog }) => posthog.identify(id, { email })),
     reset: () =>
-      run(({ posthog, installID }) => {
-        posthog.reset();
-        attach(posthog, installID);
+      run((loaded) => {
+        forget(loaded, session);
+        attach(loaded.posthog, loaded.installID);
       }),
   };
 };

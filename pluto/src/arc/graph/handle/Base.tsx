@@ -7,14 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { CSS } from "@synnaxlabs/lyra/css";
 import { type location } from "@synnaxlabs/x";
-import {
-  Handle,
-  type HandleProps,
-  Position,
-  useUpdateNodeInternals,
-} from "@xyflow/react";
+import { Handle, type HandleProps, Position, useNodeId } from "@xyflow/react";
+
+import { CSS } from "@/css";
 
 export interface BaseProps extends Omit<HandleProps, "position"> {
   location: location.Outer;
@@ -31,11 +27,8 @@ const locationToRFPosition = (location: location.Outer): Position =>
   RF_POSITIONS[location];
 
 export const Base = ({ location, className, ...props }: BaseProps) => {
-  try {
-    useUpdateNodeInternals();
-  } catch {
-    return null;
-  }
+  // A handle outside a React Flow node, as in a preview, has no flow to mount in.
+  if (useNodeId() == null) return null;
   const position = locationToRFPosition(location);
   return (
     <Handle

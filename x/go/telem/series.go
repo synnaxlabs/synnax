@@ -40,9 +40,16 @@ type Series struct {
 	// Alignment defines the location of the series relative to other series in a
 	// logical group. Typically used for defining the position of the series within a
 	// channel's data.
-	Alignment    Alignment `json:"alignment" msgpack:"alignment"`
-	cachedLength *int64
+	Alignment Alignment `json:"alignment" msgpack:"alignment"`
+	// AlignmentMultiple is the number of alignment steps between consecutive samples.
+	// It is above one when each sample stands for a group of stored samples. Zero means
+	// one.
+	AlignmentMultiple uint32 `json:"alignment_multiple,omitempty" msgpack:"alignment_multiple,omitempty"`
+	cachedLength      *int64
 }
+
+// Multiple returns the number of alignment steps between consecutive samples.
+func (s Series) Multiple() uint32 { return max(s.AlignmentMultiple, 1) }
 
 // Len returns the number of samples currently in the Series.
 func (s Series) Len() int64 {
@@ -52,13 +59,13 @@ func (s Series) Len() int64 {
 	if s.DataType.IsVariable() {
 		if s.cachedLength == nil {
 			var cl int64
-			offset := 0
-			for offset+variableLengthPrefixSize <= len(s.Data) {
-				length := int(ByteOrder.Uint32(s.Data[offset:]))
-				if offset+variableLengthPrefixSize+length > len(s.Data) {
+			data := s.Data
+			for {
+				_, n := UnmarshalVariableSample(data)
+				if n == 0 {
 					break
 				}
-				offset += variableLengthPrefixSize + length
+				data = data[n:]
 				cl++
 			}
 			s.cachedLength = &cl
@@ -97,22 +104,20 @@ func (s *Series) Validate() error {
 
 func (s *Series) validateVariable() error {
 	var (
-		offset int
-		count  int64
+		data  = s.Data
+		count int64
 	)
-	for offset+variableLengthPrefixSize <= len(s.Data) {
-		length := int(ByteOrder.Uint32(s.Data[offset:]))
-		offset += variableLengthPrefixSize
-		if offset+length > len(s.Data) {
+	for len(data) >= variableLengthPrefixSize {
+		sample, n := UnmarshalVariableSample(data)
+		if n == 0 {
 			return errors.Wrapf(
 				validate.ErrValidation,
 				"variable-density length prefix at byte %d claims %d bytes, but only %d remain",
-				offset-variableLengthPrefixSize,
-				length,
-				len(s.Data)-offset,
+				len(s.Data)-len(data),
+				ByteOrder.Uint32(data),
+				len(data)-variableLengthPrefixSize,
 			)
 		}
-		sample := s.Data[offset : offset+length]
 		if s.DataType == JSONT && !jsontext.Value(sample).IsValid() {
 			return errors.Wrapf(
 				validate.ErrValidation,
@@ -127,14 +132,14 @@ func (s *Series) validateVariable() error {
 				sample,
 			)
 		}
-		offset += length
+		data = data[n:]
 		count++
 	}
-	if offset != len(s.Data) {
+	if len(data) != 0 {
 		return errors.Wrapf(
 			validate.ErrValidation,
 			"variable-density buffer has %d trailing bytes after last complete sample",
-			len(s.Data)-offset,
+			len(data),
 		)
 	}
 	s.cachedLength = &count
@@ -148,19 +153,14 @@ func (s Series) Size() Size { return Size(len(s.Data)) }
 func (s Series) Samples() iter.Seq[[]byte] {
 	return func(yield func([]byte) bool) {
 		if s.DataType.IsVariable() {
-			offset := 0
-			for offset+variableLengthPrefixSize <= len(s.Data) {
-				length := int(ByteOrder.Uint32(s.Data[offset:]))
-				offset += variableLengthPrefixSize
-				if offset+length > len(s.Data) {
+			data := s.Data
+			for {
+				sample, n := UnmarshalVariableSample(data)
+				if n == 0 || !yield(sample) {
 					return
 				}
-				if !yield(s.Data[offset : offset+length]) {
-					return
-				}
-				offset += length
+				data = data[n:]
 			}
-			return
 		}
 		den := int64(s.DataType.Density())
 		for i := int64(0); i < s.Len(); i++ {
@@ -176,18 +176,11 @@ func (s Series) Samples() iter.Seq[[]byte] {
 func (s Series) At(i int) []byte {
 	i = xslices.ConvertNegativeIndex(i, int(s.Len()))
 	if s.DataType.IsVariable() {
-		offset := 0
-		for offset+variableLengthPrefixSize <= len(s.Data) {
-			length := int(ByteOrder.Uint32(s.Data[offset:]))
-			offset += variableLengthPrefixSize
-			if offset+length > len(s.Data) {
-				break
-			}
+		for sample := range s.Samples() {
 			if i == 0 {
-				return s.Data[offset : offset+length]
+				return sample
 			}
 			i--
-			offset += length
 		}
 		panic(fmt.Sprintf(
 			"index %v out of bounds for series with length %v",
@@ -252,7 +245,7 @@ func (s Series) Last() Series {
 	return Series{
 		DataType:  s.DataType,
 		Data:      data,
-		Alignment: s.Alignment.AddSamples(uint32(s.Len() - 1)),
+		Alignment: s.Alignment.AddSamples(uint32(s.Len()-1) * s.Multiple()),
 		TimeRange: s.TimeRange,
 	}
 }
@@ -270,14 +263,14 @@ func CopyValue(dst, src Series, dstIdx, srcIdx int) {
 }
 
 // AlignmentBounds returns the alignment bounds of the series. The lower bound is the
-// alignment of the first sample, and the upper bound is the alignment of the last
-// sample + 1. The lower bound is inclusive, while the upper bound is exclusive.
+// alignment of the first sample, and the upper bound is one alignment multiple past the
+// last sample. The lower bound is inclusive, while the upper bound is exclusive.
 func (s Series) AlignmentBounds() AlignmentBounds {
 	return AlignmentBounds{
 		Lower: s.Alignment,
 		Upper: NewAlignment(
 			s.Alignment.DomainIndex(),
-			s.Alignment.SampleIndex()+uint32(s.Len()),
+			s.Alignment.SampleIndex()+uint32(s.Len())*s.Multiple(),
 		),
 	}
 }
@@ -342,10 +335,11 @@ func truncateAndFormatSlice[T any](slice []T) string {
 // DeepCopy creates a deep copy of the series, including all of its data.
 func (s Series) DeepCopy() Series {
 	return Series{
-		TimeRange: s.TimeRange,
-		Alignment: s.Alignment,
-		DataType:  s.DataType,
-		Data:      slices.Clone(s.Data),
+		TimeRange:         s.TimeRange,
+		Alignment:         s.Alignment,
+		AlignmentMultiple: s.AlignmentMultiple,
+		DataType:          s.DataType,
+		Data:              slices.Clone(s.Data),
 	}
 }
 
@@ -354,6 +348,7 @@ func (s Series) DeepCopy() Series {
 func (s *Series) CopyFrom(src Series) {
 	s.TimeRange = src.TimeRange
 	s.Alignment = src.Alignment
+	s.AlignmentMultiple = src.AlignmentMultiple
 	s.DataType = src.DataType
 	s.Data = append(s.Data[:0], src.Data...)
 }
@@ -449,20 +444,6 @@ func NewMultiSeries(series []Series) MultiSeries {
 	return MultiSeries{Series: series}
 }
 
-// AtAlignment returns the value at the given alignment in the MultiSeries.
-func (ms MultiSeries) AtAlignment[T FixedSample](alignment Alignment) T {
-	for _, s := range ms.Series {
-		if s.AlignmentBounds().Contains(alignment) {
-			return s.ValueAt[T](int(alignment - s.Alignment))
-		}
-	}
-	panic(fmt.Sprintf(
-		"alignment %v out of bounds for multi series with alignment bounds %v",
-		alignment,
-		ms.AlignmentBounds(),
-	))
-}
-
 // NewMultiSeriesV constructs a new MultiSeries from the given set of variadic Series.
 // The series are sorted by their alignment, and the data type of the series must be the
 // same. If the data types are different, a panic will occur.
@@ -507,28 +488,6 @@ func (m MultiSeries) Append(series Series) MultiSeries {
 	}
 	m.Series = append(m.Series, series)
 	return m
-}
-
-// FilterGreaterThanOrEqualTo returns a new MultiSeries with all series that have an
-// upper alignment bound greater than the given alignment. This is useful for filtering
-// out series that are not relevant to the given alignment.
-func (m MultiSeries) FilterGreaterThanOrEqualTo(a Alignment) MultiSeries {
-	if len(m.Series) == 0 {
-		return m
-	}
-	// Hot path optimization that does a quick check that the alignment of all series is
-	// above the filter threshold, so we don't need to re-allocate a new slice.
-	if m.Series[0].AlignmentBounds().Upper > a {
-		return m
-	}
-	if m.Series[len(m.Series)-1].AlignmentBounds().Upper < a {
-		return MultiSeries{}
-	}
-	return MultiSeries{
-		Series: lo.Filter(m.Series, func(s Series, _ int) bool {
-			return s.AlignmentBounds().Upper > a
-		}),
-	}
 }
 
 // Len returns the aggregate length of all series in the MultiSeries.

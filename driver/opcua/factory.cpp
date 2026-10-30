@@ -26,12 +26,12 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_read(
     common::ConfigureResult result;
     auto [cfg, err] = ReadTaskConfig::parse(ctx->client, task);
     if (err) return {std::move(result), err};
+    result.auto_start = cfg.auto_start;
     std::unique_ptr<common::Source> s;
     if (cfg.array_mode)
-        s = std::make_unique<ArrayReadTaskSource>(pool, std::move(cfg));
+        s = std::make_unique<ArrayReadTaskSource>(ctx->client, pool, std::move(cfg));
     else
-        s = std::make_unique<UnaryReadTaskSource>(pool, std::move(cfg));
-    result.auto_start = cfg.auto_start;
+        s = std::make_unique<UnaryReadTaskSource>(ctx->client, pool, std::move(cfg));
     result.task = std::make_unique<common::ReadTask>(
         task,
         ctx,
@@ -54,7 +54,7 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_write(
         task,
         ctx,
         x::breaker::default_config(task.name),
-        std::make_unique<WriteTaskSink>(pool, std::move(cfg))
+        std::make_unique<WriteTaskSink>(ctx->client, pool, std::move(cfg))
     );
     return {std::move(result), x::errors::NIL};
 }
@@ -62,14 +62,15 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_write(
 std::pair<common::ConfigureResult, x::errors::Error> configure_scan(
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task,
-    const std::shared_ptr<connection::Pool> &pool
+    const std::shared_ptr<connection::Pool> &pool,
+    const std::shared_ptr<certificate::Store> &store
 ) {
     common::ConfigureResult result;
     auto parser = x::json::Parser(task.config);
     auto cfg = ScanTaskConfig(parser);
     if (parser.error()) return {std::move(result), parser.error()};
     result.task = std::make_unique<common::ScanTask>(
-        std::make_unique<Scanner>(ctx, task, pool),
+        std::make_unique<Scanner>(ctx, task, pool, store),
         ctx,
         task,
         x::breaker::default_config(task.name),
@@ -84,10 +85,10 @@ std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
     const synnax::task::Task &task,
     const std::string &cmd_key
 ) {
-    if (task.type.find(INTEGRATION_NAME) != 0) return {nullptr, false};
+    if (!task.type.starts_with(INTEGRATION_NAME)) return {nullptr, false};
     std::pair<common::ConfigureResult, x::errors::Error> res;
     if (task.type == SCAN_TASK_TYPE)
-        res = configure_scan(ctx, task, conn_pool_);
+        res = configure_scan(ctx, task, conn_pool_, store_);
     else if (task.type == READ_TASK_TYPE)
         res = configure_read(ctx, task, conn_pool_);
     else if (task.type == WRITE_TASK_TYPE)

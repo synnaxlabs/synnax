@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { array, type compare, type record, shallow, state } from "@synnaxlabs/x";
-import { useCallback, useMemo, useSyncExternalStore } from "react";
+import { array, compare, deep, type record, shallow, state } from "@synnaxlabs/x";
+import { useRef, useSyncExternalStore } from "react";
 import { type z } from "zod";
 
 import { type ContextValue, useContext } from "@/form/Context";
@@ -66,23 +66,14 @@ export const useField = (<I, O = I>(
   const ctx = useContext(opts?.ctx, `useField(${path})`);
   const { get, bind, set, setStatus } = ctx;
 
-  const handleChange = useCallback(
-    (value: O) => {
-      onChange?.(value, { ...ctx, path });
-      set(path, value);
-    },
-    [path, set, onChange],
-  );
+  const handleChange = (value: O) => {
+    onChange?.(value, { ...ctx, path });
+    set(path, value);
+  };
 
-  const handleSetStatus = useCallback(
-    (status: Status.Crude) => setStatus(path, status),
-    [path, setStatus],
-  );
+  const handleSetStatus = (status: Status.Crude) => setStatus(path, status);
   // The form state lives in memory, so a server render reads it like the client does.
-  const getSnapshot = useCallback(
-    () => get<I>(path, { optional }),
-    [path, get, optional],
-  );
+  const getSnapshot = () => get<I>(path, { optional });
   const state = useSyncExternalStore(bind, getSnapshot, getSnapshot);
   if (state == null) {
     if (!optional) throw new Error(`Field state is null: ${path}`);
@@ -120,7 +111,7 @@ export const useFieldState = (<I, O = I, Z extends z.ZodType = z.ZodType>(
   opts?: GetOptions & ContextOptions<Z>,
 ): FieldState<O> | null => {
   const { get, bind } = useContext(opts?.ctx);
-  const getSnapshot = useCallback(() => get<O>(path, opts), [path, get, opts]);
+  const getSnapshot = () => get<O>(path, opts);
   return useSyncExternalStore(bind, getSnapshot, getSnapshot);
 }) as UseFieldState;
 
@@ -133,6 +124,27 @@ export const useFieldValue = (<I, O = I, Z extends z.ZodType = z.ZodType>(
 /** @returns whether the field at the path passed its last validation. */
 export const useFieldValid = (path: string): boolean =>
   useFieldState(path, { optional: true })?.status?.variant === "success";
+
+/**
+ * Reads the statuses other than success at and under a path, each keyed by its path.
+ * Re-renders the caller only when one of them changes.
+ */
+export const useStatuses = <Z extends z.ZodType = z.ZodType>(
+  path: string,
+  opts?: ContextOptions<Z>,
+): Status.Crude[] => {
+  const { bind, getStatuses } = useContext(opts?.ctx);
+  const cached = useRef<Status.Crude[]>([]);
+  const getSnapshot = () => {
+    const next = getStatuses().filter(
+      ({ key }) => key != null && deep.pathsMatch(key, path),
+    );
+    if (compare.arraysEqual(next, cached.current)) return cached.current;
+    cached.current = next;
+    return next;
+  };
+  return useSyncExternalStore(bind, getSnapshot, getSnapshot);
+};
 
 /** Edits for a form field holding an array of keyed entries. */
 export interface FieldListUtils<K extends record.Key, E extends record.Keyed<K>> {
@@ -215,8 +227,5 @@ export const useFieldList = <
 ): UseFieldListReturn<K, E> => {
   const ctx = useContext(opts?.ctx);
   const value = useFieldValue<E[]>(path, opts);
-  return useMemo(
-    () => ({ data: value.map(({ key }) => key), ...fieldListUtils<K, E>(ctx, path) }),
-    [value, ctx, path],
-  );
+  return { data: value.map(({ key }) => key), ...fieldListUtils<K, E>(ctx, path) };
 };

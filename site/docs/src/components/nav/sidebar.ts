@@ -11,8 +11,9 @@ import { normalizeRoute } from "@/util/route";
 
 const TREE = ".reference-tree";
 const ITEM = '[role="treeitem"]';
-const SELECTED_CLASS = "pluto--selected";
-const CARET = ".pluto-tree__expansion-indicator";
+const SELECTED_CLASS = "lyra--selected";
+const CARET = ".lyra-tree__expansion-indicator";
+const SCROLL_KEY = "page-nav-scroll";
 
 const level = (item: Element): number => Number(item.getAttribute("aria-level"));
 
@@ -34,8 +35,8 @@ const layout = (items: HTMLElement[]): void => {
 const setExpanded = (item: Element, open: boolean): void => {
   item.setAttribute("aria-expanded", String(open));
   const caret = item.querySelector(CARET);
-  caret?.classList.toggle("pluto--location-bottom", open);
-  caret?.classList.toggle("pluto--location-right", !open);
+  caret?.classList.toggle("lyra--location-bottom", open);
+  caret?.classList.toggle("lyra--location-right", !open);
 };
 
 const select = (tree: Element, path: string): void => {
@@ -59,11 +60,45 @@ const select = (tree: Element, path: string): void => {
   layout(items);
 };
 
+// Centers the selected item when it lies outside the part of the tree in view.
+const reveal = (tree: Element): void => {
+  const item = tree.querySelector(`.${SELECTED_CLASS}`);
+  if (item == null) return;
+  const view = tree.getBoundingClientRect();
+  const box = item.getBoundingClientRect();
+  if (box.top >= view.top && box.bottom <= view.bottom) return;
+  tree.scrollTop += box.top - view.top - (view.height - box.height) / 2;
+};
+
+// Keeps the scroll of the page nav across full page loads in one tab.
+const persistScroll = (tree: Element): void => {
+  let saved: string | null;
+  try {
+    saved = sessionStorage.getItem(SCROLL_KEY);
+  } catch {
+    // Blocked storage only costs the page nav its scroll on the next page.
+    return;
+  }
+  if (saved != null) tree.scrollTop = parseFloat(saved);
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  tree.addEventListener("scroll", () => {
+    if (timer != null) clearTimeout(timer);
+    timer = setTimeout(
+      () => sessionStorage.setItem(SCROLL_KEY, String(tree.scrollTop)),
+      100,
+    );
+  });
+};
+
 /**
- * Starts the reference tree: carets expand and collapse nodes, and the current page
- * stays selected across page swaps. Call it once; the tree persists across swaps.
+ * Starts the reference trees: carets expand and collapse nodes, the current page stays
+ * selected across page swaps, and a current page out of view scrolls to the center of
+ * its tree. Call it once; the trees persist across swaps.
  */
 export const start = (): void => {
+  const pageNav = document.querySelector(`.page-nav ${TREE}`);
+  if (pageNav != null) persistScroll(pageNav);
+  for (const tree of document.querySelectorAll(TREE)) reveal(tree);
   document.addEventListener("click", (e) => {
     if (!(e.target instanceof Element)) return;
     const item = e.target.closest<HTMLElement>(`${TREE} ${ITEM}[aria-expanded]`);
@@ -76,7 +111,9 @@ export const start = (): void => {
     layout([...tree.querySelectorAll<HTMLElement>(ITEM)]);
   });
   document.addEventListener("astro:after-swap", () => {
-    for (const tree of document.querySelectorAll(TREE))
+    for (const tree of document.querySelectorAll(TREE)) {
       select(tree, window.location.pathname);
+      reveal(tree);
+    }
   });
 };

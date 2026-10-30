@@ -16,21 +16,20 @@ import (
 	"io"
 
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
-	"go.uber.org/zap"
 )
 
 // ServiceConfig is the configuration for creating a device service.
@@ -52,10 +51,6 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Status *status.Service
-	// Search is the search index for fuzzy searching devices.
-	//
-	// [REQUIRED]
-	Search *search.Index
 	// Signals is used to propagate device changes through the Synnax signals' channel
 	// communication mechanism.
 	//
@@ -79,7 +74,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Status = override.Nil(c.Status, other.Status)
-	c.Search = override.Nil(c.Search, other.Search)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Rack = override.Nil(c.Rack, other.Rack)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
@@ -95,7 +89,6 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("status", c.Status)
 	v.NotNil("group", c.Group)
 	v.NotNil("rack", c.Rack)
-	v.NotNil("search", c.Search)
 	return v.Error()
 }
 
@@ -103,10 +96,11 @@ func (c ServiceConfig) Validate() error {
 // mechanisms for creating, retrieving, updating, and deleting devices. It also
 // provides mechanisms for listening to changes in devices.
 type Service struct {
-	cfg    ServiceConfig
-	closer xio.MultiCloser
-	table  *gorp.Table[Key, Device]
-	group  group.Group
+	cfg     ServiceConfig
+	closer  xio.MultiCloser
+	table   *gorp.Table[Key, Device]
+	indexes indexes
+	group   group.Group
 }
 
 // OpenService opens a new device service using the provided configuration. If error
@@ -117,11 +111,12 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{cfg: cfg}
+	s = &Service{cfg: cfg, indexes: newIndexes()}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Device]{
-		DB: cfg.DB,
+		DB:      cfg.DB,
+		Indexes: s.indexes.all(),
 		Migrations: versions.NewMigrations(
 			versions.MigrationsConfig{Status: cfg.Status},
 		),
@@ -140,7 +135,6 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		return nil, err
 	}
 	cfg.Ontology.RegisterService(s)
-	cfg.Search.RegisterService(s)
 	disconnect := cfg.Rack.OnSuspect(s.onSuspectRack)
 	ok(nil, xio.NoFailCloserFunc(disconnect))
 	if cfg.Signals != nil {
@@ -180,18 +174,18 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 // NewRetrieve opens a new Retrieve query to fetch devices from the database.
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		search: s.cfg.Search,
-		baseTX: s.cfg.DB,
-		gorp:   s.table.NewRetrieve(),
+		indexes: s.indexes,
+		baseTX:  s.cfg.DB,
+		gorp:    s.table.NewRetrieve(),
 	}
 }
 
-func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) {
+func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) error {
 	var devices []Device
 	if err := s.NewRetrieve().Where(MatchRacks(rackStat.Details.Rack)).
 		Entries(&devices).
 		Exec(ctx, nil); err != nil {
-		s.cfg.L.Error("failed to retrieve devices on suspect rack", zap.Error(err))
+		return errors.Wrap(err, "failed to retrieve devices on suspect rack")
 	}
 	statuses := make([]Status, len(devices))
 	for i, device := range devices {
@@ -205,9 +199,7 @@ func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) {
 			Details:     StatusDetails{Rack: rackStat.Details.Rack, Device: device.Key},
 		}
 	}
-	if err := s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+	return s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
 		return s.cfg.Status.NewWriter(tx).SetMany(ctx, &statuses)
-	}); err != nil {
-		s.cfg.L.Error("failed to set statuses on suspect rack", zap.Error(err))
-	}
+	})
 }

@@ -16,13 +16,13 @@ const NEW_PANEL = "New panel";
 /** pill returns the panel strip's pill for `name`. */
 const pill = (session: capture.CaptureSession, name: string) =>
   session.page
-    .locator(".console-panel-selector .pluto-tabs__tab")
+    .locator(".console-panel-selector .lyra-tabs__tab")
     .filter({ hasText: name })
     .first();
 
 /** mosaicTabs returns the panel's own tabs; the strip renders tabs too. */
 const mosaicTabs = (session: capture.CaptureSession) =>
-  session.page.locator(".console-mosaic .pluto-tabs__tab");
+  session.page.locator(".console-mosaic .lyra-tabs__tab");
 
 /**
  * renamePanel renames the panel named `from`. Setup only: the pill's Rename
@@ -35,15 +35,13 @@ const renamePanel = async (
 ): Promise<void> => {
   const { page } = session;
   await pill(session, from).click({ button: "right", timeout: 5000 });
-  const menu = page.locator(".pluto-menu-context").first();
+  const menu = page.locator(".lyra-menu-context").first();
   await session.waitFor(menu);
   await menu
     .getByText(/^Rename/)
     .first()
     .click({ timeout: 5000 });
-  const editable = page
-    .locator(".pluto-text--editable[contenteditable='true']")
-    .first();
+  const editable = page.locator(".lyra-text--editable[contenteditable='true']").first();
   await session.waitFor(editable);
   await page.keyboard.type(to);
   await page.keyboard.press("Enter");
@@ -81,7 +79,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await capture.hideBottomToolbar(session);
 
     // A minted panel opens empty, not on the component selector.
-    await page.locator(".console-panel-selector > .pluto-btn").first().click();
+    await page.locator(".console-panel-selector > .lyra-btn").first().click();
     await session.waitFor(page.getByText("No components open").first());
     await renamePanel(session, NEW_PANEL, REVIEW);
     await capture.clickPanelCreate(session);
@@ -114,11 +112,8 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.waitFor(page.locator(".pluto-diagram").first());
     await session.hold(1600);
 
-    await session.rightClick(mosaicTabs(session).first(), { zoom: false });
-    const menu = page.locator(".pluto-menu-context").first();
-    await session.waitFor(menu);
-    await session.hold(300);
-    await session.click(menu.getByText(/^Move to panel/).first(), { zoom: false });
+    await capture.contextMenu(session, mosaicTabs(session).first(), /^Move to panel/);
+    session.endZoom();
     const picker = page.locator(".console-panel-move-picker").first();
     await session.waitFor(picker);
     await session.hold(800);
@@ -142,7 +137,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.waitFor(page.locator(".pluto-line-plot").first());
     // Park off the panel: the tab keeps its close button under the pointer, and
     // anywhere on the plot raises the crosshair and its value readout.
-    await session.moveTo({ x: 900, y: 24 });
+    await session.moveTo(capture.PARK);
     await session.hold(2800);
   } finally {
     await fixture.stop();

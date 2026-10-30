@@ -105,6 +105,25 @@ export const wrapSVGIcon = (
   return O;
 };
 
+/**
+ * @returns props that draw an icon in a user-picked color, with the lightness moved
+ * into a band that keeps 3:1 contrast on the theme's surfaces. The color's alpha is
+ * ignored. Without a color, the icon keeps the color it inherits.
+ *
+ * @example <Glyph {...Icon.tint(panel.color)} />
+ */
+export const tint = (c?: color.Crude): Pick<IconProps, "className" | "style"> => {
+  if (c == null) return {};
+  return {
+    className: CSS.cls(CSS.symbolColored, CSS.BM("symbol-colored", "icon")),
+    // Inline, so the pick outranks the default icon colors that tabs and trees set.
+    style: {
+      [CSS.variable("symbol-color")]: color.rgbString(c),
+      color: "var(--pluto-symbol-display)",
+    },
+  };
+};
+
 const STACK_SCALE = 0.75;
 const STACK_OFFSET = BASE_SIZE * (1 - STACK_SCALE);
 /**

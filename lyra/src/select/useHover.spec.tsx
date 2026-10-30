@@ -95,6 +95,61 @@ describe("Select keyboard hover", () => {
     expect(hover()).toBe("alpha");
   });
 
+  describe("pointer", () => {
+    const move = (key: string, clientX: number): void => {
+      const item = document.getElementById(key);
+      if (item == null) throw new Error(`no item ${key}`);
+      fireEvent.pointerMove(item, { pointerType: "mouse", clientX });
+    };
+
+    // The first move only sets the position that the next move leaves.
+    const point = (key: string): void => {
+      move(key, 1);
+      move(key, 2);
+    };
+
+    it("should move the hover onto the item under the pointer", () => {
+      const { hover } = renderHover(DATA, vi.fn(), { initialHover: 0 });
+      point("bravo");
+      expect(hover()).toBe("bravo");
+    });
+
+    it("should move the arrow keys on from the item under the pointer", () => {
+      const { hover } = renderHover(DATA, vi.fn());
+      point("bravo");
+      keyDown("ArrowDown");
+      expect(hover()).toBe("charlie");
+    });
+
+    it("should select the item under the pointer when the enter key is pressed", () => {
+      const onSelect = vi.fn();
+      renderHover(DATA, onSelect, { initialHover: 0 });
+      point("charlie");
+      keyDown("Enter");
+      expect(onSelect).toHaveBeenCalledWith("charlie");
+    });
+
+    it("should ignore the pointer while the keyboard triggers are off", () => {
+      const { hover } = renderHover(DATA, vi.fn(), { dialog: false });
+      point("bravo");
+      expect(hover()).toBeUndefined();
+    });
+
+    it("should ignore the first move after the list opens", () => {
+      const { hover } = renderHover(DATA, vi.fn(), { initialHover: 0 });
+      move("bravo", 1);
+      expect(hover()).toBe("alpha");
+    });
+
+    it("should ignore a move that leaves the pointer in place", () => {
+      const { hover } = renderHover(DATA, vi.fn());
+      point("alpha");
+      keyDown("ArrowDown");
+      move("charlie", 2);
+      expect(hover()).toBe("bravo");
+    });
+  });
+
   describe("enableTriggers", () => {
     it("should ignore keyboard triggers outside a dialog by default", () => {
       const onSelect = vi.fn();
@@ -222,7 +277,7 @@ describe("Select keyboard hover", () => {
           </Dialog.Frame>
         </Triggers.Provider>,
       );
-      const scroller = c.container.querySelector<HTMLElement>(".pluto-list__scroll");
+      const scroller = c.container.querySelector<HTMLElement>(".lyra-list__scroll");
       if (scroller == null) throw new Error("scroll container not found");
       act(() => {
         scroller.scrollTop = 33;
@@ -258,7 +313,7 @@ describe("Select keyboard hover", () => {
           </Dialog.Frame>
         </Triggers.Provider>,
       );
-      const scroller = c.container.querySelector<HTMLElement>(".pluto-list__scroll");
+      const scroller = c.container.querySelector<HTMLElement>(".lyra-list__scroll");
       if (scroller == null) throw new Error("scroll container not found");
       const calls = onFetchMore.mock.calls.length;
       act(() => {
@@ -298,7 +353,7 @@ describe("Select keyboard hover", () => {
       const onChange = vi.fn();
       const data = Array.from({ length: 300 }, (_, i) => `${i}`);
       const c = renderRows(data, onChange, row, true);
-      const scroller = c.container.querySelector<HTMLElement>(".pluto-list__scroll");
+      const scroller = c.container.querySelector<HTMLElement>(".lyra-list__scroll");
       if (scroller == null) throw new Error("scroll container not found");
       act(() => {
         scroller.scrollTop = 200 * 33;

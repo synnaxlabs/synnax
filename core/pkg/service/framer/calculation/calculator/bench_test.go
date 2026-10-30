@@ -16,14 +16,13 @@ import (
 
 	"github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/calculator"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/search"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/telem"
@@ -32,7 +31,7 @@ import (
 
 type benchEnv struct {
 	ctx           context.Context
-	node          mock.Node
+	node          testutil.Node
 	closer        io.MultiCloser
 	channelSvc    *channel.Service
 	channelWriter channel.Writer
@@ -40,21 +39,15 @@ type benchEnv struct {
 
 func newBenchEnv(b *testing.B) *benchEnv {
 	gomega.RegisterTestingT(b)
-	node := mock.OpenNode(b.Context())
+	node := testutil.OpenNode(b.Context())
 	otg, err := ontology.Open(b.Context(), ontology.Config{DB: node.DB})
 	if err != nil {
 		b.Fatalf("failed to open ontology: %v", err)
 	}
 
-	searchIdx, err := search.OpenIndex()
-	if err != nil {
-		b.Fatalf("failed to open search index: %v", err)
-	}
-
 	groupSvc, err := group.OpenService(b.Context(), group.ServiceConfig{
 		DB:       node.DB,
 		Ontology: otg,
-		Search:   searchIdx,
 	})
 	if err != nil {
 		b.Fatalf("failed to open group service: %v", err)
@@ -64,14 +57,12 @@ func newBenchEnv(b *testing.B) *benchEnv {
 		DB:       node.DB,
 		Ontology: otg,
 		Group:    groupSvc,
-		Search:   searchIdx,
 	}))
 	statusSvc := MustSucceed(status.OpenService(b.Context(), status.ServiceConfig{
 		DB:       node.DB,
 		Ontology: otg,
 		Group:    groupSvc,
 		Label:    labelSvc,
-		Search:   searchIdx,
 	}))
 	channelSvc := MustSucceed(channel.OpenService(b.Context(), channel.ServiceConfig{
 		Channel:      node.Channel,
@@ -79,7 +70,6 @@ func newBenchEnv(b *testing.B) *benchEnv {
 		HostProvider: node.Cluster,
 		Ontology:     otg,
 		Group:        groupSvc,
-		Search:       searchIdx,
 		Status:       statusSvc,
 	}))
 	return &benchEnv{
@@ -88,7 +78,7 @@ func newBenchEnv(b *testing.B) *benchEnv {
 		channelSvc:    channelSvc,
 		channelWriter: channelSvc.NewWriter(nil),
 		closer: io.MultiCloser{
-			node, otg, searchIdx, groupSvc, channelSvc, statusSvc, labelSvc,
+			node, otg, groupSvc, channelSvc, statusSvc, labelSvc,
 		},
 	}
 }
@@ -304,7 +294,7 @@ func BenchmarkCalculator_NestedTwoLevel(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		advanceAlignment(inputFrame)
-		_, _, _ = group.Next(env.ctx, inputFrame)
+		_, _ = group.Next(env.ctx, inputFrame, saveReport)
 	}
 	b.StopTimer()
 	b.ReportMetric(float64(3*b.N)/b.Elapsed().Seconds(), "samples/sec")
@@ -442,7 +432,7 @@ func BenchmarkCalculator_GroupScaling(b *testing.B) {
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				advanceAlignment(inputFrame)
-				_, _, _ = group.Next(env.ctx, inputFrame)
+				_, _ = group.Next(env.ctx, inputFrame, saveReport)
 			}
 			b.StopTimer()
 			b.ReportMetric(float64(3*b.N)/b.Elapsed().Seconds(), "samples/sec")

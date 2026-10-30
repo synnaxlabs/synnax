@@ -11,21 +11,23 @@ import "@/select/Item.css";
 
 import { type record } from "@synnaxlabs/x";
 import {
+  type MouseEvent,
   type ReactNode,
   type RefObject,
   useLayoutEffect,
-  useMemo,
   useRef,
 } from "react";
 import { createPortal } from "react-dom";
 
 import { Button } from "@/button";
 import { CSS } from "@/css";
+import { Input } from "@/input";
 import { List } from "@/list";
 import { CONTEXT_SELECTED, CONTEXT_TARGET } from "@/menu/types";
 import { useItemState, useReselectNoop, useSelectedAmong } from "@/select/Context";
 import { useIsHidden, useRegistryContext } from "@/select/registry";
 import { type ButtonsContextValue, useButtonsContext, useClosed } from "@/select/scope";
+import { hasModifier } from "@/select/use";
 
 /** Props for {@link Item}. */
 export type ItemProps<
@@ -38,22 +40,68 @@ export type ItemProps<
    * children when they are a string.
    */
   textValue?: string;
+  /**
+   * Selects the item only through a leading checkbox or a click with Shift, Control,
+   * or Command, for items that hold their own controls. A plain click calls
+   * `onActivate`. Applies inside an {@link Items} block only.
+   */
+  checkable?: boolean;
+  /** The main action of a checkable item, such as opening it, on a plain click. */
+  onActivate?: () => void;
 };
 
-const BlockItem = <K extends record.Key, E extends Button.ElementType>(
-  props: List.ItemProps<K, E>,
-): ReactNode => {
-  const { selected, hovered, onSelect, sole } = useItemState(props.itemKey);
+interface BlockItemProps<
+  K extends record.Key,
+  E extends Button.ElementType,
+> extends Pick<ItemProps<K, E>, "checkable" | "onActivate"> {
+  item: List.ItemProps<K, E>;
+}
+
+const BlockItem = <K extends record.Key, E extends Button.ElementType>({
+  item,
+  checkable = false,
+  onActivate,
+}: BlockItemProps<K, E>): ReactNode => {
+  const { selected, hovered, onSelect, onHover, sole } = useItemState(item.itemKey);
   const reselectNoop = useReselectNoop();
+  if (!checkable)
+    return (
+      <List.Item<K, E>
+        role="option"
+        selected={selected}
+        hovered={hovered}
+        onHover={onHover}
+        onSelect={onSelect}
+        preventClick={reselectNoop && sole ? true : undefined}
+        {...item}
+      />
+    );
+  const handleSelect = (_: K, e: MouseEvent<HTMLElement>): void => {
+    if (hasModifier(e)) onSelect();
+    else onActivate?.();
+  };
   return (
     <List.Item<K, E>
       role="option"
       selected={selected}
       hovered={hovered}
-      onSelect={onSelect}
-      preventClick={reselectNoop && sole ? true : undefined}
-      {...props}
-    />
+      onHover={onHover}
+      {...item}
+      className={CSS.cls(CSS.BEM("select", "item", "checkable"), item.className)}
+      onSelect={handleSelect}
+    >
+      <Input.Checkbox
+        value={selected}
+        onChange={onSelect}
+        size="medium"
+        variant="text"
+        reveal={!selected}
+        disabled={item.disabled}
+        preview={item.preview}
+        aria-label="Select"
+      />
+      {item.children}
+    </List.Item>
   );
 };
 
@@ -86,7 +134,7 @@ const ButtonItem = <K extends record.Key>({
   return (
     <Button.Toggle
       preview={preview}
-      variant={variant}
+      variant={variant === "card" ? "outlined" : variant}
       {...rest}
       ref={ref}
       id={itemKey.toString()}
@@ -108,7 +156,7 @@ const ClosedFixedItem = <K extends record.Key>({
   itemKey,
   children,
 }: Pick<ItemProps<K>, "itemKey" | "children">): ReactNode => {
-  const keys = useMemo(() => [itemKey], [itemKey]);
+  const keys = [itemKey];
   const selected = useSelectedAmong(keys) != null;
   const registry = useRegistryContext("Select.Item");
   if (!selected) return null;
@@ -119,7 +167,7 @@ const OpenFixedItem = <K extends record.Key, E extends Button.ElementType>(
   props: List.ItemProps<K, E>,
 ): ReactNode => {
   const { itemKey, children } = props;
-  const { selected, hovered, onSelect, sole } = useItemState(itemKey);
+  const { selected, hovered, onSelect, onHover, sole } = useItemState(itemKey);
   const reselectNoop = useReselectNoop();
   const registry = useRegistryContext("Select.Item");
   const hidden = useIsHidden(itemKey);
@@ -130,6 +178,7 @@ const OpenFixedItem = <K extends record.Key, E extends Button.ElementType>(
         role="option"
         selected={selected}
         hovered={hovered}
+        onHover={onHover}
         onSelect={onSelect}
         preventClick={reselectNoop && sole ? true : undefined}
         hidden={hidden}
@@ -177,8 +226,9 @@ export const Item = <
 ): ReactNode => {
   const inItems = List.useInItems();
   const buttons = useButtonsContext();
-  const { textValue, ...rest } = props;
-  if (inItems) return <BlockItem {...rest} />;
+  const { textValue, checkable, onActivate, ...rest } = props;
+  if (inItems)
+    return <BlockItem item={rest} checkable={checkable} onActivate={onActivate} />;
   if (buttons != null) return <ButtonItem {...rest} buttons={buttons} />;
   return <FixedItem item={rest} text={textValue} />;
 };

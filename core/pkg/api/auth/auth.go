@@ -11,18 +11,21 @@ package auth
 
 import (
 	"context"
-	"uuid"
 
-	"github.com/synnaxlabs/synnax/pkg/api/config"
+	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/cluster"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/version"
-	xconfig "github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 )
 
 type Credentials = auth.Credentials
@@ -40,24 +43,93 @@ type ClusterInfo struct {
 	NodeTime telem.TimeStamp `json:"node_time" msgpack:"node_time"`
 }
 
+// ServiceConfig is the configuration for the auth API service.
+type ServiceConfig struct {
+	// Auth logs subjects in and checks their session tokens.
+	//
+	// [REQUIRED]
+	Auth *auth.Service
+	// Password stores passwords and checks proofs of them.
+	//
+	// [REQUIRED]
+	Password *password.Service
+	// APIKey stores API keys and checks proofs of them.
+	//
+	// [REQUIRED]
+	APIKey *apikey.Service
+	// Ontology resolves the resources that API keys belong to.
+	//
+	// [REQUIRED]
+	Ontology *ontology.Ontology
+	// User stores and retrieves users.
+	//
+	// [REQUIRED]
+	User *user.Service
+	// RBAC enforces access control on every request.
+	//
+	// [REQUIRED]
+	RBAC *rbac.Service
+	// Cluster provides information about the cluster topology.
+	//
+	// [REQUIRED]
+	Cluster cluster.Cluster
+}
+
+var (
+	_ config.Config[ServiceConfig] = ServiceConfig{}
+	// DefaultServiceConfig is the default configuration for the auth API service.
+	DefaultServiceConfig = ServiceConfig{}
+)
+
+// Override implements config.Config.
+func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+	c.Auth = override.Nil(c.Auth, other.Auth)
+	c.Password = override.Nil(c.Password, other.Password)
+	c.APIKey = override.Nil(c.APIKey, other.APIKey)
+	c.Ontology = override.Nil(c.Ontology, other.Ontology)
+	c.User = override.Nil(c.User, other.User)
+	c.RBAC = override.Nil(c.RBAC, other.RBAC)
+	c.Cluster = override.Nil(c.Cluster, other.Cluster)
+	return c
+}
+
+// Validate implements config.Config.
+func (c ServiceConfig) Validate() error {
+	v := validate.New("api.auth")
+	v.NotNil("auth", c.Auth)
+	v.NotNil("password", c.Password)
+	v.NotNil("api_key", c.APIKey)
+	v.NotNil("ontology", c.Ontology)
+	v.NotNil("user", c.User)
+	v.NotNil("rbac", c.RBAC)
+	v.NotNil("cluster", c.Cluster)
+	return v.Error()
+}
+
 // Service is the core authentication service for the Synnax API.
 type Service struct {
 	auth     *auth.Service
 	password *password.Service
+	apiKey   *apikey.Service
+	ontology *ontology.Ontology
 	user     *user.Service
+	access   *rbac.Service
 	cluster  cluster.Cluster
 }
 
-func NewService(cfgs ...config.LayerConfig) (*Service, error) {
-	cfg, err := xconfig.New(config.DefaultLayerConfig, cfgs...)
+func NewService(cfgs ...ServiceConfig) (*Service, error) {
+	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
 	return &Service{
-		auth:     cfg.Service.Auth,
-		password: cfg.Service.Password,
-		user:     cfg.Service.User,
-		cluster:  cfg.Distribution.Cluster,
+		auth:     cfg.Auth,
+		password: cfg.Password,
+		apiKey:   cfg.APIKey,
+		ontology: cfg.Ontology,
+		user:     cfg.User,
+		access:   cfg.RBAC,
+		cluster:  cfg.Cluster,
 	}, nil
 }
 
@@ -73,39 +145,36 @@ type LoginResponse struct {
 type LoginRequest struct{ Credentials }
 
 // Login opens a session for the user with the provided credentials. If successful,
-// returns a response containing the session token along with the user's details.
+// returns a response containing the session token along with the user's details. It
+// is kept for clients built before CreateSession existed.
 func (s *Service) Login(
 	ctx context.Context,
 	req LoginRequest,
 ) (LoginResponse, error) {
-	startTime := telem.Now()
-	session, tk, err := s.auth.Login(ctx, proofOf(req.Credentials))
+	start := telem.Now()
+	res, err := s.CreateSession(
+		ctx,
+		SessionCreateRequest{Proof: proofOf(req.Credentials)},
+	)
 	if err != nil {
 		return LoginResponse{}, err
 	}
-	key, err := uuid.Parse(session.Subject.Key)
-	if err != nil {
-		return LoginResponse{}, err
-	}
-	var u user.User
-	if err := s.user.NewRetrieve().
-		Where(user.MatchKeys(key)).
-		Entry(&u).
-		Exec(ctx, nil); err != nil {
-		return LoginResponse{}, err
-	}
-	endTime := telem.Now()
-	midPoint := startTime + (endTime-startTime)/2
 	return LoginResponse{
-		User:  u,
-		Token: tk,
-		ClusterInfo: ClusterInfo{
-			ClusterKey:  s.cluster.Key().String(),
-			NodeKey:     s.cluster.HostKey(),
-			NodeVersion: version.Get(),
-			NodeTime:    midPoint,
-		},
+		User:        *res.User,
+		Token:       res.Token,
+		ClusterInfo: s.clusterInfo(start),
 	}, nil
+}
+
+// clusterInfo stamps the node time at the midpoint since start.
+func (s *Service) clusterInfo(start telem.TimeStamp) ClusterInfo {
+	end := telem.Now()
+	return ClusterInfo{
+		ClusterKey:  s.cluster.Key().String(),
+		NodeKey:     s.cluster.HostKey(),
+		NodeVersion: version.Get(),
+		NodeTime:    start + (end-start)/2,
+	}
 }
 
 type ChangePasswordRequest struct {
@@ -130,7 +199,7 @@ func (s *Service) ChangePassword(
 	}
 	return struct{}{}, s.auth.NewWriter(tx).RevokeCredential(
 		ctx,
-		[]auth.SessionKey{getSession(ctx)},
+		[]auth.SessionKey{getSession(ctx).Key},
 		identity.Credential,
 	)
 }

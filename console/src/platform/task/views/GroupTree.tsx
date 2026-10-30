@@ -18,7 +18,7 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tree } from "@synnaxlabs/lyra/tree";
 import { id, type record } from "@synnaxlabs/x";
-import { type MouseEvent, type ReactNode, useCallback, useMemo, useState } from "react";
+import { type MouseEvent, type ReactNode, useState } from "react";
 
 import { Button as PlatformButton } from "@/platform/button";
 import { CSS } from "@/platform/css";
@@ -87,26 +87,24 @@ const useIndex = <F extends GroupField>(path: string): Index => {
   // The form writes child paths into the same array, so the array's identity never
   // changes; the field state's does on every write beneath it.
   const state = Form.useFieldState<Group<F>[]>(path);
-  return useMemo(() => {
-    const entries = new Map<string, Entry>();
-    const nodes = state.value.map((g) => {
-      const groupPath = `${path}.${g.key}`;
-      entries.set(g.key, { kind: "group", groupKey: g.key });
-      const children = g.fields
-        .filter((f) => isShown(g, f))
-        .map((f) => {
-          entries.set(f.key, {
-            kind: "field",
-            groupKey: g.key,
-            fieldKey: f.key,
-            path: `${groupPath}.fields.${f.key}`,
-          });
-          return { key: f.key };
+  const entries = new Map<string, Entry>();
+  const nodes = state.value.map((g) => {
+    const groupPath = `${path}.${g.key}`;
+    entries.set(g.key, { kind: "group", groupKey: g.key });
+    const children = g.fields
+      .filter((f) => isShown(g, f))
+      .map((f) => {
+        entries.set(f.key, {
+          kind: "field",
+          groupKey: g.key,
+          fieldKey: f.key,
+          path: `${groupPath}.fields.${f.key}`,
         });
-      return { key: g.key, children };
-    });
-    return { nodes, entries };
-  }, [path, state]);
+        return { key: f.key };
+      });
+    return { key: g.key, children };
+  });
+  return { nodes, entries };
 };
 
 const entryPath = (path: string, entry: Entry): string =>
@@ -118,18 +116,18 @@ interface GroupItemProps extends Tree.ItemRenderProps<string> {
   onAddField: (groupKey: string) => void;
 }
 
-const GroupItem = ({ path, label, onAddField, ...props }: GroupItemProps) => {
-  const { itemKey } = props;
+const GroupItem = (props: GroupItemProps) => {
   const isPreview = useIsPreview();
-  const handleAdd = useCallback(
-    (e: MouseEvent) => {
-      e.stopPropagation();
-      onAddField(itemKey);
-    },
-    [onAddField, itemKey],
-  );
+  // After the hook: the compiler assumes the label call can change the rest object, so
+  // a destructure in the parameters stretches its memo block across the hook.
+  const { path, label, onAddField, ...itemProps } = props;
+  const { itemKey } = itemProps;
+  const handleAdd = (e: MouseEvent) => {
+    e.stopPropagation();
+    onAddField(itemKey);
+  };
   return (
-    <Tree.Item {...props} className={CSS.B("group-item")}>
+    <Tree.Item {...itemProps} className={CSS.B("group-item")}>
       {label({ groupKey: itemKey, path: `${path}.${itemKey}` })}
       {!isPreview && (
         <Button.Button
@@ -160,7 +158,7 @@ const FieldLabel = ({ path, level }: FieldLabelProps) => {
       level={level}
       weight={500}
       color={pointer === "" ? 8 : 10}
-      overflow="ellipsis"
+      overflow="fade"
       className={CSS.B("field-pointer")}
     >
       {pointer === "" ? "New field" : pointer}
@@ -214,17 +212,14 @@ export const GroupTree = <G extends Group<F>, F extends GroupField>({
   const isPreview = useIsPreview();
   const [initialExpanded] = useState(() => nodes.map(({ key }) => key));
   // A fold that hides the selected field moves the selection up to its group.
-  const handleExpand = useCallback(
-    ({ action, clicked }: Tree.HandleExpandProps<string>) => {
-      if (action !== "contract") return;
-      const hidesSelection = selected.some((k) => {
-        const entry = entries.get(k);
-        return entry?.kind === "field" && entry.groupKey === clicked;
-      });
-      if (hidesSelection) setSelected([clicked]);
-    },
-    [selected, entries],
-  );
+  const handleExpand = ({ action, clicked }: Tree.HandleExpandProps<string>) => {
+    if (action !== "contract") return;
+    const hidesSelection = selected.some((k) => {
+      const entry = entries.get(k);
+      return entry?.kind === "field" && entry.groupKey === clicked;
+    });
+    if (hidesSelection) setSelected([clicked]);
+  };
   const treeProps = Tree.use({
     nodes,
     selected,
@@ -235,163 +230,135 @@ export const GroupTree = <G extends Group<F>, F extends GroupField>({
   });
   const { expand, shape } = treeProps;
 
-  const handleSelect = useCallback<
-    Tree.TreeProps<string, record.Keyed<string>>["onSelect"]
-  >(
-    (keys, { clicked }) => {
-      setSelected(keys);
-      if (clicked != null && entries.get(clicked)?.kind === "group") expand(clicked);
-    },
-    [entries, expand],
-  );
+  const handleSelect: Tree.TreeProps<string, record.Keyed<string>>["onSelect"] = (
+    keys,
+    { clicked },
+  ) => {
+    setSelected(keys);
+    if (clicked != null && entries.get(clicked)?.kind === "group") expand(clicked);
+  };
 
-  const handleAddGroup = useCallback(() => {
+  const handleAddGroup = () => {
     const g = { ...createGroup(), key: id.create() } as G;
     const groups = ctx.get<G[]>(path).value;
     ctx.set(path, [...groups, g]);
     setSelected([g.key]);
     expand(g.key);
-  }, [ctx, expand, createGroup, path]);
+  };
 
-  const handleAddField = useCallback(
-    (groupKey: string) => {
-      const g = ctx.get<G>(`${path}.${groupKey}`).value;
-      const shown = g.fields.filter((f) => isShown(g, f));
-      const last = shown.at(-1);
-      const field =
-        last != null ? copyField(last) : ({ ...createField(), key: id.create() } as F);
-      ctx.set(`${path}.${groupKey}.fields`, [...g.fields, field]);
-      setSelected([field.key]);
-      expand(groupKey);
-    },
-    [ctx, expand, createField, path],
-  );
+  const handleAddField = (groupKey: string) => {
+    const g = ctx.get<G>(`${path}.${groupKey}`).value;
+    const shown = g.fields.filter((f) => isShown(g, f));
+    const last = shown.at(-1);
+    const field =
+      last != null ? copyField(last) : ({ ...createField(), key: id.create() } as F);
+    ctx.set(`${path}.${groupKey}.fields`, [...g.fields, field]);
+    setSelected([field.key]);
+    expand(groupKey);
+  };
 
-  const handleRemove = useCallback(
-    (keys: string[]) => {
-      const removed = new Set(keys);
-      const groups = ctx.get<G[]>(path).value;
-      ctx.set(
-        path,
-        groups
-          .filter((g) => !removed.has(g.key))
-          .map((g) => ({ ...g, fields: g.fields.filter((f) => !removed.has(f.key)) })),
-      );
-      // Selection moves to the nearest survivor in the visible list, below first.
-      const visible = shape.keys;
-      const first = visible.findIndex((k) => removed.has(k));
-      const after = visible.slice(first).find((k) => !removed.has(k));
-      const before = visible
-        .slice(0, Math.max(first, 0))
-        .reverse()
-        .find((k) => !removed.has(k));
-      const next = after ?? before;
-      setSelected(next == null ? [] : [next]);
-    },
-    [ctx, shape, path],
-  );
+  const handleRemove = (keys: string[]) => {
+    const removed = new Set(keys);
+    const groups = ctx.get<G[]>(path).value;
+    ctx.set(
+      path,
+      groups
+        .filter((g) => !removed.has(g.key))
+        .map((g) => ({ ...g, fields: g.fields.filter((f) => !removed.has(f.key)) })),
+    );
+    // Selection moves to the nearest survivor in the visible list, below first.
+    const visible = shape.keys;
+    const first = visible.findIndex((k) => removed.has(k));
+    const after = visible.slice(first).find((k) => !removed.has(k));
+    const before = visible
+      .slice(0, Math.max(first, 0))
+      .reverse()
+      .find((k) => !removed.has(k));
+    const next = after ?? before;
+    setSelected(next == null ? [] : [next]);
+  };
 
-  const handleDuplicate = useCallback(
-    (keys: string[]) => {
-      const chosen = new Set(keys);
-      const groups = ctx.get<G[]>(path).value;
-      const next: G[] = [];
-      let first: string | null = null;
-      for (const g of groups) {
-        const fields: F[] = [];
-        for (const f of g.fields) {
-          fields.push(f);
-          if (!chosen.has(f.key)) continue;
-          const copy = copyField(f);
-          first ??= copy.key;
-          fields.push(copy);
-        }
-        next.push({ ...g, fields });
-        if (!chosen.has(g.key)) continue;
-        const copiedKeys = new Map(g.fields.map((f) => [f.key, id.create()]));
-        const copy: G = {
-          ...g,
-          key: id.create(),
-          index: copiedKeys.get(g.index) ?? g.index,
-          fields: g.fields.map((f) => copyField(f, copiedKeys.get(f.key))),
-        };
-        first ??= copy.key;
-        next.push(copy);
-        expand(copy.key);
+  const handleDuplicate = (keys: string[]) => {
+    const chosen = new Set(keys);
+    const groups = ctx.get<G[]>(path).value;
+    const next: G[] = [];
+    let first: string | null = null;
+    for (const g of groups) {
+      const fields: F[] = [];
+      for (const f of g.fields) {
+        fields.push(f);
+        if (!chosen.has(f.key)) continue;
+        const copy = copyField(f);
+        if (first == null) first = copy.key;
+        fields.push(copy);
       }
-      ctx.set(path, next);
-      if (first != null) setSelected([first]);
-    },
-    [ctx, expand, path],
-  );
+      next.push({ ...g, fields });
+      if (!chosen.has(g.key)) continue;
+      const copiedKeys = new Map(g.fields.map((f) => [f.key, id.create()]));
+      const copy: G = {
+        ...g,
+        key: id.create(),
+        index: copiedKeys.get(g.index) ?? g.index,
+        fields: g.fields.map((f) => copyField(f, copiedKeys.get(f.key))),
+      };
+      if (first == null) first = copy.key;
+      next.push(copy);
+      expand(copy.key);
+    }
+    ctx.set(path, next);
+    if (first != null) setSelected([first]);
+  };
 
   // Only fields carry a disabled flag; a group is dropped, never switched off.
-  const handleSetEnabled = useCallback(
-    (keys: string[], enabled: boolean) => {
-      for (const key of keys) {
-        const entry = entries.get(key);
-        if (entry?.kind === "field") ctx.set(`${entry.path}.disabled`, !enabled);
-      }
-    },
-    [ctx, entries],
-  );
+  const handleSetEnabled = (keys: string[], enabled: boolean) => {
+    for (const key of keys) {
+      const entry = entries.get(key);
+      if (entry?.kind === "field") ctx.set(`${entry.path}.disabled`, !enabled);
+    }
+  };
 
   const menuProps = Menu.useContextMenu();
-  const menuRenderProp = useCallback(
-    ({ keys }: Menu.ContextMenuMenuProps) => {
-      const entry = keys.length === 1 ? entries.get(keys[0]) : undefined;
-      const fields = keys
-        .map((key) => entries.get(key))
-        .filter((e) => e?.kind === "field");
-      const disabledOf = (e: Entry) =>
-        ctx.get<boolean>(`${entryPath(path, e)}.disabled`).value;
-      return (
-        <ContextMenu
-          keys={keys}
-          onRemove={handleRemove}
-          onDuplicate={handleDuplicate}
-          onAddField={
-            entry?.kind === "group" ? () => handleAddField(entry.groupKey) : undefined
-          }
-          onEnable={
-            fields.some(disabledOf) ? () => handleSetEnabled(keys, true) : undefined
-          }
-          onDisable={
-            fields.some((e) => !disabledOf(e))
-              ? () => handleSetEnabled(keys, false)
-              : undefined
-          }
-        />
-      );
-    },
-    [
-      ctx,
-      entries,
-      path,
-      handleRemove,
-      handleDuplicate,
-      handleAddField,
-      handleSetEnabled,
-    ],
-  );
+  const menuRenderProp = ({ keys }: Menu.ContextMenuMenuProps) => {
+    const entry = keys.length === 1 ? entries.get(keys[0]) : undefined;
+    const fields = keys
+      .map((key) => entries.get(key))
+      .filter((e) => e?.kind === "field");
+    const disabledOf = (e: Entry) =>
+      ctx.get<boolean>(`${entryPath(path, e)}.disabled`).value;
+    return (
+      <ContextMenu
+        keys={keys}
+        onRemove={handleRemove}
+        onDuplicate={handleDuplicate}
+        onAddField={
+          entry?.kind === "group" ? () => handleAddField(entry.groupKey) : undefined
+        }
+        onEnable={
+          fields.some(disabledOf) ? () => handleSetEnabled(keys, true) : undefined
+        }
+        onDisable={
+          fields.some((e) => !disabledOf(e))
+            ? () => handleSetEnabled(keys, false)
+            : undefined
+        }
+      />
+    );
+  };
 
-  const renderItem = useCallback(
-    ({ key, ...p }: Tree.ItemRenderProps<string>) => {
-      const entry = entries.get(p.itemKey);
-      if (entry?.kind === "field")
-        return <FieldItem key={key} {...p} path={entry.path} />;
-      return (
-        <GroupItem
-          key={key}
-          {...p}
-          path={path}
-          label={groupLabel}
-          onAddField={handleAddField}
-        />
-      );
-    },
-    [entries, handleAddField, groupLabel, path],
-  );
+  const renderItem = ({ key, ...p }: Tree.ItemRenderProps<string>) => {
+    const entry = entries.get(p.itemKey);
+    if (entry?.kind === "field")
+      return <FieldItem key={key} {...p} path={entry.path} />;
+    return (
+      <GroupItem
+        key={key}
+        {...p}
+        path={path}
+        label={groupLabel}
+        onAddField={handleAddField}
+      />
+    );
+  };
 
   const current = selected.length > 0 ? entries.get(selected[0]) : undefined;
 

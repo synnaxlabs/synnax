@@ -12,6 +12,7 @@ package versions
 import (
 	"slices"
 
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
@@ -19,7 +20,6 @@ import (
 	v1 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
-	"github.com/synnaxlabs/x/migrate"
 )
 
 // MigrationsConfig configures the stored-task migration chain.
@@ -34,11 +34,11 @@ type MigrationsConfig struct {
 }
 
 // NewMigrations returns the ordered migration chain for stored tasks.
-func NewMigrations(cfg MigrationsConfig) []migrate.Migration {
+func NewMigrations(cfg MigrationsConfig) []gorp.Migration {
 	return slices.Concat(
-		[]migrate.Migration{v0.NormalizeKeys},
+		[]gorp.Migration{v0.NormalizeKeys},
 		v0.NewMigrations(v0.MigrationConfig{Status: cfg.Status}),
-		[]migrate.Migration{
+		[]gorp.Migration{
 			v1.Migration,
 			v2.Migration,
 			v3.NewMigration(v3.MigrationConfig{

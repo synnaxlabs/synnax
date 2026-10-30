@@ -8,13 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic } from "@synnaxlabs/client";
-import { CSS } from "@synnaxlabs/lyra/css";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Note } from "@synnaxlabs/lyra/note";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type location } from "@synnaxlabs/x";
-import { type ReactElement, useMemo } from "react";
+import { type ReactElement } from "react";
 
+import { CSS } from "@/css";
 import { Custom } from "@/schematic/node/common/custom";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
@@ -44,10 +44,8 @@ export const Static = ({
     spec,
     stateOverrides,
   });
-  const invalid = useMemo(
-    () => spec != null && !Custom.isValidSVG(spec.svg),
-    [spec?.svg],
-  );
+  const svg = spec?.svg;
+  const invalid = svg != null && !Custom.isValidSVG(svg);
   if (missing || invalid)
     return (
       <Note.Note variant="warning" className={className}>

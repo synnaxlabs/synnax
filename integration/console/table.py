@@ -9,14 +9,14 @@
 
 import re
 
-from playwright.sync_api import Locator
+from playwright.sync_api import Locator, expect
 
 import synnax as sy
 from console.layout import LayoutClient
 from console.multiedit import Colors
 from console.page import ConsolePage
 
-DATA_ROW_SELECTOR = ".pluto-table__row:not(.pluto-table__col-resizer)"
+_DATA_ROW_SELECTOR = ".pluto-table__row:not(.pluto-table__col-resizer)"
 
 
 class Table(ConsolePage):
@@ -27,17 +27,21 @@ class Table(ConsolePage):
 
     def __init__(
         self,
+        *,
         layout: LayoutClient,
         client: sy.Synnax,
         page_name: str,
-        *,
         pane_locator: Locator,
     ) -> None:
         """Initialize a Table page wrapper (see ConsolePage.__init__ for details)."""
-        super().__init__(layout, client, page_name, pane_locator=pane_locator)
+        super().__init__(
+            layout=layout, client=client, page_name=page_name, pane_locator=pane_locator
+        )
         self.colors = Colors(self.page)
 
-    def set_cell_channel(self, channel_name: str, row: int = 0, col: int = 0) -> None:
+    def set_cell_channel(
+        self, channel_name: str, *, row: int = 0, col: int = 0
+    ) -> None:
         """Set a cell to display a channel's telemetry value.
 
         Args:
@@ -82,7 +86,7 @@ class Table(ConsolePage):
         text_input = self.page.locator("text=Text").locator("..").locator("input").first
         return text_input.input_value().strip()
 
-    def has_text(self, text: str, row: int = 0, col: int = 0) -> bool:
+    def has_text(self, text: str, *, row: int = 0, col: int = 0) -> bool:
         """Check if a text cell contains the given text.
 
         Args:
@@ -95,7 +99,7 @@ class Table(ConsolePage):
         """
         return self.get_cell_text(row, col) == text
 
-    def has_channel(self, channel_name: str, row: int = 0, col: int = 0) -> bool:
+    def has_channel(self, channel_name: str, *, row: int = 0, col: int = 0) -> bool:
         """Check if a channel is shown in a cell.
 
         Args:
@@ -120,7 +124,7 @@ class Table(ConsolePage):
         button.wait_for(state="visible", timeout=5000)
         button.click()
 
-    def delete_row(self, row: int, col: int = 0) -> None:
+    def delete_row(self, row: int, *, col: int = 0) -> None:
         """Delete a row via context menu on a cell.
 
         Args:
@@ -130,7 +134,7 @@ class Table(ConsolePage):
         cell = self._get_cell(row, col)
         self.ctx_menu.action(cell, f"Delete row {row + 1}")
 
-    def delete_column(self, col: int, row: int = 0) -> None:
+    def delete_column(self, col: int, *, row: int = 0) -> None:
         """Delete a column via context menu on a cell.
 
         Args:
@@ -156,7 +160,7 @@ class Table(ConsolePage):
         self.page.locator(".pluto-redline-form").get_by_text(
             "Add band", exact=True
         ).click()
-        threshold_input = bands.locator(".pluto-list__item input").last
+        threshold_input = bands.locator(".lyra-list__item input").last
         threshold_input.fill(str(threshold))
         threshold_input.press("Enter")
 
@@ -170,7 +174,7 @@ class Table(ConsolePage):
         Returns:
             The threshold of each band as shown in its input
         """
-        inputs = self._open_redline_bands(row, col).locator(".pluto-list__item input")
+        inputs = self._open_redline_bands(row, col).locator(".lyra-list__item input")
         return [inputs.nth(i).input_value() for i in range(inputs.count())]
 
     def _open_redline_bands(self, row: int, col: int) -> Locator:
@@ -201,16 +205,24 @@ class Table(ConsolePage):
         cell_index = row * self.get_column_count() + col
         return cells.nth(cell_index)
 
+    def _get_indicator(self, direction: str, index: int) -> Locator:
+        """Get a locator for the indicator of the row ("y") or column ("x") at index."""
+        return self.page.locator(f'td[id^="resizer-{direction}-"]').nth(index)
+
     def get_row_count(self) -> int:
-        """Get the number of data rows in the table (excludes the column resizer row)."""
-        self.page.locator(DATA_ROW_SELECTOR).first.wait_for(
+        """Get the number of data rows in the table (excludes the column resizer
+        row).
+        """
+        self.page.locator(_DATA_ROW_SELECTOR).first.wait_for(
             state="visible", timeout=5000
         )
-        return self.page.locator(DATA_ROW_SELECTOR).count()
+        return self.page.locator(_DATA_ROW_SELECTOR).count()
 
     def get_column_count(self) -> int:
-        """Get the number of data columns in the table (excludes the row resizer cell)."""
-        data_row = self.page.locator(DATA_ROW_SELECTOR).first
+        """Get the number of data columns in the table (excludes the row resizer
+        cell).
+        """
+        data_row = self.page.locator(_DATA_ROW_SELECTOR).first
         data_row.wait_for(state="visible", timeout=5000)
         return data_row.locator(".pluto-table__cell").count()
 
@@ -228,25 +240,27 @@ class Table(ConsolePage):
 
     def select_row_via_header(self, row: int) -> None:
         """Click the row indicator (left header) to select every cell in the row."""
-        self.page.locator(f'td[id="resizer-y-{row}"]').click()
+        self._get_indicator("y", row).click()
 
     def select_col_via_header(self, col: int) -> None:
-        """Click the column indicator (top header) to select every cell in the column."""
-        self.page.locator(f'td[id="resizer-x-{col}"]').click()
+        """Click the column indicator (top header) to select every cell in the
+        column.
+        """
+        self._get_indicator("x", col).click()
 
-    def add_row_above(self, row: int, col: int = 0) -> None:
+    def add_row_above(self, row: int, *, col: int = 0) -> None:
         """Insert a row above the row containing the cell at (row, col)."""
         self.ctx_menu.action(self._get_cell(row, col), "Add row above")
 
-    def add_row_below(self, row: int, col: int = 0) -> None:
+    def add_row_below(self, row: int, *, col: int = 0) -> None:
         """Insert a row below the row containing the cell at (row, col)."""
         self.ctx_menu.action(self._get_cell(row, col), "Add row below")
 
-    def add_col_left(self, col: int, row: int = 0) -> None:
+    def add_col_left(self, col: int, *, row: int = 0) -> None:
         """Insert a column to the left of the cell at (row, col)."""
         self.ctx_menu.action(self._get_cell(row, col), "Add column left")
 
-    def add_col_right(self, col: int, row: int = 0) -> None:
+    def add_col_right(self, col: int, *, row: int = 0) -> None:
         """Insert a column to the right of the cell at (row, col)."""
         self.ctx_menu.action(self._get_cell(row, col), "Add column right")
 
@@ -288,43 +302,60 @@ class Table(ConsolePage):
         )
         self.ctx_menu.click_option(label)
 
+    def _drag_by(self, handle: Locator, dx: float, dy: float, name: str) -> None:
+        """Press the center of handle, move the pointer by (dx, dy), and release."""
+        box = handle.bounding_box()
+        if box is None:
+            raise ValueError(f"Could not locate {name}")
+        cx = box["x"] + box["width"] / 2
+        cy = box["y"] + box["height"] / 2
+        self.page.mouse.move(cx, cy)
+        self.page.mouse.down()
+        self.page.mouse.move(cx + dx, cy + dy, steps=10)
+        self.page.mouse.up()
+
     def drag_col_resizer(self, col: int, dx: float) -> None:
         """Drag the right edge of a column's resize handle by `dx` pixels.
 
         Positive `dx` widens the column; negative narrows it.
         """
-        handle = self.page.locator(f'td[id="resizer-x-{col}"] button')
-        box = handle.bounding_box()
-        if box is None:
-            raise ValueError(f"Could not locate resize handle for column {col}")
-        cx = box["x"] + box["width"] / 2
-        cy = box["y"] + box["height"] / 2
-        self.page.mouse.move(cx, cy)
-        self.page.mouse.down()
-        self.page.mouse.move(cx + dx, cy, steps=10)
-        self.page.mouse.up()
+        handle = self._get_indicator("x", col).locator("button")
+        self._drag_by(handle, dx, 0, f"resize handle for column {col}")
 
     def drag_row_resizer(self, row: int, dy: float) -> None:
         """Drag the bottom edge of a row's resize handle by `dy` pixels."""
-        handle = self.page.locator(f'td[id="resizer-y-{row}"] button')
-        box = handle.bounding_box()
-        if box is None:
-            raise ValueError(f"Could not locate resize handle for row {row}")
-        cx = box["x"] + box["width"] / 2
-        cy = box["y"] + box["height"] / 2
-        self.page.mouse.move(cx, cy)
-        self.page.mouse.down()
-        self.page.mouse.move(cx, cy + dy, steps=10)
-        self.page.mouse.up()
+        handle = self._get_indicator("y", row).locator("button")
+        self._drag_by(handle, 0, dy, f"resize handle for row {row}")
+
+    def drag_col_label(self, col: int, dx: float) -> None:
+        """Drag a column's indicator label by `dx` pixels to move the column."""
+        label = self._get_indicator("x", col).locator(".pluto-table__label")
+        self._drag_by(label, dx, 0, f"label for column {col}")
+
+    def drag_row_label(self, row: int, dy: float) -> None:
+        """Drag a row's indicator label by `dy` pixels to move the row."""
+        label = self._get_indicator("y", row).locator(".pluto-table__label")
+        self._drag_by(label, 0, dy, f"label for row {row}")
+
+    def get_cell_key(self, row: int, col: int) -> str:
+        """Read the key of the cell at (row, col)."""
+        key = self._get_cell(row, col).get_attribute("id")
+        if key is None:
+            raise ValueError(f"Cell ({row}, {col}) has no key")
+        return key
+
+    def wait_for_cell_key(self, row: int, col: int, *, key: str) -> None:
+        """Wait until the cell with the given key sits at (row, col)."""
+        expect(self._get_cell(row, col)).to_have_attribute("id", key)
 
     def get_column_width(self, col: int) -> float:
         """Read the rendered pixel width of a column."""
-        indicator = self.page.locator(f'td[id="resizer-x-{col}"]')
+        indicator = self._get_indicator("x", col)
         return float(indicator.evaluate("el => el.offsetWidth"))
 
     def get_row_height(self, row: int) -> float:
         """Read the rendered pixel height of a row's indicator."""
-        indicator = self.page.locator(f'td[id="resizer-y-{row}"]')
+        indicator = self._get_indicator("y", row)
         return float(indicator.evaluate("el => el.offsetHeight"))
 
     SIZE_LABELS = ("XL", "L", "M", "S", "XS")
@@ -339,7 +370,7 @@ class Table(ConsolePage):
         """Read the cell type from the toolbar header. "Mixed" when the selected
         cells disagree on type."""
         self.layout.show_visualization_toolbar()
-        identity = self.page.locator(".console-table__variant > .pluto-text")
+        identity = self.page.locator(".console-table__variant > .lyra-text")
         return identity.inner_text().strip()
 
     def set_toolbar_size(self, label: str) -> None:
@@ -364,7 +395,7 @@ class Table(ConsolePage):
         position like "A1"), or 0 when no cell is selected.
         """
         self.layout.show_visualization_toolbar()
-        segments = self.page.locator(".pluto-breadcrumb__segment")
+        segments = self.page.locator(".lyra-breadcrumb__segment")
         if segments.count() < 2:
             return 0
         text = segments.nth(1).inner_text().strip()

@@ -11,7 +11,6 @@ import "@/errors/Fallback.css";
 
 import { Breadcrumb } from "@synnaxlabs/lyra/breadcrumb";
 import { Button } from "@synnaxlabs/lyra/button";
-import { CSS } from "@synnaxlabs/lyra/css";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -19,16 +18,10 @@ import { Logo } from "@synnaxlabs/lyra/logo";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Text } from "@synnaxlabs/lyra/text";
 import { errors, primitive, type record } from "@synnaxlabs/x";
-import {
-  type PropsWithChildren,
-  type ReactElement,
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { type PropsWithChildren, type ReactElement, useEffect, useState } from "react";
 import { z } from "zod";
 
+import { CSS } from "@/css";
 import { type ResolvedStack, resolveStack } from "@/errors/resolveStack";
 
 /** Props for the error fallback component. */
@@ -86,7 +79,7 @@ export const Fallback = ({
   error,
   componentStack,
   resetErrorBoundary,
-  children = <DefaultChild resetErrorBoundary={resetErrorBoundary} />,
+  children,
   extraInfo,
 }: FallbackProps): ReactElement => {
   const [resolved, setResolved] = useState<ResolvedStack | null>(null);
@@ -112,9 +105,9 @@ export const Fallback = ({
   const message =
     error instanceof z.core.$ZodError ? z.prettifyError(error) : error.message;
   const multiline = message.includes("\n");
-  const causes = useMemo(() => causeChain(error), [error]);
+  const causes = causeChain(error);
 
-  const getCopyText = useCallback(() => {
+  const getCopyText = () => {
     const sections: string[] = [];
     sections.push(`Error: ${error.name}`);
     sections.push(`Message: ${error.message}`);
@@ -125,7 +118,7 @@ export const Fallback = ({
     if (extraInfo && Object.keys(extraInfo).length > 0)
       sections.push(`\nAdditional info:\n${JSON.stringify(extraInfo, null, 2)}`);
     return sections.join("\n");
-  }, [error, causes, displayStack, displayComponentStack, extraInfo]);
+  };
 
   return (
     <Flex.Box className={CSS.BE("error-fallback", "container")} y grow center>
@@ -161,6 +154,7 @@ export const Fallback = ({
             <Text.Text
               level="h3"
               status="error"
+              overflow="fade"
               className={CSS.BE("error-fallback", "name")}
             >
               {error.name}
@@ -212,7 +206,13 @@ export const Fallback = ({
             <Button.Copy text={getCopyText} textColor={10}>
               Copy diagnostics
             </Button.Copy>
-            <Flex.Box x>{children}</Flex.Box>
+            <Flex.Box x>
+              {children === undefined ? (
+                <DefaultChild resetErrorBoundary={resetErrorBoundary} />
+              ) : (
+                children
+              )}
+            </Flex.Box>
           </Flex.Box>
         </Flex.Box>
       </Flex.Box>

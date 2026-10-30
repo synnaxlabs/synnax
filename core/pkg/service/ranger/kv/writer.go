@@ -12,21 +12,14 @@ package kv
 import (
 	"context"
 
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
-	"github.com/synnaxlabs/x/gorp"
 )
 
 // Writer is used to create and delete key-value pairs.
 type Writer struct {
 	tx    gorp.Tx
 	table *gorp.Table[string, Pair]
-}
-
-// Set sets a key-value pair on the specified range.
-func (w Writer) Set(ctx context.Context, rng ranger.Key, key, value string) error {
-	return w.table.NewCreate().
-		Entry(&Pair{Range: rng, Key: key, Value: value}).
-		Exec(ctx, w.tx)
 }
 
 // SetMany sets multiple key-value pairs on the specified range.

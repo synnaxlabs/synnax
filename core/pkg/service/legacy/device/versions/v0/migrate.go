@@ -15,10 +15,10 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
+	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/gorp/migrate"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
@@ -34,8 +34,8 @@ type MigrationConfig struct {
 
 // newMigration returns the v0 migration, which backfills an unknown status for every
 // device missing one.
-func newMigration(cfg MigrationConfig) migrate.Migration {
-	return gorp.NewMigration(
+func newMigration(cfg MigrationConfig) gorp.Migration {
+	return migrate.New(
 		"v0.status_backfill",
 		func(ctx context.Context, tx gorp.Tx, ins alamos.Instrumentation) error {
 			reader := gorp.WrapReader[Key, Device](tx)
@@ -103,12 +103,12 @@ func newMigration(cfg MigrationConfig) migrate.Migration {
 }
 
 // codecMigration re-encodes stored devices from MessagePack to Orc.
-var codecMigration = gorp.CodecMigration[Key, Device]("msgpack_to_orc")
+var codecMigration = migrate.Codec[Key, Device]("msgpack_to_orc")
 
 // NewMigrations returns the ordered set of migrations introduced at this version.
-func NewMigrations(cfg MigrationConfig) []migrate.Migration {
-	return []migrate.Migration{newMigration(cfg), codecMigration}
+func NewMigrations(cfg MigrationConfig) []gorp.Migration {
+	return []gorp.Migration{newMigration(cfg), codecMigration}
 }
 
 // NormalizeKeys re-keys Device rows stored under the pre-v0.54 key format.
-var NormalizeKeys = gorp.NormalizeKeysMigration[Key, Device]("Device")
+var NormalizeKeys = migrate.NormalizeKeys[Key, Device]("Device")

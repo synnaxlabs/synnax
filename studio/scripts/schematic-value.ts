@@ -24,17 +24,18 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.waitFor(page.locator(".pluto-diagram").first());
     const value = await capture.place(session, "Value", { x: 515, y: 160 });
     await capture.deselect(session, { x: 100, y: 290 });
-    await session.moveTo({ x: 150, y: 350 });
+    await capture.fitView(session);
+    await session.moveTo({ x: 800, y: 620 });
 
     session.startRecording();
-    await session.hold(500);
+    await session.hold(1800);
 
-    // No zoom anywhere: the symbol must stay in frame so the live value shows
-    // up the moment the channel is bound.
+    // No zoom anywhere: the symbol and the drawer sit far apart, and the symbol must
+    // stay in frame so the live value shows up the moment the channel is bound.
     await session.click(value, { zoom: false });
     await session.hold(800);
 
-    const drawer = page.locator(".console-nav__drawer.pluto--location-bottom").first();
+    const drawer = page.locator(".console-nav__drawer.lyra--location-bottom").first();
     await session.click(drawer.getByText("Telemetry", { exact: true }).first(), {
       text: true,
       zoom: false,
@@ -52,7 +53,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.type(fixture.channels[0]);
     session.setSpeed(1);
     const item = page
-      .locator(".pluto-list__item:not(.pluto-tree__item)")
+      .locator(".lyra-list__item:not(.lyra-tree__item)")
       .filter({ hasText: fixture.channels[0] })
       .first();
     await session.waitFor(item);
@@ -74,11 +75,11 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.press("Enter");
     await session.hold(1000);
 
-    await session.moveTo({ x: 300, y: 620 });
+    await session.moveTo({ x: 800, y: 620 });
     // Live telemetry arrives on wall time, so give the stream real time to
     // push samples before the closing hold.
     await session.settleWall(1500);
-    await session.hold(500);
+    await session.hold(2800);
   } finally {
     await fixture.stop();
   }

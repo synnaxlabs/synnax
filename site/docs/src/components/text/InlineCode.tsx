@@ -9,6 +9,8 @@
 
 import { type ReactElement } from "react";
 
+import { isToken } from "@/util/inlineCode";
+
 export interface Segment {
   text: string;
   code: boolean;
@@ -32,13 +34,23 @@ export const parseSegments = (text?: string): Segment[] =>
 export const codifyHTML = (html?: string): string =>
   String(html ?? "").replace(/`([^`]+)`/g, "<code>$1</code>");
 
-export interface SegmentsProps {
+interface SegmentsProps {
   segments: Segment[];
 }
 
-export const Segments = ({ segments }: SegmentsProps): ReactElement => (
+// Segments render in narrow columns, such as the page outline, so only a single short
+// token stays on one line.
+const Segments = ({ segments }: SegmentsProps): ReactElement => (
   <>
-    {segments.map(({ text, code }, i) => (code ? <code key={i}>{text}</code> : text))}
+    {segments.map(({ text, code }, i) =>
+      code ? (
+        <code key={i} data-short={isToken(text) ? "" : undefined}>
+          {text}
+        </code>
+      ) : (
+        text
+      ),
+    )}
   </>
 );
 

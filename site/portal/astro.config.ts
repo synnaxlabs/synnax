@@ -10,8 +10,9 @@
 import react from "@astrojs/react";
 import vercel from "@astrojs/vercel";
 import clerk from "@clerk/astro";
-import { layers } from "@synnaxlabs/vite-plugin";
+import { layers, lyraLayers } from "@synnaxlabs/vite-plugin";
 import { defineConfig, envField } from "astro/config";
+import path from "path";
 
 const secret = envField.string({ context: "server", access: "secret" });
 
@@ -19,11 +20,15 @@ export default defineConfig({
   integrations: [react(), clerk({ signInUrl: "/login", signUpUrl: "/sign-up" })],
   output: "server",
   adapter: vercel(),
-  // Lyra is ESM with CSS imports, which Node cannot load; Vite bundles it for SSR.
+  // Astro's check refuses the Desktop renewal. src/pipeline.ts checks origins instead.
+  security: { checkOrigin: false },
+  // These ship ESM with CSS imports, which Node cannot load; Vite bundles them for SSR.
   vite: {
-    ssr: { noExternal: ["@synnaxlabs/lyra"] },
+    ssr: { noExternal: ["@synnaxlabs/lyra", "@synnaxlabs/site-common"] },
     css: {
-      postcss: { plugins: [layers([{ name: "pluto", files: /[\\/]lyra[\\/]/ }])] },
+      postcss: {
+        plugins: [layers(lyraLayers(path.resolve(import.meta.dirname, "../..")))],
+      },
     },
   },
   env: {
@@ -53,6 +58,16 @@ export default defineConfig({
         default: "Synnax Labs <licenses@synnaxlabs.com>",
       }),
       CRON_SECRET: secret,
+      POSTHOG_API_KEY: envField.string({
+        context: "server",
+        access: "secret",
+        optional: true,
+      }),
+      SLACK_WEBHOOK_URL: envField.string({
+        context: "server",
+        access: "secret",
+        optional: true,
+      }),
       VERCEL_ENV: envField.enum({
         context: "server",
         access: "secret",

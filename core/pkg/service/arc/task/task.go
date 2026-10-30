@@ -57,7 +57,6 @@ import (
 )
 
 const (
-	streamerAddr        address.Address = "streamer"
 	writerAddr          address.Address = "writer"
 	writerResponsesAddr address.Address = "writer_responses"
 	runtimeAddr         address.Address = "runtime"
@@ -118,10 +117,17 @@ func (t *impl) start(ctx context.Context, cmdKey string) error {
 		}
 	}
 	if err := t.open(ctx); err != nil {
-		t.setStatus(ctx, cmdKey, status.VariantError, false, err.Error())
+		t.setStatus(
+			ctx,
+			cmdKey,
+			status.VariantError,
+			false,
+			"Failed to start task",
+			err.Error(),
+		)
 		return err
 	}
-	t.setStatus(ctx, cmdKey, status.VariantSuccess, true, "Task started successfully")
+	t.setStatus(ctx, cmdKey, status.VariantSuccess, true, "Started task", "")
 	return nil
 }
 
@@ -304,26 +310,52 @@ func (t *impl) open(ctx context.Context) (err error) {
 	pipeline.SetSegment(runtimeAddr, ticker)
 
 	var (
+		streamer            framer.Streamer
 		streamerRequests    = confluence.NewStream[framer.StreamerRequest]()
-		streamerCloseSignal io.Closer
+		streamerResponses   = confluence.NewStream[framer.StreamerResponse](10)
+		streamerCloseSignal = xio.NoFailCloserFunc(streamerResponses.Close)
 	)
+	ticker.InFrom(streamerResponses)
 	if len(deps.Reads) > 0 {
-		var streamer framer.Streamer
 		streamer, err = t.factoryCfg.Framer.NewStreamer(
 			ctx,
-			framer.StreamerConfig{Keys: deps.Reads.Slice()},
+			framer.StreamerConfig{Keys: deps.Reads.Slice(), SendOpenAck: true},
 		)
 		if err != nil {
 			return err
 		}
-		pipeline.SetSegment(streamerAddr, streamer)
-		pipeline.MustConnect[framer.StreamerResponse](streamerAddr, runtimeAddr, 10)
 		streamer.InFrom(streamerRequests)
+		streamer.OutTo(streamerResponses)
 		streamerCloseSignal = xio.NoFailCloserFunc(streamerRequests.Close)
-	} else {
-		streamerResponses := confluence.NewStream[framer.StreamerResponse]()
-		ticker.InFrom(streamerResponses)
-		streamerCloseSignal = xio.NoFailCloserFunc(streamerResponses.Close)
+	}
+
+	sCtx, cancel := signal.Isolated(
+		signal.WithInstrumentation(t.factoryCfg.Instrumentation),
+	)
+	defer func() {
+		if err != nil {
+			err = errors.Join(err, signal.NewHardShutdown(sCtx, cancel).Close())
+		}
+	}()
+	opts := []confluence.Option{
+		confluence.CloseOutputInletsOnExit(),
+		confluence.RecoverWithErrOnPanic(),
+		confluence.CancelOnFail(),
+	}
+	if streamer != nil {
+		// Wait for the open ack so the task reads every input written after start
+		// returns. The runtime flows after this, so it never sees the ack.
+		streamer.Flow(sCtx, opts...)
+		select {
+		case <-ctx.Done():
+		case _, ok := <-streamerResponses.Outlet():
+			if !ok {
+				return errors.New("streamer exited before it opened")
+			}
+		}
+		if err = ctx.Err(); err != nil {
+			return err
+		}
 	}
 
 	if len(deps.Writes) > 0 {
@@ -364,6 +396,7 @@ func (t *impl) open(ctx context.Context) (err error) {
 						driver.NoCommand,
 						status.VariantError,
 						false,
+						"Failed to write channel data",
 						res.Err.Error(),
 					)
 					return res.Err
@@ -381,9 +414,6 @@ func (t *impl) open(ctx context.Context) (err error) {
 		pipeline.SetSink(writerResponsesAddr, writerResponses)
 		pipeline.MustConnect[framer.WriterResponse](writerAddr, writerResponsesAddr, 10)
 	}
-	sCtx, cancel := signal.Isolated(
-		signal.WithInstrumentation(t.factoryCfg.Instrumentation),
-	)
 	t.sCtx = sCtx
 	t.closer = append(
 		closers,
@@ -391,12 +421,7 @@ func (t *impl) open(ctx context.Context) (err error) {
 		streamerCloseSignal,
 	)
 	closers = nil
-	pipeline.Flow(
-		sCtx,
-		confluence.CloseOutputInletsOnExit(),
-		confluence.RecoverWithErrOnPanic(),
-		confluence.CancelOnFail(),
-	)
+	pipeline.Flow(sCtx, opts...)
 	return nil
 }
 
@@ -418,30 +443,37 @@ func (t *impl) stop(ctx context.Context, cmdKey string, sendStatus bool) error {
 	err := t.release()
 	if err != nil {
 		if sendStatus {
-			t.setStatus(ctx, cmdKey, status.VariantError, false, err.Error())
+			t.setStatus(
+				ctx,
+				cmdKey,
+				status.VariantError,
+				false,
+				"Failed to stop task",
+				err.Error(),
+			)
 		}
 		return err
 	}
 	if sendStatus {
-		t.setStatus(
-			ctx,
-			cmdKey,
-			status.VariantSuccess,
-			false,
-			"Task stopped successfully",
-		)
+		t.setStatus(ctx, cmdKey, status.VariantSuccess, false, "Stopped task", "")
 	}
 	return nil
 }
 
 func (t *impl) reporter() taskreporter.Reporter {
-	return func(ctx context.Context, variant status.Variant, message string) {
+	return func(
+		ctx context.Context,
+		variant status.Variant,
+		message string,
+		description string,
+	) {
 		t.setStatus(
 			ctx,
 			driver.NoCommand,
 			variant,
 			t.isRunning(),
-			fmt.Sprintf("[%s] %s", t.task.Name, message),
+			message,
+			description,
 		)
 	}
 }
@@ -452,8 +484,16 @@ func (t *impl) setStatus(
 	variant status.Variant,
 	running bool,
 	message string,
+	description string,
 ) {
-	if err := t.status.Send(ctx, cmdKey, variant, running, message); err != nil {
+	if err := t.status.Send(
+		ctx,
+		cmdKey,
+		variant,
+		running,
+		message,
+		description,
+	); err != nil {
 		t.factoryCfg.L.Error(
 			"failed to set status for Arc task",
 			zap.Stringer("key", t.task.Key),
@@ -470,8 +510,8 @@ func (t *impl) setRuntimeError(ctx context.Context, nodeKey string, err error) {
 	}
 	if setErr := t.status.Warn(
 		ctx,
-		fmt.Sprintf("Runtime error in %s", nodeType),
-		err.Error(),
+		"Node failed",
+		fmt.Sprintf("The %s node failed: %v", nodeType, err),
 	); setErr != nil {
 		t.factoryCfg.L.Error("failed to set error status", zap.Error(setErr))
 	}

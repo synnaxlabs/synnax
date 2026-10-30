@@ -1,0 +1,105 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+/* Registered so that each resolves on the item, not on the marker, which sets its own
+   font. */
+@property --pluto-steps-line {
+    syntax: "<length>";
+    inherits: true;
+    initial-value: 0;
+}
+
+@property --pluto-steps-marker {
+    syntax: "<length>";
+    inherits: true;
+    initial-value: 0;
+}
+
+@property --pluto-steps-digit {
+    syntax: "<length>";
+    inherits: true;
+    initial-value: 0;
+}
+
+.lyra-steps {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+/* Sizes are in em, so the markers keep their proportions at any type scale step. */
+.lyra-steps__item {
+    --pluto-steps-line: 1lh;
+    --pluto-steps-marker: round(max(1.6em, 3rem), 1px);
+    --pluto-steps-digit: max(0.8em, 10px);
+
+    position: relative;
+    margin: 0;
+    padding: 0 0 1.2em calc(var(--pluto-steps-marker) + 0.8em);
+    color: inherit;
+
+    &::before {
+        content: counter(list-item);
+        position: absolute;
+        top: calc((var(--pluto-steps-line) - var(--pluto-steps-marker)) / 2);
+        left: 0;
+        display: grid;
+        place-items: center;
+        box-sizing: border-box;
+        width: var(--pluto-steps-marker);
+        height: var(--pluto-steps-marker);
+        font: 500 var(--pluto-steps-digit) / 1 var(--pluto-code-font-family);
+        font-variant-numeric: tabular-nums;
+        color: var(--pluto-gray-l9);
+        background: var(--pluto-gray-l2);
+        border: var(--pluto-border-width) solid var(--pluto-gray-l3);
+        border-radius: var(--pluto-border-radius-small);
+    }
+
+    /* The line that joins this marker to the next one. */
+    &::after {
+        content: "";
+        position: absolute;
+        top: calc((var(--pluto-steps-line) + var(--pluto-steps-marker)) / 2 + 4px);
+        bottom: 4px;
+        left: calc(var(--pluto-steps-marker) / 2);
+        border-left: var(--pluto-border-width) solid var(--pluto-gray-l3);
+    }
+
+    &:last-child {
+        padding-bottom: 0;
+
+        &::after {
+            display: none;
+        }
+    }
+
+    & > * {
+        margin: 0;
+    }
+
+    /* A step starts with its text, so every block after it sits under that text.
+       Inline content, such as an icon, takes no gap. */
+    & > :is(p, ul, ol, div, pre, figure, table, video, .lyra-btn):not(:first-child) {
+        margin-top: 0.8em;
+    }
+}
+
+/* The items carry the level, since the base styles give every li the p step. */
+.lyra-steps--p > .lyra-steps__item {
+    font-size: var(--pluto-p-size);
+    line-height: var(--pluto-p-line-height);
+}
+
+.lyra-steps--small > .lyra-steps__item {
+    font-size: var(--pluto-small-size);
+    line-height: var(--pluto-small-line-height);
+}

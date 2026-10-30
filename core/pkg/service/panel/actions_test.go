@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
+	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -118,6 +119,36 @@ var _ = Describe("Actions", func() {
 			p := panel.Panel{Name: "Before", Root: leafNode()}
 			next := MustSucceed(panel.RenamePayload{Name: "After"}.Handle(p))
 			Expect(next.Name).To(Equal("After"))
+		})
+	})
+
+	Describe("SetIcon", func() {
+		It("Should set the panel's icon", func() {
+			p := panel.Panel{Root: leafNode()}
+			next := MustSucceed(panel.SetIconPayload{Icon: new("valve")}.Handle(p))
+			Expect(next.Icon).To(HaveValue(Equal("valve")))
+		})
+
+		It("Should reset the icon when the payload holds none", func() {
+			p := panel.Panel{Root: leafNode(), Icon: new("valve")}
+			next := MustSucceed(panel.SetIconPayload{}.Handle(p))
+			Expect(next.Icon).To(BeNil())
+		})
+	})
+
+	Describe("SetColor", func() {
+		It("Should set the color of the panel's icon", func() {
+			p := panel.Panel{Root: leafNode()}
+			c := MustSucceed(color.FromHex("#dc136c"))
+			next := MustSucceed(panel.SetColorPayload{Color: &c}.Handle(p))
+			Expect(next.Color).To(HaveValue(Equal(c)))
+		})
+
+		It("Should reset the color when the payload holds none", func() {
+			c := MustSucceed(color.FromHex("#dc136c"))
+			p := panel.Panel{Root: leafNode(), Color: &c}
+			next := MustSucceed(panel.SetColorPayload{}.Handle(p))
+			Expect(next.Color).To(BeNil())
 		})
 	})
 
