@@ -57,7 +57,7 @@ class IntervalPress(ArcCase):
     sim_daq_class = PressSimDAQ
 
     def setup(self) -> None:
-        create_virtual_channel(self.client, "str_chan", sy.DataType.STRING)
+        create_virtual_channel(self.client, "str_chan", data_type=sy.DataType.STRING)
         super().setup()
 
     def verify_sequence_execution(self) -> None:
@@ -90,5 +90,6 @@ class IntervalPress(ArcCase):
             self.log(f"[Cycle {cycle}] Cycle complete!")
 
         self.log(
-            "All 3 cycles completed - interval-triggered hysteresis control verified successfully"
+            "All 3 cycles completed - interval-triggered hysteresis control verified "
+            "successfully"
         )

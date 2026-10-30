@@ -39,8 +39,8 @@ describe("Description", () => {
         </Description.Item>
       </Description.List>,
     );
-    expect(screen.getByText("Term").classList).toContain("pluto-text--small");
-    expect(screen.getByText("Perpetual").classList).toContain("pluto-text--small");
+    expect(screen.getByText("Term").classList).toContain("lyra-text--small");
+    expect(screen.getByText("Perpetual").classList).toContain("lyra-text--small");
   });
 
   it.each(["start", "between"] as const)(
@@ -55,7 +55,7 @@ describe("Description", () => {
         </Description.List>,
       );
       expect(container.querySelector("dl")?.classList).toContain(
-        `pluto-description--${justify}`,
+        `lyra-description--${justify}`,
       );
     },
   );

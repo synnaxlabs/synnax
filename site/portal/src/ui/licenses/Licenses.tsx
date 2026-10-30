@@ -70,7 +70,7 @@ export const Licenses = ({
           {licenses.map(({ license: lic, seats }) => (
             <Row key={lic.key} columns={COLUMNS} href={`/licenses/${lic.key}`}>
               <Flex.Box y gap="tiny" className="portal-list__stack">
-                <Text.Text level="p" weight={500} overflow="ellipsis">
+                <Text.Text level="p" weight={500} overflow="fade">
                   {lic.label}
                 </Text.Text>
                 <Text.Text level="small" color={9}>
@@ -83,7 +83,7 @@ export const Licenses = ({
               <Text.Text level="p" color={9}>
                 {seats} of {lic.nodes}
               </Text.Text>
-              <Text.Text level="p" color={9} overflow="ellipsis">
+              <Text.Text level="p" color={9} overflow="fade">
                 {term(lic)}
               </Text.Text>
               <Text.Text level="p" color={9}>

@@ -20,8 +20,8 @@ class Client:
         self,
         transport: UnaryClient,
     ):
-        self.policies = policy.Client(transport)
-        self.roles = role.Client(transport)
+        self.policies = policy.Client(client=transport)
+        self.roles = role.Client(client=transport)
 
 
 __all__ = [

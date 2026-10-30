@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
-	"github.com/synnaxlabs/synnax/pkg/service/node"
 	controlpb "github.com/synnaxlabs/x/control/pb"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
@@ -61,70 +60,33 @@ type (
 )
 
 var (
-	_ fgrpc.Translator[framer.WriterRequest, *WriterRequest] = (*frameWriterRequestTranslator)(
+	_ fgrpc.BackwardTranslator[framer.WriterRequest, *WriterRequest] = (*frameWriterRequestTranslator)(
 		nil,
 	)
-	_ fgrpc.Translator[framer.WriterResponse, *WriterResponse] = (*frameWriterResponseTranslator)(
+	_ fgrpc.ForwardTranslator[framer.WriterResponse, *WriterResponse] = (*frameWriterResponseTranslator)(
 		nil,
 	)
-	_ fgrpc.Translator[framer.IteratorRequest, *IteratorRequest] = (*frameIteratorRequestTranslator)(
+	_ fgrpc.BackwardTranslator[framer.IteratorRequest, *IteratorRequest] = (*frameIteratorRequestTranslator)(
 		nil,
 	)
-	_ fgrpc.Translator[framer.IteratorResponse, *IteratorResponse] = (*frameIteratorResponseTranslator)(
+	_ fgrpc.ForwardTranslator[framer.IteratorResponse, *IteratorResponse] = (*frameIteratorResponseTranslator)(
 		nil,
 	)
-	_ fgrpc.Translator[framer.StreamerRequest, *StreamerRequest] = (*frameStreamerRequestTranslator)(
+	_ fgrpc.BackwardTranslator[framer.StreamerRequest, *StreamerRequest] = (*frameStreamerRequestTranslator)(
 		nil,
 	)
-	_ fgrpc.Translator[framer.StreamerResponse, *StreamerResponse] = (*frameStreamerResponseTranslator)(
+	_ fgrpc.ForwardTranslator[framer.StreamerResponse, *StreamerResponse] = (*frameStreamerResponseTranslator)(
 		nil,
 	)
-	_ fgrpc.Translator[framer.DeleteRequest, *DeleteRequest] = (*frameDeleteRequestTranslator)(
+	_ fgrpc.BackwardTranslator[framer.DeleteRequest, *DeleteRequest] = (*frameDeleteRequestTranslator)(
 		nil,
 	)
 )
-
-func (t frameWriterRequestTranslator) Forward(
-	ctx context.Context,
-	msg framer.WriterRequest,
-) (*WriterRequest, error) {
-	subj, err := controlpb.SubjectToPB(msg.Config.ControlSubject)
-	if err != nil {
-		return nil, err
-	}
-	r := &WriterRequest{
-		Command: int32(msg.Command),
-		Config: &WriterConfig{
-			Keys:                     msg.Config.Keys.Uint32(),
-			Start:                    int64(msg.Config.Start),
-			Mode:                     int32(msg.Config.Mode),
-			Authorities:              msg.Config.Authorities,
-			EnableAutoCommit:         msg.Config.EnableAutoCommit,
-			AutoIndexPersistInterval: int64(msg.Config.AutoIndexPersistInterval),
-			ControlSubject:           subj,
-			ErrOnUnauthorized:        msg.Config.ErrOnUnauthorized,
-			AutoIndex:                msg.Config.AutoIndex,
-		},
-	}
-	if t.codec != nil && t.codec.Initialized() && !msg.Frame.Empty() {
-		if r.Buffer, err = t.codec.Encode(ctx, msg.Frame); err != nil {
-			return nil, err
-		}
-		return r, nil
-	}
-	if r.Frame, err = telempb.FrameToPB(msg.Frame.Frame); err != nil {
-		return nil, err
-	}
-	return r, nil
-}
 
 func (t frameWriterRequestTranslator) Backward(
 	ctx context.Context,
 	msg *WriterRequest,
 ) (framer.WriterRequest, error) {
-	if msg == nil {
-		return framer.WriterRequest{}, nil
-	}
 	r := framer.WriterRequest{Command: framer.WriterCommand(msg.Command)}
 	if msg.Config != nil {
 		subj, err := controlpb.SubjectFromPB(msg.Config.ControlSubject)
@@ -145,13 +107,11 @@ func (t frameWriterRequestTranslator) Backward(
 			ErrOnUnauthorized: msg.Config.ErrOnUnauthorized,
 			AutoIndex:         msg.Config.AutoIndex,
 		}
-		if t.codec != nil {
-			if err = t.codec.Update(ctx, keys); err != nil {
-				return framer.WriterRequest{}, err
-			}
+		if err = t.codec.Update(ctx, keys); err != nil {
+			return framer.WriterRequest{}, err
 		}
 	}
-	if t.codec != nil && len(msg.Buffer) > 0 {
+	if len(msg.Buffer) > 0 {
 		fr, err := t.codec.Decode(msg.Buffer)
 		if err != nil {
 			return framer.WriterRequest{}, err
@@ -178,35 +138,6 @@ func (frameWriterResponseTranslator) Forward(
 	}, nil
 }
 
-func (frameWriterResponseTranslator) Backward(
-	_ context.Context,
-	msg *WriterResponse,
-) (framer.WriterResponse, error) {
-	return framer.WriterResponse{
-		Command: framer.WriterCommand(msg.Command),
-		End:     telem.TimeStamp(msg.End),
-		Err:     errors.TranslatePayloadBackward(msg.Error),
-	}, nil
-}
-
-func (frameIteratorRequestTranslator) Forward(
-	_ context.Context,
-	msg framer.IteratorRequest,
-) (*IteratorRequest, error) {
-	tr, err := telempb.TimeRangeToPB(msg.Bounds)
-	if err != nil {
-		return nil, err
-	}
-	return &IteratorRequest{
-		Command:   int32(msg.Command),
-		Span:      int64(msg.Span),
-		Range:     tr,
-		Keys:      msg.Keys.Uint32(),
-		Stamp:     int64(msg.Stamp),
-		ChunkSize: msg.ChunkSize,
-	}, nil
-}
-
 func (t frameIteratorRequestTranslator) Backward(
 	ctx context.Context,
 	msg *IteratorRequest,
@@ -216,7 +147,7 @@ func (t frameIteratorRequestTranslator) Backward(
 		return framer.IteratorRequest{}, err
 	}
 	keys := channel.KeysFromUint32(msg.Keys)
-	if t.codec != nil && len(keys) > 0 {
+	if len(keys) > 0 {
 		if err = t.codec.Update(ctx, keys); err != nil {
 			return framer.IteratorRequest{}, err
 		}
@@ -243,8 +174,7 @@ func (t frameIteratorResponseTranslator) Forward(
 		SeqNum:  int32(msg.SeqNum),
 		Error:   fgrpc.EncodeError(ctx, msg.Error, false),
 	}
-	if t.codec != nil &&
-		t.codec.Initialized() &&
+	if t.codec.Initialized() &&
 		msg.Variant == framer.IteratorResponseVariantData &&
 		!msg.Frame.Empty() {
 		buf, err := t.codec.Encode(ctx, msg.Frame)
@@ -262,49 +192,6 @@ func (t frameIteratorResponseTranslator) Forward(
 	return res, nil
 }
 
-func (t frameIteratorResponseTranslator) Backward(
-	ctx context.Context,
-	msg *IteratorResponse,
-) (framer.IteratorResponse, error) {
-	res := framer.IteratorResponse{
-		Variant: framer.IteratorResponseVariant(msg.Variant),
-		Command: framer.IteratorCommand(msg.Command),
-		NodeKey: node.Key(msg.NodeKey),
-		Ack:     msg.Ack,
-		SeqNum:  int(msg.SeqNum),
-	}
-	if msg.Error != nil {
-		res.Error = fgrpc.DecodeError(ctx, msg.Error)
-	}
-	if t.codec != nil && len(msg.Buffer) > 0 {
-		fr, err := t.codec.Decode(msg.Buffer)
-		if err != nil {
-			return framer.IteratorResponse{}, err
-		}
-		res.Frame = fr
-		return res, nil
-	}
-	frm, err := telempb.FrameFromPB[channel.Key](msg.Frame)
-	if err != nil {
-		return framer.IteratorResponse{}, err
-	}
-	res.Frame = framer.Frame{Frame: frm}
-	return res, nil
-}
-
-func (frameStreamerRequestTranslator) Forward(
-	_ context.Context,
-	msg framer.StreamerRequest,
-) (*StreamerRequest, error) {
-	return &StreamerRequest{
-		Keys:             msg.Keys.Uint32(),
-		DownsampleFactor: msg.DownsampleFactor,
-		ThrottleRateHz:   float64(msg.ThrottleRate),
-		ExcludeGroups:    msg.ExcludeGroups,
-		AckRequested:     msg.AckRequested,
-	}, nil
-}
-
 func (t frameStreamerRequestTranslator) Backward(
 	ctx context.Context,
 	msg *StreamerRequest,
@@ -316,7 +203,7 @@ func (t frameStreamerRequestTranslator) Backward(
 		ExcludeGroups:    msg.ExcludeGroups,
 		AckRequested:     msg.AckRequested,
 	}
-	if t.codec != nil && len(rq.Keys) > 0 {
+	if len(rq.Keys) > 0 {
 		if err := t.codec.Update(ctx, rq.Keys); err != nil {
 			return framer.StreamerRequest{}, err
 		}
@@ -328,7 +215,7 @@ func (t frameStreamerResponseTranslator) Forward(
 	ctx context.Context,
 	msg framer.StreamerResponse,
 ) (*StreamerResponse, error) {
-	if t.codec != nil && t.codec.Initialized() {
+	if t.codec.Initialized() {
 		buf, err := t.codec.Encode(ctx, msg.Frame)
 		if err != nil {
 			return nil, err
@@ -340,35 +227,6 @@ func (t frameStreamerResponseTranslator) Forward(
 		return nil, err
 	}
 	return &StreamerResponse{Frame: frm, Ack: msg.Ack}, nil
-}
-
-func (t frameStreamerResponseTranslator) Backward(
-	_ context.Context,
-	msg *StreamerResponse,
-) (framer.StreamerResponse, error) {
-	if t.codec != nil && len(msg.Buffer) > 0 {
-		fr, err := t.codec.Decode(msg.Buffer)
-		if err != nil {
-			return framer.StreamerResponse{}, err
-		}
-		return framer.StreamerResponse{Frame: fr, Ack: msg.Ack}, nil
-	}
-	tr, err := telempb.FrameFromPB[channel.Key](msg.Frame)
-	if err != nil {
-		return framer.StreamerResponse{}, err
-	}
-	return framer.StreamerResponse{Frame: framer.Frame{Frame: tr}, Ack: msg.Ack}, nil
-}
-
-func (frameDeleteRequestTranslator) Forward(
-	_ context.Context,
-	msg framer.DeleteRequest,
-) (*DeleteRequest, error) {
-	tr, err := telempb.TimeRangeToPB(msg.Bounds)
-	if err != nil {
-		return nil, err
-	}
-	return &DeleteRequest{Keys: msg.Keys.Uint32(), Names: msg.Names, Bounds: tr}, nil
 }
 
 func (frameDeleteRequestTranslator) Backward(
@@ -424,8 +282,8 @@ func New(
 		ws = &writerServer{
 			framerWriterServerCore: &framerWriterServerCore{
 				CreateTranslators: func() (
-					fgrpc.Translator[framer.WriterRequest, *WriterRequest],
-					fgrpc.Translator[framer.WriterResponse, *WriterResponse],
+					fgrpc.BackwardTranslator[framer.WriterRequest, *WriterRequest],
+					fgrpc.ForwardTranslator[framer.WriterResponse, *WriterResponse],
 				) {
 					codec := codec.NewDynamic(channelResolver)
 					return frameWriterRequestTranslator{codec: codec},
@@ -437,8 +295,8 @@ func New(
 		is = &iteratorServer{
 			frameIteratorServerCore: &frameIteratorServerCore{
 				CreateTranslators: func() (
-					fgrpc.Translator[framer.IteratorRequest, *IteratorRequest],
-					fgrpc.Translator[framer.IteratorResponse, *IteratorResponse],
+					fgrpc.BackwardTranslator[framer.IteratorRequest, *IteratorRequest],
+					fgrpc.ForwardTranslator[framer.IteratorResponse, *IteratorResponse],
 				) {
 					codec := codec.NewDynamic(channelResolver)
 					return frameIteratorRequestTranslator{codec: codec},
@@ -450,8 +308,8 @@ func New(
 		ss = &streamerServer{
 			frameStreamerServerCore: &frameStreamerServerCore{
 				CreateTranslators: func() (
-					fgrpc.Translator[framer.StreamerRequest, *StreamerRequest],
-					fgrpc.Translator[framer.StreamerResponse, *StreamerResponse],
+					fgrpc.BackwardTranslator[framer.StreamerRequest, *StreamerRequest],
+					fgrpc.ForwardTranslator[framer.StreamerResponse, *StreamerResponse],
 				) {
 					codec := codec.NewDynamic(channelResolver)
 					return frameStreamerRequestTranslator{codec: codec},

@@ -41,8 +41,8 @@ describe("Access.PermissionsBoundary", () => {
   });
 
   it("should load the permissions again on Retry after a failure", async () => {
-    // The Host role cannot retrieve policies, so the permissions fail to load.
-    const client = await createTestClientWithRole(root, "Host");
+    // The Driver role cannot retrieve policies, so the permissions fail to load.
+    const client = await createTestClientWithRole(root, "Driver");
     await renderBoundary(client, () => {});
     const retry = await screen.findByRole("button", { name: "Retry" });
     expect(screen.queryByText("workspace")).toBeNull();

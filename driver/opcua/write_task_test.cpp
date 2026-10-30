@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <string>
 #include <thread>
 
 #include "gtest/gtest.h"
@@ -29,6 +30,7 @@ protected:
     std::shared_ptr<pipeline::testutil::StreamerFactory> mock_factory;
     std::unique_ptr<testutil::Server> server;
     std::shared_ptr<connection::Pool> conn_pool;
+    connection::Config conn_cfg;
 
     // Command channels for different data types
     synnax::channel::Channel bool_cmd_channel;
@@ -99,7 +101,6 @@ protected:
 
         auto rack = ASSERT_NIL_P(client->racks.create("cat"));
 
-        connection::Config conn_cfg;
         conn_cfg.endpoint = "opc.tcp://0.0.0.0:4840";
         conn_cfg.security_mode = "None";
         conn_cfg.security_policy = "None";
@@ -111,7 +112,9 @@ protected:
             .make = "ni",
             .model = "PXI-6255",
             .name = "my_device",
-            .properties = x::json::json::object({{"connection", conn_cfg.to_json()}}),
+            .properties = x::json::json::object(
+                {{"connection", testutil::connection_json(conn_cfg)}}
+            ),
         };
         ASSERT_NIL(client->devices.create(dev));
 
@@ -268,14 +271,14 @@ protected:
             reads
         );
 
-        conn_pool = std::make_shared<connection::Pool>();
+        conn_pool = std::make_shared<connection::Pool>(testutil::create_store());
 
         server = std::make_unique<testutil::Server>(server_cfg);
         server->start();
 
         // Wait for server to be ready by attempting to connect
         auto test_client = ASSERT_EVENTUALLY_NIL_P_WITH_TIMEOUT(
-            connection::connect(conn_cfg, "test"),
+            connection::connect(conn_cfg, {}, "test"),
             (5 * x::telem::SECOND).chrono(),
             (250 * x::telem::MILLISECOND).chrono()
         );
@@ -287,9 +290,64 @@ protected:
             task,
             ctx,
             x::breaker::default_config(task.name),
-            std::make_unique<WriteTaskSink>(conn_pool, std::move(*cfg)),
+            std::make_unique<WriteTaskSink>(ctx->client, conn_pool, std::move(*cfg)),
             nullptr,
             mock_factory
+        );
+    }
+
+    static constexpr std::uint16_t SECURED_PORT = 4862;
+    inline static const std::string SECURED_DEVICE_KEY = "secured_write_device";
+    synnax::channel::Channel secured_cmd_channel;
+
+    /// @brief creates a command channel, and a device for the secured server that
+    /// presents server_cert.
+    void create_secured_device(const certificate::Certificate &server_cert) {
+        this->secured_cmd_channel = ASSERT_NIL_P(ctx->client->channels.create(
+            make_unique_channel_name("secured_cmd"),
+            x::telem::UINT32_T,
+            true
+        ));
+        const auto rack = ASSERT_NIL_P(ctx->client->racks.create("secured_write_rack"));
+        connection::Config secured_cfg;
+        secured_cfg.endpoint = "opc.tcp://localhost:" + std::to_string(SECURED_PORT);
+        secured_cfg.security_mode = "SignAndEncrypt";
+        secured_cfg.security_policy = "Basic256Sha256";
+        secured_cfg.server_certificate = server_cert;
+        synnax::device::Device dev{
+            .key = SECURED_DEVICE_KEY,
+            .rack = rack.key,
+            .location = secured_cfg.endpoint,
+            .make = "opc",
+            .model = "OPC UA Server",
+            .name = "Secured Write Device",
+            .properties = x::json::json::object(
+                {{"connection", testutil::connection_json(secured_cfg)}}
+            ),
+        };
+        ASSERT_NIL(ctx->client->devices.create(dev));
+    }
+
+    /// @brief creates a sink that writes the secured command channel to node_id.
+    [[nodiscard]] std::unique_ptr<WriteTaskSink>
+    create_secured_sink(const std::string &node_id) const {
+        x::json::json task_cfg = {
+            {"data_saving_disabled", false},
+            {"device", SECURED_DEVICE_KEY},
+            {"channels",
+             x::json::json::array(
+                 {{{"node_id", node_id},
+                   {"cmd_channel", this->secured_cmd_channel.key},
+                   {"disabled", false}}}
+             )}
+        };
+        auto p = x::json::Parser(task_cfg);
+        auto write_cfg = WriteTaskConfig(ctx->client, p);
+        EXPECT_FALSE(p.error()) << p.error().message();
+        return std::make_unique<WriteTaskSink>(
+            ctx->client,
+            conn_pool,
+            std::move(write_cfg)
         );
     }
 };
@@ -320,9 +378,6 @@ TEST_F(TestWriteTask, testBasicWriteTask) {
 }
 
 TEST_F(TestWriteTask, testWriteValuesArePersisted) {
-    // Save connection config before moving cfg
-    auto conn_cfg = cfg->connection;
-
     auto wt = create_task();
     wt->start("start_cmd");
     x::defer::defer stop_task([&wt]() { wt->stop("defer_stop", true); });
@@ -336,7 +391,7 @@ TEST_F(TestWriteTask, testWriteValuesArePersisted) {
 
     // Connect and read back the values to verify they were written
     auto client = ASSERT_NIL_P(
-        connection::connect(conn_cfg, "[test.write_verification] ")
+        connection::connect(conn_cfg, {}, "[test.write_verification] ")
     );
 
     // Verify boolean value (should be 1)
@@ -361,9 +416,11 @@ TEST_F(TestWriteTask, testWriteValuesArePersisted) {
 /// @brief when a frame contains multiple samples for a channel, only the last
 /// sample should be written to hardware.
 TEST_F(TestWriteTask, testLastWriteWins) {
-    auto conn_cfg = cfg->connection;
-
-    auto sink = std::make_unique<WriteTaskSink>(conn_pool, std::move(*cfg));
+    auto sink = std::make_unique<WriteTaskSink>(
+        ctx->client,
+        conn_pool,
+        std::move(*cfg)
+    );
     ASSERT_NIL(sink->start());
 
     auto fr = ::x::telem::Frame(1);
@@ -376,7 +433,7 @@ TEST_F(TestWriteTask, testLastWriteWins) {
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
     auto client = ASSERT_NIL_P(
-        connection::connect(conn_cfg, "[test.last_write_wins] ")
+        connection::connect(conn_cfg, {}, "[test.last_write_wins] ")
     );
     const auto result = ASSERT_NIL_P(
         testutil::simple_read(client, "NS=1;S=TestUInt32")
@@ -387,10 +444,11 @@ TEST_F(TestWriteTask, testLastWriteWins) {
 }
 
 TEST_F(TestWriteTask, testReconnectAfterServerRestart) {
-    // Save connection config before moving cfg
-    auto conn_cfg = cfg->connection;
-
-    auto sink = std::make_unique<WriteTaskSink>(conn_pool, std::move(*cfg));
+    auto sink = std::make_unique<WriteTaskSink>(
+        ctx->client,
+        conn_pool,
+        std::move(*cfg)
+    );
     ASSERT_NIL(sink->start());
 
     // First write should succeed
@@ -416,7 +474,7 @@ TEST_F(TestWriteTask, testReconnectAfterServerRestart) {
     // Restart the server and wait for it to be ready
     server->start();
     auto test_client = ASSERT_EVENTUALLY_NIL_P_WITH_TIMEOUT(
-        connection::connect(conn_cfg, "test"),
+        connection::connect(conn_cfg, {}, "test"),
         (5 * x::telem::SECOND).chrono(),
         (250 * x::telem::MILLISECOND).chrono()
     );
@@ -431,7 +489,7 @@ TEST_F(TestWriteTask, testReconnectAfterServerRestart) {
     ASSERT_NIL(sink->write(fr3));
 
     // Verify the third value was written
-    auto client = ASSERT_NIL_P(connection::connect(conn_cfg, "[test.reconnect] "));
+    auto client = ASSERT_NIL_P(connection::connect(conn_cfg, {}, "[test.reconnect] "));
     const auto result = ASSERT_NIL_P(
         testutil::simple_read(client, "NS=1;S=TestUInt32")
     );
@@ -440,11 +498,49 @@ TEST_F(TestWriteTask, testReconnectAfterServerRestart) {
     ASSERT_NIL(sink->stop());
 }
 
-TEST_F(TestWriteTask, testMultipleSequentialWrites) {
-    // Save connection config before moving cfg
-    auto conn_cfg = cfg->connection;
+/// @brief it should retrieve the device again when its connection breaks, so a changed
+/// endpoint takes effect without configuring the task again.
+TEST_F(TestWriteTask, testReconnectUsesUpdatedDevice) {
+    auto sink = std::make_unique<WriteTaskSink>(
+        ctx->client,
+        conn_pool,
+        std::move(*cfg)
+    );
+    ASSERT_NIL(sink->start());
+    auto moved_server_cfg = testutil::ServerConfig::create_default();
+    moved_server_cfg.port = 4858;
+    testutil::Server moved_server(moved_server_cfg);
+    moved_server.start();
+    ASSERT_TRUE(moved_server.wait_until_ready());
+    auto moved_cfg = conn_cfg;
+    moved_cfg.endpoint = "opc.tcp://localhost:4858";
+    auto dev = ASSERT_NIL_P(ctx->client->devices.retrieve("abc123"));
+    dev.properties["connection"] = testutil::connection_json(moved_cfg);
+    ASSERT_NIL(ctx->client->devices.create(dev));
+    server->stop();
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
-    auto sink = std::make_unique<WriteTaskSink>(conn_pool, std::move(*cfg));
+    auto fr = ::x::telem::Frame(1);
+    fr.emplace(
+        this->uint32_cmd_channel.key,
+        x::telem::Series(static_cast<uint32_t>(22222), x::telem::UINT32_T)
+    );
+    ASSERT_NIL(sink->write(fr));
+
+    auto client = ASSERT_NIL_P(connection::connect(moved_cfg, {}, "[test.moved] "));
+    const auto result = ASSERT_NIL_P(
+        testutil::simple_read(client, "NS=1;S=TestUInt32")
+    );
+    EXPECT_EQ(result.at<uint32_t>(0), 22222);
+    ASSERT_NIL(sink->stop());
+}
+
+TEST_F(TestWriteTask, testMultipleSequentialWrites) {
+    auto sink = std::make_unique<WriteTaskSink>(
+        ctx->client,
+        conn_pool,
+        std::move(*cfg)
+    );
     ASSERT_NIL(sink->start());
 
     // Perform multiple writes with different values
@@ -459,7 +555,9 @@ TEST_F(TestWriteTask, testMultipleSequentialWrites) {
     }
 
     // Verify the final value
-    auto client = ASSERT_NIL_P(connection::connect(conn_cfg, "[test.multi_write] "));
+    auto client = ASSERT_NIL_P(
+        connection::connect(conn_cfg, {}, "[test.multi_write] ")
+    );
     const auto result = ASSERT_NIL_P(
         testutil::simple_read(client, "NS=1;S=TestUInt32")
     );
@@ -479,10 +577,10 @@ TEST_F(TestWriteTask, testInvalidNodeIdErrorContainsChannelInfo) {
 
     auto rack = ASSERT_NIL_P(client->racks.create("invalid_node_test_rack"));
 
-    connection::Config conn_cfg;
-    conn_cfg.endpoint = "opc.tcp://0.0.0.0:4840";
-    conn_cfg.security_mode = "None";
-    conn_cfg.security_policy = "None";
+    connection::Config invalid_conn_cfg;
+    invalid_conn_cfg.endpoint = "opc.tcp://0.0.0.0:4840";
+    invalid_conn_cfg.security_mode = "None";
+    invalid_conn_cfg.security_policy = "None";
 
     synnax::device::Device dev{
         .key = "invalid_node_dev",
@@ -491,7 +589,9 @@ TEST_F(TestWriteTask, testInvalidNodeIdErrorContainsChannelInfo) {
         .make = "ni",
         .model = "PXI-6255",
         .name = "invalid_node_device",
-        .properties = x::json::json::object({{"connection", conn_cfg.to_json()}}),
+        .properties = x::json::json::object(
+            {{"connection", testutil::connection_json(invalid_conn_cfg)}}
+        ),
     };
     ASSERT_NIL(client->devices.create(dev));
 
@@ -511,7 +611,11 @@ TEST_F(TestWriteTask, testInvalidNodeIdErrorContainsChannelInfo) {
     auto invalid_cfg = WriteTaskConfig(client, p);
     ASSERT_FALSE(p.error()) << p.error().message();
 
-    auto sink = std::make_unique<WriteTaskSink>(conn_pool, std::move(invalid_cfg));
+    auto sink = std::make_unique<WriteTaskSink>(
+        client,
+        conn_pool,
+        std::move(invalid_cfg)
+    );
     ASSERT_NIL(sink->start());
 
     // Attempt to write to the invalid node
@@ -530,6 +634,65 @@ TEST_F(TestWriteTask, testInvalidNodeIdErrorContainsChannelInfo) {
     EXPECT_TRUE(err_msg.contains("NS=99;I=99999"))
         << "Error message should contain node ID. Got: " << err_msg;
 
+    ASSERT_NIL(sink->stop());
+}
+
+/// @brief it should keep writing after the Driver certificate changes and the server
+/// trusts only the new certificate.
+TEST_F(TestWriteTask, testWriteUsesNewCertificate) {
+    const auto store = testutil::create_store();
+    conn_pool = std::make_shared<connection::Pool>(store);
+    const auto old = ASSERT_NIL_P(store->current());
+    const auto server_id = ASSERT_NIL_P(testutil::create_server_identity());
+    auto server_cfg = testutil::ServerConfig::create_default();
+    server_cfg.port = SECURED_PORT;
+    server_cfg.identity = server_id;
+    server_cfg.trusted_clients = {old.certificate};
+    auto secured = std::make_unique<testutil::Server>(server_cfg);
+    secured->start();
+    ASSERT_TRUE(secured->wait_until_ready());
+    this->create_secured_device(server_id.certificate);
+    const auto sink = this->create_secured_sink("NS=1;S=TestUInt32");
+    ASSERT_NIL(sink->start());
+    auto fr = x::telem::Frame(1);
+    fr.emplace(
+        this->secured_cmd_channel.key,
+        x::telem::Series(static_cast<uint32_t>(1), x::telem::UINT32_T)
+    );
+    ASSERT_NIL(sink->write(fr));
+    const auto next = ASSERT_NIL_P(store->regenerate());
+    secured->stop();
+    server_cfg.trusted_clients = {next.certificate};
+    secured = std::make_unique<testutil::Server>(server_cfg);
+    secured->start();
+    ASSERT_TRUE(secured->wait_until_ready());
+    ASSERT_NIL(sink->write(fr));
+    ASSERT_NIL(sink->stop());
+}
+
+/// @brief it should not send a write again for a node error after the Driver
+/// certificate changes, since a new connection cannot fix it.
+TEST_F(TestWriteTask, testNodeErrorKeepsConnection) {
+    const auto store = testutil::create_store();
+    conn_pool = std::make_shared<connection::Pool>(store);
+    const auto server_id = ASSERT_NIL_P(testutil::create_server_identity());
+    auto server_cfg = testutil::ServerConfig::create_default();
+    server_cfg.port = SECURED_PORT;
+    server_cfg.identity = server_id;
+    testutil::Server secured(server_cfg);
+    secured.start();
+    ASSERT_TRUE(secured.wait_until_ready());
+    this->create_secured_device(server_id.certificate);
+    const auto sink = this->create_secured_sink("NS=99;I=99999");
+    ASSERT_NIL(sink->start());
+    auto fr = x::telem::Frame(1);
+    fr.emplace(
+        this->secured_cmd_channel.key,
+        x::telem::Series(static_cast<uint32_t>(1), x::telem::UINT32_T)
+    );
+    ASSERT_NIL(store->regenerate().second);
+    ASSERT_MATCHES(sink->write(fr), errors::CRITICAL.sub("BadNodeIdUnknown"));
+    ASSERT_EQ(conn_pool->size(), 1);
     ASSERT_NIL(sink->stop());
 }
 
