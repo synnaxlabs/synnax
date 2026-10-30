@@ -19,7 +19,10 @@ import { CSS } from "@/platform/css";
 export type PortState = "free" | "used" | "conflict";
 
 export interface PortCell {
-  /** Unique in the grid. A free cell carries it in `data-menu-key`. */
+  /**
+   * Unique in the grid. A free cell carries it in `data-menu-key` when the grid has a
+   * menu of its own.
+   */
   key: string;
   /** The port's name for assistive technology, such as "ai3". */
   name: string;
@@ -54,14 +57,18 @@ export interface PortGridProps {
   onClick: (cell: PortCell) => void;
   /**
    * Opens a menu over a free port. A used port leaves the event to the enclosing
-   * channel list, which opens its channel's menu.
+   * channel list, which opens its channel's menu. Without it, a free port is not a
+   * menu target.
    */
   onContextMenu?: (e: MouseEvent) => void;
 }
 
-const cellClass = ({ state, selected = false, paired = false }: PortCell): string =>
+const cellClass = (
+  { state, selected = false, paired = false }: PortCell,
+  target: boolean,
+): string =>
   CSS.cls(
-    Menu.CONTEXT_TARGET,
+    target && Menu.CONTEXT_TARGET,
     CSS.BE("port-grid", "cell"),
     CSS.BEM("port-grid", "cell", state),
     paired && CSS.BEM("port-grid", "cell", "paired"),
@@ -91,25 +98,29 @@ export const PortGrid = ({
         className={CSS.BE("port-grid", "group")}
         style={{ gridTemplateColumns: `repeat(${columns}, var(--console-port-cell))` }}
       >
-        {cells.map((cell) => (
-          <Tooltip.Dialog key={cell.key} location="top">
-            {cell.tooltip}
-            <button
-              type="button"
-              aria-label={cell.name}
-              aria-pressed={cell.selected ?? false}
-              data-menu-key={cell.channel ?? cell.key}
-              className={cellClass(cell)}
-              style={cellStyle(cell)}
-              onClick={() => onClick(cell)}
-              onContextMenu={cell.state === "free" ? onContextMenu : undefined}
-            >
-              {cell.labels.map((l) => (
-                <span key={l}>{l}</span>
-              ))}
-            </button>
-          </Tooltip.Dialog>
-        ))}
+        {cells.map((cell) => {
+          const menuKey =
+            cell.channel ?? (onContextMenu == null ? undefined : cell.key);
+          return (
+            <Tooltip.Dialog key={cell.key} location="top">
+              {cell.tooltip}
+              <button
+                type="button"
+                aria-label={cell.name}
+                aria-pressed={cell.selected ?? false}
+                data-menu-key={menuKey}
+                className={cellClass(cell, menuKey != null)}
+                style={cellStyle(cell)}
+                onClick={() => onClick(cell)}
+                onContextMenu={cell.state === "free" ? onContextMenu : undefined}
+              >
+                {cell.labels.map((l) => (
+                  <span key={l}>{l}</span>
+                ))}
+              </button>
+            </Tooltip.Dialog>
+          );
+        })}
       </div>
     ))}
   </div>

@@ -11,6 +11,7 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Select } from "@synnaxlabs/lyra/select";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import { type ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Task } from "@/platform/task";
@@ -32,6 +33,7 @@ interface HarnessProps {
   onDuplicate?: (channels: Task.Channel[], keys: string[]) => void;
   onTare?: (keys: string[], channels: Task.Channel[]) => void;
   allowTare?: (keys: string[], channels: Task.Channel[]) => boolean;
+  ports?: ReactNode;
 }
 
 const Harness = ({
@@ -40,6 +42,7 @@ const Harness = ({
   onDuplicate,
   onTare,
   allowTare,
+  ports,
 }: HarnessProps) => {
   const { data, remove } = Form.useFieldList<string, Task.Channel>("config.channels");
   return (
@@ -56,6 +59,7 @@ const Harness = ({
       onDuplicate={onDuplicate}
       onTare={onTare}
       allowTare={allowTare}
+      ports={ports}
     />
   );
 };
@@ -65,6 +69,36 @@ const CHANNEL_A: Task.Channel = { key: "a", disabled: false };
 const CHANNEL_B: Task.Channel = { key: "b", disabled: true };
 
 const twoChannels = { config: { channels: [CHANNEL_A, CHANNEL_B] } };
+
+const PORTS: Task.PortGroup[] = [
+  {
+    key: "ports",
+    columns: 2,
+    cells: [
+      {
+        key: "0",
+        name: "ai0",
+        labels: ["0"],
+        row: 1,
+        column: 1,
+        state: "used",
+        channel: "a",
+        tooltip: "ai0: a",
+      },
+      {
+        key: "1",
+        name: "ai1",
+        labels: ["1"],
+        row: 1,
+        column: 2,
+        state: "free",
+        tooltip: "ai1 is free",
+      },
+    ],
+  },
+];
+
+const portGrid = <Task.PortGrid label="Ports" groups={PORTS} onClick={vi.fn()} />;
 
 describe("ChannelList", () => {
   it("should render the empty content when there are no channels", async () => {
@@ -167,6 +201,24 @@ describe("ChannelList", () => {
       expect(screen.queryByText("Disable")).toBeNull();
       expect(screen.queryByText("Enable")).toBeNull();
       expect(screen.getByText("Tare")).toBeTruthy();
+    });
+
+    it("should act on the channel on a used port of the ports view", async () => {
+      const { form } = await renderInTaskForm(<Harness ports={portGrid} />, {
+        values: twoChannels,
+      });
+      fireEvent.contextMenu(await screen.findByRole("button", { name: "ai0" }));
+      fireEvent.click(await screen.findByText("Remove"));
+      await waitFor(() =>
+        expect(form.current?.get("config.channels").value).toEqual([CHANNEL_B]),
+      );
+    });
+
+    it("should offer no channel actions on a free port of a grid with no menu", async () => {
+      await renderInTaskForm(<Harness ports={portGrid} />, { values: twoChannels });
+      fireEvent.contextMenu(await screen.findByRole("button", { name: "ai1" }));
+      await waitFor(() => expect(screen.getByText("Reload Console")).toBeTruthy());
+      expect(screen.queryByText("Remove")).toBeNull();
     });
   });
 });
