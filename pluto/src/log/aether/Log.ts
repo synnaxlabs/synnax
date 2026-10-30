@@ -77,6 +77,8 @@ const SCROLLBAR_WIDTH = 6;
 // height falls below a pixel.
 const SCROLLBAR_MIN_HEIGHT = 32;
 const CANVAS: render.Canvas2DVariant = "lower2d";
+// A paused view this many lines or fewer from the oldest entry reads older entries.
+const LOAD_MARGIN = 200;
 const CONTENT_PADDING = 6;
 
 // Per-theme prefix color muting — multiplied with the base color's HSLA.
@@ -269,17 +271,25 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     const { data, status } = i.telem.value();
     this.entries = data;
     this.setAnchors(this.state.selectionStart, this.state.selectionEnd);
+    this.loadOlderNearTop();
     this.checkEmpty(status);
     i.stopListeningTelem?.();
     i.stopListeningTelem = i.telem.onChange(() => {
       const { data, status } = this.internal.telem.value();
       this.entries = data;
       this.reanchor();
+      this.loadOlderNearTop();
       this.checkEmpty(status);
       if (this.state.visible) this.requestRender();
     });
     if (!this.state.visible && !this.prevState.visible) return;
     this.requestRender();
+  }
+
+  private loadOlderNearTop(): void {
+    if (!this.state.scrolling) return;
+    if (this.scrollState.offset - this.visibleLineCount <= LOAD_MARGIN)
+      this.internal.telem.wrapped.loadOlder?.();
   }
 
   // A loading log is not empty, since its stored entries have not arrived yet.

@@ -652,6 +652,33 @@ describe("log/aether/Log", () => {
     });
   });
 
+  describe("older entries", () => {
+    const pause = (wheelPos: number) => {
+      const entries = Array.from({ length: 1000 }, (_, i) => makeEntry(i));
+      const { source, updateState } = setup(entries);
+      const base = { region: REGION_500, empty: false, visible: true };
+      updateState({ ...base, wheelPos: 0, scrolling: false });
+      updateState({ ...base, wheelPos: 0, scrolling: true });
+      updateState({ ...base, wheelPos, scrolling: true });
+      return source;
+    };
+
+    it("should not read older entries while the view is far from the oldest", () => {
+      expect(pause(0).loadOlderCalls).toBe(0);
+    });
+
+    it("should read older entries when the paused view nears the oldest", () => {
+      expect(pause(20_000).loadOlderCalls).toBeGreaterThan(0);
+    });
+
+    it("should not read older entries while live", () => {
+      const entries = Array.from({ length: 10 }, (_, i) => makeEntry(i));
+      const { source } = setup(entries);
+      source.notify();
+      expect(source.loadOlderCalls).toBe(0);
+    });
+  });
+
   describe("render", () => {
     it("should return undefined for zero-area region", () => {
       const zeroRegion = box.construct({ x: 0, y: 0 }, { width: 0, height: 0 });
