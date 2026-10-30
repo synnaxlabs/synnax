@@ -12,6 +12,7 @@ package channel_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
@@ -295,7 +296,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 			ctx SpecContext,
 		) {
 			idx, _ := createIndexed(ctx, "mi_twin")
-			Expect(retrieveKeys(ctx, channel.NewKey(2, idx.LocalKey))).To(BeEmpty())
+			Expect(retrieveKeys(ctx, distchannel.NewKey(2, idx.LocalKey))).To(BeEmpty())
 		})
 
 		It("Should match nothing when given no keys", func(ctx SpecContext) {

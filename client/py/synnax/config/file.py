@@ -22,6 +22,7 @@ class File:
 
     def __init__(
         self,
+        *,
         config_dir: pathlib.Path,
         file_name: str = "config.json",
     ):

@@ -141,39 +141,6 @@ var _ = Describe("GorpPublisherConfig", func() {
 		})
 	})
 
-	Describe("GorpPublisherConfigPureNumeric", func() {
-		It("Should create a config for numeric keyed entries with numeric set", func() {
-			cfg := signals.GorpPublisherConfigPureNumeric(
-				numTable.Observe(),
-				telem.Uint32T,
-			)
-			Expect(cfg.Observable).ToNot(BeNil())
-			Expect(cfg.DeleteDataType).To(Equal(telem.Uint32T))
-			Expect(cfg.SetDataType).To(Equal(telem.Uint32T))
-			Expect(cfg.MarshalDelete).ToNot(BeNil())
-			Expect(cfg.MarshalSet).ToNot(BeNil())
-		})
-
-		It("Should correctly marshal numeric key for delete", func() {
-			cfg := signals.GorpPublisherConfigPureNumeric(
-				numTable.Observe(),
-				telem.Uint32T,
-			)
-			b := MustSucceed(cfg.MarshalDelete(42))
-			Expect(b).To(HaveLen(4)) // uint32 is 4 bytes
-		})
-
-		It("Should correctly marshal entry key for set", func() {
-			cfg := signals.GorpPublisherConfigPureNumeric(
-				numTable.Observe(),
-				telem.Uint32T,
-			)
-			entry := testNumericEntry{Key: 999, Value: "ignored"}
-			b := MustSucceed(cfg.MarshalSet(entry))
-			Expect(b).To(HaveLen(4)) // uint32 is 4 bytes
-		})
-	})
-
 	Describe("GorpPublisherConfigString", func() {
 		It("Should create a config for string keyed entries", func() {
 			cfg := signals.GorpPublisherConfigString(stringTable.Observe())

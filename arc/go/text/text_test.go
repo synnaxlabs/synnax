@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/arc/analyzer/testutil"
 	"github.com/synnaxlabs/arc/compiler"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
@@ -3332,12 +3333,12 @@ var _ = Describe("Text", func() {
 					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 					_, diags := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
 					Expect(diags.Ok()).To(BeTrue())
-					Expect(diags.Warnings()).To(HaveLen(1))
+					Expect(testutil.Warnings(diags)).To(HaveLen(1))
 					Expect(
-						diags.Warnings()[0].Message,
+						testutil.Warnings(diags)[0].Message,
 					).To(ContainSubstring("deprecated"))
 					Expect(
-						diags.Warnings()[0].Message,
+						testutil.Warnings(diags)[0].Message,
 					).To(ContainSubstring("control.set_authority"))
 				},
 			)
@@ -3364,7 +3365,7 @@ var _ = Describe("Text", func() {
 					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 					_, diags := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
 					Expect(diags.Ok()).To(BeTrue())
-					Expect(diags.Warnings()).To(BeEmpty())
+					Expect(testutil.Warnings(diags)).To(BeEmpty())
 				},
 			)
 
@@ -3387,9 +3388,13 @@ var _ = Describe("Text", func() {
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diags := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
 				Expect(diags.Ok()).To(BeTrue())
-				Expect(diags.Warnings()).To(HaveLen(1))
-				Expect(diags.Warnings()[0].Message).To(ContainSubstring("deprecated"))
-				Expect(diags.Warnings()[0].Message).To(ContainSubstring("math.avg"))
+				Expect(testutil.Warnings(diags)).To(HaveLen(1))
+				Expect(
+					testutil.Warnings(diags)[0].Message,
+				).To(ContainSubstring("deprecated"))
+				Expect(
+					testutil.Warnings(diags)[0].Message,
+				).To(ContainSubstring("math.avg"))
 			})
 
 			It(
@@ -3414,7 +3419,7 @@ sensor -> math.avg() -> output`
 					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 					_, diags := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
 					Expect(diags.Ok()).To(BeTrue())
-					Expect(diags.Warnings()).To(BeEmpty())
+					Expect(testutil.Warnings(diags)).To(BeEmpty())
 				},
 			)
 
@@ -3439,7 +3444,7 @@ sensor -> math.avg() -> output`
 					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 					_, diags := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
 					Expect(diags.Ok()).To(BeTrue())
-					Expect(diags.Warnings()).To(BeEmpty())
+					Expect(testutil.Warnings(diags)).To(BeEmpty())
 				},
 			)
 
@@ -3516,12 +3521,12 @@ sensor -> math.avg() -> output`
 					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 					_, diags := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
 					Expect(diags.Ok()).To(BeTrue())
-					Expect(diags.Warnings()).To(HaveLen(1))
+					Expect(testutil.Warnings(diags)).To(HaveLen(1))
 					Expect(
-						diags.Warnings()[0].Message,
+						testutil.Warnings(diags)[0].Message,
 					).To(ContainSubstring("deprecated"))
 					Expect(
-						diags.Warnings()[0].Message,
+						testutil.Warnings(diags)[0].Message,
 					).To(ContainSubstring("stable.for"))
 				},
 			)
@@ -3548,7 +3553,7 @@ sensor -> stable.for(duration=1s) -> output`
 					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 					_, diags := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
 					Expect(diags.Ok()).To(BeTrue())
-					Expect(diags.Warnings()).To(BeEmpty())
+					Expect(testutil.Warnings(diags)).To(BeEmpty())
 				},
 			)
 
@@ -3623,12 +3628,12 @@ sensor -> stable.for(duration=1s) -> output`
 						NewRoot(nil, statusResolver...),
 					)
 					Expect(diags.Ok()).To(BeTrue())
-					Expect(diags.Warnings()).To(HaveLen(1))
+					Expect(testutil.Warnings(diags)).To(HaveLen(1))
 					Expect(
-						diags.Warnings()[0].Message,
+						testutil.Warnings(diags)[0].Message,
 					).To(ContainSubstring("deprecated"))
 					Expect(
-						diags.Warnings()[0].Message,
+						testutil.Warnings(diags)[0].Message,
 					).To(ContainSubstring("status.set"))
 				},
 			)
@@ -3667,7 +3672,7 @@ sensor -> status.set(status_key="alarm", variant="error", message="Bad")`
 					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 					_, diags := text.Analyze(ctx, parsedText, root)
 					Expect(diags.Ok()).To(BeTrue(), diags.String())
-					Expect(diags.Warnings()).To(BeEmpty())
+					Expect(testutil.Warnings(diags)).To(BeEmpty())
 				},
 			)
 
@@ -3692,12 +3697,12 @@ sensor -> status.set(status_key="alarm", variant="error", message="Bad")`
 					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 					_, diags := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
 					Expect(diags.Ok()).To(BeTrue())
-					Expect(diags.Warnings()).To(HaveLen(1))
+					Expect(testutil.Warnings(diags)).To(HaveLen(1))
 					Expect(
-						diags.Warnings()[0].Message,
+						testutil.Warnings(diags)[0].Message,
 					).To(ContainSubstring("deprecated"))
 					Expect(
-						diags.Warnings()[0].Message,
+						testutil.Warnings(diags)[0].Message,
 					).To(ContainSubstring("math.derivative"))
 				},
 			)
@@ -3717,12 +3722,12 @@ sensor -> status.set(status_key="alarm", variant="error", message="Bad")`
 					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 					_, diags := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
 					Expect(diags.Ok()).To(BeTrue())
-					Expect(diags.Warnings()).To(HaveLen(1))
+					Expect(testutil.Warnings(diags)).To(HaveLen(1))
 					Expect(
-						diags.Warnings()[0].Message,
+						testutil.Warnings(diags)[0].Message,
 					).To(ContainSubstring("deprecated"))
 					Expect(
-						diags.Warnings()[0].Message,
+						testutil.Warnings(diags)[0].Message,
 					).To(ContainSubstring("time.interval"))
 				},
 			)
@@ -3743,7 +3748,7 @@ time.interval(period=100ms) -> output`
 					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 					_, diags := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
 					Expect(diags.Ok()).To(BeTrue())
-					Expect(diags.Warnings()).To(BeEmpty())
+					Expect(testutil.Warnings(diags)).To(BeEmpty())
 				},
 			)
 
@@ -3760,9 +3765,13 @@ time.interval(period=100ms) -> output`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diags := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
 				Expect(diags.Ok()).To(BeTrue())
-				Expect(diags.Warnings()).To(HaveLen(1))
-				Expect(diags.Warnings()[0].Message).To(ContainSubstring("deprecated"))
-				Expect(diags.Warnings()[0].Message).To(ContainSubstring("time.wait"))
+				Expect(testutil.Warnings(diags)).To(HaveLen(1))
+				Expect(
+					testutil.Warnings(diags)[0].Message,
+				).To(ContainSubstring("deprecated"))
+				Expect(
+					testutil.Warnings(diags)[0].Message,
+				).To(ContainSubstring("time.wait"))
 			})
 
 			It(
@@ -3781,7 +3790,7 @@ time.wait(duration=500ms) -> output`
 					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 					_, diags := text.Analyze(ctx, parsedText, NewRoot(nil, resolver...))
 					Expect(diags.Ok()).To(BeTrue())
-					Expect(diags.Warnings()).To(BeEmpty())
+					Expect(testutil.Warnings(diags)).To(BeEmpty())
 				},
 			)
 

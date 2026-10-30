@@ -26,7 +26,7 @@ export const PROJECT = "Synnax";
 export const PARK = { x: 900, y: 24 };
 
 /** MODAL selects an open modal dialog, such as a create form. */
-export const MODAL = ".pluto-dialog__dialog.pluto--modal";
+export const MODAL = ".lyra-dialog__dialog.lyra--modal";
 
 /**
  * login fills the Console login form, passes the projects screen (selecting or
@@ -39,9 +39,9 @@ export const login = async (
 ): Promise<void> => {
   const { page } = session;
   const { username, password } = CREDENTIALS;
-  await session.waitFor(page.locator(".pluto-field__username input"));
-  await page.locator(".pluto-field__username input").first().fill(username);
-  await page.locator(".pluto-field__password input").first().fill(password);
+  await session.waitFor(page.locator(".lyra-field__username input"));
+  await page.locator(".lyra-field__username input").first().fill(username);
+  await page.locator(".lyra-field__password input").first().fill(password);
   await page.getByRole("button", { name: "Log In" }).click();
 
   const palette = page.locator(".console-palette button");
@@ -91,7 +91,7 @@ export const contextMenu = async (
 ): Promise<void> => {
   const { page } = session;
   await session.rightClick(target, { text: true, zoom: false });
-  const menu = page.locator(".pluto-menu-context").first();
+  const menu = page.locator(".lyra-menu-context").first();
   await session.waitFor(menu);
   await session.zoom([target, menu]);
   await session.hold(500);
@@ -109,12 +109,12 @@ export const openToolbar = async (
   const { page } = session;
   const button = page
     .locator("button.console-main-nav__item")
-    .filter({ has: page.locator(`svg.pluto-icon--${resource}`) })
+    .filter({ has: page.locator(`svg.lyra-icon--${resource}`) })
     .first();
   if ((await button.getAttribute("class"))?.includes("selected") ?? false) return;
   await session.click(button);
   await session.waitFor(
-    page.locator(".console-nav__drawer.pluto--visible:not(.pluto--location-bottom)"),
+    page.locator(".console-nav__drawer.lyra--visible:not(.lyra--location-bottom)"),
   );
 };
 
@@ -130,11 +130,11 @@ export const resizeToolbar = async (
 ): Promise<void> => {
   const { page } = session;
   const drawer = page
-    .locator(".console-nav__drawer.pluto--visible:not(.pluto--location-bottom)")
+    .locator(".console-nav__drawer.lyra--visible:not(.lyra--location-bottom)")
     .first();
   await session.waitFor(drawer);
   await drawer.evaluate((el, target) => {
-    const handle = el.querySelector(".pluto-resize__handle");
+    const handle = el.querySelector(".lyra-resize__handle");
     if (handle == null) throw new Error("drawer resize handle not found");
     const rect = handle.getBoundingClientRect();
     const x0 = rect.x + rect.width / 2;
@@ -158,7 +158,7 @@ export const resizeToolbar = async (
 export const hideBottomToolbar = async (session: CaptureSession): Promise<void> => {
   const { page } = session;
   const drawer = page
-    .locator(".console-nav__drawer.pluto--visible.pluto--location-bottom")
+    .locator(".console-nav__drawer.lyra--visible.lyra--location-bottom")
     .first();
   if (!(await drawer.isVisible().catch(() => false))) return;
   await session.click(page.locator(".console-main-nav__item").last(), { zoom: false });
@@ -168,7 +168,7 @@ export const hideBottomToolbar = async (session: CaptureSession): Promise<void> 
 /** closeToolbar closes the open side toolbar by clicking its selected nav icon. */
 export const closeToolbar = async (session: CaptureSession): Promise<void> => {
   const selected = session.page
-    .locator("button.console-main-nav__item.pluto--selected")
+    .locator("button.console-main-nav__item.lyra--selected")
     .first();
   if (!(await selected.isVisible().catch(() => false))) return;
   await session.click(selected);
@@ -193,8 +193,8 @@ export const clickToolbarCreate = async (session: CaptureSession): Promise<void>
 export const clearPanel = async (session: CaptureSession): Promise<void> => {
   const { page } = session;
   // Scoped to the mosaic: the window's panel bar renders tabs of its own.
-  const tab = page.locator(".console-mosaic .pluto-tabs__tab").first();
-  const menu = page.locator(".pluto-menu-context");
+  const tab = page.locator(".console-mosaic .lyra-tabs__tab").first();
+  const menu = page.locator(".lyra-menu-context");
   while (await tab.isVisible().catch(() => false)) {
     // Panel tabs carry no close button; closing runs through the tab menu.
     await tab.click({ button: "right", timeout: 5000 });
@@ -267,7 +267,7 @@ export const searchPalette = async (
   await session.type(query);
   session.setSpeed(1);
   await session.hold(PALETTE_READ_MS);
-  await session.click(dialog.locator(".pluto-list__item").first(), { text: true });
+  await session.click(dialog.locator(".lyra-list__item").first(), { text: true });
 };
 
 /** Holds long enough for a viewer to read the palette. */
@@ -288,7 +288,7 @@ export const openPalette = async (session: CaptureSession): Promise<Locator> => 
   await session.waitFor(input);
   await clearPaletteInput(session, input);
   const dialog = page
-    .locator(".pluto-dialog__dialog:has(.console-palette__input)")
+    .locator(".lyra-dialog__dialog:has(.console-palette__input)")
     .first();
   await session.hold(PALETTE_READ_MS);
   return dialog;
@@ -314,7 +314,7 @@ export const pickChannel = async (
   await session.waitFor(search);
   await search.fill(channel);
   const item = page
-    .locator(".pluto-list__item:not(.pluto-tree__item)")
+    .locator(".lyra-list__item:not(.lyra-tree__item)")
     .filter({ hasText: channel })
     .first();
   await session.waitFor(item);
@@ -337,7 +337,7 @@ export const clickButton = async (
 /** tab returns the mosaic tab with the given title. */
 export const tab = (page: Page, name: string): Locator =>
   page
-    .locator(".pluto-tabs__tab")
+    .locator(".lyra-tabs__tab")
     .filter({ has: page.getByText(name, { exact: true }) })
     .first();
 
@@ -375,7 +375,7 @@ export const commandPalette = async (
   // command first (e.g. "Create calculated channel" above "Create channel"),
   // so Enter on the top result is not safe.
   const item = page
-    .locator(".pluto-list__item")
+    .locator(".lyra-list__item")
     .filter({ has: page.getByText(command, { exact: true }) })
     .first();
   await session.waitFor(item);

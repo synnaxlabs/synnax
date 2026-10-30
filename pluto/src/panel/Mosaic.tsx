@@ -12,7 +12,6 @@ import "@/panel/Mosaic.css";
 import { panel, query } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { type Component } from "@synnaxlabs/lyra/component";
-import { CSS } from "@synnaxlabs/lyra/css";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
@@ -24,6 +23,7 @@ import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { type direction } from "@synnaxlabs/x";
 import { type DragEventHandler, memo, type ReactElement, type ReactNode } from "react";
 
+import { CSS } from "@/css";
 import { Errors } from "@/errors";
 import { Mosaic as Base } from "@/mosaic";
 import { createTabDragPayload, parseTabDragPayload } from "@/panel/haul";
