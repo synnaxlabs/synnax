@@ -50,6 +50,13 @@ describe("log/toolbar/Properties", () => {
     await waitFor(() => expect(showTimestamps().checked).toBe(false));
   });
 
+  it("disables the timestamp precision while timestamps are hidden", async () => {
+    await renderProperties({ timestampsHidden: true });
+    await waitFor(() =>
+      expect((screen.getByRole("textbox") as HTMLInputElement).disabled).toBe(true),
+    );
+  });
+
   it("toggles showChannelNames through the server", async () => {
     const { key, showChannelNames } = await renderProperties({
       channelNamesHidden: false,

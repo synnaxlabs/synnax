@@ -53,7 +53,7 @@ export const Properties = (): ReactElement => {
           onChange={handlePrecisionChange}
           resetValue={0}
           bounds={TIMESTAMP_PRECISION_BOUNDS}
-          disabled={!hasEditPermission}
+          disabled={!hasEditPermission || timestampsHidden}
         />
       </Input.Item>
       <Input.Item label="Show channel names">
