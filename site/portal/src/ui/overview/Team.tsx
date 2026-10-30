@@ -93,7 +93,7 @@ export const Team = ({
           <Table columns={COLUMNS} head={["Label", "Status", "Machines"]}>
             {licenses.slice(0, RECENT).map(({ license: lic, seats: held }) => (
               <Row key={lic.key} columns={COLUMNS} href={`/licenses/${lic.key}`}>
-                <Text.Text level="p" weight={500} overflow="ellipsis">
+                <Text.Text level="p" weight={500} overflow="fade">
                   {lic.label}
                 </Text.Text>
                 <Flex.Box>

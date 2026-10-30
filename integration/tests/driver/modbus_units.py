@@ -105,7 +105,7 @@ class ModbusUnits(SimulatorCase):
         self.log("Testing: Each unit reads its own values")
         expected = self.expected_values((1, 2))
         with self.client.open_streamer(list(expected)) as streamer:
-            assert_streamed_values(self.client, streamer, expected)
+            assert_streamed_values(self.client, streamer, expected=expected)
 
     def test_one_connection(self) -> None:
         """The gateway counts its open connections: the Driver's and this check's."""
@@ -127,7 +127,7 @@ class ModbusUnits(SimulatorCase):
                 self.wait_for_warning(statuses, silent.key, DEMOTED)
                 expected = self.expected_values((1, 2))
                 with self.client.open_streamer(list(expected)) as streamer:
-                    assert_streamed_values(self.client, streamer, expected)
+                    assert_streamed_values(self.client, streamer, expected=expected)
 
     @staticmethod
     def wait_for_warning(
