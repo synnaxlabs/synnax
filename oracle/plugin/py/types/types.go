@@ -148,7 +148,7 @@ func generatePyFile(
 	for _, u := range unions {
 		form := u.Form.(resolution.UnionForm)
 		for _, v := range form.Variants {
-			_, declared := resolver.VariantBases(form, v, table)
+			_, declared := resolver.VariantBases(form, v, "py", table)
 			for _, field := range declared {
 				data.imports.registerFieldName(fieldName(field.Name))
 			}
