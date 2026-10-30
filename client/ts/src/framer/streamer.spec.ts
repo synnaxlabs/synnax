@@ -20,7 +20,7 @@ import {
 import { describe, expect, it, test, vi } from "vitest";
 
 import { type channel } from "@/channel";
-import { ExpiredTokenError } from "@/errors";
+import { AuthError, ExpiredTokenError, SessionEndedError } from "@/errors";
 import { framer } from "@/framer";
 import { AccessDeniedError, MissingLicenseError } from "@/index";
 import {
@@ -1181,6 +1181,39 @@ describe("Streamer", () => {
         ),
       ).rejects.toThrow(AccessDeniedError);
       expect(openerMock).toHaveBeenCalledTimes(1);
+    });
+
+    it("should give up on rejected credentials instead of retrying", async () => {
+      const openerMock = vi.fn();
+      await expect(
+        framer.HardenedStreamer.open(
+          async () => {
+            openerMock();
+            throw new AuthError("invalid credentials");
+          },
+          { channels: [1] },
+          { breaker: { maxRetries: 3, baseInterval: TimeSpan.milliseconds(1) } },
+        ),
+      ).rejects.toThrow(AuthError);
+      expect(openerMock).toHaveBeenCalledTimes(1);
+    });
+
+    it("should keep retrying an ended session", async () => {
+      const openerMock = vi.fn();
+      await expect(
+        framer.HardenedStreamer.open(
+          async () => {
+            openerMock();
+            throw new SessionEndedError("session ended");
+          },
+          { channels: [1] },
+          {
+            breaker: { maxRetries: 2, baseInterval: TimeSpan.milliseconds(1) },
+            onRetry: quiet,
+          },
+        ),
+      ).rejects.toThrow(SessionEndedError);
+      expect(openerMock).toHaveBeenCalledTimes(3);
     });
 
     it("should give up on the first license refusal instead of retrying", async () => {

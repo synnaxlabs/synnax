@@ -23,6 +23,7 @@ class ID(BaseModel):
     def __init__(
         self,
         key: CrudeID | None = None,
+        *,
         type: ResourceType | None = None,
     ):
         if isinstance(key, ID):
