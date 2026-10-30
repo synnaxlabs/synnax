@@ -237,7 +237,7 @@ func (s *Service) CheckHolds(ctx context.Context) error {
 	}
 	live := make(set.Set[SessionKey], len(sessions))
 	for _, e := range sessions {
-		_, current, err := s.check(ctx, e)
+		current, err := s.check(ctx, e)
 		if err != nil {
 			return err
 		}
@@ -269,45 +269,17 @@ func (s *Service) version(
 	return 0, errors.Wrapf(query.ErrNotFound, "credential %s", credential)
 }
 
-// check returns the stored session and true when it holds its credential's current
-// version, or deletes it and returns false. A stale read is checked again, since a
-// password change may renew the session after the caller read it. Versions only grow,
-// so a session read after its credential's version and older than it stays stale.
-func (s *Service) check(ctx context.Context, session Session) (Session, bool, error) {
+// check returns true when the session holds its credential's current version, or
+// deletes it and returns false. A session's version never changes after login.
+func (s *Service) check(ctx context.Context, session Session) (bool, error) {
 	v, err := s.version(ctx, nil, session.Credential)
-	gone := errors.Is(err, query.ErrNotFound)
-	if err != nil && !gone {
-		return Session{}, false, err
+	if err == nil && session.CredentialVersion == v {
+		return true, nil
 	}
-	if !gone && session.CredentialVersion == v {
-		return session, true, nil
+	if err != nil && !errors.Is(err, query.ErrNotFound) {
+		return false, err
 	}
-	var current bool
-	err = s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		if err := s.table.NewRetrieve().
-			Where(gorp.MatchKeys[SessionKey, Session](session.Key)).
-			Entry(&session).
-			Exec(ctx, tx); err != nil {
-			return err
-		}
-		current = !gone && session.CredentialVersion >= v
-		if current {
-			return nil
-		}
-		return s.table.NewDelete().
-			Where(gorp.MatchKeys[SessionKey, Session](session.Key)).
-			Exec(ctx, tx)
-	})
-	if errors.Is(err, query.ErrNotFound) {
-		return Session{}, false, nil
-	}
-	if err != nil {
-		return Session{}, false, err
-	}
-	if !current {
-		s.forget(nil, session.Key)
-	}
-	return session, current, nil
+	return false, s.Logout(ctx, session.Key)
 }
 
 func (s *Service) endHold(key SessionKey) {
@@ -390,22 +362,7 @@ func (s *Service) Login(
 	if err != nil {
 		return Session{}, "", err
 	}
-	session := Session{
-		Key:               uuid.New(),
-		Subject:           identity.Subject,
-		Credential:        identity.Credential,
-		CredentialVersion: identity.Version,
-		LastActive:        s.now(),
-	}
-	token, hash, err := NewToken(tokenPrefix, session.Key)
-	if err != nil {
-		return Session{}, "", err
-	}
-	session.Hash = hash
-	if err = s.table.NewCreate().Entry(&session).Exec(ctx, s.cfg.DB); err != nil {
-		return Session{}, "", err
-	}
-	return session, token, nil
+	return s.NewWriter(nil).open(ctx, identity)
 }
 
 // Authenticate returns the session a token belongs to and counts the request as
@@ -430,7 +387,7 @@ func (s *Service) Authenticate(ctx context.Context, token string) (Session, erro
 	if subtle.ConstantTimeCompare(session.Hash, hash) != 1 {
 		return Session{}, ErrInvalidToken
 	}
-	session, current, err := s.check(ctx, session)
+	current, err := s.check(ctx, session)
 	if err != nil {
 		return Session{}, err
 	}
@@ -569,7 +526,7 @@ func (s *Service) touch(
 	})
 }
 
-// Writer removes credentials and the sessions they opened in one transaction. It makes
+// Writer removes credentials, and ends and opens sessions, in one transaction. It makes
 // no identity check: the caller authorizes the change.
 type Writer struct {
 	svc *Service
@@ -589,48 +546,43 @@ func (w Writer) DeleteFor(ctx context.Context, subjects ...ontology.ID) error {
 		Exec(ctx, w.tx)
 }
 
-// RevokeCredential ends every session the credentials opened, except those in keep.
-// A kept session takes its credential's version in tx, so it outlives a change to the
-// credential.
-func (w Writer) RevokeCredential(
+// RevokeCredential ends every session the credentials opened.
+func (w Writer) RevokeCredential(ctx context.Context, credentials ...uuid.UUID) error {
+	return w.svc.table.NewDelete().
+		Where(MatchCredentials(credentials...)(w.svc.NewRetrieve())).
+		Exec(ctx, w.tx)
+}
+
+// Open opens a session for the subject on the credential at its version in tx, and
+// returns the session and its token, which is shown once. It returns an error wrapping
+// query.ErrNotFound when no authenticator holds the credential.
+func (w Writer) Open(
 	ctx context.Context,
-	keep []SessionKey,
-	credentials ...uuid.UUID,
-) error {
-	kept := set.New(keep...)
-	if err := w.svc.table.NewDelete().
-		Where(And(
-			MatchCredentials(credentials...),
-			Match(func(_ gorp.Context, _ Retrieve, e *Session) (bool, error) {
-				return !kept.Contains(e.Key), nil
-			}),
-		)(w.svc.NewRetrieve())).
-		Exec(ctx, w.tx); err != nil {
-		return err
+	subject ontology.ID,
+	credential uuid.UUID,
+) (Session, string, error) {
+	v, err := w.svc.version(ctx, w.tx, credential)
+	if err != nil {
+		return Session{}, "", err
 	}
-	if len(keep) == 0 {
-		return nil
+	return w.open(ctx, Identity{Subject: subject, Credential: credential, Version: v})
+}
+
+func (w Writer) open(ctx context.Context, identity Identity) (Session, string, error) {
+	session := Session{
+		Key:               uuid.New(),
+		Subject:           identity.Subject,
+		Credential:        identity.Credential,
+		CredentialVersion: identity.Version,
+		LastActive:        w.svc.now(),
 	}
-	var sessions []Session
-	// a kept session may have ended since the caller read it
-	if err := w.svc.NewRetrieve().
-		Where(MatchKeys(keep...)).
-		Entries(&sessions).
-		Exec(ctx, w.tx); errors.Skip(err, query.ErrNotFound) != nil {
-		return err
+	token, hash, err := NewToken(tokenPrefix, session.Key)
+	if err != nil {
+		return Session{}, "", err
 	}
-	revoked := set.New(credentials...)
-	renewed := make([]Session, 0, len(sessions))
-	for _, e := range sessions {
-		if !revoked.Contains(e.Credential) {
-			continue
-		}
-		v, err := w.svc.version(ctx, w.tx, e.Credential)
-		if err != nil {
-			return err
-		}
-		e.CredentialVersion = v
-		renewed = append(renewed, e)
+	session.Hash = hash
+	if err = w.svc.table.NewCreate().Entry(&session).Exec(ctx, w.tx); err != nil {
+		return Session{}, "", err
 	}
-	return w.svc.table.NewCreate().Entries(&renewed).Exec(ctx, w.tx)
+	return session, token, nil
 }
