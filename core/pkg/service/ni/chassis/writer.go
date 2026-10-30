@@ -66,8 +66,11 @@ func (w Writer) defineStatus(ctx context.Context, c Chassis) error {
 	exists, err := gorp.NewRetrieve[status.Key, Status]().
 		Where(gorp.MatchKeys[status.Key, Status](key)).
 		Exists(ctx, w.tx)
-	if err != nil || exists {
+	if err != nil {
 		return err
+	}
+	if exists {
+		return w.syncStatus(ctx, c)
 	}
 	return w.status.Set(ctx, &Status{
 		Key:     key,
@@ -93,7 +96,8 @@ func (w Writer) syncStatus(ctx context.Context, c Chassis) error {
 }
 
 // Create stores c, defines its ontology resource and parent edge, and writes an unknown
-// status when it has none. A chassis with a nil key gets a new one. It returns a
+// status when it has none. An existing status takes the name and rack of c. A chassis
+// with a nil key gets a new one. It returns a
 // validation error when c is invalid.
 func (w Writer) Create(ctx context.Context, c *Chassis) error {
 	if c.Key == uuid.Nil() {

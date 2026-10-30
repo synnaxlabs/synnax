@@ -174,6 +174,22 @@ var _ = Describe("Service", func() {
 			Expect(s.Details).To(Equal(device.StatusDetails{Rack: rackKey, Device: d.Key}))
 		})
 
+		It("Should move an existing status to a replaced device", func(ctx SpecContext) {
+			d := create(ctx)
+			s := retrieveStatus(ctx, d.Key)
+			s.Variant = status.VariantSuccess
+			Expect(stat.NewWriter(tx).Set(ctx, &s)).To(Succeed())
+			other := rack.Rack{Name: "Other"}
+			Expect(rackSvc.NewWriter(tx).Create(ctx, &other)).To(Succeed())
+			d.Rack = other.Key
+			d.Name = "Replaced"
+			Expect(svc.NewWriter(tx).Create(ctx, &d)).To(Succeed())
+			got := retrieveStatus(ctx, d.Key)
+			Expect(got.Name).To(Equal("Replaced"))
+			Expect(got.Details.Rack).To(Equal(other.Key))
+			Expect(got.Variant).To(Equal(status.VariantSuccess))
+		})
+
 		It("Should keep a status that already exists", func(ctx SpecContext) {
 			d := create(ctx)
 			s := retrieveStatus(ctx, d.Key)
@@ -373,6 +389,14 @@ var _ = Describe("Service", func() {
 			Expect(got.Identifier).To(Equal("dev1"))
 			Expect(got.Serial).To(Equal(d.Serial))
 			Expect(retrieveStatus(ctx, d.Key).Name).To(Equal("Renamed"))
+		})
+
+		It("Should return not found for a missing device", func(ctx SpecContext) {
+			Expect(svc.NewWriter(tx).Apply(ctx, uuid.New(), device.Update{
+				Variant: device.ConfigurationUpdate{
+					Configuration: device.Configuration{Name: "Renamed"},
+				},
+			})).To(MatchError(query.ErrNotFound))
 		})
 
 		DescribeTable("Should reject an invalid update",

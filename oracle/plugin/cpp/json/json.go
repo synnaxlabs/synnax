@@ -907,19 +907,30 @@ func (p *Plugin) toJSONExprForField(
 		}
 	}
 
-	if typeRef.Name == "Map" && len(typeRef.TypeArgs) > 1 {
-		if value, _, ok := resolution.Dealias(typeRef.TypeArgs[1], data.table); ok {
+	mapRef := typeRef
+	if _, target, ok := resolution.Dealias(typeRef, data.table); ok {
+		mapRef = target
+	}
+	if mapRef.Name == "Map" && len(mapRef.TypeArgs) > 1 {
+		if value, _, ok := resolution.Dealias(mapRef.TypeArgs[1], data.table); ok {
 			if _, isStruct := value.Form.(resolution.StructForm); isStruct {
 				src := "this->" + fieldName
 				if field.Optional {
 					src = "*" + src
 				}
+				// JSON object keys are strings, and obj[key] with an integer key indexes
+				// an array.
+				key := "key"
+				if resolution.PrimitiveBase(mapRef.TypeArgs[0], data.table) != "string" {
+					data.AddSystem("string")
+					key = "std::to_string(key)"
+				}
 				// nlohmann_json cannot reach the to_json member inside a map.
 				body := fmt.Sprintf(`{
         auto obj = x::json::json::object();
-        for (const auto& [key, item] : %s) obj[key] = item.to_json();
+        for (const auto& [key, item] : %s) obj[%s] = item.to_json();
         j["%s"] = obj;
-    }`, src, jsonName)
+    }`, src, key, jsonName)
 				if field.Optional {
 					return fmt.Sprintf(`if (this->%s.has_value()) %s`, fieldName, body)
 				}

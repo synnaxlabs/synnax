@@ -95,7 +95,6 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}); !ok(err, s.table) {
 		return nil, err
 	}
-	cfg.Ontology.RegisterService(s)
 	if cfg.Signals != nil {
 		pub := signals.GorpPublisherConfigUUID(s.table.Observe())
 		pub.SetName = "sy_ni_chassis_set"
@@ -105,6 +104,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			return nil, err
 		}
 	}
+	cfg.Ontology.RegisterService(s)
 	return s, nil
 }
 
