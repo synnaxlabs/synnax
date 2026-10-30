@@ -1852,6 +1852,35 @@ var _ = Describe("Python Types Plugin", func() {
 					`from pydantic import BaseModel`, `class Band(BaseModel):`),
 			)
 
+			It("Should bind a hand-written type apart from a TypeVar of the same name",
+				func(ctx SpecContext) {
+					source := `
+						@py output "x/py/x/color"
+
+						Color struct {
+							r uint8
+							@py hand
+							@py include "x/py/x/color/color"
+						}
+
+						Box struct<Color> {
+							value Color
+						}
+
+						Band struct {
+							color Color
+						}
+					`
+					resp := MustGenerate(ctx, source, "color", loader, typesPlugin)
+					ExpectContent(resp, "types_gen.py").ToContain(
+						`from x.color.color import Color as Color_`,
+						`Color = TypeVar("Color")`,
+						`value: Color`,
+						`color: Color_`,
+					)
+				},
+			)
+
 			It("Should import the variant a hand-written union default names",
 				func(ctx SpecContext) {
 					source := `
