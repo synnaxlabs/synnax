@@ -96,23 +96,19 @@ print(f"{'Sample':<10} {'Time (s)':<10} {'Reg 0':>10} {'Reg 1':>10}")
 print("-" * 70)
 
 # Start the task and read data continuously
+sample_count = 0
 try:
     # Hide cursor for clean output
     print("\033[?25l", end="", flush=True)
 
     with tsk.run():
         with client.open_streamer(["input_register_0", "input_register_1"]) as streamer:
-            sample_count = 0
             start_time = sy.TimeStamp.now()
 
             while True:
                 frame = streamer.read()
                 # Print the latest values from both channels
-                if (
-                    frame
-                    and "input_register_0" in frame
-                    and len(frame["input_register_0"]) > 0
-                ):
+                if "input_register_0" in frame and len(frame["input_register_0"]) > 0:
                     val0 = frame["input_register_0"].as_(np.uint8)[-1]
                     val1 = frame["input_register_1"].as_(np.uint8)[-1]
                     elapsed = sy.TimeStamp.now().span(start_time).seconds
