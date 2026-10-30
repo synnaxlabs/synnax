@@ -1024,7 +1024,7 @@ describe("log/aether/Log", () => {
       });
       log.render();
       const [first, second] = log.state.selectedLines.map((l) => l.text);
-      expect(first).toMatch(/^Jan 5  12:00:00/);
+      expect(first).toMatch(/^Jan 5 {2}12:00:00/);
       expect(second).toMatch(/^Jan 12 12:00:00/);
     });
 
