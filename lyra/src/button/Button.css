@@ -115,22 +115,20 @@
             color: var(--pluto-btn-text-color, var(--pluto-text-on-primary));
         }
 
+        .lyra-text--keyboard {
+            color: color-mix(in srgb, currentcolor 88%, transparent);
+        }
+
         color: var(--pluto-btn-text-color, var(--pluto-text-on-primary));
 
         &.lyra--status-success {
             color: var(--pluto-text-on-primary);
         }
 
-        /* The keycap's neutral fill has no contrast against a filled button, so it
-           inverts to a physical white cap instead. Both values are absolute: a
-           theme-relative gray would flip with the theme and vanish. */
-        --pluto-keycap-bg: var(--pluto-white);
-        --pluto-keycap-border-color: var(--pluto-white);
-
-        .lyra-text--keyboard {
-            color: var(--pluto-black);
-        }
-
+        /* A gray chip vanishes on the primary fill, so the chip and its glyphs mix the
+           label's color, and a disabled button dims them with its label. */
+        --pluto-keycap-bg: color-mix(in srgb, currentcolor 28%, transparent);
+        --pluto-keycap-border-color: color-mix(in srgb, currentcolor 22%, transparent);
         --pluto-bg: var(--pluto-primary-z);
         --pluto-hover-bg: var(--pluto-primary-p1);
         --pluto-active-bg: var(--pluto-primary-m1);
@@ -223,13 +221,12 @@
             z-index: 10;
             transition: opacity 0.1s ease-in-out;
 
-            /* The badge floats clear of the button, over the page, so it keeps the
-               page's own cap colors. A filled button inverts its caps to read against
-               the fill, which here would leave a black glyph on the dark badge. */
-            & .lyra-text--keyboard {
-                background: var(--pluto-gray-l0);
-                border-color: var(--pluto-gray-l7);
-                color: var(--pluto-text-color);
+            /* The badge floats clear of the button, over any surface, so it wears the
+               tooltip's fill and hairline, even on a filled button. */
+            & .lyra-triggers__keys {
+                background: var(--pluto-gray-l2);
+                box-shadow: 0 0 0 var(--pluto-border-width) var(--pluto-gray-l6);
+                color: var(--pluto-gray-l9);
             }
         }
 
@@ -356,17 +353,14 @@
         }
     }
 
-    /* Placed after the variant blocks: their cap vars and text colors would otherwise
-       outrank these, leaving a trigger hint at full contrast. */
+    /* Placed after the variant blocks: their text colors would otherwise outrank these,
+       leaving a trigger hint at full contrast. */
     &.lyra--disabled {
         cursor: not-allowed;
 
         & * {
             cursor: not-allowed;
         }
-
-        --pluto-keycap-bg: transparent;
-        --pluto-keycap-border-color: var(--pluto-gray-l6);
 
         & .lyra-text {
             color: var(--pluto-text-disabled);
