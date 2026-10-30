@@ -214,7 +214,7 @@ export const createUsers = async (
     const users = await client.users.create(
       specs.map(({ username, name = username }) => ({ name })),
     );
-    await Promise.all(
+    const passwords = await Promise.allSettled(
       specs.map(
         async ({ username, password = "seldon-demo" }, i) =>
           await client.auth.createPassword({
@@ -224,6 +224,11 @@ export const createUsers = async (
           }),
       ),
     );
+    const failed = passwords.find((r) => r.status === "rejected");
+    if (failed != null) {
+      await client.users.delete(users.map((u) => u.key));
+      throw failed.reason;
+    }
     const roles = await client.access.roles.retrieve({});
     await Promise.all(
       specs.map(async ({ role }, i) => {
