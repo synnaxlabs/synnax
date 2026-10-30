@@ -19,7 +19,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
@@ -56,7 +56,7 @@ func TestKafka(t *testing.T) {
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	node := mock.NewNode(ctx)
+	node := testutil.NewNode(ctx)
 	db = node.DB
 	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
@@ -78,7 +78,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:           db,
 		Ontology:     otg,
 		Group:        groupSvc,
-		HostProvider: mock.NewStaticHostProvider(1),
+		HostProvider: testutil.NewStaticHostProvider(1),
 		Status:       statusSvc,
 	}))
 	deviceSvc = MustOpen(device.OpenService(ctx, device.ServiceConfig{
