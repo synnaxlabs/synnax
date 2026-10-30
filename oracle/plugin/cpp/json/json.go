@@ -304,6 +304,11 @@ func (p *Plugin) processStruct(
 	if !ok {
 		return nil, nil
 	}
+	for _, field := range resolution.UnifiedFields(s, data.table) {
+		if err := checkStructMapKey(s, field, data.table); err != nil {
+			return nil, err
+		}
+	}
 
 	cppName := domain.GetName(s, "cpp")
 
@@ -353,6 +358,49 @@ func (p *Plugin) processStruct(
 	}
 
 	return serializer, nil
+}
+
+// structMap returns the map type behind ref when its values are structs.
+func structMap(
+	ref resolution.TypeRef,
+	table *resolution.Table,
+) (resolution.TypeRef, bool) {
+	if _, target, ok := resolution.Dealias(ref, table); ok {
+		ref = target
+	}
+	if ref.Name != "Map" || len(ref.TypeArgs) < 2 {
+		return resolution.TypeRef{}, false
+	}
+	value, _, ok := resolution.Dealias(ref.TypeArgs[1], table)
+	if !ok {
+		return resolution.TypeRef{}, false
+	}
+	_, isStruct := value.Form.(resolution.StructForm)
+	return ref, isStruct
+}
+
+// checkStructMapKey rejects a map of structs whose key has no exact JSON object key:
+// to_json writes string keys as they are and integer keys through std::to_string.
+func checkStructMapKey(
+	s resolution.Type,
+	field resolution.Field,
+	table *resolution.Table,
+) error {
+	ref, ok := structMap(field.Type, table)
+	if !ok {
+		return nil
+	}
+	base := resolution.PrimitiveBase(ref.TypeArgs[0], table)
+	if base == "string" || strings.HasPrefix(base, "int") ||
+		strings.HasPrefix(base, "uint") {
+		return nil
+	}
+	return errors.Newf(
+		"%s.%s: C++ cannot serialize a map of structs keyed by %s",
+		s.QualifiedName,
+		field.Name,
+		ref.TypeArgs[0].Name,
+	)
 }
 
 // isSelfReference reports whether t directly or transitively references parent.
@@ -907,40 +955,28 @@ func (p *Plugin) toJSONExprForField(
 		}
 	}
 
-	mapRef := typeRef
-	if _, target, ok := resolution.Dealias(typeRef, data.table); ok {
-		mapRef = target
-	}
-	if mapRef.Name == "Map" && len(mapRef.TypeArgs) > 1 {
-		if value, _, ok := resolution.Dealias(mapRef.TypeArgs[1], data.table); ok {
-			if _, isStruct := value.Form.(resolution.StructForm); isStruct {
-				src := "this->" + fieldName
-				if field.Optional {
-					src = "*" + src
-				}
-				// JSON object keys are strings, and obj[key] with an integer key
-				// indexes
-				// an array.
-				key := "key"
-				if resolution.PrimitiveBase(
-					mapRef.TypeArgs[0],
-					data.table,
-				) != "string" {
-					data.AddSystem("string")
-					key = "std::to_string(key)"
-				}
-				// nlohmann_json cannot reach the to_json member inside a map.
-				body := fmt.Sprintf(`{
+	if mapRef, ok := structMap(typeRef, data.table); ok {
+		src := "this->" + fieldName
+		if field.Optional {
+			src = "*" + src
+		}
+		// JSON object keys are strings, and obj[key] with an integer key indexes an
+		// array.
+		key := "key"
+		if resolution.PrimitiveBase(mapRef.TypeArgs[0], data.table) != "string" {
+			data.AddSystem("string")
+			key = "std::to_string(key)"
+		}
+		// nlohmann_json cannot reach the to_json member inside a map.
+		body := fmt.Sprintf(`{
         auto obj = x::json::json::object();
         for (const auto& [key, item] : %s) obj[%s] = item.to_json();
         j["%s"] = obj;
     }`, src, key, jsonName)
-				if field.Optional {
-					return fmt.Sprintf(`if (this->%s.has_value()) %s`, fieldName, body)
-				}
-				return body
-			}
+		if field.Optional {
+			return fmt.Sprintf(`if (this->%s.has_value()) %s`, fieldName, body)
 		}
+		return body
 	}
 
 	if elemType, isArray := arrays.ElementType(typeRef, data.table); isArray {
