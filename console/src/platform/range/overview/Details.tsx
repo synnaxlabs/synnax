@@ -88,7 +88,6 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
     mode: canEdit ? "normal" : "preview",
   });
 
-  const handleError = Status.useErrorHandler();
   const name = Form.useFieldValue<string, string, typeof Ranger.formSchema>("name", {
     ctx: form,
   });
@@ -104,7 +103,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
       const rng = await client.ranges.retrieve("${rangeKey}")
     `;
 
-  const promptDownloadCSVModal = Framer.useDownloadCSVModal();
+  const openDownloadCSVModal = Framer.useDownloadCSVModal();
 
   if (status.variant === "error")
     return (
@@ -162,14 +161,12 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
               variant="text"
               textColor={9}
               onClick={() =>
-                handleError(async () => {
-                  await promptDownloadCSVModal({
-                    timeRange: form.get<NumericTimeRange>("timeRange").value,
-                    name,
-                    channels: [],
-                    icon: <Icon.Range />,
-                  });
-                }, "Failed to download CSV")
+                openDownloadCSVModal({
+                  timeRange: form.get<NumericTimeRange>("timeRange").value,
+                  name,
+                  channels: [],
+                  icon: <Icon.Range />,
+                })
               }
             >
               <Icon.CSV />

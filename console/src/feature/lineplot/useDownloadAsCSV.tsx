@@ -9,7 +9,6 @@
 
 import { type channel } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Status } from "@synnaxlabs/lyra/status";
 import { LinePlot } from "@synnaxlabs/pluto";
 import { TimeRange, TimeStamp, unique } from "@synnaxlabs/x";
 
@@ -30,7 +29,6 @@ export interface DownloadAsCSVParams {
 
 export const useDownloadAsCSV = (): ((params: DownloadAsCSVParams) => void) => {
   const openDownloadCSVModal = Framer.useDownloadCSVModal();
-  const handleError = Status.useErrorHandler();
   return ({ timeRanges, lines, name }) => {
     const channels = unique.unique(
       lines
@@ -38,16 +36,12 @@ export const useDownloadAsCSV = (): ((params: DownloadAsCSVParams) => void) => {
         .filter((v): v is channel.Key => v != null && v !== 0),
     );
     const timeRange = TimeRange.merge(...timeRanges);
-    handleError(
-      async () =>
-        await openDownloadCSVModal({
-          timeRange: timeRange.numeric,
-          name,
-          channels,
-          icon: <Icon.LinePlot />,
-        }),
-      `Failed to download CSV data for ${name}`,
-    );
+    openDownloadCSVModal({
+      timeRange: timeRange.numeric,
+      name,
+      channels,
+      icon: <Icon.LinePlot />,
+    });
   };
 };
 

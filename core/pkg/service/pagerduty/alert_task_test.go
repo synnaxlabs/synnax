@@ -420,32 +420,49 @@ var _ = Describe("AlertTask", func() {
 			func(ctx context.Context) {
 				sender.setError(errors.New("simulated PagerDuty outage"))
 				t := task.Task{
-					Key:  uuid.New(),
-					Name: "PagerDuty Test",
-					Type: pd.AlertTaskType,
-					Config: encodeConfig(
-						validConfig(pd.Alert{Status: "send-failure"}),
-					),
+					Key:    uuid.New(),
+					Name:   "PagerDuty Test",
+					Type:   pd.AlertTaskType,
+					Config: encodeConfig(validConfig(pd.Alert{Status: "send-failure"})),
 				}
 				tsk := MustSucceed(factory.ConfigureTask(ctx, t, "cmd-1"))
-				Expect(tsk.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
 				defer func() { Expect(tsk.Stop(true)).To(Succeed()) }()
-
-				setStatus(ctx, "send-failure", status.VariantError,
-					"Trigger send", nil)
-
-				Eventually(func(g Gomega) {
+				Expect(tsk.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+				retrieve := func(g Gomega) task.Status {
 					var stat task.Status
 					g.Expect(statusSvc.NewRetrieve[task.StatusDetails]().
 						Where(status.MatchKeys[task.StatusDetails](
 							t.OntologyID().String(),
 						)).
-						Entry(&stat).Exec(ctx, nil)).To(Succeed())
+						Entry(&stat).
+						Exec(ctx, nil)).To(Succeed())
+					return stat
+				}
+				const (
+					message     = "Failed to send PagerDuty event"
+					description = "simulated PagerDuty outage"
+				)
+
+				setStatus(ctx, "send-failure", status.VariantError,
+					"Trigger send", nil)
+				Eventually(func(g Gomega) {
+					stat := retrieve(g)
 					g.Expect(stat.Variant).To(Equal(status.VariantError))
-					g.Expect(stat.Message).To(Equal("Failed to send PagerDuty event"))
-					g.Expect(stat.Description).To(Equal("simulated PagerDuty outage"))
+					g.Expect(stat.Message).To(Equal(message))
+					g.Expect(stat.Description).To(Equal(description))
 					g.Expect(stat.Details.Running).To(BeTrue())
 				}).WithTimeout(2 * time.Second).Should(Succeed())
+
+				By("Keeping the error status after a send that succeeds")
+				sender.setError(nil)
+				setStatus(ctx, "send-failure", status.VariantSuccess, "Resolved", nil)
+				Eventually(func() int { return len(sender.getEvents()) }).
+					WithTimeout(2 * time.Second).
+					Should(Equal(1))
+				stat := retrieve(Default)
+				Expect(stat.Variant).To(Equal(status.VariantError))
+				Expect(stat.Message).To(Equal(message))
+				Expect(stat.Description).To(Equal(description))
 			},
 		)
 	})

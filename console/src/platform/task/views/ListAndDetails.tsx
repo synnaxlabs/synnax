@@ -58,7 +58,7 @@ export const ListAndDetails = <C extends Channel>({
         <ChannelList<C>
           {...rest}
           grow
-          header={null}
+          title={null}
           selected={selected}
           onSelect={setSelected}
           createChannel={handleCreateChannel}

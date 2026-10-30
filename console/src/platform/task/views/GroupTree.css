@@ -14,6 +14,12 @@
         padding-right: 1.25rem;
     }
 
+    /* A leaf group has no caret; the indent stands in for it so every label starts
+       flush. */
+    .lyra-tree__item.console-group-item.console--leaf {
+        padding-left: calc(var(--pluto-tree-item-offset) + 3.5rem);
+    }
+
     /* The tree paints every icon in its rows one gray; the toggle's own color must win
        so an enabled field still reads as on. */
     .lyra-tree__item .lyra-btn .lyra-icon {

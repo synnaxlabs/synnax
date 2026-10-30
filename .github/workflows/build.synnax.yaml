@@ -43,6 +43,10 @@ on:
         description: "Build: Console web assets"
         type: boolean
         default: false
+      flags_enabled:
+        description: "Console web assets: turn on every flag in console/src/flags.ts"
+        type: boolean
+        default: false
       console_tauri:
         description: "Build: Console Tauri desktop app"
         type: boolean
@@ -98,6 +102,9 @@ on:
         type: boolean
         default: false
       console:
+        type: boolean
+        default: false
+      flags_enabled:
         type: boolean
         default: false
       console_tauri:
@@ -701,6 +708,7 @@ jobs:
         if: inputs.console && env.CONSOLE_REF_RUN_ID == ''
         env:
           NODE_OPTIONS: --max_old_space_size=8192
+          VITE_FLAGS_ENABLED: ${{ inputs.flags_enabled }}
         run: pnpm build:console-vite
 
       - name: Download cached Console assets

@@ -135,9 +135,7 @@ const DownloadCSV = ({
   );
 };
 
-export const useDownloadCSVModal = Modals.createPrompt<void, DownloadCSVModalParams>(
-  DownloadCSV,
-);
+export const useDownloadCSVModal = Modals.create<DownloadCSVModalParams>(DownloadCSV);
 
 const DownsampleFactorField = Form.buildNumericField({
   inputProps: { className: CSS.BE("download-csv", "downsample-factor") },

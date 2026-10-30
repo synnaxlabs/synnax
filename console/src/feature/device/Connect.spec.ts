@@ -41,7 +41,7 @@ describe("Device.useConnectModal", () => {
       });
       await open({ rack: rack.key });
       const reasons = await screen.findAllByText(`${rack.name} is not running`);
-      expect(reasons).toHaveLength(6);
+      expect(reasons).toHaveLength(7);
     });
 
     it("should name only the integrations the scoped Driver does not run", async () => {

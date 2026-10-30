@@ -32,23 +32,27 @@ export interface ChannelNameProps extends optional.Optional<
   channel: channel.Key;
   /** The name configure will give the channel; shown as a preview while it is 0. */
   defaultName?: string;
-  namePath: string;
+  /**
+   * Holds the name configure gives the channel, shown until the channel resolves.
+   * Required while the channel is 0.
+   */
+  namePath?: string;
 }
 
-interface NameProps extends Omit<ChannelNameProps, "defaultName"> {
+const NO_CHANNEL = "No channel";
+
+interface NameProps extends Omit<ChannelNameProps, "defaultName" | "namePath"> {
   name: string;
+  /** Takes a rename while the channel is 0. */
+  onDraftRename?: (name: string) => void;
 }
 
-const Name = ({ channel, namePath, name, className, ...rest }: NameProps) => {
-  // Use optional values here because for some reason, the namePath is not always
-  // populated. Eventually we should strongly type the Form so we don't need to worry
-  // about this.
-  const onChange = Form.useField<string>(namePath, { optional: true })?.onChange;
+const Name = ({ channel, name, onDraftRename, className, ...rest }: NameProps) => {
   const canRename = Access.useUpdateGranted(clientChannel.TYPE_ONTOLOGY_ID);
   const isPreview = useIsPreview();
   const { update } = Channel.useRename();
   const handleRename = (name: string) => {
-    if (channel === 0) return onChange?.(name);
+    if (channel === 0) return onDraftRename?.(name);
     update({ key: channel, name });
   };
   return (
@@ -65,31 +69,46 @@ const Name = ({ channel, namePath, name, className, ...rest }: NameProps) => {
   );
 };
 
+interface StoredProps extends Omit<ChannelNameProps, "namePath"> {
+  namePath: string;
+}
+
 /** The name the form carries for a channel whose record isn't in hand. */
-const Unresolved = ({
-  defaultName = "No channel",
-  namePath,
-  ...rest
-}: ChannelNameProps) => {
-  const formName = Form.useFieldValue<string>(namePath, { optional: true });
-  const name = primitive.isNonZero(formName) ? formName : defaultName;
-  return <Name namePath={namePath} name={name} {...rest} />;
+const Stored = ({ namePath, defaultName = NO_CHANNEL, ...rest }: StoredProps) => {
+  // Use optional values here because for some reason, the namePath is not always
+  // populated. Eventually we should strongly type the Form so we don't need to worry
+  // about this.
+  const field = Form.useField<string>(namePath, { optional: true });
+  const name = primitive.isNonZero(field?.value) ? field.value : defaultName;
+  return <Name {...rest} name={name} onDraftRename={field?.onChange} />;
 };
 
-const Resolved = (props: ChannelNameProps) => {
-  const { channel, defaultName: _, ...rest } = props;
+const Resolved = ({
+  namePath,
+  defaultName = NO_CHANNEL,
+  ...rest
+}: ChannelNameProps) => {
   const range = Session.Range.useSelectSelectedKey();
-  const result = Channel.useResultAlias({ key: channel, rangeKey: range ?? undefined });
-  if (result.variant === "success")
-    return <Name channel={channel} name={result.data} {...rest} />;
-  if (result.variant === "error")
-    return (
-      <Message variant="error" {...describe(result.status.details.error)}>
-        <Unresolved {...props} status="error" />
-      </Message>
+  const result = Channel.useResultAlias({
+    key: rest.channel,
+    rangeKey: range ?? undefined,
+  });
+  if (result.variant === "success") return <Name {...rest} name={result.data} />;
+  let status: Text.MaybeEditableProps["status"];
+  if (result.variant === "error") status = "error";
+  else if (result.variant === "loading") status = "loading";
+  const unresolved =
+    namePath == null ? (
+      <Name {...rest} name={defaultName} status={status} />
+    ) : (
+      <Stored {...rest} namePath={namePath} defaultName={defaultName} status={status} />
     );
-  const status = result.variant === "loading" ? "loading" : undefined;
-  return <Unresolved {...props} status={status} />;
+  if (result.variant !== "error") return unresolved;
+  return (
+    <Message variant="error" {...describe(result.status.details.error)}>
+      {unresolved}
+    </Message>
+  );
 };
 
 interface MessageProps {
@@ -129,19 +148,18 @@ const describe = (error: Error): Pick<MessageProps, "message" | "description"> =
   return { message: "Failed to retrieve channel", description: error.message };
 };
 
-export const ChannelName = (props: ChannelNameProps): ReactElement => {
-  if (props.channel === 0) {
-    if (props.defaultName != null)
-      return (
-        <Message variant="info" message="Created when the task is configured">
-          <Unresolved {...props} color={8} />
-        </Message>
-      );
+export const ChannelName = ({ namePath, ...rest }: ChannelNameProps): ReactElement => {
+  if (rest.channel !== 0) return <Resolved {...rest} namePath={namePath} />;
+  if (namePath == null) throw new Error("ChannelName needs a namePath for channel 0");
+  if (rest.defaultName != null)
     return (
-      <Message variant="warning" message="No channel selected">
-        <Unresolved {...props} status="warning" />
+      <Message variant="info" message="Created when the task is configured">
+        <Stored {...rest} namePath={namePath} color={8} />
       </Message>
     );
-  }
-  return <Resolved {...props} />;
+  return (
+    <Message variant="warning" message="No channel selected">
+      <Stored {...rest} namePath={namePath} status="warning" />
+    </Message>
+  );
 };

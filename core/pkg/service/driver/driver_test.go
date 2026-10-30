@@ -32,6 +32,7 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Driver", func() {
@@ -241,6 +242,72 @@ var _ = Describe("Driver", func() {
 			},
 			NodeTimeout(10*time.Second),
 		)
+	})
+
+	Describe("Initial tasks", func() {
+		retrieveAlertTasks := func(ctx context.Context) []task.Task {
+			GinkgoHelper()
+			var tasks []task.Task
+			Expect(taskService.NewRetrieve().
+				Where(task.And(
+					task.MatchRacks(embeddedRackKey(ctx)),
+					task.MatchTypes(pagerduty.AlertTaskType),
+				)).
+				Entries(&tasks).
+				Exec(ctx, nil)).To(Succeed())
+			return tasks
+		}
+
+		It("should create and configure a task once per rack", func(ctx SpecContext) {
+			d := openDriver(ctx, &mockFactory{name: "test"})
+			for _, t := range retrieveAlertTasks(ctx) {
+				Expect(taskWriter.Delete(ctx, t.Key, true)).To(Succeed())
+			}
+			Expect(d.Close()).To(Succeed())
+
+			var configured sync.Map
+			factory := &mockFactory{
+				name: "test",
+				initialTasks: []task.Task{
+					{Name: "Scanner", Type: pagerduty.AlertTaskType},
+				},
+				configureFunc: func(_ context.Context, t task.Task) (driver.Task, error) {
+					configured.Store(t.Key, true)
+					return &mockTask{key: t.Key}, nil
+				},
+			}
+			d = openDriver(ctx, factory)
+			tasks := retrieveAlertTasks(ctx)
+			Expect(tasks).To(HaveLen(1))
+			Expect(tasks[0].Name).To(Equal("Scanner"))
+			Expect(tasks[0].Internal).To(BeTrue())
+			MustBeOk(configured.Load(tasks[0].Key))
+			Expect(d.Close()).To(Succeed())
+
+			openDriver(ctx, factory)
+			Expect(retrieveAlertTasks(ctx)).To(HaveLen(1))
+		})
+
+		It("should fail to open when the task type is unknown", func(ctx SpecContext) {
+			Expect(driver.Open(ctx, driver.Config{
+				DB:      node.DB,
+				Rack:    rackService,
+				Task:    taskService,
+				Framer:  framerSvc,
+				Channel: channelSvc,
+				Status:  statusSvc,
+				Factories: []driver.Factory{&mockFactory{
+					name:         "test",
+					initialTasks: []task.Task{{Name: "Scanner", Type: "unknown_scan"}},
+				}},
+				Host: hostProvider,
+			})).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(
+					ContainSubstring("failed to create initial unknown_scan task"),
+				),
+			))
+		})
 	})
 
 	Describe("Task Management", func() {
@@ -1828,6 +1895,73 @@ var _ = Describe("Driver", func() {
 					func() bool { return execCalled.Load() },
 					time.Second*2,
 				).Should(BeTrue())
+			},
+		)
+
+		It(
+			"should start a task while a scanner command runs",
+			func(ctx SpecContext) {
+				var (
+					scanner = newMapScanner()
+					scanKey atomic.Value
+					started = make(chan task.Key, 1)
+				)
+				factory := &mockFactory{
+					name: "test",
+					configureFunc: func(
+						_ context.Context,
+						t task.Task,
+					) (driver.Task, error) {
+						if t.Key == scanKey.Load() {
+							return driver.NewScanTask(driver.ScanTaskConfig{
+								Scanner:            scanner,
+								DB:                 db,
+								Status:             statusSvc,
+								Device:             deviceSvc,
+								Make:               "make-" + uuid.New().String(),
+								ReachableMessage:   "Broker connected",
+								UnreachableMessage: "Failed to reach broker",
+								Task:               t,
+								Interval:           time.Hour,
+							})
+						}
+						return &mockTask{
+							key: t.Key,
+							execFunc: func(_ context.Context, cmd task.Command) error {
+								if cmd.Type == "start" {
+									started <- t.Key
+								}
+								return nil
+							},
+						}, nil
+					},
+				}
+				openDriver(ctx, factory)
+				scanTask := newTask(embeddedRackKey(ctx))
+				other := newTask(embeddedRackKey(ctx))
+				scanKey.Store(scanTask.Key)
+				Expect(taskWriter.Create(ctx, &scanTask)).To(Succeed())
+				Expect(taskWriter.Create(ctx, &other)).To(Succeed())
+				writeCommand(ctx, task.Command{Task: scanTask.Key, Type: "start"})
+				Eventually(func() bool {
+					return retrieveStatus[task.StatusDetails](
+						ctx, scanTask.OntologyID().String(),
+					).Details.Running
+				}).Should(BeTrue())
+				writeCommand(ctx, task.Command{
+					Task: scanTask.Key, Type: "wait", Key: "cmd-wait",
+				})
+				Eventually(scanner.waiting.Load).Should(BeEquivalentTo(1))
+
+				writeCommand(ctx, task.Command{Task: other.Key, Type: "start"})
+				Eventually(started).Should(Receive(Equal(other.Key)))
+
+				Eventually(scanner.release).Should(BeSent(struct{}{}))
+				Eventually(func() string {
+					return retrieveStatus[task.StatusDetails](
+						ctx, scanTask.OntologyID().String(),
+					).Details.Cmd
+				}).Should(Equal("cmd-wait"))
 			},
 		)
 	})

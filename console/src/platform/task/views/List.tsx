@@ -12,10 +12,19 @@ import { useState } from "react";
 import { type Channel } from "@/platform/task/types";
 import { ChannelList, type ChannelListProps } from "@/platform/task/views/ChannelList";
 
-export interface ListProps<C extends Channel> extends Pick<
-  ChannelListProps<C>,
-  "createChannel" | "listItem" | "contextMenuItems" | "resolve"
-> {}
+export interface ListProps<C extends Channel>
+  extends
+    Pick<
+      ChannelListProps<C>,
+      | "listItem"
+      | "contextMenuItems"
+      | "path"
+      | "resolve"
+      | "title"
+      | "emptyContent"
+      | "addLabel"
+    >,
+    Required<Pick<ChannelListProps<C>, "createChannel">> {}
 
 export const List = <C extends Channel>(props: ListProps<C>) => {
   const [selected, setSelected] = useState<string[]>([]);

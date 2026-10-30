@@ -49,6 +49,7 @@ UNION_PATHS=("${DRIVER_PATHS[@]}" "${CONSOLE_PATHS[@]}" "${CORE_PATHS[@]}")
 # ones, or its binaries are not interchangeable with the ones this build would make.
 DEBUG=${DEBUG:-false}
 SIGN_BINARIES=${SIGN_BINARIES:-false}
+FLAGS_ENABLED=${FLAGS_ENABLED:-false}
 
 # The API does not report a run's inputs, so signing is read back from its step.
 # Linux drivers are never signed, so that platform has no signing step.
@@ -263,19 +264,28 @@ component_matches() {
             return 1
         fi
     done
-    local step env_pat=""
-    if [ "${comp}" = driver ]; then
-        step=${DRIVER_STEP[${os}]}
-        env_pat='^  BAZEL_[A-Z_]*: '
-    else
-        step=${BUILD_STEP[${comp}]}
-    fi
+    local step env_pat="" env=""
+    case "${comp}" in
+        driver)
+            step=${DRIVER_STEP[${os}]}
+            env_pat='^  BAZEL_[A-Z_]*: '
+            env=$(expected_env)
+            ;;
+        console)
+            step=${BUILD_STEP[${comp}]}
+            env_pat='^  VITE_FLAGS_ENABLED: '
+            env="VITE_FLAGS_ENABLED: ${FLAGS_ENABLED}"
+            ;;
+        *)
+            step=${BUILD_STEP[${comp}]}
+            ;;
+    esac
     local script marker expected actual
     script=$(expected_script "${step}")
     marker=$(awk 'NF { l = $0 } END { sub(/^[ \t]+/, "", l); print l }' <<< "${script}")
     expected=${script}
-    if [ -n "${env_pat}" ]; then
-        expected+=$'\n'$(expected_env)
+    if [ -n "${env}" ]; then
+        expected+=$'\n'${env}
     fi
     actual=$(step_block "${log}" "${marker}" "${env_pat}")
     if [ -z "${actual}" ]; then

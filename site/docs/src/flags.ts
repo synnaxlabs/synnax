@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { VERCEL_ENV } from "astro:env/client";
+import { FLAG_MQTT, VERCEL_ENV } from "astro:env/client";
 
 // Preview deploys show every flagged surface, so reviewers see dark work.
 const PREVIEW = VERCEL_ENV === "preview";
@@ -24,7 +24,11 @@ export const flag = (value: boolean): boolean =>
  * owner and what removes it. `FLAG_<NAME>=true` at build time turns one on; set it in
  * Vercel for the site and as a repository variable for the search index job.
  */
-export const FLAGS = {} satisfies Record<string, boolean>;
+export const FLAGS = {
+  // Emiliano Bonilla. SY-4876. Hides the MQTT pages until MQTT ships in the Console,
+  // which removes the flag and links the pages from the other hardware pages.
+  mqtt: flag(FLAG_MQTT),
+} satisfies Record<string, boolean>;
 
 export type Flag = keyof typeof FLAGS;
 

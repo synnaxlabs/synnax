@@ -127,7 +127,7 @@ describe("Write", () => {
     await renderWrite();
     await addEndpoint();
     fireEvent.click(getHeaderIconButton("Additional fields", "add"));
-    const pointer = await screen.findByPlaceholderText("field");
+    const pointer = await screen.findByPlaceholderText("/field");
     fireEvent.contextMenu(pointer);
     await screen.findByText("Remove");
     expect(screen.queryByText("Duplicate")).toBeNull();
@@ -196,6 +196,23 @@ describe("Write", () => {
     expect(screen.queryByText("Time format")).toBeNull();
   });
 
+  it("should lock the data type of a bound command channel to that of the channel", async () => {
+    await renderWithCommandChannel("int32");
+    await screen.findByText("Set on the channel");
+    await findDialogTriggerByText("int32");
+  });
+
+  it("should switch an endpoint off through its checkbox and on through its menu", async () => {
+    await renderWrite();
+    await addEndpoint();
+    fireEvent.click(screen.getByRole("checkbox", { name: "Enabled" }));
+    fireEvent.contextMenu(await screen.findByText("No channel"));
+    fireEvent.click(await screen.findByText("Enable"));
+    fireEvent.contextMenu(await screen.findByText("No channel"));
+    await screen.findByText("Disable");
+    expect(screen.queryByText("Enable")).toBeNull();
+  });
+
   const client = createTestClient();
 
   it("should create command channels, virtual when variable, and persist them to the device", async () => {
@@ -221,7 +238,10 @@ describe("Write", () => {
     const cmdKey = updated.properties.write["/cmd"];
     const cmdCh = await client.channels.retrieve(cmdKey);
     expect(cmdCh.dataType.toString()).toBe("uint8");
+    expect(cmdCh.name).toBe(`${dev.name}_cmd_cmd`);
     expect(cmdCh.index).toBeGreaterThan(0);
+    const indexCh = await client.channels.retrieve(cmdCh.index);
+    expect(indexCh.name).toBe(`${dev.name}_cmd_cmd_time`);
     expect(created.config.endpoints[0].channel.channel).toBe(cmdKey);
 
     const virtualKey = updated.properties.write["/msg"];
@@ -229,6 +249,28 @@ describe("Write", () => {
     expect(virtualCh.virtual).toBe(true);
     expect(virtualCh.name).toBe(virtualName);
     expect(created.config.endpoints[1].channel.channel).toBe(virtualKey);
+  });
+
+  it("should create no command channel for a disabled endpoint", async () => {
+    const dev = await createHTTPDevice(client);
+    const config = createWriteConfig(dev.key, [
+      createWriteEndpoint("ep1", "/cmd", { dataType: "uint8" }),
+      { ...createWriteEndpoint("ep2", "/off", { dataType: "uint8" }), disabled: true },
+    ]);
+    const draft = await createDraft(client, config);
+    const { container } = await renderWrite({ client, taskKey: draft.key });
+    const created = await deployAndAwaitTask(
+      client,
+      container,
+      draft.key,
+      HTTP.Task.WRITE_SCHEMAS,
+    );
+    const updated = await client.devices.retrieve({
+      key: dev.key,
+      schemas: HTTP.Device.SCHEMAS,
+    });
+    expect(Object.keys(updated.properties.write)).toEqual(["/cmd"]);
+    expect(created.config.endpoints[1].channel.channel).toBe(0);
   });
 
   it("should follow a path edit to the channel the new path maps, or to none", async () => {

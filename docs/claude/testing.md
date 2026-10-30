@@ -42,7 +42,7 @@ TS/Python/C++ clients. Console UI tests use Playwright.
 Integration tests need a running Synnax server with the embedded Console:
 
 ```bash
-pnpm build:console-vite                                                 # 1. build Console web assets
+VITE_FLAGS_ENABLED=true pnpm build:console-vite                         # 1. build Console web assets
 cp -r console/dist/* core/pkg/console/dist/                             # 2. copy into Core's embed dir
 cd core && go build -tags=console -ldflags="-w -s" -o synnax . && cd .. # 3.
 mkdir -p ~/synnax-data && cd ~/synnax-data                              # 4. start server (in-memory)

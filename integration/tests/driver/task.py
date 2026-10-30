@@ -633,6 +633,11 @@ class ReadTaskCase(TaskCase[ReadTaskT]):
     and streamer-based channel deletion survival testing.
     """
 
+    # Whether the task samples on events, such as arriving messages, instead of at a
+    # configured rate. Such a task skips the rate change, and each of its channels must
+    # sample at SAMPLE_RATE, the rate of its source.
+    EVENT_DRIVEN: bool = False
+
     def run(self) -> None:
         """Execute the standard read task lifecycle test."""
         if self.tsk is None:
@@ -643,7 +648,8 @@ class ReadTaskCase(TaskCase[ReadTaskT]):
         self.test_start_and_stop()
         self.test_disable_data_saving()
         self.test_enable_data_saving()
-        self.test_reconfigure_rate()
+        if not self.EVENT_DRIVEN:
+            self.test_reconfigure_rate()
         self.test_survives_channel_deletion()
 
     def test_start_and_stop(self) -> None:
@@ -711,23 +717,32 @@ class ReadTaskCase(TaskCase[ReadTaskT]):
         duration: sy.TimeSpan = 1 * sy.TimeSpan.SECOND,
         strict: bool = True,
     ) -> None:
-        """Assert that the task collects the expected number of samples."""
+        """Assert that the task samples at its configured rate, or at SAMPLE_RATE when
+        it is event-driven."""
         channel_keys = self._channel_keys(task)
-        config = task.config
-        assert isinstance(config, sy.task.ReadConfig)
-        frame_size = int(config.sample_rate / config.stream_rate)
+        if self.EVENT_DRIVEN:
+            sample_rate, frame_size = self.SAMPLE_RATE, 1
+            # Sources publish on their own, so channels can differ in sample count.
+            checks = [[key] for key in channel_keys]
+        else:
+            config = task.config
+            assert isinstance(config, sy.task.ReadConfig)
+            sample_rate = config.sample_rate
+            frame_size = int(config.sample_rate / config.stream_rate)
+            checks = [channel_keys]
         with task.run():
             start = collect_samples(
                 self.client, channel_keys, duration=duration, frame_size=frame_size
             )
-        assert_sample_rate(
-            self.client,
-            channel_keys=channel_keys,
-            start=start,
-            sample_rate=float(config.sample_rate),
-            strict=strict,
-            log=self.log,
-        )
+        for keys in checks:
+            assert_sample_rate(
+                self.client,
+                channel_keys=keys,
+                start=start,
+                sample_rate=float(sample_rate),
+                strict=strict,
+                log=self.log,
+            )
 
     def assert_no_samples_persisted(
         self,
