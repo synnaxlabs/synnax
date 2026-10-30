@@ -14,6 +14,8 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/onsi/gomega/gstruct"
+	"github.com/onsi/gomega/types"
 	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	apiapikey "github.com/synnaxlabs/synnax/pkg/api/auth/apikey"
@@ -48,6 +50,18 @@ type (
 )
 
 const errInvalidUUID = "invalid uuid"
+
+func matchAPIKey(k apiapikey.APIKey) types.GomegaMatcher {
+	return PointTo(MatchFields(IgnoreExtras, Fields{
+		"Key": Equal(k.Key.String()),
+		"Subject": PointTo(MatchFields(IgnoreExtras, Fields{
+			"Type": Equal(string(k.Subject.Type)),
+			"Key":  Equal(k.Subject.Key),
+		})),
+		"Name":    Equal(k.Name),
+		"Created": Equal(int64(k.Created)),
+	}))
+}
 
 var (
 	bob    = user.User{Key: uuid.New()}
@@ -84,73 +98,58 @@ var _ = Describe("APIKey", func() {
 	})
 
 	Describe("APIKeyCreateRequest", func() {
-		It("Should round-trip the subject and name", func(ctx SpecContext) {
-			t := keyCreate.RequestTranslator
-			msg := apiapikey.CreateRequest{Subject: bob.OntologyID(), Name: "ci"}
-			Expect(
-				MustSucceed(t.Backward(ctx, MustSucceed(t.Forward(ctx, msg)))),
-			).To(Equal(msg))
+		It("Should translate the subject and name", func(ctx SpecContext) {
+			id := bob.OntologyID()
+			Expect(MustSucceed(keyCreate.RequestTranslator.Backward(
+				ctx,
+				&grpcauth.APIKeyCreateRequest{
+					Subject: &grpcauth.Subject{Type: string(id.Type), Key: id.Key},
+					Name:    "ci",
+				},
+			))).To(Equal(apiapikey.CreateRequest{Subject: id, Name: "ci"}))
 		})
 	})
 
 	Describe("APIKeyCreateResponse", func() {
-		It("Should round-trip the token and key", func(ctx SpecContext) {
-			t := keyCreate.ResponseTranslator
-			msg := apiapikey.CreateResponse{Token: "syk_secret", Key: apiKey}
-			Expect(
-				MustSucceed(t.Backward(ctx, MustSucceed(t.Forward(ctx, msg)))),
-			).To(Equal(msg))
-		})
-		It("Should read a missing key as the zero key", func(ctx SpecContext) {
-			res := MustSucceed(keyCreate.ResponseTranslator.Backward(
+		It("Should translate the token and key", func(ctx SpecContext) {
+			pb := MustSucceed(keyCreate.ResponseTranslator.Forward(
 				ctx,
-				&grpcauth.APIKeyCreateResponse{Token: "syk_secret"},
+				apiapikey.CreateResponse{Token: "syk_secret", Key: apiKey},
 			))
-			Expect(res.Key).To(BeZero())
-		})
-		It("Should reject a malformed key", func(ctx SpecContext) {
-			Expect(keyCreate.ResponseTranslator.Backward(
-				ctx,
-				&grpcauth.APIKeyCreateResponse{Key: &grpcauth.APIKey{Key: "bad"}},
-			)).Error().To(MatchError(errInvalidUUID))
+			Expect(pb.Token).To(Equal("syk_secret"))
+			Expect(pb.Key).To(matchAPIKey(apiKey))
 		})
 	})
 
 	Describe("APIKeyRetrieveRequest", func() {
-		It("Should round-trip the subjects", func(ctx SpecContext) {
-			t := keyRetrieve.RequestTranslator
-			msg := apiapikey.RetrieveRequest{Subjects: []ontology.ID{bob.OntologyID()}}
-			Expect(
-				MustSucceed(t.Backward(ctx, MustSucceed(t.Forward(ctx, msg)))),
-			).To(Equal(msg))
+		It("Should translate the subjects", func(ctx SpecContext) {
+			id := bob.OntologyID()
+			Expect(MustSucceed(keyRetrieve.RequestTranslator.Backward(
+				ctx,
+				&grpcauth.APIKeyRetrieveRequest{Subjects: []*grpcauth.Subject{
+					{Type: string(id.Type), Key: id.Key},
+				}},
+			)).Subjects).To(Equal([]ontology.ID{id}))
 		})
 	})
 
 	Describe("APIKeyRetrieveResponse", func() {
-		It("Should round-trip the keys", func(ctx SpecContext) {
-			t := keyRetrieve.ResponseTranslator
-			msg := apiapikey.RetrieveResponse{Keys: []apiapikey.APIKey{apiKey}}
-			Expect(
-				MustSucceed(t.Backward(ctx, MustSucceed(t.Forward(ctx, msg)))),
-			).To(Equal(msg))
-		})
-		It("Should reject a malformed key", func(ctx SpecContext) {
-			Expect(keyRetrieve.ResponseTranslator.Backward(
+		It("Should translate the keys", func(ctx SpecContext) {
+			pb := MustSucceed(keyRetrieve.ResponseTranslator.Forward(
 				ctx,
-				&grpcauth.APIKeyRetrieveResponse{
-					Keys: []*grpcauth.APIKey{{Key: "bad"}},
-				},
-			)).Error().To(MatchError(errInvalidUUID))
+				apiapikey.RetrieveResponse{Keys: []apiapikey.APIKey{apiKey}},
+			))
+			Expect(pb.Keys).To(ConsistOf(matchAPIKey(apiKey)))
 		})
 	})
 
 	Describe("APIKeyDeleteRequest", func() {
-		It("Should round-trip the keys", func(ctx SpecContext) {
-			t := keyDelete.RequestTranslator
-			msg := apiapikey.DeleteRequest{Keys: []uuid.UUID{uuid.New()}}
-			Expect(
-				MustSucceed(t.Backward(ctx, MustSucceed(t.Forward(ctx, msg)))),
-			).To(Equal(msg))
+		It("Should translate the keys", func(ctx SpecContext) {
+			key := uuid.New()
+			Expect(MustSucceed(keyDelete.RequestTranslator.Backward(
+				ctx,
+				&grpcauth.APIKeyDeleteRequest{Keys: []string{key.String()}},
+			))).To(Equal(apiapikey.DeleteRequest{Keys: []uuid.UUID{key}}))
 		})
 		It("Should reject a malformed key", func(ctx SpecContext) {
 			Expect(keyDelete.RequestTranslator.Backward(

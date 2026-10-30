@@ -18,8 +18,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	svcauth "github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/validate"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -47,7 +45,7 @@ type (
 	methodsResponseTranslator struct{}
 )
 
-var _ grpc.Translator[auth.MethodsResponse, *MethodsResponse] = (*methodsResponseTranslator)(
+var _ grpc.ForwardTranslator[auth.MethodsResponse, *MethodsResponse] = (*methodsResponseTranslator)(
 	nil,
 )
 
@@ -60,25 +58,6 @@ func (methodsResponseTranslator) Forward(
 			return string(m)
 		}),
 	}, nil
-}
-
-func (methodsResponseTranslator) Backward(
-	_ context.Context,
-	r *MethodsResponse,
-) (auth.MethodsResponse, error) {
-	methods := make([]svcauth.Method, 0, len(r.Methods))
-	for _, m := range r.Methods {
-		method := svcauth.Method(m)
-		if !method.IsValid() {
-			return auth.MethodsResponse{}, errors.Wrapf(
-				validate.ErrValidation,
-				"unknown method %q",
-				m,
-			)
-		}
-		methods = append(methods, method)
-	}
-	return auth.MethodsResponse{Methods: methods}, nil
 }
 
 // New binds the login methods server onto t.

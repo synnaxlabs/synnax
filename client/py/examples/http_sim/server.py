@@ -506,15 +506,7 @@ def run_server(
     print(f"Starting {'HTTPS' if https else 'HTTP'} mock server on {host}:{port}")
     if auth != "none":
         print(f"Auth middleware: {auth}")
-        if auth == "basic":
-            print(
-                f"  Credentials: {AUTH_CREDENTIALS['username']}"
-                f":{AUTH_CREDENTIALS['password']}"
-            )
-        elif auth == "bearer":
-            print(f"  Token: {AUTH_CREDENTIALS['token']}")
-        elif auth == "api-key":
-            print(f"  API Key: {AUTH_CREDENTIALS['api_key']}")
+        print("  Credentials: see --help for the defaults and the flags to set them")
     if delay_ms > 0:
         print(f"Response delay: {delay_ms} ms")
     print()

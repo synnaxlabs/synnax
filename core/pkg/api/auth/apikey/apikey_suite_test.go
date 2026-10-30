@@ -19,7 +19,7 @@ import (
 	"github.com/synnaxlabs/freighter"
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	apiapikey "github.com/synnaxlabs/synnax/pkg/api/auth/apikey"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
@@ -38,7 +38,7 @@ func TestAPIKey(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
-	node        mock.Node
+	node        testutil.Node
 	authSvc     *auth.Service
 	passwordSvc *password.Service
 	rbacSvc     *rbac.Service
@@ -52,7 +52,7 @@ var (
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	node = mock.NewNode(ctx)
+	node = testutil.NewNode(ctx)
 	db := node.DB
 	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
