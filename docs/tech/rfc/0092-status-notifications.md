@@ -190,13 +190,14 @@ to match, and the statuses page in the docs
   (`driver/ethercat/engine/pool.cpp:27`), while the Npcap name and link go only to the
   log (`driver/ethercat/factory.cpp:65`). `Pool::check_available` returns
   `missing_lib(PCAP_LIBRARY_INFO)` instead.
-- **Statuses are sent again after a reconnect**: `SynnaxContext::set_status` keeps the
-  latest status of each task. On the first heartbeat that succeeds after a failure
-  (`driver/rack/status/status.h:77`), or more than three heartbeat periods after the
-  last good one, the Driver sends them again with `cmd` cleared. A sleep or a slow write
-  can let the Core mark tasks as stopped with no failed write. The manager drops the
-  entry of a task that it removes. The Driver writes nothing new at boot: RFC 0056 §4.5
-  keeps a never-started task silent.
+- **Statuses are sent again after a reconnect**: A new `task::StatusCache`, which the
+  task manager owns and the context writes through, keeps the latest status of each
+  task. `Context` gains only `resend_statuses`. On the first heartbeat that succeeds
+  after a failure (`driver/rack/status/status.h:77`), or more than three heartbeat
+  periods after the last good one, the Driver sends them again with `cmd` cleared. A
+  sleep or a slow write can let the Core mark tasks as stopped with no failed write. The
+  manager drops the entry of a task that it removes. The Driver writes nothing new at
+  boot: RFC 0056 §4.5 keeps a never-started task silent.
 - **The status filter delays, and never drops, a change**: Today the Driver drops a
   status that it sent in the last 5 s, even when a different status came between them
   (`driver/common/status.h:183`). A dropped "Task running" is never sent again, because

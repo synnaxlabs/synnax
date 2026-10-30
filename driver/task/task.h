@@ -18,7 +18,6 @@
 #include <string>
 #include <thread>
 #include <unordered_map>
-#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -30,6 +29,7 @@
 
 #include "driver/bypass/bypass.h"
 #include "driver/control/state.h"
+#include "driver/task/status_cache.h"
 
 namespace driver::task {
 /// @brief interface for a task that can be executed by the driver. Tasks should be
@@ -96,23 +96,10 @@ public:
     /// @brief updates the state of the task in the Synnax cluster.
     virtual void set_status(synnax::task::Status &status) = 0;
 
-    /// @brief sends the latest status of each task again, stamped now and with no
-    /// command key, to repair statuses lost while the Driver could not reach the Core.
-    /// Waits for a write of a task's own status in progress, then sends the latest
-    /// status, so a failed write is repaired too. Writes one task at a time, so a task
-    /// waits on at most one re-send write.
-    /// @returns the first error of the writes. An error does not stop the writes of the
-    /// other tasks. Call it again on error.
+    /// @brief sends the latest status of each task again, to repair statuses lost while
+    /// the Driver could not reach the Core.
+    /// @returns the first error of the writes. Call it again on error.
     [[nodiscard]] virtual x::errors::Error resend_statuses() = 0;
-
-    /// @brief forgets the latest status of the task and discards its later statuses, so
-    /// that neither a re-send nor a late report writes one. Call it once the task has
-    /// left this Driver. Never waits on a write.
-    virtual void drop_status(const synnax::task::Key &key) = 0;
-
-    /// @brief writes and keeps the statuses of the task again after drop_status. Call
-    /// it before the task runs on this Driver.
-    virtual void claim_status(const synnax::task::Key &key) = 0;
 };
 
 /// @brief a mock context that can be used for testing tasks.
@@ -133,10 +120,6 @@ public:
 
     x::errors::Error resend_statuses() override { return x::errors::NIL; }
 
-    void drop_status(const synnax::task::Key &) override {}
-
-    void claim_status(const synnax::task::Key &) override {}
-
     /// @brief returns a copy of the statuses, safe to read while tasks send more.
     std::vector<synnax::task::Status> snapshot() {
         std::lock_guard lock(this->mu);
@@ -148,36 +131,12 @@ class SynnaxContext final : public Context {
     std::shared_ptr<bypass::Bus> bus_;
     std::shared_ptr<control::States> control_states_;
     synnax::rack::Key rack_key_;
-    /// @brief the latest status of one task, with no command key.
-    struct Entry {
-        /// @brief guards status and orders the task's writes, so a re-send never lands
-        /// after a newer status.
-        std::mutex mu;
-        synnax::task::Status status;
-        /// @brief true once the task has left this Driver. Set without mu, so a drop
-        /// never waits on a write.
-        std::atomic<bool> dropped = false;
-    };
-    /// @brief guards statuses and released. Never held during a write, so a task never
-    /// waits on the write of another task.
-    std::mutex statuses_mu;
-    std::unordered_map<synnax::task::Key, std::shared_ptr<Entry>> statuses;
-    /// @brief the tasks that left this Driver and were not claimed again.
-    std::unordered_set<synnax::task::Key> released;
-
-    /// @brief returns the entry for key, creating it if absent. Returns null for a
-    /// released task.
-    std::shared_ptr<Entry> entry_for(const synnax::task::Key &key) {
-        std::lock_guard lock{this->statuses_mu};
-        if (this->released.contains(key)) return nullptr;
-        auto &entry = this->statuses[key];
-        if (entry == nullptr) entry = std::make_shared<Entry>();
-        return entry;
-    }
+    std::shared_ptr<StatusCache> statuses;
 
 public:
-    explicit SynnaxContext(
+    SynnaxContext(
         const std::shared_ptr<synnax::Synnax> &client,
+        std::shared_ptr<StatusCache> statuses,
         const std::shared_ptr<bypass::Bus> &bus = nullptr,
         const std::shared_ptr<control::States> &control_states = nullptr,
         const synnax::rack::Key rack_key = 0
@@ -185,7 +144,8 @@ public:
         Context(client),
         bus_(bus),
         control_states_(control_states),
-        rack_key_(rack_key) {}
+        rack_key_(rack_key),
+        statuses(std::move(statuses)) {}
 
     std::shared_ptr<bypass::Bus> bus() override { return this->bus_; }
 
@@ -198,56 +158,10 @@ public:
     void set_status(synnax::task::Status &status) override {
         if (status.time == 0) status.time = x::telem::TimeStamp::now();
         status.details.rack = this->rack_key_;
-        const auto entry = this->entry_for(status.details.task);
-        if (entry == nullptr) return;
-        std::lock_guard lock{entry->mu};
-        // drop_status can run between the lookup and the lock.
-        if (entry->dropped) return;
-        entry->status = status;
-        entry->status.details.cmd.clear();
-        if (const auto err = this->client->statuses.set<synnax::task::StatusDetails>(
-                status
-            );
-            err)
-            LOG(ERROR) << "[task.context] failed to write task status update: " << err;
+        this->statuses->set(status);
     }
 
-    x::errors::Error resend_statuses() override {
-        std::vector<std::shared_ptr<Entry>> entries;
-        {
-            std::lock_guard lock{this->statuses_mu};
-            entries.reserve(this->statuses.size());
-            for (const auto &[_, entry]: this->statuses)
-                entries.push_back(entry);
-        }
-        x::errors::Error first_err = x::errors::NIL;
-        for (const auto &entry: entries) {
-            std::lock_guard lock{entry->mu};
-            // drop_status can run between the copy and the lock.
-            if (entry->dropped) continue;
-            auto status = entry->status;
-            status.time = x::telem::TimeStamp::now();
-            if (const auto err = this->client->statuses
-                                     .set<synnax::task::StatusDetails>(status);
-                err && !first_err)
-                first_err = err;
-        }
-        return first_err;
-    }
-
-    void drop_status(const synnax::task::Key &key) override {
-        std::lock_guard lock{this->statuses_mu};
-        this->released.insert(key);
-        const auto it = this->statuses.find(key);
-        if (it == this->statuses.end()) return;
-        it->second->dropped = true;
-        this->statuses.erase(it);
-    }
-
-    void claim_status(const synnax::task::Key &key) override {
-        std::lock_guard lock{this->statuses_mu};
-        this->released.erase(key);
-    }
+    x::errors::Error resend_statuses() override { return this->statuses->resend(); }
 };
 
 /// @brief the cmd_key given to configure_task when no command drives the configure,
@@ -378,8 +292,10 @@ public:
     ):
         rack(std::move(rack)),
         control_states_(std::make_shared<control::States>()),
+        statuses(std::make_shared<StatusCache>(client->statuses)),
         ctx(std::make_shared<SynnaxContext>(
             client,
+            this->statuses,
             std::make_shared<bypass::Bus>(),
             this->control_states_,
             this->rack.key
@@ -404,6 +320,8 @@ private:
     synnax::rack::Rack rack;
     /// @brief shared control authority states, fed by the manager's streamer.
     std::shared_ptr<control::States> control_states_;
+    /// @brief the latest status of each task on this Driver.
+    std::shared_ptr<StatusCache> statuses;
     /// @brief shared context passed to all tasks.
     std::shared_ptr<Context> ctx;
     /// @brief creates device-specific tasks.
