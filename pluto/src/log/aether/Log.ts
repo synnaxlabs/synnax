@@ -389,7 +389,7 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
         indent: " ".repeat(prefix.length),
         columns,
         lead: 0,
-        rows: Math.max(1, Math.ceil(value.length / columns)),
+        rows: value.length === 0 ? 1 : Math.ceil(value.length / columns),
       };
     const ownColumns = Math.max(1, fullColumns);
     return {

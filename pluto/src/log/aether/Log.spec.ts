@@ -1117,6 +1117,21 @@ describe("log/aether/Log", () => {
       expect(log.state.rowEntries.length).toBeGreaterThan(1);
     });
 
+    it("should keep the row of an empty value behind a prefix that fills the width", () => {
+      const entry: LogEntry = {
+        channelKey: 1,
+        timestamp: TimeStamp.milliseconds(0),
+        value: "",
+      };
+      const { log } = setup([entry], REGION_500, {
+        channelNamesHidden: false,
+        channels: [clientLog.channelEntryZ.parse({ channel: 1, color: color.ZERO })],
+        channelNames: { "1": "n".repeat(500) },
+      });
+      log.render();
+      expect(log.state.rowEntries).toEqual([0]);
+    });
+
     it("should copy a wrapped value in one piece", () => {
       const { log } = setup([longEntry(0)], REGION_500, {
         timestampsHidden: true,
