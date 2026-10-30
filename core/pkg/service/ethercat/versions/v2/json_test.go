@@ -66,10 +66,9 @@ var _ = Describe("JSON", func() {
 					StateChannel: 6,
 					Device:       "d",
 				},
-				Index:     0x7000,
-				SubIndex:  1,
-				DataType:  telem.Uint8T,
-				StopValue: 3,
+				Index:    0x7000,
+				SubIndex: 1,
+				DataType: telem.Uint8T,
 			}},
 			{Variant: v2.UnresolvedWriteChannel{
 				BaseWriteChannel: v2.BaseWriteChannel{
@@ -84,7 +83,7 @@ var _ = Describe("JSON", func() {
 			{"type": "entry", "key": "a", "name": "", "disabled": false,
 			 "cmd_channel": 5, "state_channel": 6, "cmd_channel_name": "",
 			 "state_channel_name": "", "device": "d", "index": 28672, "sub_index": 1,
-			 "data_type": "uint8", "stop_value": 3},
+			 "data_type": "uint8"},
 			{"type": "unresolved", "key": "b", "name": "", "disabled": false,
 			 "cmd_channel": 7, "state_channel": 0, "cmd_channel_name": "",
 			 "state_channel_name": "", "device": "d", "pdo": "Output"}

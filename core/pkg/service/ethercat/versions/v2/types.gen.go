@@ -143,9 +143,6 @@ type EntryWriteChannel struct {
 	SubIndex uint8 `json:"sub_index" msgpack:"sub_index"`
 	// DataType is the data type of the PDO entry.
 	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
-	// StopValue is the value the entry takes when the task stops. The bus sends it
-	// before the slaves leave OP.
-	StopValue float64 `json:"stop_value" msgpack:"stop_value"`
 }
 
 func (EntryWriteChannel) isWriteChannelVariant() {}

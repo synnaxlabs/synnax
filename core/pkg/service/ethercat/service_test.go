@@ -203,6 +203,7 @@ var _ = Describe("Service", func() {
 			channels := writeData["channels"].([]any)
 			Expect(channels[0]).To(HaveKeyWithValue("type", "entry"))
 			Expect(channels[0]).To(HaveKeyWithValue("index", float64(0x7000)))
+			Expect(channels[0]).To(HaveKeyWithValue("stop_value", float64(0)))
 		})
 
 		It("Should address the channels on a slave a released Python client made", func(

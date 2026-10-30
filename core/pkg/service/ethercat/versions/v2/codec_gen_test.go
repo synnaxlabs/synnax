@@ -128,7 +128,6 @@ var _ = Describe("Codec", func() {
 				Index:            2,
 				SubIndex:         3,
 				DataType:         telem.DataType("test_3"),
-				StopValue:        4.5,
 			}}),
 			Entry("unresolved variant", v2.WriteChannel{Variant: v2.UnresolvedWriteChannel{
 				BaseWriteChannel: fullyPopulatedBaseWriteChannel,
@@ -159,7 +158,6 @@ var _ = Describe("Codec", func() {
 						Index:            8,
 						SubIndex:         9,
 						DataType:         telem.DataType("test_9"),
-						StopValue:        10.5,
 					}},
 				},
 			}),
@@ -242,7 +240,6 @@ func BenchmarkEncodeDecodeWriteChannel(b *testing.B) {
 		Index:            2,
 		SubIndex:         3,
 		DataType:         telem.DataType("test_3"),
-		StopValue:        4.5,
 	}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -272,7 +269,6 @@ func BenchmarkEncodeDecodeWriteConfig(b *testing.B) {
 				Index:            8,
 				SubIndex:         9,
 				DataType:         telem.DataType("test_9"),
-				StopValue:        10.5,
 			}},
 		},
 	}
@@ -420,7 +416,6 @@ func FuzzDecodeWriteChannel(f *testing.F) {
 			Index:            2,
 			SubIndex:         3,
 			DataType:         telem.DataType("test_3"),
-			StopValue:        4.5,
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -475,7 +470,6 @@ func FuzzDecodeWriteConfig(f *testing.F) {
 					Index:            8,
 					SubIndex:         9,
 					DataType:         telem.DataType("test_9"),
-					StopValue:        10.5,
 				}},
 			},
 		}

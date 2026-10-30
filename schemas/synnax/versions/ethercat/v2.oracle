@@ -48,20 +48,14 @@ BaseWriteChannel = v1.BaseWriteChannel
 
 WriteChannel union on type extends v1.BaseWriteChannel {
     entry {
-        index      uint16         {
+        index     uint16         {
             @doc value "is the CoE object dictionary index of the PDO entry."
         }
-        sub_index  uint8          {
+        sub_index uint8          {
             @doc value "is the CoE object dictionary sub-index of the PDO entry."
         }
-        data_type  telem.DataType {
+        data_type telem.DataType {
             @doc value "is the data type of the PDO entry."
-        }
-        stop_value float64 = 0 {
-            @doc value """
-                is the value the entry takes when the task stops. The bus sends it
-                before the slaves leave OP.
-            """
         }
 
         @doc value "addresses a PDO entry by its CoE index and sub-index."
