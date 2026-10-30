@@ -13,18 +13,31 @@ import { type z } from "zod";
 
 import { type SCAN_SCHEMAS, SCAN_TYPE } from "@/feature/opcua/task/types";
 
-export const retrieveScanTask = async (
-  client: Synnax,
-  rack: number,
-): Promise<task.Task<typeof SCAN_SCHEMAS>> =>
-  await client.tasks.retrieve<typeof SCAN_SCHEMAS>({ type: SCAN_TYPE, rack });
-
-interface ExecuteScanCommandParams<Z extends z.ZodType> {
+interface SendScanCommandParams {
   type: string;
   args: record.Unknown;
+  timeout?: TimeSpan;
+}
+
+/**
+ * Runs a command on the OPC UA scan task of a rack and waits for its reply.
+ * @returns The status of the reply, which can be a failure.
+ */
+export const sendScanCommand = async (
+  client: Synnax,
+  rack: number,
+  { type, args, timeout = TimeSpan.seconds(10) }: SendScanCommandParams,
+): Promise<task.Status<(typeof SCAN_SCHEMAS)["statusData"]>> => {
+  const scanTask = await client.tasks.retrieve<typeof SCAN_SCHEMAS>({
+    type: SCAN_TYPE,
+    rack,
+  });
+  return await scanTask.executeCommandSync({ type, timeout, args });
+};
+
+interface ExecuteScanCommandParams<Z extends z.ZodType> extends SendScanCommandParams {
   /** The schema of the data of the reply. */
   schema: Z;
-  timeout?: TimeSpan;
 }
 
 /**
@@ -36,10 +49,9 @@ interface ExecuteScanCommandParams<Z extends z.ZodType> {
 export const executeScanCommand = async <Z extends z.ZodType>(
   client: Synnax,
   rack: number,
-  { type, args, schema, timeout = TimeSpan.seconds(10) }: ExecuteScanCommandParams<Z>,
+  { schema, ...params }: ExecuteScanCommandParams<Z>,
 ): Promise<z.infer<Z>> => {
-  const scanTask = await retrieveScanTask(client, rack);
-  const res = await scanTask.executeCommandSync({ type, timeout, args });
+  const res = await sendScanCommand(client, rack, params);
   if (res.variant === "error") throw status.toError(res);
   return schema.parse(res.details?.data);
 };
