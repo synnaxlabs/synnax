@@ -19,7 +19,11 @@ import { useFromConfig } from "@/feature/ni/device/queries";
 import { Select } from "@/feature/ni/device/Select";
 import { SCHEMAS } from "@/feature/ni/device/types";
 import { AOChannelForm } from "@/feature/ni/task/AOChannelForm";
+import { analogWriteHardwareZ } from "@/feature/ni/task/checks";
 import { createNextAOChannel } from "@/feature/ni/task/createChannel";
+import { DetailsTitle as Title } from "@/feature/ni/task/DetailsTitle";
+import { ANALOG_OUTPUT, holdState, portClaims } from "@/feature/ni/task/ports";
+import { PortsView } from "@/feature/ni/task/PortsView";
 import {
   ANALOG_WRITE_SCHEMAS,
   ANALOG_WRITE_TYPE,
@@ -76,12 +80,22 @@ const ChannelDetails = ({ path }: Task.Views.DetailsProps) => {
 const channelDetails = Component.renderProp(ChannelDetails);
 
 const DetailsTitle = ({ path }: Task.Views.DetailsProps) => {
-  const { port, type } = PForm.useFieldValue<AOChannel>(path);
-  const Icon = AO_CHANNEL_TYPE_ICONS[type];
+  const value = PForm.useFieldValue<AOChannel>(path);
+  const channels = PForm.useFieldValue<AOChannel[]>("config.channels");
+  const device = useFromConfig();
+  const Icon = AO_CHANNEL_TYPE_ICONS[value.type];
   return (
-    <Task.Views.ItemLabel kind={AO_CHANNEL_TYPE_NAMES[type]} icon={<Icon />}>
-      Port {port}
-    </Task.Views.ItemLabel>
+    <Title
+      port={{
+        label: String(value.port),
+        state: holdState(portClaims(channels), [value.port]),
+      }}
+      type={{ icon: <Icon />, name: AO_CHANNEL_TYPE_NAMES[value.type] }}
+      channel={value.cmdChannel}
+      namePath={`${path}.cmdChannelName`}
+      defaultName={device == null ? "" : ANALOG_OUTPUT.name(value, device)}
+      model={device?.model}
+    />
   );
 };
 
@@ -90,6 +104,7 @@ const channelListItem = Component.renderProp(ChannelListItem);
 
 const Form: FC = () => {
   const dev = useFromConfig();
+  Task.useConfigCheck(analogWriteHardwareZ(dev));
   const resolve = (ch: AOChannel) => {
     if (dev == null) return null;
     const pair =
@@ -97,14 +112,27 @@ const Form: FC = () => {
       PlatformDevice.ZERO_COMMAND_STATE_PAIR;
     return { cmdChannel: pair.command, stateChannel: pair.state };
   };
+  const ports =
+    dev?.properties.hardware == null
+      ? undefined
+      : (props: Task.Views.PortsProps) => (
+          <PortsView<AOChannel>
+            {...props}
+            kind={ANALOG_OUTPUT}
+            devices={[dev]}
+            deviceOf={() => dev.key}
+            create={(channels, _, port) => createNextAOChannel(channels, { port }, dev)}
+          />
+        );
   return (
     <Task.Views.ListAndDetails<AOChannel>
       listItem={channelListItem}
       details={channelDetails}
       detailsTitle={detailsTitle}
-      createChannel={createNextAOChannel}
+      createChannel={(channels, copy) => createNextAOChannel(channels, { copy }, dev)}
       contextMenuItems={Task.writeChannelContextMenuItems}
       resolve={resolve}
+      ports={ports}
     />
   );
 };
@@ -232,6 +260,10 @@ export const AnalogWrite = Task.wrapForm({
   Form,
   schemas: ANALOG_WRITE_SCHEMAS,
   deployConfigZ: deployAnalogWriteConfigZ,
+  deviceConfigZ: async (client, config) =>
+    analogWriteHardwareZ(
+      await client.devices.retrieve({ key: config.device, schemas: SCHEMAS }),
+    ),
   type: "ni_analog_write",
   getInitialValues,
   onConfigure,

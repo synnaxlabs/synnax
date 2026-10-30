@@ -17,12 +17,15 @@ import { type FC } from "react";
 import { useFromConfig } from "@/feature/ni/device/queries";
 import { Select } from "@/feature/ni/device/Select";
 import { SCHEMAS } from "@/feature/ni/device/types";
+import { digitalHardwareZ } from "@/feature/ni/task/checks";
 import { createNextDIChannel } from "@/feature/ni/task/createChannel";
 import {
   DigitalChannelList,
   type DigitalNameComponentProps,
 } from "@/feature/ni/task/DigitalChannelList";
 import { getDigitalChannelDeviceKey } from "@/feature/ni/task/getDigitalChannelDeviceKey";
+import { digitalInputName } from "@/feature/ni/task/ports";
+import { LinesView } from "@/feature/ni/task/PortsView";
 import {
   deployDigitalReadConfigZ,
   type DIChannel,
@@ -62,6 +65,7 @@ const name = Component.renderProp(NameComponent);
 
 const Form: FC = () => {
   const dev = useFromConfig();
+  Task.useConfigCheck(digitalHardwareZ(dev, "input"));
   const resolve = (ch: DIChannel) =>
     dev == null
       ? null
@@ -71,10 +75,25 @@ const Form: FC = () => {
         };
   return (
     <DigitalChannelList<DIChannel>
-      createChannel={createNextDIChannel}
+      createChannel={(channels) => createNextDIChannel(channels, {}, dev)}
       name={name}
       contextMenuItems={Task.readChannelContextMenuItem}
       resolve={resolve}
+      ports={
+        dev?.properties.hardware == null
+          ? undefined
+          : (props) => (
+              <LinesView<DIChannel>
+                {...props}
+                device={dev}
+                direction="input"
+                create={(channels, placement) =>
+                  createNextDIChannel(channels, placement, dev)
+                }
+                name={digitalInputName}
+              />
+            )
+      }
     />
   );
 };
@@ -163,6 +182,11 @@ export const DigitalRead = Task.wrapForm({
   Form,
   schemas: DIGITAL_READ_SCHEMAS,
   deployConfigZ: deployDigitalReadConfigZ,
+  deviceConfigZ: async (client, config) =>
+    digitalHardwareZ(
+      await client.devices.retrieve({ key: config.device, schemas: SCHEMAS }),
+      "input",
+    ),
   getInitialValues,
   onConfigure,
   type: "ni_digital_read",

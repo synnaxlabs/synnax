@@ -10,11 +10,15 @@
 import { type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
-import { screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { NI } from "@/feature/ni";
-import { createNIDevice, renderNITaskForm } from "@/feature/ni/task/testutil";
+import {
+  createHardware,
+  createNIDevice,
+  renderNITaskForm,
+} from "@/feature/ni/task/testutil";
 import {
   commitFieldInput,
   createWithHook,
@@ -169,5 +173,42 @@ describe("DigitalRead", () => {
       NI.Task.DIGITAL_READ_SCHEMAS,
     );
     expect(tsk.config.channels).toHaveLength(1);
+  });
+});
+
+describe("DigitalRead ports", () => {
+  it("should add a channel on a free line from the ports view", async () => {
+    const dev = await createNIDevice(client, {
+      properties: { hardware: createHardware() },
+    });
+    const { draft } = await renderDigitalRead(
+      createConfig([createChannel(0, 0)], dev.key),
+    );
+    fireEvent.click(await screen.findByText("Ports"));
+    const grid = await screen.findByRole("group", { name: "port1 lines" });
+    fireEvent.click(within(grid).getByRole("button", { name: "port1/line2" }));
+    await waitFor(async () => {
+      const saved = await client.tasks.retrieve({
+        key: draft.key,
+        schemas: NI.Task.DIGITAL_READ_SCHEMAS,
+      });
+      expect(saved.config.channels.map(({ port, line }) => [port, line])).toEqual([
+        [0, 0],
+        [1, 2],
+      ]);
+    });
+  });
+
+  it("should mark a line that two channels share", async () => {
+    const dev = await createNIDevice(client, {
+      properties: { hardware: createHardware() },
+    });
+    await renderDigitalRead(
+      createConfig([createChannel(0, 2), createChannel(0, 2)], dev.key),
+    );
+    fireEvent.click(await screen.findByText("Ports"));
+    const grid = await screen.findByRole("group", { name: "port0 lines" });
+    const line = within(grid).getByRole("button", { name: "port0/line2" });
+    expect(line.className).toContain("console-port-grid__cell--conflict");
   });
 });

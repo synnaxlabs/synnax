@@ -21,6 +21,18 @@ import {
   createAOChannel,
 } from "@/feature/ni/task/types";
 
+/** The items of the channel type select, one for each of the types. */
+export const channelTypeItems = (types: readonly AOChannelType[]) =>
+  types.map((type) => {
+    const Icon = AO_CHANNEL_TYPE_ICONS[type];
+    return (
+      <Select.Item key={type} itemKey={type}>
+        <Icon color={9} />
+        {AO_CHANNEL_TYPE_NAMES[type]}
+      </Select.Item>
+    );
+  });
+
 export const SelectAOChannelTypeField = Form.buildSelectField<AOChannelType>({
   fieldKey: "type",
   fieldProps: {
@@ -41,14 +53,6 @@ export const SelectAOChannelTypeField = Form.buildSelectField<AOChannelType>({
   inputProps: {
     allowNone: false,
     resourceName: "channel type",
-    children: AO_CHANNEL_TYPES.map((key) => {
-      const Icon = AO_CHANNEL_TYPE_ICONS[key];
-      return (
-        <Select.Item key={key} itemKey={key}>
-          <Icon color={9} />
-          {AO_CHANNEL_TYPE_NAMES[key]}
-        </Select.Item>
-      );
-    }),
+    children: channelTypeItems(AO_CHANNEL_TYPES),
   },
 });

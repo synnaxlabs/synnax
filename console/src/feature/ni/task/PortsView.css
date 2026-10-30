@@ -1,0 +1,38 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.console-ni-ports {
+    flex: 1 1 0;
+    gap: 5rem;
+    min-height: 0;
+    padding: 2rem 3rem 3rem;
+    overflow-y: auto;
+}
+
+.console-ni-ports__usage {
+    font-variant-numeric: tabular-nums;
+}
+
+.console-ni-ports__add {
+    flex: none;
+}
+
+/* An empty select dims its trigger as a placeholder. "Add device" is an action, so it
+   takes the color of "Add channel". */
+.console-ni-ports__add > .console-create-list-item.console-ni-ports__trigger {
+    color: var(--pluto-gray-l9);
+}
+
+.console-ni-ports__port {
+    flex: none;
+    width: 5rem;
+    font-variant-numeric: tabular-nums;
+}

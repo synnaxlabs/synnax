@@ -31,9 +31,17 @@ const details = Component.renderProp(({ path }: { path: string }) => (
 
 const resolve = () => null;
 
+// Picks channel b, and names the channels it shows as selected.
+const ports = Component.renderProp(({ selected, onSelect }: Task.Views.PortsProps) => (
+  <button type="button" onClick={() => onSelect(["b"])}>
+    ports-{selected.join(",")}
+  </button>
+));
+
 const renderListAndDetails = (
   channels: Channel[],
   createChannel: Task.Views.CreateChannel<Channel> = () => null,
+  portsView?: typeof ports,
 ) =>
   renderInTaskForm(
     <Task.Views.ListAndDetails<Channel>
@@ -41,6 +49,7 @@ const renderListAndDetails = (
       listItem={listItem}
       details={details}
       resolve={resolve}
+      ports={portsView}
     />,
     { values: { config: { channels } } },
   );
@@ -78,6 +87,33 @@ describe("layouts.ListAndDetails", () => {
       expect(screen.getByText("details-for-config.channels.b")).toBeTruthy(),
     );
     expect(screen.queryByText("details-for-config.channels.a")).toBeNull();
+  });
+
+  it("should offer no view switch without a ports view", async () => {
+    await renderListAndDetails([{ key: "a", disabled: false }]);
+    await screen.findByText("item-a");
+    expect(screen.queryByText("Ports")).toBeNull();
+  });
+
+  it("should show the ports view in place of the list and select what it picks", async () => {
+    await renderListAndDetails(
+      [
+        { key: "a", disabled: false },
+        { key: "b", disabled: false },
+      ],
+      undefined,
+      ports,
+    );
+    await screen.findByText("item-a");
+    fireEvent.click(screen.getByText("Ports"));
+    fireEvent.click(await screen.findByText("ports-a"));
+    await waitFor(() =>
+      expect(screen.getByText("details-for-config.channels.b")).toBeTruthy(),
+    );
+    expect(screen.getByText("ports-b")).toBeTruthy();
+    expect(screen.queryByText("item-a")).toBeNull();
+    fireEvent.click(screen.getByText("List"));
+    await screen.findByText("item-a");
   });
 
   it("should create a channel with the selected key as the copy source when Add is pressed", async () => {

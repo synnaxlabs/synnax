@@ -17,12 +17,15 @@ import { type FC } from "react";
 import { useFromConfig } from "@/feature/ni/device/queries";
 import { Select } from "@/feature/ni/device/Select";
 import { SCHEMAS } from "@/feature/ni/device/types";
+import { digitalHardwareZ } from "@/feature/ni/task/checks";
 import { createNextDOChannel } from "@/feature/ni/task/createChannel";
 import {
   DigitalChannelList,
   type DigitalNameComponentProps,
 } from "@/feature/ni/task/DigitalChannelList";
 import { getDigitalChannelDeviceKey } from "@/feature/ni/task/getDigitalChannelDeviceKey";
+import { digitalOutputName } from "@/feature/ni/task/ports";
+import { LinesView } from "@/feature/ni/task/PortsView";
 import {
   deployDigitalWriteConfigZ,
   DIGITAL_WRITE_SCHEMAS,
@@ -68,6 +71,7 @@ const name = Component.renderProp(NameComponent);
 
 const Form: FC = () => {
   const dev = useFromConfig();
+  Task.useConfigCheck(digitalHardwareZ(dev, "output"));
   const resolve = (ch: DOChannel) => {
     if (dev == null) return null;
     const pair =
@@ -77,10 +81,25 @@ const Form: FC = () => {
   };
   return (
     <DigitalChannelList
-      createChannel={createNextDOChannel}
+      createChannel={(channels) => createNextDOChannel(channels, {}, dev)}
       name={name}
       contextMenuItems={Task.writeChannelContextMenuItems}
       resolve={resolve}
+      ports={
+        dev?.properties.hardware == null
+          ? undefined
+          : (props) => (
+              <LinesView<DOChannel>
+                {...props}
+                device={dev}
+                direction="output"
+                create={(channels, placement) =>
+                  createNextDOChannel(channels, placement, dev)
+                }
+                name={digitalOutputName}
+              />
+            )
+      }
     />
   );
 };
@@ -212,6 +231,11 @@ export const DigitalWrite = Task.wrapForm({
   Form,
   schemas: DIGITAL_WRITE_SCHEMAS,
   deployConfigZ: deployDigitalWriteConfigZ,
+  deviceConfigZ: async (client, config) =>
+    digitalHardwareZ(
+      await client.devices.retrieve({ key: config.device, schemas: SCHEMAS }),
+      "output",
+    ),
   getInitialValues,
   onConfigure,
   type: "ni_digital_write",

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device, type Synnax } from "@synnaxlabs/client";
+import { type device, ni, type Synnax } from "@synnaxlabs/client";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { id } from "@synnaxlabs/x";
 import { waitFor } from "@testing-library/react";
@@ -66,6 +66,40 @@ export const createNIDevice = async (
   });
   return dev;
 };
+
+/**
+ * The ports of an X Series style device. ai0 to ai7 pair with ai8 to ai15, default to
+ * differential, and also take thermocouples. It has two analog outputs, two 8-line
+ * digital ports, four counters, and the terminals PFI0 to PFI3.
+ */
+export const createHardware = (): ni.Hardware =>
+  ni.hardwareZ.parse({
+    analogInputs: Array.from({ length: 16 }, (_, port) =>
+      port < 8
+        ? {
+            port,
+            terminalConfigs: ["RSE", "NRSE", "Diff"],
+            defaultTerminalConfig: "Diff",
+            types: ["ai_voltage", "ai_thermocouple"],
+            negative: port + 8,
+          }
+        : {
+            port,
+            terminalConfigs: ["RSE", "NRSE"],
+            defaultTerminalConfig: "RSE",
+            types: ["ai_voltage"],
+          },
+    ),
+    analogOutputs: [0, 1].map((port) => ({ port, types: ["ao_voltage"] })),
+    counterInputs: [0, 1, 2, 3].map((port) => ({ port, types: ["ci_frequency"] })),
+    digitalPorts: [
+      { port: 0, lines: 8, input: true, output: true },
+      { port: 1, lines: 8, input: true, output: true },
+    ],
+    terminals: ["PFI0", "PFI1", "PFI2", "PFI3"],
+    aiMaxSingleChannelRate: 2_000_000,
+    aiMaxMultiChannelRate: 1_000_000,
+  });
 
 export interface RenderNITaskFormResult extends RenderTaskFormTabResult {
   /** Live view of the status notifications raised while the form is mounted. */

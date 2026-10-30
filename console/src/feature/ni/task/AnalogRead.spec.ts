@@ -10,12 +10,13 @@
 import { type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { assert, describe, expect, it } from "vitest";
 
 import { NI } from "@/feature/ni";
 import {
   awaitStatusDescription,
+  createHardware,
   createNIDevice,
   renderNITaskForm,
 } from "@/feature/ni/task/testutil";
@@ -24,6 +25,7 @@ import {
   commitFieldInput,
   createWithHook,
   deployAndAwaitTask,
+  findChannelListItem,
   selectFromDropdown,
 } from "@/platform/task/testutil";
 import {
@@ -98,8 +100,8 @@ describe("AnalogRead", () => {
         },
       ],
     });
-    await waitFor(() => expect(screen.getByText("3")).toBeTruthy());
-    expect(screen.getByText("NA")).toBeTruthy();
+    await findChannelListItem("3");
+    await findChannelListItem("NA");
   });
 
   it("should render the detail form for every channel type as it is selected", async () => {
@@ -146,7 +148,7 @@ describe("AnalogRead", () => {
       ),
     });
     for (const [type, distinguishingLabel] of cases) {
-      fireEvent.click(await screen.findByText(`chan_${type}`));
+      fireEvent.click(await findChannelListItem(`chan_${type}`));
       await waitFor(
         () =>
           expect(
@@ -188,7 +190,7 @@ describe("AnalogRead", () => {
       })),
     });
     for (const [scaleType, distinguishingLabel] of cases) {
-      fireEvent.click(await screen.findByText(`chan_${scaleType}`));
+      fireEvent.click(await findChannelListItem(`chan_${scaleType}`));
       await waitFor(
         () =>
           expect(
@@ -343,7 +345,7 @@ describe("AnalogRead", () => {
       firstTask.config.channels[0].channel,
     );
     const second = await renderAnalogRead(config);
-    await screen.findByText(existing.name);
+    await findChannelListItem(existing.name);
     await waitFor(async () => {
       const saved = await client.tasks.retrieve({
         key: second.draft.key,
@@ -436,5 +438,110 @@ describe("AnalogRead", () => {
       { deviceKey: dev.key },
     );
     expect(tsk.config.channels.map(({ device }) => device)).toEqual([dev.key]);
+  });
+});
+
+describe("AnalogRead ports", () => {
+  const createDevice = async () =>
+    await createNIDevice(client, { properties: { hardware: createHardware() } });
+
+  const renderWith = async (channels: NI.Task.AIChannel[]) =>
+    await renderAnalogRead({
+      ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
+      channels,
+    });
+
+  const savedPorts = async (key: string) => {
+    const saved = await client.tasks.retrieve({
+      key,
+      schemas: NI.Task.ANALOG_READ_SCHEMAS,
+    });
+    return saved.config.channels.map((c) => ("port" in c ? c.port : null));
+  };
+
+  const cell = (grid: HTMLElement, name: string) =>
+    within(grid).getByRole("button", { name });
+
+  it("should set the channel's port from a click on the grid", async () => {
+    const dev = await createDevice();
+    const { draft } = await renderWith([
+      createChannel("ai_voltage", 0, { device: dev.key }),
+    ]);
+    const grid = await screen.findByRole("group", { name: "Port" });
+    expect(cell(grid, "ai0").getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(cell(grid, "ai3"));
+    await waitFor(() =>
+      expect(cell(grid, "ai3").getAttribute("aria-pressed")).toBe("true"),
+    );
+    await waitFor(async () => expect(await savedPorts(draft.key)).toEqual([3]));
+  });
+
+  it("should take a port number for a device with no port list", async () => {
+    const dev = await createNIDevice(client);
+    await renderWith([createChannel("ai_voltage", 7, { device: dev.key })]);
+    await screen.findByText("Terminal configuration");
+    expect(screen.queryByRole("group", { name: "Port" })).toBeNull();
+    expect(screen.getByDisplayValue("7")).toBeTruthy();
+  });
+
+  it("should mark a channel that shares its port while the user edits", async () => {
+    const dev = await createDevice();
+    await renderWith([
+      createChannel("ai_voltage", 0, { device: dev.key }),
+      createChannel("ai_voltage", 0, { device: dev.key }),
+    ]);
+    expect(await screen.findByText("Another channel uses ai0")).toBeTruthy();
+  });
+
+  it("should list only the channel types the port takes", async () => {
+    const dev = await createDevice();
+    await renderWith([createChannel("ai_voltage", 8, { device: dev.key })]);
+    fireEvent.click(await findDialogTriggerByText("Voltage"));
+    await screen.findByText("Temperature built-in sensor");
+    expect(screen.queryByText("Thermocouple")).toBeNull();
+  });
+
+  it("should show the terminal configuration Default gives on the port", async () => {
+    const dev = await createDevice();
+    await renderWith([createChannel("ai_voltage", 8, { device: dev.key })]);
+    expect(
+      await findDialogTriggerByText("Default (Referenced single ended)"),
+    ).toBeTruthy();
+  });
+
+  it("should add a channel on a free port from the ports view", async () => {
+    const dev = await createDevice();
+    const { draft } = await renderWith([
+      createChannel("ai_voltage", 0, { device: dev.key }),
+    ]);
+    fireEvent.click(await screen.findByText("Ports"));
+    const grid = await screen.findByRole("group", { name: `${dev.name} ports` });
+    fireEvent.click(cell(grid, "ai3"));
+    await waitFor(async () => expect(await savedPorts(draft.key)).toEqual([0, 3]));
+    expect(cell(grid, "ai3").getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("should select the channel on a used port from the ports view", async () => {
+    const dev = await createDevice();
+    await renderWith([
+      createChannel("ai_voltage", 0, { device: dev.key, name: "chan_first" }),
+      createChannel("ai_voltage", 1, { device: dev.key, name: "chan_second" }),
+    ]);
+    fireEvent.click(await screen.findByText("Ports"));
+    const grid = await screen.findByRole("group", { name: `${dev.name} ports` });
+    expect(cell(grid, "ai0").getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(cell(grid, "ai1"));
+    await waitFor(() =>
+      expect(cell(grid, "ai1").getAttribute("aria-pressed")).toBe("true"),
+    );
+    expect(cell(grid, "ai0").getAttribute("aria-pressed")).toBe("false");
+    expect(screen.getByText("chan_second")).toBeTruthy();
+  });
+
+  it("should offer no ports view when no device has a port list", async () => {
+    const dev = await createNIDevice(client);
+    await renderWith([createChannel("ai_voltage", 0, { device: dev.key })]);
+    await screen.findByText("Terminal configuration");
+    expect(screen.queryByText("Ports")).toBeNull();
   });
 });

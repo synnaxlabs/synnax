@@ -9,16 +9,23 @@
 
 import { Form } from "@synnaxlabs/lyra/form";
 import { Select } from "@synnaxlabs/lyra/select";
+import { record } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { PortField } from "@/feature/ni/device/PortField";
 import { Select as SelectDevice } from "@/feature/ni/device/Select";
 import { CustomScaleSection } from "@/feature/ni/task/CustomScaleForm";
 import { MinMaxValueFields } from "@/feature/ni/task/MinMaxValueFields";
-import { SelectCIChannelTypeField } from "@/feature/ni/task/SelectCIChannelTypeField";
+import { PortField } from "@/feature/ni/task/PortField";
+import { COUNTER_INPUT } from "@/feature/ni/task/ports";
 import {
+  channelTypeItems,
+  SelectCIChannelTypeField,
+} from "@/feature/ni/task/SelectCIChannelTypeField";
+import {
+  CI_CHANNEL_TYPE_NAMES,
   type CIAngularPositionUnits,
   type CIAngularVelocityUnits,
+  type CIChannel,
   type CIChannelType,
   type CICountDirection,
   type CIDecodingType,
@@ -33,6 +40,7 @@ import {
   type CITimeUnits,
   type CITwoEdgeSepUnits,
 } from "@/feature/ni/task/types";
+import { allowedTypes, useChannelDevice } from "@/feature/ni/task/usePort";
 import { Task } from "@/platform/task";
 
 const CI_TIME_UNITS_NAMES = {
@@ -179,41 +187,65 @@ const DivisorField = Form.buildNumericField({
   inputProps: {},
 });
 
-const COUNTER_TERMINALS = [
-  "PFI0",
-  "PFI1",
-  "PFI2",
-  "PFI3",
-  "PFI4",
-  "PFI5",
-  "PFI6",
-  "PFI7",
-  "PFI8",
-  "PFI9",
-  "PFI10",
-  "PFI11",
-  "PFI12",
-  "PFI13",
-  "PFI14",
-  "PFI15",
-] as const;
+// A device with no port list offers PFI0 to PFI15.
+const FALLBACK_TERMINALS = Array.from({ length: 16 }, (_, i) => `PFI${i}`);
 
-const COUNTER_TERMINAL_ITEMS = COUNTER_TERMINALS.map((t) => (
-  <Select.Item key={t} itemKey={t}>
-    {t}
-  </Select.Item>
-));
+// The PFI terminals of the channel's device, and the current terminal.
+const useTerminalItems = (path: string, current: string) => {
+  const hardware = useChannelDevice(path)?.properties.hardware;
+  const terminals =
+    hardware == null
+      ? [...FALLBACK_TERMINALS]
+      : hardware.terminals.filter((t) => t.startsWith("PFI"));
+  if (current !== "" && !terminals.includes(current)) terminals.push(current);
+  return terminals.map((t) => (
+    <Select.Item key={t} itemKey={t}>
+      {t}
+    </Select.Item>
+  ));
+};
 
-const TerminalField = Form.buildSelectField<string>({
-  fieldKey: "terminal",
-  fieldProps: { label: "Input terminal" },
-  inputProps: {
-    resourceName: "input terminal",
-    searchName: "terminal",
-    allowNone: true,
-    children: COUNTER_TERMINAL_ITEMS,
-  },
-});
+interface TerminalFieldProps {
+  path: string;
+  fieldKey: "terminal" | "terminalA" | "terminalB" | "terminalZ";
+  label: string;
+  disabled?: boolean;
+}
+
+const TerminalField = ({ path, fieldKey, label, disabled }: TerminalFieldProps) => {
+  const fieldPath = `${path}.${fieldKey}`;
+  const value = Form.useFieldValue<string>(fieldPath);
+  const items = useTerminalItems(path, value);
+  return (
+    <Form.Field<string> path={fieldPath} label={label}>
+      {({ value, onChange, preview }) => (
+        <Select.Simple<string>
+          value={value}
+          onChange={(v: string | null) => onChange(v ?? "")}
+          preview={preview}
+          allowNone
+          disabled={disabled}
+          resourceName={label.charAt(0).toLowerCase() + label.slice(1)}
+          searchName="terminal"
+        >
+          {items}
+        </Select.Simple>
+      )}
+    </Form.Field>
+  );
+};
+
+const InputTerminalField = ({ path }: { path: string }) => (
+  <TerminalField path={path} fieldKey="terminal" label="Input terminal" />
+);
+
+const TerminalAField = ({ path }: { path: string }) => (
+  <TerminalField path={path} fieldKey="terminalA" label="Input terminal A" />
+);
+
+const TerminalBField = ({ path }: { path: string }) => (
+  <TerminalField path={path} fieldKey="terminalB" label="Input terminal B" />
+);
 
 const FirstEdgeField = Form.buildSelectField<CIEdge>({
   fieldKey: "firstEdge",
@@ -230,28 +262,6 @@ const SecondEdgeField = Form.buildSelectField<CIEdge>({
   inputProps: {
     resourceName: "edge 2",
     children: Task.selectItems(CI_EDGE_NAMES),
-  },
-});
-
-const TerminalAField = Form.buildSelectField<string>({
-  fieldKey: "terminalA",
-  fieldProps: { label: "Input terminal A" },
-  inputProps: {
-    resourceName: "input terminal A",
-    searchName: "terminal",
-    allowNone: true,
-    children: COUNTER_TERMINAL_ITEMS,
-  },
-});
-
-const TerminalBField = Form.buildSelectField<string>({
-  fieldKey: "terminalB",
-  fieldProps: { label: "Input terminal B" },
-  inputProps: {
-    resourceName: "input terminal B",
-    searchName: "terminal",
-    allowNone: true,
-    children: COUNTER_TERMINAL_ITEMS,
   },
 });
 
@@ -362,25 +372,13 @@ const ZIndexPhaseField: FC<{ path: string; disabled?: boolean }> = ({
   </Form.Field>
 );
 
-const TerminalZField: FC<{ path: string; disabled?: boolean }> = ({
-  path,
-  disabled,
-}) => (
-  <Form.Field<string> path={`${path}.terminalZ`} label="Input terminal Z">
-    {({ value, onChange, preview }) => (
-      <Select.Simple<string>
-        value={value}
-        onChange={(v: string | null) => onChange(v ?? "")}
-        preview={preview}
-        allowNone
-        disabled={disabled}
-        resourceName="input terminal Z"
-        searchName="terminal"
-      >
-        {COUNTER_TERMINAL_ITEMS}
-      </Select.Simple>
-    )}
-  </Form.Field>
+const TerminalZField = ({ path, disabled }: { path: string; disabled?: boolean }) => (
+  <TerminalField
+    path={path}
+    fieldKey="terminalZ"
+    label="Input terminal Z"
+    disabled={disabled}
+  />
 );
 
 const CI_LINEAR_POSITION_UNITS_NAMES = {
@@ -437,7 +435,7 @@ const FrequencyForm: FC<FormProps> = ({ prefix }) => {
       <MinMaxValueFields path={prefix} />
       <EdgeField path={prefix} />
       <UnitsField path={prefix} />
-      <TerminalField path={prefix} />
+      <InputTerminalField path={prefix} />
       <MeasMethodField path={prefix} />
       {showMeasTime && <MeasTimeField path={prefix} />}
       {showDivisor && <DivisorField path={prefix} />}
@@ -452,7 +450,7 @@ const PeriodForm: FC<FormProps> = ({ prefix }) => {
       <MinMaxValueFields path={prefix} />
       <StartingEdgeField path={prefix} />
       <PeriodUnitsField path={prefix} />
-      <TerminalField path={prefix} />
+      <InputTerminalField path={prefix} />
       <MeasMethodField path={prefix} />
       {showMeasTime && <MeasTimeField path={prefix} />}
       {showDivisor && <DivisorField path={prefix} />}
@@ -502,7 +500,7 @@ const CHANNEL_FORMS: Record<CIChannelType, FC<FormProps>> = {
     <>
       <ActiveEdgeField path={prefix} />
       <CountDirectionField path={prefix} />
-      <TerminalField path={prefix} />
+      <InputTerminalField path={prefix} />
       <InitialCountField path={prefix} />
     </>
   ),
@@ -512,7 +510,7 @@ const CHANNEL_FORMS: Record<CIChannelType, FC<FormProps>> = {
       <MinMaxValueFields path={prefix} />
       <StartingEdgeField path={prefix} />
       <PulseWidthUnitsField path={prefix} />
-      <TerminalField path={prefix} />
+      <InputTerminalField path={prefix} />
     </>
   ),
   ci_semi_period: ({ prefix }: FormProps) => (
@@ -555,7 +553,7 @@ const CHANNEL_FORMS: Record<CIChannelType, FC<FormProps>> = {
     <>
       <MinMaxValueFields path={prefix} />
       <ActiveEdgeField path={prefix} />
-      <TerminalField path={prefix} />
+      <InputTerminalField path={prefix} />
     </>
   ),
 };
@@ -565,16 +563,34 @@ export interface CIChannelFormProps {
   prefix: string;
 }
 
+const CI_CHANNEL_TYPES = record.keys(CI_CHANNEL_TYPE_NAMES);
+
+const deviceOf = (c: CIChannel) => c.device;
+
 export const CIChannelForm = ({ type, prefix }: CIChannelFormProps) => {
   const TypeForm = CHANNEL_FORMS[type];
+  const device = useChannelDevice(prefix);
+  const port = Form.useFieldValue<number>(`${prefix}.port`);
+  const counter = device?.properties.hardware?.counterInputs.find(
+    (c) => c.port === port,
+  );
+  const types = allowedTypes(CI_CHANNEL_TYPES, type, counter);
   return (
     <Form.Sections>
       <Form.Section title="Source">
         <SelectDevice path={`${prefix}.device`} />
-        <PortField path={prefix} />
+        <PortField
+          path={prefix}
+          device={device}
+          kind={COUNTER_INPUT}
+          deviceOf={deviceOf}
+        />
       </Form.Section>
       <Form.Section title="Signal">
-        <SelectCIChannelTypeField path={prefix} inputProps={{ allowNone: false }} />
+        <SelectCIChannelTypeField
+          path={prefix}
+          inputProps={{ allowNone: false, children: channelTypeItems(types) }}
+        />
         <TypeForm prefix={prefix} />
       </Form.Section>
       <CustomScaleSection prefix={prefix} />

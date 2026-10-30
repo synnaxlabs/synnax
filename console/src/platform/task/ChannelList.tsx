@@ -132,6 +132,12 @@ export interface ChannelListProps<C extends Channel>
   isDragging?: boolean;
   listItem: Component.RenderProp<ChannelListItemProps>;
   selected: string[];
+  /**
+   * Shown in place of the items, such as the channels by port. A right click on an
+   * element with `Menu.CONTEXT_TARGET` and a channel key in `data-menu-key` opens that
+   * channel's menu.
+   */
+  ports?: ReactNode;
 }
 
 export const ChannelList = <C extends Channel>({
@@ -146,6 +152,7 @@ export const ChannelList = <C extends Channel>({
   grow,
   style,
   resolve,
+  ports,
   ...rest
 }: ChannelListProps<C>) => {
   const { onSelect, path, data } = rest;
@@ -162,25 +169,37 @@ export const ChannelList = <C extends Channel>({
         onDragOver={onDragOver}
         onDrop={onDrop}
       >
-        <Select.Frame<string, C>
-          multiple
-          data={data}
-          value={selected}
-          onChange={handleChange}
-          replaceOnSingle
-          allowNone={false}
-          autoSelectOnNone
-        >
-          <List.Scroll
-            full="y"
-            onDragOver={onDragOver}
-            onDrop={onDrop}
+        {ports != null ? (
+          <Flex.Box
+            y
+            grow
+            empty
             className={menuProps.className}
             onContextMenu={menuProps.open}
           >
-            <List.Items<string, C> emptyContent={emptyContent}>{listItem}</List.Items>
-          </List.Scroll>
-        </Select.Frame>
+            {ports}
+          </Flex.Box>
+        ) : (
+          <Select.Frame<string, C>
+            multiple
+            data={data}
+            value={selected}
+            onChange={handleChange}
+            replaceOnSingle
+            allowNone={false}
+            autoSelectOnNone
+          >
+            <List.Scroll
+              full="y"
+              onDragOver={onDragOver}
+              onDrop={onDrop}
+              className={menuProps.className}
+              onContextMenu={menuProps.open}
+            >
+              <List.Items<string, C> emptyContent={emptyContent}>{listItem}</List.Items>
+            </List.Scroll>
+          </Select.Frame>
+        )}
       </Menu.ContextMenu>
       {status.variant !== "success" && (
         <Input.HelpText

@@ -36,6 +36,16 @@ export type ResistanceConfig = ni.ResistanceConfig;
 export type RTDType = ni.RTDType;
 export type StrainConfig = ni.StrainConfig;
 export type TerminalConfig = ni.TerminalConfig;
+
+export const TERMINAL_CONFIGS = ni.TERMINAL_CONFIGS;
+
+export const TERMINAL_CONFIG_NAMES = {
+  RSE: "Referenced single ended",
+  NRSE: "Non-referenced single ended",
+  Diff: "Differential",
+  PseudoDiff: "Pseudo-Differential",
+  Cfg_Default: "Default",
+} as const satisfies Record<TerminalConfig, string>;
 export type ThermocoupleType = ni.ThermocoupleType;
 
 export type WaveType = ni.WaveType;

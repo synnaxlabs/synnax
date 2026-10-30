@@ -16,6 +16,7 @@ import { describe, expect, it } from "vitest";
 import { NI } from "@/feature/ni";
 import {
   awaitStatusDescription,
+  createHardware,
   createNIDevice,
   renderNITaskForm,
 } from "@/feature/ni/task/testutil";
@@ -23,9 +24,10 @@ import {
   clickDeploy,
   createWithHook,
   deployAndAwaitTask,
+  findChannelListItem,
   selectFromDropdown,
 } from "@/platform/task/testutil";
-import { uniqueName } from "@/testutil";
+import { findDialogTriggerByText, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -92,7 +94,7 @@ describe("CounterRead", () => {
       ),
     );
     for (const [type, distinguishingLabel] of cases) {
-      fireEvent.click(await screen.findByText(`chan_${type}`));
+      fireEvent.click(await findChannelListItem(`chan_${type}`));
       await waitFor(
         () =>
           expect(
@@ -204,7 +206,7 @@ describe("CounterRead", () => {
       firstTask.config.channels[0].channel,
     );
     const second = await renderCounterRead(config);
-    await screen.findByText(existing.name);
+    await findChannelListItem(existing.name);
     await waitFor(async () => {
       const saved = await client.tasks.retrieve({
         key: second.draft.key,
@@ -254,5 +256,28 @@ describe("CounterRead", () => {
       { deviceKey: dev.key },
     );
     expect(tsk.config.channels.map(({ device }) => device)).toEqual([dev.key]);
+  });
+});
+
+describe("CounterRead ports", () => {
+  it("should list the PFI terminals of the device", async () => {
+    const dev = await createNIDevice(client, {
+      properties: { hardware: createHardware() },
+    });
+    await renderCounterRead(
+      createConfig([createChannel("ci_frequency", 0, { device: dev.key })]),
+    );
+    fireEvent.click(await findDialogTriggerByText("Select input terminal"));
+    await screen.findByText("PFI3");
+    expect(screen.queryByText("PFI4")).toBeNull();
+  });
+
+  it("should list PFI0 to PFI15 for a device with no port list", async () => {
+    const dev = await createNIDevice(client);
+    await renderCounterRead(
+      createConfig([createChannel("ci_frequency", 0, { device: dev.key })]),
+    );
+    fireEvent.click(await findDialogTriggerByText("Select input terminal"));
+    expect(await screen.findByText("PFI15")).toBeTruthy();
   });
 });

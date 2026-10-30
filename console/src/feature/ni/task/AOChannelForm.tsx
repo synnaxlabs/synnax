@@ -13,17 +13,24 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
 import { type FC } from "react";
 
-import { PortField } from "@/feature/ni/device/PortField";
+import { useFromConfig } from "@/feature/ni/device/queries";
 import { CustomScaleSection } from "@/feature/ni/task/CustomScaleForm";
 import { MinMaxValueFields } from "@/feature/ni/task/MinMaxValueFields";
-import { SelectAOChannelTypeField } from "@/feature/ni/task/SelectAOChannelTypeField";
+import { PortField } from "@/feature/ni/task/PortField";
+import { ANALOG_OUTPUT } from "@/feature/ni/task/ports";
 import {
+  channelTypeItems,
+  SelectAOChannelTypeField,
+} from "@/feature/ni/task/SelectAOChannelTypeField";
+import {
+  AO_CHANNEL_TYPES,
   AO_CURRENT_CHAN_TYPE,
   AO_FUNC_GEN_CHAN_TYPE,
   AO_VOLTAGE_CHAN_TYPE,
   type AOChannelType,
   type WaveType,
 } from "@/feature/ni/task/types";
+import { allowedTypes } from "@/feature/ni/task/usePort";
 
 interface SelectWaveTypeProps extends Select.ButtonsProps<WaveType> {}
 
@@ -92,13 +99,25 @@ export interface AOChannelFormProps {
 
 export const AOChannelForm = ({ type, path }: AOChannelFormProps) => {
   const TypeForm = CHANNEL_FORMS[type];
+  const device = useFromConfig();
+  const port = Form.useFieldValue<number>(`${path}.port`);
+  const entry = device?.properties.hardware?.analogOutputs.find((p) => p.port === port);
+  const types = allowedTypes(AO_CHANNEL_TYPES, type, entry);
   return (
     <Form.Sections>
       <Form.Section title="Source">
-        <PortField path={path} />
+        <PortField
+          path={path}
+          device={device}
+          kind={ANALOG_OUTPUT}
+          deviceOf={() => device?.key ?? ""}
+        />
       </Form.Section>
       <Form.Section title="Signal">
-        <SelectAOChannelTypeField path={path} />
+        <SelectAOChannelTypeField
+          path={path}
+          inputProps={{ children: channelTypeItems(types) }}
+        />
         <TypeForm path={path} />
       </Form.Section>
       <CustomScaleSection prefix={path} />

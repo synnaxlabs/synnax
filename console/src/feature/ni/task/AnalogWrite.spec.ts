@@ -18,6 +18,7 @@ import { createNIDevice, renderNITaskForm } from "@/feature/ni/task/testutil";
 import {
   createWithHook,
   deployAndAwaitTask,
+  findChannelListItem,
   selectFromDropdown,
 } from "@/platform/task/testutil";
 import { isSelectButtonSelected, uniqueName } from "@/testutil";
@@ -77,7 +78,7 @@ describe("AnalogWrite", () => {
       createConfig(cases.map(([type], i) => createChannel(type, i))),
     );
     for (const [i, [type, distinguishingLabel]] of cases.entries()) {
-      fireEvent.click(await screen.findByText(`cmd_${type}_${i}`));
+      fireEvent.click(await findChannelListItem(`cmd_${type}_${i}`));
       await waitFor(
         () =>
           expect(
@@ -91,14 +92,14 @@ describe("AnalogWrite", () => {
 
   it("should name each end of a range", async () => {
     await renderAnalogWrite(createConfig([createChannel("ao_current", 0)]));
-    fireEvent.click(await screen.findByText("cmd_ao_current_0"));
+    fireEvent.click(await findChannelListItem("cmd_ao_current_0"));
     expect(await screen.findByRole("textbox", { name: "Minimum value" })).toBeTruthy();
     expect(screen.getByRole("textbox", { name: "Maximum value" })).toBeTruthy();
   });
 
   it("should switch the function generator wave type when a wave button is clicked", async () => {
     await renderAnalogWrite(createConfig([createChannel("ao_func_gen", 0)]));
-    fireEvent.click(await screen.findByText("cmd_ao_func_gen_0"));
+    fireEvent.click(await findChannelListItem("cmd_ao_func_gen_0"));
     await screen.findByText("Triangle");
     await waitFor(() => expect(isSelectButtonSelected("Sine")).toBe(true));
     expect(isSelectButtonSelected("Triangle")).toBe(false);
@@ -109,7 +110,7 @@ describe("AnalogWrite", () => {
 
   it("should swap the channel to the newly selected type", async () => {
     await renderAnalogWrite(createConfig([createChannel("ao_voltage", 2)]));
-    fireEvent.click(await screen.findByText("cmd_ao_voltage_2"));
+    fireEvent.click(await findChannelListItem("cmd_ao_voltage_2"));
     await screen.findByText("Custom scaling");
     await selectFromDropdown("Voltage", "Function generator");
     await waitFor(() => expect(screen.getByText("Frequency")).toBeTruthy());
@@ -211,7 +212,7 @@ describe("AnalogWrite", () => {
     const [bound] = firstTask.config.channels;
     const cmd = await client.channels.retrieve(bound.cmdChannel);
     const second = await renderAnalogWrite(config);
-    await screen.findByText(cmd.name);
+    await findChannelListItem(cmd.name);
     await waitFor(async () => {
       const saved = await client.tasks.retrieve({
         key: second.draft.key,
