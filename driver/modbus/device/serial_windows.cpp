@@ -14,12 +14,16 @@
 #include "driver/modbus/device/device.h"
 
 namespace driver::modbus::device {
-std::string canonical_port(const std::string &port) {
+std::string port_name(const std::string &port) {
     auto path = serial_path(port);
     std::ranges::transform(path, path.begin(), [](const unsigned char c) {
         return static_cast<char>(std::toupper(c));
     });
     return path;
+}
+
+std::string canonical_port(const std::string &port) {
+    return port_name(port);
 }
 
 int PortLock::lock(const std::string &) {
