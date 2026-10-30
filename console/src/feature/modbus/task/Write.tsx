@@ -175,6 +175,7 @@ const writeMapKey = (channel: WriteChannel) =>
 const getInitialValues: Task.GetInitialValues<WriteSchemas> = ({ deviceKey }) => {
   const config = WRITE_SCHEMAS.config.parse({});
   if (deviceKey != null) config.device = deviceKey;
+  config.channels = [getOpenChannel([])];
   return { name: "Modbus write task", type: WRITE_TYPE, config };
 };
 
@@ -249,6 +250,7 @@ export const Write = Task.wrapForm({
 
 export const useCreateWrite = Task.createUseCreate({
   getInitialValues,
+  deviceMake: Device.MAKE,
 });
 
 export const WriteSelectable = Selector.createSelectable({

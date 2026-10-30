@@ -54,6 +54,16 @@ describe("layouts.ListAndDetails", () => {
     expect(copyButton.className).toContain("pluto--disabled");
   });
 
+  it("should open with the first channel's details shown", async () => {
+    await renderListAndDetails([
+      { key: "a", disabled: false },
+      { key: "b", disabled: false },
+    ]);
+    await waitFor(() =>
+      expect(screen.getByText("details-for-config.channels.a")).toBeTruthy(),
+    );
+  });
+
   it("should switch the details panel to the channel that is selected", async () => {
     await renderListAndDetails([
       { key: "a", disabled: false },

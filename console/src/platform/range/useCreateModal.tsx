@@ -129,8 +129,8 @@ const Create = ({
                   autoFocus
                   level="h2"
                   variant="text"
-                  placeholder="Name"
-                  aria-label="Name"
+                  placeholder="Range name"
+                  aria-label="Range name"
                   {...p}
                 />
               )}
@@ -158,12 +158,7 @@ const Create = ({
                   />
                 )}
               </Form.Field>
-              <Form.Field<string[]>
-                path="labels"
-                required={false}
-                showLabel={false}
-                padHelpText={false}
-              >
+              <Form.Field<string[]> path="labels" showLabel={false} padHelpText={false}>
                 {(p) => <Label.SelectMultiple zIndex={100} {...p} />}
               </Form.Field>
             </Flex.Box>

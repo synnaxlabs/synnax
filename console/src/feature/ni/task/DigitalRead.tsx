@@ -85,6 +85,7 @@ const getInitialValues: Task.GetInitialValues<DigitalReadSchemas> = ({
 }) => {
   const cfg = digitalReadConfigZ.parse(config ?? {});
   if (deviceKey != null) cfg.device = deviceKey;
+  if (config == null) cfg.channels = [createNextDIChannel([])];
   return { name: "NI digital read task", type: DIGITAL_READ_TYPE, config: cfg };
 };
 
@@ -169,6 +170,7 @@ export const DigitalRead = Task.wrapForm({
 
 export const useCreateDigitalRead = Task.createUseCreate({
   getInitialValues,
+  deviceMake: Device.MAKE,
 });
 
 export const DigitalReadSelectable = Selector.createSelectable({

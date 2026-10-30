@@ -24,3 +24,16 @@
         flex-grow: inherit;
     }
 }
+
+/* A field's help text draws inside the gap below the field, so a message moves nothing.
+   The min height leaves out the gap above the help text. */
+.pluto-input__item:has(> .pluto-flex > .pluto-input-help-text) {
+    margin-bottom: calc(-1 * var(--pluto-field-gap));
+
+    & > .pluto-flex > .pluto-input-help-text {
+        min-height: calc(
+            var(--pluto-input-item-space-after, var(--pluto-field-gap)) -
+                round(0.333rem, 1px)
+        );
+    }
+}

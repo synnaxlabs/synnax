@@ -52,9 +52,9 @@ export const Header = ({
       className={CSS.cls(CSS.BE("modal", "header"), className)}
       {...rest}
     >
-      <Nav.Bar.Start>
+      <Nav.Bar.Start gap="medium">
+        {icon != null && <Icon.Tile size="medium">{icon}</Icon.Tile>}
         <Breadcrumb.Breadcrumb gap="tiny">
-          {icon != null && <Breadcrumb.Segment color={9}>{icon}</Breadcrumb.Segment>}
           {segments.map((segment) => (
             <Breadcrumb.Segment color={9} key={segment} weight={400}>
               {segment}
@@ -67,9 +67,9 @@ export const Header = ({
           <Button.Button
             aria-label="Close"
             onClick={close}
-            size="small"
+            size="medium"
             variant="text"
-            textColor={9}
+            textColor={8}
             tooltip={CLOSE_TOOLTIP}
           >
             <Icon.Close />

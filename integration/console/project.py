@@ -164,7 +164,9 @@ class ProjectClient(ResourceClient):
                 has_text="New project"
             ).click(timeout=5000)
 
-        name_input = self.layout.page.locator(".pluto-modal input[placeholder='Name']")
+        name_input = self.layout.page.locator(
+            ".pluto-modal input[placeholder='Project name']"
+        )
         name_input.wait_for(state="visible", timeout=5000)
         name_input.fill(name)
         self.layout.page.get_by_role("button", name="Create", exact=True).click(
@@ -354,7 +356,9 @@ class ProjectClient(ResourceClient):
         self.layout.page.locator(
             ".console-project-splash button.console-create-list-item"
         ).click(timeout=5000)
-        name_input = self.layout.page.locator(".pluto-modal input[placeholder='Name']")
+        name_input = self.layout.page.locator(
+            ".pluto-modal input[placeholder='Project name']"
+        )
         name_input.wait_for(state="visible", timeout=5000)
         name_input.fill(name)
         self.layout.page.get_by_role("button", name="Create", exact=True).click(

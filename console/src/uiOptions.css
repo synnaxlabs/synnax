@@ -1,0 +1,175 @@
+/* Scratch only: never commit. Modal options switch on html[data-ui-modal]. */
+
+/* U12: button labels at 450. Inputs, switches, lists, menus, tabs, and select triggers
+   reuse the button class and keep their own weight. */
+.pluto-btn.pluto-text:not(
+        .pluto-input,
+        .pluto-input__switch,
+        .pluto-list__item,
+        .pluto-menu-item,
+        .pluto-tabs__tab,
+        .pluto-dialog__trigger,
+        :is(.pluto-tabs-selector, .pluto-select-btns) *
+    ) {
+    font-weight: 450;
+}
+
+/* Locked U11: 20 px caps, 12 px glyph, fill only. */
+.pluto-text--keyboard.pluto-text:is(.pluto-text--small, .pluto-text--p) {
+    height: round(3.333rem, 1px);
+    min-width: round(3.333rem, 1px);
+    aspect-ratio: auto;
+    padding-inline: round(0.667rem, 1px);
+    font-size: 2rem;
+    line-height: 1;
+    border-radius: var(--pluto-border-radius-tiny);
+    text-transform: capitalize;
+    color: var(--pluto-gray-l10);
+    background: color-mix(in srgb, var(--pluto-gray-l11) 9%, transparent);
+    border-color: transparent;
+}
+
+.pluto-tooltip .pluto-text--keyboard.pluto-text {
+    background: color-mix(in srgb, var(--pluto-gray-l11) 14%, transparent);
+    color: var(--pluto-gray-l11);
+}
+
+.pluto-btn--filled .pluto-text--keyboard.pluto-text {
+    background: rgb(255 255 255 / 22%);
+    color: #fff;
+}
+
+.pluto-trigger-indicator,
+.pluto-text:has(> .pluto-text--keyboard) {
+    gap: 0.5rem;
+}
+
+/* A square button's hint floats over the page as a badge, so its cap keeps a solid
+   page background and border. */
+.pluto-btn.pluto--square .pluto-trigger-indicator .pluto-text--keyboard.pluto-text {
+    background: var(--pluto-gray-l0);
+    border-color: var(--pluto-gray-l7);
+    color: var(--pluto-text-color);
+}
+
+/* Locked U11: menu rows print the shortcut as plain gray text. A square item floats
+   its hint as a badge instead. */
+.pluto-menu-item:not(.pluto--square) .pluto-text--keyboard.pluto-text {
+    background: none;
+    min-width: 0;
+    padding-inline: 0;
+    height: auto;
+    color: var(--pluto-gray-l9);
+}
+
+.pluto-trigger-indicator--auto {
+    display: none;
+}
+
+/* Proposal: the modal reads as one panel with one inset on every side. */
+:where(html[data-ui-modal="n"]) {
+    /* The header's controls and the footer's buttons sit this far from every edge. */
+    --ui-modal-edge: 2.5rem;
+
+    .pluto-dialog__dialog.pluto--modal.pluto--visible {
+        background: color-mix(in srgb, var(--pluto-gray-l0) 94%, transparent);
+        border-color: var(--pluto-gray-l5);
+        box-shadow:
+            0 0 0 var(--pluto-border-width) var(--pluto-gray-l6),
+            var(--pluto-shadow-modal);
+    }
+
+    .pluto-modal__header {
+        height: calc(var(--pluto-height-medium) + 2 * var(--ui-modal-edge)) !important;
+        border-color: transparent;
+        background: transparent;
+
+        /* The icon sits 1rem inside its tile's border on every side. */
+        & .pluto-icon-tile > .pluto-icon {
+            width: calc(100% - 2rem);
+            height: calc(100% - 2rem);
+        }
+
+        & .pluto-navbar__content.pluto--start {
+            padding-left: var(--ui-modal-edge);
+        }
+
+        & .pluto-navbar__content.pluto--end {
+            padding-right: var(--ui-modal-edge);
+        }
+
+        & .pluto-breadcrumb > :last-child,
+        & .pluto-breadcrumb > :last-child .pluto-text {
+            color: var(--pluto-gray-l11);
+        }
+    }
+
+    .pluto-modal__body {
+        padding: 3rem 4.5rem 6rem;
+    }
+
+    /* A borderless title input starts its text on the content edge. */
+    .pluto-modal__body > .pluto-input.pluto-btn--text {
+        & > input {
+            padding-left: 0;
+        }
+    }
+
+    .pluto-modal__footer {
+        height: auto !important;
+        padding: 0 0 var(--ui-modal-edge);
+        border-color: transparent;
+
+        & .pluto-navbar__content.pluto--start {
+            padding-left: var(--ui-modal-edge);
+        }
+
+        & .pluto-navbar__content.pluto--end {
+            padding-right: var(--ui-modal-edge);
+        }
+    }
+
+    .console-save-help {
+        display: none;
+    }
+
+    .pluto-modal__footer .pluto-trigger-indicator--auto {
+        display: flex;
+    }
+}
+
+/* A button's shortcut is one soft chip, not a box per key. */
+.pluto-btn:not(.pluto--square) .pluto-trigger-indicator {
+    align-items: center;
+    gap: 1px;
+    height: 3rem;
+    padding: 0 round(0.833rem, 1px);
+    border-radius: var(--pluto-border-radius-tiny);
+    background: color-mix(in srgb, var(--pluto-gray-l11) 7%, transparent);
+
+    & .pluto-text--keyboard.pluto-text {
+        height: 3rem;
+        min-width: round(1.667rem, 1px);
+        padding-inline: 0;
+        background: none;
+        font-size: var(--pluto-small-size);
+        color: var(--pluto-gray-l9);
+    }
+}
+
+/* On a fill, the chip is a light tint of the label. Chip and glyphs both mix the
+   label's color, so a disabled button dims them with it. */
+.pluto-btn--filled:not(.pluto--square) .pluto-trigger-indicator {
+    background: color-mix(in srgb, currentColor 28%, transparent);
+
+    & .pluto-text--keyboard.pluto-text {
+        color: color-mix(in srgb, currentColor 88%, transparent);
+    }
+}
+
+/* A disabled button dims its glyphs with its label. */
+.pluto-btn.pluto--disabled:not(.pluto--square, .pluto-btn--filled)
+    .pluto-trigger-indicator
+    .pluto-text--keyboard.pluto-text {
+    color: inherit;
+}

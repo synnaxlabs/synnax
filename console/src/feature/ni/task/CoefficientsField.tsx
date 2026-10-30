@@ -39,6 +39,7 @@ export const CoefficientsField = ({
         value={rows}
         onChange={(next) => onChange(next.map(([coeff]) => Number(coeff)))}
         rowLabel={(index) => `c${index}`}
+        item="coefficient"
         preview={preview}
       >
         <Input.TableColumn />

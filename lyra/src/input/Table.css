@@ -90,3 +90,182 @@
         padding-right: 1rem;
     }
 }
+
+/* Scratch only: the two looks under review. */
+.pluto-input__table:is(.pluto-input__table--boxed, .pluto-input__table--ruled)
+    .pluto-input__table-gutter
+    > .pluto-text {
+    justify-content: flex-end;
+    text-align: right;
+    margin-left: auto;
+}
+
+.pluto-input__table--boxed {
+    &:has(tbody tr)::before {
+        display: none;
+    }
+
+    & tr > :first-child {
+        padding-left: 0;
+    }
+
+    /* Headings sit over the cell text: the input's inset plus its border. */
+    & thead th:not(.pluto-input__table-gutter),
+    & thead th:first-child:not(.pluto-input__table-gutter) {
+        padding-left: calc(1.5rem + var(--pluto-border-width));
+    }
+
+    & th:last-child,
+    & td:last-child {
+        width: 5rem;
+        text-align: center;
+    }
+}
+
+.pluto-input__table--ruled {
+    border-collapse: separate;
+    border-spacing: 0;
+    /* Inner lines are separators. The outer edge is a control border, as on inputs. */
+    --pluto-table-line: var(--pluto-gray-l6);
+    --pluto-table-edge: var(--pluto-gray-l7);
+    /* A corner cell curves inside the box edge. */
+    --pluto-table-cell-radius: calc(
+        var(--pluto-border-radius-tiny) - var(--pluto-border-width)
+    );
+
+    &:has(tbody tr)::before {
+        display: none;
+    }
+
+    & tr > :first-child {
+        padding-left: 0;
+    }
+
+    & thead th:not(.pluto-input__table-gutter),
+    & thead th:first-child:not(.pluto-input__table-gutter) {
+        padding-left: 1.5rem;
+    }
+
+    /* The box holds the data cells. Row labels and remove buttons sit outside it. */
+    & :is(thead, tbody) :is(th, td):not(:last-child, .pluto-input__table-gutter) {
+        border-bottom: var(--pluto-border-width) solid var(--pluto-table-line);
+        border-right: var(--pluto-border-width) solid var(--pluto-table-line);
+    }
+
+    & thead th:not(:last-child, .pluto-input__table-gutter) {
+        border-top: var(--pluto-border-width) solid var(--pluto-table-line);
+    }
+
+    & :is(thead, tbody) tr > :is(:first-child:not(.pluto-input__table-gutter), .pluto-input__table-gutter + *) {
+        border-left: var(--pluto-border-width) solid var(--pluto-table-line);
+    }
+
+    & thead tr > :is(:first-child:not(.pluto-input__table-gutter), .pluto-input__table-gutter + *) {
+        border-top-left-radius: var(--pluto-border-radius-tiny);
+    }
+
+    & thead tr > :nth-last-child(2) {
+        border-top-right-radius: var(--pluto-border-radius-tiny);
+    }
+
+    & tbody tr:last-child > :is(:first-child:not(.pluto-input__table-gutter), .pluto-input__table-gutter + *) {
+        border-bottom-left-radius: var(--pluto-border-radius-tiny);
+
+        & .pluto-input__container {
+            border-bottom-left-radius: var(--pluto-table-cell-radius);
+        }
+    }
+
+    & tbody tr:last-child > :nth-last-child(2) {
+        border-bottom-right-radius: var(--pluto-border-radius-tiny);
+
+        & .pluto-input__container {
+            border-bottom-right-radius: var(--pluto-table-cell-radius);
+        }
+    }
+
+    /* Without headings, the first row closes the box at the top. */
+    &:not(:has(thead)) tbody tr:first-child > :is(td, th):not(:last-child, .pluto-input__table-gutter) {
+        border-top: var(--pluto-border-width) solid var(--pluto-table-line);
+    }
+
+    &:not(:has(thead)) tbody tr:first-child > :is(:first-child:not(.pluto-input__table-gutter), .pluto-input__table-gutter + *) {
+        border-top-left-radius: var(--pluto-border-radius-tiny);
+
+        & .pluto-input__container {
+            border-top-left-radius: var(--pluto-table-cell-radius);
+        }
+    }
+
+    &:not(:has(thead)) tbody tr:first-child > :nth-last-child(2) {
+        border-top-right-radius: var(--pluto-border-radius-tiny);
+
+        & .pluto-input__container {
+            border-top-right-radius: var(--pluto-table-cell-radius);
+        }
+    }
+
+    /* Outer edges, after the inner lines so they win. */
+    & thead th:not(:last-child, .pluto-input__table-gutter) {
+        border-top-color: var(--pluto-table-edge);
+    }
+
+    & :is(thead, tbody) tr > :is(:first-child:not(.pluto-input__table-gutter), .pluto-input__table-gutter + *) {
+        border-left-color: var(--pluto-table-edge);
+    }
+
+    & :is(thead, tbody) tr > :nth-last-child(2) {
+        border-right-color: var(--pluto-table-edge);
+    }
+
+    & tbody tr:last-child > :is(td, th):not(:last-child, .pluto-input__table-gutter) {
+        border-bottom-color: var(--pluto-table-edge);
+    }
+
+    &:not(:has(thead)) tbody tr:first-child > :is(td, th):not(:last-child, .pluto-input__table-gutter) {
+        border-top-color: var(--pluto-table-edge);
+    }
+
+    /* Cells carry the input fill, so the grid reads as one input. */
+    & tbody td:not(:last-child) {
+        background: var(--pluto-fill-rest);
+    }
+
+    & tbody td,
+    & td:not(:last-child) {
+        padding: 0;
+    }
+
+    & tbody .pluto-input__container {
+        border-radius: 0;
+    }
+
+    /* A cell draws its border on the grid line, so focus and hover frame the whole
+       cell. The focused cell stays above its neighbors. */
+    & tbody .pluto-input {
+        border-width: 0;
+        outline: var(--pluto-border-width) solid var(--pluto-btn-border-color);
+        outline-offset: 0;
+        transition:
+            var(--pluto-btn-transition),
+            outline-color 0.15s ease-in-out;
+
+        &:focus-within {
+            z-index: 2;
+        }
+    }
+
+    & .pluto-input__table-gutter {
+        padding-right: 1rem;
+    }
+
+    & th:last-child,
+    & td:last-child {
+        width: 5rem;
+        text-align: center;
+    }
+
+    &:has(tbody tr) tfoot td {
+        padding-top: 1rem;
+    }
+}

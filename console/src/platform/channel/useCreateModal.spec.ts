@@ -32,12 +32,12 @@ const openModal = async (
     client,
     analytics,
   });
-  await screen.findByPlaceholderText("Name");
+  await screen.findByPlaceholderText("Channel name");
   return handle;
 };
 
 const setName = (name: string): void => {
-  fireEvent.change(screen.getByPlaceholderText("Name"), { target: { value: name } });
+  fireEvent.change(screen.getByPlaceholderText("Channel name"), { target: { value: name } });
 };
 
 const clickCreate = async (): Promise<void> => {
@@ -75,7 +75,7 @@ describe("useCreateModal", () => {
         expect(created.isIndex).toBe(true);
         expect(created.dataType.equals(DataType.TIMESTAMP)).toBe(true);
       });
-      await waitFor(() => expect(screen.queryByPlaceholderText("Name")).toBeNull());
+      await waitFor(() => expect(screen.queryByPlaceholderText("Channel name")).toBeNull());
     });
 
     it("should create a data channel paired with the selected index", async () => {
@@ -134,7 +134,7 @@ describe("useCreateModal", () => {
         expect(created.isIndex).toBe(true);
       });
       await waitFor(() => {
-        expect(screen.getByPlaceholderText<HTMLInputElement>("Name").value).toBe("");
+        expect(screen.getByPlaceholderText<HTMLInputElement>("Channel name").value).toBe("");
       });
       expect(getSwitch("Is index").checked).toBe(false);
     });
@@ -146,7 +146,7 @@ describe("useCreateModal", () => {
       fireEvent.click(getSwitch("Is index"));
       await clickCreate();
       await waitFor(() => expect(screen.getByText("Name is required")).toBeTruthy());
-      expect(screen.getByPlaceholderText("Name")).toBeTruthy();
+      expect(screen.getByPlaceholderText("Channel name")).toBeTruthy();
     });
 
     it("should reject a data channel that has no index and create nothing", async () => {
@@ -157,7 +157,7 @@ describe("useCreateModal", () => {
       await waitFor(() =>
         expect(screen.getByText("Data channel must have an index")).toBeTruthy(),
       );
-      expect(screen.getByPlaceholderText("Name")).toBeTruthy();
+      expect(screen.getByPlaceholderText("Channel name")).toBeTruthy();
       const err = await client.channels.retrieve(name).then(
         () => null,
         (e: unknown) => e,

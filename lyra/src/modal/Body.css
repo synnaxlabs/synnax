@@ -19,3 +19,35 @@
     on Body takes precedence via the pluto--justify-* classes. */
     justify-content: safe center;
 }
+
+/* A body stacks its fields one field gap apart. */
+.pluto-modal__body.pluto-flex:not([class*="pluto--gap-"]) {
+    gap: var(--pluto-field-gap);
+}
+
+/* A heading input that opens a body is its title, and a section gap follows it. A title
+   that shows an error sits in a field, so its message fills that gap. */
+.pluto-modal__body > :first-child {
+    &.pluto-input.pluto-btn--text:is(
+            .pluto-text--h1,
+            .pluto-text--h2,
+            .pluto-text--h3
+        ) {
+        margin-bottom: calc(var(--pluto-section-gap) - var(--pluto-field-gap));
+    }
+
+    &.pluto-input__item:has(
+            > .pluto-flex
+                > .pluto-input.pluto-btn--text:is(
+                    .pluto-text--h1,
+                    .pluto-text--h2,
+                    .pluto-text--h3
+                )
+        ) {
+        --pluto-input-item-space-after: var(--pluto-section-gap);
+
+        & .pluto-input-help-text {
+            margin-left: 0;
+        }
+    }
+}

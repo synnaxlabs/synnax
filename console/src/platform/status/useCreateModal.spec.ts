@@ -29,7 +29,7 @@ describe("Status.useCreateModal", () => {
   it("should create a status with the entered name, message, and variant, then close", async () => {
     await openModal();
     const name = uniqueName("status");
-    fireEvent.change(screen.getByPlaceholderText("Name"), {
+    fireEvent.change(screen.getByPlaceholderText("Status name"), {
       target: { value: name },
     });
     fireEvent.change(screen.getByPlaceholderText("Message"), {
@@ -57,7 +57,7 @@ describe("Status.useCreateModal", () => {
     });
     await openModal({ statusKey: existing.key });
     await waitFor(() => {
-      expect(screen.getByPlaceholderText<HTMLInputElement>("Name").value).toBe(name);
+      expect(screen.getByPlaceholderText<HTMLInputElement>("Status name").value).toBe(name);
       expect(screen.getByPlaceholderText<HTMLInputElement>("Message").value).toBe(
         "original message",
       );

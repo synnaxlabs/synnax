@@ -271,6 +271,19 @@ export const Button = <E extends ElementType = "button">(
     >
       {(!isLoading || !square) && children}
       {isLoading && <Icon.Loading />}
+      {parsedTriggerIndicator == null && trigger != null && !square && (
+        <Triggers.Text
+          className={CSS.cls(
+            CSS.B("trigger-indicator"),
+            CSS.BM("trigger-indicator", "auto"),
+          )}
+          aria-hidden
+          trigger={trigger}
+          color={9}
+          gap="tiny"
+          level={text.downLevel(level)}
+        />
+      )}
       {parsedTriggerIndicator != null && (
         <Triggers.Text
           className={CSS.B("trigger-indicator")}

@@ -35,3 +35,322 @@
 .console-modbus-order > * {
     width: 22rem;
 }
+
+/* Scratch only: the locked record row. */
+.console-modbus__record.pluto-list__item {
+    padding-inline: 1rem 2rem;
+    gap: 1.5rem;
+
+    /* A faint hover tint that a press never deepens, since presses land in fields. */
+    &:not(.pluto--selected) {
+        --pluto-hover-bg: color-mix(in srgb, var(--pluto-gray-l2) 40%, var(--pluto-gray-l3));
+        --pluto-active-bg: var(--pluto-hover-bg);
+    }
+}
+
+.console-modbus__fields {
+    display: grid;
+    grid-template-columns: 30rem 10rem 18rem 27rem;
+    column-gap: 1rem;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.console-modbus__cell {
+    display: flex;
+    min-width: 0;
+
+    & > * {
+        width: 100%;
+        min-width: 0;
+    }
+}
+
+.console-modbus__glyph {
+    width: 2.5rem;
+    height: 2.5rem;
+    flex-shrink: 0;
+    color: var(--pluto-gray-l9);
+}
+
+.console-modbus__option-description {
+    margin-left: auto;
+    padding-left: 3rem;
+    color: var(--pluto-gray-l8);
+    font-size: var(--pluto-small-size);
+}
+
+.pluto-select__label .console-modbus__option-description {
+    display: none;
+}
+
+.console-modbus__menu {
+    min-width: max-content;
+
+    & .console-modbus__option-name--device {
+        margin-left: auto;
+        color: var(--pluto-gray-l8);
+        font-size: var(--pluto-small-size);
+    }
+}
+
+/* The range end follows the start's digits. Digits are tabular, so each is 1ch. */
+.console-modbus__address {
+    position: relative;
+    font-variant-numeric: tabular-nums;
+
+    & input {
+        font-variant-numeric: tabular-nums;
+    }
+}
+
+.console-modbus__address-end {
+    position: absolute;
+    top: 50%;
+    left: calc(1.5rem + 1px + var(--digits) * 1ch);
+    transform: translateY(-50%);
+    z-index: 5;
+    pointer-events: none;
+    color: var(--pluto-gray-l8);
+}
+
+.console-modbus__address:focus-within .console-modbus__address-end {
+    display: none;
+}
+
+.console-modbus__address--overlap .console-modbus__address-end,
+.console-modbus__address--overlap input {
+    color: var(--pluto-error-z);
+}
+
+.console-modbus__flow {
+    flex-shrink: 0;
+    color: var(--pluto-gray-l6);
+}
+
+.console-modbus__name {
+    flex: 1;
+    min-width: 0;
+    gap: 2rem;
+}
+
+/* Values read as text. A field shows its box only on hover and while open. */
+.console-modbus__record {
+    & .console-modbus__fields .pluto-btn.pluto-dialog__trigger {
+        --pluto-bg: transparent;
+        --pluto-border-color: transparent;
+        --pluto-hover-border-color: var(--pluto-gray-l6);
+        --pluto-active-border-color: var(--pluto-gray-l7);
+
+        /* An open menu keeps its field framed, so the menu points at it. */
+        &[aria-expanded="true"] {
+            --pluto-bg: var(--pluto-fill-hover);
+            --pluto-border-color: var(--pluto-gray-l7);
+        }
+    }
+
+    & .console-modbus__fields .pluto-btn.pluto-dialog__trigger {
+        padding-inline: 1.5rem;
+    }
+
+    & .console-modbus__fields .pluto-caret-animated {
+        display: none;
+    }
+
+    & .console-modbus__fields .pluto-dialog__trigger:is(:hover, [aria-expanded="true"]) .pluto-caret-animated {
+        display: flex;
+        color: var(--pluto-gray-l7);
+    }
+}
+
+.console-modbus__record
+    .console-modbus__cell:first-child
+    .pluto-select__label
+    .console-modbus__glyph {
+    color: var(--console-modbus-color);
+}
+
+.console-modbus__map {
+    font-family: var(--pluto-font-family);
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 2rem 2rem 1.5rem 2rem;
+    border-bottom: var(--pluto-border);
+}
+
+.console-modbus__lane {
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+}
+
+.console-modbus__lane-name,
+.console-modbus__axis {
+    font-size: var(--pluto-small-size);
+    color: var(--pluto-gray-l9);
+}
+
+.console-modbus__lane-name {
+    transition: color 0.12s ease-out;
+    display: inline-flex;
+    align-items: center;
+    gap: 1rem;
+    width: 22rem;
+    flex-shrink: 0;
+
+    & .console-modbus__glyph {
+        width: 2.25rem;
+        height: 2.25rem;
+        color: var(--pluto-gray-l8);
+    }
+}
+
+.console-modbus__track {
+    position: relative;
+    flex: 1;
+    height: 2rem;
+    border-radius: 1px;
+    background: var(--pluto-gray-l2);
+}
+
+.console-modbus__tick {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: var(--pluto-border-width);
+    background: var(--pluto-gray-l4);
+}
+
+.console-modbus__segment {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    border-radius: 1px;
+    box-shadow: inset -1px 0 0 var(--pluto-gray-l0);
+    cursor: pointer;
+    transition:
+        opacity 0.12s ease-out,
+        top 0.12s ease-out,
+        bottom 0.12s ease-out;
+
+    /* Fills the gap between lanes, so a thin segment is easy to point at. */
+    &::before {
+        content: "";
+        position: absolute;
+        inset: -0.5rem 0;
+    }
+}
+
+.console-modbus__map--hot .console-modbus__segment:not(.console-modbus__segment--hot) {
+    opacity: 0.25;
+}
+
+.console-modbus__segment--hot {
+    top: -0.25rem;
+    bottom: -0.25rem;
+}
+
+.console-modbus__lane--hot .console-modbus__lane-name {
+    color: var(--pluto-text-color);
+}
+
+.console-modbus__overlap {
+    position: absolute;
+    pointer-events: none;
+    top: -0.5rem;
+    bottom: -0.5rem;
+    outline: 1.5px solid var(--pluto-error-z);
+    outline-offset: -0.75px;
+    background: repeating-linear-gradient(
+        -45deg,
+        var(--pluto-error-z) 0 1.5px,
+        transparent 1.5px 4px
+    );
+}
+
+.console-modbus__axis {
+    display: flex;
+    padding-left: 24rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--pluto-gray-l8);
+}
+
+.console-modbus__scale {
+    position: relative;
+    flex: 1;
+    display: flex;
+    justify-content: space-between;
+}
+
+.console-modbus__axis-end {
+    transition: opacity 0.12s ease-out;
+
+    .console-modbus__map--hot & {
+        opacity: 0;
+    }
+}
+
+/* The pointed channel's addresses, centered under its segment. */
+.console-modbus__axis-hot {
+    position: absolute;
+    top: 0;
+    display: flex;
+    justify-content: center;
+    white-space: nowrap;
+    color: var(--pluto-text-color);
+}
+
+.console-modbus__order-glyph {
+    width: 5rem;
+    height: 2rem;
+    flex-shrink: 0;
+    --console-modbus-cell: var(--pluto-primary-z);
+
+    & rect {
+        fill: color-mix(
+            in srgb,
+            var(--console-modbus-cell) calc(90% - var(--rank) * 72%),
+            transparent
+        );
+    }
+}
+
+.console-modbus__order-glyph--inherited {
+    --console-modbus-cell: var(--pluto-gray-l9);
+}
+
+.console-modbus__letters {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.05em;
+}
+
+/* Column headings on a band that matches the panel header, on the same grid as the
+   fields. */
+.console-modbus__headings {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    padding: 1rem 2rem;
+    margin-bottom: 0.5rem;
+    font-family: var(--pluto-font-family);
+    font-size: var(--pluto-small-size);
+    font-weight: 500;
+    color: var(--pluto-gray-l9);
+    background: var(--pluto-gray-l2);
+    border-bottom: var(--pluto-border);
+
+    & .console-modbus__fields > span {
+        padding-left: calc(1.5rem + var(--pluto-border-width));
+    }
+}
+
+.console-modbus__headings-check {
+    width: 4.6667rem;
+    flex-shrink: 0;
+}
+
+.console-modbus__headings-flow {
+    width: 2.1667rem;
+    flex-shrink: 0;
+}

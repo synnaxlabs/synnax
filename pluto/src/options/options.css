@@ -1,0 +1,979 @@
+/* Scratch page for visual options. Not for merge. Every option's overrides are scoped
+   to its own .opt-body class, so options sit side by side without leaking. */
+
+/* ------------------------------------------------------------------ page */
+
+html,
+body {
+    background: #e6e6ea;
+    height: auto;
+}
+
+#root {
+    height: auto;
+}
+
+.opt-page {
+    padding: 40px 48px 160px;
+    width: max-content;
+    min-width: 100%;
+    font-family: var(--pluto-font-family);
+    -webkit-font-smoothing: antialiased;
+}
+
+.opt-page-head h1,
+.opt-page-head p,
+.opt-section-head h2,
+.opt-section-head p,
+.opt-option-label span,
+.opt-cell-tag {
+    color: #1b1b1f;
+    font-family: var(--pluto-font-family);
+    -webkit-font-smoothing: antialiased;
+}
+
+.opt-page-head h1 {
+    font-size: 28px;
+    line-height: 36px;
+    font-weight: 600;
+    margin: 0 0 8px;
+}
+
+.opt-page-head p {
+    font-size: 14px;
+    line-height: 21px;
+    color: #4b4b53;
+    max-width: 900px;
+    margin: 0 0 36px;
+}
+
+.opt-section {
+    margin: 0 0 48px;
+    padding: 28px 28px 32px;
+    background: #f6f6f8;
+    border: 1px solid #d3d3d9;
+    border-radius: 14px;
+    width: max-content;
+}
+
+.opt-section-head h2 {
+    font-size: 22px;
+    line-height: 28px;
+    font-weight: 600;
+    margin: 0 0 6px;
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.opt-n {
+    display: inline-grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 7px;
+    background: #1b1b1f;
+    color: #fff;
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.opt-section-head p {
+    margin: 0 0 24px;
+    font-size: 14px;
+    line-height: 21px;
+    color: #45454d;
+    max-width: 1100px;
+}
+
+.opt-options {
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+}
+
+.opt-option-label {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 10px;
+    font-size: 14px;
+    line-height: 20px;
+}
+
+.opt-letter {
+    display: inline-grid;
+    place-items: center;
+    min-width: 24px;
+    height: 24px;
+    padding: 0 6px;
+    border-radius: 6px;
+    background: #3774d0;
+    color: #fff !important;
+    font-weight: 700;
+    font-size: 13px;
+}
+
+.opt-title {
+    font-weight: 600;
+}
+
+.opt-desc {
+    color: #4b4b53 !important;
+}
+
+.opt-pair {
+    display: flex;
+    gap: 20px;
+    align-items: stretch;
+}
+
+.opt-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.opt-cell-tag {
+    font-size: 11px;
+    line-height: 14px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #7a7a83 !important;
+}
+
+.opt-theme {
+    background: var(--pluto-gray-l0);
+    color: var(--pluto-text-color);
+    border-radius: 10px;
+    padding: 24px;
+    flex-grow: 1;
+    box-shadow: 0 0 0 1px rgb(0 0 0 / 14%);
+    position: relative;
+}
+
+.opt-note {
+    display: block;
+    font-family: var(--pluto-font-family);
+    font-size: 11px;
+    line-height: 14px;
+    color: var(--pluto-gray-l8);
+    letter-spacing: 0.02em;
+}
+
+.opt-row {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* ------------------------------------------------------- static surfaces */
+
+/* Floating surfaces render in place instead of in a portal, so each stays inside its
+   themed cell. Only position changes; every visual rule is the shipped one. */
+.opt-static.pluto-tooltip,
+.opt-static.pluto-menu-context {
+    position: relative;
+    top: auto;
+    left: auto;
+    z-index: auto;
+    width: max-content;
+}
+
+.opt-static.pluto-dialog__dialog {
+    position: relative;
+    z-index: auto;
+}
+
+.opt-static.pluto-dialog__dialog.pluto--modal.pluto--visible {
+    top: 0;
+    --pluto-dialog-min-width: 660px;
+    width: 660px;
+}
+
+.opt-confirm.pluto-dialog__dialog.pluto--modal.pluto--visible {
+    --pluto-dialog-min-width: 0;
+    width: 460px;
+}
+
+.opt-scrim {
+    padding: 24px;
+    border-radius: 8px;
+    background: var(--pluto-gray-l8-40);
+    width: max-content;
+}
+
+.pluto-theme-synnax-dark .opt-scrim,
+.opt-theme:has(.pluto-theme-synnax-dark) .opt-scrim {
+    background: var(--pluto-gray-l1-60);
+}
+
+.opt-toast.pluto-notification {
+    animation: none;
+}
+
+/* A cut item's tooltip, shown as if the pointer rests on it. */
+.opt-hover-anchor {
+    position: relative;
+}
+
+.opt-hover-tip.pluto-tooltip {
+    position: absolute;
+    z-index: 20;
+    animation: none;
+}
+
+.opt-plot {
+    display: block;
+    width: 100%;
+    height: 100%;
+
+    & line {
+        stroke: var(--pluto-gray-l6);
+        stroke-width: 1;
+    }
+
+    & polyline {
+        fill: none;
+        stroke-width: 1.5;
+        vector-effect: non-scaling-stroke;
+    }
+
+    & .opt-plot-a {
+        stroke: var(--pluto-primary-z);
+    }
+
+    & .opt-plot-b {
+        stroke: var(--pluto-gray-l9);
+    }
+}
+
+/* ------------------------------------------------- baseline: smoothing off */
+
+.opt-smoothing-off,
+.opt-smoothing-off * {
+    -webkit-font-smoothing: auto !important;
+    -moz-osx-font-smoothing: auto !important;
+}
+
+/* --------------------------------------------------------- 1. radius */
+
+.r-b {
+    & :is(
+            .pluto--height-tiny,
+            .pluto--height-small,
+            .pluto--height-medium,
+            .pluto--height-large,
+            .pluto--height-huge
+        ) {
+        --pluto-border-radius: 4px;
+        --pluto-border-radius-small: 4px;
+    }
+    & .pluto-tooltip {
+        border-radius: 4px;
+    }
+    & .pluto-menu-context,
+    & .pluto-dialog__dialog.opt-dropdown,
+    & .pluto-notification,
+    & .pluto-dialog__dialog.pluto--modal.pluto--visible {
+        border-radius: 10px;
+    }
+    & :is(.pluto-menu-context, .opt-dropdown) :is(.pluto-menu-item, .pluto-list__item) {
+        --pluto-border-radius: 4px;
+        --pluto-border-radius-small: 4px;
+    }
+}
+
+.r-c {
+    & :is(.pluto--height-tiny, .pluto--height-small) {
+        --pluto-border-radius: 4px;
+        --pluto-border-radius-small: 4px;
+    }
+    & .pluto--height-medium {
+        --pluto-border-radius: 6px;
+        --pluto-border-radius-small: 6px;
+    }
+    & :is(.pluto--height-large, .pluto--height-huge) {
+        --pluto-border-radius: 8px;
+        --pluto-border-radius-small: 8px;
+    }
+    & .pluto-tooltip {
+        border-radius: 6px;
+    }
+    & .pluto-menu-context,
+    & .pluto-dialog__dialog.opt-dropdown,
+    & .pluto-notification,
+    & .pluto-dialog__dialog.pluto--modal.pluto--visible {
+        border-radius: 12px;
+    }
+    & :is(.pluto-menu-context, .opt-dropdown) :is(.pluto-menu-item, .pluto-list__item) {
+        --pluto-border-radius: 6px;
+        --pluto-border-radius-small: 6px;
+    }
+}
+
+.r-d {
+    & :is(.pluto--height-tiny, .pluto--height-small) {
+        --pluto-border-radius: 6px;
+        --pluto-border-radius-small: 6px;
+    }
+    & .pluto--height-medium {
+        --pluto-border-radius: 8px;
+        --pluto-border-radius-small: 8px;
+    }
+    & :is(.pluto--height-large, .pluto--height-huge) {
+        --pluto-border-radius: 10px;
+        --pluto-border-radius-small: 10px;
+    }
+    & .pluto-tooltip {
+        border-radius: 8px;
+    }
+    & .pluto-menu-context,
+    & .pluto-dialog__dialog.opt-dropdown,
+    & .pluto-notification,
+    & .pluto-dialog__dialog.pluto--modal.pluto--visible {
+        border-radius: 14px;
+    }
+    & :is(.pluto-menu-context, .opt-dropdown) :is(.pluto-menu-item, .pluto-list__item) {
+        --pluto-border-radius: 8px;
+        --pluto-border-radius-small: 8px;
+    }
+}
+
+/* The dropdown's search field and list keep their own small radius; only the outer
+   frame follows the overlay class. */
+:is(.r-b, .r-c, .r-d) .pluto-dialog__dialog.opt-dropdown {
+    overflow: hidden;
+}
+
+/* ---------------------------------------------------- 2. fade vs ellipsis */
+
+.opt-tree {
+    overflow: hidden;
+
+    & .pluto-tree__item {
+        overflow: hidden;
+    }
+}
+
+.opt-tree-name {
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
+/* Middle truncation: the head ellipsizes, the tail never shrinks. */
+.opt-mid {
+    display: flex;
+    min-width: 0;
+    max-width: 100%;
+    flex: 1 1 auto;
+    overflow: hidden;
+    white-space: nowrap;
+
+    & .opt-mid-head {
+        flex: 0 1 auto;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    & .opt-mid-tail {
+        flex: 0 0 auto;
+        white-space: nowrap;
+    }
+}
+
+.f-b .pluto-notification .pluto-notification__name.pluto-text {
+    text-overflow: clip;
+    mask-image: linear-gradient(to right, black calc(100% - 2.25rem), transparent);
+}
+
+:is(.f-c, .f-d) .pluto-tabs__tab .pluto-text,
+.f-c .opt-tree .pluto-text--overflow-fade,
+.f-c .pluto-select__label {
+    animation: none;
+    mask-image: none;
+    text-overflow: ellipsis;
+}
+
+:is(.f-c, .f-d) .pluto-tabs__tab .pluto-text {
+    display: block;
+}
+
+.f-c .pluto-select__label > .pluto-select__fixed-label {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.f-d .pluto-select__label {
+    animation: none;
+    mask-image: none;
+
+    & > .pluto-select__fixed-label {
+        display: flex;
+        min-width: 0;
+        overflow: hidden;
+    }
+}
+
+.f-d .pluto-notification .pluto-notification__name.pluto-text {
+    display: flex;
+    text-overflow: clip;
+}
+
+/* ---------------------------------------------------- 3. smallest text size */
+
+:is(.t-c, .t-d) {
+    --pluto-small-size: 12px;
+    --pluto-small-line-height: 16px;
+}
+
+/* ---------------------------------------------------------- 4. keycaps */
+
+.opt-footer-strip {
+    width: 560px;
+    border-radius: 0 0 12px 12px;
+    background: color-mix(in srgb, var(--pluto-gray-l0) 75%, transparent);
+    box-shadow: 0 0 0 var(--pluto-border-width) var(--pluto-gray-l7);
+    overflow: hidden;
+}
+
+.opt-palette-snippet {
+    width: 300px;
+    padding: 6px;
+    border-radius: 12px;
+    background: var(--pluto-gray-l0);
+    box-shadow:
+        0 0 0 var(--pluto-border-width) var(--pluto-gray-l7),
+        var(--pluto-shadow-overlay);
+}
+
+.opt-body:is(.k-b, .k-c, .k-d) {
+    & .pluto-text--keyboard.pluto-text {
+        height: 20px;
+        min-width: 20px;
+        aspect-ratio: auto;
+        padding-inline: 4px;
+        font-size: 12px;
+        font-weight: 500;
+        line-height: 1;
+        border-radius: 4px;
+        text-transform: capitalize;
+        color: var(--pluto-gray-l10);
+    }
+
+    & .pluto-text:has(> .pluto-text--keyboard) {
+        gap: 3px;
+    }
+
+    & .pluto-trigger-indicator {
+        gap: 3px;
+    }
+}
+
+.opt-body:is(.k-b, .k-d) {
+    & .pluto-text--keyboard.pluto-text {
+        background: color-mix(in srgb, var(--pluto-gray-l11) 9%, transparent);
+        border-color: transparent;
+    }
+
+    & .pluto-tooltip .pluto-text--keyboard.pluto-text {
+        background: color-mix(in srgb, var(--pluto-gray-l11) 14%, transparent);
+        color: var(--pluto-gray-l11);
+    }
+
+    & .pluto-btn--filled .pluto-text--keyboard.pluto-text {
+        background: rgb(255 255 255 / 22%);
+        color: #fff;
+    }
+}
+
+.opt-body.k-c {
+    & .pluto-text--keyboard.pluto-text {
+        background: none;
+        border-color: var(--pluto-gray-l7);
+    }
+
+    & .pluto-tooltip .pluto-text--keyboard.pluto-text {
+        border-color: var(--pluto-gray-l8);
+    }
+
+    & .pluto-btn--filled .pluto-text--keyboard.pluto-text {
+        background: none;
+        border-color: rgb(255 255 255 / 55%);
+        color: #fff;
+    }
+}
+
+/* Menus and palette rows print the shortcut as plain glyph text. */
+.opt-body:is(.k-b, .k-c) {
+    & :is(.pluto-menu-item, .opt-palette-item) .pluto-text--keyboard.pluto-text {
+        height: auto;
+        min-width: 0;
+        padding: 0;
+        background: none;
+        border: none;
+        font-weight: 400;
+        color: var(--pluto-gray-l9);
+    }
+
+    & .pluto-menu-item .pluto-text--keyboard.pluto-text {
+        font-size: 11px;
+    }
+
+    & .opt-palette-item .pluto-text--keyboard.pluto-text {
+        font-size: 12px;
+    }
+
+    & :is(.pluto-menu-item, .opt-palette-item) .pluto-text:has(> .pluto-text--keyboard) {
+        gap: 2px;
+    }
+}
+
+/* ------------------------------------------------------- 5. label weight */
+
+.opt-body:is(.w-400, .w-450, .w-500) {
+    & :is(.pluto-btn:not(.pluto-input), .pluto-tabs__tab) {
+        &,
+        & .pluto-text:not(.pluto-text--keyboard) {
+            font-weight: var(--opt-weight) !important;
+        }
+    }
+}
+
+.w-400 {
+    --opt-weight: 400;
+}
+
+.w-450 {
+    --opt-weight: 450;
+}
+
+.w-500 {
+    --opt-weight: 500;
+}
+
+/* ------------------------------------------------- 6. modal header, footer */
+
+.opt-modal-inset {
+    & .pluto-modal__header .pluto-navbar__content.pluto--start {
+        padding-left: 24px;
+    }
+
+    & .pluto-modal__header .pluto-navbar__content.pluto--end {
+        padding-right: 12px;
+    }
+
+    & .pluto-modal__body {
+        padding: 24px;
+    }
+
+    & .pluto-modal__footer .pluto-navbar__content {
+        &.pluto--start {
+            padding-left: 24px;
+        }
+
+        &.pluto--end {
+            padding-right: 24px;
+        }
+    }
+}
+
+.opt-crumb-title {
+    padding: 18px 12px 0 24px;
+}
+
+.opt-crumb-title + .pluto-modal__body {
+    padding-top: 20px;
+}
+
+.opt-modal-title.pluto-text {
+    color: var(--pluto-gray-l11);
+}
+
+.pluto-modal__footer.opt-footer-plain {
+    border-top-color: transparent;
+}
+
+.pluto-modal__footer.opt-footer-tint {
+    background: color-mix(in srgb, var(--pluto-gray-l2) 80%, transparent);
+}
+
+/* ------------------------------------------------------------- 7. tabs */
+
+.opt-panel {
+    width: 820px;
+    height: 240px;
+    display: flex;
+    border-radius: 6px;
+    overflow: hidden;
+    box-shadow: 0 0 0 var(--pluto-border-width) var(--pluto-gray-l6);
+
+    & > .pluto-mosaic__leaf {
+        flex: 1 1 auto;
+        min-width: 0;
+        display: flex;
+    }
+
+    & .pluto-tabs__content {
+        padding: 12px 16px 16px;
+    }
+}
+
+.opt-strip-only {
+    height: auto;
+}
+
+/* B, C: the active tab takes the panel fill and opens into it. */
+:is(.tabs-b, .tabs-c) {
+    & .pluto-mosaic__leaf > .pluto-tabs > .pluto-tabs__selector.pluto--direction-x {
+        background: var(--pluto-gray-l1);
+        box-shadow: inset 0 calc(-1 * var(--pluto-border-width)) 0 var(--pluto-gray-l6);
+        padding-left: 6px;
+        gap: 0;
+        min-height: 34px;
+        align-items: flex-end;
+        --pluto-tabs-tab-height: 34px;
+    }
+
+    & .pluto-panel-mosaic__cap {
+        --surface: var(--pluto-gray-l1);
+    }
+
+    & .pluto-tabs__tab.pluto-btn {
+        height: 34px;
+        border-radius: 0;
+        border: none;
+        padding-inline: 12px;
+        --pluto-bg: transparent;
+        --pluto-hover-bg: var(--pluto-gray-l2);
+        box-shadow: inset calc(-1 * var(--pluto-border-width)) 0 0 var(--pluto-gray-l5);
+    }
+
+    & .pluto-tabs__tab.pluto-btn.pluto--selected {
+        --pluto-bg: var(--pluto-gray-l0);
+        --pluto-hover-bg: var(--pluto-gray-l0);
+        --pluto-active-bg: var(--pluto-gray-l0);
+        background: var(--pluto-gray-l0);
+        color: var(--pluto-gray-l11);
+        border-radius: 6px 6px 0 0;
+        box-shadow:
+            inset var(--pluto-border-width) 0 0 var(--pluto-gray-l6),
+            inset calc(-1 * var(--pluto-border-width)) 0 0 var(--pluto-gray-l6),
+            inset 0 var(--pluto-border-width) 0 var(--pluto-gray-l6) !important;
+
+        & .pluto-text,
+        & > .pluto-icon {
+            color: var(--pluto-gray-l11);
+        }
+    }
+}
+
+.tabs-c .pluto-tabs__tab.pluto-btn.pluto--selected {
+    box-shadow:
+        inset var(--pluto-border-width) 0 0 var(--pluto-gray-l6),
+        inset calc(-1 * var(--pluto-border-width)) 0 0 var(--pluto-gray-l6),
+        inset 0 2px 0 var(--pluto-primary-z) !important;
+
+    & > .pluto-icon {
+        color: var(--pluto-primary-z);
+    }
+}
+
+/* D: a flat strip with one hairline and a primary underline. */
+.tabs-d {
+    & .pluto-mosaic__leaf > .pluto-tabs > .pluto-tabs__selector.pluto--direction-x {
+        box-shadow: inset 0 calc(-1 * var(--pluto-border-width)) 0 var(--pluto-gray-l6);
+        padding-left: 6px;
+        gap: 0;
+        min-height: 34px;
+        align-items: stretch;
+        --pluto-tabs-tab-height: 34px;
+    }
+
+    & .pluto-tabs__tab.pluto-btn {
+        height: 34px;
+        border-radius: 0;
+        border: none;
+        padding-inline: 12px;
+        --pluto-bg: transparent;
+        --pluto-hover-bg: var(--pluto-gray-l1);
+    }
+
+    & .pluto-tabs__tab.pluto-btn.pluto--selected {
+        --pluto-bg: transparent;
+        --pluto-hover-bg: transparent;
+        --pluto-active-bg: transparent;
+        background: transparent;
+        box-shadow: inset 0 -2px 0 var(--pluto-primary-z) !important;
+
+        & .pluto-text,
+        & > .pluto-icon {
+            color: var(--pluto-gray-l11);
+        }
+    }
+}
+
+/* B to D share the width rule: the active tab grows to 240 px, the others hold 84. */
+:is(.tabs-b, .tabs-c, .tabs-d) {
+    & .pluto-mosaic__leaf > .pluto-tabs > .pluto-tabs__selector.pluto--direction-x {
+        --pluto-tabs-tab-min-width: 84px;
+        --pluto-tabs-selected-min-width: 84px;
+    }
+
+    & .pluto-tabs__selector .pluto-tabs__tab.pluto-btn {
+        min-width: 84px;
+    }
+
+    & .pluto-tabs__selector .pluto-tabs__tab.pluto-btn.pluto--selected {
+        flex: 0 0 auto;
+        min-width: 84px;
+        max-width: 240px;
+    }
+
+    & .pluto-tabs__tab .pluto-text {
+        display: block;
+        animation: none;
+        mask-image: none;
+        text-overflow: ellipsis;
+    }
+}
+
+/* ------------------------------------------------------- 8. table input */
+
+.opt-table-custom {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    width: 100%;
+
+    & .pluto-input__table tfoot {
+        display: none;
+    }
+
+    /* Remove stays visible on every row. */
+    & .pluto--reveals .pluto--reveal,
+    & .pluto--reveals:not(:hover) .pluto--reveal {
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+    & .pluto-input__table th:last-child,
+    & .pluto-input__table td:last-child {
+        width: 32px;
+    }
+
+    /* A key column is narrower than its value column. */
+    & .pluto-input__table thead th:first-child {
+        width: 38%;
+    }
+}
+
+.opt-add-btn {
+    margin-left: -3px;
+}
+
+.opt-table-empty {
+    padding: 4px 0 0;
+
+    & .opt-add-btn {
+        margin-left: -9px;
+    }
+}
+
+/* B: every cell is a boxed input. */
+.tb-b .opt-table-custom {
+    & .pluto-input__table::before {
+        display: none;
+    }
+
+    & .pluto-input__table tr > :first-child,
+    & .pluto-input__table thead th:first-child:not(.pluto-input__table-gutter) {
+        padding-left: 0;
+    }
+
+    & .pluto-input__table thead th:not(:first-child) {
+        padding-left: 0;
+    }
+
+    & .pluto-input__table thead th {
+        height: 20px;
+    }
+
+    & .pluto-input__table td:not(:last-child) {
+        padding-right: 6px;
+    }
+
+    & .pluto-input__table tbody td {
+        padding-block: 3px;
+    }
+
+    & .opt-cell-empty input::placeholder {
+        color: var(--pluto-gray-l7);
+    }
+
+    & .opt-add-btn {
+        margin-left: -9px;
+    }
+}
+
+/* C: one ruled grid with a heading band and light cells. */
+.tb-c .opt-table-custom {
+    & .pluto-input__table {
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+
+    & .pluto-input__table::before {
+        display: none;
+    }
+
+    & .pluto-input__table :is(th, td):not(:last-child) {
+        padding: 0;
+        border-right: var(--pluto-border-width) solid var(--pluto-gray-l6);
+        border-bottom: var(--pluto-border-width) solid var(--pluto-gray-l6);
+    }
+
+    & .pluto-input__table tr > :first-child {
+        border-left: var(--pluto-border-width) solid var(--pluto-gray-l6);
+    }
+
+    & .pluto-input__table thead th:not(:last-child) {
+        border-top: var(--pluto-border-width) solid var(--pluto-gray-l6);
+        background: var(--pluto-gray-l1);
+        height: 26px;
+        padding-left: 9px;
+    }
+
+    & .pluto-input__table thead th:first-child {
+        border-top-left-radius: 6px;
+    }
+
+    & .pluto-input__table thead th:nth-last-child(2) {
+        border-top-right-radius: 6px;
+    }
+
+    & .pluto-input__table tbody tr:last-child td:first-child {
+        border-bottom-left-radius: 6px;
+    }
+
+    & .pluto-input__table tbody tr:last-child td:nth-last-child(2) {
+        border-bottom-right-radius: 6px;
+    }
+
+    & .pluto-input__table tbody td:last-child {
+        padding-left: 4px;
+    }
+
+    & .pluto-input.pluto-btn {
+        border-radius: 0;
+        border-color: transparent;
+        --pluto-bg: transparent;
+        --pluto-border-color: transparent;
+        --pluto-hover-border-color: transparent;
+    }
+
+    & .pluto-input.opt-cell-filled {
+        --pluto-bg: var(--pluto-gray-l1);
+        background: var(--pluto-gray-l1);
+    }
+
+    & .opt-cell-empty input::placeholder {
+        color: var(--pluto-gray-l7);
+    }
+
+    & .opt-add-btn {
+        margin-left: -9px;
+    }
+}
+
+/* -------------------------------------------------------------- 9. palette */
+
+.opt-palette.pluto-dialog__dialog.pluto--modal.pluto--visible {
+    --pluto-dialog-min-width: 0;
+    width: 660px;
+    border-radius: var(--pluto-border-radius-small);
+}
+
+.opt-palette.pal-today.pluto-dialog__dialog.pluto--modal.pluto--visible {
+    width: 1200px;
+}
+
+.opt-palette-scroll {
+    border-top: var(--pluto-border-width) solid var(--pluto-gray-l8);
+}
+
+.opt-palette-list {
+    padding: 0;
+}
+
+.opt-palette-footer {
+    height: 40px;
+    padding: 0 8px 0 14px;
+    border-top: var(--pluto-border-width) solid var(--pluto-gray-l6);
+    background: color-mix(in srgb, var(--pluto-gray-l2) 80%, transparent);
+}
+
+.opt-palette-footer-sep {
+    width: var(--pluto-border-width);
+    height: 16px;
+    background: var(--pluto-gray-l6);
+}
+
+.pal-d .opt-palette.pluto-dialog__dialog.pluto--modal.pluto--visible {
+    border-radius: 12px;
+}
+
+.pal-d .opt-palette-input.pluto-input {
+    font-size: 16px;
+    line-height: 24px;
+    min-height: 48px;
+    height: 48px;
+}
+
+/* ------------------------------------------------------- 10. checkboxes */
+
+.opt-task {
+    width: 780px;
+}
+
+.opt-task-title.pluto-text {
+    margin-bottom: 4px;
+}
+
+.opt-check-row {
+    cursor: pointer;
+}
+
+/* The label sits on the input line, centered on the 28 px control height. */
+.opt-checks-inline {
+    height: var(--pluto-height-medium);
+}
+
+.opt-check.pluto-flex {
+    gap: 2px;
+
+    & .pluto-input__checkbox.pluto-btn {
+        margin-left: -6px;
+    }
+}
+
+.opt-checks-under .pluto-input__checkbox.pluto-btn {
+    margin-left: -6px;
+}
+
+.opt-dot-check.pluto-flex {
+    gap: 0;
+
+    & .pluto-input__checkbox.pluto-btn {
+        margin-left: -8px;
+    }
+}
+
+.opt-label-spacer {
+    height: 20px;
+}

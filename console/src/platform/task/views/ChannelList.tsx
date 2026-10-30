@@ -92,7 +92,7 @@ export const ChannelList = <C extends Channel>({
     const channel = createChannel(channels);
     if (channel == null) return;
     push(channel);
-    onSelect([channel.key]);
+    if (rest.checkable !== true) onSelect([channel.key]);
   };
   const handleDuplicate = (chs: C[], keys: string[]) => {
     if (createChannels == null) return;

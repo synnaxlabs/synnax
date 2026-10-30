@@ -179,6 +179,7 @@ export const TableScaleForm = ({ prefix }: TableScaleFormProps): ReactElement =>
           value={rows}
           onChange={handleRowsChange}
           createRow={createRow}
+          item="point"
           preview={preview}
           rowLabel={(index) => (index + 1).toString()}
         >

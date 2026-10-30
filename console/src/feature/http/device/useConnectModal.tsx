@@ -399,6 +399,7 @@ export const Connect = ({
                     path="properties.healthCheck.headers"
                     label="Headers"
                     keyField="name"
+                    item="header"
                     keyPlaceholder="Content-Type"
                     valuePlaceholder="application/json"
                   />
@@ -406,6 +407,7 @@ export const Connect = ({
                     path="properties.healthCheck.queryParams"
                     label="Query parameters"
                     keyField="parameter"
+                    item="parameter"
                     keyPlaceholder="limit"
                     valuePlaceholder="100"
                   />

@@ -8,11 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import "zod/compile";
+import "@/uiOptions.css";
 
 import { createRoot } from "react-dom/client";
 
 import { App } from "@/app";
+import { mountUIOptions } from "@/uiOptions";
 import workerURL from "@/worker?worker&url";
+
+mountUIOptions();
 
 if (import.meta.env.DEV) {
   const script = document.createElement("script");

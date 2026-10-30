@@ -9,6 +9,7 @@
 
 import { type Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
 import { useState } from "react";
 
 import { CSS } from "@/platform/css";
@@ -40,7 +41,11 @@ export const ListAndDetails = <C extends Channel>({
   createChannel,
   ...rest
 }: ListAndDetailsProps<C>) => {
-  const [selected, setSelected] = useState<string[]>([]);
+  const ctx = Form.useContext();
+  const [selected, setSelected] = useState<string[]>(() => {
+    const first = ctx.get<C[]>("config.channels").value[0];
+    return first == null ? [] : [first.key];
+  });
   const handleCreateChannel = (channels: C[]) => createChannel(channels, selected[0]);
   const handleDuplicateChannels = (allChannels: C[], keys: string[]) => {
     const newlyMade: C[] = [];

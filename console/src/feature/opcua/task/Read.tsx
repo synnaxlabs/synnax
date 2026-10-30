@@ -52,7 +52,6 @@ const IsIndexItem = ({ path }: IsIndexItemProps): ReactElement => {
       x
       align="center"
       showHelpText={false}
-      required={false}
       visible={DataType.TIMESTAMP.equals(dataType ?? "")}
     />
   );
@@ -270,6 +269,7 @@ export const Read = Task.wrapForm({
 
 export const useCreateRead = Task.createUseCreate({
   getInitialValues,
+  deviceMake: Device.MAKE,
 });
 
 export const ReadSelectable = Selector.createSelectable({

@@ -131,6 +131,8 @@ export interface ChannelListProps<C extends Channel>
   isDragging?: boolean;
   listItem: Component.RenderProp<ChannelListItemProps>;
   selected: string[];
+  /** Whether items select only through their own checkbox, which also allows none. */
+  checkable?: boolean;
 }
 
 export const ChannelList = <C extends Channel>({
@@ -145,6 +147,7 @@ export const ChannelList = <C extends Channel>({
   grow,
   style,
   resolve,
+  checkable = false,
   ...rest
 }: ChannelListProps<C>) => {
   const { onSelect, path, data } = rest;
@@ -165,9 +168,9 @@ export const ChannelList = <C extends Channel>({
           data={data}
           value={selected}
           onChange={handleChange}
-          replaceOnSingle
-          allowNone={false}
-          autoSelectOnNone
+          replaceOnSingle={!checkable}
+          allowNone={checkable}
+          autoSelectOnNone={!checkable}
         >
           <List.Scroll
             full="y"

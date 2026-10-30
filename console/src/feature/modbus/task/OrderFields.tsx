@@ -90,3 +90,80 @@ export const OrderFields = ({ path, dataType }: OrderFieldsProps): ReactElement 
     </Flex.Box>
   );
 };
+
+// Scratch only: the record table look shows the whole register order as one select,
+// in the letter notation Modbus tools use. A is the most significant byte.
+type Swaps = "device" | "none" | "bytes" | "words" | "both";
+
+const SWAPS: Record<Exclude<Swaps, "device">, [boolean, boolean]> = {
+  none: [false, false],
+  bytes: [true, false],
+  words: [false, true],
+  both: [true, true],
+};
+
+const letters = (bytes: number, [bytesSwapped, wordsSwapped]: [boolean, boolean]) => {
+  const words: string[][] = [];
+  for (let i = 0; i < Math.max(bytes, 2); i += 2)
+    words.push([String.fromCharCode(65 + i), String.fromCharCode(66 + i)]);
+  if (wordsSwapped) words.reverse();
+  return words.map(([a, b]) => (bytesSwapped ? b + a : a + b)).join("");
+};
+
+export const OrderSelect = ({ path, dataType }: OrderFieldsProps): ReactElement => {
+  const connection = useFromConfig()?.properties.connection;
+  const ctx = Form.useContext();
+  const bytesPath = `${path}.bytesSwapped`;
+  const wordsPath = `${path}.wordsSwapped`;
+  const bytesSwapped = Form.useFieldValue<boolean | undefined>(bytesPath, {
+    optional: true,
+  });
+  const wordsSwapped = Form.useFieldValue<boolean | undefined>(wordsPath, {
+    optional: true,
+  });
+  const size = new DataType(dataType).density.valueOf();
+  const multiWord = size > Density.BIT16.valueOf();
+  const device: [boolean, boolean] = [
+    connection?.swapBytes ?? false,
+    connection?.swapWords ?? false,
+  ];
+  const resolved: [boolean, boolean] = [
+    bytesSwapped ?? device[0],
+    multiWord && (wordsSwapped ?? device[1]),
+  ];
+  const value: Swaps =
+    bytesSwapped == null && wordsSwapped == null
+      ? "device"
+      : (Object.entries(SWAPS).find(
+          ([, [b, w]]) => b === resolved[0] && w === resolved[1],
+        )?.[0] as Swaps);
+  const options = (
+    multiWord ? ["none", "bytes", "words", "both"] : ["none", "bytes"]
+  ) as Exclude<Swaps, "device">[];
+  const handleChange = (next: Swaps) => {
+    if (next === "device") {
+      ctx.set(bytesPath, undefined);
+      ctx.set(wordsPath, undefined);
+      return;
+    }
+    const [b, w] = SWAPS[next];
+    ctx.set(bytesPath, b);
+    ctx.set(wordsPath, multiWord ? w : undefined);
+  };
+  return (
+    <Select.Simple<Swaps>
+      value={value}
+      preview={ctx.mode === "preview"}
+      onChange={handleChange}
+      allowNone={false}
+      resourceName="byte order"
+    >
+      <Select.Item<Swaps> itemKey="device">Device order</Select.Item>
+      {options.map((o) => (
+        <Select.Item<Swaps> key={o} itemKey={o}>
+          {letters(size, SWAPS[o])}
+        </Select.Item>
+      ))}
+    </Select.Simple>
+  );
+};

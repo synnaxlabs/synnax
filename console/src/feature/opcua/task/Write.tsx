@@ -173,6 +173,7 @@ export const Write = Task.wrapForm({
 
 export const useCreateWrite = Task.createUseCreate({
   getInitialValues,
+  deviceMake: Device.MAKE,
 });
 
 export const WriteSelectable = Selector.createSelectable({

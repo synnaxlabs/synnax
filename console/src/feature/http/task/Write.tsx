@@ -120,6 +120,7 @@ const EnumValuesEditor: FC<{ channelPath: string }> = ({ channelPath }) => (
     <PlatformForm.KeyValueEditor
       path={`${channelPath}.enumValues`}
       keyField="label"
+      item="mapping"
       keyPlaceholder="String (e.g. ON)"
       valueType="number"
       valueFirst
@@ -417,6 +418,7 @@ const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
             path={`${path}.queryParams`}
             label="Query parameters"
             keyField="parameter"
+            item="parameter"
             keyPlaceholder="limit"
             valuePlaceholder="100"
           />
@@ -424,6 +426,7 @@ const EndpointDetails: FC<{ epKey: string }> = ({ epKey }) => {
             path={`${path}.headers`}
             label="Headers"
             keyField="name"
+            item="header"
             keyPlaceholder="Content-Type"
             valuePlaceholder="application/json"
           />
@@ -641,6 +644,7 @@ export const Write = Task.wrapForm({
 
 export const useCreateWrite = Task.createUseCreate({
   getInitialValues,
+  deviceMake: Device.MAKE,
 });
 
 export const WriteSelectable = Selector.createSelectable({

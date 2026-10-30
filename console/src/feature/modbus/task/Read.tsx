@@ -10,20 +10,15 @@
 import "@/feature/modbus/task/Task.css";
 
 import { channel, NotFoundError } from "@synnaxlabs/client";
-import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
-import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Select } from "@synnaxlabs/lyra/select";
-import { Telem } from "@synnaxlabs/pluto";
-import { DataType, deep, errors, id, primitive } from "@synnaxlabs/x";
+import { DataType, errors, id, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { useFromConfig } from "@/feature/modbus/device/queries";
 import { Select as SelectDevice } from "@/feature/modbus/device/Select";
 import * as Device from "@/feature/modbus/device/types";
-import { OrderFields } from "@/feature/modbus/task/OrderFields";
-import { SelectReadChannelTypeField } from "@/feature/modbus/task/SelectReadChannelTypeField";
+import { HEADER, HotProvider, ROW } from "@/feature/modbus/task/Record";
 import {
   deployReadConfigZ,
   isVariableDensityReadChannel,
@@ -35,9 +30,9 @@ import {
   type ReadSchemas,
   type TypedReadChannel,
 } from "@/feature/modbus/task/types";
-import { CSS } from "@/platform/css";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
+
 
 const Properties = () => (
   <>
@@ -49,72 +44,6 @@ const Properties = () => (
       <Task.Fields.AutoStart />
     </Flex.Box>
   </>
-);
-
-const ChannelListItem = (props: Task.ChannelListItemProps) => {
-  const { itemKey } = props;
-  const path = `config.channels.${itemKey}`;
-  const ch = PForm.useFieldValue<ReadChannel>(path);
-  const { type, channel } = ch;
-  return (
-    <Select.Item
-      {...props}
-      className={CSS.BE("modbus", "channel-item")}
-      justify="between"
-      align="center"
-      x
-    >
-      <Flex.Box x pack className={CSS.B("channel-item")}>
-        <SelectReadChannelTypeField
-          path={path}
-          onChange={(value, { get, set, path }) => {
-            const prevType = get<ReadChannelType>(path).value;
-            if (prevType === value) return;
-            const next = READ_CHANNEL_SCHEMAS[value].parse({ type: value });
-            const parentPath = path.slice(0, path.lastIndexOf("."));
-            const prevParent = get<ReadChannel>(parentPath).value;
-            const schema = READ_CHANNEL_SCHEMAS[value];
-            set(parentPath, {
-              ...deep.overrideValidItems(next, prevParent, schema),
-              type: value,
-            });
-          }}
-        />
-        <PForm.NumericField
-          inputProps={{ showDragHandle: false }}
-          showLabel={false}
-          showHelpText={false}
-          path={`${path}.address`}
-        />
-        {(type === "input_register" || type === "holding_register") && (
-          <PForm.Field<string>
-            path={`${path}.dataType`}
-            showLabel={false}
-            showHelpText={false}
-          >
-            {renderTelemSelectDataType}
-          </PForm.Field>
-        )}
-      </Flex.Box>
-      {isVariableDensityReadChannel(ch) && (
-        <OrderFields path={path} dataType={ch.dataType} />
-      )}
-      <Flex.Box x align="center" grow justify="end">
-        <Task.ChannelName
-          channel={channel}
-          namePath={`${path}.name`}
-          id={Task.getChannelNameID(itemKey)}
-        />
-        <Task.EnabledCheckbox path={`${path}.disabled`} />
-      </Flex.Box>
-    </Select.Item>
-  );
-};
-
-const renderTelemSelectDataType = Component.renderProp(
-  (props: Telem.SelectDataTypeProps) => (
-    <Telem.SelectDataType {...props} hideVariableDensity location="bottom" />
-  ),
 );
 
 const getOpenChannel = (channels: ReadChannel[]): ReadChannel => {
@@ -132,19 +61,21 @@ const getOpenChannel = (channels: ReadChannel[]): ReadChannel => {
   };
 };
 
-const listItem = Component.renderProp(ChannelListItem);
-
 const Form: FC = () => {
   const dev = useFromConfig();
   const resolve = (c: ReadChannel) =>
     dev == null ? null : { channel: dev.properties.read.channels[readMapKey(c)] ?? 0 };
   return (
-    <Task.Views.List<ReadChannel>
-      createChannel={getOpenChannel}
-      contextMenuItems={Task.readChannelContextMenuItem}
-      listItem={listItem}
-      resolve={resolve}
-    />
+    <HotProvider>
+      <Task.Views.List<ReadChannel>
+        createChannel={getOpenChannel}
+        contextMenuItems={Task.readChannelContextMenuItem}
+        listItem={ROW}
+        header={HEADER}
+        checkable
+        resolve={resolve}
+      />
+    </HotProvider>
   );
 };
 
@@ -173,6 +104,7 @@ const channelName = (deviceName: string, channel: ReadChannel) => {
 const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({ deviceKey }) => {
   const config = READ_SCHEMAS.config.parse({});
   if (deviceKey != null) config.device = deviceKey;
+  config.channels = [getOpenChannel([])];
   return { name: "Modbus read task", type: READ_TYPE, config };
 };
 
@@ -254,6 +186,7 @@ export const Read = Task.wrapForm({
 
 export const useCreateRead = Task.createUseCreate({
   getInitialValues,
+  deviceMake: Device.MAKE,
 });
 
 export const ReadSelectable = Selector.createSelectable({

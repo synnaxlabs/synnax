@@ -56,11 +56,16 @@ describe("Modal", () => {
       expect(screen.getByText("user.name")).toBeTruthy();
     });
 
-    it("should render a leading icon segment only when an icon is provided", () => {
+    it("should frame the icon in a tile, with no separator after it", () => {
       const withIcon = renderModal(
         <Modal.Header icon={<Icon.Add className="test-icon" />}>Title</Modal.Header>,
       );
-      expect(withIcon.baseElement.querySelector(".test-icon")).not.toBeNull();
+      expect(
+        withIcon.baseElement.querySelector(".pluto-icon-tile > .test-icon"),
+      ).not.toBeNull();
+      expect(
+        withIcon.baseElement.querySelector(".pluto-breadcrumb__separator"),
+      ).toBeNull();
       withIcon.unmount();
       const withoutIcon = renderModal(<Modal.Header>Title</Modal.Header>);
       expect(withoutIcon.baseElement.querySelector(".test-icon")).toBeNull();

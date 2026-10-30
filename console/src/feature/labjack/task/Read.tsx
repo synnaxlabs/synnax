@@ -162,13 +162,17 @@ const ChannelDetails = ({ path, deviceModel }: ChannelDetailsProps) => {
   );
 };
 
+const createFirstChannel = (): ReadChannel => ({
+  ...createReadChannel("analog"),
+  key: id.create(),
+});
+
 const getOpenChannel = (
   channels: ReadChannel[],
   deviceModel: Device.Model,
   channelKeyToCopy?: string,
 ) => {
-  if (channelKeyToCopy == null)
-    return { ...createReadChannel("analog"), key: id.create() };
+  if (channelKeyToCopy == null) return createFirstChannel();
   const channelToCopy = channels.find(({ key }) => key === channelKeyToCopy);
   if (channelToCopy == null) return null;
   // preferredPortType is AI or DI
@@ -248,6 +252,7 @@ const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({
 }) => {
   const cfg = READ_SCHEMAS.config.parse(config ?? {});
   if (deviceKey != null) cfg.device = deviceKey;
+  if (config == null) cfg.channels = [createFirstChannel()];
   return { name: "LabJack read task", type: READ_TYPE, config: cfg };
 };
 
@@ -329,6 +334,7 @@ export const Read = Task.wrapForm({
 
 export const useCreateRead = Task.createUseCreate({
   getInitialValues,
+  deviceMake: Device.MAKE,
 });
 
 export const ReadSelectable = Selector.createSelectable({

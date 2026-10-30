@@ -25,9 +25,15 @@ export const SaveHelpText = ({
   trigger = SAVE,
 }: SaveHelpTextProps): ReactElement => {
   const content = (
-    <Triggers.Text level="small" trigger={trigger}>
+    <Triggers.Text level="small" trigger={trigger} className="console-save-help">
       {action}
     </Triggers.Text>
   );
-  return noBar ? content : <Nav.Bar.Start gap="small">{content}</Nav.Bar.Start>;
+  return noBar ? (
+    content
+  ) : (
+    <Nav.Bar.Start gap="small" className="console-save-help">
+      {content}
+    </Nav.Bar.Start>
+  );
 };
