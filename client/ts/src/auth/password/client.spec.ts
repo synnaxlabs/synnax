@@ -11,7 +11,12 @@ import { id } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { AuthError, NotFoundError, ValidationError } from "@/errors";
-import { createTestAuthClient, createTestClient, createTestUser } from "@/testutil";
+import {
+  createTestAuthClient,
+  createTestClient,
+  createTestUser,
+  TEST_CREDENTIALS,
+} from "@/testutil";
 import { user } from "@/user";
 
 describe("password", () => {
@@ -36,24 +41,50 @@ describe("password", () => {
       ).rejects.toThrow(AuthError);
     });
 
-    it("should set the caller's own password given the current one", async () => {
+    it("should switch to a new session when setting its own password", async () => {
       const { username } = await createUser();
-      const self = createTestAuthClient({ credentials: { username, password: "old" } });
+      let successes = 0;
+      const self = createTestAuthClient(
+        { credentials: { username, password: "old" } },
+        { onSuccess: () => successes++ },
+      );
       await expect(self.passwords.set({ password: "new" })).rejects.toThrow();
       await self.sessions.retrieve();
-      await self.passwords.set({
-        subject: self.subject,
-        password: "new",
-        currentPassword: "old",
-      });
-      const key = self.session?.key;
-      if (key == null) throw new Error("no session");
-      await self.sessions.delete(key);
-      await self.sessions.retrieve();
-      expect(self.session?.key).not.toEqual(key);
+      const old = self.session?.key;
+      const before = successes;
+      await self.passwords.set({ password: "new", currentPassword: "old" });
+      expect(successes).toEqual(before + 1);
+      expect(self.session?.key).toBeDefined();
+      expect(self.session?.key).not.toEqual(old);
+      const sessions = await self.sessions.retrieve();
+      expect(sessions.map((s) => s.key)).not.toContain(old);
       await createTestAuthClient({
         credentials: { username, password: "new" },
       }).sessions.retrieve();
+    });
+
+    it("should keep working after a resumed client sets its own password", async () => {
+      const { username } = await createUser();
+      const opener = createTestAuthClient({
+        credentials: { username, password: "old" },
+      });
+      await opener.sessions.retrieve();
+      const token = opener.token;
+      if (token == null) throw new Error("no token");
+      const resumed = createTestAuthClient({ token });
+      await resumed.passwords.set({ password: "new", currentPassword: "old" });
+      expect(resumed.token).not.toEqual(token);
+      await resumed.sessions.retrieve();
+      await expect(opener.sessions.retrieve()).rejects.toThrow(AuthError);
+    });
+
+    it("should keep the owner's session when setting another's password", async () => {
+      const { subject } = await createUser();
+      const owner = createTestAuthClient({ credentials: TEST_CREDENTIALS });
+      await owner.sessions.retrieve();
+      const before = owner.session?.key;
+      await owner.passwords.set({ subject, password: "new" });
+      expect(owner.session?.key).toEqual(before);
     });
   });
 

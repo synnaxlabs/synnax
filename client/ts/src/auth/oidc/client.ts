@@ -10,7 +10,7 @@
 import { type UnaryClient } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
-import { type Key, keyZ, type Link, linkZ } from "@/auth/oidc/types.gen";
+import { type Link, type LinkKey, linkKeyZ, linkZ } from "@/auth/oidc/types.gen";
 import { type OIDCCredentials, oidcCredentialsZ } from "@/auth/types.gen";
 import { ontology } from "@/ontology";
 
@@ -18,7 +18,7 @@ const linkReqZ = z.object({ credentials: oidcCredentialsZ });
 const linkResZ = z.object({ link: linkZ });
 const retrieveReqZ = z.object({ subjects: ontology.idZ.array().optional() });
 const retrieveResZ = z.object({ links: linkZ.array() });
-const unlinkReqZ = z.object({ keys: keyZ.array() });
+const unlinkReqZ = z.object({ keys: linkKeyZ.array() });
 const emptyResZ = z.object({});
 
 const LINK_ENDPOINT = "/auth/oidc/link";
@@ -69,7 +69,7 @@ export class Client {
    * ignored.
    * @throws {AccessDeniedError} when the caller may not remove another user's links.
    */
-  async unlink(...keys: Key[]): Promise<void> {
+  async unlink(...keys: LinkKey[]): Promise<void> {
     await this.client.send(UNLINK_ENDPOINT, { keys }, unlinkReqZ, emptyResZ);
   }
 }

@@ -87,7 +87,7 @@ type Transport struct {
 	// AuthPasswordRename changes the username of the caller's password or another's.
 	AuthPasswordRename freighter.UnaryServer[password.RenameRequest, struct{}]
 	// AuthPasswordSet sets the caller's password or another user's.
-	AuthPasswordSet freighter.UnaryServer[password.SetRequest, struct{}]
+	AuthPasswordSet freighter.UnaryServer[password.SetRequest, password.SetResponse]
 	// USER
 	UserRename   freighter.UnaryServer[user.RenameRequest, struct{}]
 	UserCreate   freighter.UnaryServer[user.CreateRequest, user.CreateResponse]

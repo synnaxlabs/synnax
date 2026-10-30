@@ -564,4 +564,28 @@ var _ = Describe("Service", func() {
 				To(BeFalse())
 		})
 	})
+
+	Describe("Version", func() {
+		var link oidc.Link
+		BeforeEach(func(ctx SpecContext) {
+			subject := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
+				Name: uuid.New().String(),
+			})).OntologyID()
+			link = MustSucceed(svc.NewWriter(nil).Create(ctx, subject, oidc.Account{
+				Provider: "idp", ID: uuid.New().String(),
+			}))
+		})
+		It("Should return the fixed version of a link", func(ctx SpecContext) {
+			Expect(svc.Version(ctx, nil, link.Key)).To(BeZero())
+		})
+		It("Should not find a deleted link", func(ctx SpecContext) {
+			Expect(svc.NewWriter(nil).Delete(ctx, link.Key)).To(Succeed())
+			Expect(svc.Version(ctx, nil, link.Key)).Error().
+				To(MatchError(query.ErrNotFound))
+		})
+		It("Should not find an unknown credential", func(ctx SpecContext) {
+			Expect(svc.Version(ctx, nil, uuid.New())).Error().
+				To(MatchError(query.ErrNotFound))
+		})
+	})
 })

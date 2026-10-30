@@ -11,7 +11,7 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { z } from "zod";
 
 import { type Password, passwordZ } from "@/auth/password/types.gen";
-import { type Credentials } from "@/auth/types.gen";
+import { type Credentials, type Session, sessionZ } from "@/auth/types.gen";
 import { ontology } from "@/ontology";
 
 export interface CreateParams {
@@ -42,7 +42,9 @@ const setReqZ = z.object({
   subject: ontology.idZ.optional(),
   password: z.string(),
   currentPassword: z.string().optional(),
+  cookie: z.boolean().optional(),
 });
+const setResZ = z.object({ token: z.string(), session: sessionZ.optional() });
 
 export interface RetrieveParams {
   /** The users whose passwords to list. */
@@ -81,13 +83,27 @@ export type ChangeHandler = (
   change: Partial<Credentials>,
 ) => void;
 
+/** Receives the session the Core opens to replace the caller's own. */
+export type SessionHandler = (token: string, session: Session) => void;
+
+export interface Config {
+  /** Whether the Core keeps the token in a cookie the client never sees. */
+  cookie: boolean;
+  onChange: ChangeHandler;
+  /**
+   * Called before a password is set. Returns the handler for the session the Core opens
+   * in return.
+   */
+  watchSession: () => SessionHandler;
+}
+
 export class Client {
   private readonly client: UnaryClient;
-  private readonly onChange: ChangeHandler;
+  private readonly config: Config;
 
-  constructor(client: UnaryClient, onChange: ChangeHandler = () => {}) {
+  constructor(client: UnaryClient, config: Config) {
     this.client = client;
-    this.onChange = onChange;
+    this.config = config;
   }
 
   /**
@@ -105,15 +121,23 @@ export class Client {
 
   /**
    * Sets the caller's password, or another user's when the caller may update that
-   * user, and ends every other session the old password opened.
+   * user, and ends every session the old password opened. When that ends the client's
+   * own session, the client switches to the session the Core opens in its place.
    * @throws {AuthError} when the caller sets its own password with a wrong current one.
    * @throws {AccessDeniedError} when the caller may not update the user.
    * @throws {ValidationError} when the password is empty, or the caller sets its own
    * without the current one.
    */
   async set(params: SetParams): Promise<void> {
-    await this.client.send(SET_ENDPOINT, params, setReqZ, emptyResZ);
-    this.onChange(params.subject, { password: params.password });
+    const onSession = this.config.watchSession();
+    const res = await this.client.send(
+      SET_ENDPOINT,
+      { ...params, cookie: this.config.cookie || undefined },
+      setReqZ,
+      setResZ,
+    );
+    this.config.onChange(params.subject, { password: params.password });
+    if (res.session != null) onSession(res.token, res.session);
   }
 
   /**
@@ -142,6 +166,6 @@ export class Client {
    */
   async rename(params: RenameParams): Promise<void> {
     await this.client.send(RENAME_ENDPOINT, params, renameReqZ, emptyResZ);
-    this.onChange(params.subject, { username: params.username });
+    this.config.onChange(params.subject, { username: params.username });
   }
 }

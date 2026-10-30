@@ -66,9 +66,9 @@ func (w Writer) Create(
 // linkKey is the same for every link to account, so links to one account made at once
 // overwrite each other instead of passing the existence check together. The account
 // then logs in as one user.
-func linkKey(account Account) Key {
+func linkKey(account Account) LinkKey {
 	sum := sha256.Sum256([]byte(account.Provider + "\x00" + account.ID))
-	var k Key
+	var k LinkKey
 	copy(k[:], sum[:16])
 	k[6] = k[6]&0x0f | 0x80
 	k[8] = k[8]&0x3f | 0x80
@@ -76,9 +76,9 @@ func linkKey(account Account) Key {
 }
 
 // Delete removes the links with the given keys. Unknown keys are ignored.
-func (w Writer) Delete(ctx context.Context, keys ...Key) error {
+func (w Writer) Delete(ctx context.Context, keys ...LinkKey) error {
 	return w.svc.table.NewDelete().
-		Where(gorp.MatchKeys[Key, Link](keys...)).
+		Where(gorp.MatchKeys[LinkKey, Link](keys...)).
 		Exec(ctx, w.tx)
 }
 

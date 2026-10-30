@@ -210,7 +210,10 @@ export interface Observer {
    * undefined when setCredentials drops the user.
    */
   onUser?: (user: user.User | undefined) => void;
-  /** Fires after every successful login. */
+  /**
+   * Fires after every successful login, and after setting a password opens a new
+   * session.
+   */
   onSuccess?: () => void;
   /** Fires on a definitive credential rejection, never on token self-heal. */
   onFailure?: (error: Error) => void;
@@ -254,9 +257,11 @@ export class Client {
     this.observer = observer;
     this.apiKeys = new apiKey.Client(client);
     this.sessions = new session.Client(client);
-    this.passwords = new password.Client(client, (subject, change) =>
-      this.updateOwnCredentials(subject, change),
-    );
+    this.passwords = new password.Client(client, {
+      cookie: this.cookie,
+      onChange: (subject, change) => this.updateOwnCredentials(subject, change),
+      watchSession: () => this.watchSession(),
+    });
     this.oidc = new oidc.Client(client);
   }
 
@@ -266,6 +271,16 @@ export class Client {
   ): void {
     const own = subject == null || subject.key === this.subject?.key;
     if (own && this.credentials != null) Object.assign(this.credentials, change);
+  }
+
+  private watchSession(): password.SessionHandler {
+    const { generation } = this;
+    return (token, session) => {
+      if (generation !== this.generation) return;
+      this.authState = { authenticated: true, token, session };
+      if (this.resumeToken != null) this.resumeToken = token;
+      this.observer.onSuccess?.();
+    };
   }
 
   /** Replaces the stored credentials and clears auth state for a fresh login. */
