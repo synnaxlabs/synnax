@@ -64,9 +64,9 @@ func (w Writer) Create(
 }
 
 // Delete removes the links with the given keys. Unknown keys are ignored.
-func (w Writer) Delete(ctx context.Context, keys ...Key) error {
+func (w Writer) Delete(ctx context.Context, keys ...LinkKey) error {
 	return w.svc.table.NewDelete().
-		Where(gorp.MatchKeys[Key, Link](keys...)).
+		Where(gorp.MatchKeys[LinkKey, Link](keys...)).
 		Exec(ctx, w.tx)
 }
 
