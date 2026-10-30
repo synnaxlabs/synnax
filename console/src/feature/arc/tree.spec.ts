@@ -9,12 +9,13 @@
 
 import { arc as clientArc, group, NotFoundError } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Arc } from "@/feature/arc";
 import { retrieveArcsGroupID } from "@/platform/arc/testutil";
 import { findButton } from "@/platform/modals/testutil";
+import { reportTaskRunning } from "@/platform/task/testutil";
 import { getTreeRow } from "@/platform/tree/menuTestutil";
 import {
   findTreeRow,
@@ -88,6 +89,22 @@ describe("arc/ontology", () => {
       const tab = await resolveFocusedTab(store, client);
       if (tab.variant !== "resource") throw new Error("expected a resource tab");
       expect(tab.resource.key).toBe(arc.key);
+    });
+
+    it("offers Redeploy only while the Arc's running task drifted", async () => {
+      const { arc, root } = await createArcInGroup();
+      const rack = await client.racks.create({
+        name: uniqueName("rack"),
+        integrations: ["arc"],
+      });
+      const tsk = await client.arcs.updateTask(arc.key, { rack: rack.key });
+      if (tsk == null) throw new Error("expected a deployment task");
+      await reportTaskRunning(client, tsk, "stale");
+      await renderOntologyTree({ client, root, items: Arc.TREE_ITEMS });
+      await openTreeRowContextMenu(arc.name);
+      expect(await screen.findByText("Redeploy")).toBeTruthy();
+      await act(async () => await reportTaskRunning(client, tsk));
+      await waitFor(() => expect(screen.queryByText("Redeploy")).toBeNull());
     });
 
     it("offers only the shared actions when several Arcs are selected", async () => {

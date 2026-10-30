@@ -100,7 +100,11 @@ const Content = () => {
           .toArray(data)
           .filter(({ type }) => type === "start")
           .map(({ task }) => task),
-      ).forEach(({ type }) => capture("task_started", { type })),
+      ).forEach(({ type }) => {
+        capture("task_started", { type });
+        // Starting an Arc task deploys its automation.
+        if (type === "arc") capture("automation_deployed", {});
+      }),
   });
   const handleCommand = (keys: string[], type: string) =>
     runCommand(keys.map((k) => ({ task: k, type })));

@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { arc, type rack, status, task } from "@synnaxlabs/client";
+import { arc, query, type rack, status, task } from "@synnaxlabs/client";
 import { type List } from "@synnaxlabs/lyra/list";
 import { Theming } from "@synnaxlabs/lyra/theming";
-import { compare, type record, verbs, xy } from "@synnaxlabs/x";
+import { compare, destructor, type record, verbs, xy } from "@synnaxlabs/x";
 import z from "zod";
 
 import { Node } from "@/arc/graph/node";
@@ -250,6 +250,50 @@ export const {
     client.arcs.task.onChange(query.arcKey, handler),
   getCached: ({ client, query }) => client.arcs.task.getCached(query.arcKey),
 });
+
+export type RetrieveTasksParams = {
+  arcKeys: arc.Key[];
+};
+
+// Live only once every Arc's task has been asked for. An Arc with no deployment adds
+// nothing.
+const getCachedTasks = ({
+  client,
+  query: { arcKeys },
+}: Flux.RetrieveParams<RetrieveTasksParams>): task.Task[] | undefined => {
+  const answers = arcKeys.map((key) => client.arcs.task.getCached(key));
+  if (answers.some((answer) => answer === undefined)) return undefined;
+  return answers.filter((answer): answer is task.Task => query.isLive(answer));
+};
+
+const { createResultSelector: createTasksResultSelector } = Flux.createRetrieve<
+  RetrieveTasksParams,
+  task.Task[]
+>({
+  name: "tasks",
+  retrieve: async ({ client, query: { arcKeys } }) =>
+    (await Promise.all(arcKeys.map((key) => client.arcs.task.retrieve(key)))).filter(
+      (tsk) => tsk != null,
+    ),
+  onChange: (params, handler) => {
+    const releases = params.query.arcKeys.map((key) =>
+      params.client.arcs.task.onChange(key, () => handler(getCachedTasks(params))),
+    );
+    return () => destructor.unwind(...releases);
+  },
+  getCached: getCachedTasks,
+});
+
+const useDriftedTaskKeysResult = createTasksResultSelector((tasks) =>
+  tasks.filter((tsk) => task.drifted(tsk)).map(({ key }) => key),
+);
+
+/**
+ * The keys of the given Arcs' tasks that drifted from their deployment. Re-renders
+ * only when that set changes.
+ */
+export const useDriftedTaskKeys = (arcKeys: arc.Key[]): task.Key[] =>
+  useDriftedTaskKeysResult({ arcKeys }).data ?? [];
 
 const useDriftedResult = createTaskResultSelector(
   (tsk) => tsk != null && task.drifted(tsk),

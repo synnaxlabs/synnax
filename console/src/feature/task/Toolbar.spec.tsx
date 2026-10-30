@@ -472,6 +472,41 @@ describe("task/Toolbar", () => {
       expect(tab.resource).toEqual(arc.ontologyID(a.key));
     });
 
+    it("starts the automation from the row's play button", async () => {
+      const { arc: a, task: t } = await createArcTask();
+      const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+      try {
+        const analytics = createTestSink();
+        await renderToolbar(client, analytics);
+        await screen.findByText(a.name);
+        const play = await waitFor(() => getIconButton(getRow(a.name), "play"));
+        fireEvent.click(play);
+        const cmd = await awaitCommand(streamer, t.key);
+        expect(cmd.type).toBe("start");
+        await waitFor(() =>
+          expect(analytics.capture).toHaveBeenCalledWith("automation_deployed", {}),
+        );
+      } finally {
+        streamer.close();
+      }
+    });
+
+    it("stops the automation from the row's stop button", async () => {
+      const { arc: a, task: t } = await createArcTask();
+      await setRunning(t, true);
+      const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+      try {
+        await renderToolbar();
+        await screen.findByText(a.name);
+        const stop = await waitFor(() => getIconButton(getRow(a.name), "stop"));
+        fireEvent.click(stop);
+        const cmd = await awaitCommand(streamer, t.key);
+        expect(cmd.type).toBe("stop");
+      } finally {
+        streamer.close();
+      }
+    });
+
     it("renames the Arc, and so its task, through the inline editor", async () => {
       const { arc: a, task: t } = await createArcTask();
       await renderToolbar();

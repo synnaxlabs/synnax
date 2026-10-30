@@ -73,7 +73,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const handleLink = Core.useCopyLinkToClipboard();
   const firstID = ids[0];
   const singleResource = ids.length === 1;
-  const driftedTaskKeys = PlatformArc.useDriftedTaskKeys(keys);
+  const driftedTaskKeys = Arc.useDriftedTaskKeys(keys);
   const redeployTaskKeys = canControl ? driftedTaskKeys : [];
   return (
     <ContextMenu.Menu>
