@@ -17,8 +17,8 @@ import (
 	"github.com/synnaxlabs/gorp"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v2"
-	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 var _ = Describe("Migration", func() {

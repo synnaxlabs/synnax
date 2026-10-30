@@ -11,6 +11,8 @@ import { describe, expect, it } from "vitest";
 
 import { lineplot } from "@/lineplot";
 
+const PLOT = "11111111-2222-4333-8444-555555555555";
+
 const emptyChannels = (
   overrides: Partial<lineplot.Channels> = {},
 ): lineplot.Channels => ({
@@ -23,105 +25,46 @@ const emptyChannels = (
   ...overrides,
 });
 
-const emptyRanges = (overrides: Partial<lineplot.Ranges> = {}): lineplot.Ranges => ({
-  x1: [],
-  x2: [],
-  ...overrides,
-});
-
 describe("line", () => {
   describe("lineKey", () => {
-    it("should join the parts with the separator in a fixed field order", () => {
-      const parts: lineplot.LineKeyParts = {
-        yAxis: "y1",
-        xAxis: "x1",
-        range: "r1",
-        xChannel: 10,
-        yChannel: 5,
-      };
-      expect(lineplot.lineKey(parts)).toEqual("y1---x1---r1---10---5");
+    it("should derive the same name-based UUID as the Core", () => {
+      // Matches v7.LineKey(plot, "y1", 5, 10) in the Core's lineplot v7 specs.
+      expect(
+        lineplot.lineKey(PLOT, { yAxis: "y1", yChannel: 5, xChannel: 10 }),
+      ).toEqual("9a828c1e-611f-5db4-bc47-9bdc99c8f1ab");
     });
 
-    it("should encode distinct combinations to distinct keys", () => {
-      const base: lineplot.LineKeyParts = {
-        yAxis: "y1",
-        xAxis: "x1",
-        range: "r1",
-        xChannel: 10,
-        yChannel: 5,
-      };
-      expect(lineplot.lineKey(base)).not.toEqual(
-        lineplot.lineKey({ ...base, yChannel: 6 }),
+    it("should encode distinct identities to distinct keys", () => {
+      const base: lineplot.LineIdentity = { yAxis: "y1", yChannel: 5, xChannel: 10 };
+      const key = lineplot.lineKey(PLOT, base);
+      expect(key).not.toEqual(lineplot.lineKey(PLOT, { ...base, yChannel: 6 }));
+      expect(key).not.toEqual(lineplot.lineKey(PLOT, { ...base, xChannel: 0 }));
+      expect(key).not.toEqual(lineplot.lineKey(PLOT, { ...base, yAxis: "y2" }));
+      expect(key).not.toEqual(
+        lineplot.lineKey("22222222-2222-4222-8222-222222222222", base),
       );
-      expect(lineplot.lineKey(base)).not.toEqual(
-        lineplot.lineKey({ ...base, range: "r2" }),
-      );
-      expect(lineplot.lineKey(base)).not.toEqual(
-        lineplot.lineKey({ ...base, yAxis: "y2" }),
-      );
-    });
-  });
-
-  describe("parseLineKey", () => {
-    it("should decode a key into its parts, coercing channels to numbers", () => {
-      expect(lineplot.parseLineKey("y1---x1---r1---10---5")).toEqual({
-        yAxis: "y1",
-        xAxis: "x1",
-        range: "r1",
-        xChannel: 10,
-        yChannel: 5,
-      });
-    });
-
-    it("should round-trip every value produced by lineKey", () => {
-      const parts: lineplot.LineKeyParts = {
-        yAxis: "y3",
-        xAxis: "x2",
-        range: "range-with-dashes",
-        xChannel: 42,
-        yChannel: 7,
-      };
-      expect(lineplot.parseLineKey(lineplot.lineKey(parts))).toEqual(parts);
     });
   });
 
   describe("reconcileLines", () => {
-    it("should create one line per (xAxis, range, yAxis, yChannel) combination", () => {
-      const channels = emptyChannels({ x1: 10, y1: [1, 2] });
-      const ranges = emptyRanges({ x1: ["r1"] });
-      const { lines, dropped } = lineplot.reconcileLines(channels, ranges, []);
-      expect(lines.map((l) => l.key)).toEqual([
-        lineplot.lineKey({
-          yAxis: "y1",
-          xAxis: "x1",
-          range: "r1",
-          xChannel: 10,
-          yChannel: 1,
-        }),
-        lineplot.lineKey({
-          yAxis: "y1",
-          xAxis: "x1",
-          range: "r1",
-          xChannel: 10,
-          yChannel: 2,
-        }),
+    it("should create one line per bound y-channel against the x1 channel", () => {
+      const channels = emptyChannels({ x1: 10, y1: [1, 2], y2: [3] });
+      const { lines, dropped } = lineplot.reconcileLines(PLOT, channels, []);
+      expect(
+        lines.map(({ yAxis, yChannel, xChannel }) => [yAxis, yChannel, xChannel]),
+      ).toEqual([
+        ["y1", 1, 10],
+        ["y1", 2, 10],
+        ["y2", 3, 10],
       ]);
+      expect(lines[0].key).toEqual(
+        lineplot.lineKey(PLOT, { yAxis: "y1", yChannel: 1, xChannel: 10 }),
+      );
       expect(dropped).toHaveLength(0);
     });
 
-    it("should expand the combination across axes, ranges, and channels", () => {
-      const channels = emptyChannels({ x1: 10, y1: [1], y2: [2] });
-      const ranges = emptyRanges({ x1: ["r1", "r2"] });
-      const { lines } = lineplot.reconcileLines(channels, ranges, []);
-      expect(lines).toHaveLength(4);
-      expect(new Set(lines.map((l) => l.key)).size).toEqual(4);
-    });
-
     it("should apply Oracle defaults to new lines and leave label and color unset", () => {
-      const channels = emptyChannels({ x1: 10, y1: [1] });
-      const ranges = emptyRanges({ x1: ["r1"] });
-      const { lines } = lineplot.reconcileLines(channels, ranges, []);
-      expect(lines).toHaveLength(1);
+      const { lines } = lineplot.reconcileLines(PLOT, emptyChannels({ y1: [1] }), []);
       const [line] = lines;
       expect(line.strokeWidth).toEqual(2);
       expect(line.aggregation).toEqual("min_max");
@@ -130,66 +73,60 @@ describe("line", () => {
       expect(line.color).toBeUndefined();
     });
 
-    it("should preserve existing lines by key so user styling survives", () => {
-      const channels = emptyChannels({ x1: 10, y1: [1] });
-      const ranges = emptyRanges({ x1: ["r1"] });
-      const key = lineplot.lineKey({
+    it("should keep an existing line's styling and re-key it to the plot", () => {
+      const styled: lineplot.Line = lineplot.lineZ.parse({
+        key: "old",
         yAxis: "y1",
-        xAxis: "x1",
-        range: "r1",
-        xChannel: 10,
         yChannel: 1,
-      });
-      const styled: lineplot.Line = {
-        key,
+        xChannel: 10,
         label: "custom",
         color: [255, 0, 0, 1],
         strokeWidth: 5,
         aggregation: "average",
         detail: "high",
-      };
-      const { lines, dropped } = lineplot.reconcileLines(channels, ranges, [styled]);
-      expect(lines).toEqual([styled]);
+      });
+      const { lines, dropped } = lineplot.reconcileLines(
+        PLOT,
+        emptyChannels({ x1: 10, y1: [1] }),
+        [styled],
+      );
+      expect(lines).toEqual([
+        {
+          ...styled,
+          key: lineplot.lineKey(PLOT, { yAxis: "y1", yChannel: 1, xChannel: 10 }),
+        },
+      ]);
       expect(dropped).toHaveLength(0);
     });
 
-    it("should return lines whose combination no longer exists in dropped", () => {
-      const stale: lineplot.Line = {
-        key: lineplot.lineKey({
-          yAxis: "y1",
-          xAxis: "x1",
-          range: "r1",
-          xChannel: 10,
-          yChannel: 99,
-        }),
-        strokeWidth: 2,
-        aggregation: "min_max",
-        detail: "medium",
-      };
-      const channels = emptyChannels({ x1: 10, y1: [1] });
-      const ranges = emptyRanges({ x1: ["r1"] });
-      const { lines, dropped } = lineplot.reconcileLines(channels, ranges, [stale]);
+    it("should return lines whose channel is no longer bound in dropped", () => {
+      const stale = lineplot.lineZ.parse({
+        key: "s",
+        yAxis: "y1",
+        yChannel: 99,
+        xChannel: 10,
+      });
+      const { lines, dropped } = lineplot.reconcileLines(
+        PLOT,
+        emptyChannels({ x1: 10, y1: [1] }),
+        [stale],
+      );
       expect(dropped).toEqual([stale]);
-      expect(lines.map((l) => l.key)).not.toContain(stale.key);
-    });
-
-    it("should produce no lines when there are no ranges", () => {
-      const channels = emptyChannels({ x1: 10, y1: [1, 2] });
-      const { lines } = lineplot.reconcileLines(channels, emptyRanges(), []);
-      expect(lines).toHaveLength(0);
+      expect(lines.map((l) => l.yChannel)).toEqual([1]);
     });
 
     it("should produce no lines when there are no y-channels", () => {
-      const channels = emptyChannels({ x1: 10 });
-      const ranges = emptyRanges({ x1: ["r1"] });
-      const { lines } = lineplot.reconcileLines(channels, ranges, []);
-      expect(lines).toHaveLength(0);
+      expect(
+        lineplot.reconcileLines(PLOT, emptyChannels({ x1: 10 }), []).lines,
+      ).toHaveLength(0);
     });
 
-    it("should not duplicate a line when the same combination is implied twice", () => {
-      const channels = emptyChannels({ x1: 10, y1: [1, 1] });
-      const ranges = emptyRanges({ x1: ["r1"] });
-      const { lines } = lineplot.reconcileLines(channels, ranges, []);
+    it("should not duplicate a line when a channel is bound twice", () => {
+      const { lines } = lineplot.reconcileLines(
+        PLOT,
+        emptyChannels({ y1: [1, 1] }),
+        [],
+      );
       expect(lines).toHaveLength(1);
     });
   });
