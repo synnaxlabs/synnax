@@ -80,6 +80,8 @@ const CANVAS: render.Canvas2DVariant = "lower2d";
 // A paused view this many lines or fewer from the oldest entry reads older entries.
 const LOAD_MARGIN = 200;
 const CONTENT_PADDING = 6;
+// Fits the widest date, such as "Jan 31".
+const DATE_WIDTH = 6;
 
 // Per-theme prefix color muting — multiplied with the base color's HSLA.
 const DARK_PREFIX = { hue: 1, saturation: 0.8, lightness: 0.85, alpha: 0.95 };
@@ -142,6 +144,16 @@ const muteColor = (c: color.Crude, theme: theme.Theme): color.Color => {
     Math.min(1, a * p.alpha),
   ]);
 };
+
+const localDate = ({ timestamp }: LogEntry): string =>
+  new TimeStamp(timestamp).toString("date", "local");
+
+const spansDays = (entries: LogEntry[]): boolean =>
+  entries.length > 1 &&
+  !new TimeStamp(entries[0].timestamp).isSameDay(
+    new TimeStamp(entries[entries.length - 1].timestamp),
+    "local",
+  );
 
 export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
   static readonly TYPE = "log";
@@ -495,7 +507,10 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
   // entries (O(n)). The render loop below is already O(n) over visible entries — adding
   // a second O(n) scan here just to answer a yes/no question would double the per-frame
   // work at up to 60fps.
-  private formatEntry(entry: LogEntry): {
+  private formatEntry(
+    entry: LogEntry,
+    dated: boolean,
+  ): {
     prefix: string;
     value: string;
     line: string;
@@ -505,9 +520,12 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     const { tsLen, configs } = this.internal;
     const chKeyStr = String(entry.channelKey);
     const cfg = configs[chKeyStr];
-    const ts = !timestampsHidden
-      ? new TimeStamp(entry.timestamp).toString("preciseTime", "local").slice(0, tsLen)
-      : "";
+    let ts = "";
+    if (!timestampsHidden) {
+      const time = new TimeStamp(entry.timestamp).toString("preciseTime", "local");
+      ts = time.slice(0, tsLen);
+      if (dated) ts = `${localDate(entry).padEnd(DATE_WIDTH)} ${ts}`;
+    }
     let value = entry.value;
     const isTimestampChannel = channelDataTypes[chKeyStr] === "timestamp";
     if (isTimestampChannel) {
@@ -545,7 +563,8 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     const selMin = Math.min(selectionStart, selectionEnd);
     const selMax = Math.max(selectionStart, selectionEnd);
     const selected = this.entries.slice(selMin, selMax + 1);
-    const formatted = selected.map((e) => this.formatEntry(e));
+    const dated = spansDays(selected);
+    const formatted = selected.map((e) => this.formatEntry(e, dated));
     const text = formatted.map((f) => f.line).join("\n");
     if (text !== this.state.selectedText) {
       const { valueColors } = this.internal;
@@ -564,8 +583,9 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
       this.internal;
     const regTopX = box.left(reg);
     const regTopY = box.top(reg);
+    const dated = spansDays(entries);
     for (let i = 0; i < entries.length; i++) {
-      const { prefix, value, channelKey } = this.formatEntry(entries[i]);
+      const { prefix, value, channelKey } = this.formatEntry(entries[i], dated);
       const entryColor = valueColors[channelKey] ?? textColor;
       const prefixColor = prefixColors[channelKey] ?? defaultPrefixColor;
       const posX = regTopX + CONTENT_PADDING;
