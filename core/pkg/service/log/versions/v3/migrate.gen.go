@@ -29,7 +29,6 @@ func autoMigrateLog(ctx context.Context, old v2.Log) (Log, error) {
 		Key:                old.Key,
 		Name:               old.Name,
 		Channels:           channels,
-		TimestampPrecision: old.TimestampPrecision,
 		ChannelNamesHidden: old.ChannelNamesHidden,
 	}, nil
 }
