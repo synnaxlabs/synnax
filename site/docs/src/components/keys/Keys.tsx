@@ -19,9 +19,11 @@ export interface KeysProps extends ComponentPropsWithoutRef<"span"> {
 }
 
 /**
- * Renders a shortcut in the keys of the reader's platform. The page holds the keys of
- * macOS and of Windows, and shows the set that matches the data-os attribute on the
- * root element. In running text, the chip sizes with the text.
+ * Renders a shortcut in the keys of the reader's platform. Astro renders the docs to
+ * static HTML at build time, where no browser can report the platform, so Triggers.Text
+ * alone would print macOS keys for every reader. The page holds the keys of macOS and
+ * of Windows, and the data-os attribute on the root element shows one set. In running
+ * text, the chip sizes with the text.
  */
 export const Keys = ({
   trigger,
