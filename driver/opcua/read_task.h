@@ -1331,8 +1331,9 @@ public:
         }
         res.error = this->read_history();
         if (!res.error) res.error = this->connection.iterate(CHANGE_WAIT);
-        if (!res.error) res.error = this->retry();
+        // The first value of a node that retry monitors decodes with the types.
         if (!res.error) res.error = this->retry_types();
+        if (!res.error) res.error = this->retry();
         if (res.error) {
             this->connection = connection::Pool::Connection(nullptr, nullptr, "");
             return res;
