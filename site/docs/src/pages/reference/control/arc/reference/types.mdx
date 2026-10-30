@@ -59,7 +59,7 @@ A value too large for its type is a compile error, for example
 integer fails with a message that ends in `float is not compatible with i32`.
 
 ```arc bodies="scale"
-func scale(x i32) i32 {
+func scale() {x i32} i32 {
     return x * 2   // 2 is an i32 here
 }
 ```
@@ -79,11 +79,11 @@ Write the type name and the value in parentheses: `f64(x)`.
 | `bool`  | `str`   | `"true"` or `"false"`                                               |
 
 ```arc channels="tank_pt, tank_high" bodies="high"
-func high(p f64) u8 {
+func high() {p f64} u8 {
     return u8(p > 300.0)
 }
 
-tank_pt -> high{} -> tank_high
+tank_pt -> high() -> tank_high
 ```
 
 | Cast                                         | Compiler message                                                                                            |
@@ -109,17 +109,17 @@ of a channel is `chan T`, where `T` is its data type, such as `chan f64`.
 The zero value is `0` for numbers and `false` for `bool`. For when each part runs, see
 the [execution model](/reference/control/arc/execution-model).
 
-In a function body, write to a channel with `=`. A function can also take a channel as a
-config parameter of type `chan T`:
+In a function body, write to a channel with `=`. A function can also take a channel as
+an input of type `chan T`:
 
 ```arc channels="tank_pt, press_vlv_cmd" bodies="regulate"
-func regulate{valve chan u8, limit f64} (p f64) {
+func regulate(valve chan u8, limit f64) {p f64} {
     if p > limit {
         valve = 0
     }
 }
 
-tank_pt -> regulate{valve=press_vlv_cmd, limit=500.0}
+tank_pt -> regulate(valve=press_vlv_cmd, limit=500.0)
 ```
 
 The data types must match. Passing an `f64` channel to a `chan i32` parameter named
@@ -236,7 +236,7 @@ hold i64 ns := 5s
 
 sequence vent {
     1 -> vent_vlv_cmd
-    time.wait{duration=hold}
+    time.wait(duration=hold)
     0 -> vent_vlv_cmd
 }
 

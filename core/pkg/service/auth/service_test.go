@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	xtime "github.com/synnaxlabs/x/time"
+	timetestutil "github.com/synnaxlabs/x/time/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -113,7 +114,7 @@ var _ = Describe("Service", func() {
 		db       *gorp.DB
 		svc      *auth.Service
 		pw       *password.Service
-		clock    *xtime.Fake
+		clock    *timetestutil.Clock
 		alice    ontology.ID
 		username string
 	)
@@ -125,7 +126,7 @@ var _ = Describe("Service", func() {
 		// Every spec gets its own db so sweeps and clocks never cross.
 		db = DeferClose(gorp.Wrap(memkv.New()))
 		pw = MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
-		clock = xtime.NewFake(time.Unix(1_700_000_000, 0))
+		clock = timetestutil.NewClock(time.Unix(1_700_000_000, 0))
 		svc = MustOpen(auth.OpenService(ctx, auth.ServiceConfig{
 			DB:             db,
 			Authenticators: map[auth.Method]auth.Authenticator{auth.MethodPassword: pw},
@@ -296,6 +297,9 @@ var _ = Describe("Service", func() {
 				}
 			},
 		)
+	})
+	It("Should return the configured idle timeout", func() {
+		Expect(svc.IdleTimeout()).To(Equal(idle))
 	})
 	Describe("Logout", func() {
 		It("Should ignore unknown keys", func(ctx SpecContext) {

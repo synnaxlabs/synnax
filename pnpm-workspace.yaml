@@ -145,6 +145,7 @@ catalog:
   '@types/ws': ^8.18.2
   '@vercel/oidc-aws-credentials-provider': ^3.3.13
   '@vitejs/plugin-react': ^6.1.2
+  '@vitest/browser-playwright': ^5.0.5
   '@vitest/coverage-v8': ^5.0.5
   '@vscode/vsce': ^4.0.0
   '@xyflow/react': ^12.12.0
@@ -184,6 +185,9 @@ catalog:
   playwright: ^1.64.1
   pluralize: ^8.0.0
   postcss: ^8.5.30
+  postcss-html: ^1.8.1
+  postcss-selector-parser: ^7.1.6
+  postcss-value-parser: ^4.2.0
   # Pinned exactly. posthog-js publishes several times a day, so a range resolves to a
   # release minutes old and trips the minimum release age gate.
   posthog-js: 1.438.12
@@ -221,6 +225,7 @@ catalog:
   uuid: ^14.0.3
   vite: ^8.3.4
   vitest: ^5.0.5
+  vitest-browser-react: ^2.3.0
   vscode: npm:@codingame/monaco-vscode-extension-api@^37.6.1
   vscode-jsonrpc: ^9.0.3
   vscode-languageclient: ^10.1.2

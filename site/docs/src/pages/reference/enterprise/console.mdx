@@ -66,6 +66,12 @@ started with other
 users get their credentials from the person who
 [registered them](/reference/enterprise/users).
 
+The Console uses your password once to log in and does not store it. It keeps the
+session in the operating system keychain, so it connects again without the password
+until you log out or the session expires. On Linux, the keychain is the Secret Service
+(GNOME Keyring or KWallet). Without one, the Console asks for the password on each
+launch.
+
 After you log in, the Console shows your projects. For a Core without a license, it
 shows an activation screen instead. See
 [activate from the Console](/reference/enterprise/license#activate-from-the-console).
@@ -80,6 +86,10 @@ Core, click <Icon.Arrow.Left /> at the top left.
 1. In a web browser, go to the address of the Core, for example
    `http://synnax.example.com:9090`. For a Core with TLS, use `https://`.
 2. Enter your **Username** and **Password**, then click **Log in**.
+
+The browser Console keeps its session in a cookie. Browsers send this cookie to every
+port on the host, so give a Core that serves the browser Console a hostname it does not
+share with untrusted services.
 
 The browser Console connects to the Core that serves it. For a Core with a self-signed
 certificate, the browser warns about the certificate until you
