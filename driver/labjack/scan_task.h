@@ -13,9 +13,9 @@
 
 #include "client/cpp/labjack/json.gen.h"
 #include "client/cpp/synnax.h"
+#include "x/cpp/lib/lazy.h"
 
 #include "device/device.h"
-#include "driver/common/lazy.h"
 #include "driver/common/scan_task.h"
 #include "driver/labjack/labjack.h"
 #include "ljm/LJM_Utilities.h"
@@ -39,7 +39,7 @@ class Scanner final : public common::Scanner {
     /// @brief configuration for the scan task
     const ScanTaskConfig cfg;
     /// @brief the device manager for handling LabJack connections
-    std::shared_ptr<common::Lazy<device::Manager>> device_manager;
+    std::shared_ptr<x::lib::Lazy<device::Manager>> device_manager;
 
     [[nodiscard]] common::ScannerConfig config() const override {
         return common::ScannerConfig{.make = MAKE, .log_prefix = SCAN_LOG_PREFIX};
@@ -122,7 +122,7 @@ public:
     explicit Scanner(
         synnax::task::Task task,
         ScanTaskConfig cfg,
-        std::shared_ptr<common::Lazy<device::Manager>> device_manager
+        std::shared_ptr<x::lib::Lazy<device::Manager>> device_manager
     ):
         task(std::move(task)), cfg(cfg), device_manager(std::move(device_manager)) {}
 };

@@ -15,7 +15,7 @@
 
 namespace driver::labjack {
 std::pair<common::ConfigureResult, x::errors::Error> configure_read(
-    common::Lazy<device::Manager> &devs,
+    x::lib::Lazy<device::Manager> &devs,
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task,
     const common::TimingConfig timing_cfg
@@ -41,7 +41,7 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_read(
 }
 
 std::pair<common::ConfigureResult, x::errors::Error> configure_write(
-    common::Lazy<device::Manager> &devs,
+    x::lib::Lazy<device::Manager> &devs,
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task
 ) {
@@ -61,7 +61,7 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_write(
 }
 
 std::pair<common::ConfigureResult, x::errors::Error> configure_scan(
-    const std::shared_ptr<common::Lazy<device::Manager>> &devs,
+    const std::shared_ptr<x::lib::Lazy<device::Manager>> &devs,
     const std::shared_ptr<task::Context> &ctx,
     const synnax::task::Task &task
 ) {
