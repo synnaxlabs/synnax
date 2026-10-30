@@ -25,6 +25,7 @@
 #include <vector>
 
 #include "absl/log/log.h"
+#include "open62541/plugin/accesscontrol_default.h"
 #include "open62541/plugin/certificategroup_default.h"
 #include "open62541/server.h"
 #include "open62541/server_config_default.h"
@@ -326,6 +327,9 @@ struct ServerConfig {
     /// @brief the value of the NS=1;S=TestMotor node, of the Motor data type. The
     /// server adds the node only when it is set.
     std::optional<Motor> motor;
+    /// @brief the usernames and passwords that the server accepts besides anonymous
+    /// logins. The server accepts a password only on an encrypted channel.
+    std::vector<std::pair<std::string, std::string>> users;
 
     // Create default test nodes for comprehensive testing
     static ServerConfig create_default() {
@@ -547,6 +551,16 @@ public:
         });
     }
 
+    /// @brief adds the NS=1;S=TestMotor node with value to the running server, as a
+    /// server that loads a model while it runs does. Blocks until the server adds it.
+    void add_motor(const Motor &value) {
+        std::unique_lock lock(this->added_mu);
+        this->added_motor = value;
+        this->added_cv.wait(lock, [this] {
+            return !this->added_motor.has_value() || !this->ready;
+        });
+    }
+
     void start() {
         running = true;
         thread = std::thread(&Server::run, this);
@@ -581,6 +595,7 @@ private:
     std::mutex added_mu;
     std::condition_variable added_cv;
     std::vector<std::pair<std::string, std::vector<TestNode>>> added;
+    std::optional<Motor> added_motor;
 
     static void add_node(UA_Server *server, const TestNode &node) {
         UA_VariableAttributes attr = UA_VariableAttributes_default;
@@ -709,7 +724,8 @@ private:
         UA_Server_addReference(server, inner, UA_NS0ID(ORGANIZES), target, true);
     }
 
-    void add_namespaces(UA_Server *server) {
+    /// @brief adds what add_namespace and add_motor asked for.
+    void add_requested(UA_Server *server, const UA_DataType &motor_type) {
         std::lock_guard lock(this->added_mu);
         for (auto &[uri, nodes]: this->added) {
             const auto ns = UA_Server_addNamespace(server, uri.c_str());
@@ -719,7 +735,35 @@ private:
             }
         }
         this->added.clear();
+        if (this->added_motor.has_value()) {
+            add_motor_node(server, motor_type, *this->added_motor);
+            this->added_motor.reset();
+        }
         this->added_cv.notify_all();
+    }
+
+    static void
+    add_motor_node(UA_Server *server, const UA_DataType &type, Motor &value) {
+        UA_VariableAttributes attr = UA_VariableAttributes_default;
+        attr.dataType = type.typeId;
+        attr.valueRank = UA_VALUERANK_SCALAR;
+        attr.accessLevel = UA_ACCESSLEVELMASK_READ;
+        attr.displayName = UA_LOCALIZEDTEXT(
+            const_cast<char *>("en-US"),
+            const_cast<char *>("TestMotor")
+        );
+        UA_Variant_setScalar(&attr.value, &value, &type);
+        UA_Server_addVariableNode(
+            server,
+            UA_NODEID_STRING(1, const_cast<char *>("TestMotor")),
+            UA_NS0ID(OBJECTSFOLDER),
+            UA_NS0ID(ORGANIZES),
+            UA_QUALIFIEDNAME(1, const_cast<char *>("TestMotor")),
+            UA_NODEID_NULL,
+            attr,
+            nullptr,
+            nullptr
+        );
     }
 
 public:
@@ -802,26 +846,22 @@ public:
                 nullptr
             );
         }
-        if (cfg.motor.has_value()) {
-            UA_VariableAttributes attr = UA_VariableAttributes_default;
-            attr.dataType = structures.motor().typeId;
-            attr.valueRank = UA_VALUERANK_SCALAR;
-            attr.accessLevel = UA_ACCESSLEVELMASK_READ;
-            attr.displayName = UA_LOCALIZEDTEXT(
-                const_cast<char *>("en-US"),
-                const_cast<char *>("TestMotor")
-            );
-            UA_Variant_setScalar(&attr.value, &*cfg.motor, &structures.motor());
-            UA_Server_addVariableNode(
-                server,
-                UA_NODEID_STRING(1, const_cast<char *>("TestMotor")),
-                UA_NS0ID(OBJECTSFOLDER),
-                UA_NS0ID(ORGANIZES),
-                UA_QUALIFIEDNAME(1, const_cast<char *>("TestMotor")),
-                UA_NODEID_NULL,
-                attr,
+        if (cfg.motor.has_value())
+            add_motor_node(server, structures.motor(), *cfg.motor);
+        if (!cfg.users.empty()) {
+            std::vector<UA_UsernamePasswordLogin> logins;
+            logins.reserve(cfg.users.size());
+            for (const auto &[username, password]: cfg.users)
+                logins.push_back({
+                    .username = UA_STRING(const_cast<char *>(username.c_str())),
+                    .password = UA_STRING(const_cast<char *>(password.c_str())),
+                });
+            UA_AccessControl_default(
+                server_config,
+                true,
                 nullptr,
-                nullptr
+                logins.size(),
+                logins.data()
             );
         }
 
@@ -847,7 +887,7 @@ public:
                     std::chrono::nanoseconds(delay.nanoseconds())
                 );
             UA_Server_run_iterate(server, true);
-            this->add_namespaces(server);
+            this->add_requested(server, structures.motor());
             const auto stats = UA_Server_getStatistics(server);
             this->channels = stats.scs.currentChannelCount;
             this->sessions_created = stats.ss.cumulatedSessionCount;
@@ -857,6 +897,7 @@ public:
         {
             std::lock_guard lock(this->added_mu);
             this->added.clear();
+            this->added_motor.reset();
         }
         this->added_cv.notify_all();
         UA_Server_run_shutdown(server);
