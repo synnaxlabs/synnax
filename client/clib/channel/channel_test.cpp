@@ -14,14 +14,25 @@
 
 #include "client/clib/synnax.h"
 #include "client/cpp/testutil/testutil.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 namespace synnax::clib {
 constexpr int32_t OK = 0;
 
 SynnaxClient *open_test_client(SynnaxError *err) {
     SynnaxClient *client = nullptr;
-    synnax_client_open("localhost", 9090, "synnax", "seldon", 0, 0, 0, &client, err);
+    synnax_client_open(
+        "localhost",
+        9090,
+        "synnax",
+        "seldon",
+        nullptr,
+        0,
+        0,
+        0,
+        &client,
+        err
+    );
     return client;
 }
 

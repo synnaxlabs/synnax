@@ -71,12 +71,7 @@ export class StreamMultiChannelLog
   // status is the worst status of the channels' snapshots at the last pull.
   private status = telem.SUCCESS_STATUS;
   private valid = false;
-  private _evictedCount: number = 0;
   private _channels: channel.Key[] = [];
-
-  get evictedCount(): number {
-    return this._evictedCount;
-  }
 
   constructor(
     client: telem.Client | null,
@@ -117,7 +112,6 @@ export class StreamMultiChannelLog
       this.subscription = null;
       this.status = telem.SUCCESS_STATUS;
       this.valid = false;
-      this._evictedCount = 0;
     } else if (subscription != null) {
       subscription.update(this.request());
       this.pull(subscription);
@@ -149,8 +143,8 @@ export class StreamMultiChannelLog
   }
 
   // Appends the samples each channel received since the last pull, and returns whether
-  // the entries changed. A channel's entries wait while it loads, so its history lands
-  // in one pull before its live samples and takes the time it loaded.
+  // the entries or the status changed. A channel's entries wait while it loads, so its
+  // history lands in one pull before its live samples and takes the time it loaded.
   private pull(subscription: framer.Subscription): boolean {
     const now = this.now();
     let pushed = 0;
@@ -161,10 +155,11 @@ export class StreamMultiChannelLog
       worst = cstatus.worst(worst, snapshot.status)!;
       if (variant !== "loading") pushed += this.append(key, snapshot, now);
     }
+    const statusChanged = worst !== this.status;
     this.status = worst;
     this.failures.observe(worst);
-    this._evictedCount = this.gcEntries();
-    return pushed > 0 || this._evictedCount > 0;
+    const evicted = this.gcEntries();
+    return pushed > 0 || evicted > 0 || statusChanged;
   }
 
   // Appends the samples the channel appended since the key's cursor, which are the
@@ -203,8 +198,7 @@ export class StreamMultiChannelLog
     return lines.length;
   }
 
-  // Evicts stale entries from the front of the array. Returns the count so
-  // the caller can adjust scroll offset and selection indices.
+  // Evicts stale entries from the front of the array, and returns how many.
   private gcEntries(): number {
     const keepFor = this.props.keepFor ?? this.props.timeSpan;
     const threshold = this.now().sub(keepFor);

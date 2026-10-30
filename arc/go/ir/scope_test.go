@@ -36,8 +36,12 @@ var _ = Describe("Scope", func() {
 				false,
 			),
 			Entry("strata",
-				ir.Scope{Strata: []ir.Members{{ir.NodeMember("n")}}}, false),
-			Entry("steps", ir.Scope{Steps: ir.Members{ir.NodeMember("n")}}, false),
+				ir.Scope{Strata: []ir.Members{{ir.Member{NodeKey: new("n")}}}}, false),
+			Entry(
+				"steps",
+				ir.Scope{Steps: ir.Members{ir.Member{NodeKey: new("n")}}},
+				false,
+			),
 			Entry("transitions",
 				ir.Scope{Transitions: []ir.Transition{{}}}, false),
 		)
@@ -50,8 +54,8 @@ var _ = Describe("Scope", func() {
 				Mode:     ir.ScopeModeParallel,
 				Liveness: ir.LivenessAlways,
 				Strata: []ir.Members{
-					{ir.NodeMember("a"), ir.NodeMember("b")},
-					{ir.NodeMember("c")},
+					{ir.Member{NodeKey: new("a")}, ir.Member{NodeKey: new("b")}},
+					{ir.Member{NodeKey: new("c")}},
 				},
 			}
 			out := s.String()
@@ -67,7 +71,7 @@ var _ = Describe("Scope", func() {
 			s := ir.Scope{
 				Mode:     ir.ScopeModeParallel,
 				Liveness: ir.LivenessAlways,
-				Strata:   []ir.Members{{ir.NodeMember("x")}},
+				Strata:   []ir.Members{{ir.Member{NodeKey: new("x")}}},
 			}
 			Expect(s.String()).To(ContainSubstring("(scope)"))
 		})
@@ -78,7 +82,10 @@ var _ = Describe("Scope", func() {
 				Key:      "main",
 				Mode:     ir.ScopeModeSequential,
 				Liveness: ir.LivenessGated,
-				Steps:    ir.Members{ir.NodeMember("init"), ir.NodeMember("run")},
+				Steps: ir.Members{
+					ir.Member{NodeKey: new("init")},
+					ir.Member{NodeKey: new("run")},
+				},
 				Transitions: []ir.Transition{
 					{
 						On:     ir.Handle{Node: "init", Param: "done"},
@@ -104,13 +111,13 @@ var _ = Describe("Scope", func() {
 				Key:      "inner",
 				Mode:     ir.ScopeModeSequential,
 				Liveness: ir.LivenessGated,
-				Steps:    ir.Members{ir.NodeMember("step1")},
+				Steps:    ir.Members{ir.Member{NodeKey: new("step1")}},
 			}
 			outer := ir.Scope{
 				Key:      "outer",
 				Mode:     ir.ScopeModeParallel,
 				Liveness: ir.LivenessAlways,
-				Strata:   []ir.Members{{ir.ScopeMember(inner)}},
+				Strata:   []ir.Members{{ir.Member{Scope: new(inner)}}},
 			}
 			out := outer.String()
 			Expect(out).To(ContainSubstring("outer"))

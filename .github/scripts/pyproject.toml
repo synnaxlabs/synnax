@@ -12,15 +12,20 @@ name = "synnax-ci-scripts"
 version = "0.0.0"
 description = "Synnax CI scripts"
 requires-python = ">=3.12,<4"
-dependencies = ["psutil>=7.2.2,<8"]
+dependencies = [
+    "psutil>=7.2.2,<8",
+    "pyyaml>=6.0.2,<7",
+]
 classifiers = ["Private :: Do Not Upload"]
 
 [dependency-groups]
 dev = [
     "mypy>=2.4.0,<3",
     "pytest>=9.1.1,<10",
+    "pytest-cov>=7.1.0,<8",
     "ruff>=0.17.1,<1",
     "types-psutil>=7.2.2.20260906,<8",
+    "types-pyyaml>=6.0.12.20260906,<7",
 ]
 
 [tool.ruff]
@@ -33,6 +38,7 @@ select = [
     "I",
     "B",
     "DTZ",
+    "E501",
     "E7",
     "E9",
     "PLE",
@@ -52,3 +58,7 @@ strict = true
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
+
+[tool.coverage.run]
+omit = ["tests/*"]
+patch = ["subprocess"]

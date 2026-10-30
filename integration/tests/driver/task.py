@@ -15,7 +15,6 @@ ReadTaskCase: Read-specific lifecycle (sample counting, data saving, rate change
 WriteTaskCase: Write-specific lifecycle (command sending).
 """
 
-import os
 import sys
 from abc import abstractmethod
 from collections.abc import Callable
@@ -26,7 +25,7 @@ from pydantic import ValidationError
 
 import synnax as sy
 from framework.test_case import TestCase
-from x.telem import to_float, to_int
+from x.telem import to_float
 
 _STATUS_CHANNEL = "sy_status_set"
 # Allowed relative error between a task's measured and configured sample rate. Wide
@@ -52,11 +51,13 @@ class DriverTask(Protocol[ConfigT]):
     @property
     def name(self) -> str: ...
 
-    def start(self, timeout: float | sy.TimeSpan = 5) -> None: ...
+    def start(self, *, timeout: float | sy.TimeSpan = 5) -> None: ...
 
-    def stop(self, timeout: float | sy.TimeSpan = 5) -> None: ...
+    def stop(self, *, timeout: float | sy.TimeSpan = 5) -> None: ...
 
-    def run(self, timeout: float | sy.TimeSpan = 5) -> AbstractContextManager[None]: ...
+    def run(
+        self, *, timeout: float | sy.TimeSpan = 5
+    ) -> AbstractContextManager[None]: ...
 
     def to_payload(self) -> sy.task.Payload: ...
 
@@ -171,7 +172,7 @@ def send_and_verify_commands(
                     assert_streamed_values(
                         client,
                         streamer,
-                        expected,
+                        expected=expected,
                         timeout=timeout_per_round,
                         task_name=task_name,
                     )
@@ -188,7 +189,7 @@ def send_and_verify_commands(
                     assert_streamed_values(
                         client,
                         streamer,
-                        expected,
+                        expected=expected,
                         timeout=timeout_per_round,
                         task_name=task_name,
                     )
@@ -212,7 +213,8 @@ def send_and_verify_commands(
             return
         if attempt < max_attempts - 1:
             print(
-                f">>> Retrying command send and verify... ({attempt + 1}/{max_attempts})"
+                ">>> Retrying command send and verify... "
+                f"({attempt + 1}/{max_attempts})"
             )
             sy.sleep(2)
     raise AssertionError(
@@ -331,6 +333,7 @@ def _status_text(status: sy.task.Status) -> str:
 def assert_streamed_values(
     client: sy.Synnax,
     streamer: sy.Streamer,
+    *,
     expected: dict[int, float],
     timeout: sy.TimeSpan = 30 * sy.TimeSpan.SECOND,
     task_name: str = "",
@@ -406,6 +409,7 @@ def assert_sample_counts_in_range(
 def collect_samples(
     client: sy.Synnax,
     channel_keys: list[int],
+    *,
     duration: sy.TimeSpan,
     frame_size: int,
 ) -> sy.TimeStamp:
@@ -451,7 +455,7 @@ def assert_sample_rate(
     prefix = f"{task_name}: " if task_name else ""
     time_range = sy.TimeRange(start, sy.TimeStamp.now())
     counts: list[int] = []
-    timestamps: dict[int, sy.MultiSeries] = {}
+    timestamps: dict[int, sy.MultiSeries[sy.TimeStamp]] = {}
     for key in channel_keys:
         ch = client.channels.retrieve(key)
         count = len(ch.read(time_range))
@@ -463,9 +467,10 @@ def assert_sample_rate(
         if not strict:
             continue
         if ch.index not in timestamps:
-            timestamps[ch.index] = client.channels.retrieve(ch.index).read(time_range)
+            index = client.channels.retrieve(ch.index)
+            timestamps[ch.index] = index.read(time_range).as_(sy.TimeStamp)
         times = timestamps[ch.index]
-        span = sy.TimeSpan(to_int(times[-1]) - to_int(times[0]))
+        span = times[-1] - times[0]
         measured = (count - 1) / span.seconds
         error = (measured - sample_rate) / sample_rate
         log(
@@ -512,7 +517,6 @@ class TaskCase(TestCase, Generic[TaskT]):
     SAMPLE_RATE: sy.Rate = 50 * sy.Rate.HZ
     STREAM_RATE: sy.Rate = 10 * sy.Rate.HZ
     TASK_DURATION: sy.TimeSpan = 1 * sy.TimeSpan.SECOND
-    RACK_NAME: str = os.environ.get("SYNNAX_DRIVER_RACK", "Node 1 Embedded Driver")
 
     @abstractmethod
     def create(
@@ -692,7 +696,8 @@ class ReadTaskCase(TaskCase[ReadTaskT]):
             try:
                 self.client.channels.delete(ch.key)
                 raise AssertionError(
-                    f"Channel '{ch.name}' deletion should have been rejected while task is running"
+                    f"Channel '{ch.name}' deletion should have been rejected while "
+                    "task is running"
                 )
             except AssertionError:
                 raise
@@ -712,7 +717,9 @@ class ReadTaskCase(TaskCase[ReadTaskT]):
         assert isinstance(config, sy.task.ReadConfig)
         frame_size = int(config.sample_rate / config.stream_rate)
         with task.run():
-            start = collect_samples(self.client, channel_keys, duration, frame_size)
+            start = collect_samples(
+                self.client, channel_keys, duration=duration, frame_size=frame_size
+            )
         assert_sample_rate(
             self.client,
             channel_keys=channel_keys,
@@ -775,6 +782,10 @@ class WriteTaskCase(TaskCase[TaskT]):
         self.test_send_commands()
         self.test_reconfigure_name()
 
+    def assert_written(self) -> None:
+        """Check that the device holds the last round of commands. Runs before the task
+        stops, because a stopping task drops the commands it has not written."""
+
     def test_send_commands(self) -> None:
         """Start the write task, send commands, and verify they arrive on the stream."""
         assert self.tsk is not None
@@ -788,6 +799,7 @@ class WriteTaskCase(TaskCase[TaskT]):
                 task_key=self.tsk.key,
                 command_values=self.command_values,
             )
+            self.assert_written()
 
     def test_reconfigure_name(self) -> None:
         """Rename the task, verify it persists, then send commands again."""
@@ -815,3 +827,4 @@ class WriteTaskCase(TaskCase[TaskT]):
                 task_key=self.tsk.key,
                 command_values=self.command_values,
             )
+            self.assert_written()

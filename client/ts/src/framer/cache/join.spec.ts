@@ -11,7 +11,7 @@ import { DataType, Series, TimeRange, TimeSpan, type TimeStamp } from "@synnaxla
 import { describe, expect, it } from "vitest";
 
 import { channel } from "@/channel";
-import { alignmentOf, RAW_LEVEL } from "@/framer/cache/block";
+import { alignmentOf, RAW_LEVEL, rawIndex } from "@/framer/cache/block";
 import { tileRange } from "@/framer/cache/grid";
 import { Joins, type Wait } from "@/framer/cache/join";
 import { Store } from "@/framer/cache/store";
@@ -416,12 +416,12 @@ describe("Joins", () => {
   });
 
   describe("flush", () => {
-    it("should send back the member and fetch from its open block", () => {
+    it("should send back the member and fetch from the block of now", () => {
       const { store, joins } = createJoined();
       expect(joins.flush(DATA)).toEqual(new Set([INDEX]));
       expect(keysOf(joins)).toEqual([DATA]);
       expect(store.open(DATA)).toBeNull();
-      expect(joins.catchUpFrom(DATA, at(1000))).toBe(BLOCK);
+      expect(joins.catchUpFrom(DATA, at(1000))).toBe(rawIndex(at(1000)));
     });
   });
 

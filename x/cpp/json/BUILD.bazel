@@ -60,7 +60,7 @@ cc_test(
         "//x/cpp/json:convert",
         "//x/cpp/json/testutil",
         "//x/cpp/telem",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
         "@nlohmann_json//:json",
         "@protobuf",
