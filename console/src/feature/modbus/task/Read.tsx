@@ -68,7 +68,7 @@ const Properties = () => (
 
 const COLUMNS: List.Column[] = [
   { name: "Type", width: "30rem", field: true },
-  { name: "Address", width: "10rem", field: true },
+  { name: "Address", width: "24rem", field: true },
   { name: "Data type", width: "32rem", field: true },
   { name: "Byte order", width: "27rem", field: true },
 ];
