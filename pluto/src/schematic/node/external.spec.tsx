@@ -13,19 +13,14 @@ import { render, screen } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import {
-  createConfig,
-  REGISTRY,
-  STATIC_SPECS,
-  type Variant,
-} from "@/schematic/node/registry";
+import { Node } from "@/schematic/node";
 import { createSynnaxWrapper } from "@/testutil";
 
 const SynnaxWrapper = createSynnaxWrapper({ client: null });
 
-const createFormWrapper = (variant: Variant) => {
+const createFormWrapper = (variant: Node.Variant) => {
   const FormWrapper = ({ children }: PropsWithChildren): ReactElement => {
-    const values = createConfig({ variant });
+    const values = Node.createConfig({ variant });
     const methods = Form.use<typeof schematic.nodeConfigZ>({
       values,
       schema: schematic.nodeConfigZ,
@@ -41,7 +36,7 @@ const createFormWrapper = (variant: Variant) => {
 
 describe("symbol forms that wrap a shared form", () => {
   it("should pass the selected tab through the tank form", () => {
-    const { Form: TankForm } = REGISTRY.tank;
+    const { Form: TankForm } = Node.REGISTRY.tank;
     render(<TankForm tab="fill" onTabChange={vi.fn()} />, {
       wrapper: createFormWrapper("tank"),
     });
@@ -49,7 +44,7 @@ describe("symbol forms that wrap a shared form", () => {
   });
 
   it("should pass the selected tab and actions through the switch form", () => {
-    const { Form: SwitchForm } = REGISTRY.switch;
+    const { Form: SwitchForm } = Node.REGISTRY.switch;
     render(
       <SwitchForm tab="style" onTabChange={vi.fn()} actions={<button>Swap</button>} />,
       { wrapper: createFormWrapper("switch") },
@@ -60,12 +55,12 @@ describe("symbol forms that wrap a shared form", () => {
 });
 
 describe("symbol previews", () => {
-  it.each(STATIC_SPECS)(
+  it.each(Node.STATIC_SPECS)(
     "should render the $key preview from its default config",
     ({ key, Preview }) => {
       const { container } = render(
         <SynnaxWrapper>
-          <Preview {...createConfig({ variant: key })} scale={0.75} />
+          <Preview {...Node.createConfig({ variant: key })} scale={0.75} />
         </SynnaxWrapper>,
       );
       expect(container.firstChild).not.toBeNull();

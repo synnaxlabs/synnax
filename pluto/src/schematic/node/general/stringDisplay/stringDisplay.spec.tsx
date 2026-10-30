@@ -15,7 +15,7 @@ import { describe, expect, it } from "vitest";
 
 import { CSS } from "@/css";
 import { Node } from "@/schematic/node";
-import { GROUP } from "@/schematic/node/general/group";
+import { General } from "@/schematic/node/general";
 import { StringDisplayForm } from "@/schematic/node/general/stringDisplay/Form";
 import { StringDisplay as Primitive } from "@/schematic/node/general/stringDisplay/Primitive";
 import { createSynnaxWrapper } from "@/testutil";
@@ -97,6 +97,6 @@ describe("StringDisplay", () => {
   // Console's StaticSymbolList filters by group, so a symbol missing from
   // GROUP.symbols is reachable only through search.
   it("should be listed in the general group", () => {
-    expect(GROUP.symbols).toContain("string_display");
+    expect(General.GROUP.symbols).toContain("string_display");
   });
 });

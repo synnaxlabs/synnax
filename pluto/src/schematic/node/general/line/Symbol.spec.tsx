@@ -10,16 +10,16 @@
 import { schematic } from "@synnaxlabs/client";
 import { type xy } from "@synnaxlabs/x";
 import { fireEvent, render } from "@testing-library/react";
-import { type Node, ReactFlowProvider, useStoreApi } from "@xyflow/react";
+import { type Node as Base, ReactFlowProvider, useStoreApi } from "@xyflow/react";
 import { describe, expect, it, vi } from "vitest";
 
+import { type Node } from "@/schematic/node";
 import { Symbol } from "@/schematic/node/general/line/Symbol";
-import { type NodeProps } from "@/schematic/node/spec";
 
 type Store = ReturnType<typeof useStoreApi>;
 
 const POSITION = { x: 100, y: 100 };
-const NODES: Node[] = [{ id: "l1", position: POSITION, data: {} }];
+const NODES: Base[] = [{ id: "l1", position: POSITION, data: {} }];
 
 const StoreProbe = ({ onStore }: { onStore: (s: Store) => void }): null => {
   onStore(useStoreApi());
@@ -27,7 +27,9 @@ const StoreProbe = ({ onStore }: { onStore: (s: Store) => void }): null => {
 };
 
 // A horizontal line from (100, 100) to (200, 100) in flow coordinates.
-const renderSymbol = (props: Partial<NodeProps<schematic.LineNodeConfig>> = {}) => {
+const renderSymbol = (
+  props: Partial<Node.NodeProps<schematic.LineNodeConfig>> = {},
+) => {
   const onConfigChange = vi.fn();
   let store!: Store;
   const { container } = render(

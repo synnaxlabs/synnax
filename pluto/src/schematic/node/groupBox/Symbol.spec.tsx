@@ -10,15 +10,15 @@
 import { schematic } from "@synnaxlabs/client";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { fireEvent, render } from "@testing-library/react";
-import { type Node, ReactFlowProvider, useStoreApi } from "@xyflow/react";
+import { type Node as Base, ReactFlowProvider, useStoreApi } from "@xyflow/react";
 import { type ReactElement } from "react";
 import { assert, describe, expect, it, vi } from "vitest";
 
-import { type Config } from "@/schematic/node/groupBox/config";
+import { type Node } from "@/schematic/node";
+import { type GroupBox } from "@/schematic/node/groupBox";
 import { Symbol } from "@/schematic/node/groupBox/Symbol";
-import { type NodeProps } from "@/schematic/node/spec";
 
-const initialNodes: Node[] = [
+const initialNodes: Base[] = [
   { id: "g1", position: { x: -20, y: -40 }, data: {} },
   { id: "m1", position: { x: 0, y: 0 }, measured: { width: 40, height: 20 }, data: {} },
   {
@@ -30,7 +30,7 @@ const initialNodes: Node[] = [
 ];
 
 const renderSymbol = (
-  props: Partial<NodeProps<Config>> = {},
+  props: Partial<Node.NodeProps<GroupBox.Config>> = {},
 ): ReturnType<typeof render> =>
   render(
     <ReactFlowProvider initialNodes={initialNodes}>
@@ -81,14 +81,14 @@ describe("GroupBox.Symbol", () => {
   });
 
   it("should track a member growing and shrinking", () => {
-    const resized = (m2: { width: number; height: number }): Node[] =>
+    const resized = (m2: { width: number; height: number }): Base[] =>
       initialNodes.map((n) => (n.id === "m2" ? { ...n, measured: m2 } : n));
     const Resize = ({
       label,
       nodes,
     }: {
       label: string;
-      nodes: Node[];
+      nodes: Base[];
     }): ReactElement => {
       const store = useStoreApi();
       return <button onClick={() => store.getState().setNodes(nodes)}>{label}</button>;

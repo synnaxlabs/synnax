@@ -14,8 +14,8 @@ import { fireEvent, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
+import { Node } from "@/schematic/node";
 import { SelectForm } from "@/schematic/node/general/select/Form";
-import { createConfig } from "@/schematic/node/registry";
 import { createAsyncSynnaxWrapper, renderForm } from "@/testutil";
 
 const client = createTestClient();
@@ -33,7 +33,7 @@ describe("SelectForm", () => {
   });
 
   it("should unbind and disable the command channel when it is cleared", async () => {
-    const config = createConfig({ variant: "select", commandChannel: ch.key });
+    const config = Node.createConfig({ variant: "select", commandChannel: ch.key });
     const { findByLabelText, value } = renderForm(
       <SelectForm tab="control" onTabChange={vi.fn()} />,
       config,
