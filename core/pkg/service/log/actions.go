@@ -29,12 +29,12 @@ const (
 	defaultTimestampTimeZone telem.TimeZone        = telem.TimeZoneLocal
 )
 
-// maxTimestampPrecision bounds the log-level timestamp precision. It mirrors the
-// @validate constraint on Log.timestamp_precision in schemas/synnax/log.oracle.
+// maxTimestampPrecision bounds the log-level timestamp precision. It mirrors the max
+// validation on Log.timestamp_precision in schemas/synnax/log.oracle.
 const maxTimestampPrecision uint8 = 3
 
-// maxChannelPrecision bounds a channel entry's display precision. It mirrors the
-// @validate constraint on ChannelEntry.precision in schemas/synnax/log.oracle.
+// maxChannelPrecision bounds a channel entry's display precision. It mirrors the max
+// validation on ChannelEntry.precision in schemas/synnax/log.oracle.
 const maxChannelPrecision uint8 = 17
 
 // Handle replaces the document with its created state.
