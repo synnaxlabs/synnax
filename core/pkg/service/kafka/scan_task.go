@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
 
@@ -56,6 +57,11 @@ func (f *factory) configureScan(_ context.Context, t task.Task) (driver.Task, er
 		return nil, err
 	}
 	cfg.ApplyDefaults()
+	if cfg.Rate <= 0 || cfg.Rate.Period() <= 0 {
+		return nil, errors.Wrapf(
+			validate.ErrValidation, "rate: must be positive, got %s", cfg.Rate,
+		)
+	}
 	st := &scanTask{
 		factoryCfg:  f.cfg,
 		task:        t,

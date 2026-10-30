@@ -28,7 +28,9 @@ import (
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
+	"github.com/twmb/franz-go/pkg/kerr"
 	"github.com/twmb/franz-go/pkg/kgo"
+	"github.com/twmb/franz-go/pkg/kmsg"
 )
 
 var _ = Describe("Read task", func() {
@@ -281,6 +283,43 @@ var _ = Describe("Read task", func() {
 			produceJSON(ctx, producer, topic, "", map[string]any{"ts": 11e9, "v": 2.0})
 			start(ctx, dt, t)
 			Expect(floats(expectStored(ctx, data.Key(), 2))).To(Equal([]float64{1, 2}))
+		},
+	)
+
+	It("Should consume again when started after a failed fetch",
+		func(ctx SpecContext) {
+			index, data := createIndexed(ctx, telem.Float64T)
+			dev := createDevice(ctx, clusterProperties())
+			topic := newTopic()
+			dt, t := configure(ctx, kafka.ReadConfig{
+				Device:  dev.Key,
+				Topic:   topic,
+				Records: single(stampedFields(index, data)),
+			})
+			start(ctx, dt, t)
+			cluster.ControlKey(
+				int16(kmsg.Fetch),
+				func(req kmsg.Request) (kmsg.Response, error, bool) {
+					res := req.ResponseKind().(*kmsg.FetchResponse)
+					for _, rt := range req.(*kmsg.FetchRequest).Topics {
+						st := kmsg.NewFetchResponseTopic()
+						st.Topic, st.TopicID = rt.Topic, rt.TopicID
+						for _, rp := range rt.Partitions {
+							sp := kmsg.NewFetchResponseTopicPartition()
+							sp.Partition = rp.Partition
+							sp.ErrorCode = kerr.TopicAuthorizationFailed.Code
+							st.Partitions = append(st.Partitions, sp)
+						}
+						res.Topics = append(res.Topics, st)
+					}
+					return res, nil, true
+				},
+			)
+			Eventually(func() string { return taskStatus(ctx, t).Message }).
+				Should(Equal("Failed to fetch records"))
+			start(ctx, dt, t)
+			produceJSON(ctx, producer, topic, "", map[string]any{"ts": 10e9, "v": 1.0})
+			Expect(floats(expectStored(ctx, data.Key(), 1))).To(Equal([]float64{1}))
 		},
 	)
 

@@ -392,7 +392,7 @@ func (t *readTask) open(ctx context.Context) (err error) {
 		xio.CloserFunc(t.closeClient),
 		signal.NewHardShutdown(sCtx, cancel),
 	}
-	sCtx.Go(t.consume, signal.RecoverWithErrOnPanic())
+	sCtx.Go(t.consume, signal.RecoverWithErrOnPanic(), signal.CancelOnFail())
 	return nil
 }
 

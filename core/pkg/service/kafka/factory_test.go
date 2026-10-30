@@ -66,6 +66,14 @@ var _ = Describe("Factory", func() {
 				Error().To(MatchError(driver.ErrTaskNotHandled))
 		})
 
+		It("Should reject a scan task with a rate that is not positive",
+			func(ctx SpecContext) {
+				t := newTask(kafka.ScanTaskType, map[string]any{"rate": -1})
+				Expect(f.ConfigureTask(ctx, t, "cmd-1")).Error().
+					To(MatchError(validate.ErrValidation))
+			},
+		)
+
 		It("Should answer the command with an error status for an invalid config",
 			func(ctx SpecContext) {
 				t := newTask(kafka.WriteTaskType, kafka.WriteConfig{})
