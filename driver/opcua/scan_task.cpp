@@ -275,31 +275,22 @@ void Scanner::certificates(
 }
 
 struct ScanContext {
-    std::shared_ptr<UA_Client> client;
-    /// @brief the namespace URIs of the server, by index.
-    const std::vector<std::string> &namespaces;
+    const connection::Pool::Connection &conn;
     std::shared_ptr<std::vector<types::Node>> channels;
     /// @brief the error of a request that failed during the browse.
     x::errors::Error err;
 };
 
-/// @brief reads attributes of one node, in one request.
-/// @returns errors::NO_CONNECTION without sending the request when the connection is
-/// lost, since a read on a lost connection would open a new one outside the pool.
+/// @brief reads attributes of one node.
 std::pair<types::ReadResponse, x::errors::Error> read_attributes(
-    UA_Client *client,
+    const connection::Pool::Connection &conn,
     const UA_NodeId &id,
     const std::vector<UA_AttributeId> &attributes
 ) {
-    if (auto err = connection::lost(client)) return {types::ReadResponse(), err};
     types::ReadRequestBuilder req;
     for (const auto attribute: attributes)
         req.add_node(id, attribute);
-    types::ReadResponse res(UA_Client_Service_read(client, req.build()));
-    auto err = errors::parse(res.get().responseHeader.serviceResult);
-    if (!err && res.get().resultsSize != attributes.size())
-        err = x::errors::Error(errors::CRITICAL, "the server returned too few results");
-    return {std::move(res), err};
+    return conn.read(req.build());
 }
 
 /// @brief the data type of a variable and whether it holds an array.
@@ -312,7 +303,7 @@ struct VariableType {
 /// DataType is abstract or unknown, or the ValueRank allows both a scalar and an array,
 /// the current value tells the type.
 std::pair<VariableType, x::errors::Error> variable_type(
-    UA_Client *client,
+    const connection::Pool::Connection &conn,
     const UA_NodeId &id,
     const UA_DataValue &data_type,
     const UA_DataValue &value_rank
@@ -331,7 +322,7 @@ std::pair<VariableType, x::errors::Error> variable_type(
     type.is_array = rank_known && *rank != UA_VALUERANK_SCALAR;
     if (type.data_type != x::telem::UNKNOWN_T && rank_known)
         return {type, x::errors::NIL};
-    auto [res, err] = read_attributes(client, id, {UA_ATTRIBUTEID_VALUE});
+    auto [res, err] = read_attributes(conn, id, {UA_ATTRIBUTEID_VALUE});
     if (err) return {type, err};
     const auto &value = res.get().results[0];
     if (!value.hasValue) return {type, x::errors::NIL};
@@ -347,9 +338,8 @@ static UA_StatusCode
 node_iter(UA_NodeId child_id, UA_Boolean is_inverse, UA_NodeId _, void *raw_ctx) {
     auto *ctx = static_cast<ScanContext *>(raw_ctx);
     if (is_inverse || ctx->err) return UA_STATUSCODE_GOOD;
-    auto *const ua_client = ctx->client.get();
     auto [res, err] = read_attributes(
-        ua_client,
+        ctx->conn,
         child_id,
         {UA_ATTRIBUTEID_NODECLASS,
          UA_ATTRIBUTEID_BROWSENAME,
@@ -368,13 +358,13 @@ node_iter(UA_NodeId child_id, UA_Boolean is_inverse, UA_NodeId _, void *raw_ctx)
         std::tie(
             type,
             ctx->err
-        ) = variable_type(ua_client, child_id, results[2], results[3]);
+        ) = variable_type(ctx->conn, child_id, results[2], results[3]);
         if (ctx->err) return UA_STATUSCODE_GOOD;
     }
     ctx->channels->emplace_back(
         type.data_type,
         name,
-        types::NodeId::to_string(child_id, ctx->namespaces),
+        types::NodeId::to_string(child_id, ctx->conn.server().namespaces),
         types::node_class_to_string(cls),
         type.is_array
     );
@@ -383,8 +373,8 @@ node_iter(UA_NodeId child_id, UA_Boolean is_inverse, UA_NodeId _, void *raw_ctx)
 
 /// @brief lists the members of the structure value of a variable, at path. A node that
 /// holds no structure has no members.
-/// @returns x::errors::VALIDATION if path is not empty and does not name a structure
-/// member of the node's value.
+/// @returns x::errors::VALIDATION if the structure type of the node does not build, or
+/// if path is not empty and does not name a structure member of the node's value.
 std::pair<std::vector<types::Node>, x::errors::Error> structure_members(
     const connection::Pool::Connection &conn,
     const UA_NodeId &id,
@@ -403,7 +393,7 @@ std::pair<std::vector<types::Node>, x::errors::Error> structure_members(
         };
     };
     auto [res, err] = read_attributes(
-        conn.get(),
+        conn,
         id,
         {UA_ATTRIBUTEID_NODECLASS, UA_ATTRIBUTEID_DATATYPE}
     );
@@ -416,17 +406,14 @@ std::pair<std::vector<types::Node>, x::errors::Error> structure_members(
         !UA_Variant_hasScalarType(&dt, &UA_TYPES[UA_TYPES_NODEID]))
         return none();
     const auto &data_type = *static_cast<const UA_NodeId *>(dt.data);
-    structure::Types types;
-    if (UA_findDataType(&data_type) == nullptr) {
-        std::tie(types, err) = structure::Types::read(conn, {id});
-        if (err) return {{}, err};
-    }
-    const auto *type = types.find(data_type);
-    if (type == nullptr) return none();
-    auto [member_type, member_err] = structure::Types::member_type(*type, path);
-    if (member_err) return {{}, member_err};
+    auto [types, types_err] = structure::Types::read(conn, {data_type});
+    if (types_err) return {{}, types_err};
+    auto [field, field_err] = types.field(data_type, path);
+    if (field_err.matches(structure::UNDEFINED) && path.empty())
+        return {{}, x::errors::NIL};
+    if (field_err) return {{}, field_err};
     std::vector<types::Node> members;
-    for (const auto &m: structure::Types::members(*member_type)) {
+    for (const auto &m: structure::Types::members(field.type())) {
         auto member_path = path;
         member_path.push_back(m.name);
         members.emplace_back(
@@ -460,8 +447,7 @@ void Scanner::browse_nodes(const synnax::task::Command &cmd) const {
         ctx->set_status(status);
         return;
     }
-    const auto &namespaces = connection.server().namespaces;
-    const auto start = args.node.resolve(namespaces);
+    const auto start = args.node.resolve(connection.server().namespaces);
     if (!start.has_value()) {
         status.message = "Failed to browse nodes";
         status.description = "The server has no namespace " +
@@ -470,15 +456,14 @@ void Scanner::browse_nodes(const synnax::task::Command &cmd) const {
         return;
     }
     const auto scan_ctx = std::make_unique<ScanContext>(ScanContext{
-        .client = connection.shared(),
-        .namespaces = namespaces,
+        .conn = connection,
         .channels = std::make_shared<std::vector<types::Node>>(),
     });
 
     x::errors::Error browse_err;
     if (args.field.empty()) {
         browse_err = errors::parse(UA_Client_forEachChildNodeCall(
-            scan_ctx->client.get(),
+            connection.get(),
             start.value(),
             node_iter,
             scan_ctx.get()

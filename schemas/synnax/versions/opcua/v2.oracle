@@ -7,22 +7,58 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/synnax/versions/channel/v0"
 import "schemas/synnax/versions/device/v0"
 import "schemas/synnax/versions/task/v2"
 
 BaseChannel = v1.BaseChannel
 
-ReadChannel = v1.ReadChannel
+ReadChannel struct extends BaseChannel {
+    channel  channel.Key = 0 {
+        @doc value "is the Synnax channel that samples are written to."
+    }
+    is_index bool = false {
+        @doc value "is true when the channel's Synnax channel is the task's index."
+    }
+    field    string = "" {
+        @doc value """
+            is the path to a member of the node's structure value. Names join with '.',
+            and '&' escapes the next character. Empty reads the whole value.
+        """
+    }
+
+    @doc value  "is a single OPC UA node the task reads from."
+    @go marshal
+}
 
 WriteChannel = v1.WriteChannel
 
-ReadConfig struct extends v1.ReadConfig {
+ReadConfig struct extends task.ReadConfig {
+    sample_rate      = 50
+    stream_rate      = 25
+    device           device.Key = "" {
+        @doc value "is the key of the device representing the OPC UA server."
+    }
+    array_mode       bool = false {
+        @doc value "is true when each read returns an array of samples per node."
+    }
+    array_size       int32 = 1 {
+        @doc value "is the number of samples in each array when array_mode is true."
+    }
+    channels         ReadChannel[] {
+        @doc value "are the OPC UA nodes the task acquires."
+    }
     nan_fill_enabled bool = false {
         @doc value """
             is true when a bad value of a float channel is written as NaN. When false, a
             bad value skips the read for every channel that shares its index.
         """
     }
+
+    @doc value  "configures an OPC UA read task."
+    @go imex    body
+    @go marshal
+    @go migrate
 }
 
 WriteConfig = v1.WriteConfig

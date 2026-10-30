@@ -12,6 +12,7 @@
 package v2
 
 import (
+	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	device "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/opcua/versions/v1"
 	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
@@ -21,7 +22,21 @@ import (
 type BaseChannel = v1.BaseChannel
 
 // ReadChannel is a single OPC UA node the task reads from.
-type ReadChannel = v1.ReadChannel
+type ReadChannel struct {
+	BaseChannel
+	// Channel is the Synnax channel that samples are written to.
+	Channel channel.Key `json:"channel" msgpack:"channel"`
+	// IsIndex is true when the channel's Synnax channel is the task's index.
+	IsIndex bool `json:"is_index" msgpack:"is_index"`
+	// Field is the path to a member of the node's structure value. Names join with '.',
+	// and '&' escapes the next character. Empty reads the whole value.
+	Field string `json:"field" msgpack:"field"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (r *ReadChannel) ApplyDefaults() {
+	r.BaseChannel.ApplyDefaults()
+}
 
 // WriteChannel is a single OPC UA node the task drives.
 type WriteChannel = v1.WriteChannel

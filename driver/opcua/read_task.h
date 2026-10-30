@@ -265,6 +265,9 @@ protected:
     /// @brief the structure types of the nodes of field channels, on the current
     /// connection.
     structure::Types types;
+    /// @brief the member that each field channel reads, or the error that keeps the
+    /// channel from reading it, on the current connection.
+    std::vector<std::pair<structure::Field, x::errors::Error>> fields;
     /// @brief the place of the server's namespace array in a response to
     /// request_builder, which reads it while the server lacks the namespace of a
     /// channel.
@@ -328,28 +331,60 @@ protected:
         return this->connection.read(this->request_builder.build());
     }
 
-    /// @brief reads the structure types of the nodes of field channels, so their values
-    /// decode.
-    /// @returns only an error that loses the connection. When the server refuses the
-    /// read for another reason, the fields fail to read.
+    /// @brief reads the structure types of the nodes of field channels, and finds the
+    /// member that each field channel reads.
+    /// @returns only an error that loses the connection. Each field channel reports any
+    /// other error when it reads.
     x::errors::Error read_types() {
         this->types = structure::Types();
-        std::vector<UA_NodeId> nodes;
+        this->fields.assign(this->cfg.channels.size(), {});
         const auto &namespaces = this->connection.server().namespaces;
-        for (const auto &ch: this->cfg.channels)
-            if (!ch->field.empty())
-                if (const auto id = ch->node.resolve(namespaces); id.has_value())
-                    nodes.push_back(id.value());
-        if (nodes.empty()) return x::errors::NIL;
-        auto [read, err] = structure::Types::read(this->connection, nodes);
-        if (err.matches(errors::UNREACHABLE)) return err;
-        if (err) {
-            LOG(WARNING) << "[opc.read] failed to read the structure types of the "
-                            "nodes, so their fields do not read: "
-                         << err;
-            return x::errors::NIL;
+        types::ReadRequestBuilder req;
+        // Field channels on one node share its place in the request.
+        std::map<std::size_t, std::size_t> places;
+        for (std::size_t i = 0; i < this->cfg.channels.size(); ++i) {
+            const auto &ch = *this->cfg.channels[i];
+            const auto pos = this->positions[i];
+            if (ch.field.empty() || !pos.has_value() ||
+                !places.try_emplace(pos.value(), req.size()).second)
+                continue;
+            req.add_node(ch.node.resolve(namespaces).value(), UA_ATTRIBUTEID_DATATYPE);
         }
-        this->types = std::move(read);
+        if (req.empty()) return x::errors::NIL;
+        auto [res, err] = this->connection.read(req.build());
+        std::vector<std::optional<UA_NodeId>> data_types(req.size());
+        std::vector<UA_NodeId> known;
+        for (std::size_t k = 0; !err && k < data_types.size(); ++k)
+            if (const auto &v = res.get().results[k].value;
+                UA_Variant_hasScalarType(&v, &UA_TYPES[UA_TYPES_NODEID])) {
+                data_types[k] = *static_cast<const UA_NodeId *>(v.data);
+                known.push_back(data_types[k].value());
+            }
+        if (!err)
+            std::tie(this->types, err) = structure::Types::read(
+                this->connection,
+                known
+            );
+        if (err.matches(errors::UNREACHABLE)) return err;
+        for (std::size_t i = 0; i < this->cfg.channels.size(); ++i) {
+            const auto &ch = *this->cfg.channels[i];
+            const auto pos = this->positions[i];
+            if (ch.field.empty() || !pos.has_value()) continue;
+            auto &field = this->fields[i];
+            const auto &data_type = data_types[places.at(pos.value())];
+            if (err)
+                field.second = x::errors::Error(
+                    err,
+                    "failed to read the structure types: " + err.data
+                );
+            else if (!data_type.has_value())
+                field.second = x::errors::Error(
+                    x::errors::VALIDATION,
+                    "the server did not report the data type of the node"
+                );
+            else
+                field = this->types.field(data_type.value(), ch.field);
+        }
         return x::errors::NIL;
     }
 
@@ -572,15 +607,30 @@ class UnaryReadTaskSource final : public BaseReadTaskSource {
         std::vector<std::optional<x::telem::SampleValue>> values;
         values.reserve(this->cfg.channels.size());
         std::set<synnax::channel::Key> skipped;
+        // The structure at each place in res, decoded once for every field channel on
+        // its node.
+        std::vector<std::optional<std::pair<types::Variant, x::errors::Error>>>
+            structures;
         for (std::size_t i = 0; i < this->cfg.channels.size(); ++i) {
             const auto &ch = *this->cfg.channels[i];
             auto sample = this->value<x::telem::SampleValue>(
                 i,
                 this->result(res, i),
                 q,
-                [&](const UA_Variant &v) {
+                [&](const UA_Variant &v)
+                    -> std::pair<x::telem::SampleValue, x::errors::Error> {
                     if (ch.field.empty()) return telem::to_sample(v, ch.ch.data_type);
-                    return this->types.sample(v, ch.field, ch.ch.data_type);
+                    const auto &[field, field_err] = this->fields[i];
+                    if (field_err) return {{}, field_err};
+                    if (structures.empty()) structures.resize(res.resultsSize);
+                    auto &decoded = structures[this->positions[i].value()];
+                    if (!decoded.has_value()) decoded = this->types.decode(v);
+                    if (decoded->second) return {{}, decoded->second};
+                    return structure::Types::sample(
+                        decoded->first.get(),
+                        field,
+                        ch.ch.data_type
+                    );
                 }
             );
             if (!sample.has_value()) sample = this->fill(i);

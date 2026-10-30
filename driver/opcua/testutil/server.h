@@ -132,19 +132,38 @@ struct Motor {
     Point position;
 };
 
-/// @brief the numeric IDs, in namespace 1, of the Point and Motor data types and of
-/// their binary encodings.
+/// @brief a value of the Hidden structure type of the mock server, which has no
+/// DataType node.
+struct Hidden {
+    UA_Float x;
+};
+
+/// @brief a value of the Broken structure type of the mock server, whose member is a
+/// Hidden.
+struct Broken {
+    Hidden inner;
+};
+
+/// @brief the numeric IDs, in namespace 1, of the structure data types and of their
+/// binary encodings. Opaque is a DataType node without a definition.
 constexpr UA_UInt32 POINT_TYPE_ID = 4242;
 constexpr UA_UInt32 POINT_ENCODING_ID = 4243;
 constexpr UA_UInt32 MOTOR_TYPE_ID = 4244;
 constexpr UA_UInt32 MOTOR_ENCODING_ID = 4245;
+constexpr UA_UInt32 HIDDEN_TYPE_ID = 4246;
+constexpr UA_UInt32 HIDDEN_ENCODING_ID = 4247;
+constexpr UA_UInt32 BROKEN_TYPE_ID = 4248;
+constexpr UA_UInt32 BROKEN_ENCODING_ID = 4249;
+constexpr UA_UInt32 OPAQUE_TYPE_ID = 4250;
 
-/// @brief the open62541 descriptions of Point and Motor. Motor points at Point, so the
-/// descriptions never move.
+/// @brief the open62541 descriptions of the structure types. Types point at the types
+/// of their members, so the descriptions never move.
 class StructureTypes {
     std::array<UA_DataTypeMember, 2> point_members{};
     std::array<UA_DataTypeMember, 3> motor_members{};
-    std::array<UA_DataType, 2> types{};
+    std::array<UA_DataTypeMember, 1> hidden_members{};
+    std::array<UA_DataTypeMember, 1> broken_members{};
+    std::array<UA_DataType, 4> types{};
 
     static void set_member(
         UA_DataTypeMember &m,
@@ -222,6 +241,26 @@ public:
             this->motor_members.data(),
             this->motor_members.size()
         );
+        set_member(this->hidden_members[0], "X", f, 0);
+        set_type(
+            this->types[2],
+            "Hidden",
+            HIDDEN_TYPE_ID,
+            HIDDEN_ENCODING_ID,
+            sizeof(Hidden),
+            this->hidden_members.data(),
+            this->hidden_members.size()
+        );
+        set_member(this->broken_members[0], "Inner", &this->types[2], 0);
+        set_type(
+            this->types[3],
+            "Broken",
+            BROKEN_TYPE_ID,
+            BROKEN_ENCODING_ID,
+            sizeof(Broken),
+            this->broken_members.data(),
+            this->broken_members.size()
+        );
         this->array = {
             .next = nullptr,
             .typesSize = this->types.size(),
@@ -238,6 +277,7 @@ public:
 
     [[nodiscard]] const UA_DataType &point() const { return this->types[0]; }
     [[nodiscard]] const UA_DataType &motor() const { return this->types[1]; }
+    [[nodiscard]] const UA_DataType &broken() const { return this->types[3]; }
 };
 
 /// @brief the ApplicationUri of the mock server, which its certificate must carry.
@@ -649,18 +689,24 @@ public:
         server_config->customDataTypes = const_cast<UA_DataTypeArray *>(
             &structures.array
         );
-        for (const auto *type: {&structures.point(), &structures.motor()}) {
+        const std::array<std::pair<UA_NodeId, const char *>, 4> data_types{{
+            {structures.point().typeId, "Point"},
+            {structures.motor().typeId, "Motor"},
+            {structures.broken().typeId, "Broken"},
+            {UA_NODEID_NUMERIC(1, OPAQUE_TYPE_ID), "Opaque"},
+        }};
+        for (const auto &[id, name]: data_types) {
             UA_DataTypeAttributes attr = UA_DataTypeAttributes_default;
             attr.displayName = UA_LOCALIZEDTEXT(
                 const_cast<char *>("en-US"),
-                const_cast<char *>(type->typeName)
+                const_cast<char *>(name)
             );
             UA_Server_addDataTypeNode(
                 server,
-                type->typeId,
+                id,
                 UA_NS0ID(STRUCTURE),
                 UA_NS0ID(HASSUBTYPE),
-                UA_QUALIFIEDNAME(1, const_cast<char *>(type->typeName)),
+                UA_QUALIFIEDNAME(1, const_cast<char *>(name)),
                 attr,
                 nullptr,
                 nullptr
