@@ -56,6 +56,20 @@ const workspaceSourcemaps = (): Plugin => {
   };
 };
 
+// The dev server loads the standalone React DevTools (`pnpm devtools`) before React, so
+// React finds the DevTools hook when it starts. Builds never load it.
+const reactDevtools = (): Plugin => ({
+  name: "react-devtools",
+  apply: "serve",
+  transformIndexHtml: () => [
+    {
+      tag: "script",
+      attrs: { src: "http://localhost:8097" },
+      injectTo: "head-prepend",
+    },
+  ],
+});
+
 // sourcesContent is 83% of the emitted map weight, and the Core embeds every byte of
 // dist into its binary. The crash screen reads only positions, so the inlined copies of
 // the original files are dropped.
@@ -102,7 +116,13 @@ export default defineConfig({
   envPrefix: ["VITE_", "TAURI_"],
   // The Console's own CSS, left unlayered, overrides every layer.
   css: { postcss: { plugins: [layers(plutoLayers(repoRoot))] } },
-  plugins: [react(), reactCompiler(), workspaceSourcemaps(), stripSourcesContent()],
+  plugins: [
+    react(),
+    reactCompiler(),
+    reactDevtools(),
+    workspaceSourcemaps(),
+    stripSourcesContent(),
+  ],
   build: {
     target: process.env.TAURI_ENV_PLATFORM === "windows" ? "chrome111" : "safari16.4",
     minify: !isDev,

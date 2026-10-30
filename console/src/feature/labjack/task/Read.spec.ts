@@ -22,6 +22,7 @@ import {
 } from "@/feature/labjack/testutil";
 import {
   awaitEditableForm,
+  createWithHook,
   deployAndAwaitTask,
   findChannelListItem,
   renderTaskFormTab,
@@ -327,5 +328,13 @@ describe("Read", () => {
     expect(updated.properties.readIndex).not.toBe(999999999);
     const index = await client.channels.retrieve(updated.properties.readIndex);
     expect(index.isIndex).toBe(true);
+  });
+
+  it("should create the task with one channel", async () => {
+    const tsk = await createWithHook(
+      LabJack.Task.useCreateRead,
+      LabJack.Task.READ_SCHEMAS,
+    );
+    expect(tsk.config.channels).toHaveLength(1);
   });
 });

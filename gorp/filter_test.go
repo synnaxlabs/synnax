@@ -19,7 +19,7 @@ import (
 	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/kv/memkv"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 var errFilter = errors.New("filter error")
