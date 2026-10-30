@@ -109,9 +109,11 @@ const Header = ({ isSnapshot }: HeaderProps) => (
           />
         )}
       </PForm.Field>
-      <Flex.Box align="end" gap="small">
+      <Flex.Box align="end" gap="small" className={CSS.BE("task-configure", "actions")}>
         <UtilityButtons />
-        <Rack />
+        <div className={CSS.BE("task-configure", "rack")}>
+          <Rack />
+        </div>
       </Flex.Box>
     </Flex.Box>
     {!isSnapshot && <ParentRangeButton />}

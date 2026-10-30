@@ -29,6 +29,8 @@ export interface CreateParams {
 
 export interface CreateUseCreateParams<S extends task.Schemas = task.Schemas> {
   getInitialValues: GetInitialValues<S>;
+  /** The make of the devices the task runs on. */
+  deviceMake?: string;
 }
 
 export interface UseCreateProps {
@@ -40,20 +42,26 @@ export interface UseCreate {
 }
 
 /**
- * Creates a draft task row of the given type: rack 0 unless a rack or device
- * rack is given, no start command issued. The write is untyped: a draft holds
- * a work-in-progress config, so the type's config schema is enforced by the
- * form and at deploy, not here.
+ * Creates a draft task row of the given type: rack 0 unless a rack or device rack is
+ * given, no start command issued. With no device and no config, the task takes the
+ * only device of its make, if exactly one exists. The write is untyped: a draft holds a
+ * work-in-progress config, so the type's config schema is enforced by the form and at
+ * deploy, not here.
  * @returns The created task.
  */
 const create = async <S extends task.Schemas = task.Schemas>({
   client,
   getInitialValues,
+  deviceMake,
   deviceKey,
   rackKey,
   config,
 }: CreateParams &
   CreateUseCreateParams<S> & { client: Synnax }): Promise<task.Task> => {
+  if (deviceKey == null && config == null && deviceMake != null) {
+    const devices = await client.devices.retrieve({ makes: [deviceMake], limit: 2 });
+    if (devices.length === 1) deviceKey = devices[0].key;
+  }
   // Initial values carry the zero payload's empty key; the row must mint its own.
   const { status: _, key: __, ...initial } = getInitialValues({ deviceKey, config });
   return await client.tasks.create({ ...initial, rack: rackKey ?? initial.rack ?? 0 });
@@ -66,6 +74,7 @@ const create = async <S extends task.Schemas = task.Schemas>({
  */
 export const createUseCreate = <S extends task.Schemas = task.Schemas>({
   getInitialValues,
+  deviceMake,
 }: CreateUseCreateParams<S>): UseCreate => {
   const useCreate: UseCreate = ({ tabKey }: UseCreateProps = {}) => {
     const client = PSynnax.use();
@@ -77,6 +86,7 @@ export const createUseCreate = <S extends task.Schemas = task.Schemas>({
         const created = await create({
           client,
           getInitialValues,
+          deviceMake,
           deviceKey,
           rackKey,
           config,

@@ -10,7 +10,7 @@
 import "@/icon/registry.css";
 
 import { deep } from "@synnaxlabs/x";
-import { cloneElement, type FC } from "react";
+import { cloneElement, type FC, useId } from "react";
 import {
   AiFillDelete,
   AiFillFolder,
@@ -255,7 +255,12 @@ import { Bridge } from "@/icon/Bridge";
 import { Device } from "@/icon/Device";
 import { EtherCAT } from "@/icon/EtherCAT";
 import { Fitting } from "@/icon/Fitting";
-import { type IconProps, type ReactElement, wrapSVGIcon } from "@/icon/Icon";
+import {
+  type IconProps,
+  type ReactElement,
+  type SVGFC,
+  wrapSVGIcon,
+} from "@/icon/Icon";
 import { LabJack } from "@/icon/LabJack";
 import { Modbus } from "@/icon/Modbus";
 import { NI } from "@/icon/NI";
@@ -468,6 +473,52 @@ export const Hardware = wrapSVGIcon(MdHardware, "hardware");
 export const Save = wrapSVGIcon(MdSaveAlt, "save");
 export const Database = wrapSVGIcon(TbDatabase, "database");
 export const DatabaseOff = wrapSVGIcon(TbDatabaseOff, "database-off");
+const AUTO_START_ARC = "M3.06 10.88a9 9 0 1 1 .56 4.5m-.56 5v-5h5";
+const AUTO_START_PLAY = "M9.9 8.5v7l5.6 -3.5z";
+const SLASH = "M3 3l18 18";
+
+const AutoStartSVG: SVGFC = (props) => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={2}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    {...props}
+  >
+    <path d={AUTO_START_ARC} />
+    <path d={AUTO_START_PLAY} />
+  </svg>
+);
+
+const AutoStartOffSVG: SVGFC = (props) => {
+  const maskID = useId();
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      {...props}
+    >
+      <mask id={maskID}>
+        <rect width="24" height="24" fill="white" stroke="none" />
+        <path d={SLASH} stroke="black" strokeWidth={5} />
+      </mask>
+      <g mask={`url(#${maskID})`}>
+        <path d={AUTO_START_ARC} />
+        <path d={AUTO_START_PLAY} />
+      </g>
+      <path d={SLASH} />
+    </svg>
+  );
+};
+
+export const AutoStart = wrapSVGIcon(AutoStartSVG, "auto-start");
+export const AutoStartOff = wrapSVGIcon(AutoStartOffSVG, "auto-start-off");
 export const Task = wrapSVGIcon(TbRadarFilled, "task");
 export const Computer = wrapSVGIcon(MdComputer, "computer");
 export const Link = wrapSVGIcon(MdLink, "link");
