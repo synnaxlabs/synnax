@@ -41,6 +41,14 @@ const (
 	ResourceTypeTask            ResourceType = versions.ResourceTypeTask
 	ResourceTypeUser            ResourceType = versions.ResourceTypeUser
 	ResourceTypeView            ResourceType = versions.ResourceTypeView
+	ResourceTypeEthercatMaster  ResourceType = versions.ResourceTypeEthercatMaster
+	ResourceTypeEthercatSlave   ResourceType = versions.ResourceTypeEthercatSlave
+	ResourceTypeHTTPServer      ResourceType = versions.ResourceTypeHTTPServer
+	ResourceTypeLabjackDevice   ResourceType = versions.ResourceTypeLabjackDevice
+	ResourceTypeModbusServer    ResourceType = versions.ResourceTypeModbusServer
+	ResourceTypeNiChassis       ResourceType = versions.ResourceTypeNiChassis
+	ResourceTypeNiDevice        ResourceType = versions.ResourceTypeNiDevice
+	ResourceTypeOpcuaServer     ResourceType = versions.ResourceTypeOpcuaServer
 )
 
 type RelationshipType = versions.RelationshipType

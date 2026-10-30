@@ -60,6 +60,14 @@ const (
 	ResourceType_RESOURCE_TYPE_TASK             ResourceType = 21
 	ResourceType_RESOURCE_TYPE_USER             ResourceType = 22
 	ResourceType_RESOURCE_TYPE_VIEW             ResourceType = 23
+	ResourceType_RESOURCE_TYPE_ETHERCAT_MASTER  ResourceType = 24
+	ResourceType_RESOURCE_TYPE_ETHERCAT_SLAVE   ResourceType = 25
+	ResourceType_RESOURCE_TYPE_HTTP_SERVER      ResourceType = 26
+	ResourceType_RESOURCE_TYPE_LABJACK_DEVICE   ResourceType = 27
+	ResourceType_RESOURCE_TYPE_MODBUS_SERVER    ResourceType = 28
+	ResourceType_RESOURCE_TYPE_NI_CHASSIS       ResourceType = 29
+	ResourceType_RESOURCE_TYPE_NI_DEVICE        ResourceType = 30
+	ResourceType_RESOURCE_TYPE_OPCUA_SERVER     ResourceType = 31
 )
 
 // Enum value maps for ResourceType.
@@ -89,6 +97,14 @@ var (
 		21: "RESOURCE_TYPE_TASK",
 		22: "RESOURCE_TYPE_USER",
 		23: "RESOURCE_TYPE_VIEW",
+		24: "RESOURCE_TYPE_ETHERCAT_MASTER",
+		25: "RESOURCE_TYPE_ETHERCAT_SLAVE",
+		26: "RESOURCE_TYPE_HTTP_SERVER",
+		27: "RESOURCE_TYPE_LABJACK_DEVICE",
+		28: "RESOURCE_TYPE_MODBUS_SERVER",
+		29: "RESOURCE_TYPE_NI_CHASSIS",
+		30: "RESOURCE_TYPE_NI_DEVICE",
+		31: "RESOURCE_TYPE_OPCUA_SERVER",
 	}
 	ResourceType_value = map[string]int32{
 		"RESOURCE_TYPE_ARC":              0,
@@ -115,6 +131,14 @@ var (
 		"RESOURCE_TYPE_TASK":             21,
 		"RESOURCE_TYPE_USER":             22,
 		"RESOURCE_TYPE_VIEW":             23,
+		"RESOURCE_TYPE_ETHERCAT_MASTER":  24,
+		"RESOURCE_TYPE_ETHERCAT_SLAVE":   25,
+		"RESOURCE_TYPE_HTTP_SERVER":      26,
+		"RESOURCE_TYPE_LABJACK_DEVICE":   27,
+		"RESOURCE_TYPE_MODBUS_SERVER":    28,
+		"RESOURCE_TYPE_NI_CHASSIS":       29,
+		"RESOURCE_TYPE_NI_DEVICE":        30,
+		"RESOURCE_TYPE_OPCUA_SERVER":     31,
 	}
 )
 
@@ -215,7 +239,7 @@ const file_core_pkg_service_ontology_pb_ontology_proto_rawDesc = "" +
 	"+core/pkg/service/ontology/pb/ontology.proto\x12\x13service.ontology.pb\"M\n" +
 	"\x02ID\x125\n" +
 	"\x04type\x18\x01 \x01(\x0e2!.service.ontology.pb.ResourceTypeR\x04type\x12\x10\n" +
-	"\x03key\x18\x02 \x01(\tR\x03key*\xfe\x04\n" +
+	"\x03key\x18\x02 \x01(\tR\x03key*\x80\a\n" +
 	"\fResourceType\x12\x15\n" +
 	"\x11RESOURCE_TYPE_ARC\x10\x00\x12\x19\n" +
 	"\x15RESOURCE_TYPE_BUILTIN\x10\x01\x12\x19\n" +
@@ -241,7 +265,15 @@ const file_core_pkg_service_ontology_pb_ontology_proto_rawDesc = "" +
 	"\x13RESOURCE_TYPE_TABLE\x10\x14\x12\x16\n" +
 	"\x12RESOURCE_TYPE_TASK\x10\x15\x12\x16\n" +
 	"\x12RESOURCE_TYPE_USER\x10\x16\x12\x16\n" +
-	"\x12RESOURCE_TYPE_VIEW\x10\x17B\xcc\x01\n" +
+	"\x12RESOURCE_TYPE_VIEW\x10\x17\x12!\n" +
+	"\x1dRESOURCE_TYPE_ETHERCAT_MASTER\x10\x18\x12 \n" +
+	"\x1cRESOURCE_TYPE_ETHERCAT_SLAVE\x10\x19\x12\x1d\n" +
+	"\x19RESOURCE_TYPE_HTTP_SERVER\x10\x1a\x12 \n" +
+	"\x1cRESOURCE_TYPE_LABJACK_DEVICE\x10\x1b\x12\x1f\n" +
+	"\x1bRESOURCE_TYPE_MODBUS_SERVER\x10\x1c\x12\x1c\n" +
+	"\x18RESOURCE_TYPE_NI_CHASSIS\x10\x1d\x12\x1b\n" +
+	"\x17RESOURCE_TYPE_NI_DEVICE\x10\x1e\x12\x1e\n" +
+	"\x1aRESOURCE_TYPE_OPCUA_SERVER\x10\x1fB\xcc\x01\n" +
 	"\x17com.service.ontology.pbB\rOntologyProtoP\x01Z4github.com/synnaxlabs/synnax/pkg/service/ontology/pb\xa2\x02\x03SOP\xaa\x02\x13Service.Ontology.Pb\xca\x02\x13Service\\Ontology\\Pb\xe2\x02\x1fService\\Ontology\\Pb\\GPBMetadata\xea\x02\x15Service::Ontology::Pbb\x06proto3"
 
 var (
