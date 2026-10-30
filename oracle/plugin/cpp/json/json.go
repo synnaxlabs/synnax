@@ -907,6 +907,27 @@ func (p *Plugin) toJSONExprForField(
 		}
 	}
 
+	if typeRef.Name == "Map" && len(typeRef.TypeArgs) > 1 {
+		if value, _, ok := resolution.Dealias(typeRef.TypeArgs[1], data.table); ok {
+			if _, isStruct := value.Form.(resolution.StructForm); isStruct {
+				src := "this->" + fieldName
+				if field.Optional {
+					src = "*" + src
+				}
+				// nlohmann_json cannot reach the to_json member inside a map.
+				body := fmt.Sprintf(`{
+        auto obj = x::json::json::object();
+        for (const auto& [key, item] : %s) obj[key] = item.to_json();
+        j["%s"] = obj;
+    }`, src, jsonName)
+				if field.Optional {
+					return fmt.Sprintf(`if (this->%s.has_value()) %s`, fieldName, body)
+				}
+				return body
+			}
+		}
+	}
+
 	if elemType, isArray := arrays.ElementType(typeRef, data.table); isArray {
 		if elemType.TypeParam != nil {
 			typeName := elemType.TypeParam.Name
