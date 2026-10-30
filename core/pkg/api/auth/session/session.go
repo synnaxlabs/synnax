@@ -173,13 +173,9 @@ func (s *Service) Create(
 	if err != nil {
 		return CreateResponse{}, err
 	}
-	res := CreateResponse{Token: tk, Session: session}
-	if req.Cookie {
-		freighter.MDFromContext(ctx).Set(auth.SessionCookieParam, auth.SessionCookie{
-			Token:    tk,
-			Lifetime: s.auth.IdleTimeout(),
-		})
-		res.Token = ""
+	res := CreateResponse{
+		Token:   auth.Deliver(ctx, s.auth, tk, req.Cookie),
+		Session: session,
 	}
 	if res.User, err = s.userOf(ctx, session.Subject); err != nil {
 		return CreateResponse{}, err

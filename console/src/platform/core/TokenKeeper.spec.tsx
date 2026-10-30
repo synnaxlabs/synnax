@@ -7,7 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { type Synnax as Client } from "@synnaxlabs/client";
+import { createTestClient, createTestUser } from "@synnaxlabs/client/testutil";
+import { Synnax } from "@synnaxlabs/pluto";
+import { id } from "@synnaxlabs/x";
 import { clearMocks, mockIPC } from "@tauri-apps/api/mocks";
 import { act, render, waitFor } from "@testing-library/react";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
@@ -128,6 +131,46 @@ describe("Core.TokenKeeper", () => {
         args: { account: `http://synnax@localhost:9090#${core.key}` },
       },
     ]);
+  });
+
+  it("should save the new token after the user sets its own password", async () => {
+    const calls = recordKeychain();
+    const username = `keeper-${id.create()}`;
+    await createTestUser(createTestClient(), {
+      username,
+      password: "old",
+      name: "Keeper",
+    });
+    const core = createCore("Local", { username, password: "old" });
+    const grabbed: { client?: Client | null } = {};
+    const Grab = (): null => {
+      grabbed.client = Synnax.use();
+      return null;
+    };
+    const { wrapper } = await createSessionConsoleWrapper({
+      client: null,
+      preloadedState: createCoreState([core], core.key),
+    });
+    render(
+      <>
+        <Core.TokenKeeper />
+        <Grab />
+      </>,
+      { wrapper },
+    );
+    await waitFor(() => expect(calls).toHaveLength(1));
+    await act(async () => {
+      await grabbed.client?.auth.passwords.set({
+        password: "new",
+        currentPassword: "old",
+      });
+    });
+    await waitFor(() => expect(calls).toHaveLength(2));
+    expect(calls[1]).toMatchObject({
+      cmd: "keychain_set",
+      args: { secret: grabbed.client?.auth.token },
+    });
+    expect(calls[1]).not.toEqual(calls[0]);
   });
 
   it("should leave the keychain alone while the client belongs to another Core", async () => {

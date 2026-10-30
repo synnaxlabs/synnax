@@ -567,6 +567,7 @@ var _ = Describe("HTTP", func() {
 				apipassword.SetRequest{Password: "new", CurrentPassword: "wrong"},
 				nil,
 			)).To(Equal(http.StatusBadRequest))
+			var set apipassword.SetResponse
 			Expect(call(
 				"/api/v1/auth/password/set",
 				token,
@@ -574,8 +575,12 @@ var _ = Describe("HTTP", func() {
 					Password:        "new",
 					CurrentPassword: creds.Password,
 				},
-				nil,
+				&set,
 			)).To(Equal(http.StatusOK))
+			Expect(call("/api/v1/auth/session/renew", token, struct{}{}, nil)).
+				To(Equal(http.StatusBadRequest))
+			Expect(call("/api/v1/auth/session/renew", set.Token, struct{}{}, nil)).
+				To(Equal(http.StatusOK))
 			login(auth.Proof{Variant: auth.PasswordProof{Credentials: auth.Credentials{
 				Username: creds.Username,
 				Password: "new",
