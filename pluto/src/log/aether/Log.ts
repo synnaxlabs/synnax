@@ -150,7 +150,10 @@ const localDate = ({ timestamp }: LogEntry): string =>
 
 const spansDays = (entries: LogEntry[]): boolean =>
   entries.length > 1 &&
-  localDate(entries[0]) !== localDate(entries[entries.length - 1]);
+  !new TimeStamp(entries[0].timestamp).isSameDay(
+    new TimeStamp(entries[entries.length - 1].timestamp),
+    "local",
+  );
 
 export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
   static readonly TYPE = "log";
