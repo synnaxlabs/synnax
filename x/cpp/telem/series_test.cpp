@@ -635,6 +635,19 @@ TEST(TestSeries, testMovePreservesAlignment) {
     ASSERT_EQ(s2.alignment.uint64(), Alignment(5, 10).uint64());
 }
 
+/// @brief it should carry the byte capacity of a variable series in a move, so a string
+/// write grows the buffer it holds.
+TEST(TestSeries, testMoveVariableByteCap) {
+    Series s1{STRING_T, 64};
+    const Series s2 = std::move(s1);
+    ASSERT_EQ(s2.byte_cap(), 64);
+    Series s3{STRING_T, 64};
+    s3 = Series{STRING_T, 8};
+    ASSERT_EQ(s3.byte_cap(), 8);
+    ASSERT_EQ(s3.write(std::string(32, 'a')), 1);
+    ASSERT_EQ(s3.strings(), std::vector<std::string>{std::string(32, 'a')});
+}
+
 /// @brief it should generate evenly spaced timestamps.
 TEST(TestSeriesLinspace, BasicEvenSpacing) {
     const auto start = TimeStamp(100);
@@ -1977,6 +1990,44 @@ TEST(SeriesClear, ClearedStringSeriesCanBeRebuilt) {
     merged.insert(merged.end(), incoming.begin(), incoming.end());
     ASSERT_EQ(merged.size(), 1);
     ASSERT_EQ(merged[0], "new");
+}
+
+/// @brief it should write strings past the byte capacity of a pre-allocated series.
+TEST(SeriesWrite, StringGrowsPreallocatedSeries) {
+    auto s = Series(STRING_T, 4);
+    ASSERT_EQ(s.write(std::string("hello")), 1);
+    ASSERT_EQ(s.write(std::string("world!")), 1);
+    ASSERT_EQ(s.size(), 2);
+    ASSERT_EQ(s.strings(), (std::vector<std::string>{"hello", "world!"}));
+}
+
+/// @brief it should write strings again after a clear, reusing the buffer.
+TEST(SeriesWrite, StringAfterClear) {
+    auto s = Series(STRING_T, 64);
+    s.write(std::string("first"));
+    s.clear();
+    ASSERT_EQ(s.write(SampleValue(std::string("second"))), 1);
+    ASSERT_EQ(s.strings(), (std::vector<std::string>{"second"}));
+    ASSERT_EQ(s.byte_cap(), 64);
+}
+
+/// @brief it should grow the buffer to fit a vector of strings written after a clear.
+TEST(SeriesWrite, StringVectorAfterClear) {
+    auto s = Series(STRING_T, 4);
+    s.write(std::string("a"));
+    s.clear();
+    const std::vector strs{std::string(64, 'x'), std::string(32, 'y')};
+    ASSERT_EQ(s.write(strs), 2);
+    ASSERT_EQ(s.strings(), strs);
+}
+
+/// @brief it should not change the source of a shallow copy when writing a string.
+TEST(SeriesWrite, StringLeavesShallowCopyIntact) {
+    auto s = Series(std::vector<std::string>{"a"}, STRING_T);
+    const auto copy = s.shallow_copy();
+    s.write(std::string("b"));
+    ASSERT_EQ(copy.strings(), (std::vector<std::string>{"a"}));
+    ASSERT_EQ(s.strings(), (std::vector<std::string>{"a", "b"}));
 }
 
 /// @brief shallow_copy should produce a series with identical data.

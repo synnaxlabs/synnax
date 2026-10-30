@@ -68,7 +68,7 @@ var _ = Describe("Context", func() {
 				parent    = analyzerContext.NewRoot(ctx, parentAST, nil)
 				child     = parent.Child(childAST)
 			)
-			child.Diagnostics.Add(diagnostics.Infof(childAST, "test diagnostic"))
+			child.Diagnostics.Add(diagnostics.Warningf(childAST, "test diagnostic"))
 			Expect(*parent.Diagnostics).To(HaveLen(1))
 			testAST := testutil.NewMockAST(3)
 			child.TypeMap[testAST] = types.I32()
