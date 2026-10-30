@@ -1068,6 +1068,44 @@ describe("Task", async () => {
       }
     });
 
+    it("stands the rack's problem in once its Driver goes down during a wait", async () => {
+      const dying = await client.racks.create({ name: `dying-${id.create()}` });
+      const t = await dying.createTask({
+        name: `dying-${id.create()}`,
+        config: {},
+        type: "pagerduty_alert",
+      });
+      const key = task.statusKey(t.key);
+      let seeLoading = (): void => {};
+      const loading = new Promise<void>((resolve) => (seeLoading = resolve));
+      const off = client.statuses.store.subscribe((event) => {
+        if (event.variant === "set" && event.value.variant === "loading") seeLoading();
+      }, key);
+      try {
+        await client.tasks.retrieve({ key: t.key });
+        await setRackAliveAfterEcho(dying.key);
+        vi.useFakeTimers({
+          toFake: ["setTimeout", "clearTimeout"],
+          shouldAdvanceTime: true,
+        });
+        await client.tasks.executeCommand({ task: t.key, type: "start" });
+        await loading;
+        await setRackStatus(dying.key, "warning", "no Driver here");
+        await expect
+          .poll(() => client.statuses.store.get(key)?.message)
+          .toBe("no Driver here");
+        await vi.advanceTimersByTimeAsync(COMMAND_DEADLINE.milliseconds);
+        expect(client.statuses.store.get(key)).toMatchObject({
+          variant: "warning",
+          message: "no Driver here",
+          details: { running: false },
+        });
+      } finally {
+        vi.useRealTimers();
+        off();
+      }
+    });
+
     it("gives up on a command no Driver answers", async () => {
       const alive = await client.racks.create({ name: `alive-${id.create()}` });
       const t = await alive.createTask({
