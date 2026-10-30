@@ -140,11 +140,16 @@ func (w Writer) Update(
 	change func(Device) (Device, error),
 ) error {
 	return w.atomic(ctx, func(w Writer) error {
-		var prev, next Device
+		var (
+			prev, next Device
+			prevParent ontology.ID
+		)
 		if err := w.table.NewUpdate().
 			Where(gorp.MatchKeys[Key, Device](key)).
 			ChangeErr(func(_ gorp.Context, d Device) (Device, error) {
 				prev = d
+				// change can write through the shared Chassis pointer.
+				prevParent = parentOf(d)
 				updated, err := change(d)
 				if err != nil {
 					return Device{}, err
@@ -164,7 +169,7 @@ func (w Writer) Update(
 				return err
 			}
 		}
-		if parentOf(next) != parentOf(prev) {
+		if parentOf(next) != prevParent {
 			return w.setParent(ctx, next)
 		}
 		return nil
