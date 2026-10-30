@@ -269,9 +269,7 @@
     "site/docs/src/components/search/Search.astro": [
       "lyra--hovered",
       "lyra-icon",
-      "lyra-text",
-      "lyra-text--keyboard",
-      "lyra-trigger-indicator"
+      "lyra-text"
     ],
     "site/docs/src/components/text/Step.astro": ["lyra-text"],
     "site/docs/src/pages/reliability.astro": ["lyra-divider", "lyra-text"],
