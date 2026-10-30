@@ -156,8 +156,8 @@ describe("User queries", () => {
 
       expect(result.current).not.toBeNull();
       const { username } = TEST_CREDENTIALS;
-      const signedIn = await client.users.retrieve({ username });
-      expect(result.current?.key).toEqual(signedIn.key);
+      const [p] = await client.auth.retrievePasswords({ usernames: [username] });
+      expect(result.current?.key).toEqual(p.subject.key);
     });
 
     it("should update the current user on a rename from another client", async () => {
@@ -242,7 +242,8 @@ describe("User queries", () => {
           expect(result.current.variant).toBe("success");
         });
         await waitFor(async () => {
-          const created = await client.users.retrieve({ username });
+          const [p] = await client.auth.retrievePasswords({ usernames: [username] });
+          const created = await client.users.retrieve(p.subject.key);
           expect(created.name).toBe("Form Test");
         });
       });

@@ -196,6 +196,13 @@ var _ = Describe("Disabled methods", func() {
 		)).Error().To(MatchError(validate.ErrValidation))
 		MustSucceed(passwordSvc.Authenticate(ctx, passwordProof(own.Username, "old")))
 	})
+	It("Should refuse to rename a password", func(ctx SpecContext) {
+		Expect(disabled(ctx, auth.MethodPassword).RenamePassword(
+			requestCtx(ctx),
+			nil,
+			apiauth.PasswordRenameRequest{Username: "off"},
+		)).Error().To(MatchError(validate.ErrValidation))
+	})
 	It("Should refuse to create a password", func(ctx SpecContext) {
 		u := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
 			Name: "nopass-" + uuid.New().String(),
@@ -484,6 +491,128 @@ var _ = Describe("CreatePassword", func() {
 			Subject:  nopass.OntologyID(),
 			Username: nopass.Name,
 		})).Error().To(MatchError(ContainSubstring("password: required")))
+	})
+})
+
+var _ = Describe("Passwords", func() {
+	var (
+		bob       user.User
+		bobToken  string
+		rootToken string
+	)
+	tokenFor := func(ctx context.Context, username, pwd string) string {
+		GinkgoHelper()
+		return MustSucceed(apiSvc.CreateSession(
+			requestCtx(ctx),
+			apiauth.SessionCreateRequest{Proof: passwordProof(username, pwd)},
+		)).Token
+	}
+	BeforeEach(func(ctx SpecContext) {
+		bob = createUser(ctx, "bob-"+uuid.New().String(), "p")
+		bobToken = tokenFor(ctx, bob.Name, "p")
+		rootToken = tokenFor(ctx, creds.Username, creds.Password)
+	})
+	Describe("RetrievePasswords", func() {
+		retrieve := func(
+			ctx context.Context,
+			token string,
+			req apiauth.PasswordRetrieveRequest,
+		) ([]apiauth.Password, error) {
+			res, err := apiSvc.RetrievePasswords(authed(ctx, token), req)
+			return res.Passwords, err
+		}
+		It("Should return the caller's password by default", func(ctx SpecContext) {
+			Expect(retrieve(ctx, bobToken, apiauth.PasswordRetrieveRequest{})).
+				To(ConsistOf(apiauth.Password{
+					Subject:  bob.OntologyID(),
+					Username: bob.Name,
+				}))
+		})
+		It("Should find a password by its username", func(ctx SpecContext) {
+			Expect(retrieve(ctx, rootToken, apiauth.PasswordRetrieveRequest{
+				Usernames: []string{bob.Name},
+			})).To(ConsistOf(HaveField("Subject", bob.OntologyID())))
+		})
+		It("Should find a password by its subject", func(ctx SpecContext) {
+			Expect(retrieve(ctx, rootToken, apiauth.PasswordRetrieveRequest{
+				Subjects: []ontology.ID{bob.OntologyID()},
+			})).To(ConsistOf(HaveField("Username", bob.Name)))
+		})
+		It("Should ignore an unknown username", func(ctx SpecContext) {
+			Expect(retrieve(ctx, rootToken, apiauth.PasswordRetrieveRequest{
+				Usernames: []string{"unknown-" + uuid.New().String()},
+			})).To(BeEmpty())
+		})
+		It("Should deny a user another user's password", func(ctx SpecContext) {
+			Expect(retrieve(ctx, bobToken, apiauth.PasswordRetrieveRequest{
+				Usernames: []string{creds.Username},
+			})).Error().To(MatchError(access.ErrDenied))
+		})
+	})
+	Describe("RenamePassword", func() {
+		rename := func(
+			ctx context.Context,
+			token string,
+			req apiauth.PasswordRenameRequest,
+		) (struct{}, error) {
+			return apiSvc.RenamePassword(authed(ctx, token), nil, req)
+		}
+		It("Should let the owner rename another user's password", func(
+			ctx SpecContext,
+		) {
+			username := "renamed-" + uuid.New().String()
+			Expect(rename(ctx, rootToken, apiauth.PasswordRenameRequest{
+				Subject:  bob.OntologyID(),
+				Username: username,
+			})).Error().ToNot(HaveOccurred())
+			tokenFor(ctx, username, "p")
+			MustSucceed(authSvc.Authenticate(ctx, bobToken))
+			Expect(apiSvc.CreateSession(
+				requestCtx(ctx),
+				apiauth.SessionCreateRequest{Proof: passwordProof(bob.Name, "p")},
+			)).Error().To(MatchError(auth.ErrInvalidCredentials))
+		})
+		It("Should let a user rename its own password", func(ctx SpecContext) {
+			username := "self-" + uuid.New().String()
+			Expect(rename(ctx, bobToken, apiauth.PasswordRenameRequest{
+				Username: username,
+			})).Error().ToNot(HaveOccurred())
+			tokenFor(ctx, username, "p")
+		})
+		It("Should keep the username when it does not change", func(ctx SpecContext) {
+			Expect(rename(ctx, bobToken, apiauth.PasswordRenameRequest{
+				Username: bob.Name,
+			})).Error().ToNot(HaveOccurred())
+			tokenFor(ctx, bob.Name, "p")
+		})
+		It("Should refuse a username another user holds", func(ctx SpecContext) {
+			Expect(rename(ctx, bobToken, apiauth.PasswordRenameRequest{
+				Username: creds.Username,
+			})).Error().To(MatchError(auth.ErrRepeatedUsername))
+		})
+		It("Should deny a user renaming another user's password", func(
+			ctx SpecContext,
+		) {
+			Expect(rename(ctx, bobToken, apiauth.PasswordRenameRequest{
+				Subject:  root.OntologyID(),
+				Username: "taken-" + uuid.New().String(),
+			})).Error().To(MatchError(access.ErrDenied))
+		})
+		It("Should report a user with no password as not found", func(
+			ctx SpecContext,
+		) {
+			u := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
+				Name: "nopass",
+			}))
+			Expect(rename(ctx, rootToken, apiauth.PasswordRenameRequest{
+				Subject:  u.OntologyID(),
+				Username: "nopass-" + uuid.New().String(),
+			})).Error().To(MatchError(query.ErrNotFound))
+		})
+		It("Should reject an empty username", func(ctx SpecContext) {
+			Expect(rename(ctx, bobToken, apiauth.PasswordRenameRequest{})).Error().
+				To(MatchError(validate.ErrValidation))
+		})
 	})
 })
 

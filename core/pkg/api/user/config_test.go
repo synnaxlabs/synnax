@@ -15,17 +15,15 @@ import (
 	apiuser "github.com/synnaxlabs/synnax/pkg/api/user"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	svcauth "github.com/synnaxlabs/synnax/pkg/service/auth"
-	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 )
 
 var _ = Describe("ServiceConfig", func() {
 	full := func() apiuser.ServiceConfig {
 		return apiuser.ServiceConfig{
-			RBAC:     &rbac.Service{},
-			User:     &user.Service{},
-			Password: &password.Service{},
-			Auth:     &svcauth.Service{},
+			RBAC: &rbac.Service{},
+			User: &user.Service{},
+			Auth: &svcauth.Service{},
 		}
 	}
 
@@ -52,11 +50,6 @@ var _ = Describe("ServiceConfig", func() {
 				"user: must be non-nil",
 			),
 			Entry(
-				"password",
-				func(c *apiuser.ServiceConfig) { c.Password = nil },
-				"password: must be non-nil",
-			),
-			Entry(
 				"auth",
 				func(c *apiuser.ServiceConfig) { c.Auth = nil },
 				"auth: must be non-nil",
@@ -70,7 +63,6 @@ var _ = Describe("ServiceConfig", func() {
 			merged := apiuser.ServiceConfig{}.Override(cfg)
 			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
 			Expect(merged.User).To(BeIdenticalTo(cfg.User))
-			Expect(merged.Password).To(BeIdenticalTo(cfg.Password))
 			Expect(merged.Auth).To(BeIdenticalTo(cfg.Auth))
 		})
 
@@ -79,7 +71,6 @@ var _ = Describe("ServiceConfig", func() {
 			merged := cfg.Override(apiuser.ServiceConfig{})
 			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
 			Expect(merged.User).To(BeIdenticalTo(cfg.User))
-			Expect(merged.Password).To(BeIdenticalTo(cfg.Password))
 			Expect(merged.Auth).To(BeIdenticalTo(cfg.Auth))
 		})
 	})

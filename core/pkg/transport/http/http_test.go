@@ -530,6 +530,23 @@ var _ = Describe("HTTP", func() {
 			Expect(call("/api/v1/auth/session/renew", keyToken, struct{}{}, nil)).
 				To(Equal(http.StatusBadRequest))
 		})
+		It("Should list and rename the caller's password", func() {
+			token := login(auth.Proof{Variant: auth.PasswordProof{Credentials: creds}})
+			var res apiauth.PasswordRetrieveResponse
+			Expect(call(
+				"/api/v1/auth/password/retrieve",
+				token,
+				apiauth.PasswordRetrieveRequest{},
+				&res,
+			)).To(Equal(http.StatusOK))
+			Expect(res.Passwords).To(ConsistOf(HaveField("Username", creds.Username)))
+			Expect(call(
+				"/api/v1/auth/password/rename",
+				token,
+				apiauth.PasswordRenameRequest{},
+				nil,
+			)).To(Equal(http.StatusBadRequest))
+		})
 		It("Should refuse a first password for a caller that has one", func() {
 			token := login(auth.Proof{Variant: auth.PasswordProof{Credentials: creds}})
 			Expect(call(

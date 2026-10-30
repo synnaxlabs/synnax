@@ -145,6 +145,42 @@ const passwordSetReqZ = z.object({
 });
 const passwordSetResZ = z.object({ token: z.string(), session: sessionZ.optional() });
 
+const passwordZ = z.object({
+  /** subject is the user the password logs in as. */
+  subject: ontology.idZ,
+  /** username is the name the password logs in with. */
+  username: z.string(),
+});
+/** Password is a password as the API returns it: its subject and username. */
+export interface Password extends z.infer<typeof passwordZ> {}
+
+export interface RetrievePasswordsParams {
+  /** The users whose passwords to list. */
+  subjects?: ontology.ID[];
+  /** The usernames of the passwords to list. */
+  usernames?: string[];
+}
+
+const passwordRetrieveReqZ = z.object({
+  subjects: ontology.idZ.array().optional(),
+  usernames: z.string().array().optional(),
+});
+const passwordRetrieveResZ = z.object({
+  passwords: passwordZ.array().default(() => []),
+});
+
+export interface RenamePasswordParams {
+  /** The user whose password to rename. Defaults to the caller. */
+  subject?: ontology.ID;
+  /** The new username. */
+  username: string;
+}
+
+const passwordRenameReqZ = z.object({
+  subject: ontology.idZ.optional(),
+  username: z.string(),
+});
+
 // the login route a Core without sessions serves; kept for one release
 const METHODS_ENDPOINT = "/auth/methods";
 const LEGACY_LOGIN_ENDPOINT = "/auth/login";
@@ -169,6 +205,8 @@ const OIDC_RETRIEVE_ENDPOINT = "/auth/oidc/retrieve";
 const OIDC_UNLINK_ENDPOINT = "/auth/oidc/unlink";
 const PASSWORD_CREATE_ENDPOINT = "/auth/password/create";
 const PASSWORD_SET_ENDPOINT = "/auth/password/set";
+const PASSWORD_RETRIEVE_ENDPOINT = "/auth/password/retrieve";
+const PASSWORD_RENAME_ENDPOINT = "/auth/password/rename";
 
 // routes the Core serves without a token, so a request to one never logs in
 const TOKENLESS_ENDPOINTS = [
@@ -571,6 +609,41 @@ export class Client {
     this.authState = { authenticated: true, token: res.token, session: res.session };
     if (this.resumeToken != null) this.resumeToken = res.token;
     this.observer.onSuccess?.(res.session.key);
+  }
+
+  /**
+   * Lists passwords without their hashes: the caller's own by default, or those of the
+   * given users or usernames when the caller may retrieve their users. Unknown users
+   * and usernames are ignored.
+   * @throws {AccessDeniedError} when the caller may not retrieve another user.
+   */
+  async retrievePasswords(params: RetrievePasswordsParams = {}): Promise<Password[]> {
+    const res = await this.client.send(
+      PASSWORD_RETRIEVE_ENDPOINT,
+      params,
+      passwordRetrieveReqZ,
+      passwordRetrieveResZ,
+    );
+    return res.passwords;
+  }
+
+  /**
+   * Changes the username of the caller's password, or of another user's when the caller
+   * may update that user. Sessions stay open.
+   * @throws {AuthError} when another user holds the username.
+   * @throws {AccessDeniedError} when the caller may not update the user.
+   * @throws {NotFoundError} when the user has no password.
+   * @throws {ValidationError} when the username is empty.
+   */
+  async renamePassword(params: RenamePasswordParams): Promise<void> {
+    await this.client.send(
+      PASSWORD_RENAME_ENDPOINT,
+      params,
+      passwordRenameReqZ,
+      emptyResZ,
+    );
+    const own = params.subject == null || params.subject.key === this.subject?.key;
+    if (own && this.credentials != null) this.credentials.username = params.username;
   }
 
   /**

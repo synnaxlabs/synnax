@@ -79,6 +79,8 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.AuthOIDCRetrieve = noop.UnaryServer[apiauth.OIDCRetrieveRequest, apiauth.OIDCRetrieveResponse]{}
 	t.AuthOIDCUnlink = noop.UnaryServer[apiauth.OIDCUnlinkRequest, struct{}]{}
 	t.AuthPasswordCreate = noop.UnaryServer[apiauth.PasswordCreateRequest, struct{}]{}
+	t.AuthPasswordRetrieve = noop.UnaryServer[apiauth.PasswordRetrieveRequest, apiauth.PasswordRetrieveResponse]{}
+	t.AuthPasswordRename = noop.UnaryServer[apiauth.PasswordRenameRequest, struct{}]{}
 	t.AuthPasswordSet = noop.UnaryServer[
 		apiauth.PasswordSetRequest,
 		apiauth.PasswordSetResponse,
@@ -98,7 +100,6 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 
 	// USER
 	t.UserRename = noop.UnaryServer[user.RenameRequest, struct{}]{}
-	t.UserChangeUsername = noop.UnaryServer[user.ChangeUsernameRequest, struct{}]{}
 	t.UserCreate = noop.UnaryServer[user.CreateRequest, user.CreateResponse]{}
 	t.UserDelete = noop.UnaryServer[user.DeleteRequest, struct{}]{}
 	t.UserRetrieve = noop.UnaryServer[user.RetrieveRequest, user.RetrieveResponse]{}

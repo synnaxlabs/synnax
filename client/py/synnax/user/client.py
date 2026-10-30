@@ -29,7 +29,6 @@ class _CreateResponse(BaseModel):
 
 class _RetrieveRequest(BaseModel):
     keys: list[UUID] | None = None
-    usernames: list[str] | None = None
 
 
 class _RetrieveResponse(BaseModel):
@@ -38,11 +37,6 @@ class _RetrieveResponse(BaseModel):
 
 class _DeleteRequest(BaseModel):
     keys: list[UUID]
-
-
-class _ChangeUsernameRequest(BaseModel):
-    key: UUID
-    username: str
 
 
 class _ChangeNameRequest(BaseModel):
@@ -91,13 +85,6 @@ class Client:
             return res[0]
         return res
 
-    def change_username(self, key: UUID, username: str) -> None:
-        self.client.send(
-            "/user/change-username",
-            _ChangeUsernameRequest(key=key, username=username),
-            Empty,
-        )
-
     def change_name(self, key: UUID, *, name: str) -> None:
         self.client.send("/user/rename", _ChangeNameRequest(key=key, name=name), Empty)
 
@@ -107,36 +94,23 @@ class Client:
     @overload
     def retrieve(self, *, keys: list[UUID]) -> list[User]: ...
 
-    @overload
-    def retrieve(self, *, username: str) -> User: ...
-
-    @overload
-    def retrieve(self, *, usernames: list[str]) -> list[User]: ...
-
-    @require_named_params(example_params=("username", "synnax"))
+    @require_named_params(example_params=("key", "UUID('...')"))
     def retrieve(
         self,
         *,
         key: UUID | None = None,
         keys: list[UUID] | None = None,
-        username: str | None = None,
-        usernames: list[str] | None = None,
     ) -> User | list[User]:
         if key is not None:
             keys = normalize(key)
-        if username is not None:
-            usernames = normalize(username)
-        single = key is not None or username is not None
         res = self.client.send(
-            "/user/retrieve",
-            _RetrieveRequest(keys=keys, usernames=usernames),
-            _RetrieveResponse,
+            "/user/retrieve", _RetrieveRequest(keys=keys), _RetrieveResponse
         )
         users = res.users
-        if not single:
+        if key is None:
             return users
         if len(users) == 0:
-            raise NotFoundError(f"User matching {key or username} not found")
+            raise NotFoundError(f"User {key} not found")
         return users[0]
 
     def delete(self, keys: UUID | list[UUID] | None = None) -> None:

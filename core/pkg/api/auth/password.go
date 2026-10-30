@@ -171,3 +171,99 @@ func (s *Service) SetPassword(
 		Session: &session,
 	}, nil
 }
+
+// Password is a password as the API returns it: its subject and username, without its
+// hash.
+type Password struct {
+	// Subject is the user the password logs in as.
+	Subject ontology.ID `json:"subject" msgpack:"subject"`
+	// Username is the name the password logs in with.
+	Username string `json:"username" msgpack:"username"`
+}
+
+// PasswordRetrieveRequest selects passwords to list. Empty fields mean the caller's.
+type PasswordRetrieveRequest struct {
+	// Subjects limits the result to these subjects' passwords.
+	Subjects []ontology.ID `json:"subjects" msgpack:"subjects"`
+	// Usernames limits the result to the passwords with these usernames.
+	Usernames []string `json:"usernames" msgpack:"usernames"`
+}
+
+// PasswordRetrieveResponse lists passwords without their hashes.
+type PasswordRetrieveResponse struct {
+	// Passwords are the passwords that matched.
+	Passwords []Password `json:"passwords" msgpack:"passwords"`
+}
+
+// RetrievePasswords lists the caller's password, or the passwords of the given subjects
+// or usernames when the caller may retrieve their subjects. Unknown subjects and
+// usernames are ignored.
+func (s *Service) RetrievePasswords(
+	ctx context.Context,
+	req PasswordRetrieveRequest,
+) (PasswordRetrieveResponse, error) {
+	caller := GetSubject(ctx)
+	q := s.password.NewRetrieve()
+	if len(req.Subjects) == 0 && len(req.Usernames) == 0 {
+		q = q.Where(password.MatchSubjects(caller))
+	}
+	if len(req.Subjects) > 0 {
+		q = q.Where(password.MatchSubjects(req.Subjects...))
+	}
+	if len(req.Usernames) > 0 {
+		q = q.Where(password.MatchUsernames(req.Usernames...))
+	}
+	var passwords []password.Password
+	if err := q.Entries(&passwords).Exec(ctx, nil); err != nil {
+		return PasswordRetrieveResponse{}, err
+	}
+	res := lo.Map(passwords, func(p password.Password, _ int) Password {
+		return Password{Subject: p.Subject, Username: p.Username}
+	})
+	if err := s.enforceOthers(
+		ctx,
+		caller,
+		access.ActionRetrieve,
+		lo.Map(res, func(p Password, _ int) ontology.ID { return p.Subject }),
+	); err != nil {
+		return PasswordRetrieveResponse{}, err
+	}
+	return PasswordRetrieveResponse{Passwords: res}, nil
+}
+
+// PasswordRenameRequest changes the username of a password.
+type PasswordRenameRequest struct {
+	// Subject is the user whose password to rename. Empty means the caller.
+	Subject ontology.ID `json:"subject" msgpack:"subject"`
+	// Username is the new username.
+	Username string `json:"username" msgpack:"username"`
+}
+
+// RenamePassword changes the username of the caller's password, or of another user's
+// when the caller may update that user. Sessions stay open. It returns
+// [auth.ErrRepeatedUsername] when another user holds the username, a validation error
+// when the password method is off or the username is empty, and an error wrapping
+// query.ErrNotFound when the user has no password.
+func (s *Service) RenamePassword(
+	ctx context.Context,
+	tx gorp.Tx,
+	req PasswordRenameRequest,
+) (struct{}, error) {
+	if err := s.auth.Accepts(auth.MethodPassword); err != nil {
+		return struct{}{}, err
+	}
+	if req.Username == "" {
+		return struct{}{}, errors.Wrap(validate.ErrValidation, "username: required")
+	}
+	caller := GetSubject(ctx)
+	subject := lo.Ternary(req.Subject.IsZero(), caller, req.Subject)
+	if err := s.enforceOthers(
+		ctx,
+		caller,
+		access.ActionUpdate,
+		[]ontology.ID{subject},
+	); err != nil {
+		return struct{}{}, err
+	}
+	return struct{}{}, s.password.NewWriter(tx).Rename(ctx, subject, req.Username)
+}
