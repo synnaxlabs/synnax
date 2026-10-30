@@ -36,6 +36,8 @@ func (p Proof) method() (Method, error) {
 		return MethodPassword, nil
 	case APIKeyProof:
 		return MethodAPIKey, nil
+	case OIDCProof:
+		return MethodOIDC, nil
 	}
 	return "", errors.Wrapf(
 		validate.ErrValidation,
