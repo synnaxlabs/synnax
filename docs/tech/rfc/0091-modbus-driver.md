@@ -73,10 +73,11 @@ port for RTU. Tasks and the scanner share it through a `weak_ptr` cache. The OPC
 `connection::Pool` lends each idle connection to one user at a time
 (`driver/opcua/connection/connection.h:146`). Modbus shares one connection instead,
 because a serial port has one owner and small PLCs allow few sockets. Requests take
-turns, and a waiting write goes before waiting reads. Each request sets its unit first
-with `modbus_set_slave`. A device whose serial settings differ from the connection's
-fails at start. The connection opens at the first request, so a task starts while its
-server is off, and its reads retry until the server answers.
+turns. A waiting write goes before waiting reads, but not twice in a row while a read
+waits. Each request sets its unit first with `modbus_set_slave`. A device whose serial
+settings differ from the connection's fails at start. The connection opens at the first
+request, so a task starts while its server is off, and its reads retry until the server
+answers.
 
 A temporary error (§2.4) retries at once, up to `retries` times. A socket error closes
 the connection, and the next attempt reconnects. A timeout does not close it, because
@@ -142,7 +143,8 @@ valid offset.
 The scanner probes each device on the shared connection with a one-register read at
 address 0, unless a task got a reply within the scan period. Any reply, an exception
 included, shows that the unit answers. A timeout, exception 0A, or exception 0B marks it
-unreachable.
+unreachable. A probe waits at most 10 seconds for its turn, so a connection that other
+units keep busy fails the probe with that reason before the Console's deadline.
 
 Each connection counts requests, retries, timeouts, and exceptions for each unit, and
 keeps the last and maximum response time. The scanner reports them in the Modbus

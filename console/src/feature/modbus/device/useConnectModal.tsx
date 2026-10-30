@@ -41,15 +41,19 @@ import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
 
+// Matches PROBE_WAIT in the Driver: how long a probe waits for its turn on a connection
+// that other units' requests keep busy.
+const PROBE_WAIT = TimeSpan.seconds(10);
+
 // The base covers the command round trip. Each attempt can spend one timeout to connect
 // and one to wait for the reply.
 const testConnectionTimeout = (
   { timeoutMs, retries }: Connection,
   delayMs: number,
 ): TimeSpan =>
-  TimeSpan.seconds(10).add(
-    TimeSpan.milliseconds((retries + 1) * (2 * timeoutMs + delayMs)),
-  );
+  TimeSpan.seconds(10)
+    .add(PROBE_WAIT)
+    .add(TimeSpan.milliseconds((retries + 1) * (2 * timeoutMs + delayMs)));
 
 const INITIAL_VALUES: Device = {
   key: "",
