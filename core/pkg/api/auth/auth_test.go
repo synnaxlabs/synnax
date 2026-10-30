@@ -68,7 +68,7 @@ func createUser(ctx context.Context, username, pwd string) user.User {
 
 func passwordProof(username, pwd string) auth.Proof {
 	return auth.Proof{Variant: auth.PasswordProof{
-		Credentials: auth.Credentials{Username: username, Password: pwd},
+		Username: username, Password: pwd,
 	}}
 }
 
@@ -195,6 +195,19 @@ var _ = Describe("Disabled methods", func() {
 			apiauth.PasswordSetRequest{Password: "new", CurrentPassword: own.Password},
 		)).Error().To(MatchError(validate.ErrValidation))
 		MustSucceed(passwordSvc.Authenticate(ctx, passwordProof(own.Username, "old")))
+	})
+	It("Should refuse to create a password", func(ctx SpecContext) {
+		u := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
+			Name: "nopass-" + uuid.New().String(),
+		}))
+		Expect(disabled(ctx, auth.MethodPassword).CreatePassword(
+			requestCtx(ctx),
+			nil,
+			apiauth.PasswordCreateRequest{
+				Subject:  u.OntologyID(),
+				Username: u.Name, Password: "p",
+			},
+		)).Error().To(MatchError(validate.ErrValidation))
 	})
 	It("Should refuse a new API key", func(ctx SpecContext) {
 		Expect(disabled(ctx, auth.MethodAPIKey).CreateKey(
@@ -397,6 +410,86 @@ var _ = Describe("SetPassword", func() {
 		Expect(set(ctx, rootToken, apiauth.PasswordSetRequest{
 			Subject: bob.OntologyID(),
 		})).Error().To(MatchError(ContainSubstring("password: required")))
+	})
+})
+
+var _ = Describe("CreatePassword", func() {
+	var (
+		bobToken  string
+		rootToken string
+		nopass    user.User
+	)
+	create := func(
+		ctx context.Context,
+		token string,
+		req apiauth.PasswordCreateRequest,
+	) (struct{}, error) {
+		return apiSvc.CreatePassword(authed(ctx, token), nil, req)
+	}
+	login := func(ctx context.Context, username, pwd string) string {
+		GinkgoHelper()
+		return MustSucceed(apiSvc.CreateSession(
+			requestCtx(ctx),
+			apiauth.SessionCreateRequest{Proof: passwordProof(username, pwd)},
+		)).Token
+	}
+	BeforeEach(func(ctx SpecContext) {
+		bob := createUser(ctx, "bob-"+uuid.New().String(), "old")
+		bobToken = login(ctx, bob.Name, "old")
+		rootToken = login(ctx, creds.Username, creds.Password)
+		nopass = MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
+			Name: "nopass-" + uuid.New().String(),
+		}))
+	})
+	It("Should let the owner give a user its first password", func(ctx SpecContext) {
+		Expect(create(ctx, rootToken, apiauth.PasswordCreateRequest{
+			Subject:  nopass.OntologyID(),
+			Username: nopass.Name, Password: "p",
+		})).Error().ToNot(HaveOccurred())
+		login(ctx, nopass.Name, "p")
+	})
+	It("Should deny a user giving another user a password", func(ctx SpecContext) {
+		Expect(create(ctx, bobToken, apiauth.PasswordCreateRequest{
+			Subject:  nopass.OntologyID(),
+			Username: nopass.Name, Password: "p",
+		})).Error().To(MatchError(access.ErrDenied))
+	})
+	It("Should refuse a user that already has a password", func(ctx SpecContext) {
+		Expect(create(ctx, bobToken, apiauth.PasswordCreateRequest{
+			Username: "other", Password: "new",
+		})).Error().To(MatchError(ContainSubstring("already has a password")))
+	})
+	It("Should refuse a username another user holds", func(ctx SpecContext) {
+		Expect(create(ctx, rootToken, apiauth.PasswordCreateRequest{
+			Subject:  nopass.OntologyID(),
+			Username: creds.Username, Password: "p",
+		})).Error().To(MatchError(auth.ErrRepeatedUsername))
+	})
+	It("Should reject a subject that is not a user", func(ctx SpecContext) {
+		Expect(create(ctx, rootToken, apiauth.PasswordCreateRequest{
+			Subject:  ontology.ID{Type: ontology.ResourceTypeRack, Key: "1"},
+			Username: "rack", Password: "p",
+		})).Error().To(MatchError(validate.ErrValidation))
+	})
+	It("Should report a user that does not exist as not found", func(
+		ctx SpecContext,
+	) {
+		Expect(create(ctx, rootToken, apiauth.PasswordCreateRequest{
+			Subject:  user.OntologyID(uuid.New()),
+			Username: "ghost", Password: "p",
+		})).Error().To(MatchError(query.ErrNotFound))
+	})
+	It("Should reject an empty password", func(ctx SpecContext) {
+		Expect(create(ctx, rootToken, apiauth.PasswordCreateRequest{
+			Subject:  nopass.OntologyID(),
+			Username: nopass.Name,
+		})).Error().To(MatchError(ContainSubstring("password: required")))
+	})
+	It("Should reject an empty username", func(ctx SpecContext) {
+		Expect(create(ctx, rootToken, apiauth.PasswordCreateRequest{
+			Subject:  nopass.OntologyID(),
+			Password: "p",
+		})).Error().To(MatchError(ContainSubstring("username: required")))
 	})
 })
 
