@@ -28,19 +28,6 @@
     }
 }
 
-/* In a tag, the editor reads as the tag's own text, so the tag keeps its height. */
-.lyra-tag .lyra-time-editor {
-    & .lyra-time-editor__trigger {
-        min-height: 0;
-        height: auto;
-        padding: 0;
-    }
-
-    & .lyra-timespan__label {
-        color: inherit;
-    }
-}
-
 /* A fixed width, so the dialog holds still while the readings change under it. */
 .lyra-time-editor__dialog {
     --pluto-time-editor-width: min(56rem, calc(100vw - 4rem));

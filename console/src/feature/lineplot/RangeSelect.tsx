@@ -30,7 +30,7 @@ import {
   TimeRange,
   TimeSpan,
 } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { type ReactElement, useState } from "react";
 
 import { CSS } from "@/platform/css";
 import { Range } from "@/platform/range";
@@ -87,22 +87,13 @@ const favoriteItem = Component.renderProp(FavoriteItem);
 interface RollingTagProps {
   itemKey: string;
   window: DynamicWindow;
-  onChange: (span: TimeSpan) => void;
 }
 
-const RollingTag = ({ itemKey, window, onChange }: RollingTagProps): ReactElement => {
+const RollingTag = ({ itemKey, window }: RollingTagProps): ReactElement => {
   const { onSelect } = Select.useItemState(itemKey);
   return (
     <Tag.Tag icon={liveIcon} onClose={onSelect} level="small" size="small">
-      <Input.TimeSpan
-        value={window.timeSpan}
-        onChange={(span) => {
-          const next = new TimeSpan(span);
-          if (!next.isZero) onChange(next);
-        }}
-        variant="text"
-        size="small"
-      />
+      {new TimeSpan(window.timeSpan).toString()}
     </Tag.Tag>
   );
 };
@@ -237,7 +228,8 @@ export interface RangeSelectProps extends Omit<
 
 /**
  * Selects what the plot shows: at most one rolling window, favorite ranges, and static
- * windows. Each window's tag edits the window in place.
+ * windows. A duration typed into the search sets the rolling window on Enter, and a
+ * static window's tag edits the window in place.
  */
 export const RangeSelect = (props: RangeSelectProps): ReactElement => {
   const refs = LinePlot.useRanges();
@@ -246,6 +238,7 @@ export const RangeSelect = (props: RangeSelectProps): ReactElement => {
   const favorites = Range.useResolveMultiple().filter((r) => r.variant !== "dynamic");
   const { data, retrieve } = List.useStaticData<string>({ data: favorites });
   const { fetchMore, search } = List.usePager({ retrieve });
+  const [term, setTerm] = useState("");
   const entries = refs.map((ref): Entry => ({
     ref,
     key:
@@ -286,14 +279,7 @@ export const RangeSelect = (props: RangeSelectProps): ReactElement => {
     const { ref } = entry;
     if (ref.variant === "key") return <KeyTag key={itemKey} range={ref} />;
     if (ref.window.variant === "dynamic")
-      return (
-        <RollingTag
-          key={itemKey}
-          itemKey={itemKey}
-          window={ref.window}
-          onChange={(next) => replace(ref, rollingRef(next))}
-        />
-      );
+      return <RollingTag key={itemKey} itemKey={itemKey} window={ref.window} />;
     const state = states.find((s) => s.key === itemKey);
     return (
       <StaticTag
@@ -327,7 +313,23 @@ export const RangeSelect = (props: RangeSelectProps): ReactElement => {
             {renderTag}
           </Select.MultipleTrigger>
           <Select.Dialog>
-            <Select.Search placeholder="Search favorites" onSearch={search} />
+            <Flex.Box
+              y
+              empty
+              onKeyDown={(e) => {
+                if (e.key !== "Enter") return;
+                const typed = TimeSpan.parse(term);
+                if (typed != null && !typed.isZero) setRolling(typed);
+              }}
+            >
+              <Select.Search
+                placeholder="Search favorites or type a duration"
+                onSearch={(next) => {
+                  setTerm(next);
+                  search(next);
+                }}
+              />
+            </Flex.Box>
             <LiveRow span={span} onChange={setRolling} />
             <Select.List bordered borderColor={6} grow rounded full="x">
               <Select.Items<string> emptyContent={emptyContent}>

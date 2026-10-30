@@ -54,7 +54,7 @@ const label = (span: TimeSpan): string => span.toString();
 
 const openSearch = (): HTMLElement => {
   fireEvent.click(screen.getByRole("button", { name: "Ranges" }));
-  return screen.getByPlaceholderText("Search favorites");
+  return screen.getByPlaceholderText("Search favorites or type a duration");
 };
 
 const search = (term: string): void => {
@@ -127,24 +127,32 @@ describe("lineplot/toolbar/Data", () => {
       await expectRanges(key, []);
     });
 
-    it("edits the window from its tag", async () => {
-      const { key } = await renderData([rolling(FORTY_FIVE_MIN)]);
-      fireEvent.click(await screen.findByText(label(FORTY_FIVE_MIN)));
-      const field = screen.getByRole("textbox");
-      fireEvent.change(field, { target: { value: "10m" } });
-      fireEvent.keyDown(field, { key: "Enter" });
-      await expectRanges(key, [rolling(TimeSpan.minutes(10))]);
+    it("sets the window to a duration typed into the search on Enter", async () => {
+      const { key } = await renderData([rolling(FIVE_MIN)]);
+      const input = openSearch();
+      fireEvent.change(input, { target: { value: "45m" } });
+      fireEvent.keyDown(input, { key: "Enter" });
+      await expectRanges(key, [rolling(FORTY_FIVE_MIN)]);
     });
 
-    it("keeps the stored window when its tag is set to zero", async () => {
-      const { key } = await renderData([rolling(FORTY_FIVE_MIN)]);
-      fireEvent.click(await screen.findByText(label(FORTY_FIVE_MIN)));
-      const field = screen.getByRole("textbox");
-      fireEvent.change(field, { target: { value: "0s" } });
-      fireEvent.keyDown(field, { key: "Enter" });
-      expect(await screen.findByText(label(FORTY_FIVE_MIN))).toBeDefined();
+    it("lists no option for a duration typed into the search", async () => {
+      await renderData([]);
+      search("45m");
+      expect(screen.queryAllByRole("option")).toHaveLength(0);
+    });
+
+    it("ignores Enter when the search is not a duration", async () => {
+      const { key } = await renderData([rolling(FIVE_MIN)]);
+      const input = openSearch();
+      for (const value of ["0s", "banana"]) {
+        fireEvent.change(input, { target: { value } });
+        fireEvent.keyDown(input, { key: "Enter" });
+      }
+      expect(
+        await screen.findByText(label(FIVE_MIN), { selector: "span" }),
+      ).toBeDefined();
       expect((await reader.lineplots.retrieve(key)).ranges).toEqual([
-        rolling(FORTY_FIVE_MIN),
+        rolling(FIVE_MIN),
       ]);
     });
 
@@ -164,7 +172,7 @@ describe("lineplot/toolbar/Data", () => {
     it("clears the window when its tag is closed", async () => {
       const { key } = await renderData([rolling(FORTY_FIVE_MIN)]);
       await screen.findByText(label(FORTY_FIVE_MIN));
-      fireEvent.click(screen.getByRole("button", { name: "Remove" }));
+      fireEvent.click(findTagCloseButton(label(FORTY_FIVE_MIN)));
       await expectRanges(key, []);
     });
   });
