@@ -161,10 +161,16 @@ const std::vector<Pairing> PAIRINGS = {
 
 /// @brief the range of the task that reads back a default terminal configuration, for a
 /// device that lists no voltage ranges.
-const Range FALLBACK_RANGE = {.low = -10, .high = 10};
+const Range FALLBACK_VOLTAGE_RANGE = {.low = -10, .high = 10};
+/// @brief like FALLBACK_VOLTAGE_RANGE, for a device that lists no current ranges.
+const Range FALLBACK_CURRENT_RANGE = {.low = -0.02, .high = 0.02};
+/// @brief the shunt resistance of a current readback channel, in ohms. DAQmx uses it
+/// only when the default shunt of the port is external.
+const float64 EXTERNAL_SHUNT_RESISTANCE = 249;
 
 const std::string PRODUCT_TYPE_PREFIX = "NI ";
 const std::string AI_VOLTAGE = "ai_voltage";
+const std::string AI_CURRENT = "ai_current";
 const std::string RSE = ::synnax::ni::TERMINAL_CONFIG_RSE;
 const std::string DIFF = ::synnax::ni::TERMINAL_CONFIG_DIFF;
 
@@ -299,25 +305,64 @@ x::errors::Error read_ranges(
 }
 
 /// @brief whether probe reads the default terminal configuration of the port back from
-/// a task, because the port accepts more than one.
+/// a task: the port accepts more than one, and takes a voltage or current channel.
 bool reads_back_default(const AnalogInputPort &ai) {
-    return contains(ai.types, AI_VOLTAGE) && ai.terminal_configs.size() > 1;
+    return ai.terminal_configs.size() > 1 &&
+           (contains(ai.types, AI_VOLTAGE) || contains(ai.types, AI_CURRENT));
 }
 
-/// @brief reads back what Cfg_Default gives on a port that accepts more than one
-/// terminal configuration. A failure leaves the default unknown and does not fail the
-/// probe.
+/// @brief returns the narrowest of the ranges, which is valid in every terminal
+/// configuration.
+Range narrowest(const std::vector<Range> &ranges, const Range &fallback) {
+    if (ranges.empty()) return fallback;
+    return std::ranges::min(ranges, {}, [](const Range &r) { return r.high - r.low; });
+}
+
+/// @brief adds a channel with Cfg_Default on the port to the task: a voltage channel
+/// when the port takes one, else a current channel.
+x::errors::Error add_readback_channel(
+    daqmx::SugaredAPI &dmx,
+    const TaskHandle task,
+    const Port &port,
+    const AnalogInputPort &ai,
+    const Hardware &hw
+) {
+    if (contains(ai.types, AI_VOLTAGE)) {
+        const auto range = narrowest(hw.ai_voltage_ranges, FALLBACK_VOLTAGE_RANGE);
+        return dmx.CreateAIVoltageChan(
+            task,
+            port.name.c_str(),
+            "",
+            DAQmx_Val_Cfg_Default,
+            range.low,
+            range.high,
+            DAQmx_Val_Volts,
+            nullptr
+        );
+    }
+    const auto range = narrowest(hw.ai_current_ranges, FALLBACK_CURRENT_RANGE);
+    return dmx.CreateAICurrentChan(
+        task,
+        port.name.c_str(),
+        "",
+        DAQmx_Val_Cfg_Default,
+        range.low,
+        range.high,
+        DAQmx_Val_Amps,
+        DAQmx_Val_Default,
+        EXTERNAL_SHUNT_RESISTANCE,
+        nullptr
+    );
+}
+
+/// @brief reads back what Cfg_Default gives on a port where reads_back_default holds. A
+/// failure leaves the default unknown and does not fail the probe.
 std::optional<std::string> read_default_terminal_config(
     daqmx::SugaredAPI &dmx,
     const Port &port,
-    const std::vector<Range> &voltage_ranges
+    const AnalogInputPort &ai,
+    const Hardware &hw
 ) {
-    // The narrowest range is valid in every terminal configuration.
-    auto range = FALLBACK_RANGE;
-    if (!voltage_ranges.empty())
-        range = std::ranges::min(voltage_ranges, {}, [](const Range &r) {
-            return r.high - r.low;
-        });
     // The scanner warns about the missing default, so these failures log at VLOG(1).
     TaskHandle task = nullptr;
     if (const auto err = dmx.CreateTask("", &task)) {
@@ -326,16 +371,7 @@ std::optional<std::string> read_default_terminal_config(
         return std::nullopt;
     }
     int32 config = 0;
-    auto err = dmx.CreateAIVoltageChan(
-        task,
-        port.name.c_str(),
-        "",
-        DAQmx_Val_Cfg_Default,
-        range.low,
-        range.high,
-        DAQmx_Val_Volts,
-        nullptr
-    );
+    auto err = add_readback_channel(dmx, task, port, ai, hw);
     if (!err)
         err = dmx.GetChanAttributeInt32(
             task,
@@ -394,9 +430,10 @@ read_analog_inputs(daqmx::SugaredAPI &dmx, const std::string &device, Hardware &
             ai.default_terminal_config = read_default_terminal_config(
                 dmx,
                 port,
-                hw.ai_voltage_ranges
+                ai,
+                hw
             );
-        else if (contains(ai.types, AI_VOLTAGE) && ai.terminal_configs.size() == 1)
+        else if (ai.terminal_configs.size() == 1)
             ai.default_terminal_config = ai.terminal_configs.front();
         hw.analog_inputs.push_back(std::move(ai));
     }

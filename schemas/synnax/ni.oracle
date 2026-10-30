@@ -1449,7 +1449,8 @@ AnalogInputPort struct {
     default_terminal_config TerminalConfig?  {
         @doc value """
             is the terminal configuration that Cfg_Default gives on the port. Absent
-            when the port takes no voltage channel.
+            when the port accepts none, or accepts more than one and takes no voltage or
+            current channel.
         """
     }
     types                   string[] = [] {

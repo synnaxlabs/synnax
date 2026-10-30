@@ -757,7 +757,8 @@ type AnalogInputPort struct {
 	// TerminalConfigs are the terminal configurations that the port accepts.
 	TerminalConfigs []TerminalConfig `json:"terminal_configs" msgpack:"terminal_configs"`
 	// DefaultTerminalConfig is the terminal configuration that Cfg_Default gives on the
-	// port. Absent when the port takes no voltage channel.
+	// port. Absent when the port accepts none, or accepts more than one and takes no
+	// voltage or current channel.
 	DefaultTerminalConfig *TerminalConfig `json:"default_terminal_config,omitzero" msgpack:"default_terminal_config,omitempty"`
 	// Types are the channel types that the port accepts, such as ai_voltage.
 	Types []string `json:"types" msgpack:"types"`
