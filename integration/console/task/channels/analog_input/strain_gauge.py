@@ -18,7 +18,8 @@ class StrainGauge(Analog):
     Strain Gauge channel type for NI analog read tasks.
 
     Supported kwargs (in addition to Analog base kwargs):
-        strain_configuration (str): "Full bridge I", "Full bridge II", "Full bridge III", "Half bridge I", "Half bridge II", "Quarter bridge I"
+        strain_configuration (str): "Full bridge I", "Full bridge II",
+            "Full bridge III", "Half bridge I", "Half bridge II", "Quarter bridge I"
         excitation_source (str): "Internal", "External", "None"
         excitation_value (float): Voltage excitation value
         gage_factor (float): Gage factor value
@@ -37,6 +38,7 @@ class StrainGauge(Analog):
 
     def __init__(
         self,
+        *,
         layout: LayoutClient,
         name: str,
         device: str,

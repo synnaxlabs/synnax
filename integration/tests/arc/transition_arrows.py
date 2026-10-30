@@ -44,14 +44,14 @@ class TransitionArrows(ArcCase):
     subscribe_channels = ["ta_state"]
 
     def setup(self) -> None:
-        create_virtual_channel(self.client, "ta_abort_cmd", sy.DataType.UINT8)
-        create_virtual_channel(self.client, "ta_state", sy.DataType.UINT8)
+        create_virtual_channel(self.client, "ta_abort_cmd", data_type=sy.DataType.UINT8)
+        create_virtual_channel(self.client, "ta_state", data_type=sy.DataType.UINT8)
         super().setup()
         self.set_manual_timeout(60)
 
     def run(self) -> None:
         self._retrieve_rack()
-        self.arc_name = self.load_arc(self.arc_source, self.arc_name_prefix)
+        self.arc_name = self.load_arc(self.arc_source, name_prefix=self.arc_name_prefix)
         self.verify_sequence_execution()
 
     def verify_sequence_execution(self) -> None:
@@ -59,8 +59,7 @@ class TransitionArrows(ArcCase):
         self.writer.write("ta_start_cmd", 0)
         sy.sleep(2.0)
         state = self.read_tlm("ta_state")
-        # The streamer reports 0 until the first write arrives; Arc writes only 1 or 2.
-        if state != 0:
+        if state is not None:
             self.fail(f"ta_state={state} after ta_start_cmd=0; main started on false")
             return
 

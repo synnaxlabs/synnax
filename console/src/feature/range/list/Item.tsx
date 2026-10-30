@@ -11,14 +11,13 @@ import { ranger } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Haul } from "@synnaxlabs/lyra/haul";
-import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Tag } from "@synnaxlabs/lyra/tag";
 import { Telem } from "@synnaxlabs/lyra/telem";
 import { Access, Ranger } from "@synnaxlabs/pluto";
 import { type NumericTimeRange } from "@synnaxlabs/x";
-import { memo, type MouseEvent } from "react";
+import { memo } from "react";
 
 import { CSS } from "@/platform/css";
 import { Panel } from "@/platform/panel";
@@ -40,7 +39,6 @@ const Base = ({
   ...props
 }: ItemProps) => {
   const { itemKey } = props;
-  const { onSelect, onHover, selected, hovered } = Select.useItemState(itemKey);
   const openTab = Panel.useOpenTab();
   const item = List.useItem<ranger.Key, ranger.Range>(itemKey);
   const canEdit = Access.useUpdateGranted(ranger.ontologyID(itemKey));
@@ -65,59 +63,41 @@ const Base = ({
 
   const { name, parent, labels, timeRange } = item;
 
-  const handleSelect = (_: ranger.Key, e: MouseEvent<HTMLElement>) => {
-    if (Select.hasModifier(e)) onSelect();
-    else openTab({ variant: "resource", resource: ranger.ontologyID(itemKey) });
-  };
+  const handleActivate = () =>
+    openTab({ variant: "resource", resource: ranger.ontologyID(itemKey) });
 
   return (
-    <List.Item
-      className={CSS.cls(CSS.BE("range", "list-item"))}
+    <Select.Item<ranger.Key>
+      className={CSS.BE("range", "list-item")}
       aria-label={name}
-      onSelect={handleSelect}
+      checkable
+      onActivate={handleActivate}
       draggable
       onDragStart={() => startDrag([Ranger.createHaulItem(item.payload)])}
       onDragEnd={onDragEnd}
       justify="between"
-      selected={selected}
-      hovered={hovered}
-      onHover={onHover}
       {...props}
     >
       <Form.Form<typeof Ranger.formSchema> {...form}>
-        <Flex.Box x empty>
-          <Input.Checkbox
-            value={selected}
-            onChange={onSelect}
-            size="medium"
-            variant="text"
-            reveal={!selected}
-            aria-label="Select"
+        <Flex.Box x align="center" gap="tiny" grow>
+          <Form.Field<NumericTimeRange> path="timeRange" showHelpText showLabel={false}>
+            {({ value, onChange }) => (
+              <Ranger.StageButton
+                value={value}
+                onChange={onChange}
+                iconOnly
+                disabled={!canEdit}
+              />
+            )}
+          </Form.Field>
+          <Ranger.Breadcrumb
+            name={name}
+            parent={parent}
+            showParent={showParent}
+            overflow="nowrap"
+            nameID={List.itemNameID(itemKey)}
+            onRename={canEdit ? (name) => rename({ key: itemKey, name }) : undefined}
           />
-          <Flex.Box x align="center" gap="tiny">
-            <Form.Field<NumericTimeRange>
-              path="timeRange"
-              showHelpText
-              showLabel={false}
-            >
-              {({ value, onChange }) => (
-                <Ranger.StageButton
-                  value={value}
-                  onChange={onChange}
-                  iconOnly
-                  disabled={!canEdit}
-                />
-              )}
-            </Form.Field>
-            <Ranger.Breadcrumb
-              name={name}
-              parent={parent}
-              showParent={showParent}
-              overflow="nowrap"
-              nameID={List.itemNameID(itemKey)}
-              onRename={canEdit ? (name) => rename({ key: itemKey, name }) : undefined}
-            />
-          </Flex.Box>
         </Flex.Box>
         <Flex.Box x align="center" className={CSS.BE("range", "list-item-trailing")}>
           {showLabels && labels != null && labels.length > 0 && (
@@ -132,7 +112,7 @@ const Base = ({
           {showTimeRange && (
             <Telem.Text.TimeRange
               className={CSS.BE("range", "time-range")}
-              level="small"
+              level="tiny"
               role="group"
               aria-label="Time range"
             >
@@ -142,7 +122,7 @@ const Base = ({
           {showFavorite && <Range.FavoriteButton range={item} reveal />}
         </Flex.Box>
       </Form.Form>
-    </List.Item>
+    </Select.Item>
   );
 };
 

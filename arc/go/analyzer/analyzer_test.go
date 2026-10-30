@@ -10,6 +10,7 @@
 package analyzer_test
 
 import (
+	"github.com/antlr4-go/antlr/v4"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer"
@@ -86,7 +87,7 @@ var _ = Describe("Analyzer Integration", func() {
 			"Should allow variable declaration from a function parameter",
 			func(bCtx SpecContext) {
 				_ = analyzeAndExpect(bCtx, `
-				func testFunc(a i64) {
+				func testFunc() {a i64} {
 					b := a
 				}
 			`)
@@ -269,7 +270,7 @@ var _ = Describe("Analyzer Integration", func() {
 			"Should build correct symbol table for if-else-if chain",
 			func(bCtx SpecContext) {
 				ctx := analyzeAndExpect(bCtx, `
-				func dog(b i64) i64 {
+				func dog() {b i64} i64 {
 					a i64 := 2
 					if b == a {
 						return 2
@@ -297,11 +298,11 @@ var _ = Describe("Analyzer Integration", func() {
 	Describe("Multi-Function Programs", func() {
 		It("Should analyze program with multiple functions", func(bCtx SpecContext) {
 			ctx := analyzeAndExpect(bCtx, `
-				func add(x i64, y i64) i64 {
+				func add() {x i64, y i64} i64 {
 					return x + y
 				}
 
-				func multiply(a i64, b i64) i64 {
+				func multiply() {a i64, b i64} i64 {
 					return a * b
 				}
 			`)
@@ -331,24 +332,25 @@ var _ = Describe("Analyzer Integration", func() {
 		)
 	})
 
-	Describe("AnalyzeStatement", func() {
+	Describe("Statement analysis", func() {
 		It(
 			"Should analyze a valid variable declaration statement",
 			func(bCtx SpecContext) {
-				stmt := MustSucceed(parser.ParseStatement("x := 42"))
-				ctx := context.NewRoot(bCtx, stmt, nil)
-				analyzer.AnalyzeStatement(ctx)
+				block := MustSucceed(parser.ParseBlock("{ x := 42 }"))
+				ctx := context.NewRoot(bCtx, block, nil)
+				analyzer.AnalyzeBlock(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeTrue())
 
-				varScope := MustSucceed(ctx.Scope.Resolve(ctx, "x"))
-				Expect(varScope.Type).To(Equal(types.I64()))
+				blocks := ctx.Scope.FilterChildrenByKind(symbol.KindBlock)
+				Expect(blocks).To(HaveLen(1))
+				Expect(blocks[0].FindChild("x").Type).To(Equal(types.I64()))
 			},
 		)
 
 		It("Should diagnose undefined symbol in statement", func(bCtx SpecContext) {
-			stmt := MustSucceed(parser.ParseStatement("x := undefined_var"))
-			ctx := context.NewRoot(bCtx, stmt, nil)
-			analyzer.AnalyzeStatement(ctx)
+			block := MustSucceed(parser.ParseBlock("{ x := undefined_var }"))
+			ctx := context.NewRoot(bCtx, block, nil)
+			analyzer.AnalyzeBlock(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			Expect(
@@ -357,15 +359,62 @@ var _ = Describe("Analyzer Integration", func() {
 		})
 
 		It(
+			"Should diagnose a series operand with an invalid element type",
+			func(bCtx SpecContext) {
+				ctx := analyzeAndExpectErrorWithResolver(bCtx, `
+				func test() series i64 {
+					s series i64 := [1, 2, 3]
+					return s + [undefined_var]
+				}
+				`, nil)
+				Expect(*ctx.Diagnostics).To(HaveLen(1))
+				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring(
+					"cannot return series invalid from 'test': expected series i64",
+				))
+			},
+		)
+
+		It(
+			"Should type a range() literal from the typed argument",
+			func(bCtx SpecContext) {
+				ctx := analyzeAndExpect(bCtx, `
+				func test(n i32) i32 {
+					acc i32 := 0
+					for i := range(7, n) {
+						acc = acc + i
+					}
+					return acc
+				}
+				`)
+				var lit parser.ILiteralContext
+				var find func(node antlr.Tree)
+				find = func(node antlr.Tree) {
+					l, ok := node.(parser.ILiteralContext)
+					if ok && l.GetText() == "7" {
+						lit = l
+						return
+					}
+					for _, child := range node.GetChildren() {
+						find(child)
+					}
+				}
+				find(ctx.AST)
+				Expect(lit).ToNot(BeNil())
+				Expect(ctx.TypeMap[lit]).To(Equal(types.I32()))
+			},
+		)
+
+		It(
 			"Should handle type unification in statement analysis",
 			func(bCtx SpecContext) {
-				stmt := MustSucceed(parser.ParseStatement("x f32 := 100"))
-				ctx := context.NewRoot(bCtx, stmt, nil)
-				analyzer.AnalyzeStatement(ctx)
+				block := MustSucceed(parser.ParseBlock("{ x f32 := 100 }"))
+				ctx := context.NewRoot(bCtx, block, nil)
+				analyzer.AnalyzeBlock(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeTrue())
 
-				varScope := MustSucceed(ctx.Scope.Resolve(ctx, "x"))
-				Expect(varScope.Type).To(Equal(types.F32()))
+				blocks := ctx.Scope.FilterChildrenByKind(symbol.KindBlock)
+				Expect(blocks).To(HaveLen(1))
+				Expect(blocks[0].FindChild("x").Type).To(Equal(types.F32()))
 			},
 		)
 	})
@@ -461,7 +510,7 @@ var _ = Describe("Analyzer Integration", func() {
 				ctx := analyzeAndExpect(bCtx, `
 				LIMIT := 10
 
-				func check(x i64) i64 {
+				func check() {x i64} i64 {
 					return x + LIMIT
 				}
 			`)
@@ -1183,7 +1232,7 @@ var _ = Describe("Analyzer Integration", func() {
 			"Should allow recursion guarded by early return with value",
 			func(bCtx SpecContext) {
 				analyzeAndExpectWithResolver(bCtx, `
-				func factorial(n i64) i64 {
+				func factorial() {n i64} i64 {
 					if n <= 1 {
 						return 1
 					}
@@ -1468,4 +1517,43 @@ var _ = Describe("Analyzer Integration", func() {
 			Expect(*ctx.Diagnostics).To(HaveLen(2))
 		})
 	})
+})
+
+var _ = Describe("Lifted reads in WASM call nodes", func() {
+	It(
+		"Should lift a reassigned stage variable read by an argument",
+		func(bCtx SpecContext) {
+			ast := MustSucceed(parser.Parse(`
+sequence main {
+    stage start {
+        s str := "a"
+        label -> s
+        len(s) -> count
+    }
+}`))
+			ctx := context.NewRoot(bCtx, ast, NewRoot(nil,
+				symbol.Symbol{
+					Name: "label",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.String()),
+				},
+				symbol.Symbol{
+					Name: "count",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.I64()),
+				},
+			))
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+			var fn *symbol.Symbol
+			for _, c := range ctx.Scope.Children() {
+				if _, ok := c.AST.(parser.IFunctionContext); ok {
+					fn = c
+				}
+			}
+			Expect(fn).ToNot(BeNil())
+			Expect(MustBeOk(fn.Type.Inputs.Get("s")).Type).To(Equal(types.String()))
+			Expect(fn.FindChild("s").Internal).To(BeTrue())
+		},
+	)
 })

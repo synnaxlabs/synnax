@@ -55,6 +55,20 @@ type hintedError struct{ msg, hint string }
 func (e hintedError) Error() string   { return e.msg }
 func (e hintedError) GetHint() string { return e.hint }
 
+func info(msg string) diagnostics.Diagnostic {
+	return diagnostics.Diagnostic{
+		Severity: protocol.DiagnosticSeverityInformation,
+		Message:  msg,
+	}
+}
+
+func hint(msg string) diagnostics.Diagnostic {
+	return diagnostics.Diagnostic{
+		Severity: protocol.DiagnosticSeverityHint,
+		Message:  msg,
+	}
+}
+
 var _ = Describe("Diagnostics", func() {
 	Describe("Deduplication", func() {
 		It("Should not add duplicate errors with same location and message", func() {
@@ -130,15 +144,15 @@ var _ = Describe("Diagnostics", func() {
 
 		It("Should deduplicate info messages", func() {
 			var d diagnostics.Diagnostics
-			d.Add(diagnostics.Infof(nil, "info message"))
-			d.Add(diagnostics.Infof(nil, "info message"))
+			d.Add(info("info message"))
+			d.Add(info("info message"))
 			Expect(d).To(HaveLen(1))
 		})
 
 		It("Should deduplicate hints", func() {
 			var d diagnostics.Diagnostics
-			d.Add(diagnostics.Hintf(nil, "hint message"))
-			d.Add(diagnostics.Hintf(nil, "hint message"))
+			d.Add(hint("hint message"))
+			d.Add(hint("hint message"))
 			Expect(d).To(HaveLen(1))
 		})
 
@@ -454,13 +468,13 @@ var _ = Describe("Diagnostics", func() {
 
 		It("Should return true when only info exists", func() {
 			var d diagnostics.Diagnostics
-			d.Add(diagnostics.Infof(nil, "info"))
+			d.Add(info("info"))
 			Expect(d.Ok()).To(BeTrue())
 		})
 
 		It("Should return true when only hints exist", func() {
 			var d diagnostics.Diagnostics
-			d.Add(diagnostics.Hintf(nil, "hint"))
+			d.Add(hint("hint"))
 			Expect(d.Ok()).To(BeTrue())
 		})
 
@@ -474,7 +488,7 @@ var _ = Describe("Diagnostics", func() {
 			var d diagnostics.Diagnostics
 			d.Add(diagnostics.Warningf(nil, "warning"))
 			d.Add(diagnostics.Errorf(nil, "error"))
-			d.Add(diagnostics.Hintf(nil, "hint"))
+			d.Add(hint("hint"))
 			Expect(d.Ok()).To(BeFalse())
 		})
 	})
@@ -483,7 +497,7 @@ var _ = Describe("Diagnostics", func() {
 		It("Should return empty slice when no errors", func() {
 			var d diagnostics.Diagnostics
 			d.Add(diagnostics.Warningf(nil, "warning"))
-			d.Add(diagnostics.Hintf(nil, "hint"))
+			d.Add(hint("hint"))
 			Expect(d.Errors()).To(BeEmpty())
 		})
 
@@ -492,32 +506,11 @@ var _ = Describe("Diagnostics", func() {
 			d.Add(diagnostics.Errorf(nil, "error1"))
 			d.Add(diagnostics.Warningf(nil, "warning"))
 			d.Add(diagnostics.Errorf(nil, "error2"))
-			d.Add(diagnostics.Hintf(nil, "hint"))
+			d.Add(hint("hint"))
 			errs := d.Errors()
 			Expect(errs).To(HaveLen(2))
 			Expect(errs[0].Message).To(Equal("error1"))
 			Expect(errs[1].Message).To(Equal("error2"))
-		})
-	})
-
-	Describe("Warnings", func() {
-		It("Should return empty slice when no warnings", func() {
-			var d diagnostics.Diagnostics
-			d.Add(diagnostics.Errorf(nil, "error"))
-			d.Add(diagnostics.Hintf(nil, "hint"))
-			Expect(d.Warnings()).To(BeEmpty())
-		})
-
-		It("Should return only warning-level diagnostics", func() {
-			var d diagnostics.Diagnostics
-			d.Add(diagnostics.Warningf(nil, "warning1"))
-			d.Add(diagnostics.Errorf(nil, "error"))
-			d.Add(diagnostics.Warningf(nil, "warning2"))
-			d.Add(diagnostics.Hintf(nil, "hint"))
-			warnings := d.Warnings()
-			Expect(warnings).To(HaveLen(2))
-			Expect(warnings[0].Message).To(Equal("warning1"))
-			Expect(warnings[1].Message).To(Equal("warning2"))
 		})
 	})
 
@@ -686,20 +679,6 @@ var _ = Describe("Diagnostics", func() {
 			d.Add(diagnostics.Warningf(nil, "warning"))
 			Expect(d).To(HaveLen(1))
 			Expect(d[0].Severity).To(Equal(protocol.DiagnosticSeverityWarning))
-		})
-
-		It("Should handle nil context for Infof", func() {
-			var d diagnostics.Diagnostics
-			d.Add(diagnostics.Infof(nil, "info"))
-			Expect(d).To(HaveLen(1))
-			Expect(d[0].Severity).To(Equal(protocol.DiagnosticSeverityInformation))
-		})
-
-		It("Should handle nil context for Hintf", func() {
-			var d diagnostics.Diagnostics
-			d.Add(diagnostics.Hintf(nil, "hint"))
-			Expect(d).To(HaveLen(1))
-			Expect(d[0].Severity).To(Equal(protocol.DiagnosticSeverityHint))
 		})
 	})
 
@@ -925,25 +904,6 @@ var _ = Describe("Error with HintProvider", func() {
 
 	It("Should skip an empty hint", func() {
 		d := diagnostics.Error(hintedError{msg: "bad type"}, nil)
-		Expect(d.Notes).To(BeEmpty())
-	})
-})
-
-var _ = Describe("Diagnostic.WithNoteAt", func() {
-	It("Should attach a note pointing at the given position", func() {
-		d := diagnostics.Errorf(nil, "boom").
-			WithNoteAt("declared here", protocol.Position{Line: 4, Character: 7})
-		Expect(d.Notes).To(HaveLen(1))
-		Expect(d.Notes[0].Message).To(Equal("declared here"))
-		Expect(d.Notes[0].Location.Range).To(Equal(protocol.Range{
-			Start: protocol.Position{Line: 4, Character: 7},
-			End:   protocol.Position{Line: 4, Character: 8},
-		}))
-	})
-
-	It("Should skip an empty note", func() {
-		d := diagnostics.Errorf(nil, "boom").
-			WithNoteAt("", protocol.Position{Line: 4, Character: 7})
 		Expect(d.Notes).To(BeEmpty())
 	})
 })

@@ -11,118 +11,97 @@
 
 package versions
 
-import "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v7"
+import "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v8"
 
 // Key is a unique identifier for a line plot, represented as a UUID.
-type Key = v7.Key
+type Key = v8.Key
 
 // TickType selects how an axis renders its tick labels.
-type TickType = v7.TickType
+type TickType = v8.TickType
 
 const (
-	TickTypeLinear TickType = v7.TickTypeLinear
-	TickTypeTime   TickType = v7.TickTypeTime
+	TickTypeLinear TickType = v8.TickTypeLinear
+	TickTypeTime   TickType = v8.TickTypeTime
 )
 
 // XAxisKey names one of the two x-axes. X-axes carry a single channel each.
-type XAxisKey = v7.XAxisKey
+type XAxisKey = v8.XAxisKey
 
 const (
-	XAxisKeyX1 XAxisKey = v7.XAxisKeyX1
-	XAxisKeyX2 XAxisKey = v7.XAxisKeyX2
+	XAxisKeyX1 XAxisKey = v8.XAxisKeyX1
+	XAxisKeyX2 XAxisKey = v8.XAxisKeyX2
 )
 
 // YAxisKey names one of the four y-axes. Y-axes carry zero or more channels each.
-type YAxisKey = v7.YAxisKey
+type YAxisKey = v8.YAxisKey
 
 const (
-	YAxisKeyY1 YAxisKey = v7.YAxisKeyY1
-	YAxisKeyY2 YAxisKey = v7.YAxisKeyY2
-	YAxisKeyY3 YAxisKey = v7.YAxisKeyY3
-	YAxisKeyY4 YAxisKey = v7.YAxisKeyY4
+	YAxisKeyY1 YAxisKey = v8.YAxisKeyY1
+	YAxisKeyY2 YAxisKey = v8.YAxisKeyY2
+	YAxisKeyY3 YAxisKey = v8.YAxisKeyY3
+	YAxisKeyY4 YAxisKey = v8.YAxisKeyY4
 )
 
 // AxisKey names one of the six fixed plot axes.
-type AxisKey = v7.AxisKey
+type AxisKey = v8.AxisKey
 
 const (
-	AxisKeyX1 AxisKey = v7.AxisKeyX1
-	AxisKeyX2 AxisKey = v7.AxisKeyX2
-	AxisKeyY1 AxisKey = v7.AxisKeyY1
-	AxisKeyY2 AxisKey = v7.AxisKeyY2
-	AxisKeyY3 AxisKey = v7.AxisKeyY3
-	AxisKeyY4 AxisKey = v7.AxisKeyY4
+	AxisKeyX1 AxisKey = v8.AxisKeyX1
+	AxisKeyX2 AxisKey = v8.AxisKeyX2
+	AxisKeyY1 AxisKey = v8.AxisKeyY1
+	AxisKeyY2 AxisKey = v8.AxisKeyY2
+	AxisKeyY3 AxisKey = v8.AxisKeyY3
+	AxisKeyY4 AxisKey = v8.AxisKeyY4
 )
 
 // Title is the plot title configuration.
-type Title = v7.Title
+type Title = v8.Title
 
 // Legend is the plot legend configuration.
-type Legend = v7.Legend
+type Legend = v8.Legend
 
 // Channels binds channel keys to each axis. x1 and x2 are single-channel; y1 through y4
 // carry zero or more channels each.
-type Channels = v7.Channels
-
-// CustomRange is the window a plot's synthetic "custom" range key resolves to.
-type CustomRange = v7.CustomRange
-type CustomRangeVariant = v7.CustomRangeVariant
-type CustomRangeType = v7.CustomRangeType
-
-const (
-	// DynamicCustomRangeType is a rolling window.
-	DynamicCustomRangeType CustomRangeType = v7.DynamicCustomRangeType
-	// StaticCustomRangeType is a fixed window.
-	StaticCustomRangeType CustomRangeType = v7.StaticCustomRangeType
-)
-
-// DynamicCustomRange is a rolling window.
-type DynamicCustomRange = v7.DynamicCustomRange
-
-// StaticCustomRange is a fixed window.
-type StaticCustomRange = v7.StaticCustomRange
-
-// Ranges binds range keys to each x-axis.
-type Ranges = v7.Ranges
+type Channels = v8.Channels
 
 // ManualBounds controls whether an axis uses a manually-set bound on each side
 // independently. When a side is false (the default), the corresponding entry in
 // Axis.bounds is recomputed locally from the rendered data window and never broadcast
 // to the server; when true, Axis.bounds holds the user-set value.
-type ManualBounds = v7.ManualBounds
+type ManualBounds = v8.ManualBounds
 
 // Axis is the configuration for a single plot axis.
-type Axis = v7.Axis
+type Axis = v8.Axis
 
 // Axes bundles configuration for all six fixed plot axes.
-type Axes = v7.Axes
+type Axes = v8.Axes
 
 // Line is the per-line styling and reduction configuration.
-type Line = v7.Line
+type Line = v8.Line
 
 // Rule is a horizontal or vertical annotation line drawn over the plot.
-type Rule = v7.Rule
+type Rule = v8.Rule
 
 // LinePlot is a time-series visualization component for plotting telemetry data. Line
 // plots support multiple channels, real-time streaming, and historical data display
 // with zoom and pan capabilities.
-type LinePlot = v7.LinePlot
+type LinePlot = v8.LinePlot
 
 // Aggregation selects how a line reduces the samples of one pixel group. min_max draws
 // the lowest and highest sample, and average draws the mean.
-type Aggregation = v7.Aggregation
+type Aggregation = v8.Aggregation
 
 const (
-	AggregationMinMax  Aggregation = v7.AggregationMinMax
-	AggregationAverage Aggregation = v7.AggregationAverage
+	AggregationMinMax  Aggregation = v8.AggregationMinMax
+	AggregationAverage Aggregation = v8.AggregationAverage
 )
 
 // Detail selects how many sample groups a line draws per pixel column: one per four,
 // two, or one pixel columns.
-type Detail = v7.Detail
+type Detail = v8.Detail
 
 const (
-	DetailLow    Detail = v7.DetailLow
-	DetailMedium Detail = v7.DetailMedium
-	DetailHigh   Detail = v7.DetailHigh
+	DetailLow    Detail = v8.DetailLow
+	DetailMedium Detail = v8.DetailMedium
+	DetailHigh   Detail = v8.DetailHigh
 )

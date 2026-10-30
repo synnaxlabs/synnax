@@ -16,29 +16,24 @@
  * With CSS layers, these should override Pluto without !important.
  */
 
-/* Pack component */
-.pluto-pack {
-    --pluto-pack-br: 1rem;
-}
-
 /* Tabs selector */
-.pluto-tabs__tab {
+.lyra-tabs__tab {
     /* Arc context tabs render the icon to the right of the label. */
-    .pluto-icon--arc-flow,
-    .pluto-icon--arc-func {
+    .lyra-icon--arc-flow,
+    .lyra-icon--arc-func {
         order: 1;
     }
 }
 
-@media (max-width: 600px) {
-    .pluto-tabs__selector {
+@media (width <= 600px) {
+    .lyra-tabs__selector {
         justify-content: center;
     }
 }
 
 /* An article's tabs frame their panel like a Console pane, with the strip as the
    pane's header. */
-article .pluto-tabs {
+article .lyra-tabs {
     margin: 4rem 0 var(--docs-block-gap);
     border: var(--pluto-border);
     border-radius: 1.5rem;
@@ -46,7 +41,7 @@ article .pluto-tabs {
     overflow: hidden;
 
     /* A panel hidden until found keeps its box, so only a shown panel gets padding. */
-    .pluto-tabs__content:not([hidden]) {
+    .lyra-tabs__content:not([hidden]) {
         padding: var(--docs-block-padding);
 
         & > :last-child {
@@ -56,7 +51,7 @@ article .pluto-tabs {
 }
 
 /* Tabs keep their full labels. On a phone, the strip scrolls instead. */
-article .pluto-tabs__selector {
+article .lyra-tabs__selector {
     flex: 1;
     min-width: 0;
     justify-content: flex-start;
@@ -69,36 +64,35 @@ article .pluto-tabs__selector {
         --pluto-tabs-tab-height: 6.5rem;
 
         /* A chip takes the small button height, not the tab height. */
-        &.pluto-tabs__selector--chip {
+        &.lyra-tabs__selector--chip {
             --pluto-height-small: 6rem;
         }
     }
 
-    .pluto-tabs__tab {
+    .lyra-tabs__tab {
         padding: 0 2rem;
         gap: 1.5rem;
 
-        @media (max-width: 800px) {
+        @media (width <= 800px) {
             padding: 0 1.5rem;
             gap: 1rem;
         }
 
-        :is(.pluto-text, .pluto-icon) {
+        :is(.lyra-text, .lyra-icon) {
             margin: 0;
         }
     }
 }
 
 /* Tree component. The page nav and the header drawer each size their own tree. */
-.pluto-tree {
-    overflow-y: auto;
-    overflow-x: hidden;
+.lyra-tree {
+    overflow: hidden auto;
 
     /* Firefox scrollbar */
     scrollbar-width: thin;
     scrollbar-color: var(--pluto-border-color) transparent;
 
-    .pluto-text {
+    .lyra-text {
         color: var(--pluto-gray-l9);
         font-size: var(--pluto-small-size);
         line-height: var(--pluto-small-line-height);
@@ -109,12 +103,12 @@ article .pluto-tabs__selector {
         margin-bottom: 10rem;
     }
 
-    .pluto-tree__expansion-indicator {
+    .lyra-tree__expansion-indicator {
         order: 999;
         margin-left: auto;
     }
 
-    .pluto-list__item {
+    .lyra-list__item {
         padding-top: round(0.875rem, 1px);
         padding-bottom: round(0.875rem, 1px);
         border-radius: 0;
@@ -122,12 +116,10 @@ article .pluto-tabs__selector {
         background: none;
         width: unset;
 
-        &:hover:not(.pluto--selected) {
-            &:not(.pluto--has-children) {
-                box-shadow: inset 2px 0 0 0 var(--pluto-text-color);
-            }
+        &:hover:not(.lyra--selected) {
+            box-shadow: inset 2px 0 0 0 var(--pluto-text-color);
 
-            & .pluto-text {
+            & .lyra-text {
                 color: var(--pluto-text-color);
                 font-weight: 500;
             }
@@ -137,22 +129,18 @@ article .pluto-tabs__selector {
             }
         }
 
-        &.pluto--selected {
+        &.lyra--selected {
             box-shadow: inset 3px 0 0 0 var(--pluto-primary-z);
 
-            & .pluto-text {
+            & .lyra-text {
                 color: var(--pluto-text-color);
                 font-weight: 500;
             }
         }
 
-        &:not(.pluto--has-children):not(.pluto--selected) {
+        &:not(.lyra--selected) {
             box-shadow: inset 1px 0 0 0 var(--pluto-gray-l2);
         }
-    }
-
-    .pluto-text-icon path:is(:not([fill="none"]), [stroke="#000"]) {
-        fill: var(--pluto-gray-l5);
     }
 
     .page-nav-section-header {
@@ -165,17 +153,17 @@ article .pluto-tabs__selector {
             margin-top: 0;
         }
 
-        .pluto-text {
+        .lyra-text {
             color: var(--pluto-gray-l11);
             font-weight: 500;
         }
 
-        .pluto-caret,
-        .pluto-tree__expansion-indicator {
+        .lyra-caret,
+        .lyra-tree__expansion-indicator {
             display: none !important;
         }
 
-        &:hover .pluto-text {
+        &:hover .lyra-text {
             color: var(--pluto-gray-l11);
             font-weight: 500;
         }
@@ -188,21 +176,21 @@ article table code {
 }
 
 /* Let code chips follow the state colors of the item that holds them. */
-.pluto-tree code,
-.pluto-breadcrumb code,
+.lyra-tree code,
+.lyra-breadcrumb code,
 .on-this-page-item code {
     color: inherit;
     line-height: inherit;
     font-weight: inherit;
 }
 
-.pluto-tree code,
-.pluto-breadcrumb code {
+.lyra-tree code,
+.lyra-breadcrumb code {
     font-size: inherit;
 }
 
 /* The page nav already sits on gray-l2, so the default chip vanishes into it. */
-.pluto-tree code {
+.lyra-tree code {
     background: var(--pluto-gray-l3);
     border-color: var(--pluto-gray-l4);
 }
@@ -229,13 +217,13 @@ article table th p {
 }
 
 /* Dialog component */
-.pluto-dialog__bg.pluto--visible {
+.lyra-dialog__bg.lyra--visible {
     -webkit-backdrop-filter: blur(2px);
     backdrop-filter: blur(2px);
 }
 
-@media (max-width: 600px) and (hover: none) {
-    .pluto-dialog__dialog {
+@media (width <= 600px) and (hover: none) {
+    .lyra-dialog__dialog {
         top: 5rem;
         transform: none;
     }

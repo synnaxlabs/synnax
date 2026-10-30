@@ -21,8 +21,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/set"
@@ -32,7 +32,7 @@ import (
 )
 
 type scenario struct {
-	dist     mock.Node
+	dist     testutil.Node
 	close    io.Closer
 	name     string
 	channels []channel.Channel
@@ -112,7 +112,7 @@ var _ = Describe("Relay", func() {
 					series, ws := got[k], writeF.SeriesAt(i)
 					Expect(series.Data).To(Equal(ws.Data))
 					Expect(series.DataType).To(Equal(ws.DataType))
-					if !s.channels[i].Free() {
+					if !s.channels[i].Key().Free() {
 						Expect(series.Alignment).
 							To(BeNumerically(">", telem.Alignment(0)))
 					}
@@ -124,7 +124,7 @@ var _ = Describe("Relay", func() {
 		It(
 			"Should deliver series stamped with the index's time range",
 			func(ctx SpecContext) {
-				node := mock.NewNode(ctx)
+				node := testutil.NewNode(ctx)
 				idx := channel.Channel{
 					Name:     "stamp_time",
 					IsIndex:  true,
@@ -180,7 +180,7 @@ var _ = Describe("Relay", func() {
 			"Should filter out frames from a matching group on gateway writes",
 			func(ctx SpecContext) {
 				channels := newChannelSet()
-				node := mock.NewNode(ctx)
+				node := testutil.NewNode(ctx)
 				channels = MustSucceed(node.Channel.Create(ctx, channels))
 				keys := channel.KeysFromChannels(channels)
 
@@ -226,7 +226,7 @@ var _ = Describe("Relay", func() {
 		)
 		It("Should deliver frames from a non-matching group", func(ctx SpecContext) {
 			channels := newChannelSet()
-			node := mock.NewNode(ctx)
+			node := testutil.NewNode(ctx)
 			channels = MustSucceed(node.Channel.Create(ctx, channels))
 			keys := channel.KeysFromChannels(channels)
 
@@ -273,7 +273,7 @@ var _ = Describe("Relay", func() {
 			"Should deliver frames with no group even when ExcludeGroups is set",
 			func(ctx SpecContext) {
 				channels := newChannelSet()
-				node := mock.NewNode(ctx)
+				node := testutil.NewNode(ctx)
 				channels = MustSucceed(node.Channel.Create(ctx, channels))
 				keys := channel.KeysFromChannels(channels)
 
@@ -315,7 +315,7 @@ var _ = Describe("Relay", func() {
 			"Should filter out free channel frames from a matching group",
 			func(ctx SpecContext) {
 				channels := newChannelSet()
-				svc := mock.NewNode(ctx)
+				svc := testutil.NewNode(ctx)
 				for i, ch := range channels {
 					ch.Leaseholder = node.KeyFree
 					ch.Virtual = true
@@ -372,25 +372,33 @@ var _ = Describe("Relay", func() {
 	// that could deadlock the synchronous wait — empty initial keys, non-free leases,
 	// context cancellation mid-wait, and concurrent streamers.
 	Describe("SendOpenAck", Ordered, func() {
-		var svc mock.Node
+		var svc testutil.Node
 		BeforeAll(func(ctx SpecContext) {
 			ShouldNotLeakGoroutines()
-			svc = mock.NewNode(ctx)
+			svc = testutil.NewNode(ctx)
 		})
 
-		newFreeChannels := func(ctx context.Context, n int) []channel.Channel {
+		newChannels := func(
+			ctx context.Context,
+			n int,
+			leaseholder node.Key,
+		) []channel.Channel {
 			GinkgoHelper()
 			chs := make([]channel.Channel, n)
 			ts := time.Now().UnixNano()
 			for i := range chs {
 				chs[i] = channel.Channel{
-					Name:        fmt.Sprintf("free_%d_%d", ts, i),
+					Name:        fmt.Sprintf("ch_%d_%d", ts, i),
 					Virtual:     true,
 					DataType:    telem.Int64T,
-					Leaseholder: node.KeyFree,
+					Leaseholder: leaseholder,
 				}
 			}
 			return MustSucceed(svc.Channel.Create(ctx, chs))
+		}
+		newFreeChannels := func(ctx context.Context, n int) []channel.Channel {
+			GinkgoHelper()
+			return newChannels(ctx, n, node.KeyFree)
 		}
 
 		It(
@@ -588,6 +596,91 @@ var _ = Describe("Relay", func() {
 				confluence.Drain(res)
 			},
 		)
+
+		Describe("Key update acks", func() {
+			openStreamer := func() (
+				confluence.Inlet[relay.Request],
+				confluence.Outlet[relay.Response],
+			) {
+				GinkgoHelper()
+				reader := MustSucceed(svc.Framer.NewStreamer(relay.StreamerConfig{
+					SendOpenAck: new(true),
+				}))
+				sCtx, cancel := signal.Isolated()
+				DeferCleanup(cancel)
+				req, res := confluence.Attach(reader, 10)
+				reader.Flow(sCtx, confluence.CloseOutputInletsOnExit())
+				var ack relay.Response
+				Eventually(res.Outlet()).Should(Receive(&ack))
+				Expect(ack.Ack).To(BeFalse())
+				DeferCleanup(func() {
+					req.Close()
+					confluence.Drain(res)
+				})
+				return req, res
+			}
+
+			DescribeTable(
+				"Should deliver a write issued immediately after a key update ack",
+				func(ctx SpecContext, leaseholder node.Key) {
+					keys := channel.KeysFromChannels(newChannels(ctx, 1, leaseholder))
+					req, res := openStreamer()
+					req.Inlet() <- relay.Request{Keys: keys, AckRequested: true}
+					var ack relay.Response
+					Eventually(res.Outlet()).Should(Receive(&ack))
+					Expect(ack.Ack).To(BeTrue())
+					Expect(ack.Frame.Empty()).To(BeTrue())
+
+					w := MustSucceed(svc.Framer.OpenWriter(ctx, writer.Config{
+						Keys:  keys,
+						Start: 10 * telem.SecondTS,
+					}))
+					defer func() { Expect(w.Close()).To(Succeed()) }()
+					Expect(w.Write(frame.NewMulti(keys, []telem.Series{
+						telem.NewSeriesV[int64](1, 2, 3),
+					}))).To(BeTrue())
+					var got relay.Response
+					Eventually(res.Outlet()).Should(Receive(&got))
+					Expect(got.Ack).To(BeFalse())
+					Expect(got.Frame.Count()).To(Equal(1))
+				},
+				Entry("on a free channel", node.KeyFree),
+				Entry("on a channel leased to this node", node.KeyBootstrapper),
+			)
+
+			It(
+				"Should not ack a key update that does not request one",
+				func(ctx SpecContext) {
+					keys := channel.KeysFromChannels(newFreeChannels(ctx, 1))
+					req, res := openStreamer()
+					req.Inlet() <- relay.Request{Keys: keys}
+					Consistently(
+						res.Outlet(),
+						100*time.Millisecond,
+					).ShouldNot(Receive())
+				},
+			)
+
+			It(
+				"Should ack each update that requests one exactly once",
+				func(ctx SpecContext) {
+					keys := channel.KeysFromChannels(newFreeChannels(ctx, 2))
+					req, res := openStreamer()
+					req.Inlet() <- relay.Request{Keys: keys[:1], AckRequested: true}
+					req.Inlet() <- relay.Request{Keys: keys}
+					req.Inlet() <- relay.Request{Keys: keys[1:], AckRequested: true}
+					for range 2 {
+						var ack relay.Response
+						Eventually(res.Outlet()).Should(Receive(&ack))
+						Expect(ack.Ack).To(BeTrue())
+					}
+					Consistently(
+						res.Outlet(),
+						100*time.Millisecond,
+					).ShouldNot(Receive())
+				},
+			)
+		})
 	})
 	// The relay does not validate streamer keys against storage: the service layer
 	// validates at open time, but a channel can be deleted between that check and the
@@ -596,10 +689,10 @@ var _ = Describe("Relay", func() {
 	// outright, since a failed tap starves every streamer demanding host channels on
 	// the node.
 	Describe("Unknown Keys", Ordered, func() {
-		var svc mock.Node
+		var svc testutil.Node
 		BeforeAll(func(ctx SpecContext) {
 			ShouldNotLeakGoroutines()
-			svc = mock.NewNode(ctx)
+			svc = testutil.NewNode(ctx)
 		})
 
 		newUniqueChannels := func(ctx context.Context, n int) []channel.Channel {
@@ -732,7 +825,7 @@ func newChannelSet() []channel.Channel {
 func gatewayOnlyScenario(ctx context.Context) scenario {
 	GinkgoHelper()
 	channels := newChannelSet()
-	node := mock.OpenNode(ctx)
+	node := testutil.OpenNode(ctx)
 	channels = MustSucceed(node.Channel.Create(ctx, channels))
 	return scenario{
 		name:     "Gateway Only",
@@ -745,7 +838,7 @@ func gatewayOnlyScenario(ctx context.Context) scenario {
 func peerOnlyScenario(ctx context.Context) scenario {
 	GinkgoHelper()
 	channels := newChannelSet()
-	cluster := mock.OpenCluster(ctx, 4)
+	cluster := testutil.OpenCluster(ctx, 4)
 	dist := cluster.Nodes[1]
 	for i, ch := range channels {
 		ch.Leaseholder = node.Key(i + 2)
@@ -763,7 +856,7 @@ func peerOnlyScenario(ctx context.Context) scenario {
 func mixedScenario(ctx context.Context) scenario {
 	GinkgoHelper()
 	channels := newChannelSet()
-	cluster := mock.OpenCluster(ctx, 3)
+	cluster := testutil.OpenCluster(ctx, 3)
 	gateway := cluster.Nodes[1]
 	for i, ch := range channels {
 		ch.Leaseholder = node.Key(i + 1)
@@ -781,7 +874,7 @@ func mixedScenario(ctx context.Context) scenario {
 func freeScenario(ctx context.Context) scenario {
 	GinkgoHelper()
 	channels := newChannelSet()
-	dist := mock.OpenNode(ctx)
+	dist := testutil.OpenNode(ctx)
 	for i, ch := range channels {
 		ch.Leaseholder = node.KeyFree
 		ch.Virtual = true

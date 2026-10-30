@@ -1,0 +1,159 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Configure an NI device"
+description:
+  "Connect National Instruments DAQ hardware to the Driver and configure it for tasks."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import Platforms from "@/components/hardware/Platforms.astro";
+import { Video } from "@/components/media/Media";
+import { Problem } from "@/components/problem";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+The Driver connects to [National Instruments](https://www.ni.com/) hardware that works
+with NI-DAQmx: CompactDAQ chassis and modules, USB and PCIe DAQ devices, and PXI. It
+finds them through NI-DAQmx. Before a task can use a device, you configure it.
+
+<Divider.Divider x />
+
+## Prerequisites
+
+<Platforms integration="ni" />
+
+- Install
+  [NI-DAQmx](https://www.ni.com/en/support/downloads/drivers/download.ni-daq-mx.html) on
+  the computer that runs the Driver. If the Driver says that System Configuration is
+  missing, install
+  [NI System Configuration](https://www.ni.com/en/support/downloads/drivers/download.system-configuration.html).
+- The Driver loads the software on its next scan, so you do not need to restart the
+  Driver. Restart the computer if the NI installer asks.
+
+<Divider.Divider x />
+
+## How the Driver finds devices
+
+The Driver looks for NI devices every few seconds. A device shows in the
+[devices toolbar](/reference/hardware/devices#devices-toolbar) with:
+
+- **Name** -> `NI` and the model, such as `NI 9205` or `NI USB-6343`.
+- **Location** -> the name of the device in NI-DAQmx, such as `Dev1` or `cDAQ1Mod1`. The
+  Driver uses it to address the ports of the device, such as `Dev1/ai0`.
+
+The key of an NI device is its serial number. Modules show under their chassis. The
+Driver skips CompactRIO controllers, but it finds the modules in them.
+
+To stop the search, right-click the Driver in the devices toolbar and select **Toggle NI
+device scanner**.
+
+<Divider.Divider x />
+
+## Configure a device
+
+<Client.Tabs>
+  <Fragment slot="console">
+
+1. In the devices toolbar, right-click the device and select **Configure**. You can also
+   click **Configure** in the "New ... connected" notification. To list each device that
+   the Driver found, click <Icon.Add /> and select **NI hardware**.
+2. Enter a **Name** and an [**Identifier**](/reference/hardware/devices#identifiers), or
+   click one of the identifiers that the Console suggests.
+3. Click **Save**. To also open a read task for the device, click **Save and create read
+   task**.
+
+Configure each module that a task uses.
+
+<Video id="device-drivers/ni/configure-device/ni-configure-device" />
+
+  </Fragment>
+  <Fragment slot="python">
+
+Find the NI devices that the Driver found:
+
+```python
+for dev in client.devices.retrieve(makes=["NI"]):
+    print(dev.key, dev.name, dev.model, dev.location)
+```
+
+Configure devices in the Console.
+
+  </Fragment>
+  <Fragment slot="typescript">
+
+Find the NI devices that the Driver found:
+
+```typescript
+for (const dev of await client.devices.retrieve({ makes: ["NI"] }))
+  console.log(dev.key, dev.name, dev.model, dev.location);
+```
+
+Configure devices in the Console.
+
+  </Fragment>
+</Client.Tabs>
+
+Do not create NI devices in code. A device that you create has a different key than the
+device that the Driver finds, and the Console cannot use it.
+
+<Divider.Divider x />
+
+## Troubleshooting
+
+<Problem.List>
+
+<Problem.Item symptom={"The device does not show in the devices toolbar."}>
+<Problem.Cause>
+
+The Driver cannot load NI-DAQmx, or it skips the device.
+
+</Problem.Cause>
+<Problem.Fix>
+
+- **NI-DAQmx is not installed** -> install NI-DAQmx. The device shows after the next
+  scan.
+- **The device has no name** -> check that NI MAX shows the device with a name. The
+  Driver skips a device that has no name.
+
+For more causes, see
+[Troubleshoot hardware](/reference/hardware/troubleshooting#a-device-does-not-show-in-the-devices-toolbar).
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"National Instruments NI-DAQmx shared library is not installed."}>
+<Problem.Cause>
+
+The Driver cannot load NI-DAQmx. The task shows "Failed to configure task", or the
+device finder shows "Failed to scan for devices", with this text in the description. The
+text names System Configuration instead when only that library is missing.
+
+</Problem.Cause>
+<Problem.Fix>
+
+1. Install the software in the [prerequisites](#prerequisites).
+2. Start the task again. You do not need to restart the Driver.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"The device is temporarily unreachable. The Driver will keep trying to reach it."}>
+<Problem.Cause>
+
+The Driver lost the connection to the device. The task shows "Failed to read data" or
+"Failed to write commands", with this text in the description.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Check the cable and the power. The task continues when the device comes back.
+
+</Problem.Fix>
+</Problem.Item>
+
+</Problem.List>
+
+For other problems, see [Troubleshoot hardware](/reference/hardware/troubleshooting).

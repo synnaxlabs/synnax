@@ -280,7 +280,7 @@
     text-wrap: pretty;
 }
 
-.solutions-contact.pluto-btn {
+.solutions-contact.lyra-btn {
     flex-shrink: 0;
     height: 42px;
     padding-inline: 18px;
@@ -299,7 +299,7 @@
     }
 }
 
-.solutions-explore.pluto-btn {
+.solutions-explore.lyra-btn {
     display: flex;
     width: fit-content;
     margin-inline: auto;

@@ -10,6 +10,8 @@
  */
 
 .pluto-line-plot {
+    /* stylelint-disable-next-line declaration-no-important -- the plot sits flush
+       whatever padding its host sets */
     padding: 0 !important;
     position: relative;
     width: 100%;
@@ -20,7 +22,7 @@
 /* The highlight spans the axis's width, from its line to its outer edge. A y axis's
    highlight runs the frame's full height, so it covers the end tick labels and meets
    the x axis's highlight at a clean corner. */
-.pluto-line-plot .pluto-haul-drop-region {
+.pluto-line-plot .lyra-haul-drop-region {
     --pluto-drop-region-background: var(--haul-background);
     --pluto-drop-region-border-color: var(--haul-border-color);
 
@@ -50,8 +52,8 @@
 
 /* With no y axis highlighted, an x axis's highlight runs the frame's full width to
    cover its end tick labels. */
-.pluto-line-plot:not(:has(.pluto-y-axis.pluto-haul-drop-region))
-    .pluto-x-axis.pluto-haul-drop-region::before {
+.pluto-line-plot:not(:has(.pluto-y-axis.lyra-haul-drop-region))
+    .pluto-x-axis.lyra-haul-drop-region::before {
     inset: 0 calc(-1 * var(--pluto-line-plot-right)) 0
         calc(-1 * var(--pluto-line-plot-left));
 }

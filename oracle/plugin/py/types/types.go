@@ -142,6 +142,15 @@ func generatePyFile(
 			data.imports.registerFieldName(fieldName(field.Name))
 		}
 	}
+	for _, u := range unions {
+		for _, v := range u.Form.(resolution.UnionForm).Variants {
+			if payload, ok := v.Type.Resolve(table); ok {
+				for _, field := range resolution.UnifiedFields(payload, table) {
+					data.imports.registerFieldName(fieldName(field.Name))
+				}
+			}
+		}
+	}
 
 	// A TypeAlias assignment evaluates its right-hand side eagerly, so an alias
 	// whose target names a type defined in the SAME file (e.g. Nodes = list[Node])
@@ -634,7 +643,7 @@ func processStruct(
 	}
 
 	// Handle struct extension with Pydantic inheritance (supports multiple parents)
-	if len(form.Extends) > 0 {
+	if len(form.Extends) > 0 && resolver.ParentsExist(form.Extends, "py", table) {
 		allParentsValid := true
 		for _, extendsRef := range form.Extends {
 			parent, ok := extendsRef.Resolve(table)
@@ -1311,7 +1320,7 @@ func pyRecordLiteral(
 
 // pyStructLiteral renders a struct default as a Python model constructor call,
 // resolving each field's value against its declared type in the struct named by
-// typeRef.
+// typeRef. A union default constructs the variant its discriminator names.
 func pyStructLiteral(
 	typeRef resolution.TypeRef,
 	val resolution.ExpressionValue,
@@ -1321,6 +1330,11 @@ func pyStructLiteral(
 	resolved, ok := typeRef.Resolve(table)
 	if !ok {
 		return "None"
+	}
+	if union, _, ok := resolution.Dealias(typeRef, table); ok {
+		if form, ok := union.Form.(resolution.UnionForm); ok {
+			return pyUnionLiteral(union, form, val, table, data)
+		}
 	}
 	className := getPyName(resolved)
 	if resolved.Namespace != data.Namespace {
@@ -1334,10 +1348,66 @@ func pyStructLiteral(
 			data,
 		)
 	}
-	fieldsByName := map[string]resolution.Field{}
-	for _, f := range resolution.UnifiedFields(resolved, table) {
-		fieldsByName[f.Name] = f
+	return pyConstructorCall(
+		className,
+		resolution.UnifiedFields(resolved, table),
+		val,
+		table,
+		data,
+	)
+}
+
+// pyUnionLiteral renders a union default as a constructor call on the variant class
+// its discriminator names.
+func pyUnionLiteral(
+	union resolution.Type,
+	form resolution.UnionForm,
+	val resolution.ExpressionValue,
+	table *resolution.Table,
+	data *templateData,
+) string {
+	disc, ok := lo.Find(val.Fields, func(fv resolution.StructFieldValue) bool {
+		return fv.Name == form.Discriminator
+	})
+	if !ok {
+		panic(fmt.Sprintf(
+			"default for union %s does not set its discriminator %s",
+			union.QualifiedName,
+			form.Discriminator,
+		))
 	}
+	variant, ok := form.Variant(disc.Value.StringValue)
+	if !ok {
+		panic(fmt.Sprintf(
+			"default for union %s names unknown variant %q",
+			union.QualifiedName,
+			disc.Value.StringValue,
+		))
+	}
+	className := unionVariantToPython(
+		validation.UnionVariant{Type: union, Union: form, Variant: variant},
+		table,
+		data,
+	)
+	return pyConstructorCall(
+		className,
+		resolution.UnifiedVariantFields(union, variant, table),
+		val,
+		table,
+		data,
+	)
+}
+
+// pyConstructorCall renders className called with one keyword argument per literal
+// field, resolving each value against its type in fields.
+func pyConstructorCall(
+	className string,
+	fields []resolution.Field,
+	val resolution.ExpressionValue,
+	table *resolution.Table,
+	data *templateData,
+) string {
+	fieldsByName := lo.KeyBy(fields, func(f resolution.Field) string { return f.Name })
 	parts := make([]string, 0, len(val.Fields))
 	for _, fv := range val.Fields {
 		parts = append(

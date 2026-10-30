@@ -13,19 +13,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/aspen/internal/node"
-	"github.com/synnaxlabs/x/address"
-	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/version"
 )
 
 var _ = Describe("Node", func() {
-	Describe("Parse", func() {
-		It("Should parse the Name of a node from a string", func() {
-			id := MustSucceed(node.Key(0).Parse("1"))
-			Expect(id).To(Equal(node.Key(1)))
-		})
-	})
-
 	Describe("Group", func() {
 		Describe("Filter", func() {
 			It("Should filter nodes correctly", func() {
@@ -42,28 +33,6 @@ var _ = Describe("Node", func() {
 				Expect(g.WhereState(node.StateHealthy)).To(HaveLen(1))
 				Expect(g.WhereActive()).To(HaveLen(2))
 				Expect(g.WhereNot(1)).To(HaveLen(1))
-			})
-		})
-
-		Describe("Addresses", func() {
-			It("Should return the addresses of the nodes in the cluster", func() {
-				g := node.Group{
-					1: node.Node{
-						Key:     1,
-						State:   node.StateHealthy,
-						Address: "localhost:0",
-					},
-					2: node.Node{
-						Key:     2,
-						State:   node.StateSuspect,
-						Address: "localhost:1",
-					},
-				}
-				for _, addr := range g.Addresses() {
-					Expect(
-						addr,
-					).To(BeElementOf([]address.Address{"localhost:0", "localhost:1"}))
-				}
 			})
 		})
 
@@ -89,7 +58,10 @@ var _ = Describe("Node", func() {
 					},
 				}
 				Expect(g.Digests()).To(HaveLen(2))
-				Expect(g.Digests()[1]).To(Equal(g[1].Digest()))
+				Expect(g.Digests()[1]).To(Equal(node.Digest{
+					Key:       1,
+					Heartbeat: version.Heartbeat{Version: 1, Generation: 1},
+				}))
 			})
 		})
 	})
