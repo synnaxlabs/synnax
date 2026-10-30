@@ -20,8 +20,8 @@
         padding: 2rem;
         gap: 5rem;
 
-        .console-log__timestamp-precision .lyra-input__container {
-            max-width: 90px;
+        .console-log__timestamp-precision {
+            width: 90px;
         }
     }
 
