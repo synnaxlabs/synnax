@@ -9,6 +9,7 @@
 
 from typing import Any
 
+from console.page import PageType
 from console.task.channels.analog import Analog
 from console.task.channels.analog_input import (
     RTD,
@@ -58,7 +59,7 @@ _ANALOG_READ_CHANNEL_TYPES: dict[str, type[Analog]] = {
 class AnalogRead(NITask):
     """NI Analog Read/Input Task automation interface."""
 
-    page_type = "NI analog read task"
+    page_type: PageType = "NI analog read task"
     pluto_label: str = ".console-task-configure--ni_analog_read"
 
     def add_channel(

@@ -43,7 +43,7 @@ class Output(BaseModel):
         self.entries.append(entry)
 
     def write(self, f: TextIO) -> None:
-        f.write(self.json())
+        f.write(self.model_dump_json())
 
 
 class MockPrint:

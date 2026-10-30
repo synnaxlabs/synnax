@@ -8,6 +8,7 @@
 # included in the file licenses/APL.txt.
 
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 cc_library(
     name = "device",
@@ -22,4 +23,15 @@ cc_library(
     hdrs = ["mock.h"],
     visibility = ["//visibility:public"],
     deps = [":device"],
+)
+
+cc_test(
+    name = "device_test",
+    srcs = ["device_test.cpp"],
+    deps = [
+        ":device",
+        ":mock",
+        "//x/cpp/testutil",
+        "@googletest//:gtest_main",
+    ],
 )

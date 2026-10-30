@@ -15,7 +15,7 @@ from console.schematic.symbol import Symbol
 class StateIndicator(Symbol):
     """Schematic state indicator symbol (read-only state display)"""
 
-    _symbol_group = "General"
+    _symbol_group: str | None = "General"
 
     def __init__(
         self,

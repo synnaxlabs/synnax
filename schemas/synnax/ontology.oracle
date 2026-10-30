@@ -47,6 +47,7 @@ ResourceType enum {
     opcua_server     = "opcua_server"
 
     @doc value "is the type of the resource."
+    @pb
 }
 
 RelationshipType string {
