@@ -9,7 +9,7 @@
 
 import { type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { type z } from "zod";
 
@@ -336,5 +336,150 @@ describe("Read", () => {
       LabJack.Task.READ_SCHEMAS,
     );
     expect(tsk.config.channels).toHaveLength(1);
+  });
+});
+
+describe("Read ports", () => {
+  const renderWith = async (channels: LabJack.Task.ReadChannel[]) => {
+    const dev = await createLabJackDevice(client);
+    const draft = await createDraft(client, createConfig(dev.key, channels));
+    const rendered = await renderRead({ client, taskKey: draft.key });
+    return { draft, ...rendered };
+  };
+
+  const savedPorts = async (key: string) => {
+    const saved = await client.tasks.retrieve({
+      key,
+      schemas: LabJack.Task.READ_SCHEMAS,
+    });
+    return saved.config.channels.map(({ type, port }) => [type, port]);
+  };
+
+  const cell = (name: string, group: string) =>
+    within(screen.getByRole("group", { name: group })).getByRole("button", { name });
+
+  const openPorts = async () => {
+    fireEvent.click(await screen.findByText("Ports"));
+    await screen.findByRole("group", { name: "Analog inputs" });
+  };
+
+  it("should set the channel's port from a click on the grid", async () => {
+    const { draft } = await renderWith([createAnalogReadChannel("AIN0")]);
+    fireEvent.click(await findChannelListItem("AIN0"));
+    await screen.findByRole("group", { name: "AIN0 to AIN3" });
+    expect(cell("AIN0", "AIN0 to AIN3").getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(cell("AIN2", "AIN0 to AIN3"));
+    await waitFor(() =>
+      expect(cell("AIN2", "AIN0 to AIN3").getAttribute("aria-pressed")).toBe("true"),
+    );
+    await waitFor(async () =>
+      expect(await savedPorts(draft.key)).toEqual([["analog", "AIN2"]]),
+    );
+  });
+
+  it("should add a channel on the lowest free port", async () => {
+    const { draft } = await renderWith([
+      createAnalogReadChannel("AIN0"),
+      createAnalogReadChannel("AIN1"),
+    ]);
+    fireEvent.click(await screen.findByText("Add channel"));
+    await waitFor(async () =>
+      expect(await savedPorts(draft.key)).toEqual([
+        ["analog", "AIN0"],
+        ["analog", "AIN1"],
+        ["analog", "AIN2"],
+      ]),
+    );
+  });
+
+  it("should move a channel to the lowest free port of its new type", async () => {
+    const { draft } = await renderWith([
+      createAnalogReadChannel("AIN0"),
+      createDigitalReadChannel("DIO4"),
+    ]);
+    fireEvent.click(await findChannelListItem("AIN0"));
+    fireEvent.click(await findDialogTriggerByText("Analog input"));
+    fireEvent.click(await screen.findByText("Digital input"));
+    await waitFor(async () =>
+      expect(await savedPorts(draft.key)).toEqual([
+        ["digital", "DIO5"],
+        ["digital", "DIO4"],
+      ]),
+    );
+  });
+
+  it("should add a channel on a free port, of the type the port takes", async () => {
+    const { draft } = await renderWith([createThermocoupleReadChannel("AIN0")]);
+    await openPorts();
+    fireEvent.click(cell("AIN1", "Analog inputs"));
+    await waitFor(async () => expect(await savedPorts(draft.key)).toHaveLength(2));
+    fireEvent.click(
+      within(screen.getByRole("group", { name: "Digital inputs" })).getByRole(
+        "button",
+        { name: "FIO5" },
+      ),
+    );
+    await waitFor(async () =>
+      expect(await savedPorts(draft.key)).toEqual([
+        ["thermocouple", "AIN0"],
+        ["thermocouple", "AIN1"],
+        ["digital", "DIO5"],
+      ]),
+    );
+    expect(cell("FIO5", "Digital inputs").getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("should select the channel on a used port", async () => {
+    await renderWith([
+      createAnalogReadChannel("AIN0", { name: "chan_first" }),
+      createAnalogReadChannel("AIN1", { name: "chan_second" }),
+    ]);
+    await openPorts();
+    fireEvent.click(cell("AIN1", "Analog inputs"));
+    await waitFor(() =>
+      expect(cell("AIN1", "Analog inputs").getAttribute("aria-pressed")).toBe("true"),
+    );
+    expect(cell("AIN0", "Analog inputs").getAttribute("aria-pressed")).toBe("false");
+    expect(screen.getByText("Port AIN1")).toBeTruthy();
+  });
+
+  it("should mark a port that two channels share", async () => {
+    await renderWith([
+      createAnalogReadChannel("AIN0"),
+      createAnalogReadChannel("AIN0"),
+    ]);
+    await openPorts();
+    expect(cell("AIN0", "Analog inputs").className).toContain(
+      "console-port-grid__cell--conflict",
+    );
+    expect(screen.getByText("1 of 12 ports used")).toBeTruthy();
+  });
+
+  it("should open the channel's menu on a used port", async () => {
+    const { draft } = await renderWith([createAnalogReadChannel("AIN0")]);
+    await openPorts();
+    fireEvent.contextMenu(cell("AIN0", "Analog inputs"));
+    fireEvent.click(await screen.findByText("Remove"));
+    await waitFor(async () => expect(await savedPorts(draft.key)).toEqual([]));
+    expect(cell("AIN0", "Analog inputs").className).toContain(
+      "console-port-grid__cell--free",
+    );
+  });
+
+  it("should add a channel from the menu of a free port or of the title", async () => {
+    const { draft } = await renderWith([createAnalogReadChannel("AIN0")]);
+    await openPorts();
+    fireEvent.contextMenu(cell("AIN3", "Analog inputs"));
+    fireEvent.click(await screen.findByText("Add channel"));
+    await waitFor(async () => expect(await savedPorts(draft.key)).toHaveLength(2));
+    fireEvent.contextMenu(screen.getByText("Analog inputs"));
+    fireEvent.click(await screen.findByText("Add channel"));
+    await waitFor(async () =>
+      expect(await savedPorts(draft.key)).toEqual([
+        ["analog", "AIN0"],
+        ["analog", "AIN3"],
+        ["analog", "AIN1"],
+      ]),
+    );
   });
 });

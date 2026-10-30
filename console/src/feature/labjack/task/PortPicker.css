@@ -9,6 +9,6 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-labjack-port-item__label {
-    width: 50px;
+.console-labjack-port-picker__dialog {
+    padding: 2rem;
 }
