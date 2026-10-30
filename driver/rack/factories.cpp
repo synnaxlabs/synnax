@@ -14,10 +14,10 @@
 #ifndef SYNNAX_NILINUXRT
 #include "driver/modbus/modbus.h"
 #endif
-
 #include "driver/arc/arc.h"
 #include "driver/ethercat/ethercat.h"
 #include "driver/http/http.h"
+#include "driver/modbus/names.h"
 #include "driver/rack/factories.h"
 #include "driver/rack/rack.h"
 #include "driver/rack/status/status.h"
@@ -43,13 +43,21 @@ void configure_state(FactoryList &factories) {
     factories.push_back(std::make_unique<status::Factory>());
 }
 
-#ifndef SYNNAX_NILINUXRT
 void configure_modbus(const Config &config, FactoryList &factories) {
+#ifdef SYNNAX_NILINUXRT
+    factories.push_back(
+        std::make_unique<UnavailableFactory>(
+            modbus::INTEGRATION_NAME,
+            "Modbus tasks do not run on NI Linux RT. Connect the device from a Driver on "
+            "Windows, macOS, or Linux."
+        )
+    );
+#else
     configure_integration(config, factories, modbus::INTEGRATION_NAME, []() {
         return std::make_unique<modbus::Factory>();
     });
-}
 #endif
+}
 
 void configure_arc(
     const Config &config,
@@ -90,9 +98,7 @@ Config::new_factory(const std::shared_ptr<x::thread::rt::Manager> &rt_manager) c
     configure_arc(*this, factories, rt_manager);
     configure_ethercat(*this, factories, rt_manager);
     configure_http(*this, factories);
-#ifndef SYNNAX_NILINUXRT
     configure_modbus(*this, factories);
-#endif
     return std::make_unique<task::MultiFactory>(std::move(factories));
 }
 }

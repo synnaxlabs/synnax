@@ -49,6 +49,9 @@ cc_library(
         "//driver/errors",
         "//driver/ethercat",
         "//driver/http",
+        "//driver/labjack:names",
+        "//driver/modbus:names",
+        "//driver/ni:names",
         "//driver/opcua",
         "//driver/rack/status",
         "//driver/task",
@@ -79,6 +82,8 @@ cc_test(
     name = "factories_test",
     srcs = ["factories_test.cpp"],
     deps = [
+        "//driver/labjack:names",
+        "//driver/ni:names",
         "//driver/rack",
         "//driver/task",
         "@googletest//:gtest_main",
@@ -92,6 +97,7 @@ cc_test(
     target_compatible_with = ["@platforms//os:macos"],
     deps = [
         "//client/cpp/testutil",
+        "//driver/ni:names",
         "//driver/rack",
         "//x/cpp/testutil",
         "@googletest//:gtest_main",
@@ -105,6 +111,7 @@ cc_test(
     target_compatible_with = ["@platforms//os:linux"],
     deps = [
         "//client/cpp/testutil",
+        "//driver/labjack:names",
         "//driver/rack",
         "//x/cpp/testutil",
         "@googletest//:gtest_main",

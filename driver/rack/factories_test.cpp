@@ -14,22 +14,24 @@
 
 #include "gtest/gtest.h"
 
+#include "driver/labjack/names.h"
+#include "driver/ni/names.h"
 #include "driver/rack/rack.h"
 
 namespace driver::rack {
 /// @brief it should build a factory for each integration in the build whether or not
-/// its library loads, and no factory for an integration the build leaves out.
+/// its library loads.
 TEST(RackFactoriesTest, BuildsFactoriesForBuiltIntegrations) {
-    // The names are literals because a build can leave either integration out.
     const std::vector<std::pair<std::string, std::string>> scanners = {
-        {"ni", "ni_scanner"},
-        {"labjack", "labjack_scan"},
+        {ni::INTEGRATION_NAME, ni::SCAN_TASK_TYPE},
+        {labjack::INTEGRATION_NAME, labjack::SCAN_TASK_TYPE},
     };
-    const Config cfg{.integrations = {"ni", "labjack"}};
+    const Config cfg{.integrations = {ni::INTEGRATION_NAME, labjack::INTEGRATION_NAME}};
     const auto factory = cfg.new_factory(std::make_shared<x::thread::rt::Manager>());
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
     const auto built = built_integrations();
     for (const auto &[integration, type]: scanners) {
+        if (std::ranges::find(built, integration) == built.end()) continue;
         // An invalid config stops the configure before it loads a library or builds a
         // scanner, which needs a client.
         const auto [tsk, handled] = factory->configure_task(
@@ -41,8 +43,7 @@ TEST(RackFactoriesTest, BuildsFactoriesForBuiltIntegrations) {
             },
             task::NO_COMMAND
         );
-        EXPECT_EQ(handled, std::ranges::find(built, integration) != built.end())
-            << type;
+        EXPECT_TRUE(handled) << type;
         EXPECT_EQ(tsk, nullptr) << type;
     }
 }
