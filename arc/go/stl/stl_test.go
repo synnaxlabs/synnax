@@ -277,7 +277,7 @@ var _ = Describe("STL Symbols", func() {
 		Entry("time.now", "time.now",
 			[]string{}, symbol.TriggerOnly),
 		Entry("time.format", "time.format",
-			[]string{ir.DefaultInputParam}, symbol.TriggerOnly),
+			[]string{ir.DefaultInputParam, "layout"}, symbol.TriggerOnly),
 		Entry("constant", "constant",
 			[]string{"value"}, symbol.TriggerOnly),
 	)

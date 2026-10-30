@@ -4699,6 +4699,136 @@ var _ = Describe("Compiler", func() {
 				"2000-01-01T00:00:00Z",
 			),
 		)
+
+		Describe("Layouts", func() {
+			// Tuesday, January 17, 2012 at 08:32:05.25 UTC, in ISO week 3.
+			stamp := time.Date(2012, time.January, 17, 8, 32, 5, 250_000_000, time.UTC).
+				UnixNano()
+			formatWith := func(ctx SpecContext, ns int64, layout string) string {
+				GinkgoHelper()
+				output := MustSucceed(compileWithHostImports(ctx, `
+				import time
+				func compute(t i64 ns) str {
+					return time.format(t, "`+layout+`")
+				}
+				`, nil))
+				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+				strMod.SetMemory(mod.Memory())
+				results := MustSucceed(
+					mod.ExportedFunction("compute").Call(ctx, uint64(ns)),
+				)
+				return strOf(results)
+			}
+
+			DescribeTable("Should expand every code",
+				func(ctx SpecContext, layout, expected string) {
+					Expect(formatWith(ctx, stamp, layout)).To(Equal(expected))
+				},
+				Entry("%Y", "%Y", "2012"),
+				Entry("%y", "%y", "12"),
+				Entry("%m", "%m", "01"),
+				Entry("%d", "%d", "17"),
+				Entry("%e", "%e", "17"),
+				Entry("%H", "%H", "08"),
+				Entry("%I", "%I", "08"),
+				Entry("%M", "%M", "32"),
+				Entry("%S", "%S", "05"),
+				Entry("%j", "%j", "017"),
+				Entry("%f", "%f", "250000"),
+				Entry("%N", "%N", "250000000"),
+				Entry("%u", "%u", "2"),
+				Entry("%w", "%w", "2"),
+				Entry("%U", "%U", "03"),
+				Entry("%W", "%W", "03"),
+				Entry("%G", "%G", "2012"),
+				Entry("%V", "%V", "03"),
+				Entry("%z", "%z", "+0000"),
+				Entry("%Z", "%Z", "UTC"),
+				Entry("%F", "%F", "2012-01-17"),
+				Entry("%T", "%T", "08:32:05"),
+				Entry("%%", "%%", "%"),
+				Entry(
+					"a Python layout",
+					"%Y-%m-%d %H:%M:%S.%f",
+					"2012-01-17 08:32:05.250000",
+				),
+				Entry("text around a code", "T+%S s", "T+05 s"),
+			)
+
+			DescribeTable("Should match C and Python at the edges",
+				func(ctx SpecContext, ns int64, layout, expected string) {
+					Expect(formatWith(ctx, ns, layout)).To(Equal(expected))
+				},
+				Entry(
+					"Sunday, January 1, 2012 at midnight",
+					time.Date(2012, time.January, 1, 0, 0, 0, 0, time.UTC).UnixNano(),
+					"%u %w %U %W %I %e %j",
+					"7 0 01 00 12  1 001",
+				),
+				Entry(
+					"noon and one o'clock on the 12-hour clock",
+					time.Date(2012, time.January, 17, 12, 0, 0, 0, time.UTC).UnixNano(),
+					"%I",
+					"12",
+				),
+				Entry(
+					"one o'clock on the 12-hour clock",
+					time.Date(2012, time.January, 17, 13, 0, 0, 0, time.UTC).UnixNano(),
+					"%I",
+					"01",
+				),
+				Entry(
+					"ISO week in the previous year",
+					time.Date(2021, time.January, 1, 0, 0, 0, 0, time.UTC).UnixNano(),
+					"%G-%V %Y",
+					"2020-53 2021",
+				),
+				Entry(
+					"ISO week in the next year",
+					time.Date(2024, time.December, 30, 0, 0, 0, 0, time.UTC).UnixNano(),
+					"%G-%V %Y",
+					"2025-01 2024",
+				),
+				Entry("epoch", int64(0), "%F %T", "1970-01-01 00:00:00"),
+				Entry(
+					"before the epoch",
+					int64(-1_000_000_000_000_000_000),
+					"%F %T",
+					"1938-04-24 22:13:20",
+				),
+			)
+
+			It("Should format into a format string through a local", func(ctx SpecContext) {
+				output := MustSucceed(compileWithHostImports(ctx, `
+				import time
+				func compute(t i64 ns) str {
+					clock := time.format(t, "%H:%M")
+					return f"at {clock}"
+				}
+				`, nil))
+				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+				strMod.SetMemory(mod.Memory())
+				results := MustSucceed(
+					mod.ExportedFunction("compute").Call(ctx, uint64(stamp)),
+				)
+				Expect(strOf(results)).To(Equal("at 08:32"))
+			})
+
+			It("Should copy an unknown code in a dynamic layout through", func(ctx SpecContext) {
+				output := MustSucceed(compileWithHostImports(ctx, `
+				import time
+				func compute(t i64 ns, layout str) str {
+					return time.format(t, layout)
+				}
+				`, nil))
+				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+				layout := strState.Create("%Q %")
+				results := MustSucceed(
+					mod.ExportedFunction("compute").Call(ctx, uint64(stamp), uint64(layout)),
+				)
+				Expect(strOf(results)).To(Equal("%Q %"))
+			})
+		})
 	})
 
 	Describe("Qualified Module Calls", func() {

@@ -1296,6 +1296,7 @@ var _ = Describe("Time", func() {
 			Expect(sym.Deprecated).To(BeNil())
 			Expect(sym.Type.Inputs).To(Equal(types.Params{
 				{Name: ir.DefaultInputParam, Type: types.TimeStamp()},
+				{Name: "layout", Type: types.String(), Value: ""},
 			}))
 			Expect(sym.Type.Outputs).To(Equal(types.Params{
 				{Name: ir.DefaultOutputParam, Type: types.String()},
