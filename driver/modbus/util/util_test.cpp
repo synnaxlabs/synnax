@@ -115,4 +115,18 @@ TEST_F(ModbusUtilTest, testInvalidDataType) {
         x::errors::VALIDATION
     );
 }
+
+/// @brief it should read an odd number of characters from the high byte first.
+TEST_F(ModbusUtilTest, testParseStringOddLength) {
+    const uint16_t registers[2] = {'O' << 8 | 'K', '!' << 8 | 'X'};
+    EXPECT_EQ(util::parse_string(registers, 3, false), "OK!");
+    EXPECT_EQ(util::parse_string(registers, 4, true), "KOX!");
+}
+
+/// @brief it should end a string at its first NUL character.
+TEST_F(ModbusUtilTest, testParseStringStopsAtNul) {
+    const uint16_t registers[2] = {'A' << 8, 'B' << 8 | 'C'};
+    EXPECT_EQ(util::parse_string(registers, 4, false), "A");
+    EXPECT_EQ(util::parse_string(registers, 0, false), "");
+}
 }

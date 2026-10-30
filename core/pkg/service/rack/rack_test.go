@@ -21,7 +21,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -31,11 +31,12 @@ import (
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
-	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 // stack is a rack service and the services it depends on. Closing it closes all of
@@ -71,7 +72,7 @@ func openStack(ctx context.Context, db *gorp.DB, cfg rack.ServiceConfig) stack {
 	cfg.DB = db
 	cfg.Ontology = otg
 	cfg.Group = g
-	cfg.HostProvider = mock.NewStaticHostProvider(1)
+	cfg.HostProvider = testutil.NewStaticHostProvider(1)
 	cfg.Status = stat
 	cfg.DriverRole = MustSucceed(racktestutil.CreateDriverRole(ctx, otg))
 	svc := MustSucceed(rack.OpenService(ctx, cfg))
@@ -1028,10 +1029,9 @@ var _ = Describe("Rack", Ordered, func() {
 					g.Expect(s.Key).
 						To(ContainSubstring(string(ontology.ResourceTypeRack)))
 					g.Expect(s.Details.Rack).To(Equal(r.Key))
-					g.Expect(s.Description).To(MatchRegexp(
-						`^The Core has not heard from the Driver on dead test rack ` +
-							`for .+\. Check that the Driver is running and can reach ` +
-							`the Core\.$`,
+					g.Expect(s.Description).To(Equal(
+						"The Core has not heard from the Driver on dead test rack. " +
+							"Check that the Driver is running and can reach the Core.",
 					))
 				}).Should(Succeed())
 			},
@@ -1069,41 +1069,70 @@ var _ = Describe("Rack", Ordered, func() {
 			},
 		)
 
-		It("Should dampen alerts after first dead check", func(ctx SpecContext) {
-			r := rack.Rack{Name: "dampening test rack"}
+		It("Should write each outage once", func(ctx SpecContext) {
+			const name = "outage test rack"
+			var writes, alerts atomic.Int32
+			DeferCleanup(stat.Observe().OnChange(func(
+				_ context.Context,
+				t gorp.TxReader[status.Key, status.Status[any]],
+			) {
+				for ch := range t {
+					if ch.Value.Name == name &&
+						ch.Value.Message == "Driver not running" {
+						writes.Add(1)
+					}
+				}
+			}))
+			DeferCleanup(svc.OnSuspect(func(_ context.Context, s rack.Status) error {
+				if s.Name == name {
+					alerts.Add(1)
+				}
+				return nil
+			}))
+			r := rack.Rack{Name: name}
 			Expect(noTxWriter.Create(ctx, &r)).To(Succeed())
 
-			var (
-				alertCount int
-				alertMu    sync.Mutex
-			)
-			getCount := func() int {
-				alertMu.Lock()
-				defer alertMu.Unlock()
-				return alertCount
-			}
-			disconnect := svc.OnSuspect(func(_ context.Context, s rack.Status) {
-				if s.Details.Rack == r.Key {
-					alertMu.Lock()
-					alertCount++
-					alertMu.Unlock()
-				}
-			})
-			defer disconnect()
-
-			Eventually(getCount).Should(BeNumerically(">=", 1))
-			countAfterFirst := getCount()
-			time.Sleep(50 * time.Millisecond)
-			Expect(getCount()).To(Equal(countAfterFirst))
-			Eventually(
-				getCount,
-				200*time.Millisecond,
-				10*time.Millisecond,
-			).Should(BeNumerically(">", countAfterFirst))
+			Eventually(alerts.Load).Should(BeEquivalentTo(1))
+			Consistently(func(g Gomega) {
+				g.Expect(writes.Load()).To(BeEquivalentTo(1))
+				g.Expect(alerts.Load()).To(BeEquivalentTo(1))
+			}, 300*time.Millisecond, 10*time.Millisecond).Should(Succeed())
 		})
 
 		It(
-			"Should reset alert count when rack comes back alive",
+			"Should copy an outage again on the next check after a failed copy",
+			func(ctx SpecContext) {
+				const name = "copy retry test rack"
+				var failing, succeeding atomic.Int32
+				DeferCleanup(
+					svc.OnSuspect(func(_ context.Context, s rack.Status) error {
+						if s.Name == name && failing.Add(1) == 1 {
+							return errors.New("copy failed")
+						}
+						return nil
+					}),
+				)
+				DeferCleanup(
+					svc.OnSuspect(func(_ context.Context, s rack.Status) error {
+						if s.Name == name {
+							succeeding.Add(1)
+						}
+						return nil
+					}),
+				)
+				r := rack.Rack{Name: name}
+				Expect(noTxWriter.Create(ctx, &r)).To(Succeed())
+
+				Eventually(failing.Load).Should(BeEquivalentTo(2))
+				Consistently(func(g Gomega) {
+					g.Expect(failing.Load()).To(BeEquivalentTo(2))
+					g.Expect(succeeding.Load()).To(BeEquivalentTo(1))
+				}, 300*time.Millisecond, 10*time.Millisecond).Should(Succeed())
+			},
+		)
+
+		It(
+			"Should write a new outage after the rack reports healthy",
 			func(ctx SpecContext) {
 				r := rack.Rack{Name: "reset test rack"}
 				Expect(noTxWriter.Create(ctx, &r)).To(Succeed())
@@ -1117,13 +1146,16 @@ var _ = Describe("Rack", Ordered, func() {
 					defer alertMu.Unlock()
 					return alertCount
 				}
-				disconnect := svc.OnSuspect(func(_ context.Context, s rack.Status) {
-					if s.Details.Rack == r.Key {
-						alertMu.Lock()
-						alertCount++
-						alertMu.Unlock()
-					}
-				})
+				disconnect := svc.OnSuspect(
+					func(_ context.Context, s rack.Status) error {
+						if s.Details.Rack == r.Key {
+							alertMu.Lock()
+							alertCount++
+							alertMu.Unlock()
+						}
+						return nil
+					},
+				)
 				defer disconnect()
 
 				Eventually(getCount).Should(Equal(1))

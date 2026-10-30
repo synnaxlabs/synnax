@@ -13,8 +13,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -22,12 +22,12 @@ import (
 
 var _ = Describe("Create", Ordered, func() {
 	var (
-		n    mock.Node
+		n    testutil.Node
 		host node.Key
 	)
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
-		n = mock.NewNode(ctx)
+		n = testutil.NewNode(ctx)
 		host = n.Cluster.HostKey()
 	})
 
@@ -119,12 +119,12 @@ var _ = Describe("Create", Ordered, func() {
 
 	Context("Multi Node", Ordered, func() {
 		var (
-			gateway mock.Node
-			peer    mock.Node
+			gateway testutil.Node
+			peer    testutil.Node
 		)
 		BeforeAll(func(ctx SpecContext) {
 			ShouldNotLeakGoroutines()
-			cluster := mock.NewCluster(ctx, 0)
+			cluster := testutil.NewCluster(ctx, 0)
 			gateway = cluster.Provision(ctx)
 			peer = cluster.Provision(ctx)
 		})

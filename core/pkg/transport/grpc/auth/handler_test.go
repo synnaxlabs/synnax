@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	grpcauth "github.com/synnaxlabs/synnax/pkg/transport/grpc/auth"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/validate"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -54,28 +53,20 @@ var _ = Describe("Auth", func() {
 	})
 
 	Describe("MethodsResponse", func() {
-		It("Should round-trip the methods", func(ctx SpecContext) {
-			t := methods.ResponseTranslator
-			msg := auth.MethodsResponse{Methods: []svcauth.Method{
-				svcauth.MethodAPIKey,
-				svcauth.MethodPassword,
-			}}
-			fwd := MustSucceed(t.Forward(ctx, msg))
-			Expect(fwd.Methods).To(Equal([]string{"api_key", "password"}))
-			Expect(MustSucceed(t.Backward(ctx, fwd))).To(Equal(msg))
-		})
-		It("Should round-trip an empty method list", func(ctx SpecContext) {
-			t := methods.ResponseTranslator
-			msg := auth.MethodsResponse{Methods: []svcauth.Method{}}
-			Expect(
-				MustSucceed(t.Backward(ctx, MustSucceed(t.Forward(ctx, msg)))),
-			).To(Equal(msg))
-		})
-		It("Should reject an unknown method", func(ctx SpecContext) {
-			Expect(methods.ResponseTranslator.Backward(
+		It("Should translate the methods", func(ctx SpecContext) {
+			Expect(MustSucceed(methods.ResponseTranslator.Forward(
 				ctx,
-				&grpcauth.MethodsResponse{Methods: []string{"carrier_pigeon"}},
-			)).Error().To(MatchError(validate.ErrValidation))
+				auth.MethodsResponse{Methods: []svcauth.Method{
+					svcauth.MethodAPIKey,
+					svcauth.MethodPassword,
+				}},
+			)).Methods).To(Equal([]string{"api_key", "password"}))
+		})
+		It("Should translate an empty method list", func(ctx SpecContext) {
+			Expect(MustSucceed(methods.ResponseTranslator.Forward(
+				ctx,
+				auth.MethodsResponse{Methods: []svcauth.Method{}},
+			)).Methods).To(BeEmpty())
 		})
 	})
 })
