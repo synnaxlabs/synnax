@@ -86,7 +86,7 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/auth/key/delete",
 		),
-		AuthPasswordSet: unary[auth.PasswordSetRequest, struct{}](
+		AuthPasswordSet: unary[auth.PasswordSetRequest, auth.PasswordSetResponse](
 			router,
 			"/api/v1/auth/password/set",
 		),
