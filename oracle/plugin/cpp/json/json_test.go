@@ -421,6 +421,50 @@ var _ = Describe("C++ JSON Plugin", func() {
 				},
 			)
 			It(
+				"Should stringify the numeric keys of a map of structs",
+				func(ctx SpecContext) {
+					source := `
+					@cpp output "client/cpp/task"
+
+					Pair struct {
+						left uint32
+					}
+
+					Task struct {
+						pairs map<uint32, Pair>
+					}
+				`
+					resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+
+					ExpectContent(resp, "json.gen.h").
+						ToContain(`obj[std::to_string(key)] = item.to_json();`)
+				},
+			)
+			It(
+				"Should serialize a map of structs declared through an alias",
+				func(ctx SpecContext) {
+					source := `
+					@cpp output "client/cpp/task"
+
+					Pair struct {
+						left uint32
+					}
+
+					Pairs = map<string, Pair>
+
+					Task struct {
+						pairs Pairs
+					}
+				`
+					resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+
+					ExpectContent(resp, "json.gen.h").
+						ToContain(
+							`for (const auto& [key, item] : this->pairs) obj[key] = item.to_json();`,
+						)
+				},
+			)
+			It(
 				"Should assign a map of primitives directly",
 				func(ctx SpecContext) {
 					source := `
