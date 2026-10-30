@@ -94,7 +94,7 @@ class _WSWriterCodec(WSCodec):
             or data.payload.command != WriterCommand.WRITE
         ):
             return bytes([LOW_PERF_SPECIAL_CHAR]) + self.lower_perf_codec.encode(data)
-        encoded = self.codec.encode(data.payload.frame, 1)
+        encoded = self.codec.encode(data.payload.frame, start_offset=1)
         buf = bytearray(encoded)
         buf[0] = HIGH_PERF_SPECIAL_CHAR
         return bytes(buf)
@@ -102,7 +102,7 @@ class _WSWriterCodec(WSCodec):
     def decode(self, data: bytes, pld_t: type[P]) -> P:
         if data[0] == LOW_PERF_SPECIAL_CHAR:
             return self.lower_perf_codec.decode(data[1:], pld_t)
-        frame = self.codec.decode(data, 1)
+        frame = self.codec.decode(data, offset=1)
         msg: Message[WriterRequest] = Message(type="data")
         msg.payload = WriterRequest(command=WriterCommand.WRITE, frame=frame)
         return cast(P, msg)
@@ -152,12 +152,12 @@ class Writer:
     successfully, the caller is then free to write frames to the writer.
 
     2. To write a frame, the caller can use the write method and follow the validation
-    rules described in the method's documentation. This process is asynchronous,
-    meaning that write will return before the frame has been written to the cluster. This
-    also means that the writer can accumulate an error after write is called. If the
-    writer accumulates an error, subsequent calls to `write` will repeatedly throw that
-    error. If write throws an error, the writer can no longer be used, and it must
-    be closed and re-opened to continue writing.
+    rules described in the method's documentation. This process is asynchronous, meaning
+    that write will return before the frame has been written to the cluster. This also
+    means that the writer can accumulate an error after write is called. If the writer
+    accumulates an error, subsequent calls to `write` will repeatedly throw that error.
+    If write throws an error, the writer can no longer be used, and it must be closed
+    and re-opened to continue writing.
 
     3. To commit the written frames to the database, the caller can call the commit
     method. Unlike write, commit is synchronous, meaning that it will not return until
@@ -182,6 +182,7 @@ class Writer:
 
     def __init__(
         self,
+        *,
         start: CrudeTimeStamp,
         client: WebsocketClient,
         registry: Registry,
@@ -292,6 +293,7 @@ class Writer:
     def set_authority(
         self,
         value: channel.Key | str,
+        *,
         authority: CrudeAuthority,
     ) -> None:
         """Sets the authority level for a single channel.
@@ -318,6 +320,7 @@ class Writer:
             | str
             | CrudeAuthority
         ),
+        *,
         authority: CrudeAuthority | None = None,
     ) -> None:
         """Sets the control authority for channels the writer is writing to. Authority
@@ -330,8 +333,8 @@ class Writer:
             writer.set_authority(Authority.ABSOLUTE)
 
         2. Set authority for a single channel by key or name:
-            writer.set_authority("my_channel", Authority.ABSOLUTE)
-            writer.set_authority(channel_key, 200)
+            writer.set_authority("my_channel", authority=Authority.ABSOLUTE)
+            writer.set_authority(channel_key, authority=200)
 
         3. Set authority for multiple channels via dictionary:
             writer.set_authority({
@@ -433,7 +436,7 @@ class Writer:
             return None
         while True:
             try:
-                res = self._stream.receive(timeout)
+                res = self._stream.receive(timeout=timeout)
             except TimeoutError:
                 raise
             except Exception as recv_exc:

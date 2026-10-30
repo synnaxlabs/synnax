@@ -11,13 +11,13 @@ import "@/schematic/node/general/select/select.css";
 
 import { type schematic } from "@synnaxlabs/client";
 import { Button as BaseButton } from "@synnaxlabs/lyra/button";
-import { CSS } from "@synnaxlabs/lyra/css";
 import { type Dialog } from "@synnaxlabs/lyra/dialog";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Select as BaseSelect } from "@synnaxlabs/lyra/select";
 import { color } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement, type ReactNode } from "react";
 
+import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 
@@ -69,7 +69,7 @@ export const Select = ({
       orientation={orientation}
       className={CSS.cls(
         CSS.B("select-symbol"),
-        CSS.B("symbol-colored"),
+        CSS.symbolColored,
         CSS.B("symbol-field"),
         symbolColor != null && CSS.M("colored"),
         draft.dirty && CSS.M("dirty"),

@@ -182,7 +182,7 @@ code {
     border-radius: var(--pluto-border-radius);
 }
 
-a:not(.pluto-btn) code {
+a:not(.lyra-btn) code {
     color: inherit;
 }
 

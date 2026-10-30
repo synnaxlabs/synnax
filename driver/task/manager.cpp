@@ -622,9 +622,10 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
                     status.name = tsk.name;
                     status.variant = synnax::status::VARIANT_ERROR;
                     status.message = "Failed to configure task";
-                    status.description = "No integration on this Driver handles task "
-                                         "type '" +
-                                         tsk.type + "'.";
+                    status.description = "No integration on this Driver runs '" +
+                                         tsk.type +
+                                         "' tasks. Check that the Driver and the "
+                                         "Core run the same version.";
                     status.details.task = op.task_key;
                     status.details.running = false;
                     status.details.cmd = op.cmd.key;

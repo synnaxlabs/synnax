@@ -22,8 +22,27 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/analyzer"
 	"github.com/synnaxlabs/oracle/plugin"
+	"github.com/synnaxlabs/oracle/resolution"
+	"github.com/synnaxlabs/x/diagnostics"
 	xtestutil "github.com/synnaxlabs/x/testutil"
 )
+
+// Analyze analyzes source as the schema of namespace, loading its imports through
+// loader. It returns a nil table when analysis fails.
+func Analyze(
+	ctx context.Context,
+	source, namespace string,
+	loader analyzer.FileLoader,
+) (*resolution.Table, *diagnostics.Files) {
+	table := resolution.NewTable()
+	diag := analyzer.AnalyzeSeeded(
+		ctx, source, namespace+".oracle", namespace, loader, table,
+	)
+	if !diag.Ok() {
+		return nil, diag
+	}
+	return table, diag
+}
 
 // generateRequest creates a plugin request from a source string by analyzing the source
 // and returning a request with the resolution table.
@@ -33,7 +52,7 @@ func generateRequest(
 	namespace string,
 	loader *MockFileLoader,
 ) (*plugin.Request, error) {
-	table, diag := analyzer.AnalyzeSource(ctx, source, namespace, loader)
+	table, diag := Analyze(ctx, source, namespace, loader)
 	if diag != nil && !diag.Ok() {
 		return nil, diag
 	}

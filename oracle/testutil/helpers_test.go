@@ -253,6 +253,30 @@ var domainDirectives = map[string]string{
 	"pb":  `@go output "out"`, // pb derives from go output
 }
 
+var _ = Describe("Analyze", func() {
+	It(
+		"Should resolve the types of the source under the namespace",
+		func(ctx SpecContext) {
+			table, diag := Analyze(
+				ctx, "User struct {\n  name string\n}\n", "user", NewMockFileLoader(),
+			)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			Expect(table.MustGet("user.User").Namespace).To(Equal("user"))
+		},
+	)
+
+	It(
+		"Should return a nil table when the source fails to analyze",
+		func(ctx SpecContext) {
+			table, diag := Analyze(
+				ctx, "User struct {", "user", NewMockFileLoader(),
+			)
+			Expect(table).To(BeNil())
+			Expect(diag.Ok()).To(BeFalse())
+		},
+	)
+})
+
 var _ = Describe("MustGenerateRequest", func() {
 	var loader *MockFileLoader
 
