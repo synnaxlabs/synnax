@@ -384,6 +384,14 @@ var _ = Describe("Service", func() {
 			Expect(got.Serial).To(Equal(c.Serial))
 		})
 
+		It("Should return not found for a missing chassis", func(ctx SpecContext) {
+			Expect(svc.NewWriter(tx).Apply(ctx, uuid.New(), chassis.Update{
+				Variant: chassis.ConfigurationUpdate{
+					Configuration: chassis.Configuration{Name: "Renamed"},
+				},
+			})).To(MatchError(query.ErrNotFound))
+		})
+
 		DescribeTable("Should reject an invalid update",
 			func(ctx SpecContext, update chassis.Update, message string) {
 				c := create(ctx)

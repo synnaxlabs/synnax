@@ -12,6 +12,8 @@ package chassis
 
 import (
 	"context"
+	"slices"
+	"uuid"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
@@ -19,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/ni/chassis"
+	"github.com/synnaxlabs/synnax/pkg/service/ni/device"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -26,6 +29,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -37,6 +41,9 @@ type ServiceConfig struct {
 	// Status retrieves chassis statuses.
 	// [REQUIRED]
 	Status *status.Service
+	// Device retrieves the modules that a chassis delete removes.
+	// [REQUIRED]
+	Device *device.Service
 	// RBAC enforces access control on every request.
 	// [REQUIRED]
 	RBAC *rbac.Service
@@ -48,6 +55,7 @@ var _ config.Config[ServiceConfig] = ServiceConfig{}
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Chassis = override.Nil(c.Chassis, other.Chassis)
 	c.Status = override.Nil(c.Status, other.Status)
+	c.Device = override.Nil(c.Device, other.Device)
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
 	return c
 }
@@ -57,6 +65,7 @@ func (c ServiceConfig) Validate() error {
 	v := validate.New("api.ni.chassis")
 	v.NotNil("chassis", c.Chassis)
 	v.NotNil("status", c.Status)
+	v.NotNil("device", c.Device)
 	v.NotNil("rbac", c.RBAC)
 	return v.Error()
 }
@@ -90,28 +99,73 @@ func (s *Service) enforce(
 }
 
 type (
-	// CreateRequest carries the chassis to create.
+	// CreateRequest carries the chassis to create or replace.
 	CreateRequest struct {
+		// Chassis are the chassis to store. A nil key mints a new one.
 		Chassis []chassis.Chassis `json:"chassis" msgpack:"chassis"`
 	}
 	// CreateResponse carries the created chassis with their keys.
 	CreateResponse struct {
+		// Chassis are the stored chassis.
 		Chassis []chassis.Chassis `json:"chassis" msgpack:"chassis"`
 	}
 )
 
-// Create stores the given chassis. It requires create access on the chassis type.
+// enforceCreate requires update access on each chassis that already exists, because
+// Create replaces it, and create access on the type when any chassis is new.
+func (s *Service) enforceCreate(
+	ctx context.Context,
+	tx gorp.Tx,
+	records []chassis.Chassis,
+) error {
+	keys := make([]chassis.Key, 0, len(records))
+	for _, c := range records {
+		if c.Key != uuid.Nil() {
+			keys = append(keys, c.Key)
+		}
+	}
+	var existing []chassis.Chassis
+	if len(keys) > 0 {
+		if err := s.cfg.Chassis.NewRetrieve().
+			Where(chassis.MatchKeys(keys...)).
+			Entries(&existing).
+			Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
+			return err
+		}
+	}
+	found := make(set.Set[chassis.Key], len(existing))
+	ids := make([]ontology.ID, len(existing))
+	for i, c := range existing {
+		found.Add(c.Key)
+		ids[i] = c.OntologyID()
+	}
+	if len(ids) > 0 {
+		if err := s.enforce(ctx, tx, access.ActionUpdate, ids...); err != nil {
+			return err
+		}
+	}
+	if !slices.ContainsFunc(
+		records,
+		func(c chassis.Chassis) bool { return !found.Contains(c.Key) },
+	) {
+		return nil
+	}
+	return s.enforce(
+		ctx,
+		tx,
+		access.ActionCreate,
+		ontology.ID{Type: ontology.ResourceTypeNiChassis},
+	)
+}
+
+// Create stores the given chassis. It requires create access on the chassis type for a
+// new chassis and update access on a chassis it replaces.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
-	if err := s.enforce(
-		ctx,
-		tx,
-		access.ActionCreate,
-		ontology.ID{Type: ontology.ResourceTypeNiChassis},
-	); err != nil {
+	if err := s.enforceCreate(ctx, tx, req.Chassis); err != nil {
 		return CreateResponse{}, err
 	}
 	w := s.cfg.Chassis.NewWriter(tx)
@@ -125,20 +179,31 @@ func (s *Service) Create(
 
 // RetrieveRequest selects the chassis to retrieve. Empty fields do not filter.
 type RetrieveRequest struct {
-	SearchTerm     string        `json:"search_term"      msgpack:"search_term"`
-	Keys           []chassis.Key `json:"keys"             msgpack:"keys"`
-	Names          []string      `json:"names"            msgpack:"names"`
-	Serials        []string      `json:"serials"          msgpack:"serials"`
-	Models         []string      `json:"models"           msgpack:"models"`
-	Racks          []rack.Key    `json:"racks"            msgpack:"racks"`
-	Limit          int           `json:"limit"            msgpack:"limit"`
-	Offset         int           `json:"offset"           msgpack:"offset"`
-	IgnoreNotFound bool          `json:"ignore_not_found" msgpack:"ignore_not_found"`
-	IncludeStatus  bool          `json:"include_status"   msgpack:"include_status"`
+	// SearchTerm matches chassis by name.
+	SearchTerm string `json:"search_term" msgpack:"search_term"`
+	// Keys selects chassis by key.
+	Keys []chassis.Key `json:"keys" msgpack:"keys"`
+	// Names selects chassis by name.
+	Names []string `json:"names" msgpack:"names"`
+	// Serials selects chassis by serial number.
+	Serials []string `json:"serials" msgpack:"serials"`
+	// Models selects chassis by product name.
+	Models []string `json:"models" msgpack:"models"`
+	// Racks selects chassis by rack.
+	Racks []rack.Key `json:"racks" msgpack:"racks"`
+	// Limit caps the number of chassis returned. Zero means no cap.
+	Limit int `json:"limit" msgpack:"limit"`
+	// Offset skips this many matching chassis.
+	Offset int `json:"offset" msgpack:"offset"`
+	// IgnoreNotFound returns no chassis instead of a not found error.
+	IgnoreNotFound bool `json:"ignore_not_found" msgpack:"ignore_not_found"`
+	// IncludeStatus attaches each chassis's status.
+	IncludeStatus bool `json:"include_status" msgpack:"include_status"`
 }
 
 // RetrieveResponse carries the retrieved chassis.
 type RetrieveResponse struct {
+	// Chassis are the retrieved chassis.
 	Chassis []chassis.Chassis `json:"chassis" msgpack:"chassis"`
 }
 
@@ -177,8 +242,8 @@ func (s *Service) Retrieve(
 		(!req.IgnoreNotFound || !errors.Is(err, query.ErrNotFound)) {
 		return RetrieveResponse{}, err
 	}
-	keys := lo.Map(res.Chassis, func(d chassis.Chassis, _ int) chassis.Key {
-		return d.Key
+	keys := lo.Map(res.Chassis, func(c chassis.Chassis, _ int) chassis.Key {
+		return c.Key
 	})
 	ids := chassis.OntologyIDs(keys)
 	if err := s.enforce(ctx, nil, access.ActionRetrieve, ids...); err != nil {
@@ -234,22 +299,30 @@ func (s *Service) Update(
 
 // DeleteRequest carries the keys of the chassis to delete.
 type DeleteRequest struct {
+	// Keys selects the chassis to delete.
 	Keys []chassis.Key `json:"keys" msgpack:"keys"`
 }
 
-// Delete removes the given chassis. It requires delete access on them and returns a
-// validation error when a task references one.
+// Delete removes the given chassis with their modules. It requires delete access on the
+// chassis and on each module, and returns a validation error when a task references a
+// module.
 func (s *Service) Delete(
 	ctx context.Context,
 	tx gorp.Tx,
 	req DeleteRequest,
 ) (struct{}, error) {
-	if err := s.enforce(
-		ctx,
-		tx,
-		access.ActionDelete,
-		chassis.OntologyIDs(req.Keys)...,
-	); err != nil {
+	var modules []device.Device
+	if err := s.cfg.Device.NewRetrieve().
+		Where(device.MatchChassis(req.Keys...)).
+		Entries(&modules).
+		Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
+		return struct{}{}, err
+	}
+	ids := chassis.OntologyIDs(req.Keys)
+	for _, d := range modules {
+		ids = append(ids, d.OntologyID())
+	}
+	if err := s.enforce(ctx, tx, access.ActionDelete, ids...); err != nil {
 		return struct{}{}, err
 	}
 	return struct{}{}, s.cfg.Chassis.NewWriter(tx).Delete(ctx, req.Keys...)

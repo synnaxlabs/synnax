@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/ni/chassis"
+	"github.com/synnaxlabs/synnax/pkg/service/ni/device"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/query"
@@ -56,11 +57,37 @@ var _ = Describe("Service", func() {
 	}
 
 	Describe("NewService", func() {
-		It("Should reject a config missing the chassis service", func() {
-			Expect(apichassis.NewService(apichassis.ServiceConfig{
+		DescribeTable("Should reject a config missing a required field",
+			func(field string, unset func(*apichassis.ServiceConfig)) {
+				cfg := apichassis.ServiceConfig{
+					Chassis: svc.NI.Chassis,
+					Status:  svc.Status,
+					Device:  svc.NI.Devices,
+					RBAC:    svc.RBAC,
+				}
+				unset(&cfg)
+				Expect(apichassis.NewService(cfg)).Error().
+					To(MatchError(ContainSubstring(field + ": must be non-nil")))
+			},
+			Entry("chassis", "chassis", func(c *apichassis.ServiceConfig) {
+				c.Chassis = nil
+			}),
+			Entry("status", "status", func(c *apichassis.ServiceConfig) {
+				c.Status = nil
+			}),
+			Entry("device", "device", func(c *apichassis.ServiceConfig) {
+				c.Device = nil
+			}),
+			Entry("rbac", "rbac", func(c *apichassis.ServiceConfig) { c.RBAC = nil }),
+		)
+
+		It("Should let a later config override an earlier one", func() {
+			base := apichassis.ServiceConfig{Chassis: svc.NI.Chassis}
+			Expect(apichassis.NewService(base, apichassis.ServiceConfig{
 				Status: svc.Status,
+				Device: svc.NI.Devices,
 				RBAC:   svc.RBAC,
-			})).Error().To(MatchError(ContainSubstring("chassis: must be non-nil")))
+			})).ToNot(BeNil())
 		})
 	})
 
@@ -92,7 +119,58 @@ var _ = Describe("Service", func() {
 		})
 	})
 
+	Describe("Create over an existing chassis", func() {
+		It("Should require update access on the chassis", func(ctx SpecContext) {
+			d := create(ctx)
+			grant(ctx, access.ActionCreate, user.OntologyID(u.Key), chassisType)
+			d.Name = "Replaced"
+			Expect(apiSvc.Create(
+				testutil.AuthedCtx(ctx, u),
+				nil,
+				apichassis.CreateRequest{Chassis: []chassis.Chassis{d}},
+			)).Error().To(MatchError(access.ErrDenied))
+			Expect(retrieve(ctx, d.Key).Name).To(Equal("PXIe-1071"))
+		})
+
+		It("Should replace with update access alone", func(ctx SpecContext) {
+			d := create(ctx)
+			grant(ctx, access.ActionUpdate, user.OntologyID(u.Key), chassisType)
+			d.Name = "Replaced"
+			Expect(apiSvc.Create(
+				testutil.AuthedCtx(ctx, u),
+				nil,
+				apichassis.CreateRequest{Chassis: []chassis.Chassis{d}},
+			)).Error().ToNot(HaveOccurred())
+			Expect(retrieve(ctx, d.Key).Name).To(Equal("Replaced"))
+		})
+
+		It("Should require create access for a new key beside it", func(
+			ctx SpecContext,
+		) {
+			d := create(ctx)
+			grant(ctx, access.ActionUpdate, user.OntologyID(u.Key), chassisType)
+			Expect(apiSvc.Create(
+				testutil.AuthedCtx(ctx, u),
+				nil,
+				apichassis.CreateRequest{Chassis: []chassis.Chassis{
+					d,
+					{Rack: d.Rack, Name: "Module"},
+				}},
+			)).Error().To(MatchError(access.ErrDenied))
+		})
+	})
+
 	Describe("Retrieve", func() {
+		It("Should reject the request when retrieve is not granted", func(
+			ctx SpecContext,
+		) {
+			d := create(ctx)
+			Expect(apiSvc.Retrieve(
+				testutil.AuthedCtx(ctx, u),
+				apichassis.RetrieveRequest{Keys: []chassis.Key{d.Key}},
+			)).Error().To(MatchError(access.ErrDenied))
+		})
+
 		It("Should filter by serial and attach the status", func(ctx SpecContext) {
 			d := create(ctx)
 			create(ctx)
@@ -201,6 +279,45 @@ var _ = Describe("Service", func() {
 			)).Error().ToNot(HaveOccurred())
 			Expect(svc.NI.Chassis.NewRetrieve().
 				Where(chassis.MatchKeys(d.Key)).
+				Exists(ctx, nil)).To(BeFalse())
+		})
+
+		It("Should require delete access on each module", func(ctx SpecContext) {
+			c := create(ctx)
+			d := device.Device{Rack: c.Rack, Name: "Module", Chassis: &c.Key}
+			Expect(svc.NI.Devices.NewWriter(nil).Create(ctx, &d)).To(Succeed())
+			DeferCleanup(func(ctx SpecContext) {
+				Expect(svc.NI.Devices.NewWriter(nil).Delete(ctx, d.Key)).To(Succeed())
+			})
+			grant(ctx, access.ActionDelete, user.OntologyID(u.Key), chassisType)
+			Expect(apiSvc.Delete(
+				testutil.AuthedCtx(ctx, u),
+				nil,
+				apichassis.DeleteRequest{Keys: []chassis.Key{c.Key}},
+			)).Error().To(MatchError(access.ErrDenied))
+			Expect(svc.NI.Devices.NewRetrieve().
+				Where(device.MatchKeys(d.Key)).
+				Exists(ctx, nil)).To(BeTrue())
+		})
+
+		It("Should delete modules with access to them", func(ctx SpecContext) {
+			c := create(ctx)
+			d := device.Device{Rack: c.Rack, Name: "Module", Chassis: &c.Key}
+			Expect(svc.NI.Devices.NewWriter(nil).Create(ctx, &d)).To(Succeed())
+			grant(
+				ctx,
+				access.ActionDelete,
+				user.OntologyID(u.Key),
+				chassisType,
+				ontology.ID{Type: ontology.ResourceTypeNiDevice},
+			)
+			Expect(apiSvc.Delete(
+				testutil.AuthedCtx(ctx, u),
+				nil,
+				apichassis.DeleteRequest{Keys: []chassis.Key{c.Key}},
+			)).Error().ToNot(HaveOccurred())
+			Expect(svc.NI.Devices.NewRetrieve().
+				Where(device.MatchKeys(d.Key)).
 				Exists(ctx, nil)).To(BeFalse())
 		})
 

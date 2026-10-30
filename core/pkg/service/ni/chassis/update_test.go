@@ -41,6 +41,25 @@ var _ = Describe("Update", func() {
 		Entry("configuration", configuration),
 	)
 
+	DescribeTable("Should keep the group through JSON",
+		func(update chassis.Update) {
+			var got chassis.Update
+			Expect(json.Unmarshal(
+				MustSucceed(json.Marshal(update)),
+				&got,
+			)).To(Succeed())
+			Expect(got.Variant).To(BeAssignableToTypeOf(update.Variant))
+		},
+		Entry("identity", identity),
+		Entry("configuration", configuration),
+	)
+
+	It("Should reject an unknown group in JSON", func() {
+		var got chassis.Update
+		Expect(json.Unmarshal([]byte(`{"group":"other"}`), &got)).
+			To(MatchError(ContainSubstring("unknown group")))
+	})
+
 	It("Should match the JSON shape in msgpack", func() {
 		var wire map[string]any
 		Expect(msgpack.Unmarshal(

@@ -46,6 +46,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	apiSvc = MustSucceed(apichassis.NewService(apichassis.ServiceConfig{
 		Chassis: svc.NI.Chassis,
 		Status:  svc.Status,
+		Device:  svc.NI.Devices,
 		RBAC:    svc.RBAC,
 	}))
 })

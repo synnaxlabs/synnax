@@ -894,6 +894,7 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	if l.NIChassis, err = nichassis.NewService(nichassis.ServiceConfig{
 		Chassis: cfg.Service.NI.Chassis,
 		Status:  cfg.Service.Status,
+		Device:  cfg.Service.NI.Devices,
 		RBAC:    cfg.Service.RBAC,
 	}); err != nil {
 		return nil, err
