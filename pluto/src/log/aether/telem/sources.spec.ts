@@ -127,6 +127,17 @@ describe("StreamMultiChannelLog", () => {
     expect(handler).toHaveBeenCalledTimes(loaded + 1);
   });
 
+  it("should notify when a channel loads no samples", async () => {
+    const core = createCore({ start: NOW });
+    const [a] = core.data.map((c) => c.key);
+    const log = open(core, connect(core), { channels: [a] });
+    const notified: cstatus.Variant[] = [];
+    log.onChange(() => notified.push(log.value().status.variant));
+    expect(log.value().status.variant).toBe("loading");
+    await expect.poll(() => notified.at(-1), POLL).toBe("success");
+    expect(entriesOf(log)).toEqual([]);
+  });
+
   describe("history", () => {
     // Returns a client whose history reads wait for release, and whose first fails when
     // failed is true.
@@ -314,6 +325,16 @@ describe("StreamMultiChannelLog", () => {
       log.onChange(handler);
       log.setChannels([a]);
       expect(handler).not.toHaveBeenCalled();
+    });
+
+    it("should report loading until an added channel loads", async () => {
+      const core = createCore();
+      const [a, b] = core.data.map((c) => c.key);
+      const log = open(core, connect(core), { channels: [a] });
+      await settle(log, HISTORY);
+      log.setChannels([a, b]);
+      expect(log.value().status.variant).toBe("loading");
+      await expect.poll(() => log.value().status.variant, POLL).toBe("success");
     });
 
     it("should drop the entries of a removed channel", async () => {

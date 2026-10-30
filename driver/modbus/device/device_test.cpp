@@ -646,7 +646,7 @@ TEST(ConnectionConfigTest, ParsesSerial) {
     EXPECT_EQ(config.serial.parity, 'N');
     EXPECT_EQ(config.serial.stop_bits, 2);
     EXPECT_EQ(config.unit_id, 17);
-    EXPECT_EQ(config.endpoint(), "/dev/ttyUSB0");
+    EXPECT_EQ(config.endpoint(), canonical_port("/dev/ttyUSB0"));
     const auto j = config.to_json();
     EXPECT_EQ(j["transport"], "rtu");
     EXPECT_EQ(j["serial_port"], "/dev/ttyUSB0");
