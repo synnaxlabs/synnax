@@ -49,16 +49,16 @@ var _ = Describe("Signal", func() {
 		})
 
 		Context("Context already cancelled", func() {
-			It("Shouldn't start a new routine", func() {
+			It("Should run the routine with the canceled context", func() {
 				ctx, cancel := signal.Isolated()
 				cancel()
-				c := 0
+				var routineErr error
 				ctx.Go(func(ctx context.Context) error {
-					c++
+					routineErr = ctx.Err()
 					return nil
 				})
 				Expect(ctx.Wait()).To(Succeed())
-				Expect(c).To(Equal(0))
+				Expect(routineErr).To(MatchError(context.Canceled))
 			})
 		})
 
