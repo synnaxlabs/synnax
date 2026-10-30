@@ -330,18 +330,16 @@ describe("log reducer", () => {
     });
   });
 
-  describe("setReceiptTimestampHidden", () => {
+  describe("setTimestampsHidden", () => {
     it("should set the flag and round-trip it", () => {
-      const state = createEmpty({ receiptTimestampHidden: true });
+      const state = createEmpty({ timestampsHidden: true });
       expect(
-        apply(state, log.setReceiptTimestampHidden({ receiptTimestampHidden: false }))
-          .receiptTimestampHidden,
+        apply(state, log.setTimestampsHidden({ timestampsHidden: false }))
+          .timestampsHidden,
       ).toEqual(false);
       expect(
-        roundTrip(
-          state,
-          log.setReceiptTimestampHidden({ receiptTimestampHidden: false }),
-        ).receiptTimestampHidden,
+        roundTrip(state, log.setTimestampsHidden({ timestampsHidden: false }))
+          .timestampsHidden,
       ).toEqual(true);
     });
   });

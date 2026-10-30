@@ -183,7 +183,7 @@ var _ = Describe("ImEx", func() {
 				Expect(res.Name).To(Equal("Test Log V1"))
 				Expect(res.TimestampPrecision).To(Equal(int32(1)))
 				Expect(res.ChannelNamesHidden).To(BeFalse())
-				Expect(res.ReceiptTimestampHidden).To(BeTrue())
+				Expect(res.TimestampsHidden).To(BeTrue())
 				Expect(res.Channels).To(HaveLen(2))
 				Expect(res.Channels[0].Channel).To(Equal(channel.Key(1)))
 				Expect(
@@ -355,8 +355,8 @@ var _ = Describe("ImEx", func() {
 						},
 						{Channel: channel.Key(2), Alias: "second"},
 					},
-					TimestampPrecision:     1,
-					ReceiptTimestampHidden: true,
+					TimestampPrecision: 1,
+					TimestampsHidden:   true,
 				})
 				env := MustSucceed(imexSvc.Export(ctx, original.OntologyID()))
 				id := MustSucceed(

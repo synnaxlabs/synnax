@@ -38,5 +38,5 @@
   ],
   "timestamp_precision": 1,
   "channel_names_hidden": false,
-  "receipt_timestamp_hidden": true
+  "timestamps_hidden": true
 }

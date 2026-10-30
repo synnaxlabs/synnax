@@ -63,8 +63,8 @@ export const logZ = z.object({
   timestampPrecision: z.int32().min(0).max(3).default(0),
   /** channelNamesHidden is true when channel names are hidden. */
   channelNamesHidden: z.boolean().default(false),
-  /** receiptTimestampHidden is true when the receipt timestamp column is hidden. */
-  receiptTimestampHidden: z.boolean().default(false),
+  /** timestampsHidden is true when entry timestamps are hidden. */
+  timestampsHidden: z.boolean().default(false),
 });
 export interface Log extends z.infer<typeof logZ> {}
 export interface New extends z.input<typeof logZ> {}

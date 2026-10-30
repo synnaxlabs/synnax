@@ -18,7 +18,12 @@ import (
 
 // MigrateLog lifts a v2 log to v3.
 func MigrateLog(ctx context.Context, old v2.Log) (Log, error) {
-	return autoMigrateLog(ctx, old)
+	out, err := autoMigrateLog(ctx, old)
+	if err != nil {
+		return Log{}, err
+	}
+	out.TimestampsHidden = old.ReceiptTimestampHidden
+	return out, nil
 }
 
 // MigrateChannelEntry lifts a v2 channel entry to v3. The v2 sentinel precision of -1

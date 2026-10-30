@@ -33,7 +33,7 @@ export interface LogProps extends Omit<
   | "channels"
   | "telem"
   | "channelNamesHidden"
-  | "receiptTimestampHidden"
+  | "timestampsHidden"
   | "timestampPrecision"
 > {}
 
@@ -44,10 +44,9 @@ export interface LogProps extends Omit<
 // cache, so callers must render it within a Log.Suspended boundary.
 export const Log = ({ enableTriggers, ...rest }: LogProps): ReactElement | null => {
   const key = useKey();
-  const { channels, channelNamesHidden, receiptTimestampHidden, timestampPrecision } =
-    use({
-      key,
-    });
+  const { channels, channelNamesHidden, timestampsHidden, timestampPrecision } = use({
+    key,
+  });
   const undoRedo = useUndoRedo(key, enableTriggers);
   // A channel entry with key 0 is an unconfigured placeholder row; the telem source
   // must not subscribe to it.
@@ -58,7 +57,7 @@ export const Log = ({ enableTriggers, ...rest }: LogProps): ReactElement | null 
       telem={telem}
       channels={activeChannels}
       channelNamesHidden={channelNamesHidden}
-      receiptTimestampHidden={receiptTimestampHidden}
+      timestampsHidden={timestampsHidden}
       timestampPrecision={timestampPrecision}
       enableTriggers={enableTriggers}
       undoRedo={undoRedo}

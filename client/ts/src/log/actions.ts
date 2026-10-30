@@ -26,8 +26,8 @@ import {
   setChannels,
   setChannelTimestampFormat,
   setChannelTimestampTz,
-  setReceiptTimestampHidden,
   setTimestampPrecision,
+  setTimestampsHidden,
   swapChannel,
 } from "@/log/actions.gen";
 import { channelEntryZ } from "@/log/types.gen";
@@ -192,11 +192,11 @@ const handlers: Handlers = {
     };
   },
 
-  setReceiptTimestampHidden: (state, payload) => {
-    const oldValue = state.receiptTimestampHidden;
-    state.receiptTimestampHidden = payload.receiptTimestampHidden;
+  setTimestampsHidden: (state, payload) => {
+    const oldValue = state.timestampsHidden;
+    state.timestampsHidden = payload.timestampsHidden;
     return {
-      inverse: [setReceiptTimestampHidden({ receiptTimestampHidden: oldValue })],
+      inverse: [setTimestampsHidden({ timestampsHidden: oldValue })],
       targets: [state.key],
     };
   },
