@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, lineplot } from "@synnaxlabs/client";
-import { CSS } from "@synnaxlabs/lyra/css";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
 import {
@@ -17,12 +16,15 @@ import {
   type direction,
   type location,
   primitive,
-  type TimeRange,
-  type TimeSpan,
+  resolveWindow,
+  TimeSpan,
+  TimeStamp,
+  type Window,
 } from "@synnaxlabs/x";
 import { type ReactElement, type RefObject, useEffect, useRef } from "react";
 
 import { canDropHaulItem, filterHaulItems } from "@/channel/types";
+import { CSS } from "@/css";
 import { XAxis as BaseXAxis, YAxis as BaseYAxis } from "@/lineplot/Axis";
 import { Frame, type FrameProps } from "@/lineplot/Frame";
 import {
@@ -57,12 +59,6 @@ import { Tooltip } from "@/lineplot/tooltip";
 import { Viewport as BaseViewport } from "@/lineplot/Viewport";
 import { telem } from "@/telem/aether";
 import { type Viewport } from "@/viewport";
-
-// A resolved range descriptor supplied by the consumer. Range resolution lives
-// in the consumer (Console's range slice), so the connected component receives
-// the static/dynamic time window per range key rather than reading it itself.
-export type ResolvedRange =
-  { variant: "static"; timeRange: TimeRange } | { variant: "dynamic"; span: TimeSpan };
 
 export const axisLabel = (key: lineplot.AxisKey): string => key.toUpperCase();
 
@@ -105,7 +101,7 @@ const useAxisDrop = <K extends lineplot.AxisKey>(
 interface LineProps {
   pKey: lineplot.Key;
   lineKey: string;
-  resolved?: ResolvedRange;
+  window?: Window;
   visible?: boolean;
 }
 
@@ -115,36 +111,36 @@ const GROUPS_PER_COLUMN: Record<lineplot.Detail, number> = {
   high: 1,
 };
 
+// A live window of a minute or less draws from the stream at once, so its lines report
+// no loading while they have no data.
+const LOADING_MIN_SPAN = Number(TimeSpan.minutes(1).valueOf());
+
 const createTelemetry = (
-  resolved: ResolvedRange,
+  window: Window,
   xChannel: channel.Key,
   yChannel: channel.Key,
   aggregation: lineplot.Aggregation,
-  groupsPerColumn: number,
 ) => {
   const hasX = primitive.isNonZero(xChannel);
   const props = {
-    ...(resolved.variant === "dynamic"
-      ? { timeSpan: resolved.span }
-      : { timeRange: resolved.timeRange }),
+    window,
     xChannel,
     aggregation,
-    groupsPerColumn,
   };
   return {
-    x: telem.tiledChannelData({
+    x: telem.channelData({
       ...props,
       channel: hasX ? xChannel : yChannel,
       useIndexOfChannel: !hasX,
     }),
-    y: telem.tiledChannelData({ ...props, channel: yChannel }),
+    y: telem.channelData({ ...props, channel: yChannel }),
   };
 };
 
 const Line = ({
   pKey,
   lineKey,
-  resolved,
+  window,
   visible = true,
 }: LineProps): ReactElement | null => {
   const spec = useLine({ key: pKey, lineKey });
@@ -152,11 +148,8 @@ const Line = ({
   // JSX takes the rest object, so the compiler counts reads from it as changing later.
   const { xChannel, yChannel } = spec;
   const groupsPerColumn = GROUPS_PER_COLUMN[detail];
-  const telemetry =
-    resolved == null
-      ? null
-      : createTelemetry(resolved, xChannel, yChannel, aggregation, groupsPerColumn);
-  if (telemetry == null) return null;
+  if (window == null) return null;
+  const telemetry = createTelemetry(window, xChannel, yChannel, aggregation);
   return (
     <BaseLine
       key={key}
@@ -165,6 +158,9 @@ const Line = ({
       y={telemetry.y}
       visible={visible}
       groupsPerColumn={groupsPerColumn}
+      loadingHidden={
+        window.variant === "dynamic" && window.timeSpan <= LOADING_MIN_SPAN
+      }
       legendGroup={line.yAxis.toUpperCase()}
       {...line}
     />
@@ -231,7 +227,7 @@ const Legend = ({
 interface AxisChildrenProps {
   pKey: lineplot.Key;
   editable: boolean;
-  resolvedRanges?: Map<string, ResolvedRange>;
+  windows?: Map<string, Window>;
   hiddenLines?: Set<string>;
   onSelectRule?: (key: string) => void;
 }
@@ -293,7 +289,7 @@ const YAxis = ({
   pKey: key,
   axisKey,
   editable,
-  resolvedRanges,
+  windows,
   hiddenLines,
   onSelectRule,
 }: YAxisProps): ReactElement => {
@@ -333,7 +329,7 @@ const YAxis = ({
           key={lineKey}
           pKey={key}
           lineKey={lineKey}
-          resolved={resolvedRanges?.get(lineplot.parseLineKey(lineKey).range)}
+          window={windows?.get(lineplot.parseLineKey(lineKey).range)}
           visible={hiddenLines == null || !hiddenLines.has(lineKey)}
         />
       ))}
@@ -351,7 +347,7 @@ const XAxis = ({
   pKey: key,
   axisKey,
   editable,
-  resolvedRanges,
+  windows,
   hiddenLines,
   onSelectRule,
   rangeProviderProps,
@@ -389,7 +385,7 @@ const XAxis = ({
           pKey={key}
           axisKey={yAxisKey}
           editable={editable}
-          resolvedRanges={resolvedRanges}
+          windows={windows}
           hiddenLines={hiddenLines}
           onSelectRule={onSelectRule}
         />
@@ -426,7 +422,8 @@ const useViewportReset = ({
 export interface LinePlotProps extends FrameProps {
   editable?: boolean;
   enableTriggers?: Triggers.Condition;
-  resolvedRanges?: Map<string, ResolvedRange>;
+  /** The window of each range key the plot's lines name. */
+  windows?: Map<string, Window>;
   legendVariant?: BaseLegendProps["variant"];
   enableTooltip?: boolean;
   enableMeasure?: boolean;
@@ -442,12 +439,11 @@ export interface LinePlotProps extends FrameProps {
 }
 
 const fetchingMessage = (
-  ranges: Map<string, ResolvedRange> | undefined,
+  windows: Map<string, Window> | undefined,
 ): string | undefined => {
-  if (ranges == null || ranges.size === 0) return undefined;
-  const spans = [...ranges.values()].map((r) =>
-    r.variant === "dynamic" ? r.span : r.timeRange.span,
-  );
+  if (windows == null || windows.size === 0) return undefined;
+  const now = TimeStamp.now();
+  const spans = [...windows.values()].map((w) => resolveWindow(w, now).span);
   const longest = spans.reduce((a, b) => (b.greaterThan(a) ? b : a));
   return `Fetching ${longest.toString()} of data`;
 };
@@ -455,7 +451,7 @@ const fetchingMessage = (
 export const LinePlot = ({
   editable = true,
   enableTriggers = true,
-  resolvedRanges,
+  windows,
   legendVariant,
   enableTooltip = true,
   enableMeasure = false,
@@ -477,14 +473,14 @@ export const LinePlot = ({
   const xAxisKeys = useXAxisKeys({ key });
   const viewportRef = useViewportReset({ key, hold: rest.hold });
   return (
-    <Frame ref={ref} loadingMessage={fetchingMessage(resolvedRanges)} {...rest}>
+    <Frame ref={ref} loadingMessage={fetchingMessage(windows)} {...rest}>
       {xAxisKeys.map((xAxisKey) => (
         <XAxis
           key={xAxisKey}
           pKey={key}
           axisKey={xAxisKey}
           editable={editable}
-          resolvedRanges={resolvedRanges}
+          windows={windows}
           hiddenLines={hiddenLines}
           onSelectRule={onSelectRule}
           rangeProviderProps={rangeProviderProps}

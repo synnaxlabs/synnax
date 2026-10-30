@@ -10,7 +10,6 @@
 import "@/code/Editor.css";
 
 import { type ILanguageFeaturesService } from "@codingame/monaco-vscode-api/services";
-import { CSS } from "@synnaxlabs/lyra/css";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -18,7 +17,7 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { Triggers } from "@synnaxlabs/lyra/triggers";
-import { debounce, TimeSpan, url } from "@synnaxlabs/x";
+import { scheduler, TimeSpan, url } from "@synnaxlabs/x";
 import {
   type ReactNode,
   type Ref,
@@ -32,6 +31,7 @@ import {
 import { BASE_THEMES, type EditorExtension } from "@/code/language";
 import { type Monaco, useLanguage, useMonaco } from "@/code/Provider";
 import { diff, utf16Offset } from "@/code/text";
+import { CSS } from "@/css";
 import { Errors } from "@/errors";
 
 const ESCAPE_TRIGGERS: Triggers.Trigger[] = [Triggers.ESCAPE];
@@ -335,7 +335,7 @@ const useRenameAvailable = (
         }
       })();
     };
-    const debounced = debounce.debounce(run, RENAME_CHECK_DEBOUNCE);
+    const debounced = scheduler.debounce(run, RENAME_CHECK_DEBOUNCE);
     const cursorDispose = editor.onDidChangeCursorPosition(debounced);
     run();
     return () => {

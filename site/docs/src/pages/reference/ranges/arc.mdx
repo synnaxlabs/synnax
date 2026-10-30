@@ -1,0 +1,239 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Create ranges in Arc"
+description:
+  "Mark each test run, stage, abort, or out-of-limits period from an Arc automation."
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+An [Arc automation](/reference/control/arc) can create a [range](/reference/ranges) when
+a test starts and end it when the test ends. Each run gets its own range, and no one has
+to mark it in the Console. This page shows the common patterns. For every parameter, see
+the [`ranges` module](/reference/control/arc/standard-library/ranges).
+
+Four rules apply to every pattern:
+
+- Import the module with `import ranges`.
+- Store the key that `ranges.create` outputs in a variable declared with `$=`, and give
+  that variable to `ranges.end`. A `$=` variable keeps its value from one stage to the
+  next.
+- Set a `color`. Line plots show only ranges that have a color.
+- `ranges.create` with no upstream trigger runs once each time its stage starts. The
+  range starts at that time.
+
+<Divider.Divider x />
+
+## Mark each test run
+
+```arc channels="start_cmd, stop_cmd, press_vlv_cmd" bodies="test, idle, run, done"
+import ranges
+
+sequence test {
+    run_key str $= ""
+    stage idle {
+        start_cmd == 1 => run
+    }
+    stage run {
+        ranges.create(name="Hotfire", color="#3bc454") -> run_key
+        1 -> press_vlv_cmd
+        stop_cmd == 1 => done
+    }
+    stage done {
+        ranges.end(key=run_key)
+        0 -> press_vlv_cmd
+        start_cmd == 1 => run
+    }
+}
+
+true => test
+```
+
+`true => test` starts the sequence when the automation starts. Each time `run` starts,
+Arc creates a new range named `Hotfire`. `done` sets the end of that range to the
+current time. All the runs have the same name, so find a run by its time in the
+[range explorer](/reference/ranges/find).
+
+<Divider.Divider x />
+
+## Mark each stage with a child range
+
+Give the key of the run range to `parent`. The child range shows in the child ranges
+section of the [range overview](/reference/ranges/find#range-overview) of the run.
+
+```arc channels="start_cmd, press_vlv_cmd, vent_vlv_cmd, tank_pt" bodies="test, idle, pressurize, hold, vent, done"
+import ranges
+import time
+
+sequence test {
+    run_key str $= ""
+    hold_key str $= ""
+    stage idle {
+        start_cmd == 1 => pressurize
+    }
+    stage pressurize {
+        ranges.create(name="Press test", color="#3bc454") -> run_key
+        1 -> press_vlv_cmd
+        tank_pt > 300.0 => hold
+    }
+    stage hold {
+        ranges.create(name="Hold", parent=run_key, color="#8b5cf6") -> hold_key
+        0 -> press_vlv_cmd
+        time.wait(duration=30s) => vent
+    }
+    stage vent {
+        ranges.end(key=hold_key)
+        1 -> vent_vlv_cmd
+        tank_pt < 5.0 => done
+    }
+    stage done {
+        ranges.end(key=run_key)
+        0 -> vent_vlv_cmd
+        start_cmd == 1 => pressurize
+    }
+}
+
+true => test
+```
+
+Each child range needs its own variable. Here, `hold_key` holds the key of the `Hold`
+range, and `vent` ends it.
+
+<Divider.Divider x />
+
+## Mark an abort
+
+Create a red child range when the test aborts. A reader of the data sees where the test
+stopped and why.
+
+```arc channels="start_cmd, abort_cmd, press_vlv_cmd, vent_vlv_cmd, tank_pt" bodies="test, idle, pressurize, vent, abort, done, safe"
+import ranges
+
+sequence test {
+    run_key str $= ""
+    abort_key str $= ""
+    stage idle {
+        start_cmd == 1 => pressurize
+    }
+    stage pressurize {
+        ranges.create(name="Press test", color="#3bc454") -> run_key
+        1 -> press_vlv_cmd
+        tank_pt > 450.0 => abort
+        abort_cmd == 1 => abort
+        tank_pt > 300.0 => vent
+    }
+    stage vent {
+        0 -> press_vlv_cmd
+        1 -> vent_vlv_cmd
+        tank_pt < 5.0 => done
+    }
+    stage abort {
+        ranges.create(name="Abort", parent=run_key, color="#e5484d") -> abort_key
+        0 -> press_vlv_cmd
+        1 -> vent_vlv_cmd
+        tank_pt < 5.0 => safe
+    }
+    stage done {
+        ranges.end(key=run_key)
+        0 -> vent_vlv_cmd
+        start_cmd == 1 => pressurize
+    }
+    stage safe {
+        ranges.end(key=abort_key)
+        ranges.end(key=run_key)
+        0 -> vent_vlv_cmd
+        start_cmd == 1 => pressurize
+    }
+}
+
+true => test
+```
+
+The abort path ends in its own stage, `safe`. Do not end `abort_key` in `done`: after a
+run with no abort, `abort_key` holds the key of an earlier abort, and `ranges.end` would
+move the end of that range.
+
+<Divider.Divider x />
+
+## Mark when a value is out of limits
+
+Create a range each time a value goes above a limit, and end it when the value comes
+back. Use two limits, so that a value near one limit does not create many short ranges.
+
+```arc channels="tank_pt" bodies="watch, normal, high, recovered"
+import ranges
+
+sequence watch {
+    range_key str $= ""
+    stage normal {
+        tank_pt > 600.0 => high
+    }
+    stage high {
+        ranges.create(name="Overpressure", color="#f59e0b") -> range_key
+        tank_pt < 580.0 => recovered
+    }
+    stage recovered {
+        ranges.end(key=range_key)
+        tank_pt > 600.0 => high
+    }
+}
+
+true => watch
+```
+
+`normal` runs only before the first range. `recovered` ends each range after it, so
+`ranges.end` never runs with an empty key.
+
+<Divider.Divider x />
+
+## What Arc cannot do
+
+Arc can create a range and end it. Use the Console or a client for everything else:
+
+| To                                | See                                                 |
+| --------------------------------- | --------------------------------------------------- |
+| Find a range                      | [Find ranges](/reference/ranges/find)               |
+| Read the data of a range          | [Read and write range data](/reference/ranges/data) |
+| Add metadata or labels            | [Metadata and labels](/reference/ranges/metadata)   |
+| Set a channel alias               | [Channel aliases](/reference/ranges/aliases)        |
+| Rename a range or change its time | [Edit and delete ranges](/reference/ranges/edit)    |
+| Snapshot a task or a schematic    | [Snapshots](/reference/ranges/snapshots)            |
+
+Each `ranges.create` makes a new range, also when a range with the same name exists. The
+[graph editor](/reference/control/arc/graph-editor) has no range blocks, so write range
+calls in the text editor.
+
+<Divider.Divider x />
+
+## Troubleshooting
+
+### A range stays in progress
+
+The automation stopped, or you deployed it again, before `ranges.end` ran. Stopping an
+automation does not end its ranges, and the automation loses the keys that it stored.
+Complete the range in the Console. See
+[change the times or the stage](/reference/ranges/edit#change-the-times-or-the-stage).
+
+### The automation shows a `ranges` warning
+
+When a `ranges` call fails, Synnax shows a warning, the call outputs an empty key, and
+the automation keeps running.
+
+| Warning                                | Cause                                                                 |
+| -------------------------------------- | --------------------------------------------------------------------- |
+| `ranges.end: invalid range key ""`     | `ranges.end` ran before `ranges.create` stored a key in the variable. |
+| `ranges.create: invalid parent key ""` | The child range was created before the parent range stored its key.   |
+
+Put each `ranges.end`, and each child `ranges.create`, in a stage that runs only after
+the `ranges.create` that it needs.
+
+### The range does not show on a line plot
+
+The range has no color. Set `color` in `ranges.create`.
+
+### The range is not in the ranges toolbar
+
+The ranges toolbar shows only your favorite ranges. Find the range in the range
+explorer, and [favorite it](/reference/ranges/find#favorites).

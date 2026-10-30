@@ -9,6 +9,20 @@
 
 """OPC UA example package."""
 
-from .sim import OPCUASim, OPCUATLSAuthSim, OPCUATLSSim, run_server
+from .sim import (
+    OPCUASim,
+    OPCUATLSAuthSim,
+    OPCUATLSDriverCertificateSim,
+    OPCUATLSSim,
+    read_server_certificate,
+    run_server,
+)
 
-__all__ = ["OPCUASim", "OPCUATLSAuthSim", "OPCUATLSSim", "run_server"]
+__all__ = [
+    "OPCUASim",
+    "OPCUATLSAuthSim",
+    "OPCUATLSDriverCertificateSim",
+    "OPCUATLSSim",
+    "read_server_certificate",
+    "run_server",
+]

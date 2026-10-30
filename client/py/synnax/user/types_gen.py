@@ -14,7 +14,7 @@ from __future__ import annotations
 from typing import TypeAlias
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from synnax.ontology.payload import ID
 
@@ -27,17 +27,13 @@ class User(BaseModel):
 
     Attributes:
         key: Is the unique identifier for this user.
-        username: Is the unique login name for the user.
-        first_name: Is the user's first name.
-        last_name: Is the user's last name.
+        name: Is the user's display name.
         root_user: Is true if this is a root/admin user with full system access. Root
             users cannot be deleted.
     """
 
     key: Key
-    username: str
-    first_name: str
-    last_name: str
+    name: str = Field(min_length=1)
     root_user: bool = False
 
     def __hash__(self) -> int:

@@ -1,0 +1,299 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Control authority"
+description:
+  "Learn how Synnax decides which writer controls a channel, and how to set it."
+clients: ["console", "python", "typescript", "arc"]
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import { Diagram } from "@/components/diagram";
+import { Video } from "@/components/media/Media";
+import { mdxOverrides } from "@/components/mdxOverrides";
+import { Rule } from "@/components/rule";
+export const components = mdxOverrides;
+
+A writer is anything that sends values to a channel: a schematic, an Arc automation, a
+script, or a task. More than one writer can write to the same command channel, but only
+one writer at a time controls it. Control authority, a number from 0 to 255, decides
+which writer that is. With control authority, you can hand off control:
+
+- Between an operator and an automation.
+- Between two operators.
+- Between two automations, such as a nominal sequence and an abort sequence.
+
+Arc automations and scripts write at 255 if you do not set an authority. An operator
+cannot take a channel from them, so give them a lower authority on each channel that an
+operator must be able to take. See [default authorities](#default-authorities).
+
+<Divider.Divider x />
+
+## How authority works
+
+<Rule.List>
+<Rule.Item title="Higher authority takes control">
+
+When a writer opens on a channel, or raises its authority, with a higher authority than
+the controlling writer, it takes control.
+
+</Rule.Item>
+<Rule.Item title="On equal authority, the first writer to open keeps control">
+
+When two writers have the same authority, the one that opened on the channel first
+controls it. A writer that releases control and takes it again counts as a new writer.
+
+</Rule.Item>
+<Rule.Item title="Control passes on when the controlling writer leaves">
+
+When the controlling writer closes or lowers its authority, rules 1 and 2 pick the new
+controlling writer from the writers that are still open.
+
+</Rule.Item>
+<Rule.Item title="Values from other writers are dropped">
+
+Synnax ignores the values from a writer that does not control the channel. The writer
+gets no error.
+
+</Rule.Item>
+<Rule.Item title="255 is the highest authority">
+
+A writer at 255 keeps control against every writer that opened after it.
+
+</Rule.Item>
+<Rule.Item title="The index channel decides for its data channels">
+
+A writer that loses control of an index channel loses its writes to every channel on
+that index, even the channels it controls.
+
+</Rule.Item>
+</Rule.List>
+
+### Virtual channels
+
+A [virtual channel](/reference/channels#virtual-channels) can have more than one writer
+at a time. Every writer with an authority equal to or higher than the controlling writer
+can write to it. For example, if a schematic and an Arc automation both write to a
+virtual `press_vlv_cmd` at 255, the values from both reach the channel.
+
+<Divider.Divider x />
+
+## Example: operator and abort
+
+A Press sequence controls `press_vlv_cmd`, a command channel with an index. It writes at
+100, and at 255 in its abort stage. An operator watches the test on a schematic that
+writes at 200, and at 255 from a control chip.
+
+<Diagram.Handoff
+  title="Control of press_vlv_cmd over six events. The Press sequence controls it at events 1, 3, 5, and 6. The schematic controls it at events 2 and 4."
+  writers={[
+    {
+      name: "Press sequence",
+      caption: "Arc automation",
+      authority: [100, 100, 100, 100, 255, 255],
+    },
+    {
+      name: "Schematic",
+      caption: "Operator",
+      authority: [null, 200, null, 200, 200, 255],
+    },
+  ]}
+  events={[
+    { label: "The Press sequence starts.", reason: "No other writer is open." },
+    { label: "The operator takes control.", reason: "200 is higher than 100." },
+    { label: "The operator releases control.", reason: "It is the only writer left." },
+    { label: "The operator takes control again.", reason: "200 is higher than 100." },
+    {
+      label: "The Press sequence enters its abort stage.",
+      reason: "255 is higher than 200.",
+    },
+    {
+      label: "The operator clicks the control chip (255).",
+      reason: "Equal authority, and it opened first.",
+    },
+  ]}
+/>
+
+In this recording, an automation named Valve Guard writes at 100, and a schematic at 200
+takes control, opens the valve, and releases control. The legend shows which writer
+controls the valve at each step.
+
+<Video id="control/authority/hand-off" />
+
+<Divider.Divider x />
+
+## Set authority
+
+<Client.Tabs>
+
+  <Fragment slot="console">
+
+Each schematic writes at one authority, 1 by default. To change it, see
+[set the schematic authority](/reference/control/manual#set-the-schematic-authority).
+
+  </Fragment>
+
+  <Fragment slot="python">
+
+Open a writer with the `authorities` parameter, then change the authority while the
+writer is open.
+
+Pass one authority for every channel, or one authority for each channel:
+
+```python
+writer = client.open_writer(
+    start=sy.TimeStamp.now(),
+    channels=["press_time", "press_vlv_cmd"],
+    authorities=100,
+)
+```
+
+Change the authority of every channel, or of the channels you name:
+
+```python
+writer.set_authority(200)
+writer.set_authority({"press_time": 255, "press_vlv_cmd": 255})
+```
+
+Set `err_on_unauthorized=True` to make `open_writer` raise an error when a different
+writer controls one of the channels. Writes made later without control still return no
+error.
+
+To control hardware from a script with waits and conditions, see
+[write a control sequence in Python](/reference/control/python/write-sequences).
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+Open a writer with the `authorities` parameter, then change the authority while the
+writer is open.
+
+Pass one authority for every channel, or one authority for each channel:
+
+```typescript
+const writer = await client.openWriter({
+  start: TimeStamp.now(),
+  channels: ["press_time", "press_vlv_cmd"],
+  authorities: 100,
+});
+```
+
+Change the authority of every channel, or of the channels you name:
+
+```typescript
+await writer.setAuthority(200);
+await writer.setAuthority({ press_time: 255, press_vlv_cmd: 255 });
+```
+
+Set `errOnUnauthorized: true` to make `openWriter` throw an error when a different
+writer controls one of the channels. Writes made later without control still return no
+error.
+
+  </Fragment>
+
+  <Fragment slot="arc">
+
+1. In the Arc editor, after the `import` lines, add `authority 100`. It sets the
+   authority for every channel that the automation writes.
+2. In each stage that an operator must not override, add
+   `control.set_authority(value=255)`. The automation raises its authority when the
+   stage starts.
+3. Start the automation.
+
+The finished automation:
+
+```arc channels="press_vlv_cmd, vent_vlv_cmd, tank_pt, start_cmd, abort_cmd" bodies="main, pressurize, hold, abort"
+import control
+
+authority 100
+
+sequence main {
+    stage pressurize {
+        1 -> press_vlv_cmd
+        0 -> vent_vlv_cmd
+        tank_pt > 450 => abort
+        abort_cmd == 1 => abort
+        tank_pt > 300 => hold
+    }
+    stage hold {
+        0 -> press_vlv_cmd
+        abort_cmd == 1 => abort
+    }
+    stage abort {
+        control.set_authority(value=255)
+        0 -> press_vlv_cmd
+        1 -> vent_vlv_cmd
+    }
+}
+
+start_cmd == 1 => main
+```
+
+A schematic that shows these channels now lists the automation in its control legend. An
+operator who takes control at more than 100 takes the valves until the abort stage
+starts.
+
+To set a different authority on one channel, list it after the default:
+`authority (100 vent_vlv_cmd 200)`. Always give a default. Without one, the channels you
+do not list stay at 255, and so do their index channels. An operator who takes a listed
+channel then loses every write to it, because the automation keeps the index (see
+[the index channel rule](#the-index-channel-decides-for-its-data-channels)). See the
+[`control` module](/reference/control/arc/standard-library/control).
+
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## See which writer controls a channel
+
+On a schematic, the [control chips](/reference/control/manual#control-chips) and the
+control legend show which writer controls each channel. In code:
+
+<Client.Tabs exclude={["console"]}>
+
+  <Fragment slot="python">
+
+```python
+state = client.control.retrieve(name="press_vlv_cmd")
+if state is None:
+    print("No writer controls press_vlv_cmd")
+else:
+    print(state.subject.name, state.authority)
+```
+
+`retrieve` returns `None` when no writer controls the channel.
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const ch = await client.channels.retrieve("press_vlv_cmd");
+const state = await client.control.retrieve(ch.key);
+console.log(state.subject.name, state.authority);
+```
+
+`retrieve` takes channel keys, and throws a `NotFoundError` when no writer controls the
+channel.
+
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Default authorities
+
+| Writer                                     | Default | Where to change it                                                                                                                              |
+| ------------------------------------------ | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Schematic                                  | 1       | [Schematic authority](/reference/control/manual#set-the-schematic-authority). Each Console keeps its own value. The schematic does not save it. |
+| Schematic, after a click on a control chip | 255     | Cannot change                                                                                                                                   |
+| Arc automation                             | 255     | [`authority` line](#set-authority)                                                                                                              |
+| Python or TypeScript writer                | 255     | [`authorities` parameter](#set-authority)                                                                                                       |
+| Read task and write task                   | 255     | Cannot change                                                                                                                                   |
+
+A read task writes the channels it reads at 255, so a script cannot write to them while
+the task runs. A write task writes its
+[state channels](/reference/hardware/tasks#state-channels) at 255.

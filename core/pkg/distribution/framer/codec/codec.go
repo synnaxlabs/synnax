@@ -16,6 +16,7 @@ import (
 	"io"
 	"slices"
 	"sort"
+	"sync"
 	"sync/atomic"
 
 	"github.com/samber/lo"
@@ -148,8 +149,6 @@ type Codec struct {
 	// mergedSeriesResult is a reusable slice for storing merged series info, avoiding
 	// allocations on each encode operation
 	mergedSeriesResult []mergedSeriesInfo
-	// opts holds configuration options for the codec.
-	opts *options
 	// mu is non-routine safe structures that must be used carefully.
 	mu struct {
 		// states is the current backlog of encoding states. We keep multiple states to
@@ -160,16 +159,18 @@ type Codec struct {
 		// the previous state. seqNum and the states backlog are used to keep the two in
 		// sync.
 		states map[uint32]state
-		// updates is a channel that the routine in Update pushes a new state down for
-		// processing within Encode/Decode.
-		updates chan state
+		// oldest is the lowest sequence number that states can hold.
+		oldest uint32
+		// pending holds the states added by Update that Encode and Decode have not
+		// applied yet, oldest first. pendingMu guards it.
+		pending   []state
+		pendingMu sync.Mutex
 		// seqNum corresponds to the most recent update in states. This is incremented
 		// and communicated each time a state is added.
 		seqNum uint32
-		// updateAvailable is an atomic flag indicating that a new state update is
-		// available for processing on the encoding/decoding routine. Checking this
-		// boolean is more performant than using a non-blocking select on every
-		// encode/decode operation.
+		// updateAvailable is an atomic flag indicating that pending holds a state for
+		// the encoding/decoding routine to apply. Checking it lets each encode and
+		// decode skip pendingMu when no update is pending.
 		updateAvailable atomic.Bool
 	}
 	// encodeSorter is used to sort source frames that are being encoded. Used instead
@@ -177,41 +178,12 @@ type Codec struct {
 	encodeSorter sorter
 }
 
-type options struct {
-	// enableAlignmentCompression controls whether to merge contiguous series with the
-	// same channel key during encoding. When enabled, reduces bandwidth at the cost of
-	// some CPU overhead during encoding.
-	enableAlignmentCompression bool
-}
-
-type Option = func(*options)
-
-// DisableAlignmentCompression disables merging of contiguous series with the same
-// channel key during encoding. This can significantly increase bandwidth usage (30-70%)
-// for frames with many small contiguous series at the cost of 5-15% additional CPU
-// overhead during encoding. Defaults to true.
-func DisableAlignmentCompression() Option {
-	return func(o *options) { o.enableAlignmentCompression = false }
-}
-
-func newOptions(opts []Option) *options {
-	o := &options{enableAlignmentCompression: true}
-	for _, opt := range opts {
-		opt(o)
-	}
-	return o
-}
-
 var byteOrder = telem.ByteOrder
 
 // NewStatic creates a new codec that uses the given channel keys and data types as
-// its encoding state with default configuration (alignment compression enabled).
-// It is not safe to call Update on a codec instantiated using NewStatic.
-func NewStatic(
-	channelKeys channel.Keys,
-	dataTypes []telem.DataType,
-	opts ...Option,
-) *Codec {
+// its encoding state. It is not safe to call Update on a codec instantiated using
+// NewStatic.
+func NewStatic(channelKeys channel.Keys, dataTypes []telem.DataType) *Codec {
 	if len(dataTypes) != len(channelKeys) {
 		panic("data types and channel keys must be the same length")
 	}
@@ -219,7 +191,7 @@ func NewStatic(
 	for i, key := range channelKeys {
 		keyDataTypes[key] = dataTypes[i]
 	}
-	c := newCodec(opts...)
+	c := newCodec()
 	c.update(channelKeys, keyDataTypes)
 	return c
 }
@@ -240,23 +212,19 @@ type ChannelResolver interface {
 }
 
 // NewDynamic creates a new codec that can be dynamically updated by resolving channel
-// data types through the provided ChannelResolver with default configuration (alignment
-// compression enabled). Codec.Update must be called before the first call to
-// Codec.Encode and Codec.Decode.
-func NewDynamic(channelResolver ChannelResolver, opts ...Option) *Codec {
-	c := newCodec(opts...)
+// data types through the provided ChannelResolver. Codec.Update must be called before
+// the first call to Codec.Encode and Codec.Decode.
+func NewDynamic(channelResolver ChannelResolver) *Codec {
+	c := newCodec()
 	c.channelResolver = channelResolver
 	return c
 }
 
-func newCodec(opts ...Option) *Codec {
-	o := newOptions(opts)
+func newCodec() *Codec {
 	c := &Codec{
 		buf:    binary.NewWriter(0, byteOrder),
 		reader: binary.NewReader(nil, byteOrder),
-		opts:   o,
 	}
-	c.mu.updates = make(chan state, 50)
 	c.mu.updateAvailable.Store(false)
 	c.mu.states = make(map[uint32]state)
 	return c
@@ -306,22 +274,24 @@ func (c *Codec) update(keys channel.Keys, keyDataTypes map[channel.Key]telem.Dat
 		}
 	}
 	slices.Sort(s.keys)
+	c.mu.pendingMu.Lock()
+	c.mu.pending = append(c.mu.pending, s)
+	c.mu.pendingMu.Unlock()
+	// Set after the append, so the routine that clears the flag also finds s.
 	c.mu.updateAvailable.Store(true)
-	c.mu.updates <- s
 }
 
 func (c *Codec) processUpdates() {
 	if !c.mu.updateAvailable.CompareAndSwap(true, false) {
 		return
 	}
-	for {
-		select {
-		case s := <-c.mu.updates:
-			c.mu.seqNum++
-			c.mu.states[c.mu.seqNum] = s
-		default:
-			return
-		}
+	c.mu.pendingMu.Lock()
+	pending := c.mu.pending
+	c.mu.pending = nil
+	c.mu.pendingMu.Unlock()
+	for _, s := range pending {
+		c.mu.seqNum++
+		c.mu.states[c.mu.seqNum] = s
 	}
 }
 
@@ -408,6 +378,14 @@ func (c *Codec) Encode(ctx context.Context, src framer.Frame) ([]byte, error) {
 	result := make([]byte, len(c.buf.Bytes()))
 	copy(result, c.buf.Bytes())
 	return result, nil
+}
+
+// prune drops the states older than seqNum. A remote encoder never goes back to an
+// older state, and an encoder only uses its newest one.
+func (c *Codec) prune(seqNum uint32) {
+	for ; c.mu.oldest < seqNum; c.mu.oldest++ {
+		delete(c.mu.states, c.mu.oldest)
+	}
 }
 
 func (c *Codec) panicIfNotUpdated(opName string) {
@@ -590,6 +568,7 @@ func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
 	c.encodeSorter.reset(src.Count())
 	c.processUpdates()
 	c.panicIfNotUpdated("Encode")
+	c.prune(c.mu.seqNum)
 	currState := c.mu.states[c.mu.seqNum]
 	src = src.KeepKeys(currState.keySet)
 
@@ -624,33 +603,12 @@ func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
 	// Sort by (key, alignment, rawIndex) using pre-extracted data for cache efficiency
 	c.encodeSorter.sort()
 
-	// Merge contiguous series with the same key if enabled, otherwise just
-	// create series info directly. In both cases, we reuse c.mergedSeriesResult.
-	var mergedSeries []mergedSeriesInfo
-	if c.opts.enableAlignmentCompression {
-		mergedSeries = c.mergeContiguousSeries(
-			c.encodeSorter.keys,
-			c.encodeSorter.rawIndices,
-			src,
-			c.encodeSorter.offset,
-		)
-	} else {
-		// No merging - create series info directly from sorted data using reusable
-		// slice
-		count := c.encodeSorter.offset
-		if cap(c.mergedSeriesResult) < count {
-			c.mergedSeriesResult = make([]mergedSeriesInfo, 0, count)
-		}
-		c.mergedSeriesResult = c.mergedSeriesResult[:0]
-		for i := range count {
-			rawIdx := c.encodeSorter.rawIndices[i]
-			c.mergedSeriesResult = append(c.mergedSeriesResult, mergedSeriesInfo{
-				series: src.RawSeriesAt(rawIdx),
-				key:    c.encodeSorter.keys[i],
-			})
-		}
-		mergedSeries = c.mergedSeriesResult
-	}
+	mergedSeries := c.mergeContiguousSeries(
+		c.encodeSorter.keys,
+		c.encodeSorter.rawIndices,
+		src,
+		c.encodeSorter.offset,
+	)
 
 	// Calculate flags and byte size based on merged series
 	var (
@@ -823,6 +781,7 @@ func (c *Codec) DecodeStream(reader io.Reader) (framer.Frame, error) {
 		)
 		return framer.Frame{}, err
 	}
+	c.prune(seqNum)
 	fgs := decodeFlags(flagB)
 	if fgs.extended {
 		return framer.Frame{}, errors.Wrap(

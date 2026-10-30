@@ -263,17 +263,17 @@ var _ = Describe("Semantic Tokens", func() {
 			},
 			Entry(
 				"key dropped, value kept",
-				"in_ch -> select{} -> {\n\ttrue: true -> bool_ch\n}",
+				"in_ch -> select() -> {\n\ttrue: true -> bool_ch\n}",
 				1,
 			),
 			Entry(
 				"space before the colon",
-				"in_ch -> select{} -> {\n\tfalse : 1 -> u8_ch\n}",
+				"in_ch -> select() -> {\n\tfalse : 1 -> u8_ch\n}",
 				0,
 			),
 			Entry(
 				"both branches",
-				"in_ch -> select{} -> {\n\ttrue: 1 -> a,\n\tfalse: 2 -> b\n}",
+				"in_ch -> select() -> {\n\ttrue: 1 -> a,\n\tfalse: 2 -> b\n}",
 				0,
 			),
 		)

@@ -12,6 +12,7 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeAll, describe, expect, it } from "vitest";
+import { type z } from "zod";
 
 import { EtherCAT } from "@/feature/ethercat";
 import {
@@ -27,6 +28,7 @@ import {
 import {
   awaitEditableForm,
   clickDeploy,
+  createWithHook,
   deployAndAwaitTask,
   renderTaskFormTab,
 } from "@/platform/task/testutil";
@@ -49,12 +51,12 @@ const ZERO_DRAFT: task.New<EtherCAT.Task.ReadSchemas> = {
 
 const createDraft = async (
   client: Synnax,
-  config: EtherCAT.Task.ReadPayload["config"],
+  config: z.infer<EtherCAT.Task.ReadSchemas["config"]>,
 ) => await client.tasks.create({ ...ZERO_DRAFT, config }, EtherCAT.Task.READ_SCHEMAS);
 
 // The form renders read-only until the update grant lands, and a preview field renders
 // no input, so wait for it to become editable before querying fields.
-const renderRead = async (config: EtherCAT.Task.ReadPayload["config"]) => {
+const renderRead = async (config: z.infer<EtherCAT.Task.ReadSchemas["config"]>) => {
   const draft = await createDraft(client, config);
   const statuses: Status.NotificationSpec[] = [];
   const rendered = await renderTaskFormTab(EtherCAT.Task.Read, {
@@ -539,14 +541,15 @@ describe("Read", () => {
     expect(updated.properties.read.channels).toEqual({});
   });
 
-  it("should surface an error when the task has no channels", async () => {
-    const { container, statuses } = await renderRead({
+  it("should mark the channel list when the task has no channels", async () => {
+    const { container } = await renderRead({
       ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
       channels: [],
     });
     await clickDeploy(container);
-    await awaitStatus(statuses, /Failed to/);
-    await awaitStatus(statuses, /No channels configured/);
+    expect(
+      await screen.findByText("At least one enabled channel is required"),
+    ).toBeTruthy();
   });
 
   it("should surface an error when a slave is not configured", async () => {
@@ -563,5 +566,13 @@ describe("Read", () => {
     await clickDeploy(container);
     await awaitStatus(statuses, /Failed to/);
     await awaitStatus(statuses, /is not configured/);
+  });
+
+  it("should create the task with one channel", async () => {
+    const tsk = await createWithHook(
+      EtherCAT.Task.useCreateRead,
+      EtherCAT.Task.READ_SCHEMAS,
+    );
+    expect(tsk.config.channels).toHaveLength(1);
   });
 });

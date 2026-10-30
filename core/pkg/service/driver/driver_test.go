@@ -208,8 +208,10 @@ var _ = Describe("Driver", func() {
 		})
 
 		It("should fail with invalid config", func(ctx SpecContext) {
-			_, err := driver.Open(ctx, driver.Config{})
-			Expect(err).To(HaveOccurred())
+			Expect(
+				driver.Open(ctx, driver.Config{}),
+			).Error().
+				To(MatchError(ContainSubstring("must be non-nil")))
 		})
 
 		It("should create the initial tasks a factory returns", func(ctx SpecContext) {

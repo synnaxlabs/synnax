@@ -10,19 +10,19 @@
 package deleter
 
 import (
-	"github.com/synnaxlabs/freighter/mock"
+	freightertestutil "github.com/synnaxlabs/freighter/testutil"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/deleter"
 	"github.com/synnaxlabs/x/address"
 )
 
 // Network backs the in-memory deleter transport for a cluster of nodes.
 type Network struct {
-	net *mock.Network[deleter.Request, struct{}]
+	net *freightertestutil.Network[deleter.Request, struct{}]
 }
 
 // NewNetwork constructs a Network with a freshly initialized deleter network.
 func NewNetwork() *Network {
-	return &Network{net: mock.NewNetwork[deleter.Request, struct{}]()}
+	return &Network{net: freightertestutil.NewNetwork[deleter.Request, struct{}]()}
 }
 
 // New provisions an in-memory deleter.Transport whose server is hosted at addr.

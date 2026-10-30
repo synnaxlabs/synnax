@@ -20,8 +20,7 @@ class UserLogoutBadge(ConsoleCase):
         # Create a new user
         username = f"testuser_{random_name()}"
         password = "testpassword123"
-        first_name = "BadgeTest"
-        last_name = "User"
+        name = "BadgeTest User"
         role_name = "Operator"
 
         self.log(f"Registering user: {username}")
@@ -29,8 +28,7 @@ class UserLogoutBadge(ConsoleCase):
         self.console.access.register_user(
             username=username,
             password=password,
-            first_name=first_name,
-            last_name=last_name,
+            name=name,
             role_name=role_name,
         )
 
@@ -44,9 +42,9 @@ class UserLogoutBadge(ConsoleCase):
         self.log(f"Logging in as {username}...")
         self.console.access.login(username=username, password=password)
 
-        # Verify we're logged in by checking for the first name in the user badge
-        user_badge = self.page.get_by_text(first_name, exact=True)
+        # Verify we're logged in by checking for the name in the user badge
+        user_badge = self.page.get_by_text(name, exact=True)
         user_badge.wait_for(state="visible", timeout=10000)
-        self.log(f"Logged in successfully - user badge shows: {first_name}")
+        self.log(f"Logged in successfully - user badge shows: {name}")
 
         self.log("Logout via badge test passed")
