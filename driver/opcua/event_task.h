@@ -54,10 +54,6 @@ constexpr std::size_t TIME_FIELD = 3;
 
 /// @brief how long a read waits for events.
 const auto EVENT_WAIT = 100 * x::telem::MILLISECOND;
-/// @brief how often a task tries again to record what failed: a notifier that the
-/// server did not monitor, or a notifier, event type, or field in a namespace that the
-/// server does not have.
-const auto RETRY_INTERVAL = 10 * x::telem::SECOND;
 
 /// @brief the configuration of an OPC UA event task.
 struct EventTaskConfig {
@@ -380,16 +376,19 @@ class EventTaskSource final : public common::Source {
         return this->subscribe(std::move(c));
     }
 
-    /// @brief when RETRY_INTERVAL has passed, tries again to record what failed.
-    /// Subscribes again when the namespaces of the server changed, since the
-    /// subscription can then name nodes by stale indexes.
+    /// @brief when connection::SUBSCRIBE_RETRY_INTERVAL has passed, tries again to
+    /// record what failed: a notifier that the server did not monitor, or a notifier,
+    /// event type, or field in a namespace that the server does not have. Subscribes
+    /// again when the namespaces of the server changed, since the subscription can then
+    /// name nodes by stale indexes.
     /// @returns an error that loses the connection, or the error of the new
     /// subscription.
     x::errors::Error retry() {
         if (this->unresolved.empty() && this->unmonitored.empty())
             return x::errors::NIL;
         const auto now = x::telem::TimeStamp::now();
-        if (now - this->retried < RETRY_INTERVAL) return x::errors::NIL;
+        if (now - this->retried < connection::SUBSCRIBE_RETRY_INTERVAL)
+            return x::errors::NIL;
         this->retried = now;
         if (!this->unresolved.empty()) {
             types::ReadRequestBuilder builder;

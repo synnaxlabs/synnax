@@ -1603,21 +1603,47 @@ TEST_F(ConnectionPoolTest, SubscribeSplitsAtServerLimit) {
     EXPECT_EQ(delivered, std::set<std::size_t>({0, 1, 2, 3, 4}));
 }
 
-/// @brief it should report a server that stops answering as unreachable, since its
-/// subscription sends no notice.
+/// @brief it should report a server that stops answering as unreachable, as fast when
+/// the server chose a longer publishing interval than the request, since the
+/// subscription asks for keep-alives at the interval that the server chose.
 TEST_F(ConnectionPoolTest, IterateReportsSilentServer) {
     conn_cfg_.client_timeout_ms = 1000;
     Pool pool(testutil::create_store());
     std::vector<Changed> changes;
+    auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
+    const auto monitored = ASSERT_NIL_P(conn.subscribe(
+        {TEST_DOUBLE},
+        {.sampling = x::telem::MILLISECOND, .publishing = 2 * x::telem::MILLISECOND},
+        collect(changes)
+    ));
+    ASSERT_EQ(monitored.intervals.publishing, 100 * x::telem::MILLISECOND);
+    iterate_until(conn, changes, 1);
+    server_->frozen = true;
+    const auto start = std::chrono::steady_clock::now();
+    x::errors::Error err;
+    while (!err && std::chrono::steady_clock::now() - start < std::chrono::seconds(15))
+        err = conn.iterate(x::telem::MILLISECOND * 100);
+    const auto found = std::chrono::steady_clock::now() - start;
+    server_->frozen = false;
+    ASSERT_OCCURRED_AS(err, errors::UNREACHABLE);
+    EXPECT_LT(found, std::chrono::seconds(5));
+}
+
+/// @brief it should close the channel of a subscription whose server stops answering,
+/// so the connection goes back to the pool without waiting and keeps its Session.
+TEST_F(ConnectionPoolTest, SilentSubscriptionKeepsSession) {
+    conn_cfg_.client_timeout_ms = 1000;
+    Pool pool(testutil::create_store());
+    std::vector<Changed> changes;
+    UA_UInt32 id = 0;
+    UA_Client *client = nullptr;
+    std::chrono::steady_clock::duration released{};
     {
         auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
-        ASSERT_NIL_P(conn.subscribe(
-            {TEST_DOUBLE},
-            {.sampling = 100 * x::telem::MILLISECOND,
-             .publishing = 500 * x::telem::MILLISECOND},
-            collect(changes)
-        ));
+        ASSERT_NIL_P(conn.subscribe({TEST_DOUBLE}, FAST, collect(changes)));
         iterate_until(conn, changes, 1);
+        id = conn.subscription_id();
+        client = conn.get();
         server_->frozen = true;
         x::errors::Error err;
         const auto deadline = std::chrono::steady_clock::now() +
@@ -1625,8 +1651,18 @@ TEST_F(ConnectionPoolTest, IterateReportsSilentServer) {
         while (!err && std::chrono::steady_clock::now() < deadline)
             err = conn.iterate(x::telem::MILLISECOND * 100);
         ASSERT_OCCURRED_AS(err, errors::UNREACHABLE);
-        server_->frozen = false;
+        const auto start = std::chrono::steady_clock::now();
+        conn = Pool::Connection(nullptr, nullptr, "");
+        released = std::chrono::steady_clock::now() - start;
     }
+    server_->frozen = false;
+    EXPECT_LT(released, std::chrono::milliseconds(100));
+    EXPECT_TRUE(holds(client, id));
+    const auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
+    ASSERT_EQ(conn.get(), client);
+    EXPECT_FALSE(holds(client, id));
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    EXPECT_EQ(server_->sessions_created, 1);
 }
 
 /// @brief history values of the node that the tests change.
@@ -1686,7 +1722,8 @@ History read_history(
 }
 
 /// @brief it should read history a page at a time, so the next request starts after the
-/// last value of the page before.
+/// last value of the page before, and release the continuation point of each page with
+/// its node.
 TEST_F(ConnectionPoolTest, ReadHistoryPagesByTime) {
     server_cfg_.historizing = true;
     server_cfg_.max_history_values = 2;
@@ -1714,6 +1751,7 @@ TEST_F(ConnectionPoolTest, ReadHistoryPagesByTime) {
     page = read_history(conn, page.times.back() + 1);
     EXPECT_EQ(page.values, std::vector<UA_Double>({4}));
     EXPECT_FALSE(page.more);
+    EXPECT_EQ(server_->released, 2);
 }
 
 /// @brief it should read the history of more nodes than the server's limit allows in

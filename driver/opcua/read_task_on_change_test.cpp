@@ -36,6 +36,13 @@ x::telem::TimeStamp at(const x::telem::TimeSpan offset) {
     return x::telem::TimeStamp(ns / 1000 * 1000);
 }
 
+/// @returns a node of the test server named id, in namespace 1, that holds v.
+testutil::TestNode double_node(const std::string &id, UA_Double v) {
+    UA_Variant value;
+    UA_Variant_setScalar(&value, &v, &UA_TYPES[UA_TYPES_DOUBLE]);
+    return {1, id, &UA_TYPES[UA_TYPES_DOUBLE], value, id};
+}
+
 /// @brief the values and stamps that reads wrote to one channel and its index.
 struct Written {
     std::vector<double> values;
@@ -181,18 +188,21 @@ protected:
         return p.error_json()["errors"];
     }
 
-    /// @brief stores v at time on the value channel, as an earlier run of the task
-    /// would.
-    void store(const x::telem::TimeStamp time, const double v) const {
+    /// @brief stores v at time on ch, as an earlier run of the task would.
+    void store(
+        const synnax::channel::Channel &ch,
+        const x::telem::TimeStamp time,
+        const double v
+    ) const {
         auto writer = ASSERT_NIL_P(this->client->telem.open_writer(
             synnax::framer::WriterConfig{
-                .channels = {this->value.index, this->value.key},
+                .channels = {ch.index, ch.key},
                 .start = time,
             }
         ));
         auto fr = x::telem::Frame(2);
-        fr.emplace(this->value.index, x::telem::Series(time));
-        fr.emplace(this->value.key, x::telem::Series(v));
+        fr.emplace(ch.index, x::telem::Series(time));
+        fr.emplace(ch.key, x::telem::Series(v));
         ASSERT_NIL(writer.write(fr));
         ASSERT_NIL_P(writer.commit());
         ASSERT_NIL(writer.close());
@@ -283,7 +293,7 @@ TEST_F(TestOnChangeReadTask, testDropsChangesThatAreNotAfterTheLast) {
 /// warning when the channel stores a later value.
 TEST_F(TestOnChangeReadTask, testDropsRepeatedValueAtStart) {
     const auto stored = at(10 * x::telem::SECOND);
-    this->store(stored, 1);
+    this->store(this->value, stored, 1);
     const auto src = this->source(this->config());
     ASSERT_NIL(src->start());
     const auto first = read_values(*src, this->value, 1, x::telem::SECOND);
@@ -333,21 +343,59 @@ TEST_F(TestOnChangeReadTask, testWarnsAboutUnmonitoredNode) {
     ASSERT_NIL(src->stop());
 }
 
-/// @brief it should warn when the server samples or publishes slower than the task
-/// asks.
-TEST_F(TestOnChangeReadTask, testWarnsAboutRevisedIntervals) {
+/// @brief it should describe the intervals that the server chose when it samples or
+/// publishes slower than the task asks, without a warning.
+TEST_F(TestOnChangeReadTask, testDescribesRevisedIntervals) {
     auto cfg = this->config();
     cfg["sample_rate"] = 1000;
     cfg["stream_rate"] = 500;
     const auto src = this->source(cfg);
     ASSERT_NIL(src->start());
-    const auto written = read_values(*src, this->value, 1);
-    ASSERT_TRUE(written.warned("Server changed the intervals"));
+    x::breaker::Breaker breaker;
+    x::telem::Frame fr;
+    const auto res = src->read(breaker, fr);
+    ASSERT_NIL(res.error);
+    EXPECT_TRUE(res.warning.empty()) << res.warning.description;
     EXPECT_EQ(
-        written.warnings.back().description,
+        res.description,
         "The server samples each node every 50ms and sends changes every 100ms, not "
         "every 1ms and 2ms as the task asks."
     );
+    ASSERT_NIL(src->stop());
+}
+
+/// @brief it should warn about a node that the server does not monitor, then monitor
+/// the node once the server adds it.
+TEST_F(TestOnChangeReadTask, testMonitorsNodeAddedLater) {
+    const auto later = this->create_channel("later");
+    const auto src = this->source(this->config({{"NS=1;S=Later", later.key}}));
+    ASSERT_NIL(src->start());
+    const auto missing = read_values(*src, later, 1, x::telem::SECOND);
+    ASSERT_TRUE(missing.warned("Failed to subscribe to some nodes"));
+    this->server->add_namespace(
+        testutil::SERVER_APPLICATION_URI,
+        {double_node("Later", 5)}
+    );
+    const auto found = read_values(*src, later, 1, 15 * x::telem::SECOND);
+    EXPECT_EQ(found.values, std::vector<double>({5}));
+    ASSERT_NIL(src->stop());
+}
+
+/// @brief it should warn about a node in a namespace that the server lacks, then
+/// subscribe to the node once the server adds the namespace.
+TEST_F(TestOnChangeReadTask, testSubscribesToNamespaceAddedLater) {
+    const auto later = this->create_channel("later");
+    const auto src = this->source(this->config({{"nsu=urn:later;s=Later", later.key}}));
+    ASSERT_NIL(src->start());
+    const auto missing = read_values(*src, later, 1, x::telem::SECOND);
+    ASSERT_TRUE(missing.warned("Failed to subscribe to some nodes"));
+    EXPECT_EQ(
+        missing.warnings.back().description,
+        later.name + ": the server has no namespace urn:later."
+    );
+    this->server->add_namespace("urn:later", {double_node("Later", 5)});
+    const auto found = read_values(*src, later, 1, 15 * x::telem::SECOND);
+    EXPECT_EQ(found.values, std::vector<double>({5}));
     ASSERT_NIL(src->stop());
 }
 
@@ -382,7 +430,7 @@ TEST_F(TestOnChangeReadTask, testBackfillsHistory) {
     this->server_cfg.max_history_values = 2;
     this->start_server();
     const auto stored = at(-1 * x::telem::MINUTE);
-    this->store(stored, 0);
+    this->store(this->value, stored, 0);
     for (int i = 1; i <= 3; ++i)
         this->change(i, stored + x::telem::SECOND * i);
     this->wait_for(3);
@@ -416,7 +464,7 @@ TEST_F(TestOnChangeReadTask, testHoldsChangesDuringBackfill) {
     this->server_cfg.max_history_values = 1;
     this->start_server();
     const auto stored = at(-1 * x::telem::MINUTE);
-    this->store(stored, 0);
+    this->store(this->value, stored, 0);
     for (int i = 1; i <= 3; ++i)
         this->change(i, stored + x::telem::SECOND * i);
     // A current value after the start of the subscription arrives with the first
@@ -434,8 +482,48 @@ TEST_F(TestOnChangeReadTask, testHoldsChangesDuringBackfill) {
     ASSERT_NIL(src->stop());
 }
 
+/// @brief it should read the history of each node from its own last stored value, when
+/// the nodes store their last values at different times.
+TEST_F(TestOnChangeReadTask, testBackfillsEachNodeFromItsOwnStart) {
+    this->server_cfg.test_nodes.push_back(double_node("OtherDouble", 0));
+    this->server_cfg.historizing = true;
+    this->server_cfg.max_history_values = 2;
+    this->start_server();
+    const auto other = this->create_channel("other");
+    const auto old = at(-1 * x::telem::MINUTE);
+    const auto recent = at(-10 * x::telem::SECOND);
+    this->store(this->value, old, 0);
+    this->store(other, recent, 0);
+    // Values that the other channel already stores fill a page from the start of the
+    // value channel.
+    for (int i = 1; i <= 4; ++i)
+        this->server->change({
+            .node = "OtherDouble",
+            .value = static_cast<double>(-i),
+            .time = recent - x::telem::SECOND * (5 - i),
+        });
+    for (int i = 1; i <= 2; ++i)
+        this->server->change({
+            .node = "OtherDouble",
+            .value = static_cast<double>(i),
+            .time = recent + x::telem::SECOND * i,
+        });
+    this->change(1, old + x::telem::SECOND);
+    this->wait_for(1);
+    auto cfg = this->config({
+        {"NS=1;S=TestDouble", this->value.key},
+        {"NS=1;S=OtherDouble", other.key},
+    });
+    cfg["history_backfill_enabled"] = true;
+    const auto src = this->source(cfg);
+    ASSERT_NIL(src->start());
+    const auto written = read_values(*src, other, 2);
+    EXPECT_EQ(written.values, std::vector<double>({1, 2}));
+    ASSERT_NIL(src->stop());
+}
+
 /// @brief it should fill the gap of an outage from the history when it subscribes
-/// again.
+/// again, on the same Session.
 TEST_F(TestOnChangeReadTask, testBackfillsOutageAfterReconnect) {
     connection::Config conn_cfg;
     conn_cfg.endpoint = ENDPOINT;
@@ -456,6 +544,7 @@ TEST_F(TestOnChangeReadTask, testBackfillsOutageAfterReconnect) {
     const auto src = this->source(cfg);
     ASSERT_NIL(src->start());
     ASSERT_EQ(read_values(*src, this->value, 1).values, std::vector<double>({1}));
+    const auto sessions = this->server->sessions_created.load();
     this->server->frozen = true;
     this->change(2, at(-5 * x::telem::SECOND));
     this->change(3, at(-4 * x::telem::SECOND));
@@ -471,6 +560,7 @@ TEST_F(TestOnChangeReadTask, testBackfillsOutageAfterReconnect) {
     ASSERT_OCCURRED_AS(err, errors::UNREACHABLE);
     const auto written = read_values(*src, this->value, 2, 10 * x::telem::SECOND);
     EXPECT_EQ(written.values, std::vector<double>({2, 3}));
+    EXPECT_EQ(this->server->sessions_created.load(), sessions);
     ASSERT_NIL(src->stop());
 }
 

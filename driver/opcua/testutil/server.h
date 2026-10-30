@@ -626,6 +626,9 @@ public:
     std::atomic<size_t> sessions_created{0};
     /// @brief the calls of the methods of the Pump object that the server ran.
     std::atomic<size_t> method_calls{0};
+    /// @brief the continuation points that a request asked the server to release, with
+    /// the node of each.
+    std::atomic<size_t> released{0};
 
     explicit Server(ServerConfig cfg): cfg(std::move(cfg)) {}
 
@@ -1174,6 +1177,9 @@ public:
         if (cfg.historizing) {
             gathering = UA_HistoryDataGathering_Default(cfg.test_nodes.size());
             server_config->historyDatabase = UA_HistoryDatabase_default(gathering);
+            server_config->context = this;
+            this->read_raw = server_config->historyDatabase.readRaw;
+            server_config->historyDatabase.readRaw = count_releases;
             backend = UA_HistoryDataBackend_Memory(
                 cfg.test_nodes.size(),
                 cfg.max_history_values * 10
@@ -1283,5 +1289,43 @@ private:
     std::mutex queue_mutex;
     std::vector<Event> events;
     std::vector<Change> changes;
+    /// @brief the raw history read of the history database, which count_releases wraps.
+    decltype(UA_HistoryDatabase::readRaw) read_raw = nullptr;
+
+    /// @brief reads raw history, and counts the continuation points that a request asks
+    /// the server to release with their node.
+    static void count_releases(
+        UA_Server *server,
+        void *context,
+        const UA_NodeId *session_id,
+        void *session_context,
+        const UA_RequestHeader *header,
+        const UA_ReadRawModifiedDetails *details,
+        const UA_TimestampsToReturn timestamps,
+        const UA_Boolean release,
+        const size_t count,
+        const UA_HistoryReadValueId *nodes,
+        UA_HistoryReadResponse *response,
+        UA_HistoryData *const *const data
+    ) {
+        auto *self = static_cast<Server *>(UA_Server_getConfig(server)->context);
+        self->read_raw(
+            server,
+            context,
+            session_id,
+            session_context,
+            header,
+            details,
+            timestamps,
+            release,
+            count,
+            nodes,
+            response,
+            data
+        );
+        if (!release) return;
+        for (size_t i = 0; i < count; ++i)
+            if (!UA_NodeId_isNull(&nodes[i].nodeId)) self->released++;
+    }
 };
 }

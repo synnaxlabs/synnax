@@ -202,6 +202,10 @@ using EventHandler = std::function<void(const UA_KeyValueMap &fields)>;
 /// subscribe request, and its value.
 using ChangeHandler = std::function<void(std::size_t node, const UA_DataValue &value)>;
 
+/// @brief how often a task tries again to subscribe to what its subscription lacks: a
+/// node that the server did not monitor, or one in a namespace that the server lacks.
+const auto SUBSCRIBE_RETRY_INTERVAL = 10 * x::telem::SECOND;
+
 /// @brief the intervals of a subscription to the changes of nodes.
 struct Intervals {
     /// @brief how often the server samples each node.
@@ -230,9 +234,12 @@ struct Subscription {
     /// @brief runs for each change of a node of the subscription. Empty once the
     /// connection of the subscription goes back to its pool.
     ChangeHandler handle_change;
-    /// @brief the place of each monitored node in its subscribe request. The client
-    /// passes a pointer to one of them to each callback, so the list never grows.
+    /// @brief the place of each node in the subscribe request. The client passes a
+    /// pointer to one of them to each callback, so the list never grows.
     std::vector<std::size_t> nodes;
+    /// @brief the sampling interval that the subscribe request asks for, and the
+    /// publishing interval that the server chose.
+    Intervals intervals;
     /// @brief the bad status with which the server ended the subscription, or
     /// BadTimeout when the server stopped answering.
     UA_StatusCode status = UA_STATUSCODE_GOOD;
@@ -377,12 +384,25 @@ public:
             const UA_EventFilter &filter
         ) const;
 
+        /// @brief monitors the changes of the values of nodes on the subscription of
+        /// the connection, as subscribe does. items[i] is the place of nodes[i] in the
+        /// subscribe request, which the handler gets with each change. Requires a
+        /// subscription to changes.
+        /// @returns what the server did with each node, in order, up to the first
+        /// request that failed, and the error of that request. Returns
+        /// errors::NO_CONNECTION when the connection is lost.
+        [[nodiscard]] std::pair<Monitored, x::errors::Error> monitor(
+            const std::vector<UA_NodeId> &nodes,
+            const std::vector<std::size_t> &items
+        ) const;
+
         /// @returns the ID of the subscription of the connection, or 0 when it has
         /// none.
         [[nodiscard]] UA_UInt32 subscription_id() const;
 
         /// @brief handles the notifications that the server sent, waiting up to timeout
-        /// for the first one.
+        /// for the first one. A live subscription counts as a reply for
+        /// Pool::last_reply, since its keep-alives show that the server answers.
         /// @returns errors::NO_CONNECTION when the connection is lost, or the status
         /// with which the server ended the subscription.
         [[nodiscard]] x::errors::Error iterate(x::telem::TimeSpan timeout) const;
@@ -397,9 +417,9 @@ public:
         /// @brief ends the subscription, then gives the client back to the pool.
         void close();
 
-        /// @brief creates a subscription for sub, which replaces the earlier one.
-        /// @returns the publishing interval that the server chose.
-        [[nodiscard]] std::pair<x::telem::TimeSpan, x::errors::Error>
+        /// @brief creates a subscription for sub, which replaces the earlier one, and
+        /// records in sub the publishing interval that the server chose.
+        [[nodiscard]] x::errors::Error
         create(std::unique_ptr<Subscription> sub, x::telem::TimeSpan publishing);
 
         /// @brief releases on the server the continuation points of res, the response

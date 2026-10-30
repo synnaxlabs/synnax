@@ -127,6 +127,9 @@ const Warning SKEW_WARNING{
 struct ReadResult {
     x::errors::Error error;
     Warning warning;
+    /// @brief how the source reads, sent as the description of the running status while
+    /// there is no warning.
+    std::string description;
 };
 
 /// @brief a source that can be used to read data from a hardware device.
@@ -180,7 +183,7 @@ class ReadTask final : public driver::task::Task {
             x::telem::Frame &fr,
             pipeline::Authorities &authorities
         ) override {
-            auto [err, warning] = this->internal->read(breaker, fr);
+            auto [err, warning, description] = this->internal->read(breaker, fr);
             // Three cases.
             // 1. We have an error, but it's temporary, so we trigger the breaker
             // by returning the error and  send a warning to start retrying at
@@ -206,7 +209,7 @@ class ReadTask final : public driver::task::Task {
                              << warning.description;
                 this->p.state.send_warning(warning.message, warning.description);
             } else
-                this->p.state.clear_warning();
+                this->p.state.clear_warning(description);
             return this->p.tare.transform(fr);
         }
 

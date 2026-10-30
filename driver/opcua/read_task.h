@@ -266,7 +266,6 @@ class Problems {
     /// @brief the kinds of problem, from the least to the most severe.
     enum Kind : std::uint8_t {
         NONE,
-        REVISED,
         UNCERTAIN,
         REJECTED,
         HISTORY,
@@ -302,9 +301,6 @@ public:
     /// @brief records history that the server did not return.
     void add_history(std::string problem) { this->add(HISTORY, std::move(problem)); }
 
-    /// @brief records intervals that the server made longer than the task asks.
-    void add_revised(std::string problem) { this->add(REVISED, std::move(problem)); }
-
     /// @brief adds the problems of other.
     void merge(const Problems &other) {
         this->worst = std::max(this->worst, other.worst);
@@ -314,7 +310,6 @@ public:
     }
 
     [[nodiscard]] common::Warning warning() const {
-        if (this->problems.empty()) return {};
         std::string message;
         switch (this->worst) {
             case UNMONITORED:
@@ -332,10 +327,8 @@ public:
             case UNCERTAIN:
                 message = "Received uncertain values";
                 break;
-            case REVISED:
             case NONE:
-                message = "Server changed the intervals";
-                break;
+                return {};
         }
         return {
             .message = std::move(message),
@@ -350,6 +343,8 @@ inline std::optional<x::telem::SampleValue> nan(const x::telem::DataType &dt) {
     return dt.cast(std::numeric_limits<double>::quiet_NaN());
 }
 
+/// @brief connects a read task to its server, and turns the values of its nodes into
+/// samples of its channels.
 class BaseReadTaskSource : public common::Source {
 protected:
     const ReadTaskConfig cfg;
@@ -359,62 +354,207 @@ protected:
     /// @brief the error of the connection attempt at start, which the first read
     /// returns instead of connecting again.
     x::errors::Error start_err;
-    /// @brief reads the channels on the current connection. It borrows the node IDs of
-    /// cfg.
-    types::ReadRequestBuilder request_builder;
-    /// @brief the place of each channel's result in a response to request_builder, or
-    /// nothing when the server lacks the channel's namespace. Channels on the same node
-    /// share a place.
-    std::vector<std::optional<std::size_t>> positions;
     /// @brief the structure types of the nodes of field channels, on the current
     /// connection.
     structure::Types types;
     /// @brief the member that each field channel reads, or the error that keeps the
     /// channel from reading it, on the current connection.
     std::vector<std::pair<structure::Field, x::errors::Error>> fields;
+    /// @brief the last time written to each index of cfg.stamped.
+    std::map<synnax::channel::Key, x::telem::TimeStamp> last;
+
+    /// @brief reads the channels on conn from now on, with the namespace indexes of its
+    /// server.
+    /// @returns the error that keeps the source from reading on conn, after which the
+    /// source has no connection.
+    virtual x::errors::Error use(connection::Pool::Connection conn) = 0;
+
+    /// @brief reads the structure types of the nodes of field channels, and finds the
+    /// member that each field channel reads.
+    /// @returns only an error that loses the connection. Each field channel reports any
+    /// other error when it reads.
+    x::errors::Error read_types() {
+        this->types = structure::Types();
+        this->fields.assign(this->cfg.channels.size(), {});
+        const auto &namespaces = this->connection.server().namespaces;
+        types::ReadRequestBuilder req;
+        // The place in req of the node of each field channel. Field channels on one
+        // node share it.
+        std::vector<std::optional<std::size_t>> places(this->cfg.channels.size());
+        std::map<std::string, std::size_t> nodes;
+        for (std::size_t i = 0; i < this->cfg.channels.size(); ++i) {
+            const auto &ch = *this->cfg.channels[i];
+            if (ch.field.empty()) continue;
+            const auto id = ch.node.resolve(namespaces);
+            if (!id.has_value()) continue;
+            const auto [it, added] = nodes.try_emplace(
+                types::NodeId::to_string(id.value()),
+                req.size()
+            );
+            places[i] = it->second;
+            if (added) req.add_node(id.value(), UA_ATTRIBUTEID_DATATYPE);
+        }
+        if (req.empty()) return x::errors::NIL;
+        auto [res, err] = this->connection.read(req.build());
+        std::vector<std::optional<UA_NodeId>> data_types(req.size());
+        std::vector<UA_NodeId> known;
+        for (std::size_t k = 0; !err && k < data_types.size(); ++k)
+            if (const auto &v = res.get().results[k].value;
+                UA_Variant_hasScalarType(&v, &UA_TYPES[UA_TYPES_NODEID])) {
+                data_types[k] = *static_cast<const UA_NodeId *>(v.data);
+                known.push_back(data_types[k].value());
+            }
+        if (!err)
+            std::tie(this->types, err) = structure::Types::read(
+                this->connection,
+                known
+            );
+        if (err.matches(errors::UNREACHABLE)) return err;
+        for (std::size_t i = 0; i < this->cfg.channels.size(); ++i) {
+            const auto place = places[i];
+            if (!place.has_value()) continue;
+            auto &field = this->fields[i];
+            const auto &data_type = data_types[place.value()];
+            if (err)
+                field.second = x::errors::Error(
+                    err,
+                    "failed to read the structure types: " + err.data
+                );
+            else if (!data_type.has_value())
+                field.second = x::errors::Error(
+                    x::errors::VALIDATION,
+                    "the server did not report the data type of the node"
+                );
+            else
+                field = this->types.field(
+                    data_type.value(),
+                    this->cfg.channels[i]->field
+                );
+        }
+        return x::errors::NIL;
+    }
+
+    /// @returns the problem of channel i when the server lacks its namespace.
+    [[nodiscard]] std::string missing_namespace(const std::size_t i) const {
+        const auto &ch = *this->cfg.channels[i];
+        return ch.ch.name + ": the server has no namespace " + ch.node.namespace_uri() +
+               ".";
+    }
+
+    x::errors::Error connect() {
+        auto [conn, err] = this->connector.connect();
+        if (err) return err;
+        return this->use(std::move(conn));
+    }
+
+    /// @returns the value of channel i that convert gives from result, or nothing when
+    /// the value is bad or fails to convert. Adds the problems of the value to q when
+    /// it is set.
+    template<typename T, typename Convert>
+    std::optional<T> value(
+        const std::size_t i,
+        const UA_DataValue &result,
+        Problems *q,
+        const Convert &convert
+    ) const {
+        const auto &ch = *this->cfg.channels[i];
+        const auto &name = ch.ch.name;
+        if (UA_StatusCode_isBad(result.status)) {
+            if (q == nullptr) return std::nullopt;
+            if (!ch.node.resolve(this->connection.server().namespaces).has_value())
+                q->add_bad(this->missing_namespace(i));
+            else
+                q->add_bad(errors::channel_status(name, result.status));
+            return std::nullopt;
+        }
+        if (q != nullptr && UA_StatusCode_isUncertain(result.status))
+            q->add_uncertain(errors::channel_status(name, result.status));
+        auto [v, err] = convert(result.value);
+        if (!err) return std::move(v);
+        if (q != nullptr) q->add_bad(name + ": " + err.data + ".");
+        return std::nullopt;
+    }
+
+    /// @returns the sample of channel i in v. A field channel decodes the structure of
+    /// its node into decoded, which every field channel on the node shares.
+    std::pair<x::telem::SampleValue, x::errors::Error> to_sample(
+        const std::size_t i,
+        const UA_Variant &v,
+        std::optional<std::pair<types::Variant, x::errors::Error>> &decoded
+    ) const {
+        const auto &ch = *this->cfg.channels[i];
+        if (ch.field.empty()) return telem::to_sample(v, ch.ch.data_type);
+        const auto &[field, field_err] = this->fields[i];
+        if (field_err) return {{}, field_err};
+        if (!decoded.has_value()) decoded = this->types.decode(v);
+        if (decoded->second) return {{}, decoded->second};
+        return structure::Types::sample(decoded->first.get(), field, ch.ch.data_type);
+    }
+
+    BaseReadTaskSource(
+        std::shared_ptr<synnax::Synnax> client,
+        std::shared_ptr<connection::Pool> pool,
+        ReadTaskConfig cfg
+    ):
+        cfg(std::move(cfg)),
+        client(client),
+        connector(
+            std::move(client),
+            std::move(pool),
+            this->cfg.device_key,
+            "[opc.read] "
+        ),
+        connection(nullptr, nullptr, "") {}
+
+public:
+    BaseReadTaskSource(const BaseReadTaskSource &) = delete;
+    BaseReadTaskSource &operator=(const BaseReadTaskSource &) = delete;
+    BaseReadTaskSource(BaseReadTaskSource &&) = delete;
+    BaseReadTaskSource &operator=(BaseReadTaskSource &&) = delete;
+    ~BaseReadTaskSource() override = default;
+
+    [[nodiscard]] synnax::framer::WriterConfig writer_config() const override {
+        return this->cfg.writer_config();
+    }
+
+    [[nodiscard]] std::vector<synnax::channel::Channel> channels() const override {
+        return this->cfg.sy_channels();
+    }
+
+    /// @brief finds the last stored time of each index whose stamps come from the
+    /// server, and retrieves the device again, so a changed trusted server certificate
+    /// takes effect on restart. A server that is off or refuses Sessions does not stop
+    /// the start, since the reads connect again.
+    x::errors::Error start() override {
+        auto [last, last_err] = common::last_stamps(*this->client, this->cfg.stamped);
+        if (last_err) return last_err;
+        this->last = std::move(last);
+        auto [c, err] = this->connector.start();
+        if (!err) err = this->use(std::move(c));
+        if (err.matches(driver::errors::TEMPORARY_HARDWARE_ERROR)) {
+            this->start_err = err;
+            return x::errors::NIL;
+        }
+        return err;
+    }
+
+    x::errors::Error stop() override {
+        this->connection = connection::Pool::Connection(nullptr, nullptr, "");
+        this->start_err = x::errors::NIL;
+        return x::errors::NIL;
+    }
+};
+
+/// @brief reads the value of each channel at the sample rate.
+class SampledReadTaskSource : public BaseReadTaskSource {
+    /// @brief the indexes of cfg.stamped that a read gave stamps since the start.
+    std::set<synnax::channel::Key> read_indexes;
     /// @brief the place of the server's namespace array in a response to
     /// request_builder, which reads it while the server lacks the namespace of a
     /// channel.
     std::optional<std::size_t> namespace_position;
-    /// @brief the last time written to each index of cfg.stamped.
-    std::map<synnax::channel::Key, x::telem::TimeStamp> last;
-    /// @brief the indexes of cfg.stamped that a read gave stamps since the start.
-    std::set<synnax::channel::Key> read_indexes;
 
-    /// @brief checks the stamps that the DateTime node of the index channel ch gives.
-    /// Each must be after the one before it and after the last one written.
-    /// @returns true if the stamps write. Otherwise, the read skips the index, and q
-    /// gets a warning unless the stamps repeat what the task wrote: the first read
-    /// since the start, or a read of the last sample again.
-    bool accept(
-        const synnax::channel::Channel &ch,
-        const std::vector<x::telem::TimeStamp> &stamps,
-        Problems &q
-    ) {
-        const bool first = this->read_indexes.insert(ch.key).second;
-        auto &prev = this->last[ch.key];
-        auto t = prev;
-        for (std::size_t j = 0; j < stamps.size(); ++j) {
-            if (stamps[j] > t) {
-                t = stamps[j];
-                continue;
-            }
-            if (!first && (j != 0 || stamps[j] != prev))
-                q.add_rejected(
-                    "Rejected a value of " + ch.name +
-                    ": its timestamp is not after the last one written."
-                );
-            return false;
-        }
-        prev = t;
-        return true;
-    }
-
-    /// @brief reads the channels on conn from now on, with the namespace indexes of its
-    /// server.
-    /// @returns the error of reading the structure types, after which the source has no
-    /// connection.
-    virtual x::errors::Error use(connection::Pool::Connection conn) {
+    x::errors::Error use(connection::Pool::Connection conn) override {
         this->connection = std::move(conn);
         this->build_request();
         const auto err = this->read_types();
@@ -468,61 +608,42 @@ protected:
         return this->connection.read(this->request_builder.build());
     }
 
-    /// @brief reads the structure types of the nodes of field channels, and finds the
-    /// member that each field channel reads.
-    /// @returns only an error that loses the connection. Each field channel reports any
-    /// other error when it reads.
-    x::errors::Error read_types() {
-        this->types = structure::Types();
-        this->fields.assign(this->cfg.channels.size(), {});
-        const auto &namespaces = this->connection.server().namespaces;
-        types::ReadRequestBuilder req;
-        // Field channels on one node share its place in the request.
-        std::map<std::size_t, std::size_t> places;
-        for (std::size_t i = 0; i < this->cfg.channels.size(); ++i) {
-            const auto &ch = *this->cfg.channels[i];
-            const auto pos = this->positions[i];
-            if (ch.field.empty() || !pos.has_value() ||
-                !places.try_emplace(pos.value(), req.size()).second)
+protected:
+    /// @brief reads the channels on the current connection. It borrows the node IDs of
+    /// cfg.
+    types::ReadRequestBuilder request_builder;
+    /// @brief the place of each channel's result in a response to request_builder, or
+    /// nothing when the server lacks the channel's namespace. Channels on the same node
+    /// share a place.
+    std::vector<std::optional<std::size_t>> positions;
+
+    /// @brief checks the stamps that the DateTime node of the index channel ch gives.
+    /// Each must be after the one before it and after the last one written.
+    /// @returns true if the stamps write. Otherwise, the read skips the index, and q
+    /// gets a warning unless the stamps repeat what the task wrote: the first read
+    /// since the start, or a read of the last sample again.
+    bool accept(
+        const synnax::channel::Channel &ch,
+        const std::vector<x::telem::TimeStamp> &stamps,
+        Problems &q
+    ) {
+        const bool first = this->read_indexes.insert(ch.key).second;
+        auto &prev = this->last[ch.key];
+        auto t = prev;
+        for (std::size_t j = 0; j < stamps.size(); ++j) {
+            if (stamps[j] > t) {
+                t = stamps[j];
                 continue;
-            req.add_node(ch.node.resolve(namespaces).value(), UA_ATTRIBUTEID_DATATYPE);
-        }
-        if (req.empty()) return x::errors::NIL;
-        auto [res, err] = this->connection.read(req.build());
-        std::vector<std::optional<UA_NodeId>> data_types(req.size());
-        std::vector<UA_NodeId> known;
-        for (std::size_t k = 0; !err && k < data_types.size(); ++k)
-            if (const auto &v = res.get().results[k].value;
-                UA_Variant_hasScalarType(&v, &UA_TYPES[UA_TYPES_NODEID])) {
-                data_types[k] = *static_cast<const UA_NodeId *>(v.data);
-                known.push_back(data_types[k].value());
             }
-        if (!err)
-            std::tie(this->types, err) = structure::Types::read(
-                this->connection,
-                known
-            );
-        if (err.matches(errors::UNREACHABLE)) return err;
-        for (std::size_t i = 0; i < this->cfg.channels.size(); ++i) {
-            const auto &ch = *this->cfg.channels[i];
-            const auto pos = this->positions[i];
-            if (ch.field.empty() || !pos.has_value()) continue;
-            auto &field = this->fields[i];
-            const auto &data_type = data_types[places.at(pos.value())];
-            if (err)
-                field.second = x::errors::Error(
-                    err,
-                    "failed to read the structure types: " + err.data
+            if (!first && (j != 0 || stamps[j] != prev))
+                q.add_rejected(
+                    "Rejected a value of " + ch.name +
+                    ": its timestamp is not after the last one written."
                 );
-            else if (!data_type.has_value())
-                field.second = x::errors::Error(
-                    x::errors::VALIDATION,
-                    "the server did not report the data type of the node"
-                );
-            else
-                field = this->types.field(data_type.value(), ch.field);
+            return false;
         }
-        return x::errors::NIL;
+        prev = t;
+        return true;
     }
 
     /// @returns the result of channel i in res, a response to request_builder.
@@ -531,62 +652,6 @@ protected:
         const auto pos = this->positions[i];
         if (!pos.has_value()) return UNKNOWN_NAMESPACE;
         return res.results[pos.value()];
-    }
-
-    /// @returns the text of a bad status of channel i, which names the namespace when
-    /// the server lacks it.
-    [[nodiscard]] std::string
-    bad_status(const std::size_t i, const UA_StatusCode status) const {
-        const auto &ch = *this->cfg.channels[i];
-        if (!this->positions[i].has_value())
-            return ch.ch.name + ": the server has no namespace " +
-                   ch.node.namespace_uri() + ".";
-        return errors::channel_status(ch.ch.name, status);
-    }
-
-    x::errors::Error connect() {
-        auto [conn, err] = this->connector.connect();
-        if (err) return err;
-        return this->use(std::move(conn));
-    }
-
-    /// @returns the value of channel i that convert gives from result, or nothing when
-    /// the value is bad or fails to convert. Adds the problems of the value to q when
-    /// it is set.
-    template<typename T, typename Convert>
-    std::optional<T> value(
-        const std::size_t i,
-        const UA_DataValue &result,
-        Problems *q,
-        const Convert &convert
-    ) const {
-        const auto &name = this->cfg.channels[i]->ch.name;
-        if (UA_StatusCode_isBad(result.status)) {
-            if (q != nullptr) q->add_bad(this->bad_status(i, result.status));
-            return std::nullopt;
-        }
-        if (q != nullptr && UA_StatusCode_isUncertain(result.status))
-            q->add_uncertain(errors::channel_status(name, result.status));
-        auto [v, err] = convert(result.value);
-        if (!err) return std::move(v);
-        if (q != nullptr) q->add_bad(name + ": " + err.data + ".");
-        return std::nullopt;
-    }
-
-    /// @returns the sample of channel i in v. A field channel decodes the structure of
-    /// its node into decoded, which every field channel on the node shares.
-    std::pair<x::telem::SampleValue, x::errors::Error> to_sample(
-        const std::size_t i,
-        const UA_Variant &v,
-        std::optional<std::pair<types::Variant, x::errors::Error>> &decoded
-    ) const {
-        const auto &ch = *this->cfg.channels[i];
-        if (ch.field.empty()) return telem::to_sample(v, ch.ch.data_type);
-        const auto &[field, field_err] = this->fields[i];
-        if (field_err) return {{}, field_err};
-        if (!decoded.has_value()) decoded = this->types.decode(v);
-        if (decoded->second) return {{}, decoded->second};
-        return structure::Types::sample(decoded->first.get(), field, ch.ch.data_type);
     }
 
     /// @returns the NaN that replaces a bad value of channel i, or nothing when NaN
@@ -623,58 +688,21 @@ protected:
         return {std::move(res), err};
     }
 
-    BaseReadTaskSource(
+    SampledReadTaskSource(
         std::shared_ptr<synnax::Synnax> client,
         std::shared_ptr<connection::Pool> pool,
         ReadTaskConfig cfg
     ):
-        cfg(std::move(cfg)),
-        client(client),
-        connector(
-            std::move(client),
-            std::move(pool),
-            this->cfg.device_key,
-            "[opc.read] "
-        ),
-        connection(nullptr, nullptr, "") {}
+        BaseReadTaskSource(std::move(client), std::move(pool), std::move(cfg)) {}
 
 public:
-    BaseReadTaskSource(const BaseReadTaskSource &) = delete;
-    BaseReadTaskSource &operator=(const BaseReadTaskSource &) = delete;
-    BaseReadTaskSource(BaseReadTaskSource &&) = delete;
-    BaseReadTaskSource &operator=(BaseReadTaskSource &&) = delete;
-    ~BaseReadTaskSource() override = default;
-
-    [[nodiscard]] synnax::framer::WriterConfig writer_config() const override {
-        return this->cfg.writer_config();
-    }
-
-    /// @brief finds the last stored time of each index whose stamps come from the
-    /// server, and retrieves the device again, so a changed trusted server certificate
-    /// takes effect on restart. A server that is off or refuses Sessions does not stop
-    /// the start, since the reads connect again.
     x::errors::Error start() override {
-        auto [last, last_err] = common::last_stamps(*this->client, this->cfg.stamped);
-        if (last_err) return last_err;
-        this->last = std::move(last);
         this->read_indexes.clear();
-        auto [c, err] = this->connector.start();
-        if (!err) err = this->use(std::move(c));
-        if (err.matches(driver::errors::TEMPORARY_HARDWARE_ERROR)) {
-            this->start_err = err;
-            return x::errors::NIL;
-        }
-        return err;
-    }
-
-    x::errors::Error stop() override {
-        this->connection = connection::Pool::Connection(nullptr, nullptr, "");
-        this->start_err = x::errors::NIL;
-        return x::errors::NIL;
+        return BaseReadTaskSource::start();
     }
 };
 
-class ArrayReadTaskSource final : public BaseReadTaskSource {
+class ArrayReadTaskSource final : public SampledReadTaskSource {
     /// @brief regulates the read rate and times each block of samples.
     common::SoftwareTimedSampleClock sample_clock;
 
@@ -684,7 +712,7 @@ public:
         std::shared_ptr<connection::Pool> pool,
         ReadTaskConfig cfg
     ):
-        BaseReadTaskSource(std::move(client), std::move(pool), std::move(cfg)),
+        SampledReadTaskSource(std::move(client), std::move(pool), std::move(cfg)),
         sample_clock(this->cfg.sample_rate / this->cfg.array_size) {}
 
     /// @brief re-arms the block timer. Without it, the first block after a restart
@@ -693,11 +721,7 @@ public:
         this->sample_clock = common::SoftwareTimedSampleClock(
             this->cfg.sample_rate / this->cfg.array_size
         );
-        return BaseReadTaskSource::start();
-    }
-
-    [[nodiscard]] std::vector<synnax::channel::Channel> channels() const override {
-        return this->cfg.sy_channels();
+        return SampledReadTaskSource::start();
     }
 
     common::ReadResult
@@ -770,7 +794,7 @@ public:
     }
 };
 
-class UnaryReadTaskSource final : public BaseReadTaskSource {
+class UnaryReadTaskSource final : public SampledReadTaskSource {
     /// @brief regulates the rate individual samples are read at.
     x::loop::Timer timer;
     /// @brief the samples of each channel in the current read.
@@ -825,7 +849,7 @@ public:
         std::shared_ptr<connection::Pool> pool,
         ReadTaskConfig cfg
     ):
-        BaseReadTaskSource(std::move(client), std::move(pool), std::move(cfg)),
+        SampledReadTaskSource(std::move(client), std::move(pool), std::move(cfg)),
         timer(this->cfg.sample_rate),
         samples(this->cfg.channels.size()) {
         for (const auto &idx: this->cfg.index_keys)
@@ -866,10 +890,6 @@ public:
             if (!idx_stamps.empty()) fr.emplace(idx, x::telem::Series(idx_stamps));
         res.warning = problems.warning();
         return res;
-    }
-
-    [[nodiscard]] std::vector<synnax::channel::Channel> channels() const override {
-        return this->cfg.sy_channels();
     }
 };
 
@@ -913,21 +933,33 @@ class OnChangeReadTaskSource final : public BaseReadTaskSource {
     std::vector<std::vector<Change>> history;
     /// @brief the problems of the changes since the last read.
     Problems problems;
-    /// @brief the problems of the subscription, which each read reports again.
-    Problems subscribed;
+    /// @brief the channels whose nodes the subscription does not monitor, which each
+    /// read reports again.
+    Problems unmonitored;
+    /// @brief the history that the subscription failed to read, which each read reports
+    /// again.
+    Problems history_problems;
+    /// @brief the intervals that the server chose when they are longer than the task
+    /// asks, or empty.
+    std::string revised;
     /// @brief the node of each monitored item. Borrows the node IDs of cfg.
     std::vector<UA_NodeId> nodes;
     /// @brief the channels of each monitored item, by their place in cfg.channels.
     std::vector<std::vector<std::size_t>> readers;
+    /// @brief the error of each monitored item that the server does not monitor.
+    std::vector<x::errors::Error> failed;
     /// @brief whether each monitored item has yet to deliver a change.
     std::vector<bool> fresh;
     /// @brief the time from which each monitored item reads history next, or nothing
     /// when it reads no more.
     std::vector<std::optional<UA_DateTime>> backfill;
-    /// @brief the backfill of the monitored item of each channel, by place in nodes.
+    /// @brief the monitored item of each channel, by place in nodes, or nothing when
+    /// the server lacks the channel's namespace.
     std::vector<std::optional<std::size_t>> items;
     /// @brief when the subscription started, where history ends.
     UA_DateTime started = 0;
+    /// @brief when the source last tried to subscribe to what the subscription lacks.
+    x::telem::TimeStamp retried{};
 
     /// @returns the value of channel i in value, or nothing when the value is bad or
     /// fails to convert. Shares decoded with the other channels of the node. Adds the
@@ -963,18 +995,11 @@ class OnChangeReadTaskSource final : public BaseReadTaskSource {
         this->nodes.clear();
         this->readers.clear();
         this->items.assign(this->cfg.channels.size(), std::nullopt);
-        this->subscribed = Problems();
+        this->history_problems = Problems();
         std::map<std::string, std::size_t> places;
         for (std::size_t i = 0; i < this->cfg.channels.size(); ++i) {
-            const auto &ch = *this->cfg.channels[i];
-            const auto id = ch.node.resolve(namespaces);
-            if (!id.has_value()) {
-                this->subscribed.add_unmonitored(
-                    ch.ch.name + ": the server has no namespace " +
-                    ch.node.namespace_uri() + "."
-                );
-                continue;
-            }
+            const auto id = this->cfg.channels[i]->node.resolve(namespaces);
+            if (!id.has_value()) continue;
             const auto [it, added] = places.try_emplace(
                 types::NodeId::to_string(id.value()),
                 this->nodes.size()
@@ -986,9 +1011,11 @@ class OnChangeReadTaskSource final : public BaseReadTaskSource {
             this->readers[it->second].push_back(i);
             this->items[i] = it->second;
         }
+        this->failed.assign(this->nodes.size(), x::errors::NIL);
         this->fresh.assign(this->nodes.size(), true);
         this->backfill.assign(this->nodes.size(), std::nullopt);
         this->started = telem::to_date_time(x::telem::TimeStamp::now());
+        this->retried = x::telem::TimeStamp::now();
         const connection::Intervals asked{
             .sampling = this->cfg.sample_rate.period(),
             .publishing = this->cfg.stream_rate.period(),
@@ -1001,27 +1028,82 @@ class OnChangeReadTaskSource final : public BaseReadTaskSource {
             }
         );
         if (err) return err;
-        for (std::size_t item = 0; item < this->nodes.size(); ++item)
-            if (const auto &item_err = monitored.errors[item])
-                for (const auto i: this->readers[item])
-                    this->subscribed.add_unmonitored(
-                        this->cfg.channels[i]->ch.name + ": " + item_err.data + "."
-                    );
+        this->failed = std::move(monitored.errors);
+        this->list_unmonitored();
         const auto &got = monitored.intervals;
+        this->revised.clear();
         if (got.sampling > asked.sampling || got.publishing > asked.publishing)
-            this->subscribed.add_revised(
-                "The server samples each node every " + got.sampling.to_string() +
-                " and sends changes every " + got.publishing.to_string() +
-                ", not every " + asked.sampling.to_string() + " and " +
-                asked.publishing.to_string() + " as the task asks."
-            );
+            this->revised = "The server samples each node every " +
+                            got.sampling.to_string() + " and sends changes every " +
+                            got.publishing.to_string() + ", not every " +
+                            asked.sampling.to_string() + " and " +
+                            asked.publishing.to_string() + " as the task asks.";
         if (!this->cfg.history_backfill_enabled) return x::errors::NIL;
-        return this->start_backfill(monitored.errors);
+        return this->start_backfill();
+    }
+
+    /// @brief lists the channels whose nodes the subscription does not monitor.
+    void list_unmonitored() {
+        this->unmonitored = Problems();
+        for (std::size_t i = 0; i < this->cfg.channels.size(); ++i) {
+            const auto &item = this->items[i];
+            if (!item.has_value())
+                this->unmonitored.add_unmonitored(this->missing_namespace(i));
+            else if (const auto &err = this->failed[item.value()])
+                this->unmonitored.add_unmonitored(
+                    this->cfg.channels[i]->ch.name + ": " + err.data + "."
+                );
+        }
+    }
+
+    /// @brief when connection::SUBSCRIBE_RETRY_INTERVAL has passed, subscribes again
+    /// when the server added a namespace that a channel lacks, and tries again to
+    /// monitor each node that the server did not monitor.
+    x::errors::Error retry() {
+        const bool unresolved = std::ranges::any_of(this->items, [](const auto &item) {
+            return !item.has_value();
+        });
+        const bool failing = std::ranges::any_of(this->failed, [](const auto &err) {
+            return static_cast<bool>(err);
+        });
+        if (!unresolved && !failing) return x::errors::NIL;
+        const auto now = x::telem::TimeStamp::now();
+        if (now - this->retried < connection::SUBSCRIBE_RETRY_INTERVAL)
+            return x::errors::NIL;
+        this->retried = now;
+        if (unresolved) {
+            types::ReadRequestBuilder builder;
+            builder.add_node(UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER_NAMESPACEARRAY));
+            auto [res, err] = this->connection.read(builder.build());
+            if (err) return err;
+            auto [changed, ns_err] = this->connection.update_namespaces(
+                res.get().results[0]
+            );
+            if (ns_err) return ns_err;
+            if (changed) return this->use(std::move(this->connection));
+        }
+        if (!failing) return x::errors::NIL;
+        std::vector<UA_NodeId> retried_nodes;
+        std::vector<std::size_t> retried_items;
+        for (std::size_t item = 0; item < this->failed.size(); ++item)
+            if (this->failed[item]) {
+                retried_nodes.push_back(this->nodes[item]);
+                retried_items.push_back(item);
+            }
+        auto [monitored, err] = this->connection.monitor(retried_nodes, retried_items);
+        if (err.matches(errors::UNREACHABLE)) return err;
+        // A failed request leaves its nodes and the ones after it unmonitored.
+        for (std::size_t k = 0; k < retried_items.size(); ++k)
+            this->failed[retried_items[k]] = k < monitored.errors.size()
+                                               ? monitored.errors[k]
+                                               : err;
+        this->list_unmonitored();
+        return x::errors::NIL;
     }
 
     /// @brief starts the backfill of each monitored node whose access level allows
     /// history reads, and whose channels store values.
-    x::errors::Error start_backfill(const std::vector<x::errors::Error> &unmonitored) {
+    x::errors::Error start_backfill() {
         if (this->nodes.empty()) return x::errors::NIL;
         types::ReadRequestBuilder builder;
         for (const auto &node: this->nodes)
@@ -1029,14 +1111,14 @@ class OnChangeReadTaskSource final : public BaseReadTaskSource {
         auto [res, err] = this->connection.read(builder.build());
         if (err.matches(errors::UNREACHABLE)) return err;
         if (err) {
-            this->subscribed.add_history(
+            this->history_problems.add_history(
                 "Failed to read the access levels of the nodes: " + err.data + "."
             );
             return x::errors::NIL;
         }
         for (std::size_t item = 0; item < this->nodes.size(); ++item) {
             const auto &level = res.get().results[item].value;
-            if (unmonitored[item] ||
+            if (this->failed[item] ||
                 !UA_Variant_hasScalarType(&level, &UA_TYPES[UA_TYPES_BYTE]) ||
                 (*static_cast<const UA_Byte *>(level.data) &
                  UA_ACCESSLEVELMASK_HISTORYREAD) == 0)
@@ -1051,18 +1133,21 @@ class OnChangeReadTaskSource final : public BaseReadTaskSource {
         return x::errors::NIL;
     }
 
-    /// @brief reads the next page of history of the nodes that backfill. The request
-    /// starts at the earliest node, so a node ahead of it reads values that the task
-    /// wrote before, which take drops.
+    /// @brief reads the next page of history of each node that backfills. Nodes that
+    /// read from the same time share a request.
     x::errors::Error read_history() {
-        std::vector<std::size_t> pending;
-        UA_DateTime start = std::numeric_limits<UA_DateTime>::max();
+        std::map<UA_DateTime, std::vector<std::size_t>> starts;
         for (std::size_t item = 0; item < this->backfill.size(); ++item)
-            if (this->backfill[item].has_value()) {
-                pending.push_back(item);
-                start = std::min(start, this->backfill[item].value());
-            }
-        if (pending.empty()) return x::errors::NIL;
+            if (const auto &from = this->backfill[item]; from.has_value())
+                starts[from.value()].push_back(item);
+        for (const auto &[start, pending]: starts)
+            if (auto err = this->read_page(start, pending)) return err;
+        return x::errors::NIL;
+    }
+
+    /// @brief reads the next page of history of each item in pending, from start.
+    x::errors::Error
+    read_page(const UA_DateTime start, const std::vector<std::size_t> &pending) {
         UA_ReadRawModifiedDetails details;
         UA_ReadRawModifiedDetails_init(&details);
         details.startTime = start;
@@ -1088,7 +1173,7 @@ class OnChangeReadTaskSource final : public BaseReadTaskSource {
         if (err) {
             for (const auto item: pending)
                 this->backfill[item] = std::nullopt;
-            this->subscribed.add_history(
+            this->history_problems.add_history(
                 "Failed to read the history of the nodes: " + err.data + "."
             );
             return x::errors::NIL;
@@ -1106,7 +1191,7 @@ class OnChangeReadTaskSource final : public BaseReadTaskSource {
             from = std::nullopt;
             const auto err = errors::parse(result.statusCode);
             for (const auto i: this->readers[item])
-                this->subscribed.add_history(
+                this->history_problems.add_history(
                     this->cfg.channels[i]->ch.name + ": " + err.data + "."
                 );
             return;
@@ -1172,8 +1257,6 @@ class OnChangeReadTaskSource final : public BaseReadTaskSource {
 
     x::errors::Error use(connection::Pool::Connection conn) override {
         this->connection = std::move(conn);
-        // The places of the channels' nodes key the structure types of field channels.
-        this->build_request();
         auto err = this->read_types();
         if (!err) err = this->subscribe();
         if (err) this->connection = connection::Pool::Connection(nullptr, nullptr, "");
@@ -1201,10 +1284,6 @@ public:
         this->connection = connection::Pool::Connection(nullptr, nullptr, "");
     }
 
-    [[nodiscard]] std::vector<synnax::channel::Channel> channels() const override {
-        return this->cfg.sy_channels();
-    }
-
     x::errors::Error start() override {
         for (auto &c: this->live)
             c.clear();
@@ -1230,15 +1309,18 @@ public:
         }
         res.error = this->read_history();
         if (!res.error) res.error = this->connection.iterate(CHANGE_WAIT);
+        if (!res.error) res.error = this->retry();
         if (res.error) {
             this->connection = connection::Pool::Connection(nullptr, nullptr, "");
             return res;
         }
         this->take(fr);
-        auto reported = this->subscribed;
+        auto reported = this->unmonitored;
+        reported.merge(this->history_problems);
         reported.merge(this->problems);
         this->problems = Problems();
         res.warning = reported.warning();
+        res.description = this->revised;
         return res;
     }
 };
