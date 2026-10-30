@@ -127,6 +127,17 @@ describe("StreamMultiChannelLog", () => {
     expect(handler).toHaveBeenCalledTimes(loaded + 1);
   });
 
+  it("should notify when a channel loads no samples", async () => {
+    const core = createCore({ start: NOW });
+    const [a] = core.data.map((c) => c.key);
+    const log = open(core, connect(core), { channels: [a] });
+    const notified: cstatus.Variant[] = [];
+    log.onChange(() => notified.push(log.value().status.variant));
+    expect(log.value().status.variant).toBe("loading");
+    await expect.poll(() => notified.at(-1), POLL).toBe("success");
+    expect(entriesOf(log)).toEqual([]);
+  });
+
   describe("history", () => {
     // Returns a client whose history reads wait for release, and whose first fails when
     // failed is true.
