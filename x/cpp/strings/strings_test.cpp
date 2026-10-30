@@ -170,6 +170,7 @@ TEST(FormatFloat, FixedNotation) {
     EXPECT_EQ(x::strings::format_float(1e20f), "100000000000000000000");
     EXPECT_EQ(x::strings::format_float(0.1f), "0.1");
     EXPECT_EQ(x::strings::format_float(1e-6f), "0.000001");
+    EXPECT_EQ(x::strings::format_float(0.000244140625f), "0.00024414062");
 }
 
 /// @brief it should write exponent notation below 1e-6 and from 1e21.

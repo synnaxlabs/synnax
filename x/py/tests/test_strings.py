@@ -39,6 +39,7 @@ class TestFormatFloat:
             (np.float32(1e30), "1e+30"),
             (np.float32(1e-6), "0.000001"),
             (np.float32(1.5e-7), "1.5e-7"),
+            (np.float32(0.000244140625), "0.00024414062"),
             (np.float32(math.nan), "NaN"),
         ],
     )

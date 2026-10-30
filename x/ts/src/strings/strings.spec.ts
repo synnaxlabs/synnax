@@ -149,6 +149,7 @@ describe("formatFloat", () => {
     [1e30, "1e+30"],
     [1e-6, "0.000001"],
     [1.5e-7, "1.5e-7"],
+    [0.000244140625, "0.00024414062"],
     [-0, "-0"],
     [NaN, "NaN"],
   ])("should format the float32 %s as %s", (value, expected) => {
