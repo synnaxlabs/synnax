@@ -44,17 +44,16 @@ export const Properties = (): ReactElement => {
           disabled={!hasEditPermission}
         />
       </Input.Item>
-      <Input.Item
-        label="Timestamp precision"
-        className={CSS.BE("log", "timestamp-precision")}
-      >
-        <Input.Numeric
-          value={timestampPrecision}
-          onChange={handlePrecisionChange}
-          resetValue={0}
-          bounds={TIMESTAMP_PRECISION_BOUNDS}
-          disabled={!hasEditPermission || timestampsHidden}
-        />
+      <Input.Item label="Timestamp precision">
+        <Flex.Box y className={CSS.BE("log", "timestamp-precision")}>
+          <Input.Numeric
+            value={timestampPrecision}
+            onChange={handlePrecisionChange}
+            resetValue={0}
+            bounds={TIMESTAMP_PRECISION_BOUNDS}
+            disabled={!hasEditPermission || timestampsHidden}
+          />
+        </Flex.Box>
       </Input.Item>
       <Input.Item label="Show channel names">
         <Input.Switch
