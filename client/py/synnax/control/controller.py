@@ -588,7 +588,7 @@ class _Receiver(AsyncThread):
 
     async def _stream(self) -> None:
         self.streamer = await self.client.open_async_streamer(self.channels)
-        self.loop.create_task(self._listen_for_close())
+        close_listener = self.loop.create_task(self._listen_for_close())
         self.startup_ack.set()
         async for frame in self.streamer:
             for i, key in enumerate(frame.channels):
@@ -599,6 +599,7 @@ class _Receiver(AsyncThread):
             self._process()
         if not self.shutdown_future.done():
             raise UnexpectedError("streamer closed before the controller released")
+        await close_listener
 
     def stop(self) -> None:
         with self.lock:
