@@ -134,9 +134,9 @@ describe("Schematic.Tooltip", () => {
       );
       const tooltip = await findTooltip();
       const commandLabel = labelOf(tooltip, command.name);
-      expect(commandLabel.querySelector(".pluto-icon--control")).not.toBeNull();
+      expect(commandLabel.querySelector(".lyra-icon--control")).not.toBeNull();
       const stateLabel = labelOf(tooltip, state.name);
-      expect(stateLabel.querySelector(".pluto-icon--channel")).not.toBeNull();
+      expect(stateLabel.querySelector(".lyra-icon--channel")).not.toBeNull();
       expect(within(tooltip).getAllByText("f32")).toHaveLength(2);
     });
 
@@ -151,7 +151,7 @@ describe("Schematic.Tooltip", () => {
     it("should show the tooltip when no channel is set", async () => {
       renderTooltip(Node.createConfig({ variant: "value" }));
       const tooltip = await findTooltip();
-      expect(tooltip.querySelector(".pluto-icon--channel")).toBeNull();
+      expect(tooltip.querySelector(".lyra-icon--channel")).toBeNull();
       expect(within(tooltip).getByText("Stale timeout")).not.toBeNull();
     });
 
@@ -161,7 +161,7 @@ describe("Schematic.Tooltip", () => {
       const tooltip = await findTooltip();
       const value = valueOf(labelOf(tooltip, ch.name));
       expect(value.textContent).toEqual("f32");
-      expect(value.querySelector(".pluto-icon")).toBeNull();
+      expect(value.querySelector(".lyra-icon")).toBeNull();
     });
 
     it("should mark an index channel with the time icon", async () => {
@@ -169,7 +169,7 @@ describe("Schematic.Tooltip", () => {
       renderTooltip(Node.createConfig({ variant: "value", channel: index.key }));
       const tooltip = await findTooltip();
       const value = valueOf(labelOf(tooltip, index.name));
-      expect(value.querySelector(".pluto-icon--time")).not.toBeNull();
+      expect(value.querySelector(".lyra-icon--time")).not.toBeNull();
     });
 
     it("should mark a calculated channel with the calculation icon", async () => {
@@ -177,7 +177,7 @@ describe("Schematic.Tooltip", () => {
       renderTooltip(Node.createConfig({ variant: "value", channel: calc.key }));
       const tooltip = await findTooltip();
       const value = valueOf(labelOf(tooltip, calc.name));
-      expect(value.querySelector(".pluto-icon--calculation")).not.toBeNull();
+      expect(value.querySelector(".lyra-icon--calculation")).not.toBeNull();
     });
 
     it("should mark a virtual channel with the virtual icon", async () => {
@@ -185,7 +185,7 @@ describe("Schematic.Tooltip", () => {
       renderTooltip(Node.createConfig({ variant: "value", channel: virtual.key }));
       const tooltip = await findTooltip();
       const value = valueOf(labelOf(tooltip, virtual.name));
-      expect(value.querySelector(".pluto-icon--virtual")).not.toBeNull();
+      expect(value.querySelector(".lyra-icon--virtual")).not.toBeNull();
     });
   });
 

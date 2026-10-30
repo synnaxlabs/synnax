@@ -11,7 +11,6 @@ package aspen_test
 
 import (
 	"context"
-	"net"
 	"sync"
 	"time"
 
@@ -20,8 +19,10 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/aspen"
 	"github.com/synnaxlabs/aspen/testutil"
+	transporttestutil "github.com/synnaxlabs/aspen/transport/testutil"
 	"github.com/synnaxlabs/x/address"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 // specTimeout bounds every spec in this file. Aspen retries pledges until its context
@@ -40,11 +41,9 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 		It("Should correctly bootstrap a cluster", func(ctx SpecContext) {
 			db := MustSucceed(aspen.Open(
 				ctx,
-				"",
+				GinkgoT().TempDir(),
 				"localhost:0",
 				[]address.Address{},
-				aspen.Bootstrap(),
-				aspen.InMemory(),
 			))
 
 			By("Assigning a valid Name of 1")
@@ -60,35 +59,18 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 		}, SpecTimeout(specTimeout))
 
 		It(
-			"Should correctly bootstrap a cluster with peers provided",
-			func(ctx SpecContext) {
-				// Bootstrapping discards the peers, so port 1 never has to answer.
-				db := MustSucceed(aspen.Open(
-					ctx,
-					"",
-					"localhost:0",
-					[]address.Address{"localhost:1"},
-					aspen.InMemory(),
-					aspen.Bootstrap(),
-				))
-				defer func() { Expect(db.Close()).To(Succeed()) }()
-
-				By("Assigning a valid Name of 1")
-				Expect(db.Cluster.HostKey()).To(Equal(aspen.NodeKey(1)))
-			},
-			SpecTimeout(specTimeout),
-		)
-
-		It(
 			"Should correctly join a node that is already looking for peers",
 			func(ctx SpecContext) {
-				wg := sync.WaitGroup{}
+				// The in-memory network fixes the bootstrapper's address before it
+				// opens,
+				// so the pledging node can look for it first.
+				var (
+					network       = transporttestutil.NewNetwork()
+					bootstrapAddr = address.Address("localhost:1")
+					pledgerKV     = DeferClose(memkv.New())
+					wg            sync.WaitGroup
+				)
 				wg.Add(1)
-				// The pledging node must know where the bootstrapper will be before the
-				// bootstrapper opens, so bind the listener up front and hand it to the
-				// bootstrapper.
-				lis := MustSucceed(net.Listen("tcp", "localhost:0"))
-				bootstrapAddr := address.Address(lis.Addr().String())
 				go func() {
 					defer GinkgoRecover()
 					defer wg.Done()
@@ -97,9 +79,11 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 					db := MustSucceed(aspen.Open(
 						ctx,
 						"",
-						"localhost:0",
+						"localhost:2",
 						[]address.Address{bootstrapAddr},
-						aspen.InMemory(),
+						aspen.WithEngine(pledgerKV),
+						aspen.WithTransport(network.NewTransport("localhost:2")),
+						aspen.WithPropagationConfig(fastPledgeConfig),
 					))
 					defer func() { Expect(db.Close()).To(Succeed()) }()
 
@@ -111,9 +95,8 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 					"",
 					bootstrapAddr,
 					[]address.Address{},
-					aspen.InMemory(),
-					aspen.Bootstrap(),
-					aspen.WithListener(lis),
+					aspen.WithEngine(DeferClose(memkv.New())),
+					aspen.WithTransport(network.NewTransport(bootstrapAddr)),
 				))
 
 				By("Assigning a unique Name of 1")
@@ -134,11 +117,9 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 				numPledges := 9
 				bootstrapper := MustSucceed(aspen.Open(
 					ctx,
-					"",
+					GinkgoT().TempDir(),
 					"localhost:0",
 					[]address.Address{},
-					aspen.InMemory(),
-					aspen.Bootstrap(),
 				))
 				peers := []address.Address{bootstrapper.Cluster.Host().Address}
 				wg := sync.WaitGroup{}
@@ -148,15 +129,15 @@ var _ = Describe("Membership", Serial, Ordered, func() {
 					dbs = make([]*aspen.DB, numPledges)
 				)
 				for i := range numPledges {
+					dir := GinkgoT().TempDir()
 					go func(i int) {
 						defer GinkgoRecover()
 						defer wg.Done()
 						db := MustSucceed(aspen.Open(
 							ctx,
-							"",
+							dir,
 							"localhost:0",
 							peers,
-							aspen.InMemory(),
 							aspen.WithPropagationConfig(fastPledgeConfig),
 						))
 						ids[i] = db.Cluster.HostKey()

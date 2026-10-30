@@ -64,27 +64,6 @@ type Legend = versions.Legend
 // carry zero or more channels each.
 type Channels = versions.Channels
 
-// CustomRange is the window a plot's synthetic "custom" range key resolves to.
-type CustomRange = versions.CustomRange
-type CustomRangeVariant = versions.CustomRangeVariant
-type CustomRangeType = versions.CustomRangeType
-
-const (
-	// DynamicCustomRangeType is a rolling window.
-	DynamicCustomRangeType CustomRangeType = versions.DynamicCustomRangeType
-	// StaticCustomRangeType is a fixed window.
-	StaticCustomRangeType CustomRangeType = versions.StaticCustomRangeType
-)
-
-// DynamicCustomRange is a rolling window.
-type DynamicCustomRange = versions.DynamicCustomRange
-
-// StaticCustomRange is a fixed window.
-type StaticCustomRange = versions.StaticCustomRange
-
-// Ranges binds range keys to each x-axis.
-type Ranges = versions.Ranges
-
 // ManualBounds controls whether an axis uses a manually-set bound on each side
 // independently. When a side is false (the default), the corresponding entry in
 // Axis.bounds is recomputed locally from the rendered data window and never broadcast

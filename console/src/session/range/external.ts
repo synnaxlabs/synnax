@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+export * from "@/session/range/ref";
 export * from "@/session/range/selectors";
 export * from "@/session/range/slice";
 export * from "@/session/range/synchronizer";

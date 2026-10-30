@@ -15,7 +15,13 @@ import { EOF } from "@synnaxlabs/freighter";
 import { breaker, errors, observe, sync, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 
 import { type channel } from "@/channel";
-import { LicenseError } from "@/errors";
+import {
+  AuthError,
+  ExpiredTokenError,
+  InvalidTokenError,
+  LicenseError,
+  SessionEndedError,
+} from "@/errors";
 import { type Frame } from "@/framer/frame";
 import { isDefinitive } from "@/framer/retry";
 import {
@@ -162,11 +168,18 @@ export class HardenedStreamer implements Streamer {
         this.current = null;
         if (this.closed) break;
         const err = errors.fromUnknown(e);
-        // Retrying only fixes connectivity; a definitive rejection recurs on every
-        // attempt. Expired and invalid tokens are not definitive: the auth
-        // middleware refreshes them, and a later attempt gets a fresh budget. A
-        // license refusal lasts until activation, after which the connection reopens.
-        if (isDefinitive(err) || LicenseError.matches(err)) throw err;
+        // Retrying only fixes connectivity. Token errors are not definitive: the auth
+        // middleware logs in again. Rejected credentials last until new ones are given,
+        // and a license refusal until activation.
+        if (
+          isDefinitive(err) ||
+          (AuthError.matches(err) &&
+            !InvalidTokenError.matches(err) &&
+            !ExpiredTokenError.matches(err) &&
+            !SessionEndedError.matches(err)) ||
+          LicenseError.matches(err)
+        )
+          throw err;
         if (!(await this.breaker.wait())) throw err;
         // close() interrupts the backoff above, so re-check: a retired
         // streamer's failed reconnect is expected, not a fault to report.

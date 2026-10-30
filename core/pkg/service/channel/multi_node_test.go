@@ -12,7 +12,7 @@ package channel_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -21,14 +21,14 @@ import (
 
 var _ = Describe("Multi Node", Ordered, func() {
 	var (
-		node1, node2 mock.Node
+		node1, node2 testutil.Node
 		svc1, svc2   *channel.Service
 		writer1      channel.Writer
 		writer2      channel.Writer
 	)
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
-		cluster := mock.NewCluster(ctx, 0)
+		cluster := testutil.NewCluster(ctx, 0)
 		node1 = cluster.Provision(ctx)
 		node2 = cluster.Provision(ctx)
 		svc1, _ = openService(ctx, node1)

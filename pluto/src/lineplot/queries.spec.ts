@@ -442,6 +442,8 @@ describe("lineplot queries", () => {
             lineplotClient.setLine({
               line: {
                 key: "line-new",
+                yAxis: "y1",
+                yChannel: 1,
                 label: "ghost",
                 color: color.construct("#ff0000"),
                 strokeWidth: 2,
@@ -541,15 +543,15 @@ describe("lineplot queries", () => {
         ranges: LinePlot.useRanges({ key: created.key }),
         dispatch: LinePlot.useDispatch(),
       }));
-      expect(result.current.ranges.x1).toEqual([]);
-      const rangeKey = uuid.create();
+      expect(result.current.ranges).toEqual([]);
+      const ref = { variant: "key" as const, key: uuid.create() };
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
-          actions: [lineplotClient.addRange({ axisKey: "x1", range: rangeKey })],
+          actions: [lineplotClient.addRange({ range: ref })],
         });
       });
-      await waitFor(() => expect(result.current.ranges.x1).toEqual([rangeKey]));
+      await waitFor(() => expect(result.current.ranges).toEqual([ref]));
     });
 
     it("useYAxisChannels returns one axis's channels and updates after setChannels", async () => {
@@ -584,21 +586,23 @@ describe("lineplot queries", () => {
       await waitFor(() => expect(result.current.channel).toEqual(99));
     });
 
-    it("useXAxisRanges returns one axis's ranges and updates after setRanges", async () => {
+    it("useRanges updates after setRanges replaces a window", async () => {
       const created = await createPlot();
       const { result } = await loadAndUse(created.key, () => ({
-        ranges: LinePlot.useXAxisRanges({ key: created.key, axisKey: "x1" }),
+        ranges: LinePlot.useRanges({ key: created.key }),
         dispatch: LinePlot.useDispatch(),
       }));
-      expect(result.current.ranges).toEqual([]);
-      const rangeKey = uuid.create();
+      const ref = {
+        variant: "window" as const,
+        window: { variant: "dynamic" as const, timeSpan: 60e9 },
+      };
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key: created.key,
-          actions: [lineplotClient.setRanges({ axisKey: "x1", ranges: [rangeKey] })],
+          actions: [lineplotClient.setRanges({ ranges: [ref] })],
         });
       });
-      await waitFor(() => expect(result.current.ranges).toEqual([rangeKey]));
+      await waitFor(() => expect(result.current.ranges).toEqual([ref]));
     });
 
     it("useAxisKeys returns displayed axes and updates as channels appear", async () => {
@@ -659,6 +663,8 @@ describe("lineplot queries", () => {
             lineplotClient.setLine({
               line: {
                 key: "ln-1",
+                yAxis: "y1",
+                yChannel: 1,
                 color: color.construct("#00aaff"),
                 strokeWidth: 2,
                 aggregation: "min_max",
@@ -773,6 +779,8 @@ describe("lineplot queries", () => {
             lineplotClient.setLine({
               line: {
                 key: "ln-count",
+                yAxis: "y1",
+                yChannel: 1,
                 color: color.construct("#00aaff"),
                 strokeWidth: 2,
                 aggregation: "min_max",
@@ -856,11 +864,9 @@ describe("lineplot queries", () => {
 
     it("useYAxis returns axis, channels, and lineKeys", async () => {
       const created = await createPlot();
-      const lineKey = lineplotClient.lineKey({
+      const lineKey = lineplotClient.lineKey(created.key, {
         yAxis: "y1",
-        xAxis: "x1",
-        range: uuid.create(),
-        xChannel: 3,
+        xChannel: 0,
         yChannel: 5,
       });
       const { result } = await loadAndUse(created.key, () => ({
@@ -878,6 +884,8 @@ describe("lineplot queries", () => {
             lineplotClient.setLine({
               line: {
                 key: lineKey,
+                yAxis: "y1",
+                yChannel: 5,
                 color: color.construct("#00aaff"),
                 strokeWidth: 2,
                 aggregation: "min_max",
@@ -999,6 +1007,8 @@ describe("lineplot queries", () => {
             lineplotClient.setLine({
               line: {
                 key: "ln-stable",
+                yAxis: "y1",
+                yChannel: 1,
                 color: color.construct("#00aaff"),
                 strokeWidth: 2,
                 aggregation: "min_max",
@@ -1237,6 +1247,8 @@ describe("lineplot queries", () => {
             lineplotClient.setLine({
               line: {
                 key: "ln-count-stable",
+                yAxis: "y1",
+                yChannel: 1,
                 color: color.construct("#00aaff"),
                 strokeWidth: 2,
                 aggregation: "min_max",
@@ -1276,6 +1288,8 @@ describe("lineplot queries", () => {
             lineplotClient.setLine({
               line: {
                 key: "ln-lines-stable",
+                yAxis: "y1",
+                yChannel: 1,
                 color: color.construct("#00aaff"),
                 strokeWidth: 2,
                 aggregation: "min_max",
@@ -1359,22 +1373,17 @@ describe("lineplot queries", () => {
         dataType: DataType.FLOAT32,
         index: index.key,
       });
-      const range = uuid.create();
-      const lineA = lineplotClient.lineKey({
+      const created = await createPlot();
+      const lineA = lineplotClient.lineKey(created.key, {
         yAxis: "y1",
-        xAxis: "x1",
-        range,
         xChannel: index.key,
         yChannel: chA.key,
       });
-      const lineB = lineplotClient.lineKey({
+      const lineB = lineplotClient.lineKey(created.key, {
         yAxis: "y1",
-        xAxis: "x1",
-        range,
         xChannel: index.key,
         yChannel: chB.key,
       });
-      const created = await createPlot();
       const setup = await renderHookSuspended(
         () => ({
           retrieve: LinePlot.use({ key: created.key }),
@@ -1390,6 +1399,9 @@ describe("lineplot queries", () => {
             lineplotClient.setLine({
               line: {
                 key: lineA,
+                yAxis: "y1",
+                yChannel: chA.key,
+                xChannel: index.key,
                 color: color.construct("#00aaff"),
                 strokeWidth: 2,
                 aggregation: "min_max",
@@ -1399,6 +1411,9 @@ describe("lineplot queries", () => {
             lineplotClient.setLine({
               line: {
                 key: lineB,
+                yAxis: "y1",
+                yChannel: chB.key,
+                xChannel: index.key,
                 color: color.construct("#ff8800"),
                 strokeWidth: 2,
                 aggregation: "min_max",

@@ -10,7 +10,7 @@
  */
 
 /* A button styles its own link. :where adds no specificity, so color classes win. */
-a.pluto-text:where(:not(.pluto-btn)) {
+a.lyra-text:where(:not(.lyra-btn)) {
     text-decoration: none;
     color: var(--pluto-primary-p1);
     cursor: pointer;
@@ -20,148 +20,98 @@ a.pluto-text:where(:not(.pluto-btn)) {
     }
 }
 
-span.pluto-text {
+span.lyra-text {
     font-size: inherit;
     font-weight: inherit;
     line-height: inherit;
     height: fit-content;
 }
 
-.pluto-text {
+.lyra-text {
     margin: 0;
 
-    &.pluto--direction-x {
+    &.lyra--direction-x {
         align-items: center;
     }
 
-    &.pluto-text--code {
+    &.lyra-text--code {
         font-family: var(--pluto-code-font-family);
     }
 
-    &.pluto-text--keyboard {
-        line-height: 1;
-
-        /* Square for a single glyph; word keys ("esc", "delete") outgrow the ratio and
-           keep the padding so they read as keycaps rather than cramped labels. */
-        aspect-ratio: 1;
-        box-sizing: border-box;
-        padding-inline: 0.4em;
+    /* A key is a glyph in a fixed cell, so letters and icons space evenly. */
+    &.lyra-text--keyboard {
+        min-width: round(1.667rem, 1px);
         justify-content: center;
-        color: var(--pluto-gray-l9);
-        background: var(--pluto-keycap-bg, var(--pluto-gray-l2));
-
-        /* Geometry off the color chain: a blank border color voids the shorthand, and
-           the zeroed width then shifts every cap in a right-aligned row. */
-        border: var(--pluto-border-width) solid;
-
-        /* A concrete gray, not the ambient --pluto-border-color: every button variant
-           rewrites that for its own chassis, and the text variant sets it to the page
-           background, which erases the cap's outline. */
-        border-color: var(--pluto-keycap-border-color, var(--pluto-gray-l7));
-        border-radius: var(--pluto-border-radius);
-
-        /* An icon already fits inside the square, so padding it moves nothing and only
-           widens the row's intrinsic size, knocking the caps off whole pixels. */
-        &:has(> .pluto-icon) {
-            padding-inline: 0;
-        }
-
-        &.pluto-text--p {
-            height: var(--pluto-p-line-height);
-            font-size: calc(var(--pluto-p-size) - 1px);
-        }
-
-        &.pluto-text--h1 {
-            height: var(--pluto-h1-line-height);
-            font-size: calc(var(--pluto-h1-size) - 1px);
-        }
-
-        &.pluto-text--h2 {
-            height: var(--pluto-h2-line-height);
-            font-size: calc(var(--pluto-h2-size) - 1px);
-        }
-
-        &.pluto-text--h3 {
-            height: var(--pluto-h3-line-height);
-            font-size: calc(var(--pluto-h3-size) - 1px);
-        }
-
-        &.pluto-text--h4 {
-            height: var(--pluto-h4-line-height);
-            font-size: calc(var(--pluto-h4-size) - 1px);
-        }
-
-        &.pluto-text--h5 {
-            height: var(--pluto-h5-line-height);
-            font-size: calc(var(--pluto-h5-size) - 1px);
-        }
-
-        &.pluto-text--small {
-            height: calc(var(--pluto-small-line-height) + 1px);
-            font-size: calc(var(--pluto-small-size) - 2px);
-        }
+        font-size: var(--pluto-keycap-font-size, var(--pluto-tiny-size));
+        line-height: 1;
     }
 
-    /* Both axes, since a lone overflow-x computes the unmentioned overflow-y to auto
-       and a crushed line-height then grows a scrollbar on a one-line label. */
-    &.pluto-text--overflow-ellipsis {
+    /* Cut text fades out at its end. The self scroll timeline is inactive until the
+       text overflows, so fitted text never fades. Both axes are hidden, since a lone
+       overflow-x computes overflow-y to auto and a crushed line-height then grows a
+       scrollbar on a one-line label. */
+    &.lyra-text--overflow-fade {
         white-space: nowrap;
         overflow: hidden;
-        text-overflow: ellipsis;
-        display: block;
-    }
-
-    /* Overflowing text fades out at the right edge, Chrome-style, instead of
-       ellipsizing. The self scroll timeline is inactive until the text actually
-       overflows, so fitted text never fades. */
-    &.pluto-text--overflow-fade {
-        white-space: nowrap;
-        overflow: hidden;
-        display: block;
         animation-name: text-fade;
         animation-timing-function: linear;
         animation-timeline: scroll(self x);
     }
 
-    /* Engines without scroll timelines (Safari < 26, Firefox < 156) ellipsize. */
-    @supports not (animation-timeline: scroll(self x)) {
-        &.pluto-text--overflow-fade {
-            text-overflow: ellipsis;
-        }
-    }
-
-    &.pluto-text--overflow-clip {
+    &.lyra-text--overflow-clip {
         white-space: nowrap;
         overflow: hidden;
         text-overflow: clip;
     }
 
-    &.pluto-text--overflow-nowrap {
+    &.lyra-text--overflow-nowrap {
         white-space: nowrap;
     }
 
-    &.pluto-text--overflow-wrap {
+    &.lyra-text--overflow-wrap {
         white-space: wrap;
     }
 
-    &.pluto-text--line-clamp {
+    /* Clamped text fades out at the end of its last line. */
+    &.lyra-text--line-clamp {
         display: -webkit-box;
         -webkit-box-orient: vertical;
         overflow: hidden;
-        text-overflow: ellipsis;
+        animation-name: text-fade-lines;
+        animation-timing-function: linear;
+        animation-timeline: scroll(self y);
+    }
+
+    /* Engines without scroll timelines (Safari < 26, Firefox < 156) ellipsize. */
+    @supports not (animation-timeline: scroll(self x)) {
+        &.lyra-text--overflow-fade,
+        &.lyra-text--line-clamp {
+            text-overflow: ellipsis;
+        }
+
+        /* Ellipsis needs a block container. */
+        &.lyra-text--overflow-fade {
+            display: block;
+        }
     }
 }
 
 /* Identical 0% and 100% frames make the mask a constant that applies only while
-   the scroll timeline is active. Contexts tune the width via
-   --pluto-text-fade-width. */
+   the scroll timeline is active. */
 @keyframes text-fade {
     0%,
     100% {
-        mask-image: linear-gradient(
-            to right,
-            black calc(100% - var(--pluto-text-fade-width, 2.25rem)),
-            transparent
-        );
+        mask-image: linear-gradient(to right, black calc(100% - 2.25rem), transparent);
+    }
+}
+
+/* Every line but the last stays whole, and the last one fades like a cut label. */
+@keyframes text-fade-lines {
+    0%,
+    100% {
+        mask:
+            linear-gradient(black, black) top / 100% calc(100% - 1lh) no-repeat,
+            linear-gradient(to right, black calc(100% - 2.25rem), transparent) bottom /
+                100% 1lh no-repeat;
     }
 }
