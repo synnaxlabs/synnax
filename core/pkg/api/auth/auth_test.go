@@ -249,23 +249,23 @@ var _ = Describe("ChangePassword", func() {
 		MustSucceed(apiSvc.Login(requestCtx(ctx), request(own.Username, own.Password)))
 	})
 	It(
-		"Should end the password's other sessions and keep the caller's",
+		"Should end every session the password opened, the caller's included",
 		func(ctx SpecContext) {
-			kept := MustSucceed(
+			caller := MustSucceed(
 				apiSvc.Login(requestCtx(ctx), request(own.Username, own.Password)),
 			)
 			other := MustSucceed(
 				apiSvc.Login(requestCtx(ctx), request(own.Username, own.Password)),
 			)
-			fctx := freighter.Context{Context: ctx, Params: freighter.Params{}}
-			fctx.Set("Session", MustSucceed(authSvc.Authenticate(ctx, kept.Token)))
-			Expect(apiSvc.ChangePassword(fctx, nil, apiauth.ChangePasswordRequest{
-				Credentials: own,
-				NewPassword: "new",
-			})).Error().ToNot(HaveOccurred())
-			MustSucceed(authSvc.Authenticate(ctx, kept.Token))
-			Expect(authSvc.Authenticate(ctx, other.Token)).Error().
-				To(MatchError(auth.ErrInvalidToken))
+			Expect(apiSvc.ChangePassword(
+				authed(ctx, caller.Token),
+				nil,
+				apiauth.ChangePasswordRequest{Credentials: own, NewPassword: "new"},
+			)).Error().ToNot(HaveOccurred())
+			for _, token := range []string{caller.Token, other.Token} {
+				Expect(authSvc.Authenticate(ctx, token)).Error().
+					To(MatchError(auth.ErrInvalidToken))
+			}
 		},
 	)
 })
@@ -287,7 +287,7 @@ var _ = Describe("SetPassword", func() {
 		ctx context.Context,
 		token string,
 		req apiauth.PasswordSetRequest,
-	) (struct{}, error) {
+	) (apiauth.PasswordSetResponse, error) {
 		return apiSvc.SetPassword(authed(ctx, token), nil, req)
 	}
 	BeforeEach(func(ctx SpecContext) {
@@ -295,17 +295,55 @@ var _ = Describe("SetPassword", func() {
 		bobToken = login(ctx, bob.Name, "old")
 		rootToken = login(ctx, creds.Username, creds.Password)
 	})
-	It("Should set the caller's own password given the current one", func(
+	It("Should replace the caller's session when it sets its own password", func(
 		ctx SpecContext,
 	) {
 		other := login(ctx, bob.Name, "old")
-		Expect(set(ctx, bobToken, apiauth.PasswordSetRequest{
+		res := MustSucceed(set(ctx, bobToken, apiauth.PasswordSetRequest{
 			Password:        "new",
 			CurrentPassword: "old",
-		})).Error().ToNot(HaveOccurred())
+		}))
+		Expect(res.Session).ToNot(BeNil())
+		Expect(res.Session.Subject).To(Equal(bob.OntologyID()))
+		Expect(authSvc.Authenticate(ctx, res.Token)).To(Equal(*res.Session))
+		for _, token := range []string{bobToken, other} {
+			Expect(authSvc.Authenticate(ctx, token)).Error().
+				To(MatchError(auth.ErrInvalidToken))
+		}
 		login(ctx, bob.Name, "new")
-		MustSucceed(authSvc.Authenticate(ctx, bobToken))
-		Expect(authSvc.Authenticate(ctx, other)).Error().
+	})
+	It("Should put the caller's new token in a cookie when asked", func(
+		ctx SpecContext,
+	) {
+		fctx := authed(ctx, bobToken)
+		res := MustSucceed(apiSvc.SetPassword(fctx, nil, apiauth.PasswordSetRequest{
+			Password:        "new",
+			CurrentPassword: "old",
+			Cookie:          true,
+		}))
+		Expect(res.Token).To(BeEmpty())
+		cookie := MustBeOk(fctx.Get(apiauth.SessionCookieParam)).(apiauth.SessionCookie)
+		Expect(authSvc.Authenticate(ctx, cookie.Token)).To(Equal(*res.Session))
+	})
+	It("Should open no session for a caller logged in with an API key", func(
+		ctx SpecContext,
+	) {
+		key := MustSucceed(apiSvc.CreateKey(
+			authed(ctx, bobToken),
+			nil,
+			apiauth.KeyCreateRequest{Name: "spec"},
+		))
+		keyToken := MustSucceed(apiSvc.CreateSession(
+			requestCtx(ctx),
+			apiauth.SessionCreateRequest{Proof: keyProof(key.Token)},
+		)).Token
+		res := MustSucceed(set(ctx, keyToken, apiauth.PasswordSetRequest{
+			Password:        "new",
+			CurrentPassword: "old",
+		}))
+		Expect(res).To(Equal(apiauth.PasswordSetResponse{}))
+		MustSucceed(authSvc.Authenticate(ctx, keyToken))
+		Expect(authSvc.Authenticate(ctx, bobToken)).Error().
 			To(MatchError(auth.ErrInvalidToken))
 	})
 	It("Should refuse the caller's own password with a wrong current one", func(
@@ -328,7 +366,8 @@ var _ = Describe("SetPassword", func() {
 		Expect(set(ctx, rootToken, apiauth.PasswordSetRequest{
 			Subject:  bob.OntologyID(),
 			Password: "new",
-		})).Error().ToNot(HaveOccurred())
+		})).To(Equal(apiauth.PasswordSetResponse{}))
+		MustSucceed(authSvc.Authenticate(ctx, rootToken))
 		login(ctx, bob.Name, "new")
 		Expect(authSvc.Authenticate(ctx, bobToken)).Error().
 			To(MatchError(auth.ErrInvalidToken))
