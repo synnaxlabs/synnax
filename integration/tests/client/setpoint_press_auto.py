@@ -93,7 +93,6 @@ class SetpointPressAuto(TestCase):
                 ["press_pt", "press_setpoint_cmd"], timeout=10
             ):
                 self.fail("Timeout (60s) for press_pt and press_setpoint_cmd")
-                return
 
             self.log("Starting pressurization logic")
             mode = "hold"
