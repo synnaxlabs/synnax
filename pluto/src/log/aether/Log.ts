@@ -63,6 +63,8 @@ export const logStateZ = log.logZ
       .array(z.object({ text: z.string(), color: z.string() }))
       .default([]),
     computedLineHeight: z.number().default(0),
+    // The entry index of each row on screen, top to bottom.
+    rowEntries: z.array(z.number()).default([]),
   });
 
 /**
@@ -82,6 +84,9 @@ const LOAD_MARGIN = 200;
 const CONTENT_PADDING = 6;
 // Fits the widest date, such as "Jan 31".
 const DATE_WIDTH = 6;
+// The fewest characters of a value beside its prefix. With less room, the value starts
+// on the row below its prefix and uses the full width.
+const MIN_VALUE_COLUMNS = 16;
 
 // Per-theme prefix color muting — multiplied with the base color's HSLA.
 const DARK_PREFIX = { hue: 1, saturation: 0.8, lightness: 0.85, alpha: 0.95 };
@@ -110,6 +115,27 @@ interface InternalState {
   tsLen: number;
   selectionColor: color.Color;
   stopListeningTelem?: destructor.Destructor;
+}
+
+// One line of pixels on screen. A wrapped entry has one row per piece of its value.
+interface Row {
+  entry: number;
+  prefix: string;
+  value: string;
+  channelKey: string;
+  first: boolean;
+}
+
+// How an entry splits into rows. The first lead rows hold no value.
+interface EntryLayout {
+  entry: number;
+  prefix: string;
+  value: string;
+  channelKey: string;
+  indent: string;
+  columns: number;
+  lead: number;
+  rows: number;
 }
 
 interface ScrollbackState {
@@ -154,6 +180,9 @@ const spansDays = (entries: LogEntry[]): boolean =>
     new TimeStamp(entries[entries.length - 1].timestamp),
     "local",
   );
+
+const sameEntries = (a: number[], b: number[]): boolean =>
+  a.length === b.length && a.every((entry, i) => entry === b[i]);
 
 export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
   static readonly TYPE = "log";
@@ -259,14 +288,14 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
       // Adjust viewport offset based on wheel delta from the snapshot reference.
       const { scrollState } = this;
       const dist = Math.ceil((wheelPos - scrollState.scrollRef) / lh);
-      const visCount = this.calcVisibleLineCount(lh);
+      const minOffset = this.calcMinOffset(lh);
       scrollState.offset = Math.max(
-        visCount,
+        minOffset,
         Math.min(scrollState.offsetRef - dist, this.entries.length),
       );
       // Clamp: if scrolled to top, lock wheel position to prevent over-scroll.
-      if (scrollState.offset <= visCount) {
-        scrollState.offset = visCount;
+      if (scrollState.offset <= minOffset) {
+        scrollState.offset = minOffset;
         this.setState((s) => ({ ...s, wheelPos: this.prevState.wheelPos }));
       }
       // Auto-resume live mode when the viewport is back on the newest entry. A pause
@@ -326,11 +355,84 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     });
   }
 
+  private calcRowCapacity(lh: number): number {
+    return Math.floor((box.height(this.state.region) - CONTENT_PADDING * 2) / lh);
+  }
+
   private calcVisibleLineCount(lh: number): number {
-    return Math.min(
-      Math.floor((box.height(this.state.region) - CONTENT_PADDING * 2) / lh),
-      this.entries.length,
-    );
+    return Math.min(this.calcRowCapacity(lh), this.entries.length);
+  }
+
+  // Returns the lowest paused view end that still shows the oldest entry in full.
+  private calcMinOffset(lh: number): number {
+    const capacity = this.calcRowCapacity(lh);
+    const dated = spansDays(this.entries.slice(0, capacity));
+    let rows = 0;
+    let offset = 0;
+    while (offset < this.entries.length) {
+      rows += this.layoutEntry(offset, dated).rows;
+      if (rows > capacity) break;
+      offset++;
+    }
+    return Math.max(offset, Math.min(1, this.entries.length));
+  }
+
+  private layoutEntry(entry: number, dated: boolean): EntryLayout {
+    const { prefix, value, channelKey } = this.formatEntry(this.entries[entry], dated);
+    const width = box.width(this.state.region) - CONTENT_PADDING * 2 - SCROLLBAR_WIDTH;
+    const fullColumns = Math.floor(width / this.internal.charWidth);
+    const columns = fullColumns - prefix.length;
+    const base = { entry, prefix, value, channelKey };
+    if (value.length <= columns || columns >= MIN_VALUE_COLUMNS)
+      return {
+        ...base,
+        indent: " ".repeat(prefix.length),
+        columns,
+        lead: 0,
+        rows: value.length === 0 ? 1 : Math.ceil(value.length / columns),
+      };
+    const ownColumns = Math.max(1, fullColumns);
+    return {
+      ...base,
+      indent: "",
+      columns: ownColumns,
+      lead: 1,
+      rows: 1 + Math.ceil(value.length / ownColumns),
+    };
+  }
+
+  private rowOf(layout: EntryLayout, row: number): Row {
+    const { entry, prefix, value, channelKey, indent, columns, lead } = layout;
+    const start = (row - lead) * columns;
+    return {
+      entry,
+      prefix: row === 0 ? prefix : indent,
+      value: row < lead ? "" : value.slice(start, start + columns),
+      channelKey,
+      first: row === 0,
+    };
+  }
+
+  // Lays out the rows that fit above the entry at end, cutting the top entry to fit.
+  private fitRows(end: number, capacity: number, dated: boolean): Row[] {
+    const rows: Row[] = [];
+    for (let i = end - 1; i >= 0 && rows.length < capacity; i--) {
+      const layout = this.layoutEntry(i, dated);
+      const top = Math.max(0, layout.rows - (capacity - rows.length));
+      for (let row = layout.rows - 1; row >= top; row--)
+        rows.push(this.rowOf(layout, row));
+    }
+    return rows.reverse();
+  }
+
+  // Dates widen the prefix, so the rows are fit once more when the entries they show
+  // cross a day.
+  private layoutRows(end: number, lh: number): Row[] {
+    const capacity = this.calcRowCapacity(lh);
+    const rows = this.fitRows(end, capacity, false);
+    if (rows.length === 0 || !spansDays(this.entries.slice(rows[0].entry, end)))
+      return rows;
+    return this.fitRows(end, capacity, true);
   }
 
   render(): render.Cleanup | undefined {
@@ -339,31 +441,29 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     if (box.areaIsZero(region)) return undefined;
     if (!this.state.visible) return () => renderCtx.erase(region, xy.ZERO, CANVAS);
 
-    const visible = this.calcVisibleLineCount(lh);
-    let sliceStart: number;
-    let slice: LogEntry[];
-    if (!this.state.scrolling) {
-      sliceStart = Math.max(0, this.entries.length - visible);
-      slice = this.entries.slice(sliceStart);
-    } else {
-      const end = this.scrollState.offset;
-      sliceStart = Math.max(0, end - visible);
-      slice = this.entries.slice(sliceStart, end);
-    }
+    const end = this.state.scrolling ? this.scrollState.offset : this.entries.length;
+    const rows = this.layoutRows(end, lh);
+    const sliceStart = rows.length > 0 ? rows[0].entry : end;
+    const rowEntries = rows.map((row) => row.entry);
 
-    if (this.state.visibleStart !== sliceStart || this.state.computedLineHeight !== lh)
+    if (
+      this.state.visibleStart !== sliceStart ||
+      this.state.computedLineHeight !== lh ||
+      !sameEntries(this.state.rowEntries, rowEntries)
+    )
       this.setState((s) => ({
         ...s,
         visibleStart: sliceStart,
         computedLineHeight: lh,
+        rowEntries,
       }));
 
     this.updateSelectedText();
 
     const reg = this.state.region;
     const clearScissor = renderCtx.scissor(reg, xy.ZERO, [CANVAS]);
-    this.renderSelection(draw2d, sliceStart, slice.length, lh);
-    this.renderElements(draw2d, slice, lh);
+    this.renderSelection(draw2d, rowEntries, lh);
+    this.renderElements(draw2d, rows, lh);
     this.renderScrollbar(draw2d);
     clearScissor();
     const eraseRegion = box.copy(this.state.region);
@@ -377,7 +477,10 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     const regHeight = box.height(reg);
     const { totalHeight } = this;
     if (totalHeight <= 0) return;
-    const proportionalHeight = (regHeight / totalHeight) * regHeight;
+    const minOffset = this.calcMinOffset(this.internal.lineHeight);
+    // Wrapped rows fit fewer entries on screen, so they shrink the thumb.
+    const proportionalHeight =
+      (regHeight / totalHeight) * regHeight * (minOffset / this.visibleLineCount);
     if (proportionalHeight >= regHeight * SCROLLBAR_RENDER_THRESHOLD) return;
     const height = bounds.clamp(
       { lower: SCROLLBAR_MIN_HEIGHT, upper: regHeight },
@@ -385,7 +488,7 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     );
     // The thumb travels the track less its own height, over the entries that sit
     // outside the viewport.
-    const scrollRange = this.entries.length - this.visibleLineCount;
+    const scrollRange = this.entries.length - minOffset;
     const distFromEnd = this.entries.length - this.scrollState.offset;
     const progress =
       scrollRange <= 0
@@ -439,7 +542,7 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     const { start, end, scroll } = this.anchors;
     if (scroll != null && this.state.scrolling) {
       const offset = Math.max(
-        this.calcVisibleLineCount(this.internal.lineHeight),
+        this.calcMinOffset(this.internal.lineHeight),
         this.locate(scroll) + 1,
       );
       // Wheel moves count from offsetRef, so it shifts with the anchored entry.
@@ -473,21 +576,16 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     }));
   }
 
-  private renderSelection(
-    draw2d: Draw2D,
-    sliceStart: number,
-    visibleCount: number,
-    lh: number,
-  ): void {
+  private renderSelection(draw2d: Draw2D, rowEntries: number[], lh: number): void {
     const { selectionStart, selectionEnd } = this.state;
     if (selectionStart < 0 || selectionEnd < 0) return;
     const selMin = Math.min(selectionStart, selectionEnd);
     const selMax = Math.max(selectionStart, selectionEnd);
-    const sliceEnd = sliceStart + visibleCount;
-    if (selMax < sliceStart || selMin >= sliceEnd) return;
+    const selected = (entry: number) => entry >= selMin && entry <= selMax;
+    const highlightStart = rowEntries.findIndex(selected);
+    if (highlightStart === -1) return;
+    const highlightEnd = rowEntries.findLastIndex(selected);
     const reg = this.state.region;
-    const highlightStart = Math.max(selMin, sliceStart) - sliceStart;
-    const highlightEnd = Math.min(selMax, sliceEnd - 1) - sliceStart;
     const rowCount = highlightEnd - highlightStart + 1;
     draw2d.container({
       region: box.construct(
@@ -576,16 +674,15 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     }
   }
 
-  private renderElements(draw2D: Draw2D, entries: LogEntry[], lh: number): void {
+  private renderElements(draw2D: Draw2D, rows: Row[], lh: number): void {
     const reg = this.state.region;
     const font = this.state.font;
     const { prefixColors, defaultPrefixColor, textColor, valueColors, charWidth } =
       this.internal;
     const regTopX = box.left(reg);
     const regTopY = box.top(reg);
-    const dated = spansDays(entries);
-    for (let i = 0; i < entries.length; i++) {
-      const { prefix, value, channelKey } = this.formatEntry(entries[i], dated);
+    for (let i = 0; i < rows.length; i++) {
+      const { prefix, value, channelKey, first } = rows[i];
       const entryColor = valueColors[channelKey] ?? textColor;
       const prefixColor = prefixColors[channelKey] ?? defaultPrefixColor;
       const posX = regTopX + CONTENT_PADDING;
@@ -598,7 +695,7 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
         code: true,
       });
       const valueX = posX + prefix.length * charWidth;
-      const isNegative = value[0] === "-";
+      const isNegative = first && value[0] === "-";
       const displayValue = isNegative ? value.slice(1) : value;
       if (isNegative)
         draw2D.text({

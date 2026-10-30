@@ -1061,6 +1061,98 @@ describe("log/aether/Log", () => {
     });
   });
 
+  describe("wrapping", () => {
+    const longEntry = (i: number): LogEntry => ({
+      channelKey: 1,
+      timestamp: TimeStamp.milliseconds(i),
+      value: "x".repeat(2000),
+    });
+
+    it("should give a long value several rows of one entry", () => {
+      const { log } = setup([makeEntry(0), longEntry(1)]);
+      log.render();
+      const { rowEntries } = log.state;
+      expect(rowEntries.filter((entry) => entry === 1).length).toBeGreaterThan(1);
+    });
+
+    it("should keep one row per entry for short values", () => {
+      const { log } = setup([makeEntry(0), makeEntry(1)]);
+      log.render();
+      expect(log.state.rowEntries).toEqual([0, 1]);
+    });
+
+    it("should fill the viewport with the newest rows", () => {
+      const entries = Array.from({ length: 20 }, (_, i) => longEntry(i));
+      const { log } = setup(entries);
+      log.render();
+      const capacity = Math.floor((500 - 12) / log.lineHeight);
+      expect(log.state.rowEntries).toHaveLength(capacity);
+      expect(log.state.rowEntries.at(-1)).toBe(19);
+    });
+
+    it("should draw the tail of a value far taller than the viewport", () => {
+      const huge: LogEntry = {
+        channelKey: 1,
+        timestamp: TimeStamp.milliseconds(0),
+        value: "x".repeat(5_000_000),
+      };
+      const { log } = setup([huge]);
+      expect(() => log.render()).not.toThrow();
+      const capacity = Math.floor((500 - 12) / log.lineHeight);
+      expect(log.state.rowEntries).toHaveLength(capacity);
+    });
+
+    it("should start a value below a prefix that leaves no room", () => {
+      const entry: LogEntry = {
+        channelKey: 1,
+        timestamp: TimeStamp.milliseconds(0),
+        value: "x".repeat(2000),
+      };
+      const { log } = setup([entry], REGION_500, {
+        channelNamesHidden: false,
+        channels: [clientLog.channelEntryZ.parse({ channel: 1, color: color.ZERO })],
+        channelNames: { "1": "n".repeat(500) },
+      });
+      log.render();
+      expect(log.state.rowEntries.length).toBeGreaterThan(1);
+    });
+
+    it("should keep the row of an empty value behind a prefix that fills the width", () => {
+      const entry: LogEntry = {
+        channelKey: 1,
+        timestamp: TimeStamp.milliseconds(0),
+        value: "",
+      };
+      const { log } = setup([entry], REGION_500, {
+        channelNamesHidden: false,
+        channels: [clientLog.channelEntryZ.parse({ channel: 1, color: color.ZERO })],
+        channelNames: { "1": "n".repeat(500) },
+      });
+      log.render();
+      expect(log.state.rowEntries).toEqual([0]);
+    });
+
+    it("should copy a wrapped value in one piece", () => {
+      const { log } = setup([longEntry(0)], REGION_500, {
+        timestampsHidden: true,
+        channelNamesHidden: true,
+        selectionStart: 0,
+        selectionEnd: 0,
+      });
+      log.render();
+      expect(log.state.selectedText).toBe("x".repeat(2000));
+    });
+
+    it("should reach the oldest entry when scrolled to the top", () => {
+      const entries = Array.from({ length: 20 }, (_, i) => longEntry(i));
+      const { log, updateState } = setup(entries, REGION_500, { scrolling: false });
+      updateState({ scrolling: true, wheelPos: 0 });
+      updateState({ scrolling: true, wheelPos: 1e6 });
+      log.render();
+      expect(log.state.rowEntries[0]).toBe(0);
+    });
+  });
+
   describe("selectedText and selectedLines", () => {
     it("should clear selectedText when selection is negative", () => {
       const entries = Array.from({ length: 5 }, (_, i) => makeEntry(i));
