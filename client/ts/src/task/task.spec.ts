@@ -1106,6 +1106,66 @@ describe("Task", async () => {
       }
     });
 
+    it("keeps a reply stored in the same batch as its rack's outage", async () => {
+      const dying = await client.racks.create({ name: `dying-${id.create()}` });
+      const t = await dying.createTask({
+        name: `batched-${id.create()}`,
+        config: {},
+        type: "pagerduty_alert",
+      });
+      const key = task.statusKey(t.key);
+      let seeLoading = (): void => {};
+      const loading = new Promise<void>((resolve) => (seeLoading = resolve));
+      const off = client.statuses.store.subscribe((event) => {
+        if (event.variant === "set" && event.value.variant === "loading") seeLoading();
+      }, key);
+      try {
+        await client.tasks.retrieve({ key: t.key });
+        await setRackAliveAfterEcho(dying.key);
+        const cmdKey = await client.tasks.executeCommand({
+          task: t.key,
+          type: "start",
+        });
+        await loading;
+        const outage: rack.Status = {
+          key: rack.statusKey(dying.key),
+          name: "Rack Status",
+          variant: "warning",
+          message: "no Driver here",
+          description: "",
+          time: TimeStamp.now(),
+          details: { rack: dying.key },
+        };
+        const reply: task.Status = {
+          key,
+          name: "Task Status",
+          variant: "success",
+          message: "Started task",
+          description: "",
+          time: TimeStamp.now(),
+          details: {
+            task: t.key,
+            running: true,
+            cmd: cmdKey,
+            configHash: "",
+            rack: dying.key,
+            data: {},
+          },
+        };
+        // The outage's event is delivered first, after both values are stored.
+        client.statuses.store.batch(() => {
+          client.statuses.store.set(outage);
+          client.statuses.store.set(reply);
+        });
+        expect(client.statuses.store.get(key)).toMatchObject({
+          variant: "success",
+          message: "Started task",
+        });
+      } finally {
+        off();
+      }
+    });
+
     it("gives up on a command no Driver answers", async () => {
       const alive = await client.racks.create({ name: `alive-${id.create()}` });
       const t = await alive.createTask({
