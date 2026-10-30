@@ -222,17 +222,10 @@ x::errors::Error rack::Config::save_conn_params(
 }
 
 x::errors::Error
-rack::Config::save_api_key(x::args::Parser &args, const std::string &key) {
+rack::Config::save_api_key(x::args::Parser &args, const synnax::Config &conn) {
     auto [kv, err] = open_kv(args);
     if (err) return err;
-    std::string conn = "{}";
-    if (const auto get_err = kv->get("conn_params", conn);
-        get_err && !x::errors::NOT_FOUND.matches(get_err))
-        return get_err;
-    auto params = x::json::json::parse(conn, nullptr, false);
-    if (params.is_discarded())
-        return x::errors::Error("saved connection parameters are not valid JSON");
-    params["api_key"] = key;
+    auto params = conn.to_json();
     params.erase("username");
     params.erase("password");
     return kv->set("conn_params", params.dump());
