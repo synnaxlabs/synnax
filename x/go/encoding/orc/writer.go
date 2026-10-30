@@ -23,7 +23,7 @@ var order = binary.BigEndian
 
 // Writer encodes primitive data types into a growable byte buffer using big-endian byte
 // order. Methods append to the internal buffer, which grows as needed. Use Reset to
-// reuse the buffer across operations and Resize to pre-allocate capacity.
+// reuse the buffer across operations.
 type Writer struct {
 	buf []byte
 }
@@ -33,17 +33,6 @@ func NewWriter(cap int) *Writer { return &Writer{buf: make([]byte, 0, cap)} }
 
 // Reset clears the buffer for reuse without releasing the underlying memory.
 func (w *Writer) Reset() { w.buf = w.buf[:0] }
-
-// Resize ensures the buffer has at least the given capacity. Existing data is
-// preserved. If the current capacity is sufficient, Resize is a no-op.
-func (w *Writer) Resize(size int) {
-	if cap(w.buf) >= size {
-		return
-	}
-	nb := make([]byte, len(w.buf), size)
-	copy(nb, w.buf)
-	w.buf = nb
-}
 
 // Uint8 appends a single byte.
 func (w *Writer) Uint8(v uint8) { w.buf = append(w.buf, v) }
@@ -114,9 +103,6 @@ func (w *Writer) WriteWithLen(data []byte) {
 // Bytes returns the encoded bytes. The returned slice is only valid until the next call
 // to Reset or any write method that triggers growth.
 func (w *Writer) Bytes() []byte { return w.buf }
-
-// Len returns the number of bytes written so far.
-func (w *Writer) Len() int { return len(w.buf) }
 
 // Copy returns an owned copy of the encoded bytes.
 func (w *Writer) Copy() []byte {

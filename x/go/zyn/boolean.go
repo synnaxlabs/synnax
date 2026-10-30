@@ -22,9 +22,6 @@ import (
 // boolean data. BoolZ supports conversion from various types to boolean values.
 type BoolZ struct{ baseZ }
 
-// Optional marks the boolean field as optional. Optional fields can be nil or omitted.
-func (b BoolZ) Optional() BoolZ { b.optional = true; return b }
-
 // Shape returns the base shape of the boolean schema.
 func (b BoolZ) Shape() Shape { return b.baseZ }
 

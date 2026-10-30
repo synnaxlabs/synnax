@@ -110,11 +110,11 @@ const publishedLabel =
             width: fit-content;
         }
 
-        & .pluto-breadcrumb {
+        & .lyra-breadcrumb {
             flex-wrap: wrap;
             row-gap: 0.5rem;
 
-            & a.pluto-text {
+            & a.lyra-text {
                 white-space: nowrap;
                 color: var(--pluto-gray-l8);
                 font-weight: 375;
@@ -138,7 +138,7 @@ const publishedLabel =
             }
         }
 
-        & .pluto-icon--caret-right {
+        & .lyra-icon--caret-right {
             transform: translateY(0);
             width: 2rem;
             height: 2rem;
@@ -198,7 +198,7 @@ const publishedLabel =
             margin-top: 1.15rem;
             margin-bottom: 6.9rem;
 
-            & + :is(h2, h2.pluto-text) {
+            & + :is(h2, h2.lyra-text) {
                 margin-top: 4rem;
             }
 
@@ -207,15 +207,15 @@ const publishedLabel =
             }
         }
 
-        .pluto-divider {
+        .lyra-divider {
             border-top: var(--pluto-border);
             margin: 5rem 0;
 
-            & + :is(h2, h2.pluto-text) {
+            & + :is(h2, h2.lyra-text) {
                 margin-top: 4rem !important;
             }
 
-            & + :is(h3, h3.pluto-text) {
+            & + :is(h3, h3.lyra-text) {
                 margin-top: 3rem;
             }
 
@@ -233,7 +233,7 @@ const publishedLabel =
         }
 
         /* An icon in text centers on the capitals. */
-        :is(p, li) .pluto-icon {
+        :is(p, li) .lyra-icon {
             vertical-align: -0.125em;
         }
 
@@ -268,7 +268,7 @@ const publishedLabel =
 
     /* A pane owns the space at its edges, so the first and last blocks in it drop their
        outer margins. A tab panel and a disclosure are both panes. */
-    article:where(.docs-article) :is(.pluto-tabs__content, .docs-details > .content) {
+    article:where(.docs-article) :is(.lyra-tabs__content, .docs-details > .content) {
         & > :first-child {
             margin-top: 0;
         }
@@ -343,7 +343,7 @@ const publishedLabel =
 
             /* A step starts with its text, so every block but a leading paragraph sits
                under text. Inline content, such as an icon, takes no gap. */
-            & > :is(p, ul, ol, div, pre, figure, table, video, .pluto-btn) {
+            & > :is(p, ul, ol, div, pre, figure, table, video, .lyra-btn) {
                 margin-top: 2rem;
             }
 

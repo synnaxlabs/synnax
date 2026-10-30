@@ -49,6 +49,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Task:   svc.Task,
 		Status: svc.Status,
 		RBAC:   svc.RBAC,
+		Auth:   svc.Auth,
 	}))
 })
 

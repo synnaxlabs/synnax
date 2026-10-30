@@ -170,7 +170,7 @@ class TPCSimDAQ(SimDAQ):
                 while self._running and loop.wait():
                     # Drain all pending frames
                     while True:
-                        frame = streamer.read(0)
+                        frame = streamer.read(timeout=0)
                         if frame is None:
                             break
                         for ch, series in frame.items():

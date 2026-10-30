@@ -82,7 +82,7 @@ describe("License Commands", () => {
       ),
     );
     await waitFor(() =>
-      expect(button.querySelector(".pluto-icon--check")).not.toBeNull(),
+      expect(button.querySelector(".lyra-icon--check")).not.toBeNull(),
     );
   });
 

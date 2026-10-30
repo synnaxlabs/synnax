@@ -12,7 +12,7 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { errors, id, primitive, unique } from "@synnaxlabs/x";
+import { errors, primitive, unique } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { useByKeys } from "@/feature/ni/device/queries";
@@ -28,7 +28,6 @@ import {
   COUNTER_READ_TYPE,
   counterReadConfigZ,
   type CounterReadSchemas,
-  createCIChannel,
   deployCounterReadConfigZ,
 } from "@/feature/ni/task/types";
 import { Device as PlatformDevice } from "@/platform/device";
@@ -122,8 +121,11 @@ const getInitialValues: Task.GetInitialValues<CounterReadSchemas> = ({
   config,
 }) => {
   const cfg = counterReadConfigZ.parse(config ?? {});
-  if (config == null && deviceKey != null)
-    cfg.channels = [{ ...createCIChannel(), device: deviceKey, key: id.create() }];
+  if (config == null) {
+    const first = createNextCIChannel([]);
+    if (deviceKey != null) first.device = deviceKey;
+    cfg.channels = [first];
+  }
   return { name: "NI counter read task", type: COUNTER_READ_TYPE, config: cfg };
 };
 
