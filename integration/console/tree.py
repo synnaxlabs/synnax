@@ -430,7 +430,8 @@ class Tree:
         self.page.wait_for_timeout(300)
 
     def get_group(self, name: str) -> Locator:
-        """Get a group Locator by name, waiting for it to appear and scrolling into view.
+        """Get a group Locator by name, waiting for it to appear and scrolling into
+        view.
 
         More robust than find_by_name("group:", name) which filters by visibility.
         This waits for the element to be attached to the DOM and scrolls it into view.
@@ -466,7 +467,7 @@ class Tree:
         indicator = item.locator("svg.lyra-tree__expansion-indicator")
         return indicator.count() > 0
 
-    def list_nested_names(self, parent: Locator, prefix: str) -> list[str]:
+    def list_nested_names(self, parent: Locator, *, prefix: str) -> list[str]:
         """List the names of the items nested under ``parent``.
 
         Scrolls ``parent`` to the top of the tree, then reads the tree once, so an item
