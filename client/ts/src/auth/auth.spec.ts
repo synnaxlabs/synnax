@@ -533,14 +533,14 @@ describe("auth", () => {
   });
 
   describe("setPassword", () => {
-    const makeClient = (credentials: auth.Credentials) => {
+    const makeClient = (authority: auth.Authority, observer?: auth.Observer) => {
       const transport = new Transport(
         new url.URL({
           host: TEST_CLIENT_PARAMS.host,
           port: Number(TEST_CLIENT_PARAMS.port),
         }),
       );
-      const client = new auth.Client(transport.unary, { credentials });
+      const client = new auth.Client(transport.unary, authority, observer);
       transport.use(client.middleware());
       return client;
     };
@@ -549,36 +549,65 @@ describe("auth", () => {
       const u = await createTestClient().users.create({
         username,
         password: "old",
+        name: "Set Password",
       });
       return { username, subject: user.ontologyID(u.key) };
     };
 
     it("should let an owner set another user's password", async () => {
       const { username, subject } = await createUser();
-      const owner = makeClient(TEST_CREDENTIALS);
+      const owner = makeClient({ credentials: TEST_CREDENTIALS });
       await owner.setPassword({ subject, password: "new" });
-      await makeClient({ username, password: "new" }).retrieveSessions();
+      await makeClient({
+        credentials: { username, password: "new" },
+      }).retrieveSessions();
       await expect(
-        makeClient({ username, password: "old" }).retrieveSessions(),
+        makeClient({ credentials: { username, password: "old" } }).retrieveSessions(),
       ).rejects.toThrow(AuthError);
     });
 
-    it("should set the caller's own password given the current one", async () => {
+    it("should switch to a new session when setting its own password", async () => {
       const { username } = await createUser();
-      const self = makeClient({ username, password: "old" });
+      let successes = 0;
+      const self = makeClient(
+        { credentials: { username, password: "old" } },
+        { onSuccess: () => successes++ },
+      );
       await expect(self.setPassword({ password: "new" })).rejects.toThrow();
       await self.retrieveSessions();
-      await self.setPassword({
-        subject: self.subject,
-        password: "new",
-        currentPassword: "old",
-      });
-      const key = self.session?.key;
-      if (key == null) throw new Error("no session");
-      await self.deleteSessions(key);
-      await self.retrieveSessions();
-      expect(self.session?.key).not.toEqual(key);
-      await makeClient({ username, password: "new" }).retrieveSessions();
+      const old = self.session?.key;
+      const before = successes;
+      await self.setPassword({ password: "new", currentPassword: "old" });
+      expect(successes).toEqual(before + 1);
+      expect(self.session?.key).toBeDefined();
+      expect(self.session?.key).not.toEqual(old);
+      const sessions = await self.retrieveSessions();
+      expect(sessions.map((s) => s.key)).not.toContain(old);
+      await makeClient({
+        credentials: { username, password: "new" },
+      }).retrieveSessions();
+    });
+
+    it("should keep working after a resumed client sets its own password", async () => {
+      const { username } = await createUser();
+      const opener = makeClient({ credentials: { username, password: "old" } });
+      await opener.retrieveSessions();
+      const token = opener.token;
+      if (token == null) throw new Error("no token");
+      const resumed = makeClient({ token });
+      await resumed.setPassword({ password: "new", currentPassword: "old" });
+      expect(resumed.token).not.toEqual(token);
+      await resumed.retrieveSessions();
+      await expect(opener.retrieveSessions()).rejects.toThrow(AuthError);
+    });
+
+    it("should keep the owner's session when setting another's password", async () => {
+      const { subject } = await createUser();
+      const owner = makeClient({ credentials: TEST_CREDENTIALS });
+      await owner.retrieveSessions();
+      const before = owner.session?.key;
+      await owner.setPassword({ subject, password: "new" });
+      expect(owner.session?.key).toEqual(before);
     });
   });
 

@@ -201,6 +201,13 @@ std::string canonical_port(const std::string &port);
 /// following links: on Windows, the device path in upper case, and on POSIX, the path.
 std::string port_name(const std::string &port);
 
+/// @brief clears the error that last_error reads. Call it before a libmodbus request.
+void clear_error();
+
+/// @returns the error number of a failed libmodbus request. A failed Windows socket or
+/// port call leaves errno as it was, so there it reads as a lost connection.
+int last_error();
+
 /// @brief an exclusive hold on a serial port. Take it before the port's line settings
 /// change, so that a refused connection cannot disturb the one using the port. Windows
 /// already opens a COM port for one handle only, so there it holds nothing.
@@ -567,10 +574,18 @@ private:
         this->connected = false;
     }
 
+    /// @brief the result of one attempt of a request.
+    struct Attempt {
+        /// @brief 0 on success, or the error number.
+        int errnum = 0;
+        /// @brief whether the request went out. A failed connect sends nothing, so its
+        /// timeout does not count against the unit.
+        bool sent = false;
+    };
+
     /// @brief sends one attempt of a request.
-    /// @returns 0 on success, or the error number.
     template<typename Request>
-    int attempt(const ConnectionConfig &cfg, const Request &request) {
+    Attempt attempt(const ConnectionConfig &cfg, const Request &request) {
         const auto timeout = std::chrono::duration_cast<std::chrono::microseconds>(
             cfg.timeout.chrono()
         );
@@ -585,13 +600,13 @@ private:
         if (!this->connected) {
             if (this->transport == Transport::RTU) {
                 if (const int errnum = this->port_lock.lock(this->serial.port))
-                    return errnum;
+                    return {errnum};
                 this->opened = canonical_port(this->serial.port);
             }
             if (modbus_connect(this->ctx) == -1) {
                 const int errnum = errno;
                 this->port_lock.unlock();
-                return errnum;
+                return {errnum};
             }
             this->connected = true;
             this->stale = false;
@@ -600,15 +615,16 @@ private:
             modbus_flush(this->ctx);
             this->stale = false;
         }
-        if (modbus_set_slave(this->ctx, cfg.unit_id) == -1) return errno;
+        if (modbus_set_slave(this->ctx, cfg.unit_id) == -1) return {errno};
         this->sent = Clock::now();
-        if (request(this->ctx) != -1) return 0;
-        const int errnum = errno;
+        clear_error();
+        if (request(this->ctx) != -1) return {0, true};
+        const int errnum = last_error();
         if (errnum == ETIMEDOUT || errnum == EMBBADCRC)
             this->stale = true;
         else if (classify(errnum).matches(UNREACHABLE))
             this->disconnect();
-        return errnum;
+        return {errnum, true};
     }
 
     /// @returns UNREACHABLE if the unit is demoted, and NIL otherwise.
@@ -627,13 +643,14 @@ private:
     /// @brief adds an attempt to the counters of the unit. Any reply times the
     /// response, a gateway exception included. Only a reply from the unit itself
     /// records that the unit answered.
-    void record(const std::uint8_t unit_id, const bool retry, const int errnum) {
+    void record(const std::uint8_t unit_id, const bool retry, const Attempt &result) {
+        const int errnum = result.errnum;
         std::lock_guard lock(this->mu);
         auto &unit = this->units[unit_id];
         auto &stats = unit.stats;
         stats.requests++;
         if (retry) stats.retries++;
-        if (errnum == ETIMEDOUT) stats.timeouts++;
+        if (result.sent && errnum == ETIMEDOUT) stats.timeouts++;
         // libmodbus numbers the exception codes 01 to 0B in order.
         const bool exception = errnum >= EMBXILFUN && errnum <= EMBXGTAR;
         if (exception) stats.exceptions++;
@@ -669,13 +686,14 @@ private:
         for (std::size_t i = 0;; i++) {
             if (gap > x::telem::TimeSpan(0))
                 std::this_thread::sleep_until(this->last_request + gap.chrono());
-            const int errnum = this->attempt(cfg, request);
+            const auto result = this->attempt(cfg, request);
             this->last_request = Clock::now();
-            this->record(cfg.unit_id, i > 0, errnum);
-            if (errnum == 0) return x::errors::NIL;
-            if (errnum == ETIMEDOUT && this->timed_out(cfg.unit_id))
+            this->record(cfg.unit_id, i > 0, result);
+            if (result.errnum == 0) return x::errors::NIL;
+            if (result.sent && result.errnum == ETIMEDOUT &&
+                this->timed_out(cfg.unit_id))
                 return this->demoted(cfg.unit_id);
-            auto err = classify(errnum);
+            auto err = classify(result.errnum);
             if (!err.matches(TEMPORARY_ERROR) || i >= cfg.retries) return err;
         }
     }
