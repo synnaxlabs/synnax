@@ -211,8 +211,7 @@ struct Config {
             else if (err)
                 return {cfg, err};
             else {
-                if (err = save_api_key(parser, cfg.connection.api_key); err)
-                    return {cfg, err};
+                if (err = save_api_key(parser, cfg.connection); err) return {cfg, err};
                 LOG(INFO) << x::log::GREEN() << "enrolled rack " << cfg.rack.name
                           << " and saved its API key" << x::log::RESET();
             }
@@ -249,9 +248,10 @@ struct Config {
     static x::errors::Error
     save_conn_params(x::args::Parser &args, const synnax::Config &conn_params);
 
-    /// @brief saves the API key to the persisted state file and drops any username
-    /// and password saved there.
-    static x::errors::Error save_api_key(x::args::Parser &args, const std::string &key);
+    /// @brief saves the connection and its API key to the persisted state file, without
+    /// a username or password.
+    static x::errors::Error
+    save_api_key(x::args::Parser &args, const synnax::Config &conn);
 
     /// @brief permanently saves the remote info to the persisted state file.
     static x::errors::Error
