@@ -19,7 +19,7 @@ import (
 	"github.com/synnaxlabs/freighter"
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	apioidc "github.com/synnaxlabs/synnax/pkg/api/auth/oidc"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	disttestutil "github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
@@ -40,7 +40,7 @@ func TestOIDC(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
-	node        mock.Node
+	node        disttestutil.Node
 	otg         *ontology.Ontology
 	authSvc     *auth.Service
 	apikeySvc   *apikey.Service
@@ -56,7 +56,7 @@ var (
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	node = mock.NewNode(ctx)
+	node = disttestutil.NewNode(ctx)
 	db := node.DB
 	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{

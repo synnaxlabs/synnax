@@ -59,6 +59,26 @@ TEST(ErrorsTest, LibraryInfoWithoutURL) {
     EXPECT_EQ(err.data.find("Download here:"), std::string::npos);
 }
 
+/// @brief it should ask for a Driver restart only for a library that does not load on
+/// use.
+TEST(ErrorsTest, RestartOnlyForEagerLibrary) {
+    const LibraryInfo eager = {.name = "Test", .url = "https://example.com"};
+    EXPECT_EQ(
+        missing_lib(eager).data,
+        "Test library is not installed. Download here: https://example.com. Restart "
+        "Driver after installation."
+    );
+    const LibraryInfo lazy = {
+        .name = "Test",
+        .url = "https://example.com",
+        .lazy = true,
+    };
+    EXPECT_EQ(
+        missing_lib(lazy).data,
+        "Test library is not installed. Download here: https://example.com."
+    );
+}
+
 /// @brief it should wrap error with channel name and hardware location.
 TEST(ErrorsTest, WrapChannelError) {
     auto base_err = x::errors::Error(CRITICAL_HARDWARE_ERROR, "some hardware error");
