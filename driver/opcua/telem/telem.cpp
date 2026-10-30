@@ -12,6 +12,7 @@
 #include <charconv>
 #include <cmath>
 #include <cstring>
+#include <format>
 #include <limits>
 #include <locale>
 #include <sstream>
@@ -397,12 +398,9 @@ std::string describe(const x::telem::SampleValue &sample) {
                 return "\"" + v + "\"";
             else if constexpr (std::is_same_v<T, x::telem::TimeStamp>)
                 return "the timestamp " + std::to_string(v.nanoseconds());
-            else if constexpr (std::is_floating_point_v<T>) {
-                std::ostringstream out;
-                out.imbue(std::locale::classic());
-                out << v;
-                return out.str();
-            } else
+            else if constexpr (std::is_floating_point_v<T>)
+                return std::format("{}", v);
+            else
                 return std::to_string(+v);
         },
         sample
