@@ -134,7 +134,7 @@ export const createStaticTabName = ({
   const Name: TabName = () => (
     <>
       {icon}
-      <Text.Text>{name}</Text.Text>
+      <Text.Text overflow="fade">{name}</Text.Text>
     </>
   );
   return Name;
@@ -180,6 +180,7 @@ export const createEditableTabName = (
         <Text.MaybeEditable
           id={tabNameID(tabKey)}
           value={name}
+          overflow="fade"
           disabled={!allowRename || !canRename}
           onChange={(name) => update({ key, name })}
         />

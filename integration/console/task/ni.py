@@ -75,16 +75,15 @@ class NITask(TaskPage):
         ...
 
     def _open_new_device_dropdown(self) -> None:
-        """Add a channel row, select it, and open its device dropdown."""
-        idx = len(self.channels)
-        self.add_channel_row()
+        """Select the next channel row and open its device dropdown."""
+        idx = self.next_channel_row()
         self.layout.page.locator(".lyra-list__item").nth(idx).click()
         self.layout.click_btn("Device")
 
     def connect_device(self) -> None:
-        """Add a channel row and open the find view from the "Connect NI hardware"
-        action of its device dropdown. The device configured there becomes the device
-        of the row. The page does not track the row as a channel."""
+        """Open the find view from the "Connect NI hardware" action of the device
+        dropdown of the next channel row. The device configured there becomes the
+        device of the row. The page does not track the row as a channel."""
         self._open_new_device_dropdown()
         self.layout.dialog.get_by_text("Connect NI hardware", exact=True).click(
             timeout=5000
