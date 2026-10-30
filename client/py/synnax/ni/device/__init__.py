@@ -10,23 +10,33 @@
 from synnax.ni.device.types_gen import (
     ONTOLOGY_TYPE,
     CommandStatePair,
+    Configuration,
+    ConfigurationUpdate,
     Device,
+    Identity,
+    IdentityUpdate,
     InputPorts,
     Key,
     OutputPorts,
     Status,
     StatusDetails,
+    Update,
     ontology_id,
 )
 
 __all__ = [
     "ONTOLOGY_TYPE",
     "CommandStatePair",
+    "Configuration",
+    "ConfigurationUpdate",
     "Device",
+    "Identity",
+    "IdentityUpdate",
     "InputPorts",
     "Key",
     "OutputPorts",
     "Status",
     "StatusDetails",
+    "Update",
     "ontology_id",
 ]

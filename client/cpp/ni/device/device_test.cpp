@@ -30,6 +30,19 @@ TEST(OutputPorts, RoundTripsChannels) {
     ASSERT_EQ(parsed.channels.at("ao0").state, 3);
 }
 
+/// @brief it should keep the field group of an update through JSON.
+TEST(Update, RoundTripsGroup) {
+    IdentityUpdate identity;
+    identity.rack = 1;
+    identity.serial = "01A";
+    const auto j = to_json(Update(identity));
+    ASSERT_EQ(j["group"], "identity");
+    x::json::Parser parser(j);
+    const auto parsed = parse_update(parser);
+    ASSERT_TRUE(parser.ok());
+    ASSERT_EQ(std::get<IdentityUpdate>(parsed).serial, "01A");
+}
+
 /// @brief it should write an empty object for an output port group with no channels.
 TEST(OutputPorts, SerializesEmptyChannelsAsObject) {
     ASSERT_TRUE(OutputPorts{}.to_json()["channels"].is_object());
