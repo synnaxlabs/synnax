@@ -25,7 +25,7 @@ const renderProperties = async (overrides: Partial<log.New> = {}, as?: Client) =
   // is Show Channel Names (Timestamp Precision is a numeric input, not a switch).
   return {
     key,
-    showReceiptTimestamp: () => checkboxes()[0],
+    showTimestamps: () => checkboxes()[0],
     showChannelNames: () => checkboxes()[checkboxes().length - 1],
   };
 };
@@ -43,11 +43,11 @@ describe("log/toolbar/Properties", () => {
     await waitFor(() => expect(showChannelNames().checked).toBe(false));
   });
 
-  it("reflects showReceiptTimestamp from the server", async () => {
-    const { showReceiptTimestamp } = await renderProperties({
-      receiptTimestampHidden: true,
+  it("reflects showTimestamps from the server", async () => {
+    const { showTimestamps } = await renderProperties({
+      timestampsHidden: true,
     });
-    await waitFor(() => expect(showReceiptTimestamp().checked).toBe(false));
+    await waitFor(() => expect(showTimestamps().checked).toBe(false));
   });
 
   it("toggles showChannelNames through the server", async () => {
@@ -62,27 +62,27 @@ describe("log/toolbar/Properties", () => {
     );
   });
 
-  it("toggles showReceiptTimestamp through the server", async () => {
-    const { key, showReceiptTimestamp } = await renderProperties({
-      receiptTimestampHidden: false,
+  it("toggles showTimestamps through the server", async () => {
+    const { key, showTimestamps } = await renderProperties({
+      timestampsHidden: false,
     });
-    await waitFor(() => expect(showReceiptTimestamp().disabled).toBe(false));
-    fireEvent.click(showReceiptTimestamp());
-    await waitFor(() => expect(showReceiptTimestamp().checked).toBe(false));
+    await waitFor(() => expect(showTimestamps().disabled).toBe(false));
+    fireEvent.click(showTimestamps());
+    await waitFor(() => expect(showTimestamps().checked).toBe(false));
     await waitFor(async () =>
-      expect((await client.logs.retrieve(key)).receiptTimestampHidden).toBe(true),
+      expect((await client.logs.retrieve(key)).timestampsHidden).toBe(true),
     );
   });
 });
 
 describe("log/toolbar/Properties permissions", () => {
   it("should freeze every control for a viewer", async () => {
-    const { showChannelNames, showReceiptTimestamp } = await renderProperties(
+    const { showChannelNames, showTimestamps } = await renderProperties(
       {},
       await roles.get("Viewer"),
     );
     await screen.findByText("Show channel names");
     await waitFor(() => expect(showChannelNames().disabled).toBe(true));
-    expect(showReceiptTimestamp().disabled).toBe(true);
+    expect(showTimestamps().disabled).toBe(true);
   });
 });

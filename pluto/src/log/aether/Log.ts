@@ -38,7 +38,7 @@ export const logStateZ = log.logZ
     channels: true,
     timestampPrecision: true,
     channelNamesHidden: true,
-    receiptTimestampHidden: true,
+    timestampsHidden: true,
   })
   .extend({
     region: box.box,
@@ -501,11 +501,11 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     line: string;
     channelKey: string;
   } {
-    const { channelNamesHidden, receiptTimestampHidden, channelDataTypes } = this.state;
+    const { channelNamesHidden, timestampsHidden, channelDataTypes } = this.state;
     const { tsLen, configs } = this.internal;
     const chKeyStr = String(entry.channelKey);
     const cfg = configs[chKeyStr];
-    const ts = !receiptTimestampHidden
+    const ts = !timestampsHidden
       ? new TimeStamp(entry.timestamp).toString("preciseTime", "local").slice(0, tsLen)
       : "";
     let value = entry.value;
@@ -526,9 +526,9 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     const name = displayNames[chKeyStr] ?? chKeyStr;
     const pad = namePadding[chKeyStr] ?? "";
     let prefix: string;
-    if (!receiptTimestampHidden && !channelNamesHidden)
+    if (!timestampsHidden && !channelNamesHidden)
       prefix = `${ts} ${name}${pad}  `;
-    else if (!receiptTimestampHidden) prefix = `${ts}  `;
+    else if (!timestampsHidden) prefix = `${ts}  `;
     else if (!channelNamesHidden) prefix = `${name}${pad}  `;
     else prefix = "";
     // Continuation lines (\n) keep the prefix's alignment width as whitespace.

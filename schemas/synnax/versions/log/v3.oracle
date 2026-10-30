@@ -43,24 +43,24 @@ ChannelEntry struct {
 }
 
 Log struct {
-    key                      Key = create {
+    key                  Key = create {
         @doc value "is the unique identifier for this log."
         @key
     }
-    name                     string         {
+    name                 string         {
         @doc value "is a human-readable name for the log."
     }
-    channels                 ChannelEntry[] = [] {
+    channels             ChannelEntry[] = [] {
         @doc value "are the channels displayed in this log, in order."
     }
-    timestamp_precision      int32 = 0 {
+    timestamp_precision  int32 = 0 {
         @doc value "is the precision of displayed timestamps (0-3)."
     }
-    channel_names_hidden     bool = false {
+    channel_names_hidden bool = false {
         @doc value "is true when channel names are hidden."
     }
-    receipt_timestamp_hidden bool = false {
-        @doc value "is true when the receipt timestamp column is hidden."
+    timestamps_hidden    bool = false {
+        @doc value "is true when entry timestamps are hidden."
     }
 
     @go imex

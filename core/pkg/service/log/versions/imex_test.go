@@ -38,7 +38,7 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		Expect(l.Channels[0].Precision).To(Equal(new(int32(2))))
 		Expect(l.Channels[1].Precision).To(BeNil())
 		Expect(l.TimestampPrecision).To(Equal(int32(1)))
-		Expect(l.ReceiptTimestampHidden).To(BeTrue())
+		Expect(l.TimestampsHidden).To(BeTrue())
 	})
 
 	It("Should decode a v3 envelope", func(ctx SpecContext) {
@@ -59,7 +59,7 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		Expect(l.Channels[1].Precision).To(BeNil())
 		// showX on the wire inverts into hideX on the current shape.
 		Expect(l.ChannelNamesHidden).To(BeFalse())
-		Expect(l.ReceiptTimestampHidden).To(BeTrue())
+		Expect(l.TimestampsHidden).To(BeTrue())
 	})
 
 	It("Should lift a Console v0 state of bare channel keys", func(ctx SpecContext) {

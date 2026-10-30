@@ -35,7 +35,7 @@ const (
 	ActionTypeSwapChannel               = "swap_channel"
 	ActionTypeSetTimestampPrecision     = "set_timestamp_precision"
 	ActionTypeSetChannelNamesHidden     = "set_channel_names_hidden"
-	ActionTypeSetReceiptTimestampHidden = "set_receipt_timestamp_hidden"
+	ActionTypeSetTimestampsHidden       = "set_timestamps_hidden"
 )
 
 // CreatePayload replaces the document with the given created state. Emitted by the Core
@@ -138,9 +138,9 @@ type SetChannelNamesHiddenPayload struct {
 	ChannelNamesHidden bool `json:"channel_names_hidden" msgpack:"channel_names_hidden"`
 }
 
-// SetReceiptTimestampHiddenPayload sets whether the receipt timestamp column is hidden.
-type SetReceiptTimestampHiddenPayload struct {
-	ReceiptTimestampHidden bool `json:"receipt_timestamp_hidden" msgpack:"receipt_timestamp_hidden"`
+// SetTimestampsHiddenPayload sets whether entry timestamps are hidden.
+type SetTimestampsHiddenPayload struct {
+	TimestampsHidden bool `json:"timestamps_hidden" msgpack:"timestamps_hidden"`
 }
 
 // Action is a discriminated union for all Log mutations. Type names
@@ -162,7 +162,7 @@ type Action struct {
 	SwapChannel               *SwapChannelPayload               `json:"swap_channel,omitzero" msgpack:"swap_channel,omitempty"`
 	SetTimestampPrecision     *SetTimestampPrecisionPayload     `json:"set_timestamp_precision,omitzero" msgpack:"set_timestamp_precision,omitempty"`
 	SetChannelNamesHidden     *SetChannelNamesHiddenPayload     `json:"set_channel_names_hidden,omitzero" msgpack:"set_channel_names_hidden,omitempty"`
-	SetReceiptTimestampHidden *SetReceiptTimestampHiddenPayload `json:"set_receipt_timestamp_hidden,omitzero" msgpack:"set_receipt_timestamp_hidden,omitempty"`
+	SetTimestampsHidden       *SetTimestampsHiddenPayload       `json:"set_timestamps_hidden,omitzero" msgpack:"set_timestamps_hidden,omitempty"`
 }
 
 // Reduce applies the given actions sequentially to state by dispatching on
@@ -249,11 +249,11 @@ func Reduce(state Log, actions ...Action) (Log, error) {
 				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.SetChannelNamesHidden.Handle(state)
-		case ActionTypeSetReceiptTimestampHidden:
-			if a.SetReceiptTimestampHidden == nil {
+		case ActionTypeSetTimestampsHidden:
+			if a.SetTimestampsHidden == nil {
 				return state, union.MissingPayload(a.Type)
 			}
-			state, err = a.SetReceiptTimestampHidden.Handle(state)
+			state, err = a.SetTimestampsHidden.Handle(state)
 		default:
 			continue
 		}
@@ -339,7 +339,7 @@ func NewSetChannelNamesHiddenAction(p SetChannelNamesHiddenPayload) Action {
 	return Action{Type: ActionTypeSetChannelNamesHidden, SetChannelNamesHidden: &p}
 }
 
-// NewSetReceiptTimestampHiddenAction wraps a SetReceiptTimestampHiddenPayload in an Action envelope.
-func NewSetReceiptTimestampHiddenAction(p SetReceiptTimestampHiddenPayload) Action {
-	return Action{Type: ActionTypeSetReceiptTimestampHidden, SetReceiptTimestampHidden: &p}
+// NewSetTimestampsHiddenAction wraps a SetTimestampsHiddenPayload in an Action envelope.
+func NewSetTimestampsHiddenAction(p SetTimestampsHiddenPayload) Action {
+	return Action{Type: ActionTypeSetTimestampsHidden, SetTimestampsHidden: &p}
 }

@@ -22,7 +22,7 @@ export const Properties = (): ReactElement => {
   const key = Log.useKey();
   const dispatch = Log.useSingleDispatch();
   const channelNamesHidden = Log.useIsHidingChannelNames();
-  const receiptTimestampHidden = Log.useIsHidingReceiptTimestamp();
+  const timestampsHidden = Log.useIsHidingTimestamps();
   const timestampPrecision = Log.useTimestampPrecision();
   const hasEditPermission = Access.useUpdateGranted(log.ontologyID(key));
 
@@ -33,13 +33,13 @@ export const Properties = (): ReactElement => {
     dispatch(log.setChannelNamesHidden({ channelNamesHidden: !visible }));
 
   const handleShowTimestampsChange = (visible: boolean) =>
-    dispatch(log.setReceiptTimestampHidden({ receiptTimestampHidden: !visible }));
+    dispatch(log.setTimestampsHidden({ timestampsHidden: !visible }));
 
   return (
     <Flex.Box x className={CSS.BE("log", "toolbar", "properties")}>
       <Input.Item label="Show timestamps">
         <Input.Switch
-          value={!receiptTimestampHidden}
+          value={!timestampsHidden}
           onChange={handleShowTimestampsChange}
           disabled={!hasEditPermission}
         />

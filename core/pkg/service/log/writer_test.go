@@ -455,15 +455,15 @@ var _ = Describe("Writer", func() {
 					log.NewSetChannelNamesHiddenAction(log.SetChannelNamesHiddenPayload{
 						ChannelNamesHidden: true,
 					}),
-					log.NewSetReceiptTimestampHiddenAction(
-						log.SetReceiptTimestampHiddenPayload{
-							ReceiptTimestampHidden: true,
+					log.NewSetTimestampsHiddenAction(
+						log.SetTimestampsHiddenPayload{
+							TimestampsHidden: true,
 						},
 					),
 				})).To(Succeed())
 				res := retrieve(ctx, l.Key)
 				Expect(res.ChannelNamesHidden).To(BeTrue())
-				Expect(res.ReceiptTimestampHidden).To(BeTrue())
+				Expect(res.TimestampsHidden).To(BeTrue())
 			})
 		})
 

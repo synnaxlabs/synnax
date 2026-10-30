@@ -848,7 +848,7 @@ describe("log/aether/Log", () => {
       ];
       const { log } = setup(entries, REGION_500, {
         channelNamesHidden: false,
-        receiptTimestampHidden: true,
+        timestampsHidden: true,
         channels: [clientLog.channelEntryZ.parse({ channel: 1, color: color.ZERO })],
         channelNames: { "1": "log" },
         selectionStart: 0,
@@ -872,7 +872,7 @@ describe("log/aether/Log", () => {
       ];
       const { log } = setup(entries, REGION_500, {
         channelNamesHidden: false,
-        receiptTimestampHidden: true,
+        timestampsHidden: true,
         channels: [clientLog.channelEntryZ.parse({ channel: 1, color: color.ZERO })],
         channelNames: { "1": "log" },
         selectionStart: 0,
@@ -901,7 +901,7 @@ describe("log/aether/Log", () => {
       ];
       const { log } = setup(entries, REGION_500, {
         channelNamesHidden: false,
-        receiptTimestampHidden: false,
+        timestampsHidden: false,
         channels: [clientLog.channelEntryZ.parse({ channel: 1, color: color.ZERO })],
         channelNames: { "1": "sensor" },
         selectionStart: 0,
@@ -930,7 +930,7 @@ describe("log/aether/Log", () => {
       ];
       const { log } = setup(entries, REGION_500, {
         channelNamesHidden: true,
-        receiptTimestampHidden: true,
+        timestampsHidden: true,
         channels: [clientLog.channelEntryZ.parse({ channel: 1, color: color.ZERO })],
         selectionStart: 0,
         selectionEnd: 1,
@@ -960,7 +960,7 @@ describe("log/aether/Log", () => {
       ];
       const { log } = setup(entries, REGION_500, {
         channelNamesHidden: false,
-        receiptTimestampHidden: true,
+        timestampsHidden: true,
         channels: [
           clientLog.channelEntryZ.parse({ channel: 1, color: color.ZERO }),
           clientLog.channelEntryZ.parse({ channel: 2, color: color.ZERO }),
@@ -993,7 +993,7 @@ describe("log/aether/Log", () => {
       ];
       const { log } = setup(entries, REGION_500, {
         channelNamesHidden: false,
-        receiptTimestampHidden: true,
+        timestampsHidden: true,
         channels: [clientLog.channelEntryZ.parse({ channel: 1, color: color.ZERO })],
         channelNames: { "1": "log" },
         selectionStart: 0,

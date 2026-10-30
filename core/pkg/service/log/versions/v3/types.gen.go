@@ -84,8 +84,8 @@ type Log struct {
 	TimestampPrecision int32 `json:"timestamp_precision" msgpack:"timestamp_precision"`
 	// ChannelNamesHidden is true when channel names are hidden.
 	ChannelNamesHidden bool `json:"channel_names_hidden" msgpack:"channel_names_hidden"`
-	// ReceiptTimestampHidden is true when the receipt timestamp column is hidden.
-	ReceiptTimestampHidden bool `json:"receipt_timestamp_hidden" msgpack:"receipt_timestamp_hidden"`
+	// TimestampsHidden is true when entry timestamps are hidden.
+	TimestampsHidden bool `json:"timestamps_hidden" msgpack:"timestamps_hidden"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
