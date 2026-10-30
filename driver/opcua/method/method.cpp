@@ -34,7 +34,7 @@ read_inputs(
             out[i] = std::vector<Argument>{};
             continue;
         }
-        req.add_node(it->node.get());
+        req.add_node(it->node.resolve({}).value());
         read.push_back(i);
     }
     if (req.empty()) return {std::move(out), x::errors::NIL};

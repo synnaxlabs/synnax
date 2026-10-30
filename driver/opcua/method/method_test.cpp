@@ -44,9 +44,9 @@ TEST(MethodTest, ReadsInputArguments) {
     const auto &configure = inputs[0].value();
     ASSERT_EQ(configure.size(), 2);
     EXPECT_EQ(configure[0].name, "mode");
-    EXPECT_EQ(types::NodeId::to_string(configure[0].data_type.get()), "NS=0;I=12");
+    EXPECT_EQ(configure[0].data_type.to_string(), "NS=0;I=12");
     EXPECT_EQ(configure[1].name, "speed");
-    EXPECT_EQ(types::NodeId::to_string(configure[1].data_type.get()), "NS=0;I=11");
+    EXPECT_EQ(configure[1].data_type.to_string(), "NS=0;I=11");
     ASSERT_TRUE(inputs[1].has_value());
     EXPECT_TRUE(inputs[1].value().empty());
     EXPECT_FALSE(inputs[2].has_value());

@@ -14,22 +14,50 @@ package v2
 import (
 	"context"
 
+	"github.com/samber/lo"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/opcua/versions/v1"
 )
 
-func autoMigrateReadConfig(_ context.Context, old v1.ReadConfig) (ReadConfig, error) {
+func autoMigrateReadConfig(ctx context.Context, old v1.ReadConfig) (ReadConfig, error) {
+	channels, err := lo.MapErr(old.Channels, func(v v1.ReadChannel, _ int) (ReadChannel, error) {
+		return MigrateReadChannel(ctx, v)
+	})
+	if err != nil {
+		return ReadConfig{}, err
+	}
 	return ReadConfig{
 		ReadConfig: old.ReadConfig,
 		Device:     old.Device,
 		ArrayMode:  old.ArrayMode,
 		ArraySize:  old.ArraySize,
-		Channels:   old.Channels,
+		Channels:   channels,
 	}, nil
 }
 
-func autoMigrateWriteConfig(_ context.Context, old v1.WriteConfig) (WriteConfig, error) {
+func autoMigrateWriteConfig(ctx context.Context, old v1.WriteConfig) (WriteConfig, error) {
+	channels, err := lo.MapErr(old.Channels, func(v v1.WriteChannel, _ int) (WriteChannel, error) {
+		return MigrateWriteChannel(ctx, v)
+	})
+	if err != nil {
+		return WriteConfig{}, err
+	}
 	return WriteConfig{
 		WriteConfig: old.WriteConfig,
-		Channels:    old.Channels,
+		Channels:    channels,
+	}, nil
+}
+
+func autoMigrateReadChannel(_ context.Context, old v1.ReadChannel) (ReadChannel, error) {
+	return ReadChannel{
+		BaseChannel: old.BaseChannel,
+		Channel:     old.Channel,
+		IsIndex:     old.IsIndex,
+	}, nil
+}
+
+func autoMigrateWriteChannel(_ context.Context, old v1.WriteChannel) (WriteChannel, error) {
+	return WriteChannel{
+		BaseChannel: old.BaseChannel,
+		CmdChannel:  old.CmdChannel,
 	}, nil
 }

@@ -101,9 +101,6 @@ public:
         return *this;
     }
 
-    operator const UA_NodeId &() const { return id_; }
-
-    [[nodiscard]] const UA_NodeId &get() const { return id_; }
     [[nodiscard]] bool is_null() const { return UA_NodeId_isNull(&id_); }
     [[nodiscard]] const std::string &namespace_uri() const { return namespace_uri_; }
 
@@ -119,6 +116,9 @@ public:
     /// any case.
     static NodeId parse(const std::string &field_name, x::json::Parser &parser);
     static std::pair<NodeId, x::errors::Error> parse(const std::string &node_id_str);
+    /// @returns the node ID as `nsu=<uri>;<id>` when it names its namespace by URI, and
+    /// as `NS=<index>;<id>` when it does not.
+    [[nodiscard]] std::string to_string() const;
     /// @returns the node ID as `NS=<index>;<id>`.
     static std::string to_string(const UA_NodeId &node_id);
     /// @returns the node ID as `nsu=<uri>;<id>`, which stays valid when the server
@@ -178,61 +178,41 @@ public:
     UA_Variant *ptr() { return &var_; }
 };
 
-class ReadResponse {
-    UA_ReadResponse res_{};
+/// @brief owns a response of the client, whose type is UA_TYPES[Index], and clears it
+/// on destruction.
+template<typename T, std::size_t Index>
+class Response {
+    T res_{};
 
 public:
-    ReadResponse() { UA_ReadResponse_init(&res_); }
-    explicit ReadResponse(const UA_ReadResponse &res): res_(res) {}
-    ~ReadResponse() { UA_ReadResponse_clear(&res_); }
+    Response() { UA_init(&res_, &UA_TYPES[Index]); }
+    explicit Response(const T &res): res_(res) {}
+    ~Response() { UA_clear(&res_, &UA_TYPES[Index]); }
 
-    ReadResponse(const ReadResponse &) = delete;
-    ReadResponse &operator=(const ReadResponse &) = delete;
+    Response(const Response &) = delete;
+    Response &operator=(const Response &) = delete;
 
-    ReadResponse(ReadResponse &&other) noexcept: res_(other.res_) {
-        UA_ReadResponse_init(&other.res_);
+    Response(Response &&other) noexcept: res_(other.res_) {
+        UA_init(&other.res_, &UA_TYPES[Index]);
     }
-    ReadResponse &operator=(ReadResponse &&other) noexcept {
+    Response &operator=(Response &&other) noexcept {
         if (this != &other) {
-            UA_ReadResponse_clear(&res_);
+            UA_clear(&res_, &UA_TYPES[Index]);
             res_ = other.res_;
-            UA_ReadResponse_init(&other.res_);
+            UA_init(&other.res_, &UA_TYPES[Index]);
         }
         return *this;
     }
 
-    operator const UA_ReadResponse &() const { return res_; }
-    [[nodiscard]] const UA_ReadResponse &get() const { return res_; }
-    UA_ReadResponse *ptr() { return &res_; }
+    operator const T &() const { return res_; }
+    [[nodiscard]] const T &get() const { return res_; }
+    T *ptr() { return &res_; }
 };
 
-class WriteResponse {
-    UA_WriteResponse res_{};
-
-public:
-    WriteResponse() { UA_WriteResponse_init(&res_); }
-    explicit WriteResponse(const UA_WriteResponse &res): res_(res) {}
-    ~WriteResponse() { UA_WriteResponse_clear(&res_); }
-
-    WriteResponse(const WriteResponse &) = delete;
-    WriteResponse &operator=(const WriteResponse &) = delete;
-
-    WriteResponse(WriteResponse &&other) noexcept: res_(other.res_) {
-        UA_WriteResponse_init(&other.res_);
-    }
-    WriteResponse &operator=(WriteResponse &&other) noexcept {
-        if (this != &other) {
-            UA_WriteResponse_clear(&res_);
-            res_ = other.res_;
-            UA_WriteResponse_init(&other.res_);
-        }
-        return *this;
-    }
-
-    operator const UA_WriteResponse &() const { return res_; }
-    [[nodiscard]] const UA_WriteResponse &get() const { return res_; }
-    UA_WriteResponse *ptr() { return &res_; }
-};
+using ReadResponse = Response<UA_ReadResponse, UA_TYPES_READRESPONSE>;
+using WriteResponse = Response<UA_WriteResponse, UA_TYPES_WRITERESPONSE>;
+using BrowseResponse = Response<UA_BrowseResponse, UA_TYPES_BROWSERESPONSE>;
+using BrowseNextResponse = Response<UA_BrowseNextResponse, UA_TYPES_BROWSENEXTRESPONSE>;
 
 class CallResponse {
     UA_CallResponse res_{};

@@ -22,7 +22,6 @@ import { Access } from "@synnaxlabs/pluto";
 import { caseconv, DataType, errors, id, primitive } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 
-import { type HaulItem } from "@/feature/opcua/device/Browser";
 import { Select } from "@/feature/opcua/device/Select";
 import {
   type Device,
@@ -40,6 +39,7 @@ import {
   deployWriteConfigZ,
   isMethod,
   type MethodArgument,
+  type ScannedNode,
   WRITE_SCHEMAS,
   WRITE_TYPE,
   type WriteChannel,
@@ -64,11 +64,11 @@ const commandDataType = (args: MethodArgument[]): string =>
   args.find(({ source }) => source === "command")?.dataType ?? TRIGGER_DATA_TYPE;
 
 // A write goes to a whole node, so a member of a structure is not a write channel.
-const convertHaulItemToChannel = ({ data }: HaulItem): WriteChannel | null => {
-  if (data.field !== "") return null;
-  const base = { nodeName: data.name, nodeId: data.nodeId, name: "" };
-  if (data.nodeClass === "Method") {
-    const args = (data.inputArguments ?? []).map(
+const convertNodeToChannel = (node: ScannedNode): WriteChannel | null => {
+  if (node.field !== "") return null;
+  const base = { nodeName: node.name, nodeId: node.nodeId, name: "" };
+  if (node.nodeClass === "Method") {
+    const args = (node.inputArguments ?? []).map(
       ({ name, dataType }, i): MethodArgument => ({
         source: i === 0 && dataType !== "" ? "command" : "value",
         value: "",
@@ -82,21 +82,21 @@ const convertHaulItemToChannel = ({ data }: HaulItem): WriteChannel | null => {
       cmdChannel: 0,
       disabled: false,
       type: "method",
-      objectId: data.parent ?? "",
+      objectId: node.parent ?? "",
       arguments: args,
       dataType: commandDataType(args),
     };
   }
-  if (data.nodeClass !== "Variable") return null;
+  if (node.nodeClass !== "Variable") return null;
   return {
     ...base,
-    key: data.nodeId,
+    key: node.nodeId,
     cmdChannel: 0,
     disabled: false,
     type: "node",
     objectId: "",
     arguments: [],
-    dataType: data.dataType,
+    dataType: node.dataType,
   };
 };
 
@@ -216,7 +216,7 @@ const resolve = (device: Device, ch: WriteChannel): Partial<WriteChannel> =>
     : { cmdChannel: getChannelByNodeID(device.properties, ch.nodeId) ?? 0 };
 
 const TaskForm: FC = createForm<WriteChannel>({
-  convertHaulItemToChannel,
+  convertNodeToChannel,
   getChannelKeyAndID,
   contextMenuItems,
   resolve,

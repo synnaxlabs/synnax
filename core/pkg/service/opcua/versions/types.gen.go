@@ -11,47 +11,47 @@
 
 package versions
 
-import "github.com/synnaxlabs/synnax/pkg/service/opcua/versions/v3"
+import "github.com/synnaxlabs/synnax/pkg/service/opcua/versions/v2"
 
 // BaseChannel carries the fields every OPC UA channel shares.
-type BaseChannel = v3.BaseChannel
+type BaseChannel = v2.BaseChannel
 
 // ReadChannel is a single OPC UA node the task reads from.
-type ReadChannel = v3.ReadChannel
+type ReadChannel = v2.ReadChannel
 
 // WriteChannel is a single OPC UA node the task drives.
-type WriteChannel = v3.WriteChannel
+type WriteChannel = v2.WriteChannel
 
 // ReadConfig configures an OPC UA read task.
-type ReadConfig = v3.ReadConfig
+type ReadConfig = v2.ReadConfig
 
 // WriteConfig configures an OPC UA write task.
-type WriteConfig = v3.WriteConfig
+type WriteConfig = v2.WriteConfig
 
 // ScanConfig configures an OPC UA scan task.
-type ScanConfig = v3.ScanConfig
+type ScanConfig = v2.ScanConfig
 
 // WriteType is what the commands of a write channel do on the server.
-type WriteType = v3.WriteType
+type WriteType = v2.WriteType
 
 const (
-	WriteTypeNode   WriteType = v3.WriteTypeNode
-	WriteTypeMethod WriteType = v3.WriteTypeMethod
+	WriteTypeNode   WriteType = v2.WriteTypeNode
+	WriteTypeMethod WriteType = v2.WriteTypeMethod
 )
 
 // ArgumentSource is where the value of a method argument comes from.
-type ArgumentSource = v3.ArgumentSource
+type ArgumentSource = v2.ArgumentSource
 
 const (
-	ArgumentSourceValue   ArgumentSource = v3.ArgumentSourceValue
-	ArgumentSourceCommand ArgumentSource = v3.ArgumentSourceCommand
+	ArgumentSourceValue   ArgumentSource = v2.ArgumentSourceValue
+	ArgumentSourceCommand ArgumentSource = v2.ArgumentSourceCommand
 )
 
 // MethodArgument is an input argument of an OPC UA method call.
-type MethodArgument = v3.MethodArgument
+type MethodArgument = v2.MethodArgument
 
 // EventField is an event field that the task records beyond the standard fields.
-type EventField = v3.EventField
+type EventField = v2.EventField
 
 // EventConfig configures an OPC UA event task.
-type EventConfig = v3.EventConfig
+type EventConfig = v2.EventConfig

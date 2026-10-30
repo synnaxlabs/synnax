@@ -17,7 +17,6 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { caseconv, DataType, errors, primitive } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 
-import { type HaulItem } from "@/feature/opcua/device/Browser";
 import { Select } from "@/feature/opcua/device/Select";
 import {
   type Device,
@@ -34,6 +33,7 @@ import {
   type ReadChannel,
   type ReadConfig,
   type ReadSchemas,
+  type ScannedNode,
 } from "@/feature/opcua/task/types";
 import { CSS } from "@/platform/css";
 import { Selector } from "@/platform/selector";
@@ -112,18 +112,18 @@ const Properties = (): ReactElement => {
   );
 };
 
-const convertHaulItemToChannel = ({ data }: HaulItem): ReadChannel | null =>
-  data.nodeClass !== "Variable"
+const convertNodeToChannel = (node: ScannedNode): ReadChannel | null =>
+  node.nodeClass !== "Variable"
     ? null
     : {
-        key: data.field === "" ? data.nodeId : nodeIdentity(data),
-        nodeName: data.name,
-        nodeId: data.nodeId,
-        field: data.field,
+        key: node.field === "" ? node.nodeId : nodeIdentity(node),
+        nodeName: node.name,
+        nodeId: node.nodeId,
+        field: node.field,
         channel: 0,
         disabled: false,
         isIndex: false,
-        dataType: data.dataType,
+        dataType: node.dataType,
         name: "",
       };
 
@@ -137,7 +137,7 @@ const resolve = (device: Device, ch: ReadChannel) => ({
 });
 
 const TaskForm: FC = createForm<ReadChannel>({
-  convertHaulItemToChannel,
+  convertNodeToChannel,
   getChannelKeyAndID,
   contextMenuItems: Task.readChannelContextMenuItem,
   children: isIndexItem,

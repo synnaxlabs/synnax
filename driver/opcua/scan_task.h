@@ -10,6 +10,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -127,6 +128,17 @@ private:
     /// @brief the time of the last health check of each device, by device key. Only
     /// scan() reads or writes it.
     std::unordered_map<std::string, x::telem::TimeStamp> checked;
+
+    /// @brief connects to the server that a browse command names and finds its node.
+    /// When a step fails, sets the command's status with the failure message.
+    /// @returns the connection and the node, which borrows from args, or nothing after
+    /// a failure.
+    std::optional<std::pair<connection::Pool::Connection, UA_NodeId>> target(
+        const x::json::Parser &parser,
+        const ScanCommandArgs &args,
+        synnax::task::Status &status,
+        const std::string &failure
+    ) const;
 
     /// @brief Browse child nodes of a given OPC UA node.
     void browse_nodes(const synnax::task::Command &cmd) const;

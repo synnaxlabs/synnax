@@ -92,17 +92,23 @@ protected:
         return res;
     }
 
+    /// @returns the data type in namespace 1 with the numeric ID.
+    [[nodiscard]] static UA_NodeId type_id(const UA_UInt32 id) {
+        return UA_NODEID_NUMERIC(1, id);
+    }
+
     std::unique_ptr<testutil::Server> server;
     std::unique_ptr<connection::Pool> pool;
     connection::Pool::Connection conn{nullptr, nullptr, ""};
     const UA_NodeId motor = UA_NODEID_STRING(1, const_cast<char *>("TestMotor"));
+    const UA_NodeId motor_type = type_id(testutil::MOTOR_TYPE_ID);
 };
 
 /// @brief it should define a structure type that the client does not know, with the
 /// types of its members.
 TEST_F(TypesTest, testReadsDefinitions) {
-    const auto types = ASSERT_NIL_P(Types::read(this->conn, {this->motor}));
-    const auto *motor = types.find(UA_NODEID_NUMERIC(1, testutil::MOTOR_TYPE_ID));
+    const auto types = ASSERT_NIL_P(Types::read(this->conn, {this->motor_type}));
+    const auto *motor = types.find(this->motor_type);
     ASSERT_NE(motor, nullptr);
     const auto members = Types::members(*motor);
     ASSERT_EQ(members.size(), 3);
@@ -111,66 +117,93 @@ TEST_F(TypesTest, testReadsDefinitions) {
     EXPECT_EQ(members[1].name, "Running");
     EXPECT_EQ(members[2].name, "Position");
     EXPECT_FALSE(members[2].is_array);
-    EXPECT_EQ(
-        members[2].type,
-        types.find(UA_NODEID_NUMERIC(1, testutil::POINT_TYPE_ID))
-    );
-    const auto *y = ASSERT_NIL_P(Types::member_type(*motor, {"Position", "Y"}));
-    EXPECT_EQ(y, &UA_TYPES[UA_TYPES_FLOAT]);
+    EXPECT_EQ(members[2].type, types.find(type_id(testutil::POINT_TYPE_ID)));
+    const auto y = ASSERT_NIL_P(types.field(this->motor_type, {"Position", "Y"}));
+    EXPECT_EQ(&y.type(), &UA_TYPES[UA_TYPES_FLOAT]);
 }
 
 /// @brief it should reject a path to a member that does not exist.
 TEST_F(TypesTest, testRejectsUnknownMember) {
-    const auto types = ASSERT_NIL_P(Types::read(this->conn, {this->motor}));
-    const auto *motor = types.find(UA_NODEID_NUMERIC(1, testutil::MOTOR_TYPE_ID));
-    ASSERT_NE(motor, nullptr);
-    auto [type, err] = Types::member_type(*motor, {"Position", "Z"});
+    const auto types = ASSERT_NIL_P(Types::read(this->conn, {this->motor_type}));
+    auto [field, err] = types.field(this->motor_type, {"Position", "Z"});
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
     EXPECT_EQ(err.data, "Point has no member Z");
 }
 
-/// @brief it should decode a structure value and convert the member at a path.
+/// @brief it should give the reason that a type the server defined does not build.
+TEST_F(TypesTest, testReportsTypeThatDoesNotBuild) {
+    const auto broken = type_id(testutil::BROKEN_TYPE_ID);
+    const auto types = ASSERT_NIL_P(Types::read(this->conn, {broken}));
+    EXPECT_EQ(types.find(broken), nullptr);
+    auto [field, err] = types.field(broken, {"Inner"});
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    EXPECT_FALSE(err.matches(UNDEFINED));
+    EXPECT_EQ(
+        err.data,
+        "cannot decode Broken: the server did not define the type of a member"
+    );
+}
+
+/// @brief it should reject a field of a type that the server gives no definition of.
+TEST_F(TypesTest, testRejectsUndefinedType) {
+    const auto opaque = type_id(testutil::OPAQUE_TYPE_ID);
+    const auto types = ASSERT_NIL_P(Types::read(this->conn, {opaque}));
+    auto [field, err] = types.field(opaque, {"X"});
+    ASSERT_OCCURRED_AS(err, UNDEFINED);
+    EXPECT_EQ(err.data, "the server gives no definition of the data type of the node");
+}
+
+/// @brief it should decode a structure value and convert the member at a field.
 TEST_F(TypesTest, testSamplesMembers) {
-    const auto types = ASSERT_NIL_P(Types::read(this->conn, {this->motor}));
+    const auto types = ASSERT_NIL_P(Types::read(this->conn, {this->motor_type}));
     const auto res = this->read(this->motor);
-    const auto &value = res.get().results[0].value;
-    const auto speed = ASSERT_NIL_P(
-        types.sample(value, {"Speed"}, x::telem::FLOAT64_T)
-    );
-    EXPECT_EQ(std::get<double>(speed), 1500.0);
-    const auto running = ASSERT_NIL_P(
-        types.sample(value, {"Running"}, x::telem::BOOLEAN_T)
-    );
-    EXPECT_EQ(std::get<uint8_t>(running), 1);
-    const auto y = ASSERT_NIL_P(
-        types.sample(value, {"Position", "Y"}, x::telem::FLOAT32_T)
-    );
-    EXPECT_EQ(std::get<float>(y), 2.5F);
+    const auto value = ASSERT_NIL_P(types.decode(res.get().results[0].value));
+    const auto sample = [&](const Path &path, const x::telem::DataType &dt) {
+        const auto field = ASSERT_NIL_P(types.field(this->motor_type, path));
+        return ASSERT_NIL_P(Types::sample(value.get(), field, dt));
+    };
+    EXPECT_EQ(std::get<double>(sample({"Speed"}, x::telem::FLOAT64_T)), 1500.0);
+    EXPECT_EQ(std::get<uint8_t>(sample({"Running"}, x::telem::BOOLEAN_T)), 1);
+    EXPECT_EQ(std::get<float>(sample({"Position", "Y"}, x::telem::FLOAT32_T)), 2.5F);
+}
+
+/// @brief it should reject a structure of another type than the field's.
+TEST_F(TypesTest, testRejectsStructureOfOtherType) {
+    const auto point = type_id(testutil::POINT_TYPE_ID);
+    const auto types = ASSERT_NIL_P(Types::read(this->conn, {this->motor_type}));
+    const auto res = this->read(this->motor);
+    const auto value = ASSERT_NIL_P(types.decode(res.get().results[0].value));
+    const auto field = ASSERT_NIL_P(types.field(point, {"X"}));
+    auto [sample, err] = Types::sample(value.get(), field, x::telem::FLOAT32_T);
+    ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
+    EXPECT_EQ(err.data, "the value is a Motor, not a Point");
 }
 
 /// @brief it should reject a value whose type the server did not define.
 TEST_F(TypesTest, testRejectsUndefinedValue) {
     const Types types;
     const auto res = this->read(this->motor);
-    auto [sample, err] = types.sample(
-        res.get().results[0].value,
-        {"Speed"},
-        x::telem::FLOAT64_T
-    );
+    auto [value, err] = types.decode(res.get().results[0].value);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
     EXPECT_EQ(err.data, "the server did not define the type of the value");
 }
 
 /// @brief it should convert members of a structure type that the client knows.
 TEST_F(TypesTest, testSamplesKnownStructure) {
-    const auto status = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER_SERVERSTATUS);
-    const auto types = ASSERT_NIL_P(Types::read(this->conn, {status}));
-    const auto res = this->read(status);
-    const auto &value = res.get().results[0].value;
-    const auto state = ASSERT_NIL_P(types.sample(value, {"State"}, x::telem::INT32_T));
+    const auto status_type = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVERSTATUSDATATYPE);
+    const auto types = ASSERT_NIL_P(Types::read(this->conn, {status_type}));
+    const auto res = this->read(UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER_SERVERSTATUS));
+    const auto value = ASSERT_NIL_P(types.decode(res.get().results[0].value));
+    const auto state_field = ASSERT_NIL_P(types.field(status_type, {"State"}));
+    const auto state = ASSERT_NIL_P(
+        Types::sample(value.get(), state_field, x::telem::INT32_T)
+    );
     EXPECT_EQ(std::get<int32_t>(state), UA_SERVERSTATE_RUNNING);
+    const auto product_field = ASSERT_NIL_P(
+        types.field(status_type, {"BuildInfo", "ProductName"})
+    );
     const auto product = ASSERT_NIL_P(
-        types.sample(value, {"BuildInfo", "ProductName"}, x::telem::STRING_T)
+        Types::sample(value.get(), product_field, x::telem::STRING_T)
     );
     EXPECT_FALSE(std::get<std::string>(product).empty());
 }

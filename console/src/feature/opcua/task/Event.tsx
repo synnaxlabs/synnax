@@ -20,12 +20,8 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { DataType, errors, id } from "@synnaxlabs/x";
 import { type FC, type ReactElement, type ReactNode } from "react";
 
-import {
-  Browser,
-  HAUL_TYPE,
-  type HaulItem,
-  isHaulItem,
-} from "@/feature/opcua/device/Browser";
+import { Browser } from "@/feature/opcua/device/Browser";
+import { HAUL_TYPE, type HaulItem, isHaulItem } from "@/feature/opcua/device/haul";
 import { use } from "@/feature/opcua/device/queries";
 import { Select } from "@/feature/opcua/device/Select";
 import { type Device, SCHEMAS } from "@/feature/opcua/device/types";

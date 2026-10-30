@@ -42,7 +42,21 @@ CLOSE_REJECTED_SESSION = (
 """,
 )
 
-PATCHES = {"ua_client_connect.c": [CLOSE_REJECTED_SESSION]}
+# open62541 1.5 maps the namespace index of each NodeId that a client sends or receives
+# through a table that it makes once, on the first Session of the client. A namespace
+# that the server adds later has no index in the table, and the client loses the table
+# when it connects again. The Driver reads the namespace array itself and uses the
+# server's indexes, so the patch keeps each index as it is.
+KEEP_NAMESPACE_INDEXES = (
+    """    client->channel.namespaceMapping = nsMapping;
+""",
+    """    UA_NamespaceMapping_delete(nsMapping);
+""",
+)
+
+PATCHES = {
+    "ua_client_connect.c": [CLOSE_REJECTED_SESSION, KEEP_NAMESPACE_INDEXES],
+}
 
 source, output = sys.argv[1:]
 with open(source) as f:

@@ -306,7 +306,7 @@ describe("OPC UA event task config validation", () => {
 
 describe("Scanned Nodes", () => {
   it("should default a scanned node's key to its node ID", () => {
-    const result = OPCUA.Task.SCAN_SCHEMAS.statusData.parse({
+    const result = OPCUA.Task.browseResponseZ.parse({
       channels: [
         {
           dataType: "float32",
@@ -324,12 +324,12 @@ describe("Scanned Nodes", () => {
 describe("Scan command replies", () => {
   it("should parse a certificate reply", () => {
     const reply = { current: SERVER_CERTIFICATE, next: SERVER_CERTIFICATE };
-    expect(OPCUA.Task.SCAN_SCHEMAS.statusData.parse(reply)).toEqual(reply);
+    expect(OPCUA.Task.certificatesResponseZ.parse(reply)).toEqual(reply);
   });
 
   it("should parse a failed test connection reply with the server certificate", () => {
     const reply = { serverCertificate: SERVER_CERTIFICATE };
-    expect(OPCUA.Task.SCAN_SCHEMAS.statusData.parse(reply)).toEqual(reply);
+    expect(OPCUA.Task.testConnectionResponseZ.parse(reply)).toEqual(reply);
   });
 });
 

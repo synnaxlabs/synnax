@@ -12,7 +12,6 @@ import {
   type rack,
   status,
   type Synnax as Client,
-  TimeSpan,
 } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -25,6 +24,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Synnax } from "@synnaxlabs/pluto";
 import { type ReactElement, useState } from "react";
 
+import { commandTimeout } from "@/feature/opcua/device/commandTimeout";
 import { retrieveScanTask } from "@/feature/opcua/device/retrieveScanTask";
 import { SECURITY_MODE_NAMES } from "@/feature/opcua/device/SelectSecurityMode";
 import { SECURITY_POLICY_NAMES } from "@/feature/opcua/device/SelectSecurityPolicy";
@@ -39,8 +39,6 @@ import {
   endpointsResponseZ,
   GET_ENDPOINTS_COMMAND_TYPE,
 } from "@/feature/opcua/task/types";
-
-const COMMAND_TIMEOUT = TimeSpan.seconds(10);
 
 const LOGIN_NAMES: Record<string, string> = {
   anonymous: "Anonymous",
@@ -118,7 +116,7 @@ const findEndpoints = async (
   const scanTask = await retrieveScanTask(client, rack);
   const res = await scanTask.executeCommandSync({
     type: GET_ENDPOINTS_COMMAND_TYPE,
-    timeout: COMMAND_TIMEOUT,
+    timeout: commandTimeout(connection),
     args: { connection },
   });
   if (res.variant === "error") return { variant: "error", status: res };

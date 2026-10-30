@@ -12,21 +12,24 @@ import "@/feature/opcua/device/Details.css";
 import { status } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { Haul } from "@synnaxlabs/lyra/haul";
 import { Header } from "@synnaxlabs/lyra/header";
 import { useAsyncEffect, useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Synnax } from "@synnaxlabs/pluto";
+import { sleep, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
+import { createHaulItem, HAUL_TYPE } from "@/feature/opcua/device/haul";
 import { executeScanCommand } from "@/feature/opcua/device/retrieveScanTask";
 import { type Device } from "@/feature/opcua/device/types";
 import {
   type NodeDetails,
   nodeDetailsZ,
+  nodeIdentity,
   READ_NODE_COMMAND_TYPE,
-  type ScannedNode,
 } from "@/feature/opcua/task/types";
 import { CSS } from "@/platform/css";
 
@@ -34,8 +37,6 @@ interface DetailsProps {
   device: Device;
   nodeId: string;
   field: string;
-  /** Starts a drag of the node, from its name. */
-  onDragStart: (node: ScannedNode) => void;
 }
 
 interface State {
@@ -82,14 +83,12 @@ const Row = ({ label, value }: RowProps): ReactElement | null => {
   );
 };
 
+const READ_DELAY = TimeSpan.milliseconds(250);
+
 /** Shows the attributes and the current value of one node of a server. */
-export const Details = ({
-  device,
-  nodeId,
-  field,
-  onDragStart,
-}: DetailsProps): ReactElement => {
+export const Details = ({ device, nodeId, field }: DetailsProps): ReactElement => {
   const client = Synnax.use();
+  const { startDrag } = Haul.useDrag({ type: HAUL_TYPE });
   const deviceRef = useSyncedRef(device);
   const [state, setState] = useState<State | null>(null);
   const [reads, setReads] = useState(0);
@@ -97,17 +96,22 @@ export const Details = ({
   useAsyncEffect(
     async (signal) => {
       if (client == null) return;
+      // The Driver runs one scan command at a time, so a read starts only after the
+      // selection stops changing.
+      await sleep.sleep(READ_DELAY);
+      if (signal.aborted) return;
       let next: State;
       try {
-        const data = await executeScanCommand(client, deviceRef.current.rack, {
+        const details = await executeScanCommand(client, deviceRef.current.rack, {
           type: READ_NODE_COMMAND_TYPE,
           args: {
             connection: deviceRef.current.properties.connection,
             node_id: nodeId,
             field,
           },
+          schema: nodeDetailsZ,
         });
-        next = { request, details: nodeDetailsZ.parse(data) };
+        next = { request, details };
       } catch (e) {
         next = { request, failure: status.fromException(e, "Failed to read node") };
       }
@@ -163,7 +167,8 @@ export const Details = ({
     details?.nodeClass === "ObjectType" ||
     details?.nodeClass === "Method";
   const handleDragStart = () => {
-    if (details != null) onDragStart(details.node);
+    if (details != null)
+      startDrag([createHaulItem({ ...details.node, key: nodeIdentity(details.node) })]);
   };
   return (
     <Flex.Box y empty className={CSS.B("opc-details")}>

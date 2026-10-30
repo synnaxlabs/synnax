@@ -12,28 +12,26 @@ import { describe, expect, it } from "vitest";
 import { OPCUA } from "@/feature/opcua";
 import { CSV } from "@/feature/opcua/task/csv";
 
-const convertRead = ({ data }: OPCUA.Device.HaulItem): OPCUA.Task.ReadChannel => ({
-  key: OPCUA.Task.nodeIdentity(data),
-  nodeName: data.name,
-  nodeId: data.nodeId,
-  field: data.field,
-  dataType: data.dataType,
+const convertRead = (node: OPCUA.Task.ScannedNode): OPCUA.Task.ReadChannel => ({
+  key: OPCUA.Task.nodeIdentity(node),
+  nodeName: node.name,
+  nodeId: node.nodeId,
+  field: node.field,
+  dataType: node.dataType,
   channel: 0,
   disabled: false,
   isIndex: false,
   name: "",
 });
 
-const convertWrite = ({
-  data,
-}: OPCUA.Device.HaulItem): OPCUA.Task.WriteChannel | null =>
-  data.field !== ""
+const convertWrite = (node: OPCUA.Task.ScannedNode): OPCUA.Task.WriteChannel | null =>
+  node.field !== ""
     ? null
     : {
-        key: data.nodeId,
-        nodeName: data.name,
-        nodeId: data.nodeId,
-        dataType: data.dataType,
+        key: node.nodeId,
+        nodeName: node.name,
+        nodeId: node.nodeId,
+        dataType: node.dataType,
         cmdChannel: 0,
         disabled: false,
         name: "",

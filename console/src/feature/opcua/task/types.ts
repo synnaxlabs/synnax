@@ -291,6 +291,8 @@ const foundNodeZ = scannedNodeFieldsZ
 export const browseVariablesResponseZ = z.object({
   channels: z.array(foundNodeZ),
   truncated: z.boolean(),
+  /** The number of objects under the folder that failed to browse. */
+  skipped: z.number(),
 });
 
 export const nodeDetailsZ = z.object({
@@ -326,7 +328,7 @@ const certificateInfoZ = z.object({
 
 export interface CertificateInfo extends z.infer<typeof certificateInfoZ> {}
 
-const browseResponseZ = z.object({ channels: z.array(scannedNodeZ) });
+export const browseResponseZ = z.object({ channels: z.array(scannedNodeZ) });
 
 export const certificatesResponseZ = z.object({
   current: certificateInfoZ,
@@ -335,7 +337,7 @@ export const certificatesResponseZ = z.object({
 
 export interface CertificatesResponse extends z.infer<typeof certificatesResponseZ> {}
 
-const testConnectionResponseZ = z.object({
+export const testConnectionResponseZ = z.object({
   serverCertificate: certificateInfoZ.optional(),
 });
 
@@ -351,22 +353,6 @@ const endpointZ = z.object({
 export interface Endpoint extends z.infer<typeof endpointZ> {}
 
 export const endpointsResponseZ = z.object({ endpoints: z.array(endpointZ) });
-
-// Each command replies with its own shape, and the client drops a reply that fails this
-// schema, so the union must cover every one. The first match wins and drops the keys it
-// does not name, so a reply comes before any reply whose keys it extends. The test
-// connection reply matches any object, so it comes last.
-const scanCommandResponseZ = z
-  .union([
-    browseVariablesResponseZ,
-    browseResponseZ,
-    nodeDetailsZ,
-    certificatesResponseZ,
-    endpointsResponseZ,
-    testConnectionResponseZ,
-  ])
-  .nullish()
-  .optional();
 
 export const TEST_CONNECTION_COMMAND_TYPE = "test_connection";
 
@@ -385,5 +371,5 @@ export const REGENERATE_CERTIFICATE_COMMAND_TYPE = "regenerate_certificate";
 export const SCAN_SCHEMAS = {
   type: z.literal(SCAN_TYPE),
   config: record.nullishToEmpty(),
-  statusData: scanCommandResponseZ,
+  statusData: z.unknown().optional(),
 } as const satisfies task.Schemas;

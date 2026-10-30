@@ -314,8 +314,7 @@ class EventTaskSource final : public common::Source {
                 notifiers.push_back(*id);
             else
                 problems.push_back(
-                    types::NodeId::to_string(n.get()) +
-                    " is in a namespace that the server does not have."
+                    n.to_string() + " is in a namespace that the server does not have."
                 );
         }
         if (this->cfg.notifiers.empty())

@@ -524,23 +524,6 @@ TEST_F(TestScanTask, testHealthCheckProbesEachScan) {
     EXPECT_EQ(second[0].status.value().message, "Failed to reach server");
 }
 
-/// @brief it should close the connections that no one used for the idle timeout on each
-/// scan.
-TEST_F(TestScanTask, testScanClosesIdleConnections) {
-    conn_pool = std::make_shared<connection::Pool>(store, std::chrono::milliseconds(0));
-    Scanner scanner(ctx, task, conn_pool, store);
-    connection::Config cfg;
-    cfg.endpoint = "opc.tcp://localhost:4840";
-    ASSERT_NIL(conn_pool->acquire(cfg, "[test] ").second);
-    ASSERT_EQ(conn_pool->size(), 1);
-    std::unordered_map<std::string, synnax::device::Device> devices;
-    common::ScannerContext scan_ctx;
-    scan_ctx.devices = &devices;
-    const auto scanned = ASSERT_NIL_P(scanner.scan(scan_ctx));
-    EXPECT_TRUE(scanned.empty());
-    EXPECT_EQ(conn_pool->size(), 0);
-}
-
 /// @brief Tests that health check detects connection state changes (server up/down/up).
 TEST_F(TestScanTask, testHealthCheckDetectsConnectionStateChanges) {
     // Create device with connection properties
@@ -1042,6 +1025,7 @@ TEST_F(TestScanTask, testBrowseVariables) {
     EXPECT_EQ(status.message, "Found variables");
     const x::json::json data = status.details.data.value();
     EXPECT_FALSE(data.at("truncated").get<bool>());
+    EXPECT_EQ(data.at("skipped").get<size_t>(), 0);
     const auto &channels = data.at("channels");
     ASSERT_EQ(channels.size(), 4);
     EXPECT_EQ(channels[0]["name"], "V0");
