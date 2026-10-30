@@ -201,8 +201,7 @@ type SetRequest struct {
 // SetResponse is the session that replaces the caller's, when the password change ended
 // it.
 type SetResponse struct {
-	// Token is the new session's token. It is empty when Session is nil or the token
-	// went to a cookie.
+	// Token is empty when Session is nil or the token went to a cookie.
 	Token string `json:"token" msgpack:"token"`
 	// Session is the new session, or nil when the caller's session did not end.
 	Session *svcauth.Session `json:"session,omitempty" msgpack:"session,omitempty"`

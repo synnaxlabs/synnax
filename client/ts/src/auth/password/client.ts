@@ -89,12 +89,13 @@ export type SessionHandler = (token: string, session: Session) => void;
 export interface Config {
   /** Whether the Core keeps the token in a cookie the client never sees. */
   cookie: boolean;
-  onChange: ChangeHandler;
   /**
-   * Called before a password is set. Returns the handler for the session the Core opens
-   * in return.
+   * Returns a number that changes when the client's credentials change. A response to a
+   * request sent under an older number is ignored.
    */
-  watchSession: () => SessionHandler;
+  generation: () => number;
+  onChange: ChangeHandler;
+  onSession: SessionHandler;
 }
 
 export class Client {
@@ -129,15 +130,16 @@ export class Client {
    * without the current one.
    */
   async set(params: SetParams): Promise<void> {
-    const onSession = this.config.watchSession();
+    const generation = this.config.generation();
     const res = await this.client.send(
       SET_ENDPOINT,
       { ...params, cookie: this.config.cookie || undefined },
       setReqZ,
       setResZ,
     );
+    if (generation !== this.config.generation()) return;
     this.config.onChange(params.subject, { password: params.password });
-    if (res.session != null) onSession(res.token, res.session);
+    if (res.session != null) this.config.onSession(res.token, res.session);
   }
 
   /**
