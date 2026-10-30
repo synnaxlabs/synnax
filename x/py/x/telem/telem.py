@@ -678,7 +678,7 @@ TimeSpanUnits = Literal["ns", "us", "ms", "s", "m", "h", "d", "iso"]
 
 
 def convert_time_units(
-    data: np.ndarray, _from: TimeSpanUnits, to: TimeSpanUnits
+    data: np.ndarray, *, _from: TimeSpanUnits, to: TimeSpanUnits
 ) -> np.ndarray:
     """Converts the data from one time unit to another.
 
@@ -743,7 +743,7 @@ class Rate(float):
         """:returns: the number of samples in the given TimeSpan at this rate"""
         return int(TimeSpan(time_span).seconds * self)
 
-    def byte_size(self, time_span: CrudeTimeSpan, density: Density) -> Size:
+    def byte_size(self, time_span: CrudeTimeSpan, *, density: Density) -> Size:
         """:returns: the amount of bytes occupied by the given TimeSpan at this rate
         and the given sample density.
 
@@ -761,7 +761,7 @@ class Rate(float):
         rate = Fraction(repr(float(self)))
         return TimeSpan(int(Fraction(sample_count * int(TimeSpan.SECOND)) / rate))
 
-    def size_span(self, size: Size, density: Density) -> TimeSpan:
+    def size_span(self, size: Size, *, density: Density) -> TimeSpan:
         """:returns: the TimeSpan that corresponds to the given number of bytes at this
         rate and the given sample density."""
         if size % density != 0:
@@ -861,7 +861,9 @@ class TimeRange(BaseModel):
 
     @property
     def span(self) -> TimeSpan:
-        """:returns: the TimeSpan between the start and end TimeStamps of the TimeRange."""
+        """:returns: the TimeSpan between the start and end TimeStamps of the
+        TimeRange.
+        """
         return TimeSpan(self.end - self.start)
 
     def make_valid(self) -> TimeRange:
@@ -906,7 +908,7 @@ class TimeRange(BaseModel):
         pv = TimeStamp(value)
         return pv.after_eq(self.start) and pv.before(self.end)
 
-    def overlaps_with(self, tr: TimeRange, delta: CrudeTimeSpan = 0) -> bool:
+    def overlaps_with(self, tr: TimeRange, *, delta: CrudeTimeSpan = 0) -> bool:
         """:returns: True if the time ranges share at least delta of time. Ranges that
         only touch at a boundary do not overlap.
         :param tr: The time range to compare against.
@@ -1409,20 +1411,21 @@ def _pack_alignment(domain_idx: int, sample_idx: int) -> int:
 
 
 class Alignment(int):
-    """Alignment is two array index values that can be used to represent
-    the location of a sample within an array of arrays. For example, if you have two arrays
-    that have 50 elements each, and you want the 15th element of the second array, you would
-    use Alignment(1, 15). The first index is called the 'domain index' and the second
-    index is called the 'sample index'. The domain index is the index of the array, and the
+    """Alignment is two array index values that can be used to represent the location of
+    a sample within an array of arrays. For example, if you have two arrays that have 50
+    elements each, and you want the 15th element of the second array, you would use
+    Alignment(1, 15). The first index is called the 'domain index' and the second index
+    is called the 'sample index'. The domain index is the index of the array, and the
     sample index is the index of the sample within that array.
 
-    You may think a better design is to just use a single number that overflows the arrays
-    before it, i.e., the value of our previous example would be 50 + 14 = 64. However, this
-    requires us to know the size of all arrays, which is not always possible.
+    You may think a better design is to just use a single number that overflows the
+    arrays before it, i.e., the value of our previous example would be 50 + 14 = 64.
+    However, this requires us to know the size of all arrays, which is not always
+    possible.
 
     While not as meaningful as a single number, Alignment is a uint64 that guarantees
-    that a larger value is, in fact, 'positionally' after a smaller value. This is useful
-    for ordering samples correctly.
+    that a larger value is, in fact, 'positionally' after a smaller value. This is
+    useful for ordering samples correctly.
 
     The Alignment constructor accepts various types:
 
@@ -1438,8 +1441,9 @@ class Alignment(int):
     ) -> Alignment:
         """Creates a new Alignment from various input types.
 
-        :param value: Either a packed int value, a tuple of (domain_idx, sample_idx),
-                      or an existing Alignment. Can also be a domain_idx if sample_idx is provided.
+        :param value: Either a packed int value, a tuple of (domain_idx, sample_idx), or
+                      an existing Alignment. Can also be a domain_idx if sample_idx is
+                      provided.
         :param sample_idx: Optional sample index if value is provided as domain index.
         :returns: A new Alignment.
         """
@@ -1452,7 +1456,8 @@ class Alignment(int):
         if isinstance(value, tuple):
             if len(value) != 2:
                 raise ValueError(
-                    f"Alignment tuple must have exactly 2 elements (domain_idx, sample_idx), got {len(value)}"
+                    "Alignment tuple must have exactly 2 elements (domain_idx, "
+                    f"sample_idx), got {len(value)}"
                 )
             domain_idx, sample_idx = value
             packed_value = _pack_alignment(int(domain_idx), int(sample_idx))
@@ -1517,7 +1522,8 @@ class Alignment(int):
         )
 
     def __str__(self) -> str:
-        """Returns a string representation of the Alignment in the format 'domain-sample'.
+        """Returns a string representation of the Alignment in the format
+        'domain-sample'.
 
         :returns: A string representation of the Alignment.
         """
@@ -1534,7 +1540,7 @@ class Alignment(int):
 CrudeAlignment: TypeAlias = int | tuple[int, int] | Alignment | str
 
 
-def seconds_linspace(start: int, count: int) -> list[TimeStamp]:
+def seconds_linspace(start: int, *, count: int) -> list[TimeStamp]:
     """Generates count TimeStamps one second apart, starting start seconds after the
     Unix epoch."""
     return [TimeStamp(TimeSpan.SECOND * (start + i)) for i in range(count)]

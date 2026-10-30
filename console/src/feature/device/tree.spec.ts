@@ -118,7 +118,7 @@ describe("device/ontology", () => {
     await renderDeviceTree(root);
     await openTreeRowContextMenu(dev.name);
     fireEvent.click(await screen.findByText("Edit connection"));
-    expect(await screen.findByText("Modbus TCP server")).toBeTruthy();
+    expect(await screen.findByText("Modbus server")).toBeTruthy();
     await waitFor(() => expect(screen.getByDisplayValue(dev.name)).toBeTruthy());
   });
 });

@@ -91,33 +91,8 @@ func MustSucceed2[A, B any](a A, b B, err error) (A, B) {
 //	val := MustBeOk(m["foo"]) // Returns 42
 //	val := MustBeOk(m["bar"]) // Fails the test
 func MustBeOk[T any](value T, ok bool) T {
-	return MustBeOkWithOffset[T](1)(value, ok)
-}
-
-// MustBeOkWithOffset returns a function that asserts the ok value is true and returns
-// the value, with an additional stack offset for proper error reporting. This is useful
-// when wrapping MustBeOk in helper functions.
-//
-// The offset parameter adjusts the call stack depth for error reporting. Use offset=1
-// when wrapping this function directly, offset=2 when wrapping it in a function that
-// wraps it, etc.
-//
-// Example:
-//
-//	func MyHelper(m map[string]int, key string) int {
-//	    // Use offset=1 so errors point to the caller of MyHelper
-//	    return MustBeOkWithOffset[int](1)(m[key])
-//	}
-//
-//	func MyDoubleHelper(m map[string]int, key string) int {
-//	    // Use offset=2 since we're two levels deep
-//	    return MustBeOkWithOffset[int](2)(m[key])
-//	}
-func MustBeOkWithOffset[T any](offset int) func(value T, ok bool) T {
-	return func(value T, ok bool) T {
-		gomega.ExpectWithOffset(offset+1, ok).To(gomega.BeTrue())
-		return value
-	}
+	gomega.ExpectWithOffset(1, ok).To(gomega.BeTrue())
+	return value
 }
 
 // MustOpen is a test helper that asserts the error is nil, registers a cleanup that
