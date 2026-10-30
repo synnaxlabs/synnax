@@ -991,12 +991,16 @@ var _ = Describe("Writer", func() {
 							Exec(ctx, tx),
 					).
 						To(Succeed())
-					key := res.Lines[0].Key
+					stored := res.Lines[0]
+					key := stored.Key
 					Expect(
 						svc.Dispatch(ctx, plot.Key, "d1", []lineplot.Action{
 							lineplot.NewSetLineAction(
 								lineplot.SetLinePayload{Line: lineplot.Line{
 									Key:         key,
+									YAxis:       stored.YAxis,
+									YChannel:    stored.YChannel,
+									XChannel:    stored.XChannel,
 									StrokeWidth: 4,
 									Aggregation: lineplot.AggregationAverage,
 									Detail:      lineplot.DetailHigh,
