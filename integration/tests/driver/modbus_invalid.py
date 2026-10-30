@@ -266,25 +266,26 @@ class ModbusInvalidConfig(SimulatorCase):
         self.client.tasks.configure(task_a)
         self.log("  Task A configured")
 
-        rejected = False
+        message: str | None = None
         try:
-            with task_a.run():
+            with self.client.open_streamer([shared_ch_key]) as streamer, task_a.run():
                 self.log("  Task A running")
+                # A task takes the channel when its first sample arrives, not when it
+                # starts. Wait for that, or Task B can take the channel first.
+                if streamer.read(timeout=5) is None:
+                    self.fail("Task A should write to the shared channel")
+                self.log("  Task A writing")
                 self.client.tasks.configure(task_b)
                 self.log("  Task B configured (attempting run)")
                 message = run_and_expect_rejection(self.client, task_b)
-                if message is not None:
-                    self.log(f"  Correctly rejected on run: {message}")
-                    rejected = True
         finally:
             cleanup_task(self.client, task_a)
             cleanup_task(self.client, task_b)
 
-        if not rejected:
-            self.fail(
-                "Driver did not reject second task using the "
-                "same channel — both tasks ran simultaneously"
-            )
+        held = f"currently held by [{task_a.name}]"
+        if message is None or held not in message:
+            self.fail(f"Task B should fail as the channel is {held}, got {message!r}")
+        self.log(f"  Correctly rejected on run: {message}")
 
     def _assert_deploy_fails(
         self, task: DriverTask[sy.task.StartConfig], label: str
