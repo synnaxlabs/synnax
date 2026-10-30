@@ -28,7 +28,6 @@ time_trigger -> write_now()
 time_now_flow_ts_trigger -> time.now() -> time_now_flow_ts_out
 time_now_flow_int_trigger -> time.now() -> time_now_flow_int_out
 
-// ─────────────────────────── time.format ────────────────────────────
 // Formats a timestamp as ISO 8601 in UTC. The call is the same in a function
 // body and in a flow statement; the flow form lowers to an expression node.
 func write_format() {
