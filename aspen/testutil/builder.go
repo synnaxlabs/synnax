@@ -47,12 +47,9 @@ func (b *Builder) dir() string {
 }
 
 // New opens a node on a port the operating system chooses, peered with every node the
-// Builder opened before it. The first node bootstraps the cluster.
+// Builder opened before it. The first node has no peers, so it bootstraps the cluster.
 func (b *Builder) New(ctx context.Context, opts ...aspen.Option) (*aspen.DB, error) {
 	dir := filepath.Join(b.dir(), strconv.Itoa(len(b.peerAddresses)))
-	if len(b.Nodes) == 0 {
-		opts = append(opts, aspen.Bootstrap())
-	}
 	db, err := aspen.Open(
 		ctx,
 		dir,

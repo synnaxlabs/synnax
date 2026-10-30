@@ -78,7 +78,7 @@ const selected = (): string[] =>
   );
 
 const caret = (name: string): Element => {
-  const found = item(name).querySelector(".pluto-tree__expansion-indicator");
+  const found = item(name).querySelector(".lyra-tree__expansion-indicator");
   if (found == null) throw new Error(`no caret on ${name}`);
   return found;
 };
@@ -171,7 +171,7 @@ describe("sidebar", () => {
       show("/reference/channels");
       click(caret("Arc"));
       expect(item("Arc").getAttribute("aria-expanded")).toBe("true");
-      expect(caret("Arc").classList).toContain("pluto--location-bottom");
+      expect(caret("Arc").classList).toContain("lyra--location-bottom");
       expect(visible()).toContain("Get started");
       expect(visible()).not.toContain("Stages");
     });
@@ -179,7 +179,7 @@ describe("sidebar", () => {
     it("should hide every descendant when a node collapses", () => {
       show("/reference/control/arc/concepts/stages");
       click(caret("Arc"));
-      expect(caret("Arc").classList).toContain("pluto--location-right");
+      expect(caret("Arc").classList).toContain("lyra--location-right");
       expect(visible()).toEqual([
         "Channels",
         "Overview",

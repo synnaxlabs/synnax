@@ -46,7 +46,7 @@ def write(root: Path, source: str = SOURCE) -> str:
     pkg.mkdir(exist_ok=True)
     (pkg / "__init__.py").write_text(source)
     (pkg / "parts.py").write_text(PARTS)
-    return report(str(root), "widget")
+    return report(str(root), package="widget")
 
 
 class TestReport:

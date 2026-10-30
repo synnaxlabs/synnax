@@ -84,7 +84,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Panel: panelSvc,
 	}))
 	author = MustSucceed(
-		userSvc.NewWriter(nil).Create(ctx, user.User{Username: "test"}),
+		userSvc.NewWriter(nil).Create(ctx, user.User{Name: "test"}),
 	)
 	parentID = MustSucceed(
 		groupSvc.CreateOrRetrieve(ctx, "panel-parent", ontology.RootID),
@@ -99,7 +99,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 func newUser(ctx SpecContext) user.User {
 	GinkgoHelper()
 	return MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
-		Username: uuid.New().String(),
+		Name: uuid.New().String(),
 	}))
 }
 
