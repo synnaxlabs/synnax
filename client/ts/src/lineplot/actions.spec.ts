@@ -387,6 +387,18 @@ describe("lineplot reducer", () => {
       ).toEqual([keyRef(r1), keyRef(r2)]);
     });
 
+    it("should keep a range added after the edit when undone", () => {
+      const state = createEmpty({ ranges: [keyRef(r1)] });
+      const { next, inverse } = lineplot.reduceAll(state, [
+        lineplot.setRanges({ ranges: [keyRef(r2)] }),
+      ]);
+      const concurrent = apply(next, lineplot.addRange({ range: keyRef(r3) }));
+      expect(lineplot.reduceAll(concurrent, inverse).next.ranges).toEqual([
+        keyRef(r3),
+        keyRef(r1),
+      ]);
+    });
+
     it("should edit a window and leave the plot's lines unchanged", () => {
       const state = createEmpty({
         channels: { x1: 10, x2: 0, y1: [5], y2: [], y3: [], y4: [] },

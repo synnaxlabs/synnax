@@ -94,6 +94,12 @@ const DEFAULT_CUSTOM: ranger.Ref = {
   window: dynamicWindow(TimeSpan.hours(2)),
 };
 
+// Two session ranges can show the same window, and a plot draws each reference once.
+const dedupe = (refs: ranger.Ref[]): ranger.Ref[] =>
+  refs.filter(
+    (r, i) => refs.findIndex((other) => Session.Range.refsEqual(other, r)) === i,
+  );
+
 /**
  * Selects the ranges the plot shows. A window that no session range shows is the
  * custom entry, which reveals an input to edit the window.
@@ -115,7 +121,7 @@ export const RangeSelect = (props: RangeSelectProps): ReactElement => {
       const state = states.find((s) => s.key === k);
       return [state == null ? { variant: "key", key: k } : Session.Range.toRef(state)];
     });
-    dispatch(lineplot.setRanges({ ranges }));
+    dispatch(lineplot.setRanges({ ranges: dedupe(ranges) }));
   };
   const custom = customs.find(
     (r): r is ranger.WindowRef =>
@@ -124,8 +130,10 @@ export const RangeSelect = (props: RangeSelectProps): ReactElement => {
   const handleCustomChange = (span: TimeSpan) =>
     dispatch(
       lineplot.setRanges({
-        ranges: refs.map((r) =>
-          r === custom ? { variant: "window", window: dynamicWindow(span) } : r,
+        ranges: dedupe(
+          refs.map((r) =>
+            r === custom ? { variant: "window", window: dynamicWindow(span) } : r,
+          ),
         ),
       }),
     );

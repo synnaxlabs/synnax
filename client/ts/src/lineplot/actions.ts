@@ -35,7 +35,6 @@ import {
   setLineDetail,
   setLineLabel,
   setLineStrokeWidth,
-  setRanges,
   setRule,
   setRuleAxis,
   setRuleColor,
@@ -212,7 +211,9 @@ const handlers: Handlers = {
   },
 
   // setRanges replaces the whole set of range references in one edit, such as when
-  // the user edits a window. Targets name only the references that changed.
+  // the user edits a window. The inverse and the targets cover only the references that
+  // changed, so undo leaves another user's later edits in place. Undo appends a
+  // restored reference at the end of the set.
   setRanges: (state, payload) => {
     const removed = state.ranges.filter(
       (r) => !payload.ranges.some((n) => deep.equal(n, r)),
@@ -221,10 +222,13 @@ const handlers: Handlers = {
       (n) => !state.ranges.some((r) => deep.equal(n, r)),
     );
     if (removed.length === 0 && added.length === 0) return actions.NO_OP_RESULT;
-    const oldRanges = actions.snapshotDraft(state.ranges);
+    const restored = removed.map(actions.snapshotDraft);
     state.ranges = [...payload.ranges];
     return {
-      inverse: [setRanges({ ranges: oldRanges })],
+      inverse: [
+        ...added.map((range) => removeRange({ range })),
+        ...restored.map((range) => addRange({ range })),
+      ],
       targets: [...removed, ...added].map(rangeTarget),
     };
   },

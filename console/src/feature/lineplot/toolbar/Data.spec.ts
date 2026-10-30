@@ -107,6 +107,20 @@ describe("lineplot/toolbar/Data", () => {
     expect(plot.ranges).toEqual([rolling(TimeSpan.minutes(45))]);
   });
 
+  it("stores a custom span equal to a selected range once", async () => {
+    const { key } = await renderData([
+      rolling(TimeSpan.hours(1)),
+      rolling(TimeSpan.hours(2)),
+    ]);
+    const input = await screen.findByPlaceholderText(PLACEHOLDER);
+    fireEvent.change(input, { target: { value: "1h" } });
+    fireEvent.blur(input);
+    await waitFor(async () => {
+      const plot = await reader.lineplots.retrieve(key);
+      expect(plot.ranges).toEqual([rolling(TimeSpan.hours(1))]);
+    });
+  });
+
   it("displays the stored rolling window", async () => {
     await renderData([rolling(TimeSpan.minutes(45))]);
     expect(await screen.findByDisplayValue("45min")).toBeDefined();
