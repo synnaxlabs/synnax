@@ -77,7 +77,10 @@ TEST(stateTests, Nominal) {
     auto ch = ASSERT_NIL_P(
         client->channels.retrieve(synnax::status::STATUS_SET_CHANNEL_NAME)
     );
-    auto ctx = std::make_shared<driver::task::SynnaxContext>(client);
+    auto ctx = std::make_shared<driver::task::SynnaxContext>(
+        client,
+        std::make_shared<driver::task::StatusCache>(client->statuses)
+    );
     auto task = synnax::task::Task{
         .name = "state",
         .type = driver::rack::status::TASK_TYPE,
@@ -116,7 +119,10 @@ TEST(stateTests, RenamedRack) {
     auto ch = ASSERT_NIL_P(
         client->channels.retrieve(synnax::status::STATUS_SET_CHANNEL_NAME)
     );
-    auto ctx = std::make_shared<driver::task::SynnaxContext>(client);
+    auto ctx = std::make_shared<driver::task::SynnaxContext>(
+        client,
+        std::make_shared<driver::task::StatusCache>(client->statuses)
+    );
     ctx->set_rack_name(rack.name);
     auto task = synnax::task::Task{
         .name = "state",
@@ -163,7 +169,10 @@ TEST(stateTests, TaskRunningTransitions) {
     auto ch = ASSERT_NIL_P(
         client->channels.retrieve(synnax::status::STATUS_SET_CHANNEL_NAME)
     );
-    auto ctx = std::make_shared<driver::task::SynnaxContext>(client);
+    auto ctx = std::make_shared<driver::task::SynnaxContext>(
+        client,
+        std::make_shared<driver::task::StatusCache>(client->statuses)
+    );
     auto task = synnax::task::Task{
         .name = "state",
         .type = driver::rack::status::TASK_TYPE,
@@ -220,7 +229,10 @@ TEST(stateTests, ResendsTaskStatusesUntilTheyReachTheCore) {
         synnax::rack::ontology_id(rack.key).string()
     );
     client->statuses = synnax::status::Client(nullptr, transport, nullptr, nullptr);
-    const auto ctx = std::make_shared<driver::task::SynnaxContext>(client);
+    const auto ctx = std::make_shared<driver::task::SynnaxContext>(
+        client,
+        std::make_shared<driver::task::StatusCache>(client->statuses)
+    );
     Task hb(
         rack,
         synnax::task::Task{.name = "state", .type = TASK_TYPE, .internal = true},
@@ -247,7 +259,10 @@ TEST(stateTests, ResendsTaskStatusesAfterALateHeartbeat) {
         synnax::rack::ontology_id(rack.key).string()
     );
     client->statuses = synnax::status::Client(nullptr, transport, nullptr, nullptr);
-    const auto ctx = std::make_shared<driver::task::SynnaxContext>(client);
+    const auto ctx = std::make_shared<driver::task::SynnaxContext>(
+        client,
+        std::make_shared<driver::task::StatusCache>(client->statuses)
+    );
     Task hb(
         rack,
         synnax::task::Task{.name = "state", .type = TASK_TYPE, .internal = true},
