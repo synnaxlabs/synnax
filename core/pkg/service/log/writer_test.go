@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/x/notation"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -32,7 +33,10 @@ var _ = Describe("Writer", func() {
 			l := log.Log{
 				Name: "test",
 				Channels: []log.ChannelEntry{
-					{Channel: channel.Key(1), Color: color.MustFromHex("#ff0000")},
+					{
+						Channel: channel.Key(1),
+						Color:   MustSucceed(color.FromHex("#ff0000")),
+					},
 				},
 			}
 			Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &l)).To(Succeed())

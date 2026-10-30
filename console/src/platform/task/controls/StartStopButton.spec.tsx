@@ -31,10 +31,10 @@ describe("Controls.StartStopButton", () => {
       <StartStopButton running={false} onClick={vi.fn()} />,
     );
     const button = screen.getByRole("button");
-    expect(button.className).not.toContain("pluto--status-error");
+    expect(button.className).not.toContain("lyra--status-error");
 
     rerender(<StartStopButton running onClick={vi.fn()} />);
-    expect(button.className).toContain("pluto--status-error");
+    expect(button.className).toContain("lyra--status-error");
   });
 
   it("should let a loading status variant override the running error styling", async () => {
@@ -42,8 +42,8 @@ describe("Controls.StartStopButton", () => {
       <StartStopButton running statusVariant="loading" onClick={vi.fn()} />,
     );
     const button = screen.getByRole("button");
-    expect(button.className).toContain("pluto--status-loading");
-    expect(button.className).not.toContain("pluto--status-error");
+    expect(button.className).toContain("lyra--status-loading");
+    expect(button.className).not.toContain("lyra--status-error");
   });
 
   it("should invoke onClick when pressed", async () => {

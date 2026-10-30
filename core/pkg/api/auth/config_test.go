@@ -15,7 +15,9 @@ import (
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 )
 
@@ -24,6 +26,8 @@ var _ = Describe("ServiceConfig", func() {
 		return apiauth.ServiceConfig{
 			Auth:     &auth.Service{},
 			Password: &password.Service{},
+			APIKey:   &apikey.Service{},
+			Ontology: &ontology.Ontology{},
 			User:     &user.Service{},
 			RBAC:     &rbac.Service{},
 			Cluster:  node.Cluster,
@@ -51,6 +55,16 @@ var _ = Describe("ServiceConfig", func() {
 				"password",
 				func(c *apiauth.ServiceConfig) { c.Password = nil },
 				"password: must be non-nil",
+			),
+			Entry(
+				"api key",
+				func(c *apiauth.ServiceConfig) { c.APIKey = nil },
+				"api_key: must be non-nil",
+			),
+			Entry(
+				"ontology",
+				func(c *apiauth.ServiceConfig) { c.Ontology = nil },
+				"ontology: must be non-nil",
 			),
 			Entry(
 				"user",

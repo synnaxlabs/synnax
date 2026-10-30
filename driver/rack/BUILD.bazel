@@ -27,6 +27,7 @@ cc_library(
         "persist.cpp",
         "rack.cpp",
         "remote.cpp",
+        "unavailable.h",
     ],
     hdrs = ["rack.h"],
     defines = select({
@@ -38,6 +39,7 @@ cc_library(
         "//client/cpp/errors",
         "//driver/arc",
         "//driver/common",
+        "//driver/errors",
         "//driver/ethercat",
         "//driver/http",
         "//driver/labjack",
@@ -59,6 +61,16 @@ cc_library(
         ":nilinuxrt": [],
         "//conditions:default": ["//driver/modbus"],
     }),
+)
+
+cc_test(
+    name = "factories_test",
+    srcs = ["factories_test.cpp"],
+    deps = [
+        "//driver/rack",
+        "//driver/task",
+        "@googletest//:gtest_main",
+    ],
 )
 
 cc_test(

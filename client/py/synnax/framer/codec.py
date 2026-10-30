@@ -112,7 +112,7 @@ class CodecState:
     data_types: dict[channel.Key, DataType]
     has_variable_data_types: bool
 
-    def __init__(self, keys: list[channel.Key], data_types: list[DataType]) -> None:
+    def __init__(self, *, keys: list[channel.Key], data_types: list[DataType]) -> None:
         self.keys = sorted(keys)
         self.data_types = dict(zip(keys, data_types, strict=True))
         self.has_variable_data_types = any(dt.is_variable for dt in data_types)
@@ -126,17 +126,18 @@ class Codec:
 
     def __init__(
         self,
+        *,
         keys: list[channel.Key] | None = None,
         data_types: list[DataType] | None = None,
     ) -> None:
         self._seq_num = 0
         self._states = {}
         if keys is not None and data_types is not None:
-            self.update(keys, data_types)
+            self.update(keys=keys, data_types=data_types)
 
-    def update(self, keys: list[channel.Key], data_types: list[DataType]) -> None:
+    def update(self, *, keys: list[channel.Key], data_types: list[DataType]) -> None:
         self._seq_num += 1
-        self._curr_state = CodecState(keys, data_types)
+        self._curr_state = CodecState(keys=keys, data_types=data_types)
         self._states[self._seq_num] = self._curr_state
 
     def throw_if_not_updated(self, op_name: str) -> None:
@@ -146,7 +147,7 @@ class Codec:
                 f"Please call update() before calling {op_name}()."
             )
 
-    def encode(self, frame: Frame | FramePayload, start_offset: int = 0) -> bytes:
+    def encode(self, frame: Frame | FramePayload, *, start_offset: int = 0) -> bytes:
         self.throw_if_not_updated("encode")
         assert self._curr_state is not None
         pld = frame if isinstance(frame, FramePayload) else frame.to_payload()
@@ -174,7 +175,8 @@ class Codec:
                 )
             if dt != ser.data_type:
                 raise ValidationError(
-                    f"data type {ser.data_type} for key {key} does not match codec state data type {dt}."
+                    f"data type {ser.data_type} for key {key} does not match codec "
+                    f"state data type {dt}."
                 )
             if curr_data_size == -1:
                 curr_data_size = len(ser)
@@ -232,7 +234,8 @@ class Codec:
                 )
             if dt != ser.data_type:
                 raise ValidationError(
-                    f"Series data type {ser.data_type} for key {k} does not match codec state data type {dt}."
+                    f"Series data type {ser.data_type} for key {k} does not match "
+                    f"codec state data type {dt}."
                 )
 
             if not flg.all_channels_present:
@@ -269,7 +272,7 @@ class Codec:
 
         return bytes(buffer)
 
-    def decode(self, data: bytes, offset: int = 0) -> FramePayload:
+    def decode(self, data: bytes, *, offset: int = 0) -> FramePayload:
         self.throw_if_not_updated("decode")
         assert self._curr_state is not None
         buffer = memoryview(data)
