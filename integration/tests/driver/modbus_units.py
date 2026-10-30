@@ -10,9 +10,10 @@
 """Modbus units that share one connection."""
 
 import sys
+from collections.abc import Callable
 
 from examples.modbus import ModbusGatewaySim, ModbusSerialSim
-from pydantic import ValidationError
+from pydantic import BaseModel, ValidationError
 from pymodbus.client import ModbusTcpClient
 
 import synnax as sy
@@ -22,6 +23,7 @@ from tests.driver.task import (
     cleanup_task,
     create_channel,
     create_index,
+    run_and_expect_rejection,
     send_and_verify_commands,
 )
 from x.telem import to_float
@@ -32,10 +34,21 @@ DEMOTED = (
 )
 
 
+class Stats(BaseModel):
+    """The request counters of a unit in its device status."""
+
+    requests: int
+    retries: int
+    timeouts: int
+    exceptions: int
+    last_response: int
+    max_response: int
+
+
 class ModbusUnits(SimulatorCase):
     """Reads units 1 and 2 of a gateway at once, then adds a unit that never answers.
-    The units share one connection, the Driver demotes the silent unit, and the other
-    units keep reading."""
+    The units share one connection, the Driver demotes the silent unit, the other
+    units keep reading, and each device status counts the requests of its unit."""
 
     sim_classes = [ModbusGatewaySim]
     units_sim: type[ModbusGatewaySim] | type[ModbusSerialSim] = ModbusGatewaySim
@@ -67,10 +80,13 @@ class ModbusUnits(SimulatorCase):
             self.test_units_read_their_values()
             self.test_one_connection()
             self.test_silent_unit()
+            self.test_stats()
 
-    def create_task(self, unit: int) -> sy.modbus.ReadTask:
-        """Configure a task that reads holding registers 0 and 1 of a unit."""
-        idx = create_index(self.client, f"{self.prefix}_{unit}_time")
+    def create_task(
+        self, unit: int, addresses: tuple[int, ...] = (0, 1)
+    ) -> sy.modbus.ReadTask:
+        """Configure a task that reads holding registers of a unit."""
+        idx = create_index(self.client, f"{self.prefix}_{unit}_{addresses[0]}_time")
         task = sy.modbus.ReadTask(
             name=f"{self.prefix} {unit}",
             device=self.units[unit].key,
@@ -87,7 +103,7 @@ class ModbusUnits(SimulatorCase):
                     address=address,
                     data_type=sy.DataType.UINT16,
                 )
-                for address in (0, 1)
+                for address in addresses
             ],
         )
         self.client.tasks.configure(task)
@@ -133,6 +149,42 @@ class ModbusUnits(SimulatorCase):
                 expected = self.expected_values((1, 2))
                 with self.client.open_streamer(list(expected)) as streamer:
                     assert_streamed_values(self.client, streamer, expected=expected)
+
+    def test_stats(self) -> None:
+        """Unit 1 answers every request, unit 3 times out, and unit 2 answers a read
+        past its registers with an exception."""
+        self.log("Testing: Device statuses count the requests of each unit")
+        answered = self.wait_for_stats(1, lambda s: s.requests > 0)
+        assert answered.timeouts == 0 and answered.exceptions == 0, answered
+        assert 0 < answered.last_response <= answered.max_response, answered
+        silent = self.wait_for_stats(3, lambda s: s.timeouts >= 3)
+        assert silent.exceptions == 0, silent
+        rejected = self.create_task(2, addresses=(50,))
+        message = run_and_expect_rejection(self.client, rejected)
+        expected = (
+            f"Failed to read data: {self.channel_name(2, 50)} (holding registers 50): "
+            "Illegal data address"
+        )
+        assert message == expected, f"Rejection should be {expected!r}, got {message!r}"
+        self.wait_for_stats(2, lambda s: s.exceptions > 0)
+
+    def wait_for_stats(self, unit: int, done: Callable[[Stats], bool]) -> Stats:
+        """Wait for the device status of a unit to report counters that satisfy
+        ``done``. The Driver reports them each time it scans the device."""
+        stats = None
+        timer = sy.Timer()
+        while timer.elapsed() < 15 * sy.TimeSpan.SECOND:
+            dev = self.client.devices.retrieve(
+                key=self.units[unit].key, include_status=True
+            )
+            details = None if dev.status is None else dev.status.details
+            data = None if details is None else details.data
+            if data is not None:
+                stats = Stats.model_validate(data["stats"])
+                if done(stats):
+                    return stats
+            sy.sleep(0.5)
+        raise AssertionError(f"Unit {unit} counters did not arrive, got {stats}")
 
     @staticmethod
     def wait_for_warning(

@@ -107,6 +107,7 @@ void Scanner::check_device_health(synnax::device::Device &dev) {
             this->checks.erase(held);
     }
     auto [d, err] = this->devices->acquire(props.connection, props.requests);
+    synnax::device::StatusDetails details{.rack = rack_key, .device = dev.key};
     if (err)
         this->checks.erase(dev.key);
     else {
@@ -126,6 +127,7 @@ void Scanner::check_device_health(synnax::device::Device &dev) {
             .dev = d,
             .time = device::Connection::Clock::now()
         };
+        details.data = x::json::json::object_t{{"stats", d->stats().to_json()}};
     }
     // A connection test that releases the check must also release the connection.
     d.reset();
@@ -138,7 +140,7 @@ void Scanner::check_device_health(synnax::device::Device &dev) {
             .message = "Failed to reach device",
             .description = err.data,
             .time = x::telem::TimeStamp::now(),
-            .details = {.rack = rack_key, .device = dev.key},
+            .details = details,
         };
     else
         dev.status = synnax::device::Status{
@@ -147,7 +149,7 @@ void Scanner::check_device_health(synnax::device::Device &dev) {
             .variant = synnax::status::VARIANT_SUCCESS,
             .message = "Device connected",
             .time = x::telem::TimeStamp::now(),
-            .details = {.rack = rack_key, .device = dev.key},
+            .details = details,
         };
 }
 

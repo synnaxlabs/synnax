@@ -1049,6 +1049,74 @@ TEST(DeviceTest, WriteGoesBeforeWaitingReads) {
     slave.stop();
 }
 
+/// @brief it should count the requests, retries, timeouts, and exceptions of each unit
+/// on a shared connection, and time each reply.
+TEST(DeviceTest, CountsRequestsOfEachUnit) {
+    testutil::SlaveConfig slave_config;
+    slave_config.port = 1677;
+    slave_config.gateway_failed_units = {2};
+    slave_config.silent_units = {3};
+    slave_config.reject_function_codes = {MODBUS_FC_WRITE_MULTIPLE_COILS};
+    testutil::Slave slave(slave_config);
+    ASSERT_NIL(slave.start());
+    Manager manager;
+    const auto acquire = [&](const std::uint8_t unit) {
+        ConnectionConfig cfg{"127.0.0.1", 1677};
+        cfg.unit_id = unit;
+        cfg.timeout = x::telem::MILLISECOND * 50;
+        return manager.acquire(cfg);
+    };
+    auto healthy = ASSERT_NIL_P(acquire(1));
+    auto gateway = ASSERT_NIL_P(acquire(2));
+    auto silent = ASSERT_NIL_P(acquire(3));
+    uint16_t reg = 0;
+    slave.stall_next(1, std::chrono::milliseconds(30));
+    ASSERT_NIL(healthy->read_registers(HoldingRegister, 0, 1, &reg));
+    ASSERT_NIL(healthy->read_registers(HoldingRegister, 0, 1, &reg));
+    const uint8_t bit = 1;
+    ASSERT_OCCURRED_AS(healthy->write_bits(0, 1, &bit), CRITICAL_ERROR);
+    ASSERT_OCCURRED_AS(
+        gateway->read_registers(HoldingRegister, 0, 1, &reg),
+        TEMPORARY_ERROR
+    );
+    ASSERT_OCCURRED_AS(
+        silent->read_registers(HoldingRegister, 0, 1, &reg),
+        UNREACHABLE
+    );
+
+    const auto h = healthy->stats();
+    EXPECT_EQ(h.requests, 3U);
+    EXPECT_EQ(h.retries, 0U);
+    EXPECT_EQ(h.timeouts, 0U);
+    EXPECT_EQ(h.exceptions, 1U);
+    EXPECT_GE(h.max_response, x::telem::MILLISECOND * 30);
+    EXPECT_LT(h.last_response, h.max_response);
+    const auto g = gateway->stats();
+    EXPECT_EQ(g.requests, 2U);
+    EXPECT_EQ(g.retries, 1U);
+    EXPECT_EQ(g.timeouts, 0U);
+    EXPECT_EQ(g.exceptions, 2U);
+    EXPECT_GT(g.max_response, x::telem::TimeSpan(0));
+    EXPECT_EQ(gateway->last_reply(), Connection::Clock::time_point{});
+    const auto s = silent->stats();
+    EXPECT_EQ(s.requests, 2U);
+    EXPECT_EQ(s.retries, 1U);
+    EXPECT_EQ(s.timeouts, 2U);
+    EXPECT_EQ(s.exceptions, 0U);
+    EXPECT_EQ(s.max_response, x::telem::TimeSpan(0));
+    EXPECT_EQ(
+        s.to_json(),
+        x::json::json(
+            {{"requests", 2},
+             {"retries", 1},
+             {"timeouts", 2},
+             {"exceptions", 0},
+             {"last_response", 0},
+             {"max_response", 0}}
+        )
+    );
+}
+
 /// @brief it should keep the bits that another device sets in the same register while
 /// a read-then-write runs.
 TEST(MaskWrite, ReadThenWriteKeepsConcurrentBits) {

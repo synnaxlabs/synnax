@@ -415,6 +415,35 @@ struct Properties {
         requests(parser.optional_child("requests")) {}
 };
 
+/// @brief the request counters of one unit on a shared connection.
+struct Stats {
+    /// @brief the requests tried, retries included.
+    std::uint64_t requests = 0;
+    /// @brief the requests tried again after a temporary fault.
+    std::uint64_t retries = 0;
+    /// @brief the requests the unit did not answer in time.
+    std::uint64_t timeouts = 0;
+    /// @brief the requests answered with an exception, by the unit or by a gateway in
+    /// front of it.
+    std::uint64_t exceptions = 0;
+    /// @brief the time from sending the last answered request to its reply.
+    x::telem::TimeSpan last_response;
+    /// @brief the longest time from sending a request to its reply.
+    x::telem::TimeSpan max_response;
+
+    /// @returns the JSON representation of the counters, with times in nanoseconds.
+    [[nodiscard]] x::json::json to_json() const {
+        return {
+            {"requests", requests},
+            {"retries", retries},
+            {"timeouts", timeouts},
+            {"exceptions", exceptions},
+            {"last_response", last_response.nanoseconds()},
+            {"max_response", max_response.nanoseconds()},
+        };
+    }
+};
+
 /// @brief a connection to one Modbus TCP endpoint or serial port, shared by every
 /// device on it. Requests take turns. A waiting write goes before waiting reads, but
 /// not twice in a row, so reads keep their turns under steady writes. Safe for
@@ -440,6 +469,8 @@ private:
         Clock::time_point demoted_until;
         /// @brief when the unit last answered, an exception included.
         Clock::time_point last_reply;
+        /// @brief the request counters of the unit.
+        Stats stats;
     };
 
     modbus_t *ctx;
@@ -470,6 +501,9 @@ private:
     bool stale = false;
     /// @brief when the last request ended. Touched only while holding the turn.
     Clock::time_point last_request;
+    /// @brief when the last attempt sent its request. Touched only while holding the
+    /// turn.
+    Clock::time_point sent;
 
     /// @brief holds the connection for one request and its retries.
     class Turn {
@@ -567,6 +601,7 @@ private:
             this->stale = false;
         }
         if (modbus_set_slave(this->ctx, cfg.unit_id) == -1) return errno;
+        this->sent = Clock::now();
         if (request(this->ctx) != -1) return 0;
         const int errnum = errno;
         if (errnum == ETIMEDOUT || errnum == EMBBADCRC)
@@ -589,12 +624,25 @@ private:
         };
     }
 
-    /// @brief records a reply from the unit.
-    void replied(const std::uint8_t unit_id) {
+    /// @brief adds an attempt to the counters of the unit. Any reply times the
+    /// response, a gateway exception included. Only a reply from the unit itself
+    /// records that the unit answered.
+    void record(const std::uint8_t unit_id, const bool retry, const int errnum) {
         std::lock_guard lock(this->mu);
         auto &unit = this->units[unit_id];
+        auto &stats = unit.stats;
+        stats.requests++;
+        if (retry) stats.retries++;
+        if (errnum == ETIMEDOUT) stats.timeouts++;
+        // libmodbus numbers the exception codes 01 to 0B in order.
+        const bool exception = errnum >= EMBXILFUN && errnum <= EMBXGTAR;
+        if (exception) stats.exceptions++;
+        if (errnum != 0 && !exception) return;
+        stats.last_response = x::telem::TimeSpan(this->last_request - this->sent);
+        stats.max_response = std::max(stats.max_response, stats.last_response);
+        if (errnum != 0 && !answered(errnum)) return;
         unit.timeouts = 0;
-        unit.last_reply = Clock::now();
+        unit.last_reply = this->last_request;
     }
 
     /// @brief records a timed-out attempt and demotes the unit after DEMOTE_AFTER in a
@@ -623,7 +671,7 @@ private:
                 std::this_thread::sleep_until(this->last_request + gap.chrono());
             const int errnum = this->attempt(cfg, request);
             this->last_request = Clock::now();
-            if (errnum == 0 || answered(errnum)) this->replied(cfg.unit_id);
+            this->record(cfg.unit_id, i > 0, errnum);
             if (errnum == 0) return x::errors::NIL;
             if (errnum == ETIMEDOUT && this->timed_out(cfg.unit_id))
                 return this->demoted(cfg.unit_id);
@@ -717,6 +765,12 @@ public:
     Clock::time_point last_reply(const std::uint8_t unit_id) {
         std::lock_guard lock(this->mu);
         return this->units[unit_id].last_reply;
+    }
+
+    /// @returns the request counters of the unit since the connection was created.
+    Stats stats(const std::uint8_t unit_id) {
+        std::lock_guard lock(this->mu);
+        return this->units[unit_id].stats;
     }
 };
 
@@ -872,6 +926,9 @@ public:
     [[nodiscard]] Connection::Clock::time_point last_reply() const {
         return this->conn->last_reply(this->cfg.unit_id);
     }
+
+    /// @returns the request counters of the unit on the shared connection.
+    [[nodiscard]] Stats stats() const { return this->conn->stats(this->cfg.unit_id); }
 
     /// @returns the endpoint and unit of the device.
     [[nodiscard]] const ConnectionConfig &config() const { return this->cfg; }

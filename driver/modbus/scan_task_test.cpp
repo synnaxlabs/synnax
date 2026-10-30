@@ -266,6 +266,30 @@ TEST(ScanTask, testScanReportsSilentUnit) {
     EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
     EXPECT_EQ(status.message, "Failed to reach device");
     EXPECT_EQ(status.description, modbus_strerror(ETIMEDOUT));
+    EXPECT_EQ(status.details.data.value().at("stats")["timeouts"], 1);
+}
+
+/// @brief it should report the request counters of a device in its status.
+TEST(ScanTask, testScanReportsRequestStats) {
+    testutil::SlaveConfig slave_cfg;
+    slave_cfg.port = 1678;
+    testutil::Slave slave(slave_cfg);
+    ASSERT_NIL(slave.start());
+    x::defer::defer stop_slave([&slave] { slave.stop(); });
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    synnax::task::Task t;
+    Scanner scanner(ctx, t, std::make_shared<device::Manager>());
+    const auto dev = local_device("counted", 1678);
+
+    scan(scanner, dev);
+    const auto status = scan(scanner, dev)[0].status.value();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_SUCCESS);
+    const auto stats = status.details.data.value().at("stats");
+    EXPECT_EQ(stats["requests"], 2);
+    EXPECT_EQ(stats["retries"], 0);
+    EXPECT_EQ(stats["timeouts"], 0);
+    EXPECT_EQ(stats["exceptions"], 0);
+    EXPECT_GT(stats["max_response"].get<std::int64_t>(), 0);
 }
 
 /// @brief it should test a connection while a scan waits on a silent server.
