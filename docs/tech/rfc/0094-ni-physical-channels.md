@@ -108,9 +108,10 @@ configuration takes that one. For each AI port that accepts more than one, the s
 creates a DAQmx task, adds the port with `DAQmx_Val_Cfg_Default` as a voltage channel,
 or as a current channel when the port takes no voltage, reads `DAQmx_AI_TermCfg` back
 with `GetChanAttributeInt32` (`driver/ni/daqmx/api.h:1262`), and clears the task. The
-task never starts. A port with no configuration gets no default. A failed readback
-leaves that port's default unknown and keeps the rest of the read. The device stays
-incomplete, so the next scan reads it again. New channels keep "Default".
+task never starts. A port with no configuration, or one that takes neither voltage nor
+current, gets no default. A failed readback leaves that port's default unknown and keeps
+the rest of the read. The device stays incomplete, so the next scan reads it again. New
+channels keep "Default".
 
 ### 3.3 Differential pairs
 
