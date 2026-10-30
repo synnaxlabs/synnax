@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/ni/device"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
@@ -179,6 +180,45 @@ var _ = Describe("Service", func() {
 			Expect(res.Devices).To(HaveLen(1))
 			Expect(res.Devices[0].Key).To(Equal(d.Key))
 			Expect(res.Devices[0].Status.Message).To(Equal("Status unknown"))
+		})
+
+		DescribeTable(
+			"Should filter by each request field",
+			func(ctx SpecContext, filter func(*apidevice.RetrieveRequest, device.Device)) {
+				d := create(ctx)
+				create(ctx)
+				grant(ctx, access.ActionRetrieve, user.OntologyID(u.Key), deviceType)
+				req := apidevice.RetrieveRequest{Keys: []device.Key{d.Key}}
+				filter(&req, d)
+				res := MustSucceed(apiSvc.Retrieve(testutil.AuthedCtx(ctx, u), req))
+				Expect(res.Devices).To(HaveLen(1))
+				Expect(res.Devices[0].Key).To(Equal(d.Key))
+			},
+			Entry("names", func(r *apidevice.RetrieveRequest, d device.Device) {
+				r.Names = []string{d.Name}
+			}),
+			Entry("models", func(r *apidevice.RetrieveRequest, d device.Device) {
+				r.Models = []string{d.Model}
+			}),
+			Entry("racks", func(r *apidevice.RetrieveRequest, d device.Device) {
+				r.Racks = []rack.Key{d.Rack}
+			}),
+			Entry("search term", func(r *apidevice.RetrieveRequest, d device.Device) {
+				r.SearchTerm = d.Name
+			}),
+			Entry("limit", func(r *apidevice.RetrieveRequest, _ device.Device) {
+				r.Limit = 1
+			}),
+		)
+
+		It("Should skip devices before the offset", func(ctx SpecContext) {
+			d := create(ctx)
+			grant(ctx, access.ActionRetrieve, user.OntologyID(u.Key), deviceType)
+			res := MustSucceed(apiSvc.Retrieve(
+				testutil.AuthedCtx(ctx, u),
+				apidevice.RetrieveRequest{Keys: []device.Key{d.Key}, Offset: 1},
+			))
+			Expect(res.Devices).To(BeEmpty())
 		})
 
 		It("Should return not found unless the request ignores it", func(
