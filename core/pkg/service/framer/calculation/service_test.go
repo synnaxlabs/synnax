@@ -1051,7 +1051,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				var res framer.StreamerResponse
 				Eventually(out.Outlet()).Should(Receive(&res))
 				Expect(res.Frame.Get(calc.Key()).Series[0]).
-					To(telem.MatchSeriesDataV[int64](20))
+					To(MatchSeriesDataV[int64](20))
 			}
 			failure := func() types.GomegaMatcher {
 				return SatisfyAll(

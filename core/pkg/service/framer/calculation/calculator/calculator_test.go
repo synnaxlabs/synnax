@@ -1306,7 +1306,7 @@ var _ = Describe("Calculator", Ordered, func() {
 					Expect(changed).To(BeTrue())
 					Expect(output.Get(base[0].Key()).Series).To(HaveLen(1))
 					Expect(output.Get(doubled.Key()).Series[0]).
-						To(telem.MatchSeriesDataV[int64](0))
+						To(MatchSeriesDataV[int64](0))
 				},
 			)
 		})
@@ -1407,7 +1407,7 @@ var _ = Describe("Calculator", Ordered, func() {
 				frame.Frame{},
 			))
 			Expect(changed).To(BeTrue())
-			Expect(of.Get(calc.Key()).Series[0]).To(telem.MatchSeriesDataV[int64](20))
+			Expect(of.Get(calc.Key()).Series[0]).To(MatchSeriesDataV[int64](20))
 		})
 	})
 

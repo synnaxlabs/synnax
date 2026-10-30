@@ -882,7 +882,7 @@ var _ = Describe("ProgramState", func() {
 				fr, _, changed := s.Flush(telem.Frame[uint32]{}, flushNow)
 				Expect(changed).To(BeTrue())
 				Expect(fr.Get(1).Series).To(HaveLen(1))
-				Expect(fr.Get(1).Series[0]).To(telem.MatchSeriesData(expected))
+				Expect(fr.Get(1).Series[0]).To(MatchSeriesData(expected))
 				Expect(fr.Get(2).Series).To(HaveLen(1))
 				Expect(fr.Get(2).Series[0].DataType).To(Equal(telem.TimestampT))
 			},
