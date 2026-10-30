@@ -168,8 +168,6 @@ class WriteTaskSink final : public common::Sink {
 
     /// @brief reads the DataType of each channel's node, so commands convert to it. A
     /// node of a type the client does not know converts by the type of its channel.
-    /// @returns only an error that loses the connection. When the server refuses the
-    /// read for another reason, every node converts by the type of its channel.
     x::errors::Error read_targets() {
         this->targets.clear();
         if (const auto err = this->read_inputs()) return err;
@@ -185,13 +183,7 @@ class WriteTaskSink final : public common::Sink {
         }
         if (req.empty()) return x::errors::NIL;
         auto [res, err] = this->connection.read(req.build());
-        if (err.matches(errors::UNREACHABLE)) return err;
-        if (err) {
-            LOG(WARNING) << "[opc.write] failed to read the types of the nodes, so "
-                            "commands convert by the types of their channels: "
-                         << err;
-            return x::errors::NIL;
-        }
+        if (err) return err;
         for (std::size_t i = 0; i < keys.size(); ++i)
             if (const auto &value = res.get().results[i].value;
                 UA_Variant_hasScalarType(&value, &UA_TYPES[UA_TYPES_NODEID]))

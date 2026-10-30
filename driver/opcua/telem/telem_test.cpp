@@ -356,13 +356,21 @@ TEST(TelemTest, ToVariantFloat) {
     EXPECT_EQ(err.data, "1e+40 is out of range for a Float node");
 }
 
-/// @brief it should write a number to a String node as text.
+/// @brief it should write a number to a String node as the shortest text that reads
+/// back as the same number.
 TEST(TelemTest, ToVariantString) {
     const auto &str = UA_TYPES[UA_TYPES_STRING];
-    auto v = convert(x::telem::Series(1.5), str);
-    const UA_String expected = UA_STRING_STATIC("1.5");
-    EXPECT_TRUE(UA_String_equal(static_cast<UA_String *>(v.data), &expected));
-    UA_Variant_clear(&v);
+    const auto text = [&](const x::telem::Series &s) {
+        auto v = convert(s, str);
+        const auto *ua = static_cast<UA_String *>(v.data);
+        std::string out(reinterpret_cast<char *>(ua->data), ua->length);
+        UA_Variant_clear(&v);
+        return out;
+    };
+    EXPECT_EQ(text(x::telem::Series(1.5)), "1.5");
+    EXPECT_EQ(text(x::telem::Series(1.23456789)), "1.23456789");
+    EXPECT_EQ(text(x::telem::Series(1234567.0)), "1234567");
+    EXPECT_EQ(text(x::telem::Series(0.1f)), "0.1");
 }
 
 /// @brief it should write the builtin type of a subtype or an enumeration.

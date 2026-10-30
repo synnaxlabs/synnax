@@ -472,8 +472,8 @@ struct Search {
     std::vector<Found> variables;
     /// @brief whether the search stopped at a limit before it visited every object.
     bool truncated = false;
-    /// @brief the number of objects that failed to browse.
-    size_t skipped = 0;
+    /// @brief why each object that failed to browse was skipped.
+    std::vector<x::errors::Error> skipped;
 };
 
 /// @brief the most objects in one Browse request of a search for variables.
@@ -483,7 +483,8 @@ constexpr size_t SEARCH_BATCH = 100;
 constexpr auto SEARCH_DEADLINE = std::chrono::seconds(20);
 
 /// @brief finds the variables under a node, through objects at any depth, breadth
-/// first. Does not look under a variable. A node that fails to browse is skipped.
+/// first. Does not look under a variable. A node that fails to browse is skipped, and
+/// its error goes in the result.
 std::pair<Search, x::errors::Error>
 find_variables(const connection::Pool::Connection &conn, const UA_NodeId &start) {
     struct Object {
@@ -511,11 +512,11 @@ find_variables(const connection::Pool::Connection &conn, const UA_NodeId &start)
         auto [results, err] = conn.browse(ids);
         if (err) return {Search{}, err};
         for (size_t i = 0; i < count; ++i) {
-            if (results[i].err) {
-                LOG(WARNING) << SCAN_LOG_PREFIX << "skipped "
-                             << objects[head + i].node.to_string()
-                             << " in a search for variables: " << results[i].err;
-                ++search.skipped;
+            if (const auto &browse_err = results[i].err) {
+                search.skipped.emplace_back(
+                    browse_err,
+                    objects[head + i].node.to_string() + ": " + browse_err.data
+                );
                 continue;
             }
             for (auto &ref: results[i].references) {
@@ -816,6 +817,9 @@ void Scanner::browse_variables(const synnax::task::Command &cmd) const {
         ctx->set_status(status);
         return;
     }
+    x::json::json skipped = x::json::json::array();
+    for (const auto &skip_err: search.skipped)
+        skipped.push_back(skip_err.data);
     x::json::json channels = x::json::json::array();
     for (size_t i = 0; i < nodes.size(); ++i) {
         auto node = nodes[i].to_json();
@@ -827,7 +831,7 @@ void Scanner::browse_variables(const synnax::task::Command &cmd) const {
     status.details.data = {
         {"channels", channels},
         {"truncated", search.truncated},
-        {"skipped", search.skipped},
+        {"skipped", skipped},
     };
     ctx->set_status(status);
 }

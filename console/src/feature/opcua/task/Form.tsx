@@ -236,7 +236,7 @@ const NAMING_NOTE =
 interface Search {
   nodes: ScannedNode[];
   truncated: boolean;
-  skipped: number;
+  skipped: string[];
 }
 
 /** @returns the variables under the folders, named from the folder and their path. */
@@ -245,7 +245,7 @@ const findVariables = async (
   device: Device,
   folders: ScannedNode[],
 ): Promise<Search> => {
-  const search: Search = { nodes: [], truncated: false, skipped: 0 };
+  const search: Search = { nodes: [], truncated: false, skipped: [] };
   // The Driver runs one scan command at a time, so a search sent before the last one
   // ends would spend its timeout in the queue.
   for (const folder of folders) {
@@ -263,7 +263,7 @@ const findVariables = async (
       search.nodes.push({ ...node, name: [folder.name, ...path].join("_") }),
     );
     search.truncated ||= truncated;
-    search.skipped += skipped;
+    search.skipped.push(...skipped);
   }
   return search;
 };
@@ -272,9 +272,10 @@ const findVariables = async (
 const describeMissing = ({ truncated, skipped }: Search): string | null => {
   const notes: string[] = [];
   if (truncated) notes.push(SEARCH_LIMIT_NOTE);
-  if (skipped > 0)
+  const count = skipped.length;
+  if (count > 0)
     notes.push(
-      `The server did not browse ${skipped} ${skipped === 1 ? "object" : "objects"}, so their variables are missing.`,
+      `The server did not browse ${count} ${count === 1 ? "object" : "objects"}, so their variables are missing. First failure: ${skipped[0]}`,
     );
   return notes.length === 0 ? null : notes.join(" ");
 };
@@ -314,10 +315,14 @@ const ChannelList = <C extends Channel>({
   const addStatus = Status.useAdder();
   const handleError = Status.useErrorHandler();
   const newChannels = (nodes: ScannedNode[]): C[] => {
-    const existing = new Set(ctx.get<C[]>(CHANNELS_PATH).value.map(nodeIdentity));
+    const held = new Set(ctx.get<C[]>(CHANNELS_PATH).value.map(nodeIdentity));
     return nodes
       .map((node) => convertNodeToChannel(node))
-      .filter((ch): ch is C => ch != null && !existing.has(nodeIdentity(ch)));
+      .filter((ch): ch is C => {
+        if (ch == null || held.has(nodeIdentity(ch))) return false;
+        held.add(nodeIdentity(ch));
+        return true;
+      });
   };
   const addFolders = (folders: HaulItem[]) =>
     handleError(async () => {

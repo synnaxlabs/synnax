@@ -322,8 +322,8 @@ const foundNodeZ = scannedNodeFieldsZ
 export const browseVariablesResponseZ = z.object({
   channels: z.array(foundNodeZ),
   truncated: z.boolean(),
-  /** The number of objects under the folder that failed to browse. */
-  skipped: z.number(),
+  /** Why each object under the folder that failed to browse was skipped. */
+  skipped: z.array(z.string()),
 });
 
 export const nodeDetailsZ = z.object({

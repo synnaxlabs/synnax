@@ -10,7 +10,7 @@
 import { type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { type z } from "zod";
 
@@ -33,6 +33,7 @@ import {
 import {
   captureBrowserDownloads,
   fakePickedFile,
+  findDialogTriggerByText,
   getLabeledInput,
   interceptFilePicker,
   uniqueName,
@@ -363,9 +364,9 @@ describe("Read", () => {
     expect(downloads.anchors[0].download).toBe("OPC UA read task_channels.csv");
     expect(new TextDecoder().decode(await downloads.blobs[0].arrayBuffer())).toBe(
       [
-        "name,node_id,field,data_type,enabled,index",
-        `"pump, inlet",${pump.nodeId},,float32,true,false`,
-        `,${speed.nodeId},Speed,float32,false,false`,
+        "name,node_name,node_id,field,data_type,enabled,index",
+        `"pump, inlet",${pump.nodeName},${pump.nodeId},,float32,true,false`,
+        `,${speed.nodeName},${speed.nodeId},Speed,float32,false,false`,
         "",
       ].join("\n"),
     );
@@ -443,7 +444,7 @@ describe("Read", () => {
           },
         ],
         truncated: false,
-        skipped: 0,
+        skipped: [],
       },
     });
     await dragNode(folder.name, held.nodeName);
@@ -503,13 +504,43 @@ describe("Read", () => {
     );
   });
 
+  it("should browse the server of a device the task moves to", async () => {
+    const first = await createScannedDevice(client);
+    const second = await createScannedDevice(client);
+    const firstNode = createFolder();
+    const secondNode = createFolder();
+    const draft = await createDraft(client, createReadConfig(first.device.key, []));
+    const firstRoot = await answerNextCommand(client, first.scan, {
+      type: OPCUA.Task.BROWSE_COMMAND_TYPE,
+      data: { channels: [firstNode] },
+    });
+    await renderRead({ client, taskKey: draft.key });
+    await firstRoot.answered;
+    await screen.findByText(firstNode.name);
+    const secondRoot = await answerNextCommand(client, second.scan, {
+      type: OPCUA.Task.BROWSE_COMMAND_TYPE,
+      data: { channels: [secondNode] },
+    });
+    fireEvent.click(await findDialogTriggerByText(first.device.name));
+    const search = await waitFor(() => {
+      const dialog = screen.getAllByRole("dialog").at(-1);
+      if (dialog == null) throw new Error("the device list did not open");
+      return within(dialog).getByRole("textbox");
+    });
+    fireEvent.change(search, { target: { value: second.device.name } });
+    fireEvent.click(await screen.findByText(second.device.name));
+    await secondRoot.answered;
+    await screen.findByText(secondNode.name);
+    expect(screen.queryByText(firstNode.name)).toBeNull();
+  });
+
   it("should warn and add nothing when a dropped folder holds no variables", async () => {
     const folder = createFolder();
     const held = createReadChannel();
     const { scan, draft, statuses } = await renderWithNode(folder, [held]);
     const search = await answerNextCommand(client, scan, {
       type: OPCUA.Task.BROWSE_VARIABLES_COMMAND_TYPE,
-      data: { channels: [], truncated: false, skipped: 0 },
+      data: { channels: [], truncated: false, skipped: [] },
     });
     await dragNode(folder.name, held.nodeName);
     await search.answered;
@@ -535,7 +566,7 @@ describe("Read", () => {
       data: {
         channels: [{ ...createVariableNode("float64"), path: ["Pressure"] }],
         truncated: true,
-        skipped: 0,
+        skipped: [],
       },
     });
     await dragNode(folder.name, held.nodeName);
@@ -548,7 +579,7 @@ describe("Read", () => {
     ).toBeTruthy();
   });
 
-  it("should say how many objects the server did not browse", async () => {
+  it("should say why the server did not browse some objects", async () => {
     const folder = createFolder();
     const held = createReadChannel();
     const { scan } = await renderWithNode(folder, [held]);
@@ -557,7 +588,7 @@ describe("Read", () => {
       data: {
         channels: [{ ...createVariableNode("float64"), path: ["Pressure"] }],
         truncated: false,
-        skipped: 2,
+        skipped: ["ns=1;s=A: Access denied.", "ns=1;s=B: Access denied."],
       },
     });
     await dragNode(folder.name, held.nodeName);
@@ -565,7 +596,7 @@ describe("Read", () => {
     await screen.findByText(`Add 1 variable from ${folder.name}?`);
     expect(
       screen.getByText(
-        "The server did not browse 2 objects, so their variables are missing.",
+        "The server did not browse 2 objects, so their variables are missing. First failure: ns=1;s=A: Access denied.",
       ),
     ).toBeTruthy();
   });

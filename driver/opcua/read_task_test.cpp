@@ -469,6 +469,40 @@ TEST_F(TestReadTask, testUnknownFieldSkipsIndex) {
     ASSERT_NIL(source->stop());
 }
 
+/// @brief it should read a structure field once the server adds its node, on the same
+/// connection.
+TEST_F(TestReadTask, testReadsFieldOfAddedNode) {
+    server->stop();
+    server->cfg.motor.reset();
+    server->start();
+    ASSERT_TRUE(server->wait_until_ready());
+    const auto source = this->create_source(this->motor_cfg({"Speed"}));
+    ASSERT_NIL(source->start());
+    x::breaker::Breaker breaker;
+    x::telem::Frame fr;
+    const auto missing = source->read(breaker, fr);
+    ASSERT_NIL(missing.error);
+    EXPECT_EQ(missing.warning.message, "Received bad values");
+    EXPECT_TRUE(fr.empty());
+    const auto sessions = server->sessions_created.load();
+    server->add_motor({
+        .speed = 1500.0,
+        .running = true,
+        .position = {.x = 1.5F, .y = 2.5F},
+    });
+    ASSERT_EVENTUALLY_TRUE_WITH_TIMEOUT(
+        [&] {
+            fr.clear();
+            return !source->read(breaker, fr).error && !fr.empty();
+        }(),
+        std::chrono::seconds(20),
+        std::chrono::milliseconds(100)
+    );
+    EXPECT_EQ(fr.at<double>(this->double_channel.key, 0), 1500.0);
+    EXPECT_EQ(server->sessions_created.load(), sessions);
+    ASSERT_NIL(source->stop());
+}
+
 /// @brief it should reject a structure field in array mode.
 TEST_F(TestReadTask, testRejectsFieldInArrayMode) {
     auto cfg_json = this->motor_cfg({"Speed"});
