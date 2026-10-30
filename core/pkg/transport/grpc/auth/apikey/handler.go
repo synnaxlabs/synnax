@@ -19,7 +19,6 @@ import (
 	apiapikey "github.com/synnaxlabs/synnax/pkg/api/auth/apikey"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	grpcauth "github.com/synnaxlabs/synnax/pkg/transport/grpc/auth"
-	"github.com/synnaxlabs/x/telem"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -53,19 +52,19 @@ type (
 )
 
 var (
-	_ grpc.Translator[apiapikey.CreateRequest, *grpcauth.APIKeyCreateRequest] = (*createRequestTranslator)(
+	_ grpc.BackwardTranslator[apiapikey.CreateRequest, *grpcauth.APIKeyCreateRequest] = (*createRequestTranslator)(
 		nil,
 	)
-	_ grpc.Translator[apiapikey.CreateResponse, *grpcauth.APIKeyCreateResponse] = (*createResponseTranslator)(
+	_ grpc.ForwardTranslator[apiapikey.CreateResponse, *grpcauth.APIKeyCreateResponse] = (*createResponseTranslator)(
 		nil,
 	)
-	_ grpc.Translator[apiapikey.RetrieveRequest, *grpcauth.APIKeyRetrieveRequest] = (*retrieveRequestTranslator)(
+	_ grpc.BackwardTranslator[apiapikey.RetrieveRequest, *grpcauth.APIKeyRetrieveRequest] = (*retrieveRequestTranslator)(
 		nil,
 	)
-	_ grpc.Translator[apiapikey.RetrieveResponse, *grpcauth.APIKeyRetrieveResponse] = (*retrieveResponseTranslator)(
+	_ grpc.ForwardTranslator[apiapikey.RetrieveResponse, *grpcauth.APIKeyRetrieveResponse] = (*retrieveResponseTranslator)(
 		nil,
 	)
-	_ grpc.Translator[apiapikey.DeleteRequest, *grpcauth.APIKeyDeleteRequest] = (*deleteRequestTranslator)(
+	_ grpc.BackwardTranslator[apiapikey.DeleteRequest, *grpcauth.APIKeyDeleteRequest] = (*deleteRequestTranslator)(
 		nil,
 	)
 )
@@ -77,32 +76,6 @@ func apiKeyForward(k apiapikey.APIKey) *grpcauth.APIKey {
 		Name:    k.Name,
 		Created: int64(k.Created),
 	}
-}
-
-func apiKeyBackward(k *grpcauth.APIKey) (apiapikey.APIKey, error) {
-	if k == nil {
-		return apiapikey.APIKey{}, nil
-	}
-	key, err := uuid.Parse(k.Key)
-	if err != nil {
-		return apiapikey.APIKey{}, err
-	}
-	return apiapikey.APIKey{
-		Key:     key,
-		Subject: grpcauth.SubjectBackward(k.Subject),
-		Name:    k.Name,
-		Created: telem.TimeStamp(k.Created),
-	}, nil
-}
-
-func (createRequestTranslator) Forward(
-	_ context.Context,
-	r apiapikey.CreateRequest,
-) (*grpcauth.APIKeyCreateRequest, error) {
-	return &grpcauth.APIKeyCreateRequest{
-		Subject: grpcauth.SubjectForward(r.Subject),
-		Name:    r.Name,
-	}, nil
 }
 
 func (createRequestTranslator) Backward(
@@ -125,28 +98,6 @@ func (createResponseTranslator) Forward(
 	}, nil
 }
 
-func (createResponseTranslator) Backward(
-	_ context.Context,
-	r *grpcauth.APIKeyCreateResponse,
-) (apiapikey.CreateResponse, error) {
-	k, err := apiKeyBackward(r.Key)
-	if err != nil {
-		return apiapikey.CreateResponse{}, err
-	}
-	return apiapikey.CreateResponse{Token: r.Token, Key: k}, nil
-}
-
-func (retrieveRequestTranslator) Forward(
-	_ context.Context,
-	r apiapikey.RetrieveRequest,
-) (*grpcauth.APIKeyRetrieveRequest, error) {
-	return &grpcauth.APIKeyRetrieveRequest{
-		Subjects: lo.Map(r.Subjects, func(id ontology.ID, _ int) *grpcauth.Subject {
-			return grpcauth.SubjectForward(id)
-		}),
-	}, nil
-}
-
 func (retrieveRequestTranslator) Backward(
 	_ context.Context,
 	r *grpcauth.APIKeyRetrieveRequest,
@@ -166,30 +117,6 @@ func (retrieveResponseTranslator) Forward(
 		Keys: lo.Map(r.Keys, func(k apiapikey.APIKey, _ int) *grpcauth.APIKey {
 			return apiKeyForward(k)
 		}),
-	}, nil
-}
-
-func (retrieveResponseTranslator) Backward(
-	_ context.Context,
-	r *grpcauth.APIKeyRetrieveResponse,
-) (apiapikey.RetrieveResponse, error) {
-	keys := make([]apiapikey.APIKey, 0, len(r.Keys))
-	for _, pk := range r.Keys {
-		k, err := apiKeyBackward(pk)
-		if err != nil {
-			return apiapikey.RetrieveResponse{}, err
-		}
-		keys = append(keys, k)
-	}
-	return apiapikey.RetrieveResponse{Keys: keys}, nil
-}
-
-func (deleteRequestTranslator) Forward(
-	_ context.Context,
-	r apiapikey.DeleteRequest,
-) (*grpcauth.APIKeyDeleteRequest, error) {
-	return &grpcauth.APIKeyDeleteRequest{
-		Keys: lo.Map(r.Keys, func(k uuid.UUID, _ int) string { return k.String() }),
 	}, nil
 }
 

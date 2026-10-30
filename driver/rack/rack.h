@@ -18,7 +18,11 @@
 #include <winsock2.h>
 #endif
 
+#include <algorithm>
 #include <filesystem>
+#include <iterator>
+#include <string>
+#include <vector>
 
 #include "absl/log/log.h"
 
@@ -28,7 +32,6 @@
 #include "x/cpp/thread/rt/rt.h"
 #include "x/cpp/uuid/uuid.h"
 
-#include "driver/labjack/labjack.h"
 #ifndef SYNNAX_NILINUXRT
 #include "driver/modbus/modbus.h"
 #endif
@@ -36,7 +39,6 @@
 #include "driver/common/sample_clock.h"
 #include "driver/ethercat/ethercat.h"
 #include "driver/http/http.h"
-#include "driver/ni/ni.h"
 #include "driver/opcua/opcua.h"
 #include "driver/task/task.h"
 
@@ -74,15 +76,20 @@ struct RemoteInfo {
     }
 };
 
-inline std::vector<std::string> default_integrations() {
+/// @brief returns the integrations that this platform's build adds to the ones every
+/// build has. Each platform defines it in its own source.
+std::vector<std::string> platform_integrations();
+
+/// @brief returns the integrations that this build runs. A config enables all of them
+/// unless it names its own.
+inline std::vector<std::string> built_integrations() {
     std::vector<std::string> integrations = {
         opcua::INTEGRATION_NAME,
-        ni::INTEGRATION_NAME,
-        labjack::INTEGRATION_NAME,
         arc::INTEGRATION_NAME,
         ethercat::INTEGRATION_NAME,
         http::INTEGRATION_NAME
     };
+    std::ranges::copy(platform_integrations(), std::back_inserter(integrations));
 #ifndef SYNNAX_NILINUXRT
     integrations.push_back(modbus::INTEGRATION_NAME);
 #endif
@@ -132,21 +139,6 @@ struct Config {
     /// @brief returns true if the integration with the given name is enabled.
     [[nodiscard]] bool integration_enabled(const std::string &i) const;
 
-    /// @brief returns the list of integrations that are actually available
-    /// at runtime, filtering out NI and LabJack if their SDK libraries
-    /// are not present.
-    [[nodiscard]] std::vector<std::string> supported_integrations() const {
-        std::vector<std::string> result;
-        const bool supports_ni = ni::integration_supported();
-        const bool supports_labjack = labjack::integration_supported();
-        for (const auto &i: this->integrations) {
-            if (i == ni::INTEGRATION_NAME && !supports_ni) continue;
-            if (i == labjack::INTEGRATION_NAME && !supports_labjack) continue;
-            result.push_back(i);
-        }
-        return result;
-    }
-
     friend std::ostream &operator<<(std::ostream &os, const Config &cfg) {
         os << "configuration:\n"
            << cfg.connection << "\n"
@@ -174,7 +166,7 @@ struct Config {
                     .username = "",
                     .password = "",
                 },
-            .integrations = default_integrations(),
+            .integrations = built_integrations(),
         };
         VLOG(1) << "loading configuration from persisted state";
         if (const auto err = cfg.load_persisted_state(parser)) return {cfg, err};

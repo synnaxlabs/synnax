@@ -50,9 +50,9 @@ class ConsoleTaskCase(SimulatorCase, ConsoleCase):
     TASK_DURATION: sy.TimeSpan = 1 * sy.TimeSpan.SECOND
     task_names: list[str]
 
-    def setup(self) -> None:
+    def __init__(self, **params: Any) -> None:
+        super().__init__(**params)
         self.task_names = []
-        super().setup()
 
     def teardown(self) -> None:
         try:

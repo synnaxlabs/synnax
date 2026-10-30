@@ -28,4 +28,5 @@ export const LEVEL_SIZES: Record<text.Level, Component.Size> = {
   h5: "small",
   p: "medium",
   small: "tiny",
+  tiny: "medium",
 };

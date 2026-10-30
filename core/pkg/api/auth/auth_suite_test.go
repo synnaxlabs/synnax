@@ -15,7 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	disttestutil "github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
@@ -36,7 +36,7 @@ func TestAPIAuth(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
-	node        mock.Node
+	node        disttestutil.Node
 	authSvc     *auth.Service
 	passwordSvc *password.Service
 	apiKeySvc   *apikey.Service
@@ -51,7 +51,7 @@ var (
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	node = mock.NewNode(ctx)
+	node = disttestutil.NewNode(ctx)
 	db := node.DB
 	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
