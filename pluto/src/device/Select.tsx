@@ -36,7 +36,11 @@ const ListItem = ({ itemKey, ...rest }: List.ItemRenderProps<device.Key>) => {
     >
       <Text.Text align="center" className={CSS.BE("device", "list-item-name")}>
         <StatusIndicator status={status} />
-        <Text.Text el="span" overflow="fade">
+        <Text.Text
+          el="span"
+          overflow="fade"
+          className={CSS.BE("device", "list-item-label")}
+        >
           {name}
         </Text.Text>
       </Text.Text>

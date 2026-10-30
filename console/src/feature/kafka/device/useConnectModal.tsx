@@ -255,7 +255,7 @@ export const Connect = ({
       <Modal.Body gap="large" justify="start">
         <Form.Form<PDevice.FormSchema<typeof SCHEMAS>> {...form}>
           <Form.TextField path="name" showLabel={false} inputProps={NAME_INPUT_PROPS} />
-          <Form.Sections>
+          <Form.Sections className={CSS.BE("kafka-connect", "sections")}>
             <Form.Section title="Connection">
               <BrokersField />
               <PlatformDevice.RackField integration={INTEGRATION} />

@@ -146,7 +146,13 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
       className={CSS.cls(CSS.B("kafka-item"), disabled && CSS.M("off"))}
     >
       <Flex.Box x align="center" gap="small" className={CSS.BE("kafka-item", "label")}>
-        <Text.Text level="p" weight={500} color={name == null ? 8 : 10} overflow="fade">
+        <Text.Text
+          level="p"
+          weight={500}
+          color={name == null ? 8 : 10}
+          overflow="fade"
+          className={CSS.BE("kafka-item", "name")}
+        >
           {name ?? "Select a channel"}
         </Text.Text>
         <Text.Text level="small" color={9}>

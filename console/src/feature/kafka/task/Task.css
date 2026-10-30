@@ -14,28 +14,22 @@
     overflow-y: auto;
 
     /* Fits "Time format", so the controls hold still when it shows or hides. */
-    &.pluto-form-sections.pluto--direction-y {
-        grid-template-columns: minmax(11rem, max-content) minmax(0, 1fr);
-    }
+    grid-template-columns: minmax(11rem, max-content) minmax(0, 1fr);
 }
 
 /* Long names truncate inside the row instead of widening it past the list. The label
    keeps its width up to a cap, so the channel name gives way first. */
-.console-kafka-item__label,
-.console-kafka-item__channel {
+.console-kafka-item__label {
+    flex-shrink: 0;
     min-width: 0;
+    max-width: 60%;
 
-    > .pluto-text--overflow-ellipsis {
+    > .console-kafka-item__name {
         min-width: 0;
     }
 }
 
-.console-kafka-item__label {
-    flex-shrink: 0;
-    max-width: 60%;
-}
-
-.console-kafka-item--off .console-kafka-item__label {
+.console-kafka-item.console--off .console-kafka-item__label {
     opacity: 0.6;
 }
 

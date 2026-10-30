@@ -12,13 +12,13 @@
 .pluto-device__list-item-name {
     min-width: 0;
 
-    & > .pluto-text--overflow-fade {
-        min-width: 0;
-    }
-
     & p:last-child {
         flex-shrink: 0;
     }
+}
+
+.pluto-device__list-item-label {
+    min-width: 0;
 }
 
 .pluto-device__list-item-location {
