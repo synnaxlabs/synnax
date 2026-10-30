@@ -10,34 +10,32 @@
 import { box, xy } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import {
-  alignNodesAlongDirection,
-  alignNodesToLocation,
-  distributeNodes,
-  rotateNodesAroundCenter,
-} from "@/vis/diagram/align";
-import { HandleLayout, NodeLayout } from "@/vis/diagram/util";
+import { Diagram } from "@/vis/diagram";
 
 describe("align", () => {
   interface Spec {
     name: string;
-    inputs: NodeLayout[];
+    inputs: Diagram.NodeLayout[];
     outputs: xy.XY[];
   }
 
   const TWO_NODES_SAME_DIMS_SAME_HANDLES: Spec = {
     name: "nodes have same dimensions and handle positions",
     inputs: [
-      new NodeLayout("n1", box.construct(xy.ZERO, { width: 100, height: 100 }), [
-        new HandleLayout({ x: 0, y: 50 }, "left"),
-        new HandleLayout({ x: 100, y: 50 }, "right"),
-      ]),
-      new NodeLayout(
+      new Diagram.NodeLayout(
+        "n1",
+        box.construct(xy.ZERO, { width: 100, height: 100 }),
+        [
+          new Diagram.HandleLayout({ x: 0, y: 50 }, "left"),
+          new Diagram.HandleLayout({ x: 100, y: 50 }, "right"),
+        ],
+      ),
+      new Diagram.NodeLayout(
         "n2",
         box.construct({ x: 10, y: 10 }, { width: 100, height: 100 }),
         [
-          new HandleLayout({ x: 0, y: 50 }, "left"),
-          new HandleLayout({ x: 100, y: 50 }, "right"),
+          new Diagram.HandleLayout({ x: 0, y: 50 }, "left"),
+          new Diagram.HandleLayout({ x: 100, y: 50 }, "right"),
         ],
       ),
     ],
@@ -50,16 +48,20 @@ describe("align", () => {
   const TWO_NODES_SAME_DIMS_DIFF_HANDLES: Spec = {
     name: "nodes have same dimensions but different handle positions",
     inputs: [
-      new NodeLayout("n1", box.construct(xy.ZERO, { width: 100, height: 100 }), [
-        new HandleLayout({ x: 0, y: 50 }, "left"),
-        new HandleLayout({ x: 100, y: 50 }, "right"),
-      ]),
-      new NodeLayout(
+      new Diagram.NodeLayout(
+        "n1",
+        box.construct(xy.ZERO, { width: 100, height: 100 }),
+        [
+          new Diagram.HandleLayout({ x: 0, y: 50 }, "left"),
+          new Diagram.HandleLayout({ x: 100, y: 50 }, "right"),
+        ],
+      ),
+      new Diagram.NodeLayout(
         "n2",
         box.construct({ x: 10, y: 10 }, { width: 100, height: 100 }),
         [
-          new HandleLayout({ x: 0, y: 60 }, "left"),
-          new HandleLayout({ x: 100, y: 50 }, "right"),
+          new Diagram.HandleLayout({ x: 0, y: 60 }, "left"),
+          new Diagram.HandleLayout({ x: 100, y: 50 }, "right"),
         ],
       ),
     ],
@@ -72,16 +74,20 @@ describe("align", () => {
   const TWO_NODES_DIFF_DIMS_SAME_HANDLES: Spec = {
     name: "nodes have different dimensions but same handle positions",
     inputs: [
-      new NodeLayout("n1", box.construct(xy.ZERO, { width: 100, height: 100 }), [
-        new HandleLayout({ x: 0, y: 50 }, "left"),
-        new HandleLayout({ x: 100, y: 50 }, "right"),
-      ]),
-      new NodeLayout(
+      new Diagram.NodeLayout(
+        "n1",
+        box.construct(xy.ZERO, { width: 100, height: 100 }),
+        [
+          new Diagram.HandleLayout({ x: 0, y: 50 }, "left"),
+          new Diagram.HandleLayout({ x: 100, y: 50 }, "right"),
+        ],
+      ),
+      new Diagram.NodeLayout(
         "n2",
         box.construct({ x: 10, y: 10 }, { width: 120, height: 120 }),
         [
-          new HandleLayout({ x: 0, y: 50 }, "left"),
-          new HandleLayout({ x: 100, y: 50 }, "right"),
+          new Diagram.HandleLayout({ x: 0, y: 50 }, "left"),
+          new Diagram.HandleLayout({ x: 100, y: 50 }, "right"),
         ],
       ),
     ],
@@ -94,24 +100,28 @@ describe("align", () => {
   const THREE_NODES_SAME_DIMS_SAME_HANDLES: Spec = {
     name: "nodes have same dimensions and handle positions",
     inputs: [
-      new NodeLayout("n1", box.construct(xy.ZERO, { width: 100, height: 100 }), [
-        new HandleLayout({ x: 0, y: 50 }, "left"),
-        new HandleLayout({ x: 100, y: 50 }, "right"),
-      ]),
-      new NodeLayout(
+      new Diagram.NodeLayout(
+        "n1",
+        box.construct(xy.ZERO, { width: 100, height: 100 }),
+        [
+          new Diagram.HandleLayout({ x: 0, y: 50 }, "left"),
+          new Diagram.HandleLayout({ x: 100, y: 50 }, "right"),
+        ],
+      ),
+      new Diagram.NodeLayout(
         "n2",
         box.construct({ x: 10, y: 10 }, { width: 100, height: 100 }),
         [
-          new HandleLayout({ x: 0, y: 50 }, "left"),
-          new HandleLayout({ x: 100, y: 50 }, "right"),
+          new Diagram.HandleLayout({ x: 0, y: 50 }, "left"),
+          new Diagram.HandleLayout({ x: 100, y: 50 }, "right"),
         ],
       ),
-      new NodeLayout(
+      new Diagram.NodeLayout(
         "n3",
         box.construct({ x: 20, y: 20 }, { width: 100, height: 100 }),
         [
-          new HandleLayout({ x: 0, y: 50 }, "left"),
-          new HandleLayout({ x: 100, y: 50 }, "right"),
+          new Diagram.HandleLayout({ x: 0, y: 50 }, "left"),
+          new Diagram.HandleLayout({ x: 100, y: 50 }, "right"),
         ],
       ),
     ],
@@ -125,24 +135,28 @@ describe("align", () => {
   const THREE_NODES_SAME_DIMS_DIFF_HANDLES: Spec = {
     name: "nodes have same dimensions but different handle positions",
     inputs: [
-      new NodeLayout("n1", box.construct(xy.ZERO, { width: 100, height: 100 }), [
-        new HandleLayout({ x: 0, y: 50 }, "left"),
-        new HandleLayout({ x: 100, y: 50 }, "right"),
-      ]),
-      new NodeLayout(
+      new Diagram.NodeLayout(
+        "n1",
+        box.construct(xy.ZERO, { width: 100, height: 100 }),
+        [
+          new Diagram.HandleLayout({ x: 0, y: 50 }, "left"),
+          new Diagram.HandleLayout({ x: 100, y: 50 }, "right"),
+        ],
+      ),
+      new Diagram.NodeLayout(
         "n2",
         box.construct({ x: 10, y: 10 }, { width: 100, height: 100 }),
         [
-          new HandleLayout({ x: 0, y: 60 }, "left"),
-          new HandleLayout({ x: 100, y: 50 }, "right"),
+          new Diagram.HandleLayout({ x: 0, y: 60 }, "left"),
+          new Diagram.HandleLayout({ x: 100, y: 50 }, "right"),
         ],
       ),
-      new NodeLayout(
+      new Diagram.NodeLayout(
         "n3",
         box.construct({ x: 20, y: 20 }, { width: 100, height: 100 }),
         [
-          new HandleLayout({ x: 0, y: 40 }, "left"),
-          new HandleLayout({ x: 100, y: 50 }, "right"),
+          new Diagram.HandleLayout({ x: 0, y: 40 }, "left"),
+          new Diagram.HandleLayout({ x: 100, y: 50 }, "right"),
         ],
       ),
     ],
@@ -163,30 +177,30 @@ describe("align", () => {
 
   for (const spec of SPECS)
     it(spec.name, () => {
-      const outputs = alignNodesAlongDirection(spec.inputs);
+      const outputs = Diagram.alignNodesAlongDirection(spec.inputs);
       expect(outputs.map((o) => box.topLeft(o.box))).toEqual(spec.outputs);
     });
 
   describe("align left", () => {
     it("should align all nodes to the leftmost node's left edge", () => {
       const inputs = [
-        new NodeLayout(
+        new Diagram.NodeLayout(
           "n1",
           box.construct({ x: 10, y: 0 }, { width: 100, height: 100 }),
           [],
         ),
-        new NodeLayout(
+        new Diagram.NodeLayout(
           "n2",
           box.construct({ x: 50, y: 50 }, { width: 100, height: 100 }),
           [],
         ),
-        new NodeLayout(
+        new Diagram.NodeLayout(
           "n3",
           box.construct({ x: 0, y: 100 }, { width: 100, height: 100 }),
           [],
         ),
       ];
-      const outputs = alignNodesToLocation(inputs, "left");
+      const outputs = Diagram.alignNodesToLocation(inputs, "left");
       expect(outputs.map((o) => box.topLeft(o.box))).toEqual([
         { x: 0, y: 0 },
         { x: 0, y: 50 },
@@ -196,18 +210,18 @@ describe("align", () => {
 
     it("should handle nodes with different widths", () => {
       const inputs = [
-        new NodeLayout(
+        new Diagram.NodeLayout(
           "n1",
           box.construct({ x: 20, y: 0 }, { width: 80, height: 100 }),
           [],
         ),
-        new NodeLayout(
+        new Diagram.NodeLayout(
           "n2",
           box.construct({ x: 10, y: 50 }, { width: 120, height: 100 }),
           [],
         ),
       ];
-      const outputs = alignNodesToLocation(inputs, "left");
+      const outputs = Diagram.alignNodesToLocation(inputs, "left");
       expect(outputs.map((o) => box.topLeft(o.box))).toEqual([
         { x: 10, y: 0 },
         { x: 10, y: 50 },
@@ -218,23 +232,23 @@ describe("align", () => {
   describe("align right", () => {
     it("should align all nodes to the rightmost node's right edge", () => {
       const inputs = [
-        new NodeLayout(
+        new Diagram.NodeLayout(
           "n1",
           box.construct({ x: 10, y: 0 }, { width: 100, height: 100 }),
           [],
         ),
-        new NodeLayout(
+        new Diagram.NodeLayout(
           "n2",
           box.construct({ x: 50, y: 50 }, { width: 100, height: 100 }),
           [],
         ),
-        new NodeLayout(
+        new Diagram.NodeLayout(
           "n3",
           box.construct({ x: 0, y: 100 }, { width: 100, height: 100 }),
           [],
         ),
       ];
-      const outputs = alignNodesToLocation(inputs, "right");
+      const outputs = Diagram.alignNodesToLocation(inputs, "right");
       expect(outputs.map((o) => box.topLeft(o.box))).toEqual([
         { x: 50, y: 0 },
         { x: 50, y: 50 },
@@ -244,18 +258,18 @@ describe("align", () => {
 
     it("should handle nodes with different widths", () => {
       const inputs = [
-        new NodeLayout(
+        new Diagram.NodeLayout(
           "n1",
           box.construct({ x: 20, y: 0 }, { width: 80, height: 100 }),
           [],
         ),
-        new NodeLayout(
+        new Diagram.NodeLayout(
           "n2",
           box.construct({ x: 10, y: 50 }, { width: 120, height: 100 }),
           [],
         ),
       ];
-      const outputs = alignNodesToLocation(inputs, "right");
+      const outputs = Diagram.alignNodesToLocation(inputs, "right");
       expect(outputs.map((o) => box.topLeft(o.box))).toEqual([
         { x: 50, y: 0 },
         { x: 10, y: 50 },
@@ -266,23 +280,23 @@ describe("align", () => {
   describe("align top", () => {
     it("should align all nodes to the topmost node's top edge", () => {
       const inputs = [
-        new NodeLayout(
+        new Diagram.NodeLayout(
           "n1",
           box.construct({ x: 0, y: 10 }, { width: 100, height: 100 }),
           [],
         ),
-        new NodeLayout(
+        new Diagram.NodeLayout(
           "n2",
           box.construct({ x: 50, y: 50 }, { width: 100, height: 100 }),
           [],
         ),
-        new NodeLayout(
+        new Diagram.NodeLayout(
           "n3",
           box.construct({ x: 100, y: 0 }, { width: 100, height: 100 }),
           [],
         ),
       ];
-      const outputs = alignNodesToLocation(inputs, "top");
+      const outputs = Diagram.alignNodesToLocation(inputs, "top");
       expect(outputs.map((o) => box.topLeft(o.box))).toEqual([
         { x: 0, y: 0 },
         { x: 50, y: 0 },
@@ -292,18 +306,18 @@ describe("align", () => {
 
     it("should handle nodes with different heights", () => {
       const inputs = [
-        new NodeLayout(
+        new Diagram.NodeLayout(
           "n1",
           box.construct({ x: 0, y: 20 }, { width: 100, height: 80 }),
           [],
         ),
-        new NodeLayout(
+        new Diagram.NodeLayout(
           "n2",
           box.construct({ x: 50, y: 10 }, { width: 100, height: 120 }),
           [],
         ),
       ];
-      const outputs = alignNodesToLocation(inputs, "top");
+      const outputs = Diagram.alignNodesToLocation(inputs, "top");
       expect(outputs.map((o) => box.topLeft(o.box))).toEqual([
         { x: 0, y: 10 },
         { x: 50, y: 10 },
@@ -314,23 +328,23 @@ describe("align", () => {
   describe("align bottom", () => {
     it("should align all nodes to the bottommost node's bottom edge", () => {
       const inputs = [
-        new NodeLayout(
+        new Diagram.NodeLayout(
           "n1",
           box.construct({ x: 0, y: 10 }, { width: 100, height: 100 }),
           [],
         ),
-        new NodeLayout(
+        new Diagram.NodeLayout(
           "n2",
           box.construct({ x: 50, y: 50 }, { width: 100, height: 100 }),
           [],
         ),
-        new NodeLayout(
+        new Diagram.NodeLayout(
           "n3",
           box.construct({ x: 100, y: 0 }, { width: 100, height: 100 }),
           [],
         ),
       ];
-      const outputs = alignNodesToLocation(inputs, "bottom");
+      const outputs = Diagram.alignNodesToLocation(inputs, "bottom");
       expect(outputs.map((o) => box.topLeft(o.box))).toEqual([
         { x: 0, y: 50 },
         { x: 50, y: 50 },
@@ -340,18 +354,18 @@ describe("align", () => {
 
     it("should handle nodes with different heights", () => {
       const inputs = [
-        new NodeLayout(
+        new Diagram.NodeLayout(
           "n1",
           box.construct({ x: 0, y: 20 }, { width: 100, height: 80 }),
           [],
         ),
-        new NodeLayout(
+        new Diagram.NodeLayout(
           "n2",
           box.construct({ x: 50, y: 10 }, { width: 100, height: 120 }),
           [],
         ),
       ];
-      const outputs = alignNodesToLocation(inputs, "bottom");
+      const outputs = Diagram.alignNodesToLocation(inputs, "bottom");
       expect(outputs.map((o) => box.topLeft(o.box))).toEqual([
         { x: 0, y: 50 },
         { x: 50, y: 10 },
@@ -364,23 +378,23 @@ describe("distribute", () => {
   describe("distribute horizontal", () => {
     it("should distribute three nodes with equal spacing", () => {
       const inputs = [
-        new NodeLayout(
+        new Diagram.NodeLayout(
           "n1",
           box.construct({ x: 0, y: 0 }, { width: 100, height: 100 }),
           [],
         ),
-        new NodeLayout(
+        new Diagram.NodeLayout(
           "n2",
           box.construct({ x: 150, y: 0 }, { width: 100, height: 100 }),
           [],
         ),
-        new NodeLayout(
+        new Diagram.NodeLayout(
           "n3",
           box.construct({ x: 400, y: 0 }, { width: 100, height: 100 }),
           [],
         ),
       ];
-      const outputs = distributeNodes(inputs, "x");
+      const outputs = Diagram.distributeNodes(inputs, "x");
       // Total space: 400 - 100 = 300 Middle width: 100 Gap size: (300 - 100) / 2 = 100
       expect(outputs.map((o) => box.topLeft(o.box))).toEqual([
         { x: 0, y: 0 }, // First stays at 0
@@ -391,23 +405,23 @@ describe("distribute", () => {
 
     it("should distribute nodes with different widths", () => {
       const inputs = [
-        new NodeLayout(
+        new Diagram.NodeLayout(
           "n1",
           box.construct({ x: 0, y: 0 }, { width: 50, height: 100 }),
           [],
         ),
-        new NodeLayout(
+        new Diagram.NodeLayout(
           "n2",
           box.construct({ x: 100, y: 0 }, { width: 100, height: 100 }),
           [],
         ),
-        new NodeLayout(
+        new Diagram.NodeLayout(
           "n3",
           box.construct({ x: 300, y: 0 }, { width: 50, height: 100 }),
           [],
         ),
       ];
-      const outputs = distributeNodes(inputs, "x");
+      const outputs = Diagram.distributeNodes(inputs, "x");
       // Total space: 300 - 50 = 250 Middle width: 100 Gap size: (250 - 100) / 2 = 75
       expect(outputs.map((o) => box.topLeft(o.box))).toEqual([
         { x: 0, y: 0 }, // First stays
@@ -418,28 +432,28 @@ describe("distribute", () => {
 
     it("should handle four nodes", () => {
       const inputs = [
-        new NodeLayout(
+        new Diagram.NodeLayout(
           "n1",
           box.construct({ x: 0, y: 0 }, { width: 100, height: 100 }),
           [],
         ),
-        new NodeLayout(
+        new Diagram.NodeLayout(
           "n2",
           box.construct({ x: 150, y: 0 }, { width: 100, height: 100 }),
           [],
         ),
-        new NodeLayout(
+        new Diagram.NodeLayout(
           "n3",
           box.construct({ x: 250, y: 0 }, { width: 100, height: 100 }),
           [],
         ),
-        new NodeLayout(
+        new Diagram.NodeLayout(
           "n4",
           box.construct({ x: 600, y: 0 }, { width: 100, height: 100 }),
           [],
         ),
       ];
-      const outputs = distributeNodes(inputs, "x");
+      const outputs = Diagram.distributeNodes(inputs, "x");
       // Total space: 600 - 100 = 500 Middle widths: 100 + 100 = 200 Gap size: (500 -
       // 200) / 3 = 100
       expect(outputs.map((o) => box.topLeft(o.box))).toEqual([
@@ -452,46 +466,46 @@ describe("distribute", () => {
 
     it("should preserve y positions", () => {
       const inputs = [
-        new NodeLayout(
+        new Diagram.NodeLayout(
           "n1",
           box.construct({ x: 0, y: 50 }, { width: 100, height: 100 }),
           [],
         ),
-        new NodeLayout(
+        new Diagram.NodeLayout(
           "n2",
           box.construct({ x: 150, y: 100 }, { width: 100, height: 100 }),
           [],
         ),
-        new NodeLayout(
+        new Diagram.NodeLayout(
           "n3",
           box.construct({ x: 400, y: 25 }, { width: 100, height: 100 }),
           [],
         ),
       ];
-      const outputs = distributeNodes(inputs, "x");
+      const outputs = Diagram.distributeNodes(inputs, "x");
       expect(outputs.map((o) => box.top(o.box))).toEqual([50, 100, 25]);
     });
 
     it("should distribute evenly even when nodes would overlap", () => {
       // Nodes are bunched together - distribution results in overlapping
       const inputs = [
-        new NodeLayout(
+        new Diagram.NodeLayout(
           "n1",
           box.construct({ x: 0, y: 0 }, { width: 100, height: 100 }),
           [],
         ),
-        new NodeLayout(
+        new Diagram.NodeLayout(
           "n2",
           box.construct({ x: 50, y: 0 }, { width: 100, height: 100 }),
           [],
         ),
-        new NodeLayout(
+        new Diagram.NodeLayout(
           "n3",
           box.construct({ x: 100, y: 0 }, { width: 100, height: 100 }),
           [],
         ),
       ];
-      const outputs = distributeNodes(inputs, "x");
+      const outputs = Diagram.distributeNodes(inputs, "x");
       // Total space: 100 - 100 = 0 Middle width: 100 Gap: (0 - 100) / 2 = -50 Middle
       // node: 100 (first right) + (-50) = 50
       expect(outputs.map((o) => box.topLeft(o.box))).toEqual([
@@ -504,23 +518,23 @@ describe("distribute", () => {
     it("should maintain original x-sorted order when distributing", () => {
       // Nodes in different positions - sorted by x, then distributed evenly
       const inputs = [
-        new NodeLayout(
+        new Diagram.NodeLayout(
           "n1",
           box.construct({ x: 50, y: 100 }, { width: 100, height: 100 }),
           [],
         ), // Middle horizontally
-        new NodeLayout(
+        new Diagram.NodeLayout(
           "n2",
           box.construct({ x: 0, y: 200 }, { width: 100, height: 100 }),
           [],
         ), // Leftmost
-        new NodeLayout(
+        new Diagram.NodeLayout(
           "n3",
           box.construct({ x: 100, y: 0 }, { width: 100, height: 100 }),
           [],
         ), // Rightmost
       ];
-      const outputs = distributeNodes(inputs, "x");
+      const outputs = Diagram.distributeNodes(inputs, "x");
       // Sorted by x: n2 (x=0), n1 (x=50), n3 (x=100) Total space: 100 - 100 = 0, Gap:
       // (0 - 100) / 2 = -50 Middle (n1) at: 100 + (-50) = 50
       const n1 = outputs.find((o) => o.key === "n1")!;
@@ -536,23 +550,23 @@ describe("distribute", () => {
   describe("distribute vertical", () => {
     it("should distribute three nodes with equal spacing", () => {
       const inputs = [
-        new NodeLayout(
+        new Diagram.NodeLayout(
           "n1",
           box.construct({ x: 0, y: 0 }, { width: 100, height: 100 }),
           [],
         ),
-        new NodeLayout(
+        new Diagram.NodeLayout(
           "n2",
           box.construct({ x: 0, y: 150 }, { width: 100, height: 100 }),
           [],
         ),
-        new NodeLayout(
+        new Diagram.NodeLayout(
           "n3",
           box.construct({ x: 0, y: 400 }, { width: 100, height: 100 }),
           [],
         ),
       ];
-      const outputs = distributeNodes(inputs, "y");
+      const outputs = Diagram.distributeNodes(inputs, "y");
       // Total space: 400 - 100 = 300 Middle height: 100 Gap size: (300 - 100) / 2 = 100
       expect(outputs.map((o) => box.topLeft(o.box))).toEqual([
         { x: 0, y: 0 }, // First stays at 0
@@ -563,23 +577,23 @@ describe("distribute", () => {
 
     it("should distribute nodes with different heights", () => {
       const inputs = [
-        new NodeLayout(
+        new Diagram.NodeLayout(
           "n1",
           box.construct({ x: 0, y: 0 }, { width: 100, height: 50 }),
           [],
         ),
-        new NodeLayout(
+        new Diagram.NodeLayout(
           "n2",
           box.construct({ x: 0, y: 100 }, { width: 100, height: 100 }),
           [],
         ),
-        new NodeLayout(
+        new Diagram.NodeLayout(
           "n3",
           box.construct({ x: 0, y: 300 }, { width: 100, height: 50 }),
           [],
         ),
       ];
-      const outputs = distributeNodes(inputs, "y");
+      const outputs = Diagram.distributeNodes(inputs, "y");
       // Total space: 300 - 50 = 250 Middle height: 100 Gap size: (250 - 100) / 2 = 75
       expect(outputs.map((o) => box.topLeft(o.box))).toEqual([
         { x: 0, y: 0 }, // First stays
@@ -590,46 +604,46 @@ describe("distribute", () => {
 
     it("should preserve x positions", () => {
       const inputs = [
-        new NodeLayout(
+        new Diagram.NodeLayout(
           "n1",
           box.construct({ x: 50, y: 0 }, { width: 100, height: 100 }),
           [],
         ),
-        new NodeLayout(
+        new Diagram.NodeLayout(
           "n2",
           box.construct({ x: 100, y: 150 }, { width: 100, height: 100 }),
           [],
         ),
-        new NodeLayout(
+        new Diagram.NodeLayout(
           "n3",
           box.construct({ x: 25, y: 400 }, { width: 100, height: 100 }),
           [],
         ),
       ];
-      const outputs = distributeNodes(inputs, "y");
+      const outputs = Diagram.distributeNodes(inputs, "y");
       expect(outputs.map((o) => box.left(o.box))).toEqual([50, 100, 25]);
     });
 
     it("should distribute evenly even when nodes would overlap", () => {
       // Nodes are bunched together - distribution results in overlapping
       const inputs = [
-        new NodeLayout(
+        new Diagram.NodeLayout(
           "n1",
           box.construct({ x: 0, y: 0 }, { width: 100, height: 100 }),
           [],
         ),
-        new NodeLayout(
+        new Diagram.NodeLayout(
           "n2",
           box.construct({ x: 0, y: 50 }, { width: 100, height: 100 }),
           [],
         ),
-        new NodeLayout(
+        new Diagram.NodeLayout(
           "n3",
           box.construct({ x: 0, y: 100 }, { width: 100, height: 100 }),
           [],
         ),
       ];
-      const outputs = distributeNodes(inputs, "y");
+      const outputs = Diagram.distributeNodes(inputs, "y");
       // Total space: 100 - 100 = 0 Middle height: 100 Gap: (0 - 100) / 2 = -50 Middle
       // node: 100 (first bottom) + (-50) = 50
       expect(outputs.map((o) => box.topLeft(o.box))).toEqual([
@@ -643,51 +657,51 @@ describe("distribute", () => {
 
 describe("edge cases", () => {
   it("should return empty array for all operations with empty input", () => {
-    const layouts: NodeLayout[] = [];
+    const layouts: Diagram.NodeLayout[] = [];
 
-    expect(alignNodesAlongDirection(layouts)).toEqual([]);
-    expect(alignNodesToLocation(layouts, "left")).toEqual([]);
-    expect(distributeNodes(layouts, "x")).toEqual([]);
-    expect(rotateNodesAroundCenter(layouts, "clockwise")).toEqual([]);
+    expect(Diagram.alignNodesAlongDirection(layouts)).toEqual([]);
+    expect(Diagram.alignNodesToLocation(layouts, "left")).toEqual([]);
+    expect(Diagram.distributeNodes(layouts, "x")).toEqual([]);
+    expect(Diagram.rotateNodesAroundCenter(layouts, "clockwise")).toEqual([]);
   });
 
   it("should keep single element in place for alignment operations", () => {
     const layouts = [
-      new NodeLayout(
+      new Diagram.NodeLayout(
         "n1",
         box.construct({ x: 50, y: 50 }, { width: 100, height: 100 }),
         [],
       ),
     ];
 
-    const alignedLeft = alignNodesToLocation(layouts, "left");
+    const alignedLeft = Diagram.alignNodesToLocation(layouts, "left");
     expect(box.topLeft(alignedLeft[0].box)).toEqual({ x: 50, y: 50 });
 
-    const alignedRight = alignNodesToLocation(layouts, "right");
+    const alignedRight = Diagram.alignNodesToLocation(layouts, "right");
     expect(box.topLeft(alignedRight[0].box)).toEqual({ x: 50, y: 50 });
 
-    const alignedTop = alignNodesToLocation(layouts, "top");
+    const alignedTop = Diagram.alignNodesToLocation(layouts, "top");
     expect(box.topLeft(alignedTop[0].box)).toEqual({ x: 50, y: 50 });
 
-    const alignedBottom = alignNodesToLocation(layouts, "bottom");
+    const alignedBottom = Diagram.alignNodesToLocation(layouts, "bottom");
     expect(box.topLeft(alignedBottom[0].box)).toEqual({ x: 50, y: 50 });
   });
 
   it("should keep two elements at start and end for distribution", () => {
     const layouts = [
-      new NodeLayout(
+      new Diagram.NodeLayout(
         "n1",
         box.construct({ x: 0, y: 0 }, { width: 100, height: 100 }),
         [],
       ),
-      new NodeLayout(
+      new Diagram.NodeLayout(
         "n2",
         box.construct({ x: 500, y: 0 }, { width: 100, height: 100 }),
         [],
       ),
     ];
 
-    const distributed = distributeNodes(layouts, "x");
+    const distributed = Diagram.distributeNodes(layouts, "x");
 
     expect(box.left(distributed[0].box)).toBe(0);
     expect(box.left(distributed[1].box)).toBe(500);
@@ -696,19 +710,19 @@ describe("edge cases", () => {
 
 describe("rotateNodesAroundCenter", () => {
   it("should return empty array for empty input", () => {
-    const result = rotateNodesAroundCenter([], "clockwise");
+    const result = Diagram.rotateNodesAroundCenter([], "clockwise");
     expect(result).toEqual([]);
   });
 
   it("should rotate a single node around itself (stays in place)", () => {
     const inputs = [
-      new NodeLayout(
+      new Diagram.NodeLayout(
         "n1",
         box.construct({ x: 100, y: 100 }, { width: 50, height: 50 }),
         [],
       ),
     ];
-    const outputs = rotateNodesAroundCenter(inputs, "clockwise");
+    const outputs = Diagram.rotateNodesAroundCenter(inputs, "clockwise");
 
     // Single node's center is the group center, so it stays at same position
     expect(box.topLeft(outputs[0].box)).toEqual({ x: 100, y: 100 });
@@ -716,18 +730,18 @@ describe("rotateNodesAroundCenter", () => {
 
   it("should rotate two nodes 90 degrees clockwise around their center", () => {
     const inputs = [
-      new NodeLayout(
+      new Diagram.NodeLayout(
         "n1",
         box.construct({ x: 0, y: 0 }, { width: 100, height: 100 }),
         [],
       ),
-      new NodeLayout(
+      new Diagram.NodeLayout(
         "n2",
         box.construct({ x: 200, y: 0 }, { width: 100, height: 100 }),
         [],
       ),
     ];
-    const outputs = rotateNodesAroundCenter(inputs, "clockwise");
+    const outputs = Diagram.rotateNodesAroundCenter(inputs, "clockwise");
 
     // Group center: x=(0+300)/2=150, y=(0+100)/2=50
     // n1 center (50,50) relative to group center: (-100, 0)
@@ -741,18 +755,18 @@ describe("rotateNodesAroundCenter", () => {
 
   it("should rotate two nodes 90 degrees counterclockwise around their center", () => {
     const inputs = [
-      new NodeLayout(
+      new Diagram.NodeLayout(
         "n1",
         box.construct({ x: 0, y: 0 }, { width: 100, height: 100 }),
         [],
       ),
-      new NodeLayout(
+      new Diagram.NodeLayout(
         "n2",
         box.construct({ x: 200, y: 0 }, { width: 100, height: 100 }),
         [],
       ),
     ];
-    const outputs = rotateNodesAroundCenter(inputs, "counterclockwise");
+    const outputs = Diagram.rotateNodesAroundCenter(inputs, "counterclockwise");
 
     // Group center: x=150, y=50 n1 center (50,50) relative to group center: (-100, 0)
     // After 90° CCW: (0, 100) absolute: (150, 150), top-left: (100, 100)
@@ -765,18 +779,18 @@ describe("rotateNodesAroundCenter", () => {
 
   it("should preserve node dimensions after rotation", () => {
     const inputs = [
-      new NodeLayout(
+      new Diagram.NodeLayout(
         "n1",
         box.construct({ x: 0, y: 0 }, { width: 150, height: 80 }),
         [],
       ),
-      new NodeLayout(
+      new Diagram.NodeLayout(
         "n2",
         box.construct({ x: 200, y: 0 }, { width: 100, height: 120 }),
         [],
       ),
     ];
-    const outputs = rotateNodesAroundCenter(inputs, "clockwise");
+    const outputs = Diagram.rotateNodesAroundCenter(inputs, "clockwise");
 
     expect(box.dims(outputs[0].box)).toEqual({ width: 150, height: 80 });
     expect(box.dims(outputs[1].box)).toEqual({ width: 100, height: 120 });
@@ -784,23 +798,23 @@ describe("rotateNodesAroundCenter", () => {
 
   it("should handle three nodes in L-shape", () => {
     const inputs = [
-      new NodeLayout(
+      new Diagram.NodeLayout(
         "n1",
         box.construct({ x: 0, y: 0 }, { width: 100, height: 100 }),
         [],
       ),
-      new NodeLayout(
+      new Diagram.NodeLayout(
         "n2",
         box.construct({ x: 100, y: 0 }, { width: 100, height: 100 }),
         [],
       ),
-      new NodeLayout(
+      new Diagram.NodeLayout(
         "n3",
         box.construct({ x: 0, y: 100 }, { width: 100, height: 100 }),
         [],
       ),
     ];
-    const outputs = rotateNodesAroundCenter(inputs, "clockwise");
+    const outputs = Diagram.rotateNodesAroundCenter(inputs, "clockwise");
 
     // Verify all nodes have moved to new positions
     expect(outputs).toHaveLength(3);

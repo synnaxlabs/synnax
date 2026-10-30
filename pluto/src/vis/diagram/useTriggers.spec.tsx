@@ -12,12 +12,12 @@ import { fireEvent, renderHook } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import { useTriggers, type UseTriggersProps } from "@/vis/diagram/useTriggers";
+import { Diagram } from "@/vis/diagram";
 
 const noop = () => {};
 const noopCursor = () => {};
 
-const defaultProps: UseTriggersProps = {
+const defaultProps: Diagram.UseTriggersProps = {
   onUndo: noop,
   onRedo: noop,
   onCopy: noopCursor,
@@ -30,8 +30,8 @@ const wrapper = ({ children }: PropsWithChildren): ReactElement => (
   <Triggers.Provider>{children}</Triggers.Provider>
 );
 
-const renderTriggers = (props: Partial<UseTriggersProps>): void => {
-  renderHook(() => useTriggers({ ...defaultProps, ...props }), { wrapper });
+const renderTriggers = (props: Partial<Diagram.UseTriggersProps>): void => {
+  renderHook(() => Diagram.useTriggers({ ...defaultProps, ...props }), { wrapper });
 };
 
 describe("Diagram.useTriggers", () => {
