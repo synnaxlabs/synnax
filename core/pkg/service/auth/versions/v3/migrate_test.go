@@ -19,10 +19,10 @@ import (
 	v2 "github.com/synnaxlabs/synnax/pkg/service/auth/versions/v2"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/auth/versions/v3"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 var _ = Describe("v2 -> v3 Session migration", func() {

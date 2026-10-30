@@ -140,6 +140,7 @@ export const themeZ = z
       h5: text.specZ,
       p: text.specZ,
       small: text.specZ,
+      tiny: text.specZ,
     }),
     shadows: shadowsZ,
     symbol: symbolZ,
@@ -278,7 +279,8 @@ const SYNNAX_BASE: ThemeSpec = {
     h4: { size: 16 / baseSize, weight: 500, lineHeight: (16 * 1.5) / baseSize },
     h5: { size: 14 / baseSize, weight: 450, lineHeight: (14 * 1.5) / baseSize },
     p: { size: 13 / baseSize, weight: 400, lineHeight: 18 / baseSize },
-    small: { size: 11 / baseSize, weight: 400, lineHeight: 14 / baseSize },
+    small: { size: 12 / baseSize, weight: 400, lineHeight: 16 / baseSize },
+    tiny: { size: 11 / baseSize, weight: 400, lineHeight: 14 / baseSize },
   },
   shadows: {
     lift: "lch(0% 0 0deg / 4.4%) 0px 3px 9px, lch(0% 0 0deg / 4.4%) 0px 1px 1px",

@@ -36,8 +36,10 @@ cc_test(
     tags = ["requires-core"],
     visibility = ["//visibility:public"],
     deps = [
+        "//client/cpp/status",
         "//client/cpp/testutil",
         "//driver/rack/status",
+        "//freighter/cpp:freighter",
         "//x/cpp/defer",
         "//x/cpp/testutil",
         "@googletest//:gtest_main",
