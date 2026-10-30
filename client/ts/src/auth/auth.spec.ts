@@ -514,14 +514,14 @@ describe("auth", () => {
   });
 
   describe("setPassword", () => {
-    const makeClient = (authority: auth.Authority) => {
+    const makeClient = (authority: auth.Authority, observer?: auth.Observer) => {
       const transport = new Transport(
         new url.URL({
           host: TEST_CLIENT_PARAMS.host,
           port: Number(TEST_CLIENT_PARAMS.port),
         }),
       );
-      const client = new auth.Client(transport.unary, authority);
+      const client = new auth.Client(transport.unary, authority, observer);
       transport.use(client.middleware());
       return client;
     };
@@ -549,11 +549,17 @@ describe("auth", () => {
 
     it("should switch to a new session when setting its own password", async () => {
       const { username } = await createUser();
-      const self = makeClient({ credentials: { username, password: "old" } });
+      let successes = 0;
+      const self = makeClient(
+        { credentials: { username, password: "old" } },
+        { onSuccess: () => successes++ },
+      );
       await expect(self.setPassword({ password: "new" })).rejects.toThrow();
       await self.retrieveSessions();
       const old = self.session?.key;
+      const before = successes;
       await self.setPassword({ password: "new", currentPassword: "old" });
+      expect(successes).toEqual(before + 1);
       expect(self.session?.key).toBeDefined();
       expect(self.session?.key).not.toEqual(old);
       const sessions = await self.retrieveSessions();
