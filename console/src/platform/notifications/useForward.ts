@@ -41,7 +41,7 @@ export interface Rule {
   /**
    * @returns the key of the status whose open problem covers a problem on this key,
    * such as the rack of a task. A problem that starts inside the covering problem does
-   * not notify.
+   * not notify until a write of it arrives after the covering problem closes.
    */
   coveredBy?: (status: status.Status) => status.Key | null;
 }
@@ -79,7 +79,9 @@ interface Problem {
   rule?: Rule;
   /** Whether the latest write on the key is bad. */
   open: boolean;
-  decision: "waiting" | "shown" | "hidden";
+  /** Whether the latest write arrived inside the covering problem. */
+  covered: boolean;
+  decision: "waiting" | "shown" | "covered" | "hidden";
   /** Undefined until the check resolves. */
   inUse?: boolean;
   /** True while a warning waits out the delay of its rule. */
@@ -114,7 +116,7 @@ const createForwarder = ({
   let held: Array<() => void> | null = [];
   let stopped = false;
 
-  const covered = ({ rule, status: stat }: Problem): boolean => {
+  const isCovered = (rule: Rule | undefined, stat: status.Status): boolean => {
     const coveringKey = rule?.coveredBy?.(stat);
     if (coveringKey == null) return false;
     const covering = problems.get(coveringKey);
@@ -132,7 +134,7 @@ const createForwarder = ({
       return;
     if (problem.delayed && problem.status.variant === "warning") return;
     clearTimeout(problem.timer);
-    problem.decision = covered(problem) ? "hidden" : "shown";
+    problem.decision = problem.covered ? "covered" : "shown";
     if (problem.decision === "shown") notify(problem);
   };
 
@@ -152,6 +154,7 @@ const createForwarder = ({
       status: stat,
       rule: owner?.rule,
       open: true,
+      covered: isCovered(owner?.rule, stat),
       decision: "waiting",
       delayed: false,
     };
@@ -186,12 +189,18 @@ const createForwarder = ({
     const reopened = !problem.open;
     problem.status = stat;
     problem.open = true;
+    problem.covered = isCovered(problem.rule, stat);
     if (problem.decision === "shown") {
       notify(problem);
       return;
     }
     if (problem.decision === "hidden") return;
-    if (reopened && problem.rule?.warningsDelayed === true) wait(problem);
+    const delays = problem.rule?.warningsDelayed === true;
+    if (problem.decision === "covered") {
+      if (problem.covered) return;
+      problem.decision = "waiting";
+      if (delays) wait(problem);
+    } else if (reopened && delays) wait(problem);
     show(problem);
   };
 
@@ -245,6 +254,7 @@ const createForwarder = ({
         identity: identify(stat),
         status: stat,
         open: true,
+        covered: false,
         decision: "hidden",
         delayed: false,
       }),

@@ -308,6 +308,43 @@ describe("Notifications.useForward", () => {
       );
       expect(await screen.findByText(taskProblem.message)).toBeTruthy();
     });
+
+    it("should not notify a covered warning after the covering problem closes", async () => {
+      vi.useFakeTimers({
+        toFake: ["setTimeout", "clearTimeout"],
+        shouldAdvanceTime: true,
+      });
+      const covering = createRackKey();
+      await renderForward(client, {
+        rack: STATE,
+        task: { ...DELAYED, coveredBy: () => covering },
+      });
+      const [, taskProblem] = await write(
+        { key: covering, variant: "error" },
+        { variant: "warning" },
+        { key: covering, variant: "success" },
+      );
+      await settleWrites(client);
+      act(() => void vi.advanceTimersByTime(TimeSpan.seconds(5).milliseconds));
+      expect(screen.queryByText(taskProblem.message)).toBeNull();
+    });
+
+    it("should notify a covered problem that is still bad after the covering problem closes", async () => {
+      const covering = createRackKey();
+      const key = createTaskKey();
+      await renderForward(client, {
+        rack: STATE,
+        task: { ...STATE, coveredBy: () => covering },
+      });
+      const [, covered, , stillBad] = await write(
+        { key: covering, variant: "error" },
+        { key, variant: "error" },
+        { key: covering, variant: "success" },
+        { key, variant: "error" },
+      );
+      expect(await screen.findByText(stillBad.message)).toBeTruthy();
+      expect(screen.queryByText(covered.message)).toBeNull();
+    });
   });
 
   describe("delayed warnings", () => {
