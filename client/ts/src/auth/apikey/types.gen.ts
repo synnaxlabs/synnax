@@ -17,7 +17,7 @@ import { ontology } from "@/ontology";
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
-/** APIKey is a stored API key. A subject holds any number of them. */
+/** APIKey is an API key as the API returns it: the stored record without its hash. */
 export const apiKeyZ = z.object({
   /** key is the unique identifier for this API key. */
   key: keyZ.default(uuid.create),

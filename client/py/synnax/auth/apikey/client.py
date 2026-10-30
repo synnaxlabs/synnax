@@ -7,13 +7,11 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from uuid import UUID
-
 from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
 from synnax import ontology
-from synnax.auth.apikey.types_gen import APIKey
+from synnax.auth.apikey.types_gen import APIKey, Key
 from synnax.util.send_required import send_required
 
 
@@ -36,7 +34,7 @@ class _RetrieveResponse(BaseModel):
 
 
 class _DeleteRequest(BaseModel):
-    keys: list[UUID] = []
+    keys: list[Key] = []
 
 
 _CREATE_ENDPOINT = "/auth/api-key/create"
@@ -81,7 +79,7 @@ class Client:
         )
         return res.keys
 
-    def delete(self, *keys: UUID) -> None:
+    def delete(self, *keys: Key) -> None:
         """Deletes API keys and ends their sessions. Unknown keys are ignored."""
         send_required(
             self._client, _DELETE_ENDPOINT, _DeleteRequest(keys=list(keys)), Empty

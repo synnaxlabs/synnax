@@ -20,8 +20,8 @@ class Password(BaseModel):
     """Is a password as the API returns it: its subject and username, without its hash.
 
     Attributes:
-        subject: Is the user the password logs in as.
-        username: Is the name the password logs in with.
+        subject: Is the user the password belongs to.
+        username: Is the unique login name presented with the password.
     """
 
     subject: ontology.ID

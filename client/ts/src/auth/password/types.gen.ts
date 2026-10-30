@@ -18,9 +18,9 @@ import { ontology } from "@/ontology";
  * hash.
  */
 export const passwordZ = z.object({
-  /** subject is the user the password logs in as. */
+  /** subject is the user the password belongs to. */
   subject: ontology.idZ,
-  /** username is the name the password logs in with. */
+  /** username is the unique login name presented with the password. */
   username: z.string(),
 });
 export interface Password extends z.infer<typeof passwordZ> {}
