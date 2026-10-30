@@ -13,9 +13,3 @@ package errors
 func TranslatePayloadForward(pld Payload) *PBPayload {
 	return &PBPayload{Type: pld.Type, Data: pld.Data}
 }
-
-// TranslatePayloadBackward translates the error payload to its standard go
-// representation from its protobuf representation.
-func TranslatePayloadBackward(pld *PBPayload) Payload {
-	return Payload{Type: pld.Type, Data: pld.Data}
-}

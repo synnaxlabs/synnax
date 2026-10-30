@@ -17,8 +17,8 @@ import (
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/license"
-	svcmock "github.com/synnaxlabs/synnax/pkg/service/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -75,7 +75,7 @@ var _ = Describe("Service", Ordered, func() {
 			)
 			Expect(apiSvc.Activate(
 				AuthedCtx(ctx, reader),
-				apilicense.ActivateRequest{Key: signer.Sign(svcmock.NewLicense())},
+				apilicense.ActivateRequest{Key: signer.Sign(svctestutil.NewLicense())},
 			)).Error().To(MatchError(access.ErrDenied))
 		},
 	)
@@ -83,7 +83,7 @@ var _ = Describe("Service", Ordered, func() {
 	It("Should activate a license key for an owner", func(ctx SpecContext) {
 		owner := freshUser(ctx)
 		grantOn(ctx, owner.OntologyID(), []access.Action{access.ActionUpdate}, object)
-		lic := svcmock.NewLicense()
+		lic := svctestutil.NewLicense()
 		info := MustSucceed(apiSvc.Activate(
 			AuthedCtx(ctx, owner),
 			apilicense.ActivateRequest{Key: signer.Sign(lic)},

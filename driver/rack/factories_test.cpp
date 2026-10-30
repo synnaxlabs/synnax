@@ -7,20 +7,33 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
+#include <string>
+#include <utility>
+#include <vector>
+
 #include "gtest/gtest.h"
 
+#include "driver/labjack/names.h"
+#include "driver/ni/names.h"
 #include "driver/rack/rack.h"
 
 namespace driver::rack {
-/// @brief it should build the NI and LabJack factories whether or not their libraries
-/// load.
-TEST(RackFactoriesTest, BuildsFactoriesWithoutLibraries) {
+/// @brief it should build a factory for each integration in the build whether or not
+/// its library loads.
+TEST(RackFactoriesTest, BuildsFactoriesForBuiltIntegrations) {
+    const std::vector<std::pair<std::string, std::string>> scanners = {
+        {ni::INTEGRATION_NAME, ni::SCAN_TASK_TYPE},
+        {labjack::INTEGRATION_NAME, labjack::SCAN_TASK_TYPE},
+    };
     const Config cfg{.integrations = {ni::INTEGRATION_NAME, labjack::INTEGRATION_NAME}};
     const auto factory = cfg.new_factory(std::make_shared<x::thread::rt::Manager>());
     const auto ctx = std::make_shared<task::MockContext>(nullptr);
-    // An invalid config stops the configure before it loads a library or builds a
-    // scanner, which needs a client.
-    for (const auto &type: {ni::SCAN_TASK_TYPE, labjack::SCAN_TASK_TYPE}) {
+    const auto built = built_integrations();
+    for (const auto &[integration, type]: scanners) {
+        if (std::ranges::find(built, integration) == built.end()) continue;
+        // An invalid config stops the configure before it loads a library or builds a
+        // scanner, which needs a client.
         const auto [tsk, handled] = factory->configure_task(
             ctx,
             synnax::task::Task{
