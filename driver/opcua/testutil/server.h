@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "absl/log/log.h"
+#include "open62541/plugin/accesscontrol_default.h"
 #include "open62541/plugin/certificategroup_default.h"
 #include "open62541/server.h"
 #include "open62541/server_config_default.h"
@@ -149,6 +150,9 @@ struct ServerConfig {
     std::uint32_t max_nodes_per_read = 0;
     /// @brief the most nodes that one Write request can name. 0 means no limit.
     std::uint32_t max_nodes_per_write = 0;
+    /// @brief the usernames and passwords that the server accepts besides anonymous
+    /// logins. The server accepts a password only on an encrypted channel.
+    std::vector<std::pair<std::string, std::string>> users;
 
     // Create default test nodes for comprehensive testing
     static ServerConfig create_default() {
@@ -511,6 +515,22 @@ public:
         server_config->maxNodesPerWrite = cfg.max_nodes_per_write;
         for (const auto &uri: cfg.namespaces)
             UA_Server_addNamespace(server, uri.c_str());
+        if (!cfg.users.empty()) {
+            std::vector<UA_UsernamePasswordLogin> logins;
+            logins.reserve(cfg.users.size());
+            for (const auto &[username, password]: cfg.users)
+                logins.push_back({
+                    .username = UA_STRING(const_cast<char *>(username.c_str())),
+                    .password = UA_STRING(const_cast<char *>(password.c_str())),
+                });
+            UA_AccessControl_default(
+                server_config,
+                true,
+                nullptr,
+                logins.size(),
+                logins.data()
+            );
+        }
 
         for (const auto &node: cfg.test_nodes)
             add_node(server, node);
