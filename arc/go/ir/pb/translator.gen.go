@@ -586,6 +586,7 @@ func NodeToPB(r ir.Node) (*Node, error) {
 	pb := &Node{
 		Key:      r.Key,
 		Type:     r.Type,
+		Once:     r.Once,
 		Inputs:   inputsVal,
 		Outputs:  outputsVal,
 		Channels: channelsVal,
@@ -614,6 +615,7 @@ func NodeFromPB(pb *Node) (ir.Node, error) {
 	}
 	r.Key = pb.Key
 	r.Type = pb.Type
+	r.Once = pb.Once
 	return r, nil
 }
 

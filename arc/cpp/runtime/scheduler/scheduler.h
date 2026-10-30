@@ -98,6 +98,9 @@ class Scheduler {
         /// @brief marks a node with no incoming edges and no channel reads.
         /// Entry nodes fire once per activation.
         bool entry = false;
+        /// @brief marks an entry node whose fired flag survives scope reset, so it
+        /// fires on the first activation only.
+        bool once = false;
         /// @brief marked_flags index of the node's ir::done_param pseudo-output,
         /// NO_INDEX when no transition waits on it.
         size_t done = NO_INDEX;
@@ -187,8 +190,8 @@ class Scheduler {
     /// or when the owning member is deactivated.
     std::vector<uint8_t> self_changed_flags;
     /// @brief fired_flags[i] is set when node i runs and cleared on
-    /// (re)activation. An entry node with the flag set skips the unconditional
-    /// stratum-0 dispatch.
+    /// (re)activation, except for a once node. An entry node with the flag set
+    /// skips the unconditional stratum-0 dispatch.
     std::vector<uint8_t> fired_flags;
     /// @brief marked_flags[i] is set when the (node, output) pair behind transition
     /// handle i fired this cycle. Cleared at end of cycle so transitions fire on fresh
@@ -345,12 +348,13 @@ private:
         }
     }
 
-    /// @brief clears self-changed and fired and calls reset on m's node. No-op
-    /// if m is a scope member or an unresolved node-key.
+    /// @brief clears self-changed and fired and calls reset on m's node. A once
+    /// node keeps its fired flag. No-op if m is a scope member or an unresolved
+    /// node-key.
     void reset_leaf_node(MemberState &m) {
         if (m.is_node() && m.node != NO_INDEX) {
             this->self_changed_flags[m.node] = 0;
-            this->fired_flags[m.node] = 0;
+            if (!this->nodes[m.node].once) this->fired_flags[m.node] = 0;
             this->nodes[m.node].node->reset(this->ctx);
         }
     }
@@ -667,6 +671,7 @@ private:
             wrapper.key = ir_node.key;
             wrapper.idx = idx;
             wrapper.entry = ir::is_entry_node(this->s->prog, ir_node);
+            wrapper.once = ir_node.once;
             const auto impl_it = node_impls.find(ir_node.key);
             if (impl_it != node_impls.end()) wrapper.node = std::move(impl_it->second);
             // Pre-seed outputs in the IR's declared order. Node impls
