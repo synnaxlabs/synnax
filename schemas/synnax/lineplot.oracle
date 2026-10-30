@@ -254,10 +254,8 @@ Line struct {
             palette at render time.
         """
     }
-    stroke_width float64?     {
-        @doc value """
-            is the line stroke width in pixels. Absent draws the default width of 2.
-        """
+    stroke_width float64 = 2 {
+        @doc value "is the line stroke width in pixels."
     }
     aggregation  Aggregation = min_max {
         @doc value "selects how the line reduces the samples of one pixel group."
@@ -531,12 +529,9 @@ LinePlot struct {
 
     action SetLineStrokeWidth {
         key          string
-        stroke_width float64?
+        stroke_width float64
 
-        @doc value """
-            sets the stroke width, in pixels, of the line identified by key. Absent
-            clears it, so the line draws the default width.
-        """
+        @doc value "sets the stroke width, in pixels, of the line identified by key."
     }
 
     action SetLineAggregation {

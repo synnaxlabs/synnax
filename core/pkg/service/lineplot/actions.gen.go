@@ -204,10 +204,10 @@ type SetLineColorPayload struct {
 }
 
 // SetLineStrokeWidthPayload sets the stroke width, in pixels, of the line identified by
-// key. Absent clears it, so the line draws the default width.
+// key.
 type SetLineStrokeWidthPayload struct {
-	Key         string   `json:"key" msgpack:"key"`
-	StrokeWidth *float64 `json:"stroke_width,omitzero" msgpack:"stroke_width,omitempty"`
+	Key         string  `json:"key" msgpack:"key"`
+	StrokeWidth float64 `json:"stroke_width" msgpack:"stroke_width"`
 }
 
 // SetLineAggregationPayload sets how the line identified by key reduces a pixel group.

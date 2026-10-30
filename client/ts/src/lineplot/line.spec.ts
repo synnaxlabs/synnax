@@ -109,7 +109,7 @@ describe("line", () => {
       const { lines } = reconcileLines(channels, ranges, []);
       expect(lines).toHaveLength(1);
       const [line] = lines;
-      expect(line.strokeWidth).toBeUndefined();
+      expect(line.strokeWidth).toEqual(2);
       expect(line.aggregation).toEqual("min_max");
       expect(line.detail).toEqual("medium");
       expect(line.label).toBeUndefined();

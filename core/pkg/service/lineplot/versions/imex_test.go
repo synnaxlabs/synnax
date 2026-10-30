@@ -33,7 +33,7 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		Expect(lp.Ranges.X1).To(Equal([]string{"recent"}))
 		Expect(lp.Title.Level).To(Equal(text.Level("h4")))
 		Expect(lp.Lines).To(HaveLen(1))
-		Expect(lp.Lines[0].StrokeWidth).To(HaveValue(Equal(2.5)))
+		Expect(lp.Lines[0].StrokeWidth).To(Equal(2.5))
 		Expect(lp.Lines[0].Aggregation).To(Equal(versions.AggregationMinMax))
 		Expect(lp.Lines[0].Detail).To(Equal(versions.DetailMedium))
 	})
@@ -43,7 +43,7 @@ var _ = Describe("DecodeImExEnvelope", func() {
 	) {
 		lp := decode(ctx, "testdata/import_v6.json")
 		Expect(lp.Lines).To(HaveLen(1))
-		Expect(lp.Lines[0].StrokeWidth).To(HaveValue(Equal(2.5)))
+		Expect(lp.Lines[0].StrokeWidth).To(Equal(2.5))
 		Expect(lp.Lines[0].Aggregation).To(Equal(versions.AggregationAverage))
 		Expect(lp.Lines[0].Detail).To(Equal(versions.DetailMedium))
 	})
@@ -68,7 +68,7 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		Expect(lp.Ranges.X1).To(Equal([]string{"recent"}))
 		Expect(lp.Lines).To(HaveLen(2))
 		Expect(lp.Lines[0].Label).To(HaveValue(Equal("stream_write_data_1")))
-		Expect(lp.Lines[0].StrokeWidth).To(HaveValue(Equal(2.0)))
+		Expect(lp.Lines[0].StrokeWidth).To(Equal(2.0))
 		// A v3 export nests the six axes under axes.axes; the flat shape came later.
 		Expect(lp.Axes.Y1.TickSpacing).To(Equal(75.0))
 		// autoBounds inverts: a bound the Console computed is not a manual one.
@@ -98,7 +98,7 @@ var _ = Describe("DecodeImExEnvelope", func() {
 		// autoBounds inverts: a bound the Console computed is not a manual one.
 		Expect(lp.Axes.Y1.ManualBounds).To(Equal(versions.ManualBounds{}))
 		Expect(lp.Lines).To(HaveLen(1))
-		Expect(lp.Lines[0].StrokeWidth).To(HaveValue(Equal(3.0)))
+		Expect(lp.Lines[0].StrokeWidth).To(Equal(3.0))
 		// The export's downsample factor of 2 has no detail level to map to.
 		Expect(lp.Lines[0].Detail).To(Equal(versions.DetailMedium))
 		Expect(lp.Rules).To(HaveLen(1))

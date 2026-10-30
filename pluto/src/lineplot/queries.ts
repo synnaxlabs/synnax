@@ -86,10 +86,7 @@ export interface RawDerivedLine extends lineplot.Line, lineplot.LineKeyParts {}
 
 // DerivedLine is a RawDerivedLine with its render color resolved to a concrete
 // palette color, ready for the chart and toolbar to consume directly.
-export interface DerivedLine
-  extends Omit<RawDerivedLine, "color" | "strokeWidth">, ResolvedColor {
-  // strokeWidth is the stored width, or the default width when none is stored.
-  strokeWidth: number;
+export interface DerivedLine extends Omit<RawDerivedLine, "color">, ResolvedColor {
   // isDefaultLabel reports whether label is derived from the channel name rather
   // than a stored user override. The toolbar uses it to offer a reset affordance.
   isDefaultLabel: boolean;
@@ -135,7 +132,6 @@ const useLinesBase = (params: KeyParams): DerivedLine[] => {
   return lines.map(({ color, ...line }, i) => ({
     ...line,
     ...resolveColor(color, i, palette),
-    strokeWidth: line.strokeWidth ?? lineplot.DEFAULT_STROKE_WIDTH,
     isDefaultLabel: line.label == null,
   }));
 };
@@ -278,7 +274,6 @@ const useLineBase = (params: LineParams): require.Require<DerivedLine, "label"> 
     ...raw.line,
     ...lineplot.parseLineKey(raw.line.key),
     ...resolveColor(raw.line.color, raw.index, palette),
-    strokeWidth: raw.line.strokeWidth ?? lineplot.DEFAULT_STROKE_WIDTH,
     label: raw.line.label ?? chanName ?? "",
     isDefaultLabel: raw.line.label == null,
   };

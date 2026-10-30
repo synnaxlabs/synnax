@@ -31,9 +31,6 @@ export interface LineKeyParts {
 
 const SEPARATOR = "---";
 
-/** DEFAULT_STROKE_WIDTH is the width, in pixels, of a line that stores no width. */
-export const DEFAULT_STROKE_WIDTH = 2;
-
 // lineKey encodes the identity of a line into the stable string stored as
 // Line.key. This is the only place the key format is defined.
 export const lineKey = (parts: LineKeyParts): string =>
@@ -73,8 +70,8 @@ export const reconcileLines = (
           const key = lineKey({ yAxis, xAxis, range, xChannel, yChannel });
           if (kept.has(key)) continue;
           kept.add(key);
-          // A new line takes Oracle schema defaults (aggregation, detail); label, color,
-          // and stroke width stay unset so they resolve at render time.
+          // A new line takes Oracle schema defaults (stroke width, aggregation); label
+          // and color stay unset so they resolve at render time.
           lines.push(byKey.get(key) ?? lineZ.parse({ key }));
         }
   }
