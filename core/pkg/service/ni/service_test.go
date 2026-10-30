@@ -14,23 +14,61 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/service/group"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ni"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Service", func() {
-	var svc *ni.Service
+	var (
+		otg  *ontology.Ontology
+		stat *status.Service
+		svc  *ni.Service
+	)
 	BeforeEach(func(ctx SpecContext) {
+		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+		}))
+		labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
+			DB:       db,
+			Ontology: otg,
+			Group:    groupSvc,
+		}))
+		stat = MustOpen(status.OpenService(ctx, status.ServiceConfig{
+			Ontology: otg,
+			DB:       db,
+			Group:    groupSvc,
+			Label:    labelSvc,
+		}))
 		svc = MustOpen(ni.OpenService(ctx, ni.ServiceConfig{
-			DB: db,
+			DB:       db,
+			Ontology: otg,
+			Status:   stat,
 		}))
 	})
 
 	Describe("OpenService", func() {
-		It("Should reject a config missing the DB", func(ctx SpecContext) {
-			Expect(ni.OpenService(ctx, ni.ServiceConfig{})).Error().
-				To(MatchError(ContainSubstring("db: must be non-nil")))
+		DescribeTable("Should reject a config missing a required field",
+			func(ctx SpecContext, field string, clear func(*ni.ServiceConfig)) {
+				cfg := ni.ServiceConfig{DB: db, Ontology: otg, Status: stat}
+				clear(&cfg)
+				Expect(ni.OpenService(ctx, cfg)).Error().
+					To(MatchError(ContainSubstring(field + ": must be non-nil")))
+			},
+			Entry("db", "db", func(c *ni.ServiceConfig) { c.DB = nil }),
+			Entry("ontology", "ontology", func(c *ni.ServiceConfig) { c.Ontology = nil }),
+			Entry("status", "status", func(c *ni.ServiceConfig) { c.Status = nil }),
+		)
+
+		It("Should open the chassis and device services", func() {
+			Expect(svc.Chassis).ToNot(BeNil())
+			Expect(svc.Devices).ToNot(BeNil())
 		})
 	})
 

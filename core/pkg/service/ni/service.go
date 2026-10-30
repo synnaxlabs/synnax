@@ -14,9 +14,14 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/ni/chassis"
+	"github.com/synnaxlabs/synnax/pkg/service/ni/device"
 	"github.com/synnaxlabs/synnax/pkg/service/ni/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/ni/versions/legacy"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/ni/versions/v3"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	xconfig "github.com/synnaxlabs/x/config"
 	xio "github.com/synnaxlabs/x/io"
@@ -27,9 +32,18 @@ import (
 
 // ServiceConfig is the configuration for opening the NI task config service.
 type ServiceConfig struct {
-	// DB is the database config records are stored in.
+	// DB is the database config records, chassis, and devices are stored in.
 	// [REQUIRED]
 	DB *gorp.DB
+	// Ontology holds the resource and parent edge of each chassis and device.
+	// [REQUIRED]
+	Ontology *ontology.Ontology
+	// Status stores the status of each chassis and device.
+	// [REQUIRED]
+	Status *status.Service
+	// Signals publishes chassis and device changes.
+	// [OPTIONAL]
+	Signals *signals.Provider
 	alamos.Instrumentation
 }
 
@@ -38,6 +52,9 @@ var _ xconfig.Config[ServiceConfig] = ServiceConfig{}
 // Override implements xconfig.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
+	c.Ontology = override.Nil(c.Ontology, other.Ontology)
+	c.Status = override.Nil(c.Status, other.Status)
+	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	return c
 }
@@ -46,11 +63,18 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 func (c ServiceConfig) Validate() error {
 	v := validate.New("ni.service")
 	v.NotNil("db", c.DB)
+	v.NotNil("ontology", c.Ontology)
+	v.NotNil("status", c.Status)
 	return v.Error()
 }
 
-// Service owns the stored configuration records of the NI task types.
+// Service owns the NI chassis, devices, and stored configuration records of the NI task
+// types.
 type Service struct {
+	// Chassis stores NI chassis.
+	Chassis *chassis.Service
+	// Devices stores NI devices.
+	Devices *device.Service
 	// AnalogRead stores ni_analog_read task configuration records.
 	AnalogRead *config.Service[AnalogReadConfig]
 	// AnalogWrite stores ni_analog_write task configuration records.
@@ -77,6 +101,25 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	s = &Service{}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
+	if s.Devices, err = device.OpenService(ctx, device.ServiceConfig{
+		DB:              cfg.DB,
+		Ontology:        cfg.Ontology,
+		Status:          cfg.Status,
+		Signals:         cfg.Signals,
+		Instrumentation: cfg.Instrumentation,
+	}); !ok(err, s.Devices) {
+		return nil, err
+	}
+	if s.Chassis, err = chassis.OpenService(ctx, chassis.ServiceConfig{
+		DB:              cfg.DB,
+		Ontology:        cfg.Ontology,
+		Status:          cfg.Status,
+		Device:          s.Devices,
+		Signals:         cfg.Signals,
+		Instrumentation: cfg.Instrumentation,
+	}); !ok(err, s.Chassis) {
+		return nil, err
+	}
 	if s.AnalogRead, err = config.OpenService(
 		ctx, config.ServiceConfig[AnalogReadConfig]{
 			DB:                 cfg.DB,

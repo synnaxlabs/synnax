@@ -368,7 +368,9 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 			DB: db,
 		})).Stores()...)
 		stores = append(stores, MustOpen(ni.OpenService(ctx, ni.ServiceConfig{
-			DB: db,
+			DB:       db,
+			Ontology: otg,
+			Status:   statusSvc,
 		})).Stores()...)
 		stores = append(stores, MustOpen(opcua.OpenService(ctx, opcua.ServiceConfig{
 			DB: db,
