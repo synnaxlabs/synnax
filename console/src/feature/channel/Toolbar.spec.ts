@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
+import { DataType } from "@synnaxlabs/x";
 import {
   act,
   fireEvent,
@@ -19,7 +20,9 @@ import { describe, expect, it } from "vitest";
 
 import { Channel } from "@/feature/channel";
 import { getSwitch } from "@/platform/modals/testutil";
+import { clickFilterItem } from "@/platform/search/testutil";
 import { renderToolbar } from "@/platform/tree/menuTestutil";
+import { findTreeRow } from "@/platform/tree/treeTestutil";
 import {
   assertDefined,
   createTestClientWithGrants,
@@ -27,6 +30,7 @@ import {
   getIconButtons,
   queryIcon,
   renderHookWithConsole,
+  uniqueName,
 } from "@/testutil";
 
 const client = createTestClient();
@@ -44,6 +48,25 @@ const renderChannelToolbar = async (
 };
 
 describe("channel/Toolbar", () => {
+  it("narrows the rows to the chosen data type", async () => {
+    const index = await client.channels.create({
+      name: uniqueName("index"),
+      dataType: DataType.TIMESTAMP,
+      isIndex: true,
+    });
+    const float = await client.channels.create({
+      name: uniqueName("float"),
+      dataType: DataType.FLOAT32,
+      index: index.key,
+    });
+    await renderChannelToolbar();
+    await findTreeRow(index.name);
+    fireEvent.click(getIconButton(document.body, "search"));
+    await clickFilterItem("float32");
+    await waitFor(() => expect(screen.queryByText(index.name)).toBeNull());
+    expect(await findTreeRow(float.name)).toBeTruthy();
+  });
+
   it("opens the create channel modal from the toolbar action", async () => {
     await renderChannelToolbar();
     // The calculated-channel action's composite icon also contains an add glyph, so

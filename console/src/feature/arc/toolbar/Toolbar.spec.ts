@@ -13,6 +13,7 @@ import { describe, expect, it } from "vitest";
 
 import { Arc } from "@/feature/arc";
 import { Group } from "@/feature/group";
+import { clickFilterItem } from "@/platform/search/testutil";
 import { renderToolbar } from "@/platform/tree/menuTestutil";
 import {
   findTreeRow,
@@ -36,6 +37,13 @@ const createArc = async () =>
     name: uniqueName("arc"),
     mode: "graph",
     graph: { nodes: [], edges: [] },
+  });
+
+const createModule = async () =>
+  await client.arcs.create({
+    name: uniqueName("module"),
+    mode: "text",
+    type: "module",
   });
 
 const renderArcToolbar = async (): Promise<{ store: TestStore }> => {
@@ -87,6 +95,20 @@ describe("arc/Toolbar", () => {
     });
     await findTreeRow(kept.name);
     await waitFor(() => expect(screen.queryByText(dropped.name)).toBeNull());
+  });
+
+  it("hides the rows of a type switched off in the filter", async () => {
+    const automation = await createArc();
+    const module = await createModule();
+    await renderArcToolbar();
+    await findTreeRow(module.name);
+    toggleSearch();
+    await clickFilterItem("Module");
+    await waitFor(() => expect(screen.queryByText(module.name)).toBeNull());
+    expect(await findTreeRow(automation.name)).toBeTruthy();
+    // Hiding the bar lifts its filter with it.
+    toggleSearch();
+    expect(await findTreeRow(module.name)).toBeTruthy();
   });
 
   it("opens the explorer view from the explorer action", async () => {

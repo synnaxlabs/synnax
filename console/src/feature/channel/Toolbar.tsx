@@ -9,7 +9,9 @@
 
 import { channel, group } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Access, Channel } from "@synnaxlabs/pluto";
+import { type Select } from "@synnaxlabs/lyra/select";
+import { Access, Channel, Telem } from "@synnaxlabs/pluto";
+import { DataType } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
 import { Channel as PlatformChannel } from "@/platform/channel";
@@ -18,11 +20,42 @@ import { type Nav } from "@/platform/nav";
 import { Toolbar } from "@/platform/toolbar";
 import { Tree } from "@/platform/tree";
 
+// The filter button is the select's own trigger, so one click opens the list.
+const TRIGGER_PROPS: Select.SingleTriggerProps = {
+  iconOnly: true,
+  icon: <Icon.Filter />,
+  variant: "text",
+  size: "tiny",
+  tooltip: "Filter",
+};
+
+// A group fails, so it shows only while one of its channels passes.
+const dataTypeFilter = (dataType: string): Tree.Filter => {
+  const target = new DataType(dataType);
+  return ({ id, data }) =>
+    id.type === "channel" && target.equals((data as channel.Payload).dataType);
+};
+
+interface DataTypeFilterProps {
+  value: string | null;
+  onChange: (dataType: string | null) => void;
+}
+
+const DataTypeFilter = ({ value, onChange }: DataTypeFilterProps): ReactElement => (
+  <Telem.SelectDataType
+    value={value ?? undefined}
+    onChange={onChange}
+    allowNone
+    triggerProps={TRIGGER_PROPS}
+  />
+);
+
 const Content = (): ReactElement => {
   const openCreate = PlatformChannel.useCreateModal();
   const openCalculated = PlatformChannel.useCalculatedModal();
   const hasCreatePermission = Access.useCreateGranted(channel.TYPE_ONTOLOGY_ID);
   const [searching, setSearching] = useState(false);
+  const [dataType, setDataType] = useState<string | null>(null);
   return (
     <Toolbar.Content>
       <Toolbar.Header>
@@ -53,20 +86,26 @@ const Content = (): ReactElement => {
         </Toolbar.Actions>
       </Toolbar.Header>
       <Toolbar.Body>
-        <Body search={searching} />
+        <Body
+          search={searching}
+          filter={searching && dataType != null ? dataTypeFilter(dataType) : undefined}
+          bar={
+            searching ? (
+              <DataTypeFilter value={dataType} onChange={setDataType} />
+            ) : undefined
+          }
+        />
       </Toolbar.Body>
     </Toolbar.Content>
   );
 };
 
-interface BodyProps {
-  search: boolean;
-}
+interface BodyProps extends Pick<Tree.TreeProps, "search" | "filter" | "bar"> {}
 
-const Body = ({ search }: BodyProps): ReactElement => {
+const Body = (props: BodyProps): ReactElement => {
   const g = Channel.useGroup({});
   const root = group.ontologyID(g.key);
-  return <Tree.Tree root={root} search={search} emptyContent={<EmptyContent />} />;
+  return <Tree.Tree root={root} emptyContent={<EmptyContent />} {...props} />;
 };
 
 const EmptyContent = (): ReactElement => {

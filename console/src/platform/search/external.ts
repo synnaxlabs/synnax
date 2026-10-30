@@ -8,5 +8,6 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/platform/search/Bar";
+export * from "@/platform/search/FilterMenu";
 export * from "@/platform/search/Input";
 export * from "@/platform/search/ListItem";
