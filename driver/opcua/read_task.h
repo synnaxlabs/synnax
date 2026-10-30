@@ -364,7 +364,7 @@ protected:
     /// @brief the last time written to each index of cfg.stamped.
     std::map<synnax::channel::Key, x::telem::TimeStamp> last;
     /// @brief when read_types last ran.
-    x::telem::TimeStamp types_read;
+    x::telem::TimeStamp types_read{};
 
     /// @brief reads the channels on conn from now on, with the namespace indexes of its
     /// server.
