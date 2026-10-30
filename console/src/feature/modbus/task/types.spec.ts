@@ -38,6 +38,92 @@ describe("Modbus Read Task Types", () => {
   it("should accept a null statusData", () => {
     expect(z.validate(Modbus.Task.READ_SCHEMAS.statusData, null)).toBe(true);
   });
+
+  const holding = (key: string, address: number, dataType: string) =>
+    Modbus.Task.READ_CHANNEL_SCHEMAS.holding_register.parse({
+      type: "holding_register",
+      key,
+      address,
+      dataType,
+    });
+
+  describe("addressSpan", () => {
+    it("should span one address for a coil", () => {
+      const coil = Modbus.Task.READ_CHANNEL_SCHEMAS.coil.parse({
+        type: "coil",
+        address: 4,
+      });
+      expect(Modbus.Task.addressSpan(coil)).toEqual([4, 4]);
+    });
+
+    it("should span one address per 16 bits of a register's data type", () => {
+      expect(Modbus.Task.addressSpan(holding("a", 10, "float64"))).toEqual([10, 13]);
+    });
+  });
+
+  describe("findOverlaps", () => {
+    it("should mark the registers that read a shared address", () => {
+      const a = holding("a", 10, "float32");
+      const b = holding("b", 11, "uint16");
+      const overlaps = Modbus.Task.findOverlaps([a, b, holding("c", 20, "uint16")]);
+      expect(overlaps.keys).toEqual(new Set(["a", "b"]));
+      expect(overlaps.ranges).toEqual({ holding_register: [[11, 11]] });
+    });
+
+    it("should not mark registers that only touch", () => {
+      const a = holding("a", 10, "float32");
+      const b = holding("b", 12, "uint16");
+      const overlaps = Modbus.Task.findOverlaps([a, b]);
+      expect(overlaps.keys.size).toBe(0);
+      expect(overlaps.ranges).toEqual({});
+    });
+
+    it("should not mark channels of another type at the same address", () => {
+      const a = holding("a", 10, "uint16");
+      const b = Modbus.Task.READ_CHANNEL_SCHEMAS.input_register.parse({
+        type: "input_register",
+        key: "b",
+        address: 10,
+        dataType: "uint16",
+      });
+      expect(Modbus.Task.findOverlaps([a, b]).keys.size).toBe(0);
+    });
+
+    it("should find one range for many channels on the same addresses", () => {
+      const channels = ["a", "b", "c"].map((k) => holding(k, 10, "float32"));
+      const overlaps = Modbus.Task.findOverlaps(channels);
+      expect(overlaps.keys).toEqual(new Set(["a", "b", "c"]));
+      expect(overlaps.ranges).toEqual({ holding_register: [[10, 11]] });
+    });
+
+    it("should join shared ranges that touch", () => {
+      const a = holding("a", 10, "float64");
+      const b = holding("b", 10, "float32");
+      const c = holding("c", 12, "float32");
+      expect(Modbus.Task.findOverlaps([a, b, c]).ranges).toEqual({
+        holding_register: [[10, 13]],
+      });
+    });
+
+    it("should mark only register bits that read the same bit", () => {
+      const bit = (key: string, address: number, b: number) =>
+        Modbus.Task.READ_CHANNEL_SCHEMAS.holding_register_bit.parse({
+          type: "holding_register_bit",
+          key,
+          address,
+          bit: b,
+        });
+      const overlaps = Modbus.Task.findOverlaps([
+        bit("a", 10, 3),
+        bit("b", 10, 4),
+        bit("c", 10, 4),
+        bit("d", 11, 3),
+        bit("e", 11, 3),
+      ]);
+      expect(overlaps.keys).toEqual(new Set(["b", "c", "d", "e"]));
+      expect(overlaps.ranges).toEqual({ holding_register_bit: [[10, 11]] });
+    });
+  });
 });
 
 describe("Modbus Write Task Types", () => {
