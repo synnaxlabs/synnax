@@ -10,6 +10,7 @@
 import { id, uuid } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it } from "vitest";
 
+import { ValidationError } from "@/errors";
 import { type ontology } from "@/ontology";
 import { panel } from "@/panel";
 import { type query } from "@/query";
@@ -64,25 +65,41 @@ describe("Panel Client", () => {
     });
   });
   describe("create", () => {
+    const createTab = () => panel.tabZ.parse({ variant: "view", type: "test" });
+
     it("should send a dispatch made during the create after the create", async () => {
       const key = uuid.create();
-      const tab = panel.tabZ.parse({ variant: "view", type: "test" });
-      let dispatched: Promise<boolean> | undefined;
-      await client.panels.create(
-        { key, name: `panel-${id.create()}`, parent },
-        {
-          onOptimistic: () => {
-            dispatched = client.panels.dispatch(key, panel.insertTabs({ tabs: [tab] }));
-          },
-        },
-      );
+      const tab = createTab();
+      const created = client.panels.create({
+        key,
+        name: `panel-${id.create()}`,
+        parent,
+      });
+      const dispatched = client.panels.dispatch(key, panel.insertTabs({ tabs: [tab] }));
+      await created;
       expect(await dispatched).toBe(true);
-      expect(
-        panel.findTab(expectLive(client.panels.getCached(key)).root, tab.key),
-      ).toBeDefined();
-      const fresh = createTestClient();
-      const stored = await fresh.panels.retrieve(key);
+      const cached = expectLive(client.panels.getCached(key));
+      expect(panel.findTab(cached.root, tab.key)).toBeDefined();
+      const stored = await createTestClient().panels.retrieve(key);
       expect(panel.findTab(stored.root, tab.key)).toBeDefined();
+    });
+
+    it("should reject a dispatch made inside onOptimistic", async () => {
+      const key = uuid.create();
+      await expect(
+        client.panels.create(
+          { key, name: `panel-${id.create()}`, parent },
+          {
+            onOptimistic: async () => {
+              await client.panels.dispatch(
+                key,
+                panel.insertTabs({ tabs: [createTab()] }),
+              );
+            },
+          },
+        ),
+      ).rejects.toThrow(ValidationError);
+      expect(client.panels.getCached(key)).toBeUndefined();
     });
   });
 });

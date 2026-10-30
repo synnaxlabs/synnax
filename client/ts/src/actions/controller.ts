@@ -19,6 +19,7 @@ import {
 } from "@synnaxlabs/x";
 import type z from "zod";
 
+import { ValidationError } from "@/errors";
 import { type query } from "@/query";
 import { type Keyed, Table } from "@/query/table";
 
@@ -197,6 +198,14 @@ export interface ControllerParams<
   now?: () => TimeStamp;
 }
 
+/** Arguments to {@link Controller.create}. */
+export interface CreateParams<R> {
+  /** Runs once the docs are cached, before send. */
+  onCached?: () => Promise<void> | void;
+  /** Creates the docs on the Core. */
+  send: () => Promise<R>;
+}
+
 /** A local edit waiting on its send. */
 export interface Edit {
   /** Reverts the edit. */
@@ -279,6 +288,8 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
   // in flight. A key is present while its send is in flight, and holds the batch
   // queued behind it.
   private readonly queues = new Map<Key, Queue<Action>>();
+  // Keys whose create waits on its onCached callback.
+  private readonly uncreated = new Set<Key>();
 
   constructor(opts: ControllerParams<Key, State, Action>) {
     this.params = {
@@ -329,11 +340,18 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
   }
 
   /**
-   * Caches docs, then runs send to create them on the Core. Dispatches to the docs
-   * wait for send to settle, then go out in order. When send fails, those dispatches
-   * reject with its error and the docs leave the cache.
+   * Caches docs, runs onCached, then runs send to create the docs on the Core.
+   * Dispatches to the docs made after onCached wait for send to settle, then go out in
+   * order.
+   * @throws the error from onCached or send. The docs then leave the cache, and the
+   * waiting dispatches reject with the same error.
+   * @throws {ValidationError} from a dispatch to the docs while onCached runs, which
+   * would otherwise wait on the create that waits on onCached.
    */
-  async create<R>(docs: Array<Keyed<Key, State>>, send: () => Promise<R>): Promise<R> {
+  async create<R>(
+    docs: Array<Keyed<Key, State>>,
+    { onCached, send }: CreateParams<R>,
+  ): Promise<R> {
     const queues = docs.map(({ key }) => {
       const queue: Queue<Action> = { next: null };
       this.queues.set(key, queue);
@@ -341,6 +359,14 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     });
     const rollback = this.docs.set(docs);
     try {
+      if (onCached != null) {
+        queues.forEach(({ key }) => this.uncreated.add(key));
+        try {
+          await onCached();
+        } finally {
+          queues.forEach(({ key }) => this.uncreated.delete(key));
+        }
+      }
       const res = await send();
       queues.forEach(({ key, queue }) => void this.drain(key, queue));
       return res;
@@ -360,6 +386,10 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
   }
 
   private async enqueue(key: Key, edit: Pending<Action>): Promise<void> {
+    if (this.uncreated.has(key)) {
+      edit.rollback();
+      throw new ValidationError(`cannot dispatch to ${key} before its create is sent`);
+    }
     let queue = this.queues.get(key);
     const inFlight = queue != null;
     if (queue == null) {

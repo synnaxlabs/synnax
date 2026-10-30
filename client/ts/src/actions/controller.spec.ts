@@ -18,6 +18,7 @@ import {
   type Reducer,
   type SendDispatch,
 } from "@/actions/controller";
+import { ValidationError } from "@/errors";
 import { Table } from "@/query/table";
 
 interface Doc {
@@ -771,8 +772,8 @@ describe("actions.Controller", () => {
     it("sends a dispatch made during the create after the create", async () => {
       const { docs, controller, send } = setupStore();
       const created = Promise.withResolvers<void>();
-      const done = controller.create([{ key: "k", values: { a: 0 } }], async () => {
-        await created.promise;
+      const done = controller.create([{ key: "k", values: { a: 0 } }], {
+        send: async () => await created.promise,
       });
       const dispatched = controller.dispatch("k", [set("a", 1)]);
       expect(docs.get("k")?.values).toEqual({ a: 1 });
@@ -786,8 +787,8 @@ describe("actions.Controller", () => {
     it("rejects a dispatch made during a failed create and uncaches the doc", async () => {
       const { docs, controller, send } = setupStore();
       const created = Promise.withResolvers<void>();
-      const done = controller.create([{ key: "k", values: { a: 0 } }], async () => {
-        await created.promise;
+      const done = controller.create([{ key: "k", values: { a: 0 } }], {
+        send: async () => await created.promise,
       });
       const dispatched = controller.dispatch("k", [set("a", 1)]);
       created.reject(new Error("create failed"));
@@ -796,6 +797,18 @@ describe("actions.Controller", () => {
       expect(send).not.toHaveBeenCalled();
       expect(docs.get("k")).toBeUndefined();
       expect(controller.hasUndo("k")).toBe(false);
+    });
+    it("rejects a dispatch made inside onCached and keeps the create pending on it", async () => {
+      const { docs, controller, send } = setupStore();
+      const create = controller.create([{ key: "k", values: { a: 0 } }], {
+        onCached: async () => {
+          await controller.dispatch("k", [set("a", 1)]);
+        },
+        send: async () => {},
+      });
+      await expect(create).rejects.toThrow(ValidationError);
+      expect(send).not.toHaveBeenCalled();
+      expect(docs.get("k")).toBeUndefined();
     });
   });
 
