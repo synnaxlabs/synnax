@@ -27,8 +27,8 @@ namespace synnax::ni::device {
 
 struct InputPorts;
 struct CommandStatePair;
-struct StatusDetails;
 struct OutputPorts;
+struct StatusDetails;
 struct Device;
 
 using Key = x::uuid::UUID;
@@ -55,6 +55,15 @@ struct CommandStatePair {
     [[nodiscard]] x::json::json to_json() const;
 };
 
+/// @brief OutputPorts holds the channels that a device writes through.
+struct OutputPorts {
+    /// @brief state_index is the index channel of the state channels.
+    ::synnax::channel::Key state_index = ::synnax::channel::Key(0);
+
+    static OutputPorts parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
 /// @brief StatusDetails identifies the device and rack that a status pertains to.
 struct StatusDetails {
     /// @brief rack is the key of the rack the device belongs to.
@@ -63,17 +72,6 @@ struct StatusDetails {
     Key device;
 
     static StatusDetails parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief OutputPorts holds the channels that a device writes through.
-struct OutputPorts {
-    /// @brief state_index is the index channel of the state channels.
-    ::synnax::channel::Key state_index = ::synnax::channel::Key(0);
-    /// @brief channels maps a port to the channels that write to it.
-    std::unordered_map<std::string, CommandStatePair> channels = {};
-
-    static OutputPorts parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 

@@ -19,6 +19,7 @@ cc_library(
     deps = [
         "//client/cpp/channel",
         "//client/cpp/ni/chassis",
+        "//client/cpp/ontology",
         "//client/cpp/rack",
         "//client/cpp/status",
         "//x/cpp/json",
