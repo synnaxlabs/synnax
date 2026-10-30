@@ -9,7 +9,7 @@
 
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
-import { event, type EventKind, type Organization } from "@/server/db/schema";
+import { schema } from "@/server/db";
 import { type Memory, openMemory } from "@/server/db/testutil";
 import { NOW } from "@/server/license/testutil";
 import { check, PER_ACTOR, PER_ORGANIZATION, WINDOW_MS } from "@/server/ratelimit";
@@ -19,8 +19,8 @@ const MINUTE = 60 * 1000;
 
 describe("ratelimit.check", () => {
   let store: Memory;
-  let org: Organization;
-  let other: Organization;
+  let org: schema.Organization;
+  let other: schema.Organization;
   beforeAll(async () => {
     store = await openMemory();
   });
@@ -37,11 +37,16 @@ describe("ratelimit.check", () => {
       organization = org.key,
       kind = "activate",
       at = new Date(NOW.getTime() - MINUTE),
-    }: { actor?: string; organization?: string; kind?: EventKind; at?: Date } = {},
+    }: {
+      actor?: string;
+      organization?: string;
+      kind?: schema.EventKind;
+      at?: Date;
+    } = {},
   ) => {
     if (n === 0) return;
     await store.query
-      .insert(event)
+      .insert(schema.event)
       .values(Array.from({ length: n }, () => ({ kind, actor, organization, at })));
   };
 

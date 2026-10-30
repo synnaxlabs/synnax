@@ -9,27 +9,19 @@
 
 import { and, desc, eq, inArray, lt, type SQL } from "drizzle-orm";
 
-import { type Store } from "@/server/db/db";
-import {
-  activation,
-  type Event,
-  event,
-  type EventKind,
-  license,
-  organization,
-} from "@/server/db/schema";
+import { schema, type Store } from "@/server/db";
 
 /** listForLicense returns a license's audit events, newest first. */
 export const listForLicense = async (
   store: Store,
   licenseKey: string,
   limit = 50,
-): Promise<Event[]> =>
+): Promise<schema.Event[]> =>
   await store.query
     .select()
-    .from(event)
-    .where(eq(event.license, licenseKey))
-    .orderBy(desc(event.at))
+    .from(schema.event)
+    .where(eq(schema.event.license, licenseKey))
+    .orderBy(desc(schema.event.at))
     .limit(limit);
 
 /** CATEGORIES group event kinds the way the staff activity log filters them. */
@@ -52,7 +44,7 @@ const CATEGORIES = {
     "remove_member",
   ],
   organizations: ["register", "rename_organization"],
-} as const satisfies Record<string, EventKind[]>;
+} as const satisfies Record<string, schema.EventKind[]>;
 
 export type Category = keyof typeof CATEGORIES;
 
@@ -61,7 +53,7 @@ export const isCategory = (value: string): value is Category =>
 
 /** Entry is an event with the names of the records it concerns. */
 export interface Entry {
-  event: Event;
+  event: schema.Event;
   /** organization is the name of the organization, or null for none. */
   organization: string | null;
   /** license is the label of the license, or null for none. */
@@ -93,24 +85,28 @@ export const list = async (
   { organization: org, category, actors, before, limit = 50 }: Query,
 ): Promise<Page> => {
   const where: SQL[] = [];
-  if (org != null) where.push(eq(event.organization, org));
-  if (category != null) where.push(inArray(event.kind, [...CATEGORIES[category]]));
-  if (actors != null) where.push(inArray(event.actor, actors));
-  if (before != null) where.push(lt(event.key, before));
+  if (org != null) where.push(eq(schema.event.organization, org));
+  if (category != null)
+    where.push(inArray(schema.event.kind, [...CATEGORIES[category]]));
+  if (actors != null) where.push(inArray(schema.event.actor, actors));
+  if (before != null) where.push(lt(schema.event.key, before));
   const rows = await store.query
     .select({
-      event,
-      organization: organization.name,
-      license: license.label,
-      machineName: activation.name,
-      fingerprint: activation.fingerprint,
+      event: schema.event,
+      organization: schema.organization.name,
+      license: schema.license.label,
+      machineName: schema.activation.name,
+      fingerprint: schema.activation.fingerprint,
     })
-    .from(event)
-    .leftJoin(organization, eq(event.organization, organization.key))
-    .leftJoin(license, eq(event.license, license.key))
-    .leftJoin(activation, eq(event.activation, activation.key))
+    .from(schema.event)
+    .leftJoin(
+      schema.organization,
+      eq(schema.event.organization, schema.organization.key),
+    )
+    .leftJoin(schema.license, eq(schema.event.license, schema.license.key))
+    .leftJoin(schema.activation, eq(schema.event.activation, schema.activation.key))
     .where(and(...where))
-    .orderBy(desc(event.key))
+    .orderBy(desc(schema.event.key))
     .limit(limit + 1);
   const entries = rows.slice(0, limit).map((r) => ({
     event: r.event,

@@ -10,7 +10,7 @@
 import { type APIContext } from "astro";
 
 import { type Portal } from "@/portal";
-import { type Organization, type OrganizationKind } from "@/server/db/schema";
+import { type schema } from "@/server/db";
 import { ADMIN_ROLE } from "@/server/directory";
 import { badRequest, HTTPError } from "@/server/errors";
 import { isCategory, list, type Page, type Query } from "@/server/event";
@@ -50,9 +50,9 @@ export const guest = (context: APIContext): Response | null =>
 
 export interface Scoped extends Loaded {
   /** organizations are every organization the user can act for, personal first. */
-  organizations: Organization[];
+  organizations: schema.Organization[];
   /** scope is the organization the page acts for, from `?org=` or the default. */
-  scope: Organization;
+  scope: schema.Organization;
 }
 
 /** SCOPE_COOKIE remembers the last scope chosen through `?org=`. */
@@ -68,7 +68,7 @@ const YEAR_SECONDS = 365 * 24 * 60 * 60;
  */
 export const loadScoped = async (
   context: APIContext,
-  kind?: OrganizationKind,
+  kind?: schema.OrganizationKind,
 ): Promise<Scoped | Response> => {
   const loaded = await load(context);
   if (loaded instanceof Response) return loaded;

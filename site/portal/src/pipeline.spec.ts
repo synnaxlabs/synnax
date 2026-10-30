@@ -17,7 +17,7 @@ import { POST as renewRoute } from "@/pages/api/desktop/renew";
 import { POST as desktopUnlinkRoute } from "@/pages/api/desktop/unlink";
 import { POST as handoffRoute } from "@/pages/api/handoff";
 import { pipeline } from "@/pipeline";
-import { activation } from "@/server/db/schema";
+import { schema } from "@/server/db";
 import { type Memory, openMemory } from "@/server/db/testutil";
 import { HASH_A } from "@/server/license/testutil";
 import {
@@ -87,8 +87,8 @@ describe("pipeline", () => {
   const secretHash = async (key: string): Promise<string | null> => {
     const [act] = await store.query
       .select()
-      .from(activation)
-      .where(eq(activation.key, key));
+      .from(schema.activation)
+      .where(eq(schema.activation.key, key));
     return act.renewalSecretHash;
   };
 

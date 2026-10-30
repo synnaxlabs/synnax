@@ -10,7 +10,7 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { failure, load, loadScoped, readActivity, type Scoped } from "@/page";
-import { event, type EventKind, type Organization } from "@/server/db/schema";
+import { schema } from "@/server/db";
 import { type Memory, openMemory } from "@/server/db/testutil";
 import { HTTPError } from "@/server/errors";
 import { HASH_A, NOW } from "@/server/license/testutil";
@@ -185,14 +185,14 @@ describe("page", () => {
   });
 
   describe("readActivity", () => {
-    let org: Organization;
+    let org: schema.Organization;
     beforeEach(async () => {
       org = await createOrganization(store, { kind: "team", clerkOrgID: "org_a" });
     });
 
-    const record = async (kind: EventKind, actor: string, extra = {}) => {
+    const record = async (kind: schema.EventKind, actor: string, extra = {}) => {
       const [row] = await store.query
-        .insert(event)
+        .insert(schema.event)
         .values({ kind, actor, organization: org.key, at: NOW, ...extra })
         .returning();
       return row;

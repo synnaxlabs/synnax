@@ -11,15 +11,7 @@ import { errors } from "@synnaxlabs/x";
 import { eq, inArray, or, sql } from "drizzle-orm";
 import { z } from "zod";
 
-import { type Query, type Store, type Tx } from "@/server/db/db";
-import {
-  activation,
-  event,
-  invitation,
-  license,
-  type Organization,
-  organization,
-} from "@/server/db/schema";
+import { type Query, schema, type Store, type Tx } from "@/server/db";
 import { ADMIN_ROLE, type Directory, type Listed } from "@/server/directory";
 import { badRequest, HTTPError } from "@/server/errors";
 import { invite } from "@/server/invitation";
@@ -42,22 +34,22 @@ export interface EnsurePersonalArgs {
 export const ensurePersonal = async (
   store: Store,
   { userID, name }: EnsurePersonalArgs,
-): Promise<Organization> => {
+): Promise<schema.Organization> => {
   const [existing] = await store.query
     .select()
-    .from(organization)
-    .where(eq(organization.ownerUserID, userID));
+    .from(schema.organization)
+    .where(eq(schema.organization.ownerUserID, userID));
   if (existing != null) return existing;
   const [created] = await store.query
-    .insert(organization)
+    .insert(schema.organization)
     .values({ kind: "personal", name, ownerUserID: userID })
     .onConflictDoNothing()
     .returning();
   if (created != null) return created;
   const [raced] = await store.query
     .select()
-    .from(organization)
-    .where(eq(organization.ownerUserID, userID));
+    .from(schema.organization)
+    .where(eq(schema.organization.ownerUserID, userID));
   return raced;
 };
 
@@ -68,10 +60,10 @@ export const ensurePersonal = async (
 export const mirrorTeams = async (
   db: Query | Tx,
   teams: Listed[],
-): Promise<Organization[]> => {
+): Promise<schema.Organization[]> => {
   if (teams.length === 0) return [];
   const rows = await db
-    .insert(organization)
+    .insert(schema.organization)
     .values(
       teams.map(({ clerkOrgID, name }) => ({
         kind: "team" as const,
@@ -80,7 +72,7 @@ export const mirrorTeams = async (
       })),
     )
     .onConflictDoUpdate({
-      target: organization.clerkOrgID,
+      target: schema.organization.clerkOrgID,
       set: { name: sql`excluded.name` },
     })
     .returning();
@@ -136,7 +128,7 @@ export const register = async (
   const team = await store
     .transact(async (tx) => {
       const [row] = await mirrorTeams(tx, [listed]);
-      await tx.insert(event).values({
+      await tx.insert(schema.event).values({
         at: now,
         kind: "register",
         actor,
@@ -186,18 +178,18 @@ export const rename = async (
   store: Store,
   directory: Directory,
   { team, name, actor, now }: RenameArgs,
-): Promise<Organization> => {
+): Promise<schema.Organization> => {
   const trimmed = readName(name);
   if (trimmed === team.name) return team;
   if (trimmed.toLowerCase() !== team.name.toLowerCase())
     await requireUnique(directory, trimmed);
   return await store.transact(async (tx) => {
     const [row] = await tx
-      .update(organization)
+      .update(schema.organization)
       .set({ name: trimmed })
-      .where(eq(organization.key, team.key))
+      .where(eq(schema.organization.key, team.key))
       .returning();
-    await tx.insert(event).values({
+    await tx.insert(schema.event).values({
       at: now,
       kind: "rename_organization",
       actor,
@@ -213,19 +205,19 @@ export const rename = async (
  * purge deletes an organization with everything the portal holds for it: its licenses
  * and their seats, its invitations, and its history.
  */
-export const purge = async (tx: Tx, org: Organization): Promise<void> => {
+export const purge = async (tx: Tx, org: schema.Organization): Promise<void> => {
   const { key } = org;
   const lockOrganization = async () =>
     await tx
-      .select({ key: organization.key })
-      .from(organization)
-      .where(eq(organization.key, key))
+      .select({ key: schema.organization.key })
+      .from(schema.organization)
+      .where(eq(schema.organization.key, key))
       .for("update");
   const lockLicenses = async () =>
     await tx
-      .select({ key: license.key })
-      .from(license)
-      .where(eq(license.organization, key))
+      .select({ key: schema.license.key })
+      .from(schema.license)
+      .where(eq(schema.license.organization, key))
       .for("update");
   // Locks in the order the organization's writers do, so no record joins it during the
   // delete and no writer deadlocks with it. Desktop writes lock a personal organization
@@ -238,16 +230,16 @@ export const purge = async (tx: Tx, org: Organization): Promise<void> => {
     licenses = await lockLicenses();
     await lockOrganization();
   }
-  await tx.delete(event).where(eq(event.organization, key));
-  await tx.delete(activation).where(
+  await tx.delete(schema.event).where(eq(schema.event.organization, key));
+  await tx.delete(schema.activation).where(
     inArray(
-      activation.license,
+      schema.activation.license,
       licenses.map((l) => l.key),
     ),
   );
-  await tx.delete(license).where(eq(license.organization, key));
-  await tx.delete(invitation).where(eq(invitation.organization, key));
-  await tx.delete(organization).where(eq(organization.key, key));
+  await tx.delete(schema.license).where(eq(schema.license.organization, key));
+  await tx.delete(schema.invitation).where(eq(schema.invitation.organization, key));
+  await tx.delete(schema.organization).where(eq(schema.organization.key, key));
 };
 
 /**
@@ -274,7 +266,7 @@ export const adoptTeam = async (
   store: Store,
   directory: Directory,
   clerkOrgID: string,
-): Promise<Organization> => {
+): Promise<schema.Organization> => {
   const team = await directory.team(clerkOrgID);
   if (team == null) throw badRequest(`Clerk has no organization ${clerkOrgID}`);
   const [row] = await mirrorTeams(store.query, [team]);
@@ -290,16 +282,16 @@ export interface Membership {
 export const listForMember = async (
   store: Store,
   { userID, clerkOrgIDs }: Membership,
-): Promise<Organization[]> => {
+): Promise<schema.Organization[]> => {
   const rows = await store.query
     .select()
-    .from(organization)
+    .from(schema.organization)
     .where(
       clerkOrgIDs.length === 0
-        ? eq(organization.ownerUserID, userID)
+        ? eq(schema.organization.ownerUserID, userID)
         : or(
-            eq(organization.ownerUserID, userID),
-            inArray(organization.clerkOrgID, clerkOrgIDs),
+            eq(schema.organization.ownerUserID, userID),
+            inArray(schema.organization.clerkOrgID, clerkOrgIDs),
           ),
     );
   return rows.sort(
@@ -316,7 +308,7 @@ export const listForMember = async (
 export const organizationsFor = async (
   store: Store,
   session: Session,
-): Promise<Organization[]> => {
+): Promise<schema.Organization[]> => {
   await ensurePersonal(store, { userID: session.userID, name: session.name });
   await mirrorTeams(store.query, session.teams);
   return await listForMember(store, session);
@@ -329,10 +321,10 @@ export const organizationsFor = async (
  * member acts for their first team and anyone else for their personal organization.
  */
 export const pick = (
-  organizations: Organization[],
+  organizations: schema.Organization[],
   requested: string | null,
   remembered: string | null,
-): Organization | null => {
+): schema.Organization | null => {
   if (requested != null) return organizations.find((o) => o.key === requested) ?? null;
   return (
     organizations.find((o) => o.key === remembered) ??
@@ -344,7 +336,7 @@ export const pick = (
 
 /** Summary is one team as the staff console lists it. */
 export interface Summary {
-  organization: Organization;
+  organization: schema.Organization;
   members: number;
   licenses: Held[];
 }
@@ -370,16 +362,16 @@ export const listTeams = async (
 export const retrieve = async (
   store: Store,
   key: string,
-): Promise<Organization | undefined> => {
+): Promise<schema.Organization | undefined> => {
   const [row] = await store.query
     .select()
-    .from(organization)
-    .where(eq(organization.key, key));
+    .from(schema.organization)
+    .where(eq(schema.organization.key, key));
   return row;
 };
 
 export const isMember = (
-  org: Organization,
+  org: schema.Organization,
   { userID, clerkOrgIDs }: Membership,
 ): boolean =>
   org.kind === "personal"

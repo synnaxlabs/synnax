@@ -9,11 +9,14 @@
 
 import { describe, expect, it } from "vitest";
 
-import { type Organization } from "@/server/db/schema";
+import { type schema } from "@/server/db";
 import { pick } from "@/server/organization";
 import { HOME, landing, scoped, tabs } from "@/shell";
 
-const organization = (key: string, kind: Organization["kind"]): Organization => ({
+const organization = (
+  key: string,
+  kind: schema.Organization["kind"],
+): schema.Organization => ({
   key,
   kind,
   name: key,

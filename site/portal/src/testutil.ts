@@ -19,18 +19,7 @@ import {
   memory as analytics,
   type Session,
 } from "@/server/analytics";
-import {
-  type Activation,
-  activation,
-  type Invitation,
-  invitation,
-  type License,
-  license,
-  type Organization,
-  organization,
-  type Referral,
-  referral,
-} from "@/server/db/schema";
+import { schema } from "@/server/db";
 import { type Memory } from "@/server/db/testutil";
 import { type Directory, memory as directory, type Records } from "@/server/directory";
 import { local } from "@/server/license/sign";
@@ -169,10 +158,10 @@ export const body = async <T = Record<string, unknown>>(res: Response): Promise<
 
 export const createOrganization = async (
   store: Memory,
-  values: Partial<Organization> & Pick<Organization, "kind">,
-): Promise<Organization> => {
+  values: Partial<schema.Organization> & Pick<schema.Organization, "kind">,
+): Promise<schema.Organization> => {
   const [row] = await store.query
-    .insert(organization)
+    .insert(schema.organization)
     .values({ name: values.kind === "team" ? "Acme" : "Ada Lovelace", ...values })
     .returning();
   return row;
@@ -180,10 +169,10 @@ export const createOrganization = async (
 
 export const createLicense = async (
   store: Memory,
-  values: Partial<License> & Pick<License, "organization">,
-): Promise<License> => {
+  values: Partial<schema.License> & Pick<schema.License, "organization">,
+): Promise<schema.License> => {
   const [row] = await store.query
-    .insert(license)
+    .insert(schema.license)
     .values({
       edition: "enterprise",
       term: "subscription",
@@ -202,10 +191,11 @@ export const createLicense = async (
 /** createInvitation saves an invitation sent at {@link NOW} that is open for a day. */
 export const createInvitation = async (
   store: Memory,
-  values: Partial<Invitation> & Pick<Invitation, "organization" | "email">,
-): Promise<Invitation> => {
+  values: Partial<schema.Invitation> &
+    Pick<schema.Invitation, "organization" | "email">,
+): Promise<schema.Invitation> => {
   const [row] = await store.query
-    .insert(invitation)
+    .insert(schema.invitation)
     .values({
       role: "org:member",
       sentAt: NOW,
@@ -219,10 +209,10 @@ export const createInvitation = async (
 /** createReferral saves a referral that `user_staff` made at {@link NOW}. */
 export const createReferral = async (
   store: Memory,
-  values: Partial<Referral> = {},
-): Promise<Referral> => {
+  values: Partial<schema.Referral> = {},
+): Promise<schema.Referral> => {
   const [row] = await store.query
-    .insert(referral)
+    .insert(schema.referral)
     .values({
       key: "Ada-link-001",
       recipient: "Ada",
@@ -236,10 +226,11 @@ export const createReferral = async (
 
 export const createActivation = async (
   store: Memory,
-  values: Partial<Activation> & Pick<Activation, "license" | "fingerprint">,
-): Promise<Activation> => {
+  values: Partial<schema.Activation> &
+    Pick<schema.Activation, "license" | "fingerprint">,
+): Promise<schema.Activation> => {
   const [row] = await store.query
-    .insert(activation)
+    .insert(schema.activation)
     .values({ firstSeen: NOW, lastSeen: NOW, ...values })
     .returning();
   return row;

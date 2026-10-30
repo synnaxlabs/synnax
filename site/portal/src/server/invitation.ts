@@ -10,14 +10,7 @@
 import { and, desc, eq, gt, inArray } from "drizzle-orm";
 import { z } from "zod";
 
-import { type Reader, type Store } from "@/server/db/db";
-import {
-  event,
-  type Invitation,
-  invitation,
-  type Organization,
-  organization,
-} from "@/server/db/schema";
+import { type Reader, schema, type Store } from "@/server/db";
 import { type Directory, roleName } from "@/server/directory";
 import { badRequest, forbidden, notFound } from "@/server/errors";
 import { type Mailer, type Notice } from "@/server/mail";
@@ -32,13 +25,16 @@ const OPEN_MS = 30 * DAY_MS;
 
 /** Invited is an invitation with the team it joins. */
 export interface Invited {
-  invitation: Invitation;
+  invitation: schema.Invitation;
   team: Team;
 }
 
 const isKey = (key: string): boolean => z.uuid().safeParse(key).success;
 
-const invited = (row: { invitation: Invitation; organization: Organization }) => {
+const invited = (row: {
+  invitation: schema.Invitation;
+  organization: schema.Organization;
+}) => {
   const { invitation: inv, organization: org } = row;
   if (org.clerkOrgID == null)
     throw new Error(`team ${org.key} has no Clerk organization`);
@@ -47,14 +43,17 @@ const invited = (row: { invitation: Invitation; organization: Organization }) =>
 
 const joined = (db: Reader) =>
   db
-    .select({ invitation, organization })
-    .from(invitation)
-    .innerJoin(organization, eq(invitation.organization, organization.key));
+    .select({ invitation: schema.invitation, organization: schema.organization })
+    .from(schema.invitation)
+    .innerJoin(
+      schema.organization,
+      eq(schema.invitation.organization, schema.organization.key),
+    );
 
 /** retrieve returns an invitation with its team, or null for an unknown key. */
 export const retrieve = async (db: Reader, key: string): Promise<Invited | null> => {
   if (!isKey(key)) return null;
-  const [row] = await joined(db).where(eq(invitation.key, key));
+  const [row] = await joined(db).where(eq(schema.invitation.key, key));
   return row == null ? null : invited(row);
 };
 
@@ -75,20 +74,25 @@ export const addressedTo = async (
   now: Date,
 ): Promise<Invited[]> => {
   const rows = await joined(db)
-    .where(and(inArray(invitation.email, addresses), gt(invitation.expiresAt, now)))
-    .orderBy(desc(invitation.sentAt));
+    .where(
+      and(
+        inArray(schema.invitation.email, addresses),
+        gt(schema.invitation.expiresAt, now),
+      ),
+    )
+    .orderBy(desc(schema.invitation.sentAt));
   return rows.map(invited);
 };
 
 /** list returns a team's invitations, expired ones included, newest first. */
-export const list = async (db: Reader, team: string): Promise<Invitation[]> =>
+export const list = async (db: Reader, team: string): Promise<schema.Invitation[]> =>
   await db
     .select()
-    .from(invitation)
-    .where(eq(invitation.organization, team))
-    .orderBy(desc(invitation.sentAt));
+    .from(schema.invitation)
+    .where(eq(schema.invitation.organization, team))
+    .orderBy(desc(schema.invitation.sentAt));
 
-const notice = (inv: Invitation, team: Team, inviter: string): Notice => ({
+const notice = (inv: schema.Invitation, team: Team, inviter: string): Notice => ({
   subject: `Join ${team.name} on Synnax`,
   heading: `Join ${team.name} on Synnax`,
   paragraphs: [
@@ -120,7 +124,7 @@ export const invite = async (
   directory: Directory,
   mail: Mailer,
   { email, role, team, actor, now }: InviteArgs,
-): Promise<Invitation> => {
+): Promise<schema.Invitation> => {
   const address = email.trim().toLowerCase();
   if (!z.email().safeParse(address).success) throw badRequest("Enter an email address");
   requireRole(role);
@@ -132,14 +136,14 @@ export const invite = async (
   const expiresAt = new Date(now.getTime() + OPEN_MS);
   return await store.transact(async (tx) => {
     const [row] = await tx
-      .insert(invitation)
+      .insert(schema.invitation)
       .values({ organization: team.key, email: address, role, sentAt: now, expiresAt })
       .onConflictDoUpdate({
-        target: [invitation.organization, invitation.email],
+        target: [schema.invitation.organization, schema.invitation.email],
         set: { role, sentAt: now, expiresAt },
       })
       .returning();
-    await tx.insert(event).values({
+    await tx.insert(schema.event).values({
       at: now,
       kind: "invite",
       actor,
@@ -166,11 +170,16 @@ export const revoke = async (
   if (!isKey(key)) throw notFound("Invitation");
   await store.transact(async (tx) => {
     const [row] = await tx
-      .delete(invitation)
-      .where(and(eq(invitation.key, key), eq(invitation.organization, team.key)))
+      .delete(schema.invitation)
+      .where(
+        and(
+          eq(schema.invitation.key, key),
+          eq(schema.invitation.organization, team.key),
+        ),
+      )
       .returning();
     if (row == null) throw notFound("Invitation");
-    await tx.insert(event).values({
+    await tx.insert(schema.event).values({
       at: now,
       kind: "revoke_invitation",
       actor,
@@ -210,11 +219,11 @@ export const accept = async (
   await store.transact(async (tx) => {
     // Deleting first makes the invitation single use when two accepts race.
     const [row] = await tx
-      .delete(invitation)
-      .where(eq(invitation.key, inv.key))
+      .delete(schema.invitation)
+      .where(eq(schema.invitation.key, inv.key))
       .returning();
     if (row == null) throw notFound("Invitation");
-    await tx.insert(event).values({
+    await tx.insert(schema.event).values({
       at: now,
       kind: "accept_invitation",
       actor: session.userID,
