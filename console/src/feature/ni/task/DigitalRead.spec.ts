@@ -24,7 +24,7 @@ import {
   createWithHook,
   deployAndAwaitTask,
 } from "@/platform/task/testutil";
-import { uniqueName } from "@/testutil";
+import { getIconButton, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -196,6 +196,29 @@ describe("DigitalRead ports", () => {
         [0, 0],
         [1, 2],
       ]);
+    });
+  });
+
+  it("should add a channel on the next port once each line of a port holds one", async () => {
+    const dev = await createNIDevice(client, {
+      properties: { hardware: createHardware() },
+    });
+    const { container, draft } = await renderDigitalRead(
+      createConfig(
+        Array.from({ length: 8 }, (_, line) => createChannel(0, line)),
+        dev.key,
+      ),
+    );
+    await screen.findByText("Ports");
+    fireEvent.click(getIconButton(container, "add"));
+    await waitFor(async () => {
+      const saved = await client.tasks.retrieve({
+        key: draft.key,
+        schemas: NI.Task.DIGITAL_READ_SCHEMAS,
+      });
+      expect(
+        saved.config.channels.map(({ port, line }) => [port, line]).at(-1),
+      ).toEqual([1, 0]);
     });
   });
 

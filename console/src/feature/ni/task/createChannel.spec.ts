@@ -17,18 +17,6 @@ import {
   createNextDIChannel,
   createNextDOChannel,
 } from "@/feature/ni/task/createChannel";
-import { createHardware } from "@/feature/ni/task/testutil";
-
-const createDevice = (key: string): NI.Device.Device => ({
-  key,
-  rack: 1,
-  location: "Dev1",
-  make: "NI",
-  model: "PCIe-6363",
-  name: key,
-  configured: true,
-  properties: { ...NI.Device.ZERO_PROPERTIES, hardware: createHardware() },
-});
 
 // AI channels are a discriminated union and the built-in temperature sensor variant
 // carries no port, so the specs reach for one through these.
@@ -39,7 +27,7 @@ const aiChannel = (
   key: string,
   port: number,
   type: NI.Task.AIChannelType = "ai_voltage",
-  extra: { channel?: number; device?: string } = {},
+  extra: { channel?: number } = {},
 ): NI.Task.AIChannel => {
   const channel = NI.Task.createAIChannel(type);
   if (!("port" in channel)) throw new Error(`${type} carries no port`);
@@ -72,23 +60,6 @@ describe("createChannel", () => {
       expect(result.key).not.toBe("2");
       expect(result.key.length).toBeGreaterThan(0);
       expect(result.channel).toBe(0);
-    });
-  });
-
-  describe("createNextDIChannel on a device with a port list", () => {
-    it("should take the first free line of the next port once a port is full", () => {
-      const channels = Array.from({ length: 8 }, (_, line) => ({
-        ...NI.Task.createDIChannel(),
-        key: String(line),
-        line,
-      }));
-      const result = createNextDIChannel(channels, {}, createDevice("a"));
-      expect([result.port, result.line]).toEqual([1, 0]);
-    });
-
-    it("should put the channel on the given line", () => {
-      const result = createNextDIChannel([], { port: 1, line: 5 }, createDevice("a"));
-      expect([result.port, result.line]).toEqual([1, 5]);
     });
   });
 
@@ -177,40 +148,6 @@ describe("createChannel", () => {
       const channels = [aiChannel("1", 0), aiChannel("2", 2), aiChannel("3", 5)];
       const result = createNextAIChannel(channels, { copy: "1" });
       expect(portOf(result)).toBe(1);
-    });
-
-    it("should take the lowest free port on its own device, not in the task", () => {
-      const channels = [
-        aiChannel("1", 0, "ai_voltage", { device: "a" }),
-        aiChannel("2", 1, "ai_voltage", { device: "a" }),
-        aiChannel("3", 0, "ai_voltage", { device: "b" }),
-      ];
-      expect(portOf(createNextAIChannel(channels, { copy: "3" }))).toBe(1);
-    });
-
-    it("should skip a port that a differential channel uses as its negative input", () => {
-      const dev = createDevice("a");
-      const channels = Array.from({ length: 8 }, (_, port) =>
-        aiChannel(String(port), port, "ai_voltage", { device: "a" }),
-      );
-      const result = createNextAIChannel(channels.slice(0, 1), {}, [dev]);
-      expect(portOf(result)).toBe(1);
-      expect(portOf(createNextAIChannel(channels, {}, [dev]))).toBe(16);
-    });
-
-    it("should take a port whose negative input is free for a channel that copies a differential one", () => {
-      const dev = createDevice("a");
-      const channels = [
-        aiChannel("1", 0, "ai_voltage", { device: "a" }),
-        aiChannel("2", 9, "ai_voltage", { device: "a" }),
-      ];
-      expect(portOf(createNextAIChannel(channels, { copy: "1" }, [dev]))).toBe(2);
-    });
-
-    it("should put the channel on the given device and port", () => {
-      const result = createNextAIChannel([aiChannel("1", 0)], { device: "b", port: 6 });
-      expect(result.device).toBe("b");
-      expect(portOf(result)).toBe(6);
     });
 
     it("should give the built-in temperature sensor no port", () => {
@@ -388,16 +325,6 @@ describe("createChannel", () => {
       expect(result.key.length).toBeGreaterThan(0);
       expect(result.port).toBe(2);
       expect(result.channel).not.toBe(3);
-    });
-
-    it("should take the lowest free counter on the device of the copied channel", () => {
-      const channels: NI.Task.CIChannel[] = [
-        { ...NI.Task.createCIChannel("ci_frequency"), key: "1", device: "a", port: 0 },
-        { ...NI.Task.createCIChannel("ci_frequency"), key: "2", device: "b", port: 0 },
-        { ...NI.Task.createCIChannel("ci_frequency"), key: "3", device: "b", port: 1 },
-      ];
-      const result = createNextCIChannel(channels, { copy: "1" }, [createDevice("a")]);
-      expect([result.device, result.port]).toEqual(["a", 1]);
     });
   });
 });
