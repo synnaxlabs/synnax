@@ -90,7 +90,7 @@ class Synnax(framer.Client):
     imex: ImexClient
     projects: project.Client
     tables: table.Client
-    lineplots: lineplot.Client
+    line_plots: lineplot.Client
     panels: panel.Client
     logs: log.Client
 
@@ -191,7 +191,7 @@ class Synnax(framer.Client):
             file_transport=self._transport.file_transport,
         )
         self.tables = table.Client(client=self._transport.unary)
-        self.lineplots = lineplot.Client(client=self._transport.unary)
+        self.line_plots = lineplot.Client(client=self._transport.unary)
         self.panels = panel.Client(client=self._transport.unary, ontology=self.ontology)
         self.logs = log.Client(self._transport.unary)
         self.tasks = task.Client(
