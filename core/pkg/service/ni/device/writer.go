@@ -75,8 +75,11 @@ func (w Writer) defineStatus(ctx context.Context, d Device) error {
 	exists, err := gorp.NewRetrieve[status.Key, Status]().
 		Where(gorp.MatchKeys[status.Key, Status](key)).
 		Exists(ctx, w.tx)
-	if err != nil || exists {
+	if err != nil {
 		return err
+	}
+	if exists {
+		return w.syncStatus(ctx, d)
 	}
 	return w.status.Set(ctx, &Status{
 		Key:     key,
@@ -102,7 +105,8 @@ func (w Writer) syncStatus(ctx context.Context, d Device) error {
 }
 
 // Create stores d, defines its ontology resource and parent edge, and writes an unknown
-// status when it has none. A device with a nil key gets a new one. It returns a
+// status when it has none. An existing status takes the name and rack of d. A device
+// with a nil key gets a new one. It returns a
 // validation error when d is invalid.
 func (w Writer) Create(ctx context.Context, d *Device) error {
 	if d.Key == uuid.Nil() {
