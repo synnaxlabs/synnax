@@ -9,7 +9,13 @@
 
 import { DataType, type lineplot, type ranger } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { dynamicWindow, staticWindow, TimeRange, TimeSpan } from "@synnaxlabs/x";
+import {
+  dynamicWindow,
+  staticWindow,
+  TimeRange,
+  TimeSpan,
+  TimeStamp,
+} from "@synnaxlabs/x";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -71,6 +77,21 @@ const expectRanges = async (key: string, ranges: ranger.Ref[]): Promise<void> =>
   await waitFor(async () =>
     expect((await reader.lineplots.retrieve(key)).ranges).toEqual(ranges),
   );
+
+const editTime = (label: string, text: string): void => {
+  fireEvent.click(screen.getByLabelText(label));
+  const field = screen.getByRole("textbox");
+  fireEvent.change(field, { target: { value: text } });
+  fireEvent.keyDown(field, { key: "Enter" });
+};
+
+const local = (hour: number): TimeStamp =>
+  new TimeStamp(new Date(2026, 7, 23, hour, 0));
+
+const fixed = (startHour: number, endHour: number): ranger.Ref => ({
+  variant: "window",
+  window: staticWindow(new TimeRange(local(startHour), local(endHour))),
+});
 
 const FIVE_MIN = TimeSpan.minutes(5);
 const FORTY_FIVE_MIN = TimeSpan.minutes(45);
@@ -161,6 +182,31 @@ describe("lineplot/toolbar/Data", () => {
       await expectRanges(key, [rolling(TimeSpan.minutes(10))]);
     });
 
+    it("keeps the stored window when its tag is set to zero", async () => {
+      const { key } = await renderData([rolling(FORTY_FIVE_MIN)]);
+      fireEvent.click(await screen.findByText(label(FORTY_FIVE_MIN)));
+      const field = screen.getByRole("textbox");
+      fireEvent.change(field, { target: { value: "0s" } });
+      fireEvent.keyDown(field, { key: "Enter" });
+      expect(await screen.findByText(label(FORTY_FIVE_MIN))).toBeDefined();
+      expect((await reader.lineplots.retrieve(key)).ranges).toEqual([
+        rolling(FORTY_FIVE_MIN),
+      ]);
+    });
+
+    it("keeps the presets out of the search list's keys", async () => {
+      await renderData([]);
+      search("banana");
+      act(() => {
+        fireEvent.keyDown(window, { code: "ArrowDown" });
+        fireEvent.keyDown(window, { code: "Enter" });
+      });
+      const pressed = screen
+        .getAllByRole("button")
+        .filter((b) => b.getAttribute("aria-pressed") === "true");
+      expect(pressed).toHaveLength(0);
+    });
+
     it("clears the window when its tag is closed", async () => {
       const { key } = await renderData([rolling(FORTY_FIVE_MIN)]);
       await screen.findByText(label(FORTY_FIVE_MIN));
@@ -210,6 +256,30 @@ describe("lineplot/toolbar/Data", () => {
     await screen.findByText("Deleted range");
     fireEvent.click(findTagCloseButton("Deleted range"));
     await expectRanges(key, []);
+  });
+
+  describe("static window", () => {
+    it("edits the start from its tag", async () => {
+      const { key } = await renderData([fixed(14, 16)]);
+      editTime("Start", "2026-08-23 15:00");
+      await expectRanges(key, [fixed(15, 16)]);
+    });
+
+    it("edits the end from its tag", async () => {
+      const { key } = await renderData([fixed(14, 16)]);
+      editTime("End", "2026-08-23 17:00");
+      await expectRanges(key, [fixed(14, 17)]);
+    });
+
+    it("rejects a bound that would cross the other", async () => {
+      const { key } = await renderData([fixed(14, 16)]);
+      editTime("Start", "2026-08-23 17:00");
+      editTime("End", "2026-08-23 18:00");
+      await expectRanges(key, [fixed(14, 18)]);
+      editTime("End", "2026-08-23 13:00");
+      editTime("Start", "2026-08-23 15:00");
+      await expectRanges(key, [fixed(15, 18)]);
+    });
   });
 
   it("removes a static window when its tag is closed", async () => {

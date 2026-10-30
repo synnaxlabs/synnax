@@ -123,7 +123,10 @@ const RollingTag = ({ itemKey, window, onChange }: RollingTagProps): ReactElemen
     <Tag.Tag icon={liveIcon} onClose={onSelect} level="small" size="small">
       <Input.TimeSpan
         value={window.timeSpan}
-        onChange={(span) => onChange(new TimeSpan(span))}
+        onChange={(span) => {
+          const next = new TimeSpan(span);
+          if (!next.isZero) onChange(next);
+        }}
         variant="text"
         size="small"
       />
@@ -178,6 +181,9 @@ const StaticTag = ({
   const { onSelect } = Select.useItemState(itemKey);
   const start = Number(window.timeRange.start);
   const end = Number(window.timeRange.end);
+  const handleChange = (next: TimeRange) => {
+    if (next.isValid && !next.span.isZero) onChange(next);
+  };
   return (
     <Tag.Tag
       icon={<Icon.Range />}
@@ -188,7 +194,8 @@ const StaticTag = ({
     >
       <Input.DateTime
         value={start}
-        onChange={(next) => onChange(new TimeRange(next, end))}
+        onChange={(next) => handleChange(new TimeRange(next, end))}
+        aria-label="Start"
         variant="text"
         size="small"
         bound="start"
@@ -197,7 +204,8 @@ const StaticTag = ({
       <Icon.Arrow.Right />
       <Input.DateTime
         value={end}
-        onChange={(next) => onChange(new TimeRange(start, next))}
+        onChange={(next) => handleChange(new TimeRange(start, next))}
+        aria-label="End"
         variant="text"
         size="small"
         bound="end"
@@ -222,6 +230,7 @@ const LiveRow = ({ span, onChange }: LiveRowProps): ReactElement => (
     </Text.Text>
     <Select.Buttons
       allowNone
+      enableTriggers={false}
       value={span == null ? undefined : Number(span.valueOf())}
       onChange={(key: number | null) =>
         onChange(key == null ? undefined : new TimeSpan(key))
