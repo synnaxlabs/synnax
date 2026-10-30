@@ -9,13 +9,13 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-input__item {
-    & .pluto-input__switch {
+.lyra-input__item {
+    & .lyra-input__switch {
         width: 100%;
     }
 }
 
-.pluto-input__switch {
+.lyra-input__switch {
     /* The gap caps so a big switch keeps a slim knob inset. */
     --pluto-switch-width: calc(5rem * var(--pluto-switch-scale, 1));
     --pluto-switch-height: calc(2.5rem * var(--pluto-switch-scale, 1));
@@ -28,17 +28,19 @@
     justify-content: center;
     align-items: center;
     position: relative;
+    /* stylelint-disable-next-line declaration-no-important -- a switch keeps the
+       pointer in every button state */
     cursor: pointer !important;
     padding: 0;
 
     &:has(:focus-visible) {
-        .pluto-input__switch-indicator {
+        .lyra-input__switch-indicator {
             outline: 1px solid var(--pluto-primary-z);
             outline-offset: var(--pluto-focus-ring-offset);
         }
     }
 
-    &:not(.pluto--disabled).pluto-btn--prevent-click input {
+    &:not(.lyra--disabled).lyra-btn--prevent-click input {
         cursor: pointer;
     }
 
@@ -50,7 +52,7 @@
         z-index: 100;
     }
 
-    .pluto-input__switch-indicator {
+    .lyra-input__switch-indicator {
         position: relative;
         display: inline-block;
         width: var(--pluto-switch-width);
@@ -63,7 +65,7 @@
         transition: 0.15s;
     }
 
-    .pluto-input__switch-indicator::before {
+    .lyra-input__switch-indicator::before {
         position: absolute;
         content: "";
         height: calc(var(--pluto-switch-height) - 2 * var(--pluto-switch-gap));
@@ -76,29 +78,31 @@
         border-radius: 50%;
     }
 
-    input:checked ~ .pluto-input__switch-indicator {
+    input:checked ~ .lyra-input__switch-indicator {
         background: var(--pluto-primary-m1);
     }
 
-    input:checked ~ .pluto-input__switch-indicator::before {
+    input:checked ~ .lyra-input__switch-indicator::before {
         transform: translateX(var(--pluto-switch-travel));
         background: var(--pluto-primary-p1);
     }
 
-    &.pluto--disabled {
+    &.lyra--disabled {
         * {
+            /* stylelint-disable-next-line declaration-no-important -- every part of a
+               disabled switch shows the not-allowed cursor */
             cursor: not-allowed !important;
         }
 
-        .pluto-input__switch-indicator {
+        .lyra-input__switch-indicator {
             background: var(--pluto-gray-l3-50);
         }
 
-        .pluto-input__switch-indicator::before {
+        .lyra-input__switch-indicator::before {
             background: var(--pluto-gray-l6-70);
         }
 
-        input:checked ~ .pluto-input__switch-indicator {
+        input:checked ~ .lyra-input__switch-indicator {
             background: color-mix(
                 in srgb,
                 var(--pluto-gray-l3),
@@ -106,7 +110,7 @@
             );
         }
 
-        input:checked ~ .pluto-input__switch-indicator::before {
+        input:checked ~ .lyra-input__switch-indicator::before {
             background: color-mix(
                 in srgb,
                 var(--pluto-gray-l6),

@@ -63,7 +63,7 @@ class Http:
     limit or server error."""
 
     def __init__(
-        self, token: str, urlopen: Callable[..., Any] = urllib.request.urlopen
+        self, *, token: str, urlopen: Callable[..., Any] = urllib.request.urlopen
     ) -> None:
         self.token = token
         self.urlopen = urlopen
@@ -93,7 +93,7 @@ class Http:
             raise Transient(str(e)) from e
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, kw_only=True)
 class Entry:
     position: int
     state: str
@@ -103,7 +103,7 @@ class Entry:
 class GitHub:
     """Reads the merge queue and merge group CI jobs."""
 
-    def __init__(self, repository: str, request: Request) -> None:
+    def __init__(self, *, repository: str, request: Request) -> None:
         self.repository = repository
         self.request = request
         self.run_ids: dict[str, int] = {}
@@ -120,7 +120,11 @@ class GitHub:
             raise RuntimeError(f"merge queue query failed: {errors}")
         nodes = resp["data"]["repository"]["mergeQueue"]["entries"]["nodes"]
         return [
-            Entry(n["position"], n["state"], (n["headCommit"] or {}).get("oid", ""))
+            Entry(
+                position=n["position"],
+                state=n["state"],
+                sha=(n["headCommit"] or {}).get("oid", ""),
+            )
             for n in nodes
         ]
 
@@ -164,7 +168,7 @@ def through(jobs: dict[str, dict[str, Any]]) -> bool:
     )
 
 
-def ready(github: GitHub, sha: str, slots: int) -> bool:
+def ready(github: GitHub, *, sha: str, slots: int) -> bool:
     """True when the group at sha may queue its test bot jobs. A group's path filter
     sees only its own pull request, so a group that skips the integration suite can
     sit between two that run it: the check skips past such groups."""
@@ -190,6 +194,7 @@ def ready(github: GitHub, sha: str, slots: int) -> bool:
 
 def wait(
     github: GitHub,
+    *,
     sha: str,
     slots: int,
     sleep: Callable[[float], None] = time.sleep,
@@ -198,7 +203,7 @@ def wait(
     delay: float = POLL_SECONDS
     while True:
         try:
-            if ready(github, sha, slots):
+            if ready(github, sha=sha, slots=slots):
                 return
             delay = POLL_SECONDS
         except Transient as e:
@@ -209,8 +214,11 @@ def wait(
 
 def main() -> None:
     sha, slots = sys.argv[1], int(sys.argv[2])
-    github = GitHub(os.environ["GITHUB_REPOSITORY"], Http(os.environ["GH_TOKEN"]))
-    wait(github, sha, max(slots, 1))
+    github = GitHub(
+        repository=os.environ["GITHUB_REPOSITORY"],
+        request=Http(token=os.environ["GH_TOKEN"]),
+    )
+    wait(github, sha=sha, slots=max(slots, 1))
 
 
 if __name__ == "__main__":

@@ -146,7 +146,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await isolateTab(session, "Sequence Logs");
     await session.click(
       page
-        .locator(".console-mosaic .pluto-tabs__tab")
+        .locator(".console-mosaic .lyra-tabs__tab")
         .getByText("Sequence Logs", { exact: true })
         .first(),
       { zoom: false },
@@ -154,7 +154,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.click(page.locator(".console-main-nav__item").last(), {
       zoom: false,
     });
-    const drawer = page.locator(".console-nav__drawer.pluto--location-bottom").first();
+    const drawer = page.locator(".console-nav__drawer.lyra--location-bottom").first();
     await session.waitFor(drawer.getByText("Add channel", { exact: true }).first());
     // On the empty part of the main nav, so nothing on screen shows its hover state.
     await session.moveTo({ x: 26, y: 600 });
