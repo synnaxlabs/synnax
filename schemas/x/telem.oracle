@@ -26,12 +26,13 @@ TimeStamp int64 {
 
 TimeSpan int64 {
     @cpp hand
-    @doc value """
+    @doc value  """
         is a 64-bit signed integer representing a duration in nanoseconds. Used for
         expressing time intervals, sampling periods, and durations throughout the
         telemetry system.
     """
     @py hand
+    @py include "x/py/x/telem/telem"
     @ts hand
 }
 
@@ -51,6 +52,7 @@ TimeRange struct {
     """
     @go marshal
     @py hand
+    @py include "x/py/x/telem/telem"
     @ts hand
 }
 
@@ -107,7 +109,6 @@ Window union on variant {
     @doc value  "is a window of time: a rolling span that ends now, or a fixed range."
     @go marshal
     @pb omit
-    @py omit
     @ts hand
     @ts include "x/ts/src/telem/telem"
 }
