@@ -615,12 +615,199 @@ INSTANTIATE_TEST_SUITE_P(
     Fields,
     InvalidConnectionTest,
     ::testing::Values(
-        InvalidConnectionCase{"transport", "rtu", "unsupported transport: rtu"},
+        InvalidConnectionCase{"transport", "ascii", "must be tcp or rtu"},
         InvalidConnectionCase{"unit_id", 256, "must be between 0 and 255"},
         InvalidConnectionCase{"timeout_ms", 0, "must be between 1 and 60000"},
         InvalidConnectionCase{"retries", 11, "must be between 0 and 10"}
     )
 );
+
+/// @brief it should parse every serial field and round trip them.
+TEST(ConnectionConfigTest, ParsesSerial) {
+    x::json::Parser parser(
+        x::json::json{
+            {"transport", "rtu"},
+            {"serial_port", "/dev/ttyUSB0"},
+            {"baud_rate", 9600},
+            {"parity", "none"},
+            {"stop_bits", 2},
+            {"swap_bytes", false},
+            {"swap_words", false},
+            {"unit_id", 17},
+        }
+    );
+    const ConnectionConfig config(parser);
+    ASSERT_NIL(parser.error());
+    EXPECT_EQ(config.transport, Transport::RTU);
+    EXPECT_EQ(config.serial.port, "/dev/ttyUSB0");
+    EXPECT_EQ(config.serial.baud_rate, 9600);
+    EXPECT_EQ(config.serial.parity, 'N');
+    EXPECT_EQ(config.serial.stop_bits, 2);
+    EXPECT_EQ(config.unit_id, 17);
+    EXPECT_EQ(config.endpoint(), "/dev/ttyUSB0");
+    const auto j = config.to_json();
+    EXPECT_EQ(j["transport"], "rtu");
+    EXPECT_EQ(j["serial_port"], "/dev/ttyUSB0");
+    EXPECT_EQ(j["baud_rate"], 9600);
+    EXPECT_EQ(j["parity"], "none");
+    EXPECT_EQ(j["stop_bits"], 2);
+    EXPECT_EQ(j["unit_id"], 17);
+    EXPECT_FALSE(j.contains("data_bits"));
+    EXPECT_FALSE(j.contains("host"));
+    EXPECT_FALSE(j.contains("port"));
+}
+
+/// @brief it should default the line settings to 19200 8E1 and the unit to 1.
+TEST(ConnectionConfigTest, DefaultsSerial) {
+    x::json::Parser parser(
+        x::json::json{
+            {"transport", "rtu"},
+            {"serial_port", "COM3"},
+            {"swap_bytes", false},
+            {"swap_words", false},
+        }
+    );
+    const ConnectionConfig config(parser);
+    ASSERT_NIL(parser.error());
+    EXPECT_EQ(config.serial.line(), "19200 8E1");
+    EXPECT_EQ(config.unit_id, 1);
+    EXPECT_EQ(config.to_json()["parity"], "even");
+}
+
+/// @brief it should accept the lowest and the highest baud rate.
+TEST(ConnectionConfigTest, AcceptsBaudRateBounds) {
+    for (const int rate: {1200, 230400}) {
+        x::json::Parser parser(
+            x::json::json{
+                {"transport", "rtu"},
+                {"serial_port", "/dev/ttyUSB0"},
+                {"baud_rate", rate},
+                {"swap_bytes", false},
+                {"swap_words", false},
+            }
+        );
+        const ConnectionConfig config(parser);
+        ASSERT_NIL(parser.error());
+        EXPECT_EQ(config.serial.baud_rate, rate);
+    }
+}
+
+const std::string BAUD_RATE_ERROR = "must be one of 1200, 2400, 4800, 9600, 19200, "
+                                    "38400, 57600, 115200, 230400";
+
+class InvalidSerialTest : public ::testing::TestWithParam<InvalidConnectionCase> {};
+
+/// @brief it should reject a serial field out of range, naming the field.
+TEST_P(InvalidSerialTest, Rejects) {
+    const auto &[field, value, message] = GetParam();
+    x::json::json j = {
+        {"transport", "rtu"},
+        {"serial_port", "/dev/ttyUSB0"},
+        {"swap_bytes", false},
+        {"swap_words", false},
+    };
+    j[field] = value;
+    x::json::Parser parser(j);
+    const ConnectionConfig config(parser);
+    ASSERT_OCCURRED_AS(parser.error(), x::errors::VALIDATION);
+    const auto errs = parser.error_json()["errors"];
+    ASSERT_EQ(errs.size(), 1);
+    EXPECT_EQ(errs[0]["path"], field);
+    EXPECT_EQ(errs[0]["message"], message);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    Fields,
+    InvalidSerialTest,
+    ::testing::Values(
+        InvalidConnectionCase{"serial_port", "", "must not be empty"},
+        InvalidConnectionCase{"baud_rate", 14400, BAUD_RATE_ERROR},
+        InvalidConnectionCase{"baud_rate", 600, BAUD_RATE_ERROR},
+        InvalidConnectionCase{"baud_rate", 460800, BAUD_RATE_ERROR},
+        InvalidConnectionCase{"parity", "mark", "must be none, even, or odd"},
+        InvalidConnectionCase{"stop_bits", 3, "must be 1 or 2"},
+        InvalidConnectionCase{"unit_id", 0, "must be between 1 and 247"},
+        InvalidConnectionCase{"unit_id", 248, "must be between 1 and 247"}
+    )
+);
+
+/// @brief it should reject an empty serial port when another field is also invalid.
+TEST(ConnectionConfigTest, RejectsEmptySerialPortWithOtherErrors) {
+    x::json::Parser parser(
+        x::json::json{
+            {"transport", "rtu"},
+            {"serial_port", ""},
+            {"swap_words", false},
+        }
+    );
+    const ConnectionConfig config(parser);
+    const auto errs = parser.error_json()["errors"];
+    ASSERT_EQ(errs.size(), 2);
+    EXPECT_EQ(errs[0]["path"], "swap_bytes");
+    EXPECT_EQ(errs[1]["path"], "serial_port");
+    EXPECT_EQ(errs[1]["message"], "must not be empty");
+}
+
+/// @brief it should report a missing serial port once.
+TEST(ConnectionConfigTest, RejectsMissingSerialPortOnce) {
+    x::json::Parser parser(
+        x::json::json{
+            {"transport", "rtu"},
+            {"swap_bytes", false},
+            {"swap_words", false}
+        }
+    );
+    const ConnectionConfig config(parser);
+    const auto errs = parser.error_json()["errors"];
+    ASSERT_EQ(errs.size(), 1);
+    EXPECT_EQ(errs[0]["path"], "serial_port");
+    EXPECT_EQ(errs[0]["message"], "This field is required");
+}
+
+/// @brief it should prefix a Windows COM port with the device namespace and leave every
+/// other path as it is.
+TEST(SerialPathTest, PrefixesComPorts) {
+    EXPECT_EQ(serial_path("COM3"), R"(\\.\COM3)");
+    EXPECT_EQ(serial_path("com12"), R"(\\.\com12)");
+    EXPECT_EQ(serial_path("COM256"), R"(\\.\COM256)");
+    EXPECT_EQ(serial_path(R"(\\.\COM3)"), R"(\\.\COM3)");
+    EXPECT_EQ(serial_path("COM"), "COM");
+    EXPECT_EQ(serial_path("COMX"), "COMX");
+    EXPECT_EQ(serial_path("/dev/ttyUSB0"), "/dev/ttyUSB0");
+}
+
+/// @brief it should wait 3.5 characters between frames, and 1.75 ms above 19200 baud.
+TEST(SerialTest, FrameGap) {
+    EXPECT_EQ(
+        (Serial{.baud_rate = 9600, .parity = 'E'}).frame_gap(),
+        x::telem::TimeSpan(4010416)
+    );
+    EXPECT_EQ(
+        (Serial{.baud_rate = 19200, .parity = 'N'}).frame_gap(),
+        x::telem::TimeSpan(1822916)
+    );
+    EXPECT_EQ((Serial{.baud_rate = 115200}).frame_gap(), x::telem::MICROSECOND * 1750);
+}
+
+/// @brief it should refuse a device whose line settings differ from the open serial
+/// port, naming both.
+TEST(ManagerTest, RejectsMismatchedLineSettings) {
+    Manager manager;
+    const ConnectionConfig first(Serial{.port = "/dev/ttyMISMATCH"});
+    const auto dev = ASSERT_NIL_P(manager.acquire(first));
+    ConnectionConfig second = first;
+    second.unit_id = 2;
+    const auto same_line = ASSERT_NIL_P(manager.acquire(second));
+    second.serial.baud_rate = 9600;
+    second.serial.parity = 'N';
+    const auto err = manager.acquire(second).second;
+    ASSERT_OCCURRED_AS(err, CRITICAL_ERROR);
+    EXPECT_EQ(
+        err.data,
+        "serial port /dev/ttyMISMATCH is open at 19200 8E1, but this device uses "
+        "9600 8N1"
+    );
+}
 
 /// @brief it should default every request field when the object is missing.
 TEST(RequestConfigTest, DefaultsWhenMissing) {
@@ -865,7 +1052,8 @@ TEST(DeviceTest, ReadWaitsBehindOneWrite) {
     testutil::Slave slave(slave_config);
     ASSERT_NIL(slave.start());
     Manager manager;
-    auto dev = ASSERT_NIL_P(manager.acquire({"127.0.0.1", 1657}));
+    ConnectionConfig cfg{"127.0.0.1", 1657};
+    auto dev = ASSERT_NIL_P(manager.acquire(cfg));
     uint16_t reg = 0;
     ASSERT_NIL(dev->read_registers(HoldingRegister, 0, 1, &reg));
 

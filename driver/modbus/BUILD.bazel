@@ -85,3 +85,19 @@ cc_test(
         "@googletest//:gtest_main",
     ],
 )
+
+cc_test(
+    name = "rtu_test",
+    srcs = ["rtu_test.cpp"],
+    # The test slave serves RTU on a POSIX pseudo-terminal.
+    target_compatible_with = select({
+        "@platforms//os:windows": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
+    deps = [
+        "//driver/modbus",
+        "//driver/modbus/testutil",
+        "//x/cpp/testutil",
+        "@googletest//:gtest_main",
+    ],
+)

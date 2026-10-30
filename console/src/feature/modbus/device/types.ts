@@ -21,15 +21,42 @@ const WRITE_CODES = ["multiple", "single"] as const;
 const writeCodesZ = z.enum(WRITE_CODES);
 export type WriteCodes = z.infer<typeof writeCodesZ>;
 
-const ZERO_CONNECTION = {
+export type Transport = "tcp" | "rtu";
+
+/** The baud rates the Driver accepts, which libmodbus sets on every platform. */
+export const BAUD_RATES = [
+  1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400,
+] as const;
+
+export const PARITIES = ["none", "even", "odd"] as const;
+const parityZ = z.enum(PARITIES);
+export type Parity = z.infer<typeof parityZ>;
+
+export const STOP_BITS = [1, 2] as const;
+
+const ZERO_COMMON_CONNECTION = {
+  swapBytes: false,
+  swapWords: false,
+  timeoutMs: 1000,
+  retries: 1,
+} as const;
+
+const ZERO_TCP_CONNECTION = {
+  ...ZERO_COMMON_CONNECTION,
   transport: "tcp",
   host: "",
   port: 0,
-  swapBytes: false,
-  swapWords: false,
   unitId: 255,
-  timeoutMs: 1000,
-  retries: 1,
+} as const;
+
+const ZERO_RTU_CONNECTION = {
+  ...ZERO_COMMON_CONNECTION,
+  transport: "rtu",
+  serialPort: "",
+  baudRate: 19200,
+  parity: "even",
+  stopBits: 1,
+  unitId: 1,
 } as const;
 
 const ZERO_REQUESTS = {
@@ -41,19 +68,42 @@ const ZERO_REQUESTS = {
 
 const wholeNumberZ = (name: string) => z.int(`${name} must be a whole number`);
 
+const commonConnectionZ = z.object({
+  swapBytes: z.boolean().default(ZERO_COMMON_CONNECTION.swapBytes),
+  swapWords: z.boolean().default(ZERO_COMMON_CONNECTION.swapWords),
+  timeoutMs: wholeNumberZ("Timeout").default(ZERO_COMMON_CONNECTION.timeoutMs),
+  retries: wholeNumberZ("Retries").default(ZERO_COMMON_CONNECTION.retries),
+});
+
+const tcpConnectionZ = commonConnectionZ.extend({
+  transport: z.literal("tcp"),
+  host: z.string().default(ZERO_TCP_CONNECTION.host),
+  port: z.number().default(ZERO_TCP_CONNECTION.port),
+  unitId: wholeNumberZ("Unit ID").default(ZERO_TCP_CONNECTION.unitId),
+});
+
+const rtuConnectionZ = commonConnectionZ.extend({
+  transport: z.literal("rtu"),
+  serialPort: z.string().default(ZERO_RTU_CONNECTION.serialPort),
+  baudRate: wholeNumberZ("Baud rate").default(ZERO_RTU_CONNECTION.baudRate),
+  parity: parityZ.default(ZERO_RTU_CONNECTION.parity),
+  stopBits: wholeNumberZ("Stop bits").default(ZERO_RTU_CONNECTION.stopBits),
+  unitId: wholeNumberZ("Unit ID").default(ZERO_RTU_CONNECTION.unitId),
+});
+
+// Devices stored before serial connections have no transport, and are all TCP.
+const fillTransport = (v: unknown): unknown =>
+  typeof v === "object" && v != null && !("transport" in v)
+    ? { ...v, transport: "tcp" }
+    : v;
+
 const propertiesZ = z.object({
   connection: z
-    .object({
-      transport: z.literal("tcp").default(ZERO_CONNECTION.transport),
-      host: z.string().default(ZERO_CONNECTION.host),
-      port: z.number().default(ZERO_CONNECTION.port),
-      swapBytes: z.boolean().default(ZERO_CONNECTION.swapBytes),
-      swapWords: z.boolean().default(ZERO_CONNECTION.swapWords),
-      unitId: wholeNumberZ("Unit ID").default(ZERO_CONNECTION.unitId),
-      timeoutMs: wholeNumberZ("Timeout").default(ZERO_CONNECTION.timeoutMs),
-      retries: wholeNumberZ("Retries").default(ZERO_CONNECTION.retries),
-    })
-    .default(() => ({ ...ZERO_CONNECTION })),
+    .preprocess(
+      fillTransport,
+      z.discriminatedUnion("transport", [tcpConnectionZ, rtuConnectionZ]),
+    )
+    .default(() => ({ ...ZERO_TCP_CONNECTION })),
   requests: z
     .object({
       maxRegisters: wholeNumberZ("Max registers").default(ZERO_REQUESTS.maxRegisters),
@@ -78,8 +128,14 @@ export interface Properties extends z.infer<typeof propertiesZ> {}
 export type Connection = Properties["connection"];
 export type Requests = Properties["requests"];
 
+/** The connection a device starts with on each transport. */
+export const ZERO_CONNECTIONS = {
+  tcp: ZERO_TCP_CONNECTION,
+  rtu: ZERO_RTU_CONNECTION,
+} as const satisfies Record<Transport, Connection>;
+
 export const ZERO_PROPERTIES = {
-  connection: ZERO_CONNECTION,
+  connection: ZERO_TCP_CONNECTION,
   requests: ZERO_REQUESTS,
   read: { index: 0, channels: {} },
   write: { channels: {} },

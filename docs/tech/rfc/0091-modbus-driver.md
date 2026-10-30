@@ -45,47 +45,58 @@ Ignition.
 The device properties get these optional fields. Each default keeps today's behavior,
 except the timeout. RFC 0081 moves them into `modbus.Server`. `connection` becomes a
 union on `transport`, and an existing device without the field is TCP. The serial
-defaults are the ones the Modbus serial line specification requires. Millisecond fields
-follow the HTTP device's `timeout_ms` (`driver/http/device/device.h:91`).
+defaults are the ones the Modbus serial line specification requires. Modbus RTU requires
+8 data bits, and only ASCII uses 7, so the line always opens with 8 and no field stores
+them. `baud_rate` is one of the nine rates from 1200 to 230400 that libmodbus sets on
+Linux, macOS, and Windows, and the Driver, Python, and the Console accept that list.
+Millisecond fields follow the HTTP device's `timeout_ms`
+(`driver/http/device/device.h:91`).
 
-| Field                               | Default                | Meaning                                   |
-| ----------------------------------- | ---------------------- | ----------------------------------------- |
-| `connection.transport`              | `"tcp"`                | `"tcp"` or `"rtu"`                        |
-| `connection.host`, `port`           | none                   | TCP: hostname, IPv4, or IPv6 address      |
-| `connection.serial_port`            | none                   | RTU: `/dev/ttyUSB0`, `COM3`               |
-| `connection.baud_rate`, `parity`    | `19200`, `"even"`      | RTU line settings                         |
-| `connection.data_bits`, `stop_bits` | `8`, `1`               | RTU line settings                         |
-| `connection.unit_id`                | 255 for TCP, 1 for RTU | The unit the device addresses             |
-| `connection.timeout_ms`             | 1000                   | Connect and response timeout              |
-| `connection.retries`                | 1                      | Immediate retries after a temporary error |
-| `requests.max_registers`            | 125                    | Registers in one read                     |
-| `requests.max_gap`                  | 125                    | Widest gap between channels in a block    |
-| `requests.write_codes`              | `"multiple"`           | FC15/16, or `"single"` for FC05/06        |
-| `requests.mask_write_supported`     | `false`                | Bit writes use FC22                       |
-| `requests.delay_ms`                 | 0                      | Wait between requests, up to 5000 ms      |
+| Field                            | Default                | Meaning                                   |
+| -------------------------------- | ---------------------- | ----------------------------------------- |
+| `connection.transport`           | `"tcp"`                | `"tcp"` or `"rtu"`                        |
+| `connection.host`, `port`        | none                   | TCP: hostname, IPv4, or IPv6 address      |
+| `connection.serial_port`         | none                   | RTU: `/dev/ttyUSB0`, `COM3`               |
+| `connection.baud_rate`, `parity` | `19200`, `"even"`      | RTU line settings                         |
+| `connection.stop_bits`           | `1`                    | RTU line settings                         |
+| `connection.unit_id`             | 255 for TCP, 1 for RTU | The unit the device addresses             |
+| `connection.timeout_ms`          | 1000                   | Connect and response timeout              |
+| `connection.retries`             | 1                      | Immediate retries after a temporary error |
+| `requests.max_registers`         | 125                    | Registers in one read                     |
+| `requests.max_gap`               | 125                    | Widest gap between channels in a block    |
+| `requests.write_codes`           | `"multiple"`           | FC15/16, or `"single"` for FC05/06        |
+| `requests.mask_write_supported`  | `false`                | Bit writes use FC22                       |
+| `requests.delay_ms`              | 0                      | Wait between requests, up to 5000 ms      |
 
 Bit reads stay at the protocol limit of 2000 for each request.
 
 ### 2.1 Connections
 
 `device::Manager` keeps one connection per endpoint: `host:port` for TCP, the serial
-port for RTU. Tasks and the scanner share it through a `weak_ptr` cache. The OPC UA
-`connection::Pool` lends each idle connection to one user at a time
-(`driver/opcua/connection/connection.h:146`). Modbus shares one connection instead,
-because a serial port has one owner and small PLCs allow few sockets. Requests take
-turns. A waiting write goes before waiting reads, but not twice in a row while a read
-waits. Each request sets its unit first with `modbus_set_slave`. A device whose serial
-settings differ from the connection's fails at start. The connection opens at the first
+port path for RTU. Devices share a serial port only when they name it by the same path,
+ignoring case on Windows. Each serial connection locks its port before it applies its
+line settings, so a second connection to the port, through another path or another
+program, fails as unreachable until the first one closes, and the settings of the first
+stay as they are. A link that moves to another port, as after a replug, reopens its
+connection on the new port before the next request. Tasks and the scanner share each
+connection through a `weak_ptr` cache. The OPC UA `connection::Pool` lends each idle
+connection to one user at a time (`driver/opcua/connection/connection.h:146`). Modbus
+shares one connection instead, because a serial port has one owner and small PLCs allow
+few sockets. Requests take turns. A waiting write goes before waiting reads, but not
+twice in a row while a read waits. Each request sets its unit first with
+`modbus_set_slave`. A device whose serial settings differ from the connection's fails at
+start with a critical error that names both settings. The connection opens at the first
 request, so a task starts while its server is off, and its reads retry until the server
-answers.
+answers. On RTU, each request waits for 3.5 characters of silence after the last one, or
+1.75 ms above 19200 baud.
 
 A temporary error (§2.4) retries at once, up to `retries` times. A socket error closes
-the connection, and the next attempt reconnects. A timeout does not close it, because
-other units behind the gateway still answer. The next request flushes the socket first,
-so a late reply cannot answer it. After three timed-out attempts in a row, a unit is
-demoted for 10 s: its requests fail at once with a temporary error, so it cannot slow
-the other units. `delay_ms` counts from the end of the last request on the connection,
-for any unit.
+the connection, and the next attempt reconnects. A timeout or a bad CRC does not close
+it, because other units on the connection still answer. The next request flushes the
+connection first, so a late reply cannot answer it. After three timed-out attempts in a
+row, a unit is demoted for 10 s: its requests fail at once with a temporary error, so it
+cannot slow the other units. `delay_ms` counts from the end of the last request on the
+connection, for any unit.
 
 ### 2.2 Reads
 
@@ -170,7 +181,7 @@ silent and a stalled reply in Phase 2, and an RTU mode on a pseudo-terminal pair
   The connect dialog gets Unit and Advanced tabs, and one Byte order select replaces the
   two swap switches.
 - **Phase 3: RTU serial.** The RTU fields of `connection`, `modbus_new_rtu`, and the
-  serial form in the connect dialog.
+  serial form in the connect dialog, which is now "Modbus server" for both transports.
 - **Phase 4: Channels.** §2.5, bit writes with `mask_write_supported`, and §2.6.
 - **Phase 5: Diagnostics.** §2.7 counters, after RFC 0081 gives the Modbus server its
   own `StatusDetails`.
@@ -251,4 +262,5 @@ one more reason for one connection per endpoint behind a lock.
 **5.11 The serial port is a typed path.** The Driver runs on the rack, often on another
 computer than the Console, so only the Driver can list its serial ports, and that needs
 a new rack command. A typed path such as `/dev/ttyUSB0` or `COM3` works on every
-platform without one.
+platform without one. The Driver adds the `\\.\` prefix that Windows needs for `COM10`
+and up.

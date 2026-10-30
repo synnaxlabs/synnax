@@ -88,8 +88,87 @@ describe("Modbus.Device.useConnectModal", () => {
 
   it("should start a new server at the standard Modbus TCP port", async () => {
     await renderModalOpener(Modbus.Device.useConnectModal, [{}], { client });
-    await screen.findByText("Modbus TCP server");
+    await screen.findByText("Modbus server");
     expect(screen.getByDisplayValue("502")).toBeTruthy();
+  });
+
+  it("should show the serial port and line settings of a serial device", async () => {
+    const dev = await createModbusDevice(client, {
+      properties: {
+        connection: { transport: "rtu", serialPort: "/dev/ttyUSB3", baudRate: 9600 },
+      },
+    });
+    await renderModalOpener(Modbus.Device.useConnectModal, [{ deviceKey: dev.key }], {
+      client,
+    });
+    await screen.findByDisplayValue(dev.name);
+    expect(screen.getByDisplayValue("/dev/ttyUSB3")).toBeTruthy();
+    expect(screen.getByText("9600")).toBeTruthy();
+    expect(screen.getByText("Even")).toBeTruthy();
+    expect(screen.getByDisplayValue("1")).toBeTruthy();
+    expect(screen.queryByPlaceholderText("localhost")).toBeNull();
+  });
+
+  it("should reset the unit but keep the byte order on a new transport", async () => {
+    const dev = await createModbusDevice(client, {
+      properties: { connection: { unitId: 7, swapBytes: true, swapWords: false } },
+    });
+    await renderModalOpener(Modbus.Device.useConnectModal, [{ deviceKey: dev.key }], {
+      client,
+    });
+    await screen.findByDisplayValue(dev.name);
+    fireEvent.click(screen.getByText("Serial"));
+    expect(await screen.findByDisplayValue("1")).toBeTruthy();
+    expect(screen.getByText("Little-endian (DCBA)")).toBeTruthy();
+    expect(screen.queryByPlaceholderText("localhost")).toBeNull();
+  });
+
+  it("should keep the unit ID of a serial device from 1 to 247", async () => {
+    await renderModalOpener(Modbus.Device.useConnectModal, [{}], { client });
+    fireEvent.click(await screen.findByText("Serial"));
+    commitFieldInput(await screen.findByDisplayValue<HTMLInputElement>("1"), "300");
+    expect(await screen.findByDisplayValue("247")).toBeTruthy();
+  });
+
+  it("should save a serial device with the line settings entered", async () => {
+    const rack = await createRunningRack(client, "modbus");
+    const scan = await rack.createTask({
+      name: uniqueName("modbus_scan"),
+      type: Modbus.Task.SCAN_TYPE,
+      config: {},
+    });
+    const { result } = await renderModalOpener(
+      Modbus.Device.useConnectModal,
+      [{ rack: rack.key }],
+      { client },
+    );
+    fireEvent.click(await screen.findByText("Serial"));
+    fireEvent.change(await screen.findByPlaceholderText("/dev/ttyUSB0"), {
+      target: { value: "/dev/ttyUSB1" },
+    });
+    fireEvent.click(screen.getByText("19200"));
+    fireEvent.click(await screen.findByText("230400"));
+    fireEvent.click(screen.getByText("Even"));
+    fireEvent.click(await screen.findByText("None"));
+    const { answered } = await answerNextCommand(client, scan);
+    pressSaveTrigger();
+    await answered;
+    const key = await result();
+    if (key == null) throw new Error("the modal closed without a device");
+    const dev = await client.devices.retrieve({ key, schemas: Modbus.Device.SCHEMAS });
+    expect(dev.location).toBe("/dev/ttyUSB1");
+    expect(dev.properties.connection).toEqual({
+      transport: "rtu",
+      serialPort: "/dev/ttyUSB1",
+      baudRate: 230400,
+      parity: "none",
+      stopBits: 1,
+      swapBytes: false,
+      swapWords: false,
+      unitId: 1,
+      timeoutMs: 1000,
+      retries: 1,
+    });
   });
 
   it("should resolve with the device it connected", async () => {

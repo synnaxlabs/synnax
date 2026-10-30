@@ -20,16 +20,22 @@ import { Device as PDevice, type Flux } from "@synnaxlabs/pluto";
 import { type ReactElement, useState } from "react";
 
 import {
+  BAUD_RATES,
   BYTE_ORDERS,
   type ByteOrder,
   byteOrderOf,
   type Connection,
   type Device,
   INTEGRATION,
+  PARITIES,
+  type Parity,
   type Requests,
   SCHEMAS,
+  STOP_BITS,
   swapsOf,
+  type Transport,
   type WriteCodes,
+  ZERO_CONNECTIONS,
   ZERO_PROPERTIES,
 } from "@/feature/modbus/device/types";
 import {
@@ -55,16 +61,18 @@ const testConnectionTimeout = (
     .add(PROBE_WAIT)
     .add(TimeSpan.milliseconds((retries + 1) * (2 * timeoutMs + delayMs)));
 
+const INITIAL_CONNECTIONS = {
+  tcp: { ...ZERO_CONNECTIONS.tcp, port: 502 },
+  rtu: ZERO_CONNECTIONS.rtu,
+} as const satisfies Record<Transport, Connection>;
+
 const INITIAL_VALUES: Device = {
   key: "",
   name: "Modbus server",
   make: "Modbus",
   model: "Modbus",
   location: "",
-  properties: {
-    ...ZERO_PROPERTIES,
-    connection: { ...ZERO_PROPERTIES.connection, port: 502 },
-  },
+  properties: { ...ZERO_PROPERTIES, connection: INITIAL_CONNECTIONS.tcp },
   rack: 0,
   configured: true,
 };
@@ -78,9 +86,13 @@ const beforeValidate = ({
   PDevice.RetrieveQuery,
   PDevice.FormSchema<typeof SCHEMAS>
 >) => {
-  const host = get<string>("properties.connection.host").value;
-  const port = get<number>("properties.connection.port").value;
-  set("location", `${host}:${port}`);
+  const connection = get<Connection>("properties.connection").value;
+  set(
+    "location",
+    connection.transport === "rtu"
+      ? connection.serialPort
+      : `${connection.host}:${connection.port}`,
+  );
 };
 
 const beforeSave = async ({
@@ -152,7 +164,30 @@ export const Connect = ({
     name: "Modbus",
     rack: rackKey,
   });
+  const transport = Form.useFieldValue<
+    Transport,
+    Transport,
+    PDevice.FormSchema<typeof SCHEMAS>
+  >("properties.connection.transport", { ctx: form });
   const [tab, setTab] = useState("unit");
+
+  // The transports share no address fields, so a switch starts the address over.
+  const renderTransport = ({ value, onChange }: Input.Control<Transport>) => {
+    const handleChange = (value: Transport) => {
+      const { swapBytes, swapWords, timeoutMs, retries } = form.get<Connection>(
+        "properties.connection",
+      ).value;
+      form.set("properties.connection", {
+        ...INITIAL_CONNECTIONS[value],
+        swapBytes,
+        swapWords,
+        timeoutMs,
+        retries,
+      });
+      onChange(value);
+    };
+    return <SelectTransport value={value} onChange={handleChange} />;
+  };
 
   return (
     <Modal.Frame className={CSS.B("modbus-connect")}>
@@ -162,18 +197,41 @@ export const Connect = ({
           <Form.TextField path="name" showLabel={false} inputProps={NAME_INPUT_PROPS} />
           <Form.Sections className={SECTIONS_CLASS}>
             <Form.Section title="Connection">
-              <Form.TextField
-                path="properties.connection.host"
-                label="Host"
+              <Form.Field<Transport>
+                path="properties.connection.transport"
+                label="Transport"
                 padHelpText={false}
-                inputProps={HOST_INPUT_PROPS}
-              />
-              <Form.NumericField
-                path="properties.connection.port"
-                label="Port"
-                padHelpText={false}
-                inputProps={PORT_INPUT_PROPS}
-              />
+              >
+                {renderTransport}
+              </Form.Field>
+              {transport === "tcp" ? (
+                <>
+                  <Form.TextField
+                    path="properties.connection.host"
+                    label="Host"
+                    padHelpText={false}
+                    inputProps={HOST_INPUT_PROPS}
+                  />
+                  <Form.NumericField
+                    path="properties.connection.port"
+                    label="Port"
+                    padHelpText={false}
+                    inputProps={PORT_INPUT_PROPS}
+                  />
+                </>
+              ) : (
+                <>
+                  <Form.TextField
+                    path="properties.connection.serialPort"
+                    label="Serial port"
+                    padHelpText={false}
+                    inputProps={SERIAL_PORT_INPUT_PROPS}
+                  />
+                  <BaudRateField path="properties.connection.baudRate" />
+                  <ParityField path="properties.connection.parity" />
+                  <StopBitsField path="properties.connection.stopBits" />
+                </>
+              )}
               <PlatformDevice.RackField integration={INTEGRATION} />
             </Form.Section>
           </Form.Sections>
@@ -189,7 +247,7 @@ export const Connect = ({
                     path="properties.connection.unitId"
                     label="Unit ID"
                     padHelpText={false}
-                    inputProps={UNIT_ID_INPUT_PROPS}
+                    inputProps={UNIT_ID_INPUT_PROPS[transport]}
                   />
                   <ByteOrderField />
                 </Form.Section>
@@ -256,7 +314,7 @@ export const Connect = ({
 
 export const useConnectModal = PlatformDevice.createConnectModal(Connect, INTEGRATION);
 
-const HEADER = ["Device", "Connect", "Modbus TCP server"];
+const HEADER = ["Device", "Connect", "Modbus server"];
 
 const SECTIONS_CLASS = CSS.BE("modbus-connect", "sections");
 const SELECTOR_CLASS = CSS.BE("modbus-connect", "selector");
@@ -276,9 +334,14 @@ const PORT_INPUT_PROPS = {
   style: { width: "23rem" },
 } as const;
 
+const SERIAL_PORT_INPUT_PROPS = {
+  autoFocus: true,
+  placeholder: "/dev/ttyUSB0",
+} as const;
+
 const UNIT_ID_INPUT_PROPS = {
-  bounds: { lower: 0, upper: 255 },
-  style: { width: "23rem" },
+  tcp: { bounds: { lower: 0, upper: 255 }, style: { width: "23rem" } },
+  rtu: { bounds: { lower: 1, upper: 247 }, style: { width: "23rem" } },
 } as const;
 
 const TIMEOUT_INPUT_PROPS = {
@@ -345,6 +408,57 @@ const ByteOrderField = (): ReactElement => {
     </Input.Item>
   );
 };
+
+const SelectTransport = (props: Select.ButtonsProps<Transport>) => (
+  <Select.Buttons<Transport> {...props}>
+    <Select.Item<Transport> itemKey="tcp">TCP</Select.Item>
+    <Select.Item<Transport> itemKey="rtu">Serial</Select.Item>
+  </Select.Buttons>
+);
+
+const numberItems = (values: readonly number[]): ReactElement[] =>
+  values.map((v) => (
+    <Select.Item<number> key={v} itemKey={v}>
+      {v.toString()}
+    </Select.Item>
+  ));
+
+const BaudRateField = Form.buildSelectField<number>({
+  fieldProps: { label: "Baud rate", padHelpText: false },
+  inputProps: {
+    resourceName: "baud rate",
+    allowNone: false,
+    children: numberItems(BAUD_RATES),
+  },
+});
+
+const PARITY_NAMES: Record<Parity, string> = {
+  none: "None",
+  even: "Even",
+  odd: "Odd",
+};
+
+const ParityField = Form.buildSelectField<Parity>({
+  fieldProps: { label: "Parity", padHelpText: false },
+  inputProps: {
+    resourceName: "parity",
+    allowNone: false,
+    children: PARITIES.map((parity) => (
+      <Select.Item<Parity> key={parity} itemKey={parity}>
+        {PARITY_NAMES[parity]}
+      </Select.Item>
+    )),
+  },
+});
+
+const StopBitsField = Form.buildSelectField<number>({
+  fieldProps: { label: "Stop bits", padHelpText: false },
+  inputProps: {
+    resourceName: "stop bits",
+    allowNone: false,
+    children: numberItems(STOP_BITS),
+  },
+});
 
 const SelectWriteCodes = (props: Select.ButtonsProps<WriteCodes>) => (
   <Select.Buttons<WriteCodes> {...props}>
