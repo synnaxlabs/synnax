@@ -47,6 +47,22 @@ export const useLabelledBy = (props: {
  */
 export const useLabelled = (): boolean => useContext(LabelIDContext) != null;
 
+/** A status that an {@link Item} has no label or help text to show. */
+export interface UnshownStatus {
+  variant?: Status.Variant;
+  message?: string;
+}
+
+const UnshownStatusContext = createContext<UnshownStatus | null>(null);
+UnshownStatusContext.displayName = "Input.UnshownStatusContext";
+
+/**
+ * @returns the status of an enclosing {@link Item} that shows neither a label nor help
+ * text, for the control to show itself. Null when the item shows its own status.
+ */
+export const useUnshownStatus = (): UnshownStatus | null =>
+  useContext(UnshownStatusContext);
+
 export interface ItemProps extends Flex.BoxProps {
   label?: string;
   required?: boolean;
@@ -87,7 +103,12 @@ export const Item = ({
   let inputAndHelp: ReactElement;
   const actuallyShowHelpText = showHelpText && helpText != null && helpText.length > 0;
   const actuallyShowLabel = showLabel && label != null && label.length > 0;
-  if (!actuallyShowHelpText && !actuallyShowLabel) return children;
+  if (!actuallyShowHelpText && !actuallyShowLabel)
+    return (
+      <UnshownStatusContext value={{ variant: status, message: helpText }}>
+        {children}
+      </UnshownStatusContext>
+    );
   if (dir === "x")
     inputAndHelp = (
       <Flex.Box y gap="small">
@@ -108,21 +129,23 @@ export const Item = ({
     );
 
   return (
-    <LabelIDContext value={actuallyShowLabel ? labelID : undefined}>
-      <Flex.Box
-        className={CSS.cls(CSS.BE("input", "item"), className)}
-        direction={dir}
-        gap={size}
-        align={maybeDefaultAlignment(align, dir)}
-        {...rest}
-      >
-        {actuallyShowLabel && (
-          <Label id={labelID} required={required}>
-            {label}
-          </Label>
-        )}
-        {inputAndHelp}
-      </Flex.Box>
-    </LabelIDContext>
+    <UnshownStatusContext value={null}>
+      <LabelIDContext value={actuallyShowLabel ? labelID : undefined}>
+        <Flex.Box
+          className={CSS.cls(CSS.BE("input", "item"), className)}
+          direction={dir}
+          gap={size}
+          align={maybeDefaultAlignment(align, dir)}
+          {...rest}
+        >
+          {actuallyShowLabel && (
+            <Label id={labelID} required={required}>
+              {label}
+            </Label>
+          )}
+          {inputAndHelp}
+        </Flex.Box>
+      </LabelIDContext>
+    </UnshownStatusContext>
   );
 };

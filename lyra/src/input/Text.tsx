@@ -9,6 +9,7 @@
 
 import "@/input/Input.css";
 
+import { primitive } from "@synnaxlabs/x";
 import {
   type ReactElement,
   type ReactNode,
@@ -23,7 +24,7 @@ import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Generic } from "@/generic";
 import { useCombinedRefs, useResize } from "@/hooks";
-import { useLabelledBy } from "@/input/Item";
+import { useLabelledBy, useUnshownStatus } from "@/input/Item";
 import { type InputProps, type Variant } from "@/input/types";
 import { type Status } from "@/status";
 import { Text as BaseText } from "@/text";
@@ -187,6 +188,14 @@ export const Text = ({
 
   const ariaLabelledBy = useLabelledBy(rest);
 
+  // An enclosing item with no label or help text leaves its status to the input.
+  const unshown = useUnshownStatus();
+  const marked = unshown?.variant === "error" || unshown?.variant === "warning";
+  const shownStatus = status ?? (marked ? unshown?.variant : undefined);
+  const shownTooltip =
+    tooltip ??
+    (marked && primitive.isNonZero(unshown?.message) ? unshown?.message : undefined);
+
   const showPlaceholder =
     preview !== true &&
     (value == null || value.length === 0) &&
@@ -224,14 +233,14 @@ export const Text = ({
         flush && CSS.M("flush"),
         variant === "shadow" && CSS.M("shadow"),
         CSS.disabled(disabled),
-        status != null && CSS.M(status),
+        shownStatus != null && CSS.M(shownStatus),
         className,
       )}
       size={size}
       level={level}
       color={pColor}
       sharp={sharp}
-      status={status}
+      status={shownStatus}
       bordered={bordered}
       borderColor={borderColor}
       borderWidth={borderWidth}
@@ -246,7 +255,7 @@ export const Text = ({
       textVariant={textVariant}
       preventClick={preventClick}
       onClickDelay={onClickDelay}
-      tooltip={tooltip}
+      tooltip={shownTooltip}
       tooltipLocation={tooltipLocation}
       hideTooltip={hideTooltip}
       reveal={reveal}
@@ -301,6 +310,7 @@ export const Text = ({
           disabled={disabled}
           placeholder={typeof placeholder === "string" ? placeholder : undefined}
           style={inputStyle}
+          aria-invalid={shownStatus === "error" ? true : undefined}
           {...rest}
           aria-labelledby={ariaLabelledBy}
         />
