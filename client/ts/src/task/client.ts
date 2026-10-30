@@ -749,6 +749,11 @@ export class Client extends query.Retriever<
     for (const [task, pending] of this.commandDeadlines) {
       const down = this.downRackStatus(this.store.get(task)?.rack);
       if (down?.key !== rackStatus.key) continue;
+      // A batch stores a reply before it delivers the reply's event.
+      const answered = this.statusesByTask
+        .get(task)
+        .some((s) => status.detailsOf(s)?.cmd === pending.cmd.key);
+      if (answered) continue;
       clearTimeout(pending.timer);
       this.commandDeadlines.delete(task);
       this.cfg.statuses.setLocal(this.optimisticStatus(pending.cmd));
