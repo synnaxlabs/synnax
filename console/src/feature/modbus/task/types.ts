@@ -31,7 +31,7 @@ export const isVariableDensityReadChannel = (
   channel: ReadChannel,
 ): channel is TypedReadChannel => VARIABLE_DENSITY_READ_CHANNEL_TYPES.has(channel.type);
 
-export const isStringChannel = (channel: ReadChannel): channel is TypedReadChannel =>
+const isStringChannel = (channel: ReadChannel): channel is TypedReadChannel =>
   isVariableDensityReadChannel(channel) &&
   new DataType(channel.dataType).equals(DataType.STRING);
 
