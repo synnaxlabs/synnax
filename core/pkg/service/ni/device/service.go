@@ -43,6 +43,8 @@ type ServiceConfig struct {
 	// while it returns true.
 	// [OPTIONAL] - nil when no task can reference a device.
 	Referenced func(ctx context.Context, tx gorp.Tx, key Key) (bool, error)
+	// Instrumentation is used for logging, tracing, and metrics.
+	// [OPTIONAL]
 	alamos.Instrumentation
 }
 
@@ -109,14 +111,16 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 // call concurrently with any other service methods.
 func (s *Service) Close() error { return s.closer.Close() }
 
-// NewWriter opens a writer that runs its operations in tx. A nil tx runs each write
-// directly on the database.
+// NewWriter opens a writer that runs its operations in tx. A nil tx runs each operation
+// in its own transaction.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	tx = gorp.OverrideTx(s.cfg.DB, tx)
+	resolved := gorp.OverrideTx(s.cfg.DB, tx)
 	return Writer{
-		tx:         tx,
-		otg:        s.cfg.Ontology.NewWriter(tx),
-		status:     s.cfg.Status.NewWriter(tx),
+		service:    s,
+		tx:         resolved,
+		ownsTx:     tx == nil,
+		otg:        s.cfg.Ontology.NewWriter(resolved),
+		status:     s.cfg.Status.NewWriter(resolved),
 		table:      s.table,
 		referenced: s.cfg.Referenced,
 	}
