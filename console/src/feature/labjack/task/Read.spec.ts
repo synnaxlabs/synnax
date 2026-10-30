@@ -340,8 +340,11 @@ describe("Read", () => {
 });
 
 describe("Read ports", () => {
-  const renderWith = async (channels: LabJack.Task.ReadChannel[]) => {
-    const dev = await createLabJackDevice(client);
+  const renderWith = async (
+    channels: LabJack.Task.ReadChannel[],
+    model?: LabJack.Device.Model,
+  ) => {
+    const dev = await createLabJackDevice(client, { model });
     const draft = await createDraft(client, createConfig(dev.key, channels));
     const rendered = await renderRead({ client, taskKey: draft.key });
     return { dev, draft, ...rendered };
@@ -484,14 +487,16 @@ describe("Read ports", () => {
   });
 
   it.each([
-    ["an analog", createAnalogReadChannel("AIN4"), "Digital inputs"],
-    ["a digital", createDigitalReadChannel("DIO4"), "Analog inputs"],
+    ["an analog", createAnalogReadChannel("AIN4"), "Digital inputs", 19],
+    ["a digital", createDigitalReadChannel("DIO4"), "Analog inputs", 12],
   ])(
     "should mark the terminal %s channel holds as used in the other type",
-    async (_, ch, other) => {
+    async (_, ch, other, total) => {
       await renderWith([ch]);
       await openPorts();
       expect(cell("FIO4", other).className).toContain("console-port-grid__cell--used");
+      const section = screen.getByRole("group", { name: other });
+      expect(within(section).getByText(`1 of ${total} ports used`)).toBeTruthy();
     },
   );
 
@@ -528,19 +533,107 @@ describe("Read ports", () => {
     );
   });
 
-  it("should title the ports the MUX80 needs", async () => {
-    const dev = await createLabJackDevice(client, { model: LabJack.Device.T7_MODEL });
-    const draft = await createDraft(
-      client,
-      createConfig(dev.key, [createAnalogReadChannel("AIN0")]),
+  it("should keep the ports of each type on their own terminals on a T7", async () => {
+    await renderWith(
+      [createAnalogReadChannel("AIN4"), createDigitalReadChannel("DIO4")],
+      LabJack.Device.T7_MODEL,
     );
-    await renderRead({ client, taskKey: draft.key });
+    await openPorts();
+    expect(cell("AIN4", "Analog inputs").className).toContain(
+      "console-port-grid__cell--used",
+    );
+    expect(cell("FIO4", "Digital inputs").className).toContain(
+      "console-port-grid__cell--used",
+    );
+  });
+
+  it("should split the ports of each type into a bank for each terminal prefix", async () => {
+    await renderWith([createAnalogReadChannel("AIN0")]);
+    await openPorts();
+    const banks = (section: string) =>
+      within(screen.getByRole("group", { name: section }))
+        .getAllByRole("group")
+        .map((g) => g.getAttribute("aria-label"));
+    expect(banks("Analog inputs")).toEqual([
+      "AIN0 to AIN3",
+      "FIO4 to FIO7",
+      "EIO0 to EIO3",
+    ]);
+    expect(banks("Digital inputs")).toEqual([
+      "FIO4 to FIO7",
+      "EIO0 to EIO7",
+      "CIO0 to CIO3",
+      "MIO0 to MIO2",
+    ]);
+  });
+
+  it("should label each port by the number of its terminal", async () => {
+    await renderWith([createAnalogReadChannel("AIN0")]);
+    await openPorts();
+    const bank = within(screen.getByRole("group", { name: "Analog inputs" })).getByRole(
+      "group",
+      { name: "FIO4 to FIO7" },
+    );
+    expect(
+      within(bank)
+        .getAllByRole("button")
+        .map((b) => [b.getAttribute("aria-label"), b.textContent]),
+    ).toEqual([
+      ["FIO4", "4"],
+      ["FIO5", "5"],
+      ["FIO6", "6"],
+      ["FIO7", "7"],
+    ]);
+  });
+
+  it("should name the channels on a port in its tooltip", async () => {
+    await renderWith([
+      createAnalogReadChannel("AIN0", { name: "chan_a" }),
+      createAnalogReadChannel("AIN1", { name: "chan_b" }),
+      createAnalogReadChannel("AIN1", { name: "chan_c" }),
+    ]);
+    await openPorts();
+    for (const [port, tooltip] of [
+      ["AIN0", "AIN0: chan_a"],
+      ["AIN1", "AIN1 is used by chan_b and chan_c"],
+      ["AIN2", "AIN2 is free"],
+    ]) {
+      const target = cell(port, "Analog inputs");
+      fireEvent.pointerOver(target, { pointerType: "mouse" });
+      expect(await screen.findByText(tooltip)).toBeTruthy();
+      fireEvent.pointerOut(target, { pointerType: "mouse" });
+    }
+  });
+
+  it("should title the ports the MUX80 needs", async () => {
+    await renderWith([createAnalogReadChannel("AIN0")], LabJack.Device.T7_MODEL);
     await openPorts();
     const section = screen.getByRole("group", { name: "Analog inputs" });
     expect(within(section).getByText("AIN (MUX80)")).toBeTruthy();
     expect(
       within(section).getByRole("group", { name: "AIN48 to AIN127" }),
     ).toBeTruthy();
+  });
+
+  it("should lay a bank out in groups of sixteen ports, eight to a row", async () => {
+    await renderWith([createAnalogReadChannel("AIN0")], LabJack.Device.T7_MODEL);
+    await openPorts();
+    const bank = (section: string, name: string) =>
+      within(screen.getByRole("group", { name: section })).getByRole("group", { name });
+    const layout = (grid: HTMLElement) =>
+      [...grid.children].map((g) => [
+        (g as HTMLElement).style.gridTemplateColumns,
+        within(g as HTMLElement).getAllByRole("button").length,
+      ]);
+    const mux = bank("Analog inputs", "AIN48 to AIN127");
+    expect(layout(mux)).toEqual(
+      Array(5).fill(["repeat(8, var(--console-port-cell))", 16]),
+    );
+    expect(layout(bank("Digital inputs", "MIO0 to MIO2"))).toEqual([
+      ["repeat(3, var(--console-port-cell))", 3],
+    ]);
+    const last = within(mux).getByRole("button", { name: "AIN127" });
+    expect([last.style.gridRow, last.style.gridColumn]).toEqual(["2", "8"]);
   });
 });
 

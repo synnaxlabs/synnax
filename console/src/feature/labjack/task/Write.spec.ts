@@ -195,6 +195,20 @@ describe("Write", () => {
     expect(screen.getByText("1 of 2 ports used")).toBeTruthy();
   });
 
+  it("should mark each channel on a port another channel uses", async () => {
+    const dev = await createLabJackDevice(client);
+    const draft = await createDraft(
+      client,
+      createConfig(dev.key, [
+        createAnalogWriteChannel("DAC0"),
+        createAnalogWriteChannel("DAC1"),
+        createAnalogWriteChannel("DAC0"),
+      ]),
+    );
+    await renderWrite({ client, taskKey: draft.key });
+    expect(await screen.findAllByText("Another channel uses DAC0")).toHaveLength(2);
+  });
+
   it("should create command and state channels, update the device, and save the task", async () => {
     const dev = await createLabJackDevice(client);
     const draft = await createDraft(

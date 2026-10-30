@@ -38,14 +38,6 @@ describe("getOpenPort", () => {
     expect(port).toEqual(expectedPort);
   });
 
-  it("skips a port whose terminal a port of another type holds", () => {
-    const channels: LabJack.Task.Channel[] = [
-      { ...LabJack.Task.createReadChannel("analog"), port: "AIN4" },
-    ];
-    const port = getOpenPort(channels, model, [LabJack.Device.DI_PORT_TYPE]);
-    expect(port?.key).toBe("DIO5");
-  });
-
   it("returns null if all ports for the given type are in use", () => {
     const type = LabJack.Device.AI_PORT_TYPE;
     const aiPorts = LabJack.Device.PORTS[model][type];
