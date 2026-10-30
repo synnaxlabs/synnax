@@ -52,6 +52,13 @@ export interface ActionProps extends Omit<
   "variant" | "textColor"
 > {}
 
-export const Action = (props: ActionProps): ReactElement => (
-  <Button.Button size="small" rounded="small" variant="text" textColor={9} {...props} />
+export const Action = ({ className, ...rest }: ActionProps): ReactElement => (
+  <Button.Button
+    size="small"
+    rounded="small"
+    variant="text"
+    textColor={9}
+    className={CSS.cls(CSS.BE("toolbar", "action"), className)}
+    {...rest}
+  />
 );
