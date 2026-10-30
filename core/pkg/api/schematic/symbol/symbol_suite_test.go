@@ -28,8 +28,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
-	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 func TestAPISchematicSymbol(t *testing.T) {
@@ -87,7 +87,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		RBAC:   rbacSvc,
 	}))
 	author = MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
-		Username: "test",
+		Name: "test",
 	}))
 })
 
@@ -118,7 +118,7 @@ func createSymbol(ctx SpecContext, g group.Group, name string) symbol.Symbol {
 func createUser(ctx SpecContext) user.User {
 	GinkgoHelper()
 	return MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
-		Username: "test-" + uuid.New().String(),
+		Name: "test-" + uuid.New().String(),
 	}))
 }
 

@@ -1,0 +1,38 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/versions/ontology/v0"
+import "schemas/x/versions/telem/v0"
+
+Key = uuid {
+    @doc value "is a unique identifier for an API key."
+}
+
+APIKey struct {
+    key     Key = create {
+        @doc value "is the unique identifier for this API key."
+        @key
+    }
+    subject ontology.ID     {
+        @doc value "is the user or rack the key logs in as."
+    }
+    hash    bytes           {
+        @doc value "is the SHA-256 hash of the secret in the key."
+    }
+    name    string          {
+        @doc value "is a label that tells the subject's keys apart."
+    }
+    created telem.TimeStamp {
+        @doc value "is when the key was created."
+    }
+
+    @doc value  "is a stored API key. A subject holds any number of them."
+    @go marshal
+    @go migrate
+}

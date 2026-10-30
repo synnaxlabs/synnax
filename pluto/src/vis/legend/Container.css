@@ -18,10 +18,10 @@
     backdrop-filter: var(--pluto-frost);
     border-radius: var(--pluto-border-radius-small);
     max-height: 50%;
-    overflow-y: auto;
-    overflow-x: visible;
+    overflow: visible auto;
     width: fit-content;
-    .pluto-text {
+
+    .lyra-text {
         user-select: none;
     }
 
@@ -39,6 +39,7 @@
         transition:
             min-width 0.1s ease-in,
             opacity 0.1s ease-in;
+
         & svg {
             transform: scale(0.9);
         }

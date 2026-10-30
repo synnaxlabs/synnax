@@ -14,7 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -30,7 +30,7 @@ func TestWriter(t *testing.T) {
 }
 
 var (
-	mockNode      mock.Node
+	mockNode      testutil.Node
 	channelSvc    *channel.Service
 	channelWriter channel.Writer
 	writerSvc     *writer.Service
@@ -38,7 +38,7 @@ var (
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	mockNode = mock.NewNode(ctx)
+	mockNode = testutil.NewNode(ctx)
 
 	otg := MustOpen(ontology.Open(ctx, ontology.Config{
 		DB: mockNode.DB,

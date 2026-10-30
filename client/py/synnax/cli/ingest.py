@@ -19,6 +19,7 @@ from synnax.cli import channel, connect, default, flow
 from synnax.cli.flow import Context
 from synnax.cli.io import prompt_file
 from synnax.cli.telem import select_data_type
+from synnax.config import default_clusters
 from synnax.ingest import row
 from synnax.io import FACTORY, ChannelMeta, Factory, ReaderType, RowFileReader
 from synnax.telem import DataType, Rate, TimeRange, TimeStamp
@@ -51,7 +52,7 @@ def _pure_ingest(
     runner.add("prompt_name", _prompt_name)
     runner.add("ingest", _run_ingestion)
     path = None if path_ is None else Path(path_)
-    runner.run(_Flow(FACTORY, path, client), "initialize_reader")
+    runner.run(_Flow(FACTORY, path, client), root="initialize_reader")
 
 
 class _Flow:
@@ -82,7 +83,12 @@ def _run_ingestion(ctx: Context, cli: _Flow) -> None:
     assert cli.start is not None
     _initialize_reader(ctx, cli)
     if cli.reader.type() == ReaderType.Row:
-        engine = row.Engine(cli.client, cli.reader, cli.db_channels, cli.start)
+        engine = row.Engine(
+            client=cli.client,
+            reader=cli.reader,
+            channels=cli.db_channels,
+            start=cli.start,
+        )
     else:
         raise NotImplementedError("Only row ingestion is supported at this time.")
     ctx.console.info("Starting ingestion process...")
@@ -107,7 +113,7 @@ def _initialize_reader(
 
 def _connect_client(ctx: Context, cli: _Flow) -> str | None:
     if cli.client is None:
-        cli.client = connect.from_context(ctx)
+        cli.client = connect.from_clusters(ctx, default_clusters())
     return "ingest_all" if cli.client else None
 
 
@@ -214,7 +220,7 @@ def _validate_channels_exist(ctx: Context, cli: _Flow) -> str | None:
         ch = channel.maybe_select(
             ctx,
             cli.client.channels.retrieve([meta.name]),
-            meta.name,
+            param=meta.name,
         )
         if ch is None:
             cli.not_found.append(meta)
@@ -340,7 +346,7 @@ def _assign_index_or_rate(
     grouped: dict[str, list[ChannelMeta]] = {_GROUP_ALL: cli.not_found}
     if not ctx.console.ask(
         "Do all non-indexed channels have the same data rate or index?",
-        bool,
+        type_=bool,
         default=True,
     ):
         if not ctx.console.ask(
@@ -364,7 +370,7 @@ def _assign_index_or_rate(
         # If the user entered a string, we have an index channel, and we
         # need to make sure that the string is a valid index.
         res = client.channels.retrieve([_choice])
-        idx = channel.maybe_select(ctx, res, _choice)
+        idx = channel.maybe_select(ctx, res, param=_choice)
         if not idx:
             ctx.console.warn(f"Index channel with key {_choice} not found")
             if ctx.console.ask("Try again?", default=True):
