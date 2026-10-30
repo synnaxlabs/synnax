@@ -293,6 +293,102 @@ TEST(ArcTests, testBasicSequence) {
     task->stop("test_stop", true);
 }
 
+TEST(ArcTests, testComputedRangeKeyWrite) {
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+
+    auto trig_idx = synnax::channel::Channel{
+        .name = make_unique_channel_name("computed_range_trig_idx"),
+        .data_type = x::telem::TIMESTAMP_T,
+        .is_index = true,
+        .index = 0
+    };
+    ASSERT_NIL(client->channels.create(trig_idx));
+    auto trig_ch = synnax::channel::Channel{
+        .name = make_unique_channel_name("computed_range_trig"),
+        .data_type = x::telem::UINT8_T,
+        .is_index = false,
+        .index = trig_idx.key
+    };
+    ASSERT_NIL(client->channels.create(trig_ch));
+    auto out_ch = synnax::channel::Channel{
+        .name = make_unique_channel_name("computed_range_out"),
+        .data_type = x::telem::STRING_T,
+        .is_virtual = true
+    };
+    ASSERT_NIL(client->channels.create(out_ch));
+
+    const auto name = make_unique_channel_name("computed_range");
+    synnax::arc::Arc arc_prog{
+        .name = make_unique_channel_name("computed_range_test"),
+        .mode = synnax::arc::MODE_TEXT
+    };
+    arc_prog.text = ::arc::text::Text{
+        .raw = "import ranges\n"
+               "\n"
+               "sequence main {\n"
+               "    key := ranges.create(\"" +
+               name +
+               "\")\n"
+               "    key -> " +
+               out_ch.name +
+               "\n"
+               "}\n"
+               "\n" +
+               trig_ch.name + " => main\n"
+    };
+    ASSERT_NIL(client->arcs.create(arc_prog));
+
+    auto rack = ASSERT_NIL_P(
+        client->racks.create(make_unique_channel_name("arc_computed_range_rack"))
+    );
+    synnax::task::Task task_meta{
+        .rack = rack.key,
+        .name = "arc_computed_range_test",
+        .type = "arc_runtime",
+    };
+    nlohmann::json cfg{{"arc_key", arc_prog.key.to_string()}};
+    task_meta.config = cfg;
+    auto parser = x::json::Parser(task_meta.config);
+    auto task_cfg = ASSERT_NIL_P(arc::TaskConfig::parse(client, parser));
+
+    auto mock_writer = std::make_shared<driver::pipeline::testutil::WriterFactory>();
+    auto input_frames = std::make_shared<std::vector<x::telem::Frame>>();
+    x::telem::Frame trigger_fr(2);
+    auto trigger_idx_series = x::telem::Series(x::telem::TimeStamp::now());
+    trigger_idx_series.alignment = x::telem::Alignment(1, 0);
+    auto trigger_val_series = x::telem::Series(static_cast<uint8_t>(1));
+    trigger_val_series.alignment = x::telem::Alignment(1, 0);
+    trigger_fr.emplace(trig_idx.key, std::move(trigger_idx_series));
+    trigger_fr.emplace(trig_ch.key, std::move(trigger_val_series));
+    input_frames->push_back(std::move(trigger_fr));
+    auto mock_streamer = driver::pipeline::testutil::simple_streamer_factory(
+        {trig_idx.key, trig_ch.key},
+        input_frames
+    );
+    auto ctx = std::make_shared<driver::task::MockContext>(client);
+    auto task = ASSERT_NIL_P(
+        arc::Task::create(task_meta, ctx, task_cfg, mock_writer, mock_streamer)
+    );
+
+    task->start("test_start");
+    ASSERT_EVENTUALLY_GE(ctx->statuses.size(), 1);
+    ASSERT_EVENTUALLY_GE(mock_writer->writes->size(), 1);
+
+    // The key reaches the channel only after the create node returned it, so
+    // the range exists by the time the first write lands.
+    auto rng = ASSERT_NIL_P(client->ranges.retrieve_by_name(name));
+    const auto expected = rng.key.to_string();
+    bool found = false;
+    for (const auto &output_fr: mock_writer->writes->snapshot())
+        for (const auto &[ch, series]: output_fr)
+            if (ch == out_ch.key)
+                for (const auto &v: series.strings())
+                    found = found || v == expected;
+    EXPECT_TRUE(found) << "the computed range key was not written";
+
+    task->stop("test_stop", true);
+}
+
 TEST(ArcTests, testOneShotTruthiness) {
     // This test verifies that one-shot edges (=>) only fire when the value is truthy.
     // A value of 0 should NOT trigger the sequence, while a value of 1 should.

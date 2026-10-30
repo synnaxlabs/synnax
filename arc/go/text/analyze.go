@@ -315,11 +315,13 @@ func (s *shellBuilder) applyTransitionIntent(
 	}
 }
 
-// nodeResult describes an IR node produced by a flow-node analysis.
+// nodeResult describes an IR node produced by a flow-node analysis. args are
+// the computed-input nodes the call samples; they fire with the call's trigger.
 type nodeResult struct {
 	node   ir.Node
 	input  ir.Handle
 	output ir.Handle
+	args   []ir.Node
 }
 
 func newNodeResult(node ir.Node, inputParam, outputParam string) nodeResult {
@@ -1066,12 +1068,12 @@ func newConstNode(key string, inType, outType types.Type, v any) ir.Node {
 	}
 }
 
-// varValue returns sym's folded initializer, or the zero of its type.
+// varValue returns sym's folded initializer, or the zero of its value type.
 func varValue(sym *symbol.Symbol) any {
 	if sym.DefaultValue != nil {
 		return sym.DefaultValue
 	}
-	return types.Zero(sym.Type)
+	return types.Zero(sym.Type.UnwrapChan())
 }
 
 // buildVarReadNode lowers a triggered mid-chain variable read: a constant
@@ -1277,18 +1279,20 @@ func analyzeFunctionNode(
 		Inputs:   slices.Clone(freshType.Inputs),
 		Outputs:  slices.Clone(freshType.Outputs),
 	}
-	var ok bool
-	n.Inputs, ok = extractInputValues(
-		ctx.Child(ctx.AST.InputValues()), n.Inputs, n, sym, shell,
+	inputs, args, ok := extractInputValues(
+		ctx.Child(ctx.AST.InputValues()), n.Inputs, n, sym, kg, shell,
 	)
 	if !ok {
 		return nodeResult{}, false
 	}
+	n.Inputs = inputs
 	inputParam := ir.DefaultInputParam
 	if sym.Trigger.Target != "" {
 		inputParam = sym.Trigger.Target
 	}
-	return newNodeResult(n, inputParam, firstOutputParam(n.Outputs)), true
+	res := newNodeResult(n, inputParam, firstOutputParam(n.Outputs))
+	res.args = args
+	return res, true
 }
 
 // tryAnalyzeFmtStrLiteral handles the format-string-with-placeholders case by
@@ -1823,6 +1827,26 @@ func (p *flowChainProcessor) processFlowNode(flowNode parser.IFlowNodeContext) b
 		})
 	}
 
+	// A computed input fires on the same trigger as its call and precedes it in
+	// member order, so the call samples the value computed in the same pass.
+	for _, arg := range node.args {
+		if p.prevNode != nil {
+			p.edges = append(p.edges, ir.Edge{
+				Source: p.prevOutput,
+				Target: ir.Handle{Node: arg.Key, Param: ir.DefaultInputParam},
+				Kind:   p.edgeKind(),
+			})
+		}
+		for _, trigger := range p.additionalTriggers {
+			p.edges = append(p.edges, ir.Edge{
+				Source: trigger.output,
+				Target: ir.Handle{Node: arg.Key, Param: ir.DefaultInputParam},
+				Kind:   ir.EdgeKindContinuous,
+			})
+		}
+		p.nodes = append(p.nodes, arg)
+	}
+
 	// Handle additional triggers (for expressions with multiple channel references)
 	if len(p.additionalTriggers) > 0 {
 		for _, trigger := range p.additionalTriggers {
@@ -1945,11 +1969,13 @@ func extractInputValues(
 	input types.Params,
 	node ir.Node,
 	fnSym *symbol.Symbol,
+	kg *keyGenerator,
 	shell *shellBuilder,
-) (types.Params, bool) {
+) (types.Params, []ir.Node, bool) {
 	if ctx.AST == nil {
-		return input, true
+		return input, nil, true
 	}
+	var args []ir.Node
 
 	parseInputExpr := func(
 		expr parser.IExpressionContext,
@@ -2020,28 +2046,40 @@ func extractInputValues(
 
 		// Top-level literal variables cannot be reassigned, so they inline; so
 		// does any literal variable with no write sites in the source. Any
-		// other literal variable stamps a var ref to its node instead.
+		// other value variable stamps a var ref to its node instead.
 		if primary := parser.GetPrimaryExpression(expr); primary != nil {
 			if id := primary.IDENTIFIER(); id != nil {
-				if sym, err := ctx.Scope.Resolve(ctx, id.GetText()); err == nil &&
-					sym.IsLiteral() {
+				sym, err := ctx.Scope.Resolve(ctx, id.GetText())
+				if err == nil && (sym.IsLiteral() || isExprReadVar(sym)) {
 					if rn := shell.varNodes[sym].readNode(sym); rn != nil {
-						return varValue(sym), types.VarRef(sym.Type, rn.Key), true
+						t := sym.Type.UnwrapChan()
+						return varValue(sym), types.VarRef(t, rn.Key), true
 					}
 					if !sym.Reassigned && sym.DefaultValue != nil {
 						return sym.DefaultValue, paramType, true
 					}
 				}
+				if err == nil && sym.Type.Kind == types.KindChan {
+					ctx.Diagnostics.Add(diagnostics.Errorf(
+						expr,
+						"input value for '%s' cannot be a channel",
+						paramName,
+					))
+					return nil, paramType, false
+				}
 			}
 		}
 
+		// Any other expression becomes a node that fires with the call and is
+		// sampled through a var ref, so its value is the one at fire time.
 		if !parser.IsLiteral(expr) {
-			ctx.Diagnostics.Add(diagnostics.Errorf(
-				expr,
-				"input value for '%s' must be a literal",
-				paramName,
-			))
-			return nil, paramType, false
+			res, ok := analyzeExpression(ctx.Child(expr), kg, shell, true)
+			if !ok {
+				return nil, paramType, false
+			}
+			args = append(args, res.node)
+			t := res.node.Outputs[0].Type
+			return types.Zero(t), types.VarRef(t, res.node.Key), true
 		}
 
 		parsedValue, err := literal.ParseConst(expr, paramType)
@@ -2059,7 +2097,7 @@ func extractInputValues(
 			if expr := cv.Expression(); expr != nil {
 				value, typ, ok := parseInputExpr(expr, input[idx].Type, key)
 				if !ok {
-					return nil, false
+					return nil, nil, false
 				}
 				input[idx].Value = value
 				input[idx].Type = typ
@@ -2079,7 +2117,7 @@ func extractInputValues(
 				exprs[pos], input[i].Type, fmt.Sprintf("position %d", pos),
 			)
 			if !ok {
-				return nil, false
+				return nil, nil, false
 			}
 			input[i].Value = value
 			input[i].Type = typ
@@ -2087,7 +2125,7 @@ func extractInputValues(
 		}
 	}
 
-	return input, true
+	return input, args, true
 }
 
 // collectSynthByAST returns a map from each inline-body declaration in the tree
@@ -2482,7 +2520,7 @@ func analyzeSequence(
 		}
 
 		if single := item.SingleInvocation(); single != nil {
-			node, ok := analyzeSingleInvocation(
+			nodes, ok := analyzeSingleInvocation(
 				ctx.Child(single).WithScope(seqScope),
 				kg,
 				shell,
@@ -2490,10 +2528,10 @@ func analyzeSequence(
 			if !ok {
 				return ir.Scope{}, nil, nil, false
 			}
-			child := flowScope(si.key, []ir.Node{node})
+			child := flowScope(si.key, nodes)
 			scope.Steps = append(scope.Steps, ir.Member{Scope: &child})
-			allNodes = append(allNodes, node)
-			autoWireTransition(shell, node, nextKey)
+			allNodes = append(allNodes, nodes...)
+			autoWireTransition(shell, nodes[len(nodes)-1], nextKey)
 			continue
 		}
 
@@ -2629,12 +2667,14 @@ func analyzeStage(
 			continue
 		}
 		if single := item.SingleInvocation(); single != nil {
-			node, ok := analyzeSingleInvocation(ctx.Child(single), kg, shell)
+			itemNodes, ok := analyzeSingleInvocation(ctx.Child(single), kg, shell)
 			if !ok {
 				return ir.Scope{}, nil, nil, false
 			}
-			nodes = append(nodes, node)
-			members = append(members, ir.Member{NodeKey: new(node.Key)})
+			nodes = append(nodes, itemNodes...)
+			for _, n := range itemNodes {
+				members = append(members, ir.Member{NodeKey: new(n.Key)})
+			}
 			continue
 		}
 		if nestedSeqDecl := item.SequenceDeclaration(); nestedSeqDecl != nil {
@@ -2662,24 +2702,26 @@ func analyzeStage(
 	return scope, nodes, edges, true
 }
 
+// analyzeSingleInvocation lowers a bare call or expression step. The step's
+// node comes last, after any computed-input nodes the call samples.
 func analyzeSingleInvocation(
 	ctx acontext.Context[parser.ISingleInvocationContext],
 	kg *keyGenerator,
 	shell *shellBuilder,
-) (ir.Node, bool) {
+) ([]ir.Node, bool) {
 	if fn := ctx.AST.Function(); fn != nil {
 		result, ok := analyzeFunctionNode(ctx.Child(fn), kg, shell, false)
 		if !ok {
-			return ir.Node{}, false
+			return nil, false
 		}
-		return result.node, true
+		return append(result.args, result.node), true
 	}
 	if expr := ctx.AST.Expression(); expr != nil {
 		result, ok := analyzeExpression(ctx.Child(expr), kg, shell, false)
 		if !ok {
-			return ir.Node{}, false
+			return nil, false
 		}
-		return result.node, true
+		return []ir.Node{result.node}, true
 	}
-	return ir.Node{}, false
+	return nil, false
 }

@@ -459,16 +459,23 @@ var _ = Describe("Text", func() {
 			},
 		)
 
-		It("Should reject a non-literal config input value", func(ctx SpecContext) {
+		It("Should sample a computed config input per fire", func(ctx SpecContext) {
 			source := `count_ch -> wait(duration=1s+1s) -> flag_ch`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-			_, diagnostics := text.Analyze(
+			inter, diagnostics := text.Analyze(
 				ctx,
 				parsedText,
 				NewRoot(nil, varResolver...),
 			)
-			Expect(diagnostics.Ok()).To(BeFalse())
-			Expect(diagnostics.String()).To(ContainSubstring("must be a literal"))
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			duration := MustBeOk(
+				findNodeByKey(inter.Nodes, "wait_0").Inputs.Get("duration"),
+			)
+			Expect(duration.Type.Kind).To(Equal(types.KindVarRef))
+			arg := findNodeByKey(inter.Nodes, duration.Type.Name)
+			Expect(arg.Type).To(HavePrefix("expression_"))
+			Expect(hasEdge(inter, nodeReading(inter, 901), arg.Key)).To(BeTrue(),
+				"the trigger must fire the computed input")
 		})
 
 		It(
@@ -879,7 +886,7 @@ var _ = Describe("Text", func() {
 		)
 
 		It(
-			"Should reject a reactive variable as an input value",
+			"Should bind a reactive variable input as a var ref to its deref",
 			func(ctx SpecContext) {
 				source := `
 			func my_func(tag i64) {n u8} i64 {
@@ -892,13 +899,18 @@ var _ = Describe("Text", func() {
 				}
 			}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				_, diagnostics := text.Analyze(
+				inter, diagnostics := text.Analyze(
 					ctx,
 					parsedText,
 					NewRoot(nil, varResolver...),
 				)
-				Expect(diagnostics.Ok()).To(BeFalse())
-				Expect(diagnostics.String()).To(ContainSubstring("must be a literal"))
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				tag := MustBeOk(
+					findNodeByKey(inter.Nodes, "my_func_0").Inputs.Get("tag"),
+				)
+				Expect(tag.Type.Kind).To(Equal(types.KindVarRef))
+				Expect(tag.Type.Name).To(Equal("var_r_0"))
+				Expect(tag.Type.Elem.Kind).To(Equal(types.KindI64))
 			},
 		)
 
@@ -927,7 +939,7 @@ var _ = Describe("Text", func() {
 		)
 
 		It(
-			"Should reject a reactive variable as a native's input value",
+			"Should bind a reactive variable input of a native as a var ref",
 			func(ctx SpecContext) {
 				resolver := append([]symbol.Symbol{
 					{
@@ -951,13 +963,17 @@ var _ = Describe("Text", func() {
 				}
 			}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				_, diagnostics := text.Analyze(
+				inter, diagnostics := text.Analyze(
 					ctx,
 					parsedText,
 					NewRoot(nil, resolver...),
 				)
-				Expect(diagnostics.Ok()).To(BeFalse())
-				Expect(diagnostics.String()).To(ContainSubstring("must be a literal"))
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				duration := MustBeOk(
+					findNodeByKey(inter.Nodes, "wait_0").Inputs.Get("duration"),
+				)
+				Expect(duration.Type.Kind).To(Equal(types.KindVarRef))
+				Expect(duration.Type.Name).To(Equal("var_r_0"))
 			},
 		)
 
@@ -1564,7 +1580,7 @@ var _ = Describe("Text", func() {
 		})
 
 		It(
-			"Should reject a reassigned reactive variable as an input value",
+			"Should bind a reassigned reactive variable input as a var ref",
 			func(ctx SpecContext) {
 				source := `
 			func my_func(tag i64) {n u8} i64 {
@@ -1578,13 +1594,17 @@ var _ = Describe("Text", func() {
 				}
 			}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				_, diagnostics := text.Analyze(
+				inter, diagnostics := text.Analyze(
 					ctx,
 					parsedText,
 					NewRoot(nil, varResolver...),
 				)
-				Expect(diagnostics.Ok()).To(BeFalse())
-				Expect(diagnostics.String()).To(ContainSubstring("must be a literal"))
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				tag := MustBeOk(
+					findNodeByKey(inter.Nodes, "my_func_0").Inputs.Get("tag"),
+				)
+				Expect(tag.Type.Kind).To(Equal(types.KindVarRef))
+				Expect(tag.Type.Name).To(Equal("var_r_0"))
 			},
 		)
 
@@ -1614,7 +1634,7 @@ var _ = Describe("Text", func() {
 		)
 
 		It(
-			"Should reject a reactive variable inside an input expression",
+			"Should lower an input expression to a node fired by the call's trigger",
 			func(ctx SpecContext) {
 				source := `
 			func my_func(tag i64) {n u8} i64 {
@@ -1627,13 +1647,22 @@ var _ = Describe("Text", func() {
 				}
 			}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				_, diagnostics := text.Analyze(
+				inter, diagnostics := text.Analyze(
 					ctx,
 					parsedText,
 					NewRoot(nil, varResolver...),
 				)
-				Expect(diagnostics.Ok()).To(BeFalse())
-				Expect(diagnostics.String()).To(ContainSubstring("must be a literal"))
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				tag := MustBeOk(
+					findNodeByKey(inter.Nodes, "my_func_0").Inputs.Get("tag"),
+				)
+				Expect(tag.Type.Kind).To(Equal(types.KindVarRef))
+				arg := findNodeByKey(inter.Nodes, tag.Type.Name)
+				Expect(arg.Type).To(HavePrefix("expression_"))
+				Expect(hasEdge(inter, nodeReading(inter, 903), arg.Key)).To(BeTrue(),
+					"the trigger must fire the computed input")
+				Expect(hasEdge(inter, "var_r_0", arg.Key)).To(BeTrue(),
+					"the reactive read inside the input must follow its deref")
 			},
 		)
 
@@ -1665,7 +1694,7 @@ var _ = Describe("Text", func() {
 					NewRoot(nil, resolver...),
 				)
 				Expect(diagnostics.Ok()).To(BeFalse())
-				Expect(diagnostics.String()).To(ContainSubstring("must be a literal"))
+				Expect(diagnostics.String()).To(ContainSubstring("cannot be a channel"))
 			},
 		)
 
@@ -1915,7 +1944,7 @@ var _ = Describe("Text", func() {
 				NewRoot(nil, varResolver...),
 			)
 			Expect(diagnostics.Ok()).To(BeFalse())
-			Expect(diagnostics.String()).To(ContainSubstring("must be a literal"))
+			Expect(diagnostics.String()).To(ContainSubstring("cannot be a channel"))
 		})
 
 		DescribeTable("Should lower reactive re-expression and alias rebind",
@@ -8919,6 +8948,30 @@ time.wait(duration=500ms) -> output`
 				Expect(p.Type.Name).To(Equal(xReg.Key))
 				Expect(edgeInto(inter, yInit.Key, "x")).To(BeFalse(),
 					"a sampled read must not wake the initializer")
+			},
+		)
+
+		It(
+			"Should lower a computed call input as a node fired by the trigger",
+			func(ctx SpecContext) {
+				inter := analyze(ctx, `
+			import time
+			func f(t i64 ns) {n u8} i64 {
+				return t
+			}
+			trig -> f(time.now()) -> out`)
+				call := findNodeByKey(inter.Nodes, "f_0")
+				t := MustBeOk(call.Inputs.Get("t"))
+				Expect(t.Type.Kind).To(Equal(types.KindVarRef))
+				Expect(t.Value).To(Equal(int64(0)))
+				arg := findNodeByKey(inter.Nodes, t.Type.Name)
+				Expect(arg.Type).To(HavePrefix("expression_"))
+				Expect(edgeInto(inter, arg.Key, ir.DefaultInputParam)).To(BeTrue(),
+					"the trigger must fire the computed input")
+				order := orderOf(scopeNodeRefs(inter.Root), arg.Key, call.Key)
+				Expect(order[0]).To(BeNumerically(">=", 0))
+				Expect(order[0]).To(BeNumerically("<", order[1]),
+					"the input must run before the call in a pass")
 			},
 		)
 

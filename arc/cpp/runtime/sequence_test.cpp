@@ -99,6 +99,9 @@ public:
     }
 
     [[nodiscard]] x::telem::Frame flush() { return this->harness.flush(); }
+
+    /// @brief returns the stamp the last tick ran with.
+    [[nodiscard]] x::telem::TimeStamp now() const { return this->harness.now(); }
 };
 
 /// @brief returns every sample in a series as T.
@@ -3398,5 +3401,207 @@ TEST(VariableCaptureDispatchTest, ExecutesAOneShotCaptureChainExactlyOnce) {
         h.advance(x::telem::MILLISECOND);
     out = h.flush();
     EXPECT_EQ(count_of(out, h.key("fp_out"), "parent"), 0);
+}
+
+TEST(ComputedCallInputsTest, PassesTheTriggerTimeStampToAFunctionInput) {
+    Sequence h(
+        R"(
+    import time
+    func f(t i64 ns) {n u8} i64 {
+        return t
+    }
+    %trig% -> f(time.now()) -> %out%)",
+        {{"trig", x::telem::UINT8_T}, {"out", x::telem::INT64_T}}
+    );
+
+    h.advance(x::telem::MILLISECOND);
+    const auto started_at = h.now().nanoseconds();
+    h.trigger("trig");
+    const auto first = collect<std::int64_t>(h.flush(), h.key("out"));
+    ASSERT_EQ(first.size(), 1u);
+    EXPECT_GT(first[0], started_at)
+        << "the input must be computed when the trigger fires, not at start";
+    h.trigger("trig");
+    const auto second = collect<std::int64_t>(h.flush(), h.key("out"));
+    ASSERT_EQ(second.size(), 1u);
+    EXPECT_GT(second[0], first[0]);
+}
+
+TEST(ComputedCallInputsTest, SamplesAComputedVariableInsideAFunctionInput) {
+    Sequence h(
+        R"(
+    func f(v i64) {n u8} i64 {
+        return v
+    }
+    x := 1 + 2
+    %trig% -> f(x * 2) -> %out%)",
+        {{"trig", x::telem::UINT8_T}, {"out", x::telem::INT64_T}}
+    );
+
+    h.trigger("trig");
+    EXPECT_EQ(
+        collect<std::int64_t>(h.flush(), h.key("out")),
+        (std::vector<std::int64_t>{6})
+    );
+}
+
+TEST(ComputedCallInputsTest, AdvancesPastABareCallStepWithAComputedInput) {
+    Sequence h(
+        R"(
+    import time
+    func f(t i64 ns) {} i64 {
+        return t
+    }
+    sequence main {
+        f(time.now())
+        7 -> %out%
+    }
+    %start_cmd% => main)",
+        {{"start_cmd", x::telem::UINT8_T}, {"out", x::telem::INT64_T}}
+    );
+
+    h.trigger("start_cmd");
+    EXPECT_EQ(
+        collect<std::int64_t>(h.flush(), h.key("out")),
+        (std::vector<std::int64_t>{7})
+    );
+}
+
+TEST(ComputedInitializersTest, ComputesATopLevelVariableAtProgramStart) {
+    Sequence h(
+        R"(
+    import time
+    start := time.now()
+    %trig% -> f"{start}" -> %out%)",
+        {{"trig", x::telem::UINT8_T}, {"out", x::telem::STRING_T}}
+    );
+
+    h.advance(x::telem::MILLISECOND);
+    const auto started_at = std::to_string(h.now().nanoseconds());
+    h.advance(x::telem::MILLISECOND);
+    h.trigger("trig");
+    const auto out = h.flush();
+    EXPECT_EQ(
+        collect<std::string>(out, h.key("out")),
+        (std::vector<std::string>{started_at})
+    );
+}
+
+TEST(ComputedInitializersTest, ReadsAComputedConstantExpressionAsALiteral) {
+    Sequence h(
+        R"(
+    x := 1 + 2
+    %trig% -> f"{x}" -> %out_str%
+    %trig% -> x * 2 -> %out%)",
+        {{"trig", x::telem::UINT8_T},
+         {"out_str", x::telem::STRING_T},
+         {"out", x::telem::INT64_T}}
+    );
+
+    h.trigger("trig");
+    const auto out = h.flush();
+    EXPECT_EQ(last<std::string>(out, h.key("out_str")), "3");
+    EXPECT_EQ(collect<std::int64_t>(out, h.key("out")), (std::vector<std::int64_t>{6}));
+}
+
+TEST(ComputedInitializersTest, ComputesASequenceVariableOncePerEntry) {
+    Sequence h(
+        R"(
+    import time
+    sequence main {
+        sequence s1 {
+            k := time.now()
+            k -> %out%
+        }
+        stage s2 {
+            %go1% => s1
+        }
+    }
+    %start_cmd% => main)",
+        {{"start_cmd", x::telem::UINT8_T},
+         {"go1", x::telem::UINT8_T},
+         {"out", x::telem::INT64_T}}
+    );
+
+    h.trigger("start_cmd");
+    const auto first = collect<std::int64_t>(h.flush(), h.key("out"));
+    ASSERT_EQ(first.size(), 1u) << "entry must fire the initializer once";
+    EXPECT_GT(first[0], 0);
+    h.advance(10 * x::telem::MILLISECOND);
+    EXPECT_TRUE(collect<std::int64_t>(h.flush(), h.key("out")).empty())
+        << "idle cycles must not re-fire the initializer";
+    h.trigger("go1");
+    const auto second = collect<std::int64_t>(h.flush(), h.key("out"));
+    ASSERT_EQ(second.size(), 1u);
+    EXPECT_GT(second[0], first[0]) << "re-entry must recompute the initializer";
+}
+
+TEST(ComputedInitializersTest, ComputesAStageVariableOncePerEntry) {
+    Sequence h(
+        R"(
+    import time
+    sequence main {
+        stage s1 {
+            k := time.now()
+            k -> %out%
+            %go2% => next
+        }
+        stage s2 {
+            %go1% => s1
+        }
+    }
+    %start_cmd% => main)",
+        {{"start_cmd", x::telem::UINT8_T},
+         {"out", x::telem::INT64_T},
+         {"go2", x::telem::UINT8_T},
+         {"go1", x::telem::UINT8_T}}
+    );
+
+    h.trigger("start_cmd");
+    const auto first = collect<std::int64_t>(h.flush(), h.key("out"));
+    ASSERT_EQ(first.size(), 1u) << "entry must fire the initializer once";
+    h.trigger("go2");
+    h.trigger("go1");
+    const auto second = collect<std::int64_t>(h.flush(), h.key("out"));
+    ASSERT_EQ(second.size(), 1u);
+    EXPECT_GT(second[0], first[0]) << "re-entry must recompute the initializer";
+}
+
+TEST(ComputedInitializersTest, SamplesAComputedVariableInALaterInitializer) {
+    Sequence h(
+        R"(
+    sequence main {
+        x := 1 + 2
+        y := x + 1
+        y -> %out%
+    }
+    %start_cmd% => main)",
+        {{"start_cmd", x::telem::UINT8_T}, {"out", x::telem::INT64_T}}
+    );
+
+    h.trigger("start_cmd");
+    EXPECT_EQ(
+        collect<std::int64_t>(h.flush(), h.key("out")),
+        (std::vector<std::int64_t>{4})
+    );
+}
+
+TEST(ComputedInitializersTest, LetsAReassignmentReplaceAComputedInitializer) {
+    Sequence h(
+        R"(
+    sequence main {
+        x := 1 + 2
+        x = 10
+        x -> %out%
+    }
+    %start_cmd% => main)",
+        {{"start_cmd", x::telem::UINT8_T}, {"out", x::telem::INT64_T}}
+    );
+
+    h.trigger("start_cmd");
+    EXPECT_EQ(
+        collect<std::int64_t>(h.flush(), h.key("out")),
+        (std::vector<std::int64_t>{10})
+    );
 }
 }

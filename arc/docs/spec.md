@@ -378,6 +378,9 @@ func clamp() {value f64, min f64 = 0.0, max f64 = 1.0} f64 {
 - Positionally by declaration order: `filter(50.0)` sets the first input;
   `average(10ms, 100)` sets the first and second. Trailing inputs with defaults may be
   omitted.
+- With any expression: `trigger -> f(time.now())` passes the value computed when the
+  call fires. A channel name is not an input value; read it in an expression or pass it
+  to a `chan` input.
 - Values must be literals or channel identifiers (resolved at compile time).
 
 ### Triggers

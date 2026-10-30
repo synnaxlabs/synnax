@@ -47,6 +47,7 @@ func AnalyzeSingleFunction(ctx context.Context[parser.IFunctionContext]) {
 	}
 	freshType := types.Freshen(funcType.Type, freshenKey(ctx.AST, name))
 	args := inputArguments(ctx, ctx.AST)
+	AnalyzeComputedArgs(ctx, args)
 	expression.AnalyzeCall(
 		ctx,
 		name,
@@ -162,6 +163,7 @@ func parseFunction(
 
 	freshType := types.Freshen(funcType.Type, freshenKey(ctx.AST, name))
 	args := inputArguments(ctx, ctx.AST)
+	AnalyzeComputedArgs(ctx, args)
 
 	var externallySatisfied []string
 	if prevNode != nil && funcType.Trigger.Target != "" {
@@ -857,6 +859,7 @@ func analyzeRoutingTargetWithParam(
 		}
 
 		args := inputArguments(ctx, fn)
+		AnalyzeComputedArgs(ctx, args)
 		var externallySatisfied []string
 		if fnType.Trigger.Target != "" {
 			externallySatisfied = append(externallySatisfied, fnType.Trigger.Target)

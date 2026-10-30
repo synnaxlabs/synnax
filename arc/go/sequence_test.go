@@ -5266,6 +5266,91 @@ var _ = Describe("Sequence", func() {
 		})
 	})
 
+	Describe("Computed call inputs", func() {
+		// drainI64 collects every i64 value flushed to a channel in order.
+		drainI64 := func(fr telem.Frame[uint32], key uint32) []int64 {
+			var out []int64
+			for _, ser := range fr.Get(key).Series {
+				out = append(out, ser.Unmarshal[int64]()...)
+			}
+			return out
+		}
+
+		It("Passes the trigger-time stamp to a function input", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"trig": {types.U8(), 100},
+				"out":  {types.I64(), 102},
+			})
+			h := newRuntimeHarness(ctx, `
+				import time
+				func f(t i64 ns) {n u8} i64 {
+				    return t
+				}
+				trig -> f(time.now()) -> out`, resolver,
+				channels.Digest{Key: 102, DataType: telem.Int64T},
+			)
+			defer h.Close(ctx)
+
+			advance(h, ctx, telem.Millisecond)
+			startedAt := int64(h.cycleNow)
+			trigger(h, ctx, 100)
+			out, _ := h.Flush()
+			first := drainI64(out, 102)
+			Expect(first).To(HaveLen(1))
+			Expect(first[0]).To(BeNumerically(">", startedAt),
+				"the input must be computed when the trigger fires, not at start")
+			trigger(h, ctx, 100)
+			out, _ = h.Flush()
+			second := drainI64(out, 102)
+			Expect(second).To(HaveLen(1))
+			Expect(second[0]).To(BeNumerically(">", first[0]))
+		})
+
+		It("Samples a computed variable in a function input", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"trig": {types.U8(), 100},
+				"out":  {types.I64(), 102},
+			})
+			h := newRuntimeHarness(ctx, `
+				func f(v i64) {n u8} i64 {
+				    return v
+				}
+				x := 1 + 2
+				trig -> f(x * 2) -> out`, resolver,
+				channels.Digest{Key: 102, DataType: telem.Int64T},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			out, _ := h.Flush()
+			Expect(drainI64(out, 102)).To(Equal([]int64{6}))
+		})
+
+		It("Advances past a bare call with a computed input", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"out":       {types.I64(), 102},
+			})
+			h := newRuntimeHarness(ctx, `
+				import time
+				func f(t i64 ns) {} i64 {
+				    return t
+				}
+				sequence main {
+				    f(time.now())
+				    7 -> out
+				}
+				start_cmd => main`, resolver,
+				channels.Digest{Key: 102, DataType: telem.Int64T},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			out, _ := h.Flush()
+			Expect(drainI64(out, 102)).To(Equal([]int64{7}))
+		})
+	})
+
 	Describe("Variable initialization on declaration", func() {
 		It("Initializes a variable declared in a sequence body", func(ctx SpecContext) {
 			resolver := channelSymbols(map[string]channelDef{
