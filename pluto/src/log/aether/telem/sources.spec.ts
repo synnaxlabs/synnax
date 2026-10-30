@@ -316,6 +316,16 @@ describe("StreamMultiChannelLog", () => {
       expect(handler).not.toHaveBeenCalled();
     });
 
+    it("should report loading until an added channel loads", async () => {
+      const core = createCore();
+      const [a, b] = core.data.map((c) => c.key);
+      const log = open(core, connect(core), { channels: [a] });
+      await settle(log, HISTORY);
+      log.setChannels([a, b]);
+      expect(log.value().status.variant).toBe("loading");
+      await expect.poll(() => log.value().status.variant, POLL).toBe("success");
+    });
+
     it("should drop the entries of a removed channel", async () => {
       const core = createCore();
       const [a, b] = core.data.map((c) => c.key);
