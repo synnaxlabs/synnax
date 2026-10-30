@@ -43,24 +43,39 @@ describe("password", () => {
 
     it("should switch to a new session when setting its own password", async () => {
       const { username } = await createUser();
-      let successes = 0;
+      const successes: string[] = [];
       const self = createTestAuthClient(
         { credentials: { username, password: "old" } },
-        { onSuccess: () => successes++ },
+        { onSuccess: (key) => successes.push(key) },
       );
       await expect(self.passwords.set({ password: "new" })).rejects.toThrow();
       await self.sessions.retrieve();
       const old = self.session?.key;
-      const before = successes;
+      const before = successes.length;
       await self.passwords.set({ password: "new", currentPassword: "old" });
-      expect(successes).toEqual(before + 1);
+      expect(successes).toHaveLength(before + 1);
       expect(self.session?.key).toBeDefined();
+      expect(successes.at(-1)).toEqual(self.session?.key);
       expect(self.session?.key).not.toEqual(old);
       const sessions = await self.sessions.retrieve();
       expect(sessions.map((s) => s.key)).not.toContain(old);
       await createTestAuthClient({
         credentials: { username, password: "new" },
       }).sessions.retrieve();
+    });
+
+    it("should keep new credentials set while a password change runs", async () => {
+      const first = await createUser();
+      const second = await createUser();
+      const client = createTestAuthClient({
+        credentials: { username: first.username, password: "old" },
+      });
+      await client.sessions.retrieve();
+      const change = client.passwords.set({ password: "new", currentPassword: "old" });
+      client.setCredentials({ username: second.username, password: "old" });
+      await change;
+      await client.sessions.retrieve();
+      expect(client.subject?.key).toEqual(second.subject.key);
     });
 
     it("should keep working after a resumed client sets its own password", async () => {
