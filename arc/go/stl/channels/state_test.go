@@ -98,39 +98,45 @@ func writeChannel(s *channels.ProgramState, key uint32, data, time telem.Series)
 	write(data, time)
 }
 
-// writeValue writes each sample of value to key the way a function body does.
+// openHost binds the channel host functions to s and returns a runtime that calls them.
+func openHost(s *channels.ProgramState) (*stltest.Runtime, *strings.ProgramState) {
+	GinkgoHelper()
+	ctx := context.Background()
+	rt := stltest.NewRuntime(ctx)
+	DeferCleanup(func(ctx context.Context) { Expect(rt.Close(ctx)).To(Succeed()) })
+	ss := strings.NewProgramState()
+	MustSucceed(channels.NewHost(ctx, rt.Underlying(), s, ss))
+	rt.Passthrough(ctx, channels.Name)
+	return rt, ss
+}
+
+// writeValue writes each sample of value to key through the host functions that a
+// function body calls.
 func writeValue(s *channels.ProgramState, key uint32, value telem.Series) {
 	GinkgoHelper()
+	ctx := context.Background()
+	rt, ss := openHost(s)
 	if value.DataType == telem.StringT {
-		ctx := context.Background()
-		rt := stltest.NewRuntime(ctx)
-		DeferCleanup(func(ctx context.Context) { Expect(rt.Close(ctx)).To(Succeed()) })
-		ss := strings.NewProgramState()
-		MustSucceed(channels.NewHost(ctx, rt.Underlying(), s, ss))
-		rt.Passthrough(ctx, channels.Name)
 		for v := range value.Samples() {
-			h := ss.Create(string(v))
-			rt.CallVoid(
-				ctx,
-				channels.Name,
-				"write_str",
-				stltest.U32(key),
-				stltest.U32(h),
-			)
+			h := stltest.U32(ss.Create(string(v)))
+			rt.CallVoid(ctx, channels.Name, "write_str", stltest.U32(key), h)
 		}
 		return
 	}
 	for i := range int(value.Len()) {
+		var fn string
+		var arg uint64
 		switch value.DataType {
 		case telem.Int32T:
-			s.WriteChannelI32(key, value.ValueAt[int32](i))
+			fn, arg = "write_i32", stltest.I32(value.ValueAt[int32](i))
 		case telem.Float32T:
-			s.WriteChannelF32(key, value.ValueAt[float32](i))
+			fn, arg = "write_f32", stltest.F32(value.ValueAt[float32](i))
 		case telem.Float64T:
-			s.WriteChannelF64(key, value.ValueAt[float64](i))
+			fn, arg = "write_f64", stltest.F64(value.ValueAt[float64](i))
 		default:
 			Fail("unsupported data type " + string(value.DataType))
 		}
+		rt.CallVoid(ctx, channels.Name, fn, stltest.U32(key), arg)
 	}
 }
 
@@ -458,7 +464,7 @@ var _ = Describe("ProgramState", func() {
 				if !bodyFirst {
 					write()
 				}
-				s.WriteChannelF32(1, 2)
+				writeValue(s, 1, telem.NewSeriesV[float32](2))
 				if bodyFirst {
 					write()
 				}
@@ -478,7 +484,7 @@ var _ = Describe("ProgramState", func() {
 		It("Should put a body write before a supplied stamp later than now", func() {
 			later := flushNow + 5*telem.SecondTS
 			writeChannel(s, 1, telem.NewSeriesV[float32](1), telem.NewSeriesV(later))
-			s.WriteChannelF32(1, 2)
+			writeValue(s, 1, telem.NewSeriesV[float32](2))
 			fr, highest, _ := s.Flush(telem.Frame[uint32]{}, flushNow)
 			Expect(fr.Get(1).Series[0]).To(
 				MatchSeries(telem.NewSeriesV[float32](2, 1)),
@@ -503,7 +509,7 @@ var _ = Describe("ProgramState", func() {
 				if !bodyFirst {
 					write()
 				}
-				s.WriteChannelF32(1, 0.7)
+				writeValue(s, 1, telem.NewSeriesV[float32](0.7))
 				if bodyFirst {
 					write()
 				}
@@ -559,7 +565,7 @@ var _ = Describe("ProgramState", func() {
 			later := flushNow + 5*telem.SecondTS
 			writeChannel(s, 1, telem.NewSeriesV[float32](1), telem.NewSeriesV(later))
 			s.Flush(telem.Frame[uint32]{}, flushNow)
-			s.WriteChannelF32(1, 2)
+			writeValue(s, 1, telem.NewSeriesV[float32](2))
 			fr, _, _ := s.Flush(telem.Frame[uint32]{}, flushNow)
 			Expect(fr.Get(2).Series[0]).To(
 				MatchSeries(telem.NewSeriesV(later + 1)),
@@ -619,7 +625,7 @@ var _ = Describe("ProgramState", func() {
 					stamp := now
 					switch op {
 					case 'b':
-						s.WriteChannelF64(5, value)
+						writeValue(s, 5, telem.NewSeriesV(value))
 					case 'l':
 						stamp, behind = behind, behind+1
 					case 'a':
@@ -670,7 +676,7 @@ var _ = Describe("ProgramState", func() {
 				}
 				Expect(actualHighest).To(Equal(highest))
 				last := expected[len(expected)-1].stamp
-				s.WriteChannelF64(5, 0)
+				writeValue(s, 5, telem.NewSeriesV(0.0))
 				fr, _, _ = s.Flush(telem.Frame[uint32]{}, now+1)
 				Expect(fr.Get(6).Series[0]).
 					To(MatchSeries(telem.NewSeriesV(max(now+1, last+1))))
@@ -695,9 +701,9 @@ var _ = Describe("ProgramState", func() {
 		})
 
 		It("Should keep flushed frames apart from later writes", func() {
-			s.WriteChannelF32(1, 1)
+			writeValue(s, 1, telem.NewSeriesV[float32](1))
 			fr, _, _ := s.Flush(telem.Frame[uint32]{}, flushNow)
-			s.WriteChannelF32(1, 2)
+			writeValue(s, 1, telem.NewSeriesV[float32](2))
 			s.Flush(telem.Frame[uint32]{}, flushNow)
 			Expect(fr.Get(1).Series[0]).To(MatchSeriesDataV[float32](1))
 		})
@@ -861,19 +867,39 @@ var _ = Describe("ProgramState", func() {
 		})
 	})
 
-	Describe("WriteChannelFixed", func() {
-		It("Should write all fixed numeric types and auto-index timestamps", func() {
-			s.WriteChannelI32(1, 42)
-			fr, _, changed := s.Flush(telem.Frame[uint32]{}, flushNow)
-			Expect(changed).To(BeTrue())
-			Expect(fr.Get(1).Series).To(HaveLen(1))
-			Expect(fr.Get(1).Series[0].ValueAt[int32](0)).To(Equal(int32(42)))
-			Expect(fr.Get(2).Series).To(HaveLen(1))
-			Expect(fr.Get(2).Series[0].DataType).To(Equal(telem.TimestampT))
-		})
+	Describe("Fixed host writes", func() {
+		DescribeTable(
+			"Should write each fixed type and auto-index timestamps",
+			func(fn string, arg uint64, expected telem.Series) {
+				rt, _ := openHost(s)
+				rt.CallVoid(
+					context.Background(),
+					channels.Name,
+					fn,
+					stltest.U32(1),
+					arg,
+				)
+				fr, _, changed := s.Flush(telem.Frame[uint32]{}, flushNow)
+				Expect(changed).To(BeTrue())
+				Expect(fr.Get(1).Series).To(HaveLen(1))
+				Expect(fr.Get(1).Series[0]).To(telem.MatchSeriesData(expected))
+				Expect(fr.Get(2).Series).To(HaveLen(1))
+				Expect(fr.Get(2).Series[0].DataType).To(Equal(telem.TimestampT))
+			},
+			Entry("u8", "write_u8", stltest.U32(42), telem.NewSeriesV[uint8](42)),
+			Entry("u16", "write_u16", stltest.U32(42), telem.NewSeriesV[uint16](42)),
+			Entry("u32", "write_u32", stltest.U32(42), telem.NewSeriesV[uint32](42)),
+			Entry("u64", "write_u64", stltest.U64(42), telem.NewSeriesV[uint64](42)),
+			Entry("i8", "write_i8", stltest.I32(-4), telem.NewSeriesV[int8](-4)),
+			Entry("i16", "write_i16", stltest.I32(-4), telem.NewSeriesV[int16](-4)),
+			Entry("i32", "write_i32", stltest.I32(-4), telem.NewSeriesV[int32](-4)),
+			Entry("i64", "write_i64", stltest.I64(-4), telem.NewSeriesV[int64](-4)),
+			Entry("f32", "write_f32", stltest.F32(1.5), telem.NewSeriesV[float32](1.5)),
+			Entry("f64", "write_f64", stltest.F64(1.5), telem.NewSeriesV(1.5)),
+		)
 
 		It("Should not write index for channels without one", func() {
-			s.WriteChannelI32(3, 10)
+			writeValue(s, 3, telem.NewSeriesV[int32](10))
 			fr, _, _ := s.Flush(telem.Frame[uint32]{}, flushNow)
 			Expect(fr.Get(3).Series).To(HaveLen(1))
 			Expect(fr.Get(0).Series).To(BeEmpty())

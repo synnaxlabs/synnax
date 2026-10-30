@@ -119,12 +119,10 @@ var _ = Describe("Delete", func() {
 							})).To(Succeed())
 
 							frame := MustSucceed(
-								dataDB.Read(
-									ctx,
-									telem.TimeRange{
-										Start: 10 * telem.SecondTS,
-										End:   20 * telem.SecondTS,
-									},
+								ReadUnary(ctx, dataDB, telem.TimeRange{
+									Start: 10 * telem.SecondTS,
+									End:   20 * telem.SecondTS,
+								},
 								),
 							)
 
@@ -194,12 +192,10 @@ var _ = Describe("Delete", func() {
 							).To(Succeed())
 
 							frame := MustSucceed(
-								dataDB.Read(
-									ctx,
-									telem.TimeRange{
-										Start: 10 * telem.SecondTS,
-										End:   25 * telem.SecondTS,
-									},
+								ReadUnary(ctx, dataDB, telem.TimeRange{
+									Start: 10 * telem.SecondTS,
+									End:   25 * telem.SecondTS,
+								},
 								),
 							)
 							Expect(frame.Count()).To(Equal(3))
@@ -273,12 +269,10 @@ var _ = Describe("Delete", func() {
 							})).To(Succeed())
 
 							frame := MustSucceed(
-								dataDB.Read(
-									ctx,
-									telem.TimeRange{
-										Start: 10 * telem.SecondTS,
-										End:   20 * telem.SecondTS,
-									},
+								ReadUnary(ctx, dataDB, telem.TimeRange{
+									Start: 10 * telem.SecondTS,
+									End:   20 * telem.SecondTS,
+								},
 								),
 							)
 							Expect(frame.Count()).To(Equal(1))
@@ -339,12 +333,10 @@ var _ = Describe("Delete", func() {
 							})).To(Succeed())
 
 							frame := MustSucceed(
-								dataDB.Read(
-									ctx,
-									telem.TimeRange{
-										Start: 10 * telem.SecondTS,
-										End:   20 * telem.SecondTS,
-									},
+								ReadUnary(ctx, dataDB, telem.TimeRange{
+									Start: 10 * telem.SecondTS,
+									End:   20 * telem.SecondTS,
+								},
 								),
 							)
 							Expect(frame.Count()).To(Equal(1))
@@ -430,12 +422,10 @@ var _ = Describe("Delete", func() {
 							})).To(Succeed())
 
 							frame := MustSucceed(
-								indexDB.Read(
-									ctx,
-									telem.TimeRange{
-										Start: 10 * telem.SecondTS,
-										End:   20 * telem.SecondTS,
-									},
+								ReadUnary(ctx, indexDB, telem.TimeRange{
+									Start: 10 * telem.SecondTS,
+									End:   20 * telem.SecondTS,
+								},
 								),
 							)
 
@@ -487,12 +477,10 @@ var _ = Describe("Delete", func() {
 							})).To(Succeed())
 
 							frame := MustSucceed(
-								indexDB.Read(
-									ctx,
-									telem.TimeRange{
-										Start: 10 * telem.SecondTS,
-										End:   20 * telem.SecondTS,
-									},
+								ReadUnary(ctx, indexDB, telem.TimeRange{
+									Start: 10 * telem.SecondTS,
+									End:   20 * telem.SecondTS,
+								},
 								),
 							)
 
@@ -544,12 +532,10 @@ var _ = Describe("Delete", func() {
 							})).To(Succeed())
 
 							frame := MustSucceed(
-								indexDB.Read(
-									ctx,
-									telem.TimeRange{
-										Start: 10 * telem.SecondTS,
-										End:   20 * telem.SecondTS,
-									},
+								ReadUnary(ctx, indexDB, telem.TimeRange{
+									Start: 10 * telem.SecondTS,
+									End:   20 * telem.SecondTS,
+								},
 								),
 							)
 
@@ -594,12 +580,10 @@ var _ = Describe("Delete", func() {
 							})).To(Succeed())
 
 							frame := MustSucceed(
-								indexDB.Read(
-									ctx,
-									telem.TimeRange{
-										Start: 10 * telem.SecondTS,
-										End:   20 * telem.SecondTS,
-									},
+								ReadUnary(ctx, indexDB, telem.TimeRange{
+									Start: 10 * telem.SecondTS,
+									End:   20 * telem.SecondTS,
+								},
 								),
 							)
 
@@ -718,12 +702,10 @@ var _ = Describe("Delete", func() {
 								})).To(Succeed())
 
 								frame := MustSucceed(
-									dataDB.Read(
-										ctx,
-										telem.TimeRange{
-											Start: 10 * telem.SecondTS,
-											End:   100 * telem.SecondTS,
-										},
+									ReadUnary(ctx, dataDB, telem.TimeRange{
+										Start: 10 * telem.SecondTS,
+										End:   100 * telem.SecondTS,
+									},
 									),
 								)
 								Expect(frame.Count()).To(Equal(2))
@@ -751,12 +733,10 @@ var _ = Describe("Delete", func() {
 							})).To(Succeed())
 
 							frame := MustSucceed(
-								dataDB.Read(
-									ctx,
-									telem.TimeRange{
-										Start: 10 * telem.SecondTS,
-										End:   100 * telem.SecondTS,
-									},
+								ReadUnary(ctx, dataDB, telem.TimeRange{
+									Start: 10 * telem.SecondTS,
+									End:   100 * telem.SecondTS,
+								},
 								),
 							)
 							Expect(frame.Count()).To(Equal(1))
@@ -777,7 +757,9 @@ var _ = Describe("Delete", func() {
 
 						It("Should delete entire dataDB", func(ctx SpecContext) {
 							Expect(dataDB.Delete(ctx, telem.TimeRangeMax)).To(Succeed())
-							frame := MustSucceed(dataDB.Read(ctx, telem.TimeRangeMax))
+							frame := MustSucceed(
+								ReadUnary(ctx, dataDB, telem.TimeRangeMax),
+							)
 							Expect(frame.Count()).To(Equal(0))
 						})
 					})
@@ -809,12 +791,10 @@ var _ = Describe("Delete", func() {
 								})).To(Succeed())
 
 								frame := MustSucceed(
-									indexDB.Read(
-										ctx,
-										telem.TimeRange{
-											Start: 10 * telem.SecondTS,
-											End:   100 * telem.SecondTS,
-										},
+									ReadUnary(ctx, indexDB, telem.TimeRange{
+										Start: 10 * telem.SecondTS,
+										End:   100 * telem.SecondTS,
+									},
 									),
 								)
 								Expect(frame.Count()).To(Equal(6))
@@ -867,12 +847,10 @@ var _ = Describe("Delete", func() {
 								})).To(Succeed())
 
 								frame := MustSucceed(
-									indexDB.Read(
-										ctx,
-										telem.TimeRange{
-											Start: 10 * telem.SecondTS,
-											End:   100 * telem.SecondTS,
-										},
+									ReadUnary(ctx, indexDB, telem.TimeRange{
+										Start: 10 * telem.SecondTS,
+										End:   100 * telem.SecondTS,
+									},
 									),
 								)
 								Expect(frame.Count()).To(Equal(6))
@@ -932,12 +910,10 @@ var _ = Describe("Delete", func() {
 								})).To(Succeed())
 
 								frame := MustSucceed(
-									dataDB.Read(
-										ctx,
-										telem.TimeRange{
-											Start: 10 * telem.SecondTS,
-											End:   100 * telem.SecondTS,
-										},
+									ReadUnary(ctx, dataDB, telem.TimeRange{
+										Start: 10 * telem.SecondTS,
+										End:   100 * telem.SecondTS,
+									},
 									),
 								)
 								Expect(frame.Count()).To(Equal(6))
@@ -1035,7 +1011,9 @@ var _ = Describe("Delete", func() {
 									Expect(dataDB.Delete(ctx, tr)).To(Succeed())
 								}
 
-								f := MustSucceed(dataDB.Read(ctx, telem.TimeRangeMax))
+								f := MustSucceed(
+									ReadUnary(ctx, dataDB, telem.TimeRangeMax),
+								)
 								Expect(f.Count()).To(Equal(0))
 							},
 						)
@@ -1083,12 +1061,10 @@ var _ = Describe("Delete", func() {
 						),
 					).To(Succeed())
 					frame := MustSucceed(
-						indexDB.Read(
-							ctx,
-							telem.TimeRange{
-								Start: 10 * telem.SecondTS,
-								End:   100 * telem.SecondTS,
-							},
+						ReadUnary(ctx, indexDB, telem.TimeRange{
+							Start: 10 * telem.SecondTS,
+							End:   100 * telem.SecondTS,
+						},
 						),
 					)
 					Expect(frame.Count()).To(Equal(3))
@@ -1122,12 +1098,10 @@ var _ = Describe("Delete", func() {
 						),
 					).To(Succeed())
 					frame := MustSucceed(
-						indexDB.Read(
-							ctx,
-							telem.TimeRange{
-								Start: 10 * telem.SecondTS,
-								End:   100 * telem.SecondTS,
-							},
+						ReadUnary(ctx, indexDB, telem.TimeRange{
+							Start: 10 * telem.SecondTS,
+							End:   100 * telem.SecondTS,
+						},
 						),
 					)
 					Expect(frame.Count()).To(Equal(2))
@@ -1163,12 +1137,10 @@ var _ = Describe("Delete", func() {
 						),
 					).To(Succeed())
 					frame := MustSucceed(
-						indexDB.Read(
-							ctx,
-							telem.TimeRange{
-								Start: 10 * telem.SecondTS,
-								End:   100 * telem.SecondTS,
-							},
+						ReadUnary(ctx, indexDB, telem.TimeRange{
+							Start: 10 * telem.SecondTS,
+							End:   100 * telem.SecondTS,
+						},
 						),
 					)
 					Expect(frame.Count()).To(Equal(2))
@@ -1227,7 +1199,9 @@ var _ = Describe("Delete", func() {
 							indexDB.Delete(ctx, telem.NewRangeSeconds(18, 32)),
 						).To(Succeed())
 
-						frame := MustSucceed(indexDB.Read(ctx, telem.TimeRangeMax))
+						frame := MustSucceed(
+							ReadUnary(ctx, indexDB, telem.TimeRangeMax),
+						)
 						Expect(frame.Count()).To(Equal(2))
 
 						series0 := frame.SeriesAt(0)
@@ -1257,7 +1231,9 @@ var _ = Describe("Delete", func() {
 							indexDB.Delete(ctx, telem.NewRangeSeconds(8, 32)),
 						).To(Succeed())
 
-						frame := MustSucceed(indexDB.Read(ctx, telem.TimeRangeMax))
+						frame := MustSucceed(
+							ReadUnary(ctx, indexDB, telem.TimeRangeMax),
+						)
 						Expect(frame.Count()).To(Equal(1))
 
 						series0 := frame.SeriesAt(0)
@@ -1278,7 +1254,11 @@ var _ = Describe("Delete", func() {
 						).To(Succeed())
 
 						frame := MustSucceed(
-							indexDB.Read(ctx, telem.NewRangeSeconds(20, 100)),
+							ReadUnary(
+								ctx,
+								indexDB,
+								telem.NewRangeSeconds(20, 100),
+							),
 						)
 						Expect(frame.Count()).To(Equal(2))
 
@@ -1305,7 +1285,9 @@ var _ = Describe("Delete", func() {
 							indexDB.Delete(ctx, telem.NewRangeSeconds(12, 10123)),
 						).To(Succeed())
 
-						frame := MustSucceed(indexDB.Read(ctx, telem.TimeRangeMax))
+						frame := MustSucceed(
+							ReadUnary(ctx, indexDB, telem.TimeRangeMax),
+						)
 						Expect(frame.Count()).To(Equal(1))
 
 						series0 := frame.SeriesAt(0)
@@ -1325,7 +1307,9 @@ var _ = Describe("Delete", func() {
 							indexDB.Delete(ctx, telem.NewRangeSeconds(16, 29)),
 						).To(Succeed())
 
-						frame := MustSucceed(indexDB.Read(ctx, telem.TimeRangeMax))
+						frame := MustSucceed(
+							ReadUnary(ctx, indexDB, telem.TimeRangeMax),
+						)
 						Expect(frame.Count()).To(Equal(2))
 
 						series0 := frame.SeriesAt(0)
@@ -1381,7 +1365,11 @@ var _ = Describe("Delete", func() {
 							indexDB.Delete(ctx, telem.NewRangeSeconds(20, 21)),
 						).To(Succeed())
 						frame := MustSucceed(
-							indexDB.Read(ctx, telem.NewRangeSeconds(20, 100)),
+							ReadUnary(
+								ctx,
+								indexDB,
+								telem.NewRangeSeconds(20, 100),
+							),
 						)
 						Expect(frame.Count()).To(Equal(2))
 
@@ -1401,7 +1389,9 @@ var _ = Describe("Delete", func() {
 							indexDB.Delete(ctx, telem.NewRangeSeconds(0, 5)),
 						).To(Succeed())
 
-						frame := MustSucceed(indexDB.Read(ctx, telem.TimeRangeMax))
+						frame := MustSucceed(
+							ReadUnary(ctx, indexDB, telem.TimeRangeMax),
+						)
 						Expect(frame.Count()).To(Equal(3))
 
 						series0 := frame.SeriesAt(0)
@@ -1420,7 +1410,9 @@ var _ = Describe("Delete", func() {
 							indexDB.Delete(ctx, telem.NewRangeSeconds(41, 45)),
 						).To(Succeed())
 
-						frame := MustSucceed(indexDB.Read(ctx, telem.TimeRangeMax))
+						frame := MustSucceed(
+							ReadUnary(ctx, indexDB, telem.TimeRangeMax),
+						)
 						Expect(frame.Count()).To(Equal(3))
 
 						lastSeries := frame.SeriesAt(-1)
@@ -1442,7 +1434,11 @@ var _ = Describe("Delete", func() {
 					).To(Succeed())
 
 					frame := MustSucceed(
-						indexDB.Read(ctx, telem.NewRangeSeconds(20, 100)),
+						ReadUnary(
+							ctx,
+							indexDB,
+							telem.NewRangeSeconds(20, 100),
+						),
 					)
 					Expect(frame.Count()).To(Equal(2))
 					Expect(
@@ -1457,14 +1453,18 @@ var _ = Describe("Delete", func() {
 							indexDB.Delete(ctx, telem.NewRangeSeconds(14, 20)),
 						).To(Succeed())
 
-						frame := MustSucceed(indexDB.Read(ctx, telem.TimeRangeMax))
+						frame := MustSucceed(
+							ReadUnary(ctx, indexDB, telem.TimeRangeMax),
+						)
 						Expect(frame.Count()).To(Equal(3))
 						Expect(frame.Len()).To(Equal(int64(17)))
 
 						Expect(
 							indexDB.Delete(ctx, telem.NewRangeSeconds(14, 19)),
 						).To(Succeed())
-						frame = MustSucceed(indexDB.Read(ctx, telem.TimeRangeMax))
+						frame = MustSucceed(
+							ReadUnary(ctx, indexDB, telem.TimeRangeMax),
+						)
 						Expect(frame.Count()).To(Equal(3))
 						Expect(frame.Len()).To(Equal(int64(17)))
 					},
@@ -1494,12 +1494,10 @@ var _ = Describe("Delete", func() {
 						).To(Succeed())
 
 						frame := MustSucceed(
-							indexDB.Read(
-								ctx,
-								telem.TimeRange{
-									Start: 20 * telem.SecondTS,
-									End:   100 * telem.SecondTS,
-								},
+							ReadUnary(ctx, indexDB, telem.TimeRange{
+								Start: 20 * telem.SecondTS,
+								End:   100 * telem.SecondTS,
+							},
 							),
 						)
 
@@ -1691,7 +1689,9 @@ var _ = Describe("Delete", func() {
 							),
 						).To(Succeed())
 
-						f := MustSucceed(db2.Read(ctx, telem.TimeRangeMax))
+						f := MustSucceed(
+							ReadUnary(ctx, db2, telem.TimeRangeMax),
+						)
 						Expect(f.Count()).To(Equal(2))
 						Expect(
 							f.SeriesAt(0),
@@ -1779,7 +1779,9 @@ var _ = Describe("Delete", func() {
 							),
 						).To(Succeed())
 
-						f := MustSucceed(db2.Read(ctx, telem.TimeRangeMax))
+						f := MustSucceed(
+							ReadUnary(ctx, db2, telem.TimeRangeMax),
+						)
 						Expect(f.Count()).To(Equal(2))
 						Expect(
 							f.SeriesAt(0),
@@ -1864,7 +1866,9 @@ var _ = Describe("Delete", func() {
 							),
 						).To(Succeed())
 
-						f := MustSucceed(db2.Read(ctx, telem.TimeRangeMax))
+						f := MustSucceed(
+							ReadUnary(ctx, db2, telem.TimeRangeMax),
+						)
 						Expect(f.Count()).To(Equal(3))
 						Expect(
 							f.SeriesAt(0),

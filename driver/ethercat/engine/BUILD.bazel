@@ -25,11 +25,11 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
+        "//driver/errors",
         "//driver/ethercat/errors",
         "//driver/ethercat/master",
         "//driver/ethercat/telem",
         "//x/cpp/breaker",
-        "//x/cpp/lib",
         "//x/cpp/loop",
         "//x/cpp/telem",
         "//x/cpp/thread",

@@ -33,13 +33,13 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await capture.login(session);
 
   await capture.searchPalette(session, "My Range");
-  const section = page.locator(".pluto-header").filter({ hasText: "Metadata" });
+  const section = page.locator(".lyra-header").filter({ hasText: "Metadata" });
   await session.waitFor(section.first());
 
   // Script-local override: drop the Snapshots section so the shot stays on the
   // Metadata block.
   await page.evaluate(() => {
-    for (const el of document.querySelectorAll(".pluto-header"))
+    for (const el of document.querySelectorAll(".lyra-header"))
       if (el.textContent?.trim() === "Snapshots")
         el.parentElement?.style.setProperty("display", "none");
   });

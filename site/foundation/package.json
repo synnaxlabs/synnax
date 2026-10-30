@@ -30,6 +30,7 @@
   },
   "devDependencies": {
     "@astrojs/check": "catalog:",
+    "@juggle/resize-observer": "catalog:",
     "@synnaxlabs/eslint-config": "catalog:",
     "@synnaxlabs/stylelint-config": "catalog:",
     "@synnaxlabs/tsconfig": "catalog:",

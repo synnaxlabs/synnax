@@ -17,7 +17,8 @@ reads the C++ source as text, so it needs no build. It reports:
   environment, and arguments);
 - each member, with its default, of a config struct that has an `override` method;
 - the defaults that `resolve` sets;
-- each default integration, with the preprocessor conditions that build it.
+- each integration that a build runs, by platform, with the preprocessor conditions
+  that build it.
 
     uv run --project scripts scripts/surface_driver.py .
 """
@@ -44,7 +45,9 @@ READ = re.compile(
     r'\(\s*"([^"]+)"(?:\s*,\s*"(-[^"]*)")?'
 )
 STRUCT = re.compile(r"\bstruct\s+(\w+)\s*(?::[^{;]*)?\{")
-DEFAULTS = re.compile(r"\b(resolve|default_integrations)\s*\([^)]*\)[^;{]*\{")
+DEFAULTS = re.compile(
+    r"\b(resolve|built_integrations|platform_integrations)\s*\([^)]*\)[^;{]*\{"
+)
 INIT = re.compile(r"\.(\w+)\s*=\s*([^,{}]+?)\s*(?=[,}])")
 INTEGRATION = re.compile(r"\b\w+::INTEGRATION_NAME\b")
 DIRECTIVE = re.compile(r"^\s*#\s*(if|ifdef|ifndef|elif|else|endif)\b\s*(.*)$")
@@ -55,7 +58,7 @@ def files(root: Path) -> list[Path]:
     return sorted(p for p in out if not p.stem.endswith("_test"))
 
 
-def body(src: str, open_brace: int) -> str:
+def body(src: str, *, open_brace: int) -> str:
     depth = 0
     for i in range(open_brace, len(src)):
         if src[i] == "{":
@@ -98,7 +101,7 @@ def members(struct_body: str) -> list[str]:
 def defaults(src: str) -> list[str]:
     out = []
     for m in DEFAULTS.finditer(src):
-        name, fn_body = m.group(1), body(src, m.end() - 1)
+        name, fn_body = m.group(1), body(src, open_brace=m.end() - 1)
         if name == "resolve":
             out += [f"{name} .{k} = {v}" for k, v in INIT.findall(fn_body)]
         else:
@@ -134,7 +137,7 @@ def report(root: Path) -> str:
         for method, key, short in READ.findall(src):
             lines.add(f"{rel} {method} {key}" + (f" {short}" if short else ""))
         for m in STRUCT.finditer(src):
-            struct_body = body(src, m.end() - 1)
+            struct_body = body(src, open_brace=m.end() - 1)
             if "override(" not in struct_body:
                 continue
             lines.update(f"{rel} {m.group(1)} member {d}" for d in members(struct_body))

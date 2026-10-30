@@ -37,7 +37,7 @@ const nameInput = (): HTMLInputElement =>
 // The port field carries its default rather than a placeholder, so it is reached by
 // the field class instead.
 const portInput = (): HTMLInputElement =>
-  getBySelector<HTMLInputElement>(document.body, ".pluto-field__port input");
+  getBySelector<HTMLInputElement>(document.body, ".lyra-field__port input");
 
 const fillForm = (name: string, host: string, port: string): void => {
   fireEvent.change(nameInput(), { target: { value: name } });
@@ -45,6 +45,8 @@ const fillForm = (name: string, host: string, port: string): void => {
     target: { value: host },
   });
   fireEvent.change(portInput(), { target: { value: port } });
+  // A numeric input commits on blur, not per keystroke.
+  fireEvent.blur(portInput());
 };
 
 describe("useConnectModal", () => {
@@ -91,7 +93,7 @@ describe("useConnectModal", () => {
   describe("submission", () => {
     it("should add the Core and close the modal after connecting", async () => {
       const { store } = await openConnect([]);
-      fillForm("SubmitTest", "localhost", "9090");
+      fillForm("SubmitTest", "localhost", "9091");
       fireEvent.click(findButton("Connect"));
       await waitFor(() => {
         const created = Object.values(
@@ -99,7 +101,7 @@ describe("useConnectModal", () => {
         ).find((c) => c.name === "SubmitTest");
         expect(created).toBeDefined();
         expect(created?.host).toEqual("localhost");
-        expect(created?.port).toEqual(9090);
+        expect(created?.port).toEqual(9091);
       });
       await waitFor(() =>
         expect(screen.queryByPlaceholderText("Synnax Core")).toBeNull(),

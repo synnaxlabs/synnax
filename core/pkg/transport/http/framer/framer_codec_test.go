@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter/http"
+	apiframer "github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -33,7 +34,7 @@ var _ = Describe("FramerCodec", func() {
 				LowerPerfCodec: json.Codec,
 			}
 			req := framer.WriterRequest{
-				Command: framer.WriterCommandWrite,
+				Command: apiframer.WriterCommandWrite,
 				Frame: frame.NewMulti(
 					keys,
 					[]telem.Series{telem.NewSeriesV[int32](1, 2, 3)},
@@ -45,7 +46,7 @@ var _ = Describe("FramerCodec", func() {
 			var resMsg http.WSMessage[framer.WriterRequest]
 			Expect(v.Decode(ctx, encoded, &resMsg)).To(Succeed())
 			Expect(resMsg.Type).To(Equal(http.WSMessageTypeData))
-			Expect(resMsg.Payload.Command).To(Equal(framer.WriterCommandWrite))
+			Expect(resMsg.Payload.Command).To(Equal(apiframer.WriterCommandWrite))
 			Expect(resMsg.Payload.Frame.KeysSlice()).To(Equal([]channel.Key{1}))
 			Expect(resMsg.Payload.Frame.Count()).To(Equal(1))
 			Expect(
@@ -63,7 +64,7 @@ var _ = Describe("FramerCodec", func() {
 				LowerPerfCodec: json.Codec,
 			}
 			req := framer.WriterRequest{
-				Command: framer.WriterCommandWrite,
+				Command: apiframer.WriterCommandWrite,
 				Frame: frame.NewMulti(keys, []telem.Series{
 					telem.NewSeriesV[int32](1, 2),
 					telem.NewSeriesV[float32](1.1, 2.2),
@@ -109,15 +110,15 @@ var _ = Describe("FramerCodec", func() {
 				LowerPerfCodec: json.Codec,
 			}
 			req := framer.WriterRequest{
-				Command: framer.WriterCommandOpen,
-				Config:  framer.WriterConfig{Keys: keys},
+				Command: apiframer.WriterCommandOpen,
+				Config:  apiframer.WriterConfig{Keys: keys},
 			}
 			msg := http.WSMessage[framer.WriterRequest]{Type: "data", Payload: req}
 			encoded := MustSucceed(v.Encode(ctx, msg))
 			var resMsg http.WSMessage[framer.WriterRequest]
 			Expect(v.Decode(ctx, encoded, &resMsg)).To(Succeed())
 			Expect(cdec.Initialized()).To(BeTrue())
-			Expect(resMsg.Payload.Command).To(Equal(framer.WriterCommandOpen))
+			Expect(resMsg.Payload.Command).To(Equal(apiframer.WriterCommandOpen))
 			Expect(resMsg.Payload.Config.Keys).To(Equal(keys))
 		})
 
@@ -162,7 +163,7 @@ var _ = Describe("FramerCodec", func() {
 				LowerPerfCodec: json.Codec,
 			}
 			res := framer.WriterResponse{
-				Command:    framer.WriterCommandWrite,
+				Command:    apiframer.WriterCommandWrite,
 				Authorized: true,
 			}
 			msg := http.WSMessage[framer.WriterResponse]{
@@ -173,7 +174,7 @@ var _ = Describe("FramerCodec", func() {
 			var resMsg http.WSMessage[framer.WriterResponse]
 			Expect(v.Decode(ctx, encoded, &resMsg)).To(Succeed())
 			Expect(resMsg.Type).To(Equal(http.WSMessageTypeData))
-			Expect(resMsg.Payload.Command).To(Equal(framer.WriterCommandWrite))
+			Expect(resMsg.Payload.Command).To(Equal(apiframer.WriterCommandWrite))
 			Expect(resMsg.Payload.Authorized).To(BeTrue())
 		})
 	})
@@ -418,7 +419,7 @@ var _ = Describe("FramerCodec", func() {
 					LowerPerfCodec: json.Codec,
 				}
 				req := framer.IteratorRequest{
-					Command: framer.IteratorCommandNext,
+					Command: apiframer.IteratorCommandNext,
 					Span:    telem.Second,
 				}
 				msg := http.WSMessage[framer.IteratorRequest]{
@@ -428,7 +429,7 @@ var _ = Describe("FramerCodec", func() {
 				encoded := MustSucceed(v.Encode(ctx, msg))
 				var resMsg http.WSMessage[framer.IteratorRequest]
 				Expect(v.Decode(ctx, encoded, &resMsg)).To(Succeed())
-				Expect(resMsg.Payload.Command).To(Equal(framer.IteratorCommandNext))
+				Expect(resMsg.Payload.Command).To(Equal(apiframer.IteratorCommandNext))
 				Expect(resMsg.Payload.Span).To(Equal(telem.Second))
 			},
 		)
@@ -444,8 +445,8 @@ var _ = Describe("FramerCodec", func() {
 					LowerPerfCodec: json.Codec,
 				}
 				res := framer.IteratorResponse{
-					Variant: framer.IteratorResponseVariantData,
-					Command: framer.IteratorCommandNext,
+					Variant: apiframer.IteratorResponseVariantData,
+					Command: apiframer.IteratorCommandNext,
 					Frame: frame.NewMulti(
 						keys,
 						[]telem.Series{telem.NewSeriesV[int32](1, 2, 3)},
@@ -462,7 +463,7 @@ var _ = Describe("FramerCodec", func() {
 				Expect(resMsg.Type).To(Equal(http.WSMessageTypeData))
 				Expect(
 					resMsg.Payload.Variant,
-				).To(Equal(framer.IteratorResponseVariantData))
+				).To(Equal(apiframer.IteratorResponseVariantData))
 				Expect(resMsg.Payload.Frame.KeysSlice()).To(Equal([]channel.Key{1}))
 				Expect(
 					resMsg.Payload.Frame.SeriesAt(0),
@@ -479,8 +480,8 @@ var _ = Describe("FramerCodec", func() {
 				LowerPerfCodec: json.Codec,
 			}
 			res := framer.IteratorResponse{
-				Variant: framer.IteratorResponseVariantAck,
-				Command: framer.IteratorCommandNext,
+				Variant: apiframer.IteratorResponseVariantAck,
+				Command: apiframer.IteratorCommandNext,
 				Ack:     true,
 				SeqNum:  42,
 			}
@@ -489,9 +490,11 @@ var _ = Describe("FramerCodec", func() {
 			Expect(encoded[0]).To(Equal(uint8(254)))
 			var resMsg http.WSMessage[framer.IteratorResponse]
 			Expect(v.Decode(ctx, encoded, &resMsg)).To(Succeed())
-			Expect(resMsg.Payload.Variant).To(Equal(framer.IteratorResponseVariantAck))
+			Expect(
+				resMsg.Payload.Variant,
+			).To(Equal(apiframer.IteratorResponseVariantAck))
 			Expect(resMsg.Payload.Ack).To(BeTrue())
-			Expect(resMsg.Payload.Command).To(Equal(framer.IteratorCommandNext))
+			Expect(resMsg.Payload.Command).To(Equal(apiframer.IteratorCommandNext))
 			Expect(resMsg.Payload.SeqNum).To(Equal(42))
 		})
 
@@ -506,7 +509,7 @@ var _ = Describe("FramerCodec", func() {
 					LowerPerfCodec: json.Codec,
 				}
 				res := framer.IteratorResponse{
-					Variant: framer.IteratorResponseVariantData,
+					Variant: apiframer.IteratorResponseVariantData,
 					Frame:   framer.Frame{},
 				}
 				msg := http.WSMessage[framer.IteratorResponse]{
@@ -519,7 +522,7 @@ var _ = Describe("FramerCodec", func() {
 				Expect(v.Decode(ctx, encoded, &resMsg)).To(Succeed())
 				Expect(
 					resMsg.Payload.Variant,
-				).To(Equal(framer.IteratorResponseVariantData))
+				).To(Equal(apiframer.IteratorResponseVariantData))
 				Expect(resMsg.Payload.Frame.Empty()).To(BeTrue())
 			},
 		)
@@ -563,8 +566,8 @@ var _ = Describe("FramerCodec", func() {
 				LowerPerfCodec: json.Codec,
 			}
 			res := framer.IteratorResponse{
-				Variant: framer.IteratorResponseVariantData,
-				Command: framer.IteratorCommandNext,
+				Variant: apiframer.IteratorResponseVariantData,
+				Command: apiframer.IteratorCommandNext,
 				Ack:     true,
 				SeqNum:  99,
 				Frame: frame.NewMulti(
@@ -578,8 +581,10 @@ var _ = Describe("FramerCodec", func() {
 			Expect(v.Decode(ctx, encoded, &resMsg)).To(Succeed())
 			// On the binary data path only Variant and Frame survive.
 			// Command, Ack, and SeqNum are intentionally not on the wire.
-			Expect(resMsg.Payload.Variant).To(Equal(framer.IteratorResponseVariantData))
-			Expect(resMsg.Payload.Command).To(Equal(framer.IteratorCommand(0)))
+			Expect(
+				resMsg.Payload.Variant,
+			).To(Equal(apiframer.IteratorResponseVariantData))
+			Expect(resMsg.Payload.Command).To(Equal(apiframer.IteratorCommand(0)))
 			Expect(resMsg.Payload.Ack).To(BeFalse())
 			Expect(resMsg.Payload.SeqNum).To(Equal(0))
 			Expect(
@@ -665,7 +670,7 @@ var _ = Describe("FramerCodec", func() {
 				nextReq := http.WSMessage[framer.IteratorRequest]{
 					Type: "data",
 					Payload: framer.IteratorRequest{
-						Command: framer.IteratorCommandNext,
+						Command: apiframer.IteratorCommandNext,
 						Span:    telem.Second,
 					},
 				}
@@ -673,7 +678,7 @@ var _ = Describe("FramerCodec", func() {
 				var decNext http.WSMessage[framer.IteratorRequest]
 				Expect(v.Decode(ctx, encNext, &decNext)).To(Succeed())
 				Expect(cdec.Initialized()).To(BeTrue())
-				Expect(decNext.Payload.Command).To(Equal(framer.IteratorCommandNext))
+				Expect(decNext.Payload.Command).To(Equal(apiframer.IteratorCommandNext))
 			},
 		)
 
@@ -691,7 +696,7 @@ var _ = Describe("FramerCodec", func() {
 				MustSucceed(v.Encode(ctx, openMsg))
 
 				res := framer.IteratorResponse{
-					Variant: framer.IteratorResponseVariantData,
+					Variant: apiframer.IteratorResponseVariantData,
 					Frame: frame.NewMulti(
 						keys,
 						[]telem.Series{telem.NewSeriesV[int32](7, 8)},
@@ -745,8 +750,8 @@ var _ = Describe("FramerCodec", func() {
 					LowerPerfCodec: json.Codec,
 				}
 				req := framer.WriterRequest{
-					Command: framer.WriterCommandSetAuthority,
-					Config: framer.WriterConfig{
+					Command: apiframer.WriterCommandSetAuthority,
+					Config: apiframer.WriterConfig{
 						Keys:        channel.Keys{1},
 						Authorities: []uint32{255},
 					},
@@ -756,7 +761,9 @@ var _ = Describe("FramerCodec", func() {
 				Expect(encoded[0]).To(Equal(uint8(254)))
 				var dec http.WSMessage[framer.WriterRequest]
 				Expect(v.Decode(ctx, encoded, &dec)).To(Succeed())
-				Expect(dec.Payload.Command).To(Equal(framer.WriterCommandSetAuthority))
+				Expect(
+					dec.Payload.Command,
+				).To(Equal(apiframer.WriterCommandSetAuthority))
 				Expect(dec.Payload.Config.Authorities).To(Equal([]uint32{255}))
 			},
 		)

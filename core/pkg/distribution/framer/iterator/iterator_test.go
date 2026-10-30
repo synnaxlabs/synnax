@@ -21,16 +21,16 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/storage"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
-	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 var _ = Describe("Iterator", func() {
@@ -208,10 +208,12 @@ var _ = Describe("Iterator", func() {
 
 // openFaultyCluster opens a two-node cluster whose nodes each store telemetry on their
 // own fault-injecting file system, keyed by node.
-func openFaultyCluster(ctx context.Context) (*mock.Cluster, map[node.Key]*FaultyFS) {
+func openFaultyCluster(
+	ctx context.Context,
+) (*testutil.Cluster, map[node.Key]*FaultyFS) {
 	GinkgoHelper()
 	var (
-		cluster = mock.OpenCluster(ctx, 0)
+		cluster = testutil.OpenCluster(ctx, 0)
 		faulty  = make(map[node.Key]*FaultyFS)
 	)
 	for range 2 {
@@ -298,7 +300,7 @@ var _ = Describe("Read failure", func() {
 })
 
 type scenario struct {
-	dist     mock.Node
+	dist     testutil.Node
 	close    io.Closer
 	name     string
 	keys     channel.Keys
@@ -320,7 +322,7 @@ func newChannelSet() []channel.Channel {
 func gatewayOnlyScenario(ctx context.Context) scenario {
 	GinkgoHelper()
 	channels := newChannelSet()
-	builder := mock.OpenCluster(ctx, 1)
+	builder := testutil.OpenCluster(ctx, 1)
 	dist := builder.Nodes[1]
 	channels = MustSucceed(dist.Channel.Create(ctx, channels))
 	keys := channel.KeysFromChannels(channels)
@@ -336,7 +338,7 @@ func gatewayOnlyScenario(ctx context.Context) scenario {
 func peerOnlyScenario(ctx context.Context) scenario {
 	GinkgoHelper()
 	channels := newChannelSet()
-	builder := mock.OpenCluster(ctx, 4)
+	builder := testutil.OpenCluster(ctx, 4)
 	dist := builder.Nodes[1]
 	for i, ch := range channels {
 		ch.Leaseholder = node.Key(i + 2)
@@ -364,7 +366,7 @@ func mixedScenario(ctx context.Context) scenario {
 		},
 		{Name: "mixed_peer", IsIndex: true, DataType: telem.TimestampT, Leaseholder: 2},
 	}
-	builder := mock.OpenCluster(ctx, 2)
+	builder := testutil.OpenCluster(ctx, 2)
 	dist := builder.Nodes[1]
 	channels = MustSucceed(dist.Channel.Create(ctx, channels))
 	keys := channel.KeysFromChannels(channels)
