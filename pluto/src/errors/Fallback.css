@@ -38,8 +38,6 @@
         }
 
         .pluto-error-fallback__name {
-            overflow: hidden;
-            text-overflow: ellipsis;
             width: 100%;
         }
 

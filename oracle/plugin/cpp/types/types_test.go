@@ -737,12 +737,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				}
 			`
 			table, diag := Analyze(ctx, source, "status", loader)
-			if !diag.Ok() {
-				for _, e := range diag.Errors() {
-					GinkgoWriter.Printf("Error: %s\n", e)
-				}
-			}
-			Expect(diag.Ok()).To(BeTrue())
+			Expect(diag.Ok()).To(BeTrue(), diag.String)
 
 			req := &plugin.Request{
 				Resolutions: table,
