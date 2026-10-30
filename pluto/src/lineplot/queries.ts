@@ -205,9 +205,7 @@ interface YAxisReturn {
 export const useYAxis = Scope.bindHook(
   createSelector<YAxisReturn, YAxisParams>(
     ({ axes, channels, lines }, { axisKey }) => {
-      const lineKeys = lines
-        .filter((l) => l.yAxis === axisKey)
-        .map((l) => l.key);
+      const lineKeys = lines.filter((l) => l.yAxis === axisKey).map((l) => l.key);
       return { axis: axes[axisKey], channels: channels[axisKey], lineKeys };
     },
     (a, b) =>

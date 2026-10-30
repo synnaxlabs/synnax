@@ -14,10 +14,10 @@ import (
 	"slices"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/service/lineplot/versions"
-	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/gorp/migrate"
+	"github.com/synnaxlabs/synnax/pkg/service/lineplot/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 )
 
 // unknownRangesMigration drops key references to ranges the Core does not hold, such

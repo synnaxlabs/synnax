@@ -458,9 +458,7 @@ export interface LinePlotProps extends FrameProps {
   onLineVisibleChange?: (lineKey: string, visible: boolean) => void;
 }
 
-const fetchingMessage = (
-  windows: Window[] | undefined,
-): string | undefined => {
+const fetchingMessage = (windows: Window[] | undefined): string | undefined => {
   if (windows == null || windows.length === 0) return undefined;
   const now = TimeStamp.now();
   const spans = windows.map((w) => resolveWindow(w, now).span);

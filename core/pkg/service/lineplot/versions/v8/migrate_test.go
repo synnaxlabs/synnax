@@ -59,13 +59,13 @@ func dynamicRef(span telem.TimeSpan) ranger.Ref {
 
 func defaultLine(yAxis v8.YAxisKey, yChannel, xChannel channel.Key) v8.Line {
 	return v8.Line{
-		Key:            v8.LineKey(plotKey, yAxis, yChannel, xChannel),
-		YAxis:          yAxis,
-		YChannel:       yChannel,
-		XChannel:       xChannel,
-		StrokeWidth:    2,
-		Aggregation:    v8.AggregationMinMax,
-		Detail:         v8.DetailMedium,
+		Key:         v8.LineKey(plotKey, yAxis, yChannel, xChannel),
+		YAxis:       yAxis,
+		YChannel:    yChannel,
+		XChannel:    xChannel,
+		StrokeWidth: 2,
+		Aggregation: v8.AggregationMinMax,
+		Detail:      v8.DetailMedium,
 	}
 }
 
