@@ -79,13 +79,15 @@ Python reads the generated `ni.Hardware`.
 
 ### 3.1 Reading the device
 
-The scanner reads `hardware` only for a device whose stored record has none: a new
-device, or one whose last read failed. It finds the stored records in
+The scanner reads `hardware` only for a device whose stored record has none or holds an
+incomplete one: a new device, one whose last read failed, or one with a port whose
+default it could not read (§3.2). It finds the stored records in
 `ScannerContext.devices` (`driver/common/scan_task.h:72-79`), as EtherCAT does
-(`driver/ethercat/scan_task.cpp:236`). A device with `hardware` costs no DAQmx call, so
-the 5 s scan does not get slower. When a scan omits `hardware`, the shallow merge keeps
-the stored value (`driver/common/scan_task.h:43-54`). A failed read logs a warning, and
-the next scan tries again. A cDAQ chassis has empty lists; its modules carry the ports.
+(`driver/ethercat/scan_task.cpp:236`). A device with complete `hardware` costs no DAQmx
+call, so the 5 s scan does not get slower. When a scan omits `hardware`, the shallow
+merge keeps the stored value (`driver/common/scan_task.h:43-54`). A failed read logs a
+warning, and the next scan tries again. A cDAQ chassis has empty lists; its modules
+carry the ports.
 
 `Scanner` takes the lazy `daqmx::SugaredAPI` that `Factory` already holds
 (`driver/ni/ni.h:60`), next to SysCfg (`driver/ni/factory.cpp:114`).
@@ -100,12 +102,15 @@ the absolute value of the code.
 ### 3.2 Default terminal configuration
 
 "Default" stays a stored value, and the select shows what it gives on the port: "Default
-(Differential)". For each AI port that accepts more than one configuration, the scanner
-creates a DAQmx task, adds the port as a voltage channel with `DAQmx_Val_Cfg_Default`,
-reads `DAQmx_AI_TermCfg` back with `GetChanAttributeInt32`
-(`driver/ni/daqmx/api.h:1262`), and clears the task. The task never starts. A port with
-one configuration takes that one. A port that takes no voltage channel gets none, and
-its channel types have no terminal configuration. New channels keep "Default".
+(Differential)". Voltage and current channels both carry a terminal configuration, so
+the rule follows the port's configurations, not its channel types. A port with one
+configuration takes that one. For each AI port that accepts more than one, the scanner
+creates a DAQmx task, adds the port with `DAQmx_Val_Cfg_Default` as a voltage channel,
+or as a current channel when the port takes no voltage, reads `DAQmx_AI_TermCfg` back
+with `GetChanAttributeInt32` (`driver/ni/daqmx/api.h:1262`), and clears the task. The
+task never starts. A port with no configuration gets no default. A failed readback
+leaves that port's default unknown and keeps the rest of the read. The device stays
+incomplete, so the next scan reads it again. New channels keep "Default".
 
 ### 3.3 Differential pairs
 
@@ -181,8 +186,9 @@ A digital line past its port's width is a field error.
 
 - The scanner test gets a hand-written fake `daqmx::API`, like the SysCfg `FakeAPI`
   (`driver/ni/scan_task_test.cpp:110`), because the generated mock fills no buffers.
-  Specs pin one read per device, no read when `hardware` exists, a retry after a failed
-  read, the pair table, and the Default readback.
+  Specs pin one read per device, no read when complete `hardware` exists, a retry after
+  a failed read or an unknown default, the pair table, and the Default readback through
+  voltage and current channels.
 - `integration/tests/driver/ni_read.py` checks that its device's `hardware` lists the
   ports it reads.
 - Console specs pin the grid states, the filtered selects, and the checks. The
@@ -226,10 +232,10 @@ scan task command (`console/src/feature/opcua/device/Browser.tsx`). That makes e
 form open wait on the Driver, and it works only while the rack runs. The trade is real:
 the device carries several kilobytes it did not carry before.
 
-**6.1 Read once, not on every scan.** No source gives the cost of these reads, and a
-network cDAQ that is offline can stall a property read. The trade is real: a DAQmx
-update that adds a measurement type shows only after the device is deleted and found
-again.
+**6.1 Read until complete, not on every scan.** No source gives the cost of these reads,
+and a network cDAQ that is offline can stall a property read. A device stays on the read
+path only while its read failed or is incomplete. The trade is real: a DAQmx update that
+adds a measurement type shows only after the device is deleted and found again.
 
 **6.2 "Default" stays a choice.** Storing the resolved value was rejected. Default
 follows the port: a channel moved from ai0 to ai8 goes from Differential to RSE, while a
@@ -259,6 +265,12 @@ register map reuses the list's menu the same way.
 hand-written copies in three languages, because those copies already existed. This shape
 has no copy yet, and RFC 0081 §3 makes Oracle the only device shape. EtherCAT stores its
 scanned PDOs the same way, as Oracle types in the device properties.
+
+**6.8 A failed Default readback keeps the rest of the read.** An unknown default is a
+state the data and the select already show, so it is not an error. Failing the whole
+read was rejected: one unread default would drop every port of the device. Logging
+without a retry was rejected: a short fault at discovery would stay forever. The trade
+is real: a readback that always fails costs DAQmx calls on every scan.
 
 ## 7 Open questions
 
