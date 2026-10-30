@@ -18,7 +18,7 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { createElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import { useModal } from "@/platform/credential/useModal";
+import { Credential } from "@/platform/credential";
 import { findButton, findDismissButton, openModal } from "@/platform/modals/testutil";
 import {
   CaptureStatuses,
@@ -40,7 +40,7 @@ describe("useModal", () => {
     const client = createTestClient();
     const subject = await client.users.create({ name: uniqueName("user") });
     const id = user.ontologyID(subject.key);
-    await openModal(useModal, { client, params: { subject: id } });
+    await openModal(Credential.useModal, { client, params: { subject: id } });
     await screen.findByText("No API keys");
     const name = uniqueName("key");
     await type("Key name", name);
@@ -69,7 +69,7 @@ describe("useModal", () => {
       createdKey = res.key.key;
       return res;
     });
-    await openModal(useModal, { client, params: { subject: id } });
+    await openModal(Credential.useModal, { client, params: { subject: id } });
     await screen.findByText("No API keys");
     await type("Key name", uniqueName("key"));
     fireEvent.click(findButton("Create key"));
@@ -96,7 +96,7 @@ describe("useModal", () => {
     });
     vi.spyOn(client.auth.apiKeys, "delete").mockRejectedValue(new Error("denied"));
     let statuses: Status.NotificationSpec[] = [];
-    await openModal(useModal, {
+    await openModal(Credential.useModal, {
       client,
       params: { subject: id },
       extra: createElement(CaptureStatuses, { onStatuses: (s) => (statuses = s) }),
@@ -117,7 +117,7 @@ describe("useModal", () => {
     const client = createTestClient();
     const r = await client.racks.create({ name: uniqueName("rack") });
     const id = rack.ontologyID(r.key);
-    await openModal(useModal, { client, params: { subject: id } });
+    await openModal(Credential.useModal, { client, params: { subject: id } });
     await screen.findByText("No API keys");
     expect(screen.queryByPlaceholderText("New password")).toBeNull();
     const name = uniqueName("key");
@@ -134,7 +134,7 @@ describe("useModal", () => {
     const name = uniqueName("key");
     await owner.auth.apiKeys.create({ subject: id, name });
     const viewer = await createTestClientWithRole(owner, "Viewer");
-    await openModal(useModal, { client: viewer, params: { subject: id } });
+    await openModal(Credential.useModal, { client: viewer, params: { subject: id } });
     await screen.findByText(name);
     expect(screen.queryByText("Create key")).toBeNull();
     expect(screen.queryByPlaceholderText("Key name")).toBeNull();
@@ -149,7 +149,7 @@ describe("useModal", () => {
       retrieve: [rack.TYPE_ONTOLOGY_ID],
       update: [rack.TYPE_ONTOLOGY_ID],
     });
-    await openModal(useModal, { client: changer, params: { subject: id } });
+    await openModal(Credential.useModal, { client: changer, params: { subject: id } });
     expect(await screen.findByText("Create key")).toBeTruthy();
   });
 
@@ -159,7 +159,7 @@ describe("useModal", () => {
     await self.auth.sessions.retrieve();
     const { subject } = self.auth;
     if (subject == null || username == null) throw new Error("not logged in");
-    await openModal(useModal, { client: self, params: { subject } });
+    await openModal(Credential.useModal, { client: self, params: { subject } });
     await type("Current password", "test");
     await type("New password", "changed123");
     fireEvent.click(findButton("Set password"));
@@ -183,7 +183,7 @@ describe("useModal", () => {
     const { user: subject, username } = await createTestUser(client, {
       username: uniqueName("user"),
     });
-    await openModal(useModal, {
+    await openModal(Credential.useModal, {
       client,
       params: { subject: user.ontologyID(subject.key) },
     });

@@ -56,7 +56,7 @@ const Create = (_: Modals.ContentProps<Record<never, never>, void>): ReactElemen
             autoFocus
             full="x"
           />
-          {token != null && <Credential.Token token={token} />}
+          {token != null && <Credential.APIKey.Token token={token} />}
         </Flex.Box>
       </Modal.Body>
       <Modal.Footer>
