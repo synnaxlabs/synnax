@@ -286,8 +286,8 @@ TEST(RTU, RecoversFromDamagedReply) {
     EXPECT_EQ(reg, 1234);
 }
 
-/// @brief it should report an unplugged port as unreachable, and serve the unit again
-/// once a port is back at the same path.
+/// @brief it should report an unplugged port, whose link is gone, as unreachable, and
+/// serve the unit again once a port is back at the same path.
 TEST(RTU, RecoversAfterUnplug) {
     auto cfg = serial_slave();
     cfg.holding_registers[0] = static_cast<uint16_t>(1234);
@@ -306,12 +306,12 @@ TEST(RTU, RecoversAfterUnplug) {
     ASSERT_NIL(dev->read_registers(device::HoldingRegister, 0, 1, &reg));
 
     slave.stop();
+    std::filesystem::remove(link);
     const auto err = dev->read_registers(device::HoldingRegister, 0, 1, &reg);
     ASSERT_OCCURRED_AS(err, device::UNREACHABLE);
-    EXPECT_EQ(err.data, modbus_strerror(EIO));
+    EXPECT_EQ(err.data, modbus_strerror(ENOENT));
 
     ASSERT_NIL(slave.start());
-    std::filesystem::remove(link);
     std::filesystem::create_symlink(slave.serial_port(), link);
     reg = 0;
     ASSERT_NIL(dev->read_registers(device::HoldingRegister, 0, 1, &reg));
