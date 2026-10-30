@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/union"
 )
 
 var _ = Describe("Writer", func() {
@@ -268,6 +269,14 @@ var _ = Describe("Writer", func() {
 				Expect(retrieve(ctx, key).Name).To(Equal("test"))
 			},
 		)
+
+		It("Should reject an action with no payload", func(ctx SpecContext) {
+			key := create(ctx, leafNode())
+			Expect(svc.Dispatch(ctx, key, "d1", []panel.Action{
+				{Type: panel.ActionTypeRename},
+			})).To(MatchError(union.ErrMissingPayload))
+			Expect(retrieve(ctx, key).Name).To(Equal("test"))
+		})
 
 		It("Should apply a Rename action and persist it", func(ctx SpecContext) {
 			key := create(ctx, leafNode())

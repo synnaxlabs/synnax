@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/union"
 )
 
 var _ = Describe("Writer", func() {
@@ -457,6 +458,15 @@ var _ = Describe("Writer", func() {
 				Entry("below minimum", int32(-1)),
 				Entry("above maximum", int32(4)),
 			)
+
+			It("Should reject an action with no payload", func(ctx SpecContext) {
+				l := log.Log{Name: "test"}
+				Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &l)).To(Succeed())
+				Expect(svc.Dispatch(ctx, l.Key, "d1", []log.Action{
+					{Type: log.ActionTypeRename},
+				})).To(MatchError(union.ErrMissingPayload))
+				Expect(retrieve(ctx, l.Key).Name).To(Equal("test"))
+			})
 
 			DescribeTable("Should reject an action that leaves the log invalid",
 				func(ctx SpecContext, act log.Action, path string) {
