@@ -105,12 +105,21 @@ inline OutputPorts OutputPorts::parse(x::json::Parser parser) {
             "state_index",
             ::synnax::channel::Key(0)
         ),
+        .channels = parser.field<std::unordered_map<std::string, CommandStatePair>>(
+            "channels"
+        ),
     };
 }
 
 inline x::json::json OutputPorts::to_json() const {
     x::json::json j;
     j["state_index"] = this->state_index;
+    {
+        auto obj = x::json::json::object();
+        for (const auto &[key, item]: this->channels)
+            obj[key] = item.to_json();
+        j["channels"] = obj;
+    }
     return j;
 }
 
