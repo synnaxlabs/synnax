@@ -63,7 +63,8 @@ inline ReadChannel ReadChannel::parse(x::json::Parser parser) {
 
 inline x::json::json ReadChannel::to_json() const {
     x::json::json j;
-    j.update(BaseChannel::to_json());
+    if (const auto parent = BaseChannel::to_json(); parent.is_object())
+        j.update(parent);
     j["channel"] = this->channel;
     j["is_index"] = this->is_index;
     return j;
@@ -81,7 +82,8 @@ inline WriteChannel WriteChannel::parse(x::json::Parser parser) {
 
 inline x::json::json WriteChannel::to_json() const {
     x::json::json j;
-    j.update(BaseChannel::to_json());
+    if (const auto parent = BaseChannel::to_json(); parent.is_object())
+        j.update(parent);
     j["cmd_channel"] = this->cmd_channel;
     return j;
 }
@@ -111,7 +113,8 @@ inline ReadConfig ReadConfig::parse(x::json::Parser parser) {
 
 inline x::json::json ReadConfig::to_json() const {
     x::json::json j;
-    j.update(::synnax::task::ReadConfig::to_json());
+    if (const auto parent = ::synnax::task::ReadConfig::to_json(); parent.is_object())
+        j.update(parent);
     j["sample_rate"] = this->sample_rate;
     j["stream_rate"] = this->stream_rate;
     j["device"] = this->device;
@@ -135,7 +138,8 @@ inline WriteConfig WriteConfig::parse(x::json::Parser parser) {
 
 inline x::json::json WriteConfig::to_json() const {
     x::json::json j;
-    j.update(::synnax::task::WriteConfig::to_json());
+    if (const auto parent = ::synnax::task::WriteConfig::to_json(); parent.is_object())
+        j.update(parent);
     j["channels"] = x::json::to_array(this->channels);
     return j;
 }
@@ -150,7 +154,8 @@ inline ScanConfig ScanConfig::parse(x::json::Parser parser) {
 
 inline x::json::json ScanConfig::to_json() const {
     x::json::json j;
-    j.update(::synnax::task::ScanConfig::to_json());
+    if (const auto parent = ::synnax::task::ScanConfig::to_json(); parent.is_object())
+        j.update(parent);
     return j;
 }
 

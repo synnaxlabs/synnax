@@ -481,7 +481,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 					resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
 
 					ExpectContent(resp, "json.gen.h").
-						ToContain(`j.update(Base::to_json());`)
+						ToContain(`if (const auto parent = Base::to_json(); parent.is_object()) j.update(parent);`)
 				},
 			)
 			It(
