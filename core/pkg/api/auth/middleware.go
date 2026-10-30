@@ -12,6 +12,7 @@ package auth
 import (
 	"context"
 	"strings"
+	"time"
 	"uuid"
 
 	"github.com/gofiber/fiber/v3"
@@ -22,6 +23,20 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"go.uber.org/zap"
 )
+
+// SessionCookieParam is the request parameter a handler sets to ask the transport to
+// set or clear the session cookie. Its value is a [SessionCookie]. Only the HTTP
+// transport reads it.
+const SessionCookieParam = "Synnax-Session-Cookie"
+
+// SessionCookie asks the transport to set the session cookie for Lifetime, or to clear
+// it when Lifetime is zero. An empty Token keeps the token the request carried.
+type SessionCookie struct {
+	// Token is the session token to put in the cookie.
+	Token string
+	// Lifetime is how long the browser keeps the cookie.
+	Lifetime time.Duration
+}
 
 // Middleware authenticates the session token on every request and puts the session and
 // its subject on the request for handlers to read. A unary request gives a session
@@ -118,6 +133,19 @@ const (
 	sessionKey = "Session"
 )
 
+// Deliver returns token, or with cookie set hands it to the transport through
+// [SessionCookieParam] and returns an empty token.
+func Deliver(ctx context.Context, svc *auth.Service, token string, cookie bool) string {
+	if !cookie {
+		return token
+	}
+	freighter.MDFromContext(ctx).Set(SessionCookieParam, SessionCookie{
+		Token:    token,
+		Lifetime: svc.IdleTimeout(),
+	})
+	return ""
+}
+
 // GetSubject returns the subject of the request's session.
 func GetSubject(ctx context.Context) ontology.ID {
 	s, ok := freighter.MDFromContext(ctx).Get(subjectKey)
@@ -128,7 +156,8 @@ func GetSubject(ctx context.Context) ontology.ID {
 	return s.(ontology.ID)
 }
 
-func getSession(ctx context.Context) auth.Session {
+// GetSession returns the request's session.
+func GetSession(ctx context.Context) auth.Session {
 	s, ok := freighter.MDFromContext(ctx).Get(sessionKey)
 	if !ok {
 		zap.S().DPanic("[api] - no session found in context")

@@ -15,7 +15,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/access"
 	apiarc "github.com/synnaxlabs/synnax/pkg/api/arc"
-	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
+	apioidc "github.com/synnaxlabs/synnax/pkg/api/auth/oidc"
+	apipassword "github.com/synnaxlabs/synnax/pkg/api/auth/password"
 	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
 	apidevice "github.com/synnaxlabs/synnax/pkg/api/device"
 	apiframer "github.com/synnaxlabs/synnax/pkg/api/framer"
@@ -38,6 +39,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/view"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/arc"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/auth"
+	"github.com/synnaxlabs/synnax/pkg/transport/grpc/auth/apikey"
+	"github.com/synnaxlabs/synnax/pkg/transport/grpc/auth/session"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/channel"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/connectivity"
 	"github.com/synnaxlabs/synnax/pkg/transport/grpc/control"
@@ -62,6 +65,8 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 		framer.New(&t, layer.Channel),
 		connectivity.New(&t),
 		auth.New(&t),
+		session.New(&t),
+		apikey.New(&t),
 		ranger.New(&t),
 		kv.New(&t),
 		alias.New(&t),
@@ -74,16 +79,16 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	}
 
 	// AUTH
-	t.AuthChangePassword = noop.UnaryServer[apiauth.ChangePasswordRequest, struct{}]{}
-	t.AuthOIDCLink = noop.UnaryServer[apiauth.OIDCLinkRequest, apiauth.OIDCLinkResponse]{}
-	t.AuthOIDCRetrieve = noop.UnaryServer[apiauth.OIDCRetrieveRequest, apiauth.OIDCRetrieveResponse]{}
-	t.AuthOIDCUnlink = noop.UnaryServer[apiauth.OIDCUnlinkRequest, struct{}]{}
-	t.AuthPasswordCreate = noop.UnaryServer[apiauth.PasswordCreateRequest, struct{}]{}
-	t.AuthPasswordRetrieve = noop.UnaryServer[apiauth.PasswordRetrieveRequest, apiauth.PasswordRetrieveResponse]{}
-	t.AuthPasswordRename = noop.UnaryServer[apiauth.PasswordRenameRequest, struct{}]{}
+	t.AuthChangePassword = noop.UnaryServer[apipassword.ChangeRequest, struct{}]{}
+	t.AuthOIDCLink = noop.UnaryServer[apioidc.LinkRequest, apioidc.LinkResponse]{}
+	t.AuthOIDCRetrieve = noop.UnaryServer[apioidc.RetrieveRequest, apioidc.RetrieveResponse]{}
+	t.AuthOIDCUnlink = noop.UnaryServer[apioidc.UnlinkRequest, struct{}]{}
+	t.AuthPasswordCreate = noop.UnaryServer[apipassword.CreateRequest, struct{}]{}
+	t.AuthPasswordRetrieve = noop.UnaryServer[apipassword.RetrieveRequest, apipassword.RetrieveResponse]{}
+	t.AuthPasswordRename = noop.UnaryServer[apipassword.RenameRequest, struct{}]{}
 	t.AuthPasswordSet = noop.UnaryServer[
-		apiauth.PasswordSetRequest,
-		apiauth.PasswordSetResponse,
+		apipassword.SetRequest,
+		apipassword.SetResponse,
 	]{}
 
 	// LICENSE

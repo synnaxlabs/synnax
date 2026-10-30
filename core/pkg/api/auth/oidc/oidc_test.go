@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package auth_test
+package oidc_test
 
 import (
 	"context"
@@ -15,8 +15,9 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
+	apioidc "github.com/synnaxlabs/synnax/pkg/api/auth/oidc"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/oidc/testutil"
@@ -48,12 +49,78 @@ func grantAccount(sub string) auth.OIDCCredentials {
 
 func linkAccount(ctx context.Context, token, sub string) oidc.Link {
 	GinkgoHelper()
-	return MustSucceed(apiSvc.LinkOIDC(
+	return MustSucceed(apiSvc.Link(
 		authed(ctx, token),
 		nil,
-		apiauth.OIDCLinkRequest{Credentials: grantAccount(sub)},
+		apioidc.LinkRequest{Credentials: grantAccount(sub)},
 	)).Link
 }
+
+var _ = Describe("ServiceConfig", func() {
+	full := func() apioidc.ServiceConfig {
+		return apioidc.ServiceConfig{
+			Auth: &auth.Service{},
+			OIDC: &oidc.Service{},
+			RBAC: &rbac.Service{},
+		}
+	}
+	It("Should succeed when every service is set", func() {
+		Expect(full().Validate()).To(Succeed())
+	})
+	DescribeTable(
+		"Should fail when a service is missing",
+		func(clear func(*apioidc.ServiceConfig), msg string) {
+			cfg := full()
+			clear(&cfg)
+			Expect(cfg.Validate()).To(MatchError(msg))
+		},
+		Entry(
+			"auth",
+			func(c *apioidc.ServiceConfig) { c.Auth = nil },
+			"auth: must be non-nil",
+		),
+		Entry(
+			"oidc",
+			func(c *apioidc.ServiceConfig) { c.OIDC = nil },
+			"oidc: must be non-nil",
+		),
+		Entry(
+			"rbac",
+			func(c *apioidc.ServiceConfig) { c.RBAC = nil },
+			"rbac: must be non-nil",
+		),
+	)
+	It("Should take the other config's services when set", func() {
+		cfg := full()
+		merged := apioidc.ServiceConfig{}.Override(cfg)
+		Expect(merged.Auth).To(BeIdenticalTo(cfg.Auth))
+		Expect(merged.OIDC).To(BeIdenticalTo(cfg.OIDC))
+		Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
+	})
+})
+
+var _ = Describe("NewService", func() {
+	It("Should return an error when the config is invalid", func() {
+		Expect(apioidc.NewService(apioidc.ServiceConfig{})).Error().
+			To(MatchError(ContainSubstring("auth: must be non-nil")))
+	})
+})
+
+var _ = Describe("Disabled OIDC method", func() {
+	It("Should refuse to link a provider account", func(ctx SpecContext) {
+		disabled := newService(MustOpen(auth.OpenService(ctx, auth.ServiceConfig{
+			DB: node.DB,
+			Authenticators: map[auth.Method]auth.Authenticator{
+				auth.MethodPassword: passwordSvc,
+			},
+		})))
+		Expect(disabled.Link(
+			requestCtx(ctx),
+			nil,
+			apioidc.LinkRequest{},
+		)).Error().To(MatchError(validate.ErrValidation))
+	})
+})
 
 var _ = Describe("OIDC links", func() {
 	var (
@@ -61,20 +128,13 @@ var _ = Describe("OIDC links", func() {
 		bobToken  string
 		rootToken string
 	)
-	login := func(ctx context.Context, proof auth.Proof) string {
-		GinkgoHelper()
-		return MustSucceed(apiSvc.CreateSession(
-			requestCtx(ctx),
-			apiauth.SessionCreateRequest{Proof: proof},
-		)).Token
-	}
 	BeforeEach(func(ctx SpecContext) {
 		bob = createUser(ctx, "bob-"+uuid.New().String(), "p")
 		bobToken = login(ctx, passwordProof(bob.Name, "p"))
 		rootToken = login(ctx, passwordProof(creds.Username, creds.Password))
 	})
 
-	Describe("LinkOIDC", func() {
+	Describe("Link", func() {
 		It(
 			"Should link the account to the caller so it logs in",
 			func(ctx SpecContext) {
@@ -82,23 +142,20 @@ var _ = Describe("OIDC links", func() {
 				link := linkAccount(ctx, bobToken, sub)
 				Expect(link.Subject).To(Equal(bob.OntologyID()))
 				Expect(link.Account).To(Equal(sub))
-				res := MustSucceed(apiSvc.CreateSession(
-					requestCtx(ctx),
-					apiauth.SessionCreateRequest{Proof: auth.Proof{
-						Variant: auth.OIDCProof{OIDCCredentials: grantAccount(sub)},
-					}},
-				))
-				Expect(res.Session.Subject).To(Equal(bob.OntologyID()))
-				Expect(res.Session.Credential).To(Equal(link.Key))
+				session, _ := MustSucceed2(authSvc.Login(ctx, auth.Proof{
+					Variant: auth.OIDCProof{OIDCCredentials: grantAccount(sub)},
+				}))
+				Expect(session.Subject).To(Equal(bob.OntologyID()))
+				Expect(session.Credential).To(Equal(link.Key))
 			},
 		)
 		It("Should refuse an account the provider rejects", func(ctx SpecContext) {
 			creds := grantAccount(uuid.New().String())
 			creds.Verifier = "wrong"
-			Expect(apiSvc.LinkOIDC(
+			Expect(apiSvc.Link(
 				authed(ctx, bobToken),
 				nil,
-				apiauth.OIDCLinkRequest{Credentials: creds},
+				apioidc.LinkRequest{Credentials: creds},
 			)).Error().To(MatchError(auth.ErrInvalidCredentials))
 		})
 		It("Should refuse a caller that is not a user", func(ctx SpecContext) {
@@ -107,75 +164,74 @@ var _ = Describe("OIDC links", func() {
 				Key:  uuid.New().String(),
 			}
 			Expect(otg.NewWriter(nil).DefineResources(ctx, rack)).To(Succeed())
-			key := MustSucceed(apiSvc.CreateAPIKey(
-				authed(ctx, rootToken),
+			_, token := MustSucceed2(apikeySvc.NewWriter(nil).Create(ctx, rack, "rack"))
+			rackToken := login(ctx, auth.Proof{Variant: auth.APIKeyProof{
+				APIKeyCredentials: auth.APIKeyCredentials{Key: token},
+			}})
+			Expect(apiSvc.Link(
+				authed(ctx, rackToken),
 				nil,
-				apiauth.APIKeyCreateRequest{Subject: rack, Name: "rack"},
-			))
-			Expect(apiSvc.LinkOIDC(
-				authed(ctx, login(ctx, keyProof(key.Token))),
-				nil,
-				apiauth.OIDCLinkRequest{Credentials: grantAccount(uuid.New().String())},
+				apioidc.LinkRequest{Credentials: grantAccount(uuid.New().String())},
 			)).Error().To(MatchError(validate.ErrValidation))
-			Expect(apiSvc.RetrieveOIDCLinks(
+			Expect(apiSvc.Retrieve(
 				authed(ctx, rootToken),
-				apiauth.OIDCRetrieveRequest{Subjects: []ontology.ID{rack}},
-			)).To(Equal(apiauth.OIDCRetrieveResponse{Links: []oidc.Link{}}))
+				apioidc.RetrieveRequest{Subjects: []ontology.ID{rack}},
+			)).To(Equal(apioidc.RetrieveResponse{Links: []oidc.Link{}}))
 		})
 		It("Should refuse an account linked to another user", func(ctx SpecContext) {
 			sub := uuid.New().String()
 			linkAccount(ctx, bobToken, sub)
-			Expect(apiSvc.LinkOIDC(
+			Expect(apiSvc.Link(
 				authed(ctx, rootToken),
 				nil,
-				apiauth.OIDCLinkRequest{Credentials: grantAccount(sub)},
+				apioidc.LinkRequest{Credentials: grantAccount(sub)},
 			)).Error().To(MatchError(validate.ErrValidation))
 		})
 	})
 
-	Describe("RetrieveOIDCLinks", func() {
+	Describe("Retrieve", func() {
 		It("Should list the caller's links by default", func(ctx SpecContext) {
 			link := linkAccount(ctx, bobToken, uuid.New().String())
-			Expect(apiSvc.RetrieveOIDCLinks(
+			Expect(apiSvc.Retrieve(
 				authed(ctx, bobToken),
-				apiauth.OIDCRetrieveRequest{},
-			)).To(Equal(apiauth.OIDCRetrieveResponse{Links: []oidc.Link{link}}))
+				apioidc.RetrieveRequest{},
+			)).To(Equal(apioidc.RetrieveResponse{Links: []oidc.Link{link}}))
 		})
 		It(
 			"Should return an empty list for a user with no links",
 			func(ctx SpecContext) {
-				Expect(apiSvc.RetrieveOIDCLinks(
+				Expect(apiSvc.Retrieve(
 					authed(ctx, bobToken),
-					apiauth.OIDCRetrieveRequest{},
-				)).To(Equal(apiauth.OIDCRetrieveResponse{Links: []oidc.Link{}}))
+					apioidc.RetrieveRequest{},
+				)).To(Equal(apioidc.RetrieveResponse{Links: []oidc.Link{}}))
 			},
 		)
 		It("Should let the owner list another user's links", func(ctx SpecContext) {
 			link := linkAccount(ctx, bobToken, uuid.New().String())
-			Expect(apiSvc.RetrieveOIDCLinks(
+			Expect(apiSvc.Retrieve(
 				authed(ctx, rootToken),
-				apiauth.OIDCRetrieveRequest{Subjects: []ontology.ID{bob.OntologyID()}},
-			)).To(Equal(apiauth.OIDCRetrieveResponse{Links: []oidc.Link{link}}))
+				apioidc.RetrieveRequest{Subjects: []ontology.ID{bob.OntologyID()}},
+			)).To(Equal(apioidc.RetrieveResponse{Links: []oidc.Link{link}}))
 		})
 		It("Should deny a user listing another user's links", func(ctx SpecContext) {
-			Expect(apiSvc.RetrieveOIDCLinks(
+			Expect(apiSvc.Retrieve(
 				authed(ctx, bobToken),
-				apiauth.OIDCRetrieveRequest{Subjects: []ontology.ID{root.OntologyID()}},
+				apioidc.RetrieveRequest{Subjects: []ontology.ID{root.OntologyID()}},
 			)).Error().To(MatchError(access.ErrDenied))
 		})
 	})
 
-	Describe("UnlinkOIDC", func() {
+	Describe("Unlink", func() {
 		It("Should remove the link and end its sessions", func(ctx SpecContext) {
 			sub := uuid.New().String()
 			link := linkAccount(ctx, bobToken, sub)
 			linkedToken := login(ctx, auth.Proof{
 				Variant: auth.OIDCProof{OIDCCredentials: grantAccount(sub)},
 			})
-			Expect(apiSvc.UnlinkOIDC(
+			Expect(apiSvc.Unlink(
 				authed(ctx, bobToken),
 				nil,
-				apiauth.OIDCUnlinkRequest{Keys: []oidc.LinkKey{link.Key}},
+				apioidc.UnlinkRequest{Keys: []oidc.LinkKey{link.Key}},
 			)).Error().ToNot(HaveOccurred())
 			Expect(oidcSvc.NewRetrieve().Where(oidc.MatchKeys(link.Key)).
 				Entry(&oidc.Link{}).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
@@ -184,17 +240,17 @@ var _ = Describe("OIDC links", func() {
 		})
 		It("Should deny a user removing another user's link", func(ctx SpecContext) {
 			link := linkAccount(ctx, rootToken, uuid.New().String())
-			Expect(apiSvc.UnlinkOIDC(
+			Expect(apiSvc.Unlink(
 				authed(ctx, bobToken),
 				nil,
-				apiauth.OIDCUnlinkRequest{Keys: []oidc.LinkKey{link.Key}},
+				apioidc.UnlinkRequest{Keys: []oidc.LinkKey{link.Key}},
 			)).Error().To(MatchError(access.ErrDenied))
 		})
 		It("Should ignore unknown keys", func(ctx SpecContext) {
-			Expect(apiSvc.UnlinkOIDC(
+			Expect(apiSvc.Unlink(
 				authed(ctx, bobToken),
 				nil,
-				apiauth.OIDCUnlinkRequest{Keys: []oidc.LinkKey{uuid.New()}},
+				apioidc.UnlinkRequest{Keys: []oidc.LinkKey{uuid.New()}},
 			)).Error().ToNot(HaveOccurred())
 		})
 	})

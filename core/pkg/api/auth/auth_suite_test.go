@@ -42,10 +42,9 @@ var (
 	apiKeySvc   *apikey.Service
 	oidcSvc     *oidc.Service
 	provider    *testutil.Provider
-	rbacSvc     *rbac.Service
-	otg         *ontology.Ontology
-	userSvc     *user.Service
 	apiSvc      *apiauth.Service
+	rbacSvc     *rbac.Service
+	userSvc     *user.Service
 	root        user.User
 	creds       = auth.Credentials{Username: "api-auth-suite-root", Password: "p"}
 )
@@ -54,7 +53,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
 	node = disttestutil.NewNode(ctx)
 	db := node.DB
-	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB: db, Ontology: otg,
 	}))
@@ -92,13 +91,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		},
 	}))
 	apiSvc = MustSucceed(apiauth.NewService(apiauth.ServiceConfig{
-		Auth:     authSvc,
-		Password: passwordSvc,
-		APIKey:   apiKeySvc,
-		OIDC:     oidcSvc,
-		Ontology: otg,
-		User:     userSvc,
-		RBAC:     rbacSvc,
-		Cluster:  node.Cluster,
+		Auth: authSvc,
+		OIDC: oidcSvc,
 	}))
 })

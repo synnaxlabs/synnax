@@ -27,6 +27,9 @@ import (
 	fhttp "github.com/synnaxlabs/freighter/http"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
+	apiapikey "github.com/synnaxlabs/synnax/pkg/api/auth/apikey"
+	apipassword "github.com/synnaxlabs/synnax/pkg/api/auth/password"
+	apisession "github.com/synnaxlabs/synnax/pkg/api/auth/session"
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
 	apiframer "github.com/synnaxlabs/synnax/pkg/api/framer"
 	apilicense "github.com/synnaxlabs/synnax/pkg/api/license"
@@ -185,7 +188,7 @@ var _ = Describe("HTTP", func() {
 			GinkgoHelper()
 			status, body := post("/api/v1/auth/login", "", creds)
 			Expect(status).To(Equal(http.StatusOK), string(body))
-			var res apiauth.LoginResponse
+			var res apisession.LoginResponse
 			Expect(json.Unmarshal(body, &res)).To(Succeed())
 			return res.Token
 		}
@@ -213,7 +216,7 @@ var _ = Describe("HTTP", func() {
 			}))
 			raw := MustSucceed(io.ReadAll(res.Body))
 			Expect(res.StatusCode).To(Equal(http.StatusOK), string(raw))
-			var created apiauth.SessionCreateResponse
+			var created apisession.CreateResponse
 			Expect(msgpack.Codec.Decode(context.Background(), raw, &created)).
 				To(Succeed())
 			Expect(created.Token).To(HavePrefix("sys_"))
@@ -280,7 +283,7 @@ var _ = Describe("HTTP", func() {
 			req := httptest.NewRequest(
 				http.MethodPost,
 				"/api/v1/auth/session/create",
-				bytes.NewReader(MustSucceed(json.Marshal(apiauth.SessionCreateRequest{
+				bytes.NewReader(MustSucceed(json.Marshal(apisession.CreateRequest{
 					Proof:  auth.Proof{Variant: auth.PasswordProof{Credentials: creds}},
 					Cookie: true,
 				}))),
@@ -317,14 +320,14 @@ var _ = Describe("HTTP", func() {
 			res := post(
 				"/api/v1/auth/session/create",
 				map[string]string{fiber.HeaderHost: host},
-				apiauth.SessionCreateRequest{
+				apisession.CreateRequest{
 					Proof:  auth.Proof{Variant: auth.PasswordProof{Credentials: creds}},
 					Cookie: true,
 				},
 			)
 			body := MustSucceed(io.ReadAll(res.Body))
 			Expect(res.StatusCode).To(Equal(http.StatusOK), string(body))
-			var parsed apiauth.SessionCreateResponse
+			var parsed apisession.CreateResponse
 			Expect(json.Unmarshal(body, &parsed)).To(Succeed())
 			Expect(parsed.Token).To(BeEmpty())
 			cookies := res.Cookies()
@@ -357,7 +360,7 @@ var _ = Describe("HTTP", func() {
 			)
 			body := MustSucceed(io.ReadAll(res.Body))
 			Expect(res.StatusCode).To(Equal(http.StatusOK), string(body))
-			var parsed apiauth.SessionRenewResponse
+			var parsed apisession.RenewResponse
 			Expect(json.Unmarshal(body, &parsed)).To(Succeed())
 			Expect(parsed.User).ToNot(BeNil())
 			Expect(parsed.User.Name).To(Equal(creds.Username))
@@ -367,7 +370,7 @@ var _ = Describe("HTTP", func() {
 			res := post(
 				"/api/v1/auth/session/retrieve",
 				withCookie("localhost:9090", cookie),
-				apiauth.SessionRetrieveRequest{},
+				apisession.RetrieveRequest{},
 			)
 			Expect(res.StatusCode).To(Equal(http.StatusOK))
 			refreshed := res.Cookies()
@@ -393,7 +396,7 @@ var _ = Describe("HTTP", func() {
 			first := loginWithCookie("localhost:9090")
 			second := loginWithCookie("localhost:9091")
 			Expect(first.Name).ToNot(Equal(second.Name))
-			renew := func(host string) apiauth.SessionRenewResponse {
+			renew := func(host string) apisession.RenewResponse {
 				GinkgoHelper()
 				res := post(
 					"/api/v1/auth/session/renew",
@@ -401,7 +404,7 @@ var _ = Describe("HTTP", func() {
 					struct{}{},
 				)
 				Expect(res.StatusCode).To(Equal(http.StatusOK))
-				var parsed apiauth.SessionRenewResponse
+				var parsed apisession.RenewResponse
 				Expect(json.NewDecoder(res.Body).Decode(&parsed)).To(Succeed())
 				return parsed
 			}
@@ -445,12 +448,12 @@ var _ = Describe("HTTP", func() {
 				withCookie("localhost:9090", cookie),
 				struct{}{},
 			)
-			var parsed apiauth.SessionRenewResponse
+			var parsed apisession.RenewResponse
 			Expect(json.NewDecoder(renew.Body).Decode(&parsed)).To(Succeed())
 			res := post(
 				"/api/v1/auth/session/delete",
 				withCookie("localhost:9090", cookie),
-				apiauth.SessionDeleteRequest{
+				apisession.DeleteRequest{
 					Keys: []auth.SessionKey{parsed.Session.Key},
 				},
 			)
@@ -487,11 +490,11 @@ var _ = Describe("HTTP", func() {
 		}
 		login := func(proof auth.Proof) string {
 			GinkgoHelper()
-			var res apiauth.SessionCreateResponse
+			var res apisession.CreateResponse
 			Expect(call(
 				"/api/v1/auth/session/create",
 				"",
-				apiauth.SessionCreateRequest{Proof: proof},
+				apisession.CreateRequest{Proof: proof},
 				&res,
 			)).To(Equal(http.StatusOK))
 			return res.Token
@@ -500,19 +503,19 @@ var _ = Describe("HTTP", func() {
 			rootToken := login(
 				auth.Proof{Variant: auth.PasswordProof{Credentials: creds}},
 			)
-			var created apiauth.APIKeyCreateResponse
+			var created apiapikey.CreateResponse
 			Expect(call(
 				"/api/v1/auth/api-key/create",
 				rootToken,
-				apiauth.APIKeyCreateRequest{Name: "ci"},
+				apiapikey.CreateRequest{Name: "ci"},
 				&created,
 			)).To(Equal(http.StatusOK))
 			Expect(created.Token).To(HavePrefix("syk_"))
-			var listed apiauth.APIKeyRetrieveResponse
+			var listed apiapikey.RetrieveResponse
 			Expect(call(
 				"/api/v1/auth/api-key/retrieve",
 				rootToken,
-				apiauth.APIKeyRetrieveRequest{},
+				apiapikey.RetrieveRequest{},
 				&listed,
 			)).To(Equal(http.StatusOK))
 			Expect(listed.Keys).To(ConsistOf(created.Key))
@@ -524,7 +527,7 @@ var _ = Describe("HTTP", func() {
 			Expect(call(
 				"/api/v1/auth/api-key/delete",
 				rootToken,
-				apiauth.APIKeyDeleteRequest{Keys: []apikey.Key{created.Key.Key}},
+				apiapikey.DeleteRequest{Keys: []apikey.Key{created.Key.Key}},
 				nil,
 			)).To(Equal(http.StatusOK))
 			Expect(call("/api/v1/auth/session/renew", keyToken, struct{}{}, nil)).
@@ -532,18 +535,18 @@ var _ = Describe("HTTP", func() {
 		})
 		It("Should list and rename the caller's password", func() {
 			token := login(auth.Proof{Variant: auth.PasswordProof{Credentials: creds}})
-			var res apiauth.PasswordRetrieveResponse
+			var res apipassword.RetrieveResponse
 			Expect(call(
 				"/api/v1/auth/password/retrieve",
 				token,
-				apiauth.PasswordRetrieveRequest{},
+				apipassword.RetrieveRequest{},
 				&res,
 			)).To(Equal(http.StatusOK))
 			Expect(res.Passwords).To(ConsistOf(HaveField("Username", creds.Username)))
 			Expect(call(
 				"/api/v1/auth/password/rename",
 				token,
-				apiauth.PasswordRenameRequest{},
+				apipassword.RenameRequest{},
 				nil,
 			)).To(Equal(http.StatusBadRequest))
 		})
@@ -552,7 +555,7 @@ var _ = Describe("HTTP", func() {
 			Expect(call(
 				"/api/v1/auth/password/create",
 				token,
-				apiauth.PasswordCreateRequest{Username: "other", Password: "new"},
+				apipassword.CreateRequest{Username: "other", Password: "new"},
 				nil,
 			)).To(Equal(http.StatusBadRequest))
 		})
@@ -561,14 +564,14 @@ var _ = Describe("HTTP", func() {
 			Expect(call(
 				"/api/v1/auth/password/set",
 				token,
-				apiauth.PasswordSetRequest{Password: "new", CurrentPassword: "wrong"},
+				apipassword.SetRequest{Password: "new", CurrentPassword: "wrong"},
 				nil,
 			)).To(Equal(http.StatusBadRequest))
-			var set apiauth.PasswordSetResponse
+			var set apipassword.SetResponse
 			Expect(call(
 				"/api/v1/auth/password/set",
 				token,
-				apiauth.PasswordSetRequest{
+				apipassword.SetRequest{
 					Password:        "new",
 					CurrentPassword: creds.Password,
 				},
@@ -598,11 +601,11 @@ var _ = Describe("HTTP", func() {
 			)).To(Equal(http.StatusOK))
 			keyFor := func(r rack.Rack) string {
 				GinkgoHelper()
-				var created apiauth.APIKeyCreateResponse
+				var created apiapikey.CreateResponse
 				Expect(call(
 					"/api/v1/auth/api-key/create",
 					rootToken,
-					apiauth.APIKeyCreateRequest{
+					apiapikey.CreateRequest{
 						Subject: rack.OntologyIDs([]rack.Key{r.Key})[0],
 					},
 					&created,
@@ -628,7 +631,7 @@ var _ = Describe("HTTP", func() {
 			Expect(call(
 				"/api/v1/auth/session/create",
 				"",
-				apiauth.SessionCreateRequest{Proof: keyProof(goneKey)},
+				apisession.CreateRequest{Proof: keyProof(goneKey)},
 				nil,
 			)).To(Equal(http.StatusBadRequest))
 			Expect(call("/api/v1/auth/session/renew", keptSession, struct{}{}, nil)).
