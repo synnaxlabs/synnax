@@ -41,7 +41,7 @@ class ModbusWriteTask(ModbusCase):
     def test_create_task(self) -> ModbusWrite:
         """Create the task page and select the server."""
         self.log("Testing: Create Modbus write task")
-        page = self.create_page(ModbusWrite, "Modbus Console Write")
+        page = self.create_page(ModbusWrite, prefix="Modbus Console Write")
         page.select_server(self.device_name)
         return page
 
@@ -49,7 +49,9 @@ class ModbusWriteTask(ModbusCase):
         """Coil and holding register command channels are listed."""
         self.log("Testing: Add command channels")
         for config_type, address, data_type in CHANNELS:
-            page.add_channel(WRITE_TYPE_NAMES[config_type], address, data_type)
+            page.add_channel(
+                WRITE_TYPE_NAMES[config_type], address=address, data_type=data_type
+            )
         self.assert_rows(page, LISTED)
 
     def test_send_commands(self, page: ModbusWrite) -> None:
@@ -65,7 +67,7 @@ class ModbusWriteTask(ModbusCase):
         assert len(keys) == len(CHANNELS), (
             f"Every command channel needs a key, got {keys}"
         )
-        self.send_commands(page, task)
+        self.send_commands(page, task=task)
         # The last round of commands is 100 to 103.
         assert_sim_coils(20, [True, True])
         assert_sim_registers(20, [*float32_words(102), *float32_words(103)])

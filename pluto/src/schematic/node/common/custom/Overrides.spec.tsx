@@ -116,7 +116,7 @@ describe("StateOverrideForm", () => {
       const utils = renderForm(symbol.key);
       await waitFor(() => expect(utils.getByText("Base Region")).toBeTruthy());
       const swatches = Array.from(
-        utils.container.querySelectorAll<HTMLElement>(".pluto-color-swatch"),
+        utils.container.querySelectorAll<HTMLElement>(".lyra-color-swatch"),
       );
       return { ...utils, swatches };
     };

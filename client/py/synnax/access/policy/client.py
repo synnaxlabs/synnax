@@ -49,6 +49,7 @@ class Client:
 
     def __init__(
         self,
+        *,
         client: UnaryClient,
         instrumentation: Instrumentation = NOOP,
     ):
@@ -78,6 +79,7 @@ class Client:
 
     def retrieve(
         self,
+        *,
         keys: list[UUID] | None = None,
         subjects: list[ID] | None = None,
         internal: bool | None = None,

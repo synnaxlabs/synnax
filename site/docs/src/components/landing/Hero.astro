@@ -41,6 +41,7 @@
     article:has(.docs-landing__stage) {
         overflow-x: visible;
     }
+
     main:has(.docs-landing__stage) {
         overflow-x: clip;
     }
@@ -52,24 +53,29 @@
             color: var(--pluto-gray-l10);
             max-width: 120rem;
         }
+
         .docs-landing__uses {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 3rem 4rem;
             margin-top: 5rem;
-            @media (max-width: 600px) {
+
+            @media (width <= 600px) {
                 grid-template-columns: 1fr;
             }
         }
+
         .docs-landing__start {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 2rem;
             margin-top: 6rem;
-            @media (max-width: 600px) {
+
+            @media (width <= 600px) {
                 grid-template-columns: 1fr;
             }
         }
+
         .docs-landing__note {
             margin-top: 2.5rem;
             text-align: center;
@@ -93,6 +99,7 @@
         container-type: inline-size;
         width: var(--w);
         aspect-ratio: 1200 / 600;
+
         /* Pulls the window up into the bottom margin of the page description. */
         margin: -6rem 0 2rem calc((100% - var(--w)) / 2);
     }
@@ -172,12 +179,15 @@
         &[data-corner^="t"] {
             top: var(--y0);
         }
+
         &[data-corner^="b"] {
             top: var(--y1);
         }
+
         &[data-corner$="l"] {
             left: var(--x0);
         }
+
         &[data-corner$="r"] {
             left: var(--x1);
         }
@@ -190,11 +200,13 @@
             aspect-ratio: auto;
             margin: 2rem 0 6rem;
         }
+
         .docs-landing__grid,
         .docs-landing__lines,
         .docs-landing__tick {
             display: none;
         }
+
         .docs-landing__media {
             position: static;
             width: 100%;

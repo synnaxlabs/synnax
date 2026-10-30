@@ -584,7 +584,9 @@ class TestModbusDevicePropertyUpdates:
     """Tests that device properties are correctly updated with channel mappings."""
 
     def test_read_task_updates_device_properties(self, client: sy.Synnax) -> None:
-        """Test that configuring a ReadTask updates device properties with channel mappings."""
+        """Test that configuring a ReadTask updates device properties with channel
+        mappings.
+        """
         # Create a rack
         rack = client.racks.retrieve_embedded_rack()
 
@@ -668,7 +670,9 @@ class TestModbusDevicePropertyUpdates:
         assert channels["holding-register-input-5-uint16"] == ch2.key
 
     def test_write_task_updates_device_properties(self, client: sy.Synnax) -> None:
-        """Test that configuring a WriteTask updates device properties with channel mappings."""
+        """Test that configuring a WriteTask updates device properties with channel
+        mappings.
+        """
         # Create a rack
         rack = client.racks.retrieve_embedded_rack()
 

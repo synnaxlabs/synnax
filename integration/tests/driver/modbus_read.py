@@ -193,5 +193,5 @@ class ModbusReadValues(ModbusReadTaskCase):
         expected = {ch.key: by_name[ch.name] for ch in channels}
         with self.client.open_streamer(list(expected)) as streamer, self.tsk.run():
             assert_streamed_values(
-                self.client, streamer, expected, task_name=self.task_name
+                self.client, streamer, expected=expected, task_name=self.task_name
             )
