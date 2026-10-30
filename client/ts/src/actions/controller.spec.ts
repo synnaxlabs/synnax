@@ -765,6 +765,40 @@ describe("actions.Controller", () => {
     });
   });
 
+  describe("create", () => {
+    const set = (key: string, value: number): Action => ({ type: "set", key, value });
+
+    it("sends a dispatch made during the create after the create", async () => {
+      const { docs, controller, send } = setupStore();
+      const created = Promise.withResolvers<void>();
+      const done = controller.create([{ key: "k", values: { a: 0 } }], async () => {
+        await created.promise;
+      });
+      const dispatched = controller.dispatch("k", [set("a", 1)]);
+      expect(docs.get("k")?.values).toEqual({ a: 1 });
+      expect(send).not.toHaveBeenCalled();
+      created.resolve();
+      await done;
+      expect(await dispatched).toBe(true);
+      expect(send.mock.calls[0][1]).toEqual([set("a", 1)]);
+    });
+
+    it("rejects a dispatch made during a failed create and uncaches the doc", async () => {
+      const { docs, controller, send } = setupStore();
+      const created = Promise.withResolvers<void>();
+      const done = controller.create([{ key: "k", values: { a: 0 } }], async () => {
+        await created.promise;
+      });
+      const dispatched = controller.dispatch("k", [set("a", 1)]);
+      created.reject(new Error("create failed"));
+      await expect(done).rejects.toThrow("create failed");
+      await expect(dispatched).rejects.toThrow("create failed");
+      expect(send).not.toHaveBeenCalled();
+      expect(docs.get("k")).toBeUndefined();
+      expect(controller.hasUndo("k")).toBe(false);
+    });
+  });
+
   describe("transaction", () => {
     it("accumulates and commits as a single undoable", async () => {
       const { docs, controller, send } = setupStore();

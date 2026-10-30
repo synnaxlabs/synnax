@@ -20,7 +20,7 @@ import {
 import type z from "zod";
 
 import { type query } from "@/query";
-import { Table } from "@/query/table";
+import { type Keyed, Table } from "@/query/table";
 
 const DEFAULT_COALESCE_WINDOW = TimeSpan.milliseconds(500);
 const DEFAULT_STACK_CAP = 200;
@@ -326,6 +326,37 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
       remake: () => pending(edit.reapply()),
     });
     await this.enqueue(key, pending(edit.rollback));
+  }
+
+  /**
+   * Caches docs, then runs send to create them on the Core. Dispatches to the docs
+   * wait for send to settle, then go out in order. When send fails, those dispatches
+   * reject with its error and the docs leave the cache.
+   */
+  async create<R>(docs: Array<Keyed<Key, State>>, send: () => Promise<R>): Promise<R> {
+    const queues = docs.map(({ key }) => {
+      const queue: Queue<Action> = { next: null };
+      this.queues.set(key, queue);
+      return { key, queue };
+    });
+    const rollback = this.docs.set(docs);
+    try {
+      const res = await send();
+      queues.forEach(({ key, queue }) => void this.drain(key, queue));
+      return res;
+    } catch (e) {
+      const err = errors.fromUnknown(e);
+      queues.forEach(({ key, queue }) => {
+        this.queues.delete(key);
+        const batch = queue.next;
+        if (batch == null) return;
+        this.outstandingDispatches.get(key)?.delete(batch.dispatchKey);
+        revert(batch);
+        batch.result.reject(err);
+      });
+      rollback();
+      throw err;
+    }
   }
 
   private async enqueue(key: Key, edit: Pending<Action>): Promise<void> {

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id } from "@synnaxlabs/x";
+import { id, uuid } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { type ontology } from "@/ontology";
@@ -61,6 +61,28 @@ describe("Panel Client", () => {
         client.panels.rename(pan.key, "renamed", { onOptimistic: fail }),
       ).rejects.toBe(WRITE_FAILED);
       expect(expectLive(client.ontology.getCached(panelID)).name).toEqual(pan.name);
+    });
+  });
+  describe("create", () => {
+    it("should send a dispatch made during the create after the create", async () => {
+      const key = uuid.create();
+      const tab = panel.tabZ.parse({ variant: "view", type: "test" });
+      let dispatched: Promise<boolean> | undefined;
+      await client.panels.create(
+        { key, name: `panel-${id.create()}`, parent },
+        {
+          onOptimistic: () => {
+            dispatched = client.panels.dispatch(key, panel.insertTabs({ tabs: [tab] }));
+          },
+        },
+      );
+      expect(await dispatched).toBe(true);
+      expect(
+        panel.findTab(expectLive(client.panels.getCached(key)).root, tab.key),
+      ).toBeDefined();
+      const fresh = createTestClient();
+      const stored = await fresh.panels.retrieve(key);
+      expect(panel.findTab(stored.root, tab.key)).toBeDefined();
     });
   });
 });
