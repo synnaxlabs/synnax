@@ -381,6 +381,38 @@ TEST_F(TestOnChangeReadTask, testMonitorsNodeAddedLater) {
     ASSERT_NIL(src->stop());
 }
 
+/// @brief it should describe the sampling interval that the server chose for a node
+/// that it monitors once the server adds it.
+TEST_F(TestOnChangeReadTask, testDescribesIntervalOfNodeAddedLater) {
+    const auto later = this->create_channel("later");
+    auto cfg = this->config({{"NS=1;S=Later", later.key}});
+    cfg["sample_rate"] = 1000;
+    const auto src = this->source(cfg);
+    ASSERT_NIL(src->start());
+    x::breaker::Breaker breaker;
+    x::telem::Frame fr;
+    auto res = src->read(breaker, fr);
+    ASSERT_NIL(res.error);
+    ASSERT_EQ(res.warning.message, "Failed to subscribe to some nodes");
+    EXPECT_EQ(res.description, "");
+    this->server->add_namespace(
+        testutil::SERVER_APPLICATION_URI,
+        {double_node("Later", 5)}
+    );
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(15);
+    while (!res.warning.empty() && std::chrono::steady_clock::now() < deadline) {
+        res = src->read(breaker, fr);
+        ASSERT_NIL(res.error);
+    }
+    EXPECT_TRUE(res.warning.empty()) << res.warning.description;
+    EXPECT_EQ(
+        res.description,
+        "The server samples each node every 50ms and sends changes every 100ms, not "
+        "every 1ms and 100ms as the task asks."
+    );
+    ASSERT_NIL(src->stop());
+}
+
 /// @brief it should read a structure field of a node that the server adds after the
 /// start, once it reads the structure types again.
 TEST_F(TestOnChangeReadTask, testReadsFieldOfAddedNode) {

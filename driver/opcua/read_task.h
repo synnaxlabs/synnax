@@ -963,9 +963,9 @@ class OnChangeReadTaskSource final : public BaseReadTaskSource {
     /// @brief the history that the subscription failed to read, which each read reports
     /// again.
     Problems history_problems;
-    /// @brief the intervals that the server chose when they are longer than the task
-    /// asks, or empty.
-    std::string revised;
+    /// @brief the intervals that the server chose. The sampling interval is the longest
+    /// of any monitored node.
+    connection::Intervals granted{};
     /// @brief the node of each monitored item. Borrows the node IDs of cfg.
     std::vector<UA_NodeId> nodes;
     /// @brief the channels of each monitored item, by their place in cfg.channels.
@@ -1001,6 +1001,27 @@ class OnChangeReadTaskSource final : public BaseReadTaskSource {
             problems,
             [&](const UA_Variant &v) { return this->to_sample(i, v, decoded); }
         );
+    }
+
+    /// @returns the intervals that the task asks the server for.
+    [[nodiscard]] connection::Intervals asked() const {
+        return {
+            .sampling = this->cfg.sample_rate.period(),
+            .publishing = this->cfg.stream_rate.period(),
+        };
+    }
+
+    /// @returns a description of the intervals that the server chose when they are
+    /// longer than the task asks, or an empty string.
+    [[nodiscard]] std::string revised() const {
+        const auto asked = this->asked();
+        const auto &got = this->granted;
+        if (got.sampling <= asked.sampling && got.publishing <= asked.publishing)
+            return "";
+        return "The server samples each node every " + got.sampling.to_string() +
+               " and sends changes every " + got.publishing.to_string() +
+               ", not every " + asked.sampling.to_string() + " and " +
+               asked.publishing.to_string() + " as the task asks.";
     }
 
     void handle(const std::size_t item, const UA_DataValue &value) {
@@ -1044,13 +1065,9 @@ class OnChangeReadTaskSource final : public BaseReadTaskSource {
             telem::to_date_time(x::telem::TimeStamp::now())
         );
         this->retried = x::telem::TimeStamp::now();
-        const connection::Intervals asked{
-            .sampling = this->cfg.sample_rate.period(),
-            .publishing = this->cfg.stream_rate.period(),
-        };
         auto [monitored, err] = this->connection.subscribe(
             this->nodes,
-            asked,
+            this->asked(),
             [this](const std::size_t item, const UA_DataValue &value) {
                 this->handle(item, value);
             }
@@ -1058,14 +1075,7 @@ class OnChangeReadTaskSource final : public BaseReadTaskSource {
         if (err) return err;
         this->failed = std::move(monitored.errors);
         this->list_unmonitored();
-        const auto &got = monitored.intervals;
-        this->revised.clear();
-        if (got.sampling > asked.sampling || got.publishing > asked.publishing)
-            this->revised = "The server samples each node every " +
-                            got.sampling.to_string() + " and sends changes every " +
-                            got.publishing.to_string() + ", not every " +
-                            asked.sampling.to_string() + " and " +
-                            asked.publishing.to_string() + " as the task asks.";
+        this->granted = monitored.intervals;
         if (!this->cfg.history_backfill_enabled) return x::errors::NIL;
         std::vector<std::size_t> all(this->nodes.size());
         std::iota(all.begin(), all.end(), 0);
@@ -1132,6 +1142,11 @@ class OnChangeReadTaskSource final : public BaseReadTaskSource {
             this->monitored_at[item] = asked_at;
             recovered.push_back(item);
         }
+        if (!recovered.empty())
+            this->granted.sampling = std::max(
+                this->granted.sampling,
+                monitored.intervals.sampling
+            );
         this->list_unmonitored();
         if (!this->cfg.history_backfill_enabled) return x::errors::NIL;
         return this->start_backfill(recovered);
@@ -1366,7 +1381,7 @@ public:
         reported.merge(this->problems);
         this->problems = Problems();
         res.warning = reported.warning();
-        res.description = this->revised;
+        res.description = this->revised();
         return res;
     }
 };
