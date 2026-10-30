@@ -126,7 +126,7 @@ const Recent = ({ machines, devices, now }: RecentProps): ReactElement => (
     <Table columns={COLUMNS} head={["Machine", "Status", "Last renewal", ""]}>
       {machines.slice(0, RECENT).map(({ activation: a, license: lic }) => (
         <Row key={a.key} columns={COLUMNS}>
-          <Text.Text level="p" overflow="ellipsis">
+          <Text.Text level="p" overflow="fade">
             {machineName(a)}
           </Text.Text>
           <Flex.Box>
