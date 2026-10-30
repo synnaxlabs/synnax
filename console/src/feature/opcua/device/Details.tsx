@@ -19,9 +19,9 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Synnax } from "@synnaxlabs/pluto";
-import { sleep, TimeSpan } from "@synnaxlabs/x";
-import { type ReactElement, useState } from "react";
+import { type ReactElement, useRef, useState } from "react";
 
+import { commandTimeout } from "@/feature/opcua/device/commandTimeout";
 import { createHaulItem, HAUL_TYPE } from "@/feature/opcua/device/haul";
 import { executeScanCommand } from "@/feature/opcua/device/scanCommand";
 import { type Device } from "@/feature/opcua/device/types";
@@ -83,8 +83,6 @@ const Row = ({ label, value }: RowProps): ReactElement | null => {
   );
 };
 
-const READ_DELAY = TimeSpan.milliseconds(250);
-
 /** Shows the attributes and the current value of one node of a server. */
 export const Details = ({ device, nodeId, field }: DetailsProps): ReactElement => {
   const client = Synnax.use();
@@ -93,25 +91,25 @@ export const Details = ({ device, nodeId, field }: DetailsProps): ReactElement =
   const [state, setState] = useState<State | null>(null);
   const [reads, setReads] = useState(0);
   const request = JSON.stringify([nodeId, field, reads]);
+  const reading = useRef<Promise<unknown>>(Promise.resolve());
   useAsyncEffect(
     async (signal) => {
       if (client == null) return;
-      // The Driver runs one scan command at a time, so a read starts only after the
-      // selection stops changing.
-      await sleep.sleep(READ_DELAY);
+      // The Driver runs one scan command at a time, so a read waits for the open one,
+      // and a selection that changes meanwhile is never read.
+      await reading.current;
       if (signal.aborted) return;
+      const { rack, properties } = deviceRef.current;
+      const read = executeScanCommand(client, rack, {
+        type: READ_NODE_COMMAND_TYPE,
+        args: { connection: properties.connection, node_id: nodeId, field },
+        schema: nodeDetailsZ,
+        timeout: commandTimeout(properties.connection),
+      });
+      reading.current = read.catch(() => undefined);
       let next: State;
       try {
-        const details = await executeScanCommand(client, deviceRef.current.rack, {
-          type: READ_NODE_COMMAND_TYPE,
-          args: {
-            connection: deviceRef.current.properties.connection,
-            node_id: nodeId,
-            field,
-          },
-          schema: nodeDetailsZ,
-        });
-        next = { request, details };
+        next = { request, details: await read };
       } catch (e) {
         next = { request, failure: status.fromException(e, "Failed to read node") };
       }

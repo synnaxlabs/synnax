@@ -7,16 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Haul } from "@synnaxlabs/lyra/haul";
 import { type Status } from "@synnaxlabs/lyra/status";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { scheduler } from "@synnaxlabs/x";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { OPCUA } from "@/feature/opcua";
 import { createOPCDevice } from "@/feature/opcua/testutil";
 import { createRunningRack } from "@/platform/device/testutil";
-import { answerNextCommand } from "@/platform/task/testutil";
+import {
+  answerCommand,
+  answerNextCommand,
+  awaitCommand,
+} from "@/platform/task/testutil";
 import {
   CaptureStatuses,
   createConsoleWrapper,
@@ -247,6 +253,34 @@ describe("Browser details", () => {
     await second.answered;
     await screen.findByText("3.5");
     expect(screen.queryByText("2.5")).toBeNull();
+  });
+
+  it("should read only the latest node selected while a read is open", async () => {
+    const { client, scan } = await renderBrowser();
+    const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+    try {
+      fireEvent.click(screen.getByText("TankPressure"));
+      const open = await awaitCommand(
+        streamer,
+        scan.key,
+        OPCUA.Task.READ_NODE_COMMAND_TYPE,
+      );
+      fireEvent.click(screen.getByText("PumpSpeed"));
+      // Lets the effect for PumpSpeed start before the next selection aborts it.
+      await act(async () => await scheduler.flushTaskQueue());
+      fireEvent.click(screen.getByText("TankPressure"));
+      await answerCommand(client, scan, open, { data: DETAILS });
+      const next = await awaitCommand(
+        streamer,
+        scan.key,
+        OPCUA.Task.READ_NODE_COMMAND_TYPE,
+      );
+      expect(next.args).toMatchObject({ nodeId: TANK.nodeId });
+      await answerCommand(client, scan, next, { data: { ...DETAILS, value: "3.5" } });
+      await screen.findByText("3.5");
+    } finally {
+      streamer.close();
+    }
   });
 
   it("should mark a node whose browse fails and keep the rest of the tree", async () => {
