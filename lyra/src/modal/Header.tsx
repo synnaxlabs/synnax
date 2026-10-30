@@ -27,6 +27,7 @@ export interface HeaderProps extends Omit<
   children: string | string[];
   icon?: Icon.ReactElement;
   closeHidden?: boolean;
+  closeDisabled?: boolean;
 }
 
 const CLOSE_TOOLTIP = <Triggers.Text trigger={Triggers.ESCAPE} level="small" />;
@@ -40,6 +41,7 @@ export const Header = ({
   children,
   className,
   closeHidden = false,
+  closeDisabled = false,
   ...rest
 }: HeaderProps): ReactElement => {
   const { close } = Dialog.useContext();
@@ -70,6 +72,7 @@ export const Header = ({
           <Button.Button
             aria-label="Close"
             onClick={close}
+            disabled={closeDisabled}
             size="medium"
             variant="text"
             textColor={8}

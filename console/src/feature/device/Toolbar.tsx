@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { device } from "@synnaxlabs/client";
+import { device, rack } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Access, Device } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
@@ -15,12 +15,15 @@ import { type ReactElement } from "react";
 import { useConnectModal } from "@/feature/device/Connect";
 import { Empty } from "@/platform/empty";
 import { type Nav } from "@/platform/nav";
+import { Rack } from "@/platform/rack";
 import { Toolbar } from "@/platform/toolbar";
 import { Tree } from "@/platform/tree";
 
 const Content = (): ReactElement => {
   const openConnect = useConnectModal();
   const canCreate = Access.useCreateGranted(device.TYPE_ONTOLOGY_ID);
+  const canCreateRack = Access.useCreateGranted(rack.TYPE_ONTOLOGY_ID);
+  const openCreateRack = Rack.useCreateModal();
   const groupID = Device.useGroupID({});
   return (
     <Toolbar.Content>
@@ -29,11 +32,18 @@ const Content = (): ReactElement => {
           <Icon.Device />
           Devices
         </Toolbar.Title>
-        {canCreate && (
+        {(canCreate || canCreateRack) && (
           <Toolbar.Actions>
-            <Toolbar.Action tooltip="Connect device" onClick={() => openConnect()}>
-              <Icon.Add />
-            </Toolbar.Action>
+            {canCreateRack && (
+              <Toolbar.Action tooltip="Create rack" onClick={() => openCreateRack()}>
+                <Icon.Rack />
+              </Toolbar.Action>
+            )}
+            {canCreate && (
+              <Toolbar.Action tooltip="Connect device" onClick={() => openConnect()}>
+                <Icon.Add />
+              </Toolbar.Action>
+            )}
           </Toolbar.Actions>
         )}
       </Toolbar.Header>

@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { device, group, rack } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
+import { expectAlways } from "@synnaxlabs/x/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -18,6 +20,9 @@ import { findTreeRow } from "@/platform/tree/treeTestutil";
 import {
   assertDefined,
   createTestClientWithGrants,
+  findIconButton,
+  type Grants,
+  queryIconButton,
   renderHookWithConsole,
 } from "@/testutil";
 
@@ -46,6 +51,35 @@ describe("device toolbar permissions", () => {
       client: denied,
     });
     await waitFor(() => expect(result.current).toBe(false));
+  });
+
+  const READS = [
+    device.TYPE_ONTOLOGY_ID,
+    rack.TYPE_ONTOLOGY_ID,
+    group.TYPE_ONTOLOGY_ID,
+  ];
+
+  const renderRackActions = async (grants: Grants) =>
+    await renderToolbar(Device.TOOLBAR.content, {
+      client: await createTestClientWithGrants(client, grants),
+      items: Device.TREE_ITEMS,
+    });
+
+  it("should withhold Create rack from a subject who cannot create racks", async () => {
+    await renderRackActions({
+      retrieve: READS,
+      update: [rack.TYPE_ONTOLOGY_ID],
+    });
+    await screen.findByText("Devices");
+    await expectAlways(() => expect(queryIconButton(document.body, "rack")).toBeNull());
+  });
+
+  it("should offer Create rack to a subject who may create racks", async () => {
+    await renderRackActions({
+      retrieve: READS,
+      create: [rack.TYPE_ONTOLOGY_ID],
+    });
+    expect(await findIconButton(document.body, "rack")).toBeTruthy();
   });
 
   it("should offer the toolbar to a viewer, who may read devices", async () => {
