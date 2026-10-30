@@ -1302,38 +1302,21 @@ var _ = Describe("Task", Ordered, func() {
 	})
 
 	Describe("Suspect Rack", func() {
+		retrieveStatus := func(ctx context.Context, t *task.Task) task.Status {
+			GinkgoHelper()
+			var got task.Status
+			Expect(stat.NewRetrieve[task.StatusDetails]().
+				Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
+				Entry(&got).
+				Exec(ctx, nil)).To(Succeed())
+			return got
+		}
+
 		It(
-			"Should propagate rack warning status to tasks on that rack",
+			"Should copy the rack's problem onto a running task",
 			func(ctx SpecContext) {
 				r := rack.Rack{Name: "suspect rack"}
 				Expect(rackService.NewWriter(nil).Create(ctx, &r)).To(Succeed())
-
-				t := &task.Task{
-					Type: testType,
-					Rack: r.Key,
-					Name: "Test Task",
-				}
-				Expect(svc.NewWriter(nil).Create(ctx, t)).To(Succeed())
-
-				Eventually(func(g Gomega) {
-					var taskStatus task.Status
-					g.Expect(stat.NewRetrieve[task.StatusDetails]().
-						Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
-						Entry(&taskStatus).
-						Exec(ctx, nil)).To(Succeed())
-					g.Expect(taskStatus.Variant).To(Equal(status.VariantWarning))
-					g.Expect(taskStatus.Message).To(Equal("Driver not running"))
-					g.Expect(taskStatus.Details.Task).To(Equal(t.Key))
-				}).Should(Succeed())
-			},
-		)
-
-		It(
-			"Should preserve the config hash and rack the Driver reported",
-			func(ctx SpecContext) {
-				r := rack.Rack{Name: "suspect rack"}
-				Expect(rackService.NewWriter(nil).Create(ctx, &r)).To(Succeed())
-
 				t := &task.Task{
 					Type: testType,
 					Rack: r.Key,
@@ -1345,7 +1328,6 @@ var _ = Describe("Task", Ordered, func() {
 						Details: task.StatusDetails{
 							Running:    true,
 							ConfigHash: "deployed",
-							Rack:       r.Key,
 						},
 					},
 				}
@@ -1357,11 +1339,72 @@ var _ = Describe("Task", Ordered, func() {
 						Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
 						Entry(&taskStatus).
 						Exec(ctx, nil)).To(Succeed())
+					g.Expect(taskStatus.Message).To(Equal("Task stopped responding"))
 					g.Expect(taskStatus.Variant).To(Equal(status.VariantWarning))
-					g.Expect(taskStatus.Details.Running).To(BeFalse())
-					g.Expect(taskStatus.Details.ConfigHash).To(Equal("deployed"))
-					g.Expect(taskStatus.Details.Rack).To(Equal(r.Key))
+					g.Expect(taskStatus.Name).To(Equal("Test Task"))
+					g.Expect(taskStatus.Description).To(Equal(
+						"The Core lost contact with the Driver on suspect rack " +
+							"while the task was running.",
+					))
+					g.Expect(taskStatus.Details).To(Equal(task.StatusDetails{
+						Task:       t.Key,
+						Running:    false,
+						ConfigHash: "deployed",
+						Rack:       r.Key,
+					}))
 				}).Should(Succeed())
+			},
+		)
+
+		It(
+			"Should not copy the rack's problem onto a task that is not running",
+			func(ctx SpecContext) {
+				r := rack.Rack{Name: "suspect rack"}
+				Expect(rackService.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+				running := &task.Task{
+					Type: testType,
+					Rack: r.Key,
+					Name: "Running Task",
+					Status: &task.Status{
+						Variant: status.VariantSuccess,
+						Message: "Task is running",
+						Time:    telem.Now(),
+						Details: task.StatusDetails{Running: true},
+					},
+				}
+				Expect(svc.NewWriter(nil).Create(ctx, running)).To(Succeed())
+				stopped := &task.Task{
+					Type: testType,
+					Rack: r.Key,
+					Name: "Stopped Task",
+					Status: &task.Status{
+						Variant: status.VariantSuccess,
+						Message: "Task stopped",
+						Time:    telem.Now(),
+					},
+				}
+				Expect(svc.NewWriter(nil).Create(ctx, stopped)).To(Succeed())
+				undeployed := &task.Task{Type: testType, Rack: r.Key, Name: "New Task"}
+				Expect(svc.NewWriter(nil).Create(ctx, undeployed)).To(Succeed())
+
+				By("Waiting for the copy onto the running task, written in one batch")
+				Eventually(func(g Gomega) {
+					var taskStatus task.Status
+					g.Expect(stat.NewRetrieve[task.StatusDetails]().
+						Where(status.MatchKeys[task.StatusDetails](
+							running.OntologyID().String(),
+						)).
+						Entry(&taskStatus).
+						Exec(ctx, nil)).To(Succeed())
+					g.Expect(taskStatus.Message).To(Equal("Task stopped responding"))
+				}).Should(Succeed())
+
+				stoppedStatus := retrieveStatus(ctx, stopped)
+				Expect(stoppedStatus.Variant).To(Equal(status.VariantSuccess))
+				Expect(stoppedStatus.Message).To(Equal("Task stopped"))
+				undeployedStatus := retrieveStatus(ctx, undeployed)
+				Expect(undeployedStatus.Variant).To(Equal(status.VariantDisabled))
+				Expect(undeployedStatus.Message).To(Equal("Task not deployed"))
 			},
 		)
 	})
