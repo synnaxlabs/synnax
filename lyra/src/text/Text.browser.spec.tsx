@@ -13,7 +13,7 @@ import { describe, expect, it } from "vitest";
 import { computed, renderThemed, resolve } from "@/styletest";
 import { Text } from "@/text";
 
-const LEVELS: text.Level[] = ["h1", "h2", "h3", "h4", "h5", "p", "small"];
+const LEVELS: text.Level[] = ["h1", "h2", "h3", "h4", "h5", "p", "small", "tiny"];
 
 describe("Text", () => {
   it.each(LEVELS)(
@@ -34,7 +34,7 @@ describe("Text", () => {
     },
   );
 
-  it("should shrink the font size at each level from h1 to small", async () => {
+  it("should shrink the font size at each level from h1 to tiny", async () => {
     const { getByText } = await renderThemed(
       LEVELS.map((level) => (
         <Text.Text key={level} level={level}>

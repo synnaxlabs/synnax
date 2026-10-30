@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
+
 #include "absl/log/log.h"
 
 #include "client/cpp/errors/errors.h"
@@ -70,7 +72,12 @@ x::errors::Error Config::load_remote(x::breaker::Breaker &breaker) {
     this->remote_info.cluster_key = cluster_key;
     if (err) return err;
 
-    this->rack.integrations = this->supported_integrations();
+    // A config can name an integration that this build leaves out.
+    const auto built = built_integrations();
+    this->rack.integrations.clear();
+    for (const auto &i: this->integrations)
+        if (std::ranges::find(built, i) != built.end())
+            this->rack.integrations.push_back(i);
     if (const auto update_err = client.racks.create(this->rack)) return update_err;
     return x::errors::NIL;
 }

@@ -54,6 +54,22 @@
     &.lyra--dragging-over {
         background: var(--pluto-gray-l4);
     }
+
+    /* A list prints its shortcuts as plain text, a step dimmer than the label. The
+       extra .lyra-text outranks the chip and gap defaults. */
+    & .lyra-triggers__keys.lyra-text {
+        --pluto-keycap-bg: none;
+        --pluto-keycap-border-color: transparent;
+        --pluto-keycap-color: var(--pluto-gray-l8);
+
+        gap: 0;
+        height: auto;
+        padding: 0;
+    }
+
+    & .lyra-text.lyra-text--keyboard {
+        min-width: 0;
+    }
 }
 
 /* While an item holds the hover, the pointer tints no other item, so one item is marked
