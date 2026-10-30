@@ -1,0 +1,108 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/versions/task/v2"
+import "schemas/x/versions/telem/v0"
+
+Scale union on type {
+    linear {
+        slope  float64 = 1 {
+            @doc value "is the multiplier applied to the raw value."
+        }
+        offset float64 = 0 {
+            @doc value "is the offset added after scaling."
+        }
+
+        @doc value "maps raw values to engineering units with a slope and offset."
+    }
+    map {
+        pre_scaled_min float64 = 0 {
+            @doc value "is the lower bound of the raw input range."
+        }
+        pre_scaled_max float64 = 1 {
+            @doc value "is the upper bound of the raw input range."
+        }
+        scaled_min     float64 = 0 {
+            @doc value "is the lower bound of the scaled output range."
+        }
+        scaled_max     float64 = 1 {
+            @doc value "is the upper bound of the scaled output range."
+        }
+
+        @doc value "maps a raw range linearly onto a scaled range."
+    }
+    none {
+        @doc value "applies no scaling; the raw value is used directly."
+    }
+
+    @doc value  "determines how raw PDO values are transformed to engineering units."
+    @go marshal
+}
+
+BaseReadChannel = v1.BaseReadChannel
+
+ReadChannel union on type extends v1.BaseReadChannel {
+    entry {
+        index     uint16         {
+            @doc value "is the CoE object dictionary index of the PDO entry."
+        }
+        sub_index uint8          {
+            @doc value "is the CoE object dictionary sub-index of the PDO entry."
+        }
+        data_type telem.DataType {
+            @doc value "is the data type of the PDO entry."
+        }
+        scale     Scale = none {
+            @doc value """
+                is the scale applied to raw samples after acquisition. A scaled channel
+                writes to a float Synnax channel.
+            """
+        }
+
+        @doc value "addresses a PDO entry by its CoE index and sub-index."
+    }
+    unresolved {
+        pdo string {
+            @doc value "is the entry name that matched no single entry on the slave."
+        }
+
+        @doc value """
+            is a channel whose PDO entry name matched no single entry on its slave. It
+            must be given an entry before the task runs.
+        """
+    }
+
+    @doc value  """
+        is a single EtherCAT read channel (TxPDO, slave to master). The type field
+        selects how the PDO entry is addressed.
+    """
+    @go marshal
+}
+
+BaseWriteChannel = v1.BaseWriteChannel
+
+WriteChannel = v2.WriteChannel
+
+ReadConfig struct extends task.ReadConfig {
+    channels ReadChannel[] {
+        @doc value "are the channels the task acquires."
+    }
+
+    @doc value  """
+        configures an EtherCAT read task. Each channel addresses a PDO entry on its own
+        slave; all slaves must share one network interface.
+    """
+    @go imex    body
+    @go marshal
+    @go migrate
+}
+
+WriteConfig = v2.WriteConfig
+
+ScanConfig = v1.ScanConfig

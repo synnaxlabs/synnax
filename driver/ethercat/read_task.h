@@ -24,8 +24,28 @@
 #include "driver/ethercat/engine/engine.h"
 #include "driver/ethercat/telem/telem.h"
 #include "driver/ethercat/topology/topology.h"
+#include "driver/transform/transform.h"
 
 namespace driver::ethercat {
+/// @brief registers the channel's scale on the scale transform. Registers nothing for
+/// an unscaled channel.
+inline void add_scale(transform::Scale &scales, const channel::Input &ch) {
+    const auto &dt = ch.ch.data_type;
+    if (const auto *l = std::get_if<::synnax::ethercat::LinearScale>(&ch.scale))
+        scales.add(ch.ch.key, transform::UnaryLinearScale(l->slope, l->offset, dt));
+    else if (const auto *m = std::get_if<::synnax::ethercat::MapScale>(&ch.scale))
+        scales.add(
+            ch.ch.key,
+            transform::UnaryMapScale(
+                m->pre_scaled_min,
+                m->pre_scaled_max,
+                m->scaled_min,
+                m->scaled_max,
+                dt
+            )
+        );
+}
+
 /// @brief configuration for EtherCAT read tasks.
 struct ReadTaskConfig : common::BaseReadTaskConfig {
     /// @brief network interface name for the EtherCAT master.
@@ -40,6 +60,8 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     size_t samples_per_chan = 0;
     /// @brief cached device properties for topology validation.
     std::unordered_map<std::string, slave::Properties> device_cache;
+    /// @brief scales the raw samples of scaled channels into engineering units.
+    transform::Scale scales;
 
     ReadTaskConfig(ReadTaskConfig &&other) noexcept:
         BaseReadTaskConfig(std::move(other)),
@@ -47,7 +69,8 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
         indexes(std::move(other.indexes)),
         channels(std::move(other.channels)),
         samples_per_chan(other.samples_per_chan),
-        device_cache(std::move(other.device_cache)) {}
+        device_cache(std::move(other.device_cache)),
+        scales(std::move(other.scales)) {}
 
     ReadTaskConfig(const ReadTaskConfig &) = delete;
     const ReadTaskConfig &operator=(const ReadTaskConfig &) = delete;
@@ -131,10 +154,26 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             return;
         }
 
+        static const std::vector FLOAT_TYPES = {
+            x::telem::FLOAT32_T,
+            x::telem::FLOAT64_T
+        };
         for (size_t i = 0; i < this->channels.size(); i++) {
-            this->channels[i]->bind_remote_info(synnax_channels[i]);
+            auto &ch = *this->channels[i];
+            ch.bind_remote_info(synnax_channels[i]);
             if (synnax_channels[i].index != 0)
                 this->indexes.insert(synnax_channels[i].index);
+            if (!ch.scaled()) continue;
+            if (!ch.ch.data_type.matches(FLOAT_TYPES)) {
+                cfg.field_err(
+                    "channels",
+                    "channel " + ch.ch.name + " is " + ch.ch.data_type.name() +
+                        ", but a scaled channel must be float32 or float64. Pick a "
+                        "float channel."
+                );
+                continue;
+            }
+            add_scale(this->scales, ch);
         }
     }
 
@@ -227,6 +266,7 @@ public:
             fr.clear();
             return res;
         }
+        if (res.error = this->cfg.scales.transform(fr); res.error) return res;
         if (auto description = this->reader->warning(); !description.empty())
             res.warning = {
                 .message = "Dropped samples",

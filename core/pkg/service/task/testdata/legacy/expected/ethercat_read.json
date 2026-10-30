@@ -18,6 +18,9 @@
       "index": 24592,
       "key": "ch-ecat-manual-in",
       "name": "fixture_ecat_manual_in",
+      "scale": {
+        "type": "none"
+      },
       "sub_index": 3,
       "type": "entry"
     }

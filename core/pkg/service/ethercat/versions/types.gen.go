@@ -11,63 +11,86 @@
 
 package versions
 
-import "github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/v2"
+import "github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/v3"
 
 // BaseReadChannel carries the fields every EtherCAT read channel shares.
-type BaseReadChannel = v2.BaseReadChannel
+type BaseReadChannel = v3.BaseReadChannel
 
 // ReadChannel is a single EtherCAT read channel (TxPDO, slave to master). The type
 // field selects how the PDO entry is addressed.
-type ReadChannel = v2.ReadChannel
-type ReadChannelVariant = v2.ReadChannelVariant
-type ReadChannelType = v2.ReadChannelType
+type ReadChannel = v3.ReadChannel
+type ReadChannelVariant = v3.ReadChannelVariant
+type ReadChannelType = v3.ReadChannelType
 
 const (
 	// EntryReadChannelType addresses a PDO entry by its CoE index and sub-index.
-	EntryReadChannelType ReadChannelType = v2.EntryReadChannelType
+	EntryReadChannelType ReadChannelType = v3.EntryReadChannelType
 	// UnresolvedReadChannelType is a channel whose PDO entry name matched no single
 	// entry on its slave. It must be given an entry before the task runs.
-	UnresolvedReadChannelType ReadChannelType = v2.UnresolvedReadChannelType
+	UnresolvedReadChannelType ReadChannelType = v3.UnresolvedReadChannelType
 )
 
 // EntryReadChannel addresses a PDO entry by its CoE index and sub-index.
-type EntryReadChannel = v2.EntryReadChannel
+type EntryReadChannel = v3.EntryReadChannel
 
 // UnresolvedReadChannel is a channel whose PDO entry name matched no single entry on
 // its slave. It must be given an entry before the task runs.
-type UnresolvedReadChannel = v2.UnresolvedReadChannel
+type UnresolvedReadChannel = v3.UnresolvedReadChannel
 
 // BaseWriteChannel carries the fields every EtherCAT write channel shares.
-type BaseWriteChannel = v2.BaseWriteChannel
+type BaseWriteChannel = v3.BaseWriteChannel
 
 // WriteChannel is a single EtherCAT write channel (RxPDO, master to slave). The type
 // field selects how the PDO entry is addressed.
-type WriteChannel = v2.WriteChannel
-type WriteChannelVariant = v2.WriteChannelVariant
-type WriteChannelType = v2.WriteChannelType
+type WriteChannel = v3.WriteChannel
+type WriteChannelVariant = v3.WriteChannelVariant
+type WriteChannelType = v3.WriteChannelType
 
 const (
 	// EntryWriteChannelType addresses a PDO entry by its CoE index and sub-index.
-	EntryWriteChannelType WriteChannelType = v2.EntryWriteChannelType
+	EntryWriteChannelType WriteChannelType = v3.EntryWriteChannelType
 	// UnresolvedWriteChannelType is a channel whose PDO entry name matched no single
 	// entry on its slave. It must be given an entry before the task runs.
-	UnresolvedWriteChannelType WriteChannelType = v2.UnresolvedWriteChannelType
+	UnresolvedWriteChannelType WriteChannelType = v3.UnresolvedWriteChannelType
 )
 
 // EntryWriteChannel addresses a PDO entry by its CoE index and sub-index.
-type EntryWriteChannel = v2.EntryWriteChannel
+type EntryWriteChannel = v3.EntryWriteChannel
 
 // UnresolvedWriteChannel is a channel whose PDO entry name matched no single entry on
 // its slave. It must be given an entry before the task runs.
-type UnresolvedWriteChannel = v2.UnresolvedWriteChannel
+type UnresolvedWriteChannel = v3.UnresolvedWriteChannel
 
 // ReadConfig configures an EtherCAT read task. Each channel addresses a PDO entry on
 // its own slave; all slaves must share one network interface.
-type ReadConfig = v2.ReadConfig
+type ReadConfig = v3.ReadConfig
 
 // WriteConfig configures an EtherCAT write task. Each channel addresses a PDO entry on
 // its own slave; all slaves must share one network interface.
-type WriteConfig = v2.WriteConfig
+type WriteConfig = v3.WriteConfig
 
 // ScanConfig configures an EtherCAT scan task.
-type ScanConfig = v2.ScanConfig
+type ScanConfig = v3.ScanConfig
+
+// Scale determines how raw PDO values are transformed to engineering units.
+type Scale = v3.Scale
+type ScaleVariant = v3.ScaleVariant
+type ScaleType = v3.ScaleType
+
+const (
+	// LinearScaleType maps raw values to engineering units with a slope and offset.
+	LinearScaleType ScaleType = v3.LinearScaleType
+	// MapScaleType maps a raw range linearly onto a scaled range.
+	MapScaleType ScaleType = v3.MapScaleType
+	// NoneScaleType applies no scaling; the raw value is used directly.
+	NoneScaleType ScaleType = v3.NoneScaleType
+)
+
+// LinearScale maps raw values to engineering units with a slope and offset.
+type LinearScale = v3.LinearScale
+
+// MapScale maps a raw range linearly onto a scaled range.
+type MapScale = v3.MapScale
+
+// NoneScale applies no scaling; the raw value is used directly.
+type NoneScale = v3.NoneScale

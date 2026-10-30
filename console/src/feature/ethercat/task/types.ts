@@ -119,6 +119,20 @@ export const DIRECTIONS: Record<PDOType, string> = {
 export const addressKey = ({ index, subIndex }: Address): string =>
   `${index}_${subIndex}`;
 
+/** @returns whether the read channel scales its samples. */
+export const isScaled = (ch: EntryReadChannel): boolean => ch.scale.type !== "none";
+
+/**
+ * @returns the device properties key of the read channel's Synnax channel. A scaled
+ * channel writes float64 samples, so it maps to its own Synnax channel.
+ */
+export const readKey = (ch: EntryReadChannel): string =>
+  isScaled(ch) ? `scaled_${addressKey(ch)}` : addressKey(ch);
+
+/** @returns the data type of the read channel's Synnax channel. */
+export const readDataType = (ch: EntryReadChannel): string =>
+  isScaled(ch) ? "float64" : ch.dataType;
+
 /** @returns the device properties key of the write state channel at the address. */
 export const stateKey = (address: Address): string => `state_${addressKey(address)}`;
 

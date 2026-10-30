@@ -57,6 +57,11 @@ const ChannelDetails: FC<ChannelDetailsProps> = ({ path, pdoType, schema }) => {
           </PForm.Field>
         )}
       </PForm.Section>
+      {hasEntry(ch) && "scale" in ch && (
+        <PForm.Section title="Scale">
+          <Task.ScaleForm path={`${path}.scale`} schemas={ethercat.SCALE_SCHEMAS} />
+        </PForm.Section>
+      )}
     </PForm.Sections>
   );
 };

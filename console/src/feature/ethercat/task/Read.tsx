@@ -25,15 +25,17 @@ import {
   retrieveAndValidateSlaves,
 } from "@/feature/ethercat/task/configure";
 import {
-  addressKey,
   createReadChannel,
   deployReadConfigZ,
   getEntryChannelName,
   getPortLabel,
   hasEntry,
+  isScaled,
   READ_SCHEMAS,
   READ_TYPE,
   type ReadChannel,
+  readDataType,
+  readKey,
   type ReadSchemas,
 } from "@/feature/ethercat/task/types";
 import { Selector } from "@/platform/selector";
@@ -78,7 +80,7 @@ const Form: FC = () => {
   const resolve = (ch: ReadChannel) => {
     const slave = slaves?.find(({ key }) => key === ch.device);
     if (slave == null || !hasEntry(ch)) return null;
-    return { channel: slave.properties.read.channels[addressKey(ch)] ?? 0 };
+    return { channel: slave.properties.read.channels[readKey(ch)] ?? 0 };
   };
   return (
     <Task.Views.ListAndDetails<ReadChannel>
@@ -115,30 +117,35 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
       client,
       channels,
       slave.properties.read.channels,
+      readKey,
+      readDataType,
     );
 
     if (toCreate.length > 0) {
       modified = true;
       const { identifier, pdos } = slave.properties;
       const created = await client.channels.create(
-        toCreate.map((ch) => ({
-          name: primitive.isNonZero(ch.name)
-            ? ch.name
-            : getEntryChannelName(identifier, pdos.inputs, ch),
-          dataType: ch.dataType,
-          index: slave.properties.readIndex,
-        })),
+        toCreate.map((ch) => {
+          const suffix = isScaled(ch) ? "_scaled" : "";
+          return {
+            name: primitive.isNonZero(ch.name)
+              ? ch.name
+              : `${getEntryChannelName(identifier, pdos.inputs, ch)}${suffix}`,
+            dataType: readDataType(ch),
+            index: slave.properties.readIndex,
+          };
+        }),
       );
 
       created.forEach((c, i) => {
-        slave.properties.read.channels[addressKey(toCreate[i])] = c.key;
+        slave.properties.read.channels[readKey(toCreate[i])] = c.key;
       });
     }
 
     if (modified) await client.devices.create(slave);
 
     channels.forEach((ch) => {
-      ch.channel = slave.properties.read.channels[addressKey(ch)];
+      ch.channel = slave.properties.read.channels[readKey(ch)];
     });
   }
 

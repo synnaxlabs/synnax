@@ -43,6 +43,7 @@ cc_library(
         "//driver/ethercat/topology",
         "//driver/pipeline",
         "//driver/task",
+        "//driver/transform",
         "//x/cpp/breaker",
         "//x/cpp/errors",
         "//x/cpp/json",

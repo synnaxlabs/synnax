@@ -177,6 +177,32 @@ describe("Read", () => {
     });
   });
 
+  it("should save the scale picked for a selected channel", async () => {
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: createPDOs(),
+    });
+    const { draft } = await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [createEntryReadChannel(slave.key, STATUS_ENTRY)],
+    });
+    fireEvent.click(await screen.findByRole("option", { name: /0x6000:01/ }));
+    expect(await screen.findByText("Scale", { selector: "label" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /None/ }));
+    fireEvent.click(await screen.findByRole("option", { name: /Linear/ }));
+    expect(await screen.findByText("Slope")).toBeTruthy();
+    await waitFor(async () => {
+      const saved = await client.tasks.retrieve({
+        key: draft.key,
+        schemas: EtherCAT.Task.READ_SCHEMAS,
+      });
+      expect(saved.config.channels[0]).toMatchObject({
+        scale: { type: "linear", slope: 1, offset: 0 },
+      });
+    });
+  });
+
   it("should show why an unresolved channel cannot run", async () => {
     const slave = await createRepeatedNameSlave(client, testRack.key);
     await renderRead({
@@ -491,6 +517,79 @@ describe("Read", () => {
     expect(secondTask.config.channels[0].channel).toBe(
       firstTask.config.channels[0].channel,
     );
+  });
+
+  it("should give a scaled entry a float64 channel apart from its raw channel", async () => {
+    const identifier = createIdentifier();
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier,
+      network: "eth0",
+      pdos: createPDOs(),
+    });
+    const raw = createEntryReadChannel(slave.key, STATUS_ENTRY);
+    const first = await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [raw],
+    });
+    const rawTask = await deployAndAwaitTask(
+      client,
+      first.container,
+      first.draft.key,
+      EtherCAT.Task.READ_SCHEMAS,
+    );
+    first.unmount();
+
+    const second = await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [{ ...raw, scale: { type: "linear", slope: 2, offset: 0 } }],
+    });
+    const scaledTask = await deployAndAwaitTask(
+      client,
+      second.container,
+      second.draft.key,
+      EtherCAT.Task.READ_SCHEMAS,
+    );
+    const rawKey = rawTask.config.channels[0].channel;
+    const scaledKey = scaledTask.config.channels[0].channel;
+    expect(scaledKey).not.toBe(rawKey);
+    const scaled = await client.channels.retrieve(scaledKey);
+    expect(scaled.name).toBe(`${identifier}_Status_scaled`);
+    expect(scaled.dataType.toString()).toBe("float64");
+    const updated = await client.devices.retrieve({
+      key: slave.key,
+      schemas: EtherCAT.Device.SLAVE_SCHEMAS,
+    });
+    expect(updated.properties.read.channels[`${0x6000}_1`]).toBe(rawKey);
+    expect(updated.properties.read.channels[`scaled_${0x6000}_1`]).toBe(scaledKey);
+  });
+
+  it("should reuse a scaled entry's float64 channel when redeployed", async () => {
+    const slave = await createSlaveDevice(client, testRack.key, {
+      identifier: createIdentifier(),
+      network: "eth0",
+      pdos: createPDOs(),
+    });
+    const config = {
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [
+        createEntryReadChannel(slave.key, STATUS_ENTRY, {
+          scale: { type: "linear", slope: 2, offset: 0 },
+        }),
+      ],
+    };
+    const deploy = async () => {
+      const rendered = await renderRead(config);
+      const deployed = await deployAndAwaitTask(
+        client,
+        rendered.container,
+        rendered.draft.key,
+        EtherCAT.Task.READ_SCHEMAS,
+      );
+      rendered.unmount();
+      return deployed.config.channels[0].channel;
+    };
+    const first = await deploy();
+    expect(await deploy()).toBe(first);
   });
 
   it("should reject a data type that differs from the mapped channel's", async () => {

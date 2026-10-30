@@ -8,9 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { Form as PForm } from "@synnaxlabs/lyra/form";
-import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
-import { deep, type record } from "@synnaxlabs/x";
+import { type record } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { AI_PORT_TYPE, type Model, PORTS } from "@/feature/labjack/device/types";
@@ -18,9 +17,6 @@ import {
   AIR_CJC_SOURCE,
   DEVICE_CJC_SOURCE,
   type ReadChannelType,
-  type Scale,
-  SCALE_SCHEMAS,
-  type ScaleType,
   type TemperatureUnits,
   type ThermocoupleType,
 } from "@/feature/labjack/task/types";
@@ -30,77 +26,6 @@ const MaxVoltageField = PForm.buildNumericField({
   fieldProps: { label: "Max voltage" },
   inputProps: { endContent: "V" },
 });
-
-const SelectScaleTypeField = PForm.buildSelectField<ScaleType>({
-  fieldKey: "type",
-  fieldProps: {
-    label: "Scale",
-    onChange: (value, { get, set, path }) => {
-      const prevType = get<ScaleType>(path).value;
-      if (prevType === value) return;
-      const next = SCALE_SCHEMAS[value].parse({ type: value });
-      const parentPath = path.slice(0, path.lastIndexOf("."));
-      const prevParent = get<Scale>(parentPath).value;
-      set(parentPath, {
-        ...deep.overrideValidItems(next, prevParent, SCALE_SCHEMAS[value]),
-        type: next.type,
-      });
-    },
-  },
-  inputProps: {
-    resourceName: "scale type",
-    children: (
-      <>
-        <Select.Item itemKey="none">
-          <Icon.None />
-          None
-        </Select.Item>
-        <Select.Item itemKey="linear">
-          <Icon.Linear />
-          Linear
-        </Select.Item>
-        <Select.Item itemKey="map">
-          <Icon.Map />
-          Map
-        </Select.Item>
-      </>
-    ),
-  },
-});
-
-const SCALE_FORMS: Record<ScaleType, FC<CustomScaleFormProps>> = {
-  linear: ({ prefix }) => (
-    <>
-      <PForm.NumericField path={`${prefix}.slope`} label="Slope" />
-      <PForm.NumericField path={`${prefix}.offset`} label="Offset" />
-    </>
-  ),
-  map: ({ prefix }) => (
-    <>
-      <PForm.NumericField path={`${prefix}.preScaledMin`} label="Pre-scaled min" />
-      <PForm.NumericField path={`${prefix}.preScaledMax`} label="Pre-scaled max" />
-      <PForm.NumericField path={`${prefix}.scaledMin`} label="Scaled min" />
-      <PForm.NumericField path={`${prefix}.scaledMax`} label="Scaled max" />
-    </>
-  ),
-  none: () => null,
-};
-
-interface CustomScaleFormProps {
-  prefix: string;
-}
-
-export const CustomScaleForm = ({ prefix }: CustomScaleFormProps) => {
-  const path = `${prefix}.scale`;
-  const scaleType = PForm.useFieldValue<ScaleType>(`${path}.type`);
-  const Form = SCALE_FORMS[scaleType];
-  return (
-    <>
-      <SelectScaleTypeField path={path} />
-      <Form prefix={path} />
-    </>
-  );
-};
 
 const ThermocoupleTypeField = PForm.buildSelectField<ThermocoupleType>({
   fieldKey: "thermocoupleType",
