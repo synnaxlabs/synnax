@@ -10,9 +10,10 @@
 import "schemas/synnax/ontology"
 import "schemas/x/telem"
 
-@go output "core/pkg/service/auth/apikey"
-@py output "client/py/synnax/auth/apikey"
-@ts output "client/ts/src/auth/apikey"
+@cpp output "client/cpp/auth/apikey"
+@go output  "core/pkg/service/auth/apikey"
+@py output  "client/py/synnax/auth/apikey"
+@ts output  "client/ts/src/auth/apikey"
 
 Key = uuid {
     @doc value "is a unique identifier for an API key."
@@ -38,6 +39,7 @@ APIKey struct {
         @doc value "is when the key was created."
     }
 
+    @cpp omit
     @doc value  "is a stored API key. A subject holds any number of them."
     @go marshal
     @go migrate
@@ -49,6 +51,7 @@ APIKey struct {
 API struct extends APIKey {
     -hash
 
+    @cpp name  "APIKey"
     @doc value """
         is an API key as the API returns it: the stored record without its hash.
     """
