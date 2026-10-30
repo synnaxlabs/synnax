@@ -13,6 +13,7 @@ export { Alamos } from "@/alamos";
 export { Arc } from "@/arc";
 export { Channel } from "@/channel";
 export { Code } from "@/code";
+export { Credential } from "@/credential";
 export { Device } from "@/device";
 export { Direction } from "@/direction";
 export { Errors } from "@/errors";
