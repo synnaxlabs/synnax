@@ -47,8 +47,8 @@ TEST(RackFactoriesTest, RackListsOnlyBuiltIntegrations) {
         .connection = test_client_config,
         .integrations = {ni::INTEGRATION_NAME, http::INTEGRATION_NAME},
     };
-    x::breaker::Breaker breaker;
-    ASSERT_NIL(cfg.load_remote(breaker));
+    ASSERT_NIL(cfg.enroll());
+    ASSERT_NIL(cfg.load_remote());
     const auto client = synnax::Synnax(test_client_config);
     const auto rack = ASSERT_NIL_P(client.racks.retrieve(cfg.rack.key));
     EXPECT_EQ(rack.integrations, std::vector<std::string>{http::INTEGRATION_NAME});
