@@ -27,11 +27,9 @@ cc_library(
         "persist.cpp",
         "rack.cpp",
         "remote.cpp",
-    ],
-    hdrs = [
-        "rack.h",
         "unavailable.h",
     ],
+    hdrs = ["rack.h"],
     defines = select({
         ":nilinuxrt": ["SYNNAX_NILINUXRT"],
         "//conditions:default": [],
