@@ -144,15 +144,21 @@ Analog read is the worked design. Each item below runs in the prototype on branc
 - **Details header**: The port badge in its state color, the channel type icon, the
   channel name, and the device model in small secondary text. With no name set, it shows
   the name the Core will create, such as `dev1_ai_2`, in secondary text.
+- **Menus**: A used port opens its channel's menu, the same menu as its row in the list.
+  A free port offers "Add channel", and a device offers "Add channel" and "Remove
+  device".
 - **Choices**: The type select lists the port's `types`. The terminal configuration
   select lists the port's `terminal_configs`. A new channel takes the lowest free port
   on its device, not the lowest port unused in the task
   (`console/src/feature/ni/task/createChannel.ts:61-72`).
 - **Checks**: They run only when the device has `hardware`. A port the device lacks, a
   type or configuration the port rejects, and a port in conflict are field errors that
-  show while the user edits. Deploy runs the same checks. `deployConfigZ` is static and
-  has no device data (`console/src/platform/task/Form.tsx:72`), so `Task.wrapForm` gets
-  an async device check after it (NEW).
+  show while the user edits. A sample rate above `ai_max_single_channel_rate` is an
+  error. A rate above the multiplexed maximum, the multi channel rate divided by the
+  channel count with CJC and autozero channels counted, is a warning, because that count
+  is an estimate. Deploy runs the same checks. `deployConfigZ` is static and has no
+  device data (`console/src/platform/task/Form.tsx:72`), so `Task.wrapForm` gets an
+  async device check after it (NEW).
 
 The grid and the view switch go in `console/src/platform/task` as `Task.PortGrid` and a
 `ports` render prop on `Task.Views.ListAndDetails` (NEW), because LabJack uses them in
@@ -245,15 +251,15 @@ STM32CubeMX, color by state. Products give an item its own hue only when the use
 it or a legend is always on screen. Solid per-channel fills, a colored left bar, and a
 colored ring were rejected in the running Console.
 
-**6.6 An Oracle struct, not hand-written properties.** RFC 0091 put new Modbus fields in
+**6.6 A port opens its channel's menu.** The prototype gave ports their own menu, with
+rename and terminal configuration items. One channel then had two menus. The Modbus
+register map reuses the list's menu the same way.
+
+**6.7 An Oracle struct, not hand-written properties.** RFC 0091 put new Modbus fields in
 hand-written copies in three languages, because those copies already existed. This shape
-has no copy yet, and RFC 0081 §3 makes Oracle the only device shape.
+has no copy yet, and RFC 0081 §3 makes Oracle the only device shape. EtherCAT stores its
+scanned PDOs the same way, as Oracle types in the device properties.
 
 ## 7 Open questions
 
-- **Port context menu**: The prototype has a right-click menu on ports and devices:
-  rename, terminal configuration, disable, remove, add channel, and remove device. It
-  was built on request and is not decided.
-- **Rate check strength**: A multiplexed device's task maximum is the single channel
-  rate or the multi channel rate divided by the channel count, whichever is lower, with
-  CJC and autozero channels counted. Whether a rate above it is an error or a warning.
+None.
