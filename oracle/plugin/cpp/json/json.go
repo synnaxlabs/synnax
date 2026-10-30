@@ -380,18 +380,19 @@ func structMap(
 }
 
 // checkStructMapKey rejects a map of structs whose key has no exact JSON object key:
-// to_json writes string keys as they are and integer keys through std::to_string.
+// to_json writes string keys as they are, UUID keys through to_string, and integer keys
+// through std::to_string.
 func checkStructMapKey(
 	s resolution.Type,
 	field resolution.Field,
 	table *resolution.Table,
 ) error {
 	ref, ok := structMap(field.Type, table)
-	if !ok {
+	if !ok || ref.TypeArgs[0].IsTypeParam() {
 		return nil
 	}
 	base := resolution.PrimitiveBase(ref.TypeArgs[0], table)
-	if base == "string" || strings.HasPrefix(base, "int") ||
+	if base == "string" || base == "uuid" || strings.HasPrefix(base, "int") ||
 		strings.HasPrefix(base, "uint") {
 		return nil
 	}
@@ -963,7 +964,11 @@ func (p *Plugin) toJSONExprForField(
 		// JSON object keys are strings, and obj[key] with an integer key indexes an
 		// array.
 		key := "key"
-		if resolution.PrimitiveBase(mapRef.TypeArgs[0], data.table) != "string" {
+		switch resolution.PrimitiveBase(mapRef.TypeArgs[0], data.table) {
+		case "string":
+		case "uuid":
+			key = "key.to_string()"
+		default:
 			data.AddSystem("string")
 			key = "std::to_string(key)"
 		}

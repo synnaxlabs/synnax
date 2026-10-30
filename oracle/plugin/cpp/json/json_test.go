@@ -440,6 +440,46 @@ var _ = Describe("C++ JSON Plugin", func() {
 						ToContain(`obj[std::to_string(key)] = item.to_json();`)
 				},
 			)
+			It(
+				"Should write the UUID keys of a map of structs as strings",
+				func(ctx SpecContext) {
+					source := `
+					@cpp output "client/cpp/task"
+
+					Pair struct {
+						left uint32
+					}
+
+					Task struct {
+						pairs map<uuid, Pair>
+					}
+				`
+					resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+
+					ExpectContent(resp, "json.gen.h").
+						ToContain(`obj[key.to_string()] = item.to_json();`)
+				},
+			)
+			It(
+				"Should defer the key check of a generic map of structs",
+				func(ctx SpecContext) {
+					source := `
+					@cpp output "client/cpp/task"
+
+					Pair struct {
+						left uint32
+					}
+
+					Pairs struct<K extends comparable> {
+						values map<K, Pair>
+					}
+				`
+					resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+
+					ExpectContent(resp, "json.gen.h").
+						ToContain(`obj[std::to_string(key)] = item.to_json();`)
+				},
+			)
 			DescribeTable("Should reject a map of structs with an unsupported key",
 				func(ctx SpecContext, key string) {
 					req := MustGenerateRequest(ctx, `
