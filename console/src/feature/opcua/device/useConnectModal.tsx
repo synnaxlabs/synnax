@@ -25,7 +25,7 @@ import {
 } from "@/feature/opcua/device/Certificate";
 import { commandTimeout } from "@/feature/opcua/device/commandTimeout";
 import { Endpoints } from "@/feature/opcua/device/Endpoints";
-import { retrieveScanTask } from "@/feature/opcua/device/retrieveScanTask";
+import { sendScanCommand } from "@/feature/opcua/device/scanCommand";
 import {
   SelectSecurityMode,
   type SelectSecurityModeProps,
@@ -103,9 +103,8 @@ export const Connect = ({
     PDevice.FormSchema<typeof SCHEMAS>
   >) => {
     setServerCertificateOffer(null);
-    const scanTask = await retrieveScanTask(client, get<rack.Key>("rack").value);
     const connection = get<ConnectionConfig>("properties.connection").value;
-    const scanStatus = await scanTask.executeCommandSync({
+    const scanStatus = await sendScanCommand(client, get<rack.Key>("rack").value, {
       type: TEST_CONNECTION_COMMAND_TYPE,
       timeout: commandTimeout(connection),
       args: { connection },

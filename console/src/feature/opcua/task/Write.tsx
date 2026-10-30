@@ -89,8 +89,6 @@ const convertNodeToChannel = (
     cmdChannel: 0,
     disabled: false,
   };
-  // The arguments give the command of a method its type, so its data type keeps the
-  // default.
   if (node.nodeClass === "Method")
     return opcua.methodWriteChannelZ.parse({
       ...base,

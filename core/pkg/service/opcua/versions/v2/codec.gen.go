@@ -19,6 +19,37 @@ import (
 )
 
 // EncodeOrc writes the value to w in the Orc binary format.
+func (bc BaseChannel) EncodeOrc(w *orc.Writer) error {
+	w.String(bc.Key)
+	w.String(bc.Name)
+	w.Bool(bc.Disabled)
+	w.String(bc.NodeID)
+	w.String(bc.NodeName)
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (bc *BaseChannel) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if bc.Key, err = r.String(); err != nil {
+		return err
+	}
+	if bc.Name, err = r.String(); err != nil {
+		return err
+	}
+	if bc.Disabled, err = r.Bool(); err != nil {
+		return err
+	}
+	if bc.NodeID, err = r.String(); err != nil {
+		return err
+	}
+	if bc.NodeName, err = r.String(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
 func (bma BaseMethodArgument) EncodeOrc(w *orc.Writer) error {
 	w.String(bma.Name)
 	w.String(string(bma.DataType))
@@ -48,7 +79,6 @@ func (bwc BaseWriteChannel) EncodeOrc(w *orc.Writer) error {
 	w.Bool(bwc.Disabled)
 	w.String(bwc.NodeID)
 	w.String(bwc.NodeName)
-	w.String(string(bwc.DataType))
 	w.Uint32(uint32(bwc.CmdChannel))
 	return nil
 }
@@ -70,13 +100,6 @@ func (bwc *BaseWriteChannel) DecodeOrc(r *orc.Reader) error {
 	}
 	if bwc.NodeName, err = r.String(); err != nil {
 		return err
-	}
-	{
-		rawV, err := r.String()
-		if err != nil {
-			return err
-		}
-		bwc.DataType = telem.DataType(rawV)
 	}
 	{
 		rawV, err := r.Uint32()
@@ -278,10 +301,10 @@ func (rc ReadChannel) EncodeOrc(w *orc.Writer) error {
 	w.Bool(rc.Disabled)
 	w.String(rc.NodeID)
 	w.String(rc.NodeName)
-	w.String(string(rc.DataType))
 	w.Uint32(uint32(rc.Channel))
 	w.Bool(rc.IsIndex)
 	w.String(rc.Field)
+	w.String(string(rc.DataType))
 	return nil
 }
 
@@ -304,13 +327,6 @@ func (rc *ReadChannel) DecodeOrc(r *orc.Reader) error {
 		return err
 	}
 	{
-		rawV, err := r.String()
-		if err != nil {
-			return err
-		}
-		rc.DataType = telem.DataType(rawV)
-	}
-	{
 		rawV, err := r.Uint32()
 		if err != nil {
 			return err
@@ -322,6 +338,13 @@ func (rc *ReadChannel) DecodeOrc(r *orc.Reader) error {
 	}
 	if rc.Field, err = r.String(); err != nil {
 		return err
+	}
+	{
+		rawV, err := r.String()
+		if err != nil {
+			return err
+		}
+		rc.DataType = telem.DataType(rawV)
 	}
 	return nil
 }
@@ -428,6 +451,7 @@ func (wc WriteChannel) EncodeOrc(w *orc.Writer) error {
 		if err := v.BaseWriteChannel.EncodeOrc(w); err != nil {
 			return err
 		}
+		w.String(string(v.DataType))
 	case MethodWriteChannel:
 		w.String("method")
 		if err := v.BaseWriteChannel.EncodeOrc(w); err != nil {
@@ -460,6 +484,13 @@ func (wc *WriteChannel) DecodeOrc(r *orc.Reader) error {
 		var v NodeWriteChannel
 		if err := v.BaseWriteChannel.DecodeOrc(r); err != nil {
 			return err
+		}
+		{
+			rawV, err := r.String()
+			if err != nil {
+				return err
+			}
+			v.DataType = telem.DataType(rawV)
 		}
 		wc.Variant = v
 	case "method":

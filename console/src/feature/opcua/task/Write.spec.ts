@@ -77,7 +77,6 @@ const createMethodChannel = (
   nodeName,
   cmdChannel,
   disabled: false,
-  dataType: "float32",
   name: "",
   type: "method",
   objectId: "ns=1;s=Pump",
@@ -513,7 +512,6 @@ describe("Write", () => {
         disabled: false,
         type: "method",
         objectId: "",
-        dataType: "float32",
         arguments: [
           { source: "command", name: "mode", dataType: "string" },
           { source: "value", value: "", name: "speed", dataType: "float64" },

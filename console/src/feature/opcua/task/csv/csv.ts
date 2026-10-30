@@ -41,19 +41,18 @@ export const encode = (
   { indexed = false }: EncodeParams = {},
 ): string => {
   const header = indexed ? [...COLUMNS, INDEX_COLUMN] : COLUMNS;
-  const rows = channels
-    .filter((ch) => !isMethod(ch))
-    .map((ch) => {
-      const row = [
-        ch.name,
-        ch.nodeId,
-        "field" in ch ? ch.field : "",
-        ch.dataType,
-        String(!ch.disabled),
-      ];
-      if (indexed) row.push(String("isIndex" in ch && ch.isIndex));
-      return row;
-    });
+  const rows = channels.flatMap((ch) => {
+    if (isMethod(ch)) return [];
+    const row = [
+      ch.name,
+      ch.nodeId,
+      "field" in ch ? ch.field : "",
+      ch.dataType,
+      String(!ch.disabled),
+    ];
+    if (indexed) row.push(String("isIndex" in ch && ch.isIndex));
+    return [row];
+  });
   const lines = [header, ...rows].map((row) => row.map(csv.formatValue).join(","));
   return `${lines.join("\n")}\n`;
 };

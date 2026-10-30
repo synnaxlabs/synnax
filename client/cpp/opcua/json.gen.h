@@ -33,10 +33,6 @@ inline BaseChannel BaseChannel::parse(x::json::Parser parser) {
         .disabled = parser.field<bool>("disabled", false),
         .node_id = parser.field<std::string>("node_id", ""),
         .node_name = parser.field<std::string>("node_name", ""),
-        .data_type = parser.field<::x::telem::DataType>(
-            "data_type",
-            ::x::telem::DataType("float32")
-        ),
     };
 }
 
@@ -47,7 +43,6 @@ inline x::json::json BaseChannel::to_json() const {
     j["disabled"] = this->disabled;
     j["node_id"] = this->node_id;
     j["node_name"] = this->node_name;
-    j["data_type"] = this->data_type;
     return j;
 }
 
@@ -60,6 +55,10 @@ inline ReadChannel ReadChannel::parse(x::json::Parser parser) {
     );
     result.is_index = parser.field<bool>("is_index", false);
     result.field = parser.field<std::string>("field", "");
+    result.data_type = parser.field<::x::telem::DataType>(
+        "data_type",
+        ::x::telem::DataType("float32")
+    );
     return result;
 }
 
@@ -70,6 +69,7 @@ inline x::json::json ReadChannel::to_json() const {
     j["channel"] = this->channel;
     j["is_index"] = this->is_index;
     j["field"] = this->field;
+    j["data_type"] = this->data_type;
     return j;
 }
 
@@ -253,6 +253,10 @@ inline x::json::json EventConfig::to_json() const {
 inline NodeWriteChannel NodeWriteChannel::parse(x::json::Parser parser) {
     NodeWriteChannel result;
     static_cast<BaseWriteChannel &>(result) = BaseWriteChannel::parse(parser);
+    result.data_type = parser.field<::x::telem::DataType>(
+        "data_type",
+        ::x::telem::DataType("float32")
+    );
     result.type = parser.field<std::string>("type");
     return result;
 }
@@ -261,6 +265,7 @@ inline x::json::json NodeWriteChannel::to_json() const {
     x::json::json j;
     for (auto &[k, v]: BaseWriteChannel::to_json().items())
         j[k] = v;
+    j["data_type"] = this->data_type;
     j["type"] = this->type;
     return j;
 }

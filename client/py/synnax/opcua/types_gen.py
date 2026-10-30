@@ -52,7 +52,6 @@ class BaseChannel(BaseModel):
         disabled: Is true when the channel is excluded from the task.
         node_id: Is the OPC UA node ID the channel is bound to.
         node_name: Is the browse name of the OPC UA node.
-        data_type: Is the data type of the Synnax channel.
     """
 
     key: str = Field(default_factory=lambda: str(uuid4()))
@@ -60,7 +59,6 @@ class BaseChannel(BaseModel):
     disabled: bool = False
     node_id: str = ""
     node_name: str = ""
-    data_type: telem.DataType = telem.DataType("float32")
 
     def __hash__(self) -> int:
         return hash(self.key)
@@ -114,11 +112,13 @@ class ReadChannel(BaseChannel):
         is_index: Is true when the channel's Synnax channel is the task's index.
         field: Is the path to a member of the node's structure value. Names join with
             '.', and '&' escapes the next character. Empty reads the whole value.
+        data_type: Is the data type of the Synnax channel.
     """
 
     channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
     is_index: bool = False
     field: str = ""
+    data_type: telem.DataType = telem.DataType("float32")
 
     def __hash__(self) -> int:
         return hash(self.key)
@@ -217,6 +217,7 @@ class NodeWriteChannel(BaseWriteChannel):
     """Writes each command to the value of the node."""
 
     type: Literal["node"] = "node"
+    data_type: telem.DataType = telem.DataType("float32")
 
 
 class MethodWriteChannel(BaseWriteChannel):

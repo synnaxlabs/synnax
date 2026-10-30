@@ -25,7 +25,18 @@ import (
 )
 
 // BaseChannel carries the fields every OPC UA channel shares.
-type BaseChannel = v1.BaseChannel
+type BaseChannel struct {
+	// Key uniquely identifies the channel within the task.
+	Key string `json:"key" msgpack:"key"`
+	// Name is the human-readable channel name.
+	Name string `json:"name" msgpack:"name"`
+	// Disabled is true when the channel is excluded from the task.
+	Disabled bool `json:"disabled" msgpack:"disabled"`
+	// NodeID is the OPC UA node ID the channel is bound to.
+	NodeID string `json:"node_id" msgpack:"node_id"`
+	// NodeName is the browse name of the OPC UA node.
+	NodeName string `json:"node_name" msgpack:"node_name"`
+}
 
 // ReadChannel is a single OPC UA node the task reads from.
 type ReadChannel struct {
@@ -37,11 +48,15 @@ type ReadChannel struct {
 	// Field is the path to a member of the node's structure value. Names join with '.',
 	// and '&' escapes the next character. Empty reads the whole value.
 	Field string `json:"field" msgpack:"field"`
+	// DataType is the data type of the Synnax channel.
+	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (r *ReadChannel) ApplyDefaults() {
-	r.BaseChannel.ApplyDefaults()
+	if r.DataType == "" {
+		r.DataType = "float32"
+	}
 }
 
 // BaseWriteChannel carries the fields every OPC UA write channel shares.
@@ -51,11 +66,6 @@ type BaseWriteChannel struct {
 	CmdChannel channel.Key `json:"cmd_channel" msgpack:"cmd_channel"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (b *BaseWriteChannel) ApplyDefaults() {
-	b.BaseChannel.ApplyDefaults()
-}
-
 type WriteChannelVariant interface {
 	isWriteChannelVariant()
 }
@@ -63,13 +73,17 @@ type WriteChannelVariant interface {
 // NodeWriteChannel writes each command to the value of the node.
 type NodeWriteChannel struct {
 	BaseWriteChannel
+	// DataType is the data type of the Synnax command channel.
+	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
 }
 
 func (NodeWriteChannel) isWriteChannelVariant() {}
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
 func (n *NodeWriteChannel) ApplyDefaults() {
-	n.BaseWriteChannel.ApplyDefaults()
+	if n.DataType == "" {
+		n.DataType = "float32"
+	}
 }
 
 // MethodWriteChannel calls the node as a method with each command.
@@ -82,11 +96,6 @@ type MethodWriteChannel struct {
 }
 
 func (MethodWriteChannel) isWriteChannelVariant() {}
-
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (m *MethodWriteChannel) ApplyDefaults() {
-	m.BaseWriteChannel.ApplyDefaults()
-}
 
 // WriteChannel is a single OPC UA node the task drives. The type field selects what
 // each command does on the server.
@@ -155,9 +164,6 @@ func (u *WriteChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 func (u *WriteChannel) ApplyDefaults() {
 	switch variant := u.Variant.(type) {
 	case NodeWriteChannel:
-		variant.ApplyDefaults()
-		u.Variant = variant
-	case MethodWriteChannel:
 		variant.ApplyDefaults()
 		u.Variant = variant
 	}
