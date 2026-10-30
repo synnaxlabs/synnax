@@ -40,18 +40,20 @@ const hoverTip = (): string | null => {
 
 const input = (): ReactElement => <Input.Text value="9" onChange={vi.fn()} />;
 
+const bare = (status?: Status.Variant, helpText?: string): ReactElement => (
+  <Input.Item
+    label="Line"
+    showLabel={false}
+    showHelpText={false}
+    status={status}
+    helpText={helpText}
+  >
+    {input()}
+  </Input.Item>
+);
+
 const renderBare = (status?: Status.Variant, helpText?: string) =>
-  render(
-    <Input.Item
-      label="Line"
-      showLabel={false}
-      showHelpText={false}
-      status={status}
-      helpText={helpText}
-    >
-      {input()}
-    </Input.Item>,
-  );
+  render(bare(status, helpText));
 
 describe("Input.Item", () => {
   describe("with no label and no help text", () => {
@@ -77,6 +79,18 @@ describe("Input.Item", () => {
       expect(frame().className).not.toContain("lyra--status");
       expect(textbox().getAttribute("aria-invalid")).toBeNull();
       expect(hoverTip()).toBeNull();
+    });
+
+    it("should keep the focused input as an error shows and clears", () => {
+      const { rerender } = renderBare("success", "");
+      const el = textbox();
+      el.focus();
+      rerender(bare("error", "port1 has 8 lines"));
+      expect(textbox()).toBe(el);
+      expect(document.activeElement).toBe(el);
+      rerender(bare("success", ""));
+      expect(textbox()).toBe(el);
+      expect(document.activeElement).toBe(el);
     });
 
     it("should keep its status from a labeled item inside it", () => {

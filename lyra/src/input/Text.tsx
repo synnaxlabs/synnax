@@ -192,9 +192,12 @@ export const Text = ({
   const unshown = useUnshownStatus();
   const marked = unshown?.variant === "error" || unshown?.variant === "warning";
   const shownStatus = status ?? (marked ? unshown?.variant : undefined);
-  const shownTooltip =
-    tooltip ??
-    (marked && primitive.isNonZero(unshown?.message) ? unshown?.message : undefined);
+  const unshownTip =
+    marked && primitive.isNonZero(unshown?.message) ? unshown?.message : undefined;
+  // The tooltip stays mounted as the status changes: a new wrapper remounts the input
+  // and drops its focus.
+  const shownTooltip = tooltip ?? (unshown != null ? (unshownTip ?? "") : undefined);
+  const tipHidden = tooltip == null && unshown != null && unshownTip == null;
 
   const showPlaceholder =
     preview !== true &&
@@ -257,7 +260,7 @@ export const Text = ({
       onClickDelay={onClickDelay}
       tooltip={shownTooltip}
       tooltipLocation={tooltipLocation}
-      hideTooltip={hideTooltip}
+      hideTooltip={tipHidden || hideTooltip}
       reveal={reveal}
       propagateClick={propagateClick}
       onMouseDown={handleFrameMouseDown}
