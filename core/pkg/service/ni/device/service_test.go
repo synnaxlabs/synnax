@@ -404,14 +404,19 @@ var _ = Describe("Service", func() {
 			})).To(MatchError(query.ErrNotFound))
 		})
 
-		DescribeTable("Should reject an invalid update",
+		DescribeTable(
+			"Should reject an invalid update",
 			func(ctx SpecContext, update device.Update, message string) {
 				d := create(ctx)
 				Expect(svc.NewWriter(tx).Apply(ctx, d.Key, update)).
 					To(MatchError(ContainSubstring(message)))
 			},
 			Entry("no group", device.Update{}, "no field group"),
-			Entry("identity", device.Update{Variant: device.IdentityUpdate{}}, "required"),
+			Entry(
+				"identity",
+				device.Update{Variant: device.IdentityUpdate{}},
+				"required",
+			),
 			Entry(
 				"configuration",
 				device.Update{Variant: device.ConfigurationUpdate{}},
