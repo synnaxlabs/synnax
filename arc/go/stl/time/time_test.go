@@ -47,13 +47,13 @@ var _ = Describe("Time", func() {
 		})
 		It("Should reject a runtime without a strings state", func(ctx SpecContext) {
 			rt := wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigInterpreter())
-			_, err := time.NewHost(ctx, rt, nil)
-			Expect(err).To(MatchError(ContainSubstring("strings")))
+			Expect(time.NewHost(ctx, rt, nil)).Error().
+				To(MatchError(ContainSubstring("strings")))
 		})
 		It("Should not create a node for format", func(ctx SpecContext) {
 			factory := MustSucceed(time.NewHost(ctx, nil, nil))
-			_, err := factory.Create(node.Config{Node: ir.Node{Type: "format"}})
-			Expect(err).To(Equal(query.ErrNotFound))
+			Expect(factory.Create(node.Config{Node: ir.Node{Type: "format"}})).Error().
+				To(MatchError(query.ErrNotFound))
 		})
 	})
 	Describe("Interval", func() {
@@ -1303,8 +1303,8 @@ var _ = Describe("Time", func() {
 			}))
 		})
 		It("Should not expose a bare format symbol", func(ctx SpecContext) {
-			_, err := root.Resolve(ctx, "format", symbol.IncludeInternal)
-			Expect(err).To(HaveOccurred())
+			Expect(root.Resolve(ctx, "format", symbol.IncludeInternal)).Error().
+				To(MatchError(ContainSubstring("undefined symbol: format")))
 		})
 	})
 	Describe("Deadline Reporting", func() {

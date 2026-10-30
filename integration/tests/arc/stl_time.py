@@ -157,8 +157,10 @@ STAMP = 1_326_789_125_250_000_000
 CODE_CASES = (
     ("%Y", "2012"),
     ("%y", "12"),
+    ("%C", "20"),
     ("%m", "01"),
     ("%d", "17"),
+    ("%D", "01/17/12"),
     ("%H", "08"),
     ("%e", "17"),
     ("%I", "08"),
@@ -172,12 +174,16 @@ CODE_CASES = (
     ("%w", "2"),
     ("%W", "03"),
     ("%G", "2012"),
+    ("%g", "12"),
     ("%V", "03"),
     ("%z", "+0000"),
     ("%Z", "UTC"),
     ("%F", "2012-01-17"),
     ("%T", "08:32:05"),
+    ("%R", "08:32"),
     ("%%", "%"),
+    ("%n", "\n"),
+    ("%t", "\t"),
     ("%Y-%m-%d %H:%M:%S.%f", "2012-01-17 08:32:05.250000"),
     ("%H:%M:%S.%N", "08:32:05.250000000"),
     ("T+%S s", "T+05 s"),
@@ -185,7 +191,8 @@ CODE_CASES = (
 )
 
 # (ns since the Unix epoch, format, expected) at the calendar edges. Week numbers,
-# the 12-hour clock, ISO week rollover, the epoch, and a stamp before it.
+# the 12-hour clock, ISO week rollover, the epoch, a stamp before it, and the ends
+# of the timestamp range.
 EDGE_CASES = (
     # Sunday, January 1, 2012 at midnight.
     (1_325_376_000_000_000_000, "%u %w %U %W %I %e %j", "7 0 01 00 12  1 001"),
@@ -200,6 +207,31 @@ EDGE_CASES = (
     (1_709_251_199_999_999_999, "%F %T.%N %j", "2024-02-29 23:59:59.999999999 060"),
     (0, "%F %T %Z", "1970-01-01 00:00:00 UTC"),
     (-1_000_000_000_000_000_000, "%F %T", "1938-04-24 22:13:20"),
+    # The two-digit ISO year follows %G, not %Y.
+    (1_609_459_200_000_000_000, "%g %y", "20 21"),
+    (1_735_516_800_000_000_000, "%g %y", "25 24"),
+    # The last nanosecond before the epoch, and the last one of the first second.
+    (
+        -1,
+        "%F %T.%N %j %w %G-%V %C %g",
+        "1969-12-31 23:59:59.999999999 365 3 1970-01 19 70",
+    ),
+    (
+        999_999_999,
+        "%F %T.%N %j %w %G-%V %C %g",
+        "1970-01-01 00:00:00.999999999 001 4 1970-01 19 70",
+    ),
+    # The earliest and latest timestamps.
+    (
+        -(2**63),
+        "%F %T.%N %j %w %G-%V %C %g",
+        "1677-09-21 00:12:43.145224192 264 2 1677-38 16 77",
+    ),
+    (
+        2**63 - 1,
+        "%F %T.%N %j %w %G-%V %C %g",
+        "2262-04-11 23:47:16.854775807 101 5 2262-15 22 62",
+    ),
 )
 
 # Codes Python documents for every platform. The rest are checked by hand above.

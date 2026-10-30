@@ -4614,9 +4614,7 @@ var _ = Describe("Compiler", func() {
 		strOf := func(results []uint64) string {
 			GinkgoHelper()
 			Expect(results).To(HaveLen(1))
-			str, ok := strState.Get(uint32(results[0]))
-			Expect(ok).To(BeTrue())
-			return str
+			return MustBeOk(strState.Get(uint32(results[0])))
 		}
 
 		It("Should format the cycle timestamp into a str local", func(ctx SpecContext) {
@@ -4747,6 +4745,12 @@ var _ = Describe("Compiler", func() {
 				Entry("%F", "%F", "2012-01-17"),
 				Entry("%T", "%T", "08:32:05"),
 				Entry("%%", "%%", "%"),
+				Entry("%C", "%C", "20"),
+				Entry("%D", "%D", "01/17/12"),
+				Entry("%g", "%g", "12"),
+				Entry("%n", "%n", "\n"),
+				Entry("%R", "%R", "08:32"),
+				Entry("%t", "%t", "\t"),
 				Entry(
 					"a Python format",
 					"%Y-%m-%d %H:%M:%S.%f",
@@ -4796,6 +4800,108 @@ var _ = Describe("Compiler", func() {
 					"%F %T",
 					"1938-04-24 22:13:20",
 				),
+				Entry(
+					"two-digit ISO year in the previous year",
+					time.Date(2021, time.January, 1, 0, 0, 0, 0, time.UTC).UnixNano(),
+					"%g %y",
+					"20 21",
+				),
+				Entry(
+					"two-digit ISO year in the next year",
+					time.Date(2024, time.December, 30, 0, 0, 0, 0, time.UTC).UnixNano(),
+					"%g %y",
+					"25 24",
+				),
+				Entry(
+					"the last nanosecond before the epoch",
+					int64(-1),
+					"%F %T.%N %j %w %G-%V %C %g",
+					"1969-12-31 23:59:59.999999999 365 3 1970-01 19 70",
+				),
+				Entry(
+					"the last nanosecond of the first second",
+					int64(999_999_999),
+					"%F %T.%N %j %w %G-%V %C %g",
+					"1970-01-01 00:00:00.999999999 001 4 1970-01 19 70",
+				),
+				Entry(
+					"the earliest timestamp",
+					int64(math.MinInt64),
+					"%F %T.%N %j %w %G-%V %C %g",
+					"1677-09-21 00:12:43.145224192 264 2 1677-38 16 77",
+				),
+				Entry(
+					"one nanosecond after the earliest timestamp",
+					int64(math.MinInt64+1),
+					"%F %T.%N",
+					"1677-09-21 00:12:43.145224193",
+				),
+				Entry(
+					"the latest timestamp",
+					int64(math.MaxInt64),
+					"%F %T.%N %j %w %G-%V %C %g",
+					"2262-04-11 23:47:16.854775807 101 5 2262-15 22 62",
+				),
+			)
+
+			It(
+				"Should agree with the Go time package on every day",
+				func(ctx SpecContext) {
+					output := MustSucceed(compileWithHostImports(ctx, `
+				import time
+				func compute(t i64 ns, fmt str) str {
+					return time.format(t, fmt)
+				}
+				`, nil))
+					mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+					compute := mod.ExportedFunction("compute")
+					format := strState.Create(
+						"%Y-%m-%d %H:%M:%S %e %j %u %w %U %W %G-%V %C %y %g %D %R %F %T",
+					)
+					// The sweep covers every day an i64 ns timestamp can hold. %U
+					// counts the Sundays so far this year and %W the Mondays, which is
+					// their definition.
+					sundays, mondays := 0, 0
+					first := time.Date(1678, time.January, 1, 13, 4, 5, 0, time.UTC)
+					for day := first; day.Year() < 2262; day = day.AddDate(0, 0, 1) {
+						if day.YearDay() == 1 {
+							sundays, mondays = 0, 0
+						}
+						switch day.Weekday() {
+						case time.Sunday:
+							sundays++
+						case time.Monday:
+							mondays++
+						}
+						isoYear, isoWeek := day.ISOWeek()
+						weekday := int(day.Weekday())
+						expected := fmt.Sprintf(
+							"%s %2d %03d %d %d %02d %02d %04d-%02d %02d %02d %02d %s %s %s %s",
+							day.Format("2006-01-02 15:04:05"),
+							day.Day(),
+							day.YearDay(),
+							(weekday+6)%7+1,
+							weekday,
+							sundays,
+							mondays,
+							isoYear,
+							isoWeek,
+							day.Year()/100,
+							day.Year()%100,
+							isoYear%100,
+							day.Format("01/02/06"),
+							day.Format("15:04"),
+							day.Format("2006-01-02"),
+							day.Format("15:04:05"),
+						)
+						results := MustSucceed(
+							compute.Call(ctx, uint64(day.UnixNano()), uint64(format)),
+						)
+						Expect(
+							strOf(results),
+						).To(Equal(expected), day.Format(time.RFC3339))
+					}
+				},
 			)
 
 			It("Should format into an f-string through a local", func(ctx SpecContext) {

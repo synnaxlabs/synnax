@@ -71,7 +71,8 @@ var (
 	)
 	moduleDoc = doc.New(
 		doc.Paragraph(
-			"Time-related primitives: reading the current timestamp, string formatting, firing periodic intervals, and waiting fixed durations.",
+			"Time-related primitives: reading the current timestamp, string " +
+				"formatting, firing periodic intervals, and waiting fixed durations.",
 		),
 	)
 )

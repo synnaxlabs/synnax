@@ -19,60 +19,6 @@
 
 namespace arc::stl::time {
 
-/// @brief holds the UTC calendar and clock fields of a timestamp.
-struct CivilTime {
-    int year;
-    int month;
-    int day;
-    int hour;
-    int minute;
-    int second;
-    int nanosecond;
-    /// @brief counts from 1 on January 1.
-    int year_day;
-    /// @brief counts from 0 on Sunday.
-    int weekday;
-    int iso_year;
-    int iso_week;
-};
-
-/// @brief returns the number of ISO weeks in year, 52 or 53.
-inline int iso_weeks_in(const int year) {
-    const auto p = [](const int y) { return (y + y / 4 - y / 100 + y / 400) % 7; };
-    return p(year) == 4 || p(year - 1) == 3 ? 53 : 52;
-}
-
-inline CivilTime break_down(const x::telem::TimeStamp ts) {
-    const int64_t value = ts.nanoseconds();
-    const int64_t sec = value / 1'000'000'000 -
-                        (value % 1'000'000'000 != 0 && value < 0);
-    const int64_t day = sec / 86400 - (sec % 86400 != 0 && sec < 0);
-    const int64_t sod = sec - day * 86400;
-    const date::Date d = date::civil_from_days(static_cast<int32_t>(day));
-    CivilTime c{};
-    c.year = d.year;
-    c.month = d.month;
-    c.day = d.day;
-    c.hour = static_cast<int>(sod / 3600);
-    c.minute = static_cast<int>(sod / 60 % 60);
-    c.second = static_cast<int>(sod % 60);
-    c.nanosecond = static_cast<int>(value - sec * 1'000'000'000);
-    c.year_day = static_cast<int>(day - date::days_from_civil({d.year, 1, 1})) + 1;
-    // 1970-01-01 was a Thursday.
-    c.weekday = static_cast<int>((day % 7 + 11) % 7);
-    const int iso_weekday = (c.weekday + 6) % 7 + 1;
-    c.iso_year = c.year;
-    c.iso_week = (c.year_day - iso_weekday + 10) / 7;
-    if (c.iso_week < 1) {
-        c.iso_year--;
-        c.iso_week = iso_weeks_in(c.iso_year);
-    } else if (c.iso_week > iso_weeks_in(c.year)) {
-        c.iso_year++;
-        c.iso_week = 1;
-    }
-    return c;
-}
-
 /// @brief appends v to b, zero padded to width. A sign counts toward width.
 inline void pad(std::string &b, int v, int width) {
     if (v < 0) {
@@ -92,13 +38,16 @@ inline void pad(std::string &b, int v, int width) {
 /// change with the user's language, and both runtimes must print the same bytes, so
 /// the locale codes are left out.
 /// @returns false for an unsupported code, with b unchanged.
-inline bool expand(std::string &b, const CivilTime &c, const char code) {
+inline bool expand(std::string &b, const date::CivilTime &c, const char code) {
     switch (code) {
         case 'Y':
             pad(b, c.year, 4);
             return true;
         case 'y':
             pad(b, c.year % 100, 2);
+            return true;
+        case 'C':
+            pad(b, c.year / 100, 2);
             return true;
         case 'm':
             pad(b, c.month, 2);
@@ -148,6 +97,9 @@ inline bool expand(std::string &b, const CivilTime &c, const char code) {
         case 'G':
             pad(b, c.iso_year, 4);
             return true;
+        case 'g':
+            pad(b, c.iso_year % 100, 2);
+            return true;
         case 'V':
             pad(b, c.iso_week, 2);
             return true;
@@ -171,6 +123,24 @@ inline bool expand(std::string &b, const CivilTime &c, const char code) {
             b += ':';
             pad(b, c.second, 2);
             return true;
+        case 'D':
+            pad(b, c.month, 2);
+            b += '/';
+            pad(b, c.day, 2);
+            b += '/';
+            pad(b, c.year % 100, 2);
+            return true;
+        case 'R':
+            pad(b, c.hour, 2);
+            b += ':';
+            pad(b, c.minute, 2);
+            return true;
+        case 'n':
+            b += '\n';
+            return true;
+        case 't':
+            b += '\t';
+            return true;
         case '%':
             b += '%';
             return true;
@@ -183,7 +153,7 @@ inline bool expand(std::string &b, const CivilTime &c, const char code) {
 /// of format, are copied through unchanged.
 inline std::string
 strftime(const x::telem::TimeStamp ts, const std::string_view format) {
-    const auto c = break_down(ts);
+    const date::CivilTime c = date::civil_from_nanoseconds(ts.nanoseconds());
     std::string b;
     b.reserve(format.size() * 2);
     for (size_t i = 0; i < format.size(); i++) {

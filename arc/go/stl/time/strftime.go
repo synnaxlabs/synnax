@@ -63,6 +63,7 @@ func second(b []byte, c civilTime) []byte { return pad(b, c.second, 2) }
 var codes = map[byte]expansion{
 	'Y': year,
 	'y': func(b []byte, c civilTime) []byte { return pad(b, c.year%100, 2) },
+	'C': func(b []byte, c civilTime) []byte { return pad(b, c.year/100, 2) },
 	'm': month,
 	'd': day,
 	'e': func(b []byte, c civilTime) []byte { return fmt.Appendf(b, "%2d", c.day) },
@@ -84,6 +85,7 @@ var codes = map[byte]expansion{
 		return pad(b, (c.yearDay-1-(c.weekday+6)%7+7)/7, 2)
 	},
 	'G': func(b []byte, c civilTime) []byte { return pad(b, c.isoYear, 4) },
+	'g': func(b []byte, c civilTime) []byte { return pad(b, c.isoYear%100, 2) },
 	'V': func(b []byte, c civilTime) []byte { return pad(b, c.isoWeek, 2) },
 	'z': func(b []byte, _ civilTime) []byte { return append(b, "+0000"...) },
 	'Z': func(b []byte, _ civilTime) []byte { return append(b, "UTC"...) },
@@ -101,6 +103,20 @@ var codes = map[byte]expansion{
 		b = append(b, ':')
 		return second(b, c)
 	},
+	'D': func(b []byte, c civilTime) []byte {
+		b = month(b, c)
+		b = append(b, '/')
+		b = day(b, c)
+		b = append(b, '/')
+		return pad(b, c.year%100, 2)
+	},
+	'R': func(b []byte, c civilTime) []byte {
+		b = hour(b, c)
+		b = append(b, ':')
+		return minute(b, c)
+	},
+	'n': func(b []byte, _ civilTime) []byte { return append(b, '\n') },
+	't': func(b []byte, _ civilTime) []byte { return append(b, '\t') },
 	'%': func(b []byte, _ civilTime) []byte { return append(b, '%') },
 }
 

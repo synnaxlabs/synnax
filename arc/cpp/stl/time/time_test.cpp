@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <cstdint>
+#include <ctime>
 #include <memory>
 #include <string>
 #include <string_view>
@@ -1665,7 +1666,7 @@ TEST(FormatTest, MatchesTheGoVectors) {
 /// @brief Tuesday, January 17, 2012 at 08:32:05.25 UTC, in ISO week 3.
 constexpr int64_t STAMP = 1'326'789'125'250'000'000;
 
-/// @brief every fmt code expands as in the Go table.
+/// @brief every format code expands as in the Go table.
 TEST(FormatTest, ExpandsEveryCode) {
     FormatFixture f;
     EXPECT_EQ(f.format(STAMP, "%Y"), "2012");
@@ -1691,6 +1692,12 @@ TEST(FormatTest, ExpandsEveryCode) {
     EXPECT_EQ(f.format(STAMP, "%F"), "2012-01-17");
     EXPECT_EQ(f.format(STAMP, "%T"), "08:32:05");
     EXPECT_EQ(f.format(STAMP, "%%"), "%");
+    EXPECT_EQ(f.format(STAMP, "%C"), "20");
+    EXPECT_EQ(f.format(STAMP, "%D"), "01/17/12");
+    EXPECT_EQ(f.format(STAMP, "%g"), "12");
+    EXPECT_EQ(f.format(STAMP, "%n"), "\n");
+    EXPECT_EQ(f.format(STAMP, "%R"), "08:32");
+    EXPECT_EQ(f.format(STAMP, "%t"), "\t");
     EXPECT_EQ(f.format(STAMP, "%Y-%m-%d %H:%M:%S.%f"), "2012-01-17 08:32:05.250000");
     EXPECT_EQ(f.format(STAMP, "T+%S s"), "T+05 s");
 }
@@ -1712,11 +1719,57 @@ TEST(FormatTest, MatchesCAndPythonAtTheEdges) {
     EXPECT_EQ(f.format(1'735'516'800'000'000'000, "%G-%V %Y"), "2025-01 2024");
     EXPECT_EQ(f.format(0, "%F %T"), "1970-01-01 00:00:00");
     EXPECT_EQ(f.format(-1'000'000'000'000'000'000, "%F %T"), "1938-04-24 22:13:20");
+    // The two-digit ISO year follows %G, not %Y.
+    EXPECT_EQ(f.format(1'609'459'200'000'000'000, "%g %y"), "20 21");
+    EXPECT_EQ(f.format(1'735'516'800'000'000'000, "%g %y"), "25 24");
+}
+
+/// @brief the ends of the timestamp range format without overflow.
+TEST(FormatTest, HoldsAtTheEndsOfTheRange) {
+    FormatFixture f;
+    const std::string_view fmt = "%F %T.%N %j %w %G-%V %C %g";
+    EXPECT_EQ(f.format(-1, fmt), "1969-12-31 23:59:59.999999999 365 3 1970-01 19 70");
+    EXPECT_EQ(
+        f.format(999'999'999, fmt),
+        "1970-01-01 00:00:00.999999999 001 4 1970-01 19 70"
+    );
+    EXPECT_EQ(
+        f.format(INT64_MIN, fmt),
+        "1677-09-21 00:12:43.145224192 264 2 1677-38 16 77"
+    );
+    EXPECT_EQ(f.format(INT64_MIN + 1, "%F %T.%N"), "1677-09-21 00:12:43.145224193");
+    EXPECT_EQ(
+        f.format(INT64_MAX, fmt),
+        "2262-04-11 23:47:16.854775807 101 5 2262-15 22 62"
+    );
 }
 
 /// @brief an unknown code and a trailing percent copy through unchanged.
 TEST(FormatTest, CopiesAnUnknownCodeThrough) {
     FormatFixture f;
     EXPECT_EQ(f.format(STAMP, "%Q %"), "%Q %");
+}
+
+/// @brief every day from 1970 to 2100 formats as the C library does.
+TEST(FormatTest, MatchesTheCLibraryOnEveryDay) {
+    const char
+        *format = "%Y-%m-%d %H:%M:%S %e %j %u %w %U %W %G-%V %C %y %g %D %R %F %T";
+    // 4'133'980'800 is 2101-01-01T00:00:00Z.
+    for (int64_t sec = 13 * 3600 + 4 * 60 + 5; sec < 4'133'980'800; sec += 86400) {
+        const auto t = static_cast<std::time_t>(sec);
+        std::tm tm{};
+#ifdef _WIN32
+        ASSERT_EQ(gmtime_s(&tm, &t), 0) << sec;
+#else
+        ASSERT_NE(gmtime_r(&t, &tm), nullptr) << sec;
+#endif
+        char buf[128];
+        const size_t n = std::strftime(buf, sizeof(buf), format, &tm);
+        ASSERT_GT(n, 0u) << sec;
+        EXPECT_EQ(
+            strftime(x::telem::TimeStamp(sec * 1'000'000'000), format),
+            std::string(buf, n)
+        ) << sec;
+    }
 }
 }
