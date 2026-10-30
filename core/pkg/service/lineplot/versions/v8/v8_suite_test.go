@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package testutil_test
+package v8_test
 
 import (
 	"testing"
@@ -17,9 +17,9 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func TestTestutil(t *testing.T) {
+func TestLinePlotV7(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "IR Testutil Suite", SuiteConfig())
+	RunSpecs(t, "Service Line Plot v8 Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
