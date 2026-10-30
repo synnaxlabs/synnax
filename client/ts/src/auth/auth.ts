@@ -28,6 +28,7 @@ import {
   type Proof,
   proofZ,
   type Session,
+  type SessionKey,
   sessionZ,
 } from "@/auth/types.gen";
 import {
@@ -211,10 +212,10 @@ export interface Observer {
    */
   onUser?: (user: user.User | undefined) => void;
   /**
-   * Fires after every successful login, and after setting a password opens a new
-   * session.
+   * Fires with the session's key after every successful login, and after setting a
+   * password opens a new session.
    */
-  onSuccess?: () => void;
+  onSuccess?: (session: SessionKey) => void;
   /** Fires on a definitive credential rejection, never on token self-heal. */
   onFailure?: (error: Error) => void;
 }
@@ -259,8 +260,9 @@ export class Client {
     this.sessions = new session.Client(client);
     this.passwords = new password.Client(client, {
       cookie: this.cookie,
+      generation: () => this.generation,
       onChange: (subject, change) => this.updateOwnCredentials(subject, change),
-      watchSession: () => this.watchSession(),
+      onSession: (token, session) => this.replaceSession(token, session),
     });
     this.oidc = new oidc.Client(client);
   }
@@ -273,14 +275,10 @@ export class Client {
     if (own && this.credentials != null) Object.assign(this.credentials, change);
   }
 
-  private watchSession(): password.SessionHandler {
-    const { generation } = this;
-    return (token, session) => {
-      if (generation !== this.generation) return;
-      this.authState = { authenticated: true, token, session };
-      if (this.resumeToken != null) this.resumeToken = token;
-      this.observer.onSuccess?.();
-    };
+  private replaceSession(token: string, session: Session): void {
+    this.authState = { authenticated: true, token, session };
+    if (this.resumeToken != null) this.resumeToken = token;
+    this.observer.onSuccess?.(session.key);
   }
 
   /** Replaces the stored credentials and clears auth state for a fresh login. */
@@ -482,7 +480,7 @@ export class Client {
       this.authState = state;
       this.ownsSession = owned;
       this.observer.onUser?.(u);
-      this.observer.onSuccess?.();
+      this.observer.onSuccess?.(state.session.key);
       return null;
     } catch (err) {
       const parsed = errors.fromUnknown(err);
