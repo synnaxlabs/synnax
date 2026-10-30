@@ -405,7 +405,7 @@ func bindF32(
 		}).Export("read_f32")
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID uint32, val float32) {
-			ps.WriteChannelF32(chID, val)
+			appendFixedWriteSample(ps, chID, val)
 		}).Export("write_f32")
 	return builder
 }
@@ -424,7 +424,7 @@ func bindF64(
 		}).Export("read_f64")
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, chID uint32, val float64) {
-			ps.WriteChannelF64(chID, val)
+			appendFixedWriteSample(ps, chID, val)
 		}).Export("write_f64")
 	return builder
 }
