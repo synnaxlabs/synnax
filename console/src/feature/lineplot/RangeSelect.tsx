@@ -120,13 +120,7 @@ interface RollingTagProps {
 const RollingTag = ({ itemKey, window, onChange }: RollingTagProps): ReactElement => {
   const { onSelect } = Select.useItemState(itemKey);
   return (
-    <Tag.Tag
-      icon={liveIcon}
-      onClose={onSelect}
-      level="small"
-      size="small"
-      className={CSS.BE("range-select", "editable")}
-    >
+    <Tag.Tag icon={liveIcon} onClose={onSelect} level="small" size="small">
       <Input.TimeSpan
         value={window.timeSpan}
         onChange={(span) => onChange(new TimeSpan(span))}
@@ -191,7 +185,6 @@ const StaticTag = ({
       level="small"
       size="small"
       tooltip={name}
-      className={CSS.BE("range-select", "editable")}
     >
       <Input.DateTime
         value={start}
