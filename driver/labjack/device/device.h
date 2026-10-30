@@ -9,8 +9,12 @@
 
 #pragma once
 
+#include <functional>
 #include <map>
+#include <memory>
 #include <mutex>
+#include <string>
+#include <utility>
 
 #include "absl/log/log.h"
 
@@ -272,6 +276,10 @@ public:
     acquire(const std::string &serial_number) = 0;
 };
 
+/// @brief opens the device with the given serial number.
+using Opener = std::function<
+    std::pair<std::shared_ptr<Device>, x::errors::Error>(const std::string &)>;
+
 /// @brief a Manager that opens devices through the LJM library, sharing one handle
 /// among concurrent holders of the same device.
 class LJMManager final : public Manager {
@@ -283,6 +291,8 @@ class LJMManager final : public Manager {
     std::mutex open_mu;
     std::map<std::string, std::weak_ptr<Device>> handles;
     std::shared_ptr<ljm::API> ljm;
+    /// @brief opens a device when no holder remains.
+    Opener open;
 
     /// @brief returns the cached device for the serial number, if a holder still
     /// exists.
@@ -296,7 +306,27 @@ class LJMManager final : public Manager {
     }
 
 public:
-    explicit LJMManager(const std::shared_ptr<ljm::API> &ljm): ljm(ljm) {}
+    /// @brief lists and opens devices through the LJM library.
+    explicit LJMManager(const std::shared_ptr<ljm::API> &ljm):
+        LJMManager(
+            ljm,
+            [ljm](const std::string &serial_number)
+                -> std::pair<std::shared_ptr<Device>, x::errors::Error> {
+                int dev_handle = 0;
+                const int err = ljm->open(
+                    LJM_dtANY,
+                    LJM_ctANY,
+                    serial_number.c_str(),
+                    &dev_handle
+                );
+                if (err != 0) return {nullptr, parse_error(ljm, err)};
+                return {std::make_shared<LJMDevice>(ljm, dev_handle), x::errors::NIL};
+            }
+        ) {}
+
+    /// @brief lists devices through the LJM library and opens them through open.
+    LJMManager(std::shared_ptr<ljm::API> ljm, Opener open):
+        ljm(std::move(ljm)), open(std::move(open)) {}
 
     x::errors::Error list_all(
         const int dev_type,
@@ -333,11 +363,13 @@ public:
         // A racing caller may have opened the device while we waited.
         if (auto existing = this->cached(serial_number))
             return {existing, x::errors::NIL};
-        int dev_handle = 0;
-        const int
-            err = ljm->open(LJM_dtANY, LJM_ctANY, serial_number.c_str(), &dev_handle);
-        if (err != 0) return {nullptr, parse_error(ljm, err)};
-        auto dev = std::make_shared<LJMDevice>(ljm, dev_handle);
+        auto [dev, open_err] = this->open(serial_number);
+        if (open_err) return {nullptr, open_err};
+        // A stream outlives the process that started it, and no caller holds this new
+        // handle, so any stream on the device belongs to another process.
+        if (const auto stop_err = dev->e_stream_stop();
+            stop_err && !stop_err.matches(ljm::STREAM_NOT_RUNNING))
+            return {nullptr, stop_err};
         std::lock_guard lock(this->mu);
         this->handles[serial_number] = dev;
         return {dev, x::errors::NIL};
