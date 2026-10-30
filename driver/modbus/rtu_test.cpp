@@ -372,6 +372,43 @@ TEST(RTU, SharesConnectionAfterPortMoves) {
     EXPECT_EQ(moved.unit_requests(1), 2);
 }
 
+/// @brief it should send requests to the port that a link names now, even while the
+/// port it named before still answers.
+TEST(RTU, FollowsLinkToNewPort) {
+    auto before_cfg = serial_slave();
+    before_cfg.holding_registers[0] = static_cast<uint16_t>(1);
+    testutil::Slave before(before_cfg);
+    ASSERT_NIL(before.start());
+    x::defer::defer stop_before([&before] { before.stop(); });
+    auto after_cfg = serial_slave();
+    after_cfg.holding_registers[0] = static_cast<uint16_t>(2);
+    testutil::Slave after(after_cfg);
+    ASSERT_NIL(after.start());
+    x::defer::defer stop_after([&after] { after.stop(); });
+    const auto link = std::filesystem::temp_directory_path() /
+                      ("modbus-rtu-" + x::uuid::create().to_string());
+    std::filesystem::create_symlink(before.serial_port(), link);
+    x::defer::defer remove_link([&link] { std::filesystem::remove(link); });
+    device::Manager manager;
+    auto link_cfg = rtu(before, 1);
+    link_cfg.serial.port = link.string();
+    auto linked = ASSERT_NIL_P(manager.acquire(link_cfg));
+    uint16_t reg = 0;
+    ASSERT_NIL(linked->read_registers(device::HoldingRegister, 0, 1, &reg));
+    EXPECT_EQ(reg, 1);
+
+    std::filesystem::remove(link);
+    std::filesystem::create_symlink(after.serial_port(), link);
+    auto direct = ASSERT_NIL_P(manager.acquire(rtu(after, 1)));
+    ASSERT_NIL(direct->read_registers(device::HoldingRegister, 0, 1, &reg));
+    EXPECT_EQ(reg, 2);
+    ASSERT_NIL(linked->read_registers(device::HoldingRegister, 0, 1, &reg));
+    EXPECT_EQ(reg, 2);
+    auto old = ASSERT_NIL_P(manager.acquire(rtu(before, 1)));
+    ASSERT_NIL(old->read_registers(device::HoldingRegister, 0, 1, &reg));
+    EXPECT_EQ(reg, 1);
+}
+
 /// @brief it should return an unreachable error when the serial port does not exist.
 TEST(RTU, MissingPortIsUnreachable) {
     device::Manager manager;
@@ -490,6 +527,53 @@ TEST(RTU, ScannerRejectsLineSettingsOfOpenPort) {
         "serial port " + slave.serial_port() +
             " is open at 19200 8E1, but this device uses 9600 8E1"
     );
+}
+
+/// @brief it should keep a serial port at the line settings of the first saved server
+/// on it, and report the conflict on a saved server with other settings in every scan.
+TEST(RTU, ScannerKeepsPortForFirstServer) {
+    testutil::Slave slave(serial_slave());
+    ASSERT_NIL(slave.start());
+    x::defer::defer stop_slave([&slave] { slave.stop(); });
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    synnax::task::Task t;
+    Scanner scanner(ctx, t, std::make_shared<device::Manager>());
+    auto slow = rtu(slave, 2);
+    slow.serial.baud_rate = 9600;
+    std::unordered_map<std::string, synnax::device::Device> devices{
+        {"fast", rtu_device(slave, "fast", 1)},
+        {"slow", rtu_device(slave, "slow", 2)},
+    };
+    devices["slow"].properties = {{"connection", slow.to_json()}};
+    const std::unordered_map<std::string, std::string> lines{
+        {"fast", "19200 8E1"},
+        {"slow", "9600 8E1"},
+    };
+    common::ScannerContext scan_ctx;
+    scan_ctx.devices = &devices;
+
+    std::string first;
+    for (int scan = 0; scan < 2; scan++) {
+        const auto scanned = ASSERT_NIL_P(scanner.scan(scan_ctx));
+        ASSERT_EQ(scanned.size(), 2);
+        for (const auto &dev: scanned)
+            if (dev.status.value().variant == synnax::status::VARIANT_SUCCESS) {
+                if (first.empty()) first = dev.key;
+                EXPECT_EQ(dev.key, first);
+            }
+        ASSERT_FALSE(first.empty());
+        for (const auto &dev: scanned) {
+            if (dev.key == first) continue;
+            const auto status = dev.status.value();
+            EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
+            EXPECT_EQ(status.message, "Failed to reach device");
+            EXPECT_EQ(
+                status.description,
+                "serial port " + slave.serial_port() + " is open at " +
+                    lines.at(first) + ", but this device uses " + lines.at(dev.key)
+            );
+        }
+    }
 }
 
 /// @brief it should report each unit on a serial port by whether it answers.

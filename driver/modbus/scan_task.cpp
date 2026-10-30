@@ -90,7 +90,11 @@ void Scanner::check_device_health(synnax::device::Device &dev) {
         return;
     }
 
-    this->release_stale(lock, props.connection);
+    // A device's old line settings would conflict with its new ones on the same port.
+    if (const auto held = this->checks.find(dev.key);
+        held != this->checks.end() &&
+        held->second.dev->config().serial.line() != props.connection.serial.line())
+        this->checks.erase(held);
     auto [d, err] = this->devices->acquire(props.connection, props.requests);
     if (err)
         this->checks.erase(dev.key);
