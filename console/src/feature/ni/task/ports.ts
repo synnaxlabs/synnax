@@ -51,7 +51,7 @@ const claim = (claims: Claims, port: number, c: Claim): void => {
  * The terminal configuration an analog input channel gets on its port, with "Default"
  * resolved to what the port gives. Null for a channel type that has none.
  */
-export const resolveTerminalConfig = (
+const resolveTerminalConfig = (
   channel: AIChannel,
   port?: ni.AnalogInputPort,
 ): TerminalConfig | null => {
