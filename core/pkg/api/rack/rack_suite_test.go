@@ -49,6 +49,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Task:   svc.Task,
 		Status: svc.Status,
 		RBAC:   svc.RBAC,
+		Auth:   svc.Auth,
 	}))
 })
 
@@ -56,7 +57,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 func createUser(ctx SpecContext) user.User {
 	GinkgoHelper()
 	return MustSucceed(svc.User.NewWriter(nil).Create(ctx, user.User{
-		Username: "user-" + uuid.New().String(),
+		Name: "user-" + uuid.New().String(),
 	}))
 }
 

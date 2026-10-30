@@ -88,13 +88,13 @@ export default async (session: capture.CaptureSession): Promise<void> => {
       page
         .locator(".pluto-mosaic__leaf:visible")
         .filter({
-          has: page.locator(".pluto-tabs__tab").getByText(name, { exact: true }),
+          has: page.locator(".lyra-tabs__tab").getByText(name, { exact: true }),
         })
         .first();
     const navItem = (toolbar: string): Locator =>
       page
         .locator("button.console-main-nav__item")
-        .filter({ has: page.locator(`svg.pluto-icon--${toolbar}`) })
+        .filter({ has: page.locator(`svg.lyra-icon--${toolbar}`) })
         .first();
     const paletteButton = page.locator(".console-palette button").first();
     const componentItem = page.locator("button.console-main-nav__item").last();
@@ -109,7 +109,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
       project: page.locator(".console-project-selector__trigger").first(),
       search: paletteButton,
       toolbars: page.locator(
-        ".pluto-navbar__content:has(.console-palette) button.console-main-nav__item",
+        ".lyra-navbar__content:has(.console-palette) button.console-main-nav__item",
       ),
       ...Object.fromEntries(
         Object.entries(TOOLBARS).map(([step, toolbar]) => [step, navItem(toolbar)]),
@@ -136,7 +136,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await page.keyboard.press("Escape");
     await session.settle(500);
 
-    const left = page.locator(".console-nav__drawer.pluto--location-left").first();
+    const left = page.locator(".console-nav__drawer.lyra--location-left").first();
     for (const [step, toolbar] of Object.entries(TOOLBARS)) {
       await capture.openToolbar(session, toolbar);
       await session.waitFor(left);
@@ -156,7 +156,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
       tab("OX Pressures").getByText("OX Pressures", { exact: true }).first(),
     );
     await capture.showVisualizationToolbar(session);
-    const bottom = page.locator(".console-nav__drawer.pluto--location-bottom").first();
+    const bottom = page.locator(".console-nav__drawer.lyra--location-bottom").first();
     await session.waitFor(bottom);
     await rest();
     await session.still("component", { ...parts(), drawer: bottom });
@@ -178,7 +178,7 @@ const favorite = async (
   const { page } = session;
   await capture.commandPalette(session, command);
   for (const name of names) {
-    const item = page.locator(".pluto-list__item").filter({ hasText: name }).first();
+    const item = page.locator(".lyra-list__item").filter({ hasText: name }).first();
     await session.waitFor(item);
     await capture.contextMenu(
       session,
@@ -188,7 +188,7 @@ const favorite = async (
     session.endZoom();
     await session.settle(300);
   }
-  const tab = page.locator(".console-mosaic .pluto-tabs__tab.pluto--selected").first();
-  await session.click(tab.locator(".pluto-tabs__close").first(), { zoom: false });
+  const tab = page.locator(".console-mosaic .lyra-tabs__tab.lyra--selected").first();
+  await session.click(tab.locator(".lyra-tabs__close").first(), { zoom: false });
   await session.settle(500);
 };

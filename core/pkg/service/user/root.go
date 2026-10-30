@@ -117,7 +117,7 @@ func (s *Service) resolveRoot(
 		Exec(ctx, tx)
 	if errors.Is(err, query.ErrNotFound) {
 		created, err := s.NewWriter(tx).create(ctx, User{
-			Username: username,
+			Name:     username,
 			RootUser: true,
 		})
 		if err != nil {
@@ -158,8 +158,8 @@ func (s *Service) resolveRoot(
 
 func (s *Service) demoteRoot(ctx context.Context, tx gorp.Tx, u User) error {
 	if err := s.NewWriter(tx).setRootUser(ctx, u.Key, false); err != nil {
-		return errors.Wrapf(err, "demote root user %q", u.Username)
+		return errors.Wrapf(err, "demote root user %q", u.Name)
 	}
-	s.cfg.L.Warn("demoted root user", zap.String("username", u.Username))
+	s.cfg.L.Warn("demoted root user", zap.String("name", u.Name))
 	return nil
 }

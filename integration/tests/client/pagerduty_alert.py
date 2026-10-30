@@ -103,7 +103,7 @@ class PagerDutyAlert(TestCase):
         timer = sy.Timer()
         configured = False
         while timer.elapsed() < 10 * sy.TimeSpan.SECOND:
-            frame = streamer.read(1)
+            frame = streamer.read(timeout=1)
             if frame is None or "sy_status_set" not in frame:
                 continue
             for val in frame["sy_status_set"]:

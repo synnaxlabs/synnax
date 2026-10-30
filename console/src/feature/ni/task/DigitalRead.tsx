@@ -83,6 +83,7 @@ const getInitialValues: Task.GetInitialValues<DigitalReadSchemas> = ({
 }) => {
   const cfg = digitalReadConfigZ.parse(config ?? {});
   if (deviceKey != null) cfg.device = deviceKey;
+  if (config == null) cfg.channels = [createNextDIChannel([])];
   return { name: "NI digital read task", type: DIGITAL_READ_TYPE, config: cfg };
 };
 
