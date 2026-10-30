@@ -26,14 +26,20 @@ const x::errors::Error BREAKER_OPEN_ERROR(
 );
 
 namespace {
+/// @brief encodes one field of a key with its length first, so different field values
+/// never produce the same key.
+std::string field(const std::string &value) {
+    return std::to_string(value.size()) + ":" + value;
+}
+
 /// @brief identifies the configurations whose connections differ only in the client
 /// certificate. The endpoint comes first for available_count.
 std::string settings_key(const Config &cfg) {
-    std::string key = cfg.endpoint + "|" + cfg.username + "|" + cfg.password + "|" +
-                      cfg.security_mode + "|" + cfg.security_policy;
+    std::string key = field(cfg.endpoint) + field(cfg.username) + field(cfg.password) +
+                      field(cfg.security_mode) + field(cfg.security_policy);
     if (!cfg.secured()) return key;
-    return key + "|" + cfg.client_cert + "|" + cfg.client_private_key + "|" +
-           (cfg.certificate_validation_disabled ? "unvalidated" : "validated");
+    return key + field(cfg.client_cert) + field(cfg.client_private_key) +
+           field(cfg.certificate_validation_disabled ? "unvalidated" : "validated");
 }
 
 /// @brief identifies the connections that one configuration and client certificate
@@ -42,7 +48,7 @@ std::string settings_key(const Config &cfg) {
 /// that certificate.
 std::string pool_key(const std::string &settings, const Security &sec) {
     if (!sec.identity.has_value()) return settings;
-    return settings + "|" + sec.identity->certificate.thumbprint();
+    return settings + field(sec.identity->certificate.thumbprint());
 }
 
 /// @returns true if the client trusts the server certificate that the configuration
@@ -391,7 +397,7 @@ size_t Pool::available_count(const std::string &endpoint) const {
     std::lock_guard lock(this->mutex_);
     size_t count = 0;
     for (const auto &[key, entries]: connections_)
-        if (key.starts_with(endpoint))
+        if (key.starts_with(field(endpoint)))
             for (const auto &entry: entries)
                 if (!entry.in_use && entry.client) count++;
     return count;
