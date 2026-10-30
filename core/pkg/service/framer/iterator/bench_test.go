@@ -17,7 +17,7 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -30,7 +30,7 @@ import (
 
 type benchIterEnv struct {
 	ctx           context.Context
-	node          mock.Node
+	node          testutil.Node
 	closer        io.MultiCloser
 	channelSvc    *channel.Service
 	channelWriter channel.Writer
@@ -39,7 +39,7 @@ type benchIterEnv struct {
 
 func newBenchIterEnv(b *testing.B) *benchIterEnv {
 	gomega.RegisterTestingT(b)
-	node := mock.OpenNode(b.Context())
+	node := testutil.OpenNode(b.Context())
 
 	otg, err := ontology.Open(b.Context(), ontology.Config{DB: node.DB})
 	if err != nil {
