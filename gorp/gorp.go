@@ -121,11 +121,33 @@ type Context struct {
 // receive committed=true if Commit succeeded and committed=false
 // otherwise; they fire after the underlying commit attempt completes.
 type txState struct {
-	// mu guards cleanups.
+	// mu guards beforeCommit and cleanups.
 	mu sync.Mutex
+	// beforeCommit is the list of hooks to invoke before the owning tx
+	// commits, in registration order.
+	beforeCommit []func()
 	// cleanups is the list of hooks to invoke when the owning tx
 	// commits or closes, in registration order.
 	cleanups []func(committed bool)
+}
+
+// BeforeCommit registers a hook to run once before the owning transaction
+// commits. Safe to call from any goroutine that holds a reference to the
+// state handle.
+func (s *txState) BeforeCommit(fn func()) {
+	s.mu.Lock()
+	s.beforeCommit = append(s.beforeCommit, fn)
+	s.mu.Unlock()
+}
+
+func (s *txState) runBeforeCommit() {
+	s.mu.Lock()
+	hooks := s.beforeCommit
+	s.beforeCommit = nil
+	s.mu.Unlock()
+	for _, h := range hooks {
+		h()
+	}
 }
 
 // OnCleanup registers a hook to run when the owning transaction commits
@@ -169,10 +191,12 @@ var _ Tx = (*tx)(nil)
 // txIdentity returns this tx's state handle.
 func (t *tx) txIdentity() *txState { return &t.state }
 
-// Commit commits the transaction. Hooks registered via state.OnCleanup
-// run after the commit attempt completes, with committed=true on
-// success and committed=false otherwise.
+// Commit commits the transaction. Hooks registered via state.BeforeCommit
+// run before the commit attempt. Hooks registered via state.OnCleanup run
+// after it completes, with committed=true on success and committed=false
+// otherwise.
 func (t *tx) Commit(ctx context.Context, opts ...any) error {
+	t.state.runBeforeCommit()
 	err := t.Tx.Commit(ctx, opts...)
 	t.state.runCleanups(err == nil)
 	return err

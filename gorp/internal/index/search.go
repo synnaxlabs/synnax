@@ -14,6 +14,7 @@ import (
 	"sync"
 
 	"github.com/synnaxlabs/x/search"
+	"github.com/synnaxlabs/x/set"
 )
 
 // Search is a full-text index of the text that each primary key of type K holds. Search
@@ -25,6 +26,8 @@ type Search[S Scope, K comparable] struct {
 	population population
 	committed  *search.Index[K]
 	overlay    overlay[S, *texts[K]]
+	// published holds the texts of committing scopes. Every read sees them.
+	published set.Set[*texts[K]]
 }
 
 // texts is the text that one scope has staged for each key. A nil text marks a deleted
@@ -47,9 +50,13 @@ func (t *texts[K]) isEmpty() bool { return len(t.keys) == 0 }
 
 // NewSearch returns an empty Search that waits for its bulk load.
 func NewSearch[S Scope, K comparable]() *Search[S, K] {
-	s := &Search[S, K]{population: newPopulation(), committed: search.New[K]()}
+	s := &Search[S, K]{
+		population: newPopulation(),
+		committed:  search.New[K](),
+		published:  set.New[*texts[K]](),
+	}
 	s.overlay.create = func() *texts[K] { return &texts[K]{text: make(map[K][]string)} }
-	s.overlay.flush = s.flush
+	s.overlay.publish, s.overlay.flush, s.overlay.discard = s.publish, s.flush, s.discard
 	return s
 }
 
@@ -109,8 +116,8 @@ func (s *Search[S, K]) StageDelete(scope S, key K) {
 }
 
 // Get returns at most limit keys whose text matches term, closest match first, with the
-// changes of scope applied. A limit of 0 returns every key. It blocks until the bulk
-// load finishes.
+// changes of scope applied. A key that a committing scope sets matches by its new text.
+// A limit of 0 returns every key. It blocks until the bulk load finishes.
 func (s *Search[S, K]) Get(scope S, term string, limit int) (search.Result[K], error) {
 	<-s.population.done
 	s.mu.RLock()
@@ -119,25 +126,51 @@ func (s *Search[S, K]) Get(scope S, term string, limit int) (search.Result[K], e
 		return search.Result[K]{}, err
 	}
 	staged, ok := s.overlay.get(scope)
-	if !ok {
+	if !ok && len(s.published) == 0 {
 		return s.committed.Search(term, limit), nil
 	}
+	overrides := &texts[K]{text: make(map[K][]string)}
+	for published := range s.published {
+		for _, key := range published.keys {
+			if text := published.text[key]; text != nil {
+				overrides.set(key, text)
+			}
+		}
+	}
+	if ok {
+		for _, key := range staged.keys {
+			overrides.set(key, staged.text[key])
+		}
+	}
 	pending := search.New[K]()
-	for _, key := range staged.keys {
-		if text := staged.text[key]; text != nil {
+	for _, key := range overrides.keys {
+		if text := overrides.text[key]; text != nil {
 			pending.Set(key, text...)
 		}
 	}
 	committed := s.committed.SearchExcept(term, func(key K) bool {
-		_, ok := staged.text[key]
+		_, ok := overrides.text[key]
 		return ok
 	}, limit)
 	return search.Merge(limit, committed, pending.Search(term, limit)), nil
 }
 
+func (s *Search[S, K]) publish(t *texts[K]) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.published.Add(t)
+}
+
+func (s *Search[S, K]) discard(t *texts[K]) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.published.Remove(t)
+}
+
 func (s *Search[S, K]) flush(staged *texts[K]) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.published.Remove(staged)
 	for _, key := range staged.keys {
 		text := staged.text[key]
 		if text == nil {

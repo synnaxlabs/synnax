@@ -176,6 +176,24 @@ var _ = Describe("Search", func() {
 			Expect(keys(s, txn, "valve")).To(Equal([]int{3}))
 		})
 
+		It("Should show the text a committing scope sets to every scope", func() {
+			s.Stage(txn, 4, []string{"valve"})
+			s.Stage(txn, 1, []string{"valve"})
+			s.StageDelete(txn, 3)
+			txn.commit()
+			Expect(keys(s, nil, "valve")).To(ConsistOf(1, 3, 4))
+			Expect(keys(s, &scope{}, "pressure")).To(Equal([]int{2}))
+			txn.end(true)
+			Expect(keys(s, nil, "valve")).To(ConsistOf(1, 4))
+		})
+
+		It("Should hide the text of a commit that fails", func() {
+			s.Stage(txn, 4, []string{"valve"})
+			txn.commit()
+			txn.end(false)
+			Expect(keys(s, nil, "valve")).To(Equal([]int{3}))
+		})
+
 		It("Should apply changes against the zero scope at once", func() {
 			s.Stage(nil, 4, []string{"valve"})
 			s.StageDelete(nil, 3)

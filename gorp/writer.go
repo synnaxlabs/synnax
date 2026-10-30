@@ -79,21 +79,58 @@ func (w *Writer[K, E]) set(ctx context.Context, entry E) error {
 		return err
 	}
 	v := w.keyCodec.Encode(entry.GorpKey())
-	if err := w.tx.Set(ctx, v, data, entry.SetOptions()...); err != nil {
+	scope, direct := w.scope()
+	if direct {
+		w.stageSet(scope, entry)
+		scope.runBeforeCommit()
+	}
+	err = w.tx.Set(ctx, v, data, entry.SetOptions()...)
+	if direct {
+		scope.runCleanups(err == nil)
 		return err
 	}
-	for _, idx := range w.indexes {
-		idx.stageSet(w.tx, entry)
+	if err != nil {
+		return err
 	}
+	w.stageSet(scope, entry)
 	return nil
 }
 
 func (w *Writer[K, E]) delete(ctx context.Context, key K) error {
-	if err := w.tx.Delete(ctx, w.keyCodec.Encode(key)); err != nil {
+	scope, direct := w.scope()
+	if direct {
+		w.stageDelete(scope, key)
+		scope.runBeforeCommit()
+	}
+	err := w.tx.Delete(ctx, w.keyCodec.Encode(key))
+	if direct {
+		scope.runCleanups(err == nil)
 		return err
 	}
-	for _, idx := range w.indexes {
-		idx.stageDelete(w.tx, key)
+	if err != nil {
+		return err
 	}
+	w.stageDelete(scope, key)
 	return nil
+}
+
+// scope returns the scope that the index changes of one write stage against. A direct
+// write, to a DB used directly, gets a scope of its own that it commits.
+func (w *Writer[K, E]) scope() (scope *txState, direct bool) {
+	if scope = w.tx.txIdentity(); scope != nil || len(w.indexes) == 0 {
+		return scope, false
+	}
+	return &txState{}, true
+}
+
+func (w *Writer[K, E]) stageSet(scope *txState, entry E) {
+	for _, idx := range w.indexes {
+		idx.stageSet(scope, entry)
+	}
+}
+
+func (w *Writer[K, E]) stageDelete(scope *txState, key K) {
+	for _, idx := range w.indexes {
+		idx.stageDelete(scope, key)
+	}
 }

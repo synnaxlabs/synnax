@@ -169,6 +169,28 @@ var _ = Describe("Index", func() {
 					Expect(e.Get(txn, "a")).To(ConsistOf(1, 2))
 				})
 
+				It(
+					"Should show the entries a committing scope adds to every scope",
+					func() {
+						e.Stage(txn, 4, "a")
+						e.Stage(txn, 1, "b")
+						e.StageDelete(txn, 3)
+						txn.commit()
+						Expect(e.Get(nil, "a")).To(ConsistOf(1, 2, 4))
+						Expect(e.Get(&scope{}, "b")).To(ConsistOf(1, 3))
+						txn.end(true)
+						Expect(e.Get(nil, "a")).To(ConsistOf(2, 4))
+						Expect(e.Get(nil, "b")).To(ConsistOf(1))
+					},
+				)
+
+				It("Should hide the entries of a commit that fails", func() {
+					e.Stage(txn, 4, "a")
+					txn.commit()
+					txn.end(false)
+					Expect(e.Get(nil, "a")).To(ConsistOf(1, 2))
+				})
+
 				It("Should apply changes against the zero scope at once", func() {
 					e.Stage(nil, 4, "a")
 					e.StageDelete(nil, 3)

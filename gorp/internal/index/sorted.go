@@ -15,6 +15,8 @@ import (
 	"slices"
 	"sort"
 	"sync"
+
+	"github.com/synnaxlabs/x/set"
 )
 
 type entry[K comparable, V cmp.Ordered] struct {
@@ -35,12 +37,20 @@ type Sorted[S Scope, K comparable, V cmp.Ordered] struct {
 	entries []entry[K, V]
 	reverse map[K]V
 	overlay overlay[S, *delta[K, V]]
+	// published holds the deltas of committing scopes. Every read sees the entries
+	// they add.
+	published set.Set[*delta[K, V]]
 }
 
 // NewSorted returns an empty Sorted index that waits for its bulk load.
 func NewSorted[S Scope, K comparable, V cmp.Ordered]() *Sorted[S, K, V] {
-	s := &Sorted[S, K, V]{population: newPopulation(), reverse: make(map[K]V)}
-	s.overlay.create, s.overlay.flush = newDelta[K, V], s.flush
+	s := &Sorted[S, K, V]{
+		population: newPopulation(),
+		reverse:    make(map[K]V),
+		published:  set.New[*delta[K, V]](),
+	}
+	s.overlay.create = newDelta[K, V]
+	s.overlay.publish, s.overlay.flush, s.overlay.discard = s.publish, s.flush, s.discard
 	return s
 }
 
@@ -123,6 +133,7 @@ func (s *Sorted[S, K, V]) Get(scope S, values ...V) ([]K, error) {
 			committed = append(committed, s.entries[i].key)
 		}
 	}
+	committed = withPublished(committed, s.published, values)
 	return mergeValues(&s.overlay, scope, committed, values), nil
 }
 
@@ -209,9 +220,22 @@ func (s *Sorted[S, K, V]) removeEntry(key K, value V) {
 	}
 }
 
+func (s *Sorted[S, K, V]) publish(d *delta[K, V]) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.published.Add(d)
+}
+
+func (s *Sorted[S, K, V]) discard(d *delta[K, V]) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.published.Remove(d)
+}
+
 func (s *Sorted[S, K, V]) flush(d *delta[K, V]) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.published.Remove(d)
 	for k, st := range d.state {
 		if st.deleted {
 			s.remove(k)

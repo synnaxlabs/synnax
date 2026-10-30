@@ -24,11 +24,24 @@ func TestIndex(t *testing.T) {
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
-// scope is a transaction that runs its cleanups when the spec ends it.
-type scope struct{ cleanups []func(committed bool) }
+// scope is a transaction that runs its hooks when the spec commits or ends it.
+type scope struct {
+	beforeCommit []func()
+	cleanups     []func(committed bool)
+}
+
+func (s *scope) BeforeCommit(fn func()) { s.beforeCommit = append(s.beforeCommit, fn) }
 
 func (s *scope) OnCleanup(fn func(committed bool)) {
 	s.cleanups = append(s.cleanups, fn)
+}
+
+// commit starts a commit of the scope that has not yet ended.
+func (s *scope) commit() {
+	for _, fn := range s.beforeCommit {
+		fn()
+	}
+	s.beforeCommit = nil
 }
 
 func (s *scope) end(committed bool) {

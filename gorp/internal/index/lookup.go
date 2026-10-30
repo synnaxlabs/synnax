@@ -13,6 +13,8 @@ import (
 	"context"
 	"slices"
 	"sync"
+
+	"github.com/synnaxlabs/x/set"
 )
 
 // Lookup is an exact-match index from values of type V to the primary keys of type K
@@ -25,6 +27,9 @@ type Lookup[S Scope, K, V comparable] struct {
 	forward    map[V][]K
 	reverse    map[K]V
 	overlay    overlay[S, *delta[K, V]]
+	// published holds the deltas of committing scopes. Every read sees the entries
+	// they add.
+	published set.Set[*delta[K, V]]
 }
 
 // NewLookup returns an empty Lookup that waits for its bulk load.
@@ -33,8 +38,10 @@ func NewLookup[S Scope, K, V comparable]() *Lookup[S, K, V] {
 		population: newPopulation(),
 		forward:    make(map[V][]K),
 		reverse:    make(map[K]V),
+		published:  set.New[*delta[K, V]](),
 	}
-	l.overlay.create, l.overlay.flush = newDelta[K, V], l.flush
+	l.overlay.create = newDelta[K, V]
+	l.overlay.publish, l.overlay.flush, l.overlay.discard = l.publish, l.flush, l.discard
 	return l
 }
 
@@ -106,6 +113,7 @@ func (l *Lookup[S, K, V]) Get(scope S, values ...V) ([]K, error) {
 	for _, v := range values {
 		committed = append(committed, l.forward[v]...)
 	}
+	committed = withPublished(committed, l.published, values)
 	return mergeValues(&l.overlay, scope, committed, values), nil
 }
 
@@ -141,9 +149,22 @@ func (l *Lookup[S, K, V]) removeFromForward(key K, value V) {
 	l.forward[value] = keys
 }
 
+func (l *Lookup[S, K, V]) publish(d *delta[K, V]) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.published.Add(d)
+}
+
+func (l *Lookup[S, K, V]) discard(d *delta[K, V]) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.published.Remove(d)
+}
+
 func (l *Lookup[S, K, V]) flush(d *delta[K, V]) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
+	l.published.Remove(d)
 	for k, s := range d.state {
 		if s.deleted {
 			l.remove(k)

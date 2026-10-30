@@ -53,17 +53,16 @@ type Index[K Key, E Entry[K]] interface {
 	set(entry E)
 	// delete removes any committed mapping for key.
 	delete(key K)
-	// stageSet records a pending insert or update of entry against tx's
-	// per-tx delta, keyed by entry.GorpKey(). Committed index state is
-	// not modified until tx commits. When tx has no per-tx identity (a
-	// DB used directly), the mutation applies to committed state
-	// immediately.
-	stageSet(tx Tx, entry E)
-	// stageDelete records a pending deletion of key against tx's per-tx
-	// delta. Committed index state is not modified until tx commits.
-	// When tx has no per-tx identity, the deletion applies to committed
-	// state immediately.
-	stageDelete(tx Tx, key K)
+	// stageSet records a pending insert or update of entry against the
+	// delta of scope, keyed by entry.GorpKey(). Every read sees the
+	// mapping once scope begins to commit. Committed index state is not
+	// modified until scope commits. A nil scope applies the mutation to
+	// committed state immediately.
+	stageSet(scope *txState, entry E)
+	// stageDelete records a pending deletion of key against the delta of
+	// scope. Committed index state is not modified until scope commits. A
+	// nil scope applies the deletion to committed state immediately.
+	stageDelete(scope *txState, key K)
 }
 
 // indexStore is the read side of the engine behind an index.
@@ -160,13 +159,13 @@ func (l *LookupIndex[K, E, V]) set(entry E) {
 func (l *LookupIndex[K, E, V]) delete(key K) { l.store.Delete(key) }
 
 //nolint:unused
-func (l *LookupIndex[K, E, V]) stageSet(tx Tx, entry E) {
-	l.store.Stage(tx.txIdentity(), entry.GorpKey(), l.extract(&entry))
+func (l *LookupIndex[K, E, V]) stageSet(scope *txState, entry E) {
+	l.store.Stage(scope, entry.GorpKey(), l.extract(&entry))
 }
 
 //nolint:unused
-func (l *LookupIndex[K, E, V]) stageDelete(tx Tx, key K) {
-	l.store.StageDelete(tx.txIdentity(), key)
+func (l *LookupIndex[K, E, V]) stageDelete(scope *txState, key K) {
+	l.store.StageDelete(scope, key)
 }
 
 // Get returns the primary keys of entries whose indexed field matches any of the
@@ -245,13 +244,13 @@ func (s *SortedIndex[K, E, V]) set(entry E) {
 func (s *SortedIndex[K, E, V]) delete(key K) { s.store.Delete(key) }
 
 //nolint:unused
-func (s *SortedIndex[K, E, V]) stageSet(tx Tx, entry E) {
-	s.store.Stage(tx.txIdentity(), entry.GorpKey(), s.extract(&entry))
+func (s *SortedIndex[K, E, V]) stageSet(scope *txState, entry E) {
+	s.store.Stage(scope, entry.GorpKey(), s.extract(&entry))
 }
 
 //nolint:unused
-func (s *SortedIndex[K, E, V]) stageDelete(tx Tx, key K) {
-	s.store.StageDelete(tx.txIdentity(), key)
+func (s *SortedIndex[K, E, V]) stageDelete(scope *txState, key K) {
+	s.store.StageDelete(scope, key)
 }
 
 // Get returns the primary keys of entries whose indexed field matches any of the

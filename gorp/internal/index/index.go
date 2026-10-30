@@ -26,6 +26,8 @@ import (
 // committed state at once, and reads against it see committed state only.
 type Scope interface {
 	comparable
+	// BeforeCommit registers fn to run once before the transaction commits.
+	BeforeCommit(fn func())
 	// OnCleanup registers fn to run once when the transaction ends. committed is true
 	// when the transaction committed.
 	OnCleanup(fn func(committed bool))
@@ -133,6 +135,27 @@ func (d *delta[K, V]) merge(committed []K, values []V) []K {
 	return result.Slice()
 }
 
+// withPublished returns committed with the keys that any delta in published maps to any
+// of values.
+func withPublished[K, V comparable](
+	committed []K,
+	published set.Set[*delta[K, V]],
+	values []V,
+) []K {
+	if len(published) == 0 {
+		return committed
+	}
+	result := set.New(committed...)
+	for d := range published {
+		for _, v := range values {
+			for k := range d.forward[v] {
+				result.Add(k)
+			}
+		}
+	}
+	return result.Slice()
+}
+
 // changes is the set of changes that one scope has staged against an index.
 type changes interface{ isEmpty() bool }
 
@@ -143,12 +166,19 @@ type overlay[S Scope, D changes] struct {
 	deltas map[S]D
 	// create returns an empty set of changes.
 	create func() D
-	// flush applies the changes of a committed scope to committed state.
+	// publish shows the entries that the changes of a committing scope add to every
+	// read, until flush or discard.
+	publish func(D)
+	// flush applies the changes of a committed scope to committed state and ends
+	// their publish.
 	flush func(D)
+	// discard ends the publish of the changes of a scope that did not commit.
+	discard func(D)
 }
 
 // load returns the changes of scope, creating them on first use. New changes register
-// a cleanup on scope that drops them and flushes them if scope committed.
+// hooks on scope: a publish before it commits, so an observer of the commit reads the
+// entries they add, and a flush or discard when it ends.
 func (o *overlay[S, D]) load(scope S) D {
 	o.mu.Lock()
 	defer o.mu.Unlock()
@@ -160,13 +190,16 @@ func (o *overlay[S, D]) load(scope S) D {
 	}
 	d := o.create()
 	o.deltas[scope] = d
+	scope.BeforeCommit(func() { o.publish(d) })
 	scope.OnCleanup(func(committed bool) {
 		o.mu.Lock()
 		delete(o.deltas, scope)
 		o.mu.Unlock()
-		if committed && !d.isEmpty() {
+		if committed {
 			o.flush(d)
+			return
 		}
+		o.discard(d)
 	})
 	return d
 }

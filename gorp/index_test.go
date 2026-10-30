@@ -965,6 +965,43 @@ var _ = Describe("Index", func() {
 			},
 		)
 
+		DescribeTable(
+			"Should show a renamed entry by its new name to an observer of the write",
+			func(ctx SpecContext, inTx bool) {
+				Expect(table.NewCreate().
+					Entry(&indexedEntry{ID: 7, Name: "eta"}).
+					Exec(ctx, noopDB)).To(Succeed())
+				var (
+					found []indexedEntry
+					err   error
+				)
+				disconnect := table.Observe().OnChange(func(
+					ctx context.Context,
+					_ gorp.TxReader[int32, indexedEntry],
+				) {
+					err = table.NewRetrieve().
+						Where(nameIdx.Filter("theta")).
+						Entries(&found).
+						Exec(ctx, noopDB)
+				})
+				defer disconnect()
+				renamed := indexedEntry{ID: 7, Name: "theta"}
+				if inTx {
+					Expect(noopDB.WithTx(ctx, func(tx gorp.Tx) error {
+						return table.NewCreate().Entry(&renamed).Exec(ctx, tx)
+					})).To(Succeed())
+				} else {
+					Expect(table.NewCreate().
+						Entry(&renamed).
+						Exec(ctx, noopDB)).To(Succeed())
+				}
+				Expect(err).ToNot(HaveOccurred())
+				Expect(idsOf(found)).To(ConsistOf(int32(7)))
+			},
+			Entry("DB-as-tx write", false),
+			Entry("tx write", true),
+		)
+
 		It("Should update the index inline for DB-as-tx writes", func(ctx SpecContext) {
 			Expect(table.NewCreate().
 				Entry(&indexedEntry{ID: 3, Name: "gamma"}).
