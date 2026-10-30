@@ -45,7 +45,6 @@ func proof(creds auth.OIDCCredentials) auth.Proof {
 	return auth.Proof{Variant: auth.OIDCProof{OIDCCredentials: creds}}
 }
 
-// login registers a code for sub at the fake provider and proves it.
 func login(
 	svc *oidc.Service,
 	ctx SpecContext,
