@@ -26,6 +26,12 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
+// The select node emits on the ordinal of each output in its symbol.
+const (
+	trueOutputIdx  = 0
+	falseOutputIdx = 1
+)
+
 var _ = Describe("Select", func() {
 	Describe("NewModule", func() {
 		It("Should create module", func() {
@@ -150,8 +156,8 @@ var _ = Describe("Select", func() {
 			n.Next(
 				node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }},
 			)
-			Expect(outputs.Contains(selector.TrueOutputIdx)).To(BeFalse())
-			Expect(outputs.Contains(selector.FalseOutputIdx)).To(BeFalse())
+			Expect(outputs.Contains(trueOutputIdx)).To(BeFalse())
+			Expect(outputs.Contains(falseOutputIdx)).To(BeFalse())
 		})
 		It("Should split all true values", func(ctx SpecContext) {
 			cfg := node.Config{
@@ -167,8 +173,8 @@ var _ = Describe("Select", func() {
 			n.Next(
 				node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }},
 			)
-			Expect(outputs.Contains(selector.TrueOutputIdx)).To(BeTrue())
-			Expect(outputs.Contains(selector.FalseOutputIdx)).To(BeFalse())
+			Expect(outputs.Contains(trueOutputIdx)).To(BeTrue())
+			Expect(outputs.Contains(falseOutputIdx)).To(BeFalse())
 			selectNode := s.Node("select")
 			trueOut := selectNode.Output(0)
 			Expect(trueOut.Len()).To(Equal(int64(3)))
@@ -189,8 +195,8 @@ var _ = Describe("Select", func() {
 			n.Next(
 				node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }},
 			)
-			Expect(outputs.Contains(selector.TrueOutputIdx)).To(BeFalse())
-			Expect(outputs.Contains(selector.FalseOutputIdx)).To(BeTrue())
+			Expect(outputs.Contains(trueOutputIdx)).To(BeFalse())
+			Expect(outputs.Contains(falseOutputIdx)).To(BeTrue())
 			selectNode := s.Node("select")
 			falseOut := selectNode.Output(1)
 			Expect(falseOut.Len()).To(Equal(int64(4)))
@@ -211,8 +217,8 @@ var _ = Describe("Select", func() {
 			n.Next(
 				node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }},
 			)
-			Expect(outputs.Contains(selector.TrueOutputIdx)).To(BeTrue())
-			Expect(outputs.Contains(selector.FalseOutputIdx)).To(BeTrue())
+			Expect(outputs.Contains(trueOutputIdx)).To(BeTrue())
+			Expect(outputs.Contains(falseOutputIdx)).To(BeTrue())
 			selectNode := s.Node("select")
 			trueOut := selectNode.Output(0)
 			falseOut := selectNode.Output(1)
@@ -276,8 +282,8 @@ var _ = Describe("Select", func() {
 			n.Next(
 				node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }},
 			)
-			Expect(outputs.Contains(selector.TrueOutputIdx)).To(BeTrue())
-			Expect(outputs.Contains(selector.FalseOutputIdx)).To(BeFalse())
+			Expect(outputs.Contains(trueOutputIdx)).To(BeTrue())
+			Expect(outputs.Contains(falseOutputIdx)).To(BeFalse())
 			selectNode := s.Node("select")
 			trueOut := selectNode.Output(0)
 			Expect(trueOut.Len()).To(Equal(int64(1)))
@@ -296,8 +302,8 @@ var _ = Describe("Select", func() {
 			n.Next(
 				node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }},
 			)
-			Expect(outputs.Contains(selector.TrueOutputIdx)).To(BeFalse())
-			Expect(outputs.Contains(selector.FalseOutputIdx)).To(BeTrue())
+			Expect(outputs.Contains(trueOutputIdx)).To(BeFalse())
+			Expect(outputs.Contains(falseOutputIdx)).To(BeTrue())
 			selectNode := s.Node("select")
 			falseOut := selectNode.Output(1)
 			Expect(falseOut.Len()).To(Equal(int64(1)))

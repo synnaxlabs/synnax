@@ -171,24 +171,29 @@ var _ = Describe("Service", func() {
 			Expect(s.Name).To(Equal(d.Name))
 			Expect(s.Variant).To(Equal(status.VariantWarning))
 			Expect(s.Message).To(Equal("Status unknown"))
-			Expect(s.Details).To(Equal(device.StatusDetails{Rack: rackKey, Device: d.Key}))
+			Expect(
+				s.Details,
+			).To(Equal(device.StatusDetails{Rack: rackKey, Device: d.Key}))
 		})
 
-		It("Should move an existing status to a replaced device", func(ctx SpecContext) {
-			d := create(ctx)
-			s := retrieveStatus(ctx, d.Key)
-			s.Variant = status.VariantSuccess
-			Expect(stat.NewWriter(tx).Set(ctx, &s)).To(Succeed())
-			other := rack.Rack{Name: "Other"}
-			Expect(rackSvc.NewWriter(tx).Create(ctx, &other)).To(Succeed())
-			d.Rack = other.Key
-			d.Name = "Replaced"
-			Expect(svc.NewWriter(tx).Create(ctx, &d)).To(Succeed())
-			got := retrieveStatus(ctx, d.Key)
-			Expect(got.Name).To(Equal("Replaced"))
-			Expect(got.Details.Rack).To(Equal(other.Key))
-			Expect(got.Variant).To(Equal(status.VariantSuccess))
-		})
+		It(
+			"Should move an existing status to a replaced device",
+			func(ctx SpecContext) {
+				d := create(ctx)
+				s := retrieveStatus(ctx, d.Key)
+				s.Variant = status.VariantSuccess
+				Expect(stat.NewWriter(tx).Set(ctx, &s)).To(Succeed())
+				other := rack.Rack{Name: "Other"}
+				Expect(rackSvc.NewWriter(tx).Create(ctx, &other)).To(Succeed())
+				d.Rack = other.Key
+				d.Name = "Replaced"
+				Expect(svc.NewWriter(tx).Create(ctx, &d)).To(Succeed())
+				got := retrieveStatus(ctx, d.Key)
+				Expect(got.Name).To(Equal("Replaced"))
+				Expect(got.Details.Rack).To(Equal(other.Key))
+				Expect(got.Variant).To(Equal(status.VariantSuccess))
+			},
+		)
 
 		It("Should keep a status that already exists", func(ctx SpecContext) {
 			d := create(ctx)
@@ -399,14 +404,19 @@ var _ = Describe("Service", func() {
 			})).To(MatchError(query.ErrNotFound))
 		})
 
-		DescribeTable("Should reject an invalid update",
+		DescribeTable(
+			"Should reject an invalid update",
 			func(ctx SpecContext, update device.Update, message string) {
 				d := create(ctx)
 				Expect(svc.NewWriter(tx).Apply(ctx, d.Key, update)).
 					To(MatchError(ContainSubstring(message)))
 			},
 			Entry("no group", device.Update{}, "no field group"),
-			Entry("identity", device.Update{Variant: device.IdentityUpdate{}}, "required"),
+			Entry(
+				"identity",
+				device.Update{Variant: device.IdentityUpdate{}},
+				"required",
+			),
 			Entry(
 				"configuration",
 				device.Update{Variant: device.ConfigurationUpdate{}},
