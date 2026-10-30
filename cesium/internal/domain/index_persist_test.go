@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/alamos/testutil"
 	"github.com/synnaxlabs/cesium/internal/domain"
+	"github.com/synnaxlabs/cesium/internal/testutil"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
@@ -44,7 +45,7 @@ var _ = Describe("Index Persist", Ordered, func() {
 				It("Should persist the index", func(ctx SpecContext) {
 					By("Writing some data")
 					Expect(
-						domain.Write(
+						testutil.WriteDomain(
 							ctx,
 							db,
 							(10 * telem.SecondTS).Range(15*telem.SecondTS+1),
@@ -52,7 +53,7 @@ var _ = Describe("Index Persist", Ordered, func() {
 						),
 					).To(Succeed())
 					Expect(
-						domain.Write(
+						testutil.WriteDomain(
 							ctx,
 							db,
 							(20 * telem.SecondTS).Range(23*telem.SecondTS+1),
@@ -60,7 +61,7 @@ var _ = Describe("Index Persist", Ordered, func() {
 						),
 					).To(Succeed())
 					Expect(
-						domain.Write(
+						testutil.WriteDomain(
 							ctx,
 							db,
 							(26 * telem.SecondTS).Range(30*telem.SecondTS+1),
@@ -68,7 +69,7 @@ var _ = Describe("Index Persist", Ordered, func() {
 						),
 					).To(Succeed())
 					Expect(
-						domain.Write(
+						testutil.WriteDomain(
 							ctx,
 							db,
 							(40 * telem.SecondTS).Range(42*telem.SecondTS+1),

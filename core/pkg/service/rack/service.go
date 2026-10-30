@@ -74,12 +74,6 @@ type ServiceConfig struct {
 	//
 	// [OPTIONAL - defaults to telem.Now]
 	Now func() telem.TimeStamp
-	// AlertEveryNChecks controls dampening for dead rack alerts. After the initial
-	// alert when a rack goes down, subsequent alerts are only fired every N consecutive
-	// dead checks. Set to 1 to alert on every check (no dampening).
-	//
-	// [OPTIONAL - defaults to 12]
-	AlertEveryNChecks int
 }
 
 var (
@@ -89,7 +83,6 @@ var (
 	// details on which fields must be set.
 	DefaultServiceConfig = ServiceConfig{
 		HealthCheckInterval: 5 * telem.Second,
-		AlertEveryNChecks:   12,
 		Now:                 telem.Now,
 	}
 )
@@ -107,7 +100,6 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 		c.HealthCheckInterval,
 		other.HealthCheckInterval,
 	)
-	c.AlertEveryNChecks = override.Numeric(c.AlertEveryNChecks, other.AlertEveryNChecks)
 	c.Now = override.Nil(c.Now, other.Now)
 	return c
 }
@@ -195,10 +187,11 @@ func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Rack]] {
 	return s.table.Observe()
 }
 
-func (s *Service) OnSuspect(
-	handler func(ctx context.Context, status Status),
-) observe.Disconnect {
-	return s.monitor.OnChange(handler)
+// OnSuspect calls handler with the outage of each rack that stops reporting, once for
+// each outage. A handler that returns an error is called again on the next health check
+// until it succeeds or the rack reports healthy.
+func (s *Service) OnSuspect(handler SuspectHandler) observe.Disconnect {
+	return s.monitor.onSuspect(handler)
 }
 
 func (s *Service) loadEmbeddedRack(ctx context.Context) error {
