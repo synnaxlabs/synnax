@@ -9,7 +9,7 @@
 
 import "@/feature/opcua/device/Connect.css";
 
-import { type device, type rack, status, TimeSpan } from "@synnaxlabs/client";
+import { type device, type rack, status } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -23,6 +23,7 @@ import {
   DriverCertificate,
   ServerCertificate,
 } from "@/feature/opcua/device/Certificate";
+import { commandTimeout } from "@/feature/opcua/device/commandTimeout";
 import { Endpoints } from "@/feature/opcua/device/Endpoints";
 import { retrieveScanTask } from "@/feature/opcua/device/retrieveScanTask";
 import {
@@ -34,6 +35,7 @@ import {
   BASIC128_RSA15_SECURITY_POLICY,
   BASIC256_SECURITY_POLICY,
   BASIC256_SHA256_SECURITY_POLICY,
+  type ConnectionConfig,
   type Device,
   INTEGRATION,
   NO_SECURITY_MODE,
@@ -46,12 +48,11 @@ import {
 import {
   type CertificateInfo,
   TEST_CONNECTION_COMMAND_TYPE,
+  testConnectionResponseZ,
 } from "@/feature/opcua/task/types";
 import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
-
-const TEST_CONNECTION_TIMEOUT = TimeSpan.seconds(10);
 
 const INITIAL_VALUES: Device = {
   key: "",
@@ -103,15 +104,16 @@ export const Connect = ({
   >) => {
     setServerCertificateOffer(null);
     const scanTask = await retrieveScanTask(client, get<rack.Key>("rack").value);
+    const connection = get<ConnectionConfig>("properties.connection").value;
     const scanStatus = await scanTask.executeCommandSync({
       type: TEST_CONNECTION_COMMAND_TYPE,
-      timeout: TEST_CONNECTION_TIMEOUT,
-      args: { connection: get("properties.connection").value },
+      timeout: commandTimeout(connection),
+      args: { connection },
     });
     if (scanStatus.variant === "error") {
-      const data = scanStatus.details?.data;
-      if (data != null && "serverCertificate" in data && data.serverCertificate != null)
-        setServerCertificateOffer(data.serverCertificate);
+      const reply = testConnectionResponseZ.safeParse(scanStatus.details?.data);
+      if (reply.success && reply.data.serverCertificate != null)
+        setServerCertificateOffer(reply.data.serverCertificate);
       throw status.toError(scanStatus);
     }
     // Since we just scanned successfully, we create a default healthy status for the

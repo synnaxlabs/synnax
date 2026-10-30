@@ -9,7 +9,6 @@
 
 import { csv, DataType } from "@synnaxlabs/x";
 
-import { HAUL_TYPE, type HaulItem } from "@/feature/opcua/device/Browser";
 import {
   type Channel,
   isMethod,
@@ -63,7 +62,7 @@ export interface DecodeParams<C extends Channel> extends EncodeParams {
   /** The channels the task already holds. */
   existing: C[];
   /** @returns the task's channel for a node, or null if the task cannot hold it. */
-  convert: (item: HaulItem) => C | null;
+  convert: (node: ScannedNode) => C | null;
 }
 
 const parseBoolean = (value: string, column: string, row: number): boolean | null => {
@@ -131,7 +130,7 @@ export const decode = <C extends Channel>(
       nodeClass: "Variable",
     };
     if (identities.has(node.key)) return;
-    const ch = convert({ type: HAUL_TYPE, key: node.key, data: node });
+    const ch = convert(node);
     if (ch == null) return;
     identities.add(node.key);
     const imported = { ...ch, name: cell("name"), disabled: !enabled };

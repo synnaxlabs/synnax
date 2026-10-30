@@ -19,8 +19,19 @@ type BaseChannel = versions.BaseChannel
 // ReadChannel is a single OPC UA node the task reads from.
 type ReadChannel = versions.ReadChannel
 
-// WriteChannel is a single OPC UA node the task drives.
+// BaseWriteChannel carries the fields every OPC UA write channel shares.
+type BaseWriteChannel = versions.BaseWriteChannel
+
+// WriteChannel is a single OPC UA node the task drives. The type field selects what
+// each command does on the server.
 type WriteChannel = versions.WriteChannel
+type WriteChannelVariant = versions.WriteChannelVariant
+
+// NodeWriteChannel writes each command to the value of the node.
+type NodeWriteChannel = versions.NodeWriteChannel
+
+// MethodWriteChannel calls the node as a method with each command.
+type MethodWriteChannel = versions.MethodWriteChannel
 
 // ReadConfig configures an OPC UA read task.
 type ReadConfig = versions.ReadConfig
@@ -56,8 +67,19 @@ const (
 	ArgumentSourceCommand ArgumentSource = versions.ArgumentSourceCommand
 )
 
-// MethodArgument is an input argument of an OPC UA method call.
+// BaseMethodArgument carries the fields every input argument of a method shares.
+type BaseMethodArgument = versions.BaseMethodArgument
+
+// MethodArgument is an input argument of an OPC UA method call. The source field
+// selects where its value comes from.
 type MethodArgument = versions.MethodArgument
+type MethodArgumentVariant = versions.MethodArgumentVariant
+
+// ValueMethodArgument gives the argument a fixed value.
+type ValueMethodArgument = versions.ValueMethodArgument
+
+// CommandMethodArgument gives the argument the value of each command.
+type CommandMethodArgument = versions.CommandMethodArgument
 
 // EventField is an event field that the task records beyond the standard fields.
 type EventField = versions.EventField

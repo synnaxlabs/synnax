@@ -11,56 +11,78 @@
 
 package versions
 
-import "github.com/synnaxlabs/synnax/pkg/service/opcua/versions/v3"
+import "github.com/synnaxlabs/synnax/pkg/service/opcua/versions/v2"
 
 // BaseChannel carries the fields every OPC UA channel shares.
-type BaseChannel = v3.BaseChannel
+type BaseChannel = v2.BaseChannel
 
 // ReadChannel is a single OPC UA node the task reads from.
-type ReadChannel = v3.ReadChannel
+type ReadChannel = v2.ReadChannel
 
-// WriteChannel is a single OPC UA node the task drives.
-type WriteChannel = v3.WriteChannel
+// BaseWriteChannel carries the fields every OPC UA write channel shares.
+type BaseWriteChannel = v2.BaseWriteChannel
+
+// WriteChannel is a single OPC UA node the task drives. The type field selects what
+// each command does on the server.
+type WriteChannel = v2.WriteChannel
+type WriteChannelVariant = v2.WriteChannelVariant
+
+// NodeWriteChannel writes each command to the value of the node.
+type NodeWriteChannel = v2.NodeWriteChannel
+
+// MethodWriteChannel calls the node as a method with each command.
+type MethodWriteChannel = v2.MethodWriteChannel
 
 // ReadConfig configures an OPC UA read task.
-type ReadConfig = v3.ReadConfig
+type ReadConfig = v2.ReadConfig
 
 // WriteConfig configures an OPC UA write task.
-type WriteConfig = v3.WriteConfig
+type WriteConfig = v2.WriteConfig
 
 // ScanConfig configures an OPC UA scan task.
-type ScanConfig = v3.ScanConfig
+type ScanConfig = v2.ScanConfig
 
 // ReadMode is how a read task gets values: sampled polls each node at the sample rate,
 // and on_change subscribes to the changes of each node.
-type ReadMode = v3.ReadMode
+type ReadMode = v2.ReadMode
 
 const (
-	ReadModeSampled  ReadMode = v3.ReadModeSampled
-	ReadModeOnChange ReadMode = v3.ReadModeOnChange
+	ReadModeSampled  ReadMode = v2.ReadModeSampled
+	ReadModeOnChange ReadMode = v2.ReadModeOnChange
 )
 
 // WriteType is what the commands of a write channel do on the server.
-type WriteType = v3.WriteType
+type WriteType = v2.WriteType
 
 const (
-	WriteTypeNode   WriteType = v3.WriteTypeNode
-	WriteTypeMethod WriteType = v3.WriteTypeMethod
+	WriteTypeNode   WriteType = v2.WriteTypeNode
+	WriteTypeMethod WriteType = v2.WriteTypeMethod
 )
 
 // ArgumentSource is where the value of a method argument comes from.
-type ArgumentSource = v3.ArgumentSource
+type ArgumentSource = v2.ArgumentSource
 
 const (
-	ArgumentSourceValue   ArgumentSource = v3.ArgumentSourceValue
-	ArgumentSourceCommand ArgumentSource = v3.ArgumentSourceCommand
+	ArgumentSourceValue   ArgumentSource = v2.ArgumentSourceValue
+	ArgumentSourceCommand ArgumentSource = v2.ArgumentSourceCommand
 )
 
-// MethodArgument is an input argument of an OPC UA method call.
-type MethodArgument = v3.MethodArgument
+// BaseMethodArgument carries the fields every input argument of a method shares.
+type BaseMethodArgument = v2.BaseMethodArgument
+
+// MethodArgument is an input argument of an OPC UA method call. The source field
+// selects where its value comes from.
+type MethodArgument = v2.MethodArgument
+type MethodArgumentVariant = v2.MethodArgumentVariant
+
+// ValueMethodArgument gives the argument a fixed value.
+type ValueMethodArgument = v2.ValueMethodArgument
+
+// CommandMethodArgument gives the argument the value of each command.
+type CommandMethodArgument = v2.CommandMethodArgument
 
 // EventField is an event field that the task records beyond the standard fields.
-type EventField = v3.EventField
+type EventField = v2.EventField
 
 // EventConfig configures an OPC UA event task.
-type EventConfig = v3.EventConfig
+type EventConfig = v2.EventConfig

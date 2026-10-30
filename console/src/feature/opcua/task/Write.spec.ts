@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax, type task } from "@synnaxlabs/client";
+import { type opcua, type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -48,7 +48,7 @@ const renderWrite = async (options: RenderTaskFormTabOptions = {}) => {
   return rendered;
 };
 
-const createWriteChannel = (): OPCUA.Task.WriteChannel => {
+const createWriteChannel = (): opcua.NodeWriteChannel => {
   // Underscore-free so the device-properties record keys survive the server's
   // snake-to-camel decode untouched.
   const nodeName = uniqueName("node").replace(/_/g, "");
@@ -61,8 +61,6 @@ const createWriteChannel = (): OPCUA.Task.WriteChannel => {
     dataType: "float32",
     name: "",
     type: "node",
-    objectId: "",
-    arguments: [],
   };
 };
 
@@ -72,13 +70,14 @@ const createMethodName = (): string => uniqueName("SetSpeed").replace(/_/g, "");
 const createMethodChannel = (
   nodeName: string,
   args: OPCUA.Task.MethodArgument[],
-): OPCUA.Task.WriteChannel => ({
+  cmdChannel = 0,
+): opcua.MethodWriteChannel => ({
   key: uniqueName("method"),
   nodeId: `ns=1;s=Pump.${nodeName}`,
   nodeName,
-  cmdChannel: 0,
+  cmdChannel,
   disabled: false,
-  dataType: args.find(({ source }) => source === "command")?.dataType ?? "uint8",
+  dataType: "float32",
   name: "",
   type: "method",
   objectId: "ns=1;s=Pump",
@@ -278,8 +277,6 @@ describe("Write", () => {
           disabled: true,
           dataType: "float32",
           type: "node",
-          objectId: "",
-          arguments: [],
         },
       ]);
     });
@@ -288,7 +285,6 @@ describe("Write", () => {
   describe("methods", () => {
     const SPEED: OPCUA.Task.MethodArgument = {
       source: "command",
-      value: "",
       name: "speed",
       dataType: "float64",
     };
@@ -367,17 +363,21 @@ describe("Write", () => {
       await screen.findByText(`Call ${ch.nodeName}`);
       const [modeSwitch] = screen.getAllByRole("checkbox", { name: "Command" });
       fireEvent.click(modeSwitch);
+      const bound = await client.channels.retrieve(before);
+      await screen.findByText(
+        `The command takes string, but ${bound.name} is float64. Configuring the task replaces ${bound.name} with a new channel.`,
+      );
       await waitFor(async () => {
         const saved = await client.tasks.retrieve({
           key: draft.key,
           schemas: OPCUA.Task.WRITE_SCHEMAS,
         });
-        const [savedCh] = saved.config.channels;
-        expect(savedCh.dataType).toBe("string");
-        expect(savedCh.arguments.map(({ source }) => source)).toEqual([
-          "command",
-          "value",
-        ]);
+        expect(saved.config.channels[0]).toMatchObject({
+          arguments: [
+            { source: "command", name: "mode" },
+            { source: "value", value: "", name: "speed" },
+          ],
+        });
       });
       const { config } = await deployAndAwaitTask(
         client,
@@ -396,7 +396,7 @@ describe("Write", () => {
       const dev = await createOPCDevice(client);
       const ch = createMethodChannel(createMethodName(), [MODE, SPEED]);
       const draft = await createDraft(client, createWriteConfig(dev.key, [ch]));
-      await renderWrite({ client, taskKey: draft.key });
+      const { container } = await renderWrite({ client, taskKey: draft.key });
       await screen.findByText(`Call ${ch.nodeName}`);
       const [, speedSwitch] = screen.getAllByRole("checkbox", { name: "Command" });
       fireEvent.click(speedSwitch);
@@ -405,10 +405,50 @@ describe("Write", () => {
           key: draft.key,
           schemas: OPCUA.Task.WRITE_SCHEMAS,
         });
-        const [saved] = config.channels;
-        expect(saved.dataType).toBe("uint8");
-        expect(saved.arguments.map(({ source }) => source)).toEqual(["value", "value"]);
+        expect(config.channels[0]).toMatchObject({
+          arguments: [{ source: "value" }, { source: "value", value: "" }],
+        });
       });
+      const { config } = await deployAndAwaitTask(
+        client,
+        container,
+        draft.key,
+        OPCUA.Task.WRITE_SCHEMAS,
+      );
+      const cmd = await client.channels.retrieve(config.channels[0].cmdChannel);
+      expect(cmd.dataType.toString()).toBe("uint8");
+    });
+
+    it("should keep the command channel of a method whose command type matches or is unknown", async () => {
+      const dev = await createOPCDevice(client);
+      const nodeName = createMethodName();
+      const index = await client.channels.create({
+        name: uniqueName("cmd_time"),
+        dataType: "timestamp",
+        isIndex: true,
+      });
+      const [speed, mode] = await client.channels.create([
+        { name: uniqueName("speed_cmd"), dataType: "float64", index: index.key },
+        { name: uniqueName("mode_cmd"), dataType: "float64", index: index.key },
+      ]);
+      const typed = createMethodChannel(nodeName, [MODE, SPEED], speed.key);
+      const untyped = createMethodChannel(nodeName, [MODE], mode.key);
+      const draft = await createDraft(
+        client,
+        createWriteConfig(dev.key, [typed, untyped]),
+      );
+      const { container } = await renderWrite({ client, taskKey: draft.key });
+      await screen.findByText(`Call ${nodeName}`);
+      const { config } = await deployAndAwaitTask(
+        client,
+        container,
+        draft.key,
+        OPCUA.Task.WRITE_SCHEMAS,
+      );
+      expect(config.channels.map(({ cmdChannel }) => cmdChannel)).toEqual([
+        speed.key,
+        mode.key,
+      ]);
     });
 
     // Drops a method that takes the arguments onto a draft that holds one node, and
@@ -473,19 +513,18 @@ describe("Write", () => {
         disabled: false,
         type: "method",
         objectId: "",
-        dataType: "string",
+        dataType: "float32",
         arguments: [
-          { source: "command", value: "", name: "mode", dataType: "string" },
+          { source: "command", name: "mode", dataType: "string" },
           { source: "value", value: "", name: "speed", dataType: "float64" },
         ],
       });
     });
 
-    it("should give a dropped method a uint8 trigger when its first argument has no Synnax type", async () => {
+    it("should not give the command to a first argument that has no Synnax type", async () => {
       expect(
         await dropMethod([{ name: "recipe", typeName: "Recipe", dataType: "" }]),
       ).toMatchObject({
-        dataType: "uint8",
         arguments: [{ source: "value", value: "", name: "recipe", dataType: "" }],
       });
     });

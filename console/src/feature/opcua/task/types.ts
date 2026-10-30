@@ -16,13 +16,14 @@ import { Task } from "@/platform/task";
 export const PREFIX = "opc";
 
 export interface ReadChannel extends opcua.ReadChannel {}
-export interface WriteChannel extends opcua.WriteChannel {}
+export type WriteChannel = opcua.WriteChannel;
 export type Channel = ReadChannel | WriteChannel;
-export interface MethodArgument extends opcua.MethodArgument {}
+export type MethodArgument = opcua.MethodArgument;
 export interface EventField extends opcua.EventField {}
 
 /** @returns true if the channel calls a method instead of writing a node. */
-export const isMethod = (ch: Channel): boolean => "type" in ch && ch.type === "method";
+export const isMethod = (ch: Channel): ch is opcua.MethodWriteChannel =>
+  "type" in ch && ch.type === "method";
 
 /**
  * @returns a key for what a channel reads or writes: its node, and the member of the
@@ -212,6 +213,37 @@ const STANDARD_EVENT_KEYS = [
   "severity",
 ];
 
+const NAMESPACE_URI_PREFIX = "nsu=";
+
+// Returns the problem with a browse path, by the rules that the Driver parses it with.
+const findBrowsePathIssue = (path: string): string | null => {
+  let rest = path;
+  let more = true;
+  while (more) {
+    let named = false;
+    if (
+      rest.slice(0, NAMESPACE_URI_PREFIX.length).toLowerCase() === NAMESPACE_URI_PREFIX
+    ) {
+      const end = rest.indexOf(";");
+      if (end === -1) return "Browse path must end each namespace URI with ';'";
+      const uri = rest.slice(NAMESPACE_URI_PREFIX.length, end);
+      if (uri.length === 0 || /%(?![0-9a-f]{2})/i.test(uri))
+        return "Browse path has an invalid namespace URI";
+      rest = rest.slice(end + 1);
+      named = true;
+    }
+    const slash = rest.indexOf("/");
+    let name = slash === -1 ? rest : rest.slice(0, slash);
+    const index = /^(\d+):/.exec(name);
+    if (!named && index != null && Number(index[1]) <= 0xffff)
+      name = name.slice(index[0].length);
+    if (name.length === 0) return "Browse path must name each element";
+    more = slash !== -1;
+    rest = rest.slice(slash + 1);
+  }
+  return null;
+};
+
 export const deployEventConfigZ = opcua.eventConfigZ.extend({
   device: Task.deviceKeyZ,
   fields: opcua.eventFieldZ.array().check(({ value: fields, issues }) => {
@@ -239,10 +271,11 @@ export const deployEventConfigZ = opcua.eventConfigZ.extend({
           input: fields,
         });
       names.add(name);
-      if (browsePath.split("/").some((element) => element.length === 0))
+      const pathIssue = findBrowsePathIssue(browsePath);
+      if (pathIssue != null)
         issues.push({
           code: "custom",
-          message: "Browse path must name each element",
+          message: pathIssue,
           path: [i, "browsePath"],
           input: fields,
         });
@@ -284,13 +317,11 @@ const inputArgumentZ = z.object({
 });
 
 /** An input argument of a method, as the server declares it. */
-interface InputArgument extends z.infer<typeof inputArgumentZ> {}
+export interface InputArgument extends z.infer<typeof inputArgumentZ> {}
 
 export interface ScannedNode extends z.infer<typeof scannedNodeZ> {
   /** The node ID of the node that the browser found this one under. */
   parent?: string;
-  /** The input arguments of a method, which the Console reads when it is dropped. */
-  inputArguments?: InputArgument[];
 }
 
 // A variable that a search under a folder found, with its browse path below it.
@@ -301,6 +332,8 @@ const foundNodeZ = scannedNodeFieldsZ
 export const browseVariablesResponseZ = z.object({
   channels: z.array(foundNodeZ),
   truncated: z.boolean(),
+  /** The number of objects under the folder that failed to browse. */
+  skipped: z.number(),
 });
 
 export const nodeDetailsZ = z.object({
@@ -336,7 +369,7 @@ const certificateInfoZ = z.object({
 
 export interface CertificateInfo extends z.infer<typeof certificateInfoZ> {}
 
-const browseResponseZ = z.object({ channels: z.array(scannedNodeZ) });
+export const browseResponseZ = z.object({ channels: z.array(scannedNodeZ) });
 
 export const certificatesResponseZ = z.object({
   current: certificateInfoZ,
@@ -345,7 +378,7 @@ export const certificatesResponseZ = z.object({
 
 export interface CertificatesResponse extends z.infer<typeof certificatesResponseZ> {}
 
-const testConnectionResponseZ = z.object({
+export const testConnectionResponseZ = z.object({
   serverCertificate: certificateInfoZ.optional(),
 });
 
@@ -361,22 +394,6 @@ const endpointZ = z.object({
 export interface Endpoint extends z.infer<typeof endpointZ> {}
 
 export const endpointsResponseZ = z.object({ endpoints: z.array(endpointZ) });
-
-// Each command replies with its own shape, and the client drops a reply that fails this
-// schema, so the union must cover every one. The first match wins and drops the keys it
-// does not name, so a reply comes before any reply whose keys it extends. The test
-// connection reply matches any object, so it comes last.
-const scanCommandResponseZ = z
-  .union([
-    browseVariablesResponseZ,
-    browseResponseZ,
-    nodeDetailsZ,
-    certificatesResponseZ,
-    endpointsResponseZ,
-    testConnectionResponseZ,
-  ])
-  .nullish()
-  .optional();
 
 export const TEST_CONNECTION_COMMAND_TYPE = "test_connection";
 
@@ -395,5 +412,5 @@ export const REGENERATE_CERTIFICATE_COMMAND_TYPE = "regenerate_certificate";
 export const SCAN_SCHEMAS = {
   type: z.literal(SCAN_TYPE),
   config: record.nullishToEmpty(),
-  statusData: scanCommandResponseZ,
+  statusData: z.unknown().optional(),
 } as const satisfies task.Schemas;

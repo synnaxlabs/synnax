@@ -15,13 +15,13 @@
 #include <string>
 #include <unordered_map>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "absl/log/log.h"
 #include "open62541/client.h"
 #include "open62541/types.h"
 
-#include "client/cpp/errors/errors.h"
 #include "client/cpp/opcua/json.gen.h"
 #include "client/cpp/synnax.h"
 #include "x/cpp/json/json.h"
@@ -54,29 +54,27 @@ struct OutputChan {
     /// @brief the input arguments of the method, in order.
     const std::vector<::synnax::opcua::MethodArgument> arguments;
 
-    OutputChan(const ::synnax::opcua::WriteChannel &parsed, x::json::Parser &parser):
+    OutputChan(
+        const ::synnax::opcua::BaseWriteChannel &base,
+        const ::synnax::opcua::MethodWriteChannel *call,
+        x::json::Parser &parser
+    ):
         node(types::NodeId::parse("node_id", parser)),
-        cmd_channel(parsed.cmd_channel),
-        method(parsed.type == ::synnax::opcua::WRITE_TYPE_METHOD),
-        arguments(parsed.arguments) {
+        cmd_channel(base.cmd_channel),
+        method(call != nullptr),
+        arguments(
+            call != nullptr ? call->arguments
+                            : std::vector<::synnax::opcua::MethodArgument>{}
+        ) {
         if (this->cmd_channel == 0)
             parser.field_err("cmd_channel", "channel must be specified");
-        if (parsed.type != ::synnax::opcua::WRITE_TYPE_NODE && !this->method)
-            parser.field_err("type", "Type must be node or method");
         if (!this->method) return;
         this->object = types::NodeId::parse("object_id", parser);
-        std::size_t commands = 0;
-        for (std::size_t i = 0; i < this->arguments.size(); ++i) {
-            const auto &source = this->arguments[i].source;
-            if (source == ::synnax::opcua::ARGUMENT_SOURCE_COMMAND)
-                commands++;
-            else if (source != ::synnax::opcua::ARGUMENT_SOURCE_VALUE)
-                parser.field_err(
-                    "arguments." + std::to_string(i) + ".source",
-                    "Source must be value or command"
+        if (std::ranges::count_if(this->arguments, [](const auto &arg) {
+                return std::holds_alternative<::synnax::opcua::CommandMethodArgument>(
+                    arg
                 );
-        }
-        if (commands > 1)
+            }) > 1)
             parser.field_err("arguments", "Only one argument can take the command");
     }
 };
@@ -91,9 +89,19 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
     ):
         common::BaseWriteTaskConfig(parser) {
         parser.iter("channels", [&](x::json::Parser &cp) {
-            const auto parsed = ::synnax::opcua::WriteChannel::parse(cp);
-            if (parsed.disabled) return;
-            channels[parsed.cmd_channel] = std::make_unique<OutputChan>(parsed, cp);
+            const auto parsed = ::synnax::opcua::parse_write_channel(cp);
+            const auto &base = std::visit(
+                [](const auto &c) -> const ::synnax::opcua::BaseWriteChannel & {
+                    return c;
+                },
+                parsed
+            );
+            if (base.disabled) return;
+            channels[base.cmd_channel] = std::make_unique<OutputChan>(
+                base,
+                std::get_if<::synnax::opcua::MethodWriteChannel>(&parsed),
+                cp
+            );
         });
         if (this->channels.empty()) {
             parser.field_err("channels", "task must have at least one enabled channel");
@@ -136,10 +144,7 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
 
 class WriteTaskSink final : public common::Sink {
     const WriteTaskConfig cfg;
-    std::shared_ptr<synnax::Synnax> client;
-    std::shared_ptr<connection::Pool> pool;
-    /// @brief the device's connection settings as of the last retrieve.
-    connection::Config conn_cfg;
+    device::Connector connector;
     connection::Pool::Connection connection;
     /// @brief the data type of each channel's node on the current connection, or
     /// nothing for a node whose type the server did not report.
@@ -224,27 +229,18 @@ class WriteTaskSink final : public common::Sink {
         for (std::size_t i = 0; i < keys.size(); ++i) {
             if (!read[i].has_value()) continue;
             auto &types = this->inputs[keys[i]];
-            for (const auto &arg: read[i].value())
-                types.push_back(UA_findDataType(&arg.data_type.get()));
+            for (const auto &arg: read[i].value()) {
+                const auto id = arg.data_type.resolve({}).value();
+                types.push_back(UA_findDataType(&id));
+            }
         }
         return x::errors::NIL;
     }
 
-    /// @brief connects with the device's current settings, so a corrected endpoint or
-    /// login takes effect without a restart. Keeps the last settings while the Core is
-    /// unavailable.
     x::errors::Error connect() {
-        auto [conn_cfg, retrieve_err] = device::retrieve_connection(
-            *this->client,
-            this->cfg.device
-        );
-        if (!retrieve_err)
-            this->conn_cfg = std::move(conn_cfg);
-        else if (!synnax::errors::is_temporarily_unavailable(retrieve_err))
-            return retrieve_err;
-        auto [c, err] = this->pool->acquire(this->conn_cfg, "[opc.write] ");
+        auto [conn, err] = this->connector.connect();
         if (err) return err;
-        return this->use(std::move(c));
+        return this->use(std::move(conn));
     }
 
 public:
@@ -255,21 +251,14 @@ public:
     ):
         Sink(cfg.cmd_keys()),
         cfg(std::move(cfg)),
-        client(std::move(client)),
-        pool(std::move(pool)),
+        connector(std::move(client), std::move(pool), this->cfg.device, "[opc.write] "),
         connection(nullptr, nullptr, "") {}
 
     /// @brief retrieves the device again, so a changed trusted server certificate takes
     /// effect on restart. A server that is off or refuses Sessions does not stop the
     /// start, since each command connects again.
     x::errors::Error start() override {
-        auto [conn_cfg, conn_err] = device::retrieve_connection(
-            *this->client,
-            this->cfg.device
-        );
-        if (conn_err) return conn_err;
-        this->conn_cfg = std::move(conn_cfg);
-        auto [c, err] = this->pool->acquire(this->conn_cfg, "[opc.write] ");
+        auto [c, err] = this->connector.start();
         if (!err) err = this->use(std::move(c));
         if (err.matches(driver::errors::TEMPORARY_HARDWARE_ERROR))
             return x::errors::NIL;
@@ -366,11 +355,15 @@ private:
         std::vector<UA_Variant> args;
         args.reserve(ch.arguments.size());
         for (std::size_t i = 0; i < ch.arguments.size(); ++i) {
-            const auto &arg = ch.arguments[i];
+            const auto *fixed = std::get_if<::synnax::opcua::ValueMethodArgument>(
+                &ch.arguments[i]
+            );
             const auto *type = known ? it->second[i] : nullptr;
-            auto [v, err] = arg.source == ::synnax::opcua::ARGUMENT_SOURCE_COMMAND
-                              ? telem::to_variant(s, type)
-                              : telem::to_variant(::x::telem::Series(arg.value), type);
+            auto [v, err] = fixed == nullptr ? telem::to_variant(s, type)
+                                             : telem::to_variant(
+                                                   ::x::telem::Series(fixed->value),
+                                                   type
+                                               );
             if (err)
                 return rejected(
                     "argument " + std::to_string(i + 1) + ": " + err.data + "."
@@ -464,6 +457,29 @@ private:
         return problems;
     }
 
+    /// @brief reads the server's namespaces again when the frame names a channel whose
+    /// namespace the connection lacks, since the server can add a namespace while it
+    /// runs. Reads the types of the nodes again when a namespace is new.
+    x::errors::Error read_namespaces(const ::x::telem::Frame &frame) {
+        const auto &namespaces = this->connection.server().namespaces;
+        for (const auto &[key, _]: frame) {
+            const auto it = this->cfg.channels.find(key);
+            if (it == this->cfg.channels.end() ||
+                it->second->node.resolve(namespaces).has_value())
+                continue;
+            types::ReadRequestBuilder req;
+            req.add_node(UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER_NAMESPACEARRAY));
+            auto [res, err] = this->connection.read(req.build());
+            if (err) return err;
+            auto [changed, ns_err] = this->connection.update_namespaces(
+                res.get().results[0]
+            );
+            if (ns_err || !changed) return ns_err;
+            return this->read_targets();
+        }
+        return x::errors::NIL;
+    }
+
     /// @brief writes the frame's values and sets problems from build. When the server
     /// rejects the whole request after the client certificate changed, connects again
     /// with the new certificate and writes again.
@@ -471,21 +487,19 @@ private:
     send(const ::x::telem::Frame &frame, std::vector<std::string> &problems) {
         const auto attempt =
             [&]() -> std::pair<types::WriteResponse, x::errors::Error> {
+            if (auto err = this->read_namespaces(frame))
+                return {types::WriteResponse(), err};
             problems = this->build(frame);
             if (this->builder.empty()) return {types::WriteResponse(), x::errors::NIL};
             return this->connection.write(this->builder.build());
         };
         auto [res, err] = attempt();
         if (!err || err.matches(errors::UNREACHABLE)) return {std::move(res), err};
-        auto [refreshed, refresh_err] = this->pool->refresh(
-            this->connection,
-            this->conn_cfg,
-            "[opc.write] "
-        );
+        auto [next, refresh_err] = this->connector.refresh(this->connection);
         if (refresh_err) return {std::move(res), refresh_err};
-        if (!refreshed) return {std::move(res), err};
-        if (const auto targets_err = this->read_targets())
-            return {types::WriteResponse(), targets_err};
+        if (!next) return {std::move(res), err};
+        if (const auto use_err = this->use(std::move(next)))
+            return {types::WriteResponse(), use_err};
         return attempt();
     }
 

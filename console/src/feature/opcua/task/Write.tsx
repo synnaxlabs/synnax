@@ -9,7 +9,7 @@
 
 import "@/feature/opcua/task/Task.css";
 
-import { channel, NotFoundError, type opcua } from "@synnaxlabs/client";
+import { channel, NotFoundError, opcua, type Synnax } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
@@ -18,11 +18,10 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Access } from "@synnaxlabs/pluto";
+import { Access, Channel } from "@synnaxlabs/pluto";
 import { caseconv, DataType, errors, id, primitive } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 
-import { type HaulItem } from "@/feature/opcua/device/Browser";
 import { Select } from "@/feature/opcua/device/Select";
 import {
   type Device,
@@ -38,8 +37,11 @@ import {
 } from "@/feature/opcua/task/Form";
 import {
   deployWriteConfigZ,
+  type InputArgument,
   isMethod,
   type MethodArgument,
+  type NodeDetails,
+  type ScannedNode,
   WRITE_SCHEMAS,
   WRITE_TYPE,
   type WriteChannel,
@@ -60,45 +62,48 @@ const Properties = () => (
 // A command channel that only starts a method takes a value that the call ignores.
 const TRIGGER_DATA_TYPE = DataType.UINT8.toString();
 
-const commandDataType = (args: MethodArgument[]): string =>
-  args.find(({ source }) => source === "command")?.dataType ?? TRIGGER_DATA_TYPE;
+/** @returns the type of the argument that takes the command, if it has one. */
+const commandDataType = (args: MethodArgument[]): string | undefined => {
+  const type = args.find(({ source }) => source === "command")?.dataType;
+  return primitive.isNonZero(type) ? type : undefined;
+};
+
+const convertArgument = (
+  { name, dataType }: InputArgument,
+  i: number,
+): MethodArgument =>
+  i === 0 && dataType !== ""
+    ? { source: "command", name, dataType }
+    : { source: "value", value: "", name, dataType };
 
 // A write goes to a whole node, so a member of a structure is not a write channel.
-const convertHaulItemToChannel = ({ data }: HaulItem): WriteChannel | null => {
-  if (data.field !== "") return null;
-  const base = { nodeName: data.name, nodeId: data.nodeId, name: "" };
-  if (data.nodeClass === "Method") {
-    const args = (data.inputArguments ?? []).map(
-      ({ name, dataType }, i): MethodArgument => ({
-        source: i === 0 && dataType !== "" ? "command" : "value",
-        value: "",
-        name,
-        dataType,
-      }),
-    );
-    return {
-      ...base,
-      key: id.create(),
-      cmdChannel: 0,
-      disabled: false,
-      type: "method",
-      objectId: data.parent ?? "",
-      arguments: args,
-      dataType: commandDataType(args),
-    };
-  }
-  if (data.nodeClass !== "Variable") return null;
-  return {
-    ...base,
-    key: data.nodeId,
+const convertNodeToChannel = (
+  node: ScannedNode,
+  details?: NodeDetails,
+): WriteChannel | null => {
+  if (node.field !== "") return null;
+  const base = {
+    nodeName: node.name,
+    nodeId: node.nodeId,
+    name: "",
     cmdChannel: 0,
     disabled: false,
-    type: "node",
-    objectId: "",
-    arguments: [],
-    dataType: data.dataType,
   };
+  // The arguments give the command of a method its type, so its data type keeps the
+  // default.
+  if (node.nodeClass === "Method")
+    return opcua.methodWriteChannelZ.parse({
+      ...base,
+      key: id.create(),
+      type: "method",
+      objectId: node.parent ?? "",
+      arguments: (details?.inputArguments ?? []).map(convertArgument),
+    });
+  if (node.nodeClass !== "Variable") return null;
+  return { ...base, key: node.nodeId, type: "node", dataType: node.dataType };
 };
+
+const VALUE_INPUT_PROPS = { placeholder: "Value" } as const;
 
 interface ArgumentProps extends ExtraItemProps {
   index: number;
@@ -113,24 +118,31 @@ const Argument = ({ path, index }: ArgumentProps): ReactElement | null => {
     source: opcua.ArgumentSource,
     { get, set }: PForm.ContextValue,
   ) => {
-    const args = get<MethodArgument[]>(`${path}.arguments`).value.map((a, i) => ({
-      ...a,
-      source: i === index ? source : "value",
-    }));
+    const args = get<MethodArgument[]>(`${path}.arguments`).value.map(
+      ({ name, dataType, ...a }, i): MethodArgument =>
+        i === index && source === "command"
+          ? { source, name, dataType }
+          : { source: "value", value: "value" in a ? a.value : "", name, dataType },
+    );
     set(`${path}.arguments`, args);
-    set(`${path}.dataType`, commandDataType(args));
   };
+  const label = arg.dataType === "" ? arg.name : `${arg.name} (${arg.dataType})`;
   return (
     <Flex.Box x align="start" gap="small">
-      <PForm.TextField
-        path={`${argPath}.value`}
-        label={arg.dataType === "" ? arg.name : `${arg.name} (${arg.dataType})`}
-        grow
-        inputProps={{
-          disabled: command,
-          placeholder: command ? "Value of the command" : "Value",
-        }}
-      />
+      {command ? (
+        <Input.Item label={label} grow padHelpText>
+          <Text.Text level="small" color={9}>
+            Each command gives the value.
+          </Text.Text>
+        </Input.Item>
+      ) : (
+        <PForm.TextField
+          path={`${argPath}.value`}
+          label={label}
+          grow
+          inputProps={VALUE_INPUT_PROPS}
+        />
+      )}
       <PForm.Field<opcua.ArgumentSource>
         path={`${argPath}.source`}
         label="Command"
@@ -149,14 +161,30 @@ const Argument = ({ path, index }: ArgumentProps): ReactElement | null => {
 
 const OBJECT_INPUT_PROPS = { placeholder: "ns=2;s=Pump" } as const;
 
+interface ReplacementProps {
+  bound: channel.Channel;
+  dataType: string;
+}
+
+const Replacement = ({ bound, dataType }: ReplacementProps): ReactElement => (
+  <Text.Text level="small" status="warning">
+    {`The command takes ${dataType}, but ${bound.name} is ${bound.dataType.toString()}. Configuring the task replaces ${bound.name} with a new channel.`}
+  </Text.Text>
+);
+
 const MethodDetails = ({ path }: ExtraItemProps): ReactElement | null => {
   const ch = PForm.useFieldValue<WriteChannel>(path, { optional: true });
-  if (ch == null || !isMethod(ch)) return null;
+  const method = ch != null && isMethod(ch) ? ch : null;
+  const query =
+    method != null && method.cmdChannel !== 0 ? { key: method.cmdChannel } : null;
+  const { data: bound } = Channel.useResult(query);
+  if (method == null) return null;
+  const dataType = commandDataType(method.arguments);
   return (
     <Flex.Box y empty className={CSS.B("opc-method")}>
       <Header.Header>
         <Header.Title weight={500} color={10} level="small">
-          {`Call ${ch.nodeName}`}
+          {`Call ${method.nodeName}`}
         </Header.Title>
       </Header.Header>
       <Flex.Box y gap="small" className={CSS.BE("opc-method", "fields")}>
@@ -165,12 +193,15 @@ const MethodDetails = ({ path }: ExtraItemProps): ReactElement | null => {
           label="Object"
           inputProps={OBJECT_INPUT_PROPS}
         />
-        {ch.arguments.length === 0 ? (
+        {method.arguments.length === 0 ? (
           <Text.Text level="small" color={9}>
             The method takes no arguments. Any command calls it.
           </Text.Text>
         ) : (
-          ch.arguments.map((_, i) => <Argument key={i} path={path} index={i} />)
+          method.arguments.map((_, i) => <Argument key={i} path={path} index={i} />)
+        )}
+        {bound != null && dataType != null && !bound.dataType.equals(dataType) && (
+          <Replacement bound={bound} dataType={dataType} />
         )}
       </Flex.Box>
     </Flex.Box>
@@ -216,7 +247,7 @@ const resolve = (device: Device, ch: WriteChannel): Partial<WriteChannel> =>
     : { cmdChannel: getChannelByNodeID(device.properties, ch.nodeId) ?? 0 };
 
 const TaskForm: FC = createForm<WriteChannel>({
-  convertHaulItemToChannel,
+  convertNodeToChannel,
   getChannelKeyAndID,
   contextMenuItems,
   resolve,
@@ -235,6 +266,103 @@ const getInitialValues: Task.GetInitialValues<WriteSchemas> = ({
 const defaultCommandName = ({ nodeName }: WriteChannel): string =>
   `${channel.escapeInvalidName(nodeName)}_cmd`;
 
+const commandName = (ch: WriteChannel): string =>
+  primitive.isNonZero(ch.name) ? ch.name : defaultCommandName(ch);
+
+interface Command {
+  name: string;
+  dataType: string;
+}
+
+/** @returns the command channels it creates, each with its index. */
+const createCommands = async (
+  client: Synnax,
+  commands: Command[],
+): Promise<channel.Channel[]> => {
+  if (commands.length === 0) return [];
+  const indexes = await client.channels.create(
+    commands.map(({ name }) => ({
+      name: `${name}_time`,
+      dataType: "timestamp",
+      isIndex: true,
+    })),
+  );
+  return await client.channels.create(
+    commands.map(({ name, dataType }, i) => ({
+      name,
+      dataType,
+      index: indexes[i].key,
+    })),
+  );
+};
+
+/** Binds a new command channel to each node that the device has no channel for. */
+const bindNodeCommands = async (
+  client: Synnax,
+  dev: Device,
+  nodes: opcua.NodeWriteChannel[],
+): Promise<void> => {
+  const unbound: opcua.NodeWriteChannel[] = [];
+  for (const node of nodes) {
+    const key = getChannelByNodeID(dev.properties, node.nodeId);
+    if (key)
+      try {
+        await client.channels.retrieve(key);
+        continue;
+      } catch (e) {
+        if (!NotFoundError.matches(e)) throw errors.fromUnknown(e);
+      }
+    unbound.push(node);
+  }
+  const created = await createCommands(
+    client,
+    unbound.map((node) => ({ name: commandName(node), dataType: node.dataType })),
+  );
+  if (created.length === 0) return;
+  if (
+    dev.properties.write.channels == null ||
+    Array.isArray(dev.properties.write.channels)
+  )
+    dev.properties.write.channels = {};
+  created.forEach(({ key }, i) => {
+    dev.properties.write.channels[unbound[i].nodeId] = key;
+  });
+};
+
+/**
+ * @returns the new command channel of each method that has no channel, or whose
+ * command now takes another type.
+ */
+const createMethodCommands = async (
+  client: Synnax,
+  methods: opcua.MethodWriteChannel[],
+): Promise<Map<string, channel.Key>> => {
+  const keys: string[] = [];
+  const commands: Command[] = [];
+  // The Core holds one channel per name, and a method can take many channels, so
+  // these take free names.
+  const reserved = new Set<string>();
+  for (const method of methods) {
+    const dataType = commandDataType(method.arguments);
+    let replaced: string | undefined;
+    if (method.cmdChannel !== 0)
+      try {
+        const existing = await client.channels.retrieve(method.cmdChannel);
+        if (dataType == null || existing.dataType.equals(dataType)) continue;
+        replaced = existing.name;
+      } catch (e) {
+        if (!NotFoundError.matches(e)) throw errors.fromUnknown(e);
+      }
+    let name = commandName(method);
+    if (replaced != null || !primitive.isNonZero(method.name))
+      name = await findFreeName(client, replaced ?? name, reserved);
+    keys.push(method.key);
+    commands.push({ name, dataType: dataType ?? TRIGGER_DATA_TYPE });
+  }
+  const created = await createCommands(client, commands);
+  return new Map(created.map(({ key }, i) => [keys[i], key]));
+};
+
 const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
   client,
   config,
@@ -245,69 +373,18 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
   });
   try {
     dev = { ...dev, properties: migrateProperties(dev.properties) };
-    const commandsToCreate: WriteChannel[] = [];
-    // The Core holds one channel per name. A method can take many channels, and a
-    // channel whose command changes type replaces its channel, so these take free
-    // names.
-    const names = new Map<string, string>();
-    const reserved = new Set<string>();
-    for (const channel of config.channels) {
-      const method = isMethod(channel);
-      const key = method
-        ? channel.cmdChannel
-        : getChannelByNodeID(dev.properties, channel.nodeId);
-      let replaced: string | undefined;
-      if (key)
-        try {
-          const existing = await client.channels.retrieve(key);
-          // A method channel's type follows the argument that takes the command.
-          if (!method || existing.dataType.equals(channel.dataType)) continue;
-          replaced = existing.name;
-        } catch (e) {
-          if (!NotFoundError.matches(e)) throw errors.fromUnknown(e);
-        }
-
-      commandsToCreate.push(channel);
-      if (!method || (replaced == null && primitive.isNonZero(channel.name))) continue;
-      const base = replaced ?? defaultCommandName(channel);
-      names.set(channel.key, await findFreeName(client, base, reserved));
-    }
-    const commandName = (ch: WriteChannel): string =>
-      names.get(ch.key) ??
-      (primitive.isNonZero(ch.name) ? ch.name : defaultCommandName(ch));
-    const created = new Map<string, channel.Key>();
-    if (commandsToCreate.length > 0) {
-      if (
-        dev.properties.write.channels == null ||
-        Array.isArray(dev.properties.write.channels)
-      )
-        dev.properties.write.channels = {};
-      const commandIndexes = await client.channels.create(
-        commandsToCreate.map((ch) => ({
-          name: `${commandName(ch)}_time`,
-          dataType: "timestamp",
-          isIndex: true,
-        })),
-      );
-      const commands = await client.channels.create(
-        commandsToCreate.map((ch, i) => ({
-          name: commandName(ch),
-          dataType: ch.dataType,
-          index: commandIndexes[i].key,
-        })),
-      );
-      commands.forEach(({ key }, i) => {
-        const ch = commandsToCreate[i];
-        if (isMethod(ch)) created.set(ch.key, key);
-        else dev.properties.write.channels[ch.nodeId] = key;
-      });
-    }
-    config.channels = config.channels.map((c) => ({
-      ...c,
-      cmdChannel: isMethod(c)
-        ? (created.get(c.key) ?? c.cmdChannel)
-        : getChannelByNodeID(dev.properties, c.nodeId),
-    }));
+    const methods = config.channels.filter(isMethod);
+    await bindNodeCommands(
+      client,
+      dev,
+      config.channels.filter((ch): ch is opcua.NodeWriteChannel => ch.type === "node"),
+    );
+    const created = await createMethodCommands(client, methods);
+    config.channels = config.channels.map((ch) =>
+      isMethod(ch)
+        ? { ...ch, cmdChannel: created.get(ch.key) ?? ch.cmdChannel }
+        : { ...ch, cmdChannel: getChannelByNodeID(dev.properties, ch.nodeId) },
+    );
   } finally {
     await client.devices.create(dev, SCHEMAS);
   }

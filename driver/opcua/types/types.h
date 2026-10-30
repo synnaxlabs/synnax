@@ -101,9 +101,6 @@ public:
         return *this;
     }
 
-    operator const UA_NodeId &() const { return id_; }
-
-    [[nodiscard]] const UA_NodeId &get() const { return id_; }
     [[nodiscard]] bool is_null() const { return UA_NodeId_isNull(&id_); }
     [[nodiscard]] const std::string &namespace_uri() const { return namespace_uri_; }
 
@@ -119,6 +116,9 @@ public:
     /// any case.
     static NodeId parse(const std::string &field_name, x::json::Parser &parser);
     static std::pair<NodeId, x::errors::Error> parse(const std::string &node_id_str);
+    /// @returns the node ID as `nsu=<uri>;<id>` when it names its namespace by URI, and
+    /// as `NS=<index>;<id>` when it does not.
+    [[nodiscard]] std::string to_string() const;
     /// @returns the node ID as `NS=<index>;<id>`.
     static std::string to_string(const UA_NodeId &node_id);
     /// @returns the node ID as `nsu=<uri>;<id>`, which stays valid when the server
@@ -178,87 +178,42 @@ public:
     UA_Variant *ptr() { return &var_; }
 };
 
-class ReadResponse {
-    UA_ReadResponse res_{};
+/// @brief owns a response of the client, whose type is UA_TYPES[Index], and clears it
+/// on destruction.
+template<typename T, std::size_t Index>
+class Response {
+    T res_{};
 
 public:
-    ReadResponse() { UA_ReadResponse_init(&res_); }
-    explicit ReadResponse(const UA_ReadResponse &res): res_(res) {}
-    ~ReadResponse() { UA_ReadResponse_clear(&res_); }
+    Response() { UA_init(&res_, &UA_TYPES[Index]); }
+    explicit Response(const T &res): res_(res) {}
+    ~Response() { UA_clear(&res_, &UA_TYPES[Index]); }
 
-    ReadResponse(const ReadResponse &) = delete;
-    ReadResponse &operator=(const ReadResponse &) = delete;
+    Response(const Response &) = delete;
+    Response &operator=(const Response &) = delete;
 
-    ReadResponse(ReadResponse &&other) noexcept: res_(other.res_) {
-        UA_ReadResponse_init(&other.res_);
+    Response(Response &&other) noexcept: res_(other.res_) {
+        UA_init(&other.res_, &UA_TYPES[Index]);
     }
-    ReadResponse &operator=(ReadResponse &&other) noexcept {
+    Response &operator=(Response &&other) noexcept {
         if (this != &other) {
-            UA_ReadResponse_clear(&res_);
+            UA_clear(&res_, &UA_TYPES[Index]);
             res_ = other.res_;
-            UA_ReadResponse_init(&other.res_);
+            UA_init(&other.res_, &UA_TYPES[Index]);
         }
         return *this;
     }
 
-    operator const UA_ReadResponse &() const { return res_; }
-    [[nodiscard]] const UA_ReadResponse &get() const { return res_; }
-    UA_ReadResponse *ptr() { return &res_; }
+    operator const T &() const { return res_; }
+    [[nodiscard]] const T &get() const { return res_; }
+    T *ptr() { return &res_; }
 };
 
-class WriteResponse {
-    UA_WriteResponse res_{};
-
-public:
-    WriteResponse() { UA_WriteResponse_init(&res_); }
-    explicit WriteResponse(const UA_WriteResponse &res): res_(res) {}
-    ~WriteResponse() { UA_WriteResponse_clear(&res_); }
-
-    WriteResponse(const WriteResponse &) = delete;
-    WriteResponse &operator=(const WriteResponse &) = delete;
-
-    WriteResponse(WriteResponse &&other) noexcept: res_(other.res_) {
-        UA_WriteResponse_init(&other.res_);
-    }
-    WriteResponse &operator=(WriteResponse &&other) noexcept {
-        if (this != &other) {
-            UA_WriteResponse_clear(&res_);
-            res_ = other.res_;
-            UA_WriteResponse_init(&other.res_);
-        }
-        return *this;
-    }
-
-    operator const UA_WriteResponse &() const { return res_; }
-    [[nodiscard]] const UA_WriteResponse &get() const { return res_; }
-    UA_WriteResponse *ptr() { return &res_; }
-};
-
-class CallResponse {
-    UA_CallResponse res_{};
-
-public:
-    CallResponse() { UA_CallResponse_init(&res_); }
-    explicit CallResponse(const UA_CallResponse &res): res_(res) {}
-    ~CallResponse() { UA_CallResponse_clear(&res_); }
-
-    CallResponse(const CallResponse &) = delete;
-    CallResponse &operator=(const CallResponse &) = delete;
-
-    CallResponse(CallResponse &&other) noexcept: res_(other.res_) {
-        UA_CallResponse_init(&other.res_);
-    }
-    CallResponse &operator=(CallResponse &&other) noexcept {
-        if (this != &other) {
-            UA_CallResponse_clear(&res_);
-            res_ = other.res_;
-            UA_CallResponse_init(&other.res_);
-        }
-        return *this;
-    }
-
-    [[nodiscard]] const UA_CallResponse &get() const { return res_; }
-};
+using ReadResponse = Response<UA_ReadResponse, UA_TYPES_READRESPONSE>;
+using WriteResponse = Response<UA_WriteResponse, UA_TYPES_WRITERESPONSE>;
+using BrowseResponse = Response<UA_BrowseResponse, UA_TYPES_BROWSERESPONSE>;
+using BrowseNextResponse = Response<UA_BrowseNextResponse, UA_TYPES_BROWSENEXTRESPONSE>;
+using CallResponse = Response<UA_CallResponse, UA_TYPES_CALLRESPONSE>;
 
 class HistoryReadResponse {
     UA_HistoryReadResponse res_{};
@@ -499,19 +454,45 @@ public:
 };
 // NOLINTEND(misc-explicit-constructor)
 
+/// @brief a path of browse names from a node, such as the path to a field from an
+/// event type.
+class BrowsePath {
+    struct Name {
+        /// @brief the URI of the namespace of the name. Empty when index names it.
+        std::string uri;
+        UA_UInt16 index = 0;
+        std::string name;
+    };
+    std::vector<Name> names_;
+
+public:
+    /// @brief parses browse names joined with '/', such as "EnabledState/Id". A name
+    /// can start with `nsu=<uri>;` or `<index>:` to name its namespace, as in
+    /// "nsu=urn:pump;Level" or "2:Level". Other names are in namespace 0. A URI ends
+    /// at the first ';' and escapes it as %3B, as in a node ID.
+    /// @returns x::errors::VALIDATION when a name is empty or a URI is invalid.
+    static std::pair<BrowsePath, x::errors::Error> parse(const std::string &path);
+
+    /// @returns the browse names with the index of each namespace URI on a server,
+    /// which borrow the names of this path. Nothing if the server has no such
+    /// namespace.
+    /// @param namespaces the namespace URIs of the server, by index.
+    [[nodiscard]] std::optional<std::vector<UA_QualifiedName>>
+    resolve(const std::vector<std::string> &namespaces) const;
+};
+
 /// @brief an EventFilter that selects fields of each event and passes only the events
 /// of some event types.
 class EventFilter {
     UA_EventFilter filter_{};
 
 public:
-    /// @param fields the browse path of each field to select, from the event, such as
-    /// "Message" or "2:Pump/2:Speed". A name with a number and a colon before it is in
-    /// the namespace with that index. Other names are in namespace 0.
+    /// @param fields the browse names of the path to each field to select, from the
+    /// event. The filter copies them.
     /// @param types the event types to pass, with their subtypes. Empty passes every
     /// event.
     EventFilter(
-        const std::vector<std::string> &fields,
+        const std::vector<std::vector<UA_QualifiedName>> &fields,
         const std::vector<UA_NodeId> &types
     );
     ~EventFilter() { UA_EventFilter_clear(&filter_); }

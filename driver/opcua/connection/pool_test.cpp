@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <chrono>
+#include <functional>
 #include <optional>
 #include <set>
 #include <string>
@@ -205,6 +206,22 @@ TEST_F(ConnectionPoolTest, DifferentCredentials) {
 
     EXPECT_NE(conn1.get(), conn2.get());
     EXPECT_EQ(pool.size(), 2);
+}
+
+/// @brief it should not reuse an idle connection for a config with other timeouts.
+TEST_F(ConnectionPoolTest, DifferentTimeouts) {
+    for (const auto &change: std::vector<std::function<void(Config &)>>{
+             [](Config &c) { c.client_timeout_ms = 15000; },
+             [](Config &c) { c.session_timeout_ms = 60000; },
+             [](Config &c) { c.secure_channel_lifetime_ms = 30000; },
+         }) {
+        Pool pool(testutil::create_store());
+        { auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] ")); }
+        Config other = conn_cfg_;
+        change(other);
+        const auto conn = ASSERT_NIL_P(pool.acquire(other, "[test] "));
+        EXPECT_EQ(pool.size(), 2);
+    }
 }
 
 /// @brief it should return error when connecting to unavailable server.
@@ -578,6 +595,21 @@ TEST_F(ConnectionPoolTest, ReadsServerFacts) {
     EXPECT_EQ(server.max_nodes_per_history_read_data, 6);
 }
 
+/// @brief it should read the server facts from a server that allows one node per Read
+/// request.
+TEST_F(ConnectionPoolTest, ReadsServerFactsOneNodePerRead) {
+    server_cfg_.namespaces = {"urn:synnax:test"};
+    server_cfg_.max_nodes_per_read = 1;
+    server_cfg_.max_nodes_per_write = 3;
+    restart_server();
+    Pool pool(testutil::create_store());
+    const auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
+    ASSERT_EQ(conn.server().namespaces.size(), 3);
+    EXPECT_EQ(conn.server().namespaces[2], "urn:synnax:test");
+    EXPECT_EQ(conn.server().max_nodes_per_read, 1);
+    EXPECT_EQ(conn.server().max_nodes_per_write, 3);
+}
+
 /// @brief it should keep the server facts of an idle connection that it reuses.
 TEST_F(ConnectionPoolTest, ReuseKeepsServerFacts) {
     server_cfg_.namespaces = {"urn:synnax:test"};
@@ -628,7 +660,7 @@ TEST_F(ConnectionPoolTest, ReadSplitsAtServerLimit) {
     types::ReadRequestBuilder builder;
     for (const auto &name: names) {
         ids.push_back(ASSERT_NIL_P(types::NodeId::parse("ns=1;s=" + name)));
-        builder.add_node(ids.back().get());
+        builder.add_node(ids.back().resolve({}).value());
     }
     const auto res = ASSERT_NIL_P(conn.read(builder.build()));
     const auto &raw = res.get();
@@ -652,7 +684,7 @@ TEST_F(ConnectionPoolTest, WriteSplitsAtServerLimit) {
     types::WriteRequestBuilder builder;
     for (const uint32_t value: {1U, 2U, 3U})
         ASSERT_NIL(builder.add_value(
-            id.get(),
+            id.resolve({}).value(),
             x::telem::Series(value, x::telem::UINT32_T),
             nullptr
         ));
@@ -690,7 +722,7 @@ TEST_F(ConnectionPoolTest, BrowseListsChildren) {
     EXPECT_EQ(names(results[0]), std::vector<std::string>({"V0", "V1", "Inner"}));
     const auto &v0 = results[0].references[0];
     EXPECT_EQ(v0.node_class, UA_NODECLASS_VARIABLE);
-    EXPECT_EQ(types::NodeId::to_string(v0.node), "NS=1;S=Generated.V0");
+    EXPECT_EQ(v0.node.to_string(), "NS=1;S=Generated.V0");
     EXPECT_EQ(results[0].references[2].node_class, UA_NODECLASS_OBJECT);
 }
 
@@ -743,7 +775,10 @@ struct Received {
 };
 
 /// @brief the fields that the event tests select: Message and 1:Level.
-const std::vector<std::string> EVENT_FIELDS = {"Message", "1:Level"};
+const std::vector<std::vector<UA_QualifiedName>> EVENT_FIELDS = {
+    {UA_QUALIFIEDNAME(0, const_cast<char *>("Message"))},
+    {UA_QUALIFIEDNAME(1, const_cast<char *>("Level"))},
+};
 
 /// @returns a handler that adds each event to received.
 EventHandler collect(std::vector<Received> &received) {
@@ -760,6 +795,13 @@ EventHandler collect(std::vector<Received> &received) {
             r.level = *static_cast<const UA_Double *>(level.data);
         received.push_back(std::move(r));
     };
+}
+
+/// @returns whether client holds the subscription with id.
+bool holds(UA_Client *client, const UA_UInt32 id) {
+    void *context = nullptr;
+    return UA_Client_Subscriptions_getContext(client, id, &context) ==
+           UA_STATUSCODE_GOOD;
 }
 
 /// @brief iterates conn until received holds count items, or 5 seconds pass.
@@ -839,11 +881,7 @@ TEST_F(ConnectionPoolTest, SubscribeReplacesSubscription) {
     std::vector<Received> second;
     ASSERT_NIL_P(conn.subscribe({testutil::PUMP}, filter.get(), collect(second)));
     EXPECT_NE(conn.subscription_id(), replaced);
-    void *context = nullptr;
-    EXPECT_NE(
-        UA_Client_Subscriptions_getContext(conn.get(), replaced, &context),
-        UA_STATUSCODE_GOOD
-    );
+    EXPECT_FALSE(holds(conn.get(), replaced));
     server_->emit({.source = testutil::PUMP, .message = "once"});
     iterate_until(conn, second, 1);
     EXPECT_TRUE(first.empty());
@@ -868,27 +906,25 @@ TEST_F(ConnectionPoolTest, ReleaseDeletesSubscription) {
     const auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
     ASSERT_EQ(conn.get(), client);
     ASSERT_NIL(lost(conn.get()));
-    void *context = nullptr;
-    EXPECT_NE(
-        UA_Client_Subscriptions_getContext(conn.get(), id, &context),
-        UA_STATUSCODE_GOOD
-    );
+    EXPECT_FALSE(holds(conn.get(), id));
     EXPECT_EQ(pool.size(), 1);
 }
 
-/// @brief it should report a lost connection while it waits for events, and close the
-/// Session of a lost connection that still holds a subscription.
+/// @brief it should report a lost connection while it waits for events, and delete the
+/// subscription of the lost connection once the pool connects again.
 TEST_F(ConnectionPoolTest, IterateReportsLostConnection) {
     server_cfg_.pump = testutil::Pump{};
     restart_server();
     Pool pool(testutil::create_store());
     const types::EventFilter filter(EVENT_FIELDS, {});
-    std::shared_ptr<UA_Client> client;
+    UA_UInt32 id = 0;
+    UA_Client *client = nullptr;
     {
         std::vector<Received> received;
         auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
         ASSERT_NIL_P(conn.subscribe({testutil::PUMP}, filter.get(), collect(received)));
-        client = conn.shared();
+        id = conn.subscription_id();
+        client = conn.get();
         server_->stop();
         x::errors::Error err;
         const auto deadline = std::chrono::steady_clock::now() +
@@ -897,12 +933,118 @@ TEST_F(ConnectionPoolTest, IterateReportsLostConnection) {
             err = conn.iterate(x::telem::MILLISECOND * 100);
         ASSERT_OCCURRED_AS(err, errors::NO_CONNECTION);
     }
-    UA_SessionState session = UA_SESSIONSTATE_ACTIVATED;
-    UA_Client_getState(client.get(), nullptr, &session, nullptr);
-    EXPECT_EQ(session, UA_SESSIONSTATE_CLOSED);
+    EXPECT_TRUE(holds(client, id));
     restart_server();
     const auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
+    ASSERT_EQ(conn.get(), client);
+    EXPECT_FALSE(holds(client, id));
     EXPECT_EQ(pool.size(), 1);
+}
+
+/// @brief it should keep the Session of a connection whose channel drops while it holds
+/// a subscription, and delete the subscription once the Session is active again.
+TEST_F(ConnectionPoolTest, LostChannelKeepsSession) {
+    server_cfg_.pump = testutil::Pump{};
+    restart_server();
+    Pool pool(testutil::create_store());
+    const types::EventFilter filter(EVENT_FIELDS, {});
+    UA_UInt32 id = 0;
+    UA_Client *client = nullptr;
+    {
+        std::vector<Received> received;
+        auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
+        ASSERT_NIL_P(conn.subscribe({testutil::PUMP}, filter.get(), collect(received)));
+        id = conn.subscription_id();
+        client = conn.get();
+        UA_Client_disconnectSecureChannel(client);
+    }
+    EXPECT_TRUE(holds(client, id));
+    // The handler of the subscription is gone, so this event must go nowhere.
+    server_->emit({.source = testutil::PUMP, .message = "orphaned"});
+    const auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
+    ASSERT_EQ(conn.get(), client);
+    EXPECT_FALSE(holds(client, id));
+    EXPECT_EQ(pool.size(), 1);
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    EXPECT_EQ(server_->sessions_created, 1);
+}
+
+/// @brief it should wait on a server that stops answering only once when a connection
+/// with a subscription goes back to the pool, and keep its Session.
+TEST_F(ConnectionPoolTest, SilentServerKeepsSession) {
+    server_cfg_.pump = testutil::Pump{};
+    restart_server();
+    conn_cfg_.client_timeout_ms = 400;
+    Pool pool(testutil::create_store());
+    const types::EventFilter filter(EVENT_FIELDS, {});
+    UA_UInt32 id = 0;
+    UA_Client *client = nullptr;
+    std::chrono::steady_clock::duration released{};
+    {
+        std::vector<Received> received;
+        auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
+        ASSERT_NIL_P(conn.subscribe({testutil::PUMP}, filter.get(), collect(received)));
+        id = conn.subscription_id();
+        client = conn.get();
+        types::ReadRequestBuilder builder;
+        builder.add_node(
+            UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER_SERVERSTATUS_CURRENTTIME)
+        );
+        server_->probe_delay = 2 * x::telem::SECOND;
+        // The server answers this read, then waits before it handles the next request.
+        ASSERT_NIL_P(conn.read(builder.build()));
+        const auto start = std::chrono::steady_clock::now();
+        conn = Pool::Connection(nullptr, nullptr, "");
+        released = std::chrono::steady_clock::now() - start;
+    }
+    EXPECT_LT(released, std::chrono::milliseconds(700));
+    ASSERT_OCCURRED_AS(lost(client), errors::NO_CONNECTION);
+    EXPECT_TRUE(holds(client, id));
+    server_->probe_delay = x::telem::TimeSpan();
+    std::this_thread::sleep_for(std::chrono::milliseconds(2100));
+    const auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
+    ASSERT_EQ(conn.get(), client);
+    EXPECT_FALSE(holds(client, id));
+    EXPECT_EQ(server_->sessions_created, 1);
+}
+
+/// @brief it should not wait on the server when a connection with a subscription goes
+/// back to the pool after a call timed out, and keep its Session.
+TEST_F(ConnectionPoolTest, TimeoutKeepsSession) {
+    server_cfg_.pump = testutil::Pump{};
+    restart_server();
+    conn_cfg_.client_timeout_ms = 250;
+    Pool pool(testutil::create_store());
+    const types::EventFilter filter(EVENT_FIELDS, {});
+    UA_UInt32 id = 0;
+    UA_Client *client = nullptr;
+    std::chrono::steady_clock::duration released{};
+    {
+        std::vector<Received> received;
+        auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
+        ASSERT_NIL_P(conn.subscribe({testutil::PUMP}, filter.get(), collect(received)));
+        id = conn.subscription_id();
+        client = conn.get();
+        types::ReadRequestBuilder builder;
+        builder.add_node(
+            UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER_SERVERSTATUS_CURRENTTIME)
+        );
+        server_->probe_delay = x::telem::SECOND;
+        // The server answers this read, then waits before it handles the next one.
+        ASSERT_NIL_P(conn.read(builder.build()));
+        ASSERT_OCCURRED_AS_P(conn.read(builder.build()), errors::UNREACHABLE);
+        const auto start = std::chrono::steady_clock::now();
+        conn = Pool::Connection(nullptr, nullptr, "");
+        released = std::chrono::steady_clock::now() - start;
+    }
+    EXPECT_LT(released, std::chrono::milliseconds(100));
+    EXPECT_TRUE(holds(client, id));
+    server_->probe_delay = x::telem::TimeSpan();
+    std::this_thread::sleep_for(std::chrono::milliseconds(1100));
+    const auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
+    ASSERT_EQ(conn.get(), client);
+    EXPECT_FALSE(holds(client, id));
+    EXPECT_EQ(server_->sessions_created, 1);
 }
 
 /// @returns a request to call method on the Pump object with args.
@@ -1087,31 +1229,59 @@ TEST_F(SessionLimitPoolTest, DroppedConnectionStaysLost) {
 
 /// @brief it should double the cooldown each time the breaker opens again.
 TEST_F(SessionLimitPoolTest, CooldownDoubles) {
-    Pool pool(testutil::create_store());
+    Pool pool(
+        testutil::create_store(),
+        {.min_cooldown = std::chrono::milliseconds(200),
+         .max_cooldown = std::chrono::seconds(1)}
+    );
     server_->stop();
     server_.reset();
-    for (int i = 0; i < Pool::BREAKER_THRESHOLD; ++i)
+    for (int i = 0; i < 3; ++i)
         ASSERT_OCCURRED_AS_P(pool.acquire(conn_cfg_, "[test] "), errors::UNREACHABLE);
-    std::this_thread::sleep_for(Pool::MIN_COOLDOWN + std::chrono::milliseconds(500));
+    std::this_thread::sleep_for(std::chrono::milliseconds(300));
     ASSERT_OCCURRED_AS_P(pool.acquire(conn_cfg_, "[test] "), errors::UNREACHABLE);
-    std::this_thread::sleep_for(Pool::MIN_COOLDOWN + std::chrono::milliseconds(500));
+    std::this_thread::sleep_for(std::chrono::milliseconds(300));
     auto [conn, err] = pool.acquire(conn_cfg_, "[test] ");
     EXPECT_EQ(err.data, BREAKER_OPEN_TEXT);
 }
 
-/// @brief it should close a connection that no one used for the idle timeout.
-TEST_F(SessionLimitPoolTest, CloseIdle) {
-    Pool pool(testutil::create_store(), std::chrono::milliseconds(200));
-    { auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] ")); }
+/// @brief it should close a connection that no one used for the idle timeout, with no
+/// call to the Pool.
+TEST_F(SessionLimitPoolTest, ClosesIdleConnections) {
+    Pool pool(
+        testutil::create_store(),
+        {.idle_timeout = std::chrono::milliseconds(200)}
+    );
     auto held = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
     { auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] ")); }
-    pool.close_idle();
     EXPECT_EQ(pool.size(), 2);
-    std::this_thread::sleep_for(std::chrono::milliseconds(300));
-    pool.close_idle();
-    EXPECT_EQ(pool.size(), 1);
+    ASSERT_EVENTUALLY_EQ(pool.size(), 1);
     held = Pool::Connection(nullptr, nullptr, "");
     EXPECT_EQ(pool.available_count(conn_cfg_.endpoint), 1);
+    ASSERT_EVENTUALLY_EQ(pool.size(), 0);
+}
+
+/// @brief it should close the channel of a call that the server does not answer in
+/// time, so the next acquire connects again with the same Session instead of probing
+/// first.
+TEST_F(SessionLimitPoolTest, TimeoutClosesChannel) {
+    Pool pool(testutil::create_store());
+    conn_cfg_.client_timeout_ms = 250;
+    auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
+    const auto client = conn.shared();
+    types::ReadRequestBuilder builder;
+    builder.add_node(UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER_SERVERSTATUS_CURRENTTIME));
+    server_->probe_delay = x::telem::SECOND;
+    // The server answers this read, then waits before it handles the next one.
+    ASSERT_NIL_P(conn.read(builder.build()));
+    ASSERT_OCCURRED_AS_P(conn.read(builder.build()), errors::UNREACHABLE);
+    ASSERT_OCCURRED_AS(lost(conn.get()), errors::NO_CONNECTION);
+    server_->probe_delay = x::telem::TimeSpan();
+    std::this_thread::sleep_for(std::chrono::milliseconds(1100));
+    conn = Pool::Connection(nullptr, nullptr, "");
+    conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
+    EXPECT_EQ(conn.get(), client.get());
+    EXPECT_EQ(pool.size(), 1);
 }
 
 /// @brief it should record the time of the last reply from the server.
@@ -1133,10 +1303,7 @@ TEST_F(SessionLimitPoolTest, ReadOnLostConnection) {
     auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
     UA_Client_disconnectSecureChannel(conn.get());
     types::ReadRequestBuilder builder;
-    const types::NodeId node(
-        UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER_SERVERSTATUS_CURRENTTIME)
-    );
-    builder.add_node(node, UA_ATTRIBUTEID_VALUE);
+    builder.add_node(UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER_SERVERSTATUS_CURRENTTIME));
     ASSERT_OCCURRED_AS_P(conn.read(builder.build()), errors::NO_CONNECTION);
     ASSERT_OCCURRED_AS(lost(conn.get()), errors::NO_CONNECTION);
 }
@@ -1147,8 +1314,8 @@ TEST_F(SessionLimitPoolTest, ReadOnLostConnection) {
 /// On main: no circuit breaker exists, so every acquire() attempts connect()
 /// even when the server is down, hammering the endpoint.
 ///
-/// With the update: after BREAKER_THRESHOLD (3) failures, the breaker opens
-/// and acquire() returns an error instantly during the cooldown window.
+/// With the update: after three failures, the breaker opens and acquire() returns an
+/// error instantly during the cooldown window.
 TEST_F(SessionLimitPoolTest, CircuitBreakerTripsAfterFailures) {
     Pool pool(testutil::create_store());
 
@@ -1198,7 +1365,7 @@ TEST_F(SessionLimitPoolTest, CircuitBreakerSkipsCleanupWhenTripped) {
     server_.reset();
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
-    // Trip the breaker via BREAKER_THRESHOLD consecutive failures
+    // Trip the breaker via three consecutive failures
     for (int i = 0; i < 3; ++i) {
         auto [conn, err] = pool.acquire(conn_cfg_, "[test] ");
         ASSERT_TRUE(err) << "Attempt " << i << " should fail (server is down)";
@@ -1226,7 +1393,10 @@ TEST_F(SessionLimitPoolTest, CircuitBreakerSkipsCleanupWhenTripped) {
 /// On main: no breaker, so this test structure doesn't apply — but it
 /// validates that the breaker doesn't permanently lock out an endpoint.
 TEST_F(SessionLimitPoolTest, CircuitBreakerResetsOnSuccess) {
-    Pool pool(testutil::create_store());
+    Pool pool(
+        testutil::create_store(),
+        {.min_cooldown = std::chrono::milliseconds(200)}
+    );
 
     // Stop server to trip the breaker
     server_->stop();
@@ -1252,8 +1422,7 @@ TEST_F(SessionLimitPoolTest, CircuitBreakerResetsOnSuccess) {
     server_->start();
     ASSERT_TRUE(server_->wait_until_ready());
 
-    // Wait for breaker cooldown to expire (BREAKER_COOLDOWN = 5s)
-    std::this_thread::sleep_for(std::chrono::milliseconds(5500));
+    std::this_thread::sleep_for(std::chrono::milliseconds(300));
 
     // Now acquire should succeed — breaker enters half-open, probe succeeds,
     // breaker resets

@@ -238,6 +238,7 @@ class TestOPCWriteTask:
                     "channels": [
                         {
                             "key": "k09AWoiyLxN",
+                            "type": "node",
                             "node_id": "ns=2;i=8",
                             "cmd_channel": 1234,
                             "disabled": False,
@@ -253,12 +254,14 @@ class TestOPCWriteTask:
                     "channels": [
                         {
                             "key": "k09AWoiyLxN",
+                            "type": "node",
                             "node_id": "ns=2;i=8",
                             "cmd_channel": 1234,
                             "disabled": False,
                         },
                         {
                             "key": "k10BWoiyLxN",
+                            "type": "node",
                             "node_id": "ns=2;i=10",
                             "cmd_channel": 5678,
                             "disabled": False,
@@ -280,7 +283,7 @@ class TestOPCWriteTask:
             device="some-device-key",
             auto_start=True,
             channels=[
-                sy.opcua.WriteChannel(
+                sy.opcua.NodeWriteChannel(
                     key="k09AWoiyLxN",
                     node_id="ns=2;i=8",
                     cmd_channel=1234,
@@ -301,13 +304,13 @@ class TestOPCWriteTask:
             device="some-device-key",
             auto_start=False,
             channels=[
-                sy.opcua.WriteChannel(
+                sy.opcua.NodeWriteChannel(
                     key="k09AWoiyLxN",
                     node_id="ns=2;i=8",
                     cmd_channel=1234,
                     disabled=False,
                 ),
-                sy.opcua.WriteChannel(
+                sy.opcua.NodeWriteChannel(
                     key="k10BWoiyLxN",
                     node_id="ns=2;i=9",
                     cmd_channel=5678,
@@ -326,7 +329,7 @@ class TestOPCWriteTask:
             name="test",
             device="some-device-key",
             channels=[
-                sy.opcua.WriteChannel(
+                sy.opcua.NodeWriteChannel(
                     node_id="ns=2;i=8",
                     cmd_channel=1234,
                 )
@@ -343,13 +346,13 @@ class TestOPCWriteTask:
             device="some-device-key",
             auto_start=False,
             channels=[
-                sy.opcua.WriteChannel(
+                sy.opcua.NodeWriteChannel(
                     key="k09AWoiyLxN",
                     node_id="ns=2;i=8",
                     cmd_channel=1234,
                     disabled=False,
                 ),
-                sy.opcua.WriteChannel(
+                sy.opcua.NodeWriteChannel(
                     key="k10BWoiyLxN",
                     node_id="ns=2;i=10",
                     cmd_channel=5678,
@@ -387,17 +390,14 @@ class TestOPCWriteTask:
             name="test-method",
             device="some-device-key",
             channels=[
-                sy.opcua.WriteChannel(
+                sy.opcua.MethodWriteChannel(
                     node_id="ns=1;s=Pump.Configure",
                     cmd_channel=1234,
-                    type="method",
                     object_id="ns=1;s=Pump",
                     arguments=[
-                        sy.opcua.MethodArgument(
-                            source="value", value="auto", name="mode"
-                        ),
-                        sy.opcua.MethodArgument(
-                            source="command", name="speed", data_type="float64"
+                        sy.opcua.ValueMethodArgument(value="auto", name="mode"),
+                        sy.opcua.CommandMethodArgument(
+                            name="speed", data_type=sy.DataType.FLOAT64
                         ),
                     ],
                 )
@@ -407,11 +407,11 @@ class TestOPCWriteTask:
             name="test-method", type="opc_write", config=task.config
         )
         [ch] = sy.opcua.WriteTask(created).config.channels
-        assert ch.type == "method"
+        assert isinstance(ch, sy.opcua.MethodWriteChannel)
         assert ch.object_id == "ns=1;s=Pump"
-        assert [(a.source, a.value, a.name) for a in ch.arguments] == [
-            ("value", "auto", "mode"),
-            ("command", "", "speed"),
+        assert ch.arguments == [
+            sy.opcua.ValueMethodArgument(value="auto", name="mode"),
+            sy.opcua.CommandMethodArgument(name="speed", data_type=sy.DataType.FLOAT64),
         ]
 
     def test_update_device_properties_skips_methods(self, client: sy.Synnax) -> None:
@@ -428,11 +428,10 @@ class TestOPCWriteTask:
             name="test-task",
             device=dev.key,
             channels=[
-                sy.opcua.WriteChannel(node_id="NS=1;S=Valve", cmd_channel=21),
-                sy.opcua.WriteChannel(
+                sy.opcua.NodeWriteChannel(node_id="NS=1;S=Valve", cmd_channel=21),
+                sy.opcua.MethodWriteChannel(
                     node_id="NS=1;S=Pump.Start",
                     cmd_channel=22,
-                    type="method",
                     object_id="NS=1;S=Pump",
                 ),
             ],

@@ -17,6 +17,7 @@
 #include <mutex>
 #include <optional>
 #include <string>
+#include <thread>
 #include <unordered_map>
 #include <utility>
 #include <vector>
@@ -223,9 +224,11 @@ struct Monitored {
 struct Subscription {
     /// @brief the ID that the server gave the subscription.
     UA_UInt32 id = 0;
-    /// @brief runs for each event of the subscription.
+    /// @brief runs for each event of the subscription. Empty once the connection of the
+    /// subscription goes back to its pool.
     EventHandler handle_event;
-    /// @brief runs for each change of a node of the subscription.
+    /// @brief runs for each change of a node of the subscription. Empty once the
+    /// connection of the subscription goes back to its pool.
     ChangeHandler handle_change;
     /// @brief the place of each monitored node in its subscribe request. The client
     /// passes a pointer to one of them to each callback, so the list never grows.
@@ -250,6 +253,9 @@ public:
             key_(std::move(key)),
             server_(std::move(server)) {}
 
+        // close throws only when the pool lost the entry of a held connection, which is
+        // a bug that should end the process.
+        // NOLINTNEXTLINE(bugprone-exception-escape)
         ~Connection() { this->close(); }
 
         Connection(const Connection &) = delete;
@@ -264,6 +270,7 @@ public:
             other.pool_ = nullptr;
         }
 
+        // NOLINTNEXTLINE(bugprone-exception-escape): close throws as in ~Connection.
         Connection &operator=(Connection &&other) noexcept {
             if (this != &other) {
                 this->close();
@@ -357,6 +364,19 @@ public:
         [[nodiscard]] std::pair<types::HistoryReadResponse, x::errors::Error>
         read_history(const UA_HistoryReadRequest &req) const;
 
+        /// @brief monitors the events of each notifier that pass filter, on the
+        /// subscription of the connection. Every monitored item of a subscription must
+        /// share one filter, since the handler reads the fields of each event by their
+        /// place in it.
+        /// @returns the error of each notifier the server did not monitor, in order, up
+        /// to the first request that failed, and the error of that request. Returns
+        /// errors::NO_CONNECTION when the connection is lost.
+        [[nodiscard]] std::pair<std::vector<x::errors::Error>, x::errors::Error>
+        monitor(
+            const std::vector<UA_NodeId> &notifiers,
+            const UA_EventFilter &filter
+        ) const;
+
         /// @returns the ID of the subscription of the connection, or 0 when it has
         /// none.
         [[nodiscard]] UA_UInt32 subscription_id() const;
@@ -366,6 +386,12 @@ public:
         /// @returns errors::NO_CONNECTION when the connection is lost, or the status
         /// with which the server ended the subscription.
         [[nodiscard]] x::errors::Error iterate(x::telem::TimeSpan timeout) const;
+        /// @brief records the namespaces in value, a read of the NamespaceArray node,
+        /// as those of the server, for this connection and each later one on its
+        /// Session.
+        /// @returns true if the namespaces changed, or errors::CRITICAL if value holds
+        /// no namespace array.
+        std::pair<bool, x::errors::Error> update_namespaces(const UA_DataValue &value);
 
     private:
         /// @brief ends the subscription, then gives the client back to the pool.
@@ -384,8 +410,8 @@ public:
         ) const;
 
         /// @brief ends the subscription of the connection. When the server does not
-        /// delete it, closes the Session, since a client that the pool hands out again
-        /// must not deliver events to a handler that no longer exists.
+        /// delete it, as when the connection is lost, the pool keeps it and deletes it
+        /// after the Session is active again. Waits on the server at most once.
         void unsubscribe();
 
         /// @brief browses count nodes in one Browse request, then follows their
@@ -396,6 +422,11 @@ public:
             types::BrowseResult *results
         ) const;
 
+        /// @returns the error of the service result of a call. A call that fails for a
+        /// lost connection closes the channel, so the next acquire connects again at
+        /// once instead of probing first. Any other result records a reply.
+        [[nodiscard]] x::errors::Error check(UA_StatusCode result) const;
+
         std::shared_ptr<UA_Client> client_;
         Pool *pool_;
         std::string key_;
@@ -405,18 +436,22 @@ public:
         friend class Pool;
     };
 
-    static constexpr int BREAKER_THRESHOLD = 3;
-    static constexpr std::chrono::seconds MIN_COOLDOWN{5};
-    static constexpr std::chrono::seconds MAX_COOLDOWN{30};
-    static constexpr std::chrono::seconds IDLE_TIMEOUT{60};
+    /// @brief how long a Pool keeps idle connections and pauses failed attempts.
+    struct Timing {
+        /// @brief how long a connection stays open while no one uses it.
+        std::chrono::milliseconds idle_timeout = IDLE_TIMEOUT;
+        /// @brief the first pause of the attempts to a server after three failures in a
+        /// row.
+        std::chrono::milliseconds min_cooldown = MIN_COOLDOWN;
+        /// @brief the longest pause. Each pause in a row doubles up to it.
+        std::chrono::milliseconds max_cooldown = MAX_COOLDOWN;
+    };
 
     /// @param store the source of the Driver certificate for secured connections.
-    /// @param idle_timeout how long a connection stays open while no one uses it.
-    explicit Pool(
-        std::shared_ptr<certificate::Store> store,
-        std::chrono::milliseconds idle_timeout = IDLE_TIMEOUT
-    );
-    ~Pool() = default;
+    explicit Pool(std::shared_ptr<certificate::Store> store);
+    Pool(std::shared_ptr<certificate::Store> store, Timing timing);
+    /// @brief blocks while it sends CloseSession for each connection.
+    ~Pool();
 
     Pool(const Pool &) = delete;
     Pool &operator=(const Pool &) = delete;
@@ -426,24 +461,20 @@ public:
     /// so the server keeps one Session for it. A new connection with no server
     /// certificate in its Config trusts the first one that the server presents.
     ///
-    /// The Pool makes one connection attempt to a server at a time. After
-    /// BREAKER_THRESHOLD failures in a row, it refuses attempts for a cooldown that
-    /// starts at MIN_COOLDOWN and doubles up to MAX_COOLDOWN.
+    /// The Pool makes one connection attempt to a server at a time. After three
+    /// failures in a row, it refuses attempts for a cooldown that starts at
+    /// Timing::min_cooldown and doubles up to Timing::max_cooldown. A connection that
+    /// no one uses for Timing::idle_timeout closes.
     std::pair<Connection, x::errors::Error>
     acquire(const Config &cfg, const std::string &log_prefix);
 
-    /// @brief replaces conn with a new connection when the configuration now resolves
-    /// to another client certificate, such as after the Driver certificate changes.
-    /// The new connection trusts only the server certificate that conn trusts. Leaves
-    /// conn unchanged when the client certificate is the same or the new connection
-    /// fails.
-    /// @returns true if it replaced conn.
-    std::pair<bool, x::errors::Error>
-    refresh(Connection &conn, const Config &cfg, const std::string &log_prefix);
-
-    /// @brief closes the connections that no one has used for the idle timeout. Blocks
-    /// while it sends CloseSession to their servers.
-    void close_idle();
+    /// @brief connects again when the configuration now resolves to another client
+    /// certificate than conn uses, such as after the Driver certificate changes. The
+    /// new connection trusts only the server certificate that conn trusts.
+    /// @returns the new connection, or an empty one when the client certificate is the
+    /// same.
+    std::pair<Connection, x::errors::Error>
+    refresh(const Connection &conn, const Config &cfg, const std::string &log_prefix);
 
     /// @returns the time of the last reply from the server on a connection with the
     /// configuration, or a zero timestamp if none replied.
@@ -453,7 +484,15 @@ public:
     size_t available_count(const std::string &endpoint) const;
 
 private:
+    static constexpr int BREAKER_THRESHOLD = 3;
+    static constexpr std::chrono::seconds MIN_COOLDOWN{5};
+    static constexpr std::chrono::seconds MAX_COOLDOWN{30};
+    static constexpr std::chrono::seconds IDLE_TIMEOUT{60};
+
     struct Entry {
+        /// @brief the subscriptions that the client kept after their connections went
+        /// back to the pool. They come before client, so they outlive it.
+        std::vector<std::unique_ptr<Subscription>> orphans;
         std::shared_ptr<UA_Client> client;
         /// @brief what the Driver read from the server when the Session started.
         std::shared_ptr<const Server> server;
@@ -471,7 +510,8 @@ private:
     struct BreakerState {
         int consecutive_failures = 0;
         std::chrono::steady_clock::time_point cooldown_until;
-        std::chrono::seconds cooldown = MIN_COOLDOWN;
+        /// @brief the next pause, or zero for the first one.
+        std::chrono::milliseconds cooldown{0};
         /// @brief true while a thread connects. Other threads wait on connect_cv.
         bool connecting = false;
         /// @brief the trusted server certificate of the counted failures. A new
@@ -483,15 +523,22 @@ private:
         /// security error repeats, since waiting does not fix it.
         [[nodiscard]] x::errors::Error open_error() const;
         [[nodiscard]] bool open() const;
-        void failed(const x::errors::Error &err, const std::string &log_prefix);
+        void failed(
+            const x::errors::Error &err,
+            const Timing &timing,
+            const std::string &log_prefix
+        );
         void succeeded();
     };
 
     std::shared_ptr<certificate::Store> store;
-    std::chrono::milliseconds idle_timeout;
+    Timing timing;
     mutable std::mutex mutex_;
     /// @brief notified when a connecting thread finishes.
     std::condition_variable connect_cv;
+    /// @brief notified when a connection goes idle or the Pool closes.
+    std::condition_variable idle_cv;
+    bool closing = false;
     std::unordered_map<std::string, std::vector<Entry>> connections_;
     std::unordered_map<std::string, BreakerState> breakers;
     /// @brief the key of the client certificate that each group of settings uses now.
@@ -499,7 +546,24 @@ private:
     /// @brief the time of the last reply from each server, by pool key.
     std::unordered_map<std::string, x::telem::TimeStamp> replies;
 
-    void release(const std::string &key, const std::shared_ptr<UA_Client> &client);
+    /// @brief marks the entry of client as idle again, or removes it if it is retired.
+    /// @returns the removed entry, which the caller destroys after its client.
+    std::optional<Entry>
+    release(const std::string &key, const std::shared_ptr<UA_Client> &client);
+
+    /// @brief keeps sub, which client still holds, until the pool deletes it. Requires
+    /// mutex_ not held and the entry of client in use.
+    void orphan(
+        const std::string &key,
+        const std::shared_ptr<UA_Client> &client,
+        std::unique_ptr<Subscription> sub
+    );
+
+    /// @brief deletes the subscriptions that client kept from earlier connections.
+    /// Requires mutex_ not held and the entry of client in use.
+    /// @returns only an error that loses the connection.
+    x::errors::Error
+    delete_orphans(const std::string &key, const std::shared_ptr<UA_Client> &client);
 
     /// @brief records a reply from the server of key. Requires mutex_ not held.
     void replied(const std::string &key);
@@ -517,8 +581,14 @@ private:
     /// @brief records key as the client certificate that settings uses now. Removes
     /// the idle connections of the certificate it replaces and retires the ones in use.
     /// The caller holds mutex_ and closes the returned connections outside it.
-    std::vector<std::shared_ptr<UA_Client>>
-    retire(const std::string &settings, const std::string &key);
+    std::vector<Entry> retire(const std::string &settings, const std::string &key);
+
+    /// @brief closes each connection that no one used for the idle timeout, outside
+    /// mutex_, until the Pool closes.
+    void evict();
+
+    /// @brief runs evict. It starts last, after the members it uses.
+    std::thread evictor;
 
     friend class Connection;
 };

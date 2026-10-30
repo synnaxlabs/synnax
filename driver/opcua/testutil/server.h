@@ -15,6 +15,7 @@
 #include <array>
 #include <atomic>
 #include <chrono>
+#include <condition_variable>
 #include <cstddef>
 #include <mutex>
 #include <optional>
@@ -188,19 +189,38 @@ struct Change {
     UA_StatusCode status = UA_STATUSCODE_GOOD;
 };
 
-/// @brief the numeric IDs, in namespace 1, of the Point and Motor data types and of
-/// their binary encodings.
+/// @brief a value of the Hidden structure type of the mock server, which has no
+/// DataType node.
+struct Hidden {
+    UA_Float x;
+};
+
+/// @brief a value of the Broken structure type of the mock server, whose member is a
+/// Hidden.
+struct Broken {
+    Hidden inner;
+};
+
+/// @brief the numeric IDs, in namespace 1, of the structure data types and of their
+/// binary encodings. Opaque is a DataType node without a definition.
 constexpr UA_UInt32 POINT_TYPE_ID = 4242;
 constexpr UA_UInt32 POINT_ENCODING_ID = 4243;
 constexpr UA_UInt32 MOTOR_TYPE_ID = 4244;
 constexpr UA_UInt32 MOTOR_ENCODING_ID = 4245;
+constexpr UA_UInt32 HIDDEN_TYPE_ID = 4246;
+constexpr UA_UInt32 HIDDEN_ENCODING_ID = 4247;
+constexpr UA_UInt32 BROKEN_TYPE_ID = 4248;
+constexpr UA_UInt32 BROKEN_ENCODING_ID = 4249;
+constexpr UA_UInt32 OPAQUE_TYPE_ID = 4250;
 
-/// @brief the open62541 descriptions of Point and Motor. Motor points at Point, so the
-/// descriptions never move.
+/// @brief the open62541 descriptions of the structure types. Types point at the types
+/// of their members, so the descriptions never move.
 class StructureTypes {
     std::array<UA_DataTypeMember, 2> point_members{};
     std::array<UA_DataTypeMember, 3> motor_members{};
-    std::array<UA_DataType, 2> types{};
+    std::array<UA_DataTypeMember, 1> hidden_members{};
+    std::array<UA_DataTypeMember, 1> broken_members{};
+    std::array<UA_DataType, 4> types{};
 
     static void set_member(
         UA_DataTypeMember &m,
@@ -278,6 +298,26 @@ public:
             this->motor_members.data(),
             this->motor_members.size()
         );
+        set_member(this->hidden_members[0], "X", f, 0);
+        set_type(
+            this->types[2],
+            "Hidden",
+            HIDDEN_TYPE_ID,
+            HIDDEN_ENCODING_ID,
+            sizeof(Hidden),
+            this->hidden_members.data(),
+            this->hidden_members.size()
+        );
+        set_member(this->broken_members[0], "Inner", &this->types[2], 0);
+        set_type(
+            this->types[3],
+            "Broken",
+            BROKEN_TYPE_ID,
+            BROKEN_ENCODING_ID,
+            sizeof(Broken),
+            this->broken_members.data(),
+            this->broken_members.size()
+        );
         this->array = {
             .next = nullptr,
             .typesSize = this->types.size(),
@@ -294,6 +334,7 @@ public:
 
     [[nodiscard]] const UA_DataType &point() const { return this->types[0]; }
     [[nodiscard]] const UA_DataType &motor() const { return this->types[1]; }
+    [[nodiscard]] const UA_DataType &broken() const { return this->types[3]; }
 };
 
 /// @brief the ApplicationUri of the mock server, which its certificate must carry.
@@ -575,7 +616,7 @@ public:
     /// @brief artificial delay injected before each server iterate cycle.
     /// Used in tests to simulate a slow server (e.g. network-unreachable PLC).
     /// Zero means no delay.
-    x::telem::TimeSpan probe_delay;
+    std::atomic<x::telem::TimeSpan> probe_delay;
     /// @brief whether the server stops answering, as a hung server does. Its
     /// connections stay open.
     std::atomic<bool> frozen{false};
@@ -587,6 +628,17 @@ public:
     std::atomic<size_t> method_calls{0};
 
     explicit Server(ServerConfig cfg): cfg(std::move(cfg)) {}
+
+    /// @brief adds a namespace with nodes to the running server, as a server that loads
+    /// a model while it runs does. Each node goes in the new namespace, whatever its
+    /// ns. Blocks until the server adds them.
+    void add_namespace(const std::string &uri, std::vector<TestNode> nodes) {
+        std::unique_lock lock(this->added_mu);
+        this->added.emplace_back(uri, std::move(nodes));
+        this->added_cv.wait(lock, [this] {
+            return this->added.empty() || !this->ready;
+        });
+    }
 
     void start() {
         running = true;
@@ -890,6 +942,90 @@ public:
         }
     }
 
+private:
+    std::mutex added_mu;
+    std::condition_variable added_cv;
+    std::vector<std::pair<std::string, std::vector<TestNode>>> added;
+
+    /// @brief the history database of a server that records the history of its test
+    /// nodes.
+    struct History {
+        UA_HistoryDataGathering gathering;
+        UA_HistoryDataBackend backend;
+        std::size_t max_values;
+    };
+
+    static void add_node(
+        UA_Server *server,
+        const TestNode &node,
+        const History *history = nullptr
+    ) {
+        UA_VariableAttributes attr = UA_VariableAttributes_default;
+
+        // Set the variant as the value to be exposed by the server
+        attr.value = node.initial_value;
+        if (node.data_type != nullptr) attr.dataType = node.data_type->typeId;
+        auto length = static_cast<UA_UInt32>(node.initial_value.arrayLength);
+        if (UA_Variant_isScalar(&node.initial_value))
+            attr.valueRank = UA_VALUERANK_SCALAR;
+        else if (node.initial_value.data != nullptr) {
+            attr.valueRank = UA_VALUERANK_ONE_DIMENSION;
+            attr.arrayDimensionsSize = 1;
+            attr.arrayDimensions = &length;
+        }
+
+        // Set access level to allow reading and writing
+        attr.accessLevel = UA_ACCESSLEVELMASK_READ | UA_ACCESSLEVELMASK_WRITE;
+        if (history != nullptr) {
+            attr.accessLevel |= UA_ACCESSLEVELMASK_HISTORYREAD;
+            attr.historizing = true;
+        }
+
+        driver::opcua::types::LocalizedText description(
+            "en-US",
+            node.description.c_str()
+        );
+        driver::opcua::types::LocalizedText displayName("en-US", node.node_id.c_str());
+        attr.description = description.get();
+        attr.displayName = displayName.get();
+
+        UA_NodeId raw_node_id = UA_NODEID_STRING_ALLOC(node.ns, node.node_id.c_str());
+        LOG(INFO) << "Creating OPC UA node: "
+                  << driver::opcua::types::NodeId::to_string(raw_node_id);
+
+        driver::opcua::types::QualifiedName nodeName(node.ns, node.node_id.c_str());
+        UA_NodeId parentNodeId = UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER);
+        UA_NodeId parentReferenceNodeId = UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES);
+
+        const auto status = UA_Server_addVariableNode(
+            server,
+            raw_node_id,
+            parentNodeId,
+            parentReferenceNodeId,
+            nodeName.get(),
+            UA_NODEID_NULL,
+            attr,
+            nullptr,
+            nullptr
+        );
+        if (status != UA_STATUSCODE_GOOD)
+            LOG(ERROR) << "Mock OPC UA server failed to add node " << node.node_id
+                       << ": " << UA_StatusCode_name(status);
+        if (history != nullptr) {
+            UA_HistorizingNodeIdSettings setting{};
+            setting.historizingBackend = history->backend;
+            setting.maxHistoryDataResponseSize = history->max_values;
+            setting.historizingUpdateStrategy = UA_HISTORIZINGUPDATESTRATEGY_VALUESET;
+            history->gathering.registerNodeId(
+                server,
+                history->gathering.context,
+                &raw_node_id,
+                setting
+            );
+        }
+        UA_NodeId_clear(&raw_node_id);
+    }
+
     /// @brief adds a folder with the browse name name under parent.
     static void add_folder(
         UA_Server *server,
@@ -966,6 +1102,20 @@ public:
         UA_Server_addReference(server, inner, UA_NS0ID(ORGANIZES), target, true);
     }
 
+    void add_namespaces(UA_Server *server) {
+        std::lock_guard lock(this->added_mu);
+        for (auto &[uri, nodes]: this->added) {
+            const auto ns = UA_Server_addNamespace(server, uri.c_str());
+            for (auto &node: nodes) {
+                node.ns = ns;
+                add_node(server, node);
+            }
+        }
+        this->added.clear();
+        this->added_cv.notify_all();
+    }
+
+public:
     void run() {
         UA_Server *server = UA_Server_new();
         auto *server_config = UA_Server_getConfig(server);
@@ -1035,18 +1185,24 @@ public:
         server_config->customDataTypes = const_cast<UA_DataTypeArray *>(
             &structures.array
         );
-        for (const auto *type: {&structures.point(), &structures.motor()}) {
+        const std::array<std::pair<UA_NodeId, const char *>, 4> data_types{{
+            {structures.point().typeId, "Point"},
+            {structures.motor().typeId, "Motor"},
+            {structures.broken().typeId, "Broken"},
+            {UA_NODEID_NUMERIC(1, OPAQUE_TYPE_ID), "Opaque"},
+        }};
+        for (const auto &[id, name]: data_types) {
             UA_DataTypeAttributes attr = UA_DataTypeAttributes_default;
             attr.displayName = UA_LOCALIZEDTEXT(
                 const_cast<char *>("en-US"),
-                const_cast<char *>(type->typeName)
+                const_cast<char *>(name)
             );
             UA_Server_addDataTypeNode(
                 server,
-                type->typeId,
+                id,
                 UA_NS0ID(STRUCTURE),
                 UA_NS0ID(HASSUBTYPE),
-                UA_QUALIFIEDNAME(1, const_cast<char *>(type->typeName)),
+                UA_QUALIFIEDNAME(1, const_cast<char *>(name)),
                 attr,
                 nullptr,
                 nullptr
@@ -1075,73 +1231,9 @@ public:
             );
         }
 
-        for (const auto &node: cfg.test_nodes) {
-            UA_VariableAttributes attr = UA_VariableAttributes_default;
-
-            // Set the variant as the value to be exposed by the server
-            attr.value = node.initial_value;
-            if (node.data_type != nullptr) attr.dataType = node.data_type->typeId;
-            auto length = static_cast<UA_UInt32>(node.initial_value.arrayLength);
-            if (UA_Variant_isScalar(&node.initial_value))
-                attr.valueRank = UA_VALUERANK_SCALAR;
-            else if (node.initial_value.data != nullptr) {
-                attr.valueRank = UA_VALUERANK_ONE_DIMENSION;
-                attr.arrayDimensionsSize = 1;
-                attr.arrayDimensions = &length;
-            }
-
-            // Set access level to allow reading and writing
-            attr.accessLevel = UA_ACCESSLEVELMASK_READ | UA_ACCESSLEVELMASK_WRITE;
-            if (cfg.historizing) {
-                attr.accessLevel |= UA_ACCESSLEVELMASK_HISTORYREAD;
-                attr.historizing = true;
-            }
-
-            driver::opcua::types::LocalizedText description(
-                "en-US",
-                node.description.c_str()
-            );
-            driver::opcua::types::LocalizedText displayName(
-                "en-US",
-                node.node_id.c_str()
-            );
-            attr.description = description.get();
-            attr.displayName = displayName.get();
-
-            UA_NodeId raw_node_id = UA_NODEID_STRING_ALLOC(
-                node.ns,
-                node.node_id.c_str()
-            );
-            driver::opcua::types::NodeId nodeId(raw_node_id);
-            UA_NodeId_clear(&raw_node_id);
-            LOG(INFO) << "Creating OPC UA node: "
-                      << driver::opcua::types::NodeId::to_string(nodeId.get());
-
-            driver::opcua::types::QualifiedName nodeName(node.ns, node.node_id.c_str());
-            UA_NodeId parentNodeId = UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER);
-            UA_NodeId parentReferenceNodeId = UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES);
-
-            UA_Server_addVariableNode(
-                server,
-                nodeId.get(),
-                parentNodeId,
-                parentReferenceNodeId,
-                nodeName.get(),
-                UA_NODEID_NULL,
-                attr,
-                nullptr,
-                nullptr
-            );
-            if (cfg.historizing) {
-                UA_HistorizingNodeIdSettings setting{};
-                setting.historizingBackend = backend;
-                setting.maxHistoryDataResponseSize = cfg.max_history_values;
-                setting
-                    .historizingUpdateStrategy = UA_HISTORIZINGUPDATESTRATEGY_VALUESET;
-                gathering
-                    .registerNodeId(server, gathering.context, &nodeId.get(), setting);
-            }
-        }
+        const History history{gathering, backend, cfg.max_history_values};
+        for (const auto &node: cfg.test_nodes)
+            add_node(server, node, cfg.historizing ? &history : nullptr);
 
         if (cfg.generated_variables > 0 || cfg.generated_folders > 0)
             add_generated(server, cfg.generated_variables, cfg.generated_folders);
@@ -1163,19 +1255,25 @@ public:
                 std::this_thread::sleep_for(std::chrono::milliseconds(10));
                 continue;
             }
-            if (probe_delay.nanoseconds() > 0)
+            if (const auto delay = probe_delay.load(); delay.nanoseconds() > 0)
                 std::this_thread::sleep_for(
-                    std::chrono::nanoseconds(probe_delay.nanoseconds())
+                    std::chrono::nanoseconds(delay.nanoseconds())
                 );
             this->emit_events(server);
             this->apply_changes(server);
             UA_Server_run_iterate(server, true);
+            this->add_namespaces(server);
             const auto stats = UA_Server_getStatistics(server);
             this->channels = stats.scs.currentChannelCount;
             this->sessions_created = stats.ss.cumulatedSessionCount;
         }
 
         ready = false;
+        {
+            std::lock_guard lock(this->added_mu);
+            this->added.clear();
+        }
+        this->added_cv.notify_all();
         UA_Server_run_shutdown(server);
         UA_Server_delete(server);
         if (cfg.historizing) backend.deleteMembers(&backend);

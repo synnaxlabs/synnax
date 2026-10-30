@@ -47,6 +47,7 @@ describe("OPC UA Write Task Types", () => {
           nodeId: "1",
           name: "test",
           nodeName: "test",
+          type: "node",
         },
       ],
       device: "1",
@@ -215,6 +216,7 @@ describe("OPC UA Write Task Config Validation", () => {
       disabled: false,
       dataType: "float32",
       name: "",
+      type: "node",
     });
     const result = OPCUA.Task.deployWriteConfigZ.safeParse({
       device: "dev",
@@ -236,11 +238,11 @@ describe("OPC UA method channel validation", () => {
     nodeName: "SetSpeed",
     cmdChannel: 0,
     disabled: false,
-    dataType: "float64",
+    dataType: "float32",
     name: "",
     type: "method",
     objectId: "ns=1;s=Pump",
-    arguments: [{ source: "command", value: "", name: "speed", dataType: "float64" }],
+    arguments: [{ source: "command", name: "speed", dataType: "float64" }],
     ...overrides,
   });
   const issues = (...channels: unknown[]) =>
@@ -261,7 +263,6 @@ describe("OPC UA method channel validation", () => {
   it("should allow only one argument to take the command", () => {
     const arg = {
       source: "command",
-      value: "",
       name: "a",
       dataType: "float64",
     } as const;
@@ -323,11 +324,44 @@ describe("OPC UA event task config validation", () => {
       },
     ]);
   });
+
+  it("should accept a namespace URI that holds a slash", () => {
+    expect(
+      issues([{ name: "level", browsePath: "nsu=http://x.com/UA/;Pump/2:Level" }]),
+    ).toEqual([]);
+  });
+
+  it("should reject a namespace URI with no semicolon after it", () => {
+    expect(issues([{ name: "level", browsePath: "nsu=urn:pump" }])).toEqual([
+      {
+        message: "Browse path must end each namespace URI with ';'",
+        path: ["fields", 0, "browsePath"],
+      },
+    ]);
+  });
+
+  it("should reject a namespace URI with an invalid escape", () => {
+    expect(issues([{ name: "level", browsePath: "nsu=urn:%zz;Level" }])).toEqual([
+      {
+        message: "Browse path has an invalid namespace URI",
+        path: ["fields", 0, "browsePath"],
+      },
+    ]);
+  });
+
+  it("should reject a name after a namespace index that is empty", () => {
+    expect(issues([{ name: "level", browsePath: "Pump/2:" }])).toEqual([
+      {
+        message: "Browse path must name each element",
+        path: ["fields", 0, "browsePath"],
+      },
+    ]);
+  });
 });
 
 describe("Scanned Nodes", () => {
   it("should default a scanned node's key to its node ID", () => {
-    const result = OPCUA.Task.SCAN_SCHEMAS.statusData.parse({
+    const result = OPCUA.Task.browseResponseZ.parse({
       channels: [
         {
           dataType: "float32",
@@ -345,12 +379,12 @@ describe("Scanned Nodes", () => {
 describe("Scan command replies", () => {
   it("should parse a certificate reply", () => {
     const reply = { current: SERVER_CERTIFICATE, next: SERVER_CERTIFICATE };
-    expect(OPCUA.Task.SCAN_SCHEMAS.statusData.parse(reply)).toEqual(reply);
+    expect(OPCUA.Task.certificatesResponseZ.parse(reply)).toEqual(reply);
   });
 
   it("should parse a failed test connection reply with the server certificate", () => {
     const reply = { serverCertificate: SERVER_CERTIFICATE };
-    expect(OPCUA.Task.SCAN_SCHEMAS.statusData.parse(reply)).toEqual(reply);
+    expect(OPCUA.Task.testConnectionResponseZ.parse(reply)).toEqual(reply);
   });
 });
 

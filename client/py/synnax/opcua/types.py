@@ -16,6 +16,7 @@ from synnax import channel, device, task
 from synnax.opcua.types_gen import (
     EventConfig,
     EventField,
+    NodeWriteChannel,
     ReadChannel,
     ReadConfig,
     ReadMode,
@@ -171,7 +172,7 @@ class WriteTask(
         channels = device.ensure_object(props, "write", "channels")
         for ch in self.config.channels:
             # A method can take many channels, so the device binds only nodes.
-            if ch.node_id and ch.type == "node":
+            if ch.node_id and isinstance(ch, NodeWriteChannel):
                 channels[ch.node_id] = ch.cmd_channel
         dev.properties = props
         return device_client.create(dev)
