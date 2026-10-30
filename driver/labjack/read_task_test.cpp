@@ -24,7 +24,7 @@ TEST(TestReadChannelParse, testAIChan) {
     const x::json::json cfg{
         {"port", "AIN0"},
         {"disabled", false},
-        {"key", "8hYJO9zt6eS"},
+        {"key", "ain0"},
         {"channel", 1},
         {"type", "analog"},
         {"range", 5},
@@ -46,7 +46,7 @@ TEST(TestReadChannelParse, testDIChan) {
     const x::json::json cfg{
         {"port", "DIO0"},
         {"disabled", false},
-        {"key", "8hYJO9zt6eS"},
+        {"key", "ain0"},
         {"channel", 1},
         {"type", "digital"}
     };
@@ -65,7 +65,7 @@ TEST(TestReadChannelParse, testTCChan) {
     const x::json::json cfg{
         {"port", "AIN3"},
         {"disabled", false},
-        {"key", "8hYJO9zt6eS"},
+        {"key", "ain0"},
         {"channel", 0},
         {"type", "thermocouple"},
         {"range", 0},
@@ -99,7 +99,7 @@ TEST(TestReadChannelParse, testInvalidChannelType) {
     const x::json::json cfg{
         {"port", "AIN0"},
         {"disabled", false},
-        {"key", "8hYJO9zt6eS"},
+        {"key", "ain0"},
         {"channel", 1},
         {"type", "INVALID_TYPE"}, // Invalid channel type
         {"range", 5},
@@ -163,7 +163,7 @@ x::json::json basic_read_task_config() {
          x::json::json::array(
              {{{"port", "AIN0"},
                {"disabled", false},
-               {"key", "8hYJO9zt6eS"},
+               {"key", "ain0"},
                {"channel", 0},
                {"type", "thermocouple"},
                {"range", 0},
@@ -176,12 +176,12 @@ x::json::json basic_read_task_config() {
                {"cjc_offset", 0}},
               {{"port", "DIO4"},
                {"disabled", false},
-               {"key", "DYFpBBDlpRt"},
+               {"key", "dio4"},
                {"channel", 0},
                {"type", "digital"}},
               {{"port", "AIN6"},
                {"disabled", false},
-               {"key", "rHb0YjmhUq3"},
+               {"key", "ain6"},
                {"channel", 0},
                {"type", "analog"},
                {"range", 0},
@@ -290,7 +290,7 @@ TEST(TestReadTaskConfigParse, testInvalidChannelTypeInConfig) {
     j["channels"] = x::json::json::array(
         {{{"port", "AIN0"},
           {"disabled", false},
-          {"key", "8hYJO9zt6eS"},
+          {"key", "ain0"},
           {"channel", ch.key},
           {"type", "UNKNOWN_CHANNEL_TYPE"}, // Invalid channel type
           {"range", 5}}}
@@ -326,7 +326,7 @@ TEST(TestReadTaskConfigParse, testLabJackDriverSetsAutoCommitTrue) {
     j["channels"] = x::json::json::array(
         {{{"port", "AIN0"},
           {"disabled", false},
-          {"key", "8hYJO9zt6eS"},
+          {"key", "ain0"},
           {"channel", ch.key},
           {"type", "analog"},
           {"range", 5},
@@ -371,7 +371,7 @@ protected:
             j["channels"] = x::json::json::array(
                 {{{"port", "AIN0"},
                   {"disabled", false},
-                  {"key", "8hYJO9zt6eS"},
+                  {"key", "ain0"},
                   {"channel", ch.key},
                   {"type", "thermocouple"},
                   {"range", 0},
@@ -387,7 +387,7 @@ protected:
             j["channels"] = x::json::json::array(
                 {{{"port", "AIN0"},
                   {"disabled", false},
-                  {"key", "8hYJO9zt6eS"},
+                  {"key", "ain0"},
                   {"channel", ch.key},
                   {"type", "analog"},
                   {"range", 5},

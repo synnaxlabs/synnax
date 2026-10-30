@@ -14,7 +14,7 @@ from playwright.sync_api import Locator
 import synnax as sy
 from console.layout import LayoutClient
 from console.multiedit import Colors
-from console.page import ConsolePage
+from console.page import ConsolePage, PageType
 from console.schematic.symbol import (
     Symbol,
     box_bottom,
@@ -67,7 +67,7 @@ RotationType = Literal[
 class Schematic(ConsolePage):
     """Schematic page management interface"""
 
-    page_type = "Schematic"
+    page_type: PageType = "Schematic"
     pluto_label: str = ".react-flow__pane"
 
     def __init__(
@@ -535,7 +535,6 @@ class Schematic(ConsolePage):
         """Get the number of symbol nodes on the schematic pane."""
         return self.page.locator(".react-flow__node").count()
 
-    @property
     def control_legend_visible(self) -> bool:
         """Check if the control state legend is visible."""
         legend = self.page.locator(".pluto-legend")

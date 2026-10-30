@@ -218,7 +218,8 @@ Line struct {
         """
     }
     stroke_width float64 = 2 {
-        @doc value "is the line stroke width in pixels."
+        @doc value    "is the line stroke width in pixels."
+        @validate min 1
     }
     aggregation  Aggregation = min_max {
         @doc value "selects how the line reduces the samples of one pixel group."

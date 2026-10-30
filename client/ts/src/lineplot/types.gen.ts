@@ -129,7 +129,7 @@ export const lineZ = z.object({
    */
   color: color.colorZ.optional(),
   /** strokeWidth is the line stroke width in pixels. */
-  strokeWidth: z.number().default(2),
+  strokeWidth: z.number().min(1).default(2),
   /** aggregation selects how the line reduces the samples of one pixel group. */
   aggregation: aggregationZ.default("min_max"),
   /** detail selects how many sample groups the line draws per pixel column. */

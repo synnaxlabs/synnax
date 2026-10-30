@@ -247,3 +247,18 @@ func MigrateLine(ctx context.Context, old v7.Line) (Line, error) {
 
 // Migration lifts stored v7 line plots to v8.
 var Migration = migrate.NewEntry("v61_lineplot_ranger_refs", MigrateLinePlot)
+
+// RaiseStrokeWidths raises each line stroke width below 1 to 1, the smallest width
+// Validate accepts.
+func RaiseStrokeWidths(_ context.Context, lp LinePlot) (LinePlot, error) {
+	for i := range lp.Lines {
+		lp.Lines[i].StrokeWidth = max(lp.Lines[i].StrokeWidth, 1)
+	}
+	return lp, nil
+}
+
+// StrokeWidthMigration raises stored line stroke widths below 1 to 1.
+var StrokeWidthMigration = migrate.NewEntry(
+	"v61_min_line_stroke_width",
+	RaiseStrokeWidths,
+)

@@ -183,7 +183,7 @@ type ChangePasswordRequest struct {
 }
 
 // ChangePassword changes the password for the user with the provided credentials and
-// ends every other session that password opened.
+// ends every session that password opened, the caller's included.
 func (s *Service) ChangePassword(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -197,11 +197,7 @@ func (s *Service) ChangePassword(
 		ChangePassword(ctx, identity.Subject, req.NewPassword); err != nil {
 		return struct{}{}, err
 	}
-	return struct{}{}, s.auth.NewWriter(tx).RevokeCredential(
-		ctx,
-		[]auth.SessionKey{getSession(ctx).Key},
-		identity.Credential,
-	)
+	return struct{}{}, s.auth.NewWriter(tx).RevokeCredential(ctx, identity.Credential)
 }
 
 func proofOf(creds Credentials) auth.Proof {
