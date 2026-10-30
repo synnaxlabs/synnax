@@ -17,6 +17,7 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
+        "//client/cpp/ontology",
         "//client/cpp/rack",
         "//client/cpp/status",
         "//x/cpp/json",

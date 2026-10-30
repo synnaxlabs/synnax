@@ -122,6 +122,7 @@ OutputPorts struct {
         @doc value "is the index channel of the state channels."
     }
     channels    map<string, CommandStatePair> = {} {
+        @cpp omit
         @doc value "maps a port to the channels that write to it."
     }
 
