@@ -402,9 +402,10 @@ export class Client {
       passwordSetReqZ,
       passwordSetResZ,
     );
+    if (generation !== this.generation) return;
     const own = params.subject == null || params.subject.key === this.subject?.key;
     if (own && this.credentials != null) this.credentials.password = params.password;
-    if (res.session == null || generation !== this.generation) return;
+    if (res.session == null) return;
     this.authState = { authenticated: true, token: res.token, session: res.session };
     if (this.resumeToken != null) this.resumeToken = res.token;
     this.observer.onSuccess?.(res.session.key);
