@@ -995,7 +995,7 @@ describe("auth", () => {
 
     it("should create a key, log in with it, list it, and delete it", async () => {
       const owner = makeClient({ credentials: TEST_CREDENTIALS });
-      const { token, key } = await owner.createKey({ name: "spec" });
+      const { token, key } = await owner.createAPIKey({ name: "spec" });
       expect(token.startsWith("syk_")).toBe(true);
       expect(key.name).toEqual("spec");
       expect(key.subject).toEqual(owner.subject);
@@ -1003,30 +1003,30 @@ describe("auth", () => {
       await keyed.retrieveSessions();
       expect(keyed.session?.credential).toEqual(key.key);
       expect(keyed.subject).toEqual(owner.subject);
-      expect((await owner.retrieveKeys()).map((k) => k.key)).toContain(key.key);
-      await owner.deleteKeys(key.key);
-      expect((await owner.retrieveKeys()).map((k) => k.key)).not.toContain(key.key);
+      expect((await owner.retrieveAPIKeys()).map((k) => k.key)).toContain(key.key);
+      await owner.deleteAPIKeys(key.key);
+      expect((await owner.retrieveAPIKeys()).map((k) => k.key)).not.toContain(key.key);
     });
 
     it("should fail the next request of a client whose key was deleted", async () => {
       const owner = makeClient({ credentials: TEST_CREDENTIALS });
-      const { token, key } = await owner.createKey({ name: "deleted" });
+      const { token, key } = await owner.createAPIKey({ name: "deleted" });
       const keyed = makeClient({ apiKey: token });
       await keyed.retrieveSessions();
-      await owner.deleteKeys(key.key);
+      await owner.deleteAPIKeys(key.key);
       await expect(keyed.retrieveSessions()).rejects.toThrow(AuthError);
     });
 
     it("should forget its key on logout", async () => {
       const owner = makeClient({ credentials: TEST_CREDENTIALS });
-      const { token, key } = await owner.createKey({ name: "logout" });
+      const { token, key } = await owner.createAPIKey({ name: "logout" });
       const keyed = makeClient({ apiKey: token });
       await keyed.retrieveSessions();
       await keyed.logout();
       await expect(keyed.retrieveSessions()).rejects.toThrow(
         "no credentials, API key, token, or cookie",
       );
-      await owner.deleteKeys(key.key);
+      await owner.deleteAPIKeys(key.key);
     });
 
     it("should reject a key the Core never issued", async () => {
@@ -1036,7 +1036,7 @@ describe("auth", () => {
 
     it("should connect a Synnax client with a key", async () => {
       const owner = createTestClient();
-      const { token, key } = await owner.auth.createKey({ name: "client" });
+      const { token, key } = await owner.auth.createAPIKey({ name: "client" });
       const keyed = createTestClient({
         username: undefined,
         password: undefined,
@@ -1044,7 +1044,7 @@ describe("auth", () => {
       });
       await keyed.auth.retrieveSessions();
       expect(keyed.auth.subject).toEqual(key.subject);
-      await owner.auth.deleteKeys(key.key);
+      await owner.auth.deleteAPIKeys(key.key);
     });
 
     it("should reject an API key given with a username and password", () => {

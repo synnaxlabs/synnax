@@ -67,16 +67,16 @@ service AuthSessionDeleteService {
   rpc Exec(SessionDeleteRequest) returns (google.protobuf.Empty);
 }
 
-service AuthKeyCreateService {
-  rpc Exec(KeyCreateRequest) returns (KeyCreateResponse);
+service AuthAPIKeyCreateService {
+  rpc Exec(APIKeyCreateRequest) returns (APIKeyCreateResponse);
 }
 
-service AuthKeyRetrieveService {
-  rpc Exec(KeyRetrieveRequest) returns (KeyRetrieveResponse);
+service AuthAPIKeyRetrieveService {
+  rpc Exec(APIKeyRetrieveRequest) returns (APIKeyRetrieveResponse);
 }
 
-service AuthKeyDeleteService {
-  rpc Exec(KeyDeleteRequest) returns (google.protobuf.Empty);
+service AuthAPIKeyDeleteService {
+  rpc Exec(APIKeyDeleteRequest) returns (google.protobuf.Empty);
 }
 
 // Proof is what a subject presents to log in. The method selects which fields apply.
@@ -139,24 +139,24 @@ message APIKey {
   int64 created = 4;
 }
 
-message KeyCreateRequest {
+message APIKeyCreateRequest {
   Subject subject = 1;
   string name = 2;
 }
 
-message KeyCreateResponse {
+message APIKeyCreateResponse {
   string token = 1;
   APIKey key = 2;
 }
 
-message KeyRetrieveRequest {
+message APIKeyRetrieveRequest {
   repeated Subject subjects = 1;
 }
 
-message KeyRetrieveResponse {
+message APIKeyRetrieveResponse {
   repeated APIKey keys = 1;
 }
 
-message KeyDeleteRequest {
+message APIKeyDeleteRequest {
   repeated string keys = 1;
 }

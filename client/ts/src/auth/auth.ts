@@ -75,11 +75,14 @@ export interface NewAPIKey {
   name: string;
 }
 
-const keyCreateReqZ = z.object({ subject: ontology.idZ.optional(), name: z.string() });
-const keyCreateResZ = z.object({ token: z.string(), key: apiKeyZ });
-const keyRetrieveReqZ = z.object({ subjects: ontology.idZ.array().optional() });
-const keyRetrieveResZ = z.object({ keys: apiKeyZ.array() });
-const keyDeleteReqZ = z.object({ keys: apiKeyKeyZ.array() });
+const apiKeyCreateReqZ = z.object({
+  subject: ontology.idZ.optional(),
+  name: z.string(),
+});
+const apiKeyCreateResZ = z.object({ token: z.string(), key: apiKeyZ });
+const apiKeyRetrieveReqZ = z.object({ subjects: ontology.idZ.array().optional() });
+const apiKeyRetrieveResZ = z.object({ keys: apiKeyZ.array() });
+const apiKeyDeleteReqZ = z.object({ keys: apiKeyKeyZ.array() });
 
 const oidcLinkKeyZ = z.uuid();
 export type OIDCLinkKey = z.infer<typeof oidcLinkKeyZ>;
@@ -197,9 +200,9 @@ export const SESSION_ENDPOINTS = [
   SESSION_RETRIEVE_ENDPOINT,
   SESSION_DELETE_ENDPOINT,
 ] as const;
-const KEY_CREATE_ENDPOINT = "/auth/key/create";
-const KEY_RETRIEVE_ENDPOINT = "/auth/key/retrieve";
-const KEY_DELETE_ENDPOINT = "/auth/key/delete";
+const API_KEY_CREATE_ENDPOINT = "/auth/api-key/create";
+const API_KEY_RETRIEVE_ENDPOINT = "/auth/api-key/retrieve";
+const API_KEY_DELETE_ENDPOINT = "/auth/api-key/delete";
 const OIDC_LINK_ENDPOINT = "/auth/oidc/link";
 const OIDC_RETRIEVE_ENDPOINT = "/auth/oidc/retrieve";
 const OIDC_UNLINK_ENDPOINT = "/auth/oidc/unlink";
@@ -493,12 +496,12 @@ export class Client {
    * @throws {AccessDeniedError} when the caller may not create a key for the subject.
    * @throws {NotFoundError} when the subject does not exist.
    */
-  async createKey(key: NewAPIKey): Promise<{ token: string; key: APIKey }> {
+  async createAPIKey(key: NewAPIKey): Promise<{ token: string; key: APIKey }> {
     return await this.client.send(
-      KEY_CREATE_ENDPOINT,
+      API_KEY_CREATE_ENDPOINT,
       key,
-      keyCreateReqZ,
-      keyCreateResZ,
+      apiKeyCreateReqZ,
+      apiKeyCreateResZ,
     );
   }
 
@@ -508,12 +511,12 @@ export class Client {
    * @throws {AccessDeniedError} when the caller may not retrieve another subject's
    * keys.
    */
-  async retrieveKeys(subjects?: ontology.ID[]): Promise<APIKey[]> {
+  async retrieveAPIKeys(subjects?: ontology.ID[]): Promise<APIKey[]> {
     const res = await this.client.send(
-      KEY_RETRIEVE_ENDPOINT,
+      API_KEY_RETRIEVE_ENDPOINT,
       { subjects },
-      keyRetrieveReqZ,
-      keyRetrieveResZ,
+      apiKeyRetrieveReqZ,
+      apiKeyRetrieveResZ,
     );
     return res.keys;
   }
@@ -522,8 +525,13 @@ export class Client {
    * Deletes API keys and ends their sessions. Unknown keys are ignored.
    * @throws {AccessDeniedError} when the caller may not delete another subject's keys.
    */
-  async deleteKeys(...keys: APIKeyKey[]): Promise<void> {
-    await this.client.send(KEY_DELETE_ENDPOINT, { keys }, keyDeleteReqZ, emptyResZ);
+  async deleteAPIKeys(...keys: APIKeyKey[]): Promise<void> {
+    await this.client.send(
+      API_KEY_DELETE_ENDPOINT,
+      { keys },
+      apiKeyDeleteReqZ,
+      emptyResZ,
+    );
   }
 
   /**

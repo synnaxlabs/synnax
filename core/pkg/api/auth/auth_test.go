@@ -217,10 +217,10 @@ var _ = Describe("Disabled methods", func() {
 		)).Error().To(MatchError(validate.ErrValidation))
 	})
 	It("Should refuse a new API key", func(ctx SpecContext) {
-		Expect(disabled(ctx, auth.MethodAPIKey).CreateKey(
+		Expect(disabled(ctx, auth.MethodAPIKey).CreateAPIKey(
 			requestCtx(ctx),
 			nil,
-			apiauth.KeyCreateRequest{Name: "ci"},
+			apiauth.APIKeyCreateRequest{Name: "ci"},
 		)).Error().To(MatchError(validate.ErrValidation))
 	})
 })
@@ -348,10 +348,10 @@ var _ = Describe("SetPassword", func() {
 	It("Should open no session for a caller logged in with an API key", func(
 		ctx SpecContext,
 	) {
-		key := MustSucceed(apiSvc.CreateKey(
+		key := MustSucceed(apiSvc.CreateAPIKey(
 			authed(ctx, bobToken),
 			nil,
-			apiauth.KeyCreateRequest{Name: "spec"},
+			apiauth.APIKeyCreateRequest{Name: "spec"},
 		))
 		keyToken := MustSucceed(apiSvc.CreateSession(
 			requestCtx(ctx),

@@ -121,7 +121,7 @@ public:
     channel::Client channels;
     std::shared_ptr<auth::Middleware> auth;
     /// @brief Client for creating, listing, and deleting API keys.
-    auth::KeyClient api_keys;
+    auth::APIKeyClient api_keys;
     /// @brief Connectivity checker that polls the Core for health and clock skew.
     std::shared_ptr<connection::Checker> connectivity;
     /// @brief Client for creating, retrieving, and performing operations on ranges from
@@ -158,9 +158,9 @@ public:
             return mw;
         }()),
         api_keys(
-            std::move(this->t.auth_key_create),
-            std::move(this->t.auth_key_retrieve),
-            std::move(this->t.auth_key_delete)
+            std::move(this->t.auth_api_key_create),
+            std::move(this->t.auth_api_key_retrieve),
+            std::move(this->t.auth_api_key_delete)
         ),
         connectivity(
             std::make_shared<connection::Checker>(
