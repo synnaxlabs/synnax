@@ -22,7 +22,7 @@ import (
 // builder pattern for constructing queries.
 type Retrieve struct {
 	baseTX  gorp.Tx
-	gorp    gorp.Retrieve[Key, Link]
+	gorp    gorp.Retrieve[LinkKey, Link]
 	indexes indexes
 }
 
@@ -31,9 +31,9 @@ type Retrieve struct {
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
-	subject  *gorp.LookupIndex[Key, Link, ontology.ID]
-	provider *gorp.LookupIndex[Key, Link, string]
-	account  *gorp.LookupIndex[Key, Link, string]
+	subject  *gorp.LookupIndex[LinkKey, Link, ontology.ID]
+	provider *gorp.LookupIndex[LinkKey, Link, string]
+	account  *gorp.LookupIndex[LinkKey, Link, string]
 }
 
 // newIndexes constructs a fresh indexes value, allocating one instance of each
@@ -41,15 +41,15 @@ type indexes struct {
 // Service struct.
 func newIndexes() indexes {
 	return indexes{
-		subject: gorp.NewLookupIndex[Key, Link, ontology.ID](
+		subject: gorp.NewLookupIndex[LinkKey, Link, ontology.ID](
 			"subject",
 			func(e *Link) ontology.ID { return e.Subject },
 		),
-		provider: gorp.NewLookupIndex[Key, Link, string](
+		provider: gorp.NewLookupIndex[LinkKey, Link, string](
 			"provider",
 			func(e *Link) string { return e.Provider },
 		),
-		account: gorp.NewLookupIndex[Key, Link, string](
+		account: gorp.NewLookupIndex[LinkKey, Link, string](
 			"account",
 			func(e *Link) string { return e.Account },
 		),
@@ -58,8 +58,8 @@ func newIndexes() indexes {
 
 // all returns the indexes packaged as a heterogeneous slice for registration
 // via gorp.TableConfig.Indexes when opening the underlying table.
-func (i indexes) all() []gorp.Index[Key, Link] {
-	return []gorp.Index[Key, Link]{
+func (i indexes) all() []gorp.Index[LinkKey, Link] {
+	return []gorp.Index[LinkKey, Link]{
 		i.subject,
 		i.provider,
 		i.account,
@@ -75,27 +75,27 @@ func (i indexes) all() []gorp.Index[Key, Link] {
 // composition helpers (Match / And / Or / Not) can be one-line wrappers
 // around their gorp.*Bound counterparts instead of re-emitting closure
 // plumbing per service.
-type Filter = gorp.BoundFilter[Retrieve, Key, Link]
+type Filter = gorp.BoundFilter[Retrieve, LinkKey, Link]
 
 // Match wraps a closure that needs the Retrieve into a Filter. The Retrieve
 // value is supplied by Retrieve.Where at evaluation time.
 func Match(f func(ctx gorp.Context, r Retrieve, e *Link) (bool, error)) Filter {
-	return gorp.MatchBound[Retrieve, Key, Link](f)
+	return gorp.MatchBound[Retrieve, LinkKey, Link](f)
 }
 
 // And returns a filter that matches when all provided filters match.
 func And(fs ...Filter) Filter {
-	return gorp.AndBound[Retrieve, Key, Link](fs...)
+	return gorp.AndBound[Retrieve, LinkKey, Link](fs...)
 }
 
 // Or returns a filter that matches when any provided filter matches.
 func Or(fs ...Filter) Filter {
-	return gorp.OrBound[Retrieve, Key, Link](fs...)
+	return gorp.OrBound[Retrieve, LinkKey, Link](fs...)
 }
 
 // Not returns a filter that inverts the provided filter.
 func Not(f Filter) Filter {
-	return gorp.NotBound[Retrieve, Key, Link](f)
+	return gorp.NotBound[Retrieve, LinkKey, Link](f)
 }
 
 // MatchKeys returns a filter that restricts results to
@@ -103,9 +103,9 @@ func Not(f Filter) Filter {
 // values. Composing MatchKeys at the top level of a Where clause (i.e.
 // r.Where(MatchKeys(...))) dispatches Exec to the multi-get fast path; composing
 // inside Or / Not falls back to a full scan.
-func MatchKeys(keys ...Key) Filter {
-	return func(Retrieve) gorp.Filter[Key, Link] {
-		return gorp.MatchKeys[Key, Link](keys...)
+func MatchKeys(keys ...LinkKey) Filter {
+	return func(Retrieve) gorp.Filter[LinkKey, Link] {
+		return gorp.MatchKeys[LinkKey, Link](keys...)
 	}
 }
 
@@ -113,7 +113,7 @@ func MatchKeys(keys ...Key) Filter {
 // links whose Subject matches any of the
 // provided values.
 func MatchSubjects(vals ...ontology.ID) Filter {
-	return func(r Retrieve) gorp.Filter[Key, Link] {
+	return func(r Retrieve) gorp.Filter[LinkKey, Link] {
 		return r.indexes.subject.Filter(vals...)
 	}
 }
@@ -122,7 +122,7 @@ func MatchSubjects(vals ...ontology.ID) Filter {
 // links whose Provider matches any of the
 // provided values.
 func MatchProviders(vals ...string) Filter {
-	return func(r Retrieve) gorp.Filter[Key, Link] {
+	return func(r Retrieve) gorp.Filter[LinkKey, Link] {
 		return r.indexes.provider.Filter(vals...)
 	}
 }
@@ -131,7 +131,7 @@ func MatchProviders(vals ...string) Filter {
 // links whose Account matches any of the
 // provided values.
 func MatchAccounts(vals ...string) Filter {
-	return func(r Retrieve) gorp.Filter[Key, Link] {
+	return func(r Retrieve) gorp.Filter[LinkKey, Link] {
 		return r.indexes.account.Filter(vals...)
 	}
 }
