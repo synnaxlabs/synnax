@@ -343,6 +343,38 @@ describe("Write", () => {
       ]);
     });
 
+    it("should not give a free name that another method sets", async () => {
+      const dev = await createOPCDevice(client);
+      const nodeName = createMethodName();
+      const named = {
+        ...createMethodChannel(nodeName, [MODE, SPEED]),
+        name: `${nodeName}_cmd`,
+      };
+      const draft = await createDraft(
+        client,
+        createWriteConfig(dev.key, [
+          createMethodChannel(nodeName, [MODE, SPEED]),
+          named,
+        ]),
+      );
+      const { container } = await renderWrite({ client, taskKey: draft.key });
+      await screen.findAllByText(`Call ${nodeName}`);
+      const { config } = await deployAndAwaitTask(
+        client,
+        container,
+        draft.key,
+        OPCUA.Task.WRITE_SCHEMAS,
+      );
+      const commands = await client.channels.retrieve(
+        config.channels.map(({ cmdChannel }) => cmdChannel),
+      );
+      const names = new Map(commands.map(({ key, name }) => [key, name]));
+      expect(config.channels.map(({ cmdChannel }) => names.get(cmdChannel))).toEqual([
+        `${nodeName}_cmd_2`,
+        `${nodeName}_cmd`,
+      ]);
+    });
+
     it("should replace the command channel when the command moves to an argument of another type", async () => {
       const dev = await createOPCDevice(client);
       const ch = createMethodChannel(createMethodName(), [MODE, SPEED]);

@@ -337,9 +337,9 @@ const createMethodCommands = async (
 ): Promise<Map<string, channel.Key>> => {
   const keys: string[] = [];
   const commands: Command[] = [];
-  // The Core holds one channel per name, and a method can take many channels, so
-  // these take free names.
-  const reserved = new Set<string>();
+  // The Core holds one channel per name, and a method can take many channels, so these
+  // take free names. A name that the user set is never free.
+  const reserved = new Set(methods.map(({ name }) => name).filter(primitive.isNonZero));
   for (const method of methods) {
     const dataType = commandDataType(method.arguments);
     let replaced: string | undefined;
