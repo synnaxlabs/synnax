@@ -11,7 +11,7 @@ import { box, type scale, xy } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 import { type z } from "zod";
 
-import { type Cell, Table, type tableStateZ } from "@/table/aether/Table";
+import { table } from "@/table/aether";
 import { type MountChild, renderAether } from "@/testutil/internal";
 import { type render } from "@/vis/render";
 import { canvasTest } from "@/vis/render/testutil";
@@ -38,10 +38,10 @@ const cellChild = (b: box.Box): MountChild => ({
 
 const mount = (
   cells: Record<string, box.Box>,
-  state: Partial<z.input<typeof tableStateZ>> = {},
+  state: Partial<z.input<typeof table.tableStateZ>> = {},
 ) => {
   const recorder = canvasTest.record();
-  const h = renderAether(Table, {
+  const h = renderAether(table.Table, {
     state: { region: REGION, ...state },
     render: recorder,
     registry: value.REGISTRY,
@@ -237,7 +237,7 @@ describe("aether Table", () => {
   describe("cell failures", () => {
     it("reports a failing cell instead of throwing", () => {
       const { h, draw } = mount({ a: cell(0, 0) });
-      vi.spyOn(h.child<Cell>("a"), "render").mockImplementation(() => {
+      vi.spyOn(h.child<table.Cell>("a"), "render").mockImplementation(() => {
         throw new Error("cell blew up");
       });
       expect(() => draw()).not.toThrow();

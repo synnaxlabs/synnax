@@ -12,13 +12,12 @@ import { theme } from "@synnaxlabs/lyra/theme";
 import { box, color, TimeStamp } from "@synnaxlabs/x";
 import { assert, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { Log, logStateZ, SELECT_ALL_END } from "@/log/aether/Log";
+import { log, type LogEntry } from "@/log/aether";
 import {
   MockLogSource,
   mockLogSourceSpec,
   registerMockLogSource,
 } from "@/log/aether/telem/mock";
-import { type LogEntry } from "@/log/aether/telem/types";
 import { telem } from "@/telem/aether";
 import { renderAether } from "@/testutil/internal";
 import { canvasTest } from "@/vis/render/testutil";
@@ -26,6 +25,9 @@ import { canvasTest } from "@/vis/render/testutil";
 const THEME: theme.Theme = theme.themeZ.parse(theme.SYNNAX_DARK);
 
 const REGION_500 = box.construct({ x: 0, y: 0 }, { width: 400, height: 500 });
+
+// Tests destructure a local `log`, which shadows the namespace.
+const SELECT_ALL_END = log.SELECT_ALL_END;
 
 const makeEntry = (i: number, channelKey: number = 1): LogEntry => ({
   channelKey,
@@ -63,20 +65,20 @@ const setup = (
   registerMockLogSource(testId, source);
   const recorder = canvasTest.record();
   const input = baseInput(testId, region, stateOverrides);
-  const h = renderAether(Log, {
-    state: logStateZ.parse(input),
+  const h = renderAether(log.Log, {
+    state: log.logStateZ.parse(input),
     theming: { theme, fontURLs: [] },
     render: recorder,
   });
   source.push(...entries);
-  h.setState(() => logStateZ.parse(input));
+  h.setState(() => log.logStateZ.parse(input));
   return {
     h,
     log: h.component,
     source,
     recorder,
     updateState: (overrides: Record<string, unknown>) =>
-      h.setState(() => logStateZ.parse(baseInput(testId, region, overrides))),
+      h.setState(() => log.logStateZ.parse(baseInput(testId, region, overrides))),
   };
 };
 
@@ -251,7 +253,7 @@ describe("log/aether/Log", () => {
 
   describe("logStateZ schema", () => {
     it("should provide defaults for new selection fields", () => {
-      const parsed = logStateZ.parse({
+      const parsed = log.logStateZ.parse({
         region: REGION_500,
         wheelPos: 0,
         scrolling: false,
@@ -266,7 +268,7 @@ describe("log/aether/Log", () => {
     });
 
     it("should provide defaults for channel-related fields", () => {
-      const parsed = logStateZ.parse({
+      const parsed = log.logStateZ.parse({
         region: REGION_500,
         wheelPos: 0,
         scrolling: false,
@@ -280,7 +282,7 @@ describe("log/aether/Log", () => {
     });
 
     it("should accept explicit channel config values", () => {
-      const parsed = logStateZ.parse({
+      const parsed = log.logStateZ.parse({
         region: REGION_500,
         wheelPos: 0,
         scrolling: false,

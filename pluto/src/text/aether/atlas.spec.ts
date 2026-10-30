@@ -9,7 +9,7 @@
 
 import { afterEach, assert, describe, expect, it, vi } from "vitest";
 
-import { MonospacedAtlas } from "@/text/aether/atlas";
+import { text } from "@/text/aether";
 
 const ADVANCE = 6;
 // The atlas pads every cell by this much on each axis.
@@ -84,7 +84,7 @@ const sourceOf = ({ sx, sy, sw, sh }: Copy): Bounds => ({
 });
 
 interface Harness {
-  atlas: MonospacedAtlas;
+  atlas: text.MonospacedAtlas;
   glyphs: Glyph[];
   glyphOf: (char: string) => Glyph;
   copy: (text: string, x: number, y: number, baseline?: CanvasTextBaseline) => Copy[];
@@ -122,7 +122,7 @@ const setup = (characters?: string, descent = SET_DESCENT): Harness => {
     }
   }
   vi.stubGlobal("OffscreenCanvas", Canvas);
-  const atlas = new MonospacedAtlas({
+  const atlas = new text.MonospacedAtlas({
     font: "12px mono",
     textColor: "#ffffff",
     characters,

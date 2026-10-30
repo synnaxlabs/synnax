@@ -14,7 +14,7 @@ import { fireEvent, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { configZ } from "@/arc/graph/node/sink/config";
+import { Sink } from "@/arc/graph/node/sink";
 import { Form } from "@/arc/graph/node/sink/Form";
 import { createAsyncSynnaxWrapper, renderForm } from "@/testutil";
 
@@ -36,7 +36,7 @@ describe("sink.Form", () => {
     const { findByLabelText, value } = renderForm(
       <Form />,
       { type: "write", channel: ch.key, value: 1 },
-      configZ,
+      Sink.configZ,
       wrapper,
     );
     fireEvent.click(await findByLabelText(`Clear ${ch.name}`));
