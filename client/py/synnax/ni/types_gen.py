@@ -756,7 +756,8 @@ class AnalogInputPort(BaseModel):
         port: Is the number in the DAQmx name of the port, such as 3 for ai3.
         terminal_configs: Are the terminal configurations that the port accepts.
         default_terminal_config: Is the terminal configuration that Cfg_Default gives on
-            the port. Absent when the port takes no voltage channel.
+            the port. Absent when the port accepts none, or accepts more than one and
+            takes no voltage or current channel.
         types: Are the channel types that the port accepts, such as ai_voltage.
         negative: Is the port that a differential channel on this port uses as its
             negative input. Absent when the port has no pair.

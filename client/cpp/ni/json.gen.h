@@ -563,9 +563,10 @@ inline x::json::json AnalogInputPort::to_json() const {
     x::json::json j;
     j["port"] = this->port;
     j["terminal_configs"] = this->terminal_configs;
-    j["default_terminal_config"] = this->default_terminal_config;
+    if (this->default_terminal_config.has_value())
+        j["default_terminal_config"] = *this->default_terminal_config;
     j["types"] = this->types;
-    j["negative"] = this->negative;
+    if (this->negative.has_value()) j["negative"] = *this->negative;
     return j;
 }
 
@@ -691,10 +692,12 @@ inline x::json::json Hardware::to_json() const {
     j["counter_outputs"] = x::json::to_array(this->counter_outputs);
     j["digital_ports"] = x::json::to_array(this->digital_ports);
     j["terminals"] = this->terminals;
-    j["ai_min_rate"] = this->ai_min_rate;
-    j["ai_max_single_channel_rate"] = this->ai_max_single_channel_rate;
-    j["ai_max_multi_channel_rate"] = this->ai_max_multi_channel_rate;
-    j["ao_max_rate"] = this->ao_max_rate;
+    if (this->ai_min_rate.has_value()) j["ai_min_rate"] = *this->ai_min_rate;
+    if (this->ai_max_single_channel_rate.has_value())
+        j["ai_max_single_channel_rate"] = *this->ai_max_single_channel_rate;
+    if (this->ai_max_multi_channel_rate.has_value())
+        j["ai_max_multi_channel_rate"] = *this->ai_max_multi_channel_rate;
+    if (this->ao_max_rate.has_value()) j["ao_max_rate"] = *this->ao_max_rate;
     j["ai_voltage_ranges"] = x::json::to_array(this->ai_voltage_ranges);
     j["ai_current_ranges"] = x::json::to_array(this->ai_current_ranges);
     j["ao_voltage_ranges"] = x::json::to_array(this->ao_voltage_ranges);

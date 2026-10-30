@@ -114,8 +114,8 @@ class Scanner final : public common::Scanner {
     NISysCfgFilterHandle filter = nullptr;
     /// @brief keys of devices already logged as ignored by the model filter.
     std::unordered_set<std::string> ignored_keys;
-    /// @brief keys of devices whose last hardware read failed, so the warning logs once
-    /// per run of failures.
+    /// @brief keys of devices whose last hardware read failed or was incomplete, so the
+    /// warning logs once per run of failures.
     std::unordered_set<std::string> unread_keys;
 
     /// @brief parses the device located at the specified resource handle.
@@ -126,8 +126,9 @@ class Scanner final : public common::Scanner {
     std::pair<ni::Device, x::errors::Error>
     parse_device(NISysCfgResourceHandle resource);
 
-    /// @brief reads the hardware of the device unless its stored record has it. A
-    /// failed read leaves the hardware absent, so the next scan tries again.
+    /// @brief reads the hardware of the device unless its stored record holds complete
+    /// hardware. A failed read leaves the hardware absent, and an incomplete read keeps
+    /// what it read. The next scan reads both again.
     void read_hardware(ni::Device &dev, const common::ScannerContext &ctx);
 
     /// @brief loads the library, then opens the session and the device filter.

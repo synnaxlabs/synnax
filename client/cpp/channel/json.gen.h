@@ -73,7 +73,7 @@ inline x::json::json Channel::to_json() const {
     j["data_type"] = this->data_type;
     j["is_index"] = this->is_index;
     j["index"] = this->index;
-    j["alias"] = this->alias;
+    if (this->alias.has_value()) j["alias"] = *this->alias;
     j["virtual"] = this->is_virtual;
     j["internal"] = this->internal;
     j["expression"] = this->expression;
