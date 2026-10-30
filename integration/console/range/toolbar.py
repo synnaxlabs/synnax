@@ -38,7 +38,7 @@ class Toolbar(Surface):
         """
         self.show()
         item = self.get_item(name)
-        return item.locator("small.lyra-text--small").first.inner_text()
+        return item.locator("small.lyra-text--tiny").first.inner_text()
 
     def exists(self, name: str) -> bool:
         """Check if a range exists in the toolbar (is favorited)."""
