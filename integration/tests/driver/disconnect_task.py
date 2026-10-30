@@ -67,7 +67,6 @@ class DisconnectTask(SimulatorCase, ReadTaskCase[ReadTaskT], ABC):
         """Execute the disconnect/reconnect test sequence."""
         if self.tsk is None:
             self.fail("Task not configured. Check setup() in base class.")
-            return
 
         client = self.client
         tsk = self.tsk
@@ -89,7 +88,6 @@ class DisconnectTask(SimulatorCase, ReadTaskCase[ReadTaskT], ABC):
         self.log("Test 4 - Kill Simulator")
         if self.simulator_process is None:
             self.fail("Simulator process not found")
-            return
         self.cleanup_simulator()
 
         self.log("Test 5 - Restart Simulator")

@@ -363,7 +363,6 @@ class TestCase(ABC):
                 f"Actual: {actual_value}\n"
                 f"Timeout: {timeout_span}"
             )
-            return
 
         timer = sy.Timer()
         while self.should_continue:
