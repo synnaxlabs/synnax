@@ -303,10 +303,12 @@ const ChannelList = <C extends Channel>({
   const addStatus = Status.useAdder();
   const handleError = Status.useErrorHandler();
   const newChannels = (nodes: ScannedNode[]): C[] => {
-    const existing = new Set(ctx.get<C[]>(CHANNELS_PATH).value.map(nodeIdentity));
-    return nodes
-      .map(convertNodeToChannel)
-      .filter((ch): ch is C => ch != null && !existing.has(nodeIdentity(ch)));
+    const held = new Set(ctx.get<C[]>(CHANNELS_PATH).value.map(nodeIdentity));
+    return nodes.map(convertNodeToChannel).filter((ch): ch is C => {
+      if (ch == null || held.has(nodeIdentity(ch))) return false;
+      held.add(nodeIdentity(ch));
+      return true;
+    });
   };
   const addFolders = (folders: HaulItem[]) =>
     handleError(async () => {
