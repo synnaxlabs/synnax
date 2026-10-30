@@ -1245,6 +1245,38 @@ TEST(DeviceTest, ReadWaitsBehindOneWrite) {
     slave.stop();
 }
 
+/// @brief it should stop a probe that waits too long for its turn behind a slow
+/// request.
+TEST(DeviceTest, ProbeStopsWaitingForBusyConnection) {
+    testutil::SlaveConfig slave_config;
+    slave_config.port = 1658;
+    testutil::Slave slave(slave_config);
+    ASSERT_NIL(slave.start());
+    Manager manager;
+    auto busy = ASSERT_NIL_P(manager.acquire({"127.0.0.1", 1658}));
+    ConnectionConfig probed_cfg{"127.0.0.1", 1658};
+    probed_cfg.unit_id = 2;
+    auto probed = ASSERT_NIL_P(manager.acquire(probed_cfg));
+    uint16_t reg = 0;
+    ASSERT_NIL(busy->read_registers(HoldingRegister, 0, 1, &reg));
+
+    slave.stall_next(MODBUS_TCP_SLAVE, std::chrono::milliseconds(500));
+    std::thread slow([&] {
+        uint16_t r = 0;
+        ASSERT_NIL(busy->read_registers(HoldingRegister, 0, 1, &r));
+    });
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    const auto start = std::chrono::steady_clock::now();
+    const auto err = probed->probe(x::telem::MILLISECOND * 100);
+    const auto waited = std::chrono::steady_clock::now() - start;
+    slow.join();
+    ASSERT_OCCURRED_AS(err, UNREACHABLE);
+    EXPECT_EQ(err.data, "other requests kept the connection busy for 100ms");
+    EXPECT_LT(waited, std::chrono::milliseconds(400));
+    ASSERT_NIL(probed->probe());
+    slave.stop();
+}
+
 /// @brief it should write each coil and register with its own request when the device
 /// writes with single function codes.
 TEST(DeviceTest, WritesWithSingleCodes) {
