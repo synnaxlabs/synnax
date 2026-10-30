@@ -95,7 +95,7 @@ export interface CreateParams {
 export interface CreateResult {
   rack: rack.Rack;
   /** The rack's first API key. */
-  key: auth.APIKey;
+  key: auth.apiKey.APIKey;
   /** The only copy of the key's secret. */
   token: string;
 }
@@ -110,7 +110,7 @@ export const { useUpdate: useCreate } = Flux.createUpdate<CreateParams, CreateRe
   update: async ({ client, data: { name } }) => {
     const created = await client.racks.create({ name });
     try {
-      const { key, token } = await client.auth.createAPIKey({
+      const { key, token } = await client.auth.apiKeys.create({
         subject: rack.ontologyID(created.key),
         name,
       });

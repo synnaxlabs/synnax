@@ -60,7 +60,7 @@ describe("User.useRegisterModal", () => {
     fireEvent.click(findButton("Register"));
     await waitFor(() => expect(screen.queryByText("Username")).toBeNull());
 
-    const [p] = await client.auth.retrievePasswords({ usernames: [username] });
+    const [p] = await client.auth.passwords.retrieve({ usernames: [username] });
     const created = await client.users.retrieve(p.subject.key);
     expect(created.name).toEqual("Ada Lovelace");
     const parents = await client.ontology.parents.retrieve({

@@ -13,20 +13,22 @@ import {
   type Next,
   type UnaryClient,
 } from "@synnaxlabs/freighter";
-import { errors, TimeStamp, url } from "@synnaxlabs/x";
+import { errors, url } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { apiKey } from "@/auth/apikey";
+import { oidc } from "@/auth/oidc";
+import { password } from "@/auth/password";
+import { session } from "@/auth/session";
 import {
   type Credentials,
   type Method,
   METHODS,
   type OIDCCredentials,
-  oidcCredentialsZ,
   type Proof,
   proofZ,
   type Session,
   type SessionKey,
-  sessionKeyZ,
   sessionZ,
 } from "@/auth/types.gen";
 import {
@@ -36,7 +38,7 @@ import {
   InvalidTokenError,
   SessionEndedError,
 } from "@/errors";
-import { ontology } from "@/ontology";
+import { type ontology } from "@/ontology";
 import { Transport } from "@/transport";
 import { user } from "@/user";
 
@@ -47,58 +49,6 @@ const createResZ = z.object({
   user: user.userZ.optional(),
 });
 const renewResZ = z.object({ session: sessionZ, user: user.userZ.optional() });
-const retrieveReqZ = z.object({ subjects: ontology.idZ.array().optional() });
-const retrieveResZ = z.object({ sessions: sessionZ.array() });
-const deleteReqZ = z.object({ keys: sessionKeyZ.array() });
-const emptyResZ = z.object({});
-
-const apiKeyKeyZ = z.uuid();
-export type APIKeyKey = z.infer<typeof apiKeyKeyZ>;
-
-const apiKeyZ = z.object({
-  /** key is the unique identifier for this API key. */
-  key: apiKeyKeyZ,
-  /** subject is the user or rack the key logs in as. */
-  subject: ontology.idZ,
-  /** name is a label that tells the subject's keys apart. */
-  name: z.string(),
-  /** created is when the key was created. */
-  created: TimeStamp.z,
-});
-/** APIKey is an API key as the API returns it: the stored record without its hash. */
-export interface APIKey extends z.infer<typeof apiKeyZ> {}
-
-export interface NewAPIKey {
-  /** The user or rack the key logs in as. Defaults to the caller. */
-  subject?: ontology.ID;
-  /** A label that tells the subject's keys apart. */
-  name: string;
-}
-
-const apiKeyCreateReqZ = z.object({
-  subject: ontology.idZ.optional(),
-  name: z.string(),
-});
-const apiKeyCreateResZ = z.object({ token: z.string(), key: apiKeyZ });
-const apiKeyRetrieveReqZ = z.object({ subjects: ontology.idZ.array().optional() });
-const apiKeyRetrieveResZ = z.object({ keys: apiKeyZ.array() });
-const apiKeyDeleteReqZ = z.object({ keys: apiKeyKeyZ.array() });
-
-const oidcLinkKeyZ = z.uuid();
-export type OIDCLinkKey = z.infer<typeof oidcLinkKeyZ>;
-
-const oidcLinkZ = z.object({
-  /** key is the unique identifier for this link. */
-  key: oidcLinkKeyZ,
-  /** subject is the user the provider account logs in as. */
-  subject: ontology.idZ,
-  /** provider is the name of the provider in the Core's settings. */
-  provider: z.string(),
-  /** account is the provider's permanent ID for the account, its `sub` claim. */
-  account: z.string(),
-});
-/** OIDCLink links an OpenID Connect provider account to a user. */
-export interface OIDCLink extends z.infer<typeof oidcLinkZ> {}
 
 const oidcLoginZ = z.object({
   /** provider is the name of the provider. */
@@ -111,105 +61,20 @@ const oidcLoginZ = z.object({
 /** OIDCLogin is where to send a person to log in through a provider. */
 export interface OIDCLogin extends z.infer<typeof oidcLoginZ> {}
 
-const oidcLinkReqZ = z.object({ credentials: oidcCredentialsZ });
-const oidcLinkResZ = z.object({ link: oidcLinkZ });
-const oidcRetrieveReqZ = z.object({ subjects: ontology.idZ.array().optional() });
-const oidcRetrieveResZ = z.object({ links: oidcLinkZ.array() });
-const oidcUnlinkReqZ = z.object({ keys: oidcLinkKeyZ.array() });
-export interface CreatePasswordParams {
-  /** The user to give the password. Defaults to the caller. */
-  subject?: ontology.ID;
-  /** The username to log in with. */
-  username: string;
-  /** The password. */
-  password: string;
-}
-
-const passwordCreateReqZ = z.object({
-  subject: ontology.idZ.optional(),
-  username: z.string(),
-  password: z.string(),
-});
-
-export interface SetPasswordParams {
-  /** The user whose password to set. Defaults to the caller. */
-  subject?: ontology.ID;
-  /** The new password. */
-  password: string;
-  /** The caller's current password. Required when the caller sets its own. */
-  currentPassword?: string;
-}
-
-const passwordSetReqZ = z.object({
-  subject: ontology.idZ.optional(),
-  password: z.string(),
-  currentPassword: z.string().optional(),
-  cookie: z.boolean().optional(),
-});
-const passwordSetResZ = z.object({ token: z.string(), session: sessionZ.optional() });
-
-const passwordZ = z.object({
-  /** subject is the user the password logs in as. */
-  subject: ontology.idZ,
-  /** username is the name the password logs in with. */
-  username: z.string(),
-});
-/** Password is a password as the API returns it: its subject and username. */
-export interface Password extends z.infer<typeof passwordZ> {}
-
-export interface RetrievePasswordsParams {
-  /** The users whose passwords to list. */
-  subjects?: ontology.ID[];
-  /** The usernames of the passwords to list. */
-  usernames?: string[];
-}
-
-const passwordRetrieveReqZ = z.object({
-  subjects: ontology.idZ.array().optional(),
-  usernames: z.string().array().optional(),
-});
-const passwordRetrieveResZ = z.object({
-  passwords: passwordZ.array().default(() => []),
-});
-
-export interface RenamePasswordParams {
-  /** The user whose password to rename. Defaults to the caller. */
-  subject?: ontology.ID;
-  /** The new username. */
-  username: string;
-}
-
-const passwordRenameReqZ = z.object({
-  subject: ontology.idZ.optional(),
-  username: z.string(),
-});
-
 // the login route a Core without sessions serves; kept for one release
 const METHODS_ENDPOINT = "/auth/methods";
 const LEGACY_LOGIN_ENDPOINT = "/auth/login";
 const SESSION_CREATE_ENDPOINT = "/auth/session/create";
 const SESSION_RENEW_ENDPOINT = "/auth/session/renew";
-const SESSION_RETRIEVE_ENDPOINT = "/auth/session/retrieve";
-const SESSION_DELETE_ENDPOINT = "/auth/session/delete";
 
 /** The routes the client sends to as it opens, keeps, and ends a session. */
 export const SESSION_ENDPOINTS = [
   LEGACY_LOGIN_ENDPOINT,
   SESSION_CREATE_ENDPOINT,
   SESSION_RENEW_ENDPOINT,
-  SESSION_RETRIEVE_ENDPOINT,
-  SESSION_DELETE_ENDPOINT,
+  session.RETRIEVE_ENDPOINT,
+  session.DELETE_ENDPOINT,
 ] as const;
-const API_KEY_CREATE_ENDPOINT = "/auth/api-key/create";
-const API_KEY_RETRIEVE_ENDPOINT = "/auth/api-key/retrieve";
-const API_KEY_DELETE_ENDPOINT = "/auth/api-key/delete";
-const OIDC_LINK_ENDPOINT = "/auth/oidc/link";
-const OIDC_RETRIEVE_ENDPOINT = "/auth/oidc/retrieve";
-const OIDC_UNLINK_ENDPOINT = "/auth/oidc/unlink";
-const PASSWORD_CREATE_ENDPOINT = "/auth/password/create";
-const PASSWORD_SET_ENDPOINT = "/auth/password/set";
-const PASSWORD_RETRIEVE_ENDPOINT = "/auth/password/retrieve";
-const PASSWORD_RENAME_ENDPOINT = "/auth/password/rename";
 
 // routes the Core serves without a token, so a request to one never logs in
 const TOKENLESS_ENDPOINTS = [
@@ -347,8 +212,8 @@ export interface Observer {
    */
   onUser?: (user: user.User | undefined) => void;
   /**
-   * Fires with the session's key after every successful login, and after setPassword
-   * opens a new session.
+   * Fires with the session's key after every successful login, and after setting a
+   * password opens a new session.
    */
   onSuccess?: (session: SessionKey) => void;
   /** Fires on a definitive credential rejection, never on token self-heal. */
@@ -356,10 +221,14 @@ export interface Observer {
 }
 
 export class Client {
+  readonly apiKeys: apiKey.Client;
+  readonly sessions: session.Client;
+  readonly passwords: password.Client;
+  readonly oidc: oidc.Client;
   private readonly client: UnaryClient;
   private credentials?: Credentials;
   private apiKey?: string;
-  private oidc?: OIDCCredentials;
+  private oidcCredentials?: OIDCCredentials;
   private resumeToken?: string;
   private readonly cookie: boolean;
   private readonly persistent: boolean;
@@ -382,18 +251,41 @@ export class Client {
     this.credentials =
       authority.credentials == null ? undefined : { ...authority.credentials };
     this.apiKey = authority.apiKey;
-    this.oidc = authority.oidc == null ? undefined : { ...authority.oidc };
+    this.oidcCredentials = authority.oidc == null ? undefined : { ...authority.oidc };
     this.resumeToken = authority.token;
     this.cookie = authority.cookie ?? false;
     this.persistent = authority.persistent ?? false;
     this.observer = observer;
+    this.apiKeys = new apiKey.Client(client);
+    this.sessions = new session.Client(client);
+    this.passwords = new password.Client(client, {
+      cookie: this.cookie,
+      generation: () => this.generation,
+      onChange: (subject, change) => this.updateOwnCredentials(subject, change),
+      onSession: (token, session) => this.replaceSession(token, session),
+    });
+    this.oidc = new oidc.Client(client);
+  }
+
+  private updateOwnCredentials(
+    subject: ontology.ID | undefined,
+    change: Partial<Credentials>,
+  ): void {
+    const own = subject == null || subject.key === this.subject?.key;
+    if (own && this.credentials != null) Object.assign(this.credentials, change);
+  }
+
+  private replaceSession(token: string, session: Session): void {
+    this.authState = { authenticated: true, token, session };
+    if (this.resumeToken != null) this.resumeToken = token;
+    this.observer.onSuccess?.(session.key);
   }
 
   /** Replaces the stored credentials and clears auth state for a fresh login. */
   setCredentials({ username, password }: Credentials): void {
     this.credentials = { username, password };
     this.apiKey = undefined;
-    this.oidc = undefined;
+    this.oidcCredentials = undefined;
     this.resumeToken = undefined;
     this.authState = { authenticated: false };
     this.authenticating = undefined;
@@ -466,195 +358,6 @@ export class Client {
   }
 
   /**
-   * Lists sessions: the caller's own by default, or those of the given subjects when
-   * the caller may retrieve them.
-   * @throws {AccessDeniedError} when the caller may not retrieve another subject's
-   * sessions.
-   * @throws {AuthError} when the login before the request fails.
-   */
-  async retrieveSessions(subjects?: ontology.ID[]): Promise<Session[]> {
-    const res = await this.client.send(
-      SESSION_RETRIEVE_ENDPOINT,
-      { subjects },
-      retrieveReqZ,
-      retrieveResZ,
-    );
-    return res.sessions;
-  }
-
-  /**
-   * Ends the given sessions. Unknown keys are ignored.
-   * @throws {AccessDeniedError} when the caller may not end another subject's sessions.
-   * @throws {AuthError} when the login before the request fails.
-   */
-  async deleteSessions(...keys: SessionKey[]): Promise<void> {
-    await this.client.send(SESSION_DELETE_ENDPOINT, { keys }, deleteReqZ, emptyResZ);
-  }
-
-  /**
-   * Creates an API key. The returned token is the only copy of the key's secret.
-   * @throws {AccessDeniedError} when the caller may not create a key for the subject.
-   * @throws {NotFoundError} when the subject does not exist.
-   */
-  async createAPIKey(key: NewAPIKey): Promise<{ token: string; key: APIKey }> {
-    return await this.client.send(
-      API_KEY_CREATE_ENDPOINT,
-      key,
-      apiKeyCreateReqZ,
-      apiKeyCreateResZ,
-    );
-  }
-
-  /**
-   * Lists API keys: the caller's own by default, or those of the given subjects when
-   * the caller may retrieve them.
-   * @throws {AccessDeniedError} when the caller may not retrieve another subject's
-   * keys.
-   */
-  async retrieveAPIKeys(subjects?: ontology.ID[]): Promise<APIKey[]> {
-    const res = await this.client.send(
-      API_KEY_RETRIEVE_ENDPOINT,
-      { subjects },
-      apiKeyRetrieveReqZ,
-      apiKeyRetrieveResZ,
-    );
-    return res.keys;
-  }
-
-  /**
-   * Deletes API keys and ends their sessions. Unknown keys are ignored.
-   * @throws {AccessDeniedError} when the caller may not delete another subject's keys.
-   */
-  async deleteAPIKeys(...keys: APIKeyKey[]): Promise<void> {
-    await this.client.send(
-      API_KEY_DELETE_ENDPOINT,
-      { keys },
-      apiKeyDeleteReqZ,
-      emptyResZ,
-    );
-  }
-
-  /**
-   * Links the OpenID Connect provider account that the credentials prove to the
-   * caller, so the account can log in as the caller.
-   * @throws {InvalidCredentialsError} when the provider rejects the credentials.
-   * @throws {ValidationError} when the account or the caller already has a link for
-   * the provider.
-   */
-  async linkOIDC(credentials: OIDCCredentials): Promise<OIDCLink> {
-    const res = await this.client.send(
-      OIDC_LINK_ENDPOINT,
-      { credentials },
-      oidcLinkReqZ,
-      oidcLinkResZ,
-    );
-    return res.link;
-  }
-
-  /**
-   * Lists OpenID Connect provider links: the caller's own by default, or those of the
-   * given users when the caller may retrieve them.
-   * @throws {AccessDeniedError} when the caller may not retrieve another user's links.
-   */
-  async retrieveOIDCLinks(subjects?: ontology.ID[]): Promise<OIDCLink[]> {
-    const res = await this.client.send(
-      OIDC_RETRIEVE_ENDPOINT,
-      { subjects },
-      oidcRetrieveReqZ,
-      oidcRetrieveResZ,
-    );
-    return res.links;
-  }
-
-  /**
-   * Removes OpenID Connect provider links and ends their sessions. Unknown keys are
-   * ignored.
-   * @throws {AccessDeniedError} when the caller may not remove another user's links.
-   */
-  async unlinkOIDC(...keys: OIDCLinkKey[]): Promise<void> {
-    await this.client.send(OIDC_UNLINK_ENDPOINT, { keys }, oidcUnlinkReqZ, emptyResZ);
-  }
-
-  /**
-   * Gives the caller, or another user when the caller may create that user, its first
-   * password.
-   * @throws {AuthError} when another user holds the username.
-   * @throws {AccessDeniedError} when the caller may not create the user.
-   * @throws {NotFoundError} when the user does not exist.
-   * @throws {ValidationError} when the username or password is empty, or the user
-   * already has a password.
-   */
-  async createPassword(params: CreatePasswordParams): Promise<void> {
-    await this.client.send(
-      PASSWORD_CREATE_ENDPOINT,
-      params,
-      passwordCreateReqZ,
-      emptyResZ,
-    );
-  }
-
-  /**
-   * Sets the caller's password, or another user's when the caller may update that
-   * user, and ends every session the old password opened. When that ends the client's
-   * own session, the client switches to the session the Core opens in its place.
-   * @throws {AuthError} when the caller sets its own password with a wrong current one.
-   * @throws {AccessDeniedError} when the caller may not update the user.
-   * @throws {ValidationError} when the password is empty, or the caller sets its own
-   * without the current one.
-   */
-  async setPassword(params: SetPasswordParams): Promise<void> {
-    const generation = this.generation;
-    const res = await this.client.send(
-      PASSWORD_SET_ENDPOINT,
-      { ...params, cookie: this.cookie || undefined },
-      passwordSetReqZ,
-      passwordSetResZ,
-    );
-    if (generation !== this.generation) return;
-    const own = params.subject == null || params.subject.key === this.subject?.key;
-    if (own && this.credentials != null) this.credentials.password = params.password;
-    if (res.session == null) return;
-    this.authState = { authenticated: true, token: res.token, session: res.session };
-    if (this.resumeToken != null) this.resumeToken = res.token;
-    this.observer.onSuccess?.(res.session.key);
-  }
-
-  /**
-   * Lists passwords without their hashes: the caller's own by default, or those of the
-   * given users or usernames when the caller may retrieve their users. Unknown users
-   * and usernames are ignored.
-   * @throws {AccessDeniedError} when the caller may not retrieve another user.
-   */
-  async retrievePasswords(params: RetrievePasswordsParams = {}): Promise<Password[]> {
-    const res = await this.client.send(
-      PASSWORD_RETRIEVE_ENDPOINT,
-      params,
-      passwordRetrieveReqZ,
-      passwordRetrieveResZ,
-    );
-    return res.passwords;
-  }
-
-  /**
-   * Changes the username of the caller's password, or of another user's when the caller
-   * may update that user. Sessions stay open.
-   * @throws {AuthError} when another user holds the username.
-   * @throws {AccessDeniedError} when the caller may not update the user.
-   * @throws {NotFoundError} when the user has no password.
-   * @throws {ValidationError} when the username is empty.
-   */
-  async renamePassword(params: RenamePasswordParams): Promise<void> {
-    await this.client.send(
-      PASSWORD_RENAME_ENDPOINT,
-      params,
-      passwordRenameReqZ,
-      emptyResZ,
-    );
-    const own = params.subject == null || params.subject.key === this.subject?.key;
-    if (own && this.credentials != null) this.credentials.username = params.username;
-  }
-
-  /**
    * Ends the client's own session and forgets it and the credentials, so later requests
    * fail until new credentials are set. Waits for a login in flight, then ends its
    * session too. A session the Core already ended counts as logged out.
@@ -673,10 +376,10 @@ export class Client {
     try {
       await this.sendAs(
         authState.token,
-        SESSION_DELETE_ENDPOINT,
+        session.DELETE_ENDPOINT,
         { keys: [key] },
-        deleteReqZ,
-        emptyResZ,
+        session.deleteReqZ,
+        z.object({}),
       );
     } catch (err) {
       if (!RETRY_ON.some((e) => e.matches(err))) throw errors.fromUnknown(err);
@@ -695,7 +398,7 @@ export class Client {
   private forget(): void {
     this.credentials = undefined;
     this.apiKey = undefined;
-    this.oidc = undefined;
+    this.oidcCredentials = undefined;
     this.resumeToken = undefined;
   }
 
@@ -771,7 +474,7 @@ export class Client {
       if (generation !== this.generation) return null;
       // a code works once, so a later login resumes the session it opened
       if (spentCode) {
-        this.oidc = undefined;
+        this.oidcCredentials = undefined;
         this.resumeToken = state.token;
       }
       this.authState = state;
@@ -785,7 +488,7 @@ export class Client {
       this.authState = { authenticated: false };
       if (AuthError.matches(parsed)) {
         // the Core spent or refused the code; a Core that was not reached did neither
-        this.oidc = undefined;
+        this.oidcCredentials = undefined;
         this.resumeToken = undefined;
         this.observer.onFailure?.(parsed);
       }
@@ -796,7 +499,8 @@ export class Client {
   private proof(): Proof | undefined {
     if (this.credentials != null) return { method: "password", ...this.credentials };
     if (this.apiKey != null) return { method: "api_key", key: this.apiKey };
-    if (this.oidc != null) return { method: "oidc", ...this.oidc };
+    if (this.oidcCredentials != null)
+      return { method: "oidc", ...this.oidcCredentials };
     return undefined;
   }
 

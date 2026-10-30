@@ -21,7 +21,7 @@ const client = createTestClient();
 const { username, password } = TEST_CREDENTIALS;
 
 const signedInKey = async () => {
-  const [p] = await client.auth.retrievePasswords({ usernames: [username] });
+  const [p] = await client.auth.passwords.retrieve({ usernames: [username] });
   return p.subject.key;
 };
 

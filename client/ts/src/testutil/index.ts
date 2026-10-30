@@ -9,6 +9,7 @@
 
 export * from "@/testutil/access";
 export * from "@/testutil/address";
+export * from "@/testutil/auth";
 export * from "@/testutil/channels";
 export * from "@/testutil/client";
 export * from "@/testutil/connection";

@@ -87,7 +87,7 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
     const created = await client.users.create({ key: uuid.create(), name });
     let registered = false;
     try {
-      await client.auth.createPassword({
+      await client.auth.passwords.create({
         subject: user.ontologyID(created.key),
         username,
         password,

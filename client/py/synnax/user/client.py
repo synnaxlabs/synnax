@@ -69,7 +69,7 @@ class Client:
         users: list[New] | None = None,
     ) -> User | list[User]:
         """Creates users with no password. Give a user its first password with
-        client.auth.create_password.
+        client.auth.passwords.create.
         """
         if name is not None:
             user = New(name=name, key=key)

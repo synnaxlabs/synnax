@@ -217,7 +217,7 @@ export const createUsers = async (
     const passwords = await Promise.allSettled(
       specs.map(
         async ({ username, password = "seldon-demo" }, i) =>
-          await client.auth.createPassword({
+          await client.auth.passwords.create({
             subject: user.ontologyID(users[i].key),
             username,
             password,
