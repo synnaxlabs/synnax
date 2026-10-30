@@ -39,7 +39,31 @@ struct Input {
 /// @brief configuration to read from a coil or discrete input.
 struct InputDiscrete final : Input {
     using Input::Input;
+
+    /// @returns the number of bits the channel covers.
+    [[nodiscard]] static std::size_t width() { return 1; }
 };
+
+/// @returns the number of 16-bit registers a value of the data type covers.
+inline std::size_t register_count(const x::telem::DataType &dt) {
+    return (dt.density() + 1) / 2;
+}
+
+/// @returns true if the Driver can encode and decode registers as the data type.
+inline bool is_register_type(const x::telem::DataType &dt) {
+    return dt.matches(
+        {x::telem::INT8_T,
+         x::telem::UINT8_T,
+         x::telem::INT16_T,
+         x::telem::UINT16_T,
+         x::telem::INT32_T,
+         x::telem::UINT32_T,
+         x::telem::INT64_T,
+         x::telem::UINT64_T,
+         x::telem::FLOAT32_T,
+         x::telem::FLOAT64_T}
+    );
+}
 
 /// @brief configuration to read from a holding or input register.
 struct InputRegister final : Input {
@@ -77,6 +101,9 @@ struct InputRegister final : Input {
         const device::ConnectionConfig &conn
     ):
         InputRegister(cfg, cfg, cfg.string_length, conn) {}
+
+    /// @returns the number of registers the channel covers.
+    [[nodiscard]] std::size_t width() const { return register_count(value_type); }
 };
 
 /// @brief base class for output channels (writing to Modbus).
@@ -85,6 +112,8 @@ struct Output {
     uint16_t address;
     /// @brief The key of the channel to receive commands from
     synnax::channel::Key channel;
+    /// @brief the name of the command channel, for errors. Bound at configure.
+    std::string name;
 
     explicit Output(const ::synnax::modbus::BaseWriteChannel &cfg):
         address(cfg.address), channel(cfg.channel) {}
@@ -93,6 +122,9 @@ struct Output {
 /// @brief Output channel for writing to coils
 struct OutputCoil final : Output {
     using Output::Output;
+
+    /// @returns the number of bits the channel covers.
+    [[nodiscard]] static std::size_t width() { return 1; }
 };
 
 /// @brief Output channel for writing to holding registers
@@ -114,6 +146,9 @@ struct OutputHoldingRegister final : Output {
         value_type(cfg.data_type),
         bytes_swapped(cfg.bytes_swapped.value_or(conn.swap_bytes)),
         words_swapped(cfg.words_swapped.value_or(conn.swap_words)) {}
+
+    /// @returns the number of registers the channel covers.
+    [[nodiscard]] std::size_t width() const { return register_count(value_type); }
 };
 
 /// @brief sorts a vector of channels in place by their address.

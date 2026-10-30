@@ -32,9 +32,12 @@ import {
   READ_SCHEMAS,
   READ_TYPE,
   type ReadChannel,
+  readChannelName,
   type ReadChannelType,
+  readMapKey,
   type ReadSchemas,
   type TypedReadChannel,
+  UNSUPPORTED_REGISTER_DATA_TYPES,
 } from "@/feature/modbus/task/types";
 import { CSS } from "@/platform/css";
 import { Selector } from "@/platform/selector";
@@ -114,7 +117,11 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
 
 const renderTelemSelectDataType = Component.renderProp(
   (props: Telem.SelectDataTypeProps) => (
-    <Telem.SelectDataType {...props} hideVariableDensity location="bottom" />
+    <Telem.SelectDataType
+      {...props}
+      hideDataTypes={UNSUPPORTED_REGISTER_DATA_TYPES}
+      location="bottom"
+    />
   ),
 );
 
@@ -149,31 +156,10 @@ const Form: FC = () => {
   );
 };
 
-// Auto-generated channel names and device map keys keep the released type
-// spellings, so channels created before the labels were renamed keep matching.
-const NAME_TYPES: Record<ReadChannelType, string> = {
-  coil: "coil_input",
-  discrete_input: "discrete_input",
-  holding_register: "holding_register_input",
-  input_register: "register_input",
-};
-
-const readMapKey = (channel: ReadChannel) => {
-  let s = `${NAME_TYPES[channel.type]}-${channel.address.toString()}`;
-  if (isVariableDensityReadChannel(channel)) s += `-${channel.dataType}`;
-  return s.replaceAll("_", "-");
-};
-
-const channelName = (deviceName: string, channel: ReadChannel) => {
-  let s = `${deviceName}_${NAME_TYPES[channel.type]}_${channel.address}`;
-  if (isVariableDensityReadChannel(channel))
-    s += `_${new DataType(channel.dataType).toString(true)}`;
-  return s;
-};
-
 const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({ deviceKey }) => {
   const config = READ_SCHEMAS.config.parse({});
   if (deviceKey != null) config.device = deviceKey;
+  config.channels = [getOpenChannel([])];
   return { name: "Modbus read task", type: READ_TYPE, config };
 };
 
@@ -221,7 +207,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
       modified = true;
       const channels = await client.channels.create(
         toCreate.map((c) => ({
-          name: primitive.isNonZero(c.name) ? c.name : channelName(safeName, c),
+          name: primitive.isNonZero(c.name) ? c.name : readChannelName(safeName, c),
           dataType: (c as TypedReadChannel).dataType ?? DataType.UINT8.toString(),
           index: dev.properties.read.index,
         })),

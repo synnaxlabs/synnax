@@ -248,6 +248,7 @@ class TestCase(ABC):
         name: str,
         data_type: sy.DataType,
         initial_value: Any = None,
+        *,
         append_name: bool = True,
     ) -> None:
         """Create a telemetry channel with name {self.name}_{name}."""

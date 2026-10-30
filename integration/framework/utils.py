@@ -96,7 +96,7 @@ def resolve_channel_placeholders(client: sy.Synnax, text: str) -> str:
     :param client: The Synnax client to resolve names through.
     :param text: Raw fixture JSON text.
     :returns: The text with each placeholder replaced by the channel's key.
-    :raises QueryError: If a named channel does not exist.
+    :raises NotFoundError: If a named channel does not exist.
     """
 
     def key(m: re.Match[str]) -> str:

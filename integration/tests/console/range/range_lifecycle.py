@@ -331,7 +331,7 @@ class RangeLifecycle(ConsoleCase):
         for _ in range(10):
             try:
                 return self.client.ranges.retrieve(name=name)
-            except sy.QueryError:
+            except sy.NotFoundError:
                 sy.sleep(0.5)
         return self.client.ranges.retrieve(name=name)
 

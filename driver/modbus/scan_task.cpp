@@ -33,10 +33,12 @@ std::pair<std::vector<synnax::device::Device>, x::errors::Error>
 Scanner::scan(const common::ScannerContext &scan_ctx) {
     std::vector<synnax::device::Device> devices_out;
     if (scan_ctx.devices == nullptr) return {devices_out, x::errors::NIL};
+    std::unordered_map<std::string, Check> next;
     for (auto [key, dev]: *scan_ctx.devices) {
-        this->check_device_health(dev);
+        this->check_device_health(dev, next);
         devices_out.push_back(dev);
     }
+    this->checks = std::move(next);
     return {devices_out, x::errors::NIL};
 }
 
@@ -52,10 +54,13 @@ bool Scanner::exec(
     return false;
 }
 
-void Scanner::check_device_health(synnax::device::Device &dev) const {
+void Scanner::check_device_health(
+    synnax::device::Device &dev,
+    std::unordered_map<std::string, Check> &next
+) const {
     const auto rack_key = this->task.rack;
     const auto parser = x::json::Parser(dev.properties);
-    const auto conn_cfg = device::ConnectionConfig(parser.child("connection"));
+    const auto props = device::Properties(parser);
     if (parser.error()) {
         dev.status = synnax::device::Status{
             .key = synnax::device::status_key(dev),
@@ -69,14 +74,21 @@ void Scanner::check_device_health(synnax::device::Device &dev) const {
         return;
     }
 
-    auto [conn, conn_err] = this->devices->acquire(conn_cfg);
-    if (conn_err)
+    auto [d, err] = this->devices->acquire(props.connection, props.requests);
+    if (!err) {
+        const auto prev = this->checks.find(dev.key);
+        const bool replied = prev != this->checks.end() &&
+                             d->last_reply() >= prev->second.time;
+        if (!replied) err = d->probe();
+        next[dev.key] = Check{.dev = d, .time = device::Connection::Clock::now()};
+    }
+    if (err)
         dev.status = synnax::device::Status{
             .key = synnax::device::status_key(dev),
             .name = dev.name,
             .variant = synnax::status::VARIANT_WARNING,
             .message = "Failed to reach device",
-            .description = conn_err.data,
+            .description = err.data,
             .time = x::telem::TimeStamp::now(),
             .details = {.rack = rack_key, .device = dev.key},
         };
@@ -112,7 +124,8 @@ void Scanner::test_connection(const synnax::task::Command &cmd) const {
         ctx->set_status(status);
         return;
     }
-    auto [dev, err] = this->devices->acquire(args.connection);
+    auto [dev, err] = this->devices->acquire(args.connection, args.requests);
+    if (!err) err = dev->probe();
     if (err) {
         status.message = "Failed to connect to device";
         status.description = err.data;

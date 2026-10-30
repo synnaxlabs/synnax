@@ -25,7 +25,7 @@ from pydantic import ValidationError
 
 import synnax as sy
 from framework.test_case import TestCase
-from x.telem import to_float, to_int
+from x.telem import to_float
 
 _STATUS_CHANNEL = "sy_status_set"
 # Allowed relative error between a task's measured and configured sample rate. Wide
@@ -455,7 +455,7 @@ def assert_sample_rate(
     prefix = f"{task_name}: " if task_name else ""
     time_range = sy.TimeRange(start, sy.TimeStamp.now())
     counts: list[int] = []
-    timestamps: dict[int, sy.MultiSeries] = {}
+    timestamps: dict[int, sy.MultiSeries[sy.TimeStamp]] = {}
     for key in channel_keys:
         ch = client.channels.retrieve(key)
         count = len(ch.read(time_range))
@@ -467,9 +467,10 @@ def assert_sample_rate(
         if not strict:
             continue
         if ch.index not in timestamps:
-            timestamps[ch.index] = client.channels.retrieve(ch.index).read(time_range)
+            index = client.channels.retrieve(ch.index)
+            timestamps[ch.index] = index.read(time_range).as_(sy.TimeStamp)
         times = timestamps[ch.index]
-        span = sy.TimeSpan(to_int(times[-1]) - to_int(times[0]))
+        span = times[-1] - times[0]
         measured = (count - 1) / span.seconds
         error = (measured - sample_rate) / sample_rate
         log(
@@ -779,6 +780,10 @@ class WriteTaskCase(TaskCase[TaskT]):
         self.test_send_commands()
         self.test_reconfigure_name()
 
+    def assert_written(self) -> None:
+        """Check that the device holds the last round of commands. Runs before the task
+        stops, because a stopping task drops the commands it has not written."""
+
     def test_send_commands(self) -> None:
         """Start the write task, send commands, and verify they arrive on the stream."""
         assert self.tsk is not None
@@ -792,6 +797,7 @@ class WriteTaskCase(TaskCase[TaskT]):
                 task_key=self.tsk.key,
                 command_values=self.command_values,
             )
+            self.assert_written()
 
     def test_reconfigure_name(self) -> None:
         """Rename the task, verify it persists, then send commands again."""
@@ -819,3 +825,4 @@ class WriteTaskCase(TaskCase[TaskT]):
                 task_key=self.tsk.key,
                 command_values=self.command_values,
             )
+            self.assert_written()

@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from typing import Literal
 from uuid import uuid4
 
 from pydantic import JsonValue
@@ -153,21 +154,24 @@ class WriteTask(
         """Update device properties before task configuration.
 
         The key format follows Console's writeMapKey convention: "{type}-{address}"
-        with underscores replaced by hyphens. Write channels omit the dataType because
-        the driver converts values based on register type.
+        for coils and "{type}-{address}-{dataType}" for holding registers, with
+        underscores replaced by hyphens.
         """
         dev = device_client.retrieve(key=self.config.device)
         props = dict(dev.properties)
         channels = device.ensure_object(props, "write", "channels")
         for ch in self.config.channels:
-            key = f"{_WRITE_NAME_TYPES[ch.type]}-{ch.address}".replace("_", "-")
-            channels[key] = ch.channel
+            key = f"{_WRITE_NAME_TYPES[ch.type]}-{ch.address}"
+            if hasattr(ch, "data_type"):
+                key += f"-{ch.data_type}"
+            channels[key.replace("_", "-")] = ch.channel
         dev.properties = props
         return device_client.create(dev)
 
 
 class Device(device.Device):
-    """A Modbus TCP server device.
+    """A unit on a Modbus TCP server. Devices with the same host and port share one
+    connection.
 
     :param host: The IP address or hostname of the Modbus server.
     :param port: The TCP port number, typically 502.
@@ -175,6 +179,18 @@ class Device(device.Device):
         16-bit word. A channel's bytes_swapped overrides it.
     :param swap_words: Whether register channels swap the word order of 32-bit and
         larger values. A channel's words_swapped overrides it.
+    :param unit_id: The unit the device addresses, from 0 to 255. 255 addresses the
+        server itself; a gateway needs the unit behind it.
+    :param timeout_ms: The connect and response timeout in milliseconds.
+    :param retries: The immediate retries of a request after a timeout or another
+        temporary fault, from 0 to 10.
+    :param max_registers: The most registers one read covers, from 1 to 125.
+    :param max_gap: The most unused addresses one read can span between two channels.
+        0 reads only addresses that channels cover.
+    :param write_codes: "multiple" writes with function codes 15 and 16. "single" writes
+        each coil with 05 and each register with 06.
+    :param delay_ms: The wait in milliseconds between requests on the connection,
+        from 0 to 5000.
     :param name: Human-readable name for the device.
     :param location: Physical location or description.
     :param rack: Rack key this device belongs to.
@@ -189,6 +205,13 @@ class Device(device.Device):
         port: int,
         swap_bytes: bool = False,
         swap_words: bool = False,
+        unit_id: int = 255,
+        timeout_ms: int = 1000,
+        retries: int = 1,
+        max_registers: int = 125,
+        max_gap: int = 125,
+        write_codes: Literal["multiple", "single"] = "multiple",
+        delay_ms: int = 0,
         name: str = "",
         location: str = "",
         rack: int = 0,
@@ -199,10 +222,20 @@ class Device(device.Device):
             key = str(uuid4())
         props: dict[str, JsonValue] = {
             "connection": {
+                "transport": "tcp",
                 "host": host,
                 "port": port,
                 "swap_bytes": swap_bytes,
                 "swap_words": swap_words,
+                "unit_id": unit_id,
+                "timeout_ms": timeout_ms,
+                "retries": retries,
+            },
+            "requests": {
+                "max_registers": max_registers,
+                "max_gap": max_gap,
+                "write_codes": write_codes,
+                "delay_ms": delay_ms,
             },
             "read": {"index": 0, "channels": {}},
             "write": {"channels": {}},

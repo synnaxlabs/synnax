@@ -58,25 +58,27 @@ class ModbusTask(TaskPage):
     def add_channel(
         self, type_name: str, *, address: int, data_type: str | None = None
     ) -> None:
-        """Append a channel row and fill it in.
+        """Fill in the next channel row.
 
         :param type_name: Type as shown in the type dropdown, e.g. "Register".
         :param address: Modbus address.
         :param data_type: Register data type, e.g. "float32". Registers only.
         """
-        index = self._rows().count()
-        self.add_channel_row()
-        self._rows().nth(index).wait_for(state="visible", timeout=5000)
+        index = self.next_channel_row()
         self.set_channel_type(index, type_name)
         self.set_address(index, address)
         if data_type is not None:
-            self._fields(index).get_by_role("button").nth(1).click()
-            self.layout.select_from_dropdown(data_type, exact=True)
+            self.set_data_type(index, data_type)
 
     def set_channel_type(self, index: int, type_name: str) -> None:
         """Set the type of the channel row at ``index``."""
         self._fields(index).get_by_role("button").first.click()
         self.layout.select_from_dropdown(type_name, exact=True)
+
+    def set_data_type(self, index: int, data_type: str) -> None:
+        """Set the data type of the register channel row at ``index``."""
+        self._fields(index).get_by_role("button").nth(1).click()
+        self.layout.select_from_dropdown(data_type, exact=True)
 
     def set_address(self, index: int, address: int) -> None:
         """Set the address of the channel row at ``index``."""

@@ -19,18 +19,14 @@ A Modbus write task writes the values of command channels to the coils and holdi
 registers of one Modbus server. For example, a button on a schematic can start a pump
 through a coil of a PLC. Modbus write tasks have no state channels.
 
-<Note.Note variant="warning">
-
-Each command writes every address from the lowest to the highest address of the task.
-Addresses between your channels get the values that the task read at its first command,
-until you configure the task again. If that first read fails, they get zeros. Keep the
-addresses of a write task together, or use one task for each group of addresses.
-
-</Note.Note>
-
-The Driver writes coils with function code 15 and holding registers with function
-code 16. A device that supports only function codes 05 and 06 cannot be written. One
-request can hold at most 123 registers or 1968 coils.
+Each command writes only the addresses of the channels in the command. Channels at
+adjacent addresses go in one request. The Driver writes coils with function code 15 and
+holding registers with function code 16. For a device that supports only function codes
+05 and 06, set **Write codes** of the
+[server](/reference/hardware/modbus/connect-server#connection-options) to **Single**.
+The Driver then writes each register on its own, so the two halves of a 32-bit value can
+reach the device at different times. A write goes before reads that wait for the same
+connection.
 
 Before you start, you need a
 [connected server](/reference/hardware/modbus/connect-server).
@@ -164,23 +160,16 @@ Writes a number to one or more holding registers.
 
 ## Troubleshooting
 
-### A command changed a register that the task does not use
-
-The register is between two addresses of the task. See the warning at the top of this
-page.
-
 ### "Illegal function"
 
-The device does not support function code 15 or 16. The Driver cannot write to it.
+The device does not support function code 15 or 16. Set **Write codes** of the server to
+**Single**.
 
-### "Too many data"
+### The connection dropped
 
-The addresses of the task span more than one request can hold. Move the channels closer
-together, or split them into two tasks.
-
-### The task stopped when the connection dropped
-
-The task stops on any connection error. Start the task again when the server is back.
+The Driver reconnects and sends the command again at once, up to the **Retries** of the
+server. If that fails, the task shows the warning "Failed to write commands" and keeps
+running. The Driver reconnects at the next command.
 
 For other problems, see
 [Connect a Modbus server](/reference/hardware/modbus/connect-server#troubleshooting) and

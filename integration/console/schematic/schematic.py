@@ -289,6 +289,7 @@ class Schematic(ConsolePage):
 
     def connect_symbols(
         self,
+        *,
         source_symbol: Symbol,
         source_handle: str,
         target_symbol: Symbol,
@@ -333,6 +334,7 @@ class Schematic(ConsolePage):
 
     def select_edge(
         self,
+        *,
         source_symbol: Symbol,
         source_handle: str,
         target_symbol: Symbol,

@@ -11,6 +11,7 @@ import { type Synnax } from "@synnaxlabs/client";
 import { deep, id } from "@synnaxlabs/x";
 
 import {
+  type Connection,
   type Device,
   type Properties,
   SCHEMAS,
@@ -20,7 +21,10 @@ import { uniqueName } from "@/testutil";
 
 export interface CreateModbusDeviceOptions {
   configured?: boolean;
-  properties?: Partial<Properties>;
+  /** Properties to set. Connection fields left out keep their zero values. */
+  properties?: Partial<Omit<Properties, "connection">> & {
+    connection?: Partial<Connection>;
+  };
 }
 
 /** Creates a rack and a configured Modbus server device on the live Core. */
@@ -38,7 +42,11 @@ export const createModbusDevice = async (
       make: "Modbus",
       model: "Modbus",
       configured,
-      properties: { ...deep.copy(ZERO_PROPERTIES), ...properties },
+      properties: {
+        ...deep.copy(ZERO_PROPERTIES),
+        ...properties,
+        connection: { ...ZERO_PROPERTIES.connection, ...properties?.connection },
+      },
     },
     SCHEMAS,
   );
