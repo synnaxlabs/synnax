@@ -9,7 +9,7 @@
 
 import "@/feature/task/Toolbar.css";
 
-import { task } from "@synnaxlabs/client";
+import { arc, type ontology, task } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -21,7 +21,7 @@ import { Store } from "@synnaxlabs/lyra/store";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { stopPropagation } from "@synnaxlabs/lyra/util";
-import { Access, type Flux, Task } from "@synnaxlabs/pluto";
+import { Access, Arc, type Flux, Task } from "@synnaxlabs/pluto";
 import { array } from "@synnaxlabs/x";
 import { useState } from "react";
 
@@ -63,8 +63,7 @@ const INITIAL_QUERY: Task.ListQuery = {
   snapshot: false,
 };
 
-const filter = (task: task.Task) =>
-  !task.internal && !task.snapshot && task.type !== "arc";
+const filter = (task: task.Task) => !task.internal && !task.snapshot;
 
 const Content = () => {
   const [selected, setSelected] = useState<task.Key[]>([]);
@@ -80,6 +79,7 @@ const Content = () => {
   const { fetchMore } = List.usePager({ retrieve, pageSize: 1e3 });
 
   const { update: rename } = Task.useRename();
+  const { update: renameArc } = Arc.useRename();
 
   const { update: handleDelete } = Task.useDelete({
     beforeUpdate: async ({
@@ -100,7 +100,11 @@ const Content = () => {
           .toArray(data)
           .filter(({ type }) => type === "start")
           .map(({ task }) => task),
-      ).forEach(({ type }) => capture("task_started", { type })),
+      ).forEach(({ type }) => {
+        capture("task_started", { type });
+        // Starting an Arc task deploys its automation.
+        if (type === "arc") capture("automation_deployed", {});
+      }),
   });
   const handleCommand = (keys: string[], type: string) =>
     runCommand(keys.map((k) => ({ task: k, type })));
@@ -111,8 +115,26 @@ const Content = () => {
     keys.forEach((key) => setDataSaving({ key, dataSaving: true }));
   const handleDisableDataSaving = (keys: task.Key[]) =>
     keys.forEach((key) => setDataSaving({ key, dataSaving: false }));
-  const handleEdit = (key: task.Key) =>
-    openTab({ variant: "resource", resource: task.ontologyID(key) });
+  // An Arc task opens, links and renames through its Arc. An Arc rename reaches the
+  // task, while a task rename would leave the Arc behind.
+  const arcKeyOf = (key: task.Key): arc.Key | null => {
+    const tsk = getItem(key);
+    if (tsk?.type !== "arc") return null;
+    return arc.task.configZ.parse(tsk.config).arcKey;
+  };
+  const resourceOf = (key: task.Key): ontology.ID => {
+    const arcKey = arcKeyOf(key);
+    return arcKey == null ? task.ontologyID(key) : arc.ontologyID(arcKey);
+  };
+  const handleEdit = (key: task.Key) => {
+    const resource = resourceOf(key);
+    openTab({ variant: "resource", resource });
+  };
+  const handleRename = ({ key, name }: Task.UseRenameParams) => {
+    const arcKey = arcKeyOf(key);
+    if (arcKey == null) rename({ key, name });
+    else renameArc({ key: arcKey, name });
+  };
   const contextMenu: NonNullable<Menu.ContextMenuProps["menu"]> = ({ keys }) => (
     <ContextMenu
       keys={keys}
@@ -122,6 +144,7 @@ const Content = () => {
       onStart={handleStart}
       onStop={handleStop}
       onEdit={handleEdit}
+      resourceOf={resourceOf}
       onEnableDataSaving={handleEnableDataSaving}
       onDisableDataSaving={handleDisableDataSaving}
     />
@@ -169,7 +192,7 @@ const Content = () => {
                     {...p}
                     onStopStart={handleListItemStopStart}
                     onSetDataSaving={setDataSaving}
-                    onRename={rename}
+                    onRename={handleRename}
                     onEdit={handleEdit}
                   />
                 )}
@@ -219,8 +242,12 @@ const TaskListItem = ({
   const isRunning = details?.running === true;
   const isDrifted = task_ != null && task.drifted(task_.payload);
   const config = task_?.config;
+  // An Arc row keeps the Arc toolbar's tile, which carries no data saving control.
   const dataSaving =
-    config != null && typeof config === "object" && "dataSavingDisabled" in config
+    task_?.type !== "arc" &&
+    config != null &&
+    typeof config === "object" &&
+    "dataSavingDisabled" in config
       ? config.dataSavingDisabled !== true
       : null;
   if (!isRunning && variant === "success") variant = "info";
@@ -313,6 +340,8 @@ interface ContextMenuProps extends Store.UseItemsProps<task.Key, task.Task> {
   onStart: (keys: task.Key[]) => void;
   onStop: (keys: task.Key[]) => void;
   onEdit: (key: task.Key) => void;
+  /** The resource a task's link and editor open. */
+  resourceOf: (key: task.Key) => ontology.ID;
   onEnableDataSaving: (keys: task.Key[]) => void;
   onDisableDataSaving: (keys: task.Key[]) => void;
 }
@@ -325,6 +354,7 @@ const ContextMenu = ({
   onStart,
   onStop,
   onEdit,
+  resourceOf,
   onEnableDataSaving,
   onDisableDataSaving,
 }: ContextMenuProps) => {
@@ -348,10 +378,14 @@ const ContextMenu = ({
   const isSingle = selectedTasks.length === 1;
 
   // Only tasks with a dataSavingDisabled field in their config (primarily read
-  // tasks) are eligible for these menu items. Tasks without this field are excluded.
+  // tasks) are eligible for these menu items. Tasks without this field are excluded,
+  // and so are Arc tasks, whose rows carry no data saving control.
   const dataSavingTasks = selectedTasks.filter(
-    ({ config }) =>
-      config != null && typeof config === "object" && "dataSavingDisabled" in config,
+    ({ type, config }) =>
+      type !== "arc" &&
+      config != null &&
+      typeof config === "object" &&
+      "dataSavingDisabled" in config,
   );
   const canEnableDataSaving = dataSavingTasks.some(
     ({ config }) =>
@@ -380,7 +414,7 @@ const ContextMenu = ({
         message: "Failed to copy link",
         description: "The task no longer exists.",
       });
-    copyLinkToClipboard({ name, ontologyID: task.ontologyID(key) });
+    copyLinkToClipboard({ name, ontologyID: resourceOf(key) });
   };
   const showSnapshotToActiveRange =
     activeRange?.variant === "persisted" && selectedTasks.length > 0;

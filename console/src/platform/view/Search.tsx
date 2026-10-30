@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@synnaxlabs/lyra/icon";
-import { Input } from "@synnaxlabs/lyra/input";
 import { plural } from "pluralize";
 import { type ReactElement, useState } from "react";
 
+import { Search as Base } from "@/platform/search";
 import { useContext, useFormContext } from "@/platform/view/context";
 
 export const Search = (): ReactElement | null => {
@@ -24,17 +23,10 @@ export const Search = (): ReactElement | null => {
   };
   if (!editable) return null;
   return (
-    <Input.Text
-      size="small"
-      level="h5"
-      color={9}
-      startContent={startContent}
-      variant="text"
+    <Base.Input
       value={value}
       onChange={handleChange}
       placeholder={`Search ${plural(resourceType)}...`}
     />
   );
 };
-
-const startContent = <Icon.Search color={9} />;

@@ -11,20 +11,15 @@ import { type status } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Form } from "@synnaxlabs/lyra/form";
 import { type Input } from "@synnaxlabs/lyra/input";
-import { type position } from "@synnaxlabs/lyra/position";
 import { type Select } from "@synnaxlabs/lyra/select";
 import { Status } from "@synnaxlabs/pluto";
-import { location } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
+
+import { Search } from "@/platform/search";
 
 const TRIGGER_PROPS: Select.MultipleTriggerProps<status.Variant> = {
   hideTags: true,
   variant: "text",
-};
-
-const DIALOG_LOCATION: position.LocationPreference = {
-  targetCorner: location.TOP_RIGHT,
-  dialogCorner: location.TOP_LEFT,
 };
 
 export const MenuItem = (): ReactElement => (
@@ -44,7 +39,7 @@ const selectVariantRenderProp = Component.renderProp(
     <Status.SelectMultipleVariants
       value={value ?? []}
       onChange={onChange}
-      location={DIALOG_LOCATION}
+      location={Search.FILTER_LOCATION}
       triggerProps={TRIGGER_PROPS}
     />
   ),

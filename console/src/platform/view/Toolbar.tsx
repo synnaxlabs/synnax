@@ -8,26 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { Divider } from "@synnaxlabs/lyra/divider";
-import { Flex } from "@synnaxlabs/lyra/flex";
 import { type ReactElement } from "react";
 
-import { CSS } from "@/platform/css";
+import { Search } from "@/platform/search";
 import { useContext } from "@/platform/view/context";
 
-export interface ToolbarProps extends Flex.BoxProps {}
+export interface ToolbarProps extends Search.BarProps {}
 
-export const Toolbar = ({ className, ...rest }: ToolbarProps): ReactElement => {
+export const Toolbar = (props: ToolbarProps): ReactElement => {
   const { editable } = useContext("View.Toolbar");
   if (!editable) return <Divider.Divider x />;
-  return (
-    <Flex.Box
-      x
-      bordered
-      background={1}
-      justify="between"
-      align="center"
-      className={CSS.cls(CSS.BE("view", "toolbar"), className)}
-      {...rest}
-    />
-  );
+  return <Search.Bar {...props} />;
 };

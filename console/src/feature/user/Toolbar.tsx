@@ -10,7 +10,7 @@
 import { user } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Access, Ontology } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import { type ReactElement, useState } from "react";
 
 import { Empty } from "@/platform/empty";
 import { type Nav } from "@/platform/nav";
@@ -21,6 +21,7 @@ import { User as PlatformUser } from "@/platform/user";
 const Content = (): ReactElement => {
   const openRegister = PlatformUser.useRegisterModal();
   const hasCreatePermission = Access.useCreateGranted(user.TYPE_ONTOLOGY_ID);
+  const [searching, setSearching] = useState(false);
   return (
     <Toolbar.Content>
       <Toolbar.Header>
@@ -28,8 +29,9 @@ const Content = (): ReactElement => {
           <Icon.User />
           Users
         </Toolbar.Title>
-        {hasCreatePermission && (
-          <Toolbar.Actions>
+        <Toolbar.Actions>
+          <Toolbar.SearchAction value={searching} onChange={setSearching} />
+          {hasCreatePermission && (
             <Toolbar.Action
               onClick={() => openRegister()}
               tooltip="Create user"
@@ -37,19 +39,23 @@ const Content = (): ReactElement => {
             >
               <Icon.Add />
             </Toolbar.Action>
-          </Toolbar.Actions>
-        )}
+          )}
+        </Toolbar.Actions>
       </Toolbar.Header>
       <Toolbar.Body>
-        <Body />
+        <Body search={searching} />
       </Toolbar.Body>
     </Toolbar.Content>
   );
 };
 
-const Body = (): ReactElement => {
+interface BodyProps {
+  search: boolean;
+}
+
+const Body = ({ search }: BodyProps): ReactElement => {
   const groupID = Ontology.useRootChildID({ name: "Users" });
-  return <Tree.Tree root={groupID} emptyContent={<EmptyContent />} />;
+  return <Tree.Tree root={groupID} search={search} emptyContent={<EmptyContent />} />;
 };
 
 const EmptyContent = (): ReactElement => {

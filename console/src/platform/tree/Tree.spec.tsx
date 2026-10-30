@@ -71,6 +71,42 @@ const CommitProbe = ({ onCommit }: CommitProbeProps): null => {
 };
 
 describe("Tree.Tree", () => {
+  it("should hide a group with no descendant matching the search term", async () => {
+    const container = await client.groups.create({
+      parent: ontology.ROOT_ID,
+      name: uniqueName("container"),
+    });
+    const hit = await client.groups.create({
+      parent: group.ontologyID(container.key),
+      name: uniqueName("hit"),
+    });
+    const nested = await client.groups.create({
+      parent: group.ontologyID(hit.key),
+      name: uniqueName("nested"),
+    });
+    const target = await client.groups.create({
+      parent: group.ontologyID(nested.key),
+      name: uniqueName("target"),
+    });
+    const miss = await client.groups.create({
+      parent: group.ontologyID(container.key),
+      name: uniqueName("miss"),
+    });
+    await client.groups.create({
+      parent: group.ontologyID(miss.key),
+      name: uniqueName("other"),
+    });
+    await renderTree(group.ontologyID(container.key));
+    await screen.findByText(miss.name);
+    fireEvent.change(screen.getByPlaceholderText("Search..."), {
+      target: { value: target.name },
+    });
+    // Both groups start collapsed, so the tree loads them down to the match before
+    // it can drop the one without.
+    await waitFor(() => expect(screen.queryByText(miss.name)).toBeNull());
+    expect(screen.getByText(hit.name)).toBeTruthy();
+  });
+
   it("should render nothing when the root is null", async () => {
     const { container } = await renderTree(null);
     expect(container.innerHTML).toBe("");

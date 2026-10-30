@@ -10,7 +10,7 @@
 import { device } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Access, Ontology } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import { type ReactElement, useState } from "react";
 
 import { useConnectModal } from "@/feature/device/Connect";
 import { Empty } from "@/platform/empty";
@@ -22,6 +22,7 @@ const Content = (): ReactElement => {
   const openConnect = useConnectModal();
   const canCreate = Access.useCreateGranted(device.TYPE_ONTOLOGY_ID);
   const groupID = Ontology.useRootChildID({ name: "Devices" });
+  const [searching, setSearching] = useState(false);
   return (
     <Toolbar.Content>
       <Toolbar.Header>
@@ -29,8 +30,9 @@ const Content = (): ReactElement => {
           <Icon.Device />
           Devices
         </Toolbar.Title>
-        {canCreate && (
-          <Toolbar.Actions>
+        <Toolbar.Actions>
+          <Toolbar.SearchAction value={searching} onChange={setSearching} />
+          {canCreate && (
             <Toolbar.Action
               tooltip="Connect device"
               onClick={() => openConnect()}
@@ -38,12 +40,13 @@ const Content = (): ReactElement => {
             >
               <Icon.Add />
             </Toolbar.Action>
-          </Toolbar.Actions>
-        )}
+          )}
+        </Toolbar.Actions>
       </Toolbar.Header>
       <Toolbar.Body>
         <Tree.Tree
           root={groupID}
+          search={searching}
           emptyContent={
             <Empty.Action
               message="No devices"

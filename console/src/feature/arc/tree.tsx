@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/feature/arc/tree.css";
+
 import { arc } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Menu } from "@synnaxlabs/lyra/menu";
@@ -39,6 +41,21 @@ const useDelete = Tree.createUseDelete({
   },
 });
 
+export const RootContextMenu = (props: Tree.DefaultContextMenuProps) => {
+  const createArc = PlatformArc.useCreate();
+  const canCreate = Access.useCreateGranted(arc.TYPE_ONTOLOGY_ID);
+  return (
+    <Tree.DefaultContextMenu {...props}>
+      {canCreate && (
+        <Menu.Item itemKey="createArc" onClick={createArc}>
+          <Icon.Add />
+          Create arc
+        </Menu.Item>
+      )}
+    </Tree.DefaultContextMenu>
+  );
+};
+
 const TreeContextMenu: Tree.ContextMenu = (props) => {
   const {
     selection: { ids },
@@ -56,7 +73,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const handleLink = Core.useCopyLinkToClipboard();
   const firstID = ids[0];
   const singleResource = ids.length === 1;
-  const driftedTaskKeys = PlatformArc.useDriftedTaskKeys(keys);
+  const driftedTaskKeys = Arc.useDriftedTaskKeys(keys);
   const redeployTaskKeys = canControl ? driftedTaskKeys : [];
   return (
     <ContextMenu.Menu>

@@ -7,15 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/platform/view/FilterMenu.css";
-
-import { Dialog } from "@synnaxlabs/lyra/dialog";
-import { Icon } from "@synnaxlabs/lyra/icon";
-import { Menu } from "@synnaxlabs/lyra/menu";
-import { location } from "@synnaxlabs/x";
 import { type PropsWithChildren, type ReactNode } from "react";
 
-import { CSS } from "@/platform/css";
+import { Search } from "@/platform/search";
 import { useContext } from "@/platform/view/context";
 
 export interface FilterMenuProps extends PropsWithChildren {}
@@ -23,20 +17,5 @@ export interface FilterMenuProps extends PropsWithChildren {}
 export const FilterMenu = ({ children }: FilterMenuProps): ReactNode => {
   const { editable } = useContext("View.FilterMenu");
   if (!editable) return null;
-  return (
-    <Dialog.Frame>
-      <Dialog.Trigger
-        hideCaret
-        tooltip="Filter"
-        tooltipLocation={location.BOTTOM_RIGHT}
-      >
-        <Icon.Filter />
-      </Dialog.Trigger>
-      <Dialog.Dialog background={1} pack={false} className={CSS.B("view-filter-menu")}>
-        <Menu.Menu level="small" gap="small">
-          {children}
-        </Menu.Menu>
-      </Dialog.Dialog>
-    </Dialog.Frame>
-  );
+  return <Search.FilterMenu>{children}</Search.FilterMenu>;
 };

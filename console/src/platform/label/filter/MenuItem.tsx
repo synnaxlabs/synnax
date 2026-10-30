@@ -9,21 +9,15 @@
 
 import { type label } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
-import { type position } from "@synnaxlabs/lyra/position";
 import { type Select } from "@synnaxlabs/lyra/select";
-import { location } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { SelectMultiple } from "@/platform/label/Select";
+import { Search } from "@/platform/search";
 
 const TRIGGER_PROPS: Select.MultipleTriggerProps<string> = {
   hideTags: true,
   variant: "text",
-};
-
-const LABEL_LOCATION: position.LocationPreference = {
-  targetCorner: location.TOP_RIGHT,
-  dialogCorner: location.TOP_LEFT,
 };
 
 export const MenuItem = (): ReactElement => (
@@ -35,7 +29,7 @@ export const MenuItem = (): ReactElement => (
       <SelectMultiple
         value={value ?? []}
         onChange={onChange}
-        location={LABEL_LOCATION}
+        location={Search.FILTER_LOCATION}
         triggerProps={TRIGGER_PROPS}
       />
     )}

@@ -9,7 +9,7 @@
 
 import { fireEvent, waitFor } from "@testing-library/react";
 
-import { getBySelector, getIconButton } from "@/testutil";
+import { getBySelector, getIconButton, queryIconButton } from "@/testutil";
 
 /**
  * Waits for the mounted View.Frame's edit toggle (which only appears once the async
@@ -21,11 +21,15 @@ export const enableEditing = async (): Promise<void> => {
   fireEvent.click(toggle);
 };
 
+const toolbar = (): Element => getBySelector(document.body, ".console-search__bar");
+
 /**
  * Waits for the icon button with the given pluto icon name inside the mounted
  * View.Toolbar (which only renders once editing is enabled) and returns it.
  */
 export const findToolbarIconButton = async (icon: string): Promise<HTMLButtonElement> =>
-  await waitFor(() =>
-    getIconButton(getBySelector(document.body, ".console-view__toolbar"), icon),
-  );
+  await waitFor(() => getIconButton(toolbar(), icon));
+
+/** Returns the icon button in the mounted View.Toolbar, or null when it has none. */
+export const queryToolbarIconButton = (icon: string): HTMLButtonElement | null =>
+  queryIconButton(toolbar(), icon);

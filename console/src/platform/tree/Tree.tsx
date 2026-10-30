@@ -15,6 +15,7 @@ import {
 } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { context } from "@synnaxlabs/lyra/context";
+import { Flex } from "@synnaxlabs/lyra/flex";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { useCombinedStateAndRef, useInitializerRef } from "@synnaxlabs/lyra/hooks";
 import { List } from "@synnaxlabs/lyra/list";
@@ -38,6 +39,7 @@ import { useStore } from "react-redux";
 import { ContextMenu } from "@/platform/context-menu";
 import { Errors } from "@/platform/errors";
 import { Panel } from "@/platform/panel";
+import { Search } from "@/platform/search";
 import {
   DefaultContextMenu,
   type DefaultContextMenuProps,
@@ -48,6 +50,7 @@ import { useItems } from "@/platform/tree/Provider";
 import {
   type BaseProps,
   type ContextMenuProps,
+  type Filter,
   type GetResource,
   type TreeState,
 } from "@/platform/tree/types";
@@ -58,6 +61,9 @@ interface InternalProps {
   root: ontology.ID;
   emptyContent?: ReactNode;
   rootContextMenu: FC<DefaultContextMenuProps>;
+  search: boolean;
+  filter?: Filter;
+  bar?: ReactNode;
 }
 
 interface ContextValue {
@@ -187,11 +193,48 @@ const toNodes = (
       children: resolveItem(r.id.type).hasChildren ? [] : undefined,
     }));
 
+// A node the filter cannot judge stays, either with no resource yet or with children
+// not yet loaded. A rejected group stays only while a descendant passes.
+const filterNodes = (
+  tree: Base.Node<string>[],
+  filter: Filter,
+  getResource: (key: string) => ontology.Resource | undefined,
+  loaded: (key: string) => boolean,
+  ancestors: ontology.Resource[] = [],
+): Base.Node<string>[] =>
+  tree.flatMap((node) => {
+    const resource = getResource(node.key);
+    if (resource == null || filter(resource, ancestors)) return [node];
+    if (node.children == null) return [];
+    if (!loaded(node.key)) return [node];
+    const children = filterNodes(node.children, filter, getResource, loaded, [
+      ...ancestors,
+      resource,
+    ]);
+    return children.length > 0 ? [{ ...node, children }] : [];
+  });
+
+// A row matches on its path, the names above it and its own joined by dots.
+const matchesPath =
+  (term: string): Filter =>
+  (resource, ancestors) =>
+    [...ancestors, resource]
+      .map(({ name }) => name)
+      .join(".")
+      .toLowerCase()
+      .includes(term);
+
 const Internal = ({
   root,
   emptyContent,
   rootContextMenu: RootContextMenu,
+  search,
+  filter,
+  bar,
 }: InternalProps): ReactElement => {
+  const [term, setTerm] = useState("");
+  // A bar the user opens takes focus. One that mounts with the tree steals none.
+  const [searchAtMount] = useState(search);
   const items = useItems();
   const resolveItem = (type: ontology.ResourceType): Item => items[type] ?? DefaultItem;
   const [selected, setSelected, selectedRef] = useCombinedStateAndRef<string[]>([]);
@@ -231,7 +274,14 @@ const Internal = ({
     };
   };
 
+  // Parents whose children an answer has filled in, so a filter can judge them.
+  const [loadedParents, setLoadedParents] = useState(() => new Set<string>());
+
   const applyAnswer = (parent: ontology.ID, resources: ontology.Resource[]) => {
+    const parentKey = ontology.idToString(parent);
+    setLoadedParents((prev) =>
+      prev.has(parentKey) ? prev : new Set(prev).add(parentKey),
+    );
     const next = toNodes(resources, resolveItem);
     const nextKeys = new Set(next.map(({ key }) => key));
     // A placeholder stands in only until the Core delivers the real resource, which
@@ -325,14 +375,14 @@ const Internal = ({
     return () => releaseChildren([...watchedRef.current.keys()]);
   }, [client, ontology.idToString(root)]);
 
-  // Selection drives the context menu, and a key with no node poisons every later
-  // right-click, so a node that leaves the tree leaves the selection with it.
+  // A filter judges a group by its descendants, so every group loads while one is on.
+  const filtering = (search && term !== "") || filter != null;
   useEffect(() => {
-    setSelected((prev) => {
-      const next = prev.filter((key) => Base.findNode({ tree: nodes, key }) != null);
-      return next.length === prev.length ? prev : next;
-    });
-  }, [nodes, setSelected]);
+    if (!filtering) return;
+    Base.getDescendants(...nodes)
+      .filter(({ key, children }) => children != null && !watchedRef.current.has(key))
+      .forEach(({ key }) => void watchChildren(ontology.parseID(key)));
+  }, [filtering, nodes]);
 
   const handleExpand = ({ action, clicked }: Base.HandleExpandProps) => {
     if (action === "contract") {
@@ -379,8 +429,25 @@ const Internal = ({
     return aResource.name.localeCompare(bResource.name);
   };
 
+  const matches = matchesPath(term.toLowerCase());
+  const accepts: Filter =
+    filter == null ? matches : (r, a) => matches(r, a) && filter(r, a);
+  const isLoaded = (key: string) => loadedParents.has(key);
+  const visibleNodes = filtering
+    ? filterNodes(nodes, accepts, getResourceByKey, isLoaded)
+    : nodes;
+  // A selected key with no row poisons every later right-click or drag, so a row
+  // that leaves the tree or the filter leaves the selection with it.
+  useEffect(() => {
+    setSelected((prev) => {
+      const next = prev.filter(
+        (key) => Base.findNode({ tree: visibleNodes, key }) != null,
+      );
+      return next.length === prev.length ? prev : next;
+    });
+  }, [visibleNodes, setSelected]);
   const treeProps = Base.use({
-    nodes,
+    nodes: visibleNodes,
     onExpand: handleExpand,
     selected,
     onSelectedChange: setSelected,
@@ -536,20 +603,35 @@ const Internal = ({
   return (
     <Context value={contextValue}>
       <Menu.ContextMenu menu={handleContextMenu} {...menuProps} />
-      <Base.Tree<string, ontology.Resource>
-        {...treeProps}
-        showRules
-        shape={shape}
-        subscribe={subscribeResource}
-        // Not getResource: it throws, and a resource may not be cached before
-        // the tree attempts to render it.
-        getItem={getItem}
-        emptyContent={answered ? emptyContent : null}
-        pinned={pinned}
-        onContextMenu={menuProps.open}
-      >
-        {itemRenderProp}
-      </Base.Tree>
+      <Flex.Box full="y" empty>
+        {(search || bar != null) && (
+          <Search.Bar>
+            {search && (
+              <Search.Input
+                value={term}
+                onChange={setTerm}
+                placeholder="Search..."
+                autoFocus={!searchAtMount}
+              />
+            )}
+            {bar}
+          </Search.Bar>
+        )}
+        <Base.Tree<string, ontology.Resource>
+          {...treeProps}
+          showRules
+          shape={shape}
+          subscribe={subscribeResource}
+          // Not getResource: it throws, and a resource may not be cached before
+          // the tree attempts to render it.
+          getItem={getItem}
+          emptyContent={answered ? emptyContent : null}
+          pinned={pinned}
+          onContextMenu={menuProps.open}
+        >
+          {itemRenderProp}
+        </Base.Tree>
+      </Flex.Box>
     </Context>
   );
 };
@@ -559,13 +641,22 @@ export interface TreeProps {
   emptyContent?: ReactNode;
   /** The menu for a right-click on empty space. */
   rootContextMenu?: FC<DefaultContextMenuProps>;
+  /** Shows the search input above the rows. */
+  search?: boolean;
+  /** Hides the rows it rejects, on top of the search term. */
+  filter?: Filter;
+  /** Extra controls in the bar beside the input. */
+  bar?: ReactNode;
 }
 
 export const Tree = ({
   root,
   rootContextMenu = DefaultContextMenu,
+  search = true,
   ...rest
 }: TreeProps): ReactElement | null => {
   if (root == null) return null;
-  return <Internal root={root} rootContextMenu={rootContextMenu} {...rest} />;
+  return (
+    <Internal root={root} rootContextMenu={rootContextMenu} search={search} {...rest} />
+  );
 };

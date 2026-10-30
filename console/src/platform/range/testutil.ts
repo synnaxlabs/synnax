@@ -28,6 +28,19 @@ export const createTestRange = async (client: Synnax): Promise<ranger.Range> => 
   });
 };
 
+/** Creates a child of parent on the connected Core, named with the child prefix. */
+export const createChildTestRange = async (
+  client: Synnax,
+  parent: ranger.Range,
+): Promise<ranger.Range> => {
+  const start = TimeStamp.now();
+  return await client.ranges.create({
+    name: uniqueRangeName("child"),
+    timeRange: new TimeRange(start, start.add(TimeSpan.seconds(10))),
+    parent: { key: parent.key },
+  });
+};
+
 /** Matches the default page size of List.usePager, which every range list uses. */
 const PAGE_SIZE = 10;
 

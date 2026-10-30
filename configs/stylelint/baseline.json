@@ -22,7 +22,6 @@
       "lyra-list__virtualizer",
       "pluto-arc__stage"
     ],
-    "console/src/feature/arc/toolbar/Toolbar.css": ["lyra-list__item"],
     "console/src/feature/auth/ConnectionGuard.css": ["lyra-orbital"],
     "console/src/feature/core/Badge.css": ["lyra-btn"],
     "console/src/feature/embedded/Guard.css": ["lyra-orbital"],

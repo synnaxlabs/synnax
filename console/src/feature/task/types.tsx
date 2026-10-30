@@ -19,6 +19,7 @@ import { OPCUA } from "@/feature/opcua";
 import { PagerDuty } from "@/feature/pagerduty";
 
 const PREFIXES = [
+  "arc",
   EtherCAT.Task.PREFIX,
   HTTP.Task.PREFIX,
   LabJack.Task.PREFIX,
@@ -30,6 +31,7 @@ const PREFIXES = [
 type Prefix = (typeof PREFIXES)[number];
 
 const ICONS: Record<Prefix, Icon.ReactElement> = {
+  arc: <Icon.Arc />,
   [EtherCAT.Task.PREFIX]: <Icon.Logo.EtherCAT />,
   [HTTP.Task.PREFIX]: <Icon.Logo.HTTP />,
   [LabJack.Task.PREFIX]: <Icon.Logo.LabJack />,
@@ -45,6 +47,7 @@ export const getIcon = (type: string): Icon.ReactElement => {
 };
 
 const PREFIX_NAMES: Record<Prefix, string> = {
+  arc: "Arc",
   [EtherCAT.Task.PREFIX]: "EtherCAT",
   [HTTP.Task.PREFIX]: "HTTP",
   [LabJack.Task.PREFIX]: "LabJack",

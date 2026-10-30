@@ -22,7 +22,11 @@ import { describe, expect, it } from "vitest";
 
 import { Explorer } from "@/feature/status/explorer/Explorer";
 import { Modals } from "@/platform/modals";
-import { enableEditing, findToolbarIconButton } from "@/platform/view/testutil";
+import {
+  enableEditing,
+  findToolbarIconButton,
+  queryToolbarIconButton,
+} from "@/platform/view/testutil";
 import {
   awaitTextEditing,
   commitTextEdit,
@@ -112,9 +116,7 @@ describe("status explorer permissions", () => {
         queryIconButton(getBySelector(document.body, ".console-controls"), "add"),
       ).toBeTruthy(),
     );
-    expect(
-      queryIconButton(getBySelector(document.body, ".console-view__toolbar"), "add"),
-    ).toBeNull();
+    expect(queryToolbarIconButton("add")).toBeNull();
   });
 
   it("should offer the create button to a subject who may create statuses", async () => {

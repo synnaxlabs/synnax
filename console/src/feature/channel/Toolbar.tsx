@@ -9,8 +9,10 @@
 
 import { channel, group } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Access, Channel } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import { type Select } from "@synnaxlabs/lyra/select";
+import { Access, Channel, Telem } from "@synnaxlabs/pluto";
+import { DataType } from "@synnaxlabs/x";
+import { type ReactElement, useState } from "react";
 
 import { Channel as PlatformChannel } from "@/platform/channel";
 import { Empty } from "@/platform/empty";
@@ -18,50 +20,92 @@ import { type Nav } from "@/platform/nav";
 import { Toolbar } from "@/platform/toolbar";
 import { Tree } from "@/platform/tree";
 
-const Actions = (): ReactElement | null => {
+// The filter button is the select's own trigger, so one click opens the list.
+const TRIGGER_PROPS: Select.SingleTriggerProps = {
+  iconOnly: true,
+  icon: <Icon.Filter />,
+  variant: "text",
+  size: "tiny",
+  tooltip: "Filter",
+};
+
+// A group fails, so it shows only while one of its channels passes.
+const dataTypeFilter = (dataType: string): Tree.Filter => {
+  const target = new DataType(dataType);
+  return ({ id, data }) =>
+    id.type === "channel" && target.equals((data as channel.Payload).dataType);
+};
+
+interface DataTypeFilterProps {
+  value: string | null;
+  onChange: (dataType: string | null) => void;
+}
+
+const DataTypeFilter = ({ value, onChange }: DataTypeFilterProps): ReactElement => (
+  <Telem.SelectDataType
+    value={value ?? undefined}
+    onChange={onChange}
+    allowNone
+    triggerProps={TRIGGER_PROPS}
+  />
+);
+
+const Content = (): ReactElement => {
   const openCreate = PlatformChannel.useCreateModal();
   const openCalculated = PlatformChannel.useCalculatedModal();
   const hasCreatePermission = Access.useCreateGranted(channel.TYPE_ONTOLOGY_ID);
-  if (!hasCreatePermission) return null;
+  const [searching, setSearching] = useState(false);
+  const [dataType, setDataType] = useState<string | null>(null);
   return (
-    <Toolbar.Actions>
-      <Toolbar.Action
-        onClick={() => openCalculated()}
-        tooltip="Create calculated channel"
-        variant="filled"
-      >
-        <Channel.CreateCalculatedIcon />
-      </Toolbar.Action>
-      <Toolbar.Action
-        onClick={() => openCreate()}
-        tooltip="Create channel"
-        variant="filled"
-      >
-        <Icon.Add />
-      </Toolbar.Action>
-    </Toolbar.Actions>
+    <Toolbar.Content>
+      <Toolbar.Header>
+        <Toolbar.Title>
+          <Icon.Channel />
+          Channels
+        </Toolbar.Title>
+        <Toolbar.Actions>
+          <Toolbar.SearchAction value={searching} onChange={setSearching} />
+          {hasCreatePermission && (
+            <>
+              <Toolbar.Action
+                onClick={() => openCalculated()}
+                tooltip="Create calculated channel"
+                variant="filled"
+              >
+                <Channel.CreateCalculatedIcon />
+              </Toolbar.Action>
+              <Toolbar.Action
+                onClick={() => openCreate()}
+                tooltip="Create channel"
+                variant="filled"
+              >
+                <Icon.Add />
+              </Toolbar.Action>
+            </>
+          )}
+        </Toolbar.Actions>
+      </Toolbar.Header>
+      <Toolbar.Body>
+        <Body
+          search={searching}
+          filter={searching && dataType != null ? dataTypeFilter(dataType) : undefined}
+          bar={
+            searching ? (
+              <DataTypeFilter value={dataType} onChange={setDataType} />
+            ) : undefined
+          }
+        />
+      </Toolbar.Body>
+    </Toolbar.Content>
   );
 };
 
-const Content = (): ReactElement => (
-  <Toolbar.Content>
-    <Toolbar.Header>
-      <Toolbar.Title>
-        <Icon.Channel />
-        Channels
-      </Toolbar.Title>
-      <Actions />
-    </Toolbar.Header>
-    <Toolbar.Body>
-      <Body />
-    </Toolbar.Body>
-  </Toolbar.Content>
-);
+interface BodyProps extends Pick<Tree.TreeProps, "search" | "filter" | "bar"> {}
 
-const Body = (): ReactElement => {
+const Body = (props: BodyProps): ReactElement => {
   const g = Channel.useGroup({});
   const root = group.ontologyID(g.key);
-  return <Tree.Tree root={root} emptyContent={<EmptyContent />} />;
+  return <Tree.Tree root={root} emptyContent={<EmptyContent />} {...props} />;
 };
 
 const EmptyContent = (): ReactElement => {
