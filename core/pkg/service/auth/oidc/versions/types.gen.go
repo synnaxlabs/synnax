@@ -13,8 +13,8 @@ package versions
 
 import "github.com/synnaxlabs/synnax/pkg/service/auth/oidc/versions/v0"
 
-// Key is a unique identifier for a provider link.
-type Key = v0.Key
+// LinkKey is a unique identifier for a provider link.
+type LinkKey = v0.LinkKey
 
 // Link links an OpenID Connect provider account to a user. A user holds one link per
 // provider.

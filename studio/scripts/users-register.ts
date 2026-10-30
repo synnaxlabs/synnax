@@ -28,15 +28,13 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.hold(1800);
 
     await capture.clickToolbarCreate(session);
-    const first = page.getByPlaceholder("Richard").first();
+    const first = page.getByPlaceholder("Richard Feynman").first();
     await session.waitFor(first);
     await session.hold(600);
     await session.zoom(page.locator(capture.MODAL).first());
 
     await session.click(first);
-    await session.type("Grace");
-    await session.click(page.getByPlaceholder("Feynman").first());
-    await session.type("Hopper");
+    await session.type("Grace Hopper");
     await session.click(page.getByPlaceholder("username").first());
     await session.type("grace");
     await session.click(page.getByPlaceholder("password").first());
@@ -73,8 +71,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.click(drawer.getByText("Operator", { exact: true }).first(), {
       text: true,
     });
-    // Tree entries show the username, not the full name.
-    const created = drawer.getByText("grace", { exact: true }).first();
+    const created = drawer.getByText("Grace Hopper", { exact: true }).first();
     await session.waitFor(created);
     // Park clear of the component buttons, so none shows a hover state.
     await session.moveTo({ x: 1300, y: 780 });
