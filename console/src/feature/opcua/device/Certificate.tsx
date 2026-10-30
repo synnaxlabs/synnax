@@ -27,7 +27,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Synnax } from "@synnaxlabs/pluto";
 import { type PropsWithChildren, type ReactElement, useState } from "react";
 
-import { executeScanCommand } from "@/feature/opcua/device/retrieveScanTask";
+import { executeScanCommand } from "@/feature/opcua/device/scanCommand";
 import {
   type CertificateInfo,
   type CertificatesResponse,

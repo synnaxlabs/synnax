@@ -23,7 +23,7 @@ import { sleep, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
 import { createHaulItem, HAUL_TYPE } from "@/feature/opcua/device/haul";
-import { executeScanCommand } from "@/feature/opcua/device/retrieveScanTask";
+import { executeScanCommand } from "@/feature/opcua/device/scanCommand";
 import { type Device } from "@/feature/opcua/device/types";
 import {
   type NodeDetails,

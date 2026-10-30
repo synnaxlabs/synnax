@@ -37,7 +37,7 @@ import {
   isHaulItem,
 } from "@/feature/opcua/device/haul";
 import { use } from "@/feature/opcua/device/queries";
-import { executeScanCommand } from "@/feature/opcua/device/retrieveScanTask";
+import { executeScanCommand } from "@/feature/opcua/device/scanCommand";
 import { type Device } from "@/feature/opcua/device/types";
 import { useConnectModal } from "@/feature/opcua/device/useConnectModal";
 import { CSV } from "@/feature/opcua/task/csv";

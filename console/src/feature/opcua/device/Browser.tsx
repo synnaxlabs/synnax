@@ -30,7 +30,7 @@ import { type KeyboardEvent, type ReactElement, useEffect, useState } from "reac
 
 import { Details } from "@/feature/opcua/device/Details";
 import { createHaulItem, HAUL_TYPE } from "@/feature/opcua/device/haul";
-import { executeScanCommand } from "@/feature/opcua/device/retrieveScanTask";
+import { executeScanCommand } from "@/feature/opcua/device/scanCommand";
 import { type ConnectionConfig, type Device } from "@/feature/opcua/device/types";
 import {
   BROWSE_COMMAND_TYPE,
