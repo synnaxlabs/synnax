@@ -35,7 +35,10 @@ namespace {
 /// certificate. The endpoint comes first for available_count.
 std::string settings_key(const Config &cfg) {
     std::string key = cfg.endpoint + "|" + cfg.username + "|" + cfg.password + "|" +
-                      cfg.security_mode + "|" + cfg.security_policy;
+                      cfg.security_mode + "|" + cfg.security_policy + "|" +
+                      std::to_string(cfg.secure_channel_lifetime_ms) + "|" +
+                      std::to_string(cfg.session_timeout_ms) + "|" +
+                      std::to_string(cfg.client_timeout_ms);
     if (!cfg.secured()) return key;
     return key + "|" + cfg.client_cert + "|" + cfg.client_private_key + "|" +
            (cfg.certificate_validation_disabled ? "unvalidated" : "validated");
@@ -95,64 +98,6 @@ x::errors::Error check_results(const size_t results, const size_t nodes) {
     );
 }
 
-/// @brief reads the value of one node in namespace 0, in a request of its own.
-std::pair<types::ReadResponse, x::errors::Error>
-read_value(UA_Client *client, const UA_UInt32 node) {
-    if (const auto err = lost(client)) return {types::ReadResponse(), err};
-    UA_ReadValueId id;
-    UA_ReadValueId_init(&id);
-    id.nodeId = UA_NODEID_NUMERIC(0, node);
-    id.attributeId = UA_ATTRIBUTEID_VALUE;
-    UA_ReadRequest req;
-    UA_ReadRequest_init(&req);
-    req.nodesToRead = &id;
-    req.nodesToReadSize = 1;
-    types::ReadResponse res(UA_Client_Service_read(client, req));
-    const auto &raw = res.get();
-    auto err = errors::parse(raw.responseHeader.serviceResult);
-    if (!err) err = check_results(raw.resultsSize, 1);
-    return {std::move(res), err};
-}
-
-/// @brief reads what the Driver needs to know about the client's server, which also
-/// checks that the server answers. A server that lacks an operation limit has none.
-/// Each node gets its own request, since a server can allow fewer nodes per request
-/// than the Driver reads here.
-std::pair<Server, x::errors::Error> read_server(UA_Client *client) {
-    if (const auto status = UA_Client_run_iterate(client, 0);
-        status != UA_STATUSCODE_GOOD)
-        return {Server{}, errors::parse(status)};
-    Server server;
-    const auto [namespaces, ns_err] = read_value(
-        client,
-        UA_NS0ID_SERVER_NAMESPACEARRAY
-    );
-    if (ns_err) return {Server{}, ns_err};
-    if (const auto &value = namespaces.get().results[0];
-        value.hasValue &&
-        UA_Variant_hasArrayType(&value.value, &UA_TYPES[UA_TYPES_STRING])) {
-        const auto *uris = static_cast<const UA_String *>(value.value.data);
-        for (size_t i = 0; i < value.value.arrayLength; ++i)
-            server.namespaces.emplace_back(
-                reinterpret_cast<const char *>(uris[i].data),
-                uris[i].length
-            );
-    }
-    const auto [read_limit, read_err] = read_value(
-        client,
-        UA_NS0ID_SERVER_SERVERCAPABILITIES_OPERATIONLIMITS_MAXNODESPERREAD
-    );
-    if (read_err) return {Server{}, read_err};
-    server.max_nodes_per_read = uint32_value(read_limit.get().results[0]);
-    const auto [write_limit, write_err] = read_value(
-        client,
-        UA_NS0ID_SERVER_SERVERCAPABILITIES_OPERATIONLIMITS_MAXNODESPERWRITE
-    );
-    if (write_err) return {Server{}, write_err};
-    server.max_nodes_per_write = uint32_value(write_limit.get().results[0]);
-    return {std::move(server), x::errors::NIL};
-}
-
 /// @brief moves the results of a response to one part of a request into results.
 template<typename T>
 void move_results(T *results, T *&part, size_t &part_size) {
@@ -160,6 +105,107 @@ void move_results(T *results, T *&part, size_t &part_size) {
     UA_free(part);
     part = nullptr;
     part_size = 0;
+}
+
+/// @brief reads the value of each node in namespace 0, in requests of at most limit
+/// nodes, or in one request when limit is 0.
+/// @returns one result for each node, in order.
+std::pair<types::ReadResponse, x::errors::Error> read_values(
+    UA_Client *client,
+    const std::vector<UA_UInt32> &nodes,
+    const size_t limit
+) {
+    std::vector<UA_ReadValueId> ids(nodes.size());
+    for (size_t i = 0; i < nodes.size(); ++i) {
+        UA_ReadValueId_init(&ids[i]);
+        ids[i].nodeId = UA_NODEID_NUMERIC(0, nodes[i]);
+        ids[i].attributeId = UA_ATTRIBUTEID_VALUE;
+    }
+    types::ReadResponse merged;
+    auto &out = *merged.ptr();
+    out.results = static_cast<UA_DataValue *>(
+        UA_Array_new(ids.size(), &UA_TYPES[UA_TYPES_DATAVALUE])
+    );
+    if (out.results == nullptr) throw std::bad_alloc();
+    out.resultsSize = ids.size();
+    const size_t step = limit == 0 ? ids.size() : limit;
+    for (size_t offset = 0; offset < ids.size(); offset += step) {
+        if (const auto err = lost(client)) return {types::ReadResponse(), err};
+        UA_ReadRequest req;
+        UA_ReadRequest_init(&req);
+        req.nodesToRead = ids.data() + offset;
+        req.nodesToReadSize = std::min(step, ids.size() - offset);
+        types::ReadResponse res(UA_Client_Service_read(client, req));
+        auto &raw = *res.ptr();
+        auto err = errors::parse(raw.responseHeader.serviceResult);
+        if (!err) err = check_results(raw.resultsSize, req.nodesToReadSize);
+        if (err) return {types::ReadResponse(), err};
+        move_results(out.results + offset, raw.results, raw.resultsSize);
+    }
+    return {std::move(merged), x::errors::NIL};
+}
+
+/// @returns the namespace URIs in value, a read of the NamespaceArray node, or
+/// errors::CRITICAL if value holds no array of strings. Every server has the node.
+std::pair<std::vector<std::string>, x::errors::Error>
+parse_namespaces(const UA_DataValue &value) {
+    if (UA_StatusCode_isBad(value.status))
+        return {
+            {},
+            x::errors::Error(
+                errors::CRITICAL,
+                std::string("the server failed to read its namespace array: ") +
+                    UA_StatusCode_name(value.status)
+            )
+        };
+    if (!value.hasValue ||
+        !UA_Variant_hasArrayType(&value.value, &UA_TYPES[UA_TYPES_STRING]))
+        return {
+            {},
+            x::errors::Error(errors::CRITICAL, "the server has no namespace array")
+        };
+    std::vector<std::string> namespaces;
+    namespaces.reserve(value.value.arrayLength);
+    const auto *uris = static_cast<const UA_String *>(value.value.data);
+    for (size_t i = 0; i < value.value.arrayLength; ++i)
+        namespaces.emplace_back(
+            reinterpret_cast<const char *>(uris[i].data),
+            uris[i].length
+        );
+    return {std::move(namespaces), x::errors::NIL};
+}
+
+/// @brief reads what the Driver needs to know about the client's server, which also
+/// checks that the server answers. A server that lacks an operation limit has none.
+/// @returns errors::CRITICAL if the server has no namespace array.
+std::pair<Server, x::errors::Error> read_server(UA_Client *client) {
+    if (const auto status = UA_Client_run_iterate(client, 0);
+        status != UA_STATUSCODE_GOOD)
+        return {Server{}, errors::parse(status)};
+    Server server;
+    // The read limit comes alone, since the other reads must keep to it.
+    const auto [limit, limit_err] = read_values(
+        client,
+        {UA_NS0ID_SERVER_SERVERCAPABILITIES_OPERATIONLIMITS_MAXNODESPERREAD},
+        0
+    );
+    if (limit_err) return {Server{}, limit_err};
+    server.max_nodes_per_read = uint32_value(limit.get().results[0]);
+    const auto [facts, err] = read_values(
+        client,
+        {
+            UA_NS0ID_SERVER_NAMESPACEARRAY,
+            UA_NS0ID_SERVER_SERVERCAPABILITIES_OPERATIONLIMITS_MAXNODESPERWRITE,
+        },
+        server.max_nodes_per_read
+    );
+    if (err) return {Server{}, err};
+    const auto *results = facts.get().results;
+    auto [namespaces, ns_err] = parse_namespaces(results[0]);
+    if (ns_err) return {Server{}, ns_err};
+    server.namespaces = std::move(namespaces);
+    server.max_nodes_per_write = uint32_value(results[1]);
+    return {std::move(server), x::errors::NIL};
 }
 }
 
@@ -170,6 +216,19 @@ x::errors::Error Pool::Connection::check(const UA_StatusCode result) const {
     else
         this->pool_->replied(this->key_);
     return err;
+}
+
+std::pair<bool, x::errors::Error>
+Pool::Connection::update_namespaces(const UA_DataValue &value) {
+    auto [namespaces, err] = parse_namespaces(value);
+    if (err) return {false, err};
+    if (namespaces == this->server_->namespaces) return {false, x::errors::NIL};
+    auto server = std::make_shared<Server>(*this->server_);
+    server->namespaces = std::move(namespaces);
+    this->server_ = std::move(server);
+    std::lock_guard lock(this->pool_->mutex_);
+    this->pool_->entry(this->key_, this->client_).server = this->server_;
+    return {true, x::errors::NIL};
 }
 
 std::pair<types::ReadResponse, x::errors::Error>
@@ -403,19 +462,20 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
     return {Connection(client, this, key, std::move(server)), x::errors::NIL};
 }
 
-std::pair<bool, x::errors::Error>
-Pool::refresh(Connection &conn, const Config &cfg, const std::string &log_prefix) {
+std::pair<Pool::Connection, x::errors::Error> Pool::refresh(
+    const Connection &conn,
+    const Config &cfg,
+    const std::string &log_prefix
+) {
     auto [sec, sec_err] = resolve_security(cfg, *this->store);
-    if (sec_err) return {false, sec_err};
-    if (pool_key(settings_key(cfg), sec) == conn.key_) return {false, x::errors::NIL};
+    if (sec_err) return {Connection(nullptr, nullptr, ""), sec_err};
+    if (pool_key(settings_key(cfg), sec) == conn.key_)
+        return {Connection(nullptr, nullptr, ""), x::errors::NIL};
     auto replacement = cfg;
     if (const auto trusted = trusted_certificate(conn.get()))
         replacement.server_certificate = trusted;
     LOG(INFO) << log_prefix << "Connecting again with the new client certificate";
-    auto [next, err] = this->acquire(replacement, log_prefix);
-    if (err) return {false, err};
-    conn = std::move(next);
-    return {true, x::errors::NIL};
+    return this->acquire(replacement, log_prefix);
 }
 
 void Pool::evict() {

@@ -23,17 +23,18 @@
 namespace driver::opcua::testutil {
 std::pair<::x::telem::Series, x::errors::Error>
 simple_read(const std::shared_ptr<UA_Client> &client, const std::string &node_id) {
-    // Parse the node ID string - returns RAII-wrapped NodeId
-    auto [node_id_wrapper, parse_err] = types::NodeId::parse(node_id);
+    auto [parsed, parse_err] = types::NodeId::parse(node_id);
     if (parse_err) return {::x::telem::Series(0), parse_err};
-
-    // Read the value from the node - RAII wrapper handles cleanup
+    const auto id = parsed.resolve({});
+    if (!id.has_value())
+        return {
+            ::x::telem::Series(0),
+            x::errors::Error(x::errors::VALIDATION, "simple_read takes ns= node IDs")
+        };
     types::Variant value;
-
-    // Implicit conversion from NodeId to const UA_NodeId&
     UA_StatusCode status = UA_Client_readValueAttribute(
         client.get(),
-        node_id_wrapper, // Implicit conversion
+        id.value(),
         value.ptr()
     );
 

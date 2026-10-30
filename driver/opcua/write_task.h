@@ -191,6 +191,25 @@ private:
         return problems;
     }
 
+    /// @brief reads the server's namespaces again when the frame names a channel whose
+    /// namespace the connection lacks, since the server can add a namespace while it
+    /// runs.
+    x::errors::Error read_namespaces(const ::x::telem::Frame &frame) {
+        const auto &namespaces = this->connection.server().namespaces;
+        for (const auto &[key, _]: frame) {
+            const auto it = this->cfg.channels.find(key);
+            if (it == this->cfg.channels.end() ||
+                it->second->node.resolve(namespaces).has_value())
+                continue;
+            types::ReadRequestBuilder req;
+            req.add_node(UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER_NAMESPACEARRAY));
+            auto [res, err] = this->connection.read(req.build());
+            if (err) return err;
+            return this->connection.update_namespaces(res.get().results[0]).second;
+        }
+        return x::errors::NIL;
+    }
+
     /// @brief writes the frame's values and sets problems from build. When the server
     /// rejects the whole request after the client certificate changed, connects again
     /// with the new certificate and writes again.
@@ -198,15 +217,18 @@ private:
     send(const ::x::telem::Frame &frame, std::vector<std::string> &problems) {
         const auto attempt =
             [&]() -> std::pair<types::WriteResponse, x::errors::Error> {
+            if (auto err = this->read_namespaces(frame))
+                return {types::WriteResponse(), err};
             problems = this->build(frame);
             if (this->builder.empty()) return {types::WriteResponse(), x::errors::NIL};
             return this->connection.write(this->builder.build());
         };
         auto [res, err] = attempt();
         if (!err || err.matches(errors::UNREACHABLE)) return {std::move(res), err};
-        auto [refreshed, refresh_err] = this->connector.refresh(this->connection);
+        auto [next, refresh_err] = this->connector.refresh(this->connection);
         if (refresh_err) return {std::move(res), refresh_err};
-        if (!refreshed) return {std::move(res), err};
+        if (!next) return {std::move(res), err};
+        this->connection = std::move(next);
         return attempt();
     }
 

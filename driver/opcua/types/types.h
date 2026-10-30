@@ -94,9 +94,6 @@ public:
         return *this;
     }
 
-    operator const UA_NodeId &() const { return id_; }
-
-    [[nodiscard]] const UA_NodeId &get() const { return id_; }
     [[nodiscard]] bool is_null() const { return UA_NodeId_isNull(&id_); }
     [[nodiscard]] const std::string &namespace_uri() const { return namespace_uri_; }
 
@@ -112,6 +109,9 @@ public:
     /// any case.
     static NodeId parse(const std::string &field_name, x::json::Parser &parser);
     static std::pair<NodeId, x::errors::Error> parse(const std::string &node_id_str);
+    /// @returns the node ID as `nsu=<uri>;<id>` when it names its namespace by URI, and
+    /// as `NS=<index>;<id>` when it does not.
+    [[nodiscard]] std::string to_string() const;
     /// @returns the node ID as `NS=<index>;<id>`.
     static std::string to_string(const UA_NodeId &node_id);
     /// @returns the node ID as `nsu=<uri>;<id>`, which stays valid when the server

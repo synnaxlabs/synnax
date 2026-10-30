@@ -517,6 +517,40 @@ TEST_F(TestReadTask, testNamespaceReorderAcrossRestart) {
     ASSERT_NIL(source->stop());
 }
 
+/// @brief it should read a node in a namespace that the server adds after the task
+/// starts, on the same Session.
+TEST_F(TestReadTask, testNamespaceAddedAfterStart) {
+    const auto source = this->create_source({
+        {"data_saving_disabled", false},
+        {"device", "opc_read_task_test_server_key"},
+        {"channels",
+         x::json::json::array({
+             {{"node_id", "nsu=urn:late;s=Shared"},
+              {"channel", this->float_channel.key},
+              {"disabled", false}},
+         })},
+        {"sample_rate", 50},
+        {"stream_rate", 25},
+    });
+    ASSERT_NIL(source->start());
+    x::breaker::Breaker breaker;
+    x::telem::Frame fr;
+    const auto missing = source->read(breaker, fr);
+    ASSERT_NIL(missing.error);
+    const auto problem = this->float_channel.name +
+                         ": the server has no namespace urn:late.";
+    EXPECT_EQ(missing.warning.description, problem + " " + problem);
+    const auto sessions = server->sessions_created.load();
+    server->add_namespace("urn:late", {shared_node(0, 5.0f)});
+    fr.clear();
+    const auto found = source->read(breaker, fr);
+    ASSERT_NIL(found.error);
+    EXPECT_TRUE(found.warning.empty()) << found.warning.description;
+    EXPECT_FLOAT_EQ(fr.at<float>(this->float_channel.key, 0), 5.0f);
+    EXPECT_EQ(server->sessions_created.load(), sessions);
+    ASSERT_NIL(source->stop());
+}
+
 /// @brief it should read more nodes than the server allows in one request.
 TEST_F(TestReadTask, testSplitsReadAtServerLimit) {
     server->stop();

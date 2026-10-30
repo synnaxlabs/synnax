@@ -14,7 +14,9 @@
 
 #include <atomic>
 #include <chrono>
+#include <condition_variable>
 #include <cstddef>
+#include <mutex>
 #include <optional>
 #include <string>
 #include <thread>
@@ -357,6 +359,17 @@ public:
 
     explicit Server(ServerConfig cfg): cfg(std::move(cfg)) {}
 
+    /// @brief adds a namespace with nodes to the running server, as a server that loads
+    /// a model while it runs does. Each node goes in the new namespace, whatever its
+    /// ns. Blocks until the server adds them.
+    void add_namespace(const std::string &uri, std::vector<TestNode> nodes) {
+        std::unique_lock lock(this->added_mu);
+        this->added.emplace_back(uri, std::move(nodes));
+        this->added_cv.wait(lock, [this] {
+            return this->added.empty() || !this->ready;
+        });
+    }
+
     void start() {
         running = true;
         thread = std::thread(&Server::run, this);
@@ -387,6 +400,67 @@ public:
         if (running) this->stop();
     }
 
+private:
+    std::mutex added_mu;
+    std::condition_variable added_cv;
+    std::vector<std::pair<std::string, std::vector<TestNode>>> added;
+
+    static void add_node(UA_Server *server, const TestNode &node) {
+        UA_VariableAttributes attr = UA_VariableAttributes_default;
+
+        // Set the variant as the value to be exposed by the server
+        attr.value = node.initial_value;
+
+        // Set access level to allow reading and writing
+        attr.accessLevel = UA_ACCESSLEVELMASK_READ | UA_ACCESSLEVELMASK_WRITE;
+
+        driver::opcua::types::LocalizedText description(
+            "en-US",
+            node.description.c_str()
+        );
+        driver::opcua::types::LocalizedText displayName("en-US", node.node_id.c_str());
+        attr.description = description.get();
+        attr.displayName = displayName.get();
+
+        UA_NodeId raw_node_id = UA_NODEID_STRING_ALLOC(node.ns, node.node_id.c_str());
+        LOG(INFO) << "Creating OPC UA node: "
+                  << driver::opcua::types::NodeId::to_string(raw_node_id);
+
+        driver::opcua::types::QualifiedName nodeName(node.ns, node.node_id.c_str());
+        UA_NodeId parentNodeId = UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER);
+        UA_NodeId parentReferenceNodeId = UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES);
+
+        const auto status = UA_Server_addVariableNode(
+            server,
+            raw_node_id,
+            parentNodeId,
+            parentReferenceNodeId,
+            nodeName.get(),
+            UA_NODEID_NULL,
+            attr,
+            nullptr,
+            nullptr
+        );
+        if (status != UA_STATUSCODE_GOOD)
+            LOG(ERROR) << "Mock OPC UA server failed to add node " << node.node_id
+                       << ": " << UA_StatusCode_name(status);
+        UA_NodeId_clear(&raw_node_id);
+    }
+
+    void add_namespaces(UA_Server *server) {
+        std::lock_guard lock(this->added_mu);
+        for (auto &[uri, nodes]: this->added) {
+            const auto ns = UA_Server_addNamespace(server, uri.c_str());
+            for (auto &node: nodes) {
+                node.ns = ns;
+                add_node(server, node);
+            }
+        }
+        this->added.clear();
+        this->added_cv.notify_all();
+    }
+
+public:
     void run() {
         UA_Server *server = UA_Server_new();
         auto *server_config = UA_Server_getConfig(server);
@@ -438,51 +512,8 @@ public:
         for (const auto &uri: cfg.namespaces)
             UA_Server_addNamespace(server, uri.c_str());
 
-        for (const auto &node: cfg.test_nodes) {
-            UA_VariableAttributes attr = UA_VariableAttributes_default;
-
-            // Set the variant as the value to be exposed by the server
-            attr.value = node.initial_value;
-
-            // Set access level to allow reading and writing
-            attr.accessLevel = UA_ACCESSLEVELMASK_READ | UA_ACCESSLEVELMASK_WRITE;
-
-            driver::opcua::types::LocalizedText description(
-                "en-US",
-                node.description.c_str()
-            );
-            driver::opcua::types::LocalizedText displayName(
-                "en-US",
-                node.node_id.c_str()
-            );
-            attr.description = description.get();
-            attr.displayName = displayName.get();
-
-            UA_NodeId raw_node_id = UA_NODEID_STRING_ALLOC(
-                node.ns,
-                node.node_id.c_str()
-            );
-            driver::opcua::types::NodeId nodeId(raw_node_id);
-            UA_NodeId_clear(&raw_node_id);
-            LOG(INFO) << "Creating OPC UA node: "
-                      << driver::opcua::types::NodeId::to_string(nodeId.get());
-
-            driver::opcua::types::QualifiedName nodeName(node.ns, node.node_id.c_str());
-            UA_NodeId parentNodeId = UA_NODEID_NUMERIC(0, UA_NS0ID_OBJECTSFOLDER);
-            UA_NodeId parentReferenceNodeId = UA_NODEID_NUMERIC(0, UA_NS0ID_ORGANIZES);
-
-            UA_Server_addVariableNode(
-                server,
-                nodeId.get(),
-                parentNodeId,
-                parentReferenceNodeId,
-                nodeName.get(),
-                UA_NODEID_NULL,
-                attr,
-                nullptr,
-                nullptr
-            );
-        }
+        for (const auto &node: cfg.test_nodes)
+            add_node(server, node);
 
         UA_StatusCode status = UA_Server_run_startup(server);
         if (status != UA_STATUSCODE_GOOD) {
@@ -500,12 +531,18 @@ public:
                     std::chrono::nanoseconds(delay.nanoseconds())
                 );
             UA_Server_run_iterate(server, true);
+            this->add_namespaces(server);
             const auto stats = UA_Server_getStatistics(server);
             this->channels = stats.scs.currentChannelCount;
             this->sessions_created = stats.ss.cumulatedSessionCount;
         }
 
         ready = false;
+        {
+            std::lock_guard lock(this->added_mu);
+            this->added.clear();
+        }
+        this->added_cv.notify_all();
         UA_Server_run_shutdown(server);
         UA_Server_delete(server);
     }

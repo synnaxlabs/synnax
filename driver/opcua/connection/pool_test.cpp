@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <chrono>
+#include <functional>
 #include <string>
 #include <thread>
 #include <vector>
@@ -201,6 +202,22 @@ TEST_F(ConnectionPoolTest, DifferentCredentials) {
 
     EXPECT_NE(conn1.get(), conn2.get());
     EXPECT_EQ(pool.size(), 2);
+}
+
+/// @brief it should not reuse an idle connection for a config with other timeouts.
+TEST_F(ConnectionPoolTest, DifferentTimeouts) {
+    for (const auto &change: std::vector<std::function<void(Config &)>>{
+             [](Config &c) { c.client_timeout_ms = 15000; },
+             [](Config &c) { c.session_timeout_ms = 60000; },
+             [](Config &c) { c.secure_channel_lifetime_ms = 30000; },
+         }) {
+        Pool pool(testutil::create_store());
+        { auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] ")); }
+        Config other = conn_cfg_;
+        change(other);
+        const auto conn = ASSERT_NIL_P(pool.acquire(other, "[test] "));
+        EXPECT_EQ(pool.size(), 2);
+    }
 }
 
 /// @brief it should return error when connecting to unavailable server.
@@ -568,6 +585,21 @@ TEST_F(ConnectionPoolTest, ReadsServerFacts) {
     EXPECT_EQ(server.max_nodes_per_write, 3);
 }
 
+/// @brief it should read the server facts from a server that allows one node per Read
+/// request.
+TEST_F(ConnectionPoolTest, ReadsServerFactsOneNodePerRead) {
+    server_cfg_.namespaces = {"urn:synnax:test"};
+    server_cfg_.max_nodes_per_read = 1;
+    server_cfg_.max_nodes_per_write = 3;
+    restart_server();
+    Pool pool(testutil::create_store());
+    const auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
+    ASSERT_EQ(conn.server().namespaces.size(), 3);
+    EXPECT_EQ(conn.server().namespaces[2], "urn:synnax:test");
+    EXPECT_EQ(conn.server().max_nodes_per_read, 1);
+    EXPECT_EQ(conn.server().max_nodes_per_write, 3);
+}
+
 /// @brief it should keep the server facts of an idle connection that it reuses.
 TEST_F(ConnectionPoolTest, ReuseKeepsServerFacts) {
     server_cfg_.namespaces = {"urn:synnax:test"};
@@ -618,7 +650,7 @@ TEST_F(ConnectionPoolTest, ReadSplitsAtServerLimit) {
     types::ReadRequestBuilder builder;
     for (const auto &name: names) {
         ids.push_back(ASSERT_NIL_P(types::NodeId::parse("ns=1;s=" + name)));
-        builder.add_node(ids.back().get());
+        builder.add_node(ids.back().resolve({}).value());
     }
     const auto res = ASSERT_NIL_P(conn.read(builder.build()));
     const auto &raw = res.get();
@@ -641,9 +673,10 @@ TEST_F(ConnectionPoolTest, WriteSplitsAtServerLimit) {
     const auto id = ASSERT_NIL_P(types::NodeId::parse("ns=1;s=TestUInt32"));
     types::WriteRequestBuilder builder;
     for (const uint32_t value: {1U, 2U, 3U})
-        ASSERT_NIL(
-            builder.add_value(id.get(), x::telem::Series(value, x::telem::UINT32_T))
-        );
+        ASSERT_NIL(builder.add_value(
+            id.resolve({}).value(),
+            x::telem::Series(value, x::telem::UINT32_T)
+        ));
     const auto res = ASSERT_NIL_P(conn.write(builder.build()));
     ASSERT_EQ(res.get().resultsSize, 3);
     for (size_t i = 0; i < 3; ++i)
@@ -829,10 +862,7 @@ TEST_F(SessionLimitPoolTest, TimeoutClosesChannel) {
     auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
     const auto client = conn.shared();
     types::ReadRequestBuilder builder;
-    const types::NodeId node(
-        UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER_SERVERSTATUS_CURRENTTIME)
-    );
-    builder.add_node(node, UA_ATTRIBUTEID_VALUE);
+    builder.add_node(UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER_SERVERSTATUS_CURRENTTIME));
     server_->probe_delay = x::telem::SECOND;
     // The server answers this read, then waits before it handles the next one.
     ASSERT_NIL_P(conn.read(builder.build()));
@@ -865,10 +895,7 @@ TEST_F(SessionLimitPoolTest, ReadOnLostConnection) {
     auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
     UA_Client_disconnectSecureChannel(conn.get());
     types::ReadRequestBuilder builder;
-    const types::NodeId node(
-        UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER_SERVERSTATUS_CURRENTTIME)
-    );
-    builder.add_node(node, UA_ATTRIBUTEID_VALUE);
+    builder.add_node(UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER_SERVERSTATUS_CURRENTTIME));
     ASSERT_OCCURRED_AS_P(conn.read(builder.build()), errors::NO_CONNECTION);
     ASSERT_OCCURRED_AS(lost(conn.get()), errors::NO_CONNECTION);
 }

@@ -688,6 +688,38 @@ TEST_F(TestWriteTask, testUnknownNamespaceRejectsValue) {
     ASSERT_NIL(sink->stop());
 }
 
+/// @brief it should write a node in a namespace that the server adds after the task
+/// starts, on the same Session.
+TEST_F(TestWriteTask, testNamespaceAddedAfterStart) {
+    const auto sink = uint32_sink(
+        ctx->client,
+        conn_pool,
+        this->uint32_cmd_channel.key,
+        "nsu=urn:late;s=Late"
+    );
+    ASSERT_NIL(sink->start());
+    auto fr = x::telem::Frame(1);
+    fr.emplace(
+        this->uint32_cmd_channel.key,
+        x::telem::Series(static_cast<uint32_t>(97), x::telem::UINT32_T)
+    );
+    ASSERT_OCCURRED_AS(sink->write(fr), errors::COMMAND_REJECTED);
+    const auto sessions = server->sessions_created.load();
+    UA_UInt32 initial = 0;
+    UA_Variant value;
+    UA_Variant_setScalar(&value, &initial, &UA_TYPES[UA_TYPES_UINT32]);
+    server->add_namespace(
+        "urn:late",
+        {{0, "Late", &UA_TYPES[UA_TYPES_UINT32], value, "Late"}}
+    );
+    ASSERT_NIL(sink->write(fr));
+    EXPECT_EQ(server->sessions_created.load(), sessions);
+    auto client = ASSERT_NIL_P(connection::connect(conn_cfg, {}, "[test.late] "));
+    const auto result = ASSERT_NIL_P(testutil::simple_read(client, "NS=2;S=Late"));
+    EXPECT_EQ(result.at<uint32_t>(0), 97);
+    ASSERT_NIL(sink->stop());
+}
+
 /// @brief it should write more nodes than the server allows in one request.
 TEST_F(TestWriteTask, testSplitsWriteAtServerLimit) {
     server->stop();

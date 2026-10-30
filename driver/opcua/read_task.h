@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <cstddef>
 #include <limits>
 #include <map>
@@ -248,6 +249,10 @@ protected:
     /// @brief the place of each channel's result in a response to request_builder, or
     /// nothing when the server lacks the channel's namespace.
     std::vector<std::optional<std::size_t>> positions;
+    /// @brief the place of the server's namespace array in a response to
+    /// request_builder, which reads it while the server lacks the namespace of a
+    /// channel.
+    std::optional<std::size_t> namespace_position;
 
     /// @brief reads the channels on conn from now on, with the namespace indexes of its
     /// server.
@@ -269,6 +274,29 @@ protected:
             this->positions.emplace_back(this->request_builder.size());
             this->request_builder.add_node(id.value(), UA_ATTRIBUTEID_VALUE);
         }
+        this->namespace_position.reset();
+        if (std::ranges::all_of(this->positions, [](const auto &p) {
+                return p.has_value();
+            }))
+            return;
+        this->namespace_position = this->request_builder.size();
+        this->request_builder.add_node(
+            UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER_NAMESPACEARRAY),
+            UA_ATTRIBUTEID_VALUE
+        );
+    }
+
+    /// @brief reads request_builder. When the read finds a namespace that the
+    /// connection lacked, builds the request again and reads it again.
+    std::pair<types::ReadResponse, x::errors::Error> read_request() {
+        auto [res, err] = this->connection.read(this->request_builder.build());
+        if (err || !this->namespace_position.has_value()) return {std::move(res), err};
+        auto [changed, ns_err] = this->connection.update_namespaces(
+            res.get().results[this->namespace_position.value()]
+        );
+        if (ns_err || !changed) return {std::move(res), ns_err};
+        this->build_request();
+        return this->connection.read(this->request_builder.build());
     }
 
     /// @returns the result of channel i in res, a response to request_builder.
@@ -340,14 +368,12 @@ protected:
                 };
             if (auto err = this->connect()) return {types::ReadResponse(), err};
         }
-        if (this->request_builder.empty())
-            return {types::ReadResponse(), x::errors::NIL};
-        auto [res, err] = this->connection.read(this->request_builder.build());
+        auto [res, err] = this->read_request();
         if (!err) return {std::move(res), x::errors::NIL};
-        auto [refreshed, refresh_err] = this->connector.refresh(this->connection);
-        if (refreshed) {
-            this->build_request();
-            std::tie(res, err) = this->connection.read(this->request_builder.build());
+        auto [next, refresh_err] = this->connector.refresh(this->connection);
+        if (next) {
+            this->use(std::move(next));
+            std::tie(res, err) = this->read_request();
         }
         if (refresh_err) err = refresh_err;
         if (err.matches(errors::UNREACHABLE))

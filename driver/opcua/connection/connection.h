@@ -250,6 +250,13 @@ public:
         [[nodiscard]] std::pair<types::WriteResponse, x::errors::Error>
         write(const UA_WriteRequest &req) const;
 
+        /// @brief records the namespaces in value, a read of the NamespaceArray node,
+        /// as those of the server, for this connection and each later one on its
+        /// Session.
+        /// @returns true if the namespaces changed, or errors::CRITICAL if value holds
+        /// no namespace array.
+        std::pair<bool, x::errors::Error> update_namespaces(const UA_DataValue &value);
+
     private:
         /// @returns the error of the service result of a call. A call that fails for a
         /// lost connection closes the channel, so the next acquire connects again at
@@ -296,14 +303,13 @@ public:
     std::pair<Connection, x::errors::Error>
     acquire(const Config &cfg, const std::string &log_prefix);
 
-    /// @brief replaces conn with a new connection when the configuration now resolves
-    /// to another client certificate, such as after the Driver certificate changes.
-    /// The new connection trusts only the server certificate that conn trusts. Leaves
-    /// conn unchanged when the client certificate is the same or the new connection
-    /// fails.
-    /// @returns true if it replaced conn.
-    std::pair<bool, x::errors::Error>
-    refresh(Connection &conn, const Config &cfg, const std::string &log_prefix);
+    /// @brief connects again when the configuration now resolves to another client
+    /// certificate than conn uses, such as after the Driver certificate changes. The
+    /// new connection trusts only the server certificate that conn trusts.
+    /// @returns the new connection, or an empty one when the client certificate is the
+    /// same.
+    std::pair<Connection, x::errors::Error>
+    refresh(const Connection &conn, const Config &cfg, const std::string &log_prefix);
 
     /// @returns the time of the last reply from the server on a connection with the
     /// configuration, or a zero timestamp if none replied.
