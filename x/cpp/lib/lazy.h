@@ -16,7 +16,7 @@
 
 #include "x/cpp/errors/errors.h"
 
-namespace driver::common {
+namespace x::lib {
 /// @brief a value that loads on first use, such as a vendor library. A failed load runs
 /// again on the next use, and the first value that loads is kept. Safe for concurrent
 /// use.

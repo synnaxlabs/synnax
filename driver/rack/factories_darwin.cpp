@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include "driver/labjack/labjack.h"
+#include "driver/ni/names.h"
 #include "driver/rack/factories.h"
 
 namespace driver::rack {
@@ -16,8 +17,14 @@ std::vector<std::string> platform_integrations() {
 }
 
 void configure_ni(const Config &, FactoryList &factories) {
-    // The macOS build leaves NI out, so its names are literals.
-    factories.push_back(std::make_unique<LegacyFactory>("ni", "ni_scanner"));
+    factories.push_back(
+        std::make_unique<UnavailableFactory>(
+            ni::INTEGRATION_NAME,
+            "NI tasks do not run on macOS. Connect the device from a Driver on Windows "
+            "or Linux.",
+            ni::SCAN_TASK_TYPE
+        )
+    );
 }
 
 void configure_labjack(const Config &config, FactoryList &factories) {

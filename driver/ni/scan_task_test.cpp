@@ -217,9 +217,9 @@ public:
 };
 
 /// @brief returns a System Configuration library that loads api on first use.
-std::shared_ptr<common::Lazy<syscfg::SugaredAPI>>
+std::shared_ptr<x::lib::Lazy<syscfg::SugaredAPI>>
 loaded(const std::shared_ptr<syscfg::API> &api) {
-    return std::make_shared<common::Lazy<syscfg::SugaredAPI>>([api] {
+    return std::make_shared<x::lib::Lazy<syscfg::SugaredAPI>>([api] {
         return std::pair{std::make_shared<syscfg::SugaredAPI>(api), x::errors::NIL};
     });
 }
