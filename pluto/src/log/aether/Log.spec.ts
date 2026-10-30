@@ -1028,6 +1028,13 @@ describe("log/aether/Log", () => {
       expect(second).toMatch(/^Jan 12 12:00:00/);
     });
 
+    it("should show dates for the same day of different years", () => {
+      const entries = [entry("2025-01-05T12:00:00"), entry("2026-01-05T12:00:00")];
+      const { log } = setup(entries, REGION_500, { selectionStart: 0, selectionEnd: 1 });
+      log.render();
+      expect(log.state.selectedLines[0].text).toMatch(/^Jan 5/);
+    });
+
     it("should show only the time when the entries share a local day", () => {
       const entries = [entry("2026-01-05T01:00:00"), entry("2026-01-05T23:00:00")];
       const { log } = setup(entries, REGION_500, {
