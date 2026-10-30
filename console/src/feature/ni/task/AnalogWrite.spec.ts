@@ -10,7 +10,7 @@
 import { type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { NI } from "@/feature/ni";
@@ -263,5 +263,17 @@ describe("AnalogWrite", () => {
       NI.Task.ANALOG_WRITE_SCHEMAS,
     );
     expect(tsk.config.channels).toHaveLength(1);
+  });
+});
+
+describe("AnalogWrite channel names", () => {
+  it("should show the names configuring gives each channel in the list", async () => {
+    const dev = await createNIDevice(client);
+    const { identifier } = dev.properties;
+    await renderAnalogWrite(
+      createConfig([createChannel("ao_voltage", 1, { cmdChannelName: "" })], dev.key),
+    );
+    const item = await findChannelListItem(`${identifier}_ao_1_cmd`);
+    expect(within(item).getByText(`${identifier}_ao_1_state`)).toBeTruthy();
   });
 });

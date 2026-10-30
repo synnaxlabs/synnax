@@ -38,7 +38,11 @@ export interface ListAndDetailsChannelItemProps<
   icon?: ListAndDetailsIconProps;
   canTare: boolean;
   channel: channel.Key;
+  /** The name configuring the task gives the channel, shown while it has none. */
+  defaultName?: string;
   stateChannel?: channel.Key;
+  /** The name configuring the task gives the state channel. */
+  stateDefaultName?: string;
   onTare?: (channel: channel.Key) => void;
   path: string;
   hasTareButton: boolean;
@@ -66,8 +70,10 @@ export const ListAndDetailsChannelItem = <K extends string>({
   path,
   hasTareButton,
   channel,
+  defaultName,
   icon,
   stateChannel,
+  stateDefaultName,
   nameDirection = "x",
   ...rest
 }: ListAndDetailsChannelItemProps<K>) => {
@@ -105,7 +111,9 @@ export const ListAndDetailsChannelItem = <K extends string>({
               stateNamePath={`${path}.stateChannelName`}
               cmdNamePath={`${path}.cmdChannelName`}
               cmdChannel={channel}
+              cmdDefaultName={defaultName}
               stateChannel={stateChannel}
+              stateDefaultName={stateDefaultName}
               itemKey={itemKey}
             />
           </Flex.Box>
@@ -113,6 +121,7 @@ export const ListAndDetailsChannelItem = <K extends string>({
           <ChannelName
             {...channelNameProps}
             channel={channel}
+            defaultName={defaultName}
             namePath={`${path}.name`}
             id={getChannelNameID(itemKey)}
           />

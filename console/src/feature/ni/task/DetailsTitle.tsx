@@ -21,7 +21,7 @@ export interface DetailsTitleProps {
   channel: channel.Key;
   namePath: string;
   /** The name deploying the task gives a channel with no name. */
-  defaultName: string;
+  defaultName?: string;
   model?: string;
 }
 

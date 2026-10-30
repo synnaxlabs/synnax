@@ -10,7 +10,7 @@
 import { type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { NI } from "@/feature/ni";
@@ -279,5 +279,16 @@ describe("CounterRead ports", () => {
     );
     fireEvent.click(await findDialogTriggerByText("Select input terminal"));
     expect(await screen.findByText("PFI15")).toBeTruthy();
+  });
+});
+
+describe("CounterRead channel names", () => {
+  it("should show the name configuring gives each channel in the list", async () => {
+    const dev = await createNIDevice(client);
+    await renderCounterRead(
+      createConfig([createChannel("ci_frequency", 1, { device: dev.key })]),
+    );
+    const item = await findChannelListItem(`${dev.properties.identifier}_ctr_1`);
+    expect(within(item).queryByText("No channel")).toBeNull();
   });
 });

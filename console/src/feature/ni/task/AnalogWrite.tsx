@@ -22,7 +22,12 @@ import { AOChannelForm } from "@/feature/ni/task/AOChannelForm";
 import { analogWriteHardwareZ } from "@/feature/ni/task/checks";
 import { createNextAOChannel } from "@/feature/ni/task/createChannel";
 import { DetailsTitle as Title } from "@/feature/ni/task/DetailsTitle";
-import { ANALOG_OUTPUT, holdState, portClaims } from "@/feature/ni/task/ports";
+import {
+  ANALOG_OUTPUT,
+  analogOutputStateName,
+  holdState,
+  portClaims,
+} from "@/feature/ni/task/ports";
 import { PortsView } from "@/feature/ni/task/PortsView";
 import {
   ANALOG_WRITE_SCHEMAS,
@@ -54,6 +59,7 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
   const { itemKey } = props;
   const path = `config.channels.${itemKey}`;
   const item = PForm.useFieldValue<AOChannel>(path);
+  const device = useFromConfig();
   if (item == null) return null;
   const { port, cmdChannel, stateChannel, type } = item;
   const Icon = AO_CHANNEL_TYPE_ICONS[type];
@@ -63,7 +69,11 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
       port={port}
       hasTareButton={false}
       channel={cmdChannel}
+      defaultName={device == null ? undefined : ANALOG_OUTPUT.name(item, device)}
       stateChannel={stateChannel}
+      stateDefaultName={
+        device == null ? undefined : analogOutputStateName(item, device)
+      }
       portMaxChars={2}
       canTare={false}
       path={path}
@@ -93,7 +103,7 @@ const DetailsTitle = ({ path }: Task.Views.DetailsProps) => {
       type={{ icon: <Icon />, name: AO_CHANNEL_TYPE_NAMES[value.type] }}
       channel={value.cmdChannel}
       namePath={`${path}.cmdChannelName`}
-      defaultName={device == null ? "" : ANALOG_OUTPUT.name(value, device)}
+      defaultName={device == null ? undefined : ANALOG_OUTPUT.name(value, device)}
       model={device?.model}
     />
   );
@@ -204,9 +214,7 @@ const onConfigure: Task.OnConfigure<typeof analogWriteConfigZ> = async (
       modified = true;
       const states = await client.channels.create(
         statesToCreate.map((c) => ({
-          name: primitive.isNonZero(c.stateChannelName)
-            ? c.stateChannelName
-            : `${identifier}_ao_${c.port}_state`,
+          name: analogOutputStateName(c, dev),
           index: dev.properties.analogOutput.stateIndex,
           dataType: "float32",
         })),
@@ -231,9 +239,7 @@ const onConfigure: Task.OnConfigure<typeof analogWriteConfigZ> = async (
       );
       const commands = await client.channels.create(
         commandsToCreate.map((c, i) => ({
-          name: primitive.isNonZero(c.cmdChannelName)
-            ? c.cmdChannelName
-            : `${identifier}_ao_${c.port}_cmd`,
+          name: ANALOG_OUTPUT.name(c, dev),
           index: commandIndexes[i].key,
           dataType: "float32",
         })),

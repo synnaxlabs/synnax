@@ -93,4 +93,22 @@ describe("layouts.ListAndDetailsChannelItem", () => {
     await waitFor(() => expect(screen.getByText("No channel")).toBeTruthy());
     expect(screen.queryByText("No command channel")).toBeNull();
   });
+
+  it("should show the name configuring gives a channel that does not exist yet", async () => {
+    await renderItem({ channel: 0, defaultName: "dev1_ai_0" });
+    await waitFor(() => expect(screen.getByText("dev1_ai_0")).toBeTruthy());
+    expect(screen.queryByText("No channel")).toBeNull();
+  });
+
+  it("should show the names configuring gives the command and state channels", async () => {
+    await renderItem({
+      channel: 0,
+      stateChannel: 0,
+      defaultName: "dev1_ao_0_cmd",
+      stateDefaultName: "dev1_ao_0_state",
+    });
+    await waitFor(() => expect(screen.getByText("dev1_ao_0_cmd")).toBeTruthy());
+    expect(screen.getByText("dev1_ao_0_state")).toBeTruthy();
+    expect(screen.queryByText("No command channel")).toBeNull();
+  });
 });

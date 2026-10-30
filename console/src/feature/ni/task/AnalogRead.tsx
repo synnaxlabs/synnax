@@ -68,6 +68,7 @@ const NO_PORT = "NA";
 const ChannelListItem = ({ onTare, ...rest }: ChannelListItemProps) => {
   const path = `config.channels.${rest.itemKey}`;
   const value = PForm.useFieldValue<AIChannel>(path);
+  const device = useChannelDevice(path);
   const { type, channel, disabled } = value;
   const isSnapshot = Task.useIsSnapshot();
   const isRunning = Task.useIsRunning();
@@ -83,6 +84,7 @@ const ChannelListItem = ({ onTare, ...rest }: ChannelListItemProps) => {
       path={path}
       hasTareButton={hasTareButton}
       channel={channel}
+      defaultName={device == null ? undefined : ANALOG_INPUT.name(value, device)}
       icon={{ icon: <Icon />, name: AI_CHANNEL_TYPE_NAMES[type] }}
       portMaxChars={2}
     />
@@ -117,7 +119,7 @@ const DetailsTitle = ({ path }: Task.Views.DetailsProps) => {
       type={{ icon: <Icon />, name: AI_CHANNEL_TYPE_NAMES[value.type] }}
       channel={value.channel}
       namePath={`${path}.name`}
-      defaultName={device == null ? "" : ANALOG_INPUT.name(value, device)}
+      defaultName={device == null ? undefined : ANALOG_INPUT.name(value, device)}
       model={device?.model}
     />
   );
