@@ -13,11 +13,13 @@ import {
   type Next,
   type UnaryClient,
 } from "@synnaxlabs/freighter";
-import { errors, TimeStamp } from "@synnaxlabs/x";
+import { errors, TimeStamp, url } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
   type Credentials,
+  type Method,
+  METHODS,
   type Proof,
   proofZ,
   type Session,
@@ -27,11 +29,13 @@ import {
 } from "@/auth/types.gen";
 import {
   AuthError,
+  errorsMiddleware,
   ExpiredTokenError,
   InvalidTokenError,
   SessionEndedError,
 } from "@/errors";
 import { ontology } from "@/ontology";
+import { Transport } from "@/transport";
 import { user } from "@/user";
 
 const createReqZ = z.object({ proof: proofZ, cookie: z.boolean().optional() });
@@ -93,6 +97,7 @@ const passwordSetReqZ = z.object({
 const passwordSetResZ = z.object({ token: z.string(), session: sessionZ.optional() });
 
 // the login route a Core without sessions serves; kept for one release
+const METHODS_ENDPOINT = "/auth/methods";
 const LEGACY_LOGIN_ENDPOINT = "/auth/login";
 const SESSION_CREATE_ENDPOINT = "/auth/session/create";
 const SESSION_RENEW_ENDPOINT = "/auth/session/renew";
@@ -113,7 +118,56 @@ const KEY_DELETE_ENDPOINT = "/auth/key/delete";
 const PASSWORD_SET_ENDPOINT = "/auth/password/set";
 
 // routes the Core serves without a token, so a request to one never logs in
-const TOKENLESS_ENDPOINTS = [SESSION_CREATE_ENDPOINT, LEGACY_LOGIN_ENDPOINT];
+const TOKENLESS_ENDPOINTS = [
+  METHODS_ENDPOINT,
+  SESSION_CREATE_ENDPOINT,
+  LEGACY_LOGIN_ENDPOINT,
+];
+
+const isMethod = (m: string): m is Method => METHODS.includes(m as Method);
+
+// a newer Core may accept methods this client does not know, so they are dropped
+const methodsResZ = z.object({
+  methods: z
+    .string()
+    .array()
+    .transform((ms) => ms.filter(isMethod)),
+});
+
+/** The address of a Core, for a request that needs no session. */
+export interface TokenlessParams {
+  host: string;
+  port: number | string;
+  secure?: boolean;
+}
+
+/**
+ * Creates a client for the routes a Core serves without a session. Create one per Core
+ * address and reuse it across requests.
+ */
+export const createTokenlessClient = ({
+  host,
+  port,
+  secure = false,
+}: TokenlessParams): UnaryClient => {
+  const transport = new Transport(
+    new url.URL({ host, port: Number(port) }),
+    {},
+    secure,
+  );
+  transport.use(errorsMiddleware);
+  return transport.unaryNoRetry;
+};
+
+/**
+ * Retrieves the login methods a Core accepts, without logging in.
+ * @param client - A client from {@link createTokenlessClient}.
+ * @throws {Unreachable} if the Core cannot be reached.
+ */
+export const retrieveMethods = async (client: UnaryClient): Promise<Method[]> => {
+  const res = await client.send(METHODS_ENDPOINT, {}, z.object({}), methodsResZ);
+  return res.methods;
+};
 
 const MAX_RETRIES = 3;
 

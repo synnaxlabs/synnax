@@ -108,6 +108,25 @@ describe("auth", () => {
     });
   });
 
+  describe("retrieveMethods", () => {
+    const client = auth.createTokenlessClient({
+      host: TEST_CLIENT_PARAMS.host,
+      port: TEST_CLIENT_PARAMS.port,
+    });
+    it("should list the methods the Core accepts without logging in", async () => {
+      const methods = await auth.retrieveMethods(client);
+      expect(methods.toSorted()).toEqual(["api_key", "password"]);
+    });
+    it("should serve repeated requests through one client", async () => {
+      const [first, second] = await Promise.all([
+        auth.retrieveMethods(client),
+        auth.retrieveMethods(client),
+      ]);
+      expect(second).toEqual(first);
+      expect(await auth.retrieveMethods(client)).toEqual(first);
+    });
+  });
+
   describe("sessions", () => {
     const makeClient = (
       credentials: auth.Credentials = TEST_CREDENTIALS,

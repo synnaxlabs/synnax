@@ -49,6 +49,10 @@ def api_key_id(token: str) -> UUID:
     return UUID(bytes=raw[:16])
 
 
+class _MethodsResponse(BaseModel):
+    methods: list[str]
+
+
 class _SessionCreateRequest(BaseModel):
     proof: Proof
 
@@ -111,6 +115,7 @@ class _KeyDeleteRequest(BaseModel):
     keys: list[UUID] = []
 
 
+_METHODS_ENDPOINT = "/auth/methods"
 _SESSION_CREATE_ENDPOINT = "/auth/session/create"
 _SESSION_RENEW_ENDPOINT = "/auth/session/renew"
 _SESSION_RETRIEVE_ENDPOINT = "/auth/session/retrieve"
@@ -166,6 +171,12 @@ class Client:
         self.session = res.session
         self.user = res.user
         self.authenticated = True
+
+    def retrieve_methods(self) -> list[str]:
+        """Returns the login methods the Core accepts. Needs no session."""
+        return send_required(
+            self.client, _METHODS_ENDPOINT, Empty(), _MethodsResponse
+        ).methods
 
     @property
     def subject(self) -> ontology.ID | None:
@@ -266,8 +277,8 @@ class Client:
     def _prepare(self, ctx: Context) -> bool:
         """Attaches the token and reports whether a rejected token may log in again."""
         target = ctx.target.rstrip("/")
-        # The login request itself carries no token, and must not trigger a login.
-        if target.endswith(_SESSION_CREATE_ENDPOINT):
+        # The Core serves these without a token, so they must not trigger a login.
+        if target.endswith((_METHODS_ENDPOINT, _SESSION_CREATE_ENDPOINT)):
             return False
         # A logout ends the session its token belongs to; a dead one must not log in
         # again.
