@@ -251,9 +251,9 @@ class Conversion(ArcCase):
     def setup(self) -> None:
         self.set_manual_timeout(300)
         for name, dtype in INPUT_CHANNELS:
-            create_virtual_channel(self.client, name, dtype)
+            create_virtual_channel(self.client, name, data_type=dtype)
         for name, dtype in OUTPUT_CHANNELS:
-            create_virtual_channel(self.client, name, dtype)
+            create_virtual_channel(self.client, name, data_type=dtype)
         super().setup()
 
     def verify_sequence_execution(self) -> None:

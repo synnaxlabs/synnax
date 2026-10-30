@@ -41,24 +41,20 @@ if (wrap) className += " wrap";
             border: 1px solid var(--pluto-error-z);
             background-color: var(--pluto-error-z-15) !important;
         }
-        button {
-            display: none;
-        }
-    }
-    .warning > .astro-code-wrapper {
-        .astro-code {
-            border: 1px solid var(--pluto-warning-z);
-            background-color: var(--pluto-warning-z-15) !important;
-        }
+
         button {
             display: none;
         }
     }
 
-    .pluto-pack .astro-code-wrapper {
-        margin: 0;
+    .warning > .astro-code-wrapper {
         .astro-code {
-            border: none;
+            border: 1px solid var(--pluto-warning-z);
+            background-color: var(--pluto-warning-z-15) !important;
+        }
+
+        button {
+            display: none;
         }
     }
 
@@ -80,6 +76,7 @@ if (wrap) className += " wrap";
         }
 
         margin: 5rem 0 var(--docs-block-gap);
+
         button {
             opacity: 0;
             position: absolute;
@@ -87,7 +84,8 @@ if (wrap) className += " wrap";
             top: 2.3rem;
             transition: opacity 0.2s ease-in-out;
             z-index: 2;
-            & .pluto-icon {
+
+            & .lyra-icon {
                 width: 1em !important;
                 height: 1em !important;
             }
@@ -107,31 +105,36 @@ if (wrap) className += " wrap";
             position: relative;
             border: var(--pluto-border);
             border-radius: 1rem;
-            overflow-x: auto !important;
-            overflow-y: visible !important;
+            overflow: auto visible !important;
 
             /* Chrome/Safari/Edge */
             &::-webkit-scrollbar {
                 height: 0.75rem;
             }
+
             &::-webkit-scrollbar-track {
                 background: transparent;
             }
+
             &::-webkit-scrollbar-thumb {
                 background-color: var(--pluto-gray-l4);
                 border-radius: 0.5rem;
             }
+
             &::-webkit-scrollbar-thumb:hover {
                 background-color: var(--pluto-gray-l5);
             }
         }
     }
+
     table .astro-code-wrapper {
         margin: 0;
+
         .astro-code {
             padding: 0.5rem 1rem;
             border-radius: var(--pluto-border-radius);
         }
+
         button {
             display: none;
         }
@@ -139,22 +142,28 @@ if (wrap) className += " wrap";
 
     /* In a pane, a code block is a band across the full pane, split from the prose by
        hairlines, and its code lines up with the prose. */
-    article :is(.pluto-tabs__content, .docs-details > .content) > .astro-code-wrapper {
+    article :is(.lyra-tabs__content, .docs-details > .content) > .astro-code-wrapper {
         --band: var(--docs-block-padding);
+
         margin: var(--band) calc(-1 * var(--band));
+
         .astro-code {
             border: none;
             border-block: 1px solid var(--pluto-gray-l3);
             border-radius: 0;
         }
+
         &:first-child {
             margin-top: calc(-1 * var(--band));
+
             .astro-code {
                 border-top: none;
             }
         }
+
         &:last-child {
             margin-bottom: calc(-1 * var(--band));
+
             .astro-code {
                 border-bottom: none;
             }
@@ -162,7 +171,7 @@ if (wrap) className += " wrap";
     }
 
     article
-        :is(.pluto-tabs__content, .docs-details > .content)
+        :is(.lyra-tabs__content, .docs-details > .content)
         > p:has(+ .astro-code-wrapper) {
         margin-bottom: 0;
     }
@@ -171,8 +180,9 @@ if (wrap) className += " wrap";
     p:has(+ .astro-code-wrapper) {
         margin-bottom: 2rem;
     }
+
     p + .astro-code-wrapper,
-    .pluto-note + .astro-code-wrapper,
+    .lyra-note + .astro-code-wrapper,
     :is(h2, h3, h4, h5, h6) + .astro-code-wrapper {
         margin-top: 0;
     }
