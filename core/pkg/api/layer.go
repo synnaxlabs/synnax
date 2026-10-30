@@ -79,7 +79,7 @@ type Transport struct {
 	// AuthPasswordCreate gives the caller or another user its first password.
 	AuthPasswordCreate freighter.UnaryServer[auth.PasswordCreateRequest, struct{}]
 	// AuthPasswordSet sets the caller's password or another user's.
-	AuthPasswordSet freighter.UnaryServer[auth.PasswordSetRequest, struct{}]
+	AuthPasswordSet freighter.UnaryServer[auth.PasswordSetRequest, auth.PasswordSetResponse]
 	// USER
 	UserRename         freighter.UnaryServer[user.RenameRequest, struct{}]
 	UserChangeUsername freighter.UnaryServer[user.ChangeUsernameRequest, struct{}]

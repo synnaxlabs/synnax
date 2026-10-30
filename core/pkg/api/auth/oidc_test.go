@@ -175,7 +175,7 @@ var _ = Describe("OIDC links", func() {
 			Expect(apiSvc.UnlinkOIDC(
 				authed(ctx, bobToken),
 				nil,
-				apiauth.OIDCUnlinkRequest{Keys: []oidc.Key{link.Key}},
+				apiauth.OIDCUnlinkRequest{Keys: []oidc.LinkKey{link.Key}},
 			)).Error().ToNot(HaveOccurred())
 			Expect(oidcSvc.NewRetrieve().Where(oidc.MatchKeys(link.Key)).
 				Entry(&oidc.Link{}).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
@@ -187,14 +187,14 @@ var _ = Describe("OIDC links", func() {
 			Expect(apiSvc.UnlinkOIDC(
 				authed(ctx, bobToken),
 				nil,
-				apiauth.OIDCUnlinkRequest{Keys: []oidc.Key{link.Key}},
+				apiauth.OIDCUnlinkRequest{Keys: []oidc.LinkKey{link.Key}},
 			)).Error().To(MatchError(access.ErrDenied))
 		})
 		It("Should ignore unknown keys", func(ctx SpecContext) {
 			Expect(apiSvc.UnlinkOIDC(
 				authed(ctx, bobToken),
 				nil,
-				apiauth.OIDCUnlinkRequest{Keys: []oidc.Key{uuid.New()}},
+				apiauth.OIDCUnlinkRequest{Keys: []oidc.LinkKey{uuid.New()}},
 			)).Error().ToNot(HaveOccurred())
 		})
 	})
