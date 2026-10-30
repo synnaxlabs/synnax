@@ -984,6 +984,24 @@ TEST(DeviceTest, ReplyResetsTimeouts) {
     slave.stop();
 }
 
+/// @brief it should not demote a unit when connects to its server time out, since a
+/// server that is down says nothing about the unit.
+TEST(DeviceTest, ConnectTimeoutsKeepUnit) {
+    Manager manager;
+    // 192.0.2.1 is reserved for documentation, so connects to it time out.
+    ConnectionConfig cfg{"192.0.2.1", 502};
+    cfg.timeout = x::telem::MILLISECOND * 50;
+    cfg.retries = 0;
+    auto dev = ASSERT_NIL_P(manager.acquire(cfg));
+    uint16_t reg = 0;
+
+    for (std::size_t i = 0; i <= DEMOTE_AFTER; i++) {
+        const auto err = dev->read_registers(HoldingRegister, 0, 1, &reg);
+        ASSERT_OCCURRED_AS(err, UNREACHABLE);
+        EXPECT_EQ(err.data, modbus_strerror(ETIMEDOUT));
+    }
+}
+
 /// @brief it should discard a reply that arrives after its request timed out, so the
 /// next request reads its own reply.
 TEST(DeviceTest, DiscardsLateReply) {

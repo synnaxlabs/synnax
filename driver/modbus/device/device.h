@@ -47,7 +47,7 @@ const x::errors::Error TEMPORARY_ERROR = errors::TEMPORARY_HARDWARE_ERROR.sub("m
 /// the unit is demoted. The next request after a lost connection reconnects.
 const x::errors::Error UNREACHABLE = TEMPORARY_ERROR.sub("unreachable");
 
-/// @brief the timed-out attempts in a row that demote a unit.
+/// @brief the attempts in a row that the unit leaves unanswered, which demote it.
 const std::size_t DEMOTE_AFTER = 3;
 /// @brief the default time that the requests of a demoted unit fail at once.
 const x::telem::TimeSpan DEMOTION = x::telem::SECOND * 10;
@@ -645,8 +645,8 @@ private:
         unit.last_reply = this->last_request;
     }
 
-    /// @brief records a timed-out attempt and demotes the unit after DEMOTE_AFTER in a
-    /// row.
+    /// @brief records an attempt that the unit left unanswered, and demotes the unit
+    /// after DEMOTE_AFTER in a row.
     /// @returns true if the unit is now demoted.
     bool timed_out(const std::uint8_t unit_id) {
         std::lock_guard lock(this->mu);
@@ -673,7 +673,9 @@ private:
             this->last_request = Clock::now();
             this->record(cfg.unit_id, i > 0, errnum);
             if (errnum == 0) return x::errors::NIL;
-            if (errnum == ETIMEDOUT && this->timed_out(cfg.unit_id))
+            // A connect that times out leaves the connection closed. It says the server
+            // is down, not that the unit is silent.
+            if (errnum == ETIMEDOUT && this->connected && this->timed_out(cfg.unit_id))
                 return this->demoted(cfg.unit_id);
             auto err = classify(errnum);
             if (!err.matches(TEMPORARY_ERROR) || i >= cfg.retries) return err;
