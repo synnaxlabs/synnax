@@ -9,11 +9,14 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-range-select__dynamic-icon {
+.console-range-select__live-icon,
+.console-range-select__live-label {
     color: var(--pluto-error-p1);
     filter: opacity(0.8);
 }
 
-.console-range-select__dynamic-name {
-    width: 100px;
+.console-range-select__live {
+    padding: 0.5rem 1rem;
+    border: 0 solid var(--pluto-gray-l6);
+    border-width: 0 var(--pluto-border-width);
 }

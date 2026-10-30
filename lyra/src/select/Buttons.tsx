@@ -56,6 +56,7 @@ export const Buttons = <K extends record.Key = record.Key>({
   onChange,
   allowNone,
   multiple,
+  enableTriggers,
   preview = false,
   variant = "text",
   className,
@@ -69,6 +70,7 @@ export const Buttons = <K extends record.Key = record.Key>({
     multiple,
     value,
     onChange,
+    enableTriggers,
   } as FrameProps<K, record.Keyed<K>>;
   const isEmpty = value == null || (Array.isArray(value) && value.length === 0);
   const ctx = { preview, variant };
