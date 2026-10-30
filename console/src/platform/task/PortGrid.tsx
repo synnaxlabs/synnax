@@ -34,7 +34,7 @@ export interface PortCell {
   /** Spans two rows: a differential channel uses both ports of the pair. */
   paired?: boolean;
   state: PortState;
-  /** Only disabled channels hold the port: it shows as used, but striped. */
+  /** Only disabled channels hold the port: it shows as used, but faded. */
   disabled?: boolean;
   selected?: boolean;
   /**
@@ -131,7 +131,7 @@ export const PortGrid = ({
 
 export interface PortBadgeProps {
   state: PortState;
-  /** The channel is disabled: the badge shows striped, as the grid does. */
+  /** The channel is disabled: the badge shows faded, as the grid does. */
   disabled?: boolean;
   children: string;
 }
