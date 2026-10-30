@@ -496,8 +496,7 @@ export class Client extends query.Retriever<
             if (store.get(changed.task) == null && statusStore.get(key) == null) return;
             const optimistic = this.optimisticStatus(changed);
             statusStore.set(key, optimistic);
-            if (optimistic.variant === "loading")
-              this.armCommandDeadline(changed, optimistic);
+            this.armCommandDeadline(changed, optimistic);
           }),
         ),
     });
@@ -739,8 +738,8 @@ export class Client extends query.Retriever<
     });
   }
 
-  // A rack's outage answers each command that waits on the rack, since the Core copies
-  // an outage onto running tasks only.
+  // A waiting command shows each new problem of its rack, since the Core copies an
+  // outage onto running tasks only.
   private standInForDownRack(rackStatus: status.Status): void {
     for (const [task, pending] of this.commandDeadlines) {
       const down = this.downRackStatus(this.store.get(task)?.rack);
@@ -750,13 +749,11 @@ export class Client extends query.Retriever<
         .get(task)
         .some((s) => status.detailsOf(s)?.cmd === pending.cmd.key);
       if (answered) continue;
-      clearTimeout(pending.timer);
-      this.commandDeadlines.delete(task);
       this.cfg.statusStore.set(statusKey(task), this.optimisticStatus(pending.cmd));
     }
   }
 
-  // Only a reply or an outage of the task's rack retires the loading status sooner.
+  // Only a reply ends the wait sooner. The problem of a down rack outlasts the wait.
   private armCommandDeadline(cmd: Command, optimistic: Status): void {
     const { statusStore } = this.cfg;
     const key = statusKey(cmd.task);
@@ -765,6 +762,7 @@ export class Client extends query.Retriever<
     const timer = setTimeout(() => {
       this.commandDeadlines.delete(cmd.task);
       if (statusStore.get(key) == null) return;
+      if (this.downRackStatus(this.store.get(cmd.task)?.rack) != null) return;
       statusStore.set(
         key,
         status.create<StatusDetailsZodObject>({
