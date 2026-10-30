@@ -54,7 +54,8 @@ var _ = Describe("Service", func() {
 	})
 
 	Describe("OpenService", func() {
-		DescribeTable("Should reject a config missing a required field",
+		DescribeTable(
+			"Should reject a config missing a required field",
 			func(ctx SpecContext, field string, unset func(*ni.ServiceConfig)) {
 				cfg := ni.ServiceConfig{DB: db, Ontology: otg, Status: stat}
 				unset(&cfg)
@@ -62,7 +63,11 @@ var _ = Describe("Service", func() {
 					To(MatchError(ContainSubstring(field + ": must be non-nil")))
 			},
 			Entry("db", "db", func(c *ni.ServiceConfig) { c.DB = nil }),
-			Entry("ontology", "ontology", func(c *ni.ServiceConfig) { c.Ontology = nil }),
+			Entry(
+				"ontology",
+				"ontology",
+				func(c *ni.ServiceConfig) { c.Ontology = nil },
+			),
 			Entry("status", "status", func(c *ni.ServiceConfig) { c.Status = nil }),
 		)
 

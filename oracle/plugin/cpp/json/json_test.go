@@ -465,6 +465,26 @@ var _ = Describe("C++ JSON Plugin", func() {
 				},
 			)
 			It(
+				"Should merge a parent into a child without iterating a temporary",
+				func(ctx SpecContext) {
+					source := `
+					@cpp output "client/cpp/task"
+
+					Base struct {
+						left uint32
+					}
+
+					Child struct extends Base {
+						right uint32
+					}
+				`
+					resp := MustGenerate(ctx, source, "task", loader, jsonPlugin)
+
+					ExpectContent(resp, "json.gen.h").
+						ToContain(`j.update(Base::to_json());`)
+				},
+			)
+			It(
 				"Should assign a map of primitives directly",
 				func(ctx SpecContext) {
 					source := `
@@ -1014,6 +1034,59 @@ var _ = Describe("C++ JSON Plugin", func() {
 						)
 				},
 			)
+		})
+
+		Context("parent omitted in C++", func() {
+			It("Should serialize an inline variant's inherited fields", func(
+				ctx SpecContext,
+			) {
+				source := `
+					@go output "core/pkg/service/auth"
+					@cpp output "client/cpp/auth"
+
+					Base struct {
+						port string
+					}
+
+					Record struct {
+						key  uint32
+						name string
+						@cpp omit
+					}
+
+					Chan union on type extends Base {
+						ai extends Record {
+							rate float64
+						}
+					}
+				`
+				resp := MustGenerate(ctx, source, "auth", loader, jsonPlugin)
+				ExpectContent(resp, "auth/json.gen.h").
+					ToContain(`"key"`, `"name"`, `"rate"`).
+					ToNotContain("Record")
+			})
+
+			It("Should serialize the inherited fields", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/auth"
+					@cpp output "client/cpp/auth"
+
+					Record struct {
+						key    uint32
+						name   string
+						secret string
+						@cpp omit
+					}
+
+					Shape struct extends Record {
+						-secret
+					}
+				`
+				resp := MustGenerate(ctx, source, "auth", loader, jsonPlugin)
+				ExpectContent(resp, "auth/json.gen.h").
+					ToContain(`"key"`, `"name"`).
+					ToNotContain("secret", "Record")
+			})
 		})
 
 		Context("package with nothing to serialize", func() {
