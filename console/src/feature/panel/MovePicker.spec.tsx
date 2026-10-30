@@ -156,7 +156,7 @@ describe("Panel.MovePicker", () => {
     const row = (await screen.findByText(destination.name)).closest(
       ".console-panel-move-picker__row",
     );
-    const icon = row?.querySelector<SVGElement>(".pluto-icon--valve");
+    const icon = row?.querySelector<SVGElement>(".lyra-icon--valve");
     expect(icon?.style.getPropertyValue("--pluto-symbol-color")).toEqual(
       "220, 19, 108",
     );

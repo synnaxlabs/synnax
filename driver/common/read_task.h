@@ -237,6 +237,7 @@ public:
 
     /// @brief stops the task.
     void stop(const bool will_reconfigure) override {
+        if (will_reconfigure) this->state.close();
         this->stop("", !will_reconfigure);
     }
 
