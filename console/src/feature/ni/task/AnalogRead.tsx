@@ -12,7 +12,7 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { errors, id, primitive, strings, unique } from "@synnaxlabs/x";
+import { errors, primitive, strings, unique } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { useByKeys } from "@/feature/ni/device/queries";
@@ -33,7 +33,6 @@ import {
   analogReadConfigZ,
   type AnalogReadSchemas,
   channelPort,
-  createAIChannel,
   deployAnalogReadConfigZ,
 } from "@/feature/ni/task/types";
 import { Device as PlatformDevice } from "@/platform/device";
@@ -134,8 +133,11 @@ const getInitialValues: Task.GetInitialValues<AnalogReadSchemas> = ({
   config,
 }) => {
   const cfg = analogReadConfigZ.parse(config ?? {});
-  if (config == null && deviceKey != null)
-    cfg.channels = [{ ...createAIChannel(), device: deviceKey, key: id.create() }];
+  if (config == null) {
+    const first = createNextAIChannel([]);
+    if (deviceKey != null) first.device = deviceKey;
+    cfg.channels = [first];
+  }
   return { name: "NI analog read task", type: ANALOG_READ_TYPE, config: cfg };
 };
 
