@@ -363,9 +363,9 @@ describe("Read", () => {
     expect(downloads.anchors[0].download).toBe("OPC UA read task_channels.csv");
     expect(new TextDecoder().decode(await downloads.blobs[0].arrayBuffer())).toBe(
       [
-        "name,node_id,field,data_type,enabled,index",
-        `"pump, inlet",${pump.nodeId},,float32,true,false`,
-        `,${speed.nodeId},Speed,float32,false,false`,
+        "name,node_name,node_id,field,data_type,enabled,index",
+        `"pump, inlet",${pump.nodeName},${pump.nodeId},,float32,true,false`,
+        `,${speed.nodeName},${speed.nodeId},Speed,float32,false,false`,
         "",
       ].join("\n"),
     );

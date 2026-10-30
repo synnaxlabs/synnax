@@ -15,7 +15,7 @@ import {
   type ScannedNode,
 } from "@/feature/opcua/task/types";
 
-const COLUMNS = ["name", "node_id", "field", "data_type", "enabled"];
+const COLUMNS = ["name", "node_name", "node_id", "field", "data_type", "enabled"];
 
 const INDEX_COLUMN = "index";
 
@@ -40,6 +40,7 @@ export const encode = (
   const rows = channels.map((ch) => {
     const row = [
       ch.name,
+      ch.nodeName,
       ch.nodeId,
       "field" in ch ? ch.field : "",
       ch.dataType,
@@ -116,7 +117,7 @@ export const decode = <C extends Channel>(
       indexed && (parseBoolean(cell(INDEX_COLUMN), INDEX_COLUMN, row) ?? false);
     const node: ScannedNode = {
       key: nodeIdentity({ nodeId, field }),
-      name: nodeName(nodeId, field),
+      name: cell("node_name") || nodeName(nodeId, field),
       nodeId,
       field,
       dataType,
