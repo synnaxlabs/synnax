@@ -29,21 +29,13 @@ const (
 	defaultTimestampTimeZone telem.TimeZone        = telem.TimeZoneLocal
 )
 
-// minTimestampPrecision and maxTimestampPrecision bound the log-level timestamp
-// precision. They mirror the @validate constraints on Log.timestamp_precision in
-// schemas/synnax/log.oracle.
-const (
-	minTimestampPrecision int32 = 0
-	maxTimestampPrecision int32 = 3
-)
+// maxTimestampPrecision bounds the log-level timestamp precision. It mirrors the
+// @validate constraint on Log.timestamp_precision in schemas/synnax/log.oracle.
+const maxTimestampPrecision uint8 = 3
 
-// minChannelPrecision and maxChannelPrecision bound a channel entry's display
-// precision. They mirror the @validate constraints on ChannelEntry.precision in
-// schemas/synnax/log.oracle.
-const (
-	minChannelPrecision int32 = 0
-	maxChannelPrecision int32 = 17
-)
+// maxChannelPrecision bounds a channel entry's display precision. It mirrors the
+// @validate constraint on ChannelEntry.precision in schemas/synnax/log.oracle.
+const maxChannelPrecision uint8 = 17
 
 // Handle replaces the document with its created state.
 func (p CreatePayload) Handle(Log) (Log, error) {
@@ -111,13 +103,11 @@ func (p SetChannelNotationPayload) Handle(state Log) (Log, error) {
 // is outside the inclusive range [0, 17], and is a no-op when no entry references the
 // channel.
 func (p SetChannelPrecisionPayload) Handle(state Log) (Log, error) {
-	if p.Precision != nil &&
-		(*p.Precision < minChannelPrecision || *p.Precision > maxChannelPrecision) {
+	if p.Precision != nil && *p.Precision > maxChannelPrecision {
 		return Log{}, errors.Wrapf(
 			validate.ErrValidation,
-			"channel precision %d out of range [%d, %d]",
+			"channel precision %d out of range [0, %d]",
 			*p.Precision,
-			minChannelPrecision,
 			maxChannelPrecision,
 		)
 	}
@@ -172,13 +162,11 @@ func (p SwapChannelPayload) Handle(state Log) (Log, error) {
 // Handle sets the log-level timestamp precision. It returns validate.ErrValidation
 // when the precision is outside the inclusive range [0, 3].
 func (p SetTimestampPrecisionPayload) Handle(state Log) (Log, error) {
-	if p.TimestampPrecision < minTimestampPrecision ||
-		p.TimestampPrecision > maxTimestampPrecision {
+	if p.TimestampPrecision > maxTimestampPrecision {
 		return Log{}, errors.Wrapf(
 			validate.ErrValidation,
-			"timestamp precision %d out of range [%d, %d]",
+			"timestamp precision %d out of range [0, %d]",
 			p.TimestampPrecision,
-			minTimestampPrecision,
 			maxTimestampPrecision,
 		)
 	}

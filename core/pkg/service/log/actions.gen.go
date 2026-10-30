@@ -89,7 +89,7 @@ type SetChannelNotationPayload struct {
 // no entry references the channel.
 type SetChannelPrecisionPayload struct {
 	Channel   channel.Key `json:"channel" msgpack:"channel"`
-	Precision *int32      `json:"precision,omitzero" msgpack:"precision,omitempty"`
+	Precision *uint8      `json:"precision,omitzero" msgpack:"precision,omitempty"`
 }
 
 // SetChannelAliasPayload sets the human-readable alias of the entry identified by
@@ -130,7 +130,7 @@ type SwapChannelPayload struct {
 
 // SetTimestampPrecisionPayload sets the precision of displayed timestamps (0-3).
 type SetTimestampPrecisionPayload struct {
-	TimestampPrecision int32 `json:"timestamp_precision" msgpack:"timestamp_precision"`
+	TimestampPrecision uint8 `json:"timestamp_precision" msgpack:"timestamp_precision"`
 }
 
 // SetChannelNamesHiddenPayload sets whether channel names are hidden.

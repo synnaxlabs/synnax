@@ -30,6 +30,7 @@ import { type ReactElement } from "react";
 import { CSS } from "@/platform/css";
 
 const PRECISION_BOUNDS = { lower: 0, upper: 17 };
+const ALIAS_MAX_LENGTH = 64;
 
 const showsNumericFields = (dt: DataType | undefined): boolean =>
   dt != null && dt.isNumeric && !dt.equals(DataType.TIMESTAMP);
@@ -111,6 +112,7 @@ const ChannelRow = ({
           onChange={handleAliasChange}
           disabled={disabled}
           placeholder={chName ?? "Alias"}
+          maxLength={ALIAS_MAX_LENGTH}
           variant="shadow"
           shrink={false}
           startContent={<Icon.Rename />}
