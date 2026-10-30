@@ -40,11 +40,7 @@ const Content = (): ReactElement => {
               </Toolbar.Action>
             )}
             {canCreate && (
-              <Toolbar.Action
-                tooltip="Connect device"
-                onClick={() => openConnect()}
-                variant="filled"
-              >
+              <Toolbar.Action tooltip="Connect device" onClick={() => openConnect()}>
                 <Icon.Add />
               </Toolbar.Action>
             )}
