@@ -19,8 +19,7 @@ import {
 import { allocSuite } from "@synnaxlabs/x/bench";
 import { afterAll, test } from "vitest";
 
-import { ChannelData, type ChannelDataProps, type Client } from "@/telem/aether/remote";
-import { type ValueProps } from "@/telem/aether/telem";
+import { telem } from "@/telem/aether";
 import { telemTest } from "@/telem/aether/testutil";
 
 // Each read is one frame of a line 1000 pixels wide, with every tile it draws cached.
@@ -35,33 +34,36 @@ const WIDTH = 1000;
 const closers: (() => Promise<void>)[] = [];
 afterAll(async () => await Promise.all(closers.map(async (close) => await close())));
 
-const createClient = (): { core: SyntheticCore; client: Client } => {
+const createClient = (): { core: SyntheticCore; client: telem.Client } => {
   const core = new SyntheticCore({ rate: 1000, start: START, now: NOW });
   const client = telemTest.createClient(core);
   closers.push(async () => await client.feed.close());
   return { core, client };
 };
 
-const viewOf = (tr: TimeRange): ValueProps => ({
+const viewOf = (tr: TimeRange): telem.ValueProps => ({
   bounds: tr.numericBounds,
   points: WIDTH,
 });
 
-const liveView = (core: SyntheticCore): ValueProps =>
+const liveView = (core: SyntheticCore): telem.ValueProps =>
   viewOf(new TimeRange(core.now().sub(LIVE_SPAN), core.now()));
 
 const createSource = async (
-  client: Client,
-  props: ChannelDataProps,
-  view: ValueProps,
-): Promise<ChannelData> => {
-  const source = new ChannelData(client, props, undefined, client.now);
+  client: telem.Client,
+  props: telem.ChannelDataProps,
+  view: telem.ValueProps,
+): Promise<telem.ChannelData> => {
+  const source = new telem.ChannelData(client, props, undefined, client.now);
   await settle(source, view);
   return source;
 };
 
 // settle reads the view until the source holds everything the view draws.
-const settle = async (source: ChannelData, view: ValueProps): Promise<void> => {
+const settle = async (
+  source: telem.ChannelData,
+  view: telem.ValueProps,
+): Promise<void> => {
   const deadline = TimeStamp.now().add(TimeSpan.seconds(30));
   while (TimeStamp.now().before(deadline)) {
     if (source.value(view).status.variant !== "loading") return;
@@ -74,7 +76,7 @@ const settle = async (source: ChannelData, view: ValueProps): Promise<void> => {
 const yieldTask = async (): Promise<void> =>
   await new Promise((resolve) => setImmediate(resolve));
 
-const staticRead = async (view: ValueProps): Promise<() => void> => {
+const staticRead = async (view: telem.ValueProps): Promise<() => void> => {
   const { core, client } = createClient();
   const source = await createSource(
     client,
@@ -86,7 +88,7 @@ const staticRead = async (view: ValueProps): Promise<() => void> => {
 
 const liveRead = async (): Promise<{
   core: SyntheticCore;
-  source: ChannelData;
+  source: telem.ChannelData;
 }> => {
   const { core, client } = createClient();
   const source = await createSource(
@@ -123,7 +125,7 @@ const pan = async (): Promise<() => Promise<void>> => {
   const step = span / 60n;
   const steps = Number(TimeSpan.days(1).valueOf() / step);
   let i = 0;
-  const next = (): ValueProps => {
+  const next = (): telem.ValueProps => {
     const phase = i++ % (2 * steps);
     const offset = BigInt(phase < steps ? phase : 2 * steps - phase) * step;
     const start = HOUR.start.add(offset);

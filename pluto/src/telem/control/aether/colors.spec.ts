@@ -13,7 +13,7 @@ import { theme } from "@synnaxlabs/lyra/theme";
 import { color, DataType, id, TimeStamp } from "@synnaxlabs/x";
 import { afterEach, assert, describe, expect, it, vi } from "vitest";
 
-import { Colors } from "@/telem/control/aether/colors";
+import { control } from "@/telem/control/aether";
 import { renderAether } from "@/testutil/internal";
 
 const client = createTestClient();
@@ -66,8 +66,8 @@ const hold = async (ch: channel.Channel): Promise<Holder> => {
 };
 
 /** Mounts Colors against the test cluster and waits for its change stream. */
-const setup = async (channels: channel.Channel[]): Promise<Colors> => {
-  const h = renderAether(Colors, {
+const setup = async (channels: channel.Channel[]): Promise<control.Colors> => {
+  const h = renderAether(control.Colors, {
     state: {},
     synnax: { props: TEST_CLIENT_PARAMS },
     // Colors reads no telemetry, and the telem provider opens a frame feed this spec
@@ -87,7 +87,10 @@ const setup = async (channels: channel.Channel[]): Promise<Colors> => {
 };
 
 /** Waits until the subject holds a color, and returns it. */
-const assigned = async (colors: Colors, subject: string): Promise<color.Color> => {
+const assigned = async (
+  colors: control.Colors,
+  subject: string,
+): Promise<color.Color> => {
   await expect
     .poll(() => color.equals(colors.get(subject), DEFAULT_COLOR), POLL)
     .toBe(false);

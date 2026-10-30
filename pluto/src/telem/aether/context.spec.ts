@@ -10,32 +10,27 @@
 import { TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { Context, MemoizedSource } from "@/telem/aether/context";
-import { createFactory } from "@/telem/aether/factory";
-import { fixedNumber } from "@/telem/aether/static";
-import {
-  LOADING_STATUS,
-  type Result,
-  type Source,
-  success,
-  type ValueProps,
-} from "@/telem/aether/telem";
+import { telem } from "@/telem/aether";
 
 describe("MemoizedSource", () => {
-  const provider = (): Context => new Context(createFactory());
+  const provider = (): telem.Context => new telem.Context(telem.createFactory());
 
   describe("value", () => {
     it("should forward the value props to the wrapped source", () => {
-      const received: (ValueProps | undefined)[] = [];
-      const wrapped: Source<number> = {
+      const received: (telem.ValueProps | undefined)[] = [];
+      const wrapped: telem.Source<number> = {
         value: (props) => {
           received.push(props);
-          return success(1);
+          return telem.success(1);
         },
         onChange: () => () => {},
       };
-      const source = new MemoizedSource(wrapped, provider(), fixedNumber(1));
-      const props: ValueProps = {
+      const source = new telem.MemoizedSource(
+        wrapped,
+        provider(),
+        telem.fixedNumber(1),
+      );
+      const props: telem.ValueProps = {
         bounds: { lower: 1, upper: 2 },
         points: 100,
       };
@@ -45,14 +40,21 @@ describe("MemoizedSource", () => {
     });
 
     it("should return the wrapped source's result", () => {
-      const result: Result<number> = {
+      const result: telem.Result<number> = {
         data: 1,
-        status: LOADING_STATUS,
+        status: telem.LOADING_STATUS,
         aggregation: "average",
         time: TimeStamp.seconds(5),
       };
-      const wrapped: Source<number> = { value: () => result, onChange: () => () => {} };
-      const source = new MemoizedSource(wrapped, provider(), fixedNumber(1));
+      const wrapped: telem.Source<number> = {
+        value: () => result,
+        onChange: () => () => {},
+      };
+      const source = new telem.MemoizedSource(
+        wrapped,
+        provider(),
+        telem.fixedNumber(1),
+      );
       expect(source.value()).toBe(result);
     });
   });
