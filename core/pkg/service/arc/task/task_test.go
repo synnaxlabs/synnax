@@ -914,6 +914,15 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(stat.Details.Running).To(BeFalse())
 			},
 		)
+
+		It("Should fail to start when its context is canceled", func(ctx SpecContext) {
+			ch := createVirtualCh(ctx, "start_canceled", telem.Float32T)
+			t := newTask(ctx, newGraphFactory(simpleGraph(ch.Key())))
+			cancelCtx, cancel := context.WithCancel(ctx)
+			cancel()
+			Expect(t.Exec(cancelCtx, task.Command{Type: "start"})).
+				To(MatchError(context.Canceled))
+		})
 	})
 
 	Describe("Alarm Flow", func() {

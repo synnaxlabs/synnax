@@ -141,7 +141,9 @@ const passwordSetReqZ = z.object({
   subject: ontology.idZ.optional(),
   password: z.string(),
   currentPassword: z.string().optional(),
+  cookie: z.boolean().optional(),
 });
+const passwordSetResZ = z.object({ token: z.string(), session: sessionZ.optional() });
 
 const passwordZ = z.object({
   /** subject is the user the password logs in as. */
@@ -341,7 +343,7 @@ export interface Observer {
    * undefined when setCredentials drops the user.
    */
   onUser?: (user: user.User | undefined) => void;
-  /** Fires after every successful login. */
+  /** Fires after every successful login, and after setPassword opens a new session. */
   onSuccess?: () => void;
   /** Fires on a definitive credential rejection, never on token self-heal. */
   onFailure?: (error: Error) => void;
@@ -582,16 +584,27 @@ export class Client {
 
   /**
    * Sets the caller's password, or another user's when the caller may update that
-   * user, and ends every other session the old password opened.
+   * user, and ends every session the old password opened. When that ends the client's
+   * own session, the client switches to the session the Core opens in its place.
    * @throws {AuthError} when the caller sets its own password with a wrong current one.
    * @throws {AccessDeniedError} when the caller may not update the user.
    * @throws {ValidationError} when the password is empty, or the caller sets its own
    * without the current one.
    */
   async setPassword(params: SetPasswordParams): Promise<void> {
-    await this.client.send(PASSWORD_SET_ENDPOINT, params, passwordSetReqZ, emptyResZ);
+    const generation = this.generation;
+    const res = await this.client.send(
+      PASSWORD_SET_ENDPOINT,
+      { ...params, cookie: this.cookie || undefined },
+      passwordSetReqZ,
+      passwordSetResZ,
+    );
     const own = params.subject == null || params.subject.key === this.subject?.key;
     if (own && this.credentials != null) this.credentials.password = params.password;
+    if (res.session == null || generation !== this.generation) return;
+    this.authState = { authenticated: true, token: res.token, session: res.session };
+    if (this.resumeToken != null) this.resumeToken = res.token;
+    this.observer.onSuccess?.();
   }
 
   /**

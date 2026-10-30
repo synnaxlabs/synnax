@@ -9,12 +9,12 @@
 
 import "schemas/synnax/versions/ontology/v0"
 
-Key = uuid {
+LinkKey = uuid {
     @doc value "is a unique identifier for a provider link."
 }
 
 Link struct {
-    key      Key = create {
+    key      LinkKey = create {
         @doc value "is the unique identifier for this link."
         @key
     }
