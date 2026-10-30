@@ -483,11 +483,11 @@ class InlineBodies(ArcCase):
 
     def setup(self) -> None:
         for channel in CREATE_CHANNELS:
-            create_virtual_channel(self.client, channel, sy.DataType.UINT8)
+            create_virtual_channel(self.client, channel, data_type=sy.DataType.UINT8)
         for channel in FLOAT_INPUTS:
-            create_virtual_channel(self.client, channel, sy.DataType.FLOAT32)
+            create_virtual_channel(self.client, channel, data_type=sy.DataType.FLOAT32)
         for channel in BOOL_INPUTS:
-            create_virtual_channel(self.client, channel, sy.DataType.BOOLEAN)
+            create_virtual_channel(self.client, channel, data_type=sy.DataType.BOOLEAN)
         super().setup()
 
     def verify_sequence_execution(self) -> None:

@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/freighter"
 	fgrpc "github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api/framer"
+	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -210,7 +211,7 @@ var _ = Describe("gRPC Framer Transport", func() {
 				&grpcframer.WriterRequest{
 					Command: int32(framer.WriterCommandOpen),
 					Config: &grpcframer.WriterConfig{
-						Keys: []uint32{uint32(channel.NewKey(1, 999999))},
+						Keys: []uint32{uint32(distchannel.NewKey(1, 999999))},
 					},
 				},
 			)
