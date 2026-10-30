@@ -1,0 +1,133 @@
+---
+title: "Your first run"
+description:
+  "Create channels, write data to them with Arc, plot the data, and record a range."
+layout: "@/layouts/Reference.astro"
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Icon } from "@synnaxlabs/lyra/icon";
+import { Note } from "@/components/note";
+import { Video } from "@/components/media/Media";
+import Step from "@/components/text/Step.astro";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+This tutorial shows the main parts of Synnax without hardware. You create two channels,
+write a changing value to them with an Arc automation, plot the value, and record a
+range. It takes about ten minutes.
+
+You need Synnax Desktop, or the Synnax Console connected to a Synnax Core. To choose
+one, see [Synnax editions](/reference/get-started/editions). Use any
+[project](/reference/visualize/projects). To start with an empty one, run the "Create
+project" command.
+
+Most steps run a command from the
+[command palette](/reference/get-started/ui-overview#search-and-command-palette). To
+open it, press **Ctrl+Shift+P** (**Cmd+Shift+P** on macOS).
+
+<Video id="get-started/first-run" />
+
+<Divider.Divider x />
+
+## <Step step={1} level="h2">Create the channels</Step>
+
+A [channel](/reference/channels) stores one stream of time-ordered values. Each value
+has a timestamp, which Synnax keeps in an index channel. You create an index channel
+first, then a data channel that uses it.
+
+1. Run the "Create channel" command.
+2. Enter the name `ramp_time`, and turn on **Is index**.
+3. Select **Create**.
+4. Run the "Create channel" command again.
+5. Enter the name `ramp`. Set **Data type** to `float64` and **Index** to `ramp_time`.
+6. Select **Create**.
+
+<Divider.Divider x />
+
+## <Step step={2} level="h2">Write data with Arc</Step>
+
+[Arc](/reference/control/arc) is the Synnax language for automations. The automation
+below adds one to a value every 100 milliseconds and writes it to `ramp`. When the value
+gets to 100, it goes back to 0.
+
+1. Run the "Create Arc automation" command.
+2. Enter the name `Ramp`, select **Text** as the editor mode, and select **Create**.
+3. Copy this program into the editor:
+
+   ```arc channels="ramp"
+   import time
+
+   func step() {
+       value f64 $= 0
+       value += 1
+       if value > 100 {
+           value = 0
+       }
+       ramp = value
+   }
+
+   time.interval(period=100ms) -> step()
+   ```
+
+   - `time.interval(period=100ms)` runs `step` ten times each second. See
+     [time](/reference/control/arc/standard-library/time).
+   - `value f64 $= 0` makes a
+     [stateful variable](/reference/control/arc/reference/variables#stateful). It keeps
+     its value from one run of `step` to the next.
+   - `ramp = value` writes the value to the `ramp` channel. Synnax writes the timestamp
+     to `ramp_time`.
+
+4. In the bar at the bottom of the editor, select **Node 1** from the **Driver** list.
+   This entry runs the automation inside the Core.
+5. Select the start <Icon.Play /> button.
+
+The automation is now running. To stop it, select the stop <Icon.Stop /> button.
+
+<Divider.Divider x />
+
+## <Step step={3} level="h2">Plot the data</Step>
+
+1. Run the "Create line plot" command.
+2. Select the component <Icon.Component /> button in the bottom-left corner, or press
+   **V**, to open the component toolbar.
+3. In **Y1**, select `ramp`.
+4. Check that **Ranges** shows **Rolling 30s**. If it shows a different range, remove
+   that range and select **Rolling 30s**.
+
+The plot shows a line that climbs from 0 to 100 every ten seconds. For more about plots,
+see [line plots](/reference/visualize/line-plots).
+
+<Divider.Divider x />
+
+## <Step step={4} level="h2">Record a range</Step>
+
+A [range](/reference/ranges) marks a span of time, such as a test. You use it to find
+and compare data later.
+
+1. Hold **Alt** (**Option** on macOS) and drag a box across part of the plot.
+2. Right-click the box and select **Create range from selection**.
+3. Enter the name `First run`, and select **Save to Core**.
+
+The range is now in the ranges toolbar. To see its data again, right-click the range in
+the toolbar and select **Add to new plot**. Then add `ramp` to **Y1** of the new plot.
+
+<Note.Note variant="info">
+  `ramp` stores its data, so you can see the range after you stop the automation. A
+  virtual channel stores no data, so a range on it would show nothing.
+</Note.Note>
+
+<Divider.Divider x />
+
+## Next steps
+
+- [Channels](/reference/channels) -> learn about data types, index channels, and
+  calculated channels.
+- [Hardware](/reference/hardware) -> connect a LabJack, NI, Modbus, OPC UA, or other
+  device.
+- [Visualize](/reference/visualize/line-plots) -> build line plots, schematics, tables,
+  and logs.
+- [Ranges](/reference/ranges) -> add metadata and labels to ranges, and export their
+  data.
+- [Control](/reference/control) -> operate hardware by hand, or automate it with Arc.
+- [Alarms](/reference/alarms) -> watch your data with statuses and redlines.

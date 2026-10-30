@@ -60,18 +60,15 @@ type WriterConfig struct {
 
 var (
 	ErrWriterClosed     = resource.NewClosedError("domain.writer")
-	DefaultWriterConfig = WriterConfig{
+	defaultWriterConfig = WriterConfig{
 		EnableAutoCommit:         new(true),
 		AutoIndexPersistInterval: 1 * telem.Second,
 	}
 )
 
-const AlwaysIndexPersistOnAutoCommit telem.TimeSpan = -1
-
-// Domain returns the Domain occupied by the theoretical domain formed by the
-// configuration. If End is not set, assumes the Domain has a zero span starting at
-// Start.
-func (w WriterConfig) Domain() telem.TimeRange {
+// domain returns the time range of the domain the configuration forms. If End is not
+// set, it assumes a zero span starting at Start.
+func (w WriterConfig) domain() telem.TimeRange {
 	if w.End.IsZero() {
 		return w.Start.SpanRange(0)
 	}
@@ -98,23 +95,6 @@ func (w WriterConfig) Override(other WriterConfig) WriterConfig {
 	)
 	w.OnRollover = override.Nil(w.OnRollover, other.OnRollover)
 	return w
-}
-
-// Write writes the given data to the DB new telemetry domain occupying the provided
-// time range. If the time domain overlaps with any other domains in the DB, Write will
-// return an error.
-func Write(ctx context.Context, db *DB, tr telem.TimeRange, data []byte) (err error) {
-	w, err := db.OpenWriter(ctx, WriterConfig{Start: tr.Start, End: tr.End})
-	if err != nil {
-		return err
-	}
-	defer func() {
-		err = errors.Combine(err, w.Close())
-	}()
-	if _, err = w.Write(data); err != nil {
-		return err
-	}
-	return w.Commit(ctx, tr.End)
 }
 
 // Writer is used to write a telemetry domain to the DB. A Writer is opened using
@@ -172,13 +152,13 @@ func (db *DB) OpenWriter(ctx context.Context, cfg WriterConfig) (*Writer, error)
 		return nil, ErrDBClosed
 	}
 
-	cfg, err := config.New(DefaultWriterConfig, cfg)
+	cfg, err := config.New(defaultWriterConfig, cfg)
 	if err != nil {
 		return nil, err
 	}
-	if db.idx.overlap(cfg.Domain()) {
+	if db.idx.overlap(cfg.domain()) {
 		return nil, errors.Wrap(
-			NewRangeWriteConflictError(cfg.Domain(), db.idx.timeRange()),
+			NewRangeWriteConflictError(cfg.domain(), db.idx.timeRange()),
 			"cannot open writer because there is already data in the writer's time range",
 		)
 	}

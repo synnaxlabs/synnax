@@ -17,7 +17,7 @@ import (
 	fgrpc "github.com/synnaxlabs/freighter/grpc"
 	. "github.com/synnaxlabs/freighter/grpc/testutil"
 	v1 "github.com/synnaxlabs/freighter/grpc/v1"
-	"github.com/synnaxlabs/freighter/test"
+	"github.com/synnaxlabs/freighter/testutil"
 	"github.com/synnaxlabs/x/address"
 	. "github.com/synnaxlabs/x/testutil"
 	"google.golang.org/grpc"
@@ -25,8 +25,8 @@ import (
 
 var _ = Describe("Unary", Ordered, Serial, func() {
 	var (
-		server freighter.UnaryServer[test.Request, test.Response]
-		client freighter.UnaryClient[test.Request, test.Response]
+		server freighter.UnaryServer[testutil.Request, testutil.Response]
+		client freighter.UnaryClient[testutil.Request, testutil.Response]
 		addr   address.Address
 	)
 
@@ -34,11 +34,11 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 		ShouldNotLeakGoroutines()
 		addr = StartServer(func(reg grpc.ServiceRegistrar, pool *fgrpc.Pool) {
 			uServer := &fgrpc.UnaryServer[
-				test.Request, *v1.Request,
-				test.Response, *v1.Response,
+				testutil.Request, *v1.Request,
+				testutil.Response, *v1.Response,
 			]{
-				RequestTranslator:  requestTranslator{},
-				ResponseTranslator: responseTranslator{},
+				RequestTranslator:  requestBackwardTranslator{},
+				ResponseTranslator: responseForwardTranslator{},
 				ServiceDesc:        &v1.TestUnaryService_ServiceDesc,
 				Internal:           true,
 			}
@@ -46,8 +46,8 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 			server = uServer
 
 			client = &fgrpc.UnaryClient[
-				test.Request, *v1.Request,
-				test.Response, *v1.Response,
+				testutil.Request, *v1.Request,
+				testutil.Response, *v1.Response,
 			]{
 				RequestTranslator:  requestTranslator{},
 				ResponseTranslator: responseTranslator{},
@@ -64,9 +64,9 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 		})
 	})
 
-	test.UnarySuite(func() (
-		freighter.UnaryServer[test.Request, test.Response],
-		freighter.UnaryClient[test.Request, test.Response],
+	testutil.UnarySuite(func() (
+		freighter.UnaryServer[testutil.Request, testutil.Response],
+		freighter.UnaryClient[testutil.Request, testutil.Response],
 		address.Address,
 	) {
 		return server, client, addr

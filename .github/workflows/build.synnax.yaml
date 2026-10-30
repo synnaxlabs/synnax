@@ -160,7 +160,12 @@ on:
         default: stable
 
 env:
+  # The proxy drops streams at times, so a failed fetch falls back to the source.
+  GOPROXY: https://proxy.golang.org|direct
   RELEASE_TAG: ${{ inputs.release_tag }}
+
+permissions:
+  contents: read
 
 jobs:
   setup:
@@ -277,7 +282,8 @@ jobs:
     name: Build (${{ matrix.os }})
     needs: setup
     if: needs.setup.outputs.matrix != '[]'
-    timeout-minutes: 75
+    # Hosted macOS builds the Driver with no Bazel cache. One build ran past 75 minutes.
+    timeout-minutes: ${{ matrix.os == 'macos-latest' && 120 || 75 }}
     permissions:
       actions: read
       contents: write
@@ -777,6 +783,11 @@ jobs:
           path: ${{ steps.go-toolchain.outputs.path }}
           key: ${{ steps.go-toolchain.outputs.key }}
 
+      - name: Download the Go modules
+        if: inputs.core && env.CORE_REF_RUN_ID == ''
+        shell: bash
+        run: .github/scripts/go_mod_download.sh core
+
       - name: Build Core
         if: inputs.core && env.CORE_REF_RUN_ID == ''
         working-directory: core
@@ -1121,6 +1132,9 @@ jobs:
   build-console-tauri:
     name: Build Console app
     needs: [setup]
+    # build.tauri.yaml uploads the bundles to the draft release.
+    permissions:
+      contents: write
     if: inputs.console_tauri && needs.setup.outputs.console_tauri_matrix != '[]'
     uses: ./.github/workflows/build.tauri.yaml
     with:
@@ -1136,6 +1150,9 @@ jobs:
   build-desktop-tauri:
     name: Build Synnax Desktop
     needs: [setup, build, republish]
+    # build.tauri.yaml uploads the bundles to the draft release.
+    permissions:
+      contents: write
     if: inputs.desktop && needs.setup.outputs.console_tauri_matrix != '[]'
     uses: ./.github/workflows/build.tauri.yaml
     with:

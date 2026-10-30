@@ -23,13 +23,11 @@ class ID(BaseModel):
     def __init__(
         self,
         key: CrudeID | None = None,
+        *,
         type: ResourceType | None = None,
     ):
         if isinstance(key, ID):
             super().__init__(key=key.key, type=key.type)
-        elif isinstance(key, tuple):
-            key, type = key
-            super().__init__(key=key, type=type)
         elif type is None and key is not None:
             type_str, key = key.split(":")
             # cast satisfies mypy; pydantic validates the value against
@@ -47,7 +45,7 @@ ROOT_ID = ID(key="root", type="builtin")
 CrudeID = str | ID
 
 
-class Relationship(BaseModel):
+class _Relationship(BaseModel):
     from_: ID
     type: str
     to: ID

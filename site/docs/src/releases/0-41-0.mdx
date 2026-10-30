@@ -2,11 +2,12 @@
 title: "Version 0.41 release notes"
 ---
 
-import { Image, Video } from "@/components/media/Media";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Text } from "@synnaxlabs/lyra/text";
+import { Hero } from "@/components/hero";
 import Release from "@/components/releases/Release.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
+import { Keys } from "@/components/keys/Keys";
 export const components = mdxOverrides;
 
 <Release
@@ -15,7 +16,14 @@ export const components = mdxOverrides;
     title="Refreshed Console UI"
 >
 
-<Image id="releases/0-41-0/thumbnail" themed={false} />
+<Hero.Hero
+  image="releases/0-41-0/thumbnail"
+  extension="webp"
+  themed={false}
+  layout="bleed"
+  tone="soft"
+  palette="green-blue"
+/>
 
 Synnax v0.41.0 introduces the first major overhaul fo the Console UI since it's initial
 release. In the new devices toolbar, we've added real-time information on device health.
@@ -68,8 +76,9 @@ stopping a task. In order to prevent layout shift, we've made it possible to hov
 overlay the toolbar without causing a layout shift in the mosaic.
 
 We've also added a series of hotkeys to make interacting with the toolbars even more
-efficient. For example, typing `C` will trigger the hover mode for the channels toolbar,
-and double pressing `C` will open toolbar permanently.
+efficient. For example, typing <Keys trigger={["C"]} /> will trigger the hover mode for
+the channels toolbar, and double pressing <Keys trigger={["C"]} /> will open toolbar
+permanently.
 
 <Divider.Divider x />
 

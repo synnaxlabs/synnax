@@ -29,7 +29,7 @@ def until(condition: Callable[[], bool]) -> bool:
 class Worker:
     """A thread that loops until released and records a Timeout it receives."""
 
-    def __init__(self, survive_timeout: bool = False) -> None:
+    def __init__(self, *, survive_timeout: bool = False) -> None:
         self.released = threading.Event()
         self.timed_out = threading.Event()
         self._survive_timeout = survive_timeout
@@ -52,7 +52,7 @@ class TestWatchdog:
         """Should raise Timeout in a thread that runs past its deadline."""
         watchdog = Watchdog(grace=WAIT)
         worker = Worker()
-        watchdog.watch(worker.thread, 0.05)
+        watchdog.watch(worker.thread, timeout=0.05)
         assert until(lambda: worker.thread in watchdog.check())
         worker.thread.join(WAIT)
         assert worker.timed_out.is_set()
@@ -62,7 +62,7 @@ class TestWatchdog:
         """Should leave a thread alone before its deadline."""
         watchdog = Watchdog(grace=WAIT)
         worker = Worker()
-        watchdog.watch(worker.thread, WAIT * 10)
+        watchdog.watch(worker.thread, timeout=WAIT * 10)
         assert watchdog.check() == []
         worker.released.set()
         worker.thread.join(WAIT)
@@ -72,7 +72,7 @@ class TestWatchdog:
         """Should not interrupt a thread it no longer watches."""
         watchdog = Watchdog(grace=WAIT)
         worker = Worker()
-        watchdog.watch(worker.thread, 0)
+        watchdog.watch(worker.thread, timeout=0)
         watchdog.unwatch(worker.thread)
         assert watchdog.check() == []
         worker.released.set()
@@ -84,7 +84,7 @@ class TestWatchdog:
         abandoned."""
         watchdog = Watchdog(grace=0.05)
         worker = Worker(survive_timeout=True)
-        watchdog.watch(worker.thread, 0)
+        watchdog.watch(worker.thread, timeout=0)
         assert worker.thread in watchdog.check()
         assert not watchdog.abandoned(worker.thread)
         assert until(lambda: watchdog.abandoned(worker.thread))
@@ -97,7 +97,7 @@ class TestWatchdog:
         """Should not interrupt a disarmed thread, but still abandon it."""
         watchdog = Watchdog(grace=0.05)
         worker = Worker()
-        watchdog.watch(worker.thread, 0)
+        watchdog.watch(worker.thread, timeout=0)
         watchdog.disarm(worker.thread)
         assert watchdog.check() == []
         assert until(lambda: watchdog.abandoned(worker.thread))

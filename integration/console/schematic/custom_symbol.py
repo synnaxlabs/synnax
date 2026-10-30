@@ -39,7 +39,7 @@ class CustomSymbol(Symbol):
             command_channel: Optional command channel name for actuator control
                            (also used as state channel)
         """
-        super().__init__(label, symbol_type=symbol_name, rotatable=False)
+        super().__init__(label=label, symbol_type=symbol_name, rotatable=False)
         self._symbol_group = group_name
         self.command_channel = command_channel
 
@@ -54,6 +54,7 @@ class CustomSymbol(Symbol):
 
     def set_properties(
         self,
+        *,
         channel_name: str | None = None,
         **kwargs: str,
     ) -> dict[str, str]:

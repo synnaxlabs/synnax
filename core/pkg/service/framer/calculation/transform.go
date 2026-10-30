@@ -22,8 +22,10 @@ import (
 type transform struct {
 	confluence.AbstractLinear[framer.StreamerResponse, framer.WriterRequest]
 	streamerRequests confluence.Inlet[framer.StreamerRequest]
-	onStatusChange   OnStatusChange
+	report           calculator.Report
 	calculators      calculator.Group
+	// opened closes on the source streamer's open ack, the first response.
+	opened chan struct{}
 }
 
 var _ confluence.Segment[framer.StreamerResponse, framer.WriterRequest] = (*transform)(
@@ -44,10 +46,12 @@ func (g *transform) Flow(sCtx signal.Context, opts ...confluence.Option) {
 				if !ok {
 					return nil
 				}
-				output, changed, statuses := g.calculators.Next(ctx, req.Frame)
-				if len(statuses) > 0 {
-					g.onStatusChange(ctx, statuses...)
+				if g.opened != nil {
+					close(g.opened)
+					g.opened = nil
+					continue
 				}
+				output, changed := g.calculators.Next(ctx, req.Frame, g.report)
 				if !changed {
 					continue
 				}

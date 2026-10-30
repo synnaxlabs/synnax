@@ -57,7 +57,7 @@ const NoToolbarContent = (): ReactElement => {
     <Toolbar.Content>
       <Toolbar.Header>
         <Toolbar.Title>
-          <Name allowRename={false} />
+          <Name allowRename={false} level="h5" weight={500} color={10} />
         </Toolbar.Title>
       </Toolbar.Header>
       <Empty.Action x message="No properties to configure" />

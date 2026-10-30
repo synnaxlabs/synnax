@@ -1,0 +1,70 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { Text } from "@synnaxlabs/lyra/text";
+
+interface Props {
+    href: string;
+    title: string;
+    description: string;
+}
+
+const { href, title, description } = Astro.props;
+---
+
+<a href={href} class="docs-card">
+    <span class="docs-card__icon">
+        <slot name="icon" />
+    </span>
+    <Text.Text level="p" weight={550} color={11}>
+        {title}
+    </Text.Text>
+    <Text.Text level="small" color={8} weight={400}>
+        {description}
+    </Text.Text>
+</a>
+
+<style is:global>
+    article a.docs-card {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        padding: 3rem 3.5rem 3.5rem;
+        border: var(--pluto-border);
+        border-radius: 1rem;
+        background: var(--pluto-gray-l0);
+        text-decoration: none;
+        transition:
+            border-color 0.15s,
+            background 0.15s;
+
+        &:hover {
+            border-color: var(--pluto-gray-l6);
+            background: var(--pluto-gray-l1);
+            text-decoration: none;
+
+            .docs-card__icon {
+                color: var(--pluto-primary-z);
+            }
+        }
+
+        .docs-card__icon {
+            display: flex;
+            margin-bottom: 1rem;
+            color: var(--pluto-gray-l8);
+            transition: color 0.15s;
+
+            & .lyra-icon {
+                width: 4rem;
+                height: 4rem;
+            }
+        }
+    }
+</style>

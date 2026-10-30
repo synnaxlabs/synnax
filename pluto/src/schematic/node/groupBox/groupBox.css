@@ -36,7 +36,7 @@
     cursor: pointer;
 }
 
-.pluto-diagram.pluto--editable {
+.pluto-diagram.lyra--editable {
     .react-flow__node.selected .pluto-group-box__lock {
         display: flex;
     }

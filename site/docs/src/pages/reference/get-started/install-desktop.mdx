@@ -1,0 +1,115 @@
+---
+title: "Install Synnax Desktop"
+description: "Download and install Synnax Desktop on macOS or Windows."
+layout: "@/layouts/Reference.astro"
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Note } from "@/components/note";
+import { Platform } from "@/components/platform";
+import { Desktop } from "@/components/desktop";
+import { Image } from "@/components/media/Media";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+Synnax Desktop is one free app that connects to your hardware, records and shows its
+data, and controls it. It includes the Synnax Console, a Synnax Core, and a Synnax
+Driver. You install it once, with nothing to run from a terminal. It needs a free Synnax
+account.
+
+<Desktop.DownloadButton />
+
+Earlier versions are on the
+[Synnax releases page](https://github.com/synnaxlabs/synnax/releases).
+
+<Note.Note variant="info">
+  Looking for the Enterprise install guide? See [Set up Synnax
+  Enterprise](/reference/enterprise). Not sure which edition you need? See [Synnax
+  editions](/reference/get-started/editions).
+</Note.Note>
+
+<Divider.Divider x />
+
+## Requirements
+
+| Operating system | Processor             |
+| ---------------- | --------------------- |
+| macOS            | Apple silicon (arm64) |
+| Windows          | x64                   |
+
+There is no Synnax Desktop build for Linux or for Intel Macs. To run Synnax on Linux,
+use [Synnax Enterprise](/reference/enterprise). For the CPU, memory, and graphics that
+Synnax Desktop needs, see
+[Console hardware](/reference/enterprise/requirements#console-hardware).
+
+NI devices work with Synnax Desktop only on Windows, because NI-DAQmx does not support
+macOS. For more information, see [NI devices](/reference/hardware/ni/configure-device).
+
+You also need:
+
+- **A Synnax account** -> you make one or log in at first launch.
+- **Internet access at least once every 30 days** -> Synnax Desktop renews its license
+  in the background. To learn what happens without it, see
+  [Your login has lapsed](/reference/desktop/troubleshooting#synnax-desktop-shows-your-login-has-lapsed).
+- **A firewall that allows HTTPS to `portal.synnaxlabs.com` and `us.i.posthog.com`** ->
+  for login, license renewal, and [usage data](/privacy-policy#desktop-usage-data).
+
+<Divider.Divider x />
+
+## Install
+
+<Platform.Tabs exclude={["Linux", "Docker"]}>
+
+<Fragment slot="Windows">
+
+1. Open the downloaded `-setup.exe` file.
+2. Follow the steps of the installer.
+3. Open Synnax Desktop from the Start menu.
+
+</Fragment>
+
+<Fragment slot="macOS">
+
+1. Open the downloaded `.dmg` file.
+2. Drag Synnax Desktop into the Applications folder.
+3. Open Synnax Desktop from the Applications folder.
+
+</Fragment>
+
+</Platform.Tabs>
+
+<Divider.Divider x />
+
+## First launch
+
+1. Synnax Desktop shows "Starting Synnax..." and then "Preparing your workspace...".
+2. On the "Log in to continue" screen, select **Log in**. Your web browser opens. Log in
+   to your Synnax account, or make one, then select **Continue**. When your browser
+   asks, open Synnax Desktop.
+3. Synnax Desktop shows the list of projects, which is empty on the first launch. Select
+   **Open sample project** to open a simulated tank system, or select **New project** to
+   start with an empty project.
+
+<Image
+  id="get-started/install-desktop/cc146f207711/projects"
+  extension="webp"
+  alt="The empty projects screen of Synnax Desktop, with Open sample project and New project"
+/>
+
+Each user account on the computer has its own Synnax Desktop data. Your channels,
+recorded data, and projects stay on your computer. For the license, the Synnax portal
+keeps the name of the computer and its fingerprint with your account. The license works
+only in Synnax Desktop. To run a Core on its own, use
+[Synnax Enterprise](/reference/enterprise).
+
+When a new version is ready, the top bar shows **Update available**. Select it, then
+select **Update and restart**.
+
+<Divider.Divider x />
+
+## Next steps
+
+- [Explore the sample project](/reference/get-started/sample-project) -> run a simulated
+  test.
+- [Your first run](/reference/get-started/first-run) -> record and plot your first data.
+- [UI overview](/reference/get-started/ui-overview) -> learn the parts of the Console.

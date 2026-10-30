@@ -1,31 +1,23 @@
 ---
 layout: "@/layouts/Reference.astro"
 title: "Language reference"
-description: "Reference documentation for the Arc language"
-prev: "Timing and performance"
-prevURL: "/reference/control/arc/timing"
-next: "Syntax"
-nextURL: "/reference/control/arc/reference/syntax"
+description: "The syntax, types, statements, and standard library of the Arc language."
 ---
 
-The language reference describes Arc's syntax, type system, reactive execution model,
-imperative constructs, and standard library.
+The language reference describes each part of the Arc language. For how an automation
+runs, see the [execution model](/reference/control/arc/execution-model). For the modules
+and built-in functions, see the
+[standard library](/reference/control/arc/standard-library).
 
-| Page                                                                  | Description                                                 |
-| --------------------------------------------------------------------- | ----------------------------------------------------------- |
-| **Language basics**                                                   |                                                             |
-| [Syntax](/reference/control/arc/reference/syntax)                     | Comments, identifiers, literals, imports, blocks            |
-| [Types](/reference/control/arc/reference/types)                       | Primitives, series, channels, timestamps                    |
-| [Variables](/reference/control/arc/reference/variables)               | Literal, stateful, and channel variables, assignment, scope |
-| [Operators](/reference/control/arc/reference/operators)               | Arithmetic, comparison, logical, and flow operators         |
-| **Reactive execution**                                                |                                                             |
-| [Flow](/reference/control/arc/reference/flow)                         | Flow statements, routing tables, transitions                |
-| [Sequences](/reference/control/arc/reference/sequences)               | Sequence declarations, items, entry points                  |
-| [Stages](/reference/control/arc/reference/stages)                     | Stage declarations, entry semantics, parallel monitoring    |
-| **Functions and control flow**                                        |                                                             |
-| [Functions](/reference/control/arc/reference/functions)               | Declarations, inputs, triggers, outputs                     |
-| [Statements](/reference/control/arc/reference/statements)             | `if`/`else` and `return`                                    |
-| [Loops](/reference/control/arc/reference/loops)                       | `for` loops over series, ranges, and conditions             |
-| **Built-ins and diagnostics**                                         |                                                             |
-| [Standard library](/reference/control/arc/reference/standard-library) | Built-in modules: control, math, status, time               |
-| [Errors](/reference/control/arc/reference/errors)                     | Compile-time and runtime error reference                    |
+| Page                                                      | Contents                                                  |
+| --------------------------------------------------------- | --------------------------------------------------------- |
+| [Syntax](/reference/control/arc/reference/syntax)         | Comments, keywords, literals, imports, authority          |
+| [Types](/reference/control/arc/reference/types)           | Numbers, strings, series, channels, casts                 |
+| [Variables](/reference/control/arc/reference/variables)   | `:=` and `$=`, scope, channels in code                    |
+| [Operators](/reference/control/arc/reference/operators)   | Arithmetic, comparison, logical operators, and precedence |
+| [Flow](/reference/control/arc/reference/flow)             | `->` and `=>`, sources, sinks, input values, routing      |
+| [Sequences](/reference/control/arc/reference/sequences)   | Steps, starting a sequence, sequence variables            |
+| [Stages](/reference/control/arc/reference/stages)         | Stage bodies and transitions                              |
+| [Functions](/reference/control/arc/reference/functions)   | Inputs, triggers, outputs, calls                          |
+| [Statements](/reference/control/arc/reference/statements) | `if`, `for`, `return`, and assignment                     |
+| [Errors](/reference/control/arc/reference/errors)         | Compiler diagnostics and runtime errors                   |

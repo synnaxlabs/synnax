@@ -432,7 +432,7 @@ var _ = Describe("Collector", func() {
 				},
 			}
 			err := c.AddAll(types)
-			Expect(err).To(HaveOccurred())
+			Expect(err).To(MatchError(ContainSubstring("contains path traversal")))
 		})
 	})
 

@@ -16,7 +16,7 @@ import { Core } from "@/session/core";
 import { Nav } from "@/session/nav";
 import { Panel } from "@/session/panel";
 import { Project } from "@/session/project";
-import { renderHookWithConsole } from "@/testutil";
+import { MemoryKV, renderHookWithConsole } from "@/testutil";
 
 const PROJECT_KEY = "11111111-1111-4111-8111-111111111111";
 const PANEL_KEY = "22222222-2222-4222-8222-222222222222";
@@ -61,7 +61,7 @@ describe("useLogout", () => {
     const after = store.getState();
     expect(Core.selectSelectedKey(after)).toBeUndefined();
     expect(Project.selectOptionalSelected(after)).toBeUndefined();
-    expect(Panel.selectSliceState(after)).toEqual(Panel.ZERO_SLICE_STATE);
+    expect(after[Panel.SLICE_NAME]).toEqual(Panel.ZERO_SLICE_STATE);
     expect(after[Nav.SLICE_NAME].windows[MAIN_WINDOW]?.left.selected).toBeUndefined();
     expect(after[Nav.SLICE_NAME].windows[MAIN_WINDOW]?.bottom.visible ?? false).toBe(
       false,
@@ -69,7 +69,7 @@ describe("useLogout", () => {
   });
 
   it("should not restore the project selection when logging back into the same Core", async () => {
-    const db = new Session.Persist.MemoryKV();
+    const db = new MemoryKV();
     const store = await Session.createStore({
       runtime: new Drift.NoopRuntime<Session.State, Session.Action>(),
       enablePrerender: false,
