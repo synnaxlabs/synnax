@@ -73,21 +73,21 @@ Bit reads stay at the protocol limit of 2000 for each request.
 ### 2.1 Connections
 
 `device::Manager` keeps one connection per endpoint: `host:port` for TCP, the serial
-port for RTU. Every name of a serial port gives one key: on POSIX the Driver resolves
-links, and on Windows it ignores case. A link that does not exist yet cannot resolve, so
-each serial connection also locks its port before it applies its line settings. A second
-connection to the port then fails as unreachable until the first one closes, and the
-settings of the first stay as they are. Tasks and the scanner share each connection
-through a `weak_ptr` cache. The OPC UA `connection::Pool` lends each idle connection to
-one user at a time (`driver/opcua/connection/connection.h:146`). Modbus shares one
-connection instead, because a serial port has one owner and small PLCs allow few
-sockets. Requests take turns. A waiting write goes before waiting reads, but not twice
-in a row while a read waits. Each request sets its unit first with `modbus_set_slave`. A
-device whose serial settings differ from the connection's fails at start with a critical
-error that names both settings. The connection opens at the first request, so a task
-starts while its server is off, and its reads retry until the server answers. On RTU,
-each request waits for 3.5 characters of silence after the last one, or 1.75 ms above
-19200 baud.
+port path for RTU. Devices share a serial port only when they name it by the same path.
+Each serial connection locks its port before it applies its line settings, so a second
+connection to the port, through another path or another program, fails as unreachable
+until the first one closes, and the settings of the first stay as they are. A link that
+moves to another port, as after a replug, reopens its connection on the new port before
+the next request. Tasks and the scanner share each connection through a `weak_ptr`
+cache. The OPC UA `connection::Pool` lends each idle connection to one user at a time
+(`driver/opcua/connection/connection.h:146`). Modbus shares one connection instead,
+because a serial port has one owner and small PLCs allow few sockets. Requests take
+turns. A waiting write goes before waiting reads, but not twice in a row while a read
+waits. Each request sets its unit first with `modbus_set_slave`. A device whose serial
+settings differ from the connection's fails at start with a critical error that names
+both settings. The connection opens at the first request, so a task starts while its
+server is off, and its reads retry until the server answers. On RTU, each request waits
+for 3.5 characters of silence after the last one, or 1.75 ms above 19200 baud.
 
 A temporary error (§2.4) retries at once, up to `retries` times. A socket error closes
 the connection, and the next attempt reconnects. A timeout or a bad CRC does not close

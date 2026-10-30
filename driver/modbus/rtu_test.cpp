@@ -148,27 +148,6 @@ TEST(RTU, SharesPortAmongUnits) {
     EXPECT_EQ(slave.unit_requests(2), requests);
 }
 
-/// @brief it should share one connection between a serial port and a link to it.
-TEST(RTU, SharesConnectionAcrossLinks) {
-    testutil::Slave slave(serial_slave());
-    ASSERT_NIL(slave.start());
-    x::defer::defer stop_slave([&slave] { slave.stop(); });
-    const auto link = std::filesystem::temp_directory_path() /
-                      ("modbus-rtu-" + x::uuid::create().to_string());
-    std::filesystem::create_symlink(slave.serial_port(), link);
-    x::defer::defer remove_link([&link] { std::filesystem::remove(link); });
-    device::Manager manager;
-    auto by_path = ASSERT_NIL_P(manager.acquire(rtu(slave, 1)));
-    auto link_cfg = rtu(slave, 1);
-    link_cfg.serial.port = link.string();
-    auto by_link = ASSERT_NIL_P(manager.acquire(link_cfg));
-
-    uint16_t reg = 0;
-    ASSERT_NIL(by_path->read_registers(device::HoldingRegister, 0, 1, &reg));
-    EXPECT_NE(by_link->last_reply(), device::Connection::Clock::time_point{});
-    EXPECT_EQ(by_link->last_reply(), by_path->last_reply());
-}
-
 /// @brief it should let one connection at a time use a serial port, as when another
 /// program holds it, even through a link to the port.
 TEST(RTU, LocksPortToOneConnection) {
@@ -372,9 +351,9 @@ TEST(RTU, SharesConnectionAfterPortMoves) {
     EXPECT_EQ(moved.unit_requests(1), 2);
 }
 
-/// @brief it should send requests to the port that a link names now, even while the
-/// port it named before still answers.
-TEST(RTU, FollowsLinkToNewPort) {
+/// @brief it should give a link and the path it names separate connections, so that a
+/// device on the path stays on its port when the link moves to another port.
+TEST(RTU, KeepsPathOnPortWhenLinkMoves) {
     auto before_cfg = serial_slave();
     before_cfg.holding_registers[0] = static_cast<uint16_t>(1);
     testutil::Slave before(before_cfg);
@@ -393,19 +372,19 @@ TEST(RTU, FollowsLinkToNewPort) {
     auto link_cfg = rtu(before, 1);
     link_cfg.serial.port = link.string();
     auto linked = ASSERT_NIL_P(manager.acquire(link_cfg));
+    auto direct = ASSERT_NIL_P(manager.acquire(rtu(before, 1)));
     uint16_t reg = 0;
     ASSERT_NIL(linked->read_registers(device::HoldingRegister, 0, 1, &reg));
     EXPECT_EQ(reg, 1);
+    const auto err = direct->read_registers(device::HoldingRegister, 0, 1, &reg);
+    ASSERT_OCCURRED_AS(err, device::UNREACHABLE);
+    EXPECT_EQ(err.data, "serial port is in use by another connection");
 
     std::filesystem::remove(link);
     std::filesystem::create_symlink(after.serial_port(), link);
-    auto direct = ASSERT_NIL_P(manager.acquire(rtu(after, 1)));
-    ASSERT_NIL(direct->read_registers(device::HoldingRegister, 0, 1, &reg));
-    EXPECT_EQ(reg, 2);
     ASSERT_NIL(linked->read_registers(device::HoldingRegister, 0, 1, &reg));
     EXPECT_EQ(reg, 2);
-    auto old = ASSERT_NIL_P(manager.acquire(rtu(before, 1)));
-    ASSERT_NIL(old->read_registers(device::HoldingRegister, 0, 1, &reg));
+    ASSERT_NIL(direct->read_registers(device::HoldingRegister, 0, 1, &reg));
     EXPECT_EQ(reg, 1);
 }
 
@@ -456,6 +435,42 @@ TEST(RTU, ScannerAcceptsNewLineSettings) {
     ASSERT_NIL_P(scanner.scan(scan_ctx));
     auto cfg = rtu(slave, 1);
     cfg.serial.baud_rate = 9600;
+
+    auto cmd = test_command(t, cfg);
+    ASSERT_TRUE(scanner.exec(cmd, t, ctx));
+    ASSERT_EQ(ctx->statuses.size(), 1);
+    EXPECT_EQ(ctx->statuses[0].variant, synnax::status::VARIANT_SUCCESS);
+    ASSERT_NIL_P(scanner.scan(scan_ctx));
+    devices["dev"].properties = {{"connection", cfg.to_json()}};
+    const auto scanned = ASSERT_NIL_P(scanner.scan(scan_ctx));
+    ASSERT_EQ(scanned.size(), 1);
+    const auto status = scanned[0].status.value();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(status.message, "Device connected");
+}
+
+/// @brief it should accept a new path to a serial port that only the scanner holds
+/// open, in a connection test and in the next scans.
+TEST(RTU, ScannerAcceptsNewPathToPort) {
+    testutil::Slave slave(serial_slave());
+    ASSERT_NIL(slave.start());
+    x::defer::defer stop_slave([&slave] { slave.stop(); });
+    const auto link = std::filesystem::temp_directory_path() /
+                      ("modbus-rtu-" + x::uuid::create().to_string());
+    std::filesystem::create_symlink(slave.serial_port(), link);
+    x::defer::defer remove_link([&link] { std::filesystem::remove(link); });
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    synnax::task::Task t;
+    t.key = x::uuid::create();
+    Scanner scanner(ctx, t, std::make_shared<device::Manager>());
+    std::unordered_map<std::string, synnax::device::Device> devices{
+        {"dev", rtu_device(slave, "dev", 1)},
+    };
+    common::ScannerContext scan_ctx;
+    scan_ctx.devices = &devices;
+    ASSERT_NIL_P(scanner.scan(scan_ctx));
+    auto cfg = rtu(slave, 1);
+    cfg.serial.port = link.string();
 
     auto cmd = test_command(t, cfg);
     ASSERT_TRUE(scanner.exec(cmd, t, ctx));

@@ -99,8 +99,8 @@ private:
     void test_connection(const synnax::task::Command &cmd);
 
     /// @brief waits for a probe of the serial port of cfg to end, then releases the
-    /// checks that hold the port open with other line settings, so that a connection
-    /// test can use them. The next scan takes the port back.
+    /// checks that hold the port open through another path or with other line
+    /// settings, so that a connection test can use it. The next scan takes it back.
     /// @param lock holds mu.
     void release_stale(
         std::unique_lock<std::mutex> &lock,

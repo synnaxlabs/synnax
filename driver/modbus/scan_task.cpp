@@ -67,7 +67,8 @@ void Scanner::release_stale(
     this->probed.wait(lock, [&] { return !this->probing.contains(endpoint); });
     std::erase_if(this->checks, [&](const auto &entry) {
         const auto &held = entry.second.dev->config();
-        return held.endpoint() == endpoint && held.serial.line() != cfg.serial.line();
+        return held.endpoint() == endpoint && (held.serial.port != cfg.serial.port ||
+                                               held.serial.line() != cfg.serial.line());
     });
 }
 
@@ -90,11 +91,13 @@ void Scanner::check_device_health(synnax::device::Device &dev) {
         return;
     }
 
-    // A device's old line settings would conflict with its new ones on the same port.
-    if (const auto held = this->checks.find(dev.key);
-        held != this->checks.end() &&
-        held->second.dev->config().serial.line() != props.connection.serial.line())
-        this->checks.erase(held);
+    // The device's old check would hold its port through the old path or line settings.
+    if (const auto held = this->checks.find(dev.key); held != this->checks.end()) {
+        const auto &serial = held->second.dev->config().serial;
+        if (serial.port != props.connection.serial.port ||
+            serial.line() != props.connection.serial.line())
+            this->checks.erase(held);
+    }
     auto [d, err] = this->devices->acquire(props.connection, props.requests);
     if (err)
         this->checks.erase(dev.key);

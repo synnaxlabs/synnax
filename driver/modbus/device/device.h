@@ -313,8 +313,8 @@ struct ConnectionConfig {
         return j;
     }
 
-    /// @returns the key of the link that devices on it share a connection to: the host
-    /// and port for TCP, or the canonical serial port for RTU.
+    /// @returns the host and port for TCP, or the file that the serial port resolves to
+    /// now for RTU.
     [[nodiscard]] std::string endpoint() const {
         if (this->transport == Transport::RTU) return canonical_port(this->serial.port);
         return host + ":" + std::to_string(port);
@@ -676,13 +676,6 @@ public:
         std::lock_guard lock(this->mu);
         return this->units[unit_id].last_reply;
     }
-
-    /// @returns the host and port for TCP, or the file the serial port resolves to now.
-    /// A link that moves to a new port, as after a replug, resolves to the new file.
-    [[nodiscard]] std::string endpoint() const {
-        if (this->transport == Transport::RTU) return canonical_port(this->serial.port);
-        return this->address;
-    }
 };
 
 /// @brief one unit on a shared connection. Safe for concurrent use.
@@ -807,11 +800,11 @@ public:
 };
 
 /// @brief shares one connection among the devices on each endpoint: a TCP host and
-/// port, or a serial port. Safe for concurrent use.
+/// port, or a serial port path. Devices that name one serial port by different paths
+/// get separate connections, and the port lock lets one of them use the port at a time.
+/// Safe for concurrent use.
 class Manager {
     std::mutex mu;
-    /// @brief the open connections, searched at each acquire because the file a serial
-    /// port resolves to changes when its link moves.
     std::vector<std::weak_ptr<Connection>> connections;
     /// @brief how long the requests of a demoted unit fail at once.
     x::telem::TimeSpan demotion;
@@ -838,13 +831,14 @@ class Manager {
         return std::make_shared<Connection>(ctx, cfg.endpoint(), this->demotion);
     }
 
-    /// @returns the open connection to the endpoint of cfg, or nullptr if none.
+    /// @returns the open connection to the TCP endpoint or serial port path of cfg, or
+    /// nullptr if none.
     [[nodiscard]] std::shared_ptr<Connection> find(const ConnectionConfig &cfg) const {
-        const auto endpoint = cfg.endpoint();
         for (const auto &weak: this->connections) {
             auto conn = weak.lock();
-            if (conn != nullptr && conn->transport == cfg.transport &&
-                conn->endpoint() == endpoint)
+            if (conn == nullptr || conn->transport != cfg.transport) continue;
+            if (cfg.transport == Transport::RTU ? conn->serial.port == cfg.serial.port
+                                                : conn->address == cfg.endpoint())
                 return conn;
         }
         return nullptr;
