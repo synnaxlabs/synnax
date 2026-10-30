@@ -720,8 +720,11 @@ func (w *idxWriter) Commit(ctx context.Context) (telem.TimeStamp, error) {
 	}
 	// because the range is exclusive, we need to add 1 nanosecond to the end
 	end.Lower++
+	// Every channel shares the same end, so their errors repeat. Keep the first.
 	for _, chW := range w.internal {
-		err = errors.Join(err, chW.CommitWithEnd(ctx, end.Lower))
+		if cErr := chW.CommitWithEnd(ctx, end.Lower); err == nil {
+			err = cErr
+		}
 	}
 	if err == nil {
 		w.lastCommitEnd = end.Lower

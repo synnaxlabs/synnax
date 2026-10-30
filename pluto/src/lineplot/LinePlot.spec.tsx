@@ -25,6 +25,9 @@ const client = createTestClient();
 
 const LINE: lineplotClient.Line = {
   key: "line",
+  yAxis: "y1",
+  yChannel: 1,
+  xChannel: 0,
   color: color.construct("#00aaff"),
   strokeWidth: 2,
   aggregation: "min_max",
