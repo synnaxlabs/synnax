@@ -171,6 +171,12 @@ to match, and the statuses page in the docs
   enabled and built. The rack deletes the old scanner of a left-out integration with
   `delete_legacy_task_by_type` (`driver/common/factory.h:100`), as the rack status
   factory deletes its old heartbeat task (`driver/rack/status/status.h:161`).
+- **A task the Driver cannot run gets the reason**: For each integration that it does
+  not run, the rack adds a stand-in factory. The stand-in takes the tasks of the
+  integration and fails each configure with the reason: the configuration turns the
+  integration off, or the build leaves it out on this operating system. Each vendor
+  package exports its names in a target that builds on every platform, so the rack needs
+  no literals. The task manager's reply covers only a type that no integration knows.
 - **A missing library is reported, not hidden**: Where NI or LabJack can run, its
   factory always exists. It loads the library on first use and tries again on each scan
   and each task configure until the load succeeds, so an install needs no restart. Until
@@ -300,10 +306,10 @@ Phases 8 to 12 change the status shape, the toast model, and the UI.
 8. **No new variant for copies**: A copy is a real problem on a running task, so it
    keeps the rack's variant.
 9. **Report a missing library, not skip the factory**: Without a factory, a start gets
-   only "This Driver does not run ... tasks", and an auto-start task writes nothing at
-   boot. The "in use" rule of phase 7 already keeps the scanner warning from toasting.
-   Home Assistant also names a missing package and tries again. The trade is real: each
-   Driver without the library keeps one scanner warning.
+   only a reason that the integration is off, not the missing library, and an auto-start
+   task writes nothing at boot. The "in use" rule of phase 7 already keeps the scanner
+   warning from toasting. Home Assistant also names a missing package and tries again.
+   The trade is real: each Driver without the library keeps one scanner warning.
 10. **Clear a calculation with a good status, not a delete**: A delete loses `cleared`,
     so each failure of a flapping calculation would toast. The channel tree shows only
     warnings and errors (`console/src/feature/channel/tree.tsx:216`). The trade is real:
