@@ -176,6 +176,7 @@ const writeMapKey = (channel: WriteChannel) =>
 const getInitialValues: Task.GetInitialValues<WriteSchemas> = ({ deviceKey }) => {
   const config = WRITE_SCHEMAS.config.parse({});
   if (deviceKey != null) config.device = deviceKey;
+  config.channels = [getOpenChannel([])];
   return { name: "Modbus write task", type: WRITE_TYPE, config };
 };
 

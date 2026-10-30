@@ -72,14 +72,18 @@ class Schematic(ConsolePage):
 
     def __init__(
         self,
+        *,
         layout: LayoutClient,
         client: sy.Synnax,
         page_name: str,
-        *,
         pane_locator: Locator,
     ):
-        """Initialize a Schematic page wrapper (see ConsolePage.__init__ for details)."""
-        super().__init__(layout, client, page_name, pane_locator=pane_locator)
+        """Initialize a Schematic page wrapper (see ConsolePage.__init__ for
+        details).
+        """
+        super().__init__(
+            layout=layout, client=client, page_name=page_name, pane_locator=pane_locator
+        )
         self.colors = Colors(self.page)
 
     def select(self, symbols: list[Symbol]) -> None:
@@ -157,6 +161,7 @@ class Schematic(ConsolePage):
         self,
         symbols: list[Symbol],
         alignment: AlignmentType,
+        *,
         tolerance: float | None = None,
     ) -> None:
         """
@@ -171,7 +176,8 @@ class Schematic(ConsolePage):
 
         Raises:
             ValueError: If fewer than 2 symbols are provided
-            AssertionError: If symbols are not properly aligned within tolerance after alignment
+            AssertionError: If symbols are not properly aligned within tolerance after
+                alignment
         """
         if len(symbols) < 2:
             raise ValueError("At least 2 symbols are required for alignment")
@@ -203,6 +209,7 @@ class Schematic(ConsolePage):
         self,
         symbols: list[Symbol],
         distribution: DistributionType,
+        *,
         tolerance: float | None = None,
     ) -> None:
         """
@@ -211,11 +218,14 @@ class Schematic(ConsolePage):
         Args:
             symbols: List of symbols to distribute (must have at least 3 symbols)
             distribution: The distribution type to apply ('horizontal' or 'vertical')
-            tolerance: Maximum allowed difference in spacing for assertion (default: 3.0 for horizontal, 20.0 for vertical)
+            tolerance: Maximum allowed difference in spacing for assertion (default: 3.0
+                for horizontal, 20.0 for vertical)
 
         Raises:
-            ValueError: If fewer than 3 symbols are provided (otherwise, nothing to distribute)
-            AssertionError: If symbols are not evenly distributed within tolerance after distribution
+            ValueError: If fewer than 3 symbols are provided (otherwise, nothing to
+                distribute)
+            AssertionError: If symbols are not evenly distributed within tolerance after
+                distribution
         """
         if len(symbols) < 3:
             raise ValueError("At least 3 symbols are required for distribution")
@@ -240,6 +250,7 @@ class Schematic(ConsolePage):
         self,
         symbols: list[Symbol],
         direction: RotationType,
+        *,
         group: bool = False,
     ) -> None:
         """
@@ -248,7 +259,8 @@ class Schematic(ConsolePage):
         Args:
             symbols: List of symbols to rotate (must have at least 1 symbol)
             direction: The rotation direction ('clockwise' or 'counterclockwise')
-            group: If True, rotate symbols around their group center. If False, rotate each individually.
+            group: If True, rotate symbols around their group center. If False, rotate
+                each individually.
 
         Raises:
             ValueError: If no symbols are provided
@@ -277,6 +289,7 @@ class Schematic(ConsolePage):
 
     def connect_symbols(
         self,
+        *,
         source_symbol: Symbol,
         source_handle: str,
         target_symbol: Symbol,
@@ -321,6 +334,7 @@ class Schematic(ConsolePage):
 
     def select_edge(
         self,
+        *,
         source_symbol: Symbol,
         source_handle: str,
         target_symbol: Symbol,
@@ -399,6 +413,7 @@ class Schematic(ConsolePage):
 
     def set_properties(
         self,
+        *,
         control_authority: int | None = None,
         show_control_legend: bool | None = None,
     ) -> None:
@@ -409,7 +424,8 @@ class Schematic(ConsolePage):
         if control_authority is not None:
             if control_authority < 0 or control_authority > 255:
                 raise ValueError(
-                    f"Control Authority must be between 0 and 255, got {control_authority}"
+                    "Control Authority must be between 0 and 255, got "
+                    f"{control_authority}"
                 )
             self.layout.fill_input_field("Control Authority", str(control_authority))
             self.page.keyboard.press("Enter")

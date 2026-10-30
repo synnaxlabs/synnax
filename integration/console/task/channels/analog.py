@@ -23,6 +23,7 @@ class Analog:
 
     def __init__(
         self,
+        *,
         layout: LayoutClient,
         name: str,
         device: str,
@@ -139,7 +140,8 @@ class Analog:
                 actual_value = self.layout.get_dropdown_value(key)
 
             assert actual_value == expected_value, (
-                f"Channel {self.name} Form value '{key}' - Expected: {expected_value} - Actual: {actual_value}"
+                f"Channel {self.name} Form value '{key}' - Expected: {expected_value} "
+                f"- Actual: {actual_value}"
             )
 
     def has_terminal_config(self) -> bool:
