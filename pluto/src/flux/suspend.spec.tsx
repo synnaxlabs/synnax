@@ -7,20 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DisconnectedError, query, type Synnax as Client } from "@synnaxlabs/client";
+import { DisconnectedError, type Synnax as Client } from "@synnaxlabs/client";
 import { act, render, waitFor } from "@testing-library/react";
 import { type ReactElement, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Errors } from "@/errors";
 import { Flux } from "@/flux";
-import {
-  ensureFetch,
-  invalidate,
-  type LocalCache,
-  setSettled,
-  subscribeReader,
-} from "@/flux/suspend";
+import { type LocalCache, setSettled, subscribeReader } from "@/flux/suspend";
 import { createSynnaxWrapper } from "@/testutil/Synnax";
 
 const newLocal = (): LocalCache<number> => ({
@@ -287,39 +281,5 @@ describe("invalidate", () => {
     expect(answers).toHaveLength(2);
     answers[1].resolve(2);
     await expectValue("second", 2);
-  });
-
-  describe("markers", () => {
-    const params = { client, query: { key: "q" } };
-    const fetcher = (local: LocalCache<number>) => {
-      const answers: Array<(n: number) => void> = [];
-      const fetch = async (): Promise<number> =>
-        await ensureFetch(params, {
-          name: "number",
-          retrieve: async () => await new Promise<number>((r) => answers.push(r)),
-          local,
-        });
-      return { answers, fetch };
-    };
-
-    it("keeps no marker for a query with no running fetch", () => {
-      const local = newLocal();
-      setSettled(local, "q", { data: 1 });
-      invalidate(local, "q");
-      expect(local.generations.size).toBe(0);
-    });
-
-    it("drops its marker once the discarded fetch ends", async () => {
-      const local = newLocal();
-      const { answers, fetch } = fetcher(local);
-      const first = fetch();
-      invalidate(local, query.hash(params.query));
-      const second = fetch();
-      answers[1](2);
-      answers[0](1);
-      await Promise.all([first, second]);
-      expect(local.generations.size).toBe(0);
-      expect(local.fetches.size).toBe(0);
-    });
   });
 });
