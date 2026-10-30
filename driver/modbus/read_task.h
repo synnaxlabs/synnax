@@ -12,6 +12,7 @@
 #include <set>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <variant>
 
 #include "client/cpp/modbus/json.gen.h"
@@ -127,11 +128,8 @@ public:
                 );
             for (std::size_t i = b.first; i < b.last; i++) {
                 const auto &ch = this->channels[i];
-                auto [value, err] = util::parse_register_value(
-                    this->buffer.data() + (ch.address - b.start),
-                    ch.value_type,
-                    ch.bytes_swapped,
-                    ch.words_swapped
+                auto [value, err] = ch.decode(
+                    this->buffer.data() + (ch.address - b.start)
                 );
                 if (err) return err;
                 auto &s = fr.series->at(frame_offset++);
@@ -189,6 +187,39 @@ public:
         return x::errors::NIL;
     }
 };
+
+/// @brief checks the data type and string length of a register value channel.
+/// @returns false and records a field error on ch if the channel is invalid.
+inline bool valid_value(
+    x::json::Parser &ch,
+    const ::synnax::modbus::RegisterValue &value,
+    const std::int32_t string_length
+) {
+    if (value.data_type == x::telem::STRING_T) {
+        if (string_length <= 0 ||
+            std::cmp_greater(string_length, channel::MAX_STRING_LENGTH)) {
+            ch.field_err(
+                "string_length",
+                "must be from 1 to " + std::to_string(channel::MAX_STRING_LENGTH)
+            );
+            return false;
+        }
+        return true;
+    }
+    if (!channel::is_register_type(value.data_type)) {
+        ch.field_err("data_type", "unsupported data type: " + value.data_type.name());
+        return false;
+    }
+    return true;
+}
+
+/// @brief checks the bit index of a register bit channel.
+/// @returns false and records a field error on ch if the bit is past 15.
+inline bool valid_bit(x::json::Parser &ch, const ::synnax::modbus::RegisterBit &bit) {
+    if (bit.bit < 16) return true;
+    ch.field_err("bit", "must be from 0 to 15");
+    return false;
+}
 
 /// @brief configuration for a modbus read task.
 struct ReadTaskConfig : common::BaseReadTaskConfig {
@@ -249,12 +280,14 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
 
         std::set<synnax::channel::Key> keys;
         std::vector<std::pair<x::json::Parser, synnax::channel::Key>> bindings;
+        std::vector<std::pair<x::json::Parser, synnax::channel::Key>> strings;
         const auto max_registers = this->props.requests.max_registers;
         const auto fits =
             [max_registers](x::json::Parser &ch, const channel::InputRegister &reg) {
                 if (reg.width() <= max_registers) return true;
                 ch.field_err(
-                    "data_type",
+                    reg.value_type == x::telem::STRING_T ? "string_length"
+                                                         : "data_type",
                     "needs " + std::to_string(reg.width()) +
                         " registers, but the device reads at most " +
                         std::to_string(max_registers) + " per request"
@@ -278,33 +311,36 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
                 ch.field_err("channel", "another channel in the task reads into it");
                 return;
             }
+            auto *bound = &bindings;
             if (const auto *c = std::get_if<
                     ::synnax::modbus::HoldingRegisterReadChannel>(&parsed)) {
-                if (!channel::is_register_type(c->data_type)) {
-                    ch.field_err(
-                        "data_type",
-                        "unsupported data type: " + c->data_type.name()
-                    );
-                    return;
-                }
+                if (!valid_value(ch, *c, c->string_length)) return;
                 channel::InputRegister reg(*c, this->props.connection);
                 if (!fits(ch, reg)) return;
+                if (c->data_type == x::telem::STRING_T) bound = &strings;
                 holding_registers.push_back(std::move(reg));
             } else if (
                 const auto *c = std::get_if<::synnax::modbus::InputRegisterReadChannel>(
                     &parsed
                 )
             ) {
-                if (!channel::is_register_type(c->data_type)) {
-                    ch.field_err(
-                        "data_type",
-                        "unsupported data type: " + c->data_type.name()
-                    );
-                    return;
-                }
+                if (!valid_value(ch, *c, c->string_length)) return;
                 channel::InputRegister reg(*c, this->props.connection);
                 if (!fits(ch, reg)) return;
+                if (c->data_type == x::telem::STRING_T) bound = &strings;
                 input_registers.push_back(std::move(reg));
+            } else if (
+                const auto *c = std::get_if<
+                    ::synnax::modbus::HoldingRegisterBitReadChannel>(&parsed)
+            ) {
+                if (!valid_bit(ch, *c)) return;
+                holding_registers.emplace_back(*c);
+            } else if (
+                const auto *c = std::get_if<
+                    ::synnax::modbus::InputRegisterBitReadChannel>(&parsed)
+            ) {
+                if (!valid_bit(ch, *c)) return;
+                input_registers.emplace_back(*c);
             } else if (
                 const auto *c = std::get_if<::synnax::modbus::CoilReadChannel>(&parsed)
             )
@@ -313,7 +349,7 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
                 discrete_inputs.emplace_back(
                     std::get<::synnax::modbus::DiscreteInputReadChannel>(parsed)
                 );
-            bindings.emplace_back(ch, base.channel);
+            bound->emplace_back(ch, base.channel);
             this->data_channel_count++;
         });
 
@@ -336,6 +372,9 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
                     "channel",
                     "must be a numeric channel, not a " + dt.name() + " channel"
                 );
+        for (auto &[ch, key]: strings)
+            if (by_key.at(key).data_type != x::telem::STRING_T)
+                ch.field_err("channel", "a string must read into a string channel");
         for (auto &ch: holding_registers)
             ch.ch = by_key.at(ch.synnax_key);
         for (auto &ch: input_registers)

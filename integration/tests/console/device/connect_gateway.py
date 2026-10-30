@@ -20,7 +20,7 @@ from x import random_name
 class ConnectGateway(ModbusCase):
     """Connect a unit behind a Modbus gateway with the unit, byte order, and timing
     settings of the connect form. The Driver checks the unit before the Console saves
-    the device."""
+    the device, then counts its requests in the diagnostics tab."""
 
     sim_classes = [ModbusGatewaySim]
 
@@ -31,6 +31,7 @@ class ConnectGateway(ModbusCase):
         name = f"Gateway unit {random_name()}"
         self.test_silent_unit(name)
         self.test_connect_unit(name)
+        self.test_diagnostics(name)
 
     def fill_unit(self, unit_id: int) -> None:
         modal = self.console.devices.modal
@@ -77,3 +78,34 @@ class ConnectGateway(ModbusCase):
         }
         stored = {k: connection.get(k) for k in expected}
         assert stored == expected, f"'{name}' should store {expected}, got {stored}"
+
+    def test_diagnostics(self, name: str) -> None:
+        """The diagnostics tab shows the requests the Driver counted for the unit."""
+        self.log("Testing: Diagnostics show the request counts")
+        self.wait_for_stats(name)
+        devices = self.console.devices
+        layout = self.console.layout
+        devices.ctx_menu.action(devices.get(name), "Edit connection")
+        devices.modal.wait_for(state="visible", timeout=5000)
+        devices.modal.get_by_role("tab", name="Diagnostics", exact=True).click(
+            timeout=5000
+        )
+        shown = {
+            label: devices.modal.locator(f"dt:text-is('{label}') + dd").inner_text()
+            for label in ("Requests", "Timeouts", "Exceptions", "Last response")
+        }
+        assert int(shown["Requests"]) > 0, f"Requests should be counted, got {shown}"
+        assert shown["Timeouts"] == "0" and shown["Exceptions"] == "0", shown
+        assert re.fullmatch(r"\d+\.\d ms", shown["Last response"]), shown
+        layout.close_modal(layout.MODAL_SELECTOR)
+
+    def wait_for_stats(self, name: str) -> None:
+        """Wait for the Driver to report the counters of a device in its status."""
+        timer = sy.Timer()
+        while timer.elapsed() < 15 * sy.TimeSpan.SECOND:
+            dev = self.client.devices.retrieve(name=name, include_status=True)
+            details = None if dev.status is None else dev.status.details
+            if details is not None and details.data is not None:
+                return
+            sy.sleep(0.5)
+        raise AssertionError(f"'{name}' should report its request counters")

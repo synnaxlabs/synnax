@@ -37,6 +37,7 @@ class ModbusWriteTask(ModbusCase):
         self.test_change_data_type(page)
         self.test_reopen_config(page, [])
         self.assert_rows(page, LISTED)
+        self.test_register_bit(page)
 
     def test_create_task(self) -> ModbusWrite:
         """Create the task page and select the server."""
@@ -91,3 +92,22 @@ class ModbusWriteTask(ModbusCase):
         self.stop(page)
         after = self.channel_keys(self.retrieve_task(page.page_name))
         assert after == before, f"Command channels should be {before}, got {after}"
+
+    def test_register_bit(self, page: ModbusWrite) -> None:
+        """A register bit takes a Modicon address and changes only its bit."""
+        self.log("Testing: Write a register bit at a Modicon address")
+        index = len(CHANNELS)
+        page.add_channel(WRITE_TYPE_NAMES["holding_register_bit"], address="400141")
+        page.set_bit(index, 4)
+        self.test_deploy(page)
+        task = self.retrieve_task(page.page_name)
+        bit = self.config_channels(task)[index]
+        stored = (bit["type"], bit["address"], bit["bit"])
+        expected = ("holding_register_bit", 140, 4)
+        assert stored == expected, f"The bit should be {expected}, got {stored}"
+        name = self.client.channels.retrieve(self.channel_keys(task)[index]).name
+        assert name.endswith("_holding_register_bit_output_140_4_cmd"), name
+        self.send_commands(page, task=task)
+        # Register 140 holds 0b10001100.
+        assert_sim_registers(140, [0b10011100])
+        self.stop(page)

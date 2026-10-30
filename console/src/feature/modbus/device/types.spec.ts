@@ -21,6 +21,10 @@ testPropertiesSchema(
       "properties with only connection config",
       { connection: { host: "192.168.1.10", port: 502 } },
     ],
+    [
+      "properties with a serial connection",
+      { connection: { transport: "rtu", serialPort: "COM3" } },
+    ],
   ],
 );
 
@@ -43,8 +47,35 @@ describe("Modbus.Device.SCHEMAS", () => {
       maxRegisters: 125,
       maxGap: 125,
       writeCodes: "multiple",
+      maskWriteSupported: false,
       delayMs: 0,
     });
+  });
+
+  it("should fill the line settings and unit of a serial connection", () => {
+    const props = Modbus.Device.SCHEMAS.properties.parse({
+      connection: { transport: "rtu", serialPort: "/dev/ttyUSB0" },
+    });
+    expect(props.connection).toEqual({
+      transport: "rtu",
+      serialPort: "/dev/ttyUSB0",
+      baudRate: 19200,
+      parity: "even",
+      stopBits: 1,
+      swapBytes: false,
+      swapWords: false,
+      unitId: 1,
+      timeoutMs: 1000,
+      retries: 1,
+    });
+  });
+
+  it("should reject a transport the Driver does not know", () => {
+    expect(
+      Modbus.Device.SCHEMAS.properties.safeParse({
+        connection: { transport: "ascii", serialPort: "COM3" },
+      }).success,
+    ).toBe(false);
   });
 
   it.each([
@@ -54,6 +85,14 @@ describe("Modbus.Device.SCHEMAS", () => {
     [{ requests: { maxRegisters: 60.5 } }, "Max registers must be a whole number"],
     [{ requests: { maxGap: 0.5 } }, "Max gap must be a whole number"],
     [{ requests: { delayMs: 2.5 } }, "Request delay must be a whole number"],
+    [
+      { connection: { transport: "rtu", baudRate: 9600.5 } },
+      "Baud rate must be a whole number",
+    ],
+    [
+      { connection: { transport: "rtu", stopBits: 1.5 } },
+      "Stop bits must be a whole number",
+    ],
   ])("should reject a fraction in %j", (props, message) => {
     const result = Modbus.Device.SCHEMAS.properties.safeParse(props);
     expect(result.error?.issues.map((i) => i.message)).toEqual([message]);

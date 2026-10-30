@@ -24,6 +24,7 @@ class LogLifecycle(ConsoleCase):
     suffix: str
     idx_name: str
     data_name: str
+    timestamp_name: str
     virtual_name: str
     _shared_log_name: str | None
     _cleanup_groups: list[str]
@@ -41,6 +42,7 @@ class LogLifecycle(ConsoleCase):
         """Create all test channels."""
         self.idx_name = f"log_test_idx_{self.suffix}"
         self.data_name = f"log_test_data_{self.suffix}"
+        self.timestamp_name = f"log_timestamp_{self.suffix}"
         self.virtual_name = f"log_virtual_{self.suffix}"
 
         index_ch = self.client.channels.create(
@@ -52,6 +54,11 @@ class LogLifecycle(ConsoleCase):
             name=self.data_name,
             data_type=sy.DataType.FLOAT32,
             index=index_ch.key,
+            retrieve_if_name_exists=True,
+        )
+        self.client.channels.create(
+            name=self.timestamp_name,
+            is_index=True,
             retrieve_if_name_exists=True,
         )
         self.client.channels.create(
@@ -132,7 +139,9 @@ class LogLifecycle(ConsoleCase):
 
         log.set_channel(self.data_name)
 
-        assert log.is_waiting_for_data(), "Log should show 'No data received yet'"
+        assert log.wait_until_waiting_for_data(), (
+            "Log should show 'No data received yet'"
+        )
         assert log.is_empty(), "Log should be empty when no data received"
         assert not log.is_streaming(), "Log should not be streaming without data"
 
@@ -158,15 +167,13 @@ class LogLifecycle(ConsoleCase):
         self.log("Testing timestamp (index) channel streaming")
 
         log.clear_channels()
-        log.set_channel(self.idx_name)
+        log.set_channel(self.timestamp_name)
         assert log.wait_until_waiting_for_data(), (
             "Log should wait for data on the timestamp channel"
         )
 
-        for i in range(5):
-            self.writer.write(
-                {self.idx_name: sy.TimeStamp.now(), self.data_name: (42.0 + i)}
-            )
+        for _ in range(5):
+            self.writer.write(self.timestamp_name, sy.TimeStamp.now())
             sy.sleep(0.1)
 
         assert log.wait_until_streaming(), (
@@ -179,7 +186,7 @@ class LogLifecycle(ConsoleCase):
         # formatting path whose regression previously froze the log.
         formatted_value = re.compile(r"[A-Z][a-z]{2} \d{1,2} \d{2}:\d{2}:\d{2}")
         assert all(
-            self.idx_name in entry and formatted_value.search(entry)
+            self.timestamp_name in entry and formatted_value.search(entry)
             for entry in entries
         ), f"Log should render formatted timestamp values, got {entries!r}"
 

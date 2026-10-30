@@ -8,6 +8,8 @@
 // included in the file licenses/APL.txt.
 
 #include <memory>
+#include <mutex>
+#include <string>
 #include <utility>
 
 #include "x/cpp/json/json.h"
@@ -15,6 +17,15 @@
 #include "driver/modbus/scan_task.h"
 
 namespace driver::modbus {
+namespace {
+/// @returns whether two serial settings open separate connections: by another path to
+/// the port, or with other line settings.
+bool separate_connections(const device::Serial &a, const device::Serial &b) {
+    return device::port_name(a.port) != device::port_name(b.port) ||
+           a.line() != b.line();
+}
+}
+
 Scanner::Scanner(
     std::shared_ptr<task::Context> ctx,
     synnax::task::Task task,
@@ -33,12 +44,14 @@ std::pair<std::vector<synnax::device::Device>, x::errors::Error>
 Scanner::scan(const common::ScannerContext &scan_ctx) {
     std::vector<synnax::device::Device> devices_out;
     if (scan_ctx.devices == nullptr) return {devices_out, x::errors::NIL};
-    std::unordered_map<std::string, Check> next;
     for (auto [key, dev]: *scan_ctx.devices) {
-        this->check_device_health(dev, next);
+        this->check_device_health(dev);
         devices_out.push_back(dev);
     }
-    this->checks = std::move(next);
+    std::lock_guard lock(this->mu);
+    std::erase_if(this->checks, [&](const auto &entry) {
+        return !scan_ctx.devices->contains(entry.first);
+    });
     return {devices_out, x::errors::NIL};
 }
 
@@ -54,14 +67,27 @@ bool Scanner::exec(
     return false;
 }
 
-void Scanner::check_device_health(
-    synnax::device::Device &dev,
-    std::unordered_map<std::string, Check> &next
-) const {
+void Scanner::release_stale(
+    std::unique_lock<std::mutex> &lock,
+    const device::ConnectionConfig &cfg
+) {
+    if (cfg.transport != device::Transport::RTU) return;
+    const auto endpoint = cfg.endpoint();
+    this->probed.wait(lock, [&] { return !this->probing.contains(endpoint); });
+    std::erase_if(this->checks, [&](const auto &entry) {
+        const auto &held = entry.second.dev->config();
+        return held.endpoint() == endpoint &&
+               separate_connections(held.serial, cfg.serial);
+    });
+}
+
+void Scanner::check_device_health(synnax::device::Device &dev) {
     const auto rack_key = this->task.rack;
     const auto parser = x::json::Parser(dev.properties);
     const auto props = device::Properties(parser);
+    std::unique_lock lock(this->mu);
     if (parser.error()) {
+        this->checks.erase(dev.key);
         dev.status = synnax::device::Status{
             .key = synnax::device::status_key(dev),
             .name = dev.name,
@@ -74,14 +100,38 @@ void Scanner::check_device_health(
         return;
     }
 
+    // The device's old check would hold its port through the old path or line settings.
+    if (const auto held = this->checks.find(dev.key); held != this->checks.end()) {
+        const auto &old = held->second.dev->config().serial;
+        if (separate_connections(old, props.connection.serial))
+            this->checks.erase(held);
+    }
     auto [d, err] = this->devices->acquire(props.connection, props.requests);
-    if (!err) {
+    synnax::device::StatusDetails details{.rack = rack_key, .device = dev.key};
+    if (err)
+        this->checks.erase(dev.key);
+    else {
         const auto prev = this->checks.find(dev.key);
         const bool replied = prev != this->checks.end() &&
                              d->last_reply() >= prev->second.time;
-        if (!replied) err = d->probe();
-        next[dev.key] = Check{.dev = d, .time = device::Connection::Clock::now()};
+        if (!replied) {
+            const auto endpoint = props.connection.endpoint();
+            this->probing.insert(endpoint);
+            lock.unlock();
+            err = d->probe();
+            lock.lock();
+            this->probing.erase(endpoint);
+            this->probed.notify_all();
+        }
+        this->checks[dev.key] = Check{
+            .dev = d,
+            .time = device::Connection::Clock::now()
+        };
+        details.data = x::json::json::object_t{{"stats", d->stats().to_json()}};
     }
+    // A connection test that releases the check must also release the connection.
+    d.reset();
+    lock.unlock();
     if (err)
         dev.status = synnax::device::Status{
             .key = synnax::device::status_key(dev),
@@ -90,7 +140,7 @@ void Scanner::check_device_health(
             .message = "Failed to reach device",
             .description = err.data,
             .time = x::telem::TimeStamp::now(),
-            .details = {.rack = rack_key, .device = dev.key},
+            .details = details,
         };
     else
         dev.status = synnax::device::Status{
@@ -99,11 +149,11 @@ void Scanner::check_device_health(
             .variant = synnax::status::VARIANT_SUCCESS,
             .message = "Device connected",
             .time = x::telem::TimeStamp::now(),
-            .details = {.rack = rack_key, .device = dev.key},
+            .details = details,
         };
 }
 
-void Scanner::test_connection(const synnax::task::Command &cmd) const {
+void Scanner::test_connection(const synnax::task::Command &cmd) {
     x::json::Parser parser(cmd.args);
     const ScanCommandArgs args(parser);
     synnax::task::Status status{
@@ -124,7 +174,11 @@ void Scanner::test_connection(const synnax::task::Command &cmd) const {
         ctx->set_status(status);
         return;
     }
-    auto [dev, err] = this->devices->acquire(args.connection, args.requests);
+    auto [dev, err] = [&] {
+        std::unique_lock lock(this->mu);
+        this->release_stale(lock, args.connection);
+        return this->devices->acquire(args.connection, args.requests);
+    }();
     if (!err) err = dev->probe();
     if (err) {
         status.message = "Failed to connect to device";

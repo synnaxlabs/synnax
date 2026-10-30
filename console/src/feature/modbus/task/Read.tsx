@@ -22,12 +22,15 @@ import { type FC } from "react";
 import { useFromConfig } from "@/feature/modbus/device/queries";
 import { Select as SelectDevice } from "@/feature/modbus/device/Select";
 import { SCHEMAS } from "@/feature/modbus/device/types";
+import { AddressField } from "@/feature/modbus/task/AddressField";
 import { OrderFields } from "@/feature/modbus/task/OrderFields";
 import { SelectReadChannelTypeField } from "@/feature/modbus/task/SelectReadChannelTypeField";
 import {
+  BIT_BOUNDS,
   deployReadConfigZ,
+  isStringChannel,
   isVariableDensityReadChannel,
-  nextAddress,
+  nextChannel,
   READ_CHANNEL_SCHEMAS,
   READ_SCHEMAS,
   READ_TYPE,
@@ -36,8 +39,9 @@ import {
   type ReadChannelType,
   readMapKey,
   type ReadSchemas,
+  STRING_LENGTH_BOUNDS,
   type TypedReadChannel,
-  UNSUPPORTED_REGISTER_DATA_TYPES,
+  UNSUPPORTED_READ_DATA_TYPES,
 } from "@/feature/modbus/task/types";
 import { CSS } from "@/platform/css";
 import { Selector } from "@/platform/selector";
@@ -59,7 +63,7 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
   const { itemKey } = props;
   const path = `config.channels.${itemKey}`;
   const ch = PForm.useFieldValue<ReadChannel>(path);
-  const { type, channel } = ch;
+  const { channel } = ch;
   return (
     <Select.Item
       {...props}
@@ -84,13 +88,21 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
             });
           }}
         />
-        <PForm.NumericField
-          inputProps={{ showDragHandle: false }}
-          showLabel={false}
-          showHelpText={false}
-          path={`${path}.address`}
-        />
-        {(type === "input_register" || type === "holding_register") && (
+        <AddressField path={path} />
+        {"bit" in ch && (
+          <PForm.NumericField
+            inputProps={{
+              showDragHandle: false,
+              bounds: BIT_BOUNDS,
+              startContent: "Bit",
+              "aria-label": "Bit",
+            }}
+            showLabel={false}
+            showHelpText={false}
+            path={`${path}.bit`}
+          />
+        )}
+        {isVariableDensityReadChannel(ch) && (
           <PForm.Field<string>
             path={`${path}.dataType`}
             showLabel={false}
@@ -98,6 +110,19 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
           >
             {renderTelemSelectDataType}
           </PForm.Field>
+        )}
+        {isStringChannel(ch) && (
+          <PForm.NumericField
+            inputProps={{
+              showDragHandle: false,
+              bounds: STRING_LENGTH_BOUNDS,
+              startContent: "String length",
+              "aria-label": "String length",
+            }}
+            showLabel={false}
+            showHelpText={false}
+            path={`${path}.stringLength`}
+          />
         )}
       </Flex.Box>
       {isVariableDensityReadChannel(ch) && (
@@ -119,7 +144,7 @@ const renderTelemSelectDataType = Component.renderProp(
   (props: Telem.SelectDataTypeProps) => (
     <Telem.SelectDataType
       {...props}
-      hideDataTypes={UNSUPPORTED_REGISTER_DATA_TYPES}
+      hideDataTypes={UNSUPPORTED_READ_DATA_TYPES}
       location="bottom"
     />
   ),
@@ -131,12 +156,10 @@ const getOpenChannel = (channels: ReadChannel[]): ReadChannel => {
       ...READ_CHANNEL_SCHEMAS.coil.parse({ type: "coil" }),
       key: id.create(),
     };
-  const channelToCopy = channels[channels.length - 1];
   return {
-    ...channelToCopy,
+    ...nextChannel(channels[channels.length - 1]),
     ...Task.READ_CHANNEL_OVERRIDE,
     key: id.create(),
-    address: nextAddress(channelToCopy),
   };
 };
 

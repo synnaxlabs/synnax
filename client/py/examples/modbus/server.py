@@ -8,15 +8,18 @@
 #  included in the file licenses/APL.txt.
 
 import asyncio
+import contextlib
 import math
+import os
+import tempfile
 import time
 
 from pymodbus import ModbusDeviceIdentification
-from pymodbus.client import ModbusTcpClient
+from pymodbus.client import ModbusSerialClient, ModbusTcpClient
 from pymodbus.constants import ExcCodes
 from pymodbus.datastore import ModbusServerContext
 from pymodbus.exceptions import NoSuchIdException
-from pymodbus.server import ModbusTcpServer
+from pymodbus.server import ModbusSerialServer, ModbusTcpServer
 from pymodbus.simulator import DataType, SimData, SimDevice
 from pymodbus.simulator.simcore import SimCore
 
@@ -33,6 +36,9 @@ GATEWAY_UNITS = (1, 2)
 # From TYPED_START: float32 1.5, int16 -2, and uint32 70000, low word first as the
 # Driver reads by default.
 TYPED_REGISTERS = [0x0000, 0x3FC0, 0xFFFE, 0x1170, 0x0001]
+# From STRING_START: "SYNNAX" and a NUL, two characters a register, high byte first.
+STRING_START = TYPED_START + len(TYPED_REGISTERS)
+STRING_REGISTERS = [0x5359, 0x4E4E, 0x4158, 0x0000]
 
 
 async def updating_writer(
@@ -127,7 +133,7 @@ async def run_server(
     """Run the Modbus TCP server."""
     fixed = range(FIXED_START, TYPED_START)
     bits = [False] * FIXED_START + [n % 2 == 1 for n in fixed]
-    registers = [0] * FIXED_START + list(fixed) + TYPED_REGISTERS
+    registers = [0] * FIXED_START + list(fixed) + TYPED_REGISTERS + STRING_REGISTERS
     dev = SimDevice(
         id=SLAVE_ID,
         simdata=(
@@ -208,13 +214,9 @@ class _Gateway(SimCore):
         return await super().async_setValues(device_id, func_code, address, values)
 
 
-async def run_gateway(
-    host: str = ModbusGatewaySim.host, port: int = ModbusGatewaySim.port
-) -> None:
-    """Run a Modbus TCP gateway with units 1 and 2. Holding register n of unit u holds
-    100 * u + n, and input register 0 of each unit holds the number of open
-    connections."""
-    devices = [
+def _gateway_devices() -> list[SimDevice]:
+    """Return units 1 and 2, where holding register n of unit u holds 100 * u + n."""
+    return [
         SimDevice(
             id=unit,
             simdata=(
@@ -232,6 +234,15 @@ async def run_gateway(
         )
         for unit in GATEWAY_UNITS
     ]
+
+
+async def run_gateway(
+    host: str = ModbusGatewaySim.host, port: int = ModbusGatewaySim.port
+) -> None:
+    """Run a Modbus TCP gateway with units 1 and 2. Holding register n of unit u holds
+    100 * u + n, and input register 0 of each unit holds the number of open
+    connections."""
+    devices = _gateway_devices()
     gateway = _Gateway(devices)
     server = ModbusTcpServer(
         context=devices,
@@ -240,6 +251,100 @@ async def run_gateway(
         trace_connect=gateway.trace_connect,
     )
     server.context = gateway
+    await server.serve_forever()
+
+
+class ModbusSerialSim(DeviceSim):
+    """Modbus RTU simulator with the units of the gateway on a pseudo-terminal, at 19200
+    baud with even parity. A client opens serial_port, a link to the terminal. POSIX
+    only."""
+
+    description = "Modbus RTU simulator on a pseudo-terminal"
+    serial_port = os.path.join(tempfile.gettempdir(), "synnax-modbus-rtu-sim")
+    device_name = "Modbus Serial Unit 1"
+
+    async def _run_server(self) -> None:
+        await run_serial(self.serial_port)
+
+    def _require_port_free(self) -> None:
+        """The server replaces a link left by an earlier run."""
+
+    def _wait_for_ready(self) -> None:
+        """Poll until unit 1 answers on the link."""
+        assert self.process is not None, "start() must run before _wait_for_ready()"
+        timer = sy.Timer()
+        while timer.elapsed() < self.startup_timeout:
+            if not self.process.is_alive():
+                raise RuntimeError(
+                    f"Server process died during startup "
+                    f"(exit code: {self.process.exitcode})"
+                )
+            if os.path.exists(self.serial_port):
+                client = ModbusSerialClient(
+                    self.serial_port, parity="E", timeout=0.5, retries=0
+                )
+                try:
+                    if (
+                        client.connect()
+                        and not client.read_holding_registers(0).isError()
+                    ):
+                        return
+                except Exception:
+                    pass
+                finally:
+                    client.close()
+            sy.sleep(0.1)
+        raise RuntimeError(
+            f"Modbus RTU server on {self.serial_port} not answering after "
+            f"{self.startup_timeout}"
+        )
+
+    def _wait_for_port_closed(self, timeout: sy.TimeSpan) -> None:
+        """The terminal closes with the server. Remove the link it leaves."""
+        with contextlib.suppress(FileNotFoundError):
+            os.unlink(self.serial_port)
+
+    @staticmethod
+    def create_device(rack_key: int, unit_id: int = 1) -> modbus.Device:
+        return modbus.Device(
+            transport="rtu",
+            serial_port=ModbusSerialSim.serial_port,
+            unit_id=unit_id,
+            name=f"Modbus Serial Unit {unit_id}",
+            location=ModbusSerialSim.serial_port,
+            rack=rack_key,
+        )
+
+
+async def run_serial(link: str = ModbusSerialSim.serial_port) -> None:
+    """Run a Modbus RTU server with the units of the gateway on a pseudo-terminal, and
+    point link at the terminal a client opens. The server and the client each get a
+    terminal, and the server process copies bytes between them."""
+    # tty imports termios, which Windows does not have.
+    import tty
+
+    server_master, server_slave = os.openpty()
+    client_master, client_slave = os.openpty()
+    for fd in (server_slave, client_slave):
+        tty.setraw(fd)
+    with contextlib.suppress(FileNotFoundError):
+        os.unlink(link)
+    os.symlink(os.ttyname(client_slave), link)
+    loop = asyncio.get_running_loop()
+
+    def bridge(src: int, dst: int) -> None:
+        loop.add_reader(src, lambda: os.write(dst, os.read(src, 4096)))
+
+    bridge(server_master, client_master)
+    bridge(client_master, server_master)
+    devices = _gateway_devices()
+    server = ModbusSerialServer(
+        context=devices,
+        port=os.ttyname(server_slave),
+        parity="E",
+        ignore_missing_devices=True,
+    )
+    server.context = _Gateway(devices)
     await server.serve_forever()
 
 

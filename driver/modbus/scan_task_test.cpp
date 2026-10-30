@@ -9,6 +9,7 @@
 
 #include <cerrno>
 #include <chrono>
+#include <thread>
 
 #include "gtest/gtest.h"
 #include "nlohmann/json.hpp"
@@ -265,6 +266,66 @@ TEST(ScanTask, testScanReportsSilentUnit) {
     EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
     EXPECT_EQ(status.message, "Failed to reach device");
     EXPECT_EQ(status.description, modbus_strerror(ETIMEDOUT));
+    EXPECT_EQ(status.details.data.value().at("stats")["timeouts"], 1);
+}
+
+/// @brief it should report the request counters of a device in its status.
+TEST(ScanTask, testScanReportsRequestStats) {
+    testutil::SlaveConfig slave_cfg;
+    slave_cfg.port = 1678;
+    testutil::Slave slave(slave_cfg);
+    ASSERT_NIL(slave.start());
+    x::defer::defer stop_slave([&slave] { slave.stop(); });
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    synnax::task::Task t;
+    Scanner scanner(ctx, t, std::make_shared<device::Manager>());
+    const auto dev = local_device("counted", 1678);
+
+    scan(scanner, dev);
+    const auto status = scan(scanner, dev)[0].status.value();
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_SUCCESS);
+    const auto stats = status.details.data.value().at("stats");
+    EXPECT_EQ(stats["requests"], 2);
+    EXPECT_EQ(stats["retries"], 0);
+    EXPECT_EQ(stats["timeouts"], 0);
+    EXPECT_EQ(stats["exceptions"], 0);
+    EXPECT_GT(stats["max_response"].get<std::int64_t>(), 0);
+}
+
+/// @brief it should test a connection while a scan waits on a silent server.
+TEST(ScanTask, testConnectionDuringSlowScan) {
+    testutil::SlaveConfig silent_cfg;
+    silent_cfg.port = 1666;
+    silent_cfg.silent_units = {5};
+    testutil::Slave silent(silent_cfg);
+    ASSERT_NIL(silent.start());
+    x::defer::defer stop_silent([&silent] { silent.stop(); });
+    testutil::Slave live(testutil::SlaveConfig{.port = 1667});
+    ASSERT_NIL(live.start());
+    x::defer::defer stop_live([&live] { live.stop(); });
+    auto ctx = std::make_shared<task::MockContext>(nullptr);
+    synnax::task::Task t;
+    t.key = x::uuid::create();
+    Scanner scanner(ctx, t, std::make_shared<device::Manager>());
+    auto slow = local_device("slow", 1666, 5);
+    slow.properties["connection"]["timeout_ms"] = 2000;
+    std::thread scanning([&] { scan(scanner, slow); });
+    x::defer::defer join([&scanning] { scanning.join(); });
+    std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    synnax::task::Command cmd{
+        .task = t.key,
+        .type = TEST_CONNECTION_CMD_TYPE,
+        .key = "test",
+        .args = {
+            {"connection", local_device("live", 1667).properties.at("connection")}
+        },
+    };
+
+    const auto start = std::chrono::steady_clock::now();
+    ASSERT_TRUE(scanner.exec(cmd, t, ctx));
+    EXPECT_LT(std::chrono::steady_clock::now() - start, std::chrono::seconds(1));
+    ASSERT_EQ(ctx->statuses.size(), 1);
+    EXPECT_EQ(ctx->statuses[0].variant, synnax::status::VARIANT_SUCCESS);
 }
 
 /// @brief it should wait the request delay of the tested device after a task's request

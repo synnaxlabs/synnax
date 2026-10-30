@@ -102,6 +102,21 @@ describe("deploy configs", () => {
     ]);
   });
 
+  it.each([0, 251])("should reject a string of %d characters", (stringLength) => {
+    const result = Modbus.Task.deployReadConfigZ.safeParse(
+      readConfig([
+        { type: "input_register", address: 0, dataType: "string", stringLength },
+        { type: "input_register", address: 200, dataType: "uint16", stringLength },
+      ]),
+    );
+    expect(issues(result)).toEqual([
+      {
+        path: ["channels", 0, "stringLength"],
+        message: "String length must be from 1 to 250",
+      },
+    ]);
+  });
+
   it("should reject read channels that bind to one Synnax channel", () => {
     const result = Modbus.Task.deployReadConfigZ.safeParse(
       readConfig([
@@ -134,6 +149,34 @@ describe("deploy configs", () => {
         message: "Overlaps the holding register at address 0",
       },
       { path: ["channels", 3, "address"], message: "Overlaps the coil at address 1" },
+    ]);
+  });
+
+  it("should reject a register bit inside a register value or on a taken bit", () => {
+    const result = Modbus.Task.deployWriteConfigZ.safeParse(
+      writeConfig([
+        { type: "holding_register", address: 0, dataType: "float32" },
+        { type: "holding_register_bit", address: 2, bit: 1 },
+        { type: "holding_register_bit", address: 2, bit: 2 },
+        { type: "coil", address: 2 },
+        { type: "holding_register_bit", address: 1, bit: 0 },
+        { type: "holding_register_bit", address: 2, bit: 1 },
+        { type: "holding_register", address: 2, dataType: "uint16" },
+      ]),
+    );
+    expect(issues(result)).toEqual([
+      {
+        path: ["channels", 4, "address"],
+        message: "Overlaps the holding register at address 0",
+      },
+      {
+        path: ["channels", 5, "address"],
+        message: "Overlaps the holding register bit at address 2",
+      },
+      {
+        path: ["channels", 6, "address"],
+        message: "Overlaps the holding register bit at address 2",
+      },
     ]);
   });
 
