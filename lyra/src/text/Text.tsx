@@ -111,7 +111,8 @@ export const parseElement = <E extends Generic.ElementType = "p">(
   if (el != null) return el;
   if (href != null || variant === "link") return "a" as E;
   if (defaultEl != null) return defaultEl as E;
-  if (level != null) return level as E;
+  // HTML has no element below <small>, so tiny text renders in one too.
+  if (level != null) return (level === "tiny" ? "small" : level) as E;
   return "p" as E;
 };
 

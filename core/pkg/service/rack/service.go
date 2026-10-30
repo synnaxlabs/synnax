@@ -13,9 +13,12 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
+	"uuid"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/gorp/migrate"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/cluster"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -56,6 +59,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Status *status.Service
+	// DriverRole is the role each new rack receives.
+	//
+	// [REQUIRED]
+	DriverRole role.Key
 	alamos.Instrumentation
 	// HealthCheckInterval specifies the interval at which the rack service will check
 	// that it has received a status update from a rack.
@@ -88,6 +95,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Group = override.Nil(c.Group, other.Group)
 	c.HostProvider = override.Nil(c.HostProvider, other.HostProvider)
 	c.Status = override.Nil(c.Status, other.Status)
+	c.DriverRole = override.UUID(c.DriverRole, other.DriverRole)
 	c.HealthCheckInterval = override.Numeric(
 		c.HealthCheckInterval,
 		other.HealthCheckInterval,
@@ -104,6 +112,7 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("group", c.Group)
 	v.NotNil("host", c.HostProvider)
 	v.NotNil("status", c.Status)
+	v.Ternary("driver_role", c.DriverRole == uuid.Nil(), "must be set")
 	v.Positive("health", c.HealthCheckInterval)
 	return v.Error()
 }
@@ -139,6 +148,14 @@ func OpenService(
 		}),
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
+		return nil, err
+	}
+	if err = gorp.Migrate(ctx, gorp.MigrateConfig{
+		Instrumentation: cfg.Instrumentation,
+		DB:              cfg.DB,
+		Namespace:       "rack.roles",
+		Migrations:      []gorp.Migration{newDriverRoleMigration(s)},
+	}); !ok(err, nil) {
 		return nil, err
 	}
 	if s.group, err = cfg.Group.CreateOrRetrieve(
@@ -244,12 +261,13 @@ func (s *Service) Close() error { return s.closer.Close() }
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	tx = gorp.OverrideTx(s.DB, tx)
 	return Writer{
-		tx:     tx,
-		otg:    s.Ontology.NewWriter(tx),
-		newKey: s.newKey,
-		group:  s.group,
-		status: s.Status.NewWriter(tx),
-		table:  s.table,
+		tx:         tx,
+		otg:        s.Ontology.NewWriter(tx),
+		newKey:     s.newKey,
+		group:      s.group,
+		status:     s.Status.NewWriter(tx),
+		table:      s.table,
+		driverRole: s.DriverRole,
 	}
 }
 
@@ -265,4 +283,30 @@ func (s *Service) NewRetrieve() Retrieve {
 		gorp:         s.table.NewRetrieve(),
 		hostProvider: s.HostProvider,
 	}
+}
+
+// newDriverRoleMigration gives the Driver role to every rack created before racks
+// received it at creation.
+func newDriverRoleMigration(s *Service) gorp.Migration {
+	return migrate.New(
+		"v0.driver_role",
+		func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
+			var racks []Rack
+			if err := s.NewRetrieve().Entries(&racks).Exec(ctx, tx); err != nil {
+				return err
+			}
+			w := s.Ontology.NewWriter(tx)
+			for _, r := range racks {
+				if err := w.DefineRelationships(
+					ctx,
+					role.OntologyID(s.DriverRole),
+					ontology.RelationshipTypeParentOf,
+					r.OntologyID(),
+				); err != nil {
+					return err
+				}
+			}
+			return nil
+		},
+	)
 }

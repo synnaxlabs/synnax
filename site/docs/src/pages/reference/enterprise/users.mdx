@@ -155,18 +155,20 @@ with a new `--password`. See the
 
 A Core has five roles. **All** means create, read, change, and delete.
 
-| Resources                                              | Owner | Engineer | Operator | Host           | Viewer |
-| ------------------------------------------------------ | ----- | -------- | -------- | -------------- | ------ |
-| Channels                                               | All   | All      | Read     | Read           | Read   |
-| Ranges                                                 | All   | All      | All      | All            | Read   |
-| Live data                                              | All   | All      | All      | Read and write | Read   |
-| Drivers, devices, tasks, Arc automations, and statuses | All   | All      | Read     | All            | Read   |
-| Projects, visualizations, labels, and aliases          | All   | All      | Read     | None           | Read   |
-| Users and roles                                        | All   | Read     | Read     | None           | Read   |
+| Resources                                     | Owner | Engineer | Operator | Driver          | Viewer |
+| --------------------------------------------- | ----- | -------- | -------- | --------------- | ------ |
+| Channels                                      | All   | All      | Read     | Read            | Read   |
+| Ranges                                        | All   | All      | All      | All             | Read   |
+| Live data                                     | All   | All      | All      | Read and write  | Read   |
+| Drivers                                       | All   | All      | Read     | Read and change | Read   |
+| Devices, tasks, Arc automations, and statuses | All   | All      | Read     | All             | Read   |
+| Projects, visualizations, labels, and aliases | All   | All      | Read     | None            | Read   |
+| Users and roles                               | All   | Read     | Read     | None            | Read   |
 
 - **Owner** -> runs the deployment and manages users.
 - **Engineer** -> sets up channels, hardware, automations, and visualizations.
 - **Operator** -> runs tests: writes live data to control hardware, and edits ranges. An
   Operator cannot create visualizations.
-- **Host** -> for a computer that runs a standalone Driver.
+- **Driver** -> given to each rack, so a Driver logs in as its rack. It can change its
+  rack, but cannot create or delete racks.
 - **Viewer** -> sees everything and changes nothing.
