@@ -100,10 +100,10 @@ protected:
         if (this->server) this->server->stop();
     }
 
-    void start_server() {
+    void start_server(const testutil::Pump &pump = {}) {
         auto cfg = testutil::ServerConfig::create_default();
         cfg.port = 4864;
-        cfg.pump = testutil::Pump{};
+        cfg.pump = pump;
         this->server = std::make_unique<testutil::Server>(cfg);
         this->server->start();
         ASSERT_TRUE(this->server->wait_until_ready());
@@ -280,6 +280,24 @@ TEST_F(TestEventTask, testKeepsReplayedEventsAtOneTime) {
     ASSERT_NIL(src->stop());
 }
 
+/// @brief it should keep a new replayed event that a second replay sends again before
+/// the task writes it, and write it once.
+TEST_F(TestEventTask, testKeepsReplayedEventThatReplaysAgain) {
+    const auto src = this->source(this->config());
+    ASSERT_NIL(src->start());
+    const auto time = x::telem::TimeStamp::now() - x::telem::SECOND;
+    for (int i = 0; i < 2; ++i) {
+        this->emit_marker(UA_NS0ID_REFRESHSTARTEVENTTYPE);
+        this->emit("active", time);
+        this->emit_marker(UA_NS0ID_REFRESHENDEVENTTYPE);
+    }
+    const auto [events, stamps] = read_events(*src, 1);
+    ASSERT_EQ(events.size(), 1);
+    EXPECT_EQ(events[0]["message"], "active");
+    EXPECT_EQ(stamps, std::vector{time});
+    ASSERT_NIL(src->stop());
+}
+
 /// @brief it should record the events of the notifiers that exist, and warn about each
 /// notifier that the server does not monitor.
 TEST_F(TestEventTask, testWarnsAboutMissingNotifier) {
@@ -298,6 +316,31 @@ TEST_F(TestEventTask, testWarnsAboutMissingNotifier) {
     this->emit("still recorded");
     const auto [events, _] = read_events(*src, 1);
     ASSERT_EQ(events.size(), 1);
+    ASSERT_NIL(src->stop());
+}
+
+/// @brief it should ask the server to send the active conditions again once the server
+/// monitors a notifier that it refused at start.
+TEST_F(TestEventTask, testReplaysConditionsOfRecoveredNotifier) {
+    this->server->stop();
+    this->start_server({.event_notifier = 0});
+    const auto src = this->source(this->config());
+    ASSERT_NIL(src->start());
+    x::breaker::Breaker breaker;
+    x::telem::Frame fr;
+    auto res = src->read(breaker, fr);
+    ASSERT_NIL(res.error);
+    EXPECT_EQ(res.warning.message, "Failed to record some events");
+    EXPECT_EQ(this->server->refreshes, 1);
+    this->server->set_pump_event_notifier(UA_EVENTNOTIFIER_SUBSCRIBE_TO_EVENT);
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(15);
+    while (!res.warning.message.empty() &&
+           std::chrono::steady_clock::now() < deadline) {
+        res = src->read(breaker, fr);
+        ASSERT_NIL(res.error);
+    }
+    EXPECT_EQ(res.warning.message, "");
+    EXPECT_EQ(this->server->refreshes, 2);
     ASSERT_NIL(src->stop());
 }
 

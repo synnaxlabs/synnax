@@ -228,6 +228,8 @@ const SEARCH_LIMIT_NOTE =
 const NAMING_NOTE =
   "Each channel takes its name from the folder and the path to the variable.";
 
+const MOVED_NOTE = "The task moved to another server before the Driver answered.";
+
 interface Search {
   nodes: ScannedNode[];
   truncated: boolean;
@@ -335,6 +337,13 @@ const ChannelList = <C extends Channel>({
         return [free];
       });
   };
+  // Another device mounts another body, but an add that waits on the Driver still
+  // writes to this form.
+  const moved = (key: string, name: string, message: string): boolean => {
+    if (ctx.get<string>("config.device").value === device.key) return false;
+    addStatus({ key, variant: "warning", name, message, description: MOVED_NOTE });
+    return true;
+  };
   const addFolders = (folders: HaulItem[]) =>
     handleError(async () => {
       if (client == null) throw new DisconnectedError();
@@ -356,6 +365,7 @@ const ChannelList = <C extends Channel>({
         });
         return;
       }
+      if (moved(key, name, "Added no variables")) return;
       const found = search.nodes;
       const missing = describeMissing(search);
       const target = folders.length === 1 ? "the folder" : "the folders";
@@ -387,7 +397,7 @@ const ChannelList = <C extends Channel>({
         description: missing ?? NAMING_NOTE,
         confirm: { label: "Add", variant: "success" },
       });
-      if (confirmed !== true) return;
+      if (confirmed !== true || moved(key, name, "Added no variables")) return;
       push(newChannels(found));
     }, "Failed to add the variables of a folder");
   // A method can take more than one channel, so a drop always adds one.
@@ -408,6 +418,8 @@ const ChannelList = <C extends Channel>({
         const ch = convertNodeToChannel(method.data, details);
         if (ch != null) channels.push(ch);
       }
+      const name = methods.length === 1 ? methods[0].data.name : "";
+      if (moved(id.create(), name, "Added no methods")) return;
       push(channels);
     }, "Failed to add a method");
   const isMethodChannelItem = (item: Haul.Item): item is HaulItem =>

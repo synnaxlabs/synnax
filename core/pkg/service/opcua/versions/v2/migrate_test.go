@@ -27,7 +27,7 @@ var _ = Describe("Migration", func() {
 		"Should keep every read config field, sample, read whole node values, and leave NaN fill disabled",
 		func(ctx SpecContext) {
 			stored := v1.ReadConfig{
-				Key:        uuid.New(),
+				Key:        uuid.MustParse("1a2b3c4d-0000-0000-0000-000000000000"),
 				AutoStart:  true,
 				Device:     "dev",
 				SampleRate: 100,
