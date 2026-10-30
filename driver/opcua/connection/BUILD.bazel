@@ -37,13 +37,13 @@ cc_library(
 
 cc_test(
     name = "connection_test",
+    timeout = "long",
     srcs = [
         "connection_test.cpp",
         "keepalive_test.cpp",
         "pool_test.cpp",
         "security_test.cpp",
     ],
-    timeout = "long",
     deps = [
         ":connection",
         "//driver/opcua/certificate",
