@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include "driver/labjack/names.h"
 #include "driver/ni/ni.h"
 #include "driver/rack/factories.h"
 
@@ -22,7 +23,13 @@ void configure_ni(const Config &config, FactoryList &factories) {
 }
 
 void configure_labjack(const Config &, FactoryList &factories) {
-    // The Linux build leaves LabJack out, so its names are literals.
-    factories.push_back(std::make_unique<LegacyFactory>("labjack", "labjack_scan"));
+    factories.push_back(
+        std::make_unique<UnavailableFactory>(
+            labjack::INTEGRATION_NAME,
+            "LabJack tasks do not run on Linux. Connect the device from a Driver on "
+            "Windows or macOS.",
+            labjack::SCAN_TASK_TYPE
+        )
+    );
 }
 }
