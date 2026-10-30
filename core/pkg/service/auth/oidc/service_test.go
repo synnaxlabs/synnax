@@ -13,6 +13,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"time"
 	"uuid"
 
@@ -233,15 +234,23 @@ var _ = Describe("Service", func() {
 		It("Should stop waiting on another discovery when its context ends", func(
 			ctx SpecContext,
 		) {
-			reached := make(chan struct{})
+			reached := make(chan struct{}, 1)
 			release := make(chan struct{})
 			stalled := httptest.NewServer(http.HandlerFunc(
 				func(http.ResponseWriter, *http.Request) {
-					close(reached)
-					<-release
+					select {
+					case reached <- struct{}{}:
+					default:
+					}
+					select {
+					case <-release:
+					case <-time.After(10 * time.Second):
+					}
 				},
 			))
 			DeferCleanup(stalled.Close)
+			releaseOnce := sync.OnceFunc(func() { close(release) })
+			DeferCleanup(releaseOnce)
 			stalledSvc := open(ctx, oidc.Provider{
 				Name:     "stalled",
 				Issuer:   stalled.URL,
@@ -255,12 +264,12 @@ var _ = Describe("Service", func() {
 				Expect(stalledSvc.Verify(ctx, creds)).Error().
 					To(MatchError(ContainSubstring(`discover provider "stalled"`)))
 			}()
-			Eventually(reached).Should(BeClosed())
+			Eventually(reached).Should(Receive())
 			cancelled, cancel := context.WithCancel(ctx)
 			cancel()
 			Expect(stalledSvc.Verify(cancelled, creds)).Error().
 				To(MatchError(context.Canceled))
-			close(release)
+			releaseOnce()
 			Eventually(discovered).Should(BeClosed())
 		})
 	})
