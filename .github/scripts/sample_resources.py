@@ -34,7 +34,7 @@ def stop_path(path: Path) -> Path:
     return path.with_suffix(".stop")
 
 
-def sample(path: Path, interval: float) -> None:
+def sample(path: Path, *, interval: float) -> None:
     """Writes a sample to the CSV at path every interval seconds until stopped. An
     existing stop file ends it before the first sample."""
     with open(path, "w", newline="", encoding="utf-8") as f:
@@ -48,7 +48,7 @@ def sample(path: Path, interval: float) -> None:
             f.flush()
 
 
-def percentile(values: list[float], fraction: float) -> float:
+def percentile(values: list[float], *, fraction: float) -> float:
     """Returns the nearest-rank percentile of values."""
     ordered = sorted(values)
     return ordered[max(0, math.ceil(len(ordered) * fraction) - 1)]
@@ -70,10 +70,11 @@ def report(path: Path) -> str:
         f"{len(rows)} samples over {minutes:.1f} minutes.\n\n"
         "| Metric | Mean | p50 | p95 | Max |\n"
         "| --- | --- | --- | --- | --- |\n"
-        f"| CPU % | {statistics.mean(cpu):.0f} | {percentile(cpu, 0.5):.0f} | "
-        f"{percentile(cpu, 0.95):.0f} | {max(cpu):.0f} |\n"
+        f"| CPU % | {statistics.mean(cpu):.0f} | {percentile(cpu, fraction=0.5):.0f} | "
+        f"{percentile(cpu, fraction=0.95):.0f} | {max(cpu):.0f} |\n"
         f"| Memory GB | {statistics.mean(memory):.1f} | "
-        f"{percentile(memory, 0.5):.1f} | {percentile(memory, 0.95):.1f} | "
+        f"{percentile(memory, fraction=0.5):.1f} | "
+        f"{percentile(memory, fraction=0.95):.1f} | "
         f"{max(memory):.1f} |\n"
     )
 
@@ -89,7 +90,7 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.command == "sample":
-        sample(args.csv, args.interval)
+        sample(args.csv, interval=args.interval)
         return
     summary = report(args.csv)
     sys.stdout.write(summary)

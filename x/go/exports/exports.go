@@ -88,20 +88,28 @@ func Check(ctx context.Context, cfg Config) (findings []Finding, err error) {
 			"exports: goos must be non-empty",
 		)
 	}
-	work, err := writeWorkspace(cfg.Modules)
+	modules, err := absolute(cfg.Modules)
 	if err != nil {
 		return nil, err
 	}
+	dir, err := os.MkdirTemp("", "exports")
+	if err != nil {
+		return nil, errors.Wrap(err, "exports: create workspace directory")
+	}
 	defer func() {
-		if rmErr := os.RemoveAll(filepath.Dir(work)); rmErr != nil && err == nil {
+		if rmErr := os.RemoveAll(dir); rmErr != nil && err == nil {
 			findings = nil
 			err = errors.Wrap(rmErr, "exports: remove workspace directory")
 		}
 	}()
+	work, err := writeWorkspace(dir, modules)
+	if err != nil {
+		return nil, err
+	}
 	merged := map[string]*Finding{}
 	kept, internal := set.Set[string]{}, set.Set[string]{}
 	for _, goos := range cfg.GOOS {
-		syms, err := load(ctx, work, goos, cfg.Modules)
+		syms, err := load(ctx, work, goos, modules)
 		if err != nil {
 			return nil, err
 		}
@@ -137,20 +145,23 @@ func Check(ctx context.Context, cfg Config) (findings []Finding, err error) {
 	return findings, nil
 }
 
-func writeWorkspace(modules []string) (string, error) {
-	dir, err := os.MkdirTemp("", "exports")
-	if err != nil {
-		return "", errors.Wrap(err, "exports: create workspace directory")
+func absolute(modules []string) ([]string, error) {
+	abs := make([]string, len(modules))
+	for i, m := range modules {
+		var err error
+		if abs[i], err = filepath.Abs(m); err != nil {
+			return nil, errors.Wrapf(err, "exports: resolve module %s", m)
+		}
 	}
+	return abs, nil
+}
+
+func writeWorkspace(dir string, modules []string) (string, error) {
 	var b strings.Builder
 	// The running toolchain satisfies the go directive of every module it can load.
 	fmt.Fprintf(&b, "go %s\n\nuse (\n", strings.TrimPrefix(runtime.Version(), "go"))
 	for _, m := range modules {
-		abs, err := filepath.Abs(m)
-		if err != nil {
-			return "", errors.Wrapf(err, "exports: resolve module %s", m)
-		}
-		fmt.Fprintf(&b, "\t%q\n", abs)
+		fmt.Fprintf(&b, "\t%q\n", m)
 	}
 	b.WriteString(")\n")
 	work := filepath.Join(dir, "go.work")
@@ -182,11 +193,7 @@ func load(
 ) (map[string]*symbol, error) {
 	patterns := make([]string, len(modules))
 	for i, m := range modules {
-		abs, err := filepath.Abs(m)
-		if err != nil {
-			return nil, errors.Wrapf(err, "exports: resolve module %s", m)
-		}
-		patterns[i] = abs + "/..."
+		patterns[i] = m + "/..."
 	}
 	pkgs, err := packages.Load(&packages.Config{
 		Context: ctx,

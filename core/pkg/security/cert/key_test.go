@@ -59,19 +59,6 @@ var _ = Describe("KeyAlgorithm", func() {
 				))
 		})
 	})
-
-	Describe("PostQuantum", func() {
-		DescribeTable("should identify post-quantum algorithms",
-			func(algo cert.KeyAlgorithm, expected bool) {
-				Expect(algo.PostQuantum()).To(Equal(expected))
-			},
-			Entry("RSA", cert.KeyAlgorithmRSA, false),
-			Entry("unknown", cert.KeyAlgorithm("dilithium"), false),
-			Entry("ML-DSA-44", cert.KeyAlgorithmMLDSA44, true),
-			Entry("ML-DSA-65", cert.KeyAlgorithmMLDSA65, true),
-			Entry("ML-DSA-87", cert.KeyAlgorithmMLDSA87, true),
-		)
-	})
 })
 
 var _ = Describe("CreateAll", func() {

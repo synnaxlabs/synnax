@@ -9,9 +9,10 @@
 // included in the file licenses/APL.txt.
 
 import Header from "@/components/layout/Header.astro";
+import Mark from "@/components/platform/Mark.astro";
 import Lightbox from "@/components/media/Lightbox.astro";
 import "@/styles/main.css";
-import PostHog from "@/components/analytics/PostHog.astro";
+import Analytics from "@synnaxlabs/site-common/Analytics.astro";
 import { ClientRouter } from "astro:transitions";
 import Footer from "@synnaxlabs/site-common/Footer.astro";
 import Head from "@synnaxlabs/site-common/Head.astro";
@@ -79,7 +80,6 @@ const FOOTER_COLUMNS = [
 
 <html lang="en" transition:animate="none">
     <head>
-        <PostHog />
         <Head
             title={fullTitle}
             description={description}
@@ -95,6 +95,7 @@ const FOOTER_COLUMNS = [
             href="/blog/rss.xml"
         />
         <ClientRouter />
+        <Mark />
         {!hidden && <slot name="head" />}
     </head>
     <body>
@@ -111,6 +112,7 @@ const FOOTER_COLUMNS = [
         </main>
         <Footer home="https://synnaxlabs.com" columns={FOOTER_COLUMNS} />
         <Lightbox />
+        <Analytics privacy="/privacy-policy" />
     </body>
     <script>
         import { QUERY as CLIENT_QUERY } from "@/components/client/choice";

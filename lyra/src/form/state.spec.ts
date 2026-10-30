@@ -388,6 +388,14 @@ describe("State", () => {
       expect(fieldState.status).toEqual(status);
     });
 
+    it("should key a status by its path", () => {
+      const state = new State(initialValues, basicSchema);
+      state.setStatus("name", { variant: "error", message: "Taken" });
+      expect(state.getStatuses()).toEqual([
+        { key: "name", variant: "error", message: "Taken" },
+      ]);
+    });
+
     it("should clear status for a field", () => {
       const state = new State(initialValues, basicSchema);
       const status = {

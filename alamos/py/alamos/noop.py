@@ -26,7 +26,8 @@ def noop(
 ) -> Callable[Concatenate[T, P], None]:
     """
     Decorator for methods on a Noop class. If the instance's `noop` flag is True, the
-    decorated function call is skipped and returns None. Otherwise, it executes normally.
+    decorated function call is skipped and returns None. Otherwise, it executes
+    normally.
     """
 
     def wrapper(self: T, /, *args: P.args, **kwargs: P.kwargs) -> None:
