@@ -29,8 +29,7 @@ import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vites
 import { telem } from "@/telem/aether";
 import { telemTest } from "@/telem/aether/testutil";
 import { renderAether } from "@/testutil/internal";
-import { buildDrawOperations, DEFAULT_OVERLAP_THRESHOLD } from "@/vis/line/aether/draw";
-import { Line, type LineProps, type State } from "@/vis/line/aether/line";
+import { line } from "@/vis/line/aether";
 import { lineTest } from "@/vis/line/aether/testutil";
 import { canvasTest } from "@/vis/render/testutil";
 
@@ -63,12 +62,12 @@ describe("line", () => {
       valueType: "series",
     });
 
-    const PROPS: LineProps = {
+    const PROPS: line.LineProps = {
       region: box.construct(0, 0, 800, 600),
       dataToDecimalScale: scale.XY.IDENTITY,
     };
 
-    const mount = (x: Series[], y: Series[], state: Partial<State> = {}) => {
+    const mount = (x: Series[], y: Series[], state: Partial<line.State> = {}) => {
       const { gl, calls } = canvasTest.createGL();
       const xSource = createSource(x);
       const ySource = createSource(y);
@@ -78,10 +77,10 @@ describe("line", () => {
       const h = renderAether(lineTest.Host, {
         state: {},
         render: recorder,
-        registry: { [Line.TYPE]: Line },
+        registry: { [line.Line.TYPE]: line.Line },
         children: {
           line: {
-            type: Line.TYPE,
+            type: line.Line.TYPE,
             state: {
               x: sourceSpec(xSource),
               y: sourceSpec(ySource),
@@ -104,12 +103,12 @@ describe("line", () => {
           )
           .map((c) => [Number(c.args[1]), Number(c.args[2])]);
       const remove = () => h.deleteChild("line");
-      const line = h.child<Line>("line");
-      const update = (next: Partial<State>) =>
-        h.setChildState("line", Line.TYPE, { ...line.state, ...next });
+      const child = h.child<line.Line>("line");
+      const update = (next: Partial<line.State>) =>
+        h.setChildState("line", line.Line.TYPE, { ...child.state, ...next });
       const hide = () => update({ visible: false });
       return {
-        line,
+        line: child,
         recorder,
         calls,
         draws,
@@ -131,7 +130,7 @@ describe("line", () => {
       const m = mount([X1], [Y1]);
       const values = [vi.spyOn(m.xSource, "value"), vi.spyOn(m.ySource, "value")];
       const x = scale.Scale.scale<number>(100, 300).scale(0, 1);
-      const props: LineProps = { ...PROPS, dataToDecimalScale: new scale.XY(x) };
+      const props: line.LineProps = { ...PROPS, dataToDecimalScale: new scale.XY(x) };
       m.line.render(props);
       m.line.findByXValue(props, 1);
       const read = { bounds: { lower: 100, upper: 300 } };
@@ -147,14 +146,14 @@ describe("line", () => {
         vi.useRealTimers();
       });
 
-      const showing = (lower: number, upper: number): LineProps => ({
+      const showing = (lower: number, upper: number): line.LineProps => ({
         ...PROPS,
         dataToDecimalScale: new scale.XY(
           scale.Scale.scale<number>(lower, upper).scale(0, 1),
         ),
       });
 
-      const mountSpied = (state: Partial<State> = {}) => {
+      const mountSpied = (state: Partial<line.State> = {}) => {
         const m = mount([X1], [Y1], state);
         const value = vi.spyOn(m.ySource, "value");
         const lastPoints = (): number | undefined =>
@@ -162,7 +161,7 @@ describe("line", () => {
         return { ...m, lastPoints };
       };
 
-      const settled = (state: Partial<State> = {}) => {
+      const settled = (state: Partial<line.State> = {}) => {
         const m = mountSpied(state);
         m.line.render(showing(100, 300));
         vi.advanceTimersByTime(150);
@@ -413,7 +412,7 @@ describe("line", () => {
           RANGE,
         );
       // The region shows x from lower to upper across 800 pixels.
-      const showing = (lower: number, upper: number): LineProps => ({
+      const showing = (lower: number, upper: number): line.LineProps => ({
         ...PROPS,
         dataToDecimalScale: new scale.XY(
           scale.Scale.scale<number>(lower, upper).scale(0, 1),
@@ -652,7 +651,7 @@ describe("line", () => {
         .toBe(true);
 
     const drawn = (x: MultiSeries, y: MultiSeries) =>
-      buildDrawOperations(x, y, DEFAULT_OVERLAP_THRESHOLD);
+      line.buildDrawOperations(x, y, line.DEFAULT_OVERLAP_THRESHOLD);
 
     it("should pair every reduced x sample with a y sample", async () => {
       const { data, home } = await writeChannels();

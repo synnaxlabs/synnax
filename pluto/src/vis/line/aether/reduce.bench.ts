@@ -20,11 +20,7 @@ import { afterAll, test } from "vitest";
 
 import { telem } from "@/telem/aether";
 import { telemTest } from "@/telem/aether/testutil";
-import {
-  buildDrawOperations,
-  DEFAULT_OVERLAP_THRESHOLD,
-  type DrawOperation,
-} from "@/vis/line/aether/draw";
+import { line } from "@/vis/line/aether";
 import { groupSize, Reducer, type View } from "@/vis/line/aether/reduce";
 
 // Reduces the full-resolution samples of a live line 1000 pixels wide that shows the
@@ -59,13 +55,13 @@ const x = createSource({
 });
 const y = createSource({ channel, window: dynamicWindow(SPAN) });
 
-const read = (): DrawOperation[] => {
+const read = (): line.DrawOperation[] => {
   const { bounds, width } = view();
   const v = { bounds, points: width * GROUPS_PER_COLUMN * 2 };
-  return buildDrawOperations(
+  return line.buildDrawOperations(
     x.value(v).data[1],
     y.value(v).data[1],
-    DEFAULT_OVERLAP_THRESHOLD,
+    line.DEFAULT_OVERLAP_THRESHOLD,
   );
 };
 

@@ -10,15 +10,14 @@
 import { box, type location, scale, xy } from "@synnaxlabs/x";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { type AxisProps, axisStateZ } from "@/vis/axis/axis";
-import { newCanvas } from "@/vis/axis/canvas";
+import { axis } from "@/vis/axis";
 import { canvasTest } from "@/vis/render/testutil";
 
 const LOCATIONS: location.Outer[] = ["bottom", "top", "left", "right"];
 
 const POSITION = xy.construct(20, 400);
 
-const PROPS: AxisProps = {
+const PROPS: axis.AxisProps = {
   plot: box.construct({ x: 0, y: 0 }, { width: 300, height: 200 }),
   position: POSITION,
   size: 30,
@@ -26,7 +25,7 @@ const PROPS: AxisProps = {
 };
 
 const state = (loc: location.Outer) =>
-  axisStateZ.parse({
+  axis.axisStateZ.parse({
     color: "#000000",
     gridColor: "#333333",
     font: "12px sans-serif",
@@ -47,11 +46,11 @@ describe("axis/canvas", () => {
       baseline: CanvasTextBaseline = "alphabetic",
     ): xy.XY[] => {
       const surface = canvasTest.atlasSurface();
-      const axis = newCanvas(loc, surface.context, state(loc));
+      const drawn = axis.newCanvas(loc, surface.context, state(loc));
       surface.canvas.textAlign = align;
       surface.canvas.textBaseline = baseline;
       surface.clear();
-      axis.render(PROPS);
+      drawn.render(PROPS);
       return surface.glyphs();
     };
 

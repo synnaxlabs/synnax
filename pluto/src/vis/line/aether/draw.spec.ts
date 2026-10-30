@@ -20,11 +20,7 @@ import {
 } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import {
-  bridgeVertices,
-  buildDrawOperations,
-  type DrawOperation,
-} from "@/vis/line/aether/draw";
+import { line } from "@/vis/line/aether";
 
 describe("buildDrawOperations", () => {
   interface SpecEntry {
@@ -370,9 +366,9 @@ describe("buildDrawOperations", () => {
     it(`spec ${name}`, () => {
       const xSeries = buildSeriesFromEntries(x);
       const ySeries = buildSeriesFromEntries(y);
-      const drawOperations = buildDrawOperations(xSeries, ySeries, TimeSpan.ZERO);
+      const drawOperations = line.buildDrawOperations(xSeries, ySeries, TimeSpan.ZERO);
       expect(drawOperations.length).toBe(expected.length);
-      drawOperations.forEach((drawOperation: DrawOperation, i: number) => {
+      drawOperations.forEach((drawOperation: line.DrawOperation, i: number) => {
         expect(drawOperation.x).toBe(xSeries.series[expected[i].xSeries]);
         expect(drawOperation.y).toBe(ySeries.series[expected[i].ySeries]);
         expect(drawOperation.xOffset).toBe(expected[i].xOffset);
@@ -384,7 +380,7 @@ describe("buildDrawOperations", () => {
 });
 
 describe("bridgeVertices", () => {
-  const op = (x: Series, y: Series, count: number, offset = 0): DrawOperation => ({
+  const op = (x: Series, y: Series, count: number, offset = 0): line.DrawOperation => ({
     x,
     y,
     xOffset: offset,
@@ -394,8 +390,8 @@ describe("bridgeVertices", () => {
   const f32 = (...data: number[]): Series => new Series(new Float32Array(data));
   const shifted = (sampleOffset: bigint, ...data: number[]): Series =>
     new Series({ data: new Float32Array(data), sampleOffset });
-  const vertices = (ops: DrawOperation[]): number[] =>
-    Array.from(bridgeVertices(ops, scale.XY.IDENTITY));
+  const vertices = (ops: line.DrawOperation[]): number[] =>
+    Array.from(line.bridgeVertices(ops, scale.XY.IDENTITY));
 
   it("should return no vertices for a single op", () => {
     expect(vertices([op(f32(0, 1), f32(2, 3), 2)])).toEqual([]);
@@ -470,7 +466,10 @@ describe("bridgeVertices", () => {
     it("should join an x series split across two y series", () => {
       const x = timed(0, 20, 0, 1, 2, 3);
       const first = op(x, timed(0, 10, 4, 5), 2);
-      const second: DrawOperation = { ...op(x, timed(10, 20, 6, 7), 2), xOffset: 2 };
+      const second: line.DrawOperation = {
+        ...op(x, timed(10, 20, 6, 7), 2),
+        xOffset: 2,
+      };
       expect(vertices([second, first])).toEqual([1, 5, 2, 6]);
     });
   });
@@ -482,7 +481,7 @@ describe("bridgeVertices", () => {
     );
     const a = op(f32(100, 150), f32(0, 5), 2);
     const b = op(f32(175), f32(10), 1);
-    const v = bridgeVertices([a, b], s);
+    const v = line.bridgeVertices([a, b], s);
     [0.5, 0.5, 0.75, 1].forEach((e, i) => expect(v[i]).toBeCloseTo(e));
   });
 
@@ -494,7 +493,7 @@ describe("bridgeVertices", () => {
     const view = 100e6;
     const lower = Number(start) + 2e6 - view / 2;
     const s = new scale.XY(scale.Scale.scale<number>(lower, lower + view).scale(1));
-    const [x] = bridgeVertices([a, b], s);
+    const [x] = line.bridgeVertices([a, b], s);
     expect(x).toBeCloseTo(0.5, 5);
   });
 });
