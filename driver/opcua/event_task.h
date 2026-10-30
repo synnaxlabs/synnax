@@ -166,15 +166,14 @@ struct EventTaskConfig {
 /// An event writes at its Time, or at the time the Driver received it when it has none.
 /// Each event must write after the last sample on the index. At start, the task asks
 /// the server to send the state of each condition again. A replayed event at or before
-/// the latest event that the task had when the replay began was written before, so the
-/// task drops it. Another event at or before the last sample writes 1 ns after it.
+/// the latest event that the task had when the replay began is one that the task has,
+/// so the task drops it. Another event at or before the last sample writes 1 ns after
+/// it.
 class EventTaskSource final : public common::Source {
     /// @brief an event that the subscription delivered.
     struct Event {
         x::json::json sample;
         x::telem::TimeStamp time;
-        /// @brief whether the event replays the state of a condition.
-        bool replayed;
     };
 
     const EventTaskConfig cfg;
@@ -261,10 +260,7 @@ class EventTaskSource final : public common::Source {
         Event event{
             .sample = x::json::json::object(),
             .time = x::telem::TimeStamp::now(),
-            .replayed = this->replays > 0,
         };
-        for (std::size_t i = 0; i < fields.mapSize; ++i)
-            event.sample[this->keys[i]] = to_json(i, fields.map[i].value);
         const auto &time = fields.map[TIME_FIELD].value;
         if (UA_Variant_hasScalarType(&time, &UA_TYPES[UA_TYPES_DATETIME]))
             if (const auto [ts, err] = telem::to_timestamp(
@@ -272,6 +268,9 @@ class EventTaskSource final : public common::Source {
                 );
                 !err)
                 event.time = ts;
+        if (this->replays > 0 && event.time <= this->replay_cutoff) return;
+        for (std::size_t i = 0; i < fields.mapSize; ++i)
+            event.sample[this->keys[i]] = to_json(i, fields.map[i].value);
         this->events.push_back(std::move(event));
     }
 
@@ -389,7 +388,8 @@ class EventTaskSource final : public common::Source {
     /// failed: a notifier that the server did not monitor, or a notifier, event type,
     /// or field in a namespace that the server does not have. Subscribes again when the
     /// namespaces of the server changed, since the subscription can then name nodes by
-    /// stale indexes.
+    /// stale indexes. Replays the conditions when the server monitors a notifier that
+    /// it refused.
     /// @returns an error that loses the connection, or the error of the new
     /// subscription.
     x::errors::Error retry() {
@@ -416,13 +416,12 @@ class EventTaskSource final : public common::Source {
             notifiers.push_back(id);
         auto [results, err] = this->connection.monitor(notifiers, this->filter->get());
         if (err.matches(errors::UNREACHABLE)) return err;
-        if (!err) {
-            this->unmonitored.clear();
-            for (std::size_t i = 0; i < results.size(); ++i)
-                if (results[i])
-                    this->unmonitored.emplace_back(notifiers[i], results[i]);
-        }
+        if (err) return x::errors::NIL;
+        this->unmonitored.clear();
+        for (std::size_t i = 0; i < results.size(); ++i)
+            if (results[i]) this->unmonitored.emplace_back(notifiers[i], results[i]);
         this->warn();
+        if (this->unmonitored.size() < notifiers.size()) return this->replay();
         return x::errors::NIL;
     }
 
@@ -453,7 +452,6 @@ class EventTaskSource final : public common::Source {
         std::vector<x::json::json> samples;
         std::vector<x::telem::TimeStamp> stamps;
         for (auto &e: this->events) {
-            if (e.replayed && e.time <= this->replay_cutoff) continue;
             if (e.time <= this->last) e.time = this->last + x::telem::NANOSECOND;
             this->last = e.time;
             samples.push_back(std::move(e.sample));

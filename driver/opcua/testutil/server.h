@@ -137,6 +137,8 @@ struct Motor {
 struct Pump {
     UA_Double speed = 0;
     std::string mode = "manual";
+    /// @brief the EventNotifier attribute of the object.
+    UA_Byte event_notifier = UA_EVENTNOTIFIER_SUBSCRIBE_TO_EVENT;
 };
 
 /// @brief the node of the Pump object, an event notifier.
@@ -585,6 +587,8 @@ public:
     std::atomic<size_t> sessions_created{0};
     /// @brief the calls of the methods of the Pump object that the server ran.
     std::atomic<size_t> method_calls{0};
+    /// @brief the ConditionRefresh calls that the server ran.
+    std::atomic<size_t> refreshes{0};
 
     explicit Server(ServerConfig cfg): cfg(std::move(cfg)) {}
 
@@ -606,6 +610,16 @@ public:
         this->added_motor = value;
         this->added_cv.wait(lock, [this] {
             return !this->added_motor.has_value() || !this->ready;
+        });
+    }
+
+    /// @brief sets the EventNotifier attribute of the Pump object on the running
+    /// server. Blocks until the server sets it.
+    void set_pump_event_notifier(const UA_Byte value) {
+        std::unique_lock lock(this->added_mu);
+        this->added_event_notifier = value;
+        this->added_cv.wait(lock, [this] {
+            return !this->added_event_notifier.has_value() || !this->ready;
         });
     }
 
@@ -669,6 +683,23 @@ public:
             nullptr,
             nullptr
         );
+    }
+
+    static UA_StatusCode count_refresh(
+        UA_Server *,
+        const UA_NodeId *,
+        void *,
+        const UA_NodeId *,
+        void *refreshes,
+        const UA_NodeId *,
+        void *,
+        size_t,
+        const UA_Variant *,
+        size_t,
+        UA_Variant *
+    ) {
+        ++*static_cast<std::atomic<size_t> *>(refreshes);
+        return UA_STATUSCODE_GOOD;
     }
 
     static UA_StatusCode set_pump(
@@ -748,7 +779,7 @@ public:
             const_cast<char *>("en-US"),
             const_cast<char *>("Pump")
         );
-        attr.eventNotifier = UA_EVENTNOTIFIER_SUBSCRIBE_TO_EVENT;
+        attr.eventNotifier = pump.event_notifier;
         UA_Server_addObjectNode(
             server,
             PUMP,
@@ -847,6 +878,7 @@ private:
     std::condition_variable added_cv;
     std::vector<std::pair<std::string, std::vector<TestNode>>> added;
     std::optional<Motor> added_motor;
+    std::optional<UA_Byte> added_event_notifier;
 
     static void add_node(UA_Server *server, const TestNode &node) {
         UA_VariableAttributes attr = UA_VariableAttributes_default;
@@ -975,7 +1007,8 @@ private:
         UA_Server_addReference(server, inner, UA_NS0ID(ORGANIZES), target, true);
     }
 
-    /// @brief adds what add_namespace and add_motor asked for.
+    /// @brief applies what add_namespace, add_motor, and set_pump_event_notifier asked
+    /// for.
     void add_requested(UA_Server *server, const UA_DataType &motor_type) {
         std::lock_guard lock(this->added_mu);
         for (auto &[uri, nodes]: this->added) {
@@ -989,6 +1022,10 @@ private:
         if (this->added_motor.has_value()) {
             add_motor_node(server, motor_type, *this->added_motor);
             this->added_motor.reset();
+        }
+        if (this->added_event_notifier.has_value()) {
+            UA_Server_writeEventNotifier(server, PUMP, *this->added_event_notifier);
+            this->added_event_notifier.reset();
         }
         this->added_cv.notify_all();
     }
@@ -1123,6 +1160,9 @@ public:
             add_generated(server, cfg.generated_variables, cfg.generated_folders);
         if (cfg.pump.has_value()) add_pump(server, *cfg.pump);
         add_event_type(server);
+        const auto refresh = UA_NS0ID(CONDITIONTYPE_CONDITIONREFRESH);
+        UA_Server_setMethodNodeCallback(server, refresh, count_refresh);
+        UA_Server_setNodeContext(server, refresh, &this->refreshes);
 
         UA_StatusCode status = UA_Server_run_startup(server);
         if (status != UA_STATUSCODE_GOOD) {
@@ -1152,6 +1192,7 @@ public:
             std::lock_guard lock(this->added_mu);
             this->added.clear();
             this->added_motor.reset();
+            this->added_event_notifier.reset();
         }
         this->added_cv.notify_all();
         UA_Server_run_shutdown(server);
