@@ -7,11 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <cctype>
 #include <charconv>
 #include <iomanip>
 #include <map>
 #include <new>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -275,33 +277,17 @@ x::errors::Error WriteRequestBuilder::add_value(
 
 namespace {
 /// @returns the qualified name of one element of a browse path.
-UA_QualifiedName qualified_name(const std::string_view element) {
-    const auto colon = element.find(':');
-    UA_UInt16 ns = 0;
-    if (colon == std::string_view::npos || !parse_number(element.substr(0, colon), ns))
-        return UA_QUALIFIEDNAME_ALLOC(0, std::string(element).c_str());
-    return UA_QUALIFIEDNAME_ALLOC(ns, std::string(element.substr(colon + 1)).c_str());
-}
-
-UA_SimpleAttributeOperand select_clause(const std::string &field) {
-    std::vector<std::string_view> elements;
-    std::string_view rest = field;
-    while (true) {
-        const auto slash = rest.find('/');
-        elements.push_back(rest.substr(0, slash));
-        if (slash == std::string_view::npos) break;
-        rest = rest.substr(slash + 1);
-    }
+UA_SimpleAttributeOperand select_clause(const std::vector<UA_QualifiedName> &path) {
     UA_SimpleAttributeOperand op;
     UA_SimpleAttributeOperand_init(&op);
     op.typeDefinitionId = UA_NODEID_NUMERIC(0, UA_NS0ID_BASEEVENTTYPE);
     op.attributeId = UA_ATTRIBUTEID_VALUE;
     op.browsePath = static_cast<UA_QualifiedName *>(
-        UA_Array_new(elements.size(), &UA_TYPES[UA_TYPES_QUALIFIEDNAME])
+        UA_Array_new(path.size(), &UA_TYPES[UA_TYPES_QUALIFIEDNAME])
     );
-    op.browsePathSize = elements.size();
-    for (size_t i = 0; i < elements.size(); ++i)
-        op.browsePath[i] = qualified_name(elements[i]);
+    op.browsePathSize = path.size();
+    for (size_t i = 0; i < path.size(); ++i)
+        UA_QualifiedName_copy(&path[i], &op.browsePath[i]);
     return op;
 }
 
@@ -334,8 +320,66 @@ UA_ElementOperand element_operand(const size_t index) {
 }
 }
 
+std::pair<BrowsePath, x::errors::Error> BrowsePath::parse(const std::string &path) {
+    const auto invalid = [](const std::string &message) {
+        return std::pair{
+            BrowsePath(),
+            x::errors::Error(x::errors::VALIDATION, message)
+        };
+    };
+    BrowsePath result;
+    std::string_view rest = path;
+    while (true) {
+        Name name;
+        if (starts_with(rest, "nsu=")) {
+            const auto sep = rest.find(';');
+            if (sep == std::string_view::npos)
+                return invalid("Browse path must end each namespace URI with ';'");
+            auto decoded = percent_decode(rest.substr(4, sep - 4));
+            if (!decoded.has_value() || decoded->empty())
+                return invalid("Browse path has an invalid namespace URI");
+            name.uri = std::move(*decoded);
+            rest = rest.substr(sep + 1);
+        }
+        const auto slash = rest.find('/');
+        auto element = rest.substr(0, slash);
+        if (const auto colon = element.find(':');
+            name.uri.empty() && colon != std::string_view::npos &&
+            parse_number(element.substr(0, colon), name.index))
+            element = element.substr(colon + 1);
+        if (element.empty()) return invalid("Browse path must name each element");
+        name.name = std::string(element);
+        result.names_.push_back(std::move(name));
+        if (slash == std::string_view::npos) break;
+        rest = rest.substr(slash + 1);
+    }
+    return {std::move(result), x::errors::NIL};
+}
+
+std::optional<std::vector<UA_QualifiedName>>
+BrowsePath::resolve(const std::vector<std::string> &namespaces) const {
+    std::vector<UA_QualifiedName> resolved;
+    resolved.reserve(this->names_.size());
+    for (const auto &n: this->names_) {
+        auto index = n.index;
+        if (!n.uri.empty()) {
+            const auto it = std::ranges::find(namespaces, n.uri);
+            if (it == namespaces.end()) return std::nullopt;
+            index = static_cast<UA_UInt16>(it - namespaces.begin());
+        }
+        resolved.push_back({
+            .namespaceIndex = index,
+            .name = {
+                n.name.size(),
+                reinterpret_cast<UA_Byte *>(const_cast<char *>(n.name.data()))
+            },
+        });
+    }
+    return resolved;
+}
+
 EventFilter::EventFilter(
-    const std::vector<std::string> &fields,
+    const std::vector<std::vector<UA_QualifiedName>> &fields,
     const std::vector<UA_NodeId> &types
 ) {
     UA_EventFilter_init(&filter_);

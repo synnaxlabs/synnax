@@ -57,6 +57,10 @@ const auto EVENT_WAIT = 100 * x::telem::MILLISECOND;
 /// @brief how often a task checks that the server still answers, since a server that
 /// stops answering sends no notice to a subscription.
 const auto LIVENESS_INTERVAL = 5 * x::telem::SECOND;
+/// @brief how often a task tries again to record what failed: a notifier that the
+/// server did not monitor, or a notifier, event type, or field in a namespace that the
+/// server does not have.
+const auto RETRY_INTERVAL = 10 * x::telem::SECOND;
 
 /// @brief the configuration of an OPC UA event task.
 struct EventTaskConfig {
@@ -76,6 +80,8 @@ struct EventTaskConfig {
     std::vector<types::NodeId> event_types;
     /// @brief the fields that the task records beyond STANDARD_EVENT_FIELDS.
     std::vector<::synnax::opcua::EventField> fields;
+    /// @brief the browse path of each field.
+    std::vector<types::BrowsePath> paths;
 
     EventTaskConfig(EventTaskConfig &&other) noexcept = default;
     EventTaskConfig(const EventTaskConfig &) = delete;
@@ -116,13 +122,9 @@ struct EventTaskConfig {
                 parser.field_err(prefix + "name", "A standard field has this name");
             else if (!names.insert(f.name).second)
                 parser.field_err(prefix + "name", "Another field has this name");
-            const auto &path = f.browse_path;
-            if (path.empty() || path.front() == '/' || path.back() == '/' ||
-                path.contains("//"))
-                parser.field_err(
-                    prefix + "browse_path",
-                    "Browse path must name each element"
-                );
+            auto [path, err] = types::BrowsePath::parse(f.browse_path);
+            if (err) parser.field_err(prefix + "browse_path", err.data);
+            this->paths.push_back(std::move(path));
         }
         if (parsed.channel == 0) {
             parser.field_err("channel", "Task must have a channel");
@@ -143,18 +145,6 @@ struct EventTaskConfig {
         else if (ch.index == 0)
             parser.field_err("channel", "Channel must have an index");
         this->channel = std::move(ch);
-    }
-
-    /// @returns the browse path of each field to select, in the order of the JSON
-    /// sample.
-    [[nodiscard]] std::vector<std::string> browse_paths() const {
-        std::vector<std::string> paths;
-        paths.reserve(STANDARD_EVENT_FIELDS.size() + this->fields.size());
-        for (const auto &[path, _]: STANDARD_EVENT_FIELDS)
-            paths.push_back(path);
-        for (const auto &f: this->fields)
-            paths.push_back(f.browse_path);
-        return paths;
     }
 
     [[nodiscard]] synnax::framer::WriterConfig writer_config() const {
@@ -193,15 +183,23 @@ class EventTaskSource final : public common::Source {
 
     const EventTaskConfig cfg;
     std::shared_ptr<synnax::Synnax> client;
-    std::shared_ptr<connection::Pool> pool;
-    /// @brief the device's connection settings as of the last retrieve.
-    connection::Config conn_cfg;
+    device::Connector connector;
     /// @brief the events that the subscription delivered since the last read. It
     /// outlives the connection, since the connection delivers events as it closes.
     std::vector<Event> events;
     /// @brief the namespace URIs of the server, which name the event types of events.
     /// Set before each subscribe, since the server can deliver events during it.
     std::vector<std::string> namespaces;
+    /// @brief the key in the JSON sample of each field that the filter selects, in
+    /// order. Set before each subscribe, with the filter.
+    std::vector<std::string> keys;
+    /// @brief the filter of the subscription, which each monitored item shares.
+    std::unique_ptr<const types::EventFilter> filter;
+    /// @brief the notifiers that the server did not monitor, with the error of each.
+    std::vector<std::pair<UA_NodeId, x::errors::Error>> unmonitored;
+    /// @brief a problem for each notifier, event type, or field in a namespace that the
+    /// server does not have.
+    std::vector<std::string> unresolved;
     /// @brief the number of condition replays in progress.
     int replays = 0;
     /// @brief whether the server asked the task to replay the conditions.
@@ -210,7 +208,9 @@ class EventTaskSource final : public common::Source {
     x::telem::TimeStamp last{};
     /// @brief when the task last checked that the server answers.
     x::telem::TimeStamp checked{};
-    /// @brief the notifiers that the server did not monitor.
+    /// @brief when the task last tried again to record what failed.
+    x::telem::TimeStamp retried{};
+    /// @brief the problems with what the task fails to record.
     common::Warning warning;
     connection::Pool::Connection connection;
     /// @brief the error of the connection attempt at start, which the first read
@@ -264,13 +264,8 @@ class EventTaskSource final : public common::Source {
             .time = x::telem::TimeStamp::now(),
             .replayed = this->replays > 0,
         };
-        for (std::size_t i = 0; i < fields.mapSize; ++i) {
-            const auto &key = i < STANDARD_EVENT_FIELDS.size()
-                                ? STANDARD_EVENT_FIELDS[i].second
-                                : this->cfg.fields[i - STANDARD_EVENT_FIELDS.size()]
-                                      .name;
-            event.sample[key] = to_json(i, fields.map[i].value);
-        }
+        for (std::size_t i = 0; i < fields.mapSize; ++i)
+            event.sample[this->keys[i]] = to_json(i, fields.map[i].value);
         const auto &time = fields.map[TIME_FIELD].value;
         if (UA_Variant_hasScalarType(&time, &UA_TYPES[UA_TYPES_DATETIME]))
             if (const auto [ts, err] = telem::to_timestamp(
@@ -302,27 +297,44 @@ class EventTaskSource final : public common::Source {
         return x::errors::NIL;
     }
 
+    /// @brief sets the warning from the problems with what the task fails to record.
+    void warn() {
+        auto problems = this->unresolved;
+        for (const auto &[id, err]: this->unmonitored)
+            problems.push_back(types::NodeId::to_string(id) + ": " + err.data);
+        this->warning = {};
+        if (!problems.empty())
+            this->warning = {
+                .message = "Failed to record some events",
+                .description = x::strings::join(problems, " "),
+            };
+    }
+
     /// @brief subscribes to the events of the notifiers on conn, and reads on conn from
     /// now on.
     x::errors::Error subscribe(connection::Pool::Connection conn) {
         this->namespaces = conn.server().namespaces;
         const auto &namespaces = this->namespaces;
-        std::vector<std::string> problems;
+        this->unresolved.clear();
+        const auto missing = [this](const std::string &name) {
+            this->unresolved.push_back(
+                name + " is in a namespace that the server does not have."
+            );
+        };
         std::vector<UA_NodeId> notifiers;
-        for (const auto &n: this->cfg.notifiers) {
+        for (const auto &n: this->cfg.notifiers)
             if (const auto id = n.resolve(namespaces); id.has_value())
                 notifiers.push_back(*id);
             else
-                problems.push_back(
-                    n.to_string() + " is in a namespace that the server does not have."
-                );
-        }
+                missing(n.to_string());
         if (this->cfg.notifiers.empty())
             notifiers.push_back(UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER));
         std::vector<UA_NodeId> types;
         for (const auto &t: this->cfg.event_types)
             if (const auto id = t.resolve(namespaces); id.has_value())
                 types.push_back(*id);
+            else
+                missing(t.to_string());
         // The replay markers must pass a filter that keeps only some types.
         if (!this->cfg.event_types.empty())
             for (const auto marker:
@@ -330,27 +342,37 @@ class EventTaskSource final : public common::Source {
                   UA_NS0ID_REFRESHENDEVENTTYPE,
                   UA_NS0ID_REFRESHREQUIREDEVENTTYPE})
                 types.push_back(UA_NODEID_NUMERIC(0, marker));
-        const types::EventFilter filter(this->cfg.browse_paths(), types);
+        std::vector<std::vector<UA_QualifiedName>> paths;
+        this->keys.clear();
+        for (const auto &[name, key]: STANDARD_EVENT_FIELDS) {
+            paths.push_back({UA_QUALIFIEDNAME(0, const_cast<char *>(name.c_str()))});
+            this->keys.push_back(key);
+        }
+        for (std::size_t i = 0; i < this->cfg.fields.size(); ++i) {
+            const auto &f = this->cfg.fields[i];
+            auto names = this->cfg.paths[i].resolve(namespaces);
+            if (!names.has_value()) {
+                missing("Field " + f.name);
+                continue;
+            }
+            paths.push_back(std::move(*names));
+            this->keys.push_back(f.name);
+        }
+        this->filter = std::make_unique<const types::EventFilter>(paths, types);
         this->replays = 0;
         auto [results, err] = conn.subscribe(
             notifiers,
-            filter.get(),
+            this->filter->get(),
             [this](const UA_KeyValueMap &fields) { this->handle(fields); }
         );
         if (err) return err;
+        this->unmonitored.clear();
         for (std::size_t i = 0; i < results.size(); ++i)
-            if (results[i])
-                problems.push_back(
-                    types::NodeId::to_string(notifiers[i]) + ": " + results[i].data
-                );
-        this->warning = {};
-        if (!problems.empty())
-            this->warning = {
-                .message = "Failed to record events of some sources",
-                .description = x::strings::join(problems, " "),
-            };
+            if (results[i]) this->unmonitored.emplace_back(notifiers[i], results[i]);
+        this->warn();
         this->connection = std::move(conn);
         this->checked = x::telem::TimeStamp::now();
+        this->retried = this->checked;
         if (const auto err = this->replay()) {
             this->connection = connection::Pool::Connection(nullptr, nullptr, "");
             return err;
@@ -358,21 +380,49 @@ class EventTaskSource final : public common::Source {
         return x::errors::NIL;
     }
 
-    /// @brief connects with the device's current settings, so a corrected endpoint or
-    /// login takes effect without a restart. Keeps the last settings while the Core is
-    /// unavailable.
     x::errors::Error connect() {
-        auto [conn_cfg, retrieve_err] = device::retrieve_connection(
-            *this->client,
-            this->cfg.device_key
-        );
-        if (!retrieve_err)
-            this->conn_cfg = std::move(conn_cfg);
-        else if (!synnax::errors::is_temporarily_unavailable(retrieve_err))
-            return retrieve_err;
-        auto [c, err] = this->pool->acquire(this->conn_cfg, "[opc.event] ");
+        auto [c, err] = this->connector.connect();
         if (err) return err;
         return this->subscribe(std::move(c));
+    }
+
+    /// @brief when RETRY_INTERVAL has passed, tries again to record what failed.
+    /// Subscribes again when the namespaces of the server changed, since the
+    /// subscription can then name nodes by stale indexes.
+    /// @returns an error that loses the connection, or the error of the new
+    /// subscription.
+    x::errors::Error retry() {
+        if (this->unresolved.empty() && this->unmonitored.empty())
+            return x::errors::NIL;
+        const auto now = x::telem::TimeStamp::now();
+        if (now - this->retried < RETRY_INTERVAL) return x::errors::NIL;
+        this->retried = now;
+        if (!this->unresolved.empty()) {
+            types::ReadRequestBuilder builder;
+            builder.add_node(UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER_NAMESPACEARRAY));
+            auto [res, err] = this->connection.read(builder.build());
+            if (err) return err;
+            auto [changed, ns_err] = this->connection.update_namespaces(
+                res.get().results[0]
+            );
+            if (ns_err) return ns_err;
+            if (changed) return this->subscribe(std::move(this->connection));
+        }
+        if (this->unmonitored.empty()) return x::errors::NIL;
+        std::vector<UA_NodeId> notifiers;
+        notifiers.reserve(this->unmonitored.size());
+        for (const auto &[id, _]: this->unmonitored)
+            notifiers.push_back(id);
+        auto [results, err] = this->connection.monitor(notifiers, this->filter->get());
+        if (err.matches(errors::UNREACHABLE)) return err;
+        if (!err) {
+            this->unmonitored.clear();
+            for (std::size_t i = 0; i < results.size(); ++i)
+                if (results[i])
+                    this->unmonitored.emplace_back(notifiers[i], results[i]);
+        }
+        this->warn();
+        return x::errors::NIL;
     }
 
     /// @brief reads the server's clock when LIVENESS_INTERVAL has passed since the last
@@ -438,8 +488,13 @@ public:
         EventTaskConfig cfg
     ):
         cfg(std::move(cfg)),
-        client(std::move(client)),
-        pool(std::move(pool)),
+        client(client),
+        connector(
+            std::move(client),
+            std::move(pool),
+            this->cfg.device_key,
+            "[opc.event] "
+        ),
         connection(nullptr, nullptr, "") {}
 
     [[nodiscard]] synnax::framer::WriterConfig writer_config() const override {
@@ -453,17 +508,11 @@ public:
     /// @brief finds the last stored event, then subscribes. A server that is off or
     /// refuses Sessions does not stop the start, since the reads connect again.
     x::errors::Error start() override {
-        auto [conn_cfg, conn_err] = device::retrieve_connection(
-            *this->client,
-            this->cfg.device_key
-        );
-        if (conn_err) return conn_err;
-        this->conn_cfg = std::move(conn_cfg);
         auto [last, last_err] = this->last_stored();
         if (last_err) return last_err;
         this->last = last;
         this->events.clear();
-        auto [c, err] = this->pool->acquire(this->conn_cfg, "[opc.event] ");
+        auto [c, err] = this->connector.start();
         if (!err) err = this->subscribe(std::move(c));
         if (err.matches(driver::errors::TEMPORARY_HARDWARE_ERROR)) {
             this->start_err = err;
@@ -495,6 +544,7 @@ public:
         res.error = this->connection.iterate(EVENT_WAIT);
         if (!res.error && this->replay_required) res.error = this->replay();
         if (!res.error) res.error = this->check();
+        if (!res.error) res.error = this->retry();
         if (res.error) {
             this->connection = connection::Pool::Connection(nullptr, nullptr, "");
             return res;

@@ -44,15 +44,8 @@ export interface BaseChannel extends z.infer<typeof baseChannelZ> {}
 export const scanConfigZ = task.scanConfigZ;
 export interface ScanConfig extends z.infer<typeof scanConfigZ> {}
 
-/** MethodArgument is an input argument of an OPC UA method call. */
-export const methodArgumentZ = z.object({
-  /** source is where the value of the argument comes from. */
-  source: argumentSourceZ.default("value"),
-  /**
-   * value is the value of the argument when source is value, as text that the Driver
-   * converts to the declared type of the argument.
-   */
-  value: z.string().default(""),
+/** BaseMethodArgument carries the fields every input argument of a method shares. */
+export const baseMethodArgumentZ = z.object({
   /** name is the name of the argument, as the method declares it. */
   name: z.string().default(""),
   /**
@@ -61,7 +54,7 @@ export const methodArgumentZ = z.object({
    */
   dataType: z.string().default(""),
 });
-export interface MethodArgument extends z.infer<typeof methodArgumentZ> {}
+export interface BaseMethodArgument extends z.infer<typeof baseMethodArgumentZ> {}
 
 /** EventField is an event field that the task records beyond the standard fields. */
 export const eventFieldZ = z.object({
@@ -71,8 +64,8 @@ export const eventFieldZ = z.object({
   name: z.string().default(""),
   /**
    * browsePath is the path to the field from the event type, as browse names joined
-   * with '/', such as 'EnabledState/Id'. A name can start with a namespace index, as in
-   * '2:Level'.
+   * with '/', such as 'EnabledState/Id'. A name can start with 'nsu=<uri>;' or
+   * '<index>:' to name its namespace, as in 'nsu=urn:pump;Level' or '2:Level'.
    */
   browsePath: z.string().default(""),
 });
@@ -85,13 +78,44 @@ export const readChannelZ = baseChannelZ.extend({
 });
 export interface ReadChannel extends z.infer<typeof readChannelZ> {}
 
-export const writeChannelZ = baseChannelZ.extend({
+export const baseWriteChannelZ = baseChannelZ.extend({
   cmdChannel: channel.keyZ.default(0),
-  type: writeTypeZ.default("node"),
-  objectId: z.string().default(""),
-  arguments: methodArgumentZ.array().default(() => []),
 });
-export interface WriteChannel extends z.infer<typeof writeChannelZ> {}
+export interface BaseWriteChannel extends z.infer<typeof baseWriteChannelZ> {}
+
+/** ValueMethodArgument gives the argument a fixed value. */
+export const valueMethodArgumentZ = baseMethodArgumentZ.extend({
+  source: z.literal("value"),
+  /**
+   * value is the value of the argument, as text that the Driver converts to the
+   * declared type of the argument.
+   */
+  value: z.string().default(""),
+});
+export interface ValueMethodArgument extends z.infer<typeof valueMethodArgumentZ> {}
+
+/** CommandMethodArgument gives the argument the value of each command. */
+export const commandMethodArgumentZ = baseMethodArgumentZ.extend({
+  source: z.literal("command"),
+});
+export interface CommandMethodArgument extends z.infer<typeof commandMethodArgumentZ> {}
+
+/**
+ * MethodArgument is an input argument of an OPC UA method call. The source field
+ * selects where its value comes from.
+ */
+export const methodArgumentZ = z.discriminatedUnion("source", [
+  valueMethodArgumentZ,
+  commandMethodArgumentZ,
+]);
+export type MethodArgument = ValueMethodArgument | CommandMethodArgument;
+
+export const METHOD_ARGUMENT_SCHEMAS: {
+  [K in ArgumentSource]: z.ZodType<Extract<MethodArgument, { source: K }>>;
+} = {
+  value: valueMethodArgumentZ,
+  command: commandMethodArgumentZ,
+};
 
 export const eventConfigZ = task.persistConfigZ.extend({
   device: device.keyZ.default(""),
@@ -120,6 +144,39 @@ export const readConfigZ = task.readConfigZ
     nanFillEnabled: z.boolean().default(false),
   });
 export interface ReadConfig extends z.infer<typeof readConfigZ> {}
+
+/** NodeWriteChannel writes each command to the value of the node. */
+export const nodeWriteChannelZ = baseWriteChannelZ.extend({
+  type: z.literal("node"),
+});
+export interface NodeWriteChannel extends z.infer<typeof nodeWriteChannelZ> {}
+
+/** MethodWriteChannel calls the node as a method with each command. */
+export const methodWriteChannelZ = baseWriteChannelZ.extend({
+  type: z.literal("method"),
+  /** objectId is the node ID of the object that holds the method. */
+  objectId: z.string().default(""),
+  /** arguments are the input arguments of the method, in order. */
+  arguments: methodArgumentZ.array().default(() => []),
+});
+export interface MethodWriteChannel extends z.infer<typeof methodWriteChannelZ> {}
+
+/**
+ * WriteChannel is a single OPC UA node the task drives. The type field selects what
+ * each command does on the server.
+ */
+export const writeChannelZ = z.discriminatedUnion("type", [
+  nodeWriteChannelZ,
+  methodWriteChannelZ,
+]);
+export type WriteChannel = NodeWriteChannel | MethodWriteChannel;
+
+export const WRITE_CHANNEL_SCHEMAS: {
+  [K in WriteType]: z.ZodType<Extract<WriteChannel, { type: K }>>;
+} = {
+  node: nodeWriteChannelZ,
+  method: methodWriteChannelZ,
+};
 
 export const writeConfigZ = task.writeConfigZ.extend({
   channels: writeChannelZ.array().default(() => []),

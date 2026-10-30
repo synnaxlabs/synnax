@@ -33,6 +33,7 @@ import {
   EVENT_TYPE,
   type EventField,
   type EventSchemas,
+  type ScannedNode,
 } from "@/feature/opcua/task/types";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
@@ -206,11 +207,25 @@ const Fields = (): ReactElement => {
   );
 };
 
+// Event types are under the Types folder, beside the Objects folder that the browser
+// starts at.
+const BROWSER_ROOTS: ScannedNode[] = [
+  {
+    key: "i=3048",
+    nodeId: "i=3048",
+    name: "EventTypes",
+    nodeClass: "Object",
+    dataType: "",
+    isArray: false,
+    field: "",
+  },
+];
+
 const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
   const isPreview = Task.useIsPreview();
   return (
     <>
-      {!isPreview && <Browser device={device} />}
+      {!isPreview && <Browser device={device} roots={BROWSER_ROOTS} />}
       <Flex.Box y empty grow className={CSS.B("opc-event")}>
         <NodeList
           path="config.notifiers"
@@ -224,7 +239,7 @@ const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
           title="Event types"
           nodeClass="ObjectType"
           icon={<Icon.Type />}
-          emptyContent="Records events of every type. Drag event types from the browser to record only those types and their subtypes."
+          emptyContent="Records events of every type. Drag event types from the EventTypes folder of the browser to record only those types and their subtypes."
         />
         <Fields />
       </Flex.Box>

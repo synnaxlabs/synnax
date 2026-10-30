@@ -98,12 +98,12 @@ var _ = Describe("Migration", func() {
 				Where(gorp.MatchKeys[uuid.UUID, v2.WriteConfig](stored.Key)).
 				Entry(&got).Exec(ctx, db)).To(Succeed())
 			Expect(got.WriteConfig).To(Equal(stored.WriteConfig))
-			Expect(got.Channels).To(HaveLen(1))
-			Expect(got.Channels[0].BaseChannel).To(Equal(stored.Channels[0].BaseChannel))
-			Expect(got.Channels[0].CmdChannel).To(Equal(stored.Channels[0].CmdChannel))
-			Expect(got.Channels[0].Type).To(Equal(v2.WriteTypeNode))
-			Expect(got.Channels[0].ObjectID).To(BeEmpty())
-			Expect(got.Channels[0].Arguments).To(BeEmpty())
+			Expect(got.Channels).To(HaveExactElements(v2.WriteChannel{
+				Variant: v2.NodeWriteChannel{BaseWriteChannel: v2.BaseWriteChannel{
+					BaseChannel: stored.Channels[0].BaseChannel,
+					CmdChannel:  stored.Channels[0].CmdChannel,
+				}},
+			}))
 		},
 	)
 })

@@ -271,7 +271,7 @@ TEST_F(TestEventTask, testWarnsAboutMissingNotifier) {
     x::telem::Frame fr;
     const auto res = src->read(breaker, fr);
     ASSERT_NIL(res.error);
-    EXPECT_EQ(res.warning.message, "Failed to record events of some sources");
+    EXPECT_EQ(res.warning.message, "Failed to record some events");
     EXPECT_EQ(
         res.warning.description,
         "NS=1;S=Missing: The node id refers to a node that does not exist in the "
@@ -280,6 +280,57 @@ TEST_F(TestEventTask, testWarnsAboutMissingNotifier) {
     this->emit("still recorded");
     const auto [events, _] = read_events(*src, 1);
     ASSERT_EQ(events.size(), 1);
+    ASSERT_NIL(src->stop());
+}
+
+/// @brief it should select a field whose browse path names its namespace by URI.
+TEST_F(TestEventTask, testSelectsFieldByNamespaceURI) {
+    auto cfg = this->config();
+    cfg["fields"] = {{
+        {"key", "level"},
+        {"name", "level"},
+        {"browse_path", "nsu=" + testutil::SERVER_APPLICATION_URI + ";Level"},
+    }};
+    const auto src = this->source(cfg);
+    ASSERT_NIL(src->start());
+    this->emit("pumped");
+    const auto [events, _] = read_events(*src, 1);
+    ASSERT_EQ(events.size(), 1);
+    EXPECT_EQ(events[0]["level"], 2.5);
+    ASSERT_NIL(src->stop());
+}
+
+/// @brief it should warn about a field in a namespace that the server does not have,
+/// then select the field once the server adds the namespace.
+TEST_F(TestEventTask, testSelectsFieldOfNamespaceAddedLater) {
+    auto cfg = this->config();
+    cfg["fields"] = {
+        {{"key", "speed"}, {"name", "speed"}, {"browse_path", "nsu=urn:later;Speed"}}
+    };
+    const auto src = this->source(cfg);
+    ASSERT_NIL(src->start());
+    x::breaker::Breaker breaker;
+    x::telem::Frame fr;
+    auto res = src->read(breaker, fr);
+    ASSERT_NIL(res.error);
+    EXPECT_EQ(res.warning.message, "Failed to record some events");
+    EXPECT_EQ(
+        res.warning.description,
+        "Field speed is in a namespace that the server does not have."
+    );
+    this->server->add_namespace("urn:later", {});
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(15);
+    while (!res.warning.message.empty() &&
+           std::chrono::steady_clock::now() < deadline) {
+        res = src->read(breaker, fr);
+        ASSERT_NIL(res.error);
+    }
+    EXPECT_EQ(res.warning.message, "");
+    this->emit("pumped");
+    const auto [events, _] = read_events(*src, 1);
+    ASSERT_EQ(events.size(), 1);
+    ASSERT_TRUE(events[0].contains("speed"));
+    EXPECT_TRUE(events[0]["speed"].is_null());
     ASSERT_NIL(src->stop());
 }
 
@@ -344,19 +395,23 @@ TEST_F(TestEventTask, testRejectsChannelWithoutJSON) {
 }
 
 /// @brief it should reject a field whose name a standard field or another field has, or
-/// whose browse path has an empty element.
+/// whose browse path has an empty name or a namespace URI with no ';' after it.
 TEST_F(TestEventTask, testRejectsInvalidFields) {
     auto cfg = this->config();
     cfg["fields"] = {
         {{"key", "a"}, {"name", "message"}, {"browse_path", "Message"}},
         {{"key", "b"}, {"name", "b"}, {"browse_path", "Pump//Speed"}},
-        {{"key", "c"}, {"name", "b"}, {"browse_path", "Speed"}},
+        {{"key", "c"}, {"name", "b"}, {"browse_path", "nsu=urn:pump"}},
     };
     const auto [_, err] = this->parse(cfg);
     ASSERT_OCCURRED_AS(err, x::errors::VALIDATION);
     EXPECT_NE(err.data.find("A standard field has this name"), std::string::npos);
     EXPECT_NE(err.data.find("Another field has this name"), std::string::npos);
     EXPECT_NE(err.data.find("Browse path must name each element"), std::string::npos);
+    EXPECT_NE(
+        err.data.find("Browse path must end each namespace URI with ';'"),
+        std::string::npos
+    );
 }
 
 /// @brief it should reject a notifier that is not a node ID.

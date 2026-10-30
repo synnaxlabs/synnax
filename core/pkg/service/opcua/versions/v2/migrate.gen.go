@@ -34,16 +34,9 @@ func autoMigrateReadConfig(ctx context.Context, old v1.ReadConfig) (ReadConfig, 
 	}, nil
 }
 
-func autoMigrateWriteConfig(ctx context.Context, old v1.WriteConfig) (WriteConfig, error) {
-	channels, err := lo.MapErr(old.Channels, func(v v1.WriteChannel, _ int) (WriteChannel, error) {
-		return MigrateWriteChannel(ctx, v)
-	})
-	if err != nil {
-		return WriteConfig{}, err
-	}
+func autoMigrateWriteConfig(_ context.Context, old v1.WriteConfig) (WriteConfig, error) {
 	return WriteConfig{
 		WriteConfig: old.WriteConfig,
-		Channels:    channels,
 	}, nil
 }
 
@@ -52,12 +45,5 @@ func autoMigrateReadChannel(_ context.Context, old v1.ReadChannel) (ReadChannel,
 		BaseChannel: old.BaseChannel,
 		Channel:     old.Channel,
 		IsIndex:     old.IsIndex,
-	}, nil
-}
-
-func autoMigrateWriteChannel(_ context.Context, old v1.WriteChannel) (WriteChannel, error) {
-	return WriteChannel{
-		BaseChannel: old.BaseChannel,
-		CmdChannel:  old.CmdChannel,
 	}, nil
 }

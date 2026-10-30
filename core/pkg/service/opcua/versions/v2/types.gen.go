@@ -12,13 +12,15 @@
 package v2
 
 import (
-	"strconv"
+	"encoding/json/jsontext"
+	"encoding/json/v2"
 
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	device "github.com/synnaxlabs/synnax/pkg/service/legacy/device/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/opcua/versions/v1"
 	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
-	"github.com/synnaxlabs/x/validate"
+	"github.com/synnaxlabs/x/errors"
+	telem "github.com/synnaxlabs/x/telem/versions/v0"
 )
 
 // BaseChannel carries the fields every OPC UA channel shares.
@@ -41,40 +43,123 @@ func (r *ReadChannel) ApplyDefaults() {
 	r.BaseChannel.ApplyDefaults()
 }
 
-// WriteChannel is a single OPC UA node the task drives.
-type WriteChannel struct {
+// BaseWriteChannel carries the fields every OPC UA write channel shares.
+type BaseWriteChannel struct {
 	BaseChannel
 	// CmdChannel is the Synnax channel commands are read from.
 	CmdChannel channel.Key `json:"cmd_channel" msgpack:"cmd_channel"`
-	// Type is node to write each command to the value of the node, or method to call
-	// the node as a method with each command.
-	Type WriteType `json:"type" msgpack:"type"`
+}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (b *BaseWriteChannel) ApplyDefaults() {
+	b.BaseChannel.ApplyDefaults()
+}
+
+type WriteChannelVariant interface {
+	isWriteChannelVariant()
+}
+
+// NodeWriteChannel writes each command to the value of the node.
+type NodeWriteChannel struct {
+	BaseWriteChannel
+}
+
+func (NodeWriteChannel) isWriteChannelVariant() {}
+
+// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
+func (n *NodeWriteChannel) ApplyDefaults() {
+	n.BaseWriteChannel.ApplyDefaults()
+}
+
+// MethodWriteChannel calls the node as a method with each command.
+type MethodWriteChannel struct {
+	BaseWriteChannel
 	// ObjectID is the node ID of the object that holds the method.
 	ObjectID string `json:"object_id" msgpack:"object_id"`
 	// Arguments are the input arguments of the method, in order.
 	Arguments []MethodArgument `json:"arguments" msgpack:"arguments"`
 }
 
+func (MethodWriteChannel) isWriteChannelVariant() {}
+
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (w *WriteChannel) ApplyDefaults() {
-	if w.Type == "" {
-		w.Type = WriteTypeNode
-	}
-	w.BaseChannel.ApplyDefaults()
-	for i := range w.Arguments {
-		w.Arguments[i].ApplyDefaults()
+func (m *MethodWriteChannel) ApplyDefaults() {
+	m.BaseWriteChannel.ApplyDefaults()
+}
+
+// WriteChannel is a single OPC UA node the task drives. The type field selects what
+// each command does on the server.
+type WriteChannel struct {
+	Variant WriteChannelVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "type" tag injected.
+func (u WriteChannel) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case NodeWriteChannel:
+		return json.MarshalEncode(enc, struct {
+			Type WriteType `json:"type"`
+			NodeWriteChannel
+		}{Type: WriteTypeNode, NodeWriteChannel: v})
+	case MethodWriteChannel:
+		return json.MarshalEncode(enc, struct {
+			Type WriteType `json:"type"`
+			MethodWriteChannel
+		}{Type: WriteTypeMethod, MethodWriteChannel: v})
+	default:
+		return errors.Newf("WriteChannel: unknown variant %T", v)
 	}
 }
 
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (w WriteChannel) Validate() error {
-	v := validate.New("WriteChannel")
-	v.Ternaryf("type", !w.Type.IsValid(), "invalid type: %v", w.Type)
-	for i := range w.Arguments {
-		v.Exec(func() error { return validate.PathedError(w.Arguments[i].Validate(), "arguments", strconv.Itoa(i)) })
+// UnmarshalJSONFrom decodes the variant selected by the "type" field.
+func (u *WriteChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
 	}
-	return v.Error()
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type WriteType `json:"type"`
+	}
+	if err := json.Unmarshal(data, &disc, opts); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case WriteTypeNode:
+		var v NodeWriteChannel
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v
+	case WriteTypeMethod:
+		var v MethodWriteChannel
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v
+	default:
+		return errors.Newf("WriteChannel: unknown type %q", disc.Type)
+	}
+	return nil
+}
+
+// ApplyDefaults fills the active variant's zero-valued fields with their
+// schema-declared defaults.
+func (u *WriteChannel) ApplyDefaults() {
+	switch variant := u.Variant.(type) {
+	case NodeWriteChannel:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	case MethodWriteChannel:
+		variant.ApplyDefaults()
+		u.Variant = variant
+	}
 }
 
 // ReadConfig configures an OPC UA read task.
@@ -124,16 +209,6 @@ func (w *WriteConfig) ApplyDefaults() {
 	}
 }
 
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (w WriteConfig) Validate() error {
-	v := validate.New("WriteConfig")
-	for i := range w.Channels {
-		v.Exec(func() error { return validate.PathedError(w.Channels[i].Validate(), "channels", strconv.Itoa(i)) })
-	}
-	return v.Error()
-}
-
 // ScanConfig configures an OPC UA scan task.
 type ScanConfig = v1.ScanConfig
 
@@ -175,33 +250,96 @@ func (a ArgumentSource) IsValid() bool {
 	}
 }
 
-// MethodArgument is an input argument of an OPC UA method call.
-type MethodArgument struct {
-	// Source is where the value of the argument comes from.
-	Source ArgumentSource `json:"source" msgpack:"source"`
-	// Value is the value of the argument when source is value, as text that the Driver
-	// converts to the declared type of the argument.
-	Value string `json:"value" msgpack:"value"`
+// BaseMethodArgument carries the fields every input argument of a method shares.
+type BaseMethodArgument struct {
 	// Name is the name of the argument, as the method declares it.
 	Name string `json:"name" msgpack:"name"`
 	// DataType is the Synnax data type of the argument, which a command channel that
 	// gives the argument takes.
-	DataType string `json:"data_type" msgpack:"data_type"`
+	DataType telem.DataType `json:"data_type" msgpack:"data_type"`
 }
 
-// ApplyDefaults fills zero-valued fields with their schema-declared defaults.
-func (m *MethodArgument) ApplyDefaults() {
-	if m.Source == "" {
-		m.Source = ArgumentSourceValue
+type MethodArgumentVariant interface {
+	isMethodArgumentVariant()
+}
+
+// ValueMethodArgument gives the argument a fixed value.
+type ValueMethodArgument struct {
+	BaseMethodArgument
+	// Value is the value of the argument, as text that the Driver converts to the
+	// declared type of the argument.
+	Value string `json:"value" msgpack:"value"`
+}
+
+func (ValueMethodArgument) isMethodArgumentVariant() {}
+
+// CommandMethodArgument gives the argument the value of each command.
+type CommandMethodArgument struct {
+	BaseMethodArgument
+}
+
+func (CommandMethodArgument) isMethodArgumentVariant() {}
+
+// MethodArgument is an input argument of an OPC UA method call. The source field
+// selects where its value comes from.
+type MethodArgument struct {
+	Variant MethodArgumentVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "source" tag injected.
+func (u MethodArgument) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case ValueMethodArgument:
+		return json.MarshalEncode(enc, struct {
+			Type ArgumentSource `json:"source"`
+			ValueMethodArgument
+		}{Type: ArgumentSourceValue, ValueMethodArgument: v})
+	case CommandMethodArgument:
+		return json.MarshalEncode(enc, struct {
+			Type ArgumentSource `json:"source"`
+			CommandMethodArgument
+		}{Type: ArgumentSourceCommand, CommandMethodArgument: v})
+	default:
+		return errors.Newf("MethodArgument: unknown variant %T", v)
 	}
 }
 
-// Validate returns an error wrapping validate.ErrValidation if any field violates its
-// schema constraints.
-func (m MethodArgument) Validate() error {
-	v := validate.New("MethodArgument")
-	v.Ternaryf("source", !m.Source.IsValid(), "invalid source: %v", m.Source)
-	return v.Error()
+// UnmarshalJSONFrom decodes the variant selected by the "source" field.
+func (u *MethodArgument) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type ArgumentSource `json:"source"`
+	}
+	if err := json.Unmarshal(data, &disc, opts); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case ArgumentSourceValue:
+		var v ValueMethodArgument
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v
+	case ArgumentSourceCommand:
+		var v CommandMethodArgument
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v
+	default:
+		return errors.Newf("MethodArgument: unknown source %q", disc.Type)
+	}
+	return nil
 }
 
 // EventField is an event field that the task records beyond the standard fields.
@@ -211,8 +349,8 @@ type EventField struct {
 	// Name is the key of the field in the JSON sample of each event.
 	Name string `json:"name" msgpack:"name"`
 	// BrowsePath is the path to the field from the event type, as browse names joined
-	// with '/', such as 'EnabledState/Id'. A name can start with a namespace index, as
-	// in '2:Level'.
+	// with '/', such as 'EnabledState/Id'. A name can start with 'nsu=<uri>;' or
+	// '<index>:' to name its namespace, as in 'nsu=urn:pump;Level' or '2:Level'.
 	BrowsePath string `json:"browse_path" msgpack:"browse_path"`
 }
 

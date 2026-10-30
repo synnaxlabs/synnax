@@ -198,4 +198,27 @@ describe("Event", () => {
     );
     expect((await retrieveConfig(draft.key)).notifiers).toEqual([]);
   });
+
+  it("should list the EventTypes folder after the objects, and browse its types", async () => {
+    const { scan, device } = await createScannedDevice(client);
+    const draft = await createDraft({ device: device.key });
+    const root = await answerNextCommand(client, scan, {
+      type: OPCUA.Task.BROWSE_COMMAND_TYPE,
+      data: { channels: [createNode("Pump", "Object")] },
+    });
+    await renderEvent({ client, taskKey: draft.key });
+    await root.answered;
+    const alarm = createNode("PumpAlarm", "ObjectType");
+    const types = await answerNextCommand(client, scan, {
+      type: OPCUA.Task.BROWSE_COMMAND_TYPE,
+      data: { channels: [alarm] },
+    });
+    fireEvent.click(await screen.findByText("EventTypes"));
+    expect((await types.answered).args).toMatchObject({ nodeId: "i=3048" });
+    fireEvent.dragStart(await screen.findByText("PumpAlarm"));
+    fireEvent.drop(await screen.findByText(/Records events of every type/));
+    await waitFor(async () =>
+      expect((await retrieveConfig(draft.key)).eventTypes).toEqual([alarm.nodeId]),
+    );
+  });
 });

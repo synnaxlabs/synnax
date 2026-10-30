@@ -12,6 +12,7 @@ package v2
 import (
 	"context"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp/migrate"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/opcua/versions/v1"
 )
@@ -31,18 +32,26 @@ var ReadMigration = migrate.NewEntry("v61_nan_fill_enabled", MigrateReadConfig)
 
 // MigrateWriteChannel lifts a v1 write channel to v2, where it writes the value of its
 // node.
-func MigrateWriteChannel(
-	ctx context.Context,
-	old v1.WriteChannel,
-) (WriteChannel, error) {
-	ch, err := autoMigrateWriteChannel(ctx, old)
-	ch.Type = WriteTypeNode
-	return ch, err
+func MigrateWriteChannel(_ context.Context, old v1.WriteChannel) (WriteChannel, error) {
+	return WriteChannel{Variant: NodeWriteChannel{BaseWriteChannel: BaseWriteChannel{
+		BaseChannel: old.BaseChannel,
+		CmdChannel:  old.CmdChannel,
+	}}}, nil
 }
 
 // MigrateWriteConfig lifts a v1 write config to v2.
 func MigrateWriteConfig(ctx context.Context, old v1.WriteConfig) (WriteConfig, error) {
-	return autoMigrateWriteConfig(ctx, old)
+	cfg, err := autoMigrateWriteConfig(ctx, old)
+	if err != nil {
+		return WriteConfig{}, err
+	}
+	cfg.Channels, err = lo.MapErr(
+		old.Channels,
+		func(ch v1.WriteChannel, _ int) (WriteChannel, error) {
+			return MigrateWriteChannel(ctx, ch)
+		},
+	)
+	return cfg, err
 }
 
 // WriteMigration lifts stored write configs to v2.

@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Annotated, Literal
 from uuid import uuid4
 
 from pydantic import BaseModel, Field
@@ -66,22 +66,17 @@ class ScanConfig(task.ScanConfig):
         return hash(self.key)
 
 
-class MethodArgument(BaseModel):
-    """Is an input argument of an OPC UA method call.
+class BaseMethodArgument(BaseModel):
+    """Carries the fields every input argument of a method shares.
 
     Attributes:
-        source: Is where the value of the argument comes from.
-        value: Is the value of the argument when source is value, as text that the
-            Driver converts to the declared type of the argument.
         name: Is the name of the argument, as the method declares it.
         data_type: Is the Synnax data type of the argument, which a command channel that
             gives the argument takes.
     """
 
-    source: ArgumentSource = "value"
-    value: str = ""
     name: str = ""
-    data_type: str = ""
+    data_type: telem.DataType = telem.DataType("")
 
 
 class EventField(BaseModel):
@@ -91,8 +86,9 @@ class EventField(BaseModel):
         key: Uniquely identifies the field within the task.
         name: Is the key of the field in the JSON sample of each event.
         browse_path: Is the path to the field from the event type, as browse names
-            joined with '/', such as 'EnabledState/Id'. A name can start with a
-            namespace index, as in '2:Level'.
+            joined with '/', such as 'EnabledState/Id'. A name can start with
+            'nsu=<uri>;' or '<index>:' to name its namespace, as in 'nsu=urn:pump;Level'
+            or '2:Level'.
     """
 
     key: str = Field(default_factory=lambda: str(uuid4()))
@@ -121,24 +117,38 @@ class ReadChannel(BaseChannel):
         return hash(self.key)
 
 
-class WriteChannel(BaseChannel):
-    """Is a single OPC UA node the task drives.
+class BaseWriteChannel(BaseChannel):
+    """Carries the fields every OPC UA write channel shares.
 
     Attributes:
         cmd_channel: Is the Synnax channel commands are read from.
-        type: Is node to write each command to the value of the node, or method to call
-            the node as a method with each command.
-        object_id: Is the node ID of the object that holds the method.
-        arguments: Are the input arguments of the method, in order.
     """
 
     cmd_channel: channel_.Key = Field(default=channel_.Key(0), ge=0, le=4294967295)
-    type: WriteType = "node"
-    object_id: str = ""
-    arguments: list[MethodArgument] = Field(default_factory=list)
 
     def __hash__(self) -> int:
         return hash(self.key)
+
+
+class ValueMethodArgument(BaseMethodArgument):
+    """Gives the argument a fixed value."""
+
+    source: Literal["value"] = "value"
+    value: str = ""
+
+
+class CommandMethodArgument(BaseMethodArgument):
+    """Gives the argument the value of each command."""
+
+    source: Literal["command"] = "command"
+
+
+# Is an input argument of an OPC UA method call. The source field selects where
+# its value comes from.
+MethodArgument = Annotated[
+    ValueMethodArgument | CommandMethodArgument,
+    Field(discriminator="source"),
+]
 
 
 class EventConfig(task.PersistConfig):
@@ -189,6 +199,28 @@ class ReadConfig(task.ReadConfig):
 
     def __hash__(self) -> int:
         return hash(self.key)
+
+
+class NodeWriteChannel(BaseWriteChannel):
+    """Writes each command to the value of the node."""
+
+    type: Literal["node"] = "node"
+
+
+class MethodWriteChannel(BaseWriteChannel):
+    """Calls the node as a method with each command."""
+
+    type: Literal["method"] = "method"
+    object_id: str = ""
+    arguments: list[MethodArgument] = Field(default_factory=list)
+
+
+# Is a single OPC UA node the task drives. The type field selects what each
+# command does on the server.
+WriteChannel = Annotated[
+    NodeWriteChannel | MethodWriteChannel,
+    Field(discriminator="type"),
+]
 
 
 class WriteConfig(task.WriteConfig):

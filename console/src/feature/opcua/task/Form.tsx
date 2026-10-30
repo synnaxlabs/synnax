@@ -46,6 +46,7 @@ import {
   browseVariablesResponseZ,
   type Channel,
   isMethod,
+  type NodeDetails,
   nodeDetailsZ,
   nodeIdentity,
   READ_NODE_COMMAND_TYPE,
@@ -286,8 +287,11 @@ interface ChannelListProps<C extends Channel> extends Pick<
   /** Renders the details of the one selected channel, under the list. */
   details?: Component.RenderProp<ExtraItemProps>;
   device: Device;
-  /** @returns the channel of a node, or null if the task cannot hold it. */
-  convertNodeToChannel: (node: ScannedNode) => C | null;
+  /**
+   * @returns the channel of a node, or null if the task cannot hold it. Details are
+   * present only for a dropped method.
+   */
+  convertNodeToChannel: (node: ScannedNode, details?: NodeDetails) => C | null;
   getChannelKeyAndID: ChannelKeyAndIDGetter<C>;
   /** True when a channel can be the task's index, which adds a CSV index column. */
   indexed?: boolean;
@@ -312,7 +316,7 @@ const ChannelList = <C extends Channel>({
   const newChannels = (nodes: ScannedNode[]): C[] => {
     const existing = new Set(ctx.get<C[]>(CHANNELS_PATH).value.map(nodeIdentity));
     return nodes
-      .map(convertNodeToChannel)
+      .map((node) => convertNodeToChannel(node))
       .filter((ch): ch is C => ch != null && !existing.has(nodeIdentity(ch)));
   };
   const addFolders = (folders: HaulItem[]) =>
@@ -376,7 +380,7 @@ const ChannelList = <C extends Channel>({
       if (client == null) throw new DisconnectedError();
       const channels: C[] = [];
       for (const method of methods) {
-        const { inputArguments } = await executeScanCommand(client, device.rack, {
+        const details = await executeScanCommand(client, device.rack, {
           type: READ_NODE_COMMAND_TYPE,
           args: {
             connection: device.properties.connection,
@@ -385,7 +389,7 @@ const ChannelList = <C extends Channel>({
           },
           schema: nodeDetailsZ,
         });
-        const ch = convertNodeToChannel({ ...method.data, inputArguments });
+        const ch = convertNodeToChannel(method.data, details);
         if (ch != null) channels.push(ch);
       }
       push(channels);

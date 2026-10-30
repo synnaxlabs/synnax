@@ -10,6 +10,7 @@
 import "schemas/synnax/versions/channel/v0"
 import "schemas/synnax/versions/device/v0"
 import "schemas/synnax/versions/task/v2"
+import "schemas/x/versions/telem/v0"
 
 BaseChannel = v1.BaseChannel
 
@@ -45,43 +46,73 @@ ArgumentSource enum {
     @doc value "is where the value of a method argument comes from."
 }
 
-MethodArgument struct {
-    source    ArgumentSource = value {
-        @doc value "is where the value of the argument comes from."
-    }
-    value     string = "" {
-        @doc value """
-            is the value of the argument when source is value, as text that the Driver
-            converts to the declared type of the argument.
-        """
-    }
+BaseMethodArgument struct {
     name      string = "" {
         @doc value "is the name of the argument, as the method declares it."
     }
-    data_type string = "" {
+    data_type telem.DataType = "" {
         @doc value """
             is the Synnax data type of the argument, which a command channel that gives
             the argument takes.
         """
+        @ts type   "string"
     }
 
-    @doc value  "is an input argument of an OPC UA method call."
+    @doc value  "carries the fields every input argument of a method shares."
     @go marshal
 }
 
-WriteChannel struct extends v1.WriteChannel {
-    type      WriteType = node {
-        @doc value """
-            is node to write each command to the value of the node, or method to call
-            the node as a method with each command.
-        """
+MethodArgument union on source ArgumentSource extends BaseMethodArgument {
+    value {
+        value string = "" {
+            @doc value """
+                is the value of the argument, as text that the Driver converts to the
+                declared type of the argument.
+            """
+        }
+
+        @doc value "gives the argument a fixed value."
     }
-    object_id string = "" {
-        @doc value "is the node ID of the object that holds the method."
+    command {
+        @doc value "gives the argument the value of each command."
     }
-    arguments MethodArgument[] {
-        @doc value "are the input arguments of the method, in order."
+
+    @doc value  """
+        is an input argument of an OPC UA method call. The source field selects where
+        its value comes from.
+    """
+    @go marshal
+}
+
+BaseWriteChannel struct extends BaseChannel {
+    cmd_channel channel.Key = 0 {
+        @doc value "is the Synnax channel commands are read from."
     }
+
+    @doc value  "carries the fields every OPC UA write channel shares."
+    @go marshal
+}
+
+WriteChannel union on type WriteType extends BaseWriteChannel {
+    node {
+        @doc value "writes each command to the value of the node."
+    }
+    method {
+        object_id string = "" {
+            @doc value "is the node ID of the object that holds the method."
+        }
+        arguments MethodArgument[] {
+            @doc value "are the input arguments of the method, in order."
+        }
+
+        @doc value "calls the node as a method with each command."
+    }
+
+    @doc value  """
+        is a single OPC UA node the task drives. The type field selects what each
+        command does on the server.
+    """
+    @go marshal
 }
 
 ReadConfig struct extends task.ReadConfig {
@@ -112,7 +143,16 @@ ReadConfig struct extends task.ReadConfig {
     @go migrate
 }
 
-WriteConfig struct extends v1.WriteConfig {}
+WriteConfig struct extends task.WriteConfig {
+    channels WriteChannel[] {
+        @doc value "are the OPC UA nodes the task drives."
+    }
+
+    @doc value  "configures an OPC UA write task."
+    @go imex    body
+    @go marshal
+    @go migrate
+}
 
 ScanConfig = v1.ScanConfig
 
@@ -127,8 +167,8 @@ EventField struct {
     browse_path string = "" {
         @doc value """
             is the path to the field from the event type, as browse names joined with
-            '/', such as 'EnabledState/Id'. A name can start with a namespace index, as
-            in '2:Level'.
+            '/', such as 'EnabledState/Id'. A name can start with 'nsu=<uri>;' or
+            '<index>:' to name its namespace, as in 'nsu=urn:pump;Level' or '2:Level'.
         """
     }
 

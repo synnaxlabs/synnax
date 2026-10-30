@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type opcua } from "@synnaxlabs/client";
 import { describe, expect, it } from "vitest";
 
 import { OPCUA } from "@/feature/opcua";
@@ -36,8 +37,6 @@ const convertWrite = (node: OPCUA.Task.ScannedNode): OPCUA.Task.WriteChannel | n
         disabled: false,
         name: "",
         type: "node",
-        objectId: "",
-        arguments: [],
       };
 
 const decodeRead = (text: string, existing: OPCUA.Task.ReadChannel[] = []) =>
@@ -70,13 +69,13 @@ const createReadChannel = (
 
 interface CreateWriteChannelOverrides
   extends
-    Partial<Omit<OPCUA.Task.WriteChannel, "nodeId">>,
-    Pick<OPCUA.Task.WriteChannel, "nodeId"> {}
+    Partial<Omit<opcua.NodeWriteChannel, "nodeId">>,
+    Pick<opcua.NodeWriteChannel, "nodeId"> {}
 
 const createWriteChannel = (
   overrides: CreateWriteChannelOverrides,
-): OPCUA.Task.WriteChannel => {
-  const ch: OPCUA.Task.WriteChannel = {
+): opcua.NodeWriteChannel => {
+  const ch: opcua.NodeWriteChannel = {
     key: "",
     nodeName: "",
     dataType: "float32",
@@ -84,8 +83,6 @@ const createWriteChannel = (
     disabled: false,
     name: "",
     type: "node",
-    objectId: "",
-    arguments: [],
     ...overrides,
   };
   return { ...ch, key: ch.nodeId };
@@ -143,13 +140,12 @@ describe("CSV", () => {
     });
 
     it("should leave out method channels", () => {
-      const method = createWriteChannel({
-        nodeId: "ns=2;s=Pump.Start",
-        nodeName: "Start",
-        dataType: "uint8",
+      const method: opcua.MethodWriteChannel = {
+        ...createWriteChannel({ nodeId: "ns=2;s=Pump.Start", nodeName: "Start" }),
         type: "method",
         objectId: "ns=2;s=Pump",
-      });
+        arguments: [],
+      };
       expect(CSV.encode([method, ...WRITE_CHANNELS])).toBe(CSV.encode(WRITE_CHANNELS));
     });
 

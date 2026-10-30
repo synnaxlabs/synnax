@@ -24,7 +24,58 @@ import (
 	"github.com/synnaxlabs/x/testutil"
 )
 
+var (
+	fullyPopulatedBaseMethodArgument = v2.BaseMethodArgument{Name: "test_1", DataType: telem.DataType("test_2")}
+	fullyPopulatedBaseWriteChannel   = v2.BaseWriteChannel{
+		Key:        "test_1",
+		Name:       "test_2",
+		Disabled:   true,
+		NodeID:     "test_4",
+		NodeName:   "test_5",
+		DataType:   telem.DataType("test_6"),
+		CmdChannel: channel.Key(8),
+	}
+)
+
 var _ = Describe("Codec", func() {
+	Describe("BaseMethodArgument", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v2.BaseMethodArgument) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v2.BaseMethodArgument
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", fullyPopulatedBaseMethodArgument),
+			Entry("zero values", v2.BaseMethodArgument{Name: "", DataType: telem.DataType("")}),
+		)
+	})
+	Describe("BaseWriteChannel", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v2.BaseWriteChannel) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v2.BaseWriteChannel
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", fullyPopulatedBaseWriteChannel),
+			Entry("zero values", v2.BaseWriteChannel{
+				Key:        "",
+				Name:       "",
+				Disabled:   false,
+				NodeID:     "",
+				NodeName:   "",
+				DataType:   telem.DataType(""),
+				CmdChannel: channel.Key(0),
+			}),
+		)
+	})
 	Describe("EventConfig", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original v2.EventConfig) {
@@ -108,18 +159,11 @@ var _ = Describe("Codec", func() {
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", v2.MethodArgument{
-				Source:   v2.ArgumentSource("value"),
-				Value:    "test_2",
-				Name:     "test_3",
-				DataType: "test_4",
-			}),
-			Entry("zero values", v2.MethodArgument{
-				Source:   v2.ArgumentSource(""),
-				Value:    "",
-				Name:     "",
-				DataType: "",
-			}),
+			Entry("value variant", v2.MethodArgument{Variant: v2.ValueMethodArgument{
+				BaseMethodArgument: fullyPopulatedBaseMethodArgument,
+				Value:              "test_1",
+			}}),
+			Entry("command variant", v2.MethodArgument{Variant: v2.CommandMethodArgument{BaseMethodArgument: fullyPopulatedBaseMethodArgument}}),
 		)
 	})
 	Describe("ReadChannel", func() {
@@ -229,49 +273,17 @@ var _ = Describe("Codec", func() {
 				Expect(decoded.DecodeOrc(r)).To(Succeed())
 				Expect(decoded).To(Equal(original))
 			},
-			Entry("fully populated", v2.WriteChannel{
-				Key:        "test_1",
-				Name:       "test_2",
-				Disabled:   true,
-				NodeID:     "test_4",
-				NodeName:   "test_5",
-				DataType:   telem.DataType("test_6"),
-				CmdChannel: channel.Key(8),
-				Type:       v2.WriteType("node"),
-				ObjectID:   "test_9",
+			Entry("node variant", v2.WriteChannel{Variant: v2.NodeWriteChannel{BaseWriteChannel: fullyPopulatedBaseWriteChannel}}),
+			Entry("method variant", v2.WriteChannel{Variant: v2.MethodWriteChannel{
+				BaseWriteChannel: fullyPopulatedBaseWriteChannel,
+				ObjectID:         "test_1",
 				Arguments: []v2.MethodArgument{
-					{
-						Source:   v2.ArgumentSource("value"),
-						Value:    "test_12",
-						Name:     "test_13",
-						DataType: "test_14",
-					},
+					{Variant: v2.ValueMethodArgument{
+						BaseMethodArgument: fullyPopulatedBaseMethodArgument,
+						Value:              "test_3",
+					}},
 				},
-			}),
-			Entry("zero values", v2.WriteChannel{
-				Key:        "",
-				Name:       "",
-				Disabled:   false,
-				NodeID:     "",
-				NodeName:   "",
-				DataType:   telem.DataType(""),
-				CmdChannel: channel.Key(0),
-				Type:       v2.WriteType(""),
-				ObjectID:   "",
-				Arguments:  []v2.MethodArgument{},
-			}),
-			Entry("empty collections", v2.WriteChannel{
-				Key:        "test_1",
-				Name:       "test_2",
-				Disabled:   true,
-				NodeID:     "test_4",
-				NodeName:   "test_5",
-				DataType:   telem.DataType("test_6"),
-				CmdChannel: channel.Key(8),
-				Type:       v2.WriteType("node"),
-				ObjectID:   "test_9",
-				Arguments:  []v2.MethodArgument{},
-			}),
+			}}),
 		)
 	})
 	Describe("WriteConfig", func() {
@@ -290,27 +302,7 @@ var _ = Describe("Codec", func() {
 				AutoStart:          false,
 				DataSavingDisabled: true,
 				Device:             "test_4",
-				Channels: []v2.WriteChannel{
-					{
-						Key:        "test_6",
-						Name:       "test_7",
-						Disabled:   false,
-						NodeID:     "test_9",
-						NodeName:   "test_10",
-						DataType:   telem.DataType("test_11"),
-						CmdChannel: channel.Key(13),
-						Type:       v2.WriteType("node"),
-						ObjectID:   "test_14",
-						Arguments: []v2.MethodArgument{
-							{
-								Source:   v2.ArgumentSource("value"),
-								Value:    "test_17",
-								Name:     "test_18",
-								DataType: "test_19",
-							},
-						},
-					},
-				},
+				Channels:           []v2.WriteChannel{{Variant: v2.NodeWriteChannel{BaseWriteChannel: fullyPopulatedBaseWriteChannel}}},
 			}),
 			Entry("zero values", v2.WriteConfig{
 				Key:                uuid.Nil(),
@@ -329,6 +321,40 @@ var _ = Describe("Codec", func() {
 		)
 	})
 })
+
+func BenchmarkEncodeDecodeBaseMethodArgument(b *testing.B) {
+	seed := fullyPopulatedBaseMethodArgument
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v2.BaseMethodArgument
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeBaseWriteChannel(b *testing.B) {
+	seed := fullyPopulatedBaseWriteChannel
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v2.BaseWriteChannel
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
 
 func BenchmarkEncodeDecodeEventConfig(b *testing.B) {
 	seed := v2.EventConfig{
@@ -384,12 +410,10 @@ func BenchmarkEncodeDecodeEventField(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeMethodArgument(b *testing.B) {
-	seed := v2.MethodArgument{
-		Source:   v2.ArgumentSource("value"),
-		Value:    "test_2",
-		Name:     "test_3",
-		DataType: "test_4",
-	}
+	seed := v2.MethodArgument{Variant: v2.ValueMethodArgument{
+		BaseMethodArgument: fullyPopulatedBaseMethodArgument,
+		Value:              "test_1",
+	}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for b.Loop() {
@@ -473,25 +497,7 @@ func BenchmarkEncodeDecodeReadConfig(b *testing.B) {
 }
 
 func BenchmarkEncodeDecodeWriteChannel(b *testing.B) {
-	seed := v2.WriteChannel{
-		Key:        "test_1",
-		Name:       "test_2",
-		Disabled:   true,
-		NodeID:     "test_4",
-		NodeName:   "test_5",
-		DataType:   telem.DataType("test_6"),
-		CmdChannel: channel.Key(8),
-		Type:       v2.WriteType("node"),
-		ObjectID:   "test_9",
-		Arguments: []v2.MethodArgument{
-			{
-				Source:   v2.ArgumentSource("value"),
-				Value:    "test_12",
-				Name:     "test_13",
-				DataType: "test_14",
-			},
-		},
-	}
+	seed := v2.WriteChannel{Variant: v2.NodeWriteChannel{BaseWriteChannel: fullyPopulatedBaseWriteChannel}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
 	for b.Loop() {
@@ -513,27 +519,7 @@ func BenchmarkEncodeDecodeWriteConfig(b *testing.B) {
 		AutoStart:          false,
 		DataSavingDisabled: true,
 		Device:             "test_4",
-		Channels: []v2.WriteChannel{
-			{
-				Key:        "test_6",
-				Name:       "test_7",
-				Disabled:   false,
-				NodeID:     "test_9",
-				NodeName:   "test_10",
-				DataType:   telem.DataType("test_11"),
-				CmdChannel: channel.Key(13),
-				Type:       v2.WriteType("node"),
-				ObjectID:   "test_14",
-				Arguments: []v2.MethodArgument{
-					{
-						Source:   v2.ArgumentSource("value"),
-						Value:    "test_17",
-						Name:     "test_18",
-						DataType: "test_19",
-					},
-				},
-			},
-		},
+		Channels:           []v2.WriteChannel{{Variant: v2.NodeWriteChannel{BaseWriteChannel: fullyPopulatedBaseWriteChannel}}},
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -548,6 +534,92 @@ func BenchmarkEncodeDecodeWriteConfig(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
+}
+
+func FuzzDecodeBaseMethodArgument(f *testing.F) {
+	{
+		seed := fullyPopulatedBaseMethodArgument
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v2.BaseMethodArgument{Name: "", DataType: telem.DataType("")}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v2.BaseMethodArgument
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v2.BaseMethodArgument
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeBaseWriteChannel(f *testing.F) {
+	{
+		seed := fullyPopulatedBaseWriteChannel
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v2.BaseWriteChannel{
+			Key:        "",
+			Name:       "",
+			Disabled:   false,
+			NodeID:     "",
+			NodeName:   "",
+			DataType:   telem.DataType(""),
+			CmdChannel: channel.Key(0),
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v2.BaseWriteChannel
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v2.BaseWriteChannel
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
 }
 
 func FuzzDecodeEventConfig(f *testing.F) {
@@ -679,12 +751,10 @@ func FuzzDecodeEventField(f *testing.F) {
 
 func FuzzDecodeMethodArgument(f *testing.F) {
 	{
-		seed := v2.MethodArgument{
-			Source:   v2.ArgumentSource("value"),
-			Value:    "test_2",
-			Name:     "test_3",
-			DataType: "test_4",
-		}
+		seed := v2.MethodArgument{Variant: v2.ValueMethodArgument{
+			BaseMethodArgument: fullyPopulatedBaseMethodArgument,
+			Value:              "test_1",
+		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -692,12 +762,7 @@ func FuzzDecodeMethodArgument(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := v2.MethodArgument{
-			Source:   v2.ArgumentSource(""),
-			Value:    "",
-			Name:     "",
-			DataType: "",
-		}
+		seed := v2.MethodArgument{Variant: v2.CommandMethodArgument{BaseMethodArgument: fullyPopulatedBaseMethodArgument}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -879,63 +944,24 @@ func FuzzDecodeReadConfig(f *testing.F) {
 
 func FuzzDecodeWriteChannel(f *testing.F) {
 	{
-		seed := v2.WriteChannel{
-			Key:        "test_1",
-			Name:       "test_2",
-			Disabled:   true,
-			NodeID:     "test_4",
-			NodeName:   "test_5",
-			DataType:   telem.DataType("test_6"),
-			CmdChannel: channel.Key(8),
-			Type:       v2.WriteType("node"),
-			ObjectID:   "test_9",
+		seed := v2.WriteChannel{Variant: v2.NodeWriteChannel{BaseWriteChannel: fullyPopulatedBaseWriteChannel}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v2.WriteChannel{Variant: v2.MethodWriteChannel{
+			BaseWriteChannel: fullyPopulatedBaseWriteChannel,
+			ObjectID:         "test_1",
 			Arguments: []v2.MethodArgument{
-				{
-					Source:   v2.ArgumentSource("value"),
-					Value:    "test_12",
-					Name:     "test_13",
-					DataType: "test_14",
-				},
+				{Variant: v2.ValueMethodArgument{
+					BaseMethodArgument: fullyPopulatedBaseMethodArgument,
+					Value:              "test_3",
+				}},
 			},
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v2.WriteChannel{
-			Key:        "",
-			Name:       "",
-			Disabled:   false,
-			NodeID:     "",
-			NodeName:   "",
-			DataType:   telem.DataType(""),
-			CmdChannel: channel.Key(0),
-			Type:       v2.WriteType(""),
-			ObjectID:   "",
-			Arguments:  []v2.MethodArgument{},
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v2.WriteChannel{
-			Key:        "test_1",
-			Name:       "test_2",
-			Disabled:   true,
-			NodeID:     "test_4",
-			NodeName:   "test_5",
-			DataType:   telem.DataType("test_6"),
-			CmdChannel: channel.Key(8),
-			Type:       v2.WriteType("node"),
-			ObjectID:   "test_9",
-			Arguments:  []v2.MethodArgument{},
-		}
+		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -971,27 +997,7 @@ func FuzzDecodeWriteConfig(f *testing.F) {
 			AutoStart:          false,
 			DataSavingDisabled: true,
 			Device:             "test_4",
-			Channels: []v2.WriteChannel{
-				{
-					Key:        "test_6",
-					Name:       "test_7",
-					Disabled:   false,
-					NodeID:     "test_9",
-					NodeName:   "test_10",
-					DataType:   telem.DataType("test_11"),
-					CmdChannel: channel.Key(13),
-					Type:       v2.WriteType("node"),
-					ObjectID:   "test_14",
-					Arguments: []v2.MethodArgument{
-						{
-							Source:   v2.ArgumentSource("value"),
-							Value:    "test_17",
-							Name:     "test_18",
-							DataType: "test_19",
-						},
-					},
-				},
-			},
+			Channels:           []v2.WriteChannel{{Variant: v2.NodeWriteChannel{BaseWriteChannel: fullyPopulatedBaseWriteChannel}}},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

@@ -59,6 +59,8 @@ const nodeKey = (node: ScannedNode, parent?: ScannedNode): string =>
 
 export interface BrowserProps {
   device: Device;
+  /** Nodes that the tree lists after the children of the Objects folder. */
+  roots?: ScannedNode[];
 }
 
 const ArrayVariableIcon = Icon.createComposite(Icon.Variable, {
@@ -144,7 +146,7 @@ interface Lookup {
   selected?: string;
 }
 
-export const Browser = ({ device }: BrowserProps) => {
+export const Browser = ({ device, roots }: BrowserProps) => {
   const [treeNodes, setTreeNodes, treeNodesRef] = useCombinedStateAndRef<Tree.Node[]>(
     [],
   );
@@ -180,6 +182,7 @@ export const Browser = ({ device }: BrowserProps) => {
         return;
       }
       setStat(status.create({ variant: "success", message: "Browsed OPC UA nodes" }));
+      if (parent == null && roots != null) channels = [...channels, ...roots];
       // A member's name carries its structure's name, so channels made from members of
       // different structures do not collide.
       const nodes = channels.map((node) => ({

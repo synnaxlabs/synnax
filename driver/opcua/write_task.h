@@ -15,6 +15,7 @@
 #include <string>
 #include <unordered_map>
 #include <utility>
+#include <variant>
 #include <vector>
 
 #include "absl/log/log.h"
@@ -53,29 +54,27 @@ struct OutputChan {
     /// @brief the input arguments of the method, in order.
     const std::vector<::synnax::opcua::MethodArgument> arguments;
 
-    OutputChan(const ::synnax::opcua::WriteChannel &parsed, x::json::Parser &parser):
+    OutputChan(
+        const ::synnax::opcua::BaseWriteChannel &base,
+        const ::synnax::opcua::MethodWriteChannel *call,
+        x::json::Parser &parser
+    ):
         node(types::NodeId::parse("node_id", parser)),
-        cmd_channel(parsed.cmd_channel),
-        method(parsed.type == ::synnax::opcua::WRITE_TYPE_METHOD),
-        arguments(parsed.arguments) {
+        cmd_channel(base.cmd_channel),
+        method(call != nullptr),
+        arguments(
+            call != nullptr ? call->arguments
+                            : std::vector<::synnax::opcua::MethodArgument>{}
+        ) {
         if (this->cmd_channel == 0)
             parser.field_err("cmd_channel", "channel must be specified");
-        if (parsed.type != ::synnax::opcua::WRITE_TYPE_NODE && !this->method)
-            parser.field_err("type", "Type must be node or method");
         if (!this->method) return;
         this->object = types::NodeId::parse("object_id", parser);
-        std::size_t commands = 0;
-        for (std::size_t i = 0; i < this->arguments.size(); ++i) {
-            const auto &source = this->arguments[i].source;
-            if (source == ::synnax::opcua::ARGUMENT_SOURCE_COMMAND)
-                commands++;
-            else if (source != ::synnax::opcua::ARGUMENT_SOURCE_VALUE)
-                parser.field_err(
-                    "arguments." + std::to_string(i) + ".source",
-                    "Source must be value or command"
+        if (std::ranges::count_if(this->arguments, [](const auto &arg) {
+                return std::holds_alternative<::synnax::opcua::CommandMethodArgument>(
+                    arg
                 );
-        }
-        if (commands > 1)
+            }) > 1)
             parser.field_err("arguments", "Only one argument can take the command");
     }
 };
@@ -90,9 +89,19 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
     ):
         common::BaseWriteTaskConfig(parser) {
         parser.iter("channels", [&](x::json::Parser &cp) {
-            const auto parsed = ::synnax::opcua::WriteChannel::parse(cp);
-            if (parsed.disabled) return;
-            channels[parsed.cmd_channel] = std::make_unique<OutputChan>(parsed, cp);
+            const auto parsed = ::synnax::opcua::parse_write_channel(cp);
+            const auto &base = std::visit(
+                [](const auto &c) -> const ::synnax::opcua::BaseWriteChannel & {
+                    return c;
+                },
+                parsed
+            );
+            if (base.disabled) return;
+            channels[base.cmd_channel] = std::make_unique<OutputChan>(
+                base,
+                std::get_if<::synnax::opcua::MethodWriteChannel>(&parsed),
+                cp
+            );
         });
         if (this->channels.empty()) {
             parser.field_err("channels", "task must have at least one enabled channel");
@@ -346,11 +355,15 @@ private:
         std::vector<UA_Variant> args;
         args.reserve(ch.arguments.size());
         for (std::size_t i = 0; i < ch.arguments.size(); ++i) {
-            const auto &arg = ch.arguments[i];
+            const auto *fixed = std::get_if<::synnax::opcua::ValueMethodArgument>(
+                &ch.arguments[i]
+            );
             const auto *type = known ? it->second[i] : nullptr;
-            auto [v, err] = arg.source == ::synnax::opcua::ARGUMENT_SOURCE_COMMAND
-                              ? telem::to_variant(s, type)
-                              : telem::to_variant(::x::telem::Series(arg.value), type);
+            auto [v, err] = fixed == nullptr ? telem::to_variant(s, type)
+                                             : telem::to_variant(
+                                                   ::x::telem::Series(fixed->value),
+                                                   type
+                                               );
             if (err)
                 return rejected(
                     "argument " + std::to_string(i + 1) + ": " + err.data + "."

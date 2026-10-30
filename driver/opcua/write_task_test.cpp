@@ -126,6 +126,7 @@ protected:
                  {{{"key", "NS=2;I=1"},
                    {"name", "bool_write_test"},
                    {"node_name", "TestBoolean"},
+                   {"type", "node"},
                    {"node_id", "NS=1;S=TestBoolean"},
                    {"cmd_channel", this->bool_cmd_channel.key},
                    {"disabled", false},
@@ -133,6 +134,7 @@ protected:
                   {{"key", "NS=2;I=2"},
                    {"name", "uint16_write_test"},
                    {"node_name", "TestUInt16"},
+                   {"type", "node"},
                    {"node_id", "NS=1;S=TestUInt16"},
                    {"cmd_channel", this->uint16_cmd_channel.key},
                    {"disabled", false},
@@ -140,6 +142,7 @@ protected:
                   {{"key", "NS=2;I=3"},
                    {"name", "uint32_write_test"},
                    {"node_name", "TestUInt32"},
+                   {"type", "node"},
                    {"node_id", "NS=1;S=TestUInt32"},
                    {"cmd_channel", this->uint32_cmd_channel.key},
                    {"disabled", false},
@@ -147,6 +150,7 @@ protected:
                   {{"key", "NS=2;I=4"},
                    {"name", "uint64_write_test"},
                    {"node_name", "TestUInt64"},
+                   {"type", "node"},
                    {"node_id", "NS=1;S=TestUInt64"},
                    {"cmd_channel", this->uint64_cmd_channel.key},
                    {"disabled", false},
@@ -154,6 +158,7 @@ protected:
                   {{"key", "NS=2;I=5"},
                    {"name", "int8_write_test"},
                    {"node_name", "TestInt8"},
+                   {"type", "node"},
                    {"node_id", "NS=1;S=TestInt8"},
                    {"cmd_channel", this->int8_cmd_channel.key},
                    {"disabled", false},
@@ -161,6 +166,7 @@ protected:
                   {{"key", "NS=2;I=6"},
                    {"name", "int16_write_test"},
                    {"node_name", "TestInt16"},
+                   {"type", "node"},
                    {"node_id", "NS=1;S=TestInt16"},
                    {"cmd_channel", this->int16_cmd_channel.key},
                    {"disabled", false},
@@ -168,6 +174,7 @@ protected:
                   {{"key", "NS=2;I=7"},
                    {"name", "int32_write_test"},
                    {"node_name", "TestInt32"},
+                   {"type", "node"},
                    {"node_id", "NS=1;S=TestInt32"},
                    {"cmd_channel", this->int32_cmd_channel.key},
                    {"disabled", false},
@@ -175,6 +182,7 @@ protected:
                   {{"key", "NS=2;I=8"},
                    {"name", "int64_write_test"},
                    {"node_name", "TestInt64"},
+                   {"type", "node"},
                    {"node_id", "NS=1;S=TestInt64"},
                    {"cmd_channel", this->int64_cmd_channel.key},
                    {"disabled", false},
@@ -182,6 +190,7 @@ protected:
                   {{"key", "NS=2;I=9"},
                    {"name", "float_write_test"},
                    {"node_name", "TestFloat"},
+                   {"type", "node"},
                    {"node_id", "NS=1;S=TestFloat"},
                    {"cmd_channel", this->float_cmd_channel.key},
                    {"disabled", false},
@@ -189,6 +198,7 @@ protected:
                   {{"key", "NS=2;I=10"},
                    {"name", "double_write_test"},
                    {"node_name", "TestDouble"},
+                   {"type", "node"},
                    {"node_id", "NS=1;S=TestDouble"},
                    {"cmd_channel", this->double_cmd_channel.key},
                    {"disabled", false},
@@ -312,7 +322,8 @@ protected:
                   {"object_id", "NS=1;S=Pump"},
                   {"arguments", arguments},
                   {"cmd_channel", this->double_cmd_channel.key}},
-                 {{"node_id", "NS=1;S=TestFloat"},
+                 {{"type", "node"},
+                  {"node_id", "NS=1;S=TestFloat"},
                   {"cmd_channel", this->float_cmd_channel.key}},
              })}
         };
@@ -373,7 +384,8 @@ protected:
             {"device", SECURED_DEVICE_KEY},
             {"channels",
              x::json::json::array(
-                 {{{"node_id", node_id},
+                 {{{"type", "node"},
+                   {"node_id", node_id},
                    {"cmd_channel", this->secured_cmd_channel.key},
                    {"disabled", false}}}
              )}
@@ -616,10 +628,12 @@ TEST_F(TestWriteTask, testRejectedNodeWritesOthers) {
         {"device", "abc123"},
         {"channels",
          x::json::json::array({
-             {{"node_id", "NS=99;I=99999"},
+             {{"type", "node"},
+              {"node_id", "NS=99;I=99999"},
               {"cmd_channel", bad_cmd.key},
               {"disabled", false}},
-             {{"node_id", "NS=1;S=TestUInt32"},
+             {{"type", "node"},
+              {"node_id", "NS=1;S=TestUInt32"},
               {"cmd_channel", this->uint32_cmd_channel.key},
               {"disabled", false}},
          })}
@@ -670,7 +684,10 @@ std::unique_ptr<WriteTaskSink> sink_for(
         {"device", "abc123"},
         {"channels",
          x::json::json::array({
-             {{"node_id", node_id}, {"cmd_channel", cmd_channel}, {"disabled", false}},
+             {{"type", "node"},
+              {"node_id", node_id},
+              {"cmd_channel", cmd_channel},
+              {"disabled", false}},
          })}
     };
     auto p = x::json::Parser(task_cfg);
@@ -931,11 +948,12 @@ TEST_F(TestWriteTask, testUnboundDisabledChannel) {
              {{{"key", "NS=2;I=1"},
                {"name", "bool_write_test"},
                {"node_name", "TestBoolean"},
+               {"type", "node"},
                {"node_id", "NS=1;S=TestBoolean"},
                {"cmd_channel", this->bool_cmd_channel.key},
                {"disabled", false},
                {"data_type", "uint8"}},
-              {{"key", "blank"}, {"disabled", true}}}
+              {{"key", "blank"}, {"type", "node"}, {"disabled", true}}}
          )}
     };
 
