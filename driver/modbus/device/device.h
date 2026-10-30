@@ -197,6 +197,10 @@ inline std::string serial_path(const std::string &port) {
 /// with its links resolved, and on Windows, the device path in upper case.
 std::string canonical_port(const std::string &port);
 
+/// @returns the name that every spelling of a serial port path shares, without
+/// following links: on Windows, the device path in upper case, and on POSIX, the path.
+std::string port_name(const std::string &port);
+
 /// @brief an exclusive hold on a serial port. Take it before the port's line settings
 /// change, so that a refused connection cannot disturb the one using the port. Windows
 /// already opens a COM port for one handle only, so there it holds nothing.
@@ -970,8 +974,9 @@ class Manager {
         for (const auto &weak: this->connections) {
             auto conn = weak.lock();
             if (conn == nullptr || conn->transport != cfg.transport) continue;
-            if (cfg.transport == Transport::RTU ? conn->serial.port == cfg.serial.port
-                                                : conn->address == cfg.endpoint())
+            if (cfg.transport == Transport::RTU
+                    ? port_name(conn->serial.port) == port_name(cfg.serial.port)
+                    : conn->address == cfg.endpoint())
                 return conn;
         }
         return nullptr;
