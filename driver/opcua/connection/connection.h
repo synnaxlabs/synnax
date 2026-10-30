@@ -263,16 +263,21 @@ public:
 
         /// @brief finds the children of each node: the targets of its forward
         /// hierarchical references. Follows continuation points until the server
-        /// returns every child or the browse lists MAX_CHILDREN children, in as many
-        /// requests as the server's limit needs. Skips a child on another server or in
-        /// a namespace the server does not list.
+        /// returns every child, the browse lists MAX_CHILDREN children, or deadline
+        /// passes, in as many requests as the server's limit needs. Always sends the
+        /// first request. Skips a child on another server or in a namespace the server
+        /// does not list.
         /// @returns one result for each node, in order, with truncated set on each
-        /// result that the limit cut short. Returns errors::NO_CONNECTION when the
-        /// connection is lost, the error of a service result, or errors::CRITICAL when
-        /// the server returns a result count that does not match the request, or
-        /// continuation points with no children.
+        /// result that the limit or the deadline cut short. Returns
+        /// errors::NO_CONNECTION when the connection is lost, the error of a service
+        /// result, or errors::CRITICAL when the server returns a result count that does
+        /// not match the request, or continuation points with no children.
         [[nodiscard]] std::pair<std::vector<types::BrowseResult>, x::errors::Error>
-        browse(const std::vector<UA_NodeId> &nodes) const;
+        browse(
+            const std::vector<UA_NodeId> &nodes,
+            std::chrono::steady_clock::time_point deadline =
+                std::chrono::steady_clock::time_point::max()
+        ) const;
 
         /// @brief records the namespaces in value, a read of the NamespaceArray node,
         /// as those of the server, for this connection and each later one on its
@@ -283,13 +288,14 @@ public:
 
     private:
         /// @brief browses count nodes in one Browse request, then follows their
-        /// continuation points with BrowseNext. Fills count results, and takes one from
-        /// room for each child that the server lists.
+        /// continuation points with BrowseNext until deadline passes. Fills count
+        /// results, and takes one from room for each child that the server lists.
         [[nodiscard]] x::errors::Error browse(
             const UA_NodeId *nodes,
             size_t count,
             types::BrowseResult *results,
-            size_t &room
+            size_t &room,
+            std::chrono::steady_clock::time_point deadline
         ) const;
 
         /// @returns the error of the service result of a call. A call that fails for a

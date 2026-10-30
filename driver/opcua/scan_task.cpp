@@ -528,7 +528,7 @@ std::pair<Search, x::errors::Error> find_variables(
         ids.reserve(count);
         for (size_t i = head; i < head + count; ++i)
             ids.push_back(objects[i].node.resolve({}).value());
-        auto [results, err] = conn.browse(ids);
+        auto [results, err] = conn.browse(ids, deadline);
         if (err) return {Search{}, err};
         for (size_t i = 0; i < count; ++i) {
             if (const auto &browse_err = results[i].err) {
@@ -778,7 +778,7 @@ void Scanner::browse_nodes(const synnax::task::Command &cmd) const {
     std::vector<types::Node> nodes;
     bool truncated = false;
     if (args.field.empty()) {
-        auto [results, browse_err] = connection.browse({start});
+        auto [results, browse_err] = connection.browse({start}, deadline);
         err = browse_err ? browse_err : results[0].err;
         if (!err) {
             const auto &refs = results[0].references;
