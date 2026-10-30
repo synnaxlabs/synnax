@@ -259,9 +259,12 @@ func (s *Service) Retrieve(
 		Exec(ctx, nil), query.ErrNotFound); err != nil {
 		return RetrieveResponse{}, err
 	}
-	byKey := lo.SliceToMap(statuses, func(st chassis.Status) (status.Key, chassis.Status) {
-		return st.Key, st
-	})
+	byKey := lo.SliceToMap(
+		statuses,
+		func(st chassis.Status) (status.Key, chassis.Status) {
+			return st.Key, st
+		},
+	)
 	for i, id := range ids {
 		if st, ok := byKey[id.String()]; ok {
 			res.Chassis[i].Status = &st
