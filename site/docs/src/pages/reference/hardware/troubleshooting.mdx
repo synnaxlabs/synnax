@@ -80,18 +80,42 @@ If the status is "Driver not running" instead, see
 </Problem.Fix>
 </Problem.Body>
 
-### `This Driver does not run ... tasks`
+### `The configuration of this Driver turns off the ... integration`
 
 <Edition.Enterprise>
 
 <Problem.Body>
 <Problem.Cause>
 
-The Driver that holds the task does not run the integration of the task. Its
-configuration leaves the integration out, or its operating system cannot run it, for
-example a Modbus task on a Driver on NI Linux RT. NI tasks never run on macOS, and
-LabJack tasks never run on Linux. When you start the task, it shows "Failed to configure
-task", with this text in the description. A task stays on the Driver of its device.
+The configuration of the Driver that holds the task leaves out the integration of the
+task. When you start the task, it shows "Failed to configure task", with this text in
+the description.
+
+</Problem.Cause>
+<Problem.Fix>
+
+1. Add the integration to `integrations` in the
+   [Driver configuration](/reference/enterprise/driver/configuration#configuration-file),
+   or remove it from `--disable-integrations`.
+2. [Restart the Driver](#restart-the-driver).
+
+</Problem.Fix>
+</Problem.Body>
+
+</Edition.Enterprise>
+
+### `... tasks do not run on ...`
+
+<Edition.Enterprise>
+
+<Problem.Body>
+<Problem.Cause>
+
+The Driver that holds the task runs on an operating system that cannot run the
+integration of the task. NI tasks do not run on macOS, LabJack tasks do not run on
+Linux, and Modbus tasks do not run on NI Linux RT. When you start the task, it shows
+"Failed to configure task", with this text in the description. A task stays on the
+Driver of its device.
 
 </Problem.Cause>
 <Problem.Fix>
@@ -105,6 +129,23 @@ task", with this text in the description. A task stays on the Driver of its devi
 </Problem.Body>
 
 </Edition.Enterprise>
+
+### `No integration on this Driver runs ... tasks`
+
+<Problem.Body>
+<Problem.Cause>
+
+The Driver does not know the type of the task. This happens when the Driver is older
+than the Core. When you start the task, it shows "Failed to configure task", with this
+text in the description.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Update the Driver to the version of the Core, then start the task again.
+
+</Problem.Fix>
+</Problem.Body>
 
 <Divider.Divider x />
 

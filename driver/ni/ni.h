@@ -11,22 +11,16 @@
 
 #include "absl/log/log.h"
 
+#include "x/cpp/lib/lazy.h"
+
 #include "driver/common/common.h"
-#include "driver/common/lazy.h"
 #include "driver/common/sample_clock.h"
 #include "driver/ni/daqmx/sugared.h"
+#include "driver/ni/names.h"
 #include "driver/ni/syscfg/sugared.h"
 #include "driver/task/task.h"
 
 namespace driver::ni {
-const std::string MAKE = "NI";
-const std::string INTEGRATION_NAME = "ni";
-const std::string SCAN_TASK_TYPE = "ni_scanner";
-const std::string ANALOG_READ_TASK_TYPE = "ni_analog_read";
-const std::string ANALOG_WRITE_TASK_TYPE = "ni_analog_write";
-const std::string COUNTER_READ_TASK_TYPE = "ni_counter_read";
-const std::string DIGITAL_READ_TASK_TYPE = "ni_digital_read";
-const std::string DIGITAL_WRITE_TASK_TYPE = "ni_digital_write";
 const std::vector UNREACHABLE_ERRORS = {
     daqmx::DEVICE_DISCONNECTED,
     daqmx::RESOURCE_NOT_AVAILABLE,
@@ -56,15 +50,15 @@ inline x::errors::Error translate_error(const x::errors::Error &err) {
 /// and device scanning tasks.
 class Factory final : public task::Factory {
     /// @brief the DAQmx library that read and write tasks use.
-    std::shared_ptr<common::Lazy<daqmx::SugaredAPI>> dmx;
+    std::shared_ptr<x::lib::Lazy<daqmx::SugaredAPI>> dmx;
     /// @brief the System Configuration library that the scanner uses.
-    std::shared_ptr<common::Lazy<syscfg::SugaredAPI>> syscfg;
+    std::shared_ptr<x::lib::Lazy<syscfg::SugaredAPI>> syscfg;
     common::TimingConfig timing_cfg;
 
 public:
     Factory(
-        common::Lazy<daqmx::SugaredAPI>::Loader load_dmx,
-        common::Lazy<syscfg::SugaredAPI>::Loader load_syscfg,
+        x::lib::Lazy<daqmx::SugaredAPI>::Loader load_dmx,
+        x::lib::Lazy<syscfg::SugaredAPI>::Loader load_syscfg,
         common::TimingConfig timing_cfg = common::TimingConfig{}
     );
 
