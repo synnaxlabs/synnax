@@ -273,7 +273,7 @@ func (t *Table) collectDependencies(typ Type) []string {
 		for _, extendsRef := range form.Extends {
 			addDep(extendsRef)
 		}
-		for _, field := range form.Fields {
+		for _, field := range UnifiedFields(typ, t) {
 			addDep(field.Type)
 		}
 	case AliasForm:

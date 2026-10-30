@@ -23,7 +23,7 @@ Key: TypeAlias = UUID
 
 
 class APIKey(BaseModel):
-    """Is a stored API key. A subject holds any number of them.
+    """Is an API key as the API returns it: the stored record without its hash.
 
     Attributes:
         key: Is the unique identifier for this API key.

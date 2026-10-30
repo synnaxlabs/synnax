@@ -19,9 +19,9 @@ import (
 // Password is a password as the API returns it: its subject and username, without its
 // hash.
 type Password struct {
-	// Subject is the user the password logs in as.
+	// Subject is the user the password belongs to.
 	Subject ontology.ID `json:"subject" msgpack:"subject"`
-	// Username is the name the password logs in with.
+	// Username is the unique login name presented with the password.
 	Username string `json:"username" msgpack:"username"`
 }
 
