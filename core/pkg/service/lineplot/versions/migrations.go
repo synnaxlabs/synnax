@@ -24,4 +24,5 @@ var Migrations = []gorp.Migration{
 	v5.Migration,
 	v6.Migration,
 	v7.Migration,
+	v7.StrokeWidthMigration,
 }
