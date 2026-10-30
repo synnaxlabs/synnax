@@ -1,0 +1,81 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/rack"
+import "schemas/synnax/status"
+
+@cpp output "client/cpp/ni/chassis"
+@go output  "core/pkg/service/ni/chassis"
+@py output  "client/py/synnax/ni/chassis"
+@ts output  "client/ts/src/ni/chassis"
+
+Chassis struct {
+    key       Key = create {
+        @doc value "uniquely identifies the chassis."
+        @key
+    }
+    rack      rack.Key {
+        @doc value "is the key of the rack the chassis is connected to."
+        @filter
+    }
+    name      string   {
+        @doc value         "is a human-readable name for the chassis."
+        @filter
+        @search
+        @validate required
+    }
+    serial    string   {
+        @doc value    """
+            is the serial number of the chassis, or its NI-MAX resource name when it is
+            simulated.
+        """
+        @filter
+        @index lookup
+    }
+    model     string   {
+        @doc value "is the product name of the chassis."
+        @filter
+    }
+    alias     string   {
+        @doc value "is the DAQmx alias of the chassis."
+    }
+    simulated bool = false {
+        @doc value "is true when the chassis is simulated in NI-MAX."
+    }
+    status    Status?  {
+        @doc value  "is the current operational status of the chassis."
+        @go marshal omit
+    }
+
+    @create
+    @doc value     "is an NI chassis that holds device modules."
+    @go marshal
+    @go migrate
+    @ontology type "ni_chassis"
+    @retrieve
+}
+
+Key = uuid {
+    @doc value "uniquely identifies an NI chassis."
+}
+
+StatusDetails struct {
+    rack    rack.Key {
+        @doc value "is the key of the rack the chassis belongs to."
+    }
+    chassis Key      {
+        @doc value "is the key of the chassis."
+    }
+
+    @doc value "identifies the chassis and rack that a status pertains to."
+}
+
+Status = status.Status<StatusDetails> {
+    @doc value "is the operational status of a chassis."
+}
