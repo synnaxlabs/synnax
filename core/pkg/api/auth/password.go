@@ -27,6 +27,7 @@ import (
 type PasswordCreateRequest struct {
 	// Subject is the user to give the password. Empty means the caller.
 	Subject ontology.ID `json:"subject" msgpack:"subject"`
+	// Credentials is the username and password to create for the user.
 	Credentials
 }
 
