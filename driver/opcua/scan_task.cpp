@@ -95,7 +95,6 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
     if (scan_ctx.devices == nullptr) return {devices, x::errors::NIL};
     for (const auto &dev: *scan_ctx.devices | std::views::values)
         devices.push_back(dev);
-    this->conn_pool->close_idle();
     const auto renew_err = this->renew_certificate(devices);
     for (auto &dev: devices)
         if (const auto err = this->check_device_health(dev); err)
@@ -341,8 +340,8 @@ std::pair<std::vector<VariableType>, x::errors::Error> variable_types(
     types::ReadRequestBuilder req;
     for (size_t i = 0; i < refs.size(); ++i) {
         if (refs[i].node_class != UA_NODECLASS_VARIABLE) continue;
-        req.add_node(refs[i].node, UA_ATTRIBUTEID_DATATYPE);
-        req.add_node(refs[i].node, UA_ATTRIBUTEID_VALUERANK);
+        req.add_node(refs[i].node.resolve({}).value(), UA_ATTRIBUTEID_DATATYPE);
+        req.add_node(refs[i].node.resolve({}).value(), UA_ATTRIBUTEID_VALUERANK);
         variables.push_back(i);
     }
     if (variables.empty()) return {std::move(out), x::errors::NIL};
@@ -358,7 +357,10 @@ std::pair<std::vector<VariableType>, x::errors::Error> variable_types(
             declared
         ) = variable_type(results[2 * j], results[2 * j + 1], nullptr);
         if (declared) continue;
-        values.add_node(refs[variables[j]].node, UA_ATTRIBUTEID_VALUE);
+        values.add_node(
+            refs[variables[j]].node.resolve({}).value(),
+            UA_ATTRIBUTEID_VALUE
+        );
         unknown.push_back(j);
     }
     if (unknown.empty()) return {std::move(out), x::errors::NIL};
@@ -389,7 +391,10 @@ std::pair<std::vector<types::Node>, x::errors::Error> to_nodes(
         nodes.emplace_back(
             variables[i].data_type,
             refs[i].browse_name,
-            types::NodeId::to_string(refs[i].node, conn.server().namespaces),
+            types::NodeId::to_string(
+                refs[i].node.resolve({}).value(),
+                conn.server().namespaces
+            ),
             types::node_class_to_string(refs[i].node_class),
             variables[i].is_array
         );
@@ -398,8 +403,8 @@ std::pair<std::vector<types::Node>, x::errors::Error> to_nodes(
 
 /// @brief lists the members of the structure value of a variable, at path. A node that
 /// holds no structure has no members.
-/// @returns x::errors::VALIDATION if path is not empty and does not name a structure
-/// member of the node's value.
+/// @returns x::errors::VALIDATION if the structure type of the node does not build, or
+/// if path is not empty and does not name a structure member of the node's value.
 std::pair<std::vector<types::Node>, x::errors::Error> structure_members(
     const connection::Pool::Connection &conn,
     const UA_NodeId &id,
@@ -430,17 +435,14 @@ std::pair<std::vector<types::Node>, x::errors::Error> structure_members(
         !UA_Variant_hasScalarType(&dt, &UA_TYPES[UA_TYPES_NODEID]))
         return none();
     const auto &data_type = *static_cast<const UA_NodeId *>(dt.data);
-    structure::Types types;
-    if (UA_findDataType(&data_type) == nullptr) {
-        std::tie(types, err) = structure::Types::read(conn, {id});
-        if (err) return {{}, err};
-    }
-    const auto *type = types.find(data_type);
-    if (type == nullptr) return none();
-    auto [member_type, member_err] = structure::Types::member_type(*type, path);
-    if (member_err) return {{}, member_err};
+    auto [types, types_err] = structure::Types::read(conn, {data_type});
+    if (types_err) return {{}, types_err};
+    auto [field, field_err] = types.field(data_type, path);
+    if (field_err.matches(structure::UNDEFINED) && path.empty())
+        return {{}, x::errors::NIL};
+    if (field_err) return {{}, field_err};
     std::vector<types::Node> members;
-    for (const auto &m: structure::Types::members(*member_type)) {
+    for (const auto &m: structure::Types::members(field.type())) {
         auto member_path = path;
         member_path.push_back(m.name);
         members.emplace_back(
@@ -495,14 +497,14 @@ find_variables(const connection::Pool::Connection &conn, const UA_NodeId &start)
         std::vector<UA_NodeId> ids;
         ids.reserve(objects.size());
         for (const auto &object: objects)
-            ids.push_back(object.node.get());
+            ids.push_back(object.node.resolve({}).value());
         auto [results, err] = conn.browse(ids);
         if (err) return {Search{}, err};
         std::vector<Object> next;
         for (size_t i = 0; i < results.size(); ++i) {
             if (results[i].err) {
                 LOG(WARNING) << SCAN_LOG_PREFIX << "skipped "
-                             << types::NodeId::to_string(objects[i].node)
+                             << objects[i].node.to_string()
                              << " in a search for variables: " << results[i].err;
                 continue;
             }
@@ -510,8 +512,7 @@ find_variables(const connection::Pool::Connection &conn, const UA_NodeId &start)
                 if (ref.node_class != UA_NODECLASS_VARIABLE &&
                     ref.node_class != UA_NODECLASS_OBJECT)
                     continue;
-                if (!visited.insert(types::NodeId::to_string(ref.node)).second)
-                    continue;
+                if (!visited.insert(ref.node.to_string()).second) continue;
                 auto path = objects[i].path;
                 path.push_back(ref.browse_name);
                 if (ref.node_class == UA_NODECLASS_OBJECT)
@@ -644,22 +645,16 @@ std::pair<x::json::json, x::errors::Error> read_details(
             if (const auto t = date_text(value.serverTimestamp))
                 out["server_timestamp"] = *t;
         structure::Types types;
-        if (!field.empty() ||
-            (value.value.type != nullptr &&
-             value.value.type->typeKind == UA_DATATYPEKIND_EXTENSIONOBJECT)) {
-            auto [read_types, types_err] = structure::Types::read(conn, {id});
+        if (type_id.has_value() &&
+            (!field.empty() ||
+             (value.value.type != nullptr &&
+              value.value.type->typeKind == UA_DATATYPEKIND_EXTENSIONOBJECT))) {
+            auto [read_types, types_err] = structure::Types::read(conn, {*type_id});
             if (types_err) return {{}, types_err};
             types = std::move(read_types);
         }
-        if (value.hasValue) {
-            auto [value_text, text_err] = types.print(value.value, field);
-            if (text_err) return {{}, text_err};
-            out["value"] = value_text;
-        }
         if (!field.empty()) {
-            const auto *structure = type_id.has_value() ? types.find(*type_id)
-                                                        : nullptr;
-            if (structure == nullptr)
+            if (!type_id.has_value())
                 return {
                     {},
                     x::errors::Error(
@@ -667,13 +662,18 @@ std::pair<x::json::json, x::errors::Error> read_details(
                         "the node does not hold a structure"
                     )
                 };
-            auto [member, member_err] = structure::Types::member_type(
-                *structure,
-                field
-            );
+            auto [member, member_err] = types.field(*type_id, field);
             if (member_err) return {{}, member_err};
-            out["type_name"] = member->typeName;
-            type = {.data_type = telem::to_data_type(member), .is_array = false};
+            out["type_name"] = member.type().typeName;
+            type = {
+                .data_type = telem::to_data_type(&member.type()),
+                .is_array = false,
+            };
+        }
+        if (value.hasValue) {
+            auto [value_text, text_err] = types.print(value.value, field);
+            if (text_err) return {{}, text_err};
+            out["value"] = value_text;
         }
     }
     out["node"] = types::Node(

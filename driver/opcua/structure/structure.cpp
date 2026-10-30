@@ -13,7 +13,6 @@
 #include <utility>
 #include <vector>
 
-#include "absl/log/log.h"
 #include "open62541/types.h"
 #include "open62541/util.h"
 
@@ -94,7 +93,8 @@ std::pair<std::string, x::errors::Error> json(const UA_Variant &value) {
 
 bool contains(const std::vector<types::NodeId> &ids, const UA_NodeId &id) {
     for (const auto &seen: ids)
-        if (UA_NodeId_equal(&seen.get(), &id)) return true;
+        if (const auto raw = seen.resolve({}).value(); UA_NodeId_equal(&raw, &id))
+            return true;
     return false;
 }
 
@@ -103,19 +103,6 @@ struct Definition {
     std::size_t id;
     const UA_Variant *definition;
     const UA_QualifiedName *name;
-};
-
-/// @brief owns a structure value that Types::sample decoded.
-struct Decoded {
-    void *data = nullptr;
-    const UA_DataType *type = nullptr;
-
-    Decoded() = default;
-    Decoded(const Decoded &) = delete;
-    Decoded &operator=(const Decoded &) = delete;
-    ~Decoded() {
-        if (data != nullptr) UA_delete(data, type);
-    }
 };
 }
 
@@ -160,62 +147,50 @@ const UA_DataTypeArray *Types::head() const {
     return &this->entries.back()->array;
 }
 
-Types::~Types() {
-    for (auto &entry: this->entries)
-        UA_DataType_clear(&entry->type);
-}
-
-Types::Types(Types &&other) noexcept: entries(std::move(other.entries)) {
-    other.entries.clear();
-}
-
-Types &Types::operator=(Types &&other) noexcept {
-    if (this != &other) {
-        for (auto &entry: this->entries)
-            UA_DataType_clear(&entry->type);
-        this->entries = std::move(other.entries);
-        other.entries.clear();
-    }
-    return *this;
-}
-
 std::pair<Types, x::errors::Error> Types::read(
     const connection::Pool::Connection &conn,
-    const std::vector<UA_NodeId> &nodes
+    const std::vector<UA_NodeId> &data_types
 ) {
     Types out;
-    if (nodes.empty()) return {std::move(out), x::errors::NIL};
-    types::ReadRequestBuilder type_req;
-    for (const auto &node: nodes)
-        type_req.add_node(node, UA_ATTRIBUTEID_DATATYPE);
-    auto [node_types, err] = conn.read(type_req.build());
-    if (err) return {std::move(out), err};
-
+    // The server's own IDs name no namespace URI, so each resolves to itself.
     std::vector<types::NodeId> seen;
+    const auto seen_id = [&seen](const std::size_t i) {
+        return seen[i].resolve({}).value();
+    };
     std::vector<std::size_t> round;
+    bool capped = false;
     const auto visit = [&](const UA_NodeId &id) {
-        if (UA_findDataType(&id) != nullptr || contains(seen, id) ||
-            seen.size() >= MAX_TYPES)
-            return;
+        if (UA_findDataType(&id) != nullptr || contains(seen, id)) return true;
+        if (seen.size() >= MAX_TYPES) {
+            capped = true;
+            return false;
+        }
         seen.emplace_back(id);
         round.push_back(seen.size() - 1);
+        return true;
     };
-    for (std::size_t i = 0; i < node_types.get().resultsSize; ++i)
-        if (const auto &value = node_types.get().results[i].value;
-            UA_Variant_hasScalarType(&value, &UA_TYPES[UA_TYPES_NODEID]))
-            visit(*static_cast<const UA_NodeId *>(value.data));
+    for (const auto &id: data_types)
+        if (!visit(id))
+            out.failures.emplace_back(
+                types::NodeId(id),
+                "the server defines more than " + std::to_string(MAX_TYPES) + " types"
+            );
 
     std::vector<types::ReadResponse> responses;
     std::vector<Definition> definitions;
-    for (int depth = 0; !round.empty() && depth < MAX_DEPTH; ++depth) {
-        const auto current = std::exchange(round, {});
-        types::ReadRequestBuilder def_req;
-        for (const auto idx: current) {
-            def_req.add_node(seen[idx].get(), UA_ATTRIBUTEID_DATATYPEDEFINITION);
-            def_req.add_node(seen[idx].get(), UA_ATTRIBUTEID_BROWSENAME);
+    for (int depth = 0; !round.empty(); ++depth) {
+        if (depth == MAX_DEPTH) {
+            capped = true;
+            break;
         }
-        auto [res, def_err] = conn.read(def_req.build());
-        if (def_err) return {std::move(out), def_err};
+        const auto current = std::exchange(round, {});
+        types::ReadRequestBuilder req;
+        for (const auto idx: current) {
+            req.add_node(seen_id(idx), UA_ATTRIBUTEID_DATATYPEDEFINITION);
+            req.add_node(seen_id(idx), UA_ATTRIBUTEID_BROWSENAME);
+        }
+        auto [res, err] = conn.read(req.build());
+        if (err) return {std::move(out), err};
         const auto &raw = res.get();
         for (std::size_t k = 0; k < current.size(); ++k) {
             const auto &def = raw.results[2 * k];
@@ -248,6 +223,15 @@ std::pair<Types, x::errors::Error> Types::read(
         responses.push_back(std::move(res));
     }
 
+    const auto fail = [&](const Definition &d, const std::string &reason) {
+        const auto &name = d.name->name;
+        out.failures.emplace_back(
+            types::NodeId(seen_id(d.id)),
+            "cannot decode " +
+                std::string(reinterpret_cast<const char *>(name.data), name.length) +
+                ": " + reason
+        );
+    };
     // A type builds once the types of its members exist, so each pass builds the types
     // whose members the earlier passes built.
     std::vector<bool> done(definitions.size(), false);
@@ -263,7 +247,7 @@ std::pair<Types, x::errors::Error> Types::read(
             UA_EnumDescription enumeration;
             if (d.definition->type == &UA_TYPES[UA_TYPES_STRUCTUREDEFINITION]) {
                 UA_StructureDescription_init(&structure);
-                structure.dataTypeId = seen[d.id].get();
+                structure.dataTypeId = seen_id(d.id);
                 structure.name = name;
                 structure
                     .structureDefinition = *static_cast<const UA_StructureDefinition *>(
@@ -276,7 +260,7 @@ std::pair<Types, x::errors::Error> Types::read(
                 );
             } else {
                 UA_EnumDescription_init(&enumeration);
-                enumeration.dataTypeId = seen[d.id].get();
+                enumeration.dataTypeId = seen_id(d.id);
                 enumeration.name = name;
                 enumeration.enumDefinition = *static_cast<const UA_EnumDefinition *>(
                     d.definition->data
@@ -297,9 +281,7 @@ std::pair<Types, x::errors::Error> Types::read(
             if (status == UA_STATUSCODE_BADNOTFOUND) continue;
             done[i] = true;
             if (status != UA_STATUSCODE_GOOD) {
-                VLOG(1) << "[opc] cannot define the data type "
-                        << types::NodeId::to_string(seen[d.id].get()) << ": "
-                        << UA_StatusCode_name(status);
+                fail(d, UA_StatusCode_name(status));
                 continue;
             }
             entry->array = {
@@ -312,6 +294,15 @@ std::pair<Types, x::errors::Error> Types::read(
             progress = true;
         }
     }
+    for (std::size_t i = 0; i < definitions.size(); ++i)
+        if (!done[i])
+            fail(
+                definitions[i],
+                capped ? "its members use more than " + std::to_string(MAX_TYPES) +
+                             " types or nest deeper than " + std::to_string(MAX_DEPTH) +
+                             " levels"
+                       : "the server did not define the type of a member"
+            );
     return {std::move(out), x::errors::NIL};
 }
 
@@ -335,33 +326,54 @@ std::vector<Member> Types::members(const UA_DataType &type) {
     return members;
 }
 
-std::pair<const UA_DataType *, x::errors::Error>
-Types::member_type(const UA_DataType &type, const Path &path) {
-    const UA_DataType *current = &type;
-    for (const auto &name: path) {
-        auto [place, err] = find_member(*current, name);
-        if (err) return {nullptr, err};
-        current = place.member->memberType;
+std::pair<Field, x::errors::Error>
+Types::field(const UA_NodeId &data_type, const Path &path) const {
+    Field out;
+    out.root = this->find(data_type);
+    if (out.root == nullptr) {
+        for (const auto &[id, reason]: this->failures)
+            if (const auto raw = id.resolve({}).value();
+                UA_NodeId_equal(&raw, &data_type))
+                return {{}, invalid(reason)};
+        return {
+            {},
+            x::errors::Error(
+                UNDEFINED,
+                "the server gives no definition of the data type of the node"
+            )
+        };
     }
-    return {current, x::errors::NIL};
+    out.member = out.root;
+    for (const auto &name: path) {
+        auto [place, err] = find_member(*out.member, name);
+        if (err) return {{}, err};
+        out.steps.push_back({
+            .offset = place.offset,
+            .optional = static_cast<bool>(place.member->isOptional),
+            .name = name,
+        });
+        out.member = place.member->memberType;
+    }
+    return {std::move(out), x::errors::NIL};
 }
 
-template<typename R, typename F>
-std::pair<R, x::errors::Error>
-Types::visit(const UA_Variant &value, const Path &path, const F &fn) const {
+std::pair<types::Variant, x::errors::Error>
+Types::decode(const UA_Variant &value) const {
+    types::Variant out;
     if (value.type == nullptr || value.data == nullptr)
-        return {R{}, invalid("the value is empty")};
+        return {std::move(out), invalid("the value is empty")};
     if (!UA_Variant_isScalar(&value))
-        return {R{}, invalid("the value is an array of structures")};
-    const void *data = value.data;
+        return {std::move(out), invalid("the value is an array of structures")};
+    void *data = value.data;
     const UA_DataType *type = value.type;
-    Decoded decoded;
     if (type->typeKind == UA_DATATYPEKIND_EXTENSIONOBJECT) {
         const auto &eo = *static_cast<const UA_ExtensionObject *>(data);
+        if (eo.encoding == UA_EXTENSIONOBJECT_ENCODED_XML)
+            return {std::move(out), invalid("the value is encoded as XML")};
         if (eo.encoding >= UA_EXTENSIONOBJECT_DECODED) {
             data = eo.content.decoded.data;
             type = eo.content.decoded.type;
-        } else if (eo.encoding == UA_EXTENSIONOBJECT_ENCODED_BYTESTRING) {
+        } else {
             const UA_DataType *encoded = nullptr;
             for (const auto &entry: this->entries)
                 if (UA_NodeId_equal(
@@ -371,59 +383,68 @@ Types::visit(const UA_Variant &value, const Path &path, const F &fn) const {
                     encoded = &entry->type;
             if (encoded == nullptr)
                 return {
-                    R{},
+                    std::move(out),
                     invalid("the server did not define the type of the value")
                 };
-            decoded.data = UA_new(encoded);
-            if (decoded.data == nullptr) throw std::bad_alloc();
-            decoded.type = encoded;
+            void *decoded = UA_new(encoded);
+            if (decoded == nullptr) throw std::bad_alloc();
+            UA_Variant_setScalar(out.ptr(), decoded, encoded);
             UA_DecodeBinaryOptions options{};
             options.customTypes = this->head();
             if (const auto status = UA_decodeBinary(
                     &eo.content.encoded.body,
-                    decoded.data,
+                    decoded,
                     encoded,
                     &options
                 );
                 status != UA_STATUSCODE_GOOD)
                 return {
-                    R{},
+                    types::Variant(),
                     invalid(
                         std::string("the value does not decode: ") +
                         UA_StatusCode_name(status)
                     )
                 };
-            data = decoded.data;
-            type = encoded;
-        } else
-            return {R{}, invalid("the value is encoded as XML")};
-    }
-    for (const auto &name: path) {
-        auto [place, err] = find_member(*type, name);
-        if (err) return {R{}, err};
-        const auto *ptr = static_cast<const char *>(data) + place.offset;
-        if (place.member->isOptional) {
-            ptr = *reinterpret_cast<const char *const *>(ptr);
-            if (ptr == nullptr) return {R{}, invalid("the value has no " + name)};
+            return {std::move(out), x::errors::NIL};
         }
-        data = ptr;
-        type = place.member->memberType;
     }
+    UA_Variant_setScalar(out.ptr(), data, type);
+    out.ptr()->storageType = UA_VARIANT_DATA_NODELETE;
+    return {std::move(out), x::errors::NIL};
+}
+
+std::pair<UA_Variant, x::errors::Error>
+Types::member(const UA_Variant &structure, const Field &field) {
     UA_Variant member;
-    UA_Variant_setScalar(&member, const_cast<void *>(data), type);
-    return fn(member);
+    if (!UA_NodeId_equal(&structure.type->typeId, &field.root->typeId))
+        return {
+            member,
+            invalid(
+                std::string("the value is a ") + structure.type->typeName + ", not a " +
+                field.root->typeName
+            )
+        };
+    const auto *data = static_cast<const char *>(structure.data);
+    for (const auto &step: field.steps) {
+        data += step.offset;
+        if (step.optional) {
+            data = *reinterpret_cast<const char *const *>(data);
+            if (data == nullptr)
+                return {member, invalid("the value has no " + step.name)};
+        }
+    }
+    UA_Variant_setScalar(&member, const_cast<char *>(data), field.member);
+    return {member, x::errors::NIL};
 }
 
 std::pair<x::telem::SampleValue, x::errors::Error> Types::sample(
-    const UA_Variant &value,
-    const Path &path,
+    const UA_Variant &structure,
+    const Field &field,
     const x::telem::DataType &dt
-) const {
-    return this->visit<x::telem::SampleValue>(
-        value,
-        path,
-        [&dt](const UA_Variant &member) { return telem::to_sample(member, dt); }
-    );
+) {
+    const auto [member, err] = Types::member(structure, field);
+    if (err) return {{}, err};
+    return telem::to_sample(member, dt);
 }
 
 std::pair<std::string, x::errors::Error>
@@ -431,8 +452,13 @@ Types::print(const UA_Variant &value, const Path &path) const {
     if (path.empty() && (value.type == nullptr || !UA_Variant_isScalar(&value) ||
                          value.type->typeKind != UA_DATATYPEKIND_EXTENSIONOBJECT))
         return json(value);
-    return this->visit<std::string>(value, path, [](const UA_Variant &member) {
-        return json(member);
-    });
+    const auto [structure, err] = this->decode(value);
+    if (err) return {"", err};
+    if (path.empty()) return json(structure.get());
+    const auto [field, field_err] = this->field(structure.get().type->typeId, path);
+    if (field_err) return {"", field_err};
+    const auto [member, member_err] = Types::member(structure.get(), field);
+    if (member_err) return {"", member_err};
+    return json(member);
 }
 }

@@ -85,10 +85,10 @@ connects:
   session that logged in with the right one (`driver/opcua/connection/pool.cpp:30-36`).
 - **Idle sessions**: An entry idle for 60 s closes with CloseSession.
 - **Server facts**: On each connect, the pool reads the namespace array and the
-  operation limits, each in its own request, since a server can cap the nodes per
-  request. This read is also the health check of the connection. A restart drops the
-  connection, so the next connect reads the facts again and node IDs resolve again
-  (§2.5).
+  operation limits. `MaxNodesPerRead` comes first in a request of its own, and the rest
+  keep to that limit. A server with no namespace array fails the connect. This read is
+  also the health check of the connection. A restart drops the connection, so the next
+  connect reads the facts again and node IDs resolve again (§2.5).
 - **Health**: The scanner probes a device only when no task on it got a reply since the
   last scan, as in Modbus RFC 0091 §2.7. A secured device with no pinned server
   certificate always probes, so the scanner can pin it.
@@ -159,10 +159,14 @@ A failed conversion counts as a Bad value.
 
 New channels store `nsu=<uri>;` IDs. `ns=` stays valid. At each connect the Driver
 resolves every ID through the namespace array, and an unknown URI is a missing node
-(§2.2). Stored `NS=` IDs and device property keys are not rewritten: only the server
-knows its URIs, and #3168 keeps those keys stable. A node dragged again in the `nsu=`
-form gets a new key and a new channel. The Python client accepts both forms. The Console
-has no parser and passes IDs to the Driver as they are.
+(§2.2). While a URI is unknown, each read and write reads the namespace array again, so
+a namespace that the server adds while it runs resolves on the same session. A second
+patch to open62541 sends the server's indexes as they are: open62541 1.5 maps each index
+through a table that it makes once per client, and a later namespace has no entry.
+Stored `NS=` IDs and device property keys are not rewritten: only the server knows its
+URIs, and #3168 keeps those keys stable. A node dragged again in the `nsu=` form gets a
+new key and a new channel. The Python client accepts both forms. The Console has no
+parser and passes IDs to the Driver as they are.
 
 ### 2.6 Data types and writes
 

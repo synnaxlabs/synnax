@@ -25,6 +25,41 @@ import (
 )
 
 var _ = Describe("Codec", func() {
+	Describe("ReadChannel", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v2.ReadChannel) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v2.ReadChannel
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v2.ReadChannel{
+				Key:      "test_1",
+				Name:     "test_2",
+				Disabled: true,
+				NodeID:   "test_4",
+				NodeName: "test_5",
+				DataType: telem.DataType("test_6"),
+				Channel:  channel.Key(8),
+				IsIndex:  false,
+				Field:    "test_9",
+			}),
+			Entry("zero values", v2.ReadChannel{
+				Key:      "",
+				Name:     "",
+				Disabled: false,
+				NodeID:   "",
+				NodeName: "",
+				DataType: telem.DataType(""),
+				Channel:  channel.Key(0),
+				IsIndex:  false,
+				Field:    "",
+			}),
+		)
+	})
 	Describe("ReadConfig", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original v2.ReadConfig) {
@@ -55,9 +90,10 @@ var _ = Describe("Codec", func() {
 						DataType: telem.DataType("test_15"),
 						Channel:  channel.Key(17),
 						IsIndex:  true,
+						Field:    "test_18",
 					},
 				},
-				NanFillEnabled: false,
+				NanFillEnabled: true,
 			}),
 			Entry("zero values", v2.ReadConfig{
 				Key:                uuid.Nil(),
@@ -87,6 +123,33 @@ var _ = Describe("Codec", func() {
 	})
 })
 
+func BenchmarkEncodeDecodeReadChannel(b *testing.B) {
+	seed := v2.ReadChannel{
+		Key:      "test_1",
+		Name:     "test_2",
+		Disabled: true,
+		NodeID:   "test_4",
+		NodeName: "test_5",
+		DataType: telem.DataType("test_6"),
+		Channel:  channel.Key(8),
+		IsIndex:  false,
+		Field:    "test_9",
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v2.ReadChannel
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
 func BenchmarkEncodeDecodeReadConfig(b *testing.B) {
 	seed := v2.ReadConfig{
 		Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
@@ -107,9 +170,10 @@ func BenchmarkEncodeDecodeReadConfig(b *testing.B) {
 				DataType: telem.DataType("test_15"),
 				Channel:  channel.Key(17),
 				IsIndex:  true,
+				Field:    "test_18",
 			},
 		},
-		NanFillEnabled: false,
+		NanFillEnabled: true,
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -124,6 +188,65 @@ func BenchmarkEncodeDecodeReadConfig(b *testing.B) {
 			b.Fatal(err)
 		}
 	}
+}
+
+func FuzzDecodeReadChannel(f *testing.F) {
+	{
+		seed := v2.ReadChannel{
+			Key:      "test_1",
+			Name:     "test_2",
+			Disabled: true,
+			NodeID:   "test_4",
+			NodeName: "test_5",
+			DataType: telem.DataType("test_6"),
+			Channel:  channel.Key(8),
+			IsIndex:  false,
+			Field:    "test_9",
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v2.ReadChannel{
+			Key:      "",
+			Name:     "",
+			Disabled: false,
+			NodeID:   "",
+			NodeName: "",
+			DataType: telem.DataType(""),
+			Channel:  channel.Key(0),
+			IsIndex:  false,
+			Field:    "",
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v2.ReadChannel
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v2.ReadChannel
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
 }
 
 func FuzzDecodeReadConfig(f *testing.F) {
@@ -147,9 +270,10 @@ func FuzzDecodeReadConfig(f *testing.F) {
 					DataType: telem.DataType("test_15"),
 					Channel:  channel.Key(17),
 					IsIndex:  true,
+					Field:    "test_18",
 				},
 			},
-			NanFillEnabled: false,
+			NanFillEnabled: true,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
