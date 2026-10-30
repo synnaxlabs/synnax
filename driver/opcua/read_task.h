@@ -1073,9 +1073,9 @@ class OnChangeReadTaskSource final : public BaseReadTaskSource {
         }
     }
 
-    /// @brief when connection::SUBSCRIBE_RETRY_INTERVAL has passed, subscribes again
-    /// when the server added a namespace that a channel lacks, and tries again to
-    /// monitor each node that the server did not monitor.
+    /// @brief when connection::RETRY_INTERVAL has passed, subscribes again when the
+    /// server added a namespace that a channel lacks, and tries again to monitor each
+    /// node that the server did not monitor.
     x::errors::Error retry() {
         const bool unresolved = std::ranges::any_of(this->items, [](const auto &item) {
             return !item.has_value();
@@ -1085,8 +1085,7 @@ class OnChangeReadTaskSource final : public BaseReadTaskSource {
         });
         if (!unresolved && !failing) return x::errors::NIL;
         const auto now = x::telem::TimeStamp::now();
-        if (now - this->retried < connection::SUBSCRIBE_RETRY_INTERVAL)
-            return x::errors::NIL;
+        if (now - this->retried < connection::RETRY_INTERVAL) return x::errors::NIL;
         this->retried = now;
         if (unresolved) {
             types::ReadRequestBuilder builder;

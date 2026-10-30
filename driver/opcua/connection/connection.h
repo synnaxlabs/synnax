@@ -34,8 +34,9 @@
 #include "driver/opcua/types/types.h"
 
 namespace driver::opcua::connection {
-/// @brief how often a task tries again to read what failed while its connection stays
-/// up, since a server can add nodes and types while it runs.
+/// @brief how often a task tries again to read or subscribe to what failed while its
+/// connection stays up, since a server can add nodes, types, and namespaces while it
+/// runs.
 const auto RETRY_INTERVAL = 10 * x::telem::SECOND;
 
 /// @brief the configuration for an OPC UA connection.
@@ -205,10 +206,6 @@ using EventHandler = std::function<void(const UA_KeyValueMap &fields)>;
 /// @brief handles one change of a node of a subscription: the place of the node in the
 /// subscribe request, and its value.
 using ChangeHandler = std::function<void(std::size_t node, const UA_DataValue &value)>;
-
-/// @brief how often a task tries again to subscribe to what its subscription lacks: a
-/// node that the server did not monitor, or one in a namespace that the server lacks.
-const auto SUBSCRIBE_RETRY_INTERVAL = 10 * x::telem::SECOND;
 
 /// @brief the intervals of a subscription to the changes of nodes.
 struct Intervals {
