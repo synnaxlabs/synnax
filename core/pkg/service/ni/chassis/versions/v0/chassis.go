@@ -16,6 +16,10 @@ import (
 
 var _ gorp.Entry[Key] = Chassis{}
 
+// CustomTypeName gives chassis a table prefix that cannot collide with another
+// integration's chassis.
+func (Chassis) CustomTypeName() string { return "ni_chassis" }
+
 // GorpKey returns the key of the chassis.
 func (c Chassis) GorpKey() Key { return c.Key }
 
