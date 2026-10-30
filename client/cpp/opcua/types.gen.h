@@ -52,8 +52,6 @@ struct BaseChannel {
     std::string node_id = "";
     /// @brief node_name is the browse name of the OPC UA node.
     std::string node_name = "";
-    /// @brief data_type is the data type of the Synnax channel.
-    ::x::telem::DataType data_type = ::x::telem::DataType("float32");
 
     static BaseChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -104,6 +102,8 @@ struct ReadChannel : public BaseChannel {
     /// @brief field is the path to a member of the node's structure value. Names join
     /// with '.', and '&' escapes the next character. Empty reads the whole value.
     std::string field = "";
+    /// @brief data_type is the data type of the Synnax channel.
+    ::x::telem::DataType data_type = ::x::telem::DataType("float32");
 
     static ReadChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -191,6 +191,8 @@ struct ReadConfig : public ::synnax::task::ReadConfig {
 /// @brief NodeWriteChannel writes each command to the value of the node.
 struct NodeWriteChannel : public BaseWriteChannel {
     std::string type = WRITE_TYPE_NODE;
+    /// @brief data_type is the data type of the Synnax command channel.
+    ::x::telem::DataType data_type = ::x::telem::DataType("float32");
 
     static NodeWriteChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

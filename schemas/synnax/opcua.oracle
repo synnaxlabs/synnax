@@ -34,27 +34,27 @@ BaseChannel struct {
     node_name string = "" {
         @doc value "is the browse name of the OPC UA node."
     }
-    data_type telem.DataType = "float32" {
-        @doc value "is the data type of the Synnax channel."
-        @ts type   "string"
-    }
 
     @doc value  "carries the fields every OPC UA channel shares."
     @go marshal
 }
 
 ReadChannel struct extends BaseChannel {
-    channel  channel.Key = 0 {
+    channel   channel.Key = 0 {
         @doc value "is the Synnax channel that samples are written to."
     }
-    is_index bool = false {
+    is_index  bool = false {
         @doc value "is true when the channel's Synnax channel is the task's index."
     }
-    field    string = "" {
+    field     string = "" {
         @doc value """
             is the path to a member of the node's structure value. Names join with '.',
             and '&' escapes the next character. Empty reads the whole value.
         """
+    }
+    data_type telem.DataType = "float32" {
+        @doc value "is the data type of the Synnax channel."
+        @ts type   "string"
     }
 
     @doc value  "is a single OPC UA node the task reads from."
@@ -72,6 +72,11 @@ BaseWriteChannel struct extends BaseChannel {
 
 WriteChannel union on type WriteType extends BaseWriteChannel {
     node {
+        data_type telem.DataType = "float32" {
+            @doc value "is the data type of the Synnax command channel."
+            @ts type   "string"
+        }
+
         @doc value "writes each command to the value of the node."
     }
     method {

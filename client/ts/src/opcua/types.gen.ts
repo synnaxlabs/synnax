@@ -36,8 +36,6 @@ export const baseChannelZ = z.object({
   nodeId: z.string().default(""),
   /** nodeName is the browse name of the OPC UA node. */
   nodeName: z.string().default(""),
-  /** dataType is the data type of the Synnax channel. */
-  dataType: z.string().default("float32"),
 });
 export interface BaseChannel extends z.infer<typeof baseChannelZ> {}
 
@@ -75,6 +73,7 @@ export const readChannelZ = baseChannelZ.extend({
   channel: channel.keyZ.default(0),
   isIndex: z.boolean().default(false),
   field: z.string().default(""),
+  dataType: z.string().default("float32"),
 });
 export interface ReadChannel extends z.infer<typeof readChannelZ> {}
 
@@ -148,6 +147,8 @@ export interface ReadConfig extends z.infer<typeof readConfigZ> {}
 /** NodeWriteChannel writes each command to the value of the node. */
 export const nodeWriteChannelZ = baseWriteChannelZ.extend({
   type: z.literal("node"),
+  /** dataType is the data type of the Synnax command channel. */
+  dataType: z.string().default("float32"),
 });
 export interface NodeWriteChannel extends z.infer<typeof nodeWriteChannelZ> {}
 

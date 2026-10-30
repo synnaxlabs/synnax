@@ -18,6 +18,7 @@ import (
 	v1 "github.com/synnaxlabs/synnax/pkg/service/opcua/versions/v1"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/opcua/versions/v2"
 	"github.com/synnaxlabs/x/kv/memkv"
+	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -34,7 +35,13 @@ var _ = Describe("Migration", func() {
 				ArrayMode:  true,
 				ArraySize:  5,
 				Channels: []v1.ReadChannel{
-					{Key: "ch", NodeID: "NS=2;I=8", Channel: 7, IsIndex: true},
+					{
+						Key:      "ch",
+						NodeID:   "NS=2;I=8",
+						DataType: telem.Int16T,
+						Channel:  7,
+						IsIndex:  true,
+					},
 				},
 			}
 			db := DeferClose(gorp.Wrap(memkv.New()))
@@ -62,7 +69,11 @@ var _ = Describe("Migration", func() {
 			Expect(got.ArraySize).To(Equal(stored.ArraySize))
 			Expect(got.NanFillEnabled).To(BeFalse())
 			Expect(got.Channels).To(HaveLen(1))
-			Expect(got.Channels[0].BaseChannel).To(Equal(stored.Channels[0].BaseChannel))
+			Expect(got.Channels[0].BaseChannel).To(Equal(v2.BaseChannel{
+				Key:    "ch",
+				NodeID: "NS=2;I=8",
+			}))
+			Expect(got.Channels[0].DataType).To(Equal(telem.Int16T))
 			Expect(got.Channels[0].Channel).To(Equal(stored.Channels[0].Channel))
 			Expect(got.Channels[0].IsIndex).To(BeTrue())
 			Expect(got.Channels[0].Field).To(BeEmpty())
@@ -76,7 +87,7 @@ var _ = Describe("Migration", func() {
 				Key:    uuid.New(),
 				Device: "dev",
 				Channels: []v1.WriteChannel{
-					{Key: "ch", NodeID: "NS=2;I=8", CmdChannel: 7},
+					{Key: "ch", NodeID: "NS=2;I=8", DataType: telem.Int16T, CmdChannel: 7},
 				},
 			}
 			stored.AutoStart = true
@@ -99,10 +110,13 @@ var _ = Describe("Migration", func() {
 				Entry(&got).Exec(ctx, db)).To(Succeed())
 			Expect(got.WriteConfig).To(Equal(stored.WriteConfig))
 			Expect(got.Channels).To(HaveExactElements(v2.WriteChannel{
-				Variant: v2.NodeWriteChannel{BaseWriteChannel: v2.BaseWriteChannel{
-					BaseChannel: stored.Channels[0].BaseChannel,
-					CmdChannel:  stored.Channels[0].CmdChannel,
-				}},
+				Variant: v2.NodeWriteChannel{
+					BaseWriteChannel: v2.BaseWriteChannel{
+						BaseChannel: v2.BaseChannel{Key: "ch", NodeID: "NS=2;I=8"},
+						CmdChannel:  7,
+					},
+					DataType: telem.Int16T,
+				},
 			}))
 		},
 	)
