@@ -322,7 +322,7 @@ Range narrowest(const std::vector<Range> &ranges, const Range &fallback) {
 /// when the port takes one, else a current channel.
 x::errors::Error add_readback_channel(
     daqmx::SugaredAPI &dmx,
-    const TaskHandle task,
+    TaskHandle task,
     const Port &port,
     const AnalogInputPort &ai,
     const Hardware &hw
