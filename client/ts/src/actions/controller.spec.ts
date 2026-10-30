@@ -807,6 +807,21 @@ describe("actions.Controller", () => {
       expect(docs.get("k")).toBeUndefined();
       expect(controller.hasUndo("k")).toBe(false);
     });
+    it("rolls back an edit made before a failed create over a cached doc", async () => {
+      const { docs, controller } = setupStore();
+      prime(docs, "k", { a: 0 });
+      const done = controller.create([{ key: "k", values: { a: 5 } }], {
+        send: async () => {
+          throw new Error("create failed");
+        },
+      });
+      expect(await controller.dispatch("k", [set("a", 1)])).toBe(true);
+      await expect(done).rejects.toThrow("create failed");
+      expect(docs.get("k")?.values).toEqual({ a: 0 });
+      expect(await controller.undo("k")).toBe(false);
+      expect(docs.get("k")?.values).toEqual({ a: 0 });
+    });
+
     it("carries a dispatch made inside onCached in the create", async () => {
       const { docs, controller, send } = setupStore();
       const create = vi.fn(async (_: Doc[]) => {});

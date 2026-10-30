@@ -287,8 +287,8 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
   // in flight. A key is present while its send is in flight, and holds the batch
   // queued behind it.
   private readonly queues = new Map<Key, Queue<Action>>();
-  // Keys whose create is not sent yet. Their edits go out with the create.
-  private readonly unsent = new Set<Key>();
+  // Keys whose create is not sent yet, each to the edits that go out with the create.
+  private readonly unsent = new Map<Key, Array<Pending<Action>>>();
 
   constructor(opts: ControllerParams<Key, State, Action>) {
     this.params = {
@@ -343,17 +343,19 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
    * receives the cached docs, so it carries every edit dispatched to them before it
    * runs, and those dispatches resolve at once. Later dispatches wait for send to
    * settle, then go out in order.
-   * @throws the error from onCached or send. The docs then leave the cache, and the
-   * waiting dispatches reject with the same error.
+   * @throws the error from onCached or send. Every edit to the docs then rolls back,
+   * the cache returns to its prior state, and the waiting dispatches reject with the
+   * same error.
    */
   async create<R>(
     docs: Array<Keyed<Key, State>>,
     { onCached, send }: CreateParams<State, R>,
   ): Promise<R> {
+    const carried: Array<Pending<Action>> = [];
     const queues = docs.map(({ key }) => {
       const queue: Queue<Action> = { next: null };
       this.queues.set(key, queue);
-      this.unsent.add(key);
+      this.unsent.set(key, carried);
       return { key, queue };
     });
     const rollback = this.docs.set(docs);
@@ -376,13 +378,18 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
         revert(batch);
         batch.result.reject(err);
       });
+      carried.toReversed().forEach((edit) => edit.rollback());
       rollback();
       throw err;
     }
   }
 
   private async enqueue(key: Key, edit: Pending<Action>): Promise<void> {
-    if (this.unsent.has(key)) return;
+    const carried = this.unsent.get(key);
+    if (carried != null) {
+      carried.push(edit);
+      return;
+    }
     let queue = this.queues.get(key);
     const inFlight = queue != null;
     if (queue == null) {
