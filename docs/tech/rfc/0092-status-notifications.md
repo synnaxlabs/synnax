@@ -167,7 +167,7 @@ to match, and the statuses page in the docs
 
 - **Integrations that cannot run are not built**: The macOS build leaves out NI and the
   Linux build leaves out LabJack, as the NI Linux RT build leaves out Modbus
-  (`driver/rack/BUILD.bazel:59`). `rack.integrations` lists the integrations that are
+  (`driver/rack/BUILD.bazel:67`). `rack.integrations` lists the integrations that are
   enabled and built. The rack deletes the old scanner of a left-out integration with
   `delete_legacy_task_by_type` (`driver/common/factory.h:100`), as the rack status
   factory deletes its old heartbeat task (`driver/rack/status/status.h:161`).
