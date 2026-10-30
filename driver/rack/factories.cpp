@@ -43,8 +43,8 @@ void configure_state(FactoryList &factories) {
     factories.push_back(std::make_unique<status::Factory>());
 }
 
-void configure_modbus(const Config &config, FactoryList &factories) {
 #ifdef SYNNAX_NILINUXRT
+void configure_modbus(const Config &, FactoryList &factories) {
     factories.push_back(
         std::make_unique<UnavailableFactory>(
             modbus::INTEGRATION_NAME,
@@ -52,12 +52,14 @@ void configure_modbus(const Config &config, FactoryList &factories) {
             "Windows, macOS, or Linux."
         )
     );
+}
 #else
+void configure_modbus(const Config &config, FactoryList &factories) {
     configure_integration(config, factories, modbus::INTEGRATION_NAME, []() {
         return std::make_unique<modbus::Factory>();
     });
-#endif
 }
+#endif
 
 void configure_arc(
     const Config &config,
