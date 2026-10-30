@@ -881,6 +881,7 @@ TEST(DeviceTest, ReadWaitsBehindOneWrite) {
     });
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
     std::vector<std::thread> writes;
+    writes.reserve(2);
     for (int i = 0; i < 2; i++)
         writes.emplace_back([&] {
             const uint16_t value = 5;
