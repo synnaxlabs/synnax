@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"math"
 	"strings"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -142,7 +143,7 @@ func bindDefaultModules(
 	stringsMod := MustSucceed(stlstrings.NewHost(ctx, r, stringsState, nil))
 	MustSucceed(stlmath.NewHost(ctx, r))
 	MustSucceed(stlerrors.NewHost(ctx, r, nil))
-	MustSucceed(stltime.NewHost(ctx, r)).SetNow(cycleNow)
+	MustSucceed(stltime.NewHost(ctx, r, stringsState)).SetNow(cycleNow)
 	MustSucceed(stlchannels.NewHost(ctx, r, channelState, stringsState))
 	return s, stringsMod, stringsState, channelState
 }
@@ -4602,6 +4603,102 @@ var _ = Describe("Compiler", func() {
 				},
 			)
 		}
+	})
+
+	Describe("Time Formatting", func() {
+		var strMod *stlstrings.Host
+		var strState *stlstrings.ProgramState
+		BeforeEach(func(ctx SpecContext) {
+			_, strMod, strState, _ = bindDefaultModules(ctx, r)
+		})
+		strOf := func(results []uint64) string {
+			GinkgoHelper()
+			Expect(results).To(HaveLen(1))
+			str, ok := strState.Get(uint32(results[0]))
+			Expect(ok).To(BeTrue())
+			return str
+		}
+
+		It("Should format the cycle timestamp into a str local", func(ctx SpecContext) {
+			output := MustSucceed(compileWithHostImports(ctx, `
+			import time
+			func compute() str {
+				t_str := time.format(time.now())
+				return t_str
+			}
+			`, nil))
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			results := MustSucceed(mod.ExportedFunction("compute").Call(ctx))
+			Expect(strOf(results)).To(Equal("1970-01-01T00:29:10Z"))
+		})
+
+		It("Should format inside a format string", func(ctx SpecContext) {
+			output := MustSucceed(compileWithHostImports(ctx, `
+			import time
+			func compute() str {
+				return f"now {time.format(time.now())}"
+			}
+			`, nil))
+			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+			strMod.SetMemory(mod.Memory())
+			results := MustSucceed(mod.ExportedFunction("compute").Call(ctx))
+			Expect(strOf(results)).To(Equal("now 1970-01-01T00:29:10Z"))
+		})
+
+		DescribeTable("Should match the C++ iso8601 vectors",
+			func(ctx SpecContext, ns int64, expected string) {
+				output := MustSucceed(compileWithHostImports(ctx, `
+				import time
+				func compute(t i64 ns) str {
+					return time.format(t)
+				}
+				`, nil))
+				mod := MustSucceed(r.Instantiate(ctx, output.WASM))
+				results := MustSucceed(
+					mod.ExportedFunction("compute").Call(ctx, uint64(ns)),
+				)
+				Expect(strOf(results)).To(Equal(expected))
+			},
+			Entry("epoch", int64(0), "1970-01-01T00:00:00Z"),
+			Entry("trimmed fraction", int64(1_500_000_000), "1970-01-01T00:00:01.5Z"),
+			Entry(
+				"full fraction",
+				int64(1_000_000_001),
+				"1970-01-01T00:00:01.000000001Z",
+			),
+			Entry(
+				"whole second",
+				int64(1_000_000_000_000_000_000),
+				"2001-09-09T01:46:40Z",
+			),
+			Entry(
+				"before the epoch",
+				int64(-1_000_000_000_000_000_000),
+				"1938-04-24T22:13:20Z",
+			),
+			Entry(
+				"January 17, 2012 at 08:32:05",
+				time.Date(2012, time.January, 17, 8, 32, 5, 0, time.UTC).UnixNano(),
+				"2012-01-17T08:32:05Z",
+			),
+			Entry(
+				"January 17, 2012 with milliseconds",
+				time.Date(2012, time.January, 17, 8, 32, 5, 250_000_000, time.UTC).
+					UnixNano(),
+				"2012-01-17T08:32:05.25Z",
+			),
+			Entry(
+				"leap day 2024, last nanosecond",
+				time.Date(2024, time.February, 29, 23, 59, 59, 999_999_999, time.UTC).
+					UnixNano(),
+				"2024-02-29T23:59:59.999999999Z",
+			),
+			Entry(
+				"New Year 2000 at midnight",
+				time.Date(2000, time.January, 1, 0, 0, 0, 0, time.UTC).UnixNano(),
+				"2000-01-01T00:00:00Z",
+			),
+		)
 	})
 
 	Describe("Qualified Module Calls", func() {

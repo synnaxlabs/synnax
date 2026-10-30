@@ -172,7 +172,7 @@ func (t *impl) open(ctx context.Context) (err error) {
 		}))
 	}
 
-	timeMod, err := time.NewHost(ctx, wasmRT)
+	timeMod, err := time.NewHost(ctx, wasmRT, drt.state.strings)
 	if err != nil {
 		return err
 	}

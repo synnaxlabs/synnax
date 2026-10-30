@@ -7,6 +7,9 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import re
+from datetime import UTC, datetime, timedelta
+
 import synnax as sy
 from framework.utils import create_indexed_pair, create_virtual_channels
 from tests.arc.arc import ArcCase
@@ -24,6 +27,21 @@ time_trigger -> write_now()
 // time.now() as a flow node: triggered by any upstream, outputs timestamp.
 time_now_flow_ts_trigger -> time.now() -> time_now_flow_ts_out
 time_now_flow_int_trigger -> time.now() -> time_now_flow_int_out
+
+// ─────────────────────────── time.format ────────────────────────────
+// Formats a timestamp as ISO 8601 in UTC. The call is the same in a function
+// body and in a flow statement; the flow form lowers to an expression node.
+func write_format() {
+    time_format_fn_out = time.format(time.now())
+}
+time_format_fn_trigger -> write_format()
+time_format_flow_trigger -> time.format(time.now()) -> time_format_flow_out
+// A stamp read from a channel, so the test can expect an exact string.
+func write_format_fixed() {
+    time_format_fixed_fn_out = time.format(time_format_ts_in)
+}
+time_format_ts_in -> write_format_fixed()
+time.format(time_format_ts_in) -> time_format_fixed_flow_out
 
 // ─────────────────────────── time.interval ──────────────────────────
 // interval is inherently time-triggered (that's the point of the function).
@@ -76,6 +94,22 @@ MIN_WAIT_DURATION = 2.5
 # Catches unit bugs (seconds vs. nanos) or zero returns.
 JAN_2020_NANOS = 1577836800000000000
 
+# time.format output: ISO 8601 UTC, nanosecond fraction with trailing zeros trimmed
+# and omitted when zero, Z suffix.
+ISO_8601_UTC = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,9})?Z$")
+
+# Allowed gap between a formatted time.now() and the wall clock when it is read.
+MAX_FORMAT_DRIFT = timedelta(seconds=2)
+
+# (ns since the Unix epoch, time.format output). Each stamp is written to
+# time_format_ts_in and formatted in both contexts.
+FORMAT_CASES = (
+    (1_326_789_125_000_000_000, "2012-01-17T08:32:05Z"),
+    (1_326_789_125_250_000_000, "2012-01-17T08:32:05.25Z"),
+    (1_709_251_199_999_999_999, "2024-02-29T23:59:59.999999999Z"),
+    (946_684_800_000_000_000, "2000-01-01T00:00:00Z"),
+)
+
 # (channel, label) for the two free-running interval counters.
 INTERVAL_CHANNELS = (
     ("interval_count", "standalone"),
@@ -90,11 +124,13 @@ WAIT_CASES = (
 
 
 class StlTime(ArcCase):
-    """Test time module with qualified syntax: time.now(), time.interval(),
-    time.wait().
+    """Test time module with qualified syntax: time.now(), time.format(),
+    time.interval(), time.wait().
 
     time.now() is verified by checking the returned timestamp is a valid
-    nanosecond value. time.interval() is verified by measuring its firing
+    nanosecond value. time.format() is verified by parsing its output as ISO
+    8601 and checking it against the wall clock, in both a function body and
+    a flow statement. time.interval() is verified by measuring its firing
     rate over 1 second. time.wait() is a regression test migrated from
     wait_timing.py verifying that a 3-second wait completes in ~3 seconds.
     """
@@ -107,6 +143,10 @@ class StlTime(ArcCase):
         "time_now_ts_out",
         "time_now_flow_ts_out",
         "time_now_flow_int_out",
+        "time_format_fn_out",
+        "time_format_flow_out",
+        "time_format_fixed_fn_out",
+        "time_format_fixed_flow_out",
         "interval_count",
         "interval_count_mod",
         "toggle_cmd",
@@ -124,6 +164,13 @@ class StlTime(ArcCase):
                 ("time_now_flow_ts_out", sy.DataType.TIMESTAMP),
                 ("time_now_flow_int_trigger", sy.DataType.FLOAT64),
                 ("time_now_flow_int_out", sy.DataType.INT64),
+                ("time_format_fn_trigger", sy.DataType.FLOAT64),
+                ("time_format_fn_out", sy.DataType.STRING),
+                ("time_format_flow_trigger", sy.DataType.FLOAT64),
+                ("time_format_flow_out", sy.DataType.STRING),
+                ("time_format_ts_in", sy.DataType.TIMESTAMP),
+                ("time_format_fixed_fn_out", sy.DataType.STRING),
+                ("time_format_fixed_flow_out", sy.DataType.STRING),
                 ("interval_count", sy.DataType.INT64),
                 ("interval_count_mod", sy.DataType.INT64),
                 ("start_wait_cmd", sy.DataType.UINT8),
@@ -166,6 +213,42 @@ class StlTime(ArcCase):
         )
         self.writer.write("time_now_flow_int_trigger", 1.0)
         self.wait_for_gt("time_now_flow_int_out", JAN_2020_NANOS)
+
+    def _assert_format(self, channel: str, label: str) -> None:
+        self._wait_for_condition(
+            channel,
+            lambda v: isinstance(v, str) and ISO_8601_UTC.match(v) is not None,
+            "to match ISO 8601 UTC",
+        )
+        text = self.read_tlm(channel, "")
+        drift = abs(datetime.now(UTC) - datetime.fromisoformat(text))
+        self.log(
+            f"[{label}] time.format wrote {text!r}, "
+            f"drift {drift.total_seconds():.3f}s (max {MAX_FORMAT_DRIFT.seconds}s)"
+        )
+        if drift > MAX_FORMAT_DRIFT:
+            self.fail(
+                f"[{label}] time.format wrote {text!r}, "
+                f"{drift.total_seconds():.3f}s from the wall clock"
+            )
+
+    def _test_format(self) -> None:
+        self.log("=== time.format() [WASM] ===")
+        self.writer.write("time_format_fn_trigger", 1.0)
+        self._assert_format("time_format_fn_out", "function")
+
+    def _test_format_flow(self) -> None:
+        self.log("=== time.format() [Flow] ===")
+        self.writer.write("time_format_flow_trigger", 1.0)
+        self._assert_format("time_format_flow_out", "flow")
+
+    def _test_format_fixed(self) -> None:
+        self.log("=== time.format() [fixed stamps] ===")
+        for ns, expected in FORMAT_CASES:
+            self.writer.write("time_format_ts_in", ns)
+            self.log(f"Expecting {expected!r} for {ns} ns in both contexts")
+            self.wait_for_eq("time_format_fixed_fn_out", expected)
+            self.wait_for_eq("time_format_fixed_flow_out", expected)
 
     def _test_interval_rate(self) -> None:
         self.log("=== time.interval ===")
@@ -214,5 +297,8 @@ class StlTime(ArcCase):
     def verify_sequence_execution(self) -> None:
         self._test_now()
         self._test_now_flow()
+        self._test_format()
+        self._test_format_flow()
+        self._test_format_fixed()
         self._test_interval_rate()
         self._test_wait_timing()
