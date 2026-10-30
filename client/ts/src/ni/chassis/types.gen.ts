@@ -16,8 +16,63 @@ import { ontology } from "@/ontology";
 import { rack } from "@/rack";
 import { status } from "@/status";
 
+/** Identity holds the chassis fields that the scanner owns. */
+export const identityZ = z.object({
+  /** rack is the key of the rack the chassis is connected to. */
+  rack: rack.keyZ.refine((v) => v !== 0, "rack is required"),
+  /**
+   * serial is the serial number of the chassis, or its NI-MAX resource name when it is
+   * simulated.
+   */
+  serial: z.string().min(1, "serial is required"),
+  /** model is the product name of the chassis. */
+  model: z.string(),
+  /** alias is the DAQmx alias of the chassis. */
+  alias: z.string(),
+  /** simulated is true when the chassis is simulated in NI-MAX. */
+  simulated: z.boolean().default(false),
+});
+export interface Identity extends z.infer<typeof identityZ> {}
+
+/** Configuration holds the chassis fields that the user owns. */
+export const configurationZ = z.object({
+  /** name is a human-readable name for the chassis. */
+  name: z.string().min(1, "name is required"),
+});
+export interface Configuration extends z.infer<typeof configurationZ> {}
+
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
+
+/** IdentityUpdate writes the fields that the scanner owns. */
+export const identityUpdateZ = identityZ.extend({
+  group: z.literal("identity"),
+});
+export interface IdentityUpdate extends z.infer<typeof identityUpdateZ> {}
+
+/** ConfigurationUpdate writes the fields that the user owns. */
+export const configurationUpdateZ = configurationZ.extend({
+  group: z.literal("configuration"),
+});
+export interface ConfigurationUpdate extends z.infer<typeof configurationUpdateZ> {}
+
+export const UPDATE_TYPES = ["identity", "configuration"] as const;
+export const updateTypeZ = z.enum(UPDATE_TYPES);
+export type UpdateType = z.infer<typeof updateTypeZ>;
+
+/** Update is a write to one field group of a chassis. */
+export const updateZ = z.discriminatedUnion("group", [
+  identityUpdateZ,
+  configurationUpdateZ,
+]);
+export type Update = IdentityUpdate | ConfigurationUpdate;
+
+export const UPDATE_SCHEMAS: {
+  [K in UpdateType]: z.ZodType<Extract<Update, { group: K }>>;
+} = {
+  identity: identityUpdateZ,
+  configuration: configurationUpdateZ,
+};
 
 /** StatusDetails identifies the chassis and rack that a status pertains to. */
 export const statusDetailsZ = z.object({

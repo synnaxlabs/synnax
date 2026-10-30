@@ -11,7 +11,14 @@
 
 package chassis
 
-import "github.com/synnaxlabs/synnax/pkg/service/ni/chassis/versions"
+import (
+	"encoding/json/jsontext"
+	"encoding/json/v2"
+	"github.com/synnaxlabs/synnax/pkg/service/ni/chassis/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/validate"
+)
 
 // Chassis is an NI chassis that holds device modules.
 type Chassis = versions.Chassis
@@ -24,3 +31,155 @@ type StatusDetails = versions.StatusDetails
 
 // Status is the operational status of a chassis.
 type Status = versions.Status
+
+// Identity holds the chassis fields that the scanner owns.
+type Identity struct {
+	// Rack is the key of the rack the chassis is connected to.
+	Rack rack.Key `json:"rack" msgpack:"rack"`
+	// Serial is the serial number of the chassis, or its NI-MAX resource name when it
+	// is simulated.
+	Serial string `json:"serial" msgpack:"serial"`
+	// Model is the product name of the chassis.
+	Model string `json:"model" msgpack:"model"`
+	// Alias is the DAQmx alias of the chassis.
+	Alias string `json:"alias" msgpack:"alias"`
+	// Simulated is true when the chassis is simulated in NI-MAX.
+	Simulated bool `json:"simulated" msgpack:"simulated"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (i Identity) Validate() error {
+	v := validate.New("Identity")
+	v.NonZero("rack", i.Rack)
+	v.NotEmptyString("serial", i.Serial)
+	return v.Error()
+}
+
+// Configuration holds the chassis fields that the user owns.
+type Configuration struct {
+	// Name is a human-readable name for the chassis.
+	Name string `json:"name" msgpack:"name"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (c Configuration) Validate() error {
+	v := validate.New("Configuration")
+	v.NotEmptyString("name", c.Name)
+	return v.Error()
+}
+
+type UpdateType string
+
+const (
+	IdentityUpdateType      UpdateType = "identity"
+	ConfigurationUpdateType UpdateType = "configuration"
+)
+
+type UpdateVariant interface {
+	isUpdateVariant()
+}
+
+// IdentityUpdate writes the fields that the scanner owns.
+type IdentityUpdate struct {
+	Identity
+}
+
+func (IdentityUpdate) isUpdateVariant() {}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (i IdentityUpdate) Validate() error {
+	v := validate.New("IdentityUpdate")
+	v.Exec(i.Identity.Validate)
+	return v.Error()
+}
+
+// ConfigurationUpdate writes the fields that the user owns.
+type ConfigurationUpdate struct {
+	Configuration
+}
+
+func (ConfigurationUpdate) isUpdateVariant() {}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (c ConfigurationUpdate) Validate() error {
+	v := validate.New("ConfigurationUpdate")
+	v.Exec(c.Configuration.Validate)
+	return v.Error()
+}
+
+// Update is a write to one field group of a chassis.
+type Update struct {
+	Variant UpdateVariant
+}
+
+// MarshalJSONTo encodes the active variant with its "group" tag injected.
+func (u Update) MarshalJSONTo(enc *jsontext.Encoder) error {
+	switch v := u.Variant.(type) {
+	case nil:
+		return enc.WriteToken(jsontext.Null)
+	case IdentityUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type UpdateType `json:"group"`
+			IdentityUpdate
+		}{Type: IdentityUpdateType, IdentityUpdate: v})
+	case ConfigurationUpdate:
+		return json.MarshalEncode(enc, struct {
+			Type UpdateType `json:"group"`
+			ConfigurationUpdate
+		}{Type: ConfigurationUpdateType, ConfigurationUpdate: v})
+	default:
+		return errors.Newf("Update: unknown variant %T", v)
+	}
+}
+
+// UnmarshalJSONFrom decodes the variant selected by the "group" field.
+func (u *Update) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	data, err := dec.ReadValue()
+	if err != nil {
+		return err
+	}
+	if data.Kind() == 'n' {
+		u.Variant = nil
+		return nil
+	}
+	opts := dec.Options()
+	var disc struct {
+		Type UpdateType `json:"group"`
+	}
+	if err := json.Unmarshal(data, &disc, opts); err != nil {
+		return err
+	}
+	switch disc.Type {
+	case IdentityUpdateType:
+		var v IdentityUpdate
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v
+	case ConfigurationUpdateType:
+		var v ConfigurationUpdate
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v
+	default:
+		return errors.Newf("Update: unknown group %q", disc.Type)
+	}
+	return nil
+}
+
+// Validate returns an error wrapping validate.ErrValidation if the active variant
+// violates its schema constraints.
+func (u Update) Validate() error {
+	switch variant := u.Variant.(type) {
+	case IdentityUpdate:
+		return variant.Validate()
+	case ConfigurationUpdate:
+		return variant.Validate()
+	}
+	return nil
+}

@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/license"
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/api/log"
+	nichassis "github.com/synnaxlabs/synnax/pkg/api/ni/chassis"
 	nidevice "github.com/synnaxlabs/synnax/pkg/api/ni/device"
 	"github.com/synnaxlabs/synnax/pkg/api/ontology"
 	"github.com/synnaxlabs/synnax/pkg/api/panel"
@@ -525,6 +526,24 @@ func Bind(layer *api.Layer, router *http.Router) {
 		NIDeviceDelete: unary[nidevice.DeleteRequest, struct{}](
 			router,
 			"/api/v1/ni/device/delete",
+		),
+
+		// NI CHASSIS
+		NIChassisCreate: unary[nichassis.CreateRequest, nichassis.CreateResponse](
+			router,
+			"/api/v1/ni/chassis/create",
+		),
+		NIChassisRetrieve: unary[nichassis.RetrieveRequest, nichassis.RetrieveResponse](
+			router,
+			"/api/v1/ni/chassis/retrieve",
+		),
+		NIChassisUpdate: unary[nichassis.UpdateRequest, struct{}](
+			router,
+			"/api/v1/ni/chassis/update",
+		),
+		NIChassisDelete: unary[nichassis.DeleteRequest, struct{}](
+			router,
+			"/api/v1/ni/chassis/delete",
 		),
 
 		// ACCESS

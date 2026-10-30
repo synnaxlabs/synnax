@@ -10,17 +10,27 @@
 from synnax.ni.chassis.types_gen import (
     ONTOLOGY_TYPE,
     Chassis,
+    Configuration,
+    ConfigurationUpdate,
+    Identity,
+    IdentityUpdate,
     Key,
     Status,
     StatusDetails,
+    Update,
     ontology_id,
 )
 
 __all__ = [
     "ONTOLOGY_TYPE",
     "Chassis",
+    "Configuration",
+    "ConfigurationUpdate",
+    "Identity",
+    "IdentityUpdate",
     "Key",
     "Status",
     "StatusDetails",
+    "Update",
     "ontology_id",
 ]

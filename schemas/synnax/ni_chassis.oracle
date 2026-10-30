@@ -79,3 +79,48 @@ StatusDetails struct {
 Status = status.Status<StatusDetails> {
     @doc value "is the operational status of a chassis."
 }
+
+Identity struct {
+    rack      rack.Key {
+        @doc value         "is the key of the rack the chassis is connected to."
+        @validate required
+    }
+    serial    string   {
+        @doc value         """
+            is the serial number of the chassis, or its NI-MAX resource name when it is
+            simulated.
+        """
+        @validate required
+    }
+    model     string   {
+        @doc value "is the product name of the chassis."
+    }
+    alias     string   {
+        @doc value "is the DAQmx alias of the chassis."
+    }
+    simulated bool = false {
+        @doc value "is true when the chassis is simulated in NI-MAX."
+    }
+
+    @doc value "holds the chassis fields that the scanner owns."
+}
+
+Configuration struct {
+    name string {
+        @doc value         "is a human-readable name for the chassis."
+        @validate required
+    }
+
+    @doc value "holds the chassis fields that the user owns."
+}
+
+Update union on group {
+    identity      Identity {
+        @doc value "writes the fields that the scanner owns."
+    }
+    configuration Configuration {
+        @doc value "writes the fields that the user owns."
+    }
+
+    @doc value "is a write to one field group of a chassis."
+}

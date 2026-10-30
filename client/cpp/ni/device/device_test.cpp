@@ -43,6 +43,18 @@ TEST(Update, RoundTripsGroup) {
     ASSERT_EQ(std::get<IdentityUpdate>(parsed).serial, "01A");
 }
 
+/// @brief it should keep the field group of a chassis update through JSON.
+TEST(ChassisUpdate, RoundTripsGroup) {
+    chassis::ConfigurationUpdate configuration;
+    configuration.name = "PXIe-1071";
+    const auto j = chassis::to_json(chassis::Update(configuration));
+    ASSERT_EQ(j["group"], "configuration");
+    x::json::Parser parser(j);
+    const auto parsed = chassis::parse_update(parser);
+    ASSERT_TRUE(parser.ok());
+    ASSERT_EQ(std::get<chassis::ConfigurationUpdate>(parsed).name, "PXIe-1071");
+}
+
 /// @brief it should write an empty object for an output port group with no channels.
 TEST(OutputPorts, SerializesEmptyChannelsAsObject) {
     ASSERT_TRUE(OutputPorts{}.to_json()["channels"].is_object());
