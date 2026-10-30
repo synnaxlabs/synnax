@@ -17,9 +17,10 @@ read_inputs(
     const connection::Pool::Connection &conn,
     const std::vector<UA_NodeId> &methods
 ) {
-    std::vector<std::optional<std::vector<Argument>>> out(methods.size());
+    using Inputs = std::vector<std::optional<std::vector<Argument>>>;
+    Inputs out(methods.size());
     auto [browsed, err] = conn.browse(methods);
-    if (err) return {{}, err};
+    if (err) return {Inputs(), err};
     types::ReadRequestBuilder req;
     std::vector<std::size_t> read;
     for (std::size_t i = 0; i < browsed.size(); ++i) {
@@ -39,7 +40,7 @@ read_inputs(
     }
     if (req.empty()) return {std::move(out), x::errors::NIL};
     auto [res, read_err] = conn.read(req.build());
-    if (read_err) return {{}, read_err};
+    if (read_err) return {Inputs(), read_err};
     for (std::size_t k = 0; k < read.size(); ++k) {
         const auto &value = res.get().results[k].value;
         if (!UA_Variant_hasArrayType(&value, &UA_TYPES[UA_TYPES_ARGUMENT])) continue;
