@@ -23,6 +23,12 @@
 namespace driver::rack {
 const std::string STATE_PATH = "/tmp/rack-config-test/state.json";
 
+synnax::Config key_conn(const std::string &key) {
+    auto conn = test_client_config;
+    conn.api_key = key;
+    return conn;
+}
+
 class RackConfigTest : public ::testing::Test {
 protected:
     x::args::Parser args;
@@ -177,6 +183,24 @@ TEST_F(RackConfigTest, RecreateOnClusterKeyMismatch) {
     );
 }
 
+/// @brief it should save the address used for enrollment with its API key.
+TEST_F(RackConfigTest, APIKeyKeepsEnrollmentAddress) {
+    ASSERT_NIL(
+        Config::save_conn_params(
+            args,
+            {.host = "dog", .port = 450, .username = "cat", .password = "nip"}
+        )
+    );
+    auto conn = key_conn("syk_saved");
+    conn.host = "fish";
+    conn.port = 451;
+    ASSERT_NIL(Config::save_api_key(args, conn));
+    const auto cfg = ASSERT_NIL_P(Config::resolve(args, brk));
+    ASSERT_EQ(cfg.connection.host, "fish");
+    ASSERT_EQ(cfg.connection.port, 451);
+    ASSERT_EQ(cfg.connection.api_key, "syk_saved");
+}
+
 /// @brief it should run as the rack its API key logs in as.
 TEST_F(RackConfigTest, LoadRackFromAPIKey) {
     const auto client = new_test_client();
@@ -184,7 +208,7 @@ TEST_F(RackConfigTest, LoadRackFromAPIKey) {
     const auto key = ASSERT_NIL_P(
         client.api_keys.create("test", {"rack", std::to_string(rack.key)})
     );
-    ASSERT_NIL(Config::save_api_key(args, key.token));
+    ASSERT_NIL(Config::save_api_key(args, key_conn(key.token)));
     const auto cfg = ASSERT_NIL_P(Config::load(args, brk));
     ASSERT_EQ(cfg.rack.key, rack.key);
     ASSERT_EQ(cfg.connection.api_key, key.token);
@@ -194,7 +218,7 @@ TEST_F(RackConfigTest, LoadRackFromAPIKey) {
 TEST_F(RackConfigTest, RejectUserAPIKey) {
     const auto client = new_test_client();
     const auto key = ASSERT_NIL_P(client.api_keys.create("test"));
-    ASSERT_NIL(Config::save_api_key(args, key.token));
+    ASSERT_NIL(Config::save_api_key(args, key_conn(key.token)));
     ASSERT_OCCURRED_AS_P(Config::load(args, brk), x::errors::VALIDATION);
 }
 
@@ -218,7 +242,7 @@ TEST_F(RackConfigTest, UsernameOnly) {
 
 /// @brief it should prefer a saved API key over a username and password.
 TEST_F(RackConfigTest, APIKeyWinsOverPassword) {
-    ASSERT_NIL(Config::save_api_key(args, "syk_saved"));
+    ASSERT_NIL(Config::save_api_key(args, key_conn("syk_saved")));
     x::args::Parser password_args(
         std::vector<std::string>{
             "program",
@@ -249,7 +273,7 @@ TEST_F(RackConfigTest, RefuseSymlinkStateFile) {
         std::filesystem::remove(STATE_PATH);
         std::filesystem::remove(target);
     });
-    ASSERT_OCCURRED_AS(Config::save_api_key(args, "syk_saved"), STATE_ERROR);
+    ASSERT_OCCURRED_AS(Config::save_api_key(args, key_conn("syk_saved")), STATE_ERROR);
     ASSERT_OCCURRED_AS(Config::save_conn_params(args, {}), STATE_ERROR);
     ASSERT_OCCURRED_AS(Config::save_remote_info(args, {}), STATE_ERROR);
 }
@@ -259,7 +283,7 @@ TEST_F(RackConfigTest, StateFileOwnerOnly) {
 #ifdef _WIN32
     GTEST_SKIP() << "Windows files have no POSIX mode";
 #endif
-    ASSERT_NIL(Config::save_api_key(args, "syk_saved"));
+    ASSERT_NIL(Config::save_api_key(args, key_conn("syk_saved")));
     ASSERT_EQ(
         std::filesystem::status(STATE_PATH).permissions() & std::filesystem::perms::all,
         std::filesystem::perms::owner_read | std::filesystem::perms::owner_write
