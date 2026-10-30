@@ -19,7 +19,10 @@ import { CSS } from "@/platform/css";
 export type PortState = "free" | "used" | "conflict";
 
 export interface PortCell {
-  /** Unique in the grid. A free cell carries it in `data-menu-key`. */
+  /**
+   * Unique in the grid. A free cell carries it in `data-menu-key` when the grid has a
+   * menu of its own.
+   */
   key: string;
   /** The port's name for assistive technology, such as "ai3". */
   name: string;
@@ -31,6 +34,8 @@ export interface PortCell {
   /** Spans two rows: a differential channel uses both ports of the pair. */
   paired?: boolean;
   state: PortState;
+  /** Only disabled channels hold the port: it shows as used, but faded. */
+  disabled?: boolean;
   selected?: boolean;
   /**
    * The channel on the port. A used cell carries it in `data-menu-key`, so a right
@@ -54,17 +59,22 @@ export interface PortGridProps {
   onClick: (cell: PortCell) => void;
   /**
    * Opens a menu over a free port. A used port leaves the event to the enclosing
-   * channel list, which opens its channel's menu.
+   * channel list, which opens its channel's menu. Without it, a free port is not a
+   * menu target.
    */
   onContextMenu?: (e: MouseEvent) => void;
 }
 
-const cellClass = ({ state, selected = false, paired = false }: PortCell): string =>
+const cellClass = (
+  { state, selected = false, paired = false, disabled = false }: PortCell,
+  target: boolean,
+): string =>
   CSS.cls(
-    Menu.CONTEXT_TARGET,
+    target && Menu.CONTEXT_TARGET,
     CSS.BE("port-grid", "cell"),
     CSS.BEM("port-grid", "cell", state),
     paired && CSS.BEM("port-grid", "cell", "paired"),
+    disabled && CSS.BEM("port-grid", "cell", "disabled"),
     selected && CSS.BEM("port-grid", "cell", "selected"),
   );
 
@@ -91,25 +101,29 @@ export const PortGrid = ({
         className={CSS.BE("port-grid", "group")}
         style={{ gridTemplateColumns: `repeat(${columns}, var(--console-port-cell))` }}
       >
-        {cells.map((cell) => (
-          <Tooltip.Dialog key={cell.key} location="top">
-            {cell.tooltip}
-            <button
-              type="button"
-              aria-label={cell.name}
-              aria-pressed={cell.selected ?? false}
-              data-menu-key={cell.channel ?? cell.key}
-              className={cellClass(cell)}
-              style={cellStyle(cell)}
-              onClick={() => onClick(cell)}
-              onContextMenu={cell.state === "free" ? onContextMenu : undefined}
-            >
-              {cell.labels.map((l) => (
-                <span key={l}>{l}</span>
-              ))}
-            </button>
-          </Tooltip.Dialog>
-        ))}
+        {cells.map((cell) => {
+          const menuKey =
+            cell.channel ?? (onContextMenu == null ? undefined : cell.key);
+          return (
+            <Tooltip.Dialog key={cell.key} location="top">
+              {cell.tooltip}
+              <button
+                type="button"
+                aria-label={cell.name}
+                aria-pressed={cell.selected ?? false}
+                data-menu-key={menuKey}
+                className={cellClass(cell, menuKey != null)}
+                style={cellStyle(cell)}
+                onClick={() => onClick(cell)}
+                onContextMenu={cell.state === "free" ? onContextMenu : undefined}
+              >
+                {cell.labels.map((l) => (
+                  <span key={l}>{l}</span>
+                ))}
+              </button>
+            </Tooltip.Dialog>
+          );
+        })}
       </div>
     ))}
   </div>
@@ -117,12 +131,24 @@ export const PortGrid = ({
 
 export interface PortBadgeProps {
   state: PortState;
+  /** The channel is disabled: the badge shows faded, as the grid does. */
+  disabled?: boolean;
   children: string;
 }
 
 /** A port's number in its state color, as the grid shows it. */
-export const PortBadge = ({ state, children }: PortBadgeProps): ReactElement => (
-  <span className={CSS.cls(CSS.B("port-badge"), CSS.BM("port-badge", state))}>
+export const PortBadge = ({
+  state,
+  disabled = false,
+  children,
+}: PortBadgeProps): ReactElement => (
+  <span
+    className={CSS.cls(
+      CSS.B("port-badge"),
+      CSS.BM("port-badge", state),
+      disabled && CSS.BM("port-badge", "disabled"),
+    )}
+  >
     {children}
   </span>
 );

@@ -462,6 +462,248 @@ describe("AnalogRead ports", () => {
   const cell = (grid: HTMLElement, name: string) =>
     within(grid).getByRole("button", { name });
 
+  const openPorts = async (dev: NI.Device.Device) => {
+    fireEvent.click(await screen.findByText("Ports"));
+    return await screen.findByRole("group", { name: `${dev.name} ports` });
+  };
+
+  it.each<[string, (device: string) => NI.Task.AIChannel[], string]>([
+    [
+      "a port the device does not have",
+      (device) => [createChannel("ai_voltage", 20, { device })],
+      "The device has no port ai20",
+    ],
+    [
+      "a type the port does not take",
+      (device) => [createChannel("ai_thermocouple", 8, { device })],
+      "ai8 does not take thermocouple channels",
+    ],
+    [
+      "a terminal configuration the port does not take",
+      (device) => [createChannel("ai_voltage", 8, { device, terminalConfig: "Diff" })],
+      "ai8 does not take differential",
+    ],
+  ])("should mark %s", async (_, channels, message) => {
+    const dev = await createDevice();
+    await renderWith(channels(dev.key));
+    expect(await screen.findByText(message)).toBeTruthy();
+  });
+
+  it("should mark a channel on the negative input of a differential channel", async () => {
+    const dev = await createDevice();
+    await renderWith([
+      createChannel("ai_voltage", 0, { device: dev.key }),
+      createChannel("ai_voltage", 8, {
+        device: dev.key,
+        terminalConfig: "RSE",
+        name: "chan_rse",
+      }),
+    ]);
+    expect(
+      await screen.findByText("Another channel uses ai8, its negative input"),
+    ).toBeTruthy();
+    fireEvent.click(await findChannelListItem("chan_rse"));
+    expect(
+      await screen.findByText("ai8 is the negative input of another channel"),
+    ).toBeTruthy();
+  });
+
+  it.each<[string, (device: string) => NI.Task.AIChannel[], number, string, string]>([
+    [
+      "an error above the single channel maximum",
+      (device) => [createChannel("ai_voltage", 0, { device })],
+      3_000_000,
+      "samples at most 2,000,000 Hz",
+      "error",
+    ],
+    [
+      "a warning above the multiplexed maximum",
+      (device) => [
+        createChannel("ai_voltage", 0, { device }),
+        createChannel("ai_voltage", 1, { device }),
+      ],
+      600_000,
+      "may not sample 2 channels faster than 500,000 Hz",
+      "warning",
+    ],
+    [
+      "the extra scan channels of a thermocouple device",
+      (device) => [createChannel("ai_thermocouple", 0, { device })],
+      400_000,
+      "may not sample 3 channels faster than 333,333 Hz",
+      "warning",
+    ],
+  ])(
+    "should mark the sample rate with %s",
+    async (_, channels, rate, message, variant) => {
+      const dev = await createDevice();
+      await renderAnalogRead({
+        ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
+        sampleRate: rate,
+        channels: channels(dev.key),
+      });
+      const text = await screen.findByText(`${dev.model} ${message}`);
+      expect(text.className).toContain(variant);
+    },
+  );
+
+  it("should deploy channels on free ports of the device", async () => {
+    const dev = await createDevice();
+    const { container, draft } = await renderWith([
+      createChannel("ai_voltage", 0, { device: dev.key }),
+      createChannel("ai_voltage", 1, { device: dev.key }),
+    ]);
+    await screen.findByText("Ports");
+    await deployAndAwaitTask(client, container, draft.key);
+  });
+
+  it("should deploy a channel on any port of a device with no port list", async () => {
+    const dev = await createNIDevice(client);
+    const { container, draft } = await renderWith([
+      createChannel("ai_voltage", 99, { device: dev.key }),
+    ]);
+    await deployAndAwaitTask(client, container, draft.key);
+  });
+
+  it("should put each negative input under its port, eight pairs to a group", async () => {
+    const dev = await createDevice();
+    await renderWith([
+      createChannel("ai_voltage", 0, { device: dev.key, terminalConfig: "RSE" }),
+    ]);
+    const grid = await openPorts(dev);
+    expect(grid.children).toHaveLength(1);
+    expect(
+      within(grid)
+        .getAllByRole("button")
+        .map((b) => [
+          b.getAttribute("aria-label"),
+          b.style.gridRow,
+          b.style.gridColumn,
+        ]),
+    ).toEqual(
+      Array.from({ length: 8 }, (_, i) => [
+        [`ai${i}`, "1", String(i + 1)],
+        [`ai${i + 8}`, "2", String(i + 1)],
+      ]).flat(),
+    );
+  });
+
+  it.each<
+    [string, (device: string) => NI.Task.AIChannel[], string, string, boolean, string]
+  >([
+    [
+      "span a differential channel across both ports of its pair",
+      (device) => [createChannel("ai_voltage", 2, { device, name: "chan_a" })],
+      "ai2",
+      "used",
+      true,
+      "ai2 and ai10: chan_a",
+    ],
+    [
+      "keep the pair apart for a channel that is not differential",
+      (device) => [
+        createChannel("ai_voltage", 2, {
+          device,
+          terminalConfig: "RSE",
+          name: "chan_a",
+        }),
+      ],
+      "ai10",
+      "free",
+      false,
+      "ai10 is free",
+    ],
+    [
+      "mark a differential pair as a conflict when another channel holds a port",
+      (device) => [
+        createChannel("ai_voltage", 8, { device, name: "chan_a" }),
+        createChannel("ai_voltage", 0, { device, name: "chan_b" }),
+      ],
+      "ai0",
+      "conflict",
+      true,
+      "ai0 and ai8 are used by chan_b and chan_a",
+    ],
+    [
+      "mark a port two channels hold as a conflict",
+      (device) => [
+        createChannel("ai_voltage", 9, {
+          device,
+          terminalConfig: "RSE",
+          name: "chan_a",
+        }),
+        createChannel("ai_voltage", 9, {
+          device,
+          terminalConfig: "RSE",
+          name: "chan_b",
+        }),
+      ],
+      "ai9",
+      "conflict",
+      false,
+      "ai9 is used by chan_a and chan_b",
+    ],
+  ])("should %s", async (_, channels, name, state, paired, tooltip) => {
+    const dev = await createDevice();
+    await renderWith(channels(dev.key));
+    const target = cell(await openPorts(dev), name);
+    expect(target.className).toContain(`console-port-grid__cell--${state}`);
+    expect(target.className.includes("console-port-grid__cell--paired")).toBe(paired);
+    fireEvent.pointerOver(target, { pointerType: "mouse" });
+    expect(await screen.findByText(tooltip)).toBeTruthy();
+  });
+
+  it("should add a channel on the next port whose negative input is free", async () => {
+    const dev = await createDevice();
+    const { container, draft } = await renderWith([
+      createChannel("ai_voltage", 0, { device: dev.key }),
+      createChannel("ai_voltage", 9, { device: dev.key }),
+    ]);
+    await screen.findByText("Ports");
+    fireEvent.click(getIconButton(container, "add"));
+    await waitFor(async () => expect(await savedPorts(draft.key)).toEqual([0, 9, 2]));
+  });
+
+  it("should add a channel past the device's ports once each pair holds one", async () => {
+    const dev = await createDevice();
+    const { container, draft } = await renderWith(
+      Array.from({ length: 8 }, (_, port) =>
+        createChannel("ai_voltage", port, { device: dev.key }),
+      ),
+    );
+    await screen.findByText("Ports");
+    fireEvent.click(getIconButton(container, "add"));
+    await waitFor(async () =>
+      expect(await savedPorts(draft.key)).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 16]),
+    );
+  });
+
+  it("should add a channel on the lowest free port of the selected channel's device", async () => {
+    const devA = await createNIDevice(client);
+    const devB = await createNIDevice(client);
+    const { container, draft } = await renderWith([
+      createChannel("ai_voltage", 0, { device: devA.key }),
+      createChannel("ai_voltage", 1, { device: devA.key }),
+      createChannel("ai_voltage", 0, { device: devB.key, name: "chan_b" }),
+    ]);
+    fireEvent.click(await findChannelListItem("chan_b"));
+    fireEvent.click(getIconButton(container, "add"));
+    await waitFor(async () => {
+      const saved = await client.tasks.retrieve({
+        key: draft.key,
+        schemas: NI.Task.ANALOG_READ_SCHEMAS,
+      });
+      expect(
+        saved.config.channels.map((c) => [c.device, "port" in c ? c.port : null]),
+      ).toEqual([
+        [devA.key, 0],
+        [devA.key, 1],
+        [devB.key, 0],
+        [devB.key, 1],
+      ]);
+    });
+  });
+
   it("should set the channel's port from a click on the grid", async () => {
     const dev = await createDevice();
     const { draft } = await renderWith([
@@ -509,6 +751,28 @@ describe("AnalogRead ports", () => {
     ).toBeTruthy();
   });
 
+  it("should resolve Default for a current channel on a port that takes only current", async () => {
+    const hardware = createHardware();
+    hardware.analogInputs[0] = {
+      ...hardware.analogInputs[0],
+      terminalConfigs: ["RSE", "Diff"],
+      defaultTerminalConfig: "Diff",
+      types: ["ai_current"],
+    };
+    const dev = await createNIDevice(client, { properties: { hardware } });
+    await renderWith([
+      createChannel("ai_current", 0, { device: dev.key }),
+      createChannel("ai_voltage", 8, { device: dev.key }),
+    ]);
+    expect(await findDialogTriggerByText("Default (Differential)")).toBeTruthy();
+    expect(
+      await screen.findByText("Another channel uses ai8, its negative input"),
+    ).toBeTruthy();
+    expect(document.querySelector(".console-port-badge")?.className).toContain(
+      "console-port-badge--conflict",
+    );
+  });
+
   it("should add a channel on a free port from the ports view", async () => {
     const dev = await createDevice();
     const { draft } = await renderWith([
@@ -518,6 +782,22 @@ describe("AnalogRead ports", () => {
     const grid = await screen.findByRole("group", { name: `${dev.name} ports` });
     fireEvent.click(cell(grid, "ai3"));
     await waitFor(async () => expect(await savedPorts(draft.key)).toEqual([0, 3]));
+    expect(cell(grid, "ai3").getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("should add a channel on the clicked port when the first channel has no port", async () => {
+    const dev = await createDevice();
+    const { draft } = await renderWith([
+      {
+        ...NI.Task.createAIChannel("ai_temp_builtin"),
+        key: id.create(),
+        device: dev.key,
+      },
+    ]);
+    fireEvent.click(await screen.findByText("Ports"));
+    const grid = await screen.findByRole("group", { name: `${dev.name} ports` });
+    fireEvent.click(cell(grid, "ai3"));
+    await waitFor(async () => expect(await savedPorts(draft.key)).toEqual([null, 3]));
     expect(cell(grid, "ai3").getAttribute("aria-pressed")).toBe("true");
   });
 
@@ -543,6 +823,134 @@ describe("AnalogRead ports", () => {
     await renderWith([createChannel("ai_voltage", 0, { device: dev.key })]);
     await screen.findByText("Terminal configuration");
     expect(screen.queryByText("Ports")).toBeNull();
+  });
+});
+
+describe("AnalogRead disabled channels", () => {
+  const createDevice = async () =>
+    await createNIDevice(client, { properties: { hardware: createHardware() } });
+
+  const renderWith = async (channels: NI.Task.AIChannel[]) =>
+    await renderAnalogRead({
+      ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
+      channels,
+    });
+
+  const openPorts = async (dev: NI.Device.Device) => {
+    fireEvent.click(await screen.findByText("Ports"));
+    return await screen.findByRole("group", { name: `${dev.name} ports` });
+  };
+
+  it("should show a port a disabled channel holds as used and disabled", async () => {
+    const dev = await createDevice();
+    await renderWith([
+      createChannel("ai_voltage", 3, {
+        device: dev.key,
+        disabled: true,
+        name: "chan_off",
+      }),
+    ]);
+    const badge = await waitFor(() => {
+      const b = document.querySelector(".console-port-badge");
+      assert(b != null);
+      return b;
+    });
+    expect(badge.className).toContain("console-port-badge--disabled");
+    const port = within(await openPorts(dev)).getByRole("button", { name: "ai3" });
+    expect(port.className).toContain("console-port-grid__cell--used");
+    expect(port.className).toContain("console-port-grid__cell--disabled");
+    fireEvent.contextMenu(port);
+    expect(await screen.findByText("Enable")).toBeTruthy();
+  });
+
+  it("should show no conflict for a port a disabled channel shares until it is enabled", async () => {
+    const dev = await createDevice();
+    await renderWith([
+      createChannel("ai_voltage", 0, {
+        device: dev.key,
+        disabled: true,
+        name: "chan_off",
+      }),
+      createChannel("ai_voltage", 0, { device: dev.key, name: "chan_on" }),
+    ]);
+    const grid = await openPorts(dev);
+    const port = within(grid).getByRole("button", { name: "ai0" });
+    expect(port.className).toContain("console-port-grid__cell--used");
+    expect(port.className).not.toContain("console-port-grid__cell--conflict");
+    expect(port.className).not.toContain("console-port-grid__cell--disabled");
+    fireEvent.click(screen.getByText("List"));
+    expect(screen.queryByText("Another channel uses ai0")).toBeNull();
+    fireEvent.click(
+      within(await findChannelListItem("chan_off")).getByLabelText("Enabled"),
+    );
+    expect(await screen.findByText("Another channel uses ai0")).toBeTruthy();
+  });
+
+  it("should deploy and redeploy a disabled channel on a port another channel uses", async () => {
+    const dev = await createNIDevice(client);
+    const first = await renderWith([
+      createChannel("ai_voltage", 0, { device: dev.key, disabled: true }),
+      createChannel("ai_voltage", 0, { device: dev.key }),
+    ]);
+    const { config } = await deployAndAwaitTask(
+      client,
+      first.container,
+      first.draft.key,
+      NI.Task.ANALOG_READ_SCHEMAS,
+    );
+    expect(config.channels[1].channel).toBe(config.channels[0].channel);
+    first.unmount();
+    const second = await renderAnalogRead(config);
+    await deployAndAwaitTask(client, second.container, second.draft.key);
+  });
+
+  it("should name a new shared data channel after its enabled channel", async () => {
+    const dev = await createNIDevice(client);
+    const enabled = uniqueName("chan_on");
+    const { container, draft } = await renderWith([
+      createChannel("ai_voltage", 0, {
+        device: dev.key,
+        disabled: true,
+        name: uniqueName("chan_off"),
+      }),
+      createChannel("ai_voltage", 0, { device: dev.key, name: enabled }),
+    ]);
+    const { config } = await deployAndAwaitTask(
+      client,
+      container,
+      draft.key,
+      NI.Task.ANALOG_READ_SCHEMAS,
+    );
+    const created = await client.channels.retrieve(config.channels[0].channel);
+    expect(created.name).toBe(enabled);
+  });
+
+  it("should deploy a disabled channel on a port the device does not have", async () => {
+    const dev = await createDevice();
+    const { container, draft } = await renderWith([
+      createChannel("ai_voltage", 0, { device: dev.key }),
+      createChannel("ai_voltage", 20, { device: dev.key, disabled: true }),
+    ]);
+    await screen.findByText("Ports");
+    await deployAndAwaitTask(client, container, draft.key);
+  });
+
+  it("should add a channel on the next port past one a disabled channel holds", async () => {
+    const dev = await createDevice();
+    const { container, draft } = await renderWith([
+      createChannel("ai_voltage", 0, { device: dev.key, disabled: true }),
+    ]);
+    await screen.findByText("Ports");
+    fireEvent.click(getIconButton(container, "add"));
+    await waitFor(async () => {
+      const saved = await client.tasks.retrieve({
+        key: draft.key,
+        schemas: NI.Task.ANALOG_READ_SCHEMAS,
+      });
+      expect(saved.config.channels.map((c) => ("port" in c ? c.port : null))).toEqual([
+        0, 1,
+      ]);
+    });
   });
 });
 

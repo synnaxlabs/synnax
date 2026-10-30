@@ -21,7 +21,7 @@ import { counterReadHardwareZ } from "@/feature/ni/task/checks";
 import { CIChannelForm } from "@/feature/ni/task/CIChannelForm";
 import { createNextCIChannel } from "@/feature/ni/task/createChannel";
 import { DetailsTitle as Title } from "@/feature/ni/task/DetailsTitle";
-import { COUNTER_INPUT, holdState } from "@/feature/ni/task/ports";
+import { COUNTER_INPUT, enabledFirst, holdState } from "@/feature/ni/task/ports";
 import { PortsView } from "@/feature/ni/task/PortsView";
 import {
   CI_CHANNEL_TYPE_ICONS,
@@ -95,7 +95,11 @@ const DetailsTitle = ({ path }: Task.Views.DetailsProps) => {
   const claims = COUNTER_INPUT.claims(channels, value.device, undefined);
   return (
     <Title
-      port={{ label: String(value.port), state: holdState(claims, [value.port]) }}
+      port={{
+        label: String(value.port),
+        state: holdState(claims, [value.port]),
+        disabled: value.disabled,
+      }}
       type={{ icon: <Icon />, name: CI_CHANNEL_TYPE_NAMES[value.type] }}
       channel={value.channel}
       namePath={`${path}.name`}
@@ -210,8 +214,13 @@ const onConfigure: Task.OnConfigure<typeof counterReadConfigZ> = async (
 
       const deviceChannels = config.channels.filter((c) => c.device === dev.key);
       const toCreate: CIChannel[] = [];
-      for (const channel of deviceChannels) {
-        const exKey = dev.properties.counterInput.channels[channel.port.toString()];
+      // Channels on one port share its data channel, named by an enabled one if any.
+      const seen = new Set<string>();
+      for (const channel of enabledFirst(deviceChannels)) {
+        const key = channel.port.toString();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const exKey = dev.properties.counterInput.channels[key];
         if (primitive.isZero(exKey)) toCreate.push(channel);
         else
           try {

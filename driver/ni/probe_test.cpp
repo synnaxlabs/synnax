@@ -17,6 +17,7 @@
 
 #include "gtest/gtest.h"
 
+#include "client/cpp/ni/json.gen.h"
 #include "x/cpp/testutil/testutil.h"
 
 #include "driver/ni/daqmx/mock.h"
@@ -74,7 +75,7 @@ public:
         channel_arrays;
     /// @brief what DAQmx_AI_TermCfg reads back on a channel made with Cfg_Default.
     int32 default_terminal_config = DAQmx_Val_Diff;
-    /// @brief the status that CreateAIVoltageChan returns.
+    /// @brief the status that CreateAIVoltageChan and CreateAICurrentChan return.
     int32 create_channel_status = 0;
     /// @brief the statuses of device attributes that fail with an error.
     std::unordered_map<int32, int32> failures;
@@ -162,6 +163,33 @@ public:
             minVal,
             maxVal,
             units,
+            customScaleName
+        );
+        return this->create_channel_status;
+    }
+
+    int32 CreateAICurrentChan(
+        TaskHandle task,
+        const char physicalChannel[],
+        const char nameToAssignToChannel[],
+        const int32 terminalConfig,
+        const float64 minVal,
+        const float64 maxVal,
+        const int32 units,
+        const int32 shuntResistorLoc,
+        const float64 extShuntResistorVal,
+        const char customScaleName[]
+    ) override {
+        MockAPI::CreateAICurrentChan(
+            task,
+            physicalChannel,
+            nameToAssignToChannel,
+            terminalConfig,
+            minVal,
+            maxVal,
+            units,
+            shuntResistorLoc,
+            extShuntResistorVal,
             customScaleName
         );
         return this->create_channel_status;
@@ -326,26 +354,83 @@ TEST(ProbeTest, testLeavesDefaultAbsentWhenReadbackFails) {
     ASSERT_EQ(hw.analog_inputs.size(), 1);
     EXPECT_EQ(hw.analog_inputs[0].default_terminal_config, std::nullopt);
     EXPECT_EQ(api->calls_to("ClearTask").size(), 1);
+    EXPECT_FALSE(is_complete(hw));
+}
+
+/// @brief it should read back the default through a current channel on the narrowest
+/// current range when the port takes no voltage channel.
+TEST(ProbeTest, testReadsBackDefaultThroughCurrentChannel) {
+    auto api = std::make_shared<FakeAPI>();
+    api->double_arrays[DAQmx_Dev_AI_CurrentRngs] = {-0.02, 0.02, -0.01, 0.01};
+    api->add_analog_inputs(1, RSE_DIFF, {DAQmx_Val_Current});
+    api->default_terminal_config = DAQmx_Val_RSE;
+    const auto hw = probe_api(api);
+    ASSERT_EQ(hw.analog_inputs.size(), 1);
+    EXPECT_EQ(hw.analog_inputs[0].default_terminal_config, "RSE");
+    EXPECT_TRUE(is_complete(hw));
+    EXPECT_TRUE(api->calls_to("CreateAIVoltageChan").empty());
+    const auto chans = api->calls_to("CreateAICurrentChan");
+    ASSERT_EQ(chans.size(), 1);
+    EXPECT_EQ(chans[0]["args"]["physicalChannel"], "Dev1/ai0");
+    EXPECT_EQ(chans[0]["args"]["terminalConfig"], DAQmx_Val_Cfg_Default);
+    EXPECT_EQ(chans[0]["args"]["minVal"], -0.01);
+    EXPECT_EQ(chans[0]["args"]["maxVal"], 0.01);
+    EXPECT_EQ(chans[0]["args"]["units"], DAQmx_Val_Amps);
+    EXPECT_EQ(chans[0]["args"]["shuntResistorLoc"], DAQmx_Val_Default);
+    EXPECT_EQ(api->calls_to("ClearTask").size(), 1);
+    EXPECT_TRUE(api->calls_to("StartTask").empty());
+}
+
+/// @brief it should leave the absent values of the hardware out of its JSON, so that
+/// the JSON parses back to the same hardware.
+TEST(ProbeTest, testLeavesAbsentValuesOutOfJSON) {
+    auto api = std::make_shared<FakeAPI>();
+    api->add_analog_inputs(1, RSE_NRSE_DIFF, {DAQmx_Val_Voltage});
+    api->create_channel_status = DAQmxErrorInvalidDeviceID;
+    const auto j = probe_api(api).to_json();
+    EXPECT_FALSE(j.contains("ai_min_rate"));
+    EXPECT_FALSE(j.contains("ao_max_rate"));
+    ASSERT_EQ(j["analog_inputs"].size(), 1);
+    EXPECT_FALSE(j["analog_inputs"][0].contains("default_terminal_config"));
+    EXPECT_FALSE(j["analog_inputs"][0].contains("negative"));
+    EXPECT_EQ(::synnax::ni::Hardware::parse(x::json::Parser(j)).to_json(), j);
 }
 
 /// @brief it should take the one terminal configuration of a port as its default
-/// without a task.
+/// without a task, whatever channels the port takes.
 TEST(ProbeTest, testTakesOnlyTerminalConfigAsDefault) {
+    for (const auto type: {DAQmx_Val_Voltage, DAQmx_Val_Current, DAQmx_Val_Bridge}) {
+        auto api = std::make_shared<FakeAPI>();
+        api->add_analog_inputs(1, DAQmx_Val_Bit_TermCfg_Diff, {type});
+        const auto hw = probe_api(api);
+        ASSERT_EQ(hw.analog_inputs.size(), 1);
+        EXPECT_EQ(hw.analog_inputs[0].default_terminal_config, "Diff") << type;
+        EXPECT_TRUE(api->calls_to("CreateTask").empty()) << type;
+    }
+}
+
+/// @brief it should leave the default absent on a port that accepts no terminal
+/// configuration.
+TEST(ProbeTest, testNoDefaultWithoutTerminalConfigs) {
     auto api = std::make_shared<FakeAPI>();
-    api->add_analog_inputs(1, DAQmx_Val_Bit_TermCfg_Diff, {DAQmx_Val_Voltage});
+    api->add_analog_inputs(1, 0, {DAQmx_Val_Voltage});
     const auto hw = probe_api(api);
     ASSERT_EQ(hw.analog_inputs.size(), 1);
-    EXPECT_EQ(hw.analog_inputs[0].default_terminal_config, "Diff");
+    EXPECT_EQ(hw.analog_inputs[0].default_terminal_config, std::nullopt);
+    EXPECT_TRUE(is_complete(hw));
     EXPECT_TRUE(api->calls_to("CreateTask").empty());
 }
 
-/// @brief it should leave the default absent on a port that takes no voltage channel.
-TEST(ProbeTest, testNoDefaultWithoutVoltage) {
+/// @brief it should leave the default absent, and the hardware complete, on a port that
+/// accepts more than one terminal configuration and takes no voltage or current
+/// channel.
+TEST(ProbeTest, testNoDefaultWithoutVoltageOrCurrent) {
     auto api = std::make_shared<FakeAPI>();
     api->add_analog_inputs(1, RSE_DIFF, {DAQmx_Val_Bridge});
     const auto hw = probe_api(api);
     ASSERT_EQ(hw.analog_inputs.size(), 1);
     EXPECT_EQ(hw.analog_inputs[0].default_terminal_config, std::nullopt);
+    EXPECT_TRUE(is_complete(hw));
     EXPECT_TRUE(api->calls_to("CreateTask").empty());
 }
 

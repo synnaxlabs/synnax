@@ -631,7 +631,8 @@ struct AnalogInputPort {
     /// @brief terminal_configs are the terminal configurations that the port accepts.
     std::vector<std::string> terminal_configs = {};
     /// @brief default_terminal_config is the terminal configuration that Cfg_Default
-    /// gives on the port. Absent when the port takes no voltage channel.
+    /// gives on the port. Absent when the port accepts none, or accepts more than one
+    /// and takes no voltage or current channel.
     std::optional<std::string> default_terminal_config;
     /// @brief types are the channel types that the port accepts, such as ai_voltage.
     std::vector<std::string> types = {};

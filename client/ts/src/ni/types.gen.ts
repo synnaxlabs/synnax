@@ -472,7 +472,8 @@ export const analogInputPortZ = z.object({
   terminalConfigs: terminalConfigZ.array().default(() => []),
   /**
    * defaultTerminalConfig is the terminal configuration that Cfg_Default gives on the
-   * port. Absent when the port takes no voltage channel.
+   * port. Absent when the port accepts none, or accepts more than one and takes no
+   * voltage or current channel.
    */
   defaultTerminalConfig: terminalConfigZ.optional(),
   /** types are the channel types that the port accepts, such as ai_voltage. */

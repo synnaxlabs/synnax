@@ -26,6 +26,7 @@ import {
   ANALOG_INPUT,
   analogInputClaims,
   analogInputHolds,
+  enabledFirst,
   holdState,
 } from "@/feature/ni/task/ports";
 import { PortsView } from "@/feature/ni/task/PortsView";
@@ -114,6 +115,7 @@ const DetailsTitle = ({ path }: Task.Views.DetailsProps) => {
           : {
               label: String(port),
               state: holdState(claims, analogInputHolds(value, hardware)),
+              disabled: value.disabled,
             }
       }
       type={{ icon: <Icon />, name: AI_CHANNEL_TYPE_NAMES[value.type] }}
@@ -155,7 +157,13 @@ const Form: FC = () => {
             devices={devices}
             deviceOf={deviceOf}
             create={(channels, device, port) =>
-              createNextAIChannel(channels, { device, port }, devices)
+              // A channel on a port never copies one with no port, such as the built-in
+              // sensor.
+              createNextAIChannel(
+                channels.filter((c) => "port" in c),
+                { device, port },
+                devices,
+              )
             }
             rack={devices[0].rack}
           />
@@ -234,10 +242,14 @@ const onConfigure: Task.OnConfigure<typeof analogReadConfigZ> = async (
         dev.properties.analogInput.channels = {};
       }
       const toCreate: AIChannel[] = [];
-      for (const channel of config.channels) {
+      // Channels on one port share its data channel, named by an enabled one if any.
+      const seen = new Set<string>();
+      for (const channel of enabledFirst(config.channels)) {
         if (channel.device !== dev.key) continue;
-        const exKey =
-          dev.properties.analogInput.channels[getAIChannelDeviceKey(channel)];
+        const key = getAIChannelDeviceKey(channel);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const exKey = dev.properties.analogInput.channels[key];
         if (primitive.isZero(exKey)) toCreate.push(channel);
         else
           try {

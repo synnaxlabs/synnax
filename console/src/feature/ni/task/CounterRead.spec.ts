@@ -27,7 +27,7 @@ import {
   findChannelListItem,
   selectFromDropdown,
 } from "@/platform/task/testutil";
-import { findDialogTriggerByText, uniqueName } from "@/testutil";
+import { findDialogTriggerByText, getIconButton, uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
@@ -272,6 +272,44 @@ describe("CounterRead ports", () => {
     expect(screen.queryByText("PFI4")).toBeNull();
   });
 
+  it("should mark a counter the device does not have", async () => {
+    const dev = await createNIDevice(client, {
+      properties: { hardware: createHardware() },
+    });
+    await renderCounterRead(
+      createConfig([createChannel("ci_frequency", 4, { device: dev.key })]),
+    );
+    expect(await screen.findByText("The device has no counter ctr4")).toBeTruthy();
+  });
+
+  it("should add a channel on the lowest free counter of the selected channel's device", async () => {
+    const devA = await createNIDevice(client, {
+      properties: { hardware: createHardware() },
+    });
+    const devB = await createNIDevice(client);
+    const { container, draft } = await renderCounterRead(
+      createConfig([
+        createChannel("ci_frequency", 0, { device: devA.key }),
+        createChannel("ci_frequency", 0, { device: devB.key }),
+        createChannel("ci_frequency", 1, { device: devB.key }),
+      ]),
+    );
+    await screen.findByText("Ports");
+    fireEvent.click(getIconButton(container, "add"));
+    await waitFor(async () => {
+      const saved = await client.tasks.retrieve({
+        key: draft.key,
+        schemas: NI.Task.COUNTER_READ_SCHEMAS,
+      });
+      expect(saved.config.channels.map(({ device, port }) => [device, port])).toEqual([
+        [devA.key, 0],
+        [devB.key, 0],
+        [devB.key, 1],
+        [devA.key, 1],
+      ]);
+    });
+  });
+
   it("should list PFI0 to PFI15 for a device with no port list", async () => {
     const dev = await createNIDevice(client);
     await renderCounterRead(
@@ -290,5 +328,27 @@ describe("CounterRead channel names", () => {
     );
     const item = await findChannelListItem(`${dev.properties.identifier}_ctr_1`);
     expect(within(item).queryByText("No channel")).toBeNull();
+  });
+});
+
+describe("CounterRead disabled channels", () => {
+  it("should deploy and redeploy a disabled channel on a counter another channel uses", async () => {
+    const dev = await createNIDevice(client);
+    const first = await renderCounterRead(
+      createConfig([
+        createChannel("ci_frequency", 0, { device: dev.key, disabled: true }),
+        createChannel("ci_frequency", 0, { device: dev.key }),
+      ]),
+    );
+    const { config } = await deployAndAwaitTask(
+      client,
+      first.container,
+      first.draft.key,
+      NI.Task.COUNTER_READ_SCHEMAS,
+    );
+    expect(config.channels[1].channel).toBe(config.channels[0].channel);
+    first.unmount();
+    const second = await renderCounterRead(config);
+    await deployAndAwaitTask(client, second.container, second.draft.key);
   });
 });

@@ -25,6 +25,7 @@ import { DetailsTitle as Title } from "@/feature/ni/task/DetailsTitle";
 import {
   ANALOG_OUTPUT,
   analogOutputStateName,
+  enabledFirst,
   holdState,
   portClaims,
 } from "@/feature/ni/task/ports";
@@ -99,6 +100,7 @@ const DetailsTitle = ({ path }: Task.Views.DetailsProps) => {
       port={{
         label: String(value.port),
         state: holdState(portClaims(channels), [value.port]),
+        disabled: value.disabled,
       }}
       type={{ icon: <Icon />, name: AO_CHANNEL_TYPE_NAMES[value.type] }}
       channel={value.cmdChannel}
@@ -189,8 +191,13 @@ const onConfigure: Task.OnConfigure<typeof analogWriteConfigZ> = async (
     }
     const commandsToCreate: AOChannel[] = [];
     const statesToCreate: AOChannel[] = [];
-    for (const channel of config.channels) {
-      const exPair = dev.properties.analogOutput.channels[channel.port.toString()];
+    // Channels on one port share its data channel, named by an enabled one if any.
+    const seen = new Set<string>();
+    for (const channel of enabledFirst(config.channels)) {
+      const key = channel.port.toString();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const exPair = dev.properties.analogOutput.channels[key];
       if (exPair == null) {
         commandsToCreate.push(channel);
         statesToCreate.push(channel);

@@ -22,6 +22,16 @@
         var(--pluto-primary-z) 58%,
         var(--pluto-gray-l1)
     );
+    --console-port-disabled: color-mix(
+        in oklch,
+        var(--pluto-primary-z) 16%,
+        var(--pluto-gray-l1)
+    );
+    --console-port-disabled-hover: color-mix(
+        in oklch,
+        var(--pluto-primary-z) 26%,
+        var(--pluto-gray-l1)
+    );
     --console-port-conflict: color-mix(
         in srgb,
         var(--pluto-error-z) 15%,
@@ -109,6 +119,20 @@
 
 .console-port-grid__cell--selected {
     box-shadow: var(--pluto-selected-ring);
+}
+
+/* A port that only disabled channels hold: the used fill, dimmed like the list item. */
+.console-port-grid__cell--disabled:not(.console-port-grid__cell--conflict),
+.console-port-badge--disabled:not(.console-port-badge--conflict) {
+    background: var(--console-port-disabled);
+    color: var(--pluto-text-disabled);
+}
+
+.console-port-grid__cell--disabled:not(.console-port-grid__cell--conflict) {
+    &:hover,
+    &[data-context-menu-open] {
+        background: var(--console-port-disabled-hover);
+    }
 }
 
 .console-port-badge {

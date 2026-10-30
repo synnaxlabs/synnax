@@ -12,10 +12,12 @@
 #include <cstdint>
 #include <cstring>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
+#include "absl/base/log_severity.h"
 #include "absl/log/globals.h"
 #include "absl/log/log_entry.h"
 #include "absl/log/log_sink.h"
@@ -234,11 +236,20 @@ loaded(const std::shared_ptr<daqmx::API> &api) {
     });
 }
 
-/// @brief enables VLOG(1) and captures the text of every VLOG(1) line while in scope.
+/// @brief enables VLOG(1) and captures the text of every VLOG(1) and warning line while
+/// in scope.
 class CaptureSink final : public absl::LogSink {
     int prev_vlog_level;
     std::mutex mu;
     std::vector<std::string> lines;
+    std::vector<std::string> warning_lines;
+
+    [[nodiscard]] static std::size_t
+    count_in(const std::vector<std::string> &lines, const std::string &substr) {
+        return std::ranges::count_if(lines, [&](const std::string &line) {
+            return line.contains(substr);
+        });
+    }
 
 public:
     CaptureSink(): prev_vlog_level(absl::SetGlobalVLogLevel(1)) {
@@ -251,16 +262,23 @@ public:
     }
 
     void Send(const absl::LogEntry &entry) override {
-        if (entry.verbosity() != 1) return;
         std::lock_guard lock(this->mu);
-        this->lines.emplace_back(entry.text_message());
+        if (entry.verbosity() == 1)
+            this->lines.emplace_back(entry.text_message());
+        else if (entry.log_severity() == absl::LogSeverity::kWarning)
+            this->warning_lines.emplace_back(entry.text_message());
     }
 
+    /// @brief returns how many VLOG(1) lines contain substr.
     [[nodiscard]] std::size_t count(const std::string &substr) {
         std::lock_guard lock(this->mu);
-        return std::ranges::count_if(this->lines, [&](const std::string &line) {
-            return line.contains(substr);
-        });
+        return count_in(this->lines, substr);
+    }
+
+    /// @brief returns how many warning lines contain substr.
+    [[nodiscard]] std::size_t warnings(const std::string &substr) {
+        std::lock_guard lock(this->mu);
+        return count_in(this->warning_lines, substr);
     }
 };
 
@@ -370,6 +388,11 @@ TEST(ScannerTest, testIgnoresSavedPatterns) {
 class FlakyAPI final : public daqmx::MockAPI {
 public:
     bool failing = false;
+    /// @brief whether the device has the voltage port Dev1/ai0, which accepts RSE and
+    /// Diff.
+    bool has_analog_input = false;
+    /// @brief whether reading back the default terminal configuration fails.
+    bool readback_failing = false;
 
     int32 GetDeviceAttributeInt32(
         const char name[],
@@ -378,6 +401,78 @@ public:
     ) override {
         MockAPI::GetDeviceAttributeInt32(name, attr, value);
         return this->failing ? DAQmxErrorInvalidDeviceID : 0;
+    }
+
+    int32 GetDeviceAttributeString(
+        const char name[],
+        const int32 attr,
+        char value[],
+        const uInt32 size
+    ) override {
+        if (!this->has_analog_input || attr != DAQmx_Dev_AI_PhysicalChans)
+            return MockAPI::GetDeviceAttributeString(name, attr, value, size);
+        const std::string port = "Dev1/ai0";
+        if (size == 0) return static_cast<int32>(port.size() + 1);
+        std::strncpy(value, port.c_str(), size);
+        return 0;
+    }
+
+    int32 GetPhysicalChanAttributeInt32(
+        const char channel[],
+        const int32 attr,
+        int32 *value
+    ) override {
+        MockAPI::GetPhysicalChanAttributeInt32(channel, attr, value);
+        if (attr == DAQmx_PhysicalChan_AI_TermCfgs)
+            *value = DAQmx_Val_Bit_TermCfg_RSE | DAQmx_Val_Bit_TermCfg_Diff;
+        return 0;
+    }
+
+    int32 GetPhysicalChanAttributeInt32Array(
+        const char channel[],
+        const int32 attr,
+        int32 value[],
+        const uInt32 size
+    ) override {
+        MockAPI::GetPhysicalChanAttributeInt32Array(channel, attr, value, size);
+        if (attr != DAQmx_PhysicalChan_AI_SupportedMeasTypes) return 0;
+        if (size == 0) return 1;
+        value[0] = DAQmx_Val_Voltage;
+        return 0;
+    }
+
+    int32 CreateAIVoltageChan(
+        TaskHandle task,
+        const char physicalChannel[],
+        const char nameToAssignToChannel[],
+        const int32 terminalConfig,
+        const float64 minVal,
+        const float64 maxVal,
+        const int32 units,
+        const char customScaleName[]
+    ) override {
+        MockAPI::CreateAIVoltageChan(
+            task,
+            physicalChannel,
+            nameToAssignToChannel,
+            terminalConfig,
+            minVal,
+            maxVal,
+            units,
+            customScaleName
+        );
+        return this->readback_failing ? DAQmxErrorInvalidDeviceID : 0;
+    }
+
+    int32 GetChanAttributeInt32(
+        TaskHandle task,
+        const char channel[],
+        const int32 attr,
+        int32 *value
+    ) override {
+        MockAPI::GetChanAttributeInt32(task, channel, attr, value);
+        *value = DAQmx_Val_Diff;
+        return 0;
     }
 
     int32 GetExtendedErrorInfo(char errorString[], const uInt32 bufferSize) override {
@@ -436,6 +531,15 @@ struct HardwareScanner {
         return dev;
     }
 
+    /// @brief returns the hardware in the stored record of the device.
+    [[nodiscard]] ::synnax::ni::Hardware hardware() const {
+        return ::synnax::ni::Hardware::parse(
+            x::json::Parser(
+                x::json::json(this->stored.at("01A2B3C4").properties.at(HARDWARE_KEY))
+            )
+        );
+    }
+
 private:
     static ScanTaskConfig config() {
         auto p = x::json::Parser(x::json::json{{"disabled", false}});
@@ -480,6 +584,54 @@ TEST(ScannerTest, testRetriesFailedHardwareRead) {
     EXPECT_FALSE(failed.properties.contains(HARDWARE_KEY));
     s.dmx->failing = false;
     EXPECT_TRUE(s.scan().properties.contains(HARDWARE_KEY));
+    EXPECT_EQ(s.dmx->reads(), 2);
+}
+
+const std::string READBACK_WARNING = "failed to read the default terminal "
+                                     "configuration of some ports of Dev1";
+
+/// @brief it should store the rest of the hardware when the default of a port fails to
+/// read back, and warn about it.
+TEST(ScannerTest, testStoresIncompleteHardware) {
+    HardwareScanner s;
+    s.dmx->has_analog_input = true;
+    s.dmx->readback_failing = true;
+    CaptureSink sink;
+    EXPECT_TRUE(s.scan().properties.contains(HARDWARE_KEY));
+    const auto hw = s.hardware();
+    ASSERT_EQ(hw.analog_inputs.size(), 1);
+    EXPECT_EQ(
+        hw.analog_inputs[0].terminal_configs,
+        std::vector<std::string>({"RSE", "Diff"})
+    );
+    EXPECT_EQ(hw.analog_inputs[0].default_terminal_config, std::nullopt);
+    EXPECT_EQ(sink.warnings(READBACK_WARNING), 1);
+}
+
+/// @brief it should read incomplete hardware again on each scan, and warn only once.
+TEST(ScannerTest, testRetriesIncompleteHardware) {
+    HardwareScanner s;
+    s.dmx->has_analog_input = true;
+    s.dmx->readback_failing = true;
+    CaptureSink sink;
+    for (int i = 0; i < 3; i++)
+        s.scan();
+    EXPECT_EQ(s.dmx->reads(), 3);
+    EXPECT_EQ(sink.warnings(READBACK_WARNING), 1);
+    EXPECT_EQ(sink.count(READBACK_WARNING), 2);
+}
+
+/// @brief it should complete the stored hardware when a later read succeeds, then stop
+/// reading it.
+TEST(ScannerTest, testCompletesHardwareOnLaterRead) {
+    HardwareScanner s;
+    s.dmx->has_analog_input = true;
+    s.dmx->readback_failing = true;
+    s.scan();
+    s.dmx->readback_failing = false;
+    EXPECT_TRUE(s.scan().properties.contains(HARDWARE_KEY));
+    EXPECT_EQ(s.hardware().analog_inputs.at(0).default_terminal_config, "Diff");
+    EXPECT_FALSE(s.scan().properties.contains(HARDWARE_KEY));
     EXPECT_EQ(s.dmx->reads(), 2);
 }
 

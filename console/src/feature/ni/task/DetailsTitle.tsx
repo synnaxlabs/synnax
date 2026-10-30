@@ -16,7 +16,7 @@ import { Task } from "@/platform/task";
 
 export interface DetailsTitleProps {
   /** The channel's port and its state. Null for a channel type with no port. */
-  port: { label: string; state: Task.PortState } | null;
+  port: { label: string; state: Task.PortState; disabled: boolean } | null;
   type: { icon: JSX.Element; name: string };
   channel: channel.Key;
   namePath: string;
@@ -38,7 +38,9 @@ export const DetailsTitle = ({
   model,
 }: DetailsTitleProps): ReactElement => (
   <>
-    <Task.PortBadge state={port?.state ?? "free"}>{port?.label ?? "NA"}</Task.PortBadge>
+    <Task.PortBadge state={port?.state ?? "free"} disabled={port?.disabled}>
+      {port?.label ?? "NA"}
+    </Task.PortBadge>
     <Tooltip.Dialog>
       {type.name}
       <Text.Text level="p" color={9}>

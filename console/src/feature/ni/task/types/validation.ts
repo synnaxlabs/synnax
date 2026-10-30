@@ -23,11 +23,14 @@ export const createPortValidator =
   ({
     value: channels,
     issues,
-  }: z.core.ParsePayload<{ port?: number; device: device.Key }[]>) => {
+  }: z.core.ParsePayload<
+    { port?: number; device: device.Key; disabled: boolean }[]
+  >) => {
     const deviceToPortMap = new Map<device.Key, PortToIndexMap>();
-    channels.forEach(({ device, port }, i) => {
-      // A channel type with no port, such as a built-in sensor, cannot collide.
-      if (port == null) return;
+    channels.forEach(({ device, port, disabled }, i) => {
+      // A channel type with no port, such as a built-in sensor, cannot collide, and the
+      // Driver skips a disabled channel.
+      if (port == null || disabled) return;
       if (!deviceToPortMap.has(device)) deviceToPortMap.set(device, new Map());
       const portToIndexMap = deviceToPortMap.get(device) as PortToIndexMap;
       if (!portToIndexMap.has(port)) {

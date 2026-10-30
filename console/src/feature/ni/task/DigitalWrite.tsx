@@ -24,7 +24,7 @@ import {
   type DigitalNameComponentProps,
 } from "@/feature/ni/task/DigitalChannelList";
 import { getDigitalChannelDeviceKey } from "@/feature/ni/task/getDigitalChannelDeviceKey";
-import { digitalOutputName } from "@/feature/ni/task/ports";
+import { digitalOutputName, enabledFirst } from "@/feature/ni/task/ports";
 import { LinesView } from "@/feature/ni/task/PortsView";
 import {
   deployDigitalWriteConfigZ,
@@ -148,8 +148,12 @@ const onConfigure: Task.OnConfigure<typeof digitalWriteConfigZ> = async (
     }
     const commandsToCreate: DOChannel[] = [];
     const statesToCreate: DOChannel[] = [];
-    for (const channel of config.channels) {
+    // Channels on one port share its data channel, named by an enabled one if any.
+    const seen = new Set<string>();
+    for (const channel of enabledFirst(config.channels)) {
       const key = getDigitalChannelDeviceKey(channel);
+      if (seen.has(key)) continue;
+      seen.add(key);
       const exPair = dev.properties.digitalOutput.channels[key];
       if (exPair == null) {
         commandsToCreate.push(channel);

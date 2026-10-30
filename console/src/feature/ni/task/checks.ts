@@ -14,6 +14,7 @@ import { type Device } from "@/feature/ni/device/types";
 import {
   analogInputClaims,
   type Claims,
+  conflicts,
   digitalPorts,
   lineClaims,
   portClaims,
@@ -56,14 +57,15 @@ const reportConflicts = (
   report: Report,
 ): void =>
   claims.forEach((list, port) => {
-    if (list.length < 2) return;
+    if (!conflicts(list)) return;
     const name = `${prefix}${port}`;
-    list.forEach(({ channel, negative }) => {
+    const active = list.filter((c) => !c.disabled);
+    active.forEach(({ channel, negative }) => {
       const i = indexOf.get(channel);
       if (i == null) return;
       let message = `Another channel uses ${name}`;
       if (negative) message = `Another channel uses ${name}, its negative input`;
-      else if (list.some((c) => c.negative))
+      else if (active.some((c) => c.negative))
         message = `${name} is the negative input of another channel`;
       report(["channels", i, "port"], message);
     });
@@ -118,7 +120,7 @@ export const analogReadHardwareZ = (devices: Device[]): z.ZodType =>
     const { channels } = config;
     channels.forEach((c, i) => {
       const hardware = hardwareOf(devices, c.device);
-      if (hardware == null || !("port" in c)) return;
+      if (c.disabled || hardware == null || !("port" in c)) return;
       const name = `ai${c.port}`;
       const port = hardware.analogInputs.find((p) => p.port === c.port);
       if (port == null)
@@ -157,6 +159,7 @@ export const analogWriteHardwareZ = (device: Device | undefined): z.ZodType =>
     const hardware = device?.properties.hardware;
     if (hardware == null) return;
     channels.forEach((c, i) => {
+      if (c.disabled) return;
       const name = `ao${c.port}`;
       const port = hardware.analogOutputs.find((p) => p.port === c.port);
       if (port == null)
@@ -175,7 +178,7 @@ export const counterReadHardwareZ = (devices: Device[]): z.ZodType =>
   check<ni.CounterReadConfig>(({ channels }, report) => {
     channels.forEach((c, i) => {
       const hardware = hardwareOf(devices, c.device);
-      if (hardware == null) return;
+      if (c.disabled || hardware == null) return;
       const name = `ctr${c.port}`;
       const port = hardware.counterInputs.find((p) => p.port === c.port);
       if (port == null)
@@ -207,6 +210,7 @@ export const digitalHardwareZ = (
     if (hardware == null) return;
     const ports = digitalPorts(hardware, direction);
     channels.forEach((c, i) => {
+      if (c.disabled) return;
       const port = ports.find((p) => p.port === c.port);
       if (port == null)
         return report(
@@ -220,9 +224,10 @@ export const digitalHardwareZ = (
         );
     });
     const indexOf = indexes(channels);
-    lineClaims(channels).forEach((keys) => {
-      if (keys.length < 2) return;
-      keys.forEach((key) => {
+    lineClaims(channels).forEach((list) => {
+      if (!conflicts(list)) return;
+      list.forEach(({ channel: key, disabled }) => {
+        if (disabled) return;
         const i = indexOf.get(key) as number;
         const { port, line } = channels[i];
         report(["channels", i, "line"], `Another channel uses port${port}/line${line}`);

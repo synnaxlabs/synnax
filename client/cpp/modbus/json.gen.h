@@ -40,8 +40,8 @@ inline RegisterValue RegisterValue::parse(x::json::Parser parser) {
 inline x::json::json RegisterValue::to_json() const {
     x::json::json j;
     j["data_type"] = this->data_type;
-    j["bytes_swapped"] = this->bytes_swapped;
-    j["words_swapped"] = this->words_swapped;
+    if (this->bytes_swapped.has_value()) j["bytes_swapped"] = *this->bytes_swapped;
+    if (this->words_swapped.has_value()) j["words_swapped"] = *this->words_swapped;
     return j;
 }
 

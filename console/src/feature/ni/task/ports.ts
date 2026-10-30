@@ -36,10 +36,21 @@ export interface Port {
 export interface Claim {
   channel: string;
   negative: boolean;
+  /** The Driver skips a disabled channel, so its hold never conflicts. */
+  disabled: boolean;
 }
 
 /** The channels that hold each port of one device. */
 export type Claims = Map<number, Claim[]>;
+
+const enabled = (list: Claim[]): Claim[] => list.filter((c) => !c.disabled);
+
+/** Whether more than one enabled channel holds the port. */
+export const conflicts = (list: Claim[]): boolean => enabled(list).length > 1;
+
+/** The channels, enabled ones first, each group in its order. */
+export const enabledFirst = <C extends Task.Channel>(channels: C[]): C[] =>
+  channels.toSorted((a, b) => Number(a.disabled) - Number(b.disabled));
 
 const claim = (claims: Claims, port: number, c: Claim): void => {
   const list = claims.get(port);
@@ -51,7 +62,7 @@ const claim = (claims: Claims, port: number, c: Claim): void => {
  * The terminal configuration an analog input channel gets on its port, with "Default"
  * resolved to what the port gives. Null for a channel type that has none.
  */
-export const resolveTerminalConfig = (
+const resolveTerminalConfig = (
   channel: AIChannel,
   port?: ni.AnalogInputPort,
 ): TerminalConfig | null => {
@@ -83,17 +94,17 @@ export const analogInputClaims = (
   channels.forEach((c) => {
     if (c.device !== device) return;
     analogInputHolds(c, hardware).forEach((port, i) =>
-      claim(claims, port, { channel: c.key, negative: i > 0 }),
+      claim(claims, port, { channel: c.key, negative: i > 0, disabled: c.disabled }),
     );
   });
   return claims;
 };
 
 /** The channels on each port, for channel types that hold one port each. */
-export const portClaims = (channels: { key: string; port: number }[]): Claims => {
+export const portClaims = (channels: (Task.Channel & { port: number })[]): Claims => {
   const claims: Claims = new Map();
-  channels.forEach(({ key, port }) =>
-    claim(claims, port, { channel: key, negative: false }),
+  channels.forEach(({ key, port, disabled }) =>
+    claim(claims, port, { channel: key, negative: false, disabled }),
   );
   return claims;
 };
@@ -142,11 +153,14 @@ export const digitalPorts = (
 export const lineKey = (port: number, line: number): string => `${port}/${line}`;
 
 /** The channels on each line of a digital task. */
-export const lineClaims = (channels: DigitalChannel[]): Map<string, string[]> => {
-  const claims = new Map<string, string[]>();
-  channels.forEach(({ key, port, line }) => {
+export const lineClaims = (channels: DigitalChannel[]): Map<string, Claim[]> => {
+  const claims = new Map<string, Claim[]>();
+  channels.forEach(({ key, port, line, disabled }) => {
     const k = lineKey(port, line);
-    claims.set(k, [...(claims.get(k) ?? []), key]);
+    claims.set(k, [
+      ...(claims.get(k) ?? []),
+      { channel: key, negative: false, disabled },
+    ]);
   });
   return claims;
 };
@@ -168,8 +182,42 @@ const UNPAIRED_GROUP = 16;
 const PAIRED_GROUP = 8;
 
 const stateOf = (lists: Claim[][]): Task.PortState => {
-  if (lists.some((l) => l.length > 1)) return "conflict";
+  if (lists.some(conflicts)) return "conflict";
   return lists.some((l) => l.length > 0) ? "used" : "free";
+};
+
+// An enabled channel owns a cell before a disabled one, and a port before the negative
+// input of its pair.
+const rank = ({ disabled, negative }: Claim): number =>
+  Number(disabled) * 2 + Number(negative);
+
+export interface Hold {
+  state: Task.PortState;
+  /** Only disabled channels hold the cell. */
+  disabled: boolean;
+  /** The channel a click on the cell selects. */
+  channel?: string;
+  /** The channels on the cell, such as "chan_a and chan_b (disabled)". */
+  names: string;
+}
+
+/** How a cell shows the channels on its ports. */
+export const holdOf = (
+  lists: Claim[][],
+  describe: (channel: string) => string,
+): Hold => {
+  const all = lists.flat();
+  const unique = [...new Map(all.map((c) => [c.channel, c])).values()];
+  return {
+    state: stateOf(lists),
+    disabled: all.length > 0 && all.every((c) => c.disabled),
+    channel: all.toSorted((a, b) => rank(a) - rank(b))[0]?.channel,
+    names: unique
+      .map((c) =>
+        c.disabled ? `${describe(c.channel)} (disabled)` : describe(c.channel),
+      )
+      .join(" and "),
+  };
 };
 
 /**
@@ -185,17 +233,13 @@ export const groups = ({
   describe,
 }: GroupsProps): Task.PortGroup[] => {
   const name = (port: number) => `${prefix}${port}`;
-  const owner = (lists: Claim[][]): Claim | undefined => {
-    const all = lists.flat();
-    return all.find((c) => !c.negative) ?? all[0];
-  };
   const tooltip = (port: number, lists: Claim[][], negative?: number): string => {
     const all = lists.flat();
     if (all.length === 0) return `${name(port)} is free`;
-    const names = [...new Set(all.map((c) => c.channel))].map(describe).join(" and ");
+    const { names, state } = holdOf(lists, describe);
     if (negative != null) {
       const pair = `${name(port)} and ${name(negative)}`;
-      if (stateOf(lists) === "conflict") return `${pair} are used by ${names}`;
+      if (state === "conflict") return `${pair} are used by ${names}`;
       return `${pair}: ${names}`;
     }
     if (all.length > 1) return `${name(port)} is used by ${names}`;
@@ -210,7 +254,7 @@ export const groups = ({
     const lists = [claims.get(port) ?? []];
     if (negative != null) lists.push(claims.get(negative) ?? []);
     const paired = negative != null;
-    const own = owner(lists);
+    const { state, disabled, channel } = holdOf(lists, describe);
     return {
       key: String(port),
       name: name(port),
@@ -218,9 +262,10 @@ export const groups = ({
       row,
       column,
       paired,
-      state: stateOf(lists),
+      state,
+      disabled,
       selected: lists.flat().some((c) => selected.includes(c.channel)),
-      channel: own?.channel,
+      channel,
       tooltip: tooltip(port, lists, negative),
     };
   };
@@ -322,4 +367,4 @@ export const digitalOutputName = (c: DOChannel, d: Device): string =>
 
 /** The state of a channel's ports: in conflict when another channel holds one. */
 export const holdState = (claims: Claims, holds: number[]): Task.PortState =>
-  holds.some((h) => (claims.get(h)?.length ?? 0) > 1) ? "conflict" : "used";
+  holds.some((h) => conflicts(claims.get(h) ?? [])) ? "conflict" : "used";
