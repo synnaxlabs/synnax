@@ -245,7 +245,7 @@ func (t *writeTask) open(ctx context.Context) (err error) {
 		return errors.Wrap(err, "connecting to cluster")
 	}
 	streamer, err := t.factoryCfg.Framer.NewStreamer(
-		ctx, framer.StreamerConfig{Keys: t.keys},
+		ctx, framer.StreamerConfig{Keys: t.keys, SendOpenAck: true},
 	)
 	if err != nil {
 		return err
@@ -257,11 +257,7 @@ func (t *writeTask) open(ctx context.Context) (err error) {
 	sCtx, cancel := signal.Isolated(
 		signal.WithInstrumentation(t.factoryCfg.Instrumentation),
 	)
-	t.client = cl
-	t.sCtx = sCtx
-	t.lastErr = ""
-	t.closer = xio.MultiCloser{
-		xio.CloserFunc(t.closeClient),
+	shutdown := xio.MultiCloser{
 		signal.NewGracefulShutdown(sCtx, cancel),
 		xio.NoFailCloserFunc(requests.Close),
 	}
@@ -270,6 +266,23 @@ func (t *writeTask) open(ctx context.Context) (err error) {
 		confluence.CloseOutputInletsOnExit(),
 		confluence.RecoverWithErrOnPanic(),
 	)
+	// Start succeeds only once the relay streams the channels, so no early sample is
+	// missed.
+	select {
+	case <-ctx.Done():
+		return errors.Join(ctx.Err(), shutdown.Close())
+	case _, ok := <-responses.Outlet():
+		if !ok {
+			return errors.Join(
+				errors.New("streamer closed before opening"),
+				shutdown.Close(),
+			)
+		}
+	}
+	t.client = cl
+	t.sCtx = sCtx
+	t.lastErr = ""
+	t.closer = append(xio.MultiCloser{xio.CloserFunc(t.closeClient)}, shutdown...)
 	sCtx.Go(func(ctx context.Context) error {
 		for res := range responses.Outlet() {
 			t.produce(ctx, res.Frame)

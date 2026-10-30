@@ -57,8 +57,6 @@ var _ = Describe("Write task", func() {
 		Expect(stat.Variant).To(Equal(status.VariantSuccess))
 		Expect(stat.Details.Running).To(BeTrue())
 		Expect(stat.Details.Cmd).To(Equal("cmd-2"))
-		// The relay applies the task's streamer demands asynchronously.
-		time.Sleep(50 * time.Millisecond)
 		return dt, t
 	}
 
