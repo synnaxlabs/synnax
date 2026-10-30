@@ -22,7 +22,7 @@ import { type optional, primitive } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
-import { useIsPreview } from "@/platform/task/Form";
+import { useIsPreview } from "@/platform/task/useIsPreview";
 import { Session } from "@/session";
 
 export interface ChannelNameProps extends optional.Optional<

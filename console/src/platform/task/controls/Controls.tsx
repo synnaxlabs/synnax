@@ -16,8 +16,8 @@ import { type ReactElement } from "react";
 
 import { Framer } from "@/platform/framer";
 import { Bar } from "@/platform/task/controls/Bar";
-import { useIsPreview } from "@/platform/task/Form";
 import { useDrifted } from "@/platform/task/useDrifted";
+import { useIsPreview } from "@/platform/task/useIsPreview";
 import { useKey } from "@/platform/task/useKey";
 import { useStatus } from "@/platform/task/useStatus";
 

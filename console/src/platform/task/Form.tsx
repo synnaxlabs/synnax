@@ -83,14 +83,6 @@ export const useIsSnapshot = <Schema extends z.ZodType>(
   ctx?: PForm.ContextValue<Schema>,
 ) => PForm.useFieldValue<boolean>("snapshot", { ctx });
 
-/**
- * Whether the surrounding task form renders read-only: the task is a snapshot or the
- * subject holds no update grant. Edit affordances gate on this, not on useIsSnapshot.
- */
-export const useIsPreview = <Schema extends z.ZodType>(
-  ctx?: PForm.ContextValue<Schema>,
-) => PForm.useContext<Schema>(ctx).mode === "preview";
-
 interface HeaderProps {
   isSnapshot: boolean;
 }
