@@ -31,7 +31,7 @@ export const formatValue = (value: unknown): string => {
   }
 };
 
-const QUOTE_REGEX = /["\t,\n]/;
+const QUOTE_REGEX = /["\t,\n]|^\s|\s$/;
 
 const maybeEscapeField = (field: string): string => {
   if (!QUOTE_REGEX.test(field)) return field;
@@ -53,8 +53,8 @@ const delimiterOf = (data: string): string => {
  * Parses a headerless delimited block, the form a spreadsheet puts on the clipboard,
  * into rows of fields. The block splits on tabs when it holds one outside a quoted
  * field, otherwise on commas, so a spreadsheet's tab-delimited fields survive the
- * commas inside them. A quoted field keeps its delimiters and its newlines, and
- * doubled quotes unescape.
+ * commas inside them. A quoted field keeps its delimiters, its newlines, and its
+ * spaces, and doubled quotes unescape. Spaces outside the quotes of a field drop.
  * @returns One entry per row, each holding the row's fields. Ragged rows stay ragged;
  * rows holding nothing but empty fields are dropped.
  */
@@ -63,10 +63,26 @@ export const parseBlock = (data: string): string[][] => {
   const rows: string[][] = [];
   let fields: string[] = [];
   let field = "";
+  // Where the quoted part of field starts and ends, or -1 when it has none.
+  let quoteStart = -1;
+  let quoteEnd = -1;
   let quoted = false;
+  const addQuoted = (char: string) => {
+    if (quoteStart === -1) quoteStart = field.length;
+    field += char;
+    quoteEnd = field.length;
+  };
   const endField = () => {
-    fields.push(field.trim());
+    fields.push(
+      quoteStart === -1
+        ? field.trim()
+        : field.slice(0, quoteStart).trimStart() +
+            field.slice(quoteStart, quoteEnd) +
+            field.slice(quoteEnd).trimEnd(),
+    );
     field = "";
+    quoteStart = -1;
+    quoteEnd = -1;
   };
   const endRow = () => {
     endField();
@@ -76,10 +92,10 @@ export const parseBlock = (data: string): string[][] => {
   for (let i = 0; i < data.length; i++) {
     const char = data[i];
     if (quoted && char === '"' && data[i + 1] === '"') {
-      field += '"';
+      addQuoted('"');
       i++;
     } else if (char === '"') quoted = !quoted;
-    else if (quoted) field += char;
+    else if (quoted) addQuoted(char);
     else if (char === delimiter) endField();
     else if (char === "\n") endRow();
     else if (char !== "\r") field += char;

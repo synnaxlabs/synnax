@@ -164,6 +164,13 @@ describe("CSV", () => {
       expect(decodeRead(CSV.encode(channels, { indexed: true }))).toEqual(channels);
     });
 
+    it("should keep the spaces at the ends of a node ID", () => {
+      const channels = [
+        createReadChannel({ nodeId: "ns=2;s=Pump ", nodeName: "Pump " }),
+      ];
+      expect(decodeRead(CSV.encode(channels, { indexed: true }))).toEqual(channels);
+    });
+
     it("should keep commas and quotes inside quoted fields", () => {
       const [ch] = decodeRead(
         'name,node_id\n"flow, total","ns=2;s=Line ""A"", flow"\n',
