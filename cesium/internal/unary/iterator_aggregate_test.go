@@ -131,7 +131,7 @@ var _ = Describe("Aggregated Iteration", func() {
 					chunks []int64
 				)
 				for iter.Next(ctx, unary.AutoSpan) {
-					chunks = append(chunks, iter.Len())
+					chunks = append(chunks, iter.Value().Len())
 					series = append(series, iter.Value().SeriesSlice()...)
 				}
 				Expect(iter.Error()).ToNot(HaveOccurred())

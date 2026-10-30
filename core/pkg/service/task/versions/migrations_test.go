@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
 	gorptestutil "github.com/synnaxlabs/gorp/testutil"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -28,9 +28,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 var _ = Describe("Pre-v0.54 task key normalization", func() {
@@ -59,7 +59,7 @@ var _ = Describe("Pre-v0.54 task key normalization", func() {
 				DB:           db,
 				Ontology:     otg,
 				Group:        g,
-				HostProvider: mock.NewStaticHostProvider(1),
+				HostProvider: testutil.NewStaticHostProvider(1),
 				Status:       stat,
 			}))
 			testRack := &rack.Rack{Name: "Ancient Rack"}

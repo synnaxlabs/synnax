@@ -14,9 +14,10 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -48,7 +49,7 @@ var _ = Describe("Writer", func() {
 		)
 		BeforeAll(func(ctx SpecContext) {
 			ShouldNotLeakGoroutines()
-			limitSvc, _ = openService(ctx, mock.NewNode(ctx), channel.ServiceConfig{
+			limitSvc, _ = openService(ctx, testutil.NewNode(ctx), channel.ServiceConfig{
 				Limit: fixedLimit(2),
 			})
 			limitWriter = limitSvc.NewWriter(nil)
@@ -102,7 +103,7 @@ var _ = Describe("Writer", func() {
 			func(ctx SpecContext) {
 				cleanupSvc, _ := openService(
 					ctx,
-					mock.NewNode(ctx),
+					testutil.NewNode(ctx),
 					channel.ServiceConfig{
 						Limit: fixedLimit(3),
 					},
@@ -188,14 +189,14 @@ var _ = Describe("Writer", func() {
 
 	Describe("Create", Ordered, func() {
 		var (
-			dist          mock.Node
+			dist          testutil.Node
 			otg           *ontology.Ontology
 			svc           *channel.Service
 			channelWriter channel.Writer
 		)
 		BeforeAll(func(ctx SpecContext) {
 			ShouldNotLeakGoroutines()
-			dist = mock.NewNode(ctx)
+			dist = testutil.NewNode(ctx)
 			svc, otg = openService(ctx, dist)
 			channelWriter = svc.NewWriter(nil)
 		})
@@ -1041,7 +1042,7 @@ var _ = Describe("Writer", func() {
 				ShouldNotLeakGoroutines()
 				svc, _ = openService(
 					ctx,
-					mock.NewNode(ctx),
+					testutil.NewNode(ctx),
 					channel.ServiceConfig{ValidateNames: new(false)},
 				)
 				channelWriter = svc.NewWriter(nil)
@@ -1144,13 +1145,13 @@ var _ = Describe("Writer", func() {
 
 	Describe("Delete", Ordered, func() {
 		var (
-			dist          mock.Node
+			dist          testutil.Node
 			svc           *channel.Service
 			channelWriter channel.Writer
 		)
 		BeforeAll(func(ctx SpecContext) {
 			ShouldNotLeakGoroutines()
-			dist = mock.NewNode(ctx)
+			dist = testutil.NewNode(ctx)
 			svc, _ = openService(ctx, dist)
 			channelWriter = svc.NewWriter(nil)
 		})
@@ -1217,7 +1218,7 @@ var _ = Describe("Writer", func() {
 				"Should succeed when deleting a key that does not exist",
 				func(ctx SpecContext) {
 					Expect(
-						channelWriter.Delete(ctx, channel.NewKey(1, 40000), false),
+						channelWriter.Delete(ctx, distchannel.NewKey(1, 40000), false),
 					).To(Succeed())
 				},
 			)
@@ -1225,8 +1226,8 @@ var _ = Describe("Writer", func() {
 				"Should succeed when deleting multiple keys that do not exist",
 				func(ctx SpecContext) {
 					keys := channel.Keys{
-						channel.NewKey(1, 40001),
-						channel.NewKey(1, 40002),
+						distchannel.NewKey(1, 40001),
+						distchannel.NewKey(1, 40002),
 					}
 					Expect(channelWriter.DeleteMany(ctx, keys, false)).To(Succeed())
 				},
@@ -1317,7 +1318,7 @@ var _ = Describe("Writer", func() {
 		)
 		BeforeAll(func(ctx SpecContext) {
 			ShouldNotLeakGoroutines()
-			svc, _ = openService(ctx, mock.NewNode(ctx))
+			svc, _ = openService(ctx, testutil.NewNode(ctx))
 			channelWriter = svc.NewWriter(nil)
 		})
 		Context("Single channel", func() {
@@ -1410,12 +1411,12 @@ var _ = Describe("Writer", func() {
 	Describe("Limit", Ordered, func() {
 		var (
 			limit       = 5
-			dist        mock.Node
+			dist        testutil.Node
 			limitSvc    *channel.Service
 			limitWriter channel.Writer
 		)
 		BeforeEach(func(ctx SpecContext) {
-			dist = mock.NewNode(ctx)
+			dist = testutil.NewNode(ctx)
 			limitSvc, _ = openService(
 				ctx,
 				dist,
@@ -1564,7 +1565,7 @@ var _ = Describe("Writer", func() {
 
 				// The rejected create must not leave an orphaned storage channel behind
 				// at the key it would have been allocated.
-				nextKey := channel.NewKey(1, channels[limit-1].LocalKey+1)
+				nextKey := distchannel.NewKey(1, channels[limit-1].LocalKey+1)
 				Expect(dist.Storage.TS.RetrieveChannels(ctx, nextKey.StorageKey())).
 					Error().To(MatchError(ts.ErrChannelNotFound))
 
@@ -1619,7 +1620,7 @@ var _ = Describe("Writer", func() {
 		)
 		BeforeAll(func(ctx SpecContext) {
 			ShouldNotLeakGoroutines()
-			svc, _ = openService(ctx, mock.NewNode(ctx))
+			svc, _ = openService(ctx, testutil.NewNode(ctx))
 			channelWriter = svc.NewWriter(nil)
 		})
 		It(
