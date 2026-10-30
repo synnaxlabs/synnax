@@ -51,7 +51,7 @@ export interface Rule {
   /**
    * @returns the key of the status whose open problem covers a problem on this key,
    * such as the rack of a task. A problem that starts inside the covering problem does
-   * not notify.
+   * not notify until a write of it arrives after the covering problem closes.
    */
   coveredBy?: (status: status.Status) => status.Key | null;
 }
@@ -89,7 +89,9 @@ interface Entry {
   rule?: Rule;
   /** Whether the latest write on the key is bad. */
   open: boolean;
-  decision: "waiting" | "shown" | "hidden";
+  /** Whether the latest write arrived inside the covering problem. */
+  covered: boolean;
+  decision: "waiting" | "shown" | "covered" | "hidden";
   /** Whether the thing was in use when the problem started, by the first check. */
   usedAtStart?: boolean;
   /** Whether the thing is in use by the latest check. Undefined until a check ends. */
@@ -150,7 +152,7 @@ const createForwarder = ({
       })),
     );
 
-  const covered = ({ rule, status: stat }: Entry): boolean => {
+  const isCovered = (rule: Rule | undefined, stat: status.Status): boolean => {
     const coveringKey = rule?.coveredBy?.(stat);
     if (coveringKey == null) return false;
     const covering = problems.get(coveringKey);
@@ -169,7 +171,7 @@ const createForwarder = ({
     if (usedAtStart !== true || inUse !== true) return;
     if (problem.delayed && problem.status.variant === "warning") return;
     clearTimeout(problem.timer);
-    problem.decision = covered(problem) ? "hidden" : "shown";
+    problem.decision = problem.covered ? "covered" : "shown";
     if (problem.decision === "shown") notify(problem);
   };
 
@@ -217,6 +219,7 @@ const createForwarder = ({
       status: stat,
       rule: owner?.rule,
       open: true,
+      covered: isCovered(owner?.rule, stat),
       decision: "waiting",
       delayed: false,
       superseded: false,
@@ -245,12 +248,18 @@ const createForwarder = ({
     problem.open = true;
     problem.superseded = false;
     problem.count++;
+    problem.covered = isCovered(problem.rule, stat);
     if (problem.decision === "shown") {
       notify(problem);
       return;
     }
     if (problem.decision === "hidden") return;
-    if (restarted && problem.rule?.warningsDelayed === true) wait(problem);
+    const delays = problem.rule?.warningsDelayed === true;
+    if (problem.decision === "covered") {
+      if (problem.covered) return;
+      problem.decision = "waiting";
+      if (delays) wait(problem);
+    } else if (restarted && delays) wait(problem);
     show(problem);
   };
 
