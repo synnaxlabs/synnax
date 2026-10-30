@@ -194,8 +194,7 @@ inline IdentityUpdate IdentityUpdate::parse(x::json::Parser parser) {
 
 inline x::json::json IdentityUpdate::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: Identity::to_json().items())
-        j[k] = v;
+    j.update(Identity::to_json());
     j["group"] = this->group;
     return j;
 }
@@ -209,8 +208,7 @@ inline ConfigurationUpdate ConfigurationUpdate::parse(x::json::Parser parser) {
 
 inline x::json::json ConfigurationUpdate::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: Configuration::to_json().items())
-        j[k] = v;
+    j.update(Configuration::to_json());
     j["group"] = this->group;
     return j;
 }
