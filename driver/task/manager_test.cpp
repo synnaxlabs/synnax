@@ -599,9 +599,8 @@ TEST_F(TaskManagerTest, StartForUnhandledTypeAnswersWithError) {
     EXPECT_EQ(s.message, "Failed to configure task");
     EXPECT_EQ(
         s.description,
-        "This Driver does not run '" + ALT_SYNTHETIC_TASK_TYPE +
-            "' tasks. Its configuration leaves the integration out, or its operating "
-            "system cannot run the integration."
+        "No integration on this Driver runs '" + ALT_SYNTHETIC_TASK_TYPE +
+            "' tasks. Check that the Driver and the Core run the same version."
     );
     EXPECT_EQ(s.details.cmd, "start-cmd");
 }
