@@ -272,6 +272,8 @@ protected:
     /// request_builder, which reads it while the server lacks the namespace of a
     /// channel.
     std::optional<std::size_t> namespace_position;
+    /// @brief when read_types last ran.
+    x::telem::TimeStamp types_read;
 
     /// @brief reads the channels on conn from now on, with the namespace indexes of its
     /// server.
@@ -319,6 +321,7 @@ protected:
     /// connection lacked, builds the request again, reads the structure types again,
     /// and reads again.
     std::pair<types::ReadResponse, x::errors::Error> read_request() {
+        if (auto err = this->retry_types()) return {types::ReadResponse(), err};
         auto [res, err] = this->connection.read(this->request_builder.build());
         if (err || !this->namespace_position.has_value()) return {std::move(res), err};
         auto [changed, ns_err] = this->connection.update_namespaces(
@@ -336,6 +339,7 @@ protected:
     /// @returns only an error that loses the connection. Each field channel reports any
     /// other error when it reads.
     x::errors::Error read_types() {
+        this->types_read = x::telem::TimeStamp::now();
         this->types = structure::Types();
         this->fields.assign(this->cfg.channels.size(), {});
         const auto &namespaces = this->connection.server().namespaces;
@@ -386,6 +390,19 @@ protected:
                 field = this->types.field(data_type.value(), ch.field);
         }
         return x::errors::NIL;
+    }
+
+    /// @brief reads the structure types again when a field channel failed and
+    /// connection::RETRY_INTERVAL has passed.
+    /// @returns only an error that loses the connection.
+    x::errors::Error retry_types() {
+        const bool failing = std::ranges::any_of(this->fields, [](const auto &field) {
+            return static_cast<bool>(field.second);
+        });
+        if (!failing ||
+            x::telem::TimeStamp::now() - this->types_read < connection::RETRY_INTERVAL)
+            return x::errors::NIL;
+        return this->read_types();
     }
 
     /// @returns the result of channel i in res, a response to request_builder.

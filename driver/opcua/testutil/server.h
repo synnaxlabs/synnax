@@ -535,6 +535,16 @@ public:
         });
     }
 
+    /// @brief adds the NS=1;S=TestMotor node with value to the running server, as a
+    /// server that loads a model while it runs does. Blocks until the server adds it.
+    void add_motor(const Motor &value) {
+        std::unique_lock lock(this->added_mu);
+        this->added_motor = value;
+        this->added_cv.wait(lock, [this] {
+            return !this->added_motor.has_value() || !this->ready;
+        });
+    }
+
     void start() {
         running = true;
         thread = std::thread(&Server::run, this);
@@ -569,6 +579,7 @@ private:
     std::mutex added_mu;
     std::condition_variable added_cv;
     std::vector<std::pair<std::string, std::vector<TestNode>>> added;
+    std::optional<Motor> added_motor;
 
     static void add_node(UA_Server *server, const TestNode &node) {
         UA_VariableAttributes attr = UA_VariableAttributes_default;
@@ -621,7 +632,8 @@ private:
         UA_NodeId_clear(&raw_node_id);
     }
 
-    void add_namespaces(UA_Server *server) {
+    /// @brief adds what add_namespace and add_motor asked for.
+    void add_requested(UA_Server *server, const UA_DataType &motor_type) {
         std::lock_guard lock(this->added_mu);
         for (auto &[uri, nodes]: this->added) {
             const auto ns = UA_Server_addNamespace(server, uri.c_str());
@@ -631,7 +643,35 @@ private:
             }
         }
         this->added.clear();
+        if (this->added_motor.has_value()) {
+            add_motor_node(server, motor_type, *this->added_motor);
+            this->added_motor.reset();
+        }
         this->added_cv.notify_all();
+    }
+
+    static void
+    add_motor_node(UA_Server *server, const UA_DataType &type, Motor &value) {
+        UA_VariableAttributes attr = UA_VariableAttributes_default;
+        attr.dataType = type.typeId;
+        attr.valueRank = UA_VALUERANK_SCALAR;
+        attr.accessLevel = UA_ACCESSLEVELMASK_READ;
+        attr.displayName = UA_LOCALIZEDTEXT(
+            const_cast<char *>("en-US"),
+            const_cast<char *>("TestMotor")
+        );
+        UA_Variant_setScalar(&attr.value, &value, &type);
+        UA_Server_addVariableNode(
+            server,
+            UA_NODEID_STRING(1, const_cast<char *>("TestMotor")),
+            UA_NS0ID(OBJECTSFOLDER),
+            UA_NS0ID(ORGANIZES),
+            UA_QUALIFIEDNAME(1, const_cast<char *>("TestMotor")),
+            UA_NODEID_NULL,
+            attr,
+            nullptr,
+            nullptr
+        );
     }
 
 public:
@@ -712,28 +752,8 @@ public:
                 nullptr
             );
         }
-        if (cfg.motor.has_value()) {
-            UA_VariableAttributes attr = UA_VariableAttributes_default;
-            attr.dataType = structures.motor().typeId;
-            attr.valueRank = UA_VALUERANK_SCALAR;
-            attr.accessLevel = UA_ACCESSLEVELMASK_READ;
-            attr.displayName = UA_LOCALIZEDTEXT(
-                const_cast<char *>("en-US"),
-                const_cast<char *>("TestMotor")
-            );
-            UA_Variant_setScalar(&attr.value, &*cfg.motor, &structures.motor());
-            UA_Server_addVariableNode(
-                server,
-                UA_NODEID_STRING(1, const_cast<char *>("TestMotor")),
-                UA_NS0ID(OBJECTSFOLDER),
-                UA_NS0ID(ORGANIZES),
-                UA_QUALIFIEDNAME(1, const_cast<char *>("TestMotor")),
-                UA_NODEID_NULL,
-                attr,
-                nullptr,
-                nullptr
-            );
-        }
+        if (cfg.motor.has_value())
+            add_motor_node(server, structures.motor(), *cfg.motor);
 
         for (const auto &node: cfg.test_nodes)
             add_node(server, node);
@@ -754,7 +774,7 @@ public:
                     std::chrono::nanoseconds(delay.nanoseconds())
                 );
             UA_Server_run_iterate(server, true);
-            this->add_namespaces(server);
+            this->add_requested(server, structures.motor());
             const auto stats = UA_Server_getStatistics(server);
             this->channels = stats.scs.currentChannelCount;
             this->sessions_created = stats.ss.cumulatedSessionCount;
@@ -764,6 +784,7 @@ public:
         {
             std::lock_guard lock(this->added_mu);
             this->added.clear();
+            this->added_motor.reset();
         }
         this->added_cv.notify_all();
         UA_Server_run_shutdown(server);
