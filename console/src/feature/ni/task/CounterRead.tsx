@@ -95,7 +95,11 @@ const DetailsTitle = ({ path }: Task.Views.DetailsProps) => {
   const claims = COUNTER_INPUT.claims(channels, value.device, undefined);
   return (
     <Title
-      port={{ label: String(value.port), state: holdState(claims, [value.port]) }}
+      port={{
+        label: String(value.port),
+        state: holdState(claims, [value.port]),
+        disabled: value.disabled,
+      }}
       type={{ icon: <Icon />, name: CI_CHANNEL_TYPE_NAMES[value.type] }}
       channel={value.channel}
       namePath={`${path}.name`}
@@ -210,8 +214,13 @@ const onConfigure: Task.OnConfigure<typeof counterReadConfigZ> = async (
 
       const deviceChannels = config.channels.filter((c) => c.device === dev.key);
       const toCreate: CIChannel[] = [];
+      // A disabled channel can share a port, and with it the port's data channel.
+      const seen = new Set<string>();
       for (const channel of deviceChannels) {
-        const exKey = dev.properties.counterInput.channels[channel.port.toString()];
+        const key = channel.port.toString();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const exKey = dev.properties.counterInput.channels[key];
         if (primitive.isZero(exKey)) toCreate.push(channel);
         else
           try {

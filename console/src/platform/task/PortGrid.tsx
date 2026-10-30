@@ -34,6 +34,8 @@ export interface PortCell {
   /** Spans two rows: a differential channel uses both ports of the pair. */
   paired?: boolean;
   state: PortState;
+  /** Only disabled channels hold the port: it shows as used, but striped. */
+  disabled?: boolean;
   selected?: boolean;
   /**
    * The channel on the port. A used cell carries it in `data-menu-key`, so a right
@@ -64,7 +66,7 @@ export interface PortGridProps {
 }
 
 const cellClass = (
-  { state, selected = false, paired = false }: PortCell,
+  { state, selected = false, paired = false, disabled = false }: PortCell,
   target: boolean,
 ): string =>
   CSS.cls(
@@ -72,6 +74,7 @@ const cellClass = (
     CSS.BE("port-grid", "cell"),
     CSS.BEM("port-grid", "cell", state),
     paired && CSS.BEM("port-grid", "cell", "paired"),
+    disabled && CSS.BEM("port-grid", "cell", "disabled"),
     selected && CSS.BEM("port-grid", "cell", "selected"),
   );
 
@@ -128,12 +131,24 @@ export const PortGrid = ({
 
 export interface PortBadgeProps {
   state: PortState;
+  /** The channel is disabled: the badge shows striped, as the grid does. */
+  disabled?: boolean;
   children: string;
 }
 
 /** A port's number in its state color, as the grid shows it. */
-export const PortBadge = ({ state, children }: PortBadgeProps): ReactElement => (
-  <span className={CSS.cls(CSS.B("port-badge"), CSS.BM("port-badge", state))}>
+export const PortBadge = ({
+  state,
+  disabled = false,
+  children,
+}: PortBadgeProps): ReactElement => (
+  <span
+    className={CSS.cls(
+      CSS.B("port-badge"),
+      CSS.BM("port-badge", state),
+      disabled && CSS.BM("port-badge", "disabled"),
+    )}
+  >
     {children}
   </span>
 );

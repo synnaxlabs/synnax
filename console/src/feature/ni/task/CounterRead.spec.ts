@@ -330,3 +330,25 @@ describe("CounterRead channel names", () => {
     expect(within(item).queryByText("No channel")).toBeNull();
   });
 });
+
+describe("CounterRead disabled channels", () => {
+  it("should deploy and redeploy a disabled channel on a counter another channel uses", async () => {
+    const dev = await createNIDevice(client);
+    const first = await renderCounterRead(
+      createConfig([
+        createChannel("ci_frequency", 0, { device: dev.key, disabled: true }),
+        createChannel("ci_frequency", 0, { device: dev.key }),
+      ]),
+    );
+    const { config } = await deployAndAwaitTask(
+      client,
+      first.container,
+      first.draft.key,
+      NI.Task.COUNTER_READ_SCHEMAS,
+    );
+    expect(config.channels[1].channel).toBe(config.channels[0].channel);
+    first.unmount();
+    const second = await renderCounterRead(config);
+    await deployAndAwaitTask(client, second.container, second.draft.key);
+  });
+});

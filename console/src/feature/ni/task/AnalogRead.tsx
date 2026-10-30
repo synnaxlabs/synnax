@@ -114,6 +114,7 @@ const DetailsTitle = ({ path }: Task.Views.DetailsProps) => {
           : {
               label: String(port),
               state: holdState(claims, analogInputHolds(value, hardware)),
+              disabled: value.disabled,
             }
       }
       type={{ icon: <Icon />, name: AI_CHANNEL_TYPE_NAMES[value.type] }}
@@ -240,10 +241,14 @@ const onConfigure: Task.OnConfigure<typeof analogReadConfigZ> = async (
         dev.properties.analogInput.channels = {};
       }
       const toCreate: AIChannel[] = [];
+      // A disabled channel can share a port, and with it the port's data channel.
+      const seen = new Set<string>();
       for (const channel of config.channels) {
         if (channel.device !== dev.key) continue;
-        const exKey =
-          dev.properties.analogInput.channels[getAIChannelDeviceKey(channel)];
+        const key = getAIChannelDeviceKey(channel);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const exKey = dev.properties.analogInput.channels[key];
         if (primitive.isZero(exKey)) toCreate.push(channel);
         else
           try {

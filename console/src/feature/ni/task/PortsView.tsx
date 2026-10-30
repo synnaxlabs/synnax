@@ -25,6 +25,7 @@ import {
   describer,
   digitalPorts,
   groups,
+  holdOf,
   lineClaims,
   lineKey,
   type PortKind,
@@ -313,21 +314,22 @@ export const LinesView = <C extends DigitalChannel>({
   };
   const cell = (port: number, line: number): Task.PortCell => {
     const key = lineKey(port, line);
-    const keys = claims.get(key) ?? [];
+    const list = claims.get(key) ?? [];
+    const { state, disabled, channel, names } = holdOf([list], describe);
     const lineName = `port${port}/line${line}`;
     let tooltip = `${lineName} is free`;
-    if (keys.length === 1) tooltip = `${lineName}: ${describe(keys[0])}`;
-    else if (keys.length > 1)
-      tooltip = `${lineName} is used by ${keys.map(describe).join(" and ")}`;
+    if (list.length === 1) tooltip = `${lineName}: ${names}`;
+    else if (list.length > 1) tooltip = `${lineName} is used by ${names}`;
     return {
       key,
       name: lineName,
       labels: [String(line)],
       row: 1,
       column: line + 1,
-      state: keys.length === 0 ? "free" : keys.length === 1 ? "used" : "conflict",
-      selected: keys.some((k) => selected.includes(k)),
-      channel: keys[0],
+      state,
+      disabled,
+      selected: list.some((c) => selected.includes(c.channel)),
+      channel,
       tooltip,
     };
   };

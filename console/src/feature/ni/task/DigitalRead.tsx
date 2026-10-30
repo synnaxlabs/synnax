@@ -139,8 +139,12 @@ const onConfigure: Task.OnConfigure<typeof digitalReadConfigZ> = async (
       dev.properties.digitalInput.channels = {};
     }
     const toCreate: DIChannel[] = [];
+    // A disabled channel can share a port, and with it the port's data channel.
+    const seen = new Set<string>();
     for (const channel of config.channels) {
       const key = getDigitalChannelDeviceKey(channel);
+      if (seen.has(key)) continue;
+      seen.add(key);
       const exKey = dev.properties.digitalInput.channels[key];
       if (primitive.isZero(exKey)) toCreate.push(channel);
       else

@@ -111,6 +111,30 @@
     box-shadow: var(--pluto-selected-ring);
 }
 
+/* Stripes mark a port that only disabled channels hold, as calendars mark a tentative
+event. */
+.console-port-grid__cell--disabled:not(.console-port-grid__cell--conflict),
+.console-port-badge--disabled:not(.console-port-badge--conflict) {
+    border-color: var(--console-port-used);
+    background: repeating-linear-gradient(
+        -45deg,
+        var(--console-port-used) 0 2px,
+        var(--pluto-gray-l1) 2px 5px
+    );
+    color: var(--pluto-gray-l11);
+}
+
+.console-port-grid__cell--disabled:not(.console-port-grid__cell--conflict) {
+    &:hover,
+    &[data-context-menu-open] {
+        background: repeating-linear-gradient(
+            -45deg,
+            var(--console-port-used-hover) 0 2px,
+            var(--pluto-gray-l1) 2px 5px
+        );
+    }
+}
+
 .console-port-badge {
     box-sizing: border-box;
     display: inline-flex;

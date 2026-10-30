@@ -277,3 +277,29 @@ describe("AnalogWrite channel names", () => {
     expect(within(item).getByText(`${identifier}_ao_1_state`)).toBeTruthy();
   });
 });
+
+describe("AnalogWrite disabled channels", () => {
+  it("should deploy and redeploy a disabled channel on a port another channel uses", async () => {
+    const dev = await createNIDevice(client);
+    const first = await renderAnalogWrite(
+      createConfig(
+        [
+          createChannel("ao_voltage", 0, { cmdChannelName: "", disabled: true }),
+          createChannel("ao_voltage", 0, { cmdChannelName: "" }),
+        ],
+        dev.key,
+      ),
+    );
+    const { config } = await deployAndAwaitTask(
+      client,
+      first.container,
+      first.draft.key,
+      NI.Task.ANALOG_WRITE_SCHEMAS,
+    );
+    expect(config.channels[1].cmdChannel).toBe(config.channels[0].cmdChannel);
+    expect(config.channels[1].stateChannel).toBe(config.channels[0].stateChannel);
+    first.unmount();
+    const second = await renderAnalogWrite(config);
+    await deployAndAwaitTask(client, second.container, second.draft.key);
+  });
+});

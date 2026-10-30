@@ -235,3 +235,48 @@ describe("DigitalRead ports", () => {
     expect(line.className).toContain("console-port-grid__cell--conflict");
   });
 });
+
+describe("DigitalRead disabled channels", () => {
+  it("should show no conflict for a line a disabled channel shares, and redeploy", async () => {
+    const dev = await createNIDevice(client, {
+      properties: { hardware: createHardware() },
+    });
+    const first = await renderDigitalRead(
+      createConfig(
+        [createChannel(0, 2, { disabled: true }), createChannel(0, 2)],
+        dev.key,
+      ),
+    );
+    fireEvent.click(await screen.findByText("Ports"));
+    const grid = await screen.findByRole("group", { name: "port0 lines" });
+    const line = within(grid).getByRole("button", { name: "port0/line2" });
+    expect(line.className).toContain("console-port-grid__cell--used");
+    expect(line.className).not.toContain("console-port-grid__cell--conflict");
+    const { config } = await deployAndAwaitTask(
+      client,
+      first.container,
+      first.draft.key,
+      NI.Task.DIGITAL_READ_SCHEMAS,
+    );
+    expect(config.channels[1].channel).toBe(config.channels[0].channel);
+    first.unmount();
+    const second = await renderDigitalRead(config);
+    await deployAndAwaitTask(client, second.container, second.draft.key);
+  });
+
+  it("should show a line a disabled channel holds as disabled", async () => {
+    const dev = await createNIDevice(client, {
+      properties: { hardware: createHardware() },
+    });
+    await renderDigitalRead(
+      createConfig(
+        [createChannel(0, 0), createChannel(1, 4, { disabled: true })],
+        dev.key,
+      ),
+    );
+    fireEvent.click(await screen.findByText("Ports"));
+    const grid = await screen.findByRole("group", { name: "port1 lines" });
+    const line = within(grid).getByRole("button", { name: "port1/line4" });
+    expect(line.className).toContain("console-port-grid__cell--disabled");
+  });
+});

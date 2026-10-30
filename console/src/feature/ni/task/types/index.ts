@@ -278,9 +278,10 @@ const deployStateRateZ = z.number().positive().max(50000);
 const validateAnalogPorts = ({
   value: channels,
   issues,
-}: z.core.ParsePayload<{ port: number }[]>) => {
+}: z.core.ParsePayload<{ port: number; disabled: boolean }[]>) => {
   const portsToIndexMap = new Map<number, number>();
-  channels.forEach(({ port }, i) => {
+  channels.forEach(({ port, disabled }, i) => {
+    if (disabled) return;
     if (!portsToIndexMap.has(port)) {
       portsToIndexMap.set(port, i);
       return;
@@ -298,7 +299,8 @@ const validateDigitalPortsAndLines = ({
   issues,
 }: z.core.ParsePayload<DigitalChannel[]>) => {
   const portLineToIndexMap = new Map<string, number>();
-  channels.forEach(({ line, port }, i) => {
+  channels.forEach(({ line, port, disabled }, i) => {
+    if (disabled) return;
     const key = `${port}/${line}`;
     if (!portLineToIndexMap.has(key)) {
       portLineToIndexMap.set(key, i);

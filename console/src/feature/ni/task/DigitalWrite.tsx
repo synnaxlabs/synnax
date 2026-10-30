@@ -148,8 +148,12 @@ const onConfigure: Task.OnConfigure<typeof digitalWriteConfigZ> = async (
     }
     const commandsToCreate: DOChannel[] = [];
     const statesToCreate: DOChannel[] = [];
+    // A disabled channel can share a port, and with it the port's data channel.
+    const seen = new Set<string>();
     for (const channel of config.channels) {
       const key = getDigitalChannelDeviceKey(channel);
+      if (seen.has(key)) continue;
+      seen.add(key);
       const exPair = dev.properties.digitalOutput.channels[key];
       if (exPair == null) {
         commandsToCreate.push(channel);
