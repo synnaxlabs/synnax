@@ -155,7 +155,13 @@ const Form: FC = () => {
             devices={devices}
             deviceOf={deviceOf}
             create={(channels, device, port) =>
-              createNextAIChannel(channels, { device, port }, devices)
+              // A channel on a port never copies one with no port, such as the built-in
+              // sensor.
+              createNextAIChannel(
+                channels.filter((c) => "port" in c),
+                { device, port },
+                devices,
+              )
             }
             rack={devices[0].rack}
           />

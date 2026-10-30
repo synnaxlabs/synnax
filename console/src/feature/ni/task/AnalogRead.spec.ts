@@ -521,6 +521,22 @@ describe("AnalogRead ports", () => {
     expect(cell(grid, "ai3").getAttribute("aria-pressed")).toBe("true");
   });
 
+  it("should add a channel on the clicked port when the first channel has no port", async () => {
+    const dev = await createDevice();
+    const { draft } = await renderWith([
+      {
+        ...NI.Task.createAIChannel("ai_temp_builtin"),
+        key: id.create(),
+        device: dev.key,
+      },
+    ]);
+    fireEvent.click(await screen.findByText("Ports"));
+    const grid = await screen.findByRole("group", { name: `${dev.name} ports` });
+    fireEvent.click(cell(grid, "ai3"));
+    await waitFor(async () => expect(await savedPorts(draft.key)).toEqual([null, 3]));
+    expect(cell(grid, "ai3").getAttribute("aria-pressed")).toBe("true");
+  });
+
   it("should select the channel on a used port from the ports view", async () => {
     const dev = await createDevice();
     await renderWith([
