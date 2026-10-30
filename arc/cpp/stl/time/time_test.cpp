@@ -1610,9 +1610,9 @@ sequence main {
 
 const std::string_view FORMAT_WAT = R"wat(
 (module
-  (import "time" "format" (func $format (param i64) (result i32)))
-  (func (export "call_format") (param i64) (result i32)
-    (call $format (local.get 0)))
+  (import "time" "format" (func $format (param i64 i32) (result i32)))
+  (func (export "call_format") (param i64 i32) (result i32)
+    (call $format (local.get 0) (local.get 1)))
 )
 )wat";
 
@@ -1632,9 +1632,13 @@ struct FormatFixture {
         linker(engine),
         instance(setup_instance()) {}
 
-    std::string format(const int64_t ns) {
+    std::string format(const int64_t ns, const std::string_view layout = "") {
         auto fn = std::get<wasmtime::Func>(instance.get(store, "call_format").value());
-        const auto result = fn.call(store, {wasmtime::Val(ns)}).unwrap();
+        const auto handle = static_cast<int32_t>(
+            str_state->create(std::string(layout))
+        );
+        const auto result = fn.call(store, {wasmtime::Val(ns), wasmtime::Val(handle)})
+                                .unwrap();
         return str_state->get(result[0].i32());
     }
 
@@ -1658,5 +1662,63 @@ TEST(FormatTest, MatchesTheGoVectors) {
     EXPECT_EQ(f.format(1'326'789'125'250'000'000), "2012-01-17T08:32:05.25Z");
     EXPECT_EQ(f.format(1'709'251'199'999'999'999), "2024-02-29T23:59:59.999999999Z");
     EXPECT_EQ(f.format(946'684'800'000'000'000), "2000-01-01T00:00:00Z");
+}
+
+/// @brief Tuesday, January 17, 2012 at 08:32:05.25 UTC, in ISO week 3.
+constexpr int64_t STAMP = 1'326'789'125'250'000'000;
+
+/// @brief every layout code expands as in the Go table.
+TEST(FormatTest, ExpandsEveryCode) {
+    FormatFixture f;
+    EXPECT_EQ(f.format(STAMP, "%Y"), "2012");
+    EXPECT_EQ(f.format(STAMP, "%y"), "12");
+    EXPECT_EQ(f.format(STAMP, "%m"), "01");
+    EXPECT_EQ(f.format(STAMP, "%d"), "17");
+    EXPECT_EQ(f.format(STAMP, "%e"), "17");
+    EXPECT_EQ(f.format(STAMP, "%H"), "08");
+    EXPECT_EQ(f.format(STAMP, "%I"), "08");
+    EXPECT_EQ(f.format(STAMP, "%M"), "32");
+    EXPECT_EQ(f.format(STAMP, "%S"), "05");
+    EXPECT_EQ(f.format(STAMP, "%j"), "017");
+    EXPECT_EQ(f.format(STAMP, "%f"), "250000");
+    EXPECT_EQ(f.format(STAMP, "%N"), "250000000");
+    EXPECT_EQ(f.format(STAMP, "%u"), "2");
+    EXPECT_EQ(f.format(STAMP, "%w"), "2");
+    EXPECT_EQ(f.format(STAMP, "%U"), "03");
+    EXPECT_EQ(f.format(STAMP, "%W"), "03");
+    EXPECT_EQ(f.format(STAMP, "%G"), "2012");
+    EXPECT_EQ(f.format(STAMP, "%V"), "03");
+    EXPECT_EQ(f.format(STAMP, "%z"), "+0000");
+    EXPECT_EQ(f.format(STAMP, "%Z"), "UTC");
+    EXPECT_EQ(f.format(STAMP, "%F"), "2012-01-17");
+    EXPECT_EQ(f.format(STAMP, "%T"), "08:32:05");
+    EXPECT_EQ(f.format(STAMP, "%%"), "%");
+    EXPECT_EQ(f.format(STAMP, "%Y-%m-%d %H:%M:%S.%f"), "2012-01-17 08:32:05.250000");
+    EXPECT_EQ(f.format(STAMP, "T+%S s"), "T+05 s");
+}
+
+/// @brief week numbers, the 12-hour clock, and ISO week rollover match C and Python.
+TEST(FormatTest, MatchesCAndPythonAtTheEdges) {
+    FormatFixture f;
+    // Sunday, January 1, 2012 at midnight.
+    EXPECT_EQ(
+        f.format(1'325'376'000'000'000'000, "%u %w %U %W %I %e %j"),
+        "7 0 01 00 12  1 001"
+    );
+    // Noon and one o'clock on January 17, 2012.
+    EXPECT_EQ(f.format(1'326'801'600'000'000'000, "%I"), "12");
+    EXPECT_EQ(f.format(1'326'805'200'000'000'000, "%I"), "01");
+    // January 1, 2021 falls in ISO week 53 of 2020.
+    EXPECT_EQ(f.format(1'609'459'200'000'000'000, "%G-%V %Y"), "2020-53 2021");
+    // December 30, 2024 falls in ISO week 1 of 2025.
+    EXPECT_EQ(f.format(1'735'516'800'000'000'000, "%G-%V %Y"), "2025-01 2024");
+    EXPECT_EQ(f.format(0, "%F %T"), "1970-01-01 00:00:00");
+    EXPECT_EQ(f.format(-1'000'000'000'000'000'000, "%F %T"), "1938-04-24 22:13:20");
+}
+
+/// @brief an unknown code and a trailing percent copy through unchanged.
+TEST(FormatTest, CopiesAnUnknownCodeThrough) {
+    FormatFixture f;
+    EXPECT_EQ(f.format(STAMP, "%Q %"), "%Q %");
 }
 }

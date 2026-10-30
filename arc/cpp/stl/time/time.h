@@ -11,6 +11,8 @@
 
 #include <algorithm>
 #include <memory>
+#include <string>
+#include <string_view>
 #include <utility>
 
 #include "wasmtime.hh"
@@ -23,6 +25,7 @@
 #include "arc/cpp/runtime/node/node.h"
 #include "arc/cpp/stl/stl.h"
 #include "arc/cpp/stl/strings/state.h"
+#include "arc/cpp/stl/time/strftime.h"
 #include "arc/cpp/types/types.h"
 
 namespace arc::stl::time {
@@ -259,6 +262,13 @@ public:
     }
 };
 
+/// @brief renders ts in UTC. An empty layout selects ISO 8601.
+inline std::string
+format_time_stamp(const x::telem::TimeStamp ts, const std::string_view layout) {
+    if (layout.empty()) return ts.iso8601();
+    return strftime(ts, layout);
+}
+
 class Module : public stl::Module {
     /// @brief the shortest timer span of the program, or TimeSpan::max() if none.
     x::telem::TimeSpan shortest = x::telem::TimeSpan::max();
@@ -325,8 +335,10 @@ public:
             .func_wrap(
                 MODULE_NAME,
                 "format",
-                [ss](const int64_t v) -> uint32_t {
-                    return ss->create(x::telem::TimeStamp(v).iso8601());
+                [ss](const int64_t v, const uint32_t layout) -> uint32_t {
+                    return ss->create(
+                        format_time_stamp(x::telem::TimeStamp(v), ss->get(layout))
+                    );
                 }
             )
             .unwrap();
