@@ -1269,8 +1269,15 @@ var _ = Describe("Calculation", Ordered, func() {
 						_, err := stored()
 						return err
 					}).Should(MatchError(query.ErrNotFound))
-					write(0)
-					Eventually(stored).Should(failure())
+					// The calculation reopens after the rename, and drops a frame
+					// written before then.
+					Eventually(func(g Gomega) {
+						g.Expect(w.Write(frame.NewUnary(
+							base.Key(),
+							telem.NewSeriesV[int64](0),
+						))).To(BeTrue())
+						g.Expect(stored()).To(failure())
+					}).Should(Succeed())
 				},
 			)
 		})
