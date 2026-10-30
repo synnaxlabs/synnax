@@ -208,7 +208,7 @@ shows ["Failed to write commands"](#troubleshooting) with the reason.
 
 When the connection drops during a call, the Driver does not call the method again,
 because the server might have run it. A write to a node is safe to repeat, so the Driver
-writes it again.
+writes it again. Use a method for an action that must run only once.
 
 <Divider.Divider x />
 
