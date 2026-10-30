@@ -8,7 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { group, NotFoundError, ontology, user } from "@synnaxlabs/client";
-import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
+import {
+  createTestClient,
+  createTestUser,
+  RoleClients,
+} from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -32,8 +36,7 @@ const roles = new RoleClients(client);
 
 const Item = User.TREE_ITEMS.user;
 
-const createUser = async () =>
-  await client.users.create({ username: uniqueName("user"), password: "pwd12345" });
+const createUser = async () => await client.users.create({ name: uniqueName("user") });
 
 const userResource = (key: string, name: string, rootUser = false) =>
   createResource(user.ontologyID(key), name, { root_user: rootUser });
@@ -115,11 +118,9 @@ describe("user ontology service", () => {
 
 describe("rename", () => {
   it("should rename the user on the Core and keep its username", async () => {
-    const username = uniqueName("user");
-    const u = await client.users.create({
-      username,
+    const { user: u, username } = await createTestUser(client, {
+      username: uniqueName("user"),
       name: uniqueName("name"),
-      password: "pwd12345",
     });
     const grp = await client.groups.create({
       parent: ontology.ROOT_ID,

@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { AccessDeniedError, NotFoundError } from "@/errors";
@@ -24,10 +23,7 @@ describe("user", () => {
         objects: [],
         actions: [],
       });
-      const randomUser = await client.users.create({
-        username: id.create(),
-        password: "test",
-      });
+      const randomUser = await client.users.create({ name: "test" });
       await expect(userClient.users.retrieve(randomUser.key)).rejects.toSatisfy(
         AccessDeniedError.matches,
       );
@@ -39,10 +35,7 @@ describe("user", () => {
         objects: [user.ontologyID("")],
         actions: ["retrieve"],
       });
-      const randomUser = await client.users.create({
-        username: id.create(),
-        password: "test",
-      });
+      const randomUser = await client.users.create({ name: "test" });
       const retrieved = await userClient.users.retrieve(randomUser.key);
       expect(retrieved.key).toBe(randomUser.key);
     });
@@ -53,10 +46,7 @@ describe("user", () => {
         objects: [user.ontologyID("")],
         actions: ["create"],
       });
-      await userClient.users.create({
-        username: id.create(),
-        password: "test",
-      });
+      await userClient.users.create({ name: "test" });
     });
 
     it("should deny access when no create policy exists", async () => {
@@ -65,12 +55,9 @@ describe("user", () => {
         objects: [user.ontologyID("")],
         actions: [],
       });
-      await expect(
-        userClient.users.create({
-          username: id.create(),
-          password: "test",
-        }),
-      ).rejects.toSatisfy(AccessDeniedError.matches);
+      await expect(userClient.users.create({ name: "test" })).rejects.toSatisfy(
+        AccessDeniedError.matches,
+      );
     });
 
     it("should allow the caller to delete users with the correct policy", async () => {
@@ -79,10 +66,7 @@ describe("user", () => {
         objects: [user.ontologyID("")],
         actions: ["delete"],
       });
-      const randomUser = await client.users.create({
-        username: id.create(),
-        password: "test",
-      });
+      const randomUser = await client.users.create({ name: "test" });
       await userClient.users.delete(randomUser.key);
       await expect(userClient.users.retrieve(randomUser.key)).rejects.toThrow(
         NotFoundError,
@@ -95,10 +79,7 @@ describe("user", () => {
         objects: [user.ontologyID("")],
         actions: [],
       });
-      const randomUser = await client.users.create({
-        username: id.create(),
-        password: "test",
-      });
+      const randomUser = await client.users.create({ name: "test" });
       await expect(userClient.users.delete(randomUser.key)).rejects.toSatisfy(
         AccessDeniedError.matches,
       );

@@ -16,7 +16,7 @@ import { capture, fixtures } from "@/index";
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
   await fixtures.createUsers([
-    { username: "grace", firstName: "Grace", lastName: "Hopper", role: "Viewer" },
+    { username: "grace", name: "Grace Hopper", role: "Viewer" },
   ]);
   const { page } = session;
   await capture.login(session);
@@ -28,7 +28,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.click(drawer.getByText("Viewer", { exact: true }).first(), {
     text: true,
   });
-  const item = capture.treeItem(page, "user:", "grace");
+  const item = capture.treeItem(page, "user:", "Grace Hopper");
   await session.waitFor(item);
   await session.moveTo({ x: 756, y: 500 });
 
@@ -70,7 +70,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     text: true,
     zoom: false,
   });
-  await session.waitFor(capture.treeItem(page, "user:", "grace"));
+  await session.waitFor(capture.treeItem(page, "user:", "Grace Hopper"));
   // Park clear of the component buttons, so none shows a hover state.
   await session.moveTo({ x: 1300, y: 780 });
   await session.hold(2800);

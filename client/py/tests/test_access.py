@@ -12,6 +12,7 @@ import uuid
 import pytest
 
 import synnax as sy
+from tests.user import create_user
 
 
 @pytest.mark.access
@@ -168,8 +169,7 @@ class TestRoleClient:
 
     def test_assign_role(self, two_roles: list[sy.Role], client: sy.Synnax) -> None:
         """Should assign a role to a user."""
-        username = str(uuid.uuid4())
-        user = client.users.create(username=username, password="testpass")
+        user = client.users.create(name="Test User")
         assert user.key is not None
 
         # Assign role to user
@@ -208,7 +208,7 @@ class TestAccessAuthClient:
         """Should prevent a newly created user from creating other users."""
         host, port, _, _ = login_info
         username = str(uuid.uuid4())
-        client.users.create(username=username, password="pwd2")
+        create_user(client, username, "pwd2")
         client2 = sy.Synnax(
             host=host,
             port=port,
@@ -217,4 +217,4 @@ class TestAccessAuthClient:
         )
 
         with pytest.raises(sy.AccessDenied):
-            client2.users.create(username=str(uuid.uuid4()), password="pwd3")
+            client2.users.create(name="Test User")

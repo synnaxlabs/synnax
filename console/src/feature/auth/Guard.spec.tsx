@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { channel } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { createTestClient, createTestUser } from "@synnaxlabs/client/testutil";
 import { Access, Synnax } from "@synnaxlabs/pluto";
 import {
   act,
@@ -298,10 +298,12 @@ describe("connection guard permissions", () => {
     client: ReturnType<typeof createTestClient>,
     roleName: string,
   ): Promise<{ username: string; key: string }> => {
-    const username = uniqueName("role_user");
-    const { key } = await client.users.create({ username, password: PASSWORD });
-    await assignRole(client, key, roleName);
-    return { username, key };
+    const { user, username } = await createTestUser(client, {
+      username: uniqueName("role_user"),
+      password: PASSWORD,
+    });
+    await assignRole(client, user.key, roleName);
+    return { username, key: user.key };
   };
 
   const renderGuardedContent = async (): Promise<void> => {

@@ -18,6 +18,7 @@ from freighter.mock import MockUnaryClient
 from synnax.auth.client import _SessionCreateResponse
 from synnax.exceptions import create_registry
 from tests.proxy import Proxy
+from tests.user import create_user
 
 
 @pytest.mark.auth
@@ -205,7 +206,7 @@ class TestSessions:
         host, port, username, password = login_info
         admin = sy.Synnax(host=host, port=port, username=username, password=password)
         user_name = str(uuid4())
-        admin.users.create(username=user_name, password="seldon")
+        create_user(admin, user_name, "seldon")
         ending = sy.Synnax(host=host, port=port, username=user_name, password="seldon")
         other = sy.Synnax(host=host, port=port, username=user_name, password="seldon")
         assert ending.auth.session is not None
@@ -228,7 +229,7 @@ class TestSessions:
         host, port, username, password = login_info
         admin = sy.Synnax(host=host, port=port, username=username, password=password)
         user_name = str(uuid4())
-        admin.users.create(username=user_name, password="seldon")
+        create_user(admin, user_name, "seldon")
         closing = sy.Synnax(host=host, port=port, username=user_name, password="seldon")
         other = sy.Synnax(host=host, port=port, username=user_name, password="seldon")
         assert other.auth.session is not None
@@ -275,7 +276,7 @@ class TestAPIKeys:
         host, port, username, password = login_info
         admin = sy.Synnax(host=host, port=port, username=username, password=password)
         new_username = str(uuid4())
-        admin.users.create(username=new_username, password="seldon")
+        create_user(admin, new_username, "seldon")
         owner = sy.Synnax(
             host=host, port=port, username=new_username, password="seldon"
         )
@@ -321,4 +322,31 @@ class TestPasswords:
         admin = sy.Synnax(host=host, port=port, username=username, password=password)
         with pytest.raises(sy.ValidationError):
             admin.auth.create_password(str(uuid4()), "p")
+        admin.close()
+
+    def test_create_for_new_user(self, login_info: tuple[str, int, str, str]) -> None:
+        """Should let an owner give a new user its first password, and let a client
+        log in with it.
+        """
+        host, port, username, password = login_info
+        admin = sy.Synnax(host=host, port=port, username=username, password=password)
+        user = admin.users.create(name="First Password")
+        new_username = str(uuid4())
+        admin.auth.create_password(new_username, "first", subject=user.ontology_id)
+        client = sy.Synnax(
+            host=host, port=port, username=new_username, password="first"
+        )
+        assert client.auth.subject == user.ontology_id
+        client.close()
+        admin.close()
+
+    def test_create_repeated_username(
+        self, login_info: tuple[str, int, str, str]
+    ) -> None:
+        """Should refuse a username another user holds."""
+        host, port, username, password = login_info
+        admin = sy.Synnax(host=host, port=port, username=username, password=password)
+        user = admin.users.create(name="Repeated Username")
+        with pytest.raises(sy.AuthError):
+            admin.auth.create_password(username, "p", subject=user.ontology_id)
         admin.close()
