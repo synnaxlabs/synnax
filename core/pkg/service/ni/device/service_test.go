@@ -11,6 +11,8 @@ package device_test
 
 import (
 	"context"
+	"iter"
+	"slices"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -24,6 +26,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
@@ -128,11 +131,17 @@ var _ = Describe("Service", func() {
 
 	Describe("OpenService", func() {
 		DescribeTable("Should reject a config missing a required field",
-			func(ctx SpecContext, cfg device.ServiceConfig, field string) {
+			func(ctx SpecContext, field string, unset func(*device.ServiceConfig)) {
+				cfg := device.ServiceConfig{DB: db, Ontology: otg, Status: stat}
+				unset(&cfg)
 				Expect(device.OpenService(ctx, cfg)).Error().
 					To(MatchError(ContainSubstring(field + ": must be non-nil")))
 			},
-			Entry("db", device.ServiceConfig{}, "db"),
+			Entry("db", "db", func(c *device.ServiceConfig) { c.DB = nil }),
+			Entry("ontology", "ontology", func(c *device.ServiceConfig) {
+				c.Ontology = nil
+			}),
+			Entry("status", "status", func(c *device.ServiceConfig) { c.Status = nil }),
 		)
 	})
 
@@ -237,6 +246,56 @@ var _ = Describe("Service", func() {
 			Expect(parents(ctx, d.Key)).To(ConsistOf(other.OntologyID()))
 		})
 
+		It("Should move the status with the rack", func(ctx SpecContext) {
+			d := create(ctx)
+			s := retrieveStatus(ctx, d.Key)
+			s.Variant = status.VariantSuccess
+			s.Message = "Connected"
+			Expect(stat.NewWriter(tx).Set(ctx, &s)).To(Succeed())
+			other := rack.Rack{Name: "Other"}
+			Expect(rackSvc.NewWriter(tx).Create(ctx, &other)).To(Succeed())
+			Expect(svc.NewWriter(tx).Update(
+				ctx,
+				d.Key,
+				func(d device.Device) (device.Device, error) {
+					d.Rack = other.Key
+					return d, nil
+				},
+			)).To(Succeed())
+			got := retrieveStatus(ctx, d.Key)
+			Expect(got.Details.Rack).To(Equal(other.Key))
+			Expect(got.Variant).To(Equal(status.VariantSuccess))
+			Expect(got.Message).To(Equal("Connected"))
+		})
+
+		It("Should keep the row when its status write fails without a tx", func(
+			ctx SpecContext,
+		) {
+			d := device.Device{Rack: rackKey, Name: "Module"}
+			Expect(svc.NewWriter(nil).Create(ctx, &d)).To(Succeed())
+			DeferCleanup(func(ctx SpecContext) {
+				Expect(svc.NewWriter(nil).Delete(ctx, d.Key)).To(Succeed())
+			})
+			Expect(stat.NewWriter(nil).Delete(
+				ctx,
+				device.OntologyID(d.Key).String(),
+			)).To(Succeed())
+			Expect(svc.NewWriter(nil).Update(
+				ctx,
+				d.Key,
+				func(d device.Device) (device.Device, error) {
+					d.Name = "Renamed"
+					return d, nil
+				},
+			)).To(MatchError(query.ErrNotFound))
+			var got device.Device
+			Expect(svc.NewRetrieve().
+				Where(device.MatchKeys(d.Key)).
+				Entry(&got).
+				Exec(ctx, nil)).To(Succeed())
+			Expect(got.Name).To(Equal("Module"))
+		})
+
 		It("Should return the error change returns", func(ctx SpecContext) {
 			d := create(ctx)
 			err := errors.New("change failed")
@@ -335,6 +394,56 @@ var _ = Describe("Service", func() {
 	})
 
 	Describe("Ontology", func() {
+		It("Should report its resource type", func() {
+			Expect(svc.Type()).To(Equal(ontology.ResourceTypeNiDevice))
+		})
+
+		It("Should return one ontology ID per key", func() {
+			key := uuid.New()
+			Expect(device.OntologyIDs([]device.Key{key})).
+				To(ConsistOf(device.OntologyID(key)))
+		})
+
+		Describe("OnChange", func() {
+			var (
+				changes    []ontology.Change
+				disconnect func()
+			)
+			BeforeEach(func() {
+				changes = nil
+				disconnect = svc.OnChange(func(
+					_ context.Context,
+					reader iter.Seq[ontology.Change],
+				) {
+					changes = append(changes, slices.Collect(reader)...)
+				})
+				DeferCleanup(func() { disconnect() })
+			})
+
+			It("Should translate a set and a delete", func(ctx SpecContext) {
+				d := device.Device{Rack: rackKey, Name: "Module"}
+				Expect(svc.NewWriter(nil).Create(ctx, &d)).To(Succeed())
+				Expect(svc.NewWriter(nil).Delete(ctx, d.Key)).To(Succeed())
+				id := device.OntologyID(d.Key).String()
+				Expect(changes).To(HaveLen(2))
+				Expect(changes[0].Variant).To(Equal(change.VariantSet))
+				Expect(changes[0].Key).To(Equal(id))
+				Expect(changes[0].Value.Name).To(Equal(d.Name))
+				Expect(changes[1].Variant).To(Equal(change.VariantDelete))
+				Expect(changes[1].Key).To(Equal(id))
+			})
+
+			It("Should stop after disconnecting", func(ctx SpecContext) {
+				disconnect()
+				d := device.Device{Rack: rackKey, Name: "Module"}
+				Expect(svc.NewWriter(nil).Create(ctx, &d)).To(Succeed())
+				DeferCleanup(func(ctx SpecContext) {
+					Expect(svc.NewWriter(nil).Delete(ctx, d.Key)).To(Succeed())
+				})
+				Expect(changes).To(BeEmpty())
+			})
+		})
+
 		It("Should retrieve a device as a resource", func(ctx SpecContext) {
 			d := create(ctx)
 			res := MustSucceed(svc.RetrieveResource(ctx, d.Key.String(), tx))
