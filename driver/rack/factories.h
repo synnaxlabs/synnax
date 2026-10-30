@@ -18,13 +18,14 @@
 
 #include "driver/common/factory.h"
 #include "driver/rack/rack.h"
+#include "driver/rack/unavailable.h"
 #include "driver/task/task.h"
 
 namespace driver::rack {
 using FactoryList = std::vector<std::unique_ptr<task::Factory>>;
 
 /// @brief adds the factory that factory_creator returns when the integration is
-/// enabled.
+/// enabled, or an UnavailableFactory that names the configuration when it is not.
 template<typename F>
 void configure_integration(
     const Config &config,
@@ -34,6 +35,14 @@ void configure_integration(
 ) {
     if (!config.integration_enabled(integration_name)) {
         VLOG(1) << "[" << integration_name << "] integration disabled";
+        factories.push_back(
+            std::make_unique<UnavailableFactory>(
+                integration_name,
+                "The configuration of this Driver turns off the '" + integration_name +
+                    "' integration. Turn it on in the Driver configuration, then restart "
+                    "the Driver."
+            )
+        );
         return;
     }
     VLOG(1) << "[" << integration_name << "] integration enabled";

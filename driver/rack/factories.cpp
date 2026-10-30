@@ -45,8 +45,9 @@ void configure_state(FactoryList &factories) {
 
 #ifndef SYNNAX_NILINUXRT
 void configure_modbus(const Config &config, FactoryList &factories) {
-    if (!config.integration_enabled(modbus::INTEGRATION_NAME)) return;
-    factories.push_back(std::make_unique<modbus::Factory>());
+    configure_integration(config, factories, modbus::INTEGRATION_NAME, []() {
+        return std::make_unique<modbus::Factory>();
+    });
 }
 #endif
 

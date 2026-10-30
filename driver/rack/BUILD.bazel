@@ -33,7 +33,10 @@ cc_library(
         "@platforms//os:linux": ["factories_linux.cpp"],
         "@platforms//os:windows": ["factories_windows.cpp"],
     }),
-    hdrs = ["rack.h"],
+    hdrs = [
+        "rack.h",
+        "unavailable.h",
+    ],
     defines = select({
         ":nilinuxrt": ["SYNNAX_NILINUXRT"],
         "//conditions:default": [],
@@ -43,6 +46,7 @@ cc_library(
         "//client/cpp/errors",
         "//driver/arc",
         "//driver/common",
+        "//driver/errors",
         "//driver/ethercat",
         "//driver/http",
         "//driver/opcua",
@@ -76,6 +80,7 @@ cc_test(
     srcs = ["factories_test.cpp"],
     deps = [
         "//driver/rack",
+        "//driver/task",
         "@googletest//:gtest_main",
     ],
 )
