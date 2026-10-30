@@ -60,7 +60,8 @@ find_member(const UA_DataType &type, const std::string &name) {
 
 bool contains(const std::vector<types::NodeId> &ids, const UA_NodeId &id) {
     for (const auto &seen: ids)
-        if (UA_NodeId_equal(&seen.get(), &id)) return true;
+        if (const auto raw = seen.resolve({}).value(); UA_NodeId_equal(&raw, &id))
+            return true;
     return false;
 }
 
@@ -157,7 +158,11 @@ std::pair<Types, x::errors::Error> Types::read(
     auto [node_types, err] = conn.read(type_req.build());
     if (err) return {std::move(out), err};
 
+    // The server's own IDs name no namespace URI, so each resolves to itself.
     std::vector<types::NodeId> seen;
+    const auto seen_id = [&seen](const std::size_t i) {
+        return seen[i].resolve({}).value();
+    };
     std::vector<std::size_t> round;
     const auto visit = [&](const UA_NodeId &id) {
         if (UA_findDataType(&id) != nullptr || contains(seen, id) ||
@@ -177,8 +182,8 @@ std::pair<Types, x::errors::Error> Types::read(
         const auto current = std::exchange(round, {});
         types::ReadRequestBuilder def_req;
         for (const auto idx: current) {
-            def_req.add_node(seen[idx].get(), UA_ATTRIBUTEID_DATATYPEDEFINITION);
-            def_req.add_node(seen[idx].get(), UA_ATTRIBUTEID_BROWSENAME);
+            def_req.add_node(seen_id(idx), UA_ATTRIBUTEID_DATATYPEDEFINITION);
+            def_req.add_node(seen_id(idx), UA_ATTRIBUTEID_BROWSENAME);
         }
         auto [res, def_err] = conn.read(def_req.build());
         if (def_err) return {std::move(out), def_err};
@@ -229,7 +234,7 @@ std::pair<Types, x::errors::Error> Types::read(
             UA_EnumDescription enumeration;
             if (d.definition->type == &UA_TYPES[UA_TYPES_STRUCTUREDEFINITION]) {
                 UA_StructureDescription_init(&structure);
-                structure.dataTypeId = seen[d.id].get();
+                structure.dataTypeId = seen_id(d.id);
                 structure.name = name;
                 structure
                     .structureDefinition = *static_cast<const UA_StructureDefinition *>(
@@ -242,7 +247,7 @@ std::pair<Types, x::errors::Error> Types::read(
                 );
             } else {
                 UA_EnumDescription_init(&enumeration);
-                enumeration.dataTypeId = seen[d.id].get();
+                enumeration.dataTypeId = seen_id(d.id);
                 enumeration.name = name;
                 enumeration.enumDefinition = *static_cast<const UA_EnumDefinition *>(
                     d.definition->data
@@ -264,7 +269,7 @@ std::pair<Types, x::errors::Error> Types::read(
             done[i] = true;
             if (status != UA_STATUSCODE_GOOD) {
                 VLOG(1) << "[opc] cannot define the data type "
-                        << types::NodeId::to_string(seen[d.id].get()) << ": "
+                        << types::NodeId::to_string(seen_id(d.id)) << ": "
                         << UA_StatusCode_name(status);
                 continue;
             }

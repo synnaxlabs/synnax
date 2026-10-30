@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <string>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -28,16 +29,16 @@ TEST(TypesTest, NodeIdRAII) {
     UA_NodeId numeric = UA_NODEID_NUMERIC(1, 1000);
     NodeId nodeId2(numeric);
     EXPECT_FALSE(nodeId2.is_null());
-    EXPECT_EQ(nodeId2.get().namespaceIndex, 1);
-    EXPECT_EQ(nodeId2.get().identifierType, UA_NODEIDTYPE_NUMERIC);
-    EXPECT_EQ(nodeId2.get().identifier.numeric, 1000);
+    EXPECT_EQ(nodeId2.resolve({}).value().namespaceIndex, 1);
+    EXPECT_EQ(nodeId2.resolve({}).value().identifierType, UA_NODEIDTYPE_NUMERIC);
+    EXPECT_EQ(nodeId2.resolve({}).value().identifier.numeric, 1000);
 
     UA_NodeId string_id = UA_NODEID_STRING_ALLOC(2, "TestNode");
     {
         NodeId nodeId3(string_id);
         EXPECT_FALSE(nodeId3.is_null());
-        EXPECT_EQ(nodeId3.get().namespaceIndex, 2);
-        EXPECT_EQ(nodeId3.get().identifierType, UA_NODEIDTYPE_STRING);
+        EXPECT_EQ(nodeId3.resolve({}).value().namespaceIndex, 2);
+        EXPECT_EQ(nodeId3.resolve({}).value().identifierType, UA_NODEIDTYPE_STRING);
     }
     UA_NodeId_clear(&string_id);
 }
@@ -79,14 +80,14 @@ TEST(TypesTest, NodeIdMoveSemantics) {
 TEST(TypesTest, NodeIdParsing) {
     auto [numeric, err1] = NodeId::parse("NS=1;I=1000");
     ASSERT_NIL(err1);
-    EXPECT_EQ(numeric.get().namespaceIndex, 1);
-    EXPECT_EQ(numeric.get().identifierType, UA_NODEIDTYPE_NUMERIC);
-    EXPECT_EQ(numeric.get().identifier.numeric, 1000);
+    EXPECT_EQ(numeric.resolve({}).value().namespaceIndex, 1);
+    EXPECT_EQ(numeric.resolve({}).value().identifierType, UA_NODEIDTYPE_NUMERIC);
+    EXPECT_EQ(numeric.resolve({}).value().identifier.numeric, 1000);
 
     auto [string_node, err2] = NodeId::parse("NS=2;S=TestNode");
     ASSERT_NIL(err2);
-    EXPECT_EQ(string_node.get().namespaceIndex, 2);
-    EXPECT_EQ(string_node.get().identifierType, UA_NODEIDTYPE_STRING);
+    EXPECT_EQ(string_node.resolve({}).value().namespaceIndex, 2);
+    EXPECT_EQ(string_node.resolve({}).value().identifierType, UA_NODEIDTYPE_STRING);
 
     auto [invalid, err3] = NodeId::parse("InvalidFormat");
     ASSERT_MATCHES(err3, x::errors::VALIDATION);
@@ -250,21 +251,21 @@ TEST(TypesTest, NoDoubleFree) {
 TEST(TypesTest, ParseNumericNodeIdFromJSON) {
     x::json::Parser parser(std::string(R"({"nodeId": "NS=1;I=42"})"));
     NodeId nodeId = NodeId::parse("nodeId", parser);
-    EXPECT_EQ(nodeId.get().namespaceIndex, 1);
-    EXPECT_EQ(nodeId.get().identifierType, UA_NODEIDTYPE_NUMERIC);
-    EXPECT_EQ(nodeId.get().identifier.numeric, 42);
+    EXPECT_EQ(nodeId.resolve({}).value().namespaceIndex, 1);
+    EXPECT_EQ(nodeId.resolve({}).value().identifierType, UA_NODEIDTYPE_NUMERIC);
+    EXPECT_EQ(nodeId.resolve({}).value().identifier.numeric, 42);
 }
 
 /// @brief it should parse string NodeId from JSON.
 TEST(TypesTest, ParseStringNodeIdFromJSON) {
     x::json::Parser parser(std::string(R"({"nodeId": "NS=2;S=TestString"})"));
     NodeId nodeId = NodeId::parse("nodeId", parser);
-    EXPECT_EQ(nodeId.get().namespaceIndex, 2);
-    EXPECT_EQ(nodeId.get().identifierType, UA_NODEIDTYPE_STRING);
+    EXPECT_EQ(nodeId.resolve({}).value().namespaceIndex, 2);
+    EXPECT_EQ(nodeId.resolve({}).value().identifierType, UA_NODEIDTYPE_STRING);
     EXPECT_EQ(
         std::string(
-            reinterpret_cast<char *>(nodeId.get().identifier.string.data),
-            nodeId.get().identifier.string.length
+            reinterpret_cast<char *>(nodeId.resolve({}).value().identifier.string.data),
+            nodeId.resolve({}).value().identifier.string.length
         ),
         "TestString"
     );
@@ -276,13 +277,13 @@ TEST(TypesTest, ParseGuidNodeIdFromJSON) {
         std::string(R"({"nodeId": "NS=3;G=12345678-1234-5678-9ABC-123456789ABC"})")
     );
     NodeId nodeId = NodeId::parse("nodeId", parser);
-    EXPECT_EQ(nodeId.get().namespaceIndex, 3);
-    EXPECT_EQ(nodeId.get().identifierType, UA_NODEIDTYPE_GUID);
-    EXPECT_EQ(nodeId.get().identifier.guid.data1, 0x12345678);
-    EXPECT_EQ(nodeId.get().identifier.guid.data2, 0x1234);
-    EXPECT_EQ(nodeId.get().identifier.guid.data3, 0x5678);
-    EXPECT_EQ(nodeId.get().identifier.guid.data4[0], 0x9A);
-    EXPECT_EQ(nodeId.get().identifier.guid.data4[1], 0xBC);
+    EXPECT_EQ(nodeId.resolve({}).value().namespaceIndex, 3);
+    EXPECT_EQ(nodeId.resolve({}).value().identifierType, UA_NODEIDTYPE_GUID);
+    EXPECT_EQ(nodeId.resolve({}).value().identifier.guid.data1, 0x12345678);
+    EXPECT_EQ(nodeId.resolve({}).value().identifier.guid.data2, 0x1234);
+    EXPECT_EQ(nodeId.resolve({}).value().identifier.guid.data3, 0x5678);
+    EXPECT_EQ(nodeId.resolve({}).value().identifier.guid.data4[0], 0x9A);
+    EXPECT_EQ(nodeId.resolve({}).value().identifier.guid.data4[1], 0xBC);
 }
 
 /// @brief it should return null for invalid NodeId in JSON.
@@ -359,7 +360,7 @@ TEST(TypesTest, NodeIdToStringByteString) {
 /// @brief it should decode a base64 ByteString identifier byte for byte.
 TEST(TypesTest, ParseByteStringNodeId) {
     auto node_id = ASSERT_NIL_P(NodeId::parse("NS=2;B=AAEAAg=="));
-    const UA_NodeId &id = node_id.get();
+    const UA_NodeId id = node_id.resolve({}).value();
     EXPECT_EQ(id.namespaceIndex, 2);
     ASSERT_EQ(id.identifierType, UA_NODEIDTYPE_BYTESTRING);
     const std::vector<UA_Byte> bytes(
@@ -387,10 +388,10 @@ TEST(TypesTest, ParseByteStringNodeIdOwnsIdentifier) {
         UA_String_clear(&encoded);
         node_id = ASSERT_NIL_P(NodeId::parse(input));
     }
-    const UA_ByteString &bs = node_id.get().identifier.byteString;
+    const UA_ByteString bs = node_id.resolve({}).value().identifier.byteString;
     EXPECT_EQ(std::vector<UA_Byte>(bs.data, bs.data + bs.length), expected);
     NodeId moved = std::move(node_id);
-    EXPECT_EQ(moved.get().identifier.byteString.length, expected.size());
+    EXPECT_EQ(moved.resolve({}).value().identifier.byteString.length, expected.size());
 }
 
 /// @brief it should round-trip ByteString NodeIds through parse and to_string.
@@ -398,7 +399,7 @@ TEST(TypesTest, ByteStringNodeIdRoundTrip) {
     for (const std::string input:
          {"NS=1;B=3q2+7w==", "NS=0;B=AA==", "NS=3;B=AAEC", "NS=65535;B=/w8A/w=="}) {
         auto node_id = ASSERT_NIL_P(NodeId::parse(input));
-        EXPECT_EQ(NodeId::to_string(node_id.get()), input);
+        EXPECT_EQ(node_id.to_string(), input);
     }
 }
 
@@ -434,7 +435,7 @@ TEST(TypesTest, ParseNodeIdPrefixCaseInsensitive) {
              {"nS=5;B=AAEC", "NS=5;B=AAEC"},
          }) {
         auto node_id = ASSERT_NIL_P(NodeId::parse(input));
-        EXPECT_EQ(NodeId::to_string(node_id.get()), expected);
+        EXPECT_EQ(node_id.to_string(), expected);
     }
 }
 
@@ -476,23 +477,28 @@ TEST(TypesTest, ParseMalformedNodeId) {
 
 /// @brief it should parse a namespace URI, decoding its escapes, in any case.
 TEST(TypesTest, ParseNamespaceURINodeId) {
-    for (const auto &[input, uri]: std::vector<std::pair<std::string, std::string>>{
-             {"nsu=urn:synnax:test;s=Tank1", "urn:synnax:test"},
-             {"NSU=urn:synnax:test;S=Tank1", "urn:synnax:test"},
-             {"nsu=urn:a%3Bb%25c;s=Tank1", "urn:a;b%c"},
+    for (const auto &[input, uri, printed]:
+         std::vector<std::tuple<std::string, std::string, std::string>>{
+             {"nsu=urn:synnax:test;s=Tank1",
+              "urn:synnax:test",
+              "nsu=urn:synnax:test;s=Tank1"},
+             {"NSU=urn:synnax:test;S=Tank1",
+              "urn:synnax:test",
+              "nsu=urn:synnax:test;s=Tank1"},
+             {"nsu=urn:a%3Bb%25c;s=Tank1", "urn:a;b%c", "nsu=urn:a%3Bb%25c;s=Tank1"},
          }) {
         auto node_id = ASSERT_NIL_P(NodeId::parse(input));
         EXPECT_EQ(node_id.namespace_uri(), uri) << input;
-        EXPECT_EQ(NodeId::to_string(node_id.get()), "NS=0;S=Tank1") << input;
+        EXPECT_EQ(node_id.to_string(), printed) << input;
     }
 }
 
 /// @brief it should parse a node ID with no namespace as a node in namespace 0.
 TEST(TypesTest, ParseNodeIdWithoutNamespace) {
     auto numeric = ASSERT_NIL_P(NodeId::parse("i=85"));
-    EXPECT_EQ(NodeId::to_string(numeric.get()), "NS=0;I=85");
+    EXPECT_EQ(numeric.to_string(), "NS=0;I=85");
     auto str = ASSERT_NIL_P(NodeId::parse("S=Tank1"));
-    EXPECT_EQ(NodeId::to_string(str.get()), "NS=0;S=Tank1");
+    EXPECT_EQ(str.to_string(), "NS=0;S=Tank1");
     EXPECT_TRUE(str.namespace_uri().empty());
 }
 
@@ -532,7 +538,7 @@ TEST(TypesTest, NodeIdToStringWithNamespaceURI) {
              {"NS=1;B=AAEC", "nsu=urn:server;b=AAEC"},
          }) {
         auto node_id = ASSERT_NIL_P(NodeId::parse(input));
-        const auto printed = NodeId::to_string(node_id.get(), namespaces);
+        const auto printed = NodeId::to_string(node_id.resolve({}).value(), namespaces);
         EXPECT_EQ(printed, expected);
         auto parsed = ASSERT_NIL_P(NodeId::parse(printed));
         EXPECT_EQ(NodeId::to_string(parsed.resolve(namespaces).value()), input);
@@ -542,21 +548,21 @@ TEST(TypesTest, NodeIdToStringWithNamespaceURI) {
 /// @brief it should accept the largest namespace index and numeric identifier.
 TEST(TypesTest, ParseNodeIdNumericLimits) {
     auto node_id = ASSERT_NIL_P(NodeId::parse("NS=65535;I=4294967295"));
-    EXPECT_EQ(node_id.get().namespaceIndex, 65535);
-    EXPECT_EQ(node_id.get().identifier.numeric, 4294967295u);
+    EXPECT_EQ(node_id.resolve({}).value().namespaceIndex, 65535);
+    EXPECT_EQ(node_id.resolve({}).value().identifier.numeric, 4294967295u);
 }
 
 /// @brief it should keep separators inside a string identifier.
 TEST(TypesTest, ParseStringNodeIdWithSeparators) {
     auto node_id = ASSERT_NIL_P(NodeId::parse("NS=1;S=a;b=c"));
-    EXPECT_EQ(NodeId::to_string(node_id.get()), "NS=1;S=a;b=c");
+    EXPECT_EQ(node_id.to_string(), "NS=1;S=a;b=c");
 }
 
 /// @brief it should parse a very long string identifier.
 TEST(TypesTest, ParseLongStringNodeId) {
     const std::string input = "NS=1;S=" + std::string(100000, 'a');
     auto node_id = ASSERT_NIL_P(NodeId::parse(input));
-    EXPECT_EQ(NodeId::to_string(node_id.get()), input);
+    EXPECT_EQ(node_id.to_string(), input);
 }
 
 /// @brief it should report an invalid ByteString identifier as a field error.
@@ -575,13 +581,13 @@ TEST(TypesTest, NodeIdRoundTripConversion) {
     {
         x::json::Parser parser(std::string(R"({"nodeId": "NS=1;I=42"})"));
         NodeId nodeId = NodeId::parse("nodeId", parser);
-        std::string nodeIdStr = NodeId::to_string(nodeId.get());
+        std::string nodeIdStr = nodeId.to_string();
         EXPECT_EQ(nodeIdStr, "NS=1;I=42");
     }
     {
         x::json::Parser parser(std::string(R"({"nodeId": "NS=2;S=TestString"})"));
         NodeId nodeId = NodeId::parse("nodeId", parser);
-        std::string nodeIdStr = NodeId::to_string(nodeId.get());
+        std::string nodeIdStr = nodeId.to_string();
         EXPECT_EQ(nodeIdStr, "NS=2;S=TestString");
     }
     {
@@ -589,7 +595,7 @@ TEST(TypesTest, NodeIdRoundTripConversion) {
             std::string(R"({"nodeId": "NS=3;G=12345678-1234-5678-9ABC-123456789ABC"})")
         );
         NodeId nodeId = NodeId::parse("nodeId", parser);
-        std::string nodeIdStr = NodeId::to_string(nodeId.get());
+        std::string nodeIdStr = nodeId.to_string();
         EXPECT_EQ(nodeIdStr, "NS=3;G=12345678-1234-5678-9abc-123456789abc");
     }
 }

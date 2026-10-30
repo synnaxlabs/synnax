@@ -238,6 +238,11 @@ std::string NodeId::to_string(
     return "ns=" + std::to_string(ns) + ";" + body(node_id, false);
 }
 
+std::string NodeId::to_string() const {
+    if (this->namespace_uri_.empty()) return to_string(this->id_);
+    return "nsu=" + percent_encode(this->namespace_uri_) + ";" + body(this->id_, false);
+}
+
 std::string NodeId::to_string(const UA_NodeId &node_id) {
     return "NS=" + std::to_string(node_id.namespaceIndex) + ";" + body(node_id, true);
 }

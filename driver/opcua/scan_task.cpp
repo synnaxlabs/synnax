@@ -92,7 +92,6 @@ Scanner::scan(const common::ScannerContext &scan_ctx) {
     if (scan_ctx.devices == nullptr) return {devices, x::errors::NIL};
     for (const auto &dev: *scan_ctx.devices | std::views::values)
         devices.push_back(dev);
-    this->conn_pool->close_idle();
     const auto renew_err = this->renew_certificate(devices);
     for (auto &dev: devices)
         if (const auto err = this->check_device_health(dev); err)
