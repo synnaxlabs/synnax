@@ -99,34 +99,37 @@ const publishedLabel =
     article:where(.docs-article) {
         position: relative;
         box-sizing: content-box;
-        flex-basis: 122rem;
-        flex-shrink: 1;
-        flex-grow: 1;
+        flex: 1 1 122rem;
         max-width: 122rem;
         margin-bottom: 25rem;
         min-width: 0;
         overflow-x: clip;
+
         .article-title {
             display: inline-block;
             width: fit-content;
         }
 
-        & .pluto-breadcrumb {
+        & .lyra-breadcrumb {
             flex-wrap: wrap;
             row-gap: 0.5rem;
-            & a.pluto-text {
+
+            & a.lyra-text {
                 white-space: nowrap;
                 color: var(--pluto-gray-l8);
                 font-weight: 375;
                 font-size: var(--pluto-p-size);
+
                 &:last-child {
                     color: var(--pluto-gray-l10);
                     font-weight: 450;
                 }
+
                 &:hover {
                     color: var(--pluto-gray-l10);
                     text-decoration: none;
                 }
+
                 /* A taller touch target that leaves the line in place. */
                 @media (pointer: coarse) {
                     padding-block: 1.25rem;
@@ -135,22 +138,24 @@ const publishedLabel =
             }
         }
 
-        & .pluto-icon--caret-right {
-            transform: translateY(0px);
+        & .lyra-icon--caret-right {
+            transform: translateY(0);
             width: 2rem;
             height: 2rem;
             color: var(--pluto-gray-l6);
+
             &:first-child {
                 display: none;
             }
         }
 
         padding: 5rem 8rem;
-        @media (max-width: 1100px) {
+
+        @media (width <= 1100px) {
             padding-right: 2rem;
         }
 
-        @media (max-width: 800px) {
+        @media (width <= 800px) {
             padding: 5rem 2rem;
             margin-bottom: 0;
         }
@@ -169,18 +174,22 @@ const publishedLabel =
             flex-wrap: wrap;
             align-items: center;
             gap: 1rem 2rem;
+
             > .edition-badge {
                 margin-left: auto;
             }
+
             /* A narrow breadcrumb wraps, so the badge takes its own line. */
-            @media (max-width: 800px) {
+            @media (width <= 800px) {
                 flex-direction: column;
                 align-items: flex-start;
+
                 > .edition-badge {
                     margin-left: 0;
                 }
             }
         }
+
         .article-description {
             color: var(--pluto-gray-l9);
             font-size: var(--pluto-h4-size);
@@ -189,7 +198,7 @@ const publishedLabel =
             margin-top: 1.15rem;
             margin-bottom: 6.9rem;
 
-            & + :is(h2, h2.pluto-text) {
+            & + :is(h2, h2.lyra-text) {
                 margin-top: 4rem;
             }
 
@@ -198,15 +207,15 @@ const publishedLabel =
             }
         }
 
-        .pluto-divider {
+        .lyra-divider {
             border-top: var(--pluto-border);
             margin: 5rem 0;
 
-            & + :is(h2, h2.pluto-text) {
+            & + :is(h2, h2.lyra-text) {
                 margin-top: 4rem !important;
             }
 
-            & + :is(h3, h3.pluto-text) {
+            & + :is(h3, h3.lyra-text) {
                 margin-top: 3rem;
             }
 
@@ -224,7 +233,7 @@ const publishedLabel =
         }
 
         /* An icon in text centers on the capitals. */
-        :is(p, li) .pluto-icon {
+        :is(p, li) .lyra-icon {
             vertical-align: -0.125em;
         }
 
@@ -238,6 +247,7 @@ const publishedLabel =
             display: flex;
             flex-direction: column;
             align-items: center;
+
             figcaption {
                 font-family: var(--pluto-font-family);
                 font-size: var(--pluto-small-size);
@@ -247,6 +257,7 @@ const publishedLabel =
                 text-align: center;
                 text-wrap: balance;
             }
+
             img {
                 width: 100%;
                 margin-bottom: 2rem;
@@ -257,7 +268,7 @@ const publishedLabel =
 
     /* A pane owns the space at its edges, so the first and last blocks in it drop their
        outer margins. A tab panel and a disclosure are both panes. */
-    article:where(.docs-article) :is(.pluto-tabs__content, .docs-details > .content) {
+    article:where(.docs-article) :is(.lyra-tabs__content, .docs-details > .content) {
         & > :first-child {
             margin-top: 0;
         }
@@ -285,6 +296,7 @@ const publishedLabel =
 
         & > li {
             --docs-step-line: 1lh;
+
             position: relative;
             margin: 0;
             padding: 0 0 3rem 6rem;
@@ -319,6 +331,7 @@ const publishedLabel =
 
             &:last-child {
                 padding-bottom: 0;
+
                 &::after {
                     display: none;
                 }
@@ -330,7 +343,7 @@ const publishedLabel =
 
             /* A step starts with its text, so every block but a leading paragraph sits
                under text. Inline content, such as an icon, takes no gap. */
-            & > :is(p, ul, ol, div, pre, figure, table, video, .pluto-btn) {
+            & > :is(p, ul, ol, div, pre, figure, table, video, .lyra-btn) {
                 margin-top: 2rem;
             }
 
@@ -342,7 +355,7 @@ const publishedLabel =
 
     /* A wide block is centered on the prose and kept clear of the page navigation
        on both sides. */
-    @media (min-width: 801px) {
+    @media (width >= 801px) {
         main > section:has(.docs-wide),
         main > section article:has(.docs-wide) {
             overflow-x: visible;
@@ -353,6 +366,7 @@ const publishedLabel =
                 100%,
                 min(1080px, 100vw - 2 * (var(--docs-page-nav-width) + 4rem))
             );
+
             width: var(--docs-wide-width);
             margin-inline: calc((100% - var(--docs-wide-width)) / 2);
         }
