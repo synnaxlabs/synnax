@@ -99,8 +99,7 @@ inline ReadConfig ReadConfig::parse(x::json::Parser parser) {
 
 inline x::json::json ReadConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::task::ReadConfig::to_json().items())
-        j[k] = v;
+    j.update(::synnax::task::ReadConfig::to_json());
     {
         auto arr = x::json::json::array();
         for (const auto &item: this->channels)
@@ -136,8 +135,7 @@ inline WriteConfig WriteConfig::parse(x::json::Parser parser) {
 
 inline x::json::json WriteConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::task::PersistConfig::to_json().items())
-        j[k] = v;
+    j.update(::synnax::task::PersistConfig::to_json());
     j["state_rate"] = this->state_rate;
     j["execution_rate"] = this->execution_rate;
     {
@@ -159,8 +157,7 @@ inline ScanConfig ScanConfig::parse(x::json::Parser parser) {
 
 inline x::json::json ScanConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::task::ScanConfig::to_json().items())
-        j[k] = v;
+    j.update(::synnax::task::ScanConfig::to_json());
     return j;
 }
 
@@ -176,8 +173,7 @@ inline EntryReadChannel EntryReadChannel::parse(x::json::Parser parser) {
 
 inline x::json::json EntryReadChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseReadChannel::to_json().items())
-        j[k] = v;
+    j.update(BaseReadChannel::to_json());
     j["index"] = this->index;
     j["sub_index"] = this->sub_index;
     j["data_type"] = this->data_type;
@@ -195,8 +191,7 @@ inline UnresolvedReadChannel UnresolvedReadChannel::parse(x::json::Parser parser
 
 inline x::json::json UnresolvedReadChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseReadChannel::to_json().items())
-        j[k] = v;
+    j.update(BaseReadChannel::to_json());
     j["pdo"] = this->pdo;
     j["type"] = this->type;
     return j;
@@ -214,8 +209,7 @@ inline EntryWriteChannel EntryWriteChannel::parse(x::json::Parser parser) {
 
 inline x::json::json EntryWriteChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseWriteChannel::to_json().items())
-        j[k] = v;
+    j.update(BaseWriteChannel::to_json());
     j["index"] = this->index;
     j["sub_index"] = this->sub_index;
     j["data_type"] = this->data_type;
@@ -233,8 +227,7 @@ inline UnresolvedWriteChannel UnresolvedWriteChannel::parse(x::json::Parser pars
 
 inline x::json::json UnresolvedWriteChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseWriteChannel::to_json().items())
-        j[k] = v;
+    j.update(BaseWriteChannel::to_json());
     j["pdo"] = this->pdo;
     j["type"] = this->type;
     return j;

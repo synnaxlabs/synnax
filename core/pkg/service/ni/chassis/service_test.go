@@ -144,7 +144,8 @@ var _ = Describe("Service", func() {
 	}
 
 	Describe("OpenService", func() {
-		DescribeTable("Should reject a config missing a required field",
+		DescribeTable(
+			"Should reject a config missing a required field",
 			func(ctx SpecContext, field string, unset func(*chassis.ServiceConfig)) {
 				cfg := chassis.ServiceConfig{
 					DB:       db,
@@ -160,8 +161,16 @@ var _ = Describe("Service", func() {
 			Entry("ontology", "ontology", func(c *chassis.ServiceConfig) {
 				c.Ontology = nil
 			}),
-			Entry("status", "status", func(c *chassis.ServiceConfig) { c.Status = nil }),
-			Entry("device", "device", func(c *chassis.ServiceConfig) { c.Device = nil }),
+			Entry(
+				"status",
+				"status",
+				func(c *chassis.ServiceConfig) { c.Status = nil },
+			),
+			Entry(
+				"device",
+				"device",
+				func(c *chassis.ServiceConfig) { c.Device = nil },
+			),
 		)
 	})
 
@@ -188,21 +197,24 @@ var _ = Describe("Service", func() {
 			}))
 		})
 
-		It("Should move an existing status to a replaced chassis", func(ctx SpecContext) {
-			c := create(ctx)
-			s := retrieveStatus(ctx, c.Key)
-			s.Variant = status.VariantSuccess
-			Expect(stat.NewWriter(tx).Set(ctx, &s)).To(Succeed())
-			other := rack.Rack{Name: "Other"}
-			Expect(rackSvc.NewWriter(tx).Create(ctx, &other)).To(Succeed())
-			c.Rack = other.Key
-			c.Name = "Replaced"
-			Expect(svc.NewWriter(tx).Create(ctx, &c)).To(Succeed())
-			got := retrieveStatus(ctx, c.Key)
-			Expect(got.Name).To(Equal("Replaced"))
-			Expect(got.Details.Rack).To(Equal(other.Key))
-			Expect(got.Variant).To(Equal(status.VariantSuccess))
-		})
+		It(
+			"Should move an existing status to a replaced chassis",
+			func(ctx SpecContext) {
+				c := create(ctx)
+				s := retrieveStatus(ctx, c.Key)
+				s.Variant = status.VariantSuccess
+				Expect(stat.NewWriter(tx).Set(ctx, &s)).To(Succeed())
+				other := rack.Rack{Name: "Other"}
+				Expect(rackSvc.NewWriter(tx).Create(ctx, &other)).To(Succeed())
+				c.Rack = other.Key
+				c.Name = "Replaced"
+				Expect(svc.NewWriter(tx).Create(ctx, &c)).To(Succeed())
+				got := retrieveStatus(ctx, c.Key)
+				Expect(got.Name).To(Equal("Replaced"))
+				Expect(got.Details.Rack).To(Equal(other.Key))
+				Expect(got.Variant).To(Equal(status.VariantSuccess))
+			},
+		)
 
 		It("Should keep a status that already exists", func(ctx SpecContext) {
 			c := create(ctx)
