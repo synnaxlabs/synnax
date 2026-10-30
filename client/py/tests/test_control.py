@@ -363,7 +363,9 @@ class TestController:
             assert time.perf_counter() - start >= 0.2
 
     def test_wait_while(self, client: sy.Synnax) -> None:
-        """Test that the controller can wait for a condition to be true for a certain amount of time"""
+        """Test that the controller can wait for a condition to be true for a certain
+        amount of time
+        """
         _, press_en_cmd, press_en, _ = create_valve_set(client)
 
         assertions: dict[str, bool | int] = {}
@@ -550,7 +552,7 @@ class TestController:
             )
             auto.set_authority(50)
             auto.set_authority(100)
-            auto.set_authority(press_en_cmd.key, 50)
+            auto.set_authority(press_en_cmd.key, authority=50)
 
     def test_controller_authority_transfer(self, client: sy.Synnax) -> None:
         """Test that the controller can transfer authority to another controller"""
@@ -651,7 +653,7 @@ class TestControllerChannelResolution:
                 ctrl.get(read.name)
                 ctrl.set(cmd.name, i)
                 ctrl.set({cmd.name: i})
-                ctrl.set_authority(cmd.name, 200)
+                ctrl.set_authority(cmd.name, authority=200)
             assert counter.count == 0
 
     def test_access_by_numeric_string_key(
@@ -766,12 +768,15 @@ class TestRemainsTrueForProcessor:
 class TestScheduledCommand:
     def test_bare_number_delay_is_seconds(self) -> None:
         """Should read a bare number delay as seconds."""
-        assert ScheduledCommand("ch", 1, 2).delay == 2 * sy.TimeSpan.SECOND
+        assert (
+            ScheduledCommand(channel="ch", value=1, delay=2).delay
+            == 2 * sy.TimeSpan.SECOND
+        )
 
     def test_time_span_delay_passes_through(self) -> None:
         """Should keep a TimeSpan delay unchanged."""
         delay = 5 * sy.TimeSpan.MILLISECOND
-        assert ScheduledCommand("ch", 1, delay).delay == delay
+        assert ScheduledCommand(channel="ch", value=1, delay=delay).delay == delay
 
 
 @pytest.mark.control
