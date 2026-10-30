@@ -902,4 +902,6 @@ class TestNIResources:
 
     def test_chassis_requires_a_serial(self) -> None:
         with pytest.raises(ValidationError):
-            sy.ni.chassis.Chassis(rack=1, name="PXIe-1071", model="1071", alias="PXI1")
+            sy.ni.chassis.Chassis.model_validate(
+                {"rack": 1, "name": "PXIe-1071", "model": "1071", "alias": "PXI1"}
+            )
