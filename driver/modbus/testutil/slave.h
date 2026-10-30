@@ -17,6 +17,7 @@
 #include <set>
 #include <thread>
 #include <unordered_map>
+#include <vector>
 
 /// platform-specific headers
 #ifdef _WIN32
@@ -51,6 +52,10 @@ struct SlaveConfig {
     int port = 1502;
     /// @brief function codes the slave answers with an illegal function exception.
     std::set<int> reject_function_codes;
+    /// @brief units the slave never answers, as if they were offline.
+    std::set<int> silent_units;
+    /// @brief units the slave answers with a gateway target exception (0B).
+    std::set<int> gateway_failed_units;
 };
 
 /// @brief A simple mock Modbus slave server using libmodbus
@@ -66,6 +71,14 @@ class Slave {
     modbus_mapping_t *mb_mapping_; // Add as member
     /// @brief the number of requests received, by function code. Guarded by mutex_.
     std::map<int, std::size_t> requests_;
+    /// @brief the number of requests received, by unit. Guarded by mutex_.
+    std::map<int, std::size_t> unit_requests_;
+    /// @brief the function codes of the requests received, in order. Guarded by mutex_.
+    std::vector<int> log_;
+    /// @brief the one-time delay before the next reply to each unit. Guarded by mutex_.
+    std::map<int, std::chrono::milliseconds> stalls_;
+    /// @brief the number of client connections accepted. Guarded by mutex_.
+    std::size_t connections_ = 0;
     /// @brief set to ask the server loop to close every client connection.
     std::atomic<bool> drop_requested_{false};
 
@@ -252,6 +265,10 @@ class Slave {
                               << inet_ntoa(client_addr.sin_addr) << ":"
                               << ntohs(client_addr.sin_port) << " on socket " << new_fd;
 
+                    {
+                        std::lock_guard lock(mutex_);
+                        connections_++;
+                    }
                     FD_SET(new_fd, &ref_set);
                     fd_max = std::max(new_fd, fd_max);
                 } else {
@@ -260,16 +277,36 @@ class Slave {
                     const int rc = modbus_receive(ctx_, query);
 
                     if (rc > 0) {
-                        // Log the function code and data from the query
+                        // The unit is at offset 6 and the function code at offset 7 of
+                        // a TCP ADU.
+                        const uint8_t unit = query[6];
                         const uint8_t function_code = query[7];
-                        // Function code is at offset 7 in TCP ADU
                         VLOG(1) << "Received Modbus request on socket " << master_socket
                                 << ", length: " << rc << ", function code: 0x"
                                 << std::hex << static_cast<int>(function_code);
 
+                        std::chrono::milliseconds stall{0};
+                        {
+                            std::lock_guard lock(mutex_);
+                            if (const auto it = stalls_.find(unit);
+                                it != stalls_.end()) {
+                                stall = it->second;
+                                stalls_.erase(it);
+                            }
+                        }
+                        std::this_thread::sleep_for(stall);
                         std::lock_guard lock(mutex_);
                         requests_[function_code]++;
-                        if (config_.reject_function_codes.contains(function_code))
+                        unit_requests_[unit]++;
+                        log_.push_back(function_code);
+                        if (config_.silent_units.contains(unit)) continue;
+                        if (config_.gateway_failed_units.contains(unit))
+                            modbus_reply_exception(
+                                ctx_,
+                                query,
+                                MODBUS_EXCEPTION_GATEWAY_TARGET
+                            );
+                        else if (config_.reject_function_codes.contains(function_code))
                             modbus_reply_exception(
                                 ctx_,
                                 query,
@@ -390,6 +427,40 @@ public:
         std::lock_guard lock(mutex_);
         const auto it = requests_.find(function_code);
         return it == requests_.end() ? 0 : it->second;
+    }
+
+    /// @returns the number of requests received for the unit.
+    std::size_t unit_requests(const int unit) const {
+        std::lock_guard lock(mutex_);
+        const auto it = unit_requests_.find(unit);
+        return it == unit_requests_.end() ? 0 : it->second;
+    }
+
+    /// @returns the function codes of the requests received, in order.
+    std::vector<int> log() const {
+        std::lock_guard lock(mutex_);
+        return log_;
+    }
+
+    /// @returns the number of client connections accepted.
+    std::size_t connections() const {
+        std::lock_guard lock(mutex_);
+        return connections_;
+    }
+
+    /// @brief delays the next reply to the unit, blocking the server for the delay.
+    void stall_next(const int unit, const std::chrono::milliseconds delay) {
+        std::lock_guard lock(mutex_);
+        stalls_[unit] = delay;
+    }
+
+    /// @brief sets whether the slave answers the unit.
+    void set_silent(const int unit, const bool silent) {
+        std::lock_guard lock(mutex_);
+        if (silent)
+            config_.silent_units.insert(unit);
+        else
+            config_.silent_units.erase(unit);
     }
 
     /// @brief closes every client connection, as a server restart or a network fault

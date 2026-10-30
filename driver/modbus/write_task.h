@@ -92,7 +92,7 @@ public:
         const x::telem::Frame &fr
     ) override {
         const auto cmds = this->commanded(fr);
-        for (const auto &b: block::plan(cmds, MODBUS_MAX_WRITE_BITS, false)) {
+        for (const auto &b: block::plan(cmds, MODBUS_MAX_WRITE_BITS, 0)) {
             std::vector<uint8_t> bits(b.count);
             for (std::size_t i = b.first; i < b.last; i++) {
                 const auto value = fr.at(cmds[i].channel, -1);
@@ -116,7 +116,7 @@ public:
         const x::telem::Frame &fr
     ) override {
         const auto cmds = this->commanded(fr);
-        for (const auto &b: block::plan(cmds, MODBUS_MAX_WRITE_REGISTERS, false)) {
+        for (const auto &b: block::plan(cmds, MODBUS_MAX_WRITE_REGISTERS, 0)) {
             std::vector<uint16_t> registers(b.count);
             for (std::size_t i = b.first; i < b.last; i++) {
                 const auto &ch = cmds[i];
@@ -148,9 +148,8 @@ const Channel *find_overlap(const std::vector<Channel> &channels, const Channel 
 
 /// @brief configuration for a modbus write task.
 struct WriteTaskConfig : common::BaseWriteTaskConfig {
-    /// @brief the connection configuration for the device.
-    /// Dynamically populated from device properties.
-    device::ConnectionConfig conn;
+    /// @brief the properties of the device. Dynamically populated at configure.
+    device::Properties props;
     /// @brief the list of writers to use for writing data to the device.
     std::vector<std::unique_ptr<Writer>> writers;
 
@@ -164,10 +163,10 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
             cfg.field_err("device", dev_err);
             return;
         }
-        auto conn_parser = x::json::Parser(dev_info.properties);
-        this->conn = device::ConnectionConfig(conn_parser.child("connection"));
-        if (conn_parser.error()) {
-            cfg.field_err("device", conn_parser.error());
+        auto props_parser = x::json::Parser(dev_info.properties);
+        this->props = device::Properties(props_parser);
+        if (props_parser.error()) {
+            cfg.field_err("device", props_parser.error());
             return;
         }
         std::vector<channel::OutputCoil> coils;
@@ -194,7 +193,7 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
                     );
                     return;
                 }
-                const channel::OutputHoldingRegister reg(*c, this->conn);
+                const channel::OutputHoldingRegister reg(*c, this->props.connection);
                 if (const auto *other = find_overlap(registers, reg)) {
                     ch.field_err(
                         "address",
@@ -271,7 +270,7 @@ struct WriteTaskConfig : common::BaseWriteTaskConfig {
 class WriteTaskSink final : public common::Sink {
     /// @brief the configuration for the task.
     const WriteTaskConfig config;
-    /// @brief creates the device connection on each start.
+    /// @brief shares the connection to the device with other tasks.
     const std::shared_ptr<device::Manager> devs;
     /// @brief the device to write to. Populated on start.
     std::shared_ptr<device::Device> dev;
@@ -280,10 +279,11 @@ public:
     WriteTaskSink(const std::shared_ptr<device::Manager> &devs, WriteTaskConfig cfg):
         Sink(cfg.cmd_keys()), config(std::move(cfg)), devs(devs) {}
 
-    /// @brief connects on every start so a server restart between runs cannot
-    /// leave the task writing to a dead socket.
     x::errors::Error start() override {
-        auto [d, err] = this->devs->acquire(this->config.conn);
+        auto [d, err] = this->devs->acquire(
+            this->config.props.connection,
+            this->config.props.requests
+        );
         if (err) return err;
         this->dev = std::move(d);
         return x::errors::NIL;

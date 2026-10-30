@@ -37,24 +37,25 @@ is the low byte. A 32-bit value uses two registers, and a 64-bit value uses four
 **Data type** of the channel sets the size.
 
 For each type, the Driver reads the addresses of the task in as few requests as it can.
-One request holds at most 125 registers or 2000 coils or discrete inputs, and also reads
-the addresses between your channels.
+One request holds at most 125 registers or 2000 coils or discrete inputs. A request also
+reads the addresses between your channels, up to the **Max gap** of the
+[server](/reference/hardware/modbus/connect-server#connection-options). Lower **Max
+registers** or **Max gap** for a device that rejects long reads or unused addresses.
 
 The Driver timestamps each read with the computer clock. See
 [timing](/reference/hardware/tasks#timing).
 
 ### Byte and word order
 
-By default, the Driver reads the low word of a 32-bit or 64-bit value first. Many
-devices send the high word first. The **Swap words** switch of the
-[server](/reference/hardware/modbus/connect-server#connection-options) puts the high
-word first, and **Swap bytes** swaps the two bytes in each register. The switches set
-the order for every register channel of the server.
+By default, the Driver reads the low word of a 32-bit or 64-bit value first (word swap,
+CDAB). Many devices send the high word first (big-endian, ABCD). The **Byte order** of
+the [server](/reference/hardware/modbus/connect-server#connection-options) sets the
+order for every register channel of the server.
 
 To change the order of one channel, use its **Bytes** and **Words** selects. Each select
 has three options:
 
-- **device** -> uses the switch of the server, and shows its value, such as **device
+- **device** -> uses the byte order of the server, and shows its value, such as **device
   (swapped)**.
 - **swapped** -> swaps the order of this channel, whatever the server sets.
 - **not swapped** -> does not swap the order of this channel, whatever the server sets.
@@ -248,7 +249,7 @@ Reads a number from one or more input registers.
 The server does not have one of the addresses in a request. The error names the channels
 and the addresses of the request. Check the address map of the device. Some devices
 count addresses from 1, so try the address minus 1. If the server does not have the
-addresses between two channels, put the channels in two tasks.
+addresses between two channels, set **Max gap** of the server to `0`.
 
 ### "unsupported data type: ..."
 
@@ -262,8 +263,9 @@ that the data type matches the device.
 
 ### The connection dropped
 
-The task keeps running and shows the warning "Failed to read data". The Driver
-reconnects and tries again, up to every 5 seconds, until the server is back.
+The Driver reconnects and sends the request again at once, up to the **Retries** of the
+server. If that fails, the task keeps running and shows the warning "Failed to read
+data". The Driver tries again, up to every 5 seconds, until the server is back.
 
 For other problems, see
 [Connect a Modbus server](/reference/hardware/modbus/connect-server#troubleshooting) and

@@ -749,6 +749,50 @@ class TestModbusDevicePropertyUpdates:
         assert "holding-register-output-20-float32" in channels
         assert channels["holding-register-output-20-float32"] == holding_cmd.key
 
+    def test_device_connection_defaults(self) -> None:
+        """Should store the defaults the Driver applies to absent fields."""
+        dev = sy.modbus.Device(host="10.0.0.7", port=502)
+        assert dev.properties["connection"] == {
+            "transport": "tcp",
+            "host": "10.0.0.7",
+            "port": 502,
+            "swap_bytes": False,
+            "swap_words": False,
+            "unit_id": 255,
+            "timeout_ms": 1000,
+            "retries": 1,
+        }
+        assert dev.properties["requests"] == {
+            "max_registers": 125,
+            "max_gap": 125,
+            "write_codes": "multiple",
+            "delay_ms": 0,
+        }
+
+    def test_device_unit_and_requests(self) -> None:
+        """Should store the unit, timing, and request settings it is given."""
+        dev = sy.modbus.Device(
+            host="gateway",
+            port=502,
+            unit_id=7,
+            timeout_ms=250,
+            retries=3,
+            max_registers=60,
+            max_gap=0,
+            write_codes="single",
+            delay_ms=20,
+        )
+        connection = obj(dev.properties["connection"])
+        assert connection["unit_id"] == 7
+        assert connection["timeout_ms"] == 250
+        assert connection["retries"] == 3
+        assert dev.properties["requests"] == {
+            "max_registers": 60,
+            "max_gap": 0,
+            "write_codes": "single",
+            "delay_ms": 20,
+        }
+
     def test_device_property_key_format(self) -> None:
         """Test that map keys keep the released type spellings after the rename."""
         # Test InputRegisterReadChannel key format

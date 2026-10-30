@@ -16,7 +16,11 @@ import { createModbusDevice } from "@/feature/modbus/testutil";
 import { createTestSink } from "@/platform/analytics/testutil";
 import { createRunningRack } from "@/platform/device/testutil";
 import { pressSaveTrigger, renderModalOpener } from "@/platform/modals/testutil";
-import { answerNextCommand } from "@/platform/task/testutil";
+import {
+  answerNextCommand,
+  commitFieldInput,
+  selectFromDropdown,
+} from "@/platform/task/testutil";
 import { uniqueName } from "@/testutil";
 
 const client = createTestClient();
@@ -25,12 +29,7 @@ describe("Modbus.Device.useConnectModal", () => {
   it("should populate the form from an existing device", async () => {
     const dev = await createModbusDevice(client, {
       properties: {
-        connection: {
-          host: "modbus-existing.local",
-          port: 1502,
-          swapBytes: true,
-          swapWords: false,
-        },
+        connection: { host: "modbus-existing.local", port: 1502 },
       },
     });
     await renderModalOpener(Modbus.Device.useConnectModal, [{ deviceKey: dev.key }], {
@@ -39,6 +38,52 @@ describe("Modbus.Device.useConnectModal", () => {
     await screen.findByDisplayValue(dev.name);
     expect(screen.getByDisplayValue("modbus-existing.local")).toBeTruthy();
     expect(screen.getByDisplayValue("1502")).toBeTruthy();
+  });
+
+  it("should show the unit and byte order of an existing device", async () => {
+    const dev = await createModbusDevice(client, {
+      properties: { connection: { unitId: 7, swapBytes: true, swapWords: false } },
+    });
+    await renderModalOpener(Modbus.Device.useConnectModal, [{ deviceKey: dev.key }], {
+      client,
+    });
+    await screen.findByDisplayValue(dev.name);
+    expect(screen.getByDisplayValue("7")).toBeTruthy();
+    expect(screen.getByText("Little-endian (DCBA)")).toBeTruthy();
+  });
+
+  it("should save the unit and byte order entered for a new server", async () => {
+    const rack = await createRunningRack(client, "modbus");
+    const scan = await rack.createTask({
+      name: uniqueName("modbus_scan"),
+      type: Modbus.Task.SCAN_TYPE,
+      config: {},
+    });
+    const { result } = await renderModalOpener(
+      Modbus.Device.useConnectModal,
+      [{ rack: rack.key }],
+      { client },
+    );
+    fireEvent.change(screen.getByPlaceholderText("localhost"), {
+      target: { value: "gateway.local" },
+    });
+    commitFieldInput(screen.getByDisplayValue<HTMLInputElement>("255"), "12");
+    await selectFromDropdown("Word swap (CDAB)", "Big-endian (ABCD)");
+    const { answered } = await answerNextCommand(client, scan);
+    pressSaveTrigger();
+    const cmd = await answered;
+    const key = await result();
+    if (key == null) throw new Error("the modal closed without a device");
+    const dev = await client.devices.retrieve({ key, schemas: Modbus.Device.SCHEMAS });
+    expect(cmd.args).toEqual({
+      connection: dev.properties.connection,
+      requests: dev.properties.requests,
+    });
+    expect(dev.properties.connection.unitId).toBe(12);
+    expect(dev.properties.connection.swapBytes).toBe(false);
+    expect(dev.properties.connection.swapWords).toBe(true);
+    expect(dev.properties.connection.timeoutMs).toBe(1000);
+    expect(dev.properties.requests.writeCodes).toBe("multiple");
   });
 
   it("should start a new server at the standard Modbus TCP port", async () => {

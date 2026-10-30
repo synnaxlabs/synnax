@@ -48,21 +48,21 @@ union on `transport`, and an existing device without the field is TCP. The seria
 defaults are the ones the Modbus serial line specification requires. Millisecond fields
 follow the HTTP device's `timeout_ms` (`driver/http/device/device.h:91`).
 
-| Field                               | Default                | Meaning                                |
-| ----------------------------------- | ---------------------- | -------------------------------------- |
-| `connection.transport`              | `"tcp"`                | `"tcp"` or `"rtu"`                     |
-| `connection.host`, `port`           | none                   | TCP: hostname, IPv4, or IPv6 address   |
-| `connection.serial_port`            | none                   | RTU: `/dev/ttyUSB0`, `COM3`            |
-| `connection.baud_rate`, `parity`    | `19200`, `"even"`      | RTU line settings                      |
-| `connection.data_bits`, `stop_bits` | `8`, `1`               | RTU line settings                      |
-| `connection.unit_id`                | 255 for TCP, 1 for RTU | The unit the device addresses          |
-| `connection.timeout_ms`             | 1000                   | Connect and response timeout           |
-| `connection.retries`                | 1                      | Immediate retries after a timeout      |
-| `requests.max_registers`            | 125                    | Registers in one read                  |
-| `requests.max_gap`                  | 125                    | Unused addresses a read block can span |
-| `requests.write_codes`              | `"multiple"`           | FC15/16, or `"single"` for FC05/06     |
-| `requests.mask_write_supported`     | `false`                | Bit writes use FC22                    |
-| `requests.delay_ms`                 | 0                      | Wait between requests                  |
+| Field                               | Default                | Meaning                                   |
+| ----------------------------------- | ---------------------- | ----------------------------------------- |
+| `connection.transport`              | `"tcp"`                | `"tcp"` or `"rtu"`                        |
+| `connection.host`, `port`           | none                   | TCP: hostname, IPv4, or IPv6 address      |
+| `connection.serial_port`            | none                   | RTU: `/dev/ttyUSB0`, `COM3`               |
+| `connection.baud_rate`, `parity`    | `19200`, `"even"`      | RTU line settings                         |
+| `connection.data_bits`, `stop_bits` | `8`, `1`               | RTU line settings                         |
+| `connection.unit_id`                | 255 for TCP, 1 for RTU | The unit the device addresses             |
+| `connection.timeout_ms`             | 1000                   | Connect and response timeout              |
+| `connection.retries`                | 1                      | Immediate retries after a temporary error |
+| `requests.max_registers`            | 125                    | Registers in one read                     |
+| `requests.max_gap`                  | 125                    | Widest gap between channels in a block    |
+| `requests.write_codes`              | `"multiple"`           | FC15/16, or `"single"` for FC05/06        |
+| `requests.mask_write_supported`     | `false`                | Bit writes use FC22                       |
+| `requests.delay_ms`                 | 0                      | Wait between requests, up to 5000 ms      |
 
 Bit reads stay at the protocol limit of 2000 for each request.
 
@@ -73,15 +73,19 @@ port for RTU. Tasks and the scanner share it through a `weak_ptr` cache. The OPC
 `connection::Pool` lends each idle connection to one user at a time
 (`driver/opcua/connection/connection.h:146`). Modbus shares one connection instead,
 because a serial port has one owner and small PLCs allow few sockets. Requests take
-turns, and a waiting write goes before waiting reads. Each request sets its unit first
-with `modbus_set_slave`. A device whose serial settings differ from the connection's
-fails at start.
+turns. A waiting write goes before waiting reads, but not twice in a row while a read
+waits. Each request sets its unit first with `modbus_set_slave`. A device whose serial
+settings differ from the connection's fails at start. The connection opens at the first
+request, so a task starts while its server is off, and its reads retry until the server
+answers.
 
-A timeout retries at once, up to `retries` times. A socket error closes the connection,
-and the next attempt reconnects. A timeout does not close it, because other units behind
-the gateway still answer. The Driver flushes the socket instead. After three timed-out
-attempts in a row, a unit is demoted for 10 s: its requests fail at once with a
-temporary error, so it cannot slow the other units.
+A temporary error (§2.4) retries at once, up to `retries` times. A socket error closes
+the connection, and the next attempt reconnects. A timeout does not close it, because
+other units behind the gateway still answer. The next request flushes the socket first,
+so a late reply cannot answer it. After three timed-out attempts in a row, a unit is
+demoted for 10 s: its requests fail at once with a temporary error, so it cannot slow
+the other units. `delay_ms` counts from the end of the last request on the connection,
+for any unit.
 
 ### 2.2 Reads
 
@@ -93,10 +97,10 @@ largest end in the block. Each value is cast into the data type of its Synnax ch
 ### 2.3 Writes
 
 A command writes only the channels in its frame. Adjacent addresses in one table merge
-into one FC15 or FC16 request, split at 1968 coils or 123 registers. With
-`write_codes: "single"`, each coil goes by FC05 and each register by FC06, so a
-multi-register value is not atomic. Overlapping write channels fail at configure. A coil
-is on when its command is not zero.
+into one FC15 or FC16 request, split at 1968 coils or 123 registers. `max_registers` and
+`max_gap` apply only to reads. With `write_codes: "single"`, each coil goes by FC05 and
+each register by FC06, so a multi-register value is not atomic. Overlapping write
+channels fail at configure. A coil is on when its command is not zero.
 
 A bit inside a holding register is the one write that changes a neighbor. With
 `mask_write_supported`, the Driver sends FC22. Otherwise it reads the register and
@@ -139,7 +143,8 @@ valid offset.
 The scanner probes each device on the shared connection with a one-register read at
 address 0, unless a task got a reply within the scan period. Any reply, an exception
 included, shows that the unit answers. A timeout, exception 0A, or exception 0B marks it
-unreachable.
+unreachable. A probe waits at most 10 seconds for its turn, so a connection that other
+units keep busy fails the probe with that reason before the Console's deadline.
 
 Each connection counts requests, retries, timeouts, and exceptions for each unit, and
 keeps the last and maximum response time. The scanner reports them in the Modbus
@@ -150,8 +155,7 @@ server's `StatusDetails` (RFC 0081 §4.2).
 The test slave (`driver/modbus/testutil/slave.h`) gets the faults each phase handles:
 rejected function codes and dropped connections in Phase 1, several units with one
 silent and a stalled reply in Phase 2, and an RTU mode on a pseudo-terminal pair from
-`openpty` in Phase 3. The Python simulator used by the integration tests gets the same
-units. Every write spec reads the device back, never the Synnax echo.
+`openpty` in Phase 3. Every write spec reads the device back, never the Synnax echo.
 
 ## 3 Implementation phases
 
@@ -163,15 +167,18 @@ units. Every write spec reads the device back, never the Synnax echo.
   client. No stored change (SY-4676). This RFC lands with it.
 - **Phase 2: Connections.** §2.1, the scanner probe, `transport` with TCP only, the
   shared `connection` fields, and every `requests` field except `mask_write_supported`.
-  The connect dialog gets an advanced section.
+  The connect dialog gets Unit and Advanced tabs, and one Byte order select replaces the
+  two swap switches.
 - **Phase 3: RTU serial.** The RTU fields of `connection`, `modbus_new_rtu`, and the
   serial form in the connect dialog.
 - **Phase 4: Channels.** §2.5, bit writes with `mask_write_supported`, and §2.6.
 - **Phase 5: Diagnostics.** §2.7 counters, after RFC 0081 gives the Modbus server its
   own `StatusDetails`.
 
-Compatibility: every new field is optional. Phase 1 stops writing gap addresses, and
-Phase 2 raises the timeout from 500 ms to 1000 ms. Both go in the release notes.
+Compatibility: every new field is optional. Phase 1 stops writing gap addresses. Phase 2
+raises the timeout from 500 ms to 1000 ms, starts tasks while their server is off, and
+splits coil and discrete input reads at gaps over 125 addresses. These go in the release
+notes.
 
 | Phase | Scope                                                       | Touches                                                                                          | Depends on |
 | ----- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ---------- |
@@ -210,8 +217,9 @@ fails on devices with write-only coils. No product checked writes addresses that
 command does not name, except for a bit inside a register.
 
 **5.4 Read blocks span gaps by default.** Ignition and PLC4X span gaps, and Neuron never
-does. A `max_gap` of 125 keeps today's request count. A device that rejects reads of
-unmapped addresses sets it to 0.
+does. A `max_gap` of 125 keeps today's register requests, because one read holds at most
+125 registers. Coil and discrete input reads now split at gaps over 125 addresses. A
+device that rejects reads of unmapped addresses sets it to 0.
 
 **5.5 A timeout demotes the unit.** Kepware closes the socket on a timeout, and Ignition
 reconnects after three. Behind a gateway, that drops every unit when one is down.
@@ -240,6 +248,7 @@ Kepware writes its own stack. A new stack would add pipelined requests and RTU o
 and this design needs neither. The trade is real: libmodbus is not thread-safe, which is
 one more reason for one connection per endpoint behind a lock.
 
-## 6 Open questions
-
-1. Whether the connect dialog lists serial ports from the Driver or takes a typed path.
+**5.11 The serial port is a typed path.** The Driver runs on the rack, often on another
+computer than the Console, so only the Driver can list its serial ports, and that needs
+a new rack command. A typed path such as `/dev/ttyUSB0` or `COM3` works on every
+platform without one.
