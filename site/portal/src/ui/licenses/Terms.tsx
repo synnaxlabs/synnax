@@ -15,7 +15,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement, useId } from "react";
 import { z } from "zod";
 
-import { type License, type Term } from "@/server/db/schema";
+import { type schema } from "@/server/db";
 import { VERSION_PATTERN } from "@/server/license/limits";
 
 const termChoiceZ = z.enum(["subscription", "updates", "perpetual"]);
@@ -94,7 +94,7 @@ export const ZERO_TERMS: TermsValues = {
 };
 
 /** termsOf reads a license into the values the form edits. */
-export const termsOf = (lic: License): TermsValues => ({
+export const termsOf = (lic: schema.License): TermsValues => ({
   label: lic.label,
   term: lic.term === "subscription" && lic.maxVersion != null ? "updates" : lic.term,
   nodes: lic.nodes,
@@ -113,7 +113,7 @@ export const bodyOf = <V extends TermsValues>({
   term,
   channelsLimited,
   ...rest
-}: V): Omit<V, "term" | "channelsLimited"> & { term: Term } => ({
+}: V): Omit<V, "term" | "channelsLimited"> & { term: schema.Term } => ({
   ...rest,
   term: term === "perpetual" ? "perpetual" : "subscription",
   channels: channelsLimited ? rest.channels : 0,

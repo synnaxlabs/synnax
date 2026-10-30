@@ -17,14 +17,7 @@ import { POST as removeRoute } from "@/pages/api/organizations/[key]/members/[us
 import { POST as roleRoute } from "@/pages/api/organizations/[key]/members/[user]/role";
 import { POST as renameRoute } from "@/pages/api/organizations/[key]/name";
 import { POST as registerRoute } from "@/pages/api/organizations/index";
-import {
-  activation,
-  event,
-  invitation,
-  license,
-  type Organization,
-  organization,
-} from "@/server/db/schema";
+import { schema } from "@/server/db";
 import { failingEvents, type Memory, openMemory } from "@/server/db/testutil";
 import { ADMIN_ROLE, MEMBER_ROLE, type Team } from "@/server/directory";
 import { HASH_A, NOW } from "@/server/license/testutil";
@@ -59,7 +52,7 @@ const STAFF_TEAM: Team = {
 describe("organization routes", () => {
   let store: Memory;
   let h: Harness;
-  let acme: Organization;
+  let acme: schema.Organization;
 
   beforeAll(async () => {
     store = await openMemory();
@@ -93,9 +86,9 @@ describe("organization routes", () => {
     expect(await body(res)).toEqual({ error });
   };
 
-  const events = async () => await store.query.select().from(event);
+  const events = async () => await store.query.select().from(schema.event);
 
-  const invitations = async () => await store.query.select().from(invitation);
+  const invitations = async () => await store.query.select().from(schema.invitation);
 
   const failMail = (): void => {
     h.mail.send = async () => {
@@ -478,7 +471,9 @@ describe("organization routes", () => {
       });
 
     const globex = async () =>
-      (await store.query.select().from(organization)).find((o) => o.name === "Globex");
+      (await store.query.select().from(schema.organization)).find(
+        (o) => o.name === "Globex",
+      );
 
     it("should register the team in Clerk and the portal", async () => {
       h.signIn(STAFF);
@@ -571,7 +566,7 @@ describe("organization routes", () => {
         return team;
       };
       expect((await register()).status).toBe(200);
-      const teams = await store.query.select().from(organization);
+      const teams = await store.query.select().from(schema.organization);
       expect(teams.filter((o) => o.name === "Globex")).toHaveLength(1);
     });
 
@@ -636,7 +631,7 @@ describe("organization routes", () => {
         clerkOrgID: ACME,
         name: "Acme Rockets",
       });
-      const [row] = await store.query.select().from(organization);
+      const [row] = await store.query.select().from(schema.organization);
       expect(row).toMatchObject({ key: acme.key, name: "Acme Rockets" });
     });
 
@@ -662,7 +657,7 @@ describe("organization routes", () => {
       );
       expect(res.status).toBe(500);
       expect(await h.directory.team(ACME)).toEqual({ clerkOrgID: ACME, name: "Acme" });
-      const [row] = await store.query.select().from(organization);
+      const [row] = await store.query.select().from(schema.organization);
       expect(row.name).toBe("Acme");
     });
 
@@ -702,14 +697,14 @@ describe("organization routes", () => {
         path: `/api/organizations/${key}/delete`,
       });
 
-    const createRecords = async (org: Organization): Promise<void> => {
+    const createRecords = async (org: schema.Organization): Promise<void> => {
       const lic = await createLicense(store, { organization: org.key });
       const act = await createActivation(store, {
         license: lic.key,
         fingerprint: [HASH_A],
       });
       await createInvitation(store, { organization: org.key, email: "cy@acme.com" });
-      await store.query.insert(event).values([
+      await store.query.insert(schema.event).values([
         { at: NOW, kind: "register", actor: STAFF, organization: org.key },
         {
           at: NOW,
@@ -723,9 +718,9 @@ describe("organization routes", () => {
     };
 
     const counts = async () => ({
-      organizations: (await store.query.select().from(organization)).length,
-      licenses: (await store.query.select().from(license)).length,
-      activations: (await store.query.select().from(activation)).length,
+      organizations: (await store.query.select().from(schema.organization)).length,
+      licenses: (await store.query.select().from(schema.license)).length,
+      activations: (await store.query.select().from(schema.activation)).length,
       invitations: (await invitations()).length,
       events: (await events()).length,
     });

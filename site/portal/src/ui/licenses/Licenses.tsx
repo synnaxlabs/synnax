@@ -13,7 +13,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 
-import { type Organization } from "@/server/db/schema";
+import { type schema } from "@/server/db";
 import { deny } from "@/server/license/deny";
 import { channels, term } from "@/server/license/limits";
 import { type Held } from "@/server/license/list";
@@ -24,7 +24,7 @@ import { Empty, Page } from "@/ui/Page";
 import { Row, Table } from "@/ui/Table";
 
 export interface LicensesProps {
-  organization: Organization;
+  organization: schema.Organization;
   licenses: Held[];
   now: Date;
 }

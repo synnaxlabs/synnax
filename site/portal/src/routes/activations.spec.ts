@@ -14,14 +14,7 @@ import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { POST as downloadRoute } from "@/pages/api/activations/[key]/download";
 import { POST as nameRoute } from "@/pages/api/activations/[key]/name";
 import { POST as releaseRoute } from "@/pages/api/activations/[key]/release";
-import {
-  type Activation,
-  activation,
-  event,
-  type License,
-  license,
-  type Organization,
-} from "@/server/db/schema";
+import { schema } from "@/server/db";
 import { type Memory, openMemory } from "@/server/db/testutil";
 import { type Team } from "@/server/directory";
 import { HASH_A, HASH_B, NOW } from "@/server/license/testutil";
@@ -46,9 +39,9 @@ const EARLIER = new Date("2026-09-10T00:00:00Z");
 describe("activation routes", () => {
   let store: Memory;
   let h: Harness;
-  let acme: Organization;
-  let lic: License;
-  let act: Activation;
+  let acme: schema.Organization;
+  let lic: schema.License;
+  let act: schema.Activation;
 
   beforeAll(async () => {
     store = await openMemory();
@@ -87,15 +80,15 @@ describe("activation routes", () => {
     expect(await body(res)).toEqual({ error });
   };
 
-  const machine = async (): Promise<Activation> => {
+  const machine = async (): Promise<schema.Activation> => {
     const [row] = await store.query
       .select()
-      .from(activation)
-      .where(eq(activation.key, act.key));
+      .from(schema.activation)
+      .where(eq(schema.activation.key, act.key));
     return row;
   };
 
-  const events = async () => await store.query.select().from(event);
+  const events = async () => await store.query.select().from(schema.event);
 
   const describeAccess = (
     route: APIRoute,
@@ -168,24 +161,24 @@ describe("activation routes", () => {
     it("should answer 404 for a machine whose seat was released", async () => {
       h.signIn(MEMBER);
       await store.query
-        .update(activation)
+        .update(schema.activation)
         .set({ releasedAt: NOW })
-        .where(eq(activation.key, act.key));
+        .where(eq(schema.activation.key, act.key));
       await expectError(await post(), 404, "Activation not found");
     });
 
     it("should refuse a machine on a revoked license", async () => {
       h.signIn(MEMBER);
       await store.query
-        .update(license)
+        .update(schema.license)
         .set({ revokedAt: NOW })
-        .where(eq(license.key, lic.key));
+        .where(eq(schema.license.key, lic.key));
       await expectError(await post(), 400, "This license has been revoked.");
     });
 
     it("should rate limit a user who downloads too often", async () => {
       h.signIn(MEMBER);
-      await store.query.insert(event).values(
+      await store.query.insert(schema.event).values(
         Array.from({ length: PER_ACTOR }, () => ({
           kind: "download" as const,
           actor: MEMBER,

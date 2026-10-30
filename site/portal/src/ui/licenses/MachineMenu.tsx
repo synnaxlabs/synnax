@@ -13,7 +13,7 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Status } from "@synnaxlabs/lyra/status";
 import { type ReactElement, useState } from "react";
 
-import { type Activation } from "@/server/db/schema";
+import { type schema } from "@/server/db";
 import { filename } from "@/server/license/limits";
 import { post, postFile, reload, save } from "@/ui/api";
 import { machineName } from "@/ui/format";
@@ -22,7 +22,7 @@ import { Modal } from "@/ui/modal";
 import { useAction } from "@/ui/useAction";
 
 export interface MachineMenuProps {
-  activation: Activation;
+  activation: schema.Activation;
   label: string;
 }
 

@@ -14,7 +14,7 @@ import { POST as unlinkRoute } from "@/pages/api/activations/[key]/unlink";
 import { POST as linkRoute } from "@/pages/api/desktop/link";
 import { OPTIONS, POST as renewRoute } from "@/pages/api/desktop/renew";
 import { POST as desktopUnlinkRoute } from "@/pages/api/desktop/unlink";
-import { activation, event, license } from "@/server/db/schema";
+import { schema } from "@/server/db";
 import { type Memory, openMemory } from "@/server/db/testutil";
 import { hashSecret } from "@/server/license/desktop";
 import { HASH_A, HASH_B, NOW } from "@/server/license/testutil";
@@ -122,8 +122,8 @@ describe("desktop routes", () => {
       expect(linked.user).toBe("user_a");
       const [act] = await store.query
         .select()
-        .from(activation)
-        .where(eq(activation.key, linked.activation));
+        .from(schema.activation)
+        .where(eq(schema.activation.key, linked.activation));
       expect(act.renewalSecretHash).toBe(hashSecret(linked.secret));
       expect(readKey(linked.key)).toMatchObject({
         edition: "d",
@@ -332,7 +332,7 @@ describe("desktop routes", () => {
       expect(res.headers.get("access-control-allow-origin")).toBe("*");
       const { key } = await body<{ key: string }>(res);
       expect(readKey(key)).toMatchObject({ fingerprints: [HASH_A] });
-      const renewals = (await store.query.select().from(event)).filter(
+      const renewals = (await store.query.select().from(schema.event)).filter(
         (e) => e.kind === "renew",
       );
       expect(renewals).toHaveLength(1);
@@ -420,10 +420,10 @@ describe("desktop routes", () => {
       expect(res.headers.get("access-control-allow-origin")).toBe("*");
       const [act] = await store.query
         .select()
-        .from(activation)
-        .where(eq(activation.key, linked.activation));
+        .from(schema.activation)
+        .where(eq(schema.activation.key, linked.activation));
       expect(act.releasedAt).not.toBeNull();
-      const unlinks = (await store.query.select().from(event)).filter(
+      const unlinks = (await store.query.select().from(schema.event)).filter(
         (e) => e.kind === "unlink",
       );
       expect(unlinks).toEqual([expect.objectContaining({ actor: linked.activation })]);
@@ -477,13 +477,13 @@ describe("desktop routes", () => {
       expect((await postUnlink(linked.activation)).status).toBe(204);
       const [act] = await store.query
         .select()
-        .from(activation)
-        .where(eq(activation.key, linked.activation));
+        .from(schema.activation)
+        .where(eq(schema.activation.key, linked.activation));
       expect(act.renewalSecretHash).toBeNull();
       const [lic] = await store.query
         .select()
-        .from(license)
-        .where(eq(license.key, act.license));
+        .from(schema.license)
+        .where(eq(schema.license.key, act.license));
       expect(lic.revokedAt).not.toBeNull();
     });
 

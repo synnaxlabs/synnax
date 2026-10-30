@@ -14,20 +14,20 @@ import { Tag } from "@synnaxlabs/lyra/tag";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement, useCallback } from "react";
 
-import { type OrganizationKind } from "@/server/db/schema";
+import { type schema } from "@/server/db";
 
 export interface ScopeOption {
   key: string;
   name: string;
-  kind: OrganizationKind;
+  kind: schema.OrganizationKind;
 }
 
-const KIND_LABELS: Record<OrganizationKind, string> = {
+const KIND_LABELS: Record<schema.OrganizationKind, string> = {
   personal: "Personal",
   team: "Enterprise",
 };
 
-const KindTag = ({ kind }: { kind: OrganizationKind }): ReactElement => (
+const KindTag = ({ kind }: { kind: schema.OrganizationKind }): ReactElement => (
   <Tag.Tag size="small" className={`portal-scope__tag portal-scope__tag--${kind}`}>
     {KIND_LABELS[kind]}
   </Tag.Tag>

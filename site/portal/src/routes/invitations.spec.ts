@@ -11,7 +11,7 @@ import { type APIRoute } from "astro";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import { POST as acceptRoute } from "@/pages/api/invitations/[key]/accept";
-import { event, invitation, type Organization } from "@/server/db/schema";
+import { schema } from "@/server/db";
 import { failingEvents, type Memory, openMemory } from "@/server/db/testutil";
 import { ADMIN_ROLE, MEMBER_ROLE, type Team } from "@/server/directory";
 import { badRequest } from "@/server/errors";
@@ -34,7 +34,7 @@ const OTHER = "user_other";
 describe("invitation routes", () => {
   let store: Memory;
   let h: Harness;
-  let acme: Organization;
+  let acme: schema.Organization;
 
   beforeAll(async () => {
     store = await openMemory();
@@ -67,7 +67,7 @@ describe("invitation routes", () => {
     expect(await body(res)).toEqual({ error });
   };
 
-  const invitations = async () => await store.query.select().from(invitation);
+  const invitations = async () => await store.query.select().from(schema.invitation);
 
   const roleOf = (userID: string): string | undefined =>
     h.directory.members[userID]?.find((t) => t.clerkOrgID === ACME)?.role;
@@ -90,7 +90,7 @@ describe("invitation routes", () => {
       const sent = await invite();
       h.signIn(CY);
       await accept(sent.key);
-      expect(await store.query.select().from(event)).toEqual([
+      expect(await store.query.select().from(schema.event)).toEqual([
         expect.objectContaining({
           kind: "accept_invitation",
           at: NOW,
@@ -157,7 +157,7 @@ describe("invitation routes", () => {
       h.signIn(CY);
       await expectError(await accept(sent.key), 400, "The team is full.");
       expect(await invitations()).toEqual([sent]);
-      expect(await store.query.select().from(event)).toEqual([]);
+      expect(await store.query.select().from(schema.event)).toEqual([]);
     });
 
     it("should keep the invitation when the event cannot be recorded", async () => {
