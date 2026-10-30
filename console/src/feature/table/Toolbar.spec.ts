@@ -208,9 +208,9 @@ describe("table/Toolbar", () => {
       tableState: { selectedCells: ["a", "b"], lastSelected: "b" },
     });
     const label = await screen.findByText("Selection");
-    const item = label.closest(".pluto-input__item");
+    const item = label.closest(".lyra-input__item");
     assertDefined(item);
-    const swatches = item.querySelectorAll<HTMLElement>(".pluto-color-swatch");
+    const swatches = item.querySelectorAll<HTMLElement>(".lyra-color-swatch");
     expect(swatches).toHaveLength(2);
     fireEvent.click(swatches[0]);
     fireEvent.change(screen.getByLabelText("Hex"), { target: { value: "0000ff" } });

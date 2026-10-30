@@ -73,9 +73,6 @@ type EnumForm struct {
 
 func (EnumForm) typeForm() {}
 
-// IsExtension reports whether the enum extends one or more other enums.
-func (f EnumForm) IsExtension() bool { return len(f.Extends) > 0 }
-
 // UnionForm describes a discriminated union: a closed set of struct variants
 // distinguished by the string value of a single shared discriminator field.
 // All variants share an optional set of base fields contributed by Extends.

@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, lineplot } from "@synnaxlabs/client";
+import { type channel, lineplot, type ranger } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Channel, LinePlot } from "@synnaxlabs/pluto";
+import { dynamicWindow, TimeSpan, unique } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { CustomRangeInput } from "@/feature/lineplot/CustomRangeInput";
@@ -81,25 +82,70 @@ export const XAxisChannelSelect = ({
   );
 };
 
-export interface XAxisRangeSelectProps extends Omit<
+export interface RangeSelectProps extends Omit<
   Range.SelectMultipleInputItemProps,
   "value" | "onChange"
-> {
-  axisKey: lineplot.XAxisKey;
-}
+> {}
 
-export const XAxisRangeSelect = ({
-  axisKey,
-  ...rest
-}: XAxisRangeSelectProps): ReactElement => {
-  const value = LinePlot.useXAxisRanges({ axisKey });
+// The window that selecting the custom entry adds. No session range has this span, so
+// the plot keeps showing it as the custom entry.
+const DEFAULT_CUSTOM: ranger.Ref = {
+  variant: "window",
+  window: dynamicWindow(TimeSpan.hours(2)),
+};
+
+// Two session ranges can show the same window, and a plot draws each reference once.
+const dedupe = (refs: ranger.Ref[]): ranger.Ref[] =>
+  refs.filter(
+    (r, i) => refs.findIndex((other) => Session.Range.refsEqual(other, r)) === i,
+  );
+
+/**
+ * Selects the ranges the plot shows. A window that no session range shows is the
+ * custom entry, which reveals an input to edit the window.
+ */
+export const RangeSelect = (props: RangeSelectProps): ReactElement => {
+  const refs = LinePlot.useRanges();
+  const states = Session.Range.useSelectMultiple();
   const dispatch = LinePlot.useSingleDispatch();
-  const handleChange = (ranges: string[]) =>
-    dispatch(lineplot.setRanges({ axisKey, ranges }));
+  const keyOf = (ref: ranger.Ref): string =>
+    ref.variant === "key"
+      ? ref.key
+      : (Session.Range.findKey(ref, states) ?? Range.CUSTOM_KEY);
+  const customs = refs.filter((r) => keyOf(r) === Range.CUSTOM_KEY);
+  const value = unique.unique(refs.map(keyOf));
+  const handleChange = (keys: string[]) => {
+    const ranges = keys.flatMap((k): ranger.Ref[] => {
+      if (k === Range.CUSTOM_KEY)
+        return customs.length > 0 ? customs : [DEFAULT_CUSTOM];
+      const state = states.find((s) => s.key === k);
+      return [state == null ? { variant: "key", key: k } : Session.Range.toRef(state)];
+    });
+    dispatch(lineplot.setRanges({ ranges: dedupe(ranges) }));
+  };
+  const custom = customs.find(
+    (r): r is ranger.WindowRef =>
+      r.variant === "window" && r.window.variant === "dynamic",
+  );
+  const handleCustomChange = (span: TimeSpan) =>
+    dispatch(
+      lineplot.setRanges({
+        ranges: dedupe(
+          refs.map((r) =>
+            r === custom ? { variant: "window", window: dynamicWindow(span) } : r,
+          ),
+        ),
+      }),
+    );
   return (
     <Flex.Box x grow>
-      <Range.SelectMultipleInputItem value={value} onChange={handleChange} {...rest} />
-      {value.includes(Range.CUSTOM_KEY) && <CustomRangeInput />}
+      <Range.SelectMultipleInputItem value={value} onChange={handleChange} {...props} />
+      {custom?.window.variant === "dynamic" && (
+        <CustomRangeInput
+          value={new TimeSpan(custom.window.timeSpan)}
+          onChange={handleCustomChange}
+        />
+      )}
     </Flex.Box>
   );
 };

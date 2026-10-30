@@ -68,9 +68,14 @@ const { home, columns } = Astro.props;
             align="center"
             className="footer-bottom-bar"
         >
-            <Text.Text level="small" className="footer-muted">
-                &copy; {new Date().getFullYear()} Synnax Labs Inc.
-            </Text.Text>
+            <Flex.Box direction="x" align="center" className="footer-legal">
+                <Text.Text level="small" className="footer-muted">
+                    &copy; {new Date().getFullYear()} Synnax Labs Inc.
+                </Text.Text>
+                <button type="button" class="footer-cookies" data-consent="settings">
+                    Cookie settings
+                </button>
+            </Flex.Box>
             <Flex.Box direction="x" align="center" className="footer-bottom-right">
                 <Flex.Box className="footer-built-in">
                     <Text.Text level="small" variant="code" className="footer-muted">
@@ -112,6 +117,7 @@ const { home, columns } = Astro.props;
             align-self: flex-start;
             text-decoration: none;
             display: flex;
+
             & .synnax-logo--title {
                 height: 4.5rem;
             }
@@ -170,7 +176,7 @@ const { home, columns } = Astro.props;
             background: linear-gradient(
                 105deg,
                 transparent 0%,
-                rgba(255, 255, 255, 0.5) 50%,
+                rgb(255 255 255 / 50%) 50%,
                 transparent 100%
             );
             transform: translateX(-150%);
@@ -196,6 +202,25 @@ const { home, columns } = Astro.props;
             gap: clamp(2rem, 1rem + 2vw, 5rem);
         }
 
+        .footer-legal {
+            gap: 3rem;
+        }
+
+        .footer-cookies {
+            padding: 0;
+            border: none;
+            background: none;
+            color: var(--pluto-gray-l8);
+            font: inherit;
+            font-size: var(--pluto-small-size);
+            cursor: pointer;
+            transition: color 0.2s ease-in-out;
+
+            &:hover {
+                color: var(--pluto-gray-l10);
+            }
+        }
+
         .footer-social {
             gap: 0.5rem;
         }
@@ -212,7 +237,7 @@ const { home, columns } = Astro.props;
         }
     }
 
-    @media (max-width: 900px) {
+    @media (width <= 900px) {
         footer .footer-main {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -244,7 +269,7 @@ const { home, columns } = Astro.props;
         }
     }
 
-    @media (max-width: 600px) {
+    @media (width <= 600px) {
         footer .footer-logo-link {
             padding-block: 1.25rem;
             margin-block: -1.25rem;
@@ -282,9 +307,11 @@ const { home, columns } = Astro.props;
         0% {
             transform: translateX(-150%);
         }
+
         50% {
             transform: translateX(350%);
         }
+
         100% {
             transform: translateX(350%);
         }
