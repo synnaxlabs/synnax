@@ -44,6 +44,7 @@ class TestOPCDevice:
             session_timeout_ms=120_000,
         )
         connection = dev.properties["connection"]
+        assert isinstance(connection, dict)
         assert connection["client_timeout_ms"] == 2_000
         assert connection["secure_channel_lifetime_ms"] == 60_000
         assert connection["session_timeout_ms"] == 120_000
