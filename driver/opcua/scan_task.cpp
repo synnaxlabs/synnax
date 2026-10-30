@@ -742,6 +742,18 @@ std::optional<std::pair<connection::Pool::Connection, UA_NodeId>> Scanner::targe
         ctx->set_status(status);
         return std::nullopt;
     }
+    // A namespace that the server added since the connection opened would print as an
+    // index, which a restart can move.
+    types::ReadRequestBuilder ns_req;
+    ns_req.add_node(UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER_NAMESPACEARRAY));
+    auto [ns_res, ns_err] = connection.read(ns_req.build());
+    if (!ns_err) ns_err = connection.update_namespaces(ns_res.get().results[0]).second;
+    if (ns_err) {
+        status.message = failure;
+        status.description = ns_err.data;
+        ctx->set_status(status);
+        return std::nullopt;
+    }
     const auto node = args.node.resolve(connection.server().namespaces);
     if (!node.has_value()) {
         status.message = failure;
