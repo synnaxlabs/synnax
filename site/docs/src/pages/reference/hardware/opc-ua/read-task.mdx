@@ -144,7 +144,9 @@ await task.start();
 
 ## Find nodes
 
-The **Browser** loads the children of a node when you expand it. To find a node:
+The **Browser** loads the children of a node when you expand it. It stops at 10,000
+children, or after 7 seconds on a slow server, and the Console warns you when it stops
+early. To find a node:
 
 - Type in the search field. The browser shows only the loaded nodes whose name or node
   ID holds the text.
@@ -161,10 +163,11 @@ you hover over it. The rest of the tree stays.
 
 Drag a folder or an object into **Channels** to add the variables under it, at any
 depth. The Console asks you to confirm the count before it adds them. It names each
-channel from the folder and the browse path below it, such as `Line1_Tank1_Pressure`, so
-nodes with the same name in different folders do not collide. The Driver looks under
-objects, but not under variables. It stops after 1,000 variables or 10,000 objects, and
-the Console tells you when it stopped early.
+channel from the folder and the browse path below it, such as `Line1_Tank1_Pressure`.
+When the task already has the name, the Console adds a number, such as
+`Line1_Tank1_Pressure_2`. The Driver looks under objects, but not under variables. It
+stops after 1,000 variables, 10,000 objects, or 20 seconds, and the Console tells you
+when it stopped early.
 
 ### Import and export channels
 

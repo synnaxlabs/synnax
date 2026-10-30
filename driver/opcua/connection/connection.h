@@ -39,6 +39,10 @@ namespace driver::opcua::connection {
 /// runs.
 const auto RETRY_INTERVAL = 10 * x::telem::SECOND;
 
+/// @brief the most children that one browse lists, across all of its nodes, so that a
+/// server cannot fill the memory of the Driver.
+constexpr size_t MAX_CHILDREN = 10000;
+
 /// @brief the configuration for an OPC UA connection.
 struct Config {
     /// @brief the endpoint of the OPC UA server.
@@ -318,12 +322,14 @@ public:
 
         /// @brief finds the children of each node: the targets of its forward
         /// hierarchical references. Follows continuation points until the server
-        /// returns every child, in as many requests as the server's limit needs. Skips
-        /// a child on another server or in a namespace the server does not list.
-        /// @returns one result for each node, in order. Returns errors::NO_CONNECTION
-        /// when the connection is lost, the error of a service result, or
-        /// errors::CRITICAL when the server returns a result count that does not match
-        /// the request, or continuation points with no children.
+        /// returns every child or the browse lists MAX_CHILDREN children, in as many
+        /// requests as the server's limit needs. Skips a child on another server or in
+        /// a namespace the server does not list.
+        /// @returns one result for each node, in order, with truncated set on each
+        /// result that the limit cut short. Returns errors::NO_CONNECTION when the
+        /// connection is lost, the error of a service result, or errors::CRITICAL when
+        /// the server returns a result count that does not match the request, or
+        /// continuation points with no children.
         [[nodiscard]] std::pair<std::vector<types::BrowseResult>, x::errors::Error>
         browse(const std::vector<UA_NodeId> &nodes) const;
 
@@ -436,11 +442,13 @@ public:
         void unsubscribe();
 
         /// @brief browses count nodes in one Browse request, then follows their
-        /// continuation points with BrowseNext. Fills count results.
+        /// continuation points with BrowseNext. Fills count results, and takes one from
+        /// room for each child that the server lists.
         [[nodiscard]] x::errors::Error browse(
             const UA_NodeId *nodes,
             size_t count,
-            types::BrowseResult *results
+            types::BrowseResult *results,
+            size_t &room
         ) const;
 
         /// @returns the error of the service result of a call. A call that fails for a

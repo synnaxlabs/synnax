@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstring>
+#include <functional>
 #include <iterator>
 #include <memory>
 #include <new>
@@ -124,16 +125,20 @@ struct Pending {
     std::vector<size_t> results;
 
     /// @brief takes the continuation points of the count results in raw, where raw[i]
-    /// continues the browse result at indexes[i].
+    /// continues the browse result at indexes[i]. Takes only the points whose index
+    /// keep accepts, when keep is set.
     Pending(
         UA_BrowseResult *raw,
         const size_t count,
-        const std::vector<size_t> &indexes
+        const std::vector<size_t> &indexes,
+        const std::function<bool(size_t)> &keep = nullptr
     ) {
         UA_BrowseNextRequest_init(&req);
         std::vector<size_t> positions;
         for (size_t i = 0; i < count; ++i)
-            if (raw[i].continuationPoint.length > 0) positions.push_back(i);
+            if (raw[i].continuationPoint.length > 0 &&
+                (keep == nullptr || keep(indexes[i])))
+                positions.push_back(i);
         if (positions.empty()) return;
         req.continuationPoints = static_cast<UA_ByteString *>(
             UA_Array_new(positions.size(), &UA_TYPES[UA_TYPES_BYTESTRING])
@@ -178,10 +183,12 @@ struct Pending {
 };
 
 /// @brief adds the children that raw lists to out, with the namespace indexes of the
-/// server. A failed browse sets the error of out and drops its children.
+/// server, and takes one from room for each. Sets out.truncated when raw lists a child
+/// after room runs out. A failed browse sets the error of out and drops its children.
 void add_references(
     const UA_BrowseResult &raw,
     types::BrowseResult &out,
+    size_t &room,
     const std::vector<std::string> &namespaces
 ) {
     if (auto err = errors::parse(raw.statusCode)) {
@@ -191,6 +198,11 @@ void add_references(
     }
     if (out.err) return;
     for (size_t i = 0; i < raw.referencesSize; ++i) {
+        if (room == 0) {
+            out.truncated = true;
+            return;
+        }
+        --room;
         const auto &ref = raw.references[i];
         if (ref.nodeId.serverIndex != 0) continue;
         UA_NodeId id = ref.nodeId.nodeId;
@@ -212,6 +224,27 @@ void add_references(
             .node_class = ref.nodeClass,
         });
     }
+}
+
+/// @brief adds the children that the count results in raw list to results, where raw[i]
+/// continues the browse result at indexes[i]. Releases the continuation points of the
+/// results that room cut short.
+/// @returns the continuation points to follow.
+Pending add_page(
+    UA_Client *client,
+    UA_BrowseResult *raw,
+    const size_t count,
+    const std::vector<size_t> &indexes,
+    types::BrowseResult *results,
+    size_t &room,
+    const std::vector<std::string> &namespaces
+) {
+    for (size_t i = 0; i < count; ++i)
+        add_references(raw[i], results[indexes[i]], room, namespaces);
+    Pending(raw, count, indexes, [results](const size_t i) {
+        return results[i].truncated;
+    }).release(client);
+    return {raw, count, indexes};
 }
 
 /// @brief reads the value of each node in namespace 0, in requests of at most limit
@@ -413,11 +446,13 @@ Pool::Connection::browse(const std::vector<UA_NodeId> &nodes) const {
     std::vector<types::BrowseResult> results(nodes.size());
     const size_t limit = this->server_->max_nodes_per_browse;
     const size_t step = limit == 0 ? std::max<size_t>(nodes.size(), 1) : limit;
+    size_t room = MAX_CHILDREN;
     for (size_t offset = 0; offset < nodes.size(); offset += step)
         if (auto err = this->browse(
                 nodes.data() + offset,
                 std::min(step, nodes.size() - offset),
-                results.data() + offset
+                results.data() + offset,
+                room
             ))
             return {{}, err};
     return {std::move(results), x::errors::NIL};
@@ -426,7 +461,8 @@ Pool::Connection::browse(const std::vector<UA_NodeId> &nodes) const {
 x::errors::Error Pool::Connection::browse(
     const UA_NodeId *nodes,
     const size_t count,
-    types::BrowseResult *results
+    types::BrowseResult *results,
+    size_t &room
 ) const {
     std::vector<UA_BrowseDescription> descriptions(count);
     for (size_t i = 0; i < count; ++i) {
@@ -450,14 +486,20 @@ x::errors::Error Pool::Connection::browse(
     std::vector<size_t> indexes(count);
     for (size_t i = 0; i < count; ++i)
         indexes[i] = i;
-    const size_t received = std::min(raw.resultsSize, count);
-    Pending pending(raw.results, received, indexes);
     if (auto err = check_results(raw.resultsSize, count)) {
-        pending.release(this->get());
+        const size_t received = std::min(raw.resultsSize, count);
+        Pending(raw.results, received, indexes).release(this->get());
         return err;
     }
-    for (size_t i = 0; i < count; ++i)
-        add_references(raw.results[i], results[i], namespaces);
+    auto pending = add_page(
+        this->get(),
+        raw.results,
+        count,
+        indexes,
+        results,
+        room,
+        namespaces
+    );
     while (!pending.empty()) {
         if (auto err = lost(this->get())) return err;
         types::BrowseNextResponse next(
@@ -469,22 +511,23 @@ x::errors::Error Pool::Connection::browse(
             return err;
         }
         const size_t asked = pending.results.size();
-        const size_t got = std::min(next_raw.resultsSize, asked);
-        Pending following(next_raw.results, got, pending.results);
         if (auto err = check_results(next_raw.resultsSize, asked)) {
-            following.release(this->get());
+            const size_t got = std::min(next_raw.resultsSize, asked);
+            Pending(next_raw.results, got, pending.results).release(this->get());
             return err;
         }
         bool found = false;
-        for (size_t j = 0; j < got; ++j) {
+        for (size_t j = 0; j < asked; ++j)
             found = found || next_raw.results[j].referencesSize > 0;
-            add_references(
-                next_raw.results[j],
-                results[pending.results[j]],
-                namespaces
-            );
-        }
-        pending = std::move(following);
+        pending = add_page(
+            this->get(),
+            next_raw.results,
+            asked,
+            pending.results,
+            results,
+            room,
+            namespaces
+        );
         if (!found && !pending.empty()) {
             pending.release(this->get());
             return x::errors::Error(

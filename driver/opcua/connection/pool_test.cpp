@@ -741,6 +741,29 @@ TEST_F(ConnectionPoolTest, BrowseFollowsContinuationPoints) {
         names(results[0]),
         std::vector<std::string>({"V0", "V1", "V2", "V3", "V4", "V5", "V6", "Inner"})
     );
+    EXPECT_FALSE(results[0].truncated);
+}
+
+/// @brief it should stop when the children of all of its nodes reach MAX_CHILDREN, and
+/// mark each node that it cut short.
+TEST_F(ConnectionPoolTest, BrowseStopsAtChildLimit) {
+    server_cfg_.generated_variables = MAX_CHILDREN + 1;
+    server_cfg_.max_nodes_per_browse = 1;
+    server_cfg_.max_references_per_node = 2500;
+    restart_server();
+    Pool pool(testutil::create_store());
+    const auto conn = ASSERT_NIL_P(pool.acquire(conn_cfg_, "[test] "));
+    const auto inner = UA_NODEID_STRING(1, const_cast<char *>("Generated.Inner"));
+    const auto results = ASSERT_NIL_P(
+        conn.browse({UA_NODEID_STRING(1, const_cast<char *>("Generated")), inner})
+    );
+    ASSERT_EQ(results[0].references.size(), MAX_CHILDREN);
+    EXPECT_TRUE(results[0].truncated);
+    EXPECT_TRUE(results[1].references.empty());
+    EXPECT_TRUE(results[1].truncated);
+    const auto again = ASSERT_NIL_P(conn.browse({inner}));
+    EXPECT_EQ(names(again[0]), std::vector<std::string>({"Deep", "Generated"}));
+    EXPECT_FALSE(again[0].truncated);
 }
 
 /// @brief it should split a browse that names more nodes than the server allows, and

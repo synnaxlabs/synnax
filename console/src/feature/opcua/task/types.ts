@@ -369,7 +369,13 @@ const certificateInfoZ = z.object({
 
 export interface CertificateInfo extends z.infer<typeof certificateInfoZ> {}
 
-export const browseResponseZ = z.object({ channels: z.array(scannedNodeZ) });
+export const browseResponseZ = z.object({
+  channels: z.array(scannedNodeZ),
+  /** Whether the Driver stopped at a limit before it returned every child. */
+  truncated: z.boolean().default(false),
+});
+
+export interface BrowseResponse extends z.infer<typeof browseResponseZ> {}
 
 export const certificatesResponseZ = z.object({
   current: certificateInfoZ,

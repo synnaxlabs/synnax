@@ -646,6 +646,38 @@ describe("Read", () => {
     );
   });
 
+  it("should number a folder variable whose name the task already has", async () => {
+    const folder = createFolder();
+    const held = createReadChannel({ nodeName: `${folder.name}_Tank_Pressure` });
+    const { scan, draft } = await renderWithNode(folder, [held]);
+    const variable = (path: string[]) => ({
+      nodeId: `${folder.nodeId}.${path.join(".")}`,
+      name: path[path.length - 1],
+      nodeClass: "Variable",
+      dataType: "float64",
+      isArray: false,
+      field: "",
+      path,
+    });
+    await answerNextCommand(client, scan, {
+      type: OPCUA.Task.BROWSE_VARIABLES_COMMAND_TYPE,
+      data: {
+        channels: [variable(["Tank", "Pressure"]), variable(["Tank_Pressure"])],
+        truncated: false,
+        skipped: [],
+      },
+    });
+    await dragNode(folder.name, held.nodeName);
+    fireEvent.click(await screen.findByRole("button", { name: "Add" }));
+    await waitFor(async () =>
+      expect((await retrieveChannels(draft.key)).map((ch) => ch.nodeName)).toEqual([
+        held.nodeName,
+        `${folder.name}_Tank_Pressure_2`,
+        `${folder.name}_Tank_Pressure_3`,
+      ]),
+    );
+  });
+
   it("should browse the server of a device the task moves to", async () => {
     const first = await createScannedDevice(client);
     const second = await createScannedDevice(client);
