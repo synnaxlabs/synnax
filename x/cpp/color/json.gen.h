@@ -32,7 +32,7 @@ inline x::json::json Stop::to_json() const {
     j["key"] = this->key;
     j["color"] = this->color.to_json();
     j["position"] = this->position;
-    j["switched"] = this->switched;
+    if (this->switched.has_value()) j["switched"] = *this->switched;
     return j;
 }
 

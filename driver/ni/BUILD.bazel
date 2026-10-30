@@ -66,6 +66,7 @@ cc_test(
     name = "probe_test",
     srcs = ["probe_test.cpp"],
     deps = [
+        "//client/cpp/ni",
         "//driver/ni",
         "//driver/ni/daqmx:mock",
         "//x/cpp/testutil",

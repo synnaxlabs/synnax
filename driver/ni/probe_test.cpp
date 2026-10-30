@@ -17,6 +17,7 @@
 
 #include "gtest/gtest.h"
 
+#include "client/cpp/ni/json.gen.h"
 #include "x/cpp/testutil/testutil.h"
 
 #include "driver/ni/daqmx/mock.h"
@@ -326,6 +327,21 @@ TEST(ProbeTest, testLeavesDefaultAbsentWhenReadbackFails) {
     ASSERT_EQ(hw.analog_inputs.size(), 1);
     EXPECT_EQ(hw.analog_inputs[0].default_terminal_config, std::nullopt);
     EXPECT_EQ(api->calls_to("ClearTask").size(), 1);
+}
+
+/// @brief it should leave the absent values of the hardware out of its JSON, so that
+/// the JSON parses back to the same hardware.
+TEST(ProbeTest, testLeavesAbsentValuesOutOfJSON) {
+    auto api = std::make_shared<FakeAPI>();
+    api->add_analog_inputs(1, RSE_NRSE_DIFF, {DAQmx_Val_Voltage});
+    api->create_channel_status = DAQmxErrorInvalidDeviceID;
+    const auto j = probe_api(api).to_json();
+    EXPECT_FALSE(j.contains("ai_min_rate"));
+    EXPECT_FALSE(j.contains("ao_max_rate"));
+    ASSERT_EQ(j["analog_inputs"].size(), 1);
+    EXPECT_FALSE(j["analog_inputs"][0].contains("default_terminal_config"));
+    EXPECT_FALSE(j["analog_inputs"][0].contains("negative"));
+    EXPECT_EQ(::synnax::ni::Hardware::parse(x::json::Parser(j)).to_json(), j);
 }
 
 /// @brief it should take the one terminal configuration of a port as its default
