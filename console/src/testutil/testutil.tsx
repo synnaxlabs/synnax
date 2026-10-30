@@ -432,8 +432,8 @@ SessionSynnaxProvider.displayName = "SessionSynnaxProvider";
 
 /**
  * Like createConnectedConsoleWrapper, but derives the provider's connection params from
- * the store's selected Core, exactly as the production Pluto.Context does. Use for
- * tests that exercise the login -> select -> connect flow.
+ * the store's selected Core and logs in with its credentials. Use for tests that
+ * exercise the login -> select -> connect flow.
  */
 export const createSessionConsoleWrapper = async (
   args: CreateConsoleWrapperParams,

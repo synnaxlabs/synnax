@@ -70,7 +70,7 @@ class _WSIteratorCodec(WSCodec):
     def decode(self, data: bytes, pld_t: type[P]) -> P:
         if data[0] == LOW_PERF_SPECIAL_CHAR:
             return self.lower_perf_codec.decode(data[1:], pld_t)
-        frame = self.codec.decode(data, 1)
+        frame = self.codec.decode(data, offset=1)
         return cast(
             P,
             Message(
@@ -107,6 +107,7 @@ class Iterator:
 
     def __init__(
         self,
+        *,
         tr: TimeRange,
         client: WebsocketClient,
         adapter: ReadFrameAdapter,

@@ -26,6 +26,8 @@ Use --tls to target the TLS-encrypted server instead.
 
 import argparse
 
+import numpy as np
+
 import synnax as sy
 
 parser = argparse.ArgumentParser(description="Read array data from OPC UA server")
@@ -119,28 +121,36 @@ print(
 print("-" * 80)
 
 # Start the task and read data continuously
+sample_count = 0
 try:
     # Hide cursor for clean output
     print("\033[?25l", end="", flush=True)
 
     with tsk.run():
         with client.open_streamer(["my_array_0", "my_array_1"]) as streamer:
-            sample_count = 0
             start_time = sy.TimeStamp.now()
 
             while True:
                 frame = streamer.read()
                 # Print the latest array values from each channel
-                if frame and "my_array_0" in frame and len(frame["my_array_0"]) > 0:
+                if "my_array_0" in frame and len(frame["my_array_0"]) > 0:
                     elapsed = sy.TimeStamp.now().span(start_time).seconds
                     sample_count += 1
 
                     # Format arrays for display by iterating directly over MultiSeries
                     arr0_str = (
-                        "[" + ",".join(f"{v:5.2f}" for v in frame["my_array_0"]) + "]"
+                        "["
+                        + ",".join(
+                            f"{v:5.2f}" for v in frame["my_array_0"].as_(np.float32)
+                        )
+                        + "]"
                     )
                     arr1_str = (
-                        "[" + ",".join(f"{v:5.2f}" for v in frame["my_array_1"]) + "]"
+                        "["
+                        + ",".join(
+                            f"{v:5.2f}" for v in frame["my_array_1"].as_(np.float32)
+                        )
+                        + "]"
                     )
 
                     print(

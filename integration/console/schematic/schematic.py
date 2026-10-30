@@ -72,16 +72,18 @@ class Schematic(ConsolePage):
 
     def __init__(
         self,
+        *,
         layout: LayoutClient,
         client: sy.Synnax,
         page_name: str,
-        *,
         pane_locator: Locator,
     ):
         """Initialize a Schematic page wrapper (see ConsolePage.__init__ for
         details).
         """
-        super().__init__(layout, client, page_name, pane_locator=pane_locator)
+        super().__init__(
+            layout=layout, client=client, page_name=page_name, pane_locator=pane_locator
+        )
         self.colors = Colors(self.page)
 
     def select(self, symbols: list[Symbol]) -> None:
@@ -159,6 +161,7 @@ class Schematic(ConsolePage):
         self,
         symbols: list[Symbol],
         alignment: AlignmentType,
+        *,
         tolerance: float | None = None,
     ) -> None:
         """
@@ -206,6 +209,7 @@ class Schematic(ConsolePage):
         self,
         symbols: list[Symbol],
         distribution: DistributionType,
+        *,
         tolerance: float | None = None,
     ) -> None:
         """
@@ -246,6 +250,7 @@ class Schematic(ConsolePage):
         self,
         symbols: list[Symbol],
         direction: RotationType,
+        *,
         group: bool = False,
     ) -> None:
         """
@@ -284,6 +289,7 @@ class Schematic(ConsolePage):
 
     def connect_symbols(
         self,
+        *,
         source_symbol: Symbol,
         source_handle: str,
         target_symbol: Symbol,
@@ -328,6 +334,7 @@ class Schematic(ConsolePage):
 
     def select_edge(
         self,
+        *,
         source_symbol: Symbol,
         source_handle: str,
         target_symbol: Symbol,
@@ -406,6 +413,7 @@ class Schematic(ConsolePage):
 
     def set_properties(
         self,
+        *,
         control_authority: int | None = None,
         show_control_legend: bool | None = None,
     ) -> None:

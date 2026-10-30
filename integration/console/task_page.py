@@ -34,14 +34,22 @@ class TaskPage(ConsolePage):
 
     def __init__(
         self,
+        *,
         layout: LayoutClient,
         client: sy.Synnax,
         page_name: str,
-        *,
         pane_locator: Locator,
     ) -> None:
         """Initialize a TaskPage wrapper (see ConsolePage.__init__ for details)."""
-        super().__init__(layout, client, page_name, pane_locator=pane_locator)
+        super().__init__(
+            layout=layout, client=client, page_name=page_name, pane_locator=pane_locator
+        )
+        self.first_row_unused = False
+
+    def _initialize_from_project(self, tab_locator: Locator, page_id: str) -> None:
+        super()._initialize_from_project(tab_locator, page_id)
+        # Only a task the page just created has a first channel no test filled in.
+        self.first_row_unused = True
 
     def _pane(self) -> Locator | Page:
         return self.pane_locator if self.pane_locator is not None else self.page
@@ -54,7 +62,7 @@ class TaskPage(ConsolePage):
     def _channel_list(self) -> Locator:
         return self._pane().locator(_CHANNEL_LIST_SELECTOR).first
 
-    def select_device(self, label: str, name: str) -> None:
+    def select_device(self, label: str, *, name: str) -> None:
         """Pick ``name`` in the device dropdown of the form field ``label``."""
         self.layout.click_btn(label)
         self.layout.select_from_dropdown(name)
@@ -63,11 +71,25 @@ class TaskPage(ConsolePage):
         """Append a channel row from the button under the channel list."""
         self._pane().get_by_role("button", name="Add channel", exact=True).click()
 
+    def next_channel_row(self) -> int:
+        """Return the index of the channel row to fill in next. On a new task, this is
+        the first channel the task starts with. Otherwise, a row is appended.
+        """
+        rows = self._channel_list().get_by_role("option")
+        if self.first_row_unused:
+            self.first_row_unused = False
+            rows.first.wait_for(state="visible", timeout=5000)
+            return 0
+        index = rows.count()
+        self.add_channel_row()
+        rows.nth(index).wait_for(state="visible", timeout=5000)
+        return index
+
     def name_input(self) -> Locator:
         """The task name input in the form header, which shows no visible label."""
         return self._pane().get_by_role("textbox", name="Name", exact=True).first
 
-    def deploy(self, expect: str | None = STARTED_MESSAGE) -> None:
+    def deploy(self, *, expect: str | None = STARTED_MESSAGE) -> None:
         """Deploy the task from the controls bar.
 
         Play configures, saves, and starts the task.
@@ -92,7 +114,7 @@ class TaskPage(ConsolePage):
         stop_btn.click()
         self.wait_for_status(self.STOPPED_MESSAGE)
 
-    def wait_for_status(self, substr: str, timeout: float = 30000) -> str:
+    def wait_for_status(self, substr: str, *, timeout: float = 30000) -> str:
         """Wait for the status bar to contain a substring.
 
         :param substr: The substring to wait for in the status message.
@@ -108,6 +130,7 @@ class TaskPage(ConsolePage):
     def wait_for_status_level(
         self,
         levels: tuple[str, ...],
+        *,
         timeout: sy.TimeSpan = 30 * sy.TimeSpan.SECOND,
     ) -> dict[str, str]:
         """Poll the status box until its level is one of ``levels``.

@@ -21,7 +21,7 @@ _SILENCE_TIMEOUT = 1000
 _READ_JS = """(elements) => elements.map((el) => {
   const text = (selector) => el.querySelector(selector)?.innerText.trim();
   const fields = {
-    count: text(".lyra-text--small"),
+    count: text(".lyra-text--tiny"),
     timestamp: text(".lyra-notification__time"),
     message: text(".lyra-notification__message"),
     description: text(".lyra-notification__description"),
@@ -45,7 +45,7 @@ class NotificationsClient:
         return self.page.get_by_role("status")
 
     def check(
-        self, timeout: sy.CrudeTimeSpan = 200 * sy.TimeSpan.MILLISECOND
+        self, *, timeout: sy.CrudeTimeSpan = 200 * sy.TimeSpan.MILLISECOND
     ) -> list[dict[str, Any]]:
         """Check for notifications in the bottom right corner.
 
@@ -68,7 +68,7 @@ class NotificationsClient:
 
         return []
 
-    def close(self, notification_index: int = 0) -> bool:
+    def close(self, *, notification_index: int = 0) -> bool:
         """Close a notification by clicking its Silence button.
 
         :param notification_index: Index of the notification to close (0 for
@@ -142,7 +142,7 @@ class NotificationsClient:
             return False
 
     def wait_for(
-        self, text: str, name: str | None = None, description: str | None = None
+        self, text: str, *, name: str | None = None, description: str | None = None
     ) -> bool:
         """Wait for a notification containing specific text to appear.
 

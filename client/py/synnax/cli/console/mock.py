@@ -43,7 +43,7 @@ class Output(BaseModel):
         self.entries.append(entry)
 
     def write(self, f: TextIO) -> None:
-        f.write(self.json())
+        f.write(self.model_dump_json())
 
 
 class MockPrint:
@@ -52,7 +52,7 @@ class MockPrint:
     output: Output
     verbose: Console | None
 
-    def __init__(self, output: Output, verbose: bool = False):
+    def __init__(self, *, output: Output, verbose: bool = False):
         """
         :param output: The output list to append entries to.
         """
@@ -94,7 +94,7 @@ class MockPrompt:
     output: Output
     responses: list[Any]
 
-    def __init__(self, output: Output, responses: list[Any]):
+    def __init__(self, *, output: Output, responses: list[Any]):
         """
         :param output: The output list to append entries to.
         :param responses: A list of responses to return in order. These responses
@@ -109,12 +109,15 @@ class MockPrompt:
     def ask(
         self,
         question: str,
+        *,
         type_: type[R] | None = None,
         choices: list[R] | None = None,
         default: R | None = None,
         password: bool = False,
     ) -> R | None:
-        resolved_type = assign_default_ask_type(type_, choices, default)
+        resolved_type = assign_default_ask_type(
+            type_=type_, choices=choices, default=default
+        )
         response: R | None = (
             self.responses.pop(0) if len(self.responses) > 0 else default
         )
@@ -141,6 +144,7 @@ class Mock(MockPrint, MockPrompt):
 
     def __init__(
         self,
+        *,
         output: Output | None = None,
         responses: list[Any] | None = None,
         verbose: bool = False,
@@ -151,8 +155,8 @@ class Mock(MockPrint, MockPrompt):
         must be valid for the type of prompt being used.
         """
         output = output if output is not None else Output()
-        MockPrint.__init__(self, output, verbose)
-        MockPrompt.__init__(self, output, responses or [])
+        MockPrint.__init__(self, output=output, verbose=verbose)
+        MockPrompt.__init__(self, output=output, responses=responses or [])
 
     def _(self) -> Console:
         return self

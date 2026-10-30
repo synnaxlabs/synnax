@@ -262,7 +262,9 @@ df = frame.to_df()
 ```
 
 When the frame has no series for the channel, `frame["name"]` returns an empty
-`MultiSeries`.
+`MultiSeries`, and `frame.get("name")` returns `None` or the default that you give. A
+frame that you read by key also finds a channel by its name. When two channels in the
+frame have the same name, `frame["name"]` raises a `MultipleFoundError`.
 
   </Fragment>
 

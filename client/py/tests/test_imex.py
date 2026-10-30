@@ -63,7 +63,7 @@ class TestImex:
         path.write_text(_log_envelope_json(name))
         id = client.imex.import_(path, parent=parent)
         assert id.type == "log"
-        assert uuid.UUID(id.key)
+        uuid.UUID(id.key)
 
     def test_import_invalid(
         self, client: sy.Synnax, tmp_path: Path, parent: sy.ontology.ID
