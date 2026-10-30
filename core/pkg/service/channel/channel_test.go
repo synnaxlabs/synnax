@@ -29,6 +29,17 @@ var _ = Describe("ParseKey", func() {
 			MatchError(ContainSubstring("123456a is not a valid channel key")),
 		))
 	})
+	It("Should parse the largest key", func() {
+		Expect(MustSucceed(channel.ParseKey("4294967295"))).
+			To(Equal(channel.Key(4294967295)))
+	})
+	DescribeTable("Should return an error when the key is out of range",
+		func(s string) {
+			Expect(channel.ParseKey(s)).Error().To(MatchError(validate.ErrValidation))
+		},
+		Entry("negative", "-1"),
+		Entry("overflow", "4294967296"),
+	)
 })
 
 var _ = Describe("NewKey", func() {

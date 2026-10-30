@@ -21,6 +21,7 @@ import {
 } from "@/feature/ni/task/testutil";
 import {
   clickDeploy,
+  createWithHook,
   deployAndAwaitTask,
   selectFromDropdown,
 } from "@/platform/task/testutil";
@@ -235,5 +236,23 @@ describe("CounterRead", () => {
       statuses,
       /Cannot create task with channels from multiple racks/,
     );
+  });
+
+  it("should create the task with one channel", async () => {
+    const tsk = await createWithHook(
+      NI.Task.useCreateCounterRead,
+      NI.Task.COUNTER_READ_SCHEMAS,
+    );
+    expect(tsk.config.channels).toHaveLength(1);
+  });
+
+  it("should create the task with one channel on the given device", async () => {
+    const dev = await createNIDevice(client);
+    const tsk = await createWithHook(
+      NI.Task.useCreateCounterRead,
+      NI.Task.COUNTER_READ_SCHEMAS,
+      { deviceKey: dev.key },
+    );
+    expect(tsk.config.channels.map(({ device }) => device)).toEqual([dev.key]);
   });
 });

@@ -1,0 +1,31 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+/* A shortcut is one chip that holds all of its keys. Running text sizes it with
+   --pluto-keycap-height and --pluto-keycap-font-size. */
+.lyra-triggers__keys.lyra-text {
+    align-items: center;
+    height: var(--pluto-keycap-height, 3rem);
+    padding-inline: round(0.833rem, 1px);
+    border-radius: var(--pluto-border-radius-tiny);
+    color: var(--pluto-keycap-color, var(--pluto-gray-l9));
+    background: var(
+        --pluto-keycap-bg,
+        color-mix(in srgb, var(--pluto-gray-l11) 7%, transparent)
+    );
+
+    /* An inset hairline, so the edge adds no size. */
+    box-shadow: inset 0 0 0 var(--pluto-border-width)
+        var(
+            --pluto-keycap-border-color,
+            color-mix(in srgb, var(--pluto-gray-l11) 10%, transparent)
+        );
+}

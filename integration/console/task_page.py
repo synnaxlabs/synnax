@@ -44,6 +44,12 @@ class TaskPage(ConsolePage):
         super().__init__(
             layout=layout, client=client, page_name=page_name, pane_locator=pane_locator
         )
+        self.first_row_unused = False
+
+    def _initialize_from_project(self, tab_locator: Locator, page_id: str) -> None:
+        super()._initialize_from_project(tab_locator, page_id)
+        # Only a task the page just created has a first channel no test filled in.
+        self.first_row_unused = True
 
     def _pane(self) -> Locator | Page:
         return self.pane_locator if self.pane_locator is not None else self.page
@@ -64,6 +70,20 @@ class TaskPage(ConsolePage):
     def add_channel_row(self) -> None:
         """Append a channel row from the button under the channel list."""
         self._pane().get_by_role("button", name="Add channel", exact=True).click()
+
+    def next_channel_row(self) -> int:
+        """Return the index of the channel row to fill in next. On a new task, this is
+        the first channel the task starts with. Otherwise, a row is appended.
+        """
+        rows = self._channel_list().get_by_role("option")
+        if self.first_row_unused:
+            self.first_row_unused = False
+            rows.first.wait_for(state="visible", timeout=5000)
+            return 0
+        index = rows.count()
+        self.add_channel_row()
+        rows.nth(index).wait_for(state="visible", timeout=5000)
+        return index
 
     def name_input(self) -> Locator:
         """The task name input in the form header, which shows no visible label."""

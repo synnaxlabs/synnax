@@ -25,8 +25,8 @@ import (
 	v0 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v0"
 	v5 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v5"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 	"github.com/synnaxlabs/x/text"
 )
 
