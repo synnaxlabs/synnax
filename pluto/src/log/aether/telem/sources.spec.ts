@@ -27,10 +27,9 @@ import { telemTest } from "@/telem/aether/testutil";
 
 const RATE = Rate.hz(10);
 const START = TimeStamp.seconds(1_000_000);
-const NOW = START.add(TimeSpan.minutes(10));
-const SPAN = TimeSpan.seconds(30);
-// The samples a log shows from the span before NOW.
+// Every stored sample, since a log reads up to PAGE stored samples of any age.
 const HISTORY = 300;
+const NOW = START.add(TimeSpan.seconds(HISTORY / 10));
 // The newest stored samples of each channel a log shows when it opens.
 const PAGE = 10_000;
 const POLL = { timeout: 5000, interval: 5 };
@@ -39,21 +38,46 @@ const OPTIONS: Partial<framer.FeedProps> = {
   removalDelay: TimeSpan.ZERO,
   breaker: { baseInterval: TimeSpan.milliseconds(10) },
 };
+// Streamed samples sit in a leading alignment domain, apart from stored ones.
+const LEADING = ((1n << 31n) + 7n) << 32n;
 
 const createCore = (props: Partial<SyntheticCoreProps> = {}): SyntheticCore =>
   new SyntheticCore({ rate: RATE, start: START, now: NOW, channels: 2, ...props });
 
+const samplesOf = (core: SyntheticCore, key: channel.Key, count: number): Series[] =>
+  core.readLatest([key], count).get(key).series;
+
 // The text of the newest count samples of a channel, as the Core reads them.
 const textOf = (core: SyntheticCore, key: channel.Key, count: number): string[] =>
-  core
-    .readLatest([key], count)
-    .get(key)
-    .series.flatMap((s) =>
-      Array.from({ length: s.length }, (_, i) => s.asString(i, true)),
-    );
+  samplesOf(core, key, count).flatMap((s) =>
+    Array.from({ length: s.length }, (_, i) => s.asString(i, true)),
+  );
+
+// The times of the newest count samples of the index.
+const timesOf = (core: SyntheticCore, count: number): bigint[] =>
+  samplesOf(core, core.index.key, count).flatMap((s) =>
+    Array.from({ length: s.length }, (_, i) => s.at(i, true) as bigint),
+  );
 
 const valuesOf = (entries: LogEntry[], key: channel.Key): string[] =>
   entries.filter((e) => e.channelKey === key).map((e) => e.value);
+
+const stampsOf = (entries: LogEntry[]): bigint[] =>
+  entries.map((e) => e.timestamp.valueOf());
+
+const sorted = (entries: LogEntry[]): boolean =>
+  entries.every(
+    (e, i) => i === 0 || entries[i - 1].timestamp.valueOf() <= e.timestamp.valueOf(),
+  );
+
+// Returns the index series that stamps count samples from alignment at time.
+const indexSeries = (alignment: bigint, times: bigint[]): Series =>
+  new Series({
+    data: new BigInt64Array(times),
+    dataType: DataType.TIMESTAMP,
+    timeRange: new TimeRange(times[0], times[times.length - 1] + 1n),
+    alignment,
+  });
 
 describe("StreamMultiChannelLog", () => {
   const closers: Array<() => Promise<void> | void> = [];
@@ -70,7 +94,7 @@ describe("StreamMultiChannelLog", () => {
     return client;
   };
 
-  // Opens a log that stamps entries on the Core's clock.
+  // Opens a log that stamps the entries of channels with no index on the Core's clock.
   const open = (
     core: SyntheticCore,
     client: telem.Client | null,
@@ -80,10 +104,11 @@ describe("StreamMultiChannelLog", () => {
   ): StreamMultiChannelLog => {
     const log = new StreamMultiChannelLog(
       client,
-      { channels: [], timeSpan: SPAN, ...props },
+      { channels: [], ...props },
       options,
       core.now,
       maxEntries,
+      OPTIONS.breaker,
     );
     closers.push(() => log.cleanup());
     return log;
@@ -99,19 +124,166 @@ describe("StreamMultiChannelLog", () => {
     expect(entriesOf(open(core, connect(core)))).toEqual([]);
   });
 
-  it("should show the stored samples of its span, then each live sample", async () => {
+  it("should show the stored samples at their sample times, then each live sample", async () => {
     const core = createCore();
     const [a] = core.data.map((c) => c.key);
     const log = open(core, connect(core), { channels: [a] });
     await settle(log, HISTORY);
     expect(valuesOf(entriesOf(log), a)).toEqual(textOf(core, a, HISTORY));
-    // History lands in one pull, so it takes the time it loaded.
-    expect(entriesOf(log).every((e) => e.timestamp.equals(NOW))).toBe(true);
+    expect(stampsOf(entriesOf(log))).toEqual(timesOf(core, HISTORY));
     core.advance(TimeSpan.seconds(1));
     await settle(log, HISTORY + 10);
     const live = entriesOf(log).slice(HISTORY);
     expect(live.map((e) => e.value)).toEqual(textOf(core, a, 10));
-    expect(live.every((e) => e.timestamp.equals(core.now()))).toBe(true);
+    expect(stampsOf(live)).toEqual(timesOf(core, 10));
+  });
+
+  it("should show stored samples of any age", async () => {
+    const core = createCore({ now: START.add(TimeSpan.days(2)), rate: Rate.hz(0.01) });
+    const [a] = core.data.map((c) => c.key);
+    const log = open(core, connect(core), { channels: [a] });
+    const count = timesOf(core, PAGE).length;
+    await settle(log, count);
+    expect(entriesOf(log)[0].timestamp.valueOf()).toBe(START.valueOf());
+  });
+
+  it("should sort the entries of all channels by sample time", async () => {
+    const core = createCore();
+    const [a, b] = core.data.map((c) => c.key);
+    const log = open(core, connect(core), { channels: [a] });
+    await settle(log, HISTORY);
+    log.setChannels([a, b]);
+    await settle(log, 2 * HISTORY);
+    core.advance(TimeSpan.seconds(1));
+    await settle(log, 2 * HISTORY + 20);
+    const entries = entriesOf(log);
+    expect(sorted(entries)).toBe(true);
+    expect(entries.slice(0, 4).map((e) => e.channelKey)).toEqual([a, b, a, b]);
+    expect(valuesOf(entries, b)).toEqual(textOf(core, b, HISTORY + 10));
+  });
+
+  it("should show a sample once its index sample arrives", async () => {
+    const core = createCore();
+    const [a] = core.data.map((c) => c.key);
+    const client = connect(core);
+    const log = open(core, client, { channels: [a] });
+    await settle(log, HISTORY);
+    const time = core.now().valueOf();
+    const witness = client.feed.subscribe({
+      keys: [a],
+      limit: { variant: "latest", count: 1 },
+    });
+    closers.push(() => witness.close());
+    await expect.poll(() => witness.value(a).status.variant, POLL).toBe("success");
+    core.stream(
+      new framer.Frame({ [a]: new Series({ data: [7], alignment: LEADING }) }),
+    );
+    core.stream(
+      new framer.Frame({ [a]: new Series({ data: [8], alignment: LEADING + 1n }) }),
+    );
+    await expect.poll(() => witness.value(a).series.at(-1), POLL).toBe(8);
+    expect(entriesOf(log)).toHaveLength(HISTORY);
+    core.stream(
+      new framer.Frame({ [core.index.key]: indexSeries(LEADING, [time, time + 1n]) }),
+    );
+    await settle(log, HISTORY + 2);
+    const live = entriesOf(log).slice(HISTORY);
+    expect(live.map((e) => e.value)).toEqual(["7", "8"]);
+    expect(stampsOf(live)).toEqual([time, time + 1n]);
+  });
+
+  it("should time samples at alignments that none of their index samples have", async () => {
+    const core = createCore({ dataMisaligned: true });
+    const [a] = core.data.map((c) => c.key);
+    const log = open(core, connect(core), { channels: [a] });
+    await settle(log, HISTORY);
+    core.advance(TimeSpan.seconds(1));
+    await settle(log, HISTORY + 10);
+    expect(stampsOf(entriesOf(log).slice(HISTORY))).toEqual(timesOf(core, 10));
+  });
+
+  it("should show samples streamed apart from their index samples", async () => {
+    const core = createCore({ dataFramedApart: true });
+    const [a] = core.data.map((c) => c.key);
+    const log = open(core, connect(core), { channels: [a] });
+    await settle(log, HISTORY);
+    core.advance(TimeSpan.seconds(1));
+    await settle(log, HISTORY + 10);
+    expect(stampsOf(entriesOf(log).slice(HISTORY))).toEqual(timesOf(core, 10));
+  });
+
+  it("should stamp an index channel's entries with its own samples", async () => {
+    const core = createCore();
+    const log = open(core, connect(core), { channels: [core.index.key] });
+    await settle(log, HISTORY);
+    expect(stampsOf(entriesOf(log))).toEqual(timesOf(core, HISTORY));
+  });
+
+  it("should stamp the entries of a virtual channel with the time it receives them", async () => {
+    const core = createCore({ derived: true });
+    const { key } = core.virtual!;
+    const log = open(core, connect(core), { channels: [key] });
+    log.value();
+    await expect.poll(() => core.streams(key), POLL).toBe(true);
+    core.advance(TimeSpan.seconds(1));
+    await settle(log, 10);
+    expect(entriesOf(log).every((e) => e.timestamp.equals(core.now()))).toBe(true);
+    expect(log.value().status.variant).not.toBe("error");
+  });
+
+  it("should drop the stored samples its index read does not reach, and warn once", async () => {
+    const core = createCore();
+    const [a] = core.data.map((c) => c.key);
+    const statuses: cstatus.Crude[] = [];
+    const client = connect(core, {
+      readLatest: async (keys, count, tr) => {
+        const frame = new framer.Frame();
+        core
+          .readLatest(keys, count, tr)
+          .get(a)
+          .series.forEach((s) => frame.push(a, s));
+        const { key } = core.index;
+        if (keys.includes(key))
+          core
+            .readLatest([key], HISTORY / 2, tr)
+            .get(key)
+            .series.forEach((s) => frame.push(key, s));
+        return frame;
+      },
+    });
+    const log = open(
+      core,
+      client,
+      { channels: [a] },
+      {
+        onStatusChange: (s) => statuses.push(s),
+      },
+    );
+    await settle(log, HISTORY / 2);
+    expect(valuesOf(entriesOf(log), a)).toEqual(textOf(core, a, HISTORY / 2));
+    expect(statuses).toEqual([
+      expect.objectContaining({
+        variant: "warning",
+        message: "Dropped log samples with no time",
+      }),
+    ]);
+  });
+
+  it("should drop the oldest samples that wait past maxEntries", async () => {
+    const core = createCore({ dataMisaligned: true, dataUntimed: true });
+    const [a] = core.data.map((c) => c.key);
+    const statuses: cstatus.Crude[] = [];
+    const log = open(
+      core,
+      connect(core),
+      { channels: [a] },
+      { onStatusChange: (s) => statuses.push(s) },
+      50,
+    );
+    await expect.poll(() => entriesOf(log).length, POLL).toBeGreaterThan(0);
+    core.advance(TimeSpan.seconds(6));
+    await expect.poll(() => statuses.length, POLL).toBe(1);
+    expect(statuses[0]).toMatchObject({ variant: "warning" });
   });
 
   it("should notify once per pull that adds entries", async () => {
@@ -145,14 +317,20 @@ describe("StreamMultiChannelLog", () => {
       let release: () => void = () => {};
       const released = new Promise<void>((resolve) => (release = resolve));
       let reads = 0;
+      let open = false;
       const client = connect(core, {
         readLatest: async (keys, count, tr) => {
-          if (reads++ === 0 && failed) throw new Error("history unavailable");
+          reads++;
+          if (failed && !open) throw new Error("history unavailable");
           await released;
           return core.readLatest(keys, count, tr);
         },
       });
-      return { client, release, reads: () => reads };
+      const releaseAll = (): void => {
+        open = true;
+        release();
+      };
+      return { client, release: releaseAll, reads: () => reads };
     };
 
     it("should show history before the samples streamed while it loads", async () => {
@@ -173,6 +351,7 @@ describe("StreamMultiChannelLog", () => {
       release();
       await settle(log, HISTORY + 10);
       expect(valuesOf(entriesOf(log), a)).toEqual(textOf(core, a, HISTORY + 10));
+      expect(stampsOf(entriesOf(log))).toEqual(timesOf(core, HISTORY + 10));
     });
 
     it("should show live samples while its history read fails, each once", async () => {
@@ -196,62 +375,46 @@ describe("StreamMultiChannelLog", () => {
       await settle(log, 20);
       expect(valuesOf(entriesOf(log), a)).toEqual(textOf(core, a, 20));
     });
+  });
 
-    it("should show each live sample once when history changes after a failed read", async () => {
-      const core = createCore();
-      const [a] = core.data.map((c) => c.key);
-      const { client, release, reads } = gate(core, true);
-      const log = open(core, client, { channels: [a] });
-      await expect.poll(() => log.value().status.variant, POLL).toBe("error");
-      await expect.poll(() => core.streams(core.historyChange.key), POLL).toBe(true);
-      core.advance(TimeSpan.seconds(1));
-      await settle(log, 10);
-      const shown = textOf(core, a, 10);
-      await expect.poll(reads, POLL).toBe(2);
-      core.rewrite(a, new TimeRange(START, core.now()), 10);
-      await expect.poll(reads, POLL).toBe(3);
-      release();
-      await expect.poll(() => log.value().status.variant, POLL).toBe("success");
-      core.advance(TimeSpan.seconds(1));
-      await settle(log, 20);
-      expect(valuesOf(entriesOf(log), a)).toEqual([...shown, ...textOf(core, a, 10)]);
+  it("should time samples streamed while its index history loads", async () => {
+    const core = createCore();
+    const [a] = core.data.map((c) => c.key);
+    const { promise: released, resolve: release } = Promise.withResolvers<void>();
+    let calls = 0;
+    const client = connect(core, {
+      readLatest: async (keys, count, tr) => {
+        // A failed read of both channels reads each alone, so the data lands first.
+        if (calls++ === 0) throw new Error("read each channel alone");
+        if (keys.includes(core.index.key)) await released;
+        return core.readLatest(keys, count, tr);
+      },
     });
+    const log = open(core, client, { channels: [a] });
+    log.value();
+    await expect.poll(() => calls, POLL).toBe(3);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    const streamed = 1_000;
+    core.advance(TimeSpan.seconds(streamed / 10));
+    release();
+    await settle(log, HISTORY + streamed);
+    expect(valuesOf(entriesOf(log), a)).toEqual(textOf(core, a, HISTORY + streamed));
+    expect(stampsOf(entriesOf(log))).toEqual(timesOf(core, HISTORY + streamed));
   });
 
   it("should show the samples written while its stream was down", async () => {
     const core = createCore();
     const [a] = core.data.map((c) => c.key);
-    let held = false;
-    let waiting = false;
-    const { promise: released, resolve: release } = Promise.withResolvers<void>();
-    const client = connect(core, {
-      readLatest: async (keys, count, tr) => {
-        if (held) {
-          waiting = true;
-          await released;
-        }
-        return core.readLatest(keys, count, tr);
-      },
-    });
-    const log = open(core, client, { channels: [a] });
+    const log = open(core, connect(core), { channels: [a] });
     await settle(log, HISTORY);
-    held = true;
     core.disconnect();
     await expect.poll(() => log.value().status.variant, POLL).toBe("warning");
     // The stream never delivers the samples written while it is down.
     core.advance(TimeSpan.seconds(1));
     core.reconnect();
-    await expect.poll(() => waiting, POLL).toBe(true);
-    const witness = client.feed.subscribe({
-      keys: [a],
-      limit: { variant: "latest", count: 10 },
-    });
-    closers.push(() => witness.close());
-    core.advance(TimeSpan.seconds(1));
-    await expect.poll(() => witness.value(a).series.length, POLL).toBe(10);
-    release();
-    await settle(log, HISTORY + 20);
-    expect(valuesOf(entriesOf(log), a)).toEqual(textOf(core, a, HISTORY + 20));
+    await settle(log, HISTORY + 10);
+    expect(valuesOf(entriesOf(log), a)).toEqual(textOf(core, a, HISTORY + 10));
+    expect(sorted(entriesOf(log))).toBe(true);
   });
 
   it("should show each sample once across a history change", async () => {
@@ -281,20 +444,18 @@ describe("StreamMultiChannelLog", () => {
     const [a] = core.data.map((c) => c.key);
     const log = open(core, connect(core), { channels: [a] });
     await settle(log, HISTORY);
-    const [last] = core.readLatest([a], 1).get(a).series;
-    const start = core.now();
-    const series = [0, 1].map(
-      (i) =>
-        new Series({
-          data: new Float32Array(PAGE).fill(i),
-          timeRange: new TimeRange(
-            start.add(TimeSpan.milliseconds(i)),
-            start.add(TimeSpan.milliseconds(i + 1)),
-          ),
-          alignment: last.alignment + 1n + BigInt(i * PAGE),
-        }),
-    );
-    core.stream(new framer.Frame([a, a], series));
+    const start = core.now().valueOf();
+    const times = Array.from({ length: 2 * PAGE }, (_, i) => start + BigInt(i));
+    const frame = new framer.Frame();
+    [0, 1].forEach((i) => {
+      const alignment = LEADING + BigInt(i * PAGE);
+      frame.push(a, new Series({ data: new Float32Array(PAGE).fill(i), alignment }));
+      frame.push(
+        core.index.key,
+        indexSeries(alignment, times.slice(i * PAGE, (i + 1) * PAGE)),
+      );
+    });
+    core.stream(frame);
     await settle(log, HISTORY + 2 * PAGE);
     const live = valuesOf(entriesOf(log), a).slice(HISTORY);
     expect(live.filter((v) => v === "0")).toHaveLength(PAGE);
@@ -389,10 +550,31 @@ describe("StreamMultiChannelLog", () => {
       );
     });
 
-    // History reads hand the log series of any data type.
+    it("should show a sample with more lines than the argument limit", async () => {
+      const lines = 200_000;
+      const core = createCore({
+        text: (i) => (i === 0 ? `${"x\n".repeat(lines - 1)}x` : "y"),
+      });
+      const [a] = core.data.map((c) => c.key);
+      core.retype(a, DataType.STRING);
+      const log = open(core, connect(core), { channels: [a] }, undefined, 2 * lines);
+      await settle(log, lines + HISTORY - 1);
+    });
+
+    // History reads hand the log series of any data type, stamped by the index.
     const historyOf = (core: SyntheticCore, key: channel.Key, series: Series) =>
       connect(core, {
-        readLatest: async () => new framer.Frame({ [key]: series }),
+        readLatest: async () =>
+          new framer.Frame({
+            [key]: series,
+            [core.index.key]: indexSeries(
+              series.alignment,
+              Array.from(
+                { length: series.length },
+                (_, i) => START.valueOf() + BigInt(i),
+              ),
+            ),
+          }),
       });
 
     const typed: Array<[string, Series, string[]]> = [
@@ -416,38 +598,14 @@ describe("StreamMultiChannelLog", () => {
   });
 
   describe("eviction", () => {
-    it("should evict entries older than keepFor", async () => {
+    it("should keep entries of any age", async () => {
       const core = createCore();
       const [a] = core.data.map((c) => c.key);
-      const log = open(core, connect(core), {
-        channels: [a],
-        keepFor: TimeSpan.seconds(2),
-      });
+      const log = open(core, connect(core), { channels: [a] });
       await settle(log, HISTORY);
-      core.advance(TimeSpan.seconds(3));
-      await settle(log, 30);
-      core.advance(TimeSpan.seconds(1));
-      await settle(log, 40);
-      expect(valuesOf(entriesOf(log), a)).toEqual(textOf(core, a, 40));
-    });
-
-    it("should notify when a pull evicts entries and adds none", async () => {
-      const core = createCore();
-      const [a] = core.data.map((c) => c.key);
-      const log = open(core, connect(core), {
-        channels: [a],
-        keepFor: TimeSpan.seconds(2),
-      });
-      await settle(log, HISTORY);
+      core.advance(TimeSpan.days(8), false);
       core.advance(TimeSpan.seconds(1));
       await settle(log, HISTORY + 10);
-      const handler = vi.fn();
-      log.onChange(handler);
-      core.advance(TimeSpan.seconds(2), false);
-      // A stream drop changes only the status, so the pull it causes adds no entries.
-      core.disconnect();
-      await settle(log, 10);
-      expect(handler).toHaveBeenCalled();
     });
 
     it("should evict past maxEntries, never leaving a continuation first", async () => {
@@ -489,16 +647,14 @@ describe("StreamMultiChannelLog", () => {
     expect(handler).not.toHaveBeenCalled();
   });
 
-  it("should post the error of a channel it cannot read", async () => {
+  it("should post the error of a channel it cannot retrieve", async () => {
     const core = createCore();
     const statuses: cstatus.Crude[] = [];
     const log = open(
       core,
       connect(core),
       { channels: [999] },
-      {
-        onStatusChange: (s) => statuses.push(s),
-      },
+      { onStatusChange: (s) => statuses.push(s) },
     );
     log.value();
     await expect.poll(() => statuses.length, POLL).toBe(1);
@@ -509,7 +665,7 @@ describe("StreamMultiChannelLog", () => {
     });
   });
 
-  it("should report the worst status of its channels' snapshots", async () => {
+  it("should report the worst status of its channels", async () => {
     const core = createCore();
     const [a, b] = core.data.map((c) => c.key);
     const log = open(core, connect(core), { channels: [a, 999, b] });
@@ -521,6 +677,7 @@ describe("StreamMultiChannelLog", () => {
         message: "Failed to read channel data",
         description: "channel 999 not found",
       });
+    await settle(log, 2 * HISTORY);
     log.setChannels([a, b]);
     await expect.poll(() => log.value().status.variant, POLL).toBe("success");
   });
@@ -531,9 +688,7 @@ describe("StreamMultiChannelLog", () => {
       createCore(),
       null,
       { channels: [1] },
-      {
-        onStatusChange: (s) => statuses.push(s),
-      },
+      { onStatusChange: (s) => statuses.push(s) },
     );
     expect(entriesOf(log)).toEqual([]);
     expect(entriesOf(log)).toEqual([]);
