@@ -430,24 +430,6 @@ TEST_F(SourceClaimTest, testUnarySourceAcquireFailureRetriesOnNextStart) {
     ASSERT_NIL(source.stop());
 }
 
-/// @brief it should stop a stream that another process left running on the device, so
-/// the reads that follow do not fail.
-TEST_F(SourceClaimTest, testUnarySourceStopsLeftoverStreamOnStart) {
-    parse_config(true);
-    const auto dev = std::make_shared<device::Mock>();
-    dev->streaming = true;
-    devs->dev = dev;
-    UnarySource source(devs, std::move(*cfg));
-    ASSERT_NIL(source.start());
-    x::breaker::Breaker breaker(x::breaker::default_config("read"));
-    breaker.start();
-    x::telem::Frame fr(0);
-    const auto res = source.read(breaker, fr);
-    breaker.stop();
-    ASSERT_NIL(res.error);
-    ASSERT_NIL(source.stop());
-}
-
 /// @brief it should claim the device on start and release it on stop.
 TEST_F(SourceClaimTest, testStreamSourceClaimsDeviceOnStart) {
     parse_config(false);
@@ -488,20 +470,6 @@ TEST_F(SourceClaimTest, testStreamSourceRestartReclaimsDevice) {
     EXPECT_EQ(devs->dev.use_count(), 2);
     ASSERT_NIL(source.stop());
     EXPECT_EQ(devs->dev.use_count(), 1);
-}
-
-/// @brief it should stop a stream that another process left running on the device, then
-/// start its own.
-TEST_F(SourceClaimTest, testStreamSourceStopsLeftoverStreamOnStart) {
-    parse_config(false);
-    const auto dev = std::make_shared<device::Mock>();
-    dev->streaming = true;
-    devs->dev = dev;
-    StreamSource source(devs, std::move(*cfg));
-    ASSERT_NIL(source.start());
-    EXPECT_TRUE(dev->streaming);
-    ASSERT_NIL(source.stop());
-    EXPECT_FALSE(dev->streaming);
 }
 
 /// @brief a restart must drop its claim before acquiring. The manager shares one

@@ -338,6 +338,11 @@ public:
             err = ljm->open(LJM_dtANY, LJM_ctANY, serial_number.c_str(), &dev_handle);
         if (err != 0) return {nullptr, parse_error(ljm, err)};
         auto dev = std::make_shared<LJMDevice>(ljm, dev_handle);
+        // A stream outlives the process that started it, and no caller holds this new
+        // handle, so any stream on the device belongs to another process.
+        if (const auto stop_err = dev->e_stream_stop();
+            stop_err && !stop_err.matches(ljm::STREAM_NOT_RUNNING))
+            return {nullptr, stop_err};
         std::lock_guard lock(this->mu);
         this->handles[serial_number] = dev;
         return {dev, x::errors::NIL};

@@ -509,15 +509,6 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     }
 };
 
-/// @brief stops any stream already on the device. A device keeps streaming after the
-/// process that started the stream dies, and the stream blocks analog reads.
-inline x::errors::Error
-stop_leftover_stream(const std::shared_ptr<device::Device> &dev) {
-    const auto err = dev->e_stream_stop();
-    if (err.matches(ljm::STREAM_NOT_RUNNING)) return x::errors::NIL;
-    return err;
-}
-
 /// @brief a source implementation that reads from LabJack devices via a unary
 /// request-response cycle on each acquisition. This source is only used when the
 /// task has thermocouples, as LJM does not support streaming of thermocouple data.
@@ -542,10 +533,6 @@ public:
         auto [d, err] = this->devs->acquire(this->cfg.device_key);
         if (err) return err;
         this->dev = std::move(d);
-        if (const auto stream_err = stop_leftover_stream(this->dev)) {
-            this->dev.reset();
-            return stream_err;
-        }
         if (const auto apply_err = this->cfg.apply(this->dev)) {
             this->dev.reset();
             return apply_err;
@@ -691,7 +678,6 @@ public:
         auto [d, acquire_err] = this->devs->acquire(this->cfg.device_key);
         if (acquire_err) return acquire_err;
         this->dev = std::move(d);
-        if (const auto err = stop_leftover_stream(this->dev)) return err;
         if (const auto err = this->cfg.apply(this->dev); err && !force) return err;
         std::vector<int> temp_ports(this->cfg.channels.size());
         std::vector<const char *> physical_channels;

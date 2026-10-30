@@ -22,10 +22,6 @@ namespace driver::labjack::device {
 
 class Mock final : public Device {
 public:
-    /// @brief whether the device is streaming. Set it to model a stream that another
-    /// process left running.
-    mutable bool streaming = false;
-
     Mock() = default;
     ~Mock() override = default;
 
@@ -42,8 +38,6 @@ public:
 
     [[nodiscard]] x::errors::Error e_stream_stop() const override {
         if (should_fail_) return x::errors::Error("mock failure");
-        if (!this->streaming) return ljm::STREAM_NOT_RUNNING;
-        this->streaming = false;
         return x::errors::NIL;
     }
 
@@ -122,7 +116,6 @@ public:
         int *error_addr
     ) const override {
         if (should_fail_) return x::errors::Error("mock failure");
-        if (this->streaming) return ljm::STREAM_IS_ACTIVE;
         return x::errors::NIL;
     }
 
@@ -133,8 +126,6 @@ public:
         double *scan_rate
     ) const override {
         if (should_fail_) return x::errors::Error("mock failure");
-        if (this->streaming) return ljm::STREAM_IS_ACTIVE;
-        this->streaming = true;
         *scan_rate = requested_scan_rate_;
         return x::errors::NIL;
     }
