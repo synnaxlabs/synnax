@@ -9,7 +9,8 @@
 
 #pragma once
 
-#include "driver/common/lazy.h"
+#include "x/cpp/lib/lazy.h"
+
 #include "driver/common/sample_clock.h"
 #include "driver/labjack/device/device.h"
 #include "driver/task/task.h"
@@ -47,16 +48,16 @@ inline x::errors::Error translate_error(const x::errors::Error &err) {
 
 /// @brief factory for creating and operating LabJack tasks.
 class Factory final : public task::Factory {
-    std::shared_ptr<common::Lazy<device::Manager>> dev_manager;
+    std::shared_ptr<x::lib::Lazy<device::Manager>> dev_manager;
     common::TimingConfig timing_cfg;
 
 public:
     explicit Factory(
-        common::Lazy<device::Manager>::Loader load_dev_manager,
+        x::lib::Lazy<device::Manager>::Loader load_dev_manager,
         const common::TimingConfig timing_cfg = common::TimingConfig()
     ):
         dev_manager(
-            std::make_shared<common::Lazy<device::Manager>>(std::move(load_dev_manager))
+            std::make_shared<x::lib::Lazy<device::Manager>>(std::move(load_dev_manager))
         ),
         timing_cfg(timing_cfg) {}
 

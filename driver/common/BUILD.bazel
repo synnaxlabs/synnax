@@ -15,7 +15,6 @@ cc_library(
     hdrs = [
         "common.h",
         "factory.h",
-        "lazy.h",
         "read_task.h",
         "sample_clock.h",
         "scan_task.h",
@@ -43,7 +42,6 @@ cc_test(
     name = "common_test",
     srcs = [
         "common_test.cpp",
-        "lazy_test.cpp",
         "read_task_test.cpp",
         "sample_clock_test.cpp",
         "scan_task_test.cpp",

@@ -47,6 +47,7 @@ cc_library(
         "//driver/transform",
         "//x/cpp/breaker",
         "//x/cpp/json",
+        "//x/cpp/lib",
         "//x/cpp/loop",
         "@abseil-cpp//absl/log",
         "@nlohmann_json//:json",

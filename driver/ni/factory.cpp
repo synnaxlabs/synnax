@@ -21,12 +21,12 @@
 
 namespace driver::ni {
 Factory::Factory(
-    common::Lazy<daqmx::SugaredAPI>::Loader load_dmx,
-    common::Lazy<syscfg::SugaredAPI>::Loader load_syscfg,
+    x::lib::Lazy<daqmx::SugaredAPI>::Loader load_dmx,
+    x::lib::Lazy<syscfg::SugaredAPI>::Loader load_syscfg,
     const common::TimingConfig timing_cfg
 ):
-    dmx(std::make_shared<common::Lazy<daqmx::SugaredAPI>>(std::move(load_dmx))),
-    syscfg(std::make_shared<common::Lazy<syscfg::SugaredAPI>>(std::move(load_syscfg))),
+    dmx(std::make_shared<x::lib::Lazy<daqmx::SugaredAPI>>(std::move(load_dmx))),
+    syscfg(std::make_shared<x::lib::Lazy<syscfg::SugaredAPI>>(std::move(load_syscfg))),
     timing_cfg(timing_cfg) {}
 
 std::unique_ptr<Factory> Factory::create(const common::TimingConfig timing_cfg) {
