@@ -103,7 +103,7 @@ describe("Tree", () => {
 
   it("should window its rows by default", () => {
     const { container } = renderTree();
-    const rows = container.querySelectorAll(".pluto-tree__item");
+    const rows = container.querySelectorAll(".lyra-tree__item");
     expect(rows.length).toBeGreaterThan(0);
     expect(rows.length).toBeLessThan(NODES.length);
   });
@@ -111,16 +111,14 @@ describe("Tree", () => {
   it("should space its rows by the tree's item height", () => {
     const { container } = renderTree();
     const rows = Array.from(
-      container.querySelectorAll<HTMLElement>(".pluto-tree__item"),
+      container.querySelectorAll<HTMLElement>(".lyra-tree__item"),
     );
     rows.forEach((row, index) => expect(row.style.top).toBe(`${index * 27}px`));
   });
 
   it("should reserve scroll height for every node", () => {
     const { container } = renderTree();
-    const virtualizer = container.querySelector<HTMLElement>(
-      ".pluto-list__virtualizer",
-    );
+    const virtualizer = container.querySelector<HTMLElement>(".lyra-list__virtualizer");
     expect(virtualizer?.style.minHeight).toBe(`${NODES.length * 27}px`);
   });
 
@@ -164,7 +162,7 @@ describe("Tree toggling", () => {
   const row = (name: string) => screen.getByRole("treeitem", { name });
   const parentRow = () => row("parent");
   const caret = (name = "parent") =>
-    row(name).querySelector(".pluto-tree__expansion-indicator") as Element;
+    row(name).querySelector(".lyra-tree__expansion-indicator") as Element;
 
   describe("on the row", () => {
     it("should select and expand a node when its row is clicked", () => {

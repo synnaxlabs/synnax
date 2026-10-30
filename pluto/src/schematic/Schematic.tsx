@@ -10,7 +10,6 @@
 import "@/schematic/Schematic.css";
 
 import { type Component } from "@synnaxlabs/lyra/component";
-import { CSS } from "@synnaxlabs/lyra/css";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Haul } from "@synnaxlabs/lyra/haul";
 import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
@@ -19,6 +18,7 @@ import { type Triggers } from "@synnaxlabs/lyra/triggers";
 import { box, TimeSpan, xy } from "@synnaxlabs/x";
 import { type ReactElement, useRef, useState } from "react";
 
+import { CSS } from "@/css";
 import { useClipboard } from "@/schematic/clipboard";
 import {
   Diagram,
