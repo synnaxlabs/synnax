@@ -11,7 +11,7 @@ import { control, DataType, id, TimeRange, TimeSpan, TimeStamp } from "@synnaxla
 import { beforeAll, describe, expect, it, test, vi } from "vitest";
 
 import { channel } from "@/channel";
-import { NotFoundError } from "@/errors";
+import { NotFoundError } from "@/index";
 import { query } from "@/query";
 import {
   createProxiedTestClient,

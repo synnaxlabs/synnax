@@ -11,7 +11,7 @@ import { id } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { policy } from "@/access/policy";
-import { AccessDeniedError, NotFoundError } from "@/errors";
+import { AccessDeniedError, NotFoundError } from "@/index";
 import { query } from "@/query";
 import {
   createTestClient,

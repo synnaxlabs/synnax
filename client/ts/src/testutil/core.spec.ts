@@ -10,7 +10,7 @@
 import { DataType, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { NotFoundError } from "@/errors";
+import { NotFoundError } from "@/index";
 import { SyntheticCore } from "@/testutil/core";
 
 const DOMAIN = 1n << 32n;
