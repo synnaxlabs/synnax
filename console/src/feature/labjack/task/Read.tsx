@@ -33,7 +33,7 @@ import {
 } from "@/feature/labjack/task/convertChannelTypeToPortType";
 import { getOpenPort } from "@/feature/labjack/task/getOpenPort";
 import { PortField } from "@/feature/labjack/task/PortField";
-import { terminalOf } from "@/feature/labjack/task/ports";
+import { enabledFirst, terminalOf } from "@/feature/labjack/task/ports";
 import { PortsView } from "@/feature/labjack/task/PortsView";
 import { CustomScaleForm, FORMS } from "@/feature/labjack/task/ReadChannelForms";
 import {
@@ -336,8 +336,13 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
       dev.properties.readIndex = index.key;
     }
     const toCreate: ReadChannel[] = [];
-    for (const c of config.channels) {
+    // Channels on one port share its data channel, named by an enabled one if any.
+    const seen = new Set<string>();
+    for (const c of enabledFirst(config.channels)) {
       const type = convertReadChannelTypeToPortType(c.type);
+      const key = `${type}/${c.port}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
       const existing = dev.properties[type].channels[c.port];
       if (primitive.isZero(existing)) toCreate.push(c);
       else

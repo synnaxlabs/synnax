@@ -635,6 +635,106 @@ describe("Read ports", () => {
     const last = within(mux).getByRole("button", { name: "AIN127" });
     expect([last.style.gridRow, last.style.gridColumn]).toEqual(["2", "8"]);
   });
+
+  describe("disabled channels", () => {
+    it("should show a port a disabled channel holds as used and disabled", async () => {
+      await renderWith([
+        createAnalogReadChannel("AIN0"),
+        createAnalogReadChannel("AIN2", { disabled: true, name: "chan_off" }),
+      ]);
+      await openPorts();
+      const port = cell("AIN2", "Analog inputs");
+      expect(port.className).toContain("console-port-grid__cell--used");
+      expect(port.className).toContain("console-port-grid__cell--disabled");
+      fireEvent.pointerOver(port, { pointerType: "mouse" });
+      expect(await screen.findByText("AIN2: chan_off (disabled)")).toBeTruthy();
+      fireEvent.pointerOut(port, { pointerType: "mouse" });
+      fireEvent.contextMenu(port);
+      expect(await screen.findByText("Enable")).toBeTruthy();
+    });
+
+    it("should show no conflict for a terminal a disabled channel shares until it is enabled", async () => {
+      await renderWith([
+        createAnalogReadChannel("AIN4", { disabled: true, name: "chan_off" }),
+        createDigitalReadChannel("DIO4", { name: "chan_on" }),
+      ]);
+      await openPorts();
+      for (const section of ["Analog inputs", "Digital inputs"]) {
+        const port = cell("FIO4", section);
+        expect(port.className).toContain("console-port-grid__cell--used");
+        expect(port.className).not.toContain("console-port-grid__cell--conflict");
+      }
+      fireEvent.click(screen.getByText("List"));
+      expect(screen.queryByText("Another channel uses FIO4")).toBeNull();
+      fireEvent.click(
+        within(await findChannelListItem("chan_off")).getByLabelText("Enabled"),
+      );
+      expect(await screen.findByText("Another channel uses FIO4")).toBeTruthy();
+    });
+
+    it("should deploy a disabled channel on a terminal another type uses", async () => {
+      const { container, draft } = await renderWith([
+        createAnalogReadChannel("AIN4", { disabled: true }),
+        createDigitalReadChannel("DIO4"),
+      ]);
+      await deployAndAwaitTask(client, container, draft.key);
+    });
+
+    it("should deploy and redeploy a disabled channel on a port another channel uses", async () => {
+      const dev = await createLabJackDevice(client);
+      const firstDraft = await createDraft(
+        client,
+        createConfig(dev.key, [
+          createAnalogReadChannel("AIN0", { disabled: true }),
+          createAnalogReadChannel("AIN0"),
+        ]),
+      );
+      const first = await renderRead({ client, taskKey: firstDraft.key });
+      const { config } = await deployAndAwaitTask(
+        client,
+        first.container,
+        firstDraft.key,
+        LabJack.Task.READ_SCHEMAS,
+      );
+      expect(config.channels[1].channel).toBe(config.channels[0].channel);
+      first.unmount();
+      const secondDraft = await createDraft(client, config);
+      const second = await renderRead({ client, taskKey: secondDraft.key });
+      await deployAndAwaitTask(client, second.container, secondDraft.key);
+    });
+
+    it("should name a new shared data channel after its enabled channel", async () => {
+      const enabled = uniqueName("chan_on");
+      const { container, draft } = await renderWith([
+        createAnalogReadChannel("AIN0", {
+          disabled: true,
+          name: uniqueName("chan_off"),
+        }),
+        createAnalogReadChannel("AIN0", { name: enabled }),
+      ]);
+      const { config } = await deployAndAwaitTask(
+        client,
+        container,
+        draft.key,
+        LabJack.Task.READ_SCHEMAS,
+      );
+      const created = await client.channels.retrieve(config.channels[0].channel);
+      expect(created.name).toBe(enabled);
+    });
+
+    it("should add a channel on the next port past one a disabled channel holds", async () => {
+      const { draft } = await renderWith([
+        createAnalogReadChannel("AIN0", { disabled: true }),
+      ]);
+      fireEvent.click(await screen.findByText("Add channel"));
+      await waitFor(async () =>
+        expect(await savedPorts(draft.key)).toEqual([
+          ["analog", "AIN0"],
+          ["analog", "AIN1"],
+        ]),
+      );
+    });
+  });
 });
 
 describe("Read channel names", () => {

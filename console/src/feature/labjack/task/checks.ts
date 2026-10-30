@@ -10,7 +10,7 @@
 import { z } from "zod";
 
 import { type Model } from "@/feature/labjack/device/types";
-import { claims, terminalOf } from "@/feature/labjack/task/ports";
+import { claims, conflicts, terminalOf } from "@/feature/labjack/task/ports";
 import { type Channel } from "@/feature/labjack/task/types";
 
 /**
@@ -20,9 +20,10 @@ import { type Channel } from "@/feature/labjack/task/types";
 export const uniqueTerminalsZ = (model: Model): z.ZodType =>
   z.custom<{ channels: Channel[] }>().check(({ value, issues }) => {
     const taken = claims(value.channels, model);
-    value.channels.forEach(({ port }, i) => {
+    value.channels.forEach(({ port, disabled }, i) => {
+      if (disabled) return;
       const name = terminalOf(model, port);
-      if ((taken.get(name)?.length ?? 0) < 2) return;
+      if (!conflicts(taken.get(name) ?? [])) return;
       issues.push({
         code: "custom",
         path: ["channels", i, "port"],

@@ -37,6 +37,7 @@ import {
 } from "@/feature/labjack/task/convertChannelTypeToPortType";
 import { getOpenPort } from "@/feature/labjack/task/getOpenPort";
 import { PortPicker } from "@/feature/labjack/task/PortPicker";
+import { enabledFirst } from "@/feature/labjack/task/ports";
 import { PortsView } from "@/feature/labjack/task/PortsView";
 import { SelectWriteChannelType } from "@/feature/labjack/task/SelectWriteChannelType";
 import {
@@ -275,10 +276,14 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
     }
     const commandChannelsToCreate: WriteChannel[] = [];
     const stateChannelsToCreate: WriteChannel[] = [];
-    for (const channel of config.channels) {
+    // Channels on one port share its data channels, named by an enabled one if any.
+    const seen = new Set<string>();
+    for (const channel of enabledFirst(config.channels)) {
       const key = channel.port;
-      const existingPair =
-        dev.properties[convertWriteChannelTypeToPortType(channel.type)].channels[key];
+      const type = convertWriteChannelTypeToPortType(channel.type);
+      if (seen.has(`${type}/${key}`)) continue;
+      seen.add(`${type}/${key}`);
+      const existingPair = dev.properties[type].channels[key];
       if (existingPair == null) {
         commandChannelsToCreate.push(channel);
         stateChannelsToCreate.push(channel);

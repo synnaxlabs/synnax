@@ -66,17 +66,32 @@ export const banks = (ports: Port[]): Bank[] => {
   return result;
 };
 
-/** The keys of the channels on each terminal. */
-export type Claims = Map<string, string[]>;
+/** A channel on a terminal. */
+export interface Claim {
+  channel: string;
+  /** The Driver skips a disabled channel, so its hold never conflicts. */
+  disabled: boolean;
+}
+
+/** The channels on each terminal. */
+export type Claims = Map<string, Claim[]>;
 
 export const claims = (channels: Channel[], model: Model): Claims => {
   const result: Claims = new Map();
-  channels.forEach(({ key, port }) => {
+  channels.forEach(({ key, port, disabled }) => {
     const t = terminalOf(model, port);
-    result.set(t, [...(result.get(t) ?? []), key]);
+    result.set(t, [...(result.get(t) ?? []), { channel: key, disabled }]);
   });
   return result;
 };
+
+/** Whether more than one enabled channel holds the terminal. */
+export const conflicts = (list: Claim[]): boolean =>
+  list.filter((c) => !c.disabled).length > 1;
+
+/** The channels, enabled ones first, each group in its order. */
+export const enabledFirst = <C extends Channel>(channels: C[]): C[] =>
+  channels.toSorted((a, b) => Number(a.disabled) - Number(b.disabled));
 
 /** How many of the ports have a channel on their terminal. */
 export const usedCount = (ports: Port[], claims: Claims): number =>
@@ -103,20 +118,25 @@ export const groups = ({
 }: GroupsProps): Task.PortGroup[] => {
   const cell = (port: Port, i: number, width: number): Task.PortCell => {
     const name = terminal(port);
-    const keys = claims.get(name) ?? [];
+    const list = claims.get(name) ?? [];
+    const names = list
+      .map((c) =>
+        c.disabled ? `${describe(c.channel)} (disabled)` : describe(c.channel),
+      )
+      .join(" and ");
     let tooltip = `${name} is free`;
-    if (keys.length === 1) tooltip = `${name}: ${describe(keys[0])}`;
-    else if (keys.length > 1)
-      tooltip = `${name} is used by ${keys.map(describe).join(" and ")}`;
+    if (list.length === 1) tooltip = `${name}: ${names}`;
+    else if (list.length > 1) tooltip = `${name} is used by ${names}`;
     return {
       key: port.key,
       name,
       labels: [String(split(port)[1])],
       row: Math.floor(i / width) + 1,
       column: (i % width) + 1,
-      state: keys.length === 0 ? "free" : keys.length === 1 ? "used" : "conflict",
-      selected: keys.some((k) => selected.includes(k)),
-      channel: keys[0],
+      state: list.length === 0 ? "free" : conflicts(list) ? "conflict" : "used",
+      disabled: list.length > 0 && list.every((c) => c.disabled),
+      selected: list.some((c) => selected.includes(c.channel)),
+      channel: (list.find((c) => !c.disabled) ?? list[0])?.channel,
       tooltip,
     };
   };

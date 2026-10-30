@@ -371,3 +371,47 @@ describe("Write", () => {
     expect(tsk.config.channels).toHaveLength(1);
   });
 });
+
+describe("Write disabled channels", () => {
+  it("should show no conflict for a port a disabled channel shares", async () => {
+    const dev = await createLabJackDevice(client);
+    const draft = await createDraft(
+      client,
+      createConfig(dev.key, [
+        createAnalogWriteChannel("DAC0", { disabled: true }),
+        createAnalogWriteChannel("DAC0"),
+      ]),
+    );
+    await renderWrite({ client, taskKey: draft.key });
+    fireEvent.click(await screen.findByText("Ports"));
+    const section = await screen.findByRole("group", { name: "Analog outputs" });
+    const port = within(section).getByRole("button", { name: "DAC0" });
+    expect(port.className).toContain("console-port-grid__cell--used");
+    expect(port.className).not.toContain("console-port-grid__cell--conflict");
+    expect(screen.queryByText("Another channel uses DAC0")).toBeNull();
+  });
+
+  it("should deploy and redeploy a disabled channel on a port another channel uses", async () => {
+    const dev = await createLabJackDevice(client);
+    const firstDraft = await createDraft(
+      client,
+      createConfig(dev.key, [
+        createAnalogWriteChannel("DAC0", { disabled: true }),
+        createAnalogWriteChannel("DAC0"),
+      ]),
+    );
+    const first = await renderWrite({ client, taskKey: firstDraft.key });
+    const { config } = await deployAndAwaitTask(
+      client,
+      first.container,
+      firstDraft.key,
+      LabJack.Task.WRITE_SCHEMAS,
+    );
+    expect(config.channels[1].cmdChannel).toBe(config.channels[0].cmdChannel);
+    expect(config.channels[1].stateChannel).toBe(config.channels[0].stateChannel);
+    first.unmount();
+    const secondDraft = await createDraft(client, config);
+    const second = await renderWrite({ client, taskKey: secondDraft.key });
+    await deployAndAwaitTask(client, second.container, secondDraft.key);
+  });
+});
