@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
-	"github.com/synnaxlabs/synnax/pkg/security/mock"
+	"github.com/synnaxlabs/synnax/pkg/security/testutil"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -41,13 +41,13 @@ var _ = Describe("Loader", func() {
 	})
 	Describe("TrustAnchorsPEM", func() {
 		It("Should return both the CA and the node certificate", func() {
-			mock.GenerateCerts(fs)
+			testutil.GenerateCerts(fs)
 			l := MustSucceed(cert.NewLoader(cert.LoaderConfig{FS: fs}))
 			Expect(countPEMBlocks(MustSucceed(l.TrustAnchorsPEM()))).To(Equal(2))
 		})
 
 		It("Should return the node certificate when there is no CA", func() {
-			mock.GenerateCerts(fs)
+			testutil.GenerateCerts(fs)
 			l := MustSucceed(cert.NewLoader(cert.LoaderConfig{FS: fs}))
 			def := cert.DefaultLoaderConfig
 			Expect(fs.Remove(path.Join(def.CertsDir, def.CACertPath))).To(Succeed())
