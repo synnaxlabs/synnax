@@ -106,7 +106,8 @@ inline ReadConfig ReadConfig::parse(x::json::Parser parser) {
 
 inline x::json::json ReadConfig::to_json() const {
     x::json::json j;
-    j.update(::synnax::task::ReadConfig::to_json());
+    if (const auto parent = ::synnax::task::ReadConfig::to_json(); parent.is_object())
+        j.update(parent);
     j["device"] = this->device;
     {
         auto arr = x::json::json::array();
@@ -141,7 +142,8 @@ inline WriteConfig WriteConfig::parse(x::json::Parser parser) {
 
 inline x::json::json WriteConfig::to_json() const {
     x::json::json j;
-    j.update(::synnax::task::WriteConfig::to_json());
+    if (const auto parent = ::synnax::task::WriteConfig::to_json(); parent.is_object())
+        j.update(parent);
     j["state_rate"] = this->state_rate;
     {
         auto arr = x::json::json::array();
@@ -163,7 +165,8 @@ inline ScanConfig ScanConfig::parse(x::json::Parser parser) {
 
 inline x::json::json ScanConfig::to_json() const {
     x::json::json j;
-    j.update(::synnax::task::ScanConfig::to_json());
+    if (const auto parent = ::synnax::task::ScanConfig::to_json(); parent.is_object())
+        j.update(parent);
     j["tcp_scan_multiplier"] = this->tcp_scan_multiplier;
     return j;
 }
@@ -230,7 +233,8 @@ inline AnalogReadChannel AnalogReadChannel::parse(x::json::Parser parser) {
 
 inline x::json::json AnalogReadChannel::to_json() const {
     x::json::json j;
-    j.update(BaseReadChannel::to_json());
+    if (const auto parent = BaseReadChannel::to_json(); parent.is_object())
+        j.update(parent);
     j["port"] = this->port;
     j["range"] = this->range;
     j["neg_chan"] = this->neg_chan;
@@ -249,7 +253,8 @@ inline DigitalReadChannel DigitalReadChannel::parse(x::json::Parser parser) {
 
 inline x::json::json DigitalReadChannel::to_json() const {
     x::json::json j;
-    j.update(BaseReadChannel::to_json());
+    if (const auto parent = BaseReadChannel::to_json(); parent.is_object())
+        j.update(parent);
     j["port"] = this->port;
     j["type"] = this->type;
     return j;
@@ -273,7 +278,8 @@ inline ThermocoupleReadChannel ThermocoupleReadChannel::parse(x::json::Parser pa
 
 inline x::json::json ThermocoupleReadChannel::to_json() const {
     x::json::json j;
-    j.update(BaseReadChannel::to_json());
+    if (const auto parent = BaseReadChannel::to_json(); parent.is_object())
+        j.update(parent);
     j["port"] = this->port;
     j["thermocouple_type"] = this->thermocouple_type;
     j["neg_chan"] = this->neg_chan;
@@ -296,7 +302,8 @@ inline AnalogWriteChannel AnalogWriteChannel::parse(x::json::Parser parser) {
 
 inline x::json::json AnalogWriteChannel::to_json() const {
     x::json::json j;
-    j.update(BaseWriteChannel::to_json());
+    if (const auto parent = BaseWriteChannel::to_json(); parent.is_object())
+        j.update(parent);
     j["port"] = this->port;
     j["type"] = this->type;
     return j;
@@ -312,7 +319,8 @@ inline DigitalWriteChannel DigitalWriteChannel::parse(x::json::Parser parser) {
 
 inline x::json::json DigitalWriteChannel::to_json() const {
     x::json::json j;
-    j.update(BaseWriteChannel::to_json());
+    if (const auto parent = BaseWriteChannel::to_json(); parent.is_object())
+        j.update(parent);
     j["port"] = this->port;
     j["type"] = this->type;
     return j;
