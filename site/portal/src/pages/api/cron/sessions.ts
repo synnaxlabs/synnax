@@ -10,6 +10,7 @@
 import { type APIRoute } from "astro";
 
 import { IDLE_MS } from "@/server/analytics";
+import { isInternal } from "@/server/directory";
 import { recap } from "@/server/slack";
 
 /** PERIOD_MS is how often Vercel Cron calls this route. `vercel.json` sets it. */
@@ -20,9 +21,9 @@ const CLERK_USER = "user_";
 
 /**
  * GET posts a recap of each Synnax Desktop visit that ended in the last period to
- * Slack. A visit ends once it has been idle for {@link IDLE_MS}, so the period is that
- * long behind the call. Vercel calls it with the cron secret as a bearer token;
- * anything else is refused.
+ * Slack, except visits by Synnax Labs users. A visit ends once it has been idle for
+ * {@link IDLE_MS}, so the period is that long behind the call. Vercel calls it with the
+ * cron secret as a bearer token; anything else is refused.
  */
 export const GET: APIRoute = async (context) => {
   const { portal } = context.locals;
@@ -36,6 +37,8 @@ export const GET: APIRoute = async (context) => {
     const account = visit.distinctID.startsWith(CLERK_USER)
       ? await portal.directory.account(visit.distinctID)
       : null;
+    const email = account?.email || visit.email;
+    if (email != null && isInternal(email)) continue;
     await portal.slack.post(recap(visit, account));
   }
   return Response.json({ visits: visits.length });

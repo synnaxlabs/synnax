@@ -50,9 +50,9 @@ class ConsoleTaskCase(SimulatorCase, ConsoleCase):
     TASK_DURATION: sy.TimeSpan = 1 * sy.TimeSpan.SECOND
     task_names: list[str]
 
-    def setup(self) -> None:
+    def __init__(self, **params: Any) -> None:
+        super().__init__(**params)
         self.task_names = []
-        super().setup()
 
     def teardown(self) -> None:
         try:
@@ -61,7 +61,7 @@ class ConsoleTaskCase(SimulatorCase, ConsoleCase):
         finally:
             super().teardown()
 
-    def create_page(self, page_class: type[PageT], prefix: str) -> PageT:
+    def create_page(self, page_class: type[PageT], *, prefix: str) -> PageT:
         """Create a task page with a unique name and track it for teardown."""
         name = f"{prefix} {random_name()}"
         self.task_names.append(name)
@@ -142,11 +142,13 @@ class ConsoleTaskCase(SimulatorCase, ConsoleCase):
         self.console.tasks.open_config(page.page_name)
         page.verify_config(expected)
 
-    def assert_sample_count(self, page: TaskPage, keys: list[int]) -> None:
+    def assert_sample_count(self, page: TaskPage, *, keys: list[int]) -> None:
         """Hold the running task, stop it from the form, then count the samples on
         ``keys``, as the driver read task tests do."""
         frame_size = int(self.SAMPLE_RATE / self.STREAM_RATE)
-        start = collect_samples(self.client, keys, self.TASK_DURATION, frame_size)
+        start = collect_samples(
+            self.client, keys, duration=self.TASK_DURATION, frame_size=frame_size
+        )
         self.stop(page)
         assert_sample_rate(
             self.client,
@@ -157,7 +159,7 @@ class ConsoleTaskCase(SimulatorCase, ConsoleCase):
             log=self.log,
         )
 
-    def send_commands(self, page: TaskPage, task: sy.Task) -> None:
+    def send_commands(self, page: TaskPage, *, task: sy.Task) -> None:
         """Write two rounds of commands to the task's channels and check they stream
         back without the task reporting an error."""
         send_and_verify_commands(
@@ -168,21 +170,21 @@ class ConsoleTaskCase(SimulatorCase, ConsoleCase):
             task_key=task.key,
         )
 
-    def assert_not_deployed(self, page: TaskPage, label: str) -> None:
+    def assert_not_deployed(self, page: TaskPage, *, label: str) -> None:
         status = page.status()
         assert status["level"] == "disabled", (
             f"Task should not be deployed ({label}), "
             f"but the status is '{status['level']}': '{status['msg']}'"
         )
 
-    def assert_device_required(self, page: TaskPage, label: str) -> None:
+    def assert_device_required(self, page: TaskPage, *, label: str) -> None:
         """Deploy without a device; the form blocks it at the ``label`` field."""
         page.deploy(expect=None)
         message = page.field_help_text(label)
         assert message == "Device is required", (
             f"Device field should report it is required, got '{message}'"
         )
-        self.assert_not_deployed(page, "no device")
+        self.assert_not_deployed(page, label="no device")
 
     def assert_channel_required(self, page: TaskPage) -> None:
         """Deploy with no enabled channel; the form blocks it at the channel list."""
@@ -191,7 +193,7 @@ class ConsoleTaskCase(SimulatorCase, ConsoleCase):
         assert message == "At least one enabled channel is required", (
             f"Channel list should report a channel is required, got '{message}'"
         )
-        self.assert_not_deployed(page, "no enabled channel")
+        self.assert_not_deployed(page, label="no enabled channel")
 
     def assert_rates_rejected(self, page: TaskPage) -> None:
         """Deploy with a stream rate above the sample rate; the form blocks it."""
@@ -201,9 +203,9 @@ class ConsoleTaskCase(SimulatorCase, ConsoleCase):
         assert "less than or equal to the sample rate" in message, (
             f"Stream rate field should report the rate conflict, got '{message}'"
         )
-        self.assert_not_deployed(page, "invalid rates")
+        self.assert_not_deployed(page, label="invalid rates")
 
-    def assert_driver_rejects(self, page: TaskPage, label: str) -> None:
+    def assert_driver_rejects(self, page: TaskPage, *, label: str) -> None:
         """Deploy; the Driver rejects the task with an error or warning status."""
         page.deploy(expect=None)
         status = page.wait_for_status_level(REJECTED_LEVELS)

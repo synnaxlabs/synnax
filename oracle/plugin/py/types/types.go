@@ -132,29 +132,36 @@ func generatePyFile(
 		data.imports.addOntology("ID")
 	}
 
-	// Pre-collect all field names to detect conflicts with module import names.
-	// This allows us to alias module imports when a field name would shadow them.
+	// Pre-collect the field and TypeVar names, so a module import that one would shadow
+	// takes an alias.
+	for _, typ := range slices.Concat(structs, typeDefs) {
+		for _, tp := range resolution.NonDefaultedTypeParams(
+			resolution.TypeParams(typ.Form),
+		) {
+			data.imports.reserve(tp.Name)
+		}
+	}
 	for _, s := range structs {
 		if form, ok := s.Form.(resolution.StructForm); ok {
 			for _, field := range form.Fields {
-				data.imports.registerFieldName(fieldName(field.Name))
+				data.imports.reserve(fieldName(field.Name))
 			}
 		}
 		// Also collect unified fields (which include inherited fields)
 		for _, field := range resolution.UnifiedFields(s, table) {
-			data.imports.registerFieldName(fieldName(field.Name))
+			data.imports.reserve(fieldName(field.Name))
 		}
 	}
 	for _, u := range unions {
 		form := u.Form.(resolution.UnionForm)
 		for _, v := range form.Variants {
-			_, declared := resolver.VariantBases(form, v, table)
+			_, declared := resolver.VariantBases(form, v, "py", table)
 			for _, field := range declared {
-				data.imports.registerFieldName(fieldName(field.Name))
+				data.imports.reserve(fieldName(field.Name))
 			}
 			if payload, ok := v.Type.Resolve(table); ok {
 				for _, field := range resolution.UnifiedFields(payload, table) {
-					data.imports.registerFieldName(fieldName(field.Name))
+					data.imports.reserve(fieldName(field.Name))
 				}
 			}
 		}
@@ -661,7 +668,7 @@ func processStruct(
 	}
 
 	// Handle struct extension with Pydantic inheritance (supports multiple parents)
-	if len(form.Extends) > 0 {
+	if len(form.Extends) > 0 && resolver.ParentsExist(form.Extends, "py", table) {
 		allParentsValid := true
 		for _, extendsRef := range form.Extends {
 			parent, ok := extendsRef.Resolve(table)
@@ -1836,10 +1843,11 @@ func primitiveToPython(primitive string, data *templateData) string {
 }
 
 type importManager struct {
-	// fieldNames tracks all field names to detect conflicts with module imports.
-	fieldNames set.Set[string]
-	uuid       []string
-	typing     []string
+	// reserved holds the field and TypeVar names in the file, which a module import
+	// must not bind.
+	reserved set.Set[string]
+	uuid     []string
+	typing   []string
 	// typeVarDefault is true when a TypeVar takes a default, so TypeVar comes from
 	// typing_extensions instead of typing.
 	typeVarDefault bool
@@ -1858,14 +1866,13 @@ type importManager struct {
 
 func newImportManager() *importManager {
 	return &importManager{
-		fieldNames: make(set.Set[string]),
+		reserved: make(set.Set[string]),
 	}
 }
 
-// registerFieldName adds a field name to the set of known field names.
-// This is used to detect conflicts with module import names.
-func (m *importManager) registerFieldName(name string) {
-	m.fieldNames.Add(name)
+// reserve marks name as bound in the file, so a module import takes an alias instead.
+func (m *importManager) reserve(name string) {
+	m.reserved.Add(name)
 }
 
 func (m *importManager) addUUID(name string) {
@@ -1931,9 +1938,9 @@ var generatedImportNames = set.New(
 	"UUID", "uuid4",
 )
 
-// bound reports whether name is already a field or an imported name in the file.
+// bound reports whether name is reserved or already imported in the file.
 func (m *importManager) bound(name string) bool {
-	if m.fieldNames.Contains(name) || generatedImportNames.Contains(name) {
+	if m.reserved.Contains(name) || generatedImportNames.Contains(name) {
 		return true
 	}
 	for _, names := range [][]string{

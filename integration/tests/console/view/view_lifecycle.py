@@ -175,12 +175,12 @@ class ViewLifecycle(ConsoleCase):
         self.view_names.extend([view_a, view_b, renamed])
 
         explorer.open()
-        self.test_create_views(explorer, view_a, view_b)
-        self.test_switch_between_views(explorer, view_a, view_b)
-        self.test_relabel_moves_item(explorer, view_a, view_b)
-        self.test_delete_item_leaves_view(explorer, view_a, view_b)
-        self.test_rename_view(explorer, view_a, renamed)
-        self.test_delete_view(explorer, renamed, view_b)
+        self.test_create_views(explorer, view_a=view_a, view_b=view_b)
+        self.test_switch_between_views(explorer, view_a=view_a, view_b=view_b)
+        self.test_relabel_moves_item(explorer, view_a=view_a, view_b=view_b)
+        self.test_delete_item_leaves_view(explorer, view_a=view_a, view_b=view_b)
+        self.test_rename_view(explorer, view_name=view_a, renamed=renamed)
+        self.test_delete_view(explorer, view_name=renamed, other=view_b)
 
     def _assert_only(
         self, explorer: _Explorer, shown: list[str], hidden: list[str]
@@ -192,7 +192,9 @@ class ViewLifecycle(ConsoleCase):
         for name in hidden:
             explorer.wait_for_removed(name)
 
-    def test_create_views(self, explorer: _Explorer, view_a: str, view_b: str) -> None:
+    def test_create_views(
+        self, explorer: _Explorer, *, view_a: str, view_b: str
+    ) -> None:
         """Test creating two views, each filtered to a different label."""
         self.log(f"Testing: Create views in {explorer.name} Explorer")
         views = explorer.views
@@ -227,7 +229,7 @@ class ViewLifecycle(ConsoleCase):
         )
 
     def test_switch_between_views(
-        self, explorer: _Explorer, view_a: str, view_b: str
+        self, explorer: _Explorer, *, view_a: str, view_b: str
     ) -> None:
         """Test each view keeps its own filter when switching between them."""
         self.log(f"Testing: Switch between views in {explorer.name} Explorer")
@@ -250,7 +252,7 @@ class ViewLifecycle(ConsoleCase):
         )
 
     def test_relabel_moves_item(
-        self, explorer: _Explorer, view_a: str, view_b: str
+        self, explorer: _Explorer, *, view_a: str, view_b: str
     ) -> None:
         """Test adding a label to an item makes it appear in that label's view."""
         if explorer.relabel is None:
@@ -272,7 +274,7 @@ class ViewLifecycle(ConsoleCase):
         )
 
     def test_delete_item_leaves_view(
-        self, explorer: _Explorer, view_a: str, view_b: str
+        self, explorer: _Explorer, *, view_a: str, view_b: str
     ) -> None:
         """Test deleting an item removes it from its view, leaving other views alone."""
         self.log(f"Testing: Delete item leaves view in {explorer.name} Explorer")
@@ -288,7 +290,7 @@ class ViewLifecycle(ConsoleCase):
         )
 
     def test_rename_view(
-        self, explorer: _Explorer, view_name: str, renamed: str
+        self, explorer: _Explorer, *, view_name: str, renamed: str
     ) -> None:
         """Test renaming a view in place via its context menu."""
         self.log(f"Testing: Rename view in {explorer.name} Explorer")
@@ -298,7 +300,9 @@ class ViewLifecycle(ConsoleCase):
         )
         explorer.views.wait_for_removed(view_name)
 
-    def test_delete_view(self, explorer: _Explorer, view_name: str, other: str) -> None:
+    def test_delete_view(
+        self, explorer: _Explorer, *, view_name: str, other: str
+    ) -> None:
         """Test deleting the selected view snaps back to the static view and leaves
         other views intact."""
         self.log(f"Testing: Delete view in {explorer.name} Explorer")
