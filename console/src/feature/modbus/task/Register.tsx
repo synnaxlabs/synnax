@@ -26,15 +26,32 @@ export const REGISTERS: Record<ReadChannelType, { name: string; description: str
     discrete_input: { name: "Discrete input", description: "Bit, read only" },
     input_register: { name: "Input register", description: "Word, read only" },
     holding_register: { name: "Holding register", description: "Word, read and write" },
+    input_register_bit: {
+      name: "Input register bit",
+      description: "Bit of a word, read only",
+    },
+    holding_register_bit: {
+      name: "Holding register bit",
+      description: "Bit of a word, read and write",
+    },
   };
 
 export const REGISTER_TYPES = Object.keys(REGISTERS) as ReadChannelType[];
 
-// A bit is one cell and a word two. The outline cut from the inside marks read only.
+// A bit is one cell and a word two, and a bit of a word is one cell. The outline cut
+// from the inside marks read only.
 const SHAPES: Record<"bit" | "word", [outer: string, inner: string]> = {
   bit: ["M7.5 6h9v12h-9z", "M9.5 8v8h5V8z"],
   word: ["M2 6h9v12H2zM13 6h9v12h-9z", "M4 8v8h5V8zM15 8v8h5V8z"],
 };
+
+const WORD_TYPES = new Set<ReadChannelType>(["input_register", "holding_register"]);
+
+const READ_ONLY_TYPES = new Set<ReadChannelType>([
+  "discrete_input",
+  "input_register",
+  "input_register_bit",
+]);
 
 export interface RegisterGlyphProps {
   type: ReadChannelType;
@@ -42,9 +59,8 @@ export interface RegisterGlyphProps {
 
 /** A register type as its width in cells, solid when it can be written. */
 export const RegisterGlyph = ({ type }: RegisterGlyphProps): ReactElement => {
-  const [outer, inner] =
-    SHAPES[type === "coil" || type === "discrete_input" ? "bit" : "word"];
-  const readOnly = type === "discrete_input" || type === "input_register";
+  const [outer, inner] = SHAPES[WORD_TYPES.has(type) ? "word" : "bit"];
+  const readOnly = READ_ONLY_TYPES.has(type);
   return (
     <svg
       viewBox="0 0 24 24"
@@ -60,7 +76,11 @@ export const RegisterGlyph = ({ type }: RegisterGlyphProps): ReactElement => {
 /** Lets a menu grow to fit the descriptions beside the option names. */
 export const MENU_PROPS = { className: CSS.BE("modbus", "menu") };
 
-export const SHADOW_TRIGGER_PROPS: Select.SingleTriggerProps = { variant: "shadow" };
+/** A quiet trigger that shows a picked option without its description. */
+export const SHADOW_TRIGGER_PROPS: Select.SingleTriggerProps = {
+  variant: "shadow",
+  className: CSS.BE("modbus", "trigger"),
+};
 
 export interface OptionProps {
   glyph: ReactElement;
@@ -108,7 +128,12 @@ export const RegisterField = ({ path }: RegisterFieldProps): ReactElement | null
       dialogProps={MENU_PROPS}
     >
       {REGISTER_TYPES.map((t) => (
-        <Select.Item<ReadChannelType> key={t} itemKey={t}>
+        <Select.Item<ReadChannelType>
+          key={t}
+          itemKey={t}
+          aria-label={REGISTERS[t].name}
+          aria-description={REGISTERS[t].description}
+        >
           <Option glyph={<RegisterGlyph type={t} />} {...REGISTERS[t]} />
         </Select.Item>
       ))}

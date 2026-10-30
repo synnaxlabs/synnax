@@ -84,12 +84,14 @@ outlined button) has fill l2 and border l4, and its caret has the disabled text 
 
 ### Keycaps
 
-- Tooltips and buttons show keys as boxed caps: 20 px tall, a 12 px glyph, a fill, and
-  no border. Inside a tooltip, the fill is one step darker.
-- Menus and the palette show a shortcut as plain gray glyph text ("⌘E") at the trailing
-  edge.
+- Tooltips and buttons show a shortcut as one chip: 18 px tall, a faint fill, a faint
+  hairline, 11 px glyphs at gray step 9, and 3 px between keys. Inside a tooltip, the
+  fill is one step darker. On a filled button, the chip mixes the label color.
+- Menus and the palette show a shortcut as plain glyph text at gray step 8 ("⌘E"), with
+  no chip.
 - The label comes first, and the keys follow it. Word keys start with a capital (Esc,
-  Tab). On macOS, modifiers follow Apple's order: ⌃ ⌥ ⇧ ⌘.
+  Tab). On macOS, modifiers follow Apple's order: ⌃ ⌥ ⇧ ⌘. Windows and Linux spell them
+  out: Ctrl, Alt, Shift.
 - A modal shows its commit shortcut in its primary button ("Create ⌘↵"), never as a hint
   in the footer.
 
@@ -126,9 +128,13 @@ outlined button) has fill l2 and border l4, and its caret has the disabled text 
 ### Overflow
 
 - Cut text fades at its end (`Text` with `overflow="fade"`) everywhere: trees, tabs,
-  selects, tags, toasts, table cells, and titles. No "…" and no cut in the middle.
-- A cut name shows its full text in a tooltip on hover, only when it is cut. Test
-  `scrollWidth > clientWidth` in a pointer handler, never during render.
+  selects, tags, toasts, table cells, and titles. No "…" and no cut in the middle. Text
+  with `lineClamp` fades the end of its last line. A cut input value fades until the
+  input takes focus.
+- A cut name shows its full text in a tooltip on hover, only when it is cut.
+  `Tooltip.Overflow`, mounted once, does this for every `overflow="fade"` label. An
+  element's own tooltip wins over it.
+- A name under edit stays inside its box and scrolls to the caret, with no fade.
 - Prose wraps with `overflow-wrap: anywhere` and is never cut: modal text, toasts,
   confirmations, errors, and tooltips.
 - A number never clips, because a clipped number reads as a different valid number.
@@ -163,11 +169,21 @@ outlined button) has fill l2 and border l4, and its caret has the disabled text 
 
 ### Table input
 
+- A ruled grid: the cells join into one box with shared lines, and headings sit in the
+  box. Row labels and remove buttons sit outside it. A cell draws its border on the grid
+  line, so focus and hover frame the whole cell.
 - Every cell can be edited at all times. Empty and filled cells look different at rest.
 - The add button sits under the last row and names the item ("Add header"). It moves
-  focus to the first cell of the new row.
-- Every row shows its remove button at all times, at the end of the row.
-- Paste keeps the values that parse and marks the cells that do not.
+  focus to the first cell of the new row. An empty table shows only the add button.
+- Every row shows its remove button at all times, at the end of the row. A remove moves
+  focus to the row that takes its place.
+- Enter moves down, Shift+Enter moves up, and Tab moves right.
+- Esc puts back the value the cell held when it took focus. A second Esc leaves the
+  cell. Esc never commits typed text.
+- A cell with an error has a red frame, and its message shows on hover.
+- Paste keeps the values that parse. A cell whose text does not parse keeps its value
+  and shows the error until an edit. A first row in which no number parses is a heading,
+  and paste drops it.
 
 ### Status and toasts
 

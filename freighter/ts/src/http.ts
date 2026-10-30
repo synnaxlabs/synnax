@@ -168,11 +168,12 @@ export class HTTPClient
     req: z.input<RQ> | z.infer<RQ>,
     reqSchema: RQ,
     resSchema: RS,
+    params: Record<string, string> = {},
   ): Promise<z.infer<RS>> {
     let res: z.infer<RS> | null = null;
     const url = this.endpoint.child(target);
     await this.executeMiddleware(
-      this.context(url),
+      { ...this.context(url), params: { ...params } },
       async (ctx: Context): Promise<Context> => {
         const outCtx: Context = { ...ctx, params: {} };
         const httpRes = await this.fetch(url, ctx.target, {

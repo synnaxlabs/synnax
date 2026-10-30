@@ -24,6 +24,7 @@ import { type CSSProperties, type FC, type ReactElement } from "react";
 import { useFromConfig } from "@/feature/modbus/device/queries";
 import { Select as SelectDevice } from "@/feature/modbus/device/Select";
 import { SCHEMAS } from "@/feature/modbus/device/types";
+import { parseAddress, toModicon } from "@/feature/modbus/task/address";
 import { ByteOrderField } from "@/feature/modbus/task/ByteOrder";
 import { RegisterField, SHADOW_TRIGGER_PROPS } from "@/feature/modbus/task/Register";
 import {
@@ -36,16 +37,21 @@ import {
 } from "@/feature/modbus/task/RegisterMap";
 import {
   addressSpan,
+  BIT_BOUNDS,
   deployReadConfigZ,
+  isStringChannel,
   isVariableDensityReadChannel,
-  nextAddress,
+  nextChannel,
   READ_CHANNEL_SCHEMAS,
   READ_SCHEMAS,
   READ_TYPE,
   type ReadChannel,
-  type ReadChannelType,
+  readChannelName,
+  readMapKey,
   type ReadSchemas,
+  STRING_LENGTH_BOUNDS,
   type TypedReadChannel,
+  UNSUPPORTED_READ_DATA_TYPES,
 } from "@/feature/modbus/task/types";
 import { CSS } from "@/platform/css";
 import { Selector } from "@/platform/selector";
@@ -66,7 +72,7 @@ const Properties = () => (
 const COLUMNS: List.Column[] = [
   { name: "Type", width: "30rem", field: true },
   { name: "Address", width: "10rem", field: true },
-  { name: "Data type", width: "18rem", field: true },
+  { name: "Data type", width: "32rem", field: true },
   { name: "Byte order", width: "27rem", field: true },
 ];
 
@@ -76,11 +82,14 @@ interface AddressFieldProps {
 }
 
 // A channel that spans several addresses shows its last one after the first. An
-// address that another channel also reads shows in red.
+// address that another channel also reads shows in red. The field takes a zero-based
+// offset or a six-digit Modicon address, and its tooltip shows the Modicon form. Text
+// that does not parse keeps the stored address and marks the field until a valid entry.
 const AddressField = ({ path, channel }: AddressFieldProps): ReactElement | null => {
   const field = PForm.useField<number>(`${path}.address`);
   const overlapping = useOverlaps(channel.key);
   if (field == null) return null;
+  const invalid = field.status.variant !== "success";
   const [lo, hi] = addressSpan(channel);
   return (
     <div
@@ -90,21 +99,30 @@ const AddressField = ({ path, channel }: AddressFieldProps): ReactElement | null
       )}
       style={{ "--console-modbus-digits": String(lo).length } as CSSProperties}
     >
-      <Input.Numeric
-        value={field.value}
-        onChange={field.onChange}
+      <Input.Text
+        value={field.value.toString()}
+        onChange={(raw) => {
+          const parsed = parseAddress(channel.type, raw);
+          if ("error" in parsed)
+            return field.setStatus({ variant: "error", message: parsed.error });
+          // The status clears on its own only when the value changes.
+          if (invalid) field.setStatus({ variant: "success", message: "" });
+          field.onChange(parsed.address);
+        }}
+        onlyChangeOnBlur
+        selectOnFocus
         preview={field.preview}
         variant="shadow"
-        showDragHandle={false}
+        status={invalid ? field.status.variant : undefined}
+        tooltip={
+          invalid ? field.status.message : `Modicon ${toModicon(channel.type, lo)}`
+        }
         aria-label="Address"
-        bounds={ADDRESS_BOUNDS}
       />
       {hi > lo && <span className={CSS.BE("modbus", "address-end")}>{`–${hi}`}</span>}
     </div>
   );
 };
-
-const ADDRESS_BOUNDS = { lower: 0, upper: 65535 };
 
 const DataTypeField = ({ path }: { path: string }): ReactElement | null => {
   const field = PForm.useField<string>(`${path}.dataType`);
@@ -114,10 +132,66 @@ const DataTypeField = ({ path }: { path: string }): ReactElement | null => {
       value={field.value}
       onChange={field.onChange}
       preview={field.preview}
-      hideVariableDensity
+      hideDataTypes={UNSUPPORTED_READ_DATA_TYPES}
       location="bottom"
       triggerProps={SHADOW_TRIGGER_PROPS}
     />
+  );
+};
+
+interface NumberFieldProps {
+  path: string;
+  label: string;
+  bounds: { lower: number; upper: number };
+  /** The shorter name in front of the number, when the cell already gives context. */
+  prefix?: string;
+}
+
+// A whole number in a cell, named by a prefix in front of it.
+const NumberField = ({
+  path,
+  label,
+  bounds,
+  prefix = label,
+}: NumberFieldProps): ReactElement => (
+  <PForm.NumericField
+    path={path}
+    showLabel={false}
+    showHelpText={false}
+    inputProps={{
+      variant: "shadow",
+      showDragHandle: false,
+      bounds,
+      startContent: prefix,
+      "aria-label": label,
+    }}
+  />
+);
+
+// A register shows its data type, and a string also its length. A register bit has no
+// data type, so the cell holds its bit.
+const DataTypeCell = ({
+  path,
+  channel,
+}: {
+  path: string;
+  channel: ReadChannel;
+}): ReactElement | null => {
+  if ("bit" in channel)
+    return <NumberField path={`${path}.bit`} label="Bit" bounds={BIT_BOUNDS} />;
+  if (!isVariableDensityReadChannel(channel)) return null;
+  return (
+    <Flex.Box x align="center" className={CSS.BE("modbus", "data-type")}>
+      <DataTypeField path={path} />
+      {isStringChannel(channel) && (
+        <NumberField
+          path={`${path}.stringLength`}
+          label="String length"
+          prefix="Length"
+          bounds={STRING_LENGTH_BOUNDS}
+        />
+      )}
+    </Flex.Box>
   );
 };
 
@@ -135,7 +209,9 @@ const ChannelListItem = ({ itemKey, ...rest }: Task.ChannelListItemProps) => {
       path={path}
       channel={ch.channel}
       defaultName={
-        dev == null ? undefined : channelName(channel.escapeInvalidName(dev.name), ch)
+        dev == null
+          ? undefined
+          : readChannelName(channel.escapeInvalidName(dev.name), ch)
       }
       ref={hoveredRef}
       hovered={hovered}
@@ -148,7 +224,7 @@ const ChannelListItem = ({ itemKey, ...rest }: Task.ChannelListItemProps) => {
         <AddressField path={path} channel={ch} />
       </List.Cell>
       <List.Cell>
-        {isVariableDensityReadChannel(ch) && <DataTypeField path={path} />}
+        <DataTypeCell path={path} channel={ch} />
       </List.Cell>
       <List.Cell>
         {isVariableDensityReadChannel(ch) && (
@@ -165,12 +241,10 @@ const getOpenChannel = (channels: ReadChannel[]): ReadChannel => {
       ...READ_CHANNEL_SCHEMAS.coil.parse({ type: "coil" }),
       key: id.create(),
     };
-  const channelToCopy = channels[channels.length - 1];
   return {
-    ...channelToCopy,
+    ...nextChannel(channels[channels.length - 1]),
     ...Task.READ_CHANNEL_OVERRIDE,
     key: id.create(),
-    address: nextAddress(channelToCopy),
   };
 };
 
@@ -206,31 +280,10 @@ const Form: FC = () => {
   );
 };
 
-// Auto-generated channel names and device map keys keep the released type
-// spellings, so channels created before the labels were renamed keep matching.
-const NAME_TYPES: Record<ReadChannelType, string> = {
-  coil: "coil_input",
-  discrete_input: "discrete_input",
-  holding_register: "holding_register_input",
-  input_register: "register_input",
-};
-
-const readMapKey = (channel: ReadChannel) => {
-  let s = `${NAME_TYPES[channel.type]}-${channel.address.toString()}`;
-  if (isVariableDensityReadChannel(channel)) s += `-${channel.dataType}`;
-  return s.replaceAll("_", "-");
-};
-
-const channelName = (deviceName: string, channel: ReadChannel) => {
-  let s = `${deviceName}_${NAME_TYPES[channel.type]}_${channel.address}`;
-  if (isVariableDensityReadChannel(channel))
-    s += `_${new DataType(channel.dataType).toString(true)}`;
-  return s;
-};
-
 const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({ deviceKey }) => {
   const config = READ_SCHEMAS.config.parse({});
   if (deviceKey != null) config.device = deviceKey;
+  config.channels = [getOpenChannel([])];
   return { name: "Modbus read task", type: READ_TYPE, config };
 };
 
@@ -278,7 +331,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
       modified = true;
       const channels = await client.channels.create(
         toCreate.map((c) => ({
-          name: primitive.isNonZero(c.name) ? c.name : channelName(safeName, c),
+          name: primitive.isNonZero(c.name) ? c.name : readChannelName(safeName, c),
           dataType: (c as TypedReadChannel).dataType ?? DataType.UINT8.toString(),
           index: dev.properties.read.index,
         })),

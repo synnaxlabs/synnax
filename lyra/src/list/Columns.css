@@ -9,7 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-list__cells {
+.lyra-list__cells {
     display: grid;
     flex-grow: 1;
     align-items: center;
@@ -17,7 +17,7 @@
     min-width: 0;
 }
 
-.pluto-list__cell {
+.lyra-list__cell {
     display: flex;
     min-width: 0;
 
@@ -29,7 +29,7 @@
 
 /* The band matches a panel header. Its insets add a list's padding to an item's, so
    each heading sits over its column. */
-.pluto-list__headings {
+.lyra-list__headings {
     display: flex;
     align-items: center;
     gap: 1.5rem;
@@ -44,13 +44,13 @@
 }
 
 /* Takes the place of a checkable item's checkbox, which has no gap after it. */
-.pluto-list__headings-check {
+.lyra-list__headings-check {
     width: var(--pluto-height-medium);
     flex-shrink: 0;
     margin-inline-end: -1.5rem;
 }
 
 /* A field insets its text by its padding and border. */
-.pluto-list__heading--field {
+.lyra-list__heading--field {
     padding-left: calc(1.5rem + var(--pluto-border-width));
 }

@@ -15,10 +15,19 @@
             border-top-right-radius: 0 !important;
             border-bottom-right-radius: 0 !important;
         }
+
+        /* The address shows its Modicon form after the offset. */
         & > *:nth-child(2):not(:last-child) {
-            width: 15rem;
+            width: 22rem;
             border-radius: 0 !important;
         }
+
+        /* A string's data type sits between the address and the string length. */
+        & > *:nth-child(3):not(:last-child) > * {
+            width: 23rem;
+            border-radius: 0 !important;
+        }
+
         & > *:last-child > * {
             width: 23rem;
             border-top-left-radius: 0 !important;
@@ -39,7 +48,7 @@
 }
 
 /* A selected register type takes the color of its channel. */
-.pluto-select__label .console-modbus__glyph {
+.console-modbus__trigger .console-modbus__glyph {
     color: var(--console-modbus-color, var(--pluto-gray-l9));
 }
 
@@ -55,7 +64,7 @@
     font-variant-numeric: tabular-nums;
 }
 
-.pluto-select__label .console-modbus__option-description {
+.console-modbus__trigger .console-modbus__option-description {
     display: none;
 }
 
@@ -83,6 +92,21 @@
 .console-modbus__address--overlap .console-modbus__address-end,
 .console-modbus__address--overlap input {
     color: var(--pluto-error-z);
+}
+
+/* A string's length takes a fixed width beside its data type, which shrinks first. */
+.console-modbus__data-type {
+    min-width: 0;
+
+    & > :first-child {
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+
+    & > :last-child:not(:first-child) {
+        flex: none;
+        width: 13rem;
+    }
 }
 
 .console-modbus__address:focus-within .console-modbus__address-end {

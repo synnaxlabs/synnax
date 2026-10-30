@@ -163,7 +163,9 @@ class TestTimeStamp:
         assert ts >= sy.TimeSpan.MICROSECOND
 
     def test_after_eq_before(self) -> None:
-        """Should return true if the timestamp is after or equal to the given timestamp"""
+        """Should return true if the timestamp is after or equal to the given
+        timestamp
+        """
         ts = sy.TimeStamp(100)
         assert not ts >= sy.TimeSpan.MICROSECOND
 
@@ -178,12 +180,16 @@ class TestTimeStamp:
         assert ts < sy.TimeSpan.MICROSECOND
 
     def test_before_eq_before(self) -> None:
-        """Should return true if the timestamp is before or equal to the given timestamp"""
+        """Should return true if the timestamp is before or equal to the given
+        timestamp
+        """
         ts = sy.TimeStamp(100)
         assert ts <= sy.TimeSpan.MICROSECOND
 
     def test_before_eq_after(self) -> None:
-        """Should return true if the timestamp is before or equal to the given timestamp"""
+        """Should return true if the timestamp is before or equal to the given
+        timestamp
+        """
         ts = sy.TimeStamp(1000)
         assert ts <= sy.TimeSpan.MICROSECOND
 
@@ -266,13 +272,17 @@ class TestTimeRange:
         assert tr.contains(sy.TimeStamp(0))
 
     def test_range_not_contains_range(self) -> None:
-        """Should return true if the ranges overlap but a smaller range is not contained"""
+        """Should return true if the ranges overlap but a smaller range is not
+        contained
+        """
         tr = sy.TimeRange(0, 1000)
         tr2 = sy.TimeRange(500, 1500)
         assert not tr.contains(tr2)
 
     def test_range_contains_range(self) -> None:
-        """Should return true if the ranges overlap and the smaller range is contained"""
+        """Should return true if the ranges overlap and the smaller range is
+        contained
+        """
         tr = sy.TimeRange(0, 1000)
         tr2 = sy.TimeRange(500, 900)
         assert tr.contains(tr2)
@@ -699,12 +709,15 @@ class TestRate:
 
     def test_byte_size(self) -> None:
         """Should return the number of bytes in the given span"""
-        assert sy.Rate(1.0).byte_size(5 * sy.TimeSpan.SECOND, sy.Density.BIT64) == 40
+        assert (
+            sy.Rate(1.0).byte_size(5 * sy.TimeSpan.SECOND, density=sy.Density.BIT64)
+            == 40
+        )
 
     def test_byte_span(self) -> None:
         """Should return the time span from a byte size"""
         assert (
-            sy.Rate(1.0).size_span(sy.Size(40), sy.Density.BIT64)
+            sy.Rate(1.0).size_span(sy.Size(40), density=sy.Density.BIT64)
             == 5 * sy.TimeSpan.SECOND
         )
 
@@ -729,9 +742,11 @@ class TestRate:
         assert sy.Rate(rate).span(count) == expected
 
     def test_byte_span_invalid(self) -> None:
-        """Should raise a contiguity error if the size is not a multiple of the density"""
+        """Should raise a contiguity error if the size is not a multiple of the
+        density
+        """
         with pytest.raises(ContiguityError):
-            sy.Rate(1.0).size_span(sy.Size(41), sy.Density.BIT64)
+            sy.Rate(1.0).size_span(sy.Size(41), density=sy.Density.BIT64)
 
     @given(st.floats(0, 1e9), st.floats(0, 1e9))
     def test_rate_and_rate(self, a: float, b: float) -> None:
@@ -923,7 +938,7 @@ def test_convert_time_units(
     to: sy.TimeSpanUnits,
     expected: int | float,
 ) -> None:
-    assert sy.convert_time_units(data, from_, to)[0] == expected
+    assert sy.convert_time_units(data, _from=from_, to=to)[0] == expected
 
 
 @pytest.mark.telem
@@ -1092,19 +1107,19 @@ class TestAlignment:
 @pytest.mark.telem
 class TestSecondsLinspace:
     def test_basic(self) -> None:
-        result = sy.seconds_linspace(0, 3)
+        result = sy.seconds_linspace(0, count=3)
         assert len(result) == 3
         assert result[0] == 0
         assert result[1] == sy.TimeSpan.SECOND
         assert result[2] == 2 * sy.TimeSpan.SECOND
 
     def test_with_offset(self) -> None:
-        result = sy.seconds_linspace(5, 2)
+        result = sy.seconds_linspace(5, count=2)
         assert result[0] == 5 * sy.TimeSpan.SECOND
         assert result[1] == 6 * sy.TimeSpan.SECOND
 
     def test_empty(self) -> None:
-        assert sy.seconds_linspace(0, 0) == []
+        assert sy.seconds_linspace(0, count=0) == []
 
 
 @pytest.mark.telem

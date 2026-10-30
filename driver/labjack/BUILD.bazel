@@ -47,6 +47,7 @@ cc_library(
         "//driver/transform",
         "//x/cpp/breaker",
         "//x/cpp/json",
+        "//x/cpp/lib",
         "//x/cpp/loop",
         "@abseil-cpp//absl/log",
         "@nlohmann_json//:json",
@@ -56,6 +57,7 @@ cc_library(
 cc_test(
     name = "labjack_test",
     srcs = [
+        "factory_test.cpp",
         "read_task_test.cpp",
         "write_task_test.cpp",
     ],

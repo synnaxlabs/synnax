@@ -13,32 +13,31 @@
 .console-task__redeploy-item {
     color: var(--pluto-primary-z);
     background: var(--pluto-primary-z-10);
+
     &:hover {
         background: var(--pluto-primary-z-20);
     }
 }
 
 .console-task-toolbar {
-    .pluto-list__item {
+    .lyra-list__item {
         .console-task__status-indicator {
             font-size: 2rem;
             min-width: 2rem;
         }
-        .console-task__data-saving--active .pluto-icon {
+
+        .console-task__data-saving--active .lyra-icon {
             animation: console-task-data-saving-pulse 2s ease-in-out infinite;
         }
+
         .console-task__metadata {
             flex-shrink: 1;
-            text-overflow: ellipsis;
             overflow: hidden;
             padding-top: 0.25rem;
+
             .console-task__title {
                 /* Only apply overflow hidden when the element is not being renamed */
                 &:not(:has([contenteditable="true"])) {
-                    overflow: hidden;
-                }
-                p {
-                    text-overflow: ellipsis;
                     overflow: hidden;
                 }
             }

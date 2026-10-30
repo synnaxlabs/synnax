@@ -16,7 +16,7 @@ import { checkExports } from "./modules.js";
 import { ENTRY, transpile } from "./transpile.js";
 
 export { reactCompiler } from "./compiler.js";
-export { type Layer, layers } from "./layers.js";
+export { type Layer, layers, lyraLayers, plutoLayers } from "./layers.js";
 export { discoverModules, moduleExports, packageExports } from "./modules.js";
 
 export interface Options {

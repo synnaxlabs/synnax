@@ -45,30 +45,28 @@ describe("List.Columns", () => {
           <List.Headings checkable={checkable} />
         </List.Columns>,
       );
-      return c.container.querySelector<HTMLElement>(".pluto-list__headings")!;
+      return c.container.querySelector<HTMLElement>(".lyra-list__headings")!;
     };
 
     it("should name each column in order, leaving a nameless column empty", () => {
-      const names = [...headings().querySelectorAll(".pluto-list__cells > span")].map(
+      const names = [...headings().querySelectorAll(".lyra-list__cells > span")].map(
         (s) => s.textContent,
       );
       expect(names).toEqual(["Type", "", "Channel"]);
     });
 
     it("should line up the heading of a field column with the field's text", () => {
-      const spans = headings().querySelectorAll(".pluto-list__cells > span");
-      expect(spans[0].classList.contains("pluto-list__heading--field")).toBe(true);
-      expect(spans[2].classList.contains("pluto-list__heading--field")).toBe(false);
+      const spans = headings().querySelectorAll(".lyra-list__cells > span");
+      expect(spans[0].classList.contains("lyra-list__heading--field")).toBe(true);
+      expect(spans[2].classList.contains("lyra-list__heading--field")).toBe(false);
     });
 
     it("should leave room for the checkbox of checkable items", () => {
-      expect(
-        headings(true).querySelector(".pluto-list__headings-check"),
-      ).not.toBeNull();
+      expect(headings(true).querySelector(".lyra-list__headings-check")).not.toBeNull();
     });
 
     it("should leave no room for a checkbox by default", () => {
-      expect(headings().querySelector(".pluto-list__headings-check")).toBeNull();
+      expect(headings().querySelector(".lyra-list__headings-check")).toBeNull();
     });
   });
 });
