@@ -3886,17 +3886,13 @@ START => main
 					Start: stamp,
 				}))
 				defer func() { Expect(fw.Close()).To(Succeed()) }()
-				// The task subscribes to src after Exec returns, so a write can land
-				// before it listens. Each attempt writes a new stamp.
+				Expect(fw.Write(frame.NewMulti(keys, []telem.Series{
+					telem.NewSeriesV(stamp),
+					telem.NewSeriesV[uint8](1),
+				}))).To(BeTrue())
 				Eventually(func(g Gomega) {
-					g.Expect(fw.Write(frame.NewMulti(keys, []telem.Series{
-						telem.NewSeriesV(stamp),
-						telem.NewSeriesV[uint8](1),
-					}))).To(BeTrue())
-					stamp = stamp.Add(telem.Millisecond)
 					_, stamps := readStored(ctx, outIdx, out)
-					g.Expect(stamps).ToNot(BeEmpty())
-					g.Expect(stamps[0]).To(BeNumerically("<", started))
+					g.Expect(stamps).To(Equal([]telem.TimeStamp{stamp}))
 				}).Should(Succeed())
 			},
 		)
