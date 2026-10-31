@@ -311,3 +311,14 @@ class TestAPIKeys:
         host, port, _, _ = login_info
         with pytest.raises(sy.AuthError):
             sy.Synnax(host=host, port=port, api_key=f"syk_{uuid4()}secret")
+
+
+@pytest.mark.auth
+class TestPasswords:
+    def test_create_existing(self, login_info: tuple[str, int, str, str]) -> None:
+        """Should refuse a first password for a user that already has one."""
+        host, port, username, password = login_info
+        admin = sy.Synnax(host=host, port=port, username=username, password=password)
+        with pytest.raises(sy.ValidationError):
+            admin.auth.create_password(str(uuid4()), "p")
+        admin.close()

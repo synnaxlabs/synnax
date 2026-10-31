@@ -113,6 +113,21 @@ const oidcLinkResZ = z.object({ link: oidcLinkZ });
 const oidcRetrieveReqZ = z.object({ subjects: ontology.idZ.array().optional() });
 const oidcRetrieveResZ = z.object({ links: oidcLinkZ.array() });
 const oidcUnlinkReqZ = z.object({ keys: oidcLinkKeyZ.array() });
+export interface CreatePasswordParams {
+  /** The user to give the password. Defaults to the caller. */
+  subject?: ontology.ID;
+  /** The username to log in with. */
+  username: string;
+  /** The password. */
+  password: string;
+}
+
+const passwordCreateReqZ = z.object({
+  subject: ontology.idZ.optional(),
+  username: z.string(),
+  password: z.string(),
+});
+
 export interface SetPasswordParams {
   /** The user whose password to set. Defaults to the caller. */
   subject?: ontology.ID;
@@ -152,6 +167,7 @@ const KEY_DELETE_ENDPOINT = "/auth/key/delete";
 const OIDC_LINK_ENDPOINT = "/auth/oidc/link";
 const OIDC_RETRIEVE_ENDPOINT = "/auth/oidc/retrieve";
 const OIDC_UNLINK_ENDPOINT = "/auth/oidc/unlink";
+const PASSWORD_CREATE_ENDPOINT = "/auth/password/create";
 const PASSWORD_SET_ENDPOINT = "/auth/password/set";
 
 // routes the Core serves without a token, so a request to one never logs in
@@ -511,6 +527,24 @@ export class Client {
    */
   async unlinkOIDC(...keys: OIDCLinkKey[]): Promise<void> {
     await this.client.send(OIDC_UNLINK_ENDPOINT, { keys }, oidcUnlinkReqZ, emptyResZ);
+  }
+
+  /**
+   * Gives the caller, or another user when the caller may create that user, its first
+   * password.
+   * @throws {AuthError} when another user holds the username.
+   * @throws {AccessDeniedError} when the caller may not create the user.
+   * @throws {NotFoundError} when the user does not exist.
+   * @throws {ValidationError} when the username or password is empty, or the user
+   * already has a password.
+   */
+  async createPassword(params: CreatePasswordParams): Promise<void> {
+    await this.client.send(
+      PASSWORD_CREATE_ENDPOINT,
+      params,
+      passwordCreateReqZ,
+      emptyResZ,
+    );
   }
 
   /**

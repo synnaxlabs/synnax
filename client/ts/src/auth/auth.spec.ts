@@ -840,6 +840,15 @@ describe("auth", () => {
     });
   });
 
+  describe("createPassword", () => {
+    it("should refuse a user that already has a password", async () => {
+      const client = createTestClient();
+      await expect(
+        client.auth.createPassword({ username: id.create(), password: "p" }),
+      ).rejects.toThrow(ValidationError);
+    });
+  });
+
   describe("API keys", () => {
     const makeClient = (authority: auth.Authority) => {
       const transport = new Transport(
