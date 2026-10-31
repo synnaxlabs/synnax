@@ -47,6 +47,25 @@ class TestWriter:
             )
             w.commit()
 
+    def test_write_without_start(
+        self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
+    ) -> None:
+        """Should start the index at its first timestamp when the writer has no start"""
+        idx_ch, data_ch = indexed_pair
+        with client.open_writer(channels=indexed_pair) as w:
+            w.write(
+                {idx_ch.key: seconds_linspace(1, count=3), data_ch.key: [1.0, 2.0, 3.0]}
+            )
+            w.commit()
+        frame = client.read(sy.TimeRange.MAX, [idx_ch.key, data_ch.key])
+        assert frame[idx_ch.key].to_numpy()[0] == 1 * sy.TimeSpan.SECOND
+        assert list(frame[data_ch.key]) == [1.0, 2.0, 3.0]
+
+    def test_open_writer_without_channels(self, client: sy.Synnax) -> None:
+        """Should fail to open a writer with no channels"""
+        with pytest.raises(sy.ValidationError, match="open_writer requires channels"):
+            client.open_writer()
+
     def test_write_by_name(
         self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
     ) -> None:

@@ -75,8 +75,8 @@ to the Core. Use a writer instead.
 
 ## Write with a writer
 
-A writer stays open and writes many frames to its channels. Open it with a start
-timestamp and the channels it writes to:
+A writer stays open and writes many frames to its channels. Open it with the channels it
+writes to. Each index starts at the first timestamp written to it:
 
 <Client.Tabs exclude={["console"]}>
 
@@ -84,7 +84,6 @@ timestamp and the channels it writes to:
 
 ```python
 with client.open_writer(
-    start=sy.TimeStamp.now(),
     channels=["time", "temperature"],
 ) as writer:
     for i in range(100):
@@ -100,7 +99,6 @@ The `with` block closes the writer, also when the code raises an error.
 
 ```typescript
 const writer = await client.openWriter({
-  start: TimeStamp.now(),
   channels: ["time", "temperature"],
 });
 try {
@@ -258,7 +256,6 @@ range. Samples that you did not commit are lost when the writer closes.
 
 ```python
 with client.open_writer(
-    start=sy.TimeStamp.now(),
     channels=["time", "temperature"],
     enable_auto_commit=False,
 ) as writer:
@@ -274,7 +271,6 @@ with client.open_writer(
 
 ```typescript
 const writer = await client.openWriter({
-  start: TimeStamp.now(),
   channels: ["time", "temperature"],
   enableAutoCommit: false,
 });
@@ -322,7 +318,6 @@ and sends them to streamers. This is the default.
 
 ```python
 writer = client.open_writer(
-    start=sy.TimeStamp.now(),
     channels=["time", "temperature"],
     mode="persist",
 )
@@ -334,7 +329,6 @@ writer = client.open_writer(
 
 ```typescript
 const writer = await client.openWriter({
-  start: TimeStamp.now(),
   channels: ["time", "temperature"],
   mode: "persist",
 });
@@ -359,14 +353,13 @@ index channel, a write that includes it uses your timestamps.
 
 ```python
 with client.open_writer(
-    start=0,
     channels=["temperature"],
     auto_index=True,
 ) as writer:
     writer.write({"temperature": 22.5})
 ```
 
-`start` is required. With `start=0`, the Core uses the current time.
+With no `start`, the Core uses the current time.
 
   </Fragment>
 
@@ -405,8 +398,9 @@ read each sample.
 <Field.List>
 
 <Field.Item name="start" id="python-start" type="TimeStamp">
-  The timestamp of the first sample. The writer fails when a channel already has data in
-  the time range that it writes.
+  Where the writer's control region begins. Defaults to the time the writer opens on the
+  Core. The writer fails to open when existing data holds it. A writer on data channels
+  without their index needs a start, and it must be a sample of that index.
 </Field.Item>
 
 <Field.Item name="channels" id="python-channels" type="list[str] | list[int]">
@@ -479,8 +473,9 @@ read each sample.
 <Field.List>
 
 <Field.Item name="start" id="typescript-start" type="TimeStamp">
-  The timestamp of the first sample. The writer fails when a channel already has data in
-  the time range that it writes. Required unless `autoIndex` is on.
+  Where the writer's control region begins. Defaults to the time the writer opens on the
+  Core. The writer fails to open when existing data holds it. A writer on data channels
+  without their index needs a start, and it must be a sample of that index.
 </Field.Item>
 
 <Field.Item name="channels" id="typescript-channels" type="string[] | number[]">

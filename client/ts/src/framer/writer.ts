@@ -58,7 +58,11 @@ const writerModeZ = z.enum(WriterMode).or(
 export type CrudeWriterMode = z.input<typeof writerModeZ>;
 
 const baseWriterConfigZ = z.object({
-  /** start sets the starting timestamp for the first sample in the writer. */
+  /**
+   * start sets where the writer's control region begins. It defaults to the time the
+   * writer opens on the Core. A writer that writes data channels without their index
+   * needs a start, and it must be a sample of that index.
+   */
   start: TimeStamp.z.optional(),
   /** controlSubject sets the control subject of the writer. */
   controlSubject: control.subjectZ.optional(),
@@ -112,7 +116,7 @@ const intermediateWriterConfigZ = baseWriterConfigZ.extend({
 /** Zod schema for {@link WriterConfig}. A bare channel list parses as a config. */
 export const writerConfigZ = intermediateWriterConfigZ.or(
   channel.paramsZ.transform((channels) =>
-    intermediateWriterConfigZ.parse({ channels, start: TimeStamp.now() }),
+    intermediateWriterConfigZ.parse({ channels }),
   ),
 );
 
@@ -172,12 +176,12 @@ interface Response extends z.infer<typeof resZ> {}
  * {@link FrameClient#openWriter}, never directly. Prefer the frame client's write
  * method unless the volume warrants the streaming protocol.
  *
- * Opening fails when the start timestamp overlaps existing telemetry on any of the
- * channels. `write` is asynchronous, so a failure surfaces on a later call: once the
- * writer accumulates an error, every write and commit returns false until `error`
- * reads and clears it. `commit` blocks until the cluster has the frames written since
- * the last commit, and may be called repeatedly. Close in a `finally` block to release
- * resources; close throws any accumulated error.
+ * Opening fails when a given start overlaps existing telemetry on any of the channels.
+ * Without a start, an overlap fails the first write. `write` is asynchronous, so a
+ * failure surfaces on a later call: once the writer accumulates an error, every write
+ * and commit returns false until `error` reads and clears it. `commit` blocks until the
+ * cluster has the frames written since the last commit, and may be called repeatedly.
+ * Close in a `finally` block to release resources; close throws any accumulated error.
  */
 export class Writer {
   private readonly stream: Stream<typeof reqZ, typeof resZ>;
