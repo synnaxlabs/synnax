@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <cstring>
 #include <functional>
+#include <iterator>
 #include <memory>
 #include <new>
 #include <optional>
@@ -20,6 +21,7 @@
 
 #include "absl/log/log.h"
 #include "open62541/client_highlevel.h"
+#include "open62541/client_subscriptions.h"
 
 #include "driver/opcua/connection/connection.h"
 #include "driver/opcua/errors/errors.h"
@@ -601,7 +603,7 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
     const std::string key = pool_key(settings, sec);
 
     std::shared_ptr<UA_Client> client;
-    std::vector<std::shared_ptr<UA_Client>> retired;
+    std::vector<Entry> retired;
     {
         std::lock_guard lock(this->mutex_);
         retired = this->retire(settings, key);
@@ -616,7 +618,9 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
 
     // The probe runs outside the lock, since it waits on the server.
     if (client != nullptr && !lost(client.get())) {
-        if (const auto err = probe(client.get()); !err) {
+        auto err = probe(client.get());
+        if (!err) err = this->delete_orphans(key, client);
+        if (!err) {
             std::shared_ptr<const Server> server;
             {
                 std::lock_guard lock(this->mutex_);
@@ -677,6 +681,7 @@ Pool::acquire(const Config &cfg, const std::string &log_prefix) {
         err = read_err;
         server = std::make_shared<const Server>(std::move(read));
     }
+    if (!err && !created) err = this->delete_orphans(key, client);
     // A kept connection must read as lost so the next attempt connects again and reads
     // the server's facts again, and a server that stopped answering gets no
     // CloseSession to wait on.
@@ -820,32 +825,80 @@ Pool::entry(const std::string &key, const std::shared_ptr<UA_Client> &client) {
     throw std::logic_error("no pool entry for an acquired connection");
 }
 
-void Pool::release(const std::string &key, const std::shared_ptr<UA_Client> &client) {
+std::optional<Pool::Entry>
+Pool::release(const std::string &key, const std::shared_ptr<UA_Client> &client) {
     std::lock_guard lock(this->mutex_);
     const auto it = this->connections_.find(key);
-    if (it == this->connections_.end()) return;
-    // The caller still holds the client, so a removed one closes outside the lock.
-    std::erase_if(it->second, [&client](const Entry &e) {
+    if (it == this->connections_.end()) return std::nullopt;
+    std::optional<Entry> removed;
+    const auto found = std::ranges::find_if(it->second, [&client](const Entry &e) {
         return e.client == client && e.retired;
     });
-    this->put_back(key, client);
+    if (found != it->second.end()) {
+        removed = std::move(*found);
+        it->second.erase(found);
+    } else
+        this->put_back(key, client);
     if (it->second.empty()) this->connections_.erase(it);
+    return removed;
 }
 
-std::vector<std::shared_ptr<UA_Client>>
+void Pool::orphan(
+    const std::string &key,
+    const std::shared_ptr<UA_Client> &client,
+    std::unique_ptr<Subscription> sub
+) {
+    std::lock_guard lock(this->mutex_);
+    this->entry(key, client).orphans.push_back(std::move(sub));
+}
+
+x::errors::Error
+Pool::delete_orphans(const std::string &key, const std::shared_ptr<UA_Client> &client) {
+    std::vector<std::unique_ptr<Subscription>> orphans;
+    {
+        std::lock_guard lock(this->mutex_);
+        orphans = std::move(this->entry(key, client).orphans);
+    }
+    x::errors::Error err;
+    std::vector<std::unique_ptr<Subscription>> kept;
+    for (auto &sub: orphans) {
+        if (!err) err = lost(client.get());
+        if (!err) {
+            const auto status = UA_Client_Subscriptions_deleteSingle(
+                client.get(),
+                sub->id
+            );
+            if (auto del_err = errors::parse(status);
+                del_err.matches(errors::UNREACHABLE))
+                err = del_err;
+        }
+        void *context = nullptr;
+        if (UA_Client_Subscriptions_getContext(client.get(), sub->id, &context) ==
+            UA_STATUSCODE_GOOD)
+            kept.push_back(std::move(sub));
+    }
+    std::lock_guard lock(this->mutex_);
+    auto &entry = this->entry(key, client);
+    std::ranges::move(kept, std::back_inserter(entry.orphans));
+    return err;
+}
+
+std::vector<Pool::Entry>
 Pool::retire(const std::string &settings, const std::string &key) {
     auto &current = this->current_keys[settings];
     if (current == key) return {};
     const auto replaced = std::exchange(current, key);
-    std::vector<std::shared_ptr<UA_Client>> retired;
+    std::vector<Entry> retired;
     const auto it = connections_.find(replaced);
     if (it == connections_.end()) return retired;
+    std::vector<Entry> kept;
     for (auto &entry: it->second)
-        if (entry.in_use)
+        if (entry.in_use) {
             entry.retired = true;
-        else
-            retired.push_back(std::move(entry.client));
-    std::erase_if(it->second, [](const Entry &e) { return !e.client; });
+            kept.push_back(std::move(entry));
+        } else
+            retired.push_back(std::move(entry));
+    it->second = std::move(kept);
     if (it->second.empty()) connections_.erase(it);
     return retired;
 }
@@ -866,5 +919,179 @@ size_t Pool::available_count(const std::string &endpoint) const {
             for (const auto &entry: entries)
                 if (!entry.in_use && entry.client) count++;
     return count;
+}
+namespace {
+/// @brief how often the server publishes the events of a subscription.
+constexpr double EVENT_PUBLISHING_INTERVAL_MS = 250;
+/// @brief the publishing intervals with no events after which the server sends a
+/// keep-alive.
+constexpr UA_UInt32 EVENT_KEEP_ALIVE_COUNT = 10;
+/// @brief the publishing intervals with no publish request after which the server ends
+/// the subscription: three keep-alives.
+constexpr UA_UInt32 EVENT_LIFETIME_COUNT = 3 * EVENT_KEEP_ALIVE_COUNT;
+/// @brief the most events that the server holds for one notifier between publishes.
+constexpr UA_UInt32 EVENT_QUEUE_SIZE = 1000;
+
+void on_event(
+    UA_Client *,
+    UA_UInt32,
+    void *subscription,
+    UA_UInt32,
+    void *,
+    const UA_KeyValueMap fields
+) {
+    if (const auto *sub = static_cast<Subscription *>(subscription); sub->handle)
+        sub->handle(fields);
+}
+
+void on_status_change(
+    UA_Client *,
+    UA_UInt32,
+    void *subscription,
+    UA_StatusChangeNotification *notification
+) {
+    if (notification != nullptr && UA_StatusCode_isBad(notification->status))
+        static_cast<Subscription *>(subscription)->status = notification->status;
+}
+}
+
+std::pair<types::CallResponse, x::errors::Error>
+Pool::Connection::call(const UA_CallMethodRequest &method) const {
+    if (const auto err = lost(this->get())) return {types::CallResponse(), err};
+    UA_CallRequest req;
+    UA_CallRequest_init(&req);
+    req.methodsToCall = const_cast<UA_CallMethodRequest *>(&method);
+    req.methodsToCallSize = 1;
+    types::CallResponse res(UA_Client_Service_call(this->get(), req));
+    const auto &raw = res.get();
+    if (auto err = this->check(raw.responseHeader.serviceResult))
+        return {std::move(res), err};
+    auto err = check_results(raw.resultsSize, 1);
+    return {std::move(res), err};
+}
+
+std::pair<std::vector<x::errors::Error>, x::errors::Error> Pool::Connection::subscribe(
+    const std::vector<UA_NodeId> &notifiers,
+    const UA_EventFilter &filter,
+    EventHandler handle
+) {
+    this->unsubscribe();
+    if (const auto err = lost(this->get())) return {{}, err};
+    auto sub = std::make_unique<Subscription>();
+    sub->handle = std::move(handle);
+    auto req = UA_CreateSubscriptionRequest_default();
+    req.requestedPublishingInterval = EVENT_PUBLISHING_INTERVAL_MS;
+    req.requestedMaxKeepAliveCount = EVENT_KEEP_ALIVE_COUNT;
+    req.requestedLifetimeCount = EVENT_LIFETIME_COUNT;
+    auto res = UA_Client_Subscriptions_create(
+        this->get(),
+        req,
+        sub.get(),
+        on_status_change,
+        nullptr
+    );
+    const auto err = this->check(res.responseHeader.serviceResult);
+    sub->id = res.subscriptionId;
+    UA_CreateSubscriptionResponse_clear(&res);
+    if (err) return {{}, err};
+    this->subscription_ = std::move(sub);
+    auto [results, monitor_err] = this->monitor(notifiers, filter);
+    if (monitor_err) {
+        this->unsubscribe();
+        return {{}, monitor_err};
+    }
+    return {std::move(results), x::errors::NIL};
+}
+
+std::pair<std::vector<x::errors::Error>, x::errors::Error> Pool::Connection::monitor(
+    const std::vector<UA_NodeId> &notifiers,
+    const UA_EventFilter &filter
+) const {
+    if (notifiers.empty()) return {{}, x::errors::NIL};
+    std::vector<UA_MonitoredItemCreateRequest> items(notifiers.size());
+    for (size_t i = 0; i < notifiers.size(); ++i) {
+        auto &item = items[i];
+        UA_MonitoredItemCreateRequest_init(&item);
+        item.itemToMonitor.nodeId = notifiers[i];
+        item.itemToMonitor.attributeId = UA_ATTRIBUTEID_EVENTNOTIFIER;
+        item.monitoringMode = UA_MONITORINGMODE_REPORTING;
+        item.requestedParameters.queueSize = EVENT_QUEUE_SIZE;
+        item.requestedParameters.discardOldest = true;
+        item.requestedParameters.filter.encoding = UA_EXTENSIONOBJECT_DECODED;
+        item.requestedParameters.filter.content.decoded
+            .type = &UA_TYPES[UA_TYPES_EVENTFILTER];
+        item.requestedParameters.filter.content.decoded
+            .data = const_cast<UA_EventFilter *>(&filter);
+    }
+    std::vector<UA_Client_EventNotificationCallback> callbacks(items.size(), on_event);
+    UA_CreateMonitoredItemsRequest req;
+    UA_CreateMonitoredItemsRequest_init(&req);
+    req.subscriptionId = this->subscription_id();
+    req.timestampsToReturn = UA_TIMESTAMPSTORETURN_BOTH;
+    req.itemsToCreate = items.data();
+    req.itemsToCreateSize = items.size();
+    if (const auto err = lost(this->get())) return {{}, err};
+    // The delete callbacks stay null: on a failure before the request, open62541 calls
+    // each one that the array holds.
+    auto created = UA_Client_MonitoredItems_createEvents(
+        this->get(),
+        req,
+        nullptr,
+        callbacks.data(),
+        nullptr
+    );
+    auto err = this->check(created.responseHeader.serviceResult);
+    if (!err) err = check_results(created.resultsSize, items.size());
+    std::vector<x::errors::Error> results;
+    if (!err)
+        for (size_t i = 0; i < created.resultsSize; ++i)
+            results.push_back(errors::parse(created.results[i].statusCode));
+    UA_CreateMonitoredItemsResponse_clear(&created);
+    return {std::move(results), err};
+}
+
+UA_UInt32 Pool::Connection::subscription_id() const {
+    return this->subscription_ == nullptr ? 0 : this->subscription_->id;
+}
+
+x::errors::Error Pool::Connection::iterate(const x::telem::TimeSpan timeout) const {
+    if (const auto err = lost(this->get())) return err;
+    const auto status = UA_Client_run_iterate(
+        this->get(),
+        static_cast<UA_UInt32>(timeout.milliseconds())
+    );
+    if (const auto err = lost(this->get())) return err;
+    if (status != UA_STATUSCODE_GOOD) return this->check(status);
+    if (this->subscription_ != nullptr &&
+        UA_StatusCode_isBad(this->subscription_->status))
+        return errors::parse(this->subscription_->status);
+    return x::errors::NIL;
+}
+
+void Pool::Connection::close() {
+    this->unsubscribe();
+    if (this->pool_ == nullptr || this->client_ == nullptr) return;
+    // A removed entry holds the orphans of the client, so it ends after client_.
+    const auto removed = this->pool_->release(this->key_, this->client_);
+    this->client_.reset();
+}
+
+void Pool::Connection::unsubscribe() {
+    if (this->subscription_ == nullptr) return;
+    auto sub = std::move(this->subscription_);
+    // The client delivers events until it lets go of the subscription, and their
+    // handler can end before it does.
+    sub->handle = nullptr;
+    if (!lost(this->get()))
+        if (const auto err = this->check(
+                UA_Client_Subscriptions_deleteSingle(this->get(), sub->id)
+            ))
+            VLOG(1) << "[opc.connection] failed to delete subscription " << sub->id
+                    << ": " << err;
+    void *context = nullptr;
+    if (UA_Client_Subscriptions_getContext(this->get(), sub->id, &context) !=
+        UA_STATUSCODE_GOOD)
+        return;
+    this->pool_->orphan(this->key_, this->client_, std::move(sub));
 }
 }

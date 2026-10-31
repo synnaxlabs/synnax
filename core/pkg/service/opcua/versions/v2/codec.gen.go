@@ -14,8 +14,285 @@ package v2
 import (
 	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
+	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 )
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (bc BaseChannel) EncodeOrc(w *orc.Writer) error {
+	w.String(bc.Key)
+	w.String(bc.Name)
+	w.Bool(bc.Disabled)
+	w.String(bc.NodeID)
+	w.String(bc.NodeName)
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (bc *BaseChannel) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if bc.Key, err = r.String(); err != nil {
+		return err
+	}
+	if bc.Name, err = r.String(); err != nil {
+		return err
+	}
+	if bc.Disabled, err = r.Bool(); err != nil {
+		return err
+	}
+	if bc.NodeID, err = r.String(); err != nil {
+		return err
+	}
+	if bc.NodeName, err = r.String(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (bma BaseMethodArgument) EncodeOrc(w *orc.Writer) error {
+	w.String(bma.Name)
+	w.String(string(bma.DataType))
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (bma *BaseMethodArgument) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if bma.Name, err = r.String(); err != nil {
+		return err
+	}
+	{
+		rawV, err := r.String()
+		if err != nil {
+			return err
+		}
+		bma.DataType = telem.DataType(rawV)
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (bwc BaseWriteChannel) EncodeOrc(w *orc.Writer) error {
+	w.String(bwc.Key)
+	w.String(bwc.Name)
+	w.Bool(bwc.Disabled)
+	w.String(bwc.NodeID)
+	w.String(bwc.NodeName)
+	w.Uint32(uint32(bwc.CmdChannel))
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (bwc *BaseWriteChannel) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if bwc.Key, err = r.String(); err != nil {
+		return err
+	}
+	if bwc.Name, err = r.String(); err != nil {
+		return err
+	}
+	if bwc.Disabled, err = r.Bool(); err != nil {
+		return err
+	}
+	if bwc.NodeID, err = r.String(); err != nil {
+		return err
+	}
+	if bwc.NodeName, err = r.String(); err != nil {
+		return err
+	}
+	{
+		rawV, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		bwc.CmdChannel = channel.Key(rawV)
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (ec EventConfig) EncodeOrc(w *orc.Writer) error {
+	w.Write(ec.Key[:])
+	w.Bool(ec.AutoStart)
+	w.Bool(ec.DataSavingDisabled)
+	w.String(ec.Device)
+	w.Uint32(uint32(ec.Channel))
+	w.Bool(ec.Notifiers != nil)
+	if ec.Notifiers != nil {
+		w.Uint32(uint32(len(ec.Notifiers)))
+		for i := range ec.Notifiers {
+			w.String(ec.Notifiers[i])
+		}
+	}
+	w.Bool(ec.EventTypes != nil)
+	if ec.EventTypes != nil {
+		w.Uint32(uint32(len(ec.EventTypes)))
+		for i := range ec.EventTypes {
+			w.String(ec.EventTypes[i])
+		}
+	}
+	w.Bool(ec.Fields != nil)
+	if ec.Fields != nil {
+		w.Uint32(uint32(len(ec.Fields)))
+		for i := range ec.Fields {
+			if err := ec.Fields[i].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (ec *EventConfig) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if _, err := r.Read(ec.Key[:]); err != nil {
+		return err
+	}
+	if ec.AutoStart, err = r.Bool(); err != nil {
+		return err
+	}
+	if ec.DataSavingDisabled, err = r.Bool(); err != nil {
+		return err
+	}
+	if ec.Device, err = r.String(); err != nil {
+		return err
+	}
+	{
+		rawV, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		ec.Channel = channel.Key(rawV)
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			ec.Notifiers = make([]string, n)
+			for i := range ec.Notifiers {
+				if ec.Notifiers[i], err = r.String(); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			ec.EventTypes = make([]string, n)
+			for i := range ec.EventTypes {
+				if ec.EventTypes[i], err = r.String(); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			ec.Fields = make([]EventField, n)
+			for i := range ec.Fields {
+				if err = ec.Fields[i].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (ef EventField) EncodeOrc(w *orc.Writer) error {
+	w.String(ef.Key)
+	w.String(ef.Name)
+	w.String(ef.BrowsePath)
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (ef *EventField) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if ef.Key, err = r.String(); err != nil {
+		return err
+	}
+	if ef.Name, err = r.String(); err != nil {
+		return err
+	}
+	if ef.BrowsePath, err = r.String(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (ma MethodArgument) EncodeOrc(w *orc.Writer) error {
+	switch v := ma.Variant.(type) {
+	case ValueMethodArgument:
+		w.String("value")
+		if err := v.BaseMethodArgument.EncodeOrc(w); err != nil {
+			return err
+		}
+		w.String(v.Value)
+	case CommandMethodArgument:
+		w.String("command")
+		if err := v.BaseMethodArgument.EncodeOrc(w); err != nil {
+			return err
+		}
+	default:
+		return errors.Newf("MethodArgument: nil or unknown variant %T", ma.Variant)
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (ma *MethodArgument) DecodeOrc(r *orc.Reader) error {
+	tag, err := r.String()
+	if err != nil {
+		return err
+	}
+	switch tag {
+	case "value":
+		var v ValueMethodArgument
+		if err := v.BaseMethodArgument.DecodeOrc(r); err != nil {
+			return err
+		}
+		if v.Value, err = r.String(); err != nil {
+			return err
+		}
+		ma.Variant = v
+	case "command":
+		var v CommandMethodArgument
+		if err := v.BaseMethodArgument.DecodeOrc(r); err != nil {
+			return err
+		}
+		ma.Variant = v
+	default:
+		return errors.Newf("MethodArgument: unknown variant %q", tag)
+	}
+	return nil
+}
 
 // EncodeOrc writes the value to w in the Orc binary format.
 func (rc ReadChannel) EncodeOrc(w *orc.Writer) error {
@@ -24,10 +301,10 @@ func (rc ReadChannel) EncodeOrc(w *orc.Writer) error {
 	w.Bool(rc.Disabled)
 	w.String(rc.NodeID)
 	w.String(rc.NodeName)
-	w.String(string(rc.DataType))
 	w.Uint32(uint32(rc.Channel))
 	w.Bool(rc.IsIndex)
 	w.String(rc.Field)
+	w.String(string(rc.DataType))
 	return nil
 }
 
@@ -50,13 +327,6 @@ func (rc *ReadChannel) DecodeOrc(r *orc.Reader) error {
 		return err
 	}
 	{
-		rawV, err := r.String()
-		if err != nil {
-			return err
-		}
-		rc.DataType = telem.DataType(rawV)
-	}
-	{
 		rawV, err := r.Uint32()
 		if err != nil {
 			return err
@@ -68,6 +338,13 @@ func (rc *ReadChannel) DecodeOrc(r *orc.Reader) error {
 	}
 	if rc.Field, err = r.String(); err != nil {
 		return err
+	}
+	{
+		rawV, err := r.String()
+		if err != nil {
+			return err
+		}
+		rc.DataType = telem.DataType(rawV)
 	}
 	return nil
 }
@@ -150,6 +427,143 @@ func (rc *ReadConfig) DecodeOrc(r *orc.Reader) error {
 	}
 	if rc.NanFillEnabled, err = r.Bool(); err != nil {
 		return err
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (wc WriteChannel) EncodeOrc(w *orc.Writer) error {
+	switch v := wc.Variant.(type) {
+	case NodeWriteChannel:
+		w.String("node")
+		if err := v.BaseWriteChannel.EncodeOrc(w); err != nil {
+			return err
+		}
+		w.String(string(v.DataType))
+	case MethodWriteChannel:
+		w.String("method")
+		if err := v.BaseWriteChannel.EncodeOrc(w); err != nil {
+			return err
+		}
+		w.String(v.ObjectID)
+		w.Bool(v.Arguments != nil)
+		if v.Arguments != nil {
+			w.Uint32(uint32(len(v.Arguments)))
+			for i := range v.Arguments {
+				if err := v.Arguments[i].EncodeOrc(w); err != nil {
+					return err
+				}
+			}
+		}
+	default:
+		return errors.Newf("WriteChannel: nil or unknown variant %T", wc.Variant)
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (wc *WriteChannel) DecodeOrc(r *orc.Reader) error {
+	tag, err := r.String()
+	if err != nil {
+		return err
+	}
+	switch tag {
+	case "node":
+		var v NodeWriteChannel
+		if err := v.BaseWriteChannel.DecodeOrc(r); err != nil {
+			return err
+		}
+		{
+			rawV, err := r.String()
+			if err != nil {
+				return err
+			}
+			v.DataType = telem.DataType(rawV)
+		}
+		wc.Variant = v
+	case "method":
+		var v MethodWriteChannel
+		if err := v.BaseWriteChannel.DecodeOrc(r); err != nil {
+			return err
+		}
+		if v.ObjectID, err = r.String(); err != nil {
+			return err
+		}
+		{
+			present, err := r.Bool()
+			if err != nil {
+				return err
+			}
+			if present {
+				n, err := r.CollectionLen()
+				if err != nil {
+					return err
+				}
+				v.Arguments = make([]MethodArgument, n)
+				for i := range v.Arguments {
+					if err = v.Arguments[i].DecodeOrc(r); err != nil {
+						return err
+					}
+				}
+			}
+		}
+		wc.Variant = v
+	default:
+		return errors.Newf("WriteChannel: unknown variant %q", tag)
+	}
+	return nil
+}
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (wc WriteConfig) EncodeOrc(w *orc.Writer) error {
+	w.Write(wc.Key[:])
+	w.Bool(wc.AutoStart)
+	w.Bool(wc.DataSavingDisabled)
+	w.String(wc.Device)
+	w.Bool(wc.Channels != nil)
+	if wc.Channels != nil {
+		w.Uint32(uint32(len(wc.Channels)))
+		for i := range wc.Channels {
+			if err := wc.Channels[i].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (wc *WriteConfig) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if _, err := r.Read(wc.Key[:]); err != nil {
+		return err
+	}
+	if wc.AutoStart, err = r.Bool(); err != nil {
+		return err
+	}
+	if wc.DataSavingDisabled, err = r.Bool(); err != nil {
+		return err
+	}
+	if wc.Device, err = r.String(); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			wc.Channels = make([]WriteChannel, n)
+			for i := range wc.Channels {
+				if err = wc.Channels[i].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
 	}
 	return nil
 }

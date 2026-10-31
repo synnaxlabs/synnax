@@ -666,4 +666,40 @@ to_variant(const x::telem::Series &s, const UA_DataType *target) {
     const auto sample = s.at(-1);
     return sample_to_variant({.sample = sample, .target = target, .builtin = builtin});
 }
+
+namespace {
+/// @returns one value of a type as JSON text.
+std::pair<std::string, x::errors::Error>
+json(const void *data, const UA_DataType *type) {
+    UA_EncodeJsonOptions options{};
+    options.stringNodeIds = true;
+    UA_ByteString out = UA_BYTESTRING_NULL;
+    if (const auto status = UA_encodeJson(data, type, &out, &options);
+        status != UA_STATUSCODE_GOOD)
+        return {
+            "",
+            x::errors::Error(
+                x::errors::VALIDATION,
+                std::string("the value does not encode: ") + UA_StatusCode_name(status)
+            )
+        };
+    std::string text(reinterpret_cast<const char *>(out.data), out.length);
+    UA_ByteString_clear(&out);
+    return {std::move(text), x::errors::NIL};
+}
+}
+
+std::pair<std::string, x::errors::Error> to_json(const UA_Variant &value) {
+    if (value.type == nullptr) return {"null", x::errors::NIL};
+    if (UA_Variant_isScalar(&value)) return json(value.data, value.type);
+    std::string text = "[";
+    const auto *data = static_cast<const char *>(value.data);
+    for (std::size_t i = 0; i < value.arrayLength; ++i) {
+        auto [element, err] = json(data + i * value.type->memSize, value.type);
+        if (err) return {"", err};
+        if (i > 0) text += ", ";
+        text += element;
+    }
+    return {text + "]", x::errors::NIL};
+}
 }

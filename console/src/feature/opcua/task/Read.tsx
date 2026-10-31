@@ -112,17 +112,20 @@ const Properties = (): ReactElement => {
   );
 };
 
-const convertNodeToChannel = (node: ScannedNode): ReadChannel => ({
-  key: node.field === "" ? node.nodeId : nodeIdentity(node),
-  nodeName: node.name,
-  nodeId: node.nodeId,
-  field: node.field,
-  channel: 0,
-  disabled: false,
-  isIndex: false,
-  dataType: node.dataType,
-  name: "",
-});
+const convertNodeToChannel = (node: ScannedNode): ReadChannel | null =>
+  node.nodeClass !== "Variable"
+    ? null
+    : {
+        key: node.field === "" ? node.nodeId : nodeIdentity(node),
+        nodeName: node.name,
+        nodeId: node.nodeId,
+        field: node.field,
+        channel: 0,
+        disabled: false,
+        isIndex: false,
+        dataType: node.dataType,
+        name: "",
+      };
 
 const getChannelKeyAndID: ChannelKeyAndIDGetter<ReadChannel> = ({ channel, key }) => ({
   key: channel,

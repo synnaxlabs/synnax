@@ -27,6 +27,7 @@ const std::string INTEGRATION_NAME = "opc";
 const std::string SCAN_TASK_TYPE = "opc_scan";
 const std::string WRITE_TASK_TYPE = "opc_write";
 const std::string READ_TASK_TYPE = "opc_read";
+const std::string EVENT_TASK_TYPE = "opc_event";
 
 struct Factory final : task::Factory {
     /// @param store keeps the certificate that the Driver presents to servers.

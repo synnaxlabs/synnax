@@ -13,6 +13,7 @@
 
 #include <cstdint>
 #include <string>
+#include <variant>
 #include <vector>
 
 #include "client/cpp/channel/types.gen.h"
@@ -25,10 +26,19 @@ namespace synnax::opcua {
 
 struct BaseChannel;
 struct ScanConfig;
+struct BaseMethodArgument;
+struct EventField;
 struct ReadChannel;
-struct WriteChannel;
+struct BaseWriteChannel;
+struct EventConfig;
 struct ReadConfig;
 struct WriteConfig;
+
+constexpr const char *WRITE_TYPE_NODE = "node";
+constexpr const char *WRITE_TYPE_METHOD = "method";
+
+constexpr const char *ARGUMENT_SOURCE_VALUE = "value";
+constexpr const char *ARGUMENT_SOURCE_COMMAND = "command";
 
 /// @brief BaseChannel carries the fields every OPC UA channel shares.
 struct BaseChannel {
@@ -42,8 +52,6 @@ struct BaseChannel {
     std::string node_id = "";
     /// @brief node_name is the browse name of the OPC UA node.
     std::string node_name = "";
-    /// @brief data_type is the data type of the Synnax channel.
-    ::x::telem::DataType data_type = ::x::telem::DataType("float32");
 
     static BaseChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -56,6 +64,35 @@ struct ScanConfig : public ::synnax::task::ScanConfig {
     [[nodiscard]] x::json::json to_json() const;
 };
 
+/// @brief BaseMethodArgument carries the fields every input argument of a method
+/// shares.
+struct BaseMethodArgument {
+    /// @brief name is the name of the argument, as the method declares it.
+    std::string name = "";
+    /// @brief data_type is the Synnax data type of the argument, which a command
+    /// channel that gives the argument takes.
+    ::x::telem::DataType data_type = ::x::telem::DataType("");
+
+    static BaseMethodArgument parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief EventField is an event field that the task records beyond the standard
+/// fields.
+struct EventField {
+    /// @brief key uniquely identifies the field within the task.
+    std::string key;
+    /// @brief name is the key of the field in the JSON sample of each event.
+    std::string name = "";
+    /// @brief browse_path is the path to the field from the event type, as browse names
+    /// joined with '/', such as 'EnabledState/Id'. A name can start with 'nsu=<uri>;'
+    /// or '<index>:' to name its namespace, as in 'nsu=urn:pump;Level' or '2:Level'.
+    std::string browse_path = "";
+
+    static EventField parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
 /// @brief ReadChannel is a single OPC UA node the task reads from.
 struct ReadChannel : public BaseChannel {
     /// @brief channel is the Synnax channel that samples are written to.
@@ -65,19 +102,66 @@ struct ReadChannel : public BaseChannel {
     /// @brief field is the path to a member of the node's structure value. Names join
     /// with '.', and '&' escapes the next character. Empty reads the whole value.
     std::string field = "";
+    /// @brief data_type is the data type of the Synnax channel.
+    ::x::telem::DataType data_type = ::x::telem::DataType("float32");
 
     static ReadChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
-/// @brief WriteChannel is a single OPC UA node the task drives.
-struct WriteChannel : public BaseChannel {
+/// @brief BaseWriteChannel carries the fields every OPC UA write channel shares.
+struct BaseWriteChannel : public BaseChannel {
     /// @brief cmd_channel is the Synnax channel commands are read from.
     ::synnax::channel::Key cmd_channel = ::synnax::channel::Key(0);
 
-    static WriteChannel parse(x::json::Parser parser);
+    static BaseWriteChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
+
+/// @brief EventConfig configures an OPC UA event task.
+struct EventConfig : public ::synnax::task::PersistConfig {
+    /// @brief device is the key of the device representing the OPC UA server.
+    ::synnax::device::Key device = "";
+    /// @brief channel is the JSON channel that each event is written to.
+    ::synnax::channel::Key channel = ::synnax::channel::Key(0);
+    /// @brief notifiers are the node IDs of the objects whose events the task records.
+    /// Empty records the events of the Server object.
+    std::vector<std::string> notifiers;
+    /// @brief event_types are the node IDs of the event types the task keeps, with
+    /// their subtypes. Empty keeps every event.
+    std::vector<std::string> event_types;
+    /// @brief fields are the event fields the task records beyond the standard fields.
+    std::vector<EventField> fields;
+
+    static EventConfig parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief ValueMethodArgument gives the argument a fixed value.
+struct ValueMethodArgument : public BaseMethodArgument {
+    std::string source = ARGUMENT_SOURCE_VALUE;
+    /// @brief value is the value of the argument, as text that the Driver converts to
+    /// the declared type of the argument.
+    std::string value = "";
+
+    static ValueMethodArgument parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief CommandMethodArgument gives the argument the value of each command.
+struct CommandMethodArgument : public BaseMethodArgument {
+    std::string source = ARGUMENT_SOURCE_COMMAND;
+
+    static CommandMethodArgument parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief MethodArgument is an input argument of an OPC UA method call. The source
+/// field selects where its value comes from.
+using MethodArgument = std::variant<ValueMethodArgument, CommandMethodArgument>;
+
+MethodArgument parse_method_argument(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const MethodArgument &value);
 
 /// @brief ReadConfig configures an OPC UA read task.
 struct ReadConfig : public ::synnax::task::ReadConfig {
@@ -103,6 +187,35 @@ struct ReadConfig : public ::synnax::task::ReadConfig {
     static ReadConfig parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
+
+/// @brief NodeWriteChannel writes each command to the value of the node.
+struct NodeWriteChannel : public BaseWriteChannel {
+    std::string type = WRITE_TYPE_NODE;
+    /// @brief data_type is the data type of the Synnax command channel.
+    ::x::telem::DataType data_type = ::x::telem::DataType("float32");
+
+    static NodeWriteChannel parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief MethodWriteChannel calls the node as a method with each command.
+struct MethodWriteChannel : public BaseWriteChannel {
+    std::string type = WRITE_TYPE_METHOD;
+    /// @brief object_id is the node ID of the object that holds the method.
+    std::string object_id = "";
+    /// @brief arguments are the input arguments of the method, in order.
+    std::vector<MethodArgument> arguments;
+
+    static MethodWriteChannel parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+};
+
+/// @brief WriteChannel is a single OPC UA node the task drives. The type field selects
+/// what each command does on the server.
+using WriteChannel = std::variant<NodeWriteChannel, MethodWriteChannel>;
+
+WriteChannel parse_write_channel(x::json::Parser parser);
+[[nodiscard]] x::json::json to_json(const WriteChannel &value);
 
 /// @brief WriteConfig configures an OPC UA write task.
 struct WriteConfig : public ::synnax::task::WriteConfig {

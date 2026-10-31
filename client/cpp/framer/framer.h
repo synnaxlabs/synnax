@@ -57,6 +57,14 @@ using StreamerStream = freighter::
 using StreamerClient = freighter::
     StreamClient<grpc::framer::StreamerRequest, grpc::framer::StreamerResponse>;
 
+/// @brief type alias for iterator network transport stream.
+using IteratorStream = freighter::
+    Stream<grpc::framer::IteratorRequest, grpc::framer::IteratorResponse>;
+
+/// @brief type alias for iterator network transport.
+using IteratorClient = freighter::
+    StreamClient<grpc::framer::IteratorRequest, grpc::framer::IteratorResponse>;
+
 /// @brief type alias for writer network transports stream.
 using WriterStream = freighter::
     Stream<grpc::framer::WriterRequest, grpc::framer::WriterResponse>;
@@ -278,6 +286,72 @@ private:
     friend class Client;
 };
 
+/// @brief a span that makes next and prev read up to the chunk size of the iterator.
+const auto AUTO_SPAN = x::telem::TimeSpan(-1);
+
+/// @brief configuration for opening a new iterator.
+struct IteratorConfig {
+    /// @brief the channels to iterate over.
+    std::vector<channel::Key> channels;
+    /// @brief the time range to iterate over.
+    x::telem::TimeRange bounds;
+    /// @brief the most samples per channel that a read with AUTO_SPAN returns.
+    std::int64_t chunk_size = 100000;
+};
+
+/// @brief iterates over the stored telemetry of a set of channels in time order. Open
+/// one with Client::open_iterator. Each seek or read returns false, with no error, when
+/// no telemetry satisfies it.
+/// @note an iterator is not safe to use from more than one thread at a time.
+class Iterator {
+public:
+    Iterator() = default;
+
+    /// @brief the telemetry that the last next or prev read.
+    x::telem::Frame value;
+
+    /// @brief reads the span of telemetry after the current position into value. A
+    /// negative span reads backward, and AUTO_SPAN reads up to the chunk size.
+    [[nodiscard]] std::pair<bool, x::errors::Error>
+    next(x::telem::TimeSpan span = AUTO_SPAN);
+
+    /// @brief reads the span of telemetry before the current position into value. A
+    /// negative span reads forward, and AUTO_SPAN reads up to the chunk size.
+    [[nodiscard]] std::pair<bool, x::errors::Error>
+    prev(x::telem::TimeSpan span = AUTO_SPAN);
+
+    /// @brief moves to the first sample in the bounds.
+    [[nodiscard]] std::pair<bool, x::errors::Error> seek_first();
+
+    /// @brief moves to the end of the last sample in the bounds.
+    [[nodiscard]] std::pair<bool, x::errors::Error> seek_last();
+
+    /// @brief moves to the latest position at or before the stamp.
+    [[nodiscard]] std::pair<bool, x::errors::Error> seek_le(x::telem::TimeStamp stamp);
+
+    /// @brief moves to the earliest position at or after the stamp.
+    [[nodiscard]] std::pair<bool, x::errors::Error> seek_ge(x::telem::TimeStamp stamp);
+
+    /// @returns whether value holds telemetry from a read at the current position.
+    [[nodiscard]] std::pair<bool, x::errors::Error> valid();
+
+    /// @brief closes the iterator. An iterator MUST be closed after use, or it leaks
+    /// resources on the Core.
+    /// @returns the error that stopped the iterator, if a read failed.
+    [[nodiscard]] x::errors::Error close() const;
+
+private:
+    Codec codec;
+    std::unique_ptr<IteratorStream> stream;
+
+    explicit Iterator(std::unique_ptr<IteratorStream> stream, Codec codec);
+
+    /// @brief sends a command and collects the frames of its replies into value.
+    std::pair<bool, x::errors::Error> exec(grpc::framer::IteratorRequest req);
+
+    friend class Client;
+};
+
 /// @brief sets the persistence and streaming mode for a writer.
 enum WriterMode : uint8_t {
     /// @brief sets the writer so that it both persists and streams data.
@@ -463,10 +537,12 @@ public:
     Client(
         std::unique_ptr<StreamerClient> streamer_client,
         std::unique_ptr<WriterClient> writer_client,
+        std::unique_ptr<IteratorClient> iterator_client,
         channel::Client channel_client
     ):
         streamer_client(std::move(streamer_client)),
         writer_client(std::move(writer_client)),
+        iterator_client(std::move(iterator_client)),
         channel_client(std::move(channel_client)) {}
 
     /// @brief opens a new frame writer using the given configuration. For
@@ -488,6 +564,11 @@ public:
     [[nodiscard]] std::pair<Streamer, x::errors::Error>
     open_streamer(const StreamerConfig &config) const;
 
+    /// @brief opens a new iterator over the stored telemetry of the channels in the
+    /// configuration. When the error is nil, the iterator must be closed after use.
+    [[nodiscard]] std::pair<Iterator, x::errors::Error>
+    open_iterator(const IteratorConfig &config) const;
+
 private:
     /// @brief freighter transport implementation for opening streamers to the
     /// Synnax cluster.
@@ -495,6 +576,8 @@ private:
     /// @brief freighter transport implementation for opening writers to the Synnax
     /// cluster.
     std::unique_ptr<WriterClient> writer_client;
+    /// @brief freighter transport implementation for opening iterators.
+    std::unique_ptr<IteratorClient> iterator_client;
     /// @brief a utility function used to retrieve information about channels from the
     /// cluster.
     channel::Client channel_client;

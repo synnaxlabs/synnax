@@ -10,7 +10,7 @@
 import { type Synnax, task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { type z } from "zod";
 
@@ -21,6 +21,7 @@ import {
   createScannedDevice,
   createVariableNode,
   dragNode,
+  selectDevice,
 } from "@/feature/opcua/testutil";
 import {
   answerCommand,
@@ -35,7 +36,6 @@ import {
 import {
   captureBrowserDownloads,
   fakePickedFile,
-  findDialogTriggerByText,
   getLabeledInput,
   interceptFilePicker,
   uniqueName,
@@ -131,18 +131,6 @@ const renderWithNode = async (
   });
   await root.answered;
   return { scan, draft, statuses };
-};
-
-// Moves the task from the device named from to the device named to.
-const selectDevice = async (from: string, to: string) => {
-  fireEvent.click(await findDialogTriggerByText(from));
-  const search = await waitFor(() => {
-    const dialog = screen.getAllByRole("dialog").at(-1);
-    if (dialog == null) throw new Error("the device list did not open");
-    return within(dialog).getByRole("textbox");
-  });
-  fireEvent.change(search, { target: { value: to } });
-  fireEvent.click(await screen.findByText(to));
 };
 
 const importCSV = async (rows: string[]) => {
@@ -493,6 +481,31 @@ describe("Read", () => {
     );
   });
 
+  it("should refuse a dropped method", async () => {
+    const { scan, device } = await createScannedDevice(client);
+    const held = createReadChannel();
+    const draft = await createDraft(client, createReadConfig(device.key, [held]));
+    const method: OPCUA.Task.ScannedNode = {
+      ...createVariableNode(),
+      nodeClass: "Method",
+    };
+    const variable = createVariableNode("float64");
+    const root = await answerNextCommand(client, scan, {
+      type: OPCUA.Task.BROWSE_COMMAND_TYPE,
+      data: { channels: [method, variable] },
+    });
+    await renderRead({ client, taskKey: draft.key });
+    await root.answered;
+    await dragNode(method.name, held.nodeName);
+    await dragNode(variable.name, held.nodeName);
+    await waitFor(async () =>
+      expect((await retrieveChannels(draft.key)).map(({ nodeId }) => nodeId)).toEqual([
+        held.nodeId,
+        variable.nodeId,
+      ]),
+    );
+  });
+
   it("should number a folder variable whose name the task already has", async () => {
     const folder = createFolder();
     const held = createReadChannel({ nodeName: `${folder.name}_Tank_Pressure` });
@@ -606,7 +619,7 @@ describe("Read", () => {
           variant: "warning",
           name: folder.name,
           message: "Added no variables",
-          description: "The task moved to another server during the search.",
+          description: "The task moved to another server before the Driver answered.",
         }),
       ),
     );

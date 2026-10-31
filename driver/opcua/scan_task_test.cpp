@@ -930,10 +930,12 @@ synnax::task::Status browse_node(
     return ctx->statuses.back();
 }
 
-/// @brief starts a server that holds a TestMotor node, of the Motor structure type.
+/// @brief starts a server that holds a TestMotor node, of the Motor structure type, and
+/// the Pump object.
 std::unique_ptr<testutil::Server> start_motor_server() {
     auto cfg = testutil::ServerConfig::create_default();
     cfg.port = 4881;
+    cfg.pump = testutil::Pump{};
     cfg.motor = testutil::Motor{
         .speed = 1500.0,
         .running = true,
@@ -1284,6 +1286,30 @@ TEST_F(TestScanTask, testReadNodeArray) {
     ASSERT_TRUE(value.is_array());
     EXPECT_EQ(value.size(), data["array_dimensions"][0].get<size_t>());
     EXPECT_TRUE(data["node"]["is_array"].get<bool>());
+}
+
+/// @brief it should read the declared input arguments of a method.
+TEST_F(TestScanTask, testReadNodeMethod) {
+    const auto pump_server = start_motor_server();
+    const auto status = run_command(
+        ctx,
+        task,
+        conn_pool,
+        store,
+        READ_NODE_CMD_TYPE,
+        4881,
+        {{"node_id", "NS=1;S=Pump.Configure"}}
+    );
+    ASSERT_EQ(status.variant, synnax::status::VARIANT_SUCCESS) << status.description;
+    const x::json::json data = status.details.data.value();
+    EXPECT_EQ(data["node_class"], "Method");
+    EXPECT_EQ(
+        data["input_arguments"],
+        x::json::json::array({
+            {{"name", "mode"}, {"type_name", "String"}, {"data_type", "string"}},
+            {{"name", "speed"}, {"type_name", "Double"}, {"data_type", "float64"}},
+        })
+    );
 }
 
 /// @brief it should read a node that is not a variable without a value.

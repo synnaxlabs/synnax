@@ -19,8 +19,19 @@ type BaseChannel = v2.BaseChannel
 // ReadChannel is a single OPC UA node the task reads from.
 type ReadChannel = v2.ReadChannel
 
-// WriteChannel is a single OPC UA node the task drives.
+// BaseWriteChannel carries the fields every OPC UA write channel shares.
+type BaseWriteChannel = v2.BaseWriteChannel
+
+// WriteChannel is a single OPC UA node the task drives. The type field selects what
+// each command does on the server.
 type WriteChannel = v2.WriteChannel
+type WriteChannelVariant = v2.WriteChannelVariant
+
+// NodeWriteChannel writes each command to the value of the node.
+type NodeWriteChannel = v2.NodeWriteChannel
+
+// MethodWriteChannel calls the node as a method with each command.
+type MethodWriteChannel = v2.MethodWriteChannel
 
 // ReadConfig configures an OPC UA read task.
 type ReadConfig = v2.ReadConfig
@@ -30,3 +41,39 @@ type WriteConfig = v2.WriteConfig
 
 // ScanConfig configures an OPC UA scan task.
 type ScanConfig = v2.ScanConfig
+
+// WriteType is what the commands of a write channel do on the server.
+type WriteType = v2.WriteType
+
+const (
+	WriteTypeNode   WriteType = v2.WriteTypeNode
+	WriteTypeMethod WriteType = v2.WriteTypeMethod
+)
+
+// ArgumentSource is where the value of a method argument comes from.
+type ArgumentSource = v2.ArgumentSource
+
+const (
+	ArgumentSourceValue   ArgumentSource = v2.ArgumentSourceValue
+	ArgumentSourceCommand ArgumentSource = v2.ArgumentSourceCommand
+)
+
+// BaseMethodArgument carries the fields every input argument of a method shares.
+type BaseMethodArgument = v2.BaseMethodArgument
+
+// MethodArgument is an input argument of an OPC UA method call. The source field
+// selects where its value comes from.
+type MethodArgument = v2.MethodArgument
+type MethodArgumentVariant = v2.MethodArgumentVariant
+
+// ValueMethodArgument gives the argument a fixed value.
+type ValueMethodArgument = v2.ValueMethodArgument
+
+// CommandMethodArgument gives the argument the value of each command.
+type CommandMethodArgument = v2.CommandMethodArgument
+
+// EventField is an event field that the task records beyond the standard fields.
+type EventField = v2.EventField
+
+// EventConfig configures an OPC UA event task.
+type EventConfig = v2.EventConfig

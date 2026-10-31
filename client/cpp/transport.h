@@ -35,6 +35,7 @@ struct Transport {
     std::unique_ptr<auth::KeyDeleteClient> auth_key_delete;
     std::unique_ptr<framer::StreamerClient> frame_stream;
     std::unique_ptr<framer::WriterClient> frame_write;
+    std::unique_ptr<framer::IteratorClient> frame_iterate;
     std::shared_ptr<channel::CreateClient> chan_create;
     std::shared_ptr<channel::RetrieveClient> chan_retrieve;
     std::unique_ptr<ranger::RetrieveClient> range_retrieve;

@@ -211,15 +211,23 @@ default. Its select list holds `EventId`, `EventType`, `SourceName`, `Time`, `Me
 `Severity`, and any extra fields by browse path. An optional filter keeps chosen event
 types. Each event writes one JSON sample to the task's channel, on its own index stamped
 with `Time`. After each new subscription the task calls ConditionRefresh, so the active
-alarms come in again. The timestamp rule (§2.3) drops the ones already stored.
+alarms come in again.
+
+An index holds one sample per timestamp, so events take the timestamp rule (§2.3). The
+task reads the last stored time through the C++ iterator. A replayed condition at or
+before it is dropped. Any other event at or before it moves to 1 ns past it, and its
+`time` field keeps the server's time. A subscription sends no notice when the server
+stops answering, so the task reads `CurrentTime` every 5 s.
 
 ### 2.9 Methods
 
 A write channel gets a `type`: `node` (default) or `method`. A method channel holds an
 object ID, a method ID, and its input arguments. Each argument is a fixed value or
-`command`, and at most one is `command`. A command calls `UA_Client_call`, with each
-argument converted to its declared type. A Bad result warns with the channel name.
-Output arguments are not stored.
+`command`, and at most one is `command`. An argument also holds its name and Synnax data
+type, which the Console reads with `read_node` and gives to the command channel. A
+command calls `UA_Client_call`, with each argument converted to its declared type. A Bad
+result warns with the channel name. A call that may have reached the server is never
+sent again. Output arguments are not stored.
 
 ### 2.10 Browser and task building
 
@@ -267,23 +275,24 @@ The failed-login spec counts the server's sessions after repeated wrong password
   endpoint discovery.
 - **Phase 4: Types.** §2.6 and §2.7.
 - **Phase 5: Browser.** §2.10 except the connect dialog.
-- **Phase 6: Events and methods.** §2.8 and §2.9.
-- **Phase 7: On change.** The On change half of §2.3 and §2.4, the timestamp rule, the
-  C++ iterator, and history backfill. It needs the RFC 0086 writer start (#3529).
+- **Phase 6: Events and methods.** §2.8, §2.9, and the C++ iterator, which events need
+  first.
+- **Phase 7: On change.** The On change half of §2.3 and §2.4, the timestamp rule for
+  reads, and history backfill. It needs the RFC 0086 writer start (#3529).
 
 Compatibility: every new field is optional, and stored `ns=` IDs keep working. Tasks no
 longer stop on outages or bad values, and a write task drops commands while
 disconnected. These go in the release notes.
 
-| Phase | Scope                                                   | Touches                                                                                                                 | Depends on |
-| ----- | ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ---------- |
-| 1     | Upgrade open62541 to 1.5                                | `vendor/open62541`, `driver/opcua`                                                                                      | -          |
-| 2     | Recover OPC UA tasks from outages and bad values        | `vendor/open62541`, `driver/opcua`, `driver/pipeline`, `schemas`, `oracle`, `console/src/feature/opcua`, `site/docs`    | 1          |
-| 3     | Read OPC UA nodes by namespace URI within server limits | `driver/opcua`, `console/src/feature/opcua`, `client/py/synnax/opcua`, `site/docs`                                      | 2          |
-| 4     | Convert OPC UA writes and read structures               | `schemas`, `core/pkg/service/opcua`, `driver/opcua`, `console/src/feature/opcua`, `client/py/synnax/opcua`, `site/docs` | 3          |
-| 5     | Show OPC UA node details and add folders in bulk        | `driver/opcua`, `console/src/feature/opcua`, `site/docs`                                                                | 4          |
-| 6     | Add OPC UA event tasks and method calls                 | `schemas`, `driver/opcua`, `console/src/feature/opcua`, `client/py/synnax/opcua`, `site/docs`                           | 3          |
-| 7     | Add the OPC UA On change read mode                      | `schemas`, `client/cpp/framer`, `driver/opcua`, `console/src/feature/opcua`, `client/py/synnax/opcua`, `site/docs`      | 3          |
+| Phase | Scope                                                   | Touches                                                                                                                                      | Depends on |
+| ----- | ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| 1     | Upgrade open62541 to 1.5                                | `vendor/open62541`, `driver/opcua`                                                                                                           | -          |
+| 2     | Recover OPC UA tasks from outages and bad values        | `vendor/open62541`, `driver/opcua`, `driver/pipeline`, `schemas`, `oracle`, `console/src/feature/opcua`, `site/docs`                         | 1          |
+| 3     | Read OPC UA nodes by namespace URI within server limits | `driver/opcua`, `console/src/feature/opcua`, `client/py/synnax/opcua`, `site/docs`                                                           | 2          |
+| 4     | Convert OPC UA writes and read structures               | `schemas`, `core/pkg/service/opcua`, `driver/opcua`, `console/src/feature/opcua`, `client/py/synnax/opcua`, `site/docs`                      | 3          |
+| 5     | Show OPC UA node details and add folders in bulk        | `driver/opcua`, `console/src/feature/opcua`, `site/docs`                                                                                     | 4          |
+| 6     | Add OPC UA event tasks and method calls                 | `schemas`, `core/pkg/service/opcua`, `client/cpp/framer`, `driver/opcua`, `console/src/feature/opcua`, `client/py/synnax/opcua`, `site/docs` | 3          |
+| 7     | Add the OPC UA On change read mode                      | `schemas`, `driver/opcua`, `console/src/feature/opcua`, `client/py/synnax/opcua`, `site/docs`                                                | 6          |
 
 ## 4 What this RFC does not cover
 

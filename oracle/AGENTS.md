@@ -170,6 +170,19 @@ channel, belongs in the Core service, on the write path only.
   time and deploy.
 - The Console duplicates a rule only for better messages, never as the guarantee.
 
+A task config is the exception. It is a draft until it deploys, because the Console
+saves each edit. Its validation has three levels:
+
+- Edit: rules every draft passes, such as a known enum value. The Core checks them on
+  each save.
+- Console deploy: the `deployConfigZ` of the task form shows field errors and blocks the
+  start command.
+- Driver deploy: the Driver checks the whole config when it configures the task, and the
+  start fails with its error.
+
+A rule a draft can break, such as "a field must have a name" or the data type of a
+referenced channel, is a deploy rule and never runs on save.
+
 ## Tag minimization
 
 Prefer the tagging that minimizes total tag count. When only a few types in a file need

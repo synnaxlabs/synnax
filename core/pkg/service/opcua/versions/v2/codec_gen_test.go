@@ -24,7 +24,173 @@ import (
 	"github.com/synnaxlabs/x/testutil"
 )
 
+var (
+	fullyPopulatedBaseMethodArgument = v2.BaseMethodArgument{Name: "test_1", DataType: telem.DataType("test_2")}
+	fullyPopulatedBaseWriteChannel   = v2.BaseWriteChannel{
+		Key:        "test_1",
+		Name:       "test_2",
+		Disabled:   true,
+		NodeID:     "test_4",
+		NodeName:   "test_5",
+		CmdChannel: channel.Key(7),
+	}
+)
+
 var _ = Describe("Codec", func() {
+	Describe("BaseChannel", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v2.BaseChannel) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v2.BaseChannel
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v2.BaseChannel{
+				Key:      "test_1",
+				Name:     "test_2",
+				Disabled: true,
+				NodeID:   "test_4",
+				NodeName: "test_5",
+			}),
+			Entry("zero values", v2.BaseChannel{
+				Key:      "",
+				Name:     "",
+				Disabled: false,
+				NodeID:   "",
+				NodeName: "",
+			}),
+		)
+	})
+	Describe("BaseMethodArgument", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v2.BaseMethodArgument) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v2.BaseMethodArgument
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", fullyPopulatedBaseMethodArgument),
+			Entry("zero values", v2.BaseMethodArgument{Name: "", DataType: telem.DataType("")}),
+		)
+	})
+	Describe("BaseWriteChannel", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v2.BaseWriteChannel) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v2.BaseWriteChannel
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", fullyPopulatedBaseWriteChannel),
+			Entry("zero values", v2.BaseWriteChannel{
+				Key:        "",
+				Name:       "",
+				Disabled:   false,
+				NodeID:     "",
+				NodeName:   "",
+				CmdChannel: channel.Key(0),
+			}),
+		)
+	})
+	Describe("EventConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v2.EventConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v2.EventConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v2.EventConfig{
+				Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				AutoStart:          false,
+				DataSavingDisabled: true,
+				Device:             "test_4",
+				Channel:            channel.Key(6),
+				Notifiers:          []string{"test_6"},
+				EventTypes:         []string{"test_7"},
+				Fields: []v2.EventField{
+					{
+						Key:        "test_9",
+						Name:       "test_10",
+						BrowsePath: "test_11",
+					},
+				},
+			}),
+			Entry("zero values", v2.EventConfig{
+				Key:                uuid.Nil(),
+				AutoStart:          false,
+				DataSavingDisabled: false,
+				Device:             "",
+				Channel:            channel.Key(0),
+				Notifiers:          []string{},
+				EventTypes:         []string{},
+				Fields:             []v2.EventField{},
+			}),
+			Entry("empty collections", v2.EventConfig{
+				Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				AutoStart:          false,
+				DataSavingDisabled: true,
+				Device:             "test_4",
+				Channel:            channel.Key(6),
+				Notifiers:          []string{},
+				EventTypes:         []string{},
+				Fields:             []v2.EventField{},
+			}),
+		)
+	})
+	Describe("EventField", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v2.EventField) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v2.EventField
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v2.EventField{
+				Key:        "test_1",
+				Name:       "test_2",
+				BrowsePath: "test_3",
+			}),
+			Entry("zero values", v2.EventField{
+				Key:        "",
+				Name:       "",
+				BrowsePath: "",
+			}),
+		)
+	})
+	Describe("MethodArgument", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v2.MethodArgument) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v2.MethodArgument
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("value variant", v2.MethodArgument{Variant: v2.ValueMethodArgument{
+				BaseMethodArgument: fullyPopulatedBaseMethodArgument,
+				Value:              "test_1",
+			}}),
+			Entry("command variant", v2.MethodArgument{Variant: v2.CommandMethodArgument{BaseMethodArgument: fullyPopulatedBaseMethodArgument}}),
+		)
+	})
 	Describe("ReadChannel", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original v2.ReadChannel) {
@@ -42,10 +208,10 @@ var _ = Describe("Codec", func() {
 				Disabled: true,
 				NodeID:   "test_4",
 				NodeName: "test_5",
-				DataType: telem.DataType("test_6"),
-				Channel:  channel.Key(8),
-				IsIndex:  false,
-				Field:    "test_9",
+				Channel:  channel.Key(7),
+				IsIndex:  true,
+				Field:    "test_8",
+				DataType: telem.DataType("test_9"),
 			}),
 			Entry("zero values", v2.ReadChannel{
 				Key:      "",
@@ -53,10 +219,10 @@ var _ = Describe("Codec", func() {
 				Disabled: false,
 				NodeID:   "",
 				NodeName: "",
-				DataType: telem.DataType(""),
 				Channel:  channel.Key(0),
 				IsIndex:  false,
 				Field:    "",
+				DataType: telem.DataType(""),
 			}),
 		)
 	})
@@ -87,10 +253,10 @@ var _ = Describe("Codec", func() {
 						Disabled: false,
 						NodeID:   "test_13",
 						NodeName: "test_14",
-						DataType: telem.DataType("test_15"),
-						Channel:  channel.Key(17),
-						IsIndex:  true,
-						Field:    "test_18",
+						Channel:  channel.Key(16),
+						IsIndex:  false,
+						Field:    "test_17",
+						DataType: telem.DataType("test_18"),
 					},
 				},
 				NanFillEnabled: true,
@@ -121,7 +287,203 @@ var _ = Describe("Codec", func() {
 			}),
 		)
 	})
+	Describe("WriteChannel", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v2.WriteChannel) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v2.WriteChannel
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("node variant", v2.WriteChannel{Variant: v2.NodeWriteChannel{
+				BaseWriteChannel: fullyPopulatedBaseWriteChannel,
+				DataType:         telem.DataType("test_1"),
+			}}),
+			Entry("method variant", v2.WriteChannel{Variant: v2.MethodWriteChannel{
+				BaseWriteChannel: fullyPopulatedBaseWriteChannel,
+				ObjectID:         "test_1",
+				Arguments: []v2.MethodArgument{
+					{Variant: v2.ValueMethodArgument{
+						BaseMethodArgument: fullyPopulatedBaseMethodArgument,
+						Value:              "test_3",
+					}},
+				},
+			}}),
+		)
+	})
+	Describe("WriteConfig", func() {
+		DescribeTable("should round-trip encode and decode",
+			func(original v2.WriteConfig) {
+				w := orc.NewWriter(0)
+				Expect(original.EncodeOrc(w)).To(Succeed())
+				var decoded v2.WriteConfig
+				r := orc.NewReader(nil)
+				r.ResetBytes(w.Bytes())
+				Expect(decoded.DecodeOrc(r)).To(Succeed())
+				Expect(decoded).To(Equal(original))
+			},
+			Entry("fully populated", v2.WriteConfig{
+				Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				AutoStart:          false,
+				DataSavingDisabled: true,
+				Device:             "test_4",
+				Channels: []v2.WriteChannel{
+					{Variant: v2.NodeWriteChannel{
+						BaseWriteChannel: fullyPopulatedBaseWriteChannel,
+						DataType:         telem.DataType("test_6"),
+					}},
+				},
+			}),
+			Entry("zero values", v2.WriteConfig{
+				Key:                uuid.Nil(),
+				AutoStart:          false,
+				DataSavingDisabled: false,
+				Device:             "",
+				Channels:           []v2.WriteChannel{},
+			}),
+			Entry("empty collections", v2.WriteConfig{
+				Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+				AutoStart:          false,
+				DataSavingDisabled: true,
+				Device:             "test_4",
+				Channels:           []v2.WriteChannel{},
+			}),
+		)
+	})
 })
+
+func BenchmarkEncodeDecodeBaseChannel(b *testing.B) {
+	seed := v2.BaseChannel{
+		Key:      "test_1",
+		Name:     "test_2",
+		Disabled: true,
+		NodeID:   "test_4",
+		NodeName: "test_5",
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v2.BaseChannel
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeBaseMethodArgument(b *testing.B) {
+	seed := fullyPopulatedBaseMethodArgument
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v2.BaseMethodArgument
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeBaseWriteChannel(b *testing.B) {
+	seed := fullyPopulatedBaseWriteChannel
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v2.BaseWriteChannel
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeEventConfig(b *testing.B) {
+	seed := v2.EventConfig{
+		Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		AutoStart:          false,
+		DataSavingDisabled: true,
+		Device:             "test_4",
+		Channel:            channel.Key(6),
+		Notifiers:          []string{"test_6"},
+		EventTypes:         []string{"test_7"},
+		Fields: []v2.EventField{
+			{
+				Key:        "test_9",
+				Name:       "test_10",
+				BrowsePath: "test_11",
+			},
+		},
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v2.EventConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeEventField(b *testing.B) {
+	seed := v2.EventField{
+		Key:        "test_1",
+		Name:       "test_2",
+		BrowsePath: "test_3",
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v2.EventField
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeMethodArgument(b *testing.B) {
+	seed := v2.MethodArgument{Variant: v2.ValueMethodArgument{
+		BaseMethodArgument: fullyPopulatedBaseMethodArgument,
+		Value:              "test_1",
+	}}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v2.MethodArgument
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
 
 func BenchmarkEncodeDecodeReadChannel(b *testing.B) {
 	seed := v2.ReadChannel{
@@ -130,10 +492,10 @@ func BenchmarkEncodeDecodeReadChannel(b *testing.B) {
 		Disabled: true,
 		NodeID:   "test_4",
 		NodeName: "test_5",
-		DataType: telem.DataType("test_6"),
-		Channel:  channel.Key(8),
-		IsIndex:  false,
-		Field:    "test_9",
+		Channel:  channel.Key(7),
+		IsIndex:  true,
+		Field:    "test_8",
+		DataType: telem.DataType("test_9"),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -167,10 +529,10 @@ func BenchmarkEncodeDecodeReadConfig(b *testing.B) {
 				Disabled: false,
 				NodeID:   "test_13",
 				NodeName: "test_14",
-				DataType: telem.DataType("test_15"),
-				Channel:  channel.Key(17),
-				IsIndex:  true,
-				Field:    "test_18",
+				Channel:  channel.Key(16),
+				IsIndex:  false,
+				Field:    "test_17",
+				DataType: telem.DataType("test_18"),
 			},
 		},
 		NanFillEnabled: true,
@@ -190,6 +552,359 @@ func BenchmarkEncodeDecodeReadConfig(b *testing.B) {
 	}
 }
 
+func BenchmarkEncodeDecodeWriteChannel(b *testing.B) {
+	seed := v2.WriteChannel{Variant: v2.NodeWriteChannel{
+		BaseWriteChannel: fullyPopulatedBaseWriteChannel,
+		DataType:         telem.DataType("test_1"),
+	}}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v2.WriteChannel
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func BenchmarkEncodeDecodeWriteConfig(b *testing.B) {
+	seed := v2.WriteConfig{
+		Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+		AutoStart:          false,
+		DataSavingDisabled: true,
+		Device:             "test_4",
+		Channels: []v2.WriteChannel{
+			{Variant: v2.NodeWriteChannel{
+				BaseWriteChannel: fullyPopulatedBaseWriteChannel,
+				DataType:         telem.DataType("test_6"),
+			}},
+		},
+	}
+	w := orc.NewWriter(0)
+	r := orc.NewReader(nil)
+	for b.Loop() {
+		w.Reset()
+		if err := seed.EncodeOrc(w); err != nil {
+			b.Fatal(err)
+		}
+		var decoded v2.WriteConfig
+		r.ResetBytes(w.Bytes())
+		if err := decoded.DecodeOrc(r); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+func FuzzDecodeBaseChannel(f *testing.F) {
+	{
+		seed := v2.BaseChannel{
+			Key:      "test_1",
+			Name:     "test_2",
+			Disabled: true,
+			NodeID:   "test_4",
+			NodeName: "test_5",
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v2.BaseChannel{
+			Key:      "",
+			Name:     "",
+			Disabled: false,
+			NodeID:   "",
+			NodeName: "",
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v2.BaseChannel
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v2.BaseChannel
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeBaseMethodArgument(f *testing.F) {
+	{
+		seed := fullyPopulatedBaseMethodArgument
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v2.BaseMethodArgument{Name: "", DataType: telem.DataType("")}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v2.BaseMethodArgument
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v2.BaseMethodArgument
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeBaseWriteChannel(f *testing.F) {
+	{
+		seed := fullyPopulatedBaseWriteChannel
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v2.BaseWriteChannel{
+			Key:        "",
+			Name:       "",
+			Disabled:   false,
+			NodeID:     "",
+			NodeName:   "",
+			CmdChannel: channel.Key(0),
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v2.BaseWriteChannel
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v2.BaseWriteChannel
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeEventConfig(f *testing.F) {
+	{
+		seed := v2.EventConfig{
+			Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			AutoStart:          false,
+			DataSavingDisabled: true,
+			Device:             "test_4",
+			Channel:            channel.Key(6),
+			Notifiers:          []string{"test_6"},
+			EventTypes:         []string{"test_7"},
+			Fields: []v2.EventField{
+				{
+					Key:        "test_9",
+					Name:       "test_10",
+					BrowsePath: "test_11",
+				},
+			},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v2.EventConfig{
+			Key:                uuid.Nil(),
+			AutoStart:          false,
+			DataSavingDisabled: false,
+			Device:             "",
+			Channel:            channel.Key(0),
+			Notifiers:          []string{},
+			EventTypes:         []string{},
+			Fields:             []v2.EventField{},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v2.EventConfig{
+			Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			AutoStart:          false,
+			DataSavingDisabled: true,
+			Device:             "test_4",
+			Channel:            channel.Key(6),
+			Notifiers:          []string{},
+			EventTypes:         []string{},
+			Fields:             []v2.EventField{},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v2.EventConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v2.EventConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeEventField(f *testing.F) {
+	{
+		seed := v2.EventField{
+			Key:        "test_1",
+			Name:       "test_2",
+			BrowsePath: "test_3",
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v2.EventField{
+			Key:        "",
+			Name:       "",
+			BrowsePath: "",
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v2.EventField
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v2.EventField
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeMethodArgument(f *testing.F) {
+	{
+		seed := v2.MethodArgument{Variant: v2.ValueMethodArgument{
+			BaseMethodArgument: fullyPopulatedBaseMethodArgument,
+			Value:              "test_1",
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v2.MethodArgument{Variant: v2.CommandMethodArgument{BaseMethodArgument: fullyPopulatedBaseMethodArgument}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v2.MethodArgument
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v2.MethodArgument
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
 func FuzzDecodeReadChannel(f *testing.F) {
 	{
 		seed := v2.ReadChannel{
@@ -198,10 +913,10 @@ func FuzzDecodeReadChannel(f *testing.F) {
 			Disabled: true,
 			NodeID:   "test_4",
 			NodeName: "test_5",
-			DataType: telem.DataType("test_6"),
-			Channel:  channel.Key(8),
-			IsIndex:  false,
-			Field:    "test_9",
+			Channel:  channel.Key(7),
+			IsIndex:  true,
+			Field:    "test_8",
+			DataType: telem.DataType("test_9"),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -216,10 +931,10 @@ func FuzzDecodeReadChannel(f *testing.F) {
 			Disabled: false,
 			NodeID:   "",
 			NodeName: "",
-			DataType: telem.DataType(""),
 			Channel:  channel.Key(0),
 			IsIndex:  false,
 			Field:    "",
+			DataType: telem.DataType(""),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -267,10 +982,10 @@ func FuzzDecodeReadConfig(f *testing.F) {
 					Disabled: false,
 					NodeID:   "test_13",
 					NodeName: "test_14",
-					DataType: telem.DataType("test_15"),
-					Channel:  channel.Key(17),
-					IsIndex:  true,
-					Field:    "test_18",
+					Channel:  channel.Key(16),
+					IsIndex:  false,
+					Field:    "test_17",
+					DataType: telem.DataType("test_18"),
 				},
 			},
 			NanFillEnabled: true,
@@ -331,6 +1046,127 @@ func FuzzDecodeReadConfig(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded v2.ReadConfig
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeWriteChannel(f *testing.F) {
+	{
+		seed := v2.WriteChannel{Variant: v2.NodeWriteChannel{
+			BaseWriteChannel: fullyPopulatedBaseWriteChannel,
+			DataType:         telem.DataType("test_1"),
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v2.WriteChannel{Variant: v2.MethodWriteChannel{
+			BaseWriteChannel: fullyPopulatedBaseWriteChannel,
+			ObjectID:         "test_1",
+			Arguments: []v2.MethodArgument{
+				{Variant: v2.ValueMethodArgument{
+					BaseMethodArgument: fullyPopulatedBaseMethodArgument,
+					Value:              "test_3",
+				}},
+			},
+		}}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v2.WriteChannel
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v2.WriteChannel
+		r.ResetBytes(w1.Bytes())
+		if err := redecoded.DecodeOrc(r); err != nil {
+			t.Fatalf("re-decode failed: %v", err)
+		}
+		if !testutil.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
+		}
+	})
+}
+
+func FuzzDecodeWriteConfig(f *testing.F) {
+	{
+		seed := v2.WriteConfig{
+			Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			AutoStart:          false,
+			DataSavingDisabled: true,
+			Device:             "test_4",
+			Channels: []v2.WriteChannel{
+				{Variant: v2.NodeWriteChannel{
+					BaseWriteChannel: fullyPopulatedBaseWriteChannel,
+					DataType:         telem.DataType("test_6"),
+				}},
+			},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v2.WriteConfig{
+			Key:                uuid.Nil(),
+			AutoStart:          false,
+			DataSavingDisabled: false,
+			Device:             "",
+			Channels:           []v2.WriteChannel{},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	{
+		seed := v2.WriteConfig{
+			Key:                uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
+			AutoStart:          false,
+			DataSavingDisabled: true,
+			Device:             "test_4",
+			Channels:           []v2.WriteChannel{},
+		}
+		w := orc.NewWriter(0)
+		if err := seed.EncodeOrc(w); err != nil {
+			f.Fatal(err)
+		}
+		f.Add(w.Bytes())
+	}
+	f.Fuzz(func(t *testing.T, data []byte) {
+		var decoded v2.WriteConfig
+		r := orc.NewReader(nil)
+		r.ResetBytes(data)
+		if err := decoded.DecodeOrc(r); err != nil {
+			return
+		}
+		w1 := orc.NewWriter(len(data))
+		if err := decoded.EncodeOrc(w1); err != nil {
+			t.Fatalf("encode after successful decode failed: %v", err)
+		}
+		var redecoded v2.WriteConfig
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

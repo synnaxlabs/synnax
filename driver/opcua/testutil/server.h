@@ -133,6 +133,49 @@ struct Motor {
     Point position;
 };
 
+/// @brief the starting values of the variables of the NS=1;S=Pump object.
+struct Pump {
+    UA_Double speed = 0;
+    std::string mode = "manual";
+    /// @brief the EventNotifier attribute of the object.
+    UA_Byte event_notifier = UA_EVENTNOTIFIER_SUBSCRIBE_TO_EVENT;
+};
+
+/// @brief the node of the Pump object, an event notifier.
+const UA_NodeId PUMP = UA_NODEID_STRING(1, const_cast<char *>("Pump"));
+/// @brief the method of the Pump object that sets its Speed.
+const UA_NodeId PUMP_SET_SPEED = UA_NODEID_STRING(
+    1,
+    const_cast<char *>("Pump.SetSpeed")
+);
+/// @brief the method of the Pump object that sets its Mode and Speed.
+const UA_NodeId PUMP_CONFIGURE = UA_NODEID_STRING(
+    1,
+    const_cast<char *>("Pump.Configure")
+);
+/// @brief the method of the Pump object that always fails.
+const UA_NodeId PUMP_FAIL = UA_NODEID_STRING(1, const_cast<char *>("Pump.Fail"));
+/// @brief an event type of the mock server: a subtype of BaseEventType.
+const UA_NodeId TEST_EVENT_TYPE = UA_NODEID_STRING(
+    1,
+    const_cast<char *>("TestEventType")
+);
+
+/// @brief an event that the mock server emits.
+struct Event {
+    /// @brief the node that emits the event: the Server object, or a node in the
+    /// Objects folder.
+    UA_NodeId source = UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER);
+    /// @brief BaseEventType or TEST_EVENT_TYPE.
+    UA_NodeId type = UA_NODEID_NUMERIC(0, UA_NS0ID_BASEEVENTTYPE);
+    UA_UInt16 severity = 500;
+    std::string message;
+    /// @brief when the event occurred. Without one, the server uses its clock.
+    std::optional<x::telem::TimeStamp> time;
+    /// @brief the value of the event field 1:Level.
+    std::optional<UA_Double> level;
+};
+
 /// @brief a value of the Hidden structure type of the mock server, which has no
 /// DataType node.
 struct Hidden {
@@ -327,6 +370,11 @@ struct ServerConfig {
     /// @brief the value of the NS=1;S=TestMotor node, of the Motor data type. The
     /// server adds the node only when it is set.
     std::optional<Motor> motor;
+    /// @brief the starting values of the PUMP object. It holds the variables
+    /// NS=1;S=Pump.Speed and NS=1;S=Pump.Mode, and the methods PUMP_SET_SPEED(speed),
+    /// PUMP_CONFIGURE(mode, speed), and PUMP_FAIL(). The server adds the object only
+    /// when it is set.
+    std::optional<Pump> pump;
     /// @brief the value of the NS=1;S=TestBroken node, of the Broken data type, which
     /// does not build. The server adds the node, with its child NS=1;S=TestBrokenChild,
     /// only when it is set.
@@ -541,6 +589,10 @@ public:
     std::atomic<size_t> channels{0};
     /// @brief the Sessions that the server created since it started.
     std::atomic<size_t> sessions_created{0};
+    /// @brief the calls of the methods of the Pump object that the server ran.
+    std::atomic<size_t> method_calls{0};
+    /// @brief the ConditionRefresh calls that the server ran.
+    std::atomic<size_t> refreshes{0};
 
     explicit Server(ServerConfig cfg): cfg(std::move(cfg)) {}
 
@@ -565,6 +617,38 @@ public:
         });
     }
 
+    /// @brief adds the Pump object with the starting values of pump to the running
+    /// server, as a server that loads a model while it runs does. Blocks until the
+    /// server adds it.
+    void add_pump(const Pump &pump) {
+        std::unique_lock lock(this->added_mu);
+        this->added_pump = pump;
+        this->added_cv.wait(lock, [this] {
+            return !this->added_pump.has_value() || !this->ready;
+        });
+    }
+
+    /// @brief adds an object named Pump in a new namespace with uri to the running
+    /// server, with the methods of the Pump object as its components, as a server that
+    /// loads a model while it runs does. Blocks until the server adds it.
+    void add_pump_object(const std::string &uri) {
+        std::unique_lock lock(this->added_mu);
+        this->added_pump_object = uri;
+        this->added_cv.wait(lock, [this] {
+            return !this->added_pump_object.has_value() || !this->ready;
+        });
+    }
+
+    /// @brief sets the EventNotifier attribute of the Pump object on the running
+    /// server. Blocks until the server sets it.
+    void set_pump_event_notifier(const UA_Byte value) {
+        std::unique_lock lock(this->added_mu);
+        this->added_event_notifier = value;
+        this->added_cv.wait(lock, [this] {
+            return !this->added_event_notifier.has_value() || !this->ready;
+        });
+    }
+
     void start() {
         running = true;
         exited = false;
@@ -586,6 +670,13 @@ public:
         return ready.load();
     }
 
+    /// @brief makes the server emit event on its next cycle. Safe to call from any
+    /// thread.
+    void emit(Event event) {
+        std::lock_guard lock(this->events_mutex);
+        this->events.push_back(std::move(event));
+    }
+
     void stop() {
         running = false;
         // Each pass of the event loop, shutdown included, blocks for up to 500 ms
@@ -604,12 +695,259 @@ public:
     ~Server() {
         if (running) this->stop();
     }
+    /// @brief adds a variable named name, of type, to the Pump object.
+    static void add_pump_variable(
+        UA_Server *server,
+        const char *name,
+        const void *value,
+        const UA_DataType &type
+    ) {
+        UA_VariableAttributes attr = UA_VariableAttributes_default;
+        UA_Variant_setScalar(&attr.value, const_cast<void *>(value), &type);
+        attr.dataType = type.typeId;
+        attr.valueRank = UA_VALUERANK_SCALAR;
+        attr.accessLevel = UA_ACCESSLEVELMASK_READ;
+        const auto id = std::string("Pump.") + name;
+        UA_Server_addVariableNode(
+            server,
+            UA_NODEID_STRING(1, const_cast<char *>(id.c_str())),
+            PUMP,
+            UA_NS0ID(HASCOMPONENT),
+            UA_QUALIFIEDNAME(1, const_cast<char *>(name)),
+            UA_NODEID_NULL,
+            attr,
+            nullptr,
+            nullptr
+        );
+    }
+
+    static UA_StatusCode count_refresh(
+        UA_Server *,
+        const UA_NodeId *,
+        void *,
+        const UA_NodeId *,
+        void *refreshes,
+        const UA_NodeId *,
+        void *,
+        size_t,
+        const UA_Variant *,
+        size_t,
+        UA_Variant *
+    ) {
+        ++*static_cast<std::atomic<size_t> *>(refreshes);
+        return UA_STATUSCODE_GOOD;
+    }
+
+    static UA_StatusCode set_pump(
+        UA_Server *server,
+        const UA_NodeId *,
+        void *,
+        const UA_NodeId *method,
+        void *calls,
+        const UA_NodeId *,
+        void *,
+        const size_t input_size,
+        const UA_Variant *input,
+        size_t,
+        UA_Variant *
+    ) {
+        ++*static_cast<std::atomic<size_t> *>(calls);
+        if (UA_NodeId_equal(method, &PUMP_FAIL)) return UA_STATUSCODE_BADINVALIDSTATE;
+        const auto &speed = input[input_size - 1];
+        UA_Server_writeValue(
+            server,
+            UA_NODEID_STRING(1, const_cast<char *>("Pump.Speed")),
+            speed
+        );
+        if (input_size == 2)
+            UA_Server_writeValue(
+                server,
+                UA_NODEID_STRING(1, const_cast<char *>("Pump.Mode")),
+                input[0]
+            );
+        return UA_STATUSCODE_GOOD;
+    }
+
+    /// @brief adds a method named name to the Pump object, with the input arguments
+    /// args, that counts each call in calls.
+    static void add_pump_method(
+        UA_Server *server,
+        const UA_NodeId &id,
+        const char *name,
+        const std::vector<std::pair<const char *, const UA_DataType *>> &args,
+        std::atomic<size_t> &calls
+    ) {
+        std::vector<UA_Argument> inputs(args.size());
+        for (size_t i = 0; i < args.size(); ++i) {
+            UA_Argument_init(&inputs[i]);
+            inputs[i].name = UA_STRING(const_cast<char *>(args[i].first));
+            inputs[i].dataType = args[i].second->typeId;
+            inputs[i].valueRank = UA_VALUERANK_SCALAR;
+        }
+        UA_MethodAttributes attr = UA_MethodAttributes_default;
+        attr.displayName = UA_LOCALIZEDTEXT(
+            const_cast<char *>("en-US"),
+            const_cast<char *>(name)
+        );
+        attr.executable = true;
+        attr.userExecutable = true;
+        UA_Server_addMethodNode(
+            server,
+            id,
+            PUMP,
+            UA_NS0ID(HASCOMPONENT),
+            UA_QUALIFIEDNAME(1, const_cast<char *>(name)),
+            attr,
+            set_pump,
+            inputs.size(),
+            inputs.data(),
+            0,
+            nullptr,
+            &calls,
+            nullptr
+        );
+    }
+
+    /// @brief adds the Pump object with the starting values of pump.
+    void add_pump_node(UA_Server *server, const Pump &pump) {
+        UA_ObjectAttributes attr = UA_ObjectAttributes_default;
+        attr.displayName = UA_LOCALIZEDTEXT(
+            const_cast<char *>("en-US"),
+            const_cast<char *>("Pump")
+        );
+        attr.eventNotifier = pump.event_notifier;
+        UA_Server_addObjectNode(
+            server,
+            PUMP,
+            UA_NS0ID(OBJECTSFOLDER),
+            UA_NS0ID(ORGANIZES),
+            UA_QUALIFIEDNAME(1, const_cast<char *>("Pump")),
+            UA_NS0ID(BASEOBJECTTYPE),
+            attr,
+            nullptr,
+            nullptr
+        );
+        add_pump_variable(server, "Speed", &pump.speed, UA_TYPES[UA_TYPES_DOUBLE]);
+        UA_String mode = UA_STRING(const_cast<char *>(pump.mode.c_str()));
+        add_pump_variable(server, "Mode", &mode, UA_TYPES[UA_TYPES_STRING]);
+        const auto *dbl = &UA_TYPES[UA_TYPES_DOUBLE];
+        const auto *str = &UA_TYPES[UA_TYPES_STRING];
+        auto &calls = this->method_calls;
+        add_pump_method(server, PUMP_SET_SPEED, "SetSpeed", {{"speed", dbl}}, calls);
+        add_pump_method(
+            server,
+            PUMP_CONFIGURE,
+            "Configure",
+            {{"mode", str}, {"speed", dbl}},
+            calls
+        );
+        add_pump_method(server, PUMP_FAIL, "Fail", {}, calls);
+    }
+
+    /// @brief adds an object named Pump in a new namespace with uri, with the methods
+    /// of the Pump object as its components.
+    static void add_pump_object_node(UA_Server *server, const std::string &uri) {
+        const auto ns = UA_Server_addNamespace(server, uri.c_str());
+        const auto object = UA_NODEID_STRING(ns, const_cast<char *>("Pump"));
+        UA_ObjectAttributes attr = UA_ObjectAttributes_default;
+        attr.displayName = UA_LOCALIZEDTEXT(
+            const_cast<char *>("en-US"),
+            const_cast<char *>("Pump")
+        );
+        UA_Server_addObjectNode(
+            server,
+            object,
+            UA_NS0ID(OBJECTSFOLDER),
+            UA_NS0ID(ORGANIZES),
+            UA_QUALIFIEDNAME(ns, const_cast<char *>("Pump")),
+            UA_NS0ID(BASEOBJECTTYPE),
+            attr,
+            nullptr,
+            nullptr
+        );
+        for (const auto &method: {PUMP_SET_SPEED, PUMP_CONFIGURE, PUMP_FAIL})
+            UA_Server_addReference(
+                server,
+                object,
+                UA_NS0ID(HASCOMPONENT),
+                UA_EXPANDEDNODEID_NODEID(method),
+                true
+            );
+    }
+
+    /// @brief adds TEST_EVENT_TYPE.
+    static void add_event_type(UA_Server *server) {
+        UA_ObjectTypeAttributes attr = UA_ObjectTypeAttributes_default;
+        attr.displayName = UA_LOCALIZEDTEXT(
+            const_cast<char *>("en-US"),
+            const_cast<char *>("TestEventType")
+        );
+        UA_Server_addObjectTypeNode(
+            server,
+            TEST_EVENT_TYPE,
+            UA_NS0ID(BASEEVENTTYPE),
+            UA_NS0ID(HASSUBTYPE),
+            UA_QUALIFIEDNAME(1, const_cast<char *>("TestEventType")),
+            attr,
+            nullptr,
+            nullptr
+        );
+    }
+
+    /// @brief emits the events that emit queued.
+    void emit_events(UA_Server *server) {
+        std::vector<Event> queued;
+        {
+            std::lock_guard lock(this->events_mutex);
+            queued.swap(this->events);
+        }
+        for (const auto &event: queued) {
+            UA_KeyValueMap fields = UA_KEYVALUEMAP_NULL;
+            if (event.time.has_value()) {
+                const UA_DateTime time = event.time->nanoseconds() / 100 +
+                                         UA_DATETIME_UNIX_EPOCH;
+                UA_KeyValueMap_setScalar(
+                    &fields,
+                    UA_QUALIFIEDNAME(0, const_cast<char *>("/Time")),
+                    &time,
+                    &UA_TYPES[UA_TYPES_DATETIME]
+                );
+            }
+            if (event.level.has_value())
+                UA_KeyValueMap_setScalar(
+                    &fields,
+                    UA_QUALIFIEDNAME(0, const_cast<char *>("/1:Level")),
+                    &*event.level,
+                    &UA_TYPES[UA_TYPES_DOUBLE]
+                );
+            const auto status = UA_Server_createEvent(
+                server,
+                event.source,
+                event.type,
+                event.severity,
+                UA_LOCALIZEDTEXT(
+                    const_cast<char *>("en-US"),
+                    const_cast<char *>(event.message.c_str())
+                ),
+                &fields,
+                nullptr,
+                nullptr
+            );
+            UA_KeyValueMap_clear(&fields);
+            if (status != UA_STATUSCODE_GOOD)
+                LOG(WARNING) << "Mock OPC UA server failed to emit an event: "
+                             << UA_StatusCode_name(status);
+        }
+    }
 
 private:
     std::mutex added_mu;
     std::condition_variable added_cv;
     std::vector<std::pair<std::string, std::vector<TestNode>>> added;
     std::optional<Motor> added_motor;
+    std::optional<Pump> added_pump;
+    std::optional<std::string> added_pump_object;
+    std::optional<UA_Byte> added_event_notifier;
 
     static void add_node(UA_Server *server, const TestNode &node) {
         UA_VariableAttributes attr = UA_VariableAttributes_default;
@@ -738,7 +1076,8 @@ private:
         UA_Server_addReference(server, inner, UA_NS0ID(ORGANIZES), target, true);
     }
 
-    /// @brief adds what add_namespace and add_motor asked for.
+    /// @brief applies what add_namespace, add_motor, add_pump, add_pump_object, and
+    /// set_pump_event_notifier asked for.
     void add_requested(UA_Server *server, const UA_DataType &motor_type) {
         std::lock_guard lock(this->added_mu);
         for (auto &[uri, nodes]: this->added) {
@@ -752,6 +1091,18 @@ private:
         if (this->added_motor.has_value()) {
             add_motor_node(server, motor_type, *this->added_motor);
             this->added_motor.reset();
+        }
+        if (this->added_pump.has_value()) {
+            add_pump_node(server, *this->added_pump);
+            this->added_pump.reset();
+        }
+        if (this->added_pump_object.has_value()) {
+            add_pump_object_node(server, *this->added_pump_object);
+            this->added_pump_object.reset();
+        }
+        if (this->added_event_notifier.has_value()) {
+            UA_Server_writeEventNotifier(server, PUMP, *this->added_event_notifier);
+            this->added_event_notifier.reset();
         }
         this->added_cv.notify_all();
     }
@@ -942,6 +1293,11 @@ private:
 
         if (cfg.generated_variables > 0 || cfg.generated_folders > 0)
             add_generated(server, cfg.generated_variables, cfg.generated_folders);
+        if (cfg.pump.has_value()) add_pump_node(server, *cfg.pump);
+        add_event_type(server);
+        const auto refresh = UA_NS0ID(CONDITIONTYPE_CONDITIONREFRESH);
+        UA_Server_setMethodNodeCallback(server, refresh, count_refresh);
+        UA_Server_setNodeContext(server, refresh, &this->refreshes);
 
         UA_StatusCode status = UA_Server_run_startup(server);
         if (status != UA_STATUSCODE_GOOD) {
@@ -962,6 +1318,7 @@ private:
                 std::this_thread::sleep_for(
                     std::chrono::nanoseconds(delay.nanoseconds())
                 );
+            this->emit_events(server);
             UA_Server_run_iterate(server, true);
             this->add_requested(server, structures.motor());
             const auto stats = UA_Server_getStatistics(server);
@@ -974,6 +1331,9 @@ private:
             std::lock_guard lock(this->added_mu);
             this->added.clear();
             this->added_motor.reset();
+            this->added_pump.reset();
+            this->added_pump_object.reset();
+            this->added_event_notifier.reset();
         }
         this->added_cv.notify_all();
         UA_Server_run_shutdown(server);
@@ -983,5 +1343,9 @@ private:
         }
         UA_Server_delete(server);
     }
+
+private:
+    std::mutex events_mutex;
+    std::vector<Event> events;
 };
 }

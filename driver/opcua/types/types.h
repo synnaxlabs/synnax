@@ -216,6 +216,7 @@ using ReadResponse = Response<UA_ReadResponse, UA_TYPES_READRESPONSE>;
 using WriteResponse = Response<UA_WriteResponse, UA_TYPES_WRITERESPONSE>;
 using BrowseResponse = Response<UA_BrowseResponse, UA_TYPES_BROWSERESPONSE>;
 using BrowseNextResponse = Response<UA_BrowseNextResponse, UA_TYPES_BROWSENEXTRESPONSE>;
+using CallResponse = Response<UA_CallResponse, UA_TYPES_CALLRESPONSE>;
 
 class WriteRequestBuilder {
     std::vector<UA_Variant> owned_variants_;
@@ -428,4 +429,55 @@ public:
     UA_ByteString *ptr() { return &str_; }
 };
 // NOLINTEND(misc-explicit-constructor)
+
+/// @brief a path of browse names from a node, such as the path to a field from an event
+/// type.
+class BrowsePath {
+    struct Name {
+        /// @brief the URI of the namespace of the name. Empty when index names it.
+        std::string uri;
+        UA_UInt16 index = 0;
+        std::string name;
+    };
+    std::vector<Name> names_;
+
+public:
+    /// @brief parses browse names joined with '/', such as "EnabledState/Id". A name
+    /// can start with `nsu=<uri>;` or `<index>:` to name its namespace, as in
+    /// "nsu=urn:pump;Level" or "2:Level". Other names are in namespace 0. A URI ends at
+    /// the first ';' and escapes it as %3B, as in a node ID.
+    /// @returns x::errors::VALIDATION when a name is empty or a URI is invalid.
+    static std::pair<BrowsePath, x::errors::Error> parse(const std::string &path);
+
+    /// @returns the browse names with the index of each namespace URI on a server,
+    /// which borrow the names of this path. Nothing if the server has no such
+    /// namespace.
+    /// @param namespaces the namespace URIs of the server, by index.
+    [[nodiscard]] std::optional<std::vector<UA_QualifiedName>>
+    resolve(const std::vector<std::string> &namespaces) const;
+};
+
+/// @brief an EventFilter that selects fields of each event and passes only the events
+/// of some event types.
+class EventFilter {
+    UA_EventFilter filter_{};
+
+public:
+    /// @param fields the browse names of the path to each field to select, from the
+    /// event. The filter copies them.
+    /// @param types the event types to pass, with their subtypes. Empty passes every
+    /// event.
+    EventFilter(
+        const std::vector<std::vector<UA_QualifiedName>> &fields,
+        const std::vector<UA_NodeId> &types
+    );
+    ~EventFilter() { UA_EventFilter_clear(&filter_); }
+
+    EventFilter(const EventFilter &) = delete;
+    EventFilter &operator=(const EventFilter &) = delete;
+    EventFilter(EventFilter &&) = delete;
+    EventFilter &operator=(EventFilter &&) = delete;
+
+    [[nodiscard]] const UA_EventFilter &get() const { return filter_; }
+};
 }

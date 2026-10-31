@@ -71,4 +71,15 @@ describe("OPCUA.Device.ContextMenuItems", () => {
     expect(created.type).toBe(OPCUA.Task.WRITE_TYPE);
     expect(created.config).toMatchObject({ device: dev.key });
   });
+
+  it("should create an event task draft bound to the device", async () => {
+    const { store, dev } = await renderItems();
+    fireEvent.click(await screen.findByText("Create event task"));
+    const tab = await resolveFocusedTab(store, client);
+    if (tab.variant !== "resource") throw new Error("expected a resource tab");
+    expect(tab.resource.type).toBe(task.TYPE_ONTOLOGY_ID.type);
+    const created = await client.tasks.retrieve({ key: tab.resource.key });
+    expect(created.type).toBe(OPCUA.Task.EVENT_TYPE);
+    expect(created.config).toMatchObject({ device: dev.key });
+  });
 });

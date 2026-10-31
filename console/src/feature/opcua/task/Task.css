@@ -21,6 +21,50 @@
     }
 }
 
+.console-task-configure--opc_write .console-opc-task-channels {
+    width: 0;
+    flex-basis: 0;
+    flex-grow: 5;
+    overflow: hidden;
+}
+
+.console-opc-method {
+    flex-shrink: 0;
+    max-height: 50%;
+    overflow: auto;
+    border-top: var(--pluto-border);
+}
+
+.console-opc-method__fields {
+    padding: 1rem 2rem;
+}
+
+.console-opc-event {
+    width: 0;
+    flex-basis: 0;
+    flex-grow: 5;
+    height: 100%;
+    overflow: auto;
+}
+
+.console-opc-event__nodes,
+.console-opc-event__fields {
+    flex-shrink: 0;
+    border-bottom: var(--pluto-border);
+}
+
+.console-opc-event__nodes.console--dragging {
+    background: var(--pluto-primary-z-20);
+}
+
+.console-opc-event__content {
+    padding: 1rem 2rem;
+}
+
+.console-opc-event__remove-field {
+    margin-top: 3rem;
+}
+
 .console-opc-task-header,
 .console-opc-browser > .lyra-header {
     height: 6rem;

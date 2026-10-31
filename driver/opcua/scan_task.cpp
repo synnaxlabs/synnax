@@ -29,6 +29,7 @@
 
 #include "driver/opcua/device/device.h"
 #include "driver/opcua/errors/errors.h"
+#include "driver/opcua/method/method.h"
 #include "driver/opcua/scan_task.h"
 #include "driver/opcua/structure/structure.h"
 #include "driver/opcua/telem/telem.h"
@@ -642,6 +643,27 @@ std::pair<x::json::json, x::errors::Error> read_details(
     if (const auto v = scalar<UA_LocalizedText>(r[3], UA_TYPES[UA_TYPES_LOCALIZEDTEXT]))
         out["description"] = text(v->text);
     VariableType type;
+    if (cls == UA_NODECLASS_METHOD) {
+        auto [inputs, inputs_err] = method::read_inputs(conn, {id});
+        if (inputs_err) return {{}, inputs_err};
+        if (const auto &declared = inputs[0]; declared.has_value()) {
+            auto args = x::json::json::array();
+            for (const auto &arg: *declared) {
+                auto [arg_type, name_err] = type_name(
+                    conn,
+                    arg.data_type.resolve({}).value()
+                );
+                if (name_err) return {{}, name_err};
+                args.push_back({
+                    {"name", arg.name},
+                    {"type_name", arg_type},
+                    {"data_type",
+                     telem::to_data_type(arg.data_type.resolve({}).value()).name()},
+                });
+            }
+            out["input_arguments"] = args;
+        }
+    }
     if (cls == UA_NODECLASS_VARIABLE) {
         type = variable_type(r[4], r[5], &r[10]).first;
         const auto type_id = scalar<UA_NodeId>(r[4], UA_TYPES[UA_TYPES_NODEID]);

@@ -2,7 +2,8 @@
 layout: "@/layouts/Reference.astro"
 title: "OPC UA write task"
 description:
-  "Write a value to an OPC UA node each time a command channel gets a new value."
+  "Write a value to an OPC UA node, or call a method, each time a command channel gets a
+  new value."
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
@@ -15,9 +16,9 @@ import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
 An OPC UA write task writes a value to a node each time you write a value to a command
-channel. For example, a valve on a schematic can set a PLC setpoint. If you write
-several values at once, the task writes only the last one. The task writes single
-values, not arrays.
+channel. For example, a valve on a schematic can set a PLC setpoint. A channel can also
+[call a method](#call-a-method) of the server. If you write several values at once, the
+task writes only the last one. The task writes single values, not arrays.
 
 The task has no state channels. To see the value on the server, read the node back with
 an [OPC UA read task](/reference/hardware/opc-ua/read-task). Before you start, you need
@@ -70,7 +71,7 @@ task = opcua.WriteTask(
     name="Line 1 PLC write",
     device=server.key,
     channels=[
-        opcua.WriteChannel(cmd_channel=cmd.key, node_id="NS=2;S=Pump1.Setpoint")
+        opcua.NodeWriteChannel(cmd_channel=cmd.key, node_id="NS=2;S=Pump1.Setpoint")
     ],
 )
 client.tasks.configure(task)
@@ -103,7 +104,7 @@ const task = await client.tasks.create({
   type: "opc_write",
   config: opcua.writeConfigZ.parse({
     device: server.key,
-    channels: [{ cmdChannel: cmd.key, nodeId: "NS=2;S=Pump1.Setpoint" }],
+    channels: [{ type: "node", cmdChannel: cmd.key, nodeId: "NS=2;S=Pump1.Setpoint" }],
   }),
 });
 await task.start();
@@ -120,18 +121,121 @@ smaller requests.
 
 <Divider.Divider x />
 
+## Call a method
+
+A method channel calls a method of the server each time its command channel gets a
+value. For example, a button on a schematic can call `Start` on a pump.
+
+<Client.Tabs>
+  <Fragment slot="console">
+
+1. In the **Browser**, expand the object that holds the method.
+2. Drag the method <Icon.Function /> into **Channels**. The Console reads the input
+   arguments of the method.
+3. Select the channel. For each argument, type a value, or turn on **Command** to give
+   the argument the value of the command.
+4. Click <Icon.Play /> (**Start**).
+
+The first argument takes the command by default, and the command channel takes the type
+of that argument. When no argument takes the command, each command calls the method,
+whatever its value, and the command channel is `uint8`.
+
+To call one method with different arguments, drag it again. Each channel gets its own
+command channel, named `<method>_cmd`, then `<method>_cmd_2`, and so on. A CSV file
+holds no method channels.
+
+  </Fragment>
+  <Fragment slot="python">
+
+```python
+cmd_time = client.channels.create(
+    name="pump_speed_cmd_time", is_index=True, data_type=sy.DataType.TIMESTAMP
+)
+cmd = client.channels.create(
+    name="pump_speed_cmd", index=cmd_time.key, data_type=sy.DataType.FLOAT64
+)
+
+task = opcua.WriteTask(
+    name="Line 1 pump",
+    device=server.key,
+    channels=[
+        opcua.MethodWriteChannel(
+            cmd_channel=cmd.key,
+            node_id="NS=2;S=Pump1.Configure",
+            object_id="NS=2;S=Pump1",
+            arguments=[
+                opcua.ValueMethodArgument(value="auto"),
+                opcua.CommandMethodArgument(),
+            ],
+        )
+    ],
+)
+client.tasks.configure(task)
+task.start()
+```
+
+  </Fragment>
+  <Fragment slot="typescript">
+
+```typescript
+const task = await client.tasks.create({
+  name: "Line 1 pump",
+  rack: server.rack,
+  type: "opc_write",
+  config: opcua.writeConfigZ.parse({
+    device: server.key,
+    channels: [
+      {
+        cmdChannel: cmd.key,
+        type: "method",
+        nodeId: "NS=2;S=Pump1.Configure",
+        objectId: "NS=2;S=Pump1",
+        arguments: [{ source: "value", value: "auto" }, { source: "command" }],
+      },
+    ],
+  }),
+});
+await task.start();
+```
+
+  </Fragment>
+</Client.Tabs>
+
+The Driver converts each argument to the type that the method declares, with the rules
+in [data types](#data-types). A value that you type is text, so `3.5` fits a Double
+argument and `true` fits a Boolean argument. When the server rejects a call, the task
+shows ["Failed to write commands"](#troubleshooting) with the reason.
+
+When the connection drops during a call, the Driver does not call the method again,
+because the server might have run it. A write to a node is safe to repeat, so the Driver
+writes it again. Use a method for an action that must run only once.
+
+<Divider.Divider x />
+
 ## Channel reference
 
 The table shows the Console label of each setting, with its Python field under it.
 
-| Setting                              | Default   | Notes                                                          |
-| ------------------------------------ | --------- | -------------------------------------------------------------- |
-| Channel name <small>`name`</small>   | Empty     | The name of the command channel that the Console creates.      |
-| <small>`cmd_channel`</small>         |           | The key of the command channel.                                |
-| Node ID <small>`node_id`</small>     |           | See [node IDs](/reference/hardware/opc-ua/read-task#node-ids). |
-| Node name <small>`node_name`</small> | Empty     | The browse name. For display only.                             |
-| <small>`data_type`</small>           | `float32` | The data type of the channel that the Console creates.         |
-| Enabled <small>`disabled`</small>    | Off       | A disabled channel is not written.                             |
+| Setting                              | Default   | Notes                                                                                                             |
+| ------------------------------------ | --------- | ----------------------------------------------------------------------------------------------------------------- |
+| Channel name <small>`name`</small>   | Empty     | The name of the command channel that the Console creates.                                                         |
+| <small>`cmd_channel`</small>         |           | The key of the command channel.                                                                                   |
+| <small>`type`</small>                |           | `node` writes the node. `method` calls the method. In Python, `NodeWriteChannel` or `MethodWriteChannel` sets it. |
+| Node ID <small>`node_id`</small>     |           | See [node IDs](/reference/hardware/opc-ua/read-task#node-ids).                                                    |
+| Object <small>`object_id`</small>    | Empty     | For a method, the node ID of the object that holds it.                                                            |
+| <small>`arguments`</small>           | Empty     | For a method, its input arguments, in order.                                                                      |
+| Node name <small>`node_name`</small> | Empty     | The browse name. For display only.                                                                                |
+| <small>`data_type`</small>           | `float32` | For a node, the data type of the command channel that the Console creates.                                        |
+| Enabled <small>`disabled`</small>    | Off       | A disabled channel is not written.                                                                                |
+
+Each argument has these settings:
+
+| Setting                         | Default | Notes                                                                                                                                                       |
+| ------------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Command <small>`source`</small> |         | `value` gives the argument a fixed value. `command` gives it the value of the command. In Python, `ValueMethodArgument` or `CommandMethodArgument` sets it. |
+| <small>`value`</small>          | Empty   | The value of the argument when `source` is `value`, as text. The Console shows it under the name of the argument.                                           |
+| <small>`name`</small>           | Empty   | The name that the method declares. For display only.                                                                                                        |
+| <small>`data_type`</small>      | Empty   | The Synnax type of the argument. The Console gives it to the command channel.                                                                               |
 
 ### Data types
 
@@ -249,6 +353,34 @@ The node ID is not in a form that the Driver accepts.
 
 Write the node ID in one of the forms in
 [node IDs](/reference/hardware/opc-ua/read-task#node-ids).
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"... the method takes 2 arguments, but the channel gives 1 argument."}>
+<Problem.Cause>
+
+The method on the server has a different number of arguments than the channel. The
+method changed after you added the channel.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Remove the channel and drag the method from the **Browser** again.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"... lost the connection during the call, so the method might not have run."}>
+<Problem.Cause>
+
+The connection dropped after the Driver sent the call. The Driver cannot know if the
+server ran the method, so it does not call it again.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Check the state of the equipment before you send the command again.
 
 </Problem.Fix>
 </Problem.Item>

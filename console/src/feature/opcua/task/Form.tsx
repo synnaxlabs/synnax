@@ -40,7 +40,11 @@ import {
   BROWSE_VARIABLES_COMMAND_TYPE,
   browseVariablesResponseZ,
   type Channel,
+  isMethod,
+  type NodeDetails,
+  nodeDetailsZ,
   nodeIdentity,
+  READ_NODE_COMMAND_TYPE,
   type ScannedNode,
 } from "@/feature/opcua/task/types";
 import { CSS } from "@/platform/css";
@@ -94,7 +98,7 @@ const ChannelListItem = <C extends Channel>({
           namePath={`${path}.name`}
         />
         <Flex.Box x align="center" gap="tiny">
-          <Icon.Variable color={9} />
+          {isMethod(item) ? <Icon.Function color={9} /> : <Icon.Variable color={9} />}
           <Text.Text
             level="small"
             weight={350}
@@ -205,6 +209,7 @@ const EmptyContent = () => (
 
 const VARIABLE_NODE_CLASS = "Variable";
 const OBJECT_NODE_CLASS = "Object";
+const METHOD_NODE_CLASS = "Method";
 
 const isVariableHaulItem = (item: Haul.Item): item is HaulItem =>
   isHaulItem(item) && item.data.nodeClass === VARIABLE_NODE_CLASS;
@@ -212,8 +217,8 @@ const isVariableHaulItem = (item: Haul.Item): item is HaulItem =>
 const isFolderHaulItem = (item: Haul.Item): item is HaulItem =>
   isHaulItem(item) && item.data.nodeClass === OBJECT_NODE_CLASS;
 
-const canDrop = ({ items }: Haul.DraggingState): boolean =>
-  items.some((item) => isVariableHaulItem(item) || isFolderHaulItem(item));
+const isMethodHaulItem = (item: Haul.Item): item is HaulItem =>
+  isHaulItem(item) && item.data.nodeClass === METHOD_NODE_CLASS;
 
 const SEARCH_TIMEOUT = TimeSpan.seconds(30);
 
@@ -223,7 +228,7 @@ const SEARCH_LIMIT_NOTE =
 const NAMING_NOTE =
   "Each channel takes its name from the folder and the path to the variable.";
 
-const MOVED_NOTE = "The task moved to another server during the search.";
+const MOVED_NOTE = "The task moved to another server before the Driver answered.";
 
 interface Search {
   nodes: ScannedNode[];
@@ -289,9 +294,14 @@ interface ChannelListProps<C extends Channel> extends Pick<
   "contextMenuItems" | "resolve"
 > {
   children: Component.RenderProp<ExtraItemProps>;
+  /** Renders the details of the one selected channel, under the list. */
+  details?: Component.RenderProp<ExtraItemProps>;
   device: Device;
-  /** @returns the channel of a node, or null if the task cannot hold it. */
-  convertNodeToChannel: (node: ScannedNode) => C | null;
+  /**
+   * @returns the channel of a node, or null if the task cannot hold it. Details are
+   * present only for a dropped method.
+   */
+  convertNodeToChannel: (node: ScannedNode, details?: NodeDetails) => C | null;
   getChannelKeyAndID: ChannelKeyAndIDGetter<C>;
   /** True when a channel can be the task's index, which adds a CSV index column. */
   indexed?: boolean;
@@ -300,6 +310,7 @@ interface ChannelListProps<C extends Channel> extends Pick<
 const ChannelList = <C extends Channel>({
   device,
   children,
+  details,
   convertNodeToChannel,
   getChannelKeyAndID,
   indexed,
@@ -316,13 +327,22 @@ const ChannelList = <C extends Channel>({
     const channels = ctx.get<C[]>(CHANNELS_PATH).value;
     const held = new Set(channels.map(nodeIdentity));
     const names = new Set(channels.map(deployName));
-    return nodes.map(convertNodeToChannel).flatMap((ch) => {
-      if (ch == null || held.has(nodeIdentity(ch))) return [];
-      held.add(nodeIdentity(ch));
-      const free = withFreeName(ch, names);
-      names.add(deployName(free));
-      return [free];
-    });
+    return nodes
+      .map((node) => convertNodeToChannel(node))
+      .flatMap((ch) => {
+        if (ch == null || held.has(nodeIdentity(ch))) return [];
+        held.add(nodeIdentity(ch));
+        const free = withFreeName(ch, names);
+        names.add(deployName(free));
+        return [free];
+      });
+  };
+  // Another device mounts another body, but an add that waits on the Driver still
+  // writes to this form.
+  const moved = (key: string, name: string, message: string): boolean => {
+    if (ctx.get<string>("config.device").value === device.key) return false;
+    addStatus({ key, variant: "warning", name, message, description: MOVED_NOTE });
+    return true;
   };
   const addFolders = (folders: HaulItem[]) =>
     handleError(async () => {
@@ -330,18 +350,6 @@ const ChannelList = <C extends Channel>({
       const key = id.create();
       const name = folders.length === 1 ? folders[0].data.name : "";
       addStatus({ key, variant: "loading", name, message: "Searching for variables" });
-      // Another device mounts another body, but this search still writes to the form.
-      const moved = (): boolean => {
-        if (ctx.get<string>("config.device").value === device.key) return false;
-        addStatus({
-          key,
-          variant: "warning",
-          name,
-          message: "Added no variables",
-          description: MOVED_NOTE,
-        });
-        return true;
-      };
       let search: Search;
       try {
         search = await findVariables(
@@ -357,7 +365,7 @@ const ChannelList = <C extends Channel>({
         });
         return;
       }
-      if (moved()) return;
+      if (moved(key, name, "Added no variables")) return;
       const found = search.nodes;
       const missing = describeMissing(search);
       const target = folders.length === 1 ? "the folder" : "the folders";
@@ -389,15 +397,46 @@ const ChannelList = <C extends Channel>({
         description: missing ?? NAMING_NOTE,
         confirm: { label: "Add", variant: "success" },
       });
-      if (confirmed !== true || moved()) return;
+      if (confirmed !== true || moved(key, name, "Added no variables")) return;
       push(newChannels(found));
     }, "Failed to add the variables of a folder");
+  // A method can take more than one channel, so a drop always adds one.
+  const addMethods = (methods: HaulItem[]) =>
+    handleError(async () => {
+      if (client == null) throw new DisconnectedError();
+      const channels: C[] = [];
+      for (const method of methods) {
+        const details = await executeScanCommand(client, device.rack, {
+          type: READ_NODE_COMMAND_TYPE,
+          args: {
+            connection: device.properties.connection,
+            node_id: method.data.nodeId,
+            field: "",
+          },
+          schema: nodeDetailsZ,
+        });
+        const ch = convertNodeToChannel(method.data, details);
+        if (ch != null) channels.push(ch);
+      }
+      const name = methods.length === 1 ? methods[0].data.name : "";
+      if (moved(id.create(), name, "Added no methods")) return;
+      push(channels);
+    }, "Failed to add a method");
+  const isMethodChannelItem = (item: Haul.Item): item is HaulItem =>
+    isMethodHaulItem(item) && convertNodeToChannel(item.data) != null;
+  const canDrop = ({ items }: Haul.DraggingState): boolean =>
+    items.some(
+      (item) =>
+        isVariableHaulItem(item) || isFolderHaulItem(item) || isMethodChannelItem(item),
+    );
   const handleDrop = ({ items }: Haul.OnDropProps): Haul.Item[] => {
     const variables = items.filter(isVariableHaulItem);
     const folders = items.filter(isFolderHaulItem);
+    const methods = items.filter(isMethodChannelItem);
     push(newChannels(variables.map(({ data }) => data)));
     if (folders.length > 0) addFolders(folders);
-    return [...variables, ...folders];
+    if (methods.length > 0) addMethods(methods);
+    return [...variables, ...folders, ...methods];
   };
 
   const haulProps = Haul.useDrop({
@@ -418,7 +457,7 @@ const ChannelList = <C extends Channel>({
       {children}
     </ChannelListItem>
   );
-  return (
+  const list = (
     <Task.ChannelList
       onSelect={setSelected}
       path={CHANNELS_PATH}
@@ -439,12 +478,19 @@ const ChannelList = <C extends Channel>({
       {...fieldListReturn}
     />
   );
+  if (details == null) return list;
+  return (
+    <Flex.Box y empty grow className={CSS.B("opc-task-channels")}>
+      {list}
+      {selected.length === 1 && details({ path: `${CHANNELS_PATH}.${selected[0]}` })}
+    </Flex.Box>
+  );
 };
 
 export interface FormProps<C extends Channel>
   extends
     Required<Pick<ChannelListProps<C>, "convertNodeToChannel" | "contextMenuItems">>,
-    Pick<ChannelListProps<C>, "indexed"> {
+    Pick<ChannelListProps<C>, "indexed" | "details"> {
   children?: Component.RenderProp<ExtraItemProps>;
   getChannelKeyAndID: ChannelKeyAndIDGetter<C>;
   /** Returns the bindings the device holds for a channel's node. */
@@ -462,6 +508,7 @@ const Body = <C extends Channel>({
   contextMenuItems,
   resolve,
   indexed,
+  details,
 }: BodyProps<C>) => {
   const isPreview = Task.useIsPreview();
   const resolveOnDevice = (channel: C) => resolve(device, channel);
@@ -475,6 +522,7 @@ const Body = <C extends Channel>({
         contextMenuItems={contextMenuItems}
         resolve={resolveOnDevice}
         indexed={indexed}
+        details={details}
       >
         {children}
       </ChannelList>

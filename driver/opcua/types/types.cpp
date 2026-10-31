@@ -7,11 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <cctype>
 #include <charconv>
 #include <iomanip>
 #include <map>
 #include <new>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -271,5 +273,154 @@ x::errors::Error WriteRequestBuilder::add_value(
     if (err) return err;
     add_value(node_id, variant);
     return x::errors::NIL;
+}
+
+namespace {
+/// @returns the qualified name of one element of a browse path.
+UA_SimpleAttributeOperand select_clause(const std::vector<UA_QualifiedName> &path) {
+    UA_SimpleAttributeOperand op;
+    UA_SimpleAttributeOperand_init(&op);
+    op.typeDefinitionId = UA_NODEID_NUMERIC(0, UA_NS0ID_BASEEVENTTYPE);
+    op.attributeId = UA_ATTRIBUTEID_VALUE;
+    op.browsePath = static_cast<UA_QualifiedName *>(
+        UA_Array_new(path.size(), &UA_TYPES[UA_TYPES_QUALIFIEDNAME])
+    );
+    op.browsePathSize = path.size();
+    for (size_t i = 0; i < path.size(); ++i)
+        UA_QualifiedName_copy(&path[i], &op.browsePath[i]);
+    return op;
+}
+
+/// @brief sets element to op, with operands that it copies.
+template<typename Operand>
+void set_operands(
+    UA_ContentFilterElement &element,
+    const UA_FilterOperator op,
+    const std::vector<Operand> &operands,
+    const UA_DataType &type
+) {
+    element.filterOperator = op;
+    element.filterOperands = static_cast<UA_ExtensionObject *>(
+        UA_Array_new(operands.size(), &UA_TYPES[UA_TYPES_EXTENSIONOBJECT])
+    );
+    element.filterOperandsSize = operands.size();
+    for (size_t i = 0; i < operands.size(); ++i)
+        UA_ExtensionObject_setValueCopy(
+            &element.filterOperands[i],
+            const_cast<Operand *>(&operands[i]),
+            &type
+        );
+}
+
+UA_ElementOperand element_operand(const size_t index) {
+    UA_ElementOperand op;
+    UA_ElementOperand_init(&op);
+    op.index = static_cast<UA_UInt32>(index);
+    return op;
+}
+}
+
+std::pair<BrowsePath, x::errors::Error> BrowsePath::parse(const std::string &path) {
+    const auto invalid = [](const std::string &message) {
+        return std::pair{
+            BrowsePath(),
+            x::errors::Error(x::errors::VALIDATION, message)
+        };
+    };
+    BrowsePath result;
+    std::string_view rest = path;
+    while (true) {
+        Name name;
+        if (starts_with(rest, "nsu=")) {
+            const auto sep = rest.find(';');
+            if (sep == std::string_view::npos)
+                return invalid("Browse path must end each namespace URI with ';'");
+            auto decoded = percent_decode(rest.substr(4, sep - 4));
+            if (!decoded.has_value() || decoded->empty())
+                return invalid("Browse path has an invalid namespace URI");
+            name.uri = std::move(*decoded);
+            rest = rest.substr(sep + 1);
+        }
+        const auto slash = rest.find('/');
+        auto element = rest.substr(0, slash);
+        if (const auto colon = element.find(':');
+            name.uri.empty() && colon != std::string_view::npos &&
+            parse_number(element.substr(0, colon), name.index))
+            element = element.substr(colon + 1);
+        if (element.empty()) return invalid("Browse path must name each element");
+        name.name = std::string(element);
+        result.names_.push_back(std::move(name));
+        if (slash == std::string_view::npos) break;
+        rest = rest.substr(slash + 1);
+    }
+    return {std::move(result), x::errors::NIL};
+}
+
+std::optional<std::vector<UA_QualifiedName>>
+BrowsePath::resolve(const std::vector<std::string> &namespaces) const {
+    std::vector<UA_QualifiedName> resolved;
+    resolved.reserve(this->names_.size());
+    for (const auto &n: this->names_) {
+        auto index = n.index;
+        if (!n.uri.empty()) {
+            const auto it = std::ranges::find(namespaces, n.uri);
+            if (it == namespaces.end()) return std::nullopt;
+            index = static_cast<UA_UInt16>(it - namespaces.begin());
+        }
+        resolved.push_back({
+            .namespaceIndex = index,
+            .name = {
+                n.name.size(),
+                reinterpret_cast<UA_Byte *>(const_cast<char *>(n.name.data()))
+            },
+        });
+    }
+    return resolved;
+}
+
+EventFilter::EventFilter(
+    const std::vector<std::vector<UA_QualifiedName>> &fields,
+    const std::vector<UA_NodeId> &types
+) {
+    UA_EventFilter_init(&filter_);
+    filter_.selectClauses = static_cast<UA_SimpleAttributeOperand *>(
+        UA_Array_new(fields.size(), &UA_TYPES[UA_TYPES_SIMPLEATTRIBUTEOPERAND])
+    );
+    filter_.selectClausesSize = fields.size();
+    for (size_t i = 0; i < fields.size(); ++i)
+        filter_.selectClauses[i] = select_clause(fields[i]);
+    if (types.empty()) return;
+    // The where clause chains an Or for each type after the first, then holds an OfType
+    // for each type. Operands may only point forward.
+    const size_t ors = types.size() - 1;
+    auto &where = filter_.whereClause;
+    where.elements = static_cast<UA_ContentFilterElement *>(
+        UA_Array_new(ors + types.size(), &UA_TYPES[UA_TYPES_CONTENTFILTERELEMENT])
+    );
+    where.elementsSize = ors + types.size();
+    for (size_t i = 0; i < ors; ++i) {
+        const size_t left = i + 1 < ors ? i + 1 : ors + types.size() - 1;
+        set_operands(
+            where.elements[i],
+            UA_FILTEROPERATOR_OR,
+            std::vector{element_operand(left), element_operand(ors + i)},
+            UA_TYPES[UA_TYPES_ELEMENTOPERAND]
+        );
+    }
+    for (size_t i = 0; i < types.size(); ++i) {
+        UA_LiteralOperand type;
+        UA_LiteralOperand_init(&type);
+        UA_Variant_setScalar(
+            &type.value,
+            const_cast<UA_NodeId *>(&types[i]),
+            &UA_TYPES[UA_TYPES_NODEID]
+        );
+        set_operands(
+            where.elements[ors + i],
+            UA_FILTEROPERATOR_OFTYPE,
+            std::vector{type},
+            UA_TYPES[UA_TYPES_LITERALOPERAND]
+        );
+    }
 }
 }

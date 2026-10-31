@@ -23,6 +23,11 @@ const TASK_CONTEXT_MENU_ITEMS = [
     label: "Create write task",
     useCreate: Task.useCreateWrite,
   }),
+  PlatformDevice.createTaskContextMenuItem({
+    itemKey: "opc.eventTask",
+    label: "Create event task",
+    useCreate: Task.useCreateEvent,
+  }),
 ];
 
 export const ContextMenuItems = (props: PlatformDevice.ContextMenuItemsProps) => (

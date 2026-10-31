@@ -847,6 +847,30 @@ var _ = Describe("ApplyDefaults and Validate generation", func() {
 		)
 	})
 
+	Describe("Recursion into union bases", func() {
+		It(
+			"Should recurse an array of a union whose defaults are only on its base",
+			func(ctx SpecContext) {
+				resp := MustGenerate(ctx, `
+					@go output "core/pkg/service/x"
+
+					Base struct { rate int32 = 1 }
+
+					Channel union on type extends Base {
+						plain {}
+						tagged { tag string }
+					}
+
+					Config struct { channels Channel[] }
+				`, "x", loader, goPlugin)
+				ExpectContent(resp, "types.gen.go").ToContain(
+					"func (c *Config) ApplyDefaults() {",
+					"c.Channels[i].ApplyDefaults()",
+				)
+			},
+		)
+	})
+
 	Describe("Inline union variants with own defaults", func() {
 		const source = `
 			@go output "core/pkg/service/x"

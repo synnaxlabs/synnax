@@ -11,6 +11,7 @@ import { csv, DataType } from "@synnaxlabs/x";
 
 import {
   type Channel,
+  isMethod,
   nodeIdentity,
   type ScannedNode,
 } from "@/feature/opcua/task/types";
@@ -31,13 +32,17 @@ export interface EncodeParams {
   indexed?: boolean;
 }
 
-/** @returns the channels as CSV text: a header, then one row per channel. */
+/**
+ * @returns the channels as CSV text: a header, then one row per channel. A row cannot
+ * hold the arguments of a method, so the text leaves out method channels.
+ */
 export const encode = (
   channels: Channel[],
   { indexed = false }: EncodeParams = {},
 ): string => {
   const header = indexed ? [...COLUMNS, INDEX_COLUMN] : COLUMNS;
-  const rows = channels.map((ch) => {
+  const rows = channels.flatMap((ch) => {
+    if (isMethod(ch)) return [];
     const row = [
       ch.name,
       ch.nodeName,
@@ -47,7 +52,7 @@ export const encode = (
       String(!ch.disabled),
     ];
     if (indexed) row.push(String("isIndex" in ch && ch.isIndex));
-    return row;
+    return [row];
   });
   const lines = [header, ...rows].map((row) => row.map(csv.formatValue).join(","));
   return `${lines.join("\n")}\n`;

@@ -44,6 +44,7 @@ var _ = Describe("Service", func() {
 				"opc_read",
 				"opc_write",
 				"opc_scan",
+				"opc_event",
 			))
 		})
 	})
@@ -84,12 +85,30 @@ var _ = Describe("Service", func() {
 		) {
 			key := uuid.New()
 			Expect(svc.Write.Write(ctx, nil, key, msgpack.EncodedJSON{
-				"channels": []any{map[string]any{"key": "chan-1"}},
+				"channels": []any{map[string]any{"key": "chan-1", "type": "node"}},
 			})).To(Succeed())
 			data := MustSucceed(svc.Write.Read(ctx, nil, key))
 			Expect(data["channels"]).To(HaveExactElements(
 				HaveKeyWithValue("data_type", "float32"),
 			))
+		})
+
+		It("Should reject a write channel with an unknown type", func(ctx SpecContext) {
+			Expect(svc.Write.Write(ctx, nil, uuid.New(), msgpack.EncodedJSON{
+				"channels": []any{map[string]any{"key": "chan-1", "type": "valve"}},
+			})).To(MatchError(ContainSubstring(`WriteChannel: unknown type "valve"`)))
+		})
+
+		It("Should reject a method argument with an unknown source", func(
+			ctx SpecContext,
+		) {
+			Expect(svc.Write.Write(ctx, nil, uuid.New(), msgpack.EncodedJSON{
+				"channels": []any{map[string]any{
+					"key":       "chan-1",
+					"type":      "method",
+					"arguments": []any{map[string]any{"source": "constant"}},
+				}},
+			})).To(MatchError(ContainSubstring(`MethodArgument: unknown source "constant"`)))
 		})
 
 		It("Should apply scan config schema defaults to absent fields", func(

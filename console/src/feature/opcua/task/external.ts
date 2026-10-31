@@ -7,13 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Event, EventSelectable } from "@/feature/opcua/task/Event";
 import { Read, ReadSelectable } from "@/feature/opcua/task/Read";
-import { READ_TYPE, WRITE_TYPE } from "@/feature/opcua/task/types";
+import { EVENT_TYPE, READ_TYPE, WRITE_TYPE } from "@/feature/opcua/task/types";
 import { Write, WriteSelectable } from "@/feature/opcua/task/Write";
 import { type Selector } from "@/platform/selector";
 import { type Task } from "@/platform/task";
 
 export * from "@/feature/opcua/task/commands";
+export * from "@/feature/opcua/task/Event";
 export * from "@/feature/opcua/task/Read";
 export * from "@/feature/opcua/task/types";
 export * from "@/feature/opcua/task/Write";
@@ -21,6 +23,11 @@ export * from "@/feature/opcua/task/Write";
 export const FORMS: Task.Forms = {
   [READ_TYPE]: Read,
   [WRITE_TYPE]: Write,
+  [EVENT_TYPE]: Event,
 };
 
-export const SELECTABLES: Selector.Selectable[] = [ReadSelectable, WriteSelectable];
+export const SELECTABLES: Selector.Selectable[] = [
+  ReadSelectable,
+  WriteSelectable,
+  EventSelectable,
+];

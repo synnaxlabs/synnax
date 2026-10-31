@@ -15,6 +15,7 @@
 
 #include "driver/common/factory.h"
 #include "driver/common/scan_task.h"
+#include "driver/opcua/event_task.h"
 #include "driver/opcua/opcua.h"
 #include "driver/opcua/read_task.h"
 #include "driver/opcua/scan_task.h"
@@ -51,6 +52,24 @@ std::pair<common::ConfigureResult, x::errors::Error> configure_read(
         ctx,
         retry_config(task.name),
         std::move(s)
+    );
+    return {std::move(result), x::errors::NIL};
+}
+
+std::pair<common::ConfigureResult, x::errors::Error> configure_event(
+    const std::shared_ptr<task::Context> &ctx,
+    const synnax::task::Task &task,
+    const std::shared_ptr<connection::Pool> &pool
+) {
+    common::ConfigureResult result;
+    auto [cfg, err] = EventTaskConfig::parse(ctx->client, task);
+    if (err) return {std::move(result), err};
+    result.auto_start = cfg.auto_start;
+    result.task = std::make_unique<common::ReadTask>(
+        task,
+        ctx,
+        retry_config(task.name),
+        std::make_unique<EventTaskSource>(ctx->client, pool, std::move(cfg))
     );
     return {std::move(result), x::errors::NIL};
 }
@@ -107,6 +126,8 @@ std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
         res = configure_read(ctx, task, conn_pool_);
     else if (task.type == WRITE_TASK_TYPE)
         res = configure_write(ctx, task, conn_pool_);
+    else if (task.type == EVENT_TASK_TYPE)
+        res = configure_event(ctx, task, conn_pool_);
     return common::handle_config_err(ctx, task, std::move(res), cmd_key);
 }
 
