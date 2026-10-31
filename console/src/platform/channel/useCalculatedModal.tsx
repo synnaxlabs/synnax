@@ -87,7 +87,12 @@ const Calculated = ({
       </Modal.Header>
       <Modal.Body justify="start">
         <Form.Form<typeof Channel.calculatedFormSchema> {...form}>
-          <Form.TextField path="name" showLabel={false} inputProps={NAME_INPUT_PROPS} />
+          <Form.TextField
+            path="name"
+            showLabel={false}
+            padHelpText={false}
+            inputProps={NAME_INPUT_PROPS}
+          />
           <Form.Field<string> path="expression" grow>
             {({ value, onChange }) => (
               <Flex.Box grow className={CSS.B("calculated", "editor")}>
