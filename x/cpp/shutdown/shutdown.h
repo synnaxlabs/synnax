@@ -56,7 +56,8 @@ inline void signal_shutdown() {
 /// @brief listens for shutdown signals from SIGINT, SIGTERM, and stdin.
 /// @param sig_enabled whether to listen for SIGINT and SIGTERM signals. Default is
 /// true.
-/// @param stdin_enabled whether to listen for stdin input. Default is true.
+/// @param stdin_enabled whether to listen for stdin input. Default is true. On Windows,
+/// a broken stdin pipe ends the process at once.
 inline void listen(const bool sig_enabled = true, const bool stdin_enabled = true) {
     if (sig_enabled) details::listen_signal();
     if (stdin_enabled) {
