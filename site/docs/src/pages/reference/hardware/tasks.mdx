@@ -306,17 +306,19 @@ list the tasks of another Driver, pass its rack key: `client.tasks.list(rack=key
   <Fragment slot="typescript">
 
 ```typescript
+import { task } from "@synnaxlabs/client";
+
 // Find tasks by name.
-const task = await client.tasks.retrieve({ name: "Tank sensors" });
-const tasks = await client.tasks.retrieve({
-  where: { name: { in: ["Tank sensors", "Tank valves"] } },
-});
+const sensors = await client.tasks.retrieve({ name: "Tank sensors" });
+const tasks = await client.tasks.retrieve(
+  task.name.in(["Tank sensors", "Tank valves"]),
+);
 
 // List the tasks on every Driver.
 for (const t of await client.tasks.list()) console.log(t.name, t.type);
 
 // Copy a task with a new name.
-const copy = await client.tasks.copy(task.key, "Tank sensors copy", false);
+const copy = await client.tasks.copy(sensors.key, "Tank sensors copy", false);
 
 // Delete a task.
 await client.tasks.delete(copy.key);

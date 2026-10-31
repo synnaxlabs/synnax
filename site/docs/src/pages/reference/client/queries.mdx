@@ -1,0 +1,264 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Queries"
+description:
+  "Retrieve channels, ranges, devices, tasks, and other records that match conditions."
+clients: ["python", "typescript"]
+---
+
+import { Divider } from "@synnaxlabs/lyra/divider";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import { mdxOverrides } from "@/components/mdxOverrides";
+export const components = mdxOverrides;
+
+The `retrieve` method of most clients takes a key, a name, or a list of either. To find
+records by other properties, pass conditions. A condition such as
+`channel.name.contains("pressure")` selects the records that match it.
+
+<Divider.Divider x />
+
+## Retrieve by key or name
+
+<Client.Tabs exclude={["console", "cpp"]}>
+
+  <Fragment slot="python">
+
+```python
+pressure = client.channels.retrieve("pressure_1")
+pressure = client.channels.retrieve(pressure.key)
+sensors = client.channels.retrieve(["pressure_1", "pressure_2"])
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const pressure = await client.channels.retrieve("pressure_1");
+const sameChannel = await client.channels.retrieve(pressure.key);
+const sensors = await client.channels.retrieve(["pressure_1", "pressure_2"]);
+```
+
+  </Fragment>
+
+</Client.Tabs>
+
+A key or a name returns one record. The client raises a `NotFoundError` when no record
+matches, and a `MultipleFoundError` when more than one record matches. A list returns a
+list and leaves out the records that do not exist.
+
+Some clients, such as devices and statuses, take only a key. A device key is free text,
+so a name can look like a key. To find a device by name, use a condition.
+
+<Divider.Divider x />
+
+## Conditions
+
+Each record type has a builder module with the same name as its client module, such as
+`channel`, `ranger`, `device`, and `task`. The builder has one line for each property
+you can filter on, and each line has the operators for its type. Pass conditions to
+`retrieve` to get the records that match all of them.
+
+<Client.Tabs exclude={["console", "cpp"]}>
+
+  <Fragment slot="python">
+
+```python
+import synnax as sy
+from synnax import channel
+
+channels = client.channels.retrieve(
+    channel.name.contains("pressure", case_insensitive=True),
+    channel.data_type.eq(sy.DataType.FLOAT32),
+)
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+import { channel, DataType } from "@synnaxlabs/client";
+
+const channels = await client.channels.retrieve(
+  channel.name.contains("pressure", { caseInsensitive: true }),
+  channel.dataType.eq(DataType.FLOAT32),
+);
+```
+
+  </Fragment>
+
+</Client.Tabs>
+
+| Python                   | TypeScript               | Matches                                            |
+| ------------------------ | ------------------------ | -------------------------------------------------- |
+| `eq(value)`              | `eq(value)`              | A value equal to `value`.                          |
+| `in_(values)`            | `in(values)`             | A value equal to one of `values`.                  |
+| `gt`, `gte`, `lt`, `lte` | `gt`, `gte`, `lt`, `lte` | A value greater than or less than the given value. |
+| `contains(text)`         | `contains(text)`         | Text that holds `text`.                            |
+| `starts_with(text)`      | `startsWith(text)`       | Text that begins with `text`.                      |
+| `regex(pattern)`         | `regex(pattern)`         | Text that the RE2 `pattern` matches anywhere.      |
+| `has(value)`             | `has(value)`             | A list that holds `value`.                         |
+| `has_any(values)`        | `hasAny(values)`         | A list that holds one of `values`.                 |
+
+Text operators match case exactly. To ignore case, pass `case_insensitive=True` in
+Python or `{ caseInsensitive: true }` in TypeScript. Some lines are functions instead,
+such as `ranger.overlaps(time_range)`, which matches the ranges that overlap a time
+range.
+
+The type checker rejects a condition passed to the wrong client. A range condition
+passed to `client.channels.retrieve` fails in your editor, not when the code runs.
+
+<Divider.Divider x />
+
+## Combine conditions
+
+Use `or`, `and`, and `not` to nest conditions. Python spells them `or_`, `and_`, and
+`not_`, and also takes the `|`, `&`, and `~` operators.
+
+<Client.Tabs exclude={["console", "cpp"]}>
+
+  <Fragment slot="python">
+
+```python
+from synnax import ranger
+
+now = sy.TimeStamp.now()
+last_week = sy.TimeRange(now - sy.TimeSpan.DAY * 7, now)
+ranges = client.ranges.retrieve(
+    ranger.name.starts_with("Hotfire") | ranger.name.starts_with("Static Fire"),
+    ~ranger.name.contains("Aborted"),
+    ranger.overlaps(last_week),
+)
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+import { ranger, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/client";
+
+const now = TimeStamp.now();
+const lastWeek = new TimeRange(now.sub(TimeSpan.days(7)), now);
+const ranges = await client.ranges.retrieve(
+  ranger.or(ranger.name.startsWith("Hotfire"), ranger.name.startsWith("Static Fire")),
+  ranger.not(ranger.name.contains("Aborted")),
+  ranger.overlaps(lastWeek),
+);
+```
+
+  </Fragment>
+
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Options
+
+Options set how many records come back and what each record includes. Python takes them
+as keyword arguments. TypeScript takes them from the builder, next to the conditions.
+
+<Client.Tabs exclude={["console", "cpp"]}>
+
+  <Fragment slot="python">
+
+```python
+channels = client.channels.retrieve(
+    channel.name.starts_with("pressure"), limit=20, offset=20, include_status=True
+)
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const channels = await client.channels.retrieve(
+  channel.name.startsWith("pressure"),
+  channel.limit(20),
+  channel.offset(20),
+  channel.includeStatus(),
+);
+```
+
+  </Fragment>
+
+</Client.Tabs>
+
+- `limit` -> returns at most this many records.
+- `offset` -> skips this many matching records.
+- `search_term` in Python, `search` in TypeScript -> keeps the records that match a
+  search term, closest match first.
+- `include_*` in Python, `include*` in TypeScript -> fills in related data on each
+  record, such as the status of a channel.
+
+<Divider.Divider x />
+
+## Retrieve one record
+
+To get one record instead of a list, pass `one=True` in Python or the builder's `one()`
+in TypeScript, after every other argument. The client raises a `NotFoundError` when no
+record matches, and a `MultipleFoundError` when more than one record matches. The check
+counts only the records left after `limit` and `offset`, so leave both out to make sure
+that exactly one record matches.
+
+<Client.Tabs exclude={["console", "cpp"]}>
+
+  <Fragment slot="python">
+
+```python
+from synnax import task
+
+read_task = client.tasks.retrieve(
+    task.type.eq("ni_analog_read"), task.rack.eq(rack.key), one=True
+)
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+import { task } from "@synnaxlabs/client";
+
+const readTask = await client.tasks.retrieve(
+  task.type.eq("ni_analog_read"),
+  task.rack.eq(rack.key),
+  task.one(),
+);
+```
+
+  </Fragment>
+
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Stored filters
+
+A filter can be stored as data, such as the filter of a saved view. `where` turns a
+stored filter into a condition.
+
+<Client.Tabs exclude={["console", "cpp"]}>
+
+  <Fragment slot="python">
+
+```python
+stored = ranger.Where(name=sy.filter.String(starts_with="Hotfire"))
+ranges = client.ranges.retrieve(ranger.where(stored), limit=20)
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const stored: ranger.Where = { name: { startsWith: "Hotfire" } };
+const ranges = await client.ranges.retrieve(ranger.where(stored), ranger.limit(20));
+```
+
+  </Fragment>
+
+</Client.Tabs>

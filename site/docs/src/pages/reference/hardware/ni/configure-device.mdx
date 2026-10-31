@@ -87,8 +87,10 @@ Configure devices in the Console.
 Find the NI devices that the Driver found:
 
 ```typescript
-const devices = await client.devices.retrieve({ where: { make: { eq: "NI" } } });
-for (const dev of devices) console.log(dev.key, dev.name, dev.model, dev.location);
+import { device } from "@synnaxlabs/client";
+
+for (const dev of await client.devices.retrieve(device.make.eq("NI")))
+  console.log(dev.key, dev.name, dev.model, dev.location);
 ```
 
 Configure devices in the Console.
