@@ -93,29 +93,28 @@ Client::retrieve(const RetrieveRequest &req) const {
     return {std::move(decoded.channels), x::errors::NIL};
 }
 
-std::pair<Channel, x::errors::Error> Client::retrieve(const Key key) const {
-    auto [channels, err] = this->retrieve(
-        RetrieveRequest{.where = Where{.key = x::filter::Set<Key>{.eq = key}}}
-    );
+std::pair<Channel, x::errors::Error>
+Client::retrieve_one(const RetrieveRequest &req, const std::string &query) const {
+    auto [channels, err] = this->retrieve(req);
     if (err) return {Channel{}, err};
-    if (channels.empty())
-        return {
-            Channel{},
-            errors::not_found_error("channel", "key " + std::to_string(key))
-        };
+    if (channels.empty()) return {Channel{}, errors::not_found_error("channel", query)};
+    if (channels.size() > 1)
+        return {Channel{}, errors::multiple_found_error("channels", query)};
     return {std::move(channels[0]), x::errors::NIL};
 }
 
-std::pair<Channel, x::errors::Error> Client::retrieve(const std::string &name) const {
-    auto [channels, err] = this->retrieve(
-        RetrieveRequest{.where = Where{.name_patterns = std::vector{name}}}
+std::pair<Channel, x::errors::Error> Client::retrieve(const Key key) const {
+    return this->retrieve_one(
+        {.where = Where{.key = x::filter::Set<Key>{.eq = key}}},
+        "key " + std::to_string(key)
     );
-    if (err) return {Channel{}, err};
-    if (channels.empty())
-        return {Channel{}, errors::not_found_error("channel", "name " + name)};
-    if (channels.size() > 1)
-        return {Channel{}, errors::multiple_found_error("channels", "name " + name)};
-    return {std::move(channels[0]), x::errors::NIL};
+}
+
+std::pair<Channel, x::errors::Error> Client::retrieve(const std::string &name) const {
+    return this->retrieve_one(
+        {.where = Where{.name_patterns = std::vector{name}}},
+        "name " + name
+    );
 }
 
 std::pair<std::vector<Channel>, x::errors::Error>

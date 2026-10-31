@@ -16,6 +16,7 @@
 #include <vector>
 
 #include "client/cpp/status/status.h"
+#include "client/cpp/task/builder.gen.h"
 #include "client/cpp/task/json.gen.h"
 #include "client/cpp/task/proto.gen.h"
 #include "client/cpp/task/types.gen.h"
@@ -181,6 +182,22 @@ public:
     [[nodiscard]]
     std::pair<std::vector<Task>, x::errors::Error>
     retrieve(const RetrieveRequest &req) const;
+
+    /// @brief Retrieves the tasks that match every condition in parts, on this client's
+    /// rack when it has one, with each option in parts applied.
+    /// @returns the tasks, or one task when parts end with task::one(). One task is an
+    /// error when no task or more than one task matches.
+    template<typename... Parts>
+        requires x::filter::parts<Where, RetrieveRequest, Parts...>
+    [[nodiscard]] auto retrieve(Parts... parts) const {
+        const auto req = x::filter::request<Where, RetrieveRequest>(
+            std::move(parts)...
+        );
+        if constexpr (x::filter::returns_one<Parts...>)
+            return this->retrieve_one(req, x::filter::describe(req.where));
+        else
+            return this->retrieve(req);
+    }
 
     /// @brief Deletes a task by its key.
     /// @param key The key of the task to delete.

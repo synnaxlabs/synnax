@@ -59,6 +59,7 @@ cc_test(
         "telem_test.cpp",
     ],
     deps = [
+        "//x/cpp/json",
         "//x/cpp/loop",
         "//x/cpp/pb",
         "//x/cpp/telem",

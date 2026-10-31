@@ -306,6 +306,52 @@ TEST(TestChannel, testRetrieveWhere) {
     ASSERT_EQ(limited.size(), 2);
 }
 
+/// @brief it should retrieve the channels that match every condition.
+TEST(TestChannel, testRetrieveConditions) {
+    const auto client = new_test_client();
+    const auto a = create_virtual_channel(client, x::telem::FLOAT64_T);
+    const auto b = create_virtual_channel(client, x::telem::FLOAT64_T);
+    const auto c = create_virtual_channel(client, x::telem::UINT8_T);
+    const auto channels = ASSERT_NIL_P(client.channels.retrieve(
+        channel::key.in({a.key, b.key, c.key}),
+        channel::data_type.eq(x::telem::FLOAT64_T),
+        channel::virtual_.eq(true),
+        !channel::key.eq(b.key)
+    ));
+    ASSERT_EQ(keys_from_channels(channels), std::vector<Key>({a.key}));
+}
+
+/// @brief it should apply the limit and offset options.
+TEST(TestChannel, testRetrieveLimitOffset) {
+    const auto client = new_test_client();
+    const auto a = create_virtual_channel(client);
+    const auto b = create_virtual_channel(client);
+    const auto c = create_virtual_channel(client);
+    const auto keys = std::vector<Key>{a.key, b.key, c.key};
+    const auto all = ASSERT_NIL_P(client.channels.retrieve(channel::key.in(keys)));
+    const auto page = ASSERT_NIL_P(client.channels.retrieve(
+        channel::key.in(keys),
+        channel::limit(1),
+        channel::offset(1)
+    ));
+    ASSERT_EQ(keys_from_channels(page), std::vector<Key>({all[1].key}));
+}
+
+/// @brief it should reject one when no channel matches.
+TEST(TestChannel, testRetrieveOneNotFound) {
+    const auto client = new_test_client();
+    const auto [ch, err] = client.channels.retrieve(
+        channel::name.eq("not_a_channel_name_in_any_cluster"),
+        channel::one()
+    );
+    ASSERT_MATCHES(err, x::errors::NOT_FOUND);
+    ASSERT_EQ(
+        err.data,
+        R"(channel matching filter {"name":{"case_insensitive":false,)"
+        R"("eq":"not_a_channel_name_in_any_cluster"}} not found.)"
+    );
+}
+
 /// @brief it should convert a channel key to an ontology ID
 TEST(TestChannel, testOntologyId) {
     constexpr Key key = 42;

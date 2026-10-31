@@ -175,6 +175,85 @@ TEST(TaskTests, testRetrieveWhere) {
     );
 }
 
+/// @brief it should retrieve the tasks on the client's rack that match every condition.
+TEST(TaskTests, testRetrieveConditions) {
+    const auto client = new_test_client();
+    auto r = rack::Rack{.name = "test_rack"};
+    ASSERT_NIL(client.racks.create(r));
+    std::vector<Task> tasks;
+    for (const auto *name: {"cond_a", "cond_b", "other"}) {
+        auto t = Task{
+            .name = name,
+            .type = "pagerduty_alert",
+            .config = {{"routing_key", "rk"}}
+        };
+        ASSERT_NIL(r.tasks.create(t));
+        tasks.push_back(t);
+    }
+    const auto retrieved = ASSERT_NIL_P(r.tasks.retrieve(
+        task::name.starts_with("COND_", {.case_insensitive = true}) ||
+            task::key.eq(tasks[2].key),
+        !task::name.eq("cond_b")
+    ));
+    std::set<std::string> keys;
+    for (const auto &t: retrieved)
+        keys.insert(t.key.to_string());
+    ASSERT_EQ(
+        keys,
+        (std::set<std::string>{tasks[0].key.to_string(), tasks[2].key.to_string()})
+    );
+}
+
+/// @brief it should retrieve one task with each include option applied.
+TEST(TaskTests, testRetrieveOne) {
+    const auto client = new_test_client();
+    auto r = rack::Rack{.name = "test_rack"};
+    ASSERT_NIL(client.racks.create(r));
+    auto t = Task{
+        .name = "one_task",
+        .type = "pagerduty_alert",
+        .config = {{"routing_key", "rk"}},
+        .status = Status{
+            .key = "task-status-one",
+            .variant = synnax::status::VARIANT_WARNING,
+            .message = "Task warning",
+            .time = x::telem::TimeStamp::now()
+        }
+    };
+    ASSERT_NIL(r.tasks.create(t));
+    const auto retrieved = ASSERT_NIL_P(
+        r.tasks.retrieve(task::name.eq("one_task"), task::include_status(), task::one())
+    );
+    ASSERT_EQ(retrieved.key, t.key);
+    ASSERT_TRUE(retrieved.status.has_value());
+    ASSERT_EQ(retrieved.status.value().message, "Task warning");
+}
+
+/// @brief it should reject one when more than one task matches.
+TEST(TaskTests, testRetrieveOneMultipleFound) {
+    const auto client = new_test_client();
+    auto r = rack::Rack{.name = "test_rack"};
+    ASSERT_NIL(client.racks.create(r));
+    for (const auto *name: {"first", "second"}) {
+        auto t = Task{
+            .name = name,
+            .type = "pagerduty_alert",
+            .config = {{"routing_key", "rk"}}
+        };
+        ASSERT_NIL(r.tasks.create(t));
+    }
+    const auto [t, err] = r.tasks.retrieve(
+        task::type.eq("pagerduty_alert"),
+        task::one()
+    );
+    ASSERT_MATCHES(err, x::errors::MULTIPLE_RESULTS);
+    ASSERT_EQ(
+        err.data,
+        R"(Multiple tasks matching filter {"type":{"case_insensitive":false,)"
+        R"("eq":"pagerduty_alert"}} found.)"
+    );
+}
+
 /// @brief it should correctly delete a task from the rack.
 TEST(TaskTests, testDeleteTask) {
     const auto client = new_test_client();

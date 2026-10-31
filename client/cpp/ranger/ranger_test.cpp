@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <random>
+#include <set>
 #include <string>
 
 #include <include/gtest/gtest.h>
@@ -194,6 +195,59 @@ TEST(RangerTests, testRetrieveWhere) {
     ));
     ASSERT_EQ(got.size(), 1);
     ASSERT_EQ(got[0].key, a.key);
+}
+
+/// @brief it should retrieve the ranges that match every condition.
+TEST(RangerTests, testRetrieveConditions) {
+    const auto client = new_test_client();
+    const auto rand_name = std::to_string(gen_rand());
+    const auto a = ASSERT_NIL_P(client.ranges.create(
+        rand_name + "_a",
+        x::telem::TimeRange(x::telem::TimeStamp(10), x::telem::TimeStamp(100))
+    ));
+    ASSERT_NIL_P(client.ranges.create(
+        rand_name + "_b",
+        x::telem::TimeRange(x::telem::TimeStamp(200), x::telem::TimeStamp(300))
+    ));
+    const auto c = ASSERT_NIL_P(client.ranges.create(
+        rand_name + "_c",
+        x::telem::TimeRange(x::telem::TimeStamp(50), x::telem::TimeStamp(150))
+    ));
+    const auto got = ASSERT_NIL_P(client.ranges.retrieve(
+        ranger::name.starts_with(rand_name),
+        ranger::overlaps(
+            x::telem::TimeRange(x::telem::TimeStamp(0), x::telem::TimeStamp(120))
+        ),
+        !ranger::labels.has(x::uuid::create()),
+        ranger::limit(10)
+    ));
+    std::set<std::string> keys;
+    for (const auto &r: got)
+        keys.insert(r.key.to_string());
+    ASSERT_EQ(keys, (std::set<std::string>{a.key.to_string(), c.key.to_string()}));
+}
+
+/// @brief it should reject one when more than one range matches.
+TEST(RangerTests, testRetrieveOneMultipleFound) {
+    const auto client = new_test_client();
+    const auto rand_name = std::to_string(gen_rand());
+    const auto tr = x::telem::TimeRange(
+        x::telem::TimeStamp(10),
+        x::telem::TimeStamp(100)
+    );
+    ASSERT_NIL_P(client.ranges.create(rand_name + "_a", tr));
+    ASSERT_NIL_P(client.ranges.create(rand_name + "_b", tr));
+    const auto [r, err] = client.ranges.retrieve(
+        ranger::name.starts_with(rand_name),
+        ranger::one()
+    );
+    ASSERT_MATCHES(err, x::errors::MULTIPLE_RESULTS);
+    ASSERT_EQ(
+        err.data,
+        R"(Multiple ranges matching filter {"name":{"case_insensitive":false,)"
+        R"("starts_with":")" +
+            rand_name + R"("}} found.)"
+    );
 }
 
 /// @brief it should set a key-value pair on the range.
