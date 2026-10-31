@@ -37,8 +37,17 @@ ResourceType enum {
     task             = "task"
     user             = "user"
     view             = "view"
+    ethercat_master  = "ethercat_master"
+    ethercat_slave   = "ethercat_slave"
+    http_server      = "http_server"
+    labjack_device   = "labjack_device"
+    modbus_server    = "modbus_server"
+    ni_chassis       = "ni_chassis"
+    ni_device        = "ni_device"
+    opcua_server     = "opcua_server"
 
     @doc value "is the type of the resource."
+    @pb
 }
 
 RelationshipType string {
