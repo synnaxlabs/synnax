@@ -80,13 +80,9 @@ export const useAxis = Scope.bindHook(
   createSelector<lineplot.Axis, AxisParams>(({ axes }, { axisKey }) => axes[axisKey]),
 );
 
-// RawDerivedLine is a stored line enriched with its decoded identity (axis,
-// range, and channel keys parsed from Line.key). Its color may be unset.
-export interface RawDerivedLine extends lineplot.Line, lineplot.LineKeyParts {}
-
-// DerivedLine is a RawDerivedLine with its render color resolved to a concrete
-// palette color, ready for the chart and toolbar to consume directly.
-export interface DerivedLine extends Omit<RawDerivedLine, "color">, ResolvedColor {
+// DerivedLine is a stored line with its render color resolved to a concrete palette
+// color, ready for the chart and toolbar to consume directly.
+export interface DerivedLine extends Omit<lineplot.Line, "color">, ResolvedColor {
   // isDefaultLabel reports whether label is derived from the channel name rather
   // than a stored user override. The toolbar uses it to offer a reset affordance.
   isDefaultLabel: boolean;
@@ -118,16 +114,8 @@ const resolveColor = (
 
 const useStoredLines = createSelector(({ lines }) => lines);
 
-// useRawLines selects the plot's stored lines enriched with their decoded
-// identity, memoized on the stored lines reference so it only re-derives when
-// the lines actually change.
-const useRawLines = (params: KeyParams): RawDerivedLine[] => {
-  const lines = useStoredLines(params);
-  return lines.map((l) => ({ ...l, ...lineplot.parseLineKey(l.key) }));
-};
-
 const useLinesBase = (params: KeyParams): DerivedLine[] => {
-  const lines = useRawLines(params);
+  const lines = useStoredLines(params);
   const palette = Theming.use().colors.visualization.palettes.default;
   return lines.map(({ color, ...line }, i) => ({
     ...line,
@@ -136,10 +124,10 @@ const useLinesBase = (params: KeyParams): DerivedLine[] => {
   }));
 };
 
-// useLines returns the plot's lines, each enriched with its decoded
-// identity and its render color resolved from the active palette (a line with
-// no stored color is assigned one by its position). Lines are materialized
-// eagerly by the reducer, so this is the complete set of plotted lines.
+// useLines returns the plot's lines, each with its render color resolved from the
+// active palette (a line with no stored color is assigned one by its position).
+// Lines are materialized eagerly by the reducer, so this is the complete set of
+// styled lines.
 export const useLines = Scope.bindHook(useLinesBase);
 
 export const useLineKeys = Scope.bindHook(
@@ -172,17 +160,6 @@ export const useXAxisChannel = Scope.bindHook(
   createSelector<lineplot.Channels[lineplot.XAxisKey], XAxisParams>(
     ({ channels }, { axisKey }) => channels[axisKey],
   ),
-);
-
-export const useXAxisRanges = Scope.bindHook(
-  createSelector<lineplot.Ranges[lineplot.XAxisKey], XAxisParams>(
-    ({ ranges }, { axisKey }) => ranges[axisKey],
-    compare.arraysEqual,
-  ),
-);
-
-export const useCustomRange = Scope.bindHook(
-  createSelector(({ ranges }) => ranges.custom),
 );
 
 interface XAxisBaseReturn {
@@ -228,9 +205,7 @@ interface YAxisReturn {
 export const useYAxis = Scope.bindHook(
   createSelector<YAxisReturn, YAxisParams>(
     ({ axes, channels, lines }, { axisKey }) => {
-      const lineKeys = lines
-        .filter((l) => lineplot.parseLineKey(l.key).yAxis === axisKey)
-        .map((l) => l.key);
+      const lineKeys = lines.filter((l) => l.yAxis === axisKey).map((l) => l.key);
       return { axis: axes[axisKey], channels: channels[axisKey], lineKeys };
     },
     (a, b) =>
@@ -266,22 +241,21 @@ const useRawLine = createSelector<RawLine, LineParams>(
 const useLineBase = (params: LineParams): require.Require<DerivedLine, "label"> => {
   const raw = useRawLine(params);
   const palette = Theming.use().colors.visualization.palettes.default;
-  const { yChannel } = lineplot.parseLineKey(raw.line.key);
+  const { yChannel } = raw.line;
   const { data: chanName } = Channel.useResultName(
     yChannel > 0 ? { key: yChannel } : null,
   );
   return {
     ...raw.line,
-    ...lineplot.parseLineKey(raw.line.key),
     ...resolveColor(raw.line.color, raw.index, palette),
     label: raw.line.label ?? chanName ?? "",
     isDefaultLabel: raw.line.label == null,
   };
 };
 
-// useLine returns a single line, enriched with its identity and its color
-// resolved by position the same way as useLines, subscribing narrowly so
-// it re-renders only when that line, its position, or the palette changes.
+// useLine returns a single line with its color resolved by position the same way as
+// useLines, subscribing narrowly so it re-renders only when that line, its position,
+// or the palette changes.
 export const useLine = Scope.bindHook(useLineBase);
 
 // DerivedRule is a stored rule with its render color resolved to a concrete

@@ -647,7 +647,7 @@ func processStruct(
 	}
 
 	// Handle struct extension with Pydantic inheritance (supports multiple parents)
-	if len(form.Extends) > 0 {
+	if len(form.Extends) > 0 && resolver.ParentsExist(form.Extends, "py", table) {
 		allParentsValid := true
 		for _, extendsRef := range form.Extends {
 			parent, ok := extendsRef.Resolve(table)

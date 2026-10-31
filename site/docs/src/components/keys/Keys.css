@@ -1,0 +1,27 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.docs-keys__mac,
+.docs-keys__pc {
+    display: inline-flex;
+}
+
+/* An unmarked page shows the macOS keys, the same as Lyra's default. */
+:root:not([data-os="Windows"], [data-os="Linux"]) .docs-keys__pc,
+:root:is([data-os="Windows"], [data-os="Linux"]) .docs-keys__mac {
+    display: none;
+}
+
+/* In running text, the chip follows the size of the words around it. */
+:is(p, li, td) > .docs-keys {
+    --pluto-keycap-height: 1.375em;
+    --pluto-keycap-font-size: 0.8125em;
+}

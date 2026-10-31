@@ -17,7 +17,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
@@ -34,9 +35,9 @@ import (
 	v2 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/task/versions/v3"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 var _ = Describe("Migrations", func() {
@@ -64,8 +65,9 @@ var _ = Describe("Migrations", func() {
 				DB:           db,
 				Ontology:     otg,
 				Group:        g,
-				HostProvider: mock.NewStaticHostProvider(1),
+				HostProvider: testutil.NewStaticHostProvider(1),
 				Status:       stat,
+				DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
 			}))
 
 			testRack := &rack.Rack{Name: "Migration Test Rack"}
@@ -181,8 +183,9 @@ var _ = Describe("Migrations", func() {
 				DB:           db,
 				Ontology:     otg,
 				Group:        g,
-				HostProvider: mock.NewStaticHostProvider(1),
+				HostProvider: testutil.NewStaticHostProvider(1),
 				Status:       stat,
+				DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
 			}))
 			testRack := &rack.Rack{Name: "Decompose Test Rack"}
 			Expect(rackSvc.NewWriter(nil).Create(ctx, testRack)).To(Succeed())

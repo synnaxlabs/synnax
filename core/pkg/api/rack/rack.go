@@ -11,6 +11,7 @@ package rack
 
 import (
 	"context"
+	"slices"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
@@ -25,6 +26,8 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -128,17 +131,64 @@ func (s *Service) Create(
 	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionCreate,
-		Objects: []ontology.ID{{Type: ontology.ResourceTypeRack}},
-	}); err != nil {
+	if err := s.enforceCreate(ctx, tx, req.Racks); err != nil {
 		return CreateResponse{}, err
 	}
 	if err := s.rack.NewWriter(tx).CreateMany(ctx, &req.Racks); err != nil {
 		return CreateResponse{}, err
 	}
 	return CreateResponse(req), nil
+}
+
+// enforceCreate requires the update action on each rack that already exists, and the
+// create action when any rack is new, so a subject that may only update racks can
+// still save its own.
+func (s *Service) enforceCreate(
+	ctx context.Context,
+	tx gorp.Tx,
+	racks []rack.Rack,
+) error {
+	keys := make([]rack.Key, 0, len(racks))
+	for _, r := range racks {
+		if !r.Key.IsZero() {
+			keys = append(keys, r.Key)
+		}
+	}
+	var existing []rack.Rack
+	if len(keys) > 0 {
+		if err := s.rack.NewRetrieve().
+			Where(rack.MatchKeys(keys...)).
+			Entries(&existing).
+			Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
+			return err
+		}
+	}
+	enforcer := s.access.NewEnforcer(tx)
+	subject := auth.GetSubject(ctx)
+	if len(existing) > 0 {
+		if err := enforcer.Enforce(ctx, access.Request{
+			Subject: subject,
+			Action:  access.ActionUpdate,
+			Objects: rack.OntologyIDsFromRacks(existing),
+		}); err != nil {
+			return err
+		}
+	}
+	found := make(set.Set[rack.Key], len(existing))
+	for _, r := range existing {
+		found.Add(r.Key)
+	}
+	if !slices.ContainsFunc(
+		racks,
+		func(r rack.Rack) bool { return !found.Contains(r.Key) },
+	) {
+		return nil
+	}
+	return enforcer.Enforce(ctx, access.Request{
+		Subject: subject,
+		Action:  access.ActionCreate,
+		Objects: []ontology.ID{{Type: ontology.ResourceTypeRack}},
+	})
 }
 
 func (s *Service) Retrieve(
