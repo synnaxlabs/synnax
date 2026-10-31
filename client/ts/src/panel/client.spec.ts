@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id } from "@synnaxlabs/x";
+import { id, uuid } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { type ontology } from "@/ontology";
@@ -61,6 +61,42 @@ describe("Panel Client", () => {
         client.panels.rename(pan.key, "renamed", { onOptimistic: fail }),
       ).rejects.toBe(WRITE_FAILED);
       expect(expectLive(client.ontology.getCached(panelID)).name).toEqual(pan.name);
+    });
+  });
+
+  describe("create", () => {
+    const createTab = () => panel.tabZ.parse({ variant: "view", type: "test" });
+
+    it("should send a dispatch made during the create after the create", async () => {
+      const key = uuid.create();
+      const tab = createTab();
+      const created = client.panels.create({
+        key,
+        name: `panel-${id.create()}`,
+        parent,
+      });
+      const dispatched = client.panels.dispatch(key, panel.insertTabs({ tabs: [tab] }));
+      await created;
+      expect(await dispatched).toBe(true);
+      const cached = expectLive(client.panels.getCached(key));
+      expect(panel.findTab(cached.root, tab.key)).toBeDefined();
+      const stored = await createTestClient().panels.retrieve(key);
+      expect(panel.findTab(stored.root, tab.key)).toBeDefined();
+    });
+
+    it("should carry a dispatch made inside onOptimistic in the create", async () => {
+      const key = uuid.create();
+      const tab = createTab();
+      await client.panels.create(
+        { key, name: `panel-${id.create()}`, parent },
+        {
+          onOptimistic: async () => {
+            await client.panels.dispatch(key, panel.insertTabs({ tabs: [tab] }));
+          },
+        },
+      );
+      const stored = await createTestClient().panels.retrieve(key);
+      expect(panel.findTab(stored.root, tab.key)).toBeDefined();
     });
   });
 });

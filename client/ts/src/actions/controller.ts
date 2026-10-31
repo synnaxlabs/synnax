@@ -20,7 +20,7 @@ import {
 import type z from "zod";
 
 import { type query } from "@/query";
-import { Table } from "@/query/table";
+import { type Keyed, Table } from "@/query/table";
 
 const DEFAULT_COALESCE_WINDOW = TimeSpan.milliseconds(500);
 const DEFAULT_STACK_CAP = 200;
@@ -197,6 +197,14 @@ export interface ControllerParams<
   now?: () => TimeStamp;
 }
 
+/** Arguments to {@link Controller.create}. */
+export interface CreateParams<State extends query.Data, R> {
+  /** Runs once the docs are cached, before send. */
+  onCached?: () => Promise<void> | void;
+  /** Creates the given docs on the Core. */
+  send: (docs: State[]) => Promise<R>;
+}
+
 /** A local edit waiting on its send. */
 export interface Edit {
   /** Reverts the edit. */
@@ -279,6 +287,8 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
   // in flight. A key is present while its send is in flight, and holds the batch
   // queued behind it.
   private readonly queues = new Map<Key, Queue<Action>>();
+  // Keys whose create is not sent yet, each to the edits that go out with the create.
+  private readonly unsent = new Map<Key, Array<Pending<Action>>>();
 
   constructor(opts: ControllerParams<Key, State, Action>) {
     this.params = {
@@ -328,7 +338,58 @@ export class Controller<Key extends record.Key, State extends query.Data, Action
     await this.enqueue(key, pending(edit.rollback));
   }
 
+  /**
+   * Caches docs, runs onCached, then runs send to create the docs on the Core. send
+   * receives the cached docs, so it carries every edit dispatched to them before it
+   * runs, and those dispatches resolve at once. Later dispatches wait for send to
+   * settle, then go out in order.
+   * @throws the error from onCached or send. Every edit to the docs then rolls back,
+   * the cache returns to its prior state, and the waiting dispatches reject with the
+   * same error.
+   */
+  async create<R>(
+    docs: Array<Keyed<Key, State>>,
+    { onCached, send }: CreateParams<State, R>,
+  ): Promise<R> {
+    const carried: Array<Pending<Action>> = [];
+    const queues = docs.map(({ key }) => {
+      const queue: Queue<Action> = { next: null };
+      this.queues.set(key, queue);
+      this.unsent.set(key, carried);
+      return { key, queue };
+    });
+    const rollback = this.docs.set(docs);
+    try {
+      try {
+        await onCached?.();
+      } finally {
+        queues.forEach(({ key }) => this.unsent.delete(key));
+      }
+      const res = await send(docs.map((doc) => this.docs.get(doc.key) ?? doc));
+      queues.forEach(({ key, queue }) => void this.drain(key, queue));
+      return res;
+    } catch (e) {
+      const err = errors.fromUnknown(e);
+      queues.forEach(({ key, queue }) => {
+        this.queues.delete(key);
+        const batch = queue.next;
+        if (batch == null) return;
+        this.outstandingDispatches.get(key)?.delete(batch.dispatchKey);
+        revert(batch);
+        batch.result.reject(err);
+      });
+      carried.toReversed().forEach((edit) => edit.rollback());
+      rollback();
+      throw err;
+    }
+  }
+
   private async enqueue(key: Key, edit: Pending<Action>): Promise<void> {
+    const carried = this.unsent.get(key);
+    if (carried != null) {
+      carried.push(edit);
+      return;
+    }
     let queue = this.queues.get(key);
     const inFlight = queue != null;
     if (queue == null) {

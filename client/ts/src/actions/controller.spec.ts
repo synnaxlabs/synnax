@@ -765,6 +765,78 @@ describe("actions.Controller", () => {
     });
   });
 
+  describe("create", () => {
+    const set = (key: string, value: number): Action => ({ type: "set", key, value });
+
+    it("sends a dispatch made during the create after the create", async () => {
+      const { docs, controller, send } = setupStore();
+      const created = Promise.withResolvers<void>();
+      const sending = Promise.withResolvers<void>();
+      const done = controller.create([{ key: "k", values: { a: 0 } }], {
+        send: async () => {
+          sending.resolve();
+          await created.promise;
+        },
+      });
+      await sending.promise;
+      const dispatched = controller.dispatch("k", [set("a", 1)]);
+      expect(docs.get("k")?.values).toEqual({ a: 1 });
+      expect(send).not.toHaveBeenCalled();
+      created.resolve();
+      await done;
+      expect(await dispatched).toBe(true);
+      expect(send.mock.calls[0][1]).toEqual([set("a", 1)]);
+    });
+
+    it("rejects a dispatch made during a failed create and uncaches the doc", async () => {
+      const { docs, controller, send } = setupStore();
+      const created = Promise.withResolvers<void>();
+      const sending = Promise.withResolvers<void>();
+      const done = controller.create([{ key: "k", values: { a: 0 } }], {
+        send: async () => {
+          sending.resolve();
+          await created.promise;
+        },
+      });
+      await sending.promise;
+      const dispatched = controller.dispatch("k", [set("a", 1)]);
+      created.reject(new Error("create failed"));
+      await expect(done).rejects.toThrow("create failed");
+      await expect(dispatched).rejects.toThrow("create failed");
+      expect(send).not.toHaveBeenCalled();
+      expect(docs.get("k")).toBeUndefined();
+      expect(controller.hasUndo("k")).toBe(false);
+    });
+    it("rolls back an edit made before a failed create over a cached doc", async () => {
+      const { docs, controller } = setupStore();
+      prime(docs, "k", { a: 0 });
+      const done = controller.create([{ key: "k", values: { a: 5 } }], {
+        send: async () => {
+          throw new Error("create failed");
+        },
+      });
+      expect(await controller.dispatch("k", [set("a", 1)])).toBe(true);
+      await expect(done).rejects.toThrow("create failed");
+      expect(docs.get("k")?.values).toEqual({ a: 0 });
+      expect(await controller.undo("k")).toBe(false);
+      expect(docs.get("k")?.values).toEqual({ a: 0 });
+    });
+
+    it("carries a dispatch made inside onCached in the create", async () => {
+      const { docs, controller, send } = setupStore();
+      const create = vi.fn(async (_: Doc[]) => {});
+      await controller.create([{ key: "k", values: { a: 0 } }], {
+        onCached: async () => {
+          expect(await controller.dispatch("k", [set("a", 1)])).toBe(true);
+        },
+        send: create,
+      });
+      expect(create.mock.calls[0][0].map(({ values }) => values)).toEqual([{ a: 1 }]);
+      expect(send).not.toHaveBeenCalled();
+      expect(docs.get("k")?.values).toEqual({ a: 1 });
+    });
+  });
+
   describe("transaction", () => {
     it("accumulates and commits as a single undoable", async () => {
       const { docs, controller, send } = setupStore();
