@@ -67,11 +67,11 @@ const getOwner = (rules: Rules, key: status.Key): Owner | null => {
 };
 
 // Without a since, every problem on a key has one identity.
-const identify = ({ key, since }: status.Status): string =>
-  JSON.stringify([key, since?.valueOf().toString() ?? null]);
+const identify = ({ since }: status.Status): string =>
+  since?.valueOf().toString() ?? "";
 
 interface Problem {
-  /** The key and since of the problem. */
+  /** The since of the problem. */
   identity: string;
   /** The latest bad status of the problem. */
   status: status.Status;
@@ -223,7 +223,7 @@ const createForwarder = ({
       problem.open = false;
       if (problem.decision === "waiting") clearTimeout(problem.timer);
     }
-    // A reply answers one command, so it is no part of a problem.
+    // A reply answers one command, so it is not part of a problem.
     if (kind === "reply") {
       if (!ROUTINE_VARIANTS.includes(stat.variant)) add(stat);
       return;
@@ -237,7 +237,6 @@ const createForwarder = ({
   };
 
   const run = (event: () => void): void => {
-    if (stopped) return;
     if (held == null) event();
     else held.push(event);
   };
