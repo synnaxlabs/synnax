@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type status } from "@synnaxlabs/client";
 import { theme } from "@synnaxlabs/lyra/theme";
 import {
   border,
@@ -108,10 +109,8 @@ export class Value
     i.stopListening?.();
     i.stopListening = i.telem.onChange(() => {
       i.staleness.received();
-      this.syncProblems();
       this.requestRender();
     });
-    this.syncProblems();
     i.fontString = theme.fontString(i.theme, { level: this.state.level, code: true });
     i.backgroundTelem = telem.useSource(
       ctx,
@@ -136,8 +135,8 @@ export class Value
     else i.requestRender("layout");
   }
 
-  private syncProblems(): void {
-    const problems = problem.fromStatus(this.internal.telem.value().status);
+  private syncProblems(stat: status.Status): void {
+    const problems = problem.fromStatus(stat);
     if (deep.equal(problems, this.state.problems)) return;
     this.setState((p) => ({ ...p, problems }));
   }
@@ -190,12 +189,14 @@ export class Value
     const { renderCtx, telem, backgroundTelem, fontString, requestRender } =
       this.internal;
     const { location, box: b } = this.state;
+    const { data, status: stat } = telem.value();
+    this.syncProblems(stat);
     if (box.areaIsZero(b)) return;
     const bTopLeft = box.topLeft(b);
     const bWidth = box.width(b);
     const bHeight = box.height(b);
     const canvas = renderCtx.upper2d.applyScale(viewportScale);
-    let value = telem.value().data;
+    let value = data;
     canvas.font = fontString;
     canvas.textAlign = "left";
     canvas.textBaseline = "alphabetic";

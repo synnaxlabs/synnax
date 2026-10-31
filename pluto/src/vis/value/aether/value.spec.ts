@@ -178,6 +178,19 @@ describe("value/aether/Value", () => {
       expect(component.state.problems).toEqual([PROBLEM]);
     });
 
+    it("should report the problem of a source whose box has no area", () => {
+      const zero = box.construct({ x: 0, y: 0 }, { width: 0, height: 0 });
+      const { component } = setup({ status: FAILED, state: { box: zero } });
+      expect(component.state.problems).toEqual([PROBLEM]);
+    });
+
+    it("should read its source once for staleness and once to draw on a change", () => {
+      const { source } = setup({ value: "1" });
+      const read = vi.spyOn(source, "value");
+      source.setValue("2");
+      expect(read).toHaveBeenCalledTimes(2);
+    });
+
     it("should clear its problems once its source recovers", () => {
       const { component, source } = setup({ status: FAILED });
       source.status = status.create({ variant: "success", message: "streaming" });
