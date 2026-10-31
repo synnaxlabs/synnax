@@ -178,6 +178,7 @@ constexpr UA_DateTime MIN_DATETIME = UA_DATETIME_UNIX_EPOCH +
                                      std::numeric_limits<int64_t>::min() / 100;
 constexpr UA_DateTime MAX_DATETIME = UA_DATETIME_UNIX_EPOCH +
                                      std::numeric_limits<int64_t>::max() / 100;
+}
 
 std::pair<x::telem::TimeStamp, x::errors::Error> to_timestamp(const UA_DateTime t) {
     if (t < MIN_DATETIME || t > MAX_DATETIME)
@@ -191,6 +192,7 @@ std::pair<x::telem::TimeStamp, x::errors::Error> to_timestamp(const UA_DateTime 
     return {x::telem::TimeStamp((t - UA_DATETIME_UNIX_EPOCH) * 100), x::errors::NIL};
 }
 
+namespace {
 const std::vector NUMERIC_TYPES = {
     x::telem::FLOAT64_T,
     x::telem::FLOAT32_T,

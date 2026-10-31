@@ -91,6 +91,11 @@ class Types {
 
     [[nodiscard]] const UA_DataTypeArray *head() const;
 
+    /// @returns the member at field of a structure that decode returned, borrowed from
+    /// it.
+    static std::pair<UA_Variant, x::errors::Error>
+    member(const UA_Variant &structure, const Field &field);
+
 public:
     /// @brief reads the definitions of the data types that the client does not know,
     /// with the types their members use. A type that does not build keeps the reason,
@@ -132,5 +137,12 @@ public:
         const Field &field,
         const x::telem::DataType &dt
     );
+
+    /// @returns the member at path of a value as JSON text, or the whole value when
+    /// path is empty. An array is a JSON array of its elements.
+    /// @returns x::errors::VALIDATION if the value does not decode or has no such
+    /// member.
+    [[nodiscard]] std::pair<std::string, x::errors::Error>
+    print(const UA_Variant &value, const Path &path) const;
 };
 }

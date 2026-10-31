@@ -140,6 +140,55 @@ await task.start();
 
 <Divider.Divider x />
 
+## Find nodes
+
+The **Browser** loads the children of a node when you expand it. It stops at 10,000
+children, or after 7 seconds on a slow server, and the Console warns you when it stops
+early. To find a node:
+
+- Type in the search field. The browser shows only the loaded nodes whose name or node
+  ID holds the text.
+- Type a node ID, such as `ns=2;s=Tank1.Pressure`, and press Enter. The browser reads
+  that node, even if it is not loaded.
+
+Select a node to see its node ID, class, data type, shape, access, and minimum sampling
+interval, with its current value, status, and timestamps. Click <Icon.Refresh /> (**Read
+again**) to read the value again. You can drag a node by its name in the details into
+**Channels**. A node that fails to browse shows <Icon.Warning />, with the reason when
+you hover over it. The rest of the tree stays.
+
+### Add a folder
+
+Drag a folder or an object into **Channels** to add the variables under it, at any
+depth. The Console asks you to confirm the count before it adds them. It names each
+channel from the folder and the browse path below it, such as `Line1_Tank1_Pressure`.
+When the task already has the name, the Console adds a number, such as
+`Line1_Tank1_Pressure_2`. The Driver looks under objects, but not under variables. It
+stops after 1,000 variables, 10,000 objects, or 20 seconds, and the Console tells you
+when it stopped early.
+
+### Import and export channels
+
+Click <Icon.Export /> (**Export channels to CSV**) in **Channels** to save the channels
+as `<task name>_channels.csv`. Click <Icon.Import /> (**Import channels from CSV**) to
+add the channels of a CSV file. The Console adds only the nodes that the task does not
+have. If one row is not valid, it adds nothing and names the row.
+
+The file starts with a header row. Only `node_id` is required. Commas or tabs can
+separate the cells, and the Console ignores other columns.
+
+| Column      | Default   | Notes                                                        |
+| ----------- | --------- | ------------------------------------------------------------ |
+| `name`      | Empty     | The channel name. Empty uses the node name.                  |
+| `node_name` | Empty     | The node name. Empty uses the end of the node ID.            |
+| `node_id`   |           | See [node IDs](#node-ids).                                   |
+| `field`     | Empty     | See [structure fields](#read-structure-fields).              |
+| `data_type` | `float32` | A Synnax [data type](#data-types).                           |
+| `enabled`   | `true`    | `true` or `false`.                                           |
+| `index`     | `false`   | `true` uses the node as the [index](#use-server-timestamps). |
+
+<Divider.Divider x />
+
 ## Read arrays
 
 Some servers buffer fast samples in an array node. To read the arrays:
@@ -247,7 +296,7 @@ The table shows the Console label of each setting, with its Python field under i
 | <small>`channel`</small>               |           | The key of the channel that records the values.                                  |
 | Node ID <small>`node_id`</small>       |           | See [node IDs](#node-ids).                                                       |
 | <small>`field`</small>                 | Empty     | The field of a structure node. See [structure fields](#read-structure-fields).   |
-| Node name <small>`node_name`</small>   | Empty     | The browse name. For display only.                                               |
+| Node name <small>`node_name`</small>   | Empty     | The browse name, or the folder path. Names the channel when the name is empty.   |
 | <small>`data_type`</small>             | `float32` | The data type of the channel that the Console creates.                           |
 | Use as index <small>`is_index`</small> | Off       | Shows only for a DateTime node. See [server timestamps](#use-server-timestamps). |
 | Enabled <small>`disabled`</small>      | Off       | A disabled channel is not read.                                                  |
@@ -370,16 +419,32 @@ Move the channels to one task.
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={"Failed to browse OPC UA nodes"}>
+<Problem.Item message={["Failed to browse OPC UA nodes", "Failed to find variables"]}>
 <Problem.Cause>
 
-The Driver could not browse the server.
+The Driver could not browse the server, or the folder that you dragged into
+**Channels**. A node that fails while the rest of the tree loads shows <Icon.Warning />
+instead.
 
 </Problem.Cause>
 <Problem.Fix>
 
 Check the
 [server connection](/reference/hardware/opc-ua/connect-server#troubleshooting).
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"Failed to read node"}>
+<Problem.Cause>
+
+The Driver could not read the details of the node. For `BadNodeIdUnknown`, the server
+has no node with that ID.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Check the node ID that you entered, or select the node in the **Browser** again.
 
 </Problem.Fix>
 </Problem.Item>

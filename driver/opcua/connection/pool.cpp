@@ -9,6 +9,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <functional>
 #include <memory>
 #include <new>
 #include <optional>
@@ -113,6 +114,135 @@ void move_results(T *results, T *&part, size_t &part_size) {
     part_size = 0;
 }
 
+/// @brief the continuation points of one BrowseNext request, with the index of the
+/// browse result that each one continues.
+struct Pending {
+    UA_BrowseNextRequest req{};
+    std::vector<size_t> results;
+
+    /// @brief takes the continuation points of the count results in raw, where raw[i]
+    /// continues the browse result at indexes[i]. Takes only the points whose index
+    /// keep accepts, when keep is set.
+    Pending(
+        UA_BrowseResult *raw,
+        const size_t count,
+        const std::vector<size_t> &indexes,
+        const std::function<bool(size_t)> &keep = nullptr
+    ) {
+        UA_BrowseNextRequest_init(&req);
+        std::vector<size_t> positions;
+        for (size_t i = 0; i < count; ++i)
+            if (raw[i].continuationPoint.length > 0 &&
+                (keep == nullptr || keep(indexes[i])))
+                positions.push_back(i);
+        if (positions.empty()) return;
+        req.continuationPoints = static_cast<UA_ByteString *>(
+            UA_Array_new(positions.size(), &UA_TYPES[UA_TYPES_BYTESTRING])
+        );
+        if (req.continuationPoints == nullptr) throw std::bad_alloc();
+        req.continuationPointsSize = positions.size();
+        for (size_t j = 0; j < positions.size(); ++j) {
+            auto &point = raw[positions[j]].continuationPoint;
+            req.continuationPoints[j] = point;
+            UA_ByteString_init(&point);
+            results.push_back(indexes[positions[j]]);
+        }
+    }
+
+    ~Pending() { UA_BrowseNextRequest_clear(&req); }
+    Pending(const Pending &) = delete;
+    Pending &operator=(const Pending &) = delete;
+    Pending(Pending &&other) noexcept:
+        req(other.req), results(std::move(other.results)) {
+        UA_BrowseNextRequest_init(&other.req);
+    }
+    Pending &operator=(Pending &&other) noexcept {
+        if (this != &other) {
+            UA_BrowseNextRequest_clear(&req);
+            req = other.req;
+            results = std::move(other.results);
+            UA_BrowseNextRequest_init(&other.req);
+        }
+        return *this;
+    }
+
+    [[nodiscard]] bool empty() const { return results.empty(); }
+
+    /// @brief frees the continuation points on the server, since each one counts
+    /// against the server's limit until the session closes. Does nothing when the
+    /// connection is lost, since the server then frees them itself.
+    void release(UA_Client *client) {
+        if (this->empty() || lost(client)) return;
+        req.releaseContinuationPoints = true;
+        const types::BrowseNextResponse res(UA_Client_Service_browseNext(client, req));
+    }
+};
+
+/// @brief adds the children that raw lists to out, with the namespace indexes of the
+/// server, and takes one from room for each. Sets out.truncated when raw lists a child
+/// after room runs out. A failed browse sets the error of out and drops its children.
+void add_references(
+    const UA_BrowseResult &raw,
+    types::BrowseResult &out,
+    size_t &room,
+    const std::vector<std::string> &namespaces
+) {
+    if (auto err = errors::parse(raw.statusCode)) {
+        out.err = err;
+        out.references.clear();
+        return;
+    }
+    if (out.err) return;
+    for (size_t i = 0; i < raw.referencesSize; ++i) {
+        if (room == 0) {
+            out.truncated = true;
+            return;
+        }
+        --room;
+        const auto &ref = raw.references[i];
+        if (ref.nodeId.serverIndex != 0) continue;
+        UA_NodeId id = ref.nodeId.nodeId;
+        if (const auto &uri = ref.nodeId.namespaceUri; uri.length > 0) {
+            const auto it = std::ranges::find(
+                namespaces,
+                std::string(reinterpret_cast<const char *>(uri.data), uri.length)
+            );
+            if (it == namespaces.end()) continue;
+            id.namespaceIndex = static_cast<UA_UInt16>(it - namespaces.begin());
+        }
+        const auto &name = ref.browseName.name;
+        out.references.push_back({
+            .node = types::NodeId(id),
+            .browse_name = std::string(
+                reinterpret_cast<const char *>(name.data),
+                name.length
+            ),
+            .node_class = ref.nodeClass,
+        });
+    }
+}
+
+/// @brief adds the children that the count results in raw list to results, where raw[i]
+/// continues the browse result at indexes[i]. Releases the continuation points of the
+/// results that room cut short.
+/// @returns the continuation points to follow.
+Pending add_page(
+    UA_Client *client,
+    UA_BrowseResult *raw,
+    const size_t count,
+    const std::vector<size_t> &indexes,
+    types::BrowseResult *results,
+    size_t &room,
+    const std::vector<std::string> &namespaces
+) {
+    for (size_t i = 0; i < count; ++i)
+        add_references(raw[i], results[indexes[i]], room, namespaces);
+    Pending(raw, count, indexes, [results](const size_t i) {
+        return results[i].truncated;
+    }).release(client);
+    return {raw, count, indexes};
+}
+
 /// @brief reads the value of each node in namespace 0, in requests of at most limit
 /// nodes, or in one request when limit is 0.
 /// @returns one result for each node, in order.
@@ -202,6 +332,7 @@ std::pair<Server, x::errors::Error> read_server(UA_Client *client) {
         {
             UA_NS0ID_SERVER_NAMESPACEARRAY,
             UA_NS0ID_SERVER_SERVERCAPABILITIES_OPERATIONLIMITS_MAXNODESPERWRITE,
+            UA_NS0ID_SERVER_SERVERCAPABILITIES_OPERATIONLIMITS_MAXNODESPERBROWSE,
         },
         server.max_nodes_per_read
     );
@@ -211,6 +342,7 @@ std::pair<Server, x::errors::Error> read_server(UA_Client *client) {
     if (ns_err) return {Server{}, ns_err};
     server.namespaces = std::move(namespaces);
     server.max_nodes_per_write = uint32_value(results[1]);
+    server.max_nodes_per_browse = uint32_value(results[2]);
     return {std::move(server), x::errors::NIL};
 }
 }
@@ -299,6 +431,120 @@ Pool::Connection::write(const UA_WriteRequest &req) const {
         move_results(out.results + offset, raw.results, raw.resultsSize);
     }
     return {std::move(merged), x::errors::NIL};
+}
+
+std::pair<std::vector<types::BrowseResult>, x::errors::Error> Pool::Connection::browse(
+    const std::vector<UA_NodeId> &nodes,
+    const std::chrono::steady_clock::time_point deadline
+) const {
+    std::vector<types::BrowseResult> results(nodes.size());
+    const size_t limit = this->server_->max_nodes_per_browse;
+    const size_t step = limit == 0 ? std::max<size_t>(nodes.size(), 1) : limit;
+    size_t room = MAX_CHILDREN;
+    for (size_t offset = 0; offset < nodes.size(); offset += step) {
+        if (offset > 0 && std::chrono::steady_clock::now() >= deadline) {
+            for (size_t i = offset; i < nodes.size(); ++i)
+                results[i].truncated = true;
+            break;
+        }
+        if (auto err = this->browse(
+                nodes.data() + offset,
+                std::min(step, nodes.size() - offset),
+                results.data() + offset,
+                room,
+                deadline
+            ))
+            return {std::vector<types::BrowseResult>(), err};
+    }
+    return {std::move(results), x::errors::NIL};
+}
+
+x::errors::Error Pool::Connection::browse(
+    const UA_NodeId *nodes,
+    const size_t count,
+    types::BrowseResult *results,
+    size_t &room,
+    const std::chrono::steady_clock::time_point deadline
+) const {
+    std::vector<UA_BrowseDescription> descriptions(count);
+    for (size_t i = 0; i < count; ++i) {
+        auto &d = descriptions[i];
+        UA_BrowseDescription_init(&d);
+        d.nodeId = nodes[i];
+        d.browseDirection = UA_BROWSEDIRECTION_FORWARD;
+        d.referenceTypeId = UA_NODEID_NUMERIC(0, UA_NS0ID_HIERARCHICALREFERENCES);
+        d.includeSubtypes = true;
+        d.resultMask = UA_BROWSERESULTMASK_BROWSENAME | UA_BROWSERESULTMASK_NODECLASS;
+    }
+    UA_BrowseRequest req;
+    UA_BrowseRequest_init(&req);
+    req.nodesToBrowse = descriptions.data();
+    req.nodesToBrowseSize = count;
+    if (auto err = lost(this->get())) return err;
+    types::BrowseResponse res(UA_Client_Service_browse(this->get(), req));
+    auto &raw = *res.ptr();
+    if (auto err = this->check(raw.responseHeader.serviceResult)) return err;
+    const auto &namespaces = this->server_->namespaces;
+    std::vector<size_t> indexes(count);
+    for (size_t i = 0; i < count; ++i)
+        indexes[i] = i;
+    if (auto err = check_results(raw.resultsSize, count)) {
+        const size_t received = std::min(raw.resultsSize, count);
+        Pending(raw.results, received, indexes).release(this->get());
+        return err;
+    }
+    auto pending = add_page(
+        this->get(),
+        raw.results,
+        count,
+        indexes,
+        results,
+        room,
+        namespaces
+    );
+    while (!pending.empty()) {
+        if (std::chrono::steady_clock::now() >= deadline) {
+            for (const auto i: pending.results)
+                results[i].truncated = true;
+            pending.release(this->get());
+            return x::errors::NIL;
+        }
+        if (auto err = lost(this->get())) return err;
+        types::BrowseNextResponse next(
+            UA_Client_Service_browseNext(this->get(), pending.req)
+        );
+        auto &next_raw = *next.ptr();
+        if (auto err = this->check(next_raw.responseHeader.serviceResult)) {
+            pending.release(this->get());
+            return err;
+        }
+        const size_t asked = pending.results.size();
+        if (auto err = check_results(next_raw.resultsSize, asked)) {
+            const size_t got = std::min(next_raw.resultsSize, asked);
+            Pending(next_raw.results, got, pending.results).release(this->get());
+            return err;
+        }
+        bool found = false;
+        for (size_t j = 0; j < asked; ++j)
+            found = found || next_raw.results[j].referencesSize > 0;
+        pending = add_page(
+            this->get(),
+            next_raw.results,
+            asked,
+            pending.results,
+            results,
+            room,
+            namespaces
+        );
+        if (!found && !pending.empty()) {
+            pending.release(this->get());
+            return x::errors::Error(
+                errors::CRITICAL,
+                "the server returned continuation points with no children"
+            );
+        }
+    }
+    return x::errors::NIL;
 }
 
 Pool::Pool(std::shared_ptr<certificate::Store> store): Pool(std::move(store), {}) {}

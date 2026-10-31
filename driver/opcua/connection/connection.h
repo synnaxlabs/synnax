@@ -36,6 +36,10 @@ namespace driver::opcua::connection {
 /// up, since a server can add nodes and types while it runs.
 const auto RETRY_INTERVAL = 10 * x::telem::SECOND;
 
+/// @brief the most children that one browse lists, across all of its nodes, so that a
+/// server cannot fill the memory of the Driver.
+constexpr size_t MAX_CHILDREN = 10000;
+
 /// @brief the configuration for an OPC UA connection.
 struct Config {
     /// @brief the endpoint of the OPC UA server.
@@ -186,6 +190,9 @@ struct Server {
     uint32_t max_nodes_per_read = 0;
     /// @brief the most nodes that one Write request can name. 0 means no limit.
     uint32_t max_nodes_per_write = 0;
+    /// @brief the most nodes that one Browse or BrowseNext request can name. 0 means no
+    /// limit.
+    uint32_t max_nodes_per_browse = 0;
 };
 
 class Pool {
@@ -254,6 +261,24 @@ public:
         [[nodiscard]] std::pair<types::WriteResponse, x::errors::Error>
         write(const UA_WriteRequest &req) const;
 
+        /// @brief finds the children of each node: the targets of its forward
+        /// hierarchical references. Follows continuation points until the server
+        /// returns every child, the browse lists MAX_CHILDREN children, or deadline
+        /// passes, in as many requests as the server's limit needs. Always sends the
+        /// first request. Skips a child on another server or in a namespace the server
+        /// does not list.
+        /// @returns one result for each node, in order, with truncated set on each
+        /// result that the limit or the deadline cut short. Returns
+        /// errors::NO_CONNECTION when the connection is lost, the error of a service
+        /// result, or errors::CRITICAL when the server returns a result count that does
+        /// not match the request, or continuation points with no children.
+        [[nodiscard]] std::pair<std::vector<types::BrowseResult>, x::errors::Error>
+        browse(
+            const std::vector<UA_NodeId> &nodes,
+            std::chrono::steady_clock::time_point deadline =
+                std::chrono::steady_clock::time_point::max()
+        ) const;
+
         /// @brief records the namespaces in value, a read of the NamespaceArray node,
         /// as those of the server, for this connection and each later one on its
         /// Session.
@@ -262,6 +287,17 @@ public:
         std::pair<bool, x::errors::Error> update_namespaces(const UA_DataValue &value);
 
     private:
+        /// @brief browses count nodes in one Browse request, then follows their
+        /// continuation points with BrowseNext until deadline passes. Fills count
+        /// results, and takes one from room for each child that the server lists.
+        [[nodiscard]] x::errors::Error browse(
+            const UA_NodeId *nodes,
+            size_t count,
+            types::BrowseResult *results,
+            size_t &room,
+            std::chrono::steady_clock::time_point deadline
+        ) const;
+
         /// @returns the error of the service result of a call. A call that fails for a
         /// lost connection closes the channel, so the next acquire connects again at
         /// once instead of probing first. Any other result records a reply.

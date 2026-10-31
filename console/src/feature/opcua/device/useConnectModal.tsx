@@ -25,7 +25,7 @@ import {
 } from "@/feature/opcua/device/Certificate";
 import { commandTimeout } from "@/feature/opcua/device/commandTimeout";
 import { Endpoints } from "@/feature/opcua/device/Endpoints";
-import { retrieveScanTask } from "@/feature/opcua/device/retrieveScanTask";
+import { sendScanCommand } from "@/feature/opcua/device/scanCommand";
 import {
   SelectSecurityMode,
   type SelectSecurityModeProps,
@@ -48,6 +48,7 @@ import {
 import {
   type CertificateInfo,
   TEST_CONNECTION_COMMAND_TYPE,
+  testConnectionResponseZ,
 } from "@/feature/opcua/task/types";
 import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
@@ -102,17 +103,16 @@ export const Connect = ({
     PDevice.FormSchema<typeof SCHEMAS>
   >) => {
     setServerCertificateOffer(null);
-    const scanTask = await retrieveScanTask(client, get<rack.Key>("rack").value);
     const connection = get<ConnectionConfig>("properties.connection").value;
-    const scanStatus = await scanTask.executeCommandSync({
+    const scanStatus = await sendScanCommand(client, get<rack.Key>("rack").value, {
       type: TEST_CONNECTION_COMMAND_TYPE,
       timeout: commandTimeout(connection),
       args: { connection },
     });
     if (scanStatus.variant === "error") {
-      const data = scanStatus.details?.data;
-      if (data != null && "serverCertificate" in data && data.serverCertificate != null)
-        setServerCertificateOffer(data.serverCertificate);
+      const reply = testConnectionResponseZ.safeParse(scanStatus.details?.data);
+      if (reply.success && reply.data.serverCertificate != null)
+        setServerCertificateOffer(reply.data.serverCertificate);
       throw status.toError(scanStatus);
     }
     // Since we just scanned successfully, we create a default healthy status for the

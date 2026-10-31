@@ -20,3 +20,8 @@
 .console-opc-browser__loading-icon {
     font-size: 5rem;
 }
+
+.console-opc-browser__search {
+    flex-shrink: 0;
+    border-bottom: var(--pluto-border);
+}

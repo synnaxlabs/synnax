@@ -223,17 +223,27 @@ Output arguments are not stored.
 
 ### 2.10 Browser and task building
 
-- **Complete browse**: Browse with BrowseNext, split at `MaxNodesPerBrowse`. The task
-  releases its continuation points when it stops. A failed node shows its error and
-  leaves the rest of the tree alone.
-- **Node details**: Each node shows its class, data type, access (read, write, history),
-  and its value on demand.
-- **Find**: A search over the loaded tree, and a field that jumps to a node ID in either
-  form.
-- **Bulk add**: Dropping a folder adds the variables under it, up to 1000, with a
-  confirmation. Default names come from the browse path below the dropped folder,
-  converted to valid channel names, so same-named nodes do not collide (SY-3035).
-- **CSV**: The channel list exports to CSV and imports from it.
+- **Complete browse**: `Connection::browse` follows forward hierarchical references, so
+  a variable no longer lists its type definition. It follows each continuation point
+  with BrowseNext until the server returns every child, splits at `MaxNodesPerBrowse`,
+  and releases the points when it stops early. The types of all children come from two
+  batched reads, not one read per child. A failed node shows its error and leaves the
+  rest of the tree alone.
+- **Node details**: A `read_node` scanner command reads the class, data type, shape,
+  access (read, write, history), minimum sampling interval, and the value with its
+  status and timestamps. The value is JSON text, with a structure decoded by its member
+  names. The Console reads it when a node is selected, and again on request.
+- **Find**: A search over the loaded tree. A node ID typed in either form and entered
+  reads that node into the details, from which it drags like a tree node.
+- **Bulk add**: Dropping a folder runs `browse_variables`, which searches objects
+  breadth first, at most 10,000 of them, and returns up to 1,000 variables with their
+  browse paths. The Console confirms the count. Default names join the folder's name and
+  the path below it, converted to valid channel names, so same-named nodes do not
+  collide, even across drops (SY-3035).
+- **CSV**: The channel list exports to CSV and imports from it, with the columns `name`,
+  `node_id`, `field`, `data_type`, `enabled`, and, for a read task, `index`. Only
+  `node_id` is required. An import adds the nodes the task does not have. One row that
+  is not valid fails the import, and the error names the row.
 - **Connect dialog**: The dialog calls GetEndpoints through the scanner and lists each
   endpoint with its security mode, policy, and login types. An Advanced section holds
   the timeouts.

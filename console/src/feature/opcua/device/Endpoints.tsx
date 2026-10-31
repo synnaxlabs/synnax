@@ -25,7 +25,7 @@ import { Synnax } from "@synnaxlabs/pluto";
 import { type ReactElement, useState } from "react";
 
 import { commandTimeout } from "@/feature/opcua/device/commandTimeout";
-import { retrieveScanTask } from "@/feature/opcua/device/retrieveScanTask";
+import { sendScanCommand } from "@/feature/opcua/device/scanCommand";
 import { SECURITY_MODE_NAMES } from "@/feature/opcua/device/SelectSecurityMode";
 import { SECURITY_POLICY_NAMES } from "@/feature/opcua/device/SelectSecurityPolicy";
 import {
@@ -113,8 +113,7 @@ const findEndpoints = async (
   connection: ConnectionConfig,
 ): Promise<Result> => {
   if (client == null) throw new DisconnectedError();
-  const scanTask = await retrieveScanTask(client, rack);
-  const res = await scanTask.executeCommandSync({
+  const res = await sendScanCommand(client, rack, {
     type: GET_ENDPOINTS_COMMAND_TYPE,
     timeout: commandTimeout(connection),
     args: { connection },

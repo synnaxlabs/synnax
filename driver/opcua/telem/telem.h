@@ -67,4 +67,9 @@ std::pair<size_t, x::errors::Error> ua_array_write_to_series(
     size_t target_size,
     const std::string &name = ""
 );
+
+/// @returns the time that t holds.
+/// @returns x::errors::VALIDATION if t is outside the years 1677 to 2262 that a
+/// timestamp holds.
+std::pair<x::telem::TimeStamp, x::errors::Error> to_timestamp(UA_DateTime t);
 }

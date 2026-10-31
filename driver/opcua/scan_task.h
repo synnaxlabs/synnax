@@ -10,6 +10,7 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <utility>
@@ -64,6 +65,14 @@ struct ScanCommandArgs {
 };
 
 const std::string BROWSE_CMD_TYPE = "browse";
+/// @brief lists the variables under a node at any depth, for adding a folder to a task.
+const std::string BROWSE_VARIABLES_CMD_TYPE = "browse_variables";
+/// @brief reads the attributes and the value of one node.
+const std::string READ_NODE_CMD_TYPE = "read_node";
+/// @brief the most variables that a browse_variables command returns.
+constexpr size_t MAX_VARIABLES = 1000;
+/// @brief the most objects that a browse_variables command browses.
+constexpr size_t MAX_OBJECTS = 10000;
 const std::string TEST_CONNECTION_CMD_TYPE = "test_connection";
 const std::string GET_ENDPOINTS_CMD_TYPE = "get_endpoints";
 const std::string GET_CERTIFICATE_CMD_TYPE = "get_certificate";
@@ -120,8 +129,27 @@ private:
     /// scan() reads or writes it.
     std::unordered_map<std::string, x::telem::TimeStamp> checked;
 
+    /// @brief connects to the server that a browse command names and finds its node.
+    /// When a step fails, sets the command's status with the failure message.
+    /// @returns the connection and the node, which borrows from args, or nothing after
+    /// a failure.
+    std::optional<std::pair<connection::Pool::Connection, UA_NodeId>> target(
+        const x::json::Parser &parser,
+        const ScanCommandArgs &args,
+        synnax::task::Status &status,
+        const std::string &failure
+    ) const;
+
     /// @brief Browse child nodes of a given OPC UA node.
     void browse_nodes(const synnax::task::Command &cmd) const;
+
+    /// @brief replies with the variables under the command's node, each with its browse
+    /// path from below the node, and whether the search stopped at a limit.
+    void browse_variables(const synnax::task::Command &cmd) const;
+
+    /// @brief replies with the attributes and the value of the command's node, or of
+    /// the member of its structure value that the command's field names.
+    void read_node(const synnax::task::Command &cmd) const;
 
     /// @brief Test connection to an OPC UA server. Never trusts a server certificate
     /// that the configuration does not name.
