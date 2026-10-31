@@ -309,7 +309,7 @@ list the tasks of another Driver, pass its rack key: `client.tasks.list(rack=key
 // Find tasks by name.
 const task = await client.tasks.retrieve({ name: "Tank sensors" });
 const tasks = await client.tasks.retrieve({
-  names: ["Tank sensors", "Tank valves"],
+  where: { name: { in: ["Tank sensors", "Tank valves"] } },
 });
 
 // List the tasks on every Driver.

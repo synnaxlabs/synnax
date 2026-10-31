@@ -26,6 +26,7 @@ import { z } from "zod";
 
 import {
   analyzeParams,
+  isCalculated,
   type Params,
   type PrimitiveParams,
   statusKey,
@@ -40,8 +41,12 @@ import {
   operationZ,
   type Payload,
   payloadZ,
+  type RetrieveRequest,
+  retrieveRequestZ,
   statusZ,
 } from "@/channel/types.gen";
+import { LINES } from "@/channel/where";
+import { matches, serverComputed } from "@/channel/where.gen";
 import { type Writer } from "@/channel/writer";
 import { NotFoundError, ValidationError } from "@/errors";
 import { type framer } from "@/framer";
@@ -209,27 +214,22 @@ export class Channel {
   }
 }
 
-/** Zod schema for {@link RetrieveRequest}. */
-export const retrieveRequestZ = z.object({
-  nodeKey: zod.uint12.optional(),
-  keys: keyZ.array().optional(),
-  names: z.string().array().optional(),
-  searchTerm: z.string().optional(),
+const retrieveMultipleParamsZ = retrieveRequestZ.extend({
   rangeKey: rangerKeyZ.optional(),
-  limit: z.int().optional(),
-  offset: z.int().optional(),
-  dataTypes: DataType.z.array().optional(),
-  notDataTypes: DataType.z.array().optional(),
-  virtual: z.boolean().optional(),
-  isIndex: z.boolean().optional(),
-  internal: z.boolean().optional(),
-  legacyCalculated: z.boolean().optional(),
 });
-/** Everything a channel retrieval can filter on. */
-export type RetrieveRequest = z.input<typeof retrieveRequestZ>;
+/**
+ * Selects the channels to retrieve. A rangeKey attaches each channel's alias in that
+ * range, and a search term then also matches those aliases, ranked first.
+ */
+export type RetrieveMultipleParams = RetrieveRequest & { rangeKey?: ranger.Key };
 
-/** The filters a retrieval accepts alongside its keys or names. */
-export type RetrieveOptions = Omit<RetrieveRequest, "keys" | "names" | "search">;
+const aliasedRetrieveRequestZ = z.object({
+  request: retrieveRequestZ,
+  rangeKey: rangerKeyZ.optional(),
+});
+
+/** The options a retrieval by keys or names accepts. */
+export type RetrieveOptions = Pick<RetrieveMultipleParams, "rangeKey">;
 
 const retrieveResZ = z.object({ channels: payloadZ.array().default(() => []) });
 
@@ -239,8 +239,6 @@ const retrieveGroupResZ = z.object({ group: group.groupZ });
 
 /** Names one channel. Give a `rangeKey` to resolve its alias in that range. */
 export type RetrieveSingleParams = { key: Key; rangeKey?: ranger.Key };
-
-type NormalizedRequest = z.infer<typeof retrieveRequestZ>;
 
 /** Aliases and statuses are composed from their stores on read. */
 const stripComposed = ({ alias: _alias, status: _status, ...rest }: Payload): Payload =>
@@ -259,96 +257,18 @@ const singleParamsZ = z
   ])
   .transform(normalizeSingle);
 
-const onlyRangeKey = (options?: RetrieveOptions): boolean =>
-  options == null ||
-  Object.entries(options).every(([k, v]) => v === undefined || k === "rangeKey");
-
-const isKeysOnly = (
-  req: NormalizedRequest,
-): req is NormalizedRequest & { keys: Key[] } =>
-  primitive.isNonZero(req.keys) &&
-  req.names == null &&
-  req.searchTerm == null &&
-  req.nodeKey == null &&
-  req.limit == null &&
-  req.offset == null &&
-  req.dataTypes == null &&
-  req.notDataTypes == null &&
-  req.virtual == null &&
-  req.isIndex == null &&
-  req.internal == null &&
-  req.legacyCalculated == null;
-
-const isNamesOnly = (
-  req: NormalizedRequest,
-): req is NormalizedRequest & { names: string[] } =>
-  primitive.isNonZero(req.names) &&
-  req.keys == null &&
-  req.searchTerm == null &&
-  req.nodeKey == null &&
-  req.limit == null &&
-  req.offset == null &&
-  req.dataTypes == null &&
-  req.notDataTypes == null &&
-  req.virtual == null &&
-  req.isIndex == null &&
-  req.internal == null &&
-  req.legacyCalculated == null;
-
-const NAME_LITERAL_PATTERN = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
-
 /**
- * Mirrors the server's name matching: literal names compare exactly, anything
- * else compiles as a regular expression, anchored when unanchored.
+ * @returns the name patterns of a request whose where selects by name patterns and
+ * nothing else, with no other field of the request set. Returns null for any other
+ * request.
  */
-const createNameMatcher = (pattern: string): ((name: string) => boolean) => {
-  if (NAME_LITERAL_PATTERN.test(pattern)) return (name) => name === pattern;
-  const anchored =
-    pattern.startsWith("^") || pattern.endsWith("$") ? pattern : `^${pattern}$`;
-  try {
-    const rx = new RegExp(anchored);
-    return (name) => rx.test(name);
-  } catch {
-    return (name) => name === pattern;
-  }
+const onlyNamePatterns = ({ where, ...rest }: RetrieveRequest): string[] | null => {
+  if (!Object.values(rest).every((v) => v == null) || where == null) return null;
+  const { namePatterns, ...others } = where;
+  if (namePatterns == null || Object.values(others).some((v) => v != null)) return null;
+  return namePatterns;
 };
 
-/**
- * Client-side matching for a request over every locally evaluable field.
- * Server-computed shapes (search, pagination) never reach this filter; they
- * refetch instead.
- */
-const requestFilter = (req: NormalizedRequest): ((ch: Channel) => boolean) => {
-  const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
-  const nameMatchers = primitive.isNonZero(req.names)
-    ? req.names.map(createNameMatcher)
-    : undefined;
-  return (ch) => {
-    if (keySet != null && !keySet.has(ch.key)) return false;
-    if (nameMatchers != null && !nameMatchers.some((m) => m(ch.name))) return false;
-    if (primitive.isNonZero(req.nodeKey) && ch.leaseholder !== req.nodeKey)
-      return false;
-    // The server's virtual bucket excludes calculated channels even though
-    // they are stored with virtual=true.
-    if (req.virtual != null && (ch.virtual && !ch.isCalculated) !== req.virtual)
-      return false;
-    if (req.isIndex != null && ch.isIndex !== req.isIndex) return false;
-    if (req.internal != null && ch.internal !== req.internal) return false;
-    if (
-      primitive.isNonZero(req.dataTypes) &&
-      !req.dataTypes.some((dt) => dt.equals(ch.dataType))
-    )
-      return false;
-    if (
-      primitive.isNonZero(req.notDataTypes) &&
-      req.notDataTypes.some((dt) => dt.equals(ch.dataType))
-    )
-      return false;
-    return true;
-  };
-};
-
-// Channel statuses live in the status table under the "channel:<key>" status key.
 const affectedChannelKeys = (
   event: query.TableEvent<status.Key, status.Status>,
 ): Key[] | null => {
@@ -379,7 +299,7 @@ export interface ClientConfig {
  * read costs nothing.
  */
 export class Client extends query.Retriever<
-  typeof retrieveRequestZ,
+  typeof retrieveMultipleParamsZ,
   Key,
   Channel,
   Channel,
@@ -401,7 +321,9 @@ export class Client extends query.Retriever<
       name: "channels",
       equal: (a, b) => deep.equal(a.payload, b.payload),
       fetch: async (keys) =>
-        (await this.execRetrieve(keys)).map((p) => sugar(stripComposed(p))),
+        (await this.execRetrieve(query.keysRequest(keys))).map((p) =>
+          sugar(stripComposed(p)),
+        ),
       listen: [
         query.createSetListener(SET_CHANNEL_NAME, payloadZ, {
           value: (changed) => sugar(stripComposed(changed)),
@@ -440,11 +362,12 @@ export class Client extends query.Retriever<
       name: "channel",
       table: store,
       request: {
-        schema: retrieveRequestZ,
+        schema: retrieveMultipleParamsZ,
         fetch: async (query) => await this.fetchRequest(query),
-        matches: (ch, query) => requestFilter(query)(ch),
+        matches: (ch, query) => matches(LINES, ch, query.where),
+        serverComputed: (query) => serverComputed(LINES, query.where),
         watch: [
-          query.watch(aliasStore, (event, query: NormalizedRequest) => {
+          query.watch(aliasStore, (event, query: RetrieveMultipleParams) => {
             if (query.rangeKey == null) return null;
             if (event.variant === "set")
               return event.value.range === query.rangeKey
@@ -453,11 +376,17 @@ export class Client extends query.Retriever<
             const decoded = decodeDeleteChange(event.key);
             return decoded.range === query.rangeKey ? [decoded.channel] : null;
           }),
+          query.watch(statusStore, (event, query: RetrieveMultipleParams) =>
+            query.includeStatus === true ? affectedChannelKeys(event) : null,
+          ),
         ],
       },
       compose: (ch, query) => {
-        const { rangeKey } = query as NormalizedRequest;
-        return rangeKey == null ? ch : this.composeAlias(ch.payload, rangeKey);
+        const { rangeKey, includeStatus } = query as RetrieveMultipleParams;
+        const composed = includeStatus === true ? this.compose(ch.payload) : ch;
+        return rangeKey == null
+          ? composed
+          : this.composeAlias(composed.payload, rangeKey);
       },
       single: { schema: singleParamsZ, space: single },
     });
@@ -533,7 +462,9 @@ export class Client extends query.Retriever<
     let toCreate = array.toArray(channels);
     let created: Channel[] = [];
     if (retrieveIfNameExists) {
-      const res = await this.execRetrieve(toCreate.map((c) => c.name));
+      const res = await this.execRetrieve({
+        where: { name: { in: toCreate.map((c) => c.name) } },
+      });
       const existingNames = new Set(res.map((c) => c.name));
       toCreate = toCreate.filter((c) => !existingNames.has(c.name));
       created = this.sugar(res);
@@ -545,12 +476,10 @@ export class Client extends query.Retriever<
 
   /**
    * Retrieves a channel from the database using the given key or name.
-   * @param params - The key or the name of the channel to retrieve.
+   * @param params - The key or the name of the channel to retrieve. A name that is not
+   * a valid channel name is a regular expression, anchored when unanchored.
    * @param options - Optional parameters to control the retrieval process.
-   * @param options.dataTypes - Limits the query to only channels with the specified
-   * data type.
-   * @param options.notDataTypes - Limits the query to only channels without the
-   * specified data type.
+   * @param options.rangeKey - Attaches the channel's alias in the range.
    * @returns The retrieved channel.
    * @throws {NotFoundError} if the channel does not exist in the cluster.
    * @throws {MultipleFoundError} is only thrown if the channel is retrieved by name,
@@ -569,12 +498,10 @@ export class Client extends query.Retriever<
    * Retrieves multiple channels from the database using the provided keys or the
    * provided names.
    * @param params - The keys or the names of the channels to retrieve. Note that this
-   * method does not support mixing keys and names in the same call.
+   * method does not support mixing keys and names in the same call. A name that is not
+   * a valid channel name is a regular expression, anchored when unanchored.
    * @param options - Optional parameters to control the retrieval process.
-   * @param options.dataTypes - Limits the query to only channels with the specified
-   * data type.
-   * @param options.notDataTypes - Limits the query to only channels without the
-   * specified
+   * @param options.rangeKey - Attaches each channel's alias in the range.
    */
   async retrieve(
     params: PrimitiveParams | Payload[],
@@ -583,17 +510,11 @@ export class Client extends query.Retriever<
 
   async retrieve(params: RetrieveSingleParams): Promise<Channel>;
 
-  async retrieve(params: RetrieveRequest): Promise<Channel[]>;
+  /** Retrieves the channels that params selects. */
+  async retrieve(params: RetrieveMultipleParams): Promise<Channel[]>;
 
-  /**
-   * Retrieves a channel from the database using the given parameters.
-   *
-   * this will be ignored.
-   * @returns The retrieved channel.
-   * @raises {QueryError} If the channel does not exist or if multiple results are returned.
-   */
   async retrieve(
-    params: PrimitiveParams | Payload[] | RetrieveSingleParams | RetrieveRequest,
+    params: PrimitiveParams | Payload[] | RetrieveSingleParams | RetrieveMultipleParams,
     options?: RetrieveOptions,
   ): Promise<Channel | Channel[]> {
     if (typeof params === "object" && !Array.isArray(params))
@@ -606,17 +527,15 @@ export class Client extends query.Retriever<
       checkForMultipleOrNoResults<Params, Channel>("channel", params, [], isSingle);
       return [];
     }
-    if (isSingle && variant === "keys" && onlyRangeKey(options))
-      return await super.retrieve({
-        key: normalized[0] as Key,
-        rangeKey: options?.rangeKey,
-      });
+    const rangeKey = options?.rangeKey;
+    if (isSingle && variant === "keys")
+      return await super.retrieve({ key: normalized[0] as Key, rangeKey });
+    const where =
+      variant === "keys"
+        ? { key: { in: normalized as Key[] } }
+        : { namePatterns: normalized as string[] };
     const res = await super.retrieve(
-      zod.parse(
-        retrieveRequestZ,
-        { [variant]: normalized, ...options },
-        { label: "channel retrieve request" },
-      ),
+      rangeKey == null ? { where } : { where, rangeKey },
     );
     checkForMultipleOrNoResults<Params, Channel>("channel", params, res, isSingle);
     return isSingle ? res[0] : res;
@@ -726,6 +645,8 @@ export class Client extends query.Retriever<
         !this.cfg.ranges.aliases.has(createKey({ range: rangeKey, channel: key })),
     );
     if (missing.length === 0) return;
+    const { aliases } = this.cfg.ranges;
+    const since = aliases.stamp();
     const fetched = await this.cfg.ranges.retrieveAliases(rangeKey, missing);
     Object.entries(fetched).forEach(([channel, alias]) => {
       const entry: ranger.alias.Alias = {
@@ -733,34 +654,29 @@ export class Client extends query.Retriever<
         channel: Number(channel),
         alias,
       };
-      this.cfg.ranges.aliases.set(createKey(entry), entry);
+      aliases.ingest(createKey(entry), entry, { since });
     });
   }
 
-  /** Fetches channel payloads. Missing channels are omitted, not thrown. */
+  /**
+   * Fetches channel payloads, with their aliases in the range when one is given.
+   * Missing channels are omitted, not thrown. Saves the statuses the Core returns.
+   */
   private async execRetrieve(
-    channels: Params | RetrieveRequest,
-    options?: RetrieveOptions,
+    request: RetrieveRequest,
+    rangeKey?: ranger.Key,
   ): Promise<Payload[]> {
-    let request: RetrieveRequest;
-    if (
-      !Array.isArray(channels) &&
-      typeof channels === "object" &&
-      !("key" in channels)
-    )
-      request = channels;
-    else {
-      const { variant, normalized: raw } = analyzeParams(channels);
-      const normalized = raw.filter((k) => k !== 0);
-      if (normalized.length === 0) return [];
-      request = { [variant]: normalized, ...options };
-    }
+    // A status that streams in during the fetch is newer than the fetched one.
+    const since = this.cfg.statuses.store.stamp();
     const res = await this.cfg.unary.send(
       "/channel/retrieve",
-      request,
-      retrieveRequestZ,
+      { request, rangeKey },
+      aliasedRetrieveRequestZ,
       retrieveResZ,
     );
+    res.channels.forEach(({ status }) => {
+      if (status != null) this.cfg.statuses.store.ingest(status, { since });
+    });
     return res.channels;
   }
 
@@ -787,46 +703,40 @@ export class Client extends query.Retriever<
   }
 
   /**
-   * Resolves literal names against the record store, fetching only the names it
-   * cannot resolve. A name matching two stored channels is ambiguous, which only
-   * a cluster running without name validation can produce, so the whole request
-   * falls through to the cluster. Returns null when the store cannot be trusted
-   * to answer any part of the request.
+   * Resolves names through the record store. Returns null when a name matches no
+   * stored channel or more than one, so the Core answers the whole request. Assumes
+   * the Core validates names, so a stored name holds no regular expression character.
    */
-  private async resolveNames(names: string[]): Promise<Channel[] | null> {
-    if (!names.every((name) => NAME_LITERAL_PATTERN.test(name))) return null;
+  private resolveNames(names: string[]): Channel[] | null {
     const resolved: Channel[] = [];
-    const missing: string[] = [];
     for (const name of new Set(names)) {
       const matches = this.byName.get(name);
-      if (matches.length > 1) return null;
-      if (matches.length === 0) missing.push(name);
-      else resolved.push(matches[0]);
+      if (matches.length !== 1) return null;
+      resolved.push(matches[0]);
     }
-    if (missing.length === 0) return resolved;
-    const fetched = (await this.execRetrieve({ names: missing })).map((p) =>
-      this.sugar(stripComposed(p)),
-    );
-    return [...resolved, ...fetched];
+    return resolved;
   }
 
-  private async fetchRequest(query: NormalizedRequest): Promise<Channel[]> {
-    const { rangeKey } = query;
-    let channels: Channel[] | null = null;
-    if (isKeysOnly(query)) channels = await this.store.retrieve(query.keys);
-    else if (isNamesOnly(query)) channels = await this.resolveNames(query.names);
-    channels ??= (await this.execRetrieve(query)).map((p) =>
-      this.sugar(stripComposed(p)),
-    );
-    if (rangeKey != null)
-      await this.ensureAliases(
-        rangeKey,
-        channels.map((ch) => ch.key),
-      );
-    return channels;
+  private async fetchRequest({
+    rangeKey,
+    ...req
+  }: RetrieveMultipleParams): Promise<Channel[]> {
+    if (rangeKey == null) return await this.fetchChannels(req);
+    const { aliases } = this.cfg.ranges;
+    const since = aliases.stamp();
+    const payloads = await this.execRetrieve(req, rangeKey);
+    payloads.forEach(({ key: channel, alias }) => {
+      if (alias == null) return;
+      const entry: ranger.alias.Alias = { range: rangeKey, channel, alias };
+      aliases.ingest(createKey(entry), entry, { since });
+    });
+    return payloads.map((p) => this.sugar(stripComposed(p)));
+  }
+
+  private async fetchChannels(req: RetrieveRequest): Promise<Channel[]> {
+    const names = onlyNamePatterns(req);
+    const resolved = names != null ? this.resolveNames(names) : null;
+    if (resolved != null) return resolved;
+    return (await this.execRetrieve(req)).map((p) => this.sugar(stripComposed(p)));
   }
 }
-
-/** @returns whether the channel computes its samples from an expression. */
-export const isCalculated = ({ virtual, expression }: Payload): boolean =>
-  virtual && expression !== "";

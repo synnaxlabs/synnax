@@ -16,6 +16,7 @@ package service.device.pb;
 import "core/pkg/service/ontology/pb/ontology.proto";
 import "core/pkg/service/status/pb/status.proto";
 import "google/protobuf/struct.proto";
+import "x/go/filter/pb/filter.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/service/legacy/device/pb";
 
@@ -57,4 +58,53 @@ message Device {
   // parent is an optional parent resource ID for hierarchical device organization
   // (e.g., NI chassis containing modules).
   optional .service.ontology.pb.ID parent = 10;
+}
+message WhereList {
+  repeated Where values = 1;
+}
+message StringList {
+  repeated string values = 1;
+}
+
+// StringSet selects values that only compare for equality, such as keys, enum values,
+// and UUIDs. A value must match every operator that is set.
+message StringSet {
+  // eq matches a value equal to eq.
+  optional string eq = 1;
+  // in matches a value equal to an element of in.
+  StringList in = 2;
+}
+message RackKeyList {
+  repeated uint32 values = 1;
+}
+
+// RackKeySet selects values that only compare for equality, such as keys, enum values,
+// and UUIDs. A value must match every operator that is set.
+message RackKeySet {
+  // eq matches a value equal to eq.
+  optional uint32 eq = 1;
+  // in matches a value equal to an element of in.
+  RackKeyList in = 2;
+}
+
+// Where is a filter that selects devices.
+message Where {
+  // and matches when every child matches.
+  WhereList and = 1;
+  // or matches when any child matches.
+  WhereList or = 2;
+  // not matches when the child does not match.
+  optional Where not = 3;
+  // key selects by key.
+  optional StringSet key = 4;
+  // name selects by name.
+  optional .x.filter.pb.String name = 5;
+  // make selects by make.
+  optional .x.filter.pb.String make = 6;
+  // model selects by model.
+  optional .x.filter.pb.String model = 7;
+  // location selects by location.
+  optional .x.filter.pb.String location = 8;
+  // rack selects by rack.
+  optional RackKeySet rack = 9;
 }

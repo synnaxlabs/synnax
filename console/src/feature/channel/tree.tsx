@@ -121,7 +121,7 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const channelKeys = ids.map((r) => Number(r.key));
   const channels = PChannel.useMultiple({
     rangeKey: activeRange?.key,
-    keys: channelKeys,
+    where: { key: { in: channelKeys } },
   });
   const showDeleteAlias = channels.some((c) => c.alias != null);
   const first = resources[0];

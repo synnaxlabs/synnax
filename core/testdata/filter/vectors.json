@@ -600,5 +600,1049 @@
         "expected": ["a", "c"]
       }
     ]
+  },
+  "racks": {
+    "records": {
+      "a": {
+        "key": 65538,
+        "name": "Hotfire rack",
+        "embedded": false,
+        "integrations": ["ni", "labjack"]
+      },
+      "b": {
+        "key": 65539,
+        "name": "Cold flow rack",
+        "embedded": false,
+        "integrations": ["opc"]
+      },
+      "c": {
+        "key": 131073,
+        "name": "Remote rack",
+        "embedded": false,
+        "integrations": []
+      },
+      "d": {
+        "key": 131074,
+        "name": "Remote embedded rack",
+        "embedded": true,
+        "integrations": ["ni"]
+      }
+    },
+    "cases": [
+      {
+        "name": "an empty where matches every rack",
+        "where": {},
+        "expected": ["a", "b", "c", "d"]
+      },
+      {
+        "name": "key eq",
+        "where": {
+          "key": {
+            "eq": 65538
+          }
+        },
+        "expected": ["a"]
+      },
+      {
+        "name": "key in",
+        "where": {
+          "key": {
+            "in": [65538, 131073]
+          }
+        },
+        "expected": ["a", "c"]
+      },
+      {
+        "name": "an empty key in matches nothing",
+        "where": {
+          "key": {
+            "in": []
+          }
+        },
+        "expected": []
+      },
+      {
+        "name": "a missing key matches nothing",
+        "where": {
+          "key": {
+            "eq": 99999
+          }
+        },
+        "expected": []
+      },
+      {
+        "name": "a missing key leaves the other keys",
+        "where": {
+          "key": {
+            "in": [65538, 99999]
+          }
+        },
+        "expected": ["a"]
+      },
+      {
+        "name": "name eq",
+        "where": {
+          "name": {
+            "eq": "Cold flow rack"
+          }
+        },
+        "expected": ["b"]
+      },
+      {
+        "name": "name in",
+        "where": {
+          "name": {
+            "in": ["Cold flow rack", "Remote rack"]
+          }
+        },
+        "expected": ["b", "c"]
+      },
+      {
+        "name": "name regex",
+        "where": {
+          "name": {
+            "regex": "^Remote"
+          }
+        },
+        "expected": ["c", "d"],
+        "server_computed": true
+      },
+      {
+        "name": "embedded eq true",
+        "where": {
+          "embedded": {
+            "eq": true
+          }
+        },
+        "expected": ["d"]
+      },
+      {
+        "name": "embedded eq false",
+        "where": {
+          "embedded": {
+            "eq": false
+          }
+        },
+        "expected": ["a", "b", "c"]
+      },
+      {
+        "name": "integrations any",
+        "where": {
+          "integrations": {
+            "any": ["ni"]
+          }
+        },
+        "expected": ["a", "d"]
+      },
+      {
+        "name": "integrations any matches any of the values",
+        "where": {
+          "integrations": {
+            "any": ["labjack", "opc"]
+          }
+        },
+        "expected": ["a", "b"]
+      },
+      {
+        "name": "an empty integrations any matches nothing",
+        "where": {
+          "integrations": {
+            "any": []
+          }
+        },
+        "expected": []
+      },
+      {
+        "name": "host is node",
+        "where": {
+          "host_is_node": true
+        },
+        "expected": ["a", "b"],
+        "server_computed": true
+      },
+      {
+        "name": "host is not node",
+        "where": {
+          "host_is_node": false
+        },
+        "expected": ["c", "d"],
+        "server_computed": true
+      },
+      {
+        "name": "the slots on one node are ANDed",
+        "where": {
+          "key": {
+            "in": [65538, 65539, 131073]
+          },
+          "integrations": {
+            "any": ["opc"]
+          }
+        },
+        "expected": ["b"]
+      },
+      {
+        "name": "an empty and matches every rack",
+        "where": {
+          "and": []
+        },
+        "expected": ["a", "b", "c", "d"]
+      },
+      {
+        "name": "an empty or matches nothing",
+        "where": {
+          "or": []
+        },
+        "expected": []
+      },
+      {
+        "name": "and",
+        "where": {
+          "and": [
+            {
+              "integrations": {
+                "any": ["ni"]
+              }
+            },
+            {
+              "embedded": {
+                "eq": false
+              }
+            }
+          ]
+        },
+        "expected": ["a"]
+      },
+      {
+        "name": "or",
+        "where": {
+          "or": [
+            {
+              "key": {
+                "eq": 65539
+              }
+            },
+            {
+              "embedded": {
+                "eq": true
+              }
+            }
+          ]
+        },
+        "expected": ["b", "d"]
+      },
+      {
+        "name": "not",
+        "where": {
+          "not": {
+            "integrations": {
+              "any": ["ni"]
+            }
+          }
+        },
+        "expected": ["b", "c"]
+      },
+      {
+        "name": "not of an empty node matches nothing",
+        "where": {
+          "not": {}
+        },
+        "expected": []
+      }
+    ]
+  },
+  "devices": {
+    "records": {
+      "a": {
+        "key": "dev-a",
+        "name": "PT 1",
+        "make": "NI",
+        "model": "cDAQ-9178",
+        "location": "Bay 1",
+        "rack": 65538,
+        "configured": false,
+        "properties": {}
+      },
+      "b": {
+        "key": "dev-b",
+        "name": "PT 2",
+        "make": "NI",
+        "model": "USB-6000",
+        "location": "Bay 2",
+        "rack": 65538,
+        "configured": false,
+        "properties": {}
+      },
+      "c": {
+        "key": "dev-c",
+        "name": "TC 1",
+        "make": "LabJack",
+        "model": "T7",
+        "location": "Bay 1",
+        "rack": 131073,
+        "configured": false,
+        "properties": {}
+      }
+    },
+    "cases": [
+      {
+        "name": "an empty where matches every device",
+        "where": {},
+        "expected": ["a", "b", "c"]
+      },
+      {
+        "name": "key eq",
+        "where": {
+          "key": {
+            "eq": "dev-a"
+          }
+        },
+        "expected": ["a"]
+      },
+      {
+        "name": "key in",
+        "where": {
+          "key": {
+            "in": ["dev-a", "dev-c"]
+          }
+        },
+        "expected": ["a", "c"]
+      },
+      {
+        "name": "an empty key in matches nothing",
+        "where": {
+          "key": {
+            "in": []
+          }
+        },
+        "expected": []
+      },
+      {
+        "name": "a missing key matches nothing",
+        "where": {
+          "key": {
+            "eq": "dev-z"
+          }
+        },
+        "expected": []
+      },
+      {
+        "name": "a missing key leaves the other keys",
+        "where": {
+          "key": {
+            "in": ["dev-a", "dev-z"]
+          }
+        },
+        "expected": ["a"]
+      },
+      {
+        "name": "name eq",
+        "where": {
+          "name": {
+            "eq": "PT 2"
+          }
+        },
+        "expected": ["b"]
+      },
+      {
+        "name": "name in",
+        "where": {
+          "name": {
+            "in": ["PT 1", "TC 1"]
+          }
+        },
+        "expected": ["a", "c"]
+      },
+      {
+        "name": "name regex",
+        "where": {
+          "name": {
+            "regex": "^PT"
+          }
+        },
+        "expected": ["a", "b"],
+        "server_computed": true
+      },
+      {
+        "name": "make eq",
+        "where": {
+          "make": {
+            "eq": "NI"
+          }
+        },
+        "expected": ["a", "b"]
+      },
+      {
+        "name": "make in",
+        "where": {
+          "make": {
+            "in": ["LabJack"]
+          }
+        },
+        "expected": ["c"]
+      },
+      {
+        "name": "model eq",
+        "where": {
+          "model": {
+            "eq": "T7"
+          }
+        },
+        "expected": ["c"]
+      },
+      {
+        "name": "location eq",
+        "where": {
+          "location": {
+            "eq": "Bay 1"
+          }
+        },
+        "expected": ["a", "c"]
+      },
+      {
+        "name": "rack eq",
+        "where": {
+          "rack": {
+            "eq": 65538
+          }
+        },
+        "expected": ["a", "b"]
+      },
+      {
+        "name": "rack in",
+        "where": {
+          "rack": {
+            "in": [131073]
+          }
+        },
+        "expected": ["c"]
+      },
+      {
+        "name": "the slots on one node are ANDed",
+        "where": {
+          "make": {
+            "eq": "NI"
+          },
+          "location": {
+            "eq": "Bay 1"
+          }
+        },
+        "expected": ["a"]
+      },
+      {
+        "name": "an empty and matches every device",
+        "where": {
+          "and": []
+        },
+        "expected": ["a", "b", "c"]
+      },
+      {
+        "name": "an empty or matches nothing",
+        "where": {
+          "or": []
+        },
+        "expected": []
+      },
+      {
+        "name": "and",
+        "where": {
+          "and": [
+            {
+              "make": {
+                "eq": "NI"
+              }
+            },
+            {
+              "not": {
+                "model": {
+                  "eq": "USB-6000"
+                }
+              }
+            }
+          ]
+        },
+        "expected": ["a"]
+      },
+      {
+        "name": "or",
+        "where": {
+          "or": [
+            {
+              "model": {
+                "eq": "T7"
+              }
+            },
+            {
+              "name": {
+                "eq": "PT 2"
+              }
+            }
+          ]
+        },
+        "expected": ["b", "c"]
+      },
+      {
+        "name": "not",
+        "where": {
+          "not": {
+            "make": {
+              "eq": "NI"
+            }
+          }
+        },
+        "expected": ["c"]
+      },
+      {
+        "name": "not of an empty node matches nothing",
+        "where": {
+          "not": {}
+        },
+        "expected": []
+      }
+    ]
+  },
+  "tasks": {
+    "records": {
+      "a": {
+        "key": "00000000-0000-4000-8000-00000000000a",
+        "name": "Write Valve",
+        "type": "labjack_write",
+        "rack": 65538,
+        "config": {},
+        "internal": false,
+        "snapshot": false
+      },
+      "b": {
+        "key": "00000000-0000-4000-8000-00000000000b",
+        "name": "Scan",
+        "type": "labjack_scan",
+        "rack": 65538,
+        "config": {},
+        "internal": true,
+        "snapshot": false
+      },
+      "c": {
+        "key": "00000000-0000-4000-8000-00000000000c",
+        "name": "Write Heater",
+        "type": "labjack_write",
+        "rack": 131073,
+        "config": {},
+        "internal": false,
+        "snapshot": true
+      }
+    },
+    "cases": [
+      {
+        "name": "an empty where matches every task",
+        "where": {},
+        "expected": ["a", "b", "c"]
+      },
+      {
+        "name": "key eq",
+        "where": {
+          "key": {
+            "eq": "00000000-0000-4000-8000-00000000000a"
+          }
+        },
+        "expected": ["a"]
+      },
+      {
+        "name": "key in",
+        "where": {
+          "key": {
+            "in": [
+              "00000000-0000-4000-8000-00000000000a",
+              "00000000-0000-4000-8000-00000000000c"
+            ]
+          }
+        },
+        "expected": ["a", "c"]
+      },
+      {
+        "name": "an empty key in matches nothing",
+        "where": {
+          "key": {
+            "in": []
+          }
+        },
+        "expected": []
+      },
+      {
+        "name": "a missing key matches nothing",
+        "where": {
+          "key": {
+            "eq": "00000000-0000-4000-8000-00000000000f"
+          }
+        },
+        "expected": []
+      },
+      {
+        "name": "a missing key leaves the other keys",
+        "where": {
+          "key": {
+            "in": [
+              "00000000-0000-4000-8000-00000000000a",
+              "00000000-0000-4000-8000-00000000000f"
+            ]
+          }
+        },
+        "expected": ["a"]
+      },
+      {
+        "name": "name eq",
+        "where": {
+          "name": {
+            "eq": "Scan"
+          }
+        },
+        "expected": ["b"]
+      },
+      {
+        "name": "name in",
+        "where": {
+          "name": {
+            "in": ["Write Valve", "Scan"]
+          }
+        },
+        "expected": ["a", "b"]
+      },
+      {
+        "name": "name regex",
+        "where": {
+          "name": {
+            "regex": "^Write"
+          }
+        },
+        "expected": ["a", "c"],
+        "server_computed": true
+      },
+      {
+        "name": "type eq",
+        "where": {
+          "type": {
+            "eq": "labjack_scan"
+          }
+        },
+        "expected": ["b"]
+      },
+      {
+        "name": "type in",
+        "where": {
+          "type": {
+            "in": ["labjack_write"]
+          }
+        },
+        "expected": ["a", "c"]
+      },
+      {
+        "name": "type regex",
+        "where": {
+          "type": {
+            "regex": "_write$"
+          }
+        },
+        "expected": ["a", "c"],
+        "server_computed": true
+      },
+      {
+        "name": "rack eq",
+        "where": {
+          "rack": {
+            "eq": 65538
+          }
+        },
+        "expected": ["a", "b"]
+      },
+      {
+        "name": "rack in",
+        "where": {
+          "rack": {
+            "in": [131073]
+          }
+        },
+        "expected": ["c"]
+      },
+      {
+        "name": "internal eq true",
+        "where": {
+          "internal": {
+            "eq": true
+          }
+        },
+        "expected": ["b"]
+      },
+      {
+        "name": "internal eq false",
+        "where": {
+          "internal": {
+            "eq": false
+          }
+        },
+        "expected": ["a", "c"]
+      },
+      {
+        "name": "snapshot eq",
+        "where": {
+          "snapshot": {
+            "eq": true
+          }
+        },
+        "expected": ["c"]
+      },
+      {
+        "name": "the slots on one node are ANDed",
+        "where": {
+          "type": {
+            "eq": "labjack_write"
+          },
+          "rack": {
+            "eq": 65538
+          }
+        },
+        "expected": ["a"]
+      },
+      {
+        "name": "an empty and matches every task",
+        "where": {
+          "and": []
+        },
+        "expected": ["a", "b", "c"]
+      },
+      {
+        "name": "an empty or matches nothing",
+        "where": {
+          "or": []
+        },
+        "expected": []
+      },
+      {
+        "name": "and",
+        "where": {
+          "and": [
+            {
+              "type": {
+                "eq": "labjack_write"
+              }
+            },
+            {
+              "not": {
+                "snapshot": {
+                  "eq": true
+                }
+              }
+            }
+          ]
+        },
+        "expected": ["a"]
+      },
+      {
+        "name": "or",
+        "where": {
+          "or": [
+            {
+              "internal": {
+                "eq": true
+              }
+            },
+            {
+              "snapshot": {
+                "eq": true
+              }
+            }
+          ]
+        },
+        "expected": ["b", "c"]
+      },
+      {
+        "name": "not",
+        "where": {
+          "not": {
+            "rack": {
+              "eq": 65538
+            }
+          }
+        },
+        "expected": ["c"]
+      },
+      {
+        "name": "not of an empty node matches nothing",
+        "where": {
+          "not": {}
+        },
+        "expected": []
+      }
+    ]
+  },
+  "channels": {
+    "records": {
+      "a": {
+        "key": 1048577,
+        "name": "pressure_1",
+        "leaseholder": 1,
+        "data_type": "float32",
+        "is_index": false,
+        "index": 1048578,
+        "virtual": false,
+        "internal": false,
+        "expression": ""
+      },
+      "b": {
+        "key": 1048578,
+        "name": "time_1",
+        "leaseholder": 1,
+        "data_type": "timestamp",
+        "is_index": true,
+        "index": 1048578,
+        "virtual": false,
+        "internal": false,
+        "expression": ""
+      },
+      "c": {
+        "key": 1048579,
+        "name": "pressure_x2",
+        "leaseholder": 1,
+        "data_type": "float32",
+        "is_index": false,
+        "index": 0,
+        "virtual": true,
+        "internal": false,
+        "expression": "return pressure_1 * 2"
+      },
+      "d": {
+        "key": 1048580,
+        "name": "valve_cmd",
+        "leaseholder": 1,
+        "data_type": "uint8",
+        "is_index": false,
+        "index": 0,
+        "virtual": true,
+        "internal": false,
+        "expression": ""
+      },
+      "e": {
+        "key": 2097153,
+        "name": "sy_node_2_metrics",
+        "leaseholder": 2,
+        "data_type": "float64",
+        "is_index": false,
+        "index": 2097154,
+        "virtual": false,
+        "internal": true,
+        "expression": ""
+      }
+    },
+    "cases": [
+      {
+        "name": "an empty where matches every channel",
+        "where": {},
+        "expected": ["a", "b", "c", "d", "e"]
+      },
+      {
+        "name": "key eq",
+        "where": {
+          "key": {
+            "eq": 1048577
+          }
+        },
+        "expected": ["a"]
+      },
+      {
+        "name": "key in skips a missing key",
+        "where": {
+          "key": {
+            "in": [1048577, 2097153, 99]
+          }
+        },
+        "expected": ["a", "e"]
+      },
+      {
+        "name": "an empty key in matches none",
+        "where": {
+          "key": {
+            "in": []
+          }
+        },
+        "expected": []
+      },
+      {
+        "name": "name eq",
+        "where": {
+          "name": {
+            "eq": "time_1"
+          }
+        },
+        "expected": ["b"]
+      },
+      {
+        "name": "name eq matches a pattern literally",
+        "where": {
+          "name": {
+            "eq": "pressure_.*"
+          }
+        },
+        "expected": []
+      },
+      {
+        "name": "name in",
+        "where": {
+          "name": {
+            "in": ["pressure_1", "valve_cmd"]
+          }
+        },
+        "expected": ["a", "d"]
+      },
+      {
+        "name": "name regex",
+        "where": {
+          "name": {
+            "regex": "^pressure"
+          }
+        },
+        "expected": ["a", "c"],
+        "server_computed": true
+      },
+      {
+        "name": "name_patterns matches a valid name exactly",
+        "where": { "name_patterns": ["pressure_1", "pressure"] },
+        "expected": ["a"],
+        "server_computed": true
+      },
+      {
+        "name": "name_patterns anchors an unanchored pattern",
+        "where": { "name_patterns": ["pressure_.*", "valve"] },
+        "expected": ["a", "c"],
+        "server_computed": true
+      },
+      {
+        "name": "name_patterns keeps an anchored pattern as given",
+        "where": { "name_patterns": ["^valve"] },
+        "expected": ["d"],
+        "server_computed": true
+      },
+      {
+        "name": "leaseholder eq",
+        "where": {
+          "leaseholder": {
+            "eq": 2
+          }
+        },
+        "expected": ["e"]
+      },
+      {
+        "name": "leaseholder in",
+        "where": {
+          "leaseholder": {
+            "in": [1]
+          }
+        },
+        "expected": ["a", "b", "c", "d"]
+      },
+      {
+        "name": "data_type in",
+        "where": {
+          "data_type": {
+            "in": ["float32"]
+          }
+        },
+        "expected": ["a", "c"]
+      },
+      {
+        "name": "not data_type in",
+        "where": {
+          "not": {
+            "data_type": {
+              "in": ["float32", "timestamp"]
+            }
+          }
+        },
+        "expected": ["d", "e"]
+      },
+      {
+        "name": "is_index eq",
+        "where": {
+          "is_index": {
+            "eq": true
+          }
+        },
+        "expected": ["b"]
+      },
+      {
+        "name": "internal eq",
+        "where": {
+          "internal": {
+            "eq": true
+          }
+        },
+        "expected": ["e"]
+      },
+      {
+        "name": "virtual leaves out calculated channels",
+        "where": {
+          "virtual": true
+        },
+        "expected": ["d"]
+      },
+      {
+        "name": "not virtual keeps calculated channels",
+        "where": {
+          "virtual": false
+        },
+        "expected": ["a", "b", "c", "e"]
+      },
+      {
+        "name": "and of data_type and virtual",
+        "where": {
+          "and": [
+            {
+              "data_type": {
+                "in": ["float32"]
+              }
+            },
+            {
+              "virtual": false
+            }
+          ]
+        },
+        "expected": ["a", "c"]
+      },
+      {
+        "name": "or of name and internal",
+        "where": {
+          "or": [
+            {
+              "name": {
+                "eq": "time_1"
+              }
+            },
+            {
+              "internal": {
+                "eq": true
+              }
+            }
+          ]
+        },
+        "expected": ["b", "e"]
+      },
+      {
+        "name": "an empty and matches every channel",
+        "where": {
+          "and": []
+        },
+        "expected": ["a", "b", "c", "d", "e"]
+      },
+      {
+        "name": "an empty or matches none",
+        "where": {
+          "or": []
+        },
+        "expected": []
+      },
+      {
+        "name": "not of an empty where matches none",
+        "where": {
+          "not": {}
+        },
+        "expected": []
+      }
+    ]
   }
 }

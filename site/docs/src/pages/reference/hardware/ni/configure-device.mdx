@@ -87,8 +87,8 @@ Configure devices in the Console.
 Find the NI devices that the Driver found:
 
 ```typescript
-for (const dev of await client.devices.retrieve({ makes: ["NI"] }))
-  console.log(dev.key, dev.name, dev.model, dev.location);
+const devices = await client.devices.retrieve({ where: { make: { eq: "NI" } } });
+for (const dev of devices) console.log(dev.key, dev.name, dev.model, dev.location);
 ```
 
 Configure devices in the Console.

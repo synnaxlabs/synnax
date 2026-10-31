@@ -88,7 +88,7 @@ export const Select = ({
         <Device.SelectSingle
           value={value}
           onChange={onChange}
-          initialQuery={{ makes: [make] }}
+          initialQuery={{ where: { make: { eq: make } } }}
           filter={filter}
           emptyContent={emptyContent}
           grow

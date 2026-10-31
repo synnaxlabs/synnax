@@ -162,23 +162,20 @@ const matches = await client.channels.retrieve({
 
 // All float32 data channels
 const floats = await client.channels.retrieve({
-  dataTypes: [DataType.FLOAT32],
-  isIndex: false,
+  where: { dataType: { eq: DataType.FLOAT32 }, isIndex: { eq: false } },
 });
 ```
 
-| Filter         | Returns channels that                                             |
-| -------------- | ----------------------------------------------------------------- |
-| `searchTerm`   | Have a name that is similar to the term.                          |
-| `dataTypes`    | Have one of these data types.                                     |
-| `notDataTypes` | Do not have any of these data types.                              |
-| `isIndex`      | Are index channels (`true`) or are not (`false`).                 |
-| `virtual`      | Are virtual channels. Calculated channels are not in the results. |
-| `internal`     | Are channels that Synnax uses for itself (`true`) or are not.     |
-| `limit`        | Are in the first `limit` results.                                 |
-| `offset`       | Come after the first `offset` results.                            |
+| Filter       | Returns channels that                    |
+| ------------ | ---------------------------------------- |
+| `searchTerm` | Have a name that is similar to the term. |
+| `where`      | Match the filter.                        |
+| `limit`      | Are in the first `limit` results.        |
+| `offset`     | Come after the first `offset` results.   |
 
-Synnax returns only the channels that match all of the filters.
+A `where` filter matches the properties of a channel: `key`, `name`, `dataType`,
+`isIndex`, `virtual`, `internal`, and `leaseholder`. Use `and`, `or`, and `not` to
+combine filters. Synnax returns only the channels that match all of the filters.
 
   </Fragment>
 

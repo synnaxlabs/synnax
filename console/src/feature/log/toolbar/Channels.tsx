@@ -176,7 +176,7 @@ const ChannelRow = ({
 };
 
 const SELECT_CHANNEL_INITIAL_QUERY: Channel.ListQuery = {
-  internal: IS_DEV ? undefined : false,
+  where: { internal: IS_DEV ? undefined : { eq: false } },
 };
 
 const ADD_CHANNEL_TRIGGER_PROPS: Select.SingleTriggerProps = {

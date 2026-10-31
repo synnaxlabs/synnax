@@ -133,9 +133,10 @@ const onConfigure: Task.OnConfigure<typeof counterReadConfigZ> = async (
 ) => {
   const devices = unique.unique(config.channels.map((c) => c.device));
   const allDevices = await client.devices.retrieve({
-    keys: devices,
+    where: { key: { in: devices } },
     schemas: SCHEMAS,
   });
+  PlatformDevice.checkFound(devices, allDevices);
   const racks = new Set(allDevices.map((d) => d.rack));
   if (racks.size > 1)
     throw new Error("Cannot create task with channels from multiple racks");

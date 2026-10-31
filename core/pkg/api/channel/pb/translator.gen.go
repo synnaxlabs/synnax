@@ -120,3 +120,123 @@ func ChannelsFromPB(pbs []*Channel) ([]channel.Channel, error) {
 	}
 	return result, nil
 }
+
+// RetrieveRequestToPB converts RetrieveRequest to RetrieveRequest.
+func RetrieveRequestToPB(r channel.RetrieveRequest) (*RetrieveRequest, error) {
+	pb := &RetrieveRequest{
+		SearchTerm:    r.SearchTerm,
+		Offset:        r.Offset,
+		IncludeStatus: r.IncludeStatus,
+	}
+	if r.Where != nil {
+		var err error
+		pb.Where, err = channelpb.WhereToPB(*r.Where)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Limit != nil {
+		pb.Limit = r.Limit
+	}
+	return pb, nil
+}
+
+// RetrieveRequestFromPB converts RetrieveRequest to RetrieveRequest.
+func RetrieveRequestFromPB(pb *RetrieveRequest) (channel.RetrieveRequest, error) {
+	var r channel.RetrieveRequest
+	if pb == nil {
+		return r, nil
+	}
+	r.SearchTerm = pb.SearchTerm
+	r.Offset = pb.Offset
+	r.IncludeStatus = pb.IncludeStatus
+	if pb.Where != nil {
+		val, err := channelpb.WhereFromPB(pb.Where)
+		if err != nil {
+			return channel.RetrieveRequest{}, err
+		}
+		r.Where = &val
+	}
+	if pb.Limit != nil {
+		r.Limit = pb.Limit
+	}
+	return r, nil
+}
+
+// RetrieveRequestsToPB converts a slice of RetrieveRequest to RetrieveRequest.
+func RetrieveRequestsToPB(rs []channel.RetrieveRequest) ([]*RetrieveRequest, error) {
+	result := make([]*RetrieveRequest, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = RetrieveRequestToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// RetrieveRequestsFromPB converts a slice of RetrieveRequest to RetrieveRequest.
+func RetrieveRequestsFromPB(pbs []*RetrieveRequest) ([]channel.RetrieveRequest, error) {
+	result := make([]channel.RetrieveRequest, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = RetrieveRequestFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// RetrieveResponseToPB converts RetrieveResponse to RetrieveResponse.
+func RetrieveResponseToPB(r channel.RetrieveResponse) (*RetrieveResponse, error) {
+	channelsVal, err := ChannelsToPB(r.Channels)
+	if err != nil {
+		return nil, err
+	}
+	pb := &RetrieveResponse{
+		Channels: channelsVal,
+	}
+	return pb, nil
+}
+
+// RetrieveResponseFromPB converts RetrieveResponse to RetrieveResponse.
+func RetrieveResponseFromPB(pb *RetrieveResponse) (channel.RetrieveResponse, error) {
+	var r channel.RetrieveResponse
+	if pb == nil {
+		return r, nil
+	}
+	var err error
+	r.Channels, err = ChannelsFromPB(pb.Channels)
+	if err != nil {
+		return channel.RetrieveResponse{}, err
+	}
+	return r, nil
+}
+
+// RetrieveResponsesToPB converts a slice of RetrieveResponse to RetrieveResponse.
+func RetrieveResponsesToPB(rs []channel.RetrieveResponse) ([]*RetrieveResponse, error) {
+	result := make([]*RetrieveResponse, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = RetrieveResponseToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// RetrieveResponsesFromPB converts a slice of RetrieveResponse to RetrieveResponse.
+func RetrieveResponsesFromPB(pbs []*RetrieveResponse) ([]channel.RetrieveResponse, error) {
+	result := make([]channel.RetrieveResponse, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = RetrieveResponseFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}

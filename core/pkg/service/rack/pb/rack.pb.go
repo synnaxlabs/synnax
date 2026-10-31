@@ -19,6 +19,7 @@ package pb
 
 import (
 	pb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
+	pb1 "github.com/synnaxlabs/x/filter/pb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -164,11 +165,355 @@ func (x *Rack) GetIntegrations() []string {
 	return nil
 }
 
+type WhereList struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Values        []*Where               `protobuf:"bytes,1,rep,name=values,proto3" json:"values,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *WhereList) Reset() {
+	*x = WhereList{}
+	mi := &file_core_pkg_service_rack_pb_rack_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WhereList) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WhereList) ProtoMessage() {}
+
+func (x *WhereList) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_rack_pb_rack_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WhereList.ProtoReflect.Descriptor instead.
+func (*WhereList) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_rack_pb_rack_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *WhereList) GetValues() []*Where {
+	if x != nil {
+		return x.Values
+	}
+	return nil
+}
+
+type KeyList struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Values        []uint32               `protobuf:"varint,1,rep,packed,name=values,proto3" json:"values,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *KeyList) Reset() {
+	*x = KeyList{}
+	mi := &file_core_pkg_service_rack_pb_rack_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *KeyList) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*KeyList) ProtoMessage() {}
+
+func (x *KeyList) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_rack_pb_rack_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use KeyList.ProtoReflect.Descriptor instead.
+func (*KeyList) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_rack_pb_rack_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *KeyList) GetValues() []uint32 {
+	if x != nil {
+		return x.Values
+	}
+	return nil
+}
+
+// KeySet selects values that only compare for equality, such as keys, enum values, and
+// UUIDs. A value must match every operator that is set.
+type KeySet struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// eq matches a value equal to eq.
+	Eq *uint32 `protobuf:"varint,1,opt,name=eq,proto3,oneof" json:"eq,omitempty"`
+	// in matches a value equal to an element of in.
+	In            *KeyList `protobuf:"bytes,2,opt,name=in,proto3" json:"in,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *KeySet) Reset() {
+	*x = KeySet{}
+	mi := &file_core_pkg_service_rack_pb_rack_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *KeySet) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*KeySet) ProtoMessage() {}
+
+func (x *KeySet) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_rack_pb_rack_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use KeySet.ProtoReflect.Descriptor instead.
+func (*KeySet) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_rack_pb_rack_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *KeySet) GetEq() uint32 {
+	if x != nil && x.Eq != nil {
+		return *x.Eq
+	}
+	return 0
+}
+
+func (x *KeySet) GetIn() *KeyList {
+	if x != nil {
+		return x.In
+	}
+	return nil
+}
+
+type StringList struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Values        []string               `protobuf:"bytes,1,rep,name=values,proto3" json:"values,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StringList) Reset() {
+	*x = StringList{}
+	mi := &file_core_pkg_service_rack_pb_rack_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StringList) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StringList) ProtoMessage() {}
+
+func (x *StringList) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_rack_pb_rack_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StringList.ProtoReflect.Descriptor instead.
+func (*StringList) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_rack_pb_rack_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *StringList) GetValues() []string {
+	if x != nil {
+		return x.Values
+	}
+	return nil
+}
+
+// StringContains selects arrays by the elements they hold.
+type StringContains struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// any matches an array that holds an element of any.
+	Any           *StringList `protobuf:"bytes,1,opt,name=any,proto3" json:"any,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StringContains) Reset() {
+	*x = StringContains{}
+	mi := &file_core_pkg_service_rack_pb_rack_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StringContains) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StringContains) ProtoMessage() {}
+
+func (x *StringContains) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_rack_pb_rack_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StringContains.ProtoReflect.Descriptor instead.
+func (*StringContains) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_rack_pb_rack_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *StringContains) GetAny() *StringList {
+	if x != nil {
+		return x.Any
+	}
+	return nil
+}
+
+// Where is a filter that selects racks.
+type Where struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// and matches when every child matches.
+	And *WhereList `protobuf:"bytes,1,opt,name=and,proto3" json:"and,omitempty"`
+	// or matches when any child matches.
+	Or *WhereList `protobuf:"bytes,2,opt,name=or,proto3" json:"or,omitempty"`
+	// not matches when the child does not match.
+	Not *Where `protobuf:"bytes,3,opt,name=not,proto3,oneof" json:"not,omitempty"`
+	// key selects by key.
+	Key *KeySet `protobuf:"bytes,4,opt,name=key,proto3,oneof" json:"key,omitempty"`
+	// name selects by name.
+	Name *pb1.String `protobuf:"bytes,5,opt,name=name,proto3,oneof" json:"name,omitempty"`
+	// embedded selects by embedded.
+	Embedded *pb1.Bool `protobuf:"bytes,6,opt,name=embedded,proto3,oneof" json:"embedded,omitempty"`
+	// integrations selects by integrations.
+	Integrations *StringContains `protobuf:"bytes,7,opt,name=integrations,proto3,oneof" json:"integrations,omitempty"`
+	// host_is_node matches racks on the Core that serves the request, or racks on other
+	// Cores when false.
+	HostIsNode    *bool `protobuf:"varint,8,opt,name=host_is_node,json=hostIsNode,proto3,oneof" json:"host_is_node,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Where) Reset() {
+	*x = Where{}
+	mi := &file_core_pkg_service_rack_pb_rack_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Where) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Where) ProtoMessage() {}
+
+func (x *Where) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_rack_pb_rack_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Where.ProtoReflect.Descriptor instead.
+func (*Where) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_rack_pb_rack_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *Where) GetAnd() *WhereList {
+	if x != nil {
+		return x.And
+	}
+	return nil
+}
+
+func (x *Where) GetOr() *WhereList {
+	if x != nil {
+		return x.Or
+	}
+	return nil
+}
+
+func (x *Where) GetNot() *Where {
+	if x != nil {
+		return x.Not
+	}
+	return nil
+}
+
+func (x *Where) GetKey() *KeySet {
+	if x != nil {
+		return x.Key
+	}
+	return nil
+}
+
+func (x *Where) GetName() *pb1.String {
+	if x != nil {
+		return x.Name
+	}
+	return nil
+}
+
+func (x *Where) GetEmbedded() *pb1.Bool {
+	if x != nil {
+		return x.Embedded
+	}
+	return nil
+}
+
+func (x *Where) GetIntegrations() *StringContains {
+	if x != nil {
+		return x.Integrations
+	}
+	return nil
+}
+
+func (x *Where) GetHostIsNode() bool {
+	if x != nil && x.HostIsNode != nil {
+		return *x.HostIsNode
+	}
+	return false
+}
+
 var File_core_pkg_service_rack_pb_rack_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_rack_pb_rack_proto_rawDesc = "" +
 	"\n" +
-	"#core/pkg/service/rack/pb/rack.proto\x12\x0fservice.rack.pb\x1a'core/pkg/service/status/pb/status.proto\"#\n" +
+	"#core/pkg/service/rack/pb/rack.proto\x12\x0fservice.rack.pb\x1a'core/pkg/service/status/pb/status.proto\x1a\x1bx/go/filter/pb/filter.proto\"#\n" +
 	"\rStatusDetails\x12\x12\n" +
 	"\x04rack\x18\x01 \x01(\rR\x04rack\"\xaf\x01\n" +
 	"\x04Rack\x12\x10\n" +
@@ -177,7 +522,36 @@ const file_core_pkg_service_rack_pb_rack_proto_rawDesc = "" +
 	"\bembedded\x18\x03 \x01(\bR\bembedded\x126\n" +
 	"\x06status\x18\x04 \x01(\v2\x19.service.status.pb.StatusH\x00R\x06status\x88\x01\x01\x12\"\n" +
 	"\fintegrations\x18\x05 \x03(\tR\fintegrationsB\t\n" +
-	"\a_statusB\xb0\x01\n" +
+	"\a_status\";\n" +
+	"\tWhereList\x12.\n" +
+	"\x06values\x18\x01 \x03(\v2\x16.service.rack.pb.WhereR\x06values\"!\n" +
+	"\aKeyList\x12\x16\n" +
+	"\x06values\x18\x01 \x03(\rR\x06values\"N\n" +
+	"\x06KeySet\x12\x13\n" +
+	"\x02eq\x18\x01 \x01(\rH\x00R\x02eq\x88\x01\x01\x12(\n" +
+	"\x02in\x18\x02 \x01(\v2\x18.service.rack.pb.KeyListR\x02inB\x05\n" +
+	"\x03_eq\"$\n" +
+	"\n" +
+	"StringList\x12\x16\n" +
+	"\x06values\x18\x01 \x03(\tR\x06values\"?\n" +
+	"\x0eStringContains\x12-\n" +
+	"\x03any\x18\x01 \x01(\v2\x1b.service.rack.pb.StringListR\x03any\"\xdb\x03\n" +
+	"\x05Where\x12,\n" +
+	"\x03and\x18\x01 \x01(\v2\x1a.service.rack.pb.WhereListR\x03and\x12*\n" +
+	"\x02or\x18\x02 \x01(\v2\x1a.service.rack.pb.WhereListR\x02or\x12-\n" +
+	"\x03not\x18\x03 \x01(\v2\x16.service.rack.pb.WhereH\x00R\x03not\x88\x01\x01\x12.\n" +
+	"\x03key\x18\x04 \x01(\v2\x17.service.rack.pb.KeySetH\x01R\x03key\x88\x01\x01\x12,\n" +
+	"\x04name\x18\x05 \x01(\v2\x13.x.filter.pb.StringH\x02R\x04name\x88\x01\x01\x122\n" +
+	"\bembedded\x18\x06 \x01(\v2\x11.x.filter.pb.BoolH\x03R\bembedded\x88\x01\x01\x12H\n" +
+	"\fintegrations\x18\a \x01(\v2\x1f.service.rack.pb.StringContainsH\x04R\fintegrations\x88\x01\x01\x12%\n" +
+	"\fhost_is_node\x18\b \x01(\bH\x05R\n" +
+	"hostIsNode\x88\x01\x01B\x06\n" +
+	"\x04_notB\x06\n" +
+	"\x04_keyB\a\n" +
+	"\x05_nameB\v\n" +
+	"\t_embeddedB\x0f\n" +
+	"\r_integrationsB\x0f\n" +
+	"\r_host_is_nodeB\xb0\x01\n" +
 	"\x13com.service.rack.pbB\tRackProtoP\x01Z0github.com/synnaxlabs/synnax/pkg/service/rack/pb\xa2\x02\x03SRP\xaa\x02\x0fService.Rack.Pb\xca\x02\x0fService\\Rack\\Pb\xe2\x02\x1bService\\Rack\\Pb\\GPBMetadata\xea\x02\x11Service::Rack::Pbb\x06proto3"
 
 var (
@@ -192,19 +566,37 @@ func file_core_pkg_service_rack_pb_rack_proto_rawDescGZIP() []byte {
 	return file_core_pkg_service_rack_pb_rack_proto_rawDescData
 }
 
-var file_core_pkg_service_rack_pb_rack_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_core_pkg_service_rack_pb_rack_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_core_pkg_service_rack_pb_rack_proto_goTypes = []any{
-	(*StatusDetails)(nil), // 0: service.rack.pb.StatusDetails
-	(*Rack)(nil),          // 1: service.rack.pb.Rack
-	(*pb.Status)(nil),     // 2: service.status.pb.Status
+	(*StatusDetails)(nil),  // 0: service.rack.pb.StatusDetails
+	(*Rack)(nil),           // 1: service.rack.pb.Rack
+	(*WhereList)(nil),      // 2: service.rack.pb.WhereList
+	(*KeyList)(nil),        // 3: service.rack.pb.KeyList
+	(*KeySet)(nil),         // 4: service.rack.pb.KeySet
+	(*StringList)(nil),     // 5: service.rack.pb.StringList
+	(*StringContains)(nil), // 6: service.rack.pb.StringContains
+	(*Where)(nil),          // 7: service.rack.pb.Where
+	(*pb.Status)(nil),      // 8: service.status.pb.Status
+	(*pb1.String)(nil),     // 9: x.filter.pb.String
+	(*pb1.Bool)(nil),       // 10: x.filter.pb.Bool
 }
 var file_core_pkg_service_rack_pb_rack_proto_depIdxs = []int32{
-	2, // 0: service.rack.pb.Rack.status:type_name -> service.status.pb.Status
-	1, // [1:1] is the sub-list for method output_type
-	1, // [1:1] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	8,  // 0: service.rack.pb.Rack.status:type_name -> service.status.pb.Status
+	7,  // 1: service.rack.pb.WhereList.values:type_name -> service.rack.pb.Where
+	3,  // 2: service.rack.pb.KeySet.in:type_name -> service.rack.pb.KeyList
+	5,  // 3: service.rack.pb.StringContains.any:type_name -> service.rack.pb.StringList
+	2,  // 4: service.rack.pb.Where.and:type_name -> service.rack.pb.WhereList
+	2,  // 5: service.rack.pb.Where.or:type_name -> service.rack.pb.WhereList
+	7,  // 6: service.rack.pb.Where.not:type_name -> service.rack.pb.Where
+	4,  // 7: service.rack.pb.Where.key:type_name -> service.rack.pb.KeySet
+	9,  // 8: service.rack.pb.Where.name:type_name -> x.filter.pb.String
+	10, // 9: service.rack.pb.Where.embedded:type_name -> x.filter.pb.Bool
+	6,  // 10: service.rack.pb.Where.integrations:type_name -> service.rack.pb.StringContains
+	11, // [11:11] is the sub-list for method output_type
+	11, // [11:11] is the sub-list for method input_type
+	11, // [11:11] is the sub-list for extension type_name
+	11, // [11:11] is the sub-list for extension extendee
+	0,  // [0:11] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_service_rack_pb_rack_proto_init() }
@@ -213,13 +605,15 @@ func file_core_pkg_service_rack_pb_rack_proto_init() {
 		return
 	}
 	file_core_pkg_service_rack_pb_rack_proto_msgTypes[1].OneofWrappers = []any{}
+	file_core_pkg_service_rack_pb_rack_proto_msgTypes[4].OneofWrappers = []any{}
+	file_core_pkg_service_rack_pb_rack_proto_msgTypes[7].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_service_rack_pb_rack_proto_rawDesc), len(file_core_pkg_service_rack_pb_rack_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   2,
+			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

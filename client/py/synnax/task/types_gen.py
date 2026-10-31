@@ -14,13 +14,13 @@ from __future__ import annotations
 from typing import TypeAlias
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field, JsonValue
+from pydantic import BaseModel, ConfigDict, Field, JsonValue
 
 from synnax import device as device_
 from synnax import rack as rack_
 from synnax import status as status_
 from synnax.ontology.payload import ID
-from x import telem
+from x import filter, telem
 
 Key: TypeAlias = UUID
 
@@ -57,6 +57,34 @@ class StatusDetails(BaseModel):
     config_hash: str = ""
     rack: rack_.Key = Field(default=rack_.Key(0), ge=0, le=4294967295)
     data: dict[str, JsonValue] | None = None
+
+
+class Where(BaseModel):
+    """Is a filter that selects tasks.
+
+    Attributes:
+        and_: Matches when every child matches.
+        or_: Matches when any child matches.
+        not_: Matches when the child does not match.
+        key: Selects by key.
+        name: Selects by name.
+        type: Selects by type.
+        rack: Selects by rack.
+        internal: Selects by internal.
+        snapshot: Selects by snapshot.
+    """
+
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+
+    and_: list[Where] | None = Field(default=None, alias="and")
+    or_: list[Where] | None = Field(default=None, alias="or")
+    not_: Where | None = Field(default=None, alias="not")
+    key: filter.Set[Key] | None = None
+    name: filter.String | None = None
+    type: filter.String | None = None
+    rack: filter.Set[rack_.Key] | None = None
+    internal: filter.Bool | None = None
+    snapshot: filter.Bool | None = None
 
 
 class Command(BaseModel):
@@ -108,6 +136,26 @@ class ScanConfig(KeyedConfig):
 
 
 Status: TypeAlias = status_.Status[StatusDetails]
+
+
+class RetrieveRequest(BaseModel):
+    """Is a request to retrieve tasks.
+
+    Attributes:
+        where: Selects the tasks to retrieve. An absent where selects all of them.
+        search_term: Keeps the tasks that match the term, closest match first.
+        limit: Is the most tasks to return.
+        offset: Is the number of matching tasks to skip.
+        include_status: Includes the status of each record.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    where: Where | None = None
+    search_term: str = ""
+    limit: int | None = Field(default=None, ge=0, le=4294967295)
+    offset: int = Field(default=0, ge=0, le=4294967295)
+    include_status: bool = False
 
 
 class PersistConfig(StartConfig):
@@ -185,6 +233,19 @@ class WriteConfig(PersistConfig):
 
     def __hash__(self) -> int:
         return hash(self.key)
+
+
+class RetrieveResponse(BaseModel):
+    """Holds the tasks a RetrieveRequest selects.
+
+    Attributes:
+        tasks: Are the tasks the request selects.
+    """
+
+    tasks: list[Payload] = Field(default_factory=list)
+
+
+Where.model_rebuild()
 
 
 ONTOLOGY_TYPE = ID(type="task")

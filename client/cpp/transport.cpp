@@ -83,7 +83,7 @@ Transport::Transport(const uint16_t port, const std::string &ip, const bool secu
         grpc::channel::ChannelCreateService>>(pool, base_target);
     this->chan_retrieve = std::make_unique<freighter::grpc::UnaryClient<
         grpc::channel::RetrieveRequest,
-        grpc::channel::RetrieveResponse,
+        ::api::channel::pb::RetrieveResponse,
         grpc::channel::ChannelRetrieveService>>(pool, base_target);
     this->range_retrieve = std::make_unique<freighter::grpc::UnaryClient<
         grpc::ranger::RetrieveRequest,
@@ -115,7 +115,7 @@ Transport::Transport(const uint16_t port, const std::string &ip, const bool secu
         grpc::rack::RackCreateService>>(pool, base_target);
     this->rack_retrieve = std::make_unique<freighter::grpc::UnaryClient<
         grpc::rack::RetrieveRequest,
-        grpc::rack::RetrieveResponse,
+        ::api::rack::pb::RetrieveResponse,
         grpc::rack::RackRetrieveService>>(pool, base_target);
     this->rack_delete = std::make_unique<freighter::grpc::UnaryClient<
         grpc::rack::DeleteRequest,
@@ -127,7 +127,7 @@ Transport::Transport(const uint16_t port, const std::string &ip, const bool secu
         grpc::task::TaskCreateService>>(pool, base_target);
     this->task_retrieve = std::make_shared<freighter::grpc::UnaryClient<
         grpc::task::RetrieveRequest,
-        grpc::task::RetrieveResponse,
+        ::api::task::pb::RetrieveResponse,
         grpc::task::TaskRetrieveService>>(pool, base_target);
     this->task_delete = std::make_shared<freighter::grpc::UnaryClient<
         grpc::task::DeleteRequest,
@@ -139,7 +139,7 @@ Transport::Transport(const uint16_t port, const std::string &ip, const bool secu
         grpc::device::DeviceCreateService>>(pool, base_target);
     this->device_retrieve = std::make_unique<freighter::grpc::UnaryClient<
         grpc::device::RetrieveRequest,
-        grpc::device::RetrieveResponse,
+        ::api::device::pb::RetrieveResponse,
         grpc::device::DeviceRetrieveService>>(pool, base_target);
     this->device_delete = std::make_unique<freighter::grpc::UnaryClient<
         grpc::device::DeleteRequest,

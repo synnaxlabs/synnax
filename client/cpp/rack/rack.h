@@ -23,7 +23,7 @@
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/json/json.h"
 
-#include "core/pkg/service/rack/pb/rack.pb.h"
+#include "core/pkg/api/rack/pb/rack.pb.h"
 #include "core/pkg/transport/grpc/rack/rack.pb.h"
 
 namespace synnax::rack {
@@ -36,7 +36,7 @@ using CreateClient = freighter::
 
 /// @brief Type alias for the transport used to retrieve a rack.
 using RetrieveClient = freighter::
-    UnaryClient<grpc::rack::RetrieveRequest, grpc::rack::RetrieveResponse>;
+    UnaryClient<grpc::rack::RetrieveRequest, ::api::rack::pb::RetrieveResponse>;
 
 /// @brief Type alias for the transport used to delete a rack.
 using DeleteClient = freighter::
@@ -135,6 +135,11 @@ public:
     std::pair<Rack, x::errors::Error>
     retrieve(const std::string &name, const RetrieveOptions &options) const;
 
+    /// @brief Retrieves the racks that req selects.
+    [[nodiscard]]
+    std::pair<std::vector<Rack>, x::errors::Error>
+    retrieve(const RetrieveRequest &req) const;
+
     /// @brief Deletes a rack by its key.
     /// @param key The key of the rack to delete.
     /// @returns An error if the deletion failed.
@@ -144,7 +149,7 @@ public:
 private:
     [[nodiscard]]
     std::pair<Rack, x::errors::Error>
-    retrieve(grpc::rack::RetrieveRequest &req, const std::string &query) const;
+    retrieve_one(const RetrieveRequest &req, const std::string &query) const;
 
     /// @brief Rack creation transport.
     std::unique_ptr<CreateClient> rack_create_client;

@@ -11,12 +11,14 @@
 
 #pragma once
 
+#include <cstdint>
 #include <string>
 #include <vector>
 
 #include "client/cpp/channel/types.gen.h"
 #include "client/cpp/node/types.gen.h"
 #include "client/cpp/status/json.gen.h"
+#include "x/cpp/filter/json.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/types.gen.h"
 
@@ -80,6 +82,81 @@ inline x::json::json Channel::to_json() const {
     j["operations"] = x::json::to_array(this->operations);
     j["concurrency"] = this->concurrency;
     if (this->status.has_value()) j["status"] = this->status->to_json();
+    return j;
+}
+
+inline Where Where::parse(x::json::Parser parser) {
+    return Where{
+        .and_ = parser.field<std::optional<std::vector<Where>>>("and"),
+        .or_ = parser.field<std::optional<std::vector<Where>>>("or"),
+        .not_ = parser.field<x::mem::indirect<Where>>("not"),
+        .key = parser.field<std::optional<::x::filter::Set<Key>>>("key"),
+        .name = parser.field<std::optional<::x::filter::String>>("name"),
+        .leaseholder = parser
+                           .field<std::optional<::x::filter::Set<::synnax::node::Key>>>(
+                               "leaseholder"
+                           ),
+        .data_type = parser
+                         .field<std::optional<::x::filter::Set<::x::telem::DataType>>>(
+                             "data_type"
+                         ),
+        .is_index = parser.field<std::optional<::x::filter::Bool>>("is_index"),
+        .internal = parser.field<std::optional<::x::filter::Bool>>("internal"),
+        .virtual_ = parser.field<std::optional<bool>>("virtual"),
+        .name_patterns = parser.field<std::optional<std::vector<std::string>>>(
+            "name_patterns"
+        ),
+    };
+}
+
+inline x::json::json Where::to_json() const {
+    x::json::json j;
+    if (this->and_.has_value()) j["and"] = x::json::to_array(*this->and_);
+    if (this->or_.has_value()) j["or"] = x::json::to_array(*this->or_);
+    if (this->not_.has_value()) j["not"] = this->not_->to_json();
+    if (this->key.has_value()) j["key"] = this->key->to_json();
+    if (this->name.has_value()) j["name"] = this->name->to_json();
+    if (this->leaseholder.has_value()) j["leaseholder"] = this->leaseholder->to_json();
+    if (this->data_type.has_value()) j["data_type"] = this->data_type->to_json();
+    if (this->is_index.has_value()) j["is_index"] = this->is_index->to_json();
+    if (this->internal.has_value()) j["internal"] = this->internal->to_json();
+    j["virtual"] = this->virtual_;
+    if (this->name_patterns.has_value()) j["name_patterns"] = *this->name_patterns;
+    return j;
+}
+
+inline RetrieveRequest RetrieveRequest::parse(x::json::Parser parser) {
+    return RetrieveRequest{
+        .where = parser.field<std::optional<Where>>("where"),
+        .search_term = parser.field<std::string>("search_term", ""),
+        .limit = parser.field<std::optional<std::uint32_t>>("limit"),
+        .offset = parser.field<std::uint32_t>("offset", 0),
+        .include_status = parser.field<bool>("include_status", false),
+    };
+}
+
+inline x::json::json RetrieveRequest::to_json() const {
+    x::json::json j;
+    if (this->where.has_value()) j["where"] = this->where->to_json();
+    j["search_term"] = this->search_term;
+    j["limit"] = this->limit;
+    j["offset"] = this->offset;
+    j["include_status"] = this->include_status;
+    return j;
+}
+
+inline RetrieveResponse RetrieveResponse::parse(x::json::Parser parser) {
+    return RetrieveResponse{
+        .channels = parser.field<std::vector<Channel>>(
+            "channels",
+            std::vector<Channel>{}
+        ),
+    };
+}
+
+inline x::json::json RetrieveResponse::to_json() const {
+    x::json::json j;
+    j["channels"] = x::json::to_array(this->channels);
     return j;
 }
 

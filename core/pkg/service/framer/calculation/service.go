@@ -130,7 +130,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	s.mu.groups = make(map[int]*group)
 
 	if err := cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		return cfg.Channel.NewWriter(tx).DeleteManyByNames(
+		return cfg.Channel.NewWriter(tx).DeleteManyByNamePatterns(
 			ctx,
 			legacyStatusChannels,
 			true,

@@ -15,6 +15,7 @@ package service.task.pb;
 
 import "core/pkg/service/status/pb/status.proto";
 import "google/protobuf/struct.proto";
+import "x/go/filter/pb/filter.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/service/task/pb";
 
@@ -62,6 +63,55 @@ message Task {
   bool snapshot = 8;
   // status is the current execution status of the task.
   optional .service.status.pb.Status status = 9;
+}
+message WhereList {
+  repeated Where values = 1;
+}
+message UuidList {
+  repeated string values = 1;
+}
+
+// UuidSet selects values that only compare for equality, such as keys, enum values, and
+// UUIDs. A value must match every operator that is set.
+message UuidSet {
+  // eq matches a value equal to eq.
+  optional string eq = 1;
+  // in matches a value equal to an element of in.
+  UuidList in = 2;
+}
+message RackKeyList {
+  repeated uint32 values = 1;
+}
+
+// RackKeySet selects values that only compare for equality, such as keys, enum values,
+// and UUIDs. A value must match every operator that is set.
+message RackKeySet {
+  // eq matches a value equal to eq.
+  optional uint32 eq = 1;
+  // in matches a value equal to an element of in.
+  RackKeyList in = 2;
+}
+
+// Where is a filter that selects tasks.
+message Where {
+  // and matches when every child matches.
+  WhereList and = 1;
+  // or matches when any child matches.
+  WhereList or = 2;
+  // not matches when the child does not match.
+  optional Where not = 3;
+  // key selects by key.
+  optional UuidSet key = 4;
+  // name selects by name.
+  optional .x.filter.pb.String name = 5;
+  // type selects by type.
+  optional .x.filter.pb.String type = 6;
+  // rack selects by rack.
+  optional RackKeySet rack = 7;
+  // internal selects by internal.
+  optional .x.filter.pb.Bool internal = 8;
+  // snapshot selects by snapshot.
+  optional .x.filter.pb.Bool snapshot = 9;
 }
 
 // Command is a command to execute on a task in the Driver system.

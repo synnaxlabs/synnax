@@ -19,6 +19,7 @@ package pb
 
 import (
 	pb "github.com/synnaxlabs/synnax/pkg/service/status/pb"
+	pb1 "github.com/synnaxlabs/x/filter/pb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	structpb "google.golang.org/protobuf/types/known/structpb"
@@ -251,6 +252,368 @@ func (x *Task) GetStatus() *pb.Status {
 	return nil
 }
 
+type WhereList struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Values        []*Where               `protobuf:"bytes,1,rep,name=values,proto3" json:"values,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *WhereList) Reset() {
+	*x = WhereList{}
+	mi := &file_core_pkg_service_task_pb_task_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WhereList) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WhereList) ProtoMessage() {}
+
+func (x *WhereList) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_task_pb_task_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WhereList.ProtoReflect.Descriptor instead.
+func (*WhereList) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_task_pb_task_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *WhereList) GetValues() []*Where {
+	if x != nil {
+		return x.Values
+	}
+	return nil
+}
+
+type UuidList struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Values        []string               `protobuf:"bytes,1,rep,name=values,proto3" json:"values,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UuidList) Reset() {
+	*x = UuidList{}
+	mi := &file_core_pkg_service_task_pb_task_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UuidList) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UuidList) ProtoMessage() {}
+
+func (x *UuidList) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_task_pb_task_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UuidList.ProtoReflect.Descriptor instead.
+func (*UuidList) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_task_pb_task_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *UuidList) GetValues() []string {
+	if x != nil {
+		return x.Values
+	}
+	return nil
+}
+
+// UuidSet selects values that only compare for equality, such as keys, enum values, and
+// UUIDs. A value must match every operator that is set.
+type UuidSet struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// eq matches a value equal to eq.
+	Eq *string `protobuf:"bytes,1,opt,name=eq,proto3,oneof" json:"eq,omitempty"`
+	// in matches a value equal to an element of in.
+	In            *UuidList `protobuf:"bytes,2,opt,name=in,proto3" json:"in,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UuidSet) Reset() {
+	*x = UuidSet{}
+	mi := &file_core_pkg_service_task_pb_task_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UuidSet) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UuidSet) ProtoMessage() {}
+
+func (x *UuidSet) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_task_pb_task_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UuidSet.ProtoReflect.Descriptor instead.
+func (*UuidSet) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_task_pb_task_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *UuidSet) GetEq() string {
+	if x != nil && x.Eq != nil {
+		return *x.Eq
+	}
+	return ""
+}
+
+func (x *UuidSet) GetIn() *UuidList {
+	if x != nil {
+		return x.In
+	}
+	return nil
+}
+
+type RackKeyList struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Values        []uint32               `protobuf:"varint,1,rep,packed,name=values,proto3" json:"values,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RackKeyList) Reset() {
+	*x = RackKeyList{}
+	mi := &file_core_pkg_service_task_pb_task_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RackKeyList) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RackKeyList) ProtoMessage() {}
+
+func (x *RackKeyList) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_task_pb_task_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RackKeyList.ProtoReflect.Descriptor instead.
+func (*RackKeyList) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_task_pb_task_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *RackKeyList) GetValues() []uint32 {
+	if x != nil {
+		return x.Values
+	}
+	return nil
+}
+
+// RackKeySet selects values that only compare for equality, such as keys, enum values,
+// and UUIDs. A value must match every operator that is set.
+type RackKeySet struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// eq matches a value equal to eq.
+	Eq *uint32 `protobuf:"varint,1,opt,name=eq,proto3,oneof" json:"eq,omitempty"`
+	// in matches a value equal to an element of in.
+	In            *RackKeyList `protobuf:"bytes,2,opt,name=in,proto3" json:"in,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RackKeySet) Reset() {
+	*x = RackKeySet{}
+	mi := &file_core_pkg_service_task_pb_task_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RackKeySet) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RackKeySet) ProtoMessage() {}
+
+func (x *RackKeySet) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_task_pb_task_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RackKeySet.ProtoReflect.Descriptor instead.
+func (*RackKeySet) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_task_pb_task_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *RackKeySet) GetEq() uint32 {
+	if x != nil && x.Eq != nil {
+		return *x.Eq
+	}
+	return 0
+}
+
+func (x *RackKeySet) GetIn() *RackKeyList {
+	if x != nil {
+		return x.In
+	}
+	return nil
+}
+
+// Where is a filter that selects tasks.
+type Where struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// and matches when every child matches.
+	And *WhereList `protobuf:"bytes,1,opt,name=and,proto3" json:"and,omitempty"`
+	// or matches when any child matches.
+	Or *WhereList `protobuf:"bytes,2,opt,name=or,proto3" json:"or,omitempty"`
+	// not matches when the child does not match.
+	Not *Where `protobuf:"bytes,3,opt,name=not,proto3,oneof" json:"not,omitempty"`
+	// key selects by key.
+	Key *UuidSet `protobuf:"bytes,4,opt,name=key,proto3,oneof" json:"key,omitempty"`
+	// name selects by name.
+	Name *pb1.String `protobuf:"bytes,5,opt,name=name,proto3,oneof" json:"name,omitempty"`
+	// type selects by type.
+	Type *pb1.String `protobuf:"bytes,6,opt,name=type,proto3,oneof" json:"type,omitempty"`
+	// rack selects by rack.
+	Rack *RackKeySet `protobuf:"bytes,7,opt,name=rack,proto3,oneof" json:"rack,omitempty"`
+	// internal selects by internal.
+	Internal *pb1.Bool `protobuf:"bytes,8,opt,name=internal,proto3,oneof" json:"internal,omitempty"`
+	// snapshot selects by snapshot.
+	Snapshot      *pb1.Bool `protobuf:"bytes,9,opt,name=snapshot,proto3,oneof" json:"snapshot,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Where) Reset() {
+	*x = Where{}
+	mi := &file_core_pkg_service_task_pb_task_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Where) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Where) ProtoMessage() {}
+
+func (x *Where) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_task_pb_task_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Where.ProtoReflect.Descriptor instead.
+func (*Where) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_task_pb_task_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *Where) GetAnd() *WhereList {
+	if x != nil {
+		return x.And
+	}
+	return nil
+}
+
+func (x *Where) GetOr() *WhereList {
+	if x != nil {
+		return x.Or
+	}
+	return nil
+}
+
+func (x *Where) GetNot() *Where {
+	if x != nil {
+		return x.Not
+	}
+	return nil
+}
+
+func (x *Where) GetKey() *UuidSet {
+	if x != nil {
+		return x.Key
+	}
+	return nil
+}
+
+func (x *Where) GetName() *pb1.String {
+	if x != nil {
+		return x.Name
+	}
+	return nil
+}
+
+func (x *Where) GetType() *pb1.String {
+	if x != nil {
+		return x.Type
+	}
+	return nil
+}
+
+func (x *Where) GetRack() *RackKeySet {
+	if x != nil {
+		return x.Rack
+	}
+	return nil
+}
+
+func (x *Where) GetInternal() *pb1.Bool {
+	if x != nil {
+		return x.Internal
+	}
+	return nil
+}
+
+func (x *Where) GetSnapshot() *pb1.Bool {
+	if x != nil {
+		return x.Snapshot
+	}
+	return nil
+}
+
 // Command is a command to execute on a task in the Driver system.
 type Command struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -272,7 +635,7 @@ type Command struct {
 
 func (x *Command) Reset() {
 	*x = Command{}
-	mi := &file_core_pkg_service_task_pb_task_proto_msgTypes[2]
+	mi := &file_core_pkg_service_task_pb_task_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -284,7 +647,7 @@ func (x *Command) String() string {
 func (*Command) ProtoMessage() {}
 
 func (x *Command) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_task_pb_task_proto_msgTypes[2]
+	mi := &file_core_pkg_service_task_pb_task_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -297,7 +660,7 @@ func (x *Command) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Command.ProtoReflect.Descriptor instead.
 func (*Command) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_task_pb_task_proto_rawDescGZIP(), []int{2}
+	return file_core_pkg_service_task_pb_task_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *Command) GetTask() string {
@@ -339,7 +702,7 @@ var File_core_pkg_service_task_pb_task_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_task_pb_task_proto_rawDesc = "" +
 	"\n" +
-	"#core/pkg/service/task/pb/task.proto\x12\x0fservice.task.pb\x1a'core/pkg/service/status/pb/status.proto\x1a\x1cgoogle/protobuf/struct.proto\"\xbf\x01\n" +
+	"#core/pkg/service/task/pb/task.proto\x12\x0fservice.task.pb\x1a'core/pkg/service/status/pb/status.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1bx/go/filter/pb/filter.proto\"\xbf\x01\n" +
 	"\rStatusDetails\x12\x12\n" +
 	"\x04task\x18\x01 \x01(\tR\x04task\x12\x18\n" +
 	"\arunning\x18\x02 \x01(\bR\arunning\x12\x10\n" +
@@ -360,7 +723,39 @@ const file_core_pkg_service_task_pb_task_proto_rawDesc = "" +
 	"\binternal\x18\a \x01(\bR\binternal\x12\x1a\n" +
 	"\bsnapshot\x18\b \x01(\bR\bsnapshot\x126\n" +
 	"\x06status\x18\t \x01(\v2\x19.service.status.pb.StatusH\x00R\x06status\x88\x01\x01B\t\n" +
-	"\a_status\"\x91\x01\n" +
+	"\a_status\";\n" +
+	"\tWhereList\x12.\n" +
+	"\x06values\x18\x01 \x03(\v2\x16.service.task.pb.WhereR\x06values\"\"\n" +
+	"\bUuidList\x12\x16\n" +
+	"\x06values\x18\x01 \x03(\tR\x06values\"P\n" +
+	"\aUuidSet\x12\x13\n" +
+	"\x02eq\x18\x01 \x01(\tH\x00R\x02eq\x88\x01\x01\x12)\n" +
+	"\x02in\x18\x02 \x01(\v2\x19.service.task.pb.UuidListR\x02inB\x05\n" +
+	"\x03_eq\"%\n" +
+	"\vRackKeyList\x12\x16\n" +
+	"\x06values\x18\x01 \x03(\rR\x06values\"V\n" +
+	"\n" +
+	"RackKeySet\x12\x13\n" +
+	"\x02eq\x18\x01 \x01(\rH\x00R\x02eq\x88\x01\x01\x12,\n" +
+	"\x02in\x18\x02 \x01(\v2\x1c.service.task.pb.RackKeyListR\x02inB\x05\n" +
+	"\x03_eq\"\x80\x04\n" +
+	"\x05Where\x12,\n" +
+	"\x03and\x18\x01 \x01(\v2\x1a.service.task.pb.WhereListR\x03and\x12*\n" +
+	"\x02or\x18\x02 \x01(\v2\x1a.service.task.pb.WhereListR\x02or\x12-\n" +
+	"\x03not\x18\x03 \x01(\v2\x16.service.task.pb.WhereH\x00R\x03not\x88\x01\x01\x12/\n" +
+	"\x03key\x18\x04 \x01(\v2\x18.service.task.pb.UuidSetH\x01R\x03key\x88\x01\x01\x12,\n" +
+	"\x04name\x18\x05 \x01(\v2\x13.x.filter.pb.StringH\x02R\x04name\x88\x01\x01\x12,\n" +
+	"\x04type\x18\x06 \x01(\v2\x13.x.filter.pb.StringH\x03R\x04type\x88\x01\x01\x124\n" +
+	"\x04rack\x18\a \x01(\v2\x1b.service.task.pb.RackKeySetH\x04R\x04rack\x88\x01\x01\x122\n" +
+	"\binternal\x18\b \x01(\v2\x11.x.filter.pb.BoolH\x05R\binternal\x88\x01\x01\x122\n" +
+	"\bsnapshot\x18\t \x01(\v2\x11.x.filter.pb.BoolH\x06R\bsnapshot\x88\x01\x01B\x06\n" +
+	"\x04_notB\x06\n" +
+	"\x04_keyB\a\n" +
+	"\x05_nameB\a\n" +
+	"\x05_typeB\a\n" +
+	"\x05_rackB\v\n" +
+	"\t_internalB\v\n" +
+	"\t_snapshot\"\x91\x01\n" +
 	"\aCommand\x12\x12\n" +
 	"\x04task\x18\x01 \x01(\tR\x04task\x12\x12\n" +
 	"\x04type\x18\x02 \x01(\tR\x04type\x12\x10\n" +
@@ -382,24 +777,44 @@ func file_core_pkg_service_task_pb_task_proto_rawDescGZIP() []byte {
 	return file_core_pkg_service_task_pb_task_proto_rawDescData
 }
 
-var file_core_pkg_service_task_pb_task_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
+var file_core_pkg_service_task_pb_task_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
 var file_core_pkg_service_task_pb_task_proto_goTypes = []any{
 	(*StatusDetails)(nil),   // 0: service.task.pb.StatusDetails
 	(*Task)(nil),            // 1: service.task.pb.Task
-	(*Command)(nil),         // 2: service.task.pb.Command
-	(*structpb.Struct)(nil), // 3: google.protobuf.Struct
-	(*pb.Status)(nil),       // 4: service.status.pb.Status
+	(*WhereList)(nil),       // 2: service.task.pb.WhereList
+	(*UuidList)(nil),        // 3: service.task.pb.UuidList
+	(*UuidSet)(nil),         // 4: service.task.pb.UuidSet
+	(*RackKeyList)(nil),     // 5: service.task.pb.RackKeyList
+	(*RackKeySet)(nil),      // 6: service.task.pb.RackKeySet
+	(*Where)(nil),           // 7: service.task.pb.Where
+	(*Command)(nil),         // 8: service.task.pb.Command
+	(*structpb.Struct)(nil), // 9: google.protobuf.Struct
+	(*pb.Status)(nil),       // 10: service.status.pb.Status
+	(*pb1.String)(nil),      // 11: x.filter.pb.String
+	(*pb1.Bool)(nil),        // 12: x.filter.pb.Bool
 }
 var file_core_pkg_service_task_pb_task_proto_depIdxs = []int32{
-	3, // 0: service.task.pb.StatusDetails.data:type_name -> google.protobuf.Struct
-	3, // 1: service.task.pb.Task.config:type_name -> google.protobuf.Struct
-	4, // 2: service.task.pb.Task.status:type_name -> service.status.pb.Status
-	3, // 3: service.task.pb.Command.args:type_name -> google.protobuf.Struct
-	4, // [4:4] is the sub-list for method output_type
-	4, // [4:4] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	4, // [4:4] is the sub-list for extension extendee
-	0, // [0:4] is the sub-list for field type_name
+	9,  // 0: service.task.pb.StatusDetails.data:type_name -> google.protobuf.Struct
+	9,  // 1: service.task.pb.Task.config:type_name -> google.protobuf.Struct
+	10, // 2: service.task.pb.Task.status:type_name -> service.status.pb.Status
+	7,  // 3: service.task.pb.WhereList.values:type_name -> service.task.pb.Where
+	3,  // 4: service.task.pb.UuidSet.in:type_name -> service.task.pb.UuidList
+	5,  // 5: service.task.pb.RackKeySet.in:type_name -> service.task.pb.RackKeyList
+	2,  // 6: service.task.pb.Where.and:type_name -> service.task.pb.WhereList
+	2,  // 7: service.task.pb.Where.or:type_name -> service.task.pb.WhereList
+	7,  // 8: service.task.pb.Where.not:type_name -> service.task.pb.Where
+	4,  // 9: service.task.pb.Where.key:type_name -> service.task.pb.UuidSet
+	11, // 10: service.task.pb.Where.name:type_name -> x.filter.pb.String
+	11, // 11: service.task.pb.Where.type:type_name -> x.filter.pb.String
+	6,  // 12: service.task.pb.Where.rack:type_name -> service.task.pb.RackKeySet
+	12, // 13: service.task.pb.Where.internal:type_name -> x.filter.pb.Bool
+	12, // 14: service.task.pb.Where.snapshot:type_name -> x.filter.pb.Bool
+	9,  // 15: service.task.pb.Command.args:type_name -> google.protobuf.Struct
+	16, // [16:16] is the sub-list for method output_type
+	16, // [16:16] is the sub-list for method input_type
+	16, // [16:16] is the sub-list for extension type_name
+	16, // [16:16] is the sub-list for extension extendee
+	0,  // [0:16] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_service_task_pb_task_proto_init() }
@@ -409,13 +824,16 @@ func file_core_pkg_service_task_pb_task_proto_init() {
 	}
 	file_core_pkg_service_task_pb_task_proto_msgTypes[0].OneofWrappers = []any{}
 	file_core_pkg_service_task_pb_task_proto_msgTypes[1].OneofWrappers = []any{}
+	file_core_pkg_service_task_pb_task_proto_msgTypes[4].OneofWrappers = []any{}
+	file_core_pkg_service_task_pb_task_proto_msgTypes[6].OneofWrappers = []any{}
+	file_core_pkg_service_task_pb_task_proto_msgTypes[7].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_service_task_pb_task_proto_rawDesc), len(file_core_pkg_service_task_pb_task_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   3,
+			NumMessages:   9,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

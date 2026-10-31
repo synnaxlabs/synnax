@@ -10,6 +10,7 @@
 import "schemas/synnax/device"
 import "schemas/synnax/rack"
 import "schemas/synnax/status"
+import "schemas/x/filter"
 import "schemas/x/telem"
 
 @cpp output "client/cpp/task"
@@ -72,11 +73,10 @@ Task struct<
             is the key of the rack this task deploys to. Zero for a draft that has not
             been assigned a rack; required to start.
         """
-        @filter
     }
     name        string              {
         @doc value         "is a human-readable name for the task."
-        @filter
+        @search
         @validate required
     }
     type        Type                {
@@ -84,7 +84,7 @@ Task struct<
             is the task type (e.g., 'modbus_read', 'labjack_write', 'opc_scan').
             Determines which hardware integration handles the task.
         """
-        @filter
+        @search
     }
     config      Config              {
         @doc value """
@@ -100,15 +100,14 @@ Task struct<
     }
     internal    bool = false {
         @doc value "is true if this is an internal system task."
-        @filter
     }
     snapshot    bool = false {
         @doc value "is true if this task is an immutable snapshot copy of another task."
-        @filter
     }
     status      Status<StatusData>? {
         @doc value  "is the current execution status of the task."
         @go marshal omit
+        @include
     }
 
     @create
@@ -121,9 +120,22 @@ Task struct<
     @go migrate
     @ontology type           "task"
     @py name                 "Payload"
+    @retrieve indexes
     @ts coalesce_type_params
     @ts concrete_types
     @ts name                 "Payload"
+}
+
+Where filter Task {
+    key
+    name
+    type
+    rack
+    internal
+    snapshot
+
+    @doc value         "is a filter that selects tasks."
+    @go request_output "core/pkg/api/task"
 }
 
 Command struct {

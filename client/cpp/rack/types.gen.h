@@ -21,14 +21,20 @@
 #include "client/cpp/status/types.gen.h"
 #include "client/cpp/task/task.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/filter/types.gen.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/mem/indirect.h"
 
+#include "core/pkg/api/rack/pb/rack.pb.h"
 #include "core/pkg/service/rack/pb/rack.pb.h"
 
 namespace synnax::rack {
 
 struct StatusDetails;
+struct Where;
+struct RetrieveRequest;
 struct Rack;
+struct RetrieveResponse;
 
 /// @brief Key is a composite identifier for a rack. The high 16 bits contain the Core
 /// key, and the low 16 bits contain the local sequential key. A rack is leased to the
@@ -50,7 +56,60 @@ struct StatusDetails {
     from_proto(const ::service::rack::pb::StatusDetails &pb);
 };
 
+/// @brief Where is a filter that selects racks.
+struct Where {
+    /// @brief and_ matches when every child matches.
+    std::optional<std::vector<Where>> and_;
+    /// @brief or_ matches when any child matches.
+    std::optional<std::vector<Where>> or_;
+    /// @brief not_ matches when the child does not match.
+    x::mem::indirect<Where> not_;
+    /// @brief key selects by key.
+    std::optional<::x::filter::Set<Key>> key;
+    /// @brief name selects by name.
+    std::optional<::x::filter::String> name;
+    /// @brief embedded selects by embedded.
+    std::optional<::x::filter::Bool> embedded;
+    /// @brief integrations selects by integrations.
+    std::optional<::x::filter::Contains<std::string>> integrations;
+    /// @brief host_is_node matches racks on the Core that serves the request, or racks
+    /// on other Cores when false.
+    std::optional<bool> host_is_node;
+
+    static Where parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::rack::pb::Where;
+    [[nodiscard]] std::pair<::service::rack::pb::Where, x::errors::Error>
+    to_proto() const;
+    static std::pair<Where, x::errors::Error>
+    from_proto(const ::service::rack::pb::Where &pb);
+};
+
 using Status = ::synnax::status::Status<StatusDetails>;
+
+/// @brief RetrieveRequest is a request to retrieve racks.
+struct RetrieveRequest {
+    /// @brief where selects the racks to retrieve. An absent where selects all of them.
+    std::optional<Where> where;
+    /// @brief search_term keeps the racks that match the term, closest match first.
+    std::string search_term = "";
+    /// @brief limit is the most racks to return.
+    std::optional<std::uint32_t> limit;
+    /// @brief offset is the number of matching racks to skip.
+    std::uint32_t offset = 0;
+    /// @brief include_status includes the status of each record.
+    bool include_status = false;
+
+    static RetrieveRequest parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::rack::pb::RetrieveRequest;
+    [[nodiscard]] std::pair<::api::rack::pb::RetrieveRequest, x::errors::Error>
+    to_proto() const;
+    static std::pair<RetrieveRequest, x::errors::Error>
+    from_proto(const ::api::rack::pb::RetrieveRequest &pb);
+};
 
 /// @brief Rack is a collection container for hardware devices and tasks running on a
 /// specific Core. Racks are the integration point between the Core and physical
@@ -79,6 +138,21 @@ struct Rack {
     static std::pair<Rack, x::errors::Error>
     from_proto(const ::service::rack::pb::Rack &pb);
     task::Client tasks;
+};
+
+/// @brief RetrieveResponse holds the racks a RetrieveRequest selects.
+struct RetrieveResponse {
+    /// @brief racks are the racks the request selects.
+    std::vector<Rack> racks;
+
+    static RetrieveResponse parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::rack::pb::RetrieveResponse;
+    [[nodiscard]] std::pair<::api::rack::pb::RetrieveResponse, x::errors::Error>
+    to_proto() const;
+    static std::pair<RetrieveResponse, x::errors::Error>
+    from_proto(const ::api::rack::pb::RetrieveResponse &pb);
 };
 
 const synnax::ontology::ID ONTOLOGY_TYPE("rack", "");

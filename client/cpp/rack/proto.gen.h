@@ -18,11 +18,70 @@
 #include "client/cpp/status/json.gen.h"
 #include "client/cpp/status/proto.gen.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/filter/json.gen.h"
+#include "x/cpp/filter/proto.gen.h"
 #include "x/cpp/pb/pb.h"
 
+#include "core/pkg/api/rack/pb/rack.pb.h"
 #include "core/pkg/service/rack/pb/rack.pb.h"
 
 namespace synnax::rack {
+
+inline std::pair<::service::rack::pb::KeySet, x::errors::Error>
+key_set_to_proto(const ::x::filter::Set<Key> &self);
+inline std::pair<::x::filter::Set<Key>, x::errors::Error>
+key_set_from_proto(const ::service::rack::pb::KeySet &pb);
+
+inline std::pair<::service::rack::pb::StringContains, x::errors::Error>
+string_contains_to_proto(const ::x::filter::Contains<std::string> &self);
+inline std::pair<::x::filter::Contains<std::string>, x::errors::Error>
+string_contains_from_proto(const ::service::rack::pb::StringContains &pb);
+
+inline std::pair<::service::rack::pb::KeySet, x::errors::Error>
+key_set_to_proto(const ::x::filter::Set<Key> &self) {
+    ::service::rack::pb::KeySet pb;
+    if (self.eq.has_value()) pb.set_eq(*self.eq);
+    if (self.in.has_value()) {
+        auto *wrapper = pb.mutable_in();
+        for (const auto &item: *self.in)
+            wrapper->add_values(item);
+    }
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<::x::filter::Set<Key>, x::errors::Error>
+key_set_from_proto(const ::service::rack::pb::KeySet &pb) {
+    ::x::filter::Set<Key> cpp;
+    if (pb.has_eq()) cpp.eq = pb.eq();
+    if (pb.has_in()) {
+        cpp.in.emplace();
+        for (const auto &item: pb.in().values())
+            cpp.in->push_back(item);
+    }
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::service::rack::pb::StringContains, x::errors::Error>
+string_contains_to_proto(const ::x::filter::Contains<std::string> &self) {
+    ::service::rack::pb::StringContains pb;
+    if (self.any.has_value()) {
+        auto *wrapper = pb.mutable_any();
+        for (const auto &item: *self.any)
+            wrapper->add_values(item);
+    }
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<::x::filter::Contains<std::string>, x::errors::Error>
+string_contains_from_proto(const ::service::rack::pb::StringContains &pb) {
+    ::x::filter::Contains<std::string> cpp;
+    if (pb.has_any()) {
+        cpp.any.emplace();
+        for (const auto &item: pb.any().values())
+            cpp.any->push_back(item);
+    }
+    return {cpp, x::errors::NIL};
+}
 
 inline std::pair<::service::rack::pb::StatusDetails, x::errors::Error>
 StatusDetails::to_proto() const {
@@ -66,6 +125,144 @@ Rack::from_proto(const ::service::rack::pb::Rack &pb) {
     }
     for (const auto &item: pb.integrations())
         cpp.integrations.push_back(item);
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::service::rack::pb::Where, x::errors::Error> Where::to_proto() const {
+    ::service::rack::pb::Where pb;
+    if (this->and_.has_value()) {
+        auto *wrapper = pb.mutable_and_();
+        for (const auto &item: *this->and_) {
+            auto [v, err] = item.to_proto();
+            if (err) return {{}, err};
+            *wrapper->add_values() = v;
+        }
+    }
+    if (this->or_.has_value()) {
+        auto *wrapper = pb.mutable_or_();
+        for (const auto &item: *this->or_) {
+            auto [v, err] = item.to_proto();
+            if (err) return {{}, err};
+            *wrapper->add_values() = v;
+        }
+    }
+    if (this->not_.has_value()) {
+        auto [v, err] = this->not_->to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_not_() = v;
+    }
+    if (this->key.has_value()) {
+        auto [v, err] = key_set_to_proto(*this->key);
+        if (err) return {{}, err};
+        *pb.mutable_key() = v;
+    }
+    if (this->name.has_value()) {
+        auto [v, err] = this->name->to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_name() = v;
+    }
+    if (this->embedded.has_value()) {
+        auto [v, err] = this->embedded->to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_embedded() = v;
+    }
+    if (this->integrations.has_value()) {
+        auto [v, err] = string_contains_to_proto(*this->integrations);
+        if (err) return {{}, err};
+        *pb.mutable_integrations() = v;
+    }
+    if (this->host_is_node.has_value()) pb.set_host_is_node(*this->host_is_node);
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<Where, x::errors::Error>
+Where::from_proto(const ::service::rack::pb::Where &pb) {
+    Where cpp;
+    if (pb.has_and_()) {
+        cpp.and_.emplace();
+        if (auto err = x::pb::from_proto_repeated<Where>(*cpp.and_, pb.and_().values()))
+            return {{}, err};
+    }
+    if (pb.has_or_()) {
+        cpp.or_.emplace();
+        if (auto err = x::pb::from_proto_repeated<Where>(*cpp.or_, pb.or_().values()))
+            return {{}, err};
+    }
+    if (pb.has_not_()) {
+        auto [v, err] = Where::from_proto(pb.not_());
+        if (err) return {{}, err};
+        cpp.not_ = v;
+    }
+    if (pb.has_key()) {
+        auto [v, err] = key_set_from_proto(pb.key());
+        if (err) return {{}, err};
+        cpp.key = v;
+    }
+    if (pb.has_name()) {
+        auto [v, err] = ::x::filter::String::from_proto(pb.name());
+        if (err) return {{}, err};
+        cpp.name = v;
+    }
+    if (pb.has_embedded()) {
+        auto [v, err] = ::x::filter::Bool::from_proto(pb.embedded());
+        if (err) return {{}, err};
+        cpp.embedded = v;
+    }
+    if (pb.has_integrations()) {
+        auto [v, err] = string_contains_from_proto(pb.integrations());
+        if (err) return {{}, err};
+        cpp.integrations = v;
+    }
+    if (pb.has_host_is_node()) cpp.host_is_node = pb.host_is_node();
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::api::rack::pb::RetrieveRequest, x::errors::Error>
+RetrieveRequest::to_proto() const {
+    ::api::rack::pb::RetrieveRequest pb;
+    if (this->where.has_value()) {
+        auto [v, err] = this->where->to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_where() = v;
+    }
+    pb.set_search_term(this->search_term);
+    if (this->limit.has_value()) pb.set_limit(*this->limit);
+    pb.set_offset(this->offset);
+    pb.set_include_status(this->include_status);
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<RetrieveRequest, x::errors::Error>
+RetrieveRequest::from_proto(const ::api::rack::pb::RetrieveRequest &pb) {
+    RetrieveRequest cpp;
+    if (pb.has_where()) {
+        auto [v, err] = Where::from_proto(pb.where());
+        if (err) return {{}, err};
+        cpp.where = v;
+    }
+    cpp.search_term = pb.search_term();
+    if (pb.has_limit()) cpp.limit = pb.limit();
+    cpp.offset = pb.offset();
+    cpp.include_status = pb.include_status();
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::api::rack::pb::RetrieveResponse, x::errors::Error>
+RetrieveResponse::to_proto() const {
+    ::api::rack::pb::RetrieveResponse pb;
+    for (const auto &item: this->racks) {
+        auto [v, err] = item.to_proto();
+        if (err) return {{}, err};
+        *pb.add_racks() = v;
+    }
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<RetrieveResponse, x::errors::Error>
+RetrieveResponse::from_proto(const ::api::rack::pb::RetrieveResponse &pb) {
+    RetrieveResponse cpp;
+    if (auto err = x::pb::from_proto_repeated<Rack>(cpp.racks, pb.racks()))
+        return {{}, err};
     return {cpp, x::errors::NIL};
 }
 

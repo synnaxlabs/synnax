@@ -191,92 +191,38 @@ func (s *Service) enforceCreate(
 	})
 }
 
-type (
-	RetrieveRequest struct {
-		Embedded      *bool      `json:"embedded"       msgpack:"embedded"`
-		HostIsNode    *bool      `json:"host_is_node"   msgpack:"host_is_node"`
-		SearchTerm    string     `json:"search_term"    msgpack:"search_term"`
-		Keys          []rack.Key `json:"keys"           msgpack:"keys"`
-		Names         []string   `json:"names"          msgpack:"names"`
-		Integration   string     `json:"integration"    msgpack:"integration"`
-		Limit         int        `json:"limit"          msgpack:"limit"`
-		Offset        int        `json:"offset"         msgpack:"offset"`
-		IncludeStatus bool       `json:"include_status" msgpack:"include_status"`
-	}
-	RetrieveResponse struct {
-		Racks []rack.Rack `json:"racks" msgpack:"racks"`
-	}
-)
-
 func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
-	var (
-		hasSearch      = len(req.SearchTerm) > 0
-		hasKeys        = len(req.Keys) > 0
-		hasNames       = len(req.Names) > 0
-		hasLimit       = req.Limit > 0
-		hasOffset      = req.Offset > 0
-		hasIntegration = req.Integration != ""
-	)
-	resRacks := make([]rack.Rack, 0, len(req.Keys)+len(req.Names))
-	q := s.rack.NewRetrieve()
-	if hasKeys {
-		q = q.Where(rack.MatchKeys(req.Keys...))
-	}
-	if hasNames {
-		q = q.Where(rack.MatchNames(req.Names...))
-	}
-	if hasSearch {
-		q = q.Search(req.SearchTerm)
-	}
-	if hasLimit {
-		q = q.Limit(req.Limit)
-	}
-	if hasOffset {
-		q = q.Offset(req.Offset)
-	}
-	if req.Embedded != nil {
-		q = q.Where(rack.MatchEmbedded(*req.Embedded))
-	}
-	if req.HostIsNode != nil {
-		q = q.Where(rack.MatchNodeIsHost(*req.HostIsNode))
-	}
-	if hasIntegration {
-		q = q.Where(rack.MatchIntegration(req.Integration))
-	}
-	if err := q.Entries(&resRacks).Exec(ctx, nil); err != nil {
+	var res RetrieveResponse
+	q, err := req.Apply(s.rack.NewRetrieve().Entries(&res.Racks))
+	if err != nil {
 		return RetrieveResponse{}, err
 	}
-
+	if err := q.Exec(ctx, nil); err != nil {
+		return RetrieveResponse{}, err
+	}
 	if req.IncludeStatus {
-		ids := rack.OntologyIDsFromRacks(resRacks)
-		statuses := make([]rack.Status, 0, len(resRacks))
-		// A status row can be missing, so the resource keeps a nil status.
-		if err := errors.Skip(s.status.NewRetrieve[rack.StatusDetails]().
-			Where(status.MatchKeys[rack.StatusDetails](ontology.IDsToKeys(ids)...)).
-			Entries(&statuses).
-			Exec(ctx, nil), query.ErrNotFound); err != nil {
+		statuses, err := s.status.Join[rack.StatusDetails](
+			ctx,
+			rack.OntologyIDsFromRacks(res.Racks),
+		)
+		if err != nil {
 			return RetrieveResponse{}, err
 		}
-		statusByKey := make(map[status.Key]*rack.Status, len(statuses))
-		for i := range statuses {
-			statusByKey[statuses[i].Key] = &statuses[i]
-		}
-		for i, id := range ids {
-			resRacks[i].Status = statusByKey[id.String()]
+		for i, st := range statuses {
+			res.Racks[i].Status = st
 		}
 	}
-
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: rack.OntologyIDsFromRacks(resRacks),
+		Objects: rack.OntologyIDsFromRacks(res.Racks),
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
-	return RetrieveResponse{Racks: resRacks}, nil
+	return res, nil
 }
 
 // RenameRequest names the rack to rename and the name to give it.

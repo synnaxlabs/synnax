@@ -21,7 +21,7 @@ const { use: useSlaves, useResult: useResultSlaves } =
 
 /** The slaves the keys name, or undefined until they resolve or on failure. */
 export const useSlavesByKeys = (keys: device.Key[]): SlaveDevice[] | undefined =>
-  useResultSlaves(keys.length === 0 ? null : { keys }).data;
+  useResultSlaves(keys.length === 0 ? null : { where: { key: { in: keys } } }).data;
 
 export interface EnabledState {
   allEnabled: boolean;
@@ -33,7 +33,7 @@ export interface EnabledStateParams {
 }
 
 export const useEnabledState = ({ keys }: EnabledStateParams): EnabledState => {
-  const slaves = useSlaves({ keys });
+  const slaves = useSlaves({ where: { key: { in: keys } } });
   const disabledCount = slaves.filter((d) => !d.properties?.enabled).length;
   return {
     allDisabled: disabledCount === slaves.length,
@@ -65,7 +65,7 @@ export const { useUpdate: useToggleEnabled } = Flux.createUpdate<
     const keys = array.toArray(data.keys);
 
     const devices = await client.devices.retrieve({
-      keys,
+      where: { key: { in: keys } },
       includeStatus: true,
       schemas: SLAVE_SCHEMAS,
     });

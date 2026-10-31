@@ -225,6 +225,47 @@ describe("Table", () => {
         expect(table.get("key1")).toEqual({ key: "key1", value: "original" });
         expect(table.get("key2")).toBeUndefined();
       });
+
+      describe("under a key", () => {
+        interface Value {
+          value: string;
+        }
+        const table = () => new query.Table<string, Value>({ onError: noopError });
+
+        it("should write the value under the key", () => {
+          const t = table();
+          t.ingest("key1", { value: "fetched" });
+          expect(t.get("key1")).toEqual({ value: "fetched" });
+        });
+
+        it("should skip a key written after the stamp", () => {
+          const t = table();
+          const since = t.stamp();
+          t.set("key1", { value: "renamed" });
+          t.ingest("key1", { value: "old" }, { since });
+          t.ingest("key2", { value: "fetched" }, { since });
+          expect(t.get("key1")).toEqual({ value: "renamed" });
+          expect(t.get("key2")).toEqual({ value: "fetched" });
+        });
+
+        it("should skip a deleted key", () => {
+          const t = table();
+          t.set("key1", { value: "original" });
+          t.delete("key1");
+          t.ingest("key1", { value: "old" });
+          expect(t.get("key1")).toBeUndefined();
+        });
+
+        it("should leave an existing value untouched under if-absent mode", () => {
+          const t = new query.Table<string, Value>({
+            onError: noopError,
+            hydrate: "if-absent",
+          });
+          t.set("key1", { value: "original" });
+          t.ingest("key1", { value: "replacement" });
+          expect(t.get("key1")).toEqual({ value: "original" });
+        });
+      });
     });
 
     describe("Rollback Functionality", () => {

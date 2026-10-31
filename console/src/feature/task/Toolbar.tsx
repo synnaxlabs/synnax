@@ -59,8 +59,7 @@ const EmptyContent = () => {
 };
 
 const INITIAL_QUERY: Task.ListQuery = {
-  internal: false,
-  snapshot: false,
+  where: { internal: { eq: false }, snapshot: { eq: false } },
 };
 
 const filter = (task: task.Task) =>

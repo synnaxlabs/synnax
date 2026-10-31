@@ -19,11 +19,13 @@ import {
   keyZ,
   type New,
   ontologyID,
+  type RetrieveRequest,
+  retrieveRequestZ,
   statusZ,
 } from "@/device/types.gen";
+import { matches, serverComputed } from "@/device/where.gen";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
-import { keyZ as rackKeyZ } from "@/rack/types.gen";
 import { type status } from "@/status";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
@@ -52,20 +54,7 @@ const deleteReqZ = z.object({ keys: keyZ.array() });
 const emptyResZ = z.object({});
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
-const retrieveRequestZ = z.object({
-  keys: keyZ.array().optional(),
-  names: z.string().array().optional(),
-  makes: z.string().array().optional(),
-  models: z.string().array().optional(),
-  locations: z.string().array().optional(),
-  racks: rackKeyZ.array().optional(),
-  searchTerm: z.string().optional(),
-  limit: z.int().optional(),
-  offset: z.int().optional(),
-  includeStatus: z.boolean().optional(),
-  includeParent: z.boolean().optional(),
-});
-const retrieveMultiParamsZ = retrieveRequestZ.or(query.keyListZ(keyZ));
+const retrieveMultiParamsZ = z.union([query.keysRequestZ(keyZ), retrieveRequestZ]);
 
 const retrieveResZ = <
   Properties extends z.ZodType<record.Unknown> = z.ZodType<record.Unknown>,
@@ -81,23 +70,18 @@ const retrieveResZ = <
   });
 
 const singleRetrieveParamsZ = z
-  .object({
-    key: keyZ,
-    includeStatus: z.boolean().optional(),
-  })
-  .transform(({ key, includeStatus }) => ({
-    keys: [key],
+  .object({ key: keyZ, includeStatus: z.boolean().optional() })
+  .transform(({ key, includeStatus }): RetrieveRequest => ({
+    where: { key: { eq: key } },
     includeStatus,
   }));
 
 export type RetrieveSingleParams = z.input<typeof singleRetrieveParamsZ>;
-export type RetrieveMultipleParams = z.input<typeof retrieveRequestZ>;
+export type RetrieveMultipleParams = RetrieveRequest;
 
 const retrieveParamsZ = z.union([singleRetrieveParamsZ, retrieveRequestZ]);
 
-export type RetrieveParams = z.input<typeof retrieveParamsZ>;
-
-interface RetrieveRequest extends z.infer<typeof retrieveRequestZ> {}
+export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
 
 type SingleQuery = { key: Key; includeStatus?: boolean };
 
@@ -124,33 +108,6 @@ const singleQueryZ = z
 /** The table never holds statuses; the status table is their single home. */
 const stripStatus = ({ status: _, ...device }: Device): Omit<Device, "status"> =>
   device;
-
-/**
- * Client-side matching for a request: key, name, make, model, location, and
- * rack sets. Server-computed shapes (search, pagination, parent resolution)
- * never reach this filter; they refetch instead.
- */
-const requestFilter = (
-  req: RetrieveRequest,
-): ((d: Omit<Device, "status">) => boolean) => {
-  const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
-  const nameSet = primitive.isNonZero(req.names) ? new Set(req.names) : undefined;
-  const makeSet = primitive.isNonZero(req.makes) ? new Set(req.makes) : undefined;
-  const modelSet = primitive.isNonZero(req.models) ? new Set(req.models) : undefined;
-  const locationSet = primitive.isNonZero(req.locations)
-    ? new Set(req.locations)
-    : undefined;
-  const rackSet = primitive.isNonZero(req.racks) ? new Set(req.racks) : undefined;
-  return (d) => {
-    if (keySet != null && !keySet.has(d.key)) return false;
-    if (nameSet != null && !nameSet.has(d.name)) return false;
-    if (makeSet != null && !makeSet.has(d.make)) return false;
-    if (modelSet != null && !modelSet.has(d.model)) return false;
-    if (locationSet != null && !locationSet.has(d.location)) return false;
-    if (rackSet != null && !rackSet.has(d.rack)) return false;
-    return true;
-  };
-};
 
 // Device statuses live in the status table under the "device:<key>" status
 // key, carrying the device key in their details.
@@ -190,7 +147,7 @@ export class Client extends query.Retriever<
     // storing two copies of the statuses in the store.
     const store = cache.createTable<Key, Omit<Device, "status">>({
       name: "devices",
-      fetch: async (keys) => await this.fetchThrough({ keys }),
+      fetch: async (keys) => await this.fetchThrough(query.keysRequest(keys)),
       listen: [
         query.createSetListener(SET_CHANNEL_NAME, genericDeviceZ, {
           value: ({ status: _, ...device }) => device,
@@ -222,7 +179,8 @@ export class Client extends query.Retriever<
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => (await this.fetchThrough(req)).map(stripStatus),
-        matches: (d, req) => requestFilter(req)(d),
+        matches: (d, req) => matches(d, req.where),
+        serverComputed: (req) => serverComputed(req.where),
         serverFields: SERVER_FIELDS,
         watch: [
           query.watch(statusStore, (event, q: RetrieveRequest) => {

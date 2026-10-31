@@ -79,7 +79,7 @@ type Transport struct {
 	UserRetrieve       freighter.UnaryServer[user.RetrieveRequest, user.RetrieveResponse]
 	// CHANNEL
 	ChannelCreate        freighter.UnaryServer[channel.CreateRequest, channel.CreateResponse]
-	ChannelRetrieve      freighter.UnaryServer[channel.RetrieveRequest, channel.RetrieveResponse]
+	ChannelRetrieve      freighter.UnaryServer[channel.AliasedRetrieveRequest, channel.RetrieveResponse]
 	ChannelDelete        freighter.UnaryServer[channel.DeleteRequest, struct{}]
 	ChannelRename        freighter.UnaryServer[channel.RenameRequest, struct{}]
 	ChannelRetrieveGroup freighter.UnaryServer[channel.RetrieveGroupRequest, channel.RetrieveGroupResponse]
@@ -739,9 +739,8 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	if l.Channel, err = channel.NewService(channel.ServiceConfig{
 		RBAC:    cfg.Service.RBAC,
 		Channel: cfg.Service.Channel,
-		Ranger:  cfg.Service.Ranger,
-		Alias:   cfg.Service.Alias,
 		Status:  cfg.Service.Status,
+		Alias:   cfg.Service.Alias,
 	}); err != nil {
 		return nil, err
 	}

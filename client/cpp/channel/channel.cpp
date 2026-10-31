@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -14,6 +15,7 @@
 #include "client/cpp/channel/proto.gen.h"
 #include "client/cpp/errors/errors.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/strings/strings.h"
 
 namespace synnax::channel {
 x::errors::Error Client::create(Channel &channel) const {
@@ -78,60 +80,70 @@ x::errors::Error Client::create(std::vector<Channel> &channels) const {
     return x::errors::NIL;
 }
 
+std::pair<std::vector<Channel>, x::errors::Error>
+Client::retrieve(const RetrieveRequest &req) const {
+    auto [pb_req, pb_err] = req.to_proto();
+    if (pb_err) return {{}, pb_err};
+    grpc::channel::RetrieveRequest grpc_req;
+    *grpc_req.mutable_request() = pb_req;
+    auto [res, err] = this->retrieve_client->send("/channel/retrieve", grpc_req);
+    if (err) return {{}, err};
+    auto [decoded, proto_err] = RetrieveResponse::from_proto(res);
+    if (proto_err) return {{}, proto_err};
+    return {std::move(decoded.channels), x::errors::NIL};
+}
+
 std::pair<Channel, x::errors::Error> Client::retrieve(const Key key) const {
-    auto req = grpc::channel::RetrieveRequest();
-    req.add_keys(key);
-    auto [res, err] = retrieve_client->send("/channel/retrieve", req);
+    auto [channels, err] = this->retrieve(
+        RetrieveRequest{.where = Where{.key = x::filter::Set<Key>{.eq = key}}}
+    );
     if (err) return {Channel{}, err};
-    if (res.channels_size() == 0)
+    if (channels.empty())
         return {
             Channel{},
             errors::not_found_error("channel", "key " + std::to_string(key))
         };
-    return Channel::from_proto(res.channels(0));
+    return {std::move(channels[0]), x::errors::NIL};
 }
 
 std::pair<Channel, x::errors::Error> Client::retrieve(const std::string &name) const {
-    auto payload = grpc::channel::RetrieveRequest();
-    payload.add_names(name);
-    auto [res, err] = retrieve_client->send("/channel/retrieve", payload);
+    auto [channels, err] = this->retrieve(
+        RetrieveRequest{.where = Where{.name_patterns = std::vector{name}}}
+    );
     if (err) return {Channel{}, err};
-    if (res.channels_size() == 0)
+    if (channels.empty())
         return {Channel{}, errors::not_found_error("channel", "name " + name)};
-    if (res.channels_size() > 1)
+    if (channels.size() > 1)
         return {Channel{}, errors::multiple_found_error("channels", "name " + name)};
-    return Channel::from_proto(res.channels(0));
+    return {std::move(channels[0]), x::errors::NIL};
 }
 
 std::pair<std::vector<Channel>, x::errors::Error>
 Client::retrieve(const std::vector<Key> &keys) const {
-    grpc::channel::RetrieveRequest req;
-    req.mutable_keys()->Add(keys.begin(), keys.end());
-    auto [res, exc] = this->retrieve_client->send("/channel/retrieve", req);
-    if (exc) return {{}, exc};
-    std::vector<Channel> channels;
-    channels.reserve(res.channels_size());
-    for (const auto &pb: res.channels()) {
-        auto [ch, err] = Channel::from_proto(pb);
-        if (err) return {{}, err};
-        channels.push_back(ch);
-    }
+    auto [channels, err] = this->retrieve(
+        RetrieveRequest{.where = Where{.key = x::filter::Set<Key>{.in = keys}}}
+    );
+    if (err) return {{}, err};
+    // Callers bind the channels to keys by position, so a missing key is an error.
+    std::unordered_set<Key> found;
+    for (const auto &ch: channels)
+        found.insert(ch.key);
+    std::vector<std::string> missing;
+    for (const auto key: keys)
+        if (!found.contains(key)) missing.push_back(std::to_string(key));
+    if (!missing.empty())
+        return {
+            {},
+            errors::not_found_error(
+                "channels",
+                "keys " + x::strings::join(missing, ", ")
+            )
+        };
     return {channels, x::errors::NIL};
 }
 
 std::pair<std::vector<Channel>, x::errors::Error>
 Client::retrieve(const std::vector<std::string> &names) const {
-    auto req = grpc::channel::RetrieveRequest();
-    req.mutable_names()->Add(names.begin(), names.end());
-    auto [res, err] = retrieve_client->send("/channel/retrieve", req);
-    if (err) return {{}, err};
-    std::vector<Channel> channels;
-    channels.reserve(res.channels_size());
-    for (const auto &pb: res.channels()) {
-        auto [ch, parse_err] = Channel::from_proto(pb);
-        if (parse_err) return {{}, parse_err};
-        channels.push_back(ch);
-    }
-    return {channels, x::errors::NIL};
+    return this->retrieve(RetrieveRequest{.where = Where{.name_patterns = names}});
 }
 }

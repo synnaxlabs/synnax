@@ -11,7 +11,12 @@
 
 package channel
 
-import "github.com/synnaxlabs/synnax/pkg/service/channel/versions"
+import (
+	"github.com/synnaxlabs/synnax/pkg/service/channel/versions"
+	"github.com/synnaxlabs/synnax/pkg/service/node"
+	"github.com/synnaxlabs/x/filter"
+	"github.com/synnaxlabs/x/telem"
+)
 
 // Key is a unique identifier for a channel in the Synnax database. Composed of a node
 // key (first 12 bits) and a local key (last 20 bits), enabling distributed assignment
@@ -48,3 +53,32 @@ type Operation = versions.Operation
 // cluster-routing metadata. This type is used internally by the server; clients should
 // use APIChannel instead.
 type Channel = versions.Channel
+
+// Where is a filter that selects channels.
+type Where struct {
+	// And matches when every child matches.
+	And []Where `json:"and,omitzero" msgpack:"and,omitempty"`
+	// Or matches when any child matches.
+	Or []Where `json:"or,omitzero" msgpack:"or,omitempty"`
+	// Not matches when the child does not match.
+	Not *Where `json:"not,omitzero" msgpack:"not,omitempty"`
+	// Key selects by key.
+	Key *filter.Set[Key] `json:"key,omitzero" msgpack:"key,omitempty"`
+	// Name selects by name.
+	Name *filter.String `json:"name,omitzero" msgpack:"name,omitempty"`
+	// Leaseholder selects by leaseholder.
+	Leaseholder *filter.Set[node.Key] `json:"leaseholder,omitzero" msgpack:"leaseholder,omitempty"`
+	// DataType selects by data_type.
+	DataType *filter.Set[telem.DataType] `json:"data_type,omitzero" msgpack:"data_type,omitempty"`
+	// IsIndex selects by is_index.
+	IsIndex *filter.Bool `json:"is_index,omitzero" msgpack:"is_index,omitempty"`
+	// Internal selects by internal.
+	Internal *filter.Bool `json:"internal,omitzero" msgpack:"internal,omitempty"`
+	// Virtual matches virtual channels that are not calculated, or every other channel
+	// when false.
+	Virtual *bool `json:"virtual,omitzero" msgpack:"virtual,omitempty"`
+	// NamePatterns matches channels whose name matches any of the given patterns. A
+	// valid channel name matches exactly, and any other pattern is a regular
+	// expression, anchored when unanchored.
+	NamePatterns []string `json:"name_patterns,omitzero" msgpack:"name_patterns,omitempty"`
+}

@@ -266,6 +266,74 @@ describe("Channel", () => {
         })
         .toEqual(names);
     });
+    test("retrieve by where", async () => {
+      const prefix = `qry_${id.create()}`;
+      const [a, , c] = await client.channels.create([
+        { name: `${prefix}_a`, virtual: true, dataType: DataType.FLOAT32 },
+        { name: `${prefix}_b`, virtual: true, dataType: DataType.FLOAT64 },
+        { name: `${prefix}_c`, virtual: true, dataType: DataType.FLOAT32 },
+      ]);
+      const res = await client.channels.retrieve({
+        where: { name: { regex: `^${prefix}` }, dataType: { eq: DataType.FLOAT32 } },
+      });
+      expect(res.map((ch) => ch.key).sort()).toEqual([a.key, c.key].sort());
+    });
+    test("retrieve by a name pattern", async () => {
+      const prefix = `qry_${id.create()}`;
+      const [a, b] = await client.channels.create([
+        { name: `${prefix}_a`, virtual: true, dataType: DataType.FLOAT32 },
+        { name: `${prefix}_b`, virtual: true, dataType: DataType.FLOAT32 },
+      ]);
+      const res = await client.channels.retrieve([`${prefix}_.*`]);
+      expect(res.map((ch) => ch.key).sort()).toEqual([a.key, b.key].sort());
+    });
+    test("retrieve by a literal name and a name pattern", async () => {
+      const prefix = `qry_${id.create()}`;
+      const [literal, a, b] = await client.channels.create([
+        { name: `${prefix}_literal`, virtual: true, dataType: DataType.FLOAT32 },
+        { name: `${prefix}_p_a`, virtual: true, dataType: DataType.FLOAT32 },
+        { name: `${prefix}_p_b`, virtual: true, dataType: DataType.FLOAT32 },
+        { name: `${prefix}_other`, virtual: true, dataType: DataType.FLOAT32 },
+      ]);
+      const res = await client.channels.retrieve([literal.name, `${prefix}_p_.*`]);
+      expect(res.map((ch) => ch.key).sort()).toEqual(
+        [literal.key, a.key, b.key].sort(),
+      );
+    });
+    test("retrieve a cached name and a pattern that matches it once", async () => {
+      const prefix = `qry_${id.create()}`;
+      const [a, b] = await client.channels.create([
+        { name: `${prefix}_a`, virtual: true, dataType: DataType.FLOAT32 },
+        { name: `${prefix}_b`, virtual: true, dataType: DataType.FLOAT32 },
+      ]);
+      await client.channels.retrieve(a.name);
+      const res = await client.channels.retrieve([a.name, `${prefix}_.*`]);
+      expect(res.map((ch) => ch.key).sort()).toEqual([a.key, b.key].sort());
+    });
+    test("retrieve virtual channels without calculated channels", async () => {
+      const prefix = `qry_${id.create()}`;
+      const virtual = await client.channels.create({
+        name: `${prefix}_virtual`,
+        virtual: true,
+        dataType: DataType.FLOAT32,
+      });
+      const where = {
+        name: { in: [`${prefix}_virtual`, `${prefix}_calculated`] },
+        virtual: true,
+      };
+      expect((await client.channels.retrieve({ where })).map((ch) => ch.key)).toEqual([
+        virtual.key,
+      ]);
+      await client.channels.create({
+        name: `${prefix}_calculated`,
+        virtual: true,
+        dataType: DataType.FLOAT32,
+        expression: "return 1",
+      });
+      expect((await client.channels.retrieve({ where })).map((ch) => ch.key)).toEqual([
+        virtual.key,
+      ]);
+    });
   });
 
   describe("delete", async () => {
@@ -552,13 +620,17 @@ describe("cached reads", () => {
 
     it("composes a keys query from records written by create", async () => {
       const ch = await createVirtual();
-      const cached = expectLive(client.channels.getCached({ keys: [ch.key] }));
+      const cached = expectLive(
+        client.channels.getCached({ where: { key: { in: [ch.key] } } }),
+      );
       expect(cached.map(({ key }) => key)).toEqual([ch.key]);
     });
 
     it("returns undefined for a keys query with an uncached key", async () => {
       const ch = await createVirtual();
-      expect(client.channels.getCached({ keys: [ch.key, 999999999] })).toBeUndefined();
+      expect(
+        client.channels.getCached({ where: { key: { in: [ch.key, 999999999] } } }),
+      ).toBeUndefined();
     });
   });
 
@@ -642,7 +714,7 @@ describe("cached reads", () => {
       // The store cannot prove it holds every virtual channel named this, so
       // any field narrowing the request beyond names disqualifies it.
       await expect(
-        local.channels.retrieve({ names: [ch.name], virtual: true }),
+        local.channels.retrieve({ where: { name: { in: [ch.name] }, virtual: true } }),
       ).rejects.toThrow();
     }, 30000);
 
@@ -716,6 +788,63 @@ describe("cached reads", () => {
     });
   });
 
+  describe("statuses", () => {
+    const createCalculated = async (): Promise<channel.Channel> => {
+      const source = await createVirtual();
+      const ch = await client.channels.create({
+        name: `qry_${id.create()}`,
+        dataType: DataType.FLOAT32,
+        virtual: true,
+        expression: `return ${source.name} * 2`,
+      });
+      await setStatus(ch.key, "calculating");
+      return ch;
+    };
+
+    const setStatus = async (key: number, message: string): Promise<void> => {
+      await remote.statuses.set({
+        key: channel.statusKey(key),
+        name: "Calculation Status",
+        variant: "info",
+        message,
+        time: TimeStamp.now(),
+      });
+    };
+
+    it("composes statuses only for a request that includes them", async () => {
+      const ch = await createCalculated();
+      const local = createTestClient();
+      await local.connect();
+      const where = { key: { in: [ch.key] } };
+      const [bare] = await local.channels.retrieve({ where });
+      expect(bare.status).toBeUndefined();
+      const [withStatus] = await local.channels.retrieve({
+        where,
+        includeStatus: true,
+      });
+      expect(withStatus.status?.message).toEqual("calculating");
+    });
+
+    it("delivers a remote status change to a request that includes them", async () => {
+      const ch = await createCalculated();
+      const req = { where: { key: { in: [ch.key] } }, includeStatus: true };
+      const results: Array<query.Cached<channel.Channel[]> | undefined> = [];
+      const off = client.channels.onChange(req, (c) => results.push(c));
+      try {
+        await client.channels.retrieve(req);
+        await setStatus(ch.key, "done");
+        await expect
+          .poll(() => {
+            const last = results.at(-1);
+            return query.isLive(last) ? last[0].status?.message : undefined;
+          })
+          .toEqual("done");
+      } finally {
+        off();
+      }
+    });
+  });
+
   describe("aliases", () => {
     it("composes the alias for a single query under a range", async () => {
       const ch = await createVirtual();
@@ -762,11 +891,42 @@ describe("cached reads", () => {
       const alias = `qry_alias_${id.create()}`;
       await client.ranges.setAlias(rng.key, a.key, alias);
       const res = await client.channels.retrieve({
-        keys: [a.key, b.key],
+        where: { key: { in: [a.key, b.key] } },
         rangeKey: rng.key,
       });
       expect(res.find((c) => c.key === a.key)?.alias).toEqual(alias);
       expect(res.find((c) => c.key === b.key)?.alias).toBeUndefined();
+    });
+
+    it("puts the channels whose alias matches a search first", async () => {
+      const term = id.create();
+      const named = await client.channels.create({
+        name: `${term}_named`,
+        dataType: DataType.FLOAT32,
+        virtual: true,
+      });
+      const aliased = await createVirtual();
+      const excluded = await client.channels.create({
+        name: `qry_${id.create()}`,
+        dataType: DataType.FLOAT64,
+        virtual: true,
+      });
+      const rng = await createRange();
+      await client.ranges.setAlias(rng.key, aliased.key, `${term}_alias`);
+      await client.ranges.setAlias(rng.key, excluded.key, `${term}_excluded`);
+      await expect
+        .poll(async () => {
+          const res = await client.channels.retrieve({
+            searchTerm: term,
+            rangeKey: rng.key,
+            where: { dataType: { eq: DataType.FLOAT32 } },
+          });
+          return res.map((ch) => [ch.key, ch.alias]);
+        })
+        .toEqual([
+          [aliased.key, `${term}_alias`],
+          [named.key, undefined],
+        ]);
     });
 
     it("does not serve an unfetched keys request under a range", async () => {
@@ -774,7 +934,10 @@ describe("cached reads", () => {
       const rng = await createRange();
       await client.channels.retrieve(ch.key);
       expect(
-        client.channels.getCached({ keys: [ch.key], rangeKey: rng.key }),
+        client.channels.getCached({
+          where: { key: { in: [ch.key] } },
+          rangeKey: rng.key,
+        }),
       ).toBeUndefined();
     });
   });

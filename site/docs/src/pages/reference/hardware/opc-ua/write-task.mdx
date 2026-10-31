@@ -81,7 +81,9 @@ TypeScript does not create channels. Create the command channel and its index fi
 ```typescript
 import { opcua } from "@synnaxlabs/client";
 
-const [server] = await client.devices.retrieve({ names: ["Line 1 PLC"] });
+const [server] = await client.devices.retrieve({
+  where: { name: { eq: "Line 1 PLC" } },
+});
 const cmdTime = await client.channels.create({
   name: "pump_setpoint_cmd_time",
   isIndex: true,

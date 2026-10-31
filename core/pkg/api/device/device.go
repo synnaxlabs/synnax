@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -119,99 +118,36 @@ func (s *Service) Create(
 	return CreateResponse(req), nil
 }
 
-type RetrieveRequest struct {
-	SearchTerm     string       `json:"search_term"      msgpack:"search_term"`
-	Keys           []device.Key `json:"keys"             msgpack:"keys"`
-	Names          []string     `json:"names"            msgpack:"names"`
-	Makes          []string     `json:"makes"            msgpack:"makes"`
-	Models         []string     `json:"models"           msgpack:"models"`
-	Locations      []string     `json:"locations"        msgpack:"locations"`
-	Racks          []rack.Key   `json:"racks"            msgpack:"racks"`
-	Limit          int          `json:"limit"            msgpack:"limit"`
-	Offset         int          `json:"offset"           msgpack:"offset"`
-	IgnoreNotFound bool         `json:"ignore_not_found" msgpack:"ignore_not_found"`
-	IncludeStatus  bool         `json:"include_status"   msgpack:"include_status"`
-	IncludeParent  bool         `json:"include_parent"   msgpack:"include_parent"`
-}
-
-type RetrieveResponse struct {
-	Devices []device.Device `json:"devices" msgpack:"devices"`
-}
-
 func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
-	var (
-		hasSearch    = len(req.SearchTerm) > 0
-		hasKeys      = len(req.Keys) > 0
-		hasNames     = len(req.Names) > 0
-		hasMakes     = len(req.Makes) > 0
-		hasLimit     = req.Limit > 0
-		hasOffset    = req.Offset > 0
-		hasLocations = len(req.Locations) > 0
-		hasModels    = len(req.Models) > 0
-		hasRacks     = len(req.Racks) > 0
-	)
-	q := s.device.NewRetrieve()
-	if hasKeys {
-		q = q.Where(device.MatchKeys(req.Keys...))
-	}
-	if hasSearch {
-		q = q.Search(req.SearchTerm)
-	}
-	if hasNames {
-		q = q.Where(device.MatchNames(req.Names...))
-	}
-	if hasLimit {
-		q = q.Limit(req.Limit)
-	}
-	if hasOffset {
-		q = q.Offset(req.Offset)
-	}
-	if hasMakes {
-		q = q.Where(device.MatchMakes(req.Makes...))
-	}
-	if hasLocations {
-		q = q.Where(device.MatchLocations(req.Locations...))
-	}
-	if hasModels {
-		q = q.Where(device.MatchModels(req.Models...))
-	}
-	if hasRacks {
-		q = q.Where(device.MatchRacks(req.Racks...))
-	}
 	var res RetrieveResponse
-	retErr := q.Entries(&res.Devices).Exec(ctx, nil)
-
+	q, err := req.Apply(s.device.NewRetrieve().Entries(&res.Devices))
+	if err != nil {
+		return RetrieveResponse{}, err
+	}
+	if err := q.Exec(ctx, nil); err != nil {
+		return RetrieveResponse{}, err
+	}
 	if req.IncludeStatus {
-		ids := device.OntologyIDsFromDevices(res.Devices)
-		statuses := make([]device.Status, 0, len(res.Devices))
-		// A status row can be missing, so the resource keeps a nil status.
-		if err := errors.Skip(s.status.NewRetrieve[device.StatusDetails]().
-			Where(status.MatchKeys[device.StatusDetails](ontology.IDsToKeys(ids)...)).
-			Entries(&statuses).
-			Exec(ctx, nil), query.ErrNotFound); err != nil {
+		statuses, err := s.status.Join[device.StatusDetails](
+			ctx,
+			device.OntologyIDsFromDevices(res.Devices),
+		)
+		if err != nil {
 			return RetrieveResponse{}, err
 		}
-		statusByKey := make(map[status.Key]*device.Status, len(statuses))
-		for i := range statuses {
-			statusByKey[statuses[i].Key] = &statuses[i]
-		}
-		for i, id := range ids {
-			res.Devices[i].Status = statusByKey[id.String()]
+		for i, st := range statuses {
+			res.Devices[i].Status = st
 		}
 	}
-
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: device.OntologyIDsFromDevices(res.Devices),
 	}); err != nil {
 		return RetrieveResponse{}, err
-	}
-	if retErr != nil && req.IgnoreNotFound {
-		retErr = errors.Skip(retErr, query.ErrNotFound)
 	}
 	if req.IncludeParent {
 		for i, d := range res.Devices {
@@ -223,18 +159,15 @@ func (s *Service) Retrieve(
 				ExcludeFieldData(true).
 				Entry(&parent).
 				Exec(ctx, nil)
-			if err != nil {
-				if !errors.Is(err, query.ErrNotFound) {
-					return RetrieveResponse{}, err
-				}
+			if errors.Is(err, query.ErrNotFound) {
 				continue
+			}
+			if err != nil {
+				return RetrieveResponse{}, err
 			}
 			pid := ontology.ID(parent.ID)
 			res.Devices[i].Parent = &pid
 		}
-	}
-	if retErr != nil {
-		return RetrieveResponse{}, retErr
 	}
 	return res, nil
 }

@@ -339,7 +339,7 @@ var _ = Describe("Rack", Ordered, func() {
 				var res rack.Rack
 				Expect(
 					svc.NewRetrieve().
-						Where(rack.MatchNodeIsHost(true)).
+						Where(rack.MatchHostIsNode(true)).
 						Entry(&res).
 						Exec(ctx, tx),
 				).To(Succeed())
@@ -578,14 +578,14 @@ var _ = Describe("Rack", Ordered, func() {
 				Expect(res[0].Name).To(Equal("combo-not-opc"))
 			})
 			It(
-				"Should compose MatchNodeIsHost under And with MatchNames",
+				"Should compose MatchHostIsNode under And with MatchNames",
 				func(ctx SpecContext) {
 					r := &rack.Rack{Name: "combo-host-rack"}
 					Expect(writer.Create(ctx, r)).To(Succeed())
 					var res []rack.Rack
 					Expect(svc.NewRetrieve().Where(rack.And(
 						rack.MatchNames("combo-host-rack"),
-						rack.MatchNodeIsHost(true),
+						rack.MatchHostIsNode(true),
 					)).Entries(&res).Exec(ctx, tx)).To(Succeed())
 					Expect(res).To(HaveLen(1))
 					Expect(res[0].Key).To(Equal(r.Key))

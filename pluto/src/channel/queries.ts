@@ -190,21 +190,14 @@ export const useCalculatedForm = Flux.createForm<
   mountListeners: formMountListeners,
 });
 
-export type ListQuery = channel.RetrieveOptions & {
-  searchTerm?: string;
-  rangeKey?: string;
-  internal?: boolean;
-  offset?: number;
-  limit?: number;
-};
-
-const DEFAULT_LIST_PARAMS: ListQuery = {
-  internal: false,
-};
+export type ListQuery = channel.RetrieveMultipleParams;
 
 export const useList = Flux.createList<ListQuery, channel.Key, channel.Channel>({
   name: PLURAL_RESOURCE_NAME,
-  normalizeQuery: (query) => ({ ...DEFAULT_LIST_PARAMS, ...query }),
+  normalizeQuery: (query) => ({
+    ...query,
+    where: { internal: { eq: false }, ...query.where },
+  }),
   retrieve: async ({ client, query }) => await client.channels.retrieve(query),
   retrieveByKey: async ({ client, key, query: { rangeKey } }) =>
     await client.channels.retrieve(key, { rangeKey }),

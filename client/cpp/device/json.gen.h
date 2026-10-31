@@ -11,12 +11,15 @@
 
 #pragma once
 
+#include <cstdint>
 #include <string>
+#include <vector>
 
 #include "client/cpp/device/types.gen.h"
 #include "client/cpp/ontology/types.gen.h"
 #include "client/cpp/rack/key.h"
 #include "client/cpp/status/json.gen.h"
+#include "x/cpp/filter/json.gen.h"
 #include "x/cpp/json/json.h"
 
 namespace synnax::device {
@@ -64,6 +67,70 @@ inline x::json::json Device::to_json() const {
     j["properties"] = this->properties;
     if (this->status.has_value()) j["status"] = this->status->to_json();
     if (this->parent.has_value()) j["parent"] = this->parent->to_json();
+    return j;
+}
+
+inline Where Where::parse(x::json::Parser parser) {
+    return Where{
+        .and_ = parser.field<std::optional<std::vector<Where>>>("and"),
+        .or_ = parser.field<std::optional<std::vector<Where>>>("or"),
+        .not_ = parser.field<x::mem::indirect<Where>>("not"),
+        .key = parser.field<std::optional<::x::filter::Set<Key>>>("key"),
+        .name = parser.field<std::optional<::x::filter::String>>("name"),
+        .make = parser.field<std::optional<::x::filter::String>>("make"),
+        .model = parser.field<std::optional<::x::filter::String>>("model"),
+        .location = parser.field<std::optional<::x::filter::String>>("location"),
+        .rack = parser.field<std::optional<::x::filter::Set<::synnax::rack::Key>>>(
+            "rack"
+        ),
+    };
+}
+
+inline x::json::json Where::to_json() const {
+    x::json::json j;
+    if (this->and_.has_value()) j["and"] = x::json::to_array(*this->and_);
+    if (this->or_.has_value()) j["or"] = x::json::to_array(*this->or_);
+    if (this->not_.has_value()) j["not"] = this->not_->to_json();
+    if (this->key.has_value()) j["key"] = this->key->to_json();
+    if (this->name.has_value()) j["name"] = this->name->to_json();
+    if (this->make.has_value()) j["make"] = this->make->to_json();
+    if (this->model.has_value()) j["model"] = this->model->to_json();
+    if (this->location.has_value()) j["location"] = this->location->to_json();
+    if (this->rack.has_value()) j["rack"] = this->rack->to_json();
+    return j;
+}
+
+inline RetrieveRequest RetrieveRequest::parse(x::json::Parser parser) {
+    return RetrieveRequest{
+        .where = parser.field<std::optional<Where>>("where"),
+        .search_term = parser.field<std::string>("search_term", ""),
+        .limit = parser.field<std::optional<std::uint32_t>>("limit"),
+        .offset = parser.field<std::uint32_t>("offset", 0),
+        .include_status = parser.field<bool>("include_status", false),
+        .include_parent = parser.field<bool>("include_parent", false),
+    };
+}
+
+inline x::json::json RetrieveRequest::to_json() const {
+    x::json::json j;
+    if (this->where.has_value()) j["where"] = this->where->to_json();
+    j["search_term"] = this->search_term;
+    j["limit"] = this->limit;
+    j["offset"] = this->offset;
+    j["include_status"] = this->include_status;
+    j["include_parent"] = this->include_parent;
+    return j;
+}
+
+inline RetrieveResponse RetrieveResponse::parse(x::json::Parser parser) {
+    return RetrieveResponse{
+        .devices = parser.field<std::vector<Device>>("devices", std::vector<Device>{}),
+    };
+}
+
+inline x::json::json RetrieveResponse::to_json() const {
+    x::json::json j;
+    j["devices"] = x::json::to_array(this->devices);
     return j;
 }
 

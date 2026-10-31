@@ -10,6 +10,7 @@
 import "schemas/synnax/node"
 import "schemas/synnax/status"
 import "schemas/x/control"
+import "schemas/x/filter"
 import "schemas/x/telem"
 
 @cpp output "client/cpp/channel"
@@ -105,11 +106,9 @@ Channel struct {
             is the node that holds the lease for this channel and is authorized to
             accept writes.
         """
-        @filter
     }
     data_type   telem.DataType      {
         @doc value "is the data type of samples stored in this channel."
-        @filter
     }
     is_index    bool                {
         @doc value """
@@ -117,7 +116,6 @@ Channel struct {
             values (TIMESTAMP data type) written in ascending order, and are most
             commonly Unix nanosecond timestamps.
         """
-        @filter
     }
     local_key   LocalKey            {
         @doc value "is the locally-unique portion of this channel's key."
@@ -142,7 +140,6 @@ Channel struct {
         @doc value """
             is true if this is a system channel hidden from normal user queries.
         """
-        @filter
     }
     operations  Operation[]         {
         @doc value "contains aggregation operations applied to this channel's data."
@@ -247,6 +244,7 @@ APIChannel struct {
     }
     status      Status?             {
         @doc value "is the current operational status of the channel."
+        @include
     }
 
     @cpp name      "Channel"
@@ -262,4 +260,31 @@ APIChannel struct {
     @pb name       "Channel"
     @py name       "Payload"
     @ts name       "Payload"
+}
+
+Where filter Channel {
+    key
+    name
+    leaseholder
+    data_type
+    is_index
+    internal
+    virtual       bool     {
+        @doc value """
+            matches virtual channels that are not calculated, or every other channel
+            when false.
+        """
+    }
+    name_patterns string[] {
+        @doc value """
+            matches channels whose name matches any of the given patterns. A valid
+            channel name matches exactly, and any other pattern is a regular expression,
+            anchored when unanchored.
+        """
+    }
+
+    @doc value         "is a filter that selects channels."
+    @go output         "core/pkg/service/channel"
+    @go request_output "core/pkg/api/channel"
+    @response type     APIChannel
 }

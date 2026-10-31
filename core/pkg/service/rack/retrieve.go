@@ -22,9 +22,9 @@ type Retrieve struct {
 	hostProvider cluster.HostProvider
 }
 
-// MatchNodeIsHost returns a filter that matches racks whose node is (or is
-// not) the current host, using the host provider held on the Retrieve.
-func MatchNodeIsHost(v bool) Filter {
+// MatchHostIsNode returns a filter that matches racks on the host Core, or racks on
+// other Cores when v is false.
+func MatchHostIsNode(v bool) Filter {
 	return Match(func(_ gorp.Context, r Retrieve, rack *Rack) (bool, error) {
 		isNodeHost := rack.Key.Node() == r.hostProvider.HostKey()
 		return isNodeHost == v, nil

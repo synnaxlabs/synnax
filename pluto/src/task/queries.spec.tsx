@@ -60,6 +60,28 @@ describe("queries", () => {
       expect(result.current.data).toContain(task2.key);
     });
 
+    it("should leave out internal tasks unless the query asks for them", async () => {
+      const rack = await client.racks.create({ name: "testRack" });
+      const internal = await rack.createTask({
+        name: "internal",
+        type: "pagerduty_alert",
+        config: {},
+        internal: true,
+      });
+      const { result } = renderHook(() => Task.useList(), { wrapper });
+      act(() => {
+        result.current.retrieve({ where: { rack: { eq: rack.key } } });
+      });
+      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      expect(result.current.data).not.toContain(internal.key);
+      act(() => {
+        result.current.retrieve({
+          where: { rack: { eq: rack.key }, internal: { eq: true } },
+        });
+      });
+      await waitFor(() => expect(result.current.data).toEqual([internal.key]));
+    });
+
     it("should get individual tasks using getItem", async () => {
       const rack = await client.racks.create({
         name: "testRack",
@@ -604,7 +626,7 @@ describe("queries", () => {
         const firstSnapshotName = `${originalName1} (Snapshot)`;
         const secondSnapshotName = `${originalName2} (Snapshot)`;
         const snapshots = await client.tasks.retrieve({
-          names: [firstSnapshotName, secondSnapshotName],
+          where: { name: { in: [firstSnapshotName, secondSnapshotName] } },
         });
         const snapshot1 = snapshots.find((s) => s.name === firstSnapshotName);
         const snapshot2 = snapshots.find((s) => s.name === secondSnapshotName);
@@ -700,7 +722,8 @@ describe("queries", () => {
       const type = "pagerduty_alert";
       const first = await rack.createTask({ name: "first", type, config: {} });
       const { result } = await renderHookSuspended(
-        () => Task.useMultiple({ rack: rack.key, types: [type] }),
+        () =>
+          Task.useMultiple({ where: { rack: { eq: rack.key }, type: { in: [type] } } }),
         { wrapper },
       );
       await waitFor(() =>

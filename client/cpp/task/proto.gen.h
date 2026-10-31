@@ -18,12 +18,81 @@
 #include "client/cpp/task/json.gen.h"
 #include "client/cpp/task/types.gen.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/filter/json.gen.h"
+#include "x/cpp/filter/proto.gen.h"
 #include "x/cpp/json/struct.h"
 #include "x/cpp/pb/pb.h"
 
+#include "core/pkg/api/task/pb/task.pb.h"
 #include "core/pkg/service/task/pb/task.pb.h"
 
 namespace synnax::task {
+
+inline std::pair<::service::task::pb::UuidSet, x::errors::Error>
+uuid_set_to_proto(const ::x::filter::Set<x::uuid::UUID> &self);
+inline std::pair<::x::filter::Set<x::uuid::UUID>, x::errors::Error>
+uuid_set_from_proto(const ::service::task::pb::UuidSet &pb);
+
+inline std::pair<::service::task::pb::RackKeySet, x::errors::Error>
+rack_key_set_to_proto(const ::x::filter::Set<::synnax::rack::Key> &self);
+inline std::pair<::x::filter::Set<::synnax::rack::Key>, x::errors::Error>
+rack_key_set_from_proto(const ::service::task::pb::RackKeySet &pb);
+
+inline std::pair<::service::task::pb::UuidSet, x::errors::Error>
+uuid_set_to_proto(const ::x::filter::Set<x::uuid::UUID> &self) {
+    ::service::task::pb::UuidSet pb;
+    if (self.eq.has_value()) pb.set_eq(self.eq->to_string());
+    if (self.in.has_value()) {
+        auto *wrapper = pb.mutable_in();
+        for (const auto &item: *self.in) {
+            wrapper->add_values(item.to_string());
+        }
+    }
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<::x::filter::Set<x::uuid::UUID>, x::errors::Error>
+uuid_set_from_proto(const ::service::task::pb::UuidSet &pb) {
+    ::x::filter::Set<x::uuid::UUID> cpp;
+    if (!pb.eq().empty()) {
+        auto [v, err] = x::uuid::UUID::parse(pb.eq());
+        if (err) return {{}, err};
+        cpp.eq = v;
+    }
+    if (pb.has_in()) {
+        cpp.in.emplace();
+        for (const auto &item: pb.in().values()) {
+            auto [v, err] = x::uuid::UUID::parse(item);
+            if (err) return {{}, err};
+            cpp.in->push_back(v);
+        }
+    }
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::service::task::pb::RackKeySet, x::errors::Error>
+rack_key_set_to_proto(const ::x::filter::Set<::synnax::rack::Key> &self) {
+    ::service::task::pb::RackKeySet pb;
+    if (self.eq.has_value()) pb.set_eq(*self.eq);
+    if (self.in.has_value()) {
+        auto *wrapper = pb.mutable_in();
+        for (const auto &item: *self.in)
+            wrapper->add_values(item);
+    }
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<::x::filter::Set<::synnax::rack::Key>, x::errors::Error>
+rack_key_set_from_proto(const ::service::task::pb::RackKeySet &pb) {
+    ::x::filter::Set<::synnax::rack::Key> cpp;
+    if (pb.has_eq()) cpp.eq = pb.eq();
+    if (pb.has_in()) {
+        cpp.in.emplace();
+        for (const auto &item: pb.in().values())
+            cpp.in->push_back(item);
+    }
+    return {cpp, x::errors::NIL};
+}
 
 inline std::pair<::service::task::pb::StatusDetails, x::errors::Error>
 StatusDetails::to_proto() const {
@@ -110,6 +179,113 @@ Task::from_proto(const ::service::task::pb::Task &pb) {
     return {cpp, x::errors::NIL};
 }
 
+inline std::pair<::service::task::pb::Where, x::errors::Error> Where::to_proto() const {
+    ::service::task::pb::Where pb;
+    if (this->and_.has_value()) {
+        auto *wrapper = pb.mutable_and_();
+        for (const auto &item: *this->and_) {
+            auto [v, err] = item.to_proto();
+            if (err) return {{}, err};
+            *wrapper->add_values() = v;
+        }
+    }
+    if (this->or_.has_value()) {
+        auto *wrapper = pb.mutable_or_();
+        for (const auto &item: *this->or_) {
+            auto [v, err] = item.to_proto();
+            if (err) return {{}, err};
+            *wrapper->add_values() = v;
+        }
+    }
+    if (this->not_.has_value()) {
+        auto [v, err] = this->not_->to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_not_() = v;
+    }
+    if (this->key.has_value()) {
+        auto [v, err] = uuid_set_to_proto(*this->key);
+        if (err) return {{}, err};
+        *pb.mutable_key() = v;
+    }
+    if (this->name.has_value()) {
+        auto [v, err] = this->name->to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_name() = v;
+    }
+    if (this->type.has_value()) {
+        auto [v, err] = this->type->to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_type() = v;
+    }
+    if (this->rack.has_value()) {
+        auto [v, err] = rack_key_set_to_proto(*this->rack);
+        if (err) return {{}, err};
+        *pb.mutable_rack() = v;
+    }
+    if (this->internal.has_value()) {
+        auto [v, err] = this->internal->to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_internal() = v;
+    }
+    if (this->snapshot.has_value()) {
+        auto [v, err] = this->snapshot->to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_snapshot() = v;
+    }
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<Where, x::errors::Error>
+Where::from_proto(const ::service::task::pb::Where &pb) {
+    Where cpp;
+    if (pb.has_and_()) {
+        cpp.and_.emplace();
+        if (auto err = x::pb::from_proto_repeated<Where>(*cpp.and_, pb.and_().values()))
+            return {{}, err};
+    }
+    if (pb.has_or_()) {
+        cpp.or_.emplace();
+        if (auto err = x::pb::from_proto_repeated<Where>(*cpp.or_, pb.or_().values()))
+            return {{}, err};
+    }
+    if (pb.has_not_()) {
+        auto [v, err] = Where::from_proto(pb.not_());
+        if (err) return {{}, err};
+        cpp.not_ = v;
+    }
+    if (pb.has_key()) {
+        auto [v, err] = uuid_set_from_proto(pb.key());
+        if (err) return {{}, err};
+        cpp.key = v;
+    }
+    if (pb.has_name()) {
+        auto [v, err] = ::x::filter::String::from_proto(pb.name());
+        if (err) return {{}, err};
+        cpp.name = v;
+    }
+    if (pb.has_type()) {
+        auto [v, err] = ::x::filter::String::from_proto(pb.type());
+        if (err) return {{}, err};
+        cpp.type = v;
+    }
+    if (pb.has_rack()) {
+        auto [v, err] = rack_key_set_from_proto(pb.rack());
+        if (err) return {{}, err};
+        cpp.rack = v;
+    }
+    if (pb.has_internal()) {
+        auto [v, err] = ::x::filter::Bool::from_proto(pb.internal());
+        if (err) return {{}, err};
+        cpp.internal = v;
+    }
+    if (pb.has_snapshot()) {
+        auto [v, err] = ::x::filter::Bool::from_proto(pb.snapshot());
+        if (err) return {{}, err};
+        cpp.snapshot = v;
+    }
+    return {cpp, x::errors::NIL};
+}
+
 inline std::pair<::service::task::pb::Command, x::errors::Error>
 Command::to_proto() const {
     ::service::task::pb::Command pb;
@@ -141,6 +317,55 @@ Command::from_proto(const ::service::task::pb::Command &pb) {
         if (err) return {{}, err};
         cpp.args = v;
     }
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::api::task::pb::RetrieveRequest, x::errors::Error>
+RetrieveRequest::to_proto() const {
+    ::api::task::pb::RetrieveRequest pb;
+    if (this->where.has_value()) {
+        auto [v, err] = this->where->to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_where() = v;
+    }
+    pb.set_search_term(this->search_term);
+    if (this->limit.has_value()) pb.set_limit(*this->limit);
+    pb.set_offset(this->offset);
+    pb.set_include_status(this->include_status);
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<RetrieveRequest, x::errors::Error>
+RetrieveRequest::from_proto(const ::api::task::pb::RetrieveRequest &pb) {
+    RetrieveRequest cpp;
+    if (pb.has_where()) {
+        auto [v, err] = Where::from_proto(pb.where());
+        if (err) return {{}, err};
+        cpp.where = v;
+    }
+    cpp.search_term = pb.search_term();
+    if (pb.has_limit()) cpp.limit = pb.limit();
+    cpp.offset = pb.offset();
+    cpp.include_status = pb.include_status();
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::api::task::pb::RetrieveResponse, x::errors::Error>
+RetrieveResponse::to_proto() const {
+    ::api::task::pb::RetrieveResponse pb;
+    for (const auto &item: this->tasks) {
+        auto [v, err] = item.to_proto();
+        if (err) return {{}, err};
+        *pb.add_tasks() = v;
+    }
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<RetrieveResponse, x::errors::Error>
+RetrieveResponse::from_proto(const ::api::task::pb::RetrieveResponse &pb) {
+    RetrieveResponse cpp;
+    if (auto err = x::pb::from_proto_repeated<Task>(cpp.tasks, pb.tasks()))
+        return {{}, err};
     return {cpp, x::errors::NIL};
 }
 

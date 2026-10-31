@@ -129,7 +129,9 @@ TypeScript does not create channels. Create them first.
 ```typescript
 import { modbus } from "@synnaxlabs/client";
 
-const [dev] = await client.devices.retrieve({ names: ["Pump skid PLC"] });
+const [dev] = await client.devices.retrieve({
+  where: { name: { eq: "Pump skid PLC" } },
+});
 const time = await client.channels.create({
   name: "plc_time",
   isIndex: true,

@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <set>
 #include <sstream>
 
 #include "gtest/gtest.h"
@@ -145,6 +146,40 @@ TEST(RackTests, testCreateRackWithIntegrations) {
     ASSERT_EQ(r2.integrations[0], "ni");
     ASSERT_EQ(r2.integrations[1], "opc");
     ASSERT_EQ(r2.integrations[2], "modbus");
+}
+
+/// @brief it should retrieve the racks that match any branch of an or.
+TEST(RackTests, testRetrieveWhere) {
+    const auto client = new_test_client();
+    auto a = Rack{.name = "test_rack_where_a", .integrations = {"labjack"}};
+    auto b = Rack{.name = "test_rack_where_b" + std::to_string(gen_rand())};
+    auto c = Rack{.name = "test_rack_where_c"};
+    ASSERT_NIL(client.racks.create(a));
+    ASSERT_NIL(client.racks.create(b));
+    ASSERT_NIL(client.racks.create(c));
+    const auto racks = ASSERT_NIL_P(client.racks.retrieve(
+        RetrieveRequest{
+            .where = Where{
+                .or_ =
+                    std::vector<Where>{
+                        Where{
+                            .integrations =
+                                x::filter::Contains<std::string>{
+                                    .any = std::vector<std::string>{"labjack"},
+                                }
+                        },
+                        Where{.name = x::filter::String{.eq = b.name}},
+                    },
+                .key = x::filter::Set<Key>{
+                    .in = std::vector<Key>{a.key, b.key, c.key, 4123456789},
+                },
+            },
+        }
+    ));
+    std::set<Key> keys;
+    for (const auto &r: racks)
+        keys.insert(r.key);
+    ASSERT_EQ(keys, (std::set<Key>{a.key, b.key}));
 }
 
 /// @brief it should update integrations on upsert.

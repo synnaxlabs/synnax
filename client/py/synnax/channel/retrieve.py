@@ -9,9 +9,10 @@
 
 from __future__ import annotations
 
+import json
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from alamos import NOOP, Instrumentation, trace
 from freighter import UnaryClient
@@ -22,31 +23,24 @@ from synnax.channel.payload import (
     Payload,
     normalize_params,
 )
+from synnax.channel.types_gen import RetrieveRequest, RetrieveResponse, Where
 from synnax.exceptions import NotFoundError
-from x.telem import DataType
+from x import filter
 
 
-class Request(BaseModel):
-    """The filters for a channel retrieval. A field left as None does not filter."""
-
-    names: list[str] | None = None
-    keys: list[int] | None = None
-    search_term: str | None = None
-    data_types: list[DataType] | None = None
-    not_data_types: list[DataType] | None = None
-    virtual: bool | None = None
-    is_index: bool | None = None
-    internal: bool | None = None
+class _AliasedRetrieveRequest(BaseModel):
+    request: RetrieveRequest
     range_key: UUID | None = None
-    node_key: int | None = None
-    limit: int | None = None
-    offset: int | None = None
-    status_included: bool = Field(default=False, serialization_alias="include_status")
 
 
-class _Response(BaseModel):
-    channels: list[Payload] = Field(default_factory=list)
-    not_found: list[str] | None = Field(default_factory=list)
+def params_where(channels: Params) -> Where:
+    """Returns a filter that selects the channels that channels names by key or
+    name.
+    """
+    normal = normalize_params(channels)
+    if isinstance(normal, NormalizedNameResult):
+        return Where(name_patterns=normal.channels)
+    return Where(key=filter.Set[Key](in_=normal.channels))
 
 
 class Retriever:
@@ -66,33 +60,29 @@ class Retriever:
 
     @trace("debug")
     def retrieve(self, channels: Params) -> list[Payload]:
-        normal = normalize_params(channels)
-        if len(normal.channels) == 0:
+        if len(normalize_params(channels).channels) == 0:
             return []
-        if isinstance(normal, NormalizedNameResult):
-            req = Request(names=normal.channels)
-        else:
-            req = Request(keys=normal.channels)
-        return self._exec_retrieve(req)
+        return self.filter(RetrieveRequest(where=params_where(channels)))
 
     @trace("debug")
     def retrieve_one(self, param: Key | str) -> Payload:
-        req = Request()
-        if isinstance(param, Key):
-            req.keys = [param]
-        else:
-            req.names = [param]
-        channels = self._exec_retrieve(req)
+        channels = self.retrieve(param)
         if len(channels) == 0:
             raise NotFoundError(f"Could not find channel matching {param}")
         return channels[0]
 
     @trace("debug")
-    def filter(self, req: Request) -> list[Payload]:
-        return self._exec_retrieve(req)
-
-    def _exec_retrieve(self, req: Request) -> list[Payload]:
-        return self._client.send("/channel/retrieve", req, _Response).channels
+    def filter(
+        self, req: RetrieveRequest, range_key: UUID | None = None
+    ) -> list[Payload]:
+        """Returns the channels req selects. A range_key sets each channel's alias in
+        the range, and a search term then also matches those aliases, ranked first.
+        """
+        return self._client.send(
+            "/channel/retrieve",
+            _AliasedRetrieveRequest(request=req, range_key=range_key),
+            RetrieveResponse,
+        ).channels
 
 
 def retrieve_required(r: Retriever, channels: Params) -> list[Payload]:
@@ -105,5 +95,5 @@ def retrieve_required(r: Retriever, channels: Params) -> list[Payload]:
         found = {c.key for c in results}
     not_found: list[Key | str] = [p for p in normal.channels if p not in found]
     if len(not_found) > 0:
-        raise NotFoundError(f"Could not find channels: {not_found}")
+        raise NotFoundError(f"channels not found matching {json.dumps(not_found)}")
     return results

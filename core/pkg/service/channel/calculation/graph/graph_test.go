@@ -164,7 +164,9 @@ func createDep(ctx context.Context, depName string) channel.Channel {
 // deleteDep deletes the base channel with the given name.
 func deleteDep(ctx context.Context, depName string) {
 	GinkgoHelper()
-	Expect(channelWriter.DeleteManyByNames(ctx, []string{depName}, false)).To(Succeed())
+	Expect(
+		channelWriter.DeleteManyByNamePatterns(ctx, []string{depName}, false),
+	).To(Succeed())
 }
 
 // batchWrites reports whether the change batch creates or updates a channel with the

@@ -20,6 +20,7 @@
 
 #include "client/cpp/task/json.gen.h"
 #include "x/cpp/breaker/breaker.h"
+#include "x/cpp/filter/types.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/loop/loop.h"
 #include "x/cpp/thread/thread.h"
@@ -149,12 +150,15 @@ struct SynnaxClusterAPI final : ClusterAPI {
 
     std::pair<std::vector<synnax::device::Device>, x::errors::Error>
     retrieve_devices(const synnax::rack::Key &rack, const std::string &make) override {
-        synnax::device::RetrieveRequest req;
-        req.makes = {make};
-        req.racks = {rack};
-        req.include_status = true;
-        req.include_parent = true;
-        return this->client->devices.retrieve(req);
+        return this->client->devices.retrieve({
+            .where =
+                synnax::device::Where{
+                    .make = x::filter::String{.eq = make},
+                    .rack = x::filter::Set<synnax::rack::Key>{.eq = rack},
+                },
+            .include_status = true,
+            .include_parent = true,
+        });
     }
 
     std::pair<synnax::device::Device, x::errors::Error>

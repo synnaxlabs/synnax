@@ -33,11 +33,11 @@ const soleMember = (value: Record<string, unknown>): [string, unknown] | null =>
   return set.length === 1 ? set[0] : null;
 };
 
-/** @returns the keys of a filter that only matches keys in a list, or null. */
-const whereKeys = (where: unknown): unknown[] | null => {
+/** @returns the list of a filter that only matches field against a list, or null. */
+const whereIn = (where: unknown, field: string): unknown[] | null => {
   if (!isObject(where)) return null;
   const line = soleMember(where);
-  if (line?.[0] !== "key" || !isObject(line[1])) return null;
+  if (line?.[0] !== field || !isObject(line[1])) return null;
   const op = soleMember(line[1]);
   return op?.[0] === "in" && Array.isArray(op[1]) ? op[1] : null;
 };
@@ -51,7 +51,7 @@ const whereKeys = (where: unknown): unknown[] | null => {
 const keysOnly = (query: unknown): unknown[] | null => {
   if (!isObject(query)) return null;
   const field = soleMember(query);
-  if (field?.[0] === "where") return whereKeys(field[1]);
+  if (field?.[0] === "where") return whereIn(field[1], "key");
   if (field?.[0] !== "keys" || !Array.isArray(field[1]) || field[1].length === 0)
     return null;
   return field[1];

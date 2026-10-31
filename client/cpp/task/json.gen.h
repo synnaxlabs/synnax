@@ -11,12 +11,15 @@
 
 #pragma once
 
+#include <cstdint>
 #include <string>
+#include <vector>
 
 #include "client/cpp/device/key.h"
 #include "client/cpp/rack/key.h"
 #include "client/cpp/status/json.gen.h"
 #include "client/cpp/task/types.gen.h"
+#include "x/cpp/filter/json.gen.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/types.gen.h"
 #include "x/cpp/uuid/uuid.h"
@@ -70,6 +73,36 @@ inline x::json::json Task::to_json() const {
     j["internal"] = this->internal;
     j["snapshot"] = this->snapshot;
     if (this->status.has_value()) j["status"] = this->status->to_json();
+    return j;
+}
+
+inline Where Where::parse(x::json::Parser parser) {
+    return Where{
+        .and_ = parser.field<std::optional<std::vector<Where>>>("and"),
+        .or_ = parser.field<std::optional<std::vector<Where>>>("or"),
+        .not_ = parser.field<x::mem::indirect<Where>>("not"),
+        .key = parser.field<std::optional<::x::filter::Set<Key>>>("key"),
+        .name = parser.field<std::optional<::x::filter::String>>("name"),
+        .type = parser.field<std::optional<::x::filter::String>>("type"),
+        .rack = parser.field<std::optional<::x::filter::Set<::synnax::rack::Key>>>(
+            "rack"
+        ),
+        .internal = parser.field<std::optional<::x::filter::Bool>>("internal"),
+        .snapshot = parser.field<std::optional<::x::filter::Bool>>("snapshot"),
+    };
+}
+
+inline x::json::json Where::to_json() const {
+    x::json::json j;
+    if (this->and_.has_value()) j["and"] = x::json::to_array(*this->and_);
+    if (this->or_.has_value()) j["or"] = x::json::to_array(*this->or_);
+    if (this->not_.has_value()) j["not"] = this->not_->to_json();
+    if (this->key.has_value()) j["key"] = this->key->to_json();
+    if (this->name.has_value()) j["name"] = this->name->to_json();
+    if (this->type.has_value()) j["type"] = this->type->to_json();
+    if (this->rack.has_value()) j["rack"] = this->rack->to_json();
+    if (this->internal.has_value()) j["internal"] = this->internal->to_json();
+    if (this->snapshot.has_value()) j["snapshot"] = this->snapshot->to_json();
     return j;
 }
 
@@ -188,6 +221,38 @@ inline x::json::json ScanConfig::to_json() const {
         j[k] = v;
     j["rate"] = this->rate;
     j["disabled"] = this->disabled;
+    return j;
+}
+
+inline RetrieveRequest RetrieveRequest::parse(x::json::Parser parser) {
+    return RetrieveRequest{
+        .where = parser.field<std::optional<Where>>("where"),
+        .search_term = parser.field<std::string>("search_term", ""),
+        .limit = parser.field<std::optional<std::uint32_t>>("limit"),
+        .offset = parser.field<std::uint32_t>("offset", 0),
+        .include_status = parser.field<bool>("include_status", false),
+    };
+}
+
+inline x::json::json RetrieveRequest::to_json() const {
+    x::json::json j;
+    if (this->where.has_value()) j["where"] = this->where->to_json();
+    j["search_term"] = this->search_term;
+    j["limit"] = this->limit;
+    j["offset"] = this->offset;
+    j["include_status"] = this->include_status;
+    return j;
+}
+
+inline RetrieveResponse RetrieveResponse::parse(x::json::Parser parser) {
+    return RetrieveResponse{
+        .tasks = parser.field<std::vector<Task>>("tasks", std::vector<Task>{}),
+    };
+}
+
+inline x::json::json RetrieveResponse::to_json() const {
+    x::json::json j;
+    j["tasks"] = x::json::to_array(this->tasks);
     return j;
 }
 

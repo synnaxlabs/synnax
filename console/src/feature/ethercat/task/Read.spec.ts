@@ -568,6 +568,30 @@ describe("Read", () => {
     await awaitStatus(statuses, /is not configured/);
   });
 
+  it("should surface an error when a slave no longer exists", async () => {
+    const createSlave = async () =>
+      await createSlaveDevice(client, testRack.key, {
+        identifier: createIdentifier(),
+        network: "eth0",
+        pdos: createPDOs(),
+      });
+    const slave = await createSlave();
+    const deleted = await createSlave();
+    await client.devices.delete(deleted.key);
+    const { container, statuses } = await renderRead({
+      ...EtherCAT.Task.READ_SCHEMAS.config.parse({}),
+      channels: [
+        createEntryReadChannel(slave.key, STATUS_ENTRY),
+        createEntryReadChannel(deleted.key, STATUS_ENTRY),
+      ],
+    });
+    await clickDeploy(container);
+    await awaitStatus(
+      statuses,
+      new RegExp(`^Found no device with key ${deleted.key}$`),
+    );
+  });
+
   it("should create the task with one channel", async () => {
     const tsk = await createWithHook(
       EtherCAT.Task.useCreateRead,

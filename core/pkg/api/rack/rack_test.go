@@ -10,6 +10,8 @@
 package rack_test
 
 import (
+	"encoding/json/v2"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apirack "github.com/synnaxlabs/synnax/pkg/api/rack"
@@ -18,8 +20,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 func retrieveRack(ctx SpecContext, key rack.Key) rack.Rack {
@@ -155,7 +159,9 @@ var _ = Describe("Retrieve", func() {
 			withStatus.OntologyID(), withoutStatus.OntologyID(),
 		)
 		res := MustSucceed(apiSvc.Retrieve(AuthedCtx(ctx, u), apirack.RetrieveRequest{
-			Keys:          []rack.Key{withoutStatus.Key, withStatus.Key},
+			Where: &rack.Where{Key: &filter.Set[rack.Key]{
+				In: []rack.Key{withoutStatus.Key, withStatus.Key},
+			}},
 			IncludeStatus: true,
 		}))
 		Expect(res.Racks).To(HaveLen(2))
@@ -163,6 +169,42 @@ var _ = Describe("Retrieve", func() {
 		Expect(res.Racks[0].Status).To(BeNil())
 		Expect(res.Racks[1].Key).To(Equal(withStatus.Key))
 		Expect(res.Racks[1].Status.Key).To(Equal(rack.StatusKey(withStatus.Key)))
+	})
+
+	It("Should treat a missing key as a non-match", func(ctx SpecContext) {
+		u := createUser(ctx)
+		r := rack.Rack{Name: "Present"}
+		Expect(svc.Rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+		grant(ctx, access.ActionRetrieve, u.OntologyID(), r.OntologyID())
+		res := MustSucceed(apiSvc.Retrieve(AuthedCtx(ctx, u), apirack.RetrieveRequest{
+			Where: &rack.Where{Key: &filter.Set[rack.Key]{
+				In: []rack.Key{r.Key, rack.NewKey(9, 9)},
+			}},
+		}))
+		Expect(res.Racks).To(HaveLen(1))
+		Expect(res.Racks[0].Key).To(Equal(r.Key))
+	})
+
+	It("Should return a path error for an invalid regex", func(ctx SpecContext) {
+		u := createUser(ctx)
+		Expect(apiSvc.Retrieve(AuthedCtx(ctx, u), apirack.RetrieveRequest{
+			Where: &rack.Where{Name: &filter.String{Regex: new("(a")}},
+		})).Error().To(SatisfyAll(
+			BeAssignableToTypeOf(validate.PathError{}),
+			MatchError(
+				"where.name.regex: error parsing regexp: missing closing ): `(a`: validation error",
+			),
+		))
+	})
+})
+
+var _ = Describe("RetrieveRequest", func() {
+	It("Should reject a request member that it does not declare", func() {
+		var req apirack.RetrieveRequest
+		Expect(json.Unmarshal([]byte(`{"keys":[1]}`), &req)).To(SatisfyAll(
+			BeAssignableToTypeOf(&json.SemanticError{}),
+			MatchError(ContainSubstring(`unknown object member name "keys"`)),
+		))
 	})
 })
 

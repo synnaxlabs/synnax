@@ -12,9 +12,11 @@ package alias_test
 import (
 	"context"
 	"fmt"
+	"math/rand/v2"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -352,6 +354,101 @@ var _ = Describe("Alias", Ordered, func() {
 					ToNot(ContainElement(id))
 			},
 		)
+	})
+
+	Describe("SearchChannels", func() {
+		var (
+			r               ranger.Range
+			term            string
+			byName, byAlias channel.Channel
+		)
+		BeforeEach(func(ctx SpecContext) {
+			r = ranger.Range{
+				Name: "Range",
+				TimeRange: telem.TimeRange{
+					Start: telem.TimeStamp(5 * telem.Second),
+					End:   telem.TimeStamp(10 * telem.Second),
+				},
+			}
+			Expect(rangerSvc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
+			term = fmt.Sprintf("probe%09d", rand.IntN(999999999))
+			byName = channel.Channel{
+				DataType: telem.Float32T,
+				Name:     term,
+				Virtual:  true,
+			}
+			Expect(channelSvc.NewWriter(nil).Create(ctx, &byName)).To(Succeed())
+			byAlias = createChannel(ctx)
+			Expect(
+				aliasSvc.NewWriter(tx).Set(ctx, r.Key, byAlias.Key(), term+" inlet"),
+			).
+				To(Succeed())
+		})
+
+		search := func(
+			ctx SpecContext, q channel.Retrieve, limit, offset int,
+		) []channel.Key {
+			GinkgoHelper()
+			chs := MustSucceed(aliasSvc.NewReader(tx).SearchChannels(
+				ctx, q, r.Key, term, limit, offset,
+			))
+			return lo.Map(chs, func(ch channel.Channel, _ int) channel.Key {
+				return ch.Key()
+			})
+		}
+
+		both := func() channel.Retrieve {
+			return channelSvc.NewRetrieve().
+				Where(channel.MatchKeys(byName.Key(), byAlias.Key()))
+		}
+
+		It("Should rank the channels whose alias matches the term first", func(
+			ctx SpecContext,
+		) {
+			Expect(search(ctx, both(), 0, 0)).
+				To(Equal([]channel.Key{byAlias.Key(), byName.Key()}))
+		})
+
+		It("Should page the merged channels", func(ctx SpecContext) {
+			Expect(search(ctx, both(), 1, 0)).To(Equal([]channel.Key{byAlias.Key()}))
+			Expect(search(ctx, both(), 1, 1)).To(Equal([]channel.Key{byName.Key()}))
+			Expect(search(ctx, both(), 1, 2)).To(BeEmpty())
+		})
+
+		It("Should list a channel that matches by alias and by name once", func(
+			ctx SpecContext,
+		) {
+			Expect(
+				aliasSvc.NewWriter(tx).Set(ctx, r.Key, byName.Key(), term+" outlet"),
+			).To(Succeed())
+			second := channel.Channel{
+				DataType: telem.Float32T,
+				Name:     term + "_second",
+				Virtual:  true,
+			}
+			Expect(channelSvc.NewWriter(nil).Create(ctx, &second)).To(Succeed())
+			q := func() channel.Retrieve {
+				return channelSvc.NewRetrieve().
+					Where(channel.MatchKeys(byName.Key(), second.Key()))
+			}
+			Expect(search(ctx, q(), 0, 0)).
+				To(Equal([]channel.Key{byName.Key(), second.Key()}))
+			Expect(search(ctx, q(), 1, 1)).To(Equal([]channel.Key{second.Key()}))
+		})
+
+		It("Should leave out an alias match that the query rejects", func(
+			ctx SpecContext,
+		) {
+			q := channelSvc.NewRetrieve().Where(channel.MatchKeys(byName.Key()))
+			Expect(search(ctx, q, 0, 0)).To(Equal([]channel.Key{byName.Key()}))
+		})
+
+		It("Should skip the alias of a deleted channel", func(ctx SpecContext) {
+			Expect(channelSvc.NewWriter(nil).Delete(ctx, byAlias.Key(), false)).
+				To(Succeed())
+			Expect(search(ctx, channelSvc.NewRetrieve(), 0, 0)).
+				To(Equal([]channel.Key{byName.Key()}))
+		})
 	})
 
 	Describe("List", func() {

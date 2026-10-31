@@ -22,4 +22,4 @@ const { useResult: useResultMultiple } = PDevice.createRetrieveMultiple(SCHEMAS)
 
 /** The devices the keys name, or undefined until they resolve or on failure. */
 export const useByKeys = (keys: device.Key[]): Device[] | undefined =>
-  useResultMultiple(keys.length === 0 ? null : { keys }).data;
+  useResultMultiple(keys.length === 0 ? null : { where: { key: { in: keys } } }).data;

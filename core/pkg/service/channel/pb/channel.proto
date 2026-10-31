@@ -14,6 +14,7 @@ syntax = "proto3";
 package service.channel.pb;
 
 import "x/go/control/pb/control.proto";
+import "x/go/filter/pb/filter.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/service/channel/pb";
 
@@ -73,4 +74,75 @@ message Channel {
   // expression is an Arc expression for calculated channels. If set, the channel is
   // automatically configured as virtual.
   string expression = 11;
+}
+message WhereList {
+  repeated Where values = 1;
+}
+message KeyList {
+  repeated uint32 values = 1;
+}
+
+// KeySet selects values that only compare for equality, such as keys, enum values, and
+// UUIDs. A value must match every operator that is set.
+message KeySet {
+  // eq matches a value equal to eq.
+  optional uint32 eq = 1;
+  // in matches a value equal to an element of in.
+  KeyList in = 2;
+}
+message NodeKeyList {
+  repeated uint32 values = 1;
+}
+
+// NodeKeySet selects values that only compare for equality, such as keys, enum values,
+// and UUIDs. A value must match every operator that is set.
+message NodeKeySet {
+  // eq matches a value equal to eq.
+  optional uint32 eq = 1;
+  // in matches a value equal to an element of in.
+  NodeKeyList in = 2;
+}
+message TelemDataTypeList {
+  repeated string values = 1;
+}
+
+// TelemDataTypeSet selects values that only compare for equality, such as keys, enum
+// values, and UUIDs. A value must match every operator that is set.
+message TelemDataTypeSet {
+  // eq matches a value equal to eq.
+  optional string eq = 1;
+  // in matches a value equal to an element of in.
+  TelemDataTypeList in = 2;
+}
+message StringList {
+  repeated string values = 1;
+}
+
+// Where is a filter that selects channels.
+message Where {
+  // and matches when every child matches.
+  WhereList and = 1;
+  // or matches when any child matches.
+  WhereList or = 2;
+  // not matches when the child does not match.
+  optional Where not = 3;
+  // key selects by key.
+  optional KeySet key = 4;
+  // name selects by name.
+  optional .x.filter.pb.String name = 5;
+  // leaseholder selects by leaseholder.
+  optional NodeKeySet leaseholder = 6;
+  // data_type selects by data_type.
+  optional TelemDataTypeSet data_type = 7;
+  // is_index selects by is_index.
+  optional .x.filter.pb.Bool is_index = 8;
+  // internal selects by internal.
+  optional .x.filter.pb.Bool internal = 9;
+  // virtual matches virtual channels that are not calculated, or every other channel
+  // when false.
+  optional bool virtual = 10;
+  // name_patterns matches channels whose name matches any of the given patterns. A
+  // valid channel name matches exactly, and any other pattern is a regular expression,
+  // anchored when unanchored.
+  StringList name_patterns = 11;
 }

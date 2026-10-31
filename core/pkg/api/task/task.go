@@ -17,13 +17,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -116,90 +113,28 @@ func (s *Service) Create(
 	return CreateResponse(req), nil
 }
 
-type (
-	RetrieveRequest struct {
-		Internal            *bool      `json:"internal"               msgpack:"internal"`
-		Snapshot            *bool      `json:"snapshot"               msgpack:"snapshot"`
-		SearchTerm          string     `json:"search_term"            msgpack:"search_term"`
-		Keys                []task.Key `json:"keys"                   msgpack:"keys"`
-		Names               []string   `json:"names"                  msgpack:"names"`
-		Types               []string   `json:"types"                  msgpack:"types"`
-		Limit               int        `json:"limit"                  msgpack:"limit"`
-		Offset              int        `json:"offset"                 msgpack:"offset"`
-		Rack                rack.Key   `json:"rack"                   msgpack:"rack"`
-		IncludeStatus       bool       `json:"include_status"         msgpack:"include_status"`
-		IgnoreNotFoundError bool       `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
-	}
-	RetrieveResponse struct {
-		Tasks []task.Task `json:"tasks" msgpack:"tasks"`
-	}
-)
-
 func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
-	var (
-		hasSearch = len(req.SearchTerm) > 0
-		hasKeys   = len(req.Keys) > 0
-		hasNames  = len(req.Names) > 0
-		hasTypes  = len(req.Types) > 0
-		hasLimit  = req.Limit > 0
-		hasOffset = req.Offset > 0
-	)
-	q := s.task.NewRetrieve()
-	if req.Internal != nil {
-		q = q.Where(task.MatchInternal(*req.Internal))
-	}
-	if req.Snapshot != nil {
-		q = q.Where(task.MatchSnapshot(*req.Snapshot))
-	}
-	if hasNames {
-		q = q.Where(task.MatchNames(req.Names...))
-	}
-	if hasKeys {
-		q = q.Where(task.MatchKeys(req.Keys...))
-	}
-	if hasTypes {
-		q = q.Where(task.MatchTypes(req.Types...))
-	}
-	if hasSearch {
-		q = q.Search(req.SearchTerm)
-	}
-	if hasLimit {
-		q = q.Limit(req.Limit)
-	}
-	if hasOffset {
-		q = q.Offset(req.Offset)
-	}
-	if !req.Rack.IsZero() {
-		q = q.Where(task.MatchRacks(req.Rack))
-	}
 	var res RetrieveResponse
-	err := q.Entries(&res.Tasks).Exec(ctx, nil)
-	if req.IgnoreNotFoundError && err != nil {
-		err = errors.Skip(err, query.ErrNotFound)
-	}
+	q, err := req.Apply(s.task.NewRetrieve().Entries(&res.Tasks))
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
-
+	if err := q.Exec(ctx, nil); err != nil {
+		return RetrieveResponse{}, err
+	}
 	if req.IncludeStatus {
-		ids := task.OntologyIDsFromTasks(res.Tasks)
-		statuses := make([]task.Status, 0, len(res.Tasks))
-		// A status row can be missing, so the resource keeps a nil status.
-		if err := errors.Skip(s.status.NewRetrieve[task.StatusDetails]().
-			Where(status.MatchKeys[task.StatusDetails](ontology.IDsToKeys(ids)...)).
-			Entries(&statuses).
-			Exec(ctx, nil), query.ErrNotFound); err != nil {
+		statuses, err := s.status.Join[task.StatusDetails](
+			ctx,
+			task.OntologyIDsFromTasks(res.Tasks),
+		)
+		if err != nil {
 			return RetrieveResponse{}, err
 		}
-		statusByKey := make(map[status.Key]*task.Status, len(statuses))
-		for i := range statuses {
-			statusByKey[statuses[i].Key] = &statuses[i]
-		}
-		for i, id := range ids {
-			res.Tasks[i].Status = statusByKey[id.String()]
+		for i, st := range statuses {
+			res.Tasks[i].Status = st
 		}
 	}
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{

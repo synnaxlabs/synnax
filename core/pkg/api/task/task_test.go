@@ -10,6 +10,7 @@
 package task_test
 
 import (
+	"encoding/json/v2"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -19,8 +20,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 func createTask(ctx SpecContext) task.Task {
@@ -102,7 +105,9 @@ var _ = Describe("Retrieve", func() {
 			withStatus.OntologyID(), withoutStatus.OntologyID(),
 		)
 		res := MustSucceed(apiSvc.Retrieve(AuthedCtx(ctx, u), apitask.RetrieveRequest{
-			Keys:          []task.Key{withoutStatus.Key, withStatus.Key},
+			Where: &task.Where{Key: &filter.Set[task.Key]{
+				In: []task.Key{withoutStatus.Key, withStatus.Key},
+			}},
 			IncludeStatus: true,
 		}))
 		Expect(res.Tasks).To(HaveLen(2))
@@ -110,5 +115,62 @@ var _ = Describe("Retrieve", func() {
 		Expect(res.Tasks[0].Status).To(BeNil())
 		Expect(res.Tasks[1].Key).To(Equal(withStatus.Key))
 		Expect(res.Tasks[1].Status.Key).To(Equal(withStatus.OntologyID().String()))
+	})
+
+	It("Should treat a missing key as a non-match", func(ctx SpecContext) {
+		u := createUser(ctx)
+		t := createTask(ctx)
+		grant(ctx, access.ActionRetrieve, u.OntologyID(), t.OntologyID())
+		res := MustSucceed(apiSvc.Retrieve(AuthedCtx(ctx, u), apitask.RetrieveRequest{
+			Where: &task.Where{Key: &filter.Set[task.Key]{
+				In: []task.Key{t.Key, uuid.New()},
+			}},
+		}))
+		Expect(res.Tasks).To(HaveLen(1))
+		Expect(res.Tasks[0].Key).To(Equal(t.Key))
+	})
+
+	It("Should return the tasks whose name matches the search term", func(
+		ctx SpecContext,
+	) {
+		u := createUser(ctx)
+		match := task.Task{
+			Type:     pagerduty.AlertTaskType,
+			Rack:     svc.Rack.EmbeddedKey,
+			Name:     "Cryostat pressure",
+			Snapshot: true,
+		}
+		Expect(svc.Task.NewWriter(nil).Create(ctx, &match)).To(Succeed())
+		other := createTask(ctx)
+		grant(
+			ctx, access.ActionRetrieve, u.OntologyID(),
+			match.OntologyID(), other.OntologyID(),
+		)
+		res := MustSucceed(apiSvc.Retrieve(AuthedCtx(ctx, u), apitask.RetrieveRequest{
+			SearchTerm: "cryostat",
+		}))
+		Expect(res.Tasks).To(HaveExactElements(HaveField("Key", match.Key)))
+	})
+
+	It("Should return a path error for an invalid regex", func(ctx SpecContext) {
+		u := createUser(ctx)
+		Expect(apiSvc.Retrieve(AuthedCtx(ctx, u), apitask.RetrieveRequest{
+			Where: &task.Where{Type: &filter.String{Regex: new("(a")}},
+		})).Error().To(SatisfyAll(
+			BeAssignableToTypeOf(validate.PathError{}),
+			MatchError(
+				"where.type.regex: error parsing regexp: missing closing ): `(a`: validation error",
+			),
+		))
+	})
+})
+
+var _ = Describe("RetrieveRequest", func() {
+	It("Should reject a request member that it does not declare", func() {
+		var req apitask.RetrieveRequest
+		Expect(json.Unmarshal([]byte(`{"names":["Task"]}`), &req)).To(SatisfyAll(
+			BeAssignableToTypeOf(&json.SemanticError{}),
+			MatchError(ContainSubstring(`unknown object member name "names"`)),
+		))
 	})
 })
