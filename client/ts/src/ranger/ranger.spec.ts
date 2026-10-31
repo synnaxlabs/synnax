@@ -284,9 +284,8 @@ describe("range", () => {
           ranger.one(),
         );
         await expect(res).rejects.toThrow(MultipleFoundError);
-        const where = JSON.stringify({ where: { name: { startsWith: prefix } } });
         await expect(res).rejects.toThrow(
-          `Expected one range matching ${where}, but found 2`,
+          `Expected one range where name starts with "${prefix}", but found 2`,
         );
       });
     });
@@ -414,7 +413,19 @@ describe("range", () => {
         const name = id.create();
         const set = rng.setAlias(name, "myalias");
         await expect(set).rejects.toThrow(NotFoundError);
-        await expect(set).rejects.toThrow(`channel not found matching "${name}"`);
+        await expect(set).rejects.toThrow(
+          `Found no channel where namePatterns = ["${name}"]`,
+        );
+      });
+
+      it("should describe a numeric channel string as the key it selects", async () => {
+        const rng = await client.ranges.create({
+          name: "My New One Second Range",
+          timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+        });
+        const set = rng.setAlias("1234", "myalias");
+        await expect(set).rejects.toThrow(NotFoundError);
+        await expect(set).rejects.toThrow("Found no channel where key = 1234");
       });
 
       it("should reject a name pattern that matches two channels", async () => {

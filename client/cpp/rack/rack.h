@@ -106,8 +106,7 @@ public:
     [[nodiscard]] std::pair<Rack, x::errors::Error>
     retrieve(const Key &key, Includes... includes) const {
         return this->retrieve_one(
-            x::filter::request<Where, RetrieveRequest>(rack::key.eq(key), includes...),
-            "key " + std::to_string(key)
+            x::filter::request<Where, RetrieveRequest>(rack::key.eq(key), includes...)
         );
     }
 
@@ -119,11 +118,7 @@ public:
     [[nodiscard]] std::pair<Rack, x::errors::Error>
     retrieve(const std::string &name, Includes... includes) const {
         return this->retrieve_one(
-            x::filter::request<Where, RetrieveRequest>(
-                rack::name.eq(name),
-                includes...
-            ),
-            "name " + name
+            x::filter::request<Where, RetrieveRequest>(rack::name.eq(name), includes...)
         );
     }
 
@@ -168,7 +163,7 @@ public:
             std::move(parts)...
         );
         if constexpr (x::filter::returns_one<Parts...>)
-            return this->retrieve_one(req, x::filter::describe(req.where));
+            return this->retrieve_one(req);
         else
             return this->retrieve(req);
     }
@@ -181,8 +176,7 @@ public:
 
 private:
     [[nodiscard]]
-    std::pair<Rack, x::errors::Error>
-    retrieve_one(const RetrieveRequest &req, const std::string &query) const;
+    std::pair<Rack, x::errors::Error> retrieve_one(const RetrieveRequest &req) const;
 
     /// @brief Rack creation transport.
     std::unique_ptr<CreateClient> rack_create_client;

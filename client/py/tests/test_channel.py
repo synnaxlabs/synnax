@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import re
+
 import numpy as np
 import pytest
 
@@ -234,8 +236,21 @@ class TestChannel:
 
     def test_retrieve_by_key_not_found(self, client: sy.Synnax) -> None:
         """Should raise NotFoundError when key not found"""
-        with pytest.raises(sy.NotFoundError, match="Channel matching 1234 not found"):
+        with pytest.raises(
+            sy.NotFoundError, match=r"^Found no channel where key = 1234$"
+        ):
             client.channels.retrieve(1234)
+
+    def test_retrieve_by_key_not_found_with_filters(
+        self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
+    ) -> None:
+        """Should describe every filter of a key retrieve that matches no channel."""
+        key = indexed_pair[0].key
+        with pytest.raises(
+            sy.NotFoundError,
+            match=rf"^Found no channel where key = {key} and virtual = true$",
+        ):
+            client.channels.retrieve(key, virtual=True)
 
     def test_retrieve_by_list_of_names(
         self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
@@ -281,20 +296,19 @@ class TestChannel:
         self,
         client: sy.Synnax,
     ) -> None:
-        """Should raise a MultipleFoundError when retrieving a single channel with
-        multiple matches"""
-        with pytest.raises(sy.MultipleFoundError):
-            prefix = channel_name()
+        """Should raise MultipleFoundError when a single name matches two channels"""
+        prefix = channel_name()
+        for suffix in ("1", "2"):
             client.channels.create(
-                name=f"{prefix}1",
-                virtual=True,
-                data_type=sy.DataType.FLOAT64,
+                name=f"{prefix}{suffix}", virtual=True, data_type=sy.DataType.FLOAT64
             )
-            client.channels.create(
-                name=f"{prefix}2",
-                virtual=True,
-                data_type=sy.DataType.FLOAT64,
-            )
+        with pytest.raises(
+            sy.MultipleFoundError,
+            match=re.escape(
+                f'Expected one channel where name_patterns = ["{prefix}.*"], '
+                "but found 2"
+            ),
+        ):
             client.channels.retrieve(f"{prefix}.*")
 
     def test_retrieve_by_regex(self, client: sy.Synnax) -> None:
@@ -931,9 +945,13 @@ class TestChannelRetriever:
         retrieved = client.channels._retriever.retrieve_one(ch.key)
         assert retrieved.key == ch.key
 
-    def test_retrieve_one_not_found(self, client: sy.Synnax) -> None:
-        with pytest.raises(sy.NotFoundError):
-            client.channels._retriever.retrieve_one(1234)
+    @pytest.mark.parametrize("param", [1234, "1234"], ids=["key", "numeric string"])
+    def test_retrieve_one_not_found(self, client: sy.Synnax, param: int | str) -> None:
+        """Should describe a key, or a numeric string, as the key it selects."""
+        with pytest.raises(
+            sy.NotFoundError, match=r"^Found no channel where key = 1234$"
+        ):
+            client.channels._retriever.retrieve_one(param)
 
     def test_retrieve_one_multiple_found(self, client: sy.Synnax) -> None:
         """Should raise MultipleFoundError when a pattern matches two channels."""
@@ -943,7 +961,11 @@ class TestChannelRetriever:
                 data_type=sy.DataType.FLOAT32, name=f"{prefix}_{suffix}", virtual=True
             )
         with pytest.raises(
-            sy.MultipleFoundError, match=f"Expected one Channel matching {prefix}_"
+            sy.MultipleFoundError,
+            match=re.escape(
+                f'Expected one channel where name_patterns = ["{prefix}_.*"], '
+                "but found 2"
+            ),
         ):
             client.channels._retriever.retrieve_one(f"{prefix}_.*")
 

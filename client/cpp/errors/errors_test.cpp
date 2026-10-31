@@ -7,11 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <optional>
+#include <utility>
+#include <vector>
+
 #include "gtest/gtest.h"
 
 #include "client/cpp/errors/errors.h"
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/json/json.h"
 #include "x/cpp/testutil/testutil.h"
 
 namespace synnax::errors {
@@ -25,43 +30,37 @@ TEST(ErrorsTest, UnexpectedMissingError) {
     );
 }
 
-/// @brief it should create a not found error with key identifier.
+/// @brief it should create a not found error that describes the filter.
 TEST(ErrorsTest, NotFoundError) {
-    const auto err = not_found_error("channel", "key 123");
+    const auto err = not_found_error("channel", "key = 123");
     ASSERT_MATCHES(err, x::errors::NOT_FOUND);
-    EXPECT_EQ(
-        err.message(),
-        "[sy.query.not_found] channel matching key 123 not found."
-    );
+    EXPECT_EQ(err.message(), "[sy.query.not_found] Found no channel where key = 123");
 }
 
-/// @brief it should create a not found error with name identifier.
-TEST(ErrorsTest, NotFoundErrorWithName) {
-    const auto err = not_found_error("task", "name test-task");
+/// @brief it should leave out an empty filter description.
+TEST(ErrorsTest, NotFoundErrorNoFilter) {
+    const auto err = not_found_error("task", "");
     ASSERT_MATCHES(err, x::errors::NOT_FOUND);
-    EXPECT_EQ(
-        err.message(),
-        "[sy.query.not_found] task matching name test-task not found."
-    );
+    EXPECT_EQ(err.message(), "[sy.query.not_found] Found no task");
 }
 
-/// @brief it should create a multiple results error for channels.
+/// @brief it should create a multiple results error that describes the filter.
 TEST(ErrorsTest, MultipleFoundError) {
-    const auto err = multiple_found_error("channels", "name test");
+    const auto err = multiple_found_error("range", "key = 1", 2);
     ASSERT_MATCHES(err, x::errors::MULTIPLE_RESULTS);
     EXPECT_EQ(
         err.message(),
-        "[sy.query.multiple_results] Multiple channels matching name test found."
+        "[sy.query.multiple_results] Expected one range where key = 1, but found 2"
     );
 }
 
-/// @brief it should create a multiple results error for ranges.
-TEST(ErrorsTest, MultipleFoundErrorRanges) {
-    const auto err = multiple_found_error("ranges", "name experiment-1");
+/// @brief it should leave out an empty filter description.
+TEST(ErrorsTest, MultipleFoundErrorNoFilter) {
+    const auto err = multiple_found_error("range", "", 3);
     ASSERT_MATCHES(err, x::errors::MULTIPLE_RESULTS);
     EXPECT_EQ(
         err.message(),
-        "[sy.query.multiple_results] Multiple ranges matching name experiment-1 found."
+        "[sy.query.multiple_results] Expected one range, but found 3"
     );
 }
 
@@ -73,5 +72,56 @@ TEST(ErrorsTest, IsTemporarilyUnavailable) {
     EXPECT_FALSE(is_temporarily_unavailable(LICENSE));
     EXPECT_FALSE(is_temporarily_unavailable(LICENSE.sub("invalid")));
     EXPECT_FALSE(is_temporarily_unavailable(x::errors::UNKNOWN));
+}
+
+namespace {
+/// @brief a filter that selects the record with key 12.
+struct KeyWhere {
+    [[nodiscard]] x::json::json to_json() const { return {{"key", {{"eq", 12}}}}; }
+};
+
+const std::optional WHERE = KeyWhere{};
+}
+
+/// @brief it should return the one record that a retrieve found.
+TEST(ErrorsTest, ExactlyOne) {
+    const auto record = ASSERT_NIL_P(
+        exactly_one("range", WHERE, std::pair{std::vector{7}, x::errors::NIL})
+    );
+    EXPECT_EQ(record, 7);
+}
+
+/// @brief it should return the error of the retrieve.
+TEST(ErrorsTest, ExactlyOneRetrieveError) {
+    ASSERT_OCCURRED_AS_P(
+        exactly_one(
+            "range",
+            WHERE,
+            std::pair{std::vector<int>{}, freighter::UNREACHABLE}
+        ),
+        freighter::UNREACHABLE
+    );
+}
+
+/// @brief it should return a not found error that describes the filter.
+TEST(ErrorsTest, ExactlyOneNotFound) {
+    const auto [record, err] = exactly_one(
+        "range",
+        WHERE,
+        std::pair{std::vector<int>{}, x::errors::NIL}
+    );
+    ASSERT_MATCHES(err, x::errors::NOT_FOUND);
+    EXPECT_EQ(err.data, "Found no range where key = 12");
+}
+
+/// @brief it should return a multiple results error that counts the records.
+TEST(ErrorsTest, ExactlyOneMultipleFound) {
+    const auto [record, err] = exactly_one(
+        "range",
+        WHERE,
+        std::pair{std::vector{7, 8}, x::errors::NIL}
+    );
+    ASSERT_MATCHES(err, x::errors::MULTIPLE_RESULTS);
+    EXPECT_EQ(err.data, "Expected one range where key = 12, but found 2");
 }
 }

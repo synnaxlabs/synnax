@@ -38,13 +38,8 @@ Client::retrieve(const RetrieveRequest &req) const {
 }
 
 std::pair<Device, x::errors::Error>
-Client::retrieve_one(const RetrieveRequest &req, const std::string &query) const {
-    auto [devices, err] = this->retrieve(req);
-    if (err) return {Device{}, err};
-    if (devices.empty()) return {Device{}, errors::not_found_error("device", query)};
-    if (devices.size() > 1)
-        return {Device{}, errors::multiple_found_error("devices", query)};
-    return {std::move(devices[0]), x::errors::NIL};
+Client::retrieve_one(const RetrieveRequest &req) const {
+    return errors::exactly_one("device", req.where, this->retrieve(req));
 }
 
 x::errors::Error Client::create(Device &device) const {

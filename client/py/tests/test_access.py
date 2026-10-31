@@ -198,7 +198,7 @@ class TestRoleClient:
         assert role.key is not None
         client.access.roles.delete(role.key)
         with pytest.raises(
-            sy.NotFoundError, match=f"Role matching {role.key} not found"
+            sy.NotFoundError, match=rf'^Found no role where key = "{role.key}"$'
         ):
             client.access.roles.retrieve(role.key)
 

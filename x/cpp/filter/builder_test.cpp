@@ -15,7 +15,6 @@
 #include "gtest/gtest.h"
 
 #include "x/cpp/filter/builder.h"
-#include "x/cpp/json/json.h"
 #include "x/cpp/mem/indirect.h"
 
 namespace {
@@ -31,16 +30,6 @@ struct Where {
     std::optional<bool> virtual_;
     std::optional<std::vector<std::string>> labels;
     std::optional<std::int64_t> window;
-
-    [[nodiscard]] x::json::json to_json() const {
-        x::json::json j{{"name", nullptr}};
-        if (this->key.has_value())
-            j["key"] = {{"eq", this->key.value().eq.value()}, {"in", nullptr}};
-        if (this->and_.has_value())
-            for (const auto &w: *this->and_)
-                j["and"].push_back(w.to_json());
-        return j;
-    }
 };
 
 struct Other {
@@ -247,16 +236,4 @@ TEST(FilterBuilder, Includes) {
     static_assert(!x::filter::includes<RetrieveRequest, x::filter::Limit>);
 }
 
-/// @brief it should describe the filter of a request without null fields, for error
-/// messages.
-TEST(FilterBuilder, Describe) {
-    EXPECT_EQ(x::filter::describe(std::optional<Where>{}), "any filter");
-    const auto req = x::filter::request<Where, RetrieveRequest>(key.eq(7));
-    EXPECT_EQ(x::filter::describe(req.where), R"(filter {"key":{"eq":7}})");
-    const auto both = x::filter::request<Where, RetrieveRequest>(key.eq(7), key.eq(8));
-    EXPECT_EQ(
-        x::filter::describe(both.where),
-        R"(filter {"and":[{"key":{"eq":7}},{"key":{"eq":8}}]})"
-    );
-}
 }

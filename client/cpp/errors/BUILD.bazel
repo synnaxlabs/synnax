@@ -17,6 +17,7 @@ cc_library(
     deps = [
         "//freighter/cpp:freighter",
         "//x/cpp/errors",
+        "//x/cpp/filter",
     ],
 )
 
@@ -27,6 +28,7 @@ cc_test(
         "//client/cpp/errors",
         "//freighter/cpp:freighter",
         "//x/cpp/errors",
+        "//x/cpp/json",
         "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],

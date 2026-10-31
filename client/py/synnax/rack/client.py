@@ -225,7 +225,7 @@ class Client:
         res = self._client.send("/rack/retrieve", req, _RetrieveResponse)
         if query is None and not one:
             return res.racks
-        return util.one("Rack", req.where if query is None else query, res.racks)
+        return util.one("rack", req.where, res.racks)
 
     def retrieve_embedded_rack(self) -> Rack:
         if self._embedded_rack is None:

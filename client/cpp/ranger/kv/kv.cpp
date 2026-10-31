@@ -10,6 +10,7 @@
 #include "client/cpp/errors/errors.h"
 #include "client/cpp/ranger/kv/kv.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/json/json.h"
 
 namespace synnax::ranger::kv {
 std::pair<std::string, x::errors::Error> Client::get(const std::string &key) const {
@@ -19,7 +20,13 @@ std::pair<std::string, x::errors::Error> Client::get(const std::string &key) con
     auto [res, err] = this->get_client->send("/range/kv/get", req);
     if (err) return {"", err};
     if (res.pairs_size() == 0)
-        return {"", errors::not_found_error("range key-value pair", "key " + key)};
+        return {
+            "",
+            errors::not_found_error(
+                "range key-value pair",
+                "key = " + x::json::json(key).dump()
+            )
+        };
     return {res.pairs().at(0).value(), err};
 }
 

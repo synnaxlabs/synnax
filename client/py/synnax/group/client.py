@@ -124,7 +124,7 @@ class Client:
         )
         if query is None and not one:
             return res.groups
-        return util.one("Group", where if query is None else query, res.groups)
+        return util.one("group", where, res.groups)
 
     def rename(self, key: UUID, name: str) -> Empty:
         return self._client.send(

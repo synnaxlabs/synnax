@@ -73,8 +73,17 @@ describe("Writer", () => {
       );
       await expect(write).rejects.toThrow(NotFoundError);
       await expect(write).rejects.toThrow(
-        'channel not found matching "nonexistent_channel"',
+        'Found no channel where namePatterns = ["nonexistent_channel"]',
       );
+      await writer.close();
+    });
+
+    test("write to a numeric channel string that matches no key", async () => {
+      const channels = await newIndexedPair(client);
+      const writer = await client.openWriter({ start: TimeStamp.now(), channels });
+      const write = writer.write("1234", randomSeries(10, DataType.FLOAT64));
+      await expect(write).rejects.toThrow(NotFoundError);
+      await expect(write).rejects.toThrow("Found no channel where key = 1234");
       await writer.close();
     });
 

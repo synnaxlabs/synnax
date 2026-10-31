@@ -103,8 +103,7 @@ public:
     [[nodiscard]] std::pair<Task, x::errors::Error>
     retrieve(const Key &key, Includes... includes) const {
         return this->retrieve_one(
-            x::filter::request<Where, RetrieveRequest>(task::key.eq(key), includes...),
-            "key " + key.to_string()
+            x::filter::request<Where, RetrieveRequest>(task::key.eq(key), includes...)
         );
     }
 
@@ -116,11 +115,7 @@ public:
     [[nodiscard]] std::pair<Task, x::errors::Error>
     retrieve(const std::string &name, Includes... includes) const {
         return this->retrieve_one(
-            x::filter::request<Where, RetrieveRequest>(
-                task::name.eq(name),
-                includes...
-            ),
-            "name " + name
+            x::filter::request<Where, RetrieveRequest>(task::name.eq(name), includes...)
         );
     }
 
@@ -166,7 +161,7 @@ public:
             std::move(parts)...
         );
         if constexpr (x::filter::returns_one<Parts...>)
-            return this->retrieve_one(req, x::filter::describe(req.where));
+            return this->retrieve_one(req);
         else
             return this->retrieve(req);
     }
@@ -185,8 +180,7 @@ public:
 
 private:
     [[nodiscard]]
-    std::pair<Task, x::errors::Error>
-    retrieve_one(const RetrieveRequest &req, const std::string &query) const;
+    std::pair<Task, x::errors::Error> retrieve_one(const RetrieveRequest &req) const;
 
     /// @brief Key of rack that this client belongs to.
     rack::Key rack{};

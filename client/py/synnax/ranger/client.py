@@ -21,6 +21,7 @@ from pydantic import BaseModel, PrivateAttr
 import synnax.channel.payload as channel
 from freighter import UnaryClient
 from synnax import framer, label, util
+from synnax.channel import single_where
 from synnax.channel.retrieve import Retriever as ChannelRetriever
 from synnax.exceptions import ConfigurationError, MultipleFoundError, NotFoundError
 from synnax.framer.frame import K
@@ -438,7 +439,7 @@ class Range(Payload):
         for ch, alias in channel.items():
             if isinstance(ch, str):
                 res = self._channel_retriever.retrieve(ch)
-                corrected[util.one("Channel", ch, res).key] = alias
+                corrected[util.one("channel", single_where(ch), res).key] = alias
             else:
                 corrected[ch] = alias
         self._aliaser.set(corrected)
@@ -800,7 +801,7 @@ class Client:
         sug = self._sugar(self._retriever.retrieve(req))
         if query is None and not one:
             return sug
-        return util.one("Range", req.where if query is None else query, sug)
+        return util.one("range", req.where, sug)
 
     def delete(
         self,

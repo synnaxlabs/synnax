@@ -31,7 +31,7 @@ from synnax.channel.payload import (
     has_params,
     normalize_params,
 )
-from synnax.channel.retrieve import Retriever, retrieve_required
+from synnax.channel.retrieve import Retriever, retrieve_required, single_where
 from synnax.channel.types_gen import Operation, Payload, Where
 from synnax.channel.writer import Writer
 
@@ -61,6 +61,7 @@ __all__ = [
     "not_",
     "or_",
     "retrieve_required",
+    "single_where",
     "virtual",
     "where",
 ]

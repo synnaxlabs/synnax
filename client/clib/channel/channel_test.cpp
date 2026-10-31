@@ -140,7 +140,10 @@ TEST(ClibChannel, testReportsMissingChannelWithAlignedDataTypes) {
     );
     EXPECT_NE(code, OK);
     EXPECT_NE(std::strstr(err.type, "not_found"), nullptr);
-    EXPECT_NE(std::strstr(err.message, missing.c_str()), nullptr);
+    EXPECT_STREQ(
+        err.message,
+        ("Found no channel where name_patterns = [\"" + missing + "\"]").c_str()
+    );
 
     EXPECT_EQ(keys[0], data.key);
     EXPECT_EQ(keys[1], 0u);

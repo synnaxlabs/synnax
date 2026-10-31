@@ -584,7 +584,7 @@ class Client:
         sug = self.sugar(res.tasks)
         if query is None and not one:
             return sug
-        return util.one("Task", req.where if query is None else query, sug)
+        return util.one("task", req.where, sug)
 
     def sugar(self, tasks: list[Payload]) -> list[Task]:
         return [

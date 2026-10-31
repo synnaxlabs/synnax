@@ -639,7 +639,12 @@ export class Client extends query.Retriever<
     // their results are not shared through the cache.
     if (schemas != null) {
       const sugared = await this.execRetrieve<S>(params, schemas);
-      checkForMultipleOrNoResults("Task", params, sugared, isSingle);
+      checkForMultipleOrNoResults(
+        "task",
+        isSingle ? singleRetrieveParamsZ.parse(params).where : undefined,
+        sugared,
+        isSingle,
+      );
       return isSingle ? sugared[0] : sugared;
     }
     if (isSingle) return (await super.retrieve(params)) as Task<S>;
@@ -839,14 +844,12 @@ export class Client extends query.Retriever<
     if ("key" in q) {
       // The refresh covers a cached task whose status has not synced.
       const tasks = await this.store.retrieve([q.key], { refresh: true });
-      checkForMultipleOrNoResults("Task", q, tasks, true);
+      checkForMultipleOrNoResults("task", singleWhere(q), tasks, true);
       return this.compose(tasks[0]);
     }
-    const tasks = await this.execRetrieve({
-      where: singleWhere(q),
-      includeStatus: true,
-    });
-    checkForMultipleOrNoResults("Task", q, tasks, true);
+    const where = singleWhere(q);
+    const tasks = await this.execRetrieve({ where, includeStatus: true });
+    checkForMultipleOrNoResults("task", where, tasks, true);
     this.hydrate(tasks[0]);
     return tasks[0];
   }

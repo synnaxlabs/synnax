@@ -20,7 +20,7 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type channel } from "@/channel";
+import { channel } from "@/channel";
 import { AccessDeniedError } from "@/errors";
 import { type framer } from "@/framer";
 import { label } from "@/label";
@@ -201,10 +201,10 @@ export class Range {
    * @throws {NotFoundError} if no channel has the given key or name.
    * @throws {MultipleFoundError} if more than one channel has the given name.
    */
-  async setAlias(channel: channel.Key | Name, alias: string): Promise<void> {
-    const ch = await this.channels(channel);
-    checkForMultipleOrNoResults("channel", channel, ch, true);
-    await this.rangeClient.setAlias(this.key, ch[0].key, alias);
+  async setAlias(ch: channel.Key | Name, alias: string): Promise<void> {
+    const res = await this.channels(ch);
+    checkForMultipleOrNoResults("channel", channel.singleWhere(ch), res, true);
+    await this.rangeClient.setAlias(this.key, res[0].key, alias);
   }
 
   async deleteAlias(...channels: channel.Key[]): Promise<void> {
@@ -719,11 +719,12 @@ export class Client extends query.Retriever<
     if (cached != null) return this.composeOne(cached);
     if (z.validate(keyZ, query)) {
       const ranges = await this.store.retrieve([query]);
-      checkForMultipleOrNoResults("Range", query, ranges, true);
+      checkForMultipleOrNoResults("range", { key: { eq: query } }, ranges, true);
       return this.composeOne(ranges[0]);
     }
-    const ranges = await this.execRetrieve({ where: { name: { eq: query } } });
-    checkForMultipleOrNoResults("Range", query, ranges, true);
+    const where = { name: { eq: query } };
+    const ranges = await this.execRetrieve({ where });
+    checkForMultipleOrNoResults("range", where, ranges, true);
     this.hydrate(ranges[0]);
     return ranges[0];
   }

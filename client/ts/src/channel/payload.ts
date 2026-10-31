@@ -18,6 +18,7 @@ import {
   ontologyID,
   type Payload,
   payloadZ,
+  type Where,
 } from "@/channel/types.gen";
 import { idToString } from "@/ontology/payload";
 import {
@@ -79,4 +80,14 @@ export const analyzeParams = (
     number: "keys",
     string: "names",
   });
+};
+
+/**
+ * @returns the filter that selects the given channel by key, or by a name that the
+ * Core reads as a pattern. A numeric string is a key.
+ */
+export const singleWhere = (channel: Key | Name | Payload): Where => {
+  const { variant, normalized } = analyzeParams(channel);
+  if (variant === "keys") return { key: { eq: normalized[0] } };
+  return { namePatterns: normalized };
 };

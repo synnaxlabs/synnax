@@ -242,4 +242,4 @@ class Client:
         projects = res.projects
         if query is None and not one:
             return projects
-        return util.one("Project", where if query is None else query, projects)
+        return util.one("project", where, projects)

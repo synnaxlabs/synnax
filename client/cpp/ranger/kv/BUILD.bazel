@@ -19,6 +19,7 @@ cc_library(
         "//core/pkg/transport/grpc:api_grpc",
         "//freighter/cpp:freighter",
         "//x/cpp/errors",
+        "//x/cpp/json",
         "//x/cpp/telem",
         "//x/cpp/uuid",
         "@grpc//:grpc++",

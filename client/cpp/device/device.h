@@ -87,11 +87,7 @@ public:
     [[nodiscard]] std::pair<Device, x::errors::Error>
     retrieve(const std::string &key, Includes... includes) const {
         return this->retrieve_one(
-            x::filter::request<Where, RetrieveRequest>(
-                device::key.eq(key),
-                includes...
-            ),
-            "key " + key
+            x::filter::request<Where, RetrieveRequest>(device::key.eq(key), includes...)
         );
     }
 
@@ -126,7 +122,7 @@ public:
             std::move(parts)...
         );
         if constexpr (x::filter::returns_one<Parts...>)
-            return this->retrieve_one(req, x::filter::describe(req.where));
+            return this->retrieve_one(req);
         else
             return this->retrieve(req);
     }
@@ -157,8 +153,7 @@ public:
 
 private:
     [[nodiscard]]
-    std::pair<Device, x::errors::Error>
-    retrieve_one(const RetrieveRequest &req, const std::string &query) const;
+    std::pair<Device, x::errors::Error> retrieve_one(const RetrieveRequest &req) const;
 
     /// @brief Device creation transport.
     std::unique_ptr<CreateClient> device_create_client;

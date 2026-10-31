@@ -28,13 +28,8 @@ Client::retrieve(const RetrieveRequest &req) const {
 }
 
 std::pair<Range, x::errors::Error>
-Client::retrieve_one(const RetrieveRequest &req, const std::string &query) const {
-    auto [ranges, err] = this->retrieve(req);
-    if (err) return {Range(), err};
-    if (ranges.empty()) return {Range(), errors::not_found_error("range", query)};
-    if (ranges.size() > 1)
-        return {Range(), errors::multiple_found_error("ranges", query)};
-    return {std::move(ranges[0]), x::errors::NIL};
+Client::retrieve_one(const RetrieveRequest &req) const {
+    return errors::exactly_one("range", req.where, this->retrieve(req));
 }
 
 x::errors::Error Client::create(std::vector<Range> &ranges) const {

@@ -9,37 +9,46 @@
 
 from collections.abc import Sequence
 
+from pydantic import BaseModel
+
 from synnax.exceptions import MultipleFoundError, NotFoundError
 from x import filter
 
 
-def one[T](name: str, query: object, results: Sequence[T]) -> T:
+def _where(where: BaseModel | None) -> str:
+    description = filter.describe(where)
+    return f" where {description}" if description else ""
+
+
+def one[T](name: str, where: BaseModel | None, results: Sequence[T]) -> T:
     """Returns the only record that a single retrieve found.
 
-    :param name: The kind of record, such as "Range", for the error message.
-    :param query: What the caller asked for, for the error message.
-    :param results: The records that matched the query.
+    :param name: The kind of record, such as "range", for the error message.
+    :param where: The filter that selected the results, for the error message.
+    :param results: The records that matched the filter.
     :raises NotFoundError: If no record matched.
     :raises MultipleFoundError: If more than one record matched.
     """
-    found = one_or_none(name, query, results)
+    found = one_or_none(name, where, results)
     if found is None:
-        raise NotFoundError(f"{name} matching {query} not found")
+        raise NotFoundError(f"Found no {name}{_where(where)}")
     return found
 
 
-def one_or_none[T](name: str, query: object, results: Sequence[T]) -> T | None:
+def one_or_none[T](
+    name: str, where: BaseModel | None, results: Sequence[T]
+) -> T | None:
     """Returns the only record that a single retrieve found, or None if no record
     matched.
 
-    :param name: The kind of record, such as "Range", for the error message.
-    :param query: What the caller asked for, for the error message.
-    :param results: The records that matched the query.
+    :param name: The kind of record, such as "range", for the error message.
+    :param where: The filter that selected the results, for the error message.
+    :param results: The records that matched the filter.
     :raises MultipleFoundError: If more than one record matched.
     """
     if len(results) > 1:
         raise MultipleFoundError(
-            f"Expected one {name} matching {query}, but found {len(results)}"
+            f"Expected one {name}{_where(where)}, but found {len(results)}"
         )
     return results[0] if results else None
 

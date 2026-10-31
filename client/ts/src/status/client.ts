@@ -198,7 +198,12 @@ export class Client extends query.Retriever<
     // results are not shared through the cache.
     if (detailsSchema != null) {
       const statuses = await this.execRetrieve<DetailsSchema>(params);
-      checkForMultipleOrNoResults("Status", params, statuses, isSingle);
+      checkForMultipleOrNoResults(
+        "status",
+        "key" in rest ? { key: { eq: rest.key } } : rest.where,
+        statuses,
+        isSingle,
+      );
       return isSingle ? statuses[0] : statuses;
     }
     if (isSingle) return (await super.retrieve(rest)) as Status<DetailsSchema>;
@@ -376,7 +381,7 @@ export class Client extends query.Retriever<
 
   private async fetchSingle(key: Key): Promise<Status> {
     const statuses = await this.store.retrieve([key]);
-    checkForMultipleOrNoResults("Status", key, statuses, true);
+    checkForMultipleOrNoResults("status", { key: { eq: key } }, statuses, true);
     return statuses[0];
   }
 

@@ -432,12 +432,12 @@ export abstract class Retriever<
         ...filter.toRequest(options as filter.Option[]),
         where: { [line]: one ? { eq: first } : { in: first } },
       };
-      return await this.retrieveRequest(request, one, first);
+      return await this.retrieveRequest(request, one);
     }
     const one = args.at(-1) instanceof filter.One;
     const parts = (one ? args.slice(0, -1) : args) as Array<Part<C, Z>>;
     const request = filter.toRequest(parts);
-    return await this.retrieveRequest(request, one, request);
+    return await this.retrieveRequest(request, one);
   }
 
   /** @returns whether value is a name, or a non-empty list of names. */
@@ -451,20 +451,17 @@ export abstract class Retriever<
     );
   }
 
-  /**
-   * @returns the records that request selects, or the one record when one is true.
-   * Errors name the record by params.
-   */
+  /** @returns the records that request selects, or the one record when one is true. */
   private async retrieveRequest(
     request: Record<string, unknown>,
     one: boolean,
-    params: unknown,
   ): Promise<D | D[]> {
     const records = (await this.requestSpace.retrieve(
       this.normalizeRequest(request),
     )) as D[];
     if (!one) return records;
-    checkForMultipleOrNoResults(this.name, params, records, true);
+    const where = isObject(request.where) ? request.where : undefined;
+    checkForMultipleOrNoResults(this.name, where, records, true);
     return records[0];
   }
 

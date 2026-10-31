@@ -412,7 +412,6 @@ class Client:
         res = self._client.send("/device/retrieve", req, RetrieveResponse)
         if query is None and not one:
             return res.devices
-        target = req.where if query is None else query
         if ignore_not_found:
-            return util.one_or_none("Device", target, res.devices)
-        return util.one("Device", target, res.devices)
+            return util.one_or_none("device", req.where, res.devices)
+        return util.one("device", req.where, res.devices)

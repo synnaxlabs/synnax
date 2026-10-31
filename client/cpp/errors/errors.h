@@ -9,8 +9,15 @@
 
 #pragma once
 
+#include <cstddef>
+#include <optional>
+#include <string>
+#include <utility>
+#include <vector>
+
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/filter/describe.h"
 
 namespace synnax::errors {
 /// @brief the base of every license error the Core returns.
@@ -37,19 +44,59 @@ inline x::errors::Error unexpected_missing_error(const std::string &name) {
     );
 }
 
+namespace details {
+inline std::string where_clause(const std::string &where) {
+    return where.empty() ? "" : " where " + where;
+}
+}
+
+/// @returns a NOT_FOUND error for a retrieve of one record that found none.
+/// @param name the singular kind of record, such as "range".
+/// @param where the description of the filter from x::filter::describe, or empty.
 inline x::errors::Error
-not_found_error(const std::string &resource_name, const std::string &query) {
+not_found_error(const std::string &name, const std::string &where) {
     return x::errors::Error(
         x::errors::NOT_FOUND,
-        resource_name + " matching " + query + " not found."
+        "Found no " + name + details::where_clause(where)
     );
 }
 
-inline x::errors::Error
-multiple_found_error(const std::string &resource_name, const std::string &query) {
+/// @returns a MULTIPLE_RESULTS error for a retrieve of one record that found count.
+/// @param name the singular kind of record, such as "range".
+/// @param where the description of the filter from x::filter::describe, or empty.
+inline x::errors::Error multiple_found_error(
+    const std::string &name,
+    const std::string &where,
+    const std::size_t count
+) {
     return x::errors::Error(
         x::errors::MULTIPLE_RESULTS,
-        "Multiple " + resource_name + " matching " + query + " found."
+        "Expected one " + name + details::where_clause(where) + ", but found " +
+            std::to_string(count)
     );
+}
+
+/// @returns the one record that a retrieve found, or the error of the retrieve.
+/// @param name the singular kind of record, such as "range".
+/// @param where the filter that selected the records, for the error message.
+/// @param retrieved the records and error that the retrieve returned.
+/// @returns a NOT_FOUND error if retrieved holds no record, and a MULTIPLE_RESULTS
+/// error if it holds more than one.
+template<typename T, typename W>
+[[nodiscard]] std::pair<T, x::errors::Error> exactly_one(
+    const std::string &name,
+    const std::optional<W> &where,
+    std::pair<std::vector<T>, x::errors::Error> retrieved
+) {
+    auto &[records, err] = retrieved;
+    if (err) return {T{}, err};
+    if (records.empty())
+        return {T{}, not_found_error(name, x::filter::describe(where))};
+    if (records.size() > 1)
+        return {
+            T{},
+            multiple_found_error(name, x::filter::describe(where), records.size())
+        };
+    return {std::move(records.front()), x::errors::NIL};
 }
 }

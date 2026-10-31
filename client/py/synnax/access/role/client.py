@@ -155,7 +155,7 @@ class Client:
         res = self._client.send("/access/role/retrieve", req, RetrieveResponse)
         if query is None and not one:
             return res.roles
-        return util.one("Role", req.where if query is None else query, res.roles)
+        return util.one("role", req.where, res.roles)
 
     def delete(self, keys: UUID | list[UUID]) -> None:
         req = _DeleteRequest(keys=normalize(keys))

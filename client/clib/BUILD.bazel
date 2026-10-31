@@ -31,6 +31,7 @@ cc_library(
     deps = [
         "//client/cpp:synnax",
         "//client/cpp/errors",
+        "//x/cpp/filter",
     ],
     alwayslink = True,
 )

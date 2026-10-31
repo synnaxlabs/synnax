@@ -15,7 +15,7 @@
 #include "client/cpp/channel/proto.gen.h"
 #include "client/cpp/errors/errors.h"
 #include "x/cpp/errors/errors.h"
-#include "x/cpp/strings/strings.h"
+#include "x/cpp/filter/describe.h"
 
 namespace synnax::channel {
 x::errors::Error Client::create(Channel &channel) const {
@@ -94,13 +94,8 @@ Client::retrieve(const RetrieveRequest &req) const {
 }
 
 std::pair<Channel, x::errors::Error>
-Client::retrieve_one(const RetrieveRequest &req, const std::string &query) const {
-    auto [channels, err] = this->retrieve(req);
-    if (err) return {Channel{}, err};
-    if (channels.empty()) return {Channel{}, errors::not_found_error("channel", query)};
-    if (channels.size() > 1)
-        return {Channel{}, errors::multiple_found_error("channels", query)};
-    return {std::move(channels[0]), x::errors::NIL};
+Client::retrieve_one(const RetrieveRequest &req) const {
+    return errors::exactly_one("channel", req.where, this->retrieve(req));
 }
 
 std::pair<std::vector<Channel>, x::errors::Error>
@@ -111,15 +106,15 @@ Client::retrieve_keys(const RetrieveRequest &req, const std::vector<Key> &keys) 
     std::unordered_set<Key> found;
     for (const auto &ch: channels)
         found.insert(ch.key);
-    std::vector<std::string> missing;
+    std::vector<Key> missing;
     for (const auto key: keys)
-        if (!found.contains(key)) missing.push_back(std::to_string(key));
+        if (!found.contains(key)) missing.push_back(key);
     if (!missing.empty())
         return {
             {},
             errors::not_found_error(
-                "channels",
-                "keys " + x::strings::join(missing, ", ")
+                "channel",
+                x::filter::describe(channel::key.in(std::move(missing)).tree.to_json())
             )
         };
     return {channels, x::errors::NIL};

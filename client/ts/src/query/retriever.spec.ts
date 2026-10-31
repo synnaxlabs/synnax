@@ -761,16 +761,14 @@ describe("Retriever", () => {
       const { client } = newClient([]);
       const res = client.retrieve(name.eq("x"), filter.one());
       await expect(res).rejects.toThrow(NotFoundError);
-      await expect(res).rejects.toThrow(
-        'thing not found matching {"where":{"name":{"eq":"x"}}}',
-      );
+      await expect(res).rejects.toThrow('Found no thing where name = "x"');
     });
 
     it("should throw a MultipleFoundError when one matches more records", async () => {
       const { client } = newClient([thing("a"), thing("b")]);
       const res = client.retrieve(filter.one());
       await expect(res).rejects.toThrow(MultipleFoundError);
-      await expect(res).rejects.toThrow("Expected one thing matching {}, but found 2");
+      await expect(res).rejects.toThrow("Expected one thing, but found 2");
     });
 
     it("should reject parts the client does not take", () => {
@@ -823,7 +821,7 @@ describe("Retriever", () => {
       const { client } = newClient([]);
       const res = client.retrieve("x-name");
       await expect(res).rejects.toThrow(NotFoundError);
-      await expect(res).rejects.toThrow('thing not found matching "x-name"');
+      await expect(res).rejects.toThrow('Found no thing where name = "x-name"');
     });
 
     it("should reject a name in getCached and onChange", async () => {
@@ -842,7 +840,7 @@ describe("Retriever", () => {
       const res = client.retrieve("a-name");
       await expect(res).rejects.toThrow(MultipleFoundError);
       await expect(res).rejects.toThrow(
-        'Expected one thing matching "a-name", but found 2',
+        'Expected one thing where name = "a-name", but found 2',
       );
     });
   });

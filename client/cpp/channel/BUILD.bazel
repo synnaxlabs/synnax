@@ -36,7 +36,6 @@ cc_library(
         "//x/cpp/filter",
         "//x/cpp/json",
         "//x/cpp/pb",
-        "//x/cpp/strings",
         "//x/cpp/telem",
         "//x/go/filter:filter_grpc",
         "@grpc//:grpc++",

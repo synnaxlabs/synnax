@@ -21,7 +21,7 @@ from synnax.channel.payload import (
     Params,
     normalize_params,
 )
-from synnax.channel.retrieve import Retriever, params_where
+from synnax.channel.retrieve import Retriever, params_where, single_where
 from synnax.channel.types_gen import (
     Operation,
     Payload,
@@ -31,7 +31,7 @@ from synnax.channel.types_gen import (
     ontology_id,
 )
 from synnax.channel.writer import Writer
-from synnax.exceptions import MultipleFoundError, ValidationError
+from synnax.exceptions import ValidationError
 from synnax.ontology.payload import ID
 from synnax.telem import (
     CrudeDataType,
@@ -471,7 +471,9 @@ class Client:
             if len(normal.channels) == 0:
                 return []
             single = normal.single
-            selected = params_where(channel)
+            selected = (
+                single_where(normal.channels[0]) if single else params_where(channel)
+            )
         flat = Where(
             key=selected.key,
             name_patterns=selected.name_patterns,
@@ -506,12 +508,8 @@ class Client:
             range_key,
         )
         sug = self._sugar(res)
-        if channel is not None and single:
-            if len(res) > 1:
-                raise _multiple_results_error(channel, res)
-            return util.one("Channel", channel, sug)
-        if one:
-            return util.one("Channel", where, sug)
+        if single or one:
+            return util.one("channel", where, sug)
         return sug
 
     @overload
@@ -556,26 +554,3 @@ class Client:
 
 def _data_types(data_types: list[CrudeDataType]) -> list[DataType]:
     return [DataType(dt) for dt in data_types]
-
-
-def _multiple_results_error(
-    channel: Params,
-    results: list[Payload],
-) -> MultipleFoundError:
-    msg = f"""
-
-{len(results)} channels matching '{channel}' found. If you'd like to retrieve all
-of them, pass in '{channel}' as an array i.e. ['{channel}'] instead of {channel}.
-
-The channels found were:
-    """
-
-    # append a max of five results to the error message. If we have more than five,
-    # we'll just say "and x more" at the end.
-    for i in range(min(5, len(results))):
-        msg += f"{results[i]!s}, "
-
-    if len(results) > 5:
-        msg += f"and {len(results) - 5} more."
-
-    return MultipleFoundError(msg)
