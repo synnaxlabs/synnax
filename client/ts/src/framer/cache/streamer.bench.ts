@@ -12,10 +12,10 @@ import { test } from "vitest";
 
 import { type channel } from "@/channel";
 import { type framer } from "@/framer";
-import { createKeys, createSequence } from "@/framer/benchutil";
 import { Joins } from "@/framer/cache/join";
 import { Store } from "@/framer/cache/store";
 import { MultiplexedStreamer } from "@/framer/cache/streamer";
+import { createKeys, createSequence } from "@/framer/testutil";
 
 class StubStreamer implements framer.Streamer {
   keys: channel.Key[];

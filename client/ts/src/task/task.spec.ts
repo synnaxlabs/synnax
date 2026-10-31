@@ -12,8 +12,8 @@ import { assert, beforeAll, describe, expect, it, onTestFinished, vi } from "vit
 import { z } from "zod";
 
 import { channel } from "@/channel";
-import { AccessDeniedError, NotFoundError } from "@/errors";
 import { framer } from "@/framer";
+import { AccessDeniedError, NotFoundError } from "@/index";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { rack } from "@/rack";
@@ -1062,6 +1062,128 @@ describe("Task", async () => {
           variant: "warning",
           message: "no Driver here",
           details: { running: false },
+        });
+      } finally {
+        off();
+      }
+    });
+
+    it("moves a stand-in to the next problem of its rack", async () => {
+      const dying = await client.racks.create({ name: `dying-${id.create()}` });
+      const t = await dying.createTask({
+        name: `follow-${id.create()}`,
+        config: {},
+        type: "pagerduty_alert",
+      });
+      const key = task.statusKey(t.key);
+      await client.tasks.retrieve({ key: t.key });
+      await setRackAliveAfterEcho(dying.key);
+      await setRackStatus(dying.key, "warning", "Rack status unknown");
+      await expect
+        .poll(() => client.statuses.store.get(rack.statusKey(dying.key))?.message)
+        .toBe("Rack status unknown");
+      await client.tasks.executeCommand({ task: t.key, type: "start" });
+      await expect
+        .poll(() => client.statuses.store.get(key)?.message)
+        .toBe("Rack status unknown");
+      await setRackStatus(dying.key, "warning", "Driver not running");
+      await expect
+        .poll(() => client.statuses.store.get(key)?.message)
+        .toBe("Driver not running");
+    });
+
+    it("stands the rack's problem in once its Driver goes down during a wait", async () => {
+      const dying = await client.racks.create({ name: `dying-${id.create()}` });
+      const t = await dying.createTask({
+        name: `dying-${id.create()}`,
+        config: {},
+        type: "pagerduty_alert",
+      });
+      const key = task.statusKey(t.key);
+      let seeLoading = (): void => {};
+      const loading = new Promise<void>((resolve) => (seeLoading = resolve));
+      const off = client.statuses.store.subscribe((event) => {
+        if (event.variant === "set" && event.value.variant === "loading") seeLoading();
+      }, key);
+      try {
+        await client.tasks.retrieve({ key: t.key });
+        await setRackAliveAfterEcho(dying.key);
+        vi.useFakeTimers({
+          toFake: ["setTimeout", "clearTimeout"],
+          shouldAdvanceTime: true,
+        });
+        await client.tasks.executeCommand({ task: t.key, type: "start" });
+        await loading;
+        await setRackStatus(dying.key, "warning", "no Driver here");
+        await expect
+          .poll(() => client.statuses.store.get(key)?.message)
+          .toBe("no Driver here");
+        await vi.advanceTimersByTimeAsync(COMMAND_DEADLINE.milliseconds);
+        expect(client.statuses.store.get(key)).toMatchObject({
+          variant: "warning",
+          message: "no Driver here",
+          details: { running: false },
+        });
+      } finally {
+        vi.useRealTimers();
+        off();
+      }
+    });
+
+    it("keeps a reply stored in the same batch as its rack's outage", async () => {
+      const dying = await client.racks.create({ name: `dying-${id.create()}` });
+      const t = await dying.createTask({
+        name: `batched-${id.create()}`,
+        config: {},
+        type: "pagerduty_alert",
+      });
+      const key = task.statusKey(t.key);
+      let seeLoading = (): void => {};
+      const loading = new Promise<void>((resolve) => (seeLoading = resolve));
+      const off = client.statuses.store.subscribe((event) => {
+        if (event.variant === "set" && event.value.variant === "loading") seeLoading();
+      }, key);
+      try {
+        await client.tasks.retrieve({ key: t.key });
+        await setRackAliveAfterEcho(dying.key);
+        const cmdKey = await client.tasks.executeCommand({
+          task: t.key,
+          type: "start",
+        });
+        await loading;
+        const outage: rack.Status = {
+          key: rack.statusKey(dying.key),
+          name: "Rack Status",
+          variant: "warning",
+          message: "no Driver here",
+          description: "",
+          time: TimeStamp.now(),
+          details: { rack: dying.key },
+        };
+        const reply: task.Status = {
+          key,
+          name: "Task Status",
+          variant: "success",
+          message: "Started task",
+          description: "",
+          time: TimeStamp.now(),
+          details: {
+            task: t.key,
+            running: true,
+            cmd: cmdKey,
+            configHash: "",
+            rack: dying.key,
+            data: {},
+          },
+        };
+        // The outage's event is delivered first, after both values are stored.
+        client.statuses.store.batch(() => {
+          client.statuses.store.set(outage);
+          client.statuses.store.set(reply);
+        });
+        expect(client.statuses.store.get(key)).toMatchObject({
+          variant: "success",
+          message: "Started task",
         });
       } finally {
         off();

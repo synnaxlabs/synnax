@@ -16,9 +16,9 @@ import {
   createTestClient,
   newIndexedBoolPair,
   newIndexedPair,
+  randomSeries,
   secondsLinspace,
 } from "@/testutil";
-import { randomSeries } from "@/util/telem";
 
 const client = createTestClient();
 

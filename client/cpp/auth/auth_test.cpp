@@ -46,8 +46,7 @@ std::shared_ptr<Middleware> middleware_with(
         std::move(renew),
         std::move(retrieve),
         std::move(del),
-        "synnax",
-        "seldon"
+        password_proof("synnax", "seldon")
     );
 }
 }
@@ -78,6 +77,26 @@ TEST(TestAuth, LoginSendsPasswordProof) {
     ASSERT_EQ(create->requests[0].proof().method(), "password");
     ASSERT_EQ(create->requests[0].proof().username(), "synnax");
     ASSERT_EQ(create->requests[0].proof().password(), "seldon");
+}
+
+/// @brief it should log in with an API key proof.
+TEST(TestAuth, LoginSendsAPIKeyProof) {
+    auto mock_create_client = std::make_unique<freighter::testutil::UnaryClient<
+        grpc::auth::SessionCreateRequest,
+        grpc::auth::SessionCreateResponse>>(session_response("abc"), x::errors::NIL);
+    auto *create = mock_create_client.get();
+    const auto mw = std::make_shared<Middleware>(
+        std::move(mock_create_client),
+        nullptr,
+        nullptr,
+        nullptr,
+        api_key_proof("syk_key")
+    );
+    ASSERT_NIL(mw->authenticate());
+    ASSERT_EQ(create->requests.size(), 1);
+    ASSERT_EQ(create->requests[0].proof().method(), "api_key");
+    ASSERT_EQ(create->requests[0].proof().key(), "syk_key");
+    ASSERT_TRUE(create->requests[0].proof().username().empty());
 }
 
 /// @brief it should return an error if credentials are invalid.

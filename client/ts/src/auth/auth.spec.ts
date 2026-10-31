@@ -20,6 +20,7 @@ import {
 } from "@/errors";
 import { createTestClient, TEST_CLIENT_PARAMS, TEST_CREDENTIALS } from "@/testutil";
 import { Transport } from "@/transport";
+import { user } from "@/user";
 
 const DUMMY_CTX: Context = {
   target: "test",
@@ -164,7 +165,7 @@ describe("auth", () => {
       await login(client);
       await client.logout();
       await expect(client.retrieveSessions()).rejects.toThrow(
-        "no credentials, token, or cookie",
+        "no credentials, API key, token, or cookie",
       );
       expect(client.authenticated).toBe(false);
       client.setCredentials(TEST_CREDENTIALS);
@@ -177,7 +178,7 @@ describe("auth", () => {
       const client = makeClient();
       await client.logout();
       await expect(client.retrieveSessions()).rejects.toThrow(
-        "no credentials, token, or cookie",
+        "no credentials, API key, token, or cookie",
       );
     });
 
@@ -189,7 +190,7 @@ describe("auth", () => {
       const resumed = makeResumed(token);
       await resumed.logout();
       await expect(resumed.retrieveSessions()).rejects.toThrow(
-        "no credentials, token, or cookie",
+        "no credentials, API key, token, or cookie",
       );
       await owner.logout();
     });
@@ -340,7 +341,9 @@ describe("auth", () => {
       const attempt = async () =>
         await client.middleware()(DUMMY_CTX, async () => DUMMY_CTX);
       await expect(attempt()).rejects.toSatisfy((e) => AuthError.matches(e));
-      await expect(attempt()).rejects.toThrow("no credentials, token, or cookie");
+      await expect(attempt()).rejects.toThrow(
+        "no credentials, API key, token, or cookie",
+      );
     });
 
     it("should let the newest login win when two interleave", async () => {
@@ -507,6 +510,188 @@ describe("auth", () => {
           errors.decode({ type: "sy.auth.session_ended", data: "ended" }),
         ),
       ).toBe(true);
+    });
+  });
+
+  describe("setPassword", () => {
+    const makeClient = (authority: auth.Authority, observer?: auth.Observer) => {
+      const transport = new Transport(
+        new url.URL({
+          host: TEST_CLIENT_PARAMS.host,
+          port: Number(TEST_CLIENT_PARAMS.port),
+        }),
+      );
+      const client = new auth.Client(transport.unary, authority, observer);
+      transport.use(client.middleware());
+      return client;
+    };
+    const createUser = async () => {
+      const username = `set-password-${id.create()}`;
+      const u = await createTestClient().users.create({
+        username,
+        password: "old",
+        name: "Set Password",
+      });
+      return { username, subject: user.ontologyID(u.key) };
+    };
+
+    it("should let an owner set another user's password", async () => {
+      const { username, subject } = await createUser();
+      const owner = makeClient({ credentials: TEST_CREDENTIALS });
+      await owner.setPassword({ subject, password: "new" });
+      await makeClient({
+        credentials: { username, password: "new" },
+      }).retrieveSessions();
+      await expect(
+        makeClient({ credentials: { username, password: "old" } }).retrieveSessions(),
+      ).rejects.toThrow(AuthError);
+    });
+
+    it("should switch to a new session when setting its own password", async () => {
+      const { username } = await createUser();
+      const successes: string[] = [];
+      const self = makeClient(
+        { credentials: { username, password: "old" } },
+        { onSuccess: (key) => successes.push(key) },
+      );
+      await expect(self.setPassword({ password: "new" })).rejects.toThrow();
+      await self.retrieveSessions();
+      const old = self.session?.key;
+      const before = successes.length;
+      await self.setPassword({ password: "new", currentPassword: "old" });
+      expect(successes).toHaveLength(before + 1);
+      expect(self.session?.key).toBeDefined();
+      expect(successes.at(-1)).toEqual(self.session?.key);
+      expect(self.session?.key).not.toEqual(old);
+      const sessions = await self.retrieveSessions();
+      expect(sessions.map((s) => s.key)).not.toContain(old);
+      await makeClient({
+        credentials: { username, password: "new" },
+      }).retrieveSessions();
+    });
+
+    it("should keep new credentials set while a password change runs", async () => {
+      const first = await createUser();
+      const second = await createUser();
+      const client = makeClient({
+        credentials: { username: first.username, password: "old" },
+      });
+      await client.retrieveSessions();
+      const change = client.setPassword({ password: "new", currentPassword: "old" });
+      client.setCredentials({ username: second.username, password: "old" });
+      await change;
+      await client.retrieveSessions();
+      expect(client.subject?.key).toEqual(second.subject.key);
+    });
+
+    it("should keep working after a resumed client sets its own password", async () => {
+      const { username } = await createUser();
+      const opener = makeClient({ credentials: { username, password: "old" } });
+      await opener.retrieveSessions();
+      const token = opener.token;
+      if (token == null) throw new Error("no token");
+      const resumed = makeClient({ token });
+      await resumed.setPassword({ password: "new", currentPassword: "old" });
+      expect(resumed.token).not.toEqual(token);
+      await resumed.retrieveSessions();
+      await expect(opener.retrieveSessions()).rejects.toThrow(AuthError);
+    });
+
+    it("should keep the owner's session when setting another's password", async () => {
+      const { subject } = await createUser();
+      const owner = makeClient({ credentials: TEST_CREDENTIALS });
+      await owner.retrieveSessions();
+      const before = owner.session?.key;
+      await owner.setPassword({ subject, password: "new" });
+      expect(owner.session?.key).toEqual(before);
+    });
+  });
+
+  describe("API keys", () => {
+    const makeClient = (authority: auth.Authority) => {
+      const transport = new Transport(
+        new url.URL({
+          host: TEST_CLIENT_PARAMS.host,
+          port: Number(TEST_CLIENT_PARAMS.port),
+        }),
+      );
+      const client = new auth.Client(transport.unary, authority);
+      transport.use(client.middleware());
+      return client;
+    };
+
+    it("should forget an API key when logging out before a login", async () => {
+      const keyed = makeClient({ apiKey: `syk_${id.create()}secret` });
+      await keyed.logout();
+      await expect(keyed.retrieveSessions()).rejects.toThrow(
+        "no credentials, API key, token, or cookie",
+      );
+    });
+
+    it("should create a key, log in with it, list it, and delete it", async () => {
+      const owner = makeClient({ credentials: TEST_CREDENTIALS });
+      const { token, key } = await owner.createKey({ name: "spec" });
+      expect(token.startsWith("syk_")).toBe(true);
+      expect(key.name).toEqual("spec");
+      expect(key.subject).toEqual(owner.subject);
+      const keyed = makeClient({ apiKey: token });
+      await keyed.retrieveSessions();
+      expect(keyed.session?.credential).toEqual(key.key);
+      expect(keyed.subject).toEqual(owner.subject);
+      expect((await owner.retrieveKeys()).map((k) => k.key)).toContain(key.key);
+      await owner.deleteKeys(key.key);
+      expect((await owner.retrieveKeys()).map((k) => k.key)).not.toContain(key.key);
+    });
+
+    it("should fail the next request of a client whose key was deleted", async () => {
+      const owner = makeClient({ credentials: TEST_CREDENTIALS });
+      const { token, key } = await owner.createKey({ name: "deleted" });
+      const keyed = makeClient({ apiKey: token });
+      await keyed.retrieveSessions();
+      await owner.deleteKeys(key.key);
+      await expect(keyed.retrieveSessions()).rejects.toThrow(AuthError);
+    });
+
+    it("should forget its key on logout", async () => {
+      const owner = makeClient({ credentials: TEST_CREDENTIALS });
+      const { token, key } = await owner.createKey({ name: "logout" });
+      const keyed = makeClient({ apiKey: token });
+      await keyed.retrieveSessions();
+      await keyed.logout();
+      await expect(keyed.retrieveSessions()).rejects.toThrow(
+        "no credentials, API key, token, or cookie",
+      );
+      await owner.deleteKeys(key.key);
+    });
+
+    it("should reject a key the Core never issued", async () => {
+      const keyed = makeClient({ apiKey: `syk_${id.create()}secret` });
+      await expect(keyed.retrieveSessions()).rejects.toThrow(AuthError);
+    });
+
+    it("should connect a Synnax client with a key", async () => {
+      const owner = createTestClient();
+      const { token, key } = await owner.auth.createKey({ name: "client" });
+      const keyed = createTestClient({
+        username: undefined,
+        password: undefined,
+        apiKey: token,
+      });
+      await keyed.auth.retrieveSessions();
+      expect(keyed.auth.subject).toEqual(key.subject);
+      await owner.auth.deleteKeys(key.key);
+    });
+
+    it("should reject an API key given with a username and password", () => {
+      expect(() => createTestClient({ apiKey: "syk_key" })).toThrow(
+        /either an API key or a username and password/,
+      );
+    });
+
+    it("should reject an auth client given both credentials and an API key", () => {
+      expect(() =>
+        makeClient({ credentials: TEST_CREDENTIALS, apiKey: "syk_key" }),
+      ).toThrow(/either an API key or a username and password/);
     });
   });
 });

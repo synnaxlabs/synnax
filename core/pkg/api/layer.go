@@ -69,6 +69,8 @@ type Transport struct {
 	AuthKeyCreate       freighter.UnaryServer[auth.KeyCreateRequest, auth.KeyCreateResponse]
 	AuthKeyRetrieve     freighter.UnaryServer[auth.KeyRetrieveRequest, auth.KeyRetrieveResponse]
 	AuthKeyDelete       freighter.UnaryServer[auth.KeyDeleteRequest, struct{}]
+	// AuthPasswordSet sets the caller's password or another user's.
+	AuthPasswordSet freighter.UnaryServer[auth.PasswordSetRequest, auth.PasswordSetResponse]
 	// USER
 	UserRename         freighter.UnaryServer[user.RenameRequest, struct{}]
 	UserChangeUsername freighter.UnaryServer[user.ChangeUsernameRequest, struct{}]
@@ -302,6 +304,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.AuthKeyCreate,
 		t.AuthKeyRetrieve,
 		t.AuthKeyDelete,
+		t.AuthPasswordSet,
 
 		// USER
 		t.UserRename,
@@ -483,6 +486,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.AuthKeyCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Auth.CreateKey))
 	t.AuthKeyRetrieve.BindHandler(l.Auth.RetrieveKeys)
 	t.AuthKeyDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Auth.DeleteKeys))
+	t.AuthPasswordSet.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Auth.SetPassword))
 
 	// LICENSE
 	t.LicenseRetrieve.BindHandler(l.License.Retrieve)

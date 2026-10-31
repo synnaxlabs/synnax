@@ -77,6 +77,12 @@ text,
     font-weight: var(--pluto-small-weight);
 }
 
+.lyra-text--tiny {
+    font-size: var(--pluto-tiny-size);
+    line-height: var(--pluto-tiny-line-height);
+    font-weight: var(--pluto-tiny-weight);
+}
+
 p,
 label,
 code,

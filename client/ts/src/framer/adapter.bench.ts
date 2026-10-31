@@ -14,7 +14,7 @@ import { test } from "vitest";
 import { channel } from "@/channel";
 import { framer } from "@/framer";
 import { WriteAdapter } from "@/framer/adapter";
-import { createKeys } from "@/framer/benchutil";
+import { createKeys } from "@/framer/testutil";
 
 const CHANNELS = 10;
 const SAMPLES = 100;

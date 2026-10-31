@@ -11,7 +11,7 @@ import { allocSuite } from "@synnaxlabs/x/bench";
 import { test } from "vitest";
 
 import { framer } from "@/framer";
-import { createCodec, createKeys, createPayload } from "@/framer/benchutil";
+import { createCodec, createKeys, createPayload } from "@/framer/testutil";
 
 // SHAPES are [channels, samples per channel]. They bracket the realistic range of
 // streamed frames: a few high-rate channels, wide dashboards, and control-state
