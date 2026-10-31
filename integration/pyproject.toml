@@ -109,7 +109,7 @@ warn_required_dynamic_aliases = true
 # The integration tests run through the conductor; pytest runs only the framework's
 # unit tests.
 [tool.pytest.ini_options]
-testpaths = ["framework/tests"]
+testpaths = ["framework/tests", "qa/tests"]
 
 [tool.coverage.run]
 omit = ["framework/tests/*"]
