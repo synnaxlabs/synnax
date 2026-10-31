@@ -293,13 +293,7 @@ export const Connect = ({
                       onTrust={handleTrust}
                     />
                   </Input.Item>
-                  <Form.Field<boolean>
-                    path="properties.connection.certificateValidationDisabled"
-                    label="Validate server certificate"
-                    padHelpText={false}
-                  >
-                    {renderValidation}
-                  </Form.Field>
+                  <ValidationField />
                 </>
               )}
             </Form.Section>
@@ -332,17 +326,20 @@ const SecurityPolicyField = ({ value, onChange }: Input.Control<SecurityPolicy>)
 
 const renderSecurityPolicy = Component.renderProp(SecurityPolicyField);
 
-// The field stores the non-default condition, so the switch shows its inverse.
-const ValidationField = ({ value, onChange }: Input.Control<boolean>) => (
-  <>
-    <Input.Switch value={!value} onChange={(v) => onChange(!v)} />
-    <Input.HelpText variant={value ? "warning" : undefined}>
-      Turn off only to troubleshoot. The Driver then accepts any server certificate.
-    </Input.HelpText>
-  </>
-);
+const VALIDATION_PATH = "properties.connection.certificateValidationDisabled";
 
-const renderValidation = Component.renderProp(ValidationField);
+const ValidationField = () => {
+  const disabled = Form.useFieldValue<boolean>(VALIDATION_PATH);
+  return (
+    <Form.CheckboxField
+      path={VALIDATION_PATH}
+      label="Validate server certificate"
+      inverted
+      helpText="Turn off only to troubleshoot. The Driver then accepts any server certificate."
+      status={disabled ? "warning" : undefined}
+    />
+  );
+};
 
 const HEADER = ["Device", "Connect", "OPC UA server"];
 

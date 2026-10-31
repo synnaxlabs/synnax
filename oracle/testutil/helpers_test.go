@@ -284,6 +284,13 @@ var _ = Describe("MustGenerateRequest", func() {
 		loader = NewMockFileLoader()
 	})
 
+	It("should fail the spec when the source does not analyze", func(ctx SpecContext) {
+		failures := InterceptGomegaFailures(func() {
+			MustGenerateRequest(ctx, "User struct {", "bad", loader)
+		})
+		Expect(failures).To(ConsistOf(ContainSubstring("failed to analyze source")))
+	})
+
 	It("should return a request with resolved types", func(ctx SpecContext) {
 		source := fmt.Sprintf(simpleStructTemplate, domainDirectives["go"])
 		req := MustGenerateRequest(ctx, source, "user", loader)
@@ -356,6 +363,29 @@ var _ = Describe("MustGenerateRequest", func() {
 		source := fmt.Sprintf(structReferenceTemplate, domainDirectives["go"])
 		req := MustGenerateRequest(ctx, source, "ref", loader)
 		Expect(req.Resolutions).NotTo(BeNil())
+	})
+})
+
+var _ = Describe("MustGenerateMulti", func() {
+	It("should generate from every file on the loader", func(ctx SpecContext) {
+		loader := NewMockFileLoader()
+		loader.Add(
+			"schemas/user",
+			fmt.Sprintf(simpleStructTemplate, domainDirectives["go"]),
+		)
+		p := &reqCapturingPlugin{files: []plugin.File{{Path: "out/user.go"}}}
+		resp := MustGenerateMulti(ctx, loader, p)
+		Expect(resp.Files).To(HaveLen(1))
+		Expect(p.lastReq.Resolutions).NotTo(BeNil())
+	})
+
+	It("should fail the spec when a file does not analyze", func(ctx SpecContext) {
+		loader := NewMockFileLoader()
+		loader.Add("schemas/bad", "User struct {")
+		failures := InterceptGomegaFailures(func() {
+			MustGenerateMulti(ctx, loader, &mockPlugin{})
+		})
+		Expect(failures).To(ConsistOf(ContainSubstring("error")))
 	})
 })
 

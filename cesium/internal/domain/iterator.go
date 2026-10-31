@@ -13,7 +13,6 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/cesium/internal/resource"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -66,31 +65,6 @@ func (db *DB) OpenIterator(cfg IteratorConfig) *Iterator {
 	i := &Iterator{db: db}
 	i.SetBounds(cfg.Bounds)
 	return i
-}
-
-// Read reads data for all domains that overlap with the two time ranges and accumulates
-// it into a single buffer.
-func Read(ctx context.Context, db *DB, tr telem.TimeRange) (b []byte, err error) {
-	i := db.OpenIterator(IterRange(tr))
-	defer func() {
-		err = errors.Combine(err, i.Close())
-	}()
-	var data []byte
-	for i.SeekFirst(ctx); i.Valid(); i.Next() {
-		r, err := i.OpenReader(ctx)
-		if err != nil {
-			return nil, err
-		}
-		chunk := make([]byte, r.Size())
-		if _, err = r.ReadAt(chunk, 0); err != nil {
-			return nil, errors.Combine(err, r.Close())
-		}
-		data = append(data, chunk...)
-		if err := r.Close(); err != nil {
-			return nil, err
-		}
-	}
-	return data, nil
 }
 
 // SetBounds sets the iterator's bounds. The iterator is invalidated, and will not be

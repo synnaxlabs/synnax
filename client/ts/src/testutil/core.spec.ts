@@ -10,8 +10,8 @@
 import { DataType, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { NotFoundError } from "@/errors";
-import { SyntheticCore } from "@/testutil/core";
+import { NotFoundError } from "@/index";
+import { SyntheticCore } from "@/testutil";
 
 const DOMAIN = 1n << 32n;
 const MS = TimeSpan.MILLISECOND.valueOf();

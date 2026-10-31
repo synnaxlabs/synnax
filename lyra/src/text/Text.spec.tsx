@@ -16,11 +16,16 @@ import { Text } from "@/text";
 
 describe("Text", () => {
   describe("levels", () => {
-    text.LEVELS.forEach((level) => {
+    text.LEVELS.filter((level) => level !== "tiny").forEach((level) => {
       it(`should render text with the correct HTML tag for ${level}`, () => {
         const c = render(<Text.Text level={level}>Hello</Text.Text>);
         expect(c.getByText("Hello").tagName.toLowerCase()).toBe(level);
       });
+    });
+
+    it("should render tiny text in a small element", () => {
+      const c = render(<Text.Text level="tiny">Hello</Text.Text>);
+      expect(c.getByText("Hello").tagName.toLowerCase()).toBe("small");
     });
   });
 
