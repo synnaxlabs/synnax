@@ -32,7 +32,7 @@ const DIALOG_LOCATION: position.LocationPreference = {
 type VariantSet = status.Where["variant"];
 
 export const MenuItem = (): ReactElement => (
-  <Form.Field<VariantSet> path="where.variant" showLabel={false}>
+  <Form.Field<VariantSet> path="where.variant" showLabel={false} showHelpText={false}>
     {selectVariantRenderProp}
   </Form.Field>
 );
