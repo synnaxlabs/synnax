@@ -22,7 +22,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/ethercat"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -38,13 +38,14 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	racktask "github.com/synnaxlabs/synnax/pkg/service/rack/task"
+	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
-	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 // asFloat normalizes any numeric type to float64. The fixtures decode from JSON as
@@ -331,9 +332,10 @@ var _ = Describe("Legacy file import", Ordered, ContinueOnFailure, func() {
 			DB:                  db,
 			Ontology:            otg,
 			Group:               groupSvc,
-			HostProvider:        mock.NewStaticHostProvider(1),
+			HostProvider:        testutil.NewStaticHostProvider(1),
 			Status:              statusSvc,
 			HealthCheckInterval: 10 * telem.Millisecond,
+			DriverRole:          MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
 		}))
 		deviceSvc := MustOpen(device.OpenService(ctx, device.ServiceConfig{
 			DB:       db,

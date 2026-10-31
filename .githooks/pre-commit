@@ -1,0 +1,4 @@
+#!/bin/sh
+
+# Skip with git commit --no-verify.
+exec scripts/fix.sh --staged

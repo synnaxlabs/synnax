@@ -19,8 +19,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
-	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 var _ = Describe("Service", func() {

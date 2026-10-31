@@ -6,7 +6,7 @@
     "configs/eslint/**/*.ts",
     "configs/eslint/package.json",
     "configs/stylelint/*.ts",
-    "configs/stylelint/package.json",
+    "configs/stylelint/*.json",
     "pnpm-workspace.yaml"
   ],
   "globalEnv": [

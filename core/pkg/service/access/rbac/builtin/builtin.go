@@ -108,18 +108,17 @@ var (
 )
 
 var (
-	hostRoleName = "Host"
-	hostRole     = role.Role{
-		Name:        hostRoleName,
-		Description: "For machines running the Synnax driver. Full access to hardware and task configuration.",
+	driverRoleName = "Driver"
+	driverRole     = role.Role{
+		Name:        driverRoleName,
+		Description: "For racks running the Synnax Driver. Full access to hardware and task configuration.",
 		Internal:    true,
 	}
-	hostPolicies = []policy.Policy{
+	driverPolicies = []policy.Policy{
 		{
-			Name: "Host Edit Access",
+			Name: "Driver Edit Access",
 			Objects: []ontology.ID{
 				{Type: ontology.ResourceTypeRange},
-				{Type: ontology.ResourceTypeRack},
 				{Type: ontology.ResourceTypeDevice},
 				{Type: ontology.ResourceTypeTask},
 				{Type: ontology.ResourceTypeArc},
@@ -129,13 +128,19 @@ var (
 			Internal: true,
 		},
 		{
-			Name:     "Host Channel View Access",
+			Name:     "Driver Rack Access",
+			Objects:  []ontology.ID{{Type: ontology.ResourceTypeRack}},
+			Actions:  []access.Action{access.ActionRetrieve, access.ActionUpdate},
+			Internal: true,
+		},
+		{
+			Name:     "Driver Channel View Access",
 			Objects:  []ontology.ID{{Type: ontology.ResourceTypeChannel}},
 			Actions:  []access.Action{access.ActionRetrieve},
 			Internal: true,
 		},
 		{
-			Name:    "Host Framer Access",
+			Name:    "Driver Framer Access",
 			Objects: []ontology.ID{{Type: ontology.ResourceTypeFramer}},
 			Actions: []access.Action{
 				access.ActionCreate,
@@ -145,6 +150,15 @@ var (
 		},
 	}
 )
+
+// formerNames maps a built-in role or policy name to the name it was stored under
+// before a rename, so provisioning renames the stored record instead of adding one.
+var formerNames = map[string]string{
+	driverRoleName:               "Host",
+	"Driver Edit Access":         "Host Edit Access",
+	"Driver Channel View Access": "Host Channel View Access",
+	"Driver Framer Access":       "Host Framer Access",
+}
 
 var (
 	operatorRoleName = "Operator"

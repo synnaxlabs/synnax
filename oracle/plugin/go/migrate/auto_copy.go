@@ -538,7 +538,7 @@ func variantForm(
 		return resolution.StructForm{}
 	}
 	pform, _ := payload.Form.(resolution.StructForm)
-	inherited, declared := resolver.VariantBases(uf, v, table)
+	inherited, declared := resolver.VariantBases(uf, v, "go", table)
 	defaultOnly := resolver.DefaultOnlyOverrides(inherited, pform.Fields, table)
 	fields := slices.Clone(declared)
 	for _, f := range pform.Fields {

@@ -30,10 +30,12 @@ class StatusDetails(BaseModel):
     Attributes:
         rack: Is the key of the rack this device belongs to.
         device: Is the device identifier.
+        data: Contains device-specific status data.
     """
 
     rack: rack_.Key = Field(ge=0, le=4294967295)
     device: Key
+    data: dict[str, JsonValue] | None = None
 
 
 Status: TypeAlias = status_.Status[StatusDetails]

@@ -9,7 +9,7 @@
 
 from collections.abc import Callable
 
-from examples.simulators import PressSimDAQ
+from examples.simulators import PressSimDAQ, SimDAQ
 
 import synnax as sy
 from tests.driver.sim_daq_case import SimDaqCase
@@ -25,7 +25,7 @@ class SimplePress(SimDaqCase):
     Test a basic press control sequence
     """
 
-    sim_daq_class = PressSimDAQ
+    sim_daq_class: type[SimDAQ] | None = PressSimDAQ
 
     def setup(self) -> None:
         self.set_manual_timeout(30)
@@ -83,7 +83,8 @@ class SimplePress(SimDaqCase):
                     timeout=10 * sy.TimeSpan.SECOND,
                 ):
                     self.log(
-                        f"Target pressure reached: {ctrl[PRESSURE]:.2f} > {target_pressure}"
+                        f"Target pressure reached: {ctrl[PRESSURE]:.2f} > "
+                        f"{target_pressure}"
                     )
                     ctrl[PRESS_VALVE_CMD] = 0
                     ctrl.wait_until(
@@ -94,7 +95,6 @@ class SimplePress(SimDaqCase):
                     sy.sleep(1)  # Give "Bad Actor" time to run
                 else:
                     self.fail(f"{ctrl[PRESSURE]:.2f} < {target_pressure}")
-                    return
 
             # Depressurize the system
             ctrl[VENT_VALVE_CMD] = 1

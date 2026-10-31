@@ -22,8 +22,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/query"
@@ -83,7 +83,7 @@ var _ = Describe("Writer", func() {
 		)
 		BeforeAll(func(ctx SpecContext) {
 			ShouldNotLeakGoroutines()
-			node := mock.OpenNode(ctx)
+			node := testutil.OpenNode(ctx)
 			idxCh = channel.Channel{
 				Name:     "variable_time",
 				IsIndex:  true,
@@ -192,7 +192,7 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should release peer control when the gateway writer fails to open",
 			func(ctx SpecContext) {
-				cluster := mock.NewCluster(ctx, 2)
+				cluster := testutil.NewCluster(ctx, 2)
 				dist := cluster.Nodes[1]
 				peerCh := channel.Channel{
 					Name:        "cleanup_peer",
@@ -375,7 +375,7 @@ var _ = Describe("Writer", func() {
 		It(
 			"Should auto-stamp from the leaseholder when the data channel lives on a peer",
 			func(ctx SpecContext) {
-				cluster := mock.NewCluster(ctx, 2)
+				cluster := testutil.NewCluster(ctx, 2)
 				gw := cluster.Nodes[1]
 				peer := node.Key(2)
 
@@ -488,7 +488,10 @@ var _ = Describe("Writer", func() {
 				writtenIdx := res.Frame.Get(idxCh.Key()).Series[0]
 				Expect(writtenIdx).To(telem.MatchSeriesData(idx))
 				groupDomain := writtenData.Alignment.DomainIndex()
-				Expect(groupDomain).To(BeNumerically(">", cesium.ZeroLeadingAlignment))
+				Expect(groupDomain).To(BeNumerically(
+					">=",
+					MustSucceed(cesium.NewAlignmentCounter().Next()).DomainIndex(),
+				))
 				Expect(writtenData.Alignment.SampleIndex()).To(BeEquivalentTo(0))
 				Expect(writtenIdx.Alignment).To(Equal(writtenData.Alignment))
 				data = telem.NewSeriesV[float32](3, 4)
@@ -549,7 +552,7 @@ func (r indexResolver) ResolveFreeIndexes(
 }
 
 type scenario struct {
-	dist   mock.Node
+	dist   testutil.Node
 	closer io.Closer
 	name   string
 	keys   channel.Keys
@@ -580,7 +583,7 @@ func newChannelSet() []channel.Channel {
 func gatewayOnlyScenario(ctx context.Context) scenario {
 	GinkgoHelper()
 	channels := newChannelSet()
-	node := mock.OpenNode(ctx)
+	node := testutil.OpenNode(ctx)
 	channels = MustSucceed(node.Channel.Create(ctx, channels))
 	keys := channel.KeysFromChannels(channels)
 	return scenario{
@@ -594,7 +597,7 @@ func gatewayOnlyScenario(ctx context.Context) scenario {
 func peerOnlyScenario(ctx context.Context) scenario {
 	GinkgoHelper()
 	channels := newChannelSet()
-	cluster := mock.OpenCluster(ctx, 4)
+	cluster := testutil.OpenCluster(ctx, 4)
 	dist := cluster.Nodes[1]
 	for i, ch := range channels {
 		ch.Leaseholder = node.Key(i + 2)
@@ -608,7 +611,7 @@ func peerOnlyScenario(ctx context.Context) scenario {
 func mixedScenario(ctx context.Context) scenario {
 	GinkgoHelper()
 	channels := newChannelSet()
-	cluster := mock.OpenCluster(ctx, 3)
+	cluster := testutil.OpenCluster(ctx, 3)
 	dist := cluster.Nodes[1]
 	for i, ch := range channels {
 		ch.Leaseholder = node.Key(i + 1)
@@ -627,7 +630,7 @@ func mixedScenario(ctx context.Context) scenario {
 func freeWriterScenario(ctx context.Context) scenario {
 	GinkgoHelper()
 	channels := newChannelSet()
-	cluster := mock.OpenCluster(ctx, 3)
+	cluster := testutil.OpenCluster(ctx, 3)
 	dist := cluster.Nodes[1]
 	for i, ch := range channels {
 		ch.Leaseholder = node.KeyFree

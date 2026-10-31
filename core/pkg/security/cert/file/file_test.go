@@ -19,7 +19,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
 	"github.com/synnaxlabs/synnax/pkg/security/cert/file"
-	"github.com/synnaxlabs/synnax/pkg/security/mock"
+	"github.com/synnaxlabs/synnax/pkg/security/testutil"
 	"github.com/synnaxlabs/x/address"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/testutil"
@@ -45,7 +45,7 @@ func createNodePairIn(fs xfs.FS, dir string, host address.Address) {
 	f := MustSucceed(cert.NewFactory(cert.FactoryConfig{
 		FS:       fs,
 		CertsDir: dir,
-		KeySize:  mock.SmallKeySize,
+		KeySize:  testutil.SmallKeySize,
 		Hosts:    []address.Address{host},
 	}))
 	Expect(f.CreateCAPair()).To(Succeed())
@@ -57,7 +57,7 @@ var _ = Describe("File", func() {
 	BeforeEach(func() { fs = xfs.NewMem() })
 
 	It("Should serve the certificate from disk", func() {
-		mock.GenerateCerts(fs)
+		testutil.GenerateCerts(fs)
 		src := MustSucceed(file.NewSource(fs,
 			"/usr/local/synnax/certs/node.crt",
 			"/usr/local/synnax/certs/node.key",

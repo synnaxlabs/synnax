@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, DataType, lineplot } from "@synnaxlabs/client";
+import { type channel, DataType, lineplot, type ranger } from "@synnaxlabs/client";
+import { dynamicWindow, staticWindow, TimeRange, TimeSpan } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
@@ -18,8 +19,12 @@ import {
 } from "@/feature/lineplot/testutil";
 import { Toolbar } from "@/feature/lineplot/toolbar";
 import { findButton } from "@/platform/modals/testutil";
-import { Session } from "@/session";
 import { getIconButton, isPlutoDisabled, uniqueName } from "@/testutil";
+
+const RECENT: ranger.Ref = {
+  variant: "window",
+  window: dynamicWindow(TimeSpan.seconds(30)),
+};
 
 const createChannel = async (): Promise<channel.Channel> =>
   await client.channels.create({
@@ -31,23 +36,20 @@ const createChannel = async (): Promise<channel.Channel> =>
 const renderLinesTab = async (xChannel: channel.Key = 0) => {
   const ch = await createChannel();
   const name = uniqueName("plot");
-  const lineKey = lineplot.lineKey({
-    yAxis: "y1",
-    xAxis: "x1",
-    range: Session.Range.RECENT_KEY,
-    xChannel,
-    yChannel: ch.key,
-  });
   const handle = await renderLinePlot(Toolbar, {
     linePlot: {
       name,
       channels: { x1: xChannel, y1: [ch.key] },
-      ranges: { x1: [Session.Range.RECENT_KEY] },
-      lines: [{ key: lineKey }],
+      ranges: [RECENT],
     },
     preloadedState: (key) => createPreloadedState(key),
   });
   fireEvent.click(await screen.findByText("Lines"));
+  const lineKey = lineplot.lineKey(handle.key, {
+    yAxis: "y1",
+    yChannel: ch.key,
+    xChannel,
+  });
   return { ...handle, ch, lineKey };
 };
 
@@ -55,41 +57,19 @@ describe("lineplot download CSV with plotted lines", () => {
   it("resolves static and dynamic ranges and opens the modal with the line channels", async () => {
     const ch = await createChannel();
     const name = uniqueName("plot");
-    const staticKey = "static_range";
-    const lineKeyOf = (range: string) =>
-      lineplot.lineKey({
-        yAxis: "y1",
-        xAxis: "x1",
-        range,
-        xChannel: 0,
-        yChannel: ch.key,
-      });
     const { result } = await renderLinePlot(Toolbar, {
       linePlot: {
         name,
         channels: { y1: [ch.key] },
-        ranges: { x1: [Session.Range.RECENT_KEY, staticKey] },
-        lines: [
-          { key: lineKeyOf(Session.Range.RECENT_KEY) },
-          { key: lineKeyOf(staticKey) },
+        ranges: [
+          RECENT,
+          {
+            variant: "window",
+            window: staticWindow(new TimeRange(0, 1_000_000_000)),
+          },
         ],
       },
-      preloadedState: (key) => ({
-        ...createPreloadedState(key),
-        [Session.Range.SLICE_NAME]: {
-          ...Session.Range.ZERO_SLICE_STATE,
-          ranges: [
-            ...Session.Range.ZERO_SLICE_STATE.ranges,
-            {
-              key: staticKey,
-              variant: "static",
-              name: "Static Range",
-              persisted: false,
-              timeRange: { start: 0, end: 1_000_000_000 },
-            },
-          ],
-        },
-      }),
+      preloadedState: (key) => createPreloadedState(key),
     });
     await screen.findByText("Data");
     fireEvent.click(getIconButton(result.container, "csv"));

@@ -9,8 +9,12 @@
 
 #pragma once
 
+#include <condition_variable>
 #include <memory>
+#include <mutex>
 #include <string>
+#include <unordered_map>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -35,14 +39,18 @@ struct ScanTaskConfig : common::ScanTaskConfig {
 struct ScanCommandArgs {
     /// @brief Connection parameters for the device.
     device::ConnectionConfig connection;
+    /// @brief how the device paces its requests. A missing object takes every default.
+    device::RequestConfig requests;
 
     /// @brief Parses the arguments from their JSON object representation.
     explicit ScanCommandArgs(const x::json::Parser &parser):
-        connection(device::ConnectionConfig(parser.child("connection"))) {}
+        connection(device::ConnectionConfig(parser.child("connection"))),
+        requests(parser.optional_child("requests")) {}
 };
 
-/// @brief Modbus scanner implementing the common::Scanner interface.
-/// Handles device health monitoring for Modbus devices.
+/// @brief Modbus scanner implementing the common::Scanner interface. It checks each
+/// device on the connection its tasks share, and keeps that connection open between
+/// scans.
 class Scanner final : public common::Scanner {
 public:
     Scanner(
@@ -66,15 +74,41 @@ public:
     ) override;
 
 private:
+    /// @brief a device the scanner checks, held between scans.
+    struct Check {
+        /// @brief the device on its shared connection.
+        std::shared_ptr<device::Device> dev;
+        /// @brief when the scanner last checked the device.
+        device::Connection::Clock::time_point time;
+    };
+
     std::shared_ptr<task::Context> ctx;
     synnax::task::Task task;
     std::shared_ptr<device::Manager> devices;
+    /// @brief guards probing and checks. Scans and connection tests run on different
+    /// threads.
+    std::mutex mu;
+    /// @brief signals the end of a probe.
+    std::condition_variable probed;
+    /// @brief the endpoints that a scan probes now.
+    std::unordered_set<std::string> probing;
+    /// @brief the latest check of each device, by key.
+    std::unordered_map<std::string, Check> checks;
 
     /// @brief Test connection to a Modbus server.
-    void test_connection(const synnax::task::Command &cmd) const;
+    void test_connection(const synnax::task::Command &cmd);
 
-    /// @brief Check health of a single device by testing its connection.
-    /// Sets dev.status based on connection result.
-    void check_device_health(synnax::device::Device &dev) const;
+    /// @brief waits for a probe of the serial port of cfg to end, then releases the
+    /// checks that hold the port open through another path or with other line
+    /// settings, so that a connection test can use it. The next scan takes it back.
+    /// @param lock holds mu.
+    void release_stale(
+        std::unique_lock<std::mutex> &lock,
+        const device::ConnectionConfig &cfg
+    );
+
+    /// @brief sets the status of a device. A device that answered a task since the last
+    /// scan is healthy. Otherwise the scanner probes it.
+    void check_device_health(synnax::device::Device &dev);
 };
 }

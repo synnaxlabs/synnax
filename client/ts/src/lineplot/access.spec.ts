@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { AccessDeniedError, NotFoundError } from "@/errors";
+import { AccessDeniedError, NotFoundError } from "@/index";
 import { lineplot } from "@/lineplot";
 import { createTestClient, createTestClientWithPolicy } from "@/testutil";
 
