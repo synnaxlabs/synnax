@@ -5251,20 +5251,138 @@ var _ = Describe("Sequence", func() {
 				)
 				defer h.Close(ctx)
 
-				advance(h, ctx, telem.Millisecond)
-				startedAt := int64(h.cycleNow)
 				advance(h, ctx, 10*telem.Millisecond)
+				beforeEntry := int64(h.cycleNow)
 				trigger(h, ctx, 100)
 				trigger(h, ctx, 101)
 				out, _ := h.Flush()
-				Expect(drainI64(out, 104)).To(Equal([]int64{startedAt}),
-					"the initializer runs once at program start")
+				first := drainI64(out, 104)
+				Expect(first).To(HaveLen(1))
+				Expect(first[0]).To(BeNumerically(">", beforeEntry),
+					"the initializer runs on the first entry, not at program start")
 				trigger(h, ctx, 102)
 				trigger(h, ctx, 103)
 				trigger(h, ctx, 101)
 				out, _ = h.Flush()
-				Expect(drainI64(out, 104)).To(Equal([]int64{startedAt}),
+				Expect(drainI64(out, 104)).To(Equal(first),
 					"re-entry must keep the first value")
+			},
+		)
+
+		It(
+			"Reads a variable declared before it in a stateful initializer",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(map[string]channelDef{
+					"start_cmd": {types.U8(), 100},
+					"out":       {types.I64(), 102},
+				})
+				h := newRuntimeHarness(ctx, `
+				sequence main {
+				    x := 2 + 3
+				    y $= x + 1
+				    stage s1 {
+				        y -> out
+				    }
+				}
+				start_cmd => main`, resolver,
+					channels.Digest{Key: 102, DataType: telem.Int64T},
+				)
+				defer h.Close(ctx)
+
+				trigger(h, ctx, 100)
+				out, _ := h.Flush()
+				Expect(drainI64(out, 102)).To(Equal([]int64{6}))
+			},
+		)
+
+		It(
+			"Reads a sequence variable in a stage stateful initializer",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(map[string]channelDef{
+					"start_cmd": {types.U8(), 100},
+					"out":       {types.I64(), 102},
+				})
+				h := newRuntimeHarness(ctx, `
+				sequence main {
+				    x := 2 + 3
+				    stage s1 {
+				        y $= x + 1
+				        y -> out
+				    }
+				}
+				start_cmd => main`, resolver,
+					channels.Digest{Key: 102, DataType: telem.Int64T},
+				)
+				defer h.Close(ctx)
+
+				trigger(h, ctx, 100)
+				out, _ := h.Flush()
+				Expect(drainI64(out, 102)).To(Equal([]int64{6}))
+			},
+		)
+
+		It(
+			"Keeps a written stage stateful across stage re-entries",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(map[string]channelDef{
+					"start_cmd": {types.U8(), 100},
+					"out":       {types.I64(), 101},
+					"go2":       {types.U8(), 102},
+					"go1":       {types.U8(), 103},
+				})
+				h := newRuntimeHarness(ctx, `
+				sequence main {
+				    x := 2 + 3
+				    stage s1 {
+				        y $= x + 1
+				        y = y + 1
+				        y -> out
+				        go2 => next
+				    }
+				    stage s2 {
+				        go1 => s1
+				    }
+				}
+				start_cmd => main`, resolver,
+					channels.Digest{Key: 101, DataType: telem.Int64T},
+				)
+				defer h.Close(ctx)
+
+				trigger(h, ctx, 100)
+				out, _ := h.Flush()
+				Expect(drainI64(out, 101)).To(Equal([]int64{6, 7}),
+					"the reader sees the initial value, then the write")
+				trigger(h, ctx, 102)
+				trigger(h, ctx, 103)
+				out, _ = h.Flush()
+				Expect(drainI64(out, 101)).To(Equal([]int64{8}),
+					"re-entry must keep the written value, not re-run the initializer")
+			},
+		)
+
+		It(
+			"Reads a sequence stateful in a stage stateful initializer",
+			func(ctx SpecContext) {
+				resolver := channelSymbols(map[string]channelDef{
+					"start_cmd": {types.U8(), 100},
+					"out":       {types.I64(), 102},
+				})
+				h := newRuntimeHarness(ctx, `
+				sequence main {
+				    x $= 2 + 3
+				    stage s1 {
+				        y $= x + 1
+				        y -> out
+				    }
+				}
+				start_cmd => main`, resolver,
+					channels.Digest{Key: 102, DataType: telem.Int64T},
+				)
+				defer h.Close(ctx)
+
+				trigger(h, ctx, 100)
+				out, _ := h.Flush()
+				Expect(drainI64(out, 102)).To(Equal([]int64{6}))
 			},
 		)
 

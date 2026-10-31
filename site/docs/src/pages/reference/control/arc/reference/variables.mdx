@@ -74,7 +74,8 @@ variables of the functions it calls, go back to their first values. See
 [entering a stage](/reference/control/arc/execution-model#entering-a-stage).
 
 In a stage or sequence, the first value of a `$=` variable is a literal or an expression
-that reads no channel. A channel fails with
+that reads no channel. A computed one runs once, on the first entry of its scope. A
+channel fails with
 `channels and channel-read expressions cannot be assigned to stateful variables`.
 
 <Divider.Divider x />

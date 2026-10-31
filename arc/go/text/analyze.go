@@ -702,8 +702,10 @@ func lowerVarDecl(
 	return varEntry{}, lowerDerivation(ctx, expr, e.deref, "value", kg, shell)
 }
 
-// lowerComputedDecl lowers a computed initializer as the register's first
-// feeder; its variable reads bind as VarRefs so it stays an entry node.
+// lowerComputedDecl lowers a computed initializer as an entry node feeding the
+// register; its variable reads bind as VarRefs so it stays an entry node. A `:=`
+// init feeds a feeder param and re-runs on every entry; a `$=` init feeds f0 and
+// is a once node, so it runs on the first entry only.
 func lowerComputedDecl(
 	ctx acontext.Context[parser.IVariableDeclarationContext],
 	expr parser.IExpressionContext,
@@ -722,13 +724,13 @@ func lowerComputedDecl(
 	if !ok {
 		return varEntry{}, false
 	}
+	e.init = &res.node
+	shell.varNodes[sym] = e
 	var target ir.Handle
 	if sym.Kind == symbol.KindStatefulVariable {
-		shell.rootNodes = append(shell.rootNodes, &res.node)
+		e.init.Once = true
 		target = ir.Handle{Node: e.register.Key, Param: e.register.Inputs[0].Name}
 	} else {
-		e.init = &res.node
-		shell.varNodes[sym] = e
 		target = varFeederRef(e.register).input
 	}
 	shell.edges = append(shell.edges, ir.Edge{

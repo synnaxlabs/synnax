@@ -355,14 +355,19 @@ sequence computed_main {
     seed i64 := 0
     persisted i64 $= 2 + 3
     started $= time.now()
+    from_seed i64 $= seed + 100
 
     stage computed_first {
         entry i64 := seed + 1
         entered := time.now()
+        stage_kept i64 $= seed + 50
         entry -> computed_entry_out
+        stage_kept = stage_kept + 1
+        stage_kept -> computed_stage_kept_out
         persisted = persisted + 1
         started = started + 1
         persisted -> computed_stateful_out
+        from_seed -> computed_scoped_out
         computed_fire -> pass_through(entry * 2) -> computed_input_out
         computed_fire -> started + 0 -> computed_started_out
         computed_fire -> entered + 0 -> computed_entered_out
@@ -372,6 +377,23 @@ sequence computed_main {
         1 -> computed_second_ready
         seed = seed + 10
         computed_to_first => computed_first
+    }
+}
+
+computed_late_start => computed_late
+sequence computed_late {
+    late_seed i64 := 20
+    late_visits i64 $= 0
+    stage late_first {
+        kept i64 $= late_seed + 1
+        computed_late_fire -> kept + 0 -> computed_late_out
+        computed_late_bump -> 7 -> kept
+        computed_late_to_second => computed_late_second
+    }
+    stage computed_late_second {
+        late_visits = late_visits + 1
+        late_visits -> computed_late_second_ready
+        computed_late_to_first => late_first
     }
 }
 """
@@ -436,7 +458,11 @@ COMPUTED_OUTPUTS = [
     "computed_now_out",
     "computed_started_out",
     "computed_entered_out",
+    "computed_scoped_out",
+    "computed_stage_kept_out",
     "computed_second_ready",
+    "computed_late_out",
+    "computed_late_second_ready",
 ]
 OUTPUTS = (
     VAR_OUTPUTS
@@ -485,6 +511,10 @@ I64_CHANNELS = [
     "computed_now_out",
     "computed_started_out",
     "computed_entered_out",
+    "computed_scoped_out",
+    "computed_stage_kept_out",
+    "computed_late_out",
+    "computed_late_second_ready",
 ]
 STR_CHANNELS = [
     "channel_read_write_str_a",
@@ -538,6 +568,11 @@ U8_CHANNELS = [
     "computed_to_second",
     "computed_to_first",
     "computed_second_ready",
+    "computed_late_start",
+    "computed_late_fire",
+    "computed_late_to_second",
+    "computed_late_to_first",
+    "computed_late_bump",
 ]
 
 BOOL_CHANNELS = [
@@ -777,10 +812,12 @@ class Variables(ArcCase):
     def _verify_computed(self) -> None:
         self.log("=== computed initializers ===")
         self.wait_for_eq("computed_top_out", 5)
-        # First entry: entry samples seed=0; the stateful ran 2 + 3 once at program
-        # start and the stage incremented it.
+        # First entry: entry samples seed=0; the statefuls ran once on entry, so
+        # from_seed read seed=0 and the stage incremented persisted.
         self.wait_for_eq("computed_entry_out", 1)
         self.wait_for_eq("computed_stateful_out", 6)
+        self.wait_for_eq("computed_scoped_out", 100)
+        self.wait_for_eq("computed_stage_kept_out", 51)
         self.writer.write("computed_fire", 1)
         self.wait_for_eq("computed_input_out", 2)
         self.wait_for_gt("computed_started_out", 0)
@@ -801,7 +838,29 @@ class Variables(ArcCase):
         self.writer.write("computed_to_first", 1)
         self.wait_for_eq("computed_entry_out", 11)
         self.wait_for_eq("computed_stateful_out", 7)
+        self.wait_for_eq("computed_scoped_out", 100)
+        # A stage stateful keeps its written value; a re-run would read seed=10.
+        self.wait_for_eq("computed_stage_kept_out", 52)
         self.writer.write("computed_fire", 1)
         self.wait_for_eq("computed_input_out", 22)
         self.wait_for_gt("computed_entered_out", entered)
         self.wait_for_eq("computed_started_out", started + 1)
+
+        # A stage stateful initializes on the first entry from a sequence variable,
+        # keeps that value across re-entry, and keeps a written value the same way.
+        self.writer.write("computed_late_start", 1)
+        self.writer.write("computed_late_fire", 1)
+        self.wait_for_eq("computed_late_out", 21)
+        self.writer.write("computed_late_to_second", 1)
+        self.wait_for_eq("computed_late_second_ready", 1)
+        self.writer.write("computed_late_to_first", 1)
+        self.writer.write("computed_late_fire", 1)
+        self.wait_for_eq("computed_late_out", 21)
+        self.writer.write("computed_late_bump", 1)
+        self.writer.write("computed_late_fire", 1)
+        self.wait_for_eq("computed_late_out", 7)
+        self.writer.write("computed_late_to_second", 1)
+        self.wait_for_eq("computed_late_second_ready", 2)
+        self.writer.write("computed_late_to_first", 1)
+        self.writer.write("computed_late_fire", 1)
+        self.wait_for_eq("computed_late_out", 7)

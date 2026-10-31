@@ -3525,22 +3525,126 @@ TEST(
          {"out", x::telem::INT64_T}}
     );
 
-    h.advance(x::telem::MILLISECOND);
-    const auto started_at = h.now().nanoseconds();
     h.advance(10 * x::telem::MILLISECOND);
+    const auto before_entry = h.now().nanoseconds();
     h.trigger("start_cmd");
     h.trigger("rd");
-    EXPECT_EQ(
-        collect<std::int64_t>(h.flush(), h.key("out")),
-        (std::vector<std::int64_t>{started_at})
-    ) << "the initializer runs once at program start";
+    const auto first = collect<std::int64_t>(h.flush(), h.key("out"));
+    ASSERT_EQ(first.size(), 1u);
+    EXPECT_GT(first[0], before_entry)
+        << "the initializer runs on the first entry, not at program start";
     h.trigger("go2");
     h.trigger("go1");
     h.trigger("rd");
+    EXPECT_EQ(collect<std::int64_t>(h.flush(), h.key("out")), first)
+        << "re-entry must keep the first value";
+}
+
+TEST(
+    ComputedStatefulInitializersTest,
+    ReadsAVariableDeclaredBeforeItInAStatefulInitializer
+) {
+    Sequence h(
+        R"(
+    sequence main {
+        x := 2 + 3
+        y $= x + 1
+        stage s1 {
+            y -> %out%
+        }
+    }
+    %start_cmd% => main)",
+        {{"start_cmd", x::telem::UINT8_T}, {"out", x::telem::INT64_T}}
+    );
+
+    h.trigger("start_cmd");
     EXPECT_EQ(
         collect<std::int64_t>(h.flush(), h.key("out")),
-        (std::vector<std::int64_t>{started_at})
-    ) << "re-entry must keep the first value";
+        (std::vector<std::int64_t>{6})
+    );
+}
+
+TEST(
+    ComputedStatefulInitializersTest,
+    ReadsASequenceVariableInAStageStatefulInitializer
+) {
+    Sequence h(
+        R"(
+    sequence main {
+        x := 2 + 3
+        stage s1 {
+            y $= x + 1
+            y -> %out%
+        }
+    }
+    %start_cmd% => main)",
+        {{"start_cmd", x::telem::UINT8_T}, {"out", x::telem::INT64_T}}
+    );
+
+    h.trigger("start_cmd");
+    EXPECT_EQ(
+        collect<std::int64_t>(h.flush(), h.key("out")),
+        (std::vector<std::int64_t>{6})
+    );
+}
+
+TEST(ComputedStatefulInitializersTest, KeepsAWrittenStageStatefulAcrossStageReEntries) {
+    Sequence h(
+        R"(
+    sequence main {
+        x := 2 + 3
+        stage s1 {
+            y $= x + 1
+            y = y + 1
+            y -> %out%
+            %go2% => next
+        }
+        stage s2 {
+            %go1% => s1
+        }
+    }
+    %start_cmd% => main)",
+        {{"start_cmd", x::telem::UINT8_T},
+         {"out", x::telem::INT64_T},
+         {"go2", x::telem::UINT8_T},
+         {"go1", x::telem::UINT8_T}}
+    );
+
+    h.trigger("start_cmd");
+    EXPECT_EQ(
+        collect<std::int64_t>(h.flush(), h.key("out")),
+        (std::vector<std::int64_t>{6, 7})
+    ) << "the reader sees the initial value, then the write";
+    h.trigger("go2");
+    h.trigger("go1");
+    EXPECT_EQ(
+        collect<std::int64_t>(h.flush(), h.key("out")),
+        (std::vector<std::int64_t>{8})
+    ) << "re-entry must keep the written value, not re-run the initializer";
+}
+
+TEST(
+    ComputedStatefulInitializersTest,
+    ReadsASequenceStatefulInAStageStatefulInitializer
+) {
+    Sequence h(
+        R"(
+    sequence main {
+        x $= 2 + 3
+        stage s1 {
+            y $= x + 1
+            y -> %out%
+        }
+    }
+    %start_cmd% => main)",
+        {{"start_cmd", x::telem::UINT8_T}, {"out", x::telem::INT64_T}}
+    );
+
+    h.trigger("start_cmd");
+    EXPECT_EQ(
+        collect<std::int64_t>(h.flush(), h.key("out")),
+        (std::vector<std::int64_t>{6})
+    );
 }
 
 TEST(
@@ -3736,8 +3840,7 @@ TEST(ComputedCallInputsTest, PassesAComputedInputToARoutedCall) {
 
     h.advance(x::telem::MILLISECOND);
     const auto started_at = h.now().nanoseconds();
-    h.ingest("flag", x::telem::Series(true));
-    h.tick(x::telem::MILLISECOND);
+    h.push("flag", x::telem::Series(true));
     const auto got = collect<std::int64_t>(h.flush(), h.key("out"));
     ASSERT_EQ(got.size(), 1u);
     EXPECT_GT(got[0], started_at);
