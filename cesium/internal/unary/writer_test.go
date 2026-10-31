@@ -234,8 +234,12 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						"Should fail to open with no start next to a live writer",
 						func(ctx SpecContext) {
 							live := openLive(ctx, 10*telem.SecondTS, 2)
-							Expect(db.OpenWriter(ctx, boundedConfig(0))).Error().
-								To(MatchError(control.ErrUnauthorized))
+							Expect(db.OpenWriter(ctx, boundedConfig(0))).Error().To(And(
+								MatchError(control.ErrUnauthorized),
+								MatchError(ContainSubstring(
+									"overlaps with a controlled region",
+								)),
+							))
 							MustSucceed(live.Close())
 						},
 					)
@@ -301,8 +305,12 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							MustSucceed(live.Write(telem.NewSeriesSecondsTSV(5, 6)))
 							Expect(MustSucceed(live.Commit(ctx))).
 								To(Equal(6*telem.SecondTS + 1))
-							Expect(w.Commit(ctx)).Error().
-								To(MatchError(validate.ErrValidation))
+							Expect(w.Commit(ctx)).Error().To(And(
+								MatchError(validate.ErrValidation),
+								MatchError(
+									ContainSubstring("cannot extend control region"),
+								),
+							))
 							MustSucceed(w.Close())
 							MustSucceed(live.Close())
 						},

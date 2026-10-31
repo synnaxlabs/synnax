@@ -453,9 +453,10 @@ var _ = Describe("Control", func() {
 				g := openBounded("backfill", telem.NewRangeSeconds(5, 6))
 				live := openAt("live", telem.NewRangeSeconds(10, 20))
 				Expect(live.Extend(1 * telem.SecondTS)).To(Succeed())
-				Expect(
-					g.Reach(7 * telem.SecondTS),
-				).To(MatchError(validate.ErrValidation))
+				Expect(g.Reach(7 * telem.SecondTS)).To(And(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("cannot extend control region")),
+				))
 			})
 			It("Should prefer a bounded region in ResourceAt", func() {
 				cfg, _ := baseConfig(2)
