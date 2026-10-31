@@ -9,7 +9,6 @@
  * included in the file licenses/APL.txt.
  */
 
-.console-task-configure--modbus_read,
 .console-task-configure--modbus_write {
     .console-channel-item {
         & > *:first-child > * {
@@ -39,4 +38,260 @@
 
 .console-modbus-order > * {
     width: 22rem;
+}
+
+.console-modbus__glyph {
+    width: 2.5rem;
+    height: 2.5rem;
+    flex-shrink: 0;
+    color: var(--pluto-gray-l9);
+}
+
+.console-modbus__trigger .console-modbus__glyph {
+    color: var(--pluto-gray-l9);
+}
+
+.console-modbus__menu {
+    min-width: max-content;
+}
+
+.console-modbus__option-description {
+    margin-left: auto;
+    padding-left: 3rem;
+    color: var(--pluto-gray-l8);
+    font-size: var(--pluto-small-size);
+    font-variant-numeric: tabular-nums;
+}
+
+.console-modbus__trigger .console-modbus__option-description {
+    display: none;
+}
+
+.console-modbus__address {
+    position: relative;
+    font-variant-numeric: tabular-nums;
+
+    & input {
+        font-variant-numeric: tabular-nums;
+    }
+}
+
+/* The last address follows the first one's digits. Digits are tabular, so each is
+   1ch. */
+.console-modbus__address-end {
+    position: absolute;
+    top: 50%;
+    left: calc(1.5rem + var(--pluto-border-width) + var(--console-modbus-digits) * 1ch);
+    transform: translateY(-50%);
+    z-index: 5;
+    pointer-events: none;
+    color: var(--pluto-gray-l8);
+}
+
+.console-modbus__address--overlap .console-modbus__address-end,
+.console-modbus__address--overlap input {
+    color: var(--pluto-error-z);
+}
+
+/* A string's length takes a fixed width beside its data type, which shrinks first. */
+.console-modbus__data-type {
+    min-width: 0;
+
+    & > :first-child {
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+
+    & > :last-child:not(:first-child) {
+        flex: none;
+        width: 13rem;
+    }
+}
+
+.console-modbus__address:focus-within .console-modbus__address-end {
+    display: none;
+}
+
+.console-modbus__order-glyph {
+    --console-modbus-order-color: var(--pluto-primary-z);
+
+    width: 5rem;
+    height: 2rem;
+    flex-shrink: 0;
+
+    & rect {
+        fill: color-mix(
+            in srgb,
+            var(--console-modbus-order-color) calc(90% - var(--rank) * 72%),
+            transparent
+        );
+    }
+}
+
+.console-modbus__order-glyph--device {
+    --console-modbus-order-color: var(--pluto-gray-l9);
+}
+
+.console-modbus__map {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 2rem 2rem 1.5rem;
+    font-family: var(--pluto-font-family);
+    border-bottom: var(--pluto-border);
+}
+
+.console-modbus__lane {
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+}
+
+.console-modbus__lane-name {
+    display: inline-flex;
+    align-items: center;
+    gap: 1rem;
+    width: 22rem;
+    flex-shrink: 0;
+    font-size: var(--pluto-small-size);
+    color: var(--pluto-gray-l9);
+    transition: color 0.12s ease-out;
+
+    & .console-modbus__glyph {
+        width: 2.25rem;
+        height: 2.25rem;
+        color: var(--pluto-gray-l8);
+    }
+}
+
+.console-modbus__lane--hovered .console-modbus__lane-name {
+    color: var(--pluto-text-color);
+}
+
+.console-modbus__track {
+    position: relative;
+    flex: 1;
+    height: 2rem;
+    border-radius: 1px;
+    background: var(--pluto-gray-l2);
+    cursor: pointer;
+}
+
+.console-modbus__tick {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: var(--pluto-border-width);
+    background: var(--pluto-gray-l4);
+}
+
+.console-modbus__segment {
+    --console-modbus-used: color-mix(
+        in oklch,
+        var(--pluto-primary-z) 42%,
+        var(--pluto-gray-l1)
+    );
+
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    min-width: 0.5rem;
+    border-radius: 1px;
+    background: var(--console-modbus-used);
+    box-shadow: inset -1px 0 0 var(--pluto-gray-l0);
+    cursor: pointer;
+    transition:
+        opacity 0.12s ease-out,
+        top 0.12s ease-out,
+        bottom 0.12s ease-out;
+
+    /* Fills the gap between lanes, so a thin segment is easy to point at. */
+    &::before {
+        content: "";
+        position: absolute;
+        inset: -0.5rem 0;
+    }
+}
+
+.console-modbus__map--hovered
+    .console-modbus__segment:not(.console-modbus__segment--hovered) {
+    opacity: 0.25;
+}
+
+.console-modbus__segment--hovered {
+    --console-modbus-used: color-mix(
+        in oklch,
+        var(--pluto-primary-z) 58%,
+        var(--pluto-gray-l1)
+    );
+
+    top: -0.25rem;
+    bottom: -0.25rem;
+}
+
+/* A disabled channel keeps its addresses in stripes, as a calendar marks a tentative
+   event. */
+.console-modbus__segment--disabled {
+    background: repeating-linear-gradient(
+        -45deg,
+        var(--console-modbus-used) 0 2px,
+        var(--pluto-gray-l1) 2px 5px
+    );
+}
+
+.console-modbus__free {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    min-width: 0.5rem;
+    border-radius: 1px;
+    pointer-events: none;
+    background: var(--pluto-gray-l5);
+}
+
+.console-modbus__overlap {
+    position: absolute;
+    top: -0.5rem;
+    bottom: -0.5rem;
+    pointer-events: none;
+    outline: 1.5px solid var(--pluto-error-z);
+    outline-offset: -0.75px;
+    background: repeating-linear-gradient(
+        -45deg,
+        var(--pluto-error-z) 0 1.5px,
+        transparent 1.5px 4px
+    );
+}
+
+.console-modbus__axis {
+    display: flex;
+    padding-left: 24rem;
+    font-size: var(--pluto-small-size);
+    font-variant-numeric: tabular-nums;
+    color: var(--pluto-gray-l8);
+}
+
+.console-modbus__scale {
+    position: relative;
+    display: flex;
+    flex: 1;
+    justify-content: space-between;
+}
+
+.console-modbus__axis-end {
+    transition: opacity 0.12s ease-out;
+
+    .console-modbus__scale--pointed & {
+        opacity: 0;
+    }
+}
+
+/* The hovered channel's addresses, centered under its segment. */
+.console-modbus__axis-hovered {
+    position: absolute;
+    top: 0;
+    display: flex;
+    justify-content: center;
+    white-space: nowrap;
+    color: var(--pluto-text-color);
 }

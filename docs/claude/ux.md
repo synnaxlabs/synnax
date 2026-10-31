@@ -178,6 +178,16 @@ outlined button) has fill l2 and border l4, and its caret has the disabled text 
 - The checkbox has no gap after it. Its own padding spaces it from the content.
 - Hover tints the item faintly, and a press does not deepen the tint.
 
+### Record tables
+
+- A task's channel list is a record table: one item per channel, built from
+  `Task.Views.ListChannelItem`. The task supplies only its own fields.
+- A record table names its columns in a band above the items. Explorers have no
+  headings.
+- Declare the columns once with `List.Columns`. Each item lays out its own grid, so give
+  each column a width that does not follow its content, such as `30rem` or `1fr`.
+- A heading over a field lines up with the field's text, not its box.
+
 ### Table input
 
 - A ruled grid: the cells join into one box with shared lines, and headings sit in the

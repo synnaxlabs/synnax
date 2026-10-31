@@ -91,9 +91,12 @@
     visibility: hidden;
 }
 
-/* A shadow trigger reads as its value. An open menu keeps its box, so the menu points at
-   the field. The caret keeps its space while hidden, so the label never moves. */
+/* A shadow trigger reads as its value, with its text inset like a shadow input's. An
+   open menu keeps its box, so the menu points at the field. The caret keeps its space
+   while hidden, so the label never moves. */
 .lyra-btn.lyra-dialog__trigger.lyra--shadow {
+    padding-inline: 1.5rem;
+
     --pluto-bg: transparent;
     --pluto-border-color: transparent;
     --pluto-hover-bg: var(--pluto-fill-hover);

@@ -132,6 +132,13 @@ export interface ChannelListProps<C extends Channel>
   isDragging?: boolean;
   listItem: Component.RenderProp<ChannelListItemProps>;
   selected: string[];
+  /**
+   * Whether items select only through their checkbox or a modifier click. The selection
+   * can then be empty.
+   */
+  checkable?: boolean;
+  /** The columns items line up on. The list then shows their headings. */
+  columns?: List.Column[];
 }
 
 export const ChannelList = <C extends Channel>({
@@ -146,30 +153,41 @@ export const ChannelList = <C extends Channel>({
   grow,
   style,
   resolve,
+  checkable = false,
+  columns,
   ...rest
 }: ChannelListProps<C>) => {
   const { onSelect, path, data } = rest;
   const { status } = Form.useFieldState(path);
   const handleChange = (keys: string[]) => onSelect(keys);
   const menuProps = Menu.useContextMenu();
-  return (
+  const content = (
     <Flex.Box className={CSS.B("channel-list")} empty grow={grow} style={style}>
       {resolve != null && <BindChannels<C> path={path} resolve={resolve} />}
-      {header}
       <Menu.ContextMenu
         {...menuProps}
         menu={(p) => <ContextMenu {...p} {...rest} />}
         onDragOver={onDragOver}
         onDrop={onDrop}
       >
+        {/* A header element that names a channel by data-menu-key opens its menu. */}
+        <Flex.Box
+          y
+          empty
+          className={menuProps.className}
+          onContextMenu={menuProps.open}
+        >
+          {header}
+          {columns != null && <List.Headings checkable={checkable} />}
+        </Flex.Box>
         <Select.Frame<string, C>
           multiple
           data={data}
           value={selected}
           onChange={handleChange}
-          replaceOnSingle
-          allowNone={false}
-          autoSelectOnNone
+          replaceOnSingle={!checkable}
+          allowNone={checkable}
+          autoSelectOnNone={!checkable}
         >
           <List.Scroll
             full="y"
@@ -193,4 +211,6 @@ export const ChannelList = <C extends Channel>({
       {footer}
     </Flex.Box>
   );
+  if (columns == null) return content;
+  return <List.Columns columns={columns}>{content}</List.Columns>;
 };

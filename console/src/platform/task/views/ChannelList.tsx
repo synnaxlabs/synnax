@@ -86,13 +86,13 @@ export const ChannelList = <C extends Channel>({
   }, [path, ctx]);
 
   const { data, push, remove } = Form.useFieldList<C["key"], C>(path);
-  const { onSelect } = rest;
+  const { onSelect, checkable = false } = rest;
   const handleAdd = () => {
     const channels = ctx.get<C[]>(path).value;
     const channel = createChannel(channels);
     if (channel == null) return;
     push(channel);
-    onSelect([channel.key]);
+    if (!checkable) onSelect([channel.key]);
   };
   const handleDuplicate = (chs: C[], keys: string[]) => {
     if (createChannels == null) return;
