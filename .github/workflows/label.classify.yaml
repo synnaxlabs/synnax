@@ -9,11 +9,13 @@
 
 # Labels a pull request review/human or review/bot from the results Check - Classify
 # uploaded, and keeps one comment with the evidence. An agent reads the UI part of the
-# diff (Console, Pluto, Lyra), fetched through the API. A fork, or a change to the
-# classifier itself, always gets a human: either could forge the uploaded results. The
-# workflow runs from the default branch and never checks out or runs pull request code:
-# the artifacts are data. The label goes on with an App token, because a label set with
-# GITHUB_TOKEN starts no other workflow, and the review gate and auto-merge wait for it.
+# diff (Console, Pluto, Lyra), fetched through the API, on the classify runner of a
+# Claude seat, so it uses the seat's login and never waits behind an agent job. A fork,
+# or a change to the classifier itself, always gets a human: either could forge the
+# uploaded results. The workflow runs from the default branch and never checks out or
+# runs pull request code: the artifacts are data. The label goes on with an App token,
+# because a label set with GITHUB_TOKEN starts no other workflow, and the review gate
+# and auto-merge wait for it.
 
 name: Label - Classify
 
@@ -35,10 +37,47 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  label:
-    name: Label
+  start:
+    name: Start a runner
     if: github.event.workflow_run.conclusion != 'cancelled'
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    steps:
+      - name: Assume the runner start role
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AGENT_RUNNER_ROLE_ARN }}
+          aws-region: us-east-1
+
+      # Each running Claude seat keeps a runner free for this job, so it starts a seat
+      # only when none runs. A start fails only while the seat is stopping, and succeeds
+      # when a concurrent run already started it.
+      - name: Start a Claude seat
+        run: |
+          filters=("Name=tag:project,Values=synnax-agents" "Name=tag:pool,Values=agent"
+            "Name=tag:agent,Values=claude")
+          ids() {
+            aws ec2 describe-instances --output text --filters "${filters[@]}" \
+              "Name=instance-state-name,Values=$1" \
+              --query 'Reservations[].Instances[].InstanceId'
+          }
+          if [ -n "$(ids pending,running)" ]; then exit 0; fi
+          id=$(ids stopping,stopped | awk '{print $1}')
+          if [ -z "$id" ]; then
+            echo "No Claude seat instance exists" >&2
+            exit 1
+          fi
+          for _ in $(seq 60); do
+            if aws ec2 start-instances --instance-ids "$id" > /dev/null; then exit 0; fi
+            sleep 5
+          done
+          exit 1
+
+  label:
+    name: Label
+    needs: start
+    runs-on: [self-hosted, agent-classify]
     permissions:
       actions: read
       contents: read
@@ -62,13 +101,16 @@ jobs:
           app-id: ${{ secrets.CLAUDE_CODE_APP_ID }}
           private-key: ${{ secrets.CLAUDE_CODE_APP_PRIVATE_KEY }}
 
+      # Every job installs the agent for itself, so an update never replaces a CLI that
+      # another job on the same instance runs.
       - name: Install the agent
-        run: npm install --global @anthropic-ai/claude-code@latest
+        run: |
+          npm install --prefix "$RUNNER_TEMP/cli" @anthropic-ai/claude-code@latest
+          echo "$RUNNER_TEMP/cli/node_modules/.bin" >> "$GITHUB_PATH"
 
       - name: Classify
         env:
           GH_TOKEN: ${{ steps.token.outputs.token }}
           HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
-          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           REVIEW_AGENT: claude -p --tools "" --strict-mcp-config
         run: python3 .github/scripts/classify.py "$RUNNER_TEMP/results"
