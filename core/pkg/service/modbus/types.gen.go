@@ -36,6 +36,10 @@ const (
 	// InputRegisterReadChannelType reads a typed value from one or more input
 	// registers.
 	InputRegisterReadChannelType ReadChannelType = versions.InputRegisterReadChannelType
+	// HoldingRegisterBitReadChannelType reads one bit of a holding register.
+	HoldingRegisterBitReadChannelType ReadChannelType = versions.HoldingRegisterBitReadChannelType
+	// InputRegisterBitReadChannelType reads one bit of an input register.
+	InputRegisterBitReadChannelType ReadChannelType = versions.InputRegisterBitReadChannelType
 )
 
 // CoilReadChannel reads a single bit from a coil.
@@ -49,6 +53,12 @@ type HoldingRegisterReadChannel = versions.HoldingRegisterReadChannel
 
 // InputRegisterReadChannel reads a typed value from one or more input registers.
 type InputRegisterReadChannel = versions.InputRegisterReadChannel
+
+// HoldingRegisterBitReadChannel reads one bit of a holding register.
+type HoldingRegisterBitReadChannel = versions.HoldingRegisterBitReadChannel
+
+// InputRegisterBitReadChannel reads one bit of an input register.
+type InputRegisterBitReadChannel = versions.InputRegisterBitReadChannel
 
 // BaseWriteChannel carries the fields every Modbus write channel shares.
 type BaseWriteChannel = versions.BaseWriteChannel
@@ -65,6 +75,8 @@ const (
 	// HoldingRegisterWriteChannelType writes a typed value to one or more holding
 	// registers.
 	HoldingRegisterWriteChannelType WriteChannelType = versions.HoldingRegisterWriteChannelType
+	// HoldingRegisterBitWriteChannelType writes one bit of a holding register.
+	HoldingRegisterBitWriteChannelType WriteChannelType = versions.HoldingRegisterBitWriteChannelType
 )
 
 // CoilWriteChannel writes a single bit to a coil.
@@ -72,6 +84,9 @@ type CoilWriteChannel = versions.CoilWriteChannel
 
 // HoldingRegisterWriteChannel writes a typed value to one or more holding registers.
 type HoldingRegisterWriteChannel = versions.HoldingRegisterWriteChannel
+
+// HoldingRegisterBitWriteChannel writes one bit of a holding register.
+type HoldingRegisterBitWriteChannel = versions.HoldingRegisterBitWriteChannel
 
 // ReadConfig configures a Modbus read task.
 type ReadConfig = versions.ReadConfig
@@ -81,3 +96,6 @@ type WriteConfig = versions.WriteConfig
 
 // ScanConfig configures a Modbus scan task.
 type ScanConfig = versions.ScanConfig
+
+// RegisterBit addresses one bit of a 16-bit register.
+type RegisterBit = versions.RegisterBit
