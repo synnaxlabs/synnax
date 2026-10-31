@@ -13,8 +13,13 @@ from uuid import uuid4
 import pytest
 from pydantic import BaseModel, TypeAdapter, ValidationError
 
-from synnax import schematic
+import synnax as sy
+from synnax import group, schematic
+from synnax.exceptions import NotFoundError
+from synnax.ontology import ID
 from synnax.schematic import symbol
+from x import spatial
+from x.testutil import assert_eventually
 
 
 def variants(union: Any) -> list[type[BaseModel]]:
@@ -202,3 +207,213 @@ class TestBorderRadius:
         assert isinstance(config, schematic.CylinderElementConfig)
         assert config.border_radius is not None
         assert config.border_radius.top_left.x == 4
+
+
+@pytest.fixture
+def project(client: sy.Synnax) -> sy.Project:
+    return client.projects.create(name=f"schematic-project-{uuid4()}")
+
+
+@pytest.mark.schematic
+class TestClient:
+    def test_create(self, client: sy.Synnax, project: sy.Project) -> None:
+        """Should create a schematic from a name."""
+        s = client.schematics.create(project.key, name="Test Schematic")
+        assert s.name == "Test Schematic"
+
+    def test_create_from_object(self, client: sy.Synnax, project: sy.Project) -> None:
+        """Should create a schematic from a Schematic object."""
+        s = client.schematics.create(project.key, sy.Schematic(name="From Object"))
+        assert s.name == "From Object"
+
+    def test_diagram_round_trip(self, client: sy.Synnax, project: sy.Project) -> None:
+        """Should keep nodes, edges, and configs through create, retrieve, and copy."""
+        diagram = sy.Schematic(
+            name="Diagram",
+            nodes=[
+                schematic.Node(key="a", position=spatial.XY(x=10, y=20)),
+                schematic.Node(key="b", position=spatial.XY(x=30, y=40), z_index=2),
+            ],
+            edges=[
+                schematic.Edge(
+                    key="e",
+                    source=schematic.Handle(node="a", param="outlet"),
+                    target=schematic.Handle(node="b", param="inlet"),
+                )
+            ],
+            configs={
+                "a": schematic.TextBoxElementConfig(value="Inlet"),
+                "b": schematic.TankElementConfig(),
+                "e": schematic.PipeElementConfig(),
+            },
+        )
+        created = client.schematics.create(project.key, diagram)
+        retrieved = client.schematics.retrieve(key=created.key)
+        copied = client.schematics.copy(created.key, name="Diagram Copy")
+        for s in (created, retrieved, copied):
+            assert s.nodes == diagram.nodes
+            assert s.edges == diagram.edges
+            assert s.configs == diagram.configs
+
+    def test_create_multiple(self, client: sy.Synnax, project: sy.Project) -> None:
+        """Should create multiple schematics."""
+        schematics = client.schematics.create(
+            project.key,
+            [sy.Schematic(name="Multi 1"), sy.Schematic(name="Multi 2")],
+        )
+        assert [s.name for s in schematics] == ["Multi 1", "Multi 2"]
+
+    def test_retrieve_by_key(self, client: sy.Synnax, project: sy.Project) -> None:
+        """Should retrieve a schematic by key."""
+        created = client.schematics.create(project.key, name="Retrieve Me")
+        retrieved = client.schematics.retrieve(key=created.key)
+        assert retrieved.key == created.key
+        assert retrieved.name == "Retrieve Me"
+
+    def test_retrieve_by_keys(self, client: sy.Synnax, project: sy.Project) -> None:
+        """Should retrieve multiple schematics by keys."""
+        s1 = client.schematics.create(project.key, name="Schematic A")
+        s2 = client.schematics.create(project.key, name="Schematic B")
+        retrieved = client.schematics.retrieve(keys=[s1.key, s2.key])
+        assert {s.key for s in retrieved} == {s1.key, s2.key}
+
+    def test_retrieve_not_found(self, client: sy.Synnax) -> None:
+        """Should raise NotFoundError when the key does not exist."""
+        with pytest.raises(NotFoundError):
+            client.schematics.retrieve(key=uuid4())
+
+    def test_rename(self, client: sy.Synnax, project: sy.Project) -> None:
+        """Should rename a schematic."""
+        s = client.schematics.create(project.key, name="Before Rename")
+        client.schematics.rename(s.key, "After Rename")
+        assert client.schematics.retrieve(key=s.key).name == "After Rename"
+
+    def test_copy(self, client: sy.Synnax, project: sy.Project) -> None:
+        """Should copy a schematic under a new key and name."""
+        s = client.schematics.create(project.key, name="Original")
+        c = client.schematics.copy(s.key, name="Copy")
+        assert c.key != s.key
+        assert c.name == "Copy"
+        assert not c.snapshot
+        assert client.schematics.retrieve(key=c.key).name == "Copy"
+
+    def test_copy_snapshot(self, client: sy.Synnax, project: sy.Project) -> None:
+        """Should copy a schematic as an immutable snapshot."""
+        s = client.schematics.create(project.key, name="Original")
+        c = client.schematics.copy(s.key, name="Snapshot", snapshot=True)
+        assert c.snapshot
+
+    def test_delete(self, client: sy.Synnax, project: sy.Project) -> None:
+        """Should delete a schematic."""
+        s = client.schematics.create(project.key, name="To Delete")
+        client.schematics.delete(s.key)
+        with pytest.raises(NotFoundError):
+            client.schematics.retrieve(key=s.key)
+
+    def test_delete_multiple(self, client: sy.Synnax, project: sy.Project) -> None:
+        """Should delete multiple schematics."""
+        s1 = client.schematics.create(project.key, name="Delete 1")
+        s2 = client.schematics.create(project.key, name="Delete 2")
+        client.schematics.delete([s1.key, s2.key])
+        with pytest.raises(NotFoundError):
+            client.schematics.retrieve(keys=[s1.key, s2.key])
+
+
+def _symbol(name: str) -> symbol.Symbol:
+    return symbol.Symbol(
+        name=name, data=symbol.Spec(svg="<svg></svg>", variant="static")
+    )
+
+
+@pytest.fixture
+def parent_group(client: sy.Synnax) -> group.Group:
+    root = client.schematics.symbols.retrieve_group()
+    return client.groups.create(group.ontology_id(root.key), f"symbols-{uuid4()}")
+
+
+@pytest.fixture
+def parent(parent_group: group.Group) -> ID:
+    return group.ontology_id(parent_group.key)
+
+
+@pytest.mark.schematic
+class TestSymbolClient:
+    def test_create(self, client: sy.Synnax, parent: ID) -> None:
+        """Should create a single symbol."""
+        s = client.schematics.symbols.create(_symbol("Test Symbol"), parent=parent)
+        assert s.name == "Test Symbol"
+        assert s.data.svg == "<svg></svg>"
+
+    def test_create_multiple(self, client: sy.Synnax, parent: ID) -> None:
+        """Should create multiple symbols."""
+        symbols = client.schematics.symbols.create(
+            [_symbol("Multi 1"), _symbol("Multi 2")], parent=parent
+        )
+        assert [s.name for s in symbols] == ["Multi 1", "Multi 2"]
+
+    def test_retrieve_by_key(self, client: sy.Synnax, parent: ID) -> None:
+        """Should retrieve a symbol by key."""
+        created = client.schematics.symbols.create(
+            _symbol("Retrieve Me"), parent=parent
+        )
+        retrieved = client.schematics.symbols.retrieve(key=created.key)
+        assert retrieved.key == created.key
+        assert retrieved.name == "Retrieve Me"
+
+    def test_retrieve_by_keys(self, client: sy.Synnax, parent: ID) -> None:
+        """Should retrieve multiple symbols by keys."""
+        s1, s2 = client.schematics.symbols.create(
+            [_symbol("Symbol A"), _symbol("Symbol B")], parent=parent
+        )
+        retrieved = client.schematics.symbols.retrieve(keys=[s1.key, s2.key])
+        assert {s.key for s in retrieved} == {s1.key, s2.key}
+
+    def test_retrieve_with_search_term(self, client: sy.Synnax, parent: ID) -> None:
+        """Should search for symbols by name."""
+        prefix = f"searchable-symbol-{uuid4()}"
+        client.schematics.symbols.create(
+            [_symbol(f"{prefix}-1"), _symbol(f"{prefix}-2")], parent=parent
+        )
+
+        def check() -> None:
+            results = client.schematics.symbols.retrieve(search_term=prefix)
+            assert len(results) >= 2
+            assert all(prefix in s.name for s in results)
+
+        assert_eventually(check)
+
+    def test_retrieve_not_found(self, client: sy.Synnax) -> None:
+        """Should raise NotFoundError when the key does not exist."""
+        with pytest.raises(NotFoundError):
+            client.schematics.symbols.retrieve(key=uuid4())
+
+    def test_rename(self, client: sy.Synnax, parent: ID) -> None:
+        """Should rename a symbol."""
+        s = client.schematics.symbols.create(_symbol("Before Rename"), parent=parent)
+        client.schematics.symbols.rename(s.key, "After Rename")
+        assert client.schematics.symbols.retrieve(key=s.key).name == "After Rename"
+
+    def test_delete(self, client: sy.Synnax, parent: ID) -> None:
+        """Should delete symbols."""
+        s1, s2 = client.schematics.symbols.create(
+            [_symbol("Delete 1"), _symbol("Delete 2")], parent=parent
+        )
+        client.schematics.symbols.delete([s1.key, s2.key])
+        with pytest.raises(NotFoundError):
+            client.schematics.symbols.retrieve(key=s1.key)
+
+    def test_retrieve_group(self, client: sy.Synnax) -> None:
+        """Should retrieve the same symbol group on each call."""
+        g = client.schematics.symbols.retrieve_group()
+        assert client.schematics.symbols.retrieve_group().key == g.key
+
+    def test_delete_group(
+        self, client: sy.Synnax, parent_group: group.Group, parent: ID
+    ) -> None:
+        """Should delete a group and every symbol in it."""
+        s = client.schematics.symbols.create(_symbol("In Group"), parent=parent)
+        client.schematics.symbols.delete_group(parent_group.key)
+        with pytest.raises(NotFoundError):
+            client.schematics.symbols.retrieve(key=s.key)
+        with pytest.raises(NotFoundError):
+            client.groups.retrieve(parent_group.key)
