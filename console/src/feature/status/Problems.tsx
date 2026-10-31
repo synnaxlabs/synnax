@@ -41,7 +41,8 @@ const entry = (problem: Notifications.Problem, nested: boolean): Entry => ({
   nested,
 });
 
-// Only problems that no listed problem covers take children, so no entry is lost.
+// Only problems that no listed problem covers take children. A problem whose covering
+// problem nests shows at the top.
 const arrange = (problems: Notifications.Problem[]): Entry[] => {
   const sorted = [...problems].sort(newestFirst);
   const listed = new Set(sorted.map(({ status: { key } }) => key));
@@ -53,7 +54,7 @@ const arrange = (problems: Notifications.Problem[]): Entry[] => {
     ({ coveredBy }) => coveredBy,
   );
   return sorted
-    .filter(({ status: { key } }) => parents.has(key))
+    .filter(({ coveredBy }) => coveredBy == null || !parents.has(coveredBy))
     .flatMap((p) => [
       entry(p, false),
       ...(children.get(p.status.key) ?? []).map((c) => entry(c, true)),

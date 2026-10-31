@@ -21,7 +21,7 @@ import { Session } from "@/session";
 
 export interface ControlsProps extends Flex.BoxProps {
   /** The status of the last save of the task. A failed save shows in place. */
-  saveStatus?: status.Status;
+  saveStatus: status.Status;
   /** Runs the deploy pipeline: configure, save the row, issue start. */
   onDeploy: () => void;
   /** Issues a stop command to the live instance. */
@@ -32,7 +32,7 @@ export interface ControlsProps extends Flex.BoxProps {
 export const Controls = ({ saveStatus, onDeploy, onStop, ...props }: ControlsProps) => {
   const taskStatus = useStatus();
   // A failed save replaces the task status, so its key is placed before the save fails.
-  Status.usePlace(saveStatus?.key, Session.Panel.useSelectIsTabVisible());
+  Status.usePlace(saveStatus.key, Session.Panel.useSelectIsTabVisible());
   const isSnapshot = Form.useFieldValue<boolean>("snapshot");
   const key = useKey();
   const drifted = useDrifted();
@@ -49,7 +49,7 @@ export const Controls = ({ saveStatus, onDeploy, onStop, ...props }: ControlsPro
 
   return (
     <Bar
-      status={saveStatus?.variant === "error" ? saveStatus : taskStatus}
+      status={saveStatus.variant === "error" ? saveStatus : taskStatus}
       running={taskStatus.details.running}
       drifted={drifted}
       hideActions={isSnapshot || !canControl}

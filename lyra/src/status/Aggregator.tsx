@@ -7,13 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type CrudeTimeSpan,
-  type destructor,
-  id,
-  TimeSpan,
-  TimeStamp,
-} from "@synnaxlabs/x";
+import { type CrudeTimeSpan, destructor, id, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { type PropsWithChildren, useEffect, useState } from "react";
 import type z from "zod";
 
@@ -27,7 +21,7 @@ import {
   type ErrorHandler,
   type Log,
 } from "@/status/errorHandler";
-import { create, type Status, type Variant } from "@/status/status";
+import { create, type Status } from "@/status/status";
 
 interface Received {
   id: string;
@@ -39,16 +33,12 @@ interface Received {
   count: number;
 }
 
-const PROBLEM_VARIANTS: Variant[] = ["warning", "error"];
-
-const isProblem = ({ variant }: Status): boolean => PROBLEM_VARIANTS.includes(variant);
-
 // A key holds one notification for its problem and one for its other statuses.
 const sameSlot = (a: Status, b: Status): boolean =>
   a.key === b.key && (a.problem == null) === (b.problem == null);
 
 const sameProblem = (a: Status, b: Status): boolean =>
-  a.problem != null && a.problem === b.problem && isProblem(a) && isProblem(b);
+  a.problem != null && a.problem === b.problem;
 
 const [Context, useContext] = context.create<Received[]>({
   defaultValue: [],
@@ -65,7 +55,7 @@ export { useAdder };
 type Place = (key: string) => destructor.Destructor;
 
 const [PlaceContext, usePlaceContext] = context.create<Place>({
-  defaultValue: () => () => {},
+  defaultValue: () => destructor.NOOP,
   displayName: "Status.PlaceContext",
 });
 
@@ -111,12 +101,12 @@ const trim = (received: Received[], size: number): Received[] => {
 };
 
 /**
- * Collects statuses from its subtree and hands them to {@link useNotifications} and
- * the status list. Mount one near the root of the app. Each key holds one notification
- * for its problem and one for its other statuses, and a new status replaces the one in
- * its place. A warning or error of the same problem joins its notification instead:
- * the count goes up, and the notification does not show again. A status that is not
- * part of a problem does not show when a view places its key with {@link usePlace}.
+ * Collects statuses from its subtree and hands them to {@link useNotifications} and the
+ * status list. Mount one near the root of the app. Each key holds one notification for
+ * its problem and one for its other statuses, and a new status replaces the one in its
+ * slot. A warning or error of the same problem joins its notification instead: the
+ * count goes up, and the notification does not show again. A status that is not part of
+ * a problem does not show when a view places its key with {@link usePlace}.
  */
 export const Aggregator = ({
   children,
@@ -160,9 +150,8 @@ export const Aggregator = ({
 
 /**
  * Places the key on the enclosing {@link Aggregator} while the caller is mounted and
- * visible. Call it in a view that shows the statuses of the key in place, such as the
- * controls of a task. A status on a placed key does not show as a notification, unless
- * it is part of a problem.
+ * visible. Call it in a view that shows the statuses of the key in place. A status on a
+ * placed key does not show as a notification, unless it is part of a problem.
  * @param key - The key of the statuses that the view shows. Undefined places nothing.
  * @param visible - Whether the view is on screen. Defaults to true.
  */

@@ -15,7 +15,11 @@ import { describe, expect, it } from "vitest";
 
 import { Task } from "@/feature/task";
 import { createTestDevice } from "@/platform/device/testutil";
-import { renderForward, settleWrites } from "@/platform/notifications/testutil";
+import {
+  checkInUse,
+  renderForward,
+  settleWrites,
+} from "@/platform/notifications/testutil";
 import { createTaskStatus } from "@/platform/task/testutil";
 import { uniqueName } from "@/testutil";
 
@@ -36,16 +40,6 @@ const createTask = async (
 ): Promise<task.Task> =>
   await r.createTask({ name: uniqueName("task"), type, config: {}, internal });
 
-const checkInUse = async (key: task.Key): Promise<boolean> => {
-  const { inUse } = RULE;
-  if (inUse == null) throw new Error("the task rule must check use");
-  return await inUse({
-    client,
-    key,
-    status: createTaskStatus({ key: task.statusKey(key), variant: "error" }),
-  });
-};
-
 describe("Task.createNotificationRule", () => {
   describe("kind", () => {
     it("should call a status that answers a command a reply", () => {
@@ -62,14 +56,14 @@ describe("Task.createNotificationRule", () => {
   describe("inUse", () => {
     it("should hold a task that the user made in use", async () => {
       const tsk = await createTask(await createRack(), { internal: false });
-      expect(await checkInUse(tsk.key)).toBe(true);
+      expect(await checkInUse(client, RULE, tsk.key)).toBe(true);
     });
 
     it("should hold a scanner in use with a configured device it scans", async () => {
       const r = await createRack();
       const scanner = await createTask(r, {});
       await createTestDevice(client, { make: SCANNER.make, rack: r.key });
-      expect(await checkInUse(scanner.key)).toBe(true);
+      expect(await checkInUse(client, RULE, scanner.key)).toBe(true);
     });
 
     it("should not hold a scanner without a configured device in use", async () => {
@@ -85,21 +79,21 @@ describe("Task.createNotificationRule", () => {
         make: SCANNER.make,
         rack: (await createRack()).key,
       });
-      expect(await checkInUse(scanner.key)).toBe(false);
+      expect(await checkInUse(client, RULE, scanner.key)).toBe(false);
     });
 
     it("should hold an internal task of an unknown scan type in use", async () => {
       const tsk = await createTask(await createRack(), { type: OTHER_SCAN_TYPE });
-      expect(await checkInUse(tsk.key)).toBe(true);
+      expect(await checkInUse(client, RULE, tsk.key)).toBe(true);
     });
 
     it("should not hold a task that no longer exists in use", async () => {
-      expect(await checkInUse(uuid.create())).toBe(false);
+      expect(await checkInUse(client, RULE, uuid.create())).toBe(false);
     });
   });
 
   describe("onUseChange", () => {
-    it("should hold a scanner problem once it scans a configured device", async () => {
+    it("should list a scanner problem once it scans a configured device", async () => {
       const r = await createRack();
       const { result } = await renderForward(client, { task: RULE });
       const scanner = await createTask(r, {});

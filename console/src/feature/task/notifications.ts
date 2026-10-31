@@ -22,7 +22,7 @@ const rackDetailsZ = task.statusDetailsZ().pick({ rack: true });
 const retrieveTask = async ({
   client,
   key,
-}: Notifications.InUseArgs): Promise<task.Task | null> => {
+}: Notifications.InUseParams): Promise<task.Task | null> => {
   try {
     return await client.tasks.retrieve({ key });
   } catch (e) {
@@ -32,10 +32,10 @@ const retrieveTask = async ({
 };
 
 /**
- * Creates the notification rule for task statuses. A status that answers a command is
- * a reply. A scanner, which is an internal task whose type one of the scanners names,
- * is in use when its rack has a configured device of the scanner's make. Every other
- * task is always in use. The open problem of a task's rack covers the task's problems.
+ * Creates the notification rule for task statuses. A status that answers a command is a
+ * reply. A scanner, which is an internal task whose type one of the scanners names, is
+ * in use when its rack has a configured device of the scanner's make. Every other task
+ * is always in use. The open problem of a task's rack covers the task's problems.
  * @param scanners - The scanner of each integration.
  */
 export const createNotificationRule = (scanners: Scanner[]): Notifications.Rule => ({

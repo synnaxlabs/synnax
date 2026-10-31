@@ -26,6 +26,19 @@ const wrapper = ({ children }: PropsWithChildren) => (
   <Status.Aggregator log={quiet}>{children}</Status.Aggregator>
 );
 
+const renderAggregator = () =>
+  renderHook(
+    () => ({ add: Status.useAdder(), notifications: Status.useNotifications() }),
+    { wrapper },
+  );
+
+const problem = (name: string = "p1"): Status.Crude => ({
+  key: "task:1",
+  variant: "error",
+  message: "Failed to read",
+  problem: name,
+});
+
 describe("Aggregator", () => {
   it("should correctly render an aggregator", () => {
     const { getByText } = render(
@@ -130,18 +143,6 @@ describe("Aggregator", () => {
   });
 
   describe("problems", () => {
-    const renderAggregator = () =>
-      renderHook(
-        () => ({ add: Status.useAdder(), notifications: Status.useNotifications() }),
-        { wrapper },
-      );
-    const problem = (name: string = "p1"): Status.Crude => ({
-      key: "task:1",
-      variant: "error",
-      message: "Failed to read",
-      problem: name,
-    });
-
     afterEach(() => {
       vi.useRealTimers();
     });
@@ -190,14 +191,6 @@ describe("Aggregator", () => {
         { message: "No reply", count: 1 },
         { message: "Failed to read", count: 2 },
       ]);
-    });
-
-    it("should not join a status that is not a problem", () => {
-      const { result } = renderAggregator();
-      const good: Status.Crude = { ...problem(), variant: "info" };
-      act(() => result.current.add(good));
-      act(() => result.current.add(good));
-      expect(result.current.notifications.statuses).toMatchObject([{ count: 1 }]);
     });
 
     it("should add the counts of identical notifications on different keys", () => {
@@ -434,20 +427,9 @@ describe("Aggregator", () => {
       );
     });
     describe("problems", () => {
-      const renderAggregator = () =>
-        renderHook(
-          () => ({ add: Status.useAdder(), notifications: Status.useNotifications() }),
-          { wrapper },
-        );
       const firstID = (result: {
         current: { notifications: Status.UseNotificationsReturn };
       }): string => result.current.notifications.statuses[0].id;
-      const problem = (name: string): Status.Crude => ({
-        key: "task:1",
-        variant: "error",
-        message: "Failed to read",
-        problem: name,
-      });
 
       it("should keep a closed problem closed", () => {
         const { result } = renderAggregator();
@@ -669,8 +651,13 @@ describe("Aggregator", () => {
       return null;
     };
 
-    const Place = ({ visible }: { visible?: boolean }): null => {
-      Status.usePlace("task:1", visible);
+    interface PlaceProps {
+      statusKey?: string;
+      visible?: boolean;
+    }
+
+    const Place = ({ statusKey = "task:1", visible }: PlaceProps): null => {
+      Status.usePlace(statusKey, visible);
       return null;
     };
 
@@ -743,6 +730,14 @@ describe("Aggregator", () => {
       rerender(null);
       add(reply);
       expect(notified()).toHaveLength(1);
+    });
+
+    it("should place the new key when the key of a view changes", () => {
+      const { add, notified, rerender } = renderPlaces(<Place />);
+      rerender(<Place statusKey="task:2" />);
+      add(reply);
+      add({ ...reply, key: "task:2" });
+      expect(notified()).toMatchObject([{ key: "task:1" }]);
     });
 
     it("should notify a problem on a placed key", () => {

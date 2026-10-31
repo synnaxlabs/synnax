@@ -10,9 +10,9 @@
 /**
  * Static build-time flags that hide new work from the Console build. A flag is on in
  * dev and Desktop builds, where a feature ships first. Each flag is a top-level
- * constant, since the bundler inlines a constant but not an object property, and only
- * an inlined flag lets dark code tree-shake out of the Console build. Each flag names
- * its owner, its Linear umbrella issue, and the release that removes it:
+ * constant, because the bundler tree-shakes code behind an inlined constant but not
+ * behind an object property. Each flag names its owner, its Linear umbrella issue, and
+ * the release that removes it:
  *
  * ```ts
  * // Owner: Name. Umbrella: SY-1234. Removed in 0.60.
