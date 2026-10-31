@@ -130,17 +130,26 @@ var _ = Describe("Service", func() {
 			BeforeEach(func(ctx SpecContext) {
 				username = uuid.New().String()
 				u = MustSucceed(w.Create(ctx, user.User{Name: uuid.New().String()}))
-				Expect(passwordSvc.NewWriter(tx).Set(ctx, u.OntologyID(), auth.Credentials{
-					Username: username,
-					Password: "p",
-				})).To(Succeed())
+				Expect(
+					passwordSvc.NewWriter(tx).Set(ctx, u.OntologyID(), auth.Credentials{
+						Username: username,
+						Password: "p",
+					}),
+				).To(Succeed())
 			})
-			It("Should match the user whose password has the username", func(ctx SpecContext) {
-				var ret []user.User
-				Expect(svc.NewRetrieve().Where(user.MatchUsernames(username)).Entries(&ret).
-					Exec(ctx, tx)).To(Succeed())
-				Expect(ret).To(ConsistOf(u))
-			})
+			It(
+				"Should match the user whose password has the username",
+				func(ctx SpecContext) {
+					var ret []user.User
+					Expect(
+						svc.NewRetrieve().
+							Where(user.MatchUsernames(username)).
+							Entries(&ret).
+							Exec(ctx, tx),
+					).To(Succeed())
+					Expect(ret).To(ConsistOf(u))
+				},
+			)
 			It("Should match nothing for an unknown username", func(ctx SpecContext) {
 				var ret []user.User
 				Expect(svc.NewRetrieve().
@@ -151,12 +160,16 @@ var _ = Describe("Service", func() {
 			})
 			It("Should match nothing for a user's name", func(ctx SpecContext) {
 				var ret []user.User
-				Expect(svc.NewRetrieve().Where(user.MatchUsernames(u.Name)).Entries(&ret).
-					Exec(ctx, tx)).To(Succeed())
+				Expect(
+					svc.NewRetrieve().Where(user.MatchUsernames(u.Name)).Entries(&ret).
+						Exec(ctx, tx),
+				).To(Succeed())
 				Expect(ret).To(BeEmpty())
 			})
 			It("Should exclude the matched users under Not", func(ctx SpecContext) {
-				other := MustSucceed(w.Create(ctx, user.User{Name: uuid.New().String()}))
+				other := MustSucceed(
+					w.Create(ctx, user.User{Name: uuid.New().String()}),
+				)
 				var ret []user.User
 				Expect(svc.NewRetrieve().
 					Where(user.MatchKeys(u.Key, other.Key)).
@@ -175,8 +188,12 @@ var _ = Describe("Service", func() {
 					auth.Credentials{Username: rackName, Password: "p"},
 				)).To(Succeed())
 				var ret []user.User
-				Expect(svc.NewRetrieve().Where(user.MatchUsernames(rackName)).Entries(&ret).
-					Exec(ctx, tx)).To(Succeed())
+				Expect(
+					svc.NewRetrieve().
+						Where(user.MatchUsernames(rackName)).
+						Entries(&ret).
+						Exec(ctx, tx),
+				).To(Succeed())
 				Expect(ret).To(BeEmpty())
 			})
 		})
