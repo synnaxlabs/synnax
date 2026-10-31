@@ -101,12 +101,7 @@ describe("role", () => {
         name: "test",
         description: "test",
       });
-      const username = id.create();
-      const u = await client.users.create({
-        username,
-        password: "test",
-        name: "test",
-      });
+      const u = await client.users.create({ name: "test" });
       await client.access.roles.assign({
         user: u.key,
         role: role.key,

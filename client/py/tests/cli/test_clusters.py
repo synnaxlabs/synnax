@@ -20,6 +20,7 @@ from synnax.cli.flow import Context
 from synnax.cli.login import run as login
 from synnax.config import Cluster, Clusters, File
 from synnax.options import Options
+from tests.user import create_user
 
 
 class MemoryKeyring(KeyringBackend):
@@ -231,7 +232,7 @@ class TestLogin:
         first = clusters.get()
         assert first is not None
         other_username = f"cli-{uuid4()}"
-        other = client.users.create(username=other_username, password="password123")
+        other = create_user(client, other_username, "password123")
         login(
             Context(
                 console=console.Mock(

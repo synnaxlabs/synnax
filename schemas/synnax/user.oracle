@@ -46,15 +46,6 @@ User struct {
 New struct extends User {
     -root_user
     key?
-    username string {
-        @doc value         "is the login name for the new user's password."
-        @validate required
-    }
-    password string {
-        @doc value           "is the password for the new user account."
-        @validate min_length 1
-    }
-    name?
 
     @cpp omit
     @doc value    "contains parameters for creating a new user."

@@ -133,10 +133,7 @@ describe("role ontology service", () => {
     it("should move a user to the role it is dropped on", async () => {
       const from = await createRole();
       const to = await createRole();
-      const u = await client.users.create({
-        username: uniqueName("user"),
-        password: "password",
-      });
+      const u = await client.users.create({ name: uniqueName("user") });
       await client.access.roles.assign({ user: u.key, role: from.key });
       const [rolesGroup] = await client.ontology.parents.retrieve({
         ids: access.role.ontologyID(from.key),

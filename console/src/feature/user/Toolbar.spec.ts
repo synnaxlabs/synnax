@@ -26,13 +26,12 @@ const roles = new RoleClients(client);
 describe("user toolbar", () => {
   it("should list a registered user under its assigned role", async () => {
     const role = await client.access.roles.create({ name: uniqueName("role") });
-    const username = uniqueName("user");
-    const created = await client.users.create({ username, password: "pwd12345" });
+    const created = await client.users.create({ name: uniqueName("user") });
     await client.access.roles.assign({ user: created.key, role: role.key });
     await renderToolbar(User.TOOLBAR.content, { client });
     await findTreeRow(role.name);
     expandTreeRow(role.name);
-    expect(await findTreeRow(username)).toBeTruthy();
+    expect(await findTreeRow(created.name)).toBeTruthy();
   });
 
   it("should open the register modal from the create action", async () => {

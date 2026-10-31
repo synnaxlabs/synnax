@@ -15,9 +15,7 @@ from synnax import ontology
 
 
 class New(BaseModel):
-    username: str
-    password: str
-    name: str = ""
+    name: str
     key: UUID | None = None
 
 

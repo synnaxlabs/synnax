@@ -26,10 +26,7 @@ describe("User.useAssignRoleModal", () => {
 
   it("should fall back to the default title and enable Assign against a live Core", async () => {
     const client = createTestClient();
-    const subject = await client.users.create({
-      username: uniqueName("user"),
-      password: "password123",
-    });
+    const subject = await client.users.create({ name: uniqueName("user") });
     await openModal(User.useAssignRoleModal, {
       client,
       params: { userKey: subject.key },
@@ -42,10 +39,7 @@ describe("User.useAssignRoleModal", () => {
 
   it("should submit on the shortcut its footer advertises", async () => {
     const client = createTestClient();
-    const subject = await client.users.create({
-      username: uniqueName("user"),
-      password: "password123",
-    });
+    const subject = await client.users.create({ name: uniqueName("user") });
     await openModal(User.useAssignRoleModal, {
       client,
       params: { userKey: subject.key },

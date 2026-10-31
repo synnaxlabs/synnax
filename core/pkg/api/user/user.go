@@ -94,26 +94,18 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	}, nil
 }
 
-// NewUser is the create-request payload for a single user. It bundles the user-record
-// fields and the credentials the auth service will store. An empty Name defaults to the
-// username.
-type NewUser struct {
-	svcauth.Credentials
-	Name string   `json:"name" msgpack:"name"`
-	Key  user.Key `json:"key"  msgpack:"key"`
-}
-
 type (
 	CreateRequest struct {
-		Users []NewUser `json:"users" msgpack:"users"`
+		Users []user.User `json:"users" msgpack:"users"`
 	}
 	CreateResponse struct {
 		Users []user.User `json:"users" msgpack:"users"`
 	}
 )
 
-// Create registers the new users with the provided credentials. If successful, Create
-// returns a slice of the new users.
+// Create creates users and returns them. A user with a zero key gets a new one. It
+// returns a validation error for a root user or a key that already exists. A new user
+// has no login method until it is given a password, API key, or provider link.
 func (s *Service) Create(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -126,27 +118,15 @@ func (s *Service) Create(
 	}); err != nil {
 		return CreateResponse{}, err
 	}
-	if err := s.auth.Accepts(svcauth.MethodPassword); err != nil {
-		return CreateResponse{}, err
-	}
-	passwordW := s.password.NewWriter(tx)
-	userW := s.internal.NewWriter(tx)
-	newUsers := make([]user.User, len(req.Users))
-	for i, nu := range req.Users {
-		name := nu.Name
-		if name == "" {
-			name = nu.Username
-		}
-		u, err := userW.Create(ctx, user.User{Name: name, Key: nu.Key})
-		if err != nil {
+	w := s.internal.NewWriter(tx)
+	created := make([]user.User, len(req.Users))
+	for i, u := range req.Users {
+		var err error
+		if created[i], err = w.Create(ctx, u); err != nil {
 			return CreateResponse{}, err
 		}
-		if err := passwordW.Set(ctx, u.OntologyID(), nu.Credentials); err != nil {
-			return CreateResponse{}, err
-		}
-		newUsers[i] = u
 	}
-	return CreateResponse{Users: newUsers}, nil
+	return CreateResponse{Users: created}, nil
 }
 
 type ChangeUsernameRequest struct {

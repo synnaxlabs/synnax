@@ -11,6 +11,7 @@ import { rack, user } from "@synnaxlabs/client";
 import {
   createTestClient,
   createTestClientWithRole,
+  createTestUser,
 } from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
@@ -37,10 +38,7 @@ const type = async (placeholder: string, value: string): Promise<void> => {
 describe("useModal", () => {
   it("should create a key, show it once, list it, and delete it", async () => {
     const client = createTestClient();
-    const subject = await client.users.create({
-      username: uniqueName("user"),
-      password: "password123",
-    });
+    const subject = await client.users.create({ name: uniqueName("user") });
     const id = user.ontologyID(subject.key);
     await openModal(useModal, { client, params: { subject: id } });
     await screen.findByText("No API keys");
@@ -59,10 +57,7 @@ describe("useModal", () => {
 
   it("should delete a key whose creation ends after the dialog closes", async () => {
     const client = createTestClient();
-    const subject = await client.users.create({
-      username: uniqueName("user"),
-      password: "password123",
-    });
+    const { user: subject } = await createTestUser(client);
     const id = user.ontologyID(subject.key);
     const create = client.auth.createKey.bind(client.auth);
     let release = (): void => {};
@@ -90,10 +85,7 @@ describe("useModal", () => {
 
   it("should show an error when deleting an unused key fails", async () => {
     const client = createTestClient();
-    const subject = await client.users.create({
-      username: uniqueName("user"),
-      password: "password123",
-    });
+    const { user: subject } = await createTestUser(client);
     const id = user.ontologyID(subject.key);
     const create = client.auth.createKey.bind(client.auth);
     let release = (): void => {};
@@ -188,8 +180,9 @@ describe("useModal", () => {
 
   it("should let an owner set another user's password", async () => {
     const client = createTestClient();
-    const username = uniqueName("user");
-    const subject = await client.users.create({ username, password: "password123" });
+    const { user: subject, username } = await createTestUser(client, {
+      username: uniqueName("user"),
+    });
     await openModal(useModal, {
       client,
       params: { subject: user.ontologyID(subject.key) },

@@ -22,6 +22,7 @@ import {
 import {
   createTestClient,
   createTestClientWithPolicy,
+  createTestUser,
 } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { renderHook, waitFor } from "@testing-library/react";
@@ -121,12 +122,7 @@ describe("Access Queries", () => {
     });
 
     it("should re-evaluate the grant when a policy is removed, without a remount", async () => {
-      const username = id.create();
-      const u = await client.users.create({
-        username,
-        password: "test",
-        name: "test test",
-      });
+      const { user: u, username } = await createTestUser(client);
       const p = await client.access.policies.create({
         name: id.create(),
         objects: [ranger.TYPE_ONTOLOGY_ID, ...baseObjects],
@@ -161,12 +157,9 @@ describe("Access Queries", () => {
       let role: access.role.Role;
       let rangePolicy: access.policy.Policy;
       beforeEach(async () => {
-        username = id.create();
-        const u = await client.users.create({
-          username,
-          password: "test",
-          name: "test test",
-        });
+        const created = await createTestUser(client);
+        username = created.username;
+        const u = created.user;
         const base = await client.access.policies.create({
           name: id.create(),
           objects: baseObjects,
