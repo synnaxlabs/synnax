@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ni/chassis"
 	"github.com/synnaxlabs/synnax/pkg/service/ni/device"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
@@ -185,6 +186,48 @@ var _ = Describe("Service", func() {
 			Expect(res.Chassis).To(HaveLen(1))
 			Expect(res.Chassis[0].Key).To(Equal(d.Key))
 			Expect(res.Chassis[0].Status.Message).To(Equal("Status unknown"))
+		})
+
+		DescribeTable(
+			"Should filter by each request field",
+			func(ctx SpecContext, filter func(*apichassis.RetrieveRequest, chassis.Chassis)) {
+				d := create(ctx)
+				create(ctx)
+				grant(ctx, access.ActionRetrieve, user.OntologyID(u.Key), chassisType)
+				req := apichassis.RetrieveRequest{Keys: []chassis.Key{d.Key}}
+				filter(&req, d)
+				res := MustSucceed(apiSvc.Retrieve(testutil.AuthedCtx(ctx, u), req))
+				Expect(res.Chassis).To(HaveLen(1))
+				Expect(res.Chassis[0].Key).To(Equal(d.Key))
+			},
+			Entry("names", func(r *apichassis.RetrieveRequest, d chassis.Chassis) {
+				r.Names = []string{d.Name}
+			}),
+			Entry("models", func(r *apichassis.RetrieveRequest, d chassis.Chassis) {
+				r.Models = []string{d.Model}
+			}),
+			Entry("racks", func(r *apichassis.RetrieveRequest, d chassis.Chassis) {
+				r.Racks = []rack.Key{d.Rack}
+			}),
+			Entry(
+				"search term",
+				func(r *apichassis.RetrieveRequest, d chassis.Chassis) {
+					r.SearchTerm = d.Name
+				},
+			),
+			Entry("limit", func(r *apichassis.RetrieveRequest, _ chassis.Chassis) {
+				r.Limit = 1
+			}),
+		)
+
+		It("Should skip chassis before the offset", func(ctx SpecContext) {
+			d := create(ctx)
+			grant(ctx, access.ActionRetrieve, user.OntologyID(u.Key), chassisType)
+			res := MustSucceed(apiSvc.Retrieve(
+				testutil.AuthedCtx(ctx, u),
+				apichassis.RetrieveRequest{Keys: []chassis.Key{d.Key}, Offset: 1},
+			))
+			Expect(res.Chassis).To(BeEmpty())
 		})
 
 		It("Should return not found unless the request ignores it", func(
