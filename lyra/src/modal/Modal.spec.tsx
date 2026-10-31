@@ -77,7 +77,7 @@ describe("Modal", () => {
       expect(withoutIcon.baseElement.querySelector(".test-icon")).toBeNull();
     });
 
-    it("should advertise escape on the close button", async () => {
+    it("should name the close action and its escape key in the tooltip", async () => {
       renderModal(
         <Tooltip.Config delay={0}>
           <Modal.Header>Title</Modal.Header>
@@ -91,7 +91,7 @@ describe("Modal", () => {
         if (el == null) throw new Error("tooltip did not open");
         return el;
       });
-      expect(tip.textContent?.toLowerCase()).toContain("esc");
+      expect(tip.textContent).toBe("CloseEsc");
     });
 
     it("should close the enclosing dialog from the close button", () => {

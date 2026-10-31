@@ -161,7 +161,7 @@ class _NIWriteTaskBase(_NITaskMixin[TaskT], WriteTaskCase[TaskT]):
 class NIAnalogReadTaskCase(_NIReadTaskBase[sy.ni.AnalogReadTask]):
     """Base class for NI analog read task tests."""
 
-    _task_class = sy.ni.AnalogReadTask
+    _task_class: Callable[..., sy.ni.AnalogReadTask] = sy.ni.AnalogReadTask
 
     @staticmethod
     @abstractmethod
@@ -176,7 +176,7 @@ class NIAnalogReadTaskCase(_NIReadTaskBase[sy.ni.AnalogReadTask]):
 class NIDigitalReadTaskCase(_NIReadTaskBase[sy.ni.DigitalReadTask]):
     """Base class for NI digital read task tests."""
 
-    _task_class = sy.ni.DigitalReadTask
+    _task_class: Callable[..., sy.ni.DigitalReadTask] = sy.ni.DigitalReadTask
 
     @staticmethod
     @abstractmethod
@@ -191,7 +191,7 @@ class NIDigitalReadTaskCase(_NIReadTaskBase[sy.ni.DigitalReadTask]):
 class NICounterReadTaskCase(_NIReadTaskBase[sy.ni.CounterReadTask]):
     """Base class for NI counter read task tests."""
 
-    _task_class = sy.ni.CounterReadTask
+    _task_class: Callable[..., sy.ni.CounterReadTask] = sy.ni.CounterReadTask
 
     @staticmethod
     @abstractmethod
@@ -206,7 +206,7 @@ class NICounterReadTaskCase(_NIReadTaskBase[sy.ni.CounterReadTask]):
 class NIAnalogWriteTaskCase(_NIWriteTaskBase[sy.ni.AnalogWriteTask]):
     """Base class for NI analog write task tests."""
 
-    _task_class = sy.ni.AnalogWriteTask
+    _task_class: Callable[..., sy.ni.AnalogWriteTask] = sy.ni.AnalogWriteTask
 
     @staticmethod
     @abstractmethod
@@ -221,7 +221,7 @@ class NIAnalogWriteTaskCase(_NIWriteTaskBase[sy.ni.AnalogWriteTask]):
 class NIDigitalWriteTaskCase(_NIWriteTaskBase[sy.ni.DigitalWriteTask]):
     """Base class for NI digital write task tests."""
 
-    _task_class = sy.ni.DigitalWriteTask
+    _task_class: Callable[..., sy.ni.DigitalWriteTask] = sy.ni.DigitalWriteTask
 
     @staticmethod
     @abstractmethod

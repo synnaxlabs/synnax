@@ -12,14 +12,18 @@ package calculation_test
 import (
 	"context"
 	"fmt"
+	"slices"
+	"sync"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/types"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
@@ -31,7 +35,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/node"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -40,10 +46,11 @@ import (
 var _ = Describe("Calculation", Ordered, func() {
 	var (
 		c             *calculation.Service
-		dist          mock.Node
+		dist          testutil.Node
 		statusSvc     *status.Service
 		channelSvc    *channel.Service
 		channelWriter channel.Writer
+		channelGraph  *calcgraph.Graph
 	)
 	open := func(
 		ctx context.Context,
@@ -109,7 +116,7 @@ var _ = Describe("Calculation", Ordered, func() {
 
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
-		dist = mock.NewNode(ctx)
+		dist = testutil.NewNode(ctx)
 		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: dist.DB}))
 		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB:       dist.DB,
@@ -139,7 +146,7 @@ var _ = Describe("Calculation", Ordered, func() {
 			Framer:  dist.Framer,
 			Channel: channelSvc,
 		}))
-		channelGraph := MustOpen(calcgraph.Open(ctx, calcgraph.Config{
+		channelGraph = MustOpen(calcgraph.Open(ctx, calcgraph.Config{
 			DB:      dist.DB,
 			Channel: channelSvc,
 			Status:  statusSvc,
@@ -890,6 +897,383 @@ var _ = Describe("Calculation", Ordered, func() {
 				Expect(rm.Close(ctx)).To(Succeed())
 			},
 		)
+		Specify(
+			"Should write runtime failures of a dependency after a rejected request",
+			func(ctx SpecContext) {
+				base := channel.Channel{
+					Name:     UniqueChannelName(),
+					DataType: telem.Int64T,
+					Virtual:  true,
+				}
+				Expect(channelWriter.Create(ctx, &base)).To(Succeed())
+				dep := channel.Channel{
+					Name:        UniqueChannelName(),
+					DataType:    telem.Int64T,
+					Virtual:     true,
+					Leaseholder: node.KeyFree,
+					Expression:  fmt.Sprintf("return 100 / %s", base.Name),
+				}
+				Expect(channelWriter.Create(ctx, &dep)).To(Succeed())
+				stored := func() (calculation.Status, error) {
+					var st calculation.Status
+					err := statusSvc.NewRetrieve[struct{}]().
+						Where(status.MatchKeys[struct{}](dep.OntologyID().String())).
+						Entry(&st).
+						Exec(ctx, nil)
+					return st, err
+				}
+				name := base.Name
+				Expect(channelWriter.Rename(
+					ctx, base.Key(), UniqueChannelName(), false,
+				)).To(Succeed())
+				Eventually(stored).
+					Should(HaveField("Message", "Failed to compile calculation"))
+				depRM := c.OpenRequestManager()
+				DeferCleanup(func(ctx SpecContext) {
+					Expect(depRM.Close(ctx)).To(Succeed())
+				})
+				Expect(depRM.Set(ctx, channel.Keys{dep.Key()})).To(Succeed())
+				Expect(stored()).
+					To(HaveField("Message", "Failed to request calculation"))
+				Expect(channelWriter.Rename(ctx, base.Key(), name, false)).
+					To(Succeed())
+				Eventually(func() error {
+					_, err := stored()
+					return err
+				}).Should(MatchError(query.ErrNotFound))
+				reader := channel.Channel{
+					Name:        UniqueChannelName(),
+					DataType:    telem.Int64T,
+					Virtual:     true,
+					Leaseholder: node.KeyFree,
+					Expression:  fmt.Sprintf("return %s * 2", dep.Name),
+				}
+				Expect(channelWriter.Create(ctx, &reader)).To(Succeed())
+				readerRM := c.OpenRequestManager()
+				DeferCleanup(func(ctx SpecContext) {
+					Expect(readerRM.Close(ctx)).To(Succeed())
+				})
+				Expect(readerRM.Set(ctx, channel.Keys{reader.Key()})).To(Succeed())
+				w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+					Start: 1 * telem.SecondTS,
+					Keys:  channel.Keys{base.Key()},
+				}))
+				DeferCleanup(func() { Expect(w.Close()).To(Succeed()) })
+				Eventually(func(g Gomega) {
+					g.Expect(w.Write(frame.NewUnary(
+						base.Key(),
+						telem.NewSeriesV[int64](0),
+					))).To(BeTrue())
+					g.Expect(stored()).To(SatisfyAll(
+						HaveField("Message", "Failed to run calculation"),
+						HaveField(
+							"Description",
+							ContainSubstring("integer divide by zero"),
+						),
+					))
+				}).Should(Succeed())
+			},
+		)
+
+		Describe("Runtime", func() {
+			var (
+				w      *framer.Writer
+				out    confluence.Outlet[streamer.Response]
+				base   channel.Channel
+				calc   channel.Channel
+				mu     sync.Mutex
+				writes []calculation.Status
+			)
+			// openCalc must run in the spec body: the writer closes with its context.
+			openCalc := func(ctx context.Context) {
+				GinkgoHelper()
+				bases := []channel.Channel{{
+					Name:     UniqueChannelName(),
+					DataType: telem.Int64T,
+					Virtual:  true,
+				}}
+				calcs := []channel.Channel{{
+					Name:        UniqueChannelName(),
+					DataType:    telem.Int64T,
+					Virtual:     true,
+					Leaseholder: node.KeyFree,
+					Expression:  fmt.Sprintf("return 100 / %s", bases[0].Name),
+				}}
+				var cancel context.CancelFunc
+				w, out, cancel = open(
+					ctx,
+					nil,
+					&bases,
+					&calcs,
+					channel.KeysFromChannels,
+				)
+				DeferCleanup(cancel)
+				base, calc = bases[0], calcs[0]
+				mu.Lock()
+				writes = nil
+				mu.Unlock()
+				DeferCleanup(statusSvc.Observe().OnChange(func(
+					_ context.Context,
+					r gorp.TxReader[status.Key, status.Status[any]],
+				) {
+					mu.Lock()
+					defer mu.Unlock()
+					for ch := range r {
+						if ch.Key == calc.OntologyID().String() &&
+							ch.Variant == change.VariantSet {
+							writes = append(writes, calculation.Status{
+								Variant:     ch.Value.Variant,
+								Message:     ch.Value.Message,
+								Description: ch.Value.Description,
+							})
+						}
+					}
+				}))
+			}
+			written := func() []calculation.Status {
+				mu.Lock()
+				defer mu.Unlock()
+				return slices.Clone(writes)
+			}
+			write := func(values ...int64) {
+				GinkgoHelper()
+				Expect(w.Write(frame.NewUnary(
+					base.Key(),
+					telem.NewSeriesV(values...),
+				))).To(BeTrue())
+			}
+			// A good frame flushes the frames before it, since one goroutine runs the
+			// calculation of every frame in order.
+			writeGood := func() {
+				GinkgoHelper()
+				write(5)
+				var res framer.StreamerResponse
+				Eventually(out.Outlet()).Should(Receive(&res))
+				Expect(res.Frame.Get(calc.Key()).Series[0]).
+					To(telem.MatchSeriesDataV[int64](20))
+			}
+			failure := func() types.GomegaMatcher {
+				return SatisfyAll(
+					HaveField("Variant", status.VariantError),
+					HaveField("Message", "Failed to run calculation"),
+					HaveField(
+						"Description",
+						ContainSubstring("integer divide by zero"),
+					),
+				)
+			}
+			success := calculation.Status{
+				Variant: status.VariantSuccess,
+				Message: "Calculation running",
+			}
+
+			It(
+				"Should write a failure once until its text changes",
+				func(ctx SpecContext) {
+					openCalc(ctx)
+					write(0)
+					write(0)
+					write(0)
+					Eventually(written).Should(ConsistOf(failure()))
+					write(0, 0)
+					Eventually(written).Should(HaveLen(2))
+					got := written()
+					Expect(got).To(HaveEach(failure()))
+					Expect(got[1].Description).ToNot(Equal(got[0].Description))
+					writeGood()
+					Expect(written()).To(HaveLen(3))
+				},
+			)
+
+			It(
+				"Should write a success on the first good frame after a failure",
+				func(ctx SpecContext) {
+					openCalc(ctx)
+					writeGood()
+					Expect(written()).To(BeEmpty())
+					write(0)
+					Eventually(written).Should(ConsistOf(failure()))
+					writeGood()
+					writeGood()
+					Expect(written()).To(HaveExactElements(failure(), success))
+				},
+			)
+
+			It(
+				"Should write a success after a rebuild during a failure",
+				func(ctx SpecContext) {
+					openCalc(ctx)
+					write(0)
+					Eventually(written).Should(ConsistOf(failure()))
+					sibling := channel.Channel{
+						Name:        UniqueChannelName(),
+						DataType:    telem.Int64T,
+						Virtual:     true,
+						Leaseholder: node.KeyFree,
+						Expression:  fmt.Sprintf("return %s * 2", base.Name),
+					}
+					Expect(channelWriter.Create(ctx, &sibling)).To(Succeed())
+					rm := c.OpenRequestManager()
+					Expect(rm.Set(ctx, channel.Keys{sibling.Key()})).To(Succeed())
+					DeferCleanup(func(ctx SpecContext) {
+						Expect(rm.Close(ctx)).To(Succeed())
+					})
+					writeGood()
+					Eventually(written).
+						Should(HaveExactElements(failure(), success))
+				},
+			)
+
+			// flushChanges returns after the Service handles each channel change made
+			// before the call: the channel graph notifies one batch at a time.
+			flushChanges := func(ctx context.Context) {
+				GinkgoHelper()
+				name := UniqueChannelName()
+				seen := make(chan struct{})
+				disconnect := channelGraph.Observe().OnChange(func(
+					_ context.Context,
+					r calcgraph.Changes,
+				) {
+					for ch := range r {
+						if ch.Value.Name == name {
+							close(seen)
+						}
+					}
+				})
+				defer disconnect()
+				Expect(channelWriter.Create(ctx, &channel.Channel{
+					Name:     name,
+					DataType: telem.Int64T,
+					Virtual:  true,
+				})).To(Succeed())
+				Eventually(seen).Should(BeClosed())
+			}
+
+			It(
+				"Should keep a failure after a rename of the channel",
+				func(ctx SpecContext) {
+					openCalc(ctx)
+					write(0)
+					Eventually(written).Should(ConsistOf(failure()))
+					Expect(channelWriter.Rename(
+						ctx, calc.Key(), UniqueChannelName(), false,
+					)).To(Succeed())
+					flushChanges(ctx)
+					writeGood()
+					Eventually(written).
+						Should(HaveExactElements(failure(), success))
+				},
+			)
+
+			It(
+				"Should keep a failure after a second request of the channel",
+				func(ctx SpecContext) {
+					openCalc(ctx)
+					write(0)
+					Eventually(written).Should(ConsistOf(failure()))
+					rm := c.OpenRequestManager()
+					Expect(rm.Set(ctx, channel.Keys{calc.Key()})).To(Succeed())
+					DeferCleanup(func(ctx SpecContext) {
+						Expect(rm.Close(ctx)).To(Succeed())
+					})
+					writeGood()
+					Eventually(written).
+						Should(HaveExactElements(failure(), success))
+				},
+			)
+			// failAndRebuild sends a failing and a good frame, rebuilds the group with
+			// a sibling calculation of baseName, and sends a good frame.
+			failAndRebuild := func(ctx context.Context, baseName string) {
+				GinkgoHelper()
+				write(0)
+				writeGood()
+				sibling := channel.Channel{
+					Name:        UniqueChannelName(),
+					DataType:    telem.Int64T,
+					Virtual:     true,
+					Leaseholder: node.KeyFree,
+					Expression:  fmt.Sprintf("return %s * 2", baseName),
+				}
+				Expect(channelWriter.Create(ctx, &sibling)).To(Succeed())
+				rm := c.OpenRequestManager()
+				Expect(rm.Set(ctx, channel.Keys{sibling.Key()})).To(Succeed())
+				DeferCleanup(func(ctx SpecContext) {
+					Expect(rm.Close(ctx)).To(Succeed())
+				})
+				writeGood()
+			}
+			compileFailure := func() types.GomegaMatcher {
+				return HaveField("Message", "Failed to compile calculation")
+			}
+
+			It(
+				"Should keep a compile failure through runtime failures and rebuilds",
+				func(ctx SpecContext) {
+					openCalc(ctx)
+					dependent := channel.Channel{
+						Name:        UniqueChannelName(),
+						DataType:    telem.Int64T,
+						Virtual:     true,
+						Leaseholder: node.KeyFree,
+						Expression:  fmt.Sprintf("return %s * 2", calc.Name),
+					}
+					Expect(channelWriter.Create(ctx, &dependent)).To(Succeed())
+					calc.Expression = fmt.Sprintf(
+						"return %s + 100 / %s", dependent.Name, base.Name,
+					)
+					Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+					Eventually(written).Should(ContainElement(SatisfyAll(
+						compileFailure(),
+						HaveField("Description", ContainSubstring("circular")),
+					)))
+					failAndRebuild(ctx, base.Name)
+					Expect(written()).To(HaveEach(compileFailure()))
+				},
+			)
+
+			It(
+				"Should keep a compile failure after a dependency rename without a save",
+				func(ctx SpecContext) {
+					openCalc(ctx)
+					baseName := UniqueChannelName()
+					Expect(channelWriter.Rename(ctx, base.Key(), baseName, false)).
+						To(Succeed())
+					Eventually(written).Should(ContainElement(compileFailure()))
+					failAndRebuild(ctx, baseName)
+					Expect(written()).To(HaveEach(compileFailure()))
+				},
+			)
+
+			It(
+				"Should write a failure again after a dependency is renamed away and back",
+				func(ctx SpecContext) {
+					openCalc(ctx)
+					write(0)
+					Eventually(written).Should(ConsistOf(failure()))
+					name := base.Name
+					Expect(channelWriter.Rename(
+						ctx, base.Key(), UniqueChannelName(), false,
+					)).To(Succeed())
+					Eventually(written).Should(ContainElement(compileFailure()))
+					Expect(channelWriter.Rename(ctx, base.Key(), name, false)).
+						To(Succeed())
+					stored := func() (calculation.Status, error) {
+						var st calculation.Status
+						err := statusSvc.NewRetrieve[struct{}]().
+							Where(status.MatchKeys[struct{}](calc.OntologyID().String())).
+							Entry(&st).
+							Exec(ctx, nil)
+						return st, err
+					}
+					Eventually(func() error {
+						_, err := stored()
+						return err
+					}).Should(MatchError(query.ErrNotFound))
+					write(0)
+					Eventually(stored).Should(failure())
+				},
+			)
+		})
 
 		Specify("Should use channel ontology ID as status key", func(ctx SpecContext) {
 			base := channel.Channel{

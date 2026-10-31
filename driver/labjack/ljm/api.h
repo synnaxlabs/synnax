@@ -23,8 +23,10 @@ const std::string LJM_LIBRARY_NAME = "LabjackM.dll";
 #endif
 
 const LibraryInfo LIBRARY_INFO = {
-    "LabJack LJM shared",
-    "https://support.labjack.com/docs/ljm-software-installer-downloads-t4-t7-t8-digit"
+    .name = "LabJack LJM shared",
+    .url = "https://support.labjack.com/docs/"
+           "ljm-software-installer-downloads-t4-t7-t8-digit",
+    .lazy = true,
 };
 
 const auto LOAD_ERROR = errors::missing_lib(LIBRARY_INFO);

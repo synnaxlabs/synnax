@@ -72,6 +72,9 @@ html {
     --pluto-tiny-size: round(2.166rem, 1px);
     --pluto-tiny-weight: 350;
     --pluto-tiny-line-height: calc(var(--pluto-tiny-size) * 1.5);
+
+    /* Keys print at the docs small size, not at the tiny size the Console uses. */
+    --pluto-keycap-font-size: var(--pluto-small-size);
     --pluto-height-large: 5.75rem;
     --pluto-height-medium: 5rem;
     --pluto-shadow-v1:

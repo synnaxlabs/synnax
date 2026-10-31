@@ -18,7 +18,7 @@ import (
 	. "github.com/synnaxlabs/freighter/grpc/testutil"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -48,7 +48,7 @@ func TestFramer(t *testing.T) {
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	node := mock.NewNode(ctx)
+	node := testutil.NewNode(ctx)
 	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
 	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB:       node.DB,

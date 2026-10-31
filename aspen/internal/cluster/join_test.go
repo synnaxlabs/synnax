@@ -22,9 +22,9 @@ import (
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/encoding/gob"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/signal"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 var _ = Describe("Open", func() {

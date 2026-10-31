@@ -11,7 +11,7 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Status } from "@synnaxlabs/lyra/status";
 
-import { useIsPreview } from "@/platform/task/Form";
+import { useIsPreview } from "@/platform/task/useIsPreview";
 
 export interface EnabledCheckboxProps {
   /** The path of the item's `disabled` flag. */
