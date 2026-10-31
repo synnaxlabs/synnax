@@ -19,6 +19,7 @@ import {
   registerMockLogSource,
 } from "@/log/aether/telem/mock";
 import { type LogEntry } from "@/log/aether/telem/types";
+import { telem } from "@/telem/aether";
 import { renderAether } from "@/testutil/renderAether";
 import { canvasTest } from "@/vis/render/testutil";
 
@@ -129,6 +130,22 @@ describe("log/aether/Log", () => {
 
     it("should keep empty true when no entries", () => {
       const { log } = setup([]);
+      expect(log.state.empty).toBe(true);
+    });
+
+    it("should set empty to false while the source loads", () => {
+      const { log, source } = setup([]);
+      source.status = telem.LOADING_STATUS;
+      source.notify();
+      expect(log.state.empty).toBe(false);
+    });
+
+    it("should set empty to true when the source loads no entries", () => {
+      const { log, source } = setup([]);
+      source.status = telem.LOADING_STATUS;
+      source.notify();
+      source.status = telem.SUCCESS_STATUS;
+      source.notify();
       expect(log.state.empty).toBe(true);
     });
   });
@@ -285,19 +302,6 @@ describe("log/aether/Log", () => {
       expect(parsed.channels).toHaveLength(2);
       expect(parsed.channels[0].color).toEqual([255, 0, 0, 1]);
       expect(parsed.channels[0].precision).toBe(3);
-    });
-  });
-
-  describe("empty tracking", () => {
-    it("should set empty to false when entries arrive", () => {
-      const entries = Array.from({ length: 7 }, (_, i) => makeEntry(i));
-      const { log } = setup(entries);
-      expect(log.state.empty).toBe(false);
-    });
-
-    it("should keep empty true when no entries", () => {
-      const { log } = setup([]);
-      expect(log.state.empty).toBe(true);
     });
   });
 

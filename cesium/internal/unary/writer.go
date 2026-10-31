@@ -315,6 +315,10 @@ func (w *Writer) write(
 		return 0, w.wrapError(err)
 	}
 	if *w.cfg.Persist && dw.Len() == 0 {
+		// Extend first, so that no delete can reach the domain setStart checks.
+		if err = w.control.Extend(w.domainStart); err != nil {
+			return 0, w.wrapError(err)
+		}
 		if err = dw.setStart(w.domainStart); err != nil {
 			return 0, w.wrapError(err)
 		}
@@ -347,7 +351,8 @@ func (w *Writer) write(
 }
 
 // SetDomainStart sets where the writer's domain starts, in place of Start. It applies
-// at the next persisted write, and only while the domain holds no data.
+// at the next persisted write, and only while the domain holds no data. A start before
+// the writer's control region moves the region back to it.
 func (w *Writer) SetDomainStart(start telem.TimeStamp) { w.domainStart = start }
 
 func (w *Writer) SetAuthority(a xcontrol.Authority) control.Transfer {

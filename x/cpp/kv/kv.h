@@ -33,14 +33,14 @@ struct JSONFileConfig {
     std::filesystem::path path;
     /// @brief the mode to set the directory to if it doesn't exist.
     std::filesystem::perms dir_mode;
-    /// @brief the mode to set the file to if it doesn't exist.
+    /// @brief the mode the file is set to when it is opened.
     std::filesystem::perms file_mode;
 };
 
 /// @brief a KV implementation backed by a JSOn file on-disk.
 class JSONFile final : public KV {
     std::filesystem::path path;
-    json data_;
+    nlohmann::json data_;
 
 public:
     /// @brief opens the key-value store using the provided configuration. If the
@@ -57,6 +57,6 @@ public:
     /// @brief implements KV.
     errors::Error del(const std::string &key) override;
 
-    JSONFile(const std::string &path, json data);
+    JSONFile(const std::string &path, nlohmann::json data);
 };
 }

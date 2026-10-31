@@ -14,7 +14,7 @@ from playwright.sync_api import Locator, expect
 import synnax as sy
 from console.layout import LayoutClient
 from console.multiedit import Colors
-from console.page import ConsolePage
+from console.page import ConsolePage, PageType
 
 _DATA_ROW_SELECTOR = ".pluto-table__row:not(.pluto-table__col-resizer)"
 
@@ -22,7 +22,7 @@ _DATA_ROW_SELECTOR = ".pluto-table__row:not(.pluto-table__col-resizer)"
 class Table(ConsolePage):
     """Table page management interface"""
 
-    page_type = "Table"
+    page_type: PageType = "Table"
     pluto_label: str = ".pluto-table"
 
     def __init__(

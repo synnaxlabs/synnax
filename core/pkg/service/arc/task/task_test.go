@@ -26,7 +26,7 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	svcarc "github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/ranges"
 	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
@@ -91,7 +91,7 @@ var _ = Describe("Task", Ordered, func() {
 
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
-		node := mock.NewNode(ctx)
+		node := testutil.NewNode(ctx)
 		db = node.DB
 		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
 		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
@@ -958,6 +958,15 @@ var _ = Describe("Task", Ordered, func() {
 				Expect(stat.Details.Running).To(BeFalse())
 			},
 		)
+
+		It("Should fail to start when its context is canceled", func(ctx SpecContext) {
+			ch := createVirtualCh(ctx, "start_canceled", telem.Float32T)
+			t := newTask(ctx, newGraphFactory(simpleGraph(ch.Key())))
+			cancelCtx, cancel := context.WithCancel(ctx)
+			cancel()
+			Expect(t.Exec(cancelCtx, task.Command{Type: "start"})).
+				To(MatchError(context.Canceled))
+		})
 	})
 
 	Describe("Alarm Flow", func() {
@@ -3858,7 +3867,7 @@ START => main
 		)
 	})
 
-	Describe("Forwarded stamps", func() {
+	Describe("Writer start", func() {
 		It(
 			"Should store a forwarded stamp from before the task started",
 			func(ctx SpecContext) {
@@ -3877,17 +3886,58 @@ START => main
 					Start: stamp,
 				}))
 				defer func() { Expect(fw.Close()).To(Succeed()) }()
-				// The task subscribes to src after Exec returns, so a write can land
-				// before it listens. Each attempt writes a new stamp.
+				Expect(fw.Write(frame.NewMulti(keys, []telem.Series{
+					telem.NewSeriesV(stamp),
+					telem.NewSeriesV[uint8](1),
+				}))).To(BeTrue())
 				Eventually(func(g Gomega) {
-					g.Expect(fw.Write(frame.NewMulti(keys, []telem.Series{
-						telem.NewSeriesV(stamp),
-						telem.NewSeriesV[uint8](1),
-					}))).To(BeTrue())
-					stamp = stamp.Add(telem.Millisecond)
 					_, stamps := readStored(ctx, outIdx, out)
-					g.Expect(stamps).ToNot(BeEmpty())
-					g.Expect(stamps[0]).To(BeNumerically("<", started))
+					g.Expect(stamps).To(Equal([]telem.TimeStamp{stamp}))
+				}).Should(Succeed())
+			},
+		)
+
+		It(
+			"Should start when stored data covers the start time",
+			func(ctx SpecContext) {
+				srcIdx, src := createIndexed(ctx, "covered_src")
+				outIdx, out := createIndexed(ctx, "covered_out")
+				now := telem.Now()
+				stored := []telem.TimeStamp{
+					now.Add(-telem.Minute),
+					now.Add(telem.Minute),
+				}
+				outKeys := []channel.Key{outIdx.Key(), out.Key()}
+				ow := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+					Keys:  outKeys,
+					Start: stored[0],
+				}))
+				Expect(ow.Write(frame.NewMulti(outKeys, []telem.Series{
+					telem.NewSeries(stored),
+					telem.NewSeriesV[uint8](1, 2),
+				}))).To(BeTrue())
+				MustSucceed(ow.Commit())
+				Expect(ow.Close()).To(Succeed())
+
+				prog := arc.Text{Raw: fmt.Sprintf("%s -> %s\n", src.Name, out.Name)}
+				t := newTask(ctx, newTextFactory(ctx, prog))
+				Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+				defer func() { Expect(t.Stop(false)).To(Succeed()) }()
+
+				srcKeys := []channel.Key{srcIdx.Key(), src.Key()}
+				stamp := now.Add(2 * telem.Minute)
+				sw := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+					Keys:  srcKeys,
+					Start: stamp,
+				}))
+				defer func() { Expect(sw.Close()).To(Succeed()) }()
+				Expect(sw.Write(frame.NewMulti(srcKeys, []telem.Series{
+					telem.NewSeriesV(stamp),
+					telem.NewSeriesV[uint8](3),
+				}))).To(BeTrue())
+				Eventually(func(g Gomega) {
+					_, stamps := readStored(ctx, outIdx, out)
+					g.Expect(stamps).To(Equal(append(stored, stamp)))
 				}).Should(Succeed())
 			},
 		)

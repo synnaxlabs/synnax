@@ -10,12 +10,10 @@
 package gossip_test
 
 import (
-	"fmt"
 	"sync"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
 	"github.com/synnaxlabs/aspen/internal/cluster/store"
 	"github.com/synnaxlabs/aspen/internal/node"
@@ -24,49 +22,17 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-type convergenceVars struct {
-	nodeCount            int
-	convergenceThreshold int
-	initialViewCount     int
-}
-
-var progressiveConvergence = []convergenceVars{
-	{
-		nodeCount:            4,
-		initialViewCount:     2,
-		convergenceThreshold: 10,
-	},
-	{
-		nodeCount:            10,
-		initialViewCount:     2,
-		convergenceThreshold: 10,
-	},
-	{
-		nodeCount:            30,
-		initialViewCount:     2,
-		convergenceThreshold: 10,
-	},
-	{
-		nodeCount:            100,
-		initialViewCount:     5,
-		convergenceThreshold: 10,
-	},
-}
-
 var _ = Describe("Convergence", func() {
 	var net *freightertestutil.Network[gossip.Message, gossip.Message]
 	BeforeEach(func() {
 		net = freightertestutil.NewNetwork[gossip.Message, gossip.Message]()
 	})
-	p := alamos.NewParametrize(alamos.IterVars(progressiveConvergence))
-	p.Template(func(i int, values convergenceVars) {
-		It(fmt.Sprintf("Should converge store across %v nodes in %v cycles",
-			values.nodeCount,
-			values.convergenceThreshold,
-		), func(ctx SpecContext) {
+	DescribeTable(
+		"Should converge the store",
+		func(ctx SpecContext, nodeCount, initialViewCount, cycles int) {
 			group := make(node.Group)
 			configs := make(map[node.Key]gossip.Config)
-			for i := 1; i <= values.nodeCount; i++ {
+			for i := 1; i <= nodeCount; i++ {
 				server := net.UnaryServer("")
 				n := node.Node{Key: node.Key(i), Address: server.Address()}
 				group[n.Key] = n
@@ -80,7 +46,7 @@ var _ = Describe("Convergence", func() {
 				stores  []store.Store
 			)
 			for _, n := range group {
-				subNodes := rand.SubMap(group.WhereNot(n.Key), values.initialViewCount)
+				subNodes := rand.SubMap(group.WhereNot(n.Key), initialViewCount)
 				subNodes[n.Key] = n
 				s := store.New(ctx)
 				s.SetState(ctx, store.State{Nodes: subNodes, HostKey: n.Key})
@@ -90,7 +56,7 @@ var _ = Describe("Convergence", func() {
 				gossips = append(gossips, g)
 				stores = append(stores, s)
 			}
-			for range values.convergenceThreshold {
+			for range cycles {
 				wg := sync.WaitGroup{}
 				for _, g := range gossips {
 					wg.Add(1)
@@ -103,9 +69,12 @@ var _ = Describe("Convergence", func() {
 				wg.Wait()
 			}
 			for _, s := range stores {
-				Expect(s.CopyState().Nodes).To(HaveLen(values.nodeCount))
+				Expect(s.CopyState().Nodes).To(HaveLen(nodeCount))
 			}
-		})
-	})
-	p.Construct()
+		},
+		Entry("across 4 nodes in 10 cycles", 4, 2, 10),
+		Entry("across 10 nodes in 10 cycles", 10, 2, 10),
+		Entry("across 30 nodes in 10 cycles", 30, 2, 10),
+		Entry("across 100 nodes in 10 cycles", 100, 5, 10),
+	)
 })
