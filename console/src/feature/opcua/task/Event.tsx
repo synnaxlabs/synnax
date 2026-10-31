@@ -103,7 +103,7 @@ const NodeList = ({
         ) : (
           nodes.map((nodeId) => (
             <Flex.Box key={nodeId} x align="center" justify="between">
-              <Text.Text level="small" color={10} gap="small" overflow="ellipsis">
+              <Text.Text level="small" color={10} gap="small" overflow="fade">
                 {icon}
                 {nodeId}
               </Text.Text>
