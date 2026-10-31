@@ -9,10 +9,14 @@
 
 import { describe } from "vitest";
 
-import { payloadZ, whereZ } from "@/task/types.gen";
+import { task } from "@/task";
 import { matches, serverComputed } from "@/task/where.gen";
 import { itMatchesVectors, readVectors } from "@/testutil/vectors";
 
 describe("Where", () => {
-  itMatchesVectors(readVectors("tasks", payloadZ(), whereZ), matches, serverComputed);
+  itMatchesVectors(
+    readVectors("tasks", task.payloadZ(), task.whereZ),
+    matches,
+    serverComputed,
+  );
 });
