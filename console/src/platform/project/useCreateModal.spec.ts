@@ -36,7 +36,7 @@ describe("Project.useCreateModal", () => {
     const createBtn = await waitFor(() =>
       screen.getByRole("button", { name: "Create" }),
     );
-    expect(createBtn.className).toContain("pluto--disabled");
+    expect(createBtn.className).toContain("lyra--disabled");
   });
 
   it("creates the project on the Core, activates it, and closes", async () => {

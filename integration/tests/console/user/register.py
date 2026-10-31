@@ -12,7 +12,7 @@
 from console.case import ConsoleCase
 from x import random_name
 
-BUILTIN_ROLES = ["Owner", "Engineer", "Host", "Operator", "Viewer"]
+BUILTIN_ROLES = ["Owner", "Engineer", "Driver", "Operator", "Viewer"]
 PASSWORD = "testpassword123"
 
 
@@ -66,7 +66,7 @@ class UserRegister(ConsoleCase):
 
         self.log("User registered, verifying in UI...")
         self.console.access.expand_role(role_name)
-        self.console.access.wait_for_user_role(self.username, role_name)
+        self.console.access.wait_for_user_role(self.username, role_name=role_name)
 
     def test_change_role(self) -> None:
         """Change a user's role and verify they move between roles."""
@@ -78,11 +78,13 @@ class UserRegister(ConsoleCase):
 
         self.console.access.expand_role("Engineer")
         self.console.access.wait_for_user_role(
-            self.username, "Engineer", previous_role="Operator"
+            self.username, role_name="Engineer", previous_role="Operator"
         )
 
     def test_role_change_affects_permissions(self) -> None:
-        """Log in as the user (now Engineer) and verify they gained Engineer permissions."""
+        """Log in as the user (now Engineer) and verify they gained Engineer
+        permissions.
+        """
         self.log("Logging in as changed user to verify permissions")
         self.console.access.logout()
         self.console.access.login(username=self.username, password=PASSWORD)
@@ -156,7 +158,7 @@ class UserRegister(ConsoleCase):
         self.console.access.expand_role("Operator")
 
         for username in usernames:
-            self.console.access.ensure_user_visible(username, "Operator")
+            self.console.access.ensure_user_visible(username, role_name="Operator")
 
         self.log(f"Deleting users: {usernames}")
         self.console.access.delete_users(usernames)

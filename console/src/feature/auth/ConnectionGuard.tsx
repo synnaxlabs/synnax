@@ -60,7 +60,7 @@ const PermissionsFallback = ({
   ...props
 }: Access.PermissionsFallbackProps): ReactElement => {
   const { error } = props;
-  const logout = Session.useLogout();
+  const logout = Core.useLogout();
   // A denial is an expected state, not a crash, so it gets a calm surface.
   if (AccessDeniedError.matches(error) || AccessDeniedError.matches(error.cause))
     return <Denied retry={retry} />;
@@ -83,7 +83,7 @@ interface DeniedProps {
 }
 
 const Denied = ({ retry }: DeniedProps): ReactElement => {
-  const logout = Session.useLogout();
+  const logout = Core.useLogout();
   const target = Session.Core.useSelectSelected();
   const { data: name } = User.useResultName({});
   const subject = name != null ? ` for ${name}` : "";
@@ -185,7 +185,7 @@ const Splash = ({ status }: SplashProps): ReactElement => {
 
 const Trouble = (): ReactElement => {
   const activeKey = Session.Core.useSelectSelectedKey();
-  const logout = Session.useLogout();
+  const logout = Core.useLogout();
   const openConnect = Core.useConnectModal();
   return (
     <Flex.Box y gap="large" full="x">

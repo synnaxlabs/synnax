@@ -50,7 +50,7 @@ class CalcChannelStress(ConsoleCase):
         self, base_name: str, count: int, index_key: int
     ) -> list[sy.Channel]:
         names = [f"{base_name}_{i + 1}" for i in range(count)]
-        return create_indexed_channels(self.client, names, index_key)
+        return create_indexed_channels(self.client, names, index_key=index_key)
 
     def _start_stress_writer(self) -> None:
         """Start the stress writer in a background thread."""
@@ -134,8 +134,9 @@ class CalcChannelStress(ConsoleCase):
                 sy.TimeStamp.now(),
                 channels=[ch.key for ch in all_channels],
             ) as writer:
-                i = 0
-                while loop.wait() and not self._stop_event.is_set():
+                for i, _ in enumerate(loop):
+                    if self._stop_event.is_set():
+                        break
                     current_time = sy.TimeStamp.now()
                     data_to_write: CrudeFrame = {timestamp_channel.key: current_time}
 
@@ -159,7 +160,6 @@ class CalcChannelStress(ConsoleCase):
                         data_to_write[ch.key] = ((j + 1) * 0.1 * i + j) % WRAP_THRESHOLD
 
                     writer.write(data_to_write)
-                    i += 1
 
         self._stress_thread = threading.Thread(target=write_loop, daemon=True)
         self._stress_thread.start()

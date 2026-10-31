@@ -193,3 +193,38 @@ var _ = Describe("Fields inheritance and actions", func() {
 		Expect(form.Actions[0].Fields[0].Name).To(Equal("name"))
 	})
 })
+
+var _ = Describe("IsAbsent", func() {
+	output := resolution.Expression{
+		Name:   "output",
+		Values: []resolution.ExpressionValue{{StringValue: "ts/out"}},
+	}
+	DescribeTable("should report whether the struct exists in the language",
+		func(t resolution.Type, expected bool) {
+			Expect(omit.IsAbsent(t, "ts")).To(Equal(expected))
+		},
+		Entry("with an output", resolution.Type{
+			Domains: map[string]resolution.Domain{
+				"ts": {Expressions: []resolution.Expression{output}},
+			},
+		}, false),
+		Entry("hand-written at an output", resolution.Type{
+			Domains: map[string]resolution.Domain{
+				"ts": {Expressions: []resolution.Expression{output, {Name: "hand"}}},
+			},
+		}, false),
+		Entry("in a version file", resolution.Type{
+			FilePath: "schemas/x/versions/color/v0.oracle",
+		}, false),
+		Entry("omitted", resolution.Type{
+			Domains: map[string]resolution.Domain{
+				"ts": {Expressions: []resolution.Expression{output, {Name: "omit"}}},
+			},
+		}, true),
+		Entry("with no output", resolution.Type{
+			Domains: map[string]resolution.Domain{
+				"go": {Expressions: []resolution.Expression{output}},
+			},
+		}, true),
+	)
+})

@@ -63,9 +63,14 @@ type Transport struct {
 	AuthLogin           freighter.UnaryServer[auth.LoginRequest, auth.LoginResponse]
 	AuthChangePassword  freighter.UnaryServer[auth.ChangePasswordRequest, struct{}]
 	AuthSessionCreate   freighter.UnaryServer[auth.SessionCreateRequest, auth.SessionCreateResponse]
-	AuthSessionRenew    freighter.UnaryServer[struct{}, struct{}]
+	AuthSessionRenew    freighter.UnaryServer[struct{}, auth.SessionRenewResponse]
 	AuthSessionRetrieve freighter.UnaryServer[auth.SessionRetrieveRequest, auth.SessionRetrieveResponse]
 	AuthSessionDelete   freighter.UnaryServer[auth.SessionDeleteRequest, struct{}]
+	AuthKeyCreate       freighter.UnaryServer[auth.KeyCreateRequest, auth.KeyCreateResponse]
+	AuthKeyRetrieve     freighter.UnaryServer[auth.KeyRetrieveRequest, auth.KeyRetrieveResponse]
+	AuthKeyDelete       freighter.UnaryServer[auth.KeyDeleteRequest, struct{}]
+	// AuthPasswordSet sets the caller's password or another user's.
+	AuthPasswordSet freighter.UnaryServer[auth.PasswordSetRequest, auth.PasswordSetResponse]
 	// USER
 	UserRename         freighter.UnaryServer[user.RenameRequest, struct{}]
 	UserChangeUsername freighter.UnaryServer[user.ChangeUsernameRequest, struct{}]
@@ -296,6 +301,10 @@ func (l *Layer) BindTo(t Transport) {
 
 		// AUTH
 		t.AuthChangePassword,
+		t.AuthKeyCreate,
+		t.AuthKeyRetrieve,
+		t.AuthKeyDelete,
+		t.AuthPasswordSet,
 
 		// USER
 		t.UserRename,
@@ -474,6 +483,10 @@ func (l *Layer) BindTo(t Transport) {
 	t.AuthSessionRenew.BindHandler(l.Auth.RenewSession)
 	t.AuthSessionRetrieve.BindHandler(l.Auth.RetrieveSessions)
 	t.AuthSessionDelete.BindHandler(l.Auth.DeleteSessions)
+	t.AuthKeyCreate.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Auth.CreateKey))
+	t.AuthKeyRetrieve.BindHandler(l.Auth.RetrieveKeys)
+	t.AuthKeyDelete.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Auth.DeleteKeys))
+	t.AuthPasswordSet.BindHandler(fgorp.CreateWriteUnaryHandler(db, l.Auth.SetPassword))
 
 	// LICENSE
 	t.LicenseRetrieve.BindHandler(l.License.Retrieve)
@@ -694,6 +707,8 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 	if l.Auth, err = auth.NewService(auth.ServiceConfig{
 		Auth:     cfg.Service.Auth,
 		Password: cfg.Service.Password,
+		APIKey:   cfg.Service.APIKey,
+		Ontology: cfg.Service.Ontology,
 		User:     cfg.Service.User,
 		RBAC:     cfg.Service.RBAC,
 		Cluster:  cfg.Distribution.Cluster,
@@ -821,6 +836,7 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		Task:   cfg.Service.Task,
 		Status: cfg.Service.Status,
 		RBAC:   cfg.Service.RBAC,
+		Auth:   cfg.Service.Auth,
 	}); err != nil {
 		return nil, err
 	}

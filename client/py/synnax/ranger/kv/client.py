@@ -43,7 +43,7 @@ class Client:
     _client: UnaryClient
     _rng_key: uuid.UUID
 
-    def __init__(self, rng: uuid.UUID, client: UnaryClient) -> None:
+    def __init__(self, *, rng: uuid.UUID, client: UnaryClient) -> None:
         self._client = client
         self._rng_key = rng
 

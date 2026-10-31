@@ -90,6 +90,8 @@ In each instance:
    Admin tab.
 2. Sign-in options: Google and Microsoft. Production needs its own OAuth credentials for
    both, with the redirect URLs the dashboard shows.
+3. User model: turn on first and last name. Without it, email sign-up fails with
+   "first_name is not a valid parameter for this request."
 
 In the production instance only:
 

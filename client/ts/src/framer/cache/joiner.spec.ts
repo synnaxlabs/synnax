@@ -12,13 +12,13 @@ import { type breaker, Rate, Size, sleep, TimeSpan, TimeStamp } from "@synnaxlab
 import { describe, expect, it } from "vitest";
 
 import { type channel } from "@/channel";
-import { UnsupportedError } from "@/errors";
 import { rawIndex } from "@/framer/cache/block";
 import { Joins } from "@/framer/cache/join";
 import { Joiner } from "@/framer/cache/joiner";
 import { Reader, type RemoteReader } from "@/framer/cache/reader";
 import { Store } from "@/framer/cache/store";
 import { MultiplexedStreamer } from "@/framer/cache/streamer";
+import { UnsupportedError } from "@/index";
 import { SyntheticCore, type SyntheticCoreProps } from "@/testutil";
 
 const START = TimeStamp.seconds(1_000_000);

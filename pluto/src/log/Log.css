@@ -22,8 +22,4 @@
     &:focus-visible {
         outline: none;
     }
-
-    & .pluto-log__content {
-        height: 100%;
-    }
 }
