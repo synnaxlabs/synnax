@@ -110,9 +110,10 @@ TEST(ClibClient, testCloseClientOnNullIsSafe) {
 TEST(ClibClient, testConnectsToLocalCluster) {
     SynnaxError err;
     SynnaxClient *client = nullptr;
+    const auto cfg = test_client_config();
     const int32_t code = synnax_client_open(
-        "localhost",
-        9090,
+        cfg.host.c_str(),
+        cfg.port,
         "synnax",
         "seldon",
         nullptr,
@@ -133,9 +134,10 @@ TEST(ClibClient, ConnectsWithAPIKey) {
     const auto created = ASSERT_NIL_P(admin.api_keys.create("clib"));
     SynnaxError err;
     SynnaxClient *client = nullptr;
+    const auto cfg = test_client_config();
     const int32_t code = synnax_client_open(
-        "localhost",
-        9090,
+        cfg.host.c_str(),
+        cfg.port,
         nullptr,
         nullptr,
         created.token.c_str(),

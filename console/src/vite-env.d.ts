@@ -10,6 +10,8 @@
 /// <reference types="vite/client" />
 
 declare const IS_DEV: boolean;
+/** The port of the Core that a dev Console connects to. */
+declare const CORE_PORT: number;
 /**
  * True in a Synnax Desktop build. Only the composition root (`app/`) reads it; lower
  * layers stay the same for both apps.

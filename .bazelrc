@@ -1,6 +1,11 @@
 # The version stamped into the Driver; release builds override it.
 build --define=SYNNAX_DRIVER_VERSION=0.0.0
 
+# The Core that live tests connect to. A test inherits these from the shell, and their
+# values join its cache key, so changing one reruns the test.
+build --test_env=SYNNAX_HOST
+build --test_env=SYNNAX_PORT
+
 # Enable platform-specific configs
 common --enable_platform_specific_config
 
