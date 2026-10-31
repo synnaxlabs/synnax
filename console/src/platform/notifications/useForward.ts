@@ -19,12 +19,11 @@ import { useEffect } from "react";
  */
 export type Kind = "reply" | "alarm" | "state";
 
-/** Arguments for {@link Rule.inUse}. */
-export interface InUseArgs {
+/** Parameters for {@link Rule.inUse}. */
+export interface InUseParams {
   client: Client;
   /** The key of the thing, which is the part of the status key after its type. */
   key: string;
-  status: status.Status;
 }
 
 /** How the statuses on the keys that one feature owns notify. */
@@ -35,7 +34,7 @@ export interface Rule {
    * @returns whether the thing that a state is about is in use. Runs only when a new
    * problem starts on the key. Leave it out when the thing is always in use.
    */
-  inUse?: (args: InUseArgs) => Promise<boolean>;
+  inUse?: (params: InUseParams) => Promise<boolean>;
   /** Whether a warning notifies only if its problem is still open after 5 s. */
   warningsDelayed?: boolean;
   /**
@@ -89,7 +88,7 @@ interface Problem {
   timer?: ReturnType<typeof setTimeout>;
 }
 
-interface ForwarderArgs {
+interface ForwarderParams {
   client: Client;
   rules: Rules;
   add: Status.Adder;
@@ -111,7 +110,7 @@ const createForwarder = ({
   rules,
   add,
   handleError,
-}: ForwarderArgs): Forwarder => {
+}: ForwarderParams): Forwarder => {
   const problems = new Map<status.Key, Problem>();
   let held: Array<() => void> | null = [];
   let stopped = false;
@@ -171,7 +170,7 @@ const createForwarder = ({
       show(problem);
       return;
     }
-    void rule.inUse({ client, key, status: stat }).then(
+    void rule.inUse({ client, key }).then(
       (inUse) => {
         if (problems.get(stat.key) !== problem) return;
         problem.inUse = inUse;

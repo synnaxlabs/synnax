@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Synnax } from "@synnaxlabs/client";
+import { type status, type Synnax } from "@synnaxlabs/client";
 import { waitForStreamLive } from "@synnaxlabs/client/testutil";
 import { Status } from "@synnaxlabs/lyra/status";
 import { TimeStamp } from "@synnaxlabs/x";
@@ -30,6 +30,37 @@ export const UncappedFeed = (): ReactElement => {
       ))}
     </>
   );
+};
+
+/**
+ * Writes a status with a unique message.
+ * @returns the message of the status.
+ */
+export const writeStatus = async (
+  client: Synnax,
+  key: status.Key,
+  variant: status.Variant,
+  details?: unknown,
+): Promise<string> => {
+  const { message } = await client.statuses.set({
+    key,
+    name: "",
+    variant,
+    message: uniqueName("message"),
+    time: TimeStamp.now(),
+    details,
+  });
+  return message;
+};
+
+/** @returns whether the rule holds the thing with the key in use. */
+export const checkInUse = async (
+  client: Synnax,
+  { inUse }: Notifications.Rule,
+  key: string,
+): Promise<boolean> => {
+  if (inUse == null) throw new Error("the rule must check use");
+  return await inUse({ client, key });
 };
 
 /**

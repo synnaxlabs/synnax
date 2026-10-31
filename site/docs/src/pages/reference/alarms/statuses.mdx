@@ -188,9 +188,10 @@ only their warnings and errors, and only for things that are in use:
 - A device is in use when it is configured.
 - A Driver scanner, which looks for one kind of device, is in use when its Driver has a
   configured device of that kind.
-- A warning from a task or device shows only if it does not clear within 5 seconds.
-- While a Driver has a problem, the problems that start on its tasks and devices do not
-  show.
+- Every other task, each Driver, and each calculated channel is always in use.
+
+A warning from a task or device shows only if it does not clear within 5 seconds. While
+a Driver has a problem, the problems that start on its tasks and devices do not show.
 
 When you send a command to a task, such as start or stop, the Console shows the answer
 unless it is a success, loading, or disabled status.

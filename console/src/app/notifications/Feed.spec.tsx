@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { device, rack, type status, task } from "@synnaxlabs/client";
+import { device, rack, task } from "@synnaxlabs/client";
 import { createTestClient, waitForStreamLive } from "@synnaxlabs/client/testutil";
-import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { TimeSpan } from "@synnaxlabs/x";
 import { act, render, screen } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -17,7 +17,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { Notifications } from "@/app/notifications";
 import { EtherCAT } from "@/feature/ethercat";
 import { createTestDevice } from "@/platform/device/testutil";
-import { close, settleWrites, UncappedFeed } from "@/platform/notifications/testutil";
+import {
+  close,
+  settleWrites,
+  UncappedFeed,
+  writeStatus,
+} from "@/platform/notifications/testutil";
 import { createConsoleWrapper, uniqueName } from "@/testutil";
 
 const client = createTestClient();
@@ -33,23 +38,6 @@ const renderForward = async (): Promise<void> => {
   render(<Forward />, { wrapper });
   // A problem that starts before the open problems load counts as open at load.
   await settleWrites(client);
-};
-
-/** @returns the message of the status. */
-const writeStatus = async (
-  key: status.Key,
-  variant: status.Variant,
-  details?: unknown,
-): Promise<string> => {
-  const { message } = await client.statuses.set({
-    key,
-    name: "",
-    variant,
-    message: uniqueName("message"),
-    time: TimeStamp.now(),
-    details,
-  });
-  return message;
 };
 
 const createScanner = async (deviceConfigured: boolean): Promise<task.Task> => {
@@ -73,8 +61,12 @@ describe("Notifications.useForward", () => {
     const unused = await createScanner(false);
     const used = await createScanner(true);
     await renderForward();
-    const unusedMessage = await writeStatus(task.statusKey(unused.key), "error");
-    const usedMessage = await writeStatus(task.statusKey(used.key), "error");
+    const unusedMessage = await writeStatus(
+      client,
+      task.statusKey(unused.key),
+      "error",
+    );
+    const usedMessage = await writeStatus(client, task.statusKey(used.key), "error");
     await screen.findByText(usedMessage);
     expect(screen.queryByText(unusedMessage)).toBeNull();
   });
@@ -86,9 +78,9 @@ describe("Notifications.useForward", () => {
     });
     const dev = await createTestDevice(client);
     // The Core opens a "Device status unknown" problem on each new device.
-    await writeStatus(device.statusKey(dev.key), "success");
+    await writeStatus(client, device.statusKey(dev.key), "success");
     await renderForward();
-    const message = await writeStatus(device.statusKey(dev.key), "warning");
+    const message = await writeStatus(client, device.statusKey(dev.key), "warning");
     await settleWrites(client);
     expect(screen.queryByText(message)).toBeNull();
     act(() => void vi.advanceTimersByTime(TimeSpan.seconds(5).milliseconds));
@@ -106,10 +98,10 @@ describe("Notifications.useForward", () => {
     const [onDown, onUp] = await Promise.all([createUserTask(), createUserTask()]);
     // The Core writes problems of its own on the key of each rack that exists.
     const [down, up] = [1, 2].map(() => Math.floor(Math.random() * 2 ** 32));
-    await writeStatus(rack.statusKey(down), "warning");
+    await writeStatus(client, rack.statusKey(down), "warning");
     await renderForward();
     const writeTaskError = async (tsk: task.Task, rackKey: rack.Key): Promise<string> =>
-      await writeStatus(task.statusKey(tsk.key), "error", {
+      await writeStatus(client, task.statusKey(tsk.key), "error", {
         task: tsk.key,
         running: false,
         rack: rackKey,
@@ -129,7 +121,7 @@ describe("Notifications.useForward", () => {
     });
     await renderForward();
     const failStart = async (cmd: string): Promise<string> =>
-      await writeStatus(task.statusKey(tsk.key), "error", {
+      await writeStatus(client, task.statusKey(tsk.key), "error", {
         task: tsk.key,
         running: false,
         cmd,
