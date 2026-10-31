@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/labjack"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
@@ -70,6 +71,7 @@ var _ = Describe("Where", Ordered, func() {
 			Group:        g,
 			HostProvider: testutil.NewStaticHostProvider(1),
 			Status:       stat,
+			DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
 		}))
 		lj := MustOpen(labjack.OpenService(ctx, labjack.ServiceConfig{
 			DB: db,
