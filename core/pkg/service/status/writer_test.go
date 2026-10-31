@@ -154,20 +154,16 @@ var _ = Describe("Problem times", func() {
 
 	DescribeTable(
 		"Should treat only warnings and errors as problems",
-		func(ctx SpecContext, variant status.Variant, problem bool) {
+		func(ctx SpecContext, variant status.Variant, since *telem.TimeStamp) {
 			got := set(ctx, uuid.New().String(), step{variant, at(10)})
-			if problem {
-				Expect(got.Since).To(Equal(new(at(10))))
-			} else {
-				Expect(got.Since).To(BeNil())
-			}
+			Expect(got.Since).To(Equal(since))
 		},
-		Entry("success", status.VariantSuccess, false),
-		Entry("info", status.VariantInfo, false),
-		Entry("warning", status.VariantWarning, true),
-		Entry("error", status.VariantError, true),
-		Entry("loading", status.VariantLoading, false),
-		Entry("disabled", status.VariantDisabled, false),
+		Entry("success", status.VariantSuccess, nil),
+		Entry("info", status.VariantInfo, nil),
+		Entry("warning", status.VariantWarning, new(at(10))),
+		Entry("error", status.VariantError, new(at(10))),
+		Entry("loading", status.VariantLoading, nil),
+		Entry("disabled", status.VariantDisabled, nil),
 	)
 
 	It(

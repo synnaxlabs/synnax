@@ -28,7 +28,8 @@ const clearWindow = 30 * telem.Second
 
 // Writer is used to create and update statuses within the DB. Every write touches both
 // the status entry and its ontology resource, and the two land together only when the
-// Writer holds a transaction spanning them.
+// Writer holds a transaction spanning them. Each set computes the Since and Cleared
+// fields of a status from the stored status and ignores the values the caller sends.
 type Writer struct {
 	tx        gorp.Tx
 	table     *gorp.Table[Key, Status[any]]
@@ -40,8 +41,6 @@ type Writer struct {
 
 // Set creates or updates a status within the DB. If the Status already has a key and
 // an existing Status already exists with that key, the existing status will be updated.
-// Set computes the Since and Cleared fields of s from the stored status and ignores the
-// values s carries.
 func (w Writer) Set[D any](ctx context.Context, s *Status[D]) error {
 	return w.SetWithParent(ctx, s, ontology.ID{})
 }
@@ -51,8 +50,7 @@ func (w Writer) Set[D any](ctx context.Context, s *Status[D]) error {
 // parent relationship will be deleted and a new parent relationship will be created. If
 // the status already exists and no parent is provided, the existing parent relationship
 // will be preserved. If an empty parent is provided, the status will be created under
-// the top level "Statuses" group. SetWithParent computes the Since and Cleared fields
-// of s as Set does.
+// the top level "Statuses" group.
 func (w Writer) SetWithParent[D any](
 	ctx context.Context,
 	s *Status[D],
@@ -117,8 +115,7 @@ func (w Writer) SetWithParent[D any](
 }
 
 // SetMany creates or updates multiple statuses within the DB. If any of the statuses
-// already exist, they will be updated. SetMany computes the Since and Cleared fields of
-// each status as Set does.
+// already exist, they will be updated.
 func (w Writer) SetMany[D any](ctx context.Context, statuses *[]Status[D]) error {
 	return w.SetManyWithParent(ctx, statuses, ontology.ID{})
 }
@@ -195,16 +192,15 @@ func markProblem[D any](
 	prev Status[json.RawMessage],
 	now telem.TimeStamp,
 ) {
-	since, cleared, wasBad := prev.Since, prev.Cleared, isProblem(prev.Variant)
+	since, cleared, wasProblem := prev.Since, prev.Cleared, isProblem(prev.Variant)
 	switch {
 	case isProblem(s.Variant):
-		reopened := !wasBad && cleared != nil &&
-			telem.TimeSpan(now-*cleared) < clearWindow
-		if since == nil || (!wasBad && !reopened) {
+		open := wasProblem || (cleared != nil && cleared.Span(now) < clearWindow)
+		if since == nil || !open {
 			since = new(now)
 		}
 		cleared = nil
-	case wasBad:
+	case wasProblem:
 		cleared = new(now)
 	}
 	s.Since, s.Cleared = since, cleared

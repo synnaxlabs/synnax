@@ -10,7 +10,6 @@
 package status_test
 
 import (
-	"context"
 	"io"
 	"testing"
 
@@ -37,9 +36,13 @@ func closeOnCleanup(b *testing.B, v io.Closer, err error) {
 }
 
 func BenchmarkWriter(b *testing.B) {
-	ctx := context.Background()
+	ctx := b.Context()
 	db := gorp.Wrap(memkv.New())
-	closeOnCleanup(b, db, nil)
+	b.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			b.Error(err)
+		}
+	})
 	otg, err := ontology.Open(ctx, ontology.Config{DB: db})
 	closeOnCleanup(b, otg, err)
 	g, err := group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg})
