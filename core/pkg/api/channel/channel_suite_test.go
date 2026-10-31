@@ -61,7 +61,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Alias:   aliasSvc,
 	}))
 	author = MustSucceed(
-		userSvc.NewWriter(nil).Create(ctx, user.User{Username: "test"}),
+		userSvc.NewWriter(nil).Create(ctx, user.User{Name: "test"}),
 	)
 })
 

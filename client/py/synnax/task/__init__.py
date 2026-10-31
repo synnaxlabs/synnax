@@ -30,6 +30,7 @@ from synnax.task.client import (
 )
 from synnax.task.types_gen import (
     ONTOLOGY_TYPE,
+    Command,
     Key,
     KeyedConfig,
     Payload,
@@ -47,6 +48,7 @@ from synnax.task.types_gen import (
 __all__ = [
     "ONTOLOGY_TYPE",
     "Client",
+    "Command",
     "Condition",
     "JSONConfigMixin",
     "Key",

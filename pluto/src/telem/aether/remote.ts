@@ -412,15 +412,12 @@ export class ChannelData
     settling: boolean,
   ): framer.PointsRequest {
     const { window, aggregation } = this.props;
-    if (this.xy) {
-      // A live xy line draws every raw sample of its window.
-      const count = this.live ? Infinity : this.points;
+    if (this.xy)
       return {
         keys: [key],
         window,
-        limit: { variant: "points", count, aggregation: "decimate" },
+        limit: { variant: "points", count: this.points, aggregation: "decimate" },
       };
-    }
     const limit: framer.PointsLimit = {
       variant: "points",
       count: this.points,

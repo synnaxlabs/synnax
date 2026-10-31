@@ -54,6 +54,8 @@ open_kv(x::args::Parser &parser) {
 }
 
 x::errors::Error rack::Config::load_persisted_state(x::args::Parser &args) {
+    this->state_dir = std::filesystem::path(get_persisted_state_path(args))
+                          .parent_path();
     auto [kv, open_err] = open_kv(args);
     if (open_err) return open_err;
 

@@ -44,7 +44,7 @@ var _ = Describe("storage", func() {
 					Expect(
 						storage.OpenLayer(ctx, cfg),
 					).Error().
-						To(MatchError(ContainSubstring("lock held")))
+						To(MatchError(ContainSubstring("Failed to acquire lock on storage directory")))
 				},
 			)
 		})
