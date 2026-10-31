@@ -139,7 +139,7 @@ class SchematicLifecycle(ConsoleCase):
         )
 
         schematic.set_properties(show_control_legend=True)
-        assert schematic.control_legend_visible is True, (
+        assert schematic.control_legend_visible() is True, (
             "Control legend should be visible"
         )
 

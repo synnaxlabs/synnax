@@ -62,9 +62,14 @@ const LOW_TRUNC_PRECISION = 6;
 const CURSOR_TRANSLATION_THRESHOLD = 2; // px
 // The threshold at which an action is considered a click, and not a drag.
 const CLICK_THRESHOLD = 5; // px
+// The smallest span a zoom can select. A smaller zoom counts as a click.
+const MIN_ZOOM_SPAN = 10; // px
 
 const isClick = (b: box.Box): boolean =>
   box.width(b) < CLICK_THRESHOLD && box.height(b) < CLICK_THRESHOLD;
+
+const isSmallZoom = (selection: box.Box): boolean =>
+  Math.min(box.width(selection), box.height(selection)) < MIN_ZOOM_SPAN;
 
 type StringLiteral<T> = T extends string ? (string extends T ? never : T) : never;
 
@@ -182,11 +187,11 @@ export const use = ({
     );
 
   const handleZoomSelect = (
-    b: box.Box,
+    selection: box.Box,
     prev: box.Box,
     canvas: box.Box,
   ): box.Box | null => {
-    const next = constructScale(prev, canvas).box(fullSize(threshold, b, canvas));
+    const next = constructScale(prev, canvas).box(selection);
     return box.truncate(next, calculateTruncPrecision(next));
   };
 
@@ -213,13 +218,14 @@ export const use = ({
       return setStateRef(box.DECIMAL);
     }
 
-    const isClick_ = isClick(box_);
+    const selection = fullSize(threshold, box.intersection(box_, canvas), canvas);
+    const isClick_ = isClick(box_) || (mode === "zoom" && isSmallZoom(selection));
+    if (isClick_ && mode === "zoom") setMaskBox(box.ZERO);
 
     if (stage === "end") {
       const isContext = triggers.find((t) => t.includes("MouseRight"));
       // This prevents clicks from being registered as a drag
       if (isClick_ && !isContext) {
-        if (mode === "zoom") setMaskBox(box.ZERO);
         onChange?.({ box: stateRef.current, mode: "click", stage, cursor });
         return;
       }
@@ -230,7 +236,7 @@ export const use = ({
           onChange?.({ box: next, mode, stage, cursor });
           return next;
         }
-        const next = handleZoomSelect(box_, prev, canvas);
+        const next = handleZoomSelect(selection, prev, canvas);
         if (next === null || (isContext && !box.areaIsZero(maskBoxRef.current)))
           return prev;
         onChange?.({ box: next, mode, stage, cursor });
@@ -249,7 +255,7 @@ export const use = ({
         scale.XY.scale(canvas)
           .clamp(canvas)
           .translate({ x: -box.left(canvas), y: -box.top(canvas) })
-          .box(fullSize(threshold, box_, canvas)),
+          .box(selection),
       );
     }
 
@@ -363,19 +369,16 @@ const fullSize = (
   b: box.Box,
   parent: box.Box,
 ): box.Box => {
-  if (box.height(b) <= threshold.height)
-    return box.construct(
-      box.left(b),
-      box.top(parent),
-      box.width(b),
-      box.height(parent),
-    );
-  if (box.width(b) <= threshold.width)
-    return box.construct(
-      box.left(parent),
-      box.top(b),
-      box.width(parent),
-      box.height(b),
-    );
+  const width = box.width(b);
+  const height = box.height(b);
+  const short = height <= threshold.height;
+  const narrow = width <= threshold.width;
+  // A drag under both thresholds selects the axis nearer its threshold. A click stays
+  // on x, as a right click marks a point in time.
+  const vertical = !isClick(b) && height * threshold.width > width * threshold.height;
+  if (narrow && (!short || vertical))
+    return box.construct(box.left(parent), box.top(b), box.width(parent), height);
+  if (short)
+    return box.construct(box.left(b), box.top(parent), width, box.height(parent));
   return b;
 };

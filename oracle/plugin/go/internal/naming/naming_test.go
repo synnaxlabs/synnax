@@ -33,6 +33,11 @@ var _ = Describe("ToPascalCase", func() {
 		Entry("acronym at start", "id", "ID"),
 		Entry("iso acronym", "iso", "ISO"),
 		Entry("utc acronym", "utc", "UTC"),
+		Entry("word starting with an acronym", "slave", "Slave"),
+		Entry("word containing an acronym", "ratio", "Ratio"),
+		Entry("plural acronym", "ids", "IDs"),
+		Entry("acronym with a digit suffix", "iso8601", "ISO8601"),
+		Entry("utf8 acronym", "utf8", "UTF8"),
 	)
 
 	DescribeTable("should pass screaming-case identifiers through unchanged",

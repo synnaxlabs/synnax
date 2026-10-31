@@ -19,12 +19,12 @@ import (
 	"path/filepath"
 	"sync"
 	"time"
-	"uuid"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/driver/internal/log"
 	"github.com/synnaxlabs/synnax/pkg/driver/internal/restart"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
@@ -49,6 +49,12 @@ const grpcRootsEnv = "GRPC_DEFAULT_SSL_ROOTS_FILE_PATH"
 // not be able to write and that other Drivers on the host share.
 const stateFileName = "state.json"
 
+const configFileName = "config.json"
+
+const keyFileName = "embedded-driver-key"
+
+const apiKeyName = "Embedded Driver"
+
 // Config is the configuration for opening an embedded Driver.
 type Config struct {
 	// Insecure sets whether not to use TLS for communication. If insecure is set to
@@ -63,9 +69,8 @@ type Config struct {
 	Debug *bool `json:"debug"`
 	// Instrumentation is used for logging, tracing, and metrics.
 	alamos.Instrumentation
-	// Credentials are the authentication credentials the Driver should use when
-	// connecting to the Core.
-	Credentials auth.Credentials
+	// Keys creates and checks the API key the Driver logs in with as its rack.
+	Keys *apikey.Service `json:"-"`
 	// TrustAnchorsPEM holds the PEM certificates the Driver verifies the Core against.
 	// Not required if the Core serves a certificate the system trust store already
 	// recognizes. When set, they replace the system trust store for the Driver.
@@ -107,31 +112,28 @@ type Config struct {
 	TaskPollInterval time.Duration `json:"task_poll_interval"`
 	// TaskShutdownTimeout sets the max time to wait for task workers during shutdown.
 	TaskShutdownTimeout time.Duration `json:"task_shutdown_timeout"`
-	// RackKey is the key of the rack that the Driver should assume the identity of.
+	// KeyDirname is the owner-only directory that keeps the Driver's API key between
+	// starts. It must outlive the process and belong to this node. When empty, each
+	// start creates a new key.
+	KeyDirname string `json:"-"`
+	// RackKey is the key of the rack that the Driver logs in as.
 	RackKey rack.Key `json:"rack_key"`
-	// ClusterKey is the key of the current cluster.
-	ClusterKey uuid.UUID `json:"cluster_key"`
 	// TaskWorkerCount sets the number of worker threads for task operations.
 	TaskWorkerCount uint8 `json:"task_worker_count"`
 }
 
-func (c Config) format() map[string]any {
+func (c Config) format(apiKey string) map[string]any {
 	return map[string]any{
 		"connection": map[string]any{
-			"host":     c.Address.Host(),
-			"port":     c.Address.Port(),
-			"username": c.Credentials.Username,
-			"password": c.Credentials.Password,
-			"secure":   !*c.Insecure,
+			"host":    c.Address.Host(),
+			"port":    c.Address.Port(),
+			"api_key": apiKey,
+			"secure":  !*c.Insecure,
 		},
 		"retry": map[string]any{
 			"base_interval": 1,
 			"max_retries":   40,
 			"scale":         1.1,
-		},
-		"remote_info": map[string]any{
-			"rack_key":    c.RackKey,
-			"cluster_key": c.ClusterKey.String(),
 		},
 		"manager": map[string]any{
 			"op_timeout":       c.TaskOpTimeout.Seconds(),
@@ -179,11 +181,11 @@ func (c Config) Override(other Config) Config {
 	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.Address = override.String(c.Address, other.Address)
 	c.RackKey = override.Numeric(c.RackKey, other.RackKey)
-	c.ClusterKey = override.UUID(c.ClusterKey, other.ClusterKey)
+	c.Keys = override.Nil(c.Keys, other.Keys)
+	c.KeyDirname = override.String(c.KeyDirname, other.KeyDirname)
 	c.Integrations = override.Slice(c.Integrations, other.Integrations)
 	c.Insecure = override.Nil(c.Insecure, other.Insecure)
 	c.TrustAnchorsPEM = override.Slice(c.TrustAnchorsPEM, other.TrustAnchorsPEM)
-	c.Credentials = override.Zero(c.Credentials, other.Credentials)
 	c.Debug = override.Nil(c.Debug, other.Debug)
 	c.StartTimeout = override.Numeric(c.StartTimeout, other.StartTimeout)
 	c.ParentDirname = override.String(c.ParentDirname, other.ParentDirname)
@@ -218,6 +220,8 @@ func (c Config) Validate() error {
 		return nil
 	}
 	v.NotEmptyString("address", c.Address)
+	v.NotNil("keys", c.Keys)
+	v.NonZero("rack_key", c.RackKey)
 	v.NotNil("debug", c.Debug)
 	v.NotEmptyString("parent_dirname", c.ParentDirname)
 	v.InBounds("task_worker_count", c.TaskWorkerCount, 1, 64)
@@ -249,6 +253,8 @@ const restartScale = 1.1
 // methods are no-ops.
 type Driver struct {
 	cfg Config
+	// apiKey is the key the Driver logs in with. It is set once Open starts the Driver.
+	apiKey string
 	// started is closed once the subprocess prints "started successfully". Open blocks
 	// on this channel to know when startup is complete.
 	started chan struct{}
@@ -301,6 +307,10 @@ func (d *Driver) enabled() bool { return *d.cfg.Enabled && d.cfg.FS != nil }
 
 func (d *Driver) start(ctx context.Context) error {
 	d.cfg.L.Info("starting embedded Driver")
+	var err error
+	if d.apiKey, err = d.resolveKey(ctx); err != nil {
+		return err
+	}
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(d.cfg.Instrumentation))
 	// HardShutdown cancels the context before waiting. Cancellation both stops the
 	// running subprocess (exec.CommandContext) and wakes the restart backoff
@@ -458,6 +468,75 @@ func (d *Driver) runOnce(
 	return policy.Decide(expected, time.Since(startedAt)), err
 }
 
+// resolveKey returns the API key saved by an earlier start when the Core still accepts
+// it for the Driver's rack, and creates and saves a new key otherwise.
+func (d *Driver) resolveKey(ctx context.Context) (string, error) {
+	saved, err := d.savedKey()
+	if err != nil {
+		return "", err
+	}
+	if saved != "" {
+		id, err := d.cfg.Keys.Authenticate(ctx, auth.Proof{
+			Variant: auth.APIKeyProof{
+				APIKeyCredentials: auth.APIKeyCredentials{Key: saved},
+			},
+		})
+		if err == nil && id.Subject == d.cfg.RackKey.OntologyID() {
+			return saved, nil
+		}
+		if err != nil && !errors.Is(err, auth.ErrInvalidCredentials) {
+			return "", err
+		}
+	}
+	created, token, err := d.cfg.Keys.NewWriter(nil).Create(
+		ctx,
+		d.cfg.RackKey.OntologyID(),
+		apiKeyName,
+	)
+	if err != nil {
+		return "", err
+	}
+	if d.cfg.KeyDirname == "" {
+		return token, nil
+	}
+	// A key that was never saved cannot be used again, so it must not stay stored.
+	if err = writeFileAtomic(d.keyPath(), []byte(token)); err != nil {
+		return "", errors.Combine(
+			err,
+			d.cfg.Keys.NewWriter(nil).Delete(ctx, created.Key),
+		)
+	}
+	return token, nil
+}
+
+func (d *Driver) savedKey() (string, error) {
+	if d.cfg.KeyDirname == "" {
+		return "", nil
+	}
+	b, err := os.ReadFile(d.keyPath())
+	if errors.Is(err, fs.ErrNotExist) {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
+}
+
+// writeFileAtomic replaces the file at path with data, so an interrupted write leaves
+// the old file in place.
+func writeFileAtomic(path string, data []byte) error {
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, data, xfs.UserRW); err != nil {
+		return err
+	}
+	return os.Rename(tmp, path)
+}
+
+func (d *Driver) workDir() string { return filepath.Join(d.cfg.ParentDirname, "driver") }
+
+func (d *Driver) keyPath() string { return filepath.Join(d.cfg.KeyDirname, keyFileName) }
+
 // Close stops the Driver and waits for it to exit. It cancels the supervisor context,
 // which asks the subprocess to stop gracefully and escalates to a kill after
 // StopTimeout (see setupCmd), then waits for the supervisor goroutines to exit. Close
@@ -483,7 +562,7 @@ func (d *Driver) close() error {
 func (d *Driver) setupCmd(
 	ctx context.Context,
 ) (_ *exec.Cmd, tempFiles []string, extractedBinary string, _ error) {
-	workDir := filepath.Join(d.cfg.ParentDirname, "driver")
+	workDir := d.workDir()
 	if err := os.MkdirAll(workDir, xfs.UserRWX); err != nil {
 		return nil, tempFiles, "", err
 	}
@@ -499,11 +578,11 @@ func (d *Driver) setupCmd(
 		}
 		tempFiles = append(tempFiles, trustAnchorFile)
 	}
-	b, err := json.Marshal(d.cfg.format())
+	b, err := json.Marshal(d.cfg.format(d.apiKey))
 	if err != nil {
 		return nil, tempFiles, "", err
 	}
-	cfgFile := filepath.Join(workDir, "config.json")
+	cfgFile := filepath.Join(workDir, configFileName)
 	if err = os.WriteFile(cfgFile, b, xfs.UserRW); err != nil {
 		return nil, tempFiles, "", err
 	}

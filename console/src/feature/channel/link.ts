@@ -13,14 +13,13 @@ import { Session } from "@/session";
 
 export const useLink = (): Link.Handler => {
   const create = LinePlot.useCreate();
-  const getSelectedKey = Session.Range.useGetSelectedKey();
+  const getSelectedRef = Session.Range.useGetSelectedRef();
   return async ({ client, key }) => {
     const channel = await client.channels.retrieve(key);
-    const activeRange = getSelectedKey() ?? Session.Range.RECENT_KEY;
     create({
       name: `${channel.name} Plot`,
       channels: { y1: [channel.key] },
-      ranges: { x1: [activeRange] },
+      ranges: [getSelectedRef()],
     });
   };
 };

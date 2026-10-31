@@ -21,7 +21,7 @@ _SILENCE_TIMEOUT = 1000
 _READ_JS = """(elements) => elements.map((el) => {
   const text = (selector) => el.querySelector(selector)?.innerText.trim();
   const fields = {
-    count: text(".lyra-text--small"),
+    count: text(".lyra-text--tiny"),
     timestamp: text(".lyra-notification__time"),
     message: text(".lyra-notification__message"),
     description: text(".lyra-notification__description"),

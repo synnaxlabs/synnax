@@ -34,9 +34,9 @@ type StreamClient[RQ, RQT, RS, RST freighter.Payload] struct {
 }
 
 type StreamServerCore[RQ, RQT, RS, RST freighter.Payload] struct {
-	RequestTranslator  Translator[RQ, RQT]
-	ResponseTranslator Translator[RS, RST]
-	CreateTranslators  func() (Translator[RQ, RQT], Translator[RS, RST])
+	RequestTranslator  BackwardTranslator[RQ, RQT]
+	ResponseTranslator ForwardTranslator[RS, RST]
+	CreateTranslators  func() (BackwardTranslator[RQ, RQT], ForwardTranslator[RS, RST])
 	ServiceDesc        *grpc.ServiceDesc
 	handler            func(context.Context, freighter.ServerStream[RQ, RS]) error
 	freighter.MiddlewareCollector
@@ -181,8 +181,8 @@ type serverStream[RQ, RQT, RS, RST freighter.Payload] struct {
 	// ctx is the handler's context, which a parked Receive or Send also watches.
 	ctx                context.Context
 	internal           grpcServerStream[RQT, RST]
-	requestTranslator  Translator[RQ, RQT]
-	responseTranslator Translator[RS, RST]
+	requestTranslator  BackwardTranslator[RQ, RQT]
+	responseTranslator ForwardTranslator[RS, RST]
 	recvOnce           sync.Once
 	recv               chan recvResult[RQT]
 	// recvErr is returned again by every later Receive.
