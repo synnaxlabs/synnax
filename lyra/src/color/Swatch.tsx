@@ -17,6 +17,7 @@ import { Picker } from "@/color/Picker";
 import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
 import { Icon } from "@/icon";
+import { Input } from "@/input";
 import { state } from "@/state";
 import { Text } from "@/text";
 
@@ -81,6 +82,9 @@ export const Swatch = ({
   visible: propsVisible,
   className,
   size,
+  status,
+  tooltip,
+  hideTooltip,
   ...rest
 }: SwatchProps): ReactElement => {
   // Only an OptionalValueProps caller sets a fallback, and only then does the picker
@@ -107,6 +111,17 @@ export const Swatch = ({
   else if (shownMixed)
     tooltipText = "Mixed: the selection has several colors. Click to set one.";
   else if (auto) tooltipText = "Auto: the theme picks the color. Click to change.";
+  const itemStatus = Input.useItemStatus({
+    status,
+    tooltip:
+      tooltip ??
+      (onChange == null ? undefined : (
+        <Text.Text level="small">{tooltipText}</Text.Text>
+      )),
+    hideTooltip,
+    "aria-invalid": rest["aria-invalid"],
+    "aria-describedby": rest["aria-describedby"],
+  });
   const swatch = (
     <BaseSwatch
       disabled={onChange == null && onClick == null}
@@ -120,11 +135,6 @@ export const Swatch = ({
             }
       }
       value={shownValue ?? fallback ?? color.ZERO}
-      tooltip={
-        onChange == null ? undefined : (
-          <Text.Text level="small">{tooltipText}</Text.Text>
-        )
-      }
       className={CSS.cls(
         CSS.BM("color-swatch", "chip"),
         auto && CSS.M("auto"),
@@ -135,6 +145,11 @@ export const Swatch = ({
       size={size}
       aria-label={custom ? "Custom color" : undefined}
       {...rest}
+      status={itemStatus.status}
+      aria-invalid={itemStatus["aria-invalid"]}
+      aria-describedby={itemStatus["aria-describedby"]}
+      tooltip={itemStatus.tooltip}
+      hideTooltip={itemStatus.hideTooltip}
     >
       {auto && size !== "tiny" && <Icon.Auto />}
     </BaseSwatch>
@@ -149,11 +164,15 @@ export const Swatch = ({
     >
       {swatch}
       <Dialog.Dialog>
-        <Picker
-          value={shownValue}
-          fallback={fallback}
-          onChange={(c) => (onlyChangeOnBlur ? setPending({ value: c }) : onChange(c))}
-        />
+        <Input.ItemBoundary>
+          <Picker
+            value={shownValue}
+            fallback={fallback}
+            onChange={(c) =>
+              onlyChangeOnBlur ? setPending({ value: c }) : onChange(c)
+            }
+          />
+        </Input.ItemBoundary>
       </Dialog.Dialog>
     </Dialog.Frame>
   );

@@ -11,9 +11,11 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
+import { Color } from "@/color";
 import { Input } from "@/input";
 import { Select } from "@/select";
 import { type Status } from "@/status";
+import { Theming } from "@/theming";
 
 const textbox = (name?: string): HTMLInputElement =>
   screen.getByRole<HTMLInputElement>("textbox", { name });
@@ -38,6 +40,24 @@ const hoverTip = (anchor: HTMLElement = frame()): string | null => {
     vi.useRealTimers();
   }
 };
+
+const byClass = (className: string): HTMLElement => {
+  const el = document.querySelector<HTMLElement>(`.${className}`);
+  if (el == null) throw new Error(`Nothing has the class ${className}`);
+  return el;
+};
+
+const PORTS = Array.from({ length: 12 }, (_, i) => `ai${i}`);
+
+const ports = (): ReactElement => (
+  <Select.Simple<string> value="ai1" onChange={vi.fn()} resourceName="port">
+    {PORTS.map((port) => (
+      <Select.Item key={port} itemKey={port}>
+        {port}
+      </Select.Item>
+    ))}
+  </Select.Simple>
+);
 
 const input = (props: Partial<Input.TextProps> = {}): ReactElement => (
   <Input.Text value="9" onChange={vi.fn()} {...props} />
@@ -169,6 +189,79 @@ describe("Input.Item", () => {
       expect(hoverTip(trigger)).toBe("Port in use");
     });
 
+    it("should mark a multi select with an error", () => {
+      render(
+        item({
+          status: "error",
+          helpText: "Pick a label",
+          control: (
+            <Select.Simple<string>
+              multiple
+              value={["1"]}
+              onChange={vi.fn()}
+              resourceName="label"
+            >
+              <Select.Item itemKey="1">Cold</Select.Item>
+            </Select.Simple>
+          ),
+        }),
+      );
+      const trigger = byClass("lyra-dialog__trigger");
+      expect(trigger.getAttribute("aria-invalid")).toBe("true");
+      expect(trigger.className).toContain("lyra--status-error");
+      expect(hoverTip(trigger)).toBe("Pick a label");
+    });
+
+    it("should mark each button of a button group with an error", () => {
+      render(
+        item({
+          status: "error",
+          helpText: "Pick a side",
+          control: (
+            <Select.Buttons<string> value="top" onChange={vi.fn()}>
+              <Select.Item itemKey="top">Top</Select.Item>
+              <Select.Item itemKey="left">Left</Select.Item>
+            </Select.Buttons>
+          ),
+        }),
+      );
+      for (const name of ["Top", "Left"])
+        expect(screen.getByRole("button", { name }).className).toContain(
+          "lyra--status-error",
+        );
+      expect(hoverTip(byClass("lyra-select-btns"))).toBe("Pick a side");
+    });
+
+    it("should mark a color swatch with an error", () => {
+      render(
+        <Theming.Provider>
+          {item({
+            status: "error",
+            helpText: "Too dark",
+            control: <Color.Swatch value="#000000" onChange={vi.fn()} />,
+          })}
+        </Theming.Provider>,
+      );
+      const swatch = byClass("lyra-color-swatch");
+      expect(swatch.getAttribute("aria-invalid")).toBe("true");
+      expect(swatch.className).toContain("lyra--status-error");
+      expect(hoverTip(swatch)).toBe("Too dark");
+    });
+
+    it("should mark a time input with an error", () => {
+      render(
+        item({
+          status: "error",
+          helpText: "Too long",
+          control: <Input.TimeSpan value={1000} onChange={vi.fn()} />,
+        }),
+      );
+      const trigger = byClass("lyra-time-editor__trigger");
+      expect(trigger.getAttribute("aria-invalid")).toBe("true");
+      expect(trigger.className).toContain("lyra--status-error");
+      expect(hoverTip(trigger)).toBe("Too long");
+    });
+
     it("should leave a control inside its input unmarked", () => {
       render(
         item({
@@ -228,6 +321,41 @@ describe("Input.Item", () => {
 
     it("should keep the focused input of an item with no label", () => {
       expectFocusKept({ showHelpText: true });
+    });
+  });
+
+  describe("in a control's popup", () => {
+    const errored = (control: ReactElement): ReactElement =>
+      item({
+        showLabel: true,
+        showHelpText: true,
+        status: "error",
+        helpText: "Bad",
+        control,
+      });
+
+    it("should leave the search field of a select unmarked", () => {
+      render(errored(ports()));
+      fireEvent.click(screen.getByRole("button", { name: /ai1/ }));
+      const search = screen.getByPlaceholderText("Search ports...");
+      expect(search.getAttribute("aria-invalid")).toBeNull();
+      expect(frame(search).className).not.toContain("lyra--status");
+    });
+
+    it("should leave the field of a time editor unmarked", () => {
+      render(errored(<Input.TimeSpan value={1000} onChange={vi.fn()} />));
+      fireEvent.click(byClass("lyra-time-editor__trigger"));
+      expect(textbox().getAttribute("aria-invalid")).toBeNull();
+    });
+
+    it("should leave the fields of a color picker unmarked", () => {
+      render(
+        <Theming.Provider>
+          {errored(<Color.Swatch value="#000000" onChange={vi.fn()} />)}
+        </Theming.Provider>,
+      );
+      fireEvent.click(byClass("lyra-color-swatch"));
+      expect(screen.getByLabelText("Hex").getAttribute("aria-invalid")).toBeNull();
     });
   });
 });

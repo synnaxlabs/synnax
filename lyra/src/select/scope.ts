@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { context } from "@/context";
+import { type Status } from "@/status";
 
 /** True inside a closed select dialog, whose children render into a detached node. */
 export const [ClosedContext, useClosed] = context.create<boolean>({
@@ -21,6 +22,7 @@ export type ButtonsVariant = "outlined" | "text" | "card";
 export interface ButtonsContextValue {
   preview: boolean;
   variant: ButtonsVariant;
+  status?: Status.Variant;
 }
 
 /** Set inside a Buttons group, whose items draw as toggle buttons. */

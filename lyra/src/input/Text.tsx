@@ -23,8 +23,7 @@ import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Generic } from "@/generic";
 import { useCombinedRefs, useResize } from "@/hooks";
-import { useItemStatus, useLabelledBy } from "@/input/Item";
-import { ItemContext } from "@/input/scope";
+import { ItemBoundary, useItemStatus, useLabelledBy } from "@/input/Item";
 import { type InputProps, type Variant } from "@/input/types";
 import { type Status } from "@/status";
 import { Text as BaseText } from "@/text";
@@ -329,8 +328,7 @@ export const Text = ({
   return (
     <Flex.Box x pack className={CSS.BE("input", "container")} {...outerProps}>
       {baseInput}
-      {/* A control inside the input is not the item's control. */}
-      <ItemContext value={null}>{children}</ItemContext>
+      <ItemBoundary>{children}</ItemBoundary>
     </Flex.Box>
   );
 };

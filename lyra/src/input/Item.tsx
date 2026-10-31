@@ -10,7 +10,13 @@
 import "@/input/Item.css";
 
 import { direction, primitive } from "@synnaxlabs/x";
-import { type AriaAttributes, type ReactNode, useId } from "react";
+import {
+  type AriaAttributes,
+  type PropsWithChildren,
+  type ReactElement,
+  type ReactNode,
+  useId,
+} from "react";
 
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
@@ -88,6 +94,14 @@ export const useItemStatus = (props: ItemStatusProps): ItemStatusProps => {
   resolved.hideTooltip = tip == null;
   return resolved;
 };
+
+/**
+ * Hides the enclosing {@link Item} from controls that are not its own, such as the
+ * fields in a control's popover.
+ */
+export const ItemBoundary = ({ children }: PropsWithChildren): ReactElement => (
+  <ItemContext value={null}>{children}</ItemContext>
+);
 
 export interface ItemProps extends Flex.BoxProps {
   label?: string;
