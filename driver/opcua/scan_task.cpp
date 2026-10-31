@@ -482,16 +482,21 @@ void Scanner::browse_nodes(const synnax::task::Command &cmd) const {
         ));
         if (!browse_err) browse_err = scan_ctx->err;
     }
+    x::errors::Error members_err;
     if (!browse_err) {
-        auto [members, members_err] = structure_members(
+        auto [members, list_err] = structure_members(
             connection,
             start.value(),
             args.node_id,
             args.field
         );
-        browse_err = members_err;
         for (auto &m: members)
             scan_ctx->channels->push_back(std::move(m));
+        // A member has no children besides its own members.
+        if (args.field.empty())
+            members_err = list_err;
+        else
+            browse_err = list_err;
     }
     if (browse_err) {
         status.message = "Failed to browse nodes";
@@ -505,6 +510,11 @@ void Scanner::browse_nodes(const synnax::task::Command &cmd) const {
         channels.push_back(ch.to_json());
     status.message = "Browsed nodes";
     status.variant = synnax::status::VARIANT_SUCCESS;
+    if (members_err) {
+        status.message = "Failed to list structure members";
+        status.variant = synnax::status::VARIANT_WARNING;
+        status.description = members_err.data;
+    }
     status.details.data = {{"channels", channels}};
     ctx->set_status(status);
 }
