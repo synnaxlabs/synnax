@@ -9,15 +9,18 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 
-import { INTEGRATION } from "@/feature/modbus/device/types";
+import { INTEGRATION, MAKE } from "@/feature/modbus/device/types";
 import { Connect } from "@/feature/modbus/device/useConnectModal";
+import { SCAN_TYPE } from "@/feature/modbus/task/types";
 import { type Device } from "@/platform/device";
 
 export const NETWORK: Device.Network = {
   key: INTEGRATION,
   name: "Modbus",
-  title: "Modbus TCP server",
-  description: "Read and write registers and coils on a Modbus TCP server.",
+  title: "Modbus server",
+  description: "Read and write registers and coils over Modbus TCP or Modbus RTU.",
   icon: <Icon.Logo.Modbus />,
+  make: MAKE,
+  scanType: SCAN_TYPE,
   Connect,
 };

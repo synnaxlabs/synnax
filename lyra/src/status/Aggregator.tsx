@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type CrudeTimeSpan, TimeSpan, type TimeStamp } from "@synnaxlabs/x";
+import { type CrudeTimeSpan, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { type PropsWithChildren, useState } from "react";
 import type z from "zod";
 
@@ -23,7 +23,13 @@ import {
 } from "@/status/errorHandler";
 import { create, type Status } from "@/status/status";
 
-const [Context, useContext] = context.create<Status[]>({
+interface Received {
+  status: Status;
+  /** When the aggregator got the status. Notifications expire from this time. */
+  time: TimeStamp;
+}
+
+const [Context, useContext] = context.create<Received[]>({
   defaultValue: [],
   displayName: "Status.Context",
 });
@@ -72,16 +78,19 @@ export const Aggregator = ({
   maxHistory = 500,
   log = printError,
 }: AggregatorProps) => {
-  const [statuses, setStatuses] = useState<Status[]>([]);
-  if (statuses.length > maxHistory)
-    setStatuses(statuses.slice(0, Math.floor(maxHistory * TRUNCATE_FACTOR)));
+  const [received, setReceived] = useState<Received[]>([]);
+  if (received.length > maxHistory)
+    setReceived(received.slice(0, Math.floor(maxHistory * TRUNCATE_FACTOR)));
   const handleAdd: Adder = (spec) => {
-    const stat = create(spec);
-    setStatuses((prev) => [stat, ...prev.filter((s) => s.key != stat.key)]);
+    const next = { status: create(spec), time: TimeStamp.now() };
+    setReceived((prev) => [
+      next,
+      ...prev.filter(({ status }) => status.key != next.status.key),
+    ]);
   };
   const handlers = createHandlers(handleAdd, log);
   return (
-    <Context value={statuses}>
+    <Context value={received}>
       <AdderContext value={handleAdd}>
         <HandlersContext value={handlers}>{children}</HandlersContext>
       </AdderContext>
@@ -131,13 +140,15 @@ interface UseNotificationsProps {
 const NO_PROPS: UseNotificationsProps = {};
 
 const group = (
-  statuses: Status[],
+  received: Received[],
   threshold: TimeStamp,
   silencedKeys: Set<string>,
 ): NotificationSpec[] => {
-  const active = statuses.filter(
-    ({ key, time }) => time.afterEq(threshold) && !silencedKeys.has(key),
-  );
+  const active = received
+    .filter(
+      ({ status, time }) => time.afterEq(threshold) && !silencedKeys.has(status.key),
+    )
+    .map(({ status }) => status);
   const grouped = active.reduce((acc, status) => {
     const key = identity(status);
     if (!acc.has(key)) {
@@ -158,18 +169,18 @@ const group = (
 /**
  * @returns the statuses recent enough to show as notifications, with identical ones
  * folded into a single entry carrying a count. They drop off on their own after the
- * expiration.
+ * expiration, counted from when the aggregator got each status, not from its time.
  */
 export const useNotifications = ({
   expiration = DEFAULT_EXPIRATION,
   poll = DEFAULT_EXPIRATION_POLL,
 }: UseNotificationsProps = NO_PROPS): UseNotificationsReturn => {
-  const statuses = useContext();
+  const received = useContext();
   const [silencedKeys, setSilencedKeys] = useState<Set<string>>(() => new Set());
   const now = useNow((now) => now.add(poll));
-  const statusesRef = useSyncedRef(statuses);
+  const statusesRef = useSyncedRef(received.map(({ status }) => status));
 
-  const filtered = group(statuses, now.sub(expiration), silencedKeys);
+  const filtered = group(received, now.sub(expiration), silencedKeys);
 
   const silence = (key: string) => {
     setSilencedKeys((prev) => {

@@ -28,6 +28,7 @@ inline StatusDetails StatusDetails::parse(x::json::Parser parser) {
     return StatusDetails{
         .rack = parser.field<::synnax::rack::Key>("rack"),
         .device = parser.field<Key>("device"),
+        .data = parser.field<std::optional<x::json::json::object_t>>("data"),
     };
 }
 
@@ -35,6 +36,7 @@ inline x::json::json StatusDetails::to_json() const {
     x::json::json j;
     j["rack"] = this->rack;
     j["device"] = this->device;
+    j["data"] = this->data;
     return j;
 }
 

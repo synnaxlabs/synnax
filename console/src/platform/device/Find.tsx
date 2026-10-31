@@ -126,12 +126,13 @@ const ScannerState = ({
         }
       />
     );
-  if (scanner.status?.variant === "error")
+  const scanStatus = scanner.status;
+  if (scanStatus?.variant === "error" || scanStatus?.variant === "warning")
     return (
       <State
-        variant="error"
-        message={scanner.status.message}
-        description={scanner.status.description}
+        variant={scanStatus.variant}
+        message={scanStatus.message}
+        description={scanStatus.description}
       />
     );
   return null;
@@ -265,6 +266,7 @@ export const Find = ({
 }: FindProps): ReactElement => {
   const allRacks = Rack.useResultMultiple({}).data;
   const scope = allRacks?.find((r) => r.key === rackKey);
+  const running = allRacks?.some(isRunning) === true;
   const racks = allRacks?.filter(
     (r) => r.integrations.includes(key) && (rackKey == null || r.key === rackKey),
   );
@@ -310,14 +312,16 @@ export const Find = ({
             >
               <Icon.Tile>{icon}</Icon.Tile>
               <Text.Text level="p" weight={500} color={11}>
-                {scope == null
-                  ? `No Driver has ${name} enabled`
-                  : `${scope.name} does not have ${name} enabled`}
+                {scope != null
+                  ? `${scope.name} does not have ${name} enabled`
+                  : running
+                    ? `Your Driver is running, but ${name} is off`
+                    : "No Driver is running"}
               </Text.Text>
               <Text.Text level="small" color={9}>
-                {scope == null
-                  ? "Start the Synnax Driver on the computer the hardware connects to."
-                  : `The Driver runs ${name} when its configuration enables it and its computer supports it.`}
+                {scope != null || running
+                  ? `${name} is off when the Driver configuration disables it, or when the Driver's computer cannot run it. See the checks below.`
+                  : "Start the Synnax Driver on the computer the hardware connects to."}
               </Text.Text>
             </Flex.Box>
           </Pane.Pane>

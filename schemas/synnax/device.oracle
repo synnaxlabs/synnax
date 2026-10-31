@@ -30,6 +30,9 @@ StatusDetails struct {
     device Key      {
         @doc value "is the device identifier."
     }
+    data   record?  {
+        @doc value "contains device-specific status data."
+    }
 
     @doc value """
         contains device-specific status details identifying the device and its
