@@ -38,7 +38,7 @@ const createScanner = async (deviceConfigured: boolean): Promise<task.Task> => {
   });
 };
 
-describe("Notifications.useForward", () => {
+describe("Notifications.Provider", () => {
   afterEach(() => {
     vi.useRealTimers();
   });

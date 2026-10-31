@@ -10,31 +10,24 @@
 import { type Synnax as Client } from "@synnaxlabs/client";
 import { waitForStreamLive } from "@synnaxlabs/client/testutil";
 import { render } from "@testing-library/react";
-import { type ReactElement, type ReactNode } from "react";
+import { type ReactNode } from "react";
 
 import { Notifications } from "@/app/notifications";
-import { Notifications as PlatformNotifications } from "@/platform/notifications";
 import { settleWrites, UncappedFeed } from "@/platform/notifications/testutil";
 import { createConsoleWrapper } from "@/testutil";
 
-const Forward = (): ReactElement => {
-  Notifications.useForward();
-  return <UncappedFeed />;
-};
-
 /**
- * Runs {@link Notifications.useForward} inside a notifications provider, and renders
- * the UI next to {@link UncappedFeed}. Waits until the forwarder has loaded the open
+ * Renders the UI next to {@link UncappedFeed} inside {@link Notifications.Provider}. Waits until the forwarder has loaded the open
  * problems. A problem that starts before the load ends counts as open at load.
  */
 export const renderForward = async (client: Client, ui?: ReactNode): Promise<void> => {
   await waitForStreamLive(client.connection);
   const { wrapper } = await createConsoleWrapper({ client });
   render(
-    <PlatformNotifications.Provider>
-      <Forward />
+    <Notifications.Provider>
+      <UncappedFeed />
       {ui}
-    </PlatformNotifications.Provider>,
+    </Notifications.Provider>,
     { wrapper },
   );
   await settleWrites(client);

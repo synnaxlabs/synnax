@@ -30,9 +30,14 @@ describe("status toolbar", () => {
         [Session.Status.SLICE_NAME]: { version: 0, favorites: [key] },
       },
     });
-    render(<Notifications.Provider>{Status.TOOLBAR.content}</Notifications.Provider>, {
-      wrapper,
-    });
+    render(
+      <Notifications.Provider rules={{}}>
+        {Status.TOOLBAR.content}
+      </Notifications.Provider>,
+      {
+        wrapper,
+      },
+    );
     fireEvent.click(screen.getByRole("tab", { name: "Favorites" }));
     expect(await screen.findByText(name)).toBeTruthy();
   });

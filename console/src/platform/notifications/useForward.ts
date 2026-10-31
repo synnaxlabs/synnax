@@ -11,9 +11,7 @@ import { ontology, type status, type Synnax as Client } from "@synnaxlabs/client
 import { Status } from "@synnaxlabs/lyra/status";
 import { Synnax } from "@synnaxlabs/pluto";
 import { destructor, TimeSpan } from "@synnaxlabs/x";
-import { useEffect } from "react";
-
-import { type Problem, useSetProblems } from "@/platform/notifications/Provider";
+import { useEffect, useState } from "react";
 
 /**
  * What a status is for, which decides if it notifies. A reply answers a command, an
@@ -57,6 +55,19 @@ export interface Rule {
 
 /** The rule of each feature that owns status keys, by the ontology type of its keys. */
 export type Rules = Partial<Record<ontology.ResourceType, Rule>>;
+
+/**
+ * A warning or error that is open, from a thing in use or a status that no feature
+ * owns. A reply is never a problem.
+ */
+export interface Problem {
+  /** The latest bad status of the problem. */
+  status: status.Status;
+  /** How many bad statuses of the problem the Console got. */
+  count: number;
+  /** The key of the status whose problem covers this one, such as the task's rack. */
+  coveredBy: status.Key | null;
+}
 
 const WARNING_DELAY = TimeSpan.seconds(5);
 const PROBLEM_VARIANTS: status.Variant[] = ["warning", "error"];
@@ -360,21 +371,14 @@ const createForwarder = ({
 };
 
 /**
- * Notifies the status writes that the Core streams, by kind. A reply notifies at once
- * unless it is a success, loading, or disabled status. An alarm notifies at once. A
- * state notifies only when it is a warning or an error and its thing is in use. A
- * delayed warning notifies only if its key is still bad 5 s after the problem starts.
- * A problem, which is a key and a since, notifies once. Later writes of the problem add
- * to its count, and the problems open at load never notify. It keeps the open problems
- * in the {@link Provider} above it for {@link useProblems}. Mount it once, in the main
- * window.
- * @param rules - The rules of the features that own status keys.
+ * Runs the forwarder of {@link Provider}.
+ * @returns the open problems.
  */
-export const useForward = (rules: Rules): void => {
+export const useForward = (rules: Rules): Problem[] => {
   const client = Synnax.use();
   const add = Status.useAdder();
   const handleError = Status.useErrorHandler();
-  const setProblems = useSetProblems();
+  const [problems, setProblems] = useState<Problem[]>([]);
   useEffect(() => {
     if (client == null) return;
     const forwarder = createForwarder({ client, rules, add, setProblems });
@@ -398,5 +402,6 @@ export const useForward = (rules: Rules): void => {
       forwarder.stop();
       setProblems([]);
     };
-  }, [client, rules, add, handleError, setProblems]);
+  }, [client, rules, add, handleError]);
+  return problems;
 };
