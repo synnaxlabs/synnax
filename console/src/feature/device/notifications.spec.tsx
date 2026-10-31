@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device, type status } from "@synnaxlabs/client";
+import { type device, rack, status } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Status } from "@synnaxlabs/lyra/status";
 import { fireEvent, render, screen } from "@testing-library/react";
@@ -115,6 +115,31 @@ describe("device/notifications", () => {
       expect(
         await checkInUse(client, Device.NOTIFICATION_RULE, uniqueName("device")),
       ).toBe(false);
+    });
+
+    describe("coveredBy", () => {
+      const DISCONNECTED = status.create({
+        variant: "warning",
+        message: "Device disconnected",
+      });
+      const coveredBy = (stat: status.Status): status.Key | null => {
+        const rule = Device.NOTIFICATION_RULE;
+        if (rule.coveredBy == null)
+          throw new Error("the device rule must name a cover");
+        return rule.coveredBy(stat);
+      };
+
+      it("should name the status of the device's rack", () => {
+        const stat: device.Status = {
+          ...DISCONNECTED,
+          details: { rack: 7, device: "dev1" },
+        };
+        expect(coveredBy(stat)).toBe(rack.statusKey(7));
+      });
+
+      it("should name nothing for a status with no rack", () => {
+        expect(coveredBy(DISCONNECTED)).toBeNull();
+      });
     });
   });
 });

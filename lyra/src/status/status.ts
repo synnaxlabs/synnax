@@ -37,6 +37,11 @@ interface Base<V extends Variant> {
    */
   description: string;
   time: TimeStamp;
+  /**
+   * Identifies the problem that a warning or error reports. A warning or error with the
+   * same key and problem as an earlier one joins its notification.
+   */
+  problem?: string;
 }
 
 /** A status carrying optional structured details. */

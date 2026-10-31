@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type rack, type task } from "@synnaxlabs/client";
+import { rack, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
@@ -84,6 +84,21 @@ describe("Task.createNotificationRule", () => {
 
     it("should not hold a task that no longer exists in use", async () => {
       expect(await checkInUse(client, RULE, uuid.create())).toBe(false);
+    });
+  });
+
+  describe("coveredBy", () => {
+    const coveredBy = (rackKey: rack.Key): string | null => {
+      if (RULE.coveredBy == null) throw new Error("the task rule must name a cover");
+      return RULE.coveredBy(createTaskStatus({ details: { rack: rackKey } }));
+    };
+
+    it("should name the status of the task's rack", () => {
+      expect(coveredBy(7)).toBe(rack.statusKey(7));
+    });
+
+    it("should name nothing for a status with no rack", () => {
+      expect(coveredBy(0)).toBeNull();
     });
   });
 });
