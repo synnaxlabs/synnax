@@ -42,6 +42,8 @@ type region[R Resource] struct {
 	// does not get decremented.
 	// [not safe for unprotected concurrent access]
 	counter uint
+	// use serializes access to resource by authorized gates.
+	use sync.Mutex
 	// RWMutex locks access to the region's state. Only specified fields in a region are
 	// safe for concurrent access without locking the mutex.
 	sync.RWMutex

@@ -876,6 +876,62 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						t = MustSucceed(w1.Close())
 						Expect(t.Occurred()).To(BeTrue())
 					})
+
+					Specify(
+						"Concurrent writes and commits across a control handoff",
+						func(ctx SpecContext) {
+							w1, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
+								Start:     10 * telem.SecondTS,
+								Authority: control.AuthorityAbsolute - 1,
+								Subject:   control.Subject{Key: "foo"},
+							}))
+							started := make(chan struct{})
+							stopped := make(chan struct{})
+							go func() {
+								defer GinkgoRecover()
+								defer close(stopped)
+								for i := range telem.TimeStamp(1_000_000) {
+									if i == 10 {
+										close(started)
+									}
+									ts := 10*telem.SecondTS + i
+									a, err := w1.Write(telem.NewSeriesV(ts))
+									if err != nil {
+										Expect(
+											err,
+										).To(MatchError(control.ErrUnauthorized))
+										Expect(a).To(Equal(telem.Alignment(0)))
+										return
+									}
+									end, err := w1.Commit(ctx)
+									if err != nil {
+										Expect(
+											err,
+										).To(MatchError(control.ErrUnauthorized))
+										Expect(end).To(Equal(telem.TimeStamp(0)))
+										return
+									}
+								}
+							}()
+							Eventually(started).Should(BeClosed())
+							w2, t := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
+								Start:     20 * telem.SecondTS,
+								Authority: control.AuthorityAbsolute,
+								Subject:   control.Subject{Key: "bar"},
+							}))
+							Expect(t.From).ToNot(BeNil())
+							Expect(t.To).ToNot(BeNil())
+							for i := range telem.TimeStamp(10) {
+								MustSucceed(
+									w2.Write(telem.NewSeriesV(20*telem.SecondTS + i)),
+								)
+								MustSucceed(w2.Commit(ctx))
+							}
+							Eventually(stopped).Should(BeClosed())
+							MustSucceed(w2.Close())
+							MustSucceed(w1.Close())
+						},
+					)
 				})
 				Describe("ErrOnUnauthorizedOpen", func() {
 					It(

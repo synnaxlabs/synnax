@@ -134,14 +134,16 @@ func (w *Writer) Write(series telem.Series) (telem.Alignment, error) {
 	if err := w.Channel.ValidateSeries(series); err != nil {
 		return 0, w.wrapError(err)
 	}
-	e, err := w.control.Authorize()
-	if err != nil {
+	var a telem.Alignment
+	if err := w.control.Authorize(func(e *controlResource) error {
+		// copy the alignment here because we want to return the alignment of the
+		// FIRST sample, not the last.
+		a = e.loadAlignment()
+		e.storeAlignment(a.AddSamples(uint32(series.Len())))
+		return nil
+	}); err != nil {
 		return 0, w.wrapError(err)
 	}
-	// copy the alignment here because we want to return the alignment of the FIRST
-	// sample, not the last.
-	a := e.loadAlignment()
-	e.storeAlignment(a.AddSamples(uint32(series.Len())))
 	return a, nil
 }
 

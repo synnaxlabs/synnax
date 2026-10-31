@@ -52,11 +52,28 @@ func (g *Gate[R]) PeekResource() R {
 	return g.region.resource
 }
 
-// Authorize authorizes the gate's access to the resource. If another gate has
-// precedence, Authorize will return a control.ErrUnauthorized error, and the zero value
-// for the resource. If the gate has control over the resource, returns the resource and
-// a nil error.
-func (g *Gate[R]) Authorize() (r R, err error) {
+// Authorize calls f with the resource if the gate has control over it, returning the
+// error from f. If another gate has precedence, Authorize returns a
+// control.ErrUnauthorized error without calling f. Calls to f are serialized across all
+// gates in the region, so f has exclusive access to the resource even if control
+// transfers while f runs. f must not call Authorize on a gate in the same region.
+func (g *Gate[R]) Authorize(f func(R) error) error {
+	// Fail without waiting on use, so a gate without control never delays the gate
+	// that has it.
+	if _, err := g.authorize(); err != nil {
+		return err
+	}
+	g.region.use.Lock()
+	defer g.region.use.Unlock()
+	// Control can transfer while this gate waits on use.
+	r, err := g.authorize()
+	if err != nil {
+		return err
+	}
+	return f(r)
+}
+
+func (g *Gate[R]) authorize() (r R, err error) {
 	g.region.RLock()
 	defer g.region.RUnlock()
 	if g.region == nil || g.region.curr == nil {
