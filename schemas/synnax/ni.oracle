@@ -10,6 +10,7 @@
 import "schemas/synnax/channel"
 import "schemas/synnax/device"
 import "schemas/synnax/task"
+import "schemas/x/spatial"
 import "schemas/x/telem"
 
 @cpp output "client/cpp/ni"
@@ -1428,17 +1429,6 @@ AccelChargeSensitivityUnits enum {
     @doc value "are the units of a charge-mode accelerometer's sensitivity rating."
 }
 
-Range struct {
-    low  float64 {
-        @doc value "is the low end of the range."
-    }
-    high float64 {
-        @doc value "is the high end of the range."
-    }
-
-    @doc value "is a range of values that a device reads or writes."
-}
-
 AnalogInputPort struct {
     port                    int32            {
         @doc value "is the number in the DAQmx name of the port, such as 3 for ai3."
@@ -1552,17 +1542,17 @@ Hardware struct {
     ao_max_rate                float64?           {
         @doc value "is the highest analog output sample rate, in Hz."
     }
-    ai_voltage_ranges          Range[] = [] {
-        @doc value "are the analog input voltage ranges of the device."
+    ai_voltage_ranges          spatial.Bounds[] = [] {
+        @doc value "are the analog input voltage ranges of the device, ends included."
     }
-    ai_current_ranges          Range[] = [] {
-        @doc value "are the analog input current ranges of the device."
+    ai_current_ranges          spatial.Bounds[] = [] {
+        @doc value "are the analog input current ranges of the device, ends included."
     }
-    ao_voltage_ranges          Range[] = [] {
-        @doc value "are the analog output voltage ranges of the device."
+    ao_voltage_ranges          spatial.Bounds[] = [] {
+        @doc value "are the analog output voltage ranges of the device, ends included."
     }
-    ao_current_ranges          Range[] = [] {
-        @doc value "are the analog output current ranges of the device."
+    ao_current_ranges          spatial.Bounds[] = [] {
+        @doc value "are the analog output current ranges of the device, ends included."
     }
 
     @doc value """

@@ -21,6 +21,7 @@
 #include "client/cpp/device/key.h"
 #include "client/cpp/task/types.gen.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/spatial/types.gen.h"
 #include "x/cpp/telem/types.gen.h"
 
 namespace synnax::ni {
@@ -34,7 +35,6 @@ struct DIChannel;
 struct DOChannel;
 struct WriteConfig;
 struct ScanConfig;
-struct Range;
 struct CounterPort;
 struct DigitalPort;
 struct DigitalReadConfig;
@@ -365,17 +365,6 @@ struct WriteConfig : public ::synnax::task::WriteConfig {
 struct ScanConfig : public ::synnax::task::ScanConfig {
 
     static ScanConfig parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief Range is a range of values that a device reads or writes.
-struct Range {
-    /// @brief low is the low end of the range.
-    double low = 0;
-    /// @brief high is the high end of the range.
-    double high = 0;
-
-    static Range parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 };
 
@@ -736,14 +725,18 @@ struct Hardware {
     std::optional<double> ai_max_multi_channel_rate;
     /// @brief ao_max_rate is the highest analog output sample rate, in Hz.
     std::optional<double> ao_max_rate;
-    /// @brief ai_voltage_ranges are the analog input voltage ranges of the device.
-    std::vector<Range> ai_voltage_ranges = {};
-    /// @brief ai_current_ranges are the analog input current ranges of the device.
-    std::vector<Range> ai_current_ranges = {};
-    /// @brief ao_voltage_ranges are the analog output voltage ranges of the device.
-    std::vector<Range> ao_voltage_ranges = {};
-    /// @brief ao_current_ranges are the analog output current ranges of the device.
-    std::vector<Range> ao_current_ranges = {};
+    /// @brief ai_voltage_ranges are the analog input voltage ranges of the device, ends
+    /// included.
+    std::vector<::x::spatial::Bounds> ai_voltage_ranges = {};
+    /// @brief ai_current_ranges are the analog input current ranges of the device, ends
+    /// included.
+    std::vector<::x::spatial::Bounds> ai_current_ranges = {};
+    /// @brief ao_voltage_ranges are the analog output voltage ranges of the device,
+    /// ends included.
+    std::vector<::x::spatial::Bounds> ao_voltage_ranges = {};
+    /// @brief ao_current_ranges are the analog output current ranges of the device,
+    /// ends included.
+    std::vector<::x::spatial::Bounds> ao_current_ranges = {};
 
     static Hardware parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

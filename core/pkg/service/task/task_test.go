@@ -18,7 +18,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	arctask "github.com/synnaxlabs/synnax/pkg/service/arc/task"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
@@ -77,9 +78,10 @@ var _ = Describe("Task", Ordered, func() {
 			DB:                  db,
 			Ontology:            otg,
 			Group:               g,
-			HostProvider:        mock.NewStaticHostProvider(1),
+			HostProvider:        testutil.NewStaticHostProvider(1),
 			Status:              stat,
 			HealthCheckInterval: 10 * telem.Millisecond,
+			DriverRole:          MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
 		}))
 		pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: db}))
 		at := MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{DB: db}))
@@ -1302,38 +1304,25 @@ var _ = Describe("Task", Ordered, func() {
 	})
 
 	Describe("Suspect Rack", func() {
-		It(
-			"Should propagate rack warning status to tasks on that rack",
-			func(ctx SpecContext) {
-				r := rack.Rack{Name: "suspect rack"}
-				Expect(rackService.NewWriter(nil).Create(ctx, &r)).To(Succeed())
-
-				t := &task.Task{
-					Type: testType,
-					Rack: r.Key,
-					Name: "Test Task",
-				}
-				Expect(svc.NewWriter(nil).Create(ctx, t)).To(Succeed())
-
-				Eventually(func(g Gomega) {
-					var taskStatus task.Status
-					g.Expect(stat.NewRetrieve[task.StatusDetails]().
-						Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
-						Entry(&taskStatus).
-						Exec(ctx, nil)).To(Succeed())
-					g.Expect(taskStatus.Variant).To(Equal(status.VariantWarning))
-					g.Expect(taskStatus.Message).To(Equal("Driver not running"))
-					g.Expect(taskStatus.Details.Task).To(Equal(t.Key))
-				}).Should(Succeed())
-			},
-		)
+		retrieveStatus := func(ctx context.Context, t *task.Task) task.Status {
+			GinkgoHelper()
+			var got task.Status
+			Expect(stat.NewRetrieve[task.StatusDetails]().
+				Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
+				Entry(&got).
+				Exec(ctx, nil)).To(Succeed())
+			return got
+		}
 
 		It(
-			"Should preserve the config hash and rack the Driver reported",
+			"Should copy the rack's problem onto a running task",
 			func(ctx SpecContext) {
+				// The rack and its tasks commit together, so the rack cannot go silent
+				// before the tasks exist.
+				createTx := db.OpenTx()
+				defer func() { Expect(createTx.Close()).To(Succeed()) }()
 				r := rack.Rack{Name: "suspect rack"}
-				Expect(rackService.NewWriter(nil).Create(ctx, &r)).To(Succeed())
-
+				Expect(rackService.NewWriter(createTx).Create(ctx, &r)).To(Succeed())
 				t := &task.Task{
 					Type: testType,
 					Rack: r.Key,
@@ -1345,11 +1334,11 @@ var _ = Describe("Task", Ordered, func() {
 						Details: task.StatusDetails{
 							Running:    true,
 							ConfigHash: "deployed",
-							Rack:       r.Key,
 						},
 					},
 				}
-				Expect(svc.NewWriter(nil).Create(ctx, t)).To(Succeed())
+				Expect(svc.NewWriter(createTx).Create(ctx, t)).To(Succeed())
+				Expect(createTx.Commit(ctx)).To(Succeed())
 
 				Eventually(func(g Gomega) {
 					var taskStatus task.Status
@@ -1357,11 +1346,77 @@ var _ = Describe("Task", Ordered, func() {
 						Where(status.MatchKeys[task.StatusDetails](t.OntologyID().String())).
 						Entry(&taskStatus).
 						Exec(ctx, nil)).To(Succeed())
+					g.Expect(taskStatus.Message).To(Equal("Task stopped responding"))
 					g.Expect(taskStatus.Variant).To(Equal(status.VariantWarning))
-					g.Expect(taskStatus.Details.Running).To(BeFalse())
-					g.Expect(taskStatus.Details.ConfigHash).To(Equal("deployed"))
-					g.Expect(taskStatus.Details.Rack).To(Equal(r.Key))
+					g.Expect(taskStatus.Name).To(Equal("Test Task"))
+					g.Expect(taskStatus.Description).To(Equal(
+						"The Core lost contact with the Driver on suspect rack " +
+							"while the task was running.",
+					))
+					g.Expect(taskStatus.Details).To(Equal(task.StatusDetails{
+						Task:       t.Key,
+						Running:    false,
+						ConfigHash: "deployed",
+						Rack:       r.Key,
+					}))
 				}).Should(Succeed())
+			},
+		)
+
+		It(
+			"Should not copy the rack's problem onto a task that is not running",
+			func(ctx SpecContext) {
+				// The rack and its tasks commit together, so the rack cannot go silent
+				// before the tasks exist.
+				createTx := db.OpenTx()
+				defer func() { Expect(createTx.Close()).To(Succeed()) }()
+				r := rack.Rack{Name: "suspect rack"}
+				Expect(rackService.NewWriter(createTx).Create(ctx, &r)).To(Succeed())
+				running := &task.Task{
+					Type: testType,
+					Rack: r.Key,
+					Name: "Running Task",
+					Status: &task.Status{
+						Variant: status.VariantSuccess,
+						Message: "Task is running",
+						Time:    telem.Now(),
+						Details: task.StatusDetails{Running: true},
+					},
+				}
+				Expect(svc.NewWriter(createTx).Create(ctx, running)).To(Succeed())
+				stopped := &task.Task{
+					Type: testType,
+					Rack: r.Key,
+					Name: "Stopped Task",
+					Status: &task.Status{
+						Variant: status.VariantSuccess,
+						Message: "Task stopped",
+						Time:    telem.Now(),
+					},
+				}
+				Expect(svc.NewWriter(createTx).Create(ctx, stopped)).To(Succeed())
+				undeployed := &task.Task{Type: testType, Rack: r.Key, Name: "New Task"}
+				Expect(svc.NewWriter(createTx).Create(ctx, undeployed)).To(Succeed())
+				Expect(createTx.Commit(ctx)).To(Succeed())
+
+				By("Waiting for the copy onto the running task, written in one batch")
+				Eventually(func(g Gomega) {
+					var taskStatus task.Status
+					g.Expect(stat.NewRetrieve[task.StatusDetails]().
+						Where(status.MatchKeys[task.StatusDetails](
+							running.OntologyID().String(),
+						)).
+						Entry(&taskStatus).
+						Exec(ctx, nil)).To(Succeed())
+					g.Expect(taskStatus.Message).To(Equal("Task stopped responding"))
+				}).Should(Succeed())
+
+				stoppedStatus := retrieveStatus(ctx, stopped)
+				Expect(stoppedStatus.Variant).To(Equal(status.VariantSuccess))
+				Expect(stoppedStatus.Message).To(Equal("Task stopped"))
+				undeployedStatus := retrieveStatus(ctx, undeployed)
+				Expect(undeployedStatus.Variant).To(Equal(status.VariantDisabled))
+				Expect(undeployedStatus.Message).To(Equal("Task not deployed"))
 			},
 		)
 	})

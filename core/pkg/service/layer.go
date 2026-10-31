@@ -269,8 +269,7 @@ func revokePasswordSessions(
 		Exec(ctx, nil); err != nil {
 		return errors.Wrap(err, "load the root password")
 	}
-	return sessions.NewWriter(nil).
-		RevokeCredential(ctx, nil, p.Key)
+	return sessions.NewWriter(nil).RevokeCredential(ctx, p.Key)
 }
 
 // OpenLayer opens the service layer using the provided configurations. Later
@@ -590,6 +589,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Group:           l.Group,
 		HostProvider:    cfg.Distribution.Cluster,
 		Status:          l.Status,
+		DriverRole:      l.RBAC.Builtin.DriverKey,
 	}); !ok(err, l.Rack) {
 		return nil, err
 	}

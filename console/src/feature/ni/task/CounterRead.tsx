@@ -16,7 +16,7 @@ import { errors, primitive, unique } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { useByKeys } from "@/feature/ni/device/queries";
-import { type Device, SCHEMAS } from "@/feature/ni/device/types";
+import { type Device, MAKE, SCHEMAS } from "@/feature/ni/device/types";
 import { counterReadHardwareZ } from "@/feature/ni/task/checks";
 import { CIChannelForm } from "@/feature/ni/task/CIChannelForm";
 import { createNextCIChannel } from "@/feature/ni/task/createChannel";
@@ -44,8 +44,6 @@ const Properties = () => (
     <Task.Fields.SampleRate />
     <Flex.Box x grow>
       <Task.Fields.StreamRate />
-      <Task.Fields.DataSaving />
-      <Task.Fields.AutoStart />
     </Flex.Box>
   </>
 );
@@ -276,6 +274,7 @@ export const CounterRead = Task.wrapForm({
 
 export const useCreateCounterRead = Task.createUseCreate({
   getInitialValues,
+  deviceMake: MAKE,
 });
 
 export const CounterReadSelectable = Selector.createSelectable({

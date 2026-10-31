@@ -19,7 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
@@ -38,7 +38,7 @@ import (
 
 // openServices opens the iterator service and the services it depends on over node.
 func openServices(
-	ctx context.Context, node mock.Node,
+	ctx context.Context, node testutil.Node,
 ) (*iterator.Service, *channel.Service) {
 	GinkgoHelper()
 	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
@@ -80,14 +80,14 @@ func merged(series []telem.Series) telem.Series {
 
 var _ = Describe("StreamIterator", Ordered, func() {
 	var (
-		node          mock.Node
+		node          testutil.Node
 		iteratorSvc   *iterator.Service
 		channelSvc    *channel.Service
 		channelWriter channel.Writer
 	)
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
-		node = mock.NewNode(ctx)
+		node = testutil.NewNode(ctx)
 		iteratorSvc, channelSvc = openServices(ctx, node)
 		channelWriter = channelSvc.NewWriter(nil)
 	})
@@ -2265,7 +2265,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 		// channel on node, and writes the values 1 through 100 to them.
 		createSensor := func(
 			ctx SpecContext,
-			node mock.Node,
+			node testutil.Node,
 			w channel.Writer,
 		) (index, sensor *channel.Channel) {
 			GinkgoHelper()
@@ -2585,13 +2585,13 @@ var _ = Describe("StreamIterator", Ordered, func() {
 			// Chunks reads from its own Core, whose storage sends a fixed-span read in
 			// chunks of 7 samples per channel.
 			var (
-				node          mock.Node
+				node          testutil.Node
 				iteratorSvc   *iterator.Service
 				channelWriter channel.Writer
 			)
 			BeforeAll(func(ctx SpecContext) {
 				ShouldNotLeakGoroutines()
-				cluster := mock.OpenCluster(ctx, 0)
+				cluster := testutil.OpenCluster(ctx, 0)
 				store := &storage.Layer{
 					KV: DeferClose(memkv.New()),
 					TS: DeferClose(MustSucceed(cesium.Open(
@@ -2817,7 +2817,7 @@ var _ = Describe("StreamIterator", Ordered, func() {
 
 var _ = Describe("Close", func() {
 	It("Should reject every call after Close", func(ctx SpecContext) {
-		node := mock.NewNode(ctx)
+		node := testutil.NewNode(ctx)
 		iteratorSvc, channelSvc := openServices(ctx, node)
 		ch := &channel.Channel{
 			Name:     "Scott",
@@ -2843,10 +2843,10 @@ var _ = Describe("Read failure", func() {
 		faulty      *FaultyFS
 		iteratorSvc *iterator.Service
 		channelSvc  *channel.Service
-		node        mock.Node
+		node        testutil.Node
 	)
 	BeforeEach(func(ctx SpecContext) {
-		cluster := mock.OpenCluster(ctx, 0)
+		cluster := testutil.OpenCluster(ctx, 0)
 		faulty = WrapFaultyFS(xfs.NewMem())
 		store := &storage.Layer{
 			KV: DeferClose(memkv.New()),
@@ -2935,8 +2935,8 @@ var _ = Describe("Calculations across Cores", func() {
 	It("Should calculate the inputs of one read from two Cores together", func(
 		ctx SpecContext,
 	) {
-		cluster := mock.NewCluster(ctx, 0)
-		nodes := []mock.Node{cluster.Provision(ctx), cluster.Provision(ctx)}
+		cluster := testutil.NewCluster(ctx, 0)
+		nodes := []testutil.Node{cluster.Provision(ctx), cluster.Provision(ctx)}
 		iteratorSvc, channelSvc := openServices(ctx, nodes[0])
 		writer := channelSvc.NewWriter(nil)
 		for k, n := range nodes {

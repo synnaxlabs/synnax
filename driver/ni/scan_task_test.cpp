@@ -199,11 +199,15 @@ public:
 
     NISYSCFGCFUNC GetResourceIndexedProperty(
         NISysCfgResourceHandle,
-        NISysCfgIndexedProperty,
+        const NISysCfgIndexedProperty property,
         unsigned int,
         void *value
     ) override {
-        std::strcpy(static_cast<char *>(value), "\"Dev1\"");
+        // As on a simulated device, the resource name is not the DAQmx name.
+        const char *v = property == NISysCfgIndexedPropertyExpertUserAlias
+                          ? "Dev1"
+                          : "\"3BA1A71A-1D33-4C5E-9F6A-0B7C8D9E0F12\"";
+        std::strcpy(static_cast<char *>(value), v);
         return NISysCfg_OK;
     }
 
@@ -400,7 +404,10 @@ public:
         int32 *value
     ) override {
         MockAPI::GetDeviceAttributeInt32(name, attr, value);
-        return this->failing ? DAQmxErrorInvalidDeviceID : 0;
+        // DAQmx knows a device only by its alias.
+        if (this->failing || std::string(name) != "Dev1")
+            return DAQmxErrorInvalidDeviceID;
+        return 0;
     }
 
     int32 GetDeviceAttributeString(

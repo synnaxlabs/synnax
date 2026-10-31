@@ -82,6 +82,16 @@ known-first-party = ["synnax", "alamos", "freighter", "x"]
 mypy_path = "stubs"
 plugins = ["pydantic.mypy"]
 strict = true
+warn_unreachable = true
+enable_error_code = [
+    "ignore-without-code",
+    "redundant-expr",
+    "truthy-bool",
+    "possibly-undefined",
+    "mutable-override",
+    "deprecated",
+    "unused-awaitable",
+]
 
 [[tool.mypy.overrides]]
 module = "nidaqmx.*"

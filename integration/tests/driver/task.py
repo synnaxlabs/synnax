@@ -637,7 +637,6 @@ class ReadTaskCase(TaskCase[ReadTaskT]):
         """Execute the standard read task lifecycle test."""
         if self.tsk is None:
             self.fail("Task not configured. Subclass must set self.tsk in setup()")
-            return
 
         self.test_task_exists()
         self.test_start_and_stop()
@@ -776,7 +775,6 @@ class WriteTaskCase(TaskCase[TaskT]):
         """Execute the standard write task lifecycle test."""
         if self.tsk is None:
             self.fail("Task not configured. Subclass must set self.tsk in setup()")
-            return
 
         self.test_task_exists()
         self.test_send_commands()
