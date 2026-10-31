@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { Input } from "@/input";
@@ -66,5 +66,89 @@ describe("Input.TimeSpan", () => {
     fireEvent.keyDown(field, { key: "Enter" });
     expect(screen.getByRole("textbox")).toBe(field);
     expect(onChange).not.toHaveBeenCalled();
+  });
+});
+
+describe("Input.TimeSpan readings", () => {
+  preloadTimeLanguage();
+  beforeAll(() => {
+    Element.prototype.getBoundingClientRect = mockBoundingClientRect(0, 0, 100, 100);
+  });
+
+  // Types text into a fresh input and returns its readings and what Enter commits.
+  const edit = (text: string): { readings: string[]; committed?: number } => {
+    const onChange = vi.fn();
+    const { container } = render(
+      <Input.TimeSpan value={HOUR / 7} onChange={onChange} />,
+    );
+    const field = open(container);
+    fireEvent.change(field, { target: { value: text } });
+    const readings = screen
+      .queryAllByRole("menuitem")
+      .filter((item) => item.classList.contains("lyra-time-editor__suggestion"))
+      .map((item) => item.textContent ?? "");
+    fireEvent.keyDown(field, { key: "Enter" });
+    const committed = onChange.mock.calls[0]?.[0] as number | undefined;
+    cleanup();
+    return { readings, committed };
+  };
+
+  const ns = (span: TimeSpan): number => Number(span.valueOf());
+
+  it("should parse unit runs", () => {
+    const runs: [string, TimeSpan][] = [
+      ["30s", TimeSpan.seconds(30)],
+      ["2h 30m", TimeSpan.minutes(150)],
+      ["2h30m", TimeSpan.minutes(150)],
+      ["1.5h", TimeSpan.minutes(90)],
+      ["500ms", TimeSpan.milliseconds(500)],
+      ["250us", TimeSpan.microseconds(250)],
+      ["250µs", TimeSpan.microseconds(250)],
+      ["2d", TimeSpan.days(2)],
+    ];
+    for (const [text, span] of runs) expect(edit(text).committed, text).toBe(ns(span));
+    // A commit rounds to the microsecond, so the label shows a nanosecond run.
+    expect(edit("10ns").readings[0]).toContain("10ns");
+  });
+
+  it("should parse clock form", () => {
+    expect(edit("1:30:00").committed).toBe(ns(TimeSpan.minutes(90)));
+    expect(edit("0:30").committed).toBe(ns(TimeSpan.minutes(30)));
+    expect(edit("00:00:30.250").committed).toBe(ns(TimeSpan.milliseconds(30250)));
+  });
+
+  it("should treat a bare number as seconds", () => {
+    expect(edit("45").committed).toBe(ns(TimeSpan.seconds(45)));
+    expect(edit("0.5").committed).toBe(ns(TimeSpan.milliseconds(500)));
+  });
+
+  it("should say which form the duration took", () => {
+    expect(edit("45").readings[0]).toContain("seconds");
+    expect(edit("2h 30m").readings[0]).toContain("duration");
+    expect(edit("1:30:00").readings[0]).toContain("duration");
+  });
+
+  it("should reject text that is not a duration", () => {
+    expect(edit("soon").committed).toBeUndefined();
+    expect(edit("5 parsecs").committed).toBeUndefined();
+  });
+
+  it("should read Ms only as megaseconds", () => {
+    const { readings, committed } = edit("5Ms");
+    expect(readings.length).toBeGreaterThan(0);
+    const label = TimeSpan.seconds(5e6).toString("full");
+    for (const reading of readings) expect(reading).toContain(label);
+    expect(committed).toBe(ns(TimeSpan.seconds(5e6)));
+  });
+
+  it("should read natural language durations", () => {
+    const phrases: [string, TimeSpan][] = [
+      ["an hour and a half", TimeSpan.minutes(90)],
+      ["half an hour", TimeSpan.minutes(30)],
+      ["2 hours and 30 minutes", TimeSpan.minutes(150)],
+      ["five minutes", TimeSpan.minutes(5)],
+    ];
+    for (const [text, span] of phrases)
+      expect(edit(text).committed, text).toBe(ns(span));
   });
 });
