@@ -1123,6 +1123,13 @@ TEST_F(TestWriteTask, testDoesNotResendTimedOutCall) {
         this->double_cmd_channel.name +
             ": lost the connection during the call, so the method might not have run."
     );
+    // The server can answer a later read before it runs the call that timed out.
+    ASSERT_EVENTUALLY_EQ_WITH_TIMEOUT(
+        server->method_calls.load(),
+        1,
+        std::chrono::seconds(5),
+        std::chrono::milliseconds(10)
+    );
     const auto speed = ASSERT_NIL_P(testutil::simple_read(client, "NS=1;S=Pump.Speed"));
     EXPECT_EQ(speed.at<double>(0), 42);
     EXPECT_EQ(server->method_calls, 1);
