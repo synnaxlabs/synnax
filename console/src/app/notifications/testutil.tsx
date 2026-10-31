@@ -17,8 +17,9 @@ import { settleWrites, UncappedFeed } from "@/platform/notifications/testutil";
 import { createConsoleWrapper } from "@/testutil";
 
 /**
- * Renders the UI next to {@link UncappedFeed} inside {@link Notifications.Provider}. Waits until the forwarder has loaded the open
- * problems. A problem that starts before the load ends counts as open at load.
+ * Renders the UI next to {@link UncappedFeed} inside {@link Notifications.Provider}.
+ * Waits until the forwarder has loaded the open problems. A problem that starts before
+ * the load ends counts as open at load.
  */
 export const renderForward = async (client: Client, ui?: ReactNode): Promise<void> => {
   await waitForStreamLive(client.connection);

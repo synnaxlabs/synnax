@@ -111,9 +111,9 @@ export const close = async (message: string): Promise<void> => {
 };
 
 /**
- * Renders the UI above {@link UncappedFeed} inside a {@link Notifications.Provider} with
- * the rules. Waits until the forwarder has loaded the open problems. A problem that starts before the
- * load ends counts as open at load.
+ * Renders the UI above {@link UncappedFeed} inside a {@link Notifications.Provider}
+ * with the rules. Waits until the forwarder has loaded the open problems. A problem
+ * that starts before the load ends counts as open at load.
  * @returns the result of {@link Notifications.useProblems}.
  */
 export const renderForward = async (
