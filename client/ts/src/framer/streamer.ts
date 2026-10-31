@@ -16,8 +16,7 @@ import {
 import { errors, Rate, sync, TimeSpan, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type channel } from "@/channel";
-import { paramsZ } from "@/channel/payload";
+import { channel } from "@/channel";
 import { UnexpectedError } from "@/errors";
 import { type ChannelRetriever, ReadAdapter } from "@/framer/adapter";
 import { WSStreamerCodec } from "@/framer/codec";
@@ -55,7 +54,7 @@ export interface StreamerResponse extends z.infer<typeof resZ> {}
 
 const intermediateStreamerConfigZ = z.object({
   /** The channels to stream data from. Can be channel keys, names, or payloads. */
-  channels: paramsZ,
+  channels: channel.paramsZ,
   /** Optional factor to downsample the data by. Defaults to 1 (no downsampling). */
   downsampleFactor: z.uint32().default(1),
   /** Optional throttle rate in Hz to limit the rate of frames sent to the client. Defaults to 0 (no throttling). */
@@ -71,7 +70,9 @@ const intermediateStreamerConfigZ = z.object({
 
 /** Zod schema for {@link StreamerConfig}. A bare channel list parses as a config. */
 export const streamerConfigZ = intermediateStreamerConfigZ.or(
-  paramsZ.transform((channels) => intermediateStreamerConfigZ.parse({ channels })),
+  channel.paramsZ.transform((channels) =>
+    intermediateStreamerConfigZ.parse({ channels }),
+  ),
 );
 
 /** Config for a streamer. Pass it to `client.telem.openStreamer`. */

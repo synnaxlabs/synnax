@@ -22,7 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/cmd/listener"
 	"github.com/synnaxlabs/synnax/cmd/start"
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
-	"github.com/synnaxlabs/synnax/pkg/security/mock"
+	"github.com/synnaxlabs/synnax/pkg/security/testutil"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -187,7 +187,7 @@ var _ = Describe("DriverTrustAnchors", func() {
 
 	It("Should return the CA and node certificates", func() {
 		fs := xfs.NewMem()
-		mock.GenerateCerts(fs)
+		testutil.GenerateCerts(fs)
 		Expect(MustSucceed(
 			start.DriverTrustAnchors(false, cert.LoaderConfig{FS: fs}),
 		)).ToNot(BeEmpty())

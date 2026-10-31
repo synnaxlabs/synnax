@@ -10,7 +10,7 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { deviceZ } from "@/device/types.gen";
+import { device } from "@/device";
 
 const VALID_DEVICE = {
   key: "dev-1",
@@ -26,23 +26,23 @@ const VALID_DEVICE = {
 describe("deviceZ", () => {
   describe("default schemas", () => {
     it("should accept a valid device", () => {
-      expect(deviceZ().validate(VALID_DEVICE)).toBe(true);
+      expect(device.deviceZ().validate(VALID_DEVICE)).toBe(true);
     });
 
     it("should reject a device with an empty name", () => {
-      expect(deviceZ().validate({ ...VALID_DEVICE, name: "" })).toBe(false);
+      expect(device.deviceZ().validate({ ...VALID_DEVICE, name: "" })).toBe(false);
     });
 
     it("should reject a device with an empty make", () => {
-      expect(deviceZ().validate({ ...VALID_DEVICE, make: "" })).toBe(false);
+      expect(device.deviceZ().validate({ ...VALID_DEVICE, make: "" })).toBe(false);
     });
 
     it("should reject a device with an empty model", () => {
-      expect(deviceZ().validate({ ...VALID_DEVICE, model: "" })).toBe(false);
+      expect(device.deviceZ().validate({ ...VALID_DEVICE, model: "" })).toBe(false);
     });
 
     it("should accept properties as an object", () => {
-      const result = deviceZ().parse(VALID_DEVICE);
+      const result = device.deviceZ().parse(VALID_DEVICE);
       expect(result.properties).toEqual({ rate: 10 });
     });
   });
@@ -51,11 +51,11 @@ describe("deviceZ", () => {
     const makeZ = z.enum(["ni", "labjack"]);
 
     it("should accept a valid make value", () => {
-      expect(deviceZ({ make: makeZ }).validate(VALID_DEVICE)).toBe(true);
+      expect(device.deviceZ({ make: makeZ }).validate(VALID_DEVICE)).toBe(true);
     });
 
     it("should reject an invalid make value", () => {
-      const result = deviceZ({ make: makeZ }).safeParse({
+      const result = device.deviceZ({ make: makeZ }).safeParse({
         ...VALID_DEVICE,
         make: "unknown",
       });
@@ -67,11 +67,11 @@ describe("deviceZ", () => {
     const modelZ = z.literal("pxi-6281");
 
     it("should accept a matching model", () => {
-      expect(deviceZ({ model: modelZ }).validate(VALID_DEVICE)).toBe(true);
+      expect(device.deviceZ({ model: modelZ }).validate(VALID_DEVICE)).toBe(true);
     });
 
     it("should reject a non-matching model", () => {
-      const result = deviceZ({ model: modelZ }).safeParse({
+      const result = device.deviceZ({ model: modelZ }).safeParse({
         ...VALID_DEVICE,
         model: "t7",
       });
@@ -83,7 +83,7 @@ describe("deviceZ", () => {
     const propertiesZ = z.object({ rate: z.number(), channel: z.string() });
 
     it("should validate properties against the custom schema", () => {
-      const result = deviceZ({ properties: propertiesZ }).safeParse({
+      const result = device.deviceZ({ properties: propertiesZ }).safeParse({
         ...VALID_DEVICE,
         properties: { rate: 10, channel: "ai0" },
       });
@@ -91,19 +91,21 @@ describe("deviceZ", () => {
     });
 
     it("should reject properties that don't match the custom schema", () => {
-      expect(() => deviceZ({ properties: propertiesZ }).parse(VALID_DEVICE)).toThrow();
+      expect(() =>
+        device.deviceZ({ properties: propertiesZ }).parse(VALID_DEVICE),
+      ).toThrow();
     });
   });
 });
 
 describe("validation", () => {
   it("should encode properties to a JSON string", () => {
-    const result = deviceZ().parse(VALID_DEVICE);
+    const result = device.deviceZ().parse(VALID_DEVICE);
     expect(result.properties).toEqual(VALID_DEVICE.properties);
   });
 
   it("should accept a device with an optional parent ontology ID", () => {
-    const result = deviceZ().safeParse({
+    const result = device.deviceZ().safeParse({
       ...VALID_DEVICE,
       parent: { type: "rack", key: "rack-1" },
     });
@@ -113,13 +115,13 @@ describe("validation", () => {
   });
 
   it("should accept a device without a parent", () => {
-    const result = deviceZ().safeParse(VALID_DEVICE);
+    const result = device.deviceZ().safeParse(VALID_DEVICE);
     expect(result.success).toBe(true);
     if (result.success) expect(result.data.parent).toBeUndefined();
   });
 
   it("should reject a device with an invalid parent type", () => {
-    const result = deviceZ().safeParse({
+    const result = device.deviceZ().safeParse({
       ...VALID_DEVICE,
       parent: { type: "invalid_type", key: "key-1" },
     });
@@ -128,9 +130,9 @@ describe("validation", () => {
 
   it("should still validate make and model with custom schemas", () => {
     const makeZ = z.literal("ni");
-    expect(deviceZ({ make: makeZ }).validate(VALID_DEVICE)).toBe(true);
-    expect(deviceZ({ make: makeZ }).validate({ ...VALID_DEVICE, make: "opc" })).toBe(
-      false,
-    );
+    expect(device.deviceZ({ make: makeZ }).validate(VALID_DEVICE)).toBe(true);
+    expect(
+      device.deviceZ({ make: makeZ }).validate({ ...VALID_DEVICE, make: "opc" }),
+    ).toBe(false);
   });
 });

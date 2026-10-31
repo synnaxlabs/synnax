@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from examples.simulators import PressSimDAQ
+from examples.simulators import PressSimDAQ, SimDAQ
 
 import synnax as sy
 from framework.utils import create_virtual_channel
@@ -59,7 +59,7 @@ class AuthorityArcVsArc(ArcCase):
     start_cmd_channel = "start_low_cmd"
     end_cmd_channel = "end_test_cmd"
     subscribe_channels = ["press_vlv_state", "press_pt", "end_test_cmd"]
-    sim_daq_class = PressSimDAQ
+    sim_daq_class: type[SimDAQ] | None = PressSimDAQ
 
     def setup(self) -> None:
         create_virtual_channel(

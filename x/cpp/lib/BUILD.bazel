@@ -8,12 +8,27 @@
 # included in the file licenses/APL.txt.
 
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 cc_library(
     name = "lib",
-    hdrs = ["lib.h"],
+    hdrs = [
+        "lazy.h",
+        "lib.h",
+    ],
     visibility = ["//visibility:public"],
     deps = [
         "//x/cpp/errors",
+    ],
+)
+
+cc_test(
+    name = "lib_test",
+    size = "small",
+    srcs = ["lazy_test.cpp"],
+    deps = [
+        "//x/cpp/lib",
+        "//x/cpp/testutil",
+        "@googletest//:gtest_main",
     ],
 )

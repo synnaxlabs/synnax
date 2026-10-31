@@ -45,7 +45,7 @@ describe("Modbus.Device.Select", () => {
       target: { value: dev.name },
     });
     fireEvent.click(await screen.findByText(dev.name));
-    await screen.findByText("Modbus TCP server");
+    await screen.findByText("Modbus server");
     await waitFor(() => expect(screen.getByDisplayValue(dev.name)).toBeTruthy());
   });
 });
