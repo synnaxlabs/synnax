@@ -33,6 +33,8 @@ export const modelZ = z.enum([T4_MODEL, T7_MODEL, T8_MODEL]);
 
 export interface BasePort extends record.KeyedNamed<string> {
   alias?: string;
+  /** The accessory the port needs, such as "MUX80". */
+  accessory?: string;
 }
 
 export const AI_PORT_TYPE = "AI";
@@ -155,7 +157,7 @@ const T4_PORTS: PortsInfo = {
 
 const T7_AI_PORTS: AIPort[] = [
   ...aiFactory({ lower: 0, upper: 13 }),
-  ...aiFactory({ lower: 48, upper: 127 }), //Channels for use with LabJack MUX80
+  ...aiFactory({ lower: 48, upper: 127 }).map((p) => ({ ...p, accessory: "MUX80" })),
 ];
 const T7_AO_PORTS: AOPort[] = aoFactory({ lower: 0, upper: 1 });
 const T7_DI_PORTS: DIPort[] = [

@@ -9,7 +9,7 @@
 
 import { type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { type z } from "zod";
 
@@ -21,7 +21,6 @@ import {
 } from "@/feature/labjack/testutil";
 import {
   awaitEditableForm,
-  clickDeploy,
   createWithHook,
   deployAndAwaitTask,
   renderTaskFormTab,
@@ -62,6 +61,14 @@ const createDraft = async (
   client: Synnax,
   config: z.infer<LabJack.Task.WriteSchemas["config"]>,
 ) => await client.tasks.create({ ...ZERO_DRAFT, config }, LabJack.Task.WRITE_SCHEMAS);
+
+const savedPorts = async (key: string) => {
+  const saved = await client.tasks.retrieve({
+    key,
+    schemas: LabJack.Task.WRITE_SCHEMAS,
+  });
+  return saved.config.channels.map(({ type, port }) => [type, port]);
+};
 
 describe("Write", () => {
   it("should render output channels with port selectors and type buttons", async () => {
@@ -114,7 +121,32 @@ describe("Write", () => {
     await waitFor(() => expect(screen.getByText("FIO5")).toBeTruthy());
   });
 
-  it("should update the port through the port select dialog", async () => {
+  it("should update the port from the grid the port button opens", async () => {
+    const dev = await createLabJackDevice(client);
+    const draft = await createDraft(
+      client,
+      createConfig(dev.key, [
+        createDigitalWriteChannel("DIO4"),
+        createDigitalWriteChannel("DIO8"),
+      ]),
+    );
+    await renderWrite({ client, taskKey: draft.key });
+    fireEvent.click(await findDialogTriggerByText("FIO4"));
+    const bank = await screen.findByRole("group", { name: "EIO0 to EIO7" });
+    const eio0 = within(bank).getByRole("button", { name: "EIO0" });
+    expect(eio0.className).toContain("console-port-grid__cell--used");
+    fireEvent.click(within(bank).getByRole("button", { name: "EIO2" }));
+    await findDialogTriggerByText("EIO2");
+    expect(screen.queryByRole("group", { name: "EIO0 to EIO7" })).toBeNull();
+    await waitFor(async () =>
+      expect(await savedPorts(draft.key)).toEqual([
+        ["digital", "DIO10"],
+        ["digital", "DIO8"],
+      ]),
+    );
+  });
+
+  it("should offer no channel actions on a free port of the port picker", async () => {
     const dev = await createLabJackDevice(client);
     const draft = await createDraft(
       client,
@@ -122,29 +154,81 @@ describe("Write", () => {
     );
     await renderWrite({ client, taskKey: draft.key });
     fireEvent.click(await findDialogTriggerByText("FIO4"));
-    fireEvent.click(await screen.findByText("EIO2"));
-    await waitFor(() => expect(screen.queryByText("EIO2")).toBeTruthy());
+    const bank = await screen.findByRole("group", { name: "EIO0 to EIO7" });
+    fireEvent.contextMenu(within(bank).getByRole("button", { name: "EIO2" }));
+    await waitFor(() => expect(screen.getByText("Reload Console")).toBeTruthy());
+    expect(screen.queryByText("Remove")).toBeNull();
   });
 
-  it("should mark both ports when two channels share one on deploy", async () => {
+  it("should add a channel on the lowest free port of the device", async () => {
+    const dev = await createLabJackDevice(client, { model: LabJack.Device.T7_MODEL });
+    const draft = await createDraft(client, createConfig(dev.key, []));
+    await renderWrite({ client, taskKey: draft.key });
+    fireEvent.click(await screen.findByText("Add channel"));
+    await waitFor(async () =>
+      expect(await savedPorts(draft.key)).toEqual([["digital", "DIO0"]]),
+    );
+  });
+
+  it("should move a channel to the lowest free port of its new type", async () => {
     const dev = await createLabJackDevice(client);
     const draft = await createDraft(
       client,
       createConfig(dev.key, [
         createDigitalWriteChannel("DIO4"),
-        createDigitalWriteChannel("DIO4"),
+        createAnalogWriteChannel("DAC0"),
       ]),
     );
-    const { container } = await renderWrite({ client, taskKey: draft.key });
-    await waitFor(() => expect(screen.getAllByText("FIO4")).toHaveLength(2));
-    await clickDeploy(container);
+    await renderWrite({ client, taskKey: draft.key });
+    await findDialogTriggerByText("FIO4");
+    fireEvent.click(screen.getAllByText("Analog")[0]);
+    await waitFor(async () =>
+      expect(await savedPorts(draft.key)).toEqual([
+        ["analog", "DAC1"],
+        ["analog", "DAC0"],
+      ]),
+    );
+  });
+
+  it("should add a channel on a free port, of the type the port takes", async () => {
+    const dev = await createLabJackDevice(client);
+    const draft = await createDraft(
+      client,
+      createConfig(dev.key, [createDigitalWriteChannel("DIO4")]),
+    );
+    await renderWrite({ client, taskKey: draft.key });
+    fireEvent.click(await screen.findByText("Ports"));
+    const section = await screen.findByRole("group", { name: "Analog outputs" });
+    fireEvent.click(within(section).getByRole("button", { name: "DAC1" }));
+    await waitFor(async () =>
+      expect(await savedPorts(draft.key)).toEqual([
+        ["digital", "DIO4"],
+        ["analog", "DAC1"],
+      ]),
+    );
+    expect(screen.getByText("1 of 2 ports used")).toBeTruthy();
+  });
+
+  it("should mark each channel on a port another channel uses", async () => {
+    const dev = await createLabJackDevice(client);
+    const draft = await createDraft(
+      client,
+      createConfig(dev.key, [
+        createAnalogWriteChannel("DAC0"),
+        createAnalogWriteChannel("DAC1"),
+        createAnalogWriteChannel("DAC0"),
+      ]),
+    );
+    await renderWrite({ client, taskKey: draft.key });
+    const trigger = (text: HTMLElement) => text.closest(".lyra-dialog__trigger");
     await waitFor(() => {
-      const triggers = screen
-        .getAllByText("FIO4")
-        .map((text) => text.closest(".lyra-dialog__trigger"));
-      for (const trigger of triggers)
-        expect(trigger?.getAttribute("aria-invalid")).toBe("true");
+      for (const text of screen.getAllByText("DAC0"))
+        expect(trigger(text)?.getAttribute("aria-invalid")).toBe("true");
     });
+    expect(trigger(screen.getByText("DAC1"))?.getAttribute("aria-invalid")).toBeNull();
+    fireEvent.pointerOver(screen.getAllByText("DAC0")[0], { pointerType: "mouse" });
+    const tooltip = await screen.findByRole("tooltip");
+    expect(tooltip.textContent).toBe("Another channel uses DAC0");
   });
 
   it("should create command and state channels, update the device, and save the task", async () => {
@@ -288,11 +372,68 @@ describe("Write", () => {
     );
   });
 
+  it("should show the names configuring gives each channel in the list", async () => {
+    const dev = await createLabJackDevice(client);
+    const draft = await createDraft(
+      client,
+      createConfig(dev.key, [createDigitalWriteChannel("DIO4")]),
+    );
+    await renderWrite({ client, taskKey: draft.key });
+    const { identifier } = dev.properties;
+    expect(await screen.findByText(`${identifier}_DIO4_cmd`)).toBeTruthy();
+    expect(screen.getByText(`${identifier}_DIO4_state`)).toBeTruthy();
+    expect(screen.queryByText("No command channel")).toBeNull();
+  });
+
   it("should create the task with one channel", async () => {
     const tsk = await createWithHook(
       LabJack.Task.useCreateWrite,
       LabJack.Task.WRITE_SCHEMAS,
     );
     expect(tsk.config.channels).toHaveLength(1);
+  });
+});
+
+describe("Write disabled channels", () => {
+  it("should show no conflict for a port a disabled channel shares", async () => {
+    const dev = await createLabJackDevice(client);
+    const draft = await createDraft(
+      client,
+      createConfig(dev.key, [
+        createAnalogWriteChannel("DAC0", { disabled: true }),
+        createAnalogWriteChannel("DAC0"),
+      ]),
+    );
+    await renderWrite({ client, taskKey: draft.key });
+    fireEvent.click(await screen.findByText("Ports"));
+    const section = await screen.findByRole("group", { name: "Analog outputs" });
+    const port = within(section).getByRole("button", { name: "DAC0" });
+    expect(port.className).toContain("console-port-grid__cell--used");
+    expect(port.className).not.toContain("console-port-grid__cell--conflict");
+    expect(screen.queryByText("Another channel uses DAC0")).toBeNull();
+  });
+
+  it("should deploy and redeploy a disabled channel on a port another channel uses", async () => {
+    const dev = await createLabJackDevice(client);
+    const firstDraft = await createDraft(
+      client,
+      createConfig(dev.key, [
+        createAnalogWriteChannel("DAC0", { disabled: true }),
+        createAnalogWriteChannel("DAC0"),
+      ]),
+    );
+    const first = await renderWrite({ client, taskKey: firstDraft.key });
+    const { config } = await deployAndAwaitTask(
+      client,
+      first.container,
+      firstDraft.key,
+      LabJack.Task.WRITE_SCHEMAS,
+    );
+    expect(config.channels[1].cmdChannel).toBe(config.channels[0].cmdChannel);
+    expect(config.channels[1].stateChannel).toBe(config.channels[0].stateChannel);
+    first.unmount();
+    const secondDraft = await createDraft(client, config);
+    const second = await renderWrite({ client, taskKey: secondDraft.key });
+    await deployAndAwaitTask(client, second.container, secondDraft.key);
   });
 });
