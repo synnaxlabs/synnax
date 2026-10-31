@@ -85,13 +85,16 @@
       "tests": [
         { "case": "console/user/register" },
         { "case": "console/user/assign_role" },
-        { "case": "console/user/drag_to_role" },
         { "case": "console/user/login_logout" },
         { "case": "console/user/logout_badge" },
         { "case": "console/user/role_engineer_permissions" },
         { "case": "console/user/role_operator_permissions" },
         { "case": "console/user/role_viewer_permissions" }
       ]
+    },
+    {
+      "sequence_name": "user_drag",
+      "tests": [{ "case": "console/user/drag_to_role" }]
     },
     {
       "sequence_name": "cluster",
