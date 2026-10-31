@@ -14,7 +14,13 @@
     flex-grow: 1;
     align-items: center;
     column-gap: 1rem;
-    min-width: 0;
+    /* Columns that do not fit make the list scroll sideways instead of overflowing. */
+    min-width: min-content;
+}
+
+/* Grows with its cells, so its background reaches the last column. */
+.lyra-list__item:has(> .lyra-list__cells) {
+    min-width: min-content;
 }
 
 .lyra-list__cell {
@@ -35,6 +41,7 @@
     gap: 1.5rem;
     padding: 1rem 3rem;
     margin-bottom: 0.5rem;
+    overflow: hidden;
     font-family: var(--pluto-font-family);
     font-size: var(--pluto-small-size);
     font-weight: 500;

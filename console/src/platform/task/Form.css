@@ -54,10 +54,6 @@
 
         .console-channel-list {
             overflow: hidden;
-
-            & .lyra-list__scroll {
-                overflow-x: hidden;
-            }
         }
 
         .console-channel-list:only-child {

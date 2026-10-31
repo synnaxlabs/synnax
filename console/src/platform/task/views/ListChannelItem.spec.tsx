@@ -56,6 +56,16 @@ describe("layouts.ListChannelItem", () => {
     expect(screen.getByText("Channel")).toBeTruthy();
   });
 
+  it("should scroll the headings sideways with the channels", async () => {
+    const { container } = await renderList();
+    await screen.findByText("port-a");
+    const scroll = container.querySelector<HTMLElement>(".lyra-list__scroll")!;
+    scroll.scrollLeft = 120;
+    fireEvent.scroll(scroll);
+    const headings = container.querySelector<HTMLElement>(".lyra-list__headings")!;
+    expect(headings.scrollLeft).toBe(120);
+  });
+
   it("should show the name a new channel takes", async () => {
     await renderList();
     expect(await screen.findByText("dev_a")).toBeTruthy();

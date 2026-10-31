@@ -73,16 +73,19 @@ export const Cell = ({ className, ...rest }: CellProps): ReactElement => (
 );
 
 /** Props for {@link Headings}. */
-export interface HeadingsProps {
+export interface HeadingsProps extends Pick<ComponentPropsWithRef<"div">, "ref"> {
   /** Whether the items lead with a checkbox, which the headings leave room for. */
   checkable?: boolean;
 }
 
-/** The names of the declared columns, on a band above the items. */
-export const Headings = ({ checkable = false }: HeadingsProps): ReactElement => {
+/**
+ * The names of the declared columns, on a band above the items. When the items scroll
+ * sideways, set the band's `scrollLeft` to theirs.
+ */
+export const Headings = ({ checkable = false, ref }: HeadingsProps): ReactElement => {
   const columns = useContext("List.Headings");
   return (
-    <div className={CSS.BE("list", "headings")}>
+    <div ref={ref} className={CSS.BE("list", "headings")}>
       {checkable && <span className={CSS.BE("list", "headings-check")} />}
       <Cells>
         {columns.map(({ name, field = false }, i) => (

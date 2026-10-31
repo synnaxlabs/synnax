@@ -16,7 +16,7 @@ import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
 import { array } from "@synnaxlabs/x";
-import { type ReactElement, type ReactNode } from "react";
+import { type ReactElement, type ReactNode, type UIEvent, useRef } from "react";
 
 import { ContextMenu as PlatformContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
@@ -161,6 +161,11 @@ export const ChannelList = <C extends Channel>({
   const { status } = Form.useFieldState(path);
   const handleChange = (keys: string[]) => onSelect(keys);
   const menuProps = Menu.useContextMenu();
+  const headingsRef = useRef<HTMLDivElement>(null);
+  const handleScroll = (e: UIEvent<HTMLDivElement>) => {
+    if (headingsRef.current != null)
+      headingsRef.current.scrollLeft = e.currentTarget.scrollLeft;
+  };
   const content = (
     <Flex.Box className={CSS.B("channel-list")} empty grow={grow} style={style}>
       {resolve != null && <BindChannels<C> path={path} resolve={resolve} />}
@@ -178,7 +183,7 @@ export const ChannelList = <C extends Channel>({
           onContextMenu={menuProps.open}
         >
           {header}
-          {columns != null && <List.Headings checkable={checkable} />}
+          {columns != null && <List.Headings ref={headingsRef} checkable={checkable} />}
         </Flex.Box>
         <Select.Frame<string, C>
           multiple
@@ -195,6 +200,7 @@ export const ChannelList = <C extends Channel>({
             onDrop={onDrop}
             className={menuProps.className}
             onContextMenu={menuProps.open}
+            onScroll={handleScroll}
           >
             <List.Items<string, C> emptyContent={emptyContent}>{listItem}</List.Items>
           </List.Scroll>
