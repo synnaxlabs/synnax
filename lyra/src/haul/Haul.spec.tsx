@@ -202,6 +202,59 @@ describe("Haul", () => {
     });
   });
 
+  describe("useDragOver", () => {
+    const Over = (): ReactElement => {
+      const { over, ...props } = Haul.useDragOver();
+      return (
+        <div data-testid="over" {...props}>
+          <span data-testid="child">{String(over)}</span>
+        </div>
+      );
+    };
+
+    const renderOver = () =>
+      render(
+        <Haul.Provider>
+          <Source />
+          <Target testId="target" onDrop={passthroughDrop()} />
+          <Over />
+        </Haul.Provider>,
+      );
+
+    it("should report a drag over the element", () => {
+      renderOver();
+      beginDrag();
+      expect(screen.getByTestId("child").textContent).toBe("false");
+      fireEvent.dragEnter(screen.getByTestId("over"));
+      expect(screen.getByTestId("child").textContent).toBe("true");
+    });
+
+    it("should stay over while the drag moves onto a child", () => {
+      renderOver();
+      beginDrag();
+      fireEvent.dragEnter(screen.getByTestId("over"));
+      fireEvent.dragEnter(screen.getByTestId("child"));
+      fireEvent.dragLeave(screen.getByTestId("over"));
+      expect(screen.getByTestId("child").textContent).toBe("true");
+      fireEvent.dragLeave(screen.getByTestId("child"));
+      expect(screen.getByTestId("child").textContent).toBe("false");
+    });
+
+    it("should clear when the drag ends", () => {
+      renderOver();
+      beginDrag();
+      fireEvent.dragEnter(screen.getByTestId("over"));
+      fireEvent.drop(screen.getByTestId("target"));
+      expect(screen.getByTestId("child").textContent).toBe("false");
+    });
+
+    it("should ignore a drag that Haul does not track", () => {
+      renderOver();
+      fireEvent.dragEnter(screen.getByTestId("over"));
+      expect(screen.getByTestId("child").textContent).toBe("false");
+    });
+  });
+
   describe("useDrop", () => {
     it("should call onDrop with the dragged items on a valid drop", () => {
       const onDrop = passthroughDrop();
