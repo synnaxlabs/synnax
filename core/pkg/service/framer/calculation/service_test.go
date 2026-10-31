@@ -1262,8 +1262,12 @@ var _ = Describe("Calculation", Ordered, func() {
 						return st, err
 					}
 					Eventually(stored).Should(HaveField("Message", "Calculation ready"))
-					write(0)
-					Eventually(stored).Should(failure())
+					// The graph clears the status before the calculator rebuilds, so
+					// the first frame can miss the calculator.
+					Eventually(func(g Gomega) {
+						write(0)
+						g.Expect(stored()).To(failure())
+					}).Should(Succeed())
 				},
 			)
 		})
