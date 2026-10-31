@@ -10,7 +10,6 @@
 package gorp
 
 import (
-	"cmp"
 	"context"
 	"slices"
 
@@ -33,8 +32,8 @@ import (
 var ErrIndexInvalid = errors.New("gorp: index failed to populate")
 
 // Index is a registered secondary index on a Table. Implementations are provided by
-// gorp (LookupIndex, SortedIndex, SearchIndex) and constructed via NewLookupIndex,
-// NewSortedIndex, and NewSearchIndex. The interface methods are unexported so external
+// gorp (LookupIndex, SearchIndex) and constructed via NewLookupIndex and
+// NewSearchIndex. The interface methods are unexported so external
 // code cannot substitute custom implementations; callers should use the provided
 // generic types.
 type Index[K Key, E Entry[K]] interface {
@@ -194,82 +193,4 @@ func (l *LookupIndex[K, E, V]) Get(tx Tx, values ...V) ([]K, error) {
 // queries continue to return correct results at scan cost.
 func (l *LookupIndex[K, E, V]) Filter(values ...V) Filter[K, E] {
 	return indexFilter[K, E](l.store, l.extract, values)
-}
-
-// SortedIndex is an ordered in-memory index on a field of type V extracted from entries
-// of type E. V is constrained to cmp.Ordered so the index can compare values without a
-// caller-supplied comparator. SortedIndex supports exact-match lookups via Filter (same
-// semantics as LookupIndex) and ordered cursor-based pagination via Retrieve.OrderBy.
-//
-// Read-your-own-writes is v1-scoped to equality Filter. Ordered cursor iteration via
-// Retrieve.OrderBy does NOT reflect uncommitted tx writes; an open write tx that staged
-// inserts or deletes will not see those changes during ordered iteration.
-type SortedIndex[K Key, E Entry[K], V cmp.Ordered] struct {
-	// name is the human-readable index name, used in diagnostics.
-	name string
-	// extract reads the indexed field from an entry.
-	extract func(e *E) V
-	store   *index.Sorted[*txState, K, V]
-}
-
-// NewSortedIndex constructs a SortedIndex index over the provided extract function. V
-// must satisfy cmp.Ordered (any built-in ordered primitive: signed and unsigned
-// integers, floats, or strings).
-func NewSortedIndex[K Key, E Entry[K], V cmp.Ordered](
-	name string,
-	extract func(e *E) V,
-) *SortedIndex[K, E, V] {
-	return &SortedIndex[K, E, V]{
-		name:    name,
-		extract: extract,
-		store:   index.NewSorted[*txState, K, V](),
-	}
-}
-
-// Name implements Index.
-func (s *SortedIndex[K, E, V]) Name() string { return s.name }
-
-//nolint:unused
-func (s *SortedIndex[K, E, V]) populate() (func(E), func(error)) {
-	insert, finish := s.store.Populate()
-	return func(entry E) { insert(entry.GorpKey(), s.extract(&entry)) },
-		func(err error) { finish(populateErr(s.name, err)) }
-}
-
-//nolint:unused
-func (s *SortedIndex[K, E, V]) set(entry E) {
-	s.store.Set(entry.GorpKey(), s.extract(&entry))
-}
-
-//nolint:unused
-func (s *SortedIndex[K, E, V]) delete(key K) { s.store.Delete(key) }
-
-//nolint:unused
-func (s *SortedIndex[K, E, V]) stageSet(tx Tx, entry E) {
-	s.store.Stage(tx.txIdentity(), entry.GorpKey(), s.extract(&entry))
-}
-
-//nolint:unused
-func (s *SortedIndex[K, E, V]) stageDelete(tx Tx, key K) {
-	s.store.StageDelete(tx.txIdentity(), key)
-}
-
-// Get returns the primary keys of entries whose indexed field matches any of the
-// provided values, merging committed index state with any per-tx delta staged against
-// tx. Pass a nil tx to read committed state only. See LookupIndex.Get for the
-// populate-failure contract.
-func (s *SortedIndex[K, E, V]) Get(tx Tx, values ...V) ([]K, error) {
-	return s.store.Get(scopeOf(tx), values...)
-}
-
-// Filter returns an exact-match Filter[K, E] matching entries whose indexed field is
-// any of values. Read-your-own-writes semantics match LookupIndex.Filter. Ordered
-// cursor iteration (SortedIndex.Ordered / OrderBy) is not covered; only equality
-// Filter.
-//
-// Filter blocks the Retrieve until the index has finished populating and falls back to
-// a sequential scan when populate fails. See LookupIndex.Filter for the
-// populate-failure contract.
-func (s *SortedIndex[K, E, V]) Filter(values ...V) Filter[K, E] {
-	return indexFilter[K, E](s.store, s.extract, values)
 }

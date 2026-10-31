@@ -56,7 +56,7 @@ var hoverDocs = map[string]string{
 	"filter": "**@filter**\n\nRetrieve requests can filter on this field.",
 	"search": "**@search**\n\nRetrieve requests can search the text of this field.",
 	"index": "**@index**\n\nIndex configuration for the field.\n\n" +
-		"Expressions: `lookup`, `sorted`",
+		"Expressions: `lookup`",
 	"ontology": "**@ontology**\n\nOntology resource type.\n\nUse " +
 		"`@ontology type \"name\"`.",
 	"go": "**@go**\n\nGo output configuration.\n\nUse `output \"path\"` " +
@@ -79,7 +79,6 @@ var hoverDocs = map[string]string{
 		"generated TypeScript type.",
 	"name":   "**name** *\"TypeName\"*\n\nOverride the generated type name.",
 	"lookup": "**lookup**\n\nLookup index for exact-match queries.",
-	"sorted": "**sorted**\n\nSorted index for range queries.",
 	"output": "**output** *\"path\"*\n\nOutput path for generated code.",
 }
 

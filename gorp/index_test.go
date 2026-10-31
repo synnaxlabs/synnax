@@ -30,9 +30,8 @@ import (
 	"go.uber.org/zap/zaptest/observer"
 )
 
-// indexedEntry is the test entry type used by the index suite. It carries two indexable
-// fields (Name, Category) and one orderable field (Score) so the suite can exercise
-// LookupIndex, SortedIndex, and OrderBy against realistic data shapes.
+// indexedEntry is the entry type the index suite stores. Name and Category are its
+// indexed fields.
 type indexedEntry struct {
 	ID       int32
 	Name     string
@@ -60,14 +59,6 @@ func idsOf(res []indexedEntry) []int32 {
 	out := make([]int32, len(res))
 	for i, e := range res {
 		out[i] = e.ID
-	}
-	return out
-}
-
-func scoresOf(res []indexedEntry) []int64 {
-	out := make([]int64, len(res))
-	for i, e := range res {
-		out[i] = e.Score
 	}
 	return out
 }
@@ -680,145 +671,6 @@ var _ = Describe("Index", func() {
 		})
 	})
 
-	Describe("Sorted", func() {
-		Describe("Population and exact-match Filter", func() {
-			It(
-				"Should populate a Sorted index and serve exact-match lookups",
-				func(ctx SpecContext) {
-					seed := []indexedEntry{
-						{ID: 1, Score: 30},
-						{ID: 2, Score: 10},
-						{ID: 3, Score: 20},
-						{ID: 4, Score: 20},
-					}
-					Expect(gorp.NewCreate[int32, indexedEntry]().
-						Entries(&seed).Exec(ctx, idxDB)).To(Succeed())
-					scoreIdx := gorp.NewSortedIndex(
-						"score", func(e *indexedEntry) int64 { return e.Score },
-					)
-					table := openIndexedTable(ctx, idxDB, scoreIdx)
-					defer func() { Expect(table.Close()).To(Succeed()) }()
-
-					Expect(
-						scoreIdx.Get(nil, int64(20)),
-					).To(ConsistOf(int32(3), int32(4)))
-					Expect(scoreIdx.Get(nil, int64(10))).To(ConsistOf(int32(2)))
-					Expect(scoreIdx.Get(nil, int64(99))).To(BeEmpty())
-				},
-			)
-		})
-
-		Describe("OrderBy pagination", func() {
-			var (
-				table    *gorp.Table[int32, indexedEntry]
-				scoreIdx *gorp.SortedIndex[int32, indexedEntry, int64]
-			)
-			BeforeEach(func(ctx SpecContext) {
-				scoreIdx = gorp.NewSortedIndex(
-					"score", func(e *indexedEntry) int64 { return e.Score },
-				)
-				table = openIndexedTable(ctx, idxDB, scoreIdx)
-				seed := make([]indexedEntry, 20)
-				for i := range 20 {
-					seed[i] = indexedEntry{ID: int32(i), Score: int64(i * 10)}
-				}
-				Expect(gorp.NewCreate[int32, indexedEntry]().
-					Entries(&seed).Exec(ctx, idxDB)).To(Succeed())
-			})
-			AfterEach(func() { Expect(table.Close()).To(Succeed()) })
-
-			It("Should walk ascending order with a limit", func(ctx SpecContext) {
-				var res []indexedEntry
-				Expect(table.NewRetrieve().
-					OrderBy(scoreIdx.Ordered(gorp.DirectionAsc)).
-					Limit(5).
-					Entries(&res).Exec(ctx, idxDB)).To(Succeed())
-				Expect(scoresOf(res)).To(Equal([]int64{0, 10, 20, 30, 40}))
-			})
-
-			It("Should walk descending order with a limit", func(ctx SpecContext) {
-				var res []indexedEntry
-				Expect(table.NewRetrieve().
-					OrderBy(scoreIdx.Ordered(gorp.DirectionDesc)).
-					Limit(3).
-					Entries(&res).Exec(ctx, idxDB)).To(Succeed())
-				Expect(scoresOf(res)).To(Equal([]int64{190, 180, 170}))
-			})
-
-			It(
-				"Should resume pagination via After on the SortedQuery",
-				func(ctx SpecContext) {
-					var page1 []indexedEntry
-					Expect(table.NewRetrieve().
-						OrderBy(scoreIdx.Ordered(gorp.DirectionAsc)).
-						Limit(5).
-						Entries(&page1).Exec(ctx, idxDB)).To(Succeed())
-					Expect(page1).To(HaveLen(5))
-					lastScore := page1[len(page1)-1].Score
-
-					var page2 []indexedEntry
-					Expect(table.NewRetrieve().
-						OrderBy(scoreIdx.Ordered(gorp.DirectionAsc).After(lastScore)).
-						Limit(5).
-						Entries(&page2).Exec(ctx, idxDB)).To(Succeed())
-					Expect(scoresOf(page2)).To(Equal([]int64{50, 60, 70, 80, 90}))
-				},
-			)
-
-			It("Should compose with a Where post-filter", func(ctx SpecContext) {
-				var res []indexedEntry
-				aboveFifty := gorp.Match(
-					func(_ gorp.Context, e *indexedEntry) (bool, error) {
-						return e.Score > 50, nil
-					},
-				)
-				Expect(table.NewRetrieve().
-					OrderBy(scoreIdx.Ordered(gorp.DirectionAsc)).
-					Limit(8).
-					Where(aboveFifty).
-					Entries(&res).Exec(ctx, idxDB)).To(Succeed())
-				// OrderBy walks the first 8 entries (scores 0..70); the
-				// post-filter keeps only those with Score > 50.
-				Expect(scoresOf(res)).To(Equal([]int64{60, 70}))
-			})
-
-			It(
-				"Should run validators on the ordered result set",
-				func(ctx SpecContext) {
-					var (
-						seen []indexedEntry
-						res  []indexedEntry
-					)
-					Expect(table.NewRetrieve().
-						OrderBy(scoreIdx.Ordered(gorp.DirectionAsc)).
-						Limit(3).
-						Validate(func(_ gorp.Context, entries []indexedEntry) error {
-							seen = append([]indexedEntry(nil), entries...)
-							return nil
-						}).
-						Entries(&res).Exec(ctx, idxDB)).To(Succeed())
-					Expect(scoresOf(res)).To(Equal([]int64{0, 10, 20}))
-					Expect(seen).To(Equal(res))
-				},
-			)
-
-			It(
-				"Should short-circuit Exec with a validator error on the ordered path",
-				func(ctx SpecContext) {
-					var res []indexedEntry
-					Expect(table.NewRetrieve().
-						OrderBy(scoreIdx.Ordered(gorp.DirectionAsc)).
-						Limit(3).
-						Validate(func(_ gorp.Context, _ []indexedEntry) error {
-							return errors.New("ordered validator rejected query")
-						}).
-						Entries(&res).Exec(ctx, idxDB)).
-						To(MatchError(ContainSubstring("ordered validator rejected query")))
-				},
-			)
-		})
-	})
-
 	Describe("Not with index-backed filters", func() {
 		It("Should negate an index-backed filter", func(ctx SpecContext) {
 			nameIdx := gorp.NewLookupIndex(
@@ -872,40 +724,6 @@ var _ = Describe("Index", func() {
 					Where(gorp.Not(gorp.And(nameIdx.Filter("a"), aboveFifty))).
 					Entries(&res).Exec(ctx, idxDB)).To(Succeed())
 				Expect(idsOf(res)).To(ConsistOf(int32(2), int32(3), int32(4)))
-			},
-		)
-	})
-
-	Describe("Where with OrderBy", func() {
-		It(
-			"Should apply an index-backed Where filter with OrderBy",
-			func(ctx SpecContext) {
-				nameIdx := gorp.NewLookupIndex(
-					"name", func(e *indexedEntry) string { return e.Name },
-				)
-				scoreIdx := gorp.NewSortedIndex(
-					"score", func(e *indexedEntry) int64 { return e.Score },
-				)
-				table := openIndexedTable(ctx, idxDB, nameIdx, scoreIdx)
-				defer func() { Expect(table.Close()).To(Succeed()) }()
-				seed := []indexedEntry{
-					{ID: 1, Name: "a", Score: 50},
-					{ID: 2, Name: "b", Score: 10},
-					{ID: 3, Name: "a", Score: 30},
-					{ID: 4, Name: "b", Score: 40},
-				}
-				Expect(gorp.NewCreate[int32, indexedEntry]().
-					Entries(&seed).Exec(ctx, idxDB)).To(Succeed())
-
-				var res []indexedEntry
-				Expect(table.NewRetrieve().
-					Where(nameIdx.Filter("a")).
-					OrderBy(scoreIdx.Ordered(gorp.DirectionAsc)).
-					Entries(&res).Exec(ctx, idxDB)).To(Succeed())
-				Expect(res).To(HaveLen(2))
-				for _, e := range res {
-					Expect(e.Name).To(Equal("a"))
-				}
 			},
 		)
 	})

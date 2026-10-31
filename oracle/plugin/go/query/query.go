@@ -169,12 +169,7 @@ type indexInfo struct {
 	GoName      string // PascalCase field name (e.g. "CreatedAt")
 	GoType      string // resolved Go type (e.g. "telem.TimeStamp")
 	StructField string // camelCase field on the indexes struct (e.g. "createdAt")
-	Kind        string // "lookup" or "sorted"
 }
-
-// IsSorted reports whether the index is a sorted index. Used by the template
-// to decide whether to emit an OrderBy helper.
-func (i indexInfo) IsSorted() bool { return i.Kind == "sorted" }
 
 // searchInfo holds extracted data about a @search-annotated field.
 type searchInfo struct {
@@ -200,18 +195,6 @@ func (r retrieveInfo) HasSearch() bool { return len(r.Search) > 0 }
 // HasIndexes reports whether the retrieve declared any @index or @search fields. Used
 // by the template to gate the indexes struct.
 func (r retrieveInfo) HasIndexes() bool { return len(r.Indexes) > 0 || r.HasSearch() }
-
-// HasSortedIndex reports whether the retrieve declared any @index sorted fields. Used
-// by the template to gate the Order closure type, the Retrieve.OrderBy method, and the
-// per-field OrderByX free functions.
-func (r retrieveInfo) HasSortedIndex() bool {
-	for _, idx := range r.Indexes {
-		if idx.IsSorted() {
-			return true
-		}
-	}
-	return false
-}
 
 func generateRetrieveFile(
 	outputPath string,
@@ -396,9 +379,12 @@ func extractRetrieveInfo(
 
 		var structField string
 		if hasIndex {
-			kind := "lookup"
 			if plugindomain.HasExprFromField(field, "index", "sorted") {
-				kind = "sorted"
+				return nil, errors.Newf(
+					"%s: @index sorted is not supported (%s); use @index lookup",
+					typ.QualifiedName,
+					field.Name,
+				)
 			}
 			// camelCase field name on the per-Retrieve indexes struct. Unexported
 			// because the indexes struct itself is unexported.
@@ -408,7 +394,6 @@ func extractRetrieveInfo(
 				GoName:      goFieldName,
 				GoType:      goType,
 				StructField: structField,
-				Kind:        kind,
 			})
 		}
 
@@ -595,7 +580,7 @@ type Retrieve struct {
 // instead of relying on package-level state.
 type indexes struct {
 {{- range $idx := $ret.Indexes}}
-	{{$idx.StructField}} *gorp.{{if $idx.IsSorted}}SortedIndex{{else}}LookupIndex{{end}}[{{$ret.KeyType}}, {{$ret.GoName}}, {{$idx.GoType}}]
+	{{$idx.StructField}} *gorp.LookupIndex[{{$ret.KeyType}}, {{$ret.GoName}}, {{$idx.GoType}}]
 {{- end}}
 {{- if $ret.HasSearch}}
 	search *gorp.SearchIndex[{{$ret.KeyType}}, {{$ret.GoName}}]
@@ -608,7 +593,7 @@ type indexes struct {
 func newIndexes() indexes {
 	return indexes{
 {{- range $idx := $ret.Indexes}}
-		{{$idx.StructField}}: gorp.{{if $idx.IsSorted}}NewSortedIndex{{else}}NewLookupIndex{{end}}[{{$ret.KeyType}}, {{$ret.GoName}}, {{$idx.GoType}}](
+		{{$idx.StructField}}: gorp.NewLookupIndex[{{$ret.KeyType}}, {{$ret.GoName}}, {{$idx.GoType}}](
 			"{{$idx.FieldName}}",
 			func(e *{{$ret.GoName}}) {{$idx.GoType}} { return e.{{$idx.GoName}} },
 		),
@@ -638,42 +623,6 @@ func (i indexes) all() []gorp.Index[{{$ret.KeyType}}, {{$ret.GoName}}] {
 {{- end}}
 	}
 }
-{{- if $ret.HasSortedIndex}}
-
-// Order is a per-service sort handle that is bound to the Retrieve when
-// passed to OrderBy. Construct one via an OrderByX free function (e.g.
-// OrderByCreatedAt). Order mirrors the Filter pattern: a closure that
-// receives the Retrieve at evaluation time and resolves the typed
-// SortedQuery against r.indexes, so the cursor stays statically typed
-// without needing a method on Retrieve.
-type Order func(r Retrieve) gorp.OrderQuery[{{$ret.KeyType}}, {{$ret.GoName}}]
-
-// OrderBy walks the results in the order defined by the given Order handle.
-// The Order is invoked with this Retrieve, which lets it reach r.indexes to
-// resolve the typed SortedQuery before passing it to gorp.
-func (r Retrieve) OrderBy(o Order) Retrieve {
-	r.gorp = r.gorp.OrderBy(o(r))
-	return r
-}
-{{- range $idx := $ret.Indexes}}
-{{- if $idx.IsSorted}}
-
-// OrderBy{{$idx.GoName}} returns an Order that walks
-// {{$ret.GoName | toLower | pluralize}} via the {{$idx.FieldName}} sorted index in
-// the given direction. Pass an optional cursor to resume pagination after a
-// previously visited value; the cursor is type-checked at the call site.
-func OrderBy{{$idx.GoName}}(dir gorp.Direction, cursor ...{{$idx.GoType}}) Order {
-	return func(r Retrieve) gorp.OrderQuery[{{$ret.KeyType}}, {{$ret.GoName}}] {
-		q := r.indexes.{{$idx.StructField}}.Ordered(dir)
-		if len(cursor) > 0 {
-			q = q.After(cursor[0])
-		}
-		return q
-	}
-}
-{{- end}}
-{{- end}}
-{{- end}}
 {{- end}}
 
 // Filter is a per-service filter that is bound to the Retrieve when passed to

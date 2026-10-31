@@ -45,9 +45,6 @@ type Retrieve[K Key, E Entry[K]] struct {
 	prefix []byte
 	// filter is the composed predicate applied to each candidate entry.
 	filter Filter[K, E]
-	// orderBy drives ordered iteration via a SortedIndex. Nil means
-	// keyspace order.
-	orderBy OrderQuery[K, E]
 	// validators run after entries are collected; a non-nil return
 	// aborts Exec with that error.
 	validators []Validator[K, E]
@@ -87,7 +84,7 @@ func (r Retrieve[K, E]) HasFilters() bool { return r.filter.present() }
 
 // HasFilterKeys returns true if the resolved filter is bounded by a primary
 // key set — either set directly via Where(MatchKeys(...)) or carried by an
-// indexed filter (LookupIndex.Filter / SortedIndex.Filter) whose keys have
+// indexed filter (LookupIndex.Filter) whose keys have
 // already been resolved. Note that for filters carrying a deferred resolver,
 // this returns false until resolveFilter has populated keys.
 func (r Retrieve[K, E]) HasFilterKeys() bool { return r.filter.keys.Bounded() }
@@ -123,17 +120,6 @@ func (r Retrieve[K, E]) Offset(offset int) Retrieve[K, E] {
 func (r Retrieve[K, E]) WhereRaw(filter RawFilter) Retrieve[K, E] {
 	return r.Where(MatchRaw[K, E](filter))
 }
-
-// OrderBy walks the results in the order defined by the given OrderQuery,
-// typically obtained from SortedIndex.Ordered(dir) (optionally with .After(cursor)
-// chained for cursor-based pagination). Combine with Limit for paged walks.
-func (r Retrieve[K, E]) OrderBy(o OrderQuery[K, E]) Retrieve[K, E] {
-	r.orderBy = o
-	return r
-}
-
-// hasOrderBy returns true if OrderBy was set on the query.
-func (r Retrieve[K, E]) hasOrderBy() bool { return r.orderBy != nil }
 
 // Validate attaches a batch validator that runs once on the final bound
 // result set after Exec populates entries. A non-nil error from any validator
@@ -193,9 +179,6 @@ func (r Retrieve[K, E]) Exec(ctx context.Context, tx Tx) error {
 	checkForNilTx("Retriever.Exec", tx)
 	if err := r.resolveFilter(ctx, tx); err != nil {
 		return err
-	}
-	if r.hasOrderBy() {
-		return r.execOrdered(ctx, tx)
 	}
 	if r.HasFilterKeys() {
 		notFound, err := r.execKeys(ctx, tx)
@@ -484,70 +467,4 @@ func (r *Retrieve[K, E]) execFilter(ctx context.Context, tx Tx) error {
 		)
 	}
 	return err
-}
-
-// execOrdered walks the configured OrderQuery, fetching entries per-key
-// in walk order. Any Where filter is applied as a post-filter against
-// each fetched entry.
-func (r *Retrieve[K, E]) execOrdered(ctx context.Context, tx Tx) error {
-	if r.orderBy == nil {
-		return nil
-	}
-	keys := r.orderBy.walkOrder(r.limit)
-	if len(keys) == 0 {
-		if r.entries.isMultiple {
-			r.entries.replace(nil)
-			return nil
-		}
-		if !r.entries.Bound() {
-			return nil
-		}
-		return errors.Wrapf(
-			query.ErrNotFound,
-			"no %s found matching query",
-			types.PluralName[E](),
-		)
-	}
-	var (
-		reader   = wrapReader[K, E](tx, r.keyPrefix)
-		filtered = make([]E, 0, len(keys))
-		gorpCtx  = Context{Context: ctx, Tx: tx}
-		e        E
-		zero     E
-	)
-	for _, k := range keys {
-		e = zero
-		b, closer, err := reader.get(ctx, k, &e)
-		if err != nil {
-			if errors.Is(err, query.ErrNotFound) {
-				continue
-			}
-			return err
-		}
-		match, mErr := r.match(gorpCtx, &e, nil, b)
-		if mErr != nil {
-			return errors.Combine(mErr, closer.Close())
-		}
-		if match {
-			filtered = append(filtered, e)
-		}
-		if cErr := closer.Close(); cErr != nil {
-			return cErr
-		}
-	}
-	r.entries.replace(filtered)
-	if vErr := r.runValidators(gorpCtx, r.entries.All()); vErr != nil {
-		return vErr
-	}
-	if r.entries.isMultiple || !r.entries.Bound() {
-		return nil
-	}
-	if len(filtered) == 0 {
-		return errors.Wrapf(
-			query.ErrNotFound,
-			"no %s found matching query",
-			types.PluralName[E](),
-		)
-	}
-	return nil
 }
