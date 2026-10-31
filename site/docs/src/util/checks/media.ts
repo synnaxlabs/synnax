@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { CDN_ROOT } from "@/components/media/url";
+import { CDN } from "@/components/media/cdn";
 import { type Check } from "@/util/checks/check";
 import { locate } from "@/util/checks/crawl";
 import { attrValues } from "@/util/checks/html";
@@ -21,9 +21,9 @@ interface Ref {
 
 // The page source names a docs asset by its id, not its URL.
 const needle = (url: string): string =>
-  url.startsWith(CDN_ROOT)
+  url.startsWith(CDN.ROOT)
     ? url
-        .slice(CDN_ROOT.length + 1)
+        .slice(CDN.ROOT.length + 1)
         .replace(/#.*$/, "")
         .replace(/(-light|-dark)?\.\w+$/, "")
     : url;
@@ -48,7 +48,7 @@ export const media = (fullCrawl: boolean): Check => {
     },
     finish: async (ctx, report, progress) => {
       // Canary for the media markup silently matching nothing.
-      if (fullCrawl && !refs.some(({ url }) => url.startsWith(CDN_ROOT)))
+      if (fullCrawl && !refs.some(({ url }) => url.startsWith(CDN.ROOT)))
         report("no docs media found: markup has changed");
       const seen = new Set<string>();
       let done = 0;

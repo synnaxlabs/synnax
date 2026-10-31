@@ -10,9 +10,9 @@
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { Nest, type NestNode } from "@/components/diagram/Nest";
+import { Diagram } from "@/components/diagram";
 
-const ROOT: NestNode = {
+const ROOT: Diagram.NestNode = {
   key: "project",
   label: "Project",
   columns: 2,
@@ -24,7 +24,7 @@ const ROOT: NestNode = {
 };
 
 const leaves = (variant: "wide" | "narrow") => {
-  document.body.innerHTML = renderToString(<Nest root={ROOT} title="Nest" />);
+  document.body.innerHTML = renderToString(<Diagram.Nest root={ROOT} title="Nest" />);
   return [
     ...document.querySelectorAll(
       `.block-diagram__svg--${variant} .block-diagram__node`,

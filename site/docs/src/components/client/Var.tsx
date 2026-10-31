@@ -10,7 +10,7 @@
 import { type ReactElement } from "react";
 
 import { VAR_ATTRIBUTE } from "@/components/client/choice";
-import { QUERY_ATTRIBUTE } from "@/components/tabs/sync";
+import { Tabs } from "@/components/tabs";
 
 export interface VarProps {
   py: string;
@@ -20,7 +20,7 @@ export interface VarProps {
 /** Shows an identifier in the naming style of the chosen client. */
 export const Var = ({ py, ts }: VarProps): ReactElement => (
   <code
-    {...{ [QUERY_ATTRIBUTE]: "client", [VAR_ATTRIBUTE]: "" }}
+    {...{ [Tabs.QUERY_ATTRIBUTE]: "client", [VAR_ATTRIBUTE]: "" }}
     data-py={py}
     data-ts={ts}
   >

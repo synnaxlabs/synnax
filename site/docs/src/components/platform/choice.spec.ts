@@ -9,7 +9,7 @@
 
 import { afterEach, describe, expect, it } from "vitest";
 
-import { QUERY } from "@/components/platform/choice";
+import { Platform } from "@/components/platform";
 
 describe("platform choice", () => {
   afterEach(() => delete document.documentElement.dataset.os);
@@ -18,23 +18,23 @@ describe("platform choice", () => {
     "should show %s first when the page marks it",
     (os) => {
       document.documentElement.dataset.os = os;
-      expect(QUERY.initial?.()).toBe(os);
+      expect(Platform.QUERY.initial?.()).toBe(os);
     },
   );
 
   it("should leave the first tab for an unmarked page", () => {
-    expect(QUERY.initial?.()).toBeNull();
+    expect(Platform.QUERY.initial?.()).toBeNull();
   });
 
   it("should mark the platform the reader picks", () => {
     document.documentElement.dataset.os = "macOS";
-    QUERY.onChange?.("Windows");
+    Platform.QUERY.onChange?.("Windows");
     expect(document.documentElement.dataset.os).toBe("Windows");
   });
 
   it("should keep the reader's own platform when they pick Docker", () => {
     document.documentElement.dataset.os = "Linux";
-    QUERY.onChange?.("Docker");
+    Platform.QUERY.onChange?.("Docker");
     expect(document.documentElement.dataset.os).toBe("Linux");
   });
 });

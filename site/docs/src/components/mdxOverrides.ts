@@ -10,13 +10,13 @@
 import pre from "@/components/code/Block.astro";
 import Details from "@/components/details/Details.astro";
 import table from "@/components/table/Table.astro";
-import { textFactory } from "@/components/text/Text";
+import { Text } from "@/components/text";
 
 export const mdxOverrides = {
   pre,
   table,
-  h1: textFactory({ level: "h1", includeAnchor: true }),
-  h2: textFactory({ level: "h2", includeAnchor: true }),
-  h3: textFactory({ level: "h3", includeAnchor: true }),
+  h1: Text.textFactory({ level: "h1", includeAnchor: true }),
+  h2: Text.textFactory({ level: "h2", includeAnchor: true }),
+  h3: Text.textFactory({ level: "h3", includeAnchor: true }),
   details: Details,
 };

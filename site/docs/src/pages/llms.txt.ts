@@ -9,7 +9,7 @@
 
 import { type APIRoute } from "astro";
 
-import { type PageNavNode } from "@/components/nav/tree";
+import { type Nav } from "@/components/nav";
 import { REFERENCE_PAGES } from "@/pages/_nav";
 import { type Page, PAGES, POSTS } from "@/util/pages";
 import { normalizeRoute } from "@/util/route";
@@ -37,7 +37,7 @@ interface Entry {
   group?: string;
 }
 
-const entries = (nodes: PageNavNode[], group?: string): Entry[] =>
+const entries = (nodes: Nav.PageNavNode[], group?: string): Entry[] =>
   nodes.flatMap((node) => {
     if (node.children != null)
       return entries(

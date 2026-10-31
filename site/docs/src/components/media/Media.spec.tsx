@@ -10,8 +10,8 @@
 import { renderToString } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import { Image, Video } from "@/components/media/Media";
-import { CDN_ROOT } from "@/components/media/url";
+import { Media } from "@/components/media";
+import { CDN } from "@/components/media/cdn";
 
 const show = (html: string): void => {
   document.body.innerHTML = html;
@@ -26,20 +26,20 @@ const sources = (): [string | null, string | null][] =>
 describe("Media", () => {
   describe("Video", () => {
     it("should offer the dark and light versions by color scheme", () => {
-      show(renderToString(<Video id="clip" />));
+      show(renderToString(<Media.Video id="clip" />));
       expect(sources()).toEqual([
-        ["(prefers-color-scheme: dark)", `${CDN_ROOT}/clip-dark.mp4#t=0.001`],
-        [null, `${CDN_ROOT}/clip-light.mp4#t=0.001`],
+        ["(prefers-color-scheme: dark)", `${CDN.ROOT}/clip-dark.mp4#t=0.001`],
+        [null, `${CDN.ROOT}/clip-light.mp4#t=0.001`],
       ]);
     });
 
     it("should offer one version when not themed", () => {
-      show(renderToString(<Video id="clip" themed={false} />));
-      expect(sources()).toEqual([[null, `${CDN_ROOT}/clip.mp4#t=0.001`]]);
+      show(renderToString(<Media.Video id="clip" themed={false} />));
+      expect(sources()).toEqual([[null, `${CDN.ROOT}/clip.mp4#t=0.001`]]);
     });
 
     it("should render a muted looping video that loads only its metadata", () => {
-      show(renderToString(<Video id="clip" />));
+      show(renderToString(<Media.Video id="clip" />));
       const video = document.querySelector(".docs-video > video") as HTMLVideoElement;
       expect(video.loop).toBe(true);
       expect(video.hasAttribute("muted")).toBe(true);
@@ -51,21 +51,21 @@ describe("Media", () => {
 
   describe("Image", () => {
     it("should offer the dark version by color scheme and fall back to light", () => {
-      show(renderToString(<Image id="shot" alt="Shot" />));
+      show(renderToString(<Media.Image id="shot" alt="Shot" />));
       expect(sources()).toEqual([
-        ["(prefers-color-scheme: dark)", `${CDN_ROOT}/shot-dark.png`],
+        ["(prefers-color-scheme: dark)", `${CDN.ROOT}/shot-dark.png`],
       ]);
       const img = document.querySelector("picture > img") as HTMLImageElement;
-      expect(img.getAttribute("src")).toBe(`${CDN_ROOT}/shot-light.png`);
+      expect(img.getAttribute("src")).toBe(`${CDN.ROOT}/shot-light.png`);
       expect(img.alt).toBe("Shot");
       expect(img.getAttribute("loading")).toBe("lazy");
     });
 
     it("should render a plain image when not themed", () => {
-      show(renderToString(<Image id="logo" extension="svg" themed={false} />));
+      show(renderToString(<Media.Image id="logo" extension="svg" themed={false} />));
       expect(document.querySelector("picture")).toBeNull();
       expect(document.querySelector("img")?.getAttribute("src")).toBe(
-        `${CDN_ROOT}/logo.svg`,
+        `${CDN.ROOT}/logo.svg`,
       );
     });
   });
