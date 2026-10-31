@@ -15,14 +15,13 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/oracle/analyzer"
 	"github.com/synnaxlabs/oracle/surface"
 	"github.com/synnaxlabs/oracle/testutil"
 )
 
 func report(ctx context.Context, source string) string {
 	GinkgoHelper()
-	table, diag := analyzer.AnalyzeSource(
+	table, diag := testutil.Analyze(
 		ctx, source, "widget", testutil.NewMockFileLoader(),
 	)
 	Expect(diag.Ok()).To(BeTrue(), diag.String())

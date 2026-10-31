@@ -559,7 +559,7 @@ var _ = Describe("File Controller", Ordered, func() {
 				It(
 					"Should open a new file handle for each simultaneously held reader",
 					func(ctx SpecContext) {
-						rec := xfs.NewRecorder(fs)
+						rec := NewRecorder(fs)
 						db = MustSucceed(domain.Open(domain.Config{
 							FS:              rec,
 							FileSize:        1 * telem.Megabyte,
@@ -590,8 +590,8 @@ var _ = Describe("File Controller", Ordered, func() {
 						// open a fresh one.
 						Expect(
 							rec.Count(
-								xfs.MatchOp(xfs.OpOpen),
-								xfs.MatchName("1.domain"),
+								MatchOp(OpOpen),
+								MatchName("1.domain"),
 							),
 						).
 							To(Equal(2))
@@ -601,7 +601,7 @@ var _ = Describe("File Controller", Ordered, func() {
 				It(
 					"Should reuse reader file handles across sequential acquires of the same file",
 					func(ctx SpecContext) {
-						rec := xfs.NewRecorder(fs)
+						rec := NewRecorder(fs)
 						db = MustSucceed(domain.Open(domain.Config{
 							FS:              rec,
 							FileSize:        1 * telem.Megabyte,
@@ -636,8 +636,8 @@ var _ = Describe("File Controller", Ordered, func() {
 
 						Expect(
 							rec.Count(
-								xfs.MatchOp(xfs.OpOpen),
-								xfs.MatchName("1.domain"),
+								MatchOp(OpOpen),
+								MatchName("1.domain"),
 							),
 						).
 							To(Equal(1))

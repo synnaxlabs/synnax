@@ -129,15 +129,6 @@ func sum_factorials() {n i64} i64 {
     return total
 }
 
-func mixed_u8_i32() {n u8} i32 {
-    hi i32 := i32(n)
-    sum i32 := 0
-    for i := range(u8(1), hi) {
-        sum = sum + i
-    }
-    return sum
-}
-
 func range_i16() {n i16} i16 {
     sum i16 := 0
     for i := range(i16(1), n + 1) {
@@ -223,7 +214,6 @@ for_in_drain -> drain_until(limit=12) -> for_out_drain
 for_in_tri -> triangular() -> for_out_tri
 for_in_nest5 -> nest5() -> for_out_nest5
 for_in_rec -> sum_factorials() -> for_out_rec
-for_in_mix_u8_i32 -> mixed_u8_i32() -> for_out_mix_u8_i32
 for_in_i16 -> range_i16() -> for_out_i16
 for_in_empty -> empty_range() -> for_out_empty
 for_in_while -> while_countdown() -> for_out_while
@@ -342,16 +332,6 @@ CASES = [
         5,
         153,
     ),
-    # Mixed u8 start / i32 end (unsigned→signed): widens to i32, sum(1..4)=1+2+3=6
-    ForLoopCase(
-        "mixed_u8_i32",
-        "for_in_mix_u8_i32",
-        sy.DataType.UINT8,
-        "for_out_mix_u8_i32",
-        sy.DataType.INT32,
-        4,
-        6,
-    ),
     # Pure i16 range: sum(1..6)=15
     ForLoopCase(
         "range_i16",
@@ -424,10 +404,10 @@ class ForLoops(ArcCase):
             ("series_peak_idx", sy.DataType.INT32),
         ]
         for name, dtype in virtual_channels:
-            create_virtual_channel(self.client, name, dtype)
+            create_virtual_channel(self.client, name, data_type=dtype)
         for case in CASES:
-            create_virtual_channel(self.client, case.in_ch, case.in_dtype)
-            create_indexed_pair(self.client, case.out_ch, case.out_dtype)
+            create_virtual_channel(self.client, case.in_ch, data_type=case.in_dtype)
+            create_indexed_pair(self.client, case.out_ch, data_type=case.out_dtype)
         super().setup()
 
     def verify_sequence_execution(self) -> None:

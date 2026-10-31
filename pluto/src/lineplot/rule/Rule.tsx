@@ -9,7 +9,6 @@
 
 import "@/lineplot/rule/Rule.css";
 
-import { CSS } from "@synnaxlabs/lyra/css";
 import { Cursor } from "@synnaxlabs/lyra/cursor";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -22,6 +21,7 @@ import { createPortal } from "react-dom";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
+import { CSS } from "@/css";
 import { useContext } from "@/lineplot/Frame";
 import { rule } from "@/lineplot/rule/aether";
 

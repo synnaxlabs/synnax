@@ -392,17 +392,6 @@ func analyzeDeclarations(ctx acontext.Context[parser.IProgramContext]) {
 	sequence.AnalyzeSynthInlines(ctx)
 }
 
-func AnalyzeStatement(ctx acontext.Context[parser.IStatementContext]) {
-	statement.Analyze(ctx)
-	if ctx.Constraints.HasTypeVariables() {
-		if err := ctx.Constraints.Unify(); err != nil {
-			addUnificationError(ctx.Diagnostics, err, ctx.AST)
-			return
-		}
-		applyTypeSubstitutionsToSymbols(ctx, ctx.Scope)
-	}
-}
-
 func AnalyzeBlock(ctx acontext.Context[parser.IBlockContext]) {
 	statement.AnalyzeBlock(ctx)
 	if ctx.Constraints.HasTypeVariables() {

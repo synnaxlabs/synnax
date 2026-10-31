@@ -143,6 +143,6 @@ describe("Project.Selector", () => {
     );
     const name = await screen.findByText(target.name);
     await act(async () => {});
-    expect(name.className).not.toContain("pluto-text--editable");
+    expect(name.className).not.toContain("lyra-text--editable");
   });
 });

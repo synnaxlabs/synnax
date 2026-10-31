@@ -37,8 +37,8 @@ class Span(Protocol):
     """
     The key identifying the span. This is the name of the key passed into `trace`
     combined with the path of the instrumentation that started the span. For example,
-    take instrumentation titled \"synnax\" and a call to trace with \"test\". The span key
-    would be \"synnax.test\".
+    take instrumentation titled \"synnax\" and a call to trace with \"test\". The span
+    key would be \"synnax.test\".
     """
 
     def record_exception(self, exc: Exception | None) -> None:
@@ -102,6 +102,7 @@ class Tracer:
 
     def __init__(
         self,
+        *,
         otel_provider: OtelTraceProvider | None = None,
         otel_propagator: TextMapPropagator | None = None,
         filter_: EnvironmentFilter | None = None,
@@ -118,7 +119,7 @@ class Tracer:
         return self._otel_provider.get_tracer(self._meta.key)
 
     @contextmanager
-    def trace(self, key: str, env: Environment) -> Iterator[Span]:
+    def trace(self, key: str, *, env: Environment) -> Iterator[Span]:
         """
         Starts a new span with the given key and environment. If a span already exists
         on the current context, the new span is made as its child. The span does not
@@ -150,7 +151,7 @@ class Tracer:
             filter rejects the debug env or the Tracer is noop, a no-op span is
             provided.
         """
-        with self.trace(key, "debug") as span:
+        with self.trace(key, env="debug") as span:
             yield span
 
     @contextmanager
@@ -164,7 +165,7 @@ class Tracer:
             filter rejects the bench env or the Tracer is noop, a no-op span is
             provided.
         """
-        with self.trace(key, "bench") as span:
+        with self.trace(key, env="bench") as span:
             yield span
 
     @contextmanager
@@ -177,7 +178,7 @@ class Tracer:
         :return: A span that tracks program execution. If the Tracer's environment
             filter rejects the prod env or the Tracer is noop, a no-op span is provided.
         """
-        with self.trace(key, "prod") as span:
+        with self.trace(key, env="prod") as span:
             yield span
 
     class _Setter(Setter[Carrier]):

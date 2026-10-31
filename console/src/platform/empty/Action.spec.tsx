@@ -13,7 +13,7 @@ import { describe, expect, it, vi } from "vitest";
 import { Empty } from "@/platform";
 
 const keycaps = (container: HTMLElement): number =>
-  container.querySelectorAll(".pluto-text--keyboard").length;
+  container.querySelectorAll(".lyra-text--keyboard").length;
 
 describe("Empty.Action", () => {
   it("should show the shortcut that runs the same action", () => {

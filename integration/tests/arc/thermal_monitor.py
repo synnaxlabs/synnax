@@ -19,7 +19,7 @@ Tests Arc features not covered by arc_press_sequence:
 - Calculated channels (temp_error)
 """
 
-from examples.simulators import ThermalSimDAQ
+from examples.simulators import SimDAQ, ThermalSimDAQ
 
 import synnax as sy
 from framework.utils import create_indexed_pair, create_virtual_channel
@@ -94,17 +94,17 @@ class ThermalMonitor(ArcCase):
         "alarm_active",
         "end_thermal_test_cmd",
     ]
-    sim_daq_class = ThermalSimDAQ
+    sim_daq_class: type[SimDAQ] | None = ThermalSimDAQ
 
     def setup(self) -> None:
         self._create_additional_channels()
         super().setup()
 
     def _create_additional_channels(self) -> None:
-        create_virtual_channel(self.client, "abort_cmd", sy.DataType.UINT8)
-        create_indexed_pair(self.client, "cycle_count", sy.DataType.INT64)
-        create_indexed_pair(self.client, "peak_temp", sy.DataType.FLOAT32)
-        create_indexed_pair(self.client, "temp_error", sy.DataType.FLOAT32)
+        create_virtual_channel(self.client, "abort_cmd", data_type=sy.DataType.UINT8)
+        create_indexed_pair(self.client, "cycle_count", data_type=sy.DataType.INT64)
+        create_indexed_pair(self.client, "peak_temp", data_type=sy.DataType.FLOAT32)
+        create_indexed_pair(self.client, "temp_error", data_type=sy.DataType.FLOAT32)
 
     def verify_sequence_execution(self) -> None:
         self._verify_thermal_cycling()
@@ -138,9 +138,8 @@ class ThermalMonitor(ArcCase):
         self.log(f"Peak temperature tracked: {self.read_tlm('peak_temp'):.1f}")
 
         raw_error = self.read_tlm("temp_error")
-        if raw_error is None or isinstance(raw_error, str):
+        if raw_error is None:
             self.fail(f"temp_error is {raw_error!r}")
-            return
         temp_error = float(raw_error)
         # temp_error derives from a temp_sensor sample the runtime saw one
         # pipeline latency before this read, and the sim ramps tens of degrees
@@ -152,7 +151,6 @@ class ThermalMonitor(ArcCase):
         )
         if len(recent) == 0:
             self.fail("no recent temp_sensor samples to verify temp_error against")
-            return
         closest = min(abs(temp_error - (to_float(s) - 50.0)) for s in recent)
         self.log(
             f"Temp error: {temp_error:.1f} (closest window mismatch {closest:.2f})"

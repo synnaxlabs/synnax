@@ -1143,43 +1143,4 @@ var _ = Describe("Vectorized Operations", func() {
 			Expect(vals[2]).To(BeNumerically("~", -15.0, 0.01))
 		})
 	})
-
-	Describe("Unsigned Negate", func() {
-		It("should negate uint8 to int16", func() {
-			input := telem.NewSeriesV[uint8](5, 10, 255)
-			output := telem.Series{}
-			op.NegateU8(input, &output)
-			Expect(output.DataType).To(Equal(telem.Int16T))
-			Expect(
-				output.Unmarshal[int16](),
-			).To(Equal([]int16{-5, -10, -255}))
-		})
-		It("should negate uint16 to int32", func() {
-			input := telem.NewSeriesV[uint16](100, 500, 65535)
-			output := telem.Series{}
-			op.NegateU16(input, &output)
-			Expect(output.DataType).To(Equal(telem.Int32T))
-			Expect(
-				output.Unmarshal[int32](),
-			).To(Equal([]int32{-100, -500, -65535}))
-		})
-		It("should negate uint32 to int64", func() {
-			input := telem.NewSeriesV[uint32](1000, 50000, 4294967295)
-			output := telem.Series{}
-			op.NegateU32(input, &output)
-			Expect(output.DataType).To(Equal(telem.Int64T))
-			Expect(
-				output.Unmarshal[int64](),
-			).To(Equal([]int64{-1000, -50000, -4294967295}))
-		})
-		It("should negate uint64 to float64", func() {
-			input := telem.NewSeriesV[uint64](100, 200, 300)
-			output := telem.Series{}
-			op.NegateU64(input, &output)
-			Expect(output.DataType).To(Equal(telem.Float64T))
-			Expect(
-				output.Unmarshal[float64](),
-			).To(Equal([]float64{-100, -200, -300}))
-		})
-	})
 })

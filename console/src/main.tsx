@@ -14,12 +14,6 @@ import { createRoot } from "react-dom/client";
 import { App } from "@/app";
 import workerURL from "@/worker?worker&url";
 
-if (import.meta.env.DEV) {
-  const script = document.createElement("script");
-  script.src = "http://localhost:8097";
-  document.head.appendChild(script);
-}
-
 const rootEl = document.getElementById("root") as HTMLElement;
 
 createRoot(rootEl).render(<App.App workerURL={workerURL} />);

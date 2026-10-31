@@ -44,9 +44,9 @@ when it runs.
 
 </Field.List>
 
-- Input -> optional. Trigger-only: each new input value runs it, whatever the value. To
-  run it only when a condition is true, use `=>`. With no input, it runs once each time
-  its stage starts.
+- Trigger -> optional. Each new trigger runs it, whatever the value. To run it only when
+  a condition is true, use `=>`. With no trigger, it runs once each time its stage
+  starts.
 - Output -> the key of the status, as a `str`. A failed call gives an empty key.
 - Function form -> `status.set(key_or_name, message, variant) str`.
 
@@ -58,11 +58,11 @@ a warning, and the automation keeps running.
 ```arc channels="tank_pt"
 import status
 
-tank_pt > 500 => status.set{
+tank_pt > 500 => status.set(
     key_or_name="tank_overpressure",
     message="Tank pressure above 500 psi",
     variant="error",
-}
+)
 ```
 
 The example sets the status on each `tank_pt` value above 500. `status.set` works the

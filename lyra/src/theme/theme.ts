@@ -52,6 +52,29 @@ const strictScaleZ = z.object({
   p2: color.colorZ,
 });
 
+/** The elevation ladder. Each rung is a full box-shadow value. */
+const shadowsZ = z.object({
+  /** Sits in the layout. */
+  lift: z.string(),
+  /** Floats above the layout. */
+  overlay: z.string(),
+  /** Covers the layout behind a scrim. */
+  modal: z.string(),
+});
+
+/** OKLCH bounds that keep a symbol's color legible on the theme's background. */
+const symbolZ = z.object({
+  /** The lightness that achromatic colors snap to. */
+  lExtreme: z.number(),
+  lMin: z.number(),
+  lMax: z.number(),
+  /** The chroma below which a color counts as achromatic. */
+  cThresh: z.number(),
+  /** Icons sit on fills up to gray-l5, so they get their own lightness bounds. */
+  iconLMin: z.number(),
+  iconLMax: z.number(),
+});
+
 const scaleZ = strictScaleZ.or(
   color.colorZ.transform((c) => {
     const hsla = color.hsla(c);
@@ -117,7 +140,10 @@ export const themeZ = z
       h5: text.specZ,
       p: text.specZ,
       small: text.specZ,
+      tiny: text.specZ,
     }),
+    shadows: shadowsZ,
+    symbol: symbolZ,
   })
   .transform((theme) => {
     if (theme.colors.textOnPrimary == null || color.isZero(theme.colors.textOnPrimary))
@@ -253,7 +279,27 @@ const SYNNAX_BASE: ThemeSpec = {
     h4: { size: 16 / baseSize, weight: 500, lineHeight: (16 * 1.5) / baseSize },
     h5: { size: 14 / baseSize, weight: 450, lineHeight: (14 * 1.5) / baseSize },
     p: { size: 13 / baseSize, weight: 400, lineHeight: 18 / baseSize },
-    small: { size: 11 / baseSize, weight: 400, lineHeight: 14 / baseSize },
+    small: { size: 12 / baseSize, weight: 400, lineHeight: 16 / baseSize },
+    tiny: { size: 11 / baseSize, weight: 400, lineHeight: 14 / baseSize },
+  },
+  shadows: {
+    lift: "lch(0% 0 0deg / 4.4%) 0px 3px 9px, lch(0% 0 0deg / 4.4%) 0px 1px 1px",
+    overlay:
+      "lch(0% 0 0deg / 2%) 0px 1px 1px, lch(0% 0 0deg / 10%) 0px 4px 8px -4px, " +
+      "lch(0% 0 0deg / 12%) 0px 16px 24px -8px",
+    modal:
+      "lch(0% 0 0deg / 8.8%) 0px 9px 48px, lch(0% 0 0deg / 11%) 0px 6px 24px, " +
+      "lch(0% 0 0deg / 4.4%) 0px 1px 1px",
+  },
+  // Pale colors darken to read on the light background, and only near-pure grays snap
+  // to black, since muddy darks already read as near-black.
+  symbol: {
+    lExtreme: 0,
+    lMin: 0,
+    lMax: 0.8,
+    cThresh: 0.05,
+    iconLMin: 0,
+    iconLMax: 0.52,
   },
 };
 
@@ -304,6 +350,26 @@ export const SYNNAX_DARK: ThemeSpec = Object.freeze({
     primaryText: "#93c5fd",
     errorText: "#fca5a5",
     warningText: "#fcd34d",
+  },
+  // A shadow needs more weight to read against a dark surface.
+  shadows: {
+    lift: "lch(0% 0 0deg / 18.8%) 0px 2px 5px, lch(0% 0 0deg / 18.8%) 0px 1px 1px",
+    overlay:
+      "lch(0% 0 0deg / 18.8%) 0px 3px 8px, lch(0% 0 0deg / 18.8%) 0px 2px 5px, " +
+      "lch(0% 0 0deg / 18.8%) 0px 1px 1px",
+    modal:
+      "lch(0% 0 0deg / 32%) 0px 9px 48px, lch(0% 0 0deg / 28%) 0px 6px 24px, " +
+      "lch(0% 0 0deg / 18.8%) 0px 1px 1px",
+  },
+  // Dark colors lift to read on the dark background, and muddy darks also snap to
+  // white, since they vanish against it.
+  symbol: {
+    lExtreme: 1,
+    lMin: 0.4,
+    lMax: 1,
+    cThresh: 0.09,
+    iconLMin: 0.65,
+    iconLMax: 1,
   },
 });
 

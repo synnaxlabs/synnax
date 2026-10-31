@@ -25,7 +25,9 @@ class StatusesClient(ResourceClient):
     def __init__(self, layout: LayoutClient):
         super().__init__(layout)
         self.views = ViewsClient(
-            layout, self.SEARCH_INPUT_PLACEHOLDER, self.STATIC_VIEW_NAME
+            layout=layout,
+            search_placeholder=self.SEARCH_INPUT_PLACEHOLDER,
+            static_view_name=self.STATIC_VIEW_NAME,
         )
 
     # ── Private Helpers ──────────────────────────────────────────────────
@@ -40,7 +42,7 @@ class StatusesClient(ResourceClient):
 
     def _select_explorer_statuses(self, names: list[str]) -> Locator:
         """Select multiple explorer statuses via their checkbox labels."""
-        return self.layout.select_items(names, self.get_explorer_item)
+        return self.layout.select_items(names, get_item_fn=self.get_explorer_item)
 
     # ── Create ────────────────────────────────────────────────────────────
 
@@ -64,7 +66,7 @@ class StatusesClient(ResourceClient):
         name_input.fill(name)
 
         if labels is not None:
-            self.layout.select_labels(labels, modal)
+            self.layout.select_labels(labels, scope=modal)
 
         modal.get_by_role("button", name="Create").click(timeout=2000)
         modal.wait_for(state="hidden", timeout=5000)
@@ -82,7 +84,7 @@ class StatusesClient(ResourceClient):
 
     def get_explorer_item(self, name: str) -> Locator:
         """Get a status item locator from the explorer by name."""
-        return self.layout.get_list_item(self.EXPLORER_ITEM_SELECTOR, name)
+        return self.layout.get_list_item(self.EXPLORER_ITEM_SELECTOR, name=name)
 
     def exists_in_explorer(self, name: str) -> bool:
         """Check if a status exists in the explorer."""
@@ -103,7 +105,7 @@ class StatusesClient(ResourceClient):
         """
         item = self.get_explorer_item(name)
         item.wait_for(state="visible", timeout=5000)
-        tags = item.locator(".pluto-tag").all()
+        tags = item.locator(".lyra-tag").all()
         return [tag.inner_text().strip() for tag in tags if tag.is_visible()]
 
     def delete_from_explorer(self, name: str) -> None:
@@ -190,7 +192,7 @@ class StatusesClient(ResourceClient):
 
     def get_toolbar_item(self, name: str) -> Locator:
         """Get a status item locator from the toolbar by name."""
-        return self.layout.get_list_item(self.TOOLBAR_ITEM_SELECTOR, name)
+        return self.layout.get_list_item(self.TOOLBAR_ITEM_SELECTOR, name=name)
 
     def exists_in_toolbar(self, name: str) -> bool:
         """Check if a status exists in the toolbar (is favorited)."""

@@ -11,12 +11,12 @@
 
 /* Default transform-box for SVG elements is view-box, so center resolves to
    the icon's midpoint and both stars orbit it. */
-.pluto-icon--loading .pluto-loading__orbit {
+.lyra-icon--loading .lyra-loading__orbit {
     transform-origin: center;
     animation: spin 1.2s linear infinite;
 }
 
-.pluto-icon--loading .pluto-loading__orbit--reverse {
+.lyra-icon--loading .lyra-loading__orbit--reverse {
     animation-duration: 1.8s;
     animation-direction: reverse;
 }
@@ -25,112 +25,114 @@
     from {
         transform: rotate(0deg);
     }
+
     to {
         transform: rotate(360deg);
     }
 }
 
-.pluto-icon--log {
+.lyra-icon--log {
     --pluto-base-scale: 0.85;
+
     transform: scale(var(--pluto-base-scale));
 }
 
-.pluto-icon--schematic {
+.lyra-icon--schematic {
     --pluto-base-scale: 1;
+
     transform: scale(var(--pluto-base-scale));
 }
 
-.pluto-icon--decimal {
+.lyra-icon--decimal {
     --pluto-base-scale: 1.3;
+
     transform: scale(var(--pluto-base-scale));
 }
 
-.pluto-icon--wave-triangle,
-.pluto-icon--wave-square,
-.pluto-icon--wave-sine,
-.pluto-icon--wave-sawtooth {
+.lyra-icon--wave-triangle,
+.lyra-icon--wave-square,
+.lyra-icon--wave-sine,
+.lyra-icon--wave-sawtooth {
     --pluto-base-scale: 1.25;
+
     transform: scale(var(--pluto-base-scale));
 }
 
-.pluto-icon--units-current,
-.pluto-icon--units-voltage {
+.lyra-icon--units-current,
+.lyra-icon--units-voltage {
     --pluto-base-scale: 1.05;
+
     transform: scale(var(--pluto-base-scale));
 }
 
-.pluto-icon--in-progress {
+.lyra-icon--in-progress {
     color: var(--pluto-warning-z);
 }
 
-.pluto-icon--completed {
+.lyra-icon--completed {
     color: var(--pluto-primary-z);
 }
 
-.pluto-icon--in-progress {
-    color: var(--pluto-warning-z);
-}
-
-.pluto-icon--completed {
-    color: var(--pluto-primary-z);
-}
-
-.pluto-icon--logo-opcua {
+.lyra-icon--logo-opcua {
     --pluto-icon-aspect: 1.25;
 
     transform: translateY(1px);
 }
 
-.pluto-icon--logo-ethercat {
+.lyra-icon--logo-ethercat {
     --pluto-icon-aspect: 1.25;
 }
 
-.pluto-icon--csv {
+.lyra-icon--csv {
     transform: scale(1.25);
 }
 
-.pluto-icon--stop {
+.lyra-icon--stop {
     --pluto-base-scale: 1.15;
+
     transform: scale(var(--pluto-base-scale));
 }
 
-.pluto-icon--fitting {
+.lyra-icon--fitting {
     --pluto-base-scale: 1.8;
+
     transform: scale(var(--pluto-base-scale));
 }
 
 /* The chrome glyph covers 62% of its box, against the 78% Box draws. */
-.pluto-icon--boxes {
+.lyra-icon--boxes {
     --pluto-base-scale: 1.25;
+
     transform: scale(var(--pluto-base-scale));
 }
 
 /* Same reason as boxes: the mark covers 68% of its box. */
-.pluto-icon--close-thin {
+.lyra-icon--close-thin {
     --pluto-base-scale: 1.15;
+
     transform: scale(var(--pluto-base-scale));
 }
 
-.pluto-icon--reset {
+.lyra-icon--reset {
     fill: var(--pluto-gray-l11);
 }
 
-.pluto-icon--boolean {
-    fill: currentColor;
+.lyra-icon--boolean {
+    fill: currentcolor;
 }
 
-.pluto-icon--true {
+.lyra-icon--true {
     color: var(--pluto-success-z);
 }
 
-.pluto-icon--false {
+.lyra-icon--false {
     color: var(--pluto-error-z);
 }
 
-.pluto-icon--logo-http {
+.lyra-icon--logo-http {
     --pluto-icon-aspect: 1.375;
 }
 
-.pluto-icon--logo-pagerduty {
+.lyra-icon--logo-pagerduty {
     transform: scale(0.8);
 }

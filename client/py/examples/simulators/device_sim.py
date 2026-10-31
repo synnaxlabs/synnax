@@ -44,7 +44,7 @@ class DeviceSim(Simulator):
     device_name: str
     channel_names: tuple[str, ...] = ()
 
-    def __init__(self, rate: sy.Rate = 50 * sy.Rate.HZ, verbose: bool = False):
+    def __init__(self, *, rate: sy.Rate = 50 * sy.Rate.HZ, verbose: bool = False):
         super().__init__(verbose=verbose)
         self.rate = rate
         self.process: BaseProcess | None = None

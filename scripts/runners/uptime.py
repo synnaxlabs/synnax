@@ -37,6 +37,7 @@ class Uptime:
 
     def __init__(
         self,
+        *,
         client: sy.Synnax,
         channels: Channels,
         report: Callable[[str, Exception], None] = warn,
@@ -49,31 +50,35 @@ class Uptime:
         self.stopped = threading.Event()
         self.lock = threading.Lock()
         self.publisher = Publisher(
-            client, "runner_uptime", [], report=report, auto_index=True
+            client=client,
+            name="runner_uptime",
+            channels=[],
+            report=report,
+            auto_index=True,
         )
         self.thread = threading.Thread(target=self._run, daemon=True)
         self.thread.start()
 
     def retarget(self, known: set[str]) -> None:
-        self.channels.data(self.index, uptime_channels(known))
+        self.channels.data(index=self.index, channels=uptime_channels(known))
         with self.lock:
             self.known = set(known)
             self.publisher.retarget(list(uptime_channels(known)))
 
     def update(
-        self, states: dict[str, int], found: dict[str, dict], now: sy.TimeStamp
+        self, states: dict[str, int], *, found: dict[str, dict], now: sy.TimeStamp
     ) -> None:
         """Restarts an online runner's count when its state changes."""
         last = self.states
         self.states = {
             r: (s, last[r][1] if r in last and last[r][0] == s else now)
             if s >= IDLE
-            else (s, self.launched(r, found))
+            else (s, self.launched(r, found=found))
             for r, s in states.items()
         }
 
-    def launched(self, runner: str, found: dict[str, dict]) -> sy.TimeStamp | None:
-        iid = instance_for(runner, found)
+    def launched(self, runner: str, *, found: dict[str, dict]) -> sy.TimeStamp | None:
+        iid = instance_for(runner, found=found)
         if iid is None or not found[iid]["running"]:
             return None
         return found[iid]["launched"]
@@ -82,7 +87,7 @@ class Uptime:
         """Seconds in its current state for every runner the writer covers. A runner
         new since the last update() reads 0 until the next one."""
         return {
-            channel_name("state_uptime", r): (
+            channel_name("state_uptime", runner=r): (
                 0
                 if (entered := self.states.get(r, (0, None))[1]) is None
                 else int(now.span(entered).seconds)

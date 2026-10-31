@@ -28,6 +28,9 @@ flock 9
 
 container() { echo "synnax-pr-$1"; }
 
+# Each deploy pulls a new image, so the replaced one must go or the disk fills.
+prune_images() { docker image prune --all --force > /dev/null; }
+
 reload_caddy() { docker exec caddy caddy reload --config /etc/caddy/Caddyfile; }
 
 check_pr() {
@@ -54,6 +57,7 @@ up() {
         --memory 2g --cpus 1 --env SYNNAX_LICENSE_KEY \
         --label synnax.preview="$pr" --label synnax.preview.deployed="$(date +%s)" \
         "$image" --listen 0.0.0.0:9090 --insecure --mem --no-driver > /dev/null
+    prune_images
     for _ in $(seq 60); do
         if docker exec "$name" curl -fsS -o /dev/null -X POST \
             -H "Content-Type: application/json" -d '{}' \
@@ -75,6 +79,7 @@ down() {
     docker rm --force "$(container "$1")" > /dev/null
     rm -f "$PREVIEW_SITES/pr-$1.caddy"
     reload_caddy
+    prune_images
 }
 
 sweep() {
@@ -85,7 +90,8 @@ sweep() {
         | while read -r pr deployed; do
             if ((deployed < cutoff)); then down "$pr"; fi
         done
-    docker image prune --all --force --filter "until=$((PREVIEW_TTL_DAYS * 24))h"
+    # A failed deploy can leave a pulled image that no container uses.
+    prune_images
 }
 
 case "${1:-}" in

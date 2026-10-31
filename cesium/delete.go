@@ -61,7 +61,7 @@ func (cfg GCConfig) Validate() error {
 	return v.Error()
 }
 
-func keyToDirName(ch ChannelKey) string { return strconv.Itoa(int(ch)) }
+func keyToDirName(ch ChannelKey) string { return strconv.FormatUint(uint64(ch), 10) }
 
 // DeleteChannel deletes a channel by its key.
 //

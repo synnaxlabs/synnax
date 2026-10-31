@@ -244,7 +244,7 @@ describe("Panel.Mosaic", () => {
     tabEl(utils, key).getAttribute("aria-selected") === "true";
 
   const isTabFocused = (utils: RenderResult, key: string): boolean =>
-    tabEl(utils, key).classList.contains("pluto--alt-color");
+    tabEl(utils, key).classList.contains("lyra--alt-color");
 
   // splitPanel arranges the four tabs into two leaves: [a1, a2] on the left and
   // [b1, b2] on the right.
@@ -385,7 +385,7 @@ describe("Panel.Mosaic", () => {
       fireEvent.pointerEnter(el);
       let tip!: HTMLElement;
       await waitFor(() => {
-        const found = document.querySelector<HTMLElement>(".pluto-tooltip");
+        const found = document.querySelector<HTMLElement>(".lyra-tooltip");
         if (found == null) throw new Error("tooltip did not open");
         tip = found;
       });
@@ -418,7 +418,7 @@ describe("Panel.Mosaic", () => {
       await expect(
         waitFor(
           () => {
-            if (document.querySelector(".pluto-tooltip") == null)
+            if (document.querySelector(".lyra-tooltip") == null)
               throw new Error("no tooltip yet");
           },
           { timeout: 500 },
@@ -445,7 +445,7 @@ describe("Panel.Mosaic", () => {
       await expect(
         waitFor(
           () => {
-            if (document.querySelector(".pluto-tooltip") == null)
+            if (document.querySelector(".lyra-tooltip") == null)
               throw new Error("no tooltip yet");
           },
           { timeout: 500 },
@@ -638,7 +638,7 @@ describe("Panel.Mosaic", () => {
       await waitFor(() => expect(utils.getByText(contentText(a))).toBeTruthy());
 
       await act(async () => {
-        fireEvent.click(utils.container.querySelector(".pluto-icon--add")!);
+        fireEvent.click(utils.container.querySelector(".lyra-icon--add")!);
       });
 
       await waitFor(() => expect(onSelect).toHaveBeenCalledTimes(1));
@@ -1095,7 +1095,7 @@ describe("Panel.Mosaic", () => {
       const p = await createPanel(resourceTab());
       const utils = await renderReadOnly({ panelKey: p.key });
       await waitFor(() => expect(utils.container.textContent).toContain("lineplot:"));
-      expect(utils.queryByLabelText("pluto-icon--add")).toBeNull();
+      expect(utils.queryByLabelText("lyra-icon--add")).toBeNull();
     });
 
     it("should leave every tab undraggable", async () => {
@@ -1122,7 +1122,7 @@ describe("Panel.Mosaic", () => {
       await waitFor(() =>
         expect(utils.container.querySelectorAll(".pluto-mosaic__leaf")).toHaveLength(2),
       );
-      expect(utils.container.querySelectorAll(".pluto-resize__handle")).toHaveLength(0);
+      expect(utils.container.querySelectorAll(".lyra-resize__handle")).toHaveLength(0);
     });
 
     it("should offer neither close nor split in the tab context menu", async () => {
@@ -1143,7 +1143,7 @@ describe("Panel.Mosaic", () => {
         fireEvent.contextMenu(utils.getByText(`name:${a.key}`));
       });
       await waitFor(() =>
-        expect(document.querySelector(".pluto-menu-context")).toBeTruthy(),
+        expect(document.querySelector(".lyra-menu-context")).toBeTruthy(),
       );
       expect(document.body.textContent).not.toContain("Close");
       expect(document.body.textContent).not.toContain("Split horizontally");

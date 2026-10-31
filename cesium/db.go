@@ -34,9 +34,8 @@ type (
 )
 
 var (
-	ErrDBClosed          = resource.NewClosedError("cesium.db")
-	ErrChannelNotFound   = channel.ErrNotFound
-	ZeroLeadingAlignment = alignment.ZeroLeading
+	ErrDBClosed        = resource.NewClosedError("cesium.db")
+	ErrChannelNotFound = channel.ErrNotFound
 )
 
 // Metrics contains statistics about the cesium database.
@@ -45,14 +44,8 @@ type Metrics struct {
 	DiskSize telem.Size
 }
 
-// LeadingAlignment returns an Alignment in the leading domain domainIdx, counted from
-// ZeroLeadingAlignment, with the provided sample index.
-func LeadingAlignment(domainIdx, sampleIdx uint32) telem.Alignment {
-	return alignment.Leading(domainIdx, sampleIdx)
-}
-
-// NewAlignmentCounter returns an AlignmentCounter whose first domain follows
-// ZeroLeadingAlignment.
+// NewAlignmentCounter returns an AlignmentCounter whose first domain follows the zero
+// leading alignment.
 func NewAlignmentCounter() *AlignmentCounter {
 	return alignment.NewCounter(alignment.ZeroLeading)
 }

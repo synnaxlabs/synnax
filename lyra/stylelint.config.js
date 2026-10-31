@@ -9,4 +9,10 @@
 
 import cfg from "@synnaxlabs/stylelint-config";
 
-export default cfg;
+export default {
+  ...cfg,
+  // A library's !important beats every app rule, !important or not.
+  rules: { ...cfg.rules, "declaration-no-important": true },
+  // generate.ts writes the static theme files.
+  ignoreFiles: ["src/theming/static/**"],
+};

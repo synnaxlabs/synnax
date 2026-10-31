@@ -17,7 +17,11 @@ import { describe, expect, it } from "vitest";
 import { NI } from "@/feature/ni";
 import { createNIDevice, renderNITaskForm } from "@/feature/ni/task/testutil";
 import { Task } from "@/platform/task";
-import { commitFieldInput, deployAndAwaitTask } from "@/platform/task/testutil";
+import {
+  commitFieldInput,
+  createWithHook,
+  deployAndAwaitTask,
+} from "@/platform/task/testutil";
 import { awaitTextEditing, commitTextEdit, uniqueName } from "@/testutil";
 
 const client = createTestClient();
@@ -234,5 +238,13 @@ describe("DigitalWrite", () => {
         firstTask.config.channels[0].cmdChannel,
       );
     });
+  });
+
+  it("should create the task with one channel", async () => {
+    const tsk = await createWithHook(
+      NI.Task.useCreateDigitalWrite,
+      NI.Task.DIGITAL_WRITE_SCHEMAS,
+    );
+    expect(tsk.config.channels).toHaveLength(1);
   });
 });

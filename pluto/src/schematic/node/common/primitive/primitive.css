@@ -10,11 +10,16 @@
  */
 
 .pluto--enabled svg {
+    /* stylelint-disable declaration-no-important -- toggle state colors win over a
+       symbol's own fill and stroke */
     stroke: var(--pluto-symbol-display) !important;
     fill: var(--pluto-symbol-display) !important;
+    /* stylelint-enable declaration-no-important */
 }
 
 .pluto--enabled svg .pluto--detail {
+    /* stylelint-disable-next-line declaration-no-important -- toggle state colors win
+       over a symbol's own fill and stroke */
     stroke: oklch(from var(--pluto-symbol-contrast) l c h / 90%) !important;
 }
 
@@ -30,24 +35,24 @@
         );
     }
 
-    &.pluto--location-bottom svg,
-    & svg.pluto--location-bottom {
+    &.lyra--location-bottom svg,
+    & svg.lyra--location-bottom {
         & > g {
             transform-origin: top left;
             transform: translateX(100%) rotate(90deg);
         }
     }
 
-    &.pluto--location-top svg,
-    & svg.pluto--location-top {
+    &.lyra--location-top svg,
+    & svg.lyra--location-top {
         & > g {
             transform-origin: top left;
             transform: translateY(100%) rotate(-90deg);
         }
     }
 
-    &.pluto--location-right svg,
-    & svg.pluto--location-right {
+    &.lyra--location-right svg,
+    & svg.lyra--location-right {
         & > g {
             transform-origin: top left;
             transform: translate(100%, 100%) rotate(180deg);
@@ -131,28 +136,40 @@
     }
 }
 
-.pluto-symbol__container:not(.pluto--editable) .pluto-symbol-primitive-toggle {
+.pluto-symbol__container:not(.lyra--editable) .pluto-symbol-primitive-toggle {
     &:hover {
         &:not(.pluto--enabled) svg {
+            /* stylelint-disable declaration-no-important -- toggle state colors win
+               over a symbol's own fill and stroke */
             fill: oklch(from var(--pluto-symbol-display) l c h / 15%) !important;
             stroke: oklch(from var(--pluto-symbol-display) l c h / 75%) !important;
+            /* stylelint-enable declaration-no-important */
         }
 
         &.pluto--enabled svg {
+            /* stylelint-disable declaration-no-important -- toggle state colors win
+               over a symbol's own fill and stroke */
             stroke: oklch(from var(--pluto-symbol-display) l c h / 80%) !important;
             fill: oklch(from var(--pluto-symbol-display) l c h / 85%) !important;
+            /* stylelint-enable declaration-no-important */
         }
     }
 
     &.pluto--pressed {
         &:not(.pluto--enabled) svg {
+            /* stylelint-disable declaration-no-important -- toggle state colors win
+               over a symbol's own fill and stroke */
             fill: oklch(from var(--pluto-symbol-display) l c h / 25%) !important;
             stroke: oklch(from var(--pluto-symbol-display) l c h / 90%) !important;
+            /* stylelint-enable declaration-no-important */
         }
 
         &.pluto--enabled svg {
+            /* stylelint-disable declaration-no-important -- toggle state colors win
+               over a symbol's own fill and stroke */
             stroke: oklch(from var(--pluto-symbol-display) l c h / 70%) !important;
             fill: oklch(from var(--pluto-symbol-display) l c h / 75%) !important;
+            /* stylelint-enable declaration-no-important */
         }
     }
 }
@@ -198,7 +215,7 @@
    symbol's color tints both. Lyra buttons set their color inputs on themselves, so the
    overrides target the buttons, not the symbol. */
 .pluto-symbol-field {
-    .pluto-btn.pluto-btn--outlined:not(.pluto--disabled) {
+    .lyra-btn.lyra-btn--outlined:not(.lyra--disabled) {
         background: var(--pluto-gray-l1);
 
         --pluto-border-color: var(--pluto-gray-l6);
@@ -207,15 +224,15 @@
     }
 
     input,
-    .pluto-select__label {
+    .lyra-select__label {
         font-family: var(--pluto-code-font-family);
         font-variant-numeric: tabular-nums;
     }
 
-    .pluto-btn.pluto-btn--filled {
+    .lyra-btn.lyra-btn--filled {
         border-width: 1px;
 
-        &:not(.pluto--disabled) {
+        &:not(.lyra--disabled) {
             --pluto-bg: var(--pluto-gray-l3);
             --pluto-hover-bg: var(--pluto-gray-l4);
             --pluto-active-bg: var(--pluto-gray-l5);
@@ -227,7 +244,7 @@
     }
 
     &.pluto--colored {
-        .pluto-btn.pluto-btn--outlined:not(.pluto--disabled) {
+        .lyra-btn.lyra-btn--outlined:not(.lyra--disabled) {
             background: color-mix(
                 in oklab,
                 var(--pluto-symbol-display) 8%,
@@ -239,7 +256,7 @@
             --pluto-active-border-color: var(--pluto-symbol-display);
         }
 
-        .pluto-btn.pluto-btn--outlined:not(.pluto--disabled):focus-within {
+        .lyra-btn.lyra-btn--outlined:not(.lyra--disabled):focus-within {
             background: color-mix(
                 in oklab,
                 var(--pluto-symbol-display) 16%,
@@ -250,7 +267,7 @@
             --pluto-btn-border-color: var(--pluto-symbol-display);
         }
 
-        .pluto-btn.pluto-btn--filled:not(.pluto--disabled) {
+        .lyra-btn.lyra-btn--filled:not(.lyra--disabled) {
             --pluto-bg: color-mix(
                 in oklab,
                 var(--pluto-symbol-display) 20%,
@@ -274,7 +291,7 @@
     }
 
     /* An edit not yet sent gives the Set button the emphasis. */
-    &.pluto--dirty .pluto-btn.pluto-btn--filled:not(.pluto--disabled) {
+    &.pluto--dirty .lyra-btn.lyra-btn--filled:not(.lyra--disabled) {
         --pluto-bg: var(--pluto-primary-z);
         --pluto-hover-bg: var(--pluto-primary-p1);
         --pluto-active-bg: var(--pluto-primary-p2);
@@ -285,7 +302,7 @@
     }
 
     /* A colored symbol fills the Set button with its color, like a button symbol. */
-    &.pluto--colored.pluto--dirty .pluto-btn.pluto-btn--filled:not(.pluto--disabled) {
+    &.pluto--colored.pluto--dirty .lyra-btn.lyra-btn--filled:not(.lyra--disabled) {
         --pluto-bg: var(--pluto-symbol-display);
         --pluto-hover-bg: oklch(from var(--pluto-symbol-display) l c h / 85%);
         --pluto-active-bg: oklch(from var(--pluto-symbol-display) l c h / 60%);

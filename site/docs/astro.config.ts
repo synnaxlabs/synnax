@@ -14,7 +14,7 @@ import vercel from "@astrojs/vercel";
 import { grammar as arcGrammar } from "@synnaxlabs/arc";
 import { integration } from "@synnaxlabs/site-common/integration";
 import { symbols, theme } from "@synnaxlabs/site-common/shiki";
-import { layers } from "@synnaxlabs/vite-plugin";
+import { layers, lyraLayers } from "@synnaxlabs/vite-plugin";
 import { type AstroIntegration } from "astro";
 import { defineConfig } from "astro/config";
 import fs from "fs";
@@ -61,7 +61,9 @@ export default defineConfig({
     // SSR.
     ssr: { noExternal: ["@synnaxlabs/lyra", "@synnaxlabs/site-common"] },
     css: {
-      postcss: { plugins: [layers([{ name: "pluto", files: /[\\/]lyra[\\/]/ }])] },
+      postcss: {
+        plugins: [layers(lyraLayers(path.resolve(import.meta.dirname, "../..")))],
+      },
     },
     // An inlined font ships in the render-blocking stylesheet whether or not a page
     // needs its characters.

@@ -30,3 +30,6 @@ site/www/src/components/sponsorships/*.svg
 
 # Module versions copied from the Bazel Central Registry
 vendor/registry/**
+
+# Arc programs the Console shows to users verbatim
+console/src/feature/project/*.arc

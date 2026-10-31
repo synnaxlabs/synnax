@@ -15,6 +15,7 @@ import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Input } from "@synnaxlabs/lyra/input";
 import { List } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
@@ -105,7 +106,7 @@ const EndpointItem = (props: List.ItemProps<string>) => {
         level="small"
         weight={450}
         color={9}
-        overflow="ellipsis"
+        overflow="fade"
       />
     </Select.Item>
   );
@@ -272,11 +273,13 @@ const FieldListItem = ({
         />
       )}
       {fieldType === "static" && jsonType === "boolean" && (
-        <PForm.SwitchField
+        <PForm.Field<boolean>
           path={`${path}.value`}
           showLabel={false}
           showHelpText={false}
-        />
+        >
+          {(p) => <Input.Checkbox {...p} />}
+        </PForm.Field>
       )}
       {fieldType === "generated" && (
         <Select.Simple<GeneratorType | TimeFormat>

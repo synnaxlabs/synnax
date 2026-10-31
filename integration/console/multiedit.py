@@ -33,7 +33,7 @@ class Colors:
     def selection_swatches(self) -> Locator:
         """One swatch per color the selection stores, in the Selection control."""
         return self.section.locator(
-            ".pluto-input__item:has(> label:text-is('Selection')) .pluto-color-swatch"
+            ".lyra-input__item:has(> label:text-is('Selection')) .lyra-color-swatch"
         )
 
     def selection_colors(self) -> list[str]:
@@ -45,4 +45,4 @@ class Colors:
 
     def recolor(self, swatch: Locator, hex_digits: str) -> None:
         """Pick a new color for every element that holds the color of `swatch`."""
-        color.pick(self.page, swatch, hex_digits)
+        color.pick(self.page, swatch, hex_color=hex_digits)

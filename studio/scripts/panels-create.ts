@@ -52,7 +52,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     );
     session.endZoom();
     await session.waitFor(
-      page.locator(".console-panel-selector .pluto-tabs__tab").last().filter({
+      page.locator(".console-panel-selector .lyra-tabs__tab").last().filter({
         hasText: STAND,
       }),
     );

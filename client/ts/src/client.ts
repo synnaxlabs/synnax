@@ -55,8 +55,19 @@ export const synnaxParamsZ = z.object({
   port: z
     .number({ error: "Port is required" })
     .or(z.string({ error: "Port is required" })),
-  username: z.string().min(1, "Username is required"),
-  password: z.string().min(1, "Password is required"),
+  username: z.string().min(1, "Username is required").optional(),
+  password: z.string().min(1, "Password is required").optional(),
+  /** An API key to log in with, in place of a username and password. */
+  apiKey: z.string().min(1, "API key is required").optional(),
+  /** The token of an earlier login to resume, in place of a username and password. */
+  token: z.string().min(1).optional(),
+  /**
+   * Whether the Core keeps the session token in a cookie the page never sees. For a
+   * browser client served by the Core itself.
+   */
+  sessionCookie: z.boolean().default(false),
+  /** Whether the session outlives the client, for a caller that saves its token. */
+  sessionPersistent: z.boolean().default(false),
   connectivityPollFrequency: TimeSpan.z.default(TimeSpan.seconds(30)),
   clockSkewThreshold: TimeSpan.z.default(TimeSpan.seconds(1)),
   secure: z.boolean().default(false),
@@ -81,8 +92,38 @@ export const synnaxParamsZ = z.object({
     .optional(),
 });
 
+// a refinement would stop callers from picking fields off synnaxParamsZ
+const constructorParamsZ = synnaxParamsZ.refine(
+  (p) => p.apiKey == null || (p.username == null && p.password == null),
+  {
+    message: "Give either an API key or a username and password, not both",
+    path: ["apiKey"],
+  },
+);
+
 export interface SynnaxParams extends z.input<typeof synnaxParamsZ> {}
 export interface ParsedSynnaxParams extends z.infer<typeof synnaxParamsZ> {}
+
+/**
+ * The authority a client logs in with: its credentials when both are given or its API
+ * key, else the token or cookie. A client with none fails its first request with an
+ * AuthError.
+ */
+const authorityOf = ({
+  username,
+  password,
+  apiKey,
+  token,
+  sessionCookie,
+  sessionPersistent,
+}: ParsedSynnaxParams): auth.Authority => ({
+  credentials:
+    username != null && password != null ? { username, password } : undefined,
+  apiKey,
+  token,
+  cookie: sessionCookie,
+  persistent: sessionPersistent,
+});
 
 /**
  * Client to perform operations against a Synnax cluster.
@@ -129,10 +170,15 @@ export default class Synnax extends framer.Client {
   /**
    * @param props.host - Hostname of a node in the cluster.
    * @param props.port - Port of the node in the cluster.
-   * @param props.username - Username for authentication. Not required if the cluster is
-   * insecure.
-   * @param props.password - Password for authentication. Not required if the cluster is
-   * insecure.
+   * @param props.username - Username for authentication, with props.password.
+   * @param props.password - Password for authentication, with props.username.
+   * @param props.apiKey - API key for authentication, in place of a username and
+   * password.
+   * @param props.token - The token of an earlier login to resume instead.
+   * @param props.sessionCookie - Whether the Core keeps the token in a cookie the page
+   * never sees, for a browser client the Core serves.
+   * @param props.sessionPersistent - Whether closing the client leaves its session open,
+   * for a caller that saves the session token.
    * @param props.connectivityPollFrequency - Heartbeat cadence while the connection is
    * healthy. Defaults to 30 seconds.
    * @param props.secure - Whether to connect to the cluster using TLS. The cluster must
@@ -141,17 +187,9 @@ export default class Synnax extends framer.Client {
    * change stream.
    */
   constructor(params: SynnaxParams) {
-    const parsedParams = zod.parse(synnaxParamsZ, params);
-    const {
-      host,
-      port,
-      username,
-      password,
-      connectivityPollFrequency,
-      clockSkewThreshold,
-      secure,
-      retry,
-    } = parsedParams;
+    const parsedParams = zod.parse(constructorParamsZ, params);
+    const { host, port, connectivityPollFrequency, clockSkewThreshold, secure, retry } =
+      parsedParams;
     const transport = new Transport(
       new url.URL({ host, port: Number(port) }),
       retry,
@@ -207,15 +245,11 @@ export default class Synnax extends framer.Client {
     const identity = new observe.Observer<user.User | undefined>();
     // The auth client fails fast: login retries belong to the request that triggered
     // them (the breaker-wrapped unary or the check loop), never stacked beneath it.
-    this.auth = new auth.Client(
-      transport.unaryNoRetry,
-      { username, password },
-      {
-        onUser: (u) => identity.notify(u),
-        onSuccess: () => this.conn.notify({ type: "auth.success" }),
-        onFailure: (error) => this.conn.notify({ type: "auth.failure", error }),
-      },
-    );
+    this.auth = new auth.Client(transport.unaryNoRetry, authorityOf(parsedParams), {
+      onUser: (u) => identity.notify(u),
+      onSuccess: (session) => this.conn.notify({ type: "auth.success", session }),
+      onFailure: (error) => this.conn.notify({ type: "auth.failure", error }),
+    });
     transport.use(this.auth.middleware());
     const chCreator = new channel.Writer(transport.unary);
     this.key = uuid.create();
@@ -270,7 +304,7 @@ export default class Synnax extends framer.Client {
       ontology: this.ontology,
       ranges: this.ranges,
       cache,
-      statusStore: this.statuses.store,
+      statuses: this.statuses,
     });
     this.racks = new rack.Client({
       unary,
@@ -337,8 +371,9 @@ export default class Synnax extends framer.Client {
 
   /**
    * Closes the client: stops the connection check loop, tears down the query cache and
-   * its change stream, then logs out. Resolves once all three are done, or once the
-   * logout has waited 3 seconds. When the Core cannot be reached or does not
+   * its change stream, then lets go of the session. A session this client logged in
+   * with ends; one resumed from a saved token or cookie stays open. Waits at most
+   * 3 seconds for the Core to end it. When the Core cannot be reached or does not
    * answer in time, the session is left to idle out.
    * @throws {AggregateError} carrying every underlying close failure.
    */
@@ -349,7 +384,7 @@ export default class Synnax extends framer.Client {
       .map((r) => r.reason);
     // Nothing sends requests any more, so no check can log in again during the logout.
     try {
-      await Promise.race([this.auth.logout(), sleep.sleep(LOGOUT_DEADLINE)]);
+      await Promise.race([this.auth.release(), sleep.sleep(LOGOUT_DEADLINE)]);
     } catch (err) {
       if (!isConnectionError(err)) failures.push(err);
     }

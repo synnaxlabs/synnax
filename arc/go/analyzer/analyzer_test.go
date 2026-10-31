@@ -10,6 +10,7 @@
 package analyzer_test
 
 import (
+	"github.com/antlr4-go/antlr/v4"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer"
@@ -331,24 +332,25 @@ var _ = Describe("Analyzer Integration", func() {
 		)
 	})
 
-	Describe("AnalyzeStatement", func() {
+	Describe("Statement analysis", func() {
 		It(
 			"Should analyze a valid variable declaration statement",
 			func(bCtx SpecContext) {
-				stmt := MustSucceed(parser.ParseStatement("x := 42"))
-				ctx := context.NewRoot(bCtx, stmt, nil)
-				analyzer.AnalyzeStatement(ctx)
+				block := MustSucceed(parser.ParseBlock("{ x := 42 }"))
+				ctx := context.NewRoot(bCtx, block, nil)
+				analyzer.AnalyzeBlock(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeTrue())
 
-				varScope := MustSucceed(ctx.Scope.Resolve(ctx, "x"))
-				Expect(varScope.Type).To(Equal(types.I64()))
+				blocks := ctx.Scope.FilterChildrenByKind(symbol.KindBlock)
+				Expect(blocks).To(HaveLen(1))
+				Expect(blocks[0].FindChild("x").Type).To(Equal(types.I64()))
 			},
 		)
 
 		It("Should diagnose undefined symbol in statement", func(bCtx SpecContext) {
-			stmt := MustSucceed(parser.ParseStatement("x := undefined_var"))
-			ctx := context.NewRoot(bCtx, stmt, nil)
-			analyzer.AnalyzeStatement(ctx)
+			block := MustSucceed(parser.ParseBlock("{ x := undefined_var }"))
+			ctx := context.NewRoot(bCtx, block, nil)
+			analyzer.AnalyzeBlock(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			Expect(
@@ -357,15 +359,62 @@ var _ = Describe("Analyzer Integration", func() {
 		})
 
 		It(
+			"Should diagnose a series operand with an invalid element type",
+			func(bCtx SpecContext) {
+				ctx := analyzeAndExpectErrorWithResolver(bCtx, `
+				func test() series i64 {
+					s series i64 := [1, 2, 3]
+					return s + [undefined_var]
+				}
+				`, nil)
+				Expect(*ctx.Diagnostics).To(HaveLen(1))
+				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring(
+					"cannot return series invalid from 'test': expected series i64",
+				))
+			},
+		)
+
+		It(
+			"Should type a range() literal from the typed argument",
+			func(bCtx SpecContext) {
+				ctx := analyzeAndExpect(bCtx, `
+				func test(n i32) i32 {
+					acc i32 := 0
+					for i := range(7, n) {
+						acc = acc + i
+					}
+					return acc
+				}
+				`)
+				var lit parser.ILiteralContext
+				var find func(node antlr.Tree)
+				find = func(node antlr.Tree) {
+					l, ok := node.(parser.ILiteralContext)
+					if ok && l.GetText() == "7" {
+						lit = l
+						return
+					}
+					for _, child := range node.GetChildren() {
+						find(child)
+					}
+				}
+				find(ctx.AST)
+				Expect(lit).ToNot(BeNil())
+				Expect(ctx.TypeMap[lit]).To(Equal(types.I32()))
+			},
+		)
+
+		It(
 			"Should handle type unification in statement analysis",
 			func(bCtx SpecContext) {
-				stmt := MustSucceed(parser.ParseStatement("x f32 := 100"))
-				ctx := context.NewRoot(bCtx, stmt, nil)
-				analyzer.AnalyzeStatement(ctx)
+				block := MustSucceed(parser.ParseBlock("{ x f32 := 100 }"))
+				ctx := context.NewRoot(bCtx, block, nil)
+				analyzer.AnalyzeBlock(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeTrue())
 
-				varScope := MustSucceed(ctx.Scope.Resolve(ctx, "x"))
-				Expect(varScope.Type).To(Equal(types.F32()))
+				blocks := ctx.Scope.FilterChildrenByKind(symbol.KindBlock)
+				Expect(blocks).To(HaveLen(1))
+				Expect(blocks[0].FindChild("x").Type).To(Equal(types.F32()))
 			},
 		)
 	})

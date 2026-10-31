@@ -39,6 +39,7 @@ class Engine:
 
     def __init__(
         self,
+        *,
         client: Synnax,
         reader: RowFileReader,
         channels: list[Channel],

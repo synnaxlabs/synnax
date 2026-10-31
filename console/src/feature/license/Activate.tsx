@@ -20,6 +20,7 @@ import { type ReactElement } from "react";
 import { Handoff } from "@/feature/license/Handoff";
 import { KeyInput } from "@/feature/license/KeyInput";
 import { Shell } from "@/feature/shell";
+import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
 import { Shell as PlatformShell } from "@/platform/shell";
 import { Session } from "@/session";
@@ -37,7 +38,7 @@ export interface ActivateProps {
 export const Activate = ({ onBack }: ActivateProps): ReactElement => {
   const { details } = Synnax.useConnectionStatus();
   const target = Session.Core.useSelectSelected();
-  const logout = Session.useLogout();
+  const logout = Core.useLogout();
   const result = PLicense.useResult({});
   const fingerprint = result.data?.fingerprint ?? [];
   const expired = ExpiredLicenseError.matches(details.error);

@@ -33,7 +33,7 @@ describe("switch symbol", () => {
       const { container } = render(<Switch strokeColor="#ff0000" />);
       const root = getRoot(container);
       const cls = root.getAttribute("class") ?? "";
-      expect(cls).toContain("pluto-symbol-colored");
+      expect(cls).toContain("lyra-symbol-colored");
       expect(cls).toContain("pluto-switch-symbol--colored");
       expect(root.style.getPropertyValue("--pluto-symbol-color")).toBe("255, 0, 0, 1");
     });
@@ -49,7 +49,7 @@ describe("switch symbol", () => {
     it("should pass a fully transparent color through as a choice", () => {
       const { container } = render(<Switch strokeColor={color.ZERO} />);
       const root = getRoot(container);
-      expect(root.getAttribute("class") ?? "").toContain("pluto-symbol-colored");
+      expect(root.getAttribute("class") ?? "").toContain("lyra-symbol-colored");
       expect(root.style.getPropertyValue("--pluto-symbol-color")).toBe("0, 0, 0, 0");
     });
 
@@ -99,7 +99,7 @@ describe("switch symbol", () => {
     it("should keep the switch mounted while disabled", () => {
       const { container } = render(<Switch disabled />);
       expect(getInput(container).disabled).toBe(true);
-      expect(container.querySelector(".pluto-input__switch-indicator")).not.toBeNull();
+      expect(container.querySelector(".lyra-input__switch-indicator")).not.toBeNull();
     });
   });
 
@@ -108,12 +108,12 @@ describe("switch symbol", () => {
     // assert the direction class that keys them.
     it("should carry the direction class for the orientation prop", () => {
       const { container } = render(<Switch orientation="bottom" />);
-      expect(getRoot(container).getAttribute("class")).toContain("pluto--direction-y");
+      expect(getRoot(container).getAttribute("class")).toContain("lyra--direction-y");
     });
 
     it("should default to the x direction", () => {
       const { container } = render(<Switch />);
-      expect(getRoot(container).getAttribute("class")).toContain("pluto--direction-x");
+      expect(getRoot(container).getAttribute("class")).toContain("lyra--direction-x");
     });
   });
 

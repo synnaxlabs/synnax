@@ -35,12 +35,20 @@ const Separator = () => (
 /** Props for {@link Segment}. */
 export type SegmentProps<E extends Generic.ElementType = "span"> = Text.TextProps<E>;
 
-/** One step of a {@link Breadcrumb}. A plain string child becomes one on its own. */
+/**
+ * One step of a {@link Breadcrumb}. A plain string child becomes one on its own. A
+ * segment that outruns its box fades out at its end.
+ */
 export const Segment = <E extends Generic.ElementType = "span">({
   children,
   ...rest
 }: SegmentProps<E>): ReactElement => (
-  <Text.Text className={CSS.BE("breadcrumb", "segment")} {...rest} defaultEl="span">
+  <Text.Text
+    className={CSS.BE("breadcrumb", "segment")}
+    overflow="fade"
+    {...rest}
+    defaultEl="span"
+  >
     {children}
   </Text.Text>
 );

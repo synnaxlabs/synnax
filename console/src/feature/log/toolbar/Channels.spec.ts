@@ -57,6 +57,24 @@ describe("log/toolbar/Channels", () => {
     expect(await screen.findByDisplayValue("pressure")).toBeDefined();
   });
 
+  it("renders an absent precision as Auto", async () => {
+    await renderChannels([entry(await createChannel())]);
+    const input = await screen.findByPlaceholderText("Auto");
+    expect((input as HTMLInputElement).value).toEqual("");
+  });
+
+  it("clears the precision with the Auto button", async () => {
+    const ch = await createChannel();
+    const { key } = await renderChannels([entry(ch, { precision: 3 })]);
+    expect(await screen.findByDisplayValue("3")).toBeDefined();
+    fireEvent.click(await screen.findByLabelText("Enable auto precision"));
+    await waitFor(async () =>
+      expect(
+        (await client.logs.retrieve({ key })).channels[0].precision,
+      ).toBeUndefined(),
+    );
+  });
+
   it("removes a channel row with the clear button on its channel icon", async () => {
     const removed = await createChannel();
     const kept = await createChannel();
@@ -94,7 +112,7 @@ describe("log/toolbar/Channels", () => {
 
 describe("log/toolbar/Channels permissions", () => {
   const isAddRowFrozen = (result: { container: HTMLElement }) =>
-    result.container.querySelector(".console-log__channel-select .pluto--disabled") !=
+    result.container.querySelector(".console-log__channel-select .lyra--disabled") !=
     null;
 
   it("should leave the add row live for a subject who may write the log", async () => {

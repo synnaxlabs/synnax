@@ -110,10 +110,10 @@ var _ = Describe("ImEx", func() {
 				region := res.Data.States[0].Regions[0]
 				Expect(
 					region.StrokeColor,
-				).To(HaveValue(Equal(color.MustFromHex("#ff0000"))))
+				).To(HaveValue(Equal(MustSucceed(color.FromHex("#ff0000")))))
 				Expect(
 					region.FillColor,
-				).To(HaveValue(Equal(color.MustFromHex("#00ff00"))))
+				).To(HaveValue(Equal(MustSucceed(color.FromHex("#00ff00")))))
 				Expect(res.Data.Handles).To(HaveLen(1))
 				Expect(res.Data.PreviewViewport).ToNot(BeNil())
 				Expect(res.Data.PreviewViewport.Zoom).To(Equal(3.0))
@@ -132,10 +132,10 @@ var _ = Describe("ImEx", func() {
 				region := res.Data.States[0].Regions[0]
 				Expect(
 					region.StrokeColor,
-				).To(HaveValue(Equal(color.MustFromHex("#123456"))))
+				).To(HaveValue(Equal(MustSucceed(color.FromHex("#123456")))))
 				Expect(
 					region.FillColor,
-				).To(HaveValue(Equal(color.MustFromHex("#654321"))))
+				).To(HaveValue(Equal(MustSucceed(color.FromHex("#654321")))))
 				Expect(res.Data.Handles).To(HaveLen(1))
 				Expect(res.Data.PreviewViewport).ToNot(BeNil())
 				Expect(res.Data.PreviewViewport.Zoom).To(Equal(6.0))

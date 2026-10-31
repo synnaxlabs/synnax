@@ -9,13 +9,13 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-list__virtualizer {
+.lyra-list__virtualizer {
     width: 100%;
     position: relative;
     user-select: none;
     -webkit-user-select: none;
 
-    & > .pluto-list__sentinel {
+    & > .lyra-list__sentinel {
         height: 1px;
         width: 100%;
     }

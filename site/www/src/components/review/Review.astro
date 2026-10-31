@@ -147,9 +147,9 @@ import CdnPicture from "@/components/common/CdnPicture.astro";
         overflow: hidden;
         background: color-mix(in srgb, var(--pluto-gray-l1) 50%, var(--pluto-gray-l2));
         box-shadow:
-            0 2px 4px rgba(0, 0, 0, 0.3),
-            0 8px 24px rgba(0, 0, 0, 0.4),
-            0 24px 64px rgba(0, 0, 0, 0.5);
+            0 2px 4px rgb(0 0 0 / 30%),
+            0 8px 24px rgb(0 0 0 / 40%),
+            0 24px 64px rgb(0 0 0 / 50%);
     }
 
     .review-ranges-detail {
@@ -160,7 +160,7 @@ import CdnPicture from "@/components/common/CdnPicture.astro";
         mix-blend-mode: lighten;
     }
 
-    @media (max-width: 900px) {
+    @media (width <= 900px) {
         .review-ranges-showcase {
             padding-bottom: 0;
             overflow: hidden;

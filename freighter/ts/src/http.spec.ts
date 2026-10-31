@@ -56,6 +56,19 @@ describe("http", () => {
     ).rejects.toThrow("Failed to parse /echo response");
   });
 
+  test("request params", async () => {
+    const c = new HTTPClient(ENDPOINT, new binary.JSONCodec());
+    const response = await c.send("/middlewareCheck", {}, messageZ, messageZ, {
+      Test: "test",
+    });
+    expect(response.message).toEqual("");
+  });
+
+  test("request params missing", async () => {
+    const c = new HTTPClient(ENDPOINT, new binary.JSONCodec());
+    await expect(c.send("/middlewareCheck", {}, messageZ, messageZ)).rejects.toThrow();
+  });
+
   test("middleware", async () => {
     client.use(async (md, next) => {
       md.params.Test = "test";

@@ -54,7 +54,7 @@ class Watchdog:
         self._entries: dict[threading.Thread, _Entry] = {}
         self._lock = threading.Lock()
 
-    def watch(self, thread: threading.Thread, timeout: float) -> None:
+    def watch(self, thread: threading.Thread, *, timeout: float) -> None:
         """Starts a timeout of the given seconds for thread."""
         with self._lock:
             self._entries[thread] = _Entry(deadline=time.monotonic() + timeout)

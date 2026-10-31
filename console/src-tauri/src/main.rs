@@ -12,6 +12,7 @@
 
 #[cfg(feature = "desktop")]
 mod install;
+mod keychain;
 #[cfg(feature = "desktop")]
 mod supervisor;
 
@@ -34,8 +35,17 @@ fn main() {
         .shortcut(KeyboardShortcut::with_modifiers("W", &[MetaKey]))
         .build();
     let builder = tauri::Builder::default();
+    #[cfg(not(feature = "desktop"))]
+    let builder = builder.invoke_handler(tauri::generate_handler![
+        keychain::keychain_get,
+        keychain::keychain_set,
+        keychain::keychain_delete,
+    ]);
     #[cfg(feature = "desktop")]
     let builder = builder.invoke_handler(tauri::generate_handler![
+        keychain::keychain_get,
+        keychain::keychain_set,
+        keychain::keychain_delete,
         supervisor::commands::supervisor_status,
         supervisor::commands::supervisor_history,
         supervisor::commands::supervisor_restart,

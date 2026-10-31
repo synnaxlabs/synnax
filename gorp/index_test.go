@@ -16,14 +16,18 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/alamos"
+	. "github.com/synnaxlabs/alamos/testutil"
 	"github.com/synnaxlabs/gorp"
 	. "github.com/synnaxlabs/gorp/testutil"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
-	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/observe"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest/observer"
 )
 
 // indexedEntry is the test entry type used by the index suite. It carries two indexable
@@ -155,9 +159,9 @@ var _ = Describe("Index", func() {
 					nameIdx := gorp.NewLookupIndex(
 						"name", func(e *indexedEntry) string { return e.Name },
 					)
-					table := DeferClose(openIndexedTable(ctx, idxDB, nameIdx))
-					Expect(table.WaitForIndexes(ctx)).
-						To(MatchError(ContainSubstring("failed to decode")))
+					DeferClose(openIndexedTable(ctx, idxDB, nameIdx))
+					Expect(nameIdx.Get(nil, "alpha")).Error().
+						To(MatchError(gorp.ErrIndexInvalid))
 				})
 
 			It("Should populate a bool-typed Lookup", func(ctx SpecContext) {
@@ -1260,155 +1264,101 @@ var _ = Describe("Composite-string-keyed Lookup", func() {
 	})
 })
 
-var _ = Describe("Async populate", func() {
-	Describe("WaitForIndexes", func() {
-		var idxDB *gorp.DB
-		BeforeEach(func() {
-			mem := DeferClose(memkv.New())
-			idxDB = gorp.Wrap(mem, gorp.WithCodec(msgpack.Codec))
-		})
-
-		It("Should return nil for a table with no indexes", func(ctx SpecContext) {
-			table := openIndexedTable[int32, indexedEntry](ctx, idxDB)
-			DeferClose(table)
-			Expect(table.WaitForIndexes(ctx)).To(Succeed())
-		})
-
-		It("Should return nil after a successful populate", func(ctx SpecContext) {
-			Expect(gorp.NewCreate[int32, indexedEntry]().
-				Entry(&indexedEntry{ID: 1, Name: "alpha"}).
-				Exec(ctx, idxDB)).To(Succeed())
-			nameIdx := gorp.NewLookupIndex(
-				"name", func(e *indexedEntry) string { return e.Name },
-			)
-			table := openIndexedTable(ctx, idxDB, nameIdx)
-			DeferClose(table)
-			Expect(table.WaitForIndexes(ctx)).To(Succeed())
-		})
-
-		It("Should return ctx.Err when ctx cancels before populate completes",
-			func(ctx SpecContext) {
-				nameIdx := gorp.NewLookupIndex(
-					"name", func(e *indexedEntry) string { return e.Name },
-				)
-				table := openIndexedTable(ctx, idxDB, nameIdx)
-				DeferClose(table)
-				canceledCtx, cancel := context.WithCancel(ctx)
-				cancel()
-				err := table.WaitForIndexes(canceledCtx)
-				if err != nil {
-					Expect(err).To(MatchError(context.Canceled))
-				}
-				// Tolerate the race where populate finishes before our
-				// cancel takes effect — both outcomes are correct.
-			})
+var _ = Describe("Populate failure", func() {
+	var (
+		db      *gorp.DB
+		nameIdx *gorp.LookupIndex[int32, indexedEntry, string]
+		logs    *observer.ObservedLogs
+	)
+	BeforeEach(func(ctx SpecContext) {
+		mem := DeferClose(memkv.New())
+		db = gorp.Wrap(
+			&failOnceDB{DB: mem, err: errors.New("populate boom")},
+			gorp.WithCodec(msgpack.Codec),
+		)
+		seed := []indexedEntry{
+			{ID: 1, Name: "alpha"},
+			{ID: 2, Name: "beta"},
+			{ID: 3, Name: "alpha"},
+		}
+		Expect(gorp.NewCreate[int32, indexedEntry]().
+			Entries(&seed).Exec(ctx, db)).To(Succeed())
+		nameIdx = gorp.NewLookupIndex(
+			"name", func(e *indexedEntry) string { return e.Name },
+		)
+		var ins alamos.Instrumentation
+		ins, logs = ObservedInstrumentation(zapcore.ErrorLevel)
+		DeferClose(
+			MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[int32, indexedEntry]{
+				DB:              db,
+				Indexes:         []gorp.Index[int32, indexedEntry]{nameIdx},
+				Instrumentation: ins,
+			})),
+		)
+		Expect(nameIdx.Get(nil, "alpha")).Error().
+			To(MatchError(gorp.ErrIndexInvalid))
 	})
 
-	Describe("Populate failure", func() {
-		var (
-			db      *gorp.DB
-			nameIdx *gorp.LookupIndex[int32, indexedEntry, string]
-			table   *gorp.Table[int32, indexedEntry]
-		)
-		BeforeEach(func(ctx SpecContext) {
-			mem := DeferClose(memkv.New())
-			db = gorp.Wrap(
-				&failOnceDB{DB: mem, err: errors.New("populate boom")},
-				gorp.WithCodec(msgpack.Codec),
-			)
-			seed := []indexedEntry{
-				{ID: 1, Name: "alpha"},
-				{ID: 2, Name: "beta"},
-				{ID: 3, Name: "alpha"},
-			}
-			Expect(gorp.NewCreate[int32, indexedEntry]().
-				Entries(&seed).Exec(ctx, db)).To(Succeed())
-			nameIdx = gorp.NewLookupIndex(
-				"name", func(e *indexedEntry) string { return e.Name },
-			)
-			table = openIndexedTable(ctx, db, nameIdx)
-			DeferClose(table)
-		})
-
-		It("Should surface the populate error from WaitForIndexes",
-			func(ctx SpecContext) {
-				Expect(table.WaitForIndexes(ctx)).
-					To(MatchError(ContainSubstring("populate boom")))
-			})
-
-		It("Should return ErrIndexInvalid from direct Get", func(ctx SpecContext) {
-			Expect(
-				table.WaitForIndexes(ctx),
-			).To(MatchError(ContainSubstring("populate boom")))
-			Expect(nameIdx.Get(nil, "alpha")).Error().
-				To(MatchError(gorp.ErrIndexInvalid))
-		})
-
-		It("Should fall back to a sequential scan from Retrieve via Filter",
-			func(ctx SpecContext) {
-				Expect(
-					table.WaitForIndexes(ctx),
-				).To(MatchError(ContainSubstring("populate boom")))
-				var got []indexedEntry
-				Expect(gorp.NewRetrieve[int32, indexedEntry]().
-					Where(nameIdx.Filter("alpha")).
-					Entries(&got).Exec(ctx, db)).To(Succeed())
-				Expect(idsOf(got)).To(ConsistOf(int32(1), int32(3)))
-			})
-
-		It(
-			"Should preserve a MatchKeys sibling when the indexed child fails to populate",
-			func(ctx SpecContext) {
-				Expect(
-					table.WaitForIndexes(ctx),
-				).To(MatchError(ContainSubstring("populate boom")))
-				var got []indexedEntry
-				Expect(gorp.NewRetrieve[int32, indexedEntry]().
-					Where(gorp.And(
-						nameIdx.Filter("alpha"),
-						gorp.MatchKeys[int32, indexedEntry](1),
-					)).
-					Entries(&got).Exec(ctx, db)).To(Succeed())
-				Expect(idsOf(got)).To(ConsistOf(int32(1)))
-			},
-		)
-
-		It("Should fall back to a sequential scan for Or when populate fails",
-			func(ctx SpecContext) {
-				// Regression: without a construction-time eval on Or's
-				// resolver branch, resolveFilter would swallow
-				// ErrIndexInvalid and leave r.filter.eval nil, so
-				// match() would return true for every entry. The
-				// "gamma" branch matches nothing in the seed, so the
-				// correct result excludes the "beta" entry; the buggy
-				// behavior would include it.
-				Expect(
-					table.WaitForIndexes(ctx),
-				).To(MatchError(ContainSubstring("populate boom")))
-				var got []indexedEntry
-				Expect(gorp.NewRetrieve[int32, indexedEntry]().
-					Where(gorp.Or(
-						nameIdx.Filter("alpha"),
-						nameIdx.Filter("gamma"),
-					)).
-					Entries(&got).Exec(ctx, db)).To(Succeed())
-				Expect(idsOf(got)).To(ConsistOf(int32(1), int32(3)))
-			})
-
-		It("Should fall back to a sequential scan for Not when populate fails",
-			func(ctx SpecContext) {
-				// Same regression shape as Or: Not's resolver branch
-				// previously omitted the construction-time eval, so a
-				// failed populate would let every entry through (Not of
-				// a vacuously-true match).
-				Expect(
-					table.WaitForIndexes(ctx),
-				).To(MatchError(ContainSubstring("populate boom")))
-				var got []indexedEntry
-				Expect(gorp.NewRetrieve[int32, indexedEntry]().
-					Where(gorp.Not(nameIdx.Filter("alpha"))).
-					Entries(&got).Exec(ctx, db)).To(Succeed())
-				Expect(idsOf(got)).To(ConsistOf(int32(2)))
-			})
+	It("Should log the populate error", func() {
+		failed := logs.FilterMessageSnippet("populate failed").All()
+		Expect(failed).To(HaveLen(1))
+		Expect(
+			failed[0].ContextMap()["error"],
+		).To(ContainSubstring("populate boom"))
 	})
+
+	It("Should fall back to a sequential scan from Retrieve via Filter",
+		func(ctx SpecContext) {
+			var got []indexedEntry
+			Expect(gorp.NewRetrieve[int32, indexedEntry]().
+				Where(nameIdx.Filter("alpha")).
+				Entries(&got).Exec(ctx, db)).To(Succeed())
+			Expect(idsOf(got)).To(ConsistOf(int32(1), int32(3)))
+		})
+
+	It(
+		"Should preserve a MatchKeys sibling when the indexed child fails to populate",
+		func(ctx SpecContext) {
+			var got []indexedEntry
+			Expect(gorp.NewRetrieve[int32, indexedEntry]().
+				Where(gorp.And(
+					nameIdx.Filter("alpha"),
+					gorp.MatchKeys[int32, indexedEntry](1),
+				)).
+				Entries(&got).Exec(ctx, db)).To(Succeed())
+			Expect(idsOf(got)).To(ConsistOf(int32(1)))
+		},
+	)
+
+	It("Should fall back to a sequential scan for Or when populate fails",
+		func(ctx SpecContext) {
+			// Regression: without a construction-time eval on Or's
+			// resolver branch, resolveFilter would swallow
+			// ErrIndexInvalid and leave r.filter.eval nil, so
+			// match() would return true for every entry. The
+			// "gamma" branch matches nothing in the seed, so the
+			// correct result excludes the "beta" entry; the buggy
+			// behavior would include it.
+			var got []indexedEntry
+			Expect(gorp.NewRetrieve[int32, indexedEntry]().
+				Where(gorp.Or(
+					nameIdx.Filter("alpha"),
+					nameIdx.Filter("gamma"),
+				)).
+				Entries(&got).Exec(ctx, db)).To(Succeed())
+			Expect(idsOf(got)).To(ConsistOf(int32(1), int32(3)))
+		})
+
+	It("Should fall back to a sequential scan for Not when populate fails",
+		func(ctx SpecContext) {
+			// Same regression shape as Or: Not's resolver branch
+			// previously omitted the construction-time eval, so a
+			// failed populate would let every entry through (Not of
+			// a vacuously-true match).
+			var got []indexedEntry
+			Expect(gorp.NewRetrieve[int32, indexedEntry]().
+				Where(gorp.Not(nameIdx.Filter("alpha"))).
+				Entries(&got).Exec(ctx, db)).To(Succeed())
+			Expect(idsOf(got)).To(ConsistOf(int32(2)))
+		})
 })

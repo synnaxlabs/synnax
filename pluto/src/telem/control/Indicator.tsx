@@ -9,7 +9,6 @@
 
 import "@/telem/control/Indicator.css";
 
-import { CSS } from "@synnaxlabs/lyra/css";
 import { useMemoDeepEqual } from "@synnaxlabs/lyra/memo";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
@@ -18,6 +17,7 @@ import { type PropsWithChildren, type ReactElement, useEffect } from "react";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
+import { CSS } from "@/css";
 import { control } from "@/telem/control/aether";
 
 const INDICATOR_COLOR = CSS.variable("indicator-color");

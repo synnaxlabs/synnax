@@ -9,43 +9,47 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-input__checkbox {
+.lyra-input__checkbox {
     --pluto-checkbox-size: round(2.666rem, 1px);
     --pluto-checkbox-radius: round(0.666rem, 1px);
+    --pluto-checkbox-target-size: var(--pluto-height-medium);
 
     display: flex;
     justify-content: center;
     align-items: center;
     position: relative;
+    /* stylelint-disable declaration-no-important -- the box keeps the pointer and no
+       button fill in every button state */
     cursor: pointer !important;
     background: none !important;
+    /* stylelint-enable declaration-no-important */
 
     /* Outranks the button's sized padding. */
-    &.pluto-btn {
+    &.lyra-btn {
         padding: 0;
     }
 
-    &:not(.pluto--disabled).pluto-btn--prevent-click input {
+    &:not(.lyra--disabled).lyra-btn--prevent-click input {
         cursor: pointer;
     }
 
     &:has(:focus-visible) {
-        .pluto-input__checkbox-indicator {
+        .lyra-input__checkbox-indicator {
             outline: 1px solid var(--pluto-primary-z);
             outline-offset: var(--pluto-focus-ring-offset);
         }
     }
 
-    .pluto-input__checkbox-input {
+    .lyra-input__checkbox-input {
         position: relative;
         cursor: pointer;
         opacity: 0;
-        height: var(--pluto-height-medium);
-        width: var(--pluto-height-medium);
+        height: var(--pluto-checkbox-target-size);
+        width: var(--pluto-checkbox-target-size);
     }
 
     /* Whole-pixel sizes keep the box edges sharp. */
-    .pluto-input__checkbox-indicator {
+    .lyra-input__checkbox-indicator {
         position: absolute;
         top: 50%;
         left: 50%;
@@ -64,12 +68,12 @@
         cursor: pointer;
     }
 
-    &:not(.pluto--disabled, .pluto--icon):hover .pluto-input__checkbox-indicator {
+    &:not(.lyra--disabled, .lyra--icon):hover .lyra-input__checkbox-indicator {
         border-color: var(--pluto-gray-l9);
     }
 
     /* A vector check stays sharp at every size, where a rotated border blurs. */
-    .pluto-input__checkbox-indicator::after {
+    .lyra-input__checkbox-indicator::after {
         content: "";
         position: absolute;
         inset: 0;
@@ -79,69 +83,70 @@
             center / 100% no-repeat;
     }
 
-    .pluto-input__checkbox-input:checked ~ .pluto-input__checkbox-indicator,
-    &.pluto--indeterminate .pluto-input__checkbox-indicator {
+    .lyra-input__checkbox-input:checked ~ .lyra-input__checkbox-indicator,
+    &.lyra--indeterminate .lyra-input__checkbox-indicator {
         background: var(--pluto-primary-z);
         border-color: var(--pluto-primary-z);
     }
 
-    &:not(.pluto--disabled, .pluto--icon):hover
-        .pluto-input__checkbox-input:checked
-        ~ .pluto-input__checkbox-indicator,
-    &.pluto--indeterminate:not(.pluto--disabled, .pluto--icon):hover
-        .pluto-input__checkbox-indicator {
+    &:not(.lyra--disabled, .lyra--icon):hover
+        .lyra-input__checkbox-input:checked
+        ~ .lyra-input__checkbox-indicator,
+    &.lyra--indeterminate:not(.lyra--disabled, .lyra--icon):hover
+        .lyra-input__checkbox-indicator {
         background: var(--pluto-primary-p1);
         border-color: var(--pluto-primary-p1);
     }
 
-    .pluto-input__checkbox-input:checked ~ .pluto-input__checkbox-indicator::after,
-    &.pluto--indeterminate .pluto-input__checkbox-indicator::after {
+    .lyra-input__checkbox-input:checked ~ .lyra-input__checkbox-indicator::after,
+    &.lyra--indeterminate .lyra-input__checkbox-indicator::after {
         display: block;
     }
 
-    &.pluto--indeterminate .pluto-input__checkbox-indicator::after {
+    &.lyra--indeterminate .lyra-input__checkbox-indicator::after {
         mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4.5 8h7' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
     }
 
-    &.pluto--height-tiny {
+    &.lyra--height-tiny {
         --pluto-checkbox-size: 2rem;
         --pluto-checkbox-radius: 0.5rem;
-
-        .pluto-input__checkbox-input {
-            height: var(--pluto-height-small);
-            width: var(--pluto-height-small);
-        }
+        --pluto-checkbox-target-size: var(--pluto-height-small);
     }
 
-    &.pluto--height-small {
+    &.lyra--height-small {
         --pluto-checkbox-size: round(2.333rem, 1px);
         --pluto-checkbox-radius: 0.5rem;
     }
 
-    &.pluto--height-large {
+    &.lyra--height-large {
         --pluto-checkbox-size: round(3.333rem, 1px);
-
-        .pluto-input__checkbox-input {
-            height: var(--pluto-height-large);
-            width: var(--pluto-height-large);
-        }
+        --pluto-checkbox-target-size: var(--pluto-height-large);
     }
 
-    &.pluto--height-huge {
+    &.lyra--height-huge {
         --pluto-checkbox-size: 4rem;
         --pluto-checkbox-radius: round(0.833rem, 1px);
+        --pluto-checkbox-target-size: var(--pluto-height-huge);
+    }
 
-        .pluto-input__checkbox-input {
-            height: var(--pluto-height-huge);
-            width: var(--pluto-height-huge);
+    /* In a field, the box starts at the edge of its label. */
+    .lyra-input__item & {
+        justify-content: flex-start;
+
+        .lyra-input__checkbox-input {
+            width: var(--pluto-checkbox-size);
+        }
+
+        .lyra-input__checkbox-indicator {
+            left: calc(var(--pluto-checkbox-size) / 2);
         }
     }
 
     /* Icon skin: the supplied glyph IS the indicator, so the box chrome and the
        check glyph go away entirely. */
-    &.pluto--icon {
-        .pluto-input__checkbox-indicator,
-        .pluto-input__checkbox-input:checked ~ .pluto-input__checkbox-indicator {
+    &.lyra--icon {
+        .lyra-input__checkbox-indicator,
+        .lyra-input__checkbox-input:checked ~ .lyra-input__checkbox-indicator {
             width: auto;
             height: auto;
             background: none;
@@ -152,24 +157,26 @@
             font-size: round(2.333rem, 1px);
         }
 
-        .pluto-input__checkbox-indicator::after,
-        .pluto-input__checkbox-input:checked ~ .pluto-input__checkbox-indicator::after {
+        .lyra-input__checkbox-indicator::after,
+        .lyra-input__checkbox-input:checked ~ .lyra-input__checkbox-indicator::after {
             display: none;
         }
     }
 
-    &.pluto--disabled {
+    &.lyra--disabled {
         * {
+            /* stylelint-disable-next-line declaration-no-important -- every part of a
+               disabled checkbox shows the not-allowed cursor */
             cursor: not-allowed !important;
         }
 
-        .pluto-input__checkbox-indicator {
+        .lyra-input__checkbox-indicator {
             background: var(--pluto-gray-l2);
             border-color: var(--pluto-gray-l5);
         }
 
-        .pluto-input__checkbox-input:checked ~ .pluto-input__checkbox-indicator,
-        &.pluto--indeterminate .pluto-input__checkbox-indicator {
+        .lyra-input__checkbox-input:checked ~ .lyra-input__checkbox-indicator,
+        &.lyra--indeterminate .lyra-input__checkbox-indicator {
             background: color-mix(
                 in srgb,
                 var(--pluto-primary-z) 40%,
@@ -178,7 +185,7 @@
             border-color: transparent;
         }
 
-        .pluto-input__checkbox-indicator::after {
+        .lyra-input__checkbox-indicator::after {
             background: color-mix(
                 in srgb,
                 var(--pluto-text-on-primary) 70%,

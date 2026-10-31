@@ -30,6 +30,7 @@ class Events:
 
     def __init__(
         self,
+        *,
         client: sy.Synnax,
         channels: Channels,
         runners: set[str],
@@ -39,7 +40,9 @@ class Events:
         self.start = sy.TimeStamp.now()
         self.last: dict[str, sy.TimeStamp] = {}
         self.pending: dict[str, list[str]] = {}
-        self.publisher = Publisher(client, f"runner_{SOURCE}", [], report=report)
+        self.publisher = Publisher(
+            client=client, name=f"runner_{SOURCE}", channels=[], report=report
+        )
         self.retarget(runners)
 
     def retarget(self, runners: set[str]) -> None:
@@ -47,10 +50,10 @@ class Events:
         them."""
         names = []
         for r in sorted(runners):
-            index_name = channel_name(f"{SOURCE}_time", r)
+            index_name = channel_name(f"{SOURCE}_time", runner=r)
             index = self.channels.index(index_name)
-            name = channel_name(SOURCE, r)
-            self.channels.data(index, {name: sy.DataType.STRING})
+            name = channel_name(SOURCE, runner=r)
+            self.channels.data(index=index, channels={name: sy.DataType.STRING})
             names += [index_name, name]
         self.pending = {r: t for r, t in self.pending.items() if r in runners}
         self.publisher.retarget(names)
@@ -73,8 +76,8 @@ class Events:
                 stamp = max(now, stamp + 1)
                 stamps.append(stamp)
             last[runner] = stamp
-            frame[channel_name(SOURCE, runner)] = texts
-            frame[channel_name(f"{SOURCE}_time", runner)] = stamps
+            frame[channel_name(SOURCE, runner=runner)] = texts
+            frame[channel_name(f"{SOURCE}_time", runner=runner)] = stamps
         if frame and self.publisher.write(frame):
             self.last.update(last)
             self.pending.clear()

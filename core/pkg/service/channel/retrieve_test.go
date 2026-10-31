@@ -12,7 +12,8 @@ package channel_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/x/query"
@@ -27,7 +28,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 	)
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
-		svc, _ = openService(ctx, mock.NewNode(ctx))
+		svc, _ = openService(ctx, testutil.NewNode(ctx))
 		writer = svc.NewWriter(nil)
 	})
 	Describe("Retrieve", func() {
@@ -205,7 +206,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 		It(
 			"Should return empty when no calculated channels exist on a fresh node",
 			func(ctx SpecContext) {
-				freshSvc, _ := openService(ctx, mock.NewNode(ctx))
+				freshSvc, _ := openService(ctx, testutil.NewNode(ctx))
 				base := channel.Channel{
 					Virtual:  true,
 					DataType: telem.Float32T,
@@ -295,7 +296,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 			ctx SpecContext,
 		) {
 			idx, _ := createIndexed(ctx, "mi_twin")
-			Expect(retrieveKeys(ctx, channel.NewKey(2, idx.LocalKey))).To(BeEmpty())
+			Expect(retrieveKeys(ctx, distchannel.NewKey(2, idx.LocalKey))).To(BeEmpty())
 		})
 
 		It("Should match nothing when given no keys", func(ctx SpecContext) {

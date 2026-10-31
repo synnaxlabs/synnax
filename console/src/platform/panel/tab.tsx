@@ -21,7 +21,10 @@ import { Access, type Flux, Panel } from "@synnaxlabs/pluto";
 import { type record } from "@synnaxlabs/x";
 import { type FC, lazy, type LazyExoticComponent, type ReactElement } from "react";
 
-export interface TabNameProps {
+export interface TabNameProps extends Pick<
+  Text.TextProps,
+  "level" | "weight" | "color"
+> {
   /** Whether the render site permits renaming the tab in place. Defaults to true. */
   allowRename?: boolean;
 }
@@ -131,10 +134,12 @@ export const createStaticTabName = ({
   icon,
   name,
 }: CreateStaticTabNameParams): TabName => {
-  const Name: TabName = () => (
+  const Name: TabName = ({ level, weight, color }) => (
     <>
       {icon}
-      <Text.Text>{name}</Text.Text>
+      <Text.Text overflow="fade" level={level} weight={weight} color={color}>
+        {name}
+      </Text.Text>
     </>
   );
   return Name;
@@ -166,7 +171,7 @@ export const createEditableTabName = (
   { useEnsure, useName, useRename }: EditableTabNameService,
   icon: Icon.ReactElement,
 ): TabName => {
-  const Name: TabName = ({ allowRename = true }) => {
+  const Name: TabName = ({ allowRename = true, ...rest }) => {
     const tabKey = Panel.useTabKey();
     const resource = Panel.useTabResource();
     const { key } = resource;
@@ -180,8 +185,10 @@ export const createEditableTabName = (
         <Text.MaybeEditable
           id={tabNameID(tabKey)}
           value={name}
+          overflow="fade"
           disabled={!allowRename || !canRename}
           onChange={(name) => update({ key, name })}
+          {...rest}
         />
       </>
     );

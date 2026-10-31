@@ -67,7 +67,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     const start = diagram.getByRole("button", { name: "Start Sequence" }).first();
 
     await session.click(
-      page.locator(".console-controls button:has(svg.pluto-icon--circle)").first(),
+      page.locator(".console-controls button:has(svg.lyra-icon--circle)").first(),
     );
     await session.settle(800);
     await session.moveTo({ x: 820, y: 700 });

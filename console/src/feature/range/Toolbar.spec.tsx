@@ -145,7 +145,7 @@ describe("range/Toolbar", () => {
     const rng = createLocalRangeState(uniqueRangeName("a-very-long-range-name"));
     await renderToolbar({ ranges: [rng] });
     const name = await screen.findByText(rng.name);
-    expect(name.className).toContain("pluto-text--overflow-fade");
+    expect(name.className).toContain("lyra-text--overflow-fade");
     expect(name.closest(".console-range-list-item__name")).not.toBeNull();
   });
 

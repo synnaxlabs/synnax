@@ -43,7 +43,7 @@ type ProgramState struct {
 
 // NewProgramState creates a new ProgramState from channel digests.
 func NewProgramState(digests []Digest) *ProgramState {
-	cs := &ProgramState{
+	ps := &ProgramState{
 		reads:      make(map[uint32]telem.MultiSeries),
 		writes:     make(map[uint32]telem.Series),
 		unstamped:  make(map[uint32]telem.Series),
@@ -53,18 +53,18 @@ func NewProgramState(digests []Digest) *ProgramState {
 		writers:    make(map[uint32]int),
 	}
 	for _, d := range digests {
-		cs.indexes[d.Key] = d.Index
+		ps.indexes[d.Key] = d.Index
 	}
-	return cs
+	return ps
 }
 
 // Ingest adds external channel data to the read buffer.
-func (cs *ProgramState) Ingest(fr telem.Frame[uint32]) {
+func (ps *ProgramState) Ingest(fr telem.Frame[uint32]) {
 	for rawI, key := range fr.RawKeys() {
 		if fr.ShouldExcludeRaw(rawI) {
 			continue
 		}
-		cs.reads[key] = cs.reads[key].Append(fr.RawSeriesAt(rawI))
+		ps.reads[key] = ps.reads[key].Append(fr.RawSeriesAt(rawI))
 	}
 }
 
@@ -77,17 +77,17 @@ func (cs *ProgramState) Ingest(fr telem.Frame[uint32]) {
 // returns the highest stamp it synthesized, so the caller's clock can resume above it,
 // and reports whether anything was flushed. The highest stamp is zero when nothing was
 // synthesized.
-func (cs *ProgramState) Flush(
+func (ps *ProgramState) Flush(
 	fr telem.Frame[uint32],
 	now telem.TimeStamp,
 ) (telem.Frame[uint32], telem.TimeStamp, bool) {
-	if len(cs.activeWriteKeys) == 0 {
+	if len(ps.activeWriteKeys) == 0 {
 		return fr, 0, false
 	}
-	highest := cs.stampIndexes(now)
+	highest := ps.stampIndexes(now)
 	flushed := false
-	for _, key := range cs.activeWriteKeys {
-		data, ok := cs.writes[key]
+	for _, key := range ps.activeWriteKeys {
+		data, ok := ps.writes[key]
 		if !ok || len(data.Data) == 0 {
 			continue
 		}
@@ -96,31 +96,31 @@ func (cs *ProgramState) Flush(
 		data.Data = data.Data[:0]
 		data.TimeRange = telem.TimeRangeZero
 		data.Alignment = 0
-		cs.writes[key] = data
+		ps.writes[key] = data
 	}
-	cs.activeWriteKeys = cs.activeWriteKeys[:0]
+	ps.activeWriteKeys = ps.activeWriteKeys[:0]
 	return fr, highest, flushed
 }
 
 // stampIndexes gives every sample written this cycle a timestamp and returns the
 // highest timestamp it synthesized.
-func (cs *ProgramState) stampIndexes(now telem.TimeStamp) (highest telem.TimeStamp) {
-	clear(cs.writers)
-	for _, key := range cs.activeWriteKeys {
-		if idx := cs.indexes[key]; idx != 0 && idx != key {
-			cs.writers[idx]++
+func (ps *ProgramState) stampIndexes(now telem.TimeStamp) (highest telem.TimeStamp) {
+	clear(ps.writers)
+	for _, key := range ps.activeWriteKeys {
+		if idx := ps.indexes[key]; idx != 0 && idx != key {
+			ps.writers[idx]++
 		}
 	}
-	for _, key := range cs.activeWriteKeys {
-		idx := cs.indexes[key]
+	for _, key := range ps.activeWriteKeys {
+		idx := ps.indexes[key]
 		if idx == 0 || idx == key {
 			continue
 		}
 		var last telem.TimeStamp
-		if cs.writers[idx] == 1 {
-			last = cs.stampAlone(key, idx, now)
+		if ps.writers[idx] == 1 {
+			last = ps.stampAlone(key, idx, now)
 		} else {
-			last = cs.stampGroup(key, idx, now)
+			last = ps.stampGroup(key, idx, now)
 		}
 		highest = max(highest, last)
 	}
@@ -130,16 +130,16 @@ func (cs *ProgramState) stampIndexes(now telem.TimeStamp) (highest telem.TimeSta
 // stampAlone gives the body writes of key a timestamp and puts all of its samples in
 // time order. It returns the last timestamp it synthesized, or zero when it synthesized
 // none.
-func (cs *ProgramState) stampAlone(
+func (ps *ProgramState) stampAlone(
 	key, idx uint32,
 	now telem.TimeStamp,
 ) telem.TimeStamp {
-	data, times := cs.writes[key], cs.writes[idx]
+	data, times := ps.writes[key], ps.writes[idx]
 	var (
 		order   []int
 		highest telem.TimeStamp
 	)
-	if body := cs.unstamped[key]; len(body.Data) > 0 {
+	if body := ps.unstamped[key]; len(body.Data) > 0 {
 		if len(times.Data) == 0 {
 			times = telem.Series{
 				DataType:  telem.TimestampT,
@@ -147,40 +147,40 @@ func (cs *ProgramState) stampAlone(
 				Alignment: body.Alignment,
 				TimeRange: body.TimeRange,
 			}
-			cs.activeWriteKeys = append(cs.activeWriteKeys, idx)
+			ps.activeWriteKeys = append(ps.activeWriteKeys, idx)
 		}
 		stamped, n := int(times.Len()), int(body.Len())
-		highest = max(now, cs.lastStamps[idx]+1)
+		highest = max(now, ps.lastStamps[idx]+1)
 		times.Data = slices.Grow(times.Data, n*int(telem.TimestampT.Density()))
 		for range n {
 			times.Data = telem.ByteOrder.AppendUint64(times.Data, uint64(highest))
 		}
-		data = cs.appendBody(data, key)
-		if ps := cs.positions[key]; len(ps) > 0 {
-			order = writeOrder(stamped, n, ps)
-			cs.positions[key] = ps[:0]
+		data = ps.appendBody(data, key)
+		if pos := ps.positions[key]; len(pos) > 0 {
+			order = writeOrder(stamped, n, pos)
+			ps.positions[key] = pos[:0]
 		}
 	}
 	sortByTime(&data, &times, order)
 	highest = max(highest, breakTies(times))
 	if times.Len() > 0 {
-		cs.lastStamps[idx] = times.ValueAt[telem.TimeStamp](-1)
+		ps.lastStamps[idx] = times.ValueAt[telem.TimeStamp](-1)
 	}
-	cs.writes[key], cs.writes[idx] = data, times
+	ps.writes[key], ps.writes[idx] = data, times
 	return highest
 }
 
 // stampGroup appends key's body writes to its timestamped samples. When the shared
 // index has no timestamps yet, it stamps one per sample of key, starting at now, and
 // returns the last one. Otherwise it returns zero.
-func (cs *ProgramState) stampGroup(
+func (ps *ProgramState) stampGroup(
 	key, idx uint32,
 	now telem.TimeStamp,
 ) telem.TimeStamp {
-	data := cs.appendBody(cs.writes[key], key)
-	cs.writes[key] = data
-	cs.positions[key] = cs.positions[key][:0]
-	if len(cs.writes[idx].Data) > 0 {
+	data := ps.appendBody(ps.writes[key], key)
+	ps.writes[key] = data
+	ps.positions[key] = ps.positions[key][:0]
+	if len(ps.writes[idx].Data) > 0 {
 		return 0
 	}
 	count := data.Len()
@@ -190,16 +190,16 @@ func (cs *ProgramState) stampGroup(
 	stamps := telem.Arrange(now, int(count), 1*telem.NanosecondTS)
 	stamps.Alignment = data.Alignment
 	stamps.TimeRange = data.TimeRange
-	cs.writes[idx] = stamps
-	cs.activeWriteKeys = append(cs.activeWriteKeys, idx)
+	ps.writes[idx] = stamps
+	ps.activeWriteKeys = append(ps.activeWriteKeys, idx)
 	last := stamps.ValueAt[telem.TimeStamp](-1)
-	cs.lastStamps[idx] = last
+	ps.lastStamps[idx] = last
 	return last
 }
 
 // appendBody moves key's body writes to the end of data and returns the result.
-func (cs *ProgramState) appendBody(data telem.Series, key uint32) telem.Series {
-	body := cs.unstamped[key]
+func (ps *ProgramState) appendBody(data telem.Series, key uint32) telem.Series {
+	body := ps.unstamped[key]
 	if len(body.Data) == 0 {
 		return data
 	}
@@ -210,7 +210,7 @@ func (cs *ProgramState) appendBody(data telem.Series, key uint32) telem.Series {
 	}
 	data.Data = append(data.Data, body.Data...)
 	body.Data = body.Data[:0]
-	cs.unstamped[key] = body
+	ps.unstamped[key] = body
 	return data
 }
 
@@ -302,8 +302,8 @@ const clearReadsReallocThreshold = 64
 
 // ClearReads clears accumulated channel read buffers while preserving the
 // latest series for each channel.
-func (cs *ProgramState) ClearReads() {
-	for key, ser := range cs.reads {
+func (ps *ProgramState) ClearReads() {
+	for key, ser := range ps.reads {
 		if len(ser.Series) <= 1 {
 			continue
 		}
@@ -314,13 +314,13 @@ func (cs *ProgramState) ClearReads() {
 				ser.Series, 0, len(ser.Series)-1,
 			)
 		}
-		cs.reads[key] = ser
+		ps.reads[key] = ser
 	}
 }
 
 // ReadValue reads a single value from a channel (for WASM runtime bindings).
-func (cs *ProgramState) ReadValue(key uint32) (telem.Series, bool) {
-	ms, ok := cs.reads[key]
+func (ps *ProgramState) ReadValue(key uint32) (telem.Series, bool) {
+	ms, ok := ps.reads[key]
 	if !ok || len(ms.Series) == 0 {
 		return telem.Series{}, false
 	}
@@ -328,76 +328,36 @@ func (cs *ProgramState) ReadValue(key uint32) (telem.Series, bool) {
 }
 
 // writeValue writes a single value to a channel (for WASM runtime bindings).
-func (cs *ProgramState) writeValue(key uint32, value telem.Series) {
-	cs.appendWriteSeries(cs.bodyWrites(key), key, value)
+func (ps *ProgramState) writeValue(key uint32, value telem.Series) {
+	ps.appendWriteSeries(ps.bodyWrites(key), key, value)
 }
 
 // bodyWrites returns the buffer that body writes to key go into. Writes to an indexed
 // channel wait in unstamped until Flush gives them timestamps.
-func (cs *ProgramState) bodyWrites(key uint32) map[uint32]telem.Series {
-	if idx := cs.indexes[key]; idx != 0 && idx != key {
-		return cs.unstamped
+func (ps *ProgramState) bodyWrites(key uint32) map[uint32]telem.Series {
+	if idx := ps.indexes[key]; idx != 0 && idx != key {
+		return ps.unstamped
 	}
-	return cs.writes
+	return ps.writes
 }
 
 // activate records key as written this cycle, unless it already is.
-func (cs *ProgramState) activate(key uint32) {
-	if len(cs.writes[key].Data) == 0 && len(cs.unstamped[key].Data) == 0 {
-		cs.activeWriteKeys = append(cs.activeWriteKeys, key)
+func (ps *ProgramState) activate(key uint32) {
+	if len(ps.writes[key].Data) == 0 && len(ps.unstamped[key].Data) == 0 {
+		ps.activeWriteKeys = append(ps.activeWriteKeys, key)
 	}
 }
 
-func (cs *ProgramState) WriteChannelU8(key uint32, v uint8) {
-	appendFixedWriteSample(cs, key, v)
-}
-
-func (cs *ProgramState) WriteChannelU16(key uint32, v uint16) {
-	appendFixedWriteSample(cs, key, v)
-}
-
-func (cs *ProgramState) WriteChannelU32(key, v uint32) {
-	appendFixedWriteSample(cs, key, v)
-}
-
-func (cs *ProgramState) WriteChannelU64(key uint32, v uint64) {
-	appendFixedWriteSample(cs, key, v)
-}
-
-func (cs *ProgramState) WriteChannelI8(key uint32, v int8) {
-	appendFixedWriteSample(cs, key, v)
-}
-
-func (cs *ProgramState) WriteChannelI16(key uint32, v int16) {
-	appendFixedWriteSample(cs, key, v)
-}
-
-func (cs *ProgramState) WriteChannelI32(key uint32, v int32) {
-	appendFixedWriteSample(cs, key, v)
-}
-
-func (cs *ProgramState) WriteChannelI64(key uint32, v int64) {
-	appendFixedWriteSample(cs, key, v)
-}
-
-func (cs *ProgramState) WriteChannelF32(key uint32, v float32) {
-	appendFixedWriteSample(cs, key, v)
-}
-
-func (cs *ProgramState) WriteChannelF64(key uint32, v float64) {
-	appendFixedWriteSample(cs, key, v)
-}
-
 func appendFixedWriteSample[T telem.FixedSample](
-	cs *ProgramState,
+	ps *ProgramState,
 	key uint32,
 	value T,
 ) {
 	dt := telem.InferDataType[T]()
-	buf := cs.bodyWrites(key)
+	buf := ps.bodyWrites(key)
 	acc, exists := buf[key]
 	if len(acc.Data) == 0 {
-		cs.activate(key)
+		ps.activate(key)
 	}
 	if !exists {
 		acc = telem.Series{DataType: dt}
@@ -418,59 +378,59 @@ func appendFixedWriteSample[T telem.FixedSample](
 }
 
 // readSeries reads buffered data and time series from a channel.
-func (cs *ProgramState) readSeries(
+func (ps *ProgramState) readSeries(
 	key uint32,
 ) (data, time telem.MultiSeries, ok bool) {
-	data, ok = cs.reads[key]
+	data, ok = ps.reads[key]
 	if !ok {
 		return telem.MultiSeries{}, telem.MultiSeries{}, false
 	}
-	indexKey := cs.indexes[key]
+	indexKey := ps.indexes[key]
 	if indexKey == 0 {
 		return data, telem.MultiSeries{}, len(data.Series) > 0
 	}
-	time, ok = cs.reads[indexKey]
+	time, ok = ps.reads[indexKey]
 	if !ok {
 		return telem.MultiSeries{}, telem.MultiSeries{}, false
 	}
 	return data, time, len(time.Series) > 0 && len(data.Series) > 0
 }
 
-func (cs *ProgramState) writeChannel(key uint32, data, time telem.Series) {
-	idx := cs.indexes[key]
+func (ps *ProgramState) writeChannel(key uint32, data, time telem.Series) {
+	idx := ps.indexes[key]
 	if idx != 0 {
-		cs.markPosition(key, idx)
+		ps.markPosition(key, idx)
 	}
-	cs.appendWriteSeries(cs.writes, key, data)
+	ps.appendWriteSeries(ps.writes, key, data)
 	if idx != 0 {
-		cs.appendWriteSeries(cs.writes, idx, time)
+		ps.appendWriteSeries(ps.writes, idx, time)
 	}
 }
 
 // markPosition records how many body writes to key came before a timestamped write.
-func (cs *ProgramState) markPosition(key, idx uint32) {
-	body := int(cs.unstamped[key].Len())
+func (ps *ProgramState) markPosition(key, idx uint32) {
+	body := int(ps.unstamped[key].Len())
 	if body == 0 {
 		return
 	}
-	ps := cs.positions[key]
-	if len(ps) > 0 && ps[len(ps)-1].body == body {
+	pos := ps.positions[key]
+	if len(pos) > 0 && pos[len(pos)-1].body == body {
 		return
 	}
-	cs.positions[key] = append(ps, position{
+	ps.positions[key] = append(pos, position{
 		body:    body,
-		stamped: int(cs.writes[idx].Len()),
+		stamped: int(ps.writes[idx].Len()),
 	})
 }
 
-func (cs *ProgramState) appendWriteSeries(
+func (ps *ProgramState) appendWriteSeries(
 	buf map[uint32]telem.Series,
 	key uint32,
 	source telem.Series,
 ) {
 	acc, exists := buf[key]
 	if len(acc.Data) == 0 {
-		cs.activate(key)
+		ps.activate(key)
 	}
 	if !exists {
 		acc = telem.Series{DataType: source.DataType}

@@ -19,7 +19,7 @@ import numpy as np
 from synnax import channel as channel_
 from synnax import framer
 from synnax.exceptions import UnexpectedError, ValidationError
-from synnax.telem import CrudeTimeSpan, SampleValue, TimeSpan, TimeStamp
+from synnax.telem import CrudeSample, CrudeTimeSpan, TimeSpan, TimeStamp
 from synnax.timing import sleep
 from x.control import CrudeAuthority
 from x.thread import AsyncThread
@@ -41,7 +41,7 @@ class _WaitUntil(_Processor):
     exc: Exception | None
     reverse: bool
 
-    def __init__(self, callback: Condition, reverse: bool = False):
+    def __init__(self, callback: Condition, *, reverse: bool = False):
         self.event = Event()
         self.callback = callback
         self.exc = None
@@ -100,6 +100,7 @@ class Controller:
 
     def __init__(
         self,
+        *,
         name: str,
         write: channel_.Params | None,
         read: channel_.Params | None,
@@ -161,28 +162,28 @@ class Controller:
         return self._receiver_opt
 
     @overload
-    def set(self, channel: channel_.Key | str, value: SampleValue) -> None: ...
+    def set(self, channel: channel_.Key | str, value: CrudeSample) -> None: ...
 
     @overload
-    def set(self, channel: dict[channel_.Key, SampleValue]) -> None: ...
+    def set(self, channel: dict[channel_.Key, CrudeSample]) -> None: ...
 
     @overload
-    def set(self, channel: dict[str, SampleValue]) -> None: ...
+    def set(self, channel: dict[str, CrudeSample]) -> None: ...
 
     def set(
         self,
         channel: (
             channel_.Key
             | str
-            | dict[channel_.Key, SampleValue]
-            | dict[str, SampleValue]
+            | dict[channel_.Key, CrudeSample]
+            | dict[str, CrudeSample]
         ),
-        value: SampleValue | None = None,
+        value: CrudeSample | None = None,
     ) -> None:
         """Sets the provided channel(s) to the provided value(s).
 
-        :param channel: A single channel key or name, or a dictionary of channel keys and
-        names to their corresponding values to set.
+        :param channel: A single channel key or name, or a dictionary of channel keys
+        and names to their corresponding values to set.
         :param value: The value to set the channel to. This parameter should not be
         provided if ch is a dictionary.
 
@@ -207,7 +208,7 @@ class Controller:
             return
         ch = self._resolve(channel)
         assert value is not None
-        to_write: dict[channel_.Key, SampleValue] = {ch.key: value}
+        to_write: dict[channel_.Key, CrudeSample] = {ch.key: value}
         if not ch.virtual:
             to_write[ch.index] = TimeStamp.now()
         self._writer.write(to_write)
@@ -240,6 +241,7 @@ class Controller:
     def set_authority(
         self,
         value: channel_.Key | str,
+        *,
         authority: CrudeAuthority,
     ) -> None: ...
 
@@ -253,6 +255,7 @@ class Controller:
             | str
             | CrudeAuthority
         ),
+        *,
         authority: CrudeAuthority | None = None,
     ) -> None:
         if isinstance(value, dict):
@@ -277,6 +280,7 @@ class Controller:
     def wait_until(
         self,
         cond: Condition,
+        *,
         timeout: CrudeTimeSpan | None = None,
     ) -> bool:
         """Blocks the controller, calling the provided callback on every new sample
@@ -298,13 +302,16 @@ class Controller:
 
         Examples:
         >>> controller.wait_until(lambda c: c["my_channel"] > 42)
-        >>> controller.wait_until(lambda c: c["channel_1"] > 42 and c["channel_2"] < 3.14)
+        >>> controller.wait_until(
+        ...     lambda c: c["channel_1"] > 42 and c["channel_2"] < 3.14
+        ... )
         """
         return self._internal_wait_until(cond, timeout)
 
     def wait_while(
         self,
         cond: Condition,
+        *,
         timeout: CrudeTimeSpan | None = None,
     ) -> bool:
         """Blocks the controller, calling the provided callback on every new sample
@@ -322,7 +329,7 @@ class Controller:
     ) -> bool:
         if not callable(cond):
             raise ValueError("First argument to wait_until must be a callable.")
-        processor = _WaitUntil(cond, reverse)
+        processor = _WaitUntil(cond, reverse=reverse)
         self._receiver.add_processor(processor)
         try:
             timeout_seconds = (
@@ -336,7 +343,7 @@ class Controller:
             raise processor.exc
         return ok
 
-    def sleep(self, dur: float | int | TimeSpan, precise: bool = False) -> None:
+    def sleep(self, dur: float | int | TimeSpan, *, precise: bool = False) -> None:
         """Sleeps the controller for the provided duration.
 
         :param dur: The duration to sleep for. This can be a flot or int representing
@@ -346,11 +353,12 @@ class Controller:
         If you're looking for millisecond level precision, set this value to True.
         Otherwise, we recommend leaving it as False.
         """
-        sleep(dur, precise)
+        sleep(dur, precise=precise)
 
     def wait_until_defined(
         self,
         channels: channel_.Params,
+        *,
         timeout: CrudeTimeSpan | None = None,
     ) -> bool:
         """Blocks until the controller has received at least one value from all the
@@ -367,11 +375,14 @@ class Controller:
         >>> controller.wait_until_defined(["channel_1", "channel_2"])
         """
         res = [self._resolve(ch) for ch in channel_.normalize_params(channels).channels]
-        return self.wait_until(lambda c: all(v.key in c.state for v in res), timeout)
+        return self.wait_until(
+            lambda c: all(v.key in c.state for v in res), timeout=timeout
+        )
 
     def remains_true_for(
         self,
         cond: Condition,
+        *,
         duration: CrudeTimeSpan,
         percentage: float = 1,
     ) -> bool:
@@ -434,7 +445,7 @@ class Controller:
         """
         return self._receiver.state
 
-    def __setattr__(self, key: str, value: SampleValue) -> None:
+    def __setattr__(self, key: str, value: CrudeSample) -> None:
         """Commands the channel named key, unless key is private or a class
         attribute.
         """
@@ -458,8 +469,8 @@ class Controller:
         value if no value has been received yet.
 
         :param ch: The channel key or name to get the value for.
-        :param default: The default value to return if no value has been received for the
-        channel yet.
+        :param default: The default value to return if no value has been received for
+        the channel yet.
 
         Examples:
         >>> controller.get("my_channel")
@@ -577,7 +588,7 @@ class _Receiver(AsyncThread):
 
     async def _stream(self) -> None:
         self.streamer = await self.client.open_async_streamer(self.channels)
-        self.loop.create_task(self._listen_for_close())
+        close_listener = self.loop.create_task(self._listen_for_close())
         self.startup_ack.set()
         async for frame in self.streamer:
             for i, key in enumerate(frame.channels):
@@ -588,6 +599,7 @@ class _Receiver(AsyncThread):
             self._process()
         if not self.shutdown_future.done():
             raise UnexpectedError("streamer closed before the controller released")
+        await close_listener
 
     def stop(self) -> None:
         with self.lock:
@@ -603,13 +615,14 @@ class ScheduledCommand:
     """
 
     channel: channel_.Key | str
-    value: SampleValue
+    value: CrudeSample
     delay: TimeSpan
 
     def __init__(
         self,
+        *,
         channel: channel_.Key | str,
-        value: SampleValue,
+        value: CrudeSample,
         delay: float | int | TimeSpan,
     ):
         self.channel = channel

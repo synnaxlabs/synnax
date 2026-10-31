@@ -69,9 +69,9 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     text: true,
   });
   const item = page
-    .locator(".pluto-dialog__dialog")
+    .locator(".lyra-dialog__dialog")
     .filter({ has: page.getByPlaceholder("Search labels...") })
-    .locator(".pluto-list__item")
+    .locator(".lyra-list__item")
     .filter({ has: page.getByText("Nominal", { exact: true }) })
     .first();
   await session.waitFor(item);

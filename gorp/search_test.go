@@ -16,8 +16,8 @@ import (
 	. "github.com/synnaxlabs/gorp/testutil"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 func indexedText(e *indexedEntry) []string { return []string{e.Name, e.Category} }
@@ -63,7 +63,6 @@ var _ = Describe("SearchIndex", func() {
 		createIndexed(ctx, db, searchEntries...)
 		idx = newTextIndex()
 		table = DeferClose(openIndexedTable(ctx, db, idx))
-		Expect(table.WaitForIndexes(ctx)).To(Succeed())
 	})
 
 	stage := func(ctx SpecContext, tx gorp.Tx, entry indexedEntry) {
@@ -235,8 +234,9 @@ var _ = Describe("SearchIndex", func() {
 			categories = gorp.NewLookupIndex(
 				"category", func(e *indexedEntry) string { return e.Category },
 			)
-			t := DeferClose(openIndexedTable(ctx, failing, categories, failed))
-			Expect(t.WaitForIndexes(ctx)).To(MatchError(ContainSubstring("boom")))
+			DeferClose(openIndexedTable(ctx, failing, categories, failed))
+			Expect(categories.Get(nil, "x")).Error().
+				To(MatchError(gorp.ErrIndexInvalid))
 		})
 
 		It("Should search by scanning every entry", func(ctx SpecContext) {

@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from examples.simulators import PressSimDAQ
+from examples.simulators import PressSimDAQ, SimDAQ
 
 import synnax as sy
 from framework.utils import create_virtual_channel
@@ -54,10 +54,10 @@ class IntervalPress(ArcCase):
         "str_chan",
         "end_test_cmd",
     ]
-    sim_daq_class = PressSimDAQ
+    sim_daq_class: type[SimDAQ] | None = PressSimDAQ
 
     def setup(self) -> None:
-        create_virtual_channel(self.client, "str_chan", sy.DataType.STRING)
+        create_virtual_channel(self.client, "str_chan", data_type=sy.DataType.STRING)
         super().setup()
 
     def verify_sequence_execution(self) -> None:
@@ -90,5 +90,6 @@ class IntervalPress(ArcCase):
             self.log(f"[Cycle {cycle}] Cycle complete!")
 
         self.log(
-            "All 3 cycles completed - interval-triggered hysteresis control verified successfully"
+            "All 3 cycles completed - interval-triggered hysteresis control verified "
+            "successfully"
         )

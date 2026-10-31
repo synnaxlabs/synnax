@@ -119,20 +119,6 @@ func (m *Module) ImportCount() uint32 {
 	return uint32(len(m.imports))
 }
 
-// Debug returns debug info about the module
-func (m *Module) Debug() (types, functions, exports int) {
-	return len(m.types), len(m.functions), len(m.exports)
-}
-
-// ImportNames returns the names of all imported functions in order.
-func (m *Module) ImportNames() []string {
-	names := make([]string, len(m.imports))
-	for i, imp := range m.imports {
-		names[i] = imp.Name
-	}
-	return names
-}
-
 // EnableMemory enables memory for the module
 func (m *Module) EnableMemory() {
 	m.memory = true

@@ -13,7 +13,8 @@
 # turns auto-merge on for a pull request into main or a release branch that is labeled
 # review/bot, not review/human, and is not a draft. When a pull request stops
 # qualifying, it turns off only auto-merge that the bot turned on; auto-merge that a
-# person turned on stays on. Prints the decision.
+# person turned on stays on. GitHub does not allow auto-merge on a pull request in a
+# stack, so the script leaves a stacked pull request unchanged. Prints the decision.
 
 set -euo pipefail
 
@@ -22,16 +23,18 @@ REPO=${GITHUB_REPOSITORY:?GITHUB_REPOSITORY is not set}
 BOT=${BOT:-synnax-claude-code[bot]}
 
 # shellcheck disable=SC2016 # The jq program uses jq variables.
-read -r want enabled ours < <(
+read -r stacked want enabled ours < <(
     gh api "repos/$REPO/pulls/$PR" --jq '[.labels[].name] as $l
         | (.draft == false and any($l[]; . == "review/bot")
             and all($l[]; . != "review/human")
             and (.base.ref == "main" or (.base.ref | startswith("release/"))))
           as $want
         | (.auto_merge.enabled_by.login == "'"$BOT"'") as $ours
-        | "\($want) \(.auto_merge != null) \($ours)"'
+        | "\(.stack != null) \($want) \(.auto_merge != null) \($ours)"'
 )
-if [ "$want" = true ] && [ "$enabled" = false ]; then
+if [ "$stacked" = true ]; then
+    echo "unchanged: the pull request is in a stack"
+elif [ "$want" = true ] && [ "$enabled" = false ]; then
     gh pr merge "$PR" --repo "$REPO" --auto --squash
     echo enabled
 elif [ "$want" = false ] && [ "$ours" = true ]; then

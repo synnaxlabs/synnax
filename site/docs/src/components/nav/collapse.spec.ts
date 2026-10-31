@@ -19,11 +19,11 @@ const PAGE = `
         <button data-page-nav-toggle aria-label="Collapse sidebar"></button>
         <div class="reference-tree">
           <div class="page-nav-section-header" role="treeitem" aria-level="1">
-            <p class="pluto-text">Channels</p>
+            <p class="lyra-text">Channels</p>
           </div>
           <a role="treeitem" aria-level="2" href="#channels">Overview</a>
           <div class="page-nav-section-header" role="treeitem" aria-level="1">
-            <p class="pluto-text">Ranges</p>
+            <p class="lyra-text">Ranges</p>
           </div>
           <a role="treeitem" aria-level="2" href="#ranges">Overview</a>
         </div>

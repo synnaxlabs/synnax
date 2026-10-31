@@ -28,8 +28,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 func userHasSpecificRole(
@@ -93,14 +93,14 @@ var _ = Describe("Legacy Permission Migration", func() {
 			w := userSvc.NewWriter(tx)
 			var rootUser user.User
 			Expect(userSvc.NewRetrieve().
-				Where(user.MatchUsernames("root")).
+				Where(user.MatchRootUser(true)).
 				Entry(&rootUser).
 				Exec(ctx, tx)).To(Succeed())
-			adminUser := MustSucceed(w.Create(ctx, user.User{Username: "admin"}))
+			adminUser := MustSucceed(w.Create(ctx, user.User{Name: "admin"}))
 			schematicUser := MustSucceed(w.Create(ctx, user.User{
-				Username: "schematicuser",
+				Name: "schematicuser",
 			}))
-			regularUser := MustSucceed(w.Create(ctx, user.User{Username: "regular"}))
+			regularUser := MustSucceed(w.Create(ctx, user.User{Name: "regular"}))
 
 			// Seed legacy policies with Subjects field
 			adminPolicy := policyv0.Policy{
@@ -321,7 +321,7 @@ var _ = Describe("Legacy Permission Migration", func() {
 			To(Succeed())
 		tx := DeferClose(db.OpenTx())
 		viewer := MustSucceed(userSvc.NewWriter(tx).Create(ctx, user.User{
-			Username: "viewer",
+			Name: "viewer",
 		}))
 		Expect(roleSvc.NewWriter(tx, true).AssignRole(
 			ctx, viewer.OntologyID(), builtinRoles.ViewerKey,

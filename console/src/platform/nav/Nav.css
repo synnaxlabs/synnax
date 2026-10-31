@@ -10,14 +10,16 @@
  */
 
 .console-nav__bar {
-    .pluto-menu-item {
+    .lyra-menu-item {
         position: relative;
-        &.pluto--selected {
+
+        &.lyra--selected {
             &::after {
                 transform: scaleY(1);
                 opacity: 1;
             }
         }
+
         &::after {
             content: "";
             position: absolute;
@@ -33,52 +35,57 @@
         }
     }
 
-    &.pluto--location-left {
+    &.lyra--location-left {
         button {
             /* Between medium and large: matches the 5.5rem list-row height, with the
                icon kept at size-large's h5 scale. */
             --pluto-height: round(5.333rem, 1px);
+
             font-size: var(--pluto-h5-size);
-            &.pluto--square {
+
+            &.lyra--square {
                 min-width: var(--pluto-height);
             }
         }
-        .pluto-menu-item::after {
+
+        .lyra-menu-item::after {
             left: round(-1.666rem, 1px);
             border-top-right-radius: 0.5rem;
             border-bottom-right-radius: 0.5rem;
         }
     }
 
-    .pluto-navbar__content {
+    .lyra-navbar__content {
         z-index: 2;
     }
 
-    &.pluto--direction-x {
+    &.lyra--direction-x {
         padding-left: 3rem;
         padding-right: 1.5rem;
     }
 
     /* The panel strip is the only elastic section of the top bar: it absorbs the
        squeeze and scrolls internally, rather than driving the badges off screen. */
-    &.pluto--location-top {
-        > .pluto-navbar__content.pluto--start {
+    &.lyra--location-top {
+        > .lyra-navbar__content.lyra--start {
             min-width: 0;
+
             /* A squeeze runs the strip right up to the badges, so the start keeps
                this much clear of whatever follows it. */
             margin-right: 5rem;
         }
-        > .pluto-navbar__content.pluto--end {
+
+        > .lyra-navbar__content.lyra--end {
             flex-shrink: 0;
         }
     }
 
-    &.pluto--direction-y .pluto-navbar__content {
-        padding: 2rem 0rem;
+    &.lyra--direction-y .lyra-navbar__content {
+        padding: 2rem 0;
     }
 }
 
-.console--os-macos .console-nav__bar.pluto--direction-x {
+.console--os-macos .console-nav__bar.lyra--direction-x {
     padding-left: 2rem;
 }
 
@@ -87,7 +94,7 @@
     border-top-right-radius: var(--pluto-border-radius-medium);
 }
 
-.console--os-windows .console-nav__bar.pluto--direction-x {
+.console--os-windows .console-nav__bar.lyra--direction-x {
     padding-right: 1rem;
     padding-left: 2.5rem;
 }
@@ -99,12 +106,12 @@
 
     /* The content clips to the rounded corners instead of the drawer, so the resize
        handle can sit outside the edge. Inside, it would cover the list scrollbars. */
-    > :not(.pluto-resize__handle) {
+    > :not(.lyra-resize__handle) {
         overflow: hidden;
         border-radius: inherit;
     }
 
-    &.pluto-resize.pluto--location-left > .pluto-resize__handle {
+    &.lyra-resize.lyra--location-left > .lyra-resize__handle {
         right: calc(-1 * var(--resize-panel-handle-size));
 
         &::after {
@@ -114,39 +121,41 @@
     }
 
     &.console--hover,
-    &.pluto--hidden {
-        &.pluto--location-bottom {
-            transition: transform 0.15s linear;
-        }
-        &.pluto--location-left {
-            transition:
-                opacity 0.05s linear,
-                transform 0.15s linear;
-        }
+    &.lyra--hidden {
         /* Viewport-positioned (the canvas forbids positioned ancestors); each window
            shell sets the inset vars to match its chrome. */
         position: absolute;
         z-index: 200;
-        &.pluto--location-bottom {
+
+        &.lyra--location-bottom {
+            transition: transform 0.15s linear;
             bottom: var(--console-bottom-drawer-inset-bottom, 0);
             left: var(--console-bottom-drawer-inset-left, 0);
             right: var(--console-bottom-drawer-inset-right, 0);
+
             /* The resize box's full-x/full-y 100% would beat the opposing inset. */
             width: auto;
         }
-        &.pluto--location-left {
+
+        &.lyra--location-left {
+            transition:
+                opacity 0.05s linear,
+                transform 0.15s linear;
             left: var(--console-left-drawer-inset-left, 0);
             top: var(--console-left-drawer-inset-top, 0);
             bottom: var(--console-left-drawer-inset-bottom, 0);
             height: auto;
         }
     }
-    &.pluto--hidden {
+
+    &.lyra--hidden {
         pointer-events: none;
-        &.pluto--location-bottom {
+
+        &.lyra--location-bottom {
             transform: translateY(calc(100% + 3rem));
         }
-        &.pluto--location-left {
+
+        &.lyra--location-left {
             opacity: 0;
             transform: translateX(-2rem);
         }

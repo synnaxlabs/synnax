@@ -46,7 +46,9 @@ FILES = {
     "client/py/test_frame.py": (
         "def test_reads():\n    pass\n\n\nasync def test_streams():\n    pass\n"
     ),
-    "integration/tests/console/plot.py": "import x\n\n\nclass Plot(TestCase):\n    pass\n",
+    "integration/tests/console/plot.py": (
+        "import x\n\n\nclass Plot(TestCase):\n    pass\n"
+    ),
 }
 
 # A scratch repo holding FILES, and the SHA of its only commit.
@@ -88,7 +90,7 @@ class TestEnumerateTests:
         self, repo: Repo
     ) -> None:
         root, sha = repo
-        assert enumerate_tests(root, sha, "go", ["core"]) == [
+        assert enumerate_tests(root, sha=sha, lang="go", dirs=["core"]) == [
             ("core/frame_test.go", 2, "reads a frame"),
             ("core/frame_test.go", 3, "wraps its name"),
             ("core/frame_test.go", 8, "one"),
@@ -96,21 +98,21 @@ class TestEnumerateTests:
 
     def test_should_name_ts_its_and_each_tables(self, repo: Repo) -> None:
         root, sha = repo
-        assert enumerate_tests(root, sha, "ts", ["console"]) == [
+        assert enumerate_tests(root, sha=sha, lang="ts", dirs=["console"]) == [
             ("console/plot.spec.ts", 1, "renders"),
             ("console/plot.spec.ts", 2, "doubles %d"),
         ]
 
     def test_should_name_cpp_tests_and_fixtures(self, repo: Repo) -> None:
         root, sha = repo
-        assert enumerate_tests(root, sha, "cpp", ["driver"]) == [
+        assert enumerate_tests(root, sha=sha, lang="cpp", dirs=["driver"]) == [
             ("driver/task_test.cpp", 1, "Task, Starts"),
             ("driver/task_test.cpp", 2, "TaskFixture, Stops"),
         ]
 
     def test_should_name_sync_and_async_py_tests(self, repo: Repo) -> None:
         root, sha = repo
-        assert enumerate_tests(root, sha, "py", ["client/py"]) == [
+        assert enumerate_tests(root, sha=sha, lang="py", dirs=["client/py"]) == [
             ("client/py/test_frame.py", 1, "test_reads"),
             ("client/py/test_frame.py", 5, "test_streams"),
         ]
@@ -119,7 +121,7 @@ class TestEnumerateTests:
         self, repo: Repo
     ) -> None:
         root, sha = repo
-        assert enumerate_tests(root, sha, "go", ["console"]) == []
+        assert enumerate_tests(root, sha=sha, lang="go", dirs=["console"]) == []
 
 
 class TestIntegrationSources:
@@ -129,7 +131,7 @@ class TestIntegrationSources:
         self, repo: Repo
     ) -> None:
         root, sha = repo
-        assert integration_sources(root, sha) == {
+        assert integration_sources(root, sha=sha) == {
             "tests/console/plot.py": FILES["integration/tests/console/plot.py"],
         }
 
@@ -179,17 +181,17 @@ class TestCases:
     """Integration cases resolved to their classes and tagged."""
 
     def test_should_resolve_a_module_named_case_to_its_one_test_class(self) -> None:
-        case = Cases(CASES).resolve("console/plot", "plot")
+        case = Cases(CASES).resolve("console/plot", name="plot")
         assert case.source == "integration/tests/console/plot.py#L8"
         assert case.tags == ["playwright", "no-driver"]
         assert case.skipped == {}
 
     def test_should_tag_a_simulator_case_as_using_the_driver(self) -> None:
-        case = Cases(CASES).resolve("console/modbus", "modbus")
+        case = Cases(CASES).resolve("console/modbus", name="modbus")
         assert case.tags == ["playwright", "driver"]
 
     def test_should_skip_a_windows_only_case_on_other_platforms(self) -> None:
-        case = Cases(CASES).resolve("driver/ni", "NIRead")
+        case = Cases(CASES).resolve("driver/ni", name="NIRead")
         assert case.source == "integration/tests/driver/ni.py#L6"
         assert case.tags == ["headless", "driver", "windows-only"]
         assert case.skipped == {
@@ -198,17 +200,17 @@ class TestCases:
         }
 
     def test_should_resolve_a_matrix_name_to_its_class(self) -> None:
-        case = Cases(CASES).resolve("driver/ni", "NIRead_65537")
+        case = Cases(CASES).resolve("driver/ni", name="NIRead_65537")
         assert case.source == "integration/tests/driver/ni.py#L6"
 
     def test_should_skip_a_not_windows_case_on_windows(self) -> None:
-        case = Cases(CASES).resolve("driver/ni", "NIMissing")
+        case = Cases(CASES).resolve("driver/ni", name="NIMissing")
         assert case.tags == ["headless", "driver", "not-windows"]
         assert case.skipped == {"windows": "DAQmx is installed"}
 
     def test_should_reject_a_name_matching_no_class(self) -> None:
         with pytest.raises(ValueError, match="no class for driver/ni › ni"):
-            Cases(CASES).resolve("driver/ni", "ni")
+            Cases(CASES).resolve("driver/ni", name="ni")
 
 
 class TestPlatformSkip:
@@ -229,7 +231,7 @@ class TestPlatformSkip:
             f'if platform.system().lower() != "windows":\n    self.skip(reason={msg})\n'
         ).body[0]
         assert isinstance(node, ast.If)
-        assert platform_skip(node, "linux") == reason
+        assert platform_skip(node, system="linux") == reason
 
     def test_should_read_an_auto_pass_from_an_older_source(self) -> None:
         node = ast.parse(
@@ -237,7 +239,7 @@ class TestPlatformSkip:
             '    self.auto_pass(msg="Windows only")\n'
         ).body[0]
         assert isinstance(node, ast.If)
-        assert platform_skip(node, "linux") == "Windows only"
+        assert platform_skip(node, system="linux") == "Windows only"
 
 
 class TestOsOf:
@@ -289,7 +291,7 @@ class TestCiJobs:
 
     def test_should_keep_every_job_of_a_ci_run(self) -> None:
         jobs = [{"name": "core / Test (ubuntu-latest)"}, {"name": "changes"}]
-        assert ci_jobs(".github/workflows/ci.yaml", jobs) == jobs
+        assert ci_jobs(".github/workflows/ci.yaml", jobs=jobs) == jobs
 
     def test_should_keep_only_called_ci_jobs_without_their_prefix(self) -> None:
         jobs = [
@@ -297,7 +299,7 @@ class TestCiJobs:
             {"name": "CI / integration / Test (windows) / arc"},
             {"name": "Publish Core"},
         ]
-        assert ci_jobs(".github/workflows/release.yaml", jobs) == [
+        assert ci_jobs(".github/workflows/release.yaml", jobs=jobs) == [
             {"name": "core / Test (ubuntu-latest)", "conclusion": "success"},
             {"name": "integration / Test (windows) / arc"},
         ]
@@ -306,10 +308,10 @@ class TestCiJobs:
         self,
     ) -> None:
         jobs = [{"name": "Deploy"}]
-        assert ci_jobs(".github/workflows/deploy.docs.yaml", jobs) == []
+        assert ci_jobs(".github/workflows/deploy.docs.yaml", jobs=jobs) == []
 
 
-def job(name: str, runner: str, conclusion: str = "success") -> dict[str, Any]:
+def job(name: str, *, runner: str, conclusion: str = "success") -> dict[str, Any]:
     return {"name": name, "labels": [runner], "conclusion": conclusion}
 
 
@@ -317,34 +319,41 @@ class TestSuiteJobs:
     """Unit suites read from CI jobs."""
 
     def test_should_key_a_suite_by_its_job_and_os(self) -> None:
-        core = job("core / Test (macos-latest)", "macos-latest")
-        assert suite_jobs([core, job("changes", "ubuntu-latest")]) == {
+        core = job("core / Test (macos-latest)", runner="macos-latest")
+        assert suite_jobs([core, job("changes", runner="ubuntu-latest")]) == {
             ("core", "macos"): core
         }
 
     def test_should_report_a_sharded_suite_through_a_shard_that_failed(self) -> None:
-        failed = job("console / Test (ubuntu-latest, 2/3)", "ubuntu-latest", "failure")
+        failed = job(
+            "console / Test (ubuntu-latest, 2/3)",
+            runner="ubuntu-latest",
+            conclusion="failure",
+        )
         assert suite_jobs(
             [
-                job("console / Test (ubuntu-latest, 1/3)", "ubuntu-latest"),
+                job("console / Test (ubuntu-latest, 1/3)", runner="ubuntu-latest"),
                 failed,
-                job("console / Test (ubuntu-latest, 3/3)", "ubuntu-latest"),
+                job("console / Test (ubuntu-latest, 3/3)", runner="ubuntu-latest"),
             ]
         ) == {("console", "ubuntu"): failed}
 
     def test_should_leave_out_unlisted_jobs(self) -> None:
-        assert suite_jobs([job("www / Test (ubuntu-latest)", "ubuntu-latest")]) == {}
+        assert (
+            suite_jobs([job("www / Test (ubuntu-latest)", runner="ubuntu-latest")])
+            == {}
+        )
 
     def test_should_include_the_lint_rule_suite(self) -> None:
-        eslint = job("eslint-config / Test (ubuntu-latest)", "ubuntu-latest")
+        eslint = job("eslint-config / Test (ubuntu-latest)", runner="ubuntu-latest")
         assert suite_jobs([eslint]) == {("eslint-config", "ubuntu"): eslint}
 
     def test_should_leave_out_the_thread_sanitizer_rerun_of_driver_tests(self) -> None:
-        tsan = job("driver-tsan / Test (ubuntu-build-bot)", "ubuntu-build-bot")
+        tsan = job("driver-tsan / Test (ubuntu-build-bot)", runner="ubuntu-build-bot")
         assert suite_jobs([tsan]) == {}
 
     def test_should_reject_a_job_with_no_entry(self) -> None:
         with pytest.raises(
             ValueError, match="no JOBS or UNLISTED entry for new / Test"
         ):
-            suite_jobs([job("new / Test", "ubuntu-latest")])
+            suite_jobs([job("new / Test", runner="ubuntu-latest")])

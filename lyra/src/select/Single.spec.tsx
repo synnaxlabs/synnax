@@ -253,7 +253,7 @@ describe("Select.Single", () => {
     fireEvent.click(c.getByText("Test Item"));
     fireEvent.click(c.getByText("First Item Option"));
     expect(c.getByRole("option", { name: "First Item Option" }).classList).toContain(
-      "pluto-btn--prevent-click",
+      "lyra-btn--prevent-click",
     );
   });
 
@@ -265,7 +265,7 @@ describe("Select.Single", () => {
     fireEvent.click(c.getByText("First Item"));
     expect(
       c.getByRole("option", { name: "First Item Option" }).classList,
-    ).not.toContain("pluto-btn--prevent-click");
+    ).not.toContain("lyra-btn--prevent-click");
   });
 
   describe("narrow layout", () => {
@@ -285,22 +285,22 @@ describe("Select.Single", () => {
     };
 
     const getTooltip = (): HTMLElement | null =>
-      document.querySelector<HTMLElement>(".pluto-tooltip");
+      document.querySelector<HTMLElement>(".lyra-tooltip");
 
     it("should show the selected name in a label that fades on overflow", () => {
       const { SelectSingle } = createSelectSingle();
       const c = render(<SelectSingle />);
       select(c);
       const label = c.getByText("First Item");
-      expect(label.classList).toContain("pluto-select__label");
-      expect(label.classList).toContain("pluto-text--overflow-fade");
+      expect(label.classList).toContain("lyra-select__label");
+      expect(label.classList).toContain("lyra-text--overflow-fade");
     });
 
     it("should mark a collapsible trigger", () => {
       const { SelectSingle } = createSelectSingle();
       const c = render(<SelectSingle triggerProps={{ collapsible: true }} />);
       expect(c.getByRole("button", { name: "Test Item" }).classList).toContain(
-        "pluto-select-single-trigger--collapsible",
+        "lyra-select-single-trigger--collapsible",
       );
     });
 
@@ -421,7 +421,7 @@ describe("Select.Single", () => {
       const { SelectSingle } = createSelectSingle();
       const c = render(<SelectSingle preview />);
       expect(c.getByText("None").closest("button")?.classList).toContain(
-        "pluto-btn--preview",
+        "lyra-btn--preview",
       );
     });
 

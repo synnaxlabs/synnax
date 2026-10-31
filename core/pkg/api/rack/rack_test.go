@@ -15,6 +15,8 @@ import (
 	apirack "github.com/synnaxlabs/synnax/pkg/api/rack"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
@@ -29,6 +31,56 @@ func retrieveRack(ctx SpecContext, key rack.Key) rack.Rack {
 		Exec(ctx, nil)).To(Succeed())
 	return r
 }
+
+var _ = Describe("Create", func() {
+	It("Should let a rack with the Driver role save itself", func(ctx SpecContext) {
+		r := rack.Rack{Name: "Self"}
+		Expect(svc.Rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+		r.Integrations = []string{"ni"}
+		Expect(apiSvc.Create(
+			SubjectCtx(ctx, r.OntologyID()), nil,
+			apirack.CreateRequest{Racks: []rack.Rack{r}},
+		)).Error().ToNot(HaveOccurred())
+		Expect(retrieveRack(ctx, r.Key).Integrations).To(Equal([]string{"ni"}))
+	})
+	It(
+		"Should let a rack with the Driver role save itself twice",
+		func(ctx SpecContext) {
+			r := rack.Rack{Name: "Self"}
+			Expect(svc.Rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+			Expect(apiSvc.Create(
+				SubjectCtx(ctx, r.OntologyID()), nil,
+				apirack.CreateRequest{Racks: []rack.Rack{r, r}},
+			)).Error().ToNot(HaveOccurred())
+		},
+	)
+	It(
+		"Should not let a rack with the Driver role create a rack",
+		func(ctx SpecContext) {
+			r := rack.Rack{Name: "Self"}
+			Expect(svc.Rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+			Expect(apiSvc.Create(
+				SubjectCtx(ctx, r.OntologyID()), nil,
+				apirack.CreateRequest{Racks: []rack.Rack{{Name: "Other"}}},
+			)).Error().To(MatchError(access.ErrDenied))
+		},
+	)
+	It("Should require update to save an existing rack", func(ctx SpecContext) {
+		u := createUser(ctx)
+		grant(
+			ctx,
+			access.ActionCreate,
+			u.OntologyID(),
+			ontology.ID{Type: ontology.ResourceTypeRack},
+		)
+		r := rack.Rack{Name: "Existing"}
+		Expect(svc.Rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+		Expect(apiSvc.Create(
+			AuthedCtx(ctx, u), nil,
+			apirack.CreateRequest{Racks: []rack.Rack{r}},
+		)).Error().To(MatchError(access.ErrDenied))
+	})
+})
 
 var _ = Describe("Rename", func() {
 	It("Should rename the rack when update is granted", func(ctx SpecContext) {
@@ -111,5 +163,28 @@ var _ = Describe("Retrieve", func() {
 		Expect(res.Racks[0].Status).To(BeNil())
 		Expect(res.Racks[1].Key).To(Equal(withStatus.Key))
 		Expect(res.Racks[1].Status.Key).To(Equal(rack.StatusKey(withStatus.Key)))
+	})
+})
+
+var _ = Describe("Delete", func() {
+	It("Should end the sessions of the deleted rack", func(ctx SpecContext) {
+		u := createUser(ctx)
+		r := rack.Rack{Name: "Doomed"}
+		Expect(svc.Rack.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+		grant(ctx, access.ActionDelete, u.OntologyID(), r.OntologyID())
+		_, key := MustSucceed2(
+			svc.APIKey.NewWriter(nil).Create(ctx, r.OntologyID(), "driver"),
+		)
+		_, token := MustSucceed2(svc.Auth.Login(ctx, auth.Proof{
+			Variant: auth.APIKeyProof{
+				APIKeyCredentials: auth.APIKeyCredentials{Key: key},
+			},
+		}))
+		Expect(apiSvc.Delete(
+			AuthedCtx(ctx, u), nil,
+			apirack.DeleteRequest{Keys: []rack.Key{r.Key}},
+		)).Error().ToNot(HaveOccurred())
+		Expect(svc.Auth.Authenticate(ctx, token)).Error().
+			To(MatchError(auth.ErrInvalidToken))
 	})
 })

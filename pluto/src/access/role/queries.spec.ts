@@ -207,8 +207,7 @@ describe("queries", () => {
     const createUser = async (prefix: string) =>
       await client.users.create({
         username: `${prefix}-${id.create()}`,
-        firstName: "Test",
-        lastName: "User",
+        name: "Test User",
         password: "password123",
       });
 
@@ -368,8 +367,7 @@ describe("queries", () => {
       });
       const testUser = await client.users.create({
         username: `retrieve-for-${Date.now()}`,
-        firstName: "Test",
-        lastName: "User",
+        name: "Test User",
         password: "password123",
       });
       await client.access.roles.assign({
@@ -389,8 +387,7 @@ describe("queries", () => {
     it("should have empty role when user has no role assigned", async () => {
       const testUser = await client.users.create({
         username: `no-role-${Date.now()}`,
-        firstName: "No",
-        lastName: "Role",
+        name: "No Role",
         password: "password123",
       });
 
@@ -414,8 +411,7 @@ describe("queries", () => {
       });
       const testUser = await client.users.create({
         username: `change-role-${Date.now()}`,
-        firstName: "Change",
-        lastName: "Role",
+        name: "Change Role",
         password: "password123",
       });
       await client.access.roles.assign({
@@ -457,8 +453,7 @@ describe("queries", () => {
       });
       const testUser = await client.users.create({
         username: `no-prev-role-${Date.now()}`,
-        firstName: "No",
-        lastName: "Previous",
+        name: "No Previous",
         password: "password123",
       });
 

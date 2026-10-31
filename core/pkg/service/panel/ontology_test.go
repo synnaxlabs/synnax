@@ -74,7 +74,7 @@ var _ = Describe("Ontology", func() {
 		})
 
 		It("Should carry the icon and the color", func(ctx SpecContext) {
-			c := color.MustFromHex("#dc136c")
+			c := MustSucceed(color.FromHex("#dc136c"))
 			p := panel.Panel{
 				Name: "styled", Parent: &parentID, Icon: new("valve"), Color: &c,
 			}

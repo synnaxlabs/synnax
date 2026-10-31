@@ -83,7 +83,7 @@ const AlertDetails = ({ itemKey }: AlertDetailsProps) => {
         <PForm.Field<string> path={`${path}.status`} label="Status" required>
           {selectStatusRenderProp}
         </PForm.Field>
-        <PForm.SwitchField
+        <PForm.CheckboxField
           path={`${path}.errorsCritical`}
           label="Treat error as critical"
         />
@@ -129,7 +129,7 @@ const useAlertStatus = (itemKey: string): status.Status | undefined => {
 const AlertTitle = ({ itemKey }: { itemKey: string }) => {
   const name = useAlertStatus(itemKey)?.name;
   return (
-    <Text.Text level="p" weight={500} color={name == null ? 8 : 10} overflow="ellipsis">
+    <Text.Text level="p" weight={500} color={name == null ? 8 : 10} overflow="fade">
       {name ?? "New alert"}
     </Text.Text>
   );

@@ -56,7 +56,7 @@ const opened = seat?.license ?? requested;
 const name = (seat?.name ?? params.get("name") ?? "").slice(0, MAX_NAME_LENGTH);
 ---
 
-<Root title="Activate a machine">
+<Root title="Activate a machine" userID={session.userID}>
     <section class="portal-auth-page portal-auth-page--wide">
         <Licenses.Activate
             client:load

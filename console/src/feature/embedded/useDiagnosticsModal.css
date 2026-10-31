@@ -27,7 +27,7 @@
         border: var(--pluto-border);
         border-radius: var(--pluto-border-radius);
         background: var(--pluto-gray-l1);
-        font-family: var(--pluto-font-family-mono, monospace);
+        font-family: var(--pluto-code-font-family);
         font-size: var(--pluto-small-size);
         line-height: 1.5;
         white-space: pre-wrap;

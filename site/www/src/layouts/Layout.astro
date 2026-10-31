@@ -12,6 +12,7 @@ import "@/styles/main.css";
 import Header from "@/components/Header.astro";
 import Footer from "@synnaxlabs/site-common/Footer.astro";
 import Head from "@synnaxlabs/site-common/Head.astro";
+import Analytics from "@synnaxlabs/site-common/Analytics.astro";
 
 interface Props {
     /** The page title, before " | Synnax". The home page leaves it unset. */
@@ -70,6 +71,7 @@ const FOOTER_COLUMNS = [
             <slot />
         </main>
         <Footer home="/" columns={FOOTER_COLUMNS} />
+        <Analytics privacy="/privacy" />
     </body>
 </html>
 
@@ -85,3 +87,9 @@ const FOOTER_COLUMNS = [
         padding-right: var(--content-padding);
     }
 </style>
+
+<script>
+    import { captureClicks } from "@/analytics";
+
+    captureClicks();
+</script>

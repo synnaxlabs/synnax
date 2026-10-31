@@ -34,7 +34,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.hold(400);
     await capture.zoomCenter(
       session,
-      page.locator(".console-nav__drawer.pluto--location-bottom").first(),
+      page.locator(".console-nav__drawer.lyra--location-bottom").first(),
       1.4,
     );
     await session.moveTo(page.locator("label").filter({ hasText: "Y1" }).first());

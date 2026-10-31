@@ -17,7 +17,7 @@ const ROUTE = "/spec/notes";
 const CTX = {} as Context;
 
 const note = (body: string, variant = "info"): string =>
-  `<div class="pluto-note pluto--${variant} pluto-flex">${body}</div>`;
+  `<div class="lyra-note lyra--${variant} lyra-flex">${body}</div>`;
 
 const run = (html: string): string[] =>
   notes(false).page?.({ route: ROUTE, html }) ?? [];
@@ -55,7 +55,7 @@ describe("notes", () => {
   });
 
   it("should ignore divs that are not notes", () => {
-    expect(run('<div class="pluto-flex">loose text</div>')).toEqual([]);
+    expect(run('<div class="lyra-flex">loose text</div>')).toEqual([]);
   });
 
   it("should report the canary only on a full crawl with no notes", async () => {

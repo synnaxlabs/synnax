@@ -9,7 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-#console-vis__canvas {
+.console-vis__canvas {
     position: fixed;
     inset: 0;
 }

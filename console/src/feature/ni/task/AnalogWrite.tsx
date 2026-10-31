@@ -115,6 +115,7 @@ const getInitialValues: Task.GetInitialValues<AnalogWriteSchemas> = ({
 }) => {
   const cfg = analogWriteConfigZ.parse(config ?? {});
   if (deviceKey != null) cfg.device = deviceKey;
+  if (config == null) cfg.channels = [createNextAOChannel([])];
   return { name: "NI analog write task", type: ANALOG_WRITE_TYPE, config: cfg };
 };
 

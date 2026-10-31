@@ -156,6 +156,7 @@ class Controller:
 
     def __init__(
         self,
+        *,
         client: sy.Synnax,
         channels: Channels,
         github: GitHub,
@@ -185,20 +186,29 @@ class Controller:
         self.cost_index = channels.index(QUERY_TIME)
         # What the writer carries, so a fetch that adds a type retargets first.
         self.cost_channels: set[str] = set()
-        self.uptime = Uptime(client, channels, report=log.error)
-        self.status = Publisher(client, "Controller", [], report=log.error)
+        self.uptime = Uptime(client=client, channels=channels, report=log.error)
+        self.status = Publisher(
+            client=client, name="Controller", channels=[], report=log.error
+        )
         self.last_gh: dict[str, int] = {}
         self.last_ec2: dict[str, bool] = {}
         self.cost_pending: dict[str, float] = {}
-        self.events = Events(client, channels, set(), report=log.error)
+        self.events = Events(
+            client=client, channels=channels, runners=set(), report=log.error
+        )
         self.commands = Subscription(
-            client, "switches", [SCALER_CMD, GATE_CMD], report=log.error
+            client=client,
+            name="switches",
+            channels=[SCALER_CMD, GATE_CMD],
+            report=log.error,
         )
 
     def cycle(self, timer: sy.Timer) -> None:
         (status, labels), found = self.fetch()
         self.runners.add(set(status))
-        cost = self.cost.step(sy.TimeStamp.now(), self.runners.snapshot(), found)
+        cost = self.cost.step(
+            sy.TimeStamp.now(), known=self.runners.snapshot(), found=found
+        )
         if (
             self.runners.snapshot() != self.known
             or not cost.keys() <= self.cost_channels
@@ -214,15 +224,17 @@ class Controller:
         # before the writer this frame opens.
         now = sy.TimeStamp.now()
         states = {r: status.get(r, MISSING) for r in self.known}
-        values = {channel_name("gh", r): v for r, v in states.items()}
+        values = {channel_name("gh", runner=r): v for r, v in states.items()}
         counts = {v: list(states.values()).count(v) for v in states.values()}
         ec2_values = {
-            channel_name("ec2", r): v
-            for r, v in instance_status(self.known, found).items()
+            channel_name("ec2", runner=r): v
+            for r, v in instance_status(self.known, found=found).items()
         }
-        self.uptime.update(states, found, now)
-        frame = on_change(GH_INDEX, self.last_gh, values, now) or {}
-        frame |= on_change(EC2_INDEX, self.last_ec2, ec2_values, now) or {}
+        self.uptime.update(states, found=found, now=now)
+        frame = on_change(GH_INDEX, last=self.last_gh, current=values, now=now) or {}
+        frame |= (
+            on_change(EC2_INDEX, last=self.last_ec2, current=ec2_values, now=now) or {}
+        )
         if cost:
             self.cost_pending = cost
         if self.cost_pending:
@@ -233,12 +245,12 @@ class Controller:
         self.gate.step(self.known)
         # A closed gate would disconnect whatever the scaler started.
         self.scaler.step(
-            self.known,
-            status,
-            labels,
-            queued if self.gate.enabled else {},
-            found,
-            set(self.jobs.active),
+            known=self.known,
+            status=status,
+            labels=labels,
+            queued=queued if self.gate.enabled else {},
+            found=found,
+            running=set(self.jobs.active),
             # An unread queue looks empty, which would stop runners jobs wait for.
             stops=self.jobs.ready,
         )
@@ -268,15 +280,15 @@ class Controller:
         self.known = self.runners.snapshot()
         cost = self.cost.channels()
         self.cost_channels = set(cost)
-        self.channels.data(self.gh_index, gh_channels(self.known))
-        self.channels.data(self.cost_index, cost)
+        self.channels.data(index=self.gh_index, channels=gh_channels(self.known))
+        self.channels.data(index=self.cost_index, channels=cost)
         for name, expression in self.cost.calculated(found).items():
-            self.channels.calculated(name, expression)
+            self.channels.calculated(name, expression=expression)
         self.uptime.retarget(self.known)
-        self.channels.data(self.ec2_index, ec2_channels(self.known))
+        self.channels.data(index=self.ec2_index, channels=ec2_channels(self.known))
         for name in command_channels(self.known):
             index = self.channels.index(f"{name}_time")
-            self.channels.data(index, {name: sy.DataType.BOOLEAN})
+            self.channels.data(index=index, channels={name: sy.DataType.BOOLEAN})
         self.channels.agent(self.known)
         self.status.retarget(
             [
@@ -307,7 +319,7 @@ class Controller:
 
 
 def wait_for_cmds(
-    commands: Subscription, remaining: sy.TimeSpan, toggles: dict[str, Toggle]
+    commands: Subscription, *, remaining: sy.TimeSpan, toggles: dict[str, Toggle]
 ) -> None:
     """Sleeps out the rest of the poll interval reading the switch subscription,
     applying toggle writes as they arrive. Drains pending writes even when no time
@@ -316,7 +328,7 @@ def wait_for_cmds(
     timer = sy.Timer()
     while True:
         left = remaining - timer.elapsed()
-        frame = commands.read(max(min(left, sy.TimeSpan.SECOND), DRAIN_TIMEOUT))
+        frame = commands.read(timeout=max(min(left, sy.TimeSpan.SECOND), DRAIN_TIMEOUT))
         if frame is None:
             if left <= DRAIN_TIMEOUT:
                 return
@@ -383,39 +395,50 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     args = parse_args()
     store = parameter_store()
-    github = GitHub(secret("GH_TOKEN", store))
+    github = GitHub(secret("GH_TOKEN", store=store))
     patch_client()
-    client = connect(args, store)
-    channels = Channels(client, args.create_channels)
-    log = Log(client, channels, LOG)
-    alive = Heartbeat(client, channels, HEARTBEAT)
-    channels.virtual(SCALER_CMD, sy.DataType.BOOLEAN)
-    channels.data(channels.index(f"{GATE_CMD}_time"), {GATE_CMD: sy.DataType.BOOLEAN})
+    client = connect(args, store=store)
+    channels = Channels(client=client, enabled=args.create_channels)
+    log = Log(client=client, channels=channels, channel=LOG)
+    alive = Heartbeat(client=client, channels=channels, name=HEARTBEAT)
+    channels.virtual(SCALER_CMD, data_type=sy.DataType.BOOLEAN)
+    channels.data(
+        index=channels.index(f"{GATE_CMD}_time"),
+        channels={GATE_CMD: sy.DataType.BOOLEAN},
+    )
     scaler = Scaler(
-        client,
-        args.idle_cooldown,
-        args.boot_grace,
-        Log(client, channels, SCALER_LOG),
+        client=client,
+        cooldown=args.idle_cooldown,
+        boot_grace=args.boot_grace,
+        log=Log(client=client, channels=channels, channel=SCALER_LOG),
         enabled=args.scale == "enabled",
         pool_cooldowns=dict.fromkeys(WINDOWS_POOLS, args.windows_idle_cooldown),
     )
     gate = Gate(
-        client, channels, Log(client, channels, GATE_LOG), enabled=args.gh == "enabled"
+        client=client,
+        channels=channels,
+        log=Log(client=client, channels=channels, channel=GATE_LOG),
+        enabled=args.gh == "enabled",
     )
     toggles: dict[str, Toggle] = {
         SCALER_CMD: (
             scaler,
-            Heartbeat(client, channels, SCALER_ENABLED, lambda: scaler.enabled),
+            Heartbeat(
+                client=client,
+                channels=channels,
+                name=SCALER_ENABLED,
+                value=lambda: scaler.enabled,
+            ),
             "scaler",
         ),
         GATE_CMD: (
             gate,
             Heartbeat(
-                client,
-                channels,
-                GATE_ENABLED,
-                lambda: gate.enabled,
-                GATE_ENABLED_INDEX,
+                client=client,
+                channels=channels,
+                name=GATE_ENABLED,
+                value=lambda: gate.enabled,
+                index=GATE_ENABLED_INDEX,
             ),
             "gate",
         ),
@@ -423,26 +446,28 @@ def main() -> None:
     # Required, so a misconfigured deploy fails at startup instead of serving a
     # listener that accepts unsigned posts.
     webhook = Webhook(
-        secret("GH_WEBHOOK_SECRET", store), args.webhook_port, report=log.error
+        secret=secret("GH_WEBHOOK_SECRET", store=store),
+        port=args.webhook_port,
+        report=log.error,
     )
     aws = AWS()
     runners = RunnerRegistry()
     runners.add(set(github.runner_status()[0]))
-    cost = Cost(log, aws)
-    cost.create_state(client, runners.snapshot())
+    cost = Cost(log=log, aws=aws)
+    cost.create_state(client, known=runners.snapshot())
     resync_pool = ThreadPoolExecutor(1)
     controller = Controller(
-        client,
-        channels,
-        github,
-        aws,
-        runners,
-        Jobs(github, log, resync_pool),
-        cost,
-        scaler,
-        gate,
-        log,
-        webhook,
+        client=client,
+        channels=channels,
+        github=github,
+        aws=aws,
+        runners=runners,
+        jobs=Jobs(github=github, log=log, pool=resync_pool),
+        cost=cost,
+        scaler=scaler,
+        gate=gate,
+        log=log,
+        webhook=webhook,
     )
     try:
         while True:
@@ -454,7 +479,11 @@ def main() -> None:
             except Exception as e:
                 log.error("poll", e)
                 controller.reset()
-            wait_for_cmds(controller.commands, args.interval - timer.elapsed(), toggles)
+            wait_for_cmds(
+                controller.commands,
+                remaining=args.interval - timer.elapsed(),
+                toggles=toggles,
+            )
     finally:
         shield()
         resync_pool.shutdown(wait=False)

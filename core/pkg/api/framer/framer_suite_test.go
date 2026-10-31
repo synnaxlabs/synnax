@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/freighter"
 	apiframer "github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
@@ -34,8 +34,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
-	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 func TestAPIFramer(t *testing.T) {
@@ -65,7 +65,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		KV: DeferClose(memkv.New()),
 		TS: DeferClose(MustSucceed(ts.Open(ctx, ts.Config{FS: faultyFS}))),
 	}
-	node := mock.NewCluster(ctx, 0).Provision(
+	node := testutil.NewCluster(ctx, 0).Provision(
 		ctx,
 		distribution.LayerConfig{Storage: store},
 	)
@@ -91,7 +91,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		RBAC:    svc.RBAC,
 	}))
 	Expect(svc.User.NewRetrieve().
-		Where(user.MatchUsernames(rootUsername)).
+		Where(user.MatchRootUser(true)).
 		Entry(&root).
 		Exec(ctx, nil)).To(Succeed())
 })
@@ -120,7 +120,7 @@ func createUserGranted(
 ) user.User {
 	GinkgoHelper()
 	u := MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
-		Username: "api-framer-" + uuid.New().String(),
+		Name: "api-framer-" + uuid.New().String(),
 	}))
 	roleWriter := rbacSvc.Role.NewWriter(nil, true)
 	r := &role.Role{Name: "api-framer-" + uuid.New().String()}

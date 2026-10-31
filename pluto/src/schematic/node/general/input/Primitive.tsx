@@ -11,12 +11,12 @@ import "@/schematic/node/general/input/input.css";
 
 import { type schematic } from "@synnaxlabs/client";
 import { Button as BaseButton } from "@synnaxlabs/lyra/button";
-import { CSS } from "@synnaxlabs/lyra/css";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Input as BaseInput } from "@synnaxlabs/lyra/input";
 import { color } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement, type ReactNode } from "react";
 
+import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 
@@ -56,7 +56,7 @@ export const Input = ({
       orientation={orientation}
       className={CSS.cls(
         CSS.B("input-symbol"),
-        CSS.B("symbol-colored"),
+        CSS.symbolColored,
         CSS.B("symbol-field"),
         symbolColor != null && CSS.M("colored"),
         draft.dirty && CSS.M("dirty"),

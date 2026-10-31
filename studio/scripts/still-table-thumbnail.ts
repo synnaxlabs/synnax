@@ -33,8 +33,8 @@ export default async (session: capture.CaptureSession): Promise<void> => {
 
     await capture.createComponent(session, "Table");
     await session.waitFor(page.locator(".console-table").first());
-    const addRow = page.locator(".pluto-table-frame__add-row .pluto-btn").last();
-    const addColumn = page.locator(".pluto-table-frame__add-col .pluto-btn").last();
+    const addRow = page.locator(".pluto-table-frame__add-row .lyra-btn").last();
+    const addColumn = page.locator(".pluto-table-frame__add-col .lyra-btn").last();
     await session.click(addRow, { zoom: false });
     await session.click(addRow, { zoom: false });
     await session.click(addColumn, { zoom: false });

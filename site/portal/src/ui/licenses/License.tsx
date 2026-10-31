@@ -115,7 +115,7 @@ export const License = ({
           >
             {held.map((a) => (
               <Row key={a.key} columns={MACHINE_COLUMNS}>
-                <Text.Text level="p" overflow="ellipsis">
+                <Text.Text level="p" overflow="fade">
                   {machineName(a)}
                 </Text.Text>
                 <Text.Text level="p" color={9}>
@@ -140,7 +140,7 @@ export const License = ({
           >
             {released.map((a) => (
               <Row key={a.key} columns={MACHINE_COLUMNS}>
-                <Text.Text level="p" color={9} overflow="ellipsis">
+                <Text.Text level="p" color={9} overflow="fade">
                   {machineName(a)}
                 </Text.Text>
                 <Text.Text level="p" color={9}>

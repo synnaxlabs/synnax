@@ -11,12 +11,12 @@
 
 /* Lets a frame shrink past its tabs instead of shoving its siblings out. The frame
    is also the scroll thumb's anchor, so the thumb can hang below the scrollport. */
-.pluto-tabs {
+.lyra-tabs {
     min-width: 0;
     position: relative;
 }
 
-.pluto-tabs__content {
+.lyra-tabs__content {
     width: 100%;
     position: relative;
     overflow: hidden;
@@ -25,19 +25,20 @@
 
     /* Find in page can still reach the text of a panel hidden until found. */
     &[hidden]:not([hidden="until-found"]) {
+        /* stylelint-disable-next-line declaration-no-important -- a hidden panel stays
+           hidden whatever display a rule sets */
         display: none !important;
     }
 }
 
-.pluto-tabs__selector {
+.lyra-tabs__selector {
     position: relative;
     max-width: 100%;
-    overflow-x: auto;
-    overflow-y: hidden;
+    overflow: auto hidden;
     scrollbar-width: none;
+
     /* The scrollport clips an outset halo, so rings in the strip draw inset. */
     --pluto-focus-ring-offset: -2px;
-
     --pluto-tabs-tab-width: 25rem;
     --pluto-tabs-tab-min-width: 11rem;
     --pluto-tabs-selected-min-width: var(--pluto-tabs-tab-min-width);
@@ -46,14 +47,16 @@
         display: none;
     }
 
-    &.pluto--direction-x:not(.pluto--wrap) {
+    &.lyra--direction-x:not(.lyra--wrap) {
+        /* stylelint-disable-next-line declaration-no-important -- the strip's height is
+           its min-height whatever Box modifiers it carries */
         height: 0 !important;
     }
 }
 
 /* Overlays the strip's bottom edge, so revealing it never shifts the tabs. The
    Selector owns its geometry: width, left, and top are set from the scroll state. */
-.pluto-tabs__thumb {
+.lyra-tabs__thumb {
     position: absolute;
     left: 0;
     height: round(0.5rem, 1px);
@@ -70,43 +73,44 @@
     &::before {
         content: "";
         position: absolute;
-        inset: round(-0.75rem, 1px) 0 0 0;
+        inset: round(-0.75rem, 1px) 0 0;
     }
 
     &:hover,
-    &.pluto-tabs__thumb--dragging {
+    &.lyra-tabs__thumb--dragging {
         background: var(--pluto-gray-l8);
     }
 }
 
 /* The thumb's own hover keeps it alive once the pointer crosses off the strip. */
-.pluto-tabs__selector--scrollable:hover + .pluto-tabs__thumb,
-.pluto-tabs__thumb:hover,
-.pluto-tabs__thumb--dragging {
+.lyra-tabs__selector--scrollable:hover + .lyra-tabs__thumb,
+.lyra-tabs__thumb:hover,
+.lyra-tabs__thumb--dragging {
     opacity: 1;
     pointer-events: auto;
 }
 
 /* Registered so the mask's edge widths transition; unregistered custom properties
-   snap discretely. rem is not computationally independent, so the initial values
-   are px. */
+   snap discretely. rem is not computationally independent, so an initial value cannot
+   use it. */
 @property --pluto-tabs-fade-start {
     syntax: "<length>";
     inherits: false;
-    initial-value: 0px;
+    initial-value: 0;
 }
 
 @property --pluto-tabs-fade-end {
     syntax: "<length>";
     inherits: false;
-    initial-value: 0px;
+    initial-value: 0;
 }
 
 /* The Selector toggles the clipped classes from its scroll measurements, so an edge
    fades only while tabs are hidden past it. */
-.pluto-tabs__selector.pluto--direction-x {
+.lyra-tabs__selector.lyra--direction-x {
     --pluto-tabs-fade-start: 0px;
     --pluto-tabs-fade-end: 0px;
+
     transition:
         --pluto-tabs-fade-start 0.1s ease-out,
         --pluto-tabs-fade-end 0.1s ease-out;
@@ -119,40 +123,40 @@
     );
 
     /* Nested so the clipped states outrank the two-class base rule above. */
-    &.pluto-tabs__selector--clipped-start {
-        --pluto-tabs-fade-start: var(--pluto-tabs-fade-width, 6rem);
+    &.lyra-tabs__selector--clipped-start {
+        --pluto-tabs-fade-start: 6rem;
     }
 
-    &.pluto-tabs__selector--clipped-end {
-        --pluto-tabs-fade-end: var(--pluto-tabs-fade-width, 6rem);
+    &.lyra-tabs__selector--clipped-end {
+        --pluto-tabs-fade-end: 6rem;
     }
 }
 
 /* A wrapping strip grows to hold every tab, so it never scrolls or fades. */
-.pluto-tabs__selector.pluto--wrap {
+.lyra-tabs__selector.lyra--wrap {
     overflow: visible;
     mask-image: none;
 }
 
-.pluto-tabs__selector--align-center .pluto-tabs__tab {
+.lyra-tabs__selector--align-center .lyra-tabs__tab {
     justify-content: center;
     text-align: center;
 }
 
-.pluto-tabs__selector--align-start .pluto-tabs__tab {
+.lyra-tabs__selector--align-start .lyra-tabs__tab {
     justify-content: flex-start;
     text-align: left;
 }
 
-.pluto-tabs__selector--sizing-elastic
-    .pluto-tabs__tab:not(:has([contenteditable="true"])) {
+.lyra-tabs__selector--sizing-elastic
+    .lyra-tabs__tab:not(:has([contenteditable="true"])) {
     flex: 1 1 auto;
     max-width: fit-content;
     overflow: hidden;
     min-width: var(--pluto-tabs-tab-min-width);
 }
 
-.pluto-tabs__selector--sizing-fixed .pluto-tabs__tab {
+.lyra-tabs__selector--sizing-fixed .lyra-tabs__tab {
     flex: 0 1 auto;
     width: var(--pluto-tabs-tab-width);
     min-width: var(--pluto-tabs-tab-min-width);
@@ -160,26 +164,26 @@
     white-space: nowrap;
 }
 
-.pluto-tabs__selector--sizing-content .pluto-tabs__tab {
+.lyra-tabs__selector--sizing-content .lyra-tabs__tab {
     flex: 0 0 auto;
 }
 
 /* The floor keeps a compacting strip's selected tab readable. Content-sized tabs
    never compact, so it would only pad a short label. */
-.pluto-tabs__selector:not(.pluto-tabs__selector--sizing-content)
-    .pluto-tabs__tab.pluto--selected:not(:has([contenteditable="true"])) {
+.lyra-tabs__selector:not(.lyra-tabs__selector--sizing-content)
+    .lyra-tabs__tab.lyra--selected:not(:has([contenteditable="true"])) {
     min-width: var(--pluto-tabs-selected-min-width);
 }
 
 /* A vertical strip is a rail: it scrolls down, and each tab fills its width. It sits
    after the sizing rules so it wins their ties. */
-.pluto-tabs__selector.pluto--direction-y {
+.lyra-tabs__selector.lyra--direction-y {
     flex-shrink: 0;
-    overflow-x: hidden;
-    overflow-y: auto;
+    overflow: hidden auto;
+
     --pluto-tabs-tab-width: 100%;
 
-    .pluto-tabs__tab {
+    .lyra-tabs__tab {
         flex: none;
         width: 100%;
         max-width: none;
@@ -190,7 +194,7 @@
 
 /* The slot a hauled tab would land in. An absolute child of a flex container takes its
    cross-axis position from align-self, so the ghost lands where the tabs sit. */
-.pluto-tabs__ghost {
+.lyra-tabs__ghost {
     position: absolute;
     align-self: var(--pluto-tabs-tab-align, auto);
     pointer-events: none;
@@ -198,73 +202,64 @@
     background: var(--pluto-primary-z-20);
     box-shadow: inset 0 0 0 var(--pluto-border-width) var(--pluto-primary-z-35);
 
-    &.pluto--direction-x {
+    &.lyra--direction-x {
         width: var(--pluto-tabs-tab-min-width);
         height: var(--pluto-tabs-tab-height, var(--pluto-height-small));
     }
 
-    &.pluto--direction-y {
+    &.lyra--direction-y {
         left: 0;
         right: 0;
         height: var(--pluto-tabs-tab-height, var(--pluto-height-small));
     }
 }
 
-.pluto-tabs__tab {
+.lyra-tabs__tab {
     transition: transform 0.15s ease;
 }
 
-.pluto-tabs__tab--hauled {
+.lyra-tabs__tab--hauled {
     opacity: 0;
     transition: none;
 }
 
-/* Tab children arrive as bare strings that Button wraps, so Text's fade-out (see
-   Text.css) is applied by descent rather than through its overflow prop. */
-.pluto-tabs__tab .pluto-text {
-    overflow: hidden;
-    white-space: nowrap;
-    animation: text-fade linear;
-    animation-timeline: scroll(self x);
-}
-
-@supports not (animation-timeline: scroll(self x)) {
-    .pluto-tabs__tab .pluto-text {
-        text-overflow: ellipsis;
-    }
-}
-
 /* A drag starting on an idle editable name would select text instead of hauling the
    tab. Non-selectable until it enters edit mode keeps the whole tab a drag handle. */
-.pluto-tabs__tab .pluto-text--editable:not([contenteditable="true"]) {
+.lyra-tabs__tab .lyra-text--editable:not([contenteditable="true"]) {
     -webkit-user-select: none;
     user-select: none;
 }
 
-/* Contexts re-point these vars; a focused tab re-points its own selected color to
-   primary, which wins over any inherited value. */
-.pluto-tabs__selector > .pluto-tabs__tab {
-    color: var(--pluto-tabs-text-color, var(--pluto-gray-l9));
-    .pluto-text {
-        color: var(--pluto-tabs-text-color, var(--pluto-gray-l9));
+/* Contexts re-point the selected color; a focused tab re-points its own to primary,
+   which wins over any inherited value. */
+.lyra-tabs__selector > .lyra-tabs__tab {
+    color: var(--pluto-gray-l9);
+
+    .lyra-text {
+        color: var(--pluto-gray-l9);
     }
-    &.pluto--selected {
+
+    &.lyra--selected {
         color: var(
             --pluto-tabs-selected-text-color,
             var(--pluto-selected-subtle-color)
         );
-        .pluto-text {
+
+        .lyra-text {
             color: var(
                 --pluto-tabs-selected-text-color,
                 var(--pluto-selected-subtle-color)
             );
         }
-        &.pluto--alt-color {
+
+        &.lyra--alt-color {
             --pluto-tabs-selected-text-color: var(--pluto-primary-z);
-            .pluto-text {
+
+            .lyra-text {
                 font-weight: 500;
             }
-            > .pluto-icon {
+
+            > .lyra-icon {
                 color: var(--pluto-primary-z);
                 font-weight: 500;
             }
@@ -272,8 +267,8 @@
     }
 }
 
-.pluto-tabs__selector--default {
-    .pluto-tabs__tab {
+.lyra-tabs__selector--default {
+    .lyra-tabs__tab {
         border: none;
         padding: 0;
         position: relative;
@@ -281,61 +276,63 @@
             background 0.15s ease-in-out,
             transform 0.15s ease;
 
-        &:not(:has(.pluto-text)) {
+        &:not(:has(.lyra-text)) {
             padding: 0 3rem;
         }
 
-        .pluto-text {
+        .lyra-text {
             margin: 0 2rem;
             padding: 0 0.25rem;
         }
 
-        > .pluto-icon {
+        > .lyra-icon {
             flex-shrink: 0;
             margin-left: 1.5rem;
             margin-right: 1rem;
-            color: var(--pluto-tabs-text-color, var(--pluto-gray-l9));
+            color: var(--pluto-gray-l9);
             transition: opacity 0.1s ease-in-out;
         }
 
-        &:not(.pluto--selected) {
+        &:not(.lyra--selected) {
             &:hover {
                 background: var(--pluto-fill-hover);
             }
-            &:active:not(:has(.pluto-tabs__close:active)) {
+
+            &:active:not(:has(.lyra-tabs__close:active)) {
                 background: var(--pluto-fill-press);
             }
         }
 
         /* A borderless tab draws its selected border as a ring. */
-        &.pluto--selected {
+        &.lyra--selected {
             box-shadow: inset 0 0 0 var(--pluto-border-width)
                 var(--pluto-selected-subtle-border-color);
 
-            &.pluto--alt-color {
+            &.lyra--alt-color {
                 box-shadow: inset 0 0 0 var(--pluto-border-width)
                     var(--pluto-selected-border-color);
             }
         }
 
-        &:has(> .pluto-icon) .pluto-text {
+        &:has(> .lyra-icon) .lyra-text {
             margin-left: 0;
         }
 
-        &:has([contenteditable="true"]) .pluto-tabs__close {
+        &:has([contenteditable="true"]) .lyra-tabs__close {
             opacity: 0;
             pointer-events: none;
         }
 
-        &:hover:has(.pluto-tabs__close):not(:has([contenteditable="true"]))
-            > .pluto-icon {
+        &:hover:has(.lyra-tabs__close):not(:has([contenteditable="true"]))
+            > .lyra-icon {
             opacity: 0;
         }
     }
 
-    &.pluto--direction-x {
+    &.lyra--direction-x {
         padding: 0 0.75rem;
-        .pluto-tabs__tab {
+
+        .lyra-tabs__tab {
             min-height: 0;
             height: var(--pluto-tabs-tab-height, var(--pluto-height-small));
             align-self: var(--pluto-tabs-tab-align, auto);
@@ -346,12 +343,12 @@
            WebKit snaps the masked strip's layer to whole pixels, eating a flush
            tab's bottom border. The shorter tab leaves the clip half a pixel of
            slack per edge. */
-        &.pluto--height-small {
+        &.lyra--height-small {
             --pluto-tabs-tab-height: calc(var(--pluto-height-small) - 1px);
         }
     }
 
-    &.pluto--direction-y {
+    &.lyra--direction-y {
         height: 100%;
         padding: 0.75rem 0.5rem;
     }
@@ -359,13 +356,13 @@
 
 /* A selected default tab or chip fills in the subtle tier, outranking the control-tier
    default. A focused one keeps the control tier. */
-:is(.pluto-tabs__selector--default, .pluto-tabs__selector--chip)
-    .pluto-tabs__tab.pluto--selected {
+:is(.lyra-tabs__selector--default, .lyra-tabs__selector--chip)
+    .lyra-tabs__tab.lyra--selected {
     --pluto-bg: var(--pluto-selected-subtle-bg);
     --pluto-hover-bg: var(--pluto-selected-subtle-hover-bg);
     --pluto-active-bg: var(--pluto-selected-subtle-active-bg);
 
-    &.pluto--alt-color {
+    &.lyra--alt-color {
         --pluto-bg: var(--pluto-selected-bg);
         --pluto-hover-bg: var(--pluto-selected-hover-bg);
         --pluto-active-bg: var(--pluto-selected-active-bg);
@@ -373,34 +370,35 @@
 }
 
 /* Pills rest at a fixed width, so a wider selected floor never pads a short label. */
-.pluto-tabs__selector--pill {
+.lyra-tabs__selector--pill {
     --pluto-tabs-selected-min-width: 20rem;
 }
 
-:is(.pluto-tabs__selector--pill, .pluto-tabs__selector--chip) .pluto-tabs__tab {
+:is(.lyra-tabs__selector--pill, .lyra-tabs__selector--chip) .lyra-tabs__tab {
     padding: 0 2rem;
     transition:
         background 0.15s ease-in-out,
         border-color 0.15s ease-in-out,
         transform 0.15s ease;
 
-    & > .pluto-icon {
+    & > .lyra-icon {
         flex-shrink: 0;
         margin-right: 1rem;
-        color: var(--pluto-tabs-text-color, var(--pluto-gray-l9));
+        color: var(--pluto-gray-l9);
     }
 
-    &.pluto--selected > .pluto-icon {
+    &.lyra--selected > .lyra-icon {
         color: var(--pluto-tabs-selected-text-color, var(--pluto-gray-l11));
     }
 }
 
-.pluto-tabs__selector--pill .pluto-tabs__tab:not(.pluto--selected) {
+.lyra-tabs__selector--pill .lyra-tabs__tab:not(.lyra--selected) {
     border-color: var(--pluto-gray-l5);
+
     --pluto-bg: var(--pluto-gray-l4);
 }
 
-.pluto-tabs__selector--pill .pluto-tabs__tab.pluto--selected {
+.lyra-tabs__selector--pill .lyra-tabs__tab.lyra--selected {
     --pluto-bg: var(--pluto-fill-rest);
     --pluto-hover-bg: var(--pluto-fill-hover);
     --pluto-active-bg: var(--pluto-fill-press);
@@ -411,41 +409,35 @@
 
 /* An unselected chip rests on a low fill with a quiet outline, so it reads as a
    tab while only the selected chip draws the eye. */
-.pluto-tabs__selector--chip .pluto-tabs__tab:not(.pluto--selected) {
+.lyra-tabs__selector--chip .lyra-tabs__tab:not(.lyra--selected) {
     --pluto-bg: var(--pluto-gray-l2);
     --pluto-border-color: var(--pluto-gray-l4);
     --pluto-hover-border-color: var(--pluto-gray-l6);
     --pluto-active-border-color: var(--pluto-gray-l6);
 }
 
-.pluto-tabs__selector--chip .pluto-tabs__tab.pluto--selected {
+.lyra-tabs__selector--chip .lyra-tabs__tab.lyra--selected {
     --pluto-border-color: var(--pluto-selected-subtle-border-color);
     --pluto-hover-border-color: var(--pluto-selected-subtle-border-color);
     --pluto-active-border-color: var(--pluto-selected-subtle-border-color);
 
-    &.pluto--alt-color {
+    &.lyra--alt-color {
         --pluto-border-color: var(--pluto-selected-border-color);
         --pluto-hover-border-color: var(--pluto-selected-border-color);
         --pluto-active-border-color: var(--pluto-selected-border-color);
     }
 }
 
-.pluto-tabs__tab .pluto-tabs__unsaved {
-    flex-shrink: 0;
-    height: round(0.9em, 1px);
-    width: round(0.9em, 1px);
-    fill: var(--pluto-gray-l9);
-}
-
-/* A warning-status name (a deleted resource's corpse) escalates to the whole tab.
-   !important outranks the selected and focused text tiers above. */
-.pluto-tabs__selector > .pluto-tabs__tab:has(.pluto-text.pluto--status-warning) {
-    .pluto-text,
-    > .pluto-icon {
+/* A warning-status name (a deleted resource's corpse) escalates to the whole tab. */
+.lyra-tabs__selector > .lyra-tabs__tab:has(.lyra-text.lyra--status-warning) {
+    .lyra-text,
+    > .lyra-icon {
+        /* stylelint-disable-next-line declaration-no-important -- outranks the selected
+           and focused text tiers above */
         color: var(--pluto-warning-z) !important;
     }
 
-    &.pluto--selected {
+    &.lyra--selected {
         --pluto-tabs-warning-bg: color-mix(
             in srgb,
             var(--pluto-warning-z) 15%,
@@ -458,21 +450,8 @@
             var(--pluto-warning-z) 20%,
             var(--pluto-gray-l1)
         );
+
         box-shadow: inset 0 0 0 var(--pluto-border-width)
             color-mix(in srgb, var(--pluto-warning-z) 65%, var(--pluto-gray-l1));
-    }
-}
-
-.pluto-tabs__tab:has(.pluto-tabs__unsaved):has(.pluto-tabs__close) {
-    .pluto-tabs__close {
-        display: none;
-    }
-    &:hover {
-        .pluto-tabs__unsaved {
-            display: none;
-        }
-        .pluto-tabs__close {
-            display: flex;
-        }
     }
 }

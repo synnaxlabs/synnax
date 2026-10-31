@@ -73,7 +73,7 @@ class _WaitSamples(ArcCase):
             self.skip(f"every wait of the case is under {min_ms} ms")
         self.waits_ms = profile * REPEATS
         self.arc_source = create_source(self.waits_ms)
-        create_indexed_pair(self.client, "ws_cmd", sy.DataType.UINT8)
+        create_indexed_pair(self.client, "ws_cmd", data_type=sy.DataType.UINT8)
         self.start = sy.TimeStamp.now()
         super().setup()
 

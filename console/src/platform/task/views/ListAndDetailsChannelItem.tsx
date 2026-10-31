@@ -55,7 +55,7 @@ const getChannelNameProps = (
     CSS.BE("channel-item", "name"),
     hasIcon && CSS.BEM("channel-item", "name", "with-icon"),
   ),
-  overflow: "ellipsis",
+  overflow: "fade",
 });
 
 export const ListAndDetailsChannelItem = <K extends string>({

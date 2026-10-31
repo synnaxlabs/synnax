@@ -26,13 +26,13 @@ const renderSplit = (
   );
 
 const handleOf = (c: ReturnType<typeof render>): HTMLElement => {
-  const handle = c.container.querySelector<HTMLElement>(".pluto-resize__handle");
+  const handle = c.container.querySelector<HTMLElement>(".lyra-resize__handle");
   if (handle == null) throw new Error("resize handle not found");
   return handle;
 };
 
 const panesOf = (c: ReturnType<typeof render>): HTMLElement[] =>
-  Array.from(c.container.querySelectorAll<HTMLElement>(".pluto-resize"));
+  Array.from(c.container.querySelectorAll<HTMLElement>(".lyra-resize"));
 
 const drag = async (
   c: ReturnType<typeof render>,
@@ -78,7 +78,7 @@ describe("Resize.Split", () => {
 
   it("should render a handle only between the panes", () => {
     const c = renderSplit({});
-    expect(c.container.querySelectorAll(".pluto-resize__handle")).toHaveLength(1);
+    expect(c.container.querySelectorAll(".lyra-resize__handle")).toHaveLength(1);
   });
 
   it("should grow the first pane when the handle is dragged forward", async () => {

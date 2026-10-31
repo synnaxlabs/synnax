@@ -22,8 +22,8 @@ import (
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/kv"
-	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 	"github.com/synnaxlabs/x/types"
 )
 
@@ -333,9 +333,9 @@ var _ = Describe("Table", func() {
 			})
 		})
 
-		Describe("OpenNexter", func() {
+		Describe("Reader", func() {
 			It(
-				"Should iterate over entries using the custom codec",
+				"Should iterate over the table's entries using the custom codec",
 				func(ctx SpecContext) {
 					entries := []entry{
 						{ID: 70, Data: "seventy"},
@@ -344,7 +344,9 @@ var _ = Describe("Table", func() {
 					Expect(
 						table.NewCreate().Entries(&entries).Exec(ctx, db),
 					).To(Succeed())
-					seq, closer := MustSucceed2(table.OpenNexter(ctx))
+					seq, closer := MustSucceed2(
+						gorp.WrapReader[int32, entry](db).OpenNexter(ctx),
+					)
 					var result []entry
 					for e := range seq {
 						result = append(result, e)

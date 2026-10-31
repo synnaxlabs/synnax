@@ -23,7 +23,7 @@ ANCHOR = sy.TimeSpan.MILLISECOND
 
 
 def on_change[V](
-    index: str, last: dict[str, V], current: dict[str, V], now: sy.TimeStamp
+    index: str, *, last: dict[str, V], current: dict[str, V], now: sy.TimeStamp
 ) -> dict[str, object] | None:
     """The frame for a change, None without one. The first is one sample per channel,
     later ones [previous, current] at [now - ANCHOR, now]."""
@@ -44,6 +44,7 @@ class Publisher:
 
     def __init__(
         self,
+        *,
         client: sy.Synnax,
         name: str,
         channels: list[str],
@@ -71,7 +72,9 @@ class Publisher:
         """Opens ahead of the first write, to hold control while idle."""
         return self.write(None)
 
-    def write(self, frame: dict | None, authority: sy.Authority | None = None) -> bool:
+    def write(
+        self, frame: dict | None, *, authority: sy.Authority | None = None
+    ) -> bool:
         """Writes frame, raising authority for the write itself when one is given so
         control is held no longer than the write takes. None opens without writing."""
         if not self.channels:
@@ -81,7 +84,7 @@ class Publisher:
                 self.writer = self.client.open_writer(
                     sy.TimeStamp.now() - OPEN_LEEWAY,
                     self.channels,
-                    self.authority,
+                    authorities=self.authority,
                     name=self.name,
                     auto_index=self.auto_index,
                 )

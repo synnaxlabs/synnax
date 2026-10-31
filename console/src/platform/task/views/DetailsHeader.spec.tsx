@@ -46,7 +46,7 @@ describe("layouts.DetailsHeader", () => {
       { values: { config: { channels: [] } } },
     );
     const button = getIconButton(container, "json");
-    expect(button.className).toContain("pluto--disabled");
+    expect(button.className).toContain("lyra--disabled");
     fireEvent.click(button);
     expect(writeText).not.toHaveBeenCalled();
   });

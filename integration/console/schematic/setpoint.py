@@ -15,7 +15,7 @@ from console.schematic.symbol import Symbol
 class Setpoint(Symbol):
     """Schematic setpoint/control symbol"""
 
-    _symbol_group = "General"
+    _symbol_group: str | None = "General"
 
     def __init__(self, *, label: str, channel_name: str, symbol_type: str = "Setpoint"):
         """Initialize a setpoint symbol with configuration.
@@ -25,7 +25,7 @@ class Setpoint(Symbol):
             channel_name: Channel name for the setpoint
             symbol_type: The type of symbol (default: "Setpoint")
         """
-        super().__init__(label, symbol_type=symbol_type, rotatable=False)
+        super().__init__(label=label, symbol_type=symbol_type, rotatable=False)
         self.channel_name = channel_name
 
     def _apply_properties(self) -> None:
@@ -34,6 +34,7 @@ class Setpoint(Symbol):
 
     def set_properties(
         self,
+        *,
         channel_name: str | None = None,
         **kwargs: Any,
     ) -> dict[str, Any]:

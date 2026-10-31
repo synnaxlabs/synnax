@@ -80,7 +80,7 @@ describe("app/nav/bar/Left", () => {
         ),
       );
       const button = await findItem(container, "range");
-      expect(button.classList.contains("pluto--selected")).toBe(true);
+      expect(button.classList.contains("lyra--selected")).toBe(true);
     });
   });
 
@@ -101,7 +101,7 @@ describe("app/nav/bar/Left", () => {
         ),
       );
       const button = await findItem(container, "component");
-      expect(button.classList.contains("pluto--selected")).toBe(true);
+      expect(button.classList.contains("lyra--selected")).toBe(true);
     });
   });
 });

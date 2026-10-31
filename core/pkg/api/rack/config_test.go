@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	apirack "github.com/synnaxlabs/synnax/pkg/api/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -28,6 +29,7 @@ var _ = Describe("ServiceConfig", func() {
 			Task:   &task.Service{},
 			Status: &status.Service{},
 			RBAC:   &rbac.Service{},
+			Auth:   &auth.Service{},
 		}
 	}
 
@@ -68,6 +70,11 @@ var _ = Describe("ServiceConfig", func() {
 				func(c *apirack.ServiceConfig) { c.RBAC = nil },
 				"rbac: must be non-nil",
 			),
+			Entry(
+				"auth",
+				func(c *apirack.ServiceConfig) { c.Auth = nil },
+				"auth: must be non-nil",
+			),
 		)
 	})
 
@@ -80,6 +87,7 @@ var _ = Describe("ServiceConfig", func() {
 			Expect(merged.Task).To(BeIdenticalTo(cfg.Task))
 			Expect(merged.Status).To(BeIdenticalTo(cfg.Status))
 			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
+			Expect(merged.Auth).To(BeIdenticalTo(cfg.Auth))
 		})
 
 		It("Should keep the receiver's services when the other's are nil", func() {
@@ -90,6 +98,7 @@ var _ = Describe("ServiceConfig", func() {
 			Expect(merged.Task).To(BeIdenticalTo(cfg.Task))
 			Expect(merged.Status).To(BeIdenticalTo(cfg.Status))
 			Expect(merged.RBAC).To(BeIdenticalTo(cfg.RBAC))
+			Expect(merged.Auth).To(BeIdenticalTo(cfg.Auth))
 		})
 	})
 })

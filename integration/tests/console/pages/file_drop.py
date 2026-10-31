@@ -61,11 +61,13 @@ class FileDrop(ConsoleCase):
         self.log("Dropping a single golden file")
         name = f"drop_schematic_{self.suffix}"
         path = get_core_fixture_path("schematic/versions/testdata/import_v7.json")
-        with named_envelope_copy(path, name) as tmp_path:
+        with named_envelope_copy(path, name=name) as tmp_path:
             self.console.layout.drop_files([tmp_path])
             self.console.layout.wait_for_tab(name)
         self._cleanup_pages.append(name)
-        page = Schematic.from_open_page(self.console.layout, self.client, name)
+        page = Schematic.from_open_page(
+            layout=self.console.layout, client=self.client, name=name
+        )
         assert page.is_pane_visible, "dropped schematic pane not visible"
         page.close()
 
@@ -83,7 +85,7 @@ class FileDrop(ConsoleCase):
         with ExitStack() as stack:
             paths = [
                 stack.enter_context(
-                    named_envelope_copy(get_core_fixture_path(relative_path), name)
+                    named_envelope_copy(get_core_fixture_path(relative_path), name=name)
                 )
                 for relative_path, name, _ in goldens
             ]
@@ -95,7 +97,9 @@ class FileDrop(ConsoleCase):
             # Both tabs open as one batch with the last one selected, so each
             # page is brought to the front before its pane is checked.
             self.console.layout.get_tab(name).click()
-            page = page_class.from_open_page(self.console.layout, self.client, name)
+            page = page_class.from_open_page(
+                layout=self.console.layout, client=self.client, name=name
+            )
             assert page.is_pane_visible, f"dropped {name} pane not visible"
             page.close()
 

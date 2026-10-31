@@ -51,7 +51,7 @@ describe("Notification Component", () => {
       />,
     );
 
-    expect(c.container.querySelector(".pluto-notification__description")).toBeNull();
+    expect(c.container.querySelector(".lyra-notification__description")).toBeNull();
   });
 
   it("omits the name entirely when the status carries an empty one", () => {
@@ -62,7 +62,7 @@ describe("Notification Component", () => {
       />,
     );
 
-    expect(c.container.querySelector(".pluto-notification__name")).toBeNull();
+    expect(c.container.querySelector(".lyra-notification__name")).toBeNull();
   });
 
   it("renders a custom icon tinted with the variant color as the indicator", () => {
@@ -74,11 +74,9 @@ describe("Notification Component", () => {
       />,
     );
 
-    expect(c.container.querySelector(".pluto-icon--status-concentric")).toBeNull();
-    const icon = c.container.querySelector<SVGElement>(
-      ".pluto-notification__indicator",
-    );
-    expect(icon?.classList.contains("pluto-icon--device")).toBe(true);
+    expect(c.container.querySelector(".lyra-icon--status-concentric")).toBeNull();
+    const icon = c.container.querySelector<SVGElement>(".lyra-notification__indicator");
+    expect(icon?.classList.contains("lyra-icon--device")).toBe(true);
     expect(icon?.style.color).toBe("var(--pluto-error-z)");
   });
 
@@ -91,8 +89,8 @@ describe("Notification Component", () => {
       />,
     );
 
-    const icon = c.container.querySelector(".pluto-notification__indicator");
-    expect(icon?.classList.contains("pluto-icon--loading")).toBe(true);
+    const icon = c.container.querySelector(".lyra-notification__indicator");
+    expect(icon?.classList.contains("lyra-icon--loading")).toBe(true);
   });
 
   it("calls silence function when close button is clicked", () => {

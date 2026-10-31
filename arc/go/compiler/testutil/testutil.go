@@ -17,6 +17,7 @@ import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega/types"
+	"github.com/samber/lo"
 	ccontext "github.com/synnaxlabs/arc/compiler/context"
 	"github.com/synnaxlabs/arc/compiler/resolve"
 	"github.com/synnaxlabs/arc/compiler/wasm"
@@ -25,12 +26,10 @@ import (
 	arctypes "github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/testutil"
+	"github.com/tetratelabs/wazero"
 )
 
-// FunctionScope returns a fresh block scope inside a function inside an
-// STL-populated root, suitable for compiler unit tests that exercise
-// expressions referencing host functions (channels.write, series.add, ...).
-func FunctionScope(ctx context.Context) *symbol.Symbol {
+func functionScope(ctx context.Context) *symbol.Symbol {
 	ginkgo.GinkgoHelper()
 	root := symbol.NewRoot(nil, stl.NewSymbols())
 	s := testutil.MustSucceed(
@@ -48,7 +47,7 @@ func FunctionScope(ctx context.Context) *symbol.Symbol {
 
 func NewContext(ctx context.Context) ccontext.Context[antlr.ParserRuleContext] {
 	ginkgo.GinkgoHelper()
-	scope := FunctionScope(ctx)
+	scope := functionScope(ctx)
 	return ccontext.NewRoot(
 		ctx,
 		scope,
@@ -67,8 +66,7 @@ func FinalizeContext(ctx ccontext.Context[antlr.ParserRuleContext]) []byte {
 	return ctx.Writer.Bytes()
 }
 
-// WASM builds WASM bytecode from a variadic slice of opcodes and operands
-func WASM(instructions ...any) []byte {
+func assemble(instructions ...any) []byte {
 	encoder := wasm.NewWriter()
 
 	for i := 0; i < len(instructions); i++ {
@@ -185,10 +183,6 @@ type opcodeMatcher struct {
 //
 //	bytecode := compiler.Compile(expr)
 //	Expect(bytecode).To(MatchOpcodes(wasm.OpI32Const, wasm.OpI32Add))
-//
-// Or with the WASM helper:
-//
-//	Expect(bytecode).To(MatchOpcodes(WASM(wasm.OpI32Const, int32(10), wasm.OpI32Add)))
 func MatchOpcodes(expected ...any) types.GomegaMatcher {
 	var opcodes wasm.OPCodes
 
@@ -197,9 +191,9 @@ func MatchOpcodes(expected ...any) types.GomegaMatcher {
 	case 0:
 		return &opcodeMatcher{expected: opcodes}
 	case 1:
-		// Check if it's already a byte slice (from WASM helper)
+		// Check if it's already a byte slice
 		if bytes, ok := expected[0].([]byte); ok {
-			opcodes = wasm.OPCodesFromBytes(bytes)
+			opcodes = opcodesFromBytes(bytes)
 			return &opcodeMatcher{expected: opcodes}
 		}
 		// Check if it's already OPCodes
@@ -209,8 +203,8 @@ func MatchOpcodes(expected ...any) types.GomegaMatcher {
 	}
 
 	// Convert variadic opcodes to OPCodes
-	bytes := WASM(expected...)
-	opcodes = wasm.OPCodesFromBytes(bytes)
+	bytes := assemble(expected...)
+	opcodes = opcodesFromBytes(bytes)
 	return &opcodeMatcher{expected: opcodes}
 }
 
@@ -219,7 +213,7 @@ func (m *opcodeMatcher) Match(actual any) (success bool, err error) {
 
 	switch v := actual.(type) {
 	case []byte:
-		actualOpcodes = wasm.OPCodesFromBytes(v)
+		actualOpcodes = opcodesFromBytes(v)
 	case wasm.OPCodes:
 		actualOpcodes = v
 	default:
@@ -247,7 +241,7 @@ func (m *opcodeMatcher) FailureMessage(actual any) string {
 
 	switch v := actual.(type) {
 	case []byte:
-		actualOpcodes = wasm.OPCodesFromBytes(v)
+		actualOpcodes = opcodesFromBytes(v)
 	case wasm.OPCodes:
 		actualOpcodes = v
 	default:
@@ -306,7 +300,7 @@ func (m *opcodeMatcher) NegatedFailureMessage(actual any) string {
 
 	switch v := actual.(type) {
 	case []byte:
-		actualOpcodes = wasm.OPCodesFromBytes(v)
+		actualOpcodes = opcodesFromBytes(v)
 	case wasm.OPCodes:
 		actualOpcodes = v
 	default:
@@ -317,4 +311,28 @@ func (m *opcodeMatcher) NegatedFailureMessage(actual any) string {
 		"Expected opcodes not to match, but they did:\n  %s",
 		actualOpcodes.String(),
 	)
+}
+
+func opcodesFromBytes(data []byte) wasm.OPCodes {
+	return lo.Map(data, func(b byte, _ int) wasm.Opcode { return wasm.Opcode(b) })
+}
+
+// Compile compiles the module that m generates with wazero, failing the spec when the
+// module is not valid WASM. The compiled module closes when the spec ends.
+func Compile(ctx context.Context, m *wasm.Module) wazero.CompiledModule {
+	ginkgo.GinkgoHelper()
+	r := wazero.NewRuntime(ctx)
+	ginkgo.DeferCleanup(func(ctx context.Context) error { return r.Close(ctx) })
+	return testutil.MustSucceed(r.CompileModule(ctx, m.Generate()))
+}
+
+// ImportNames returns the names of the functions that m imports, in import order.
+func ImportNames(ctx context.Context, m *wasm.Module) []string {
+	ginkgo.GinkgoHelper()
+	imports := Compile(ctx, m).ImportedFunctions()
+	names := make([]string, len(imports))
+	for i, imp := range imports {
+		_, names[i], _ = imp.Import()
+	}
+	return names
 }

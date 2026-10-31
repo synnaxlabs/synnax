@@ -15,7 +15,9 @@ from x import random_name
 
 
 class RangeExplorer(ConsoleCase):
-    """Test Range Explorer: context menu operations, multi-select, search, and filter."""
+    """Test Range Explorer: context menu operations, multi-select, search, and
+    filter.
+    """
 
     suffix: str
     label_a_name: str
@@ -156,7 +158,7 @@ class RangeExplorer(ConsoleCase):
             try:
                 self.client.ranges.retrieve(name=name)
                 raise AssertionError(f"Range '{name}' should be deleted from server")
-            except sy.QueryError:
+            except sy.NotFoundError:
                 pass
 
     def test_search_ranges(self) -> None:

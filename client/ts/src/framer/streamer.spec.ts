@@ -20,10 +20,9 @@ import {
 import { describe, expect, it, test, vi } from "vitest";
 
 import { type channel } from "@/channel";
-import { AccessDeniedError, ExpiredTokenError, MissingLicenseError } from "@/errors";
-import { Frame } from "@/framer/frame";
-import { HardenedStreamer, ObservableStreamer } from "@/framer/hardened";
-import { type Streamer, streamerConfigZ } from "@/framer/streamer";
+import { AuthError, ExpiredTokenError, SessionEndedError } from "@/errors";
+import { framer } from "@/framer";
+import { AccessDeniedError, MissingLicenseError } from "@/index";
 import {
   createProxiedTestClient,
   createTestClient,
@@ -94,7 +93,7 @@ describe("Streamer", () => {
       const start = new TimeStamp(1000000000n);
       const end = new TimeStamp(6000000000n);
       try {
-        const fr = new Frame(
+        const fr = new framer.Frame(
           [ch.key],
           [
             new Series({
@@ -329,7 +328,7 @@ describe("Streamer", () => {
       // reinterpreted by the Core instead of rejected.
       test.each([-1, 1.5, 2 ** 32])("rejects a factor of %s", (factor) => {
         expect(() =>
-          streamerConfigZ.parse({ channels: [], downsampleFactor: factor }),
+          framer.streamerConfigZ.parse({ channels: [], downsampleFactor: factor }),
         ).toThrow();
       });
       test("downsample factor of 1", async () => {
@@ -406,7 +405,7 @@ describe("Streamer", () => {
             await sleep.sleep(TimeSpan.milliseconds(5));
           }
 
-          const receivedFrames: Frame[] = [];
+          const receivedFrames: framer.Frame[] = [];
           const timeout = Date.now() + 500;
           while (Date.now() < timeout)
             try {
@@ -679,12 +678,12 @@ describe("Streamer", () => {
     });
   });
 
-  class MockStreamer implements Streamer {
+  class MockStreamer implements framer.Streamer {
     keys: channel.Key[] = [];
     updateMock = vi.fn();
     readMock = vi.fn();
     closeMock = vi.fn();
-    responses: [Frame, Error | null][] = [];
+    responses: [framer.Frame, Error | null][] = [];
     updateErrors: (Error | null)[] = [];
 
     update(channels: channel.Params): Promise<void> {
@@ -700,7 +699,7 @@ describe("Streamer", () => {
       this.closeMock();
     }
 
-    async read(): Promise<Frame> {
+    async read(): Promise<framer.Frame> {
       this.readMock();
       if (this.responses.length === 0) throw new EOF();
       const [frame, err] = this.responses.shift()!;
@@ -708,7 +707,7 @@ describe("Streamer", () => {
       return frame;
     }
 
-    async next(): Promise<IteratorResult<Frame, any>> {
+    async next(): Promise<IteratorResult<framer.Frame, any>> {
       try {
         const fr = await this.read();
         return { done: false, value: fr };
@@ -718,7 +717,7 @@ describe("Streamer", () => {
       }
     }
 
-    [Symbol.asyncIterator](): AsyncIterator<Frame, any, undefined> {
+    [Symbol.asyncIterator](): AsyncIterator<framer.Frame, any, undefined> {
       return this;
     }
   }
@@ -812,7 +811,7 @@ describe("Streamer", () => {
       const ch = await newVirtualChannel(client);
       const onDrop = vi.fn();
       const onReopen = vi.fn();
-      const hardened = await HardenedStreamer.open(
+      const hardened = await framer.HardenedStreamer.open(
         async (cfg) => await proxied.openStreamer(cfg),
         { channels: ch.key, keepAlive: KEEP_ALIVE },
         { breaker: FAST_RETRY, onReopen, onDrop, onRetry: quiet },
@@ -885,11 +884,11 @@ describe("Streamer", () => {
       const streamer = new MockStreamer();
       const openMock = vi.fn();
       const config = { channels: [1, 2, 3] };
-      const fr = new Frame({ 1: new Series([1]) });
-      const hardened = await HardenedStreamer.open(
+      const fr = new framer.Frame({ 1: new Series([1]) });
+      const hardened = await framer.HardenedStreamer.open(
         async (cfg) => {
           openMock(cfg);
-          const cfg_ = streamerConfigZ.parse(cfg);
+          const cfg_ = framer.streamerConfigZ.parse(cfg);
           streamer.responses = [[fr, null]];
           streamer.keys = cfg_.channels as channel.Key[];
           return streamer;
@@ -909,13 +908,13 @@ describe("Streamer", () => {
 
     it("should correctly iterate over the streamer and end after close", async () => {
       const streamer = new MockStreamer();
-      const fr = new Frame({ 1: new Series([1]) });
-      const fr2 = new Frame({ 1: new Series([2]) });
+      const fr = new framer.Frame({ 1: new Series([1]) });
+      const fr2 = new framer.Frame({ 1: new Series([2]) });
       streamer.responses = [
         [fr, null],
         [fr2, null],
       ];
-      const hardened = await HardenedStreamer.open(async () => streamer, {
+      const hardened = await framer.HardenedStreamer.open(async () => streamer, {
         channels: [1],
       });
       const first = await hardened.next();
@@ -931,14 +930,14 @@ describe("Streamer", () => {
     it("should reconnect when the server ends the stream unexpectedly", async () => {
       const streamer1 = new MockStreamer();
       const streamer2 = new MockStreamer();
-      const fr1 = new Frame({ 1: new Series([1]) });
-      const fr2 = new Frame({ 1: new Series([2]) });
+      const fr1 = new framer.Frame({ 1: new Series([1]) });
+      const fr2 = new framer.Frame({ 1: new Series([2]) });
       // streamer1 EOFs after one frame without the client asking for it
       streamer1.responses = [[fr1, null]];
       streamer2.responses = [[fr2, null]];
       const onDrop = vi.fn();
       let count = 0;
-      const hardened = await HardenedStreamer.open(
+      const hardened = await framer.HardenedStreamer.open(
         async () => {
           count++;
           if (count === 1) return streamer1;
@@ -955,7 +954,7 @@ describe("Streamer", () => {
 
     it("should back off when reopened streams die immediately", async () => {
       let opens = 0;
-      const hardened = await HardenedStreamer.open(
+      const hardened = await framer.HardenedStreamer.open(
         async () => {
           opens++;
           // no responses: every stream EOFs on its first read
@@ -974,13 +973,13 @@ describe("Streamer", () => {
 
     it("should interrupt a pending reconnect backoff on close", async () => {
       const streamer1 = new MockStreamer();
-      const fr1 = new Frame({ 1: new Series([1]) });
+      const fr1 = new framer.Frame({ 1: new Series([1]) });
       streamer1.responses = [
         [fr1, null],
         [fr1, new Unreachable({ message: "down" })],
       ];
       let opens = 0;
-      const hardened = await HardenedStreamer.open(
+      const hardened = await framer.HardenedStreamer.open(
         async () => {
           opens++;
           if (opens === 1) return streamer1;
@@ -1004,14 +1003,14 @@ describe("Streamer", () => {
 
     it("should not report a failed reconnect when closed during the backoff", async () => {
       const streamer1 = new MockStreamer();
-      const fr1 = new Frame({ 1: new Series([1]) });
+      const fr1 = new framer.Frame({ 1: new Series([1]) });
       streamer1.responses = [
         [fr1, null],
         [fr1, new Unreachable({ message: "down" })],
       ];
       let opens = 0;
       const onRetry = vi.fn<(error: Error) => void>();
-      const hardened = await HardenedStreamer.open(
+      const hardened = await framer.HardenedStreamer.open(
         async () => {
           opens++;
           if (opens === 1) return streamer1;
@@ -1040,13 +1039,13 @@ describe("Streamer", () => {
 
     it("should not throw when closed while reconnecting", async () => {
       const streamer1 = new MockStreamer();
-      const fr1 = new Frame({ 1: new Series([1]) });
+      const fr1 = new framer.Frame({ 1: new Series([1]) });
       streamer1.responses = [
         [fr1, null],
         [fr1, new Unreachable({ message: "down" })],
       ];
       let opens = 0;
-      const hardened = await HardenedStreamer.open(
+      const hardened = await framer.HardenedStreamer.open(
         async () => {
           opens++;
           if (opens === 1) return streamer1;
@@ -1066,8 +1065,8 @@ describe("Streamer", () => {
     it("should try to re-open the streamer when read fails", async () => {
       const streamer1 = new MockStreamer();
       const streamer2 = new MockStreamer();
-      const fr1 = new Frame({ 1: new Series([1]) });
-      const fr2 = new Frame({ 1: new Series([2]) });
+      const fr1 = new framer.Frame({ 1: new Series([1]) });
+      const fr2 = new framer.Frame({ 1: new Series([2]) });
       streamer1.responses = [
         [fr1, null],
         [fr2, new Unreachable({ message: "cat" })],
@@ -1075,7 +1074,7 @@ describe("Streamer", () => {
       streamer2.responses = [[fr2, null]];
       let count = 0;
       const openerMock = vi.fn();
-      const hardened = await HardenedStreamer.open(
+      const hardened = await framer.HardenedStreamer.open(
         async () => {
           count++;
           openerMock();
@@ -1098,8 +1097,8 @@ describe("Streamer", () => {
     it("should repeatedly try re-opening the streamer when read fails", async () => {
       const streamer1 = new MockStreamer();
       const streamer5 = new MockStreamer();
-      const fr1 = new Frame({ 1: new Series([1]) });
-      const fr5 = new Frame({ 1: new Series([4]) });
+      const fr1 = new framer.Frame({ 1: new Series([1]) });
+      const fr5 = new framer.Frame({ 1: new Series([4]) });
       streamer1.responses = [
         [fr1, null],
         [fr5, new Unreachable({ message: "cat" })],
@@ -1108,7 +1107,7 @@ describe("Streamer", () => {
       const openerMock = vi.fn();
       const onRetry = vi.fn<(error: Error) => void>();
       let count = 0;
-      const hardened = await HardenedStreamer.open(
+      const hardened = await framer.HardenedStreamer.open(
         async () => {
           count++;
           openerMock();
@@ -1129,12 +1128,12 @@ describe("Streamer", () => {
 
     it("should rethrow the error when the breaker exceeds the max retries", async () => {
       const streamer = new MockStreamer();
-      const fr = new Frame({ 1: new Series([1]) });
+      const fr = new framer.Frame({ 1: new Series([1]) });
       streamer.responses = [[fr, null]];
       const openerMock = vi.fn();
       const onRetry = vi.fn<(error: Error) => void>();
       await expect(
-        HardenedStreamer.open(
+        framer.HardenedStreamer.open(
           async () => {
             openerMock();
             throw new Unreachable({ message: "very unreachable" });
@@ -1153,7 +1152,7 @@ describe("Streamer", () => {
       const openerMock = vi.fn();
       const onRetry = vi.fn<(error: Error) => void>();
       await expect(
-        HardenedStreamer.open(
+        framer.HardenedStreamer.open(
           async () => {
             openerMock();
             throw new ExpiredTokenError("token expired");
@@ -1172,7 +1171,7 @@ describe("Streamer", () => {
     it("should give up on the first denial instead of retrying", async () => {
       const openerMock = vi.fn();
       await expect(
-        HardenedStreamer.open(
+        framer.HardenedStreamer.open(
           async () => {
             openerMock();
             throw new AccessDeniedError("no permission to stream");
@@ -1184,10 +1183,43 @@ describe("Streamer", () => {
       expect(openerMock).toHaveBeenCalledTimes(1);
     });
 
+    it("should give up on rejected credentials instead of retrying", async () => {
+      const openerMock = vi.fn();
+      await expect(
+        framer.HardenedStreamer.open(
+          async () => {
+            openerMock();
+            throw new AuthError("invalid credentials");
+          },
+          { channels: [1] },
+          { breaker: { maxRetries: 3, baseInterval: TimeSpan.milliseconds(1) } },
+        ),
+      ).rejects.toThrow(AuthError);
+      expect(openerMock).toHaveBeenCalledTimes(1);
+    });
+
+    it("should keep retrying an ended session", async () => {
+      const openerMock = vi.fn();
+      await expect(
+        framer.HardenedStreamer.open(
+          async () => {
+            openerMock();
+            throw new SessionEndedError("session ended");
+          },
+          { channels: [1] },
+          {
+            breaker: { maxRetries: 2, baseInterval: TimeSpan.milliseconds(1) },
+            onRetry: quiet,
+          },
+        ),
+      ).rejects.toThrow(SessionEndedError);
+      expect(openerMock).toHaveBeenCalledTimes(3);
+    });
+
     it("should give up on the first license refusal instead of retrying", async () => {
       const openerMock = vi.fn();
       await expect(
-        HardenedStreamer.open(
+        framer.HardenedStreamer.open(
           async () => {
             openerMock();
             throw new MissingLicenseError("No license is active on this Core");
@@ -1202,8 +1234,8 @@ describe("Streamer", () => {
     it("should fire onDrop when the stream fails and onReopen after recovery", async () => {
       const streamer1 = new MockStreamer();
       const streamer2 = new MockStreamer();
-      const fr1 = new Frame({ 1: new Series([1]) });
-      const fr2 = new Frame({ 1: new Series([2]) });
+      const fr1 = new framer.Frame({ 1: new Series([1]) });
+      const fr2 = new framer.Frame({ 1: new Series([2]) });
       streamer1.responses = [
         [fr1, null],
         [fr2, new Unreachable({ message: "cat" })],
@@ -1212,7 +1244,7 @@ describe("Streamer", () => {
       const onDrop = vi.fn();
       const onReopen = vi.fn();
       let count = 0;
-      const hardened = await HardenedStreamer.open(
+      const hardened = await framer.HardenedStreamer.open(
         async () => {
           count++;
           if (count === 1) return streamer1;
@@ -1234,13 +1266,13 @@ describe("Streamer", () => {
       const streamer1 = new MockStreamer();
       streamer1.updateErrors = [null, new Unreachable({ message: "cat" })];
       const streamer2 = new MockStreamer();
-      const fr1 = new Frame({ 1: new Series([1]) });
-      const fr2 = new Frame({ 1: new Series([2]) });
+      const fr1 = new framer.Frame({ 1: new Series([1]) });
+      const fr2 = new framer.Frame({ 1: new Series([2]) });
       streamer1.responses = [[fr1, null]];
       streamer2.responses = [[fr2, null]];
       let count = 0;
       const openerMock = vi.fn();
-      const hardened = await HardenedStreamer.open(
+      const hardened = await framer.HardenedStreamer.open(
         async () => {
           count++;
           openerMock();
@@ -1261,15 +1293,17 @@ describe("Streamer", () => {
       const rejected = new AccessDeniedError("no access to channel 2");
       const streamer1 = new MockStreamer();
       streamer1.updateErrors = [rejected];
-      streamer1.responses = [[new Frame(), new Unreachable({ message: "down" })]];
+      streamer1.responses = [
+        [new framer.Frame(), new Unreachable({ message: "down" })],
+      ];
       const streamer2 = new MockStreamer();
-      const fr = new Frame({ 1: new Series([1]) });
+      const fr = new framer.Frame({ 1: new Series([1]) });
       streamer2.responses = [[fr, null]];
       const opened: channel.Params[] = [];
       const onDrop = vi.fn();
-      const hardened = await HardenedStreamer.open(
+      const hardened = await framer.HardenedStreamer.open(
         async (config) => {
-          opened.push(streamerConfigZ.parse(config).channels);
+          opened.push(framer.streamerConfigZ.parse(config).channels);
           return opened.length === 1 ? streamer1 : streamer2;
         },
         { channels: [1] },
@@ -1288,7 +1322,7 @@ describe("Streamer", () => {
       const streamer2 = new MockStreamer();
       const update2 = vi.spyOn(streamer2, "update");
       let opens = 0;
-      const hardened = await HardenedStreamer.open(
+      const hardened = await framer.HardenedStreamer.open(
         async () => (++opens === 1 ? streamer1 : streamer2),
         { channels: [1] },
         { breaker: FAST_RETRY, onRetry: quiet },
@@ -1304,7 +1338,7 @@ describe("Streamer", () => {
       const streamer2 = new MockStreamer();
       const update2 = vi.spyOn(streamer2, "update");
       let opens = 0;
-      const hardened = await HardenedStreamer.open(
+      const hardened = await framer.HardenedStreamer.open(
         async () => (++opens === 1 ? streamer1 : streamer2),
         { channels: [1] },
         { breaker: FAST_RETRY, onRetry: quiet },
@@ -1317,21 +1351,23 @@ describe("Streamer", () => {
 
     it("should not leak a stream when an update races a reconnect", async () => {
       const streamer1 = new MockStreamer();
-      const fr1 = new Frame({ 1: new Series([1]) });
+      const fr1 = new framer.Frame({ 1: new Series([1]) });
       streamer1.responses = [
         [fr1, null],
         [fr1, new Unreachable({ message: "down" })],
       ];
       const streamer2 = new MockStreamer();
       streamer2.read = async () => await new Promise<never>(() => {});
-      const pendingOpens: ((s: Streamer) => void)[] = [];
+      const pendingOpens: ((s: framer.Streamer) => void)[] = [];
       let opens = 0;
       const onDrop = vi.fn();
-      const hardened = await HardenedStreamer.open(
+      const hardened = await framer.HardenedStreamer.open(
         async () => {
           opens++;
           if (opens === 1) return streamer1;
-          return await new Promise<Streamer>((resolve) => pendingOpens.push(resolve));
+          return await new Promise<framer.Streamer>((resolve) =>
+            pendingOpens.push(resolve),
+          );
         },
         { channels: [1] },
         { breaker: { maxInterval: TimeSpan.milliseconds(5), jitter: 0 }, onDrop },
@@ -1356,18 +1392,20 @@ describe("Streamer", () => {
 
     it("should reject every joiner when a shared reconnect fails", async () => {
       const streamer1 = new MockStreamer();
-      const fr1 = new Frame({ 1: new Series([1]) });
+      const fr1 = new framer.Frame({ 1: new Series([1]) });
       streamer1.responses = [
         [fr1, null],
         [fr1, new Unreachable({ message: "down" })],
       ];
       const pendingOpens: ((e: Error) => void)[] = [];
       let opens = 0;
-      const hardened = await HardenedStreamer.open(
+      const hardened = await framer.HardenedStreamer.open(
         async () => {
           opens++;
           if (opens === 1) return streamer1;
-          return await new Promise<Streamer>((_, reject) => pendingOpens.push(reject));
+          return await new Promise<framer.Streamer>((_, reject) =>
+            pendingOpens.push(reject),
+          );
         },
         { channels: [1] },
         { breaker: { maxInterval: TimeSpan.milliseconds(5), jitter: 0 } },
@@ -1388,8 +1426,8 @@ describe("Streamer", () => {
   describe("observable", () => {
     it("should notify observers when frames are received", async () => {
       const mockStreamer = new MockStreamer();
-      const frame1 = new Frame({ 1: new Series([1, 2, 3]) });
-      const frame2 = new Frame({ 1: new Series([4, 5, 6]) });
+      const frame1 = new framer.Frame({ 1: new Series([1, 2, 3]) });
+      const frame2 = new framer.Frame({ 1: new Series([4, 5, 6]) });
 
       mockStreamer.responses = [
         [frame1, null],
@@ -1397,9 +1435,9 @@ describe("Streamer", () => {
       ];
       mockStreamer.keys = [1];
 
-      const observable = new ObservableStreamer(mockStreamer);
+      const observable = new framer.ObservableStreamer(mockStreamer);
 
-      const receivedFrames: Frame[] = [];
+      const receivedFrames: framer.Frame[] = [];
       observable.onChange((frame) => {
         receivedFrames.push(frame);
       });
@@ -1414,8 +1452,8 @@ describe("Streamer", () => {
 
     test("should apply transform function to frames", async () => {
       const mockStreamer = new MockStreamer();
-      const frame1 = new Frame({ 1: new Series([1, 2, 3]) });
-      const frame2 = new Frame({ 1: new Series([4, 5, 6]) });
+      const frame1 = new framer.Frame({ 1: new Series([1, 2, 3]) });
+      const frame2 = new framer.Frame({ 1: new Series([4, 5, 6]) });
 
       mockStreamer.responses = [
         [frame1, null],
@@ -1423,7 +1461,7 @@ describe("Streamer", () => {
       ];
       mockStreamer.keys = [1];
 
-      const transform = (frame: Frame): [number, true] | [null, false] => {
+      const transform = (frame: framer.Frame): [number, true] | [null, false] => {
         try {
           const data = Array.from(frame.get(1));
           const firstValue = data[0] as number;
@@ -1433,7 +1471,7 @@ describe("Streamer", () => {
         }
       };
 
-      const observable = new ObservableStreamer(mockStreamer, transform);
+      const observable = new framer.ObservableStreamer(mockStreamer, transform);
 
       const receivedValues: number[] = [];
       observable.onChange((value) => {
@@ -1449,15 +1487,15 @@ describe("Streamer", () => {
 
     test("should handle multiple observers", async () => {
       const mockStreamer = new MockStreamer();
-      const frame1 = new Frame({ 1: new Series([10, 20]) });
+      const frame1 = new framer.Frame({ 1: new Series([10, 20]) });
 
       mockStreamer.responses = [[frame1, null]];
       mockStreamer.keys = [1];
 
-      const observable = new ObservableStreamer(mockStreamer);
+      const observable = new framer.ObservableStreamer(mockStreamer);
 
-      const observer1Results: Frame[] = [];
-      const observer2Results: Frame[] = [];
+      const observer1Results: framer.Frame[] = [];
+      const observer2Results: framer.Frame[] = [];
 
       observable.onChange((frame) => {
         observer1Results.push(frame);
@@ -1479,7 +1517,7 @@ describe("Streamer", () => {
       const mockStreamer = new MockStreamer();
       mockStreamer.keys = [1, 2];
 
-      const observable = new ObservableStreamer(mockStreamer);
+      const observable = new framer.ObservableStreamer(mockStreamer);
 
       await observable.update([3, 4, 5]);
 
@@ -1492,9 +1530,9 @@ describe("Streamer", () => {
       const mockStreamer = new MockStreamer();
       mockStreamer.keys = [1];
 
-      const observable = new ObservableStreamer(mockStreamer);
+      const observable = new framer.ObservableStreamer(mockStreamer);
 
-      const receivedFrames: Frame[] = [];
+      const receivedFrames: framer.Frame[] = [];
       observable.onChange((frame) => {
         receivedFrames.push(frame);
       });
@@ -1507,14 +1545,14 @@ describe("Streamer", () => {
 
     test("should properly close and cleanup resources", async () => {
       const mockStreamer = new MockStreamer();
-      const frame1 = new Frame({ 1: new Series([1]) });
+      const frame1 = new framer.Frame({ 1: new Series([1]) });
 
       mockStreamer.responses = [[frame1, null]];
       mockStreamer.keys = [1];
 
-      const observable = new ObservableStreamer(mockStreamer);
+      const observable = new framer.ObservableStreamer(mockStreamer);
 
-      const receivedFrames: Frame[] = [];
+      const receivedFrames: framer.Frame[] = [];
       observable.onChange((frame) => {
         receivedFrames.push(frame);
       });
@@ -1526,9 +1564,11 @@ describe("Streamer", () => {
 
     test("should report the failure that ended the stream", async () => {
       const mockStreamer = new MockStreamer();
-      mockStreamer.responses = [[new Frame(), new AccessDeniedError("access revoked")]];
+      mockStreamer.responses = [
+        [new framer.Frame(), new AccessDeniedError("access revoked")],
+      ];
       const onDead = vi.fn();
-      const observable = new ObservableStreamer(mockStreamer, undefined, onDead);
+      const observable = new framer.ObservableStreamer(mockStreamer, undefined, onDead);
 
       await expect.poll(() => onDead.mock.calls.length).toBe(1);
       expect(AccessDeniedError.matches(onDead.mock.calls[0][0])).toBe(true);
@@ -1539,7 +1579,7 @@ describe("Streamer", () => {
     test("should not report a stream the caller closed", async () => {
       const mockStreamer = new MockStreamer();
       const onDead = vi.fn();
-      const observable = new ObservableStreamer(mockStreamer, undefined, onDead);
+      const observable = new framer.ObservableStreamer(mockStreamer, undefined, onDead);
 
       await observable.close();
 

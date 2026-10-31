@@ -289,6 +289,17 @@ describe("log reducer", () => {
     });
   });
 
+  describe("setChannelPrecision", () => {
+    it("should clear the precision and round-trip it", () => {
+      const state = createEmpty({
+        channels: [createChannelEntry(5, { precision: 2 })],
+      });
+      const action = log.setChannelPrecision({ channel: 5 });
+      expect(apply(state, action).channels[0].precision).toBeUndefined();
+      expect(roundTrip(state, action).channels[0].precision).toEqual(2);
+    });
+  });
+
   describe("setTimestampPrecision", () => {
     it("should set the precision", () => {
       expect(

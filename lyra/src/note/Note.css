@@ -9,12 +9,12 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-note {
+.lyra-note {
     padding: 2rem 3rem;
     border: var(--pluto-border);
     border-radius: var(--pluto-border-radius-small);
 
-    &.pluto--info {
+    &.lyra--info {
         background: var(--pluto-primary-z-10);
         border-color: var(--pluto-primary-z-50);
 
@@ -27,7 +27,7 @@
         }
     }
 
-    &.pluto--warning {
+    &.lyra--warning {
         background: var(--pluto-warning-z-10);
         border-color: var(--pluto-warning-z-70);
 
@@ -40,7 +40,7 @@
         }
     }
 
-    &.pluto--error {
+    &.lyra--error {
         background: var(--pluto-error-z-10);
         border-color: var(--pluto-error-z-40);
 

@@ -14,7 +14,7 @@ import { Menu } from "@synnaxlabs/lyra/menu";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 
-import { useClerk } from "@/ui/clerk";
+import { logOut, useClerk } from "@/ui/clerk";
 
 export interface AccountProps {
   name: string;
@@ -27,10 +27,7 @@ export const Account = ({ name, image }: AccountProps): ReactElement => {
   const clerk = useClerk();
   const logout = (): void => {
     if (clerk == null) return;
-    void clerk.signOut(() => {
-      window.location.assign("/");
-      return Promise.resolve();
-    });
+    logOut(clerk, () => window.location.assign("/"));
   };
   return (
     <Dialog.Frame variant="floating" location={{ x: "right", y: "bottom" }}>
@@ -56,6 +53,11 @@ export const Account = ({ name, image }: AccountProps): ReactElement => {
           <Menu.Item itemKey="settings">
             <Icon.Settings />
             Settings
+          </Menu.Item>
+          {/* The consent card opens on any click of a [data-consent] element. */}
+          <Menu.Item itemKey="cookies" data-consent="settings">
+            <Icon.Lock />
+            Cookie settings
           </Menu.Item>
           <Menu.Divider />
           <Menu.Item itemKey="logout">

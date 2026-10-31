@@ -81,10 +81,11 @@ const tag = major === 0 && minor < 59 ? `synnax-v${version}` : `core/v${version}
 
 <style is:global>
     .release {
-        padding: 10rem 0rem;
+        padding: 10rem 0;
         max-width: 1150px;
         position: relative;
         margin: 0 auto;
+
         .meta {
             height: fit-content;
             position: sticky;
@@ -94,29 +95,37 @@ const tag = major === 0 && minor < 59 ? `synnax-v${version}` : `core/v${version}
             flex-basis: 375px;
             flex-grow: 1;
         }
+
         .details {
             flex-basis: 600px;
             flex-grow: 3;
             min-width: 0;
         }
+
         .desktop-version {
             color: var(--pluto-gray-l10);
+
             &:hover {
                 color: var(--pluto-gray-l11);
             }
         }
+
         .breaking-changes {
             color: var(--pluto-error-z);
         }
+
         .no-breaking-changes {
             color: var(--pluto-success-z);
         }
+
         .link {
             height: 3.25rem;
             width: 3.25rem;
-            &.pluto-icon--logo-github {
+
+            &.lyra-icon--logo-github {
                 transform: scale(1.2);
             }
+
             color: var(--pluto-gray-l7);
             transition: all 0.2s ease-in-out;
 
@@ -125,9 +134,11 @@ const tag = major === 0 && minor < 59 ? `synnax-v${version}` : `core/v${version}
             }
         }
     }
-    @media (max-width: 800px) {
+
+    @media (width <= 800px) {
         .release {
             flex-direction: column !important;
+
             .meta {
                 position: unset;
                 flex-basis: fit-content;

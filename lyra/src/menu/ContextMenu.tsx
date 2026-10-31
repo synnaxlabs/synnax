@@ -246,10 +246,10 @@ const Internal = ({
  * otherwise its HTML id. Set `data-menu-key` when the element's id is reserved for
  * another purpose (e.g. a tab whose id encodes ARIA linking). The first target is
  * evaluated by traversing the parents of the element that was right clicked until
- * an element with the class "pluto-context__target" is found. If no such element is
+ * an element with the class "lyra-context__target" is found. If no such element is
  * found, the right clicked element itself is used as the target. If this target has
- * the class "pluto-context--selected", then subsequent targets are found by querying
- * all siblings of the first target that have the "pluto-context--selected" class.
+ * the class "lyra-context--selected", then subsequent targets are found by querying
+ * all siblings of the first target that have the "lyra-context--selected" class.
  * Otherwise, the only key is the first target.
  *
  * While the menu is visible, the target the menu opened over (not the wider
@@ -257,20 +257,20 @@ const Internal = ({
  * it highlighted.
  *
  * @example <caption>Example DOM structure</caption>
- *   <div id="pluto-menu-context__container">
- *    <div className="pluto-context__target" id="1">
+ *   <div id="lyra-menu-context__container">
+ *    <div className="lyra-context__target" id="1">
  *      <span>
  *        <h2>I was right clicked!</h2>
  *      </span>
  *    </div>
- *    <div className="pluto-context__target pluto-context--selected" id="2">
- *    <div className="pluto-context__target" id="3">
+ *    <div className="lyra-context__target lyra-context--selected" id="2">
+ *    <div className="lyra-context__target" id="3">
  *   </div>
  *
  * In the above example, the keys provided to the menu would be ["1"].
  *
- * If the <div> element with id="1" had a className of "pluto-context__target
- * pluto-context--selected" instead, the keys provided would be ["1", "2"].
+ * If the <div> element with id="1" had a className of "lyra-context__target
+ * lyra-context--selected" instead, the keys provided would be ["1", "2"].
  *
  * The target resolution logic is ideal for both single and multi-select
  * scenarios, such as lists that have several selected rows that should be acted

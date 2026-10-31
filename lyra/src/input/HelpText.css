@@ -9,7 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-input-help-text {
+.lyra-input-help-text {
     margin-left: 1rem;
     min-height: var(--pluto-small-line-height);
     height: fit-content;

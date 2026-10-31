@@ -81,12 +81,12 @@ class AWS:
     def instance(self, runner: str) -> tuple[str, dict]:
         """The instance behind a runner: its id and its instances() entry."""
         found = self.instances()
-        iid = instance_for(runner, found)
+        iid = instance_for(runner, found=found)
         if iid is None:
             raise LookupError(f"no EC2 instance matches {runner}")
         return iid, found[iid]
 
-    def run(self, iid: str, info: dict, linux: list[str], windows: list[str]) -> str:
+    def run(self, iid: str, *, info: dict, linux: list[str], windows: list[str]) -> str:
         """Sends the script for the instance's OS over SSM; returns the command id."""
         if info["windows"]:
             document, commands = "AWS-RunPowerShellScript", windows

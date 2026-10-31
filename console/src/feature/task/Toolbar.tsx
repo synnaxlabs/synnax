@@ -138,11 +138,7 @@ const Content = () => {
           </Toolbar.Title>
           {hasCreatePermission && (
             <Toolbar.Actions>
-              <Toolbar.Action
-                tooltip="Create task"
-                onClick={() => openSelector()}
-                variant="filled"
-              >
+              <Toolbar.Action tooltip="Create task" onClick={() => openSelector()}>
                 <Icon.Add />
               </Toolbar.Action>
             </Toolbar.Actions>
@@ -249,7 +245,7 @@ const TaskListItem = ({
               value={task_?.name ?? ""}
               onChange={hasUpdatePermission ? handleRename : undefined}
               allowDoubleClick={false}
-              overflow="ellipsis"
+              overflow="fade"
               weight={500}
             />
             {isDrifted && (
@@ -262,7 +258,7 @@ const TaskListItem = ({
             )}
           </Flex.Box>
         </Flex.Box>
-        <Text.Text level="small" color={10}>
+        <Text.Text level="tiny" color={10}>
           {parseType(task_?.type ?? "")}
         </Text.Text>
       </Flex.Box>

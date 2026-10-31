@@ -92,23 +92,14 @@ func (c ServiceConfig) Validate() error {
 type Service struct {
 	Policy *policy.Service
 	Role   *role.Service
-	closer io.MultiCloser
-	cfg    ServiceConfig
+	// Builtin holds the keys of the built-in roles.
+	Builtin builtin.ProvisionResult
+	closer  io.MultiCloser
+	cfg     ServiceConfig
 }
 
 // Close shuts down the RBAC service and its sub-services.
 func (s *Service) Close() error { return s.closer.Close() }
-
-// RetrievePoliciesForSubject retrieves all policies that apply to the given subject.
-// This includes all policies from roles assigned to the subject via ontology
-// relationships.
-func (s *Service) RetrievePoliciesForSubject(
-	ctx context.Context,
-	subject ontology.ID,
-	tx gorp.Tx,
-) ([]policy.Policy, error) {
-	return s.NewEnforcer(tx).retrievePolicies(ctx, subject)
-}
 
 // OpenService creates a new RBAC service with both Policy and Role sub-services. It
 // also provisions built-in roles/policies and runs legacy permission migrations.
@@ -142,7 +133,7 @@ func OpenService(
 	}
 	// Provision built-in roles and policies. This is idempotent and runs every startup
 	// to ensure policy definitions stay up to date.
-	builtinRoles, err := builtin.Provision(ctx, cfg.DB, s.Policy, s.Role)
+	s.Builtin, err = builtin.Provision(ctx, cfg.DB, s.Policy, s.Role)
 	if !ok(err, nil) {
 		return nil, err
 	}
@@ -157,7 +148,7 @@ func OpenService(
 			User:     cfg.User,
 			Ontology: cfg.Ontology,
 			Role:     s.Role,
-			Roles:    builtinRoles,
+			Roles:    s.Builtin,
 		}),
 	}); !ok(err, nil) {
 		return nil, err
@@ -165,7 +156,7 @@ func OpenService(
 	// assignOwnerToRoots ensures every user with RootUser=true holds the Owner role.
 	// Reconciliation of which users are flagged as root happens earlier in
 	// user.OpenService; this step only wires the role assignment.
-	if err = s.assignOwnerToRoots(ctx, builtinRoles.OwnerKey); !ok(err, nil) {
+	if err = s.assignOwnerToRoots(ctx, s.Builtin.OwnerKey); !ok(err, nil) {
 		return nil, err
 	}
 	return s, nil
@@ -192,7 +183,7 @@ func (s *Service) assignOwnerToRoots(ctx context.Context, ownerKey role.Key) err
 				return errors.Wrapf(
 					err,
 					"assign Owner role to root user %q",
-					r.Username,
+					r.Name,
 				)
 			}
 		}

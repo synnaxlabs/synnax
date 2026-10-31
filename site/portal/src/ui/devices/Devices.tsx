@@ -60,10 +60,10 @@ export const Devices = ({ machines, now }: DevicesProps): ReactElement => (
         {machines.map(({ activation: a, license: lic }) => (
           <Row key={a.key} columns={COLUMNS}>
             <Flex.Box y gap="tiny" className="portal-list__stack">
-              <Text.Text level="p" overflow="ellipsis">
+              <Text.Text level="p" overflow="fade">
                 {machineName(a)}
               </Text.Text>
-              <Text.Text level="small" color={9} overflow="ellipsis">
+              <Text.Text level="small" color={9} overflow="fade">
                 {validity(lic, now)}
               </Text.Text>
             </Flex.Box>

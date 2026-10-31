@@ -113,22 +113,14 @@ var _ = Describe("WASM Writer", func() {
 		Context("Binary Operations", func() {
 			It("Should encode arithmetic operations", func() {
 				encoder.WriteBinaryOp(wasm.OpI32Add)
-				Expect(encoder.Bytes()).To(Equal([]byte{0x6a}))
-
-				encoder.Reset()
 				encoder.WriteBinaryOp(wasm.OpF64Mul)
-				Expect(encoder.Bytes()).To(Equal([]byte{0xa2}))
+				Expect(encoder.Bytes()).To(Equal([]byte{0x6a, 0xa2}))
 			})
 		})
 
 		Context("Unary Operations", func() {
 			It("Should encode i32.eqz", func() {
 				encoder.WriteI32Eqz()
-				Expect(encoder.Bytes()).To(Equal([]byte{0x45}))
-			})
-
-			It("Should encode unary operations", func() {
-				encoder.WriteUnaryOp(wasm.OpI32Eqz)
 				Expect(encoder.Bytes()).To(Equal([]byte{0x45}))
 			})
 		})

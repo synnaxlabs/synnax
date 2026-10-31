@@ -11,6 +11,7 @@ import "@/platform/fs/PickerRow.css";
 
 import { Button } from "@synnaxlabs/lyra/button";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Text } from "@synnaxlabs/lyra/text";
 import { primitive } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
@@ -46,7 +47,9 @@ export const PickerRow = ({
     {primitive.isNonZero(value) ? (
       <>
         <Icon.Attachment className={CSS.BE("picker-row", "icon")} />
-        {value}
+        <Text.Text el="span" overflow="fade">
+          {value}
+        </Text.Text>
       </>
     ) : (
       "Select file"

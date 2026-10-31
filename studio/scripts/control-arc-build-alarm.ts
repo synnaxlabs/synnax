@@ -64,7 +64,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   const pane = capture.canvas(page);
   await session.waitFor(pane);
 
-  const drawer = page.locator(".console-nav__drawer.pluto--location-bottom").first();
+  const drawer = page.locator(".console-nav__drawer.lyra--location-bottom").first();
   const stagesTab = drawer.getByText("Stages", { exact: true }).first();
   if (!(await stagesTab.isVisible().catch(() => false))) {
     await session.click(page.locator(".console-main-nav__item").last(), {
@@ -155,7 +155,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
       session.setSpeed(1);
     }
     const option = page
-      .locator(".pluto-list__item")
+      .locator(".lyra-list__item")
       .filter({ has: page.getByText(item, { exact: true }) })
       .first();
     await session.waitFor(option);
@@ -165,7 +165,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   };
   const field = (label: string): Locator =>
     properties
-      .locator(".pluto-input__item")
+      .locator(".lyra-input__item")
       .filter({ hasText: new RegExp(`^${label}`) });
 
   await capture.zoomCenter(session, drawer, 1.4);
@@ -231,7 +231,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     1.5,
   );
   await choose(controls.locator(".console-rack-select").first(), "Node 1");
-  await session.click(controls.locator("button:has(svg.pluto-icon--play)").first());
+  await session.click(controls.locator("button:has(svg.lyra-icon--play)").first());
   session.endZoom();
   await session.waitFor(controls.getByText("Started task").first());
   await session.moveTo(await at(0.9, 0.4));

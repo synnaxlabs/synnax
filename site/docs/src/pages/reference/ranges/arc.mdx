@@ -21,8 +21,8 @@ Four rules apply to every pattern:
   that variable to `ranges.end`. A `$=` variable keeps its value from one stage to the
   next.
 - Set a `color`. Line plots show only ranges that have a color.
-- `ranges.create` with no input runs once each time its stage starts. The range starts
-  at that time.
+- `ranges.create` with no upstream trigger runs once each time its stage starts. The
+  range starts at that time.
 
 <Divider.Divider x />
 
@@ -37,12 +37,12 @@ sequence test {
         start_cmd == 1 => run
     }
     stage run {
-        ranges.create{name="Hotfire", color="#3bc454"} -> run_key
+        ranges.create(name="Hotfire", color="#3bc454") -> run_key
         1 -> press_vlv_cmd
         stop_cmd == 1 => done
     }
     stage done {
-        ranges.end{key=run_key}
+        ranges.end(key=run_key)
         0 -> press_vlv_cmd
         start_cmd == 1 => run
     }
@@ -74,22 +74,22 @@ sequence test {
         start_cmd == 1 => pressurize
     }
     stage pressurize {
-        ranges.create{name="Press test", color="#3bc454"} -> run_key
+        ranges.create(name="Press test", color="#3bc454") -> run_key
         1 -> press_vlv_cmd
         tank_pt > 300.0 => hold
     }
     stage hold {
-        ranges.create{name="Hold", parent=run_key, color="#8b5cf6"} -> hold_key
+        ranges.create(name="Hold", parent=run_key, color="#8b5cf6") -> hold_key
         0 -> press_vlv_cmd
-        time.wait{duration=30s} => vent
+        time.wait(duration=30s) => vent
     }
     stage vent {
-        ranges.end{key=hold_key}
+        ranges.end(key=hold_key)
         1 -> vent_vlv_cmd
         tank_pt < 5.0 => done
     }
     stage done {
-        ranges.end{key=run_key}
+        ranges.end(key=run_key)
         0 -> vent_vlv_cmd
         start_cmd == 1 => pressurize
     }
@@ -118,7 +118,7 @@ sequence test {
         start_cmd == 1 => pressurize
     }
     stage pressurize {
-        ranges.create{name="Press test", color="#3bc454"} -> run_key
+        ranges.create(name="Press test", color="#3bc454") -> run_key
         1 -> press_vlv_cmd
         tank_pt > 450.0 => abort
         abort_cmd == 1 => abort
@@ -130,19 +130,19 @@ sequence test {
         tank_pt < 5.0 => done
     }
     stage abort {
-        ranges.create{name="Abort", parent=run_key, color="#e5484d"} -> abort_key
+        ranges.create(name="Abort", parent=run_key, color="#e5484d") -> abort_key
         0 -> press_vlv_cmd
         1 -> vent_vlv_cmd
         tank_pt < 5.0 => safe
     }
     stage done {
-        ranges.end{key=run_key}
+        ranges.end(key=run_key)
         0 -> vent_vlv_cmd
         start_cmd == 1 => pressurize
     }
     stage safe {
-        ranges.end{key=abort_key}
-        ranges.end{key=run_key}
+        ranges.end(key=abort_key)
+        ranges.end(key=run_key)
         0 -> vent_vlv_cmd
         start_cmd == 1 => pressurize
     }
@@ -171,11 +171,11 @@ sequence watch {
         tank_pt > 600.0 => high
     }
     stage high {
-        ranges.create{name="Overpressure", color="#f59e0b"} -> range_key
+        ranges.create(name="Overpressure", color="#f59e0b") -> range_key
         tank_pt < 580.0 => recovered
     }
     stage recovered {
-        ranges.end{key=range_key}
+        ranges.end(key=range_key)
         tank_pt > 600.0 => high
     }
 }

@@ -130,10 +130,6 @@ func (c Channel) Index() Key {
 // Lease implements the proxy.UnaryServer interface.
 func (c Channel) Lease() node.Key { return c.Leaseholder }
 
-// Free returns true if the channel is not leased to any node i.e. it is a non-leased
-// virtual channel.
-func (c Channel) Free() bool { return c.Leaseholder == node.KeyFree }
-
 // String implements stringer, returning a nicely formatted string representation of the
 // Channel.
 func (c Channel) String() string {

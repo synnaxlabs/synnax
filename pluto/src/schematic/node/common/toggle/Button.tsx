@@ -9,11 +9,11 @@
 
 import "@/schematic/node/common/primitive/primitive.css";
 
-import { CSS } from "@synnaxlabs/lyra/css";
 import { useHold } from "@synnaxlabs/lyra/hooks";
 import { type CrudeTimeSpan } from "@synnaxlabs/x";
 import { type ComponentPropsWithRef, type ReactElement } from "react";
 
+import { CSS } from "@/css";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { type OrientableProps } from "@/schematic/node/common/primitive/orientable";
 

@@ -21,10 +21,10 @@ _SILENCE_TIMEOUT = 1000
 _READ_JS = """(elements) => elements.map((el) => {
   const text = (selector) => el.querySelector(selector)?.innerText.trim();
   const fields = {
-    count: text(".pluto-text--small"),
-    timestamp: text(".pluto-notification__time"),
-    message: text(".pluto-notification__message"),
-    description: text(".pluto-notification__description"),
+    count: text(".lyra-text--tiny"),
+    timestamp: text(".lyra-notification__time"),
+    message: text(".lyra-notification__message"),
+    description: text(".lyra-notification__description"),
   };
   const read = Object.fromEntries(
     Object.entries(fields).filter(([, value]) => value != null),
@@ -45,7 +45,7 @@ class NotificationsClient:
         return self.page.get_by_role("status")
 
     def check(
-        self, timeout: sy.CrudeTimeSpan = 200 * sy.TimeSpan.MILLISECOND
+        self, *, timeout: sy.CrudeTimeSpan = 200 * sy.TimeSpan.MILLISECOND
     ) -> list[dict[str, Any]]:
         """Check for notifications in the bottom right corner.
 
@@ -68,7 +68,7 @@ class NotificationsClient:
 
         return []
 
-    def close(self, notification_index: int = 0) -> bool:
+    def close(self, *, notification_index: int = 0) -> bool:
         """Close a notification by clicking its Silence button.
 
         :param notification_index: Index of the notification to close (0 for
@@ -142,7 +142,7 @@ class NotificationsClient:
             return False
 
     def wait_for(
-        self, text: str, name: str | None = None, description: str | None = None
+        self, text: str, *, name: str | None = None, description: str | None = None
     ) -> bool:
         """Wait for a notification containing specific text to appear.
 
@@ -155,12 +155,12 @@ class NotificationsClient:
         notification = self._all().filter(has_text=text)
         if name is not None:
             notification = notification.filter(
-                has=self.page.locator(".pluto-notification__name", has_text=name)
+                has=self.page.locator(".lyra-notification__name", has_text=name)
             )
         if description is not None:
             notification = notification.filter(
                 has=self.page.locator(
-                    ".pluto-notification__description", has_text=description
+                    ".lyra-notification__description", has_text=description
                 )
             )
         try:

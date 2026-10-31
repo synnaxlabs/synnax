@@ -176,10 +176,10 @@ class ImportGoldens(ConsoleCase):
         for golden in GOLDENS:
             self.test_import_golden(golden)
         for label, relative_path in ARC_GOLDENS:
-            self.test_import_arc_golden(label, relative_path)
+            self.test_import_arc_golden(label, relative_path=relative_path)
         self.test_import_legacy_tasks()
         for relative_path, error_text in REJECTIONS:
-            self.test_rejection(relative_path, error_text)
+            self.test_rejection(relative_path, error_text=error_text)
         self.test_import_symbols()
         self.test_import_symbol_groups()
 
@@ -202,15 +202,17 @@ class ImportGoldens(ConsoleCase):
         self._import_as(path, name)
         self._cleanup_pages.append(name)
 
-        page = golden.page_class.from_open_page(self.console.layout, self.client, name)
+        page = golden.page_class.from_open_page(
+            layout=self.console.layout, client=self.client, name=name
+        )
         assert page.is_pane_visible, f"{golden.label}: imported pane not visible"
 
         envelope_type = ROUND_TRIPS.get(golden.label)
         if envelope_type is not None:
-            self.test_round_trip(golden, name, envelope_type)
+            self.test_round_trip(golden, name=name, envelope_type=envelope_type)
         page.close()
 
-    def test_round_trip(self, golden: Golden, name: str, envelope_type: str) -> None:
+    def test_round_trip(self, golden: Golden, *, name: str, envelope_type: str) -> None:
         """Export the imported page and import the export under a new name."""
         self.log(f"Round-tripping golden: {golden.label}")
         exported = self.console.pages.export(name)
@@ -221,22 +223,22 @@ class ImportGoldens(ConsoleCase):
         self._import_as(export_path, reimport_name)
         self._cleanup_pages.append(reimport_name)
         page = golden.page_class.from_open_page(
-            self.console.layout, self.client, reimport_name
+            layout=self.console.layout, client=self.client, name=reimport_name
         )
         assert page.is_pane_visible, f"{golden.label}: round-tripped pane not visible"
         page.close()
 
     def _import_as(self, path: str, name: str) -> None:
         """Import ``path`` so the resulting page is named ``name``."""
-        with named_envelope_copy(path, name) as tmp_path:
-            self.console.pages.import_file(tmp_path, name)
+        with named_envelope_copy(path, name=name) as tmp_path:
+            self.console.pages.import_file(tmp_path, name=name)
 
-    def test_import_arc_golden(self, label: str, relative_path: str) -> None:
+    def test_import_arc_golden(self, label: str, *, relative_path: str) -> None:
         """Import one arc golden and verify it appears in the Arc panel."""
         self.log(f"Importing arc golden: {label}")
         name = f"{label}_{self.suffix}"
         path = get_core_fixture_path(relative_path)
-        with named_envelope_copy(path, name) as tmp_path:
+        with named_envelope_copy(path, name=name) as tmp_path:
             self.console.layout.choose_import_file(tmp_path)
         self.console.arc.wait_for_item(name)
         tab = self.console.layout.get_tab(name)
@@ -372,8 +374,8 @@ class ImportGoldens(ConsoleCase):
             self._symbol_groups.remove(name)
         schematic.close()
 
-    def test_rejection(self, relative_path: str, error_text: str) -> None:
+    def test_rejection(self, relative_path: str, *, error_text: str) -> None:
         """Import a golden the Core must reject and assert the error surfaces."""
         self.log(f"Importing rejection golden: {relative_path}")
         path = get_core_fixture_path(relative_path)
-        self.console.pages.import_file_expect_error(path, error_text)
+        self.console.pages.import_file_expect_error(path, error_text=error_text)

@@ -10,13 +10,13 @@
 import "@/schematic/edge/common/segmented/Segmented.css";
 
 import { Color } from "@synnaxlabs/lyra/color";
-import { CSS } from "@synnaxlabs/lyra/css";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as Base } from "@synnaxlabs/lyra/form";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Theming } from "@synnaxlabs/lyra/theming";
 import { type CSSProperties, type ReactElement } from "react";
 
+import { CSS } from "@/css";
 import { type Variant } from "@/schematic/edge/registry";
 
 const SELECT_STYLE: CSSProperties = { width: "25rem" };

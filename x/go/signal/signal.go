@@ -142,16 +142,3 @@ func SendUnderContext[V any](ctx context.Context, ch chan<- V, v V) error {
 		return nil
 	}
 }
-
-// RecvUnderContext attempts to receive a value from channel ch while respecting the
-// context's cancellation. It returns ctx.Err() if the context is canceled before the
-// receive can complete. If successful, it returns the received value and nil error.
-func RecvUnderContext[V any](ctx context.Context, ch <-chan V) (V, error) {
-	select {
-	case <-ctx.Done():
-		var o V
-		return o, ctx.Err()
-	case v := <-ch:
-		return v, nil
-	}
-}

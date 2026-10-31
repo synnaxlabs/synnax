@@ -27,7 +27,7 @@ class SeverableProxy:
     downtime without touching the Core itself. Point the console at ``port``, then
     ``sever()`` and ``restore()`` the link."""
 
-    def __init__(self, target_host: str = "localhost", target_port: int = 9090):
+    def __init__(self, *, target_host: str = "localhost", target_port: int = 9090):
         self.target_host = target_host
         self.target_port = target_port
         self._lock = threading.Lock()

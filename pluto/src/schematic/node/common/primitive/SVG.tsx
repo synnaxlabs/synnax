@@ -9,7 +9,6 @@
 
 import "@/schematic/node/common/primitive/primitive.css";
 
-import { CSS } from "@synnaxlabs/lyra/css";
 import { useUniqueKey } from "@synnaxlabs/lyra/hooks";
 import { color, dimensions, direction } from "@synnaxlabs/x";
 import {
@@ -20,6 +19,7 @@ import {
   use,
 } from "react";
 
+import { CSS } from "@/css";
 import { type SVGBasedProps } from "@/schematic/node/common/primitive/orientable";
 import { SYMBOL_COLOR } from "@/schematic/node/common/primitive/variables";
 
@@ -74,7 +74,7 @@ export const SVG = ({
     <svg
       xmlns="http://www.w3.org/2000/svg"
       viewBox={dimensions.svgViewBox(dims)}
-      className={CSS.cls(CSS.B("symbol-colored"), CSS.loc(orientation), className)}
+      className={CSS.cls(CSS.symbolColored, CSS.loc(orientation), className)}
       {...rest}
       style={pStyle}
     >

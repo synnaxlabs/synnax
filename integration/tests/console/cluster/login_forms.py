@@ -122,7 +122,7 @@ class LoginForms(ConsoleCase):
         password = self.page.get_by_label("Password", exact=True).first
         password.fill("wrong-password")
         self.page.get_by_role("button", name="Log in").click(timeout=5000)
-        self._wait(self.page.locator(".console-login__status .pluto--status-error"))
+        self._wait(self.page.locator(".console-login__status .lyra--status-error"))
 
         self.log("Submitting good credentials")
         password.fill(self.synnax_connection.password)

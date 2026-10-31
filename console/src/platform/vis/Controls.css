@@ -18,7 +18,7 @@
     transition: opacity 0.1s ease-in-out;
 }
 
-.pluto-tabs__content:hover .console-controls,
+.lyra-tabs__content:hover .console-controls,
 .console-controls:has(:focus-visible),
 .console-controls:has(.console-controls--pinned) {
     opacity: 1;
@@ -30,13 +30,13 @@
    skipped when stamping transitions: they already animate opacity through
    --pluto-btn-transition, and overriding that kills their background fades. */
 .console-controls:has(.console-controls--pinned) {
-    & > *:not(.pluto-btn),
-    & :has(.console-controls--pinned) > *:not(.pluto-btn) {
+    & > *:not(.lyra-btn),
+    & :has(.console-controls--pinned) > *:not(.lyra-btn) {
         transition: opacity 0.1s ease-in-out;
     }
 }
 
-.pluto-tabs__content:not(:hover)
+.lyra-tabs__content:not(:hover)
     .console-controls:has(.console-controls--pinned):not(:has(:focus-visible)) {
     & > *,
     & :has(.console-controls--pinned) > * {

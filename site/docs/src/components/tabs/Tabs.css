@@ -34,7 +34,7 @@ article .docs-tabs__header {
     }
 }
 
-.docs-tabs__header:has(.pluto--selected[data-edition="enterprise"])
+.docs-tabs__header:has(.lyra--selected[data-edition="enterprise"])
     > .docs-tabs__edition[data-edition="enterprise"] {
     display: inline-flex;
 }

@@ -40,9 +40,9 @@ class NIAnalogWriteForms(NIRackCase):
             auto_start=False,
         )
 
-        self.create_test_ni_rack(rack_name, device_name)
-        self.verify_voltage_inputs(ni_ao, device_name)
-        self.verify_current_inputs(ni_ao, device_name)
+        self.create_test_ni_rack(rack_name, device_name=device_name)
+        self.verify_voltage_inputs(ni_ao, device_name=device_name)
+        self.verify_current_inputs(ni_ao, device_name=device_name)
 
         # Assert the set values with form state
         ch_names = ni_ao.channels_by_name.copy()
@@ -52,7 +52,7 @@ class NIAnalogWriteForms(NIRackCase):
         for ch in ch_names:
             ni_ao.assert_channel(ch)
 
-    def verify_voltage_inputs(self, ni_ao: AnalogWrite, device_name: str) -> None:
+    def verify_voltage_inputs(self, ni_ao: AnalogWrite, *, device_name: str) -> None:
         """Validate voltage inputs"""
         self.log("Configuring channels of type Voltage")
         ni_ao.add_channel(
@@ -68,7 +68,7 @@ class NIAnalogWriteForms(NIRackCase):
             max_val=6.5,
         )
 
-    def verify_current_inputs(self, ni_ao: AnalogWrite, device_name: str) -> None:
+    def verify_current_inputs(self, ni_ao: AnalogWrite, *, device_name: str) -> None:
         """Validate Bridge inputs"""
         self.log("Configuring channels of type Current")
         ni_ao.add_channel(

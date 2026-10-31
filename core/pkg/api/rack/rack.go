@@ -11,11 +11,13 @@ package rack
 
 import (
 	"context"
+	"slices"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	svcauth "github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/legacy/device"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
@@ -25,6 +27,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -55,6 +58,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	RBAC *rbac.Service
+	// Auth ends the sessions of the racks the service deletes.
+	//
+	// [REQUIRED]
+	Auth *svcauth.Service
 }
 
 var (
@@ -70,6 +77,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Task = override.Nil(c.Task, other.Task)
 	c.Status = override.Nil(c.Status, other.Status)
 	c.RBAC = override.Nil(c.RBAC, other.RBAC)
+	c.Auth = override.Nil(c.Auth, other.Auth)
 	return c
 }
 
@@ -81,11 +89,13 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("task", c.Task)
 	v.NotNil("status", c.Status)
 	v.NotNil("rbac", c.RBAC)
+	v.NotNil("auth", c.Auth)
 	return v.Error()
 }
 
 type Service struct {
 	access *rbac.Service
+	auth   *svcauth.Service
 	rack   *rack.Service
 	device *device.Service
 	task   *task.Service
@@ -103,6 +113,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 		task:   cfg.Task,
 		status: cfg.Status,
 		access: cfg.RBAC,
+		auth:   cfg.Auth,
 	}, nil
 }
 
@@ -120,17 +131,64 @@ func (s *Service) Create(
 	tx gorp.Tx,
 	req CreateRequest,
 ) (CreateResponse, error) {
-	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionCreate,
-		Objects: []ontology.ID{{Type: ontology.ResourceTypeRack}},
-	}); err != nil {
+	if err := s.enforceCreate(ctx, tx, req.Racks); err != nil {
 		return CreateResponse{}, err
 	}
 	if err := s.rack.NewWriter(tx).CreateMany(ctx, &req.Racks); err != nil {
 		return CreateResponse{}, err
 	}
 	return CreateResponse(req), nil
+}
+
+// enforceCreate requires the update action on each rack that already exists, and the
+// create action when any rack is new, so a subject that may only update racks can
+// still save its own.
+func (s *Service) enforceCreate(
+	ctx context.Context,
+	tx gorp.Tx,
+	racks []rack.Rack,
+) error {
+	keys := make([]rack.Key, 0, len(racks))
+	for _, r := range racks {
+		if !r.Key.IsZero() {
+			keys = append(keys, r.Key)
+		}
+	}
+	var existing []rack.Rack
+	if len(keys) > 0 {
+		if err := s.rack.NewRetrieve().
+			Where(rack.MatchKeys(keys...)).
+			Entries(&existing).
+			Exec(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
+			return err
+		}
+	}
+	enforcer := s.access.NewEnforcer(tx)
+	subject := auth.GetSubject(ctx)
+	if len(existing) > 0 {
+		if err := enforcer.Enforce(ctx, access.Request{
+			Subject: subject,
+			Action:  access.ActionUpdate,
+			Objects: rack.OntologyIDsFromRacks(existing),
+		}); err != nil {
+			return err
+		}
+	}
+	found := make(set.Set[rack.Key], len(existing))
+	for _, r := range existing {
+		found.Add(r.Key)
+	}
+	if !slices.ContainsFunc(
+		racks,
+		func(r rack.Rack) bool { return !found.Contains(r.Key) },
+	) {
+		return nil
+	}
+	return enforcer.Enforce(ctx, access.Request{
+		Subject: subject,
+		Action:  access.ActionCreate,
+		Objects: []ontology.ID{{Type: ontology.ResourceTypeRack}},
+	})
 }
 
 type (
@@ -303,5 +361,6 @@ func (s *Service) Delete(
 	if err := s.task.NewWriter(tx).DeleteByRacks(ctx, req.Keys...); err != nil {
 		return struct{}{}, err
 	}
-	return struct{}{}, nil
+	return struct{}{}, s.auth.NewWriter(tx).
+		DeleteFor(ctx, rack.OntologyIDs(req.Keys)...)
 }

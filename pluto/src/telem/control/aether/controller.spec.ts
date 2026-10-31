@@ -7,7 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type channel, type framer, ValidationError } from "@synnaxlabs/client";
+import {
+  type channel,
+  type framer,
+  SessionEndedError,
+  ValidationError,
+} from "@synnaxlabs/client";
 import { createTestClient, TEST_CLIENT_PARAMS } from "@synnaxlabs/client/testutil";
 import { StreamClosed } from "@synnaxlabs/freighter";
 import { color, DataType, id, TimeRange, TimeStamp } from "@synnaxlabs/x";
@@ -186,25 +191,55 @@ const interceptWrites = (
 
 /**
  * A writer factory whose open blocks until `finishOpen` is called, counting the writes
- * that reach the Core. Lets a test change state while an acquisition is in flight.
+ * that reach the Core and the closes. Lets a test change state while an acquisition is
+ * in flight.
  */
 const gateWriter = () => {
   let finishOpen!: () => void;
   const gate = new Promise<void>((resolve) => (finishOpen = resolve));
   let writes = 0;
+  let closes = 0;
   const openWriter: OpenWriter = async (client, config) => {
     await gate;
     const w = await client.openWriter(config);
     const write = w.write.bind(w);
+    const close = w.close.bind(w);
     return Object.assign(Object.create(w) as framer.Writer, {
       write: async (...args: Parameters<typeof write>) => {
         writes += 1;
         return await write(...args);
       },
+      close: async () => {
+        closes += 1;
+        await close();
+      },
     });
   };
-  return { openWriter, finishOpen: () => finishOpen(), writeCount: () => writes };
+  return {
+    openWriter,
+    finishOpen: () => finishOpen(),
+    writeCount: () => writes,
+    closeCount: () => closes,
+  };
 };
+
+/**
+ * A writer factory whose writers close for real on the Core, then throw a `Kind` error
+ * from `close`.
+ */
+const failClose =
+  (Kind: new (message: string) => Error): OpenWriter =>
+  async (client, config) => {
+    const w = await client.openWriter(config);
+    const wrapped = Object.create(w) as framer.Writer;
+    const close = w.close.bind(wrapped);
+    return Object.assign(wrapped, {
+      close: async () => {
+        await close();
+        throw new Kind("close failed");
+      },
+    });
+  };
 
 /** Binds every Controller the harness mounts to `openWriter`. */
 const registryWith = (openWriter: OpenWriter): aether.ComponentRegistry => ({
@@ -262,6 +297,49 @@ describe("control/aether/Controller", SUITE, () => {
     controller.release();
     await expect.poll(() => controller.state.status, POLL).toEqual("released");
     await expect.poll(() => source.value().data.message, POLL).toEqual("Uncontrolled");
+  });
+
+  it("should close a writer that finishes opening after a release", async () => {
+    const ch = await createIndexed();
+    const { openWriter, finishOpen, closeCount } = gateWriter();
+    const { controller } = await setup(ch.key, openWriter);
+    controller.create(setChannelValue({ channel: ch.key }));
+    controller.acquire();
+    controller.release();
+    finishOpen();
+    await expect.poll(() => closeCount(), POLL).toEqual(1);
+    await expect.poll(() => controller.state.status, POLL).toEqual("released");
+  });
+
+  it("should release without an error when the writer's session ended", async () => {
+    const ch = await createIndexed();
+    const { controller, source, handle } = await setup(
+      ch.key,
+      failClose(SessionEndedError),
+    );
+    controller.create(setChannelValue({ channel: ch.key }));
+    controller.acquire();
+    await expect.poll(() => source.value().data.variant, POLL).toEqual("success");
+    controller.release();
+    await expect.poll(() => controller.state.status, POLL).toEqual("released");
+    expect(statusesOf(handle)).toEqual([]);
+  });
+
+  it("should report an error when closing the writer fails", async () => {
+    const ch = await createIndexed();
+    const { controller, source, handle } = await setup(ch.key, failClose(Error));
+    controller.create(setChannelValue({ channel: ch.key }));
+    controller.acquire();
+    await expect.poll(() => source.value().data.variant, POLL).toEqual("success");
+    controller.release();
+    await expect
+      .poll(() => statusesOf(handle), POLL)
+      .toContainEqual({
+        name: CONTROLLER_NAME,
+        message: "Failed to release control",
+        description: "close failed",
+      });
+    expect(controller.state.status).toEqual("released");
   });
 
   it("should release the control it holds when it is deleted", async () => {
@@ -363,7 +441,8 @@ describe("control/aether/Controller", SUITE, () => {
     const { controller, source, setState } = await setup(ch.key);
     controller.create(setChannelValue({ channel: ch.key }));
     controller.acquire();
-    await expect.poll(() => source.value().data.variant, POLL).toEqual("success");
+    // The stream can report the grant before the writer open answers.
+    await expect.poll(() => controller.state.status, POLL).toEqual("acquired");
     setState({ disabled: true });
     await expect.poll(() => controller.state.status, POLL).toEqual("released");
     await expect.poll(() => source.value().data.message, POLL).toEqual("Uncontrolled");
@@ -376,7 +455,7 @@ describe("control/aether/Controller", SUITE, () => {
     setState({ disabled: true });
     controller.acquire();
     await expect.poll(() => source.value().data.variant, POLL).toEqual("success");
-    expect(controller.state.status).toEqual("acquired");
+    await expect.poll(() => controller.state.status, POLL).toEqual("acquired");
   });
 
   it("should refuse to open a writer for a write while disabled", async () => {
@@ -421,10 +500,10 @@ describe("control/aether/Controller", SUITE, () => {
 
   it("should keep control while it is not disabled", async () => {
     const ch = await createIndexed();
-    const { controller, source, setState } = await setup(ch.key);
+    const { controller, setState } = await setup(ch.key);
     controller.create(setChannelValue({ channel: ch.key }));
     controller.acquire();
-    await expect.poll(() => source.value().data.variant, POLL).toEqual("success");
+    await expect.poll(() => controller.state.status, POLL).toEqual("acquired");
     setState({ disabled: false });
     expect(controller.state.status).toEqual("acquired");
   });

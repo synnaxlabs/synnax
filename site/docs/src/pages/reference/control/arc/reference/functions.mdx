@@ -2,59 +2,59 @@
 layout: "@/layouts/Reference.astro"
 title: "Functions"
 description:
-  "Syntax of Arc functions: config parameters, inputs, outputs, calls, and stateful
-  variables."
+  "Syntax of Arc functions: inputs, triggers, outputs, calls, and stateful variables."
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-A function declares config parameters in braces, inputs in parentheses, and an optional
-output. Functions are declared at the top level only.
+A function declares inputs in parentheses, triggers in braces, and an optional output.
+Functions are declared at the top level only.
 
 ```text
-function = "func" name ("{" params "}")? "(" params? ")" output?
+function = "func" name "(" params? ")" ("{" params? "}")? output?
            "{" statement* "}"
 params   = name type ("=" literal)? ("," name type ("=" literal)?)*
 ```
 
 ```arc channels="tank_pt, tank_pt_kpa" bodies="scale"
-func scale{k f64 = 1.0} (v f64) f64 {
+func scale(k f64 = 1.0) {v f64} f64 {
     return v * k
 }
 
-tank_pt -> scale{k=6.895} -> tank_pt_kpa
+tank_pt -> scale(k=6.895) -> tank_pt_kpa
 ```
 
-| Part       | Required | Form                                                       |
-| ---------- | -------- | ---------------------------------------------------------- |
-| `{config}` | No       | Parameters that a flow sets in braces.                     |
-| `(inputs)` | Yes      | Parameters that values fill. The parentheses can be empty. |
-| Output     | No       | `type`, `name type`, or `(name type, ...)`.                |
+| Part         | Required | Form                                                           |
+| ------------ | -------- | -------------------------------------------------------------- |
+| `(inputs)`   | Yes      | Parameters that a flow sets in parentheses. They can be empty. |
+| `{triggers}` | No       | Parameters that values from upstream fill.                     |
+| Output       | No       | `type`, `name type`, or `(name type, ...)`.                    |
 
 A function with no parentheses is a parse error. A function declared in a function body
-is a parse error too.
+is a parse error too. The last braces of a declaration are the body, so `func f() { }`
+has no triggers and `func f() {v f64} { }` has one.
 
 <Divider.Divider x />
 
-## Config parameters
+## Inputs
 
-A flow sets config parameters in braces, such as `scale{k=6.895}`. A parameter type is a
-value type, or `chan T` for a channel. For the values that braces accept, see
-[config values](/reference/control/arc/reference/flow#config-values).
+A flow sets inputs in parentheses, such as `scale(k=6.895)`. A parameter type is a value
+type, or `chan T` for a channel. For the values that the parentheses accept, see
+[input values](/reference/control/arc/reference/flow#input-values).
 
-A config parameter or an input with `= literal` has a default and can be left out.
-Parameters with defaults come last in their braces or parentheses. Otherwise the
-compiler fails with `required input parameter b cannot follow optional input parameters`
-or `required parameter b cannot follow optional parameters`.
+An input or a trigger with `= literal` has a default and can be left out. Parameters
+with defaults come last in their parentheses or braces. Otherwise the compiler fails
+with `required input parameter b cannot follow optional input parameters` or
+`required parameter b cannot follow optional parameters`.
 
 A body reads a `chan` parameter, or any channel by name, to get its latest value. It
 assigns to the channel to write it. See
 [writes](/reference/control/arc/execution-model#writes).
 
 ```arc channels="tank_pt, press_vlv_cmd" bodies="bang_bang"
-func bang_bang{sensor chan f64, cmd chan u8, low f64, high f64} () {
+func bang_bang(sensor chan f64, cmd chan u8, low f64, high f64) {
     if sensor < low {
         cmd = 1
     } else if sensor > high {
@@ -62,39 +62,39 @@ func bang_bang{sensor chan f64, cmd chan u8, low f64, high f64} () {
     }
 }
 
-tank_pt -> bang_bang{sensor=tank_pt, cmd=press_vlv_cmd, low=280.0, high=300.0}
+tank_pt -> bang_bang(sensor=tank_pt, cmd=press_vlv_cmd, low=280.0, high=300.0)
 ```
 
 <Divider.Divider x />
 
-## Inputs
+## Triggers
 
-In a flow, the value from upstream fills the first input. Braces fill the other inputs,
-such as `pt -> add{y=2.0}`. A function with no inputs runs on each value from upstream,
-and does not use the value.
+In a flow, the value from upstream fills the first trigger. The parentheses fill the
+other triggers, such as `pt -> add(y=2.0)`. A function with no triggers runs on each
+value from upstream, and does not use the value.
 
-| Error                                                                                    | Cause                                      |
-| ---------------------------------------------------------------------------------------- | ------------------------------------------ |
-| `missing required argument for parameter 'y' of func 'add'`                              | An input or config parameter has no value. |
-| `parameter 'x' of func 'add' is bound by both a call-site argument and an upstream wire` | Braces set the input that upstream fills.  |
+| Error                                                                                    | Cause                                                |
+| ---------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| `missing required argument for parameter 'y' of func 'add'`                              | A parameter has no value.                            |
+| `parameter 'x' of func 'add' is bound by both a call-site argument and an upstream wire` | The parentheses set the trigger that upstream fills. |
 
 <Divider.Divider x />
 
 ## Outputs
 
-| Output        | Example                                     | Body                                          |
-| ------------- | ------------------------------------------- | --------------------------------------------- |
-| None          | `func log(v f64) { }`                       | `return` with no value only.                  |
-| Unnamed       | `func double(v f64) f64 { }`                | `return value` on all paths.                  |
-| One named     | `func double(v f64) result f64 { }`         | Assign `result`. A bare `return` is optional. |
-| Several named | `func split(v f64) (high f64, low f64) { }` | Assign one or more outputs.                   |
+| Output        | Example                                        | Body                                          |
+| ------------- | ---------------------------------------------- | --------------------------------------------- |
+| None          | `func log() {v f64} { }`                       | `return` with no value only.                  |
+| Unnamed       | `func double() {v f64} f64 { }`                | `return value` on all paths.                  |
+| One named     | `func double() {v f64} result f64 { }`         | Assign `result`. A bare `return` is optional. |
+| Several named | `func split() {v f64} (high f64, low f64) { }` | Assign one or more outputs.                   |
 
 A function with an unnamed output must return on all paths. A `return` at the end of the
 body counts, and so does an `if` with an `else` in which each branch returns. A `return`
 in a `for` does not count:
 
 ```arc
-func is_high(v f64) u8 {
+func is_high() {v f64} u8 {
     if v > 500.0 {
         return 1
     }
@@ -103,7 +103,7 @@ func is_high(v f64) u8 {
 ```
 
 A named output passes a value only in the calls that assign it. A flow with no routing
-table passes only the first output: `split{} -> out` writes only `high`. Route several
+table passes only the first output: `split() -> out` writes only `high`. Route several
 named outputs with a
 [routing table](/reference/control/arc/reference/flow#custom-routing). An output that
 the body never assigns gives the warning
@@ -114,17 +114,17 @@ the body never assigns gives the warning
 
 ## Calls
 
-| Where                | Example                                | Arguments                                             |
-| -------------------- | -------------------------------------- | ----------------------------------------------------- |
-| Flow                 | `tank_pt -> scale{k=6.895}`            | Upstream fills the first input. Braces fill the rest. |
-| Expression in a flow | `median3(pt_1, pt_2, pt_3) -> tank_pt` | By position: config parameters, then inputs.          |
-| Function body        | `scale(6.895, v)`                      | By position: config parameters, then inputs.          |
+| Where                | Example                                  | Arguments                                                        |
+| -------------------- | ---------------------------------------- | ---------------------------------------------------------------- |
+| Flow                 | `tank_pt -> scale(k=6.895)`              | Upstream fills the first trigger. The parentheses fill the rest. |
+| Expression in a flow | `(median3(pt_1, pt_2, pt_3)) -> tank_pt` | By position: inputs, then triggers.                              |
+| Function body        | `scale(6.895, v)`                        | By position: inputs, then triggers.                              |
 
-Braces are not valid in a function body. An expression call reads each channel in its
-arguments:
+In a flow, a bare `name(...)` is a function instance. Put an expression call in
+parentheses. It reads each channel in its arguments:
 
 ```arc channels="pt_1, pt_2, pt_3, tank_pt" bodies="median3"
-func median3(a f64, b f64, c f64) f64 {
+func median3() {a f64, b f64, c f64} f64 {
     if (a - b) * (c - a) >= 0.0 {
         return a
     } else if (b - a) * (c - b) >= 0.0 {
@@ -133,7 +133,7 @@ func median3(a f64, b f64, c f64) f64 {
     return c
 }
 
-median3(pt_1, pt_2, pt_3) -> tank_pt
+(median3(pt_1, pt_2, pt_3)) -> tank_pt
 ```
 
 A function can call itself. The compiler finds some recursion that never ends, such as
@@ -155,8 +155,8 @@ func counter() i64 {
     return count
 }
 
-time.interval{period=100ms} -> counter{} -> fast_count
-time.interval{period=1s} -> counter{} -> slow_count
+time.interval(period=100ms) -> counter() -> fast_count
+time.interval(period=1s) -> counter() -> slow_count
 ```
 
 To learn when the state goes back to its first value, see
@@ -175,7 +175,7 @@ string. Call it in a function body only. In a flow, it fails with
 `function 'len' cannot be used as a flow statement. Call it inside a func block instead: len()`.
 
 ```arc
-func last(data series f64) f64 {
+func last() {data series f64} f64 {
     return data[len(data) - 1]
 }
 ```

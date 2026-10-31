@@ -12,18 +12,6 @@ package bit
 // Mask128 is a bitmask with 128 values.
 type Mask128 [16]byte
 
-func (m Mask128) Swap(i, j int) Mask128 {
-	if i < 0 || i >= 128 || j < 0 || j >= 128 {
-		panic("mask: position out of bounds")
-	}
-	if i == j {
-		return m
-	}
-	iVal := m.Get(i)
-	jVal := m.Get(j)
-	return m.Set(i, jVal).Set(j, iVal)
-}
-
 // Cap returns the capacity of the mask in bits.
 func (m Mask128) Cap() int { return 128 }
 

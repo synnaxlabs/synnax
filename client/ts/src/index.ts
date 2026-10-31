@@ -44,6 +44,7 @@ export {
   PathError,
   QueryError,
   RouteError,
+  SessionEndedError,
   UnauthorizedError,
   UnexpectedError,
   UnsupportedError,

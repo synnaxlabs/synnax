@@ -35,9 +35,9 @@ export interface Server {
  */
 export const INTEGRATIONS = ["opc", "modbus", "http"];
 
-/** switchField returns the switch with the given label. */
-const switchField = (modal: Locator, label: string): Locator =>
-  fieldItem(modal, label).locator(".pluto-input__switch").first();
+/** checkboxField returns the checkbox with the given label. */
+const checkboxField = (modal: Locator, label: string): Locator =>
+  fieldItem(modal, label).getByRole("checkbox").first();
 
 export const MODBUS: Server = {
   server: { protocol: "modbus", port: 5020 },
@@ -78,7 +78,7 @@ export const HTTP: Server = {
     await session.click(modal.getByPlaceholder("www.example.com").first());
     await session.type("127.0.0.1:8080");
     await session.hold(300);
-    await session.click(switchField(modal, "HTTPS"));
+    await session.click(checkboxField(modal, "HTTPS"));
     await session.hold(400);
     await session.click(modal.getByRole("tab", { name: "Health check" }), {
       text: true,

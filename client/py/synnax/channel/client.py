@@ -76,12 +76,13 @@ class Channel(Payload):
         call client.channels.create(channel).
 
         :param name: A name for the channel.
-        :param data_type: The data type of the samples in the channel. For example, `"float32"`.
+        :param data_type: The data type of the samples in the channel. For example,
+            `"float32"`.
         :param is_index: Boolean indicating whether the channel is an index. Index
         channels should have a data type of synnax.TIMESTAMP.
         :param index: The key of the channel that indexes this channel.
-        :param leaseholder: The node that holds the lease for this channel. If you don't know
-        what this is, leave it at the default value of 0.
+        :param leaseholder: The node that holds the lease for this channel. If you don't
+        know what this is, leave it at the default value of 0.
         :param virtual: Boolean indicating whether the channel is virtual. Virtual
         channels do not store any data, and are used for streaming purposes only.
         :param expression: An optional Lua expression that defines the channel as a
@@ -144,7 +145,8 @@ class Channel(Payload):
         :returns: A tuple containing a numpy array of the telemetry and a TimeRange
         representing the range of telemetry. The start of the time range represents
         the timestamp of the first sample in the array.
-        :raises ContiguityError: If the telemetry between start and end is non-contiguous.
+        :raises ContiguityError: If the telemetry between start and end is
+            non-contiguous.
         """
         tr = TimeRange(start_or_range, end)
         return self._frame_client.read(tr, self.key)
@@ -212,6 +214,7 @@ class Client:
 
     def __init__(
         self,
+        *,
         frame_client: framer.Client,
         retriever: Retriever,
         creator: Writer,
@@ -266,13 +269,14 @@ class Client:
         """Creates new channel(s) in the Synnax cluster.
 
         Overload 1:
-        :param data_type: The data type of the samples in the channel. For example, `"float32"`.
+        :param data_type: The data type of the samples in the channel. For example,
+            `"float32"`.
         :param name: A name for the channel.
         :param is_index: Boolean indicating whether the channel is an index. Index
         channels should have a data type of synnax.TIMESTAMP.
         :param index: The key of the channel that indexes this channel.
-        :param leaseholder: The node that holds the lease for this channel. If you don't know
-        what this is, leave it at the default value of 0.
+        :param leaseholder: The node that holds the lease for this channel. If you don't
+        know what this is, leave it at the default value of 0.
         :param virtual: Boolean indicating whether the channel is virtual. Virtual
         channels do not store any data, and are used for streaming purposes only.
         :param expression: An optional expression that defines the channel as a

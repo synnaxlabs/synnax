@@ -81,14 +81,12 @@ def parse_param(param: str):
     return typ, name, is_array, is_ptr
 
 
-def record_line(typ: str, name: str, is_array: bool, is_ptr: bool):
+def record_line(typ: str, name: str, *, is_array: bool, is_ptr: bool):
     base = typ.removeprefix("const ").strip()
     if base == "TaskHandle":
         return None
     if is_array and base == "char":
-        return (
-            f'        if ({name} != nullptr) args["{name}"] = std::string({name});\n'
-        )
+        return f'        if ({name} != nullptr) args["{name}"] = std::string({name});\n'
     if is_array:
         return f'        if ({name} != nullptr) args["{name}"] = "<array>";\n'
     if (
@@ -101,7 +99,7 @@ def record_line(typ: str, name: str, is_array: bool, is_ptr: bool):
     return f'        args["{name}"] = {name};\n'
 
 
-def emit(name: str, params: str):
+def emit(name: str, *, params: str):
     parsed = [parse_param(p) for p in params.split(",")] if params.strip() else []
     sig_params = ", ".join(
         p.strip().replace("\n", " ") for p in params.split(",") if p.strip()
@@ -112,7 +110,8 @@ def emit(name: str, params: str):
     recorded = [
         line
         for typ, pname, is_array, is_ptr in parsed
-        if (line := record_line(typ, pname, is_array, is_ptr)) is not None
+        if (line := record_line(typ, pname, is_array=is_array, is_ptr=is_ptr))
+        is not None
     ]
     out += "".join(recorded)
     if not recorded:
@@ -124,6 +123,6 @@ def emit(name: str, params: str):
 
 
 methods = re.findall(r"virtual\s+int32\s+(\w+)\(([^)]*)\)\s*=\s*0;", API, re.DOTALL)
-body = "".join(emit(name, params) for name, params in methods)
+body = "".join(emit(name, params=params) for name, params in methods)
 (DIR / "mock.h").write_text(HEADER + "\n" + body.rstrip("\n") + "\n" + FOOTER)
 print(f"generated {len(methods)} methods")

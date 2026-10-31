@@ -21,6 +21,7 @@ import {
 } from "@/feature/labjack/testutil";
 import {
   awaitEditableForm,
+  createWithHook,
   deployAndAwaitTask,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
@@ -263,5 +264,13 @@ describe("Write", () => {
     expect(secondTask.config.channels[0].stateChannel).toBe(
       firstTask.config.channels[0].stateChannel,
     );
+  });
+
+  it("should create the task with one channel", async () => {
+    const tsk = await createWithHook(
+      LabJack.Task.useCreateWrite,
+      LabJack.Task.WRITE_SCHEMAS,
+    );
+    expect(tsk.config.channels).toHaveLength(1);
   });
 });

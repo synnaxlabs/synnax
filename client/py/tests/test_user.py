@@ -21,8 +21,7 @@ def new_user() -> sy.user.New:
     return sy.user.New(
         username=uuid().__str__(),
         password="password",
-        first_name="first",
-        last_name="last",
+        name="First Last",
         key=uuid(),
     )
 
@@ -33,13 +32,12 @@ def new_user_list() -> list[sy.user.New]:
         sy.user.New(
             username=uuid().__str__(),
             password="password1",
-            first_name="first1",
-            last_name="last1",
+            name="First1 Last1",
         ),
         sy.user.New(
             username=uuid().__str__(),
             password="password2",
-            first_name="first2",
+            name="First2",
             key=uuid(),
         ),
         sy.user.New(username=uuid().__str__(), password="password3", key=uuid()),
@@ -48,9 +46,7 @@ def new_user_list() -> list[sy.user.New]:
 
 
 def compare_users(user: sy.user.User, new_user: sy.user.New) -> None:
-    assert user.username == new_user.username
-    assert user.first_name == new_user.first_name
-    assert user.last_name == new_user.last_name
+    assert user.name == (new_user.name or new_user.username)
     if new_user.key is not None:
         assert user.key == new_user.key
     else:
@@ -66,13 +62,11 @@ class TestUserClient:
         key = uuid()
         username = uuid().__str__()
         user = client.users.create(
-            username=username, password="test", first_name="silly", key=key
+            username=username, password="test", name="silly", key=key
         )
         compare_users(
             user,
-            sy.user.New(
-                username=username, password="test", first_name="silly", key=key
-            ),
+            sy.user.New(username=username, password="test", name="silly", key=key),
         )
         client.users.delete(user.key)
 
@@ -102,11 +96,10 @@ class TestUserClient:
         user = client.users.create(user=new_user)
         username = str(uuid())
         client.users.change_username(user.key, username)
-        assert client.users.retrieve(key=user.key).username == username
+        assert client.users.retrieve(username=username).key == user.key
 
     def test_change_name(self, client: sy.Synnax, new_user: sy.user.New) -> None:
         user = client.users.create(user=new_user)
-        client.users.change_name(user.key, first_name="Thomas", last_name="Jefferson")
+        client.users.change_name(user.key, name="Thomas Jefferson")
         retrieved = client.users.retrieve(key=user.key)
-        assert retrieved.first_name == "Thomas"
-        assert retrieved.last_name == "Jefferson"
+        assert retrieved.name == "Thomas Jefferson"

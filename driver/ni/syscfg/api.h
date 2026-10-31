@@ -15,8 +15,10 @@
 
 namespace driver::ni::syscfg {
 const LibraryInfo LIBRARY_INFO = {
-    "National Instruments System Configuration",
-    "https://www.ni.com/en/support/downloads/drivers/download.system-configuration.html"
+    .name = "National Instruments System Configuration",
+    .url = "https://www.ni.com/en/support/downloads/drivers/"
+           "download.system-configuration.html",
+    .lazy = true,
 };
 
 class API {

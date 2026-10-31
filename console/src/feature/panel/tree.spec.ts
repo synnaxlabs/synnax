@@ -39,7 +39,7 @@ const findRowIcon = async (
   pan: panel.Panel,
   icon: string,
 ): Promise<SVGElement | null> =>
-  (await findTreeRow(pan.name)).querySelector<SVGElement>(`.pluto-icon--${icon}`);
+  (await findTreeRow(pan.name)).querySelector<SVGElement>(`.lyra-icon--${icon}`);
 
 describe("panel ontology", () => {
   it("should draw the default panel icon for a panel with none", async () => {

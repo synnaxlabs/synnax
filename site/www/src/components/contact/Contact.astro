@@ -23,14 +23,14 @@ import { TopoCanvas } from "@/components/contact/TopoCanvas";
         <div class="contact-layout">
             <div class="contact-left">
                 <Text.Text level="h2" className="contact-title">
-                    Let's talk about your project
+                    Talk to an engineer
                 </Text.Text>
                 <Text.Text
                     level="h5"
                     className="contact-description section-description"
                 >
-                    Request a demo, get detailed pricing, or ask us anything. We'll get
-                    back to you within 24 hours.
+                    Tell us about your system, get detailed pricing, or ask us anything.
+                    We'll get back to you within 24 hours.
                 </Text.Text>
                 <Text.Text level="h5" className="contact-email">
                     info@synnaxlabs.com
@@ -108,14 +108,14 @@ import { TopoCanvas } from "@/components/contact/TopoCanvas";
         border-radius: 1.2rem;
         background: linear-gradient(
             160deg,
-            rgba(255, 255, 255, 0.05) 0%,
-            rgba(255, 255, 255, 0.02) 50%,
-            rgba(255, 255, 255, 0.04) 100%
+            rgb(255 255 255 / 5%) 0%,
+            rgb(255 255 255 / 2%) 50%,
+            rgb(255 255 255 / 4%) 100%
         );
         backdrop-filter: blur(4px);
         -webkit-backdrop-filter: blur(4px);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        border: 1px solid rgb(255 255 255 / 8%);
+        box-shadow: 0 8px 32px rgb(0 0 0 / 30%);
     }
 
     .contact-form-container {
@@ -165,10 +165,6 @@ import { TopoCanvas } from "@/components/contact/TopoCanvas";
         width: 100%;
     }
 
-    .contact-form-wrapper .pluto-input-item {
-        width: 100%;
-    }
-
     .contact-message-input {
         width: 100%;
         min-height: 25rem;
@@ -189,7 +185,7 @@ import { TopoCanvas } from "@/components/contact/TopoCanvas";
         }
     }
 
-    @media (max-width: 900px) {
+    @media (width <= 900px) {
         .contact-layout {
             grid-template-columns: 1fr;
             gap: 5rem;
@@ -200,12 +196,12 @@ import { TopoCanvas } from "@/components/contact/TopoCanvas";
         }
     }
 
-    @media (max-width: 600px) {
+    @media (width <= 600px) {
         .contact-form-row {
             grid-template-columns: 1fr;
         }
 
-        .contact-form-container .pluto-btn--filled {
+        .contact-form-container .lyra-btn--filled {
             align-self: stretch !important;
             width: 100%;
             justify-content: center;

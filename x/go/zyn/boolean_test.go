@@ -83,9 +83,6 @@ var _ = Describe("Bool", func() {
 				zyn.Bool().Validate(struct{}{}),
 			).To(MatchError(validate.ErrInvalidType))
 		})
-		It("Should succeed when an optional boolean receives nil", func() {
-			Expect(zyn.Bool().Optional().Validate(nil)).To(Succeed())
-		})
 		It("Should fail when a required boolean receives nil", func() {
 			Expect(zyn.Bool().Validate(nil)).To(MatchError(validate.ErrRequired))
 		})
@@ -177,31 +174,10 @@ var _ = Describe("Bool", func() {
 		})
 	})
 
-	Describe("Optional Fields", func() {
-		Specify("optional field with nil value", func() {
-			var dest *bool
-			Expect(zyn.Bool().Optional().Parse(nil, &dest)).To(Succeed())
-			Expect(dest).To(BeNil())
-		})
-
+	Describe("Required Fields", func() {
 		Specify("required field with nil value", func() {
 			var dest bool
 			Expect(zyn.Bool().Parse(nil, &dest)).To(MatchError(validate.ErrRequired))
-		})
-
-		Specify("optional field with value", func() {
-			var dest *bool
-			Expect(zyn.Bool().Optional().Parse(true, &dest)).To(Succeed())
-			Expect(*dest).To(BeTrue())
-		})
-
-		Specify("optional field with custom type", func() {
-			type MyBool bool
-			var dest *MyBool
-			Expect(zyn.Bool().Optional().Parse(true, &dest)).To(Succeed())
-			// BeTrue() panics on custom bool types because it asserts the value is
-			// exactly bool; Equal(MyBool(true)) is the correct matcher here.
-			Expect(*dest).To(Equal(MyBool(true))) //nolint:ginkgolinter
 		})
 	})
 
@@ -273,17 +249,6 @@ var _ = Describe("Bool", func() {
 			Expect(
 				err,
 			).To(MatchError(ContainSubstring("expected boolean, string, number, or nil")))
-		})
-
-		Specify("optional nil value", func() {
-			result := MustSucceed(zyn.Bool().Optional().Dump(nil))
-			Expect(result).To(BeNil())
-		})
-
-		Specify("optional nil pointer", func() {
-			var b *bool
-			result := MustSucceed(zyn.Bool().Optional().Dump(b))
-			Expect(result).To(BeNil())
 		})
 
 		Specify("custom type", func() {

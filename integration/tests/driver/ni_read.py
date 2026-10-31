@@ -138,7 +138,9 @@ class NIAnalogReadScaled(NIAnalogReadTaskCase):
         self.test_tare()
 
     def test_scaled_values(self) -> None:
-        """Stream data and verify each channel's values fall within its scaled bounds."""
+        """Stream data and verify each channel's values fall within its scaled
+        bounds.
+        """
         assert self.tsk is not None
         self.log("Testing: Verify scaled value ranges")
         channel_keys = self._channel_keys(self.tsk)
@@ -210,7 +212,7 @@ class NIAnalogReadScaled(NIAnalogReadTaskCase):
             )
 
             # Execute tare on all channels (async — tare doesn't send an ACK)
-            self.tsk._internal.execute_command("tare", {"keys": channel_keys})
+            self.tsk._internal.execute_command("tare", args={"keys": channel_keys})
             self.log("  Tare command sent")
 
             # Capture post-tare values

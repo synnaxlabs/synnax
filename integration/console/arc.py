@@ -18,7 +18,7 @@ class ArcClient(ResourceClient):
 
     TOOLBAR_CLASS = ".console-arc-toolbar"
     CONTROLS_CLASS = ".console-arc-editor__controls"
-    LIST_ITEM_CLASS = ".pluto-list__item"
+    LIST_ITEM_CLASS = ".lyra-list__item"
 
     def _show_arc_panel(self) -> None:
         """Show the Arc panel in the navigation drawer.
@@ -43,7 +43,7 @@ class ArcClient(ResourceClient):
         controls.wait_for(state="visible", timeout=5000)
         return controls
 
-    def create(self, name: str, source: str, mode: str = "Text") -> None:
+    def create(self, name: str, *, source: str, mode: str = "Text") -> None:
         """Create a new Arc automation via Console UI.
 
         Args:
@@ -56,7 +56,7 @@ class ArcClient(ResourceClient):
         add_btn = self.layout.page.locator(f"{self.TOOLBAR_CLASS} button").first
         add_btn.click()
 
-        name_input = self.layout.page.locator("input[placeholder='Name']")
+        name_input = self.layout.page.locator("input[placeholder='Arc name']")
         name_input.wait_for(state="visible", timeout=5000)
         name_input.fill(name)
 
@@ -204,7 +204,7 @@ class ArcClient(ResourceClient):
             if redeploy_btn.count() > 0:
                 redeploy_btn.click()
             else:
-                play_btn = controls.locator("button:has(.pluto-icon--play)")
+                play_btn = controls.locator("button:has(.lyra-icon--play)")
                 play_btn.wait_for(state="visible", timeout=5000)
                 play_btn.click()
             started = controls.locator("text=Started task")
@@ -254,7 +254,7 @@ class ArcClient(ResourceClient):
         """
         self._show_arc_panel()
         controls = self._get_controls()
-        stop_btn = controls.locator("button:has(.pluto-icon--stop)")
+        stop_btn = controls.locator("button:has(.lyra-icon--stop)")
         stop_btn.wait_for(state="visible", timeout=5000)
         self.notifications.close_all()
         stop_btn.click()
@@ -270,7 +270,7 @@ class ArcClient(ResourceClient):
         controls = self.layout.page.locator(self.CONTROLS_CLASS)
         if controls.count() == 0:
             return False
-        stop_btn = controls.locator("button:has(.pluto-icon--stop)")
+        stop_btn = controls.locator("button:has(.lyra-icon--stop)")
         return stop_btn.count() > 0 and stop_btn.is_visible()
 
     def rename(self, *, old_name: str, new_name: str) -> None:

@@ -16,20 +16,25 @@
             border-top-right-radius: 0 !important;
             border-bottom-right-radius: 0 !important;
         }
+
+        /* The address shows its Modicon form after the offset. */
         & > *:nth-child(2):not(:last-child) {
-            width: 15rem;
+            width: 22rem;
             border-radius: 0 !important;
         }
+
+        /* A string's data type sits between the address and the string length. */
+        & > *:nth-child(3):not(:last-child) > * {
+            width: 23rem;
+            border-radius: 0 !important;
+        }
+
         & > *:last-child > * {
             width: 23rem;
             border-top-left-radius: 0 !important;
             border-bottom-left-radius: 0 !important;
         }
     }
-}
-
-.console-modbus-channel-item {
-    width: 100%;
 }
 
 .console-modbus-order > * {

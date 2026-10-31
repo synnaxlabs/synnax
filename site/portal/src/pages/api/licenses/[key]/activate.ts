@@ -11,6 +11,7 @@ import { type APIRoute } from "astro";
 
 import { licenseFor } from "@/access";
 import { form, handle } from "@/respond";
+import { isInternal } from "@/server/directory";
 import { badRequest } from "@/server/errors";
 import { activate } from "@/server/license/activate";
 import { DENIAL_MESSAGES } from "@/server/license/deny";
@@ -55,9 +56,10 @@ export const POST: APIRoute = async (context) =>
       now,
     });
     if (!result.ok) {
-      await portal.slack.post(
-        refused({ organization, license, reason: result.reason, actor: session }),
-      );
+      if (!isInternal(session.email))
+        await portal.slack.post(
+          refused({ organization, license, reason: result.reason, actor: session }),
+        );
       throw badRequest(DENIAL_MESSAGES[result.reason]);
     }
     if (code != null) await offer(portal.store, { code, key: result.key, now });

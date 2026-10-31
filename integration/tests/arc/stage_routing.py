@@ -147,14 +147,18 @@ class StageRouting(ArcCase):
     ]
 
     def setup(self) -> None:
-        create_indexed_pair(self.client, "routing_flag", sy.DataType.BOOLEAN)
-        create_indexed_pair(self.client, "routing_sensor", sy.DataType.FLOAT64)
-        create_virtual_channel(self.client, "routing_stage_log", sy.DataType.STRING)
+        create_indexed_pair(self.client, "routing_flag", data_type=sy.DataType.BOOLEAN)
+        create_indexed_pair(
+            self.client, "routing_sensor", data_type=sy.DataType.FLOAT64
+        )
+        create_virtual_channel(
+            self.client, "routing_stage_log", data_type=sy.DataType.STRING
+        )
         create_virtual_channels(
             self.client,
             [(f"routing_multi_log_{i}", sy.DataType.STRING) for i in range(1, 5)],
         )
-        create_virtual_channel(self.client, "next_cmd", sy.DataType.UINT8)
+        create_virtual_channel(self.client, "next_cmd", data_type=sy.DataType.UINT8)
         super().setup()
 
     def _write_flag(self, value: int) -> None:

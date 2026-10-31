@@ -66,6 +66,12 @@ export const ROLES: { key: string; name: string }[] = [
 export const roleName = (role: string): string =>
   ROLES.find((r) => r.key === role)?.name ?? role;
 
+const INTERNAL_DOMAIN = "@synnaxlabs.com";
+
+/** isInternal is true for a Synnax Labs email address. */
+export const isInternal = (email: string): boolean =>
+  email.toLowerCase().endsWith(INTERNAL_DOMAIN);
+
 /** Directory reads the people and organizations Clerk holds. */
 export interface Directory {
   /** person throws when Clerk does not know the user. */

@@ -9,7 +9,7 @@
 
 /// <reference types="vitest/config" />
 
-import { layers, reactCompiler } from "@synnaxlabs/vite-plugin";
+import { layers, plutoLayers, reactCompiler } from "@synnaxlabs/vite-plugin";
 import react from "@vitejs/plugin-react";
 import * as fs from "node:fs/promises";
 import * as path from "path";
@@ -21,19 +21,10 @@ const isDev = process.env.VITE_IS_DEV === "true";
 const fromSource = process.env.VITEST == null;
 // Builds Synnax Desktop, the app that bundles and manages its own Core.
 const desktop = process.env.VITE_DESKTOP === "true";
+// Builds a Desktop release in CI.
+const release = process.env.VITE_RELEASE === "true";
 const repoRoot = path.resolve(import.meta.dirname, "..");
 const DESKTOP_SPECS = "src/**/*.desktop.spec.{ts,tsx}";
-
-const under = (dir: string): RegExp =>
-  new RegExp(`^${RegExp.escape(normalizePath(path.join(repoRoot, dir)))}/`);
-
-// Lyra styles bare elements, so third-party CSS sits above it. Pluto overrides both,
-// and the Console's own CSS, left unlayered, overrides everything.
-const CSS_LAYERS = [
-  { name: "lyra", files: under("lyra") },
-  { name: "vendor", files: /\/node_modules\// },
-  { name: "pluto", files: under("pluto") },
-];
 
 // Rollup ignores the sourceMappingURL comment inside prebuilt workspace bundles, so
 // the Console's map would bottom out at pluto/dist/pluto.js and friends. Loading the
@@ -64,6 +55,20 @@ const workspaceSourcemaps = (): Plugin => {
     },
   };
 };
+
+// The dev server loads the standalone React DevTools (`pnpm devtools`) before React, so
+// React finds the DevTools hook when it starts. Builds never load it.
+const reactDevtools = (): Plugin => ({
+  name: "react-devtools",
+  apply: "serve",
+  transformIndexHtml: () => [
+    {
+      tag: "script",
+      attrs: { src: "http://localhost:8097" },
+      injectTo: "head-prepend",
+    },
+  ],
+});
 
 // sourcesContent is 83% of the emitted map weight, and the Core embeds every byte of
 // dist into its binary. The crash screen reads only positions, so the inlined copies of
@@ -109,10 +114,17 @@ export default defineConfig({
       : {},
   },
   envPrefix: ["VITE_", "TAURI_"],
-  css: { postcss: { plugins: [layers(CSS_LAYERS)] } },
-  plugins: [react(), reactCompiler(), workspaceSourcemaps(), stripSourcesContent()],
+  // The Console's own CSS, left unlayered, overrides every layer.
+  css: { postcss: { plugins: [layers(plutoLayers(repoRoot))] } },
+  plugins: [
+    react(),
+    reactCompiler(),
+    reactDevtools(),
+    workspaceSourcemaps(),
+    stripSourcesContent(),
+  ],
   build: {
-    target: process.env.TAURI_PLATFORM === "windows" ? "chrome111" : "safari16.4",
+    target: process.env.TAURI_ENV_PLATFORM === "windows" ? "chrome111" : "safari16.4",
     minify: !isDev,
     // Always emit source maps. The Fallback error UI fetches them at runtime to resolve
     // minified stack traces (see pluto/src/errors/resolveStack.ts).
@@ -123,7 +135,7 @@ export default defineConfig({
     // to enforce the default Vite warning threshold.
     chunkSizeWarningLimit: 10000 /* kbs */,
   },
-  define: { IS_DEV: isDev, DESKTOP: desktop },
+  define: { IS_DEV: isDev, DESKTOP: desktop, RELEASE: release },
   worker: {
     format: "es",
     // The worker is a separate build and does not inherit `plugins`, so its frames

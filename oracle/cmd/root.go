@@ -11,7 +11,6 @@
 package cmd
 
 import (
-	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -26,12 +25,7 @@ func newRootCmd() *cobra.Command {
 		Use:   "oracle",
 		Short: "Schema-first code generation for Synnax",
 		RunE:  func(cmd *cobra.Command, _ []string) error { return cmd.Help() },
-		// A failed RunE is a normal command outcome (e.g. `check` reporting drift,
-		// `sync` hitting a generation error). The rendered output above the error
-		// already says everything the user needs to know; cobra's default usage dump
-		// and duplicate "Error: ..." line just add noise. Subcommands that want to
-		// print their error explicitly do so via printError; the rest rely on the exit
-		// code carried by exitCodeError.
+		// Execute prints each error once, so cobra prints nothing.
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
@@ -53,18 +47,22 @@ func newRootCmd() *cobra.Command {
 	return rootCmd
 }
 
-// Execute runs the root command. Commands that fail with an exitCodeError are routed to
-// that specific exit code so CI consumers can attribute failures (e.g. `oracle check`
-// returns 12 on generated drift). Every other failure exits with 1.
-func Execute() {
-	err := newRootCmd().Execute()
+// Execute runs the root command with args and returns the process exit code. A command
+// that fails with a gate failure returns that gate's code (e.g. 12 for generated drift
+// in `oracle check`). Every other failure prints its error to stderr and returns 1.
+func Execute(args []string) int {
+	root := newRootCmd()
+	root.SetArgs(args)
+	err := root.Execute()
 	if err == nil {
-		return
+		return 0
 	}
+	// A gate failure's report is already on stdout.
 	if ec, ok := err.(*exitCodeError); ok {
-		os.Exit(ec.code)
+		return ec.code
 	}
-	os.Exit(1)
+	printError(err.Error())
+	return 1
 }
 
 func initConfig() {

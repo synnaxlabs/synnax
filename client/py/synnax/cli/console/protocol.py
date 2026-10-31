@@ -18,6 +18,7 @@ class Prompt(Protocol):
     def ask(
         self,
         question: str,
+        *,
         type_: type[R] | None = None,
         choices: list[R] | None = None,
         default: R | None = None,
@@ -88,8 +89,8 @@ class Print(Protocol):
         """Prints a table to the console.
 
         :param columns: A list of column names.
-        :param rows: A list of dictionaries, where each dictionary represents a row.py. The
-        keys of the dictionary should match the column names.
+        :param rows: A list of dictionaries, where each dictionary represents a row.py.
+        The keys of the dictionary should match the column names.
         """
         ...
 
@@ -103,7 +104,7 @@ class Console(Prompt, Print, Protocol):
 
 
 def assign_default_ask_type(
-    type_: type[R] | None, choices: list[R] | None, default: R | None
+    *, type_: type[R] | None, choices: list[R] | None, default: R | None
 ) -> type[R] | type[str]:
     """Assigns a default type to the ask function.
 

@@ -10,19 +10,7 @@
 import fs from "fs";
 import path from "path";
 
-import { theme } from "@/theme";
-import { toCSSVars } from "@/theming/css";
-
-const INDENTATION = "    ";
-
-const formatVars = (
-  vars: Record<string, string | number | undefined>,
-  indentationLevel: number = 1,
-): string =>
-  `${INDENTATION.repeat(indentationLevel)}${Object.entries(vars)
-    .filter(([_, value]) => value != null)
-    .map(([key, value]) => `${key}: ${value};`)
-    .join(`\n${INDENTATION.repeat(indentationLevel)}`)}`;
+import { render } from "@/theming/static/render";
 
 const headerPath = path.resolve(
   import.meta.dirname,
@@ -39,49 +27,9 @@ const COPYRIGHT_HEADER = `/*\n${processedHeader
 
 `;
 
-const generateStatic = (
-  light: theme.Theme,
-  dark: theme.Theme,
-  defaultTheme: "light" | "dark" = "light",
-): string => {
-  const lightVars = toCSSVars(light);
-  const darkVars = toCSSVars(dark);
-  const darkPrefixedVars = toCSSVars(dark, "dark-");
-
-  const defaultVars = defaultTheme === "light" ? lightVars : darkVars;
-  const mediaQueryVars = defaultTheme === "light" ? darkVars : lightVars;
-  const mediaQueryTheme = defaultTheme === "light" ? "dark" : "light";
-
-  return `${COPYRIGHT_HEADER}:root {
-${formatVars(defaultVars)}
-${formatVars(darkPrefixedVars)}
-}
-
-@media (prefers-color-scheme: ${mediaQueryTheme}) {
-    :root {
-${formatVars(mediaQueryVars, 2)}
-${formatVars(darkPrefixedVars, 2)}
-    }
-}
-`;
-};
-
-const generateSingleTheme = (theme: theme.Theme, dark: theme.Theme): string => {
-  const vars = toCSSVars(theme);
-  const darkPrefixedVars = toCSSVars(dark, "dark-");
-  return `${COPYRIGHT_HEADER}:root {
-${formatVars(vars)}
-${formatVars(darkPrefixedVars)}
-}
-`;
-};
-
-const writeToFile = (filename: string, content: string) => {
-  fs.writeFileSync(path.join(import.meta.dirname, filename), content, "utf-8");
-};
-
-const light = theme.themeZ.parse(theme.SYNNAX_LIGHT);
-const dark = theme.themeZ.parse(theme.SYNNAX_DARK);
-writeToFile("theme.css", generateStatic(light, dark));
-writeToFile("theme-dark.css", generateSingleTheme(dark, dark));
-writeToFile("theme-light.css", generateSingleTheme(light, dark));
+for (const [file, content] of Object.entries(render()))
+  fs.writeFileSync(
+    path.join(import.meta.dirname, file),
+    COPYRIGHT_HEADER + content,
+    "utf-8",
+  );

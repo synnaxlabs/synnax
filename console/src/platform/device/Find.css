@@ -16,7 +16,7 @@
         padding: 6rem 4rem;
         text-align: center;
 
-        & .pluto-icon-tile {
+        & .lyra-icon-tile {
             margin-bottom: 1rem;
         }
     }
@@ -31,7 +31,7 @@
         }
     }
 
-    .console-device-find__configured .pluto-icon {
+    .console-device-find__configured .lyra-icon {
         color: var(--pluto-gray-l8);
     }
 
@@ -39,12 +39,12 @@
         color: var(--pluto-gray-l9);
     }
 
-    .pluto-navbar {
-        .pluto--start {
+    .lyra-navbar {
+        .lyra--start {
             padding-left: 2rem;
         }
 
-        .pluto--end {
+        .lyra--end {
             padding-right: 2rem;
         }
     }

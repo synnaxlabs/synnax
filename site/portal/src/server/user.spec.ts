@@ -235,5 +235,26 @@ describe("user", () => {
         firstLogins: 1,
       });
     });
+
+    it("should leave out Synnax Labs users", async () => {
+      const internal = {
+        ...people,
+        user_a: { ...people.user_a, email: "ada@synnaxlabs.com" },
+      };
+      await record(ada, "link", "2026-09-16T08:00:00Z");
+      await record(bob, "link", "2026-09-16T09:00:00Z");
+      expect(
+        await summarize(
+          store,
+          memory({ people: internal }),
+          at("2026-09-16T12:00:00Z"),
+        ),
+      ).toEqual({
+        day: at("2026-09-16T00:00:00Z"),
+        active: { day: 1, week: 1, month: 1 },
+        accounts: 1,
+        firstLogins: 1,
+      });
+    });
   });
 });

@@ -15,7 +15,11 @@ import { describe, expect, it } from "vitest";
 
 import { NI } from "@/feature/ni";
 import { createNIDevice, renderNITaskForm } from "@/feature/ni/task/testutil";
-import { deployAndAwaitTask, selectFromDropdown } from "@/platform/task/testutil";
+import {
+  createWithHook,
+  deployAndAwaitTask,
+  selectFromDropdown,
+} from "@/platform/task/testutil";
 import { isSelectButtonSelected, uniqueName } from "@/testutil";
 
 const client = createTestClient();
@@ -250,5 +254,13 @@ describe("AnalogWrite", () => {
         firstTask.config.channels[0].stateChannel,
       );
     });
+  });
+
+  it("should create the task with one channel", async () => {
+    const tsk = await createWithHook(
+      NI.Task.useCreateAnalogWrite,
+      NI.Task.ANALOG_WRITE_SCHEMAS,
+    );
+    expect(tsk.config.channels).toHaveLength(1);
   });
 });

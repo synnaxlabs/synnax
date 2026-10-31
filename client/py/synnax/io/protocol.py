@@ -75,6 +75,7 @@ class BaseReader(File, Protocol):
     def __init__(
         self,
         path: Path,
+        *,
         keys: list[str] | None = None,
         chunk_size: int | None = None,
     ): ...
@@ -109,22 +110,23 @@ class BaseReader(File, Protocol):
 
 
 class RowFileReader(BaseReader, Protocol):
-    """Row readers implement a strategy that reads a file row.py by row.py. Because Synnax
-    is optimized for ingesting data in a columnar format, Row readers should
-    only be used when files cannot be read using a :class:`ColumnReader` strategy (e.g.
-    csv files).
+    """Row readers implement a strategy that reads a file row.py by row.py. Because
+    Synnax is optimized for ingesting data in a columnar format, Row readers should only
+    be used when files cannot be read using a :class:`ColumnReader` strategy (e.g. csv
+    files).
     """
 
     def read(self) -> DataFrame:
         """Read returns a dataframe with chunk size * number of columns samples. The
-        returned dataframe is guaranteed to contain a column for all channels in the file.
+        returned dataframe is guaranteed to contain a column for all channels in the
+        file.
         """
         ...
 
     def __iter__(self) -> Iterator[DataFrame]:
         """Iterates over the file, returning a dataframe with chunk size * number of
-        columns samples. The returned dataframe is guaranteed to contain a column for all
-        channels in the file.
+        columns samples. The returned dataframe is guaranteed to contain a column for
+        all channels in the file.
         """
         ...
 

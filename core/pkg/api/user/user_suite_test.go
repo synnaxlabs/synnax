@@ -24,8 +24,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
-	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 func TestAPIUser(t *testing.T) {
@@ -84,7 +84,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Password: passwordSvc,
 		Auth:     authSvc,
 	}))
-	root = findRoot(ctx, userSvc, "api-user-suite-root")
+	root = findRoot(ctx, userSvc)
 })
 
 func login(ctx context.Context, username, pwd string) (auth.Identity, error) {
@@ -95,11 +95,11 @@ func login(ctx context.Context, username, pwd string) (auth.Identity, error) {
 	})
 }
 
-func findRoot(ctx SpecContext, svc *user.Service, username string) user.User {
+func findRoot(ctx SpecContext, svc *user.Service) user.User {
 	GinkgoHelper()
 	var u user.User
 	Expect(
-		svc.NewRetrieve().Where(user.MatchUsernames(username)).Entry(&u).Exec(ctx, nil),
+		svc.NewRetrieve().Where(user.MatchRootUser(true)).Entry(&u).Exec(ctx, nil),
 	).To(Succeed())
 	return u
 }

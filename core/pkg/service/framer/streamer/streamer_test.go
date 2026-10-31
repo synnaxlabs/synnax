@@ -17,7 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
@@ -36,14 +36,14 @@ import (
 
 var _ = Describe("Streamer", Ordered, func() {
 	var (
-		node          mock.Node
+		node          testutil.Node
 		channelSvc    *channel.Service
 		channelWriter channel.Writer
 		streamerSvc   *streamer.Service
 	)
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
-		node = mock.NewNode(ctx)
+		node = testutil.NewNode(ctx)
 		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
 		groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB:       node.DB,
@@ -186,7 +186,7 @@ var _ = Describe("Streamer", Ordered, func() {
 				Eventually(outlet.Outlet()).Should(BeClosed())
 			},
 			Entry("no throttle", streamer.Config{}),
-			Entry("a throttle", streamer.Config{ThrottleRate: 5 * telem.Hertz}),
+			Entry("a throttle", streamer.Config{ThrottleRate: telem.Rate(5)}),
 			Entry("a downsampler", streamer.Config{DownsampleFactor: 2}),
 		)
 	})
@@ -669,7 +669,7 @@ var _ = Describe("Streamer", Ordered, func() {
 				Keys:  keys,
 			}))
 
-			throttleRate := 5 * telem.Hertz
+			throttleRate := telem.Rate(5)
 			s := MustSucceed(streamerSvc.New(ctx, streamer.Config{
 				Keys:         keys,
 				SendOpenAck:  true,
@@ -748,7 +748,7 @@ var _ = Describe("Streamer", Ordered, func() {
 				Keys:             keys,
 				SendOpenAck:      true,
 				DownsampleFactor: 2,
-				ThrottleRate:     5 * telem.Hertz,
+				ThrottleRate:     telem.Rate(5),
 			}))
 
 			sCtx, cancel := signal.Isolated()
@@ -787,7 +787,7 @@ var _ = Describe("Streamer", Ordered, func() {
 				Keys:  keys,
 			}))
 
-			throttleRate := 5 * telem.Hertz
+			throttleRate := telem.Rate(5)
 			s := MustSucceed(streamerSvc.New(ctx, streamer.Config{
 				Keys:         keys,
 				SendOpenAck:  true,
@@ -866,7 +866,7 @@ var _ = Describe("Streamer", Ordered, func() {
 				Keys:             keys,
 				SendOpenAck:      true,
 				DownsampleFactor: 2,
-				ThrottleRate:     5 * telem.Hertz,
+				ThrottleRate:     telem.Rate(5),
 			}))
 
 			sCtx, cancel := signal.Isolated()

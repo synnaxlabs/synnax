@@ -29,7 +29,7 @@
         border-left: 1px solid var(--pluto-gray-l6);
         text-align: center;
 
-        & .pluto-text {
+        & .lyra-text {
             font-weight: 400;
         }
     }

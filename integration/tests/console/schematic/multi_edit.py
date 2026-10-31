@@ -77,13 +77,24 @@ class MultiEdit(ConsoleCase):
         )
         value_b.move(delta_x=200, delta_y=80)
 
-        self.test_groups_follow_selection(schematic, valve_a, valve_b, value_a, value_b)
-        self.test_stroke_applies_to_selection(schematic, [valve_a, valve_b, value_a])
-        self.test_mixed_and_selection_recolor(schematic, valve_a, valve_b, value_a)
+        self.test_groups_follow_selection(
+            schematic,
+            valve_a=valve_a,
+            valve_b=valve_b,
+            value_a=value_a,
+            value_b=value_b,
+        )
+        self.test_stroke_applies_to_selection(
+            schematic, symbols=[valve_a, valve_b, value_a]
+        )
+        self.test_mixed_and_selection_recolor(
+            schematic, valve_a=valve_a, valve_b=valve_b, value_a=value_a
+        )
 
     def test_groups_follow_selection(
         self,
         schematic: Schematic,
+        *,
         valve_a: Symbol,
         valve_b: Symbol,
         value_a: Symbol,
@@ -108,7 +119,7 @@ class MultiEdit(ConsoleCase):
         expect(schematic.layout.form_section("Symbol size")).to_have_count(0)
 
     def test_stroke_applies_to_selection(
-        self, schematic: Schematic, symbols: list[Symbol]
+        self, schematic: Schematic, *, symbols: list[Symbol]
     ) -> None:
         """Test that a stroke set on the selection recolors every selected symbol
         and joins the Selection control as one swatch."""
@@ -127,6 +138,7 @@ class MultiEdit(ConsoleCase):
     def test_mixed_and_selection_recolor(
         self,
         schematic: Schematic,
+        *,
         valve_a: Symbol,
         valve_b: Symbol,
         value_a: Symbol,

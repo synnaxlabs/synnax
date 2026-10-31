@@ -52,7 +52,7 @@ describe("ClipboardItems", () => {
     // render as icons, so the cap count is what ties the hint back to the constant.
     const [cutHint, copyHint, pasteHint] = c.getAllByLabelText("trigger-indicator");
     const caps = (el: HTMLElement): number =>
-      el.querySelectorAll(".pluto-text--keyboard").length;
+      el.querySelectorAll(".lyra-text--keyboard").length;
     expect(caps(cutHint)).toBe(Triggers.CUT.length);
     expect(caps(copyHint)).toBe(Triggers.COPY.length);
     expect(caps(pasteHint)).toBe(Triggers.PASTE.length);

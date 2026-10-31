@@ -12,6 +12,7 @@ package validate_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -37,6 +38,25 @@ var _ = Describe("Validate", func() {
 		It("Should not accumulate the error if the condition is not met", func() {
 			v.Ternary("field", false, "error message")
 			Expect(v.Error()).NotTo(HaveOccurred())
+		})
+
+		It("Should keep one error when later checks pass", func() {
+			v.Ternary("field", true, "error message")
+			for range 64 {
+				v.Ternary("other", false, "other message")
+			}
+			Expect(errors.UnwrapMulti(v.Error())).To(BeNil())
+			Expect(v.Error()).To(MatchError("field: error message"))
+		})
+
+		It("Should keep every failure flat when later checks pass", func() {
+			v.Ternary("first", true, "first message")
+			v.Ternary("second", true, "second message")
+			for range 64 {
+				v.Ternary("other", false, "other message")
+			}
+			Expect(errors.UnwrapMulti(v.Error())).To(HaveLen(2))
+			Expect(v.Error()).To(MatchError(ContainSubstring("second: second message")))
 		})
 
 		It("Should return true if an error was accumulated", func() {

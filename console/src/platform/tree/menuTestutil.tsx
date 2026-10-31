@@ -130,9 +130,9 @@ export const renderToolbar = async (
   return { store };
 };
 
-/** Returns the tree row (`.pluto-tree__item`) whose label matches text. */
+/** Returns the tree row (`.lyra-tree__item`) whose label matches text. */
 export const getTreeRow = (text: string): HTMLElement => {
-  const row = screen.getByText(text).closest<HTMLElement>(".pluto-tree__item");
+  const row = screen.getByText(text).closest<HTMLElement>(".lyra-tree__item");
   if (row == null) throw new Error(`tree row for ${text} not found`);
   return row;
 };
@@ -142,7 +142,7 @@ export const getTreeRow = (text: string): HTMLElement => {
  * Tree groups lazy-load their children only once expanded.
  */
 export const expandTreeRow = (text: string): void => {
-  const caret = getTreeRow(text).querySelector(".pluto-tree__expansion-indicator");
+  const caret = getTreeRow(text).querySelector(".lyra-tree__expansion-indicator");
   if (caret == null) throw new Error(`expansion indicator for ${text} not found`);
   fireEvent.click(caret);
 };

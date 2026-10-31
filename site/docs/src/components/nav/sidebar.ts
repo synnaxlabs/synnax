@@ -11,8 +11,8 @@ import { normalizeRoute } from "@/util/route";
 
 const TREE = ".reference-tree";
 const ITEM = '[role="treeitem"]';
-const SELECTED_CLASS = "pluto--selected";
-const CARET = ".pluto-tree__expansion-indicator";
+const SELECTED_CLASS = "lyra--selected";
+const CARET = ".lyra-tree__expansion-indicator";
 const SCROLL_KEY = "page-nav-scroll";
 
 const level = (item: Element): number => Number(item.getAttribute("aria-level"));
@@ -35,8 +35,8 @@ const layout = (items: HTMLElement[]): void => {
 const setExpanded = (item: Element, open: boolean): void => {
   item.setAttribute("aria-expanded", String(open));
   const caret = item.querySelector(CARET);
-  caret?.classList.toggle("pluto--location-bottom", open);
-  caret?.classList.toggle("pluto--location-right", !open);
+  caret?.classList.toggle("lyra--location-bottom", open);
+  caret?.classList.toggle("lyra--location-right", !open);
 };
 
 const select = (tree: Element, path: string): void => {

@@ -7,6 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import json
 import os
 import shutil
 import subprocess
@@ -54,6 +55,26 @@ class Repo:
             text=True,
         )
 
+    def install_hooks(self) -> None:
+        shutil.copytree(ROOT / ".githooks", self.path / ".githooks")
+        package = json.loads((ROOT / "package.json").read_text())
+        subprocess.run(
+            package["scripts"]["prepare"],
+            shell=True,
+            cwd=self.path,
+            env=self.env,
+            check=True,
+        )
+
+    def commit(self) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            ["git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "c"],
+            cwd=self.path,
+            env=self.env,
+            capture_output=True,
+            text=True,
+        )
+
     def write(self, name: str, text: str) -> None:
         (self.path / name).write_text(text)
 
@@ -67,7 +88,7 @@ def repo(tmp_path: Path) -> Repo:
     return Repo(tmp_path / "repo")
 
 
-def clang_format(repo: Repo, body: str) -> None:
+def clang_format(repo: Repo, *, body: str) -> None:
     """Puts scripts/clang_format.sh and a clang-format that runs body on PATH."""
     shutil.copy(ROOT / "scripts/clang_format.sh", repo.path / "scripts")
     bin = repo.path.parent / "bin"
@@ -132,6 +153,19 @@ class TestFix:
         assert repo.fix("--staged").returncode == 1
         assert (repo.path / "a.sh").read_text() == "echo a\necho b\n"
 
+    def test_should_pass_when_a_fixer_fails_on_the_working_copy(
+        self, repo: Repo
+    ) -> None:
+        clang_format(
+            repo, body='for f in "${@:2}"; do ! grep -q broken "$f" || exit 1; done'
+        )
+        repo.write("a.cpp", "int a;\n")
+        repo.git("add", "a.cpp")
+        repo.write("a.cpp", "int a;\nbroken\n")
+        assert repo.fix("--staged").returncode == 0
+        assert "Copyright" in repo.git("show", ":a.cpp")
+        assert (repo.path / "a.cpp").read_text().endswith("int a;\nbroken\n")
+
     def test_should_resolve_paths_from_the_caller(self, repo: Repo) -> None:
         (repo.path / "sub").mkdir()
         repo.write("sub/a.sh", "echo a\n")
@@ -158,13 +192,13 @@ class TestFix:
         assert not repo.header("b.sh")
 
     def test_should_pass_cpp_file_names_whole(self, repo: Repo) -> None:
-        clang_format(repo, 'for f in "${@:2}"; do echo \'// ok\' >> "$f"; done')
+        clang_format(repo, body='for f in "${@:2}"; do echo \'// ok\' >> "$f"; done')
         repo.write("a b.cpp", "int a;\n")
         assert repo.fix("a b.cpp").returncode == 0
         assert (repo.path / "a b.cpp").read_text().endswith("// ok\n")
 
     def test_should_fail_when_clang_format_fails(self, repo: Repo) -> None:
-        clang_format(repo, "exit 1")
+        clang_format(repo, body="exit 1")
         repo.write("a.cpp", "int a;\n")
         assert repo.fix("a.cpp").returncode != 0
 
@@ -172,3 +206,26 @@ class TestFix:
         repo.write("a.sh", "echo a\n")
         assert repo.fix("--staged").returncode == 0
         assert not repo.header("a.sh")
+
+
+class TestPreCommitHook:
+    """Commits through the pre-commit hook."""
+
+    def test_should_commit_fixes(self, repo: Repo) -> None:
+        repo.install_hooks()
+        repo.write("a.sh", "echo a\n")
+        repo.git("add", "a.sh")
+        assert repo.commit().returncode == 0
+        assert "Copyright" in repo.git("show", "HEAD:a.sh")
+        assert repo.git("status", "--porcelain", "a.sh") == ""
+
+    def test_should_commit_only_the_staged_copy(self, repo: Repo) -> None:
+        repo.install_hooks()
+        repo.write("a.sh", "echo a\n")
+        repo.git("add", "a.sh")
+        repo.write("a.sh", "echo a\necho b\n")
+        assert repo.commit().returncode == 0
+        committed = repo.git("show", "HEAD:a.sh")
+        assert "Copyright" in committed
+        assert "echo b" not in committed
+        assert repo.git("diff", "-U0", "a.sh").splitlines()[-1] == "+echo b"

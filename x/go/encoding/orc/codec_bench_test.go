@@ -39,7 +39,6 @@ type benchRecord struct {
 }
 
 func (r *benchRecord) EncodeOrc(w *orc.Writer) error {
-	w.Resize(w.Len() + 128)
 	w.Uint8(r.U8)
 	w.Uint16(r.U16)
 	w.Uint32(r.U32)
@@ -221,9 +220,6 @@ func BenchmarkWriter(b *testing.B) {
 		if err := in.EncodeOrc(w); err != nil {
 			b.Fatal(err)
 		}
-		if w.Len() != len(w.Bytes()) {
-			b.Fatal("length mismatch")
-		}
 	}
 }
 
@@ -252,7 +248,6 @@ func BenchmarkReaderStream(b *testing.B) {
 	b.ReportAllocs()
 	for b.Loop() {
 		br.Reset(payload)
-		rd.Reset(br)
 		if err := out.DecodeOrc(rd); err != nil {
 			b.Fatal(err)
 		}

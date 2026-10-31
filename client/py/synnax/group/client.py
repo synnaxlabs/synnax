@@ -51,7 +51,7 @@ class Client:
     def __init__(self, client: UnaryClient):
         self._client = client
 
-    def create(self, parent: CrudeID, name: str, key: str | None = None) -> Group:
+    def create(self, parent: CrudeID, name: str, *, key: str | None = None) -> Group:
         return self._client.send(
             "/ontology/create-group",
             _CreateReq(parent=ID(parent), key=UUID(key) if key else None, name=name),

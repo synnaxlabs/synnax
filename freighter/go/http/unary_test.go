@@ -38,8 +38,6 @@ var (
 	unaryServerJSONOnly         freighter.UnaryServer[testutil.Request, testutil.Response]
 	unaryServerMsgpackOnly      freighter.UnaryServer[testutil.Request, testutil.Response]
 	unaryServerFailingEncoder   freighter.UnaryServer[testutil.Request, testutil.Response]
-	unaryServerMsgpackErrors    freighter.UnaryServer[testutil.Request, testutil.Response]
-	unaryServerNoErrorEncoders  freighter.UnaryServer[testutil.Request, testutil.Response]
 	unaryServerStreaming        freighter.UnaryServer[testutil.Request, testutil.Response]
 	unaryServerClosing          freighter.UnaryServer[testutil.Request, *closingResponse]
 	closingResponses            = make(chan *closingResponse, 1)
@@ -201,17 +199,6 @@ var _ = BeforeSuite(func() {
 		"/encode-failure",
 		fhttp.WithRequestDecoders(json.Codec),
 		fhttp.WithResponseEncoders(failingEncoder{}),
-	)
-	unaryServerMsgpackErrors = router.NewUnaryServer[testutil.Request, testutil.Response](
-		"/msgpack-errors",
-		fhttp.WithRequestDecoders(json.Codec),
-		fhttp.WithResponseEncoders(failingEncoder{}),
-		fhttp.WithErrorEncoders(msgpack.Codec),
-	)
-	unaryServerNoErrorEncoders = router.NewUnaryServer[testutil.Request, testutil.Response](
-		"/no-error-encoders",
-		fhttp.WithRequestDecoders(json.Codec),
-		fhttp.WithErrorEncoders(),
 	)
 	unaryServerStreaming = router.NewUnaryServer[testutil.Request, testutil.Response](
 		"/streaming",
@@ -520,35 +507,9 @@ var _ = Describe("Unary", func() {
 		)
 
 		It(
-			"should answer with a bare status when the server is given no error encoders",
+			"should encode handler errors with the default encoder the request accepts",
 			func(ctx context.Context) {
-				unaryServerNoErrorEncoders.BindHandler(
-					func(_ context.Context, _ testutil.Request) (testutil.Response, error) {
-						return testutil.Response{}, testutil.ErrCustom
-					},
-				)
-				body := MustSucceed(
-					json.Codec.Encode(ctx, testutil.Request{ID: 12, Message: "err"}),
-				)
-				httpReq := MustSucceed(http.NewRequestWithContext(
-					ctx,
-					http.MethodPost,
-					"http://"+unaryAddr.String()+"/no-error-encoders",
-					bytes.NewReader(body),
-				))
-				httpReq.Header.Set(fiber.HeaderContentType, "application/json")
-				httpRes := MustSucceed((&http.Client{}).Do(httpReq))
-				DeferCleanup(func() { Expect(httpRes.Body.Close()).To(Succeed()) })
-				Expect(httpRes.StatusCode).To(Equal(http.StatusBadRequest))
-				// Fiber writes the status text, so the body carries no error payload.
-				Expect(io.ReadAll(httpRes.Body)).To(BeEquivalentTo("Bad Request"))
-			},
-		)
-
-		It(
-			"should encode handler errors with the configured error encoder",
-			func(ctx context.Context) {
-				unaryServerMsgpackErrors.BindHandler(
+				unaryServerFailingEncoder.BindHandler(
 					func(_ context.Context, _ testutil.Request) (testutil.Response, error) {
 						return testutil.Response{}, testutil.ErrCustom
 					},
@@ -559,11 +520,14 @@ var _ = Describe("Unary", func() {
 				httpReq := MustSucceed(http.NewRequestWithContext(
 					ctx,
 					http.MethodPost,
-					"http://"+unaryAddr.String()+"/msgpack-errors",
+					"http://"+unaryAddr.String()+"/encode-failure",
 					bytes.NewReader(body),
 				))
 				httpReq.Header.Set(fiber.HeaderContentType, "application/json")
-				httpReq.Header.Set(fiber.HeaderAccept, "application/x-fail")
+				httpReq.Header.Set(
+					fiber.HeaderAccept,
+					"application/x-fail, application/msgpack",
+				)
 				httpRes := MustSucceed((&http.Client{}).Do(httpReq))
 				DeferCleanup(func() { Expect(httpRes.Body.Close()).To(Succeed()) })
 				Expect(httpRes.StatusCode).To(Equal(http.StatusBadRequest))
@@ -644,6 +608,24 @@ var _ = Describe("Unary", func() {
 			Expect(json.Codec.Decode(ctx, respBody, &res)).To(Succeed())
 			return res
 		}
+
+		It("should expose the Cookie header as a param", func(ctx context.Context) {
+			bindParamEcho(fiber.HeaderCookie)
+			body := MustSucceed(json.Codec.Encode(ctx, testutil.Request{}))
+			httpReq := MustSucceed(http.NewRequestWithContext(
+				ctx, http.MethodPost,
+				"http://"+unaryAddr.String()+"/",
+				bytes.NewReader(body),
+			))
+			httpReq.Header.Set(fiber.HeaderContentType, "application/json")
+			httpReq.Header.Set(fiber.HeaderCookie, "session=abc; theme=dark")
+			httpRes := MustSucceed((&http.Client{}).Do(httpReq))
+			DeferCleanup(func() { Expect(httpRes.Body.Close()).To(Succeed()) })
+			respBody := MustSucceed(io.ReadAll(httpRes.Body))
+			var res testutil.Response
+			Expect(json.Codec.Decode(ctx, respBody, &res)).To(Succeed())
+			Expect(res.Message).To(Equal("session=abc; theme=dark"))
+		})
 
 		It(
 			"should expose freighterctx-prefixed query params with the prefix stripped",

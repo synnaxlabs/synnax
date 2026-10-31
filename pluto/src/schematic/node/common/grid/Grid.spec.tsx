@@ -49,7 +49,7 @@ const GridHost = ({ children, initialNodes, ...rest }: GridHostProps): ReactElem
 );
 
 const slot = (container: HTMLElement, loc: location.Location): HTMLElement | null =>
-  container.querySelector(`.pluto-grid__item.pluto--location-${loc}`);
+  container.querySelector(`.pluto-grid__item.lyra--location-${loc}`);
 
 const dragHandle = (container: HTMLElement): HTMLElement | null =>
   container.querySelector(".pluto-drag-handle");
@@ -498,7 +498,7 @@ describe("Grid drag-and-drop", () => {
     fireEvent.dragStart(draggable(container, "x"));
     expect(top.className).toContain("pluto-dragging");
     expect(right.className).toContain("pluto-dragging");
-    expect(top.className).toContain("pluto-haul-drop-region");
+    expect(top.className).toContain("lyra-haul-drop-region");
   });
 
   it("should mark the hovered slot with the dragging-over class and clear it on dragLeave", () => {

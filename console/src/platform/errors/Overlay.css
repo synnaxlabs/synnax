@@ -20,6 +20,7 @@
     & > .pluto-error-fallback__container {
         pointer-events: none;
     }
+
     & .pluto-error-fallback__content {
         pointer-events: auto;
     }

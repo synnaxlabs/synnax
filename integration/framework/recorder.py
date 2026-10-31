@@ -112,7 +112,7 @@ class Recorder:
             streamer = self._client.open_streamer([SET_CHANNEL])
             self._ready.set()
             while not self._stop.is_set():
-                frame = streamer.read(_READ_TIMEOUT)
+                frame = streamer.read(timeout=_READ_TIMEOUT)
                 if frame is None or SET_CHANNEL not in frame:
                     continue
                 for raw in frame[SET_CHANNEL]:
@@ -146,7 +146,7 @@ class Notifications(Recorder):
         super().__init__(client)
         self._texts: list[str] = []
 
-    def wait_for(self, text: str, timeout: float = _DEFAULT_WAIT_TIMEOUT) -> bool:
+    def wait_for(self, text: str, *, timeout: float = _DEFAULT_WAIT_TIMEOUT) -> bool:
         """Return True if a recorded status contains text within timeout.
 
         Matches the message or the description.
@@ -177,7 +177,11 @@ class TaskStatus(Recorder):
         self._texts: dict[sy.task.Key, list[str]] = {}
 
     def wait_for(
-        self, task_key: sy.task.Key, text: str, timeout: float = _DEFAULT_WAIT_TIMEOUT
+        self,
+        task_key: sy.task.Key,
+        text: str,
+        *,
+        timeout: float = _DEFAULT_WAIT_TIMEOUT,
     ) -> bool:
         """Return True if a status for task_key contains text within timeout.
 

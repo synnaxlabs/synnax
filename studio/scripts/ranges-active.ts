@@ -66,8 +66,8 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.hold(1000);
 
   await session.press("v");
-  const drawer = page.locator(".console-nav__drawer.pluto--location-bottom").first();
-  const range = drawer.locator(".pluto-tag").filter({ hasText: RANGE }).first();
+  const drawer = page.locator(".console-nav__drawer.lyra--location-bottom").first();
+  const range = drawer.locator(".lyra-tag").filter({ hasText: RANGE }).first();
   await session.waitFor(range);
   await session.hold(600);
   // A region's fit caps the zoom, and the drawer spans the window, so zoom on a point

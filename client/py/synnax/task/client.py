@@ -140,7 +140,8 @@ class Task:
     def _frame_client(self) -> FrameClient:
         if self._cached_frame_client is None:
             raise RuntimeError(
-                "Cannot execute commands on a task that has not been created or retrieved from the cluster."
+                "Cannot execute commands on a task that has not been created or "
+                "retrieved from the cluster."
             )
         return self._cached_frame_client
 
@@ -180,7 +181,7 @@ class Task:
         return None
 
     def execute_command(
-        self, type_: str, args: Mapping[str, object] | None = None
+        self, type_: str, *, args: Mapping[str, object] | None = None
     ) -> str:
         """Executes a command on the task and returns the unique key assigned to the
         command.
@@ -204,6 +205,7 @@ class Task:
     def execute_command_sync(
         self,
         type_: str,
+        *,
         args: Mapping[str, object] | None = None,
         timeout: float | TimeSpan = 5,
     ) -> Status:
@@ -217,13 +219,13 @@ class Task:
         """
         span = TimeSpan.from_seconds(timeout)
         with self._frame_client.open_streamer([_TASK_STATE_CHANNEL]) as s:
-            key = self.execute_command(type_, args)
+            key = self.execute_command(type_, args=args)
             timer = Timer()
             while True:
                 # The channel carries every status in the cluster, so the wait is a
                 # deadline: a frame answering some other command must not renew it.
                 remaining = span - timer.elapsed()
-                frame = s.read(remaining) if remaining > TimeSpan.ZERO else None
+                frame = s.read(timeout=remaining) if remaining > TimeSpan.ZERO else None
                 if frame is None:
                     raise TimeoutError(
                         f"timed out waiting for driver to acknowledge {type_} command"
@@ -243,11 +245,7 @@ class Task:
                         # racks. Rack statuses have a different schema, so
                         # validation failures are expected and should be skipped.
                         continue
-                    if (
-                        status.details is not None
-                        and status.details.cmd is not None
-                        and status.details.cmd == key
-                    ):
+                    if status.details is not None and status.details.cmd == key:
                         return status
 
 
@@ -281,7 +279,7 @@ P = TypeVar("P", bound=Protocol)
 class StarterStopperMixin:
     _internal: Task
 
-    def start(self, timeout: float | TimeSpan = 5) -> None:
+    def start(self, *, timeout: float | TimeSpan = 5) -> None:
         """Starts the task and blocks until the Synnax cluster has acknowledged the
         command or the specified timeout has elapsed.
 
@@ -291,7 +289,7 @@ class StarterStopperMixin:
         """
         self._internal.execute_command_sync("start", timeout=timeout)
 
-    def stop(self, timeout: float | TimeSpan = 5) -> None:
+    def stop(self, *, timeout: float | TimeSpan = 5) -> None:
         """Stops the task and blocks until the Synnax cluster has acknowledged the
         command or the specified timeout has elapsed.
 
@@ -302,16 +300,16 @@ class StarterStopperMixin:
         self._internal.execute_command_sync("stop", timeout=timeout)
 
     @contextmanager
-    def run(self, timeout: float | TimeSpan = 5) -> Generator[None, None, None]:
+    def run(self, *, timeout: float | TimeSpan = 5) -> Generator[None, None, None]:
         """Context manager that starts the task before entering the block and stops the
         task after exiting the block. This is useful for ensuring that the task is
         properly stopped even if an exception occurs during execution.
         """
-        self.start(timeout)
+        self.start(timeout=timeout)
         try:
             yield
         finally:
-            self.stop(timeout)
+            self.stop(timeout=timeout)
 
 
 class JSONConfigMixin[C: BaseModel](Protocol):
@@ -348,6 +346,7 @@ class Client:
 
     def __init__(
         self,
+        *,
         client: UnaryClient,
         frame_client: FrameClient,
         rack_client: RackClient,
@@ -406,7 +405,7 @@ class Client:
             is_single = False
             payloads = [t.to_payload() for t in tasks]
         for pld in payloads:
-            self.maybe_assign_def_rack(pld, rack)
+            self.maybe_assign_def_rack(pld, rack=rack)
         req = _CreateRequest(tasks=payloads)
         created = self._exec_create(req)
         sugared = self.sugar(created)
@@ -416,8 +415,8 @@ class Client:
         res = self._client.send("/task/create", req, _CreateResponse)
         return res.tasks
 
-    def maybe_assign_def_rack(self, pld: Payload, rack: int = 0) -> Payload:
-        if pld is None or pld.rack != 0:
+    def maybe_assign_def_rack(self, pld: Payload, *, rack: int = 0) -> Payload:
+        if pld.rack != 0:
             return pld
         if rack == 0:
             if self._default_rack is None:

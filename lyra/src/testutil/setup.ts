@@ -25,7 +25,8 @@ class MockIntersectionObserver {
 }
 
 beforeAll(() => {
-  vi.stubGlobal("ResizeObserver", ResizeObserver);
+  // A polyfill, not a stub, so a spec that calls vi.unstubAllGlobals keeps it.
+  Object.assign(globalThis, { ResizeObserver });
   vi.stubGlobal("IntersectionObserver", MockIntersectionObserver);
   HTMLElement.prototype.setPointerCapture = () => {};
   HTMLElement.prototype.releasePointerCapture = () => {};

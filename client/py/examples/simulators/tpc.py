@@ -75,12 +75,14 @@ INITIAL_DAQ_STATE: dict[str, float] = {
     PNEUMATICS_PT: 300,
 }
 
+END_CMD_CHANNEL = "end_tpc_test_cmd"
+
 
 class TPCSimDAQ(SimDAQ):
     """Simulates multi-system rocket engine with OX/FUEL tanks."""
 
     description = "Run TPC simulator standalone"
-    end_cmd_channel = "end_tpc_test_cmd"
+    end_cmd_channel: str | None = END_CMD_CHANNEL
 
     def _create_channels(self) -> None:
         self.log("Creating channels...")
@@ -110,7 +112,7 @@ class TPCSimDAQ(SimDAQ):
             )
 
         client.channels.create(
-            name=self.end_cmd_channel,
+            name=END_CMD_CHANNEL,
             data_type=sy.DataType.UINT8,
             virtual=True,
             retrieve_if_name_exists=True,
@@ -170,7 +172,7 @@ class TPCSimDAQ(SimDAQ):
                 while self._running and loop.wait():
                     # Drain all pending frames
                     while True:
-                        frame = streamer.read(0)
+                        frame = streamer.read(timeout=0)
                         if frame is None:
                             break
                         for ch, series in frame.items():

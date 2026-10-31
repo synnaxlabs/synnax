@@ -43,11 +43,9 @@ func OntologyIDsFromUsers(users []User) []ontology.ID {
 func KeyFromOntologyID(id ontology.ID) (Key, error) { return uuid.Parse(id.Key) }
 
 var schema = zyn.Object(map[string]zyn.Schema{
-	"key":        zyn.UUID(),
-	"username":   zyn.String(),
-	"first_name": zyn.String(),
-	"last_name":  zyn.String(),
-	"root_user":  zyn.Bool(),
+	"key":       zyn.UUID(),
+	"name":      zyn.String(),
+	"root_user": zyn.Bool(),
 })
 
 var _ ontology.Service = (*Service)(nil)
@@ -95,7 +93,7 @@ func (s *Service) OnChange(
 }
 
 func newResource(u User) ontology.Resource {
-	return ontology.NewResource(schema, u.OntologyID(), u.Username, u)
+	return ontology.NewResource(schema, u.OntologyID(), u.Name, u)
 }
 
 // Search implements ontology.Service.

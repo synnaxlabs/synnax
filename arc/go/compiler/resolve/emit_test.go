@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/compiler/resolve"
+	. "github.com/synnaxlabs/arc/compiler/testutil"
 	"github.com/synnaxlabs/arc/compiler/wasm"
 	stlstrings "github.com/synnaxlabs/arc/stl/strings"
 	"github.com/synnaxlabs/arc/symbol"
@@ -41,7 +42,7 @@ var _ = Describe("Emit", func() {
 					resolver.EmitNumericToString(ctx, writer, writerID, scope, from),
 				).To(Succeed())
 				resolver.Finalize(wasmModule)
-				Expect(wasmModule.ImportNames()).To(ConsistOf(wantWASMName))
+				Expect(ImportNames(ctx, wasmModule)).To(ConsistOf(wantWASMName))
 			},
 			Entry("i8 -> from_i32", types.I8(), "from_i32"),
 			Entry("i16 -> from_i32", types.I16(), "from_i32"),
@@ -80,7 +81,7 @@ var _ = Describe("Emit", func() {
 					resolver.EmitNumericFormat(ctx, writer, writerID, scope, from),
 				).To(Succeed())
 				resolver.Finalize(wasmModule)
-				Expect(wasmModule.ImportNames()).To(ConsistOf(wantWASMName))
+				Expect(ImportNames(ctx, wasmModule)).To(ConsistOf(wantWASMName))
 			},
 			Entry("i8 -> format_i32", types.I8(), "format_i32"),
 			Entry("i16 -> format_i32", types.I16(), "format_i32"),
@@ -117,7 +118,7 @@ var _ = Describe("Emit", func() {
 				resolver.EmitStringFormat(ctx, writer, writerID, scope),
 			).To(Succeed())
 			resolver.Finalize(wasmModule)
-			Expect(wasmModule.ImportNames()).To(ConsistOf("format_str"))
+			Expect(ImportNames(ctx, wasmModule)).To(ConsistOf("format_str"))
 		})
 
 		It("Should return an error when scope is nil", func(ctx SpecContext) {
@@ -141,7 +142,7 @@ var _ = Describe("Emit", func() {
 					),
 				).To(Succeed())
 				resolver.Finalize(wasmModule)
-				Expect(wasmModule.ImportNames()).To(ConsistOf("from_i32"))
+				Expect(ImportNames(ctx, wasmModule)).To(ConsistOf("from_i32"))
 			},
 		)
 
@@ -179,12 +180,12 @@ var _ = Describe("Emit", func() {
 
 	Describe("EmitSeriesComparison", func() {
 		DescribeTable("Should emit a compare_<op>_<type> series import",
-			func(op, wantWASMName string) {
+			func(ctx SpecContext, op, wantWASMName string) {
 				Expect(
 					resolver.EmitSeriesComparison(writer, writerID, op, types.I64()),
 				).To(Succeed())
 				resolver.Finalize(wasmModule)
-				Expect(wasmModule.ImportNames()).To(ConsistOf(wantWASMName))
+				Expect(ImportNames(ctx, wasmModule)).To(ConsistOf(wantWASMName))
 			},
 			Entry("> emits compare_gt_i64", ">", "compare_gt_i64"),
 			Entry("< emits compare_lt_i64", "<", "compare_lt_i64"),
@@ -199,20 +200,20 @@ var _ = Describe("Emit", func() {
 	})
 
 	Describe("EmitSeriesLogical", func() {
-		It("Should emit and for a series right operand", func() {
+		It("Should emit and for a series right operand", func(ctx SpecContext) {
 			Expect(
 				resolver.EmitSeriesLogical(writer, writerID, "and", false),
 			).To(Succeed())
 			resolver.Finalize(wasmModule)
-			Expect(wasmModule.ImportNames()).To(ConsistOf("and"))
+			Expect(ImportNames(ctx, wasmModule)).To(ConsistOf("and"))
 		})
 
-		It("Should emit or_scalar for a scalar right operand", func() {
+		It("Should emit or_scalar for a scalar right operand", func(ctx SpecContext) {
 			Expect(
 				resolver.EmitSeriesLogical(writer, writerID, "or", true),
 			).To(Succeed())
 			resolver.Finalize(wasmModule)
-			Expect(wasmModule.ImportNames()).To(ConsistOf("or_scalar"))
+			Expect(ImportNames(ctx, wasmModule)).To(ConsistOf("or_scalar"))
 		})
 
 		It("Should return an error for an unknown operator", func() {
@@ -223,10 +224,10 @@ var _ = Describe("Emit", func() {
 	})
 
 	Describe("EmitSeriesNot", func() {
-		It("Should emit a not series import", func() {
+		It("Should emit a not series import", func(ctx SpecContext) {
 			resolver.EmitSeriesNot(writer, writerID)
 			resolver.Finalize(wasmModule)
-			Expect(wasmModule.ImportNames()).To(ConsistOf("not"))
+			Expect(ImportNames(ctx, wasmModule)).To(ConsistOf("not"))
 		})
 	})
 })

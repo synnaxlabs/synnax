@@ -21,8 +21,8 @@ const UI_CLASSES = [
   "docs-ui",
   "heading-anchor",
   "next-prev",
-  "pluto-breadcrumb",
-  "pluto-tabs__thumb",
+  "lyra-breadcrumb",
+  "lyra-tabs__thumb",
 ];
 
 const classes = (el: Element): string[] => {
@@ -78,7 +78,7 @@ const clean = (el: Element, base: URL, labels: Map<string, string>): void => {
     const { properties: props } = child;
     if (child.tagName === "a") resolve(props, "href", base);
     if (child.tagName === "img") resolve(props, "src", base);
-    if (names.includes("pluto-note") || names.includes("article-description"))
+    if (names.includes("lyra-note") || names.includes("article-description"))
       child.tagName = "blockquote";
     if (child.tagName === "pre" && typeof props.dataLanguage === "string")
       for (const code of find(child, (e) => e.tagName === "code"))

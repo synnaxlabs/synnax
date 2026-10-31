@@ -49,8 +49,8 @@ class ParkedWait(ArcCase):
     subscribe_channels = ["pw_done", "pw_alive"]
 
     def setup(self) -> None:
-        create_indexed_pair(self.client, "pw_done", sy.DataType.UINT8)
-        create_indexed_pair(self.client, "pw_alive", sy.DataType.UINT8)
+        create_indexed_pair(self.client, "pw_done", data_type=sy.DataType.UINT8)
+        create_indexed_pair(self.client, "pw_alive", data_type=sy.DataType.UINT8)
         super().setup()
 
     def status(self) -> sy.task.Status | None:

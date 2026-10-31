@@ -340,10 +340,11 @@ describe("license routes", () => {
           organization: ACME,
           label: "Test stand",
           nodes: 3,
+          channelsLimited: true,
           channels: 500,
           expiresAt: "2027-01-01",
         };
-        const res = await call(issueRoute, { body: values });
+        const res = await call(issueRoute, { body: Licenses.bodyOf(values) });
         expect(res.status).toBe(200);
         expect(await licenses()).toEqual([
           expect.objectContaining({
@@ -356,6 +357,20 @@ describe("license routes", () => {
             maxVersion: null,
           }),
         ]);
+      });
+
+      it("should drop the values the issue dialog does not use", async () => {
+        const values = {
+          ...Licenses.ZERO_TERMS,
+          organization: ACME,
+          label: "Test stand",
+          channels: 500,
+          expiresAt: "2027-01-01",
+          maxVersion: "0.62",
+        };
+        const res = await call(issueRoute, { body: Licenses.bodyOf(values) });
+        expect(res.status).toBe(200);
+        expect((await licenses())[0]).toMatchObject({ channels: 0, maxVersion: null });
       });
 
       it("should accept a posted form", async () => {
@@ -481,6 +496,10 @@ describe("license routes", () => {
       h.signIn(STAFF);
       const subscription = await createLicense(store, {
         organization: acme.key,
+        channels: 100,
+      });
+      const updates = await createLicense(store, {
+        organization: acme.key,
         maxVersion: "0.62",
       });
       const perpetual = await createLicense(store, {
@@ -489,24 +508,20 @@ describe("license routes", () => {
         expiresAt: null,
         maxVersion: "0.62",
       });
-      for (const unchanged of [subscription, perpetual]) {
+      const all = [subscription, updates, perpetual];
+      for (const unchanged of all) {
         const res = await call(amendRoute, {
           params: { key: unchanged.key },
-          body: Licenses.termsOf(unchanged),
+          body: Licenses.bodyOf(Licenses.termsOf(unchanged)),
         });
         expect(res.status).toBe(204);
       }
-      expect(await licenses()).toEqual(
-        expect.arrayContaining([subscription, perpetual]),
+      expect(await licenses()).toEqual(expect.arrayContaining(all));
+      expect(await events()).toEqual(
+        all.map((lic) =>
+          expect.objectContaining({ kind: "amend", license: lic.key, detail: {} }),
+        ),
       );
-      expect(await events()).toEqual([
-        expect.objectContaining({
-          kind: "amend",
-          license: subscription.key,
-          detail: {},
-        }),
-        expect.objectContaining({ kind: "amend", license: perpetual.key, detail: {} }),
-      ]);
     });
 
     it("should record what changed in the ledger", async () => {
@@ -706,6 +721,17 @@ describe("license routes", () => {
           actor: { name: MEMBER, email: `${MEMBER}@example.com` },
         }),
       ]);
+    });
+
+    it("should not post a refusal of a Synnax Labs user to Slack", async () => {
+      h.directory.people[STAFF].email = "em@synnaxlabs.com";
+      h.signIn(STAFF);
+      await store.query
+        .update(license)
+        .set({ revokedAt: NOW })
+        .where(eq(license.key, lic.key));
+      expect((await post(MACHINE)).status).toBe(400);
+      expect(h.slack.posted).toEqual([]);
     });
 
     it("should refuse a revoked license", async () => {

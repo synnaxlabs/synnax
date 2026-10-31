@@ -43,7 +43,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await zoomSelector(session);
     await session.doubleClick(pill(session, NEW_PANEL), { text: true, zoom: false });
     const editable = page
-      .locator(".pluto-text--editable[contenteditable='true']")
+      .locator(".lyra-text--editable[contenteditable='true']")
       .first();
     await session.waitFor(editable);
     await session.hold(300);

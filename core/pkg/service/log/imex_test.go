@@ -59,7 +59,10 @@ var _ = Describe("ImEx", func() {
 				l := createLog(ctx, log.Log{
 					Name: "exported",
 					Channels: []log.ChannelEntry{
-						{Channel: channel.Key(1), Color: color.MustFromHex("#ff0000")},
+						{
+							Channel: channel.Key(1),
+							Color:   MustSucceed(color.FromHex("#ff0000")),
+						},
 					},
 					TimestampPrecision: 2,
 					ChannelNamesHidden: true,
@@ -183,9 +186,11 @@ var _ = Describe("ImEx", func() {
 				Expect(res.ReceiptTimestampHidden).To(BeTrue())
 				Expect(res.Channels).To(HaveLen(2))
 				Expect(res.Channels[0].Channel).To(Equal(channel.Key(1)))
-				Expect(res.Channels[0].Color).To(Equal(color.MustFromHex("#ff0000")))
+				Expect(
+					res.Channels[0].Color,
+				).To(Equal(MustSucceed(color.FromHex("#ff0000"))))
 				Expect(res.Channels[0].Notation).To(Equal(notation.NotationScientific))
-				Expect(res.Channels[0].Precision).To(Equal(int32(2)))
+				Expect(res.Channels[0].Precision).To(Equal(new(int32(2))))
 				Expect(res.Channels[0].Alias).To(Equal("temp"))
 				Expect(res.Channels[1].Channel).To(Equal(channel.Key(5)))
 			},
@@ -200,9 +205,11 @@ var _ = Describe("ImEx", func() {
 				Expect(res.ChannelNamesHidden).To(BeFalse())
 				Expect(res.Channels).To(HaveLen(2))
 				Expect(res.Channels[0].Channel).To(Equal(channel.Key(1)))
-				Expect(res.Channels[0].Color).To(Equal(color.MustFromHex("#7f1d1d")))
+				Expect(
+					res.Channels[0].Color,
+				).To(Equal(MustSucceed(color.FromHex("#7f1d1d"))))
 				Expect(res.Channels[0].Notation).To(Equal(notation.NotationScientific))
-				Expect(res.Channels[0].Precision).To(Equal(int32(2)))
+				Expect(res.Channels[0].Precision).To(Equal(new(int32(2))))
 				Expect(res.Channels[0].Alias).To(Equal("temp"))
 				Expect(
 					res.Channels[0].Timestamp.Format,
@@ -341,7 +348,11 @@ var _ = Describe("ImEx", func() {
 				original := createLog(ctx, log.Log{
 					Name: "round-trip",
 					Channels: []log.ChannelEntry{
-						{Channel: channel.Key(1), Alias: "first", Precision: 4},
+						{
+							Channel:   channel.Key(1),
+							Alias:     "first",
+							Precision: new(int32(4)),
+						},
 						{Channel: channel.Key(2), Alias: "second"},
 					},
 					TimestampPrecision:     1,

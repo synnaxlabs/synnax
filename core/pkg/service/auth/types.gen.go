@@ -29,13 +29,16 @@ type Session = versions.Session
 // Method names an authentication method.
 type Method string
 
-const MethodPassword Method = "password"
+const (
+	MethodPassword Method = "password"
+	MethodAPIKey   Method = "api_key"
+)
 
 // IsValid reports whether m is one of the defined Method
 // values.
 func (m Method) IsValid() bool {
 	switch m {
-	case MethodPassword:
+	case MethodPassword, MethodAPIKey:
 		return true
 	default:
 		return false
@@ -59,6 +62,20 @@ func (c Credentials) Validate() error {
 	return v.Error()
 }
 
+// APIKeyCredentials is an API key presented at login.
+type APIKeyCredentials struct {
+	// Key is the full API key, as it was shown at creation.
+	Key string `json:"key" msgpack:"key"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (a APIKeyCredentials) Validate() error {
+	v := validate.New("APIKeyCredentials")
+	v.NotEmptyString("key", a.Key)
+	return v.Error()
+}
+
 type ProofVariant interface {
 	isProofVariant()
 }
@@ -78,6 +95,21 @@ func (p PasswordProof) Validate() error {
 	return v.Error()
 }
 
+// APIKeyProof proves an API key.
+type APIKeyProof struct {
+	APIKeyCredentials
+}
+
+func (APIKeyProof) isProofVariant() {}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (a APIKeyProof) Validate() error {
+	v := validate.New("APIKeyProof")
+	v.Exec(a.APIKeyCredentials.Validate)
+	return v.Error()
+}
+
 // Proof is what a subject presents to log in. The method selects the authenticator that
 // checks it.
 type Proof struct {
@@ -94,6 +126,11 @@ func (u Proof) MarshalJSONTo(enc *jsontext.Encoder) error {
 			Type Method `json:"method"`
 			PasswordProof
 		}{Type: MethodPassword, PasswordProof: v})
+	case APIKeyProof:
+		return json.MarshalEncode(enc, struct {
+			Type Method `json:"method"`
+			APIKeyProof
+		}{Type: MethodAPIKey, APIKeyProof: v})
 	default:
 		return errors.Newf("Proof: unknown variant %T", v)
 	}
@@ -123,6 +160,12 @@ func (u *Proof) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			return err
 		}
 		u.Variant = v
+	case MethodAPIKey:
+		var v APIKeyProof
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v
 	default:
 		return errors.Newf("Proof: unknown method %q", disc.Type)
 	}
@@ -134,6 +177,8 @@ func (u *Proof) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 func (u Proof) Validate() error {
 	switch variant := u.Variant.(type) {
 	case PasswordProof:
+		return variant.Validate()
+	case APIKeyProof:
 		return variant.Validate()
 	}
 	return nil

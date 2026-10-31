@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type ontology } from "@synnaxlabs/client";
-import { createTestClient, TEST_CLIENT_PARAMS } from "@synnaxlabs/client/testutil";
+import { createTestClient, TEST_CREDENTIALS } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
@@ -48,8 +48,7 @@ describe("User queries", () => {
     it("should delete a single user", async () => {
       const testUser = await client.users.create({
         username: `test-user-${Date.now()}`,
-        firstName: "Test",
-        lastName: "User",
+        name: "Test User",
         password: "password123",
       });
 
@@ -69,14 +68,12 @@ describe("User queries", () => {
     it("should delete multiple users", async () => {
       const user1 = await client.users.create({
         username: `user1-${Date.now()}`,
-        firstName: "User",
-        lastName: "One",
+        name: "User One",
         password: "password123",
       });
       const user2 = await client.users.create({
         username: `user2-${Date.now()}`,
-        firstName: "User",
-        lastName: "Two",
+        name: "User Two",
         password: "password123",
       });
 
@@ -96,22 +93,17 @@ describe("User queries", () => {
   });
 
   describe("useRename", () => {
-    it("should change a user's username", async () => {
+    it("should change a user's name", async () => {
       const testUser = await client.users.create({
         username: `original-${Date.now()}`,
-        firstName: "Test",
-        lastName: "User",
+        name: "Test User",
         password: "password123",
       });
 
-      const newUsername = `renamed-${Date.now()}`;
       const { result } = renderHook(() => User.useRename(), { wrapper });
 
       await act(async () => {
-        await result.current.updateAsync({
-          key: testUser.key,
-          username: newUsername,
-        });
+        await result.current.updateAsync({ key: testUser.key, name: "Renamed User" });
       });
 
       await waitFor(() => {
@@ -119,14 +111,13 @@ describe("User queries", () => {
       });
 
       const retrieved = await client.users.retrieve(testUser.key);
-      expect(retrieved.username).toBe(newUsername);
+      expect(retrieved.name).toBe("Renamed User");
     });
 
     it("should apply the rename optimistically", async () => {
       const testUser = await client.users.create({
         username: `original-${id.create()}`,
-        firstName: "Test",
-        lastName: "User",
+        name: "Test User",
         password: "password123",
       });
       const afterOptimistic = vi.fn();
@@ -134,10 +125,7 @@ describe("User queries", () => {
         wrapper,
       });
       await act(async () => {
-        await result.current.updateAsync({
-          key: testUser.key,
-          username: `renamed-${id.create()}`,
-        });
+        await result.current.updateAsync({ key: testUser.key, name: "Renamed User" });
       });
       expect(afterOptimistic).toHaveBeenCalledOnce();
     });
@@ -159,8 +147,7 @@ describe("User queries", () => {
     it("should retrieve a user by key", async () => {
       const testUser = await client.users.create({
         username: `retrieve-test-${Date.now()}`,
-        firstName: "Retrieve",
-        lastName: "Test",
+        name: "Retrieve Test",
         password: "password123",
       });
 
@@ -176,9 +163,7 @@ describe("User queries", () => {
       });
 
       expect(result.current?.key).toEqual(testUser.key);
-      expect(result.current?.username).toEqual(testUser.username);
-      expect(result.current?.firstName).toEqual(testUser.firstName);
-      expect(result.current?.lastName).toEqual(testUser.lastName);
+      expect(result.current?.name).toEqual(testUser.name);
     });
 
     it("should retrieve the current authenticated user when no key provided", async () => {
@@ -191,10 +176,9 @@ describe("User queries", () => {
       });
 
       expect(result.current).not.toBeNull();
-      const { username } = TEST_CLIENT_PARAMS;
+      const { username } = TEST_CREDENTIALS;
       const signedIn = await client.users.retrieve({ username });
       expect(result.current?.key).toEqual(signedIn.key);
-      expect(result.current?.username).toEqual(username);
     });
 
     it("should update the current user on a rename from another client", async () => {
@@ -211,15 +195,14 @@ describe("User queries", () => {
       // Changes made while the stream is still opening are lost, so open it first.
       await userClient.connect();
       await waitFor(() => expect(result.current.data?.key).toEqual(u.key));
-      await client.users.rename(u.key, "Abigail", "Adams");
-      await waitFor(() => expect(result.current.data?.firstName).toEqual("Abigail"));
+      await client.users.rename(u.key, "Abigail Adams");
+      await waitFor(() => expect(result.current.data?.name).toEqual("Abigail Adams"));
     });
 
     it("should cache retrieved users", async () => {
       const testUser = await client.users.create({
         username: `cached-user-${Date.now()}`,
-        firstName: "Cached",
-        lastName: "User",
+        name: "Cached User",
         password: "password123",
       });
 
@@ -250,8 +233,7 @@ describe("User queries", () => {
         const formData = result.current.form.value();
         expect(formData.key).toBeUndefined();
         expect(formData.username).toBe("");
-        expect(formData.firstName).toBe("");
-        expect(formData.lastName).toBe("");
+        expect(formData.name).toBe("");
         expect(formData.password).toBe("");
       });
 
@@ -265,8 +247,7 @@ describe("User queries", () => {
         const timestamp = Date.now();
         act(() => {
           result.current.form.set("username", `test-form-${timestamp}`);
-          result.current.form.set("firstName", "Form");
-          result.current.form.set("lastName", "Test");
+          result.current.form.set("name", "Form Test");
           result.current.form.set("password", "password123");
         });
 
@@ -292,13 +273,11 @@ describe("User queries", () => {
 
         const usernameField = result.current.form.get("username");
         const passwordField = result.current.form.get("password");
-        const firstNameField = result.current.form.get("firstName");
-        const lastNameField = result.current.form.get("lastName");
+        const nameField = result.current.form.get("name");
 
         expect(usernameField.status.variant).toBe("error");
         expect(passwordField.status.variant).toBe("error");
-        expect(firstNameField.status.variant).toBe("error");
-        expect(lastNameField.status.variant).toBe("error");
+        expect(nameField.status.variant).toBe("error");
       });
     });
 
@@ -334,8 +313,7 @@ describe("User queries", () => {
 
         expect(result.current.form.get("username").status.variant).toBe("error");
         expect(result.current.form.get("password").status.variant).toBe("error");
-        expect(result.current.form.get("firstName").status.variant).toBe("error");
-        expect(result.current.form.get("lastName").status.variant).toBe("error");
+        expect(result.current.form.get("name").status.variant).toBe("error");
       });
     });
   });

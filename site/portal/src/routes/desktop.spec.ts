@@ -65,6 +65,7 @@ describe("desktop routes", () => {
       name: "Ada Lovelace",
     };
     harness.directory.people.user_b = { email: "bob@example.com", name: "Bob" };
+    harness.directory.people.user_em = { email: "em@synnaxlabs.com", name: "Emiliano" };
   });
 
   afterEach(() => {
@@ -179,6 +180,13 @@ describe("desktop routes", () => {
           "stand-1",
         ),
       ]);
+    });
+
+    it("should not post the logins of a Synnax Labs user", async () => {
+      await linkAs("user_em");
+      harness.portal.now = () => TOMORROW;
+      await linkAs("user_em", HASH_B);
+      expect(harness.slack.posted).toEqual([]);
     });
 
     describe("referred user", () => {
@@ -345,6 +353,14 @@ describe("desktop routes", () => {
           days: 2,
         }),
       ]);
+    });
+
+    it("should not post the use of a Synnax Labs user", async () => {
+      const linked = await linkAs("user_em");
+      harness.signIn(null);
+      harness.portal.now = () => TOMORROW;
+      expect((await postRenew(`Bearer ${linked.secret}`)).status).toBe(200);
+      expect(harness.slack.posted).toEqual([]);
     });
 
     it("should answer the key when the note about the renewal fails", async () => {

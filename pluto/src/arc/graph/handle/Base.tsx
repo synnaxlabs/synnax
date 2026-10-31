@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { CSS } from "@synnaxlabs/lyra/css";
 import { type location } from "@synnaxlabs/x";
 import { Handle, type HandleProps, Position, useNodeId } from "@xyflow/react";
+
+import { CSS } from "@/css";
 
 export interface BaseProps extends Omit<HandleProps, "position"> {
   location: location.Outer;

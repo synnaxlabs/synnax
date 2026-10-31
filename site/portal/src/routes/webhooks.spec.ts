@@ -182,6 +182,14 @@ describe("POST /api/webhooks/clerk", () => {
       ]);
     });
 
+    it("should not post a Synnax Labs account to Slack", async () => {
+      await post(
+        userCreated({ email_addresses: [{ email_address: "em@synnaxlabs.com" }] }),
+      );
+      expect(await organizations()).toHaveLength(1);
+      expect(h.slack.posted).toEqual([]);
+    });
+
     it("should create the organization only once", async () => {
       await post(userCreated({ first_name: "Ada" }));
       await post(userCreated({ first_name: "Ada" }));

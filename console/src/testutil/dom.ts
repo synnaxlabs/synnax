@@ -31,7 +31,7 @@ export const installPortalRoot = (): void => {
 export const openContextMenu = async (text: string): Promise<void> => {
   await waitFor(() => {
     fireEvent.contextMenu(screen.getByText(text));
-    if (document.querySelector(".pluto-menu-context") == null)
+    if (document.querySelector(".lyra-menu-context") == null)
       throw new Error(`context menu did not open for ${text}`);
   });
 };
@@ -50,7 +50,7 @@ export const clickAndSettle = async (text: string): Promise<void> => {
 
 /** Queries container for a rendered pluto icon by its name, or null. */
 export const queryIcon = (container: ParentNode, icon: string): Element | null =>
-  container.querySelector(`.pluto-icon--${icon}`);
+  container.querySelector(`.lyra-icon--${icon}`);
 
 /** Returns the closest button wrapping the given pluto icon, or null. */
 export const queryIconButton = (
@@ -63,7 +63,7 @@ export const getIconButtons = (
   container: ParentNode,
   icon: string,
 ): HTMLButtonElement[] =>
-  Array.from(container.querySelectorAll(`.pluto-icon--${icon}`)).flatMap((el) => {
+  Array.from(container.querySelectorAll(`.lyra-icon--${icon}`)).flatMap((el) => {
     const button = el.closest("button");
     return button == null ? [] : [button];
   });
@@ -93,7 +93,7 @@ export const getInputByNodePlaceholder = (
   text: string,
 ): HTMLInputElement => {
   const placeholders = Array.from(
-    container.querySelectorAll<HTMLElement>(".pluto-input__placeholder"),
+    container.querySelectorAll<HTMLElement>(".lyra-input__placeholder"),
   );
   const target = placeholders.find((el) => (el.textContent ?? "").includes(text));
   const input = target?.parentElement?.querySelector("input");
@@ -113,7 +113,7 @@ export const getBySelector = <E extends Element = Element>(
 
 /** Finds the pluto input item element labeled with labelText in the document. */
 export const getInputItem = (labelText: string): Element => {
-  const item = screen.getByText(labelText).closest(".pluto-input__item");
+  const item = screen.getByText(labelText).closest(".lyra-input__item");
   if (item == null) throw new Error(`no input item wraps label ${labelText}`);
   return item;
 };
@@ -149,7 +149,7 @@ export const findDialogTriggerByText = async (text: string): Promise<HTMLElement
  * disabled buttons with a class rather than the disabled attribute.
  */
 export const isPlutoDisabled = (el: Element): boolean =>
-  el.classList.contains("pluto--disabled");
+  el.classList.contains("lyra--disabled");
 
 /**
  * Finds the input nested inside the pluto input item with the given label text,
@@ -160,7 +160,7 @@ export const getInputByItemLabel = (
   label: string,
 ): HTMLInputElement => {
   const items = Array.from(
-    container.querySelectorAll<HTMLElement>(".pluto-input__item"),
+    container.querySelectorAll<HTMLElement>(".lyra-input__item"),
   );
   const labelOf = (el: HTMLElement): string =>
     el.querySelector("label")?.textContent?.trim() ?? "";
@@ -191,7 +191,7 @@ export const getCompositeIconButtons = (
   icons: string[],
 ): HTMLButtonElement[] =>
   Array.from(container.querySelectorAll("button")).filter((b) =>
-    icons.every((i) => b.querySelector(`.pluto-icon--${i}`) != null),
+    icons.every((i) => b.querySelector(`.lyra-icon--${i}`) != null),
   );
 
 /** A handle on the pluto input table inside an input item. */
@@ -208,7 +208,7 @@ export interface InputTable {
 export const getInputTable = (labelText: string): InputTable => {
   const table = getBySelector<HTMLElement>(
     getInputItem(labelText),
-    ".pluto-input__table",
+    ".lyra-input__table",
   );
   const rows = Array.from(table.querySelectorAll<HTMLElement>("tbody tr"));
   return {
@@ -236,7 +236,7 @@ export const getHeaderIconButton = (
 ): HTMLButtonElement => {
   const header = screen
     .getByText(title)
-    .closest(".pluto-header, .pluto-form-section__header");
+    .closest(".lyra-header, .lyra-form-section__header");
   if (header == null) throw new Error(`no header titled ${title}`);
   return getIconButton(header, icon);
 };
@@ -248,7 +248,7 @@ export const getHeaderIconButton = (
 export const isSelectButtonSelected = (label: string): boolean => {
   const el = screen.getByText(label).closest("button");
   if (el == null) throw new Error(`select button "${label}" not found`);
-  return el.className.includes("pluto-context--selected");
+  return el.className.includes("lyra-context--selected");
 };
 
 /** Runs interactions while the Control key is held through the Triggers provider. */

@@ -111,9 +111,7 @@ describe("role ontology service", () => {
       Tree.createHaulItem("user:u1"),
       PUser.createHaulItem({
         key: "u1",
-        username: "u",
-        firstName: "",
-        lastName: "",
+        name: "",
         rootUser,
       }),
     ];
@@ -138,8 +136,6 @@ describe("role ontology service", () => {
       const u = await client.users.create({
         username: uniqueName("user"),
         password: "password",
-        firstName: "",
-        lastName: "",
       });
       await client.access.roles.assign({ user: u.key, role: from.key });
       const [rolesGroup] = await client.ontology.parents.retrieve({
@@ -152,7 +148,7 @@ describe("role ontology service", () => {
       });
       await findTreeRow(from.name);
       expandTreeRow(from.name);
-      fireEvent.dragStart(await findTreeRow(u.username));
+      fireEvent.dragStart(await findTreeRow(u.name));
       fireEvent.drop(await findTreeRow(to.name));
       await waitFor(async () => {
         const roles = await client.ontology.parents.retrieve({
@@ -179,7 +175,7 @@ describe("role ontology service", () => {
       ["Engineer", "safety"],
       ["Operator", "control"],
       ["Viewer", "visible"],
-      ["Host", "terminal-outline"],
+      ["Driver", "rack"],
       [role.name, "role"],
     ];
     for (const [name, icon] of cases)

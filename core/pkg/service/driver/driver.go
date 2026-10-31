@@ -37,11 +37,10 @@ import (
 
 // Driver is the Go task executor that handles task lifecycle and command processing.
 type Driver struct {
-	cfg              Config
-	closer           io.MultiCloser
-	streamerRequests confluence.Inlet[framer.StreamerRequest]
-	rack             rack.Rack
-	mu               struct {
+	cfg    Config
+	closer io.MultiCloser
+	rack   rack.Rack
+	mu     struct {
 		instances map[task.Key]instance
 		sync.RWMutex
 	}
@@ -153,7 +152,7 @@ func (d *Driver) startCommandStreaming(ctx context.Context) error {
 	p.MustConnect[framer.StreamerResponse]("streamer", "driver", 10)
 	streamerRequests := confluence.NewStream[framer.StreamerRequest]()
 	streamer.InFrom(streamerRequests)
-	d.streamerRequests = streamerRequests
+	d.closer = append(d.closer, io.NoFailCloserFunc(streamerRequests.Close))
 	p.Flow(
 		sCtx,
 		confluence.CloseOutputInletsOnExit(),
@@ -161,7 +160,6 @@ func (d *Driver) startCommandStreaming(ctx context.Context) error {
 	)
 	select {
 	case <-ctx.Done():
-		streamerRequests.Close()
 		return ctx.Err()
 	case <-open:
 		return nil
@@ -456,8 +454,5 @@ func (d *Driver) Close() error {
 	}
 	clear(d.mu.instances)
 	d.mu.Unlock()
-	if d.streamerRequests != nil {
-		d.streamerRequests.Close()
-	}
 	return d.closer.Close()
 }

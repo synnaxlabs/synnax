@@ -7,11 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { fireEvent, render, screen } from "@testing-library/react";
+import { type xy } from "@synnaxlabs/x";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { type ReactElement, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Input } from "@/input";
+import { type Status } from "@/status";
 
 const COLUMNS = [
   <Input.TableColumn key="raw" name="Raw" />,
@@ -24,6 +26,7 @@ interface RenderOptions {
   createRow?: (value: Input.TableCell[][]) => Input.TableCell[];
   rowLabel?: (index: number) => string;
   resourceName?: string;
+  cellStatus?: (at: xy.XY) => Status.Crude | undefined;
 }
 
 const renderTable = ({ value = [[1, 10]], ...rest }: RenderOptions = {}) => {
@@ -69,6 +72,26 @@ const Stateful = ({ initial, children }: StatefulProps): ReactElement => {
 const removeButton = (row: number): HTMLElement =>
   screen.getAllByRole("row")[row + 1].querySelectorAll("button")[0];
 
+const marked = (input: HTMLInputElement): boolean =>
+  input.getAttribute("aria-invalid") === "true";
+
+/** @returns the tooltip text a hover on the input's cell shows. */
+const hoverTip = (input: HTMLInputElement): string | null => {
+  vi.useFakeTimers();
+  try {
+    const td = input.closest("td");
+    if (td == null) throw new Error("The input is not in a cell");
+    td.getBoundingClientRect = () => new DOMRect(0, 0, 100, 20);
+    fireEvent.pointerOver(td, { pointerType: "mouse" });
+    act(() => {
+      vi.advanceTimersByTime(2000);
+    });
+    return screen.queryByRole("tooltip")?.textContent ?? null;
+  } finally {
+    vi.useRealTimers();
+  }
+};
+
 describe("Input.Table", () => {
   it("should render a row per entry and a cell per column", () => {
     renderTable({
@@ -91,7 +114,7 @@ describe("Input.Table", () => {
 
   it("should show the remove button of every row at all times", () => {
     renderTable();
-    expect(removeButton(0).classList.contains("pluto--reveal")).toBe(false);
+    expect(removeButton(0).classList.contains("lyra--reveal")).toBe(false);
   });
 
   it("should name the row in the add button", () => {
@@ -101,8 +124,8 @@ describe("Input.Table", () => {
 
   it("should render every cell as a shadow input", () => {
     renderTable();
-    const chassis = cell("Raw", "1").closest(".pluto-input");
-    expect(chassis?.classList.contains("pluto--shadow")).toBe(true);
+    const chassis = cell("Raw", "1").closest(".lyra-input");
+    expect(chassis?.classList.contains("lyra--shadow")).toBe(true);
   });
 
   it("should render no row header until a labeler asks for one", () => {
@@ -418,10 +441,144 @@ describe("Input.Table", () => {
       expect(onChange).not.toHaveBeenCalled();
     });
 
-    it("should leave a block holding a non-numeric row to the cell", () => {
-      const onChange = renderTable();
+    it("should keep the values that parse and mark the cells that do not", () => {
+      render(<Stateful initial={[[1, 10]]}>{COLUMNS}</Stateful>);
       paste(cell("Raw", "1"), "1\t10\n2\tnot a number");
+      expect(cell("Raw", "2").value).toBe("2");
+      expect(cell("Scaled", "2").value).toBe("0");
+      expect(marked(cell("Scaled", "2"))).toBe(true);
+      expect(marked(cell("Raw", "2"))).toBe(false);
+      expect(marked(cell("Scaled", "1"))).toBe(false);
+    });
+
+    it("should name the text that did not parse in the cell's tooltip", () => {
+      render(<Stateful initial={[[1, 10]]}>{COLUMNS}</Stateful>);
+      paste(cell("Raw", "1"), "5\tabc");
+      expect(hoverTip(cell("Scaled", "1"))).toBe('"abc" is not a number');
+    });
+
+    it("should keep a first row in which a number parses", () => {
+      render(<Stateful initial={[[1, 10]]}>{COLUMNS}</Stateful>);
+      paste(cell("Raw", "1"), "5\tabc");
+      expect(cell("Raw", "1").value).toBe("5");
+      expect(cell("Scaled", "1").value).toBe("10");
+      expect(marked(cell("Scaled", "1"))).toBe(true);
+    });
+
+    it("should leave a lone row in which no number parses to the cell", () => {
+      const onChange = renderTable();
+      paste(cell("Raw", "1"), "abc\tdef");
       expect(onChange).not.toHaveBeenCalled();
+    });
+
+    it("should clear a mark when its cell is edited", () => {
+      render(<Stateful initial={[[1, 10]]}>{COLUMNS}</Stateful>);
+      paste(cell("Raw", "1"), "5\tabc");
+      commit(cell("Scaled", "1"), "11");
+      expect(marked(cell("Scaled", "1"))).toBe(false);
+    });
+
+    it("should clear a mark when an edit commits the value its cell kept", () => {
+      render(<Stateful initial={[[1, 10]]}>{COLUMNS}</Stateful>);
+      paste(cell("Raw", "1"), "5\tabc");
+      const input = cell("Scaled", "1");
+      fireEvent.change(input, { target: { value: "" } });
+      commit(input, "10");
+      expect(marked(cell("Scaled", "1"))).toBe(false);
+    });
+
+    it("should clear a mark when a later paste reads its cell", () => {
+      render(<Stateful initial={[[1, 10]]}>{COLUMNS}</Stateful>);
+      paste(cell("Raw", "1"), "5\tabc");
+      paste(cell("Raw", "1"), "6\t10");
+      expect(marked(cell("Scaled", "1"))).toBe(false);
+    });
+
+    it("should move a mark up with its row when a row above is removed", () => {
+      render(
+        <Stateful
+          initial={[
+            [1, 10],
+            [2, 20],
+            [3, 30],
+          ]}
+        >
+          {COLUMNS}
+        </Stateful>,
+      );
+      paste(cell("Raw", "3"), "4\tabc\n5\t50");
+      fireEvent.click(removeButton(0));
+      expect(cell("Scaled", "2").value).toBe("30");
+      expect(marked(cell("Scaled", "2"))).toBe(true);
+      expect(marked(cell("Scaled", "1"))).toBe(false);
+    });
+
+    it("should drop a mark for good once the caller replaces its value", () => {
+      const onChange = vi.fn();
+      const { rerender } = render(
+        <Input.Table value={[[1, 10]]} onChange={onChange}>
+          {COLUMNS}
+        </Input.Table>,
+      );
+      paste(cell("Raw", "1"), "5\tabc");
+      expect(marked(cell("Scaled", "1"))).toBe(true);
+      rerender(
+        <Input.Table value={[[5, 20]]} onChange={onChange}>
+          {COLUMNS}
+        </Input.Table>,
+      );
+      expect(marked(cell("Scaled", "1"))).toBe(false);
+      rerender(
+        <Input.Table value={[[5, 10]]} onChange={onChange}>
+          {COLUMNS}
+        </Input.Table>,
+      );
+      expect(marked(cell("Scaled", "1"))).toBe(false);
+    });
+  });
+
+  describe("status", () => {
+    const DUPLICATE: Status.Crude = { variant: "error", message: "Duplicate value" };
+    const markScaled = ({ x, y }: xy.XY): Status.Crude | undefined =>
+      x === 1 && y === 0 ? DUPLICATE : undefined;
+
+    it("should mark the cells that the caller gives an error", () => {
+      renderTable({ cellStatus: markScaled });
+      expect(marked(cell("Scaled", "1"))).toBe(true);
+      expect(marked(cell("Raw", "1"))).toBe(false);
+    });
+
+    it("should show a cell's message in its tooltip", () => {
+      renderTable({ cellStatus: markScaled });
+      expect(hoverTip(cell("Scaled", "1"))).toBe("Duplicate value");
+    });
+
+    it("should show no tooltip on a cell without a status", () => {
+      renderTable({ cellStatus: markScaled });
+      expect(hoverTip(cell("Raw", "1"))).toBeNull();
+    });
+
+    it("should keep focus in a cell whose status comes and goes", () => {
+      const onChange = vi.fn();
+      const { rerender } = render(
+        <Input.Table value={[[1, 10]]} onChange={onChange}>
+          {COLUMNS}
+        </Input.Table>,
+      );
+      const input = cell("Scaled", "1");
+      input.focus();
+      rerender(
+        <Input.Table value={[[1, 10]]} onChange={onChange} cellStatus={markScaled}>
+          {COLUMNS}
+        </Input.Table>,
+      );
+      expect(document.activeElement).toBe(input);
+      rerender(
+        <Input.Table value={[[1, 10]]} onChange={onChange}>
+          {COLUMNS}
+        </Input.Table>,
+      );
+      expect(document.activeElement).toBe(input);
     });
   });
 
@@ -480,10 +637,13 @@ describe("Input.Table", () => {
       ]);
     });
 
-    it("should reject a block whose text lands on a numeric column", () => {
+    it("should mark the number cells of a block that do not parse", () => {
       const onChange = renderMixed();
-      paste(cell("Label", "1"), "off\tnot a number");
-      expect(onChange).not.toHaveBeenCalled();
+      paste(cell("Label", "1"), "off\t2\nidle\tnot a number");
+      expect(onChange).toHaveBeenCalledWith([
+        ["off", 2],
+        ["idle", 0],
+      ]);
     });
 
     it("should drop a heading row a text column would otherwise accept", () => {

@@ -9,7 +9,6 @@
 
 import "@/vis/legend/Container.css";
 
-import { CSS } from "@synnaxlabs/lyra/css";
 import { Cursor } from "@synnaxlabs/lyra/cursor";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
@@ -17,6 +16,8 @@ import { type Input } from "@synnaxlabs/lyra/input";
 import { state } from "@synnaxlabs/lyra/state";
 import { box, location, scale, sticky, xy } from "@synnaxlabs/x";
 import { memo, type ReactElement, useRef } from "react";
+
+import { CSS } from "@/css";
 
 export interface ContainerProps
   extends Omit<Flex.BoxProps, "onChange">, Partial<Input.OptionalControl<sticky.XY>> {

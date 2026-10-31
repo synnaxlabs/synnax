@@ -133,7 +133,8 @@ class TableLifecycle(ConsoleCase):
 
         table.add_column()
         assert table.get_column_count() == initial_cols + 1, (
-            f"Expected {initial_cols + 1} cols after add, got {table.get_column_count()}"
+            f"Expected {initial_cols + 1} cols after add, got "
+            f"{table.get_column_count()}"
         )
 
     def test_delete_rows_and_columns(self, table: Table) -> None:
@@ -230,13 +231,15 @@ class TableLifecycle(ConsoleCase):
         self.log("Testing import table from file")
         json_path = get_fixture_path("ImportSpace/Metrics Table.json")
         imported_name = f"Imported Table {self.suffix}"
-        self.console.pages.import_file(json_path, imported_name)
+        self.console.pages.import_file(json_path, name=imported_name)
 
         assert self.console.pages.exists(imported_name), (
             f"Imported table '{imported_name}' should appear in project"
         )
 
-        table = Table.from_open_page(self.console.layout, self.client, imported_name)
+        table = Table.from_open_page(
+            layout=self.console.layout, client=self.client, name=imported_name
+        )
         assert table.get_row_count() == 2, (
             f"Expected 2 rows, got {table.get_row_count()}"
         )
@@ -251,7 +254,7 @@ class TableLifecycle(ConsoleCase):
         assert self.ctx_table_name is not None
         self.log("Testing copy link via context menu")
         link = self.console.pages.copy_link(self.ctx_table_name)
-        assert_link_format(link, "table")
+        assert_link_format(link, resource_type="table")
 
     def test_ctx_export_json(self) -> None:
         """Test exporting a table as JSON via context menu."""
@@ -291,19 +294,19 @@ class TableLifecycle(ConsoleCase):
         rows_before = table.get_row_count()
         cols_before = table.get_column_count()
 
-        table.add_row_above(0, 0)
+        table.add_row_above(0, col=0)
         assert table.get_row_count() == rows_before + 1, (
             f"Add row above: expected {rows_before + 1}, got {table.get_row_count()}"
         )
-        table.add_row_below(table.get_row_count() - 1, 0)
+        table.add_row_below(table.get_row_count() - 1, col=0)
         assert table.get_row_count() == rows_before + 2, (
             f"Add row below: expected {rows_before + 2}, got {table.get_row_count()}"
         )
-        table.add_col_left(0, 0)
+        table.add_col_left(0, row=0)
         assert table.get_column_count() == cols_before + 1, (
             f"Add col left: expected {cols_before + 1}, got {table.get_column_count()}"
         )
-        table.add_col_right(table.get_column_count() - 1, 0)
+        table.add_col_right(table.get_column_count() - 1, row=0)
         assert table.get_column_count() == cols_before + 2, (
             f"Add col right: expected {cols_before + 2}, got {table.get_column_count()}"
         )
@@ -330,7 +333,9 @@ class TableLifecycle(ConsoleCase):
         )
 
     def test_delete_removes_full_row(self, table: Table) -> None:
-        """Test that selecting an entire row via its header and pressing Delete removes the row."""
+        """Test that selecting an entire row via its header and pressing Delete removes
+        the row.
+        """
         self.log("Testing Delete key removes a fully selected row")
         # Add a buffer row so we don't run the table down to zero rows.
         table.add_row()
@@ -340,14 +345,17 @@ class TableLifecycle(ConsoleCase):
         table.select_row_via_header(target_row)
         table.delete_selected()
         assert table.get_row_count() == rows_before - 1, (
-            f"Expected {rows_before - 1} rows after row delete, got {table.get_row_count()}"
+            f"Expected {rows_before - 1} rows after row delete, got "
+            f"{table.get_row_count()}"
         )
         assert table.get_column_count() == cols_before, (
             "Deleting a row must not change column count"
         )
 
     def test_delete_removes_full_col(self, table: Table) -> None:
-        """Test that selecting an entire column via its header and pressing Delete removes the column."""
+        """Test that selecting an entire column via its header and pressing Delete
+        removes the column.
+        """
         self.log("Testing Delete key removes a fully selected column")
         table.add_column()
         rows_before = table.get_row_count()
@@ -356,14 +364,17 @@ class TableLifecycle(ConsoleCase):
         table.select_col_via_header(target_col)
         table.delete_selected()
         assert table.get_column_count() == cols_before - 1, (
-            f"Expected {cols_before - 1} cols after col delete, got {table.get_column_count()}"
+            f"Expected {cols_before - 1} cols after col delete, got "
+            f"{table.get_column_count()}"
         )
         assert table.get_row_count() == rows_before, (
             "Deleting a column must not change row count"
         )
 
     def test_copy_paste_in_bounds(self, table: Table) -> None:
-        """Test that copying a 1x2 region and pasting at a new anchor overwrites cells."""
+        """Test that copying a 1x2 region and pasting at a new anchor overwrites
+        cells.
+        """
         self.log("Testing copy/paste within current table bounds")
         # Grow the table to a known 2x2 starting shape and seed source cells.
         while table.get_row_count() < 2:
@@ -456,10 +467,12 @@ class TableLifecycle(ConsoleCase):
         # Pasting 1x2 with anchor at the last column adds exactly one column;
         # pasting at the last row doesn't add rows because the source is one row tall.
         assert table.get_column_count() == cols_before + 1, (
-            f"Expected {cols_before + 1} cols after overflow paste, got {table.get_column_count()}"
+            f"Expected {cols_before + 1} cols after overflow paste, got "
+            f"{table.get_column_count()}"
         )
         assert table.get_row_count() == rows_before, (
-            "Paste should not grow rows when the source is one row tall and anchored on the last row"
+            "Paste should not grow rows when the source is one row tall and anchored "
+            "on the last row"
         )
 
     def test_undo_redo_add_row(self, table: Table) -> None:
@@ -474,7 +487,8 @@ class TableLifecycle(ConsoleCase):
         table.select_cell(0, 0)
         table.undo()
         assert table.get_row_count() == rows_before, (
-            f"Undo should restore row count to {rows_before}, got {table.get_row_count()}"
+            f"Undo should restore row count to {rows_before}, got "
+            f"{table.get_row_count()}"
         )
         table.select_cell(0, 0)
         table.redo()
@@ -523,12 +537,12 @@ class TableLifecycle(ConsoleCase):
         # The leading edge lands past the midpoint of the next row, and short of the
         # one after it.
         table.drag_row_label(0, table.get_row_height(1))
-        table.wait_for_cell_key(0, 0, second)
-        table.wait_for_cell_key(1, 0, first)
+        table.wait_for_cell_key(0, 0, key=second)
+        table.wait_for_cell_key(1, 0, key=first)
         table.select_cell(0, 0)
         table.undo()
-        table.wait_for_cell_key(0, 0, first)
-        table.wait_for_cell_key(1, 0, second)
+        table.wait_for_cell_key(0, 0, key=first)
+        table.wait_for_cell_key(1, 0, key=second)
 
     def test_move_col_via_drag(self, table: Table) -> None:
         """Test that dragging a column label past its neighbor moves the column, and
@@ -538,15 +552,17 @@ class TableLifecycle(ConsoleCase):
         first = table.get_cell_key(0, 0)
         second = table.get_cell_key(0, 1)
         table.drag_col_label(0, table.get_column_width(1))
-        table.wait_for_cell_key(0, 0, second)
-        table.wait_for_cell_key(0, 1, first)
+        table.wait_for_cell_key(0, 0, key=second)
+        table.wait_for_cell_key(0, 1, key=first)
         table.select_cell(0, 0)
         table.undo()
-        table.wait_for_cell_key(0, 0, first)
-        table.wait_for_cell_key(0, 1, second)
+        table.wait_for_cell_key(0, 0, key=first)
+        table.wait_for_cell_key(0, 1, key=second)
 
     def test_edit_toggle_gates_editing(self, table: Table) -> None:
-        """Test that toggling editing off hides edit affordances and re-enables them on toggle."""
+        """Test that toggling editing off hides edit affordances and re-enables them on
+        toggle.
+        """
         self.log("Testing edit toggle gates editing affordances")
         add_row_btn = self.page.locator(".pluto-table-frame__add-row").first
         add_col_btn = self.page.locator(".pluto-table-frame__add-col").first

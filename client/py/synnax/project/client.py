@@ -71,6 +71,7 @@ class Client:
 
     def __init__(
         self,
+        *,
         client: UnaryClient,
         file_transport: FileTransport,
         instrumentation: Instrumentation = NOOP,
@@ -145,7 +146,7 @@ class Client:
         :raises NotFoundError: If no project exists for key.
         """
         self._file_transport.download(
-            "/project/export", _ExportRequest(key=key, encoding=encoding), dest
+            "/project/export", _ExportRequest(key=key, encoding=encoding), dest=dest
         )
 
     def import_(self, source: FilePath) -> Project:
