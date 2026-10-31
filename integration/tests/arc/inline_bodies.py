@@ -483,11 +483,11 @@ class InlineBodies(ArcCase):
 
     def setup(self) -> None:
         for channel in CREATE_CHANNELS:
-            create_virtual_channel(self.client, channel, sy.DataType.UINT8)
+            create_virtual_channel(self.client, channel, data_type=sy.DataType.UINT8)
         for channel in FLOAT_INPUTS:
-            create_virtual_channel(self.client, channel, sy.DataType.FLOAT32)
+            create_virtual_channel(self.client, channel, data_type=sy.DataType.FLOAT32)
         for channel in BOOL_INPUTS:
-            create_virtual_channel(self.client, channel, sy.DataType.BOOLEAN)
+            create_virtual_channel(self.client, channel, data_type=sy.DataType.BOOLEAN)
         super().setup()
 
     def verify_sequence_execution(self) -> None:
@@ -608,7 +608,6 @@ class InlineBodies(ArcCase):
                 f"race_first_out={blocked} while race_cond=100; the inline stage "
                 "should still be blocking the sequence"
             )
-            return
 
         self.log("Dropping race_cond low; condition exit should win the race")
         self.writer.write("race_cond", 10.0)
@@ -625,7 +624,6 @@ class InlineBodies(ArcCase):
                 f"second stage exited in {elapsed:.2f}s but wait{{2s}} should not "
                 "fire before ~2s; the condition exit may have fired spuriously"
             )
-            return
 
     def _verify_reentry_deactivation(self) -> None:
         self.log("Activating re-entry/deactivation cycle via trigger_6")
@@ -651,4 +649,3 @@ class InlineBodies(ArcCase):
                 "stage; the exit stage's write is still applying, so the stage did "
                 "not fully deactivate on the backward transition"
             )
-            return

@@ -11,12 +11,12 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { TimeRange } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { keyZ, nameZ } from "@/channel/types.gen";
+import { channel } from "@/channel";
 
 const reqZ = z.object({
-  keys: keyZ.array().optional(),
+  keys: channel.keyZ.array().optional(),
   bounds: TimeRange.z,
-  names: nameZ.array().optional(),
+  names: channel.nameZ.array().optional(),
 });
 interface Request extends z.infer<typeof reqZ> {}
 

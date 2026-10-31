@@ -21,8 +21,7 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type channel } from "@/channel";
-import { keyZ } from "@/channel/types.gen";
+import { channel } from "@/channel";
 import { type ChannelRetriever, ReadAdapter } from "@/framer/adapter";
 import { WSIteratorCodec } from "@/framer/codec";
 import { Frame, frameZ } from "@/framer/frame";
@@ -37,7 +36,7 @@ export const iteratorReqZ = z.object({
   span: TimeSpan.z.optional(),
   bounds: TimeRange.z.optional(),
   stamp: TimeStamp.z.optional(),
-  keys: keyZ.array().optional(),
+  keys: channel.keyZ.array().optional(),
   chunkSize: z.number().optional(),
   reduction: reductionZ.optional(),
 });

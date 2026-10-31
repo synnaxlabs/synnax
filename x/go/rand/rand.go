@@ -9,11 +9,7 @@
 
 package rand
 
-import (
-	"math/rand/v2"
-
-	"github.com/samber/lo"
-)
+import "math/rand/v2"
 
 func MapKey[K comparable, V any](m map[K]V) (key K) {
 	l := len(m)
@@ -55,25 +51,4 @@ func SubMap[K comparable, V any](m map[K]V, n int) map[K]V {
 		}
 	}
 	return om
-}
-
-func SubSlice[V comparable](slice []V, n int) []V {
-	if n >= len(slice) {
-		return slice
-	}
-	var (
-		c        int
-		subSlice = make([]V, n)
-		indexes  = make([]int, n)
-	)
-	for c != n {
-		i := rand.IntN(len(slice))
-		if lo.Contains(indexes, i) {
-			continue
-		}
-		indexes[c] = i
-		subSlice[c] = slice[i]
-		c++
-	}
-	return subSlice
 }

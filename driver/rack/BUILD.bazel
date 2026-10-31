@@ -23,11 +23,17 @@ cc_library(
         "args.cpp",
         "env.cpp",
         "factories.cpp",
+        "factories.h",
         "file.cpp",
         "persist.cpp",
         "rack.cpp",
         "remote.cpp",
-    ],
+        "unavailable.h",
+    ] + select({
+        "@platforms//os:macos": ["factories_darwin.cpp"],
+        "@platforms//os:linux": ["factories_linux.cpp"],
+        "@platforms//os:windows": ["factories_windows.cpp"],
+    }),
     hdrs = ["rack.h"],
     defines = select({
         ":nilinuxrt": ["SYNNAX_NILINUXRT"],
@@ -35,13 +41,16 @@ cc_library(
     }),
     visibility = ["//visibility:public"],
     deps = [
+        "//client/cpp/auth",
         "//client/cpp/errors",
         "//driver/arc",
         "//driver/common",
+        "//driver/errors",
         "//driver/ethercat",
         "//driver/http",
-        "//driver/labjack",
-        "//driver/ni",
+        "//driver/labjack:names",
+        "//driver/modbus:names",
+        "//driver/ni:names",
         "//driver/opcua",
         "//driver/rack/status",
         "//driver/task",
@@ -58,7 +67,54 @@ cc_library(
     ] + select({
         ":nilinuxrt": [],
         "//conditions:default": ["//driver/modbus"],
+    }) + select({
+        "@platforms//os:macos": ["//driver/labjack"],
+        "@platforms//os:linux": ["//driver/ni"],
+        "@platforms//os:windows": [
+            "//driver/labjack",
+            "//driver/ni",
+        ],
     }),
+)
+
+cc_test(
+    name = "factories_test",
+    srcs = ["factories_test.cpp"],
+    deps = [
+        "//driver/labjack:names",
+        "//driver/ni:names",
+        "//driver/rack",
+        "//driver/task",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "factories_darwin_test",
+    srcs = ["factories_darwin_test.cpp"],
+    tags = ["requires-core"],
+    target_compatible_with = ["@platforms//os:macos"],
+    deps = [
+        "//client/cpp/testutil",
+        "//driver/ni:names",
+        "//driver/rack",
+        "//x/cpp/testutil",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "factories_linux_test",
+    srcs = ["factories_linux_test.cpp"],
+    tags = ["requires-core"],
+    target_compatible_with = ["@platforms//os:linux"],
+    deps = [
+        "//client/cpp/testutil",
+        "//driver/labjack:names",
+        "//driver/rack",
+        "//x/cpp/testutil",
+        "@googletest//:gtest_main",
+    ],
 )
 
 cc_test(

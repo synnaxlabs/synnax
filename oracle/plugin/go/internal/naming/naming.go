@@ -14,6 +14,7 @@ package naming
 import (
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"unicode"
 
@@ -48,23 +49,32 @@ var goAcronyms = []string{
 	"Acl", "Api", "Ascii", "Cpu", "Css", "Dns", "Eof", "Guid", "Html", "Http",
 	"Https", "Id", "Io", "Ip", "Iso", "Json", "Lhs", "Qps", "Ram", "Rhs",
 	"Rpc", "Sla", "Smtp", "Sql", "Ssh", "Svg", "Tcp", "Tls", "Ttl", "Udp",
-	"Ui", "Uid", "Uri", "Url", "Utc", "Utf8", "Uuid", "Vm", "Xml", "Xmpp",
+	"Ui", "Uid", "Uri", "Url", "Utc", "Utf", "Uuid", "Vm", "Xml", "Xmpp",
 	"Xss", "Xy",
 }
 
-// ToPascalCase converts a name to PascalCase, preserving Go acronym conventions (e.g.
-// "id" → "ID", "sticky_xy" → "StickyXY"). Routes through casing.TypePascal so
-// PascalCase inputs with adjacent capitals (SetXChannel, URLValue) keep their
-// boundaries instead of collapsing to SetXchannel / Urlvalue.
+// pascalWord matches one word of a PascalCase identifier.
+var pascalWord = regexp.MustCompile(`[A-Z][a-z]*`)
+
+// ToPascalCase converts a name to PascalCase, preserving Go acronym conventions for
+// whole words (e.g. "id" → "ID", "sticky_xy" → "StickyXY", "slave" → "Slave"). Routes
+// through casing.TypePascal so PascalCase inputs with adjacent capitals (SetXChannel,
+// URLValue) keep their boundaries instead of collapsing to SetXchannel / Urlvalue.
 func ToPascalCase(s string) string {
 	if isScreamingCase(s) {
 		return s
 	}
 	result := casing.TypePascal(s)
-	for _, acr := range goAcronyms {
-		result = strings.ReplaceAll(result, acr, strings.ToUpper(acr))
-	}
-	return result
+	return pascalWord.ReplaceAllStringFunc(result, func(word string) string {
+		if slices.Contains(goAcronyms, word) {
+			return strings.ToUpper(word)
+		}
+		if singular, ok := strings.CutSuffix(word, "s"); ok &&
+			slices.Contains(goAcronyms, singular) {
+			return strings.ToUpper(singular) + "s"
+		}
+		return word
+	})
 }
 
 // GetFieldName returns the Go field name for a schema field. It checks for a @go name
