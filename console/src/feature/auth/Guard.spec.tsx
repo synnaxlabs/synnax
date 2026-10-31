@@ -294,8 +294,8 @@ describe("connection guard permissions", () => {
 
   it("should explain a denied policy fetch and recover through Retry", async () => {
     const client = createTestClient();
-    // The Host role cannot retrieve policies, so the permissions fetch is denied.
-    const { username, key } = await createUserWithRole(client, "Host");
+    // The Driver role cannot retrieve policies, so the permissions fetch is denied.
+    const { username, key } = await createUserWithRole(client, "Driver");
     await renderGuardedContent();
     submitCredentials(username, PASSWORD);
     expect(
@@ -314,7 +314,7 @@ describe("connection guard permissions", () => {
 
   it("should return to the login surface through Log out", async () => {
     const client = createTestClient();
-    const { username } = await createUserWithRole(client, "Host");
+    const { username } = await createUserWithRole(client, "Driver");
     await renderGuardedContent();
     submitCredentials(username, PASSWORD);
     await screen.findByText("Console access denied", {}, { timeout: 10000 });

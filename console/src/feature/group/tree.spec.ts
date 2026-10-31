@@ -14,8 +14,7 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Group } from "@/feature/group";
-import { renderTreeContextMenu } from "@/platform/tree/menuTestutil";
-import { createResource } from "@/platform/tree/testutil";
+import { createResource, renderTreeContextMenu } from "@/platform/tree/testutil";
 import { assertDefined, uniqueName } from "@/testutil";
 
 const client = createTestClient();

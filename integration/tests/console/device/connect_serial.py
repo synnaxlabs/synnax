@@ -55,6 +55,9 @@ class ConnectSerial(ModbusCase):
         """Unit 2 answers on the line, and the device keeps the line settings."""
         self.log("Testing: Connect unit 2 on the serial line")
         devices = self.console.devices
+        layout = self.console.layout
+        layout.click_btn("Parity")
+        layout.select_from_dropdown("None", exact=True)
         devices.modal.get_by_role("tab", name="Unit", exact=True).click(timeout=5000)
         devices.modal.get_by_label(re.compile(r"^Unit ID\b")).fill("2")
         devices.fill_connect_serial(name=name, serial_port=ModbusSerialSim.serial_port)
@@ -67,7 +70,7 @@ class ConnectSerial(ModbusCase):
             "serial_port": ModbusSerialSim.serial_port,
             "unit_id": 2,
             "baud_rate": 19200,
-            "parity": "even",
+            "parity": "none",
             "stop_bits": 1,
         }
         stored = {k: connection.get(k) for k in expected}

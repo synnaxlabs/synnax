@@ -11,7 +11,6 @@ import "@/feature/modbus/task/Task.css";
 
 import { channel, type modbus, NotFoundError, type Synnax } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
-import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Header } from "@synnaxlabs/lyra/header";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -21,7 +20,7 @@ import { type FC } from "react";
 
 import { useFromConfig } from "@/feature/modbus/device/queries";
 import { Select as SelectDevice } from "@/feature/modbus/device/Select";
-import { SCHEMAS } from "@/feature/modbus/device/types";
+import { MAKE, SCHEMAS } from "@/feature/modbus/device/types";
 import { AddressField } from "@/feature/modbus/task/AddressField";
 import { ByteOrderField } from "@/feature/modbus/task/ByteOrder";
 import { DataTypeCell } from "@/feature/modbus/task/DataTypeCell";
@@ -47,15 +46,7 @@ import {
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-const Properties = () => (
-  <>
-    <SelectDevice />
-    <Flex.Box x grow>
-      <Task.Fields.DataSaving />
-      <Task.Fields.AutoStart />
-    </Flex.Box>
-  </>
-);
+const Properties = () => <SelectDevice />;
 
 const COLUMNS: List.Column[] = [
   { name: "Type", width: "30rem", field: true },
@@ -295,6 +286,7 @@ export const Write = Task.wrapForm({
 
 export const useCreateWrite = Task.createUseCreate({
   getInitialValues,
+  deviceMake: MAKE,
 });
 
 export const WriteSelectable = Selector.createSelectable({

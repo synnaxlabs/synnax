@@ -38,34 +38,38 @@ export const AddressField = ({
   const invalid = field.status.variant !== "success";
   const [lo, hi] = addressSpan(channel);
   return (
-    <div
-      className={CSS.cls(
-        CSS.BE("modbus", "address"),
-        overlapping && CSS.BEM("modbus", "address", "overlap"),
-      )}
-      style={{ "--console-modbus-digits": String(lo).length } as CSSProperties}
+    <Input.Item
+      showLabel={false}
+      showHelpText={false}
+      status={field.status.variant}
+      helpText={field.status.message}
     >
-      <Input.Text
-        value={field.value.toString()}
-        onChange={(raw) => {
-          const parsed = parseAddress(channel.type, raw);
-          if ("error" in parsed)
-            return field.setStatus({ variant: "error", message: parsed.error });
-          // The status clears on its own only when the value changes.
-          if (invalid) field.setStatus({ variant: "success", message: "" });
-          field.onChange(parsed.address);
-        }}
-        onlyChangeOnBlur
-        selectOnFocus
-        preview={field.preview}
-        variant={variant}
-        status={invalid ? field.status.variant : undefined}
-        tooltip={field.status.message}
-        hideTooltip={!invalid}
-        endContent={toModicon(channel.type, lo)}
-        aria-label="Address"
-      />
-      {hi > lo && <span className={CSS.BE("modbus", "address-end")}>{`–${hi}`}</span>}
-    </div>
+      <div
+        className={CSS.cls(
+          CSS.BE("modbus", "address"),
+          overlapping && CSS.BEM("modbus", "address", "overlap"),
+        )}
+        style={{ "--console-modbus-digits": String(lo).length } as CSSProperties}
+      >
+        <Input.Text
+          value={field.value.toString()}
+          onChange={(raw) => {
+            const parsed = parseAddress(channel.type, raw);
+            if ("error" in parsed)
+              return field.setStatus({ variant: "error", message: parsed.error });
+            // The status clears on its own only when the value changes.
+            if (invalid) field.setStatus({ variant: "success", message: "" });
+            field.onChange(parsed.address);
+          }}
+          onlyChangeOnBlur
+          selectOnFocus
+          preview={field.preview}
+          variant={variant}
+          endContent={toModicon(channel.type, lo)}
+          aria-label="Address"
+        />
+        {hi > lo && <span className={CSS.BE("modbus", "address-end")}>{`–${hi}`}</span>}
+      </div>
+    </Input.Item>
   );
 };

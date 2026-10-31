@@ -18,12 +18,13 @@ import { describe, expect, it } from "vitest";
 import { Access } from "@/feature/access";
 import { User } from "@/feature/user";
 import {
+  createResource,
   expandTreeRow,
   findModalButton,
+  findTreeRow,
+  renderOntologyTree,
   renderTreeContextMenu,
-} from "@/platform/tree/menuTestutil";
-import { createResource } from "@/platform/tree/testutil";
-import { findTreeRow, renderOntologyTree } from "@/platform/tree/treeTestutil";
+} from "@/platform/tree/testutil";
 import { assertDefined, queryIcon, uniqueName } from "@/testutil";
 
 const client = createTestClient();
@@ -175,7 +176,7 @@ describe("role ontology service", () => {
       ["Engineer", "safety"],
       ["Operator", "control"],
       ["Viewer", "visible"],
-      ["Host", "terminal-outline"],
+      ["Driver", "rack"],
       [role.name, "role"],
     ];
     for (const [name, icon] of cases)
