@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -103,7 +104,7 @@ var _ = Describe("Codec", func() {
 		cdc := codec.NewStatic(channels, dataTypes)
 		encoded := MustSucceed(cdc.Encode(ctx, fr))
 		decoded := MustSucceed(cdc.Decode(encoded))
-		Expect(fr.Frame).To(telem.MatchFrame(decoded.Frame))
+		Expect(fr.Frame).To(MatchFrame(decoded.Frame))
 	},
 		Entry("Empty Frame", channel.Keys{}, []telem.DataType{}, framer.Frame{}),
 		Entry("All Channels Present, In Order",
@@ -410,7 +411,7 @@ var _ = Describe("Codec", func() {
 				cdc := codec.NewStatic(keys, dataTypes)
 				encoded := MustSucceed(cdc.Encode(ctx, originalFrame))
 				decoded := MustSucceed(cdc.Decode(encoded))
-				Expect(originalFrame.Frame).To(telem.MatchFrame(decoded.Frame))
+				Expect(originalFrame.Frame).To(MatchFrame(decoded.Frame))
 			},
 		)
 	})
@@ -562,7 +563,7 @@ var _ = Describe("Codec", func() {
 				)
 				encoded := MustSucceed(codec.Encode(ctx, fr))
 				decoded := MustSucceed(codec.Decode(encoded))
-				Expect(fr.Frame).To(telem.MatchFrame(decoded.Frame))
+				Expect(fr.Frame).To(MatchFrame(decoded.Frame))
 			},
 		)
 
@@ -619,7 +620,7 @@ var _ = Describe("Codec", func() {
 				frame1 := frame.NewUnary(idxCh, telem.NewSeriesSecondsTSV(1, 2, 3))
 				encoded := MustSucceed(encoder.Encode(ctx, frame1))
 				decoded := MustSucceed(decoder.Decode(encoded))
-				Expect(decoded.Frame).To(telem.MatchFrame(frame1.Frame))
+				Expect(decoded.Frame).To(MatchFrame(frame1.Frame))
 
 				By(
 					"Correctly using the previous encoding state when the two codecs are out of sync",
@@ -628,7 +629,7 @@ var _ = Describe("Codec", func() {
 
 				encoded = MustSucceed(encoder.Encode(ctx, frame1))
 				decoded = MustSucceed(decoder.Decode(encoded))
-				Expect(decoded.Frame).To(telem.MatchFrame(frame1.Frame))
+				Expect(decoded.Frame).To(MatchFrame(frame1.Frame))
 
 				By(
 					"Correctly using he most up to date state after the codec are in sync again",
@@ -641,7 +642,7 @@ var _ = Describe("Codec", func() {
 				frame2 := frame.NewUnary(dataCh, telem.NewSeriesV[float32](1, 2, 3, 4))
 				encoded = MustSucceed(encoder.Encode(ctx, frame2))
 				decoded = MustSucceed(decoder.Decode(encoded))
-				Expect(decoded.Frame).To(telem.MatchFrame(frame2.Frame))
+				Expect(decoded.Frame).To(MatchFrame(frame2.Frame))
 			},
 		)
 
@@ -770,7 +771,7 @@ var _ = Describe("Codec", func() {
 					},
 				)
 				decoded := MustSucceed(dec.Decode(MustSucceed(enc.Encode(ctx, fr))))
-				Expect(decoded.Frame).To(telem.MatchFrame(fr.Frame))
+				Expect(decoded.Frame).To(MatchFrame(fr.Frame))
 			},
 		)
 
@@ -875,7 +876,7 @@ var _ = Describe("Codec", func() {
 						)
 						encoded := MustSucceed(encoder.Encode(ctx, frame1))
 						decoded := MustSucceed(decoder.Decode(encoded))
-						Expect(decoded.Frame).To(telem.MatchFrame(frame1.Frame))
+						Expect(decoded.Frame).To(MatchFrame(frame1.Frame))
 
 						Expect(decoder.Update(ctx, []channel.Key{dataCh})).To(Succeed())
 						Expect(encoder.Update(ctx, []channel.Key{dataCh})).To(Succeed())
@@ -912,7 +913,7 @@ var _ = Describe("Codec", func() {
 						)
 						encoded := MustSucceed(encoder.Encode(ctx, frame1))
 						decoded := MustSucceed(decoder.Decode(encoded))
-						Expect(decoded.Frame).To(telem.MatchFrame(frame1.Frame))
+						Expect(decoded.Frame).To(MatchFrame(frame1.Frame))
 
 						Expect(decoder.Update(ctx, []channel.Key{dataCh})).To(Succeed())
 						Expect(encoder.Update(ctx, []channel.Key{dataCh})).To(Succeed())
@@ -958,7 +959,7 @@ var _ = Describe("Codec", func() {
 				)
 				encoded1 := MustSucceed(codec.Encode(ctx, largeFrame))
 				decoded1 := MustSucceed(codec.Decode(encoded1))
-				Expect(largeFrame.Frame).To(telem.MatchFrame(decoded1.Frame))
+				Expect(largeFrame.Frame).To(MatchFrame(decoded1.Frame))
 
 				smallFrame := frame.NewMulti(
 					channel.Keys{2, 4},
@@ -969,7 +970,7 @@ var _ = Describe("Codec", func() {
 				)
 				encoded2 := MustSucceed(codec.Encode(ctx, smallFrame))
 				decoded2 := MustSucceed(codec.Decode(encoded2))
-				Expect(smallFrame.Frame).To(telem.MatchFrame(decoded2.Frame))
+				Expect(smallFrame.Frame).To(MatchFrame(decoded2.Frame))
 
 				anotherLargeFrame := frame.NewMulti(
 					channel.Keys{4, 2, 1, 3},
@@ -982,12 +983,12 @@ var _ = Describe("Codec", func() {
 				)
 				encoded3 := MustSucceed(codec.Encode(ctx, anotherLargeFrame))
 				decoded3 := MustSucceed(codec.Decode(encoded3))
-				Expect(anotherLargeFrame.Frame).To(telem.MatchFrame(decoded3.Frame))
+				Expect(anotherLargeFrame.Frame).To(MatchFrame(decoded3.Frame))
 
 				emptyFrame := frame.Frame{}
 				encoded4 := MustSucceed(codec.Encode(ctx, emptyFrame))
 				decoded4 := MustSucceed(codec.Decode(encoded4))
-				Expect(emptyFrame.Frame).To(telem.MatchFrame(decoded4.Frame))
+				Expect(emptyFrame.Frame).To(MatchFrame(decoded4.Frame))
 			},
 		)
 	})
@@ -1031,7 +1032,7 @@ var _ = Describe("Codec", func() {
 				ch30Series := decoded.Get(30)
 				Expect(ch30Series.Series).To(HaveLen(2))
 
-				Expect(frame.Frame).To(telem.MatchFrame(decoded.Frame))
+				Expect(frame.Frame).To(MatchFrame(decoded.Frame))
 			},
 		)
 	})
@@ -1067,7 +1068,7 @@ var _ = Describe("Codec", func() {
 
 				encoded := MustSucceed(codec.Encode(ctx, frame))
 				decoded := MustSucceed(codec.Decode(encoded))
-				Expect(frame.Frame).To(telem.MatchFrame(decoded.Frame))
+				Expect(frame.Frame).To(MatchFrame(decoded.Frame))
 			},
 		)
 
@@ -1092,7 +1093,7 @@ var _ = Describe("Codec", func() {
 				)
 				encoded1 := MustSucceed(codec.Encode(ctx, frame1))
 				decoded1 := MustSucceed(codec.Decode(encoded1))
-				Expect(frame1.Frame).To(telem.MatchFrame(decoded1.Frame))
+				Expect(frame1.Frame).To(MatchFrame(decoded1.Frame))
 
 				emptyFrame := frame.Frame{}
 				encoded2 := MustSucceed(codec.Encode(ctx, emptyFrame))
@@ -1108,7 +1109,7 @@ var _ = Describe("Codec", func() {
 				)
 				encoded3 := MustSucceed(codec.Encode(ctx, frame3))
 				decoded3 := MustSucceed(codec.Decode(encoded3))
-				Expect(frame3.Frame).To(telem.MatchFrame(decoded3.Frame))
+				Expect(frame3.Frame).To(MatchFrame(decoded3.Frame))
 			},
 		)
 
@@ -1133,12 +1134,12 @@ var _ = Describe("Codec", func() {
 				)
 				encoded1 := MustSucceed(codec.Encode(ctx, multiFrame))
 				decoded1 := MustSucceed(codec.Decode(encoded1))
-				Expect(multiFrame.Frame).To(telem.MatchFrame(decoded1.Frame))
+				Expect(multiFrame.Frame).To(MatchFrame(decoded1.Frame))
 
 				singleFrame := frame.NewUnary(200, telem.NewSeriesV(9.999))
 				encoded2 := MustSucceed(codec.Encode(ctx, singleFrame))
 				decoded2 := MustSucceed(codec.Decode(encoded2))
-				Expect(singleFrame.Frame).To(telem.MatchFrame(decoded2.Frame))
+				Expect(singleFrame.Frame).To(MatchFrame(decoded2.Frame))
 			},
 		)
 	})
@@ -1484,10 +1485,10 @@ var _ = Describe("Codec", func() {
 				Expect(decoded.KeysSlice()).To(Equal([]channel.Key{2, 2}))
 				Expect(
 					decoded.SeriesAt(0),
-				).To(telem.MatchSeriesData(telem.NewSeriesV[float64](10)))
+				).To(MatchSeriesData(telem.NewSeriesV[float64](10)))
 				Expect(
 					decoded.SeriesAt(1),
-				).To(telem.MatchSeriesData(telem.NewSeriesV[float64](20, 21)))
+				).To(MatchSeriesData(telem.NewSeriesV[float64](20, 21)))
 			},
 		)
 
@@ -1521,12 +1522,12 @@ var _ = Describe("Codec", func() {
 				Expect(decoded.Count()).To(Equal(4))
 				idx := decoded.Get(1)
 				Expect(idx.Series).To(HaveLen(2))
-				Expect(idx.Series[0]).To(telem.MatchSeriesData(idxA))
-				Expect(idx.Series[1]).To(telem.MatchSeriesData(idxB))
+				Expect(idx.Series[0]).To(MatchSeriesData(idxA))
+				Expect(idx.Series[1]).To(MatchSeriesData(idxB))
 				dat := decoded.Get(2)
 				Expect(dat.Series).To(HaveLen(2))
-				Expect(dat.Series[0]).To(telem.MatchSeriesData(datA))
-				Expect(dat.Series[1]).To(telem.MatchSeriesData(datB))
+				Expect(dat.Series[0]).To(MatchSeriesData(datA))
+				Expect(dat.Series[1]).To(MatchSeriesData(datB))
 			},
 		)
 	})
@@ -1624,7 +1625,7 @@ var _ = Describe("Bool Bit Packing", func() {
 			copy(encoded[len(encoded)-len(packed):], packed)
 			decoded := MustSucceed(newCodec().Decode(encoded))
 			Expect(decoded.SeriesAt(0)).To(
-				telem.MatchSeriesData(telem.NewSeriesV(samples...)),
+				MatchSeriesData(telem.NewSeriesV(samples...)),
 			)
 		})
 	})
@@ -1637,7 +1638,7 @@ var _ = Describe("Bool Bit Packing", func() {
 			Expect(encoded).To(HaveLen(header + (len(samples)+7)/8))
 			decoded := MustSucceed(newCodec().Decode(encoded))
 			Expect(decoded.SeriesAt(0)).To(
-				telem.MatchSeriesData(telem.NewSeriesV(samples...)),
+				MatchSeriesData(telem.NewSeriesV(samples...)),
 			)
 		},
 		Entry("empty", []bool{}),

@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -1004,7 +1005,7 @@ var _ = Describe("Literal inputs", func() {
 				MarkChanged: func(int) {},
 			})
 			Expect(*s.Node("n").OutputTime(0)).
-				To(telem.MatchSeries(telem.NewSeriesSecondsTSV(1234)))
+				To(MatchSeries(telem.NewSeriesSecondsTSV(1234)))
 		},
 		Entry("avg", "avg"),
 		Entry("min", "min"),

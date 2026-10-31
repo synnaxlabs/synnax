@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -804,7 +805,7 @@ var _ = Describe("Delete", func() {
 								).To(Equal(33 * telem.SecondTS))
 								Expect(
 									series2,
-								).To(telem.MatchSeriesData(telem.NewSeriesSecondsTSV(30, 31, 32)))
+								).To(MatchSeriesData(telem.NewSeriesSecondsTSV(30, 31, 32)))
 
 								series3 := frame.SeriesAt(3)
 								Expect(
@@ -812,7 +813,7 @@ var _ = Describe("Delete", func() {
 								).To(Equal(75 * telem.SecondTS))
 								Expect(
 									series3,
-								).To(telem.MatchSeriesData(telem.NewSeriesSecondsTSV(75, 76, 77, 78, 79)))
+								).To(MatchSeriesData(telem.NewSeriesSecondsTSV(75, 76, 77, 78, 79)))
 
 								Expect(
 									frame.SeriesAt(5).TimeRange.End,
@@ -857,7 +858,7 @@ var _ = Describe("Delete", func() {
 								series0 := frame.SeriesAt(0)
 								Expect(
 									series0,
-								).To(telem.MatchSeriesData(telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17, 18, 19)))
+								).To(MatchSeriesData(telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17, 18, 19)))
 
 								series1 := frame.SeriesAt(1)
 								Expect(
@@ -865,7 +866,7 @@ var _ = Describe("Delete", func() {
 								).To(Equal(50 * telem.SecondTS))
 								Expect(
 									series1,
-								).To(telem.MatchSeriesData(telem.NewSeriesSecondsTSV(50, 51, 52, 53, 54, 55, 56, 57, 58, 59)))
+								).To(MatchSeriesData(telem.NewSeriesSecondsTSV(50, 51, 52, 53, 54, 55, 56, 57, 58, 59)))
 
 								Expect(
 									frame.SeriesAt(5).TimeRange.End,
@@ -1212,14 +1213,14 @@ var _ = Describe("Delete", func() {
 						).To(BeNumerically("<", 14*telem.SecondTS))
 						Expect(
 							series0,
-						).To(telem.MatchSeriesData(telem.NewSeriesSecondsTSV(10, 11, 12, 13)))
+						).To(MatchSeriesData(telem.NewSeriesSecondsTSV(10, 11, 12, 13)))
 
 						series1 := frame.SeriesAt(1)
 						Expect(series1.TimeRange.Start).To(Equal(32 * telem.SecondTS))
 						Expect(series1.TimeRange.End).To(Equal(37*telem.SecondTS + 1))
 						Expect(
 							series1,
-						).To(telem.MatchSeriesData(telem.NewSeriesSecondsTSV(32, 33, 34, 35, 36, 37)))
+						).To(MatchSeriesData(telem.NewSeriesSecondsTSV(32, 33, 34, 35, 36, 37)))
 					},
 				)
 
@@ -1240,7 +1241,7 @@ var _ = Describe("Delete", func() {
 						Expect(series0.TimeRange.End).To(Equal(37*telem.SecondTS + 1))
 						Expect(
 							series0,
-						).To(telem.MatchSeriesData(telem.NewSeriesSecondsTSV(32, 33, 34, 35, 36, 37)))
+						).To(MatchSeriesData(telem.NewSeriesSecondsTSV(32, 33, 34, 35, 36, 37)))
 					},
 				)
 
@@ -1266,14 +1267,14 @@ var _ = Describe("Delete", func() {
 						Expect(series0.TimeRange.End).To(Equal(23 * telem.SecondTS))
 						Expect(
 							series0,
-						).To(telem.MatchSeriesData(telem.NewSeriesSecondsTSV(20, 21, 22)))
+						).To(MatchSeriesData(telem.NewSeriesSecondsTSV(20, 21, 22)))
 
 						series1 := frame.SeriesAt(1)
 						Expect(series1.TimeRange.Start).To(Equal(30 * telem.SecondTS))
 						Expect(series1.TimeRange.End).To(Equal(37*telem.SecondTS + 1))
 						Expect(
 							series1,
-						).To(telem.MatchSeriesData(telem.NewSeriesSecondsTSV(30, 31, 32, 33, 34, 35, 36, 37)))
+						).To(MatchSeriesData(telem.NewSeriesSecondsTSV(30, 31, 32, 33, 34, 35, 36, 37)))
 					},
 				)
 
@@ -1294,7 +1295,7 @@ var _ = Describe("Delete", func() {
 						Expect(series0.TimeRange.End).To(Equal(12 * telem.SecondTS))
 						Expect(
 							series0,
-						).To(telem.MatchSeriesData(telem.NewSeriesSecondsTSV(10, 11)))
+						).To(MatchSeriesData(telem.NewSeriesSecondsTSV(10, 11)))
 					},
 				)
 
@@ -1316,14 +1317,14 @@ var _ = Describe("Delete", func() {
 						Expect(series0.TimeRange.End).To(Equal(13*telem.SecondTS + 1))
 						Expect(
 							series0,
-						).To(telem.MatchSeriesData(telem.NewSeriesSecondsTSV(10, 11, 12, 13)))
+						).To(MatchSeriesData(telem.NewSeriesSecondsTSV(10, 11, 12, 13)))
 
 						series1 := frame.SeriesAt(1)
 						Expect(series1.TimeRange.Start).To(Equal(30 * telem.SecondTS))
 						Expect(series1.TimeRange.End).To(Equal(37*telem.SecondTS + 1))
 						Expect(
 							series1,
-						).To(telem.MatchSeriesData(telem.NewSeriesSecondsTSV(30, 31, 32, 33, 34, 35, 36, 37)))
+						).To(MatchSeriesData(telem.NewSeriesSecondsTSV(30, 31, 32, 33, 34, 35, 36, 37)))
 					},
 				)
 			})
@@ -1377,7 +1378,7 @@ var _ = Describe("Delete", func() {
 						Expect(series0.TimeRange.End).To(Equal(24*telem.SecondTS + 1))
 						Expect(
 							series0,
-						).To(telem.MatchSeriesData(telem.NewSeriesSecondsTSV(21, 22, 23, 24)))
+						).To(MatchSeriesData(telem.NewSeriesSecondsTSV(21, 22, 23, 24)))
 					},
 				)
 
@@ -1398,7 +1399,7 @@ var _ = Describe("Delete", func() {
 						Expect(series0.TimeRange.End).To(Equal(13*telem.SecondTS + 1))
 						Expect(
 							series0,
-						).To(telem.MatchSeriesData(telem.NewSeriesSecondsTSV(10, 11, 12, 13)))
+						).To(MatchSeriesData(telem.NewSeriesSecondsTSV(10, 11, 12, 13)))
 					},
 				)
 
@@ -1423,7 +1424,7 @@ var _ = Describe("Delete", func() {
 						).To(Equal(37*telem.SecondTS + 1))
 						Expect(
 							lastSeries,
-						).To(telem.MatchSeriesData(telem.NewSeriesSecondsTSV(30, 31, 32, 33, 34, 35, 36, 37)))
+						).To(MatchSeriesData(telem.NewSeriesSecondsTSV(30, 31, 32, 33, 34, 35, 36, 37)))
 					},
 				)
 
@@ -1442,7 +1443,7 @@ var _ = Describe("Delete", func() {
 					Expect(frame.Count()).To(Equal(2))
 					Expect(
 						frame.SeriesAt(0),
-					).To(telem.MatchSeriesData(telem.NewSeriesSecondsTSV(20, 21, 22, 23, 24)))
+					).To(MatchSeriesData(telem.NewSeriesSecondsTSV(20, 21, 22, 23, 24)))
 				})
 
 				It(
@@ -1505,7 +1506,7 @@ var _ = Describe("Delete", func() {
 						Expect(series0.TimeRange.End).To(Equal(24*telem.SecondTS + 1))
 						Expect(
 							series0,
-						).To(telem.MatchSeriesData(telem.NewSeriesSecondsTSV(20, 21, 22, 23, 24)))
+						).To(MatchSeriesData(telem.NewSeriesSecondsTSV(20, 21, 22, 23, 24)))
 					},
 				)
 			})
@@ -1694,8 +1695,8 @@ var _ = Describe("Delete", func() {
 						Expect(f.Count()).To(Equal(2))
 						Expect(
 							f.SeriesAt(0),
-						).To(telem.MatchSeriesDataV[int64](10, 12, 14, 16, 18))
-						Expect(f.SeriesAt(1)).To(telem.MatchSeriesDataV[int64](28, 30))
+						).To(MatchSeriesDataV[int64](10, 12, 14, 16, 18))
+						Expect(f.SeriesAt(1)).To(MatchSeriesDataV[int64](28, 30))
 
 						Expect(indexDB2.Close()).To(Succeed())
 						Expect(db2.Close()).To(Succeed())
@@ -1784,8 +1785,8 @@ var _ = Describe("Delete", func() {
 						Expect(f.Count()).To(Equal(2))
 						Expect(
 							f.SeriesAt(0),
-						).To(telem.MatchSeriesDataV[int64](10, 12, 14, 16, 18, 20))
-						Expect(f.SeriesAt(1)).To(telem.MatchSeriesDataV[int64](28, 30))
+						).To(MatchSeriesDataV[int64](10, 12, 14, 16, 18, 20))
+						Expect(f.SeriesAt(1)).To(MatchSeriesDataV[int64](28, 30))
 
 						Expect(indexDB2.Close()).To(Succeed())
 						Expect(db2.Close()).To(Succeed())
@@ -1871,9 +1872,9 @@ var _ = Describe("Delete", func() {
 						Expect(f.Count()).To(Equal(3))
 						Expect(
 							f.SeriesAt(0),
-						).To(telem.MatchSeriesDataV[int64](10, 12, 14, 16, 18, 20))
-						Expect(f.SeriesAt(1)).To(telem.MatchSeriesDataV[int64](22))
-						Expect(f.SeriesAt(2)).To(telem.MatchSeriesDataV[int64](28, 30))
+						).To(MatchSeriesDataV[int64](10, 12, 14, 16, 18, 20))
+						Expect(f.SeriesAt(1)).To(MatchSeriesDataV[int64](22))
+						Expect(f.SeriesAt(2)).To(MatchSeriesDataV[int64](28, 30))
 
 						Expect(indexDB2.Close()).To(Succeed())
 						Expect(db2.Close()).To(Succeed())

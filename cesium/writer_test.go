@@ -34,6 +34,7 @@ import (
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -364,7 +365,7 @@ var _ = Describe("Writer Behavior", func() {
 								Eventually(out.Outlet()).Should(Receive(&fSeed))
 								Expect(
 									fSeed.Frame.Get(data).Series[0],
-								).To(telem.MatchSeriesDataV[int64](1, 2))
+								).To(MatchSeriesDataV[int64](1, 2))
 
 								By("Extending the index to cover the index-less writes")
 								wIdx := MustSucceed(

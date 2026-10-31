@@ -26,6 +26,7 @@ import (
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -177,7 +178,7 @@ var _ = Describe("Framer", func() {
 			Expect(iter.Close()).To(Succeed())
 			Expect(series).To(HaveLen(1))
 			Expect(series[0].AlignmentMultiple).To(BeEquivalentTo(2))
-			Expect(series[0]).To(telem.MatchSeriesDataV[float32](1, 3, 5, 7))
+			Expect(series[0]).To(MatchSeriesDataV[float32](1, 3, 5, 7))
 		})
 
 		It("Should return an error when a key has no channel", func(ctx SpecContext) {

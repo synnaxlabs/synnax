@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package telem
+package testutil
 
 import (
 	"bytes"
@@ -17,6 +17,7 @@ import (
 	"github.com/onsi/gomega/types"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/telem"
 	xtypes "github.com/synnaxlabs/x/types"
 )
 
@@ -34,7 +35,7 @@ func ExcludeSeriesFields(fields ...string) SeriesMatcherOption {
 
 type seriesMatcher struct {
 	excludedFields set.Set[string]
-	expected       Series
+	expected       telem.Series
 }
 
 // MatchSeries returns a Gomega matcher that compares two Series for equality.
@@ -43,7 +44,10 @@ type seriesMatcher struct {
 // - TimeRange (unless excluded)
 // - Data contents (unless excluded)
 // - Alignment and AlignmentMultiple (unless excluded)
-func MatchSeries(expected Series, opts ...SeriesMatcherOption) types.GomegaMatcher {
+func MatchSeries(
+	expected telem.Series,
+	opts ...SeriesMatcherOption,
+) types.GomegaMatcher {
 	m := &seriesMatcher{
 		expected:       expected,
 		excludedFields: make(set.Set[string]),
@@ -59,7 +63,7 @@ func MatchSeries(expected Series, opts ...SeriesMatcherOption) types.GomegaMatch
 // Series that have been written to and read from storage, where these fields might
 // differ but the actual data remains the same.
 func MatchWrittenSeries(
-	expected Series,
+	expected telem.Series,
 	opts ...SeriesMatcherOption,
 ) types.GomegaMatcher {
 	m := &seriesMatcher{
@@ -74,7 +78,7 @@ func MatchWrittenSeries(
 
 // MatchSeriesData returns a matcher that only compares the data contents of two Series,
 // ignoring DataType, TimeRange, and Alignment.
-func MatchSeriesData(expected Series) types.GomegaMatcher {
+func MatchSeriesData(expected telem.Series) types.GomegaMatcher {
 	return MatchSeries(expected, ExcludeSeriesFields("TimeRange", "Alignment"))
 }
 
@@ -82,12 +86,12 @@ func MatchSeriesData(expected Series) types.GomegaMatcher {
 // the provided sample data and returns a matcher. This is a convenience function for
 // testing when you want to directly provide data values instead of constructing a
 // Series first.
-func MatchSeriesDataV[T Sample](data ...T) types.GomegaMatcher {
-	return MatchSeriesData(NewSeriesV(data...))
+func MatchSeriesDataV[T telem.Sample](data ...T) types.GomegaMatcher {
+	return MatchSeriesData(telem.NewSeriesV(data...))
 }
 
 func (m *seriesMatcher) Match(actual any) (success bool, err error) {
-	actualSeries, ok := actual.(Series)
+	actualSeries, ok := actual.(telem.Series)
 	if !ok {
 		return false, errors.Newf(
 			"MatchSeries matcher expects a Series but got %K",
@@ -115,7 +119,7 @@ func (m *seriesMatcher) Match(actual any) (success bool, err error) {
 }
 
 func (m *seriesMatcher) FailureMessage(actual any) string {
-	actualSeries, ok := actual.(Series)
+	actualSeries, ok := actual.(telem.Series)
 	if !ok {
 		return fmt.Sprintf("Expected Series but got %K", actual)
 	}
@@ -184,21 +188,21 @@ func formatDifferences(differences []string) string {
 
 type frameMatcher[K xtypes.SizedNumeric] struct {
 	matchSeriesOpts []SeriesMatcherOption
-	expected        Frame[K]
+	expected        telem.Frame[K]
 }
 
 // MatchFrame returns a Gomega matcher that compares two Frame objects for equality.
 // The matcher verifies that both frames have the same number of series and that each
 // series matches its corresponding one in the expected frame. K must be a numeric type.
 func MatchFrame[K xtypes.SizedNumeric](
-	expected Frame[K],
+	expected telem.Frame[K],
 	matchSeriesOpts ...SeriesMatcherOption,
 ) types.GomegaMatcher {
 	return &frameMatcher[K]{expected: expected, matchSeriesOpts: matchSeriesOpts}
 }
 
 func MatchWrittenFrame[K xtypes.SizedNumeric](
-	expected Frame[K],
+	expected telem.Frame[K],
 	opts ...SeriesMatcherOption,
 ) types.GomegaMatcher {
 	return &frameMatcher[K]{
@@ -211,7 +215,7 @@ func MatchWrittenFrame[K xtypes.SizedNumeric](
 }
 
 func (m *frameMatcher[K]) Match(actual any) (success bool, err error) {
-	actualFrame, ok := actual.(Frame[K])
+	actualFrame, ok := actual.(telem.Frame[K])
 	if !ok {
 		return false, errors.Newf(
 			"MatchFrame matcher expects a Frame but got %K",
@@ -241,7 +245,7 @@ func (m *frameMatcher[K]) Match(actual any) (success bool, err error) {
 }
 
 func (m *frameMatcher[K]) FailureMessage(actual any) string {
-	actualFrame, ok := actual.(Frame[K])
+	actualFrame, ok := actual.(telem.Frame[K])
 	if !ok {
 		return fmt.Sprintf("Expected Frame but got %K", actual)
 	}
@@ -264,7 +268,7 @@ func (m *frameMatcher[K]) FailureMessage(actual any) string {
 }
 
 func (m *frameMatcher[K]) NegatedFailureMessage(actual any) string {
-	actualFrame, ok := actual.(Frame[K])
+	actualFrame, ok := actual.(telem.Frame[K])
 	if !ok {
 		return fmt.Sprintf("Expected Frame but got %K", actual)
 	}

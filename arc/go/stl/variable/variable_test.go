@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -228,7 +229,7 @@ var _ = Describe("Variable", func() {
 				n := mk("variable")
 				n.Next(nodeCtx)
 				Expect(marked).To(ConsistOf(0))
-				Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](42))
+				Expect(*v.Output(0)).To(MatchSeriesDataV[int64](42))
 				Expect(v.OutputTime(0).Len()).To(Equal(int64(1)))
 			},
 		)
@@ -246,7 +247,7 @@ var _ = Describe("Variable", func() {
 			emit(f, int64(7), 10)
 			n.Next(nodeCtx)
 			Expect(marked).To(HaveLen(2))
-			Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](7))
+			Expect(*v.Output(0)).To(MatchSeriesDataV[int64](7))
 		})
 
 		It(
@@ -256,7 +257,7 @@ var _ = Describe("Variable", func() {
 				emit(f, int64(7), 10)
 				n.Next(nodeCtx)
 				Expect(marked).To(ConsistOf(0))
-				Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](7))
+				Expect(*v.Output(0)).To(MatchSeriesDataV[int64](7))
 			},
 		)
 
@@ -266,14 +267,14 @@ var _ = Describe("Variable", func() {
 			emit(f, int64(7), 10)
 			n.Next(nodeCtx)
 			f.Output(0).Data[0] = 9
-			Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](7))
+			Expect(*v.Output(0)).To(MatchSeriesDataV[int64](7))
 		})
 
 		Context("with a := variable", func() {
 			It("Should restore the initial value on Reset", func() {
 				n := mk("variable")
 				n.Reset(node.Context{})
-				Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](42))
+				Expect(*v.Output(0)).To(MatchSeriesDataV[int64](42))
 				Expect(v.OutputTime(0).Len()).To(Equal(int64(1)))
 			})
 
@@ -293,7 +294,7 @@ var _ = Describe("Variable", func() {
 					n := mk("variable")
 					emit(f, int64(99), 10)
 					n.Reset(node.Context{})
-					Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](42))
+					Expect(*v.Output(0)).To(MatchSeriesDataV[int64](42))
 					n.Next(nodeCtx)
 					Expect(marked).To(BeEmpty())
 				},
@@ -306,9 +307,9 @@ var _ = Describe("Variable", func() {
 					n.Reset(node.Context{})
 					emit(f, int64(7), 10)
 					n.Next(nodeCtx)
-					Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](7))
+					Expect(*v.Output(0)).To(MatchSeriesDataV[int64](7))
 					n.Reset(node.Context{})
-					Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](42))
+					Expect(*v.Output(0)).To(MatchSeriesDataV[int64](42))
 				},
 			)
 
@@ -317,7 +318,7 @@ var _ = Describe("Variable", func() {
 				n.Reset(node.Context{})
 				v.Output(0).Data[0] = 9
 				n.Reset(node.Context{})
-				Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](42))
+				Expect(*v.Output(0)).To(MatchSeriesDataV[int64](42))
 			})
 		})
 
@@ -326,16 +327,16 @@ var _ = Describe("Variable", func() {
 				n := mk("stateful_variable")
 				n.Next(nodeCtx)
 				Expect(marked).To(ConsistOf(0))
-				Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](42))
+				Expect(*v.Output(0)).To(MatchSeriesDataV[int64](42))
 			})
 
 			It("Should persist its value across Reset", func() {
 				n := mk("stateful_variable")
 				emit(f, int64(7), 10)
 				n.Next(nodeCtx)
-				Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](7))
+				Expect(*v.Output(0)).To(MatchSeriesDataV[int64](7))
 				n.Reset(node.Context{})
-				Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](7))
+				Expect(*v.Output(0)).To(MatchSeriesDataV[int64](7))
 			})
 
 			It(
@@ -346,7 +347,7 @@ var _ = Describe("Variable", func() {
 					n.Reset(node.Context{})
 					n.Next(nodeCtx)
 					Expect(marked).To(ConsistOf(0))
-					Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](7))
+					Expect(*v.Output(0)).To(MatchSeriesDataV[int64](7))
 				},
 			)
 		})
@@ -405,13 +406,13 @@ var _ = Describe("Variable", func() {
 				}
 				n := MustSucceed(factory.Create(cfg))
 				n.Reset(node.Context{})
-				Expect(*sv.Output(0)).To(telem.MatchSeriesDataV("hello"))
+				Expect(*sv.Output(0)).To(MatchSeriesDataV("hello"))
 				emit(sf, "world", 10)
 				n.Next(nodeCtx)
 				Expect(marked).To(ConsistOf(0))
-				Expect(*sv.Output(0)).To(telem.MatchSeriesDataV("world"))
+				Expect(*sv.Output(0)).To(MatchSeriesDataV("world"))
 				n.Reset(node.Context{})
-				Expect(*sv.Output(0)).To(telem.MatchSeriesDataV("hello"))
+				Expect(*sv.Output(0)).To(MatchSeriesDataV("hello"))
 			})
 		})
 	})
@@ -441,7 +442,7 @@ var _ = Describe("Variable", func() {
 			emit(d, int64(5), 10)
 			n.Next(nodeCtx)
 			Expect(marked).To(ConsistOf(0))
-			Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](5))
+			Expect(*v.Output(0)).To(MatchSeriesDataV[int64](5))
 		})
 
 		It("Should re-emit an unchanged recompute", func() {
@@ -454,7 +455,7 @@ var _ = Describe("Variable", func() {
 			emit(d, int64(6), 30)
 			n.Next(nodeCtx)
 			Expect(marked).To(HaveLen(3))
-			Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](6))
+			Expect(*v.Output(0)).To(MatchSeriesDataV[int64](6))
 		})
 
 		It("Should absorb the value arriving with a re-point", func() {
@@ -468,7 +469,7 @@ var _ = Describe("Variable", func() {
 			emit(d, int64(11), 30)
 			n.Next(nodeCtx)
 			Expect(marked).To(HaveLen(2))
-			Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](11))
+			Expect(*v.Output(0)).To(MatchSeriesDataV[int64](11))
 		})
 
 		It("Should fire the value after a value-less re-point", func() {
@@ -480,14 +481,14 @@ var _ = Describe("Variable", func() {
 			Expect(
 				marked,
 			).To(ConsistOf(0), "the dispatcher only emits data-driven values")
-			Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](9))
+			Expect(*v.Output(0)).To(MatchSeriesDataV[int64](9))
 		})
 
 		It("Should not alias the dispatcher's output buffer", func() {
 			emit(d, int64(5), 10)
 			n.Next(nodeCtx)
 			d.Output(0).Data[0] = 9
-			Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](5))
+			Expect(*v.Output(0)).To(MatchSeriesDataV[int64](5))
 		})
 
 		Describe("Reset", func() {
@@ -499,7 +500,7 @@ var _ = Describe("Variable", func() {
 					emit(d, int64(7), 10)
 					n.Next(nodeCtx)
 					Expect(marked).To(ConsistOf(0))
-					Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](7))
+					Expect(*v.Output(0)).To(MatchSeriesDataV[int64](7))
 				},
 			)
 
@@ -513,7 +514,7 @@ var _ = Describe("Variable", func() {
 				emit(d, int64(6), 20)
 				n.Next(nodeCtx)
 				Expect(marked).To(HaveLen(2))
-				Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](6))
+				Expect(*v.Output(0)).To(MatchSeriesDataV[int64](6))
 			})
 
 			It("Should keep sel consumed across Reset", func() {
@@ -526,7 +527,7 @@ var _ = Describe("Variable", func() {
 				// A replayed sel would count as a re-point and swallow the 11.
 				n.Next(nodeCtx)
 				Expect(marked).To(ConsistOf(0))
-				Expect(*v.Output(0)).To(telem.MatchSeriesDataV[int64](11))
+				Expect(*v.Output(0)).To(MatchSeriesDataV[int64](11))
 			})
 		})
 
@@ -574,7 +575,7 @@ var _ = Describe("Variable", func() {
 				emit(feeder, int64(5), 10)
 				soleN.Next(nodeCtx)
 				Expect(marked).To(ConsistOf(0))
-				Expect(*vNode.Output(0)).To(telem.MatchSeriesDataV[int64](5))
+				Expect(*vNode.Output(0)).To(MatchSeriesDataV[int64](5))
 			},
 		)
 	})

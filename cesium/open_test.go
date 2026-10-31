@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/telem/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -109,7 +110,7 @@ var _ = Describe("Open", func() {
 						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, key))
 						Expect(
 							f.SeriesAt(0),
-						).To(telem.MatchSeriesData(telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5)))
+						).To(MatchSeriesData(telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5)))
 						Expect(db.Close()).To(Succeed())
 					},
 				)
