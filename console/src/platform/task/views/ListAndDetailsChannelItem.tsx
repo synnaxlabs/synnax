@@ -11,6 +11,7 @@ import "@/platform/task/views/ListAndDetailsChannelItem.css";
 
 import { type channel } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form } from "@synnaxlabs/lyra/form";
 import { type List } from "@synnaxlabs/lyra/list";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
@@ -74,6 +75,7 @@ export const ListAndDetailsChannelItem = <K extends string>({
   const { itemKey } = rest;
   const hasStateChannel = stateChannel != null;
   const hasIcon = icon != null;
+  const disabled = Form.useFieldValue<boolean>(`${path}.disabled`);
   const channelNameProps = getChannelNameProps(hasIcon);
   const portStyle: CSSProperties = { width: `${portMaxChars * 1.25}rem` };
   return (
@@ -81,7 +83,10 @@ export const ListAndDetailsChannelItem = <K extends string>({
       {...rest}
       justify="between"
       align="center"
-      className={CSS.B("channel-item")}
+      className={CSS.cls(
+        CSS.B("channel-item"),
+        disabled && CSS.BM("channel-item", "disabled"),
+      )}
     >
       <Flex.Box
         direction={nameDirection}
