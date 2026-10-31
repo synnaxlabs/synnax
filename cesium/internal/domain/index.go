@@ -211,33 +211,6 @@ func (idx *index) searchGE(ctx context.Context, ts telem.TimeStamp) (i int) {
 	return i
 }
 
-func (idx *index) getGE(
-	ctx context.Context,
-	ts telem.TimeStamp,
-) (ptr pointer, ok bool) {
-	_, span := idx.T.Bench(ctx, "domain/index.getGE")
-	idx.mu.RLock()
-	defer func() {
-		span.End()
-		idx.mu.RUnlock()
-	}()
-	var exact bool
-	i, exact := idx.unprotectedSearch(ts.SpanRange(0))
-	if !exact {
-		if i == len(idx.mu.pointers) {
-			return pointer{}, false
-		} else {
-			i += 1
-		}
-	}
-
-	if i < 0 || i >= len(idx.mu.pointers) {
-		return pointer{}, false
-	}
-
-	return idx.mu.pointers[i], true
-}
-
 // unprotectedSearch returns the position in the index of a domain that overlaps with
 // the given time range. If there is no domain that contains tr, then the immediate
 // previous domain with a smaller start timestamp than the end is returned. False is
