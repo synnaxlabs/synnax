@@ -30,7 +30,7 @@ import { type KeyboardEvent, type ReactElement, useEffect, useState } from "reac
 
 import { Details } from "@/feature/opcua/device/Details";
 import { createHaulItem, HAUL_TYPE } from "@/feature/opcua/device/haul";
-import { executeScanCommand } from "@/feature/opcua/device/scanCommand";
+import { sendScanCommand } from "@/feature/opcua/device/scanCommand";
 import { type ConnectionConfig, type Device } from "@/feature/opcua/device/types";
 import {
   BROWSE_COMMAND_TYPE,
@@ -41,7 +41,7 @@ import {
 } from "@/feature/opcua/task/types";
 import { CSS } from "@/platform/css";
 
-/** A node in the browser, with the error of its last failed browse. */
+/** A node in the browser, with the error of its last browse. */
 interface BrowserNode extends ScannedNode {
   error?: string;
 }
@@ -105,17 +105,25 @@ const itemRenderProp = Component.renderProp(NodeItem);
 
 const SEARCH_ICON = <Icon.Search color={9} />;
 
+interface Browse extends BrowseResponse {
+  /** Why the children leave out the members of the node's structure. */
+  warning?: string;
+}
+
 const browseNodes = async (
   client: Client,
   rack: rack.Key,
   connection: ConnectionConfig,
   parent?: ScannedNode,
-): Promise<BrowseResponse> =>
-  await executeScanCommand(client, rack, {
+): Promise<Browse> => {
+  const res = await sendScanCommand(client, rack, {
     type: BROWSE_COMMAND_TYPE,
     args: { connection, node_id: parent?.nodeId ?? "", field: parent?.field ?? "" },
-    schema: browseResponseZ,
   });
+  if (res.variant === "error") throw status.toError(res);
+  const warning = res.variant === "warning" ? res.description : undefined;
+  return { ...browseResponseZ.parse(res.details?.data), warning };
+};
 
 /** @returns the nodes that match, or that hold a node that matches. */
 const filterNodes = (
@@ -155,9 +163,10 @@ export const Browser = ({ device }: BrowserProps) => {
     handleError(async () => {
       let channels: ScannedNode[] = [];
       let truncated = false;
+      let warning: string | undefined;
       let failure: status.Status | null = null;
       try {
-        ({ channels, truncated } = await browseNodes(
+        ({ channels, truncated, warning } = await browseNodes(
           client,
           device.rack,
           device.properties.connection,
@@ -168,7 +177,7 @@ export const Browser = ({ device }: BrowserProps) => {
       }
       // A failed child marks its node and leaves the rest of the tree alone.
       if (parent != null)
-        opcNodesStore.setItem({ ...parent, error: failure?.description });
+        opcNodesStore.setItem({ ...parent, error: failure?.description ?? warning });
       if (failure != null) {
         if (parent == null) setStat(failure);
         return;

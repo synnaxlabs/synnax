@@ -337,6 +337,22 @@ describe("Browser details", () => {
     await screen.findByLabelText(/BadUserAccessDenied/);
     expect(screen.getByText("PumpSpeed")).toBeTruthy();
   });
+
+  it("should show the children of a node whose members do not list, and mark it", async () => {
+    const { client, scan } = await renderBrowser();
+    const browse = await answerNextCommand(client, scan, {
+      type: OPCUA.Task.BROWSE_COMMAND_TYPE,
+      variant: "warning",
+      message: "Failed to list structure members",
+      description:
+        "cannot decode Broken: the server did not define the type of a member",
+      data: { channels: [variable("TankLevel")] },
+    });
+    fireEvent.click(screen.getByText("TankPressure"));
+    await browse.answered;
+    await screen.findByText("TankLevel");
+    expect(screen.getByLabelText(/cannot decode Broken/)).toBeTruthy();
+  });
 });
 
 describe("Browser limits", () => {
