@@ -12,6 +12,7 @@
 from playwright.sync_api import Locator
 
 from console.layout import LayoutClient
+from console.page import PageType
 from console.task_page import TaskPage
 
 SERVER_FIELD_LABEL = "Modbus server"
@@ -121,7 +122,7 @@ class ModbusTask(TaskPage):
 class ModbusRead(ModbusTask):
     """Modbus read task page."""
 
-    page_type = "Modbus read task"
+    page_type: PageType = "Modbus read task"
     pluto_label: str = ".console-task-configure--modbus_read"
     fields_selector = ".lyra-list__cells"
 
@@ -129,6 +130,6 @@ class ModbusRead(ModbusTask):
 class ModbusWrite(ModbusTask):
     """Modbus write task page."""
 
-    page_type = "Modbus write task"
+    page_type: PageType = "Modbus write task"
     pluto_label: str = ".console-task-configure--modbus_write"
     fields_selector = ".console-channel-item"

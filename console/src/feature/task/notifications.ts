@@ -7,8 +7,52 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Notifications } from "@/platform/notifications";
+import { NotFoundError, status, task } from "@synnaxlabs/client";
+import { errors, primitive } from "@synnaxlabs/x";
 
-export const NOTIFICATIONS: Notifications.Notification[] = [
-  Notifications.createSuppressRoutineForPrefix("task"),
-];
+import { type Device } from "@/platform/device";
+import { type Notifications } from "@/platform/notifications";
+
+/** The make and scan task type of an integration. */
+export interface Scanner extends Pick<Device.Integration, "make" | "scanType"> {}
+
+const commandDetailsZ = task.statusDetailsZ().pick({ cmd: true });
+
+const retrieveTask = async ({
+  client,
+  key,
+}: Notifications.InUseParams): Promise<task.Task | null> => {
+  try {
+    return await client.tasks.retrieve({ key });
+  } catch (e) {
+    if (NotFoundError.matches(e)) return null;
+    throw errors.fromUnknown(e);
+  }
+};
+
+/**
+ * Creates the notification rule for task statuses. A status that answers a command is a
+ * reply. A scanner, which is an internal task whose type one of the scanners names, is
+ * in use when its rack has a configured device of the scanner's make. Every other task
+ * is always in use.
+ * @param scanners - The scanner of each integration.
+ */
+export const createNotificationRule = (scanners: Scanner[]): Notifications.Rule => ({
+  kind: (stat) =>
+    primitive.isNonZero(commandDetailsZ.safeParse(status.detailsOf(stat)).data?.cmd)
+      ? "reply"
+      : "state",
+  inUse: async (args) => {
+    const tsk = await retrieveTask(args);
+    if (tsk == null) return false;
+    if (!tsk.internal) return true;
+    const make = scanners.find(({ scanType }) => scanType === tsk.type)?.make;
+    if (make == null) return true;
+    const devices = await args.client.devices.retrieve({
+      racks: [tsk.rack],
+      makes: [make],
+    });
+    return devices.some(({ configured }) => configured);
+  },
+  warningsDelayed: true,
+});

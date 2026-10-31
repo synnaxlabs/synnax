@@ -79,7 +79,6 @@ class WriterOpenCloseStress(TestCase):
                     f"Server deadlock detected at {ts}. "
                     f"Health probe latency: {latency}."
                 )
-                return
 
             self.log(f"  [{ts}] OK latency={latency}")
             sy.sleep(200 * sy.TimeSpan.MILLISECOND)

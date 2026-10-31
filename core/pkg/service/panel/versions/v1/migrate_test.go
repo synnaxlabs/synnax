@@ -18,9 +18,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/panel/versions/v1"
-	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 var _ = Describe("MigrateView", func() {
