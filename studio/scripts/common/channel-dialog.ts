@@ -15,6 +15,12 @@ import { type capture } from "@/index";
 export const switchFor = (modal: Locator, label: string): Locator =>
   modal.getByText(label, { exact: true }).locator("..").locator("input").first();
 
+/** kindButton returns the button that picks a kind in the create channel dialog. */
+export const kindButton = (
+  modal: Locator,
+  kind: "Data" | "Index" | "Virtual",
+): Locator => modal.getByRole("button", { name: kind, exact: true });
+
 /** selectItem clicks an option in the open dropdown list. */
 export const selectItem = async (
   session: capture.CaptureSession,

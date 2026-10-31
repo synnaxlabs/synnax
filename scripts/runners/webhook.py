@@ -30,12 +30,6 @@ MAX_BODY = 1024 * 1024
 REQUEST_TIMEOUT = 10
 
 
-class Server(ThreadingHTTPServer):
-    # The default listen backlog of 5 refuses bursts of deliveries, which GitHub then
-    # reports as failed to connect.
-    request_queue_size = 128
-
-
 class Webhook:
     """Serves POSTs on port from a daemon thread, drops any delivery whose
     X-Hub-Signature-256 does not match secret, and keeps the workflow_job payloads
@@ -54,7 +48,7 @@ class Webhook:
         self.lock = threading.Lock()
         self.received = 0
         self.rejected = 0
-        self.server = Server(("0.0.0.0", port), self.handler())
+        self.server = ThreadingHTTPServer(("0.0.0.0", port), self.handler())
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
 

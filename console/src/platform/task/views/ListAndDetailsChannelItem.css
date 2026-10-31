@@ -13,6 +13,11 @@
     padding: 1.25rem 2rem;
 }
 
+/* The enabled dot stays at full strength, as the way to enable the channel again. */
+.console-channel-item--disabled > :first-child {
+    opacity: 0.5;
+}
+
 .console-channel-item__name {
     max-width: 150px;
     flex-grow: 1;

@@ -22,8 +22,8 @@ import {
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { type z } from "zod";
 
-import { MultipleFoundError, NotFoundError } from "@/errors";
 import { framer } from "@/framer";
+import { MultipleFoundError, NotFoundError } from "@/index";
 import { label } from "@/label";
 import { ontology } from "@/ontology";
 import { query } from "@/query";

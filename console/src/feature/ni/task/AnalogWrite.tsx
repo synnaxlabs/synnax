@@ -17,7 +17,7 @@ import { type FC } from "react";
 
 import { useFromConfig } from "@/feature/ni/device/queries";
 import { Select } from "@/feature/ni/device/Select";
-import { SCHEMAS } from "@/feature/ni/device/types";
+import { MAKE, SCHEMAS } from "@/feature/ni/device/types";
 import { AOChannelForm } from "@/feature/ni/task/AOChannelForm";
 import { createNextAOChannel } from "@/feature/ni/task/createChannel";
 import {
@@ -40,8 +40,6 @@ const Properties = () => (
     <Select />
     <Flex.Box x>
       <Task.Fields.StateUpdateRate />
-      <Task.Fields.DataSaving />
-      <Task.Fields.AutoStart />
     </Flex.Box>
   </>
 );
@@ -239,6 +237,7 @@ export const AnalogWrite = Task.wrapForm({
 
 export const useCreateAnalogWrite = Task.createUseCreate({
   getInitialValues,
+  deviceMake: MAKE,
 });
 
 export const AnalogWriteSelectable = Selector.createSelectable({

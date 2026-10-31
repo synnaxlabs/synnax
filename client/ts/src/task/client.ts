@@ -98,8 +98,10 @@ const COMMAND_DEADLINE = TimeSpan.seconds(10);
 
 /** A command awaiting the Driver's reply, with the timer that gives up on it. */
 interface CommandDeadline {
-  cmd: string;
+  cmd: Command;
   timer: NodeJS.Timeout;
+  /** The status this client last wrote for the command, which is never its reply. */
+  optimistic: Status;
 }
 
 /**
@@ -385,7 +387,7 @@ export interface ClientConfig {
   ontology: ontology.Client;
   ranges: ranger.Client;
   cache: query.Cache;
-  statusStore: query.Table<status.Key, status.Status>;
+  statuses: status.Client;
 }
 
 type ListParts = query.ListParts<Condition, typeof retrieveMultiParamsZ>;
@@ -412,7 +414,8 @@ export class Client extends query.Retriever<
   private readonly commandDeadlines = new Map<Key, CommandDeadline>();
 
   constructor(cfg: ClientConfig) {
-    const { cache, statusStore } = cfg;
+    const { cache, statuses } = cfg;
+    const statusStore = statuses.store;
     const statusesByTask = statusStore.index(
       new query.LookupIndex<status.Key, status.Status>(statusTaskKey),
     );
@@ -475,9 +478,8 @@ export class Client extends query.Retriever<
             // tracks nor holds a status for is dropped.
             if (store.get(changed.task) == null && statusStore.get(key) == null) return;
             const optimistic = this.optimisticStatus(changed);
-            statusStore.set(key, optimistic);
-            if (optimistic.variant === "loading")
-              this.armCommandDeadline(changed, optimistic);
+            statuses.setLocal(optimistic);
+            this.armCommandDeadline(changed, optimistic);
           }),
         ),
     });
@@ -486,9 +488,13 @@ export class Client extends query.Retriever<
     statusStore.subscribe((event) => {
       if (event.variant !== "set") return;
       const task = statusTaskKey(event.value);
-      if (task == null) return;
+      if (task == null) {
+        this.standInForDownRack(event.value);
+        return;
+      }
       const pending = this.commandDeadlines.get(task);
-      if (pending == null || status.detailsOf(event.value)?.cmd !== pending.cmd) return;
+      if (pending == null || event.value === pending.optimistic) return;
+      if (status.detailsOf(event.value)?.cmd !== pending.cmd.key) return;
       clearTimeout(pending.timer);
       this.commandDeadlines.delete(task);
     });
@@ -564,7 +570,7 @@ export class Client extends query.Retriever<
     return [
       this.cfg.ontology.cache.deleteResources(ontologyID(keys)),
       this.store.delete(keys),
-      this.cfg.statusStore.delete(keys.map((k) => statusKey(k))),
+      this.cfg.statuses.store.delete(keys.map((k) => statusKey(k))),
     ];
   }
 
@@ -697,7 +703,7 @@ export class Client extends query.Retriever<
   // tasks' under the rack's ontology ID.
   private downRackStatus(rack: RackKey | undefined): status.Status | undefined {
     if (rack == null || primitive.isZero(rack)) return undefined;
-    const stat = this.cfg.statusStore.get(ontology.idToString(rackOntologyID(rack)));
+    const stat = this.cfg.statuses.store.get(ontology.idToString(rackOntologyID(rack)));
     if (stat == null || HEALTHY_RACK_VARIANTS.includes(stat.variant)) return undefined;
     return stat;
   }
@@ -735,22 +741,40 @@ export class Client extends query.Retriever<
       variant: "warning",
       message: down.message,
       description: down.description,
-      details: { ...details, running: false },
+      details: { ...details, cmd: cmd.key, running: false },
     });
   }
 
-  // Nothing else retires the loading status: a task on a silent rack waits on the
-  // Core's next dead-rack alert, which dampens to once a minute.
+  // A waiting command shows each new problem of its rack, since the Core copies an
+  // outage onto running tasks only.
+  private standInForDownRack(rackStatus: status.Status): void {
+    for (const [task, pending] of this.commandDeadlines) {
+      const down = this.downRackStatus(this.store.get(task)?.rack);
+      if (down?.key !== rackStatus.key) continue;
+      // A batch stores a reply before it delivers the reply's event.
+      const answered = this.statusesByTask
+        .get(task)
+        .some(
+          (s) =>
+            s !== pending.optimistic && status.detailsOf(s)?.cmd === pending.cmd.key,
+        );
+      if (answered) continue;
+      pending.optimistic = this.optimisticStatus(pending.cmd);
+      this.cfg.statuses.setLocal(pending.optimistic);
+    }
+  }
+
+  // Only a reply ends the wait sooner. The problem of a down rack outlasts the wait.
   private armCommandDeadline(cmd: Command, optimistic: Status): void {
-    const { statusStore } = this.cfg;
+    const { statuses } = this.cfg;
     const key = statusKey(cmd.task);
     clearTimeout(this.commandDeadlines.get(cmd.task)?.timer);
     // A reply disarms the deadline on arrival, so firing means nothing answered.
     const timer = setTimeout(() => {
       this.commandDeadlines.delete(cmd.task);
-      if (statusStore.get(key) == null) return;
-      statusStore.set(
-        key,
+      if (statuses.store.get(key) == null) return;
+      if (this.downRackStatus(this.store.get(cmd.task)?.rack) != null) return;
+      statuses.setLocal(
         status.create<StatusDetailsZodObject>({
           key,
           name: optimistic.name,
@@ -758,18 +782,22 @@ export class Client extends query.Retriever<
           message: `No response to the ${cmd.type} command`,
           description: `The Driver did not respond within ${COMMAND_DEADLINE.toString()}.`,
           // Nothing answered, so the command is taken to have had no effect.
-          details: { ...optimistic.details, running: cmd.type === "stop" },
+          details: {
+            ...optimistic.details,
+            cmd: cmd.key,
+            running: cmd.type === "stop",
+          },
         }),
       );
     }, COMMAND_DEADLINE.milliseconds);
-    this.commandDeadlines.set(cmd.task, { cmd: cmd.key, timer });
+    this.commandDeadlines.set(cmd.task, { cmd, timer, optimistic });
   }
 
   // A task's status may live under the "task:<key>" row or under any status whose
   // details reference the task; the freshest wins, ties going to the more severe. Rows
   // are parsed because the status table holds every domain's statuses generically.
   private latestStatusOf(key: Key): Status | undefined {
-    const direct = this.cfg.statusStore.get(statusKey(key));
+    const direct = this.cfg.statuses.store.get(statusKey(key));
     const rows = this.statusesByTask.get(key);
     // A task status names its task in details too, so the index usually holds it.
     if (direct != null && !rows.includes(direct)) rows.push(direct);
@@ -788,20 +816,20 @@ export class Client extends query.Retriever<
 
   private writeThrough(task: Task): void {
     this.store.set(task);
-    if (task.status != null) this.cfg.statusStore.set(task.status);
+    if (task.status != null) this.cfg.statuses.store.set(task.status);
   }
 
   private hydrate(task: Task): void {
     this.store.ingest(task);
-    if (task.status != null) this.cfg.statusStore.ingest(task.status);
+    if (task.status != null) this.cfg.statuses.store.ingest(task.status);
   }
 
   private async fetchThrough(req: RetrieveRequest): Promise<Task[]> {
     // A status that streams in during the fetch is newer than the fetched one.
-    const since = this.cfg.statusStore.stamp();
+    const since = this.cfg.statuses.store.stamp();
     const tasks = await this.execRetrieve({ ...req, includeStatus: true });
     tasks.forEach((t) => {
-      if (t.status != null) this.cfg.statusStore.ingest(t.status, { since });
+      if (t.status != null) this.cfg.statuses.store.ingest(t.status, { since });
     });
     return tasks;
   }
@@ -811,7 +839,7 @@ export class Client extends query.Retriever<
     const cached = "key" in q ? this.store.get(q.key) : undefined;
     // A cached task without a cached status is ambiguous: the task may have
     // no status or the status may not have synced. Only both count as a hit.
-    if (cached != null && this.cfg.statusStore.has(statusKey(cached.key)))
+    if (cached != null && this.cfg.statuses.store.has(statusKey(cached.key)))
       return this.compose(cached);
     if ("key" in q) {
       // The refresh covers a cached task whose status has not synced.

@@ -16,13 +16,13 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/node"
-	"github.com/synnaxlabs/synnax/pkg/service/testutil"
-	"github.com/synnaxlabs/x/kv/memkv"
+	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -42,17 +42,21 @@ type record struct {
 
 var _ = Describe("Where", Ordered, func() {
 	var (
-		v      testutil.Vectors[record, channel.Where]
+		v      svctestutil.Vectors[record, channel.Where]
 		chSvc  *channel.Service
 		byName = make(map[string]string)
 	)
-	v = MustSucceed(testutil.ReadVectors[record, channel.Where]("channels"))
+	v = MustSucceed(svctestutil.ReadVectors[record, channel.Where]("channels"))
 
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
 		// An Aspen database leases each record to its leaseholder, and the records sit
 		// on nodes that the mock cluster does not have.
-		cfg := serviceConfig(ctx, mock.NewNode(ctx), DeferClose(gorp.Wrap(memkv.New())))
+		cfg := serviceConfig(
+			ctx,
+			testutil.NewNode(ctx),
+			DeferClose(gorp.Wrap(memkv.New())),
+		)
 		chSvc = MustOpen(channel.OpenService(ctx, cfg))
 		chs := make([]channel.Channel, 0, len(v.Records))
 		for alias, r := range v.Records {
@@ -77,7 +81,7 @@ var _ = Describe("Where", Ordered, func() {
 
 	DescribeTable(
 		"Should match the case",
-		func(ctx SpecContext, c testutil.Case[channel.Where]) {
+		func(ctx SpecContext, c svctestutil.Case[channel.Where]) {
 			f := MustSucceed(channel.MatchWhere(c.Where))
 			var res []channel.Channel
 			Expect(chSvc.NewRetrieve().
@@ -89,7 +93,7 @@ var _ = Describe("Where", Ordered, func() {
 				return byName[ch.Name]
 			})).To(ConsistOf(c.Expected))
 		},
-		lo.Map(v.Cases, func(c testutil.Case[channel.Where], _ int) TableEntry {
+		lo.Map(v.Cases, func(c svctestutil.Case[channel.Where], _ int) TableEntry {
 			return Entry(c.Name, c)
 		}),
 	)

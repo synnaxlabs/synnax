@@ -16,8 +16,8 @@ import (
 	"github.com/synnaxlabs/gorp/migrate"
 	. "github.com/synnaxlabs/gorp/testutil"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 var _ = Describe("SetPreV54Row", func() {
