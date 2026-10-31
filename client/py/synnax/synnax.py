@@ -26,6 +26,7 @@ from synnax import (
     rack,
     ranger,
     status,
+    table,
     task,
     user,
     view,
@@ -89,6 +90,7 @@ class Synnax(framer.Client):
     views: view.Client
     imex: ImexClient
     projects: project.Client
+    tables: table.Client
 
     _transport: Transport
 
@@ -215,6 +217,7 @@ class Synnax(framer.Client):
             client=self._transport.unary,
             file_transport=self._transport.file_transport,
         )
+        self.tables = table.Client(client=self._transport.unary)
         self.tasks = task.Client(
             client=self._transport.unary,
             frame_client=self,

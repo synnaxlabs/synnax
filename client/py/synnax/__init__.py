@@ -75,6 +75,7 @@ from synnax.rack import Rack
 from synnax.ranger import Range
 from synnax.status import Status
 from synnax.synnax import Synnax
+from synnax.table import Table
 from synnax.task import Task
 from synnax.telem import (
     Aggregation,
@@ -180,6 +181,7 @@ __all__ = [
     "Streamer",
     "StrideReduction",
     "Synnax",
+    "Table",
     "Task",
     "Text",
     "TimeRange",
