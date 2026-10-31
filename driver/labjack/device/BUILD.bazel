@@ -7,6 +7,7 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
@@ -31,6 +32,39 @@ cc_test(
     deps = [
         ":device",
         ":mock",
+        "//x/cpp/testutil",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_binary(
+    name = "libfake_ljm.so",
+    testonly = True,
+    srcs = [
+        "fake_ljm.cpp",
+        "fake_ljm.h",
+    ],
+    linkshared = True,
+    target_compatible_with = select({
+        "@platforms//os:windows": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
+)
+
+cc_test(
+    name = "ljm_device_test",
+    srcs = [
+        "fake_ljm.h",
+        "ljm_device_test.cpp",
+    ],
+    data = [":libfake_ljm.so"],
+    target_compatible_with = select({
+        "@platforms//os:windows": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
+    deps = [
+        ":device",
+        "//x/cpp/lib",
         "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
