@@ -74,7 +74,13 @@ export const Buttons = <K extends record.Key = record.Key>({
   } as FrameProps<K, record.Keyed<K>>;
   const isEmpty = value == null || (Array.isArray(value) && value.length === 0);
   const itemStatus = Input.useItemStatus({});
-  const ctx = { preview, variant, status: itemStatus.status };
+  const ctx = {
+    preview,
+    variant,
+    status: itemStatus.status,
+    "aria-invalid": itemStatus["aria-invalid"],
+    "aria-describedby": itemStatus["aria-describedby"],
+  };
   const text = variant === "text";
   const card = variant === "card";
   const group = (

@@ -225,10 +225,11 @@ describe("Input.Item", () => {
           ),
         }),
       );
-      for (const name of ["Top", "Left"])
-        expect(screen.getByRole("button", { name }).className).toContain(
-          "lyra--status-error",
-        );
+      for (const name of ["Top", "Left"]) {
+        const button = screen.getByRole("button", { name });
+        expect(button.className).toContain("lyra--status-error");
+        expect(button.getAttribute("aria-invalid")).toBe("true");
+      }
       expect(hoverTip(byClass("lyra-select-btns"))).toBe("Pick a side");
     });
 
@@ -308,6 +309,29 @@ describe("Input.Item", () => {
       const id = el.getAttribute("aria-describedby");
       expect(id).not.toBeNull();
       expect(document.getElementById(id ?? "")?.textContent).toBe("Bad");
+    });
+
+    it("should describe each button of a button group by its help text", () => {
+      render(
+        item({
+          showLabel: true,
+          showHelpText: true,
+          status: "error",
+          helpText: "Pick a side",
+          control: (
+            <Select.Buttons<string> value="top" onChange={vi.fn()}>
+              <Select.Item itemKey="top">Top</Select.Item>
+              <Select.Item itemKey="left">Left</Select.Item>
+            </Select.Buttons>
+          ),
+        }),
+      );
+      for (const name of ["Top", "Left"]) {
+        const button = screen.getByRole("button", { name });
+        expect(button.getAttribute("aria-invalid")).toBe("true");
+        const id = button.getAttribute("aria-describedby");
+        expect(document.getElementById(id ?? "")?.textContent).toBe("Pick a side");
+      }
     });
 
     it("should leave an input undescribed while it has no message", () => {
