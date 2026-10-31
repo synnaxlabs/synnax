@@ -141,12 +141,6 @@ interface Selection {
   parent?: string;
 }
 
-/** A node ID that the user entered, and the tree selection when they entered it. */
-interface Lookup {
-  nodeId: string;
-  selected?: string;
-}
-
 export const Browser = ({ device, roots }: BrowserProps) => {
   const [treeNodes, setTreeNodes, treeNodesRef] = useCombinedStateAndRef<Tree.Node[]>(
     [],
@@ -155,7 +149,7 @@ export const Browser = ({ device, roots }: BrowserProps) => {
   const [stat, setStat] = useState<status.Status | null>(null);
   const [initialLoading, setInitialLoading] = useState(false);
   const [query, setQuery] = useState("");
-  const [lookup, setLookup] = useState<Lookup | null>(null);
+  const [lookup, setLookup] = useState<string | null>(null);
   const client = Synnax.use();
   const addStatus = Status.useAdder();
   const handleError = Status.useErrorHandler();
@@ -228,15 +222,18 @@ export const Browser = ({ device, roots }: BrowserProps) => {
     retrieveNodes(clicked == null ? undefined : opcNodesStore.getItem(clicked));
   };
 
-  const treeProps = Tree.use({ nodes: treeNodes, onExpand: expand });
+  const treeProps = Tree.use({
+    nodes: treeNodes,
+    onExpand: expand,
+    onSelectedChange: () => setLookup(null),
+  });
   const { shape, clearExpanded, selected } = treeProps;
   const selectedKey = selected.at(-1);
   const selectedNode =
     selectedKey == null ? undefined : opcNodesStore.getItem(selectedKey);
-  // An entered node ID shows until the user selects another node in the tree.
+  // An entered node ID shows until the user selects a node in the tree.
   let selection: Selection | null = null;
-  if (lookup != null && lookup.selected === selectedKey)
-    selection = { nodeId: lookup.nodeId, field: "" };
+  if (lookup != null) selection = { nodeId: lookup, field: "" };
   else if (selectedNode != null)
     selection = {
       nodeId: selectedNode.nodeId,
@@ -267,7 +264,7 @@ export const Browser = ({ device, roots }: BrowserProps) => {
   }
   const handleSearchKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key !== "Enter" || !isNodeID(query.trim())) return;
-    setLookup({ nodeId: query.trim(), selected: selectedKey });
+    setLookup(query.trim());
   };
   const refreshRef = useSyncedRef(refresh);
   useEffect(() => refreshRef.current(), [refreshRef]);

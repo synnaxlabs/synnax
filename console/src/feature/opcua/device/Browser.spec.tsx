@@ -218,6 +218,35 @@ describe("Browser search", () => {
     });
     await screen.findByText("Read, History");
   });
+
+  it("should show the node that the user selects after entering a node ID", async () => {
+    const { client, scan } = await renderBrowser();
+    const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
+    const answerRead = async (): Promise<task.Command> => {
+      const cmd = await awaitCommand(
+        streamer,
+        scan.key,
+        OPCUA.Task.READ_NODE_COMMAND_TYPE,
+      );
+      await answerCommand(client, scan, cmd, { data: DETAILS });
+      return cmd;
+    };
+    try {
+      const input = screen.getByPlaceholderText("Search, or enter a node ID");
+      fireEvent.click(screen.getByText("TankPressure"));
+      await answerRead();
+      fireEvent.change(input, { target: { value: "ns=2;s=Other" } });
+      fireEvent.keyDown(input, { key: "Enter" });
+      expect((await answerRead()).args).toMatchObject({ nodeId: "ns=2;s=Other" });
+      fireEvent.change(input, { target: { value: "" } });
+      fireEvent.click(screen.getByText("PumpSpeed"));
+      await answerRead();
+      fireEvent.click(screen.getByText("TankPressure"));
+      expect((await answerRead()).args).toMatchObject({ nodeId: TANK.nodeId });
+    } finally {
+      streamer.close();
+    }
+  });
 });
 
 describe("Browser details", () => {
