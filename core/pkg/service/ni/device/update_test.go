@@ -84,6 +84,14 @@ var _ = Describe("Update", func() {
 		Expect(got.Variant).To(BeNil())
 	})
 
+	It("Should reject msgpack that is not an update", func() {
+		var got device.Update
+		Expect(msgpack.Unmarshal(
+			MustSucceed(msgpack.Marshal("not an update")),
+			&got,
+		)).To(MatchError(ContainSubstring("msgpack")))
+	})
+
 	It("Should reject an unknown group", func() {
 		raw := MustSucceed(msgpack.Marshal(map[string]any{"group": "other"}))
 		var got device.Update
