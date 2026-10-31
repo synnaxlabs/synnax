@@ -8,6 +8,11 @@
 #  included in the file licenses/APL.txt.
 
 import json
+import shutil
+import subprocess
+import sys
+import tempfile
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any
 
@@ -159,3 +164,66 @@ class TestPublish:
                 {"text": "Weekly security audit: 0 findings, 0 failed scans."},
             )
         ]
+
+
+@pytest.fixture
+def key() -> Iterator[tuple[list[str], str]]:
+    """A gpg command with a fresh key pair, and the armored private key."""
+    # A short home, since the gpg-agent socket path has a length limit.
+    with tempfile.TemporaryDirectory(dir="/tmp") as home:
+        gpg = ["gpg", "--homedir", home, "--batch", "--quiet", "--passphrase", ""]
+        uid = "Report <report@example.com>"
+        generate = [*gpg, "--quick-gen-key", uid, "default", "default", "never"]
+        subprocess.run(generate, check=True, capture_output=True)
+        export = [*gpg, "--pinentry-mode", "loopback", "--armor"]
+        yield gpg, subprocess.check_output([*export, "--export-secret-keys"], text=True)
+        subprocess.run(["gpgconf", "--homedir", home, "--kill", "all"], check=True)
+
+
+@pytest.mark.skipif(shutil.which("gpg") is None, reason="needs gpg")
+@pytest.mark.skipif(sys.platform == "win32", reason="needs a POSIX /tmp")
+class TestAgents:
+    """Tests for adding the encrypted agent reports."""
+
+    def test_should_decrypt_and_count_each_report(
+        self,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        key: tuple[list[str], str],
+    ) -> None:
+        """Should add and count each report, and fail on a failed job."""
+        gpg, private = key
+        report = "### High: Token never expires\n\n- Location: `a.go:1`\n"
+        encrypt = [*gpg, "--armor", "--trust-model", "always", "--encrypt", "-r"]
+        armor = subprocess.check_output(
+            [*encrypt, "report@example.com"], input=report, text=True
+        )
+        jobs = {
+            "authn": {"result": "success", "outputs": {"report": armor}},
+            "tls": {"result": "failure", "outputs": {}},
+            # A report gpg cannot decrypt, as after a key rotation.
+            "ci": {"result": "success", "outputs": {"report": "not a message"}},
+        }
+        monkeypatch.setenv("AGENT_REPORTS", json.dumps(jobs))
+        monkeypatch.setenv("REPORT_PRIVATE_KEY", private)
+        write_scan(tmp_path, "zizmor", 0)
+        assert main([str(tmp_path), "--agents"]) == 1
+        text = (tmp_path / "report.md").read_text()
+        assert text.startswith("Findings: 1.")
+        assert "## agent-authn: 1 findings\n\n### High: Token never expires" in text
+        assert "## agent-tls: failed" in text
+        assert "## agent-ci: failed" in text
+        assert "## zizmor: 0 findings" in text
+
+    def test_should_report_every_agent_failed_when_the_key_is_bad(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Should keep the scanner results when the private key does not import."""
+        jobs = {"authn": {"result": "success", "outputs": {"report": "x"}}}
+        monkeypatch.setenv("AGENT_REPORTS", json.dumps(jobs))
+        monkeypatch.setenv("REPORT_PRIVATE_KEY", "not a key")
+        write_scan(tmp_path, "gitleaks", 0, result("private-key", "error", "k.pem", 1))
+        assert main([str(tmp_path), "--agents"]) == 1
+        text = (tmp_path / "report.md").read_text()
+        assert "## agent-authn: failed" in text
+        assert "## gitleaks: 1 findings" in text

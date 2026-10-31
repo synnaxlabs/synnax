@@ -10,7 +10,9 @@
 # Audits the repository for security faults each week and files one private report as a
 # Linear issue. The repository is public, so its logs and artifacts are too: no step
 # prints a finding, and the report leaves the job only through Linear. Slack gets the
-# count and the link.
+# count and the link. One agent reviews each area of .github/agents/security-review.md
+# in parallel and encrypts its report to the SECURITY_REPORT_PUBLIC_KEY variable. A
+# matrix would keep only one leg's output, so each area is a job.
 
 name: Security
 
@@ -26,8 +28,112 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # An agent with no recipient prints its report, which would make the findings public.
+  key:
+    name: Require the report key
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - name: Require the report key
+        env:
+          KEY: ${{ vars.SECURITY_REPORT_PUBLIC_KEY }}
+        run: |
+          if [ -z "$KEY" ]; then
+            echo "::error::Set the SECURITY_REPORT_PUBLIC_KEY variable."
+            exit 1
+          fi
+
+  authn:
+    name: Review (authn)
+    permissions: &review
+      contents: read
+      id-token: write
+    needs: key
+    uses: ./.github/workflows/agent.yaml
+    secrets: inherit
+    with:
+      prompt: Follow `.github/agents/security-review.md`. Your area is `authn`.
+      output: report
+      recipient: ${{ vars.SECURITY_REPORT_PUBLIC_KEY }}
+      timeout-minutes: 240
+
+  api:
+    name: Review (api)
+    permissions: *review
+    needs: key
+    uses: ./.github/workflows/agent.yaml
+    secrets: inherit
+    with:
+      prompt: Follow `.github/agents/security-review.md`. Your area is `api`.
+      output: report
+      recipient: ${{ vars.SECURITY_REPORT_PUBLIC_KEY }}
+      timeout-minutes: 240
+
+  tls:
+    name: Review (tls)
+    permissions: *review
+    needs: key
+    uses: ./.github/workflows/agent.yaml
+    secrets: inherit
+    with:
+      prompt: Follow `.github/agents/security-review.md`. Your area is `tls`.
+      output: report
+      recipient: ${{ vars.SECURITY_REPORT_PUBLIC_KEY }}
+      timeout-minutes: 240
+
+  files:
+    name: Review (files)
+    permissions: *review
+    needs: key
+    uses: ./.github/workflows/agent.yaml
+    secrets: inherit
+    with:
+      prompt: Follow `.github/agents/security-review.md`. Your area is `files`.
+      output: report
+      recipient: ${{ vars.SECURITY_REPORT_PUBLIC_KEY }}
+      timeout-minutes: 240
+
+  driver:
+    name: Review (driver)
+    permissions: *review
+    needs: key
+    uses: ./.github/workflows/agent.yaml
+    secrets: inherit
+    with:
+      prompt: Follow `.github/agents/security-review.md`. Your area is `driver`.
+      output: report
+      recipient: ${{ vars.SECURITY_REPORT_PUBLIC_KEY }}
+      timeout-minutes: 240
+
+  console:
+    name: Review (console)
+    permissions: *review
+    needs: key
+    uses: ./.github/workflows/agent.yaml
+    secrets: inherit
+    with:
+      prompt: Follow `.github/agents/security-review.md`. Your area is `console`.
+      output: report
+      recipient: ${{ vars.SECURITY_REPORT_PUBLIC_KEY }}
+      timeout-minutes: 240
+
+  ci:
+    name: Review (ci)
+    permissions: *review
+    needs: key
+    uses: ./.github/workflows/agent.yaml
+    secrets: inherit
+    with:
+      prompt: Follow `.github/agents/security-review.md`. Your area is `ci`.
+      output: report
+      recipient: ${{ vars.SECURITY_REPORT_PUBLIC_KEY }}
+      timeout-minutes: 240
+
   scan:
-    name: Scan
+    name: Scan and report
+    needs: [authn, api, tls, files, driver, console, ci]
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 90
     permissions:
@@ -64,10 +170,13 @@ jobs:
 
       - name: File the report
         env:
+          AGENT_REPORTS: ${{ toJSON(needs) }}
+          REPORT_PRIVATE_KEY: ${{ secrets.SECURITY_REPORT_PRIVATE_KEY }}
           LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_SECURITY_WEBHOOK_URL }}
           RUN_URL:
             ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{
             github.run_id }}
         run:
-          python3 .github/scripts/security_report.py "$RUNNER_TEMP/security" --publish
+          python3 .github/scripts/security_report.py "$RUNNER_TEMP/security" --agents
+          --publish
