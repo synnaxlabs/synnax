@@ -7,22 +7,29 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type ni } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select as PSelect } from "@synnaxlabs/lyra/select";
 import { record } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { PortField } from "@/feature/ni/device/PortField";
 import { Select } from "@/feature/ni/device/Select";
 import { CoefficientsField } from "@/feature/ni/task/CoefficientsField";
 import { CustomScaleSection } from "@/feature/ni/task/CustomScaleForm";
 import { MinMaxValueFields } from "@/feature/ni/task/MinMaxValueFields";
-import { SelectAIChannelTypeField } from "@/feature/ni/task/SelectAIChannelTypeField";
+import { PortField } from "@/feature/ni/task/PortField";
+import { accepts, ANALOG_INPUT } from "@/feature/ni/task/ports";
+import {
+  channelTypeItems,
+  SelectAIChannelTypeField,
+} from "@/feature/ni/task/SelectAIChannelTypeField";
 import {
   type AccelChargeSensitivityUnits,
   type AccelSensitivityUnits,
   type AccelUnits,
+  AI_CHANNEL_TYPE_NAMES,
+  type AIChannel,
   type AIChannelType,
   type BridgeConfig,
   type ChargeUnits,
@@ -38,27 +45,26 @@ import {
   type ShuntResistorLoc,
   type StrainConfig,
   type TemperatureUnits,
+  TERMINAL_CONFIG_NAMES,
+  TERMINAL_CONFIGS,
   type TerminalConfig,
   type ThermocoupleType,
   type TorqueUnits,
   type VelocitySensitivityUnits,
   type VelocityUnits,
 } from "@/feature/ni/task/types";
+import {
+  allowedTypes,
+  useAnalogInputPort,
+  useChannelDevice,
+} from "@/feature/ni/task/usePort";
 import { Task } from "@/platform/task";
 
 interface FormProps {
   prefix: string;
 }
 
-const TERMINAL_CONFIG_NAMES = {
-  RSE: "Referenced single ended",
-  NRSE: "Non-referenced single ended",
-  Diff: "Differential",
-  PseudoDiff: "Pseudo-Differential",
-  Cfg_Default: "Default",
-} as const satisfies Record<TerminalConfig, string>;
-
-const TerminalConfigField = Form.buildSelectField<TerminalConfig>({
+const SelectTerminalConfigField = Form.buildSelectField<TerminalConfig>({
   fieldKey: "terminalConfig",
   fieldProps: { label: "Terminal configuration" },
   inputProps: {
@@ -67,6 +73,33 @@ const TerminalConfigField = Form.buildSelectField<TerminalConfig>({
     children: Task.selectItems(TERMINAL_CONFIG_NAMES),
   },
 });
+
+// The configurations the port takes, and "Default" named by what it gives there.
+const terminalConfigItems = (port: ni.AnalogInputPort, current: TerminalConfig) =>
+  TERMINAL_CONFIGS.filter(
+    (c) => c === "Cfg_Default" || c === current || accepts(port.terminalConfigs, c),
+  ).map((c) => {
+    const resolved = c === "Cfg_Default" ? port.defaultTerminalConfig : undefined;
+    return (
+      <PSelect.Item<TerminalConfig> key={c} itemKey={c}>
+        {resolved == null
+          ? TERMINAL_CONFIG_NAMES[c]
+          : `${TERMINAL_CONFIG_NAMES[c]} (${TERMINAL_CONFIG_NAMES[resolved]})`}
+      </PSelect.Item>
+    );
+  });
+
+const TerminalConfigField = ({ path }: { path: string }) => {
+  const port = useAnalogInputPort(path);
+  const current = Form.useFieldValue<TerminalConfig>(`${path}.terminalConfig`);
+  if (port == null) return <SelectTerminalConfigField path={path} />;
+  return (
+    <SelectTerminalConfigField
+      path={path}
+      inputProps={{ children: terminalConfigItems(port, current) }}
+    />
+  );
+};
 
 const ACCEL_UNITS_NAMES = {
   g: "g",
@@ -1109,16 +1142,35 @@ export interface AIChannelFormProps {
   prefix: string;
 }
 
+const AI_CHANNEL_TYPES = record.keys(AI_CHANNEL_TYPE_NAMES);
+
+const PORTLESS_TYPES: AIChannelType[] = ["ai_temp_builtin"];
+
+const deviceOf = (c: AIChannel) => c.device;
+
 export const AIChannelForm = ({ type, prefix }: AIChannelFormProps) => {
   const TypeForm = CHANNEL_FORMS[type];
+  const device = useChannelDevice(prefix);
+  const port = useAnalogInputPort(prefix);
+  const types = allowedTypes(AI_CHANNEL_TYPES, type, port, PORTLESS_TYPES);
   return (
     <Form.Sections>
       <Form.Section title="Source">
         <Select path={`${prefix}.device`} />
-        {type !== "ai_temp_builtin" && <PortField path={prefix} />}
+        {type !== "ai_temp_builtin" && (
+          <PortField
+            path={prefix}
+            device={device}
+            kind={ANALOG_INPUT}
+            deviceOf={deviceOf}
+          />
+        )}
       </Form.Section>
       <Form.Section title="Signal">
-        <SelectAIChannelTypeField path={prefix} inputProps={{ allowNone: false }} />
+        <SelectAIChannelTypeField
+          path={prefix}
+          inputProps={{ allowNone: false, children: channelTypeItems(types) }}
+        />
         <TypeForm prefix={prefix} />
       </Form.Section>
       <CustomScaleSection prefix={prefix} />

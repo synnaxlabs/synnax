@@ -10,14 +10,19 @@
 import { type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { NI } from "@/feature/ni";
-import { createNIDevice, renderNITaskForm } from "@/feature/ni/task/testutil";
+import {
+  createHardware,
+  createNIDevice,
+  renderNITaskForm,
+} from "@/feature/ni/task/testutil";
 import {
   createWithHook,
   deployAndAwaitTask,
+  findChannelListItem,
   selectFromDropdown,
 } from "@/platform/task/testutil";
 import { isSelectButtonSelected, uniqueName } from "@/testutil";
@@ -77,7 +82,7 @@ describe("AnalogWrite", () => {
       createConfig(cases.map(([type], i) => createChannel(type, i))),
     );
     for (const [i, [type, distinguishingLabel]] of cases.entries()) {
-      fireEvent.click(await screen.findByText(`cmd_${type}_${i}`));
+      fireEvent.click(await findChannelListItem(`cmd_${type}_${i}`));
       await waitFor(
         () =>
           expect(
@@ -91,14 +96,14 @@ describe("AnalogWrite", () => {
 
   it("should name each end of a range", async () => {
     await renderAnalogWrite(createConfig([createChannel("ao_current", 0)]));
-    fireEvent.click(await screen.findByText("cmd_ao_current_0"));
+    fireEvent.click(await findChannelListItem("cmd_ao_current_0"));
     expect(await screen.findByRole("textbox", { name: "Minimum value" })).toBeTruthy();
     expect(screen.getByRole("textbox", { name: "Maximum value" })).toBeTruthy();
   });
 
   it("should switch the function generator wave type when a wave button is clicked", async () => {
     await renderAnalogWrite(createConfig([createChannel("ao_func_gen", 0)]));
-    fireEvent.click(await screen.findByText("cmd_ao_func_gen_0"));
+    fireEvent.click(await findChannelListItem("cmd_ao_func_gen_0"));
     await screen.findByText("Triangle");
     await waitFor(() => expect(isSelectButtonSelected("Sine")).toBe(true));
     expect(isSelectButtonSelected("Triangle")).toBe(false);
@@ -109,7 +114,7 @@ describe("AnalogWrite", () => {
 
   it("should swap the channel to the newly selected type", async () => {
     await renderAnalogWrite(createConfig([createChannel("ao_voltage", 2)]));
-    fireEvent.click(await screen.findByText("cmd_ao_voltage_2"));
+    fireEvent.click(await findChannelListItem("cmd_ao_voltage_2"));
     await screen.findByText("Custom scaling");
     await selectFromDropdown("Voltage", "Function generator");
     await waitFor(() => expect(screen.getByText("Frequency")).toBeTruthy());
@@ -211,7 +216,7 @@ describe("AnalogWrite", () => {
     const [bound] = firstTask.config.channels;
     const cmd = await client.channels.retrieve(bound.cmdChannel);
     const second = await renderAnalogWrite(config);
-    await screen.findByText(cmd.name);
+    await findChannelListItem(cmd.name);
     await waitFor(async () => {
       const saved = await client.tasks.retrieve({
         key: second.draft.key,
@@ -262,5 +267,58 @@ describe("AnalogWrite", () => {
       NI.Task.ANALOG_WRITE_SCHEMAS,
     );
     expect(tsk.config.channels).toHaveLength(1);
+  });
+});
+
+describe("AnalogWrite channel names", () => {
+  it("should show the names configuring gives each channel in the list", async () => {
+    const dev = await createNIDevice(client);
+    const { identifier } = dev.properties;
+    await renderAnalogWrite(
+      createConfig([createChannel("ao_voltage", 1, { cmdChannelName: "" })], dev.key),
+    );
+    const item = await findChannelListItem(`${identifier}_ao_1_cmd`);
+    expect(within(item).getByText(`${identifier}_ao_1_state`)).toBeTruthy();
+  });
+});
+
+describe("AnalogWrite ports", () => {
+  it("should deploy a channel on a port that does not report its types", async () => {
+    const hardware = createHardware();
+    hardware.analogOutputs[0] = { ...hardware.analogOutputs[0], types: [] };
+    const dev = await createNIDevice(client, { properties: { hardware } });
+    const rendered = await renderAnalogWrite(
+      createConfig(
+        [createChannel("ao_voltage", 0, { cmdChannelName: "", stateChannelName: "" })],
+        dev.key,
+      ),
+    );
+    await deployAndAwaitTask(client, rendered.container, rendered.draft.key);
+  });
+});
+
+describe("AnalogWrite disabled channels", () => {
+  it("should deploy and redeploy a disabled channel on a port another channel uses", async () => {
+    const dev = await createNIDevice(client);
+    const first = await renderAnalogWrite(
+      createConfig(
+        [
+          createChannel("ao_voltage", 0, { cmdChannelName: "", disabled: true }),
+          createChannel("ao_voltage", 0, { cmdChannelName: "" }),
+        ],
+        dev.key,
+      ),
+    );
+    const { config } = await deployAndAwaitTask(
+      client,
+      first.container,
+      first.draft.key,
+      NI.Task.ANALOG_WRITE_SCHEMAS,
+    );
+    expect(config.channels[1].cmdChannel).toBe(config.channels[0].cmdChannel);
+    expect(config.channels[1].stateChannel).toBe(config.channels[0].stateChannel);
+    first.unmount();
+    const second = await renderAnalogWrite(config);
+    await deployAndAwaitTask(client, second.container, second.draft.key);
   });
 });

@@ -1,0 +1,169 @@
+/*
+ * Copyright 2026 Synnax Labs, Inc.
+ *
+ * Use of this software is governed by the Business Source License included in the file
+ * licenses/BSL.txt.
+ *
+ * As of the Change Date specified in that file, in accordance with the Business Source
+ * License, use of this software will be governed by the Apache License, Version 2.0,
+ * included in the file licenses/APL.txt.
+ */
+
+.console-port-grid,
+.console-port-badge {
+    /* Oklch mixing keeps the primary hue from going muddy at low strength. */
+    --console-port-used: color-mix(
+        in oklch,
+        var(--pluto-primary-z) 42%,
+        var(--pluto-gray-l1)
+    );
+    --console-port-used-hover: color-mix(
+        in oklch,
+        var(--pluto-primary-z) 58%,
+        var(--pluto-gray-l1)
+    );
+    --console-port-disabled: color-mix(
+        in oklch,
+        var(--pluto-primary-z) 16%,
+        var(--pluto-gray-l1)
+    );
+    --console-port-disabled-hover: color-mix(
+        in oklch,
+        var(--pluto-primary-z) 26%,
+        var(--pluto-gray-l1)
+    );
+    --console-port-conflict: color-mix(
+        in srgb,
+        var(--pluto-error-z) 15%,
+        var(--pluto-gray-l1)
+    );
+    --console-port-conflict-border: color-mix(
+        in srgb,
+        var(--pluto-error-z) 65%,
+        var(--pluto-gray-l1)
+    );
+}
+
+.console-port-grid {
+    --console-port-cell: 24px;
+
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem 2rem;
+}
+
+.console-port-grid__group {
+    display: grid;
+    grid-auto-rows: 20px;
+    gap: 3px;
+}
+
+.console-port-grid__cell {
+    all: unset;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-around;
+    border: var(--pluto-border-width) solid transparent;
+    border-radius: var(--pluto-border-radius-tiny);
+    font-family: var(--pluto-font-family);
+    font-size: var(--pluto-tiny-size);
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    cursor: pointer;
+    transition: var(--pluto-btn-transition);
+
+    &:focus-visible {
+        outline: 1px solid var(--pluto-primary-z);
+        outline-offset: var(--pluto-focus-ring-offset);
+    }
+}
+
+.console-port-grid__cell--free {
+    background: var(--pluto-gray-l2);
+    color: var(--pluto-gray-l9);
+
+    &:hover {
+        background: var(--pluto-gray-l4);
+        color: var(--pluto-gray-l11);
+    }
+}
+
+.console-port-grid__cell--used {
+    background: var(--console-port-used);
+    color: var(--pluto-gray-l11);
+    font-weight: 500;
+
+    &:hover,
+    &[data-context-menu-open] {
+        background: var(--console-port-used-hover);
+    }
+}
+
+.console-port-grid__cell--conflict {
+    border-color: var(--console-port-conflict-border);
+    background: var(--console-port-conflict);
+    color: var(--pluto-error-z);
+    font-weight: 500;
+}
+
+.console-port-grid__cell--paired {
+    padding: 2px 0;
+
+    > :last-child {
+        font-weight: 400;
+        opacity: 0.75;
+    }
+}
+
+.console-port-grid__cell--selected {
+    box-shadow: var(--pluto-selected-ring);
+}
+
+/* A port that only disabled channels hold: the used fill, dimmed like the list item. */
+.console-port-grid__cell--disabled:not(.console-port-grid__cell--conflict),
+.console-port-badge--disabled:not(.console-port-badge--conflict) {
+    background: var(--console-port-disabled);
+    color: var(--pluto-text-disabled);
+}
+
+.console-port-grid__cell--disabled:not(.console-port-grid__cell--conflict) {
+    &:hover,
+    &[data-context-menu-open] {
+        background: var(--console-port-disabled-hover);
+    }
+}
+
+.console-port-badge {
+    box-sizing: border-box;
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    min-width: 24px;
+    height: 20px;
+    padding: 0 4px;
+    border: var(--pluto-border-width) solid transparent;
+    border-radius: var(--pluto-border-radius-tiny);
+    font-family: var(--pluto-font-family);
+    font-size: var(--pluto-tiny-size);
+    font-variant-numeric: tabular-nums;
+    font-weight: 500;
+}
+
+.console-port-badge--free {
+    background: var(--pluto-gray-l3);
+    color: var(--pluto-gray-l9);
+}
+
+.console-port-badge--used {
+    background: var(--console-port-used);
+    color: var(--pluto-gray-l11);
+}
+
+.console-port-badge--conflict {
+    border-color: var(--console-port-conflict-border);
+    background: var(--console-port-conflict);
+    color: var(--pluto-error-z);
+}

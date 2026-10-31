@@ -26,6 +26,8 @@ export interface PanesProps {
   listTitle: string;
   /** The list column's items, below the header. */
   list: ReactNode;
+  /** Sits at the end of the list's header, such as a switch between views. */
+  listActions?: ReactNode;
   /** The form path of the selected item, or null when nothing is selected. */
   detailsPath: string | null;
   /** Names the selected item in the details header. */
@@ -46,6 +48,7 @@ const NARROW_WIDTH = 560;
 export const Panes = ({
   listTitle,
   list,
+  listActions,
   detailsPath,
   title,
   children,
@@ -129,6 +132,7 @@ export const Panes = ({
               {listTitle}
             </Header.Title>
           </Flex.Box>
+          {listActions != null && <Header.Actions>{listActions}</Header.Actions>}
         </Header.Header>
         {list}
       </Flex.Box>

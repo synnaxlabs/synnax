@@ -465,15 +465,16 @@ export const clickDeploy = async (container: HTMLElement): Promise<void> => {
 };
 
 /**
- * Finds the channel list row showing the given port. The details form for the selected
- * channel shows the same port, so a plain text query is ambiguous.
+ * Finds the channel list row showing the text, such as a port or a channel name. The
+ * details header for the selected channel shows the same text, so a plain text query is
+ * ambiguous.
  */
-export const findChannelListItem = async (port: string): Promise<HTMLElement> =>
+export const findChannelListItem = async (text: string): Promise<HTMLElement> =>
   await waitFor(() => {
     const match = screen
       .getAllByRole("option")
-      .find((row) => within(row).queryByText(port) != null);
-    assertDefined(match, `channel list item for port "${port}" not found`);
+      .find((row) => within(row).queryByText(text) != null);
+    assertDefined(match, `channel list item showing "${text}" not found`);
     return match;
   });
 

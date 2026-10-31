@@ -20,6 +20,18 @@ import {
   createAIChannel,
 } from "@/feature/ni/task/types";
 
+/** The items of the channel type select, one for each of the types. */
+export const channelTypeItems = (types: readonly AIChannelType[]) =>
+  types.map((type) => {
+    const Icon = AI_CHANNEL_TYPE_ICONS[type];
+    return (
+      <Select.Item key={type} itemKey={type}>
+        <Icon color={9} />
+        {AI_CHANNEL_TYPE_NAMES[type]}
+      </Select.Item>
+    );
+  });
+
 export const SelectAIChannelTypeField = Form.buildSelectField<AIChannelType>({
   fieldKey: "type",
   fieldProps: {
@@ -40,14 +52,6 @@ export const SelectAIChannelTypeField = Form.buildSelectField<AIChannelType>({
   },
   inputProps: {
     resourceName: "channel type",
-    children: record.keys(AI_CHANNEL_TYPE_NAMES).map((type) => {
-      const Icon = AI_CHANNEL_TYPE_ICONS[type];
-      return (
-        <Select.Item key={type} itemKey={type}>
-          <Icon color={9} />
-          {AI_CHANNEL_TYPE_NAMES[type]}
-        </Select.Item>
-      );
-    }),
+    children: channelTypeItems(record.keys(AI_CHANNEL_TYPE_NAMES)),
   },
 });

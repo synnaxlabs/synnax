@@ -13,7 +13,6 @@ import {
   type device,
   DisconnectedError,
   type rack,
-  type status,
   type Synnax,
   task,
 } from "@synnaxlabs/client";
@@ -22,7 +21,7 @@ import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Input } from "@synnaxlabs/lyra/input";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Access, Synnax as PSynnax, Task as PTask } from "@synnaxlabs/pluto";
-import { deep, primitive, TimeSpan } from "@synnaxlabs/x";
+import { primitive, TimeSpan } from "@synnaxlabs/x";
 import { type FC } from "react";
 import { type z } from "zod";
 
@@ -30,6 +29,7 @@ import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
 import { Errors } from "@/platform/errors";
 import { Controls } from "@/platform/task/controls";
+import { issueStatuses } from "@/platform/task/issues";
 import { ParentRangeButton } from "@/platform/task/ParentRangeButton";
 import { Rack } from "@/platform/task/Rack";
 import { useStatus } from "@/platform/task/useStatus";
@@ -70,6 +70,12 @@ export interface WrapFormParams<S extends task.Schemas = task.Schemas> {
    * don't block. Shape schemas stay lax so drafts persist through autosave.
    */
   deployConfigZ: z.ZodType;
+  /**
+   * Checks the config against the devices it uses, once deployConfigZ passes. It
+   * returns the schema to parse the config with. Its issues render and block as
+   * deployConfigZ's do.
+   */
+  deviceConfigZ?: (client: Synnax, config: z.infer<S["config"]>) => Promise<z.ZodType>;
   getInitialValues: GetInitialValues<S>;
   showHeader?: boolean;
   showControls?: boolean;
@@ -115,17 +121,13 @@ const Header = ({ isSnapshot }: HeaderProps) => (
 // Numeric fields have drag handles that emit a change per pixel.
 const AUTO_SAVE_DEBOUNCE = TimeSpan.milliseconds(200);
 
-const issueVariant = (issue: z.core.$ZodIssue): status.Variant =>
-  issue.code === "custom" && issue.params != null && "variant" in issue.params
-    ? (issue.params.variant as status.Variant)
-    : "error";
-
 export const wrapForm = <S extends task.Schemas = task.Schemas>({
   Properties,
   Form,
   schemas,
   type,
   deployConfigZ,
+  deviceConfigZ,
   getInitialValues,
   onConfigure,
   showHeader = true,
@@ -146,26 +148,27 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
     // read-only rather than fields that revert once the save is refused.
     const canEdit = Access.useUpdateGranted(task.ontologyID(taskKey));
 
+    // Shows the issues as field statuses, and returns whether any blocks the deploy.
+    const report = (result: z.ZodSafeParseResult<unknown>): boolean => {
+      if (result.success) return false;
+      let blocked = false;
+      issueStatuses(result.error.issues, form.value()).forEach((status, path) => {
+        if (status.variant !== "warning") blocked = true;
+        form.setStatus(path, status);
+      });
+      return blocked;
+    };
+
     const handleDeploy = () => {
       handleError(async () => {
         if (client == null) throw new DisconnectedError();
         if (canEdit) {
           const { config, name } = form.value();
           form.clearStatuses();
-          const result = deployConfigZ.safeParse(config);
-          if (!result.success) {
-            let blocked = false;
-            result.error.issues.forEach((issue) => {
-              const variant = issueVariant(issue);
-              if (variant !== "warning") blocked = true;
-              // Fields address array items by their key, not by their index.
-              const path = deep.resolvePath(
-                ["config", ...issue.path].join("."),
-                form.value(),
-              );
-              form.setStatus(path, { key: path, variant, message: issue.message });
-            });
-            if (blocked) return;
+          if (report(deployConfigZ.safeParse(config))) return;
+          if (deviceConfigZ != null) {
+            const schema = await deviceConfigZ(client, config);
+            if (report(schema.safeParse(config))) return;
           }
           const [newConfig, newRack] = await onConfigure(client, config, name);
           // Tracked sets, so the result of a save still in flight cannot revert them.

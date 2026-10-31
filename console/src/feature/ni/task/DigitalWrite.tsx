@@ -17,12 +17,15 @@ import { type FC } from "react";
 import { useFromConfig } from "@/feature/ni/device/queries";
 import { Select } from "@/feature/ni/device/Select";
 import { MAKE, SCHEMAS } from "@/feature/ni/device/types";
+import { digitalHardwareZ } from "@/feature/ni/task/checks";
 import { createNextDOChannel } from "@/feature/ni/task/createChannel";
 import {
   DigitalChannelList,
   type DigitalNameComponentProps,
 } from "@/feature/ni/task/DigitalChannelList";
 import { getDigitalChannelDeviceKey } from "@/feature/ni/task/getDigitalChannelDeviceKey";
+import { digitalOutputName, enabledFirst } from "@/feature/ni/task/ports";
+import { LinesView } from "@/feature/ni/task/PortsView";
 import {
   deployDigitalWriteConfigZ,
   DIGITAL_WRITE_SCHEMAS,
@@ -66,6 +69,7 @@ const name = Component.renderProp(NameComponent);
 
 const Form: FC = () => {
   const dev = useFromConfig();
+  Task.useConfigCheck(digitalHardwareZ(dev, "output"));
   const resolve = (ch: DOChannel) => {
     if (dev == null) return null;
     const pair =
@@ -75,10 +79,25 @@ const Form: FC = () => {
   };
   return (
     <DigitalChannelList
-      createChannel={createNextDOChannel}
+      createChannel={(channels) => createNextDOChannel(channels, {}, dev)}
       name={name}
       contextMenuItems={Task.writeChannelContextMenuItems}
       resolve={resolve}
+      ports={
+        dev?.properties.hardware == null
+          ? undefined
+          : (props) => (
+              <LinesView<DOChannel>
+                {...props}
+                device={dev}
+                direction="output"
+                create={(channels, placement) =>
+                  createNextDOChannel(channels, placement, dev)
+                }
+                name={digitalOutputName}
+              />
+            )
+      }
     />
   );
 };
@@ -127,8 +146,12 @@ const onConfigure: Task.OnConfigure<typeof digitalWriteConfigZ> = async (
     }
     const commandsToCreate: DOChannel[] = [];
     const statesToCreate: DOChannel[] = [];
-    for (const channel of config.channels) {
+    // Channels on one port share its data channel, named by an enabled one if any.
+    const seen = new Set<string>();
+    for (const channel of enabledFirst(config.channels)) {
       const key = getDigitalChannelDeviceKey(channel);
+      if (seen.has(key)) continue;
+      seen.add(key);
       const exPair = dev.properties.digitalOutput.channels[key];
       if (exPair == null) {
         commandsToCreate.push(channel);
@@ -210,6 +233,11 @@ export const DigitalWrite = Task.wrapForm({
   Form,
   schemas: DIGITAL_WRITE_SCHEMAS,
   deployConfigZ: deployDigitalWriteConfigZ,
+  deviceConfigZ: async (client, config) =>
+    digitalHardwareZ(
+      await client.devices.retrieve({ key: config.device, schemas: SCHEMAS }),
+      "output",
+    ),
   getInitialValues,
   onConfigure,
   type: "ni_digital_write",
