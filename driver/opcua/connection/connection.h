@@ -32,6 +32,10 @@
 #include "driver/opcua/types/types.h"
 
 namespace driver::opcua::connection {
+/// @brief how often a task tries again to read what failed while its connection stays
+/// up, since a server can add nodes and types while it runs.
+const auto RETRY_INTERVAL = 10 * x::telem::SECOND;
+
 /// @brief the configuration for an OPC UA connection.
 struct Config {
     /// @brief the endpoint of the OPC UA server.

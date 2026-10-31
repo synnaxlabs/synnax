@@ -12,9 +12,65 @@
 package v2
 
 import (
+	channel "github.com/synnaxlabs/synnax/pkg/service/channel/versions/v0"
 	"github.com/synnaxlabs/x/encoding/orc"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
 )
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (rc ReadChannel) EncodeOrc(w *orc.Writer) error {
+	w.String(rc.Key)
+	w.String(rc.Name)
+	w.Bool(rc.Disabled)
+	w.String(rc.NodeID)
+	w.String(rc.NodeName)
+	w.String(string(rc.DataType))
+	w.Uint32(uint32(rc.Channel))
+	w.Bool(rc.IsIndex)
+	w.String(rc.Field)
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (rc *ReadChannel) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if rc.Key, err = r.String(); err != nil {
+		return err
+	}
+	if rc.Name, err = r.String(); err != nil {
+		return err
+	}
+	if rc.Disabled, err = r.Bool(); err != nil {
+		return err
+	}
+	if rc.NodeID, err = r.String(); err != nil {
+		return err
+	}
+	if rc.NodeName, err = r.String(); err != nil {
+		return err
+	}
+	{
+		rawV, err := r.String()
+		if err != nil {
+			return err
+		}
+		rc.DataType = telem.DataType(rawV)
+	}
+	{
+		rawV, err := r.Uint32()
+		if err != nil {
+			return err
+		}
+		rc.Channel = channel.Key(rawV)
+	}
+	if rc.IsIndex, err = r.Bool(); err != nil {
+		return err
+	}
+	if rc.Field, err = r.String(); err != nil {
+		return err
+	}
+	return nil
+}
 
 // EncodeOrc writes the value to w in the Orc binary format.
 func (rc ReadConfig) EncodeOrc(w *orc.Writer) error {

@@ -184,6 +184,7 @@ TEST_F(TestScanTask, testBasicScan) {
     bool found_uint16 = false;
     bool found_float = false;
     bool found_double = false;
+    bool found_double_array = false;
 
     for (const auto &ch: channels) {
         ASSERT_TRUE(ch.contains("name"));
@@ -194,7 +195,7 @@ TEST_F(TestScanTask, testBasicScan) {
         const auto name = ch["name"].get<std::string>();
         if (name == "TestBoolean") {
             found_boolean = true;
-            EXPECT_EQ(ch["data_type"], "uint8");
+            EXPECT_EQ(ch["data_type"], "boolean");
             EXPECT_EQ(ch["node_class"], "Variable");
         } else if (name == "TestUInt16") {
             found_uint16 = true;
@@ -208,6 +209,11 @@ TEST_F(TestScanTask, testBasicScan) {
             found_double = true;
             EXPECT_EQ(ch["data_type"], "float64");
             EXPECT_EQ(ch["node_class"], "Variable");
+            EXPECT_FALSE(ch["is_array"].get<bool>());
+        } else if (name == "TestDoubleArray") {
+            found_double_array = true;
+            EXPECT_EQ(ch["data_type"], "float64");
+            EXPECT_TRUE(ch["is_array"].get<bool>());
         }
     }
 
@@ -215,6 +221,7 @@ TEST_F(TestScanTask, testBasicScan) {
     EXPECT_TRUE(found_uint16);
     EXPECT_TRUE(found_float);
     EXPECT_TRUE(found_double);
+    EXPECT_TRUE(found_double_array);
 }
 
 /// @brief it should reuse pooled connections for multiple scans.
@@ -890,5 +897,127 @@ TEST_F(TestScanTask, testRenewalFailureIsPartialScan) {
         "Failed to renew the Driver certificate: Failed to parse " + corrupt.string()
     );
     ASSERT_EQ(scanned.size(), 1);
+}
+/// @brief browses the node at path in the server on port 4881, and returns the status.
+synnax::task::Status browse_node(
+    const std::shared_ptr<task::MockContext> &ctx,
+    const synnax::task::Task &task,
+    const std::shared_ptr<connection::Pool> &pool,
+    const std::shared_ptr<certificate::Store> &store,
+    const std::string &node_id,
+    const std::string &field
+) {
+    connection::Config conn_cfg;
+    conn_cfg.endpoint = "opc.tcp://localhost:4881";
+    conn_cfg.security_mode = "None";
+    conn_cfg.security_policy = "None";
+    Scanner scanner(ctx, task, pool, store);
+    const auto before = ctx->statuses.size();
+    synnax::task::Command cmd{
+        .task = task.key,
+        .type = BROWSE_CMD_TYPE,
+        .key = "browse_cmd",
+        .args = {
+            {"connection", testutil::connection_json(conn_cfg)},
+            {"node_id", node_id},
+            {"field", field},
+        },
+    };
+    EXPECT_TRUE(scanner.exec(cmd, task, ctx));
+    EXPECT_EQ(ctx->statuses.size(), before + 1);
+    return ctx->statuses.back();
+}
+
+/// @brief starts a server that holds a TestMotor node, of the Motor structure type.
+std::unique_ptr<testutil::Server> start_motor_server() {
+    auto cfg = testutil::ServerConfig::create_default();
+    cfg.port = 4881;
+    cfg.motor = testutil::Motor{
+        .speed = 1500.0,
+        .running = true,
+        .position = {.x = 1.5F, .y = 2.5F},
+    };
+    auto server = std::make_unique<testutil::Server>(cfg);
+    server->start();
+    EXPECT_TRUE(server->wait_until_ready());
+    return server;
+}
+
+/// @brief it should list the members of a structure variable, with their fields.
+TEST_F(TestScanTask, testBrowsesStructureMembers) {
+    const auto motor_server = start_motor_server();
+    const auto
+        status = browse_node(ctx, task, conn_pool, store, "NS=1;S=TestMotor", "");
+    ASSERT_EQ(status.variant, synnax::status::VARIANT_SUCCESS) << status.description;
+    auto channels = x::json::json::array();
+    for (const auto &ch: status.details.data.value().at("channels"))
+        if (!ch["field"].get<std::string>().empty()) channels.push_back(ch);
+    ASSERT_EQ(channels.size(), 3);
+    EXPECT_EQ(channels[0]["name"], "Speed");
+    EXPECT_EQ(channels[0]["field"], "Speed");
+    EXPECT_EQ(channels[0]["data_type"], "float64");
+    EXPECT_EQ(channels[0]["node_id"], "NS=1;S=TestMotor");
+    EXPECT_EQ(channels[0]["node_class"], "Variable");
+    EXPECT_EQ(channels[1]["field"], "Running");
+    EXPECT_EQ(channels[1]["data_type"], "boolean");
+    EXPECT_EQ(channels[2]["field"], "Position");
+    motor_server->stop();
+}
+
+/// @brief it should list the members of a nested structure member.
+TEST_F(TestScanTask, testBrowsesNestedMembers) {
+    const auto motor_server = start_motor_server();
+    const auto status = browse_node(
+        ctx,
+        task,
+        conn_pool,
+        store,
+        "NS=1;S=TestMotor",
+        "Position"
+    );
+    ASSERT_EQ(status.variant, synnax::status::VARIANT_SUCCESS) << status.description;
+    const auto &channels = status.details.data.value().at("channels");
+    ASSERT_EQ(channels.size(), 2);
+    EXPECT_EQ(channels[0]["field"], "Position.X");
+    EXPECT_EQ(channels[0]["data_type"], "float32");
+    EXPECT_EQ(channels[1]["field"], "Position.Y");
+    motor_server->stop();
+}
+
+/// @brief it should list the children of a structure variable whose type does not
+/// build, and warn that its members do not list.
+TEST_F(TestScanTask, testBrowsesChildrenOfUnbuiltStructure) {
+    auto cfg = testutil::ServerConfig::create_default();
+    cfg.port = 4881;
+    cfg.broken = testutil::Broken{};
+    testutil::Server server(cfg);
+    server.start();
+    ASSERT_TRUE(server.wait_until_ready());
+    const auto
+        status = browse_node(ctx, task, conn_pool, store, "NS=1;S=TestBroken", "");
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(status.message, "Failed to list structure members");
+    EXPECT_EQ(
+        status.description,
+        "cannot decode Broken: the server did not define the type of a member"
+    );
+    const auto &channels = status.details.data.value().at("channels");
+    ASSERT_EQ(channels.size(), 1);
+    EXPECT_EQ(
+        channels[0]["node_id"],
+        "nsu=urn:open62541.server.application;s=TestBrokenChild"
+    );
+    server.stop();
+}
+
+/// @brief it should fail to list the members of a node that holds no structure.
+TEST_F(TestScanTask, testRejectsFieldOfScalar) {
+    const auto motor_server = start_motor_server();
+    const auto
+        status = browse_node(ctx, task, conn_pool, store, "NS=1;S=TestDouble", "Speed");
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(status.message, "Failed to browse nodes");
+    EXPECT_EQ(status.description, "Double has no member Speed");
+    motor_server->stop();
 }
 }

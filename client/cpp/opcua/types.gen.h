@@ -62,6 +62,9 @@ struct ReadChannel : public BaseChannel {
     ::synnax::channel::Key channel = ::synnax::channel::Key(0);
     /// @brief is_index is true when the channel's Synnax channel is the task's index.
     bool is_index = false;
+    /// @brief field is the path to a member of the node's structure value. Names join
+    /// with '.', and '&' escapes the next character. Empty reads the whole value.
+    std::string field = "";
 
     static ReadChannel parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

@@ -29,25 +29,31 @@ struct Node {
     std::string name;
     std::string node_id;
     bool is_array;
+    /// @brief the path to a member of the node's structure value, or empty for the node
+    /// itself.
+    std::string field;
 
     Node(
         x::telem::DataType data_type,
         std::string name,
         std::string node_id,
         std::string node_class,
-        const bool is_array
+        const bool is_array,
+        std::string field = ""
     ):
         data_type(std::move(data_type)),
         node_class(std::move(node_class)),
         name(std::move(name)),
         node_id(std::move(node_id)),
-        is_array(is_array) {}
+        is_array(is_array),
+        field(std::move(field)) {}
 
     explicit Node(x::json::Parser &p):
         data_type(x::telem::DataType(p.field<std::string>("data_type"))),
         name(p.field<std::string>("name")),
         node_id(p.field<std::string>("node_id")),
-        is_array(p.field<bool>("is_array", false)) {}
+        is_array(p.field<bool>("is_array", false)),
+        field(p.field<std::string>("field", "")) {}
 
     [[nodiscard]] x::json::json to_json() const {
         return {
@@ -55,7 +61,8 @@ struct Node {
             {"name", name},
             {"node_id", node_id},
             {"node_class", node_class},
-            {"is_array", is_array}
+            {"is_array", is_array},
+            {"field", field}
         };
     }
 };
@@ -250,8 +257,14 @@ public:
         return *this;
     }
 
-    x::errors::Error
-    add_value(const UA_NodeId &node_id, const x::telem::Series &series);
+    /// @brief adds the last sample of series, converted to target, the data type of the
+    /// node. A null target converts to the type that matches the series.
+    /// @returns x::errors::VALIDATION if the sample does not convert to target.
+    x::errors::Error add_value(
+        const UA_NodeId &node_id,
+        const x::telem::Series &series,
+        const UA_DataType *target
+    );
 
     [[nodiscard]] UA_WriteRequest build() const {
         UA_WriteRequest req;

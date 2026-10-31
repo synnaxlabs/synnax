@@ -1,0 +1,42 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
+cc_library(
+    name = "structure",
+    srcs = ["structure.cpp"],
+    hdrs = ["structure.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//driver/opcua/connection",
+        "//driver/opcua/telem",
+        "//driver/opcua/types",
+        "//vendor/open62541",
+        "//x/cpp/errors",
+        "//x/cpp/telem",
+    ],
+)
+
+cc_test(
+    name = "structure_test",
+    srcs = ["structure_test.cpp"],
+    deps = [
+        ":structure",
+        "//driver/opcua/certificate",
+        "//driver/opcua/connection",
+        "//driver/opcua/testutil",
+        "//driver/opcua/types",
+        "//vendor/open62541",
+        "//x/cpp/telem",
+        "//x/cpp/testutil",
+        "@googletest//:gtest_main",
+    ],
+)

@@ -621,8 +621,8 @@ TEST_F(TestWriteTask, testRejectedNodeWritesOthers) {
     ASSERT_NIL(sink->stop());
 }
 
-/// @returns a sink that writes the uint32 command channel to node_id.
-std::unique_ptr<WriteTaskSink> uint32_sink(
+/// @returns a sink that writes cmd_channel to node_id.
+std::unique_ptr<WriteTaskSink> sink_for(
     const std::shared_ptr<synnax::Synnax> &client,
     const std::shared_ptr<connection::Pool> &pool,
     const synnax::channel::Key cmd_channel,
@@ -644,7 +644,7 @@ std::unique_ptr<WriteTaskSink> uint32_sink(
 
 /// @brief it should write a node by the URI of its namespace.
 TEST_F(TestWriteTask, testWritesNamespaceURINode) {
-    const auto sink = uint32_sink(
+    const auto sink = sink_for(
         ctx->client,
         conn_pool,
         this->uint32_cmd_channel.key,
@@ -667,7 +667,7 @@ TEST_F(TestWriteTask, testWritesNamespaceURINode) {
 
 /// @brief it should reject a value for a node in a namespace that the server lacks.
 TEST_F(TestWriteTask, testUnknownNamespaceRejectsValue) {
-    const auto sink = uint32_sink(
+    const auto sink = sink_for(
         ctx->client,
         conn_pool,
         this->uint32_cmd_channel.key,
@@ -688,21 +688,55 @@ TEST_F(TestWriteTask, testUnknownNamespaceRejectsValue) {
     ASSERT_NIL(sink->stop());
 }
 
-/// @brief it should write a node in a namespace that the server adds after the task
-/// starts, on the same Session.
-TEST_F(TestWriteTask, testNamespaceAddedAfterStart) {
-    const auto sink = uint32_sink(
-        ctx->client,
-        conn_pool,
-        this->uint32_cmd_channel.key,
-        "nsu=urn:late;s=Late"
-    );
+/// @brief it should convert a command to the data type of its node.
+TEST_F(TestWriteTask, testConvertsCommandToNodeType) {
+    const auto cmd = ASSERT_NIL_P(ctx->client->channels.create(
+        make_unique_channel_name("float_cmd"),
+        x::telem::FLOAT64_T,
+        true
+    ));
+    const auto sink = sink_for(ctx->client, conn_pool, cmd.key, "NS=1;S=TestUInt32");
     ASSERT_NIL(sink->start());
     auto fr = x::telem::Frame(1);
-    fr.emplace(
-        this->uint32_cmd_channel.key,
-        x::telem::Series(static_cast<uint32_t>(97), x::telem::UINT32_T)
+    fr.emplace(cmd.key, x::telem::Series(77.0));
+    ASSERT_NIL(sink->write(fr));
+    auto client = ASSERT_NIL_P(connection::connect(conn_cfg, {}, "[test.convert] "));
+    const auto result = ASSERT_NIL_P(
+        testutil::simple_read(client, "NS=1;S=TestUInt32")
     );
+    EXPECT_EQ(result.at<uint32_t>(0), 77);
+    ASSERT_NIL(sink->stop());
+}
+
+/// @brief it should not send a command that the type of its node cannot hold.
+TEST_F(TestWriteTask, testRejectsCommandOutOfRange) {
+    const auto cmd = ASSERT_NIL_P(ctx->client->channels.create(
+        make_unique_channel_name("float_cmd"),
+        x::telem::FLOAT64_T,
+        true
+    ));
+    const auto sink = sink_for(ctx->client, conn_pool, cmd.key, "NS=1;S=TestUInt32");
+    ASSERT_NIL(sink->start());
+    auto fr = x::telem::Frame(1);
+    fr.emplace(cmd.key, x::telem::Series(-1.0));
+    const auto err = sink->write(fr);
+    ASSERT_MATCHES(err, errors::COMMAND_REJECTED);
+    EXPECT_EQ(err.data, cmd.name + ": -1 is out of range for a UInt32 node.");
+    ASSERT_NIL(sink->stop());
+}
+
+/// @brief it should write a node in a namespace that the server adds after the task
+/// starts, on the same Session, converted to the data type of the node.
+TEST_F(TestWriteTask, testNamespaceAddedAfterStart) {
+    const auto cmd = ASSERT_NIL_P(ctx->client->channels.create(
+        make_unique_channel_name("float_cmd"),
+        x::telem::FLOAT64_T,
+        true
+    ));
+    const auto sink = sink_for(ctx->client, conn_pool, cmd.key, "nsu=urn:late;s=Late");
+    ASSERT_NIL(sink->start());
+    auto fr = x::telem::Frame(1);
+    fr.emplace(cmd.key, x::telem::Series(97.0));
     ASSERT_OCCURRED_AS(sink->write(fr), errors::COMMAND_REJECTED);
     const auto sessions = server->sessions_created.load();
     UA_UInt32 initial = 0;
@@ -716,6 +750,35 @@ TEST_F(TestWriteTask, testNamespaceAddedAfterStart) {
     EXPECT_EQ(server->sessions_created.load(), sessions);
     auto client = ASSERT_NIL_P(connection::connect(conn_cfg, {}, "[test.late] "));
     const auto result = ASSERT_NIL_P(testutil::simple_read(client, "NS=2;S=Late"));
+    EXPECT_EQ(result.at<uint32_t>(0), 97);
+    ASSERT_NIL(sink->stop());
+}
+
+/// @brief it should convert a command to the data type of a node that the server adds
+/// after the task starts, on the same Session.
+TEST_F(TestWriteTask, testNodeAddedAfterStart) {
+    const auto cmd = ASSERT_NIL_P(ctx->client->channels.create(
+        make_unique_channel_name("float_cmd"),
+        x::telem::FLOAT64_T,
+        true
+    ));
+    const auto sink = sink_for(ctx->client, conn_pool, cmd.key, "NS=1;S=Late");
+    ASSERT_NIL(sink->start());
+    auto fr = x::telem::Frame(1);
+    fr.emplace(cmd.key, x::telem::Series(97.0));
+    ASSERT_OCCURRED_AS(sink->write(fr), errors::COMMAND_REJECTED);
+    const auto sessions = server->sessions_created.load();
+    UA_UInt32 initial = 0;
+    UA_Variant value;
+    UA_Variant_setScalar(&value, &initial, &UA_TYPES[UA_TYPES_UINT32]);
+    server->add_namespace(
+        testutil::SERVER_APPLICATION_URI,
+        {{0, "Late", &UA_TYPES[UA_TYPES_UINT32], value, "Late"}}
+    );
+    ASSERT_NIL(sink->write(fr));
+    EXPECT_EQ(server->sessions_created.load(), sessions);
+    auto client = ASSERT_NIL_P(connection::connect(conn_cfg, {}, "[test.late] "));
+    const auto result = ASSERT_NIL_P(testutil::simple_read(client, "NS=1;S=Late"));
     EXPECT_EQ(result.at<uint32_t>(0), 97);
     ASSERT_NIL(sink->stop());
 }

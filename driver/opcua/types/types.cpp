@@ -264,9 +264,10 @@ std::string node_class_to_string(const UA_NodeClass &node_class) {
 
 x::errors::Error WriteRequestBuilder::add_value(
     const UA_NodeId &node_id,
-    const ::x::telem::Series &series
+    const ::x::telem::Series &series,
+    const UA_DataType *target
 ) {
-    auto [variant, err] = telem::series_to_variant(series);
+    auto [variant, err] = telem::to_variant(series, target);
     if (err) return err;
     add_value(node_id, variant);
     return x::errors::NIL;

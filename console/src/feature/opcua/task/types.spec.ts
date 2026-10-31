@@ -98,6 +98,33 @@ describe("OPC UA Read Task Config Validation", () => {
     );
   });
 
+  it("should accept channels that read different fields of one node", () => {
+    const result = OPCUA.Task.deployReadConfigZ.safeParse(
+      createConfig([
+        { nodeId: "ns=1;s=motor", field: "Speed" },
+        { nodeId: "ns=1;s=motor", field: "Position.Y" },
+      ]),
+    );
+    expect(result.success).toBe(true);
+  });
+
+  it("should warn at each channel that reads the same field of one node", () => {
+    const result = OPCUA.Task.deployReadConfigZ.safeParse(
+      createConfig([
+        { nodeId: "ns=1;s=motor", field: "Speed" },
+        { nodeId: "ns=1;s=motor", field: "Speed" },
+      ]),
+    );
+    expect(result.error?.issues).toEqual(
+      [0, 1].map((i) =>
+        expect.objectContaining({
+          path: ["channels", i, "nodeId"],
+          message: "This field has already been used elsewhere in the configuration",
+        }),
+      ),
+    );
+  });
+
   it("should reject each channel marked as index when there are several", () => {
     const result = OPCUA.Task.deployReadConfigZ.safeParse(
       createConfig([{ isIndex: true }, { isIndex: true }]),
@@ -194,7 +221,7 @@ describe("Scanned Nodes", () => {
         },
       ],
     });
-    expect(result).toMatchObject({ channels: [{ key: "ns=2;s=A" }] });
+    expect(result).toMatchObject({ channels: [{ key: "ns=2;s=A", field: "" }] });
   });
 });
 

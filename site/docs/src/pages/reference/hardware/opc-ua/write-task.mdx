@@ -131,13 +131,34 @@ The table shows the Console label of each setting, with its Python field under i
 
 ### Data types
 
-The Driver writes each value with the OPC UA type that matches the data type of the
-command channel:
+The Driver reads the type of each node when it connects, and converts each command to
+that type. For example, a `float64` channel can write `3` to an Int16 node, or `1` to a
+Boolean node.
+
+| OPC UA type        | Accepts                                                    |
+| ------------------ | ---------------------------------------------------------- |
+| Boolean            | `0`, `1`, or the text `true` or `false`                    |
+| An integer type    | A whole number in the range of the type, or the text of it |
+| Float, Double      | A number, or the text of one                               |
+| String             | Any value except a timestamp, written as text              |
+| DateTime           | A `timestamp`                                              |
+| Guid               | A `uuid`, or the text of a GUID                            |
+| ByteString         | A `bytes` or a `string`                                    |
+| An enumeration     | A whole number in the range of `int32`                     |
+| BaseDataType (any) | Any value, with the type in the table below                |
+
+The Driver does not send a command that does not fit the node, such as `300` for a Byte
+node or `1.5` for an Int16 node. The task shows
+["Failed to write commands"](#troubleshooting) and writes the other channels.
+
+When the server does not give the type of a node, the Driver writes the value with the
+OPC UA type of the command channel:
 
 | Synnax data type | OPC UA type |
 | ---------------- | ----------- |
-| `uint8`          | Boolean     |
+| `boolean`        | Boolean     |
 | `int8`           | SByte       |
+| `uint8`          | Byte        |
 | `int16`          | Int16       |
 | `uint16`         | UInt16      |
 | `int32`          | Int32       |
@@ -149,8 +170,9 @@ command channel:
 | `string`         | String      |
 | `timestamp`      | DateTime    |
 | `uuid`           | Guid        |
+| `bytes`          | ByteString  |
 
-A `uint8` channel writes a Boolean, so the task cannot write to a Byte node.
+A write task cannot write to a field of a structure node.
 
 <Divider.Divider x />
 
@@ -161,13 +183,14 @@ A `uint8` channel writes a Boolean, so the task cannot write to a Byte node.
 <Problem.Item message={"... returned BadTypeMismatch. The value supplied for the attribute is not of the same type as the attribute's value."}>
 <Problem.Cause>
 
-The data type of the command channel does not match the type of the node.
+The server did not give the type of the node, so the Driver wrote the type of the
+command channel, and the type does not match the node.
 
 </Problem.Cause>
 <Problem.Fix>
 
-Use the data type from the [table](#channel-reference). For example, a Double node needs
-a `float64` channel.
+Use the data type from the [table](#data-types). For example, a Double node needs a
+`float64` channel.
 
 </Problem.Fix>
 </Problem.Item>

@@ -54,6 +54,7 @@ import {
   createTestClientWithGrants,
   createTestStore,
   findDialogTriggerByText,
+  HaulProvider,
   renderHookWithConsole,
   renderSuspended,
   renderWithConsole,
@@ -399,8 +400,9 @@ export interface RenderTaskFormTabResult extends RenderResult, CreatedPanel {
 
 /**
  * Renders a Task.wrapForm tab the way the task panel entry does: seeds a panel doc
- * whose single leaf holds a resource tab for the task, then mounts the form inside
- * the panel and tab scopes within the full console provider stack.
+ * whose single leaf holds a resource tab for the task, then mounts the form inside the
+ * panel and tab scopes within the full console provider stack, with the drag and drop
+ * provider that the window mounts.
  */
 export const renderTaskFormTab = async (
   Form: FC<FormTabProps>,
@@ -428,10 +430,12 @@ export const renderTaskFormTab = async (
   }
   const result = await renderSuspended(
     <Analytics.Provider sink={analytics}>
-      <PanelScopes panelKey={created.panelKey} tabKey={tab.key}>
-        <Form taskKey={taskKey} />
-        {onStatuses != null && <CaptureStatuses onStatuses={onStatuses} />}
-      </PanelScopes>
+      <HaulProvider>
+        <PanelScopes panelKey={created.panelKey} tabKey={tab.key}>
+          <Form taskKey={taskKey} />
+          {onStatuses != null && <CaptureStatuses onStatuses={onStatuses} />}
+        </PanelScopes>
+      </HaulProvider>
     </Analytics.Provider>,
     { wrapper, onCaughtError },
   );

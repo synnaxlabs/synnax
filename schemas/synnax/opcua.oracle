@@ -50,6 +50,12 @@ ReadChannel struct extends BaseChannel {
     is_index bool = false {
         @doc value "is true when the channel's Synnax channel is the task's index."
     }
+    field    string = "" {
+        @doc value """
+            is the path to a member of the node's structure value. Names join with '.',
+            and '&' escapes the next character. Empty reads the whole value.
+        """
+    }
 
     @doc value  "is a single OPC UA node the task reads from."
     @go marshal

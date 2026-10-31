@@ -14,8 +14,15 @@ import { describe, expect, it } from "vitest";
 import { type z } from "zod";
 
 import { OPCUA } from "@/feature/opcua";
-import { createOPCDevice } from "@/feature/opcua/testutil";
 import {
+  createMember,
+  createOPCDevice,
+  createScannedDevice,
+  createVariableNode,
+  dragNode,
+} from "@/feature/opcua/testutil";
+import {
+  answerNextCommand,
   awaitEditableForm,
   deployAndAwaitTask,
   renderTaskFormTab,
@@ -51,6 +58,7 @@ const createReadChannel = (
     isIndex: false,
     dataType: "float32",
     name: "",
+    field: "",
     ...overrides,
   };
 };
@@ -117,6 +125,49 @@ describe("Read", () => {
     expect(updated.properties.read.channels[chB.nodeId]).toBe(
       config.channels[1].channel,
     );
+  });
+
+  it("should map structure field channels by node and field on deploy", async () => {
+    const dev = await createOPCDevice(client);
+    // Underscores pin that the field map keeps its keys' case on the wire.
+    const nodeId = `ns=1;s=${uniqueName("motor")}`;
+    const speed = createReadChannel({
+      key: `${nodeId}/motor_speed`,
+      nodeId,
+      field: "motor_speed",
+      nodeName: "Motor.motor_speed",
+    });
+    const y = createReadChannel({
+      key: `${nodeId}/Position.Y`,
+      nodeId,
+      field: "Position.Y",
+      nodeName: "Motor.Position.Y",
+    });
+    const draft = await createDraft(client, createReadConfig(dev.key, [speed, y]));
+    const { container } = await renderRead({ client, taskKey: draft.key });
+    await screen.findByText(new RegExp(y.nodeName));
+
+    const { config } = await deployAndAwaitTask(
+      client,
+      container,
+      draft.key,
+      OPCUA.Task.READ_SCHEMAS,
+    );
+    expect(config.channels.map(({ field }) => field)).toEqual([
+      "motor_speed",
+      "Position.Y",
+    ]);
+    const updated = await client.devices.retrieve({
+      key: dev.key,
+      schemas: OPCUA.Device.SCHEMAS,
+    });
+    expect(updated.properties.read.fields).toEqual({
+      [nodeId]: {
+        motor_speed: config.channels[0].channel,
+        "Position.Y": config.channels[1].channel,
+      },
+    });
+    expect(updated.properties.read.channels).toEqual({});
   });
 
   it("should bind a new entry to the channel the device already maps", async () => {
@@ -236,6 +287,46 @@ describe("Read", () => {
         schemas: OPCUA.Task.READ_SCHEMAS,
       });
       expect(saved.config.nanFillEnabled).toBe(true);
+    });
+  });
+});
+
+describe("Read structure members", () => {
+  it("should add each dropped member of a node once", async () => {
+    const { scan, device } = await createScannedDevice(client);
+    const held = createReadChannel();
+    const draft = await createDraft(client, createReadConfig(device.key, [held]));
+    const motor = createVariableNode();
+    const root = await answerNextCommand(client, scan, {
+      type: OPCUA.Task.BROWSE_COMMAND_TYPE,
+      data: { channels: [motor] },
+    });
+    await renderRead({ client, taskKey: draft.key });
+    await root.answered;
+    const members = await answerNextCommand(client, scan, {
+      type: OPCUA.Task.BROWSE_COMMAND_TYPE,
+      data: {
+        channels: [
+          createMember(motor, "Speed", "float64"),
+          createMember(motor, "Torque", "float32"),
+        ],
+      },
+    });
+    fireEvent.click(await screen.findByText(motor.name));
+    await members.answered;
+    await dragNode(`${motor.name}.Speed`, held.nodeName);
+    await dragNode(`${motor.name}.Torque`, held.nodeName);
+    await dragNode(`${motor.name}.Speed`, held.nodeName);
+    await waitFor(async () => {
+      const { config } = await client.tasks.retrieve({
+        key: draft.key,
+        schemas: OPCUA.Task.READ_SCHEMAS,
+      });
+      expect(config.channels.map(({ nodeId, field }) => ({ nodeId, field }))).toEqual([
+        { nodeId: held.nodeId, field: "" },
+        { nodeId: motor.nodeId, field: "Speed" },
+        { nodeId: motor.nodeId, field: "Torque" },
+      ]);
     });
   });
 });

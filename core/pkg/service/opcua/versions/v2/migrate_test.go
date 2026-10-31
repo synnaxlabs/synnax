@@ -23,7 +23,7 @@ import (
 
 var _ = Describe("Migration", func() {
 	It(
-		"Should keep every read config field and leave NaN fill disabled",
+		"Should keep every read config field, read whole node values, and leave NaN fill disabled",
 		func(ctx SpecContext) {
 			stored := v1.ReadConfig{
 				Key:        uuid.MustParse("1a2b3c4d-0000-0000-0000-000000000000"),
@@ -34,7 +34,7 @@ var _ = Describe("Migration", func() {
 				ArrayMode:  true,
 				ArraySize:  5,
 				Channels: []v1.ReadChannel{
-					{Key: "ch", NodeID: "NS=2;I=8", Channel: 7},
+					{Key: "ch", NodeID: "NS=2;I=8", Channel: 7, IsIndex: true},
 				},
 			}
 			db := DeferClose(gorp.Wrap(memkv.New()))
@@ -60,8 +60,13 @@ var _ = Describe("Migration", func() {
 			Expect(got.StreamRate).To(Equal(stored.StreamRate))
 			Expect(got.ArrayMode).To(BeTrue())
 			Expect(got.ArraySize).To(Equal(stored.ArraySize))
-			Expect(got.Channels).To(Equal(stored.Channels))
 			Expect(got.NanFillEnabled).To(BeFalse())
+			Expect(got.Channels).To(HaveLen(1))
+			ch, want := got.Channels[0], stored.Channels[0]
+			Expect(ch.BaseChannel).To(Equal(want.BaseChannel))
+			Expect(ch.Channel).To(Equal(want.Channel))
+			Expect(ch.IsIndex).To(BeTrue())
+			Expect(ch.Field).To(BeEmpty())
 		},
 	)
 })

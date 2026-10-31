@@ -42,7 +42,7 @@ simple_read(const std::shared_ptr<UA_Client> &client, const std::string &node_id
         return {::x::telem::Series(0), opcua::errors::parse(status)};
     }
 
-    const auto data_type = telem::ua_to_data_type(value.get().type);
+    const auto data_type = telem::to_data_type(value.get().type);
     auto [sample, sample_err] = telem::to_sample(value.get(), data_type);
     if (sample_err) return {::x::telem::Series(0), sample_err};
     return {telem::to_series(data_type, {sample}), x::errors::NIL};

@@ -16,6 +16,11 @@ import (
 	v1 "github.com/synnaxlabs/synnax/pkg/service/opcua/versions/v1"
 )
 
+// MigrateReadChannel lifts a v1 read channel to v2, where it reads the whole value.
+func MigrateReadChannel(ctx context.Context, old v1.ReadChannel) (ReadChannel, error) {
+	return autoMigrateReadChannel(ctx, old)
+}
+
 // MigrateReadConfig lifts a v1 read config to v2.
 func MigrateReadConfig(ctx context.Context, old v1.ReadConfig) (ReadConfig, error) {
 	return autoMigrateReadConfig(ctx, old)
