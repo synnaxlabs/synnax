@@ -28,6 +28,7 @@ class FixedScanner final : public Scanner {
 public:
     std::vector<synnax::device::Device> devices;
     std::atomic<size_t> scan_count = 0;
+    std::atomic<size_t> reload_count = 0;
 
     explicit FixedScanner(std::vector<synnax::device::Device> devices):
         devices(std::move(devices)) {}
@@ -40,6 +41,10 @@ public:
     scan(const ScannerContext &) override {
         this->scan_count++;
         return {this->devices, x::errors::NIL};
+    }
+
+    void on_device_set(const synnax::device::Device &) override {
+        this->reload_count++;
     }
 };
 
@@ -127,7 +132,9 @@ TEST(TestScanTask, testWritesDeviceHierarchyOnce) {
     );
 
     scan_task.start();
-    ASSERT_EVENTUALLY_GE(scanner_ptr->scan_count.load(), 50);
+    ASSERT_EVENTUALLY_GE(scanner_ptr->reload_count.load(), 2);
+    const auto scans = scanner_ptr->scan_count.load();
+    ASSERT_EVENTUALLY_GE(scanner_ptr->scan_count.load(), scans + 10);
     scan_task.stop();
 
     EXPECT_EQ(
