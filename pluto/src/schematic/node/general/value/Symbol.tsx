@@ -84,7 +84,7 @@ export const Symbol = ({
         unitsLevel={text.downLevel(level)}
       />
       {/* Outside the primitive, whose svg rules would restyle the glyph. */}
-      <Problem.Mark problems={problems} size="small" overhanging />
+      <Problem.Mark problems={problems} variant="badge" />
     </Grid.Grid>
   );
 };

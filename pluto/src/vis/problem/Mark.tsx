@@ -55,10 +55,12 @@ const Entry = ({ variant, name, message, description }: problem.Problem) => (
 
 export interface MarkProps {
   problems: problem.Problem[];
-  /** A small mark fits a value or a table cell. */
-  size?: "small" | "medium";
-  /** Centers the mark on the top right corner of its parent, not inside it. */
-  overhanging?: boolean;
+  /**
+   * A tile is a framed glyph inside the corner, for a plot or a log. A glyph alone fits
+   * a table cell. A badge is a ringed glyph centered on the corner, for a schematic
+   * value. Defaults to "tile".
+   */
+  variant?: "tile" | "glyph" | "badge";
 }
 
 /**
@@ -68,11 +70,11 @@ export interface MarkProps {
  */
 export const Mark = ({
   problems,
-  size = "medium",
-  overhanging = false,
+  variant = "tile",
 }: MarkProps): ReactElement | null => {
   const worst = status.worst(...problems);
   if (worst == null) return null;
+  const glyph = <Glyph variant={worst.variant} />;
   return (
     <Tooltip.Dialog>
       <Flex.Box y gap="medium" className={CSS.BE("problem-mark", "tooltip")}>
@@ -83,13 +85,9 @@ export const Mark = ({
       <div
         role="img"
         aria-label={worst.message}
-        className={CSS.cls(
-          CSS.B("problem-mark"),
-          CSS.BM("problem-mark", size),
-          overhanging && CSS.BM("problem-mark", "overhanging"),
-        )}
+        className={CSS.cls(CSS.B("problem-mark"), CSS.BM("problem-mark", variant))}
       >
-        <Glyph variant={worst.variant} />
+        {variant === "tile" ? <Icon.Tile size="tiny">{glyph}</Icon.Tile> : glyph}
       </div>
     </Tooltip.Dialog>
   );

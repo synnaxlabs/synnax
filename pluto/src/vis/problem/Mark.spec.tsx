@@ -66,15 +66,22 @@ describe("Problem.Mark", () => {
     expect(mark.querySelector(".lyra-icon--warning")).not.toBeNull();
   });
 
-  it("should set the classes of its size and placement", () => {
-    render(<Problem.Mark problems={[FAILED]} size="small" overhanging />, {
+  it("should frame the glyph in a tile by default", () => {
+    render(<Problem.Mark problems={[FAILED]} />, { wrapper: Wrapper });
+    const mark = screen.getByRole("img");
+    expect(mark.classList).toContain("pluto-problem-mark--tile");
+    expect(mark.querySelector(".lyra-icon-tile > .lyra-icon--error")).not.toBeNull();
+  });
+
+  it("should show the glyph without a tile for the glyph and badge variants", () => {
+    const { rerender } = render(<Problem.Mark problems={[FAILED]} variant="glyph" />, {
       wrapper: Wrapper,
     });
-    expect([...screen.getByRole("img").classList]).toEqual([
-      "pluto-problem-mark",
-      "pluto-problem-mark--small",
-      "pluto-problem-mark--overhanging",
-    ]);
+    expect(screen.getByRole("img").classList).toContain("pluto-problem-mark--glyph");
+    expect(screen.getByRole("img").querySelector(".lyra-icon-tile")).toBeNull();
+    rerender(<Problem.Mark problems={[FAILED]} variant="badge" />);
+    expect(screen.getByRole("img").classList).toContain("pluto-problem-mark--badge");
+    expect(screen.getByRole("img").querySelector(".lyra-icon-tile")).toBeNull();
   });
 
   it("should list the name, message, and description of each problem on hover", () => {

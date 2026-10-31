@@ -144,7 +144,7 @@ export const Value = ({
         CSS.BEM("table", "cell", "value"),
       )}
     >
-      <Problem.Mark problems={problems} size="small" />
+      <Problem.Mark problems={problems} variant="glyph" />
     </Base>
   );
 };
