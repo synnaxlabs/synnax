@@ -15,6 +15,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Access, type Flux, User } from "@synnaxlabs/pluto";
 
 import { ContextMenu } from "@/platform/context-menu";
+import { Credential } from "@/platform/credential";
 import { Tree } from "@/platform/tree";
 import { User as PlatformUser } from "@/platform/user";
 
@@ -60,11 +61,13 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
   const handleDelete = useDelete(props);
   const rename = useRename(props);
   const handleAssignRole = useAssignRole();
+  const openCredentials = Credential.useModal();
   const singleResource = ids.length === 1;
   const first = Tree.useResource(state, ids[0]);
   const { data: currentKey } = User.useResultKey({});
   const isNotCurrentUser = first != null && first.id.key !== currentKey;
   const isRootUser = first?.data?.root_user === true;
+  const isSelf = ids[0]?.key === currentKey;
 
   return (
     <ContextMenu.Menu>
@@ -81,6 +84,17 @@ const TreeContextMenu: Tree.ContextMenu = (props) => {
             </Menu.Item>
           )}
         </>
+      )}
+      {singleResource && first != null && (hasUpdatePermission || isSelf) && (
+        <Menu.Item
+          itemKey="credentials"
+          onClick={() =>
+            openCredentials({ subject: ids[0], title: ["Credentials", first.name] })
+          }
+        >
+          <Icon.Lock />
+          Manage credentials
+        </Menu.Item>
       )}
       <Menu.Divider />
       {singleResource && <Tree.CopyPropertiesContextMenuItem {...props} />}

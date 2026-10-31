@@ -41,12 +41,11 @@ import {
   ensureFetch,
   type EnsureFetchParams,
   fulfilled,
+  invalidate,
   type LocalCache,
   localFor,
-  notifyReaders,
   promiseFor,
   type RetrieveParams,
-  setSettled,
   type Settled,
   subscribeReader,
   useMemoQuery,
@@ -217,9 +216,9 @@ export interface UseEnsure<Query extends query.Params> {
 }
 
 /**
- * Returns a callback discarding a query's settled answer so the next suspending
- * read fetches again. A settled failure re-throws on every render, so resetting
- * an error boundary alone lands straight back on it.
+ * Returns a callback discarding a query's settled answer and any fetch still running,
+ * so the next suspending read fetches again. A settled failure re-throws on every
+ * render, so resetting an error boundary alone lands straight back on it.
  */
 export interface UseInvalidate<Query extends query.Params> {
   (): (query: Query) => void;
@@ -323,18 +322,13 @@ const waitForCreation = async <Query extends query.Params, Data extends query.Da
   {
     name,
     error,
-    hash,
     onChange,
     getCached,
-    local,
   }: Required<Pick<CreateRetrieveParams<Query, Data>, "onChange" | "getCached">> & {
     name: string;
     error: Error;
-    hash: string;
-    local: LocalCache<Data>;
   },
 ): Promise<Data> => {
-  const epoch = local.epoch;
   let disconnect: destructor.Destructor | undefined;
   const found = new Promise<query.Cached<Data>>((resolve) => {
     disconnect = onChange(params, (result) => {
@@ -347,14 +341,9 @@ const waitForCreation = async <Query extends query.Params, Data extends query.Da
   });
   let result: query.Cached<Data>;
   try {
-    result = await sync.withTimeout(found, NOT_FOUND_WAIT, () => {
-      // A reconnect landed during the wait, so the not-found may no longer hold.
-      if (local.epoch === epoch) setSettled(local, hash, { error });
-      return error;
-    });
+    result = await sync.withTimeout(found, NOT_FOUND_WAIT, () => error);
   } finally {
     disconnect?.();
-    local.inFlight.delete(hash);
   }
   if (Deleted.matches<Data>(result))
     throw new DeletedError(`${caseconv.capitalize(name)} was deleted`, result.corpse);
@@ -367,41 +356,22 @@ const UNREACHABLE_RETRIES = 3;
 /** Wait before the first retry. Each later one waits twice as long. */
 const RETRY_BASE = TimeSpan.milliseconds(250);
 
-interface RetryParams<Query extends query.Params, Data extends query.Data> extends Pick<
-  CreateRetrieveParams<Query, Data>,
-  "name" | "retrieve" | "getCached"
-> {
-  hash: string;
-  local: LocalCache<Data>;
-}
-
 /**
- * Repeats a fetch the Core was unreachable for, settling the failure once the attempts
- * run out or the Core answers with something other than a dead connection. Owns the
- * bookkeeping ensureFetch does for a fetch that resolves or settles first time, since
- * the read it hands back stands in for that one.
+ * Repeats a fetch the Core was unreachable for, failing once the attempts run out or
+ * the Core answers with something other than a dead connection.
  */
 const retryUnreachableFetch = <Query extends query.Params, Data extends query.Data>(
   params: RetrieveParams<Query>,
-  { name, retrieve, getCached, hash, local }: RetryParams<Query, Data>,
+  { name, retrieve }: Pick<CreateRetrieveParams<Query, Data>, "name" | "retrieve">,
 ): Promise<Data> => {
-  const epoch = local.epoch;
   const attempt = async (n: number): Promise<Data> => {
     await sleep.sleep(RETRY_BASE.milliseconds * 2 ** (n - 1));
     try {
-      const data = await retrieve(params);
-      if (getCached?.(params) === undefined) setSettled(local, hash, { data });
-      else notifyReaders(local, hash);
-      local.inFlight.delete(hash);
-      return data;
+      return await retrieve(params);
     } catch (cause) {
       if (n < UNREACHABLE_RETRIES && isConnectionError(cause))
         return await attempt(n + 1);
-      const error = new Error(`Failed to retrieve ${name}`, { cause });
-      local.inFlight.delete(hash);
-      // A reconnect landed during the waits, so the failure may no longer hold.
-      if (local.epoch === epoch) setSettled(local, hash, { error });
-      throw error;
+      throw new Error(`Failed to retrieve ${name}`, { cause });
     }
   };
   return attempt(1);
@@ -430,7 +400,7 @@ const fetchParamsFor = <Query extends query.Params, Data extends query.Data>({
   retrieve,
   getCached,
   local,
-  onFetchError: (params, { cause, error, hash }) => {
+  onFetchError: (params, { cause, error }) => {
     // A not-found on a query that awaits creation stays pending: the reference may have
     // outrun its document's create broadcast, which the subscription will deliver.
     if (
@@ -439,9 +409,9 @@ const fetchParamsFor = <Query extends query.Params, Data extends query.Data>({
       getCached != null &&
       NotFoundError.matches(cause)
     )
-      return waitForCreation(params, { name, error, hash, onChange, getCached, local });
+      return waitForCreation(params, { name, error, onChange, getCached });
     if (retryUnreachable && isConnectionError(cause))
-      return retryUnreachableFetch(params, { name, retrieve, getCached, hash, local });
+      return retryUnreachableFetch(params, { name, retrieve });
     // Every other failure settles.
     return null;
   },
@@ -565,7 +535,7 @@ const useInvalidate = <Query extends query.Params, Data extends query.Data>(
   return (q: Query) => {
     if (client == null) return;
     const normalized = normalizeQuery?.(q) ?? q;
-    localFor(locals, client).settled.delete(query.hash(normalized));
+    invalidate(localFor(locals, client), query.hash(normalized));
   };
 };
 
