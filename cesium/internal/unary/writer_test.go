@@ -136,6 +136,230 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Expect(t.Occurred()).To(BeTrue())
 					},
 				)
+				Describe("Bounded", func() {
+					openLive := func(
+						ctx SpecContext,
+						start telem.TimeStamp,
+						authority control.Authority,
+					) *unary.Writer {
+						GinkgoHelper()
+						w, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
+							Start:     start,
+							Subject:   control.Subject{Key: "live"},
+							Authority: authority,
+						}))
+						return w
+					}
+					boundedConfig := func(start telem.TimeStamp) unary.WriterConfig {
+						return unary.WriterConfig{
+							Start:     start,
+							Subject:   control.Subject{Key: "backfill"},
+							Authority: 1,
+							Bounded:   new(true),
+						}
+					}
+					openBounded := func(
+						ctx SpecContext,
+						start telem.TimeStamp,
+					) *unary.Writer {
+						GinkgoHelper()
+						w, _ := MustSucceed2(db.OpenWriter(ctx, boundedConfig(start)))
+						return w
+					}
+					It("Should write behind a live writer", func(ctx SpecContext) {
+						live := openLive(ctx, 10*telem.SecondTS, 2)
+						MustSucceed(live.Write(telem.NewSeriesSecondsTSV(10, 11)))
+						Expect(MustSucceed(live.Commit(ctx))).
+							To(Equal(11*telem.SecondTS + 1))
+						w := openBounded(ctx, 1*telem.SecondTS)
+						MustSucceed(w.Write(telem.NewSeriesSecondsTSV(1, 2, 3)))
+						Expect(MustSucceed(w.Commit(ctx))).
+							To(Equal(3*telem.SecondTS + 1))
+						MustSucceed(live.Write(telem.NewSeriesSecondsTSV(12)))
+						Expect(MustSucceed(live.Commit(ctx))).
+							To(Equal(12*telem.SecondTS + 1))
+						MustSucceed(w.Close())
+						MustSucceed(live.Close())
+						Expect(MustSucceed(db.HasDataFor(
+							ctx,
+							(1 * telem.SecondTS).Range(3*telem.SecondTS),
+						))).To(BeTrue())
+					})
+					It("Should let a live writer open after it", func(ctx SpecContext) {
+						w := openBounded(ctx, 1*telem.SecondTS)
+						live := openLive(ctx, 10*telem.SecondTS, 1)
+						MustSucceed(live.Write(telem.NewSeriesSecondsTSV(10)))
+						MustSucceed(live.Commit(ctx))
+						MustSucceed(w.Write(telem.NewSeriesSecondsTSV(1, 2)))
+						MustSucceed(w.Commit(ctx))
+						MustSucceed(w.Close())
+						MustSucceed(live.Close())
+					})
+					It(
+						"Should run next to another bounded writer",
+						func(ctx SpecContext) {
+							w1 := openBounded(ctx, 1*telem.SecondTS)
+							cfg := boundedConfig(5 * telem.SecondTS)
+							cfg.Subject.Key = "other"
+							w2, _ := MustSucceed2(db.OpenWriter(ctx, cfg))
+							MustSucceed(w2.Write(telem.NewSeriesSecondsTSV(5, 6)))
+							MustSucceed(w2.Commit(ctx))
+							MustSucceed(w1.Write(telem.NewSeriesSecondsTSV(1, 2)))
+							MustSucceed(w1.Commit(ctx))
+							MustSucceed(w1.Close())
+							MustSucceed(w2.Close())
+						},
+					)
+					DescribeTable(
+						"Should fail to open where a live writer holds the start",
+						func(ctx SpecContext, authority control.Authority) {
+							live := openLive(ctx, 10*telem.SecondTS, 2)
+							cfg := boundedConfig(15 * telem.SecondTS)
+							cfg.Authority = authority
+							Expect(db.OpenWriter(ctx, cfg)).Error().To(And(
+								MatchError(control.ErrUnauthorized),
+								MatchError(ContainSubstring(
+									"overlaps with a controlled region",
+								)),
+							))
+							MustSucceed(live.Write(telem.NewSeriesSecondsTSV(10)))
+							MustSucceed(live.Commit(ctx))
+							MustSucceed(live.Close())
+						},
+						Entry("with less authority", control.Authority(1)),
+						Entry("with equal authority", control.Authority(2)),
+						Entry("with more authority", control.AuthorityAbsolute),
+					)
+					It(
+						"Should fail to open with no start next to a live writer",
+						func(ctx SpecContext) {
+							live := openLive(ctx, 10*telem.SecondTS, 2)
+							Expect(db.OpenWriter(ctx, boundedConfig(0))).Error().
+								To(MatchError(control.ErrUnauthorized))
+							MustSucceed(live.Close())
+						},
+					)
+					It(
+						"Should fail a commit that reaches a live writer",
+						func(ctx SpecContext) {
+							live := openLive(ctx, 10*telem.SecondTS, 2)
+							w := openBounded(ctx, 1*telem.SecondTS)
+							MustSucceed(w.Write(telem.NewSeriesSecondsTSV(1, 2, 10)))
+							Expect(w.Commit(ctx)).Error().To(And(
+								MatchError(validate.ErrValidation),
+								MatchError(
+									ContainSubstring("cannot extend control region"),
+								),
+							))
+							MustSucceed(w.Close())
+							MustSucceed(live.Write(telem.NewSeriesSecondsTSV(10, 11)))
+							Expect(MustSucceed(live.Commit(ctx))).
+								To(Equal(11*telem.SecondTS + 1))
+							MustSucceed(live.Close())
+						},
+					)
+					It(
+						"Should commit up to the start of a live writer",
+						func(ctx SpecContext) {
+							live := openLive(ctx, 10*telem.SecondTS, 2)
+							w := openBounded(ctx, 1*telem.SecondTS)
+							MustSucceed(w.Write(telem.NewSeriesSecondsTSV(1)))
+							Expect(
+								w.CommitWithEnd(ctx, 10*telem.SecondTS),
+							).To(Succeed())
+							MustSucceed(w.Close())
+							MustSucceed(live.Close())
+						},
+					)
+					It(
+						"Should fail a commit that reaches a stored domain",
+						func(ctx SpecContext) {
+							Expect(unary.Write(
+								ctx,
+								db,
+								10*telem.SecondTS,
+								telem.NewSeriesSecondsTSV(10, 11),
+							)).To(Succeed())
+							w := openBounded(ctx, 1*telem.SecondTS)
+							MustSucceed(w.Write(telem.NewSeriesSecondsTSV(1, 2, 12)))
+							Expect(w.Commit(ctx)).Error().To(And(
+								MatchError(domain.ErrWriteConflict),
+								MatchError(
+									ContainSubstring("overlaps with existing data"),
+								),
+							))
+							MustSucceed(w.Close())
+						},
+					)
+					It(
+						"Should give way to a live writer that moves back over uncommitted time",
+						func(ctx SpecContext) {
+							live := openLive(ctx, 10*telem.SecondTS, 2)
+							w := openBounded(ctx, 1*telem.SecondTS)
+							MustSucceed(w.Write(telem.NewSeriesSecondsTSV(1, 2, 8)))
+							live.SetDomainStart(5 * telem.SecondTS)
+							MustSucceed(live.Write(telem.NewSeriesSecondsTSV(5, 6)))
+							Expect(MustSucceed(live.Commit(ctx))).
+								To(Equal(6*telem.SecondTS + 1))
+							Expect(w.Commit(ctx)).Error().
+								To(MatchError(validate.ErrValidation))
+							MustSucceed(w.Close())
+							MustSucceed(live.Close())
+						},
+					)
+					It(
+						"Should move back to a first sample before its start",
+						func(ctx SpecContext) {
+							w, _ := MustSucceed2(db.OpenWriter(ctx, boundedConfig(0)))
+							w.SetDomainStart(1 * telem.SecondTS)
+							MustSucceed(w.Write(telem.NewSeriesSecondsTSV(1, 2)))
+							MustSucceed(w.Commit(ctx))
+							live := openLive(ctx, 10*telem.SecondTS, 2)
+							MustSucceed(w.Close())
+							MustSucceed(live.Close())
+						},
+					)
+					It(
+						"Should protect the time it has committed",
+						func(ctx SpecContext) {
+							w := openBounded(ctx, 1*telem.SecondTS)
+							MustSucceed(w.Write(telem.NewSeriesSecondsTSV(1, 2, 3)))
+							MustSucceed(w.Commit(ctx))
+							Expect(db.Delete(
+								ctx,
+								(2 * telem.SecondTS).Range(3*telem.SecondTS),
+							)).To(MatchError(control.ErrUnauthorized))
+							MustSucceed(w.Close())
+							Expect(db.Delete(
+								ctx,
+								(2 * telem.SecondTS).Range(3*telem.SecondTS),
+							)).To(Succeed())
+						},
+					)
+					It("Should report no control transfers", func(ctx SpecContext) {
+						w, t := MustSucceed2(db.OpenWriter(
+							ctx,
+							boundedConfig(1*telem.SecondTS),
+						))
+						Expect(t.Occurred()).To(BeFalse())
+						Expect(w.SetAuthority(control.AuthorityAbsolute).Occurred()).
+							To(BeFalse())
+						Expect(MustSucceed(w.Close()).Occurred()).To(BeFalse())
+					})
+					It(
+						"Should be absent from the control state",
+						func(ctx SpecContext) {
+							w := openBounded(ctx, 1*telem.SecondTS)
+							Expect(db.LeadingControlState()).To(BeNil())
+							live := openLive(ctx, 10*telem.SecondTS, 2)
+							Expect(
+								db.LeadingControlState().Subject.Key,
+							).To(Equal("live"))
+							MustSucceed(w.Close())
+							MustSucceed(live.Close())
+						},
+					)
+				})
 				Describe("Domain start", func() {
 					It(
 						"Should claim from the open time when Start is zero",

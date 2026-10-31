@@ -61,7 +61,7 @@ class TestRowEngine:
         indexed_pair: tuple[sy.Channel, sy.Channel],
         tmp_path: Path,
     ) -> None:
-        """Should write a file that holds its index without the start it was given"""
+        """Should write a file after data that its channels already hold"""
         idx, data = indexed_pair
         client.write(1 * sy.TimeSpan.SECOND, {idx.key: seconds_linspace(1, count=1)})
         path = tmp_path / "with_index.csv"
@@ -70,7 +70,7 @@ class TestRowEngine:
             client=client,
             reader=FACTORY.new_reader(path),
             channels=[idx, data],
-            start=sy.TimeStamp(1 * sy.TimeSpan.SECOND),
+            start=sy.TimeStamp(10 * sy.TimeSpan.SECOND),
         ).run()
         frame = client.read(sy.TimeRange.MAX, [idx.key, data.key])
         assert list(frame[idx.key]) == [
