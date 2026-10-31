@@ -72,7 +72,7 @@ const [HandlersContext, useHandlers] = context.create<Handlers>({
 
 /** Props for {@link Aggregator}. */
 export interface AggregatorProps extends PropsWithChildren {
-  /** Statuses kept before the oldest are dropped, problems last. Defaults to 500. */
+  /** Statuses kept before the oldest are dropped. Problems stay. Defaults to 500. */
   maxHistory?: number;
   /** Prints each error reported through an error handler. Defaults to console.error. */
   log?: Log;
@@ -80,16 +80,13 @@ export interface AggregatorProps extends PropsWithChildren {
 
 const TRUNCATE_FACTOR = 0.9;
 
+const isProblem = ({ status }: Received): boolean => status.problem != null;
+
 // A problem notifies only once while its status stays in the history, so the history
-// drops the statuses that are not problems first.
+// keeps every problem. A key holds one problem at most, which bounds them.
 const trim = (received: Received[], size: number): Received[] => {
-  const problems = received.filter(({ status }) => status.problem != null);
-  const others = received.filter(({ status }) => status.problem == null);
-  const kept = new Set([
-    ...problems.slice(0, size),
-    ...others.slice(0, Math.max(size - problems.length, 0)),
-  ]);
-  return received.filter((r) => kept.has(r));
+  const dropped = new Set(received.filter((r) => !isProblem(r)).slice(size));
+  return received.filter((r) => !dropped.has(r));
 };
 
 /**
@@ -105,7 +102,7 @@ export const Aggregator = ({
   log = printError,
 }: AggregatorProps) => {
   const [received, setReceived] = useState<Received[]>([]);
-  if (received.length > maxHistory)
+  if (received.filter((r) => !isProblem(r)).length > maxHistory)
     setReceived(trim(received, Math.floor(maxHistory * TRUNCATE_FACTOR)));
   const handleAdd: Adder = (spec) => {
     const status = create(spec);
