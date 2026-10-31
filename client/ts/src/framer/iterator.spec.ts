@@ -16,7 +16,7 @@ import {
 } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 
-import { AUTO_SPAN, iteratorConfigZ } from "@/framer/iterator";
+import { framer } from "@/framer";
 import {
   createTestClient,
   newIndexedPair,
@@ -89,22 +89,22 @@ describe("Iterator", () => {
     try {
       expect(await iter.seekFirst()).toBe(true);
 
-      expect(await iter.next(AUTO_SPAN)).toBe(true);
+      expect(await iter.next(framer.AUTO_SPAN)).toBe(true);
       expect(iter.value.get(idx_ch.key).data).toEqual(
         new BigInt64Array(secondsLinspace(1, 4).map((v) => v.valueOf())),
       );
 
-      expect(await iter.next(AUTO_SPAN)).toBe(true);
+      expect(await iter.next(framer.AUTO_SPAN)).toBe(true);
       expect(iter.value.get(idx_ch.key).data).toEqual(
         new BigInt64Array(secondsLinspace(5, 4).map((v) => v.valueOf())),
       );
 
-      expect(await iter.next(AUTO_SPAN)).toBe(true);
+      expect(await iter.next(framer.AUTO_SPAN)).toBe(true);
       expect(iter.value.get(idx_ch.key).data).toEqual(
         new BigInt64Array(secondsLinspace(9, 2).map((v) => v.valueOf())),
       );
 
-      expect(await iter.next(AUTO_SPAN)).toBe(false);
+      expect(await iter.next(framer.AUTO_SPAN)).toBe(false);
     } finally {
       await iter.close();
     }
@@ -125,11 +125,11 @@ describe("Iterator", () => {
 
       try {
         expect(await iter.seekFirst()).toBe(true);
-        expect(await iter.next(AUTO_SPAN)).toBe(true);
+        expect(await iter.next(framer.AUTO_SPAN)).toBe(true);
         const series = iter.value.get(data_ch.key);
         expect(series.data).toEqual(new Float64Array([1, 3, 5, 7]));
         expect(series.series[0].alignmentMultiple).toEqual(2n);
-        expect(await iter.next(AUTO_SPAN)).toBe(false);
+        expect(await iter.next(framer.AUTO_SPAN)).toBe(false);
       } finally {
         await iter.close();
       }
@@ -149,9 +149,9 @@ describe("Iterator", () => {
 
       try {
         expect(await iter.seekFirst()).toBe(true);
-        expect(await iter.next(AUTO_SPAN)).toBe(true);
+        expect(await iter.next(framer.AUTO_SPAN)).toBe(true);
         expect(iter.value.get(data_ch.key).data).toEqual(new Float64Array([1, 4, 7]));
-        expect(await iter.next(AUTO_SPAN)).toBe(false);
+        expect(await iter.next(framer.AUTO_SPAN)).toBe(false);
       } finally {
         await iter.close();
       }
@@ -170,11 +170,11 @@ describe("Iterator", () => {
       });
       try {
         expect(await iter.seekFirst()).toBe(true);
-        expect(await iter.next(AUTO_SPAN)).toBe(true);
+        expect(await iter.next(framer.AUTO_SPAN)).toBe(true);
         expect(iter.value.get(data_ch.key).data).toEqual(
           new Float64Array([1, 2, 3, 4]),
         );
-        expect(await iter.next(AUTO_SPAN)).toBe(false);
+        expect(await iter.next(framer.AUTO_SPAN)).toBe(false);
       } finally {
         await iter.close();
       }
@@ -185,17 +185,17 @@ describe("Iterator", () => {
         reduction: { variant: "stride" as const, factor },
       });
       test("defaults to no reduction", () => {
-        expect(iteratorConfigZ.parse({}).reduction).toBeUndefined();
+        expect(framer.iteratorConfigZ.parse({}).reduction).toBeUndefined();
       });
       test.each([0, 1, 2, 10, MAX_FACTOR])("accepts %i", (factor) => {
-        expect(iteratorConfigZ.parse(stride(factor)).reduction).toEqual(
+        expect(framer.iteratorConfigZ.parse(stride(factor)).reduction).toEqual(
           stride(factor).reduction,
         );
       });
       // The wire field is unsigned, so a factor the schema lets through would be
       // reinterpreted by the Core instead of rejected.
       test.each([-1, 1.5, MAX_FACTOR + 1])("rejects %s", (factor) => {
-        expect(() => iteratorConfigZ.parse(stride(factor))).toThrow(/factor/);
+        expect(() => framer.iteratorConfigZ.parse(stride(factor))).toThrow(/factor/);
       });
     });
   });
@@ -217,10 +217,10 @@ describe("Iterator", () => {
       });
       try {
         expect(await iter.seekFirst()).toBe(true);
-        expect(await iter.next(AUTO_SPAN)).toBe(true);
+        expect(await iter.next(framer.AUTO_SPAN)).toBe(true);
         const data = iter.value.get(data_ch.key).series[0];
         expect(iter.value.get(idx_ch.key).series[0].alignment).toEqual(data.alignment);
-        expect(await iter.next(AUTO_SPAN)).toBe(false);
+        expect(await iter.next(framer.AUTO_SPAN)).toBe(false);
         return data;
       } finally {
         await iter.close();
@@ -256,14 +256,16 @@ describe("Iterator", () => {
         reduction: { variant: "limit" as const, pointLimit },
       });
       test("defaults the aggregation to min_max", () => {
-        expect(iteratorConfigZ.parse(limit(4)).reduction).toEqual({
+        expect(framer.iteratorConfigZ.parse(limit(4)).reduction).toEqual({
           variant: "limit",
           aggregation: "min_max",
           pointLimit: 4,
         });
       });
       test.each([0, -1, 1.5, 2 ** 32])("rejects a point limit of %s", (pointLimit) => {
-        expect(() => iteratorConfigZ.parse(limit(pointLimit))).toThrow(/pointLimit/);
+        expect(() => framer.iteratorConfigZ.parse(limit(pointLimit))).toThrow(
+          /pointLimit/,
+        );
       });
     });
   });

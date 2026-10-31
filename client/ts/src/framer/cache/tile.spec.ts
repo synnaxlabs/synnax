@@ -20,7 +20,7 @@ import {
 import { describe, expect, it } from "vitest";
 
 import { type channel } from "@/channel";
-import { UnexpectedError } from "@/errors";
+import { framer } from "@/framer";
 import { rawKey } from "@/framer/cache/block";
 import { tileRange } from "@/framer/cache/grid";
 import { Store, type StoreProps } from "@/framer/cache/store";
@@ -30,7 +30,7 @@ import {
   type TileReaderProps,
   type TileSpec,
 } from "@/framer/cache/tile";
-import { Frame } from "@/framer/frame";
+import { UnexpectedError } from "@/index";
 import { ManualClock } from "@/testutil";
 
 interface Call {
@@ -55,7 +55,7 @@ const createReader = (
     batchDebounce: TimeSpan.milliseconds(5),
     readRemote: async (tr, keys, reduction) => {
       calls.push({ tr, keys, reduction });
-      return new Frame(
+      return new framer.Frame(
         keys,
         keys.map(
           (key) =>
@@ -156,7 +156,7 @@ describe("tile", () => {
           batchDebounce: TimeSpan.milliseconds(5),
           readRemote: async (tr, keys) => {
             calls.push([...keys].sort());
-            return new Frame(
+            return new framer.Frame(
               keys,
               keys.map(
                 () =>
@@ -258,7 +258,7 @@ describe("tile", () => {
 
     it("should return an empty series for a channel with no data", async () => {
       const { reader } = createReader({
-        readRemote: async () => new Frame([], []),
+        readRemote: async () => new framer.Frame([], []),
       });
       const series = await reader.read(createSpec());
       expect(series.length).toBe(0);
@@ -324,7 +324,7 @@ describe("tile", () => {
         budget: Size.bytes(LARGE_BYTES),
         readRemote: async () => {
           fetches++;
-          return new Frame([], []);
+          return new framer.Frame([], []);
         },
       });
       await Promise.all(
@@ -366,7 +366,7 @@ describe("tile", () => {
         const { reader, calls } = createReader({
           readRemote: async (tr, keys) => {
             calls.push({ tr, keys });
-            return new Frame(
+            return new framer.Frame(
               keys,
               keys.map(
                 (key) =>
@@ -398,7 +398,7 @@ describe("tile", () => {
       it("should drop a channel's raw blocks when a tile fetch returns a new data type", async () => {
         const { reader, store } = createReader({
           readRemote: async (tr, keys) =>
-            new Frame(
+            new framer.Frame(
               keys,
               keys.map(
                 (key) =>
@@ -428,7 +428,7 @@ describe("tile", () => {
       const { reader } = createReader({
         readRemote: async () => {
           if (failing) throw new UnexpectedError("fetch failed");
-          return new Frame([1], [new Series(new Float64Array([1, 1, 1, 1]))]);
+          return new framer.Frame([1], [new Series(new Float64Array([1, 1, 1, 1]))]);
         },
       });
       await Promise.all([
@@ -443,7 +443,7 @@ describe("tile", () => {
     it("should reject a hung read with Unreachable after the fetch timeout", async () => {
       const { reader } = createReader({
         fetchTimeout: TimeSpan.milliseconds(20),
-        readRemote: async () => await new Promise<Frame>(() => {}),
+        readRemote: async () => await new Promise<framer.Frame>(() => {}),
       });
       const read = reader.read(createSpec());
       await expect(read).rejects.toSatisfy((e) => Unreachable.matches(e));
@@ -465,7 +465,7 @@ describe("tile", () => {
 
     it("should reject pending reads when it closes", async () => {
       const { reader } = createReader({
-        readRemote: async () => await new Promise<Frame>(() => {}),
+        readRemote: async () => await new Promise<framer.Frame>(() => {}),
       });
       const queued = reader.read(createSpec({ index: 1 }));
       await sleep.sleep(TimeSpan.milliseconds(10));

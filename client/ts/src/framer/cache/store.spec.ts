@@ -11,10 +11,10 @@ import { DataType, Series, Size, TimeRange, TimeSpan, TimeStamp } from "@synnaxl
 import { describe, expect, it } from "vitest";
 
 import { channel } from "@/channel";
-import { UnexpectedError } from "@/errors";
 import { alignmentOf, type Block, RAW_LEVEL, rawKey } from "@/framer/cache/block";
 import { tileRange } from "@/framer/cache/grid";
 import { Store } from "@/framer/cache/store";
+import { UnexpectedError } from "@/index";
 import { ManualClock } from "@/testutil";
 
 // Blocks this large make the fixed overhead of each block too small to change how many
