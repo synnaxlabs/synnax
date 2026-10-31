@@ -511,7 +511,7 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
         path={`${prefix}.voltageExcitVal`}
         label="Voltage excitation value"
       />
-      <Form.SwitchField
+      <Form.CheckboxField
         path={`${prefix}.scaledByExcitation`}
         label="Use excitation for scaling"
       />
@@ -1096,7 +1096,7 @@ const CHANNEL_FORMS: Record<AIChannelType, FC<FormProps>> = {
         path={`${prefix}.voltageExcitVal`}
         label="Voltage excitation value"
       />
-      <Form.SwitchField
+      <Form.CheckboxField
         path={`${prefix}.scaledByExcitation`}
         label="Use excitation for scaling"
       />

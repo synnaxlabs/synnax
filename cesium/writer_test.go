@@ -15,6 +15,7 @@ import (
 	"math/rand/v2"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -3459,6 +3460,56 @@ var _ = Describe("Writer Behavior", func() {
 					err = w.Close()
 					Expect(err).To(MatchError(validate.ErrValidation))
 					Expect(err).To(MatchError(ContainSubstring("same length")))
+				})
+
+				Specify("Commit error across many channels", func(ctx SpecContext) {
+					var (
+						idxKey   = GenerateChannelKey()
+						channels = []cesium.Channel{{
+							Key:      idxKey,
+							Name:     "many idx",
+							DataType: telem.TimestampT,
+							IsIndex:  true,
+						}}
+						keys = []cesium.ChannelKey{idxKey}
+					)
+					for i := range 10 {
+						k := GenerateChannelKey()
+						channels = append(channels, cesium.Channel{
+							Key:      k,
+							Name:     "many " + strconv.Itoa(i),
+							DataType: telem.Float32T,
+							Index:    idxKey,
+						})
+						keys = append(keys, k)
+					}
+					Expect(db.CreateChannel(ctx, channels...)).To(Succeed())
+					w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+						Channels: keys,
+						Start:    10 * telem.SecondTS,
+					}))
+					write := func(stamps ...telem.TimeStamp) {
+						GinkgoHelper()
+						series := []telem.Series{telem.NewSeriesV(stamps...)}
+						for range keys[1:] {
+							series = append(
+								series,
+								telem.NewSeriesV(make([]float32, len(stamps))...),
+							)
+						}
+						MustSucceed(w.Write(telem.MultiFrame(keys, series)))
+					}
+					write(10*telem.SecondTS, 11*telem.SecondTS)
+					MustSucceed(w.Commit())
+					write(5*telem.SecondTS, 6*telem.SecondTS)
+					matchOneCommitError := And(
+						MatchError(validate.ErrValidation),
+						WithTransform(func(err error) int {
+							return strings.Count(err.Error(), "must not be less than")
+						}, Equal(1)),
+					)
+					Expect(w.Commit()).Error().To(matchOneCommitError)
+					Expect(w.Close()).To(matchOneCommitError)
 				})
 
 				Context("Missing Channel", func() {
