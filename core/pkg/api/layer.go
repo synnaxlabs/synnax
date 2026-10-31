@@ -868,9 +868,10 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		return nil, err
 	}
 	if l.Status, err = status.NewService(status.ServiceConfig{
-		Status: cfg.Service.Status,
-		Label:  cfg.Service.Label,
-		RBAC:   cfg.Service.RBAC,
+		Status:   cfg.Service.Status,
+		Label:    cfg.Service.Label,
+		Ontology: cfg.Service.Ontology,
+		RBAC:     cfg.Service.RBAC,
 	}); err != nil {
 		return nil, err
 	}
