@@ -34,9 +34,9 @@ the sensor's clock, which runs behind.
 | 2     | 12:00:06       | 12:00:04              |
 
 Today, the task opens its writer on frame 1, at the earliest index timestamp in that
-frame: 12:00:05. Every index starts its domain there (`cesium/writer_open.go:419`).
+frame: 12:00:05. Every index starts its domain there (`cesium/writer_open.go:238`).
 Frame 2 writes `sensor_time` at 12:00:04, before that start, so its commit fails
-(`cesium/internal/domain/writer.go:375`). After the first error, the writer skips every
+(`cesium/internal/domain/writer.go:358`). After the first error, the writer skips every
 later request for all of its channels (`cesium/writer_stream.go:149-151`), so
 `arrival_time` stops too. This failed the merge queue run of #2950 on Windows.
 
@@ -348,15 +348,15 @@ from the first timestamp instead of from 1970.
 A unary writer opens its control gate and its domain writer when the writer opens. The
 gate needs its time range then (`cesium/internal/control/controller.go:198`). The domain
 writer now opens with no start. `SetStart` gives it one before its first write and runs
-the stored-data check then (`cesium/internal/domain/writer.go:235`). `Write` with no
+the stored-data check then (`cesium/internal/domain/writer.go:222`). `Write` with no
 start returns `ErrNoStart`, and `SetStart` after a write returns `ErrStartAfterWrite`.
 The open, commit, and close paths stay the same. Only the start moves.
 
 ### 7.1 Each group starts at its first index sample
 
 On its first index write, an `idxWriter` calls `SetDomainStart` with the first timestamp
-on each unary writer in the group (`cesium/writer_stream.go:628`). The unary writer
-applies it at its next persisted write (`cesium/internal/unary/writer.go:349`). The data
+on each unary writer in the group (`cesium/writer_stream.go:632`). The unary writer
+applies it at its next persisted write (`cesium/internal/unary/writer.go:322`). The data
 channels take the same start, so their domains line up with the index.
 
 ### 7.2 Commits anchor on the session start
@@ -364,11 +364,11 @@ channels take the same start, so their domains line up with the index.
 A data channel's commit finds its end by counting samples from a real index sample. That
 anchor used to be `Start`. A zero `Start` is not an index sample, so the anchor is now
 the start of the writer's first domain (`sessionStart`,
-`cesium/internal/unary/writer.go:156`).
+`cesium/internal/unary/writer.go:154`).
 
 ### 7.3 The open time comes from the Core that leases the channel
 
-Each unary writer reads the time when it opens (`cesium/internal/unary/writer.go:219`).
+Each unary writer reads the time when it opens (`cesium/internal/unary/writer.go:217`).
 In a cluster, that is the clock of the Core that leases the channel. All gates on one
 channel live on that Core, so they compare times from one clock.
 
@@ -384,7 +384,7 @@ at open, before any data is lost, with an error that names both channels.
 A file that holds its index starts each index at its first value. A start would add an
 open check at that time, which fails when another channel's stored data holds it. The
 engine passes a start only when a data channel's index is not in the file
-(`client/py/synnax/ingest/row.py:59`).
+(`client/py/synnax/ingest/row.py:60`).
 
 ### 7.6 The acquisition pipeline opens at task start
 
