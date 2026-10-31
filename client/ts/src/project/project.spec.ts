@@ -11,7 +11,6 @@ import { id, uuid } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 
 import { group } from "@/group";
-import { NotFoundError } from "@/index";
 import { log } from "@/log";
 import { project } from "@/project";
 import { createTestClient } from "@/testutil";
