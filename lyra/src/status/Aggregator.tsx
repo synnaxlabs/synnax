@@ -7,13 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type CrudeTimeSpan,
-  type destructor,
-  id,
-  TimeSpan,
-  TimeStamp,
-} from "@synnaxlabs/x";
+import { type CrudeTimeSpan, destructor, id, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { type PropsWithChildren, useEffect, useState } from "react";
 import type z from "zod";
 
@@ -61,7 +55,7 @@ export { useAdder };
 type Place = (key: string) => destructor.Destructor;
 
 const [PlaceContext, usePlaceContext] = context.create<Place>({
-  defaultValue: () => () => {},
+  defaultValue: () => destructor.NOOP,
   displayName: "Status.PlaceContext",
 });
 
@@ -156,9 +150,8 @@ export const Aggregator = ({
 
 /**
  * Places the key on the enclosing {@link Aggregator} while the caller is mounted and
- * visible. Call it in a view that shows the statuses of the key in place, such as the
- * controls of a task. A status on a placed key does not show as a notification, unless
- * it is part of a problem.
+ * visible. Call it in a view that shows the statuses of the key in place. A status on a
+ * placed key does not show as a notification, unless it is part of a problem.
  * @param key - The key of the statuses that the view shows. Undefined places nothing.
  * @param visible - Whether the view is on screen. Defaults to true.
  */

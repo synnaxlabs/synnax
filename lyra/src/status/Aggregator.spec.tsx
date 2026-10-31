@@ -651,8 +651,13 @@ describe("Aggregator", () => {
       return null;
     };
 
-    const Place = ({ visible }: { visible?: boolean }): null => {
-      Status.usePlace("task:1", visible);
+    interface PlaceProps {
+      statusKey?: string;
+      visible?: boolean;
+    }
+
+    const Place = ({ statusKey = "task:1", visible }: PlaceProps): null => {
+      Status.usePlace(statusKey, visible);
       return null;
     };
 
@@ -725,6 +730,14 @@ describe("Aggregator", () => {
       rerender(null);
       add(reply);
       expect(notified()).toHaveLength(1);
+    });
+
+    it("should place the new key when the key of a view changes", () => {
+      const { add, notified, rerender } = renderPlaces(<Place />);
+      rerender(<Place statusKey="task:2" />);
+      add(reply);
+      add({ ...reply, key: "task:2" });
+      expect(notified()).toMatchObject([{ key: "task:1" }]);
     });
 
     it("should notify a problem on a placed key", () => {
