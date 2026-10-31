@@ -307,11 +307,12 @@ protected:
         );
     }
 
-    /// @returns a sink that calls method on the Pump object with arguments, with the
-    /// commands of the double command channel.
+    /// @returns a sink that calls method on object with arguments, with the commands of
+    /// the double command channel.
     [[nodiscard]] std::unique_ptr<WriteTaskSink> create_method_sink(
         const std::string &method,
-        const x::json::json &arguments
+        const x::json::json &arguments,
+        const std::string &object = "NS=1;S=Pump"
     ) const {
         x::json::json task_cfg = {
             {"device", "abc123"},
@@ -319,7 +320,7 @@ protected:
              x::json::json::array({
                  {{"type", "method"},
                   {"node_id", method},
-                  {"object_id", "NS=1;S=Pump"},
+                  {"object_id", object},
                   {"arguments", arguments},
                   {"cmd_channel", this->double_cmd_channel.key}},
                  {{"type", "node"},
@@ -1069,6 +1070,27 @@ TEST_F(TestWriteTask, testMethodAddedAfterStart) {
     const auto client = ASSERT_NIL_P(connection::connect(conn_cfg, {}, "[test] "));
     const auto speed = ASSERT_NIL_P(testutil::simple_read(client, "NS=1;S=Pump.Speed"));
     EXPECT_EQ(speed.at<double>(0), 5);
+    ASSERT_NIL(sink->stop());
+}
+
+/// @brief it should call a method on an object in a namespace that the server adds
+/// after the task starts, on the same Session.
+TEST_F(TestWriteTask, testCallsMethodOfObjectAddedLater) {
+    const auto sink = this->create_method_sink(
+        "NS=1;S=Pump.SetSpeed",
+        {{{"source", "command"}}},
+        "nsu=urn:late;s=Pump"
+    );
+    ASSERT_NIL(sink->start());
+    auto fr = this->method_command(3);
+    ASSERT_OCCURRED_AS(sink->write(fr), errors::COMMAND_REJECTED);
+    const auto sessions = server->sessions_created.load();
+    server->add_pump_object("urn:late");
+    ASSERT_NIL(sink->write(fr));
+    EXPECT_EQ(server->sessions_created.load(), sessions);
+    const auto client = ASSERT_NIL_P(connection::connect(conn_cfg, {}, "[test] "));
+    const auto speed = ASSERT_NIL_P(testutil::simple_read(client, "NS=1;S=Pump.Speed"));
+    EXPECT_EQ(speed.at<double>(0), 3);
     ASSERT_NIL(sink->stop());
 }
 

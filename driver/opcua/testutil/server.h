@@ -624,6 +624,17 @@ public:
         });
     }
 
+    /// @brief adds an object named Pump in a new namespace with uri to the running
+    /// server, with the methods of the Pump object as its components, as a server that
+    /// loads a model while it runs does. Blocks until the server adds it.
+    void add_pump_object(const std::string &uri) {
+        std::unique_lock lock(this->added_mu);
+        this->added_pump_object = uri;
+        this->added_cv.wait(lock, [this] {
+            return !this->added_pump_object.has_value() || !this->ready;
+        });
+    }
+
     /// @brief sets the EventNotifier attribute of the Pump object on the running
     /// server. Blocks until the server sets it.
     void set_pump_event_notifier(const UA_Byte value) {
@@ -819,6 +830,37 @@ public:
         add_pump_method(server, PUMP_FAIL, "Fail", {}, calls);
     }
 
+    /// @brief adds an object named Pump in a new namespace with uri, with the methods
+    /// of the Pump object as its components.
+    static void add_pump_object_node(UA_Server *server, const std::string &uri) {
+        const auto ns = UA_Server_addNamespace(server, uri.c_str());
+        const auto object = UA_NODEID_STRING(ns, const_cast<char *>("Pump"));
+        UA_ObjectAttributes attr = UA_ObjectAttributes_default;
+        attr.displayName = UA_LOCALIZEDTEXT(
+            const_cast<char *>("en-US"),
+            const_cast<char *>("Pump")
+        );
+        UA_Server_addObjectNode(
+            server,
+            object,
+            UA_NS0ID(OBJECTSFOLDER),
+            UA_NS0ID(ORGANIZES),
+            UA_QUALIFIEDNAME(ns, const_cast<char *>("Pump")),
+            UA_NS0ID(BASEOBJECTTYPE),
+            attr,
+            nullptr,
+            nullptr
+        );
+        for (const auto &method: {PUMP_SET_SPEED, PUMP_CONFIGURE, PUMP_FAIL})
+            UA_Server_addReference(
+                server,
+                object,
+                UA_NS0ID(HASCOMPONENT),
+                UA_EXPANDEDNODEID_NODEID(method),
+                true
+            );
+    }
+
     /// @brief adds TEST_EVENT_TYPE.
     static void add_event_type(UA_Server *server) {
         UA_ObjectTypeAttributes attr = UA_ObjectTypeAttributes_default;
@@ -890,6 +932,7 @@ private:
     std::vector<std::pair<std::string, std::vector<TestNode>>> added;
     std::optional<Motor> added_motor;
     std::optional<Pump> added_pump;
+    std::optional<std::string> added_pump_object;
     std::optional<UA_Byte> added_event_notifier;
 
     static void add_node(UA_Server *server, const TestNode &node) {
@@ -1019,7 +1062,7 @@ private:
         UA_Server_addReference(server, inner, UA_NS0ID(ORGANIZES), target, true);
     }
 
-    /// @brief applies what add_namespace, add_motor, add_pump, and
+    /// @brief applies what add_namespace, add_motor, add_pump, add_pump_object, and
     /// set_pump_event_notifier asked for.
     void add_requested(UA_Server *server, const UA_DataType &motor_type) {
         std::lock_guard lock(this->added_mu);
@@ -1038,6 +1081,10 @@ private:
         if (this->added_pump.has_value()) {
             add_pump_node(server, *this->added_pump);
             this->added_pump.reset();
+        }
+        if (this->added_pump_object.has_value()) {
+            add_pump_object_node(server, *this->added_pump_object);
+            this->added_pump_object.reset();
         }
         if (this->added_event_notifier.has_value()) {
             UA_Server_writeEventNotifier(server, PUMP, *this->added_event_notifier);
@@ -1209,6 +1256,7 @@ public:
             this->added.clear();
             this->added_motor.reset();
             this->added_pump.reset();
+            this->added_pump_object.reset();
             this->added_event_notifier.reset();
         }
         this->added_cv.notify_all();
