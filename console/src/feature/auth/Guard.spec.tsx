@@ -25,7 +25,11 @@ import { Auth } from "@/feature/auth";
 import { Core } from "@/feature/core";
 import { findButton } from "@/platform/modals/testutil";
 import { Session } from "@/session";
-import { createCore, createCoreState } from "@/session/core/testutil";
+import {
+  CONNECTION_PARAMS,
+  createCore,
+  createCoreState,
+} from "@/session/core/testutil";
 import {
   createSessionConsoleWrapper,
   pinLocationOrigin,
@@ -80,7 +84,7 @@ describe("auth guard", () => {
   });
 
   it("should select the Core after a successful login", async () => {
-    pinLocationOrigin("http://localhost:9090");
+    pinLocationOrigin(`http://${CONNECTION_PARAMS.host}:${CONNECTION_PARAMS.port}`);
     const store = await renderGuard();
     submitCredentials("synnax", "seldon");
     // A session sees one served Core, so every login lands on that one entry rather
@@ -99,7 +103,7 @@ describe("auth guard", () => {
   });
 
   it("should return to the login surface when credentials are rejected", async () => {
-    pinLocationOrigin("http://localhost:9090");
+    pinLocationOrigin(`http://${CONNECTION_PARAMS.host}:${CONNECTION_PARAMS.port}`);
     const { wrapper, store } = await createSessionConsoleWrapper({ client: null });
     render(
       <Session.SettledProvider>
@@ -277,7 +281,7 @@ describe("connection guard permissions", () => {
   };
 
   const renderGuardedContent = async (): Promise<void> => {
-    pinLocationOrigin("http://localhost:9090");
+    pinLocationOrigin(`http://${CONNECTION_PARAMS.host}:${CONNECTION_PARAMS.port}`);
     const { wrapper } = await createSessionConsoleWrapper({ client: null });
     render(
       <Session.SettledProvider>

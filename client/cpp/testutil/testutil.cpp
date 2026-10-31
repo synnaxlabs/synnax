@@ -10,12 +10,23 @@
 #include <algorithm>
 #include <cstring>
 #include <random>
+#include <stdexcept>
 
 #include "client/cpp/testutil/testutil.h"
+#include "x/cpp/env/env.h"
 #include "x/cpp/testutil/testutil.h"
 
+synnax::Config test_client_config() {
+    x::env::Parser env("SYNNAX");
+    synnax::Config cfg;
+    cfg.host = env.field("host", cfg.host);
+    cfg.port = env.field("port", cfg.port);
+    if (const auto err = env.error()) throw std::runtime_error(err.message());
+    return cfg;
+}
+
 synnax::Synnax new_test_client() {
-    return synnax::Synnax(test_client_config);
+    return synnax::Synnax(test_client_config());
 }
 
 std::mt19937 random_generator(const std::string &suite_name) {

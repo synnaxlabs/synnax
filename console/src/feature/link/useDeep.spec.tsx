@@ -14,7 +14,7 @@ import {
   schematic,
   type Synnax as Client,
 } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { createTestClient, TEST_CORE_ADDRESS } from "@synnaxlabs/client/testutil";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Synnax } from "@synnaxlabs/pluto";
@@ -112,8 +112,7 @@ const createCoreState = (): Session.Core.SliceState => ({
     [CORE_KEY]: {
       key: CORE_KEY,
       name: "Local",
-      host: "localhost",
-      port: 9090,
+      ...TEST_CORE_ADDRESS,
       username: "synnax",
       password: "seldon",
       secure: false,
@@ -122,7 +121,7 @@ const createCoreState = (): Session.Core.SliceState => ({
       key: OTHER_CORE_KEY,
       name: "Other",
       host: "127.0.0.1",
-      port: 9090,
+      port: TEST_CORE_ADDRESS.port,
       username: "synnax",
       password: "seldon",
       secure: false,
@@ -131,7 +130,7 @@ const createCoreState = (): Session.Core.SliceState => ({
       key: THIRD_CORE_KEY,
       name: "Third",
       host: "127.0.0.1",
-      port: 9090,
+      port: TEST_CORE_ADDRESS.port,
       username: "synnax",
       password: "seldon",
       secure: false,

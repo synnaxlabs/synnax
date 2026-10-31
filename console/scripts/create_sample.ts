@@ -21,7 +21,7 @@ import { create } from "../src/feature/project/sample.ts";
 import { parse } from "./coreURL.ts";
 
 const client = new Synnax({
-  ...parse(process.argv[2] ?? "9090"),
+  ...parse(process.argv[2] ?? process.env.SYNNAX_PORT ?? "9090"),
   username: "synnax",
   password: "seldon",
 });
