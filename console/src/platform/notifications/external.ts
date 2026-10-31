@@ -8,14 +8,9 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/platform/notifications/Feed";
-export {
-  Provider,
-  type ProviderProps,
-  useProblems,
-} from "@/platform/notifications/Provider";
+export { Provider, useProblems } from "@/platform/notifications/Provider";
 export {
   type InUseParams,
-  type Kind,
   type Problem,
   type Rule,
   type Rules,

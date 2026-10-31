@@ -240,7 +240,9 @@ var _ = Describe("Graph", func() {
 				}
 				Expect(channelWriter.Create(ctx, &base)).To(Succeed())
 				calc := channel.Channel{
-					Name: "hy_stored_problem_calc", DataType: telem.Int64T, Virtual: true,
+					Name:       "hy_stored_problem_calc",
+					DataType:   telem.Int64T,
+					Virtual:    true,
 					Expression: "return hy_stored_problem_base * 2",
 				}
 				Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
