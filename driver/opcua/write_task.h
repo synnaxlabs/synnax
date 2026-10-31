@@ -77,6 +77,13 @@ struct OutputChan {
             }) > 1)
             parser.field_err("arguments", "Only one argument can take the command");
     }
+
+    /// @returns whether namespaces hold the namespace of node, and of object for a
+    /// method.
+    [[nodiscard]] bool resolves(const std::vector<std::string> &namespaces) const {
+        return this->node.resolve(namespaces).has_value() &&
+               (!this->method || this->object.resolve(namespaces).has_value());
+    }
 };
 
 struct WriteTaskConfig : common::BaseWriteTaskConfig {
@@ -452,8 +459,7 @@ private:
         const auto &namespaces = this->connection.server().namespaces;
         for (const auto &[key, _]: frame) {
             const auto it = this->cfg.channels.find(key);
-            if (it == this->cfg.channels.end() ||
-                it->second->node.resolve(namespaces).has_value())
+            if (it == this->cfg.channels.end() || it->second->resolves(namespaces))
                 continue;
             types::ReadRequestBuilder req;
             req.add_node(UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER_NAMESPACEARRAY));
