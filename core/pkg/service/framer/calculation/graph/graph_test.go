@@ -293,6 +293,7 @@ var _ = Describe("Graph", func() {
 				Expect(channelWriter.Create(ctx, &calcs[0])).To(Succeed())
 				Expect(g.Update(ctx, calcs[0])).To(Succeed())
 				order := func() []channel.Key {
+					GinkgoHelper()
 					grouped := g.CalculateGrouped()
 					Expect(grouped).To(HaveLen(1))
 					for _, mods := range grouped {
