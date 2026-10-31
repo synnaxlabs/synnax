@@ -67,13 +67,11 @@ struct Status {
     /// @brief labels contains optional labels for categorization and filtering.
     std::optional<std::vector<::synnax::label::Label>> labels;
     /// @brief since is when the open or most recent problem of the status started. A
-    /// problem is a period with a warning or error variant. The Core sets it on every
-    /// write and ignores the value a client sends. Empty if the status never had a
-    /// problem.
+    /// problem is a period with a warning or error variant. Empty if the status never
+    /// had a problem.
     std::optional<::x::telem::TimeStamp> since;
-    /// @brief cleared is when the most recent problem of the status cleared. The Core
-    /// sets it on every write and ignores the value a client sends. Empty while a
-    /// problem is open, or if the status never had a problem.
+    /// @brief cleared is when the most recent problem of the status cleared. Empty
+    /// while a problem is open, or if the status never had a problem.
     std::optional<::x::telem::TimeStamp> cleared;
 
     static Status parse(x::json::Parser parser);
