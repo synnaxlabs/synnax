@@ -13,7 +13,7 @@
 
 #include "x/cpp/json/json.h"
 #include "x/cpp/telem/telem.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 namespace x::telem {
 /// @brief - it should initialize a timestamp from a long.
