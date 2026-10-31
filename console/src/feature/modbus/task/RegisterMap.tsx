@@ -32,6 +32,7 @@ import {
   type Overlaps,
 } from "@/feature/modbus/task/types";
 import { CSS } from "@/platform/css";
+import { Task } from "@/platform/task";
 
 const CHANNELS_PATH = "config.channels";
 
@@ -144,6 +145,7 @@ export const RegisterMap = <C extends Channel>({
 }: RegisterMapProps<C>): ReactElement | null => {
   const channels = Form.useFieldValue<C[]>(CHANNELS_PATH);
   const { set } = Form.useContext();
+  const isPreview = Task.useIsPreview();
   const hovered = Hovered.usePresent();
   const setHovered = useSetHovered();
   const find = useFindOverlaps("Modbus.RegisterMap");
@@ -160,6 +162,7 @@ export const RegisterMap = <C extends Channel>({
   const axisSpan: [number, number] | undefined =
     hoveredSpan?.span ?? (free == null ? undefined : [free.address, free.address]);
   const handleTrackMove = (type: C["type"], e: PointerEvent<HTMLElement>) => {
+    if (isPreview) return;
     const box = e.currentTarget.getBoundingClientRect();
     const address = lo + Math.floor(((e.clientX - box.left) / box.width) * count);
     const used = spans.some(

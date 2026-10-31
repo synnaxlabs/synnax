@@ -18,6 +18,7 @@ import { createModbusDevice } from "@/feature/modbus/testutil";
 import {
   awaitEditableForm,
   createChannelReadOnlyClient,
+  createTaskReadOnlyClient,
   createWithHook,
   deployAndAwaitTask,
   renderTaskFormTab,
@@ -582,6 +583,30 @@ describe("Write", () => {
         name: "Address",
       });
       expect(address.value).toBe("1");
+    });
+
+    it("should not add a channel from the map of a read-only task", async () => {
+      const dev = await createModbusDevice(client);
+      const draft = await createDraft(client, {
+        ...Modbus.Task.WRITE_SCHEMAS.config.parse({}),
+        device: dev.key,
+        channels: [holding(0, "uint16"), holding(3, "uint16")],
+      });
+      const { container } = await renderTaskFormTab(Modbus.Task.Write, {
+        client,
+        taskKey: draft.key,
+        as: await createTaskReadOnlyClient(client),
+      });
+      await waitFor(() => expect(getItems()).toHaveLength(2));
+      const track = container.querySelector<HTMLElement>(".console-modbus__track");
+      if (track == null) throw new Error("no track");
+      vi.spyOn(track, "getBoundingClientRect").mockReturnValue(
+        new DOMRect(0, 0, 400, 8),
+      );
+      fireEvent.pointerMove(track, { clientX: 150 });
+      expect(container.querySelector(".console-modbus__free")).toBeNull();
+      fireEvent.click(track);
+      expect(getItems()).toHaveLength(2);
     });
   });
 

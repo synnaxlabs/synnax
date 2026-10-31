@@ -455,6 +455,30 @@ describe("Read", () => {
       expect(address.value).toBe("1");
     });
 
+    it("should not add a channel from the map of a read-only task", async () => {
+      const dev = await createModbusDevice(client);
+      const draft = await createDraft(client, {
+        ...Modbus.Task.READ_SCHEMAS.config.parse({}),
+        device: dev.key,
+        channels: [holding(0, "uint16"), holding(3, "uint16")],
+      });
+      const { container } = await renderTaskFormTab(Modbus.Task.Read, {
+        client,
+        taskKey: draft.key,
+        as: await createTaskReadOnlyClient(client),
+      });
+      await waitFor(() => expect(getItems()).toHaveLength(2));
+      const track = container.querySelector<HTMLElement>(".console-modbus__track");
+      if (track == null) throw new Error("no track");
+      vi.spyOn(track, "getBoundingClientRect").mockReturnValue(
+        new DOMRect(0, 0, 400, 8),
+      );
+      fireEvent.pointerMove(track, { clientX: 150 });
+      expect(container.querySelector(".console-modbus__free")).toBeNull();
+      fireEvent.click(track);
+      expect(getItems()).toHaveLength(2);
+    });
+
     it("should not add a channel when a used address is clicked", async () => {
       const { container } = await renderChannels([coil(0), coil(1)]);
       const segment = container.querySelector(".console-modbus__segment");
