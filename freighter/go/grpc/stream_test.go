@@ -57,8 +57,8 @@ func startPair() (
 	)
 	addr := StartServer(func(reg grpc.ServiceRegistrar, pool *fgrpc.Pool) {
 		sServer := &streamServer{
-			RequestTranslator:  requestTranslator{},
-			ResponseTranslator: responseTranslator{},
+			RequestTranslator:  requestBackwardTranslator{},
+			ResponseTranslator: responseForwardTranslator{},
 			ServiceDesc:        &v1.TestStreamService_ServiceDesc,
 			Internal:           true,
 		}

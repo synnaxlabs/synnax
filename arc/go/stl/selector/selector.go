@@ -19,22 +19,18 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-// TrueOutputParam and FalseOutputParam name the two outputs of the select
-// node. The order they appear in the symbol's output params determines the
-// ordinal each output uses in MarkChanged / IsOutputTruthy calls — see
-// TrueOutputIdx and FalseOutputIdx below.
+// TrueOutputParam and FalseOutputParam name the two outputs of the select node. Their
+// order in the symbol's output params sets the ordinal of each output.
 const (
 	TrueOutputParam  = "true"
 	FalseOutputParam = "false"
 )
 
-// TrueOutputIdx and FalseOutputIdx are the ordinals the runtime
-// implementation passes to MarkChanged and IsOutputTruthy. They mirror
-// the declaration order of TrueOutputParam and FalseOutputParam in the
-// symbol's Outputs and must stay in sync with it.
+// trueOutputIdx and falseOutputIdx must match the order of TrueOutputParam and
+// FalseOutputParam in the symbol's outputs.
 const (
-	TrueOutputIdx  = 0
-	FalseOutputIdx = 1
+	trueOutputIdx  = 0
+	falseOutputIdx = 1
 )
 
 var (
@@ -113,10 +109,10 @@ func (s *selectNode) Next(ctx node.Context) {
 		}
 	}
 	falseCount := data.Len() - trueCount
-	trueData := s.Output(0)
-	trueTime := s.OutputTime(0)
-	falseData := s.Output(1)
-	falseTime := s.OutputTime(1)
+	trueData := s.Output(trueOutputIdx)
+	trueTime := s.OutputTime(trueOutputIdx)
+	falseData := s.Output(falseOutputIdx)
+	falseTime := s.OutputTime(falseOutputIdx)
 	trueData.Resize(trueCount)
 	trueTime.Resize(trueCount)
 	falseData.Resize(falseCount)
@@ -142,9 +138,9 @@ func (s *selectNode) Next(ctx node.Context) {
 		}
 	}
 	if trueData.Len() > 0 {
-		s.Emit(ctx, 0)
+		s.Emit(ctx, trueOutputIdx)
 	}
 	if falseData.Len() > 0 {
-		s.Emit(ctx, 1)
+		s.Emit(ctx, falseOutputIdx)
 	}
 }

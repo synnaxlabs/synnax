@@ -10,15 +10,16 @@
 import { DataType, id, Series, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it, test } from "vitest";
 
-import { NotFoundError, UnauthorizedError, ValidationError } from "@/errors";
-import { ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT, WriterMode } from "@/framer/writer";
+import { UnauthorizedError } from "@/errors";
+import { framer } from "@/framer";
+import { NotFoundError, ValidationError } from "@/index";
 import {
   createTestClient,
   newIndexedBoolPair,
   newIndexedPair,
+  randomSeries,
   secondsLinspace,
 } from "@/testutil";
-import { randomSeries } from "@/util/telem";
 
 const client = createTestClient();
 
@@ -83,7 +84,7 @@ describe("Writer", () => {
       const writer = await client.openWriter({
         start: TimeStamp.seconds(1),
         channels,
-        mode: WriterMode.Persist,
+        mode: framer.WriterMode.Persist,
       });
       const [index, data] = channels;
       try {
@@ -131,7 +132,7 @@ describe("Writer", () => {
       const writer = await client.openWriter({
         start: TimeStamp.seconds(1),
         channels,
-        autoIndexPersistInterval: ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT,
+        autoIndexPersistInterval: framer.ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT,
       });
       const [index, data] = channels;
       try {

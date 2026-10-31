@@ -57,6 +57,7 @@ TEST(ConfigPersist, AllFields) {
     cfg.password = "op123";
     cfg.secure = true;
     cfg.max_retries = 9;
+    cfg.api_key = "syk_key";
 
     const auto loaded = load(cfg.to_json().dump());
     EXPECT_EQ(loaded.host, "example.com");
@@ -65,6 +66,7 @@ TEST(ConfigPersist, AllFields) {
     EXPECT_EQ(loaded.password, "op123");
     EXPECT_TRUE(loaded.secure);
     EXPECT_EQ(loaded.max_retries, 9);
+    EXPECT_EQ(loaded.api_key, "syk_key");
 }
 
 /// @brief a config without the secure flag loads insecure.

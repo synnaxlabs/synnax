@@ -110,7 +110,6 @@ class OPCUADriverResponsiveness(OPCUAReadTaskCase):
     def run(self) -> None:
         if self.tsk is None:
             self.fail("Primary task not configured")
-            return
 
         all_tasks = [self.tsk, *self.extra_tasks]
 
@@ -139,14 +138,12 @@ class OPCUADriverResponsiveness(OPCUAReadTaskCase):
                 self.log(f"  Started {task.name}")
             except (TimeoutError, sy.UnexpectedError) as e:
                 self.fail(f"Phase 1: failed to start {task.name}: {e}")
-                return False
 
         for task in tasks:
             try:
                 task.stop(timeout=5)
             except (TimeoutError, sy.UnexpectedError) as e:
                 self.fail(f"Phase 1: failed to stop {task.name}: {e}")
-                return False
 
         return True
 
