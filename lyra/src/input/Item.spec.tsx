@@ -12,23 +12,24 @@ import { type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Input } from "@/input";
+import { Select } from "@/select";
 import { type Status } from "@/status";
 
-const textbox = (): HTMLInputElement => screen.getByRole<HTMLInputElement>("textbox");
+const textbox = (name?: string): HTMLInputElement =>
+  screen.getByRole<HTMLInputElement>("textbox", { name });
 
-const frame = (): HTMLElement => {
-  const el = textbox().closest<HTMLElement>(".lyra-input");
-  if (el == null) throw new Error("The textbox has no input frame");
-  return el;
+const frame = (el: HTMLElement = textbox()): HTMLElement => {
+  const f = el.closest<HTMLElement>(".lyra-input, .lyra-input__switch");
+  if (f == null) throw new Error("The control has no frame");
+  return f;
 };
 
-/** @returns the tooltip text a hover on the input's frame shows. */
-const hoverTip = (): string | null => {
+/** @returns the tooltip text a hover on the anchor shows. */
+const hoverTip = (anchor: HTMLElement = frame()): string | null => {
   vi.useFakeTimers();
   try {
-    const el = frame();
-    el.getBoundingClientRect = () => new DOMRect(0, 0, 100, 20);
-    fireEvent.pointerOver(el, { pointerType: "mouse" });
+    anchor.getBoundingClientRect = () => new DOMRect(0, 0, 100, 20);
+    fireEvent.pointerOver(anchor, { pointerType: "mouse" });
     act(() => {
       vi.advanceTimersByTime(2000);
     });
@@ -38,83 +39,195 @@ const hoverTip = (): string | null => {
   }
 };
 
-const input = (): ReactElement => <Input.Text value="9" onChange={vi.fn()} />;
+const input = (props: Partial<Input.TextProps> = {}): ReactElement => (
+  <Input.Text value="9" onChange={vi.fn()} {...props} />
+);
 
-const bare = (status?: Status.Variant, helpText?: string): ReactElement => (
+interface ItemOptions {
+  status?: Status.Variant;
+  helpText?: string;
+  showLabel?: boolean;
+  showHelpText?: boolean;
+  control?: ReactElement;
+}
+
+const item = ({
+  status,
+  helpText,
+  showLabel = false,
+  showHelpText = false,
+  control = input(),
+}: ItemOptions = {}): ReactElement => (
   <Input.Item
     label="Line"
-    showLabel={false}
-    showHelpText={false}
+    showLabel={showLabel}
+    showHelpText={showHelpText}
     status={status}
     helpText={helpText}
   >
-    {input()}
+    {control}
   </Input.Item>
 );
 
-const renderBare = (status?: Status.Variant, helpText?: string) =>
-  render(bare(status, helpText));
+/** Asserts that the focused textbox stays mounted as an error comes and goes. */
+const expectFocusKept = (options: ItemOptions): void => {
+  const { rerender } = render(item({ ...options, status: "success", helpText: "" }));
+  const el = textbox();
+  el.focus();
+  rerender(item({ ...options, status: "error", helpText: "port1 has 8 lines" }));
+  expect(textbox()).toBe(el);
+  expect(document.activeElement).toBe(el);
+  rerender(item({ ...options, status: "success", helpText: "" }));
+  expect(textbox()).toBe(el);
+  expect(document.activeElement).toBe(el);
+};
 
 describe("Input.Item", () => {
-  describe("with no label and no help text", () => {
+  describe("with no help text", () => {
     it("should mark its input with an error", () => {
-      renderBare("error", "port1 has 8 lines");
+      render(item({ status: "error", helpText: "port1 has 8 lines" }));
       expect(textbox().getAttribute("aria-invalid")).toBe("true");
       expect(frame().className).toContain("lyra--status-error");
     });
 
     it("should show the status message in the input's tooltip", () => {
-      renderBare("error", "port1 has 8 lines");
+      render(item({ status: "error", helpText: "port1 has 8 lines" }));
       expect(hoverTip()).toBe("port1 has 8 lines");
     });
 
     it("should tint its input with a warning without marking it invalid", () => {
-      renderBare("warning", "Slow");
+      render(item({ status: "warning", helpText: "Slow" }));
       expect(frame().className).toContain("lyra--status-warning");
       expect(textbox().getAttribute("aria-invalid")).toBeNull();
     });
 
     it("should leave its input unmarked without a status", () => {
-      renderBare("success", "");
+      render(item({ status: "success", helpText: "" }));
       expect(frame().className).not.toContain("lyra--status");
       expect(textbox().getAttribute("aria-invalid")).toBeNull();
       expect(hoverTip()).toBeNull();
     });
 
     it("should keep the focused input as an error shows and clears", () => {
-      const { rerender } = renderBare("success", "");
-      const el = textbox();
-      el.focus();
-      rerender(bare("error", "port1 has 8 lines"));
-      expect(textbox()).toBe(el);
-      expect(document.activeElement).toBe(el);
-      rerender(bare("success", ""));
-      expect(textbox()).toBe(el);
-      expect(document.activeElement).toBe(el);
+      expectFocusKept({});
     });
 
-    it("should keep its status from a labeled item inside it", () => {
+    it("should show the input's own tooltip while it has no error", () => {
+      const control = input({ tooltip: "Zero-based" });
+      const { rerender } = render(item({ control }));
+      expect(hoverTip()).toBe("Zero-based");
+      rerender(item({ control, status: "error", helpText: "Out of range" }));
+      expect(hoverTip()).toBe("Out of range");
+    });
+
+    it("should let the input's own status win", () => {
       render(
-        <Input.Item
-          showLabel={false}
-          showHelpText={false}
-          status="error"
-          helpText="Bad"
-        >
-          <Input.Item label="Inner">{input()}</Input.Item>
-        </Input.Item>,
+        item({
+          status: "error",
+          helpText: "Bad",
+          control: input({ status: "warning" }),
+        }),
+      );
+      expect(frame().className).toContain("lyra--status-warning");
+      expect(frame().className).not.toContain("lyra--status-error");
+    });
+
+    it("should show the status on a labeled input", () => {
+      render(item({ showLabel: true, status: "error", helpText: "Bad" }));
+      expect(textbox("Line").getAttribute("aria-invalid")).toBe("true");
+      expect(hoverTip()).toBe("Bad");
+    });
+
+    it("should mark a switch with an error", () => {
+      render(
+        item({
+          status: "error",
+          helpText: "Must be on",
+          control: <Input.Switch value={false} onChange={vi.fn()} aria-label="On" />,
+        }),
+      );
+      const el = screen.getByRole("checkbox", { name: "On" });
+      expect(el.getAttribute("aria-invalid")).toBe("true");
+      expect(hoverTip(frame(el))).toBe("Must be on");
+    });
+
+    it("should mark a select with an error", () => {
+      render(
+        item({
+          status: "error",
+          helpText: "Port in use",
+          control: (
+            <Select.Simple<string> value="1" onChange={vi.fn()} resourceName="port">
+              <Select.Item itemKey="1">ai0</Select.Item>
+            </Select.Simple>
+          ),
+        }),
+      );
+      const trigger = screen.getByRole("button", { name: /ai0/ });
+      expect(trigger.getAttribute("aria-invalid")).toBe("true");
+      expect(trigger.className).toContain("lyra--status-error");
+      expect(hoverTip(trigger)).toBe("Port in use");
+    });
+
+    it("should leave a control inside its input unmarked", () => {
+      render(
+        item({
+          status: "error",
+          helpText: "Bad",
+          control: input({
+            "aria-label": "Outer",
+            children: input({ "aria-label": "Inner" }),
+          }),
+        }),
+      );
+      expect(textbox("Outer").getAttribute("aria-invalid")).toBe("true");
+      expect(textbox("Inner").getAttribute("aria-invalid")).toBeNull();
+    });
+
+    it("should leave an input in a labeled item inside it unmarked", () => {
+      render(
+        item({
+          status: "error",
+          helpText: "Bad",
+          control: <Input.Item label="Inner">{input()}</Input.Item>,
+        }),
       );
       expect(textbox().getAttribute("aria-invalid")).toBeNull();
     });
   });
 
-  it("should show the status as help text, not on the input, when a label shows", () => {
-    render(
-      <Input.Item label="Line" status="error" helpText="port1 has 8 lines">
-        {input()}
-      </Input.Item>,
-    );
-    expect(screen.getByText("port1 has 8 lines")).toBeTruthy();
-    expect(textbox().getAttribute("aria-invalid")).toBeNull();
+  describe("with help text", () => {
+    it("should show the status as help text, not on the input", () => {
+      render(
+        item({ showLabel: true, showHelpText: true, status: "error", helpText: "Bad" }),
+      );
+      expect(screen.getByText("Bad")).toBeTruthy();
+      expect(frame().className).not.toContain("lyra--status");
+      expect(hoverTip()).toBeNull();
+    });
+
+    it("should mark an input with an error and describe it by its help text", () => {
+      render(
+        item({ showLabel: true, showHelpText: true, status: "error", helpText: "Bad" }),
+      );
+      const el = textbox("Line");
+      expect(el.getAttribute("aria-invalid")).toBe("true");
+      const id = el.getAttribute("aria-describedby");
+      expect(id).not.toBeNull();
+      expect(document.getElementById(id ?? "")?.textContent).toBe("Bad");
+    });
+
+    it("should describe an input by nothing while it has no message", () => {
+      render(item({ showLabel: true, showHelpText: true }));
+      expect(textbox("Line").getAttribute("aria-describedby")).toBeNull();
+    });
+
+    it("should keep the focused input of a labeled item", () => {
+      expectFocusKept({ showLabel: true, showHelpText: true });
+    });
+
+    it("should keep the focused input of an item with no label", () => {
+      expectFocusKept({ showHelpText: true });
+    });
   });
 });

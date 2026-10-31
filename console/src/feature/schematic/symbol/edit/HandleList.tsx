@@ -69,7 +69,11 @@ const HandleListItem = (props: HandleListItemProps) => {
         </Text.Text>
       </Flex.Box>
       <Flex.Box x align="center" empty>
-        <Form.Field<location.Outer> path={`${path}.orientation`} showLabel={false}>
+        <Form.Field<location.Outer>
+          path={`${path}.orientation`}
+          showLabel={false}
+          showHelpText={false}
+        >
           {({ onChange, value }) => (
             <SelectHandleOrientation value={value} onChange={onChange} />
           )}

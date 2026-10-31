@@ -141,7 +141,7 @@ const Create = ({
                 path="parent"
                 visible
                 showLabel={false}
-                padHelpText={false}
+                showHelpText={false}
               >
                 {({ onChange, value }) => (
                   <Ranger.Select
@@ -158,7 +158,11 @@ const Create = ({
                   />
                 )}
               </Form.Field>
-              <Form.Field<string[]> path="labels" showLabel={false} padHelpText={false}>
+              <Form.Field<string[]>
+                path="labels"
+                showLabel={false}
+                showHelpText={false}
+              >
                 {(p) => <Label.SelectMultiple zIndex={100} {...p} />}
               </Form.Field>
             </Flex.Box>

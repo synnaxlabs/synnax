@@ -30,6 +30,7 @@ export const MenuItem = (): ReactElement => (
   <Form.Field<label.Key[] | undefined, label.Key[]>
     path="query.hasLabels"
     showLabel={false}
+    showHelpText={false}
   >
     {({ value, onChange }) => (
       <SelectMultiple

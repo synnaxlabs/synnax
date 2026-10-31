@@ -11,7 +11,7 @@ import { type ReactElement, type ReactNode } from "react";
 
 import { Button } from "@/button";
 import { CSS } from "@/css";
-import { useLabelledBy } from "@/input/Item";
+import { useItemStatus, useLabelledBy } from "@/input/Item";
 import { type InputProps } from "@/input/types";
 import { preventDefault } from "@/util/event";
 
@@ -59,12 +59,21 @@ export const Boolean = ({
   onClick,
   checkedIcon,
   uncheckedIcon,
+  status,
   tooltip,
   tooltipLocation,
   hideTooltip,
   ...rest
 }: BooleanProps): ReactElement => {
   const ariaLabelledBy = useLabelledBy(rest);
+  const itemStatus = useItemStatus({
+    status,
+    tooltip,
+    tooltipLocation,
+    hideTooltip,
+    "aria-invalid": rest["aria-invalid"],
+    "aria-describedby": rest["aria-describedby"],
+  });
   return (
     <Button.Button
       el="label"
@@ -88,9 +97,10 @@ export const Boolean = ({
       background={background}
       textColor={parseTextColor(preview, textColor, value)}
       onClick={onClick}
-      tooltip={tooltip}
-      tooltipLocation={tooltipLocation}
-      hideTooltip={hideTooltip}
+      status={itemStatus.status}
+      tooltip={itemStatus.tooltip}
+      tooltipLocation={itemStatus.tooltipLocation}
+      hideTooltip={itemStatus.hideTooltip}
     >
       {preview !== true ? (
         <>
@@ -110,6 +120,8 @@ export const Boolean = ({
             // controlled value could never restore.
             onAuxClick={preventDefault}
             {...rest}
+            aria-invalid={itemStatus["aria-invalid"]}
+            aria-describedby={itemStatus["aria-describedby"]}
             aria-labelledby={ariaLabelledBy}
           />
           <span className={CSS.BE("input", inputType, "indicator")} onClick={onClick}>

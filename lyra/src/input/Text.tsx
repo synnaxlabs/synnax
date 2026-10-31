@@ -9,7 +9,6 @@
 
 import "@/input/Input.css";
 
-import { primitive } from "@synnaxlabs/x";
 import {
   type ReactElement,
   type ReactNode,
@@ -24,7 +23,8 @@ import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Generic } from "@/generic";
 import { useCombinedRefs, useResize } from "@/hooks";
-import { useLabelledBy, useUnshownStatus } from "@/input/Item";
+import { useItemStatus, useLabelledBy } from "@/input/Item";
+import { ItemContext } from "@/input/scope";
 import { type InputProps, type Variant } from "@/input/types";
 import { type Status } from "@/status";
 import { Text as BaseText } from "@/text";
@@ -187,17 +187,14 @@ export const Text = ({
   const inputStyle = { fontWeight: weight };
 
   const ariaLabelledBy = useLabelledBy(rest);
-
-  // An enclosing item with no label or help text leaves its status to the input.
-  const unshown = useUnshownStatus();
-  const marked = unshown?.variant === "error" || unshown?.variant === "warning";
-  const shownStatus = status ?? (marked ? unshown?.variant : undefined);
-  const unshownTip =
-    marked && primitive.isNonZero(unshown?.message) ? unshown?.message : undefined;
-  // The tooltip stays mounted as the status changes: a new wrapper remounts the input
-  // and drops its focus.
-  const shownTooltip = tooltip ?? (unshown != null ? (unshownTip ?? "") : undefined);
-  const tipHidden = tooltip == null && unshown != null && unshownTip == null;
+  const itemStatus = useItemStatus({
+    status,
+    tooltip,
+    tooltipLocation,
+    hideTooltip,
+    "aria-invalid": rest["aria-invalid"],
+    "aria-describedby": rest["aria-describedby"],
+  });
 
   const showPlaceholder =
     preview !== true &&
@@ -236,14 +233,14 @@ export const Text = ({
         flush && CSS.M("flush"),
         variant === "shadow" && CSS.M("shadow"),
         CSS.disabled(disabled),
-        shownStatus != null && CSS.M(shownStatus),
+        itemStatus.status != null && CSS.M(itemStatus.status),
         className,
       )}
       size={size}
       level={level}
       color={pColor}
       sharp={sharp}
-      status={shownStatus}
+      status={itemStatus.status}
       bordered={bordered}
       borderColor={borderColor}
       borderWidth={borderWidth}
@@ -258,9 +255,9 @@ export const Text = ({
       textVariant={textVariant}
       preventClick={preventClick}
       onClickDelay={onClickDelay}
-      tooltip={shownTooltip}
-      tooltipLocation={tooltipLocation}
-      hideTooltip={tipHidden || hideTooltip}
+      tooltip={itemStatus.tooltip}
+      tooltipLocation={itemStatus.tooltipLocation}
+      hideTooltip={itemStatus.hideTooltip}
       reveal={reveal}
       propagateClick={propagateClick}
       onMouseDown={handleFrameMouseDown}
@@ -313,8 +310,9 @@ export const Text = ({
           disabled={disabled}
           placeholder={typeof placeholder === "string" ? placeholder : undefined}
           style={inputStyle}
-          aria-invalid={shownStatus === "error" ? true : undefined}
           {...rest}
+          aria-invalid={itemStatus["aria-invalid"]}
+          aria-describedby={itemStatus["aria-describedby"]}
           aria-labelledby={ariaLabelledBy}
         />
       )}
@@ -332,7 +330,8 @@ export const Text = ({
   return (
     <Flex.Box x pack className={CSS.BE("input", "container")} {...outerProps}>
       {baseInput}
-      {children}
+      {/* A control inside the input is not the item's control. */}
+      <ItemContext value={null}>{children}</ItemContext>
     </Flex.Box>
   );
 };

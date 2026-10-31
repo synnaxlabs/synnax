@@ -52,7 +52,7 @@ const RegionListItem = ({ selectedState, svg, ...props }: RegionListItemProps) =
       className={CSS.B("schematic-region-list-item")}
     >
       <Flex.Box x align="center" gap={1}>
-        <Form.Field<string> path={`${path}.name`} showLabel={false}>
+        <Form.Field<string> path={`${path}.name`} showLabel={false} padHelpText={false}>
           {({ onChange, value }) => (
             <Text.MaybeEditable
               level="small"

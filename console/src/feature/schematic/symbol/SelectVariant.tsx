@@ -37,6 +37,7 @@ export const SelectVariantField = ({ onSelectState }: SelectVariantFieldProps) =
   <Form.Field<string>
     path="data.variant"
     showLabel={false}
+    showHelpText={false}
     onChange={(next, { get, set }) => {
       const prev = get("data.variant").value;
       if (prev === next) return;
