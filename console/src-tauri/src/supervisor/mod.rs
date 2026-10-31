@@ -504,19 +504,18 @@ impl Task {
                         slowest = slowest.max(took);
                     }
                     if missed >= self.cfg.liveness_failures {
-                        // Measured before the stop, which would otherwise make a Core
-                        // that hangs after each start count as a healthy run.
-                        let uptime = started.elapsed();
-                        self.status.send_replace(Status::Stopping);
-                        self.stop(&mut child, stdin.as_mut()).await;
-                        return Outcome::Exited {
-                            uptime,
-                            reason: Reason::Unresponsive,
-                            message: format!(
+                        // Built before the stop, or its wait would count as uptime
+                        // and a Core that hangs after each start would look healthy.
+                        let outcome = exited(
+                            Reason::Unresponsive,
+                            format!(
                                 "stopped answering after {missed} probes, slowest {} ms",
                                 slowest.as_millis()
                             ),
-                        };
+                        );
+                        self.status.send_replace(Status::Stopping);
+                        self.stop(&mut child, stdin.as_mut()).await;
+                        return outcome;
                     }
                 }
             }
@@ -728,6 +727,16 @@ while true; do sleep 1; done
         }
     }
 
+    /// Returns the probe time, in milliseconds, of an unresponsive exit message.
+    fn slowest_ms(message: &str) -> u128 {
+        message
+            .strip_prefix("stopped answering after 3 probes, slowest ")
+            .and_then(|rest| rest.strip_suffix(" ms"))
+            .unwrap()
+            .parse()
+            .unwrap()
+    }
+
     async fn wait_for(sup: &Supervisor, pred: impl Fn(&Status) -> bool) -> Status {
         let mut rx = sup.subscribe();
         tokio::time::timeout(Duration::from_secs(10), rx.wait_for(|s| pred(s)))
@@ -895,15 +904,30 @@ while true; do sleep 1; done
         ok.store(false, Ordering::SeqCst);
         wait_for(&sup, |s| matches!(s, Status::Restarting)).await;
         let message = sup.history().last_exit.unwrap().message;
-        let slowest: u128 = message
-            .strip_prefix("stopped answering after 3 probes, slowest ")
-            .and_then(|rest| rest.strip_suffix(" ms"))
-            .unwrap()
-            .parse()
-            .unwrap();
-        assert!(slowest >= 40, "{message}");
+        assert!(slowest_ms(&message) >= 40, "{message}");
         ok.store(true, Ordering::SeqCst);
         wait_for(&sup, |s| matches!(s, Status::Running { .. })).await;
+        sup.stop().await;
+    }
+
+    #[tokio::test]
+    async fn forgets_a_slow_probe_once_the_core_answers_again() {
+        let calls = Arc::new(AtomicUsize::new(0));
+        let probe: probe::Probe = Arc::new(move |_| {
+            let call = calls.fetch_add(1, Ordering::SeqCst);
+            let result: Pin<Box<dyn Future<Output = bool> + Send>> = Box::pin(async move {
+                if call == 1 {
+                    tokio::time::sleep(Duration::from_millis(300)).await;
+                }
+                matches!(call, 0 | 2)
+            });
+            result
+        });
+        let f = Fixture::new(OBEDIENT, probe);
+        let sup = Supervisor::open(f.cfg.clone()).unwrap();
+        wait_for(&sup, |s| matches!(s, Status::Restarting)).await;
+        let message = sup.history().last_exit.unwrap().message;
+        assert!(slowest_ms(&message) < 300, "{message}");
         sup.stop().await;
     }
 
