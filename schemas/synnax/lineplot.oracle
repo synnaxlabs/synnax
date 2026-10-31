@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/synnax/channel"
+import "schemas/synnax/ranger"
 import "schemas/x/color"
 import "schemas/x/filter"
 import "schemas/x/spatial"
-import "schemas/x/telem"
 import "schemas/x/text"
 
 @go output "core/pkg/service/lineplot"
@@ -107,52 +107,6 @@ Channels struct {
     @go marshal
 }
 
-CustomRange union on variant {
-    dynamic {
-        span telem.TimeSpan = 0 {
-            @doc value "is the span of the window, which ends now."
-            @ts type   telem.NumericTimeSpan
-        }
-
-        @doc value "is a rolling window."
-    }
-    static {
-        start telem.TimeStamp {
-            @doc value "is the inclusive start of the fixed window."
-            @ts type   telem.StringTimeStamp
-        }
-        end   telem.TimeStamp {
-            @doc value "is the exclusive end of the fixed window."
-            @ts type   telem.StringTimeStamp
-        }
-
-        @doc value "is a fixed window."
-    }
-
-    @doc value  "is the window a plot's synthetic \"custom\" range key resolves to."
-    @go marshal
-}
-
-Ranges struct {
-    x1     string[]     {
-        @doc value """
-            are the range keys plotted against the x1 axis. Range keys are opaque
-            strings rather than UUIDs because the console layers synthetic
-            rolling-window ranges (e.g. "recent", "rolling1m") alongside persisted
-            ranges; the server stores whatever the client sends.
-        """
-    }
-    x2     string[]     {
-        @doc value "are the range keys plotted against the x2 axis."
-    }
-    custom CustomRange? {
-        @doc value "is the window the \"custom\" range key resolves to."
-    }
-
-    @doc value  "binds range keys to each x-axis."
-    @go marshal
-}
-
 ManualBounds struct {
     lower bool = false {
         @doc value """
@@ -238,10 +192,19 @@ Axes struct {
 Line struct {
     key          string       {
         @doc value """
-            is the line identifier derived from its channel and range assignment. Format
-            is internal to the client and stable across re-renders so styling overrides
-            persist.
+            is the line's stable identity, a UUID string. It is a function of the plot's
+            key and the line's y-axis, y-channel, and x-channel, so the Core and the
+            Console derive the same key for the same line.
         """
+    }
+    y_axis       YAxisKey     {
+        @doc value "is the y-axis the line is drawn against."
+    }
+    y_channel    channel.Key  {
+        @doc value "is the channel plotted on the y-axis."
+    }
+    x_channel    channel.Key = 0 {
+        @doc value "is the channel plotted on the x-axis, or 0 to plot against time."
     }
     label        string?      {
         @doc value """
@@ -256,7 +219,8 @@ Line struct {
         """
     }
     stroke_width float64 = 2 {
-        @doc value "is the line stroke width in pixels."
+        @doc value    "is the line stroke width in pixels."
+        @validate min 1
     }
     aggregation  Aggregation = min_max {
         @doc value "selects how the line reduces the samples of one pixel group."
@@ -307,7 +271,7 @@ LinePlot struct {
         @doc value "is the unique identifier for this line plot."
         @key
     }
-    name     string   {
+    name     string       {
         @doc value         "is a human-readable name for the line plot."
         @search
         @validate required
@@ -321,20 +285,21 @@ LinePlot struct {
     channels Channels = {} {
         @doc value "binds channel keys to each axis."
     }
-    ranges   Ranges = {} {
-        @doc value "binds range keys to each x-axis."
+    ranges   ranger.Ref[] = [] {
+        @doc value """
+            are the ranges the plot shows: ranges saved in the Core, or inline windows.
+        """
     }
     axes     Axes = {} {
         @doc value "bundles per-axis configuration."
     }
-    lines    Line[]   {
+    lines    Line[]       {
         @doc value """
-            holds per-line styling and reduction configuration. Each entry corresponds
-            to one channel and range combination produced by the channels and ranges
-            bindings.
+            holds per-line styling and reduction configuration. Each entry styles one
+            y-channel across every range the plot shows.
         """
     }
-    rules    Rule[]   {
+    rules    Rule[]       {
         @doc value "holds annotation rules drawn over the plot."
     }
 
@@ -417,43 +382,29 @@ LinePlot struct {
     }
 
     action AddRange {
-        axis_key XAxisKey
-        range    string
+        range ranger.Ref
 
         @doc value """
-            appends the range key to the ranges array bound to the x-axis named by
-            axis_key. No-op when the range is already present.
+            appends the range reference to the plot's ranges. No-op when an equal
+            reference is already present.
         """
     }
 
     action RemoveRange {
-        axis_key XAxisKey
-        range    string
+        range ranger.Ref
 
         @doc value """
-            removes the range key from the x-axis named by axis_key. No-op when the
-            range is not present.
+            removes the reference equal to range from the plot's ranges. No-op when no
+            reference is equal.
         """
     }
 
     action SetRanges {
-        axis_key XAxisKey
-        ranges   string[]
+        ranges ranger.Ref[]
 
         @doc value """
-            replaces the entire set of range keys bound to the x-axis named by axis_key
-            with ranges. Ranges absent from the new set are removed and their lines
-            dropped; ranges not previously present are added. Existing ranges keep their
-            line styling.
-        """
-    }
-
-    action SetCustomRange {
-        custom CustomRange?
-
-        @doc value """
-            sets the window the "custom" range key resolves to. A null custom clears the
-            window.
+            replaces the plot's range references with ranges, such as when the user
+            edits a window. Lines style channels, so they are unaffected.
         """
     }
 

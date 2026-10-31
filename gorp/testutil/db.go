@@ -13,7 +13,7 @@ package testutil
 import (
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/kv/memkv"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 // OpenGorpMsgpackDB returns a gorp.DB over a fresh in-memory key-value store that

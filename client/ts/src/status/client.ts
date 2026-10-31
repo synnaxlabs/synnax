@@ -90,6 +90,7 @@ export class Client extends query.Retriever<
   readonly store: query.Table<Key, Status>;
   private readonly cfg: ClientConfig;
   private readonly lines: Lines;
+  private readonly writeHandlers = new Set<(status: Status) => void>();
 
   constructor(cfg: ClientConfig) {
     const { cache, ontology: ontologyClient, labels } = cfg;
@@ -155,6 +156,12 @@ export class Client extends query.Retriever<
       labels: (status, keys) =>
         label.cachedLabeledByAny(ontologyClient.cache, ontologyID(status.key), keys),
     };
+    cache.listen({
+      channel: SET_CHANNEL_NAME,
+      schema: statusZ(),
+      onChange: (written) =>
+        written.forEach((status) => this.writeHandlers.forEach((h) => h(status))),
+    });
   }
 
   async retrieve<DetailsSchema extends z.ZodType>(
@@ -267,6 +274,25 @@ export class Client extends query.Retriever<
     return this.store.subscribe((event) => {
       if (event.variant === "set") handler(event.value);
     });
+  }
+
+  /**
+   * Subscribes to each status write that the Core streams to this client, from any
+   * writer, and to each {@link setLocal} status. Unlike {@link onSet}, it skips a
+   * status that reaches the cache another way, such as through a retrieve.
+   */
+  onWrite(handler: (status: Status) => void): destructor.Destructor {
+    this.writeHandlers.add(handler);
+    return () => this.writeHandlers.delete(handler);
+  }
+
+  /**
+   * Sets a status that this client makes and the Core never holds, such as a stand-in
+   * reply to a command. The status reaches the cache and the {@link onWrite} handlers.
+   */
+  setLocal(status: Status): void {
+    this.store.set(status);
+    this.writeHandlers.forEach((h) => h(status));
   }
 
   /** Subscribes to every status delete delivered to the cache. */

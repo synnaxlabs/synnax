@@ -41,8 +41,14 @@ const op = (x: Series, y: Series): DrawOperation => {
     xOffset,
     yOffset,
     count: Math.min(x.length - xOffset, y.length - yOffset),
+    span: x.timeRange,
   };
 };
+
+const spanned = (o: DrawOperation, start: number, end: number): DrawOperation => ({
+  ...o,
+  span: new TimeRange(TimeStamp.seconds(start), TimeStamp.seconds(end)),
+});
 
 const reduceOne = (o: DrawOperation, aggregation: Aggregation, size: number) =>
   new Reducer().reduce([o], aggregation, size)[0];
@@ -395,6 +401,46 @@ describe("Reducer", () => {
       expect(ops).toHaveLength(1);
     });
 
+    it("should give the span of an op that draws no group to the op before it", () => {
+      const [a, b, c] = cut([3, 6]);
+      const [first, last] = new Reducer().reduce(
+        [spanned(a, 0, 3), spanned(b, 3, 6), spanned(c, 6, 20)],
+        "min_max",
+        8,
+      );
+      expect(first.span.end).toEqual(last.span.start);
+    });
+
+    it("should leave the span of an op it passes through unchanged", () => {
+      const [a, b, c] = cut([3, 6]);
+      const reduced = new Series({
+        data: new Float32Array(2),
+        alignment: 0n,
+        alignmentMultiple: 8n,
+      });
+      const passed = spanned(op(reduced, reduced), 0, 3);
+      new Reducer().reduce(
+        [spanned(a, 0, 3), passed, spanned(b, 3, 6), spanned(c, 6, 20)],
+        "min_max",
+        8,
+      );
+      expect(passed.span.end).toEqual(TimeStamp.seconds(3));
+    });
+
+    it.each<Aggregation>(["min_max", "average", "decimate"])(
+      "should keep %s groups apart across ops with time between them",
+      (aggregation) => {
+        const [a, b] = cut([10]);
+        const before = spanned(a, 0, 10);
+        const after = spanned(b, 20, 30);
+        const parts = new Reducer().reduce([before, after], aggregation, 8);
+        const alone = [before, after].flatMap((o) =>
+          Array.from(reduceOne(o, aggregation, 8).y),
+        );
+        expect(values(parts, "y")).toEqual(alone);
+      },
+    );
+
     it("should keep a group complete once the ops after it hold its samples", () => {
       const [a] = cut([6]);
       const createGrowing = (): Series =>
@@ -415,7 +461,7 @@ describe("Reducer", () => {
         Array.from(whole("min_max").y).slice(0, 2),
       );
       write(9);
-      expect(reducer.reduce([a, op(x, y)], "min_max", 8)[0]).toBe(complete);
+      expect(reducer.reduce([a, op(x, y)], "min_max", 8)[0].y).toBe(complete.y);
     });
   });
 
@@ -452,7 +498,7 @@ describe("Reducer", () => {
       write(y, 0, 1, 2);
       const reducer = new Reducer();
       const first = reducer.reduce([op(x, y)], "min_max", 4)[0];
-      expect(reducer.reduce([op(x, y)], "min_max", 4)[0]).toBe(first);
+      expect(reducer.reduce([op(x, y)], "min_max", 4)[0].y).toBe(first.y);
     });
   });
 
@@ -464,7 +510,7 @@ describe("Reducer", () => {
       const b = op(ramp(8, 8n), ramp(8, 8n));
       const reducer = new Reducer();
       const [ra, rb] = reducer.reduce([a, b], "min_max", 4);
-      expect(reducer.reduce([b], "min_max", 4)[0]).toBe(rb);
+      expect(reducer.reduce([b], "min_max", 4)[0].y).toBe(rb.y);
       expect(refCounts(ra)).toEqual([0, 0]);
       expect(refCounts(rb)).toEqual([1, 1]);
     });

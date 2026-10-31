@@ -9,7 +9,7 @@
 
 import { capture } from "@/index";
 
-import { selectItem, switchFor } from "./common/channel-dialog";
+import { kindButton, selectItem } from "./common/channel-dialog";
 import { controls, editor } from "./common/sample";
 
 export const desktop = true;
@@ -73,7 +73,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.zoom(modal);
   await session.click(name);
   await type(session, "ramp_time");
-  await session.click(switchFor(modal, "Is index"));
+  await session.click(kindButton(modal, "Index"));
   await session.hold(400);
   await capture.clickButton(session, "Create");
   session.endZoom();

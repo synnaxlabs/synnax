@@ -57,6 +57,8 @@ export const synnaxParamsZ = z.object({
     .or(z.string({ error: "Port is required" })),
   username: z.string().min(1, "Username is required").optional(),
   password: z.string().min(1, "Password is required").optional(),
+  /** An API key to log in with, in place of a username and password. */
+  apiKey: z.string().min(1, "API key is required").optional(),
   /** The token of an earlier login to resume, in place of a username and password. */
   token: z.string().min(1).optional(),
   /**
@@ -90,22 +92,34 @@ export const synnaxParamsZ = z.object({
     .optional(),
 });
 
+// a refinement would stop callers from picking fields off synnaxParamsZ
+const constructorParamsZ = synnaxParamsZ.refine(
+  (p) => p.apiKey == null || (p.username == null && p.password == null),
+  {
+    message: "Give either an API key or a username and password, not both",
+    path: ["apiKey"],
+  },
+);
+
 export interface SynnaxParams extends z.input<typeof synnaxParamsZ> {}
 export interface ParsedSynnaxParams extends z.infer<typeof synnaxParamsZ> {}
 
 /**
- * The authority a client logs in with: its credentials when both are given, else the
- * token or cookie. A client with none fails its first request with an AuthError.
+ * The authority a client logs in with: its credentials when both are given or its API
+ * key, else the token or cookie. A client with none fails its first request with an
+ * AuthError.
  */
 const authorityOf = ({
   username,
   password,
+  apiKey,
   token,
   sessionCookie,
   sessionPersistent,
 }: ParsedSynnaxParams): auth.Authority => ({
   credentials:
     username != null && password != null ? { username, password } : undefined,
+  apiKey,
   token,
   cookie: sessionCookie,
   persistent: sessionPersistent,
@@ -158,6 +172,8 @@ export default class Synnax extends framer.Client {
    * @param props.port - Port of the node in the cluster.
    * @param props.username - Username for authentication, with props.password.
    * @param props.password - Password for authentication, with props.username.
+   * @param props.apiKey - API key for authentication, in place of a username and
+   * password.
    * @param props.token - The token of an earlier login to resume instead.
    * @param props.sessionCookie - Whether the Core keeps the token in a cookie the page
    * never sees, for a browser client the Core serves.
@@ -171,7 +187,7 @@ export default class Synnax extends framer.Client {
    * change stream.
    */
   constructor(params: SynnaxParams) {
-    const parsedParams = zod.parse(synnaxParamsZ, params);
+    const parsedParams = zod.parse(constructorParamsZ, params);
     const { host, port, connectivityPollFrequency, clockSkewThreshold, secure, retry } =
       parsedParams;
     const transport = new Transport(
@@ -231,7 +247,7 @@ export default class Synnax extends framer.Client {
     // them (the breaker-wrapped unary or the check loop), never stacked beneath it.
     this.auth = new auth.Client(transport.unaryNoRetry, authorityOf(parsedParams), {
       onUser: (u) => identity.notify(u),
-      onSuccess: () => this.conn.notify({ type: "auth.success" }),
+      onSuccess: (session) => this.conn.notify({ type: "auth.success", session }),
       onFailure: (error) => this.conn.notify({ type: "auth.failure", error }),
     });
     transport.use(this.auth.middleware());
@@ -288,7 +304,7 @@ export default class Synnax extends framer.Client {
       ontology: this.ontology,
       ranges: this.ranges,
       cache,
-      statusStore: this.statuses.store,
+      statuses: this.statuses,
     });
     this.racks = new rack.Client({
       unary,

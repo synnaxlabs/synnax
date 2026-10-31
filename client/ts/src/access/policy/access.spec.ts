@@ -12,7 +12,7 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { policy } from "@/access/policy";
 import { role } from "@/access/role";
-import { AccessDeniedError, NotFoundError } from "@/errors";
+import { AccessDeniedError, NotFoundError } from "@/index";
 import { query } from "@/query";
 import {
   createTestClient,

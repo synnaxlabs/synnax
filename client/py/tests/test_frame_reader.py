@@ -546,3 +546,11 @@ class TestReader:
         """Should return no samples when the channel has no data in the range"""
         _, data_ch = indexed_pair
         assert len(client.read(sy.TimeRange.MAX, data_ch.key)) == 0
+
+    def test_read_empty_list(
+        self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
+    ) -> None:
+        """Should return an empty series for a listed channel with no data"""
+        _, data_ch = indexed_pair
+        f = client.read(sy.TimeRange.MAX, [data_ch.key])
+        assert len(f[data_ch.key]) == 0

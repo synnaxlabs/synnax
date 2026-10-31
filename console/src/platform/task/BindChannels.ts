@@ -11,7 +11,7 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { deep, record } from "@synnaxlabs/x";
 import { useEffect, useRef } from "react";
 
-import { useIsPreview } from "@/platform/task/Form";
+import { useIsPreview } from "@/platform/task/useIsPreview";
 
 export interface BindChannelsProps<C extends record.Keyed<string>> {
   /** The form path of the list. Defaults to `config.channels`. */

@@ -19,18 +19,20 @@ A Modbus write task writes the values of command channels to the coils and holdi
 registers of one Modbus server. For example, a button on a schematic can start a pump
 through a coil of a PLC. Modbus write tasks have no state channels.
 
-<Note.Note variant="warning">
+Each command writes only the addresses of the channels in the command. Channels at
+adjacent addresses go in one request. The Driver writes coils with function code 15 and
+holding registers with function code 16. For a device that supports only function codes
+05 and 06, set **Write codes** of the
+[server](/reference/hardware/modbus/connect-server#connection-options) to **Single**.
+The Driver then writes each register on its own, so the two halves of a 32-bit value can
+reach the device at different times. A write goes before reads that wait for the same
+connection.
 
-Each command writes every address from the lowest to the highest address of the task.
-Addresses between your channels get the values that the task read at its first command,
-until you configure the task again. If that first read fails, they get zeros. Keep the
-addresses of a write task together, or use one task for each group of addresses.
-
-</Note.Note>
-
-The Driver writes coils with function code 15 and holding registers with function
-code 16. A device that supports only function codes 05 and 06 cannot be written. One
-request can hold at most 123 registers or 1968 coils.
+To write one bit of a holding register, the Driver reads the register, changes the bit,
+and writes the register back. If the device changes another bit of the register between
+the read and the write, the write removes that change. For a device that supports
+function code 22, select **Mask write (FC22)** on the server. The Driver then changes
+the bit with one request, and the other bits stay as the device has them.
 
 Before you start, you need a
 [connected server](/reference/hardware/modbus/connect-server).
@@ -47,8 +49,8 @@ every frame.
   <Fragment slot="console">
 
 1. In the devices toolbar, right-click the server and select **Create write task**.
-2. Click **Add channel**. Select **Coil** or **Holding register**, then enter the
-   address. For a holding register, select the **Data type**.
+2. Click **Add channel**. Select the type, then enter the address. For a holding
+   register, select the **Data type**. For a holding register bit, enter the **Bit**.
 3. Click <Icon.Play /> (**Start**).
 
 The Console creates a command channel and an index channel for each output. For the
@@ -132,6 +134,10 @@ The task has the options **Data saving** and **Auto start**. See
 Each channel has an `address`, from 0 to 65535, and a `channel`, the command channel.
 Each table shows the Console label of a setting, with its Python field under it.
 
+The Console also accepts a six-digit Modicon address, such as 400001 for holding
+register 0. The first digit is the table: 0 for coils and 4 for holding registers. The
+Console shows the Modicon form next to each address.
+
 <Channel.Types>
 
 <Channel.Type
@@ -152,11 +158,27 @@ Writes a coil. A command of 0 turns the coil off. Any other value turns it on.
 
 Writes a number to one or more holding registers.
 
-| Setting                              | Default | Notes                                                                                                                             |
-| ------------------------------------ | ------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| Data type <small>`data_type`</small> | `uint8` | `int8`, `uint8`, `int16`, `uint16`, `int32`, `uint32`, `int64`, `uint64`, `float32`, `float64`.                                   |
-| Bytes <small>`bytes_swapped`</small> | device  | `True` swaps the two bytes in each register. See [byte and word order](/reference/hardware/modbus/read-task#byte-and-word-order). |
-| Words <small>`words_swapped`</small> | device  | `True` writes the high word first. Only for 32-bit and 64-bit data types.                                                         |
+| Setting                              | Default  | Notes                                                                                                                             |
+| ------------------------------------ | -------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| Data type <small>`data_type`</small> | `uint16` | `int8`, `uint8`, `int16`, `uint16`, `int32`, `uint32`, `int64`, `uint64`, `float32`, `float64`.                                   |
+| Bytes <small>`bytes_swapped`</small> | device   | `True` swaps the two bytes in each register. See [byte and word order](/reference/hardware/modbus/read-task#byte-and-word-order). |
+| Words <small>`words_swapped`</small> | device   | `True` writes the high word first. Only for 32-bit and 64-bit data types.                                                         |
+
+</Channel.Type>
+
+<Channel.Type
+  name="Holding register bit"
+  type="holding_register_bit"
+  python="HoldingRegisterBitWriteChannel"
+>
+
+Writes one bit of a holding register. A command of 0 clears the bit. Any other value
+sets it. Channels can write different bits of one register, but a bit channel cannot use
+a register that a holding register channel writes.
+
+| Setting                  | Default | Notes                             |
+| ------------------------ | ------- | --------------------------------- |
+| Bit <small>`bit`</small> | `0`     | From 0 (least significant) to 15. |
 
 </Channel.Type>
 
@@ -166,23 +188,16 @@ Writes a number to one or more holding registers.
 
 ## Troubleshooting
 
-### A command changed a register that the task does not use
-
-The register is between two addresses of the task. See the warning at the top of this
-page.
-
 ### "Illegal function"
 
-The device does not support function code 15 or 16. The Driver cannot write to it.
+The device does not support function code 15 or 16. Set **Write codes** of the server to
+**Single**.
 
-### "Too many data"
+### The connection dropped
 
-The addresses of the task span more than one request can hold. Move the channels closer
-together, or split them into two tasks.
-
-### The task stopped when the connection dropped
-
-The task stops on any connection error. Start the task again when the server is back.
+The Driver reconnects and sends the command again at once, up to the **Retries** of the
+server. If that fails, the task shows the warning "Failed to write commands" and keeps
+running. The Driver reconnects at the next command.
 
 For other problems, see
 [Connect a Modbus server](/reference/hardware/modbus/connect-server#troubleshooting) and
