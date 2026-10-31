@@ -41,7 +41,8 @@ commit fails. Three things need to write old data next to a live writer:
 1. **An operator can always take over**: A live writer competes with every other live
    writer on the channel, whatever their clocks say.
 2. **Old data never disturbs a live writer**: A persist writer cannot take control, and
-   a conflict between the two fails the persist writer.
+   a conflict over a claim fails the persist writer. Stored data still wins: a live
+   writer that writes over stored data fails, whoever stored it.
 3. **A claim follows the data**: A persist writer holds the time it has committed, not
    time it may reach.
 
