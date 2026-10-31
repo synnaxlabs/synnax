@@ -90,7 +90,7 @@ interface HeaderProps {
 const Header = ({ isSnapshot }: HeaderProps) => (
   <>
     <Flex.Box x justify="between">
-      <PForm.Field<string> path="name" showLabel={false}>
+      <PForm.Field<string> path="name" showLabel={false} padHelpText={false} grow>
         {(p) => (
           <Input.Text
             variant="text"
