@@ -89,8 +89,6 @@ def prompt_group_names(ctx: Context, options: list[str]) -> dict[str, list[str]]
     """
     )
     response = ctx.console.ask("channels")
-    if response is None:
-        return None
     return _group_names(ctx, options, response.split(","))
 
 

@@ -26,13 +26,13 @@ export const Toolbar = (): ReactElement => {
   const key = Arc.useKey();
   const name = Arc.useName({ key });
   return (
-    <>
+    <Base.Content>
       <Base.Header>
         <Breadcrumb.Breadcrumb level="h5">
-          <Breadcrumb.Segment weight={500} color={10} level="h5">
+          <Base.TitleSegment>
             <Icon.Arc />
             {name}
-          </Breadcrumb.Segment>
+          </Base.TitleSegment>
         </Breadcrumb.Breadcrumb>
         <Flex.Box
           x
@@ -47,6 +47,6 @@ export const Toolbar = (): ReactElement => {
       <Flex.Box center>
         <Text.Text status="disabled">No content</Text.Text>
       </Flex.Box>
-    </>
+    </Base.Content>
   );
 };
