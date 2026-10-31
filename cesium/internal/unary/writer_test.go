@@ -26,6 +26,7 @@ import (
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 func filterDataFiles(l []os.FileInfo) []os.FileInfo {
@@ -129,6 +130,61 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						t = MustSucceed(w.Close())
 						Expect(t.Occurred()).To(BeTrue())
 					},
+				)
+				Specify("Repeated timestamps", func(ctx SpecContext) {
+					w, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
+						Start:   10 * telem.SecondTS,
+						Subject: control.Subject{Key: "foo"},
+					}))
+					MustSucceed(w.Write(telem.NewSeriesSecondsTSV(10, 10, 11)))
+					MustSucceed(w.Write(telem.NewSeriesSecondsTSV(11, 12)))
+					Expect(MustSucceed(w.Commit(ctx))).To(Equal(12*telem.SecondTS + 1))
+					MustSucceed(w.Close())
+					f := MustSucceed(db.Read(ctx, telem.TimeRangeMax))
+					Expect(f.SeriesAt(0).Data).To(Equal(
+						telem.NewSeriesSecondsTSV(10, 10, 11, 11, 12).Data,
+					))
+				})
+				DescribeTable(
+					"Should reject an index series that is out of order",
+					func(ctx SpecContext, prior, series telem.Series) {
+						w, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
+							Start:   10 * telem.SecondTS,
+							Subject: control.Subject{Key: "foo"},
+						}))
+						if prior.Len() > 0 {
+							MustSucceed(w.Write(prior))
+							MustSucceed(w.Commit(ctx))
+						}
+						Expect(w.Write(series)).Error().To(SatisfyAll(
+							MatchError(unary.ErrOutOfOrder),
+							MatchError(validate.ErrValidation),
+						))
+						MustSucceed(w.Write(telem.NewSeriesSecondsTSV(20)))
+						Expect(MustSucceed(w.Commit(ctx))).
+							To(Equal(20*telem.SecondTS + 1))
+						MustSucceed(w.Close())
+						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax))
+						Expect(f.SeriesAt(0).Data).To(Equal(append(
+							prior.Data,
+							telem.NewSeriesSecondsTSV(20).Data...,
+						)))
+					},
+					Entry(
+						"a timestamp before the writer start",
+						telem.Series{},
+						telem.NewSeriesSecondsTSV(5, 11),
+					),
+					Entry(
+						"a decreasing timestamp",
+						telem.Series{},
+						telem.NewSeriesSecondsTSV(10, 12, 11),
+					),
+					Entry(
+						"a timestamp before the last one written",
+						telem.NewSeriesSecondsTSV(10, 11),
+						telem.NewSeriesSecondsTSV(5, 12),
+					),
 				)
 				Describe("Open", func() {
 					It(
@@ -833,7 +889,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 				Describe("Index", func() {
 					Specify("Control Handoff", func(ctx SpecContext) {
 						w1, t := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
-							Start:     10 * telem.SecondTS,
+							Start:     0,
 							Authority: control.AuthorityAbsolute - 1,
 							Subject:   control.Subject{Key: "foo"},
 						}))
@@ -844,7 +900,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							),
 						).To(Equal(alignment.Leading(1, 0)))
 						w2, t := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
-							Start:     10 * telem.SecondTS,
+							Start:     0,
 							Authority: control.AuthorityAbsolute,
 							Subject:   control.Subject{Key: "bar"},
 						}))
@@ -876,6 +932,68 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						t = MustSucceed(w1.Close())
 						Expect(t.Occurred()).To(BeTrue())
 					})
+					It(
+						"Should reject an index write before the start of a joining writer",
+						func(ctx SpecContext) {
+							w1, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
+								Start:     10 * telem.SecondTS,
+								Authority: control.AuthorityAbsolute - 1,
+								Subject:   control.Subject{Key: "first"},
+							}))
+							MustSucceed(w1.Write(telem.NewSeriesSecondsTSV(10, 11)))
+							MustSucceed(w1.Commit(ctx))
+							w2, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
+								Start:     100 * telem.SecondTS,
+								Authority: control.AuthorityAbsolute,
+								Subject:   control.Subject{Key: "second"},
+							}))
+							Expect(
+								w2.Write(telem.NewSeriesSecondsTSV(50, 51)),
+							).Error().To(MatchError(unary.ErrOutOfOrder))
+							MustSucceed(w2.Write(telem.NewSeriesSecondsTSV(100)))
+							Expect(MustSucceed(w2.Commit(ctx))).
+								To(Equal(100*telem.SecondTS + 1))
+							MustSucceed(w2.Close())
+							MustSucceed(w1.Close())
+							f := MustSucceed(db.Read(ctx, telem.TimeRangeMax))
+							Expect(f.SeriesAt(0).Data).To(Equal(
+								telem.NewSeriesSecondsTSV(10, 11, 100).Data,
+							))
+						},
+					)
+					It(
+						"Should reject an index write behind the data of another writer",
+						func(ctx SpecContext) {
+							live, _ := MustSucceed2(
+								db.OpenWriter(ctx, unary.WriterConfig{
+									Start:     100 * telem.SecondTS,
+									Authority: control.AuthorityAbsolute - 1,
+									Subject:   control.Subject{Key: "live"},
+								}),
+							)
+							MustSucceed(live.Write(telem.NewSeriesSecondsTSV(100, 101)))
+							MustSucceed(live.Commit(ctx))
+							backfill, _ := MustSucceed2(
+								db.OpenWriter(ctx, unary.WriterConfig{
+									Start:     10 * telem.SecondTS,
+									Authority: control.AuthorityAbsolute,
+									Subject:   control.Subject{Key: "backfill"},
+								}),
+							)
+							Expect(
+								backfill.Write(telem.NewSeriesSecondsTSV(10, 11)),
+							).Error().To(MatchError(unary.ErrOutOfOrder))
+							MustSucceed(backfill.Close())
+							MustSucceed(live.Write(telem.NewSeriesSecondsTSV(102, 103)))
+							Expect(MustSucceed(live.Commit(ctx))).
+								To(Equal(103*telem.SecondTS + 1))
+							MustSucceed(live.Close())
+							f := MustSucceed(db.Read(ctx, telem.TimeRangeMax))
+							Expect(f.SeriesAt(0).Data).To(Equal(
+								telem.NewSeriesSecondsTSV(100, 101, 102, 103).Data,
+							))
+						},
+					)
 
 					Specify(
 						"Concurrent writes and commits across a control handoff",

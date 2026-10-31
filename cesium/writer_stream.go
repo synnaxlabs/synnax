@@ -620,9 +620,6 @@ func (w *idxWriter) write(
 			if series.Len() == 0 || !ok {
 				break
 			}
-			if err = w.updateHighWater(series); err != nil {
-				return fr, err
-			}
 			if alignment, err = uWriter.Write(series); err != nil {
 				accumulatedErr = err
 				if !errors.Is(accumulatedErr, xcontrol.ErrUnauthorized) {
@@ -632,6 +629,7 @@ func (w *idxWriter) write(
 				idxUnauthorized = true
 				break
 			}
+			w.idx.highWaterMark = series.ValueAt[telem.TimeStamp](-1)
 			alignmentSet = true
 			w.sampleCount = int64(alignment.SampleIndex()) + series.Len()
 			incrementedSampleCount = true
@@ -883,14 +881,6 @@ func (w *idxWriter) validateWrite(fr Frame) error {
 		return err
 	}
 
-	return nil
-}
-
-func (w *idxWriter) updateHighWater(s telem.Series) error {
-	if s.DataType != telem.TimestampT && s.DataType != telem.Int64T {
-		return invalidDataTypeError(w.idx.ch, s.DataType)
-	}
-	w.idx.highWaterMark = s.ValueAt[telem.TimeStamp](-1)
 	return nil
 }
 

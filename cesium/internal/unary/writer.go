@@ -72,6 +72,9 @@ var (
 		ErrOnUnauthorizedOpen:    new(false),
 	}
 	ErrWriterClosed = resource.NewClosedError("unary.writer")
+	// ErrOutOfOrder is returned when a write to an index channel has a timestamp before
+	// the timestamp that precedes it.
+	ErrOutOfOrder = errors.Wrap(validate.ErrValidation, "index out of order")
 )
 
 // Validate implements config.Config.
@@ -146,6 +149,9 @@ type controlledWriter struct {
 	// and the current domain start remain consistent across owners. Reset on rollover
 	// via the domain.Writer's OnRollover hook.
 	tracker *offsetTracker
+	// highWaterMark is the last index timestamp written by any owner, or the start of
+	// the domain before the first write. Only valid for index channels.
+	highWaterMark telem.TimeStamp
 }
 
 var _ control.Resource = &controlledWriter{}
@@ -173,10 +179,6 @@ type Writer struct {
 	// but not limited to density and index.
 	Channel channel.Channel
 	cfg     WriterConfig
-	// highWaterMark is a hot-path optimization when writing to an index channel. We can
-	// avoid unnecessary index lookups by keeping track of the highest timestamp
-	// written. Only valid when Channel.IsIndex is true.
-	highWaterMark telem.TimeStamp
 	// closed stores whether the writer is closed. Operations like Write and Commit do
 	// not succeed on closed writers.
 	closed bool
@@ -213,8 +215,9 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (
 					return nil, err
 				}
 				cw := &controlledWriter{
-					channelKey: db.cfg.Channel.Key,
-					tracker:    db.resolver.newTracker(cfg.Start),
+					channelKey:    db.cfg.Channel.Key,
+					tracker:       db.resolver.newTracker(cfg.Start),
+					highWaterMark: cfg.Start,
 				}
 				cw.storeAlignment(a)
 				domainCfg := cfg.domain()
@@ -286,7 +289,9 @@ func (w *Writer) write(
 	}
 	err := w.control.Authorize(func(dw *controlledWriter) error {
 		if w.Channel.IsIndex {
-			w.updateHwm(series)
+			if err := dw.advanceHighWaterMark(series, w.cfg.Start); err != nil {
+				return err
+			}
 		}
 		if derive {
 			// The tracker is only fed when persisting, so in stream-only mode the
@@ -322,24 +327,34 @@ func (w *Writer) SetAuthority(a xcontrol.Authority) control.Transfer {
 	return w.control.SetAuthority(a)
 }
 
-func (w *Writer) updateHwm(series telem.Series) {
-	if series.Len() != 0 {
-		w.highWaterMark = series.ValueAt[telem.TimeStamp](-1)
+// advanceHighWaterMark moves the high-water mark to the last timestamp in series. It
+// returns ErrOutOfOrder and keeps the mark if any timestamp is before start or before
+// the one that precedes it.
+func (w *controlledWriter) advanceHighWaterMark(
+	series telem.Series,
+	start telem.TimeStamp,
+) error {
+	prev := max(w.highWaterMark, start)
+	for i, ts := range series.Unmarshal[telem.TimeStamp]() {
+		if ts < prev {
+			return errors.Wrapf(
+				ErrOutOfOrder,
+				"timestamp %s at sample %d must not be before %s",
+				ts,
+				i,
+				prev,
+			)
+		}
+		prev = ts
 	}
+	w.highWaterMark = prev
+	return nil
 }
 
 // Commit commits the written series to the database.
 func (w *Writer) Commit(ctx context.Context) (telem.TimeStamp, error) {
 	if w.closed {
 		return 0, w.wrapError(ErrWriterClosed)
-	}
-
-	if w.Channel.IsIndex {
-		ts, err := w.commitWithEnd(ctx, w.highWaterMark+1)
-		if err != nil {
-			return 0, w.wrapError(err)
-		}
-		return ts, nil
 	}
 	ts, err := w.commitWithEnd(ctx, telem.TimeStamp(0))
 	if err != nil {
@@ -361,7 +376,9 @@ func (w *Writer) commitWithEnd(
 	end telem.TimeStamp,
 ) (telem.TimeStamp, error) {
 	err := w.control.Authorize(func(dw *controlledWriter) error {
-		if end.IsZero() {
+		if end.IsZero() && w.Channel.IsIndex {
+			end = dw.highWaterMark + 1
+		} else if end.IsZero() {
 			// Subtract 1 because we want the timestamp of the last written sample.
 			// Anchor on cfg.Start (the writer's session start, always a real index
 			// timestamp) and use the cumulative session sample count, since after a
