@@ -12,6 +12,7 @@ package omit
 
 import (
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/oracle/paths"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/set"
 )
@@ -33,6 +34,21 @@ func IsHand(typ resolution.Type, domainName string) bool {
 // domain: the type is either omitted or hand-written.
 func IsSkipped(typ resolution.Type, domainName string) bool {
 	return IsType(typ, domainName) || IsHand(typ, domainName)
+}
+
+// IsAbsent reports whether a struct does not exist in the domain's language: it omits
+// the language, or has no output there and lives outside a version file.
+func IsAbsent(typ resolution.Type, domainName string) bool {
+	if IsType(typ, domainName) {
+		return true
+	}
+	if domain, ok := typ.Domains[domainName]; ok {
+		if expr, ok := domain.Expressions.Find("output"); ok && len(expr.Values) > 0 {
+			return false
+		}
+	}
+	_, _, inVersionFile := paths.VersionFile(typ.FilePath)
+	return !inVersionFile
 }
 
 // IsField reports whether the field carries a field-level @<domainName> omit: it does

@@ -7,13 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Form } from "@synnaxlabs/lyra/form";
-import { Input } from "@synnaxlabs/lyra/input";
+package v8_test
 
-export const DataSaving = () => (
-  <Form.Field<boolean> label="Data saving" path="config.dataSavingDisabled">
-    {({ value, onChange, ...rest }) => (
-      <Input.Switch {...rest} value={!value} onChange={(v) => onChange(!v)} />
-    )}
-  </Form.Field>
-);
+import (
+	"testing"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/x/testutil"
+)
+
+func TestLinePlotV7(t *testing.T) {
+	RegisterFailHandler(Fail)
+	RunSpecs(t, "Service Line Plot v8 Suite", SuiteConfig())
+}
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

@@ -60,10 +60,10 @@ const Internal = (): ReactElement => {
       <Base.Header>
         <Flex.Box x align="center">
           <Breadcrumb.Breadcrumb>
-            <Breadcrumb.Segment weight={500} color={10} level="h5">
+            <Base.TitleSegment>
               <Icon.Table />
               {name}
-            </Breadcrumb.Segment>
+            </Base.TitleSegment>
             {selectedCellPos != null && (
               <Breadcrumb.Segment color={9}>
                 Cell {Table.getCellColumn(selectedCellPos.x)}

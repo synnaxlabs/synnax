@@ -10,6 +10,7 @@
 import { type text } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
+import { Icon } from "@/icon";
 import { computed, renderThemed, resolve } from "@/styletest";
 import { Text } from "@/text";
 
@@ -52,5 +53,34 @@ describe("Text", () => {
     const { getByText } = await renderThemed(<Text.Text>Label</Text.Text>);
     const el = getByText("Label").element();
     expect(computed(el, "color")).toBe(resolve("var(--pluto-text-color)"));
+  });
+
+  describe("fade", () => {
+    it("should keep a gap between an icon and its label", async () => {
+      const { getByText } = await renderThemed(
+        <Text.Text overflow="fade">
+          <Icon.Range />
+          Label
+        </Text.Text>,
+      );
+      const el = getByText("Label").element();
+      const label = document.createRange();
+      label.selectNode(el.lastChild as Node);
+      const icon = el.querySelector("svg") as SVGElement;
+      expect(label.getBoundingClientRect().left).toBeGreaterThan(
+        icon.getBoundingClientRect().right,
+      );
+    });
+
+    it("should clip a label wider than its box", async () => {
+      const { getByText } = await renderThemed(
+        <div style={{ width: "5rem" }}>
+          <Text.Text overflow="fade">A label far wider than its box</Text.Text>
+        </div>,
+      );
+      const el = getByText("A label far wider than its box").element();
+      expect(computed(el, "overflow-x")).toBe("hidden");
+      expect(el.scrollWidth).toBeGreaterThan(el.clientWidth);
+    });
   });
 });

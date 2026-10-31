@@ -12,8 +12,8 @@ import { assert, beforeAll, describe, expect, it, onTestFinished, vi } from "vit
 import { z } from "zod";
 
 import { channel } from "@/channel";
-import { AccessDeniedError, NotFoundError } from "@/errors";
 import { framer } from "@/framer";
+import { AccessDeniedError, NotFoundError } from "@/index";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { rack } from "@/rack";

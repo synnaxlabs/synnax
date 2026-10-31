@@ -478,6 +478,9 @@ TEST(DeviceTest, ReusesDeviceAcrossServerRestart) {
 /// @brief it should not count a timed-out connect against the unit, since the request
 /// never reached it.
 TEST(DeviceTest, ConnectTimeoutDoesNotDemoteUnit) {
+#ifdef __APPLE__
+    GTEST_SKIP() << "macOS resets a connect to a full accept queue";
+#endif
     // A full accept queue drops new connects, so they time out instead of failing.
     auto *listener = modbus_new_tcp("127.0.0.1", 1690);
     const int fd = modbus_tcp_listen(listener, 1);

@@ -21,7 +21,7 @@ import { type FC } from "react";
 
 import { useFromConfig } from "@/feature/modbus/device/queries";
 import { Select as SelectDevice } from "@/feature/modbus/device/Select";
-import { SCHEMAS } from "@/feature/modbus/device/types";
+import { MAKE, SCHEMAS } from "@/feature/modbus/device/types";
 import { AddressField } from "@/feature/modbus/task/AddressField";
 import { OrderFields } from "@/feature/modbus/task/OrderFields";
 import { SelectReadChannelTypeField } from "@/feature/modbus/task/SelectReadChannelTypeField";
@@ -53,8 +53,6 @@ const Properties = () => (
     <Flex.Box x grow>
       <Task.Fields.SampleRate />
       <Task.Fields.StreamRate />
-      <Task.Fields.DataSaving />
-      <Task.Fields.AutoStart />
     </Flex.Box>
   </>
 );
@@ -264,6 +262,7 @@ export const Read = Task.wrapForm({
 
 export const useCreateRead = Task.createUseCreate({
   getInitialValues,
+  deviceMake: MAKE,
 });
 
 export const ReadSelectable = Selector.createSelectable({

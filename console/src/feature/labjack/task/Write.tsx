@@ -25,6 +25,7 @@ import {
   AO_PORT_TYPE,
   type Device,
   DO_PORT_TYPE,
+  MAKE,
   type Model,
   PORTS,
   SCHEMAS,
@@ -55,7 +56,6 @@ const Properties = () => (
     <Select />
     <Flex.Box x>
       <Task.Fields.StateUpdateRate />
-      <Task.Fields.DataSaving />
     </Flex.Box>
   </>
 );
@@ -75,6 +75,7 @@ const ChannelListItem = ({ deviceModel, ...rest }: ChannelListItemProps) => {
         <PForm.Field<string>
           path={`${path}.port`}
           showLabel={false}
+          showHelpText={false}
           onChange={(value) => {
             if (port === value) return;
             set(path, { ...item, port: value });
@@ -94,6 +95,7 @@ const ChannelListItem = ({ deviceModel, ...rest }: ChannelListItemProps) => {
                 key="type"
                 path={`${path}.type`}
                 showLabel={false}
+                showHelpText={false}
                 gap="large"
                 onChange={(value) => {
                   if (type === value) return;
@@ -342,6 +344,7 @@ export const Write = Task.wrapForm({
 
 export const useCreateWrite = Task.createUseCreate({
   getInitialValues,
+  deviceMake: MAKE,
 });
 
 export const WriteSelectable = Selector.createSelectable({

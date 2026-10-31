@@ -10,11 +10,13 @@
 package lineplot
 
 import (
+	"reflect"
 	"slices"
 
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	v8 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v8"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -71,7 +73,7 @@ func (p AddChannelPayload) Handle(state LinePlot) (LinePlot, error) {
 		return state, nil
 	}
 	*slice = append(*slice, p.Channel)
-	state.Lines = reconcileLines(state)
+	state.Lines = v8.ReconcileLines(state.Key, state.Channels, state.Lines)
 	return state, nil
 }
 
@@ -91,7 +93,7 @@ func (p RemoveChannelPayload) Handle(state LinePlot) (LinePlot, error) {
 		*slice,
 		func(c channel.Key) bool { return c == p.Channel },
 	)
-	state.Lines = reconcileLines(state)
+	state.Lines = v8.ReconcileLines(state.Key, state.Channels, state.Lines)
 	return state, nil
 }
 
@@ -109,7 +111,7 @@ func (p SetChannelsPayload) Handle(state LinePlot) (LinePlot, error) {
 	}
 	slice := yAxisSlice(&state.Channels, p.AxisKey)
 	*slice = slices.Clone(p.Channels)
-	state.Lines = reconcileLines(state)
+	state.Lines = v8.ReconcileLines(state.Key, state.Channels, state.Lines)
 	return state, nil
 }
 
@@ -127,69 +129,36 @@ func (p SetXChannelPayload) Handle(state LinePlot) (LinePlot, error) {
 			p.AxisKey,
 		)
 	}
-	state.Lines = reconcileLines(state)
+	state.Lines = v8.ReconcileLines(state.Key, state.Channels, state.Lines)
 	return state, nil
 }
 
-// Handle appends the range key to the ranges slice bound to the x-axis named
-// by AxisKey. No-op when the range is already bound to that axis. The
-// inverse RemoveRange undoes the append without preserving original slice
-// position; see AddChannel for the same caveat.
+// Handle appends the range reference to the plot's ranges. No-op when an equal
+// reference is already present.
 func (p AddRangePayload) Handle(state LinePlot) (LinePlot, error) {
-	if !p.AxisKey.IsValid() {
-		return LinePlot{}, errors.Wrapf(
-			validate.ErrValidation,
-			"unknown x-axis %q",
-			p.AxisKey,
-		)
-	}
-	slice := xAxisRangeSlice(&state.Ranges, p.AxisKey)
-	if slices.Contains(*slice, p.Range) {
+	if slices.ContainsFunc(state.Ranges, func(r ranger.Ref) bool {
+		return reflect.DeepEqual(r, p.Range)
+	}) {
 		return state, nil
 	}
-	*slice = append(*slice, p.Range)
-	state.Lines = reconcileLines(state)
+	state.Ranges = append(slices.Clone(state.Ranges), p.Range)
 	return state, nil
 }
 
-// Handle removes the range key from the x-axis named by AxisKey. No-op when
-// the range is not present.
+// Handle removes the reference equal to Range from the plot's ranges. No-op when no
+// reference is equal.
 func (p RemoveRangePayload) Handle(state LinePlot) (LinePlot, error) {
-	if !p.AxisKey.IsValid() {
-		return LinePlot{}, errors.Wrapf(
-			validate.ErrValidation,
-			"unknown x-axis %q",
-			p.AxisKey,
-		)
-	}
-	slice := xAxisRangeSlice(&state.Ranges, p.AxisKey)
-	*slice = slices.DeleteFunc(*slice, func(r string) bool { return r == p.Range })
-	state.Lines = reconcileLines(state)
+	state.Ranges = slices.DeleteFunc(
+		slices.Clone(state.Ranges),
+		func(r ranger.Ref) bool { return reflect.DeepEqual(r, p.Range) },
+	)
 	return state, nil
 }
 
-// Handle replaces the entire set of range keys bound to the x-axis named by
-// AxisKey, reconciling the line set. Ranges dropped from the set lose their
-// lines; ranges new to it gain default-styled lines. Surviving ranges keep
-// their existing line styling.
+// Handle replaces the plot's range references. Lines style channels, so they are
+// unaffected.
 func (p SetRangesPayload) Handle(state LinePlot) (LinePlot, error) {
-	if !p.AxisKey.IsValid() {
-		return LinePlot{}, errors.Wrapf(
-			validate.ErrValidation,
-			"unknown x-axis %q",
-			p.AxisKey,
-		)
-	}
-	slice := xAxisRangeSlice(&state.Ranges, p.AxisKey)
-	*slice = slices.Clone(p.Ranges)
-	state.Lines = reconcileLines(state)
-	return state, nil
-}
-
-// Handle sets the window the "custom" range key resolves to. A nil Custom
-// clears the window.
-func (p SetCustomRangePayload) Handle(state LinePlot) (LinePlot, error) {
-	state.Ranges.Custom = p.Custom
+	state.Ranges = slices.Clone(p.Ranges)
 	return state, nil
 }
 
@@ -447,90 +416,4 @@ func yAxisSlice(c *Channels, k YAxisKey) *[]channel.Key {
 		return &c.Y4
 	}
 	panic(errors.Newf("lineplot: yAxisSlice called with non-y-axis %q", k))
-}
-
-// xAxisRangeSlice returns a pointer to the ranges slice for the given
-// x-axis key so handlers can append or filter in place. Callers must have
-// already validated k via IsValid; a non-matching key here means the x-axis
-// enum gained a member that wasn't wired through, so panic loudly rather
-// than returning nil for callers to dereference.
-func xAxisRangeSlice(r *Ranges, k XAxisKey) *[]string {
-	switch k {
-	case XAxisKeyX1:
-		return &r.X1
-	case XAxisKeyX2:
-		return &r.X2
-	}
-	panic(errors.Newf("lineplot: xAxisRangeSlice called with non-x-axis %q", k))
-}
-
-const lineKeySeparator = "---"
-
-var (
-	xAxisKeys = []XAxisKey{XAxisKeyX1, XAxisKeyX2}
-	yAxisKeys = []YAxisKey{YAxisKeyY1, YAxisKeyY2, YAxisKeyY3, YAxisKeyY4}
-)
-
-// lineKey encodes the identity of a line into the stable string stored as
-// Line.Key. It must match the client's lineKey byte-for-byte so that lines
-// reduced on the server and on the client share identity.
-func lineKey(
-	yAxis YAxisKey,
-	xAxis XAxisKey,
-	rng string,
-	xChannel, yChannel channel.Key,
-) string {
-	return string(yAxis) + lineKeySeparator + string(xAxis) + lineKeySeparator + rng +
-		lineKeySeparator + xChannel.String() + lineKeySeparator + yChannel.String()
-}
-
-// zeroLine constructs a line at key with default styling. Label and color are
-// left nil so they resolve from the channel name and palette at render time.
-func zeroLine(key string) Line {
-	l := Line{Key: key}
-	l.ApplyDefaults()
-	return l
-}
-
-// xAxisChannel returns the single channel bound to the given x-axis.
-func xAxisChannel(c Channels, k XAxisKey) channel.Key {
-	if k == XAxisKeyX2 {
-		return c.X2
-	}
-	return c.X1
-}
-
-// reconcileLines rebuilds the complete set of lines implied by the channel and
-// range bindings: one line per (x-axis, range, y-axis, y-channel) combination.
-// Existing lines are preserved by key so user styling survives, missing ones are
-// created with default styling, and lines whose combination no longer exists are
-// dropped. It is the Go counterpart of the client's reconcileLines and must
-// produce identical keys.
-func reconcileLines(state LinePlot) []Line {
-	byKey := make(map[string]Line, len(state.Lines))
-	for _, l := range state.Lines {
-		byKey[l.Key] = l
-	}
-	kept := set.New[string]()
-	lines := make([]Line, 0, len(state.Lines))
-	for _, xAxis := range xAxisKeys {
-		xChannel := xAxisChannel(state.Channels, xAxis)
-		for _, rng := range *xAxisRangeSlice(&state.Ranges, xAxis) {
-			for _, yAxis := range yAxisKeys {
-				for _, yChannel := range *yAxisSlice(&state.Channels, yAxis) {
-					key := lineKey(yAxis, xAxis, rng, xChannel, yChannel)
-					if kept.Contains(key) {
-						continue
-					}
-					kept.Add(key)
-					if existing, ok := byKey[key]; ok {
-						lines = append(lines, existing)
-					} else {
-						lines = append(lines, zeroLine(key))
-					}
-				}
-			}
-		}
-	}
-	return lines
 }
