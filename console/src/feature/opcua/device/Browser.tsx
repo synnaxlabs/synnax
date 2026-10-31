@@ -263,8 +263,10 @@ export const Browser = ({ device, roots }: BrowserProps) => {
     });
   }
   const handleSearchKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key !== "Enter" || !isNodeID(query.trim())) return;
-    setLookup(query.trim());
+    // A string identifier can end with spaces, so only the start is trimmed.
+    const nodeId = query.trimStart();
+    if (e.key !== "Enter" || !isNodeID(nodeId)) return;
+    setLookup(nodeId);
   };
   const refreshRef = useSyncedRef(refresh);
   useEffect(() => refreshRef.current(), [refreshRef]);
