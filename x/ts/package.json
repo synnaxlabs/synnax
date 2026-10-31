@@ -54,7 +54,6 @@
     "src",
     "!**/*.spec.*",
     "!**/*.bench.*",
-    "!**/mock/**",
     "!dist/eslint.config.*"
   ],
   "exports": {

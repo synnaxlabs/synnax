@@ -39,7 +39,7 @@ cc_test(
         "//client/cpp/testutil",
         "//driver/rack/status",
         "//x/cpp/defer",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )

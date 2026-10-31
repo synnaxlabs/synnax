@@ -307,7 +307,7 @@ var completions = []completionInfo{
 		Label:        parser.LiteralFUNC,
 		Detail:       "func declaration",
 		Doc:          "Declares a function",
-		Insert:       "func ${1:name}($2) $3 {\n\t$0\n}",
+		Insert:       "func ${1:name}($2) {$3} $4 {\n\t$0\n}",
 		Kind:         protocol.CompletionItemKindKeyword,
 		InsertFormat: protocol.InsertTextFormatSnippet,
 		Category:     categoryTopLevelKeyword,
@@ -462,8 +462,9 @@ func (s *Server) getCompletionItems(
 		return getImportPathCompletions(doc, prefix, pos, root)
 	}
 
-	if completionCtx == ContextInputParamName ||
-		completionCtx == ContextInputParamValue {
+	// A block document is a func body, so a call in it takes positional arguments.
+	if !doc.isBlock() && (completionCtx == ContextInputParamName ||
+		completionCtx == ContextInputParamValue) {
 		inputInfo := extractInputContext(doc.displayContent(), pos)
 		if inputInfo != nil {
 			if completionCtx == ContextInputParamName {
@@ -594,7 +595,7 @@ func (s *Server) getCompletionItems(
 						NewText: qualifiedName,
 					}
 					item.AdditionalTextEdits = importEdit
-					applyInvocationSuffix(&item, sym.Kind, execFilter)
+					applyInvocationSuffix(&item, sym.Kind)
 					items = append(items, item)
 				}
 			}
@@ -618,7 +619,7 @@ func (s *Server) getCompletionItems(
 								sym.Name,
 							)
 						}
-						applyInvocationSuffix(&item, sym.Kind, execFilter)
+						applyInvocationSuffix(&item, sym.Kind)
 						items = append(items, item)
 					}
 				}
@@ -805,24 +806,15 @@ func readImportPath(tokens []antlr.Token, start int) (string, int) {
 	return b.String(), i
 }
 
-// applyInvocationSuffix appends an invocation snippet — `($0)` in an
-// imperative/WASM context, `{$0}` in a flow context — to a function
-// completion item so the cursor lands inside ready to receive arguments
-// or inputs. No-op for non-function kinds, which insert their bare name.
-// The suffix is appended to TextEdit.NewText when set, otherwise to
-// InsertText (falling back to Label when InsertText is empty).
-func applyInvocationSuffix(
-	item *protocol.CompletionItem,
-	kind symbol.Kind,
-	execFilter symbol.ExecContext,
-) {
+// applyInvocationSuffix appends a `($0)` snippet to a function completion item so
+// the cursor lands inside the parens. No-op for non-function kinds, which insert
+// their bare name. The suffix is appended to TextEdit.NewText when set, otherwise
+// to InsertText (falling back to Label when InsertText is empty).
+func applyInvocationSuffix(item *protocol.CompletionItem, kind symbol.Kind) {
 	if kind != symbol.KindFunction {
 		return
 	}
-	suffix := "{$0}"
-	if execFilter == symbol.ExecWASM {
-		suffix = "($0)"
-	}
+	suffix := "($0)"
 	if edit, ok := item.TextEdit.(*protocol.TextEdit); ok {
 		edit.NewText += suffix
 	} else {
@@ -1012,7 +1004,7 @@ func appendModuleMemberCompletions(
 				if !imported {
 					item.AdditionalTextEdits = buildAutoImportEdit(doc, mod.Name)
 				}
-				applyInvocationSuffix(&item, member.Kind, execFilter)
+				applyInvocationSuffix(&item, member.Kind)
 				items = append(items, item)
 			}
 		}

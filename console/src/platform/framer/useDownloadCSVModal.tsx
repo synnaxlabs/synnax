@@ -69,12 +69,9 @@ const DownloadCSV = ({
     typeof formSchema
   >("timeRange", { ctx: form });
   const footer = (
-    <>
-      <Triggers.SaveHelpText action="Download" />
-      <Nav.Bar.End x align="center">
-        <DownloadButton handleFinish={close} />
-      </Nav.Bar.End>
-    </>
+    <Nav.Bar.End x align="center">
+      <DownloadButton handleFinish={close} />
+    </Nav.Bar.End>
   );
   return (
     <Form.Form<typeof formSchema> {...form}>
@@ -182,6 +179,7 @@ const DownloadButton = ({ handleFinish }: DownloadButtonProps) => {
       disabled={isDisabled}
       onClick={handleClick}
       trigger={Triggers.SAVE}
+      triggerIndicator
     >
       <Icon.Download />
       Download

@@ -7,8 +7,8 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Deploys a live Core with the Console embedded for each pull request that changes the
-# Core or the Console, or has the preview label, and removes it when the pull request
+# Deploys a live Core with the Console embedded for each pull request with the preview
+# label, again on each push while the label stays, and removes it when the pull request
 # closes. The host is in deploy/preview. Fork pull requests never deploy: their code
 # must not reach the AWS role. Nothing runs until the PREVIEW_* variables exist.
 
@@ -33,29 +33,12 @@ env:
   URL: https://pr-${{ github.event.pull_request.number }}.${{ vars.PREVIEW_DOMAIN }}
 
 jobs:
-  changes:
+  deploy:
     if:
       github.event.pull_request.head.repo.full_name == github.repository &&
       vars.PREVIEW_INSTANCE_ID != '' && github.event.action != 'closed' &&
+      contains(github.event.pull_request.labels.*.name, 'preview') &&
       (github.event.action != 'labeled' || github.event.label.name == 'preview')
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: read
-    outputs:
-      changed: ${{ steps.filter.outputs.preview }}
-    steps:
-      - uses: actions/checkout@v7
-      - uses: dorny/paths-filter@v4
-        id: filter
-        with:
-          filters: .github/filters.yaml
-
-  deploy:
-    needs: changes
-    if:
-      needs.changes.outputs.changed == 'true' ||
-      contains(github.event.pull_request.labels.*.name, 'preview')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -111,6 +94,23 @@ jobs:
             /usr/local/bin/preview up ${{ env.PR }} ${{ steps.tag.outputs.image }}
           INSTANCE: ${{ vars.PREVIEW_INSTANCE_ID }}
         run: .github/scripts/run_preview_command.sh
+
+      # Caddy gets the certificate for a new preview name on its first request, so the
+      # URL can fail TLS for a short time after the deploy.
+      - name: Wait for the preview
+        run: |
+          deadline=$((SECONDS + 180))
+          delay=2
+          until curl -fsS -o /dev/null --max-time 10 -X POST \
+            -H "Content-Type: application/json" -d '{}' \
+            "$URL/api/v1/connectivity/check"; do
+            if ((SECONDS + delay > deadline)); then
+              echo "::error::$URL did not answer over HTTPS within 3 minutes."
+              exit 1
+            fi
+            sleep "$delay"
+            delay=$((delay * 2 > 30 ? 30 : delay * 2))
+          done
 
       - name: Create the sample project
         run: node console/scripts/create_sample.ts "$URL"

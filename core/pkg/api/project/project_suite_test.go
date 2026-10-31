@@ -64,6 +64,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:       db,
 		Ontology: otg,
 		Group:    groupSvc,
+		Password: passwordSvc,
 	}))
 	MustSucceed2(
 		user.ProvisionRoot(
@@ -101,14 +102,14 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Project: projectSvc,
 	}))
 	author = MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
-		Username: "test",
+		Name: "test",
 	}))
 })
 
 func createUser(ctx SpecContext) user.User {
 	GinkgoHelper()
 	return MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
-		Username: "import-" + uuid.New().String(),
+		Name: "import-" + uuid.New().String(),
 	}))
 }
 

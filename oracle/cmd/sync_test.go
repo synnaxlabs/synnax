@@ -7,34 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package cmd
+package cmd_test
 
 import (
-	"context"
 	"os"
 	"path/filepath"
+	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/oracle/format"
-	"github.com/synnaxlabs/oracle/pipeline"
-	"github.com/synnaxlabs/oracle/plugin"
 	. "github.com/synnaxlabs/x/testutil"
 )
-
-// diskFormatter reads the file from disk, as ESLint's TypeScript project service does.
-type diskFormatter struct{}
-
-func (diskFormatter) Format(
-	_ context.Context,
-	content []byte,
-	path string,
-) ([]byte, error) {
-	if _, err := os.Stat(path); err != nil {
-		return nil, err
-	}
-	return append(content, "// formatted\n"...), nil
-}
 
 var _ = Describe("sync command", func() {
 	var (
@@ -56,9 +39,7 @@ var _ = Describe("sync command", func() {
 		It("writes schema sources and generated outputs before buf fails", func() {
 			// The mini repo has no buf configuration, so the run stops at the
 			// buf-generate step; everything before it must have completed.
-			cmd := NewRootCmd()
-			Expect(executeCommand(cmd, "sync", "-v")).Error().
-				To(MatchError(ContainSubstring("buf generate")))
+			Expect(fail(1, "sync", "-v")).To(ContainSubstring("buf generate"))
 
 			schema := string(MustSucceed(os.ReadFile(
 				filepath.Join(repoDir, "schemas", "synnax", "user.oracle"),
@@ -67,6 +48,53 @@ var _ = Describe("sync command", func() {
 			Expect(filepath.Join(repoDir, "x", "go", "user", "types.gen.go")).
 				To(BeAnExistingFile())
 		})
+	})
+
+	Describe("with generated files on disk", func() {
+		var generated string
+
+		BeforeEach(func() {
+			repoDir, cleanup = setupMiniRepo(map[string]string{
+				"synnax/user.oracle": "@go output \"core/pkg/user\"\n\n" +
+					"User struct {\n    key uuid\n    name string\n}\n",
+			})
+			generated = filepath.Join(repoDir, "core", "pkg", "user", "types.gen.go")
+		})
+
+		// The mini repo has no buf configuration, so every sync stops at buf generate
+		// after it writes the generated files.
+		sync := func() {
+			GinkgoHelper()
+			Expect(fail(1, "sync")).To(ContainSubstring("buf generate"))
+		}
+
+		It("Should restore a generated file that was edited by hand", func() {
+			sync()
+			want := MustSucceed(os.ReadFile(generated))
+			Expect(os.WriteFile(generated, []byte("edited"), 0o644)).To(Succeed())
+			sync()
+			Expect(os.ReadFile(generated)).To(Equal(want))
+		})
+
+		DescribeTable(
+			"Should not rewrite a generated file that is already current",
+			func(cached bool) {
+				sync()
+				if !cached {
+					Expect(
+						os.Remove(filepath.Join(repoDir, ".oracle", "sync-cache.json")),
+					).To(Succeed())
+				}
+				past := time.Now().Add(-time.Hour).Truncate(time.Second)
+				Expect(os.Chtimes(generated, past, past)).To(Succeed())
+				sync()
+				Expect(
+					MustSucceed(os.Stat(generated)).ModTime(),
+				).To(BeTemporally("==", past))
+			},
+			Entry("with the sync cache", true),
+			Entry("without the sync cache", false),
+		)
 	})
 
 	Describe("with an invalid schema", func() {
@@ -78,9 +106,7 @@ var _ = Describe("sync command", func() {
 		})
 
 		It("prints diagnostics and fails generation", func() {
-			cmd := NewRootCmd()
-			Expect(executeCommand(cmd, "sync")).Error().
-				To(MatchError(ContainSubstring("generation failed")))
+			Expect(fail(1, "sync")).To(printOnce("generation failed"))
 		})
 	})
 
@@ -90,26 +116,38 @@ var _ = Describe("sync command", func() {
 		})
 
 		It("errors when no schema files exist", func() {
-			cmd := NewRootCmd()
-			Expect(executeCommand(cmd, "sync")).Error().
-				To(MatchError(ContainSubstring("no schema files found")))
+			Expect(fail(1, "sync")).To(printOnce("no schema files found"))
 		})
 	})
 })
 
-var _ = Describe("sync outputs", func() {
-	It("Should put a new file on disk before formatting it", func(ctx SpecContext) {
-		root := GinkgoT().TempDir()
-		formatters := format.NewRegistry()
-		formatters.Register(".ts", diskFormatter{})
-		result := &pipeline.Result{Outputs: map[string][]plugin.File{
-			"ts/types": {{Path: "src/thing/types.gen.ts", Content: []byte("x\n")}},
-		}}
-		r := MustSucceed(syncOutputs(
-			ctx, result, root, formatters, format.LoadCache(root), 1,
-		))
-		Expect(r.Written).To(Equal([]string{"src/thing/types.gen.ts"}))
-		Expect(os.ReadFile(filepath.Join(root, "src", "thing", "types.gen.ts"))).
-			To(Equal([]byte("x\n// formatted\n")))
+var _ = Describe("sync with a new TypeScript output", func() {
+	var (
+		repoDir string
+		cleanup func()
+	)
+
+	BeforeEach(func() {
+		repoDir, cleanup = setupMiniRepo(map[string]string{
+			"synnax/user.oracle": "@ts output \"client/ts/src/user\"\n\n" +
+				"User struct {\n    key uuid\n    name string\n}\n",
+		})
+		// ESLint and Prettier run through pnpm, so a failing pnpm stops the sync while
+		// it formats.
+		bin := GinkgoT().TempDir()
+		Expect(os.WriteFile(
+			filepath.Join(bin, "pnpm"),
+			[]byte("#!/bin/sh\nexit 1\n"),
+			0o755,
+		)).To(Succeed())
+		GinkgoT().Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+	})
+
+	AfterEach(func() { cleanup() })
+
+	It("Should put a new file on disk before formatting it", func() {
+		fail(1, "sync")
+		Expect(filepath.Join(repoDir, "client", "ts", "src", "user", "types.gen.ts")).
+			To(BeAnExistingFile())
 	})
 })

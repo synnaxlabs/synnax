@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { CSS } from "@synnaxlabs/lyra/css";
 import { color } from "@synnaxlabs/x";
 import { BaseEdge, type BaseEdgeProps } from "@xyflow/react";
 import { type CSSProperties, type ReactElement } from "react";
 import { z } from "zod";
 
+import { CSS } from "@/css";
 import { Primitive } from "@/schematic/node/common/primitive";
 
 export interface BaseProps extends Omit<BaseEdgeProps, "color"> {
@@ -45,7 +45,7 @@ export const Base = ({
   return (
     <BaseEdge
       {...props}
-      className={CSS.cls(CSS.B("symbol-colored"), className)}
+      className={CSS.cls(CSS.symbolColored, className)}
       interactionWidth={INTERACTION_WIDTH}
       style={style}
     />

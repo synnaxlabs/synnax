@@ -33,6 +33,6 @@ type Where struct {
 	Not *Where `json:"not,omitzero" msgpack:"not,omitempty"`
 	// Key selects by key.
 	Key *filter.Set[Key] `json:"key,omitzero" msgpack:"key,omitempty"`
-	// Username selects by username.
-	Username *filter.String `json:"username,omitzero" msgpack:"username,omitempty"`
+	// Usernames matches the users whose password has any of the given usernames.
+	Usernames []string `json:"usernames,omitzero" msgpack:"usernames,omitempty"`
 }
