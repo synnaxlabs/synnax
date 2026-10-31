@@ -63,6 +63,18 @@ export const validateChannelDevices = ({
   });
 };
 
+export const validateEnabledChannel = ({
+  value: channels,
+  issues,
+}: z.core.ParsePayload<Channel[]>) => {
+  if (channels.some(({ disabled }) => !disabled)) return;
+  issues.push({
+    code: "custom",
+    message: "At least one enabled channel is required",
+    input: channels,
+  });
+};
+
 export const validateReadChannels = (
   ctx: z.core.ParsePayload<{ key: string; channel: channel.Key; name: string }[]>,
 ) => {

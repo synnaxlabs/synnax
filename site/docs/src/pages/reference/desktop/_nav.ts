@@ -23,10 +23,6 @@ export const DESKTOP_NAV: PageNavNode = {
       name: "Data",
     },
     {
-      href: "/reference/desktop/usage-data",
-      name: "Usage data",
-    },
-    {
       href: "/reference/desktop/uninstall",
       name: "Uninstall",
     },

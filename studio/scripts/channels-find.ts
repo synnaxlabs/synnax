@@ -37,7 +37,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     const input = page.locator(".console-palette__input input[role='textbox']");
     await session.waitFor(input);
     const dialog = page
-      .locator(".pluto-dialog__dialog:has(.console-palette__input)")
+      .locator(".lyra-dialog__dialog:has(.console-palette__input)")
       .first();
     const box = await dialog.boundingBox();
     if (box == null) throw new Error("search palette is hidden");
@@ -55,7 +55,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
 
     await session.type(QUERY);
     const result = dialog
-      .locator(".pluto-list__item")
+      .locator(".lyra-list__item")
       .filter({ has: page.getByText(TARGET, { exact: true }) })
       .first();
     await session.waitFor(result);

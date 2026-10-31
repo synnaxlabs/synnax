@@ -21,6 +21,7 @@ import {
 } from "@/feature/ni/task/testutil";
 import {
   clickDeploy,
+  createWithHook,
   deployAndAwaitTask,
   selectFromDropdown,
 } from "@/platform/task/testutil";
@@ -213,10 +214,12 @@ describe("CounterRead", () => {
     });
   });
 
-  it("should surface an error when the task has no channels", async () => {
-    const { statuses, container } = await renderCounterRead(createConfig([]));
+  it("should mark the channel list when the task has no channels", async () => {
+    const { container } = await renderCounterRead(createConfig([]));
     await clickDeploy(container);
-    await awaitStatusDescription(statuses, /No device selected/);
+    expect(
+      await screen.findByText("At least one enabled channel is required"),
+    ).toBeTruthy();
   });
 
   it("should surface an error when channels span devices on different racks", async () => {
@@ -250,5 +253,23 @@ describe("CounterRead", () => {
       statuses,
       new RegExp(`^Found no device with key ${deleted.key}$`),
     );
+  });
+
+  it("should create the task with one channel", async () => {
+    const tsk = await createWithHook(
+      NI.Task.useCreateCounterRead,
+      NI.Task.COUNTER_READ_SCHEMAS,
+    );
+    expect(tsk.config.channels).toHaveLength(1);
+  });
+
+  it("should create the task with one channel on the given device", async () => {
+    const dev = await createNIDevice(client);
+    const tsk = await createWithHook(
+      NI.Task.useCreateCounterRead,
+      NI.Task.COUNTER_READ_SCHEMAS,
+      { deviceKey: dev.key },
+    );
+    expect(tsk.config.channels.map(({ device }) => device)).toEqual([dev.key]);
   });
 });

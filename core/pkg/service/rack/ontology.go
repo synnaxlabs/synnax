@@ -33,7 +33,7 @@ func OntologyIDsFromRacks(racks []Rack) []ontology.ID {
 }
 
 func KeyFromOntologyID(id ontology.ID) (Key, error) {
-	k, err := strconv.Atoi(id.Key)
+	k, err := strconv.ParseUint(id.Key, 10, 32)
 	if err != nil {
 		return 0, err
 	}
@@ -67,7 +67,7 @@ func (s *Service) RetrieveResource(
 	key string,
 	tx gorp.Tx,
 ) (ontology.Resource, error) {
-	k, err := strconv.Atoi(key)
+	k, err := strconv.ParseUint(key, 10, 32)
 	if err != nil {
 		return ontology.Resource{}, err
 	}

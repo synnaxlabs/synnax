@@ -24,11 +24,14 @@ class Period(Counter):
         starting_edge (str): "Rising" or "Falling"
         units (str): "Seconds", "Ticks", or "Custom"
         terminal (str): Input terminal (e.g., "PFI0", "PFI1", etc.)
-        meas_method (str): "One counter (low frequency)", "Two counters (high frequency)", "Two counters (large range)", "Dynamic averaging"
+        meas_method (str): "One counter (low frequency)",
+            "Two counters (high frequency)", "Two counters (large range)",
+            "Dynamic averaging"
     """
 
     def __init__(
         self,
+        *,
         layout: LayoutClient,
         name: str,
         device: str,
