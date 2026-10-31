@@ -322,11 +322,16 @@ NodeConfig union on variant {
         dimensions    spatial.Dimensions = { width = 125, height = 200 } {
             @doc value "is the rendered size of the box in pixels."
         }
-        border_radius float64 = 3 {
-            @doc value "is the uniform corner radius of the box in pixels."
+        border_radius float64?           {
+            @doc value """
+                is the uniform corner radius of the box in pixels. Absent draws the
+                default of 3.
+            """
         }
-        stroke_width  float64 = 2 {
-            @doc value "is the border stroke width in pixels."
+        stroke_width  float64?           {
+            @doc value """
+                is the border stroke width in pixels. Absent draws the default of 2.
+            """
         }
 
         @doc value "is the configuration for box annotation symbols."
@@ -366,8 +371,10 @@ NodeConfig union on variant {
         fill_color   color.Color? {
             @doc value "is the fill color of the circle."
         }
-        stroke_width float64 = 2 {
-            @doc value "is the border stroke width in pixels."
+        stroke_width float64?     {
+            @doc value """
+                is the border stroke width in pixels. Absent draws the default of 2.
+            """
         }
 
         @doc value "is the configuration for circle annotation symbols."
@@ -379,8 +386,10 @@ NodeConfig union on variant {
         stroke_color color.Color?       {
             @doc value "is the color of the gauge arc."
         }
-        bounds       spatial.Bounds = { lower = 0, upper = 100 } {
-            @doc value "is the numeric range displayed by the gauge."
+        bounds       spatial.Bounds?    {
+            @doc value """
+                is the numeric range displayed by the gauge. Absent displays 0 to 100.
+            """
         }
         bar_width    float64 = 10 {
             @doc value "is the thickness of the gauge arc in pixels."
@@ -458,11 +467,17 @@ NodeConfig union on variant {
         start        spatial.XY = { x = 0, y = 0 } {
             @doc value "is the first endpoint, offset from the node position."
         }
-        end          spatial.XY = { x = 100, y = 0 } {
-            @doc value "is the second endpoint, offset from the node position."
+        end          spatial.XY?  {
+            @doc value """
+                is the second endpoint, offset from the node position. Absent places it
+                at { x = 100, y = 0 }.
+            """
         }
-        stroke_width float64 = 2 {
-            @doc value "is the stroke width of the line in pixels."
+        stroke_width float64?     {
+            @doc value """
+                is the stroke width of the line in pixels. Absent draws the default of
+                2.
+            """
         }
 
         @doc value "is the configuration for straight line symbols."
@@ -505,8 +520,10 @@ NodeConfig union on variant {
         fill_color      color.Color? {
             @doc value "is the fill color of the polygon."
         }
-        stroke_width    float64 = 2 {
-            @doc value "is the border stroke width in pixels."
+        stroke_width    float64?     {
+            @doc value """
+                is the border stroke width in pixels. Absent draws the default of 2.
+            """
         }
 
         @doc value "is the configuration for polygon annotation symbols."
@@ -800,13 +817,11 @@ NodeConfig union on variant {
         dimensions    spatial.Dimensions = { width = 125, height = 200 } {
             @doc value "is the rendered size of the tank in pixels."
         }
-        border_radius border.Radius = {
-            top_left = { x = 50, y = 10 },
-            top_right = { x = 50, y = 10 },
-            bottom_left = { x = 50, y = 10 },
-            bottom_right = { x = 50, y = 10 }
-        } {
-            @doc value "is the corner radius of the tank."
+        border_radius border.Radius?        {
+            @doc value """
+                is the corner radius of the tank. Absent rounds each corner by the
+                default of 50 by 10.
+            """
         }
         caret_visible bool = false {
             @doc value "shows the caret marking the current level."
@@ -980,8 +995,11 @@ Schematic struct {
 }
 
 ScaleIndicatorConfig struct extends NumericTelemConfig, StalenessConfig {
-    bounds       spatial.Bounds = { lower = 0, upper = 100 } {
-        @doc value "is the numeric range the indicator maps onto its extent."
+    bounds       spatial.Bounds?       {
+        @doc value """
+            is the numeric range the indicator maps onto its extent. Absent maps 0 to
+            100.
+        """
     }
     level_color  color.Color?          {
         @doc value """
@@ -1067,8 +1085,10 @@ NumericTelemConfig struct {
     rolling_average int32?            {
         @doc value "is the sample window for rolling-average smoothing."
     }
-    precision       float64 = 2 {
-        @doc value "is the number of decimal places shown."
+    precision       float64?          {
+        @doc value """
+            is the number of decimal places shown. Absent shows the default of 2.
+        """
     }
     notation        notation.Notation = "standard" {
         @doc value "is the numeric notation used to format the value."

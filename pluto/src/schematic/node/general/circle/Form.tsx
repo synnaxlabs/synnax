@@ -29,8 +29,9 @@ export const CircleForm = (): ReactElement => (
       <Form.ColorField path="strokeColor" label="Stroke" />
       <Form.FillField />
       <Base.NumericField path="radius" label="Radius" inputProps={RADIUS_INPUT_PROPS} />
-      <Base.NumericField
+      <Form.NumericField
         path="strokeWidth"
+        fallback={Form.DEFAULT_STROKE_WIDTH}
         label="Border width"
         inputProps={Form.STROKE_WIDTH_INPUT_PROPS}
       />

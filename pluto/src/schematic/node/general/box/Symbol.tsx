@@ -13,6 +13,7 @@ import { type schematic } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
+import { Form } from "@/schematic/node/common/form";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 import { type NodeProps } from "@/schematic/node/spec";
@@ -22,7 +23,14 @@ export const Symbol = ({
   nodeKey,
   onConfigChange,
   selected,
-  config: { label, fillColor, borderRadius, strokeColor, dimensions, strokeWidth },
+  config: {
+    label,
+    fillColor,
+    borderRadius = Form.DEFAULT_BOX_BORDER_RADIUS,
+    strokeColor,
+    dimensions,
+    strokeWidth,
+  },
 }: NodeProps<schematic.BoxNodeConfig>): ReactElement => (
   <Grid.Grid
     allowCenter

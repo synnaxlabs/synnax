@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
+	"github.com/synnaxlabs/x/border"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/spatial"
@@ -24,6 +25,76 @@ import (
 	"github.com/synnaxlabs/x/union"
 	"github.com/synnaxlabs/x/validate"
 )
+
+// zeroBounds is a range whose upper bound is 0.
+var zeroBounds = spatial.Bounds{Lower: -10}
+
+// zeroConfigs returns one config per symbol with a field that accepts 0, with every
+// such field set to 0.
+func zeroConfigs() map[string]schematic.ElementConfig {
+	precision := schematic.NumericTelemConfig{Precision: new(0.0)}
+	return map[string]schematic.ElementConfig{
+		"box": {Variant: schematic.BoxElementConfig{
+			BorderRadius: new(0.0),
+			StrokeWidth:  new(0.0),
+		}},
+		"circle": {Variant: schematic.CircleElementConfig{StrokeWidth: new(0.0)}},
+		"gauge": {Variant: schematic.GaugeElementConfig{
+			NumericTelemConfig: precision,
+			Bounds:             new(zeroBounds),
+		}},
+		"line": {Variant: schematic.LineElementConfig{
+			End:         new(spatial.XY{Y: 40}),
+			StrokeWidth: new(0.0),
+		}},
+		"polygon": {Variant: schematic.PolygonElementConfig{StrokeWidth: new(0.0)}},
+		"scale": {Variant: schematic.ScaleElementConfig{
+			ScaleIndicatorConfig: schematic.ScaleIndicatorConfig{
+				NumericTelemConfig: precision,
+				Bounds:             new(zeroBounds),
+			},
+		}},
+		"tank": {Variant: schematic.TankElementConfig{
+			Precision:    new(0.0),
+			Bounds:       new(zeroBounds),
+			BorderRadius: new(border.Radius{}),
+		}},
+		"value": {Variant: schematic.ValueElementConfig{NumericTelemConfig: precision}},
+	}
+}
+
+// expectZeros asserts that configs keep every 0 that zeroConfigs sets.
+func expectZeros(configs map[string]schematic.ElementConfig) {
+	GinkgoHelper()
+	zero := HaveValue(BeZero())
+	bounds := HaveValue(Equal(zeroBounds))
+	Expect(configs["box"].Variant).To(SatisfyAll(
+		HaveField("BorderRadius", zero),
+		HaveField("StrokeWidth", zero),
+	))
+	Expect(configs["circle"].Variant).To(HaveField("StrokeWidth", zero))
+	Expect(configs["gauge"].Variant).To(SatisfyAll(
+		HaveField("NumericTelemConfig.Precision", zero),
+		HaveField("Bounds", bounds),
+	))
+	Expect(configs["line"].Variant).To(SatisfyAll(
+		HaveField("End", HaveValue(Equal(spatial.XY{Y: 40}))),
+		HaveField("StrokeWidth", zero),
+	))
+	Expect(configs["polygon"].Variant).To(HaveField("StrokeWidth", zero))
+	Expect(configs["scale"].Variant).To(SatisfyAll(
+		HaveField("ScaleIndicatorConfig.NumericTelemConfig.Precision", zero),
+		HaveField("ScaleIndicatorConfig.Bounds", bounds),
+	))
+	Expect(configs["tank"].Variant).To(SatisfyAll(
+		HaveField("Precision", zero),
+		HaveField("Bounds", bounds),
+		HaveField("BorderRadius", zero),
+	))
+	Expect(configs["value"].Variant).To(
+		HaveField("NumericTelemConfig.Precision", zero),
+	)
+}
 
 // tankCfg constructs a typed tank element config. hex is optional.
 func tankCfg(label, hex string) schematic.ElementConfig {
@@ -897,8 +968,8 @@ var _ = Describe("Payload decoding", func() {
 		a := decode(`{"type": "set_config", "set_config": {"key": "l1",
 			"config": {"variant": "line", "end": {"x": 0, "y": 40}}}}`)
 		cfg := a.SetConfig.Config.Variant.(schematic.LineElementConfig)
-		Expect(cfg.End).To(Equal(spatial.XY{X: 0, Y: 40}))
-		Expect(cfg.StrokeWidth).To(BeEquivalentTo(2))
+		Expect(cfg.End).To(HaveValue(Equal(spatial.XY{X: 0, Y: 40})))
+		Expect(cfg.StrokeWidth).To(BeNil())
 	})
 
 	It("Should keep an empty string the payload carries", func() {
@@ -928,7 +999,7 @@ var _ = Describe("Payload decoding", func() {
 		var a schematic.Action
 		Expect(msgpack.Codec.Decode(ctx, body, &a)).To(Succeed())
 		cfg := a.SetConfig.Config.Variant.(schematic.LineElementConfig)
-		Expect(cfg.End.X).To(BeZero())
-		Expect(cfg.StrokeWidth).To(BeEquivalentTo(2))
+		Expect(cfg.End).To(HaveValue(HaveField("X", BeZero())))
+		Expect(cfg.StrokeWidth).To(BeNil())
 	})
 })

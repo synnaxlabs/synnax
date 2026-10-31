@@ -38,6 +38,16 @@ var _ = Describe("Writer", func() {
 					To(MatchError(ContainSubstring("name: required")))
 			},
 		)
+		It("Should keep every config field set to 0", func(ctx SpecContext) {
+			s := schematic.Schematic{Name: "zeros", Configs: zeroConfigs()}
+			Expect(svc.NewWriter(tx).Create(ctx, proj.Key, &s)).To(Succeed())
+			var res schematic.Schematic
+			Expect(svc.NewRetrieve().
+				Where(schematic.MatchKeys(s.Key)).
+				Entry(&res).
+				Exec(ctx, tx)).To(Succeed())
+			expectZeros(res.Configs)
+		})
 	})
 	Describe("CreateMany", func() {
 		It("Should create multiple schematics", func(ctx SpecContext) {
@@ -305,6 +315,27 @@ var _ = Describe("Writer", func() {
 				Expect(res.Nodes).To(HaveLen(2))
 				Expect(res.Edges).To(HaveLen(1))
 				Expect(res.Configs["pump"]).To(Equal(tankCfg("Main Pump", "")))
+			},
+		)
+
+		It(
+			"Should keep every config field a SetConfig sets to 0",
+			func(ctx SpecContext) {
+				s := schematic.Schematic{Name: "zeros"}
+				Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &s)).To(Succeed())
+				var actions []schematic.Action
+				for key, cfg := range zeroConfigs() {
+					actions = append(actions, schematic.NewSetConfigAction(
+						schematic.SetConfigPayload{Key: key, Config: cfg},
+					))
+				}
+				Expect(svc.Dispatch(ctx, s.Key, "session-1", actions)).To(Succeed())
+				var res schematic.Schematic
+				Expect(svc.NewRetrieve().
+					Where(schematic.MatchKeys(s.Key)).
+					Entry(&res).
+					Exec(ctx, tx)).To(Succeed())
+				expectZeros(res.Configs)
 			},
 		)
 
