@@ -112,12 +112,14 @@ you clear **Install Synnax as a Windows Service**, the installer removes the ser
 
 <Fragment slot="Docker">
 
-1. Pull the new image. Use a version tag, such as `synnaxlabs/synnax:0.59.0`, so you can
-   go back to the old image:
+1. Pull the new image. Use a version tag, such as `synnaxlabs/synnax:0.60.0`:
 
    ```bash
    docker pull synnaxlabs/synnax:<version>
    ```
+
+   Keep the old tag so you can run that image again. A Core you upgraded to 0.60 cannot
+   go back to 0.59.
 
 2. Remove the old container. The data and the certificates stay in their volumes:
 
