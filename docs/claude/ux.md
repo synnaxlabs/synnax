@@ -187,6 +187,8 @@ outlined button) has fill l2 and border l4, and its caret has the disabled text 
 - Declare the columns once with `List.Columns`. Each item lays out its own grid, so give
   each column a width that does not follow its content, such as `30rem` or `1fr`.
 - A heading over a field lines up with the field's text, not its box.
+- A record table that does not fit its pane scrolls sideways, and the headings scroll
+  with it. Fields never shrink to fit: a cut value can read as another value.
 
 ### Table input
 

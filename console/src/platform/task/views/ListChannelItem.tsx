@@ -25,7 +25,7 @@ import { getChannelNameID } from "@/platform/task/getChannelNameID";
 /** The arrow and channel columns that follow a task's own columns. */
 export const LIST_CHANNEL_COLUMNS: List.Column[] = [
   { width: "2.5rem" },
-  { name: "Channel", width: "1fr" },
+  { name: "Channel", width: "minmax(24rem, 1fr)" },
 ];
 
 export interface ListChannelItemProps extends List.ItemProps<string> {
