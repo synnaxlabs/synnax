@@ -165,12 +165,10 @@ type Status struct {
 	// labels contains optional labels for categorization and filtering.
 	Labels *LabelList `protobuf:"bytes,8,opt,name=labels,proto3" json:"labels,omitempty"`
 	// since is when the open or most recent problem of the status started. A problem is a
-	// period with a warning or error variant. The Core sets it on every write and ignores
-	// the value a client sends. Empty if the status never had a problem.
+	// period with a warning or error variant. Empty if the status never had a problem.
 	Since *int64 `protobuf:"varint,9,opt,name=since,proto3,oneof" json:"since,omitempty"`
-	// cleared is when the most recent problem of the status cleared. The Core sets it on
-	// every write and ignores the value a client sends. Empty while a problem is open, or
-	// if the status never had a problem.
+	// cleared is when the most recent problem of the status cleared. Empty while a
+	// problem is open, or if the status never had a problem.
 	Cleared       *int64 `protobuf:"varint,10,opt,name=cleared,proto3,oneof" json:"cleared,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
