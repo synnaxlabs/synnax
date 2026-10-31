@@ -80,7 +80,7 @@ const (
 )
 
 // Defer attaches the provided function f to the routine. The function will be
-// executed on routine exit in LIFO style.
+// executed on routine exit in LIFO style, or at once if the routine never starts.
 func Defer(f func(), opts ...RoutineOption) RoutineOption {
 	o := newRoutineOptions(opts)
 	return func(r *routineOptions) {
@@ -91,9 +91,9 @@ func Defer(f func(), opts ...RoutineOption) RoutineOption {
 	}
 }
 
-// DeferErr attaches the provided function f to the routine. The function will
-// be executed on routine exit in LIFO style. If the function returns a non-nil
-// error, the routine will fail.
+// DeferErr attaches the provided function f to the routine. The function will be
+// executed on routine exit in LIFO style, or at once if the routine never starts. If
+// the function returns a non-nil error, the routine will fail.
 func DeferErr(f func() error, opts ...RoutineOption) RoutineOption {
 	o := newRoutineOptions(opts)
 	return func(r *routineOptions) {
@@ -268,11 +268,7 @@ func (r *routine) runPostlude(err error) error {
 	r.state.state = RoutineStateStopping
 	r.ctx.mu.Unlock()
 
-	for i := range r.deferrals {
-		if dErr := r.deferrals[len(r.deferrals)-i-1].f(); dErr != nil {
-			err = errors.Combine(err, dErr)
-		}
-	}
+	err = errors.Combine(err, r.runDeferrals())
 
 	r.ctx.mu.Lock()
 	defer r.ctx.mu.Unlock()
@@ -378,41 +374,60 @@ func (r *routine) path() string {
 	return r.key
 }
 
-func (r *routine) goRun(f func(context.Context) error) {
-	if ctx, proceed := r.runPrelude(); proceed {
-		pprof.Do(ctx, pprof.Labels("routine", r.path()), func(ctx context.Context) {
-			r.ctx.mu.Lock()
-			r.state.state = RoutineStateRunning
-			r.ctx.mu.Unlock()
-
-			r.ctx.internal.Go(func() (err error) {
-				for {
-					recovered := false
-					func() {
-						defer func() {
-							if e := recover(); e != nil {
-								recovered = true
-								err = r.maybeRecover(e)
-							}
-						}()
-						err = f(ctx)
-					}()
-					if !recovered || !r.useBreaker || !r.breaker.Wait() {
-						break
-					}
-				}
-				// When a breaker-managed routine exits its retry loop and the context
-				// is cancelled, always report the context error. This ensures
-				// deterministic behavior regardless of whether the cancellation
-				// landed during the breaker wait or during a re-execution of f.
-				if r.useBreaker && r.ctx.Err() != nil {
-					err = r.ctx.Err()
-				}
-				err = r.runPostlude(err)
-				return err
-			})
-		})
+func (r *routine) runDeferrals() error {
+	var err error
+	for i := range r.deferrals {
+		if dErr := r.deferrals[len(r.deferrals)-i-1].f(); dErr != nil {
+			err = errors.Combine(err, dErr)
+		}
 	}
+	return err
+}
+
+func (r *routine) goRun(f func(context.Context) error) {
+	ctx, proceed := r.runPrelude()
+	if !proceed {
+		// A routine that never starts still releases the resources its deferrals hold.
+		if err := r.runDeferrals(); err != nil {
+			r.ctx.mu.Lock()
+			r.state.err = err
+			r.ctx.mu.Unlock()
+			r.ctx.internal.Go(func() error { return err })
+		}
+		return
+	}
+	pprof.Do(ctx, pprof.Labels("routine", r.path()), func(ctx context.Context) {
+		r.ctx.mu.Lock()
+		r.state.state = RoutineStateRunning
+		r.ctx.mu.Unlock()
+
+		r.ctx.internal.Go(func() (err error) {
+			for {
+				recovered := false
+				func() {
+					defer func() {
+						if e := recover(); e != nil {
+							recovered = true
+							err = r.maybeRecover(e)
+						}
+					}()
+					err = f(ctx)
+				}()
+				if !recovered || !r.useBreaker || !r.breaker.Wait() {
+					break
+				}
+			}
+			// When a breaker-managed routine exits its retry loop and the context
+			// is cancelled, always report the context error. This ensures
+			// deterministic behavior regardless of whether the cancellation
+			// landed during the breaker wait or during a re-execution of f.
+			if r.useBreaker && r.ctx.Err() != nil {
+				err = r.ctx.Err()
+			}
+			err = r.runPostlude(err)
+			return err
+		})
+	})
 }
 
 func newRoutine(c *core, opts []RoutineOption) *routine {

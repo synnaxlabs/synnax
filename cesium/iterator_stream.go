@@ -154,14 +154,15 @@ type IteratorConfig struct {
 func (s *streamIterator) Flow(sCtx signal.Context, opts ...confluence.Option) {
 	o := confluence.NewOptions(opts)
 	o.AttachClosables(s.Out)
+	o.Signal = append(o.Signal, signal.DeferErr(s.close))
 	sCtx.Go(func(ctx context.Context) error {
 		for {
 			select {
 			case <-ctx.Done():
-				return errors.Combine(s.close(), ctx.Err())
+				return ctx.Err()
 			case req, ok := <-s.In.Outlet():
 				if !ok {
-					return s.close()
+					return nil
 				}
 				ok, err := s.exec(ctx, req)
 				s.Out.Inlet() <- IteratorResponse{

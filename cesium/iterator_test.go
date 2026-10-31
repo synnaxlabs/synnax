@@ -1568,6 +1568,35 @@ var _ = Describe("Iterator Behavior", func() {
 					}
 				})
 
+				It(
+					"Should release its channels when it flows in a canceled context",
+					func(
+						ctx SpecContext,
+					) {
+						subDB := openDBOnFS(ctx, openFS())
+						key := GenerateChannelKey()
+						Expect(subDB.CreateChannel(ctx, cesium.Channel{
+							Key:      key,
+							Name:     "Nansen",
+							DataType: telem.TimestampT,
+							IsIndex:  true,
+						})).To(Succeed())
+						iter := MustSucceed(
+							subDB.NewStreamIterator(cesium.IteratorConfig{
+								Bounds:   telem.TimeRangeMax,
+								Channels: []channel.Key{key},
+							}),
+						)
+						sCtx, cancel := signal.Isolated()
+						cancel()
+						iter.InFrom(confluence.NewStream[cesium.IteratorRequest]())
+						iter.OutTo(confluence.NewStream[cesium.IteratorResponse]())
+						iter.Flow(sCtx)
+						Expect(sCtx.Wait()).To(Succeed())
+						Expect(subDB.Close()).To(Succeed())
+					},
+				)
+
 				// openFaulty writes five samples to an index and a data channel through
 				// a fault-injecting file system and returns the keys of both.
 				openFaulty := func(
