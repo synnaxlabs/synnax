@@ -1,0 +1,66 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/status"
+import "schemas/synnax/versions/rack/v2"
+
+Key = uuid {
+    @doc value "uniquely identifies an NI chassis."
+}
+
+StatusDetails struct {
+    rack    rack.Key {
+        @doc value "is the key of the rack the chassis belongs to."
+    }
+    chassis Key      {
+        @doc value "is the key of the chassis."
+    }
+
+    @doc value "identifies the chassis and rack that a status pertains to."
+}
+
+Status = status.Status<StatusDetails> {
+    @doc value "is the operational status of a chassis."
+}
+
+Chassis struct {
+    key       Key = create {
+        @doc value "uniquely identifies the chassis."
+        @key
+    }
+    rack      rack.Key {
+        @doc value "is the key of the rack the chassis is connected to."
+    }
+    name      string   {
+        @doc value "is a human-readable name for the chassis."
+    }
+    serial    string   {
+        @doc value """
+            is the serial number of the chassis, or its NI-MAX resource name when it is
+            simulated.
+        """
+    }
+    model     string   {
+        @doc value "is the product name of the chassis."
+    }
+    alias     string   {
+        @doc value "is the DAQmx alias of the chassis."
+    }
+    simulated bool = false {
+        @doc value "is true when the chassis is simulated in NI-MAX."
+    }
+    status    Status?  {
+        @doc value  "is the current operational status of the chassis."
+        @go marshal omit
+    }
+
+    @doc value  "is an NI chassis that holds device modules."
+    @go marshal
+    @go migrate
+}

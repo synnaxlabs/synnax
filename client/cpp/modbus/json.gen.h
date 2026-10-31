@@ -110,8 +110,8 @@ inline ReadConfig ReadConfig::parse(x::json::Parser parser) {
 
 inline x::json::json ReadConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::task::ReadConfig::to_json().items())
-        j[k] = v;
+    if (const auto parent = ::synnax::task::ReadConfig::to_json(); parent.is_object())
+        j.update(parent);
     j["device"] = this->device;
     {
         auto arr = x::json::json::array();
@@ -140,8 +140,8 @@ inline WriteConfig WriteConfig::parse(x::json::Parser parser) {
 
 inline x::json::json WriteConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::task::WriteConfig::to_json().items())
-        j[k] = v;
+    if (const auto parent = ::synnax::task::WriteConfig::to_json(); parent.is_object())
+        j.update(parent);
     {
         auto arr = x::json::json::array();
         for (const auto &item: this->channels)
@@ -161,8 +161,8 @@ inline ScanConfig ScanConfig::parse(x::json::Parser parser) {
 
 inline x::json::json ScanConfig::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::synnax::task::ScanConfig::to_json().items())
-        j[k] = v;
+    if (const auto parent = ::synnax::task::ScanConfig::to_json(); parent.is_object())
+        j.update(parent);
     return j;
 }
 
@@ -187,8 +187,8 @@ inline CoilReadChannel CoilReadChannel::parse(x::json::Parser parser) {
 
 inline x::json::json CoilReadChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseReadChannel::to_json().items())
-        j[k] = v;
+    if (const auto parent = BaseReadChannel::to_json(); parent.is_object())
+        j.update(parent);
     j["type"] = this->type;
     return j;
 }
@@ -203,8 +203,8 @@ DiscreteInputReadChannel::parse(x::json::Parser parser) {
 
 inline x::json::json DiscreteInputReadChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseReadChannel::to_json().items())
-        j[k] = v;
+    if (const auto parent = BaseReadChannel::to_json(); parent.is_object())
+        j.update(parent);
     j["type"] = this->type;
     return j;
 }
@@ -221,10 +221,10 @@ HoldingRegisterReadChannel::parse(x::json::Parser parser) {
 
 inline x::json::json HoldingRegisterReadChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseReadChannel::to_json().items())
-        j[k] = v;
-    for (auto &[k, v]: RegisterValue::to_json().items())
-        j[k] = v;
+    if (const auto parent = BaseReadChannel::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = RegisterValue::to_json(); parent.is_object())
+        j.update(parent);
     j["string_length"] = this->string_length;
     j["type"] = this->type;
     return j;
@@ -242,10 +242,10 @@ InputRegisterReadChannel::parse(x::json::Parser parser) {
 
 inline x::json::json InputRegisterReadChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseReadChannel::to_json().items())
-        j[k] = v;
-    for (auto &[k, v]: RegisterValue::to_json().items())
-        j[k] = v;
+    if (const auto parent = BaseReadChannel::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = RegisterValue::to_json(); parent.is_object())
+        j.update(parent);
     j["string_length"] = this->string_length;
     j["type"] = this->type;
     return j;
@@ -262,10 +262,10 @@ HoldingRegisterBitReadChannel::parse(x::json::Parser parser) {
 
 inline x::json::json HoldingRegisterBitReadChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseReadChannel::to_json().items())
-        j[k] = v;
-    for (auto &[k, v]: RegisterBit::to_json().items())
-        j[k] = v;
+    if (const auto parent = BaseReadChannel::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = RegisterBit::to_json(); parent.is_object())
+        j.update(parent);
     j["type"] = this->type;
     return j;
 }
@@ -281,10 +281,10 @@ InputRegisterBitReadChannel::parse(x::json::Parser parser) {
 
 inline x::json::json InputRegisterBitReadChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseReadChannel::to_json().items())
-        j[k] = v;
-    for (auto &[k, v]: RegisterBit::to_json().items())
-        j[k] = v;
+    if (const auto parent = BaseReadChannel::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = RegisterBit::to_json(); parent.is_object())
+        j.update(parent);
     j["type"] = this->type;
     return j;
 }
@@ -298,8 +298,8 @@ inline CoilWriteChannel CoilWriteChannel::parse(x::json::Parser parser) {
 
 inline x::json::json CoilWriteChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseWriteChannel::to_json().items())
-        j[k] = v;
+    if (const auto parent = BaseWriteChannel::to_json(); parent.is_object())
+        j.update(parent);
     j["type"] = this->type;
     return j;
 }
@@ -315,10 +315,10 @@ HoldingRegisterWriteChannel::parse(x::json::Parser parser) {
 
 inline x::json::json HoldingRegisterWriteChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseWriteChannel::to_json().items())
-        j[k] = v;
-    for (auto &[k, v]: RegisterValue::to_json().items())
-        j[k] = v;
+    if (const auto parent = BaseWriteChannel::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = RegisterValue::to_json(); parent.is_object())
+        j.update(parent);
     j["type"] = this->type;
     return j;
 }
@@ -334,10 +334,10 @@ HoldingRegisterBitWriteChannel::parse(x::json::Parser parser) {
 
 inline x::json::json HoldingRegisterBitWriteChannel::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: BaseWriteChannel::to_json().items())
-        j[k] = v;
-    for (auto &[k, v]: RegisterBit::to_json().items())
-        j[k] = v;
+    if (const auto parent = BaseWriteChannel::to_json(); parent.is_object())
+        j.update(parent);
+    if (const auto parent = RegisterBit::to_json(); parent.is_object())
+        j.update(parent);
     j["type"] = this->type;
     return j;
 }

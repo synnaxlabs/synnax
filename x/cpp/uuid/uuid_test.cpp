@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <sstream>
+#include <unordered_map>
 #include <unordered_set>
 
 #include "gtest/gtest.h"
@@ -234,6 +235,34 @@ TEST(UUID, testJsonRoundTrip) {
     const auto parsed = UUID::parse(parser);
     ASSERT_TRUE(parser.ok());
     ASSERT_EQ(original, parsed);
+}
+
+/// @brief a struct value of a UUID-keyed map.
+struct MapValue {
+    int count = 0;
+
+    static MapValue parse(json::Parser parser) {
+        return MapValue{.count = parser.field<int>("count")};
+    }
+};
+
+/// @brief it should parse a map of structs keyed by UUID.
+TEST(UUID, testMapKeyParse) {
+    const auto key = create();
+    const json::json j = {{"values", {{key.to_string(), {{"count", 1}}}}}};
+    json::Parser parser(j);
+    const auto values = parser.field<std::unordered_map<UUID, MapValue>>("values");
+    ASSERT_TRUE(parser.ok());
+    ASSERT_EQ(values.at(key).count, 1);
+}
+
+/// @brief it should reject a map key that is not a UUID.
+TEST(UUID, testMapKeyParseInvalid) {
+    const json::json j = {{"values", {{"not-a-uuid", {{"count", 1}}}}}};
+    json::Parser parser(j);
+    const auto values = parser.field<std::unordered_map<UUID, MapValue>>("values");
+    ASSERT_FALSE(parser.ok());
+    ASSERT_TRUE(values.empty());
 }
 
 }

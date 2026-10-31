@@ -1,0 +1,145 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import "schemas/synnax/channel"
+import "schemas/synnax/ni_chassis"
+import "schemas/synnax/rack"
+import "schemas/synnax/status"
+
+@cpp output "client/cpp/ni/device"
+@go output  "core/pkg/service/ni/device"
+@py output  "client/py/synnax/ni/device"
+@ts output  "client/ts/src/ni/device"
+
+Device struct {
+    key            Key = create {
+        @doc value "uniquely identifies the device."
+        @key
+    }
+    rack           rack.Key        {
+        @doc value "is the key of the rack the device is connected to."
+        @filter
+    }
+    name           string          {
+        @doc value         "is a human-readable name for the device."
+        @filter
+        @search
+        @validate required
+    }
+    serial         string          {
+        @doc value    """
+            is the serial number of the device, or its NI-MAX resource name when it is
+            simulated.
+        """
+        @filter
+        @index lookup
+    }
+    model          string          {
+        @doc value "is the product name of the device."
+        @filter
+    }
+    alias          string          {
+        @doc value "is the DAQmx alias of the device."
+    }
+    simulated      bool = false {
+        @doc value "is true when the device is simulated in NI-MAX."
+    }
+    chassis        ni_chassis.Key? {
+        @doc value """
+            is the chassis that holds the device. Absent for a standalone device.
+        """
+    }
+    identifier     string = "" {
+        @doc value """
+            is the prefix of the device's channel names. The device is unconfigured
+            while it is empty.
+        """
+    }
+    analog_input   InputPorts = {} {
+        @doc value "are the channels of the analog input ports."
+    }
+    analog_output  OutputPorts = {} {
+        @doc value "are the channels of the analog output ports."
+    }
+    counter_input  InputPorts = {} {
+        @doc value "are the channels of the counter input ports."
+    }
+    digital_input  InputPorts = {} {
+        @doc value "are the channels of the digital input lines."
+    }
+    digital_output OutputPorts = {} {
+        @doc value "are the channels of the digital output lines."
+    }
+    status         Status?         {
+        @doc value  "is the current operational status of the device."
+        @go marshal omit
+    }
+
+    @create
+    @doc value     "is an NI module in a chassis, or a standalone USB or PCIe device."
+    @go marshal
+    @go migrate
+    @ontology type "ni_device"
+    @retrieve
+}
+
+Key = uuid {
+    @doc value "uniquely identifies an NI device."
+}
+
+InputPorts struct {
+    index    channel.Key = 0 {
+        @doc value "is the index channel of the channels that read the ports."
+    }
+    channels map<string, channel.Key> = {} {
+        @doc value "maps a port to the channel that holds its samples."
+    }
+
+    @doc value  "holds the channels that a device reads into."
+    @go marshal
+}
+
+CommandStatePair struct {
+    command channel.Key = 0 {
+        @doc value "is the channel that commands the port."
+    }
+    state   channel.Key = 0 {
+        @doc value "is the channel that holds the state of the port."
+    }
+
+    @doc value  "is the pair of channels that writes to one port."
+    @go marshal
+}
+
+OutputPorts struct {
+    state_index channel.Key = 0 {
+        @doc value "is the index channel of the state channels."
+    }
+    channels    map<string, CommandStatePair> = {} {
+        @doc value "maps a port to the channels that write to it."
+    }
+
+    @doc value  "holds the channels that a device writes through."
+    @go marshal
+}
+
+StatusDetails struct {
+    rack   rack.Key {
+        @doc value "is the key of the rack the device belongs to."
+    }
+    device Key      {
+        @doc value "is the key of the device."
+    }
+
+    @doc value "identifies the device and rack that a status pertains to."
+}
+
+Status = status.Status<StatusDetails> {
+    @doc value "is the operational status of a device."
+}

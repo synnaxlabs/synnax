@@ -45,8 +45,8 @@ inline Edge Edge::parse(x::json::Parser parser) {
 
 inline x::json::json Edge::to_json() const {
     x::json::json j;
-    for (auto &[k, v]: ::arc::ir::Edge::to_json().items())
-        j[k] = v;
+    if (const auto parent = ::arc::ir::Edge::to_json(); parent.is_object())
+        j.update(parent);
     j["key"] = this->key;
     return j;
 }
