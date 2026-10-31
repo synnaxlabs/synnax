@@ -14,7 +14,7 @@ import { Avatar } from "@/avatar/Avatar";
 
 const hueOf = (name: string): string | undefined =>
   render(<Avatar name={name} />)
-    .container.querySelector<HTMLElement>(".pluto-avatar")
+    .container.querySelector<HTMLElement>(".lyra-avatar")
     ?.style.getPropertyValue("--pluto-avatar-hue");
 
 describe("Avatar", () => {
@@ -50,6 +50,6 @@ describe("Avatar", () => {
 
   it("should apply the size modifier", () => {
     const c = render(<Avatar name="Hot Fire" size="small" />);
-    expect(c.container.firstElementChild?.classList).toContain("pluto--height-small");
+    expect(c.container.firstElementChild?.classList).toContain("lyra--height-small");
   });
 });

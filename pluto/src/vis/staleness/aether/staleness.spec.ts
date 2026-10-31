@@ -19,7 +19,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { type z } from "zod";
 
 import { aether } from "@/aether/aether";
-import { aetherTest } from "@/aether/test";
+import { aetherTest } from "@/aether/testutil";
 import { telem } from "@/telem/aether";
 import { buildStack } from "@/testutil/providers";
 import { staleness } from "@/vis/staleness/aether";

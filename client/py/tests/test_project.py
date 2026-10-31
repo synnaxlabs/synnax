@@ -7,7 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import json
+import zipfile
 from collections.abc import Callable
+from pathlib import Path
 from typing import cast
 from uuid import uuid4
 
@@ -117,3 +120,95 @@ class TestProject:
         p2 = client.projects.create(name="Delete 2")
         client.projects.delete([p1.key, p2.key])
         assert client.projects.retrieve(keys=[p1.key, p2.key]) == []
+
+
+def _create_log(client: sy.Synnax, tmp_path: Path, proj: sy.Project, name: str) -> None:
+    path = tmp_path / f"{name}.json"
+    path.write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "type": "log",
+                "name": name,
+                "channels": [],
+                "remote_created": False,
+                "timestamp_precision": 1,
+                "show_channel_names": True,
+                "show_receipt_timestamp": False,
+            }
+        )
+    )
+    client.imex.import_(path, parent=sy.project.ontology_id(proj.key))
+
+
+def _member_names(bundle: Path) -> set[str]:
+    with zipfile.ZipFile(bundle) as archive:
+        return {
+            json.loads(archive.read(member))["name"]
+            for member in archive.namelist()
+            if member != "manifest.json"
+        }
+
+
+@pytest.mark.project
+@pytest.mark.imex
+class TestProjectExportImport:
+    def test_round_trip(self, client: sy.Synnax, tmp_path: Path) -> None:
+        """Should import an exported project as a new project with the same
+        contents."""
+        name = f"Round Trip {uuid4()}"
+        src = client.projects.create(name=name)
+        log_names = {"Log A", "Log B", "Log C"}
+        for log_name in log_names:
+            _create_log(client, tmp_path, src, log_name)
+        bundle = tmp_path / "bundle.zip"
+        client.projects.export(src.key, bundle)
+        assert _member_names(bundle) == log_names
+        imported = client.projects.import_(bundle)
+        assert imported.key != src.key
+        assert imported.name == name
+        assert client.projects.retrieve(key=imported.key).name == name
+        children = client.ontology.retrieve_children(
+            sy.project.ontology_id(imported.key)
+        )
+        assert [child.type for child in children] == ["log"] * len(log_names)
+        reexported = tmp_path / "reexported.zip"
+        client.projects.export(imported.key, reexported)
+        assert _member_names(reexported) == log_names
+
+    def test_import_names_from_file(self, client: sy.Synnax, tmp_path: Path) -> None:
+        """Should name the project after the file when the manifest has no name."""
+        src = client.projects.create(name=f"Unnamed {uuid4()}")
+        exported = tmp_path / "exported.zip"
+        client.projects.export(src.key, exported)
+        file_name = f"From File {uuid4()}"
+        nameless = tmp_path / f"{file_name}.zip"
+        with (
+            zipfile.ZipFile(exported) as archive,
+            zipfile.ZipFile(nameless, "w") as out,
+        ):
+            for member in archive.namelist():
+                data = archive.read(member)
+                if member == "manifest.json":
+                    manifest = json.loads(data)
+                    del manifest["name"]
+                    data = json.dumps(manifest).encode()
+                out.writestr(member, data)
+        assert client.projects.import_(nameless).name == file_name
+
+    def test_export_missing_raises(self, client: sy.Synnax, tmp_path: Path) -> None:
+        """Should raise NotFoundError when exporting a missing project."""
+        dest = tmp_path / "missing.zip"
+        with pytest.raises(NotFoundError):
+            client.projects.export(uuid4(), dest)
+        assert not dest.exists()
+
+    def test_import_without_manifest_raises(
+        self, client: sy.Synnax, tmp_path: Path
+    ) -> None:
+        """Should raise ValidationError when the bundle has no manifest."""
+        bundle = tmp_path / "empty.zip"
+        with zipfile.ZipFile(bundle, "w") as archive:
+            archive.writestr("notes.txt", "not a project")
+        with pytest.raises(sy.ValidationError):
+            client.projects.import_(bundle)

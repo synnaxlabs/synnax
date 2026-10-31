@@ -113,6 +113,42 @@ func AnalyzeSingleExpression(ctx acontext.Context[parser.IExpressionContext]) {
 	expression.Analyze(ctx.WithScope(blockScope))
 }
 
+// analyzeWASMCall registers a WASM-only call in a flow as a synthetic expression node.
+func analyzeWASMCall(
+	ctx acontext.Context[parser.IFunctionContext],
+	callee *symbol.Symbol,
+	name string,
+) {
+	enclosing := ctx.Scope
+	freshType := types.Freshen(callee.Type, freshenKey(ctx.AST, name))
+	t := types.Function(types.FunctionProperties{})
+	if out, ok := freshType.Outputs.Get(ir.DefaultOutputParam); ok {
+		t.Outputs = append(t.Outputs, out)
+	}
+	fnScope, err := ctx.Scope.Root().Add(ctx, symbol.Symbol{
+		Kind: symbol.KindFunction,
+		Type: t,
+		AST:  ctx.AST,
+	})
+	if err != nil {
+		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+		return
+	}
+	fnScope = fnScope.AutoName("expression_")
+	fnScope.SetLexicalResolver(enclosing)
+	blockScope, err := fnScope.Add(ctx, symbol.Symbol{
+		Kind: symbol.KindBlock,
+		AST:  ctx.AST,
+	})
+	if err != nil {
+		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+		return
+	}
+	blockCtx := ctx.WithScope(blockScope)
+	args := inputArguments(blockCtx, ctx.AST)
+	expression.AnalyzeCallSite(blockCtx, callee, name, freshType, args, ctx.AST)
+}
+
 // LiftFmtStrVarReads lifts reassigned-variable reads in a format string's
 // placeholders into input params. No-op for non-format literals.
 func LiftFmtStrVarReads[T antlr.ParserRuleContext](

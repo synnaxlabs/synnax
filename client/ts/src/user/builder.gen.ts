@@ -20,8 +20,8 @@ export type Condition = filter.Condition<"user.Where", Where>;
 /** key selects by key. */
 export const key = builder.set("key");
 
-/** username selects by username. */
-export const username = builder.string("username");
+/** usernames matches the users whose password has any of the given usernames. */
+export const usernames = builder.list("usernames");
 
 /** and matches the records that every condition matches. */
 export const and = builder.and;

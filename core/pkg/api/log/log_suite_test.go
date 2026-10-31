@@ -45,6 +45,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		RBAC: svc.RBAC,
 	}))
 	author = MustSucceed(svc.User.NewWriter(nil).Create(ctx, user.User{
-		Username: "author",
+		Name: "author",
 	}))
 })
