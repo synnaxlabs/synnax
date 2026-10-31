@@ -34,9 +34,13 @@ var _ = Describe("Py Builder Plugin", func() {
 
 	BeforeEach(func() {
 		loader = NewMockFileLoader()
-		loader.Add("schemas/x/filter", "@py output \"x/py/x/filter\"\n"+FilterSchema)
+		loader.Add(
+			"schemas/x/filter",
+			"@py output \"x/py/x/filter\"\n@ts output \"x/ts/src/filter\"\n"+FilterSchema,
+		)
 		loader.Add("schemas/rack", `
 			@py output "client/py/synnax/rack"
+			@ts output "client/ts/src/rack"
 
 			Key = uint32
 		`)
@@ -63,6 +67,7 @@ var _ = Describe("Py Builder Plugin", func() {
 			import "schemas/rack"
 
 			@py output "client/py/synnax/thing"
+			@ts output "client/ts/src/thing"
 
 			Span struct {
 				start int64
@@ -111,6 +116,16 @@ var _ = Describe("Py Builder Plugin", func() {
 				`tags: filter.ContainsLine[Condition, str] = filter.ContainsLine(`+
 					`Condition, "tags")`,
 			)
+		})
+
+		It("Should skip a line omitted from Python", func(ctx SpecContext) {
+			resp := MustGenerate(ctx, thing+`
+				Where filter Thing {
+					key
+					overlaps Span { @py omit }
+				}
+			`, "thing", loader, p)
+			ExpectContent(resp, "builder_gen.py").ToNotContain("overlaps")
 		})
 
 		It("Should build each typed line by its type", func(ctx SpecContext) {

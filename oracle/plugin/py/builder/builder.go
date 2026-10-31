@@ -57,6 +57,7 @@ func (p *Plugin) Requires() []string { return []string{"py/types"} }
 // Generate emits a builder_gen.py next to each filter definition with a Python output.
 // A filter in a version file gets none.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
+	req = req.OmitFields("py")
 	resp := &plugin.Response{}
 	for _, typ := range req.Resolutions.StructTypes() {
 		if typ.Filter == nil || output.IsOmitted(typ, "py") {
