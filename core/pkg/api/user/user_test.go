@@ -157,7 +157,9 @@ var _ = Describe("Service", func() {
 		})
 		It("Should return no users for an unknown username", func(ctx SpecContext) {
 			res := MustSucceed(apiSvc.Retrieve(rootCtx(ctx), apiuser.RetrieveRequest{
-				Where: &user.Where{Usernames: []string{"unknown-" + uuid.New().String()}},
+				Where: &user.Where{
+					Usernames: []string{"unknown-" + uuid.New().String()},
+				},
 			}))
 			Expect(res.Users).To(BeEmpty())
 		})
