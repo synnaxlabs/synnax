@@ -10,7 +10,7 @@
 // The browser imports this file, so it must not import anything that reaches the
 // database.
 
-import { type License } from "@/server/db/schema";
+import { type schema } from "@/server/db";
 
 export const MAX_NAME_LENGTH = 64;
 
@@ -36,7 +36,7 @@ export const filename = (label: string, machine?: string | null): string => {
 };
 
 /** term describes how long a license lasts and which Core versions it covers. */
-export const term = (lic: License): string => {
+export const term = (lic: schema.License): string => {
   if (lic.term === "perpetual") return `Perpetual, up to v${lic.maxVersion}`;
   const until = `Until ${lic.expiresAt?.toISOString().slice(0, 10) ?? ""}`;
   return lic.maxVersion == null ? until : `${until}, then up to v${lic.maxVersion}`;

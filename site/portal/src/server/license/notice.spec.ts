@@ -9,11 +9,11 @@
 
 import { describe, expect, it } from "vitest";
 
-import { type License, type Organization } from "@/server/db/schema";
+import { type schema } from "@/server/db";
 import { expiring, issued, restored, revoked } from "@/server/license/notice";
 import { LICENSE } from "@/server/license/testutil";
 
-const TEAM: Organization = {
+const TEAM: schema.Organization = {
   key: LICENSE.organization,
   kind: "team",
   name: "Acme",
@@ -36,7 +36,7 @@ describe("notice", () => {
   });
 
   it("should describe a perpetual term by its last version", () => {
-    const perpetual: License = {
+    const perpetual: schema.License = {
       ...LICENSE,
       term: "perpetual",
       expiresAt: null,
@@ -49,7 +49,11 @@ describe("notice", () => {
   });
 
   it("should tell a personal owner the license is theirs", () => {
-    const personal: Organization = { ...TEAM, kind: "personal", clerkOrgID: null };
+    const personal: schema.Organization = {
+      ...TEAM,
+      kind: "personal",
+      clerkOrgID: null,
+    };
     expect(revoked(LICENSE, personal).reason).toBe(
       "You get this email because the license is yours.",
     );

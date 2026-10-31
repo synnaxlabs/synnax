@@ -10,7 +10,7 @@
 import { eq } from "drizzle-orm";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
-import { activation, event } from "@/server/db/schema";
+import { schema } from "@/server/db";
 import { type Memory, openMemory } from "@/server/db/testutil";
 import { MAX_NAME_LENGTH } from "@/server/license/limits";
 import { readName, rename } from "@/server/license/machine";
@@ -59,10 +59,10 @@ describe("machine.rename", () => {
     });
     const [row] = await store.query
       .select()
-      .from(activation)
-      .where(eq(activation.key, act.key));
+      .from(schema.activation)
+      .where(eq(schema.activation.key, act.key));
     expect(row.name).toBe("New");
-    const events = await store.query.select().from(event);
+    const events = await store.query.select().from(schema.event);
     expect(events).toHaveLength(1);
     expect(events[0]).toMatchObject({
       kind: "rename",
@@ -83,7 +83,7 @@ describe("machine.rename", () => {
       actor: "user_a",
       now: NOW,
     });
-    expect(await store.query.select().from(event)).toHaveLength(0);
+    expect(await store.query.select().from(schema.event)).toHaveLength(0);
   });
 
   it("should throw a 404 for an unknown machine", async () => {

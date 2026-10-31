@@ -9,7 +9,7 @@
 
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 
-import { type Event, event, type Organization } from "@/server/db/schema";
+import { schema } from "@/server/db";
 import { type Memory, openMemory } from "@/server/db/testutil";
 import { dueNotice, sweep } from "@/server/license/expiry";
 import { expiring } from "@/server/license/notice";
@@ -22,7 +22,7 @@ const expiringIn = (days: number) => ({
   ...LICENSE,
   expiresAt: new Date(NOW.getTime() + days * DAY),
 });
-const notice = (days: number): Event => ({
+const notice = (days: number): schema.Event => ({
   key: days,
   at: NOW,
   kind: "expiry_notice",
@@ -61,7 +61,7 @@ describe("expiry.dueNotice", () => {
 
 describe("expiry.sweep", () => {
   let store: Memory;
-  let org: Organization;
+  let org: schema.Organization;
   let mail: Mailer & { sent: Message[] };
   let asked: string[];
   const TO = ["admin@acme.com"];
@@ -83,7 +83,7 @@ describe("expiry.sweep", () => {
     asked = [];
   });
 
-  const events = async () => await store.query.select().from(event);
+  const events = async () => await store.query.select().from(schema.event);
   const createExpiring = async (days: number, values = {}) =>
     await createLicense(store, {
       organization: org.key,

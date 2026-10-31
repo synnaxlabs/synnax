@@ -7,4 +7,5 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * as schema from "@/server/db/schema";
+export { open, type Query, type Reader, type Store, type Tx } from "@/server/db/db";
+export { schema } from "@/server/db/tables";

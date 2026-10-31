@@ -7,21 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type License, type Organization } from "@/server/db/schema";
+import { type schema } from "@/server/db";
 import { channels, term } from "@/server/license/limits";
 import { type Fact, type Notice } from "@/server/mail";
 
 const inDays = (days: number): string => `${days} ${days === 1 ? "day" : "days"}`;
 
-const facts = (lic: License, org: Organization): Fact[] => [
+const facts = (lic: schema.License, org: schema.Organization): Fact[] => [
   { label: "License", value: lic.label },
   { label: "Organization", value: org.name },
   { label: "Term", value: term(lic) },
 ];
 
 const base = (
-  lic: License,
-  org: Organization,
+  lic: schema.License,
+  org: schema.Organization,
 ): Pick<Notice, "facts" | "action" | "reason"> => ({
   facts: facts(lic, org),
   action: { label: "View license", href: `/licenses/${lic.key}` },
@@ -32,7 +32,7 @@ const base = (
 });
 
 /** issued tells an organization that staff issued it a license. */
-export const issued = (lic: License, org: Organization): Notice => {
+export const issued = (lic: schema.License, org: schema.Organization): Notice => {
   const notice = base(lic, org);
   return {
     subject: `Your Synnax license "${lic.label}" is ready`,
@@ -51,7 +51,11 @@ export const issued = (lic: License, org: Organization): Notice => {
 };
 
 /** expiring warns that a license expires in `days` days. */
-export const expiring = (lic: License, org: Organization, days: number): Notice => ({
+export const expiring = (
+  lic: schema.License,
+  org: schema.Organization,
+  days: number,
+): Notice => ({
   subject: `Your Synnax license expires in ${inDays(days)}`,
   heading: `Your license expires in ${inDays(days)}`,
   paragraphs: [
@@ -64,7 +68,7 @@ export const expiring = (lic: License, org: Organization, days: number): Notice 
 });
 
 /** revoked tells an organization that staff revoked one of its licenses. */
-export const revoked = (lic: License, org: Organization): Notice => ({
+export const revoked = (lic: schema.License, org: schema.Organization): Notice => ({
   subject: `Your Synnax license "${lic.label}" was revoked`,
   heading: "Your license was revoked",
   paragraphs: [
@@ -76,7 +80,7 @@ export const revoked = (lic: License, org: Organization): Notice => ({
 });
 
 /** restored tells an organization that staff restored one of its licenses. */
-export const restored = (lic: License, org: Organization): Notice => ({
+export const restored = (lic: schema.License, org: schema.Organization): Notice => ({
   subject: `Your Synnax license "${lic.label}" was restored`,
   heading: "Your license was restored",
   paragraphs: [

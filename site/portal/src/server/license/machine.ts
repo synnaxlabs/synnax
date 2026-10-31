@@ -9,8 +9,7 @@
 
 import { eq } from "drizzle-orm";
 
-import { type Store } from "@/server/db/db";
-import { activation, event, license } from "@/server/db/schema";
+import { schema, type Store } from "@/server/db";
 import { badRequest, notFound } from "@/server/errors";
 import { MAX_NAME_LENGTH } from "@/server/license/limits";
 
@@ -36,17 +35,17 @@ export const rename = async (
   { activationKey, name, actor, now }: RenameArgs,
 ): Promise<void> => {
   const [row] = await store.query
-    .select({ activation, license })
-    .from(activation)
-    .innerJoin(license, eq(activation.license, license.key))
-    .where(eq(activation.key, activationKey));
+    .select({ activation: schema.activation, license: schema.license })
+    .from(schema.activation)
+    .innerJoin(schema.license, eq(schema.activation.license, schema.license.key))
+    .where(eq(schema.activation.key, activationKey));
   if (row == null) throw notFound("Activation");
   if (row.activation.name === name) return;
   await store.query
-    .update(activation)
+    .update(schema.activation)
     .set({ name })
-    .where(eq(activation.key, activationKey));
-  await store.query.insert(event).values({
+    .where(eq(schema.activation.key, activationKey));
+  await store.query.insert(schema.event).values({
     at: now,
     kind: "rename",
     actor,
