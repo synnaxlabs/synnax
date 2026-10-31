@@ -34,7 +34,10 @@ var _ = Describe("TS Builder Plugin", func() {
 
 	BeforeEach(func() {
 		loader = NewMockFileLoader()
-		loader.Add("schemas/x/filter", "@ts output \"x/ts/src/filter\"\n"+FilterSchema)
+		loader.Add(
+			"schemas/x/filter",
+			"@ts output \"x/ts/src/filter\"\n@py output \"x/py/filter\"\n"+FilterSchema,
+		)
 		p = builder.New(builder.DefaultOptions())
 	})
 
@@ -57,6 +60,7 @@ var _ = Describe("TS Builder Plugin", func() {
 			import "schemas/x/filter"
 
 			@ts output "client/ts/src/thing"
+			@py output "client/py/thing"
 
 			Span struct {
 				start int64
@@ -106,6 +110,16 @@ var _ = Describe("TS Builder Plugin", func() {
 				`export const createdAt = builder.ordered("createdAt");`,
 				`export const tags = builder.contains("tags");`,
 			)
+		})
+
+		It("Should skip a line omitted from TypeScript", func(ctx SpecContext) {
+			resp := MustGenerate(ctx, thing+`
+				Where filter Thing {
+					key
+					overlaps Span { @ts omit }
+				}
+			`, "thing", loader, p)
+			ExpectContent(resp, "builder.gen.ts").ToNotContain("overlaps")
 		})
 
 		It("Should build each typed line by its type", func(ctx SpecContext) {

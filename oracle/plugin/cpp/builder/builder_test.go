@@ -34,7 +34,10 @@ var _ = Describe("C++ Builder Plugin", func() {
 
 	BeforeEach(func() {
 		loader = NewMockFileLoader()
-		loader.Add("schemas/x/filter", "@cpp output \"x/cpp/filter\"\n"+FilterSchema)
+		loader.Add(
+			"schemas/x/filter",
+			"@cpp output \"x/cpp/filter\"\n@ts output \"x/ts/src/filter\"\n"+FilterSchema,
+		)
 		p = builder.New(builder.DefaultOptions())
 	})
 
@@ -57,6 +60,7 @@ var _ = Describe("C++ Builder Plugin", func() {
 			import "schemas/x/filter"
 
 			@cpp output "client/cpp/thing"
+			@ts output "client/ts/src/thing"
 
 			Span struct {
 				start int64
@@ -107,6 +111,16 @@ var _ = Describe("C++ Builder Plugin", func() {
 				"inline constexpr x::filter::OrderedLine<&Where::created_at> created_at{};",
 				"inline constexpr x::filter::ContainsLine<&Where::tags> tags{};",
 			)
+		})
+
+		It("Should skip a line omitted from C++", func(ctx SpecContext) {
+			resp := MustGenerate(ctx, thing+`
+				Where filter Thing {
+					key
+					overlaps Span { @cpp omit }
+				}
+			`, "thing", loader, p)
+			ExpectContent(resp, "builder.gen.h").ToNotContain("overlaps")
 		})
 
 		It("Should build each typed line by its type", func(ctx SpecContext) {
