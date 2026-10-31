@@ -10,7 +10,6 @@
 import { TimeRange, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, test } from "vitest";
 
-import { UnauthorizedError } from "@/errors";
 import { NotFoundError } from "@/index";
 import {
   createTestClient,
@@ -78,7 +77,7 @@ describe("Deleter", () => {
 
     await expect(
       client.delete([indexCh.key], TimeStamp.seconds(12).range(TimeStamp.seconds(30))),
-    ).rejects.toThrow(UnauthorizedError);
+    ).rejects.toMatchObject({ type: "sy.control.unauthorized" });
 
     await writer.close();
   });

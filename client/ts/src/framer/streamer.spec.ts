@@ -20,9 +20,13 @@ import {
 import { describe, expect, it, test, vi } from "vitest";
 
 import { type channel } from "@/channel";
-import { AuthError, ExpiredTokenError, SessionEndedError } from "@/errors";
 import { framer } from "@/framer";
-import { AccessDeniedError, MissingLicenseError } from "@/index";
+import {
+  AccessDeniedError,
+  AuthError,
+  MissingLicenseError,
+  SessionEndedError,
+} from "@/index";
 import {
   createProxiedTestClient,
   createTestClient,
@@ -1155,7 +1159,10 @@ describe("Streamer", () => {
         framer.HardenedStreamer.open(
           async () => {
             openerMock();
-            throw new ExpiredTokenError("token expired");
+            throw errors.decode({
+              type: "sy.auth.expired_token",
+              data: "token expired",
+            }) as Error;
           },
           { channels: [1] },
           {
@@ -1163,7 +1170,7 @@ describe("Streamer", () => {
             onRetry,
           },
         ),
-      ).rejects.toThrow(ExpiredTokenError);
+      ).rejects.toMatchObject({ type: "sy.auth.expired_token" });
       expect(openerMock.mock.calls.length).toBeGreaterThan(1);
       expect(onRetry).toHaveBeenCalled();
     });
