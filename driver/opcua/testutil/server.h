@@ -327,6 +327,10 @@ struct ServerConfig {
     /// @brief the value of the NS=1;S=TestMotor node, of the Motor data type. The
     /// server adds the node only when it is set.
     std::optional<Motor> motor;
+    /// @brief the value of the NS=1;S=TestBroken node, of the Broken data type, which
+    /// does not build. The server adds the node, with its child NS=1;S=TestBrokenChild,
+    /// only when it is set.
+    std::optional<Broken> broken;
     /// @brief the usernames and passwords that the server accepts besides anonymous
     /// logins. The server accepts a password only on an encrypted channel.
     std::vector<std::pair<std::string, std::string>> users;
@@ -766,6 +770,50 @@ private:
         );
     }
 
+    static void
+    add_broken_node(UA_Server *server, const UA_DataType &type, Broken &value) {
+        UA_VariableAttributes attr = UA_VariableAttributes_default;
+        attr.dataType = type.typeId;
+        attr.valueRank = UA_VALUERANK_SCALAR;
+        attr.accessLevel = UA_ACCESSLEVELMASK_READ;
+        attr.displayName = UA_LOCALIZEDTEXT(
+            const_cast<char *>("en-US"),
+            const_cast<char *>("TestBroken")
+        );
+        UA_Variant_setScalar(&attr.value, &value, &type);
+        const auto id = UA_NODEID_STRING(1, const_cast<char *>("TestBroken"));
+        UA_Server_addVariableNode(
+            server,
+            id,
+            UA_NS0ID(OBJECTSFOLDER),
+            UA_NS0ID(ORGANIZES),
+            UA_QUALIFIEDNAME(1, const_cast<char *>("TestBroken")),
+            UA_NODEID_NULL,
+            attr,
+            nullptr,
+            nullptr
+        );
+        UA_VariableAttributes child = UA_VariableAttributes_default;
+        UA_Double child_value = 0;
+        UA_Variant_setScalar(&child.value, &child_value, &UA_TYPES[UA_TYPES_DOUBLE]);
+        child.dataType = UA_TYPES[UA_TYPES_DOUBLE].typeId;
+        child.displayName = UA_LOCALIZEDTEXT(
+            const_cast<char *>("en-US"),
+            const_cast<char *>("TestBrokenChild")
+        );
+        UA_Server_addVariableNode(
+            server,
+            UA_NODEID_STRING(1, const_cast<char *>("TestBrokenChild")),
+            id,
+            UA_NS0ID(HASCOMPONENT),
+            UA_QUALIFIEDNAME(1, const_cast<char *>("TestBrokenChild")),
+            UA_NODEID_NULL,
+            child,
+            nullptr,
+            nullptr
+        );
+    }
+
 public:
     void run() {
         UA_Server *server = UA_Server_new();
@@ -848,6 +896,8 @@ public:
         }
         if (cfg.motor.has_value())
             add_motor_node(server, structures.motor(), *cfg.motor);
+        if (cfg.broken.has_value())
+            add_broken_node(server, structures.broken(), *cfg.broken);
         if (!cfg.users.empty()) {
             std::vector<UA_UsernamePasswordLogin> logins;
             logins.reserve(cfg.users.size());

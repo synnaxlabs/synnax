@@ -786,16 +786,21 @@ void Scanner::browse_nodes(const synnax::task::Command &cmd) const {
             truncated = results[0].truncated || nodes.size() < refs.size();
         }
     }
+    x::errors::Error members_err;
     if (!err) {
-        auto [members, members_err] = structure_members(
+        auto [members, list_err] = structure_members(
             connection,
             start,
             args.node_id,
             args.field
         );
-        err = members_err;
         for (auto &m: members)
             nodes.push_back(std::move(m));
+        // A member has no children besides its own members.
+        if (args.field.empty())
+            members_err = list_err;
+        else
+            err = list_err;
     }
     if (err) {
         status.message = "Failed to browse nodes";
@@ -809,6 +814,11 @@ void Scanner::browse_nodes(const synnax::task::Command &cmd) const {
         channels.push_back(node.to_json());
     status.message = "Browsed nodes";
     status.variant = synnax::status::VARIANT_SUCCESS;
+    if (members_err) {
+        status.message = "Failed to list structure members";
+        status.variant = synnax::status::VARIANT_WARNING;
+        status.description = members_err.data;
+    }
     status.details.data = {{"channels", channels}, {"truncated", truncated}};
     ctx->set_status(status);
 }

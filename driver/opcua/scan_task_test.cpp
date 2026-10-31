@@ -900,8 +900,8 @@ TEST_F(TestScanTask, testRenewalFailureIsPartialScan) {
     );
     ASSERT_EQ(scanned.size(), 1);
 }
-/// @brief browses the node at path in the Motor server, and returns the status.
-synnax::task::Status browse_motor(
+/// @brief browses the node at path in the server on port 4881, and returns the status.
+synnax::task::Status browse_node(
     const std::shared_ptr<task::MockContext> &ctx,
     const synnax::task::Task &task,
     const std::shared_ptr<connection::Pool> &pool,
@@ -950,7 +950,7 @@ std::unique_ptr<testutil::Server> start_motor_server() {
 TEST_F(TestScanTask, testBrowsesStructureMembers) {
     const auto motor_server = start_motor_server();
     const auto
-        status = browse_motor(ctx, task, conn_pool, store, "NS=1;S=TestMotor", "");
+        status = browse_node(ctx, task, conn_pool, store, "NS=1;S=TestMotor", "");
     ASSERT_EQ(status.variant, synnax::status::VARIANT_SUCCESS) << status.description;
     const auto &channels = status.details.data.value().at("channels");
     ASSERT_EQ(channels.size(), 3);
@@ -968,7 +968,7 @@ TEST_F(TestScanTask, testBrowsesStructureMembers) {
 /// @brief it should list the members of a nested structure member.
 TEST_F(TestScanTask, testBrowsesNestedMembers) {
     const auto motor_server = start_motor_server();
-    const auto status = browse_motor(
+    const auto status = browse_node(
         ctx,
         task,
         conn_pool,
@@ -985,17 +985,34 @@ TEST_F(TestScanTask, testBrowsesNestedMembers) {
     motor_server->stop();
 }
 
+/// @brief it should list the children of a structure variable whose type does not
+/// build, and warn that its members do not list.
+TEST_F(TestScanTask, testBrowsesChildrenOfUnbuiltStructure) {
+    auto cfg = testutil::ServerConfig::create_default();
+    cfg.port = 4881;
+    cfg.broken = testutil::Broken{};
+    testutil::Server server(cfg);
+    server.start();
+    ASSERT_TRUE(server.wait_until_ready());
+    const auto
+        status = browse_node(ctx, task, conn_pool, store, "NS=1;S=TestBroken", "");
+    EXPECT_EQ(status.variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(status.message, "Failed to list structure members");
+    EXPECT_EQ(
+        status.description,
+        "cannot decode Broken: the server did not define the type of a member"
+    );
+    const auto &channels = status.details.data.value().at("channels");
+    ASSERT_EQ(channels.size(), 1);
+    EXPECT_EQ(channels[0]["node_id"], "NS=1;S=TestBrokenChild");
+    server.stop();
+}
+
 /// @brief it should fail to list the members of a node that holds no structure.
 TEST_F(TestScanTask, testRejectsFieldOfScalar) {
     const auto motor_server = start_motor_server();
-    const auto status = browse_motor(
-        ctx,
-        task,
-        conn_pool,
-        store,
-        "NS=1;S=TestDouble",
-        "Speed"
-    );
+    const auto
+        status = browse_node(ctx, task, conn_pool, store, "NS=1;S=TestDouble", "Speed");
     EXPECT_EQ(status.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(status.message, "Failed to browse nodes");
     EXPECT_EQ(status.description, "Double has no member Speed");
