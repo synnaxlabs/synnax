@@ -17,7 +17,7 @@ import {
   PORTAL_OWNER_ATTR,
   useClickOutside,
 } from "@/dialog/useClickOutside";
-import { firePointerDown, mockBoundingClientRect } from "@/testutil/dom";
+import { firePointerDown, mockBoundingClientRect } from "@/testutil";
 
 interface OwnerProps {
   onClickOutside: () => void;

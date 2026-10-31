@@ -13,7 +13,7 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { Input } from "@/input";
 import { loadLanguage } from "@/input/time/suggest";
-import { mockBoundingClientRect } from "@/testutil/dom";
+import { mockBoundingClientRect } from "@/testutil";
 
 const HOUR = Number(TimeSpan.HOUR.valueOf());
 

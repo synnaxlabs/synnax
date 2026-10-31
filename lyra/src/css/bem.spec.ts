@@ -9,10 +9,10 @@
 
 import { describe, expect, test } from "vitest";
 
-import { newBEM } from "@/css/bem";
+import { CSS } from "@/css";
 
 describe("BEM", () => {
-  const bem = newBEM("test");
+  const bem = CSS.newBEM("test");
   test("B", () => expect(bem.B("a")).toBe("test-a"));
   test("E", () => expect(bem.E("a")).toBe("test__a"));
   test("M", () => expect(bem.M("a")).toBe("test--a"));

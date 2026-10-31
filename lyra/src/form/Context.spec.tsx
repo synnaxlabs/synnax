@@ -14,7 +14,6 @@ import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
 import { Form } from "@/form";
-import { useContext } from "@/form/Context";
 
 const mockSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -66,42 +65,44 @@ describe("useContext", () => {
   describe("error handling when used outside Form context", () => {
     it("should throw error with default function name when used outside context without override", () => {
       expect(() => {
-        renderHook(() => useContext());
+        renderHook(() => Form.useContext());
       }).toThrow("Form.useContext must be used within a Form context value");
     });
 
     it("should throw error with custom function name when used outside context without override", () => {
       expect(() => {
-        renderHook(() => useContext(undefined, "CustomFunction"));
+        renderHook(() => Form.useContext(undefined, "CustomFunction"));
       }).toThrow("CustomFunction must be used within a Form context value");
     });
 
     it("should NOT throw error when override is provided even outside context", () => {
-      const { result } = renderHook(() => useContext(mockOverride, "CustomFunction"));
+      const { result } = renderHook(() =>
+        Form.useContext(mockOverride, "CustomFunction"),
+      );
       expect(result.current).toBe(mockOverride);
     });
 
     it("should throw error with Field component name when used outside context", () => {
       expect(() => {
-        renderHook(() => useContext(undefined, "Field(user.name)"));
+        renderHook(() => Form.useContext(undefined, "Field(user.name)"));
       }).toThrow("Field(user.name) must be used within a Form context value");
     });
 
     it("should throw error with useField hook name when used outside context", () => {
       expect(() => {
-        renderHook(() => useContext(undefined, "useField(user.email)"));
+        renderHook(() => Form.useContext(undefined, "useField(user.email)"));
       }).toThrow("useField(user.email) must be used within a Form context value");
     });
 
     it("should throw error with useFieldState hook name when used outside context", () => {
       expect(() => {
-        renderHook(() => useContext(undefined, "useFieldState(profile.bio)"));
+        renderHook(() => Form.useContext(undefined, "useFieldState(profile.bio)"));
       }).toThrow("useFieldState(profile.bio) must be used within a Form context value");
     });
 
     it("should throw error with useFieldValue hook name when used outside context", () => {
       expect(() => {
-        renderHook(() => useContext(undefined, "useFieldValue(settings.theme)"));
+        renderHook(() => Form.useContext(undefined, "useFieldValue(settings.theme)"));
       }).toThrow(
         "useFieldValue(settings.theme) must be used within a Form context value",
       );
@@ -111,7 +112,7 @@ describe("useContext", () => {
   describe("override behavior", () => {
     it("should use override even when context is null", () => {
       // This should not throw even though we're outside a Form context
-      const { result } = renderHook(() => useContext(mockOverride));
+      const { result } = renderHook(() => Form.useContext(mockOverride));
 
       expect(result.current).toBe(mockOverride);
       expect(result.current.mode).toBe("preview");
@@ -119,7 +120,7 @@ describe("useContext", () => {
     });
 
     it("should prioritize override over internal context when both exist", () => {
-      const { result } = renderHook(() => useContext(mockOverride), {
+      const { result } = renderHook(() => Form.useContext(mockOverride), {
         wrapper: FormWrapper,
       });
 
@@ -131,7 +132,7 @@ describe("useContext", () => {
 
   describe("successful context usage", () => {
     it("should return context value when used within Form context", () => {
-      const { result } = renderHook(() => useContext(), {
+      const { result } = renderHook(() => Form.useContext(), {
         wrapper: FormWrapper,
       });
 
@@ -143,9 +144,12 @@ describe("useContext", () => {
     });
 
     it("should return context value with custom function name when used within Form context", () => {
-      const { result } = renderHook(() => useContext(undefined, "CustomFunction"), {
-        wrapper: FormWrapper,
-      });
+      const { result } = renderHook(
+        () => Form.useContext(undefined, "CustomFunction"),
+        {
+          wrapper: FormWrapper,
+        },
+      );
 
       expect(result.current).toBeDefined();
       expect(typeof result.current.get).toBe("function");
@@ -153,9 +157,12 @@ describe("useContext", () => {
     });
 
     it("should return override context when provided", () => {
-      const { result } = renderHook(() => useContext(mockOverride, "TestFunction"), {
-        wrapper: FormWrapper,
-      });
+      const { result } = renderHook(
+        () => Form.useContext(mockOverride, "TestFunction"),
+        {
+          wrapper: FormWrapper,
+        },
+      );
       expect(result.current).toBe(mockOverride);
     });
   });
@@ -164,7 +171,7 @@ describe("useContext", () => {
     it("should handle complex path expressions in function names", () => {
       expect(() => {
         renderHook(() =>
-          useContext(undefined, "Field(user.profile.settings[0].theme)"),
+          Form.useContext(undefined, "Field(user.profile.settings[0].theme)"),
         );
       }).toThrow(
         "Field(user.profile.settings[0].theme) must be used within a Form context value",
@@ -174,7 +181,7 @@ describe("useContext", () => {
     it("should handle function names with special characters", () => {
       expect(() => {
         renderHook(() =>
-          useContext(undefined, 'useField(data.items["complex-key"].value)'),
+          Form.useContext(undefined, 'useField(data.items["complex-key"].value)'),
         );
       }).toThrow(
         'useField(data.items["complex-key"].value) must be used within a Form context value',
@@ -183,7 +190,7 @@ describe("useContext", () => {
 
     it("should handle empty function name", () => {
       expect(() => {
-        renderHook(() => useContext(undefined, ""));
+        renderHook(() => Form.useContext(undefined, ""));
       }).toThrow(" must be used within a Form context value");
     });
 
@@ -191,7 +198,7 @@ describe("useContext", () => {
       const longFunctionName =
         "useField(very.long.nested.path.with.many.levels.and.properties.that.goes.on.and.on)";
       expect(() => {
-        renderHook(() => useContext(undefined, longFunctionName));
+        renderHook(() => Form.useContext(undefined, longFunctionName));
       }).toThrow(`${longFunctionName} must be used within a Form context value`);
     });
   });
@@ -200,7 +207,7 @@ describe("useContext", () => {
     it("should preserve correct typing when context is available", () => {
       const { result } = renderHook(
         () => {
-          const ctx = useContext();
+          const ctx = Form.useContext();
           const fieldState = ctx.get("name");
           return {
             hasGetMethod: typeof ctx.get === "function",

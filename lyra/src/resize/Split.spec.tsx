@@ -11,7 +11,7 @@ import { act, fireEvent, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Resize } from "@/resize";
-import { mockBoundingClientRect } from "@/testutil/dom";
+import { mockBoundingClientRect } from "@/testutil";
 
 const PARENT_SIZE = 1000;
 

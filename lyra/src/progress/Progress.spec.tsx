@@ -11,16 +11,16 @@ import { TimeSpan } from "@synnaxlabs/x";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { Progress } from "@/progress/Progress";
+import { Progress } from "@/progress";
 
 describe("Progress", () => {
   it("should report how far along the work is", () => {
-    render(<Progress value={40} />);
+    render(<Progress.Progress value={40} />);
     expect(screen.getByRole("progressbar").getAttribute("aria-valuenow")).toBe("40");
   });
 
   it("should report no value while the end is unknown", () => {
-    render(<Progress duration={TimeSpan.seconds(3)} />);
+    render(<Progress.Progress duration={TimeSpan.seconds(3)} />);
     const bar = screen.getByRole("progressbar");
     expect(bar.hasAttribute("aria-valuenow")).toBe(false);
     expect(bar.style.getPropertyValue("--pluto-progress-duration")).toBe("3000ms");
