@@ -10,33 +10,60 @@
 package exports
 
 import (
+	"go/token"
 	"go/types"
+	"strings"
 
 	"github.com/synnaxlabs/x/set"
 	"golang.org/x/tools/go/packages"
 )
 
+// iface is an interface and the package that declares or spells it out.
+type iface struct {
+	it *types.Interface
+	// pkg is the import path of the package, and empty for error.
+	pkg string
+	// key identifies a declared interface, and is empty for an interface literal.
+	key string
+}
+
 // interfaces indexes every interface that the loaded code and its dependencies
 // declare or spell out, by method name.
 type interfaces struct {
-	plain map[string][]*types.Interface
+	plain map[string][]iface
 	// generic holds the interfaces of generic types. A method satisfies one when its
 	// type has every method of the interface with the same arity.
-	generic map[string][]*types.Interface
+	generic map[string][]iface
 	// embedders holds, for each named type, the named struct types that embed it.
 	embedders map[*types.TypeName][]*types.Named
+	// crossed holds the keys of the interfaces that another package's non-test code
+	// names.
+	crossed set.Set[string]
 }
 
-func collectInterfaces(pkgs []*packages.Package) interfaces {
+func collectInterfaces(fset *token.FileSet, pkgs []*packages.Package) interfaces {
 	ifaces := interfaces{
-		plain:     map[string][]*types.Interface{},
-		generic:   map[string][]*types.Interface{},
+		plain:     map[string][]iface{},
+		generic:   map[string][]iface{},
 		embedders: map[*types.TypeName][]*types.Named{},
+		crossed:   set.Set[string]{},
 	}
-	index := func(byName map[string][]*types.Interface, it *types.Interface) {
-		for m := range it.Methods() {
-			byName[m.Name()] = append(byName[m.Name()], it)
+	index := func(byName map[string][]iface, i iface) {
+		for m := range i.it.Methods() {
+			byName[m.Name()] = append(byName[m.Name()], i)
 		}
+	}
+	declared := func(tn *types.TypeName) iface {
+		i := iface{it: tn.Type().Underlying().(*types.Interface)}
+		if tn.Pkg() != nil {
+			i.pkg = tn.Pkg().Path()
+			i.key = key(fset.Position(tn.Pos()), tn)
+		}
+		return i
+	}
+	roots := set.Set[*types.Package]{}
+	for _, p := range pkgs {
+		roots.Add(p.Types)
 	}
 	seen := set.Set[*types.Package]{}
 	var walk func(*types.Package)
@@ -47,18 +74,18 @@ func collectInterfaces(pkgs []*packages.Package) interfaces {
 		seen.Add(tp)
 		for _, name := range tp.Scope().Names() {
 			tn, ok := tp.Scope().Lookup(name).(*types.TypeName)
-			if !ok {
+			// An unexported interface of a dependency keeps no method exported.
+			if !ok || (!roots.Contains(tp) && !tn.Exported()) {
 				continue
 			}
-			it, ok := tn.Type().Underlying().(*types.Interface)
-			if !ok {
+			if _, ok := tn.Type().Underlying().(*types.Interface); !ok {
 				continue
 			}
 			if named, ok := tn.Type().(*types.Named); ok &&
 				named.TypeParams().Len() > 0 {
-				index(ifaces.generic, it)
+				index(ifaces.generic, declared(tn))
 			} else {
-				index(ifaces.plain, it)
+				index(ifaces.plain, declared(tn))
 			}
 		}
 		for _, imp := range tp.Imports() {
@@ -68,19 +95,43 @@ func collectInterfaces(pkgs []*packages.Package) interfaces {
 	for _, p := range pkgs {
 		walk(p.Types)
 		ifaces.indexEmbedders(p.Types)
+		user := strings.TrimSuffix(p.PkgPath, "_test")
 		for _, tv := range p.TypesInfo.Types {
 			if tv.Type == nil {
 				continue
 			}
-			if it, ok := tv.Type.Underlying().(*types.Interface); ok {
-				index(ifaces.plain, it)
+			it, ok := tv.Type.Underlying().(*types.Interface)
+			if !ok {
+				continue
+			}
+			if named, ok := tv.Type.(*types.Named); ok {
+				index(ifaces.plain, declared(named.Origin().Obj()))
+			} else {
+				index(ifaces.plain, iface{it: it, pkg: user})
+			}
+		}
+		for id, obj := range p.TypesInfo.Uses {
+			tn, ok := obj.(*types.TypeName)
+			if !ok || tn.Pkg() == nil || tn.Pkg().Path() == user ||
+				strings.HasSuffix(fset.Position(id.Pos()).Filename, "_test.go") {
+				continue
+			}
+			if _, ok := tn.Type().Underlying().(*types.Interface); ok {
+				ifaces.crossed.Add(key(fset.Position(tn.Pos()), origin(tn)))
 			}
 		}
 	}
 	return ifaces
 }
 
-// satisfied reports whether the method m must stay exported for an interface.
+// dispatches reports whether i can call a method of package pkg from another package:
+// another package declares i, or another package's non-test code names it.
+func (ifaces interfaces) dispatches(i iface, pkg string) bool {
+	return i.pkg != pkg || ifaces.crossed.Contains(i.key)
+}
+
+// satisfied reports whether the method m satisfies an interface that another package
+// calls it through. Such a call is a use of m.
 func (ifaces interfaces) satisfied(m *types.Func) bool {
 	recv := m.Signature().Recv().Type()
 	if ptr, ok := recv.(*types.Pointer); ok {
@@ -115,15 +166,19 @@ func (ifaces interfaces) satisfiedBy(t *types.Named, m *types.Func) bool {
 	if sel == nil || sel.Obj().(*types.Func).Origin() != m {
 		return false
 	}
-	for _, it := range ifaces.generic[m.Name()] {
-		if coversByArity(t, it) {
+	pkg := m.Pkg().Path()
+	for _, i := range ifaces.generic[m.Name()] {
+		if ifaces.dispatches(i, pkg) && coversByArity(t, i.it) {
 			return true
 		}
 	}
 	generic := t.TypeParams().Len() > 0
-	for _, it := range ifaces.plain[m.Name()] {
-		if generic && coversByArity(t, it) ||
-			!generic && (types.Implements(t, it) || types.Implements(ptr, it)) {
+	for _, i := range ifaces.plain[m.Name()] {
+		if !ifaces.dispatches(i, pkg) {
+			continue
+		}
+		if generic && coversByArity(t, i.it) ||
+			!generic && (types.Implements(t, i.it) || types.Implements(ptr, i.it)) {
 			return true
 		}
 	}
