@@ -192,7 +192,7 @@ describe("User", () => {
       test("search term", async () => {
         const res = await client.users.retrieve({
           where: { key: { eq: userOne.key as string } },
-          searchTerm: userOne.username,
+          searchTerm: userOne.name,
         });
         expect(res.map((u) => u.key)).toEqual([userOne.key]);
       });
