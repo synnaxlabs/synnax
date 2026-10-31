@@ -163,7 +163,13 @@ type Status struct {
 	// details contains optional component-specific custom details for the status.
 	Details *anypb.Any `protobuf:"bytes,7,opt,name=details,proto3" json:"details,omitempty"`
 	// labels contains optional labels for categorization and filtering.
-	Labels        *LabelList `protobuf:"bytes,8,opt,name=labels,proto3" json:"labels,omitempty"`
+	Labels *LabelList `protobuf:"bytes,8,opt,name=labels,proto3" json:"labels,omitempty"`
+	// since is when the open or most recent problem of the status started. A problem is a
+	// period with a warning or error variant. Empty if the status never had a problem.
+	Since *int64 `protobuf:"varint,9,opt,name=since,proto3,oneof" json:"since,omitempty"`
+	// cleared is when the most recent problem of the status cleared. Empty while a
+	// problem is open, or if the status never had a problem.
+	Cleared       *int64 `protobuf:"varint,10,opt,name=cleared,proto3,oneof" json:"cleared,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -254,13 +260,27 @@ func (x *Status) GetLabels() *LabelList {
 	return nil
 }
 
+func (x *Status) GetSince() int64 {
+	if x != nil && x.Since != nil {
+		return *x.Since
+	}
+	return 0
+}
+
+func (x *Status) GetCleared() int64 {
+	if x != nil && x.Cleared != nil {
+		return *x.Cleared
+	}
+	return 0
+}
+
 var File_core_pkg_service_status_pb_status_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_status_pb_status_proto_rawDesc = "" +
 	"\n" +
 	"'core/pkg/service/status/pb/status.proto\x12\x11service.status.pb\x1a%core/pkg/service/label/pb/label.proto\x1a\x19google/protobuf/any.proto\"<\n" +
 	"\tLabelList\x12/\n" +
-	"\x06values\x18\x01 \x03(\v2\x17.service.label.pb.LabelR\x06values\"\x9a\x02\n" +
+	"\x06values\x18\x01 \x03(\v2\x17.service.label.pb.LabelR\x06values\"\xea\x02\n" +
 	"\x06Status\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x124\n" +
@@ -269,7 +289,13 @@ const file_core_pkg_service_status_pb_status_proto_rawDesc = "" +
 	"\vdescription\x18\x05 \x01(\tR\vdescription\x12\x12\n" +
 	"\x04time\x18\x06 \x01(\x03R\x04time\x12.\n" +
 	"\adetails\x18\a \x01(\v2\x14.google.protobuf.AnyR\adetails\x124\n" +
-	"\x06labels\x18\b \x01(\v2\x1c.service.status.pb.LabelListR\x06labels*\x83\x01\n" +
+	"\x06labels\x18\b \x01(\v2\x1c.service.status.pb.LabelListR\x06labels\x12\x19\n" +
+	"\x05since\x18\t \x01(\x03H\x00R\x05since\x88\x01\x01\x12\x1d\n" +
+	"\acleared\x18\n" +
+	" \x01(\x03H\x01R\acleared\x88\x01\x01B\b\n" +
+	"\x06_sinceB\n" +
+	"\n" +
+	"\b_cleared*\x83\x01\n" +
 	"\aVariant\x12\x13\n" +
 	"\x0fVARIANT_SUCCESS\x10\x00\x12\x10\n" +
 	"\fVARIANT_INFO\x10\x01\x12\x13\n" +
@@ -317,6 +343,7 @@ func file_core_pkg_service_status_pb_status_proto_init() {
 	if File_core_pkg_service_status_pb_status_proto != nil {
 		return
 	}
+	file_core_pkg_service_status_pb_status_proto_msgTypes[1].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

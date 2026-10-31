@@ -37,7 +37,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/confluence"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -937,10 +936,7 @@ var _ = Describe("Calculation", Ordered, func() {
 					To(HaveField("Message", "Failed to request calculation"))
 				Expect(channelWriter.Rename(ctx, base.Key(), name, false)).
 					To(Succeed())
-				Eventually(func() error {
-					_, err := stored()
-					return err
-				}).Should(MatchError(query.ErrNotFound))
+				Eventually(stored).Should(HaveField("Message", "Calculation ready"))
 				reader := channel.Channel{
 					Name:        UniqueChannelName(),
 					DataType:    telem.Int64T,
@@ -1265,12 +1261,13 @@ var _ = Describe("Calculation", Ordered, func() {
 							Exec(ctx, nil)
 						return st, err
 					}
-					Eventually(func() error {
-						_, err := stored()
-						return err
-					}).Should(MatchError(query.ErrNotFound))
-					write(0)
-					Eventually(stored).Should(failure())
+					Eventually(stored).Should(HaveField("Message", "Calculation ready"))
+					// The graph clears the status before the calculator rebuilds, so
+					// the first frame can miss the calculator.
+					Eventually(func(g Gomega) {
+						write(0)
+						g.Expect(stored()).To(failure())
+					}).Should(Succeed())
 				},
 			)
 		})

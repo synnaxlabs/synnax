@@ -9,9 +9,14 @@
 
 package v1
 
-import "github.com/synnaxlabs/gorp/migrate"
+import (
+	"encoding/json"
+
+	"github.com/synnaxlabs/gorp/migrate"
+)
 
 // Migration lifts stored statuses from v0 to v1. Labels are intentionally dropped: they
 // are no longer persisted on the status and are instead resolved at read time from the
-// label relationship.
-var Migration = migrate.NewEntry("v54_drop_labels", autoMigrateStatus[any])
+// label relationship. Details pass through as raw JSON, because decoding them as any
+// rounds integers past 2^53.
+var Migration = migrate.NewEntry("v54_drop_labels", autoMigrateStatus[json.RawMessage])
