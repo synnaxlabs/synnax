@@ -9,10 +9,14 @@
 
 import { describe } from "vitest";
 
-import { deviceZ, whereZ } from "@/device/types.gen";
+import { device } from "@/device";
 import { matches, serverComputed } from "@/device/where.gen";
 import { itMatchesVectors, readVectors } from "@/testutil/vectors";
 
 describe("Where", () => {
-  itMatchesVectors(readVectors("devices", deviceZ(), whereZ), matches, serverComputed);
+  itMatchesVectors(
+    readVectors("devices", device.deviceZ(), device.whereZ),
+    matches,
+    serverComputed,
+  );
 });

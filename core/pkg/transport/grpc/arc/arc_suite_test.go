@@ -7,19 +7,40 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package arc
+package arc_test
 
 import (
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	fgrpc "github.com/synnaxlabs/freighter/grpc"
+	. "github.com/synnaxlabs/freighter/grpc/testutil"
+	"github.com/synnaxlabs/synnax/pkg/api"
+	grpcarc "github.com/synnaxlabs/synnax/pkg/transport/grpc/arc"
 	. "github.com/synnaxlabs/x/testutil"
+	"google.golang.org/grpc"
+)
+
+var (
+	transport api.Transport
+	conn      *fgrpc.ClientConn
 )
 
 func TestArc(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Transport gRPC Arc Suite", SuiteConfig())
 }
+
+var _ = BeforeSuite(func() {
+	ShouldNotLeakGoroutines()
+	var pool *fgrpc.Pool
+	addr := StartServer(func(reg grpc.ServiceRegistrar, p *fgrpc.Pool) {
+		grpcarc.New(&transport).BindTo(reg)
+		pool = p
+	})
+	conn = MustSucceed(pool.Acquire(addr))
+	DeferCleanup(conn.Release)
+})
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
