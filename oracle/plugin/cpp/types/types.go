@@ -892,12 +892,6 @@ func (p *Plugin) processField(
 		cppType = fmt.Sprintf("std::optional<%s>", cppType)
 	}
 
-	cppFieldName := domain.GetFieldName(field, "cpp")
-	if cppFieldName == field.Name {
-		cppFieldName = casing.FieldSnake(field.Name)
-	}
-	cppFieldName = keywords.Escape(cppFieldName)
-
 	if field.Default != nil {
 		if lit := p.cppDefaultLiteral(field.Type, *field.Default, data); lit != "" {
 			defaultValue = lit
@@ -905,7 +899,7 @@ func (p *Plugin) processField(
 	}
 
 	return fieldData{
-		Name:         cppFieldName,
+		Name:         FieldName(field),
 		CppType:      cppType,
 		Doc:          doc.Get(field.Domains),
 		DefaultValue: defaultValue,
@@ -999,7 +993,7 @@ func (p *Plugin) cppStructLiteral(
 			parts,
 			fmt.Sprintf(
 				".%s = %s",
-				cppFieldName(f),
+				FieldName(f),
 				p.cppDefaultLiteral(f.Type, v, data),
 			),
 		)
@@ -1032,9 +1026,9 @@ func (p *Plugin) cppEnumVariantRef(
 	return ref
 }
 
-// cppFieldName returns the C++ field name for a resolved field, mirroring the
-// naming applied when the field is declared.
-func cppFieldName(field resolution.Field) string {
+// FieldName returns the C++ name of a field, with a trailing underscore when the name
+// is a C++ keyword.
+func FieldName(field resolution.Field) string {
 	name := domain.GetFieldName(field, "cpp")
 	if name == field.Name {
 		name = casing.FieldSnake(field.Name)

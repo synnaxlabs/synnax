@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/oracle/internal/casing"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/cpp/internal/includes"
-	"github.com/synnaxlabs/oracle/plugin/cpp/keywords"
 	cppnaming "github.com/synnaxlabs/oracle/plugin/cpp/naming"
 	cppprimitives "github.com/synnaxlabs/oracle/plugin/cpp/primitives"
 	cpptypes "github.com/synnaxlabs/oracle/plugin/cpp/types"
@@ -362,11 +361,7 @@ func (p *Plugin) processField(
 	data *templateData,
 ) fieldData {
 	cppType := p.typeRefToCpp(field.Type, data)
-	cppFieldName := domain.GetFieldName(field, "cpp")
-	if cppFieldName == field.Name {
-		cppFieldName = casing.FieldSnake(field.Name)
-	}
-	cppFieldName = keywords.Escape(cppFieldName)
+	cppFieldName := cpptypes.FieldName(field)
 
 	indirect := cpptypes.Indirect(field, parent, data.table)
 
@@ -850,11 +845,7 @@ func (p *Plugin) toJSONExprForField(
 	typeRef := field.Type
 	jsonName := casing.FieldSnake(field.Name)
 
-	fieldName := domain.GetFieldName(field, "cpp")
-	if fieldName == field.Name {
-		fieldName = casing.FieldSnake(field.Name)
-	}
-	fieldName = keywords.Escape(fieldName)
+	fieldName := cpptypes.FieldName(field)
 
 	if typeRef.TypeParam != nil && !typeRef.TypeParam.HasDefault() {
 		if field.Optional {

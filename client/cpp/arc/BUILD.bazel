@@ -17,6 +17,7 @@ cc_library(
     ],
     hdrs = [
         "arc.h",
+        "builder.gen.h",
         "json.gen.h",
         "proto.gen.h",
         "types.gen.h",

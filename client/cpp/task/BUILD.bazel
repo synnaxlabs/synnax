@@ -13,6 +13,7 @@ cc_library(
     name = "task",
     srcs = ["task.cpp"],
     hdrs = [
+        "builder.gen.h",
         "json.gen.h",
         "proto.gen.h",
         "task.h",
