@@ -13,7 +13,7 @@ from synnax.user.builder_gen import (
     key,
     not_,
     or_,
-    username,
+    usernames,
     where,
 )
 from synnax.user.client import Client
@@ -31,6 +31,6 @@ __all__ = [
     "key",
     "not_",
     "or_",
-    "username",
+    "usernames",
     "where",
 ]

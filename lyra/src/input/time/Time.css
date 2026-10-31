@@ -10,26 +10,26 @@
  */
 
 /* The trigger is the value as content: it sizes to its text, never to the form. */
-.pluto-time-editor {
+.lyra-time-editor {
     width: fit-content;
     flex-grow: 0;
 
     --pluto-control-width: fit-content;
 
-    & .pluto-time-editor__trigger {
+    & .lyra-time-editor__trigger {
         width: fit-content;
         font-variant-numeric: tabular-nums;
         white-space: nowrap;
     }
 
     /* Content at rest carries no frame; the hover fill says it is editable. */
-    &.pluto--shadow .pluto-time-editor__trigger {
+    &.lyra--shadow .lyra-time-editor__trigger {
         padding: 0 0.75rem;
     }
 }
 
 /* A fixed width, so the dialog holds still while the readings change under it. */
-.pluto-time-editor__dialog {
+.lyra-time-editor__dialog {
     --pluto-time-editor-width: min(56rem, calc(100vw - 4rem));
 
     min-width: var(--pluto-time-editor-width);
@@ -42,51 +42,51 @@
     }
 }
 
-.pluto-datetime__day {
+.lyra-datetime__day {
     color: var(--pluto-gray-l9);
 }
 
 /* An empty input reads as a placeholder, the way an empty field does. */
-.pluto-datetime__empty {
+.lyra-datetime__empty {
     color: var(--pluto-text-placeholder);
 }
 
 /* A duration is derived from the stamps beside it, so it reads one shade quieter. */
-.pluto-timespan__label {
+.lyra-timespan__label {
     color: var(--pluto-gray-l9);
 }
 
-.pluto-time-editor__suggestions {
+.lyra-time-editor__suggestions {
     padding: 1rem;
     white-space: nowrap;
 }
 
-.pluto-time-editor__note {
+.lyra-time-editor__note {
     padding: 0.5rem 1.5rem;
 }
 
-.pluto-time-editor__suggestion {
+.lyra-time-editor__suggestion {
     padding: 0 1.5rem;
     font-variant-numeric: tabular-nums;
 }
 
 /* The reading's detail yields its width to the value and truncates. */
-.pluto-time-editor__detail {
+.lyra-time-editor__detail {
     min-width: 0;
     margin-left: auto;
     padding-left: 2rem;
     text-align: right;
 }
 
-.pluto-time-editor__actions {
+.lyra-time-editor__actions {
     padding: 1rem;
     border-top: var(--pluto-border-width) solid var(--pluto-gray-l4);
 }
 
-.pluto-time-editor__action {
+.lyra-time-editor__action {
     padding: 0.5rem 1.5rem;
 
-    & .pluto-time-editor__hint {
+    & .lyra-time-editor__hint {
         margin-left: auto;
         padding-left: 2rem;
         font-family: var(--pluto-code-font-family);
@@ -94,7 +94,7 @@
 }
 
 /* Collapses to zero rows, so the effect slides in and out instead of popping. */
-.pluto-time-effect {
+.lyra-time-effect {
     display: grid;
     grid-template-rows: 0fr;
     opacity: 0;
@@ -102,7 +102,7 @@
         grid-template-rows 0.15s ease,
         opacity 0.15s ease;
 
-    &.pluto-time-effect--visible {
+    &.lyra-time-effect--visible {
         grid-template-rows: 1fr;
         opacity: 1;
     }
@@ -112,12 +112,12 @@
     }
 }
 
-.pluto-time-effect__clip {
+.lyra-time-effect__clip {
     min-height: 0;
     overflow: hidden;
 }
 
-.pluto-time-effect__content {
+.lyra-time-effect__content {
     padding: 1.5rem 2.5rem;
     border-top: var(--pluto-border-width) solid var(--pluto-gray-l4);
 }

@@ -27,9 +27,9 @@ cc_test(
     size = "small",
     srcs = ["grpc_test.cpp"],
     deps = [
-        "//freighter/cpp/grpc/mock:server",
-        "//freighter/cpp/grpc/mock:service_grpc",
-        "//x/cpp/test",
+        "//freighter/cpp/grpc/testutil:server",
+        "//freighter/cpp/grpc/testutil:service_grpc",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )
@@ -39,17 +39,17 @@ cc_test(
     size = "small",
     srcs = ["tls_test.cpp"],
     data = [
-        "//freighter/cpp/grpc/mock:test_ca_cert.pem",
-        "//freighter/cpp/grpc/mock:test_cert.pem",
-        "//freighter/cpp/grpc/mock:test_key.pem",
-        "//freighter/cpp/grpc/mock:test_leaf_cert.pem",
-        "//freighter/cpp/grpc/mock:test_leaf_key.pem",
+        "//freighter/cpp/grpc/testutil:test_ca_cert.pem",
+        "//freighter/cpp/grpc/testutil:test_cert.pem",
+        "//freighter/cpp/grpc/testutil:test_key.pem",
+        "//freighter/cpp/grpc/testutil:test_leaf_cert.pem",
+        "//freighter/cpp/grpc/testutil:test_leaf_key.pem",
     ],
     deps = [
-        "//freighter/cpp/grpc/mock:server",
-        "//freighter/cpp/grpc/mock:service_grpc",
+        "//freighter/cpp/grpc/testutil:server",
+        "//freighter/cpp/grpc/testutil:service_grpc",
         "//x/cpp/env",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )

@@ -62,13 +62,19 @@ def conditions[C: filter.Condition](
     return conds
 
 
+def _names[C: filter.Condition](
+    line: filter.StringLine[C] | filter.ListLine[C, str], names: list[str]
+) -> C:
+    return line.has_any(names) if isinstance(line, filter.ListLine) else line.in_(names)
+
+
 def shortcut[C: filter.Condition, K](
     kind: str,
     args: Sequence[object],
     condition: type[C],
     key_type: type[K],
     key: filter.SetLine[C, K],
-    name: filter.StringLine[C] | None = None,
+    name: filter.StringLine[C] | filter.ListLine[C, str] | None = None,
 ) -> tuple[list[C], object]:
     """Returns the conditions that the positional arguments of a retrieve make, and the
     key or name that asks for one record, or None.
@@ -87,12 +93,12 @@ def shortcut[C: filter.Condition, K](
     if isinstance(value, key_type):
         return [key.eq(value)], value
     if name is not None and isinstance(value, str):
-        return [name.eq(value)], value
+        return [_names(name, [value])], value
     if isinstance(value, (list, tuple)):
         keys = [v for v in value if isinstance(v, key_type)]
         if len(keys) == len(value):
             return [key.in_(keys)], None
         names = [v for v in value if isinstance(v, str)]
         if name is not None and len(names) == len(value):
-            return [name.in_(names)], None
+            return [_names(name, names)], None
     raise TypeError(f"{value!r} is not a {kind} condition, key, or name")

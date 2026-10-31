@@ -226,7 +226,7 @@ class RangeLifecycle(ConsoleCase):
         self.console.ranges.set_active(self.range_name)
         item = self.console.ranges.toolbar.get_item(self.range_name)
         class_attr = item.get_attribute("class") or ""
-        assert "pluto--selected" in class_attr, "Range should be marked as active"
+        assert "lyra--selected" in class_attr, "Range should be marked as active"
 
     def test_remove_active_range(self) -> None:
         """Test removing an active range from the toolbar via context menu."""
@@ -330,7 +330,7 @@ class RangeLifecycle(ConsoleCase):
         for _ in range(10):
             try:
                 return self.client.ranges.retrieve(name=name)
-            except sy.QueryError:
+            except sy.NotFoundError:
                 sy.sleep(0.5)
         return self.client.ranges.retrieve(name=name)
 
@@ -360,7 +360,9 @@ class RangeLifecycle(ConsoleCase):
         self.console.ranges.overview.set_stage("In progress")
         self.assert_range_spans_now(self.labeled_range_name)
 
-    def wait_for_range(self, name: str, done: Callable[[sy.Range], bool]) -> sy.Range:
+    def wait_for_range(
+        self, name: str, *, done: Callable[[sy.Range], bool]
+    ) -> sy.Range:
         """Poll until the range satisfies ``done``, since overview edits
         autosave on a debounce."""
         rng = self.client.ranges.retrieve(name=name)
@@ -385,12 +387,17 @@ class RangeLifecycle(ConsoleCase):
 
         end = _local_days_from_now(1)
         self.console.ranges.overview.set_end_time(
-            end.year, end.month, end.day, end.hour, end.minute, end.second
+            end.year,
+            end.month,
+            end.day,
+            hour=end.hour,
+            minute=end.minute,
+            second=end.second,
         )
 
         expected = sy.TimeStamp(end)
         rng = self.wait_for_range(
-            self.timeline_range_name, lambda r: r.time_range.end == expected
+            self.timeline_range_name, done=lambda r: r.time_range.end == expected
         )
         assert rng.time_range.end == expected, (
             f"End should be {expected}, got {rng.time_range.end}"
@@ -407,12 +414,17 @@ class RangeLifecycle(ConsoleCase):
 
         start = _local_days_from_now(2)
         self.console.ranges.overview.set_start_time(
-            start.year, start.month, start.day, start.hour, start.minute, start.second
+            start.year,
+            start.month,
+            start.day,
+            hour=start.hour,
+            minute=start.minute,
+            second=start.second,
         )
 
         expected = sy.TimeStamp(start)
         rng = self.wait_for_range(
-            self.timeline_range_name, lambda r: r.time_range.start == expected
+            self.timeline_range_name, done=lambda r: r.time_range.start == expected
         )
         assert rng.time_range.start == expected, (
             f"Start should be {expected}, got {rng.time_range.start}"
@@ -552,7 +564,7 @@ class RangeLifecycle(ConsoleCase):
 
         channel = "sy_node_1_metrics_time"
         csv_content = self.console.ranges.overview.download_csv(
-            self.labeled_range_name, channel
+            self.labeled_range_name, channel=channel
         )
 
         assert csv_content, "CSV content should not be empty"

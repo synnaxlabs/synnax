@@ -63,7 +63,7 @@ func (i IteratorConfig) Validate() error {
 
 var (
 	_                     config.Config[IteratorConfig] = IteratorConfig{}
-	DefaultIteratorConfig                               = IteratorConfig{
+	defaultIteratorConfig                               = IteratorConfig{
 		AutoChunkSize: 1e5,
 	}
 )
@@ -108,7 +108,7 @@ func (db *DB) OpenIterator(cfgs ...IteratorConfig) (*Iterator, error) {
 	if db.closed.Load() {
 		return nil, db.wrapError(ErrDBClosed)
 	}
-	cfg, err := config.New(DefaultIteratorConfig, cfgs...)
+	cfg, err := config.New(defaultIteratorConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}

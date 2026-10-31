@@ -50,11 +50,13 @@ const Create = ({ close, statusKey }: Modals.ContentProps<CreateModalParams, voi
         <Form.Form<typeof Status.formSchema> {...form}>
           <Form.TextField
             path="name"
+            showLabel={false}
             inputProps={{
               autoFocus: true,
               level: "h2",
               variant: "text",
-              placeholder: "Name",
+              placeholder: "Status name",
+              "aria-label": "Status name",
             }}
           />
           <Form.Field<status.Variant> path="variant" label="Variant">
@@ -65,13 +67,12 @@ const Create = ({ close, statusKey }: Modals.ContentProps<CreateModalParams, voi
             label="Message"
             inputProps={{ placeholder: "Message" }}
           />
-          <Form.Field<string[]> path="labels" required={false}>
+          <Form.Field<string[]> path="labels">
             {(p) => <Label.SelectMultiple zIndex={100} {...p} />}
           </Form.Field>
         </Form.Form>
       </Modal.Body>
       <Modal.Footer>
-        <Triggers.SaveHelpText action="Create" />
         <Nav.Bar.End>
           <Button.Button
             variant="filled"
@@ -79,6 +80,7 @@ const Create = ({ close, statusKey }: Modals.ContentProps<CreateModalParams, voi
             tooltipLocation="bottom"
             status={variant}
             trigger={Triggers.SAVE}
+            triggerIndicator
           >
             Create
           </Button.Button>
