@@ -426,7 +426,7 @@ describe("useForm", () => {
       renderHook(
         () => {
           const form = useFailingForm({ query: null });
-          Status.usePlace(placed ? form.status.key : undefined);
+          Status.usePlace(form.status.key, placed);
           return { form, notifications: Status.useNotifications() };
         },
         { wrapper: Wrapper },
