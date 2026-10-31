@@ -18,8 +18,8 @@ import {
   ChannelList as Base,
   type ChannelListProps as BaseProps,
 } from "@/platform/task/ChannelList";
-import { useIsPreview } from "@/platform/task/Form";
 import { type Channel } from "@/platform/task/types";
+import { useIsPreview } from "@/platform/task/useIsPreview";
 
 const Header = () => (
   <PHeader.Header>

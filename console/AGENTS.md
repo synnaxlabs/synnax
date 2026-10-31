@@ -153,9 +153,9 @@ the slice keeps an entry for every window ever opened.
 
 ## Live-Core tests
 
-Live-Core specs (Core, flux query paths, user badges, ...) connect to a real Core at
-`localhost:9090` through the production query path — no store-poking. Check for a
-running Core and start one if missing per "Live-Core Tests" in `docs/claude/testing.md`.
+Live-Core specs (Core, flux query paths, user badges, ...) connect to a real Core
+through the production query path, with no store-poking. See "Live-Core tests" in
+`docs/claude/testing.md`.
 
 Window-keyed slice specs build their store with `createSliceStore` from
 `session/window/testutil.ts` — it adds the drift slice the selectors read the window

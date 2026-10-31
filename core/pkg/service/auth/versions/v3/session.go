@@ -7,8 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Form } from "@synnaxlabs/lyra/form";
+package v3
 
-export const AutoStart = () => (
-  <Form.SwitchField label="Auto start" path="config.autoStart" />
-);
+import "github.com/synnaxlabs/gorp"
+
+var _ gorp.Entry[SessionKey] = Session{}
+
+// GorpKey implements gorp.Entry.
+func (s Session) GorpKey() SessionKey { return s.Key }
+
+// SetOptions implements gorp.Entry.
+func (Session) SetOptions() []any { return nil }

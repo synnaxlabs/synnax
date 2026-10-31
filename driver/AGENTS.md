@@ -65,9 +65,8 @@ NI (cDAQ chassis + modules).
 
 ## Tests
 
-Many driver tests (rack, http, task suites) connect to a core at `localhost:9090`. Check
-for a running core and start one if missing per "Live-Core Tests" in
-`docs/claude/testing.md`. The user runs bazel test invocations.
+Many driver tests (rack, http, task suites) connect to a live Core. See "Live-Core
+tests" in `docs/claude/testing.md`. The user runs bazel test invocations.
 
 ## Gotchas
 

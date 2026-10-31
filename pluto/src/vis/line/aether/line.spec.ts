@@ -15,6 +15,7 @@ import {
   color,
   type CrudeTimeRange,
   DataType,
+  dynamicWindow,
   id,
   MultiSeries,
   scale,
@@ -23,13 +24,18 @@ import {
   TimeRange,
   TimeSpan,
   TimeStamp,
+  type Window,
 } from "@synnaxlabs/x";
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { telem } from "@/telem/aether";
 import { telemTest } from "@/telem/aether/testutil";
 import { renderAether } from "@/testutil/internal";
-import { buildDrawOperations, DEFAULT_OVERLAP_THRESHOLD } from "@/vis/line/aether/draw";
+import {
+  bridgeVertices,
+  buildDrawOperations,
+  DEFAULT_OVERLAP_THRESHOLD,
+} from "@/vis/line/aether/draw";
 import { Line, type LineProps, type State } from "@/vis/line/aether/line";
 import { lineTest } from "@/vis/line/aether/testutil";
 import { canvasTest } from "@/vis/render/testutil";
@@ -124,8 +130,8 @@ describe("line", () => {
 
     const X1 = series([0, 1, 2], 0n, { start: 0, end: 100 });
     const Y1 = series([10, 20, 30], 0n, { start: 0, end: 100 });
-    const X2 = series([5, 6], 10n, { start: 200, end: 300 });
-    const Y2 = series([40, 50], 10n, { start: 200, end: 300 });
+    const X2 = series([5, 6], 10n, { start: 100, end: 200 });
+    const Y2 = series([40, 50], 10n, { start: 100, end: 200 });
 
     it("should pass the x range the region shows to its sources", () => {
       const m = mount([X1], [Y1]);
@@ -321,6 +327,19 @@ describe("line", () => {
         ]);
         const upload = m.calls.filter((c) => c.op === "bufferData").at(-1);
         expect(Array.from(upload?.args[1] as Float32Array)).toEqual([2, 30, 5, 40]);
+      });
+
+      it("should draw no bridge between two domains with time between them", () => {
+        const late = { start: 200, end: 300 };
+        const m = mount(
+          [X1, series([5, 6], 10n, late)],
+          [Y1, series([40, 50], 10n, late)],
+        );
+        m.line.render(PROPS);
+        expect(m.draws()).toEqual([
+          [canvasTest.GL_ENUMS.LINE_STRIP, 3],
+          [canvasTest.GL_ENUMS.LINE_STRIP, 2],
+        ]);
       });
 
       describe("non-finite samples", () => {
@@ -611,6 +630,78 @@ describe("line", () => {
     // Writes COUNT samples one millisecond apart. Data sample i holds sin(i / 100), or
     // SPIKE at spikeAt.
     const writeChannels = async (spikeAt?: number) => {
+      const { time, data } = await createChannels();
+      const start = TimeStamp.seconds(1_000_000);
+      await synnax.write(start, {
+        [time]: Array.from({ length: COUNT }, (_, i) =>
+          start.add(TimeSpan.milliseconds(i)),
+        ),
+        [data]: Array.from({ length: COUNT }, (_, i) =>
+          i === spikeAt ? SPIKE : Math.sin(i / 100),
+        ),
+      });
+      const home = new TimeRange(start, start.add(TimeSpan.milliseconds(COUNT)));
+      return { data, home };
+    };
+
+    const create = (
+      props: Partial<telem.ChannelDataProps>,
+      from: telem.Client = client,
+    ) => new telem.ChannelData(from, props);
+
+    const createWindowed = (
+      dataKey: channel.Key,
+      window: Window,
+      from: telem.Client = client,
+    ) => ({
+      x: create({ channel: dataKey, useIndexOfChannel: true, window }, from),
+      y: create({ channel: dataKey, window }, from),
+    });
+
+    const createPair = (
+      dataKey: channel.Key,
+      home: TimeRange,
+      from: telem.Client = client,
+    ) => createWindowed(dataKey, staticWindow(home), from);
+
+    const settle = async (...sources: telem.ChannelData[]): Promise<void> =>
+      await expect
+        .poll(() => sources.every((s) => s.value().status.variant !== "loading"))
+        .toBe(true);
+
+    const drawn = (x: MultiSeries, y: MultiSeries) =>
+      buildDrawOperations(x, y, DEFAULT_OVERLAP_THRESHOLD);
+
+    // Returns the separate lines the sources draw: their ops less the bridges that join
+    // them.
+    const linesOf = (x: telem.ChannelData, y: telem.ChannelData): number => {
+      const ops = drawn(x.value().data[1], y.value().data[1]);
+      return ops.length - bridgeVertices(ops, scale.XY.IDENTITY).length / 4;
+    };
+
+    // Writes count samples spaced by step from start in one writer session.
+    const writeRun = async (
+      keys: { time: channel.Key; data: channel.Key },
+      start: TimeStamp,
+      count: number,
+      step: TimeSpan,
+    ): Promise<void> => {
+      const writer = await synnax.openWriter({
+        start,
+        channels: [keys.time, keys.data],
+      });
+      const BATCH = 100;
+      for (let i = 0; i < count; i += BATCH) {
+        const n = Math.min(BATCH, count - i);
+        await writer.write({
+          [keys.time]: Array.from({ length: n }, (_, k) => start.add(step.mult(i + k))),
+          [keys.data]: new Float32Array(n).fill(i),
+        });
+      }
+      await writer.close();
+    };
+
+    const createChannels = async () => {
       const time = await synnax.channels.create({
         name: id.create(),
         dataType: DataType.TIMESTAMP,
@@ -621,42 +712,12 @@ describe("line", () => {
         dataType: DataType.FLOAT32,
         index: time.key,
       });
-      const start = TimeStamp.seconds(1_000_000);
-      await synnax.write(start, {
-        [time.key]: Array.from({ length: COUNT }, (_, i) =>
-          start.add(TimeSpan.milliseconds(i)),
-        ),
-        [data.key]: Array.from({ length: COUNT }, (_, i) =>
-          i === spikeAt ? SPIKE : Math.sin(i / 100),
-        ),
-      });
-      const home = new TimeRange(start, start.add(TimeSpan.milliseconds(COUNT)));
-      return { data, home };
+      return { time: time.key, data: data.key };
     };
-
-    const create = (props: Partial<telem.ChannelDataProps>) =>
-      new telem.ChannelData(client, props);
-
-    const createPair = (dataKey: channel.Key, home: TimeRange) => ({
-      x: create({
-        channel: dataKey,
-        useIndexOfChannel: true,
-        window: staticWindow(home),
-      }),
-      y: create({ channel: dataKey, window: staticWindow(home) }),
-    });
-
-    const settle = async (...sources: telem.ChannelData[]): Promise<void> =>
-      await expect
-        .poll(() => sources.every((s) => s.value().status.variant !== "loading"))
-        .toBe(true);
-
-    const drawn = (x: MultiSeries, y: MultiSeries) =>
-      buildDrawOperations(x, y, DEFAULT_OVERLAP_THRESHOLD);
 
     it("should pair every reduced x sample with a y sample", async () => {
       const { data, home } = await writeChannels();
-      const { x, y } = createPair(data.key, home);
+      const { x, y } = createPair(data, home);
       await settle(x, y);
       const [xBounds, xs] = x.value().data;
       const [, ys] = y.value().data;
@@ -678,7 +739,7 @@ describe("line", () => {
     it("should keep a spike that an average drops inside the line's bounds", async () => {
       const { data, home } = await writeChannels(COUNT / 2);
       const y = create({
-        channel: data.key,
+        channel: data,
         window: staticWindow(home),
         aggregation: "average",
       });
@@ -692,7 +753,7 @@ describe("line", () => {
 
     it("should draw finer tiles for a zoomed view", async () => {
       const { data, home } = await writeChannels();
-      const { x, y } = createPair(data.key, home);
+      const { x, y } = createPair(data, home);
       await settle(x, y);
       const homePoints = y.value().data[1].length;
       const start = Number(home.start.valueOf());
@@ -723,6 +784,46 @@ describe("line", () => {
       expect(drawn(xs, ys).reduce((n, op) => n + op.count, 0)).toBe(ys.length);
       x.cleanup();
       y.cleanup();
+    });
+
+    it("should break a line where a writer restarted, live and read back", async () => {
+      const keys = await createChannels();
+      const count = 200;
+      const step = TimeSpan.milliseconds(1);
+      const start = TimeStamp.now().sub(TimeSpan.seconds(10));
+      const live = createWindowed(keys.data, dynamicWindow(TimeSpan.seconds(60)));
+      await settle(live.x, live.y);
+      await writeRun(keys, start, count, step);
+      await writeRun(keys, start.add(TimeSpan.seconds(1)), count, step);
+      await expect.poll(() => live.y.value().data[1].length).toBe(2 * count);
+      expect(linesOf(live.x, live.y)).toBe(2);
+      live.x.cleanup();
+      live.y.cleanup();
+      const end = start.add(TimeSpan.seconds(2));
+      const reloaded = synnax.openFeed();
+      const read = createPair(keys.data, new TimeRange(start, end), {
+        ...client,
+        feed: reloaded,
+      });
+      await settle(read.x, read.y);
+      await expect.poll(() => read.y.value().data[1].length).toBe(2 * count);
+      expect(linesOf(read.x, read.y)).toBe(2);
+      read.x.cleanup();
+      read.y.cleanup();
+      await reloaded.close();
+    });
+
+    it("should draw one line while a writer's samples cross raw blocks", async () => {
+      const keys = await createChannels();
+      const count = 7_000;
+      const live = createWindowed(keys.data, dynamicWindow(TimeSpan.seconds(100)));
+      await settle(live.x, live.y);
+      await writeRun(keys, TimeStamp.now(), count, TimeSpan.milliseconds(10));
+      await expect.poll(() => live.y.value().data[1].length).toBe(count);
+      expect(live.y.value().data[1].series.length).toBeGreaterThan(1);
+      expect(linesOf(live.x, live.y)).toBe(1);
+      live.x.cleanup();
+      live.y.cleanup();
     });
   });
 });

@@ -247,7 +247,7 @@ export default class Synnax extends framer.Client {
     // them (the breaker-wrapped unary or the check loop), never stacked beneath it.
     this.auth = new auth.Client(transport.unaryNoRetry, authorityOf(parsedParams), {
       onUser: (u) => identity.notify(u),
-      onSuccess: () => this.conn.notify({ type: "auth.success" }),
+      onSuccess: (session) => this.conn.notify({ type: "auth.success", session }),
       onFailure: (error) => this.conn.notify({ type: "auth.failure", error }),
     });
     transport.use(this.auth.middleware());
@@ -304,7 +304,7 @@ export default class Synnax extends framer.Client {
       ontology: this.ontology,
       ranges: this.ranges,
       cache,
-      statusStore: this.statuses.store,
+      statuses: this.statuses,
     });
     this.racks = new rack.Client({
       unary,

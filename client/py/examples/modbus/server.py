@@ -256,8 +256,8 @@ async def run_gateway(
 
 class ModbusSerialSim(DeviceSim):
     """Modbus RTU simulator with the units of the gateway on a pseudo-terminal, at 19200
-    baud with even parity. A client opens serial_port, a link to the terminal. POSIX
-    only."""
+    baud with no parity. Linux refuses parity on a pseudo-terminal. A client opens
+    serial_port, a link to the terminal. POSIX only."""
 
     description = "Modbus RTU simulator on a pseudo-terminal"
     serial_port = os.path.join(tempfile.gettempdir(), "synnax-modbus-rtu-sim")
@@ -281,7 +281,7 @@ class ModbusSerialSim(DeviceSim):
                 )
             if os.path.exists(self.serial_port):
                 client = ModbusSerialClient(
-                    self.serial_port, parity="E", timeout=0.5, retries=0
+                    self.serial_port, parity="N", timeout=0.5, retries=0
                 )
                 try:
                     if (
@@ -309,6 +309,7 @@ class ModbusSerialSim(DeviceSim):
         return modbus.Device(
             transport="rtu",
             serial_port=ModbusSerialSim.serial_port,
+            parity="none",
             unit_id=unit_id,
             name=f"Modbus Serial Unit {unit_id}",
             location=ModbusSerialSim.serial_port,
@@ -341,7 +342,7 @@ async def run_serial(link: str = ModbusSerialSim.serial_port) -> None:
     server = ModbusSerialServer(
         context=devices,
         port=os.ttyname(server_slave),
-        parity="E",
+        parity="N",
         ignore_missing_devices=True,
     )
     server.context = _Gateway(devices)

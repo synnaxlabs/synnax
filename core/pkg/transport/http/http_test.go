@@ -456,7 +456,7 @@ var _ = Describe("HTTP", func() {
 			Expect(again.StatusCode).To(Equal(http.StatusBadRequest))
 		})
 	})
-	Describe("API keys", func() {
+	Describe("Credentials", func() {
 		var app *fiber.App
 		creds := auth.Credentials{Username: "root", Password: "root"}
 		BeforeEach(func(ctx SpecContext) { app = openLicensed(ctx, creds) })
@@ -518,6 +518,33 @@ var _ = Describe("HTTP", func() {
 			)).To(Equal(http.StatusOK))
 			Expect(call("/api/v1/auth/session/renew", keyToken, struct{}{}, nil)).
 				To(Equal(http.StatusBadRequest))
+		})
+		It("Should set the caller's own password", func() {
+			token := login(auth.Proof{Variant: auth.PasswordProof{Credentials: creds}})
+			Expect(call(
+				"/api/v1/auth/password/set",
+				token,
+				apiauth.PasswordSetRequest{Password: "new", CurrentPassword: "wrong"},
+				nil,
+			)).To(Equal(http.StatusBadRequest))
+			var set apiauth.PasswordSetResponse
+			Expect(call(
+				"/api/v1/auth/password/set",
+				token,
+				apiauth.PasswordSetRequest{
+					Password:        "new",
+					CurrentPassword: creds.Password,
+				},
+				&set,
+			)).To(Equal(http.StatusOK))
+			Expect(call("/api/v1/auth/session/renew", token, struct{}{}, nil)).
+				To(Equal(http.StatusBadRequest))
+			Expect(call("/api/v1/auth/session/renew", set.Token, struct{}{}, nil)).
+				To(Equal(http.StatusOK))
+			login(auth.Proof{Variant: auth.PasswordProof{Credentials: auth.Credentials{
+				Username: creds.Username,
+				Password: "new",
+			}}})
 		})
 		It("Should delete a rack's keys and end their sessions with the rack", func() {
 			rootToken := login(

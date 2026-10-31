@@ -31,7 +31,7 @@ vi.mock("@/session/runtime/runtime", async (importOriginal) => {
 import { Selector } from "@/feature/panel/Selector";
 import { Modals } from "@/platform/modals";
 import { createPanelWrapper } from "@/platform/panel/testutil";
-import { findModalButton } from "@/platform/tree/menuTestutil";
+import { findModalButton } from "@/platform/tree/testutil";
 import { Session } from "@/session";
 import {
   countEditableText,

@@ -13,8 +13,8 @@ import { describe, expect, it, vi } from "vitest";
 import z from "zod";
 
 import { type channel } from "@/channel";
-import { AccessDeniedError, DisconnectedError, NotFoundError } from "@/errors";
 import { framer } from "@/framer";
+import { AccessDeniedError, DisconnectedError, NotFoundError } from "@/index";
 import { query } from "@/query";
 
 interface Doc extends record.Keyed<string> {

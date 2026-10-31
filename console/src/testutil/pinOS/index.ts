@@ -7,13 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Form } from "@synnaxlabs/lyra/form";
-import { Input } from "@synnaxlabs/lyra/input";
-
-export const DataSaving = () => (
-  <Form.Field<boolean> label="Data saving" path="config.dataSavingDisabled">
-    {({ value, onChange, ...rest }) => (
-      <Input.Switch {...rest} value={!value} onChange={(v) => onChange(!v)} />
-    )}
-  </Form.Field>
-);
+export { pinOS } from "@/testutil/pinOS/pinOS";

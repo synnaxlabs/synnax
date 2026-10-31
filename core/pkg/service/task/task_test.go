@@ -1317,8 +1317,12 @@ var _ = Describe("Task", Ordered, func() {
 		It(
 			"Should copy the rack's problem onto a running task",
 			func(ctx SpecContext) {
+				// The rack and its tasks commit together, so the rack cannot go silent
+				// before the tasks exist.
+				createTx := db.OpenTx()
+				defer func() { Expect(createTx.Close()).To(Succeed()) }()
 				r := rack.Rack{Name: "suspect rack"}
-				Expect(rackService.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+				Expect(rackService.NewWriter(createTx).Create(ctx, &r)).To(Succeed())
 				t := &task.Task{
 					Type: testType,
 					Rack: r.Key,
@@ -1333,7 +1337,8 @@ var _ = Describe("Task", Ordered, func() {
 						},
 					},
 				}
-				Expect(svc.NewWriter(nil).Create(ctx, t)).To(Succeed())
+				Expect(svc.NewWriter(createTx).Create(ctx, t)).To(Succeed())
+				Expect(createTx.Commit(ctx)).To(Succeed())
 
 				Eventually(func(g Gomega) {
 					var taskStatus task.Status
@@ -1361,8 +1366,12 @@ var _ = Describe("Task", Ordered, func() {
 		It(
 			"Should not copy the rack's problem onto a task that is not running",
 			func(ctx SpecContext) {
+				// The rack and its tasks commit together, so the rack cannot go silent
+				// before the tasks exist.
+				createTx := db.OpenTx()
+				defer func() { Expect(createTx.Close()).To(Succeed()) }()
 				r := rack.Rack{Name: "suspect rack"}
-				Expect(rackService.NewWriter(nil).Create(ctx, &r)).To(Succeed())
+				Expect(rackService.NewWriter(createTx).Create(ctx, &r)).To(Succeed())
 				running := &task.Task{
 					Type: testType,
 					Rack: r.Key,
@@ -1374,7 +1383,7 @@ var _ = Describe("Task", Ordered, func() {
 						Details: task.StatusDetails{Running: true},
 					},
 				}
-				Expect(svc.NewWriter(nil).Create(ctx, running)).To(Succeed())
+				Expect(svc.NewWriter(createTx).Create(ctx, running)).To(Succeed())
 				stopped := &task.Task{
 					Type: testType,
 					Rack: r.Key,
@@ -1385,9 +1394,10 @@ var _ = Describe("Task", Ordered, func() {
 						Time:    telem.Now(),
 					},
 				}
-				Expect(svc.NewWriter(nil).Create(ctx, stopped)).To(Succeed())
+				Expect(svc.NewWriter(createTx).Create(ctx, stopped)).To(Succeed())
 				undeployed := &task.Task{Type: testType, Rack: r.Key, Name: "New Task"}
-				Expect(svc.NewWriter(nil).Create(ctx, undeployed)).To(Succeed())
+				Expect(svc.NewWriter(createTx).Create(ctx, undeployed)).To(Succeed())
+				Expect(createTx.Commit(ctx)).To(Succeed())
 
 				By("Waiting for the copy onto the running task, written in one batch")
 				Eventually(func(g Gomega) {

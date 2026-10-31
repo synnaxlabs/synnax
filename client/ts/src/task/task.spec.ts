@@ -12,8 +12,8 @@ import { assert, beforeAll, describe, expect, it, onTestFinished, vi } from "vit
 import { z } from "zod";
 
 import { channel } from "@/channel";
-import { AccessDeniedError, NotFoundError } from "@/errors";
 import { framer } from "@/framer";
+import { AccessDeniedError, NotFoundError } from "@/index";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { rack } from "@/rack";
@@ -1231,6 +1231,94 @@ describe("Task", async () => {
       } finally {
         vi.useRealTimers();
         off();
+      }
+    });
+
+    it("hands the rack's stand-in reply to write handlers", async () => {
+      const down = await client.racks.create({ name: `down-${id.create()}` });
+      const t = await down.createTask({
+        name: `down-${id.create()}`,
+        config: {},
+        type: "pagerduty_alert",
+      });
+      const key = task.statusKey(t.key);
+      await client.tasks.retrieve({ key: t.key });
+      await setRackStatus(down.key, "warning", "no Driver here");
+      let seeWrite = (_: status.Status): void => {};
+      const written = new Promise<status.Status>((resolve) => (seeWrite = resolve));
+      const off = client.statuses.onWrite((s) => {
+        if (s.key === key && s.variant === "warning") seeWrite(s);
+      });
+      try {
+        const cmd = await client.tasks.executeCommand({ task: t.key, type: "start" });
+        expect(await written).toMatchObject({
+          message: "no Driver here",
+          details: { cmd, running: false },
+        });
+      } finally {
+        off();
+      }
+    });
+
+    it("hands the loading status of a command to write handlers", async () => {
+      const alive = await client.racks.create({ name: `alive-${id.create()}` });
+      const t = await alive.createTask({
+        name: `loading-${id.create()}`,
+        config: {},
+        type: "pagerduty_alert",
+      });
+      const key = task.statusKey(t.key);
+      let seeWrite = (_: status.Status): void => {};
+      const written = new Promise<status.Status>((resolve) => (seeWrite = resolve));
+      const off = client.statuses.onWrite((s) => {
+        if (s.key === key && s.variant === "loading") seeWrite(s);
+      });
+      try {
+        await client.tasks.retrieve({ key: t.key });
+        await setRackAliveAfterEcho(alive.key);
+        await client.tasks.executeCommand({ task: t.key, type: "start" });
+        expect(await written).toMatchObject({ message: "Sending start command" });
+      } finally {
+        off();
+      }
+    });
+
+    it("hands the no-response warning to write handlers as the reply", async () => {
+      const alive = await client.racks.create({ name: `alive-${id.create()}` });
+      const t = await alive.createTask({
+        name: `deadline-${id.create()}`,
+        config: {},
+        type: "pagerduty_alert",
+      });
+      const key = task.statusKey(t.key);
+      let seeLoading = (): void => {};
+      const loading = new Promise<void>((resolve) => (seeLoading = resolve));
+      const offLoading = client.statuses.store.subscribe((event) => {
+        if (event.variant === "set" && event.value.variant === "loading") seeLoading();
+      }, key);
+      const written: status.Status[] = [];
+      const offWrite = client.statuses.onWrite((s) => {
+        if (s.key === key) written.push(s);
+      });
+      try {
+        await client.tasks.retrieve({ key: t.key });
+        await setRackAliveAfterEcho(alive.key);
+        vi.useFakeTimers({
+          toFake: ["setTimeout", "clearTimeout"],
+          shouldAdvanceTime: true,
+        });
+        const cmd = await client.tasks.executeCommand({ task: t.key, type: "start" });
+        await loading;
+        await vi.advanceTimersByTimeAsync(COMMAND_DEADLINE.milliseconds);
+        expect(written.at(-1)).toMatchObject({
+          variant: "warning",
+          message: "No response to the start command",
+          details: { cmd, running: false },
+        });
+      } finally {
+        vi.useRealTimers();
+        offLoading();
+        offWrite();
       }
     });
 
