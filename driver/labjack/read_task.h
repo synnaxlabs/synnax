@@ -671,7 +671,6 @@ public:
         this->stop();
         auto [d, acquire_err] = this->devs->acquire(this->cfg.device_key);
         if (acquire_err) return acquire_err;
-        if (const auto err = this->cfg.apply(d); err && !force) return err;
         std::vector<int> temp_ports(this->cfg.channels.size());
         std::vector<const char *> physical_channels;
         physical_channels.reserve(this->cfg.channels.size());
@@ -689,7 +688,11 @@ public:
                 this->cfg.samples_per_chan,
                 this->cfg.channels.size(),
                 temp_ports.data(),
-                &scan_rate
+                &scan_rate,
+                [this, force, &dev = d] {
+                    const auto err = this->cfg.apply(dev);
+                    return force ? x::errors::NIL : err;
+                }
             ))
             return err;
         this->dev = std::move(d);

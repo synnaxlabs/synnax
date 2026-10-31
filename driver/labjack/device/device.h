@@ -83,12 +83,15 @@ public:
     e_read_name(const char *name, double *value) const = 0;
 
     /// @brief starts a stream.
+    /// @param configure writes the settings of the stream. It runs only when no other
+    /// stream holds the device, so a refused start leaves the device untouched.
     /// @returns ljm::STREAM_IS_ACTIVE when a stream already runs on the device.
     [[nodiscard]] virtual x::errors::Error e_stream_start(
         size_t scans_per_read,
         size_t num_addrs,
         const int *scan_list,
-        double *scan_rate
+        double *scan_rate,
+        const std::function<x::errors::Error()> &configure
     ) const = 0;
 };
 
@@ -248,7 +251,8 @@ public:
         const size_t scans_per_read,
         const size_t num_addrs,
         const int *scan_list,
-        double *scan_rate
+        double *scan_rate,
+        const std::function<x::errors::Error()> &configure
     ) const override {
         if (this->streaming.exchange(true))
             return x::errors::Error(
@@ -256,16 +260,18 @@ public:
                 "A LabJack runs one stream at a time, and another task is streaming "
                 "from this device. Add these channels to the running task."
             );
-        const auto err = parse_error(
-            this->ljm,
-            this->ljm->e_stream_start(
-                this->dev_handle,
-                static_cast<int>(scans_per_read),
-                static_cast<int>(num_addrs),
-                scan_list,
-                scan_rate
-            )
-        );
+        auto err = configure();
+        if (!err)
+            err = parse_error(
+                this->ljm,
+                this->ljm->e_stream_start(
+                    this->dev_handle,
+                    static_cast<int>(scans_per_read),
+                    static_cast<int>(num_addrs),
+                    scan_list,
+                    scan_rate
+                )
+            );
         if (err) this->streaming = false;
         return err;
     }

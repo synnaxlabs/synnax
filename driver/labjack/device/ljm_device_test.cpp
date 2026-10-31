@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <functional>
 #include <memory>
 #include <utility>
 
@@ -33,9 +34,12 @@ std::shared_ptr<ljm::API> open_fake_api() {
 }
 
 /// @brief starts a stream on the device.
-x::errors::Error start_stream(const LJMDevice &dev) {
+x::errors::Error start_stream(
+    const LJMDevice &dev,
+    const std::function<x::errors::Error()> &configure = [] { return x::errors::NIL; }
+) {
     double scan_rate = 1000;
-    return dev.e_stream_start(1, 0, nullptr, &scan_rate);
+    return dev.e_stream_start(1, 0, nullptr, &scan_rate, configure);
 }
 
 /// @brief it should refuse a second stream, tell the user what to do, and allow a new
@@ -50,6 +54,31 @@ TEST(LJMDeviceTest, testSecondStreamStartIsRefused) {
         ::testing::HasSubstr("Add these channels to the running task.")
     );
     ASSERT_NIL(dev.e_stream_stop());
+    ASSERT_NIL(start_stream(dev));
+}
+
+/// @brief it should leave the device untouched when it refuses a stream.
+TEST(LJMDeviceTest, testRefusedStartDoesNotConfigure) {
+    const LJMDevice dev(open_fake_api(), WORKING_HANDLE);
+    ASSERT_NIL(start_stream(dev));
+    bool configured = false;
+    ASSERT_OCCURRED_AS(
+        start_stream(
+            dev,
+            [&configured] {
+                configured = true;
+                return x::errors::NIL;
+            }
+        ),
+        ljm::STREAM_IS_ACTIVE
+    );
+    EXPECT_FALSE(configured);
+}
+
+/// @brief it should allow a new stream after a configure that failed.
+TEST(LJMDeviceTest, testFailedConfigureAllowsNextStart) {
+    const LJMDevice dev(open_fake_api(), WORKING_HANDLE);
+    ASSERT_OCCURRED_AS(start_stream(dev, [] { return FAKE_FAILURE; }), FAKE_FAILURE);
     ASSERT_NIL(start_stream(dev));
 }
 
