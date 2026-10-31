@@ -17,42 +17,6 @@ import (
 	v2 "github.com/synnaxlabs/synnax/pkg/service/ni/versions/v2"
 )
 
-func autoMigrateAnalogReadConfig(_ context.Context, old v2.AnalogReadConfig) (AnalogReadConfig, error) {
-	return AnalogReadConfig{
-		ReadConfig: old.ReadConfig,
-		Channels:   old.Channels,
-	}, nil
-}
-
-func autoMigrateAnalogWriteConfig(_ context.Context, old v2.AnalogWriteConfig) (AnalogWriteConfig, error) {
-	return AnalogWriteConfig{
-		WriteConfig: old.WriteConfig,
-		Channels:    old.Channels,
-	}, nil
-}
-
-func autoMigrateCounterReadConfig(_ context.Context, old v2.CounterReadConfig) (CounterReadConfig, error) {
-	return CounterReadConfig{
-		ReadConfig: old.ReadConfig,
-		Channels:   old.Channels,
-	}, nil
-}
-
-func autoMigrateDigitalReadConfig(_ context.Context, old v2.DigitalReadConfig) (DigitalReadConfig, error) {
-	return DigitalReadConfig{
-		ReadConfig: old.ReadConfig,
-		Device:     old.Device,
-		Channels:   old.Channels,
-	}, nil
-}
-
-func autoMigrateDigitalWriteConfig(_ context.Context, old v2.DigitalWriteConfig) (DigitalWriteConfig, error) {
-	return DigitalWriteConfig{
-		WriteConfig: old.WriteConfig,
-		Channels:    old.Channels,
-	}, nil
-}
-
 func autoMigrateScanConfig(_ context.Context, old v2.ScanConfig) (ScanConfig, error) {
 	return ScanConfig{
 		ScanConfig: old.ScanConfig,
