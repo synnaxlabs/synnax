@@ -186,7 +186,7 @@ protected:
 TEST_F(TestEventTask, testRecordsEvents) {
     const auto src = this->source(this->config());
     ASSERT_NIL(src->start());
-    const auto time = x::telem::TimeStamp::now() - x::telem::SECOND;
+    const auto time = testutil::now(-1 * x::telem::SECOND);
     this->server->emit({.source = testutil::PUMP, .message = "filtered out"});
     this->emit("overpressure", time);
     const auto [events, stamps] = read_events(*src, 1);
@@ -221,7 +221,7 @@ TEST_F(TestEventTask, testRecordsServerEventsByDefault) {
 /// @brief it should write an event at or before the last stored sample 1 ns after it,
 /// so that no event is lost.
 TEST_F(TestEventTask, testWritesAfterLastStoredSample) {
-    const auto stored = x::telem::TimeStamp::now();
+    const auto stored = testutil::now();
     this->store(stored);
     const auto src = this->source(this->config());
     ASSERT_NIL(src->start());
@@ -247,7 +247,7 @@ TEST_F(TestEventTask, testWritesAfterLastStoredSample) {
 /// @brief it should skip a replayed event at or before the last stored sample, since
 /// the task stored it before, and keep a new event at the same time.
 TEST_F(TestEventTask, testSkipsReplayedStoredEvents) {
-    const auto stored = x::telem::TimeStamp::now();
+    const auto stored = testutil::now();
     this->store(stored);
     const auto src = this->source(this->config());
     ASSERT_NIL(src->start());
@@ -267,7 +267,7 @@ TEST_F(TestEventTask, testSkipsReplayedStoredEvents) {
 TEST_F(TestEventTask, testKeepsReplayedEventsAtOneTime) {
     const auto src = this->source(this->config());
     ASSERT_NIL(src->start());
-    const auto time = x::telem::TimeStamp::now() - x::telem::SECOND;
+    const auto time = testutil::now(-1 * x::telem::SECOND);
     this->emit_marker(UA_NS0ID_REFRESHSTARTEVENTTYPE);
     this->emit("first", time);
     this->emit("second", time);
@@ -285,7 +285,7 @@ TEST_F(TestEventTask, testKeepsReplayedEventsAtOneTime) {
 TEST_F(TestEventTask, testKeepsReplayedEventThatReplaysAgain) {
     const auto src = this->source(this->config());
     ASSERT_NIL(src->start());
-    const auto time = x::telem::TimeStamp::now() - x::telem::SECOND;
+    const auto time = testutil::now(-1 * x::telem::SECOND);
     for (int i = 0; i < 2; ++i) {
         this->emit_marker(UA_NS0ID_REFRESHSTARTEVENTTYPE);
         this->emit("active", time);
