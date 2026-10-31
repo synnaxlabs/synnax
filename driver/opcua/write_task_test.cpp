@@ -808,6 +808,35 @@ TEST_F(TestWriteTask, testNamespaceAddedAfterStart) {
     ASSERT_NIL(sink->stop());
 }
 
+/// @brief it should convert a command to the data type of a node that the server adds
+/// after the task starts, on the same Session.
+TEST_F(TestWriteTask, testNodeAddedAfterStart) {
+    const auto cmd = ASSERT_NIL_P(ctx->client->channels.create(
+        make_unique_channel_name("float_cmd"),
+        x::telem::FLOAT64_T,
+        true
+    ));
+    const auto sink = sink_for(ctx->client, conn_pool, cmd.key, "NS=1;S=Late");
+    ASSERT_NIL(sink->start());
+    auto fr = x::telem::Frame(1);
+    fr.emplace(cmd.key, x::telem::Series(97.0));
+    ASSERT_OCCURRED_AS(sink->write(fr), errors::COMMAND_REJECTED);
+    const auto sessions = server->sessions_created.load();
+    UA_UInt32 initial = 0;
+    UA_Variant value;
+    UA_Variant_setScalar(&value, &initial, &UA_TYPES[UA_TYPES_UINT32]);
+    server->add_namespace(
+        testutil::SERVER_APPLICATION_URI,
+        {{0, "Late", &UA_TYPES[UA_TYPES_UINT32], value, "Late"}}
+    );
+    ASSERT_NIL(sink->write(fr));
+    EXPECT_EQ(server->sessions_created.load(), sessions);
+    auto client = ASSERT_NIL_P(connection::connect(conn_cfg, {}, "[test.late] "));
+    const auto result = ASSERT_NIL_P(testutil::simple_read(client, "NS=1;S=Late"));
+    EXPECT_EQ(result.at<uint32_t>(0), 97);
+    ASSERT_NIL(sink->stop());
+}
+
 /// @brief it should write more nodes than the server allows in one request.
 TEST_F(TestWriteTask, testSplitsWriteAtServerLimit) {
     server->stop();
@@ -1016,6 +1045,30 @@ TEST_F(TestWriteTask, testRejectsFailedMethod) {
         this->double_cmd_channel.name + " returned BadInvalidState. " +
             errors::parse(UA_STATUSCODE_BADINVALIDSTATE).data
     );
+    ASSERT_NIL(sink->stop());
+}
+
+/// @brief it should convert the arguments of a method that the server adds after the
+/// task starts to their declared types, on the same Session.
+TEST_F(TestWriteTask, testMethodAddedAfterStart) {
+    server->stop();
+    server->cfg.pump.reset();
+    server->start();
+    ASSERT_TRUE(server->wait_until_ready());
+    const auto sink = this->create_method_sink(
+        "NS=1;S=Pump.SetSpeed",
+        {{{"source", "value"}, {"value", "5"}}}
+    );
+    ASSERT_NIL(sink->start());
+    auto fr = this->method_command(1);
+    ASSERT_OCCURRED_AS(sink->write(fr), errors::COMMAND_REJECTED);
+    const auto sessions = server->sessions_created.load();
+    server->add_pump(testutil::Pump{});
+    ASSERT_NIL(sink->write(fr));
+    EXPECT_EQ(server->sessions_created.load(), sessions);
+    const auto client = ASSERT_NIL_P(connection::connect(conn_cfg, {}, "[test] "));
+    const auto speed = ASSERT_NIL_P(testutil::simple_read(client, "NS=1;S=Pump.Speed"));
+    EXPECT_EQ(speed.at<double>(0), 5);
     ASSERT_NIL(sink->stop());
 }
 

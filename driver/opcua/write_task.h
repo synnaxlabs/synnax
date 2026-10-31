@@ -147,11 +147,11 @@ class WriteTaskSink final : public common::Sink {
     device::Connector connector;
     connection::Pool::Connection connection;
     /// @brief the data type of each channel's node on the current connection, or
-    /// nothing for a node whose type the server did not report.
+    /// nothing for a node whose type the server has not reported.
     std::unordered_map<synnax::channel::Key, const UA_DataType *> targets;
     /// @brief the data types of the input arguments of each method channel's method on
-    /// the current connection, or nothing for a method whose arguments the server did
-    /// not report. A type is null when the client does not know it.
+    /// the current connection, or nothing for a method whose arguments the server has
+    /// not reported. A type is null when the client does not know it.
     std::unordered_map<synnax::channel::Key, std::vector<const UA_DataType *>> inputs;
     types::WriteRequestBuilder builder;
     std::vector<synnax::channel::Key> written_keys;
@@ -161,57 +161,61 @@ class WriteTaskSink final : public common::Sink {
     /// no connection.
     x::errors::Error use(connection::Pool::Connection conn) {
         this->connection = std::move(conn);
-        const auto err = this->read_targets();
+        this->targets.clear();
+        this->inputs.clear();
+        const auto err = this->read_targets(this->cfg.cmd_keys());
         if (err) this->connection = connection::Pool::Connection(nullptr, nullptr, "");
         return err;
     }
 
-    /// @brief reads the DataType of each channel's node, so commands convert to it. A
+    /// @brief reads the DataType of the node of each node channel in keys, and the
+    /// input arguments of each method channel's method, so commands convert to them. A
     /// node of a type the client does not know converts by the type of its channel.
-    x::errors::Error read_targets() {
-        this->targets.clear();
-        if (const auto err = this->read_inputs()) return err;
+    x::errors::Error read_targets(const std::vector<synnax::channel::Key> &keys) {
+        if (const auto err = this->read_inputs(keys)) return err;
         const auto &namespaces = this->connection.server().namespaces;
         types::ReadRequestBuilder req;
-        std::vector<synnax::channel::Key> keys;
-        for (const auto &[key, ch]: this->cfg.channels) {
-            if (ch->method) continue;
-            const auto id = ch->node.resolve(namespaces);
+        std::vector<synnax::channel::Key> read;
+        for (const auto key: keys) {
+            const auto it = this->cfg.channels.find(key);
+            if (it == this->cfg.channels.end() || it->second->method) continue;
+            const auto id = it->second->node.resolve(namespaces);
             if (!id.has_value()) continue;
             req.add_node(id.value(), UA_ATTRIBUTEID_DATATYPE);
-            keys.push_back(key);
+            read.push_back(key);
         }
         if (req.empty()) return x::errors::NIL;
         auto [res, err] = this->connection.read(req.build());
         if (err) return err;
-        for (std::size_t i = 0; i < keys.size(); ++i)
+        for (std::size_t i = 0; i < read.size(); ++i)
             if (const auto &value = res.get().results[i].value;
                 UA_Variant_hasScalarType(&value, &UA_TYPES[UA_TYPES_NODEID]))
-                this->targets[keys[i]] = UA_findDataType(
+                this->targets[read[i]] = UA_findDataType(
                     static_cast<const UA_NodeId *>(value.data)
                 );
         return x::errors::NIL;
     }
 
-    /// @brief reads the input arguments of each method channel's method, so arguments
-    /// convert to their declared types.
-    x::errors::Error read_inputs() {
-        this->inputs.clear();
+    /// @brief reads the input arguments of the method of each method channel in keys,
+    /// so arguments convert to their declared types.
+    x::errors::Error read_inputs(const std::vector<synnax::channel::Key> &keys) {
         const auto &namespaces = this->connection.server().namespaces;
-        std::vector<synnax::channel::Key> keys;
+        std::vector<synnax::channel::Key> read_keys;
         std::vector<UA_NodeId> methods;
-        for (const auto &[key, ch]: this->cfg.channels)
-            if (ch->method)
-                if (const auto id = ch->node.resolve(namespaces); id.has_value()) {
-                    keys.push_back(key);
-                    methods.push_back(*id);
-                }
+        for (const auto key: keys) {
+            const auto it = this->cfg.channels.find(key);
+            if (it == this->cfg.channels.end() || !it->second->method) continue;
+            if (const auto id = it->second->node.resolve(namespaces); id.has_value()) {
+                read_keys.push_back(key);
+                methods.push_back(*id);
+            }
+        }
         if (methods.empty()) return x::errors::NIL;
         auto [read, err] = method::read_inputs(this->connection, methods);
         if (err) return err;
-        for (std::size_t i = 0; i < keys.size(); ++i) {
+        for (std::size_t i = 0; i < read_keys.size(); ++i) {
             if (!read[i].has_value()) continue;
-            auto &types = this->inputs[keys[i]];
+            auto &types = this->inputs[read_keys[i]];
             for (const auto &arg: read[i].value()) {
                 const auto id = arg.data_type.resolve({}).value();
                 types.push_back(UA_findDataType(&id));
@@ -442,7 +446,8 @@ private:
 
     /// @brief reads the server's namespaces again when the frame names a channel whose
     /// namespace the connection lacks, since the server can add a namespace while it
-    /// runs. Reads the types of the nodes again when a namespace is new.
+    /// runs. Forgets the types of the nodes and of the method arguments when a
+    /// namespace is new.
     x::errors::Error read_namespaces(const ::x::telem::Frame &frame) {
         const auto &namespaces = this->connection.server().namespaces;
         for (const auto &[key, _]: frame) {
@@ -457,10 +462,27 @@ private:
             auto [changed, ns_err] = this->connection.update_namespaces(
                 res.get().results[0]
             );
-            if (ns_err || !changed) return ns_err;
-            return this->read_targets();
+            if (!ns_err && changed) {
+                this->targets.clear();
+                this->inputs.clear();
+            }
+            return ns_err;
         }
         return x::errors::NIL;
+    }
+
+    /// @brief reads the types of each node and method in the frame whose types the sink
+    /// lacks, since the server can add a node while it runs.
+    x::errors::Error read_untyped(const ::x::telem::Frame &frame) {
+        std::vector<synnax::channel::Key> untyped;
+        for (const auto &[key, _]: frame) {
+            const auto it = this->cfg.channels.find(key);
+            if (it == this->cfg.channels.end()) continue;
+            const bool known = it->second->method ? this->inputs.contains(key)
+                                                  : this->targets.contains(key);
+            if (!known) untyped.push_back(key);
+        }
+        return this->read_targets(untyped);
     }
 
     /// @brief writes the frame's values and sets problems from build. When the server
@@ -471,6 +493,8 @@ private:
         const auto attempt =
             [&]() -> std::pair<types::WriteResponse, x::errors::Error> {
             if (auto err = this->read_namespaces(frame))
+                return {types::WriteResponse(), err};
+            if (auto err = this->read_untyped(frame))
                 return {types::WriteResponse(), err};
             problems = this->build(frame);
             if (this->builder.empty()) return {types::WriteResponse(), x::errors::NIL};
