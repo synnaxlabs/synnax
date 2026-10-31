@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
@@ -261,9 +262,10 @@ func (g *Graph) AcceptDefinition(ctx context.Context, key channel.Key) error {
 	return g.clearRuntimeStatus(ctx, key)
 }
 
-// ClearRuntimeStatus removes the status record for the channel with the given key after
-// the calculation runtime recovers. A node the Graph holds as invalid keeps its status:
-// that record describes the channel definition, not the runtime.
+// ClearRuntimeStatus replaces the stored status of the channel with the given key with
+// a success status after the calculation runtime recovers. A channel with no stored
+// status gets none. A node the Graph holds as invalid keeps its status: that record
+// describes the channel definition, not the runtime.
 func (g *Graph) ClearRuntimeStatus(ctx context.Context, key channel.Key) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
@@ -276,7 +278,24 @@ func (g *Graph) clearRuntimeStatus(ctx context.Context, key channel.Key) error {
 		return nil
 	}
 	return g.db.WithTx(ctx, func(tx gorp.Tx) error {
-		return g.status.NewWriter(tx).Delete(ctx, calculation.StatusKey(key))
+		return g.clearStatus(ctx, tx, key)
+	})
+}
+
+// clearStatus writes a success status over the stored status of the channel with the
+// given key, so the status keeps the time its problem cleared. A missing or successful
+// status stays as it is.
+func (g *Graph) clearStatus(ctx context.Context, tx gorp.Tx, key channel.Key) error {
+	stored, found, err := g.retrieveStatus(ctx, tx, key)
+	if err != nil || !found || stored.Variant == status.VariantSuccess {
+		return err
+	}
+	return g.status.NewWriter(tx).Set(ctx, &calculation.Status{
+		Key:     stored.Key,
+		Name:    stored.Name,
+		Variant: status.VariantSuccess,
+		Message: "Calculation ready",
+		Time:    telem.Now(),
 	})
 }
 
@@ -416,7 +435,7 @@ func (g *Graph) handleChanges(ctx context.Context, reader Changes) {
 					zap.Stringer("channel", chg.Key),
 				)
 				if _, tracked := g.mu.nodes[chg.Key]; tracked {
-					g.clearNodeStatus(ctx, tx, chg.Key)
+					g.deleteNodeStatus(ctx, tx, chg.Key)
 				}
 				g.removeNode(chg.Key)
 				if ch.Name != "" {
@@ -516,10 +535,20 @@ func (g *Graph) setNodeStatus(
 }
 
 func (g *Graph) clearNodeStatus(ctx context.Context, tx gorp.Tx, key channel.Key) {
+	if err := g.clearStatus(ctx, tx, key); err != nil {
+		g.L.Warn(
+			"failed to clear status for channel",
+			zap.Stringer("channel", key),
+			zap.Error(err),
+		)
+	}
+}
+
+func (g *Graph) deleteNodeStatus(ctx context.Context, tx gorp.Tx, key channel.Key) {
 	if err := g.status.NewWriter(tx).
 		Delete(ctx, calculation.StatusKey(key)); err != nil {
 		g.L.Warn(
-			"failed to clear status for channel",
+			"failed to delete status for channel",
 			zap.Stringer("channel", key),
 			zap.Error(err),
 		)

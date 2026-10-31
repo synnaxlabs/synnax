@@ -10,6 +10,7 @@
 package v1_test
 
 import (
+	"encoding/json"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -31,7 +32,7 @@ var _ = Describe("v0 -> v1 Status migration", func() {
 			db := DeferClose(gorp.Wrap(memkv.New()))
 
 			key := "status-" + uuid.New().String()
-			seed := v0.Status[any]{
+			old := v0.Status[any]{
 				Key:         key,
 				Name:        "running",
 				Variant:     v0.VariantSuccess,
@@ -56,7 +57,7 @@ var _ = Describe("v0 -> v1 Status migration", func() {
 				ctx, gorp.TableConfig[v0.Key, v0.Status[any]]{DB: db},
 			))
 			Expect(gorp.NewCreate[v0.Key, v0.Status[any]]().
-				Entry(&seed).Exec(ctx, db)).To(Succeed())
+				Entry(&old).Exec(ctx, db)).To(Succeed())
 
 			Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
 				DB:         db,
@@ -66,14 +67,37 @@ var _ = Describe("v0 -> v1 Status migration", func() {
 
 			var got v1.Status[any]
 			Expect(gorp.NewRetrieve[v1.Key, v1.Status[any]]().
-				Where(gorp.MatchKeys[v1.Key, v1.Status[any]](seed.Key)).
+				Where(gorp.MatchKeys[v1.Key, v1.Status[any]](old.Key)).
 				Entry(&got).Exec(ctx, db)).To(Succeed())
-			Expect(got.Key).To(Equal(seed.Key))
-			Expect(got.Name).To(Equal(seed.Name))
-			Expect(got.Variant).To(Equal(v1.Variant(seed.Variant)))
-			Expect(got.Message).To(Equal(seed.Message))
-			Expect(got.Description).To(Equal(seed.Description))
+			Expect(got.Key).To(Equal(old.Key))
+			Expect(got.Name).To(Equal(old.Name))
+			Expect(got.Variant).To(Equal(v1.Variant(old.Variant)))
+			Expect(got.Message).To(Equal(old.Message))
+			Expect(got.Description).To(Equal(old.Description))
 			Expect(got.Labels).To(BeEmpty())
 		},
 	)
+
+	It("Should keep details integers past 2^53", func(ctx SpecContext) {
+		db := DeferClose(gorp.Wrap(memkv.New()))
+		details := json.RawMessage(`{"count":9007199254740993}`)
+		old := v0.Status[json.RawMessage]{
+			Key:     "status-" + uuid.New().String(),
+			Variant: v0.VariantInfo,
+			Message: "Message",
+			Details: details,
+		}
+		Expect(gorp.NewCreate[v0.Key, v0.Status[json.RawMessage]]().
+			Entry(&old).Exec(ctx, db)).To(Succeed())
+		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+			DB:         db,
+			Namespace:  "Status",
+			Migrations: []gorp.Migration{v1.Migration},
+		})).To(Succeed())
+		var got v1.Status[json.RawMessage]
+		Expect(gorp.NewRetrieve[v1.Key, v1.Status[json.RawMessage]]().
+			Where(gorp.MatchKeys[v1.Key, v1.Status[json.RawMessage]](old.Key)).
+			Entry(&got).Exec(ctx, db)).To(Succeed())
+		Expect(got.Details).To(Equal(details))
+	})
 })

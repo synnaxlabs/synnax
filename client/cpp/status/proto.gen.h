@@ -103,6 +103,8 @@ Status<Details>::to_proto() const {
             *wrapper->add_values() = v;
         }
     }
+    if (this->since.has_value()) pb.set_since(this->since->to_proto());
+    if (this->cleared.has_value()) pb.set_cleared(this->cleared->to_proto());
     return {pb, x::errors::NIL};
 }
 
@@ -140,6 +142,8 @@ Status<Details>::from_proto(const ::service::status::pb::Status &pb) {
             ))
             return {{}, err};
     }
+    if (pb.has_since()) cpp.since = ::x::telem::TimeStamp::from_proto(pb.since());
+    if (pb.has_cleared()) cpp.cleared = ::x::telem::TimeStamp::from_proto(pb.cleared());
     return {cpp, x::errors::NIL};
 }
 

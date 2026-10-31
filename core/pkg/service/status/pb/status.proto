@@ -57,4 +57,10 @@ message Status {
   google.protobuf.Any details = 7;
   // labels contains optional labels for categorization and filtering.
   LabelList labels = 8;
+  // since is when the open or most recent problem of the status started. A problem is a
+  // period with a warning or error variant. Empty if the status never had a problem.
+  optional int64 since = 9;
+  // cleared is when the most recent problem of the status cleared. Empty while a
+  // problem is open, or if the status never had a problem.
+  optional int64 cleared = 10;
 }
