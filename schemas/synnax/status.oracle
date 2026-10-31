@@ -45,13 +45,13 @@ Status struct<Details?, V extends Variant = Variant> {
             Empty when the status is not about a named thing.
         """
     }
-    variant     V               {
+    variant     V                {
         @doc value """
             indicates the severity of the status. One of success, info, warning, error,
             loading, or disabled.
         """
     }
-    message     string          {
+    message     string           {
         @doc value """
             says what happened in one short line, such as "Failed to start task" or
             "Started task". A status that reports a state names the state instead, such
@@ -67,15 +67,30 @@ Status struct<Details?, V extends Variant = Variant> {
     time        telem.TimeStamp = now {
         @doc value "is the timestamp when the status was created."
     }
-    details     Details         {
+    details     Details          {
         @doc value  """
             contains optional component-specific custom details for the status.
         """
         @go marshal json_only
     }
-    labels      label.Label[]?  {
+    labels      label.Label[]?   {
         @doc value  "contains optional labels for categorization and filtering."
         @go marshal omit
+    }
+    since       telem.TimeStamp? {
+        @doc value """
+            is when the open or most recent problem of the status started. A problem is
+            a period with a warning or error variant. The Core sets it on every write
+            and ignores the value a client sends. Empty if the status never had a
+            problem.
+        """
+    }
+    cleared     telem.TimeStamp? {
+        @doc value """
+            is when the most recent problem of the status cleared. The Core sets it on
+            every write and ignores the value a client sends. Empty while a problem is
+            open, or if the status never had a problem.
+        """
     }
 
     @create

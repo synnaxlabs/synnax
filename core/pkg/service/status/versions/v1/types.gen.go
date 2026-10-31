@@ -59,17 +59,3 @@ type Status[Details any] struct {
 	// Labels contains optional labels for categorization and filtering.
 	Labels []label.Label `json:"labels,omitzero" msgpack:"labels,omitempty"`
 }
-
-// ToAny converts s to a Status[any].
-func (s Status[Details]) ToAny() Status[any] {
-	return Status[any]{
-		Key:         s.Key,
-		Name:        s.Name,
-		Variant:     s.Variant,
-		Message:     s.Message,
-		Description: s.Description,
-		Time:        s.Time,
-		Details:     s.Details,
-		Labels:      s.Labels,
-	}
-}
