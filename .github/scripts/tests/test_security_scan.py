@@ -64,6 +64,8 @@ def test_should_write_sarif_log_and_exit_code_per_scan(
         "gitleaks": "0",
         "zizmor": "0",
         "checkov": "0",
+        # The repository has no MODULE.bazel, so the OSV check fails before any query.
+        "osv": "1",
     }
     assert (out / "govulncheck-a.sarif").read_text().strip() == SARIF
     assert (out / "govulncheck-a.log").read_text() == "stderr\n"
