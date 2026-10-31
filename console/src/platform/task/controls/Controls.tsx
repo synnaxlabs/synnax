@@ -10,14 +10,18 @@
 import { status } from "@synnaxlabs/client";
 import { type Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
+import { Status } from "@synnaxlabs/lyra/status";
 
 import { Framer } from "@/platform/framer";
 import { Bar } from "@/platform/task/controls/Bar";
 import { useDrifted } from "@/platform/task/useDrifted";
 import { useKey } from "@/platform/task/useKey";
 import { useStatus } from "@/platform/task/useStatus";
+import { Session } from "@/session";
 
 export interface ControlsProps extends Flex.BoxProps {
+  /** The status of the last save of the task. A failed save shows in place. */
+  saveStatus: status.Status;
   /** Runs the deploy pipeline: configure, save the row, issue start. */
   onDeploy: () => void;
   /** Issues a stop command to the live instance. */
@@ -25,8 +29,13 @@ export interface ControlsProps extends Flex.BoxProps {
 }
 
 /** Task controls bar wired to the surrounding task Form context. */
-export const Controls = ({ onDeploy, onStop, ...props }: ControlsProps) => {
+export const Controls = ({ saveStatus, onDeploy, onStop, ...props }: ControlsProps) => {
   const taskStatus = useStatus();
+  const saveFailed = saveStatus.variant === "error";
+  const visible = Session.Panel.useSelectIsTabVisible();
+  // A failed save replaces the task status, so its key is placed before the save fails.
+  Status.usePlace(saveStatus.key, visible);
+  Status.usePlace(taskStatus.key, visible && !saveFailed);
   const isSnapshot = Form.useFieldValue<boolean>("snapshot");
   const key = useKey();
   const drifted = useDrifted();
@@ -43,7 +52,7 @@ export const Controls = ({ onDeploy, onStop, ...props }: ControlsProps) => {
 
   return (
     <Bar
-      status={taskStatus}
+      status={saveFailed ? saveStatus : taskStatus}
       running={taskStatus.details.running}
       drifted={drifted}
       hideActions={isSnapshot || !canControl}

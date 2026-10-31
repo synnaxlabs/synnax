@@ -142,7 +142,11 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
     const client = PSynnax.use();
     const handleError = Status.useErrorHandler();
     const { capture } = Analytics.use();
-    const { form, saveAsync } = useForm({
+    const {
+      form,
+      saveAsync,
+      status: saveStatus,
+    } = useForm({
       query: { key: taskKey },
       autoSave: true,
       autoSaveDebounce: AUTO_SAVE_DEBOUNCE,
@@ -222,7 +226,11 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
               </Errors.SuspenseBoundary>
             </Flex.Box>
             {showControls && (
-              <Controls.Controls onDeploy={handleDeploy} onStop={handleStop} />
+              <Controls.Controls
+                saveStatus={saveStatus}
+                onDeploy={handleDeploy}
+                onStop={handleStop}
+              />
             )}
           </PForm.Form>
         </Flex.Box>

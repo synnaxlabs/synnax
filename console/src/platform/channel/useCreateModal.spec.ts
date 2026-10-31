@@ -10,9 +10,8 @@
 import { DataType, NotFoundError } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import { type Analytics } from "@/platform/analytics";
 import { createTestSink } from "@/platform/analytics/testutil";
 import { Channel } from "@/platform/channel";
 import { createTestIndexChannel, uniqueChannelName } from "@/platform/channel/testutil";
@@ -21,16 +20,17 @@ import {
   getSwitch,
   type ModalOpenerHandle,
   renderModalOpener,
+  type RenderModalOpenerOptions,
 } from "@/platform/modals/testutil";
 
 const client = createTestClient();
 
 const openModal = async (
-  analytics?: Analytics.Sink,
+  options: Pick<RenderModalOpenerOptions, "analytics" | "onStatuses"> = {},
 ): Promise<ModalOpenerHandle<void>> => {
   const handle = await renderModalOpener(Channel.useCreateModal, [], {
     client,
-    analytics,
+    ...options,
   });
   await screen.findByPlaceholderText("Channel name");
   return handle;
@@ -115,7 +115,7 @@ describe("useCreateModal", () => {
 
     it("should report the channel it created", async () => {
       const analytics = createTestSink();
-      await openModal(analytics);
+      await openModal({ analytics });
       setName(uniqueChannelName("virt"));
       fireEvent.click(getSwitch("Virtual"));
       await clickCreate();
@@ -169,6 +169,31 @@ describe("useCreateModal", () => {
         (e: unknown) => e,
       );
       expect(NotFoundError.matches(err)).toBe(true);
+    });
+  });
+
+  describe("save errors", () => {
+    it("should show a failed save in place without a notification", async () => {
+      const taken = uniqueChannelName("taken");
+      await client.channels.create({
+        name: taken,
+        dataType: DataType.FLOAT32,
+        virtual: true,
+      });
+      const onStatuses = vi.fn();
+      await openModal({ onStatuses });
+      setName(taken);
+      fireEvent.click(getSwitch("Virtual"));
+      await clickCreate();
+      await waitFor(() =>
+        expect(screen.getByText("Failed to save channel")).toBeTruthy(),
+      );
+      expect(screen.getByPlaceholderText("Channel name")).toBeTruthy();
+      expect(onStatuses).not.toHaveBeenCalledWith(
+        expect.arrayContaining([
+          expect.objectContaining({ message: "Failed to save channel" }),
+        ]),
+      );
     });
   });
 });

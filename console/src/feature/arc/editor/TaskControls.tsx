@@ -10,6 +10,7 @@
 import "@/feature/arc/editor/TaskControls.css";
 
 import { type arc, type rack } from "@synnaxlabs/client";
+import { Status } from "@synnaxlabs/lyra/status";
 import { Arc, Rack } from "@synnaxlabs/pluto";
 import { primitive } from "@synnaxlabs/x";
 
@@ -18,6 +19,7 @@ import { Arc as PlatformArc } from "@/platform/arc";
 import { CSS } from "@/platform/css";
 import { Framer } from "@/platform/framer";
 import { Task } from "@/platform/task";
+import { Session } from "@/session";
 
 const INITIAL_RACK_QUERY: rack.RetrieveParams = { integration: "arc" };
 const RACK_TRIGGER_PROPS = { collapsible: true };
@@ -32,6 +34,7 @@ export const TaskControls = () => {
   const canControl = Framer.useCanCommand();
   const { update: updateTask } = Arc.useUpdateTask();
   const bound = primitive.isNonZero(taskRack);
+  Status.usePlace(taskStatus.key, Session.Panel.useSelectIsTabVisible());
 
   const handleRackChange = (rackKey: rack.Key) => updateTask({ key, rack: rackKey });
   const handlePerformanceChange = (performance: arc.task.Performance) =>

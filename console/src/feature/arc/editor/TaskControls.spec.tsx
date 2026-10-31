@@ -7,25 +7,28 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { arc, type Synnax as Client, task } from "@synnaxlabs/client";
+import { arc, status, type Synnax as Client, task } from "@synnaxlabs/client";
 import {
   createTestClient,
   createTestClientWithRole,
 } from "@synnaxlabs/client/testutil";
+import { Status } from "@synnaxlabs/lyra/status";
 import { Arc } from "@synnaxlabs/pluto";
-import { crdt } from "@synnaxlabs/x";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
-import { Suspense } from "react";
+import { crdt, uuid } from "@synnaxlabs/x";
+import { act, fireEvent, renderHook, screen, waitFor } from "@testing-library/react";
+import { type PropsWithChildren, Suspense } from "react";
 import { describe, expect, it } from "vitest";
 
 import { TaskControls } from "@/feature/arc/editor/TaskControls";
 import { Analytics } from "@/platform/analytics";
 import { createTestSink } from "@/platform/analytics/testutil";
+import { createPanelWrapper } from "@/platform/panel/testutil";
 import {
   awaitCommand,
   clickRedeploy,
   reportTaskRunning,
 } from "@/platform/task/testutil";
+import { Session } from "@/session";
 import {
   createConsoleWrapper,
   findDialogTrigger,
@@ -66,6 +69,60 @@ const searchAndClickRack = async (name: string): Promise<void> => {
   fireEvent.change(search, { target: { value: name } });
   const option = await waitFor(() => screen.getByText(name));
   fireEvent.click(option);
+};
+
+// Renders the controls of an arc whose task has a status, in a tab that is visible or
+// hidden, next to a hook that adds statuses and reads the notifications.
+const renderInTab = async (visible: boolean) => {
+  const rck = await createArcRack();
+  const a = await client.arcs.create({ name: uniqueName("arc"), mode: "text" });
+  const tsk = await client.arcs.updateTask(a.key, { rack: rck.key });
+  if (tsk == null) throw new Error("expected a deployment task");
+  const key = task.statusKey(tsk.key);
+  await client.statuses.set(
+    status.create<ReturnType<typeof task.statusDetailsZ>>({
+      key,
+      variant: "error",
+      message: "Task failed",
+      details: {
+        task: tsk.key,
+        running: false,
+        cmd: "",
+        configHash: "",
+        rack: rck.key,
+        data: {},
+      },
+    }),
+  );
+  const { wrapper: Panel, store } = await createPanelWrapper({
+    client,
+    panelKey: uuid.create(),
+    tabKey: uuid.create(),
+  });
+  if (!visible) store.dispatch(Session.Panel.select({ key: uuid.create() }));
+  const wrapper = ({ children }: PropsWithChildren) => (
+    <Panel>
+      <Suspense fallback={null}>
+        <Arc.Suspended arcKey={a.key}>
+          <TaskControls />
+        </Arc.Suspended>
+      </Suspense>
+      {children}
+    </Panel>
+  );
+  const { result } = renderHook(
+    () => ({
+      add: Status.useAdder(),
+      notifications: Status.useNotifications().statuses,
+    }),
+    { wrapper },
+  );
+  await waitFor(() => expect(screen.getByText("Task failed")).toBeTruthy());
+  const reply = () =>
+    act(() =>
+      result.current.add({ key, variant: "error", message: "Failed to start task" }),
+    );
+  return { result, reply };
 };
 
 describe("TaskControls", () => {
@@ -183,6 +240,24 @@ describe("TaskControls", () => {
         expect(tsk?.config.performance).toBe("high");
         expect(tsk?.rack).toBe(rck.key);
       });
+    });
+  });
+
+  describe("notifications", () => {
+    it("should not notify a reply that the controls of a visible tab show", async () => {
+      const { result, reply } = await renderInTab(true);
+      reply();
+      expect(result.current.notifications).toEqual([]);
+    });
+
+    it("should notify a reply on an arc whose tab is not visible", async () => {
+      const { result, reply } = await renderInTab(false);
+      reply();
+      await waitFor(() =>
+        expect(result.current.notifications).toEqual([
+          expect.objectContaining({ message: "Failed to start task" }),
+        ]),
+      );
     });
   });
 
