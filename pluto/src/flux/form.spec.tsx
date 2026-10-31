@@ -9,6 +9,7 @@
 
 import { query } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { Status } from "@synnaxlabs/lyra/status";
 import { color, TimeSpan } from "@synnaxlabs/x";
 import { expectAlways } from "@synnaxlabs/x/testutil";
 import { act, render, renderHook, waitFor } from "@testing-library/react";
@@ -408,6 +409,55 @@ describe("useForm", () => {
       await waitFor(() => {
         expect(afterSave).not.toHaveBeenCalled();
       });
+    });
+  });
+
+  describe("save errors", () => {
+    const useFailingForm = Flux.createForm<Params, typeof formSchema>({
+      initialValues: { key: "", name: "John Doe", age: 25 },
+      schema: formSchema,
+      name: "test",
+      update: async () => {
+        throw new Error("Update failed");
+      },
+    });
+
+    const renderFailingForm = (placed: boolean) =>
+      renderHook(
+        () => {
+          const form = useFailingForm({ query: null });
+          Status.usePlace(form.status.key, placed);
+          return { form, notifications: Status.useNotifications() };
+        },
+        { wrapper: Wrapper },
+      );
+
+    it("should keep one key on every status of the form", async () => {
+      const { result } = renderFailingForm(false);
+      const { key } = result.current.form.status;
+      await act(async () => {
+        await result.current.form.saveAsync({ signal: controller.signal });
+      });
+      expect(result.current.form.status).toMatchObject({ variant: "error", key });
+    });
+
+    it("should notify a failed save that no view places", async () => {
+      const { result } = renderFailingForm(false);
+      await act(async () => {
+        await result.current.form.saveAsync({ signal: controller.signal });
+      });
+      expect(result.current.notifications.statuses).toMatchObject([
+        { message: "Failed to save test", key: result.current.form.status.key },
+      ]);
+    });
+
+    it("should not notify a failed save whose key a view places", async () => {
+      const { result } = renderFailingForm(true);
+      await act(async () => {
+        await result.current.form.saveAsync({ signal: controller.signal });
+      });
+      expect(result.current.form.status.variant).toBe("error");
+      expect(result.current.notifications.statuses).toHaveLength(0);
     });
   });
 

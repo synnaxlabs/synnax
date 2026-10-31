@@ -10,9 +10,8 @@
 import { DataType } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { act, fireEvent, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import { type Analytics } from "@/platform/analytics";
 import { createTestSink } from "@/platform/analytics/testutil";
 import { Channel } from "@/platform/channel";
 import { uniqueChannelName } from "@/platform/channel/testutil";
@@ -20,17 +19,18 @@ import {
   findButton,
   type ModalOpenerHandle,
   renderModalOpener,
+  type RenderModalOpenerOptions,
 } from "@/platform/modals/testutil";
 
 const client = createTestClient();
 
 const openModal = async (
   params?: Channel.CalculatedModalParams,
-  analytics?: Analytics.Sink,
+  options: Pick<RenderModalOpenerOptions, "analytics" | "onStatuses"> = {},
 ): Promise<ModalOpenerHandle<void>> => {
   const handle = await renderModalOpener(Channel.useCalculatedModal, [params ?? {}], {
     client,
-    analytics,
+    ...options,
     // Monaco cannot run in jsdom, so the expression editor's boundary catches.
     onCaughtError: () => {},
   });
@@ -149,7 +149,7 @@ describe("useCalculatedModal", () => {
         expression: "return 2",
       });
       const analytics = createTestSink();
-      await openModal({ channelKey: ch.key }, analytics);
+      await openModal({ channelKey: ch.key }, { analytics });
       await waitFor(() =>
         expect(
           screen.getByPlaceholderText<HTMLInputElement>("Channel name").value,
@@ -165,6 +165,44 @@ describe("useCalculatedModal", () => {
         expect(screen.queryByPlaceholderText("Channel name")).toBeNull(),
       );
       expect(analytics.capture).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("save errors", () => {
+    it("should show a failed save in place without a notification", async () => {
+      const taken = uniqueChannelName("taken");
+      await client.channels.create({
+        name: taken,
+        dataType: DataType.FLOAT32,
+        virtual: true,
+      });
+      const ch = await client.channels.create({
+        name: uniqueChannelName("calc"),
+        dataType: DataType.FLOAT32,
+        virtual: true,
+        expression: "return 2",
+      });
+      const onStatuses = vi.fn();
+      await openModal({ channelKey: ch.key }, { onStatuses });
+      await waitFor(() =>
+        expect(
+          screen.getByPlaceholderText<HTMLInputElement>("Channel name").value,
+        ).toBe(ch.name),
+      );
+      fireEvent.change(screen.getByPlaceholderText("Channel name"), {
+        target: { value: taken },
+      });
+      await act(async () => {
+        fireEvent.click(findButton("Save"));
+      });
+      await expect
+        .poll(() => screen.queryByText("Failed to save calculated channel"))
+        .toBeTruthy();
+      expect(onStatuses).not.toHaveBeenCalledWith(
+        expect.arrayContaining([
+          expect.objectContaining({ message: "Failed to save calculated channel" }),
+        ]),
+      );
     });
   });
 });

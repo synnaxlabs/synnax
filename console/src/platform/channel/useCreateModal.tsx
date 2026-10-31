@@ -16,6 +16,7 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Nav } from "@synnaxlabs/lyra/nav";
 import { Select } from "@synnaxlabs/lyra/select";
+import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Channel, Telem } from "@synnaxlabs/pluto";
 import { useState } from "react";
@@ -31,7 +32,12 @@ type Kind = "data" | "index" | "virtual";
 const Create = ({ close }: Modals.ContentProps<Record<never, never>, void>) => {
   const [createMore, setCreateMore] = useState(false);
   const { capture } = Analytics.use();
-  const { form, variant, save } = Channel.useForm({
+  const {
+    form,
+    variant,
+    save,
+    status: stat,
+  } = Channel.useForm({
     query: null,
     afterSave: ({ reset }) => {
       capture("channel_created", { calculated: false });
@@ -39,6 +45,7 @@ const Create = ({ close }: Modals.ContentProps<Record<never, never>, void>) => {
       else close();
     },
   });
+  Status.usePlace(stat.key);
   const isIndex = Form.useFieldValue<boolean, boolean, typeof Channel.formSchema>(
     "isIndex",
     { ctx: form },
@@ -109,6 +116,9 @@ const Create = ({ close }: Modals.ContentProps<Record<never, never>, void>) => {
         </Form.Form>
       </Modal.Body>
       <Modal.Footer>
+        <Nav.Bar.Start>
+          {variant !== "success" && <Status.Summary status={stat} center={false} />}
+        </Nav.Bar.Start>
         <Nav.Bar.End align="center" gap="large">
           <Flex.Box x align="center" gap="small">
             <Input.Switch value={createMore} onChange={setCreateMore} />

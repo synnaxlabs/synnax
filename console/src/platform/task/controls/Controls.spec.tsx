@@ -43,10 +43,13 @@ const runningValues = (overrides: { configHash?: string; rack?: number } = {}) =
   }),
 });
 
+// The status of a save that succeeded.
+const SAVED = createTaskStatus({ message: "Saved task" });
+
 describe("Controls.Controls", () => {
   it("should hide the actions when the task is a snapshot", async () => {
     const { container } = await renderInTaskFormWithClient(
-      <Task.Controls.Controls onDeploy={vi.fn()} onStop={vi.fn()} />,
+      <Task.Controls.Controls saveStatus={SAVED} onDeploy={vi.fn()} onStop={vi.fn()} />,
       { client, values: { snapshot: true } },
     );
     await waitFor(() => expect(screen.getByText("Task not deployed")).toBeTruthy());
@@ -56,7 +59,11 @@ describe("Controls.Controls", () => {
   it("should invoke onDeploy when the start button is pressed", async () => {
     const onDeploy = vi.fn();
     const { container } = await renderInTaskFormWithClient(
-      <Task.Controls.Controls onDeploy={onDeploy} onStop={vi.fn()} />,
+      <Task.Controls.Controls
+        saveStatus={SAVED}
+        onDeploy={onDeploy}
+        onStop={vi.fn()}
+      />,
       { client, values: { key: "1" } },
     );
     fireEvent.click(await findIconButton(container, "play"));
@@ -67,7 +74,7 @@ describe("Controls.Controls", () => {
     const onDeploy = vi.fn();
     const onStop = vi.fn();
     const { container } = await renderInTaskFormWithClient(
-      <Task.Controls.Controls onDeploy={onDeploy} onStop={onStop} />,
+      <Task.Controls.Controls saveStatus={SAVED} onDeploy={onDeploy} onStop={onStop} />,
       { client, values: runningValues() },
     );
     fireEvent.click(await findIconButton(container, "stop"));
@@ -78,7 +85,11 @@ describe("Controls.Controls", () => {
   it("should not invoke onDeploy when the task has no key", async () => {
     const onDeploy = vi.fn();
     const { container } = await renderInTaskFormWithClient(
-      <Task.Controls.Controls onDeploy={onDeploy} onStop={vi.fn()} />,
+      <Task.Controls.Controls
+        saveStatus={SAVED}
+        onDeploy={onDeploy}
+        onStop={vi.fn()}
+      />,
       { client, values: { key: undefined } },
     );
     fireEvent.click(await findIconButton(container, "play"));
@@ -87,7 +98,7 @@ describe("Controls.Controls", () => {
 
   it("should collapse the redeploy button when the running config matches", async () => {
     const { container } = await renderInTaskFormWithClient(
-      <Task.Controls.Controls onDeploy={vi.fn()} onStop={vi.fn()} />,
+      <Task.Controls.Controls saveStatus={SAVED} onDeploy={vi.fn()} onStop={vi.fn()} />,
       { client, values: runningValues() },
     );
     await findIconButton(container, "stop");
@@ -97,7 +108,11 @@ describe("Controls.Controls", () => {
   it("should invoke onDeploy from the redeploy button when the task has drifted", async () => {
     const onDeploy = vi.fn();
     await renderInTaskFormWithClient(
-      <Task.Controls.Controls onDeploy={onDeploy} onStop={vi.fn()} />,
+      <Task.Controls.Controls
+        saveStatus={SAVED}
+        onDeploy={onDeploy}
+        onStop={vi.fn()}
+      />,
       { client, values: runningValues({ configHash: "stale" }) },
     );
     await clickRedeploy();
@@ -108,7 +123,7 @@ describe("Controls.Controls", () => {
     const values = runningValues({ configHash: "stale" });
     values.status = { ...values.status, variant: "loading" };
     await renderInTaskFormWithClient(
-      <Task.Controls.Controls onDeploy={vi.fn()} onStop={vi.fn()} />,
+      <Task.Controls.Controls saveStatus={SAVED} onDeploy={vi.fn()} onStop={vi.fn()} />,
       { client, values },
     );
     await waitFor(() => expect(isRedeployHidden()).toBe(false));
@@ -119,7 +134,7 @@ describe("Controls.Controls", () => {
 
   it("should collapse the redeploy button when the task is not running", async () => {
     const { container } = await renderInTaskFormWithClient(
-      <Task.Controls.Controls onDeploy={vi.fn()} onStop={vi.fn()} />,
+      <Task.Controls.Controls saveStatus={SAVED} onDeploy={vi.fn()} onStop={vi.fn()} />,
       { client, values: { key: "1", rack: 2, config: CONFIG } },
     );
     await findIconButton(container, "play");
@@ -128,7 +143,7 @@ describe("Controls.Controls", () => {
 
   it("should expand the status on click and contract it on a second click", async () => {
     await renderInTaskFormWithClient(
-      <Task.Controls.Controls onDeploy={vi.fn()} onStop={vi.fn()} />,
+      <Task.Controls.Controls saveStatus={SAVED} onDeploy={vi.fn()} onStop={vi.fn()} />,
       { client, values: { status: createTaskStatus({ message: "Running smoothly" }) } },
     );
     expect(screen.queryByText("Copy diagnostics")).toBeNull();
@@ -136,6 +151,38 @@ describe("Controls.Controls", () => {
     expect(await screen.findByText("Copy diagnostics")).toBeTruthy();
     fireEvent.click(screen.getByText("Running smoothly"));
     await waitFor(() => expect(screen.queryByText("Copy diagnostics")).toBeNull());
+  });
+
+  describe("save status", () => {
+    it("should show a failed save in place of the task status", async () => {
+      const { container } = await renderInTaskFormWithClient(
+        <Task.Controls.Controls
+          saveStatus={createTaskStatus({
+            variant: "error",
+            message: "Failed to save task",
+          })}
+          onDeploy={vi.fn()}
+          onStop={vi.fn()}
+        />,
+        { client, values: runningValues() },
+      );
+      await waitFor(() => expect(screen.getByText("Failed to save task")).toBeTruthy());
+      expect(screen.queryByText("Running smoothly")).toBeNull();
+      await findIconButton(container, "stop");
+    });
+
+    it("should show the task status after a save that did not fail", async () => {
+      await renderInTaskFormWithClient(
+        <Task.Controls.Controls
+          saveStatus={createTaskStatus({ message: "Saved task" })}
+          onDeploy={vi.fn()}
+          onStop={vi.fn()}
+        />,
+        { client, values: runningValues() },
+      );
+      await waitFor(() => expect(screen.getByText("Running smoothly")).toBeTruthy());
+      expect(screen.queryByText("Saved task")).toBeNull();
+    });
   });
 
   describe("settings", () => {
@@ -146,7 +193,11 @@ describe("Controls.Controls", () => {
 
     it("should turn data saving off from the footer", async () => {
       const { form } = await renderInTaskFormWithClient(
-        <Task.Controls.Controls onDeploy={vi.fn()} onStop={vi.fn()} />,
+        <Task.Controls.Controls
+          saveStatus={SAVED}
+          onDeploy={vi.fn()}
+          onStop={vi.fn()}
+        />,
         { client, values: { config: SETTINGS } },
       );
       const button = await waitFor(() => getSetting("Data saving"));
@@ -158,7 +209,11 @@ describe("Controls.Controls", () => {
 
     it("should turn auto start on from the footer", async () => {
       const { form } = await renderInTaskFormWithClient(
-        <Task.Controls.Controls onDeploy={vi.fn()} onStop={vi.fn()} />,
+        <Task.Controls.Controls
+          saveStatus={SAVED}
+          onDeploy={vi.fn()}
+          onStop={vi.fn()}
+        />,
         { client, values: { config: SETTINGS } },
       );
       const button = await waitFor(() => getSetting("Auto start"));
@@ -170,7 +225,11 @@ describe("Controls.Controls", () => {
 
     it("should show the settings of a snapshot without letting them change", async () => {
       const { form } = await renderInTaskFormWithClient(
-        <Task.Controls.Controls onDeploy={vi.fn()} onStop={vi.fn()} />,
+        <Task.Controls.Controls
+          saveStatus={SAVED}
+          onDeploy={vi.fn()}
+          onStop={vi.fn()}
+        />,
         { client, values: { snapshot: true, config: SETTINGS }, mode: "preview" },
       );
       const button = await waitFor(() => getSetting("Data saving"));
@@ -181,7 +240,11 @@ describe("Controls.Controls", () => {
 
     it("should leave out a setting the config does not carry", async () => {
       await renderInTaskFormWithClient(
-        <Task.Controls.Controls onDeploy={vi.fn()} onStop={vi.fn()} />,
+        <Task.Controls.Controls
+          saveStatus={SAVED}
+          onDeploy={vi.fn()}
+          onStop={vi.fn()}
+        />,
         { client, values: { config: { channels: [], autoStart: false } } },
       );
       await waitFor(() => getSetting("Auto start"));
@@ -193,7 +256,11 @@ describe("Controls.Controls", () => {
     it("should show a viewer the status without any action", async () => {
       const viewer = await roles.get("Viewer");
       const { container } = await renderInTaskFormWithClient(
-        <Task.Controls.Controls onDeploy={vi.fn()} onStop={vi.fn()} />,
+        <Task.Controls.Controls
+          saveStatus={SAVED}
+          onDeploy={vi.fn()}
+          onStop={vi.fn()}
+        />,
         { client: viewer, values: runningValues({ configHash: "stale" }) },
       );
       await waitFor(() => expect(screen.getByText("Running smoothly")).toBeTruthy());
@@ -205,7 +272,11 @@ describe("Controls.Controls", () => {
     it("should offer an operator the full action row", async () => {
       const operator = await roles.get("Operator");
       const { container } = await renderInTaskFormWithClient(
-        <Task.Controls.Controls onDeploy={vi.fn()} onStop={vi.fn()} />,
+        <Task.Controls.Controls
+          saveStatus={SAVED}
+          onDeploy={vi.fn()}
+          onStop={vi.fn()}
+        />,
         { client: operator, values: runningValues({ configHash: "stale" }) },
       );
       await findIconButton(container, "stop");

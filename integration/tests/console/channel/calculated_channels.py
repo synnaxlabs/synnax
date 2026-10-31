@@ -135,7 +135,7 @@ class CalculatedChannels(ConsoleCase):
         )
 
         assert error is not None, "Expected error for nonexistent channel"
-        assert "Failed to update calculated channel" in error, (
+        assert "Failed to save calculated channel" in error, (
             f"Error should mention failure: {error}"
         )
         assert "undefined symbol" in error, (

@@ -28,6 +28,7 @@ import {
   type SetStateAction,
   use,
   useEffect,
+  useId,
   useLayoutEffect,
   useRef,
   useState,
@@ -223,6 +224,7 @@ interface PersistParams<
   params: FormBeforeSaveParams<Query, Schema>;
   setResult: Dispatch<SetStateAction<Result<undefined>>>;
   addStatus: Status.Adder;
+  statusKey: string;
   signal?: AbortSignal;
 }
 
@@ -239,18 +241,19 @@ const persist = async <
   afterSave,
   setResult,
   addStatus,
+  statusKey,
   signal,
 }: PersistParams<Query, Schema>): Promise<boolean> => {
   try {
     if (beforeValidate?.(params) === false) return false;
     if (!(await params.validateAsync())) return false;
-    setResult(loadingResult(`updating ${name}`, undefined));
+    setResult(loadingResult(`saving ${name}`, undefined));
     if ((await beforeSave?.(params)) === false) {
-      setResult(successResult(`updated ${name}`, undefined));
+      setResult(successResult(`saved ${name}`, undefined));
       return false;
     }
     if (signal?.aborted === true) {
-      setResult(successResult(`updated ${name}`, undefined));
+      setResult(successResult(`saved ${name}`, undefined));
       return false;
     }
     const setStatus = (setter: state.SetArg<ResultStatus<never>>) =>
@@ -263,17 +266,20 @@ const persist = async <
         } as Result<undefined>;
       });
     await update({ ...params, setStatus });
-    setResult(successResult(`updated ${name}`, undefined));
+    setResult(successResult(`saved ${name}`, undefined));
     if (afterSave != null) afterSave(params);
     return true;
   } catch (error) {
     if (signal?.aborted === true) return false;
-    const res = errorResult(`update ${name}`, error);
-    addStatus(res.status);
+    const res = errorResult(`save ${name}`, error);
+    addStatus({ ...res.status, key: statusKey });
     setResult(res);
     return false;
   }
 };
+
+const withKey = (result: Result<undefined>, key: string): Result<undefined> =>
+  ({ ...result, status: { ...result.status, key } }) as Result<undefined>;
 
 const readCached = <Query extends query.Params, Data>(
   getCached: ((params: RetrieveParams<Query>) => Data | undefined) | undefined,
@@ -309,9 +315,14 @@ export const createForm = <
     onHasTouched,
     mode,
   }: UseFormParams<Query, Schema>): UseFormReturn<Schema> => {
-    const [result, setResult] = useState<Result<undefined>>(() =>
-      successResult(`retrieved ${name}`, undefined),
+    // Every status of the form has one key, so a view that shows the status in place
+    // can place the key before a save fails.
+    const statusKey = useId();
+    const [result, setKeyedResult] = useState<Result<undefined>>(() =>
+      withKey(successResult(`retrieved ${name}`, undefined), statusKey),
     );
+    const setResult: Dispatch<SetStateAction<Result<undefined>>> = (setter) =>
+      setKeyedResult((prev) => withKey(state.executeSetter(setter, prev), statusKey));
     const client = Synnax.use();
     const listeners = useDestructors();
     const addStatus = Status.useAdder();
@@ -389,7 +400,7 @@ export const createForm = <
     const runSave = async (opts: query.FetchOptions = {}): Promise<boolean> => {
       const signal = opts.signal ?? abortRef.current.signal;
       if (client == null) {
-        setResult(nullClientResult<undefined>(`update ${name}`));
+        setResult(nullClientResult<undefined>(`save ${name}`));
         return false;
       }
       const issuedFor = readQuery.current;
@@ -411,6 +422,7 @@ export const createForm = <
         afterSave,
         setResult,
         addStatus,
+        statusKey,
         signal,
       });
       // The form re-pointed at another record while this save ran.
