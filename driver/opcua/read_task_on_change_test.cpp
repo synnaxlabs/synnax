@@ -533,6 +533,31 @@ TEST_F(TestOnChangeReadTask, testHoldsChangesDuringBackfill) {
     ASSERT_NIL(src->stop());
 }
 
+/// @brief it should read history up to the first change of the subscription, so it
+/// keeps the changes after the Driver's time when the server's clock is ahead.
+TEST_F(TestOnChangeReadTask, testBackfillsToFirstChange) {
+    this->server_cfg.historizing = true;
+    this->start_server();
+    const auto stored = at(-1 * x::telem::MINUTE);
+    this->store(this->value, stored, 0);
+    this->change(1, stored + x::telem::SECOND);
+    const auto ahead = at(10 * x::telem::SECOND);
+    this->change(2, ahead);
+    this->change(3, ahead + x::telem::SECOND);
+    this->wait_for(3);
+    auto cfg = this->config();
+    cfg["history_backfill_enabled"] = true;
+    const auto src = this->source(cfg);
+    ASSERT_NIL(src->start());
+    const auto written = read_values(*src, this->value, 3);
+    EXPECT_EQ(written.values, std::vector<double>({1, 2, 3}));
+    EXPECT_EQ(
+        written.stamps,
+        std::vector({stored + x::telem::SECOND, ahead, ahead + x::telem::SECOND})
+    );
+    ASSERT_NIL(src->stop());
+}
+
 /// @brief it should read the history of each node from its own last stored value, when
 /// the nodes store their last values at different times.
 TEST_F(TestOnChangeReadTask, testBackfillsEachNodeFromItsOwnStart) {

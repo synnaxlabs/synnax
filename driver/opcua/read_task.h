@@ -934,6 +934,11 @@ inline x::telem::TimeStamp change_time(const UA_DataValue &value) {
     return x::telem::TimeStamp::now();
 }
 
+/// @returns the time of value that a history read compares with its span.
+inline UA_DateTime history_time(const UA_DataValue &value) {
+    return value.hasSourceTimestamp ? value.sourceTimestamp : value.serverTimestamp;
+}
+
 /// @brief reads the changes of each node from a subscription, at the time of each
 /// change, on an index that only its channel writes.
 ///
@@ -941,8 +946,8 @@ inline x::telem::TimeStamp change_time(const UA_DataValue &value) {
 /// change of each node after a subscribe repeats the value that the server has, as does
 /// history, so the source drops such a change without a warning when it is not after
 /// the last one. With history backfill, the source reads the history of each node that
-/// allows it from the last stored value to when the server began to monitor the node,
-/// one page per read, and holds the changes of the node until its history is written.
+/// allows it from the last stored value to the first change of the node, one page per
+/// read, and holds the changes of the node until its history is written.
 class OnChangeReadTaskSource final : public BaseReadTaskSource {
     struct Change {
         x::telem::TimeStamp time;
@@ -980,9 +985,10 @@ class OnChangeReadTaskSource final : public BaseReadTaskSource {
     /// @brief the monitored item of each channel, by place in nodes, or nothing when
     /// the server lacks the channel's namespace.
     std::vector<std::optional<std::size_t>> items;
-    /// @brief when the server began to monitor each monitored item, where its history
-    /// ends.
-    std::vector<UA_DateTime> monitored_at;
+    /// @brief where the history of each monitored item ends: the time of its first
+    /// change, which holds the value that the server had when it began to monitor the
+    /// node. Nothing until that change arrives.
+    std::vector<std::optional<UA_DateTime>> history_end;
     /// @brief when the source last tried to subscribe to what the subscription lacks.
     x::telem::TimeStamp retried{};
 
@@ -1027,6 +1033,7 @@ class OnChangeReadTaskSource final : public BaseReadTaskSource {
     void handle(const std::size_t item, const UA_DataValue &value) {
         const bool replayed = this->fresh[item];
         this->fresh[item] = false;
+        if (replayed) this->history_end[item] = history_time(value);
         const auto time = change_time(value);
         std::optional<std::pair<types::Variant, x::errors::Error>> decoded;
         for (const auto i: this->readers[item])
@@ -1060,10 +1067,7 @@ class OnChangeReadTaskSource final : public BaseReadTaskSource {
         this->failed.assign(this->nodes.size(), x::errors::NIL);
         this->fresh.assign(this->nodes.size(), true);
         this->backfill.assign(this->nodes.size(), std::nullopt);
-        this->monitored_at.assign(
-            this->nodes.size(),
-            telem::to_date_time(x::telem::TimeStamp::now())
-        );
+        this->history_end.assign(this->nodes.size(), std::nullopt);
         this->retried = x::telem::TimeStamp::now();
         auto [monitored, err] = this->connection.subscribe(
             this->nodes,
@@ -1130,7 +1134,6 @@ class OnChangeReadTaskSource final : public BaseReadTaskSource {
                 retried_nodes.push_back(this->nodes[item]);
                 retried_items.push_back(item);
             }
-        const auto asked_at = telem::to_date_time(x::telem::TimeStamp::now());
         auto [monitored, err] = this->connection.monitor(retried_nodes, retried_items);
         if (err.matches(errors::UNREACHABLE)) return err;
         std::vector<std::size_t> recovered;
@@ -1140,7 +1143,6 @@ class OnChangeReadTaskSource final : public BaseReadTaskSource {
             this->failed[item] = k < monitored.errors.size() ? monitored.errors[k]
                                                              : err;
             if (this->failed[item]) continue;
-            this->monitored_at[item] = asked_at;
             recovered.push_back(item);
         }
         if (!recovered.empty())
@@ -1188,13 +1190,22 @@ class OnChangeReadTaskSource final : public BaseReadTaskSource {
         return x::errors::NIL;
     }
 
-    /// @brief reads the next page of history of each node that backfills. Nodes that
-    /// read the same span of time share a request.
+    /// @brief reads the next page of history of each node that backfills and has
+    /// delivered its first change. Nodes that read the same span of time share a
+    /// request.
     x::errors::Error read_history() {
         std::map<std::pair<UA_DateTime, UA_DateTime>, std::vector<std::size_t>> spans;
-        for (std::size_t item = 0; item < this->backfill.size(); ++item)
-            if (const auto &from = this->backfill[item]; from.has_value())
-                spans[{from.value(), this->monitored_at[item]}].push_back(item);
+        for (std::size_t item = 0; item < this->backfill.size(); ++item) {
+            auto &from = this->backfill[item];
+            const auto &end = this->history_end[item];
+            if (!from.has_value() || !end.has_value()) continue;
+            // The first change is not after the last stored value, so no history is
+            // missing.
+            if (end.value() <= from.value())
+                from = std::nullopt;
+            else
+                spans[{from.value(), end.value()}].push_back(item);
+        }
         for (const auto &[span, pending]: spans)
             if (auto err = this->read_page(span.first, span.second, pending))
                 return err;
@@ -1264,9 +1275,7 @@ class OnChangeReadTaskSource final : public BaseReadTaskSource {
         UA_DateTime next = from.value();
         for (std::size_t j = 0; data != nullptr && j < data->dataValuesSize; ++j) {
             const auto &value = data->dataValues[j];
-            const auto stamp = value.hasSourceTimestamp ? value.sourceTimestamp
-                                                        : value.serverTimestamp;
-            next = std::max(next, stamp + 1);
+            next = std::max(next, history_time(value) + 1);
             const auto time = change_time(value);
             std::optional<std::pair<types::Variant, x::errors::Error>> decoded;
             for (const auto i: this->readers[item])
