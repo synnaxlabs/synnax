@@ -59,6 +59,7 @@ func (p *Plugin) Requires() []string { return []string{"ts/types"} }
 // Generate emits a where.gen.ts next to each filter definition with a TypeScript
 // output. A filter in a version file gets none.
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
+	req = req.OmitFields("ts")
 	resp := &plugin.Response{}
 	for _, typ := range req.Resolutions.StructTypes() {
 		if typ.Filter == nil || output.IsOmitted(typ, "ts") {
