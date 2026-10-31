@@ -447,7 +447,7 @@ describe("useForm", () => {
         await result.current.form.saveAsync({ signal: controller.signal });
       });
       expect(result.current.notifications.statuses).toMatchObject([
-        { message: "Failed to update test", key: result.current.form.status.key },
+        { message: "Failed to save test", key: result.current.form.status.key },
       ]);
     });
 

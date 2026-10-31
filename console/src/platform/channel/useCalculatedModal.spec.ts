@@ -196,11 +196,11 @@ describe("useCalculatedModal", () => {
         fireEvent.click(findButton("Save"));
       });
       await expect
-        .poll(() => screen.queryByText("Failed to update calculated channel"))
+        .poll(() => screen.queryByText("Failed to save calculated channel"))
         .toBeTruthy();
       expect(onStatuses).not.toHaveBeenCalledWith(
         expect.arrayContaining([
-          expect.objectContaining({ message: "Failed to update calculated channel" }),
+          expect.objectContaining({ message: "Failed to save calculated channel" }),
         ]),
       );
     });

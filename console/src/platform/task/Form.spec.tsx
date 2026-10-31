@@ -137,7 +137,7 @@ describe("wrapForm", () => {
       const updated = await client.tasks.retrieve({ key: tsk.key });
       expect(updated.name).toBe("Renamed Test Task");
     });
-    expect(screen.queryByText(/updating task|updated task/iu)).toBeNull();
+    expect(screen.queryByText(/saving task|saved task/iu)).toBeNull();
     expect(
       screen.getByRole("button", { name: "Start" }).getAttribute("aria-disabled"),
     ).toBeNull();
@@ -486,7 +486,7 @@ describe("wrapForm notifications", () => {
   const failSave = async () => {
     const input = await waitFor(findNameInput);
     await act(async () => commitFieldInput(input, ""));
-    await waitFor(() => expect(screen.getByText("Failed to update task")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("Failed to save task")).toBeTruthy());
   };
 
   it("should not notify a reply that the controls of a visible tab show", async () => {
@@ -508,16 +508,14 @@ describe("wrapForm notifications", () => {
   it("should show a failed save in the controls without a notification", async () => {
     const { onStatuses } = await renderTab(true);
     await failSave();
-    expect(onStatuses).not.toHaveBeenCalledWith(notifiedWith("Failed to update task"));
+    expect(onStatuses).not.toHaveBeenCalledWith(notifiedWith("Failed to save task"));
   });
 
   it("should notify a failed save while the tab is not visible", async () => {
     const { onStatuses } = await renderTab(false);
     await failSave();
     await waitFor(() =>
-      expect(onStatuses).toHaveBeenLastCalledWith(
-        notifiedWith("Failed to update task"),
-      ),
+      expect(onStatuses).toHaveBeenLastCalledWith(notifiedWith("Failed to save task")),
     );
   });
 });
