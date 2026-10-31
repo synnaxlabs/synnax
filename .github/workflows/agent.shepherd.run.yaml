@@ -1,0 +1,118 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# Calls an agent to bring one pull request to done when the gate allows it and work is
+# left. Every run counts as one attempt. At the cap, the gate labels the pull request
+# agent/needs-human and asks for a person. The agent's pushes and reviews wake Agent -
+# Shepherd again, so the cap bounds the loop. Attempt comments use GITHUB_TOKEN, which
+# starts no workflows. The agent token cannot rerun CI, so the agent asks for a rerun in
+# its report and a later job reruns the failed CI run the gate found.
+
+name: Agent - Shepherd run
+
+on:
+  workflow_call:
+    inputs:
+      pr:
+        description: The pull request number
+        required: true
+        type: number
+
+permissions: {}
+
+jobs:
+  gate:
+    name: Gate
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+      issues: write
+      pull-requests: write
+    outputs:
+      run: ${{ steps.gate.outputs.run }}
+      prompt: ${{ steps.gate.outputs.prompt }}
+      ci: ${{ steps.gate.outputs.ci }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Gate the attempt and find the work
+        id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          AGENT_LOGINS: ${{ vars.AGENT_LOGINS }}
+          PR: ${{ inputs.pr }}
+          CAP: 5
+        run: |
+          VERDICT=$(.github/scripts/agent_gate.sh "$PR" shepherd "$CAP")
+          echo "$VERDICT"
+          read -r verdict attempt <<< "$VERDICT"
+          [ "$verdict" != skip ] || exit 0
+          WORK=$(.github/scripts/shepherd_work.sh "$PR")
+          echo "Work: ${WORK:-none}"
+          [ -n "$WORK" ] || exit 0
+          RUN_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          COMMENTS="repos/$GITHUB_REPOSITORY/issues/$PR/comments"
+          if [ "$verdict" = stop ]; then
+            gh api "repos/$GITHUB_REPOSITORY/issues/$PR/labels" > /dev/null \
+              -f 'labels[]=agent/needs-human'
+            gh api "$COMMENTS" > /dev/null -f body="Agents stopped after attempt \
+          ${CAP} of ${CAP}. A person must look. Remove the \`agent/needs-human\` label to \
+          let agents try again."
+            exit 0
+          fi
+          gh api "$COMMENTS" > /dev/null -f body="<!-- agent:shepherd -->
+          Agent attempt ${attempt} of ${CAP}: [run](${RUN_URL})."
+          EOF=$(openssl rand -hex 16)
+          {
+            echo "prompt<<$EOF"
+            cat .github/agents/shepherd.md
+            printf '\nThe pull request is #%s. The gate found this work:\n\n%s\n' \
+              "$PR" "$WORK"
+            echo "$EOF"
+            echo run=true
+            sed -n 's/^ci /ci=/p' <<< "$WORK"
+          } >> "$GITHUB_OUTPUT"
+
+  agent:
+    name: Agent
+    needs: gate
+    if: needs.gate.outputs.run == 'true'
+    permissions:
+      contents: read
+      id-token: write
+    # The agent pushes and replies itself, as its GitHub App. The App token expires an
+    # hour after it is minted, so the job budget stays at an hour.
+    uses: ./.github/workflows/agent.yaml
+    with:
+      prompt: ${{ needs.gate.outputs.prompt }}
+      agent: ${{ vars.AGENT_DEFAULT || 'claude' }}
+      output: report
+      pr: ${{ inputs.pr }}
+      timeout-minutes: 60
+    secrets: inherit
+
+  rerun:
+    name: Rerun CI
+    needs:
+      - gate
+      - agent
+    if:
+      needs.gate.outputs.ci != '' && contains(needs.agent.outputs.report, '<!--
+      agent:rerun -->')
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - name: Rerun the failed CI jobs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN: ${{ needs.gate.outputs.ci }}
+        run: gh run rerun "$RUN" --failed --repo "$GITHUB_REPOSITORY"
