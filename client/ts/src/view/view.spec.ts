@@ -10,7 +10,7 @@
 import { id, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { NotFoundError, PathError } from "@/errors";
+import { NotFoundError, PathError } from "@/index";
 import { createTestClient, waitForStreamLive } from "@/testutil";
 
 describe("View", () => {

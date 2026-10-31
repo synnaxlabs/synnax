@@ -134,8 +134,9 @@ class CalcChannelStress(ConsoleCase):
                 sy.TimeStamp.now(),
                 channels=[ch.key for ch in all_channels],
             ) as writer:
-                i = 0
-                while loop.wait() and not self._stop_event.is_set():
+                for i, _ in enumerate(loop):
+                    if self._stop_event.is_set():
+                        break
                     current_time = sy.TimeStamp.now()
                     data_to_write: CrudeFrame = {timestamp_channel.key: current_time}
 
@@ -159,7 +160,6 @@ class CalcChannelStress(ConsoleCase):
                         data_to_write[ch.key] = ((j + 1) * 0.1 * i + j) % WRAP_THRESHOLD
 
                     writer.write(data_to_write)
-                    i += 1
 
         self._stress_thread = threading.Thread(target=write_loop, daemon=True)
         self._stress_thread.start()

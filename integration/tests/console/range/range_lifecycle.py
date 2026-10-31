@@ -288,13 +288,14 @@ class RangeLifecycle(ConsoleCase):
 
         # The overview form autosaves on a debounce, so poll until the last
         # edit reaches the server before asserting.
-        for _ in range(10):
-            rng = self.client.ranges.retrieve(name=self.labeled_range_name)
-            start_utc = sy.TimeStamp(rng.time_range.start).datetime(UTC)
-            end_utc = sy.TimeStamp(rng.time_range.end).datetime(UTC)
-            if end_utc.day == 2:
+        rng = self.client.ranges.retrieve(name=self.labeled_range_name)
+        for _ in range(9):
+            if sy.TimeStamp(rng.time_range.end).datetime(UTC).day == 2:
                 break
             sy.sleep(0.5)
+            rng = self.client.ranges.retrieve(name=self.labeled_range_name)
+        start_utc = sy.TimeStamp(rng.time_range.start).datetime(UTC)
+        end_utc = sy.TimeStamp(rng.time_range.end).datetime(UTC)
         assert start_utc.year == 2024, (
             f"Start year should be 2024, got {start_utc.year}"
         )
@@ -339,13 +340,14 @@ class RangeLifecycle(ConsoleCase):
 
         Stage edits autosave on a debounce, so an immediate read races them.
         """
+        rng = self.client.ranges.retrieve(name=name)
         now = int(sy.TimeStamp.now())
-        for _ in range(10):
-            rng = self.client.ranges.retrieve(name=name)
-            now = int(sy.TimeStamp.now())
+        for _ in range(9):
             if rng.time_range.start < now < rng.time_range.end:
                 break
             sy.sleep(0.5)
+            rng = self.client.ranges.retrieve(name=name)
+            now = int(sy.TimeStamp.now())
         assert rng.time_range.start < now, f"'{name}' start should be in the past"
         assert rng.time_range.end > now, f"'{name}' end should be in the future"
 

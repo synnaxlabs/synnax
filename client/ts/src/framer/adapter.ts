@@ -9,8 +9,7 @@
 
 import { type CrudeSeries, Series } from "@synnaxlabs/x";
 
-import { type channel } from "@/channel";
-import { analyzeParams, paramsZ } from "@/channel/payload";
+import { channel } from "@/channel";
 import { NotFoundError, ValidationError } from "@/errors";
 import { Codec } from "@/framer/codec";
 import { type CrudeFrame, Frame } from "@/framer/frame";
@@ -21,7 +20,7 @@ export type ChannelRetriever = (channels: channel.Params) => Promise<channel.Pay
 /** Fetches channel payloads, throwing a {@link NotFoundError} when any is missing. */
 const retrieveRequired = async (
   retrieve: ChannelRetriever,
-  channels: ReturnType<typeof analyzeParams>["normalized"],
+  channels: ReturnType<typeof channel.analyzeParams>["normalized"],
 ): Promise<channel.Payload[]> => {
   const results = await retrieve(channels);
   const found = new Set<channel.Key | channel.Name>();
@@ -61,7 +60,7 @@ export class ReadAdapter {
    * @returns true when the keys changed.
    */
   async update(channels: channel.Params): Promise<boolean> {
-    const { variant, normalized } = analyzeParams(channels);
+    const { variant, normalized } = channel.analyzeParams(channels);
     const fetched = await retrieveRequired(this.retrieveChannels, normalized);
     const newKeys = fetched.map((c) => c.key);
     const newKeySet = new Set(newKeys);
@@ -139,7 +138,7 @@ export class WriteAdapter {
   }
 
   async adaptParams(data: channel.Params): Promise<channel.Key[]> {
-    const arrParams = paramsZ.parse(data);
+    const arrParams = channel.paramsZ.parse(data);
     const keys = await Promise.all(
       arrParams.map(async (p) => await this.adaptToKey(p)),
     );
@@ -147,7 +146,7 @@ export class WriteAdapter {
   }
 
   async update(channels: channel.Params): Promise<boolean> {
-    const { normalized } = analyzeParams(channels);
+    const { normalized } = channel.analyzeParams(channels);
     const results = await retrieveRequired(this.retrieveChannels, normalized);
     const newKeys = results.map((c) => c.key);
     const previousKeySet = new Set(this.keys);

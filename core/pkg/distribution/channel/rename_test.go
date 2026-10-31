@@ -13,19 +13,19 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Rename", Ordered, func() {
-	var n mock.Node
+	var n testutil.Node
 
 	BeforeAll(func(ctx SpecContext) {
 		ShouldNotLeakGoroutines()
-		n = mock.NewNode(ctx)
+		n = testutil.NewNode(ctx)
 	})
 
 	It("Should rename the storage channel for a gateway key", func(ctx SpecContext) {
@@ -68,12 +68,12 @@ var _ = Describe("Rename", Ordered, func() {
 
 	Context("Multi Node", Ordered, func() {
 		var (
-			gateway mock.Node
-			peer    mock.Node
+			gateway testutil.Node
+			peer    testutil.Node
 		)
 		BeforeAll(func(ctx SpecContext) {
 			ShouldNotLeakGoroutines()
-			cluster := mock.NewCluster(ctx, 2)
+			cluster := testutil.NewCluster(ctx, 2)
 			gateway = cluster.Nodes[node.KeyBootstrapper]
 			peer = cluster.Nodes[node.Key(2)]
 		})

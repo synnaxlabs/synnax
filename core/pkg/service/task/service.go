@@ -11,6 +11,7 @@ package task
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"slices"
 
@@ -26,13 +27,13 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/synnax/pkg/service/task/versions"
 	xconfig "github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/errors"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
-	"go.uber.org/zap"
 )
 
 // ServiceConfig is the configuration for creating a Service.
@@ -249,41 +250,48 @@ func (s *Service) NewRetrieve() Retrieve {
 	}
 }
 
-func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) {
+func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) error {
 	var tasks []Task
 	if err := s.NewRetrieve().Where(MatchRacks(rackStat.Details.Rack)).
 		Entries(&tasks).
 		Exec(ctx, nil); err != nil {
-		s.cfg.L.Error("failed to retrieve tasks on suspect rack", zap.Error(err))
-		return
+		return errors.Wrap(err, "failed to retrieve tasks on suspect rack")
 	}
-	// A silent rack does not undo the deploy the Driver reported, so its config hash
-	// and rack are carried across rather than rebuilt.
 	reported, err := s.cfg.Status.Join[StatusDetails](ctx, OntologyIDsFromTasks(tasks))
 	if err != nil {
-		s.cfg.L.Error("failed to retrieve statuses on suspect rack", zap.Error(err))
-		return
+		return errors.Wrap(err, "failed to retrieve statuses on suspect rack")
 	}
-	statuses := make([]Status, len(tasks))
+	statuses := make([]Status, 0, len(tasks))
 	for i, tsk := range tasks {
-		details := StatusDetails{Task: tsk.Key, Running: false}
-		if prev := reported[i]; prev != nil {
-			details.ConfigHash = prev.Details.ConfigHash
-			details.Rack = prev.Details.Rack
+		// A task without a status has never reported running, so it gets no copy.
+		prev := reported[i]
+		if prev == nil || !prev.Details.Running {
+			continue
 		}
-		statuses[i] = Status{
-			Key:         tsk.OntologyID().String(),
-			Time:        telem.Now(),
-			Name:        tsk.Name,
-			Variant:     rackStat.Variant,
-			Message:     rackStat.Message,
-			Description: rackStat.Description,
-			Details:     details,
-		}
+		// A silent rack does not undo the deploy the Driver reported, so the config
+		// hash is carried across.
+		statuses = append(statuses, Status{
+			Key:     prev.Key,
+			Time:    telem.Now(),
+			Name:    tsk.Name,
+			Variant: rackStat.Variant,
+			Message: "Task stopped responding",
+			Description: fmt.Sprintf(
+				"The Core lost contact with the Driver on %s while the task was "+
+					"running.",
+				rackStat.Name,
+			),
+			Details: StatusDetails{
+				Task:       tsk.Key,
+				ConfigHash: prev.Details.ConfigHash,
+				Rack:       rackStat.Details.Rack,
+			},
+		})
 	}
-	if err := s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+	if len(statuses) == 0 {
+		return nil
+	}
+	return s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
 		return s.cfg.Status.NewWriter(tx).SetMany(ctx, &statuses)
-	}); err != nil {
-		s.cfg.L.Error("failed to set statuses on suspect rack", zap.Error(err))
-	}
+	})
 }

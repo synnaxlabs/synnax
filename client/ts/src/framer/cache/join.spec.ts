@@ -72,6 +72,31 @@ const leadingOf = (store: Store, ch: channel.Key): Series | null =>
 const streamed = (store: Store, ch: channel.Key): number[] =>
   Array.from(leadingOf(store, ch) ?? []).map(Number);
 
+// Returns the series of the channel's raw blocks in time order, the open one last.
+const seriesOf = (store: Store, ch: channel.Key, ...blocks: number[]): Series[] => {
+  const fetched = blocks.flatMap((b) => [...store.raw(ch, b).fetched]);
+  const leading = leadingOf(store, ch);
+  return leading == null ? fetched : [...fetched, leading];
+};
+
+// Returns whether each series after the first starts where the one before it ends.
+const touches = (series: Series[]): boolean[] =>
+  series.slice(1).map((s, i) => series[i].timeRange.end.equals(s.timeRange.start));
+
+// Fills the block with a read of both members' samples at the seconds.
+const fillRead = (store: Store, seconds: number[]): void => {
+  const span = spanOf(seconds);
+  const alignment = alignmentOf(BLOCK, 0);
+  store
+    .raw(INDEX, BLOCK)
+    .fill([createIndex(seconds, alignment)], span.end, seconds.length);
+  store
+    .raw(DATA, BLOCK)
+    .fill([createData(seconds, alignment, span)], span.end, seconds.length);
+};
+
+const NEXT_DOMAIN = alignmentOf(1, 0);
+
 describe("Joins", () => {
   describe("landed", () => {
     it("should hold the series of waiting members until the join lands", () => {
@@ -331,6 +356,83 @@ describe("Joins", () => {
       expect(
         joins.write(createFrame([INDEX, createIndex([4], alignmentOf(2, 5))])),
       ).toEqual(new Set([INDEX]));
+    });
+
+    describe("runs", () => {
+      it("should keep a new run in one block apart from the run before it", () => {
+        const { store, joins } = createJoined();
+        joins.write(
+          createFrame(
+            [INDEX, createIndex([5, 6], NEXT_DOMAIN)],
+            [DATA, createData([30, 40], NEXT_DOMAIN)],
+          ),
+        );
+        [INDEX, DATA].forEach((ch) => {
+          const series = seriesOf(store, ch, BLOCK);
+          expect(series.map((s) => s.length)).toEqual([2, 2]);
+          expect(touches(series)).toEqual([false]);
+          expect(series[0].timeRange).toEqual(spanOf([1, 2]));
+          expect(series[1].timeRange.start).toEqual(at(5));
+          expect(series[1].alignment).toBe(alignmentOf(BLOCK, 2));
+        });
+      });
+
+      it.each([8, 1000])(
+        "should keep the series of one run touching across blocks with %d sample buffers",
+        (dynamicBufferSize) => {
+          const store = new Store({ dynamicBufferSize });
+          const joins = new Joins(store);
+          joins.join(DATA, INDEX);
+          joins.landed(INDEX, waitsOf(joins, INDEX, DATA));
+          const seconds = Array.from({ length: 400 }, (_, i) => i / 2);
+          for (let i = 0; i < seconds.length; i += 3) {
+            const chunk = seconds.slice(i, i + 3);
+            const alignment = BigInt(i);
+            joins.write(
+              createFrame(
+                [INDEX, createIndex(chunk, alignment)],
+                [DATA, createData(chunk, alignment)],
+              ),
+            );
+          }
+          const blocks = [BLOCK, BLOCK + 1, BLOCK + 2, BLOCK + 3];
+          [INDEX, DATA].forEach((ch) => {
+            const series = seriesOf(store, ch, ...blocks);
+            expect(series.length).toBeGreaterThan(blocks.length);
+            expect(touches(series)).not.toContain(false);
+          });
+        },
+      );
+
+      it("should continue the samples of a read when a stream joins mid-run", () => {
+        const { store, joins } = createJoins();
+        fillRead(store, [1, 2]);
+        joins.landed(INDEX, waitsOf(joins, INDEX, DATA));
+        joins.write(
+          createFrame(
+            [INDEX, createIndex([3, 4], 2n)],
+            [DATA, createData([30, 40], 2n)],
+          ),
+        );
+        [INDEX, DATA].forEach((ch) =>
+          expect(touches(seriesOf(store, ch, BLOCK))).toEqual([true]),
+        );
+      });
+
+      it("should keep a run apart from a read's samples of the run before it", () => {
+        const { store, joins } = createJoins();
+        fillRead(store, [1, 2]);
+        joins.landed(INDEX, waitsOf(joins, INDEX, DATA));
+        joins.write(
+          createFrame(
+            [INDEX, createIndex([3, 4], NEXT_DOMAIN)],
+            [DATA, createData([30, 40], NEXT_DOMAIN)],
+          ),
+        );
+        [INDEX, DATA].forEach((ch) =>
+          expect(touches(seriesOf(store, ch, BLOCK))).toEqual([false]),
+        );
+      });
     });
 
     it("should not wait on a gap in a join with a calculated member", () => {

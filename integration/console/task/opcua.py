@@ -13,6 +13,7 @@ import re
 
 from playwright.sync_api import Locator, expect
 
+from console.page import PageType
 from console.task_page import TaskPage
 
 SERVER_FIELD_LABEL = "OPC UA server"
@@ -83,12 +84,12 @@ class OPCUATask(TaskPage):
 class OPCUARead(OPCUATask):
     """OPC UA read task page."""
 
-    page_type = "OPC UA read task"
+    page_type: PageType = "OPC UA read task"
     pluto_label: str = ".console-task-configure--opc_read"
 
 
 class OPCUAWrite(OPCUATask):
     """OPC UA write task page."""
 
-    page_type = "OPC UA write task"
+    page_type: PageType = "OPC UA write task"
     pluto_label: str = ".console-task-configure--opc_write"
