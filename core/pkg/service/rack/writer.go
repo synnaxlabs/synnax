@@ -13,6 +13,7 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -37,6 +38,8 @@ type Writer struct {
 	status status.Writer
 	// table is the gorp table for rack entries.
 	table *gorp.Table[Key, Rack]
+	// driverRole is the role each new rack receives.
+	driverRole role.Key
 }
 
 func resolveStatus(r *Rack) *Status {
@@ -87,12 +90,28 @@ func (w Writer) Create(ctx context.Context, r *Rack) error {
 	if err = r.Validate(); err != nil {
 		return err
 	}
+	exists, err := w.table.NewRetrieve().
+		Where(gorp.MatchKeys[Key, Rack](r.Key)).
+		Exists(ctx, w.tx)
+	if err != nil {
+		return err
+	}
 	if err = w.table.NewCreate().Entry(r).Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	otgID := r.OntologyID()
 	if err = w.otg.DefineResources(ctx, otgID); err != nil {
 		return err
+	}
+	if !exists {
+		if err = w.otg.DefineRelationships(
+			ctx,
+			role.OntologyID(w.driverRole),
+			ontology.RelationshipTypeParentOf,
+			otgID,
+		); err != nil {
+			return err
+		}
 	}
 	stat := resolveStatus(r)
 	if r.Status != nil {

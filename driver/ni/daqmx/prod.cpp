@@ -12,7 +12,6 @@
 #include <utility>
 
 #include "x/cpp/lib/lib.h"
-#include "x/cpp/os/os.h"
 
 #include "driver/errors/errors.h"
 #include "driver/ni/daqmx/prod.h"
@@ -27,9 +26,6 @@ static const std::string LIB_NAME = "libnidaqmx.so.1";
 const auto LOAD_ERROR = errors::missing_lib(LIBRARY_INFO);
 
 std::pair<std::shared_ptr<API>, x::errors::Error> ProdAPI::load() {
-    const auto os = x::os::get();
-    if (os == x::os::MACOS_NAME || os == x::os::UNKNOWN_NAME)
-        return {nullptr, x::errors::NIL};
     auto lib = std::make_unique<x::lib::Shared>(LIB_NAME);
     if (!lib->load()) return {nullptr, LOAD_ERROR};
     return {std::make_shared<ProdAPI>(lib), x::errors::Error()};

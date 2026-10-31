@@ -28,6 +28,8 @@ export const statusDetailsZ = z.object({
   rack: rack.keyZ,
   /** device is the device identifier. */
   device: keyZ,
+  /** data contains device-specific status data. */
+  data: zod.nullToUndefined(record.unknownZ()),
 });
 export interface StatusDetails extends z.infer<typeof statusDetailsZ> {}
 

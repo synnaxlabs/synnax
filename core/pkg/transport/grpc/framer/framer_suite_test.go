@@ -18,9 +18,9 @@ import (
 	. "github.com/synnaxlabs/freighter/grpc/testutil"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
-	svcmock "github.com/synnaxlabs/synnax/pkg/service/mock"
+	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	grpcframer "github.com/synnaxlabs/synnax/pkg/transport/grpc/framer"
 	. "github.com/synnaxlabs/x/testutil"
 	"google.golang.org/grpc"
@@ -41,7 +41,7 @@ func TestFramer(t *testing.T) {
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	svc := MustOpen(svcmock.OpenLayer(ctx, mock.NewNode(ctx)))
+	svc := MustOpen(svctestutil.OpenLayer(ctx, testutil.NewNode(ctx)))
 	channelSvc = svc.Channel
 	apiChannelSvc = MustSucceed(channel.NewService(channel.ServiceConfig{
 		RBAC:    svc.RBAC,

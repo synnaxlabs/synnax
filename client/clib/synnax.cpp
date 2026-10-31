@@ -21,6 +21,7 @@ int32_t synnax_client_open(
     const uint16_t port,
     const char *username,
     const char *password,
+    const char *api_key,
     const int32_t secure,
     const uint32_t max_retries,
     const int64_t clock_skew_threshold,
@@ -36,8 +37,19 @@ int32_t synnax_client_open(
         synnax::Config c;
         c.host = str_or(host, "localhost");
         if (port != 0) c.port = port;
-        c.username = str_or(username, "synnax");
-        c.password = str_or(password, "seldon");
+        c.api_key = str_or(api_key, "");
+        if (c.api_key.empty()) {
+            c.username = str_or(username, "synnax");
+            c.password = str_or(password, "seldon");
+        } else if (!str_or(username, "").empty() || !str_or(password, "").empty()) {
+            set_err(
+                err,
+                CODE_INTERNAL,
+                "sy.validation",
+                "give either an API key or a username and password, not both"
+            );
+            return CODE_INTERNAL;
+        }
         c.secure = secure != 0;
         if (max_retries != 0) c.max_retries = max_retries;
         if (clock_skew_threshold > 0)
