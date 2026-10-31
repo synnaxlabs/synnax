@@ -63,7 +63,9 @@ jobs:
       RELEASE_TAG: ${{ inputs.release_tag }}
       APP: ${{ inputs.desktop && 'Synnax Desktop' || 'Synnax' }}
       PRODUCT: ${{ inputs.desktop && 'desktop' || 'console' }}
-      OS_NAME: ${{ startsWith(matrix.os, 'macos') && 'macos' || 'windows' }}
+      OS_NAME:
+        ${{ startsWith(matrix.os, 'macos') && 'macos' || startsWith(matrix.os, 'ubuntu')
+        && 'linux' || 'windows' }}
       BUNDLE_DIR: console/src-tauri/target/release/bundle
     strategy:
       fail-fast: false
@@ -85,6 +87,13 @@ jobs:
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
           KEYCHAIN_NAME: build-${{ runner.name }}.keychain
         run: .github/scripts/import_apple_certificate.sh
+
+      - name: Install Linux build dependencies
+        if: env.OS_NAME == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libxdo-dev libssl-dev \
+            librsvg2-dev patchelf file
 
       - name: Set up pnpm and Node.js
         uses: ./.github/actions/setup-pnpm
@@ -231,6 +240,11 @@ jobs:
             if [ -f "$BUNDLE_DIR/macos/${APP}.app.tar.gz" ]; then
               stage "macos/${APP}.app.tar.gz" "${NAME}.app.tar.gz"
             fi
+          elif [ "$OS_NAME" = "linux" ]; then
+            stage "appimage/${APP}_${APP_VERSION}_amd64.AppImage" \
+              "${NAME}_${APP_VERSION}_amd64.AppImage"
+            stage "deb/${APP}_${APP_VERSION}_amd64.deb" \
+              "${NAME}_${APP_VERSION}_amd64.deb"
           else
             stage "msi/${APP}_${APP_VERSION}_x64_en-US.msi" \
               "${NAME}_${APP_VERSION}_x64_en-US.msi"

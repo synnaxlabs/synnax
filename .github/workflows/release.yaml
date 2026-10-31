@@ -232,6 +232,7 @@ jobs:
           tag: ${{ needs.resolve.outputs.console_tag }}
           version: ${{ needs.resolve.outputs.console_version }}
           app: Synnax
+          linux: true
 
       - name: Publish release
         run: gh release edit "$TAG" --draft=false

@@ -175,6 +175,7 @@ jobs:
       PURE_VERSION: ${{ steps.version.outputs.PURE_VERSION }}
       matrix: ${{ steps.set-matrix.outputs.matrix }}
       console_tauri_matrix: ${{ steps.set-console-tauri-matrix.outputs.matrix }}
+      desktop_tauri_matrix: ${{ steps.set-console-tauri-matrix.outputs.desktop }}
       GO_BUILD_TAGS: ${{ steps.go-tags.outputs.GO_BUILD_TAGS }}
     steps:
       - name: Checkout repository
@@ -245,6 +246,14 @@ jobs:
           if [ "${{ inputs.windows }}" = "true" ]; then
             [ -n "$OS_LIST" ] && OS_LIST="$OS_LIST,"
             OS_LIST="${OS_LIST}\"windows-latest\""
+          fi
+          # Synnax Desktop does not build on Linux yet.
+          echo "desktop=[${OS_LIST}]" >> "$GITHUB_OUTPUT"
+          # The oldest hosted Ubuntu gives the AppImage and the .deb the widest glibc
+          # range.
+          if [ "${{ inputs.ubuntu }}" = "true" ]; then
+            [ -n "$OS_LIST" ] && OS_LIST="$OS_LIST,"
+            OS_LIST="${OS_LIST}\"ubuntu-22.04\""
           fi
           echo "matrix=[${OS_LIST}]" >> "$GITHUB_OUTPUT"
 
@@ -1153,11 +1162,11 @@ jobs:
     # build.tauri.yaml uploads the bundles to the draft release.
     permissions:
       contents: write
-    if: inputs.desktop && needs.setup.outputs.console_tauri_matrix != '[]'
+    if: inputs.desktop && needs.setup.outputs.desktop_tauri_matrix != '[]'
     uses: ./.github/workflows/build.tauri.yaml
     with:
       desktop: true
-      os: ${{ needs.setup.outputs.console_tauri_matrix }}
+      os: ${{ needs.setup.outputs.desktop_tauri_matrix }}
       version: ${{ needs.setup.outputs.VERSION }}
       app_version: ${{ inputs.desktop_version }}
       sign_binaries: ${{ inputs.sign_binaries }}
