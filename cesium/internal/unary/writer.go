@@ -121,8 +121,6 @@ func (c WriterConfig) domain() domain.WriterConfig {
 }
 
 func (c WriterConfig) controlTimeRange(start telem.TimeStamp) telem.TimeRange {
-	// The automatic controlTimeRange is until the end of time, but we are not sure if
-	// we should use this or the start of next domain.
 	return start.Range(lo.Ternary(c.End.IsZero(), telem.TimeStampMax, c.End))
 }
 
