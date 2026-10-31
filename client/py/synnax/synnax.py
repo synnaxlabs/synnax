@@ -22,6 +22,7 @@ from synnax import (
     exceptions,
     framer,
     group,
+    lineplot,
     project,
     rack,
     ranger,
@@ -91,6 +92,7 @@ class Synnax(framer.Client):
     imex: ImexClient
     projects: project.Client
     tables: table.Client
+    line_plots: lineplot.Client
 
     _transport: Transport
 
@@ -218,6 +220,7 @@ class Synnax(framer.Client):
             file_transport=self._transport.file_transport,
         )
         self.tables = table.Client(client=self._transport.unary)
+        self.line_plots = lineplot.Client(client=self._transport.unary)
         self.tasks = task.Client(
             client=self._transport.unary,
             frame_client=self,
