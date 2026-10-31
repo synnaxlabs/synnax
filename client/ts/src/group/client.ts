@@ -13,7 +13,6 @@ import z from "zod";
 
 import { type Group, groupZ, type Key, keyZ, ontologyID } from "@/group/types.gen";
 import { ontology } from "@/ontology";
-import { idZ as ontologyIDZ } from "@/ontology/payload";
 import { query } from "@/query";
 
 export const SET_CHANNEL_NAME = "sy_group_set";
@@ -22,7 +21,7 @@ export const DELETE_CHANNEL_NAME = "sy_group_delete";
 const resZ = z.object({ group: groupZ });
 
 const createReqZ = z.object({
-  parent: ontologyIDZ,
+  parent: ontology.idZ,
   key: keyZ.optional(),
   name: z.string(),
 });
@@ -34,7 +33,7 @@ const deleteReqZ = z.object({ keys: z.array(keyZ) });
 export interface CreateParams extends z.infer<typeof createReqZ> {}
 
 const retrieveChildrenParamsZ = z.object({
-  parent: ontologyIDZ,
+  parent: ontology.idZ,
   searchTerm: z.string().optional(),
   offset: z.int().optional(),
   limit: z.int().optional(),

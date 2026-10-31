@@ -23,7 +23,7 @@ import {
 } from "@/device/types.gen";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
-import { keyZ as rackKeyZ } from "@/rack/types.gen";
+import { rack } from "@/rack";
 import { type status } from "@/status";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
@@ -58,7 +58,7 @@ const retrieveRequestZ = z.object({
   makes: z.string().array().optional(),
   models: z.string().array().optional(),
   locations: z.string().array().optional(),
-  racks: rackKeyZ.array().optional(),
+  racks: rack.keyZ.array().optional(),
   searchTerm: z.string().optional(),
   limit: z.int().optional(),
   offset: z.int().optional(),

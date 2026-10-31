@@ -8,4 +8,4 @@
 // included in the file licenses/APL.txt.
 
 // Exported as access for compatibility with policy generated types.
-export * as access from "@/access/action/types.gen";
+export * as access from "@/access/action/external";
