@@ -451,12 +451,6 @@ protected:
     }
 };
 
-/// @returns the time now, rounded to the microsecond so that it survives the 100 ns
-/// resolution of an OPC UA DateTime.
-x::telem::TimeStamp now_us() {
-    return x::telem::TimeStamp(x::telem::TimeStamp::now().nanoseconds() / 1000 * 1000);
-}
-
 /// @brief it should read multiple data types from OPC UA server.
 TEST_F(TestReadTask, testBasicReadTask) {
     auto start = x::telem::TimeStamp::now();
@@ -653,7 +647,7 @@ TEST_F(TestReadTask, testDateTimeIndexChecksStamps) {
     EXPECT_EQ(got.stamps, std::vector{x::telem::TimeStamp(0)});
     EXPECT_EQ(got.values, 1);
     EXPECT_TRUE(got.warnings.empty());
-    const auto time = now_us();
+    const auto time = testutil::now();
     this->change_date_time(time);
     got = read_stamps(*src, ch, 2, 500 * x::telem::MILLISECOND);
     EXPECT_EQ(got.stamps, std::vector{time});
@@ -677,7 +671,7 @@ TEST_F(TestReadTask, testDateTimeIndexChecksStamps) {
 /// failed block wrote nothing.
 TEST_F(TestReadTask, testDateTimeIndexKeepsStampOfFailedBlock) {
     const auto [idx, ch] = this->create_stamped_channels();
-    const auto time = now_us();
+    const auto time = testutil::now();
     this->change_date_time(time);
     auto cfg = date_time_cfg(ch);
     cfg["sample_rate"] = 0.5;
@@ -709,7 +703,7 @@ TEST_F(TestReadTask, testDateTimeIndexKeepsStampOfFailedBlock) {
 /// task starts again.
 TEST_F(TestReadTask, testDateTimeIndexDropsStoredStampAtStart) {
     const auto [idx, ch] = this->create_stamped_channels();
-    const auto stored = now_us();
+    const auto stored = testutil::now();
     auto writer = ASSERT_NIL_P(ctx->client->telem.open_writer(
         synnax::framer::WriterConfig{.channels = {idx.key, ch.key}, .start = stored}
     ));

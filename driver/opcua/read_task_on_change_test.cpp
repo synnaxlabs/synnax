@@ -29,13 +29,6 @@ namespace {
 const std::string ENDPOINT = "opc.tcp://localhost:4866";
 const std::string DEVICE_KEY = "opc_on_change_test_server_key";
 
-/// @returns a time offset from now, rounded to the microsecond so that it survives the
-/// 100 ns resolution of an OPC UA DateTime.
-x::telem::TimeStamp at(const x::telem::TimeSpan offset) {
-    const auto ns = (x::telem::TimeStamp::now() + offset).nanoseconds();
-    return x::telem::TimeStamp(ns / 1000 * 1000);
-}
-
 /// @returns a node of the test server named id, in namespace 1, that holds v.
 testutil::TestNode double_node(const std::string &id, UA_Double v) {
     UA_Variant value;
@@ -255,7 +248,7 @@ TEST_F(TestOnChangeReadTask, testWritesChangesAtSourceTime) {
     const auto src = this->source(this->config());
     ASSERT_NIL(src->start());
     ASSERT_EQ(read_values(*src, this->value, 1).values.size(), 1);
-    const auto time = at(x::telem::SECOND);
+    const auto time = testutil::now(x::telem::SECOND);
     this->change(7.5, time);
     const auto written = read_values(*src, this->value, 1);
     EXPECT_EQ(written.values, std::vector<double>({7.5}));
@@ -270,7 +263,7 @@ TEST_F(TestOnChangeReadTask, testDropsChangesThatAreNotAfterTheLast) {
     const auto src = this->source(this->config());
     ASSERT_NIL(src->start());
     ASSERT_EQ(read_values(*src, this->value, 1).values.size(), 1);
-    const auto time = at(2 * x::telem::SECOND);
+    const auto time = testutil::now(2 * x::telem::SECOND);
     this->change(1, time);
     ASSERT_EQ(read_values(*src, this->value, 1).values, std::vector<double>({1}));
     this->change(2, time);
@@ -292,7 +285,7 @@ TEST_F(TestOnChangeReadTask, testDropsChangesThatAreNotAfterTheLast) {
 /// @brief it should drop the current value that the server sends at start without a
 /// warning when the channel stores a later value.
 TEST_F(TestOnChangeReadTask, testDropsRepeatedValueAtStart) {
-    const auto stored = at(10 * x::telem::SECOND);
+    const auto stored = testutil::now(10 * x::telem::SECOND);
     this->store(this->value, stored, 1);
     const auto src = this->source(this->config());
     ASSERT_NIL(src->start());
@@ -312,11 +305,19 @@ TEST_F(TestOnChangeReadTask, testWarnsAboutQuality) {
     const auto src = this->source(this->config());
     ASSERT_NIL(src->start());
     ASSERT_EQ(read_values(*src, this->value, 1).values.size(), 1);
-    this->change(5, at(x::telem::SECOND), UA_STATUSCODE_UNCERTAININITIALVALUE);
+    this->change(
+        5,
+        testutil::now(x::telem::SECOND),
+        UA_STATUSCODE_UNCERTAININITIALVALUE
+    );
     const auto uncertain = read_values(*src, this->value, 1);
     EXPECT_EQ(uncertain.values, std::vector<double>({5}));
     EXPECT_TRUE(uncertain.warned("Received uncertain values"));
-    this->change(6, at(2 * x::telem::SECOND), UA_STATUSCODE_BADSENSORFAILURE);
+    this->change(
+        6,
+        testutil::now(2 * x::telem::SECOND),
+        UA_STATUSCODE_BADSENSORFAILURE
+    );
     const auto bad = read_values(*src, this->value, 1, x::telem::SECOND);
     EXPECT_TRUE(bad.values.empty());
     ASSERT_TRUE(bad.warned("Received bad values"));
@@ -493,7 +494,7 @@ TEST_F(TestOnChangeReadTask, testSubscribesAgainAfterServerRestart) {
     this->start_server();
     x::telem::Frame fr;
     ASSERT_EVENTUALLY_NIL(src->read(breaker, fr).error);
-    this->change(8, at(x::telem::SECOND));
+    this->change(8, testutil::now(x::telem::SECOND));
     const auto written = read_values(*src, this->value, 2, 2 * x::telem::SECOND);
     ASSERT_FALSE(written.values.empty());
     EXPECT_EQ(written.values.back(), 8);
@@ -506,7 +507,7 @@ TEST_F(TestOnChangeReadTask, testBackfillsHistory) {
     this->server_cfg.historizing = true;
     this->server_cfg.max_history_values = 2;
     this->start_server();
-    const auto stored = at(-1 * x::telem::MINUTE);
+    const auto stored = testutil::now(-1 * x::telem::MINUTE);
     this->store(this->value, stored, 0);
     for (int i = 1; i <= 3; ++i)
         this->change(i, stored + x::telem::SECOND * i);
@@ -526,7 +527,7 @@ TEST_F(TestOnChangeReadTask, testBackfillsHistory) {
         })
     );
     EXPECT_TRUE(history.warnings.empty());
-    const auto time = at(x::telem::SECOND);
+    const auto time = testutil::now(x::telem::SECOND);
     this->change(4, time);
     const auto live = read_values(*src, this->value, 1);
     EXPECT_EQ(live.values, std::vector<double>({4}));
@@ -540,13 +541,13 @@ TEST_F(TestOnChangeReadTask, testHoldsChangesDuringBackfill) {
     this->server_cfg.historizing = true;
     this->server_cfg.max_history_values = 1;
     this->start_server();
-    const auto stored = at(-1 * x::telem::MINUTE);
+    const auto stored = testutil::now(-1 * x::telem::MINUTE);
     this->store(this->value, stored, 0);
     for (int i = 1; i <= 3; ++i)
         this->change(i, stored + x::telem::SECOND * i);
     // A current value after the start of the subscription arrives with the first
     // notification, while the backfill still has pages to read.
-    const auto time = at(10 * x::telem::SECOND);
+    const auto time = testutil::now(10 * x::telem::SECOND);
     this->change(4, time);
     this->wait_for(4);
     auto cfg = this->config();
@@ -564,10 +565,10 @@ TEST_F(TestOnChangeReadTask, testHoldsChangesDuringBackfill) {
 TEST_F(TestOnChangeReadTask, testBackfillsToFirstChange) {
     this->server_cfg.historizing = true;
     this->start_server();
-    const auto stored = at(-1 * x::telem::MINUTE);
+    const auto stored = testutil::now(-1 * x::telem::MINUTE);
     this->store(this->value, stored, 0);
     this->change(1, stored + x::telem::SECOND);
-    const auto ahead = at(10 * x::telem::SECOND);
+    const auto ahead = testutil::now(10 * x::telem::SECOND);
     this->change(2, ahead);
     this->change(3, ahead + x::telem::SECOND);
     this->wait_for(3);
@@ -592,8 +593,8 @@ TEST_F(TestOnChangeReadTask, testBackfillsEachNodeFromItsOwnStart) {
     this->server_cfg.max_history_values = 2;
     this->start_server();
     const auto other = this->create_channel("other");
-    const auto old = at(-1 * x::telem::MINUTE);
-    const auto recent = at(-10 * x::telem::SECOND);
+    const auto old = testutil::now(-1 * x::telem::MINUTE);
+    const auto recent = testutil::now(-10 * x::telem::SECOND);
     this->store(this->value, old, 0);
     this->store(other, recent, 0);
     // Values that the other channel already stores fill a page from the start of the
@@ -630,7 +631,7 @@ TEST_F(TestOnChangeReadTask, testBackfillsNodeWithNewChannel) {
     this->server_cfg.historizing = true;
     this->start_server();
     const auto added = this->create_channel("added");
-    const auto stored = at(-1 * x::telem::MINUTE);
+    const auto stored = testutil::now(-1 * x::telem::MINUTE);
     this->store(this->value, stored, 0);
     for (int i = 1; i <= 2; ++i)
         this->change(i, stored + x::telem::SECOND * i);
@@ -653,7 +654,7 @@ TEST_F(TestOnChangeReadTask, testBackfillsNodeMonitoredLater) {
     this->server_cfg.historizing = true;
     this->start_server();
     const auto later = this->create_channel("later");
-    const auto stored = at(-1 * x::telem::MINUTE);
+    const auto stored = testutil::now(-1 * x::telem::MINUTE);
     this->store(later, stored, 0);
     auto cfg = this->config({{"NS=1;S=Later", later.key}});
     cfg["history_backfill_enabled"] = true;
@@ -691,7 +692,7 @@ TEST_F(TestOnChangeReadTask, testBackfillsOutageAfterReconnect) {
     ASSERT_NIL(this->client->devices.create(dev));
     this->server_cfg.historizing = true;
     this->start_server();
-    this->change(1, at(-10 * x::telem::SECOND));
+    this->change(1, testutil::now(-10 * x::telem::SECOND));
     this->wait_for(1);
     auto cfg = this->config();
     cfg["history_backfill_enabled"] = true;
@@ -700,8 +701,8 @@ TEST_F(TestOnChangeReadTask, testBackfillsOutageAfterReconnect) {
     ASSERT_EQ(read_values(*src, this->value, 1).values, std::vector<double>({1}));
     const auto sessions = this->server->sessions_created.load();
     this->server->frozen = true;
-    this->change(2, at(-5 * x::telem::SECOND));
-    this->change(3, at(-4 * x::telem::SECOND));
+    this->change(2, testutil::now(-5 * x::telem::SECOND));
+    this->change(3, testutil::now(-4 * x::telem::SECOND));
     x::breaker::Breaker breaker;
     x::errors::Error err;
     const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(20);
@@ -722,8 +723,8 @@ TEST_F(TestOnChangeReadTask, testBackfillsOutageAfterReconnect) {
 TEST_F(TestOnChangeReadTask, testSkipsBackfillWithoutStoredValues) {
     this->server_cfg.historizing = true;
     this->start_server();
-    this->change(1, at(-2 * x::telem::MINUTE));
-    this->change(2, at(-1 * x::telem::MINUTE));
+    this->change(1, testutil::now(-2 * x::telem::MINUTE));
+    this->change(2, testutil::now(-1 * x::telem::MINUTE));
     this->wait_for(2);
     auto cfg = this->config();
     cfg["history_backfill_enabled"] = true;
@@ -784,7 +785,7 @@ TEST_F(TestOnChangeReadTask, testFactoryTaskWritesToCore) {
     ASSERT_NE(t, nullptr);
     synnax::task::Command start{.task = task.key, .type = "start", .key = "start"};
     t->exec(start);
-    const auto time = at(x::telem::SECOND);
+    const auto time = testutil::now(x::telem::SECOND);
     this->change(9, time);
     ASSERT_EVENTUALLY_EQ(this->last_stored(), time);
     synnax::task::Command stop{.task = task.key, .type = "stop", .key = "stop"};
