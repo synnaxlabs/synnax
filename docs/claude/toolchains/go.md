@@ -253,7 +253,9 @@ when the code fails for the wrong reason. Always identify the error:
 Never create `export_test.go` files (or any pattern that re-exports unexported
 identifiers for tests). Tests exercise the public API; if a behavior is only reachable
 through an unexported symbol, test it through the exported surface that uses it, or
-reconsider whether the symbol should exist.
+reconsider whether the symbol should exist. The `testpackage` linter puts every
+`*_test.go` file in a `_test` package, `package main` included. To test a `main`
+package, move its logic into a package that `main` imports.
 
 ### Rule 10: Every suite wires goroutine leak detection
 
