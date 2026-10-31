@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type rack, type task } from "@synnaxlabs/client";
+import { type rack, type task, TimeSpan } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -616,5 +616,20 @@ describe("OPCUA.Device.useConnectModal", () => {
       secureChannelLifetimeMs: 600_000,
       sessionTimeoutMs: 90_000,
     });
+  });
+
+  it("should wait twice the request timeout and a margin for the connection test", async () => {
+    const rack = await createRunningRack(client, "opc");
+    await createScanTask(rack);
+    await renderModalOpener(OPCUA.Device.useConnectModal, [{ rack: rack.key }], {
+      client,
+    });
+    fireEvent.change(screen.getByPlaceholderText("opc.tcp://localhost:4840"), {
+      target: { value: "opc.tcp://localhost:4840" },
+    });
+    commitFieldInput(await screen.findByDisplayValue<HTMLInputElement>("5000"), "100");
+    pressSaveTrigger();
+    const message = `timed out after ${TimeSpan.milliseconds(2200).toString()}`;
+    expect(await screen.findByText(message, { exact: false })).toBeTruthy();
   });
 });
