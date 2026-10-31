@@ -291,6 +291,60 @@ var _ = Describe("Control", func() {
 			})
 		})
 
+		Describe("Extend", func() {
+			openAt := func(key string, tr telem.TimeRange) *control.Gate[testResource] {
+				GinkgoHelper()
+				cfg, _ := baseConfig(1)
+				cfg.Subject.Key = key
+				cfg.TimeRange = tr
+				g, _ := MustSucceed2(c.OpenGate(cfg))
+				return g
+			}
+			expectControlled := func(tr telem.TimeRange, controlled bool) {
+				GinkgoHelper()
+				cfg, _ := baseConfig(2)
+				cfg.Subject.Key = "probe"
+				cfg.TimeRange = tr
+				cfg.ErrIfControlled = new(true)
+				g, _, err := c.OpenGate(cfg)
+				if controlled {
+					Expect(err).To(MatchError(xcontrol.ErrUnauthorized))
+					return
+				}
+				Expect(err).ToNot(HaveOccurred())
+				g.Release()
+			}
+			It("Should move the start of the region back", func() {
+				g := openAt("test", telem.NewRangeSeconds(10, 20))
+				expectControlled(telem.NewRangeSeconds(5, 6), false)
+				Expect(g.Extend(5 * telem.SecondTS)).To(Succeed())
+				expectControlled(telem.NewRangeSeconds(5, 6), true)
+				expectControlled(telem.NewRangeSeconds(1, 5), false)
+			})
+			It("Should do nothing when the region already holds the start", func() {
+				g := openAt("test", telem.NewRangeSeconds(10, 20))
+				Expect(g.Extend(15 * telem.SecondTS)).To(Succeed())
+				Expect(g.Extend(30 * telem.SecondTS)).To(Succeed())
+				expectControlled(telem.NewRangeSeconds(5, 6), false)
+				expectControlled(telem.NewRangeSeconds(20, 40), false)
+			})
+			It("Should not move the region into another region", func() {
+				openAt("other", telem.NewRangeSeconds(1, 3))
+				g := openAt("test", telem.NewRangeSeconds(10, 20))
+				Expect(g.Extend(2 * telem.SecondTS)).To(And(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("cannot extend control region")),
+				))
+				expectControlled(telem.NewRangeSeconds(5, 6), false)
+			})
+			It("Should move the region up to the end of another region", func() {
+				openAt("other", telem.NewRangeSeconds(1, 3))
+				g := openAt("test", telem.NewRangeSeconds(10, 20))
+				Expect(g.Extend(3 * telem.SecondTS)).To(Succeed())
+				expectControlled(telem.NewRangeSeconds(3, 4), true)
+			})
+		})
+
 		Describe("Authorization, Transfer, and Release", func() {
 			Context("One Gate", func() {
 				It("Should authorize the gate with absolute control", func() {

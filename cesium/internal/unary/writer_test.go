@@ -27,6 +27,7 @@ import (
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 func filterDataFiles(l []os.FileInfo) []os.FileInfo {
@@ -176,6 +177,56 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							MustSucceed(w.Write(telem.NewSeriesV(first)))
 							Expect(MustSucceed(w.Commit(ctx))).To(Equal(first + 1))
 							MustSucceed(w.Close())
+						},
+					)
+					It(
+						"Should fail when the domain start reaches another region",
+						func(ctx SpecContext) {
+							w1, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
+								Start:   1 * telem.SecondTS,
+								End:     3 * telem.SecondTS,
+								Subject: control.Subject{Key: "foo"},
+							}))
+							w2, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
+								Start:   10 * telem.SecondTS,
+								Subject: control.Subject{Key: "bar"},
+							}))
+							w2.SetDomainStart(2 * telem.SecondTS)
+							Expect(
+								w2.Write(telem.NewSeriesSecondsTSV(2, 3)),
+							).Error().To(And(
+								MatchError(validate.ErrValidation),
+								MatchError(
+									ContainSubstring("cannot extend control region"),
+								),
+							))
+							MustSucceed(w2.Close())
+							MustSucceed(w1.Close())
+						},
+					)
+					It(
+						"Should not delete a domain that starts before the claim",
+						func(ctx SpecContext) {
+							w, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
+								Start:   10 * telem.SecondTS,
+								Subject: control.Subject{Key: "foo"},
+							}))
+							w.SetDomainStart(5 * telem.SecondTS)
+							MustSucceed(w.Write(telem.NewSeriesSecondsTSV(5, 6, 7)))
+							MustSucceed(w.Commit(ctx))
+							Expect(db.Delete(
+								ctx,
+								(5 * telem.SecondTS).Range(7*telem.SecondTS),
+							)).To(MatchError(control.ErrUnauthorized))
+							Expect(db.Delete(
+								ctx,
+								(1 * telem.SecondTS).Range(5*telem.SecondTS),
+							)).To(Succeed())
+							MustSucceed(w.Close())
+							Expect(db.Delete(
+								ctx,
+								(5 * telem.SecondTS).Range(7*telem.SecondTS),
+							)).To(Succeed())
 						},
 					)
 					It(

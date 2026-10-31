@@ -3478,7 +3478,7 @@ var _ = Describe("Writer Behavior", func() {
 						)).To(And(
 							MatchError(control.ErrUnauthorized),
 							MatchError(ContainSubstring(
-								"deletion overlaps the domain of an open writer",
+								"overlaps with a controlled region",
 							)),
 						))
 						Expect(writePair(
