@@ -1260,6 +1260,29 @@ describe("Task", async () => {
       }
     });
 
+    it("hands the loading status of a command to write handlers", async () => {
+      const alive = await client.racks.create({ name: `alive-${id.create()}` });
+      const t = await alive.createTask({
+        name: `loading-${id.create()}`,
+        config: {},
+        type: "pagerduty_alert",
+      });
+      const key = task.statusKey(t.key);
+      let seeWrite = (_: status.Status): void => {};
+      const written = new Promise<status.Status>((resolve) => (seeWrite = resolve));
+      const off = client.statuses.onWrite((s) => {
+        if (s.key === key && s.variant === "loading") seeWrite(s);
+      });
+      try {
+        await client.tasks.retrieve({ key: t.key });
+        await setRackAliveAfterEcho(alive.key);
+        await client.tasks.executeCommand({ task: t.key, type: "start" });
+        expect(await written).toMatchObject({ message: "Sending start command" });
+      } finally {
+        off();
+      }
+    });
+
     it("hands the no-response warning to write handlers as the reply", async () => {
       const alive = await client.racks.create({ name: `alive-${id.create()}` });
       const t = await alive.createTask({
