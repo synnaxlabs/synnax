@@ -339,10 +339,7 @@ public:
     ServerConfig cfg;
     std::atomic<bool> running{false};
     std::atomic<bool> ready{false};
-    std::atomic<bool> exited{false};
     std::thread thread;
-    std::mutex loop_mu;
-    UA_EventLoop *loop = nullptr;
     /// @brief artificial delay injected before each server iterate cycle.
     /// Used in tests to simulate a slow server (e.g. network-unreachable PLC).
     /// Zero means no delay.
@@ -394,6 +391,13 @@ public:
         serve();
         exited = true;
     }
+
+private:
+    std::atomic<bool> exited{false};
+    /// @brief guards loop, which stop() cancels from another thread.
+    std::mutex loop_mu;
+    /// @brief the running server's event loop, or nullptr when there is none.
+    UA_EventLoop *loop = nullptr;
 
     void serve() {
         UA_Server *server = UA_Server_new();
