@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <functional>
 #include <map>
 #include <memory>
@@ -92,6 +93,9 @@ class LJMDevice final : public Device {
     std::shared_ptr<ljm::API> ljm;
     /// @brief the underlying device handle.
     const int dev_handle;
+    /// @brief true while a stream runs on the handle. A second LJM start on one handle
+    /// succeeds and silently replaces the running stream.
+    mutable std::atomic<bool> streaming = false;
 
 public:
     LJMDevice(const std::shared_ptr<ljm::API> &ljm, const int dev_handle):
@@ -118,8 +122,12 @@ public:
         );
     }
 
+    /// @brief stops the stream. A failed stop still allows the next start, so a lost
+    /// connection never blocks it.
     [[nodiscard]] x::errors::Error e_stream_stop() const override {
-        return parse_error(this->ljm, this->ljm->e_stream_stop(dev_handle));
+        const auto err = parse_error(this->ljm, this->ljm->e_stream_stop(dev_handle));
+        this->streaming = false;
+        return err;
     }
 
     [[nodiscard]] x::errors::Error
@@ -240,7 +248,13 @@ public:
         const int *scan_list,
         double *scan_rate
     ) const override {
-        return parse_error(
+        if (this->streaming.exchange(true))
+            return x::errors::Error(
+                ljm::STREAM_IS_ACTIVE,
+                "A LabJack runs one stream at a time, and another task is streaming "
+                "from this device. Add these channels to the running task."
+            );
+        const auto err = parse_error(
             this->ljm,
             this->ljm->e_stream_start(
                 this->dev_handle,
@@ -250,6 +264,8 @@ public:
                 scan_rate
             )
         );
+        if (err) this->streaming = false;
+        return err;
     }
 };
 

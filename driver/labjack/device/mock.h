@@ -14,6 +14,7 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "driver/labjack/device/device.h"
@@ -37,9 +38,9 @@ public:
     }
 
     [[nodiscard]] x::errors::Error e_stream_stop() const override {
+        const bool stopped = std::exchange(this->streaming, false);
         if (should_fail_) return x::errors::Error("mock failure");
-        if (!this->streaming) return ljm::STREAM_NOT_RUNNING;
-        this->streaming = false;
+        if (!stopped) return ljm::STREAM_NOT_RUNNING;
         return x::errors::NIL;
     }
 
@@ -128,6 +129,7 @@ public:
         double *scan_rate
     ) const override {
         if (should_fail_) return x::errors::Error("mock failure");
+        if (this->streaming) return ljm::STREAM_IS_ACTIVE;
         this->streaming = true;
         *scan_rate = requested_scan_rate_;
         return x::errors::NIL;

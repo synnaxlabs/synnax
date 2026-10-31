@@ -511,4 +511,35 @@ TEST_F(SourceClaimTest, testStreamSourceReadReclaimsAfterFailedRestart) {
     EXPECT_EQ(devs->acquire_call_count, 3);
     ASSERT_NIL(source.stop());
 }
+
+/// @brief a restart that fails must hold no device, so the next read claims it again
+/// and a later stop cannot end the stream of another task on the shared handle.
+TEST_F(SourceClaimTest, testStreamSourceFailedRestartHoldsNoDevice) {
+    parse_config(false);
+    const auto mock = std::make_shared<device::Mock>();
+    devs->dev = mock;
+    StreamSource source(devs, std::move(*cfg));
+    ASSERT_NIL(source.start());
+    EXPECT_EQ(mock.use_count(), 3);
+    mock->set_should_fail(true);
+    ASSERT_OCCURRED_AS(source.restart(true), x::errors::Error("mock failure"));
+    EXPECT_EQ(mock.use_count(), 2);
+}
+
+/// @brief a second stream on one device must fail to start and leave the first stream
+/// running.
+TEST_F(SourceClaimTest, testStreamSourceSecondStartLeavesFirstStreamRunning) {
+    parse_config(false);
+    auto first_cfg = std::move(this->cfg);
+    parse_config(false);
+    StreamSource first(devs, std::move(*first_cfg));
+    StreamSource second(devs, std::move(*cfg));
+    ASSERT_NIL(first.start());
+    ASSERT_OCCURRED_AS(second.start(), ljm::STREAM_IS_ACTIVE);
+    ASSERT_NIL(second.stop());
+    ASSERT_OCCURRED_AS(second.start(), ljm::STREAM_IS_ACTIVE);
+    ASSERT_NIL(first.stop());
+    ASSERT_NIL(second.start());
+    ASSERT_NIL(second.stop());
+}
 }
