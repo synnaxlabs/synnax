@@ -83,14 +83,6 @@ export const useIsSnapshot = <Schema extends z.ZodType>(
   ctx?: PForm.ContextValue<Schema>,
 ) => PForm.useFieldValue<boolean>("snapshot", { ctx });
 
-/**
- * Whether the surrounding task form renders read-only: the task is a snapshot or the
- * subject holds no update grant. Edit affordances gate on this, not on useIsSnapshot.
- */
-export const useIsPreview = <Schema extends z.ZodType>(
-  ctx?: PForm.ContextValue<Schema>,
-) => PForm.useContext<Schema>(ctx).mode === "preview";
-
 interface HeaderProps {
   isSnapshot: boolean;
 }
@@ -98,7 +90,7 @@ interface HeaderProps {
 const Header = ({ isSnapshot }: HeaderProps) => (
   <>
     <Flex.Box x justify="between">
-      <PForm.Field<string> path="name" showLabel={false}>
+      <PForm.Field<string> path="name" showLabel={false} padHelpText={false} grow>
         {(p) => (
           <Input.Text
             variant="text"
@@ -109,9 +101,11 @@ const Header = ({ isSnapshot }: HeaderProps) => (
           />
         )}
       </PForm.Field>
-      <Flex.Box align="end" gap="small">
+      <Flex.Box align="end" gap="small" className={CSS.BE("task-configure", "actions")}>
         <UtilityButtons />
-        <Rack />
+        <div className={CSS.BE("task-configure", "rack")}>
+          <Rack />
+        </div>
       </Flex.Box>
     </Flex.Box>
     {!isSnapshot && <ParentRangeButton />}

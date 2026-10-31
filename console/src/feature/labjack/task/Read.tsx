@@ -21,6 +21,7 @@ import {
   AI_PORT_TYPE,
   type Device,
   DI_PORT_TYPE,
+  MAKE,
   type Model,
   PORTS,
   SCHEMAS,
@@ -56,8 +57,6 @@ const Properties = () => (
     <Flex.Box x>
       <Task.Fields.SampleRate />
       <Task.Fields.StreamRate />
-      <Task.Fields.DataSaving />
-      <Task.Fields.AutoStart />
     </Flex.Box>
   </>
 );
@@ -335,6 +334,7 @@ export const Read = Task.wrapForm({
 
 export const useCreateRead = Task.createUseCreate({
   getInitialValues,
+  deviceMake: MAKE,
 });
 
 export const ReadSelectable = Selector.createSelectable({

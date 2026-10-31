@@ -29,7 +29,6 @@
     "console/src/feature/http/device/Connect.css": [
       "lyra--direction-y",
       "lyra-form-sections",
-      "lyra-input__switch",
       "lyra-tabs__content",
       "lyra-tabs__selector"
     ],

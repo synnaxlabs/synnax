@@ -17,7 +17,7 @@ class LoadCurrentSimDAQ(SimDAQ):
     """Simulates a load current sensor that ramps from 0 upward."""
 
     description = "Run load current simulator standalone"
-    end_cmd_channel = "end_test_cmd"
+    end_cmd_channel: str | None = "end_test_cmd"
 
     RAMP_RATE = 50.0
     NOISE = 0.3
