@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <limits>
 #include <thread>
 
 #include "gtest/gtest.h"
@@ -855,13 +856,26 @@ TEST(AlignmentTests, testSubAssign) {
 /// @brief it should convert a double to a string.
 TEST(ToStringTests, testDoubleConversion) {
     const SampleValue value = 123.456;
-    ASSERT_EQ(to_string(value), "123.456000");
+    ASSERT_EQ(to_string(value), "123.456");
 }
 
 /// @brief it should convert a float to a string.
 TEST(ToStringTests, testFloatConversion) {
     const SampleValue value = 123.456f;
-    ASSERT_EQ(to_string(value), "123.456001");
+    ASSERT_EQ(to_string(value), "123.456");
+}
+
+/// @brief it should convert NaN and the infinities to strings.
+TEST(ToStringTests, testSpecialFloatConversion) {
+    ASSERT_EQ(to_string(SampleValue(std::numeric_limits<double>::quiet_NaN())), "NaN");
+    ASSERT_EQ(
+        to_string(SampleValue(std::numeric_limits<double>::infinity())),
+        "Infinity"
+    );
+    ASSERT_EQ(
+        to_string(SampleValue(-std::numeric_limits<float>::infinity())),
+        "-Infinity"
+    );
 }
 
 /// @brief it should convert an int64 to a string.
@@ -939,10 +953,10 @@ TEST(ToStringTests, testNegativeNumbers) {
     ASSERT_EQ(to_string(neg_int8), "-123");
 
     const SampleValue neg_double = -123.456;
-    ASSERT_EQ(to_string(neg_double), "-123.456000");
+    ASSERT_EQ(to_string(neg_double), "-123.456");
 
     const SampleValue neg_float = -123.456f;
-    ASSERT_EQ(to_string(neg_float), "-123.456001");
+    ASSERT_EQ(to_string(neg_float), "-123.456");
 }
 
 /// @brief it should convert zero values to strings.
@@ -951,10 +965,10 @@ TEST(ToStringTests, testZeroValues) {
     ASSERT_EQ(to_string(zero_int64), "0");
 
     const SampleValue zero_double = 0.0;
-    ASSERT_EQ(to_string(zero_double), "0.000000");
+    ASSERT_EQ(to_string(zero_double), "0");
 
     const SampleValue zero_float = 0.0f;
-    ASSERT_EQ(to_string(zero_float), "0.000000");
+    ASSERT_EQ(to_string(zero_float), "0");
 
     const SampleValue zero_timestamp = TimeStamp(0);
     ASSERT_EQ(to_string(zero_timestamp), "0");

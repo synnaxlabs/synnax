@@ -811,6 +811,8 @@ template<typename T>
                     return arg;
                 else if constexpr (std::is_same_v<std::decay_t<IT>, TimeStamp>)
                     return std::to_string(arg.nanoseconds());
+                else if constexpr (std::is_floating_point_v<std::decay_t<IT>>)
+                    return x::strings::format_float(arg);
                 else
                     return std::to_string(arg);
             },

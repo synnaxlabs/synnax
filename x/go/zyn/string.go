@@ -15,6 +15,7 @@ import (
 	"uuid"
 
 	"github.com/synnaxlabs/x/errors"
+	xstrconv "github.com/synnaxlabs/x/strconv"
 	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -137,7 +138,7 @@ func (s StringZ) Dump(data any) (any, error) {
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 		return strconv.FormatUint(val.Uint(), 10), nil
 	case reflect.Float32, reflect.Float64:
-		return strconv.FormatFloat(val.Float(), 'f', -1, 64), nil
+		return xstrconv.FormatFloat(val.Float(), val.Type().Bits()), nil
 	case reflect.Bool:
 		return strconv.FormatBool(val.Bool()), nil
 	default:
@@ -191,7 +192,7 @@ func (s StringZ) Parse(data, dest any) error {
 			reflect.Uint64:
 			strData = strconv.FormatUint(dataVal.Uint(), 10)
 		case reflect.Float32, reflect.Float64:
-			strData = strconv.FormatFloat(dataVal.Float(), 'f', -1, 64)
+			strData = xstrconv.FormatFloat(dataVal.Float(), dataVal.Type().Bits())
 		case reflect.Bool:
 			strData = strconv.FormatBool(dataVal.Bool())
 		default:

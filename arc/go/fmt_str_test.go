@@ -10,6 +10,8 @@
 package arc_test
 
 import (
+	"math"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/stl/channels"
@@ -491,6 +493,33 @@ trig -> f()`, "v=false"),
 				telem.Float64T,
 				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV(3.14159)) },
 				"3.1416",
+			),
+			Entry(
+				"f64 channel infinity :10.2f",
+				`f"{val:10.2f}"`,
+				"f64",
+				types.F64(),
+				telem.Float64T,
+				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV(math.Inf(1))) },
+				"  Infinity",
+			),
+			Entry(
+				"f64 channel infinity :+f",
+				`f"{val:+f}"`,
+				"f64",
+				types.F64(),
+				telem.Float64T,
+				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV(math.Inf(1))) },
+				"+Infinity",
+			),
+			Entry(
+				"f64 channel negative infinity :-10e",
+				`f"{val:-10e}"`,
+				"f64",
+				types.F64(),
+				telem.Float64T,
+				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV(math.Inf(-1))) },
+				"-Infinity ",
 			),
 			Entry(
 				"f64 channel :g",

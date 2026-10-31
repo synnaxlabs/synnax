@@ -20,6 +20,7 @@ from pandas.io.parsers import TextFileReader
 from synnax.io.df_converter import convert_df
 from synnax.io.matcher import ExtensionMatcher
 from synnax.io.protocol import ChannelMeta, FileWriter, ReaderType, RowFileReader
+from x.strings import format_float
 
 
 class CSVReader(ExtensionMatcher):
@@ -162,6 +163,14 @@ def _estimate_row_count(path: Path) -> int:
     return (file_size // row_size) - 1
 
 
+def _float_texts(col: pd.Series) -> pd.Series:
+    if col.dtype.kind == "f":
+        return pd.Series([format_float(v) for v in col.to_numpy()], index=col.index)
+    if col.dtype.kind == "O":
+        return col.map(lambda v: format_float(v) if isinstance(v, float) else v)
+    return col
+
+
 class CSVWriter(ExtensionMatcher):
     """A Writer implementation for CSV files."""
 
@@ -186,7 +195,9 @@ class CSVWriter(ExtensionMatcher):
         return self
 
     def write(self, df: pd.DataFrame) -> None:
-        df.to_csv(self._path, index=False, mode="a", header=self._header)
+        df.apply(_float_texts).to_csv(
+            self._path, index=False, mode="a", header=self._header
+        )
         self._header = False
 
     def path(self) -> Path:

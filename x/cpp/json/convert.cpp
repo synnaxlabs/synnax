@@ -17,6 +17,7 @@
 #include "x/cpp/date/date.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/convert.h"
+#include "x/cpp/strings/strings.h"
 #include "x/cpp/telem/telem.h"
 
 namespace x::json {
@@ -403,6 +404,11 @@ std::pair<nlohmann::json, errors::Error> from_sample_value(
                     case Type::Number:
                         return {nlohmann::json(v), errors::NIL};
                     case Type::String: {
+                        if constexpr (std::is_floating_point_v<T>)
+                            return {
+                                nlohmann::json(x::strings::format_float(v)),
+                                errors::NIL
+                            };
                         return {nlohmann::json(std::format("{}", v)), errors::NIL};
                     }
                     case Type::Boolean:
