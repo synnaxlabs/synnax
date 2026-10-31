@@ -69,8 +69,8 @@ of each index, so Cesium makes the choice.
 - **Data-only group**: A group that writes data channels without their index. Each
   sample takes the position of an index sample that is already stored.
 - **Control claim**: The time range of a writer's control region (RFC 0014). It runs
-  from its start to the end of time. Writers with overlapping claims on one channel
-  compete by authority.
+  from its start to the end of time, and moves back to a domain that starts before it.
+  Writers with overlapping claims on one channel compete by authority.
 - **Open check**: When a writer opens, Cesium fails it if stored data on one of its
   channels holds the start.
 - **Open time**: The time on the Core when the writer opens.
@@ -101,15 +101,15 @@ at 12:00:04. The two groups do not wait for each other.
 
 The write path, from top to bottom:
 
-| Layer         | Code                                      | Role after this RFC                                      |
-| ------------- | ----------------------------------------- | -------------------------------------------------------- |
-| Clients       | Python, TypeScript, C++                   | Leave `start` out, except for a data-only write          |
-| API           | `api/framer.WriterConfig.Start`           | Passes the value through, zero included                  |
-| Distribution  | `distribution/framer/writer.Config.Start` | Passes the value to each Core that leases a channel      |
-| Cesium writer | `cesium.WriterConfig.Start`               | Fails at open on a data-only group with no `Start` (NEW) |
-| Index group   | `idxWriter`                               | Gives its first index timestamp to its channels (NEW)    |
-| Unary writer  | `unary.Writer`                            | Claims from `Start` or the open time, starts the domain  |
-| Domain writer | `domain.Writer`                           | Opens with no start and takes one before it writes (NEW) |
+| Layer         | Code                                      | Role after this RFC                                                      |
+| ------------- | ----------------------------------------- | ------------------------------------------------------------------------ |
+| Clients       | Python, TypeScript, C++                   | Leave `start` out, except for a data-only write                          |
+| API           | `api/framer.WriterConfig.Start`           | Passes the value through, zero included                                  |
+| Distribution  | `distribution/framer/writer.Config.Start` | Passes the value to each Core that leases a channel                      |
+| Cesium writer | `cesium.WriterConfig.Start`               | Fails at open on a data-only group with no `Start` (NEW)                 |
+| Index group   | `idxWriter`                               | Gives its first index timestamp to its channels (NEW)                    |
+| Unary writer  | `unary.Writer`                            | Claims from `Start` or the open time, moves the claim back to its domain |
+| Domain writer | `domain.Writer`                           | Opens with no start and takes one before it writes (NEW)                 |
 
 Cesium makes every choice about where a domain starts. The layers above it carry a value
 and do not read it. A new caller gets the right behavior without new code.
@@ -204,7 +204,8 @@ at each layer:
 // Start marks the start of the writer's control region. When Start is zero, the
 // region starts at the time the writer opens. If a sample exists for any channel at
 // a non-zero Start, the writer fails to open. The domains of each index start at
-// the first timestamp written to that index, not at Start.
+// the first timestamp written to that index, not at Start. The region moves back to
+// a domain that starts before it.
 //
 // A writer that writes data channels without their index needs a Start that is a
 // sample of that index.
@@ -257,15 +258,15 @@ acquisition->start();
 
 ### 4.4 Behavior that callers see
 
-| Write                                 | Before                            | After                                     |
-| ------------------------------------- | --------------------------------- | ----------------------------------------- |
-| An index sample before `Start`        | Fails and stops the writer        | Writes                                    |
-| Two indexes, one clock behind         | Fails on the index that is behind | Each index starts at its first timestamp  |
-| No `Start`, empty channel             | Domain starts at the Unix epoch   | Domain starts at the first timestamp      |
-| No `Start`, data overlaps stored data | Fails at the first commit         | Fails at the first write                  |
-| `Start` held by stored data           | Fails at open                     | Fails at open                             |
-| Data-only group, no `Start`           | Looks up its position at 1970     | Fails at open                             |
-| Delete that reaches an open writer    | Fails when it reaches the claim   | Fails when it reaches the claim or domain |
+| Write                                 | Before                            | After                                                    |
+| ------------------------------------- | --------------------------------- | -------------------------------------------------------- |
+| An index sample before `Start`        | Fails and stops the writer        | Writes                                                   |
+| Two indexes, one clock behind         | Fails on the index that is behind | Each index starts at its first timestamp                 |
+| No `Start`, empty channel             | Domain starts at the Unix epoch   | Domain starts at the first timestamp                     |
+| No `Start`, data overlaps stored data | Fails at the first commit         | Fails at the first write                                 |
+| `Start` held by stored data           | Fails at open                     | Fails at open                                            |
+| Data-only group, no `Start`           | Looks up its position at 1970     | Fails at open                                            |
+| Delete that reaches an open writer    | Fails when it reaches the claim   | Fails when it reaches the claim, which covers the domain |
 
 The data-only error names both channels:
 `writer needs a start to write channel X without its index Y`
@@ -300,22 +301,26 @@ spellings, zero and absent, that each need a meaning.
 
 ## 6 Risks
 
-### 6.0 The claim and the domain no longer start together
+### 6.0 A domain can start before the claim
 
 Before, the claim and every domain started at `Start`. Now a domain can start before the
 claim. In §3.1, if the first sensor stamp were 12:00:01, `sensor_time` would start two
 seconds before the claim at 12:00:03.
 
-A delete relied on the two being equal. It checked only for a claim on its time range
+A delete checks only for a claim on its time range
 (`cesium/internal/unary/delete.go:65`). A delete from 12:00:01 to 12:00:03 would pass
-that check and remove data that the writer must still commit. Each domain database now
-keeps the domain of each open writer, and a delete that reaches one fails with
-`ErrDeleteOverlapsWriter` (`cesium/internal/domain/delete.go:78`). The domain runs to
-the writer's preset end, or to the end of time when it has none.
+that check and remove data that the writer must still commit. So at its first persisted
+write, a unary writer moves its claim back to its domain start
+(`cesium/internal/unary/writer.go:319`). The delete check then sees the whole domain. A
+second list of open domains was rejected: it repeats the claim check on the same path.
 
-Control does not depend on the two being equal. A claim decides who can write. The
-domain overlap check protects stored data. Two writers on one channel still compete by
-authority, because both claims run to the end of time.
+The claim stays at the earlier time until the writer closes. Control does not change,
+because two writers on one channel already compete by authority: both claims run to the
+end of time.
+
+If a delete runs in that time range during the first write, the writer fails with an
+error. Refusing only that frame is not safe. A data channel would hold fewer samples
+than its index, and its later samples would shift.
 
 ### 6.1 Conflicts surface later
 
@@ -392,9 +397,9 @@ changes from before the writer opened.
 ## 8 Implementation phases
 
 Phases 1 to 5 merge as one stack of pull requests, from the bottom up: #3521, #3522,
-#3528, #3529, and #3530. Phase 2 also adds the delete guard (§6.0) and removes the
-`AutoIndex` default. Phase 3 fixes SY-5057 in the Core. Phase 6 lands in #2950 after
-phase 2 merges.
+#3528, #3529, and #3530. Phase 2 also moves the claim back to the domain start (§6.0)
+and removes the `AutoIndex` default. Phase 3 fixes SY-5057 in the Core. Phase 6 lands in
+#2950 after phase 2 merges.
 
 | Phase | Scope                                             | Touches                                                                                                           | Depends on |
 | ----- | ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | ---------- |
