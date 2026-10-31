@@ -51,7 +51,7 @@ interface IsIndexItemProps {
 const IsIndexItem = ({ path }: IsIndexItemProps): ReactElement => {
   const dataType = PForm.useFieldValue<string>(`${path}.dataType`, { optional: true });
   return (
-    <PForm.SwitchField
+    <PForm.CheckboxField
       path={`${path}.isIndex`}
       label="Use as index"
       x
@@ -71,7 +71,7 @@ const Properties = (): ReactElement => {
       <Select />
       <Flex.Box x>
         <Task.Fields.SampleRate />
-        <PForm.SwitchField
+        <PForm.CheckboxField
           label="Array sampling"
           path="config.arrayMode"
           onChange={(value, { set }) => {

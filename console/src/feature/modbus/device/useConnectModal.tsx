@@ -301,13 +301,11 @@ export const Connect = ({
                   >
                     {(props) => <SelectWriteCodes {...props} />}
                   </Form.Field>
-                  <Form.Field<boolean>
+                  <Form.CheckboxField
                     path="properties.requests.maskWriteSupported"
                     label="Mask write (FC22)"
                     padHelpText={false}
-                  >
-                    {(props) => <Input.Checkbox {...props} />}
-                  </Form.Field>
+                  />
                 </Form.Section>
               </Form.Sections>
             </Tabs.Content>

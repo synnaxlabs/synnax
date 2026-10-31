@@ -1377,6 +1377,87 @@ func (p Pair[A, B]) ToAny() Pair[any, any] {
 				},
 			)
 
+			Context("parent omitted in Go", func() {
+				schema := func(parentDomain, childBody string) string {
+					return `
+				@go output "core/user"
+
+				Record struct {
+					key    uint32
+					name   string
+					secret string
+					` + parentDomain + `
+				}
+
+				Shape struct extends Record {
+					` + childBody + `
+				}
+			`
+				}
+
+				It(
+					"Should declare an inline variant's inherited fields",
+					func(ctx SpecContext) {
+						source := `
+						@go output "core/pkg/service/auth"
+						
+
+						Record struct {
+							key  uint32
+							name string
+							@go omit
+						}
+
+						Chan union on type {
+							ai extends Record {
+								rate float64
+							}
+						}
+					`
+						resp := MustGenerate(ctx, source, "auth", loader, goPlugin)
+						ExpectContent(resp, "types.gen.go").
+							ToContain("Key uint32", "Name string", "Rate float64").
+							ToNotContain("Record")
+					},
+				)
+
+				It("Should declare the inherited fields", func(ctx SpecContext) {
+					resp := MustGenerate(
+						ctx,
+						schema("@go omit", "rate float64"),
+						"user",
+						loader,
+						goPlugin,
+					)
+					ExpectContent(resp, "types.gen.go").
+						ToContain(
+							"type Shape struct {",
+							"Key uint32",
+							"Name string",
+							"Secret string",
+							"Rate float64",
+						).
+						ToNotContain("type Record struct", "\tRecord\n")
+				})
+
+				It("Should leave out a removed field", func(ctx SpecContext) {
+					resp := MustGenerate(
+						ctx, schema("@go omit", "-secret"), "user", loader, goPlugin,
+					)
+					ExpectContent(resp, "types.gen.go").
+						ToContain("type Shape struct {", "Name string").
+						ToNotContain("Secret", "type Record struct")
+				})
+
+				It("Should embed a parent that generates", func(ctx SpecContext) {
+					resp := MustGenerate(
+						ctx, schema("", "rate float64"), "user", loader, goPlugin,
+					)
+					ExpectContent(resp, "types.gen.go").
+						ToContain("type Shape struct {\n\tRecord\n")
+				})
+			})
+
 			It(
 				"Should flatten when two parents promote one name",
 				func(ctx SpecContext) {
