@@ -83,7 +83,8 @@ type WriterConfig struct {
 	// Start marks the start of the writer's control region. When Start is zero, the
 	// region starts at the time the writer opens. If a sample exists for any channel at
 	// a non-zero Start, the writer fails to open. The domains of each index start at
-	// the first timestamp written to that index, not at Start.
+	// the first timestamp written to that index, not at Start. The region moves back to
+	// a domain that starts before it.
 	//
 	// A writer that writes data channels without their index needs a Start that is a
 	// sample of that index.

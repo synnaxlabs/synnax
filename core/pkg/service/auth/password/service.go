@@ -15,6 +15,7 @@ package password
 import (
 	"bytes"
 	"context"
+	"uuid"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
@@ -24,6 +25,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -151,6 +153,7 @@ func (s *Service) Authenticate(
 	return auth.Identity{
 		Subject:    p.Subject,
 		Credential: p.Key,
+		Version:    p.Created,
 	}, nil
 }
 
@@ -161,6 +164,18 @@ func (s *Service) DeleteFor(
 	subjects ...ontology.ID,
 ) error {
 	return s.NewWriter(tx).DeleteFor(ctx, subjects...)
+}
+
+// Version implements [auth.Authenticator]. A password's version changes each time the
+// password is set.
+func (s *Service) Version(
+	ctx context.Context,
+	tx gorp.Tx,
+	credential uuid.UUID,
+) (telem.TimeStamp, error) {
+	var p Password
+	err := s.NewRetrieve().Where(MatchKeys(credential)).Entry(&p).Exec(ctx, tx)
+	return p.Created, err
 }
 
 func (s *Service) verifierFor(hash []byte) (verifier, bool) {

@@ -7,15 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, type lineplot } from "@synnaxlabs/client";
+import { DataType, type lineplot, type ranger } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { TimeSpan } from "@synnaxlabs/x";
+import { dynamicWindow, TimeSpan } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { client, renderLinePlot } from "@/feature/lineplot/testutil";
 import { Toolbar } from "@/feature/lineplot/toolbar";
-import { Range } from "@/platform/range";
 import { uniqueName } from "@/testutil";
 
 const PLACEHOLDER = "1h 30min";
@@ -31,18 +30,21 @@ const renderData = async (ranges?: lineplot.New["ranges"]) => {
   return handle;
 };
 
-const CUSTOM_SELECTED: lineplot.New["ranges"] = {
-  x1: [Range.CUSTOM_KEY],
-  x2: [],
-};
+const rolling = (span: TimeSpan): ranger.Ref => ({
+  variant: "window",
+  window: dynamicWindow(span),
+});
+
+// No session range spans two hours, so the plot shows this window as the custom entry.
+const CUSTOM_SELECTED: lineplot.New["ranges"] = [rolling(TimeSpan.hours(2))];
 
 describe("lineplot/toolbar/Data", () => {
-  it("hides the custom range input until the custom key is selected", async () => {
-    await renderData();
+  it("hides the custom range input when every window has a session range", async () => {
+    await renderData([rolling(TimeSpan.minutes(1))]);
     expect(screen.queryByPlaceholderText(PLACEHOLDER)).toBeNull();
   });
 
-  it("shows the custom range input when the custom key is selected", async () => {
+  it("shows the custom range input for a window no session range shows", async () => {
     await renderData(CUSTOM_SELECTED);
     expect(await screen.findByPlaceholderText(PLACEHOLDER)).toBeDefined();
   });
@@ -54,10 +56,7 @@ describe("lineplot/toolbar/Data", () => {
     fireEvent.blur(input);
     await waitFor(async () => {
       const plot = await reader.lineplots.retrieve(key);
-      expect(plot.ranges.custom).toEqual({
-        variant: "dynamic",
-        span: Number(TimeSpan.minutes(45)),
-      });
+      expect(plot.ranges).toEqual([rolling(TimeSpan.minutes(45))]);
     });
   });
 
@@ -68,15 +67,12 @@ describe("lineplot/toolbar/Data", () => {
     fireEvent.blur(input);
     await waitFor(async () => {
       const plot = await reader.lineplots.retrieve(key);
-      expect(plot.ranges.custom).toBeDefined();
+      expect(plot.ranges).toEqual([rolling(TimeSpan.minutes(45))]);
     });
     fireEvent.change(input, { target: { value: "banana" } });
     fireEvent.blur(input);
     const plot = await reader.lineplots.retrieve(key);
-    expect(plot.ranges.custom).toEqual({
-      variant: "dynamic",
-      span: Number(TimeSpan.minutes(45)),
-    });
+    expect(plot.ranges).toEqual([rolling(TimeSpan.minutes(45))]);
   });
 
   it("clears the X channel with the clear button on its icon", async () => {
@@ -103,22 +99,30 @@ describe("lineplot/toolbar/Data", () => {
     fireEvent.blur(input);
     await waitFor(async () => {
       const plot = await client.lineplots.retrieve(key);
-      expect(plot.ranges.custom).toBeDefined();
+      expect(plot.ranges).toEqual([rolling(TimeSpan.minutes(45))]);
     });
     fireEvent.change(input, { target: { value: "0s" } });
     fireEvent.blur(input);
     const plot = await client.lineplots.retrieve(key);
-    expect(plot.ranges.custom).toEqual({
-      variant: "dynamic",
-      span: Number(TimeSpan.minutes(45)),
+    expect(plot.ranges).toEqual([rolling(TimeSpan.minutes(45))]);
+  });
+
+  it("stores a custom span equal to a selected range once", async () => {
+    const { key } = await renderData([
+      rolling(TimeSpan.hours(1)),
+      rolling(TimeSpan.hours(2)),
+    ]);
+    const input = await screen.findByPlaceholderText(PLACEHOLDER);
+    fireEvent.change(input, { target: { value: "1h" } });
+    fireEvent.blur(input);
+    await waitFor(async () => {
+      const plot = await reader.lineplots.retrieve(key);
+      expect(plot.ranges).toEqual([rolling(TimeSpan.hours(1))]);
     });
   });
 
   it("displays the stored rolling window", async () => {
-    await renderData({
-      ...CUSTOM_SELECTED,
-      custom: { variant: "dynamic", span: Number(TimeSpan.minutes(45)) },
-    });
+    await renderData([rolling(TimeSpan.minutes(45))]);
     expect(await screen.findByDisplayValue("45min")).toBeDefined();
   });
 });

@@ -10,7 +10,7 @@
 import { id } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { AccessDeniedError, NotFoundError } from "@/errors";
+import { AccessDeniedError, NotFoundError } from "@/index";
 import { createTestClient, createTestClientWithPolicy } from "@/testutil";
 import { user } from "@/user";
 

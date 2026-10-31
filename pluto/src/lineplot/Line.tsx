@@ -16,6 +16,8 @@ import { Line as Base } from "@/vis/line";
 
 export interface LineProps extends Base.LineProps, Aether.ComponentProps {
   legendGroup: string;
+  /** Whether the line has a legend entry. A line drawn as several traces lists one. */
+  legend?: boolean;
 }
 
 export const Line = ({
@@ -24,14 +26,16 @@ export const Line = ({
   label = "",
   legendGroup,
   visible = true,
+  legend = true,
   ...rest
 }: LineProps): ReactElement => {
   const cKey = useUniqueKey(aetherKey);
   const { setLine, removeLine } = useContext("Line");
   useEffect(() => {
+    if (!legend) return;
     setLine({ key: cKey, color, label, visible, legendGroup });
     return () => removeLine(cKey);
-  }, [label, color, visible, legendGroup]);
+  }, [label, color, visible, legendGroup, legend]);
   return (
     <Base.Line
       aetherKey={cKey}

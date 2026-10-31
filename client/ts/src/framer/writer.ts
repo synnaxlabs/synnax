@@ -18,9 +18,7 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type channel } from "@/channel";
-import { paramsZ } from "@/channel/payload";
-import { keyZ, nameZ } from "@/channel/types.gen";
+import { channel } from "@/channel";
 import { SynnaxError } from "@/errors";
 import { type ChannelRetriever, WriteAdapter } from "@/framer/adapter";
 import { WSWriterCodec } from "@/framer/codec";
@@ -105,19 +103,21 @@ const baseWriterConfigZ = z.object({
 });
 
 const netWriterConfigZ = baseWriterConfigZ.extend({
-  keys: keyZ.array().optional(),
+  keys: channel.keyZ.array().optional(),
 });
 
 export type NetWriterConfig = z.input<typeof netWriterConfigZ>;
 
 // Intermediate utility type to allow for the use of paramsZ in the writer config.
 const intermediateWriterConfigZ = baseWriterConfigZ.extend({
-  channels: paramsZ,
+  channels: channel.paramsZ,
 });
 
 /** Zod schema for {@link WriterConfig}. A bare channel list parses as a config. */
 export const writerConfigZ = intermediateWriterConfigZ.or(
-  paramsZ.transform((channels) => intermediateWriterConfigZ.parse({ channels })),
+  channel.paramsZ.transform((channels) =>
+    intermediateWriterConfigZ.parse({ channels }),
+  ),
 );
 
 /** Config for a writer. Pass it to `client.telem.openWriter`. */
@@ -141,8 +141,8 @@ const resZ = z.object({
 const authorityParamsZ = z
   .tuple([
     z.union([
-      z.record(keyZ.or(nameZ), control.authorityZ),
-      keyZ.or(nameZ),
+      z.record(channel.keyZ.or(channel.nameZ), control.authorityZ),
+      channel.keyZ.or(channel.nameZ),
       control.authorityZ,
     ]),
     control.authorityZ.optional(),
@@ -150,7 +150,7 @@ const authorityParamsZ = z
   .transform(([value, authority]) => {
     if (z.validate(control.authorityZ, value))
       return { keys: [], authorities: [value] };
-    if (z.validate(keyZ.or(nameZ), value)) {
+    if (z.validate(channel.keyZ.or(channel.nameZ), value)) {
       if (authority == null)
         throw new Error(
           "authority is required when setting authority for a single channel",

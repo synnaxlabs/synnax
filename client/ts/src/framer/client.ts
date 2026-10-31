@@ -21,8 +21,7 @@ import {
   TimeSpan,
 } from "@synnaxlabs/x";
 
-import { type channel } from "@/channel";
-import { analyzeParams } from "@/channel/payload";
+import { channel } from "@/channel";
 import { type ChannelRetriever } from "@/framer/adapter";
 import { Deleter } from "@/framer/deleter";
 import { Feed, type FeedOptions } from "@/framer/feed";
@@ -208,7 +207,7 @@ export class Client {
     channels: channel.Params,
     opts?: ReadOptions,
   ): Promise<MultiSeries | Frame> {
-    const { single } = analyzeParams(channels);
+    const { single } = channel.analyzeParams(channels);
     const fr = await this.reader.read(tr, channels, opts);
     if (single) return fr.get(channels as channel.Key | channel.Name);
     return fr;
@@ -274,7 +273,7 @@ export class Client {
     channels: channel.Params,
     n: number = 1,
   ): Promise<MultiSeries | Frame> {
-    const { single } = analyzeParams(channels);
+    const { single } = channel.analyzeParams(channels);
     const fr = await this.readLatestNFrame(channels, n);
     if (single) return fr.get(channels as channel.Key | channel.Name);
     return fr;
@@ -303,7 +302,7 @@ export class Client {
    * permanent.
    */
   async delete(channels: channel.Params, timeRange: CrudeTimeRange): Promise<void> {
-    const { normalized, variant } = analyzeParams(channels);
+    const { normalized, variant } = channel.analyzeParams(channels);
     const bounds = new TimeRange(timeRange);
     if (variant === "keys")
       return await this.deleter.delete({ keys: normalized, bounds });

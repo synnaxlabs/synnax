@@ -888,9 +888,11 @@ func (p *Plugin) processStruct(
 	}
 
 	// A domain removal (-@domain) cannot be expressed through Zod extend/omit chaining
-	// — the parent schema still carries the domain — so flatten via UnifiedFields.
-	// Typeless overrides are already resolved by the analyzer.
-	if len(form.Extends) > 0 && !resolver.HasDomainOmissions(form) {
+	// — the parent schema still carries the domain — so flatten via UnifiedFields, as
+	// for a parent absent from TypeScript. Typeless overrides are already resolved by
+	// the analyzer.
+	if len(form.Extends) > 0 && !resolver.HasDomainOmissions(form) &&
+		resolver.ParentsExist(form.Extends, "ts", table) {
 		// Collect all parent schema names for merge chaining
 		allParentsValid := true
 		for _, extendsRef := range form.Extends {

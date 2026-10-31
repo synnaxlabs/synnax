@@ -11,18 +11,14 @@ import { DataType, id, Series, TimeRange, TimeSpan, TimeStamp } from "@synnaxlab
 import { describe, expect, it, test } from "vitest";
 
 import { UnauthorizedError, ValidationError } from "@/errors";
-import {
-  ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT,
-  writerConfigZ,
-  WriterMode,
-} from "@/framer/writer";
+import { framer } from "@/framer";
 import {
   createTestClient,
   newIndexedBoolPair,
   newIndexedPair,
+  randomSeries,
   secondsLinspace,
 } from "@/testutil";
-import { randomSeries } from "@/util/telem";
 
 const client = createTestClient();
 
@@ -63,7 +59,7 @@ describe("Writer", () => {
     });
 
     it("should parse a bare channel list into a config with no start", () => {
-      const cfg = writerConfigZ.parse([1, 2]);
+      const cfg = framer.writerConfigZ.parse([1, 2]);
       expect(cfg.channels).toEqual([1, 2]);
       expect(cfg).not.toHaveProperty("start");
     });
@@ -105,7 +101,7 @@ describe("Writer", () => {
       const writer = await client.openWriter({
         start: TimeStamp.seconds(1),
         channels,
-        mode: WriterMode.Persist,
+        mode: framer.WriterMode.Persist,
       });
       const [index, data] = channels;
       try {
@@ -153,7 +149,7 @@ describe("Writer", () => {
       const writer = await client.openWriter({
         start: TimeStamp.seconds(1),
         channels,
-        autoIndexPersistInterval: ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT,
+        autoIndexPersistInterval: framer.ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT,
       });
       const [index, data] = channels;
       try {
