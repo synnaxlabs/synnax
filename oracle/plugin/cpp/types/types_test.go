@@ -485,6 +485,93 @@ var _ = Describe("C++ Types Plugin", func() {
 			},
 		)
 
+		Context("parent omitted in C++", func() {
+			schema := func(parentDomain, childBody string) string {
+				return `
+				@go output "core/pkg/service/auth"
+				@cpp output "client/cpp/auth"
+
+				Record struct {
+					key    uint32
+					name   string
+					secret string
+					` + parentDomain + `
+				}
+
+				Shape struct extends Record {
+					` + childBody + `
+				}
+			`
+			}
+
+			It(
+				"Should declare an inline variant's inherited fields",
+				func(ctx SpecContext) {
+					source := `
+					@go output "core/pkg/service/auth"
+					@cpp output "client/cpp/auth"
+
+					Base struct {
+						port string
+					}
+
+					Record struct {
+						key  uint32
+						name string
+						@cpp omit
+					}
+
+					Chan union on type extends Base {
+						ai extends Record {
+							rate float64
+						}
+					}
+				`
+					resp := MustGenerate(ctx, source, "auth", loader, cppPlugin)
+					ExpectContent(resp, "types.gen.h").
+						ToContain(
+							"struct AIChan : public Base {",
+							"std::uint32_t key",
+							"std::string name",
+							"double rate",
+						).
+						ToNotContain("Record")
+				},
+			)
+
+			It("Should declare the inherited fields", func(ctx SpecContext) {
+				resp := MustGenerate(
+					ctx, schema("@cpp omit", "rate float64"), "auth", loader, cppPlugin,
+				)
+				ExpectContent(resp, "types.gen.h").
+					ToContain(
+						"struct Shape {",
+						"std::uint32_t key",
+						"std::string name",
+						"std::string secret",
+						"double rate",
+					).
+					ToNotContain("struct Record")
+			})
+
+			It("Should leave out a removed field", func(ctx SpecContext) {
+				resp := MustGenerate(
+					ctx, schema("@cpp omit", "-secret"), "auth", loader, cppPlugin,
+				)
+				ExpectContent(resp, "types.gen.h").
+					ToContain("struct Shape {", "std::string name").
+					ToNotContain("secret", "struct Record")
+			})
+
+			It("Should inherit from a parent that generates", func(ctx SpecContext) {
+				resp := MustGenerate(
+					ctx, schema("", "rate float64"), "auth", loader, cppPlugin,
+				)
+				ExpectContent(resp, "types.gen.h").
+					ToContain("struct Shape : public Record {")
+			})
+		})
+
 		It("Should handle @cpp name override", func(ctx SpecContext) {
 			source := `
 				@cpp output "client/cpp/rack"
@@ -749,12 +836,7 @@ var _ = Describe("C++ Types Plugin", func() {
 				}
 			`
 			table, diag := Analyze(ctx, source, "status", loader)
-			if !diag.Ok() {
-				for _, e := range diag.Errors() {
-					GinkgoWriter.Printf("Error: %s\n", e)
-				}
-			}
-			Expect(diag.Ok()).To(BeTrue())
+			Expect(diag.Ok()).To(BeTrue(), diag.String)
 
 			req := &plugin.Request{
 				Resolutions: table,

@@ -16,7 +16,7 @@ import { type FC } from "react";
 
 import { useFromConfig } from "@/feature/ni/device/queries";
 import { Select } from "@/feature/ni/device/Select";
-import { SCHEMAS } from "@/feature/ni/device/types";
+import { MAKE, SCHEMAS } from "@/feature/ni/device/types";
 import { createNextDIChannel } from "@/feature/ni/task/createChannel";
 import {
   DigitalChannelList,
@@ -41,8 +41,6 @@ const Properties = () => (
     <Flex.Box x>
       <Task.Fields.SampleRate />
       <Task.Fields.StreamRate />
-      <Task.Fields.DataSaving />
-      <Task.Fields.AutoStart />
     </Flex.Box>
   </>
 );
@@ -170,6 +168,7 @@ export const DigitalRead = Task.wrapForm({
 
 export const useCreateDigitalRead = Task.createUseCreate({
   getInitialValues,
+  deviceMake: MAKE,
 });
 
 export const DigitalReadSelectable = Selector.createSelectable({

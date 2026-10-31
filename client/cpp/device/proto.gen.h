@@ -92,6 +92,11 @@ StatusDetails::to_proto() const {
     ::service::device::pb::StatusDetails pb;
     pb.set_rack(this->rack);
     pb.set_device(this->device);
+    if (this->data.has_value()) {
+        auto [v, err] = x::json::to_struct(*this->data);
+        if (err) return {{}, err};
+        *pb.mutable_data() = v;
+    }
     return {pb, x::errors::NIL};
 }
 
@@ -100,6 +105,11 @@ StatusDetails::from_proto(const ::service::device::pb::StatusDetails &pb) {
     StatusDetails cpp;
     cpp.rack = pb.rack();
     cpp.device = pb.device();
+    if (pb.has_data()) {
+        auto [v, err] = x::json::from_struct(pb.data());
+        if (err) return {{}, err};
+        cpp.data = v;
+    }
     return {cpp, x::errors::NIL};
 }
 

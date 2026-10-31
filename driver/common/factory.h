@@ -105,10 +105,11 @@ inline x::errors::Error delete_legacy_task_by_type(
     if (err) return err;
     for (const auto &task: legacy)
         if (const auto del_err = rack.tasks.del(task.key))
-            LOG(ERROR) << "[" << integration_name
-                       << "] failed to delete legacy task: " << del_err;
+            LOG(ERROR) << "[" << integration_name << "] failed to delete legacy "
+                       << task_type << " task: " << del_err;
         else
-            LOG(INFO) << "[" << integration_name << "] deleted legacy task";
+            LOG(INFO) << "[" << integration_name << "] deleted legacy " << task_type
+                      << " task";
     return x::errors::NIL;
 }
 }

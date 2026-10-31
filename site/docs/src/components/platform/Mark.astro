@@ -1,0 +1,36 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+---
+
+<script is:inline>
+    // Marks the reader's platform on the root before the body paints, so keys print in
+    // its own symbols. A platform the URL names wins over the browser's own. The client
+    // router swaps in the next page's root attributes before the tabs read the mark, so
+    // the mark goes on the next page before the swap.
+    (() => {
+        const agent = navigator.userAgent.toLowerCase();
+        const own = agent.includes("mac")
+            ? "macOS"
+            : agent.includes("win")
+              ? "Windows"
+              : agent.includes("linux")
+                ? "Linux"
+                : null;
+        const mark = (root, url) => {
+            const named = url.searchParams.get("platform");
+            const os = ["macOS", "Windows", "Linux"].includes(named) ? named : own;
+            if (os != null) root.dataset.os = os;
+        };
+        mark(document.documentElement, new URL(location.href));
+        document.addEventListener("astro:before-swap", (e) =>
+            mark(e.newDocument.documentElement, e.to),
+        );
+    })();
+</script>

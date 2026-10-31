@@ -13,6 +13,7 @@ import (
 	"slices"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/set"
 )
@@ -104,14 +105,36 @@ func sameTypeRef(a, b resolution.TypeRef) bool {
 	return true
 }
 
-// CanUseInheritance checks if a struct can use language inheritance/embedding.
+// ParentsExist reports whether every type in extends exists in lang. A struct that
+// extends a type absent from its language cannot inherit from it, so it declares the
+// inherited fields itself.
+func ParentsExist(
+	extends []resolution.TypeRef,
+	lang string,
+	table *resolution.Table,
+) bool {
+	return !slices.ContainsFunc(extends, func(ref resolution.TypeRef) bool {
+		parent, ok := ref.Resolve(table)
+		return ok && omit.IsAbsent(parent, lang)
+	})
+}
+
+// CanUseInheritance checks if a struct can use language inheritance/embedding in lang.
 // Returns false if:
 // - There are no parent types (Extends is empty)
+// - A parent does not exist in lang
 // - There are omitted fields (can't omit fields with inheritance)
 // - A field removes an inherited domain (must flatten to drop it)
 // - A field restates an inherited field's type or optionality
-func CanUseInheritance(form resolution.StructForm, table *resolution.Table) bool {
+func CanUseInheritance(
+	form resolution.StructForm,
+	lang string,
+	table *resolution.Table,
+) bool {
 	if len(form.Extends) == 0 {
+		return false
+	}
+	if !ParentsExist(form.Extends, lang, table) {
 		return false
 	}
 	if len(form.OmittedFields) > 0 {
@@ -126,16 +149,17 @@ func CanUseInheritance(form resolution.StructForm, table *resolution.Table) bool
 	return true
 }
 
-// VariantBases splits the types a union variant would inherit, its union's bases
-// followed by its own, into the ones it still inherits and the fields it must
-// declare itself. A base whose field the variant drops with `-name` cannot be
-// inherited, because no target language can remove a member from an inherited type,
-// so that base's remaining fields are returned for the variant to declare. A name an
-// inherited base or the variant itself already supplies wins over the flattened base's
-// copy, which is dropped.
+// VariantBases splits the types a union variant would inherit in lang, its union's
+// bases followed by its own, into the ones it still inherits and the fields it must
+// declare itself. A base absent from lang, or whose field the variant drops with
+// `-name`, cannot be inherited, because no target language can remove a member from an
+// inherited type, so that base's remaining fields are returned for the variant to
+// declare. A name an inherited base or the variant itself already supplies wins over
+// the flattened base's copy, which is dropped.
 func VariantBases(
 	form resolution.UnionForm,
 	v resolution.UnionVariant,
+	lang string,
 	table *resolution.Table,
 ) (inherited []resolution.TypeRef, declared []resolution.Field) {
 	payload, ok := v.Type.Resolve(table)
@@ -147,7 +171,7 @@ func VariantBases(
 		return form.Extends, nil
 	}
 	bases := append(slices.Clone(form.Extends), pform.Extends...)
-	if len(pform.OmittedFields) == 0 {
+	if len(pform.OmittedFields) == 0 && ParentsExist(bases, lang, table) {
 		return bases, nil
 	}
 	drop := set.New(pform.OmittedFields...)
@@ -160,14 +184,25 @@ func VariantBases(
 	})...)
 	var flattened [][]resolution.Field
 	for _, ref := range bases {
-		base, _, ok := resolution.Dealias(ref, table)
+		base, baseRef, ok := resolution.Dealias(ref, table)
 		if !ok {
 			continue
 		}
-		fields := resolution.UnifiedFields(base, table)
-		if lo.SomeBy(fields, func(f resolution.Field) bool {
-			return drop.Contains(f.Name)
-		}) {
+		typeArgs := resolution.TypeArgMap(
+			resolution.TypeParams(base.Form),
+			baseRef.TypeArgs,
+		)
+		fields := lo.Map(
+			resolution.UnifiedFields(base, table),
+			func(f resolution.Field, _ int) resolution.Field {
+				f.Type = resolution.SubstituteTypeRef(f.Type, typeArgs)
+				return f
+			},
+		)
+		if !ParentsExist([]resolution.TypeRef{ref}, lang, table) ||
+			lo.SomeBy(fields, func(f resolution.Field) bool {
+				return drop.Contains(f.Name)
+			}) {
 			flattened = append(flattened, fields)
 			continue
 		}
@@ -188,15 +223,16 @@ func VariantBases(
 	return inherited, declared
 }
 
-// SharedBases returns the bases of a union that every variant inherits whole, so each
-// variant holds the base under the base's own name.
+// SharedBases returns the bases of a union that every variant inherits whole in lang,
+// so each variant holds the base under the base's own name.
 func SharedBases(
 	form resolution.UnionForm,
+	lang string,
 	table *resolution.Table,
 ) []resolution.TypeRef {
 	return lo.Filter(form.Extends, func(ext resolution.TypeRef, _ int) bool {
 		return lo.EveryBy(form.Variants, func(v resolution.UnionVariant) bool {
-			inherited, _ := VariantBases(form, v, table)
+			inherited, _ := VariantBases(form, v, lang, table)
 			return lo.ContainsBy(inherited, func(r resolution.TypeRef) bool {
 				return r.Name == ext.Name
 			})
