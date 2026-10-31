@@ -15,7 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
@@ -36,7 +36,7 @@ func TestPanel(t *testing.T) {
 }
 
 var (
-	node       mock.Node
+	node       testutil.Node
 	db         *gorp.DB
 	otg        *ontology.Ontology
 	groupSvc   *group.Service
@@ -50,7 +50,7 @@ var (
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	node = mock.NewNode(ctx)
+	node = testutil.NewNode(ctx)
 	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
 	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB:       node.DB,

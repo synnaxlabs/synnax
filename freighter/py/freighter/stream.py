@@ -10,6 +10,7 @@
 from typing import Protocol
 
 from freighter.transport import RQ, RS, AsyncTransport, Transport
+from x.codec import Codec
 
 
 class AsyncStreamReceiver(Protocol[RS]):
@@ -164,6 +165,14 @@ class AsyncStreamClient(AsyncTransport, Protocol):
         :param res_t: The type of the response being received. This is used to type
             check incoming responses.
         :returns: A stream that can be used to issue requests and receive responses.
+        """
+        ...
+
+    def with_codec(self, codec: Codec) -> "AsyncStreamClient":
+        """Returns a client that encodes and decodes stream messages with codec. It
+        shares the target and middleware of this client.
+
+        :param codec: The codec for messages on streams that the new client opens.
         """
         ...
 

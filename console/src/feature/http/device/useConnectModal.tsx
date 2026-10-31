@@ -10,10 +10,8 @@
 import "@/feature/http/device/Connect.css";
 
 import { type device, type rack, status, TimeSpan } from "@synnaxlabs/client";
-import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { Input } from "@synnaxlabs/lyra/input";
 import { Modal } from "@synnaxlabs/lyra/modal";
 import { Select } from "@synnaxlabs/lyra/select";
 import { Tabs } from "@synnaxlabs/lyra/tabs";
@@ -262,31 +260,18 @@ export const Connect = ({
                 padHelpText={false}
                 inputProps={HOST_INPUT_PROPS}
               />
-              <Form.Field<boolean>
+              <Form.CheckboxField
                 path="properties.secure"
                 label="HTTPS"
                 padHelpText={false}
-              >
-                {({ value, onChange }) => (
-                  <Flex.Box
-                    x
-                    align="center"
-                    gap="huge"
-                    className={CSS.BE("http-connect", "secure")}
-                  >
-                    <Input.Switch value={value} onChange={onChange} />
-                    {secure && (
-                      <Flex.Box x align="center" gap="medium">
-                        <Form.SwitchField
-                          path="properties.verifySsl"
-                          label="Verify certificate"
-                          padHelpText={false}
-                        />
-                      </Flex.Box>
-                    )}
-                  </Flex.Box>
-                )}
-              </Form.Field>
+              />
+              {secure && (
+                <Form.CheckboxField
+                  path="properties.verifySsl"
+                  label="Verify certificate"
+                  padHelpText={false}
+                />
+              )}
               <PlatformDevice.RackField integration={INTEGRATION} />
             </Form.Section>
           </Form.Sections>
@@ -413,7 +398,7 @@ export const Connect = ({
                   />
                 </Form.Section>
                 <Form.Section title="Response">
-                  <Form.SwitchField
+                  <Form.CheckboxField
                     path="properties.healthCheck.validateResponse"
                     label="Validate body"
                     padHelpText={false}
@@ -450,7 +435,7 @@ export const Connect = ({
                         />
                       )}
                       {expectedValueType === "boolean" && (
-                        <Form.SwitchField
+                        <Form.CheckboxField
                           path="properties.healthCheck.response.expectedValue"
                           label="Expected value"
                           padHelpText={false}

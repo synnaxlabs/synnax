@@ -20,12 +20,12 @@ import {
 } from "@synnaxlabs/x";
 import { describe, expect, it, vi } from "vitest";
 
+import { framer } from "@/framer";
 import { domainOf } from "@/framer/cache/block";
 import { Joins } from "@/framer/cache/join";
 import { Latest, type LatestProps } from "@/framer/cache/latest";
 import { Store } from "@/framer/cache/store";
 import { MultiplexedStreamer } from "@/framer/cache/streamer";
-import { Frame } from "@/framer/frame";
 import { SyntheticCore } from "@/testutil";
 
 const START = TimeStamp.seconds(1_000_000);
@@ -149,7 +149,7 @@ describe("Latest", () => {
             alignment: (domain << 32n) + BigInt(i * 10_000),
           }),
       );
-      core.stream(new Frame([key, key], series));
+      core.stream(new framer.Frame([key, key], series));
       await expect.poll(() => latest.value().series.length, POLL).toBe(20_000);
     } finally {
       latest.close();
@@ -398,12 +398,12 @@ describe("Latest", () => {
       });
     try {
       await expect.poll(() => latest.value().status.variant, POLL).toBe("success");
-      core.stream(new Frame(key, entry(0)));
-      core.stream(new Frame(key, entry(1)));
+      core.stream(new framer.Frame(key, entry(0)));
+      core.stream(new framer.Frame(key, entry(1)));
       await expect.poll(() => latest.value().series.length, POLL).toBe(2);
       const served = latest.value().series.series[1];
       // A gap in the alignments closes the buffer.
-      core.stream(new Frame(key, entry(5)));
+      core.stream(new framer.Frame(key, entry(5)));
       await expect.poll(() => latest.value().series.length, POLL).toBe(3);
       expect(latest.value().series.series[1]).toBe(served);
     } finally {

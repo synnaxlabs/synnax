@@ -13,14 +13,16 @@ export const PLATFORMS = ["Linux", "Windows", "macOS", "Docker"] as const;
 
 export type Platform = (typeof PLATFORMS)[number];
 
-// The runtime module in @synnaxlabs/x does the same, but it would ship Zod to the page.
-const detect = (): Platform | null => {
-  const agent = navigator.userAgent.toLowerCase();
-  if (agent.includes("mac")) return "macOS";
-  if (agent.includes("win")) return "Windows";
-  if (agent.includes("linux")) return "Linux";
-  return null;
+/**
+ * Shows the reader's own operating system first, as the page head marks it on the root,
+ * and marks the platform the reader picks, so keys on the page follow it. Docker runs
+ * on any system, so it leaves the mark alone.
+ */
+export const QUERY: Query = {
+  initial: () =>
+    PLATFORMS.find((platform) => platform === document.documentElement.dataset.os) ??
+    null,
+  onChange: (platform) => {
+    if (platform !== "Docker") document.documentElement.dataset.os = platform;
+  },
 };
-
-/** Shows the reader's own operating system first. */
-export const QUERY: Query = { initial: detect };

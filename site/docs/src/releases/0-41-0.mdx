@@ -7,6 +7,7 @@ import { Text } from "@synnaxlabs/lyra/text";
 import { Hero } from "@/components/hero";
 import Release from "@/components/releases/Release.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
+import { Keys } from "@/components/keys/Keys";
 export const components = mdxOverrides;
 
 <Release
@@ -75,8 +76,9 @@ stopping a task. In order to prevent layout shift, we've made it possible to hov
 overlay the toolbar without causing a layout shift in the mosaic.
 
 We've also added a series of hotkeys to make interacting with the toolbars even more
-efficient. For example, typing `C` will trigger the hover mode for the channels toolbar,
-and double pressing `C` will open toolbar permanently.
+efficient. For example, typing <Keys trigger={["C"]} /> will trigger the hover mode for
+the channels toolbar, and double pressing <Keys trigger={["C"]} /> will open toolbar
+permanently.
 
 <Divider.Divider x />
 

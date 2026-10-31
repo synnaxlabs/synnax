@@ -920,7 +920,7 @@ func (b *testValueBuilder) unionExpr(
 	defer func() { b.depth-- }()
 	defer b.visit(actual.QualifiedName)()
 
-	inherited, declared := resolver.VariantBases(form, v, b.table)
+	inherited, declared := resolver.VariantBases(form, v, "go", b.table)
 
 	var embeds []string
 	for _, ext := range inherited {

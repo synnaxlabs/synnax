@@ -79,6 +79,116 @@ describe("deploy configs", () => {
     );
     expect(result.success).toBe(false);
   });
+
+  const readConfig = (channels: object[]) =>
+    Modbus.Task.READ_SCHEMAS.config.parse({ device: "my_device", channels });
+  const writeConfig = (channels: object[]) =>
+    Modbus.Task.WRITE_SCHEMAS.config.parse({ device: "my_device", channels });
+  const issues = (result: z.ZodSafeParseResult<unknown>) =>
+    result.error?.issues.map(({ path, message }) => ({ path, message }));
+
+  it("should reject a register channel that ends past the last address", () => {
+    const result = Modbus.Task.deployReadConfigZ.safeParse(
+      readConfig([
+        { type: "holding_register", address: 65534, dataType: "float32" },
+        { type: "holding_register", address: 65533, dataType: "float64" },
+      ]),
+    );
+    expect(issues(result)).toEqual([
+      {
+        path: ["channels", 1, "address"],
+        message: "Channel ends past address 65535",
+      },
+    ]);
+  });
+
+  it.each([0, 251])("should reject a string of %d characters", (stringLength) => {
+    const result = Modbus.Task.deployReadConfigZ.safeParse(
+      readConfig([
+        { type: "input_register", address: 0, dataType: "string", stringLength },
+        { type: "input_register", address: 200, dataType: "uint16", stringLength },
+      ]),
+    );
+    expect(issues(result)).toEqual([
+      {
+        path: ["channels", 0, "stringLength"],
+        message: "String length must be from 1 to 250",
+      },
+    ]);
+  });
+
+  it("should reject read channels that bind to one Synnax channel", () => {
+    const result = Modbus.Task.deployReadConfigZ.safeParse(
+      readConfig([
+        { type: "input_register", address: 3, dataType: "uint16" },
+        { type: "input_register", address: 3, dataType: "uint16", bytesSwapped: true },
+        { type: "input_register", address: 3, dataType: "int16" },
+        { type: "holding_register", address: 3, dataType: "uint16" },
+      ]),
+    );
+    expect(issues(result)).toEqual([
+      {
+        path: ["channels", 1, "address"],
+        message: "Another channel reads the same address and data type",
+      },
+    ]);
+  });
+
+  it("should reject write channels whose addresses overlap", () => {
+    const result = Modbus.Task.deployWriteConfigZ.safeParse(
+      writeConfig([
+        { type: "holding_register", address: 0, dataType: "float32" },
+        { type: "holding_register", address: 1, dataType: "uint16" },
+        { type: "coil", address: 1 },
+        { type: "coil", address: 1 },
+      ]),
+    );
+    expect(issues(result)).toEqual([
+      {
+        path: ["channels", 1, "address"],
+        message: "Overlaps the holding register at address 0",
+      },
+      { path: ["channels", 3, "address"], message: "Overlaps the coil at address 1" },
+    ]);
+  });
+
+  it("should reject a register bit inside a register value or on a taken bit", () => {
+    const result = Modbus.Task.deployWriteConfigZ.safeParse(
+      writeConfig([
+        { type: "holding_register", address: 0, dataType: "float32" },
+        { type: "holding_register_bit", address: 2, bit: 1 },
+        { type: "holding_register_bit", address: 2, bit: 2 },
+        { type: "coil", address: 2 },
+        { type: "holding_register_bit", address: 1, bit: 0 },
+        { type: "holding_register_bit", address: 2, bit: 1 },
+        { type: "holding_register", address: 2, dataType: "uint16" },
+      ]),
+    );
+    expect(issues(result)).toEqual([
+      {
+        path: ["channels", 4, "address"],
+        message: "Overlaps the holding register at address 0",
+      },
+      {
+        path: ["channels", 5, "address"],
+        message: "Overlaps the holding register bit at address 2",
+      },
+      {
+        path: ["channels", 6, "address"],
+        message: "Overlaps the holding register bit at address 2",
+      },
+    ]);
+  });
+
+  it("should ignore disabled channels", () => {
+    const result = Modbus.Task.deployWriteConfigZ.safeParse(
+      writeConfig([
+        { type: "coil", address: 1 },
+        { type: "coil", address: 1, disabled: true },
+      ]),
+    );
+    expect(result.success).toBe(true);
+  });
 });
 
 describe("draft configs", () => {

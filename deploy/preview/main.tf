@@ -11,7 +11,15 @@
 # images to ECR and deploys through SSM, with a role it assumes through GitHub OIDC.
 
 terraform {
-  required_version = ">= 1.6"
+  required_version = ">= 1.10"
+  # Created by the config in state/.
+  backend "s3" {
+    bucket       = "synnax-preview-terraform-004704223095"
+    key          = "preview/terraform.tfstate"
+    region       = "us-east-1"
+    encrypt      = true
+    use_lockfile = true
+  }
   required_providers {
     aws = {
       source  = "hashicorp/aws"

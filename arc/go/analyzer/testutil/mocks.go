@@ -12,27 +12,26 @@ package testutil
 
 import "github.com/antlr4-go/antlr/v4"
 
-// MockToken implements antlr.Token for testing purposes.
-type MockToken struct{ line, column int }
+type mockToken struct{ line, column int }
 
-func (m *MockToken) GetSource() *antlr.TokenSourceCharStreamPair { return nil }
-func (m *MockToken) GetTokenType() int                           { return 0 }
-func (m *MockToken) GetChannel() int                             { return 0 }
-func (m *MockToken) GetStart() int                               { return 0 }
-func (m *MockToken) GetStop() int                                { return 0 }
-func (m *MockToken) GetLine() int                                { return m.line }
-func (m *MockToken) GetColumn() int                              { return m.column }
-func (m *MockToken) GetText() string                             { return "" }
-func (m *MockToken) SetText(string)                              {}
-func (m *MockToken) GetTokenIndex() int                          { return 0 }
-func (m *MockToken) SetTokenIndex(int)                           {}
-func (m *MockToken) GetInputStream() antlr.CharStream            { return nil }
-func (m *MockToken) GetTokenSource() antlr.TokenSource           { return nil }
-func (m *MockToken) String() string                              { return "" }
+func (m *mockToken) GetSource() *antlr.TokenSourceCharStreamPair { return nil }
+func (m *mockToken) GetTokenType() int                           { return 0 }
+func (m *mockToken) GetChannel() int                             { return 0 }
+func (m *mockToken) GetStart() int                               { return 0 }
+func (m *mockToken) GetStop() int                                { return 0 }
+func (m *mockToken) GetLine() int                                { return m.line }
+func (m *mockToken) GetColumn() int                              { return m.column }
+func (m *mockToken) GetText() string                             { return "" }
+func (m *mockToken) SetText(string)                              {}
+func (m *mockToken) GetTokenIndex() int                          { return 0 }
+func (m *mockToken) SetTokenIndex(int)                           {}
+func (m *mockToken) GetInputStream() antlr.CharStream            { return nil }
+func (m *mockToken) GetTokenSource() antlr.TokenSource           { return nil }
+func (m *mockToken) String() string                              { return "" }
 
 // MockAST implements antlr.ParserRuleContext for testing purposes.
 type MockAST struct {
-	token *MockToken
+	token *mockToken
 	antlr.BaseParserRuleContext
 	id int
 }
@@ -41,7 +40,7 @@ type MockAST struct {
 func NewMockAST(id int) *MockAST {
 	return &MockAST{
 		id:    id,
-		token: &MockToken{},
+		token: &mockToken{},
 	}
 }
 

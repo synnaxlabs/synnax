@@ -34,6 +34,13 @@ func StatusDetailsToPB(r device.StatusDetails) (*StatusDetails, error) {
 		Rack:   uint32(r.Rack),
 		Device: r.Device,
 	}
+	if r.Data != nil {
+		var err error
+		pb.Data, err = structpb.NewStruct(r.Data)
+		if err != nil {
+			return nil, err
+		}
+	}
 	return pb, nil
 }
 
@@ -45,6 +52,9 @@ func StatusDetailsFromPB(pb *StatusDetails) (device.StatusDetails, error) {
 	}
 	r.Rack = rack.Key(pb.Rack)
 	r.Device = pb.Device
+	if pb.Data != nil {
+		r.Data = pb.Data.AsMap()
+	}
 	return r, nil
 }
 
