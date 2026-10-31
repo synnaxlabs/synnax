@@ -109,7 +109,8 @@ std::pair<bool, x::errors::Error> Iterator::exec(grpc::framer::IteratorRequest r
     while (true) {
         auto [res, err] = this->stream->receive();
         if (err) return {false, err};
-        if (res.variant() == ACK_RESPONSE) return {res.ack(), x::errors::NIL};
+        if (res.variant() == ACK_RESPONSE)
+            return {res.ack(), x::errors::Error(res.error())};
         x::telem::Frame fr;
         if (!res.buffer().empty()) {
             auto [decoded, decode_err] = this->codec.decode(
