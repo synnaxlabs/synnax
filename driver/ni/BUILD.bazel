@@ -20,10 +20,12 @@ cc_library(
     name = "ni",
     srcs = [
         "factory.cpp",
+        "probe.cpp",
         "scan_task.cpp",
     ],
     hdrs = [
         "ni.h",
+        "probe.h",
         "read_task.h",
         "scan_task.h",
         "write_task.h",
@@ -32,6 +34,7 @@ cc_library(
     deps = [
         ":names",
         "//client/cpp:synnax",
+        "//client/cpp/ni",
         "//driver/common",
         "//driver/ni/channel",
         "//driver/ni/daqmx",
@@ -67,15 +70,29 @@ cc_test(
 )
 
 cc_test(
+    name = "probe_test",
+    srcs = ["probe_test.cpp"],
+    deps = [
+        "//client/cpp/ni",
+        "//driver/ni",
+        "//driver/ni/daqmx:mock",
+        "//x/cpp/testutil",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
     name = "scan_task_test",
     srcs = ["scan_task_test.cpp"],
     tags = ["requires-core"],
     deps = [
         "//client/cpp/testutil",
         "//driver/ni",
+        "//driver/ni/daqmx:mock",
         "//driver/pipeline/testutil",
         "//x/cpp/lib",
         "//x/cpp/testutil",
+        "@abseil-cpp//absl/base:log_severity",
         "@abseil-cpp//absl/log:globals",
         "@abseil-cpp//absl/log:log_entry",
         "@abseil-cpp//absl/log:log_sink",

@@ -17,22 +17,25 @@
 #if defined(__GNUC__) && !defined(__clang__)
 #pragma GCC diagnostic pop
 #endif
+#include <sstream>
 #include <string>
 #include <unordered_map>
 
 #include "absl/log/log.h"
 
 #include "driver/common/scan_task.h"
+#include "driver/ni/probe.h"
 #include "driver/ni/scan_task.h"
 #include "errors/errors.h"
 
 namespace driver::ni {
 Scanner::Scanner(
     std::shared_ptr<x::lib::Lazy<syscfg::SugaredAPI>> lib,
+    std::shared_ptr<x::lib::Lazy<daqmx::SugaredAPI>> dmx,
     ScanTaskConfig cfg,
     synnax::task::Task task
 ):
-    cfg(cfg), task(std::move(task)), lib(std::move(lib)) {}
+    cfg(cfg), task(std::move(task)), lib(std::move(lib)), dmx(std::move(dmx)) {}
 
 const auto SKIP_DEVICE_ERR = x::errors::Error("ni.skip_device", "");
 const std::size_t NO_DEVICES_LOG_MULTIPLIER = 12;
@@ -238,12 +241,55 @@ Scanner::scan(const common::ScannerContext &ctx) {
     std::vector<synnax::device::Device> devices;
     devices.reserve(ni_devices.size());
     for (auto &dev: ni_devices) {
+        this->read_hardware(dev, ctx);
         auto sy_dev = dev.to_synnax();
         if (auto it = parent_keys.find(dev.key); it != parent_keys.end())
             sy_dev.parent = synnax::device::ontology_id(it->second);
         devices.push_back(std::move(sy_dev));
     }
     return {devices, close_err};
+}
+
+namespace {
+/// @brief false when the stored hardware is absent, does not parse, or is incomplete.
+bool has_complete_hardware(const x::json::json::object_t &properties) {
+    const auto it = properties.find(HARDWARE_KEY);
+    if (it == properties.end()) return false;
+    x::json::Parser parser(it->second);
+    const auto hardware = ::synnax::ni::Hardware::parse(parser);
+    return parser.ok() && is_complete(hardware);
+}
+}
+
+void Scanner::read_hardware(ni::Device &dev, const common::ScannerContext &ctx) {
+    if (ctx.devices != nullptr)
+        if (const auto it = ctx.devices->find(dev.key);
+            it != ctx.devices->end() && has_complete_hardware(it->second.properties))
+            return;
+    auto [dmx, err] = this->dmx->get();
+    if (!err) {
+        auto [hardware, probe_err] = probe(*dmx, dev.location);
+        err = probe_err;
+        if (!err) {
+            const bool complete = is_complete(hardware);
+            dev.hardware = std::move(hardware);
+            if (complete) {
+                this->unread_keys.erase(dev.key);
+                return;
+            }
+        }
+    }
+    std::ostringstream msg;
+    msg << SCAN_LOG_PREFIX << "failed to read the ";
+    if (err)
+        msg << "hardware of " << dev.location << ": " << err;
+    else
+        msg << "default terminal configuration of some ports of " << dev.location
+            << ". The next scan reads it again";
+    if (this->unread_keys.insert(dev.key).second)
+        LOG(WARNING) << msg.str();
+    else
+        VLOG(1) << msg.str();
 }
 
 x::errors::Error Scanner::stop() {

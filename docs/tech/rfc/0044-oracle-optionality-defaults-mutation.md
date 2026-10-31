@@ -331,7 +331,7 @@ The create handler becomes `decode → ApplyDefaults → Validate`, with `author
 and set by the server.
 
 Generated TypeScript, where `New` is the derived input: `author` is dropped, defaulted
-fields are optional, and nullable fields accept null.
+fields are optional, and nullable fields may be left out.
 
 ```ts
 export const newZ = valueCellZ

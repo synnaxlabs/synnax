@@ -12,9 +12,12 @@
 #include <cstdint>
 #include <cstring>
 #include <mutex>
+#include <optional>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
+#include "absl/base/log_severity.h"
 #include "absl/log/globals.h"
 #include "absl/log/log_entry.h"
 #include "absl/log/log_sink.h"
@@ -25,6 +28,7 @@
 #include "x/cpp/json/json.h"
 #include "x/cpp/testutil/testutil.h"
 
+#include "driver/ni/daqmx/mock.h"
 #include "driver/ni/ni.h"
 #include "driver/ni/scan_task.h"
 #include "driver/ni/syscfg/api.h"
@@ -195,11 +199,15 @@ public:
 
     NISYSCFGCFUNC GetResourceIndexedProperty(
         NISysCfgResourceHandle,
-        NISysCfgIndexedProperty,
+        const NISysCfgIndexedProperty property,
         unsigned int,
         void *value
     ) override {
-        std::strcpy(static_cast<char *>(value), "\"Dev1\"");
+        // As on a simulated device, the resource name is not the DAQmx name.
+        const char *v = property == NISysCfgIndexedPropertyExpertUserAlias
+                          ? "Dev1"
+                          : "\"3BA1A71A-1D33-4C5E-9F6A-0B7C8D9E0F12\"";
+        std::strcpy(static_cast<char *>(value), v);
         return NISysCfg_OK;
     }
 
@@ -224,11 +232,28 @@ loaded(const std::shared_ptr<syscfg::API> &api) {
     });
 }
 
-/// @brief enables VLOG(1) and captures the text of every VLOG(1) line while in scope.
+/// @brief returns a DAQmx library that loads api on first use.
+std::shared_ptr<x::lib::Lazy<daqmx::SugaredAPI>>
+loaded(const std::shared_ptr<daqmx::API> &api) {
+    return std::make_shared<x::lib::Lazy<daqmx::SugaredAPI>>([api] {
+        return std::pair{std::make_shared<daqmx::SugaredAPI>(api), x::errors::NIL};
+    });
+}
+
+/// @brief enables VLOG(1) and captures the text of every VLOG(1) and warning line while
+/// in scope.
 class CaptureSink final : public absl::LogSink {
     int prev_vlog_level;
     std::mutex mu;
     std::vector<std::string> lines;
+    std::vector<std::string> warning_lines;
+
+    [[nodiscard]] static std::size_t
+    count_in(const std::vector<std::string> &lines, const std::string &substr) {
+        return std::ranges::count_if(lines, [&](const std::string &line) {
+            return line.contains(substr);
+        });
+    }
 
 public:
     CaptureSink(): prev_vlog_level(absl::SetGlobalVLogLevel(1)) {
@@ -241,16 +266,23 @@ public:
     }
 
     void Send(const absl::LogEntry &entry) override {
-        if (entry.verbosity() != 1) return;
         std::lock_guard lock(this->mu);
-        this->lines.emplace_back(entry.text_message());
+        if (entry.verbosity() == 1)
+            this->lines.emplace_back(entry.text_message());
+        else if (entry.log_severity() == absl::LogSeverity::kWarning)
+            this->warning_lines.emplace_back(entry.text_message());
     }
 
+    /// @brief returns how many VLOG(1) lines contain substr.
     [[nodiscard]] std::size_t count(const std::string &substr) {
         std::lock_guard lock(this->mu);
-        return std::ranges::count_if(this->lines, [&](const std::string &line) {
-            return line.contains(substr);
-        });
+        return count_in(this->lines, substr);
+    }
+
+    /// @brief returns how many warning lines contain substr.
+    [[nodiscard]] std::size_t warnings(const std::string &substr) {
+        std::lock_guard lock(this->mu);
+        return count_in(this->warning_lines, substr);
     }
 };
 
@@ -264,7 +296,12 @@ TEST(ScannerTest, testLogsIgnoredDeviceOnce) {
     });
     x::json::json j = {{"disabled", false}};
     auto p = x::json::Parser(j);
-    Scanner scanner(loaded(api), ScanTaskConfig(p), synnax::task::Task{});
+    Scanner scanner(
+        loaded(api),
+        loaded(std::make_shared<daqmx::MockAPI>()),
+        ScanTaskConfig(p),
+        synnax::task::Task{}
+    );
     CaptureSink sink;
     for (std::size_t i = 0; i < 3; i++) {
         auto [devices, err] = scanner.scan(common::ScannerContext{.count = i});
@@ -283,7 +320,12 @@ std::vector<synnax::device::Device> scan_once(
 ) {
     auto api = std::make_shared<FakeAPI>(std::move(resources));
     auto p = x::json::Parser(std::move(j));
-    Scanner scanner(loaded(api), ScanTaskConfig(p), synnax::task::Task{});
+    Scanner scanner(
+        loaded(api),
+        loaded(std::make_shared<daqmx::MockAPI>()),
+        ScanTaskConfig(p),
+        synnax::task::Task{}
+    );
     auto [devices, err] = scanner.scan(common::ScannerContext{});
     EXPECT_FALSE(err) << err;
     return devices;
@@ -344,6 +386,260 @@ TEST(ScannerTest, testIgnoresSavedPatterns) {
         models,
         std::vector<std::string>({"TestDevice", "MockDevice123", "PXI-6255"})
     );
+}
+
+/// @brief a DAQmx API whose device reads fail while failing is true.
+class FlakyAPI final : public daqmx::MockAPI {
+public:
+    bool failing = false;
+    /// @brief whether the device has the voltage port Dev1/ai0, which accepts RSE and
+    /// Diff.
+    bool has_analog_input = false;
+    /// @brief whether reading back the default terminal configuration fails.
+    bool readback_failing = false;
+
+    int32 GetDeviceAttributeInt32(
+        const char name[],
+        const int32 attr,
+        int32 *value
+    ) override {
+        MockAPI::GetDeviceAttributeInt32(name, attr, value);
+        // DAQmx knows a device only by its alias.
+        if (this->failing || std::string(name) != "Dev1")
+            return DAQmxErrorInvalidDeviceID;
+        return 0;
+    }
+
+    int32 GetDeviceAttributeString(
+        const char name[],
+        const int32 attr,
+        char value[],
+        const uInt32 size
+    ) override {
+        if (!this->has_analog_input || attr != DAQmx_Dev_AI_PhysicalChans)
+            return MockAPI::GetDeviceAttributeString(name, attr, value, size);
+        const std::string port = "Dev1/ai0";
+        if (size == 0) return static_cast<int32>(port.size() + 1);
+        std::strncpy(value, port.c_str(), size);
+        return 0;
+    }
+
+    int32 GetPhysicalChanAttributeInt32(
+        const char channel[],
+        const int32 attr,
+        int32 *value
+    ) override {
+        MockAPI::GetPhysicalChanAttributeInt32(channel, attr, value);
+        if (attr == DAQmx_PhysicalChan_AI_TermCfgs)
+            *value = DAQmx_Val_Bit_TermCfg_RSE | DAQmx_Val_Bit_TermCfg_Diff;
+        return 0;
+    }
+
+    int32 GetPhysicalChanAttributeInt32Array(
+        const char channel[],
+        const int32 attr,
+        int32 value[],
+        const uInt32 size
+    ) override {
+        MockAPI::GetPhysicalChanAttributeInt32Array(channel, attr, value, size);
+        if (attr != DAQmx_PhysicalChan_AI_SupportedMeasTypes) return 0;
+        if (size == 0) return 1;
+        value[0] = DAQmx_Val_Voltage;
+        return 0;
+    }
+
+    int32 CreateAIVoltageChan(
+        TaskHandle task,
+        const char physicalChannel[],
+        const char nameToAssignToChannel[],
+        const int32 terminalConfig,
+        const float64 minVal,
+        const float64 maxVal,
+        const int32 units,
+        const char customScaleName[]
+    ) override {
+        MockAPI::CreateAIVoltageChan(
+            task,
+            physicalChannel,
+            nameToAssignToChannel,
+            terminalConfig,
+            minVal,
+            maxVal,
+            units,
+            customScaleName
+        );
+        return this->readback_failing ? DAQmxErrorInvalidDeviceID : 0;
+    }
+
+    int32 GetChanAttributeInt32(
+        TaskHandle task,
+        const char channel[],
+        const int32 attr,
+        int32 *value
+    ) override {
+        MockAPI::GetChanAttributeInt32(task, channel, attr, value);
+        *value = DAQmx_Val_Diff;
+        return 0;
+    }
+
+    int32 GetExtendedErrorInfo(char errorString[], const uInt32 bufferSize) override {
+        const std::string message = "Device not found.";
+        if (errorString == nullptr) return static_cast<int32>(message.size() + 1);
+        std::strncpy(errorString, message.c_str(), bufferSize);
+        return 0;
+    }
+
+    /// @brief returns how many times the scanner read the product category, which it
+    /// reads once per hardware read.
+    [[nodiscard]] std::size_t reads() const {
+        return static_cast<std::size_t>(std::ranges::count_if(
+            this->calls_to("GetDeviceAttributeInt32"),
+            [](const nlohmann::json &call) {
+                return call["args"]["attribute"] == DAQmx_Dev_ProductCategory;
+            }
+        ));
+    }
+};
+
+/// @brief a scanner over one physical device and a DAQmx API.
+struct HardwareScanner {
+    std::shared_ptr<FlakyAPI> dmx = std::make_shared<FlakyAPI>();
+    Scanner scanner;
+    /// @brief the stored records of the devices, as the scan task keeps them.
+    std::unordered_map<std::string, synnax::device::Device> stored;
+
+    HardwareScanner():
+        scanner(
+            loaded(
+                std::make_shared<FakeAPI>(std::vector<FakeAPI::Resource>{
+                    {"01A2B3C4", "NI PCIe-6363"},
+                })
+            ),
+            loaded(dmx),
+            config(),
+            synnax::task::Task{}
+        ) {}
+
+    /// @brief scans once and stores the devices found, as the scan task does.
+    synnax::device::Device scan() {
+        auto [devices, err] = this->scanner.scan(
+            common::ScannerContext{.devices = &this->stored}
+        );
+        EXPECT_FALSE(err) << err;
+        EXPECT_EQ(devices.size(), 1);
+        auto &dev = devices.at(0);
+        auto &stored = this->stored[dev.key];
+        auto properties = common::merge_device_properties(
+            stored.properties,
+            dev.properties
+        );
+        stored = dev;
+        stored.properties = properties.get<x::json::json::object_t>();
+        return dev;
+    }
+
+    /// @brief returns the hardware in the stored record of the device.
+    [[nodiscard]] ::synnax::ni::Hardware hardware() const {
+        return ::synnax::ni::Hardware::parse(
+            x::json::Parser(
+                x::json::json(this->stored.at("01A2B3C4").properties.at(HARDWARE_KEY))
+            )
+        );
+    }
+
+private:
+    static ScanTaskConfig config() {
+        auto p = x::json::Parser(x::json::json{{"disabled", false}});
+        return ScanTaskConfig(p);
+    }
+};
+
+/// @brief it should read the hardware of a new device once, then keep the stored value.
+TEST(ScannerTest, testReadsHardwareOnce) {
+    HardwareScanner s;
+    const auto first = s.scan();
+    EXPECT_TRUE(first.properties.contains(HARDWARE_KEY));
+    const auto second = s.scan();
+    EXPECT_FALSE(second.properties.contains(HARDWARE_KEY));
+    EXPECT_EQ(s.dmx->reads(), 1);
+    EXPECT_TRUE(s.stored.at("01A2B3C4").properties.contains(HARDWARE_KEY));
+}
+
+/// @brief it should not read the hardware of a device whose stored record has it.
+TEST(ScannerTest, testSkipsReadWhenStoredRecordHasHardware) {
+    HardwareScanner s;
+    s.stored["01A2B3C4"].properties[HARDWARE_KEY] = ::synnax::ni::Hardware{}.to_json();
+    EXPECT_FALSE(s.scan().properties.contains(HARDWARE_KEY));
+    EXPECT_EQ(s.dmx->reads(), 0);
+}
+
+/// @brief it should read the hardware of a device whose stored record lacks it.
+TEST(ScannerTest, testReadsWhenStoredRecordLacksHardware) {
+    HardwareScanner s;
+    s.stored["01A2B3C4"].properties["resource_name"] = "Dev1";
+    EXPECT_TRUE(s.scan().properties.contains(HARDWARE_KEY));
+    EXPECT_EQ(s.dmx->reads(), 1);
+}
+
+/// @brief it should keep a device whose hardware read fails, and read again on the next
+/// scan.
+TEST(ScannerTest, testRetriesFailedHardwareRead) {
+    HardwareScanner s;
+    s.dmx->failing = true;
+    const auto failed = s.scan();
+    EXPECT_EQ(failed.key, "01A2B3C4");
+    EXPECT_FALSE(failed.properties.contains(HARDWARE_KEY));
+    s.dmx->failing = false;
+    EXPECT_TRUE(s.scan().properties.contains(HARDWARE_KEY));
+    EXPECT_EQ(s.dmx->reads(), 2);
+}
+
+const std::string READBACK_WARNING = "failed to read the default terminal "
+                                     "configuration of some ports of Dev1";
+
+/// @brief it should store the rest of the hardware when the default of a port fails to
+/// read back, and warn about it.
+TEST(ScannerTest, testStoresIncompleteHardware) {
+    HardwareScanner s;
+    s.dmx->has_analog_input = true;
+    s.dmx->readback_failing = true;
+    CaptureSink sink;
+    EXPECT_TRUE(s.scan().properties.contains(HARDWARE_KEY));
+    const auto hw = s.hardware();
+    ASSERT_EQ(hw.analog_inputs.size(), 1);
+    EXPECT_EQ(
+        hw.analog_inputs[0].terminal_configs,
+        std::vector<std::string>({"RSE", "Diff"})
+    );
+    EXPECT_EQ(hw.analog_inputs[0].default_terminal_config, std::nullopt);
+    EXPECT_EQ(sink.warnings(READBACK_WARNING), 1);
+}
+
+/// @brief it should read incomplete hardware again on each scan, and warn only once.
+TEST(ScannerTest, testRetriesIncompleteHardware) {
+    HardwareScanner s;
+    s.dmx->has_analog_input = true;
+    s.dmx->readback_failing = true;
+    CaptureSink sink;
+    for (int i = 0; i < 3; i++)
+        s.scan();
+    EXPECT_EQ(s.dmx->reads(), 3);
+    EXPECT_EQ(sink.warnings(READBACK_WARNING), 1);
+    EXPECT_EQ(sink.count(READBACK_WARNING), 2);
+}
+
+/// @brief it should complete the stored hardware when a later read succeeds, then stop
+/// reading it.
+TEST(ScannerTest, testCompletesHardwareOnLaterRead) {
+    HardwareScanner s;
+    s.dmx->has_analog_input = true;
+    s.dmx->readback_failing = true;
+    s.scan();
+    s.dmx->readback_failing = false;
+    EXPECT_TRUE(s.scan().properties.contains(HARDWARE_KEY));
+    EXPECT_EQ(s.hardware().analog_inputs.at(0).default_terminal_config, "Diff");
+    EXPECT_FALSE(s.scan().properties.contains(HARDWARE_KEY));
+    EXPECT_EQ(s.dmx->reads(), 2);
 }
 
 /// @brief it should start the scanner without the System Configuration library, warn

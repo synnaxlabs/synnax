@@ -11,7 +11,10 @@
 
 package ni
 
-import "github.com/synnaxlabs/synnax/pkg/service/ni/versions"
+import (
+	"github.com/synnaxlabs/synnax/pkg/service/ni/versions"
+	"github.com/synnaxlabs/x/spatial"
+)
 
 // Units enumerates the engineering units for NI analog channel values.
 type Units = versions.Units
@@ -741,3 +744,92 @@ const (
 	AccelChargeSensitivityUnitsPicoCoulombsPerMetersPerSecondSquared AccelChargeSensitivityUnits = versions.AccelChargeSensitivityUnitsPicoCoulombsPerMetersPerSecondSquared
 	AccelChargeSensitivityUnitsPicoCoulombsPerInchesPerSecondSquared AccelChargeSensitivityUnits = versions.AccelChargeSensitivityUnitsPicoCoulombsPerInchesPerSecondSquared
 )
+
+// AnalogInputPort is an analog input port of an NI device.
+type AnalogInputPort struct {
+	// Port is the number in the DAQmx name of the port, such as 3 for ai3.
+	Port int32 `json:"port" msgpack:"port"`
+	// TerminalConfigs are the terminal configurations that the port accepts.
+	TerminalConfigs []TerminalConfig `json:"terminal_configs" msgpack:"terminal_configs"`
+	// DefaultTerminalConfig is the terminal configuration that Cfg_Default gives on the
+	// port. Absent when the port accepts none, or accepts more than one and takes no
+	// voltage or current channel.
+	DefaultTerminalConfig *TerminalConfig `json:"default_terminal_config,omitzero" msgpack:"default_terminal_config,omitempty"`
+	// Types are the channel types that the port accepts, such as ai_voltage.
+	Types []string `json:"types" msgpack:"types"`
+	// Negative is the port that a differential channel on this port uses as its
+	// negative input. Absent when the port has no pair.
+	Negative *int32 `json:"negative,omitzero" msgpack:"negative,omitempty"`
+}
+
+// AnalogOutputPort is an analog output port of an NI device.
+type AnalogOutputPort struct {
+	// Port is the number in the DAQmx name of the port, such as 1 for ao1.
+	Port int32 `json:"port" msgpack:"port"`
+	// TerminalConfigs are the terminal configurations that the port accepts.
+	TerminalConfigs []TerminalConfig `json:"terminal_configs" msgpack:"terminal_configs"`
+	// Types are the channel types that the port accepts, such as ao_voltage.
+	Types []string `json:"types" msgpack:"types"`
+}
+
+// CounterPort is a counter of an NI device.
+type CounterPort struct {
+	// Port is the number in the DAQmx name of the counter, such as 0 for ctr0.
+	Port int32 `json:"port" msgpack:"port"`
+	// Types are the channel types that the counter accepts, such as ci_frequency.
+	Types []string `json:"types" msgpack:"types"`
+}
+
+// DigitalPort is a digital port of an NI device.
+type DigitalPort struct {
+	// Port is the number in the DAQmx name of the port, such as 0 for port0.
+	Port int32 `json:"port" msgpack:"port"`
+	// Lines is the number of lines in the port.
+	Lines int32 `json:"lines" msgpack:"lines"`
+	// Input is true when the port reads digital input.
+	Input bool `json:"input" msgpack:"input"`
+	// Output is true when the port writes digital output.
+	Output bool `json:"output" msgpack:"output"`
+}
+
+// Hardware is what the Driver reads from DAQmx about the ports, rates, and ranges of an
+// NI device. The Driver stores it in the device properties under hardware.
+type Hardware struct {
+	// ProductCategory is the DAQmx product category of the device, such as
+	// m_series_daq.
+	ProductCategory string `json:"product_category" msgpack:"product_category"`
+	// ProductType is the DAQmx product name of the device, such as USB-6008.
+	ProductType string `json:"product_type" msgpack:"product_type"`
+	// AnalogInputs are the analog input ports of the device.
+	AnalogInputs []AnalogInputPort `json:"analog_inputs" msgpack:"analog_inputs"`
+	// AnalogOutputs are the analog output ports of the device.
+	AnalogOutputs []AnalogOutputPort `json:"analog_outputs" msgpack:"analog_outputs"`
+	// CounterInputs are the counters of the device that read input.
+	CounterInputs []CounterPort `json:"counter_inputs" msgpack:"counter_inputs"`
+	// CounterOutputs are the counters of the device that write output.
+	CounterOutputs []CounterPort `json:"counter_outputs" msgpack:"counter_outputs"`
+	// DigitalPorts are the digital ports of the device.
+	DigitalPorts []DigitalPort `json:"digital_ports" msgpack:"digital_ports"`
+	// Terminals are the terminals of the device, such as PFI0, without the device name.
+	Terminals []string `json:"terminals" msgpack:"terminals"`
+	// AiMinRate is the lowest analog input sample rate, in Hz.
+	AiMinRate *float64 `json:"ai_min_rate,omitzero" msgpack:"ai_min_rate,omitempty"`
+	// AiMaxSingleChannelRate is the highest analog input sample rate of one channel, in
+	// Hz.
+	AiMaxSingleChannelRate *float64 `json:"ai_max_single_channel_rate,omitzero" msgpack:"ai_max_single_channel_rate,omitempty"`
+	// AiMaxMultiChannelRate is the highest analog input sample rate of the device, in
+	// Hz. A task with several channels divides it by the channel count.
+	AiMaxMultiChannelRate *float64 `json:"ai_max_multi_channel_rate,omitzero" msgpack:"ai_max_multi_channel_rate,omitempty"`
+	// AoMaxRate is the highest analog output sample rate, in Hz.
+	AoMaxRate *float64 `json:"ao_max_rate,omitzero" msgpack:"ao_max_rate,omitempty"`
+	// AiVoltageRanges are the analog input voltage ranges of the device, ends included.
+	AiVoltageRanges []spatial.Bounds `json:"ai_voltage_ranges" msgpack:"ai_voltage_ranges"`
+	// AiCurrentRanges are the analog input current ranges of the device, ends included.
+	AiCurrentRanges []spatial.Bounds `json:"ai_current_ranges" msgpack:"ai_current_ranges"`
+	// AoVoltageRanges are the analog output voltage ranges of the device, ends
+	// included.
+	AoVoltageRanges []spatial.Bounds `json:"ao_voltage_ranges" msgpack:"ao_voltage_ranges"`
+	// AoCurrentRanges are the analog output current ranges of the device, ends
+	// included.
+	AoCurrentRanges []spatial.Bounds `json:"ao_current_ranges" msgpack:"ao_current_ranges"`
+}

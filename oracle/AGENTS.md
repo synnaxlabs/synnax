@@ -130,7 +130,8 @@ not, whether the schema itself can tell.
   client forgets a rule, but cannot forget a shape.
 - **`X?`**: the field applies only in some cases, and the deciding fact is outside the
   message, such as a channel data type. No schema can settle it, so absence is the
-  honest encoding.
+  honest encoding. On the wire, an absent field is left out of the JSON, never sent as
+  `null`.
 
 Never fake absence with a value. No `none` enum member, no empty string meaning "not
 applicable". A sentinel claims the question was answered when it was not, and it makes

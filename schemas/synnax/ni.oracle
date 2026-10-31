@@ -10,6 +10,7 @@
 import "schemas/synnax/channel"
 import "schemas/synnax/device"
 import "schemas/synnax/task"
+import "schemas/x/spatial"
 import "schemas/x/telem"
 
 @cpp output "client/cpp/ni"
@@ -1426,4 +1427,136 @@ AccelChargeSensitivityUnits enum {
     pico_coulombs_per_inches_per_second_squared = "PicoCoulombsPerInchesPerSecondSquared"
 
     @doc value "are the units of a charge-mode accelerometer's sensitivity rating."
+}
+
+AnalogInputPort struct {
+    port                    int32            {
+        @doc value "is the number in the DAQmx name of the port, such as 3 for ai3."
+    }
+    terminal_configs        TerminalConfig[] = [] {
+        @doc value "are the terminal configurations that the port accepts."
+    }
+    default_terminal_config TerminalConfig?  {
+        @doc value """
+            is the terminal configuration that Cfg_Default gives on the port. Absent
+            when the port accepts none, or accepts more than one and takes no voltage or
+            current channel.
+        """
+    }
+    types                   string[] = [] {
+        @doc value "are the channel types that the port accepts, such as ai_voltage."
+    }
+    negative                int32?           {
+        @doc value """
+            is the port that a differential channel on this port uses as its negative
+            input. Absent when the port has no pair.
+        """
+    }
+
+    @doc value "is an analog input port of an NI device."
+}
+
+AnalogOutputPort struct {
+    port             int32            {
+        @doc value "is the number in the DAQmx name of the port, such as 1 for ao1."
+    }
+    terminal_configs TerminalConfig[] = [] {
+        @doc value "are the terminal configurations that the port accepts."
+    }
+    types            string[] = [] {
+        @doc value "are the channel types that the port accepts, such as ao_voltage."
+    }
+
+    @doc value "is an analog output port of an NI device."
+}
+
+CounterPort struct {
+    port  int32    {
+        @doc value "is the number in the DAQmx name of the counter, such as 0 for ctr0."
+    }
+    types string[] = [] {
+        @doc value """
+            are the channel types that the counter accepts, such as ci_frequency.
+        """
+    }
+
+    @doc value "is a counter of an NI device."
+}
+
+DigitalPort struct {
+    port   int32 {
+        @doc value "is the number in the DAQmx name of the port, such as 0 for port0."
+    }
+    lines  int32 {
+        @doc value "is the number of lines in the port."
+    }
+    input  bool = false {
+        @doc value "is true when the port reads digital input."
+    }
+    output bool = false {
+        @doc value "is true when the port writes digital output."
+    }
+
+    @doc value "is a digital port of an NI device."
+}
+
+Hardware struct {
+    product_category           string = "" {
+        @doc value "is the DAQmx product category of the device, such as m_series_daq."
+    }
+    product_type               string = "" {
+        @doc value "is the DAQmx product name of the device, such as USB-6008."
+    }
+    analog_inputs              AnalogInputPort[] = [] {
+        @doc value "are the analog input ports of the device."
+    }
+    analog_outputs             AnalogOutputPort[] = [] {
+        @doc value "are the analog output ports of the device."
+    }
+    counter_inputs             CounterPort[] = [] {
+        @doc value "are the counters of the device that read input."
+    }
+    counter_outputs            CounterPort[] = [] {
+        @doc value "are the counters of the device that write output."
+    }
+    digital_ports              DigitalPort[] = [] {
+        @doc value "are the digital ports of the device."
+    }
+    terminals                  string[] = [] {
+        @doc value """
+            are the terminals of the device, such as PFI0, without the device name.
+        """
+    }
+    ai_min_rate                float64?           {
+        @doc value "is the lowest analog input sample rate, in Hz."
+    }
+    ai_max_single_channel_rate float64?           {
+        @doc value "is the highest analog input sample rate of one channel, in Hz."
+    }
+    ai_max_multi_channel_rate  float64?           {
+        @doc value """
+            is the highest analog input sample rate of the device, in Hz. A task with
+            several channels divides it by the channel count.
+        """
+    }
+    ao_max_rate                float64?           {
+        @doc value "is the highest analog output sample rate, in Hz."
+    }
+    ai_voltage_ranges          spatial.Bounds[] = [] {
+        @doc value "are the analog input voltage ranges of the device, ends included."
+    }
+    ai_current_ranges          spatial.Bounds[] = [] {
+        @doc value "are the analog input current ranges of the device, ends included."
+    }
+    ao_voltage_ranges          spatial.Bounds[] = [] {
+        @doc value "are the analog output voltage ranges of the device, ends included."
+    }
+    ao_current_ranges          spatial.Bounds[] = [] {
+        @doc value "are the analog output current ranges of the device, ends included."
+    }
+
+    @doc value """
+        is what the Driver reads from DAQmx about the ports, rates, and ranges of an NI
+        device. The Driver stores it in the device properties under hardware.
+    """
 }

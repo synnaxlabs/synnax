@@ -97,7 +97,7 @@ inline x::json::json ReadField::to_json() const {
     j["channel"] = this->channel;
     j["pointer"] = this->pointer;
     j["data_type"] = this->data_type;
-    j["time_format"] = this->time_format;
+    if (this->time_format.has_value()) j["time_format"] = *this->time_format;
     j["enum_values"] = x::json::to_array(this->enum_values);
     return j;
 }
@@ -188,7 +188,7 @@ inline x::json::json ChannelField::to_json() const {
     j["channel"] = this->channel;
     j["name"] = this->name;
     j["data_type"] = this->data_type;
-    j["time_format"] = this->time_format;
+    if (this->time_format.has_value()) j["time_format"] = *this->time_format;
     j["enum_values"] = x::json::to_array(this->enum_values);
     return j;
 }
@@ -318,7 +318,7 @@ inline x::json::json GeneratedWriteField::to_json() const {
     for (auto &[k, v]: BaseWriteField::to_json().items())
         j[k] = v;
     j["generator"] = this->generator;
-    j["time_format"] = this->time_format;
+    if (this->time_format.has_value()) j["time_format"] = *this->time_format;
     j["type"] = this->type;
     return j;
 }
