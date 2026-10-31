@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError, status, task } from "@synnaxlabs/client";
+import { NotFoundError, rack, status, task } from "@synnaxlabs/client";
 import { errors, primitive } from "@synnaxlabs/x";
 
 import { type Device } from "@/platform/device";
@@ -17,6 +17,7 @@ import { type Notifications } from "@/platform/notifications";
 export interface Scanner extends Pick<Device.Integration, "make" | "scanType"> {}
 
 const commandDetailsZ = task.statusDetailsZ().pick({ cmd: true });
+const rackDetailsZ = task.statusDetailsZ().pick({ rack: true });
 
 const retrieveTask = async ({
   client,
@@ -34,7 +35,7 @@ const retrieveTask = async ({
  * Creates the notification rule for task statuses. A status that answers a command is a
  * reply. A scanner, which is an internal task whose type one of the scanners names, is
  * in use when its rack has a configured device of the scanner's make. Every other task
- * is always in use.
+ * is always in use. The open problem of a task's rack covers the task's problems.
  * @param scanners - The scanner of each integration.
  */
 export const createNotificationRule = (scanners: Scanner[]): Notifications.Rule => ({
@@ -55,4 +56,8 @@ export const createNotificationRule = (scanners: Scanner[]): Notifications.Rule 
     return devices.some(({ configured }) => configured);
   },
   warningsDelayed: true,
+  coveredBy: (stat) => {
+    const r = rackDetailsZ.safeParse(status.detailsOf(stat)).data?.rack;
+    return primitive.isZero(r) ? null : rack.statusKey(r);
+  },
 });

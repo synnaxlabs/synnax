@@ -170,13 +170,17 @@ When a status changes, the Console shows a notification in the corner of the win
 
 - The Console shows notifications only while it is connected to the Core.
 - A notification closes 7 seconds after the Console gets the status.
-- The Console shows one notification for each status key. A new change replaces it.
+- A new change of a status replaces its notification, except as the next item says.
+- A warning or error starts a problem. The Console shows each problem once, and later
+  changes of the problem add to the count of its notification. A problem that comes back
+  within 30 seconds after it clears is the same problem.
+- The Console does not show the problems that are open when it starts.
 - Different statuses with the same name, variant, message, and description merge into
   one notification with a count.
 - The Console shows up to four notifications. Click **+N more** to see the rest, and
-  **Clear all** to close them.
-- When you close a notification, the Console does not show that status again until you
-  restart it.
+  **Clear all** to close the notifications that show.
+- When you close a notification, the Console does not show that problem again. It shows
+  the next problem on the status.
 
 Tasks, Drivers, devices, and calculated channels set statuses too. The Console shows
 only their warnings and errors, and only for things that are in use:
@@ -187,7 +191,8 @@ only their warnings and errors, and only for things that are in use:
 - Every other task, each Driver, and each calculated channel is always in use.
 
 A warning from a task, device, or Driver shows only if it does not clear within 5
-seconds.
+seconds. While a Driver has a problem, the problems that start on its tasks and devices
+do not show.
 
 When you send a command to a task, such as start or stop, the Console shows the answer
 unless it is a success, loading, or disabled status.

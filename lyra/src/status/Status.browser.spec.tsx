@@ -21,6 +21,7 @@ const renderNotification = async (): Promise<Element> => {
   const { getByRole } = await renderThemed(
     <Status.Notification
       status={{
+        id: "notification",
         key: "status",
         name: "Task",
         time: TimeStamp.now(),

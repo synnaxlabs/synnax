@@ -19,7 +19,7 @@ import { CSS } from "@/platform/css";
 
 export interface NotificationProps {
   status: Status.NotificationSpec & { details?: unknown };
-  silence: (key: string) => void;
+  silence: (id: string) => void;
 }
 
 export type Matcher = (
@@ -63,7 +63,7 @@ export const Feed = ({ notifications }: FeedProps): ReactElement => {
     <Flex.Box y className={CSS.B("notifications")}>
       <Flex.Box y className={CSS.BE("notifications", "stack")}>
         {visible.map(({ status, Render }) => (
-          <Render key={status.key} status={status} silence={silence} />
+          <Render key={status.id} status={status} silence={silence} />
         ))}
       </Flex.Box>
       {overflow > 0 && (

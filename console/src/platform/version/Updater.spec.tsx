@@ -45,6 +45,7 @@ const versionMock = vi.mocked(getVersion);
 
 const spec = (key: string): Status.NotificationSpec => ({
   key,
+  id: key,
   name: "Version Update",
   variant: "info",
   message: "Update available",

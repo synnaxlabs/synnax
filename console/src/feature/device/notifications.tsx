@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError } from "@synnaxlabs/client";
+import { device, NotFoundError, rack, status } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Status } from "@synnaxlabs/lyra/status";
-import { errors } from "@synnaxlabs/x";
+import { errors, primitive } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { getIcon, getMake, type Make, useConfigureModal } from "@/feature/device/make";
@@ -52,7 +52,12 @@ Notification.match = (status) => getKeyFromStatus(status) != null;
 
 export const NOTIFICATIONS: Notifications.Notification[] = [Notification];
 
-/** The notification rule for device statuses. A device is in use when configured. */
+const rackDetailsZ = device.statusDetailsZ.pick({ rack: true });
+
+/**
+ * The notification rule for device statuses. A device is in use when configured. The
+ * open problem of a device's rack covers the device's problems.
+ */
 export const NOTIFICATION_RULE: Notifications.Rule = {
   kind: () => "state",
   inUse: async ({ client, key }) => {
@@ -64,4 +69,8 @@ export const NOTIFICATION_RULE: Notifications.Rule = {
     }
   },
   warningsDelayed: true,
+  coveredBy: (stat) => {
+    const r = rackDetailsZ.safeParse(status.detailsOf(stat)).data?.rack;
+    return primitive.isZero(r) ? null : rack.statusKey(r);
+  },
 };

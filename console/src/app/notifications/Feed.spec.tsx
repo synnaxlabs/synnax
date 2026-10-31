@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { device, task } from "@synnaxlabs/client";
+import { device, rack, task } from "@synnaxlabs/client";
 import { createTestClient, waitForStreamLive } from "@synnaxlabs/client/testutil";
 import { TimeSpan } from "@synnaxlabs/x";
 import { act, render, screen } from "@testing-library/react";
@@ -18,6 +18,7 @@ import { Notifications } from "@/app/notifications";
 import { EtherCAT } from "@/feature/ethercat";
 import { createTestDevice } from "@/platform/device/testutil";
 import {
+  close,
   settleWrites,
   UncappedFeed,
   writeStatus,
@@ -35,6 +36,8 @@ const renderForward = async (): Promise<void> => {
   await waitForStreamLive(client.connection);
   const { wrapper } = await createConsoleWrapper({ client });
   render(<Forward />, { wrapper });
+  // A problem that starts before the open problems load counts as open at load.
+  await settleWrites(client);
 };
 
 const createScanner = async (deviceConfigured: boolean): Promise<task.Task> => {
@@ -74,11 +77,57 @@ describe("Notifications.useForward", () => {
       shouldAdvanceTime: true,
     });
     const dev = await createTestDevice(client);
+    // The Core opens a "Device status unknown" problem on each new device.
+    await writeStatus(client, device.statusKey(dev.key), "success");
     await renderForward();
     const message = await writeStatus(client, device.statusKey(dev.key), "warning");
     await settleWrites(client);
     expect(screen.queryByText(message)).toBeNull();
     act(() => void vi.advanceTimersByTime(TimeSpan.seconds(5).milliseconds));
     expect(await screen.findByText(message)).toBeTruthy();
+  });
+
+  it("should not notify a task problem inside the problem of its rack", async () => {
+    const r = await client.racks.create({ name: uniqueName("rack") });
+    const createUserTask = async (): Promise<task.Task> =>
+      await r.createTask({
+        name: uniqueName("task"),
+        type: "pagerduty_alert",
+        config: {},
+      });
+    const [onDown, onUp] = await Promise.all([createUserTask(), createUserTask()]);
+    // The Core writes problems of its own on the key of each rack that exists.
+    const [down, up] = [1, 2].map(() => Math.floor(Math.random() * 2 ** 32));
+    await writeStatus(client, rack.statusKey(down), "warning");
+    await renderForward();
+    const writeTaskError = async (tsk: task.Task, rackKey: rack.Key): Promise<string> =>
+      await writeStatus(client, task.statusKey(tsk.key), "error", {
+        task: tsk.key,
+        running: false,
+        rack: rackKey,
+      });
+    const covered = await writeTaskError(onDown, down);
+    const shown = await writeTaskError(onUp, up);
+    await screen.findByText(shown);
+    expect(screen.queryByText(covered)).toBeNull();
+  });
+
+  it("should notify each failed command, even after a close", async () => {
+    const r = await client.racks.create({ name: uniqueName("rack") });
+    const tsk = await r.createTask({
+      name: uniqueName("task"),
+      type: "pagerduty_alert",
+      config: {},
+    });
+    await renderForward();
+    const failStart = async (cmd: string): Promise<string> =>
+      await writeStatus(client, task.statusKey(tsk.key), "error", {
+        task: tsk.key,
+        running: false,
+        cmd,
+      });
+    await close(await failStart("start-1"));
+    // The second reply comes within 30 s, so it has the since of the first.
+    expect(await screen.findByText(await failStart("start-2"))).toBeTruthy();
   });
 });

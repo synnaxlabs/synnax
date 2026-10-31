@@ -31,12 +31,18 @@ export interface Rule {
   /** @returns the kind of a status on one of the feature's keys. */
   kind: (status: status.Status) => Kind;
   /**
-   * @returns whether the thing that a state is about is in use. Runs only when a
+   * @returns whether the thing that a state is about is in use. Runs only when a new
    * problem starts on the key. Leave it out when the thing is always in use.
    */
   inUse?: (params: InUseParams) => Promise<boolean>;
   /** Whether a warning notifies only if its problem is still open after 5 s. */
   warningsDelayed?: boolean;
+  /**
+   * @returns the key of the status whose open problem covers a problem on this key,
+   * such as the rack of a task. A problem that starts inside the covering problem does
+   * not notify until a write of it arrives after the covering problem closes.
+   */
+  coveredBy?: (status: status.Status) => status.Key | null;
 }
 
 /** The rule of each feature that owns status keys, by the ontology type of its keys. */
@@ -60,13 +66,25 @@ const getOwner = (rules: Rules, key: status.Key): Owner | null => {
   return { rule, key: key.slice(separator + 1) };
 };
 
+// Without a since, every problem on a key has one identity.
+const identify = ({ since }: status.Status): string =>
+  since?.valueOf().toString() ?? "";
+
 interface Problem {
+  /** The since of the problem. */
+  identity: string;
+  /** The latest bad status of the problem. */
   status: status.Status;
+  rule?: Rule;
+  /** Whether the latest write on the key is bad. */
+  open: boolean;
+  /** Whether the latest write arrived inside the covering problem. */
+  covered: boolean;
+  decision: "waiting" | "shown" | "covered" | "hidden";
   /** Undefined until the check resolves. */
   inUse?: boolean;
-  /** True until the delay of a rule with delayed warnings ends. */
+  /** True while a warning waits out the delay of its rule. */
   delayed: boolean;
-  shown: boolean;
   timer?: ReturnType<typeof setTimeout>;
 }
 
@@ -77,45 +95,70 @@ interface ForwarderParams {
 }
 
 interface Forwarder {
+  /** Holds each write until {@link load} runs. */
   write: (status: status.Status) => void;
-  /** Closes the problem of a deleted status. */
+  /** Holds each delete until {@link load} runs. */
   remove: (key: status.Key) => void;
+  /** Takes the problems that are open at load as seen, then handles held events. */
+  load: (open: status.Status[]) => void;
   stop: () => void;
 }
 
 const createForwarder = ({ client, rules, add }: ForwarderParams): Forwarder => {
   const problems = new Map<status.Key, Problem>();
+  let held: Array<() => void> | null = [];
+  let stopped = false;
+
+  const isCovered = (rule: Rule | undefined, stat: status.Status): boolean => {
+    const coveringKey = rule?.coveredBy?.(stat);
+    if (coveringKey == null) return false;
+    const covering = problems.get(coveringKey);
+    if (covering?.open !== true) return false;
+    const { since } = stat;
+    const coveringSince = covering.status.since;
+    return since == null || coveringSince == null || since.afterEq(coveringSince);
+  };
+
+  const notify = ({ status: stat, identity }: Problem): void =>
+    add({ ...stat, problem: identity });
 
   const show = (problem: Problem): void => {
-    if (problem.inUse !== true) return;
-    const held = problem.delayed && problem.status.variant === "warning";
-    if (!problem.shown && held) return;
-    problem.shown = true;
-    add(problem.status);
+    if (problem.decision !== "waiting" || !problem.open || problem.inUse !== true)
+      return;
+    if (problem.delayed && problem.status.variant === "warning") return;
+    clearTimeout(problem.timer);
+    problem.decision = problem.covered ? "covered" : "shown";
+    if (problem.decision === "shown") notify(problem);
   };
 
-  const close = (key: status.Key): void => {
-    clearTimeout(problems.get(key)?.timer);
-    problems.delete(key);
+  const wait = (problem: Problem): void => {
+    clearTimeout(problem.timer);
+    problem.delayed = true;
+    problem.timer = setTimeout(() => {
+      problem.delayed = false;
+      show(problem);
+    }, WARNING_DELAY.milliseconds);
   };
 
-  // A newer status replaces the notification on its key, so an older one must not show.
-  const retire = (key: status.Key): void => {
-    if (problems.get(key)?.shown === false) close(key);
-  };
-
-  const open = (stat: status.Status, { rule, key }: Owner): void => {
+  const start = (stat: status.Status, owner: Owner | null, kind: Kind): void => {
+    clearTimeout(problems.get(stat.key)?.timer);
     const problem: Problem = {
+      identity: identify(stat),
       status: stat,
-      delayed: rule.warningsDelayed === true,
-      shown: false,
+      rule: owner?.rule,
+      open: true,
+      covered: isCovered(owner?.rule, stat),
+      decision: "waiting",
+      delayed: false,
     };
     problems.set(stat.key, problem);
-    if (problem.delayed)
-      problem.timer = setTimeout(() => {
-        problem.delayed = false;
-        if (!problem.shown) show(problem);
-      }, WARNING_DELAY.milliseconds);
+    if (owner == null || kind !== "state") {
+      problem.decision = "shown";
+      notify(problem);
+      return;
+    }
+    const { rule, key } = owner;
+    if (rule.warningsDelayed === true) wait(problem);
     if (rule.inUse == null) {
       problem.inUse = true;
       show(problem);
@@ -125,6 +168,7 @@ const createForwarder = ({ client, rules, add }: ForwarderParams): Forwarder => 
       (inUse) => {
         if (problems.get(stat.key) !== problem) return;
         problem.inUse = inUse;
+        if (!inUse) problem.decision = "hidden";
         show(problem);
       },
       // The check only filters noise, so a status whose check fails still shows.
@@ -137,36 +181,91 @@ const createForwarder = ({ client, rules, add }: ForwarderParams): Forwarder => 
     );
   };
 
-  const write = (stat: status.Status): void => {
+  const repeat = (problem: Problem, stat: status.Status): void => {
+    const reopened = !problem.open;
+    problem.status = stat;
+    problem.open = true;
+    problem.covered = isCovered(problem.rule, stat);
+    if (problem.decision === "shown") {
+      notify(problem);
+      return;
+    }
+    if (problem.decision === "hidden") return;
+    const delays = problem.rule?.warningsDelayed === true;
+    if (problem.decision === "covered") {
+      if (problem.covered) return;
+      problem.decision = "waiting";
+      if (delays) wait(problem);
+    } else if (reopened && delays) wait(problem);
+    show(problem);
+  };
+
+  const drop = (key: status.Key): void => {
+    clearTimeout(problems.get(key)?.timer);
+    problems.delete(key);
+  };
+
+  // A problem that waits to notify must not notify after a newer status on its key.
+  const retire = (key: status.Key): void => {
+    if (problems.get(key)?.decision === "waiting") drop(key);
+  };
+
+  const handle = (stat: status.Status): void => {
     const owner = getOwner(rules, stat.key);
     const kind = owner?.rule.kind(stat) ?? "alarm";
     if (kind !== "state") retire(stat.key);
-    if (owner == null || kind === "alarm") {
-      add(stat);
-      return;
-    }
     const bad = PROBLEM_VARIANTS.includes(stat.variant);
-    if (!bad) close(stat.key);
+    const problem = problems.get(stat.key);
+    if (!bad && problem != null) {
+      problem.open = false;
+      if (problem.decision === "waiting") clearTimeout(problem.timer);
+    }
+    // A reply answers one command, so it is not part of a problem.
     if (kind === "reply") {
       if (!ROUTINE_VARIANTS.includes(stat.variant)) add(stat);
       return;
     }
-    if (!bad) return;
-    const problem = problems.get(stat.key);
-    if (problem == null) {
-      open(stat, owner);
+    if (!bad) {
+      if (kind === "alarm") add(stat);
       return;
     }
-    problem.status = stat;
-    show(problem);
+    if (problem?.identity === identify(stat)) repeat(problem, stat);
+    else start(stat, owner, kind);
+  };
+
+  const run = (event: () => void): void => {
+    if (held == null) event();
+    else held.push(event);
+  };
+
+  const write = (stat: status.Status): void => run(() => handle(stat));
+
+  const remove = (key: status.Key): void => run(() => drop(key));
+
+  const load = (open: status.Status[]): void => {
+    if (stopped || held == null) return;
+    open.forEach((stat) =>
+      problems.set(stat.key, {
+        identity: identify(stat),
+        status: stat,
+        open: true,
+        covered: false,
+        decision: "hidden",
+        delayed: false,
+      }),
+    );
+    const events = held;
+    held = null;
+    events.forEach((event) => event());
   };
 
   const stop = (): void => {
+    stopped = true;
     problems.forEach(({ timer }) => clearTimeout(timer));
     problems.clear();
   };
 
-  return { write, remove: close, stop };
+  return { write, remove, load, stop };
 };
 
 /**
@@ -174,21 +273,30 @@ const createForwarder = ({ client, rules, add }: ForwarderParams): Forwarder => 
  * unless it is a success, loading, or disabled status. An alarm notifies at once. A
  * state notifies only when it is a warning or an error and its thing is in use. A
  * delayed warning notifies only if its key is still bad 5 s after the problem starts.
- * Mount it once, in the main window.
+ * A problem, which is a key and a since, notifies once. Later writes of the problem add
+ * to its count, and the problems open at load never notify. Mount it once, in the main
+ * window.
  * @param rules - The rules of the features that own status keys.
  */
 export const useForward = (rules: Rules): void => {
   const client = Synnax.use();
   const add = Status.useAdder();
+  const handleError = Status.useErrorHandler();
   useEffect(() => {
     if (client == null) return;
     const forwarder = createForwarder({ client, rules, add });
     const removeWriteListener = client.statuses.onWrite(forwarder.write);
     const removeDeleteListener = client.statuses.onDelete(forwarder.remove);
+    client.statuses
+      .retrieve({ variants: PROBLEM_VARIANTS })
+      .then(forwarder.load, (exc: unknown) => {
+        handleError(exc, "Failed to retrieve open problems");
+        forwarder.load([]);
+      });
     return () => {
       removeWriteListener();
       removeDeleteListener();
       forwarder.stop();
     };
-  }, [client, rules, add]);
+  }, [client, rules, add, handleError]);
 };
