@@ -62,12 +62,10 @@ class Status(BaseModel, Generic[Details]):
         details: Contains optional component-specific custom details for the status.
         labels: Contains optional labels for categorization and filtering.
         since: Is when the open or most recent problem of the status started. A problem
-            is a period with a warning or error variant. The Core sets it on every write
-            and ignores the value a client sends. Empty if the status never had a
+            is a period with a warning or error variant. Empty if the status never had a
             problem.
-        cleared: Is when the most recent problem of the status cleared. The Core sets it
-            on every write and ignores the value a client sends. Empty while a problem
-            is open, or if the status never had a problem.
+        cleared: Is when the most recent problem of the status cleared. Empty while a
+            problem is open, or if the status never had a problem.
     """
 
     key: Key = Field(default_factory=lambda: str(uuid4()))
