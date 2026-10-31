@@ -886,7 +886,7 @@ func (g *Graph) topologicalSortGroup(
 	graph := make(map[channel.Key][]channel.Key)
 	for _, mod := range modules {
 		var deps []channel.Key
-		for depKey := range mod.Dependencies.Reads {
+		for _, depKey := range slices.Sorted(maps.Keys(mod.Dependencies.Reads)) {
 			if channelsInGroup.Contains(depKey) {
 				deps = append(deps, depKey)
 			}

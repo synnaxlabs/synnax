@@ -255,6 +255,63 @@ var _ = Describe("Graph", func() {
 				}
 			},
 		)
+
+		It(
+			"Should order the dependencies of a nested member by key",
+			func(ctx SpecContext) {
+				base := channel.Channel{
+					Name:     "base_nested_order",
+					DataType: telem.Int64T,
+					Virtual:  true,
+				}
+				Expect(channelWriter.Create(ctx, &base)).To(Succeed())
+				calcs := []channel.Channel{
+					{
+						Name:       "calc_nested_order_a",
+						DataType:   telem.Int64T,
+						Virtual:    true,
+						Expression: "return base_nested_order",
+					},
+					{
+						Name:       "calc_nested_order_b",
+						DataType:   telem.Int64T,
+						Virtual:    true,
+						Expression: "return base_nested_order + 1",
+					},
+					{
+						Name:       "calc_nested_order_c",
+						DataType:   telem.Int64T,
+						Virtual:    true,
+						Expression: "return base_nested_order + 2",
+					},
+				}
+				Expect(channelWriter.CreateMany(ctx, &calcs)).To(Succeed())
+				for _, calc := range calcs {
+					Expect(g.Add(ctx, calc)).To(Succeed())
+				}
+				calcs[0].Expression = "return calc_nested_order_b + calc_nested_order_c"
+				Expect(channelWriter.Create(ctx, &calcs[0])).To(Succeed())
+				Expect(g.Update(ctx, calcs[0])).To(Succeed())
+				order := func() []channel.Key {
+					grouped := g.CalculateGrouped()
+					Expect(grouped).To(HaveLen(1))
+					for _, mods := range grouped {
+						return lo.Map(mods, func(m compiler.Module, _ int) channel.Key {
+							return m.Channel.Key()
+						})
+					}
+					return nil
+				}
+				first := order()
+				Expect(slices.Index(first, calcs[1].Key())).
+					To(BeNumerically("<", slices.Index(first, calcs[2].Key())))
+				Expect(slices.Index(first, calcs[2].Key())).
+					To(BeNumerically("<", slices.Index(first, calcs[0].Key())))
+				for range 20 {
+					Expect(order()).To(Equal(first))
+				}
+			},
+		)
 	})
 
 	Describe("CalculateFlat", func() {
