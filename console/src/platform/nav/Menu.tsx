@@ -123,7 +123,7 @@ const MenuItem = ({
   onToggle,
   onPin,
 }: MenuItemProps): ReactElement | null => {
-  const { key, icon, tooltip, trigger } = item;
+  const { key, icon, tooltip, trigger, badge } = item;
   const itemProps = useItem({
     trigger,
     visible,
@@ -148,6 +148,7 @@ const MenuItem = ({
       aria-label={tooltip}
     >
       {icon}
+      {badge}
     </PMenu.Item>
   );
 };

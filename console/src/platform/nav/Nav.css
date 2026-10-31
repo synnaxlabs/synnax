@@ -33,6 +33,32 @@
                 transform 0.15s,
                 opacity 0.15s;
         }
+
+        .console-main-nav__badge {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            min-width: 2.5rem;
+            height: 2.5rem;
+            padding: 0 0.5rem;
+            border-radius: 1.25rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+            background: var(--pluto-gray-l9);
+            color: var(--pluto-gray-l0);
+
+            &.console--error {
+                background: var(--pluto-error-z);
+                color: var(--pluto-text-on-primary);
+            }
+
+            &.console--warning {
+                background: var(--pluto-warning-z);
+                color: var(--pluto-text-on-warning);
+            }
+        }
     }
 
     &.lyra--location-left {

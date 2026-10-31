@@ -7,12 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type status, type Synnax } from "@synnaxlabs/client";
+import { type rack, type status, type Synnax } from "@synnaxlabs/client";
 import { waitForStreamLive } from "@synnaxlabs/client/testutil";
 import { Status } from "@synnaxlabs/lyra/status";
 import { TimeStamp } from "@synnaxlabs/x";
-import { fireEvent, render, screen, within } from "@testing-library/react";
-import { type ReactElement } from "react";
+import {
+  fireEvent,
+  renderHook,
+  type RenderHookResult,
+  screen,
+  within,
+} from "@testing-library/react";
+import { type PropsWithChildren, type ReactElement, type ReactNode } from "react";
 
 import { Notifications } from "@/platform/notifications";
 import { createConsoleWrapper, uniqueName } from "@/testutil";
@@ -79,6 +85,16 @@ export const settleWrites = async (client: Synnax): Promise<void> => {
   await screen.findByText(message);
 };
 
+/**
+ * @returns the key of a rack that the Core no longer has. The Core writes problems of
+ * its own on the key of each rack that exists, but none on this key.
+ */
+export const createRackKey = async (client: Synnax): Promise<rack.Key> => {
+  const { key } = await client.racks.create({ name: uniqueName("rack") });
+  await client.racks.delete(key);
+  return key;
+};
+
 /** @returns the notification that shows the message. */
 export const findNotification = async (message: string): Promise<HTMLElement> => {
   const notification = (await screen.findByText(message)).closest<HTMLElement>(
@@ -94,26 +110,29 @@ export const close = async (message: string): Promise<void> => {
   fireEvent.click(within(notification).getByRole("button", { name: "Silence" }));
 };
 
-interface ForwardProps {
-  rules: Notifications.Rules;
-}
-
-const Forward = ({ rules }: ForwardProps): ReactElement => {
-  Notifications.useForward(rules);
-  return <UncappedFeed />;
-};
-
 /**
- * Renders {@link UncappedFeed} with {@link Notifications.useForward} for the rules, and
- * waits until the forwarder has loaded the open problems. A problem that starts before
- * the load ends counts as open at load.
+ * Renders the UI above {@link UncappedFeed} inside a {@link Notifications.Provider}
+ * with the rules. Waits until the forwarder has loaded the open problems. A problem
+ * that starts before the load ends counts as open at load.
+ * @returns the result of {@link Notifications.useProblems}.
  */
 export const renderForward = async (
   client: Synnax,
   rules: Notifications.Rules,
-): Promise<void> => {
+  ui?: ReactNode,
+): Promise<RenderHookResult<Notifications.Problem[], unknown>> => {
   await waitForStreamLive(client.connection);
-  const { wrapper } = await createConsoleWrapper({ client });
-  render(<Forward rules={rules} />, { wrapper });
+  const { wrapper: Console } = await createConsoleWrapper({ client });
+  const wrapper = ({ children }: PropsWithChildren): ReactElement => (
+    <Console>
+      <Notifications.Provider rules={rules}>
+        {children}
+        {ui}
+        <UncappedFeed />
+      </Notifications.Provider>
+    </Console>
+  );
+  const rendered = renderHook(Notifications.useProblems, { wrapper });
   await settleWrites(client);
+  return rendered;
 };

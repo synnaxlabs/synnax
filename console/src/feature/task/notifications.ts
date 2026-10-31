@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { NotFoundError, rack, status, task } from "@synnaxlabs/client";
-import { errors, primitive } from "@synnaxlabs/x";
+import { destructor, errors, primitive } from "@synnaxlabs/x";
 
 import { type Device } from "@/platform/device";
 import { type Notifications } from "@/platform/notifications";
@@ -54,6 +54,11 @@ export const createNotificationRule = (scanners: Scanner[]): Notifications.Rule 
       makes: [make],
     });
     return devices.some(({ configured }) => configured);
+  },
+  onUseChange: (client, handler) => {
+    const removeSetListener = client.devices.onSet(() => handler());
+    const removeDeleteListener = client.devices.onDelete(() => handler());
+    return () => destructor.unwind(removeSetListener, removeDeleteListener);
   },
   warningsDelayed: true,
   coveredBy: (stat) => {
