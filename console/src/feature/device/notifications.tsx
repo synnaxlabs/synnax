@@ -68,6 +68,7 @@ export const NOTIFICATION_RULE: Notifications.Rule = {
       throw errors.fromUnknown(e);
     }
   },
+  onUseChange: (client, handler) => client.devices.onSet(() => handler()),
   warningsDelayed: true,
   coveredBy: (stat) => {
     const r = rackDetailsZ.safeParse(status.detailsOf(stat)).data?.rack;

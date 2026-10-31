@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type PropsWithChildren, type ReactElement } from "react";
+
 import { Channel } from "@/feature/channel";
 import { Core } from "@/feature/core";
 import { Device } from "@/feature/device";
@@ -31,4 +33,6 @@ const RULES: Notifications.Rules = {
 export const Feed = () => <Notifications.Feed notifications={NOTIFICATIONS} />;
 
 /** Notifies the status writes that the Core streams by the rules of each feature. */
-export const useForward = (): void => Notifications.useForward(RULES);
+export const Provider = ({ children }: PropsWithChildren): ReactElement => (
+  <Notifications.Provider rules={RULES}>{children}</Notifications.Provider>
+);

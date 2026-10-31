@@ -8,37 +8,23 @@
 // included in the file licenses/APL.txt.
 
 import { device, rack, task } from "@synnaxlabs/client";
-import { createTestClient, waitForStreamLive } from "@synnaxlabs/client/testutil";
+import { createTestClient } from "@synnaxlabs/client/testutil";
 import { TimeSpan } from "@synnaxlabs/x";
-import { act, render, screen } from "@testing-library/react";
-import { type ReactElement } from "react";
+import { act, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { Notifications } from "@/app/notifications";
+import { renderForward } from "@/app/notifications/testutil";
 import { EtherCAT } from "@/feature/ethercat";
 import { createTestDevice } from "@/platform/device/testutil";
 import {
   close,
+  createRackKey,
   settleWrites,
-  UncappedFeed,
   writeStatus,
 } from "@/platform/notifications/testutil";
-import { createConsoleWrapper, uniqueName } from "@/testutil";
+import { uniqueName } from "@/testutil";
 
 const client = createTestClient();
-
-const Forward = (): ReactElement => {
-  Notifications.useForward();
-  return <UncappedFeed />;
-};
-
-const renderForward = async (): Promise<void> => {
-  await waitForStreamLive(client.connection);
-  const { wrapper } = await createConsoleWrapper({ client });
-  render(<Forward />, { wrapper });
-  // A problem that starts before the open problems load counts as open at load.
-  await settleWrites(client);
-};
 
 const createScanner = async (deviceConfigured: boolean): Promise<task.Task> => {
   const r = await client.racks.create({ name: uniqueName("rack") });
@@ -52,7 +38,7 @@ const createScanner = async (deviceConfigured: boolean): Promise<task.Task> => {
   });
 };
 
-describe("Notifications.useForward", () => {
+describe("Notifications.Provider", () => {
   afterEach(() => {
     vi.useRealTimers();
   });
@@ -60,7 +46,7 @@ describe("Notifications.useForward", () => {
   it("should notify a scanner error only with a configured device", async () => {
     const unused = await createScanner(false);
     const used = await createScanner(true);
-    await renderForward();
+    await renderForward(client);
     const unusedMessage = await writeStatus(
       client,
       task.statusKey(unused.key),
@@ -79,7 +65,7 @@ describe("Notifications.useForward", () => {
     const dev = await createTestDevice(client);
     // The Core opens a "Device status unknown" problem on each new device.
     await writeStatus(client, device.statusKey(dev.key), "success");
-    await renderForward();
+    await renderForward(client);
     const message = await writeStatus(client, device.statusKey(dev.key), "warning");
     await settleWrites(client);
     expect(screen.queryByText(message)).toBeNull();
@@ -96,10 +82,12 @@ describe("Notifications.useForward", () => {
         config: {},
       });
     const [onDown, onUp] = await Promise.all([createUserTask(), createUserTask()]);
-    // The Core writes problems of its own on the key of each rack that exists.
-    const [down, up] = [1, 2].map(() => Math.floor(Math.random() * 2 ** 32));
+    const [down, up] = await Promise.all([
+      createRackKey(client),
+      createRackKey(client),
+    ]);
     await writeStatus(client, rack.statusKey(down), "warning");
-    await renderForward();
+    await renderForward(client);
     const writeTaskError = async (tsk: task.Task, rackKey: rack.Key): Promise<string> =>
       await writeStatus(client, task.statusKey(tsk.key), "error", {
         task: tsk.key,
@@ -119,7 +107,7 @@ describe("Notifications.useForward", () => {
       type: "pagerduty_alert",
       config: {},
     });
-    await renderForward();
+    await renderForward(client);
     const failStart = async (cmd: string): Promise<string> =>
       await writeStatus(client, task.statusKey(tsk.key), "error", {
         task: tsk.key,

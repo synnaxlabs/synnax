@@ -27,7 +27,6 @@ import { Session } from "@/session";
 
 const SideEffect = (): null => {
   Device.useListenForChanges();
-  Notifications.useForward();
   Link.useDeep();
   Persist.useStoreStatus();
   Triggers.use();
@@ -50,7 +49,7 @@ export const Primary = (): ReactElement => {
   const os = OS.use();
   const fullWidthTop = os === "macOS" && Session.Runtime.ENGINE === "tauri";
   return (
-    <>
+    <Notifications.Provider>
       <SideEffect />
       <Guard>
         <ProjectSideEffect />
@@ -71,6 +70,6 @@ export const Primary = (): ReactElement => {
           </Flex.Box>
         </div>
       </Guard>
-    </>
+    </Notifications.Provider>
   );
 };

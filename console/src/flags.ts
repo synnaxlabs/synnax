@@ -8,14 +8,17 @@
 // included in the file licenses/APL.txt.
 
 /**
- * Static build-time flags that hide unfinished work in production. Vite replaces
- * `import.meta.env.VITE_*` statically, so dark code tree-shakes out of production, and
- * dev builds turn every flag on. Only the exact string "true" enables a flag. Each
- * entry names its owner, its Linear umbrella issue, and the release that removes it:
+ * Static build-time flags that hide new work from the Console build. A flag is on in
+ * dev and Desktop builds, where a feature ships first. Each flag is a top-level
+ * constant, because the bundler tree-shakes code behind an inlined constant but not
+ * behind an object property. Each flag names its owner, its Linear umbrella issue, and
+ * the release that removes it:
  *
- * `example: IS_DEV || import.meta.env.VITE_FLAG_EXAMPLE === "true", // Owner: Name.
- * Umbrella: SY-1234. Removed in 0.60.`
+ * ```ts
+ * // Owner: Name. Umbrella: SY-1234. Removed in 0.60.
+ * export const EXAMPLE = IS_DEV || DESKTOP;
+ * ```
  */
-export const FLAGS = {} as const satisfies Record<string, boolean>;
 
-export type Flag = keyof typeof FLAGS;
+// Owner: Emiliano Bonilla. Umbrella: SY-1901. Removed in 0.60.
+export const PROBLEMS_VIEW = IS_DEV || DESKTOP;
