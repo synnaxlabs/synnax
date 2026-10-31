@@ -423,11 +423,3 @@ export const DIGITAL_WRITE_SCHEMAS = {
 } as const satisfies task.Schemas;
 
 export type DigitalWriteSchemas = typeof DIGITAL_WRITE_SCHEMAS;
-
-export const SCAN_TYPE = `${PREFIX}_scanner`;
-
-export const SCAN_SCHEMAS = {
-  type: z.literal(SCAN_TYPE),
-  config: ni.scanConfigZ,
-  statusData: z.unknown().optional(),
-} as const satisfies task.Schemas;

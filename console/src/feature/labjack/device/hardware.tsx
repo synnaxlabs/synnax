@@ -9,8 +9,8 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 
+import { SCAN_TYPE } from "@/feature/labjack/device/scan";
 import { INTEGRATION, MAKE, ZERO_PROPERTIES } from "@/feature/labjack/device/types";
-import { SCAN_TYPE } from "@/feature/labjack/task/types";
 import { type Device } from "@/platform/device";
 
 export const HARDWARE: Device.Hardware = {

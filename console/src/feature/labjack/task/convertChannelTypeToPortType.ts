@@ -7,27 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  AI_PORT_TYPE,
-  type AIPortType,
-  AO_PORT_TYPE,
-  type AOPortType,
-  DI_PORT_TYPE,
-  type DIPortType,
-  DO_PORT_TYPE,
-  type DOPortType,
-  type PortType,
-} from "@/feature/labjack/device/types";
+import { Device } from "@/feature/labjack/device";
 import {
   type ReadChannelType,
   type WriteChannelType,
 } from "@/feature/labjack/task/types";
 
 const READ_CHANNEL_TO_PORT_MAP = {
-  analog: AI_PORT_TYPE,
-  digital: DI_PORT_TYPE,
-  thermocouple: AI_PORT_TYPE,
-} as const satisfies Record<ReadChannelType, PortType>;
+  analog: Device.AI_PORT_TYPE,
+  digital: Device.DI_PORT_TYPE,
+  thermocouple: Device.AI_PORT_TYPE,
+} as const satisfies Record<ReadChannelType, Device.PortType>;
 
 export type ConvertReadChannelTypeToPortType = typeof READ_CHANNEL_TO_PORT_MAP;
 
@@ -38,20 +28,22 @@ export const convertReadChannelTypeToPortType = <T extends ReadChannelType>(
 // Thermocouple channels also live on AI ports, so the reverse mapping resolves an AI
 // port to an analog channel.
 const PORT_TO_READ_CHANNEL_MAP = {
-  [AI_PORT_TYPE]: "analog",
-  [DI_PORT_TYPE]: "digital",
-} as const satisfies Record<AIPortType | DIPortType, ReadChannelType>;
+  [Device.AI_PORT_TYPE]: "analog",
+  [Device.DI_PORT_TYPE]: "digital",
+} as const satisfies Record<Device.AIPortType | Device.DIPortType, ReadChannelType>;
 
 export type ConvertPortTypeToReadChannelType = typeof PORT_TO_READ_CHANNEL_MAP;
 
-export const convertPortTypeToReadChannelType = <T extends AIPortType | DIPortType>(
+export const convertPortTypeToReadChannelType = <
+  T extends Device.AIPortType | Device.DIPortType,
+>(
   type: T,
 ): ConvertPortTypeToReadChannelType[T] => PORT_TO_READ_CHANNEL_MAP[type];
 
 const WRITE_CHANNEL_TO_PORT_MAP = {
-  analog: AO_PORT_TYPE,
-  digital: DO_PORT_TYPE,
-} as const satisfies Record<WriteChannelType, PortType>;
+  analog: Device.AO_PORT_TYPE,
+  digital: Device.DO_PORT_TYPE,
+} as const satisfies Record<WriteChannelType, Device.PortType>;
 
 export type ConvertWriteChannelTypeToPortType = typeof WRITE_CHANNEL_TO_PORT_MAP;
 
@@ -60,12 +52,14 @@ export const convertWriteChannelTypeToPortType = <T extends WriteChannelType>(
 ): ConvertWriteChannelTypeToPortType[T] => WRITE_CHANNEL_TO_PORT_MAP[type];
 
 const PORT_TO_WRITE_CHANNEL_MAP = {
-  [AO_PORT_TYPE]: "analog",
-  [DO_PORT_TYPE]: "digital",
-} as const satisfies Record<AOPortType | DOPortType, WriteChannelType>;
+  [Device.AO_PORT_TYPE]: "analog",
+  [Device.DO_PORT_TYPE]: "digital",
+} as const satisfies Record<Device.AOPortType | Device.DOPortType, WriteChannelType>;
 
 export type ConvertPortTypeToWriteChannelType = typeof PORT_TO_WRITE_CHANNEL_MAP;
 
-export const convertPortTypeToWriteChannelType = <T extends AOPortType | DOPortType>(
+export const convertPortTypeToWriteChannelType = <
+  T extends Device.AOPortType | Device.DOPortType,
+>(
   type: T,
 ): ConvertPortTypeToWriteChannelType[T] => PORT_TO_WRITE_CHANNEL_MAP[type];

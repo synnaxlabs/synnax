@@ -10,36 +10,23 @@
 import { type Synnax } from "@synnaxlabs/client";
 import { id } from "@synnaxlabs/x";
 
-import {
-  type Device,
-  MAKE,
-  type Model,
-  type Properties,
-  SCHEMAS,
-  T4_MODEL,
-  ZERO_PROPERTIES,
-} from "@/feature/labjack/device/types";
-import {
-  createReadChannel,
-  createWriteChannel,
-  type ReadChannel,
-  type WriteChannel,
-} from "@/feature/labjack/task/types";
+import { Device } from "@/feature/labjack/device";
+import { Task } from "@/feature/labjack/task";
 
-type AnalogReadChannel = Extract<ReadChannel, { type: "analog" }>;
-type DigitalReadChannel = Extract<ReadChannel, { type: "digital" }>;
-type ThermocoupleReadChannel = Extract<ReadChannel, { type: "thermocouple" }>;
-type AnalogWriteChannel = Extract<WriteChannel, { type: "analog" }>;
-type DigitalWriteChannel = Extract<WriteChannel, { type: "digital" }>;
+type AnalogReadChannel = Extract<Task.ReadChannel, { type: "analog" }>;
+type DigitalReadChannel = Extract<Task.ReadChannel, { type: "digital" }>;
+type ThermocoupleReadChannel = Extract<Task.ReadChannel, { type: "thermocouple" }>;
+type AnalogWriteChannel = Extract<Task.WriteChannel, { type: "analog" }>;
+type DigitalWriteChannel = Extract<Task.WriteChannel, { type: "digital" }>;
 
 /** Builds a Core-safe device identifier (2-12 chars, letter first). */
 const createIdentifier = (): string =>
   `l${id.create().replace(/[^a-zA-Z0-9]/g, "")}`.slice(0, 12);
 
 export interface CreateLabJackDeviceOptions {
-  model?: Model;
+  model?: Device.Model;
   configured?: boolean;
-  properties?: Partial<Properties>;
+  properties?: Partial<Device.Properties>;
 }
 
 /**
@@ -49,11 +36,11 @@ export interface CreateLabJackDeviceOptions {
 export const createLabJackDevice = async (
   client: Synnax,
   {
-    model = T4_MODEL,
+    model = Device.T4_MODEL,
     configured = true,
     properties = {},
   }: CreateLabJackDeviceOptions = {},
-): Promise<Device> => {
+): Promise<Device.Device> => {
   const rack = await client.racks.create({ name: `lj_rack_${id.create()}` });
   return await client.devices.create(
     {
@@ -61,12 +48,16 @@ export const createLabJackDevice = async (
       name: `lj_dev_${id.create()}`,
       rack: rack.key,
       location: "dev1",
-      make: MAKE,
+      make: Device.MAKE,
       model,
       configured,
-      properties: { ...ZERO_PROPERTIES, identifier: createIdentifier(), ...properties },
+      properties: {
+        ...Device.ZERO_PROPERTIES,
+        identifier: createIdentifier(),
+        ...properties,
+      },
     },
-    SCHEMAS,
+    Device.SCHEMAS,
   );
 };
 
@@ -75,7 +66,7 @@ export const createAnalogReadChannel = (
   port: string,
   overrides: Partial<AnalogReadChannel> = {},
 ): AnalogReadChannel => ({
-  ...createReadChannel("analog"),
+  ...Task.createReadChannel("analog"),
   key: id.create(),
   port,
   ...overrides,
@@ -86,7 +77,7 @@ export const createDigitalReadChannel = (
   port: string,
   overrides: Partial<DigitalReadChannel> = {},
 ): DigitalReadChannel => ({
-  ...createReadChannel("digital"),
+  ...Task.createReadChannel("digital"),
   key: id.create(),
   port,
   ...overrides,
@@ -97,7 +88,7 @@ export const createThermocoupleReadChannel = (
   port: string,
   overrides: Partial<ThermocoupleReadChannel> = {},
 ): ThermocoupleReadChannel => ({
-  ...createReadChannel("thermocouple"),
+  ...Task.createReadChannel("thermocouple"),
   key: id.create(),
   port,
   ...overrides,
@@ -108,7 +99,7 @@ export const createAnalogWriteChannel = (
   port: string,
   overrides: Partial<AnalogWriteChannel> = {},
 ): AnalogWriteChannel => ({
-  ...createWriteChannel("analog"),
+  ...Task.createWriteChannel("analog"),
   key: id.create(),
   port,
   ...overrides,
@@ -120,7 +111,7 @@ export const createDigitalWriteChannel = (
   port: string,
   overrides: Partial<DigitalWriteChannel> = {},
 ): DigitalWriteChannel => ({
-  ...createWriteChannel("digital"),
+  ...Task.createWriteChannel("digital"),
   key: id.create(),
   port,
   ...overrides,

@@ -78,11 +78,11 @@ const CONTEXT_MENU_ITEMS: Record<
   Make,
   ComponentType<PlatformDevice.ContextMenuItemsProps>
 > = {
-  [EtherCAT.Device.MAKE]: EtherCAT.Device.ContextMenuItems,
+  [EtherCAT.Device.MAKE]: EtherCAT.ContextMenuItems,
   [HTTP.Device.MAKE]: HTTP.Device.ContextMenuItems,
-  [LabJack.Device.MAKE]: LabJack.Device.ContextMenuItems,
+  [LabJack.Device.MAKE]: LabJack.ContextMenuItems,
   [Modbus.Device.MAKE]: Modbus.Device.ContextMenuItems,
-  [NI.Device.MAKE]: NI.Device.ContextMenuItems,
+  [NI.Device.MAKE]: NI.ContextMenuItems,
   [OPCUA.Device.MAKE]: OPCUA.Device.ContextMenuItems,
 };
 

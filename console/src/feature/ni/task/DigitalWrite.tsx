@@ -14,9 +14,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { errors, type optional, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { useFromConfig } from "@/feature/ni/device/queries";
-import { Select } from "@/feature/ni/device/Select";
-import { MAKE, SCHEMAS } from "@/feature/ni/device/types";
+import { Device } from "@/feature/ni/device";
 import { createNextDOChannel } from "@/feature/ni/task/createChannel";
 import {
   DigitalChannelList,
@@ -37,7 +35,7 @@ import { Task } from "@/platform/task";
 
 const Properties = () => (
   <>
-    <Select />
+    <Device.Select />
     <Flex.Box x>
       <Task.Fields.StateUpdateRate />
     </Flex.Box>
@@ -65,7 +63,7 @@ const NameComponent = ({ path, ...rest }: NameComponentProps) => {
 const name = Component.renderProp(NameComponent);
 
 const Form: FC = () => {
-  const dev = useFromConfig();
+  const dev = Device.useFromConfig();
   const resolve = (ch: DOChannel) => {
     if (dev == null) return null;
     const pair =
@@ -99,7 +97,7 @@ const onConfigure: Task.OnConfigure<typeof digitalWriteConfigZ> = async (
 ) => {
   const dev = await client.devices.retrieve({
     key: config.device,
-    schemas: SCHEMAS,
+    schemas: Device.SCHEMAS,
   });
   PlatformDevice.checkConfigured(dev);
   let modified = false;
@@ -195,7 +193,7 @@ const onConfigure: Task.OnConfigure<typeof digitalWriteConfigZ> = async (
       });
     }
   } finally {
-    if (modified) await client.devices.create(dev, SCHEMAS);
+    if (modified) await client.devices.create(dev, Device.SCHEMAS);
   }
   config.channels = config.channels.map((c) => {
     const key = getDigitalChannelDeviceKey(c);
@@ -217,7 +215,7 @@ export const DigitalWrite = Task.wrapForm({
 
 export const useCreateDigitalWrite = Task.createUseCreate({
   getInitialValues,
-  deviceMake: MAKE,
+  deviceMake: Device.MAKE,
 });
 
 export const DigitalWriteSelectable = Selector.createSelectable({

@@ -11,12 +11,10 @@ import { channel, ethercat, type task } from "@synnaxlabs/client";
 import { id } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type SlaveDevice } from "@/feature/ethercat/device/types";
+import { type Device } from "@/feature/ethercat/device";
 import { Task } from "@/platform/task";
 
 export const PREFIX = "ethercat";
-
-export const SCAN_TYPE = `${PREFIX}_scan`;
 
 export type ReadChannel = ethercat.ReadChannel;
 
@@ -150,7 +148,7 @@ export const getEntryLabel = ({ name, pdoName }: ethercat.PDOEntry): string =>
  */
 export const getUnresolvedMessage = (
   pdo: string,
-  { name, properties }: Pick<SlaveDevice, "name" | "properties">,
+  { name, properties }: Pick<Device.SlaveDevice, "name" | "properties">,
   pdoType: PDOType,
 ): string => {
   const direction = DIRECTIONS[pdoType];

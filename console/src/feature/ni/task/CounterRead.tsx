@@ -15,8 +15,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { errors, primitive, unique } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { useByKeys } from "@/feature/ni/device/queries";
-import { MAKE, SCHEMAS } from "@/feature/ni/device/types";
+import { Device } from "@/feature/ni/device";
 import { CIChannelForm } from "@/feature/ni/task/CIChannelForm";
 import { createNextCIChannel } from "@/feature/ni/task/createChannel";
 import {
@@ -91,7 +90,7 @@ const detailsTitle = Component.renderProp(DetailsTitle);
 
 const Form: FC = () => {
   const [tare, allowTare, handleTare] = Task.useTare<CIChannel>();
-  const devices = useByKeys(Task.useChannelDeviceKeys());
+  const devices = Device.useByKeys(Task.useChannelDeviceKeys());
   const resolve = (ch: CIChannel) => {
     const dev = devices?.find(({ key }) => key === ch.device);
     if (dev == null) return null;
@@ -134,7 +133,7 @@ const onConfigure: Task.OnConfigure<typeof counterReadConfigZ> = async (
   const devices = unique.unique(config.channels.map((c) => c.device));
   const allDevices = await client.devices.retrieve({
     keys: devices,
-    schemas: SCHEMAS,
+    schemas: Device.SCHEMAS,
   });
   const racks = new Set(allDevices.map((d) => d.rack));
   if (racks.size > 1)
@@ -198,7 +197,7 @@ const onConfigure: Task.OnConfigure<typeof counterReadConfigZ> = async (
         c.channel = dev.properties.counterInput.channels[c.port.toString()];
       });
     } finally {
-      if (devModified) await client.devices.create(dev, SCHEMAS);
+      if (devModified) await client.devices.create(dev, Device.SCHEMAS);
     }
   }
 
@@ -218,7 +217,7 @@ export const CounterRead = Task.wrapForm({
 
 export const useCreateCounterRead = Task.createUseCreate({
   getInitialValues,
-  deviceMake: MAKE,
+  deviceMake: Device.MAKE,
 });
 
 export const CounterReadSelectable = Selector.createSelectable({

@@ -91,7 +91,7 @@ describe("Device.useConnectModal", () => {
       const rack = await createRunningRack(client, "labjack");
       const scanner = await rack.createTask({
         name: uniqueName("labjack_scan"),
-        type: LabJack.Task.SCAN_TYPE,
+        type: LabJack.Device.SCAN_TYPE,
         config: { disabled: true },
       });
       await open({ integration: "labjack", rack: rack.key });
@@ -107,7 +107,7 @@ describe("Device.useConnectModal", () => {
       const rack = await createRunningRack(client, "labjack");
       const scanner = await rack.createTask({
         name: uniqueName("labjack_scan"),
-        type: LabJack.Task.SCAN_TYPE,
+        type: LabJack.Device.SCAN_TYPE,
         config: {},
       });
       await client.tasks.create({

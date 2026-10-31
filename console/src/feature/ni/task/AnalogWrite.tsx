@@ -15,9 +15,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { errors, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { useFromConfig } from "@/feature/ni/device/queries";
-import { Select } from "@/feature/ni/device/Select";
-import { MAKE, SCHEMAS } from "@/feature/ni/device/types";
+import { Device } from "@/feature/ni/device";
 import { AOChannelForm } from "@/feature/ni/task/AOChannelForm";
 import { createNextAOChannel } from "@/feature/ni/task/createChannel";
 import {
@@ -37,7 +35,7 @@ import { Task } from "@/platform/task";
 
 const Properties = () => (
   <>
-    <Select />
+    <Device.Select />
     <Flex.Box x>
       <Task.Fields.StateUpdateRate />
     </Flex.Box>
@@ -87,7 +85,7 @@ const detailsTitle = Component.renderProp(DetailsTitle);
 const channelListItem = Component.renderProp(ChannelListItem);
 
 const Form: FC = () => {
-  const dev = useFromConfig();
+  const dev = Device.useFromConfig();
   const resolve = (ch: AOChannel) => {
     if (dev == null) return null;
     const pair =
@@ -123,7 +121,7 @@ const onConfigure: Task.OnConfigure<typeof analogWriteConfigZ> = async (
 ) => {
   const dev = await client.devices.retrieve({
     key: config.device,
-    schemas: SCHEMAS,
+    schemas: Device.SCHEMAS,
   });
   PlatformDevice.checkConfigured(dev);
   let modified = false;
@@ -216,7 +214,7 @@ const onConfigure: Task.OnConfigure<typeof analogWriteConfigZ> = async (
       });
     }
   } finally {
-    if (modified) await client.devices.create(dev, SCHEMAS);
+    if (modified) await client.devices.create(dev, Device.SCHEMAS);
   }
   config.channels = config.channels.map((c) => {
     const pair = dev.properties.analogOutput.channels[c.port.toString()];
@@ -237,7 +235,7 @@ export const AnalogWrite = Task.wrapForm({
 
 export const useCreateAnalogWrite = Task.createUseCreate({
   getInitialValues,
-  deviceMake: MAKE,
+  deviceMake: Device.MAKE,
 });
 
 export const AnalogWriteSelectable = Selector.createSelectable({

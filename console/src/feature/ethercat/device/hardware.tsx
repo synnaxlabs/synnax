@@ -9,12 +9,12 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 
+import { SCAN_TYPE } from "@/feature/ethercat/device/scan";
 import {
   INTEGRATION,
   MAKE,
   ZERO_SLAVE_PROPERTIES,
 } from "@/feature/ethercat/device/types";
-import { SCAN_TYPE } from "@/feature/ethercat/task/types";
 import { type Device } from "@/platform/device";
 
 export const HARDWARE: Device.Hardware = {

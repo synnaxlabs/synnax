@@ -18,18 +18,7 @@ import { List } from "@synnaxlabs/lyra/list";
 import { deep, errors, id, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { use } from "@/feature/labjack/device/queries";
-import { Select } from "@/feature/labjack/device/Select";
-import { SelectPort } from "@/feature/labjack/device/SelectPort";
-import {
-  AO_PORT_TYPE,
-  type Device,
-  DO_PORT_TYPE,
-  MAKE,
-  type Model,
-  PORTS,
-  SCHEMAS,
-} from "@/feature/labjack/device/types";
+import { Device } from "@/feature/labjack/device";
 import {
   convertPortTypeToWriteChannelType,
   convertWriteChannelTypeToPortType,
@@ -53,7 +42,7 @@ import { Task } from "@/platform/task";
 
 const Properties = () => (
   <>
-    <Select />
+    <Device.Select />
     <Flex.Box x>
       <Task.Fields.StateUpdateRate />
     </Flex.Box>
@@ -61,7 +50,7 @@ const Properties = () => (
 );
 
 interface ChannelListItemProps extends Task.ChannelListItemProps {
-  deviceModel: Model;
+  deviceModel: Device.Model;
 }
 
 const ChannelListItem = ({ deviceModel, ...rest }: ChannelListItemProps) => {
@@ -82,7 +71,7 @@ const ChannelListItem = ({ deviceModel, ...rest }: ChannelListItemProps) => {
           }}
         >
           {({ value, onChange, preview }) => (
-            <SelectPort
+            <Device.SelectPort
               value={value}
               onChange={onChange}
               preview={preview}
@@ -100,14 +89,14 @@ const ChannelListItem = ({ deviceModel, ...rest }: ChannelListItemProps) => {
                 onChange={(value) => {
                   if (type === value) return;
                   const portType = convertWriteChannelTypeToPortType(value);
-                  const port = PORTS[deviceModel][portType][0].key;
+                  const port = Device.PORTS[deviceModel][portType][0].key;
                   set(path, { ...item, type: value, port });
                 }}
                 empty
               >
                 {selectWriteChannelType}
               </PForm.Field>
-            </SelectPort>
+            </Device.SelectPort>
           )}
         </PForm.Field>
       </Flex.Box>
@@ -132,12 +121,14 @@ const createFirstChannel = (): WriteChannel => ({
   key: id.create(),
 });
 
-const getOpenChannel = (channels: WriteChannel[], deviceModel: Model) => {
+const getOpenChannel = (channels: WriteChannel[], deviceModel: Device.Model) => {
   if (channels.length === 0) return createFirstChannel();
   const last = channels[channels.length - 1];
   const preferredPortType = convertWriteChannelTypeToPortType(last.type);
   const backupPortType =
-    preferredPortType === DO_PORT_TYPE ? AO_PORT_TYPE : DO_PORT_TYPE;
+    preferredPortType === Device.DO_PORT_TYPE
+      ? Device.AO_PORT_TYPE
+      : Device.DO_PORT_TYPE;
   const port = getOpenPort(channels, deviceModel, [preferredPortType, backupPortType]);
   if (port == null) return null;
   return {
@@ -150,7 +141,7 @@ const getOpenChannel = (channels: WriteChannel[], deviceModel: Model) => {
 };
 
 interface ChannelListProps {
-  device: Device;
+  device: Device.Device;
 }
 
 const ChannelList = ({ device }: ChannelListProps) => {
@@ -176,7 +167,7 @@ const ChannelList = ({ device }: ChannelListProps) => {
 };
 
 const Form: FC = PlatformDevice.wrapTaskForm({
-  use,
+  use: Device.use,
   useConfigure,
   Content: ChannelList,
 });
@@ -197,7 +188,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
 ) => {
   const dev = await client.devices.retrieve({
     key: config.device,
-    schemas: SCHEMAS,
+    schemas: Device.SCHEMAS,
   });
   PlatformDevice.checkConfigured(dev);
   let modified = false;
@@ -322,7 +313,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
       });
     }
   } finally {
-    if (modified) await client.devices.create(dev, SCHEMAS);
+    if (modified) await client.devices.create(dev, Device.SCHEMAS);
   }
   config.channels = config.channels.map((c) => {
     const pair =
@@ -344,7 +335,7 @@ export const Write = Task.wrapForm({
 
 export const useCreateWrite = Task.createUseCreate({
   getInitialValues,
-  deviceMake: MAKE,
+  deviceMake: Device.MAKE,
 });
 
 export const WriteSelectable = Selector.createSelectable({

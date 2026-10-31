@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device } from "@synnaxlabs/client";
+import { type device, type ethercat } from "@synnaxlabs/client";
 import { Form } from "@synnaxlabs/lyra/form";
 import { type ReactElement } from "react";
 
@@ -18,7 +18,6 @@ import {
   SLAVE_MODEL,
   type SlaveProperties,
 } from "@/feature/ethercat/device/types";
-import { type Channel } from "@/feature/ethercat/task/types";
 import { Device } from "@/platform/device";
 
 export interface SelectSlaveProps {
@@ -35,7 +34,10 @@ export const SelectSlave = ({
   path,
   channelsPath = "config.channels",
 }: SelectSlaveProps): ReactElement => {
-  const channels = Form.useFieldValue<Channel[]>(channelsPath) ?? [];
+  const channels =
+    Form.useFieldValue<(ethercat.ReadChannel | ethercat.WriteChannel)[]>(
+      channelsPath,
+    ) ?? [];
   const network = useCommonNetwork(channels);
   const configure = Device.useConfigureModal();
   const find = Device.useFindModal();

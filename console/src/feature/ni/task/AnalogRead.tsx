@@ -15,8 +15,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { errors, primitive, strings, unique } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { useByKeys } from "@/feature/ni/device/queries";
-import { MAKE, SCHEMAS } from "@/feature/ni/device/types";
+import { Device } from "@/feature/ni/device";
 import { AIChannelForm } from "@/feature/ni/task/AIChannelForm";
 import { createNextAIChannel } from "@/feature/ni/task/createChannel";
 import {
@@ -101,7 +100,7 @@ const detailsTitle = Component.renderProp(DetailsTitle);
 
 const Form: FC = () => {
   const [tare, allowTare, handleTare] = Task.useTare<AIChannel>();
-  const devices = useByKeys(Task.useChannelDeviceKeys());
+  const devices = Device.useByKeys(Task.useChannelDeviceKeys());
   const resolve = (ch: AIChannel) => {
     const dev = devices?.find(({ key }) => key === ch.device);
     if (dev == null) return null;
@@ -147,7 +146,7 @@ const onConfigure: Task.OnConfigure<typeof analogReadConfigZ> = async (
   let rackKey: rack.Key | undefined;
   const allDevices = await client.devices.retrieve({
     keys: devices,
-    schemas: SCHEMAS,
+    schemas: Device.SCHEMAS,
   });
   const racks = new Set(allDevices.map((d) => d.rack));
   if (racks.size > 1) {
@@ -212,7 +211,7 @@ const onConfigure: Task.OnConfigure<typeof analogReadConfigZ> = async (
         });
       }
     } finally {
-      if (modified) await client.devices.create(dev, SCHEMAS);
+      if (modified) await client.devices.create(dev, Device.SCHEMAS);
     }
     config.channels.forEach((c) => {
       if (c.device !== dev.key) return;
@@ -235,7 +234,7 @@ export const AnalogRead = Task.wrapForm({
 
 export const useCreateAnalogRead = Task.createUseCreate({
   getInitialValues,
-  deviceMake: MAKE,
+  deviceMake: Device.MAKE,
 });
 
 export const AnalogReadSelectable = Selector.createSelectable({

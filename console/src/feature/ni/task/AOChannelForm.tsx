@@ -13,7 +13,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Select } from "@synnaxlabs/lyra/select";
 import { type FC } from "react";
 
-import { PortField } from "@/feature/ni/device/PortField";
+import { Device } from "@/feature/ni/device";
 import { CustomScaleSection } from "@/feature/ni/task/CustomScaleForm";
 import { MinMaxValueFields } from "@/feature/ni/task/MinMaxValueFields";
 import { SelectAOChannelTypeField } from "@/feature/ni/task/SelectAOChannelTypeField";
@@ -95,7 +95,7 @@ export const AOChannelForm = ({ type, path }: AOChannelFormProps) => {
   return (
     <Form.Sections>
       <Form.Section title="Source">
-        <PortField path={path} />
+        <Device.PortField path={path} />
       </Form.Section>
       <Form.Section title="Signal">
         <SelectAOChannelTypeField path={path} />

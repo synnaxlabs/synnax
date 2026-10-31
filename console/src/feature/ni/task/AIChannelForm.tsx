@@ -13,8 +13,7 @@ import { Select as PSelect } from "@synnaxlabs/lyra/select";
 import { record } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { PortField } from "@/feature/ni/device/PortField";
-import { Select } from "@/feature/ni/device/Select";
+import { Device } from "@/feature/ni/device";
 import { CoefficientsField } from "@/feature/ni/task/CoefficientsField";
 import { CustomScaleSection } from "@/feature/ni/task/CustomScaleForm";
 import { MinMaxValueFields } from "@/feature/ni/task/MinMaxValueFields";
@@ -1114,8 +1113,8 @@ export const AIChannelForm = ({ type, prefix }: AIChannelFormProps) => {
   return (
     <Form.Sections>
       <Form.Section title="Source">
-        <Select path={`${prefix}.device`} />
-        {type !== "ai_temp_builtin" && <PortField path={prefix} />}
+        <Device.Select path={`${prefix}.device`} />
+        {type !== "ai_temp_builtin" && <Device.PortField path={prefix} />}
       </Form.Section>
       <Form.Section title="Signal">
         <SelectAIChannelTypeField path={prefix} inputProps={{ allowNone: false }} />

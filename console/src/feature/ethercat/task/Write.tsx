@@ -14,7 +14,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { useSlavesByKeys } from "@/feature/ethercat/device/queries";
+import { Device } from "@/feature/ethercat/device";
 import {
   WriteChannelDetails,
   WriteDetailsTitle,
@@ -81,7 +81,7 @@ const detailsTitle = Component.renderProp(WriteDetailsTitle);
 const listItem = Component.renderProp(ChannelListItem);
 
 const Form: FC = () => {
-  const slaves = useSlavesByKeys(Task.useChannelDeviceKeys());
+  const slaves = Device.useSlavesByKeys(Task.useChannelDeviceKeys());
   const resolve = (ch: WriteChannel) => {
     const slave = slaves?.find(({ key }) => key === ch.device);
     if (slave == null || !hasEntry(ch)) return null;
