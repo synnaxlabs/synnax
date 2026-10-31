@@ -143,6 +143,7 @@ markers = [
     "opcua: mark test as an opcua test",
     "pagerduty: mark test as a pagerduty test",
     "project: mark test as a project test",
+    "panel: mark test as a panel test",
     "rack: mark test as a rack test",
     "ranger: mark test as a ranger test",
     "role: mark test as a role test",
