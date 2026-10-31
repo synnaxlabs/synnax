@@ -7,16 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type status, type Synnax as Client } from "@synnaxlabs/client";
+import { type Synnax as Client } from "@synnaxlabs/client";
 import { waitForStreamLive } from "@synnaxlabs/client/testutil";
-import { TimeStamp } from "@synnaxlabs/x";
 import { render } from "@testing-library/react";
 import { type ReactElement, type ReactNode } from "react";
 
 import { Notifications } from "@/app/notifications";
 import { Notifications as PlatformNotifications } from "@/platform/notifications";
 import { settleWrites, UncappedFeed } from "@/platform/notifications/testutil";
-import { createConsoleWrapper, uniqueName } from "@/testutil";
+import { createConsoleWrapper } from "@/testutil";
 
 const Forward = (): ReactElement => {
   Notifications.useForward();
@@ -39,22 +38,4 @@ export const renderForward = async (client: Client, ui?: ReactNode): Promise<voi
     { wrapper },
   );
   await settleWrites(client);
-};
-
-/** @returns the message of a new status on the key. */
-export const writeStatus = async (
-  client: Client,
-  key: status.Key,
-  variant: status.Variant,
-  details?: unknown,
-): Promise<string> => {
-  const { message } = await client.statuses.set({
-    key,
-    name: "",
-    variant,
-    message: uniqueName("message"),
-    time: TimeStamp.now(),
-    details,
-  });
-  return message;
 };

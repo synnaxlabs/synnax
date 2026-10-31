@@ -55,10 +55,16 @@ const createAlarm = (): Partial<status.New> & Pick<status.New, "variant"> => ({
   variant: "info",
 });
 
+const fakeTimers = () =>
+  vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"], shouldAdvanceTime: true });
+
+const advance = (span: TimeSpan): void =>
+  act(() => void vi.advanceTimersByTime(span.milliseconds));
+
 const REPLY: Notifications.Rule = { kind: () => "reply" };
 const usedOnly = (used: status.Key): Notifications.Rule => ({
   kind: () => "state",
-  inUse: async ({ status: { key } }) => key === used,
+  inUse: async ({ key }) => task.statusKey(key) === used,
 });
 const keysOf = (problems: Notifications.Problem[]): status.Key[] =>
   problems.map(({ status: { key } }) => key);
@@ -105,7 +111,7 @@ describe("Notifications.useForward", () => {
 
   describe("reply", () => {
     it("should notify a reply at once, without checking use", async () => {
-      const inUse = vi.fn(async (_: Notifications.InUseArgs) => false);
+      const inUse = vi.fn(async (_: Notifications.InUseParams) => false);
       await renderForward(client, { task: { ...REPLY, inUse, warningsDelayed: true } });
       const [reply] = await write({ variant: "warning" });
       expect(await screen.findByText(reply.message)).toBeTruthy();
@@ -128,7 +134,7 @@ describe("Notifications.useForward", () => {
     it("should notify a problem only when its thing is in use", async () => {
       const used = createTaskKey();
       const inUse = vi.fn(
-        async ({ key }: Notifications.InUseArgs) => task.statusKey(key) === used,
+        async ({ key }: Notifications.InUseParams) => task.statusKey(key) === used,
       );
       await renderForward(client, { task: { ...STATE, inUse } });
       const [unused, inUseError] = await write(
@@ -148,7 +154,7 @@ describe("Notifications.useForward", () => {
 
     it("should check use only when a new problem starts on its key", async () => {
       const key = createTaskKey();
-      const inUse = vi.fn(async (_: Notifications.InUseArgs) => true);
+      const inUse = vi.fn(async (_: Notifications.InUseParams) => true);
       await renderForward(client, { task: { ...STATE, inUse } });
       // The Core keeps the since of a problem that comes back within 30 s.
       await write(
@@ -172,7 +178,7 @@ describe("Notifications.useForward", () => {
     it("should drop the pending check of a deleted status", async () => {
       const key = createTaskKey();
       let resolve: ((inUse: boolean) => void) | undefined;
-      const inUse = vi.fn(async ({ key: k }: Notifications.InUseArgs) => {
+      const inUse = vi.fn(async ({ key: k }: Notifications.InUseParams) => {
         if (task.statusKey(k) !== key) return false;
         return await new Promise<boolean>((r) => (resolve = r));
       });
@@ -188,7 +194,7 @@ describe("Notifications.useForward", () => {
     it("should not report a failed check of a deleted status", async () => {
       const key = createTaskKey();
       let reject: ((exc: Error) => void) | undefined;
-      const inUse = vi.fn(async ({ key: k }: Notifications.InUseArgs) => {
+      const inUse = vi.fn(async ({ key: k }: Notifications.InUseParams) => {
         if (task.statusKey(k) !== key) return false;
         return await new Promise<boolean>((_, r) => (reject = r));
       });
@@ -204,7 +210,7 @@ describe("Notifications.useForward", () => {
 
     it("should report a check that fails", async () => {
       const key = createTaskKey();
-      const inUse = vi.fn(async ({ key: k }: Notifications.InUseArgs) => {
+      const inUse = vi.fn(async ({ key: k }: Notifications.InUseParams) => {
         if (task.statusKey(k) === key) throw new Error("The Core is unreachable.");
         return false;
       });
@@ -316,8 +322,8 @@ describe("Notifications.useForward", () => {
     it("should drop a problem whose thing leaves use", async () => {
       const key = createTaskKey();
       const used = new Set([key]);
-      const { rule, change } = createControlled(async ({ status: { key: k } }) =>
-        used.has(k),
+      const { rule, change } = createControlled(async ({ key: k }) =>
+        used.has(task.statusKey(k)),
       );
       // Rules for every type keep the problems of other specs out of the list.
       const { result } = await renderForward(client, {
@@ -422,22 +428,21 @@ describe("Notifications.useForward", () => {
     });
 
     it("should notify a problem that starts before the covering problem", async () => {
-      vi.useFakeTimers({
-        toFake: ["setTimeout", "clearTimeout"],
-        shouldAdvanceTime: true,
-      });
+      fakeTimers();
       const covering = rack.statusKey(await createRackKey(client));
+      const key = createTaskKey();
       await renderForward(client, {
         rack: STATE,
         task: { ...DELAYED, coveredBy: () => covering },
       });
-      const [taskProblem] = await write(
-        { variant: "warning" },
+      const [, , again] = await write(
+        { key, variant: "warning" },
         { key: covering, variant: "error" },
+        { key, variant: "warning" },
       );
       await settleWrites(client);
-      act(() => void vi.advanceTimersByTime(TimeSpan.seconds(5).milliseconds));
-      expect(screen.getByText(taskProblem.message)).toBeTruthy();
+      advance(TimeSpan.seconds(5));
+      expect(screen.getByText(again.message)).toBeTruthy();
     });
 
     it("should notify a problem after the covering problem closes", async () => {
@@ -455,10 +460,7 @@ describe("Notifications.useForward", () => {
     });
 
     it("should not notify a covered warning after the covering problem closes", async () => {
-      vi.useFakeTimers({
-        toFake: ["setTimeout", "clearTimeout"],
-        shouldAdvanceTime: true,
-      });
+      fakeTimers();
       const covering = rack.statusKey(await createRackKey(client));
       await renderForward(client, {
         rack: STATE,
@@ -470,7 +472,7 @@ describe("Notifications.useForward", () => {
         { key: covering, variant: "success" },
       );
       await settleWrites(client);
-      act(() => void vi.advanceTimersByTime(TimeSpan.seconds(5).milliseconds));
+      advance(TimeSpan.seconds(5));
       expect(screen.queryByText(taskProblem.message)).toBeNull();
     });
 
@@ -490,22 +492,37 @@ describe("Notifications.useForward", () => {
       expect(await screen.findByText(stillBad.message)).toBeTruthy();
       expect(screen.queryByText(covered.message)).toBeNull();
     });
+
+    it("should wait out the delay of a warning that leaves its cover", async () => {
+      fakeTimers();
+      const covering = rack.statusKey(await createRackKey(client));
+      const key = createTaskKey();
+      await renderForward(client, {
+        rack: STATE,
+        task: { ...DELAYED, coveredBy: () => covering },
+      });
+      await write({ key: covering, variant: "error" }, { key, variant: "warning" });
+      await settleWrites(client);
+      advance(TimeSpan.seconds(5));
+      const [, uncovered] = await write(
+        { key: covering, variant: "success" },
+        { key, variant: "warning" },
+      );
+      await settleWrites(client);
+      expect(screen.queryByText(uncovered.message)).toBeNull();
+      advance(TimeSpan.seconds(5));
+      expect(screen.getByText(uncovered.message)).toBeTruthy();
+    });
   });
 
   describe("delayed warnings", () => {
-    const fakeTimers = () =>
-      vi.useFakeTimers({
-        toFake: ["setTimeout", "clearTimeout"],
-        shouldAdvanceTime: true,
-      });
-
     it("should notify a warning only when its problem is open after 5 s", async () => {
       fakeTimers();
       await renderForward(client, { task: DELAYED });
       const [warning] = await write({ variant: "warning" });
       await settleWrites(client);
       expect(screen.queryByText(warning.message)).toBeNull();
-      act(() => void vi.advanceTimersByTime(TimeSpan.seconds(5).milliseconds));
+      advance(TimeSpan.seconds(5));
       expect(screen.getByText(warning.message)).toBeTruthy();
     });
 
@@ -518,8 +535,23 @@ describe("Notifications.useForward", () => {
         { key, variant: "success" },
       );
       await settleWrites(client);
-      act(() => void vi.advanceTimersByTime(TimeSpan.seconds(5).milliseconds));
+      advance(TimeSpan.seconds(5));
       expect(screen.queryByText(warning.message)).toBeNull();
+    });
+
+    it("should wait out the delay again when a closed warning comes back", async () => {
+      fakeTimers();
+      await renderForward(client, { task: DELAYED });
+      const key = createTaskKey();
+      const [, , back] = await write(
+        { key, variant: "warning" },
+        { key, variant: "success" },
+        { key, variant: "warning" },
+      );
+      await settleWrites(client);
+      expect(screen.queryByText(back.message)).toBeNull();
+      advance(TimeSpan.seconds(5));
+      expect(screen.getByText(back.message)).toBeTruthy();
     });
 
     it("should notify an error at once", async () => {
@@ -548,7 +580,7 @@ describe("Notifications.useForward", () => {
         details: { cmd: "start" },
       });
       await screen.findByText(reply);
-      act(() => void vi.advanceTimersByTime(TimeSpan.seconds(5).milliseconds));
+      advance(TimeSpan.seconds(5));
       expect(screen.queryByText(warning.message)).toBeNull();
       expect(screen.getByText(reply)).toBeTruthy();
     });
@@ -560,7 +592,7 @@ describe("Notifications.useForward", () => {
       const [warning] = await write({ key, variant: "warning" });
       await settleWrites(client);
       await client.statuses.delete(key);
-      act(() => void vi.advanceTimersByTime(TimeSpan.seconds(5).milliseconds));
+      advance(TimeSpan.seconds(5));
       expect(screen.queryByText(warning.message)).toBeNull();
     });
   });
@@ -642,7 +674,7 @@ describe("Notifications.useForward", () => {
     it("should not notify a problem whose check ends after a newer reply", async () => {
       const key = createTaskKey();
       let resolve: ((inUse: boolean) => void) | undefined;
-      const inUse = vi.fn(async ({ key: k }: Notifications.InUseArgs) => {
+      const inUse = vi.fn(async ({ key: k }: Notifications.InUseParams) => {
         if (task.statusKey(k) !== key) return false;
         return await new Promise<boolean>((r) => (resolve = r));
       });

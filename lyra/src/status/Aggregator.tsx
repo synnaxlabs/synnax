@@ -21,7 +21,7 @@ import {
   type ErrorHandler,
   type Log,
 } from "@/status/errorHandler";
-import { create, type Status, type Variant } from "@/status/status";
+import { create, type Status } from "@/status/status";
 
 interface Received {
   id: string;
@@ -33,16 +33,12 @@ interface Received {
   count: number;
 }
 
-const PROBLEM_VARIANTS: Variant[] = ["warning", "error"];
-
-const isProblem = ({ variant }: Status): boolean => PROBLEM_VARIANTS.includes(variant);
-
 // A key holds one notification for its problem and one for its other statuses.
 const sameSlot = (a: Status, b: Status): boolean =>
   a.key === b.key && (a.problem == null) === (b.problem == null);
 
 const sameProblem = (a: Status, b: Status): boolean =>
-  a.problem != null && a.problem === b.problem && isProblem(a) && isProblem(b);
+  a.problem != null && a.problem === b.problem;
 
 const [Context, useContext] = context.create<Received[]>({
   defaultValue: [],
@@ -97,11 +93,11 @@ const trim = (received: Received[], size: number): Received[] => {
 };
 
 /**
- * Collects statuses from its subtree and hands them to {@link useNotifications} and
- * the status list. Mount one near the root of the app. Each key holds one notification
- * for its problem and one for its other statuses, and a new status replaces the one in
- * its place. A warning or error of the same problem joins its notification instead:
- * the count goes up, and the notification does not show again.
+ * Collects statuses from its subtree and hands them to {@link useNotifications} and the
+ * status list. Mount one near the root of the app. Each key holds one notification for
+ * its problem and one for its other statuses, and a new status replaces the one in its
+ * place. A warning or error of the same problem joins its notification instead: the
+ * count goes up, and the notification does not show again.
  */
 export const Aggregator = ({
   children,

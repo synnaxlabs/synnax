@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { rack, status, task } from "@synnaxlabs/client";
+import { ontology, rack, status, task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { render, screen, waitFor, within } from "@testing-library/react";
@@ -29,15 +29,20 @@ const rackDetailsZ = z.object({ rack: z.number() });
  * problems of every other spec.
  */
 const createRules = (mine: Set<status.Key>): Notifications.Rules => {
-  const rule: Notifications.Rule = {
+  const createRule = (type: ontology.ResourceType): Notifications.Rule => ({
     kind: () => "state",
-    inUse: async ({ status: { key } }) => mine.has(key),
+    inUse: async ({ key }) => mine.has(ontology.idToString({ type, key })),
     coveredBy: (stat) => {
       const r = rackDetailsZ.safeParse(status.detailsOf(stat)).data?.rack;
       return r == null ? null : rack.statusKey(r);
     },
+  });
+  return {
+    channel: createRule("channel"),
+    device: createRule("device"),
+    rack: createRule("rack"),
+    task: createRule("task"),
   };
-  return { channel: rule, device: rule, rack: rule, task: rule };
 };
 
 interface Problems {

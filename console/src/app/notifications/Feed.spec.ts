@@ -13,10 +13,15 @@ import { TimeSpan } from "@synnaxlabs/x";
 import { act, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { renderForward, writeStatus } from "@/app/notifications/testutil";
+import { renderForward } from "@/app/notifications/testutil";
 import { EtherCAT } from "@/feature/ethercat";
 import { createTestDevice } from "@/platform/device/testutil";
-import { close, createRackKey, settleWrites } from "@/platform/notifications/testutil";
+import {
+  close,
+  createRackKey,
+  settleWrites,
+  writeStatus,
+} from "@/platform/notifications/testutil";
 import { uniqueName } from "@/testutil";
 
 const client = createTestClient();

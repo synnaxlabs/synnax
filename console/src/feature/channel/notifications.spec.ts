@@ -9,18 +9,21 @@
 
 import { channel, DataType, type status } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { TimeStamp } from "@synnaxlabs/x";
 import { screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Channel } from "@/feature/channel";
-import { renderForward, settleWrites } from "@/platform/notifications/testutil";
+import {
+  renderForward,
+  settleWrites,
+  writeStatus,
+} from "@/platform/notifications/testutil";
 import { uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
 /** @returns the message of the status. */
-const writeStatus = async (variant: status.Variant): Promise<string> => {
+const writeCalculatedStatus = async (variant: status.Variant): Promise<string> => {
   const source = await client.channels.create({
     name: uniqueName("source"),
     dataType: DataType.FLOAT32,
@@ -32,27 +35,20 @@ const writeStatus = async (variant: status.Variant): Promise<string> => {
     virtual: true,
     expression: `return ${source.name} * 2`,
   });
-  const { message } = await client.statuses.set({
-    key: channel.statusKey(calculated.key),
-    name: calculated.name,
-    variant,
-    message: uniqueName("message"),
-    time: TimeStamp.now(),
-  });
-  return message;
+  return await writeStatus(client, channel.statusKey(calculated.key), variant);
 };
 
 describe("Channel.NOTIFICATION_RULE", () => {
   it("should notify a calculated channel warning at once", async () => {
     await renderForward(client, { channel: Channel.NOTIFICATION_RULE });
-    const message = await writeStatus("warning");
+    const message = await writeCalculatedStatus("warning");
     await settleWrites(client);
     expect(screen.getByText(message)).toBeTruthy();
   });
 
   it("should not notify a channel status that is not a problem", async () => {
     await renderForward(client, { channel: Channel.NOTIFICATION_RULE });
-    const message = await writeStatus("info");
+    const message = await writeCalculatedStatus("info");
     await settleWrites(client);
     expect(screen.queryByText(message)).toBeNull();
   });

@@ -21,12 +21,11 @@ import { type Problem, useSetProblems } from "@/platform/notifications/Provider"
  */
 export type Kind = "reply" | "alarm" | "state";
 
-/** Arguments for {@link Rule.inUse}. */
-export interface InUseArgs {
+/** Parameters for {@link Rule.inUse}. */
+export interface InUseParams {
   client: Client;
   /** The key of the thing, which is the part of the status key after its type. */
   key: string;
-  status: status.Status;
 }
 
 /** How the statuses on the keys that one feature owns notify. */
@@ -38,7 +37,7 @@ export interface Rule {
    * starts on the key and on each change from {@link onUseChange}. Leave it out when
    * the thing is always in use.
    */
-  inUse?: (args: InUseArgs) => Promise<boolean>;
+  inUse?: (params: InUseParams) => Promise<boolean>;
   /**
    * Calls the handler on each change that can change whether a thing is in use, such
    * as a device that becomes configured. A problem that starts while its thing is not
@@ -78,11 +77,11 @@ const getOwner = (rules: Rules, key: status.Key): Owner | null => {
 };
 
 // Without a since, every problem on a key has one identity.
-const identify = ({ key, since }: status.Status): string =>
-  JSON.stringify([key, since?.valueOf().toString() ?? null]);
+const identify = ({ since }: status.Status): string =>
+  since?.valueOf().toString() ?? "";
 
 interface Entry {
-  /** The key and since of the problem. */
+  /** The since of the problem. */
   identity: string;
   /** The latest bad status of the problem. */
   status: status.Status;
@@ -106,7 +105,7 @@ interface Entry {
   checks: number;
 }
 
-interface ForwarderArgs {
+interface ForwarderParams {
   client: Client;
   rules: Rules;
   add: Status.Adder;
@@ -135,7 +134,7 @@ const createForwarder = ({
   add,
   handleError,
   setProblems,
-}: ForwarderArgs): Forwarder => {
+}: ForwarderParams): Forwarder => {
   const problems = new Map<status.Key, Entry>();
   let held: Array<() => void> | null = [];
   let stopped = false;
@@ -193,7 +192,7 @@ const createForwarder = ({
     }
     const { status: stat } = problem;
     const checks = ++problem.checks;
-    void rule.inUse({ client, key, status: stat }).then(
+    void rule.inUse({ client, key }).then(
       (inUse) => {
         if (problems.get(stat.key) !== problem) return;
         const wasListed = listed(problem);
@@ -290,7 +289,7 @@ const createForwarder = ({
       problem.open = false;
       if (problem.decision === "waiting") clearTimeout(problem.timer);
     }
-    // A reply answers one command, so it is no part of a problem.
+    // A reply answers one command, so it is not part of a problem.
     if (kind === "reply") {
       if (!ROUTINE_VARIANTS.includes(stat.variant)) add(stat);
       return;
@@ -312,7 +311,6 @@ const createForwarder = ({
   };
 
   const run = (event: () => void): void => {
-    if (stopped) return;
     if (held == null) event();
     else held.push(event);
   };

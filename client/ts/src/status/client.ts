@@ -273,8 +273,8 @@ export class Client extends query.Retriever<
 
   /**
    * Subscribes to each status write that the Core streams to this client, from any
-   * writer. Unlike {@link onSet}, it skips a status that reaches the cache another way,
-   * such as through a retrieve.
+   * writer, and to each {@link setLocal} status. Unlike {@link onSet}, it skips a
+   * status that reaches the cache another way, such as through a retrieve.
    */
   onWrite(handler: (status: Status) => void): destructor.Destructor {
     this.writeHandlers.add(handler);

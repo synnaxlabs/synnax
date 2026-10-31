@@ -12,10 +12,10 @@ import { createTestClient } from "@synnaxlabs/client/testutil";
 import { screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { renderForward, writeStatus } from "@/app/notifications/testutil";
+import { renderForward } from "@/app/notifications/testutil";
 import { Status } from "@/feature/status";
 import { createTestDevice } from "@/platform/device/testutil";
-import { createRackKey } from "@/platform/notifications/testutil";
+import { createRackKey, writeStatus } from "@/platform/notifications/testutil";
 import { uniqueName } from "@/testutil";
 
 const client = createTestClient();

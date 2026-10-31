@@ -108,8 +108,7 @@ func expectStatus(ctx context.Context, key channel.Key) calculation.Status {
 }
 
 // eventuallyExpectNoStatus asserts that the calculated channel identified by key
-// settles with no status. The graph observes channel changes asynchronously, so it can
-// publish a status for an intermediate state before it catches up.
+// settles with no status.
 func eventuallyExpectNoStatus(ctx context.Context, key channel.Key) {
 	GinkgoHelper()
 	Eventually(func() bool {
@@ -228,6 +227,32 @@ var _ = Describe("Graph", func() {
 				Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
 				openGraph(ctx)
 				eventuallyExpectNoStatus(ctx, calc.Key())
+			},
+		)
+
+		It(
+			"Should clear a stored problem of a valid calculated channel at open",
+			func(ctx SpecContext) {
+				base := channel.Channel{
+					Name:     "hy_stored_problem_base",
+					DataType: telem.Int64T,
+					Virtual:  true,
+				}
+				Expect(channelWriter.Create(ctx, &base)).To(Succeed())
+				calc := channel.Channel{
+					Name: "hy_stored_problem_calc", DataType: telem.Int64T, Virtual: true,
+					Expression: "return hy_stored_problem_base * 2",
+				}
+				Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+				Expect(statusSvc.NewWriter(nil).Set(ctx, &calculation.Status{
+					Key:     calculation.StatusKey(calc.Key()),
+					Name:    calc.Name,
+					Variant: status.VariantError,
+					Message: "Failed to compile calculation",
+					Time:    telem.Now(),
+				})).To(Succeed())
+				openGraph(ctx)
+				eventuallyExpectCleared(ctx, calc.Key())
 			},
 		)
 

@@ -22,7 +22,11 @@ import { OPCUA } from "@/feature/opcua";
 import { createTestDevice } from "@/platform/device/testutil";
 import { Modals } from "@/platform/modals";
 import { Notifications } from "@/platform/notifications";
-import { renderForward, settleWrites } from "@/platform/notifications/testutil";
+import {
+  checkInUse,
+  renderForward,
+  settleWrites,
+} from "@/platform/notifications/testutil";
 import { createConsoleWrapper, installPortalRoot, uniqueName } from "@/testutil";
 
 const client = createTestClient();
@@ -102,28 +106,20 @@ describe("device/notifications", () => {
   });
 
   describe("NOTIFICATION_RULE", () => {
-    const checkInUse = async (key: device.Key): Promise<boolean> => {
-      const { inUse } = Device.NOTIFICATION_RULE;
-      if (inUse == null) throw new Error("the device rule must check use");
-      return await inUse({
-        client,
-        key,
-        status: status.create({ variant: "warning", message: "Device disconnected" }),
-      });
-    };
-
     it("should hold a configured device in use", async () => {
       const dev = await createTestDevice(client, { configured: true });
-      expect(await checkInUse(dev.key)).toBe(true);
+      expect(await checkInUse(client, Device.NOTIFICATION_RULE, dev.key)).toBe(true);
     });
 
     it("should not hold a device that is not configured in use", async () => {
       const dev = await createTestDevice(client, { configured: false });
-      expect(await checkInUse(dev.key)).toBe(false);
+      expect(await checkInUse(client, Device.NOTIFICATION_RULE, dev.key)).toBe(false);
     });
 
     it("should not hold a device that no longer exists in use", async () => {
-      expect(await checkInUse(uniqueName("device"))).toBe(false);
+      expect(
+        await checkInUse(client, Device.NOTIFICATION_RULE, uniqueName("device")),
+      ).toBe(false);
     });
 
     describe("onUseChange", () => {

@@ -286,15 +286,9 @@ func (g *Graph) clearRuntimeStatus(ctx context.Context, key channel.Key) error {
 // given key, so the status keeps the time its problem cleared. A missing or successful
 // status stays as it is.
 func (g *Graph) clearStatus(ctx context.Context, tx gorp.Tx, key channel.Key) error {
-	var stored calculation.Status
-	if err := g.status.NewRetrieve[struct{}]().
-		Where(status.MatchKeys[struct{}](calculation.StatusKey(key))).
-		Entry(&stored).
-		Exec(ctx, tx); err != nil {
-		return errors.Skip(err, query.ErrNotFound)
-	}
-	if stored.Variant == status.VariantSuccess {
-		return nil
+	stored, found, err := g.retrieveStatus(ctx, tx, key)
+	if err != nil || !found || stored.Variant == status.VariantSuccess {
+		return err
 	}
 	return g.status.NewWriter(tx).Set(ctx, &calculation.Status{
 		Key:     stored.Key,
