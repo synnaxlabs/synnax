@@ -13,7 +13,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/oracle/analyzer"
 	"github.com/synnaxlabs/oracle/plugin/cpp/types"
 	"github.com/synnaxlabs/oracle/resolution"
 	. "github.com/synnaxlabs/oracle/testutil"
@@ -22,7 +21,7 @@ import (
 var _ = Describe("FieldName", func() {
 	DescribeTable("Should return the C++ name of a field",
 		func(ctx SpecContext, field, expected string) {
-			table, diag := analyzer.AnalyzeSource(ctx, `
+			table, diag := Analyze(ctx, `
 				@cpp output "client/cpp/thing"
 
 				Thing struct {
