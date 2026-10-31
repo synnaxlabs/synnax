@@ -32,13 +32,14 @@ type Method string
 const (
 	MethodPassword Method = "password"
 	MethodAPIKey   Method = "api_key"
+	MethodOIDC     Method = "oidc"
 )
 
 // IsValid reports whether m is one of the defined Method
 // values.
 func (m Method) IsValid() bool {
 	switch m {
-	case MethodPassword, MethodAPIKey:
+	case MethodPassword, MethodAPIKey, MethodOIDC:
 		return true
 	default:
 		return false
@@ -76,6 +77,30 @@ func (a APIKeyCredentials) Validate() error {
 	return v.Error()
 }
 
+// OIDCCredentials is an OpenID Connect authorization code presented at login. The Core
+// exchanges it with the provider.
+type OIDCCredentials struct {
+	// Provider is the name of the provider in the Core's settings.
+	Provider string `json:"provider" msgpack:"provider"`
+	// Code is the authorization code the provider returned.
+	Code string `json:"code" msgpack:"code"`
+	// Verifier is the PKCE code verifier that matches the login request.
+	Verifier string `json:"verifier" msgpack:"verifier"`
+	// RedirectURI is the redirect URI the login request used.
+	RedirectURI string `json:"redirect_uri" msgpack:"redirect_uri"`
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (o OIDCCredentials) Validate() error {
+	v := validate.New("OIDCCredentials")
+	v.NotEmptyString("provider", o.Provider)
+	v.NotEmptyString("code", o.Code)
+	v.NotEmptyString("verifier", o.Verifier)
+	v.NotEmptyString("redirect_uri", o.RedirectURI)
+	return v.Error()
+}
+
 type ProofVariant interface {
 	isProofVariant()
 }
@@ -110,6 +135,21 @@ func (a APIKeyProof) Validate() error {
 	return v.Error()
 }
 
+// OIDCProof proves an OpenID Connect provider account.
+type OIDCProof struct {
+	OIDCCredentials
+}
+
+func (OIDCProof) isProofVariant() {}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (o OIDCProof) Validate() error {
+	v := validate.New("OIDCProof")
+	v.Exec(o.OIDCCredentials.Validate)
+	return v.Error()
+}
+
 // Proof is what a subject presents to log in. The method selects the authenticator that
 // checks it.
 type Proof struct {
@@ -131,6 +171,11 @@ func (u Proof) MarshalJSONTo(enc *jsontext.Encoder) error {
 			Type Method `json:"method"`
 			APIKeyProof
 		}{Type: MethodAPIKey, APIKeyProof: v})
+	case OIDCProof:
+		return json.MarshalEncode(enc, struct {
+			Type Method `json:"method"`
+			OIDCProof
+		}{Type: MethodOIDC, OIDCProof: v})
 	default:
 		return errors.Newf("Proof: unknown variant %T", v)
 	}
@@ -166,6 +211,12 @@ func (u *Proof) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 			return err
 		}
 		u.Variant = v
+	case MethodOIDC:
+		var v OIDCProof
+		if err := json.Unmarshal(data, &v, opts); err != nil {
+			return err
+		}
+		u.Variant = v
 	default:
 		return errors.Newf("Proof: unknown method %q", disc.Type)
 	}
@@ -179,6 +230,8 @@ func (u Proof) Validate() error {
 	case PasswordProof:
 		return variant.Validate()
 	case APIKeyProof:
+		return variant.Validate()
+	case OIDCProof:
 		return variant.Validate()
 	}
 	return nil

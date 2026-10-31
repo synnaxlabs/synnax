@@ -20,17 +20,21 @@ import (
 
 // Flag names used for starting a Synnax Core.
 const (
-	FlagPeers                        = "peers"
-	FlagData                         = "data"
-	FlagMem                          = "mem"
-	FlagInsecure                     = "insecure"
-	FlagFIPS                         = "fips"
-	FlagUsername                     = "username"
-	FlagPassword                     = "password"
-	FlagNoDriver                     = "no-driver"
-	FlagSlowConsumerTimeout          = "slow-consumer-timeout"
-	FlagSessionIdleTimeout           = "session-idle-timeout"
-	FlagAuthMethods                  = "auth-methods"
+	FlagPeers               = "peers"
+	FlagData                = "data"
+	FlagMem                 = "mem"
+	FlagInsecure            = "insecure"
+	FlagFIPS                = "fips"
+	FlagUsername            = "username"
+	FlagPassword            = "password"
+	FlagNoDriver            = "no-driver"
+	FlagSlowConsumerTimeout = "slow-consumer-timeout"
+	FlagSessionIdleTimeout  = "session-idle-timeout"
+	FlagAuthMethods         = "auth-methods"
+	// FlagOIDCProviders is read from the config file only. It holds a list of
+	// providers, each with a name, issuer, client-id, optional client-secret, and
+	// optional user-creation-disabled.
+	FlagOIDCProviders                = "oidc-providers"
 	FlagEnableIntegrations           = "enable-integrations"
 	FlagDisableIntegrations          = "disable-integrations"
 	FlagTaskOpTimeout                = "task-op-timeout"
@@ -99,8 +103,12 @@ func AddFlags(cmd *cobra.Command) {
 	)
 	cmd.Flags().StringSlice(
 		FlagAuthMethods,
-		[]string{string(auth.MethodPassword), string(auth.MethodAPIKey)},
-		"Login methods the Core accepts (password, api_key)",
+		[]string{
+			string(auth.MethodPassword),
+			string(auth.MethodAPIKey),
+			string(auth.MethodOIDC),
+		},
+		"Login methods the Core accepts (password, api_key, oidc)",
 	)
 	cmd.Flags().Duration(
 		FlagSlowConsumerTimeout,
