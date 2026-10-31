@@ -88,7 +88,7 @@ const MODE_NAMES: Record<opcua.ReadMode, string> = {
   on_change: "On change",
 };
 
-const renderMode = Component.renderProp((p: PSelect.ButtonsProps<opcua.ReadMode>) => (
+const ModeButtons = (p: PSelect.ButtonsProps<opcua.ReadMode>) => (
   <PSelect.Buttons {...p}>
     {record.entries(MODE_NAMES).map(([mode, name]) => (
       <PSelect.Item key={mode} itemKey={mode}>
@@ -96,7 +96,9 @@ const renderMode = Component.renderProp((p: PSelect.ButtonsProps<opcua.ReadMode>
       </PSelect.Item>
     ))}
   </PSelect.Buttons>
-));
+);
+
+const renderMode = Component.renderProp(ModeButtons);
 
 const Properties = (): ReactElement => {
   const arrayMode = PForm.useFieldValue<boolean>("config.arrayMode");

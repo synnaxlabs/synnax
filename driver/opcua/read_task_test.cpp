@@ -690,7 +690,7 @@ TEST_F(TestReadTask, testDateTimeIndexKeepsStampOfFailedBlock) {
     const auto failed = src->read(breaker, fr);
     breaker.stop();
     stopper.join();
-    ASSERT_TRUE(failed.error);
+    ASSERT_OCCURRED_AS(failed.error, errors::UNREACHABLE);
     this->server->start();
     ASSERT_TRUE(this->server->wait_until_ready());
     this->change_date_time(time);
