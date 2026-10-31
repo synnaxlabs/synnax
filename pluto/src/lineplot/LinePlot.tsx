@@ -13,7 +13,6 @@ import { Triggers } from "@synnaxlabs/lyra/triggers";
 import {
   box,
   type color,
-  type direction,
   type location,
   primitive,
   resolveWindow,
@@ -23,7 +22,7 @@ import {
 } from "@synnaxlabs/x";
 import { type ReactElement, type RefObject, useEffect, useRef } from "react";
 
-import { canDropHaulItem, filterHaulItems } from "@/channel/types";
+import { Channel } from "@/channel";
 import { CSS } from "@/css";
 import { XAxis as BaseXAxis, YAxis as BaseYAxis } from "@/lineplot/Axis";
 import { Frame, type FrameProps } from "@/lineplot/Frame";
@@ -58,6 +57,7 @@ import { useKey } from "@/lineplot/Suspended";
 import { Title as BaseTitle } from "@/lineplot/Title";
 import { Tooltip } from "@/lineplot/tooltip";
 import { Viewport as BaseViewport } from "@/lineplot/Viewport";
+import { Ranger } from "@/ranger";
 import { telem } from "@/telem/aether";
 import { type Viewport } from "@/viewport";
 
@@ -83,21 +83,28 @@ const useUndoRedoTriggers = ({ key, enabled }: UseUndoRedoTriggersProps) => {
   Triggers.useUndoRedo({ undo, redo, enabled });
 };
 
-const useAxisDrop = <K extends lineplot.AxisKey>(
-  axisKey: K,
-  direction: direction.Direction,
-  onDrop?: (key: K, keys: channel.Key[]) => void,
-): Haul.UseDropReturn =>
-  Haul.useDrop({
-    type: `channel_lineplot_${direction}_axis`,
-    canDrop: canDropHaulItem,
-    onDrop: ({ items }) => {
-      const dropped = filterHaulItems(items);
-      const keys = dropped.map(({ key }) => key);
-      onDrop?.(axisKey, keys);
-      return dropped;
-    },
-  });
+/** @returns a function that applies actions as one undo step on an editable plot. */
+const useEdit = (
+  key: lineplot.Key,
+  editable: boolean,
+): ((actions: lineplot.Action[]) => void) => {
+  const { dispatch } = useDispatch();
+  return (actions: lineplot.Action[]): void => {
+    if (editable && actions.length > 0) dispatch({ key, actions });
+  };
+};
+
+const addChannels = (
+  axisKey: lineplot.YAxisKey,
+  items: Channel.HaulItem[],
+): lineplot.Action[] =>
+  items.map(({ key }) => lineplot.addChannel({ axisKey, channel: key }));
+
+const addRanges = (items: Ranger.HaulItem[]): lineplot.Action[] =>
+  items.map(({ key }) => lineplot.addRange({ range: { variant: "key", key } }));
+
+const canDropChannelOrRange: Haul.CanDrop = (state) =>
+  Channel.canDropHaulItem(state) || Ranger.canDropHaulItem(state);
 
 interface LineProps {
   pKey: lineplot.Key;
@@ -314,24 +321,23 @@ const YAxis = ({
   onSelectRule,
 }: YAxisProps): ReactElement => {
   const { dispatch } = useDispatch();
-  const { axis, lineKeys, channels } = useYAxis({ key, axisKey });
-  const handleDrop = (axisKey: lineplot.YAxisKey, dropped: channel.Key[]): void => {
-    if (!editable) return;
-    const existing = new Set(channels);
-    const additions = dropped.filter((channel) => !existing.has(channel));
-    if (additions.length > 0)
-      dispatch({
-        key,
-        actions: additions.map((channel) => lineplot.addChannel({ axisKey, channel })),
-      });
-  };
+  const { axis, lineKeys } = useYAxis({ key, axisKey });
+  const edit = useEdit(key, editable);
+  const dropProps = Haul.useDrop({
+    type: "channel_lineplot_y_axis",
+    canDrop: Channel.canDropHaulItem,
+    onDrop: ({ items }) => {
+      const channels = Channel.filterHaulItems(items);
+      edit(addChannels(axisKey, channels));
+      return channels;
+    },
+  });
   const handleLabelChange = (label: string) =>
     editable &&
     dispatch({
       key,
       actions: [lineplot.setAxisLabel({ key: axisKey, label })],
     });
-  const dropProps = useAxisDrop(axisKey, "y", handleDrop);
   const dragging = Haul.useDraggingState();
   const { key: _axisKey, ...axisConfig } = axis;
   return (
@@ -341,7 +347,7 @@ const YAxis = ({
       location={AXIS_LOCATIONS[axisKey]}
       axisKey={axisKey}
       showGrid={axisKey === "y1"}
-      className={CSS.cls(CSS.dropRegion(canDropHaulItem(dragging)))}
+      className={CSS.cls(CSS.dropRegion(Channel.canDropHaulItem(dragging)))}
       onLabelChange={handleLabelChange}
     >
       {lineKeys.map((lineKey) => (
@@ -373,14 +379,21 @@ const XAxis = ({
   rangeProviderProps,
 }: XAxisProps): ReactElement => {
   const { dispatch } = useDispatch();
-  const handleDrop = (axisKey: lineplot.XAxisKey, [channel]: channel.Key[]): void => {
-    if (editable && channel != null)
-      dispatch({
-        key,
-        actions: [lineplot.setXChannel({ axisKey, channel })],
-      });
-  };
-  const dropProps = useAxisDrop(axisKey, "x", handleDrop);
+  const edit = useEdit(key, editable);
+  const dropProps = Haul.useDrop({
+    type: "lineplot_x_axis",
+    canDrop: canDropChannelOrRange,
+    onDrop: ({ items }) => {
+      const channels = Channel.filterHaulItems(items);
+      const ranges = Ranger.filterHaulItems(items);
+      // An X axis has one channel, so only the first dropped channel applies.
+      const setChannel = channels
+        .slice(0, 1)
+        .map(({ key }) => lineplot.setXChannel({ axisKey, channel: key }));
+      edit([...setChannel, ...addRanges(ranges)]);
+      return [...channels, ...ranges];
+    },
+  });
   const dragging = Haul.useDraggingState();
   const { key: _, ...axisConfig } = useXAxis({ key, axisKey });
   const yAxes = useYAxisKeys({ key });
@@ -395,7 +408,7 @@ const XAxis = ({
       {...dropProps}
       location={AXIS_LOCATIONS[axisKey]}
       axisKey={axisKey}
-      className={CSS.cls(CSS.dropRegion(canDropHaulItem(dragging)))}
+      className={CSS.cls(CSS.dropRegion(canDropChannelOrRange(dragging)))}
       showGrid={axisKey === "x1"}
       onLabelChange={handleLabelChange}
     >
@@ -414,6 +427,25 @@ const XAxis = ({
       <Range.Provider {...rangeProviderProps} />
     </BaseXAxis>
   );
+};
+
+const FIRST_Y_AXIS: lineplot.YAxisKey = "y1";
+
+/**
+ * Adds a channel dropped on the plot area to the first Y axis, and a range to the plot.
+ */
+const usePlotDrop = (key: lineplot.Key, editable: boolean): Haul.UseDropReturn => {
+  const edit = useEdit(key, editable);
+  return Haul.useDrop({
+    type: "lineplot_plot",
+    canDrop: canDropChannelOrRange,
+    onDrop: ({ items }) => {
+      const channels = Channel.filterHaulItems(items);
+      const ranges = Ranger.filterHaulItems(items);
+      edit([...addChannels(FIRST_Y_AXIS, channels), ...addRanges(ranges)]);
+      return [...channels, ...ranges];
+    },
+  });
 };
 
 interface UseViewportResetParams {
@@ -490,6 +522,7 @@ export const LinePlot = ({
   useUndoRedoTriggers({ key, enabled: enableTriggers });
   const xAxisKeys = useXAxisKeys({ key });
   const viewportRef = useViewportReset({ key, hold: rest.hold });
+  const plotDropProps = usePlotDrop(key, editable);
   return (
     <Frame ref={ref} loadingMessage={fetchingMessage(windows)} {...rest}>
       {xAxisKeys.map((xAxisKey) => (
@@ -516,6 +549,7 @@ export const LinePlot = ({
         onChange={onViewportChange}
         triggers={viewportTriggers}
         ref={viewportRef}
+        {...plotDropProps}
       >
         {enableTooltip && <Tooltip.Tooltip />}
         {enableMeasure && (

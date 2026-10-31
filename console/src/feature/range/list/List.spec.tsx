@@ -9,6 +9,7 @@
 
 import { type ranger, type Synnax as Client } from "@synnaxlabs/client";
 import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
+import { Haul } from "@synnaxlabs/lyra/haul";
 import { Ranger } from "@synnaxlabs/pluto";
 import { state } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
@@ -47,13 +48,19 @@ const Harness = (): ReactElement => {
   );
 };
 
+const Dragging = (): ReactElement => {
+  const { items } = Haul.useDraggingState();
+  return <div data-testid="dragging">{items.map(({ key }) => key).join(",")}</div>;
+};
+
 const renderList = async (as: Client = client): Promise<HTMLElement> => {
   const { wrapper } = await createConsoleWrapper({ client: as });
   const { container } = await renderSuspended(
-    <>
+    <Haul.Provider>
       <Harness />
+      <Dragging />
       <Modals.Stack />
-    </>,
+    </Haul.Provider>,
     { wrapper },
   );
   return container;
@@ -70,6 +77,19 @@ describe("range/list/List", () => {
     fireEvent.change(input, { target: { value: target.name } });
     await waitFor(() => expect(screen.getByText(target.name)).toBeTruthy());
     expect(screen.queryByText(other.name)).toBeNull();
+  });
+
+  it("drags a range so it can be dropped on a line plot", async () => {
+    const rng = await createTestRange(client);
+    await renderList();
+    const input = await waitFor(() =>
+      getInputByNodePlaceholder(document.body, "Search Ranges..."),
+    );
+    fireEvent.change(input, { target: { value: rng.name } });
+    fireEvent.dragStart(await screen.findByText(rng.name));
+    await waitFor(() =>
+      expect(screen.getByTestId("dragging").textContent).toBe(rng.key),
+    );
   });
 
   it("offers Reload Console from a range's context menu", async () => {
