@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { device, type status, task } from "@synnaxlabs/client";
+import { device, task } from "@synnaxlabs/client";
 import { createTestClient, waitForStreamLive } from "@synnaxlabs/client/testutil";
-import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { TimeSpan } from "@synnaxlabs/x";
 import { act, render, screen } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -17,7 +17,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { Notifications } from "@/app/notifications";
 import { EtherCAT } from "@/feature/ethercat";
 import { createTestDevice } from "@/platform/device/testutil";
-import { settleWrites, UncappedFeed } from "@/platform/notifications/testutil";
+import {
+  settleWrites,
+  UncappedFeed,
+  writeStatus,
+} from "@/platform/notifications/testutil";
 import { createConsoleWrapper, uniqueName } from "@/testutil";
 
 const client = createTestClient();
@@ -31,21 +35,6 @@ const renderForward = async (): Promise<void> => {
   await waitForStreamLive(client.connection);
   const { wrapper } = await createConsoleWrapper({ client });
   render(<Forward />, { wrapper });
-};
-
-/** @returns the message of the status. */
-const writeStatus = async (
-  key: status.Key,
-  variant: status.Variant,
-): Promise<string> => {
-  const { message } = await client.statuses.set({
-    key,
-    name: "",
-    variant,
-    message: uniqueName("message"),
-    time: TimeStamp.now(),
-  });
-  return message;
 };
 
 const createScanner = async (deviceConfigured: boolean): Promise<task.Task> => {
@@ -69,8 +58,12 @@ describe("Notifications.useForward", () => {
     const unused = await createScanner(false);
     const used = await createScanner(true);
     await renderForward();
-    const unusedMessage = await writeStatus(task.statusKey(unused.key), "error");
-    const usedMessage = await writeStatus(task.statusKey(used.key), "error");
+    const unusedMessage = await writeStatus(
+      client,
+      task.statusKey(unused.key),
+      "error",
+    );
+    const usedMessage = await writeStatus(client, task.statusKey(used.key), "error");
     await screen.findByText(usedMessage);
     expect(screen.queryByText(unusedMessage)).toBeNull();
   });
@@ -82,7 +75,7 @@ describe("Notifications.useForward", () => {
     });
     const dev = await createTestDevice(client);
     await renderForward();
-    const message = await writeStatus(device.statusKey(dev.key), "warning");
+    const message = await writeStatus(client, device.statusKey(dev.key), "warning");
     await settleWrites(client);
     expect(screen.queryByText(message)).toBeNull();
     act(() => void vi.advanceTimersByTime(TimeSpan.seconds(5).milliseconds));

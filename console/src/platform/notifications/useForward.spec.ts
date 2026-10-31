@@ -94,7 +94,7 @@ describe("Notifications.useForward", () => {
     it("should notify a problem only when its thing is in use", async () => {
       const used = createTaskKey();
       const inUse = vi.fn(
-        async ({ key }: Notifications.InUseArgs) => task.statusKey(key) === used,
+        async ({ key }: Notifications.InUseParams) => task.statusKey(key) === used,
       );
       await renderForward(client, { task: { ...STATE, inUse } });
       const [unused, inUseError] = await write(
@@ -114,7 +114,7 @@ describe("Notifications.useForward", () => {
 
     it("should check use only when a problem starts on its key", async () => {
       const key = createTaskKey();
-      const inUse = vi.fn(async (_: Notifications.InUseArgs) => true);
+      const inUse = vi.fn(async (_: Notifications.InUseParams) => true);
       await renderForward(client, { task: { ...STATE, inUse } });
       const written = await write(
         { key, variant: "error" },
@@ -134,7 +134,7 @@ describe("Notifications.useForward", () => {
     it("should drop the pending check of a deleted status", async () => {
       const key = createTaskKey();
       let resolve: ((inUse: boolean) => void) | undefined;
-      const inUse = vi.fn(async ({ key: k }: Notifications.InUseArgs) => {
+      const inUse = vi.fn(async ({ key: k }: Notifications.InUseParams) => {
         if (task.statusKey(k) !== key) return false;
         return await new Promise<boolean>((r) => (resolve = r));
       });
@@ -150,7 +150,7 @@ describe("Notifications.useForward", () => {
     it("should not report a failed check of a deleted status", async () => {
       const key = createTaskKey();
       let reject: ((exc: Error) => void) | undefined;
-      const inUse = vi.fn(async ({ key: k }: Notifications.InUseArgs) => {
+      const inUse = vi.fn(async ({ key: k }: Notifications.InUseParams) => {
         if (task.statusKey(k) !== key) return false;
         return await new Promise<boolean>((_, r) => (reject = r));
       });
@@ -166,7 +166,7 @@ describe("Notifications.useForward", () => {
 
     it("should report a check that fails", async () => {
       const key = createTaskKey();
-      const inUse = vi.fn(async ({ key: k }: Notifications.InUseArgs) => {
+      const inUse = vi.fn(async ({ key: k }: Notifications.InUseParams) => {
         if (task.statusKey(k) === key) throw new Error("The Core is unreachable.");
         return false;
       });
