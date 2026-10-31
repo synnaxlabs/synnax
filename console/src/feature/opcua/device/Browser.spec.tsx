@@ -219,6 +219,18 @@ describe("Browser search", () => {
     await screen.findByText("Read, History");
   });
 
+  it("should keep the spaces at the end of an entered node ID", async () => {
+    const { client, scan } = await renderBrowser();
+    const read = await answerNextCommand(client, scan, {
+      type: OPCUA.Task.READ_NODE_COMMAND_TYPE,
+      data: DETAILS,
+    });
+    const input = screen.getByPlaceholderText("Search, or enter a node ID");
+    fireEvent.change(input, { target: { value: " ns=2;s=Tank " } });
+    fireEvent.keyDown(input, { key: "Enter" });
+    expect((await read.answered).args).toMatchObject({ nodeId: "ns=2;s=Tank " });
+  });
+
   it("should show the node that the user selects after entering a node ID", async () => {
     const { client, scan } = await renderBrowser();
     const streamer = await client.openStreamer(task.COMMAND_CHANNEL_NAME);
