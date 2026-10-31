@@ -23,12 +23,10 @@ import { Device } from "@/feature/device";
 import { Panel } from "@/feature/panel";
 import { Persist } from "@/feature/persist";
 import { CSS } from "@/platform/css";
-import { Notifications as PlatformNotifications } from "@/platform/notifications";
 import { Session } from "@/session";
 
 const SideEffect = (): null => {
   Device.useListenForChanges();
-  Notifications.useForward();
   Link.useDeep();
   Persist.useStoreStatus();
   Triggers.use();
@@ -51,7 +49,7 @@ export const Primary = (): ReactElement => {
   const os = OS.use();
   const fullWidthTop = os === "macOS" && Session.Runtime.ENGINE === "tauri";
   return (
-    <PlatformNotifications.Provider>
+    <Notifications.Provider>
       <SideEffect />
       <Guard>
         <ProjectSideEffect />
@@ -72,6 +70,6 @@ export const Primary = (): ReactElement => {
           </Flex.Box>
         </div>
       </Guard>
-    </PlatformNotifications.Provider>
+    </Notifications.Provider>
   );
 };

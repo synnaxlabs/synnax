@@ -21,7 +21,7 @@ import { uniqueName } from "@/testutil";
 
 const client = createTestClient();
 
-describe("Notifications.useForward", () => {
+describe("Notifications.Provider", () => {
   describe("problems view", () => {
     it("should list a task problem under the problem of its rack", async () => {
       const r = await client.racks.create({ name: uniqueName("rack") });

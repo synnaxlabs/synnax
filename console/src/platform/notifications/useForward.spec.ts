@@ -89,7 +89,7 @@ const writeReply = async (key: status.Key): Promise<string> =>
     })
   ).message;
 
-describe("Notifications.useForward", () => {
+describe("Notifications.Provider", () => {
   afterEach(() => {
     vi.useRealTimers();
   });

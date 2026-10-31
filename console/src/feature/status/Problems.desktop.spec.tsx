@@ -103,11 +103,18 @@ describe("Status.TOOLBAR problems", () => {
   });
 
   it("should show that no problem is open", async () => {
-    // The forwarder would list the problems that other specs leave on the Core.
-    const { wrapper } = await createConsoleWrapper({ client });
-    render(<Notifications.Provider>{TOOLBAR}</Notifications.Provider>, { wrapper });
+    // With a client, the forwarder would list the problems that other specs leave. The
+    // nav menu hides the toolbar without a client, so the badge renders on its own.
+    const { wrapper } = await createConsoleWrapper({ client: null });
+    render(
+      <Notifications.Provider rules={{}}>
+        {Status.TOOLBAR.badge}
+        {Status.TOOLBAR.content}
+      </Notifications.Provider>,
+      { wrapper },
+    );
     expect(await panel().findByText("No problems")).toBeTruthy();
-    expect(await findBadge()).toBeNull();
+    expect(getBadge(document.body)).toBeNull();
   });
 
   it("should list problems newest first, by when each opened", async () => {
