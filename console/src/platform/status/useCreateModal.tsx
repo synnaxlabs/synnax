@@ -51,6 +51,7 @@ const Create = ({ close, statusKey }: Modals.ContentProps<CreateModalParams, voi
           <Form.TextField
             path="name"
             showLabel={false}
+            padHelpText={false}
             inputProps={{
               autoFocus: true,
               level: "h2",
