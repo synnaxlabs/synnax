@@ -207,7 +207,7 @@ describe("useCreateModal", () => {
       const onStatuses = vi.fn();
       await openModal({ onStatuses });
       setName(taken);
-      fireEvent.click(getSwitch("Virtual"));
+      selectKind("Virtual");
       await clickCreate();
       await waitFor(() =>
         expect(screen.getByText("Failed to save channel")).toBeTruthy(),
