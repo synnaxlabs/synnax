@@ -30,8 +30,8 @@ import {
 } from "@synnaxlabs/x";
 import { afterEach, assert, describe, expect, it, vi } from "vitest";
 
+import { telem } from "@/telem/aether";
 import { createFactory } from "@/telem/aether/factory";
-import { sourcePipeline } from "@/telem/aether/pipeline";
 import {
   ChannelData,
   type ChannelDataProps,
@@ -46,7 +46,6 @@ import {
   type ValueProps,
 } from "@/telem/aether/telem";
 import { telemTest } from "@/telem/aether/testutil";
-import { rollingAverage } from "@/telem/aether/transformers";
 import { line } from "@/vis/line/aether";
 
 const RATE = Rate.hz(100);
@@ -370,11 +369,11 @@ describe("remote", () => {
         return await client.channels.retrieve(ch);
       });
       const source = createFactory(flaky).create(
-        sourcePipeline("number", {
+        telem.sourcePipeline("number", {
           connections: [{ from: "valueStream", to: "average" }],
           segments: {
             valueStream: streamChannelValue({ channel: key }),
-            average: rollingAverage({ windowSize: 3 }),
+            average: telem.rollingAverage({ windowSize: 3 }),
           },
           outlet: "average",
         }),
