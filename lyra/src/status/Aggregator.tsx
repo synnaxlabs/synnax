@@ -149,15 +149,12 @@ export const Aggregator = ({
  * Places the key on the enclosing {@link Aggregator} while the caller is mounted and
  * visible. Call it in a view that shows the statuses of the key in place. A status on a
  * placed key does not show as a notification, unless it is part of a problem.
- * @param key - The key of the statuses that the view shows. Undefined places nothing.
+ * @param key - The key of the statuses that the view shows.
  * @param visible - Whether the view is on screen. Defaults to true.
  */
-export const usePlace = (key: string | undefined, visible: boolean = true): void => {
+export const usePlace = (key: string, visible: boolean = true): void => {
   const place = usePlaceContext();
-  useEffect(
-    () => (key == null || !visible ? undefined : place(key)),
-    [place, key, visible],
-  );
+  useEffect(() => (visible ? place(key) : undefined), [place, key, visible]);
 };
 
 /**
