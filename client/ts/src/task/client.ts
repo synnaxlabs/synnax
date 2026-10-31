@@ -498,8 +498,7 @@ export class Client extends query.Retriever<
             // tracks nor holds a status for is dropped.
             if (store.get(changed.task) == null && statusStore.get(key) == null) return;
             const optimistic = this.optimisticStatus(changed);
-            if (optimistic.variant === "loading") statusStore.set(key, optimistic);
-            else statuses.setLocal(optimistic);
+            statuses.setLocal(optimistic);
             this.armCommandDeadline(changed, optimistic);
           }),
         ),
