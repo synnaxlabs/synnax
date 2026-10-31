@@ -315,7 +315,7 @@ const favorite = async (
   const { page } = session;
   await capture.commandPalette(session, "Open status explorer");
   for (const name of names) {
-    const item = page.locator(".pluto-list__item").filter({ hasText: name }).first();
+    const item = page.locator(".lyra-list__item").filter({ hasText: name }).first();
     await session.waitFor(item);
     await capture.contextMenu(
       session,
@@ -325,7 +325,7 @@ const favorite = async (
     session.endZoom();
     await session.settle(300);
   }
-  const tab = page.locator(".console-mosaic .pluto-tabs__tab.pluto--selected").first();
-  await session.click(tab.locator(".pluto-tabs__close").first(), { zoom: false });
+  const tab = page.locator(".console-mosaic .lyra-tabs__tab.lyra--selected").first();
+  await session.click(tab.locator(".lyra-tabs__close").first(), { zoom: false });
   await session.settle(500);
 };

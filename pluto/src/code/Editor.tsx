@@ -10,7 +10,6 @@
 import "@/code/Editor.css";
 
 import { type ILanguageFeaturesService } from "@codingame/monaco-vscode-api/services";
-import { CSS } from "@synnaxlabs/lyra/css";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -32,6 +31,7 @@ import {
 import { BASE_THEMES, type EditorExtension } from "@/code/language";
 import { type Monaco, useLanguage, useMonaco } from "@/code/Provider";
 import { diff, utf16Offset } from "@/code/text";
+import { CSS } from "@/css";
 import { Errors } from "@/errors";
 
 const ESCAPE_TRIGGERS: Triggers.Trigger[] = [Triggers.ESCAPE];

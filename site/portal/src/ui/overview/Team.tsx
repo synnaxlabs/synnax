@@ -16,7 +16,7 @@ import { type ReactElement } from "react";
 import { type Organization } from "@/server/db/schema";
 import { type Invited } from "@/server/invitation";
 import { type Held } from "@/server/license/list";
-import { scoped } from "@/shell";
+import { activatePath, scoped } from "@/shell";
 import { Fact, Facts } from "@/ui/Facts";
 import { date, standing, statusOf } from "@/ui/format";
 import { Invitations } from "@/ui/invitations";
@@ -55,10 +55,7 @@ export const Team = ({
       subtitle="Synnax Enterprise"
       actions={
         active > 0 && (
-          <Button.Button
-            variant="filled"
-            href={scoped("/licenses/activate", organization)}
-          >
+          <Button.Button variant="filled" href={activatePath()}>
             <Icon.Add />
             Activate a machine
           </Button.Button>
@@ -96,7 +93,7 @@ export const Team = ({
           <Table columns={COLUMNS} head={["Label", "Status", "Machines"]}>
             {licenses.slice(0, RECENT).map(({ license: lic, seats: held }) => (
               <Row key={lic.key} columns={COLUMNS} href={`/licenses/${lic.key}`}>
-                <Text.Text level="p" weight={500} overflow="ellipsis">
+                <Text.Text level="p" weight={500} overflow="fade">
                   {lic.label}
                 </Text.Text>
                 <Flex.Box>

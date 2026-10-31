@@ -488,7 +488,10 @@ var _ = Describe("Writer", func() {
 				writtenIdx := res.Frame.Get(idxCh.Key()).Series[0]
 				Expect(writtenIdx).To(telem.MatchSeriesData(idx))
 				groupDomain := writtenData.Alignment.DomainIndex()
-				Expect(groupDomain).To(BeNumerically(">", cesium.ZeroLeadingAlignment))
+				Expect(groupDomain).To(BeNumerically(
+					">=",
+					MustSucceed(cesium.NewAlignmentCounter().Next()).DomainIndex(),
+				))
 				Expect(writtenData.Alignment.SampleIndex()).To(BeEquivalentTo(0))
 				Expect(writtenIdx.Alignment).To(Equal(writtenData.Alignment))
 				data = telem.NewSeriesV[float32](3, 4)
