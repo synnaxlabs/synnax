@@ -30,7 +30,8 @@ import {
 } from "@synnaxlabs/x";
 import { afterEach, assert, describe, expect, it, vi } from "vitest";
 
-import { createFactory, type CreateOptions } from "@/telem/aether/factory";
+import { telem } from "@/telem/aether";
+import { createFactory } from "@/telem/aether/factory";
 import {
   ChannelData,
   type ChannelDataProps,
@@ -91,13 +92,9 @@ describe("remote", () => {
   };
 
   describe("channel values", () => {
-    const createNumber = (
-      client: Client | null,
-      ch: channel.Key,
-      options?: CreateOptions,
-    ): NumberSource => {
+    const createNumber = (client: Client | null, ch: channel.Key): NumberSource => {
       const spec = streamChannelValue({ channel: ch });
-      const source = createFactory(client).create(spec, options) as NumberSource;
+      const source = createFactory(client).create(spec) as NumberSource;
       closers.push(() => source.cleanup?.());
       return source;
     };
@@ -318,36 +315,78 @@ describe("remote", () => {
       expect(source.value().status.variant).toBe("error");
     });
 
-    it("should post an error when the channel cannot be retrieved", async () => {
-      const statuses: cstatus.Crude[] = [];
-      const source = createNumber(connect(createCore()), 999, {
-        onStatusChange: (s) => statuses.push(s),
-      });
+    it("should notify with an error when the channel cannot be retrieved", async () => {
+      const source = createNumber(connect(createCore()), 999);
+      const handler = vi.fn();
+      source.onChange(handler);
       source.value();
-      await expect.poll(() => statuses.length, POLL).toBe(1);
-      expect(statuses[0]).toMatchObject({
+      await expect.poll(() => handler.mock.calls.length, POLL).toBe(1);
+      expect(source.value().status).toMatchObject({
         variant: "error",
         message: "Failed to stream channel value",
         description: "channel 999 not found",
       });
-      expect(source.value().status).toBe(statuses[0]);
     });
 
-    it("should post the error of a channel the Core denies", async () => {
+    it("should notify when only its status changes", async () => {
+      const core = createCore();
+      const { key } = core.data[0];
+      const source = createNumber(connect(core), key);
+      source.value();
+      await expect.poll(() => source.value().status.variant, POLL).toBe("success");
+      const variants: string[] = [];
+      source.onChange(() => variants.push(source.value().status.variant));
+      core.disconnect();
+      await expect.poll(() => variants.at(-1), POLL).toBe("warning");
+      core.reconnect();
+      await expect.poll(() => source.value().status.variant, POLL).toBe("success");
+      expect(variants.at(-1)).not.toBe("warning");
+    });
+
+    it("should notify with the error of a channel the Core denies", async () => {
       const core = createCore();
       const { key } = core.data[0];
       core.deny(key);
-      const statuses: cstatus.Crude[] = [];
-      const source = createNumber(connect(core), key, {
-        onStatusChange: (s) => statuses.push(s),
-      });
+      const source = createNumber(connect(core), key);
+      const statuses: cstatus.Status[] = [];
+      source.onChange(() => statuses.push(source.value().status));
       source.value();
-      await expect.poll(() => source.value().status.variant, POLL).toBe("error");
-      expect(statuses).toHaveLength(1);
-      expect(statuses[0]).toMatchObject({
-        variant: "error",
+      await expect.poll(() => statuses.at(-1)?.variant, POLL).toBe("error");
+      expect(statuses.at(-1)).toMatchObject({
         message: "Failed to stream channel",
         description: `You do not have permission to do that. access to channel ${key} denied`,
+      });
+      expect(source.value().data).toBeNaN();
+    });
+
+    it("should average from the first sample after a retrieval recovers", async () => {
+      const core = createCore();
+      const { key } = core.data[0];
+      const client = connect(core);
+      let failures = 1;
+      const flaky = telemTest.withRetrieve(client, async (ch) => {
+        if (failures-- > 0) throw new Error("connection refused");
+        return await client.channels.retrieve(ch);
+      });
+      const source = createFactory(flaky).create(
+        telem.sourcePipeline("number", {
+          connections: [{ from: "valueStream", to: "average" }],
+          segments: {
+            valueStream: streamChannelValue({ channel: key }),
+            average: telem.rollingAverage({ windowSize: 3 }),
+          },
+          outlet: "average",
+        }),
+      ) as NumberSource;
+      closers.push(() => source.cleanup?.());
+      const statuses: cstatus.Status[] = [];
+      source.onChange(() => statuses.push(source.value().status));
+      source.value();
+      const latest = newest(core, key).at(-1);
+      await expect.poll(() => source.value().data, POLL).toBe(latest);
+      expect(statuses[0]).toMatchObject({
+        variant: "error",
+        description: "connection refused",
       });
     });
   });
@@ -356,12 +395,10 @@ describe("remote", () => {
     const create = (
       client: Client | null,
       props: Partial<ChannelDataProps>,
-      options?: CreateOptions,
     ): ChannelData => {
       const source = new ChannelData(
         client,
         { channel: 0, window: staticWindow(HOME), ...props },
-        options,
         undefined,
         BREAKER,
       );
@@ -516,7 +553,6 @@ describe("remote", () => {
 
     it("should report the worse status of its draw and bounds reads", async () => {
       const core = createCore();
-      const statuses: cstatus.Crude[] = [];
       const client = connect(core, {
         readRemote: async (tr, keys, reduction) => {
           if (reduction?.variant === "limit" && reduction.aggregation === "min_max")
@@ -524,11 +560,7 @@ describe("remote", () => {
           return core.read(tr, keys, reduction);
         },
       });
-      const y = create(
-        client,
-        { channel: core.data[0].key, aggregation: "average" },
-        { onStatusChange: (s) => statuses.push(s) },
-      );
+      const y = create(client, { channel: core.data[0].key, aggregation: "average" });
       await settle(y);
       await expect
         .poll(() => y.value({ extremesKept: true }).status.variant, POLL)
@@ -537,8 +569,6 @@ describe("remote", () => {
         message: "Failed to read channel data",
         description: "min_max reads are down",
       });
-      expect(statuses).toHaveLength(1);
-      expect(statuses[0]).toMatchObject({ variant: "error" });
     });
 
     it("should bound a line by its draw while reopened bounds load", async () => {
@@ -729,30 +759,22 @@ describe("remote", () => {
       expect(handler).not.toHaveBeenCalled();
     });
 
-    // Returns the client with its channel retrievals run through retrieve.
-    const withRetrieve = (
-      client: Client,
-      retrieve: Client["channels"]["retrieve"],
-    ): Client => ({ ...client, channels: { retrieve } });
-
     it("should retry a channel retrieval that fails to connect", async () => {
       const core = createCore();
       const client = connect(core);
       let failures = 2;
-      const flaky = withRetrieve(client, async (ch) => {
+      const flaky = telemTest.withRetrieve(client, async (ch) => {
         if (failures-- > 0) throw new Error("connection refused");
         return await client.channels.retrieve(ch);
       });
-      const statuses: cstatus.Crude[] = [];
-      const y = create(
-        flaky,
-        { channel: core.data[0].key },
-        { onStatusChange: (s) => statuses.push(s) },
-      );
+      const y = create(flaky, { channel: core.data[0].key });
+      const statuses: cstatus.Status[] = [];
+      y.onChange(() => statuses.push(y.value().status));
       await settle(y);
-      expect(statuses).toHaveLength(1);
-      expect(statuses[0]).toMatchObject({
-        variant: "error",
+      // Both failures are equal, so only the first notifies.
+      const errors = statuses.filter((s) => s.variant === "error");
+      expect(errors).toHaveLength(1);
+      expect(errors[0]).toMatchObject({
         message: "Failed to read channel data",
         description: "connection refused",
       });
@@ -764,7 +786,7 @@ describe("remote", () => {
       let release: () => void = () => {};
       const released = new Promise<void>((resolve) => (release = resolve));
       let [started, landed] = [false, false];
-      const gated = withRetrieve(client, async (ch) => {
+      const gated = telemTest.withRetrieve(client, async (ch) => {
         started = true;
         await released;
         const retrieved = await client.channels.retrieve(ch);
@@ -782,19 +804,16 @@ describe("remote", () => {
       expect(handler).not.toHaveBeenCalled();
     });
 
-    it("should post an error and park when the channel is not found", async () => {
-      const statuses: cstatus.Crude[] = [];
-      const y = create(
-        connect(createCore()),
-        { channel: 999 },
-        { onStatusChange: (s) => statuses.push(s) },
-      );
+    it("should notify with an error and park on a missing channel", async () => {
+      const y = create(connect(createCore()), { channel: 999 });
+      const handler = vi.fn();
+      y.onChange(handler);
       await expect.poll(() => y.value().status.variant, POLL).toBe("error");
       expect(y.value().status).toMatchObject({
         message: "Failed to read channel data",
         description: "channel 999 not found",
       });
-      expect(statuses).toHaveLength(1);
+      expect(handler).toHaveBeenCalledOnce();
     });
   });
 
@@ -848,7 +867,6 @@ describe("remote", () => {
         const source = new ChannelData(
           client,
           { channel: yChannel, window: dynamicWindow(span), xChannel, ...props },
-          undefined,
           core.now,
           BREAKER,
         );
@@ -954,29 +972,21 @@ describe("remote", () => {
       expect(factory.create(streamChannelValue({ channel: 1 }))).not.toBeNull();
     });
 
-    it("should report a disconnected status once instead of throwing", () => {
-      const statuses: cstatus.Crude[] = [];
-      const source = createFactory(null).create(streamChannelValue({ channel: 1 }), {
-        onStatusChange: (s) => statuses.push(s),
-      }) as NumberSource;
-      expect(source.value().data).toBeNaN();
-      // A repeated read must not report again: the source is rebuilt on reconnect.
-      expect(source.value().data).toBeNaN();
-      expect(statuses).toEqual([DISCONNECTED_STATUS]);
+    it("should report a disconnected status instead of throwing", () => {
+      const source = createFactory(null).create(
+        streamChannelValue({ channel: 1 }),
+      ) as NumberSource;
+      const { data, status } = source.value();
+      expect(data).toBeNaN();
+      expect(status).toBe(DISCONNECTED_STATUS);
     });
 
-    it("should return empty, loaded data from a disconnected line source", () => {
-      const statuses: cstatus.Crude[] = [];
-      const source = new ChannelData(
-        null,
-        { channel: 1, window: staticWindow(HOME) },
-        { onStatusChange: (s) => statuses.push(s) },
-      );
+    it("should return empty data with a disconnected status from a line source", () => {
+      const source = new ChannelData(null, { channel: 1, window: staticWindow(HOME) });
       const { data, status } = source.value();
       expect(data[0]).toStrictEqual(bounds.INVALID);
       expect(data[1]).toHaveLength(0);
-      expect(status.variant).not.toBe("loading");
-      expect(statuses).toEqual([DISCONNECTED_STATUS]);
+      expect(status).toBe(DISCONNECTED_STATUS);
     });
   });
 });

@@ -43,6 +43,7 @@ import { lineplot } from "@/lineplot/aether";
 import { type Viewport } from "@/viewport";
 import { Canvas } from "@/vis/canvas";
 import { grid } from "@/vis/grid";
+import { type problem } from "@/vis/problem/aether";
 
 type HTMLDivProps = DetailedHTMLProps<HTMLAttributes<HTMLDivElement>, HTMLDivElement>;
 
@@ -69,6 +70,7 @@ export interface FetchContextValue {
   loading: boolean;
   fetching: boolean;
   loadingMessage?: string;
+  problems: problem.Problem[];
 }
 
 // Fetch state changes on every pan and zoom, so it has a context of its own.
@@ -155,18 +157,19 @@ export const Frame = ({
 
   const memoProps = useMemoDeepEqual({ clearOverScan, hold, visible });
 
-  const [{ path }, { grid, loading, fetching }, setState, methods] = Aether.use({
-    aetherKey,
-    type: lineplot.LinePlot.TYPE,
-    schema: lineplot.linePlotStateZ,
-    initialState: {
-      container: box.ZERO,
-      viewport: box.DECIMAL,
-      grid: {},
-      ...memoProps,
-    },
-    methods: lineplot.linePlotMethodsZ,
-  });
+  const [{ path }, { grid, loading, fetching, problems }, setState, methods] =
+    Aether.use({
+      aetherKey,
+      type: lineplot.LinePlot.TYPE,
+      schema: lineplot.linePlotStateZ,
+      initialState: {
+        container: box.ZERO,
+        viewport: box.DECIMAL,
+        grid: {},
+        ...memoProps,
+      },
+      methods: lineplot.linePlotMethodsZ,
+    });
 
   // We use a single resize handler for both the container and plotting region because
   // the container is guaranteed to only resize if the plotting region does. This allows
@@ -247,7 +250,12 @@ export const Frame = ({
     id,
   };
 
-  const fetchContextValue: FetchContextValue = { loading, fetching, loadingMessage };
+  const fetchContextValue: FetchContextValue = {
+    loading,
+    fetching,
+    loadingMessage,
+    problems,
+  };
 
   return (
     <div

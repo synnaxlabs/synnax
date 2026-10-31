@@ -13,9 +13,11 @@ import { useEffect } from "react";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
+import { type problem } from "@/vis/problem/aether";
 import { Value } from "@/vis/value/aether/value";
 
 export const basePropsZ = Value.z
+  .omit({ problems: true })
   .partial({ color: true })
   .extend({ level: text.levelZ.optional() });
 
@@ -25,6 +27,7 @@ export interface UseProps extends z.input<typeof basePropsZ> {
 
 export interface UseReturn {
   width: number;
+  problems: problem.Problem[];
 }
 
 export const use = ({
@@ -71,5 +74,5 @@ export const use = ({
     initialState: memoProps,
   });
   useEffect(() => setState((prev) => ({ ...prev, ...memoProps })), [memoProps]);
-  return { width: state.width ?? state.minWidth };
+  return { width: state.width ?? state.minWidth, problems: state.problems };
 };

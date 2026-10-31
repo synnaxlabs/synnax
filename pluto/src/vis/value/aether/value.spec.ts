@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { status } from "@synnaxlabs/client";
 import { theme } from "@synnaxlabs/lyra/theme";
 import { box, color, type xy } from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -23,6 +24,7 @@ const BOX = box.construct({ x: 0, y: 0 }, { width: 200, height: 50 });
 
 interface SetupOptions {
   value?: string;
+  status?: status.Status;
   background?: color.Color;
   state?: Record<string, unknown>;
   theme?: theme.Theme;
@@ -36,12 +38,14 @@ interface SetupOptions {
 // call `recorder.clear()` before an explicit `render({})` to isolate that render's calls.
 const setup = ({
   value: initialValue = "",
+  status: initialStatus,
   background,
   state = {},
   theme = THEME,
   render,
 }: SetupOptions = {}) => {
   const source = telemTest.source<string>(initialValue);
+  if (initialStatus != null) source.status = initialStatus;
   const backgroundSource =
     background != null ? telemTest.source<color.Color>(background) : null;
   const recorder = canvasTest.record();
@@ -145,6 +149,53 @@ describe("value/aether/Value", () => {
       recorder.clear();
       component.render({});
       expect(fillTexts(recorder)).toContain("999");
+    });
+  });
+
+  describe("problems", () => {
+    const FAILED = status.create({
+      variant: "error",
+      message: "Failed to stream channel value",
+      description: "channel 999 not found",
+    });
+    const PROBLEM = {
+      variant: "error",
+      name: "",
+      message: "Failed to stream channel value",
+      description: "channel 999 not found",
+    };
+
+    it("should report the problem of its source on mount", () => {
+      const { component } = setup({ status: FAILED });
+      expect(component.state.problems).toEqual([PROBLEM]);
+    });
+
+    it("should report a problem once its source fails", () => {
+      const { component, source } = setup({ value: "1" });
+      expect(component.state.problems).toEqual([]);
+      source.status = FAILED;
+      source.setValue("1");
+      expect(component.state.problems).toEqual([PROBLEM]);
+    });
+
+    it("should report the problem of a source whose box has no area", () => {
+      const zero = box.construct({ x: 0, y: 0 }, { width: 0, height: 0 });
+      const { component } = setup({ status: FAILED, state: { box: zero } });
+      expect(component.state.problems).toEqual([PROBLEM]);
+    });
+
+    it("should read its source once for staleness and once to draw on a change", () => {
+      const { source } = setup({ value: "1" });
+      const read = vi.spyOn(source, "value");
+      source.setValue("2");
+      expect(read).toHaveBeenCalledTimes(2);
+    });
+
+    it("should clear its problems once its source recovers", () => {
+      const { component, source } = setup({ status: FAILED });
+      source.status = status.create({ variant: "success", message: "streaming" });
+      source.setValue("2");
+      expect(component.state.problems).toEqual([]);
     });
   });
 

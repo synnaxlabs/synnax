@@ -68,7 +68,7 @@ interface Entry {
   lastReceived: number | null;
   // The greatest appended count of the source. A history change can lower the count
   // until its read lands, so the samples it counts again are no arrival.
-  appended?: number;
+  appended: number;
 }
 
 // The source itself holds the last reported staleness, so a transition is a change
@@ -126,7 +126,7 @@ export class Provider extends aether.Composite<typeof providerStateZ> {
 
   /** @returns a registration for `source`. Cleanup releases it. */
   register(props: EntryProps, source: telem.Source<unknown>): Registration {
-    const entry: Entry = { props, lastReceived: null };
+    const entry: Entry = { props, lastReceived: null, appended: 0 };
     this.entries.add(entry);
     this.start();
     // A source that has not sent cannot be stale, so a caller that registers while
@@ -137,7 +137,7 @@ export class Provider extends aether.Composite<typeof providerStateZ> {
       received: () => {
         const { time, appended } = source.value();
         if (appended != null) {
-          if (entry.appended != null && appended <= entry.appended) return;
+          if (appended <= entry.appended) return;
           entry.appended = appended;
         }
         const at = entry.lastReceived == null ? time : undefined;

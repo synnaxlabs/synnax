@@ -17,6 +17,7 @@ import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Cell as Base } from "@/table/cells/Cell";
+import { Problem } from "@/vis/problem";
 import { Value as BaseValue } from "@/vis/value";
 
 export const textConfigZ = table.textCellConfigZ;
@@ -109,7 +110,7 @@ export const Value = ({
 }: CellProps<ValueConfig>) => {
   const t = BaseValue.stringSource({ channel, rollingAverage, precision, notation });
   const backgroundTelem = BaseValue.backgroundTelem(t, redline, fillColor);
-  BaseValue.use({
+  const { problems } = BaseValue.use({
     aetherKey: cellKey,
     box: b,
     telem: t,
@@ -142,6 +143,8 @@ export const Value = ({
         selected && Menu.CONTEXT_SELECTED,
         CSS.BEM("table", "cell", "value"),
       )}
-    />
+    >
+      <Problem.Mark problems={problems} variant="glyph" />
+    </Base>
   );
 };

@@ -31,12 +31,14 @@ import { telem } from "@/telem/aether";
 import { buildStack } from "@/testutil/providers";
 import { line } from "@/vis/line/aether";
 import { lineTest } from "@/vis/line/aether/testutil";
+import { problem } from "@/vis/problem/aether";
 import { type render } from "@/vis/render";
 import { canvasTest } from "@/vis/render/testutil";
 
 const stubLineStateZ = z.object({
   loading: z.boolean(),
   fetching: z.boolean().default(false),
+  problems: problem.problemZ.array().default([]),
 });
 
 // Line needs a live GL context, so a stub with its TYPE stands in for the walk.
@@ -51,6 +53,10 @@ class StubLine extends aether.Leaf<typeof stubLineStateZ> {
   get fetching(): boolean {
     return this.state.fetching;
   }
+
+  get problems(): problem.Problem[] {
+    return this.state.problems;
+  }
 }
 
 interface LoopEntry {
@@ -63,6 +69,7 @@ interface Mount {
   recorder: canvasTest.Recorder;
   setLineLoading: (loading: boolean) => void;
   setLineFetching: (fetching: boolean) => void;
+  setLineProblems: (key: string, problems: problem.Problem[]) => void;
   pump: () => void;
   hide: () => void;
   remove: () => void;
@@ -116,6 +123,11 @@ describe("LinePlot", () => {
           loading: false,
           fetching,
         }),
+      setLineProblems: (key, problems) =>
+        stack.driver.update([...base, "x1", "y1", key], StubLine.TYPE, {
+          loading: false,
+          problems,
+        }),
       pump,
       hide: () =>
         stack.driver.update(base, LinePlot.TYPE, {
@@ -168,6 +180,39 @@ describe("LinePlot", () => {
       m.setLineFetching(false);
       m.pump();
       expect(m.plot.state.fetching).toBe(false);
+    });
+  });
+
+  describe("problems", () => {
+    const FAILED: problem.Problem = {
+      variant: "error",
+      name: "PT-01",
+      message: "Failed to read channel data",
+      description: "channel 999 not found",
+    };
+
+    it("should sync the problems of its lines", () => {
+      const m = mount(false);
+      m.setLineProblems("l1", [FAILED]);
+      m.pump();
+      expect(m.plot.state.problems).toEqual([FAILED]);
+    });
+
+    it("should show one problem for lines that fail with the same cause", () => {
+      const m = mount(false);
+      m.setLineProblems("l1", [FAILED]);
+      m.setLineProblems("l2", [{ ...FAILED, name: "PT-02" }]);
+      m.pump();
+      expect(m.plot.state.problems).toEqual([{ ...FAILED, name: "PT-01, PT-02" }]);
+    });
+
+    it("should clear its problems once its lines recover", () => {
+      const m = mount(false);
+      m.setLineProblems("l1", [FAILED]);
+      m.pump();
+      m.setLineProblems("l1", []);
+      m.pump();
+      expect(m.plot.state.problems).toEqual([]);
     });
   });
 

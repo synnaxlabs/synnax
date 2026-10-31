@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { errors, TimeSpan } from "@synnaxlabs/x";
-import { act, render, waitFor } from "@testing-library/react";
+import { act, render, renderHook, waitFor } from "@testing-library/react";
 import {
   Component,
   type FC,
@@ -117,6 +117,11 @@ class InvokeLeaf
   afterUpdate(): void {}
   afterDelete(): void {}
 }
+
+const listProps = z.object({
+  x: z.number(),
+  items: z.array(z.number()),
+});
 
 const multiProps = z.object({
   x: z.number(),
@@ -637,6 +642,41 @@ describe("Aether Main", () => {
         </Provider>,
       );
       await waitFor(() => expect(observed.x).toBe(3));
+    });
+    it("should keep the identity of a field that a setState leaves equal", async () => {
+      const [Provider] = await newProvider();
+      const { result } = renderHook(
+        () =>
+          Aether.use({
+            type: ExampleLeaf.TYPE,
+            schema: listProps,
+            initialState: { x: 0, items: [1, 2] },
+          }),
+        { wrapper: Provider },
+      );
+      const { items } = result.current[1];
+      act(() => result.current[2]((prev) => ({ ...prev, x: 1 })));
+      expect(result.current[1].x).toBe(1);
+      expect(result.current[1].items).toBe(items);
+      act(() => result.current[2]((prev) => ({ ...prev, items: [3] })));
+      expect(result.current[1].items).toEqual([3]);
+    });
+    it("should keep the identity of a field that a worker push leaves equal", async () => {
+      const [Provider] = await newProvider();
+      const { result } = renderHook(
+        () =>
+          Aether.use({
+            type: InvokeLeaf.TYPE,
+            schema: listProps,
+            initialState: { x: 0, items: [1, 2] },
+            methods: invokeMethodsSchema,
+          }),
+        { wrapper: Provider },
+      );
+      const { items } = result.current[1];
+      act(() => result.current[3].updateState(42));
+      await waitFor(() => expect(result.current[1].x).toBe(42));
+      expect(result.current[1].items).toBe(items);
     });
     it("should keep setState identity stable across re-renders", async () => {
       const [Provider, root] = await newProvider();

@@ -9,7 +9,7 @@
 
 import { type destructor } from "@synnaxlabs/x";
 
-import { type CreateOptions, type Factory } from "@/telem/aether/factory";
+import { type Factory } from "@/telem/aether/factory";
 import { type Spec, type Telem } from "@/telem/aether/telem";
 
 const instances = new Map<string, Telem>();
@@ -28,7 +28,7 @@ export const TEST_SOURCE_TYPE = "test-source";
 export class TestFactory implements Factory {
   type = "test";
 
-  create(spec: Spec, _options?: CreateOptions): Telem | null {
+  create(spec: Spec): Telem | null {
     if (spec.type !== TEST_SINK_TYPE && spec.type !== TEST_SOURCE_TYPE) return null;
     if (spec.props?.testId != null) {
       const instance = instances.get(spec.props.testId);

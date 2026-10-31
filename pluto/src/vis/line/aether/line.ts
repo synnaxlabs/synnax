@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Instrumentation } from "@synnaxlabs/alamos";
-import { UnexpectedError } from "@synnaxlabs/client";
+import { status, UnexpectedError } from "@synnaxlabs/client";
 import {
   type Aggregation,
   bounds,
@@ -29,7 +29,6 @@ import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
-import { status } from "@/status/aether";
 import { telem } from "@/telem/aether";
 import { forEachPair, windowBounds } from "@/vis/line/aether/bounds";
 import {
@@ -43,6 +42,7 @@ import FRAG_SHADER from "@/vis/line/aether/frag.glsl?raw";
 import { groupSize, Reducer, type View } from "@/vis/line/aether/reduce";
 import F32_VERT_SHADER from "@/vis/line/aether/vert_f32.glsl?raw";
 import HYBRID_VERT_SHADER from "@/vis/line/aether/vert_hybrid.glsl?raw";
+import { problem } from "@/vis/problem/aether";
 import { render } from "@/vis/render";
 
 export const stateZ = z.object({
@@ -320,9 +320,10 @@ interface InternalState {
   // zoom has held for ZOOM_SETTLE.
   zoom?: number;
   settleTimer?: ReturnType<typeof setTimeout>;
-  // aggregation and loadingState come from the data the line last drew.
+  // aggregation, loadingState, and problems come from the data the line last drew.
   aggregation?: Aggregation;
   loadingState?: LoadingState;
+  problems?: problem.Problem[];
   // loaded is true once both sources leave loading, until either source changes.
   loaded?: boolean;
 }
@@ -333,12 +334,9 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
 
   afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
-    const createOptions: telem.CreateOptions = {
-      onStatusChange: status.useAdder(ctx),
-    };
     const { xTelem, yTelem } = i;
-    i.xTelem = telem.useSource(ctx, this.state.x, i.xTelem, createOptions);
-    i.yTelem = telem.useSource(ctx, this.state.y, i.yTelem, createOptions);
+    i.xTelem = telem.useSource(ctx, this.state.x, i.xTelem);
+    i.yTelem = telem.useSource(ctx, this.state.y, i.yTelem);
     if (i.xTelem !== xTelem || i.yTelem !== yTelem) i.loaded = false;
     i.instrumentation = alamos.useInstrumentation(ctx, "line");
     i.lineCtx = Context.use(ctx);
@@ -368,6 +366,12 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
   /** True while a source loads after its first load, or while the line drew data. */
   get fetching(): boolean {
     return this.internal.loadingState === "fetching";
+  }
+
+  /** The problems of the data the line last drew, named by its label. */
+  get problems(): problem.Problem[] {
+    const { problems = [] } = this.internal;
+    return problems;
   }
 
   xBounds(): DataBounds {
@@ -470,16 +474,18 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     if (this.deleted) return;
     if (!this.state.visible) {
       i.loadingState = undefined;
+      i.problems = [];
       return;
     }
     const { xTelem, yTelem, lineCtx: ctx, reducer } = i;
-    const { groupsPerColumn, loadingHidden } = this.state;
+    const { groupsPerColumn, loadingHidden, label = "" } = this.state;
     const { dataToDecimalScale } = props;
     const v = view(props);
     const valueProps = this.read(v);
     const x = xTelem.value(valueProps);
     const y = yTelem.value(valueProps);
     i.loadingState = loadingState(x, y, i.loaded === true, loadingHidden);
+    i.problems = problem.fromStatus(status.worst(x.status, y.status)!, label);
     if (!isLoading(x) && !isLoading(y)) i.loaded = true;
     // Full-resolution data reduces with the aggregation of the source's reduced reads.
     i.aggregation = y.aggregation ?? DEFAULT_AGGREGATION;

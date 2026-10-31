@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Instrumentation } from "@synnaxlabs/alamos";
-import { type bounds, box, type destructor, xy } from "@synnaxlabs/x";
+import { type bounds, box, deep, type destructor, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -21,6 +21,7 @@ import { tooltip } from "@/lineplot/tooltip/aether";
 import { status } from "@/status/aether";
 import { grid } from "@/vis/grid";
 import { type FindResult } from "@/vis/line/aether/line";
+import { problem } from "@/vis/problem/aether";
 import { render } from "@/vis/render";
 
 export type AxesBounds = Record<string, bounds.Bounds>;
@@ -34,6 +35,8 @@ export const linePlotStateZ = z.object({
   clearOverScan: xy.crudeZ.default(xy.ZERO),
   loading: z.boolean().default(false),
   fetching: z.boolean().default(false),
+  /** The problems of the data the lines last drew. */
+  problems: problem.problemZ.array().default([]),
 });
 
 const axesBoundsZ = z.record(
@@ -123,11 +126,20 @@ export class LinePlot
     return this.axes.some((a) => a.fetching);
   }
 
-  // Lines record their loading state as they render, so it syncs after a render.
-  private syncLoading(): void {
-    const { loading, fetching } = this;
-    if (loading !== this.state.loading || fetching !== this.state.fetching)
-      this.setState((p) => ({ ...p, loading, fetching }));
+  private get problems(): problem.Problem[] {
+    return problem.merge(this.axes.flatMap((a) => a.problems));
+  }
+
+  // Lines record their loading state and problems as they render, so these sync after a
+  // render.
+  private syncFetchState(): void {
+    const { loading, fetching, problems } = this;
+    if (
+      loading !== this.state.loading ||
+      fetching !== this.state.fetching ||
+      !deep.equal(problems, this.state.problems)
+    )
+      this.setState((p) => ({ ...p, loading, fetching, problems }));
   }
 
   private renderAxes(plot: box.Box, canvases: render.CanvasVariant[]): void {
@@ -175,7 +187,7 @@ export class LinePlot
     }
     if (!this.state.visible) {
       ins.L.debug("not visible, skipping render", { key: this.key });
-      this.syncLoading();
+      this.syncFetchState();
       return ({ canvases }) =>
         renderCtx.erase(this.state.container, this.state.clearOverScan, ...canvases);
     }
@@ -214,7 +226,7 @@ export class LinePlot
       removeCanvasScissor();
       removeGLScissor();
     }
-    this.syncLoading();
+    this.syncFetchState();
     ins.L.debug("rendered", { key: this.key });
     const eraseRegion = box.copy(this.state.container);
 

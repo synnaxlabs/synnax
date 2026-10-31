@@ -24,3 +24,9 @@ export const createClient = (
   channels: core.channels,
   now: core.now,
 });
+
+/** @returns the client with its channel retrievals run through retrieve. */
+export const withRetrieve = (
+  client: Client,
+  retrieve: Client["channels"]["retrieve"],
+): Client => ({ ...client, channels: { retrieve } });

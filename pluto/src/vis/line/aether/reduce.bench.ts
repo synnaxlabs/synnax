@@ -49,7 +49,7 @@ const view = (): View => ({
 });
 
 const createSource = (props: ChannelDataProps): ChannelData =>
-  new ChannelData(client, props, undefined, client.now);
+  new ChannelData(client, props, client.now);
 
 const channel = core.data[0].key;
 const x = createSource({
