@@ -31,8 +31,11 @@ export interface ControlsProps extends Flex.BoxProps {
 /** Task controls bar wired to the surrounding task Form context. */
 export const Controls = ({ saveStatus, onDeploy, onStop, ...props }: ControlsProps) => {
   const taskStatus = useStatus();
+  const saveFailed = saveStatus.variant === "error";
+  const visible = Session.Panel.useSelectIsTabVisible();
   // A failed save replaces the task status, so its key is placed before the save fails.
-  Status.usePlace(saveStatus.key, Session.Panel.useSelectIsTabVisible());
+  Status.usePlace(saveStatus.key, visible);
+  Status.usePlace(taskStatus.key, visible && !saveFailed);
   const isSnapshot = Form.useFieldValue<boolean>("snapshot");
   const key = useKey();
   const drifted = useDrifted();
@@ -49,7 +52,7 @@ export const Controls = ({ saveStatus, onDeploy, onStop, ...props }: ControlsPro
 
   return (
     <Bar
-      status={saveStatus.variant === "error" ? saveStatus : taskStatus}
+      status={saveFailed ? saveStatus : taskStatus}
       running={taskStatus.details.running}
       drifted={drifted}
       hideActions={isSnapshot || !canControl}
