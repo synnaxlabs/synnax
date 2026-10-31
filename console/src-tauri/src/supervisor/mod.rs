@@ -55,7 +55,7 @@ pub struct Config {
     pub probe_interval: Duration,
     /// The pause between two probes of a Core that is ready.
     pub liveness_interval: Duration,
-    /// The number of consecutive failed probes after which a ready Core is killed.
+    /// The number of consecutive failed probes after which a ready Core is stopped.
     pub liveness_failures: u32,
     /// The restart policy.
     pub restart: restart::Config,
@@ -431,6 +431,7 @@ impl Task {
         let mut probes = Prober::start(self.cfg.probe.clone(), addr, self.cfg.probe_interval);
         let mut ready = false;
         let mut missed = 0;
+        let mut slowest = Duration::ZERO;
         loop {
             tokio::select! {
                 status = child.wait() => {
@@ -468,7 +469,7 @@ impl Task {
                         format!("not ready after {:?}", self.cfg.start_timeout),
                     );
                 }
-                Some(ok) = probes.results.recv() => {
+                Some((ok, took)) = probes.results.recv() => {
                     if ok && !ready {
                         ready = true;
                         self.port = Some(port);
@@ -495,13 +496,26 @@ impl Task {
                     if !ready {
                         continue;
                     }
-                    missed = if ok { 0 } else { missed + 1 };
+                    if ok {
+                        missed = 0;
+                        slowest = Duration::ZERO;
+                    } else {
+                        missed += 1;
+                        slowest = slowest.max(took);
+                    }
                     if missed >= self.cfg.liveness_failures {
-                        kill(&mut child).await;
-                        return exited(
+                        // Built before the stop, or its wait would count as uptime
+                        // and a Core that hangs after each start would look healthy.
+                        let outcome = exited(
                             Reason::Unresponsive,
-                            format!("stopped answering after {missed} probes"),
+                            format!(
+                                "stopped answering after {missed} probes, slowest {} ms",
+                                slowest.as_millis()
+                            ),
                         );
+                        self.status.send_replace(Status::Stopping);
+                        self.stop(&mut child, stdin.as_mut()).await;
+                        return outcome;
                     }
                 }
             }
@@ -576,7 +590,8 @@ fn now_millis() -> u64 {
 /// Probes the Core on an interval from its own task, so a slow probe never delays a
 /// stop request or the notice of an exit. The task ends when the prober is dropped.
 struct Prober {
-    results: mpsc::Receiver<bool>,
+    /// Whether each probe passed and how long it took.
+    results: mpsc::Receiver<(bool, Duration)>,
     task: JoinHandle<()>,
 }
 
@@ -588,7 +603,9 @@ impl Prober {
             ticks.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
             loop {
                 ticks.tick().await;
-                if tx.send(probe(addr).await).await.is_err() {
+                let started = Instant::now();
+                let ok = probe(addr).await;
+                if tx.send((ok, started.elapsed())).await.is_err() {
                     return;
                 }
             }
@@ -609,7 +626,7 @@ mod tests {
     use std::future::Future;
     use std::os::unix::fs::PermissionsExt;
     use std::pin::Pin;
-    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
     fn always(ok: bool) -> probe::Probe {
         Arc::new(move |_| Box::pin(async move { ok }))
@@ -626,10 +643,12 @@ mod tests {
     }
 
     /// A stand-in Core that appends a line to `runs` on each start and stops on the
-    /// stop line or when its stdin closes.
+    /// stop line, which it records in `stops`, or when its stdin closes.
     const OBEDIENT: &str = r#"#!/bin/sh
 echo run >> "$(dirname "$0")/runs"
-while read line; do [ "$line" = stop ] && exit 0; done
+while read line; do
+  [ "$line" = stop ] && { echo stop >> "$(dirname "$0")/stops"; exit 0; }
+done
 exit 0
 "#;
 
@@ -680,10 +699,18 @@ while true; do sleep 1; done
             Self { dir, cfg }
         }
 
-        fn runs(&self) -> usize {
-            std::fs::read_to_string(self.dir.path().join("runs"))
+        fn lines(&self, name: &str) -> usize {
+            std::fs::read_to_string(self.dir.path().join(name))
                 .map(|s| s.lines().count())
                 .unwrap_or(0)
+        }
+
+        fn runs(&self) -> usize {
+            self.lines("runs")
+        }
+
+        fn stops(&self) -> usize {
+            self.lines("stops")
         }
 
         /// Waits for the script to record its nth start. The injected probe passes
@@ -698,6 +725,16 @@ while true; do sleep 1; done
                 .await
                 .expect("timed out waiting for the script to start");
         }
+    }
+
+    /// Returns the probe time, in milliseconds, of an unresponsive exit message.
+    fn slowest_ms(message: &str) -> u128 {
+        message
+            .strip_prefix("stopped answering after 3 probes, slowest ")
+            .and_then(|rest| rest.strip_suffix(" ms"))
+            .unwrap()
+            .parse()
+            .unwrap()
     }
 
     async fn wait_for(sup: &Supervisor, pred: impl Fn(&Status) -> bool) -> Status {
@@ -824,11 +861,89 @@ while true; do sleep 1; done
         assert_eq!(history.exits, 1);
         let exit = history.last_exit.unwrap();
         assert_eq!(exit.reason, Reason::Unresponsive);
-        assert_eq!(exit.message, "stopped answering after 3 probes");
         ok.store(true, Ordering::SeqCst);
         wait_for(&sup, |s| matches!(s, Status::Running { .. })).await;
         f.wait_for_runs(2).await;
         sup.stop().await;
+    }
+
+    #[tokio::test]
+    async fn stops_a_core_that_stops_answering_through_its_stdin() {
+        let ok = Arc::new(AtomicBool::new(true));
+        let f = Fixture::new(OBEDIENT, following(ok.clone()));
+        let sup = Supervisor::open(f.cfg.clone()).unwrap();
+        wait_for(&sup, |s| matches!(s, Status::Running { .. })).await;
+        f.wait_for_runs(1).await;
+        ok.store(false, Ordering::SeqCst);
+        wait_for(&sup, |s| matches!(s, Status::Restarting)).await;
+        assert_eq!(f.stops(), 1);
+        ok.store(true, Ordering::SeqCst);
+        wait_for(&sup, |s| matches!(s, Status::Running { .. })).await;
+        sup.stop().await;
+    }
+
+    #[tokio::test]
+    async fn reports_the_slowest_failed_probe_of_a_core_that_stops_answering() {
+        let ok = Arc::new(AtomicBool::new(true));
+        let answer = ok.clone();
+        let probe: probe::Probe = Arc::new(move |_| {
+            let ok = answer.clone();
+            let result: Pin<Box<dyn Future<Output = bool> + Send>> = Box::pin(async move {
+                let ok = ok.load(Ordering::SeqCst);
+                if !ok {
+                    tokio::time::sleep(Duration::from_millis(40)).await;
+                }
+                ok
+            });
+            result
+        });
+        let f = Fixture::new(OBEDIENT, probe);
+        let sup = Supervisor::open(f.cfg.clone()).unwrap();
+        wait_for(&sup, |s| matches!(s, Status::Running { .. })).await;
+        f.wait_for_runs(1).await;
+        ok.store(false, Ordering::SeqCst);
+        wait_for(&sup, |s| matches!(s, Status::Restarting)).await;
+        let message = sup.history().last_exit.unwrap().message;
+        assert!(slowest_ms(&message) >= 40, "{message}");
+        ok.store(true, Ordering::SeqCst);
+        wait_for(&sup, |s| matches!(s, Status::Running { .. })).await;
+        sup.stop().await;
+    }
+
+    #[tokio::test]
+    async fn forgets_a_slow_probe_once_the_core_answers_again() {
+        let calls = Arc::new(AtomicUsize::new(0));
+        let probe: probe::Probe = Arc::new(move |_| {
+            let call = calls.fetch_add(1, Ordering::SeqCst);
+            let result: Pin<Box<dyn Future<Output = bool> + Send>> = Box::pin(async move {
+                if call == 1 {
+                    tokio::time::sleep(Duration::from_millis(300)).await;
+                }
+                matches!(call, 0 | 2)
+            });
+            result
+        });
+        let f = Fixture::new(OBEDIENT, probe);
+        let sup = Supervisor::open(f.cfg.clone()).unwrap();
+        wait_for(&sup, |s| matches!(s, Status::Restarting)).await;
+        let message = sup.history().last_exit.unwrap().message;
+        assert!(slowest_ms(&message) < 300, "{message}");
+        sup.stop().await;
+    }
+
+    #[tokio::test]
+    async fn gives_up_on_a_core_that_hangs_after_each_start_despite_a_long_stop() {
+        let calls = Arc::new(AtomicUsize::new(0));
+        let probe: probe::Probe = Arc::new(move |_| {
+            let ok = calls.fetch_add(1, Ordering::SeqCst) % 4 == 0;
+            Box::pin(async move { ok })
+        });
+        let mut f = Fixture::new(STUBBORN, probe);
+        f.cfg.stop_timeout = Duration::from_millis(600);
+        f.cfg.restart.healthy_uptime = Duration::from_millis(500);
+        let sup = Supervisor::open(f.cfg.clone()).unwrap();
+        wait_for(&sup, |s| matches!(s, Status::Failed { .. })).await;
+        assert_eq!(f.runs(), 3);
     }
 
     #[tokio::test]
