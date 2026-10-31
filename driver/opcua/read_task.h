@@ -987,7 +987,8 @@ class OnChangeReadTaskSource final : public BaseReadTaskSource {
     std::vector<std::optional<std::size_t>> items;
     /// @brief where the history of each monitored item ends: the time of its first
     /// change, which holds the value that the server had when it began to monitor the
-    /// node. Nothing until that change arrives.
+    /// node, or the later time of the value that retry_fields reads. Nothing until one
+    /// of them arrives.
     std::vector<std::optional<UA_DateTime>> history_end;
     /// @brief when the source last tried to subscribe to what the subscription lacks.
     x::telem::TimeStamp retried{};
@@ -1089,7 +1090,9 @@ class OnChangeReadTaskSource final : public BaseReadTaskSource {
 
     /// @brief reads the structure types again when a field channel failed, then reads
     /// the value of each node whose field channels now decode, since a node that does
-    /// not change sends no value to decode again.
+    /// not change sends no value to decode again. With history backfill, it also reads
+    /// the history of each such node up to that value, which holds the values that
+    /// failed to decode.
     /// @returns only an error that loses the connection.
     x::errors::Error retry_fields() {
         std::vector<bool> failing(this->fields.size());
@@ -1117,6 +1120,7 @@ class OnChangeReadTaskSource final : public BaseReadTaskSource {
             );
             return x::errors::NIL;
         }
+        std::vector<std::size_t> recovered;
         std::size_t k = 0;
         for (const auto &[item, channels]: fixed) {
             const auto &value = res.get().results[k++];
@@ -1126,8 +1130,13 @@ class OnChangeReadTaskSource final : public BaseReadTaskSource {
                 if (auto s = this->sample(i, value, decoded, &this->problems);
                     s.has_value())
                     this->live[i].push_back({time, std::move(*s), true});
+            const auto read_at = history_time(value);
+            auto &end = this->history_end[item];
+            end = std::max(end.value_or(read_at), read_at);
+            recovered.push_back(item);
         }
-        return x::errors::NIL;
+        if (!this->cfg.history_backfill_enabled) return x::errors::NIL;
+        return this->start_backfill(recovered);
     }
 
     /// @returns the problems of the field channels of monitored nodes whose structure

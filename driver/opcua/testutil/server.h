@@ -181,12 +181,12 @@ struct Event {
     std::optional<UA_Double> level;
 };
 
-/// @brief a change that the mock server makes to the value of a Double or DateTime
-/// variable.
+/// @brief a change that the mock server makes to the value of a Double, DateTime, or
+/// Motor variable.
 struct Change {
     /// @brief the string ID of the variable, in namespace 1.
     std::string node;
-    std::variant<UA_Double, x::telem::TimeStamp> value = 0.0;
+    std::variant<UA_Double, x::telem::TimeStamp, Motor> value = 0.0;
     /// @brief the source time of the value. Without one, the server uses its clock.
     std::optional<x::telem::TimeStamp> time;
     UA_StatusCode status = UA_STATUSCODE_GOOD;
@@ -378,8 +378,8 @@ struct ServerConfig {
     /// @brief the MaxNodesPerHistoryReadData that the server reports. The server does
     /// not enforce it. 0 reports none.
     std::uint32_t max_nodes_per_history_read_data = 0;
-    /// @brief whether the server records the history of each test node, from each
-    /// Change. Such a node allows history reads.
+    /// @brief whether the server records the history of each test node and of
+    /// NS=1;S=TestMotor, from each Change. Such a node allows history reads.
     bool historizing = false;
     /// @brief the most values that the server returns for a node in one history read
     /// before it returns a continuation point.
@@ -969,8 +969,8 @@ public:
         );
     }
 
-    /// @brief applies the changes that change queued.
-    void apply_changes(UA_Server *server) {
+    /// @brief applies the changes that change queued. A Motor value has motor_type.
+    void apply_changes(UA_Server *server, const UA_DataType &motor_type) {
         std::vector<Change> queued;
         {
             std::lock_guard lock(this->queue_mutex);
@@ -982,6 +982,8 @@ public:
             UA_DateTime date_time = 0;
             if (auto *d = std::get_if<UA_Double>(&change.value))
                 UA_Variant_setScalar(&value.value, d, &UA_TYPES[UA_TYPES_DOUBLE]);
+            else if (auto *m = std::get_if<Motor>(&change.value))
+                UA_Variant_setScalar(&value.value, m, &motor_type);
             else {
                 date_time = telem::to_date_time(
                     std::get<x::telem::TimeStamp>(change.value)
@@ -1131,19 +1133,19 @@ private:
         if (status != UA_STATUSCODE_GOOD)
             LOG(ERROR) << "Mock OPC UA server failed to add node " << node.node_id
                        << ": " << UA_StatusCode_name(status);
-        if (history != nullptr) {
-            UA_HistorizingNodeIdSettings setting{};
-            setting.historizingBackend = history->backend;
-            setting.maxHistoryDataResponseSize = history->max_values;
-            setting.historizingUpdateStrategy = UA_HISTORIZINGUPDATESTRATEGY_VALUESET;
-            history->gathering.registerNodeId(
-                server,
-                history->gathering.context,
-                &raw_node_id,
-                setting
-            );
-        }
+        if (history != nullptr) historize(server, *history, raw_node_id);
         UA_NodeId_clear(&raw_node_id);
+    }
+
+    /// @brief records the history of the node with id in history, from each change.
+    static void
+    historize(UA_Server *server, const History &history, const UA_NodeId &id) {
+        UA_HistorizingNodeIdSettings setting{};
+        setting.historizingBackend = history.backend;
+        setting.maxHistoryDataResponseSize = history.max_values;
+        setting.historizingUpdateStrategy = UA_HISTORIZINGUPDATESTRATEGY_VALUESET;
+        history.gathering
+            .registerNodeId(server, history.gathering.context, &id, setting);
     }
 
     /// @brief adds a folder with the browse name name under parent.
@@ -1224,7 +1226,7 @@ private:
 
     /// @brief applies what add_namespace, add_motor, add_motor_type, add_pump,
     /// add_pump_object, and set_pump_event_notifier asked for. Records the history of
-    /// each node of add_namespace when history is set.
+    /// each node of add_namespace and add_motor when history is set.
     void add_requested(
         UA_Server *server,
         const UA_DataType &motor_type,
@@ -1240,7 +1242,7 @@ private:
         }
         this->added.clear();
         if (this->added_motor.has_value()) {
-            add_motor_node(server, motor_type, *this->added_motor);
+            add_motor_node(server, motor_type, *this->added_motor, history);
             this->added_motor.reset();
         }
         if (this->motor_type_requested) {
@@ -1282,12 +1284,20 @@ private:
         );
     }
 
-    static void
-    add_motor_node(UA_Server *server, const UA_DataType &type, Motor &value) {
+    static void add_motor_node(
+        UA_Server *server,
+        const UA_DataType &type,
+        Motor &value,
+        const History *history
+    ) {
         UA_VariableAttributes attr = UA_VariableAttributes_default;
         attr.dataType = type.typeId;
         attr.valueRank = UA_VALUERANK_SCALAR;
         attr.accessLevel = UA_ACCESSLEVELMASK_READ;
+        if (history != nullptr) {
+            attr.accessLevel |= UA_ACCESSLEVELMASK_HISTORYREAD;
+            attr.historizing = true;
+        }
         attr.displayName = UA_LOCALIZEDTEXT(
             const_cast<char *>("en-US"),
             const_cast<char *>("TestMotor")
@@ -1304,6 +1314,12 @@ private:
             nullptr,
             nullptr
         );
+        if (history != nullptr)
+            historize(
+                server,
+                *history,
+                UA_NODEID_STRING(1, const_cast<char *>("TestMotor"))
+            );
     }
 
 public:
@@ -1387,8 +1403,10 @@ public:
         }};
         for (const auto &[id, name]: data_types)
             add_data_type_node(server, id, name);
+        const History history{gathering, backend, cfg.max_history_values};
+        const auto *recorded = cfg.historizing ? &history : nullptr;
         if (cfg.motor.has_value())
-            add_motor_node(server, structures.motor(), *cfg.motor);
+            add_motor_node(server, structures.motor(), *cfg.motor, recorded);
         // TestMotor needs its DataType node when the server adds it.
         if (cfg.motor_type_missing)
             UA_Server_deleteNode(server, structures.motor().typeId, true);
@@ -1409,9 +1427,8 @@ public:
             );
         }
 
-        const History history{gathering, backend, cfg.max_history_values};
         for (const auto &node: cfg.test_nodes)
-            add_node(server, node, cfg.historizing ? &history : nullptr);
+            add_node(server, node, recorded);
 
         if (cfg.generated_variables > 0 || cfg.generated_folders > 0)
             add_generated(server, cfg.generated_variables, cfg.generated_folders);
@@ -1441,13 +1458,9 @@ public:
                     std::chrono::nanoseconds(delay.nanoseconds())
                 );
             this->emit_events(server);
-            this->apply_changes(server);
+            this->apply_changes(server, structures.motor());
             UA_Server_run_iterate(server, true);
-            this->add_requested(
-                server,
-                structures.motor(),
-                cfg.historizing ? &history : nullptr
-            );
+            this->add_requested(server, structures.motor(), recorded);
             const auto stats = UA_Server_getStatistics(server);
             this->channels = stats.scs.currentChannelCount;
             this->sessions_created = stats.ss.cumulatedSessionCount;

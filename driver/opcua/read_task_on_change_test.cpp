@@ -459,6 +459,63 @@ TEST_F(TestOnChangeReadTask, testReadsFieldOnceTypeRecovers) {
     ASSERT_NIL(src->stop());
 }
 
+/// @brief it should backfill a structure field once the server defines its type, from
+/// the last stored value through the changes that failed to decode.
+TEST_F(TestOnChangeReadTask, testBackfillsFieldOnceTypeRecovers) {
+    this->server_cfg.motor = testutil::Motor{
+        .speed = 0,
+        .running = true,
+        .position = {},
+    };
+    this->server_cfg.motor_type_missing = true;
+    this->server_cfg.historizing = true;
+    this->start_server();
+    const auto stored = testutil::now(-1 * x::telem::MINUTE);
+    this->store(this->value, stored, 0);
+    const auto change_speed = [&](const int speed) {
+        this->server->change({
+            .node = "TestMotor",
+            .value =
+                testutil::Motor{
+                    .speed = static_cast<double>(speed),
+                    .running = true,
+                    .position = {},
+                },
+            .time = stored + x::telem::SECOND * speed,
+        });
+    };
+    change_speed(1);
+    change_speed(2);
+    // The server applies changes in order, so a later change shows that it applied
+    // these.
+    this->change(-1, testutil::now());
+    this->wait_for(-1);
+    auto cfg = this->config({{"NS=1;S=TestMotor", this->value.key}});
+    cfg["channels"][0]["field"] = "Speed";
+    cfg["history_backfill_enabled"] = true;
+    const auto src = this->source(cfg);
+    ASSERT_NIL(src->start());
+    ASSERT_TRUE(read_values(*src, this->value, 1, x::telem::SECOND).values.empty());
+    change_speed(3);
+    change_speed(4);
+    this->change(-2, testutil::now());
+    this->wait_for(-2);
+    ASSERT_TRUE(read_values(*src, this->value, 1, x::telem::SECOND).values.empty());
+    this->server->add_motor_type();
+    const auto found = read_values(*src, this->value, 4, 25 * x::telem::SECOND);
+    EXPECT_EQ(found.values, std::vector<double>({1, 2, 3, 4}));
+    EXPECT_EQ(
+        found.stamps,
+        std::vector({
+            stored + x::telem::SECOND,
+            stored + 2 * x::telem::SECOND,
+            stored + 3 * x::telem::SECOND,
+            stored + 4 * x::telem::SECOND,
+        })
+    );
+    ASSERT_NIL(src->stop());
+}
+
 /// @brief it should warn about a node in a namespace that the server lacks, then
 /// subscribe to the node once the server adds the namespace.
 TEST_F(TestOnChangeReadTask, testSubscribesToNamespaceAddedLater) {
