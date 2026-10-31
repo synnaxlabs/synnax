@@ -49,7 +49,7 @@ const Create = ({ close }: Modals.ContentProps<Record<never, never>, void>) => {
       <Modal.Header icon={<Icon.Channel />}>Channel.Create</Modal.Header>
       <Modal.Body>
         <Form.Form<typeof Channel.formSchema> {...form}>
-          <Form.Field<string> path="name" showLabel={false}>
+          <Form.Field<string> path="name" showLabel={false} padHelpText={false}>
             {(p) => (
               <Input.Text
                 autoFocus
