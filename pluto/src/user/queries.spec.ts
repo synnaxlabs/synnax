@@ -23,8 +23,11 @@ import {
   vi,
 } from "vitest";
 
-import { renderHookSuspended } from "@/testutil/render";
-import { createAsyncSynnaxWrapper, createSynnaxWrapper } from "@/testutil/Synnax";
+import {
+  createAsyncSynnaxWrapper,
+  createSynnaxWrapper,
+  renderHookSuspended,
+} from "@/testutil";
 import { User } from "@/user";
 
 describe("User queries", () => {

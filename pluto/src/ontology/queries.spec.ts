@@ -14,8 +14,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Ontology } from "@/ontology";
-import { renderHookSuspended } from "@/testutil/render";
-import { createSynnaxWrapper } from "@/testutil/Synnax";
+import { createSynnaxWrapper, renderHookSuspended } from "@/testutil";
 
 const client = createTestClient();
 const wrapper = createSynnaxWrapper({ client });

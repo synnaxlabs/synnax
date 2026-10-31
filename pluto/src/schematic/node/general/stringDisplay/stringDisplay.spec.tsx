@@ -18,7 +18,7 @@ import { Node } from "@/schematic/node";
 import { GROUP } from "@/schematic/node/general/group";
 import { StringDisplayForm } from "@/schematic/node/general/stringDisplay/Form";
 import { StringDisplay as Primitive } from "@/schematic/node/general/stringDisplay/Primitive";
-import { createSynnaxWrapper } from "@/testutil/Synnax";
+import { createSynnaxWrapper } from "@/testutil";
 
 const SynnaxWrapper = createSynnaxWrapper({ client: null });
 

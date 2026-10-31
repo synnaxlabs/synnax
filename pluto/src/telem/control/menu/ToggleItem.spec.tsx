@@ -12,7 +12,7 @@ import { assert, describe, expect, it } from "vitest";
 
 import { Control } from "@/telem/control";
 import { control } from "@/telem/control/aether";
-import { render } from "@/testutil/render";
+import { render } from "@/testutil";
 
 const CONTROLLER_NAME = "Valve Controller";
 const OPTIONS = {

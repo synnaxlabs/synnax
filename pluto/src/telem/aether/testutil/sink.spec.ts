@@ -9,32 +9,25 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { TEST_SINK_TYPE, TestFactory } from "@/telem/aether/testutil/factory";
-import {
-  booleanSinkSpec,
-  numberSinkSpec,
-  sink,
-  stringSinkSpec,
-  TestSink,
-} from "@/telem/aether/testutil/sink";
+import { telemTest } from "@/telem/aether/testutil";
 
 describe("TestSink", () => {
-  const sinks: TestSink<unknown>[] = [];
+  const sinks: telemTest.TestSink<unknown>[] = [];
 
   afterEach(() => {
     sinks.forEach((s) => s.cleanup());
     sinks.length = 0;
   });
 
-  const createSink = <V>(): TestSink<V> => {
-    const s = sink<V>();
+  const createSink = <V>(): telemTest.TestSink<V> => {
+    const s = telemTest.sink<V>();
     sinks.push(s);
     return s;
   };
 
   describe("constructor and id", () => {
     it("should have static TYPE equal to TEST_SINK_TYPE", () => {
-      expect(TestSink.TYPE).toBe(TEST_SINK_TYPE);
+      expect(telemTest.TestSink.TYPE).toBe(telemTest.TEST_SINK_TYPE);
     });
 
     it("should generate unique id for each instance", () => {
@@ -48,7 +41,7 @@ describe("TestSink", () => {
 
     it("should auto-register on construction", () => {
       const s = createSink<number>();
-      const factory = new TestFactory();
+      const factory = new telemTest.TestFactory();
 
       const result = factory.create({
         type: "test-sink",
@@ -144,8 +137,8 @@ describe("TestSink", () => {
 
   describe("cleanup", () => {
     it("should unregister from factory", () => {
-      const s = sink<number>();
-      const factory = new TestFactory();
+      const s = telemTest.sink<number>();
+      const factory = new telemTest.TestFactory();
 
       expect(
         factory.create({
@@ -172,16 +165,16 @@ describe("TestSink", () => {
   describe("sink factory function", () => {
     it("should create TestSink instance", () => {
       const s = createSink<boolean>();
-      expect(s).toBeInstanceOf(TestSink);
+      expect(s).toBeInstanceOf(telemTest.TestSink);
     });
   });
 
   describe("spec creators", () => {
     it("booleanSinkSpec should create correct spec", () => {
       const s = createSink<boolean>();
-      const spec = booleanSinkSpec(s);
+      const spec = telemTest.booleanSinkSpec(s);
 
-      expect(spec.type).toBe(TEST_SINK_TYPE);
+      expect(spec.type).toBe(telemTest.TEST_SINK_TYPE);
       expect(spec.variant).toBe("sink");
       expect(spec.valueType).toBe("boolean");
       expect(spec.props.testId).toBe(s.id);
@@ -189,9 +182,9 @@ describe("TestSink", () => {
 
     it("numberSinkSpec should create correct spec", () => {
       const s = createSink<number>();
-      const spec = numberSinkSpec(s);
+      const spec = telemTest.numberSinkSpec(s);
 
-      expect(spec.type).toBe(TEST_SINK_TYPE);
+      expect(spec.type).toBe(telemTest.TEST_SINK_TYPE);
       expect(spec.variant).toBe("sink");
       expect(spec.valueType).toBe("number");
       expect(spec.props.testId).toBe(s.id);
@@ -199,9 +192,9 @@ describe("TestSink", () => {
 
     it("stringSinkSpec should create correct spec", () => {
       const s = createSink<string>();
-      const spec = stringSinkSpec(s);
+      const spec = telemTest.stringSinkSpec(s);
 
-      expect(spec.type).toBe(TEST_SINK_TYPE);
+      expect(spec.type).toBe(telemTest.TEST_SINK_TYPE);
       expect(spec.variant).toBe("sink");
       expect(spec.valueType).toBe("string");
       expect(spec.props.testId).toBe(s.id);
@@ -209,8 +202,8 @@ describe("TestSink", () => {
 
     it("spec should allow factory to retrieve sink", () => {
       const s = createSink<boolean>();
-      const spec = booleanSinkSpec(s);
-      const factory = new TestFactory();
+      const spec = telemTest.booleanSinkSpec(s);
+      const factory = new telemTest.TestFactory();
 
       const result = factory.create(spec);
 

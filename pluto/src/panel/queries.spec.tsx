@@ -24,8 +24,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { Errors } from "@/errors";
 import { Ontology } from "@/ontology";
 import { Panel } from "@/panel";
-import { renderHookSuspended } from "@/testutil/render";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper, renderHookSuspended } from "@/testutil";
 
 const client = createTestClient();
 // writer is a second connected client used to emit changes the wrapper client

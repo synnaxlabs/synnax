@@ -17,8 +17,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 
 import { Flux } from "@/flux";
 import { Status } from "@/status";
-import { renderHookSuspended } from "@/testutil/render";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper, renderHookSuspended } from "@/testutil";
 
 const client = createTestClient();
 

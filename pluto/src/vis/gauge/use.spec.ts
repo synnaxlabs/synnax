@@ -10,7 +10,7 @@
 import { box } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { renderHook } from "@/testutil/render";
+import { renderHook } from "@/testutil";
 import { Gauge } from "@/vis/gauge";
 import { gauge } from "@/vis/gauge/aether";
 

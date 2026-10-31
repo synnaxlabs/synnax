@@ -10,10 +10,10 @@
 import { type destructor } from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { type Telem } from "@/telem/aether/telem";
-import { registerInstance, TestFactory } from "@/telem/aether/testutil/factory";
+import { type telem } from "@/telem/aether";
+import { telemTest } from "@/telem/aether/testutil";
 
-const createMockTelem = (): Telem => ({
+const createMockTelem = (): telem.Telem => ({
   cleanup: () => {},
 });
 
@@ -23,9 +23,9 @@ describe("TestFactory", () => {
       const instance = createMockTelem();
       const id = "test-id-1";
 
-      const unregister = registerInstance(id, instance);
+      const unregister = telemTest.registerInstance(id, instance);
 
-      const factory = new TestFactory();
+      const factory = new telemTest.TestFactory();
       const result = factory.create({
         type: "test-sink",
         valueType: "any",
@@ -42,10 +42,10 @@ describe("TestFactory", () => {
       const instance = createMockTelem();
       const id = "test-id-2";
 
-      const unregister = registerInstance(id, instance);
+      const unregister = telemTest.registerInstance(id, instance);
       unregister();
 
-      const factory = new TestFactory();
+      const factory = new telemTest.TestFactory();
       const result = factory.create({
         type: "test-sink",
         valueType: "any",
@@ -58,19 +58,22 @@ describe("TestFactory", () => {
   });
 
   describe("create", () => {
-    let factory: TestFactory;
+    let factory: telemTest.TestFactory;
     const destructors: destructor.Destructor[] = [];
 
     beforeEach(() => {
-      factory = new TestFactory();
+      factory = new telemTest.TestFactory();
     });
 
     afterEach(() => {
       destructors.forEach((destructor) => destructor());
     });
 
-    const registerAndTrack = (id: string, instance: Telem): destructor.Destructor => {
-      const unregister = registerInstance(id, instance);
+    const registerAndTrack = (
+      id: string,
+      instance: telem.Telem,
+    ): destructor.Destructor => {
+      const unregister = telemTest.registerInstance(id, instance);
       destructors.push(unregister);
       return unregister;
     };

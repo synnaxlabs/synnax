@@ -18,8 +18,7 @@ import { z } from "zod";
 
 import { Errors } from "@/errors";
 import { Flux } from "@/flux";
-import { renderHookSuspended } from "@/testutil/render";
-import { createSynnaxWrapper } from "@/testutil/Synnax";
+import { createSynnaxWrapper, renderHookSuspended } from "@/testutil";
 
 const formSchema = z.object({
   key: z.string(),

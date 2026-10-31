@@ -10,18 +10,16 @@
 import { describe, expect, it } from "vitest";
 
 import { type aether } from "@/aether/aether";
-import { Composite } from "@/aether/testutil/Composite";
-import { createDriver, ROOT_KEY } from "@/aether/testutil/driver";
-import { Leaf } from "@/aether/testutil/Leaf";
+import { aetherTest } from "@/aether/testutil";
 
 const REGISTRY: aether.ComponentRegistry = {
-  [Leaf.TYPE]: Leaf,
-  [Composite.TYPE]: Composite,
+  [aetherTest.Leaf.TYPE]: aetherTest.Leaf,
+  [aetherTest.Composite.TYPE]: aetherTest.Composite,
 };
 
 describe("createDriver", () => {
   it("exposes a root and a mock comms pair", () => {
-    const d = createDriver(REGISTRY);
+    const d = aetherTest.createDriver(REGISTRY);
     expect(d.root).toBeDefined();
     expect(d.workerSide).toBeDefined();
     expect(d.mainSide).toBeDefined();
@@ -29,26 +27,28 @@ describe("createDriver", () => {
 
   describe("update / find", () => {
     it("mounts a component from the registry and looks it up by path", () => {
-      const d = createDriver(REGISTRY);
-      d.update([ROOT_KEY, "a"], Leaf.TYPE, { value: 1 });
-      const leaf = d.find<Leaf>([ROOT_KEY, "a"]);
-      expect(leaf).toBeInstanceOf(Leaf);
+      const d = aetherTest.createDriver(REGISTRY);
+      d.update([aetherTest.ROOT_KEY, "a"], aetherTest.Leaf.TYPE, { value: 1 });
+      const leaf = d.find<aetherTest.Leaf>([aetherTest.ROOT_KEY, "a"]);
+      expect(leaf).toBeInstanceOf(aetherTest.Leaf);
       expect(leaf.key).toBe("a");
       expect(leaf.state).toEqual({ value: 1 });
     });
 
     it("mounts nested children under a composite", () => {
-      const d = createDriver(REGISTRY);
-      d.update([ROOT_KEY, "c"], Composite.TYPE, {});
-      d.update([ROOT_KEY, "c", "leaf"], Leaf.TYPE, { value: 2 });
-      expect(d.find<Leaf>([ROOT_KEY, "c", "leaf"]).state).toEqual({ value: 2 });
+      const d = aetherTest.createDriver(REGISTRY);
+      d.update([aetherTest.ROOT_KEY, "c"], aetherTest.Composite.TYPE, {});
+      d.update([aetherTest.ROOT_KEY, "c", "leaf"], aetherTest.Leaf.TYPE, { value: 2 });
+      expect(d.find<aetherTest.Leaf>([aetherTest.ROOT_KEY, "c", "leaf"]).state).toEqual(
+        { value: 2 },
+      );
     });
 
     it("re-runs afterUpdate when updating an existing component", () => {
-      const d = createDriver(REGISTRY);
-      d.update([ROOT_KEY, "a"], Leaf.TYPE, { value: 1 });
-      d.update([ROOT_KEY, "a"], Leaf.TYPE, { value: 2 });
-      const leaf = d.find<Leaf>([ROOT_KEY, "a"]);
+      const d = aetherTest.createDriver(REGISTRY);
+      d.update([aetherTest.ROOT_KEY, "a"], aetherTest.Leaf.TYPE, { value: 1 });
+      d.update([aetherTest.ROOT_KEY, "a"], aetherTest.Leaf.TYPE, { value: 2 });
+      const leaf = d.find<aetherTest.Leaf>([aetherTest.ROOT_KEY, "a"]);
       expect(leaf.state).toEqual({ value: 2 });
       expect(leaf.updateCalls).toHaveLength(2);
     });
@@ -56,35 +56,35 @@ describe("createDriver", () => {
     it("derives each component's key from its own path, not a later mutation", () => {
       // Regression: update must snapshot the path so a caller mutating its array (e.g.
       // pushing the next child key) cannot rewrite an already-mounted component's key.
-      const d = createDriver(REGISTRY);
-      const path = [ROOT_KEY, "c"];
-      d.update(path, Composite.TYPE, {});
+      const d = aetherTest.createDriver(REGISTRY);
+      const path = [aetherTest.ROOT_KEY, "c"];
+      d.update(path, aetherTest.Composite.TYPE, {});
       path.push("leaf");
-      d.update(path, Leaf.TYPE, { value: 1 });
-      expect(d.find([ROOT_KEY, "c"]).key).toBe("c");
-      expect(d.find([ROOT_KEY, "c", "leaf"]).key).toBe("leaf");
+      d.update(path, aetherTest.Leaf.TYPE, { value: 1 });
+      expect(d.find([aetherTest.ROOT_KEY, "c"]).key).toBe("c");
+      expect(d.find([aetherTest.ROOT_KEY, "c", "leaf"]).key).toBe("leaf");
     });
 
     it("throws when no component exists at the path", () => {
-      const d = createDriver(REGISTRY);
-      expect(() => d.find([ROOT_KEY, "missing"])).toThrow();
+      const d = aetherTest.createDriver(REGISTRY);
+      expect(() => d.find([aetherTest.ROOT_KEY, "missing"])).toThrow();
     });
 
     it("throws when the type is not in the registry", () => {
-      const d = createDriver(REGISTRY);
-      expect(() => d.update([ROOT_KEY, "x"], "unregistered", {})).toThrow();
+      const d = aetherTest.createDriver(REGISTRY);
+      expect(() => d.update([aetherTest.ROOT_KEY, "x"], "unregistered", {})).toThrow();
     });
   });
 
   describe("delete", () => {
     it("removes a component and its descendants", () => {
-      const d = createDriver(REGISTRY);
-      d.update([ROOT_KEY, "c"], Composite.TYPE, {});
-      d.update([ROOT_KEY, "c", "leaf"], Leaf.TYPE, { value: 1 });
-      const leaf = d.find<Leaf>([ROOT_KEY, "c", "leaf"]);
-      d.delete([ROOT_KEY, "c"]);
+      const d = aetherTest.createDriver(REGISTRY);
+      d.update([aetherTest.ROOT_KEY, "c"], aetherTest.Composite.TYPE, {});
+      d.update([aetherTest.ROOT_KEY, "c", "leaf"], aetherTest.Leaf.TYPE, { value: 1 });
+      const leaf = d.find<aetherTest.Leaf>([aetherTest.ROOT_KEY, "c", "leaf"]);
+      d.delete([aetherTest.ROOT_KEY, "c"]);
       expect(leaf.deleteCallCount).toBe(1);
-      expect(() => d.find([ROOT_KEY, "c"])).toThrow();
+      expect(() => d.find([aetherTest.ROOT_KEY, "c"])).toThrow();
     });
   });
 });

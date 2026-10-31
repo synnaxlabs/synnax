@@ -17,8 +17,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { LinePlot } from "@/lineplot";
 import { lineplot } from "@/lineplot/aether";
 import { range } from "@/lineplot/range/aether";
-import { renderHookSuspended } from "@/testutil/render";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper, renderHookSuspended } from "@/testutil";
 import { canvasTest } from "@/vis/render/testutil";
 
 const client = createTestClient();

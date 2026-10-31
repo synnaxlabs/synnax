@@ -21,7 +21,7 @@ import { type z } from "zod";
 import { aether } from "@/aether/aether";
 import { aetherTest } from "@/aether/testutil";
 import { telem } from "@/telem/aether";
-import { buildStack } from "@/testutil/providers";
+import { buildStack } from "@/testutil/internal";
 import { staleness } from "@/vis/staleness/aether";
 
 const createSource = (): telem.Source<unknown> => ({

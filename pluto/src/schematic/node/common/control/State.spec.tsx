@@ -15,7 +15,7 @@ import { describe, expect, it } from "vitest";
 import { Control } from "@/schematic/node/common/control";
 import { Grid } from "@/schematic/node/common/grid";
 import { control } from "@/telem/control/aether";
-import { render } from "@/testutil/render";
+import { render } from "@/testutil";
 
 const renderState = (channel?: channel.Key) =>
   render(

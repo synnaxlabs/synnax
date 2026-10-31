@@ -15,7 +15,7 @@ import { type FC, type PropsWithChildren } from "react";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { AliasInput } from "@/channel/AliasInput";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper } from "@/testutil";
 
 const client = createTestClient();
 

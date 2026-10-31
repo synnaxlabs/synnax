@@ -15,7 +15,7 @@ import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { Provider, type ProviderProps } from "@/lineplot/range/aether/provider";
-import { renderAether } from "@/testutil/renderAether";
+import { renderAether } from "@/testutil/internal";
 import { render } from "@/vis/render";
 import { canvasTest } from "@/vis/render/testutil";
 

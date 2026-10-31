@@ -14,7 +14,7 @@ import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { tooltip } from "@/lineplot/tooltip/aether";
-import { renderAether } from "@/testutil/renderAether";
+import { renderAether } from "@/testutil/internal";
 import { theming } from "@/theming/aether";
 import { type FindResult } from "@/vis/line/aether/line";
 import { render } from "@/vis/render";

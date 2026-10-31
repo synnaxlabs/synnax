@@ -17,8 +17,7 @@ import z from "zod";
 
 import { Errors } from "@/errors";
 import { Task } from "@/task";
-import { renderHookSuspended } from "@/testutil/render";
-import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { createAsyncSynnaxWrapper, renderHookSuspended } from "@/testutil";
 
 const client = createTestClient();
 
