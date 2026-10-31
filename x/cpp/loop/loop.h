@@ -60,7 +60,7 @@ public:
         if (this->high_rate())
             this->precise_sleep(remaining);
         else
-            std::this_thread::sleep_for(remaining.chrono());
+            this->sleep(remaining);
         // Anchor to the deadline so a late wake shortens the next sleep instead of
         // stretching every period. An early wake keeps the wake time.
         last = std::min(deadline, hs_clock::now());
@@ -79,7 +79,7 @@ public:
         if (this->high_rate())
             this->precise_sleep(remaining);
         else if (this->medium_rate())
-            std::this_thread::sleep_for(remaining.chrono());
+            this->sleep(remaining);
         else
             breaker.wait_for(remaining);
         last = std::min(deadline, hs_clock::now());
@@ -107,7 +107,7 @@ private:
             if (!running()) return;
             const auto start = hs_clock::now();
             if (telem::TimeSpan(end - start) <= sleep_estimate_) break;
-            this->step();
+            this->sleep(RESOLUTION);
             const auto curr_end = hs_clock::now();
             const auto elapsed_ns = std::chrono::duration_cast<nanos>(curr_end - start)
                                         .count();
@@ -126,24 +126,23 @@ private:
 
     [[nodiscard]] bool medium_rate() const { return interval < MEDIUM_RES_THRESHOLD; }
 
-    /// @brief the OS state of a sleep step, defined in the source file of each OS.
+    /// @brief the OS state of a sleep, defined in the source file of each OS.
     struct Impl;
     /// @brief owns an Impl. The deleter is defined with Impl, so Timer needs no
     /// special members defined out of line.
     using ImplPtr = std::unique_ptr<Impl, void (*)(Impl *)>;
 
-    /// @brief creates the OS state of a sleep step.
+    /// @brief creates the OS state of a sleep.
     static ImplPtr make_impl();
 
-    /// @brief blocks for one step of a precise sleep. On Windows 10 1803 and later,
-    /// the step waits on a high-resolution timer, so it does not round up to the
-    /// system tick.
-    void step();
+    /// @brief blocks for dur. On Windows 10 1803 and later, the sleep waits on a
+    /// high-resolution timer, so it does not round up to the system tick.
+    void sleep(const telem::TimeSpan &dur);
 
     telem::TimeSpan interval;
     bool last_set = false;
     hs_clock::time_point last;
-    /// @brief the OS state of a sleep step.
+    /// @brief the OS state of a sleep.
     ImplPtr impl_ = make_impl();
 
     /// @brief Welford's algorithm state: the most one step is expected to take. It

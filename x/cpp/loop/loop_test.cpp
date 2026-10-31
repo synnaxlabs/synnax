@@ -131,6 +131,20 @@ TEST(LoopTest, testWaitLowRate) {
     EXPECT_LT(deviation, telem::MILLISECOND * 10);
 }
 
+TEST(LoopTest, testWaitBreakerMediumRate) {
+    const auto rate = telem::HERTZ * 25;
+    auto brk = breaker::Breaker(breaker::default_config("test"));
+    brk.start();
+    Timer timer{rate};
+    const auto deviation = measure_deviation(
+        [&] { timer.wait(brk); },
+        rate.period(),
+        25
+    );
+    brk.stop();
+    EXPECT_LT(deviation, telem::MILLISECOND * 10);
+}
+
 void runBreaker(breaker::Breaker &brk) {
     const auto rate = telem::HERTZ * 1;
     Timer timer{rate};
