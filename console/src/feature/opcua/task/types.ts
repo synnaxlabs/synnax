@@ -140,7 +140,7 @@ const validateMethodChannels = ({
   issues,
 }: z.core.ParsePayload<WriteChannel[]>) =>
   channels.forEach((ch, i) => {
-    if (ch.type !== "method") return;
+    if (ch.type !== "method" || ch.disabled) return;
     if (ch.objectId.length === 0)
       issues.push({
         code: "custom",

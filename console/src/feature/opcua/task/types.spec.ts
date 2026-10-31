@@ -256,6 +256,17 @@ describe("OPC UA method channel validation", () => {
   it("should not warn about two channels that call one method", () => {
     expect(issues(method(), method({ key: "k1" }))).toEqual([]);
   });
+
+  it("should not check a disabled method", () => {
+    const arg = { source: "command", name: "a", dataType: "float64" } as const;
+    const unfinished = method({
+      key: "k1",
+      disabled: true,
+      objectId: "",
+      arguments: [arg, { ...arg, name: "b" }],
+    });
+    expect(issues(method(), unfinished)).toEqual([]);
+  });
 });
 
 describe("OPC UA event task config validation", () => {
