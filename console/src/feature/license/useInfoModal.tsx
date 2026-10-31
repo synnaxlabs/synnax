@@ -192,15 +192,15 @@ const Info = () => {
           <Flex.Box y gap="tiny">
             {lic != null && (
               <>
-                <Text.Text level="small" variant="code" color={9}>
+                <Text.Text level="small" color={9}>
                   License {lic.jti}
                 </Text.Text>
-                <Text.Text level="small" variant="code" color={9}>
+                <Text.Text level="small" color={9}>
                   Organization {lic.organization}
                 </Text.Text>
               </>
             )}
-            <Text.Text level="small" variant="code" color={9}>
+            <Text.Text level="small" color={9}>
               {coreLine == null
                 ? `Console ${consoleVersion}`
                 : `${coreLine}, Console ${consoleVersion}`}

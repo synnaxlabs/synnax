@@ -38,6 +38,10 @@ span.lyra-text {
         font-family: var(--pluto-code-font-family);
     }
 
+    &.lyra-text--numeric {
+        font-variant-numeric: tabular-nums;
+    }
+
     /* A key is a glyph in a fixed cell, so letters and icons space evenly. */
     &.lyra-text--keyboard {
         min-width: round(1.667rem, 1px);

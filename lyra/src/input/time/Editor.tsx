@@ -292,6 +292,7 @@ export const Editor = <V,>({
                       {hint != null && (
                         <BaseText.Text
                           color={9}
+                          variant="code"
                           className={CSS.BE("time-editor", "hint")}
                         >
                           {hint}

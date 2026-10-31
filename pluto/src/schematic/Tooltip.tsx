@@ -64,7 +64,7 @@ interface RowProps {
 const Row = ({ label, value, labelColor, valueColor }: RowProps): ReactElement => (
   <Description.Item>
     <Description.Label color={labelColor}>{label}</Description.Label>
-    <Description.Value variant="code" color={valueColor}>
+    <Description.Value variant="numeric" color={valueColor}>
       {value}
     </Description.Value>
   </Description.Item>

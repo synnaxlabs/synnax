@@ -141,6 +141,23 @@ describe("Draw2D", () => {
     });
   });
 
+  describe("textWidth", () => {
+    it("should return the measured width of the text", () => {
+      const [d, fake] = create();
+      fake.measureText.mockImplementation((t) => ({ ...METRICS, width: t.length * 3 }));
+      expect(d.textWidth({ text: "pressure", level: "small" })).toEqual(24);
+      expect(fake.measureText).toHaveBeenCalledWith("pressure");
+    });
+
+    it("should measure in the code font when asked", () => {
+      const [d, fake] = create();
+      d.textWidth({ text: "1.5", level: "small", code: true });
+      expect(fake.font).toContain(THEME.typography.codeFamily.split(", ")[0]);
+      d.textWidth({ text: "Time", level: "small", weight: 500 });
+      expect(fake.font).not.toContain(THEME.typography.codeFamily.split(", ")[0]);
+    });
+  });
+
   describe("measureInkOffsetY", () => {
     it("should center the ink box within the row", () => {
       const [d] = create();

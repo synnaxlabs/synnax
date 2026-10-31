@@ -407,6 +407,17 @@ export class Draw2D {
     return width;
   }
 
+  /** @returns the width text would take when drawn with the given font options. */
+  textWidth({
+    text,
+    level = "p",
+    weight,
+    code,
+  }: Pick<DrawTextProps, "text" | "level" | "weight" | "code">): number {
+    this.canvas.font = theme.fontString(this.theme, { level, weight, code });
+    return this.canvas.measureText(text).width;
+  }
+
   drawTextInCenter({ box: b, text: label, level }: DrawTextInCenterProps): void {
     const dims = aetherText.dimensions(label, this.canvas.font, this.canvas);
     const pos = box.positionInCenter(box.construct(xy.ZERO, dims), b);
