@@ -16,16 +16,16 @@ import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Header } from "@synnaxlabs/lyra/header";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { List } from "@synnaxlabs/lyra/list";
-import { Telem } from "@synnaxlabs/pluto";
 import { DataType, errors, id, primitive } from "@synnaxlabs/x";
-import { type FC, type ReactElement } from "react";
+import { type FC } from "react";
 
 import { useFromConfig } from "@/feature/modbus/device/queries";
 import { Select as SelectDevice } from "@/feature/modbus/device/Select";
 import { MAKE, SCHEMAS } from "@/feature/modbus/device/types";
 import { AddressField } from "@/feature/modbus/task/AddressField";
 import { ByteOrderField } from "@/feature/modbus/task/ByteOrder";
-import { RegisterField, SHADOW_TRIGGER_PROPS } from "@/feature/modbus/task/Register";
+import { DataTypeCell } from "@/feature/modbus/task/DataTypeCell";
+import { RegisterField } from "@/feature/modbus/task/Register";
 import {
   RegisterMap,
   RegisterMapProvider,
@@ -34,9 +34,7 @@ import {
   useOverlaps,
 } from "@/feature/modbus/task/RegisterMap";
 import {
-  BIT_BOUNDS,
   deployReadConfigZ,
-  isStringChannel,
   isVariableDensityReadChannel,
   nextChannel,
   READ_CHANNEL_SCHEMAS,
@@ -46,11 +44,9 @@ import {
   readChannelName,
   readMapKey,
   type ReadSchemas,
-  STRING_LENGTH_BOUNDS,
   type TypedReadChannel,
   UNSUPPORTED_READ_DATA_TYPES,
 } from "@/feature/modbus/task/types";
-import { CSS } from "@/platform/css";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
@@ -70,77 +66,6 @@ const COLUMNS: List.Column[] = [
   { name: "Data type", width: "32rem", field: true },
   { name: "Byte order", width: "27rem", field: true },
 ];
-
-const DataTypeField = ({ path }: { path: string }): ReactElement | null => {
-  const field = PForm.useField<string>(`${path}.dataType`);
-  if (field == null) return null;
-  return (
-    <Telem.SelectDataType
-      value={field.value}
-      onChange={field.onChange}
-      preview={field.preview}
-      hideDataTypes={UNSUPPORTED_READ_DATA_TYPES}
-      location="bottom"
-      triggerProps={SHADOW_TRIGGER_PROPS}
-    />
-  );
-};
-
-interface NumberFieldProps {
-  path: string;
-  label: string;
-  bounds: { lower: number; upper: number };
-  /** The shorter name in front of the number, when the cell already gives context. */
-  prefix?: string;
-}
-
-// A whole number in a cell, named by a prefix in front of it.
-const NumberField = ({
-  path,
-  label,
-  bounds,
-  prefix = label,
-}: NumberFieldProps): ReactElement => (
-  <PForm.NumericField
-    path={path}
-    showLabel={false}
-    showHelpText={false}
-    inputProps={{
-      variant: "shadow",
-      showDragHandle: false,
-      bounds,
-      startContent: prefix,
-      "aria-label": label,
-    }}
-  />
-);
-
-// A register shows its data type, and a string also its length. A register bit has no
-// data type, so the cell holds its bit.
-const DataTypeCell = ({
-  path,
-  channel,
-}: {
-  path: string;
-  channel: ReadChannel;
-}): ReactElement | null => {
-  if ("bit" in channel)
-    return <NumberField path={`${path}.bit`} label="Bit" bounds={BIT_BOUNDS} />;
-  if (!isVariableDensityReadChannel(channel)) return null;
-  return (
-    <Flex.Box x align="center" className={CSS.BE("modbus", "data-type")}>
-      <DataTypeField path={path} />
-      {isStringChannel(channel) && (
-        <NumberField
-          path={`${path}.stringLength`}
-          label="String length"
-          prefix="Length"
-          bounds={STRING_LENGTH_BOUNDS}
-        />
-      )}
-    </Flex.Box>
-  );
-};
 
 const ChannelListItem = ({ itemKey, ...rest }: Task.ChannelListItemProps) => {
   const path = `config.channels.${itemKey}`;
@@ -164,13 +89,17 @@ const ChannelListItem = ({ itemKey, ...rest }: Task.ChannelListItemProps) => {
       hovered={hovered}
     >
       <List.Cell>
-        <RegisterField path={path} />
+        <RegisterField<ReadChannel> path={path} schemas={READ_CHANNEL_SCHEMAS} />
       </List.Cell>
       <List.Cell>
         <AddressField path={path} variant="shadow" overlapping={overlapping} />
       </List.Cell>
       <List.Cell>
-        <DataTypeCell path={path} channel={ch} />
+        <DataTypeCell
+          path={path}
+          channel={ch}
+          hideDataTypes={UNSUPPORTED_READ_DATA_TYPES}
+        />
       </List.Cell>
       <List.Cell>
         {isVariableDensityReadChannel(ch) && (
@@ -194,6 +123,12 @@ const getOpenChannel = (channels: ReadChannel[]): ReadChannel => {
   };
 };
 
+const createMapChannel = (type: ReadChannel["type"], address: number): ReadChannel => ({
+  ...READ_CHANNEL_SCHEMAS[type].parse({ type, address }),
+  ...Task.READ_CHANNEL_OVERRIDE,
+  key: id.create(),
+});
+
 const listItem = Component.renderProp(ChannelListItem);
 
 const HEADER = (
@@ -203,7 +138,7 @@ const HEADER = (
         Channels
       </Header.Title>
     </Header.Header>
-    <RegisterMap />
+    <RegisterMap createChannel={createMapChannel} />
   </>
 );
 

@@ -11,12 +11,9 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { Select } from "@synnaxlabs/lyra/select";
 import { deep } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
+import { type z } from "zod";
 
-import {
-  READ_CHANNEL_SCHEMAS,
-  type ReadChannel,
-  type ReadChannelType,
-} from "@/feature/modbus/task/types";
+import { type Channel, type ReadChannelType } from "@/feature/modbus/task/types";
 import { CSS } from "@/platform/css";
 
 /** The name and description of each register type. */
@@ -97,28 +94,35 @@ export const Option = ({ glyph, name, description }: OptionProps): ReactElement 
   </>
 );
 
-export interface RegisterFieldProps {
+/** The schema of each register type that a task's channels can take. */
+export type ChannelSchemas<C extends Channel> = Record<C["type"], z.ZodType<C>>;
+
+export interface RegisterFieldProps<C extends Channel> {
   /** The channel's form path. */
   path: string;
+  schemas: ChannelSchemas<C>;
 }
 
 /**
  * Selects a channel's register type. A new type keeps the fields that the type also
  * has, and resets the rest.
  */
-export const RegisterField = ({ path }: RegisterFieldProps): ReactElement | null => {
-  const field = Form.useField<ReadChannelType>(`${path}.type`, {
+export const RegisterField = <C extends Channel>({
+  path,
+  schemas,
+}: RegisterFieldProps<C>): ReactElement | null => {
+  const field = Form.useField<C["type"]>(`${path}.type`, {
     onChange: (value, { get, set }) => {
-      const prev = get<ReadChannel>(path).value;
+      const prev = get<C>(path).value;
       if (prev.type === value) return;
-      const schema = READ_CHANNEL_SCHEMAS[value];
+      const schema: z.ZodType<C> = schemas[value];
       const next = schema.parse({ type: value });
       set(path, { ...deep.overrideValidItems(next, prev, schema), type: value });
     },
   });
   if (field == null) return null;
   return (
-    <Select.Simple<ReadChannelType>
+    <Select.Simple<C["type"]>
       value={field.value}
       onChange={field.onChange}
       preview={field.preview}
@@ -127,8 +131,8 @@ export const RegisterField = ({ path }: RegisterFieldProps): ReactElement | null
       triggerProps={SHADOW_TRIGGER_PROPS}
       dialogProps={MENU_PROPS}
     >
-      {REGISTER_TYPES.map((t) => (
-        <Select.Item<ReadChannelType>
+      {REGISTER_TYPES.filter((t): t is C["type"] => t in schemas).map((t) => (
+        <Select.Item<C["type"]>
           key={t}
           itemKey={t}
           aria-label={REGISTERS[t].name}

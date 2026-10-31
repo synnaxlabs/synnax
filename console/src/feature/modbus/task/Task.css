@@ -36,10 +36,6 @@
     }
 }
 
-.console-modbus-order > * {
-    width: 22rem;
-}
-
 .console-modbus__glyph {
     width: 2.5rem;
     height: 2.5rem;
