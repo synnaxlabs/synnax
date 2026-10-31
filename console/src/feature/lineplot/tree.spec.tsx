@@ -23,19 +23,20 @@ import { describe, expect, it } from "vitest";
 
 import { LinePlot } from "@/feature/lineplot";
 import { client, createPreloadedState, project } from "@/feature/lineplot/testutil";
-import { renderTreeContextMenu } from "@/platform/tree/menuTestutil";
-
-const roles = new RoleClients(client);
-import { Modals } from "@/platform/modals";
-import { findButton, findLastButton } from "@/platform/modals/testutil";
-import { type Tree } from "@/platform/tree";
 import {
   createBaseProps,
   createResource,
   createSelection,
   createState,
+  findTreeRow,
+  renderOntologyTree,
+  renderTreeContextMenu,
 } from "@/platform/tree/testutil";
-import { findTreeRow, renderOntologyTree } from "@/platform/tree/treeTestutil";
+
+const roles = new RoleClients(client);
+import { Modals } from "@/platform/modals";
+import { findButton, findLastButton } from "@/platform/modals/testutil";
+import { type Tree } from "@/platform/tree";
 import { Session } from "@/session";
 import { createCore, createCoreState } from "@/session/core/testutil";
 import { documentIn } from "@/session/window/testutil";
