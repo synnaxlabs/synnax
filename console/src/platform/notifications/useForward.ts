@@ -111,7 +111,6 @@ interface ForwarderParams {
   client: Client;
   rules: Rules;
   add: Status.Adder;
-  handleError: Status.ErrorHandler;
   setProblems: (problems: Problem[]) => void;
 }
 
@@ -134,7 +133,6 @@ const createForwarder = ({
   client,
   rules,
   add,
-  handleError,
   setProblems,
 }: ForwarderParams): Forwarder => {
   const problems = new Map<status.Key, Entry>();
@@ -194,21 +192,25 @@ const createForwarder = ({
     }
     const { status: stat } = problem;
     const checks = ++problem.checks;
+    const settle = (inUse: boolean): void => {
+      const wasListed = listed(problem);
+      if (checks === 1) problem.usedAtStart = inUse;
+      if (checks === problem.checks) {
+        problem.inUse = inUse;
+        if (!inUse) problem.decision = "hidden";
+      }
+      show(problem);
+      if (listed(problem) !== wasListed) publish();
+    };
     void rule.inUse({ client, key }).then(
       (inUse) => {
-        if (problems.get(stat.key) !== problem) return;
-        const wasListed = listed(problem);
-        if (checks === 1) problem.usedAtStart = inUse;
-        if (checks === problem.checks) {
-          problem.inUse = inUse;
-          if (!inUse) problem.decision = "hidden";
-        }
-        show(problem);
-        if (listed(problem) !== wasListed) publish();
+        if (problems.get(stat.key) === problem) settle(inUse);
       },
+      // The check only filters noise, so a status whose check fails still shows.
       (exc: unknown) => {
         if (problems.get(stat.key) !== problem) return;
-        handleError(exc, { message: "Failed to show status", name: stat.name });
+        console.error(`failed to check if the thing of ${stat.key} is in use`, exc);
+        settle(true);
       },
     );
   };
@@ -375,7 +377,7 @@ export const useForward = (rules: Rules): void => {
   const setProblems = useSetProblems();
   useEffect(() => {
     if (client == null) return;
-    const forwarder = createForwarder({ client, rules, add, handleError, setProblems });
+    const forwarder = createForwarder({ client, rules, add, setProblems });
     const removeWriteListener = client.statuses.onWrite(forwarder.write);
     const removeDeleteListener = client.statuses.onDelete(forwarder.remove);
     const removeUseListeners = Object.values(rules).map((rule) =>
