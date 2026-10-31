@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <cstddef>
 #include <memory>
 #include <set>
@@ -260,8 +261,11 @@ public:
 };
 
 class ArrayReadTaskSource final : public BaseReadTaskSource {
-    /// @brief regulates the read rate and times each block of samples.
-    common::SoftwareTimedSampleClock sample_clock;
+    /// @brief regulates the rate blocks of samples are read at.
+    x::loop::Timer timer;
+    /// @brief where the next block may start at the earliest: the end of the
+    /// previous block, or the start of the run.
+    x::telem::TimeStamp prev_end = x::telem::TimeStamp(0);
 
 public:
     ArrayReadTaskSource(
@@ -270,14 +274,13 @@ public:
         ReadTaskConfig cfg
     ):
         BaseReadTaskSource(std::move(client), std::move(pool), std::move(cfg)),
-        sample_clock(this->cfg.sample_rate / this->cfg.array_size) {}
+        timer(this->cfg.sample_rate / this->cfg.array_size) {}
 
-    /// @brief re-arms the block timer. Without it, the first block after a restart
-    /// spans only the time the read took instead of a full acquisition window.
+    /// @brief re-arms the block timer, so the first read after a restart waits a
+    /// full block.
     x::errors::Error start() override {
-        this->sample_clock = common::SoftwareTimedSampleClock(
-            this->cfg.sample_rate / this->cfg.array_size
-        );
+        this->timer = x::loop::Timer(this->cfg.sample_rate / this->cfg.array_size);
+        this->prev_end = x::telem::TimeStamp::now();
         return BaseReadTaskSource::start();
     }
 
@@ -288,8 +291,9 @@ public:
     common::ReadResult
     read(x::breaker::Breaker &breaker, ::x::telem::Frame &fr) override {
         common::ReadResult res;
-        const auto start = this->sample_clock.wait(breaker);
+        this->timer.wait(breaker);
         auto [ua_res, read_err] = this->read_values();
+        const auto end = x::telem::TimeStamp::now();
         if (res.error = read_err; res.error) return res;
         common::initialize_frame(
             fr,
@@ -332,16 +336,22 @@ public:
             };
             return res;
         }
-        // Stamping ahead of the clock would make the next run of this task open its
-        // writer inside data this run already wrote.
+        // The array holds the samples taken at the sample rate up to the read, so a
+        // late read does not compress them. A block never starts before the previous
+        // block's end or the start of the run, so stamps stay in order.
+        const auto start = std::max(
+            this->prev_end,
+            end - this->cfg.sample_rate.period() * this->cfg.array_size
+        );
         common::generate_index_data(
             fr,
             this->cfg.index_keys,
             start,
-            this->sample_clock.end(),
+            end,
             this->cfg.array_size,
             this->cfg.channels.size()
         );
+        this->prev_end = end;
         return res;
     }
 };
