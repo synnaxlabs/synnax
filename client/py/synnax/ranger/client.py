@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import functools
 from collections.abc import Callable, Iterator
-from typing import cast, overload
+from typing import Literal, cast, overload
 from uuid import UUID
 
 import numpy as np
@@ -20,14 +20,15 @@ from pydantic import BaseModel, PrivateAttr
 
 import synnax.channel.payload as channel
 from freighter import UnaryClient
-from synnax import framer, label
+from synnax import framer, label, util
 from synnax.channel.retrieve import Retriever as ChannelRetriever
 from synnax.exceptions import ConfigurationError, MultipleFoundError, NotFoundError
 from synnax.framer.frame import K
 from synnax.ontology import Client as OntologyClient
 from synnax.ontology.payload import ID
 from synnax.ranger import alias as alias_
-from synnax.ranger import kv
+from synnax.ranger import builder_gen, kv
+from synnax.ranger.builder_gen import Condition
 from synnax.ranger.retrieve import Retriever
 from synnax.ranger.types_gen import (
     Key,
@@ -48,12 +49,10 @@ from synnax.telem import (
     SampleValue,
     TimeRange,
 )
-from synnax.util import one
 from x import filter
 from x.color import Color
 from x.interop import ArrayOperators
 from x.lists import all_none, normalize, override
-from x.params import require_named_params
 from x.uuid import NIL
 
 _RANGE_SET_CHANNEL = "sy_range_set"
@@ -439,7 +438,7 @@ class Range(Payload):
         for ch, alias in channel.items():
             if isinstance(ch, str):
                 res = self._channel_retriever.retrieve(ch)
-                corrected[one("Channel", ch, res).key] = alias
+                corrected[util.one("Channel", ch, res).key] = alias
             else:
                 corrected[ch] = alias
         self._aliaser.set(corrected)
@@ -655,6 +654,26 @@ class Client:
     @overload
     def retrieve(
         self,
+        key: Key | str,
+        /,
+        *,
+        include_labels: bool = False,
+        include_parent: bool = False,
+    ) -> Range: ...
+
+    @overload
+    def retrieve(
+        self,
+        keys: list[Key] | list[str],
+        /,
+        *,
+        include_labels: bool = False,
+        include_parent: bool = False,
+    ) -> list[Range]: ...
+
+    @overload
+    def retrieve(
+        self,
         *,
         key: Key,
         include_labels: bool = False,
@@ -673,8 +692,24 @@ class Client:
     @overload
     def retrieve(
         self,
-        *,
-        where: Where | None = None,
+        *conditions: Condition,
+        one: Literal[True],
+        names: list[str] | tuple[str, ...] | None = None,
+        keys: list[Key] | tuple[Key, ...] | None = None,
+        search_term: str = "",
+        overlaps_with: TimeRange | None = None,
+        has_labels: list[label.Key] | None = None,
+        limit: int | None = None,
+        offset: int = 0,
+        include_labels: bool = False,
+        include_parent: bool = False,
+    ) -> Range: ...
+
+    @overload
+    def retrieve(
+        self,
+        *conditions: Condition,
+        one: Literal[False] = False,
         names: list[str] | tuple[str, ...] | None = None,
         keys: list[Key] | tuple[Key, ...] | None = None,
         search_term: str = "",
@@ -686,13 +721,12 @@ class Client:
         include_parent: bool = False,
     ) -> list[Range]: ...
 
-    @require_named_params(example_params=("name", "My Range"))
     def retrieve(
         self,
-        *,
+        *args: Key | str | list[Key] | list[str] | Condition,
         key: Key | None = None,
         name: str | None = None,
-        where: Where | None = None,
+        one: bool = False,
         names: list[str] | tuple[str, ...] | None = None,
         keys: list[Key] | tuple[Key, ...] | None = None,
         search_term: str = "",
@@ -703,12 +737,15 @@ class Client:
         include_labels: bool = False,
         include_parent: bool = False,
     ) -> Range | list[Range]:
-        """Retrieves one range by key or name, or a list of ranges that match the
-        given filters. A filter left at its default does not filter.
+        """Retrieves one range by key or name, or a list of ranges that match every
+        condition and filter. A filter left at its default does not filter.
 
+        :param args: Conditions from the ranger builder, such as
+            ``ranger.name.contains("Hotfire")``, or one key, name, or list of either. A
+            key or a name returns one range.
         :param key: The key of one range to retrieve.
         :param name: The name of one range to retrieve.
-        :param where: Keeps ranges that match this filter tree.
+        :param one: Returns the one range that matches, instead of a list.
         :param names: Keeps ranges with one of these names.
         :param keys: Keeps ranges with one of these keys.
         :param search_term: Fuzzy matches range names.
@@ -718,23 +755,32 @@ class Client:
         :param offset: The number of matching ranges to skip.
         :param include_labels: Attaches the labels of each range.
         :param include_parent: Attaches the parent of each range.
-        :returns: The range for a key or name, else a list of the matching ranges.
-        :raises NotFoundError: If no range matches the key or name.
-        :raises MultipleFoundError: If more than one range matches the name.
+        :returns: One range for a key, a name, or one, else a list of the matching
+            ranges.
+        :raises NotFoundError: If no range matches a key, a name, or one.
+        :raises MultipleFoundError: If more than one range matches a name or one.
         :raises ValueError: If key and name are both given, or either is combined with
             a list filter.
+        :raises TypeError: If args are neither range conditions nor a shortcut.
         """
-        is_single = key is not None or name is not None
+        conditions, query = util.shortcut(
+            "Range", args, Condition, UUID, builder_gen.key, builder_gen.name
+        )
         if key is not None and name is not None:
             raise ValueError("key and name cannot be combined; use keys or names")
-        if is_single and (
-            search_term
-            or offset
-            or not all_none(where, keys, names, overlaps_with, has_labels, limit)
-        ):
-            raise ValueError(
-                "key and name cannot be combined with list filters; use keys or names"
-            )
+        if key is not None or name is not None:
+            if (
+                args
+                or one
+                or search_term
+                or offset
+                or not all_none(keys, names, overlaps_with, has_labels, limit)
+            ):
+                raise ValueError(
+                    "key and name cannot be combined with list filters; use keys or "
+                    "names"
+                )
+            query = key or name
         keys = override(key, keys)
         names = override(name, names)
         flat = Where(
@@ -744,7 +790,7 @@ class Client:
             labels=has_labels,
         )
         req = RetrieveRequest(
-            where=filter.merge(where, flat),
+            where=filter.merge(filter.join(Where, conditions), flat),
             search_term=search_term,
             limit=limit,
             offset=offset,
@@ -752,9 +798,9 @@ class Client:
             include_parent=include_parent,
         )
         sug = self._sugar(self._retriever.retrieve(req))
-        if not is_single:
+        if query is None and not one:
             return sug
-        return one("Range", key or name, sug)
+        return util.one("Range", req.where if query is None else query, sug)
 
     def delete(
         self,

@@ -7,15 +7,17 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import overload
+from typing import Literal, overload
 
 from pydantic import BaseModel, Field
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
+from synnax import util
 from synnax.exceptions import NotFoundError
+from synnax.rack import builder_gen
+from synnax.rack.builder_gen import Condition
 from synnax.rack.types_gen import Key, Rack, RetrieveRequest, Where
-from synnax.util import one
 from x import filter
 from x.lists import all_none, override
 
@@ -100,7 +102,15 @@ class Client:
             self._embedded_rack = None
 
     @overload
-    def retrieve(self, key: int, *, include_status: bool = False) -> Rack: ...
+    def retrieve(self, key: int | str, /, *, include_status: bool = False) -> Rack: ...
+
+    @overload
+    def retrieve(
+        self, keys: list[int] | list[str], /, *, include_status: bool = False
+    ) -> list[Rack]: ...
+
+    @overload
+    def retrieve(self, *, key: int, include_status: bool = False) -> Rack: ...
 
     @overload
     def retrieve(self, *, name: str, include_status: bool = False) -> Rack: ...
@@ -108,8 +118,24 @@ class Client:
     @overload
     def retrieve(
         self,
-        *,
-        where: Where | None = None,
+        *conditions: Condition,
+        one: Literal[True],
+        keys: list[int] | None = None,
+        names: list[str] | None = None,
+        search_term: str = "",
+        integration: str | None = None,
+        embedded: bool | None = None,
+        host_is_node: bool | None = None,
+        limit: int | None = None,
+        offset: int = 0,
+        include_status: bool = False,
+    ) -> Rack: ...
+
+    @overload
+    def retrieve(
+        self,
+        *conditions: Condition,
+        one: Literal[False] = False,
         keys: list[int] | None = None,
         names: list[str] | None = None,
         search_term: str = "",
@@ -123,10 +149,10 @@ class Client:
 
     def retrieve(
         self,
+        *args: int | str | list[int] | list[str] | Condition,
         key: int | None = None,
-        *,
         name: str | None = None,
-        where: Where | None = None,
+        one: bool = False,
         keys: list[int] | None = None,
         names: list[str] | None = None,
         search_term: str = "",
@@ -137,10 +163,13 @@ class Client:
         offset: int = 0,
         include_status: bool = False,
     ) -> Rack | list[Rack]:
-        """Retrieves racks matching the given filters. Returns one rack when a key or
-        name is given, and a list otherwise. A filter left as None does not filter.
+        """Retrieves racks that match every condition and filter. Returns one rack for a
+        key, a name, or one, and a list otherwise. A filter left as None does not
+        filter.
 
-        :param where: Keeps racks that match this filter tree.
+        :param args: Conditions from the rack builder, such as
+            ``rack.name.contains("lab")``, or one key, name, or list of either.
+        :param one: Returns the one rack that matches, instead of a list.
         :param keys: Keeps racks with one of these keys.
         :param names: Keeps racks with one of these names.
         :param integration: Keeps racks that support this integration.
@@ -154,22 +183,27 @@ class Client:
         :raises ValueError: If two singular selectors are given, or one is
             combined with a list filter.
         :raises NotFoundError: If a single rack is requested and none matches.
-        :raises MultipleFoundError: If more than one rack matches a single name.
+        :raises MultipleFoundError: If more than one rack matches a single name or one.
+        :raises TypeError: If args are neither rack conditions nor a shortcut.
         """
-        is_single = not all_none(key, name)
+        conditions, query = util.shortcut(
+            "Rack", args, Condition, int, builder_gen.key, builder_gen.name
+        )
         if sum(v is not None for v in (key, name)) > 1:
             raise ValueError("only one of key and name can be given")
-        if is_single and (
-            search_term
-            or offset
-            or not all_none(
-                where, keys, names, integration, embedded, host_is_node, limit
-            )
-        ):
-            raise ValueError(
-                "key and name cannot be combined with list filters; use keys or "
-                "names instead"
-            )
+        if not all_none(key, name):
+            if (
+                args
+                or one
+                or search_term
+                or offset
+                or not all_none(keys, names, integration, embedded, host_is_node, limit)
+            ):
+                raise ValueError(
+                    "key and name cannot be combined with list filters; use keys or "
+                    "names instead"
+                )
+            query = key if key is not None else name
         keys = override(key, keys)
         names = override(name, names)
         flat = Where(
@@ -182,16 +216,16 @@ class Client:
             host_is_node=host_is_node,
         )
         req = RetrieveRequest(
-            where=filter.merge(where, flat),
+            where=filter.merge(filter.join(Where, conditions), flat),
             search_term=search_term,
             limit=limit,
             offset=offset,
             include_status=include_status,
         )
         res = self._client.send("/rack/retrieve", req, _RetrieveResponse)
-        if not is_single:
+        if query is None and not one:
             return res.racks
-        return one("Rack", key if key is not None else name, res.racks)
+        return util.one("Rack", req.where if query is None else query, res.racks)
 
     def retrieve_embedded_rack(self) -> Rack:
         if self._embedded_rack is None:

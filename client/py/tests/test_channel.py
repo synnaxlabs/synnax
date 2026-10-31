@@ -342,16 +342,43 @@ class TestChannel:
             ]
         )
         res = client.channels.retrieve(
-            where=sy.channel.Where(
-                name=filter.String(regex=f"^{prefix}"),
-                data_type=filter.Set[sy.DataType](eq=sy.DataType.FLOAT32),
+            sy.channel.where(
+                sy.channel.Where(
+                    name=filter.String(regex=f"^{prefix}"),
+                    data_type=filter.Set[sy.DataType](eq=sy.DataType.FLOAT32),
+                )
             )
         )
         assert sorted(ch.key for ch in res) == sorted([a.key, c.key])
 
-    def test_retrieve_where_and_filters(self, client: sy.Synnax) -> None:
-        """Should keep the channels that the names, the where, and the filters all
-        select"""
+    def test_retrieve_conditions(self, client: sy.Synnax) -> None:
+        """Should retrieve the channels that every condition selects"""
+        prefix = channel_name()
+        a, _, c = client.channels.create(
+            [
+                sy.Channel(name=f"{prefix}_a", virtual=True, data_type="float32"),
+                sy.Channel(name=f"{prefix}_b", virtual=True, data_type="float64"),
+                sy.Channel(name=f"{prefix}_c", virtual=True, data_type="float32"),
+            ]
+        )
+        res = client.channels.retrieve(
+            sy.channel.name.starts_with(prefix.upper(), case_insensitive=True),
+            sy.channel.data_type.eq(sy.DataType.FLOAT32),
+        )
+        assert sorted(ch.key for ch in res) == sorted([a.key, c.key])
+        one = client.channels.retrieve(
+            sy.channel.name.starts_with(prefix),
+            ~sy.channel.key.eq(c.key),
+            limit=2,
+            data_types=["float32"],
+            one=True,
+        )
+        assert one.key == a.key
+        with pytest.raises(sy.MultipleFoundError):
+            client.channels.retrieve(sy.channel.name.starts_with(prefix), one=True)
+
+    def test_retrieve_conditions_and_filters(self, client: sy.Synnax) -> None:
+        """Should keep the channels that every condition and filter select"""
         prefix = channel_name()
         a, b, c = client.channels.create(
             [
@@ -361,13 +388,16 @@ class TestChannel:
             ]
         )
         res = client.channels.retrieve(
-            [a.name, b.name, c.name],
-            where=sy.channel.Where(
-                not_=sy.channel.Where(key=filter.Set[int](eq=c.key))
-            ),
+            sy.channel.name.in_([a.name, b.name, c.name]),
+            ~sy.channel.key.eq(c.key),
             data_types=["float32"],
         )
         assert [ch.key for ch in res] == [a.key]
+
+    def test_retrieve_shortcut_with_conditions(self, client: sy.Synnax) -> None:
+        """Should reject a key or name list followed by conditions"""
+        with pytest.raises(TypeError, match=r"\['a'\] is not a Channel condition"):
+            client.channels.retrieve(["a"], sy.channel.key.eq(1))  # type: ignore[call-overload]
 
     def test_delete_by_key(self, client: sy.Synnax) -> None:
         """Should delete channels using a list of keys"""

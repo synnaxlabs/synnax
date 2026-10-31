@@ -10,6 +10,7 @@
 from collections.abc import Sequence
 
 from synnax.exceptions import MultipleFoundError, NotFoundError
+from x import filter
 
 
 def one[T](name: str, query: object, results: Sequence[T]) -> T:
@@ -41,3 +42,57 @@ def one_or_none[T](name: str, query: object, results: Sequence[T]) -> T | None:
             f"Expected one {name} matching {query}, but found {len(results)}"
         )
     return results[0] if results else None
+
+
+def conditions[C: filter.Condition](
+    kind: str, args: Sequence[object], condition: type[C]
+) -> list[C]:
+    """Returns args, the conditions of a retrieve.
+
+    :param kind: The kind of record, such as "Range", for the error message.
+    :param args: The positional arguments of the retrieve.
+    :param condition: The condition class of the entity.
+    :raises TypeError: If an argument is not a condition of the entity.
+    """
+    conds: list[C] = []
+    for arg in args:
+        if not isinstance(arg, condition):
+            raise TypeError(f"{arg!r} is not a {kind} condition")
+        conds.append(arg)
+    return conds
+
+
+def shortcut[C: filter.Condition, K](
+    kind: str,
+    args: Sequence[object],
+    condition: type[C],
+    key_type: type[K],
+    key: filter.SetLine[C, K],
+    name: filter.StringLine[C] | None = None,
+) -> tuple[list[C], object]:
+    """Returns the conditions that the positional arguments of a retrieve make, and the
+    key or name that asks for one record, or None.
+
+    :param kind: The kind of record, such as "Range", for the error message.
+    :param args: Conditions of the entity, or one key, name, or list of either.
+    :param condition: The condition class of the entity.
+    :param key_type: The type of the entity's keys.
+    :param key: The key line of the entity.
+    :param name: The name line of the entity, or None if the retrieve takes no names.
+    :raises TypeError: If args are neither conditions of the entity nor a shortcut.
+    """
+    if len(args) != 1 or isinstance(args[0], filter.Condition):
+        return conditions(kind, args, condition), None
+    value = args[0]
+    if isinstance(value, key_type):
+        return [key.eq(value)], value
+    if name is not None and isinstance(value, str):
+        return [name.eq(value)], value
+    if isinstance(value, (list, tuple)):
+        keys = [v for v in value if isinstance(v, key_type)]
+        if len(keys) == len(value):
+            return [key.in_(keys)], None
+        names = [v for v in value if isinstance(v, str)]
+        if name is not None and len(names) == len(value):
+            return [name.in_(names)], None
+    raise TypeError(f"{value!r} is not a {kind} condition, key, or name")

@@ -22,7 +22,6 @@ from synnax.ontology import ID
 from synnax.state import Latest, State
 from tests.channel import RetrieveCounter
 from x import filter
-from x.params import RequiresNamedParams
 from x.strings import random_name
 from x.testutil import assert_eventually
 
@@ -126,11 +125,37 @@ class TestRangeClient:
         rng = client.ranges.retrieve(name=two_ranges[0].name)
         assert rng.name == two_ranges[0].name
 
-    def test_retrieve_unnamed_parameter(self, client: sy.Synnax) -> None:
-        """Should raise an error when unnamed parameters are passed in"""
+    def test_retrieve_by_bare_key(
+        self, two_ranges: list[sy.Range], client: sy.Synnax
+    ) -> None:
+        """Should retrieve a range by a key passed as the first argument"""
+        rng = client.ranges.retrieve(two_ranges[0].key)
+        assert rng.key == two_ranges[0].key
+
+    def test_retrieve_by_bare_name(
+        self, two_ranges: list[sy.Range], client: sy.Synnax
+    ) -> None:
+        """Should retrieve a range by a name passed as the first argument"""
+        rng = client.ranges.retrieve(two_ranges[0].name)
+        assert rng.key == two_ranges[0].key
+
+    def test_retrieve_by_bare_names(
+        self, two_ranges: list[sy.Range], client: sy.Synnax
+    ) -> None:
+        """Should retrieve ranges by a list of names passed as the first argument"""
+        res = client.ranges.retrieve([r.name for r in two_ranges])
+        assert {r.key for r in res} == {r.key for r in two_ranges}
+
+    def test_retrieve_unknown_argument(self, client: sy.Synnax) -> None:
+        """Should raise a TypeError for an argument that is not a key, name, or range
+        condition"""
         retrieve = cast(Callable[..., object], client.ranges.retrieve)
-        with pytest.raises(RequiresNamedParams):
-            retrieve("cat")
+        with pytest.raises(
+            TypeError, match=r"1\.5 is not a Range condition, key, or name"
+        ):
+            retrieve(1.5)
+        with pytest.raises(TypeError, match="is not a Range condition"):
+            retrieve(sy.channel.name.eq("a"))
 
     def test_retrieve_by_name_not_found(
         self, two_ranges: list[sy.Range], client: sy.Synnax
@@ -653,18 +678,65 @@ class TestRangeRetrieveFilters:
         with pytest.raises(ValueError, match="cannot be combined with list filters"):
             retrieve(name="a", keys=[key])
 
-    def test_where(
+    def test_conditions(
         self,
         client: sy.Synnax,
         window: sy.TimeRange,
         window_ranges: list[sy.Range],
     ) -> None:
-        """Should keep ranges that match a filter tree and the other filters"""
+        """Should keep ranges that match every condition and the other filters"""
+        res = client.ranges.retrieve(
+            ~ranger.name.eq(window_ranges[0].name), overlaps_with=window
+        )
+        assert {r.key for r in res} == {r.key for r in window_ranges[1:]}
+
+    def test_or(
+        self,
+        client: sy.Synnax,
+        window: sy.TimeRange,
+        window_ranges: list[sy.Range],
+    ) -> None:
+        """Should keep ranges that match either condition"""
+        res = client.ranges.retrieve(
+            ranger.name.eq(window_ranges[0].name)
+            | ranger.name.contains(
+                window_ranges[2].name.upper(), case_insensitive=True
+            ),
+            ranger.overlaps(window),
+        )
+        assert {r.key for r in res} == {window_ranges[0].key, window_ranges[2].key}
+
+    def test_stored_tree(
+        self,
+        client: sy.Synnax,
+        window: sy.TimeRange,
+        window_ranges: list[sy.Range],
+    ) -> None:
+        """Should keep ranges that match a stored filter tree"""
         where = ranger.Where(
             not_=ranger.Where(name=sy.filter.String(eq=window_ranges[0].name))
         )
-        res = client.ranges.retrieve(where=where, overlaps_with=window)
+        res = client.ranges.retrieve(ranger.where(where), overlaps_with=window)
         assert {r.key for r in res} == {r.key for r in window_ranges[1:]}
+
+    def test_one(self, client: sy.Synnax, window_ranges: list[sy.Range]) -> None:
+        """Should return the one range that matches"""
+        rng = client.ranges.retrieve(
+            ranger.name.eq(window_ranges[1].name), limit=5, one=True
+        )
+        assert rng.key == window_ranges[1].key
+
+    def test_one_multiple(
+        self, client: sy.Synnax, window: sy.TimeRange, window_ranges: list[sy.Range]
+    ) -> None:
+        """Should raise when more than one range matches one"""
+        with pytest.raises(sy.MultipleFoundError):
+            client.ranges.retrieve(ranger.overlaps(window), one=True)
+
+    def test_one_not_found(self, client: sy.Synnax) -> None:
+        """Should raise when no range matches one"""
+        with pytest.raises(sy.NotFoundError):
+            client.ranges.retrieve(ranger.name.eq(random_name()), one=True)
 
     def test_empty_keys(self, client: sy.Synnax, window_ranges: list[sy.Range]) -> None:
         """Should retrieve no ranges for an empty list of keys"""

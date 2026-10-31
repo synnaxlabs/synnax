@@ -12,8 +12,8 @@ from __future__ import annotations
 import warnings
 from collections.abc import Generator, Iterable, Mapping, Sequence
 from contextlib import contextmanager
+from typing import Literal, TypeVar, overload
 from typing import Protocol as BaseProtocol
-from typing import TypeVar, overload
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, JsonValue, ValidationError
@@ -22,12 +22,15 @@ from pydantic_core import to_jsonable_python
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
 from synnax import rack as rack_
+from synnax import util
 from synnax.device import Client as DeviceClient
 from synnax.device import Device
 from synnax.framer import Client as FrameClient
 from synnax.ontology.payload import ID
 from synnax.rack import Client as RackClient
 from synnax.rack import Rack
+from synnax.task import builder_gen
+from synnax.task.builder_gen import Condition
 from synnax.task.types_gen import (
     Command,
     Key,
@@ -39,7 +42,6 @@ from synnax.task.types_gen import (
     ontology_id,
 )
 from synnax.telem import TimeSpan, TimeStamp
-from synnax.util import one
 from x import filter
 from x.lists import all_none, override
 from x.timing import Timer
@@ -450,7 +452,15 @@ class Client:
         self._client.send("/task/rename", _RenameRequest(key=key, name=name), Empty)
 
     @overload
-    def retrieve(self, key: Key, *, include_status: bool = False) -> Task: ...
+    def retrieve(self, key: Key | str, /, *, include_status: bool = False) -> Task: ...
+
+    @overload
+    def retrieve(
+        self, keys: list[Key] | list[str], /, *, include_status: bool = False
+    ) -> list[Task]: ...
+
+    @overload
+    def retrieve(self, *, key: Key, include_status: bool = False) -> Task: ...
 
     @overload
     def retrieve(self, *, name: str, include_status: bool = False) -> Task: ...
@@ -461,8 +471,25 @@ class Client:
     @overload
     def retrieve(
         self,
-        *,
-        where: Where | None = None,
+        *conditions: Condition,
+        one: Literal[True],
+        keys: list[Key] | None = None,
+        names: list[str] | None = None,
+        types: list[str] | None = None,
+        search_term: str = "",
+        rack: int | None = None,
+        internal: bool | None = None,
+        snapshot: bool | None = None,
+        limit: int | None = None,
+        offset: int = 0,
+        include_status: bool = False,
+    ) -> Task: ...
+
+    @overload
+    def retrieve(
+        self,
+        *conditions: Condition,
+        one: Literal[False] = False,
         keys: list[Key] | None = None,
         names: list[str] | None = None,
         types: list[str] | None = None,
@@ -477,11 +504,11 @@ class Client:
 
     def retrieve(
         self,
+        *args: Key | str | list[Key] | list[str] | Condition,
         key: Key | None = None,
-        *,
         name: str | None = None,
         type: str | None = None,
-        where: Where | None = None,
+        one: bool = False,
         keys: list[Key] | None = None,
         names: list[str] | None = None,
         types: list[str] | None = None,
@@ -493,11 +520,13 @@ class Client:
         offset: int = 0,
         include_status: bool = False,
     ) -> list[Task] | Task:
-        """Retrieves tasks matching the given filters. Returns one task when a key,
-        name, or type is given, and a list otherwise. A filter left as None does not
-        filter.
+        """Retrieves tasks that match every condition and filter. Returns one task for a
+        key, a name, a type, or one, and a list otherwise. A filter left as None does
+        not filter.
 
-        :param where: Keeps tasks that match this filter tree.
+        :param args: Conditions from the task builder, such as
+            ``task.type.eq("ni_analog_read")``, or one key, name, or list of either.
+        :param one: Returns the one task that matches, instead of a list.
         :param search_term: A fuzzy search term matched against task names.
         :param rack: Only return tasks on the rack with this key.
         :param internal: Only return internal tasks when true, or only user tasks when
@@ -511,21 +540,28 @@ class Client:
         :raises ValueError: If two singular selectors are given, or one is
             combined with a list filter.
         :raises NotFoundError: If a single task is requested and none matches.
-        :raises MultipleFoundError: If more than one task matches a single name or
-            type.
+        :raises MultipleFoundError: If more than one task matches a single name, a type,
+            or one.
+        :raises TypeError: If args are neither task conditions nor a shortcut.
         """
-        is_single = not all_none(key, name, type)
+        conditions, query = util.shortcut(
+            "Task", args, Condition, UUID, builder_gen.key, builder_gen.name
+        )
         if sum(v is not None for v in (key, name, type)) > 1:
             raise ValueError("only one of key, name, and type can be given")
-        if is_single and (
-            search_term
-            or offset
-            or not all_none(where, keys, names, types, rack, internal, snapshot, limit)
-        ):
-            raise ValueError(
-                "key, name, and type cannot be combined with list filters; use "
-                "keys, names, or types instead"
-            )
+        if not all_none(key, name, type):
+            if (
+                args
+                or one
+                or search_term
+                or offset
+                or not all_none(keys, names, types, rack, internal, snapshot, limit)
+            ):
+                raise ValueError(
+                    "key, name, and type cannot be combined with list filters; use "
+                    "keys, names, or types instead"
+                )
+            query = next(v for v in (key, name, type) if v is not None)
         keys = override(key, keys)
         names = override(name, names)
         types = override(type, types)
@@ -538,7 +574,7 @@ class Client:
             snapshot=None if snapshot is None else filter.Bool(eq=snapshot),
         )
         req = RetrieveRequest(
-            where=filter.merge(where, flat),
+            where=filter.merge(filter.join(Where, conditions), flat),
             search_term=search_term,
             limit=limit,
             offset=offset,
@@ -546,9 +582,9 @@ class Client:
         )
         res = self._client.send(_RETRIEVE_ENDPOINT, req, RetrieveResponse)
         sug = self.sugar(res.tasks)
-        if not is_single:
+        if query is None and not one:
             return sug
-        return one("Task", next(v for v in (key, name, type) if v is not None), sug)
+        return util.one("Task", req.where if query is None else query, sug)
 
     def sugar(self, tasks: list[Payload]) -> list[Task]:
         return [

@@ -9,12 +9,13 @@
 
 from __future__ import annotations
 
-from typing import overload
+from typing import Literal, overload
 from uuid import UUID
 
 from pydantic import PrivateAttr
 
-from synnax import framer, node
+from synnax import framer, node, util
+from synnax.channel.builder_gen import Condition
 from synnax.channel.payload import (
     Key,
     Params,
@@ -40,7 +41,6 @@ from synnax.telem import (
     MultiSeries,
     TimeRange,
 )
-from synnax.util import one
 from x import control, filter
 from x.lists import normalize
 
@@ -345,7 +345,6 @@ class Client:
         self,
         channel: Key | str,
         *,
-        where: Where | None = None,
         search_term: str = "",
         data_types: list[CrudeDataType] | None = None,
         not_data_types: list[CrudeDataType] | None = None,
@@ -364,7 +363,42 @@ class Client:
         self,
         channel: list[Key] | tuple[Key] | list[str] | tuple[str] | None = None,
         *,
-        where: Where | None = None,
+        search_term: str = "",
+        data_types: list[CrudeDataType] | None = None,
+        not_data_types: list[CrudeDataType] | None = None,
+        virtual: bool | None = None,
+        is_index: bool | None = None,
+        internal: bool | None = None,
+        range_key: UUID | None = None,
+        node_key: int | None = None,
+        limit: int | None = None,
+        offset: int = 0,
+        include_status: bool = False,
+    ) -> list[Channel]: ...
+
+    @overload
+    def retrieve(
+        self,
+        *conditions: Condition,
+        one: Literal[True],
+        search_term: str = "",
+        data_types: list[CrudeDataType] | None = None,
+        not_data_types: list[CrudeDataType] | None = None,
+        virtual: bool | None = None,
+        is_index: bool | None = None,
+        internal: bool | None = None,
+        range_key: UUID | None = None,
+        node_key: int | None = None,
+        limit: int | None = None,
+        offset: int = 0,
+        include_status: bool = False,
+    ) -> Channel: ...
+
+    @overload
+    def retrieve(
+        self,
+        *conditions: Condition,
+        one: Literal[False] = False,
         search_term: str = "",
         data_types: list[CrudeDataType] | None = None,
         not_data_types: list[CrudeDataType] | None = None,
@@ -380,9 +414,9 @@ class Client:
 
     def retrieve(
         self,
-        channel: Params | None = None,
-        *,
-        where: Where | None = None,
+        channel: Params | Condition | None = None,
+        *args: Condition,
+        one: bool = False,
         search_term: str = "",
         data_types: list[CrudeDataType] | None = None,
         not_data_types: list[CrudeDataType] | None = None,
@@ -401,8 +435,10 @@ class Client:
         :param channel: The key or name of one channel, or a list of keys or names. A
             single key or name returns one channel. A list, or None, returns a list. A
             name that is not a valid channel name is a regular expression, anchored
-            when unanchored.
-        :param where: Keeps channels that match this filter tree.
+            when unanchored. It can also be the first condition.
+        :param args: Conditions from the channel builder, such as
+            ``channel.name.contains("pressure")``.
+        :param one: Returns the one channel that matches, instead of a list.
         :param search_term: Fuzzy matches channel names. With range_key, the channels
             whose alias in the range matches come first.
         :param data_types: Keeps channels with one of these data types.
@@ -419,8 +455,15 @@ class Client:
             status gets None.
         :returns: The retrieved channel, or a list of the retrieved channels.
         :raises NotFoundError: If a single channel is requested and not found.
-        :raises MultipleFoundError: If a single name matches more than one channel.
+        :raises MultipleFoundError: If a single name, or one, matches more than one
+            channel.
+        :raises TypeError: If args are not channel conditions, or follow a key or name.
         """
+        positional: tuple[object, ...] = args
+        if isinstance(channel, filter.Condition) or len(args) > 0:
+            positional = (channel, *args)
+            channel = None
+        conditions = util.conditions("Channel", positional, Condition)
         single = False
         selected = Where()
         if channel is not None:
@@ -451,7 +494,7 @@ class Client:
             is_index=None if is_index is None else filter.Bool(eq=is_index),
             internal=None if internal is None else filter.Bool(eq=internal),
         )
-        where = filter.merge(where, flat)
+        where = filter.merge(filter.join(Where, conditions), flat)
         res = self._retriever.filter(
             RetrieveRequest(
                 where=where,
@@ -463,11 +506,13 @@ class Client:
             range_key,
         )
         sug = self._sugar(res)
-        if channel is None or not single:
-            return sug
-        if len(res) > 1:
-            raise _multiple_results_error(channel, res)
-        return one("Channel", channel, sug)
+        if channel is not None and single:
+            if len(res) > 1:
+                raise _multiple_results_error(channel, res)
+            return util.one("Channel", channel, sug)
+        if one:
+            return util.one("Channel", where, sug)
+        return sug
 
     @overload
     def rename(self, keys: Key, names: str) -> None:
