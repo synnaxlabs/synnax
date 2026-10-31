@@ -27,7 +27,7 @@ class OPCUAWriteTask(OPCUACase):
     def test_create_task(self) -> OPCUAWrite:
         """Create the task page, select the server, and open its Browser."""
         self.log("Testing: Create OPC UA write task")
-        page = self.create_page(OPCUAWrite, "OPCUA Console Write")
+        page = self.create_page(OPCUAWrite, prefix="OPCUA Console Write")
         self.select_server(page)
         return page
 
@@ -49,4 +49,4 @@ class OPCUAWriteTask(OPCUACase):
         assert len(keys) == len(COMMAND_NODES), (
             f"Every command channel needs a key, got {keys}"
         )
-        self.send_commands(page, task)
+        self.send_commands(page, task=task)

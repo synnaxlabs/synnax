@@ -1411,7 +1411,25 @@ var _ = Describe("Graph", func() {
 			"Should keep the status of a channel with an invalid expression",
 			func(ctx SpecContext) {
 				g := openGraph(ctx)
-				calc := createBrokenCalc(ctx, "rt_hold", "rt_hold_dep")
+				dep := createDep(ctx, "rt_hold_dep")
+				calc := channel.Channel{
+					Name: "rt_hold", DataType: telem.Int64T, Virtual: true,
+					Expression: "return rt_hold_dep + 1",
+				}
+				Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+				// The graph can write the status once per batch, and each write can
+				// carry a different "did you mean" note. Waiting for the last batch
+				// leaves no write to race the clear.
+				depDeleted := make(chan struct{})
+				g.Observe().OnChange(func(_ context.Context, r graph.Changes) {
+					for c := range r {
+						if c.Variant == change.VariantDelete && c.Key == dep.Key() {
+							close(depDeleted)
+						}
+					}
+				})
+				deleteDep(ctx, "rt_hold_dep")
+				Eventually(depDeleted).Should(BeClosed())
 				st := expectStatus(ctx, calc.Key())
 
 				Expect(g.ClearRuntimeStatus(ctx, calc.Key())).To(Succeed())

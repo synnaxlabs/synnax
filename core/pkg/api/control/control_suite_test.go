@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/control"
@@ -55,8 +56,11 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB: dist.DB, Ontology: otg,
 	}))
+	passwordSvc := MustOpen(password.OpenService(ctx, password.ServiceConfig{
+		DB: dist.DB,
+	}))
 	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
-		DB: dist.DB, Ontology: otg, Group: groupSvc,
+		DB: dist.DB, Ontology: otg, Group: groupSvc, Password: passwordSvc,
 	}))
 	rbacSvc = MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
 		DB:       dist.DB,
@@ -120,7 +124,7 @@ func authedCtx(ctx SpecContext, u user.User) freighter.Context {
 func newUser(ctx SpecContext) user.User {
 	GinkgoHelper()
 	return MustSucceed(userSvc.NewWriter(nil).
-		Create(ctx, user.User{Username: "user-" + uuid.New().String()}))
+		Create(ctx, user.User{Name: "user-" + uuid.New().String()}))
 }
 
 // grantOn assigns a role granting the given actions on the given objects to subject.

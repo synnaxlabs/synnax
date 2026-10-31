@@ -15,15 +15,15 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/aspen/internal/cluster"
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
 	"github.com/synnaxlabs/aspen/internal/cluster/pledge"
 	"github.com/synnaxlabs/aspen/internal/node"
-	"github.com/synnaxlabs/freighter/mock"
+	freightertestutil "github.com/synnaxlabs/freighter/testutil"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/rand"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -51,13 +51,13 @@ var progressiveNewConvergence = []newConvergenceVars{
 
 var _ = Describe("Convergence", func() {
 	var (
-		gossipNet *mock.Network[gossip.Message, gossip.Message]
-		pledgeNet *mock.Network[pledge.Request, pledge.Response]
+		gossipNet *freightertestutil.Network[gossip.Message, gossip.Message]
+		pledgeNet *freightertestutil.Network[pledge.Request, pledge.Response]
 	)
 
 	BeforeEach(func() {
-		gossipNet = mock.NewNetwork[gossip.Message, gossip.Message]()
-		pledgeNet = mock.NewNetwork[pledge.Request, pledge.Response]()
+		gossipNet = freightertestutil.NewNetwork[gossip.Message, gossip.Message]()
+		pledgeNet = freightertestutil.NewNetwork[pledge.Request, pledge.Response]()
 	})
 
 	Context("Serial PledgeServer", func() {
@@ -74,7 +74,7 @@ var _ = Describe("Convergence", func() {
 				for range values.clusterSize {
 					gossipT := gossipNet.UnaryServer("")
 					pledgeT := pledgeNet.UnaryServer(gossipT.Address())
-					peerAddresses := rand.SubSlice(addresses, values.peerAddrCount)
+					peerAddresses := lo.Samples(addresses, values.peerAddrCount)
 					cluster := MustOpen(cluster.Open(
 						ctx,
 						cluster.Config{

@@ -26,6 +26,18 @@ from x.strings import random_name
 from x.testutil import assert_eventually
 
 
+class TestRangeNotCreated:
+    def test_meta_data(self) -> None:
+        """Should raise a ConfigurationError when reading from a range that was
+        never created"""
+        rng = sy.Range(
+            name=random_name(),
+            time_range=sy.TimeStamp.now().span_range(sy.TimeSpan.SECOND),
+        )
+        with pytest.raises(sy.ConfigurationError):
+            rng.meta_data.get("key")
+
+
 @pytest.mark.ranger
 class TestRangeClient:
     @pytest.fixture(scope="class")
@@ -158,7 +170,7 @@ class TestRangeClient:
     def test_retrieve_by_name_multiple_found(self, client: sy.Synnax) -> None:
         """Should raise an error when more than one range has the name"""
         name = random_name()
-        tr = sy.TimeStamp.now().span_range(sy.TimeSpan.SECOND)
+        tr = sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND)
         client.ranges.create([sy.Range(name=name, time_range=tr) for _ in range(2)])
         with pytest.raises(
             sy.MultipleFoundError,
@@ -188,6 +200,37 @@ class TestRangeClient:
         assert rng.name == two_ranges[0].name
         assert rng.key == two_ranges[0].key
 
+    def test_create_retrieve_if_name_exists_no_time_range_match(
+        self, client: sy.Synnax
+    ) -> None:
+        """Should raise a NotFoundError when no range with the name has the same
+        time range"""
+        name = random_name()
+        now = sy.TimeStamp.now()
+        client.ranges.create(
+            [
+                sy.Range(name=name, time_range=now.span_range(sy.TimeSpan.SECOND)),
+                sy.Range(name=name, time_range=now.span_range(2 * sy.TimeSpan.SECOND)),
+            ]
+        )
+        with pytest.raises(sy.NotFoundError):
+            client.ranges.create(
+                name=name,
+                time_range=now.span_range(3 * sy.TimeSpan.SECOND),
+                retrieve_if_name_exists=True,
+            )
+
+    def test_create_retrieve_if_name_exists_multiple_time_range_matches(
+        self, client: sy.Synnax
+    ) -> None:
+        """Should raise a MultipleFoundError when more than one range with the name
+        has the same time range"""
+        name = random_name()
+        tr = sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND)
+        client.ranges.create([sy.Range(name=name, time_range=tr) for _ in range(2)])
+        with pytest.raises(sy.MultipleFoundError):
+            client.ranges.create(name=name, time_range=tr, retrieve_if_name_exists=True)
+
     def test_rename(self, client: sy.Synnax) -> None:
         """Should rename a range."""
         rng = client.ranges.create(
@@ -208,7 +251,9 @@ class TestRangeClient:
         assert client.ranges.retrieve(key=rng.key).name == "Before Rename"
 
     def test_create_rejects_empty_name(self, client: sy.Synnax) -> None:
-        """Should reject creation of a range with an empty name (Pydantic min_length=1)"""
+        """Should reject creation of a range with an empty name (Pydantic
+        min_length=1)
+        """
         with pytest.raises(pydantic.ValidationError):
             client.ranges.create(
                 name="",
@@ -307,6 +352,15 @@ class TestRangeClient:
             for _ in channels:
                 found += 1
             assert found == 2
+
+        def test_single_channel_operation_on_regex_matches(
+            self, rng: sy.Range, two_channels: list[sy.Channel]
+        ) -> None:
+            """Should raise a MultipleFoundError when a single channel operation runs
+            on a query that matches more than one channel"""
+            prefix = re.sub(r"[^A-Za-z0-9_]", "", rng.name)
+            with pytest.raises(sy.MultipleFoundError):
+                rng[f"test_{prefix}_.*"].to_numpy()
 
         def test_repeated_access_retrieves_once(
             self,
@@ -465,7 +519,7 @@ class TestRangeClient:
                 name="test",
                 time_range=sy.TimeStamp.now().span_range(10 * sy.TimeSpan.SECOND),
             )
-            aliases = ranger.alias.Client(rng.key, client._transport.unary)
+            aliases = ranger.alias.Client(rng=rng.key, client=client._transport.unary)
             with pytest.raises(
                 sy.NotFoundError, match="Alias matching not_found not found"
             ):
@@ -630,7 +684,9 @@ class TestRangeRetrieveFilters:
     """Tests the filters accepted by the range client's retrieve method."""
 
     def test_rejects_mixed_selectors(self, client: sy.Synnax) -> None:
-        """Should reject a key or name combined with another selector or a list filter"""
+        """Should reject a key or name combined with another selector or a list
+        filter
+        """
         retrieve = cast(Callable[..., object], client.ranges.retrieve)
         key = uuid4()
         with pytest.raises(ValueError, match="cannot be combined; use keys"):
@@ -964,9 +1020,9 @@ class TestOnCreate:
         )
 
     def test_non_object_sample(self, client: sy.Synnax) -> None:
-        """Should raise a TypeError when the sample is not a JSON object"""
+        """Should raise a ValidationError when the sample is not a range"""
         handler = client.ranges.on_create(lambda _: None)
-        with pytest.raises(TypeError, match="JSON object"):
+        with pytest.raises(pydantic.ValidationError):
             handler(
                 self.latest_state(
                     client, sy.Series(["not an object"], data_type="json")

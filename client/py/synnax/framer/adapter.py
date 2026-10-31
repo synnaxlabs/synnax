@@ -23,14 +23,18 @@ from synnax.telem import CrudeSeries, DataType, Series
 
 
 class ReadFrameAdapter:
-    _adapter: dict[channel.Key, str] | None
+    _by_name: bool
+    _names: dict[channel.Key, str]
+    _rank: dict[channel.Key | str, int]
     retriever: ChannelRetriever
     keys: list[channel.Key]
     codec: Codec
 
     def __init__(self, retriever: ChannelRetriever):
         self.retriever = retriever
-        self._adapter = None
+        self._by_name = False
+        self._names = {}
+        self._rank = {}
         self.keys = []
         self.codec = Codec()
 
@@ -41,33 +45,37 @@ class ReadFrameAdapter:
         # The Core counts every update that carries keys, and both sides must agree on
         # the sequence number of each codec state.
         if len(new_keys) > 0:
-            self.codec.update(new_keys, [ch.data_type for ch in fetched])
-
+            self.codec.update(
+                keys=new_keys, data_types=[ch.data_type for ch in fetched]
+            )
+        self._names = {ch.key: ch.name for ch in fetched}
+        self._by_name = isinstance(normal, channel.NormalizedNameResult)
         if isinstance(normal, channel.NormalizedKeyResult):
-            self._adapter = None
             self.keys = list(normal.channels)
-            return
-
-        self._adapter = dict[int, str]()
-        for name in normal.channels:
-            ch = next(c for c in fetched if c.name == name)
-            self._adapter[ch.key] = ch.name
-        self.keys = list(self._adapter.keys())
+        else:
+            keys_by_name = {name: key for key, name in self._names.items()}
+            self.keys = [keys_by_name[name] for name in normal.channels]
+        self._rank = {}
+        for i, key in enumerate(self.keys):
+            self._rank.setdefault(key, i)
+            self._rank.setdefault(self._names[key], i)
 
     def adapt(self, fr: Frame) -> Frame:
-        if self._adapter is None:
-            return fr
-
+        """Sorts the frame's series into the order of the requested channels and
+        records the channel names in the frame. When the channels were requested by
+        name, the frame is keyed by name.
+        """
         # The Core can send channels the client has not adapted yet, so purge them.
-        channels: list[channel.Key | str] = []
-        series: list[Series] = []
-        for k, s in fr.items():
-            name = k if isinstance(k, str) else self._adapter.get(k)
-            if name is not None:
-                channels.append(name)
-                series.append(s)
-        fr.channels = channels
-        fr.series = series
+        items = sorted(
+            ((k, s) for k, s in fr.items() if k in self._rank),
+            key=lambda item: self._rank[item[0]],
+        )
+        fr.channels = [
+            self._names[k] if self._by_name and isinstance(k, channel.Key) else k
+            for k, _ in items
+        ]
+        fr.series = [s for _, s in items]
+        fr.names.update(self._names)
         return fr
 
 
@@ -84,6 +92,7 @@ class WriteFrameAdapter:
 
     def __init__(
         self,
+        *,
         retriever: ChannelRetriever,
         err_on_extra_chans: bool = True,
         strict_data_types: bool = False,
@@ -104,8 +113,8 @@ class WriteFrameAdapter:
         self._channels = {ch.key: ch for ch in results}
         self._keys = [ch.key for ch in results]
         self.codec.update(
-            self._keys,
-            [ch.data_type for ch in results],
+            keys=self._keys,
+            data_types=[ch.data_type for ch in results],
         )
 
     def adapt_dict_keys(
@@ -176,10 +185,11 @@ class WriteFrameAdapter:
         series: CrudeSeries | list[CrudeSeries] | None = None,
     ) -> Frame:
         if isinstance(channels_or_data, (str, channel.Key, channel.Payload)):
+            kind = "name" if isinstance(channels_or_data, str) else "key"
             if series is None:
                 raise ValidationError(
                     f"""
-                Received a single channel {"name" if isinstance(channels_or_data, str) else "key"}
+                Received a single channel {kind}
                 but no data.
                 """
                 )
@@ -188,7 +198,7 @@ class WriteFrameAdapter:
                 if not isinstance(first, (float, int)):
                     raise ValidationError(
                         f"""
-                    Received a single channel {"name" if isinstance(channels_or_data, str) else "key"}
+                    Received a single channel {kind}
                     but multiple series.
                     """
                     )
@@ -213,9 +223,10 @@ class WriteFrameAdapter:
             for i, ch in enumerate(channels_or_data):
                 key = self._adapt_to_key(ch)
                 if i >= len(series_list):
+                    n_channels, n_series = len(channels_or_data), len(series_list)
                     raise ValidationError(
                         f"""
-                    Received {len(channels_or_data)} channels but only {len(series_list)} series.
+                    Received {n_channels} channels but only {n_series} series.
                     """
                     )
                 channels.append(key)

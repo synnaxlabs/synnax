@@ -24,12 +24,8 @@ export type Key = z.infer<typeof keyZ>;
 export const userZ = z.object({
   /** key is the unique identifier for this user. */
   key: keyZ,
-  /** username is the unique login name for the user. */
-  username: z.string().min(1, "username is required"),
-  /** firstName is the user's first name. */
-  firstName: z.string(),
-  /** lastName is the user's last name. */
-  lastName: z.string(),
+  /** name is the user's display name. */
+  name: z.string().min(1),
   /**
    * rootUser is true if this is a root/admin user with full system access. Root users
    * cannot be deleted.
@@ -44,7 +40,7 @@ export type Where = {
   or?: Where[];
   not?: Where;
   key?: filter.Set<typeof keyZ>;
-  username?: filter.String;
+  usernames?: string[];
 };
 export const whereZ: z.ZodType<Where> = z.strictObject({
   /** and matches when every child matches. */
@@ -61,14 +57,15 @@ export const whereZ: z.ZodType<Where> = z.strictObject({
   },
   /** key selects by key. */
   key: filter.setZ(keyZ).optional(),
-  /** username selects by username. */
-  username: filter.stringZ.optional(),
+  /** usernames matches the users whose password has any of the given usernames. */
+  usernames: zod.nullToUndefined(z.string().array()),
 });
 
 export const newZ = userZ
   .omit({ rootUser: true })
-  .partial({ key: true, firstName: true, lastName: true })
+  .partial({ key: true, name: true })
   .extend({
+    username: z.string().min(1, "username is required"),
     password: z.string().min(1),
   });
 export interface New extends z.input<typeof newZ> {}

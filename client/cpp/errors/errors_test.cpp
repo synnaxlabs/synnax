@@ -17,7 +17,7 @@
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/json/json.h"
-#include "x/cpp/test/test.h"
+#include "x/cpp/testutil/testutil.h"
 
 namespace synnax::errors {
 /// @brief it should create an unexpected missing error with correct type and message.

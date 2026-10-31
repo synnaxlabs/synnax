@@ -176,7 +176,7 @@ describe("task/Toolbar", () => {
 
   describe("data saving button", () => {
     const getRow = (name: string): HTMLElement => {
-      const row = screen.getByText(name).closest<HTMLElement>(".pluto-list__item");
+      const row = screen.getByText(name).closest<HTMLElement>(".lyra-list__item");
       assertDefined(row, `no list item for ${name}`);
       return row;
     };
