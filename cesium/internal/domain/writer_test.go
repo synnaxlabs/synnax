@@ -226,7 +226,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					Expect(w.Close()).To(Succeed())
 				})
 			})
-			Describe("EndDomain", func() {
+			Describe("Finish", func() {
 				domains := func(ctx SpecContext) []telem.TimeRange {
 					GinkgoHelper()
 					i := db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
@@ -250,7 +250,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					"Should store the next writes in a new domain",
 					func(ctx SpecContext) {
 						w := openWithDomain(ctx)
-						Expect(w.EndDomain(ctx)).To(Succeed())
+						Expect(w.Finish(ctx)).To(Succeed())
 						Expect(w.Len()).To(BeZero())
 						Expect(w.SetStart(20 * telem.SecondTS)).To(Succeed())
 						MustSucceed(w.Write([]byte{4, 5}))
@@ -274,7 +274,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					"Should not write until the next domain has a start",
 					func(ctx SpecContext) {
 						w := openWithDomain(ctx)
-						Expect(w.EndDomain(ctx)).To(Succeed())
+						Expect(w.Finish(ctx)).To(Succeed())
 						Expect(
 							w.Write([]byte{4}),
 						).Error().
@@ -285,7 +285,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 				It("Should discard uncommitted data", func(ctx SpecContext) {
 					w := openWithDomain(ctx)
 					MustSucceed(w.Write([]byte{4, 5}))
-					Expect(w.EndDomain(ctx)).To(Succeed())
+					Expect(w.Finish(ctx)).To(Succeed())
 					Expect(w.Close()).To(Succeed())
 					i := db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
 					Expect(i.SeekFirst(ctx)).To(BeTrue())
@@ -296,7 +296,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					"Should let another writer fill the time between two domains",
 					func(ctx SpecContext) {
 						w := openWithDomain(ctx)
-						Expect(w.EndDomain(ctx)).To(Succeed())
+						Expect(w.Finish(ctx)).To(Succeed())
 						Expect(w.SetStart(20 * telem.SecondTS)).To(Succeed())
 						MustSucceed(w.Write([]byte{4, 5}))
 						Expect(w.Commit(ctx, 22*telem.SecondTS)).To(Succeed())
@@ -314,7 +314,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					"Should fail to start a domain over the one it ended",
 					func(ctx SpecContext) {
 						w := openWithDomain(ctx)
-						Expect(w.EndDomain(ctx)).To(Succeed())
+						Expect(w.Finish(ctx)).To(Succeed())
 						Expect(w.SetStart(12 * telem.SecondTS)).To(And(
 							MatchError(domain.ErrWriteConflict),
 							MatchError(ContainSubstring(
@@ -327,7 +327,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 				It("Should fail on a closed writer", func(ctx SpecContext) {
 					w := openWithDomain(ctx)
 					Expect(w.Close()).To(Succeed())
-					Expect(w.EndDomain(ctx)).To(MatchError(domain.ErrWriterClosed))
+					Expect(w.Finish(ctx)).To(MatchError(domain.ErrWriterClosed))
 				})
 				It("Should keep both domains across a restart", func(ctx SpecContext) {
 					w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{
@@ -336,7 +336,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					}))
 					MustSucceed(w.Write([]byte{1, 2, 3}))
 					Expect(w.Commit(ctx, 13*telem.SecondTS)).To(Succeed())
-					Expect(w.EndDomain(ctx)).To(Succeed())
+					Expect(w.Finish(ctx)).To(Succeed())
 					Expect(w.SetStart(20 * telem.SecondTS)).To(Succeed())
 					MustSucceed(w.Write([]byte{4, 5}))
 					Expect(w.Commit(ctx, 22*telem.SecondTS)).To(Succeed())

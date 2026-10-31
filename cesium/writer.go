@@ -90,7 +90,10 @@ func (w *Writer) EndDomain(indexes ...ChannelKey) (authorized bool, err error) {
 		},
 		true,
 	)
-	return res.Authorized, err
+	if err != nil {
+		return false, err
+	}
+	return res.Authorized, nil
 }
 
 func (w *Writer) exec(req WriterRequest, sync bool) (res WriterResponse, err error) {

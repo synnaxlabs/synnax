@@ -150,7 +150,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						}))
 						return w
 					}
-					openBounded := func(start telem.TimeStamp) unary.WriterConfig {
+					boundedConfig := func(start telem.TimeStamp) unary.WriterConfig {
 						return unary.WriterConfig{
 							Start:     start,
 							Subject:   control.Subject{Key: "backfill"},
@@ -193,13 +193,20 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							MustSucceed(w.Write(telem.NewSeriesSecondsTSV(10, 11)))
 							MustSucceed(w.Commit(ctx))
 							Expect(w.EndDomain(ctx)).To(Succeed())
-							Expect(db.OpenWriter(ctx, openBounded(15*telem.SecondTS))).
-								Error().To(MatchError(control.ErrUnauthorized))
+							Expect(db.OpenWriter(
+								ctx,
+								boundedConfig(15*telem.SecondTS),
+							)).Error().To(And(
+								MatchError(control.ErrUnauthorized),
+								MatchError(ContainSubstring(
+									"overlaps with a controlled region",
+								)),
+							))
 							w.SetDomainStart(20 * telem.SecondTS)
 							MustSucceed(w.Write(telem.NewSeriesSecondsTSV(20)))
 							MustSucceed(w.Commit(ctx))
 							backfill, _ := MustSucceed2(
-								db.OpenWriter(ctx, openBounded(15*telem.SecondTS)),
+								db.OpenWriter(ctx, boundedConfig(15*telem.SecondTS)),
 							)
 							MustSucceed(
 								backfill.Write(telem.NewSeriesSecondsTSV(15, 16)),
@@ -231,18 +238,21 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					It(
 						"Should fail while another writer holds control",
 						func(ctx SpecContext) {
-							lo := open(ctx, "lo", 1)
-							hi := open(ctx, "hi", 2)
-							MustSucceed(hi.Write(telem.NewSeriesSecondsTSV(10, 11)))
-							MustSucceed(hi.Commit(ctx))
-							Expect(
-								lo.EndDomain(ctx),
-							).To(MatchError(control.ErrUnauthorized))
-							MustSucceed(hi.Write(telem.NewSeriesSecondsTSV(12)))
-							Expect(MustSucceed(hi.Commit(ctx))).
+							low := open(ctx, "lo", 1)
+							high := open(ctx, "hi", 2)
+							MustSucceed(high.Write(telem.NewSeriesSecondsTSV(10, 11)))
+							MustSucceed(high.Commit(ctx))
+							Expect(low.EndDomain(ctx)).To(And(
+								MatchError(control.ErrUnauthorized),
+								MatchError(
+									ContainSubstring("has no control authority"),
+								),
+							))
+							MustSucceed(high.Write(telem.NewSeriesSecondsTSV(12)))
+							Expect(MustSucceed(high.Commit(ctx))).
 								To(Equal(12*telem.SecondTS + 1))
-							MustSucceed(hi.Close())
-							MustSucceed(lo.Close())
+							MustSucceed(high.Close())
+							MustSucceed(low.Close())
 						},
 					)
 					It("Should fail on a closed writer", func(ctx SpecContext) {
@@ -277,25 +287,29 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					It(
 						"Should stay at the start of a domain the writer did not open",
 						func(ctx SpecContext) {
-							lo, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
-								Start:     10 * telem.SecondTS,
-								Subject:   control.Subject{Key: "lo"},
-								Authority: 2,
-							}))
-							MustSucceed(lo.Write(telem.NewSeriesSecondsTSV(10, 11)))
-							hi, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
-								Start:     10 * telem.SecondTS,
-								Subject:   control.Subject{Key: "hi"},
-								Authority: 3,
-							}))
-							hi.SetDomainStart(20 * telem.SecondTS)
-							MustSucceed(hi.Write(telem.NewSeriesSecondsTSV(20)))
+							low, _ := MustSucceed2(
+								db.OpenWriter(ctx, unary.WriterConfig{
+									Start:     10 * telem.SecondTS,
+									Subject:   control.Subject{Key: "lo"},
+									Authority: 2,
+								}),
+							)
+							MustSucceed(low.Write(telem.NewSeriesSecondsTSV(10, 11)))
+							high, _ := MustSucceed2(
+								db.OpenWriter(ctx, unary.WriterConfig{
+									Start:     10 * telem.SecondTS,
+									Subject:   control.Subject{Key: "hi"},
+									Authority: 3,
+								}),
+							)
+							high.SetDomainStart(20 * telem.SecondTS)
+							MustSucceed(high.Write(telem.NewSeriesSecondsTSV(20)))
 							Expect(db.Delete(
 								ctx,
 								(10 * telem.SecondTS).Range(11*telem.SecondTS),
 							)).To(MatchError(control.ErrUnauthorized))
-							MustSucceed(hi.Close())
-							MustSucceed(lo.Close())
+							MustSucceed(high.Close())
+							MustSucceed(low.Close())
 						},
 					)
 				})

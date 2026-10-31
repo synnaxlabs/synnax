@@ -433,6 +433,37 @@ var _ = Describe("Writer", func() {
 				Expect(w.Close()).To(Succeed())
 			},
 		)
+		It("Should report a commit that fails", func(ctx SpecContext) {
+			gw := testutil.NewCluster(ctx, 1).Nodes[1]
+			idx := MustSucceed(gw.Channel.Create(ctx, []channel.Channel{{
+				Name:        "time",
+				IsIndex:     true,
+				DataType:    telem.TimestampT,
+				Leaseholder: 1,
+			}}))[0]
+			keys := channel.Keys{idx.Key()}
+			live := MustSucceed(gw.Framer.OpenWriter(ctx, writer.Config{
+				Keys:  keys,
+				Start: 10 * telem.SecondTS,
+				Sync:  new(true),
+			}))
+			fill := MustSucceed(gw.Framer.OpenWriter(ctx, writer.Config{
+				Keys:             keys,
+				Start:            1 * telem.SecondTS,
+				Mode:             ts.WriterModePersistOnly,
+				EnableAutoCommit: new(false),
+				Sync:             new(true),
+			}))
+			Expect(fill.Write(frame.NewMulti(keys, []telem.Series{
+				telem.NewSeriesSecondsTSV(1, 30),
+			}))).To(BeTrue())
+			Expect(fill.EndDomain(keys)).Error().To(And(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("cannot extend control region")),
+			))
+			Expect(fill.Close()).To(MatchError(validate.ErrValidation))
+			Expect(live.Close()).To(Succeed())
+		})
 		It("Should acknowledge a writer of free channels", func(ctx SpecContext) {
 			s := freeWriterScenario(ctx)
 			defer func() { Expect(s.Close()).To(Succeed()) }()

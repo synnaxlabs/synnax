@@ -197,7 +197,7 @@ func (w *controlledWriter) endDomain(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if err = w.EndDomain(ctx); err != nil {
+	if err = w.Finish(ctx); err != nil {
 		return err
 	}
 	w.tracker.reset()

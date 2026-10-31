@@ -79,8 +79,8 @@ type WriterResponse struct {
 	End telem.TimeStamp
 	// Command is the command that is being responded to.
 	Command WriterCommand
-	// Authorized flags whether the write or commit operation was authorized. It is only
-	// valid during calls to WriterWrite and WriterCommit.
+	// Authorized flags whether the operation was authorized. It is only valid during
+	// calls to WriterCommandWrite, WriterCommandCommit, and WriterCommandEndDomain.
 	Authorized bool
 }
 
@@ -647,7 +647,8 @@ func (w *idxWriter) write(
 			if err = w.updateHighWater(series); err != nil {
 				return fr, err
 			}
-			uWriter.SetDomainStart(series.ValueAt[telem.TimeStamp](0))
+			first := series.ValueAt[telem.TimeStamp](0)
+			uWriter.SetDomainStart(first)
 			if alignment, err = uWriter.Write(series); err != nil {
 				accumulatedErr = err
 				if !errors.Is(accumulatedErr, xcontrol.ErrUnauthorized) {
@@ -665,10 +666,7 @@ func (w *idxWriter) write(
 			// The index series carries the timestamps for the whole group, so data
 			// series can be stamped with a real time range without consulting the
 			// index on disk.
-			idxTimeRange = telem.TimeRange{
-				Start: series.ValueAt[telem.TimeStamp](0),
-				End:   w.idx.highWaterMark + 1,
-			}
+			idxTimeRange = telem.TimeRange{Start: first, End: w.idx.highWaterMark + 1}
 			idxTimeRangeSet = true
 			series.TimeRange = idxTimeRange
 			fr.SetRawSeriesAt(i, series)

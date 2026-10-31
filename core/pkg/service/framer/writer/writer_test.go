@@ -219,37 +219,61 @@ var _ = Describe("Writer", func() {
 			Expect(other.Close()).To(Succeed())
 			Expect(holder.Close()).To(Succeed())
 		})
-		It("Should fail for a channel that is not an index", func(ctx SpecContext) {
+		It("Should report a commit that fails", func(ctx SpecContext) {
 			idx, data := createIndexed(ctx, telem.Int64T)
-			w := openWriter(ctx, channel.Keys{idx.Key(), data.Key()})
-			Expect(w.EndDomain(channel.Keys{data.Key()})).Error().To(And(
+			keys := channel.Keys{idx.Key(), data.Key()}
+			live := openWriter(ctx, keys)
+			fill := MustSucceed(writerSvc.Open(ctx, writer.Config{
+				Keys:             keys,
+				Start:            1 * telem.SecondTS,
+				Mode:             ts.WriterModePersistOnly,
+				EnableAutoCommit: new(false),
+				Sync:             new(true),
+			}))
+			Expect(fill.Write(frameAt(keys, 1, 30))).To(BeTrue())
+			Expect(fill.EndDomain(channel.Keys{idx.Key()})).Error().To(And(
 				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring("is not an index")),
+				MatchError(ContainSubstring("cannot extend control region")),
 			))
-			Expect(w.Close()).To(MatchError(validate.ErrValidation))
+			Expect(fill.Close()).To(MatchError(validate.ErrValidation))
+			Expect(live.Close()).To(Succeed())
 		})
-		It(
-			"Should fail for a key the writer was not opened with",
-			func(ctx SpecContext) {
+		DescribeTable(
+			"Should fail for keys that are not indexes of the writer",
+			func(
+				ctx SpecContext,
+				indexes func(data, other channel.Channel) channel.Keys,
+				message string,
+			) {
 				idx, data := createIndexed(ctx, telem.Int64T)
 				other, _ := createIndexed(ctx, telem.Int64T)
 				w := openWriter(ctx, channel.Keys{idx.Key(), data.Key()})
-				Expect(w.EndDomain(channel.Keys{other.Key()})).Error().To(And(
+				Expect(w.EndDomain(indexes(data, other))).Error().To(And(
 					MatchError(validate.ErrValidation),
-					MatchError(ContainSubstring("invalid key")),
+					MatchError(ContainSubstring(message)),
 				))
 				Expect(w.Close()).To(MatchError(validate.ErrValidation))
 			},
+			Entry(
+				"a data channel",
+				func(data, _ channel.Channel) channel.Keys {
+					return channel.Keys{data.Key()}
+				},
+				"is not an index",
+			),
+			Entry(
+				"a key the writer was not opened with",
+				func(_, other channel.Channel) channel.Keys {
+					return channel.Keys{other.Key()}
+				},
+				"invalid key",
+			),
+			Entry(
+				"no keys",
+				func(_, _ channel.Channel) channel.Keys { return nil },
+				"no indexes",
+			),
 		)
-		It("Should fail with no keys", func(ctx SpecContext) {
-			idx, data := createIndexed(ctx, telem.Int64T)
-			w := openWriter(ctx, channel.Keys{idx.Key(), data.Key()})
-			Expect(w.EndDomain(nil)).Error().To(And(
-				MatchError(validate.ErrValidation),
-				MatchError(ContainSubstring("no indexes")),
-			))
-			Expect(w.Close()).To(MatchError(validate.ErrValidation))
-		})
 	})
 
 	Describe("Series Validation", func() {

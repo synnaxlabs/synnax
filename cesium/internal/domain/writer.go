@@ -231,9 +231,9 @@ func (w *Writer) SetStart(start telem.TimeStamp) error {
 	return nil
 }
 
-// EndDomain ends the writer's domain, discarding any uncommitted data. The writer then
-// has no start, and SetStart starts its next domain.
-func (w *Writer) EndDomain(ctx context.Context) error {
+// Finish ends the writer's domain, discarding any uncommitted data. The writer then has
+// no start, and SetStart starts its next domain.
+func (w *Writer) Finish(ctx context.Context) error {
 	if w.closed {
 		return ErrWriterClosed
 	}

@@ -109,7 +109,10 @@ func (w *Writer) EndDomain(indexes channel.Keys) (authorized bool, err error) {
 		Request{Command: CommandEndDomain, Config: Config{Keys: indexes}},
 		true,
 	)
-	return res.Authorized, err
+	if err != nil {
+		return false, err
+	}
+	return res.Authorized, nil
 }
 
 func (w *Writer) exec(req Request, sync bool) (Response, error) {

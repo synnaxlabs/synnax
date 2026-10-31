@@ -51,8 +51,8 @@ commit fails. Three things need to write old data next to a live writer:
 ### 4.0 The claim of a persist writer
 
 A persist writer claims one nanosecond at its start
-(`cesium/internal/unary/writer.go:132`). Each commit moves the end of the claim forward
-to the end of the commit (`:446`). The first sample moves the start back if it comes
+(`cesium/internal/unary/writer.go:133`). Each commit moves the end of the claim forward
+to the end of the commit (`:482`). The first sample moves the start back if it comes
 before the start, as for any writer. Live writers do not change.
 
 | Case                                                     | Result                                         |
@@ -93,6 +93,10 @@ A new writer command (`Writer.EndDomain`) names indexes. For each one, the write
 commits the index and its data channels, then ends their domains. The next sample of
 that index starts new domains through the first-write path of RFC 0086. A new domain
 takes a new alignment domain, so a live plot breaks its line at the outage.
+
+No lock covers an index and its data channels, so the command can lose one of them. The
+index ends last, and only if every data channel ended, because a data domain that
+outlives its index domain cannot resolve its samples.
 
 The first sample of any live domain moves the claim's start forward to it, whether the
 domain follows an end or opens a session. A gap then ends where the session's data

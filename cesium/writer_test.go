@@ -3761,7 +3761,12 @@ var _ = Describe("Writer Behavior", func() {
 								[]cesium.ChannelKey{idx2, data2},
 								12*telem.SecondTS,
 							),
-						)).Error().To(MatchError(control.ErrUnauthorized))
+						)).Error().To(And(
+							MatchError(control.ErrUnauthorized),
+							MatchError(
+								ContainSubstring("overlaps with a controlled region"),
+							),
+						))
 						Expect(live.Close()).To(Succeed())
 						Expect(read(ctx, data).Series).To(HaveLen(2))
 						Expect(read(ctx, data2).Series).To(HaveLen(1))
@@ -3791,6 +3796,19 @@ var _ = Describe("Writer Behavior", func() {
 						Expect(live.Close()).To(Succeed())
 					},
 				)
+				It("Should report a commit that fails", func(ctx SpecContext) {
+					live := openLive(ctx)
+					cfg := backfill(keys, 1*telem.SecondTS)
+					cfg.EnableAutoCommit = new(false)
+					w := MustSucceed(db.OpenWriter(ctx, cfg))
+					Expect(w.Write(frame(1, 30))).To(BeTrue())
+					Expect(w.EndDomain(idx)).Error().To(And(
+						MatchError(validate.ErrValidation),
+						MatchError(ContainSubstring("cannot extend control region")),
+					))
+					Expect(w.Close()).To(MatchError(validate.ErrValidation))
+					Expect(live.Close()).To(Succeed())
+				})
 				It("Should end a domain only once", func(ctx SpecContext) {
 					live := openLive(ctx)
 					Expect(live.Write(frame(10, 11))).To(BeTrue())
@@ -3805,7 +3823,7 @@ var _ = Describe("Writer Behavior", func() {
 					"Should end the domain of a variable channel",
 					func(ctx SpecContext) {
 						idx2, text := createPair(ctx, telem.StringT)
-						strings := func(
+						textFrame := func(
 							values []string,
 							seconds ...telem.TimeStamp,
 						) telem.Frame[cesium.ChannelKey] {
@@ -3827,10 +3845,10 @@ var _ = Describe("Writer Behavior", func() {
 							1,
 						)))
 						Expect(
-							live.Write(strings([]string{"a", "bb"}, 10, 11)),
+							live.Write(textFrame([]string{"a", "bb"}, 10, 11)),
 						).To(BeTrue())
 						Expect(live.EndDomain(idx2)).To(BeTrue())
-						Expect(live.Write(strings([]string{"ccc"}, 20))).To(BeTrue())
+						Expect(live.Write(textFrame([]string{"ccc"}, 20))).To(BeTrue())
 						MustSucceed(live.Commit())
 						Expect(live.Close()).To(Succeed())
 						series := read(ctx, text).Series
@@ -3842,18 +3860,18 @@ var _ = Describe("Writer Behavior", func() {
 				It(
 					"Should leave the domain of another writer alone",
 					func(ctx SpecContext) {
-						lo := openLive(ctx)
-						hi := MustSucceed(db.OpenWriter(
+						low := openLive(ctx)
+						high := MustSucceed(db.OpenWriter(
 							ctx,
 							config("hi", keys, 10*telem.SecondTS, 2),
 						))
-						Expect(hi.Write(frame(10, 11))).To(BeTrue())
-						MustSucceed(hi.Commit())
-						Expect(lo.EndDomain(idx)).To(BeFalse())
-						Expect(hi.Write(frame(12))).To(BeTrue())
-						MustSucceed(hi.Commit())
-						Expect(hi.Close()).To(Succeed())
-						Expect(lo.Close()).To(Succeed())
+						Expect(high.Write(frame(10, 11))).To(BeTrue())
+						MustSucceed(high.Commit())
+						Expect(low.EndDomain(idx)).To(BeFalse())
+						Expect(high.Write(frame(12))).To(BeTrue())
+						MustSucceed(high.Commit())
+						Expect(high.Close()).To(Succeed())
+						Expect(low.Close()).To(Succeed())
 						Expect(read(ctx, data).Series).To(HaveLen(1))
 					},
 				)
@@ -3918,19 +3936,19 @@ var _ = Describe("Writer Behavior", func() {
 				It(
 					"Should start a new domain for a writer that takes control back",
 					func(ctx SpecContext) {
-						lo := openLive(ctx)
-						Expect(lo.Write(frame(10, 11))).To(BeTrue())
-						MustSucceed(lo.Commit())
-						hi := MustSucceed(db.OpenWriter(
+						low := openLive(ctx)
+						Expect(low.Write(frame(10, 11))).To(BeTrue())
+						MustSucceed(low.Commit())
+						high := MustSucceed(db.OpenWriter(
 							ctx,
 							config("hi", keys, 10*telem.SecondTS, 2),
 						))
-						Expect(hi.Write(frame(12))).To(BeTrue())
-						Expect(hi.EndDomain(idx)).To(BeTrue())
-						Expect(hi.Close()).To(Succeed())
-						Expect(lo.Write(frame(20, 21))).To(BeTrue())
-						MustSucceed(lo.Commit())
-						Expect(lo.Close()).To(Succeed())
+						Expect(high.Write(frame(12))).To(BeTrue())
+						Expect(high.EndDomain(idx)).To(BeTrue())
+						Expect(high.Close()).To(Succeed())
+						Expect(low.Write(frame(20, 21))).To(BeTrue())
+						MustSucceed(low.Commit())
+						Expect(low.Close()).To(Succeed())
 						series := read(ctx, data).Series
 						Expect(series).To(HaveLen(2))
 						Expect(series[0]).To(telem.MatchSeriesDataV[int64](10, 11, 12))
