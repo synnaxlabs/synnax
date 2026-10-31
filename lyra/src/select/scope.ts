@@ -7,7 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type AriaAttributes } from "react";
+
 import { context } from "@/context";
+import { type Status } from "@/status";
 
 /** True inside a closed select dialog, whose children render into a detached node. */
 export const [ClosedContext, useClosed] = context.create<boolean>({
@@ -18,9 +21,13 @@ export const [ClosedContext, useClosed] = context.create<boolean>({
 /** How a {@link Buttons} group draws its items. */
 export type ButtonsVariant = "outlined" | "text" | "card";
 
-export interface ButtonsContextValue {
+export interface ButtonsContextValue extends Pick<
+  AriaAttributes,
+  "aria-invalid" | "aria-describedby"
+> {
   preview: boolean;
   variant: ButtonsVariant;
+  status?: Status.Variant;
 }
 
 /** Set inside a Buttons group, whose items draw as toggle buttons. */

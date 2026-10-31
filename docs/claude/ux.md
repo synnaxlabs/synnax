@@ -130,6 +130,21 @@ outlined button) has fill l2 and border l4, and its caret has the disabled text 
   changes with state: "Index channel", not "Is index".
 - An error message is a sentence about its field ("Name is required"), never a raw
   schema message.
+- A field in a row, or beside another field, has no help text. Its control shows the
+  error, and the message shows on hover. A control with a border gets a red border. A
+  control with no border, such as a text select or a button group, gets red text.
+
+### Task forms
+
+- Task-wide settings (Data saving, Auto start) are toggle buttons in the task footer,
+  next to the start button. Each shows its icon and "On" or "Off", and its tooltip names
+  the setting. They stay, read-only, when the footer hides the start button.
+- The header stays compact: the rack name hangs under the utility buttons and adds no
+  height.
+- A disabled channel dims to half strength. Its enabled dot stays at full strength, as
+  the way to enable the channel again.
+- A new task takes the only device of its make. With two or more, the device stays
+  empty.
 
 ### Overflow
 

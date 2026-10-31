@@ -124,7 +124,7 @@ interface ButtonItemProps<K extends record.Key>
 const ButtonItem = <K extends record.Key>({
   itemKey,
   className,
-  buttons: { preview, variant },
+  buttons: { preview, variant, ...itemStatus },
   ...rest
 }: ButtonItemProps<K>): ReactNode => {
   const { selected, onSelect } = useItemState(itemKey);
@@ -135,6 +135,7 @@ const ButtonItem = <K extends record.Key>({
     <Button.Toggle
       preview={preview}
       variant={variant === "card" ? "outlined" : variant}
+      {...itemStatus}
       {...rest}
       ref={ref}
       id={itemKey.toString()}

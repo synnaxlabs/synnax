@@ -8,7 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { Form } from "@synnaxlabs/lyra/form";
+import { type z } from "zod";
 
-export const DataSaving = () => (
-  <Form.CheckboxField label="Data saving" path="config.dataSavingDisabled" inverted />
-);
+/**
+ * Whether the surrounding task form renders read-only: the task is a snapshot or the
+ * subject holds no update grant. Edit affordances gate on this, not on useIsSnapshot.
+ */
+export const useIsPreview = <Schema extends z.ZodType>(
+  ctx?: Form.ContextValue<Schema>,
+) => Form.useContext<Schema>(ctx).mode === "preview";

@@ -21,6 +21,7 @@ import { type HaulItem } from "@/feature/opcua/device/Browser";
 import { Select } from "@/feature/opcua/device/Select";
 import {
   type Device,
+  MAKE,
   migrateProperties,
   type Properties as DeviceProperties,
   SCHEMAS,
@@ -90,8 +91,6 @@ const Properties = (): ReactElement => {
         ) : (
           <Task.Fields.StreamRate />
         )}
-        <Task.Fields.DataSaving />
-        <Task.Fields.AutoStart />
       </Flex.Box>
     </>
   );
@@ -274,6 +273,7 @@ export const Read = Task.wrapForm({
 
 export const useCreateRead = Task.createUseCreate({
   getInitialValues,
+  deviceMake: MAKE,
 });
 
 export const ReadSelectable = Selector.createSelectable({

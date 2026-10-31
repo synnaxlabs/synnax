@@ -332,6 +332,126 @@ describe("Store", () => {
       expect(Array.from(first.fetched[0])).toEqual([1, 2]);
     });
 
+    describe("runs", () => {
+      // Returns a piece at the block offset, stamped with the seconds from the start of
+      // raw block 100.
+      const createAt = (offset: number, seconds: number, values: number[]): Series =>
+        new Series({
+          data: new Float32Array(values),
+          alignment: alignmentOf(100, offset),
+          timeRange: new TimeRange(
+            BLOCK.start.add(TimeSpan.seconds(seconds)),
+            BLOCK.start.add(TimeSpan.seconds(seconds + values.length)),
+          ),
+        });
+
+      it("should keep a new run apart from the series before it", () => {
+        const store = new Store({ dynamicBufferSize: 100 });
+        const block = store.raw(1, 100);
+        store.append(block, createAt(0, 0, [1, 2]));
+        const moved = store.epoch(1);
+        store.append(block, createAt(2, 10, [3]), true);
+        expect(store.epoch(1)).toBeGreaterThan(moved);
+        expect(block.fetched[0].timeRange).toEqual(
+          BLOCK.start.range(BLOCK.start.add(TimeSpan.seconds(2))),
+        );
+        expect(block.buffer?.leadingBuffer?.timeRange.start).toEqual(
+          BLOCK.start.add(TimeSpan.seconds(10)),
+        );
+        expect(block.buffer?.leadingBuffer?.alignment).toBe(alignmentOf(100, 2));
+        expect(block.coveredCount).toBe(3);
+      });
+
+      it("should hold a small buffer for a run of one sample", () => {
+        const store = new Store({ dynamicBufferSize: TimeSpan.seconds(60) });
+        const block = store.raw(1, 100);
+        Array.from({ length: 10 }, (_, i) => i).forEach((i) =>
+          store.append(block, createAt(i, i, [i]), true),
+        );
+        expect(block.bytes).toBe(10 * 100 * DataType.FLOAT32.density.valueOf());
+      });
+
+      it("should start a run's first streamed piece where the read's series ends", () => {
+        const store = new Store({ dynamicBufferSize: 100 });
+        const block = store.raw(1, 100);
+        const end = BLOCK.start.add(TimeSpan.seconds(2));
+        block.fill([createAt(0, 0, [1, 2])], end, 2);
+        store.append(block, createAt(2, 3, [3]));
+        expect(block.buffer?.leadingBuffer?.timeRange.start).toEqual(end);
+      });
+
+      it("should keep a new run's start past a read's series", () => {
+        const store = new Store({ dynamicBufferSize: 100 });
+        const block = store.raw(1, 100);
+        block.fill([createAt(0, 0, [1, 2])], BLOCK.start.add(TimeSpan.seconds(2)), 2);
+        store.append(block, createAt(2, 3, [3]), true);
+        expect(block.buffer?.leadingBuffer?.timeRange.start).toEqual(
+          BLOCK.start.add(TimeSpan.seconds(3)),
+        );
+      });
+
+      it("should touch the blocks of a run at their edge", () => {
+        const store = new Store({ dynamicBufferSize: 100 });
+        const first = store.raw(1, 100);
+        store.append(first, createPiece(0, [1, 2]));
+        const next = store.raw(1, 101);
+        store.append(
+          next,
+          new Series({ ...createPiece(0, [3]), alignment: alignmentOf(101, 0) }),
+        );
+        expect(first.fetched[0].timeRange.end).toEqual(BLOCK.end);
+        expect(next.buffer?.leadingBuffer?.timeRange.start).toEqual(BLOCK.end);
+      });
+
+      it("should touch a read's series in the block before at its edge", () => {
+        const store = new Store({ dynamicBufferSize: 100 });
+        const first = store.raw(1, 100);
+        first.fill([createAt(0, 0, [1, 2])], BLOCK.start.add(TimeSpan.seconds(2)), 2);
+        const next = store.raw(1, 101);
+        store.append(
+          next,
+          new Series({ ...createPiece(0, [3]), alignment: alignmentOf(101, 0) }),
+        );
+        expect(first.fetched[0].timeRange.end).toEqual(BLOCK.end);
+      });
+
+      it("should keep a new run apart across a block edge", () => {
+        const store = new Store({ dynamicBufferSize: 100 });
+        const first = store.raw(1, 100);
+        store.append(first, createPiece(0, [1, 2]));
+        const next = store.raw(1, 101);
+        const start = next.range.start.add(TimeSpan.seconds(1));
+        store.append(
+          next,
+          new Series({
+            data: new Float32Array([3]),
+            alignment: alignmentOf(101, 0),
+            timeRange: start.range(start.add(TimeSpan.seconds(1))),
+          }),
+          true,
+        );
+        expect(first.fetched[0].timeRange.end).toEqual(
+          BLOCK.start.add(TimeSpan.seconds(2)),
+        );
+        expect(next.buffer?.leadingBuffer?.timeRange.start).toEqual(start);
+      });
+
+      it("should not touch across a block that holds no samples", () => {
+        const store = new Store({ dynamicBufferSize: 100 });
+        const first = store.raw(1, 100);
+        store.append(first, createPiece(0, [1, 2]));
+        const last = store.raw(1, 102);
+        store.append(
+          last,
+          new Series({ ...createPiece(0, [3]), alignment: alignmentOf(102, 0) }),
+        );
+        expect(last.buffer?.leadingBuffer?.timeRange.start).toEqual(last.range.start);
+        expect(first.fetched[0].timeRange.end).toEqual(
+          BLOCK.start.add(TimeSpan.seconds(2)),
+        );
+      });
+    });
+
     it("should move the epoch when a block's series change, not when they grow", () => {
       const store = new Store({ dynamicBufferSize: 100 });
       const block = store.raw(1, 100);

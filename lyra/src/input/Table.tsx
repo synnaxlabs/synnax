@@ -27,11 +27,11 @@ import { type Component } from "@/component";
 import { CSS } from "@/css";
 import { Icon } from "@/icon";
 import { Numeric } from "@/input/Numeric";
+import { ItemContext, type ItemContextValue } from "@/input/scope";
 import { Text as InputText } from "@/input/Text";
 import { type Control, type Variant } from "@/input/types";
 import { type Status } from "@/status";
 import { Text } from "@/text";
-import { Tooltip } from "@/tooltip";
 import { reactElementToArray } from "@/util";
 
 /** The value one {@link Table} cell holds. */
@@ -43,10 +43,7 @@ export interface TableCellProps<V extends TableCell = TableCell> extends Control
   preview?: boolean;
   /** The edit-in-place chassis every cell shares. Spread it onto the input. */
   variant?: Variant;
-  /** Marks the cell, such as for an error at its form path. */
-  status?: Status.Variant;
   "aria-label": string;
-  "aria-invalid"?: boolean;
 }
 
 interface BaseTableColumnProps {
@@ -389,33 +386,31 @@ export const Table = ({
             )}
             {columns.map((column, j) => {
               const status = statusAt({ x: j, y: i });
-              const message = status?.message ?? "";
-              // The tooltip stays mounted, so a status that comes or goes never
-              // remounts the cell under the caret. A text element tip, unlike a string,
-              // never names the cell.
+              // A cell's own status replaces the status of an item around the table.
+              const cellItem: ItemContextValue = {
+                status: status?.variant,
+                message: status?.message,
+                helpTextHidden: true,
+              };
               return (
-                <Tooltip.Dialog key={j} hide={message.length === 0}>
-                  <Text.Text level="small" color={11}>
-                    {message}
-                  </Text.Text>
-                  <td
-                    onFocus={(e) => handleCellFocus(e, { x: j, y: i })}
-                    onBlur={handleCellBlur}
-                  >
+                <td
+                  key={j}
+                  onFocus={(e) => handleCellFocus(e, { x: j, y: i })}
+                  onBlur={handleCellBlur}
+                >
+                  <ItemContext value={cellItem}>
                     {renderCell(column, {
                       value: row[j] ?? emptyCell(column),
                       onChange: (next) => handleCellChange({ x: j, y: i }, next),
                       preview,
                       variant: "shadow",
-                      status: status?.variant,
                       "aria-label":
                         column.name == null
                           ? rowName(i)
                           : `${column.name} ${rowName(i)}`,
-                      "aria-invalid": status?.variant === "error" ? true : undefined,
                     })}
-                  </td>
-                </Tooltip.Dialog>
+                  </ItemContext>
+                </td>
               );
             })}
             <td>
