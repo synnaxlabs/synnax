@@ -17,7 +17,7 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
-import { Synnax } from "@synnaxlabs/pluto";
+import { Synnax, User as PUser } from "@synnaxlabs/pluto";
 import { location, primitive, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
@@ -58,7 +58,7 @@ const Content = (): ReactElement => {
   const core = Session.Core.useSelectSelected();
   const copy = Clipboard.useCopy();
   const openConnect = Core.useConnectModal();
-  const handleLogout = Session.useLogout();
+  const handleLogout = Core.useLogout();
   const { close } = Dialog.useContext();
   const degraded =
     variant === "loading" || variant === "warning" || variant === "error";
@@ -82,7 +82,7 @@ const Content = (): ReactElement => {
           gap="medium"
           className={CSS.BE("core-badge", "name")}
         >
-          <Text.Text weight={500} color={10} overflow="ellipsis">
+          <Text.Text weight={500} color={10} overflow="fade">
             {core?.name ?? "Core"}
           </Text.Text>
           {activeKey != null && (
@@ -110,12 +110,7 @@ const Content = (): ReactElement => {
             gap="small"
             className={CSS.BE("core-badge", "address")}
           >
-            <Text.Text
-              level="small"
-              color={9}
-              overflow="ellipsis"
-              onClick={copyAddress}
-            >
+            <Text.Text level="small" color={9} overflow="fade" onClick={copyAddress}>
               {core.host}:{core.port}
             </Text.Text>
             <Button.Button variant="text" size="tiny" onClick={copyAddress}>
@@ -179,7 +174,7 @@ const Content = (): ReactElement => {
 export const Badge = (): ReactElement => {
   const status = Synnax.useConnectionStatus();
   const { variant } = status;
-  const name = User.useDisplayName();
+  const { data: name } = PUser.useResultName({});
   return (
     <Dialog.Frame>
       <Tooltip.Dialog location={location.BOTTOM_LEFT}>

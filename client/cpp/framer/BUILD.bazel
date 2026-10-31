@@ -44,7 +44,7 @@ cc_test(
     deps = [
         "//client/cpp:synnax",
         "//client/cpp/testutil",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )
@@ -55,7 +55,7 @@ cc_test(
     deps = [
         "//client/cpp:synnax",
         "//client/cpp/testutil",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )
@@ -65,7 +65,7 @@ cc_test(
     srcs = ["authorities_test.cpp"],
     deps = [
         "//client/cpp/framer",
-        "//x/cpp/test",
+        "//x/cpp/testutil",
         "@googletest//:gtest_main",
     ],
 )

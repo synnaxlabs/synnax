@@ -22,6 +22,7 @@ import {
 import {
   clickDeploy,
   commitFieldInput,
+  createWithHook,
   deployAndAwaitTask,
   selectFromDropdown,
 } from "@/platform/task/testutil";
@@ -399,13 +400,42 @@ describe("AnalogRead", () => {
     await awaitStatusDescription(statuses, /are on different racks/);
   });
 
-  it("should surface an error when the task has no channels", async () => {
-    const { statuses, container } = await renderAnalogRead({
+  it("should mark the channel list when the task has no channels", async () => {
+    const { container } = await renderAnalogRead({
       ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
       channels: [],
     });
     await clickDeploy(container);
-    await awaitStatusDescription(statuses, /No devices selected/);
+    expect(
+      await screen.findByText("At least one enabled channel is required"),
+    ).toBeTruthy();
+  });
+
+  it("should mark the device field when a channel has no device", async () => {
+    const { container } = await renderAnalogRead({
+      ...NI.Task.ANALOG_READ_SCHEMAS.config.parse({}),
+      channels: [createChannel("ai_voltage", 0, { device: "" })],
+    });
+    await clickDeploy(container);
+    expect(await screen.findByText("Device is required")).toBeTruthy();
+  });
+
+  it("should create the task with one channel", async () => {
+    const tsk = await createWithHook(
+      NI.Task.useCreateAnalogRead,
+      NI.Task.ANALOG_READ_SCHEMAS,
+    );
+    expect(tsk.config.channels).toHaveLength(1);
+  });
+
+  it("should create the task with one channel on the given device", async () => {
+    const dev = await createNIDevice(client);
+    const tsk = await createWithHook(
+      NI.Task.useCreateAnalogRead,
+      NI.Task.ANALOG_READ_SCHEMAS,
+      { deviceKey: dev.key },
+    );
+    expect(tsk.config.channels.map(({ device }) => device)).toEqual([dev.key]);
   });
 
   it("should surface an error when a device no longer exists", async () => {

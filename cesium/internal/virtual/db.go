@@ -83,7 +83,7 @@ type Config struct {
 
 var (
 	_             config.Config[Config] = Config{}
-	DefaultConfig                       = Config{}
+	defaultConfig                       = Config{}
 )
 
 // Validate implements config.Config.
@@ -106,7 +106,7 @@ func (cfg Config) Override(other Config) Config {
 }
 
 func Open(ctx context.Context, configs ...Config) (*DB, error) {
-	cfg, err := config.New(DefaultConfig, configs...)
+	cfg, err := config.New(defaultConfig, configs...)
 	if err != nil {
 		return nil, err
 	}

@@ -140,7 +140,7 @@ describe("Read", () => {
   describe("folding an endpoint from its caret", () => {
     const fold = (): void => {
       const endpoint = screen.getByRole("treeitem", { name: /New endpoint/ });
-      const caret = endpoint.querySelector(".pluto-tree__expansion-indicator");
+      const caret = endpoint.querySelector(".lyra-tree__expansion-indicator");
       if (caret == null) throw new Error("no caret");
       fireEvent.click(caret);
     };

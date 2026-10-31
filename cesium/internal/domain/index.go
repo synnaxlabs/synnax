@@ -117,7 +117,7 @@ func (idx *index) update(ctx context.Context, p pointer, persist bool) error {
 		// pointers.
 		idx.L.DPanic("cannot update a database with no domains")
 		idx.mu.Unlock()
-		return span.Error(NewRangeNotFoundError(p.TimeRange))
+		return span.Error(newRangeNotFoundError(p.TimeRange))
 	}
 	lastI := len(idx.mu.pointers) - 1
 	updateAt := lastI
@@ -134,7 +134,7 @@ func (idx *index) update(ctx context.Context, p pointer, persist bool) error {
 		// database to reach this inconceivable state.
 		idx.L.DPanic("cannot update a pointer with a different start timestamp")
 		idx.mu.Unlock()
-		return span.Error(NewRangeNotFoundError(p.TimeRange))
+		return span.Error(newRangeNotFoundError(p.TimeRange))
 	}
 	overlapsWithNext := updateAt != len(ptrs)-1 &&
 		ptrs[updateAt+1].OverlapsWith(p.TimeRange)
