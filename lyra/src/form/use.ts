@@ -19,7 +19,7 @@ import {
   type SetFunc,
 } from "@/form/Context";
 import { type FieldState, type GetOptions, State } from "@/form/state";
-import { useInitializerRef, useSyncedRef } from "@/hooks/ref";
+import { useInitializerRef, useSyncedRef } from "@/hooks";
 import { Status } from "@/status";
 
 export interface OnChangeParams<Z extends z.ZodType> {

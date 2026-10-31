@@ -20,11 +20,11 @@ import {
 } from "react";
 
 import { Button } from "@/button";
-import { type RenderProp } from "@/component/renderProp";
+import { type Component } from "@/component";
 import { CSS } from "@/css";
 import { useCombinedRefs } from "@/hooks";
 import { useItemsContext } from "@/list/scope";
-import { CONTEXT_SELECTED, CONTEXT_TARGET } from "@/menu/types";
+import { Menu } from "@/menu";
 
 // aria-selected is only valid on these roles. A generic row, or a plain listitem,
 // carries its selection in a nested control instead.
@@ -65,7 +65,9 @@ export type ItemProps<
     onHover?: () => void;
   };
 
-export type ItemRenderProp<K extends record.Key> = RenderProp<ItemRenderProps<K>>;
+export type ItemRenderProp<K extends record.Key> = Component.RenderProp<
+  ItemRenderProps<K>
+>;
 
 /**
  * itemNameID returns the DOM id for editable name text rendered inside the list item
@@ -127,8 +129,8 @@ export const Item = <K extends record.Key, E extends Button.ElementType = "div">
       onPointerMove={handlePointerMove}
       className={CSS.cls(
         className,
-        CONTEXT_TARGET,
-        selected && CONTEXT_SELECTED,
+        Menu.CONTEXT_TARGET,
+        selected && Menu.CONTEXT_SELECTED,
         hovered && CSS.M("hovered"),
         rightAligned && CSS.M("right-aligned"),
         draggingOver && CSS.M("dragging-over"),

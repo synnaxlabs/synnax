@@ -13,7 +13,7 @@ import { Button } from "@/button";
 import { CSS } from "@/css";
 import { useItemStatus, useLabelledBy } from "@/input/Item";
 import { type InputProps } from "@/input/types";
-import { preventDefault } from "@/util/event";
+import { preventDefault } from "@/util";
 
 export interface BooleanProps
   extends Omit<InputProps<boolean>, "onClick">, Omit<Button.ExtensionProps, "variant"> {

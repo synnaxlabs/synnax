@@ -10,7 +10,7 @@
 import { caseconv, deep, type optional, type record } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 
-import { type RenderProp, renderProp } from "@/component/renderProp";
+import { Component } from "@/component";
 import { CSS } from "@/css";
 import { useField, type UseFieldOptions, type UseFieldReturn } from "@/form/useField";
 import { Input } from "@/input";
@@ -25,7 +25,7 @@ export type FieldProps<I = string | number, O = I> = UseFieldOptions<I, O> &
     /** Dot-separated path into the form values. */
     path: string;
     /** Renders the input. Defaults to a text input. */
-    children?: RenderProp<FieldChild<I, O>>;
+    children?: Component.RenderProp<FieldChild<I, O>>;
     /** Whether to hold room for help text, so the layout does not jump. */
     padHelpText?: boolean;
     /** Hides the field when false. */
@@ -37,7 +37,9 @@ export type FieldProps<I = string | number, O = I> = UseFieldOptions<I, O> &
     emptiable?: boolean;
   };
 
-const defaultInput = renderProp((p: Input.TextProps) => <Input.Text {...p} />);
+const defaultInput = Component.renderProp((p: Input.TextProps) => (
+  <Input.Text {...p} />
+));
 
 export type FieldT<I, O = I> = (props: FieldProps<I, O>) => ReactElement | null;
 
@@ -82,9 +84,9 @@ export const Field = <I = string | number, O = I>({
       )}
       {...rest}
     >
-      {(children ?? (defaultInput as unknown as RenderProp<FieldChild<I, O>>))(
-        childrenProps,
-      )}
+      {(
+        children ?? (defaultInput as unknown as Component.RenderProp<FieldChild<I, O>>)
+      )(childrenProps)}
     </Input.Item>
   );
 };

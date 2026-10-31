@@ -18,7 +18,7 @@ import {
   useRef,
 } from "react";
 
-import { SIZE_TEXT_LEVELS, TEXT_LEVEL_SIZES } from "@/component/text";
+import { Component } from "@/component";
 import { CSS } from "@/css";
 import { type Generic } from "@/generic";
 import { useCombinedRefs, useHold, type UseHoldProps } from "@/hooks";
@@ -226,8 +226,8 @@ export const Button = <E extends ElementType = "button">(
 
   let size = sizeProp;
   let level = levelProp;
-  if (size == null && level != null) size = TEXT_LEVEL_SIZES[level];
-  else if (size != null && level == null) level = SIZE_TEXT_LEVELS[size];
+  if (size == null && level != null) size = Component.TEXT_LEVEL_SIZES[level];
+  else if (size != null && level == null) level = Component.SIZE_TEXT_LEVELS[size];
   else if (defaultEl !== "div" && size == null) size = "medium";
   if (level == null) level = "p";
 

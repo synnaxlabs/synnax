@@ -11,7 +11,7 @@ import { box, xy } from "@synnaxlabs/x";
 import { type RefObject, useEffect } from "react";
 
 import { type UseDragProps } from "@/cursor/drag";
-import { useStateRef, useSyncedRef } from "@/hooks/ref";
+import { useStateRef, useSyncedRef } from "@/hooks";
 import { Triggers } from "@/triggers";
 
 export interface UseVirtualDragProps extends UseDragProps {

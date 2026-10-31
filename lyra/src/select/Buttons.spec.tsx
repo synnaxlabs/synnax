@@ -11,7 +11,6 @@ import { fireEvent, render, type RenderResult } from "@testing-library/react";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import { Component } from "@/component";
 import { Select } from "@/select";
 
 describe("Select.Item", () => {
@@ -195,7 +194,7 @@ describe("picker button order", () => {
 
   it("should render component sizes from XS to XL", () =>
     expect(
-      ids(render(<Component.SelectSize value="medium" onChange={vi.fn()} />)),
+      ids(render(<Select.Component.Size value="medium" onChange={vi.fn()} />)),
     ).toEqual(["tiny", "small", "medium", "large", "huge"]));
 
   it("should render text weights from light to bold", () =>

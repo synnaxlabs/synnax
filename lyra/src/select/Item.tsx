@@ -23,7 +23,7 @@ import { Button } from "@/button";
 import { CSS } from "@/css";
 import { Input } from "@/input";
 import { List } from "@/list";
-import { CONTEXT_SELECTED, CONTEXT_TARGET } from "@/menu/types";
+import { Menu } from "@/menu";
 import { useItemState, useReselectNoop, useSelectedAmong } from "@/select/Context";
 import { useIsHidden, useRegistryContext } from "@/select/registry";
 import { type ButtonsContextValue, useButtonsContext, useClosed } from "@/select/scope";
@@ -145,8 +145,8 @@ const ButtonItem = <K extends record.Key>({
         className,
         CSS.B("select-btn"),
         CSS.selected(selected),
-        selected && CONTEXT_SELECTED,
-        CONTEXT_TARGET,
+        selected && Menu.CONTEXT_SELECTED,
+        Menu.CONTEXT_TARGET,
       )}
     />
   );

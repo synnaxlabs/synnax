@@ -12,7 +12,7 @@ import { cloneElement, type ReactElement } from "react";
 import { CSS } from "@/css";
 import { Icon } from "@/icon";
 import { VARIANT_COLORS } from "@/status/colors";
-import { type Variant } from "@/status/status";
+import { type Variant } from "@/status/core";
 
 /**
  * A faint outer track around a solid core, drawn on a 13 unit grid so it lands on whole
