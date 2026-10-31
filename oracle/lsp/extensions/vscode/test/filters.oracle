@@ -1,0 +1,11 @@
+// SYNTAX TEST "source.oracle" "the filter soft keyword"
+
+Where filter Range {
+//    ^^^^^^ keyword.control.oracle
+    name
+}
+
+Operator struct {
+    name filter.String
+//       ^^^^^^ - keyword.control.oracle
+}

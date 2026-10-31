@@ -53,6 +53,58 @@ var _ = Describe("TS Types Plugin", func() {
 	})
 
 	Describe("Generate", func() {
+		It("Should generate the recursive Where of a filter", func(ctx SpecContext) {
+			AddFilterSchema(loader)
+			resp := MustGenerate(ctx, ThingFilter, "thing", loader, typesPlugin)
+			ExpectContent(resp, "thing/types.gen.ts").ToContain(
+				"export type Where = {",
+				"and?: Where[];",
+				"or?: Where[];",
+				"not?: Where;",
+				"export const whereZ: z.ZodType<Where> = z.strictObject({",
+				"get and() {\n    return zod.nullToUndefined(whereZ.array());",
+				"get not() {\n    return whereZ.optional();",
+			)
+		})
+
+		It("Should reject unknown keys only in a filter request", func(
+			ctx SpecContext,
+		) {
+			AddFilterSchema(loader)
+			resp := MustGenerate(ctx, ThingFilter, "thing", loader, typesPlugin)
+			ExpectContent(resp, "thing/types.gen.ts").
+				ToContain("export const retrieveRequestZ = z.strictObject({").
+				ToNotContain("thingZ = z.strictObject", "retrieveResponseZ = z.strictObject")
+		})
+
+		It("Should make every operator type strict, used or not", func(
+			ctx SpecContext,
+		) {
+			AddFilterSchema(loader)
+			resp := MustGenerate(ctx, ThingFilter, "thing", loader, typesPlugin)
+			ExpectContent(resp, "filter/types.gen.ts").ToContain(
+				"export const stringZ = z.strictObject({",
+				"export const boolZ = z.strictObject({",
+				"export const setZ = <T extends z.ZodType>(t: T) =>\n  z.strictObject({",
+				"export const orderedZ = <T extends z.ZodType>(t: T) =>\n  z.strictObject({",
+				"export const containsZ = <T extends z.ZodType>(t: T) =>\n  z.strictObject({",
+			)
+		})
+
+		It("Should leave the defaulted fields of a filter request to the Core", func(
+			ctx SpecContext,
+		) {
+			AddFilterSchema(loader)
+			resp := MustGenerate(ctx, ThingFilter, "thing", loader, typesPlugin)
+			ExpectContent(resp, "thing/types.gen.ts").
+				ToContain(
+					"offset: z.uint32().optional(),",
+					"export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;",
+					"export interface RetrieveResponse extends z.infer<typeof retrieveResponseZ> {}",
+				).
+				ToNotContain(".default(0)", "optional.Optional")
+		})
+
 		Context("field-level omit", func() {
 			It("Should leave out an inherited field the parent omits", func(
 				ctx SpecContext,
@@ -1059,7 +1111,7 @@ var _ = Describe("TS Types Plugin", func() {
 				resp := MustSucceed(typesPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
-				Expect(content).To(ContainSubstring(`export interface Type {`))
+				Expect(content).To(ContainSubstring(`export type Type = {`))
 				Expect(
 					content,
 				).To(ContainSubstring(`export const typeZ: z.ZodType<Type> = z.object({`))
@@ -1090,7 +1142,7 @@ var _ = Describe("TS Types Plugin", func() {
 				resp := MustSucceed(typesPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
-				Expect(content).To(ContainSubstring(`export interface Node {`))
+				Expect(content).To(ContainSubstring(`export type Node = {`))
 				Expect(
 					content,
 				).To(ContainSubstring(`export const nodeZ: z.ZodType<Node> = z.object({`))
@@ -1118,8 +1170,8 @@ var _ = Describe("TS Types Plugin", func() {
 				resp := MustGenerate(ctx, source, "cycle", loader, typesPlugin)
 				ExpectContent(resp, "types.gen.ts").
 					ToContain(
-						`export interface A {`,
-						`export interface B {`,
+						`export type A = {`,
+						`export type B = {`,
 						`export const aZ: z.ZodType<A> = z.object({`,
 						`export const bZ: z.ZodType<B> = z.object({`,
 					).
@@ -1149,8 +1201,8 @@ var _ = Describe("TS Types Plugin", func() {
 				resp := MustGenerate(ctx, source, "cycle", loader, typesPlugin)
 				ExpectContent(resp, "types.gen.ts").
 					ToContain(
-						`export interface A {`,
-						`export interface B {`,
+						`export type A = {`,
+						`export type B = {`,
 						`export const aZ: z.ZodType<A> = z.object({`,
 						`export const bZ: z.ZodType<B> = z.object({`,
 					).
@@ -1183,7 +1235,7 @@ var _ = Describe("TS Types Plugin", func() {
 				resp := MustSucceed(typesPlugin.Generate(req))
 
 				content := string(resp.Files[0].Content)
-				Expect(content).To(ContainSubstring(`export interface MosaicNode {`))
+				Expect(content).To(ContainSubstring(`export type MosaicNode = {`))
 				Expect(
 					content,
 				).To(ContainSubstring(`export const mosaicNodeZ: z.ZodType<MosaicNode> = z.object({`))
@@ -1334,6 +1386,30 @@ var _ = Describe("TS Types Plugin", func() {
 				Expect(
 					content,
 				).To(ContainSubstring(`return zod.nullToUndefined(mapNodeZ({k: k, v: v}).array())`))
+			},
+		)
+
+		It(
+			"Should pass Zod types to a generic struct in a recursive interface",
+			func(ctx SpecContext) {
+				source := `
+				@ts output "out"
+
+				Key uint32
+
+				Box struct<T extends schema> {
+					value T?
+				}
+
+				Node struct {
+					key      Box<Key>?
+					children Node[]?
+				}
+			`
+				resp := MustGenerate(ctx, source, "tree", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").
+					ToContain("key?: Box<typeof keyZ>").
+					ToNotContain("Box<Key>")
 			},
 		)
 

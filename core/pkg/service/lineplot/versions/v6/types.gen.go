@@ -149,22 +149,33 @@ func (u *CustomRange) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var disc struct {
 		Type CustomRangeType `json:"variant"`
 	}
-	if err := json.Unmarshal(data, &disc, opts); err != nil {
+	if err := json.Unmarshal(
+		data,
+		&disc,
+		opts,
+		json.RejectUnknownMembers(false),
+	); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case DynamicCustomRangeType:
-		var v DynamicCustomRange
+		var v struct {
+			Type CustomRangeType `json:"variant"`
+			DynamicCustomRange
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.DynamicCustomRange
 	case StaticCustomRangeType:
-		var v StaticCustomRange
+		var v struct {
+			Type CustomRangeType `json:"variant"`
+			StaticCustomRange
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.StaticCustomRange
 	default:
 		return errors.Newf("CustomRange: unknown variant %q", disc.Type)
 	}

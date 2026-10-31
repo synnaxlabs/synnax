@@ -27,7 +27,7 @@ enum Variant {
   VARIANT_LOADING = 4;
   VARIANT_DISABLED = 5;
 }
-message LabelList {
+message LabelLabelList {
   repeated .service.label.pb.Label values = 1;
 }
 
@@ -56,5 +56,5 @@ message Status {
   // details contains optional component-specific custom details for the status.
   google.protobuf.Any details = 7;
   // labels contains optional labels for categorization and filtering.
-  LabelList labels = 8;
+  LabelLabelList labels = 8;
 }

@@ -452,7 +452,7 @@ func (p *Plugin) extractOntology(
 	if data == nil {
 		return nil
 	}
-	keyType := lo.Capitalize(fieldCamel(data.KeyField.Name))
+	keyType := lo.Capitalize(FieldName(data.KeyField.Name))
 	primitive := data.KeyField.Primitive
 	if override := findFieldTypeOverride(
 		structs,
@@ -694,6 +694,17 @@ func (p *Plugin) typeDefBaseToTS(
 	return p.typeRefToTS(typeRef, data.Request.Resolutions, data, false)
 }
 
+// filterRequests returns the qualified names of the requests derived from filters.
+func filterRequests(table *resolution.Table) set.Set[string] {
+	names := make(set.Set[string])
+	for _, typ := range table.StructTypes() {
+		if typ.Filter != nil {
+			names.Add(typ.Filter.Request)
+		}
+	}
+	return names
+}
+
 // isExtendBase reports whether another type's generated zod schema calls .extend on
 // entry's schema: struct extends bases, union shared bases, and union variant payloads.
 // Such schemas must stay ZodObjects, since the z.ZodType annotation used to break
@@ -808,6 +819,8 @@ func (p *Plugin) processStruct(
 		// z.ZodType, which has no .extend. Their inference cycles are broken
 		// by annotated forward-reference getters instead.
 		IsRecursive: form.IsRecursive && !isExtendBase(entry, table),
+		Strict:      resolution.InFilterRequest(entry, table),
+		Request:     filterRequests(table).Contains(entry.QualifiedName),
 	}
 	if tsDomain, ok := entry.Domains["ts"]; ok {
 		for _, expr := range tsDomain.Expressions {
@@ -846,7 +859,7 @@ func (p *Plugin) processStruct(
 				importLocalHand(base, schemaName, data)
 				sd.ExtendsName = schemaName
 				for _, f := range form.OmittedFields {
-					sd.OmittedFields = append(sd.OmittedFields, fieldCamel(f))
+					sd.OmittedFields = append(sd.OmittedFields, FieldName(f))
 				}
 				return sd
 			}
@@ -932,7 +945,7 @@ func (p *Plugin) processStruct(
 			sd.ExtendsTypeName = sd.ExtendsParents[0].TypeName
 
 			for _, f := range form.OmittedFields {
-				sd.OmittedFields = append(sd.OmittedFields, fieldCamel(f))
+				sd.OmittedFields = append(sd.OmittedFields, FieldName(f))
 			}
 
 			parentFields := make(map[string]resolution.Field)
@@ -953,12 +966,12 @@ func (p *Plugin) processStruct(
 					} else if isOnlyOptionalityChange(parentField, field) {
 						sd.PartialFields = append(
 							sd.PartialFields,
-							fieldData{TSName: fieldCamel(field.Name)},
+							fieldData{TSName: FieldName(field.Name)},
 						)
 					} else {
 						sd.OmittedFields = append(
 							sd.OmittedFields,
-							fieldCamel(field.Name),
+							FieldName(field.Name),
 						)
 						sd.ExtendFields = append(
 							sd.ExtendFields,
@@ -998,7 +1011,7 @@ func (p *Plugin) processStruct(
 				for _, extendsRef := range form.Extends {
 					parentType, _, _ := resolution.Dealias(extendsRef, table)
 					for _, pf := range resolution.UnifiedFields(parentType, table) {
-						name := fieldCamel(pf.Name)
+						name := FieldName(pf.Name)
 						if handled.Contains(name) {
 							continue
 						}
@@ -1080,6 +1093,10 @@ func (p *Plugin) processStruct(
 	}
 
 	for _, field := range allFields {
+		if sd.Request && field.Default != nil {
+			field.Default = nil
+			field.Optional = true
+		}
 		fd := p.processField(field, entry, table, data, sd.ConcreteTypes)
 		sd.Fields = append(sd.Fields, fd)
 
@@ -1289,12 +1306,12 @@ func importNamespace(namespace, outputPath string, data *templateData) string {
 	return ident
 }
 
-// fieldCamel converts a field identifier to camelCase using the naive conversion the
+// FieldName converts a field identifier to camelCase using the naive conversion the
 // JSON codec's snake/camel round-trip relies on, preserving only a trailing acronym run
 // of two or more uppercase letters in the source ("ClientXY" -> "clientXY", "EntityID"
 // -> "entityID"). Use this for wire field keys, discriminators, and key-field names,
 // never for type or schema-const identifiers.
-func fieldCamel(s string) string {
+func FieldName(s string) string {
 	if s == "" {
 		return s
 	}
@@ -1681,7 +1698,7 @@ func (p *Plugin) processField(
 
 	fd := fieldData{
 		Name:       field.Name,
-		TSName:     fieldCamel(field.Name),
+		TSName:     FieldName(field.Name),
 		Doc:        doc.Get(field.Domains),
 		IsOptional: field.Optional,
 		IsArray:    isArray,
@@ -1783,7 +1800,7 @@ func (p *Plugin) processField(
 	// type's fields (e.g. a parent referenced by key alone), emitting a Zod .pick() and
 	// a TS Pick<> rather than a standalone reference type.
 	if pickField := domain.GetStringFromField(field, "ts", "pick"); pickField != "" {
-		camel := fieldCamel(pickField)
+		camel := FieldName(pickField)
 		fd.ZodType = fmt.Sprintf("%s.pick({ %s: true })", fd.ZodType, camel)
 		fd.TSType = fmt.Sprintf("Pick<%s, %q>", fd.TSType, camel)
 	}
@@ -2229,17 +2246,17 @@ func (p *Plugin) typeRefToTSInternal(
 	case resolution.StructForm:
 		typeName := domain.GetName(resolved, "ts")
 		if form.IsGeneric() && len(typeRef.TypeArgs) > 0 {
-			args := make([]string, len(typeRef.TypeArgs))
-			for i, arg := range typeRef.TypeArgs {
-				args[i] = p.typeRefToTSInternal(
-					&arg,
+			typeName = fmt.Sprintf(
+				"%s<%s>",
+				typeName,
+				p.genericArgs(
+					form.TypeParams,
+					typeRef.TypeArgs,
 					table,
 					data,
-					true,
 					needsTypeImports,
-				)
-			}
-			typeName = fmt.Sprintf("%s<%s>", typeName, strings.Join(args, ", "))
+				),
+			)
 		}
 		if resolved.Namespace != data.Namespace {
 			return fmt.Sprintf("%s.%s", resolved.Namespace, typeName)
@@ -2268,17 +2285,17 @@ func (p *Plugin) typeRefToTSInternal(
 	case resolution.AliasForm:
 		typeName := domain.GetName(resolved, "ts")
 		if form.IsGeneric() && len(typeRef.TypeArgs) > 0 {
-			args := make([]string, len(typeRef.TypeArgs))
-			for i, arg := range typeRef.TypeArgs {
-				args[i] = p.typeRefToTSInternal(
-					&arg,
+			typeName = fmt.Sprintf(
+				"%s<%s>",
+				typeName,
+				p.genericArgs(
+					form.TypeParams,
+					typeRef.TypeArgs,
 					table,
 					data,
-					true,
 					needsTypeImports,
-				)
-			}
-			typeName = fmt.Sprintf("%s<%s>", typeName, strings.Join(args, ", "))
+				),
+			)
 		}
 		if resolved.Namespace != data.Namespace {
 			return fmt.Sprintf("%s.%s", resolved.Namespace, typeName)
@@ -2295,6 +2312,33 @@ func (p *Plugin) typeRefToTSInternal(
 	default:
 		return "unknown"
 	}
+}
+
+// genericArgs renders the type arguments of a generic struct or alias. Its type
+// parameters take Zod types, except numeric ones, which take TypeScript types.
+func (p *Plugin) genericArgs(
+	params []resolution.TypeParam,
+	args []resolution.TypeRef,
+	table *resolution.Table,
+	data *templateData,
+	needsTypeImports bool,
+) string {
+	out := make([]string, len(args))
+	for i := range args {
+		if i < len(params) && params[i].Constraint != nil &&
+			params[i].Constraint.Name == "numeric" {
+			out[i] = p.typeRefToTSInternal(
+				&args[i],
+				table,
+				data,
+				true,
+				needsTypeImports,
+			)
+			continue
+		}
+		out[i] = p.typeRefToZodSchemaType(&args[i], table, data)
+	}
+	return strings.Join(out, ", ")
 }
 
 var primitiveTSTypes = map[string]string{
@@ -2786,7 +2830,7 @@ func (p *Plugin) applyValidation(
 				zodType = fmt.Sprintf(
 					"%s.prefault({ %s: %q })",
 					zodType,
-					fieldCamel(uv.Union.Discriminator),
+					FieldName(uv.Union.Discriminator),
 					uv.Variant.Name,
 				)
 				isPrefault = true
@@ -2932,7 +2976,7 @@ func (p *Plugin) tsStructLiteral(
 			parts,
 			fmt.Sprintf(
 				"%s: %s",
-				fieldCamel(fv.Name),
+				FieldName(fv.Name),
 				p.tsDefaultLiteral(fieldsByName[fv.Name].Type, fv.Value, table, data),
 			),
 		)
@@ -3054,6 +3098,10 @@ type structData struct {
 	ExtendFields      []fieldData
 	PartialFields     []fieldData
 	OmittedFields     []string
+	// Request is true for a request derived from a filter. A query cache keys on it, so
+	// it is a type alias, since an interface has no index signature. It leaves its
+	// defaults to the Core, so the cache sees only the fields that a caller set.
+	Request bool
 	// ConditionalOmittedFields names the conditional (type-param-typed) base fields a
 	// synthesized @create New strips from its inner optional.Optional base before
 	// re-appending them as z.input conditionals. The New's template wraps the base in
@@ -3067,11 +3115,14 @@ type structData struct {
 	AllParamsOptional        bool
 	Handwritten              bool
 	IsRecursive              bool
-	IsAlias                  bool
-	IsSingleParam            bool
-	IsGeneric                bool
-	ConcreteTypes            bool
-	CoalesceTypeParams       bool
+	// Strict is true when the schema rejects unknown keys, so a stale field in a filter
+	// request fails instead of selecting every record.
+	Strict             bool
+	IsAlias            bool
+	IsSingleParam      bool
+	IsGeneric          bool
+	ConcreteTypes      bool
+	CoalesceTypeParams bool
 	// IsPrimitiveConstrainedGeneric is true when every type param is constrained to a
 	// primitive set (e.g. T extends numeric) and has a default. In this mode the
 	// runtime zod schema is emitted as a plain z.object (defaults substituted for
@@ -3251,7 +3302,7 @@ export interface {{ .TSName }} extends z.{{ if .UseInput }}input{{ else }}infer{
 {{ formatDoc .TSName .Doc }}
 {{- end }}
 export const {{ camelCase .TSName }}Z = <{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name }} extends {{ $p.BareConstraint }}{{ if $p.HasDefault }} = {{ $p.BareDefault }}{{ end }}{{ end }}>({{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }}{{ $p.Name | camelCase }}?: z.ZodType<{{ $p.Name }}>{{ end }}) =>
-  z.object({
+  z.{{ if .Strict }}strictObject{{ else }}object{{ end }}({
 {{- range .Fields }}
 {{- if .Doc }}
   {{ formatDoc .TSName .Doc 2 }}
@@ -3316,7 +3367,7 @@ export const {{ camelCase .TSName }}Z = <{{ range $i, $p := .TypeParams }}{{ $p.
     })
 {{- end }};
 {{- else }}
-  z.object({
+  z.{{ if .Strict }}strictObject{{ else }}object{{ end }}({
 {{- range .Fields }}
 {{- if .IsSelfRef }}
     get {{ .TSName }}(): {{ .ZodSchemaType }} {
@@ -3390,7 +3441,7 @@ export const {{ camelCase .TSName }}Z = <{{ range $i, $p := .TypeParams }}{{ if 
     })
 {{- end }};
 {{- else }}
-  z.object({
+  z.{{ if .Strict }}strictObject{{ else }}object{{ end }}({
 {{- range .Fields }}
 {{- if .IsSelfRef }}
     get {{ .TSName }}(): {{ .ZodSchemaType }} {
@@ -3498,12 +3549,12 @@ export interface {{ .TSName }} extends z.{{ if .UseInput }}input{{ else }}infer{
 {{ formatDoc .TSName .Doc }}
 {{- end }}
 {{- if and .IsRecursive $.GenerateTypes }}
-export interface {{ .TSName }} {
+export type {{ .TSName }} = {
 {{- range .Fields }}
   {{ .TSName }}{{ if .IsOptional }}?{{ end }}: {{ .TSType }}{{ if .IsArray }}[]{{ end }};
 {{- end }}
-}
-export const {{ camelCase .TSName }}Z: z.ZodType<{{ .TSName }}> = z.object({
+};
+export const {{ camelCase .TSName }}Z: z.ZodType<{{ .TSName }}> = z.{{ if .Strict }}strictObject{{ else }}object{{ end }}({
 {{- range .Fields }}
 {{- if .Doc }}
   {{ formatDoc .TSName .Doc 2 }}
@@ -3518,7 +3569,7 @@ export const {{ camelCase .TSName }}Z: z.ZodType<{{ .TSName }}> = z.object({
 {{- end }}
 });
 {{- else }}
-export const {{ camelCase .TSName }}Z = z.object({
+export const {{ camelCase .TSName }}Z = z.{{ if .Strict }}strictObject{{ else }}object{{ end }}({
 {{- range .Fields }}
 {{- if .Doc }}
   {{ formatDoc .TSName .Doc 2 }}
@@ -3533,7 +3584,11 @@ export const {{ camelCase .TSName }}Z = z.object({
 {{- end }}
 });
 {{- if $.GenerateTypes }}
+{{- if .Request }}
+export type {{ .TSName }} = z.infer<typeof {{ camelCase .TSName }}Z>;
+{{- else }}
 export interface {{ .TSName }} extends z.{{ if .UseInput }}input{{ else }}infer{{ end }}<typeof {{ camelCase .TSName }}Z> {}
+{{- end }}
 {{- end }}
 {{- end }}
 {{- end }}

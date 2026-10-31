@@ -386,26 +386,60 @@ func (u *WriteField) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var disc struct {
 		Type WriteFieldType `json:"type"`
 	}
-	if err := json.Unmarshal(data, &disc, opts); err != nil {
+	if err := json.Unmarshal(
+		data,
+		&disc,
+		opts,
+		json.RejectUnknownMembers(false),
+	); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case StaticWriteFieldType:
-		var v StaticWriteField
+		var v struct {
+			Type WriteFieldType `json:"type"`
+			StaticWriteField
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.StaticWriteField
 	case GeneratedWriteFieldType:
-		var v GeneratedWriteField
+		var v struct {
+			Type WriteFieldType `json:"type"`
+			GeneratedWriteField
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.GeneratedWriteField
 	default:
 		return errors.Newf("WriteField: unknown type %q", disc.Type)
 	}
 	return nil
+}
+
+// BaseWriteField returns the BaseWriteField of the active variant, or a zero
+// BaseWriteField when there is none.
+func (u WriteField) BaseWriteField() BaseWriteField {
+	switch v := u.Variant.(type) {
+	case StaticWriteField:
+		return v.BaseWriteField
+	case GeneratedWriteField:
+		return v.BaseWriteField
+	}
+	return BaseWriteField{}
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u WriteField) Type() WriteFieldType {
+	switch u.Variant.(type) {
+	case StaticWriteField:
+		return StaticWriteFieldType
+	case GeneratedWriteField:
+		return GeneratedWriteFieldType
+	}
+	return ""
 }
 
 // ApplyDefaults fills the active variant's zero-valued fields with their

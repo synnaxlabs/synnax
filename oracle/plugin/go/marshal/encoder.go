@@ -891,7 +891,7 @@ func (b *encoderBuilder) processArray(
 	ind := b.indent()
 	elemRef := f.Type.TypeArgs[0]
 	elemType, ok := elemRef.Resolve(b.table)
-	if !ok {
+	if !ok && (!elemRef.IsTypeParam() || !b.hasTypeParams) {
 		return errors.Newf("cannot resolve array element type %s", elemRef.Name)
 	}
 	goType, err := typemap.ResolveGoSliceElemType(elemRef, b.table, b.goTypeName)

@@ -51,12 +51,14 @@ fileDomain
 // Definitions
 // =============================================================================
 
-// Top-level definitions are structs, enums, type definitions, or discriminated unions
+// Top-level definitions are structs, enums, type definitions, discriminated unions, or
+// filters
 definition
     : structDef
     | enumDef
     | typeDefDef
     | unionDef
+    | filterDef
     ;
 
 // =============================================================================
@@ -419,4 +421,27 @@ variantName
 // Optional body for union variants (domains only)
 unionVariantBody
     : nl* LBRACE nl* (domain nl*)* RBRACE
+    ;
+
+// =============================================================================
+// Filter Definitions
+// =============================================================================
+
+// Name-first filter definition over a target struct or union:
+//   Where filter Range {
+//       key
+//       name
+//       overlaps telem.TimeRange
+//   }
+//
+// A bare line names a field of the target. A typed line declares a matcher written by
+// hand, with the type of its argument. `filter` is a soft keyword validated by the
+// analyzer, as `on` is for unions, so schemas may keep fields named `filter`.
+filterDef
+    : IDENT IDENT typeRef nl* LBRACE nl* filterBody RBRACE
+    ;
+
+// Filter body contains lines and/or filter-level domains
+filterBody
+    : ((fieldDef | domain) nl*)*
     ;

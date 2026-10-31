@@ -35,27 +35,27 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-type LabelList struct {
+type LabelLabelList struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Values        []*pb.Label            `protobuf:"bytes,1,rep,name=values,proto3" json:"values,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *LabelList) Reset() {
-	*x = LabelList{}
+func (x *LabelLabelList) Reset() {
+	*x = LabelLabelList{}
 	mi := &file_core_pkg_service_ranger_pb_ranger_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *LabelList) String() string {
+func (x *LabelLabelList) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*LabelList) ProtoMessage() {}
+func (*LabelLabelList) ProtoMessage() {}
 
-func (x *LabelList) ProtoReflect() protoreflect.Message {
+func (x *LabelLabelList) ProtoReflect() protoreflect.Message {
 	mi := &file_core_pkg_service_ranger_pb_ranger_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -67,12 +67,12 @@ func (x *LabelList) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use LabelList.ProtoReflect.Descriptor instead.
-func (*LabelList) Descriptor() ([]byte, []int) {
+// Deprecated: Use LabelLabelList.ProtoReflect.Descriptor instead.
+func (*LabelLabelList) Descriptor() ([]byte, []int) {
 	return file_core_pkg_service_ranger_pb_ranger_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *LabelList) GetValues() []*pb.Label {
+func (x *LabelLabelList) GetValues() []*pb.Label {
 	if x != nil {
 		return x.Values
 	}
@@ -95,7 +95,7 @@ type Range struct {
 	Color *pb2.Color `protobuf:"bytes,4,opt,name=color,proto3,oneof" json:"color,omitempty"`
 	// labels contains optional labels attached to this range for categorization and
 	// filtering.
-	Labels *LabelList `protobuf:"bytes,5,opt,name=labels,proto3" json:"labels,omitempty"`
+	Labels *LabelLabelList `protobuf:"bytes,5,opt,name=labels,proto3" json:"labels,omitempty"`
 	// parent is an optional parent range for hierarchical organization. Ranges can be
 	// nested within other ranges.
 	Parent        *Range `protobuf:"bytes,6,opt,name=parent,proto3,oneof" json:"parent,omitempty"`
@@ -161,7 +161,7 @@ func (x *Range) GetColor() *pb2.Color {
 	return nil
 }
 
-func (x *Range) GetLabels() *LabelList {
+func (x *Range) GetLabels() *LabelLabelList {
 	if x != nil {
 		return x.Labels
 	}
@@ -179,16 +179,16 @@ var File_core_pkg_service_ranger_pb_ranger_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_ranger_pb_ranger_proto_rawDesc = "" +
 	"\n" +
-	"'core/pkg/service/ranger/pb/ranger.proto\x12\x11service.ranger.pb\x1a%core/pkg/service/label/pb/label.proto\x1a\x19x/go/color/pb/color.proto\x1a\x19x/go/telem/pb/telem.proto\"<\n" +
-	"\tLabelList\x12/\n" +
-	"\x06values\x18\x01 \x03(\v2\x17.service.label.pb.LabelR\x06values\"\x93\x02\n" +
+	"'core/pkg/service/ranger/pb/ranger.proto\x12\x11service.ranger.pb\x1a%core/pkg/service/label/pb/label.proto\x1a\x19x/go/color/pb/color.proto\x1a\x19x/go/telem/pb/telem.proto\"A\n" +
+	"\x0eLabelLabelList\x12/\n" +
+	"\x06values\x18\x01 \x03(\v2\x17.service.label.pb.LabelR\x06values\"\x98\x02\n" +
 	"\x05Range\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x124\n" +
 	"\n" +
 	"time_range\x18\x03 \x01(\v2\x15.x.telem.pb.TimeRangeR\ttimeRange\x12,\n" +
-	"\x05color\x18\x04 \x01(\v2\x11.x.color.pb.ColorH\x00R\x05color\x88\x01\x01\x124\n" +
-	"\x06labels\x18\x05 \x01(\v2\x1c.service.ranger.pb.LabelListR\x06labels\x125\n" +
+	"\x05color\x18\x04 \x01(\v2\x11.x.color.pb.ColorH\x00R\x05color\x88\x01\x01\x129\n" +
+	"\x06labels\x18\x05 \x01(\v2!.service.ranger.pb.LabelLabelListR\x06labels\x125\n" +
 	"\x06parent\x18\x06 \x01(\v2\x18.service.ranger.pb.RangeH\x01R\x06parent\x88\x01\x01B\b\n" +
 	"\x06_colorB\t\n" +
 	"\a_parentB\xbe\x01\n" +
@@ -208,17 +208,17 @@ func file_core_pkg_service_ranger_pb_ranger_proto_rawDescGZIP() []byte {
 
 var file_core_pkg_service_ranger_pb_ranger_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_core_pkg_service_ranger_pb_ranger_proto_goTypes = []any{
-	(*LabelList)(nil),     // 0: service.ranger.pb.LabelList
-	(*Range)(nil),         // 1: service.ranger.pb.Range
-	(*pb.Label)(nil),      // 2: service.label.pb.Label
-	(*pb1.TimeRange)(nil), // 3: x.telem.pb.TimeRange
-	(*pb2.Color)(nil),     // 4: x.color.pb.Color
+	(*LabelLabelList)(nil), // 0: service.ranger.pb.LabelLabelList
+	(*Range)(nil),          // 1: service.ranger.pb.Range
+	(*pb.Label)(nil),       // 2: service.label.pb.Label
+	(*pb1.TimeRange)(nil),  // 3: x.telem.pb.TimeRange
+	(*pb2.Color)(nil),      // 4: x.color.pb.Color
 }
 var file_core_pkg_service_ranger_pb_ranger_proto_depIdxs = []int32{
-	2, // 0: service.ranger.pb.LabelList.values:type_name -> service.label.pb.Label
+	2, // 0: service.ranger.pb.LabelLabelList.values:type_name -> service.label.pb.Label
 	3, // 1: service.ranger.pb.Range.time_range:type_name -> x.telem.pb.TimeRange
 	4, // 2: service.ranger.pb.Range.color:type_name -> x.color.pb.Color
-	0, // 3: service.ranger.pb.Range.labels:type_name -> service.ranger.pb.LabelList
+	0, // 3: service.ranger.pb.Range.labels:type_name -> service.ranger.pb.LabelLabelList
 	1, // 4: service.ranger.pb.Range.parent:type_name -> service.ranger.pb.Range
 	5, // [5:5] is the sub-list for method output_type
 	5, // [5:5] is the sub-list for method input_type

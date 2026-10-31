@@ -18,6 +18,7 @@ Key uint32 {
         assignment while maintaining global uniqueness.
     """
     @go hand
+    @key
 }
 
 LocalKey uint20 {

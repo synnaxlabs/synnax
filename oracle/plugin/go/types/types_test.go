@@ -94,6 +94,18 @@ var _ = Describe("Go Types Plugin", func() {
 	})
 
 	Describe("Generate", func() {
+		It("Should generate the recursive Where of a filter", func(ctx SpecContext) {
+			AddFilterSchema(loader)
+			resp := MustGenerate(ctx, ThingFilter, "thing", loader, goPlugin)
+			ExpectContent(resp, "thing/types.gen.go").
+				ToBeValidGoSource().
+				ToContain(
+					"And []Where `json:\"and,omitzero\" msgpack:\"and,omitempty\"`",
+					"Or []Where `json:\"or,omitzero\" msgpack:\"or,omitempty\"`",
+					"Not *Where `json:\"not,omitzero\" msgpack:\"not,omitempty\"`",
+				)
+		})
+
 		Context("field-level omit", func() {
 			It("Should keep a wire-omitted field out of JSON and msgpack", func(
 				ctx SpecContext,
@@ -3112,6 +3124,119 @@ var _ = Describe("Go Union Generation", func() {
 	)
 
 	It(
+		"Should generate a method for each shared base and for the tag",
+		func(ctx SpecContext) {
+			source := `
+			@go output "out"
+
+			Base struct { name string }
+
+			View union on type extends Base {
+				first { size int32 }
+				second { count int32 }
+			}
+		`
+			resp := MustGenerate(ctx, source, "view", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").
+				ToContain(
+					`// Base returns the Base of the active variant, or a zero Base when there is none.
+func (u View) Base() Base {
+	switch v := u.Variant.(type) {
+	case FirstView:
+		return v.Base
+	case SecondView:
+		return v.Base
+	}
+	return Base{}
+}`,
+					`// Type returns the type of the active variant, or an empty type when there is none.
+func (u View) Type() ViewType {
+	switch u.Variant.(type) {
+	case FirstView:
+		return FirstViewType
+	case SecondView:
+		return SecondViewType
+	}
+	return ""
+}`,
+				)
+		},
+	)
+
+	It(
+		"Should generate no method for a base that a variant drops a field from",
+		func(ctx SpecContext) {
+			source := `
+			@go output "out"
+
+			Base struct {
+				name string
+				size int32
+			}
+
+			View union on type extends Base {
+				first { -size }
+			}
+		`
+			resp := MustGenerate(ctx, source, "view", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").
+				ToContain("func (u View) Type() ViewType").
+				ToNotContain("func (u View) Base() Base")
+		},
+	)
+
+	It(
+		"Should generate no tag method that collides with the Variant field",
+		func(ctx SpecContext) {
+			source := `
+			@go output "out"
+
+			Base struct { name string }
+
+			Config union on variant extends Base {
+				first { size int32 }
+			}
+		`
+			resp := MustGenerate(ctx, source, "view", loader, goPlugin)
+			ExpectContent(resp, "types.gen.go").
+				ToContain("func (u Config) Base() Base").
+				ToNotContain("func (u Config) Variant()")
+		},
+	)
+
+	DescribeTable(
+		"Should reject a union getter that has the name of another union method",
+		func(ctx SpecContext, source, msg string) {
+			table, diag := Analyze(ctx, source, "view", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			req := &plugin.Request{Resolutions: table}
+			Expect(goPlugin.Generate(req)).Error().To(MatchError(
+				"failed to generate out: view.Shape: " + msg,
+			))
+		},
+		Entry("when the tag getter has the name of a base getter", `
+			@go output "out"
+
+			Type struct { name string }
+
+			Shape union on type extends Type {
+				first { size int32 }
+			}
+		`, "the getter for the discriminator type has the name of another union "+
+			"method; rename the discriminator"),
+		Entry("when a base getter has the name of a method every union declares", `
+			@go output "out"
+
+			Validate struct { name string }
+
+			Shape union on type extends Validate {
+				first { size int32 }
+			}
+		`, "the getter for the base Validate has the name of another union method; "+
+			"rename the base"),
+	)
+
+	It(
 		"Should emit a single discriminator constant on one line",
 		func(ctx SpecContext) {
 			source := `
@@ -3182,9 +3307,10 @@ var _ = Describe("Go Union Generation", func() {
 					`}{Type: LinearScaleType, LinearScale: v})`,
 					`func (u *Scale) UnmarshalJSONFrom(dec *jsontext.Decoder) error {`,
 					`Type ScaleType `+"`"+`json:"type"`+"`",
+					`json.RejectUnknownMembers(false),`,
 					`case LinearScaleType:`,
-					`var v LinearScale`,
-					`u.Variant = v`,
+					"var v struct {\n\t\t\tType ScaleType `json:\"type\"`\n\t\t\tLinearScale\n\t\t}",
+					`u.Variant = v.LinearScale`,
 				)
 		},
 	)
@@ -3506,16 +3632,24 @@ func (u *rtScale) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var disc struct {
 		Type rtScaleType `json:"type"`
 	}
-	if err := json.Unmarshal(data, &disc, opts); err != nil {
+	if err := json.Unmarshal(
+		data,
+		&disc,
+		opts,
+		json.RejectUnknownMembers(false),
+	); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case rtLinearScaleType:
-		var v rtLinearScale
+		var v struct {
+			Type rtScaleType `json:"type"`
+			rtLinearScale
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.rtLinearScale
 	default:
 		return gotesterrors.Newf("rtScale: unknown type %q", disc.Type)
 	}

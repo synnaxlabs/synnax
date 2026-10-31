@@ -120,3 +120,34 @@ var _ = Describe("sync command", func() {
 		})
 	})
 })
+
+var _ = Describe("sync with a new TypeScript output", func() {
+	var (
+		repoDir string
+		cleanup func()
+	)
+
+	BeforeEach(func() {
+		repoDir, cleanup = setupMiniRepo(map[string]string{
+			"synnax/user.oracle": "@ts output \"client/ts/src/user\"\n\n" +
+				"User struct {\n    key uuid\n    name string\n}\n",
+		})
+		// ESLint and Prettier run through pnpm, so a failing pnpm stops the sync while
+		// it formats.
+		bin := GinkgoT().TempDir()
+		Expect(os.WriteFile(
+			filepath.Join(bin, "pnpm"),
+			[]byte("#!/bin/sh\nexit 1\n"),
+			0o755,
+		)).To(Succeed())
+		GinkgoT().Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+	})
+
+	AfterEach(func() { cleanup() })
+
+	It("Should put a new file on disk before formatting it", func() {
+		fail(1, "sync")
+		Expect(filepath.Join(repoDir, "client", "ts", "src", "user", "types.gen.ts")).
+			To(BeAnExistingFile())
+	})
+})

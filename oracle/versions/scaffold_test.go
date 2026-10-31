@@ -79,6 +79,33 @@ Channel struct {
 		Expect(out).To(ContainSubstring("Channel = v1.Channel"))
 	})
 
+	It("Should scaffold a filter definition as an alias line", func(
+		ctx SpecContext,
+	) {
+		write("schemas/x/filter.oracle", "String struct {\n    eq string?\n}\n")
+		write("schemas/synnax/versions/channel/v0.oracle", `
+import "schemas/x/filter"
+
+Channel struct {
+    key  uuid @key
+    name string
+
+    @go marshal
+}
+
+Where filter Channel {
+    name
+}
+`)
+		chains := MustSucceed(versions.Discover(root))
+		r := versions.NewResolver(chains, analyzer.NewStandardFileLoader(root))
+		out := MustSucceed(versions.Scaffold(
+			ctx, r, chains["schemas/synnax/channel"],
+		))
+		Expect(out).To(ContainSubstring(`import "schemas/x/filter"`))
+		Expect(out).To(ContainSubstring("Where = v0.Where"))
+	})
+
 	It("Should reject scaffolding an ended chain", func(ctx SpecContext) {
 		write("schemas/synnax/versions/channel/v0.oracle", `
 Channel struct {

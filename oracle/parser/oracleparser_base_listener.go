@@ -316,3 +316,15 @@ func (s *BaseOracleParserListener) EnterUnionVariantBody(ctx *UnionVariantBodyCo
 
 // ExitUnionVariantBody is called when production unionVariantBody is exited.
 func (s *BaseOracleParserListener) ExitUnionVariantBody(ctx *UnionVariantBodyContext) {}
+
+// EnterFilterDef is called when production filterDef is entered.
+func (s *BaseOracleParserListener) EnterFilterDef(ctx *FilterDefContext) {}
+
+// ExitFilterDef is called when production filterDef is exited.
+func (s *BaseOracleParserListener) ExitFilterDef(ctx *FilterDefContext) {}
+
+// EnterFilterBody is called when production filterBody is entered.
+func (s *BaseOracleParserListener) EnterFilterBody(ctx *FilterBodyContext) {}
+
+// ExitFilterBody is called when production filterBody is exited.
+func (s *BaseOracleParserListener) ExitFilterBody(ctx *FilterBodyContext) {}

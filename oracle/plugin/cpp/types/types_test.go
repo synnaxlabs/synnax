@@ -87,6 +87,18 @@ var _ = Describe("C++ Types Plugin", func() {
 	})
 
 	Describe("Generate", func() {
+		It("Should generate the recursive Where of a filter", func(ctx SpecContext) {
+			AddFilterSchema(loader)
+			resp := MustGenerate(ctx, ThingFilter, "thing", loader, cppPlugin)
+			ExpectContent(resp, "thing/types.gen.h").
+				ToContain(
+					"std::optional<std::vector<Where>> and_;",
+					"std::optional<std::vector<Where>> or_;",
+					"x::mem::indirect<Where> not_;",
+				).
+				ToNotContain("x::mem::indirect<std::vector<Where>>")
+		})
+
 		Context("field-level omit", func() {
 			It("Should leave out a field omitted in cpp", func(ctx SpecContext) {
 				source := `

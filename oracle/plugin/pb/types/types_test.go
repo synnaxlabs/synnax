@@ -77,6 +77,142 @@ var _ = Describe("Plugin", func() {
 	})
 
 	Describe("Generate", func() {
+		It("Should generate the recursive Where of a filter", func(ctx SpecContext) {
+			AddFilterSchema(loader)
+			resp := MustGenerate(ctx, ThingFilter, "thing", loader, p)
+			ExpectContent(resp, "thing/pb/thing.proto").ToContain(
+				"message WhereList {\n  repeated Where values = 1;",
+				"WhereList and = 1;",
+				"WhereList or = 2;",
+				"optional Where not = 3;",
+			)
+		})
+
+		It("Should emit a message for each generic use over a plain value", func(
+			ctx SpecContext,
+		) {
+			AddFilterSchema(loader)
+			resp := MustGenerate(ctx, ThingFilter, "thing", loader, p)
+			ExpectContent(resp, "thing/pb/thing.proto").
+				ToContain(
+					"message UuidList {\n  repeated string values = 1;\n}",
+					"message UuidSet {\n  optional string eq = 1;\n  UuidList in = 2;\n}",
+					"optional UuidSet key = 4;",
+				).
+				ToNotContain(".x.filter.pb.Set")
+		})
+
+		It("Should name the list message of each generic use", func(ctx SpecContext) {
+			AddFilterSchema(loader)
+			resp := MustGenerate(ctx, `
+				import "schemas/x/filter"
+
+				@go output "core/pkg/service/thing"
+				@pb
+
+				Thing struct {
+					key   uuid
+					ids   filter.Set<uuid>[]?
+					names filter.Set<string>[]?
+				}
+			`, "thing", loader, p)
+			ExpectContent(resp, "thing.proto").
+				ToContain(
+					"message UuidSetList {\n  repeated UuidSet values = 1;\n}",
+					"message StringSetList {\n  repeated StringSet values = 1;\n}",
+				).
+				ToNotContain("FilterSetList")
+		})
+
+		It("Should emit no shared message for a generic struct omitted in pb", func(
+			ctx SpecContext,
+		) {
+			resp := MustGenerate(
+				ctx,
+				"@go output \"x/go/filter\"\n@pb\n"+FilterSchema,
+				"filter",
+				loader,
+				p,
+			)
+			ExpectContent(resp, "x/go/filter/pb/filter.proto").
+				ToContain("message String {", "message Bool {").
+				ToNotContain(
+					"message Set {",
+					"message Ordered {",
+					"message Contains {",
+					"message ListWrapper {",
+					"google/protobuf/any.proto",
+				)
+		})
+
+		It("Should name the list of a key from another namespace for it", func(
+			ctx SpecContext,
+		) {
+			AddFilterSchema(loader)
+			loader.Add("schemas/rk", `
+				@go output "core/pkg/service/rk"
+				@pb
+
+				Key uint32
+			`)
+			source := `
+				import "schemas/rk"
+				import "schemas/x/filter"
+
+				@go output "core/pkg/service/dev"
+				@pb
+
+				Key uint64
+
+				Device struct {
+					key Key    { @key }
+					rk  rk.Key
+				}
+
+				Where filter Device {
+					key
+					rk
+				}
+			`
+			resp := MustGenerate(ctx, source, "dev", loader, p)
+			ExpectContent(resp, "dev/pb/dev.proto").ToContain(
+				"message KeyList {\n  repeated uint64 values = 1;\n}",
+				"message RkKeyList {\n  repeated uint32 values = 1;\n}",
+				"RkKeyList in = 2;",
+			)
+		})
+
+		It("Should fail when two generic uses share a message name", func(
+			ctx SpecContext,
+		) {
+			for _, ns := range []string{"first", "second"} {
+				loader.Add("schemas/"+ns, `
+					@go output "core/pkg/service/`+ns+`"
+					@pb
+
+					Box struct<T> {
+						value T
+					}
+				`)
+			}
+			req := MustGenerateRequest(ctx, `
+				import "schemas/first"
+				import "schemas/second"
+
+				@go output "core/pkg/service/thing"
+				@pb
+
+				Thing struct {
+					a first.Box<string>
+					b second.Box<string>
+				}
+			`, "thing", loader)
+			Expect(p.Generate(req)).Error().To(MatchError(ContainSubstring(
+				"generic uses first.Box<string> and second.Box<string> share the " +
+					"protobuf message name StringBox",
+			)))
+		})
+
 		Context("field-level omit", func() {
 			It("Should reserve the number of a field omitted in pb", func(
 				ctx SpecContext,

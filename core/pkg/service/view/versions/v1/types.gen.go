@@ -110,26 +110,59 @@ func (u *View) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var disc struct {
 		Type ViewType `json:"type"`
 	}
-	if err := json.Unmarshal(data, &disc, opts); err != nil {
+	if err := json.Unmarshal(
+		data,
+		&disc,
+		opts,
+		json.RejectUnknownMembers(false),
+	); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case RangeViewType:
-		var v RangeView
+		var v struct {
+			Type ViewType `json:"type"`
+			RangeView
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.RangeView
 	case StatusViewType:
-		var v StatusView
+		var v struct {
+			Type ViewType `json:"type"`
+			StatusView
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.StatusView
 	default:
 		return errors.Newf("View: unknown type %q", disc.Type)
 	}
 	return nil
+}
+
+// Base returns the Base of the active variant, or a zero Base when there is none.
+func (u View) Base() Base {
+	switch v := u.Variant.(type) {
+	case RangeView:
+		return v.Base
+	case StatusView:
+		return v.Base
+	}
+	return Base{}
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u View) Type() ViewType {
+	switch u.Variant.(type) {
+	case RangeView:
+		return RangeViewType
+	case StatusView:
+		return StatusViewType
+	}
+	return ""
 }
 
 // Validate returns an error wrapping validate.ErrValidation if the active variant

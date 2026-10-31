@@ -254,6 +254,12 @@ func syncOutputs(
 	batch := make([]format.File, len(toFormat))
 	for i, p := range toFormat {
 		batch[i] = format.File{Path: p.AbsPath, Content: p.Raw}
+		// ESLint's TypeScript project service lints only files on disk.
+		if p.Existing == nil {
+			if err := writeFile(p.AbsPath, p.Raw); err != nil {
+				return nil, err
+			}
+		}
 	}
 	formatStart := time.Now()
 	formatted, err := formatters.FormatBatch(ctx, batch, workers)
@@ -285,11 +291,8 @@ func syncOutputs(
 				mu.Unlock()
 				return nil
 			}
-			if err := os.MkdirAll(filepath.Dir(p.AbsPath), 0o755); err != nil {
-				return errors.Wrapf(err, "mkdir %s", filepath.Dir(p.AbsPath))
-			}
-			if err := os.WriteFile(p.AbsPath, canonical, 0o644); err != nil {
-				return errors.Wrapf(err, "write %s", p.AbsPath)
+			if err := writeFile(p.AbsPath, canonical); err != nil {
+				return err
 			}
 			mu.Lock()
 			r.Written = append(r.Written, p.RelPath)
@@ -304,6 +307,13 @@ func syncOutputs(
 	}
 	printWritePlan(len(r.Written), len(r.Unchanged))
 	return r, nil
+}
+
+func writeFile(path string, content []byte) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return errors.Wrapf(err, "mkdir %s", filepath.Dir(path))
+	}
+	return errors.Wrapf(os.WriteFile(path, content, 0o644), "write %s", path)
 }
 
 type syncResult struct {

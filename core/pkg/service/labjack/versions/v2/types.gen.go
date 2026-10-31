@@ -173,32 +173,59 @@ func (u *Scale) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var disc struct {
 		Type ScaleType `json:"type"`
 	}
-	if err := json.Unmarshal(data, &disc, opts); err != nil {
+	if err := json.Unmarshal(
+		data,
+		&disc,
+		opts,
+		json.RejectUnknownMembers(false),
+	); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case LinearScaleType:
-		var v LinearScale
+		var v struct {
+			Type ScaleType `json:"type"`
+			LinearScale
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.LinearScale
 	case MapScaleType:
-		var v MapScale
+		var v struct {
+			Type ScaleType `json:"type"`
+			MapScale
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.MapScale
 	case NoneScaleType:
-		var v NoneScale
+		var v struct {
+			Type ScaleType `json:"type"`
+			NoneScale
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.NoneScale
 	default:
 		return errors.Newf("Scale: unknown type %q", disc.Type)
 	}
 	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u Scale) Type() ScaleType {
+	switch u.Variant.(type) {
+	case LinearScale:
+		return LinearScaleType
+	case MapScale:
+		return MapScaleType
+	case NoneScale:
+		return NoneScaleType
+	}
+	return ""
 }
 
 // ApplyDefaults fills the active variant's zero-valued fields with their
@@ -389,32 +416,73 @@ func (u *ReadChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var disc struct {
 		Type ReadChannelType `json:"type"`
 	}
-	if err := json.Unmarshal(data, &disc, opts); err != nil {
+	if err := json.Unmarshal(
+		data,
+		&disc,
+		opts,
+		json.RejectUnknownMembers(false),
+	); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case AnalogReadChannelType:
-		var v AnalogReadChannel
+		var v struct {
+			Type ReadChannelType `json:"type"`
+			AnalogReadChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.AnalogReadChannel
 	case DigitalReadChannelType:
-		var v DigitalReadChannel
+		var v struct {
+			Type ReadChannelType `json:"type"`
+			DigitalReadChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.DigitalReadChannel
 	case ThermocoupleReadChannelType:
-		var v ThermocoupleReadChannel
+		var v struct {
+			Type ReadChannelType `json:"type"`
+			ThermocoupleReadChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.ThermocoupleReadChannel
 	default:
 		return errors.Newf("ReadChannel: unknown type %q", disc.Type)
 	}
 	return nil
+}
+
+// BaseReadChannel returns the BaseReadChannel of the active variant, or a zero
+// BaseReadChannel when there is none.
+func (u ReadChannel) BaseReadChannel() BaseReadChannel {
+	switch v := u.Variant.(type) {
+	case AnalogReadChannel:
+		return v.BaseReadChannel
+	case DigitalReadChannel:
+		return v.BaseReadChannel
+	case ThermocoupleReadChannel:
+		return v.BaseReadChannel
+	}
+	return BaseReadChannel{}
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u ReadChannel) Type() ReadChannelType {
+	switch u.Variant.(type) {
+	case AnalogReadChannel:
+		return AnalogReadChannelType
+	case DigitalReadChannel:
+		return DigitalReadChannelType
+	case ThermocoupleReadChannel:
+		return ThermocoupleReadChannelType
+	}
+	return ""
 }
 
 // ApplyDefaults fills the active variant's zero-valued fields with their
@@ -540,26 +608,60 @@ func (u *WriteChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var disc struct {
 		Type WriteChannelType `json:"type"`
 	}
-	if err := json.Unmarshal(data, &disc, opts); err != nil {
+	if err := json.Unmarshal(
+		data,
+		&disc,
+		opts,
+		json.RejectUnknownMembers(false),
+	); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case AnalogWriteChannelType:
-		var v AnalogWriteChannel
+		var v struct {
+			Type WriteChannelType `json:"type"`
+			AnalogWriteChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.AnalogWriteChannel
 	case DigitalWriteChannelType:
-		var v DigitalWriteChannel
+		var v struct {
+			Type WriteChannelType `json:"type"`
+			DigitalWriteChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.DigitalWriteChannel
 	default:
 		return errors.Newf("WriteChannel: unknown type %q", disc.Type)
 	}
 	return nil
+}
+
+// BaseWriteChannel returns the BaseWriteChannel of the active variant, or a zero
+// BaseWriteChannel when there is none.
+func (u WriteChannel) BaseWriteChannel() BaseWriteChannel {
+	switch v := u.Variant.(type) {
+	case AnalogWriteChannel:
+		return v.BaseWriteChannel
+	case DigitalWriteChannel:
+		return v.BaseWriteChannel
+	}
+	return BaseWriteChannel{}
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u WriteChannel) Type() WriteChannelType {
+	switch u.Variant.(type) {
+	case AnalogWriteChannel:
+		return AnalogWriteChannelType
+	case DigitalWriteChannel:
+		return DigitalWriteChannelType
+	}
+	return ""
 }
 
 // ApplyDefaults fills the active variant's zero-valued fields with their

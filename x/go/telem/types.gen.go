@@ -199,22 +199,33 @@ func (u *Reduction) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var disc struct {
 		Type ReductionType `json:"variant"`
 	}
-	if err := json.Unmarshal(data, &disc, opts); err != nil {
+	if err := json.Unmarshal(
+		data,
+		&disc,
+		opts,
+		json.RejectUnknownMembers(false),
+	); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case StrideReductionType:
-		var v StrideReduction
+		var v struct {
+			Type ReductionType `json:"variant"`
+			StrideReduction
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.StrideReduction
 	case LimitReductionType:
-		var v LimitReduction
+		var v struct {
+			Type ReductionType `json:"variant"`
+			LimitReduction
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.LimitReduction
 	default:
 		return errors.Newf("Reduction: unknown variant %q", disc.Type)
 	}

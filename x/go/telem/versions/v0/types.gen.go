@@ -104,22 +104,33 @@ func (u *Window) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var disc struct {
 		Type WindowType `json:"variant"`
 	}
-	if err := json.Unmarshal(data, &disc, opts); err != nil {
+	if err := json.Unmarshal(
+		data,
+		&disc,
+		opts,
+		json.RejectUnknownMembers(false),
+	); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case DynamicWindowType:
-		var v DynamicWindow
+		var v struct {
+			Type WindowType `json:"variant"`
+			DynamicWindow
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.DynamicWindow
 	case StaticWindowType:
-		var v StaticWindow
+		var v struct {
+			Type WindowType `json:"variant"`
+			StaticWindow
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.StaticWindow
 	default:
 		return errors.Newf("Window: unknown variant %q", disc.Type)
 	}

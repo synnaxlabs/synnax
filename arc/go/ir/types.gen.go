@@ -150,32 +150,59 @@ func (u *Target) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var disc struct {
 		Type TargetType `json:"type"`
 	}
-	if err := json.Unmarshal(data, &disc, opts); err != nil {
+	if err := json.Unmarshal(
+		data,
+		&disc,
+		opts,
+		json.RejectUnknownMembers(false),
+	); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case ExitTargetType:
-		var v ExitTarget
+		var v struct {
+			Type TargetType `json:"type"`
+			ExitTarget
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.ExitTarget
 	case StepTargetType:
-		var v StepTarget
+		var v struct {
+			Type TargetType `json:"type"`
+			StepTarget
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.StepTarget
 	case ScopeTargetType:
-		var v ScopeTarget
+		var v struct {
+			Type TargetType `json:"type"`
+			ScopeTarget
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.ScopeTarget
 	default:
 		return errors.Newf("Target: unknown type %q", disc.Type)
 	}
 	return nil
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u Target) Type() TargetType {
+	switch u.Variant.(type) {
+	case ExitTarget:
+		return ExitTargetType
+	case StepTarget:
+		return StepTargetType
+	case ScopeTarget:
+		return ScopeTargetType
+	}
+	return ""
 }
 
 // Transition is a declarative state-transition rule on a sequential Scope, or an exit

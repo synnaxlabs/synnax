@@ -1662,6 +1662,38 @@ TEST(testConfig, testToArrayWithPrimitives) {
     EXPECT_EQ(arr[2], 3);
 }
 
+/// @brief it should convert std::monostate items to null.
+TEST(testConfig, testToArrayWithMonostate) {
+    const std::vector<std::monostate> items(2);
+    EXPECT_EQ(to_array(items), json::parse("[null, null]"));
+}
+
+/// @brief it should call to_json() on a value that has one.
+TEST(testConfig, testToJSONWithToJSON) {
+    struct Item {
+        std::string name;
+        [[nodiscard]] json to_json() const { return {{"name", this->name}}; }
+    };
+    EXPECT_EQ(x::json::to_json(Item{"alpha"}), json({{"name", "alpha"}}));
+}
+
+/// @brief it should assign a value that has no to_json() directly.
+TEST(testConfig, testToJSONWithPrimitive) {
+    EXPECT_EQ(x::json::to_json(std::string("alpha")), json("alpha"));
+    EXPECT_EQ(x::json::to_json(42), json(42));
+}
+
+/// @brief it should convert std::monostate to null.
+TEST(testConfig, testToJSONWithMonostate) {
+    EXPECT_TRUE(x::json::to_json(std::monostate{}).is_null());
+}
+
+/// @brief it should keep a JSON object as is.
+TEST(testConfig, testToJSONWithObject) {
+    const json::object_t obj = {{"a", 1}};
+    EXPECT_EQ(x::json::to_json(obj), json({{"a", 1}}));
+}
+
 /// @brief it should return the default value when a field is null.
 TEST(testConfig, testFieldWithDefaultReturnsDefaultOnNull) {
     const json j = {{"name", "test"}, {"args", nullptr}};

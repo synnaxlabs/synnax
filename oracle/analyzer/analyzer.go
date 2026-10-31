@@ -203,6 +203,9 @@ type importUse struct {
 func reportUnusedImports(c *analysisCtx, imports []importUse) {
 	runs := defaultTokens(append([]parsedRule{c.ast}, c.copied...)...)
 	qualifiers := usedQualifiers(runs)
+	if declaresFilter(c.ast) {
+		qualifiers.Add(resolution.FilterNamespace)
+	}
 	names := usedQualifiedNames(runs)
 	byNS := make(map[string][]importUse)
 	for _, iu := range imports {
@@ -276,6 +279,9 @@ func analyze(c *analysisCtx) {
 		if u := def.UnionDef(); u != nil {
 			collectUnion(c, u)
 		}
+		if f := def.FilterDef(); f != nil {
+			collectFilter(c, f)
+		}
 	}
 
 	var imports []importUse
@@ -324,18 +330,15 @@ func analyze(c *analysisCtx) {
 	validateDeadOutputs(c, types)
 	validateNoVersionTag(c, types)
 	validateImex(c, types)
+	validateKeyTypes(c, types)
 	validateFieldOmits(c, types)
 	validateImportPlacement(c)
 	validateNoVersionFileActions(c)
 	for _, typ := range types {
-		for i, t := range c.table.Types {
-			if t.QualifiedName == typ.QualifiedName {
-				c.table.Types[i] = typ
-				break
-			}
-		}
+		replaceType(c.table, typ)
 	}
 	omitRemovedFields(c)
+	expandFilters(c)
 
 	finalizeEnumExtensions(c)
 	finalizeUnionExtensions(c)
@@ -356,6 +359,7 @@ func analyze(c *analysisCtx) {
 	checkUnionDefaultConstructible(c)
 	checkDefaultGroups(c)
 	synthesizeCreateTypes(c)
+	synthesizeRetrieveTypes(c)
 }
 
 // desugarPartialOverrides rewrites each struct's typeless override fields into complete

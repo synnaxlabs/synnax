@@ -192,10 +192,10 @@ export type Functions = z.infer<typeof functionsZ>;
  * nodeKey or scope is set. The member's lookup key (used as the target of `=> name`
  * transitions) is derived from the set variant via Member.key().
  */
-export interface Member {
+export type Member = {
   nodeKey?: string;
   scope?: Scope;
-}
+};
 export const memberZ: z.ZodType<Member> = z.object({
   /**
    * nodeKey is the key of the referenced node in IR.nodes. Null when this member is a
@@ -213,7 +213,7 @@ export const memberZ: z.ZodType<Member> = z.object({
  * sequential) and liveness (always-live or gated). Parallel scopes organize members
  * into strata; sequential scopes run one step at a time and advance via transitions.
  */
-export interface Scope {
+export type Scope = {
   key: string;
   mode: ScopeMode;
   liveness: Liveness;
@@ -221,7 +221,7 @@ export interface Scope {
   strata: Members[];
   steps: Members;
   transitions: Transition[];
-}
+};
 export const scopeZ: z.ZodType<Scope> = z.object({
   /** key is the scope identifier. */
   key: z.string(),

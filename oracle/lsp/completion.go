@@ -36,6 +36,13 @@ var (
 			Detail: protocol.NewOptional("Declare a discriminated union"),
 		},
 		{
+			Label: "filter",
+			Kind:  protocol.CompletionItemKindKeyword,
+			Detail: protocol.NewOptional(
+				"Declare the filter tree of a struct or union",
+			),
+		},
+		{
 			Label:  "import",
 			Kind:   protocol.CompletionItemKindKeyword,
 			Detail: protocol.NewOptional("Import another schema file"),
@@ -144,7 +151,7 @@ var (
 		{
 			Label:  "key",
 			Kind:   protocol.CompletionItemKindProperty,
-			Detail: protocol.NewOptional("Marks the field as the primary key"),
+			Detail: protocol.NewOptional("Marks the primary key field, or a key type"),
 		},
 		{
 			Label:  "validate",
@@ -180,6 +187,18 @@ var (
 			Label:  "index",
 			Kind:   protocol.CompletionItemKindProperty,
 			Detail: protocol.NewOptional("Index configuration for the field"),
+		},
+		{
+			Label:  "response",
+			Kind:   protocol.CompletionItemKindProperty,
+			Detail: protocol.NewOptional("Record type of a filter's response"),
+		},
+		{
+			Label: "include",
+			Kind:  protocol.CompletionItemKindProperty,
+			Detail: protocol.NewOptional(
+				"Retrieve requests can ask the Core to fill the field",
+			),
 		},
 		{
 			Label:  "go",
@@ -275,6 +294,11 @@ var (
 			Label:  "to_any",
 			Kind:   protocol.CompletionItemKindValue,
 			Detail: protocol.NewOptional("Generate ToAny on a generic struct"),
+		},
+		protocol.CompletionItem{
+			Label:  "request_output",
+			Kind:   protocol.CompletionItemKindValue,
+			Detail: protocol.NewOptional("Output path for a filter's retrieve request"),
 		},
 	)
 

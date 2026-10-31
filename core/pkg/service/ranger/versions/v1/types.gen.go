@@ -122,22 +122,33 @@ func (u *Ref) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var disc struct {
 		Type RefType `json:"variant"`
 	}
-	if err := json.Unmarshal(data, &disc, opts); err != nil {
+	if err := json.Unmarshal(
+		data,
+		&disc,
+		opts,
+		json.RejectUnknownMembers(false),
+	); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case KeyRefType:
-		var v KeyRef
+		var v struct {
+			Type RefType `json:"variant"`
+			KeyRef
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.KeyRef
 	case WindowRefType:
-		var v WindowRef
+		var v struct {
+			Type RefType `json:"variant"`
+			WindowRef
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.WindowRef
 	default:
 		return errors.Newf("Ref: unknown variant %q", disc.Type)
 	}

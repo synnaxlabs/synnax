@@ -62,6 +62,135 @@ var _ = Describe("C++ PB Plugin", func() {
 	})
 
 	Describe("Generate", func() {
+		It("Should translate the recursive Where of a filter", func(ctx SpecContext) {
+			AddFilterSchema(loader)
+			resp := MustGenerate(ctx, ThingFilter, "thing", loader, pbPlugin)
+			ExpectContent(resp, "thing/proto.gen.h").ToContain(
+				"auto* wrapper = pb.mutable_and_();\n        for (const auto& item : *this->and_) {",
+				"auto [v, err] = this->not_->to_proto();",
+				"cpp.and_.emplace();",
+				"x::pb::from_proto_repeated<Where>(*cpp.and_, pb.and_().values())",
+				"auto [v, err] = Where::from_proto(pb.not_());",
+			)
+		})
+
+		It(
+			"Should translate each generic use over a plain value through free functions",
+			func(ctx SpecContext) {
+				AddFilterSchema(loader)
+				resp := MustGenerate(ctx, ThingFilter, "thing", loader, pbPlugin)
+				ExpectContent(resp, "thing/proto.gen.h").
+					ToContain(
+						"inline std::pair<::service::thing::pb::UuidSet, x::errors::Error> "+
+							"uuid_set_to_proto(const ::x::filter::Set<x::uuid::UUID>& self) {",
+						"if (self.eq.has_value()) pb.set_eq(self.eq->to_string());",
+						"for (const auto& item : *self.in) {",
+						"inline std::pair<::x::filter::Set<x::uuid::UUID>, x::errors::Error> "+
+							"uuid_set_from_proto(const ::service::thing::pb::UuidSet& pb) {",
+						"auto [v, err] = uuid_set_to_proto(*this->key);",
+						"auto [v, err] = uuid_set_from_proto(pb.key());",
+					).
+					ToNotContain("this->key->to_proto()")
+			},
+		)
+
+		It(
+			"Should declare every generic use translator before any definition",
+			func(ctx SpecContext) {
+				source := `
+				@cpp output "client/cpp/thing"
+				@pb
+
+				First struct<T> {
+					value  T
+					second Second<T>?
+				}
+				Second struct<T> {
+					value T
+					first First<T>?
+				}
+				Thing struct {
+					first First<string>
+				}
+			`
+				resp := MustGenerate(ctx, source, "thing", loader, pbPlugin)
+				ExpectContent(resp, "thing/proto.gen.h").ToContain(
+					"inline std::pair<pb::StringFirst, x::errors::Error> " +
+						"string_first_to_proto(const First<std::string>& self);\n" +
+						"inline std::pair<First<std::string>, x::errors::Error> " +
+						"string_first_from_proto(const pb::StringFirst& pb);\n\n" +
+						"inline std::pair<pb::StringSecond, x::errors::Error> " +
+						"string_second_to_proto(const Second<std::string>& self) {",
+				)
+			},
+		)
+
+		It(
+			"Should translate each element of an array of a generic use",
+			func(ctx SpecContext) {
+				AddFilterSchema(loader)
+				source := `
+				import "schemas/x/filter"
+
+				@cpp output "client/cpp/thing"
+				@pb
+
+				Thing struct {
+					sets  filter.Set<uuid>[]
+					maybe filter.Set<uuid>[]?
+				}
+			`
+				resp := MustGenerate(ctx, source, "thing", loader, pbPlugin)
+				ExpectContent(resp, "thing/proto.gen.h").
+					ToContain(
+						"for (const auto& item : this->sets) {\n"+
+							"        auto [v, err] = uuid_set_to_proto(item);",
+						"*pb.add_sets() = v;",
+						"for (const auto& item : pb.sets()) {\n"+
+							"        auto [v, err] = uuid_set_from_proto(item);",
+						"cpp.sets.push_back(std::move(v));",
+						"for (const auto& item : *this->maybe) {\n"+
+							"            auto [v, err] = uuid_set_to_proto(item);",
+						"for (const auto& item : pb.maybe().values()) {\n"+
+							"            auto [v, err] = uuid_set_from_proto(item);",
+						"cpp.maybe->push_back(std::move(v));",
+					).
+					ToNotContain("item.to_proto()", "from_proto_repeated")
+			},
+		)
+
+		It(
+			"Should translate a generic use over an optional enum value",
+			func(ctx SpecContext) {
+				AddFilterSchema(loader)
+				source := `
+				import "schemas/x/filter"
+
+				@cpp output "client/cpp/thing"
+				@pb
+
+				Kind enum {
+					a = "a"
+				}
+				Level enum {
+					low = 1
+				}
+				Thing struct {
+					kind  filter.Set<Kind>?
+					level filter.Set<Level>?
+				}
+			`
+				resp := MustGenerate(ctx, source, "thing", loader, pbPlugin)
+				ExpectContent(resp, "thing/proto.gen.h").ToContain(
+					"kind_set_to_proto(const ::x::filter::Set<std::string>& self) {",
+					"if (self.eq.has_value()) {\n        auto [v, err] = kind_to_pb(*self.eq);",
+					"if (pb.has_eq()) {\n        auto [v, err] = kind_from_pb(pb.eq());",
+					"if (self.eq.has_value()) pb.set_eq(static_cast<pb::Level>(*self.eq));",
+					"if (pb.has_eq()) cpp.eq = static_cast<Level>(pb.eq());",
+				)
+			},
+		)
+
 		Context("field-level omit", func() {
 			DescribeTable(
 				"Should leave out a field omitted in cpp or pb",
@@ -255,6 +384,30 @@ var _ = Describe("C++ PB Plugin", func() {
 						"cpp.keys.push_back(v);",
 					)
 			})
+
+			It(
+				"Should convert arrays of a hand-written type element by element",
+				func(ctx SpecContext) {
+					source := `
+					@cpp output "client/cpp/types"
+					@pb output "core/pkg/service/types/pb"
+
+					DataType string {
+						@cpp hand
+					}
+
+					Data struct {
+						data_types DataType[]
+					}
+				`
+					resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
+					ExpectContent(resp, "proto.gen.h").
+						ToContain(
+							"pb.add_data_types(item.to_proto());",
+							"cpp.data_types.push_back(DataType::from_proto(item));",
+						)
+				},
+			)
 
 			It(
 				"Should translate string enum arrays element by element",
@@ -1756,7 +1909,8 @@ var _ = Describe("C++ PB Plugin", func() {
 		})
 
 		Context("generic struct instance field", func() {
-			DescribeTable("Should name the instance by its C++ type arguments",
+			DescribeTable(
+				"Should convert a use through its own message unless an Any holds it",
 				func(ctx SpecContext, arg, expected string) {
 					resp := MustGenerate(ctx, `
 					@cpp output "x/cpp/status"
@@ -1775,16 +1929,12 @@ var _ = Describe("C++ PB Plugin", func() {
 					}
 				`, "status", loader, pbPlugin)
 					ExpectContent(resp, "proto.gen.h").ToContain(
-						"auto [v, err] = " + expected + "::from_proto(pb.box());",
+						"auto [v, err] = " + expected + "(pb.box());",
 					)
 				},
-				Entry("a primitive", "string", "Box<std::string>"),
-				Entry(
-					"a map",
-					"map<string, Valve>",
-					"Box<std::unordered_map<std::string, Valve>>",
-				),
-				Entry("a struct", "Valve", "Box<Valve>"),
+				Entry("a primitive", "string", "string_box_from_proto"),
+				Entry("a map", "map<string, Valve>", "string_valve_map_box_from_proto"),
+				Entry("a struct", "Valve", "Box<Valve>::from_proto"),
 			)
 		})
 	})

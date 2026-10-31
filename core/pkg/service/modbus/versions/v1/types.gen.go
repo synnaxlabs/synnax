@@ -160,38 +160,86 @@ func (u *ReadChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var disc struct {
 		Type ReadChannelType `json:"type"`
 	}
-	if err := json.Unmarshal(data, &disc, opts); err != nil {
+	if err := json.Unmarshal(
+		data,
+		&disc,
+		opts,
+		json.RejectUnknownMembers(false),
+	); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case CoilReadChannelType:
-		var v CoilReadChannel
+		var v struct {
+			Type ReadChannelType `json:"type"`
+			CoilReadChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.CoilReadChannel
 	case DiscreteInputReadChannelType:
-		var v DiscreteInputReadChannel
+		var v struct {
+			Type ReadChannelType `json:"type"`
+			DiscreteInputReadChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.DiscreteInputReadChannel
 	case HoldingRegisterReadChannelType:
-		var v HoldingRegisterReadChannel
+		var v struct {
+			Type ReadChannelType `json:"type"`
+			HoldingRegisterReadChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.HoldingRegisterReadChannel
 	case InputRegisterReadChannelType:
-		var v InputRegisterReadChannel
+		var v struct {
+			Type ReadChannelType `json:"type"`
+			InputRegisterReadChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.InputRegisterReadChannel
 	default:
 		return errors.Newf("ReadChannel: unknown type %q", disc.Type)
 	}
 	return nil
+}
+
+// BaseReadChannel returns the BaseReadChannel of the active variant, or a zero
+// BaseReadChannel when there is none.
+func (u ReadChannel) BaseReadChannel() BaseReadChannel {
+	switch v := u.Variant.(type) {
+	case CoilReadChannel:
+		return v.BaseReadChannel
+	case DiscreteInputReadChannel:
+		return v.BaseReadChannel
+	case HoldingRegisterReadChannel:
+		return v.BaseReadChannel
+	case InputRegisterReadChannel:
+		return v.BaseReadChannel
+	}
+	return BaseReadChannel{}
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u ReadChannel) Type() ReadChannelType {
+	switch u.Variant.(type) {
+	case CoilReadChannel:
+		return CoilReadChannelType
+	case DiscreteInputReadChannel:
+		return DiscreteInputReadChannelType
+	case HoldingRegisterReadChannel:
+		return HoldingRegisterReadChannelType
+	case InputRegisterReadChannel:
+		return InputRegisterReadChannelType
+	}
+	return ""
 }
 
 // ApplyDefaults fills the active variant's zero-valued fields with their
@@ -292,26 +340,60 @@ func (u *WriteChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var disc struct {
 		Type WriteChannelType `json:"type"`
 	}
-	if err := json.Unmarshal(data, &disc, opts); err != nil {
+	if err := json.Unmarshal(
+		data,
+		&disc,
+		opts,
+		json.RejectUnknownMembers(false),
+	); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case CoilWriteChannelType:
-		var v CoilWriteChannel
+		var v struct {
+			Type WriteChannelType `json:"type"`
+			CoilWriteChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.CoilWriteChannel
 	case HoldingRegisterWriteChannelType:
-		var v HoldingRegisterWriteChannel
+		var v struct {
+			Type WriteChannelType `json:"type"`
+			HoldingRegisterWriteChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.HoldingRegisterWriteChannel
 	default:
 		return errors.Newf("WriteChannel: unknown type %q", disc.Type)
 	}
 	return nil
+}
+
+// BaseWriteChannel returns the BaseWriteChannel of the active variant, or a zero
+// BaseWriteChannel when there is none.
+func (u WriteChannel) BaseWriteChannel() BaseWriteChannel {
+	switch v := u.Variant.(type) {
+	case CoilWriteChannel:
+		return v.BaseWriteChannel
+	case HoldingRegisterWriteChannel:
+		return v.BaseWriteChannel
+	}
+	return BaseWriteChannel{}
+}
+
+// Type returns the type of the active variant, or an empty type when there is none.
+func (u WriteChannel) Type() WriteChannelType {
+	switch u.Variant.(type) {
+	case CoilWriteChannel:
+		return CoilWriteChannelType
+	case HoldingRegisterWriteChannel:
+		return HoldingRegisterWriteChannelType
+	}
+	return ""
 }
 
 // ApplyDefaults fills the active variant's zero-valued fields with their
