@@ -9,8 +9,9 @@
 
 import { rack, type status } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { TimeSpan } from "@synnaxlabs/x";
+import { act, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Rack } from "@/feature/rack";
 import {
@@ -32,12 +33,37 @@ const createRackKey = async (): Promise<status.Key> => {
 };
 
 describe("Rack.NOTIFICATION_RULE", () => {
-  it("should notify a rack warning at once", async () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const fakeTimers = () =>
+    vi.useFakeTimers({
+      toFake: ["setTimeout", "clearTimeout"],
+      shouldAdvanceTime: true,
+    });
+
+  it("should notify a rack warning after 5 s", async () => {
+    fakeTimers();
     const key = await createRackKey();
     await renderForward(client, { rack: Rack.NOTIFICATION_RULE });
     const message = await writeStatus(client, key, "warning");
     await settleWrites(client);
+    expect(screen.queryByText(message)).toBeNull();
+    act(() => void vi.advanceTimersByTime(TimeSpan.seconds(5).milliseconds));
     expect(screen.getByText(message)).toBeTruthy();
+  });
+
+  it("should not notify the unknown status of a rack whose Driver reports", async () => {
+    fakeTimers();
+    await renderForward(client, { rack: Rack.NOTIFICATION_RULE });
+    const name = uniqueName("rack");
+    const r = await client.racks.create({ name });
+    await settleWrites(client);
+    await writeStatus(client, rack.statusKey(r.key), "success");
+    await settleWrites(client);
+    act(() => void vi.advanceTimersByTime(TimeSpan.seconds(5).milliseconds));
+    expect(screen.queryByText(name)).toBeNull();
   });
 
   it("should not notify a rack status that is not a problem", async () => {
