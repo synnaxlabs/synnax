@@ -143,3 +143,74 @@ StatusDetails struct {
 Status = status.Status<StatusDetails> {
     @doc value "is the operational status of a device."
 }
+
+Identity struct {
+    rack      rack.Key {
+        @doc value         "is the key of the rack the device is connected to."
+        @validate required
+    }
+    serial    string   {
+        @doc value         """
+            is the serial number of the device, or its NI-MAX resource name when it is
+            simulated.
+        """
+        @validate required
+    }
+    model     string   {
+        @doc value "is the product name of the device."
+    }
+    alias     string   {
+        @doc value "is the DAQmx alias of the device."
+    }
+    simulated bool = false {
+        @doc value "is true when the device is simulated in NI-MAX."
+    }
+    chassis   uuid?    {
+        @doc value """
+            is the chassis that holds the device. Absent for a standalone device.
+        """
+    }
+
+    @doc value "holds the device fields that the scanner owns."
+}
+
+Configuration struct {
+    name           string      {
+        @doc value         "is a human-readable name for the device."
+        @validate required
+    }
+    identifier     string = "" {
+        @doc value """
+            is the prefix of the device's channel names. The device is unconfigured
+            while it is empty.
+        """
+    }
+    analog_input   InputPorts = {} {
+        @doc value "are the channels of the analog input ports."
+    }
+    analog_output  OutputPorts = {} {
+        @doc value "are the channels of the analog output ports."
+    }
+    counter_input  InputPorts = {} {
+        @doc value "are the channels of the counter input ports."
+    }
+    digital_input  InputPorts = {} {
+        @doc value "are the channels of the digital input lines."
+    }
+    digital_output OutputPorts = {} {
+        @doc value "are the channels of the digital output lines."
+    }
+
+    @doc value "holds the device fields that the user owns."
+}
+
+Update union on group {
+    identity      Identity {
+        @doc value "writes the fields that the scanner owns."
+    }
+    configuration Configuration {
+        @doc value "writes the fields that the user owns."
+    }
+
+    @doc value "is a write to one field group of a device."
+}

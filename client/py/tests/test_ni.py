@@ -10,7 +10,7 @@
 from uuid import uuid4
 
 import pytest
-from pydantic import ValidationError
+from pydantic import TypeAdapter, ValidationError
 
 import synnax as sy
 import synnax.ni.chassis
@@ -889,6 +889,15 @@ class TestNIResources:
         assert device.chassis is None
         assert device.analog_input == sy.ni.device.InputPorts()
         assert device.analog_output == sy.ni.device.OutputPorts()
+
+    def test_update_selects_its_group(self) -> None:
+        adapter = TypeAdapter(sy.ni.device.Update)
+        update = adapter.validate_python(
+            {"group": "identity", "rack": 1, "serial": "01A", "model": "", "alias": ""}
+        )
+        assert isinstance(update, sy.ni.device.IdentityUpdate)
+        update = adapter.validate_python({"group": "configuration", "name": "Module"})
+        assert isinstance(update, sy.ni.device.ConfigurationUpdate)
 
     def test_device_ontology_id(self) -> None:
         key = uuid4()
