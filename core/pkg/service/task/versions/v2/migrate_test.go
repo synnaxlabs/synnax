@@ -312,7 +312,11 @@ var _ = Describe("Migrations", func() {
 			pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: db}))
 			at := MustOpen(arctask.OpenService(ctx, arctask.ServiceConfig{DB: db}))
 			lj := MustOpen(labjack.OpenService(ctx, labjack.ServiceConfig{DB: db}))
-			niSvc := MustOpen(ni.OpenService(ctx, ni.ServiceConfig{DB: db}))
+			niSvc := MustOpen(ni.OpenService(ctx, ni.ServiceConfig{
+				DB:       db,
+				Ontology: otg,
+				Status:   stat,
+			}))
 			configs := MustSucceed(config.NewRegistry(slices.Concat(
 				pd.Stores(), at.Stores(), lj.Stores(), niSvc.Stores(),
 			)...))
