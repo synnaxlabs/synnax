@@ -415,7 +415,7 @@ Types::decode(const UA_Variant &value) const {
 
 std::pair<UA_Variant, x::errors::Error>
 Types::member(const UA_Variant &structure, const Field &field) {
-    UA_Variant member;
+    UA_Variant member{};
     if (!UA_NodeId_equal(&structure.type->typeId, &field.root->typeId))
         return {
             member,
