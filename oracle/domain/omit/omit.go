@@ -62,9 +62,9 @@ func IsField(f resolution.Field, domainName string) bool {
 	return ok
 }
 
-// Fields returns a copy of table whose struct types and action payloads drop every
-// field that IsField reports for any of domainNames. A field inherits an omit from the
-// parent field it overrides. table is not modified.
+// Fields returns a copy of table whose struct types, action payloads, and filter lines
+// drop every field that IsField reports for any of domainNames. A field inherits an
+// omit from the parent field it overrides. table is not modified.
 func Fields(table *resolution.Table, domainNames ...string) *resolution.Table {
 	omitted := func(f resolution.Field) bool {
 		return lo.ContainsBy(domainNames, func(d string) bool { return IsField(f, d) })
@@ -93,6 +93,14 @@ func Fields(table *resolution.Table, domainNames ...string) *resolution.Table {
 			}
 			form.Actions = actions
 			typ.Form = form
+			if typ.Filter != nil {
+				filter := *typ.Filter
+				filter.Lines = lo.Reject(
+					filter.Lines,
+					func(l resolution.Field, _ int) bool { return dropped.Contains(l.Name) },
+				)
+				typ.Filter = &filter
+			}
 		}
 		stripped.Types[i] = typ
 	}
