@@ -306,12 +306,12 @@ var _ = Describe("Control", func() {
 				cfg.Subject.Key = "probe"
 				cfg.TimeRange = tr
 				cfg.ErrIfControlled = new(true)
-				g, _, err := c.OpenGate(cfg)
 				if controlled {
-					Expect(err).To(MatchError(xcontrol.ErrUnauthorized))
+					Expect(c.OpenGate(cfg)).Error().
+						To(MatchError(xcontrol.ErrUnauthorized))
 					return
 				}
-				Expect(err).ToNot(HaveOccurred())
+				g, _ := MustSucceed2(c.OpenGate(cfg))
 				g.Release()
 			}
 			It("Should move the start of the region back", func() {
