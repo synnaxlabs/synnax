@@ -17,7 +17,6 @@ import {
   ControlError,
   ExpiredLicenseError,
   InvalidLicenseError,
-  InvalidTokenError,
   LicenseError,
   LicenseFingerprintError,
   LicenseLimitError,
@@ -30,7 +29,7 @@ import {
   UnauthorizedError,
   UnexpectedError,
   ValidationError,
-} from "@/errors";
+} from "@/index";
 import { status } from "@/status";
 import { createTestClient } from "@/testutil";
 
@@ -44,7 +43,6 @@ describe("error", () => {
         PathError,
       ],
       [AuthError.TYPE, new AuthError(), AuthError],
-      [InvalidTokenError.TYPE, new InvalidTokenError(), InvalidTokenError],
       [UnexpectedError.TYPE, new UnexpectedError("message"), UnexpectedError],
       [QueryError.TYPE, new QueryError("message"), QueryError],
       [NotFoundError.TYPE, new NotFoundError("message"), NotFoundError],
@@ -79,6 +77,21 @@ describe("error", () => {
     ERRORS.forEach(([typeName, error, type]) =>
       test(`matches ${typeName}`, () => {
         expect(type.matches(error)).toBe(true);
+      }),
+    );
+  });
+
+  describe("decode", () => {
+    const TOKEN_ERRORS = [
+      "sy.auth.invalid_token",
+      "sy.auth.expired_token",
+      "sy.auth.session_ended",
+    ];
+    TOKEN_ERRORS.forEach((type) =>
+      test(`decodes ${type} as an auth error`, () => {
+        const decoded = errors.decode({ type, data: "message" });
+        expect(decoded).toMatchObject({ type, message: "message" });
+        expect(AuthError.matches(decoded)).toBe(true);
       }),
     );
   });

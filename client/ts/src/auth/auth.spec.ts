@@ -12,12 +12,7 @@ import { errors, id, url } from "@synnaxlabs/x";
 import { describe, expect, it, test } from "vitest";
 
 import { auth } from "@/auth";
-import {
-  AuthError,
-  ExpiredTokenError,
-  InvalidTokenError,
-  SessionEndedError,
-} from "@/errors";
+import { AuthError } from "@/index";
 import { createTestClient, TEST_CLIENT_PARAMS, TEST_CREDENTIALS } from "@/testutil";
 import { Transport } from "@/transport";
 import { user } from "@/user";
@@ -28,6 +23,9 @@ const DUMMY_CTX: Context = {
   protocol: "http",
   params: {},
 };
+
+const authError = (type: string): Error =>
+  errors.decode({ type: `sy.auth.${type}`, data: "" }) as Error;
 
 describe("auth", () => {
   test("valid credentials", async () => {
@@ -58,9 +56,9 @@ describe("auth", () => {
   });
 
   describe("token retry", () => {
-    const ERROR_TYPES = [InvalidTokenError, ExpiredTokenError];
-    ERROR_TYPES.forEach((ErrorType) => {
-      it(`should re-authenticate and retry the request for ${ErrorType.name}`, async () => {
+    const ERROR_TYPES = ["invalid_token", "expired_token"];
+    ERROR_TYPES.forEach((type) => {
+      it(`should re-authenticate and retry the request for ${type}`, async () => {
         const transport = new Transport(
           new url.URL({
             host: TEST_CLIENT_PARAMS.host,
@@ -78,7 +76,7 @@ describe("auth", () => {
           if (isFirst) {
             isFirst = false;
             tkOne = client.token;
-            throw new ErrorType();
+            throw authError(type);
           }
           tkTwo = client.token;
           return DUMMY_CTX;
@@ -102,9 +100,9 @@ describe("auth", () => {
       const mw = client.middleware();
       await expect(
         mw(DUMMY_CTX, async () => {
-          throw new InvalidTokenError();
+          throw authError("invalid_token");
         }),
-      ).rejects.toThrow(InvalidTokenError);
+      ).rejects.toMatchObject({ type: "sy.auth.invalid_token" });
     });
   });
 
@@ -255,9 +253,9 @@ describe("auth", () => {
       // still in flight.
       await expect(
         client.middleware()(DUMMY_CTX, async () => {
-          throw new InvalidTokenError();
+          throw authError("invalid_token");
         }),
-      ).rejects.toThrow(InvalidTokenError);
+      ).rejects.toMatchObject({ type: "sy.auth.invalid_token" });
       await logout;
       expect(client.authenticated).toBe(true);
       expect(client.session?.key).toBeDefined();
@@ -398,7 +396,7 @@ describe("auth", () => {
         calls += 1;
         if (calls > 1) return ctx;
         await new Promise<void>((resolve) => (reject = resolve));
-        throw new InvalidTokenError();
+        throw authError("invalid_token");
       });
       await expect.poll(() => reject).toBeDefined();
       client.setCredentials(second);
@@ -494,22 +492,14 @@ describe("auth", () => {
         await client.middleware()(DUMMY_CTX, async (inner) => {
           if (rejected) return inner;
           rejected = true;
-          throw new InvalidTokenError();
+          throw authError("invalid_token");
         });
         newer = client.token;
-        throw new SessionEndedError();
+        throw authError("session_ended");
       });
       expect(newer).toBeDefined();
       expect(client.token).toEqual(newer);
       await client.logout();
-    });
-
-    it("should decode a session ended error", () => {
-      expect(
-        SessionEndedError.matches(
-          errors.decode({ type: "sy.auth.session_ended", data: "ended" }),
-        ),
-      ).toBe(true);
     });
   });
 
