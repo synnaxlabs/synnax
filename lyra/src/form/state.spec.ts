@@ -7,10 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { describe, expect, it, vi } from "vitest";
+import { renderHook } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { State } from "@/form/state";
+import { Form } from "@/form";
+
+const create = <Z extends z.ZodType>(values: z.infer<Z>, schema?: Z) => {
+  const touched = { current: false };
+  const onHasTouched = (value: boolean) => {
+    touched.current = value;
+  };
+  const { result } = renderHook(() => Form.use<Z>({ values, schema, onHasTouched }));
+  return Object.assign(result.current, { touched });
+};
 
 const basicSchema = z
   .object({
@@ -70,54 +80,53 @@ const verdictValues = {
   nested: { ssn: "1" },
 } as VerdictValues;
 
-describe("State", () => {
+describe("use", () => {
   describe("constructor", () => {
     it("should initialize with values and schema", () => {
-      const state = new State(initialValues, basicSchema);
-      expect(state.values).toEqual(initialValues);
-      expect(state.initialValues).toEqual(initialValues);
+      const state = create(initialValues, basicSchema);
+      expect(state.value()).toEqual(initialValues);
     });
 
     it("should initialize without schema", () => {
-      const state = new State(initialValues);
-      expect(state.values).toEqual(initialValues);
-      expect(state.initialValues).toEqual(initialValues);
+      const state = create(initialValues);
+      expect(state.value()).toEqual(initialValues);
     });
 
-    it("should deep copy initial values", () => {
-      const state = new State(initialValues, basicSchema);
-      state.values.name = "Jane Doe";
-      expect(state.initialValues.name).toBe("John Doe");
+    it("should keep the initial values when the state changes", () => {
+      const values = { ...initialValues, profile: { ...initialValues.profile } };
+      const state = create(values, basicSchema);
+      state.set("profile.bio", "Updated bio");
+      expect(values.profile.bio).toBe("Software developer");
     });
   });
 
   describe("setValue", () => {
     describe("materializing an absent ancestor", () => {
       it("should build a defaulted subtree before writing its leaf", () => {
-        const state = new State(verdictValues, verdictSchema);
-        state.setValue("color.g", 5);
-        expect(state.values.color).toEqual({ r: 1, g: 5 });
+        const state = create(verdictValues, verdictSchema);
+        state.set("color.g", 5);
+        expect(state.value().color).toEqual({ r: 1, g: 5 });
       });
 
       it("should build an optional subtree only when it can complete it", () => {
-        const state = new State(verdictValues, verdictSchema);
-        state.setValue("redline.upper", 10);
-        expect(state.values.redline).toEqual({ upper: 10 });
+        const state = create(verdictValues, verdictSchema);
+        state.set("redline.upper", 10);
+        expect(state.value().redline).toEqual({ upper: 10 });
       });
 
       it("should build nested defaults below an optional ancestor", () => {
-        const state = new State(verdictValues, verdictSchema);
-        state.setValue("layout.margin.x", 9);
-        expect(state.values.layout).toEqual({ margin: { x: 9 } });
+        const state = create(verdictValues, verdictSchema);
+        state.set("layout.margin.x", 9);
+        expect(state.value().layout).toEqual({ margin: { x: 9 } });
       });
 
       it("should leave a present ancestor alone", () => {
-        const state = new State(
+        const state = create(
           { ...verdictValues, color: { r: 3, g: 3 } },
           verdictSchema,
         );
-        state.setValue("color.g", 5);
-        expect(state.values.color).toEqual({ r: 3, g: 5 });
+        state.set("color.g", 5);
+        expect(state.value().color).toEqual({ r: 3, g: 5 });
       });
     });
 
@@ -135,285 +144,269 @@ describe("State", () => {
       });
 
       it("should give every ancestor of the written path a new identity", () => {
-        const state = new State(initialValues, basicSchema);
-        const { values } = state;
+        const state = create(initialValues, basicSchema);
+        const values = state.value();
         const { profile } = values;
-        state.setValue("profile.bio", "Updated bio");
-        expect(state.values).not.toBe(values);
-        expect(state.values.profile).not.toBe(profile);
+        state.set("profile.bio", "Updated bio");
+        expect(state.value()).not.toBe(values);
+        expect(state.value().profile).not.toBe(profile);
         expect(profile.bio).toBe("Software developer");
       });
 
       it("should keep the identity of untouched siblings", () => {
-        const state = new State(initialValues, basicSchema);
-        const { tags } = state.values;
-        state.setValue("profile.bio", "Updated bio");
-        expect(state.values.tags).toBe(tags);
+        const state = create(initialValues, basicSchema);
+        const { tags } = state.value();
+        state.set("profile.bio", "Updated bio");
+        expect(state.value().tags).toBe(tags);
       });
 
       it("should copy an array entry reached through its key", () => {
-        const state = new State<z.ZodType<Keyed>>(keyed());
-        const { channels, other } = state.values;
-        state.setValue("channels.b.port", 3);
-        expect(state.values.channels).not.toBe(channels);
-        expect(state.values.channels[1]).not.toBe(channels[1]);
-        expect(state.values.channels[1].port).toBe(3);
-        expect(state.values.channels[0]).toBe(channels[0]);
-        expect(state.values.other).toBe(other);
+        const state = create<z.ZodType<Keyed>>(keyed());
+        const { channels, other } = state.value();
+        state.set("channels.b.port", 3);
+        expect(state.value().channels).not.toBe(channels);
+        expect(state.value().channels[1]).not.toBe(channels[1]);
+        expect(state.value().channels[1].port).toBe(3);
+        expect(state.value().channels[0]).toBe(channels[0]);
+        expect(state.value().other).toBe(other);
         expect(channels[1].port).toBe(2);
       });
 
       it("should give a field's state a new value after a write below it", () => {
-        const state = new State<z.ZodType<Keyed>>(keyed());
-        const before = state.getState<{ port: number }>("channels.0").value;
-        state.setValue("channels.0.port", 3);
-        const after = state.getState<{ port: number }>("channels.0").value;
+        const state = create<z.ZodType<Keyed>>(keyed());
+        const before = state.get<{ port: number }>("channels.0").value;
+        state.set("channels.0.port", 3);
+        const after = state.get<{ port: number }>("channels.0").value;
         expect(after).not.toBe(before);
         expect(after.port).toBe(3);
         expect(before.port).toBe(1);
       });
 
       it("should keep the state object of a sibling the write left unchanged", () => {
-        const state = new State(initialValues, basicSchema);
-        const sibling = state.getState("email");
-        const written = state.getState("name");
-        state.setValue("name", "Jane Doe");
-        expect(state.getState("email")).toBe(sibling);
-        expect(state.getState("name")).not.toBe(written);
-        expect(state.getState("name").value).toBe("Jane Doe");
+        const state = create(initialValues, basicSchema);
+        const sibling = state.get("email");
+        const written = state.get("name");
+        state.set("name", "Jane Doe");
+        expect(state.get("email")).toBe(sibling);
+        expect(state.get("name")).not.toBe(written);
+        expect(state.get("name").value).toBe("Jane Doe");
       });
 
       it("should give the ancestors of a removed path a new identity", () => {
-        const state = new State<z.ZodType<Keyed>>(keyed());
-        const { channels } = state.values;
+        const state = create<z.ZodType<Keyed>>(keyed());
+        const { channels } = state.value();
         state.remove("channels.0");
-        expect(state.values.channels).not.toBe(channels);
-        expect(state.values.channels).toEqual([{ key: "b", port: 2 }]);
+        expect(state.value().channels).not.toBe(channels);
+        expect(state.value().channels).toEqual([{ key: "b", port: 2 }]);
         expect(channels).toHaveLength(2);
       });
 
       it("should leave the older value unchanged when a shorter key also matches", () => {
-        const state = new State<z.ZodType<Record<string, object>>>({
+        const state = create<z.ZodType<Record<string, object>>>({
           a: {},
           "a.b": { x: 1, y: 2 },
         });
-        const { values } = state;
+        const values = state.value();
         state.remove("a.b.x");
-        expect(state.values).toEqual({ a: {}, "a.b": { y: 2 } });
-        expect(state.values["a.b"]).not.toBe(values["a.b"]);
+        expect(state.value()).toEqual({ a: {}, "a.b": { y: 2 } });
+        expect(state.value()["a.b"]).not.toBe(values["a.b"]);
         expect(values).toEqual({ a: {}, "a.b": { x: 1, y: 2 } });
       });
     });
 
     it("should set a top-level value", () => {
-      const state = new State(initialValues, basicSchema);
-      state.setValue("name", "Jane Doe");
-      expect(state.values.name).toBe("Jane Doe");
+      const state = create(initialValues, basicSchema);
+      state.set("name", "Jane Doe");
+      expect(state.value().name).toBe("Jane Doe");
     });
 
     it("should set a nested value", () => {
-      const state = new State(initialValues, basicSchema);
-      state.setValue("profile.bio", "Updated bio");
-      expect(state.values.profile.bio).toBe("Updated bio");
+      const state = create(initialValues, basicSchema);
+      state.set("profile.bio", "Updated bio");
+      expect(state.value().profile.bio).toBe("Updated bio");
     });
 
     it("should set array values", () => {
-      const state = new State(initialValues, basicSchema);
-      state.setValue("tags.0", "engineer");
-      expect(state.values.tags[0]).toBe("engineer");
+      const state = create(initialValues, basicSchema);
+      state.set("tags.0", "engineer");
+      expect(state.value().tags[0]).toBe("engineer");
     });
 
     it("should replace entire object when path is empty", () => {
-      const state = new State(initialValues, basicSchema);
+      const state = create(initialValues, basicSchema);
       const newValues = { ...initialValues, name: "Jane Doe" };
-      state.setValue("", newValues);
-      expect(state.values).toEqual(newValues);
+      state.set("", newValues);
+      expect(state.value()).toEqual(newValues);
     });
 
     it("should mark field as touched when value changes", () => {
-      const state = new State(initialValues, basicSchema);
-      state.setValue("name", "Jane Doe");
-      const fieldState = state.getState("name");
+      const state = create(initialValues, basicSchema);
+      state.set("name", "Jane Doe");
+      const fieldState = state.get("name");
       expect(fieldState.touched).toBe(true);
     });
 
     it("should not mark field as touched when value equals initial", () => {
-      const state = new State(initialValues, basicSchema);
-      state.setValue("name", "Jane Doe");
-      state.setValue("name", "John Doe"); // Back to initial
-      const fieldState = state.getState("name");
+      const state = create(initialValues, basicSchema);
+      state.set("name", "Jane Doe");
+      state.set("name", "John Doe"); // Back to initial
+      const fieldState = state.get("name");
       expect(fieldState.touched).toBe(false);
     });
 
     describe("markTouched option", () => {
       it("should mark field as touched when markTouched is true", () => {
-        const state = new State(initialValues, basicSchema);
-        state.setValue("name", "Jane Doe", { markTouched: true });
-        const fieldState = state.getState("name");
+        const state = create(initialValues, basicSchema);
+        state.set("name", "Jane Doe", { markTouched: true });
+        const fieldState = state.get("name");
         expect(fieldState.touched).toBe(true);
       });
 
       it("should not mark field as touched when markTouched is false", () => {
-        const state = new State(initialValues, basicSchema);
-        state.setValue("name", "Jane Doe", { markTouched: false });
-        const fieldState = state.getState("name");
+        const state = create(initialValues, basicSchema);
+        state.set("name", "Jane Doe", { markTouched: false });
+        const fieldState = state.get("name");
         expect(fieldState.touched).toBe(false);
       });
 
       it("should mark field as touched by default when value changes", () => {
-        const state = new State(initialValues, basicSchema);
-        state.setValue("name", "Jane Doe");
-        const fieldState = state.getState("name");
+        const state = create(initialValues, basicSchema);
+        state.set("name", "Jane Doe");
+        const fieldState = state.get("name");
         expect(fieldState.touched).toBe(true);
       });
 
       it("should mark nested fields as touched when markTouched is true", () => {
-        const state = new State(initialValues, basicSchema);
-        state.setValue("profile.bio", "New bio", { markTouched: true });
-        const fieldState = state.getState("profile.bio");
+        const state = create(initialValues, basicSchema);
+        state.set("profile.bio", "New bio", { markTouched: true });
+        const fieldState = state.get("profile.bio");
         expect(fieldState.touched).toBe(true);
       });
 
       it("should not mark nested fields as touched when markTouched is false", () => {
-        const state = new State(initialValues, basicSchema);
-        state.setValue("profile.bio", "New bio", { markTouched: false });
-        const fieldState = state.getState("profile.bio");
+        const state = create(initialValues, basicSchema);
+        state.set("profile.bio", "New bio", { markTouched: false });
+        const fieldState = state.get("profile.bio");
         expect(fieldState.touched).toBe(false);
       });
 
       it("should mark array elements as touched when markTouched is true", () => {
-        const state = new State(initialValues, basicSchema);
-        state.setValue("tags.0", "new-tag", { markTouched: true });
-        const fieldState = state.getState("tags.0");
+        const state = create(initialValues, basicSchema);
+        state.set("tags.0", "new-tag", { markTouched: true });
+        const fieldState = state.get("tags.0");
         expect(fieldState.touched).toBe(true);
       });
 
       it("should not mark array elements as touched when markTouched is false", () => {
-        const state = new State(initialValues, basicSchema);
-        state.setValue("tags.0", "new-tag", { markTouched: false });
-        const fieldState = state.getState("tags.0");
+        const state = create(initialValues, basicSchema);
+        state.set("tags.0", "new-tag", { markTouched: false });
+        const fieldState = state.get("tags.0");
         expect(fieldState.touched).toBe(false);
       });
 
       it("should still clear touched when value equals initial regardless of markTouched", () => {
-        const state = new State(initialValues, basicSchema);
-        state.setValue("name", "Jane Doe", { markTouched: true });
-        expect(state.getState("name").touched).toBe(true);
+        const state = create(initialValues, basicSchema);
+        state.set("name", "Jane Doe", { markTouched: true });
+        expect(state.get("name").touched).toBe(true);
 
         // Setting back to initial should clear touched even with markTouched: true
-        state.setValue("name", "John Doe", { markTouched: true });
-        expect(state.getState("name").touched).toBe(false);
+        state.set("name", "John Doe", { markTouched: true });
+        expect(state.get("name").touched).toBe(false);
       });
 
       it("should handle markTouched for entire object replacement", () => {
-        const state = new State(initialValues, basicSchema);
+        const state = create(initialValues, basicSchema);
         const newValues = { ...initialValues, name: "Jane Doe" };
-        state.setValue("", newValues, { markTouched: true });
-        const fieldState = state.getState("");
+        state.set("", newValues, { markTouched: true });
+        const fieldState = state.get("");
         expect(fieldState.touched).toBe(true);
       });
 
       it("should respect markTouched when setting undefined values", () => {
-        const state = new State(initialValues, basicSchema);
-        state.setValue("optionalField", "some value", { markTouched: true });
-        expect(state.getState("optionalField").touched).toBe(true);
+        const state = create(initialValues, basicSchema);
+        state.set("optionalField", "some value", { markTouched: true });
+        expect(state.get("optionalField").touched).toBe(true);
 
-        state.setValue("optionalField", undefined, { markTouched: false });
-        expect(state.getState("optionalField").value).toBeUndefined();
+        state.set("optionalField", undefined, { markTouched: false });
+        expect(state.get("optionalField").value).toBeUndefined();
       });
 
       it("should work with validation when markTouched is used", () => {
-        const state = new State(initialValues, basicSchema);
-        state.setValue("email", "invalid-email", { markTouched: true });
+        const state = create(initialValues, basicSchema);
+        state.set("email", "invalid-email", { markTouched: true });
 
         const isValid = state.validate();
         expect(isValid).toBe(false);
 
-        const fieldState = state.getState("email");
+        const fieldState = state.get("email");
         expect(fieldState.touched).toBe(true);
         expect(fieldState.status.variant).toBe("error");
       });
 
       it("should not trigger validation for untouched fields when markTouched is false", () => {
-        const state = new State(initialValues, basicSchema);
-        state.setValue("email", "invalid-email", { markTouched: false });
+        const state = create(initialValues, basicSchema);
+        state.set("email", "invalid-email", { markTouched: false });
 
-        const isValid = state.validate();
-        expect(isValid).toBe(true);
-
-        const fieldState = state.getState("email");
+        const fieldState = state.get("email");
         expect(fieldState.touched).toBe(false);
         expect(fieldState.status.variant).toBe("success");
       });
 
       it("should handle complex nested updates with markTouched", () => {
-        const state = new State(initialValues, basicSchema);
+        const state = create(initialValues, basicSchema);
         const newProfile = {
           bio: "Updated bio",
           website: "https://newsite.com",
         };
-        state.setValue("profile", newProfile, { markTouched: true });
+        state.set("profile", newProfile, { markTouched: true });
 
-        expect(state.getState("profile").touched).toBe(true);
-        expect(state.getState("profile.bio").touched).toBe(false);
-        expect(state.getState("profile.website").touched).toBe(false);
+        expect(state.get("profile").touched).toBe(true);
+        expect(state.get("profile.bio").touched).toBe(false);
+        expect(state.get("profile.website").touched).toBe(false);
       });
 
       it("should clear orphaned touched paths even with markTouched option", () => {
-        const state = new State(initialValues, basicSchema);
+        const state = create(initialValues, basicSchema);
 
-        state.setValue("tags", [...state.values.tags, "new-tag"], {
+        state.set("tags", [...state.value().tags, "new-tag"], {
           markTouched: true,
         });
-        state.setValue("tags.2", "modified-tag", { markTouched: true });
-        expect(state.getState("tags.2").touched).toBe(true);
+        state.set("tags.2", "modified-tag", { markTouched: true });
+        expect(state.get("tags.2").touched).toBe(true);
 
         // Remove the item - should clear the orphaned touched path
-        state.setValue("tags", initialValues.tags, { markTouched: false });
-        expect(state.hasBeenTouched).toBe(false);
+        state.set("tags", initialValues.tags, { markTouched: false });
+        expect(state.touched.current).toBe(false);
       });
     });
   });
 
-  describe("setStatus and clearStatus", () => {
+  describe("setStatus and clearStatuses", () => {
     it("should set status for a field", () => {
-      const state = new State(initialValues, basicSchema);
+      const state = create(initialValues, basicSchema);
       const status = {
         key: "name",
         variant: "error" as const,
         message: "Error message",
       };
       state.setStatus("name", status);
-      const fieldState = state.getState("name");
+      const fieldState = state.get("name");
       expect(fieldState.status).toEqual(status);
     });
 
     it("should key a status by its path", () => {
-      const state = new State(initialValues, basicSchema);
+      const state = create(initialValues, basicSchema);
       state.setStatus("name", { variant: "error", message: "Taken" });
       expect(state.getStatuses()).toEqual([
         { key: "name", variant: "error", message: "Taken" },
       ]);
     });
 
-    it("should clear status for a field", () => {
-      const state = new State(initialValues, basicSchema);
-      const status = {
-        key: "name",
-        variant: "error" as const,
-        message: "Error message",
-      };
-      state.setStatus("name", status);
-      state.clearStatus("name");
-      const fieldState = state.getState("name");
-      expect(fieldState.status.variant).toBe("success");
-    });
-
     it("should clear every status when no path is given", () => {
-      const state = new State(initialValues, basicSchema);
+      const state = create(initialValues, basicSchema);
       state.setStatus("name", { key: "name", variant: "error", message: "Taken" });
       state.setStatus("age", { key: "age", variant: "warning", message: "Old" });
-      state.clearStatus();
+      state.clearStatuses();
       expect(state.getStatuses()).toEqual([]);
     });
 
@@ -421,37 +414,37 @@ describe("State", () => {
       const taken = { key: "name", variant: "error" as const, message: "Taken" };
 
       it("should survive validation after an edit to another field", () => {
-        const state = new State(initialValues, basicSchema);
+        const state = create(initialValues, basicSchema);
         state.setStatus("name", taken);
-        state.setValue("age", 30);
+        state.set("age", 30);
         state.validate();
-        expect(state.getState("name").status).toEqual(taken);
+        expect(state.get("name").status).toEqual(taken);
       });
 
       it("should clear the status when the value at its path changes", () => {
-        const state = new State(initialValues, basicSchema);
+        const state = create(initialValues, basicSchema);
         state.setStatus("name", taken);
-        state.setValue("name", "Jane Doe");
-        expect(state.getState("name").status.variant).toBe("success");
+        state.set("name", "Jane Doe");
+        expect(state.get("name").status.variant).toBe("success");
       });
 
       it("should keep the status when a write to its parent keeps its value", () => {
-        const state = new State(initialValues, basicSchema);
+        const state = create(initialValues, basicSchema);
         const status = {
           key: "profile.bio",
           variant: "warning" as const,
           message: "Short",
         };
         state.setStatus("profile.bio", status);
-        state.setValue("profile", {
+        state.set("profile", {
           ...initialValues.profile,
           website: "https://x.com",
         });
-        expect(state.getState("profile.bio").status).toEqual(status);
+        expect(state.get("profile.bio").status).toEqual(status);
       });
 
       it("should clear the status when its path is removed", () => {
-        const state = new State(initialValues, basicSchema);
+        const state = create(initialValues, basicSchema);
         state.setStatus("tags.1", { key: "tags.1", variant: "error", message: "Bad" });
         state.remove("tags.1");
         expect(state.getStatuses()).toEqual([]);
@@ -461,199 +454,168 @@ describe("State", () => {
         const schema = z
           .object({ a: z.string(), b: z.string() })
           .refine(({ a, b }) => a !== b, "Must differ");
-        const state = new State({ a: "x", b: "x" }, schema);
-        state.validate(true);
+        const state = create({ a: "x", b: "x" }, schema);
+        state.validate();
         expect(state.getStatuses().map(({ message }) => message)).toEqual([
           "Must differ",
         ]);
         state.setStatus("a", { key: "a", variant: "error", message: "Taken" });
-        state.setValue("b", "y");
-        state.validate(true);
+        state.set("b", "y");
+        state.validate();
         expect(state.getStatuses().map(({ message }) => message)).toEqual(["Taken"]);
       });
 
       it("should yield to a status that validation sets at its path", () => {
-        const state = new State({ ...initialValues, email: "invalid" }, basicSchema);
+        const state = create({ ...initialValues, email: "invalid" }, basicSchema);
         state.setStatus("email", { key: "email", variant: "error", message: "Taken" });
-        state.validate(true);
-        expect(state.getState("email").status.message).toBe("Invalid email format");
-        state.setValue("name", "Jane Doe");
         state.validate();
-        expect(state.getState("email").status.variant).toBe("success");
+        expect(state.get("email").status.message).toBe("Invalid email format");
+        state.set("name", "Jane Doe");
+        expect(state.get("email").status.variant).toBe("success");
       });
-    });
-  });
-
-  describe("setTouched and clearTouched", () => {
-    it("should mark field as touched", () => {
-      const state = new State(initialValues, basicSchema);
-      state.setTouched("name");
-      const fieldState = state.getState("name");
-      expect(fieldState.touched).toBe(true);
-    });
-
-    it("should clear touched state for specific field", () => {
-      const state = new State(initialValues, basicSchema);
-      state.setTouched("name");
-      state.clearTouched("name");
-      const fieldState = state.getState("name");
-      expect(fieldState.touched).toBe(false);
-    });
-
-    it("should clear all touched states when no path provided", () => {
-      const state = new State(initialValues, basicSchema);
-      state.setTouched("name");
-      state.setTouched("email");
-      state.clearTouched();
-      expect(state.getState("name").touched).toBe(false);
-      expect(state.getState("email").touched).toBe(false);
     });
   });
 
   describe("reset", () => {
     it("should reset to initial values", () => {
-      const state = new State(initialValues, basicSchema);
-      state.setValue("name", "Jane Doe");
+      const state = create(initialValues, basicSchema);
+      state.set("name", "Jane Doe");
       state.setStatus("name", { key: "name", variant: "error", message: "Error" });
-      state.setTouched("name");
 
       state.reset();
 
-      expect(state.values).toEqual(initialValues);
-      expect(state.getState("name").status.variant).toBe("success");
-      expect(state.getState("name").touched).toBe(false);
+      expect(state.value()).toEqual(initialValues);
+      expect(state.get("name").status.variant).toBe("success");
+      expect(state.get("name").touched).toBe(false);
     });
 
     it("should reset to new initial values when provided", () => {
-      const state = new State(initialValues, basicSchema);
+      const state = create(initialValues, basicSchema);
       const newInitialValues = { ...initialValues, name: "Jane Doe" };
 
       state.reset(newInitialValues);
 
-      expect(state.values).toEqual(newInitialValues);
-      expect(state.initialValues).toEqual(newInitialValues);
+      expect(state.value()).toEqual(newInitialValues);
+      state.set("name", "John Doe");
+      state.reset();
+      expect(state.value()).toEqual(newInitialValues);
     });
 
     it("should clear all statuses and touched states on reset", () => {
-      const state = new State(initialValues, basicSchema);
-      state.setValue("name", "Test");
+      const state = create(initialValues, basicSchema);
+      state.set("name", "Test");
       state.setStatus("name", { key: "name", variant: "error", message: "Error" });
-      state.setTouched("name");
 
       state.reset();
 
-      expect(state.getState("name").status.variant).toBe("success");
-      expect(state.getState("name").touched).toBe(false);
+      expect(state.get("name").status.variant).toBe("success");
+      expect(state.get("name").touched).toBe(false);
     });
   });
 
   describe("setCurrentStateAsInitialValues", () => {
     it("should snapshot current state as initial values", () => {
-      const state = new State(initialValues, basicSchema);
-      state.setValue("name", "Jane Doe");
-      state.setTouched("name");
+      const state = create(initialValues, basicSchema);
+      state.set("name", "Jane Doe");
 
       state.setCurrentStateAsInitialValues();
 
-      expect(state.initialValues.name).toBe("Jane Doe");
-      expect(state.getState("name").touched).toBe(false);
+      expect(state.get("name").touched).toBe(false);
+      state.set("name", "John Doe");
+      state.reset();
+      expect(state.get("name").value).toBe("Jane Doe");
     });
 
     it("should make previously touched fields untouched", () => {
-      const state = new State(initialValues, basicSchema);
-      state.setValue("name", "Jane Doe");
-      state.setValue("email", "jane@example.com");
-      expect(state.getState("name").touched).toBe(true);
-      expect(state.getState("email").touched).toBe(true);
+      const state = create(initialValues, basicSchema);
+      state.set("name", "Jane Doe");
+      state.set("email", "jane@example.com");
+      expect(state.get("name").touched).toBe(true);
+      expect(state.get("email").touched).toBe(true);
 
       state.setCurrentStateAsInitialValues();
 
-      expect(state.getState("name").touched).toBe(false);
-      expect(state.getState("email").touched).toBe(false);
+      expect(state.get("name").touched).toBe(false);
+      expect(state.get("email").touched).toBe(false);
     });
   });
 
   describe("remove", () => {
     it("should remove field value, status, and touched state", () => {
-      const state = new State(initialValues, basicSchema);
+      const state = create(initialValues, basicSchema);
       state.setStatus("name", { key: "name", variant: "error", message: "Error" });
-      state.setTouched("name");
 
       state.remove("name");
 
-      expect(state.values.name).toBeUndefined();
-      expect(state.getState("name", { optional: true })).toBeNull();
+      expect(state.value().name).toBeUndefined();
+      expect(state.get("name", { optional: true })).toBeNull();
     });
 
     it("should remove nested field", () => {
-      const state = new State(initialValues, basicSchema);
+      const state = create(initialValues, basicSchema);
       state.remove("profile.bio");
-      expect(state.values.profile.bio).toBeUndefined();
+      expect(state.value().profile.bio).toBeUndefined();
     });
 
     it("should remove array element", () => {
-      const state = new State(initialValues, basicSchema);
+      const state = create(initialValues, basicSchema);
       state.remove("tags.0");
-      expect(state.values.tags).toEqual(["typescript"]);
+      expect(state.value().tags).toEqual(["typescript"]);
     });
   });
 
   describe("validate", () => {
     it("should return true for valid data", () => {
-      const state = new State(initialValues, basicSchema);
+      const state = create(initialValues, basicSchema);
       const isValid = state.validate();
       expect(isValid).toBe(true);
     });
 
-    it("should return true even if untouched fields are invalid", () => {
+    it("should not flag an untouched invalid field when another field changes", () => {
       const invalidValues = { ...initialValues, email: "invalid-email" };
-      const state = new State(invalidValues, basicSchema);
-      const isValid = state.validate();
-      expect(isValid).toBe(true);
+      const state = create(invalidValues, basicSchema);
+      state.set("name", "Jane Doe");
+      expect(state.get("email").status.variant).toBe("success");
     });
 
     it("should set error status for invalid fields", () => {
       const invalidValues = { ...initialValues, email: "invalid-email" };
-      const state = new State(invalidValues, basicSchema);
-      state.setTouched("email");
+      const state = create(invalidValues, basicSchema);
       state.validate();
-      const fieldState = state.getState("email");
+      const fieldState = state.get("email");
       expect(fieldState.status.variant).toBe("error");
       expect(fieldState.status.message).toBe("Invalid email format");
     });
 
     it("should return true for warnings (non-error variants)", () => {
       const warningValues = { ...initialValues, name: "admin", age: 16 };
-      const state = new State(warningValues, basicSchema);
-      state.setTouched("name");
+      const state = create(warningValues, basicSchema);
       const isValid = state.validate();
       expect(isValid).toBe(true);
-      expect(state.getState("name").status.variant).toBe("warning");
+      expect(state.get("name").status.variant).toBe("warning");
     });
 
     it("should clear previous validation errors on successful validation", () => {
-      const state = new State({ ...initialValues, email: "invalid" }, basicSchema);
-      state.setTouched("email");
+      const state = create({ ...initialValues, email: "invalid" }, basicSchema);
       state.validate();
-      expect(state.getState("email").status.variant).toBe("error");
+      expect(state.get("email").status.variant).toBe("error");
 
-      state.setValue("email", "valid@example.com");
+      state.set("email", "valid@example.com");
       state.validate();
-      expect(state.getState("email").status.variant).toBe("success");
+      expect(state.get("email").status.variant).toBe("success");
     });
 
     it("should keep the status object of a field whose result did not change", () => {
-      const state = new State({ ...initialValues, email: "invalid" }, basicSchema);
-      state.setTouched("email");
-      state.validate();
-      const status = state.getState("email").status;
-      state.setValue("name", "Jane Doe");
-      state.validate();
-      expect(state.getState("email").status).toBe(status);
+      const state = create(initialValues, basicSchema);
+      state.set("email", "invalid");
+      const status = state.get("email").status;
+      expect(status.variant).toBe("error");
+      state.set("name", "Jane Doe");
+      expect(state.get("email").status).toBe(status);
     });
 
     it("should return true when no schema is provided", () => {
-      const state = new State(initialValues);
+      const state = create(initialValues);
       const isValid = state.validate();
       expect(isValid).toBe(true);
     });
@@ -661,61 +623,38 @@ describe("State", () => {
 
   describe("validateAsync", () => {
     it("should return true for valid data", async () => {
-      const state = new State(initialValues, basicSchema);
+      const state = create(initialValues, basicSchema);
       const isValid = await state.validateAsync();
       expect(isValid).toBe(true);
     });
 
     it("should return false for invalid data", async () => {
       const invalidValues = { ...initialValues, email: "invalid-email" };
-      const state = new State(invalidValues, basicSchema);
-      state.setTouched("email");
+      const state = create(invalidValues, basicSchema);
       const isValid = await state.validateAsync();
       expect(isValid).toBe(false);
     });
 
     it("should set error status for invalid fields", async () => {
       const invalidValues = { ...initialValues, email: "invalid-email" };
-      const state = new State(invalidValues, basicSchema);
-      state.setTouched("email");
+      const state = create(invalidValues, basicSchema);
       await state.validateAsync();
-      const fieldState = state.getState("email");
+      const fieldState = state.get("email");
       expect(fieldState.status.variant).toBe("error");
       expect(fieldState.status.message).toBe("Invalid email format");
     });
 
     it("should return true when no schema is provided", async () => {
-      const state = new State(initialValues);
+      const state = create(initialValues);
       const isValid = await state.validateAsync();
       expect(isValid).toBe(true);
     });
   });
 
-  describe("hasBeenTouched", () => {
-    it("should return false initially", () => {
-      const state = new State(initialValues, basicSchema);
-      expect(state.hasBeenTouched).toBe(false);
-    });
-
-    it("should return true when any field is touched", () => {
-      const state = new State(initialValues, basicSchema);
-      state.setTouched("name");
-      expect(state.hasBeenTouched).toBe(true);
-    });
-
-    it("should return false when all touched states are cleared", () => {
-      const state = new State(initialValues, basicSchema);
-      state.setTouched("name");
-      state.setTouched("email");
-      state.clearTouched();
-      expect(state.hasBeenTouched).toBe(false);
-    });
-  });
-
   describe("getState", () => {
     it("should return field state for existing field", () => {
-      const state = new State(initialValues, basicSchema);
-      const fieldState = state.getState("name");
+      const state = create(initialValues, basicSchema);
+      const fieldState = state.get("name");
       expect(fieldState.value).toBe("John Doe");
       expect(fieldState.status.variant).toBe("success");
       expect(fieldState.touched).toBe(false);
@@ -723,89 +662,89 @@ describe("State", () => {
     });
 
     it("should return field state for nested field", () => {
-      const state = new State(initialValues, basicSchema);
-      const fieldState = state.getState("profile.bio");
+      const state = create(initialValues, basicSchema);
+      const fieldState = state.get("profile.bio");
       expect(fieldState.value).toBe("Software developer");
     });
 
     it("should return field state for array element", () => {
-      const state = new State(initialValues, basicSchema);
-      const fieldState = state.getState("tags.0");
+      const state = create(initialValues, basicSchema);
+      const fieldState = state.get("tags.0");
       expect(fieldState.value).toBe("developer");
     });
 
     it("should throw error for non-existent required field", () => {
-      const state = new State(initialValues, basicSchema);
-      expect(() => state.getState("nonExistent")).toThrow();
+      const state = create(initialValues, basicSchema);
+      expect(() => state.get("nonExistent")).toThrow();
     });
 
     it("should return null for non-existent optional field", () => {
-      const state = new State(initialValues, basicSchema);
-      const fieldState = state.getState("nonExistent", { optional: true });
+      const state = create(initialValues, basicSchema);
+      const fieldState = state.get("nonExistent", { optional: true });
       expect(fieldState).toBeNull();
     });
 
     describe("schema verdict on an absent value", () => {
       it("should show the schema default without writing it", () => {
-        const state = new State(verdictValues, verdictSchema);
-        const fieldState = state.getState("defaulted");
+        const state = create(verdictValues, verdictSchema);
+        const fieldState = state.get("defaulted");
         expect(fieldState.value).toBe("cat");
         expect(fieldState.required).toBe(false);
-        expect("defaulted" in state.values).toBe(false);
+        expect("defaulted" in state.value()).toBe(false);
       });
 
       it("should not override an existing value with the default", () => {
-        const state = new State({ ...verdictValues, defaulted: "dog" }, verdictSchema);
-        expect(state.getState("defaulted").value).toBe("dog");
+        const state = create({ ...verdictValues, defaulted: "dog" }, verdictSchema);
+        expect(state.get("defaulted").value).toBe("dog");
       });
 
       it("should read an optional field as undefined", () => {
-        const state = new State(verdictValues, verdictSchema);
-        const fieldState = state.getState("optionalField");
+        const state = create(verdictValues, verdictSchema);
+        const fieldState = state.get("optionalField");
         expect(fieldState.value).toBeUndefined();
         expect(fieldState.required).toBe(false);
       });
 
       it("should throw for a required field", () => {
-        const state = new State(
+        const state = create(
           { ...verdictValues, name: undefined } as unknown as VerdictValues,
           verdictSchema,
         );
-        expect(() => state.getState("name")).toThrow(
+        expect(() => state.get("name")).toThrow(
           "Field name is required and holds no value",
         );
-        expect(state.getState("name", { optional: true })).toBeNull();
+        expect(state.get("name", { optional: true })).toBeNull();
       });
 
       it("should throw for a path the schema does not contain", () => {
-        const state = new State(verdictValues, verdictSchema);
-        expect(() => state.getState("nested.typo")).toThrow(
+        const state = create(verdictValues, verdictSchema);
+        expect(() => state.get("nested.typo")).toThrow(
           "Field nested.typo is not in the form",
         );
       });
 
       it("should treat a path under a record of unknowns as optional", () => {
-        const state = new State(verdictValues, verdictSchema);
-        const fieldState = state.getState("extra.anything.deep");
+        const state = create(verdictValues, verdictSchema);
+        const fieldState = state.get("extra.anything.deep");
         expect(fieldState.value).toBeUndefined();
         expect(fieldState.required).toBe(false);
       });
 
       it("should read a leaf of a defaulted subtree from the subtree default", () => {
-        const state = new State(verdictValues, verdictSchema);
-        expect(state.getState("color.r").value).toBe(1);
+        const state = create(verdictValues, verdictSchema);
+        expect(state.get("color.r").value).toBe(1);
       });
 
       it("should read a leaf below an optional ancestor from nested defaults", () => {
-        const state = new State(verdictValues, verdictSchema);
-        expect(state.getState("layout.margin.x").value).toBe(2);
+        const state = create(verdictValues, verdictSchema);
+        expect(state.get("layout.margin.x").value).toBe(2);
       });
     });
 
     it("should correctly determine required status from schema", () => {
-      const state = new State(initialValues, basicSchema);
-      expect(state.getState("name").required).toBe(true);
-      expect(state.getState("optionalField").required).toBe(false);
+      const state = create(initialValues, basicSchema);
+      expect(state.get("name").required).toBe(true);
+      expect(state.get("optionalField").required).toBe(false);
     });
 
     describe("required", () => {
@@ -819,36 +758,36 @@ describe("State", () => {
       const values = { free: "a", count: 1, on: true, tags: ["t"], open: [] };
 
       it("should not require a string the schema accepts empty", () => {
-        expect(new State(values, schema).getState("free").required).toBe(false);
+        expect(create(values, schema).get("free").required).toBe(false);
       });
 
       it("should not require a value no input can empty", () => {
-        const state = new State(values, schema);
-        expect(state.getState("count").required).toBe(false);
-        expect(state.getState("on").required).toBe(false);
+        const state = create(values, schema);
+        expect(state.get("count").required).toBe(false);
+        expect(state.get("on").required).toBe(false);
       });
 
       it("should require a list the schema refuses empty", () => {
-        expect(new State(values, schema).getState("tags").required).toBe(true);
+        expect(create(values, schema).get("tags").required).toBe(true);
       });
 
       it("should not require a list the schema accepts empty", () => {
-        expect(new State(values, schema).getState("open").required).toBe(false);
+        expect(create(values, schema).get("open").required).toBe(false);
       });
 
       it("should not require a field whose schema checks asynchronously", () => {
         const asyncSchema = z.object({
           name: z.string().refine(async (v) => v !== "taken"),
         });
-        const state = new State({ name: "a" }, asyncSchema);
-        expect(state.getState("name").required).toBe(false);
+        const state = create({ name: "a" }, asyncSchema);
+        expect(state.get("name").required).toBe(false);
       });
     });
 
     it("should return cached reference for performance", () => {
-      const state = new State(initialValues, basicSchema);
-      const fieldState1 = state.getState("name");
-      const fieldState2 = state.getState("name");
+      const state = create(initialValues, basicSchema);
+      const fieldState1 = state.get("name");
+      const fieldState2 = state.get("name");
       expect(fieldState1).toBe(fieldState2);
     });
 
@@ -872,66 +811,56 @@ describe("State", () => {
           config: { type: "a", value: "v" },
           nested: { leaf: "l" },
         };
-        return { state: new State(values, schema), checks: () => checks };
+        return { state: create(values, schema), checks: () => checks };
       };
 
       it("should not consult the schema again for an unchanged field", () => {
         const { state, checks } = build();
-        state.getState("tracked");
-        state.getState("tracked");
+        state.get("tracked");
+        state.get("tracked");
         expect(checks()).toBe(1);
       });
 
       it("should consult the schema again after the field changes", () => {
         const { state, checks } = build();
-        state.getState("tracked");
-        state.setValue("tracked", "b");
-        expect(state.getState("tracked").value).toBe("b");
-        expect(checks()).toBe(2);
+        state.get("tracked");
+        state.set("tracked", "b");
+        const before = checks();
+        expect(state.get("tracked").value).toBe("b");
+        expect(checks()).toBe(before + 1);
       });
 
       it("should refresh a field when a sibling discriminator changes", () => {
         const { state } = build();
-        expect(state.getState("config.value").required).toBe(true);
-        state.setValue("config.type", "b");
-        expect(state.getState("config.value").required).toBe(false);
+        expect(state.get("config.value").required).toBe(true);
+        state.set("config.type", "b");
+        expect(state.get("config.value").required).toBe(false);
       });
 
       it("should refresh a child when its parent is replaced", () => {
         const { state } = build();
-        state.getState("nested.leaf");
-        state.setValue("nested", { leaf: "m" });
-        expect(state.getState("nested.leaf").value).toBe("m");
+        state.get("nested.leaf");
+        state.set("nested", { leaf: "m" });
+        expect(state.get("nested.leaf").value).toBe("m");
       });
 
       it("should refresh every field on reset", () => {
         const { state } = build();
-        state.setValue("other", "y");
+        state.set("other", "y");
         state.setStatus("tracked", { key: "tracked", variant: "error", message: "e" });
         state.reset();
-        expect(state.getState("other").touched).toBe(false);
-        expect(state.getState("tracked").status.variant).toBe("success");
+        expect(state.get("other").touched).toBe(false);
+        expect(state.get("tracked").status.variant).toBe("success");
       });
     });
 
     it("should update cached reference when field changes", () => {
-      const state = new State(initialValues, basicSchema);
-      const fieldState1 = state.getState("name");
-      state.setValue("name", "Jane Doe");
-      const fieldState2 = state.getState("name");
+      const state = create(initialValues, basicSchema);
+      const fieldState1 = state.get("name");
+      state.set("name", "Jane Doe");
+      const fieldState2 = state.get("name");
       expect(fieldState1).not.toBe(fieldState2);
       expect(fieldState2.value).toBe("Jane Doe");
-    });
-  });
-
-  describe("observer functionality", () => {
-    it("should notify observers when notify is called", () => {
-      const invalidValues = { ...initialValues, email: "invalid" };
-      const state = new State(invalidValues, basicSchema);
-      const observer = vi.fn();
-      state.onChange(observer);
-      state.notify();
-      expect(observer).toHaveBeenCalled();
     });
   });
 
@@ -943,17 +872,14 @@ describe("State", () => {
         email: "invalid-email",
         profile: { ...initialValues.profile, website: "invalid-url" },
       };
-      const state = new State(invalidValues, basicSchema);
-      state.setTouched("name");
-      state.setTouched("email");
-      state.setTouched("profile.website");
+      const state = create(invalidValues, basicSchema);
 
-      const isValid = state.validate(true, "profile");
+      const isValid = state.validate("profile");
 
       expect(isValid).toBe(false);
-      expect(state.getState("profile.website").status.variant).toBe("error");
-      expect(state.getState("name").status.variant).toBe("success");
-      expect(state.getState("email").status.variant).toBe("success");
+      expect(state.get("profile.website").status.variant).toBe("error");
+      expect(state.get("name").status.variant).toBe("success");
+      expect(state.get("email").status.variant).toBe("success");
     });
 
     it("should validate specific field path", () => {
@@ -962,15 +888,13 @@ describe("State", () => {
         name: "",
         email: "invalid-email",
       };
-      const state = new State(invalidValues, basicSchema);
-      state.setTouched("name");
-      state.setTouched("email");
+      const state = create(invalidValues, basicSchema);
 
-      const isValid = state.validate(true, "email");
+      const isValid = state.validate("email");
 
       expect(isValid).toBe(false);
-      expect(state.getState("email").status.variant).toBe("error");
-      expect(state.getState("name").status.variant).toBe("success");
+      expect(state.get("email").status.variant).toBe("error");
+      expect(state.get("name").status.variant).toBe("success");
     });
 
     it("should validate parent path and include child errors", () => {
@@ -979,15 +903,13 @@ describe("State", () => {
         name: "",
         profile: { ...initialValues.profile, website: "invalid-url" },
       };
-      const state = new State(invalidValues, basicSchema);
-      state.setTouched("name");
-      state.setTouched("profile.website");
+      const state = create(invalidValues, basicSchema);
 
-      const isValid = state.validate(true, "profile");
+      const isValid = state.validate("profile");
 
       expect(isValid).toBe(false);
-      expect(state.getState("profile.website").status.variant).toBe("error");
-      expect(state.getState("name").status.variant).toBe("success");
+      expect(state.get("profile.website").status.variant).toBe("error");
+      expect(state.get("name").status.variant).toBe("success");
     });
 
     it("should validate child path when parent is specified", () => {
@@ -996,15 +918,13 @@ describe("State", () => {
         email: "invalid-email",
         profile: { ...initialValues.profile, website: "invalid-url" },
       };
-      const state = new State(invalidValues, basicSchema);
-      state.setTouched("email");
-      state.setTouched("profile.website");
+      const state = create(invalidValues, basicSchema);
 
-      const isValid = state.validate(true, "profile.website");
+      const isValid = state.validate("profile.website");
 
       expect(isValid).toBe(false);
-      expect(state.getState("profile.website").status.variant).toBe("error");
-      expect(state.getState("email").status.variant).toBe("success");
+      expect(state.get("profile.website").status.variant).toBe("error");
+      expect(state.get("email").status.variant).toBe("success");
     });
 
     it("should return true when validating path with no errors", () => {
@@ -1012,15 +932,13 @@ describe("State", () => {
         ...initialValues,
         email: "invalid-email",
       };
-      const state = new State(partiallyInvalidValues, basicSchema);
-      state.setTouched("email");
-      state.setTouched("name");
+      const state = create(partiallyInvalidValues, basicSchema);
 
-      const isValid = state.validate(true, "name");
+      const isValid = state.validate("name");
 
       expect(isValid).toBe(true);
-      expect(state.getState("name").status.variant).toBe("success");
-      expect(state.getState("email").status.variant).toBe("success");
+      expect(state.get("name").status.variant).toBe("success");
+      expect(state.get("email").status.variant).toBe("success");
     });
 
     it("should handle array paths correctly", () => {
@@ -1032,14 +950,12 @@ describe("State", () => {
         ...basicSchema.shape,
         tags: z.array(z.string().min(1, "Tag cannot be empty")),
       });
-      const state = new State(invalidValues, arraySchema);
-      state.setTouched("tags.0");
-      state.setTouched("tags.1");
+      const state = create(invalidValues, arraySchema);
 
-      const isValid = state.validate(true, "tags.0");
+      const isValid = state.validate("tags.0");
 
       expect(isValid).toBe(false);
-      expect(state.getState("tags.0").status.variant).toBe("error");
+      expect(state.get("tags.0").status.variant).toBe("error");
     });
   });
 
@@ -1050,15 +966,13 @@ describe("State", () => {
         name: "",
         email: "invalid-email",
       };
-      const state = new State(invalidValues, basicSchema);
-      state.setTouched("name");
-      state.setTouched("email");
+      const state = create(invalidValues, basicSchema);
 
-      const isValid = await state.validateAsync(true, "email");
+      const isValid = await state.validateAsync("email");
 
       expect(isValid).toBe(false);
-      expect(state.getState("email").status.variant).toBe("error");
-      expect(state.getState("name").status.variant).toBe("success");
+      expect(state.get("email").status.variant).toBe("error");
+      expect(state.get("name").status.variant).toBe("success");
     });
 
     it("should validate nested paths asynchronously", async () => {
@@ -1067,15 +981,13 @@ describe("State", () => {
         name: "",
         profile: { ...initialValues.profile, website: "invalid-url" },
       };
-      const state = new State(invalidValues, basicSchema);
-      state.setTouched("name");
-      state.setTouched("profile.website");
+      const state = create(invalidValues, basicSchema);
 
-      const isValid = await state.validateAsync(true, "profile");
+      const isValid = await state.validateAsync("profile");
 
       expect(isValid).toBe(false);
-      expect(state.getState("profile.website").status.variant).toBe("error");
-      expect(state.getState("name").status.variant).toBe("success");
+      expect(state.get("profile.website").status.variant).toBe("error");
+      expect(state.get("name").status.variant).toBe("success");
     });
   });
 
@@ -1093,17 +1005,15 @@ describe("State", () => {
       ]),
     });
     it("should return success when all fields are valid", () => {
-      const state = new State({ a: { type: "a", color: "red" } }, schema);
-      state.setTouched("a");
+      const state = create({ a: { type: "a", color: "red" } }, schema);
       state.validate();
-      expect(state.getState("a").status.variant).toBe("success");
+      expect(state.get("a").status.variant).toBe("success");
     });
 
     it("should return an error for the most favored union field", () => {
-      const state = new State({ a: { type: "a", color: "" } }, schema);
-      state.setTouched("a.color");
+      const state = create({ a: { type: "a", color: "" } }, schema);
       state.validate();
-      expect(state.getState("a.color").status.variant).toBe("error");
+      expect(state.get("a.color").status.variant).toBe("error");
     });
   });
 
@@ -1125,24 +1035,24 @@ describe("State", () => {
         ],
       };
 
-      const state = new State(initialValues, arraySchema);
-      expect(state.hasBeenTouched).toBe(false);
+      const state = create(initialValues, arraySchema);
+      expect(state.touched.current).toBe(false);
 
       const newItem = { name: "item3", value: 30 };
-      const updatedItems = [...state.values.items, newItem];
-      state.setValue("items", updatedItems);
+      const updatedItems = [...state.value().items, newItem];
+      state.set("items", updatedItems);
 
-      expect(state.hasBeenTouched).toBe(true);
+      expect(state.touched.current).toBe(true);
 
-      state.setValue("items.2.name", "modified_item3");
+      state.set("items.2.name", "modified_item3");
 
-      expect(state.hasBeenTouched).toBe(true);
-      expect(state.getState("items.2.name").touched).toBe(true);
+      expect(state.touched.current).toBe(true);
+      expect(state.get("items.2.name").touched).toBe(true);
 
-      const finalItems = state.values.items.slice(0, 2);
-      state.setValue("items", finalItems);
+      const finalItems = state.value().items.slice(0, 2);
+      state.set("items", finalItems);
 
-      expect(state.hasBeenTouched).toBe(false);
+      expect(state.touched.current).toBe(false);
     });
 
     it("should maintain touched status for other modified fields when array item is removed", () => {
@@ -1160,19 +1070,19 @@ describe("State", () => {
         items: [{ title: "original" }],
       };
 
-      const state = new State(initialValues, arraySchema);
+      const state = create(initialValues, arraySchema);
 
-      state.setValue("name", "modified");
-      expect(state.hasBeenTouched).toBe(true);
+      state.set("name", "modified");
+      expect(state.touched.current).toBe(true);
 
-      state.setValue("items", [...state.values.items, { title: "new item" }]);
+      state.set("items", [...state.value().items, { title: "new item" }]);
 
-      state.setValue("items.1.title", "modified new item");
+      state.set("items.1.title", "modified new item");
 
-      state.setValue("items", [{ title: "original" }]);
+      state.set("items", [{ title: "original" }]);
 
-      expect(state.hasBeenTouched).toBe(true);
-      expect(state.getState("name").touched).toBe(true);
+      expect(state.touched.current).toBe(true);
+      expect(state.get("name").touched).toBe(true);
     });
 
     it("should handle nested array operations correctly", () => {
@@ -1198,27 +1108,27 @@ describe("State", () => {
         ],
       };
 
-      const state = new State(initialValues, nestedArraySchema);
+      const state = create(initialValues, nestedArraySchema);
 
       const newGroup = { name: "group2", items: [{ value: "item2" }] };
-      state.setValue("groups", [...state.values.groups, newGroup]);
+      state.set("groups", [...state.value().groups, newGroup]);
 
-      state.setValue("groups.1.items.0.value", "modified_item2");
+      state.set("groups.1.items.0.value", "modified_item2");
 
-      expect(state.hasBeenTouched).toBe(true);
+      expect(state.touched.current).toBe(true);
 
-      state.setValue("groups", [{ name: "group1", items: [{ value: "item1" }] }]);
+      state.set("groups", [{ name: "group1", items: [{ value: "item1" }] }]);
 
-      expect(state.hasBeenTouched).toBe(false);
+      expect(state.touched.current).toBe(false);
     });
   });
 
   describe("edge cases", () => {
     it("should handle empty string paths correctly", () => {
-      const state = new State(initialValues, basicSchema);
+      const state = create(initialValues, basicSchema);
       const newValues = { ...initialValues, name: "Jane Doe" };
-      state.setValue("", newValues);
-      expect(state.values).toEqual(newValues);
+      state.set("", newValues);
+      expect(state.value()).toEqual(newValues);
     });
 
     it("should handle deeply nested paths", () => {
@@ -1240,31 +1150,28 @@ describe("State", () => {
           }),
         }),
       });
-      const state = new State(deepValues, deepSchema);
-      state.setValue("level1.level2.level3.value", "updated");
-      expect(state.values.level1.level2.level3.value).toBe("updated");
+      const state = create(deepValues, deepSchema);
+      state.set("level1.level2.level3.value", "updated");
+      expect(state.value().level1.level2.level3.value).toBe("updated");
     });
 
     it("should handle array mutations correctly", () => {
-      const state = new State(initialValues, basicSchema);
-      state.setValue("tags", ["new", "tags"]);
-      expect(state.values.tags).toEqual(["new", "tags"]);
+      const state = create(initialValues, basicSchema);
+      state.set("tags", ["new", "tags"]);
+      expect(state.value().tags).toEqual(["new", "tags"]);
     });
 
     it("should handle null and undefined values", () => {
-      const state = new State(
-        { test: null },
-        z.object({ test: z.string().nullable() }),
-      );
-      expect(state.getState("test", { optional: true })).toBeNull();
+      const state = create({ test: null }, z.object({ test: z.string().nullable() }));
+      expect(state.get("test", { optional: true })).toBeNull();
     });
 
     it("should handle schema without required fields", () => {
       const optionalSchema = z.object({
         optional: z.string().optional(),
       });
-      const state = new State({ optional: undefined }, optionalSchema);
-      expect(state.getState("optional").value).toBeUndefined();
+      const state = create({ optional: undefined }, optionalSchema);
+      expect(state.get("optional").value).toBeUndefined();
     });
   });
 });
