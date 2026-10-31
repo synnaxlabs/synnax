@@ -12,6 +12,7 @@ package graph
 import (
 	"context"
 	"fmt"
+	"maps"
 	"slices"
 	"strings"
 
@@ -764,7 +765,7 @@ func (g *Graph) CalculateGrouped() map[int][]compiler.Module {
 
 	for groupID, group := range g.groups {
 		modules := make([]compiler.Module, 0, len(group.members))
-		for key := range group.members {
+		for _, key := range slices.Sorted(maps.Keys(group.members)) {
 			modules = append(modules, g.channels[key].module)
 		}
 		sorted, err := g.topologicalSortGroup(groupID, modules)
@@ -885,7 +886,7 @@ func (g *Graph) topologicalSortGroup(
 	graph := make(map[channel.Key][]channel.Key)
 	for _, mod := range modules {
 		var deps []channel.Key
-		for depKey := range mod.Dependencies.Reads {
+		for _, depKey := range slices.Sorted(maps.Keys(mod.Dependencies.Reads)) {
 			if channelsInGroup.Contains(depKey) {
 				deps = append(deps, depKey)
 			}
