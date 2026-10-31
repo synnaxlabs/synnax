@@ -92,7 +92,6 @@ interface ForwarderParams {
   client: Client;
   rules: Rules;
   add: Status.Adder;
-  handleError: Status.ErrorHandler;
 }
 
 interface Forwarder {
@@ -105,12 +104,7 @@ interface Forwarder {
   stop: () => void;
 }
 
-const createForwarder = ({
-  client,
-  rules,
-  add,
-  handleError,
-}: ForwarderParams): Forwarder => {
+const createForwarder = ({ client, rules, add }: ForwarderParams): Forwarder => {
   const problems = new Map<status.Key, Problem>();
   let held: Array<() => void> | null = [];
   let stopped = false;
@@ -177,9 +171,12 @@ const createForwarder = ({
         if (!inUse) problem.decision = "hidden";
         show(problem);
       },
+      // The check only filters noise, so a status whose check fails still shows.
       (exc: unknown) => {
         if (problems.get(stat.key) !== problem) return;
-        handleError(exc, { message: "Failed to show status", name: stat.name });
+        console.error(`failed to check if the thing of ${stat.key} is in use`, exc);
+        problem.inUse = true;
+        show(problem);
       },
     );
   };
@@ -287,7 +284,7 @@ export const useForward = (rules: Rules): void => {
   const handleError = Status.useErrorHandler();
   useEffect(() => {
     if (client == null) return;
-    const forwarder = createForwarder({ client, rules, add, handleError });
+    const forwarder = createForwarder({ client, rules, add });
     const removeWriteListener = client.statuses.onWrite(forwarder.write);
     const removeDeleteListener = client.statuses.onDelete(forwarder.remove);
     client.statuses
