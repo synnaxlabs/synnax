@@ -59,12 +59,11 @@ type Status[Details any] struct {
 	// Labels contains optional labels for categorization and filtering.
 	Labels []label.Label `json:"labels,omitzero" msgpack:"labels,omitempty"`
 	// Since is when the open or most recent problem of the status started. A problem is
-	// a period with a warning or error variant. The Core sets it on every write and
-	// ignores the value a client sends. Empty if the status never had a problem.
+	// a period with a warning or error variant. Empty if the status never had a
+	// problem.
 	Since *telem.TimeStamp `json:"since,omitzero" msgpack:"since,omitempty"`
-	// Cleared is when the most recent problem of the status cleared. The Core sets it
-	// on every write and ignores the value a client sends. Empty while a problem is
-	// open, or if the status never had a problem.
+	// Cleared is when the most recent problem of the status cleared. Empty while a
+	// problem is open, or if the status never had a problem.
 	Cleared *telem.TimeStamp `json:"cleared,omitzero" msgpack:"cleared,omitempty"`
 }
 
