@@ -12,6 +12,7 @@ import "@/feature/labjack/task/PortPicker.css";
 import { Dialog } from "@synnaxlabs/lyra/dialog";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
+import { Input } from "@synnaxlabs/lyra/input";
 import { type ReactElement, type ReactNode } from "react";
 
 import {
@@ -88,10 +89,11 @@ export const PortPicker = <C extends Channel>({
 }: PortPickerProps<C>): ReactElement => {
   const ports = PORTS[model][type];
   const port = ports.find(({ key }) => key === value);
+  const itemStatus = Input.useItemStatus({});
   return (
     <Dialog.Frame className={className}>
       <Flex.Box pack x>
-        <Dialog.Trigger preview={preview}>
+        <Dialog.Trigger preview={preview} {...itemStatus}>
           {port == null ? value : terminal(port)}
         </Dialog.Trigger>
         {children}

@@ -220,7 +220,15 @@ describe("Write", () => {
       ]),
     );
     await renderWrite({ client, taskKey: draft.key });
-    expect(await screen.findAllByText("Another channel uses DAC0")).toHaveLength(2);
+    const trigger = (text: HTMLElement) => text.closest(".lyra-dialog__trigger");
+    await waitFor(() => {
+      for (const text of screen.getAllByText("DAC0"))
+        expect(trigger(text)?.getAttribute("aria-invalid")).toBe("true");
+    });
+    expect(trigger(screen.getByText("DAC1"))?.getAttribute("aria-invalid")).toBeNull();
+    fireEvent.pointerOver(screen.getAllByText("DAC0")[0], { pointerType: "mouse" });
+    const tooltip = await screen.findByRole("tooltip");
+    expect(tooltip.textContent).toBe("Another channel uses DAC0");
   });
 
   it("should create command and state channels, update the device, and save the task", async () => {
