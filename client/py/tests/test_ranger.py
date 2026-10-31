@@ -508,7 +508,8 @@ class TestRangeClient:
             with pytest.raises(
                 sy.MultipleFoundError,
                 match=re.escape(
-                    f'Expected one channel where name_patterns = ["{prefix}_.*"], but found 2'
+                    f'Expected one channel where name_patterns = ["{prefix}_.*"], '
+                    "but found 2"
                 ),
             ):
                 rng.set_alias(f"{prefix}_.*", "test")
