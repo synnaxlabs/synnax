@@ -49,7 +49,7 @@ describe("Diagram.Menu.GroupItems", () => {
     // Triggers.GROUP / UNGROUP would advertise keys that do nothing.
     const [groupHint, ungroupHint] = getAllByLabelText("trigger-indicator");
     const caps = (el: HTMLElement): number =>
-      el.querySelectorAll(".pluto-text--keyboard").length;
+      el.querySelectorAll(".lyra-text--keyboard").length;
     expect(caps(groupHint)).toBe(Triggers.GROUP.length);
     expect(caps(ungroupHint)).toBe(Triggers.UNGROUP.length);
     expect(groupHint.textContent).toContain("G");

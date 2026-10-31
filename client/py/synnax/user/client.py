@@ -44,8 +44,7 @@ class _ChangeUsernameRequest(BaseModel):
 
 class _ChangeNameRequest(BaseModel):
     key: UUID
-    first_name: str
-    last_name: str
+    name: str
 
 
 class Client:
@@ -60,8 +59,7 @@ class Client:
         *,
         username: str,
         password: str,
-        first_name: str = "",
-        last_name: str = "",
+        name: str = "",
         key: UUID | None = None,
     ) -> User: ...
 
@@ -77,8 +75,7 @@ class Client:
         *,
         username: str | None = None,
         password: str | None = None,
-        first_name: str = "",
-        last_name: str = "",
+        name: str = "",
         key: UUID | None = None,
         user: New | None = None,
         users: list[New] | None = None,
@@ -89,8 +86,7 @@ class Client:
             user = New(
                 username=username,
                 password=password,
-                first_name=first_name,
-                last_name=last_name,
+                name=name,
                 key=key,
             )
         single = user is not None
@@ -112,14 +108,8 @@ class Client:
             Empty,
         )
 
-    def change_name(
-        self, key: UUID, *, first_name: str = "", last_name: str = ""
-    ) -> None:
-        self.client.send(
-            "/user/rename",
-            _ChangeNameRequest(key=key, first_name=first_name, last_name=last_name),
-            Empty,
-        )
+    def change_name(self, key: UUID, *, name: str) -> None:
+        self.client.send("/user/rename", _ChangeNameRequest(key=key, name=name), Empty)
 
     @overload
     def retrieve(self, *, key: UUID) -> User: ...
@@ -165,7 +155,7 @@ class Client:
             usernames = [username]
         flat = Where(
             key=None if keys is None else filter.Set[UUID](in_=keys),
-            username=None if usernames is None else filter.String(in_=usernames),
+            usernames=usernames,
         )
         single = key is not None or username is not None
         res = self.client.send(

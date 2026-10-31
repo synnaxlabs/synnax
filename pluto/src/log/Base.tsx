@@ -9,7 +9,6 @@
 
 import "@/log/Log.css";
 
-import { CSS } from "@synnaxlabs/lyra/css";
 import { type Flex } from "@synnaxlabs/lyra/flex";
 import { useCombinedRefs } from "@synnaxlabs/lyra/hooks";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -19,15 +18,12 @@ import { Triggers } from "@synnaxlabs/lyra/triggers";
 import { box, strings } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useRef } from "react";
 
+import { CSS } from "@/css";
+import { log } from "@/log/aether";
 import { use, type UseProps } from "@/log/use";
 import { Canvas } from "@/vis/canvas";
 
 export const PAUSE_TRIGGER: Triggers.Trigger = ["H"];
-
-// Select-all sends "to end" rather than a concrete index so the entry count never
-// has to be synced from the worker on every batch. The worker holds entries.length
-// and its slice/clamp logic resolves this to the true last entry at render time.
-const SELECT_ALL_END = Number.MAX_SAFE_INTEGER;
 
 type Mode = "selectAll" | "clearSelection" | "togglePause" | "default";
 
@@ -180,7 +176,11 @@ export const Base = ({
       if (stage !== "start") return;
       const mode = Triggers.determineMode(TRIGGER_CONFIG, triggers);
       if (mode === "selectAll")
-        setState((s) => ({ ...s, selectionStart: 0, selectionEnd: SELECT_ALL_END }));
+        setState((s) => ({
+          ...s,
+          selectionStart: 0,
+          selectionEnd: log.SELECT_ALL_END,
+        }));
       else if (mode === "clearSelection")
         setState((s) => ({
           ...s,
