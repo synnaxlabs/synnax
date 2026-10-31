@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/query"
@@ -369,6 +370,80 @@ var _ = Describe("Writer", func() {
 				Expect(res.Group).To(Equal(uint32(20)))
 			},
 		)
+	})
+
+	Describe("End Domain", func() {
+		It(
+			"Should end the domains of indexes on each leaseholder",
+			func(ctx SpecContext) {
+				cluster := testutil.NewCluster(ctx, 2)
+				gw := cluster.Nodes[1]
+				createPair := func(name string, host node.Key) (channel.Key, channel.Key) {
+					GinkgoHelper()
+					idx := MustSucceed(gw.Channel.Create(ctx, []channel.Channel{{
+						Name:        name + "_time",
+						IsIndex:     true,
+						DataType:    telem.TimestampT,
+						Leaseholder: host,
+					}}))[0]
+					data := MustSucceed(gw.Channel.Create(ctx, []channel.Channel{{
+						Name:        name,
+						DataType:    telem.Int64T,
+						LocalIndex:  idx.LocalKey,
+						Leaseholder: host,
+					}}))[0]
+					return idx.Key(), data.Key()
+				}
+				localIdx, localData := createPair("local", 1)
+				peerIdx, peerData := createPair("peer", 2)
+				keys := channel.Keys{localIdx, localData, peerIdx, peerData}
+				frameAt := func(seconds ...telem.TimeStamp) frame.Frame {
+					stamps := make([]telem.TimeStamp, len(seconds))
+					values := make([]int64, len(seconds))
+					for i, s := range seconds {
+						stamps[i] = s * telem.SecondTS
+						values[i] = int64(s)
+					}
+					return frame.NewMulti(keys, []telem.Series{
+						telem.NewSeries(stamps),
+						telem.NewSeries(values),
+						telem.NewSeries(stamps),
+						telem.NewSeries(values),
+					})
+				}
+				w := MustSucceed(gw.Framer.OpenWriter(ctx, writer.Config{
+					Keys:  keys,
+					Start: 10 * telem.SecondTS,
+					Sync:  new(true),
+				}))
+				Expect(w.Write(frameAt(10, 11))).To(BeTrue())
+				MustSucceed(w.Commit())
+				Expect(w.EndDomain(channel.Keys{localIdx, peerIdx})).To(BeTrue())
+				Expect(w.Write(frameAt(20, 21))).To(BeTrue())
+				MustSucceed(w.Commit())
+				fill := MustSucceed(gw.Framer.OpenWriter(ctx, writer.Config{
+					Keys:  keys,
+					Start: 12 * telem.SecondTS,
+					Mode:  ts.WriterModePersistOnly,
+					Sync:  new(true),
+				}))
+				Expect(fill.Write(frameAt(12, 13))).To(BeTrue())
+				MustSucceed(fill.Commit())
+				Expect(fill.Close()).To(Succeed())
+				Expect(w.Close()).To(Succeed())
+			},
+		)
+		It("Should acknowledge a writer of free channels", func(ctx SpecContext) {
+			s := freeWriterScenario(ctx)
+			defer func() { Expect(s.Close()).To(Succeed()) }()
+			w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
+				Keys:  s.keys,
+				Start: 10 * telem.SecondTS,
+				Sync:  new(true),
+			}))
+			Expect(w.EndDomain(s.keys)).To(BeTrue())
+			Expect(w.Close()).To(Succeed())
+		})
 	})
 
 	Describe("Auto-Index", func() {

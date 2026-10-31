@@ -15,6 +15,7 @@ import (
 	"uuid"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/cesium/internal/alignment"
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/control"
 	"github.com/synnaxlabs/cesium/internal/domain"
@@ -159,9 +160,11 @@ type controlledWriter struct {
 	// and the current domain start remain consistent across owners. Reset on rollover
 	// via the domain.Writer's OnRollover hook.
 	tracker *offsetTracker
-	// sessionStart is the start of the resource's first domain. Commits that resolve
-	// their end from the session sample count anchor on it.
+	// sessionStart is the start of the resource's first domain since it last ended one.
+	// Commits that resolve their end from the session sample count anchor on it.
 	sessionStart telem.TimeStamp
+	// alignments reserves the alignment domain of each domain after the first.
+	alignments *alignment.Counter
 }
 
 var _ control.Resource = &controlledWriter{}
@@ -183,6 +186,22 @@ func (w *controlledWriter) setStart(start telem.TimeStamp) error {
 	}
 	w.sessionStart = start
 	w.tracker.currentStart = start
+	return nil
+}
+
+func (w *controlledWriter) endDomain(ctx context.Context) error {
+	if w.Len() == 0 {
+		return nil
+	}
+	a, err := w.alignments.Next()
+	if err != nil {
+		return err
+	}
+	if err = w.EndDomain(ctx); err != nil {
+		return err
+	}
+	w.tracker.reset()
+	w.storeAlignment(a)
 	return nil
 }
 
@@ -249,6 +268,7 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (
 					channelKey:   db.cfg.Channel.Key,
 					tracker:      db.resolver.newTracker(),
 					sessionStart: start,
+					alignments:   db.leadingAlignment,
 				}
 				cw.storeAlignment(a)
 				domainCfg := cfg.domain()
@@ -329,6 +349,7 @@ func (w *Writer) write(
 		if err = w.control.Extend(w.domainStart); err != nil {
 			return 0, w.wrapError(err)
 		}
+		w.control.Advance(w.domainStart)
 		if err = dw.setStart(w.domainStart); err != nil {
 			return 0, w.wrapError(err)
 		}
@@ -361,9 +382,30 @@ func (w *Writer) write(
 }
 
 // SetDomainStart sets where the writer's domain starts, in place of Start. It applies
-// at the next persisted write, and only while the domain holds no data. A start before
-// the writer's control region moves the region back to it.
+// at the next persisted write, and only while the domain holds no data. The writer's
+// control region moves to the start, unless the writer is bounded and the start comes
+// after the region.
 func (w *Writer) SetDomainStart(start telem.TimeStamp) { w.domainStart = start }
+
+// Authorize returns control.ErrUnauthorized if the writer does not hold control.
+func (w *Writer) Authorize() error {
+	_, err := w.control.Authorize()
+	return w.wrapError(err)
+}
+
+// EndDomain ends the domain the writer holds, discarding any uncommitted samples. The
+// next persisted write starts a new domain in a new alignment domain, at the start
+// given to SetDomainStart. EndDomain does nothing when the domain holds no data.
+func (w *Writer) EndDomain(ctx context.Context) error {
+	if w.closed {
+		return w.wrapError(ErrWriterClosed)
+	}
+	dw, err := w.control.Authorize()
+	if err != nil {
+		return w.wrapError(err)
+	}
+	return w.wrapError(dw.endDomain(ctx))
+}
 
 func (w *Writer) SetAuthority(a xcontrol.Authority) control.Transfer {
 	return w.visible(w.control.SetAuthority(a))

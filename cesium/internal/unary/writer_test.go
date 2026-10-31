@@ -136,6 +136,170 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Expect(t.Occurred()).To(BeTrue())
 					},
 				)
+				Describe("EndDomain", func() {
+					open := func(
+						ctx SpecContext,
+						key string,
+						authority control.Authority,
+					) *unary.Writer {
+						GinkgoHelper()
+						w, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
+							Start:     10 * telem.SecondTS,
+							Subject:   control.Subject{Key: key},
+							Authority: authority,
+						}))
+						return w
+					}
+					openBounded := func(start telem.TimeStamp) unary.WriterConfig {
+						return unary.WriterConfig{
+							Start:     start,
+							Subject:   control.Subject{Key: "backfill"},
+							Authority: 1,
+							Bounded:   new(true),
+						}
+					}
+					It(
+						"Should start a new domain in a new alignment domain",
+						func(ctx SpecContext) {
+							w := open(ctx, "live", 2)
+							first := MustSucceed(
+								w.Write(telem.NewSeriesSecondsTSV(10, 11)),
+							)
+							MustSucceed(w.Commit(ctx))
+							Expect(w.EndDomain(ctx)).To(Succeed())
+							w.SetDomainStart(20 * telem.SecondTS)
+							second := MustSucceed(
+								w.Write(telem.NewSeriesSecondsTSV(20, 21)),
+							)
+							Expect(
+								second.DomainIndex(),
+							).To(BeNumerically(">", first.DomainIndex()))
+							Expect(second.SampleIndex()).To(BeZero())
+							Expect(db.WriteCursor(20 * telem.SecondTS)).
+								To(Equal(second.AddSamples(2)))
+							Expect(MustSucceed(w.Commit(ctx))).
+								To(Equal(21*telem.SecondTS + 1))
+							MustSucceed(w.Close())
+							Expect(MustSucceed(db.HasDataFor(
+								ctx,
+								(12 * telem.SecondTS).Range(20*telem.SecondTS),
+							))).To(BeFalse())
+						},
+					)
+					It(
+						"Should hold the time between the domains until the next write",
+						func(ctx SpecContext) {
+							w := open(ctx, "live", 2)
+							MustSucceed(w.Write(telem.NewSeriesSecondsTSV(10, 11)))
+							MustSucceed(w.Commit(ctx))
+							Expect(w.EndDomain(ctx)).To(Succeed())
+							Expect(db.OpenWriter(ctx, openBounded(15*telem.SecondTS))).
+								Error().To(MatchError(control.ErrUnauthorized))
+							w.SetDomainStart(20 * telem.SecondTS)
+							MustSucceed(w.Write(telem.NewSeriesSecondsTSV(20)))
+							MustSucceed(w.Commit(ctx))
+							backfill, _ := MustSucceed2(
+								db.OpenWriter(ctx, openBounded(15*telem.SecondTS)),
+							)
+							MustSucceed(
+								backfill.Write(telem.NewSeriesSecondsTSV(15, 16)),
+							)
+							MustSucceed(backfill.Commit(ctx))
+							MustSucceed(backfill.Write(telem.NewSeriesSecondsTSV(21)))
+							Expect(backfill.Commit(ctx)).Error().To(And(
+								MatchError(validate.ErrValidation),
+								MatchError(
+									ContainSubstring("cannot extend control region"),
+								),
+							))
+							MustSucceed(backfill.Close())
+							MustSucceed(w.Close())
+						},
+					)
+					It(
+						"Should do nothing when the domain holds no data",
+						func(ctx SpecContext) {
+							w := open(ctx, "live", 2)
+							Expect(w.EndDomain(ctx)).To(Succeed())
+							Expect(db.WriteCursor(10 * telem.SecondTS)).
+								To(Equal(alignment.Leading(1, 0)))
+							MustSucceed(w.Write(telem.NewSeriesSecondsTSV(10, 11)))
+							MustSucceed(w.Commit(ctx))
+							MustSucceed(w.Close())
+						},
+					)
+					It(
+						"Should fail while another writer holds control",
+						func(ctx SpecContext) {
+							lo := open(ctx, "lo", 1)
+							hi := open(ctx, "hi", 2)
+							MustSucceed(hi.Write(telem.NewSeriesSecondsTSV(10, 11)))
+							MustSucceed(hi.Commit(ctx))
+							Expect(
+								lo.EndDomain(ctx),
+							).To(MatchError(control.ErrUnauthorized))
+							MustSucceed(hi.Write(telem.NewSeriesSecondsTSV(12)))
+							Expect(MustSucceed(hi.Commit(ctx))).
+								To(Equal(12*telem.SecondTS + 1))
+							MustSucceed(hi.Close())
+							MustSucceed(lo.Close())
+						},
+					)
+					It("Should fail on a closed writer", func(ctx SpecContext) {
+						w := open(ctx, "live", 2)
+						MustSucceed(w.Close())
+						Expect(w.EndDomain(ctx)).To(MatchError(unary.ErrWriterClosed))
+					})
+				})
+
+				Describe("Control region start", func() {
+					It(
+						"Should move forward to the first sample",
+						func(ctx SpecContext) {
+							w, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
+								Start:     10 * telem.SecondTS,
+								Subject:   control.Subject{Key: "live"},
+								Authority: 2,
+							}))
+							w.SetDomainStart(20 * telem.SecondTS)
+							MustSucceed(w.Write(telem.NewSeriesSecondsTSV(20)))
+							Expect(db.Delete(
+								ctx,
+								(12 * telem.SecondTS).Range(15*telem.SecondTS),
+							)).To(Succeed())
+							Expect(db.Delete(
+								ctx,
+								(20 * telem.SecondTS).Range(21*telem.SecondTS),
+							)).To(MatchError(control.ErrUnauthorized))
+							MustSucceed(w.Close())
+						},
+					)
+					It(
+						"Should stay at the start of a domain the writer did not open",
+						func(ctx SpecContext) {
+							lo, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
+								Start:     10 * telem.SecondTS,
+								Subject:   control.Subject{Key: "lo"},
+								Authority: 2,
+							}))
+							MustSucceed(lo.Write(telem.NewSeriesSecondsTSV(10, 11)))
+							hi, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
+								Start:     10 * telem.SecondTS,
+								Subject:   control.Subject{Key: "hi"},
+								Authority: 3,
+							}))
+							hi.SetDomainStart(20 * telem.SecondTS)
+							MustSucceed(hi.Write(telem.NewSeriesSecondsTSV(20)))
+							Expect(db.Delete(
+								ctx,
+								(10 * telem.SecondTS).Range(11*telem.SecondTS),
+							)).To(MatchError(control.ErrUnauthorized))
+							MustSucceed(hi.Close())
+							MustSucceed(lo.Close())
+						},
+					)
+				})
+
 				Describe("Bounded", func() {
 					openLive := func(
 						ctx SpecContext,

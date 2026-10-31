@@ -31,6 +31,8 @@ const (
 	CommandCommit
 	// CommandSetAuthority represents a call to Writer.SetAuthority
 	CommandSetAuthority
+	// CommandEndDomain represents a call to Writer.EndDomain.
+	CommandEndDomain
 )
 
 // Mode configures the persistence and streaming behavior of a writer.

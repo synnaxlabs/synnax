@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/writer"
+	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/signal"
@@ -160,9 +161,94 @@ var _ = Describe("Writer", func() {
 				confluence.CloseOutputInletsOnExit(),
 				confluence.CancelOnFail(),
 			)
-			inlet.Inlet() <- writer.Request{Command: writer.Command(50)}
+			inlet.Inlet() <- writer.Request{Command: writer.CommandEndDomain + 1}
 			Eventually(outlet.Outlet()).Should(BeClosed())
 			Expect(sCtx.Wait()).To(MatchError(validate.ErrValidation))
+		})
+	})
+
+	Describe("End Domain", func() {
+		frameAt := func(keys channel.Keys, seconds ...telem.TimeStamp) frame.Frame {
+			stamps := make([]telem.TimeStamp, len(seconds))
+			values := make([]int64, len(seconds))
+			for i, s := range seconds {
+				stamps[i] = s * telem.SecondTS
+				values[i] = int64(s)
+			}
+			return frame.NewMulti(keys, []telem.Series{
+				telem.NewSeries(stamps),
+				telem.NewSeries(values),
+			})
+		}
+		openWriter := func(ctx SpecContext, keys channel.Keys) *writer.Writer {
+			GinkgoHelper()
+			return MustSucceed(writerSvc.Open(ctx, writer.Config{
+				Keys:  keys,
+				Start: 10 * telem.SecondTS,
+				Sync:  new(true),
+			}))
+		}
+		It("Should free the time between two domains", func(ctx SpecContext) {
+			idx, data := createIndexed(ctx, telem.Int64T)
+			keys := channel.Keys{idx.Key(), data.Key()}
+			w := openWriter(ctx, keys)
+			Expect(w.Write(frameAt(keys, 10, 11))).To(BeTrue())
+			MustSucceed(w.Commit())
+			Expect(w.EndDomain(channel.Keys{idx.Key()})).To(BeTrue())
+			Expect(w.Write(frameAt(keys, 20, 21))).To(BeTrue())
+			MustSucceed(w.Commit())
+			fill := MustSucceed(writerSvc.Open(ctx, writer.Config{
+				Keys:  keys,
+				Start: 12 * telem.SecondTS,
+				Mode:  ts.WriterModePersistOnly,
+				Sync:  new(true),
+			}))
+			Expect(fill.Write(frameAt(keys, 12, 13))).To(BeTrue())
+			MustSucceed(fill.Commit())
+			Expect(fill.Close()).To(Succeed())
+			Expect(w.Close()).To(Succeed())
+		})
+		It("Should report an index it does not control", func(ctx SpecContext) {
+			idx, data := createIndexed(ctx, telem.Int64T)
+			keys := channel.Keys{idx.Key(), data.Key()}
+			holder := openWriter(ctx, keys)
+			other := openWriter(ctx, keys)
+			Expect(holder.Write(frameAt(keys, 10, 11))).To(BeTrue())
+			MustSucceed(holder.Commit())
+			Expect(other.EndDomain(channel.Keys{idx.Key()})).To(BeFalse())
+			Expect(other.Close()).To(Succeed())
+			Expect(holder.Close()).To(Succeed())
+		})
+		It("Should fail for a channel that is not an index", func(ctx SpecContext) {
+			idx, data := createIndexed(ctx, telem.Int64T)
+			w := openWriter(ctx, channel.Keys{idx.Key(), data.Key()})
+			Expect(w.EndDomain(channel.Keys{data.Key()})).Error().To(And(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("is not an index")),
+			))
+			Expect(w.Close()).To(MatchError(validate.ErrValidation))
+		})
+		It(
+			"Should fail for a key the writer was not opened with",
+			func(ctx SpecContext) {
+				idx, data := createIndexed(ctx, telem.Int64T)
+				other, _ := createIndexed(ctx, telem.Int64T)
+				w := openWriter(ctx, channel.Keys{idx.Key(), data.Key()})
+				Expect(w.EndDomain(channel.Keys{other.Key()})).Error().To(And(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("invalid key")),
+				))
+				Expect(w.Close()).To(MatchError(validate.ErrValidation))
+			},
+		)
+		It("Should fail with no keys", func(ctx SpecContext) {
+			idx, data := createIndexed(ctx, telem.Int64T)
+			w := openWriter(ctx, channel.Keys{idx.Key(), data.Key()})
+			Expect(w.EndDomain(nil)).Error().To(And(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("no indexes")),
+			))
+			Expect(w.Close()).To(MatchError(validate.ErrValidation))
 		})
 	})
 

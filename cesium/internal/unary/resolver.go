@@ -368,6 +368,13 @@ func (t *offsetTracker) publish(end telem.TimeStamp) {
 	})
 }
 
+// reset clears the tracker for a new session of samples.
+func (t *offsetTracker) reset() {
+	t.domainBytes = 0
+	t.domainOffsets = nil
+	t.sessionSamples = 0
+}
+
 // rollover is the OnRollover hook the tracker installs on its underlying
 // domain.Writer. It publishes the just-finished domain's accumulated offsets to the
 // cache, resets the per-domain fields, and advances currentStart to the new

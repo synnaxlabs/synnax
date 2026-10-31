@@ -65,10 +65,10 @@ func (c Config) Override(other Config) Config {
 
 // Controller controls access to a specified resource type over discrete time regions. A
 // Controller maintains a set of regions that occupy non-overlapping time ranges, except
-// that an unbounded region can overlap a bounded one. If the
-// controller is open with control.ConcurrencyExclusive, each region can only have one
-// subject, managed by a Gate, controlling it at a single time. Each region manages an
-// independent set of gates that bid for control over the resource using a mix of both
+// that an unbounded region can overlap a bounded one. If the controller is open with
+// control.ConcurrencyExclusive, each region can only have one subject, managed by a
+// Gate, controlling it at a single time. Each region manages an independent set of
+// gates that bid for control over the resource using a mix of both
 // first-come-first-serve precedence and specified control authorities
 // (control.Authority).
 type Controller[R Resource] struct {
@@ -260,6 +260,16 @@ func (c *Controller[R]) extend(r *region[R], start telem.TimeStamp) error {
 		return nil
 	}
 	return c.unsafeResize(r, start.Range(r.timeRange.End))
+}
+
+func (c *Controller[R]) advance(r *region[R], start telem.TimeStamp) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	r.Lock()
+	defer r.Unlock()
+	if !r.bounded && r.timeRange.Start.Before(start) && start.Before(r.timeRange.End) {
+		r.timeRange.Start = start
+	}
 }
 
 func (c *Controller[R]) reach(r *region[R], end telem.TimeStamp) error {

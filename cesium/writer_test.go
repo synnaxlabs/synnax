@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/alignment"
 	"github.com/synnaxlabs/cesium/internal/channel"
+	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/confluence"
@@ -3559,6 +3560,485 @@ var _ = Describe("Writer Behavior", func() {
 					},
 				)
 			})
+			Describe("End domain", func() {
+				var (
+					idx, data cesium.ChannelKey
+					keys      []cesium.ChannelKey
+				)
+				createPair := func(
+					ctx SpecContext,
+					dataType telem.DataType,
+				) (cesium.ChannelKey, cesium.ChannelKey) {
+					GinkgoHelper()
+					i, d := GenerateChannelKey(), GenerateChannelKey()
+					Expect(db.CreateChannel(
+						ctx,
+						cesium.Channel{
+							Key:      i,
+							Name:     "End domain index",
+							IsIndex:  true,
+							DataType: telem.TimestampT,
+						},
+						cesium.Channel{
+							Key:      d,
+							Name:     "End domain data",
+							Index:    i,
+							DataType: dataType,
+						},
+					)).To(Succeed())
+					return i, d
+				}
+				BeforeEach(func(ctx SpecContext) {
+					idx, data = createPair(ctx, telem.Int64T)
+					keys = []cesium.ChannelKey{idx, data}
+				})
+				frameOf := func(
+					i, d cesium.ChannelKey,
+					seconds ...telem.TimeStamp,
+				) telem.Frame[cesium.ChannelKey] {
+					stamps := make([]telem.TimeStamp, len(seconds))
+					values := make([]int64, len(seconds))
+					for j, s := range seconds {
+						stamps[j] = s * telem.SecondTS
+						values[j] = int64(s)
+					}
+					return telem.MultiFrame(
+						[]cesium.ChannelKey{i, d},
+						[]telem.Series{
+							telem.NewSeries(stamps),
+							telem.NewSeries(values),
+						},
+					)
+				}
+				frame := func(seconds ...telem.TimeStamp) telem.Frame[cesium.ChannelKey] {
+					return frameOf(idx, data, seconds...)
+				}
+				config := func(
+					key string,
+					channels []cesium.ChannelKey,
+					start telem.TimeStamp,
+					authority control.Authority,
+				) cesium.WriterConfig {
+					return cesium.WriterConfig{
+						ControlSubject: control.Subject{Key: key, Name: key},
+						Channels:       channels,
+						Start:          start,
+						Authorities:    []control.Authority{authority},
+						Sync:           new(true),
+					}
+				}
+				openLive := func(ctx SpecContext) *cesium.Writer {
+					GinkgoHelper()
+					return MustSucceed(db.OpenWriter(
+						ctx,
+						config("live", keys, 10*telem.SecondTS, 1),
+					))
+				}
+				backfill := func(
+					channels []cesium.ChannelKey,
+					start telem.TimeStamp,
+				) cesium.WriterConfig {
+					cfg := config(
+						"backfill",
+						channels,
+						start,
+						control.AuthorityAbsolute,
+					)
+					cfg.Mode = cesium.WriterModePersistOnly
+					return cfg
+				}
+				read := func(ctx SpecContext, key cesium.ChannelKey) telem.MultiSeries {
+					GinkgoHelper()
+					return MustSucceed(db.Read(ctx, telem.TimeRangeMax, key)).Get(key)
+				}
+
+				It(
+					"Should fill an outage while a live writer holds the channel",
+					func(ctx SpecContext) {
+						live := openLive(ctx)
+						Expect(live.Write(frame(10, 11))).To(BeTrue())
+						MustSucceed(live.Commit())
+						Expect(live.EndDomain(idx)).To(BeTrue())
+						Expect(live.Write(frame(20, 21))).To(BeTrue())
+						MustSucceed(live.Commit())
+						w := MustSucceed(
+							db.OpenWriter(ctx, backfill(keys, 12*telem.SecondTS)),
+						)
+						Expect(w.Write(frame(12, 13))).To(BeTrue())
+						MustSucceed(w.Commit())
+						Expect(w.Close()).To(Succeed())
+						Expect(live.Write(frame(22))).To(BeTrue())
+						MustSucceed(live.Commit())
+						Expect(live.Close()).To(Succeed())
+						series := read(ctx, data).Series
+						Expect(series).To(HaveLen(3))
+						Expect(series[0]).To(telem.MatchSeriesDataV[int64](10, 11))
+						Expect(series[1]).To(telem.MatchSeriesDataV[int64](12, 13))
+						Expect(series[2]).To(telem.MatchSeriesDataV[int64](20, 21, 22))
+					},
+				)
+				It(
+					"Should keep a data channel aligned with its index",
+					func(ctx SpecContext) {
+						live := openLive(ctx)
+						Expect(live.Write(frame(10, 11))).To(BeTrue())
+						Expect(live.EndDomain(idx)).To(BeTrue())
+						Expect(live.Write(frame(20, 21, 22))).To(BeTrue())
+						MustSucceed(live.Commit())
+						Expect(live.Close()).To(Succeed())
+						stamps, values := read(ctx, idx).Series, read(ctx, data).Series
+						Expect(stamps).To(HaveLen(2))
+						Expect(values).To(HaveLen(2))
+						Expect(stamps[0].TimeRange).To(Equal(values[0].TimeRange))
+						Expect(stamps[1].TimeRange).To(Equal(values[1].TimeRange))
+						Expect(stamps[0].Alignment).To(Equal(values[0].Alignment))
+						Expect(stamps[1].Alignment).To(Equal(values[1].Alignment))
+						Expect(stamps[1]).To(telem.MatchSeriesDataV(
+							20*telem.SecondTS,
+							21*telem.SecondTS,
+							22*telem.SecondTS,
+						))
+						Expect(values[1]).To(telem.MatchSeriesDataV[int64](20, 21, 22))
+					},
+				)
+				It(
+					"Should stream the next samples in a new alignment domain",
+					func(ctx SpecContext) {
+						live := openLive(ctx)
+						_, outlet, closer := openStreamer(
+							ctx,
+							db,
+							cesium.StreamerConfig{
+								Channels:    keys,
+								SendOpenAck: true,
+							},
+						)
+						defer func() { Expect(closer.Close()).To(Succeed()) }()
+						Eventually(outlet.Outlet()).Should(Receive())
+						Expect(live.Write(frame(10, 11))).To(BeTrue())
+						var first, second cesium.StreamerResponse
+						Eventually(outlet.Outlet()).Should(Receive(&first))
+						Expect(live.EndDomain(idx)).To(BeTrue())
+						Expect(live.Write(frame(20))).To(BeTrue())
+						Eventually(outlet.Outlet()).Should(Receive(&second))
+						before := first.Frame.Get(idx).Series[0].Alignment
+						after := second.Frame.Get(idx).Series[0].Alignment
+						Expect(
+							after.DomainIndex(),
+						).To(BeNumerically(">", before.DomainIndex()))
+						Expect(after.SampleIndex()).To(BeZero())
+						Expect(
+							second.Frame.Get(data).Series[0].Alignment,
+						).To(Equal(after))
+						Expect(live.Close()).To(Succeed())
+					},
+				)
+				It(
+					"Should free time only on the index that ended",
+					func(ctx SpecContext) {
+						idx2, data2 := createPair(ctx, telem.Int64T)
+						all := []cesium.ChannelKey{idx, data, idx2, data2}
+						both := func(seconds ...telem.TimeStamp) telem.Frame[cesium.ChannelKey] {
+							return frameOf(idx, data, seconds...).
+								Extend(frameOf(idx2, data2, seconds...))
+						}
+						live := MustSucceed(db.OpenWriter(
+							ctx,
+							config("live", all, 10*telem.SecondTS, 1),
+						))
+						Expect(live.Write(both(10, 11))).To(BeTrue())
+						MustSucceed(live.Commit())
+						Expect(live.EndDomain(idx)).To(BeTrue())
+						Expect(live.Write(both(20, 21))).To(BeTrue())
+						MustSucceed(live.Commit())
+						w := MustSucceed(
+							db.OpenWriter(ctx, backfill(keys, 12*telem.SecondTS)),
+						)
+						Expect(w.Close()).To(Succeed())
+						Expect(db.OpenWriter(
+							ctx,
+							backfill(
+								[]cesium.ChannelKey{idx2, data2},
+								12*telem.SecondTS,
+							),
+						)).Error().To(MatchError(control.ErrUnauthorized))
+						Expect(live.Close()).To(Succeed())
+						Expect(read(ctx, data).Series).To(HaveLen(2))
+						Expect(read(ctx, data2).Series).To(HaveLen(1))
+					},
+				)
+				openManual := func(ctx SpecContext) *cesium.Writer {
+					GinkgoHelper()
+					cfg := config("manual", keys, 10*telem.SecondTS, 1)
+					cfg.EnableAutoCommit = new(false)
+					return MustSucceed(db.OpenWriter(ctx, cfg))
+				}
+				It("Should commit samples before it ends", func(ctx SpecContext) {
+					live := openManual(ctx)
+					Expect(live.Write(frame(10, 11))).To(BeTrue())
+					Expect(live.EndDomain(idx)).To(BeTrue())
+					Expect(live.Close()).To(Succeed())
+					Expect(read(ctx, data).Series[0]).
+						To(telem.MatchSeriesDataV[int64](10, 11))
+				})
+				It(
+					"Should keep the last commit end until the next write",
+					func(ctx SpecContext) {
+						live := openManual(ctx)
+						Expect(live.Write(frame(10, 11))).To(BeTrue())
+						Expect(live.EndDomain(idx)).To(BeTrue())
+						Expect(live.Commit()).To(Equal(11*telem.SecondTS + 1))
+						Expect(live.Close()).To(Succeed())
+					},
+				)
+				It("Should end a domain only once", func(ctx SpecContext) {
+					live := openLive(ctx)
+					Expect(live.Write(frame(10, 11))).To(BeTrue())
+					Expect(live.EndDomain(idx)).To(BeTrue())
+					Expect(live.EndDomain(idx)).To(BeTrue())
+					Expect(live.Write(frame(20))).To(BeTrue())
+					MustSucceed(live.Commit())
+					Expect(live.Close()).To(Succeed())
+					Expect(read(ctx, data).Series).To(HaveLen(2))
+				})
+				It(
+					"Should end the domain of a variable channel",
+					func(ctx SpecContext) {
+						idx2, text := createPair(ctx, telem.StringT)
+						strings := func(
+							values []string,
+							seconds ...telem.TimeStamp,
+						) telem.Frame[cesium.ChannelKey] {
+							for j := range seconds {
+								seconds[j] *= telem.SecondTS
+							}
+							return telem.MultiFrame(
+								[]cesium.ChannelKey{idx2, text},
+								[]telem.Series{
+									telem.NewSeries(seconds),
+									telem.NewSeriesV(values...),
+								},
+							)
+						}
+						live := MustSucceed(db.OpenWriter(ctx, config(
+							"live",
+							[]cesium.ChannelKey{idx2, text},
+							10*telem.SecondTS,
+							1,
+						)))
+						Expect(
+							live.Write(strings([]string{"a", "bb"}, 10, 11)),
+						).To(BeTrue())
+						Expect(live.EndDomain(idx2)).To(BeTrue())
+						Expect(live.Write(strings([]string{"ccc"}, 20))).To(BeTrue())
+						MustSucceed(live.Commit())
+						Expect(live.Close()).To(Succeed())
+						series := read(ctx, text).Series
+						Expect(series).To(HaveLen(2))
+						Expect(series[0]).To(telem.MatchSeriesDataV("a", "bb"))
+						Expect(series[1]).To(telem.MatchSeriesDataV("ccc"))
+					},
+				)
+				It(
+					"Should leave the domain of another writer alone",
+					func(ctx SpecContext) {
+						lo := openLive(ctx)
+						hi := MustSucceed(db.OpenWriter(
+							ctx,
+							config("hi", keys, 10*telem.SecondTS, 2),
+						))
+						Expect(hi.Write(frame(10, 11))).To(BeTrue())
+						MustSucceed(hi.Commit())
+						Expect(lo.EndDomain(idx)).To(BeFalse())
+						Expect(hi.Write(frame(12))).To(BeTrue())
+						MustSucceed(hi.Commit())
+						Expect(hi.Close()).To(Succeed())
+						Expect(lo.Close()).To(Succeed())
+						Expect(read(ctx, data).Series).To(HaveLen(1))
+					},
+				)
+				It(
+					"Should end no domain of a group it does not fully control",
+					func(ctx SpecContext) {
+						first, second := GenerateChannelKey(), GenerateChannelKey()
+						Expect(db.CreateChannel(
+							ctx,
+							cesium.Channel{
+								Key:      first,
+								Name:     "End domain first",
+								Index:    idx,
+								DataType: telem.Int64T,
+							},
+							cesium.Channel{
+								Key:      second,
+								Name:     "End domain second",
+								Index:    idx,
+								DataType: telem.Int64T,
+							},
+						)).To(Succeed())
+						all := []cesium.ChannelKey{idx, first, data, second}
+						values := telem.NewSeriesV[int64](1)
+						frameAt := func(at telem.TimeStamp) telem.Frame[cesium.ChannelKey] {
+							return telem.MultiFrame(all, []telem.Series{
+								telem.NewSeriesSecondsTSV(at),
+								values,
+								values,
+								values,
+							})
+						}
+						live := MustSucceed(db.OpenWriter(
+							ctx,
+							config("live", all, 10*telem.SecondTS, 1),
+						))
+						Expect(live.Write(frameAt(10))).To(BeTrue())
+						MustSucceed(live.Commit())
+						hi := MustSucceed(db.OpenWriter(ctx, config(
+							"hi",
+							[]cesium.ChannelKey{data},
+							10*telem.SecondTS,
+							2,
+						)))
+						Expect(live.EndDomain(idx)).To(BeFalse())
+						Expect(hi.Close()).To(Succeed())
+						Expect(live.Write(frameAt(20))).To(BeTrue())
+						MustSucceed(live.Commit())
+						Expect(live.Close()).To(Succeed())
+						for _, key := range all {
+							Expect(read(ctx, key).Series).To(HaveLen(1))
+						}
+					},
+				)
+				It(
+					"Should start a new domain for a writer that takes control back",
+					func(ctx SpecContext) {
+						lo := openLive(ctx)
+						Expect(lo.Write(frame(10, 11))).To(BeTrue())
+						MustSucceed(lo.Commit())
+						hi := MustSucceed(db.OpenWriter(
+							ctx,
+							config("hi", keys, 10*telem.SecondTS, 2),
+						))
+						Expect(hi.Write(frame(12))).To(BeTrue())
+						Expect(hi.EndDomain(idx)).To(BeTrue())
+						Expect(hi.Close()).To(Succeed())
+						Expect(lo.Write(frame(20, 21))).To(BeTrue())
+						MustSucceed(lo.Commit())
+						Expect(lo.Close()).To(Succeed())
+						series := read(ctx, data).Series
+						Expect(series).To(HaveLen(2))
+						Expect(series[0]).To(telem.MatchSeriesDataV[int64](10, 11, 12))
+						Expect(series[1]).To(telem.MatchSeriesDataV[int64](20, 21))
+					},
+				)
+				It(
+					"Should ignore a key the writer does not write",
+					func(ctx SpecContext) {
+						live := openLive(ctx)
+						Expect(live.Write(frame(10, 11))).To(BeTrue())
+						MustSucceed(live.Commit())
+						Expect(live.EndDomain(GenerateChannelKey())).To(BeTrue())
+						Expect(live.Write(frame(12))).To(BeTrue())
+						MustSucceed(live.Commit())
+						Expect(live.Close()).To(Succeed())
+						Expect(read(ctx, data).Series).To(HaveLen(1))
+					},
+				)
+				It(
+					"Should keep the domain of a group that does not write its index",
+					func(ctx SpecContext) {
+						stamps := MustSucceed(db.OpenWriter(ctx, config(
+							"index",
+							[]cesium.ChannelKey{idx},
+							10*telem.SecondTS,
+							1,
+						)))
+						Expect(stamps.Write(telem.MultiFrame(
+							[]cesium.ChannelKey{idx},
+							[]telem.Series{telem.NewSeriesSecondsTSV(10, 11, 12)},
+						))).To(BeTrue())
+						MustSucceed(stamps.Commit())
+						Expect(stamps.Close()).To(Succeed())
+						dataOnly := MustSucceed(db.OpenWriter(ctx, config(
+							"data only",
+							[]cesium.ChannelKey{data},
+							10*telem.SecondTS,
+							1,
+						)))
+						valueFrame := func(values ...int64) telem.Frame[cesium.ChannelKey] {
+							return telem.MultiFrame(
+								[]cesium.ChannelKey{data},
+								[]telem.Series{telem.NewSeriesV(values...)},
+							)
+						}
+						Expect(dataOnly.Write(valueFrame(1, 2))).To(BeTrue())
+						MustSucceed(dataOnly.Commit())
+						Expect(dataOnly.EndDomain(idx)).To(BeTrue())
+						Expect(dataOnly.Write(valueFrame(3))).To(BeTrue())
+						MustSucceed(dataOnly.Commit())
+						Expect(dataOnly.Close()).To(Succeed())
+						series := read(ctx, data).Series
+						Expect(series).To(HaveLen(1))
+						Expect(series[0]).To(telem.MatchSeriesDataV[int64](1, 2, 3))
+					},
+				)
+				It(
+					"Should end the indexes it controls when it lost another",
+					func(ctx SpecContext) {
+						idx2, data2 := createPair(ctx, telem.Int64T)
+						idx3, data3 := createPair(ctx, telem.Int64T)
+						all := []cesium.ChannelKey{idx, data, idx2, data2, idx3, data3}
+						frames := func(seconds telem.TimeStamp) telem.Frame[cesium.ChannelKey] {
+							return frame(seconds).Extend(
+								frameOf(idx2, data2, seconds),
+								frameOf(idx3, data3, seconds),
+							)
+						}
+						live := MustSucceed(db.OpenWriter(
+							ctx,
+							config("live", all, 10*telem.SecondTS, 1),
+						))
+						Expect(live.Write(frames(10))).To(BeTrue())
+						MustSucceed(live.Commit())
+						hi := MustSucceed(db.OpenWriter(
+							ctx,
+							config("hi", keys, 10*telem.SecondTS, 2),
+						))
+						Expect(live.EndDomain(idx, idx2, idx3)).To(BeFalse())
+						Expect(hi.Close()).To(Succeed())
+						Expect(live.Write(frames(20))).To(BeTrue())
+						MustSucceed(live.Commit())
+						Expect(live.Close()).To(Succeed())
+						Expect(read(ctx, idx).Series).To(HaveLen(1))
+						Expect(read(ctx, idx2).Series).To(HaveLen(2))
+						Expect(read(ctx, idx3).Series).To(HaveLen(2))
+					},
+				)
+				It("Should do nothing in stream only mode", func(ctx SpecContext) {
+					cfg := config("stream", keys, 10*telem.SecondTS, 1)
+					cfg.Mode = cesium.WriterModeStreamOnly
+					w := MustSucceed(db.OpenWriter(ctx, cfg))
+					Expect(w.Write(frame(10, 11))).To(BeTrue())
+					Expect(w.EndDomain(idx)).To(BeTrue())
+					Expect(w.Close()).To(Succeed())
+					Expect(read(ctx, data).Series).To(BeEmpty())
+				})
+				It(
+					"Should fail when the next sample falls in the ended domain",
+					func(ctx SpecContext) {
+						live := openLive(ctx)
+						Expect(live.Write(frame(10, 12))).To(BeTrue())
+						Expect(live.EndDomain(idx)).To(BeTrue())
+						Expect(live.Write(frame(11))).Error().To(And(
+							MatchError(domain.ErrWriteConflict),
+							MatchError(ContainSubstring(
+								"cannot start writer because there is already data",
+							)),
+						))
+						Expect(live.Close()).To(MatchError(domain.ErrWriteConflict))
+					},
+				)
+			})
+
 			Describe("Open Errors", func() {
 				Specify("Channel that does not exist", func(ctx SpecContext) {
 					_, err := db.OpenWriter(
