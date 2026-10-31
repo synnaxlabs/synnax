@@ -46,7 +46,9 @@ export const renderBar = async (
   const { wrapper, store } = await createConsoleWrapper({ client: as, preloadedState });
   let rendered!: RenderResult;
   await act(async () => {
-    rendered = render(createElement(Notifications.Provider, null, ui), { wrapper });
+    rendered = render(createElement(Notifications.Provider, { rules: {} }, ui), {
+      wrapper,
+    });
   });
   return { ...rendered, store };
 };

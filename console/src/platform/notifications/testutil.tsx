@@ -111,9 +111,8 @@ export const close = async (message: string): Promise<void> => {
 };
 
 /**
- * Runs {@link Notifications.useForward} for the rules inside a
- * {@link Notifications.Provider}, and renders the UI above {@link UncappedFeed}. Waits
- * until the forwarder has loaded the open problems. A problem that starts before the
+ * Renders the UI above {@link UncappedFeed} inside a {@link Notifications.Provider} with
+ * the rules. Waits until the forwarder has loaded the open problems. A problem that starts before the
  * load ends counts as open at load.
  * @returns the result of {@link Notifications.useProblems}.
  */
@@ -126,18 +125,14 @@ export const renderForward = async (
   const { wrapper: Console } = await createConsoleWrapper({ client });
   const wrapper = ({ children }: PropsWithChildren): ReactElement => (
     <Console>
-      <Notifications.Provider>
+      <Notifications.Provider rules={rules}>
         {children}
         {ui}
         <UncappedFeed />
       </Notifications.Provider>
     </Console>
   );
-  const useForwardProblems = (): Notifications.Problem[] => {
-    Notifications.useForward(rules);
-    return Notifications.useProblems();
-  };
-  const rendered = renderHook(useForwardProblems, { wrapper });
+  const rendered = renderHook(Notifications.useProblems, { wrapper });
   await settleWrites(client);
   return rendered;
 };
