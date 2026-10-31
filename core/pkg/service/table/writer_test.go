@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
+	"github.com/synnaxlabs/x/union"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -118,6 +119,39 @@ var _ = Describe("Writer", func() {
 	})
 
 	Describe("Dispatch", func() {
+		It(
+			"Should reject an action that leaves the table invalid",
+			func(ctx SpecContext) {
+				s := table.Table{Name: "test"}
+				Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &s)).To(Succeed())
+				Expect(svc.Dispatch(ctx, s.Key, "dk-1", []table.Action{
+					table.NewRenameAction(table.RenamePayload{}),
+				})).To(MatchError(ContainSubstring("name: required")))
+				Expect(retrieve(ctx, s.Key).Name).To(Equal("test"))
+			},
+		)
+
+		It("Should reject an action with no payload", func(ctx SpecContext) {
+			s := seed(ctx)
+			Expect(svc.Dispatch(ctx, s.Key, "dk-1", []table.Action{
+				{Type: table.ActionTypeRename},
+			})).To(MatchError(union.ErrMissingPayload))
+			Expect(retrieve(ctx, s.Key).Name).To(Equal("test"))
+		})
+
+		It("Should reject an action that duplicates a row key", func(ctx SpecContext) {
+			s := seed(ctx)
+			Expect(svc.Dispatch(ctx, s.Key, "dk-1", []table.Action{
+				table.NewAddRowAction(
+					table.AddRowPayload{Index: 1, Key: "r0", Size: 30},
+				),
+			})).To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring(`duplicate row key "r0"`)),
+			))
+			Expect(retrieve(ctx, s.Key).Rows).To(HaveLen(1))
+		})
+
 		It("Should rename a Table via a Rename action", func(ctx SpecContext) {
 			s := table.Table{Name: "test"}
 			Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &s)).To(Succeed())

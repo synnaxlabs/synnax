@@ -169,7 +169,8 @@ func (s *Service) OnAction(
 // overwrite each other's edits. dispatchKey is a client-generated identifier carried
 // verbatim onto the broadcast so the originating client can recognize its own echo.
 // Snapshots are immutable except for Rename: returns validate.ErrValidation if the
-// target is a snapshot and any action other than Rename is included.
+// target is a snapshot and any action other than Rename is included. Also returns a
+// validation error, and stores nothing, if the actions leave the schematic invalid.
 func (s *Service) Dispatch(
 	ctx context.Context,
 	key Key,
@@ -192,7 +193,14 @@ func (s *Service) Dispatch(
 						}
 					}
 				}
-				return Reduce(sch, acts...)
+				reduced, err := Reduce(sch, acts...)
+				if err != nil {
+					return Schematic{}, err
+				}
+				if err = reduced.Validate(); err != nil {
+					return Schematic{}, err
+				}
+				return reduced, nil
 			}).Exec(ctx, tx)
 	})
 }

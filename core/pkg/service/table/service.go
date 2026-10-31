@@ -150,6 +150,8 @@ func (s *Service) OnAction(
 // committed before the actions are notified, so two concurrent dispatches can never
 // overwrite each other's edits. dispatchKey is a client-generated identifier carried
 // verbatim onto the broadcast so the originating client can recognize its own echo.
+// Returns a validation error, and stores nothing, if the actions leave the table
+// invalid.
 func (s *Service) Dispatch(
 	ctx context.Context,
 	key Key,
@@ -159,7 +161,17 @@ func (s *Service) Dispatch(
 	return s.state.Dispatch(ctx, key, dispatchKey, acts, func(tx gorp.Tx) error {
 		return s.table.NewUpdate().Where(gorp.MatchKeys[Key, Table](key)).
 			ChangeErr(func(_ gorp.Context, t Table) (Table, error) {
-				return Reduce(t, acts...)
+				reduced, err := Reduce(t, acts...)
+				if err != nil {
+					return Table{}, err
+				}
+				if err = reduced.Validate(); err != nil {
+					return Table{}, err
+				}
+				if err = validateUniqueKeys(reduced); err != nil {
+					return Table{}, err
+				}
+				return reduced, nil
 			}).Exec(ctx, tx)
 	})
 }

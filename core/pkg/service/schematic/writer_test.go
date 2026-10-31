@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/spatial"
+	"github.com/synnaxlabs/x/union"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -58,6 +59,35 @@ var _ = Describe("Writer", func() {
 		})
 	})
 	Describe("Dispatch", func() {
+		It(
+			"Should reject an action that leaves the schematic invalid",
+			func(ctx SpecContext) {
+				s := schematic.Schematic{Name: "test"}
+				Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &s)).To(Succeed())
+				Expect(
+					svc.Dispatch(ctx, s.Key, "session-1", []schematic.Action{
+						schematic.NewRenameAction(schematic.RenamePayload{}),
+					}),
+				).To(MatchError(ContainSubstring("name: required")))
+				var res schematic.Schematic
+				Expect(
+					svc.NewRetrieve().
+						Where(schematic.MatchKeys(s.Key)).
+						Entry(&res).
+						Exec(ctx, tx),
+				).To(Succeed())
+				Expect(res.Name).To(Equal("test"))
+			},
+		)
+		It("Should reject an action with no payload", func(ctx SpecContext) {
+			s := schematic.Schematic{Name: "test"}
+			Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &s)).To(Succeed())
+			Expect(
+				svc.Dispatch(ctx, s.Key, "session-1", []schematic.Action{
+					{Type: schematic.ActionTypeRename},
+				}),
+			).To(MatchError(union.ErrMissingPayload))
+		})
 		It("Should apply a single SetNodePosition action", func(ctx SpecContext) {
 			s := schematic.Schematic{
 				Name: "test",

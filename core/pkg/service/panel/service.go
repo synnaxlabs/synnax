@@ -124,6 +124,8 @@ func (s *Service) OnAction(
 // committed before the actions are notified, so two concurrent dispatches can never
 // overwrite each other's edits. dispatchKey is a client-generated identifier carried
 // verbatim onto the broadcast so the originating client can recognize its own echo.
+// Returns a validation error, and stores nothing, if the actions leave the panel
+// invalid.
 func (s *Service) Dispatch(
 	ctx context.Context,
 	key Key,
@@ -135,9 +137,15 @@ func (s *Service) Dispatch(
 			ChangeErr(func(_ gorp.Context, p Panel) (Panel, error) {
 				reduced, err := Reduce(p, acts...)
 				if err != nil {
-					return reduced, err
+					return Panel{}, err
 				}
-				return reduced, validateTree(reduced.Root)
+				if err = validateTree(reduced.Root); err != nil {
+					return Panel{}, err
+				}
+				if err = reduced.Validate(); err != nil {
+					return Panel{}, err
+				}
+				return reduced, nil
 			}).Exec(ctx, tx)
 	})
 }
