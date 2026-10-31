@@ -15,7 +15,7 @@ from playwright.sync_api import Locator, expect
 import synnax as sy
 from console.channels import ChannelClient
 from console.layout import LayoutClient
-from console.page import ConsolePage
+from console.page import ConsolePage, PageType
 
 Axis = Literal["Y1", "Y2", "X1"]
 
@@ -23,7 +23,7 @@ Axis = Literal["Y1", "Y2", "X1"]
 class Plot(ConsolePage):
     """Plot page management interface"""
 
-    page_type = "Line plot"
+    page_type: PageType = "Line plot"
     pluto_label: str = ".pluto-line-plot"
 
     def __init__(

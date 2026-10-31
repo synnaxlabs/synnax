@@ -10,8 +10,8 @@
 import { id } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { AccessDeniedError } from "@/errors";
 import { group } from "@/group";
+import { AccessDeniedError } from "@/index";
 import { ontology } from "@/ontology";
 import { createTestClient, createTestClientWithPolicy } from "@/testutil";
 

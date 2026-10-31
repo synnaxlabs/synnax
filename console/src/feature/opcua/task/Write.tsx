@@ -29,12 +29,7 @@ import { ContextMenu } from "@/platform/context-menu";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-const Properties = () => (
-  <>
-    <Device.Select />
-    <Task.Fields.AutoStart />
-  </>
-);
+const Properties = () => <Device.Select />;
 
 const convertHaulItemToChannel = ({ data }: Device.HaulItem): WriteChannel => ({
   key: data.nodeId,
@@ -171,6 +166,7 @@ export const Write = Task.wrapForm({
 
 export const useCreateWrite = Task.createUseCreate({
   getInitialValues,
+  deviceMake: Device.MAKE,
 });
 
 export const WriteSelectable = Selector.createSelectable({

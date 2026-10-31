@@ -104,6 +104,32 @@ the description.
 
 </Edition.Enterprise>
 
+### `... tasks do not run on ...`
+
+<Edition.Enterprise>
+
+<Problem.Body>
+<Problem.Cause>
+
+The Driver that holds the task runs on an operating system that cannot run the
+integration of the task. NI tasks do not run on macOS, LabJack tasks do not run on
+Linux, and Modbus tasks do not run on NI Linux RT. When you start the task, it shows
+"Failed to configure task", with this text in the description. A task stays on the
+Driver of its device.
+
+</Problem.Cause>
+<Problem.Fix>
+
+1. Connect the device again, with **Connect from** set to a Driver that runs the
+   integration. See
+   [supported integrations](/reference/hardware#supported-integrations).
+2. Create the task again on the new device.
+
+</Problem.Fix>
+</Problem.Body>
+
+</Edition.Enterprise>
+
 ### `No integration on this Driver runs ... tasks`
 
 <Problem.Body>
@@ -140,8 +166,9 @@ device to select shows "No devices connected" in its device list.
   a name in NI MAX. The Driver also skips CompactRIO controllers, but it finds the
   modules in them.
 - **Vendor software** -> NI devices need NI-DAQmx, LabJack devices need LJM, and
-  EtherCAT on Windows needs Npcap. See the setup page of the integration. Install the
-  software, then [restart the Driver](#restart-the-driver).
+  EtherCAT on Windows needs Npcap. See the setup page of the integration. NI and LabJack
+  devices show after the next scan. After you install Npcap,
+  [restart the Driver](#restart-the-driver).
 - **Operating system** -> NI devices do not work on macOS. LabJack devices work on
   Windows and macOS only. See
   [supported integrations](/reference/hardware#supported-integrations).
@@ -197,8 +224,7 @@ The Driver cannot connect to a Modbus, OPC UA, or HTTP device.
 
 The Driver cannot load a vendor library. The task shows "Failed to configure task", or
 the device finder shows "Failed to scan for devices". The description names the library,
-for example "LabJack LJM shared library is not installed". NI tasks never work on macOS,
-and LabJack tasks never work on Linux.
+for example "LabJack LJM shared library is not installed".
 
 </Problem.Cause>
 <Problem.Fix>

@@ -60,9 +60,7 @@ const Properties = () => (
         label="Rate"
         inputProps={RATE_INPUT_PROPS}
       />
-      <Task.Fields.DataSaving />
-      <Task.Fields.AutoStart />
-      <PForm.SwitchField
+      <PForm.CheckboxField
         label="NaN fill"
         path="config.nanFillEnabled"
         inputProps={NAN_FILL_INPUT_PROPS}
@@ -509,6 +507,7 @@ export const Read = Task.wrapForm({
 
 export const useCreateRead = Task.createUseCreate({
   getInitialValues,
+  deviceMake: Device.MAKE,
 });
 
 export const ReadSelectable = Selector.createSelectable({

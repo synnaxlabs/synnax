@@ -13,14 +13,18 @@ import {
   math,
   type NumberArray,
   Series,
+  TimeRange,
 } from "@synnaxlabs/x";
 
-import { type DrawOperation } from "@/vis/line/aether/draw";
+import { type DrawOperation, touching } from "@/vis/line/aether/draw";
 
 interface Points {
   xs: number[];
   ys: number[];
 }
+
+// The series a pair draws. Its span moves as a live series closes, so it never caches.
+type Drawn = Omit<DrawOperation, "span">;
 
 const SAMPLE_INDEX_MASK = 0xffffffffn;
 
@@ -150,7 +154,7 @@ class Pair {
   private complete: Points = { xs: [], ys: [] };
   private count = 0;
   private available = 0;
-  private drawn: DrawOperation | null = null;
+  private drawn: Drawn | null = null;
 
   constructor(
     op: DrawOperation,
@@ -169,9 +173,9 @@ class Pair {
   /**
    * @param chain - The op, then the ops that continue it, up to groupSize samples past
    * its end where they exist.
-   * @param preceded - Whether an op ends where this op starts.
+   * @param preceded - Whether an op that the op continues ends where it starts.
    */
-  update(chain: DrawOperation[], preceded: boolean): DrawOperation {
+  update(chain: DrawOperation[], preceded: boolean): Drawn {
     const { groupSize } = this;
     const { count } = chain[0];
     const origin = this.originOf(preceded);
@@ -304,7 +308,8 @@ class Pair {
 }
 
 // Returns the op, then the ops that continue it, until they hold groupSize samples past
-// its end.
+// its end. The chain stops where the ops stop touching in time, since block alignment
+// goes on across a restart.
 const chainOf = (
   op: DrawOperation,
   after: Map<bigint, DrawOperation>,
@@ -312,11 +317,13 @@ const chainOf = (
 ): DrawOperation[] => {
   const chain = [op];
   let samples = op.count;
-  let next = after.get(endOf(op));
-  while (next != null && samples < op.count + groupSize) {
+  let last = op;
+  let next = after.get(endOf(last));
+  while (next != null && touching(last, next) && samples < op.count + groupSize) {
     chain.push(next);
     samples += next.count;
-    next = after.get(endOf(next));
+    last = next;
+    next = after.get(endOf(last));
   }
   return chain;
 };
@@ -329,9 +336,10 @@ const chainOf = (
  * first sample of a group, and average keeps the mean of x and the mean of y. A group
  * only partly inside the ops reduces the samples it holds.
  *
- * Ops whose alignments continue one another reduce as one run of samples. The op a
- * group starts in draws it, and the first op of a run also draws the group it starts
- * inside.
+ * Ops that continue one another in alignment and touch in time reduce as one run of
+ * samples. The op a group starts in draws it, and the first op of a run also draws the
+ * group it starts inside. An op that draws no group gives its span to the op before it,
+ * so the two ops around it still touch.
  *
  * A reduced pair starts at the alignment of its first group and steps groupSize / 2 per
  * point for min_max, or groupSize otherwise. It holds the GL data type, and keeps the
@@ -362,11 +370,11 @@ export class Reducer {
     }
     if (groupSize < 2) return ops;
     const after = new Map<bigint, DrawOperation>();
-    const ends = new Set<bigint>();
+    const before = new Map<bigint, DrawOperation>();
     for (const op of ops) {
       if (!isFullResolution(op)) continue;
       if (!after.has(startOf(op))) after.set(startOf(op), op);
-      ends.add(endOf(op));
+      before.set(endOf(op), op);
     }
     const drawn = new Set<Pair>();
     const out: DrawOperation[] = [];
@@ -375,7 +383,8 @@ export class Reducer {
         out.push(op);
         continue;
       }
-      const preceded = ends.has(startOf(op));
+      const prev = before.get(startOf(op));
+      const preceded = prev != null && touching(prev, op);
       let byY = this.pairs.get(op.x);
       if (byY == null) {
         byY = new Map();
@@ -388,7 +397,13 @@ export class Reducer {
       }
       drawn.add(pair);
       const reduced = pair.update(chainOf(op, after, groupSize), preceded);
-      if (reduced.count > 0) out.push(reduced);
+      const last = out.at(-1);
+      if (reduced.count > 0) out.push({ ...reduced, span: op.span });
+      else if (last != null && touching(last, op))
+        out[out.length - 1] = {
+          ...last,
+          span: new TimeRange(last.span.start, op.span.end),
+        };
     }
     for (const [x, byY] of this.pairs) {
       for (const [y, pair] of byY)

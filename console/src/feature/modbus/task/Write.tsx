@@ -42,15 +42,7 @@ import { CSS } from "@/platform/css";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-const Properties = () => (
-  <>
-    <Device.Select />
-    <Flex.Box x grow>
-      <Task.Fields.DataSaving />
-      <Task.Fields.AutoStart />
-    </Flex.Box>
-  </>
-);
+const Properties = () => <Device.Select />;
 
 const ChannelListItem = (props: Task.ChannelListItemProps) => {
   const { itemKey } = props;
@@ -308,6 +300,7 @@ export const Write = Task.wrapForm({
 
 export const useCreateWrite = Task.createUseCreate({
   getInitialValues,
+  deviceMake: Device.MAKE,
 });
 
 export const WriteSelectable = Selector.createSelectable({

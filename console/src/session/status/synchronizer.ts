@@ -7,17 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Status } from "@synnaxlabs/lyra/status";
-
 import { type Action, removeFavorites, type StoreState } from "@/session/status/slice";
 import { Synchronizer } from "@/session/synchronizer";
-
-// Statuses the Core raises while connected surface as notifications. Nothing is
-// repaired at a boundary: a notification missed during a gap has no state behind it.
-const useForwardStatuses: Synchronizer.Use<StoreState, Action> = () => {
-  const addStatus = Status.useAdder();
-  return { listen: ({ client }) => client.statuses.onSet(addStatus) };
-};
 
 export const SYNCHRONIZERS: Synchronizer.Synchronizers<StoreState, Action> = [
   Synchronizer.createRemover<StoreState, Action>({
@@ -26,5 +17,4 @@ export const SYNCHRONIZERS: Synchronizer.Synchronizers<StoreState, Action> = [
     selectKeys: (state: StoreState) => state.status.favorites,
     remove: (keys) => removeFavorites(keys),
   }),
-  { name: "forward statuses to notifications", use: useForwardStatuses },
 ];
