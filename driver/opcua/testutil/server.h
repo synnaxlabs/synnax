@@ -613,6 +613,17 @@ public:
         });
     }
 
+    /// @brief adds the Pump object with the starting values of pump to the running
+    /// server, as a server that loads a model while it runs does. Blocks until the
+    /// server adds it.
+    void add_pump(const Pump &pump) {
+        std::unique_lock lock(this->added_mu);
+        this->added_pump = pump;
+        this->added_cv.wait(lock, [this] {
+            return !this->added_pump.has_value() || !this->ready;
+        });
+    }
+
     /// @brief sets the EventNotifier attribute of the Pump object on the running
     /// server. Blocks until the server sets it.
     void set_pump_event_notifier(const UA_Byte value) {
@@ -772,8 +783,8 @@ public:
         );
     }
 
-    /// @brief adds the object that ServerConfig::pump describes.
-    void add_pump(UA_Server *server, const Pump &pump) {
+    /// @brief adds the Pump object with the starting values of pump.
+    void add_pump_node(UA_Server *server, const Pump &pump) {
         UA_ObjectAttributes attr = UA_ObjectAttributes_default;
         attr.displayName = UA_LOCALIZEDTEXT(
             const_cast<char *>("en-US"),
@@ -878,6 +889,7 @@ private:
     std::condition_variable added_cv;
     std::vector<std::pair<std::string, std::vector<TestNode>>> added;
     std::optional<Motor> added_motor;
+    std::optional<Pump> added_pump;
     std::optional<UA_Byte> added_event_notifier;
 
     static void add_node(UA_Server *server, const TestNode &node) {
@@ -1007,8 +1019,8 @@ private:
         UA_Server_addReference(server, inner, UA_NS0ID(ORGANIZES), target, true);
     }
 
-    /// @brief applies what add_namespace, add_motor, and set_pump_event_notifier asked
-    /// for.
+    /// @brief applies what add_namespace, add_motor, add_pump, and
+    /// set_pump_event_notifier asked for.
     void add_requested(UA_Server *server, const UA_DataType &motor_type) {
         std::lock_guard lock(this->added_mu);
         for (auto &[uri, nodes]: this->added) {
@@ -1022,6 +1034,10 @@ private:
         if (this->added_motor.has_value()) {
             add_motor_node(server, motor_type, *this->added_motor);
             this->added_motor.reset();
+        }
+        if (this->added_pump.has_value()) {
+            add_pump_node(server, *this->added_pump);
+            this->added_pump.reset();
         }
         if (this->added_event_notifier.has_value()) {
             UA_Server_writeEventNotifier(server, PUMP, *this->added_event_notifier);
@@ -1158,7 +1174,7 @@ public:
 
         if (cfg.generated_variables > 0 || cfg.generated_folders > 0)
             add_generated(server, cfg.generated_variables, cfg.generated_folders);
-        if (cfg.pump.has_value()) add_pump(server, *cfg.pump);
+        if (cfg.pump.has_value()) add_pump_node(server, *cfg.pump);
         add_event_type(server);
         const auto refresh = UA_NS0ID(CONDITIONTYPE_CONDITIONREFRESH);
         UA_Server_setMethodNodeCallback(server, refresh, count_refresh);
@@ -1192,6 +1208,7 @@ public:
             std::lock_guard lock(this->added_mu);
             this->added.clear();
             this->added_motor.reset();
+            this->added_pump.reset();
             this->added_event_notifier.reset();
         }
         this->added_cv.notify_all();

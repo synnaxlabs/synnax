@@ -1048,6 +1048,30 @@ TEST_F(TestWriteTask, testRejectsFailedMethod) {
     ASSERT_NIL(sink->stop());
 }
 
+/// @brief it should convert the arguments of a method that the server adds after the
+/// task starts to their declared types, on the same Session.
+TEST_F(TestWriteTask, testMethodAddedAfterStart) {
+    server->stop();
+    server->cfg.pump.reset();
+    server->start();
+    ASSERT_TRUE(server->wait_until_ready());
+    const auto sink = this->create_method_sink(
+        "NS=1;S=Pump.SetSpeed",
+        {{{"source", "value"}, {"value", "5"}}}
+    );
+    ASSERT_NIL(sink->start());
+    auto fr = this->method_command(1);
+    ASSERT_OCCURRED_AS(sink->write(fr), errors::COMMAND_REJECTED);
+    const auto sessions = server->sessions_created.load();
+    server->add_pump(testutil::Pump{});
+    ASSERT_NIL(sink->write(fr));
+    EXPECT_EQ(server->sessions_created.load(), sessions);
+    const auto client = ASSERT_NIL_P(connection::connect(conn_cfg, {}, "[test] "));
+    const auto speed = ASSERT_NIL_P(testutil::simple_read(client, "NS=1;S=Pump.Speed"));
+    EXPECT_EQ(speed.at<double>(0), 5);
+    ASSERT_NIL(sink->stop());
+}
+
 /// @brief it should not call a method again when the call times out, since the server
 /// might have run it.
 TEST_F(TestWriteTask, testDoesNotResendTimedOutCall) {
