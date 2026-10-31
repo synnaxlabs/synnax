@@ -34,7 +34,7 @@ import {
   certificatesResponseZ,
   GET_CERTIFICATE_COMMAND_TYPE,
   REGENERATE_CERTIFICATE_COMMAND_TYPE,
-} from "@/feature/opcua/task/types";
+} from "@/feature/opcua/device/scan";
 import { Modals } from "@/platform/modals";
 import { Runtime } from "@/platform/runtime";
 

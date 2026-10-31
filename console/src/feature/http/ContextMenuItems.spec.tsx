@@ -57,7 +57,7 @@ const renderContextMenuItems = async () => {
   };
   render(
     <PMenu.Menu>
-      <HTTP.Device.ContextMenuItems {...props} />
+      <HTTP.ContextMenuItems {...props} />
     </PMenu.Menu>,
     { wrapper },
   );

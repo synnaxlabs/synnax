@@ -25,6 +25,10 @@ import {
 } from "@/feature/opcua/device/Certificate";
 import { retrieveScanTask } from "@/feature/opcua/device/retrieveScanTask";
 import {
+  type CertificateInfo,
+  TEST_CONNECTION_COMMAND_TYPE,
+} from "@/feature/opcua/device/scan";
+import {
   SelectSecurityMode,
   type SelectSecurityModeProps,
 } from "@/feature/opcua/device/SelectSecurityMode";
@@ -42,10 +46,6 @@ import {
   type SecurityPolicy,
   ZERO_PROPERTIES,
 } from "@/feature/opcua/device/types";
-import {
-  type CertificateInfo,
-  TEST_CONNECTION_COMMAND_TYPE,
-} from "@/feature/opcua/task/types";
 import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";

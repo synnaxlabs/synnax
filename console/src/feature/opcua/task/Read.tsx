@@ -17,15 +17,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { caseconv, DataType, errors, primitive } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 
-import { type HaulItem } from "@/feature/opcua/device/Browser";
-import { Select } from "@/feature/opcua/device/Select";
-import {
-  type Device,
-  MAKE,
-  migrateProperties,
-  type Properties as DeviceProperties,
-  SCHEMAS,
-} from "@/feature/opcua/device/types";
+import { Device } from "@/feature/opcua/device";
 import { type ChannelKeyAndIDGetter, createForm } from "@/feature/opcua/task/Form";
 import {
   deployReadConfigZ,
@@ -39,7 +31,7 @@ import { CSS } from "@/platform/css";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-const getChannelByNodeID = (props: DeviceProperties, nodeId: string): channel.Key =>
+const getChannelByNodeID = (props: Device.Properties, nodeId: string): channel.Key =>
   props.read.channels[nodeId] ??
   props.read.channels[caseconv.snakeToCamel(nodeId)] ??
   0;
@@ -69,7 +61,7 @@ const Properties = (): ReactElement => {
   const arrayMode = PForm.useFieldValue<boolean>("config.arrayMode");
   return (
     <>
-      <Select />
+      <Device.Select />
       <Flex.Box x>
         <Task.Fields.SampleRate />
         <PForm.CheckboxField
@@ -96,7 +88,7 @@ const Properties = (): ReactElement => {
   );
 };
 
-const convertHaulItemToChannel = ({ data }: HaulItem): ReadChannel => ({
+const convertHaulItemToChannel = ({ data }: Device.HaulItem): ReadChannel => ({
   key: data.nodeId,
   nodeName: data.name,
   nodeId: data.nodeId,
@@ -112,7 +104,7 @@ const getChannelKeyAndID: ChannelKeyAndIDGetter<ReadChannel> = ({ channel, key }
   id: Task.getChannelNameID(key),
 });
 
-const resolve = (device: Device, { nodeId }: ReadChannel) => ({
+const resolve = (device: Device.Device, { nodeId }: ReadChannel) => ({
   channel: getChannelByNodeID(device.properties, nodeId),
 });
 
@@ -136,7 +128,7 @@ const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({
 interface DetermineIndexChannelParams {
   client: Synnax;
   config: ReadConfig;
-  device: Device;
+  device: Device.Device;
   taskName: string;
 }
 
@@ -207,11 +199,11 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (
 ) => {
   const previous = await client.devices.retrieve({
     key: config.device,
-    schemas: SCHEMAS,
+    schemas: Device.SCHEMAS,
   });
   const device = await client.devices.create(
-    { ...previous, properties: migrateProperties(previous.properties) },
-    SCHEMAS,
+    { ...previous, properties: Device.migrateProperties(previous.properties) },
+    Device.SCHEMAS,
   );
 
   const index = await determineIndexChannel({
@@ -257,7 +249,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (
     ...c,
     channel: getChannelByNodeID(device.properties, c.nodeId),
   }));
-  await client.devices.create(device, SCHEMAS);
+  await client.devices.create(device, Device.SCHEMAS);
   return [config, device.rack];
 };
 
@@ -273,7 +265,7 @@ export const Read = Task.wrapForm({
 
 export const useCreateRead = Task.createUseCreate({
   getInitialValues,
-  deviceMake: MAKE,
+  deviceMake: Device.MAKE,
 });
 
 export const ReadSelectable = Selector.createSelectable({

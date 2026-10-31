@@ -10,27 +10,20 @@
 import { type Synnax } from "@synnaxlabs/client";
 import { deep, id } from "@synnaxlabs/x";
 
-import {
-  type Connection,
-  type Device,
-  type Properties,
-  SCHEMAS,
-  ZERO_CONNECTIONS,
-  ZERO_PROPERTIES,
-} from "@/feature/modbus/device/types";
+import { Device } from "@/feature/modbus/device";
 import { uniqueName } from "@/testutil";
 
-type TCPConnection = Extract<Connection, { transport: "tcp" }>;
-type RTUConnection = Extract<Connection, { transport: "rtu" }>;
+type TCPConnection = Extract<Device.Connection, { transport: "tcp" }>;
+type RTUConnection = Extract<Device.Connection, { transport: "rtu" }>;
 
 /** Connection fields to set. A serial connection names its transport. */
 type ConnectionOverrides =
   Partial<TCPConnection> | (Partial<RTUConnection> & Pick<RTUConnection, "transport">);
 
-const connectionOf = (overrides: ConnectionOverrides = {}): Connection =>
+const connectionOf = (overrides: ConnectionOverrides = {}): Device.Connection =>
   overrides.transport === "rtu"
-    ? { ...ZERO_CONNECTIONS.rtu, ...overrides }
-    : { ...ZERO_CONNECTIONS.tcp, ...overrides };
+    ? { ...Device.ZERO_CONNECTIONS.rtu, ...overrides }
+    : { ...Device.ZERO_CONNECTIONS.tcp, ...overrides };
 
 export interface CreateModbusDeviceOptions {
   configured?: boolean;
@@ -38,7 +31,7 @@ export interface CreateModbusDeviceOptions {
    * Properties to set. Connection fields left out keep the zero values of the
    * connection's transport.
    */
-  properties?: Partial<Omit<Properties, "connection">> & {
+  properties?: Partial<Omit<Device.Properties, "connection">> & {
     connection?: ConnectionOverrides;
   };
 }
@@ -47,7 +40,7 @@ export interface CreateModbusDeviceOptions {
 export const createModbusDevice = async (
   client: Synnax,
   { configured = true, properties }: CreateModbusDeviceOptions = {},
-): Promise<Device> => {
+): Promise<Device.Device> => {
   const rack = await client.racks.create({ name: uniqueName("rack") });
   return await client.devices.create(
     {
@@ -59,11 +52,11 @@ export const createModbusDevice = async (
       model: "Modbus",
       configured,
       properties: {
-        ...deep.copy(ZERO_PROPERTIES),
+        ...deep.copy(Device.ZERO_PROPERTIES),
         ...properties,
         connection: connectionOf(properties?.connection),
       },
     },
-    SCHEMAS,
+    Device.SCHEMAS,
   );
 };

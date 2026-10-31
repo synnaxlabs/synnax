@@ -21,9 +21,7 @@ import { Access, Telem } from "@synnaxlabs/pluto";
 import { DataType, deep, errors, id, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { useFromConfig } from "@/feature/modbus/device/queries";
-import { Select as SelectDevice } from "@/feature/modbus/device/Select";
-import { MAKE, SCHEMAS } from "@/feature/modbus/device/types";
+import { Device } from "@/feature/modbus/device";
 import { AddressField } from "@/feature/modbus/task/AddressField";
 import { OrderFields } from "@/feature/modbus/task/OrderFields";
 import { SelectWriteChannelTypeField } from "@/feature/modbus/task/SelectWriteChannelTypeField";
@@ -44,7 +42,7 @@ import { CSS } from "@/platform/css";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-const Properties = () => <SelectDevice />;
+const Properties = () => <Device.Select />;
 
 const ChannelListItem = (props: Task.ChannelListItemProps) => {
   const { itemKey } = props;
@@ -145,7 +143,7 @@ const ContextMenuItem: React.FC<ContextMenuItemProps> = ({ channels, keys }) => 
 const contextMenuItems = Component.renderProp(ContextMenuItem);
 
 const Form: FC = () => {
-  const dev = useFromConfig();
+  const dev = Device.useFromConfig();
   const resolve = (c: WriteChannel) =>
     dev == null
       ? null
@@ -234,7 +232,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
 ) => {
   const dev = await client.devices.retrieve({
     key: config.device,
-    schemas: SCHEMAS,
+    schemas: Device.SCHEMAS,
   });
   const { channels } = dev.properties.write;
   let changed = false;
@@ -280,7 +278,7 @@ const onConfigure: Task.OnConfigure<WriteSchemas["config"]> = async (
     });
     changed = true;
   }
-  if (changed) await client.devices.create(dev, SCHEMAS);
+  if (changed) await client.devices.create(dev, Device.SCHEMAS);
 
   config.channels = config.channels.map((c) => ({
     ...c,
@@ -302,7 +300,7 @@ export const Write = Task.wrapForm({
 
 export const useCreateWrite = Task.createUseCreate({
   getInitialValues,
-  deviceMake: MAKE,
+  deviceMake: Device.MAKE,
 });
 
 export const WriteSelectable = Selector.createSelectable({

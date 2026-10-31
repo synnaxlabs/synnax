@@ -13,7 +13,7 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { DataType, Density } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { useFromConfig } from "@/feature/modbus/device/queries";
+import { Device } from "@/feature/modbus/device";
 import { CSS } from "@/platform/css";
 
 type Order = "device" | "swapped" | "not_swapped";
@@ -72,7 +72,7 @@ export interface OrderFieldsProps {
  * that fits in one register has no word order, so it shows the byte order alone.
  */
 export const OrderFields = ({ path, dataType }: OrderFieldsProps): ReactElement => {
-  const connection = useFromConfig()?.properties.connection;
+  const connection = Device.useFromConfig()?.properties.connection;
   return (
     <Flex.Box x pack className={CSS.B("modbus-order")}>
       <SelectOrder

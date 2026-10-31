@@ -22,6 +22,11 @@ import { Device as PDevice, type Flux } from "@synnaxlabs/pluto";
 import { type ReactElement, useState } from "react";
 
 import {
+  SCAN_SCHEMAS,
+  SCAN_TYPE,
+  TEST_CONNECTION_COMMAND_TYPE,
+} from "@/feature/modbus/device/scan";
+import {
   BAUD_RATES,
   BYTE_ORDERS,
   type ByteOrder,
@@ -41,11 +46,6 @@ import {
   ZERO_CONNECTIONS,
   ZERO_PROPERTIES,
 } from "@/feature/modbus/device/types";
-import {
-  SCAN_SCHEMAS,
-  SCAN_TYPE,
-  TEST_CONNECTION_COMMAND_TYPE,
-} from "@/feature/modbus/task/types";
 import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";

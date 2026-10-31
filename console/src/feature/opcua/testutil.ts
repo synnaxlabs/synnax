@@ -10,18 +10,11 @@
 import { type Synnax } from "@synnaxlabs/client";
 import { deep, id } from "@synnaxlabs/x";
 
-import {
-  type Device,
-  MAKE,
-  type Properties,
-  SCHEMAS,
-  ZERO_PROPERTIES,
-} from "@/feature/opcua/device/types";
-import { type CertificateInfo } from "@/feature/opcua/task/types";
+import { Device } from "@/feature/opcua/device";
 import { uniqueName } from "@/testutil";
 
 /** A real self-signed certificate, with the details a Driver reports for it. */
-export const SERVER_CERTIFICATE: CertificateInfo = {
+export const SERVER_CERTIFICATE: Device.CertificateInfo = {
   pem: `-----BEGIN CERTIFICATE-----
 MIIBbjCCARSgAwIBAgIUbAC1w3Ys7iTmtmRuMq9Yc9mWGIYwCgYIKoZIzj0EAwIw
 HTEbMBkGA1UEAwwSVGVzdCBPUEMgVUEgU2VydmVyMB4XDTI2MTAyODAzMjYwNFoX
@@ -40,14 +33,14 @@ IQDyvwdbi7qXLS7bkjYtMlxZ94PTGKApVOsBgqdDntq6EA==
 
 export interface CreateOPCDeviceOptions {
   configured?: boolean;
-  properties?: Partial<Properties>;
+  properties?: Partial<Device.Properties>;
 }
 
 /** Creates a rack and a configured OPC UA server device on the live Core. */
 export const createOPCDevice = async (
   client: Synnax,
   { configured = true, properties }: CreateOPCDeviceOptions = {},
-): Promise<Device> => {
+): Promise<Device.Device> => {
   const rack = await client.racks.create({ name: uniqueName("rack") });
   return await client.devices.create(
     {
@@ -55,11 +48,11 @@ export const createOPCDevice = async (
       name: uniqueName("opc_server"),
       rack: rack.key,
       location: "opc.tcp://localhost:4840",
-      make: MAKE,
+      make: Device.MAKE,
       model: "OPC UA server",
       configured,
-      properties: { ...deep.copy(ZERO_PROPERTIES), ...properties },
+      properties: { ...deep.copy(Device.ZERO_PROPERTIES), ...properties },
     },
-    SCHEMAS,
+    Device.SCHEMAS,
   );
 };

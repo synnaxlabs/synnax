@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { modbus, type task } from "@synnaxlabs/client";
-import { DataType, record } from "@synnaxlabs/x";
+import { DataType } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Task } from "@/platform/task";
@@ -251,13 +251,3 @@ export const WRITE_SCHEMAS = {
 } as const satisfies task.Schemas;
 
 export type WriteSchemas = typeof WRITE_SCHEMAS;
-
-export const SCAN_TYPE = `${PREFIX}_scan`;
-
-export const SCAN_SCHEMAS = {
-  type: z.literal(SCAN_TYPE),
-  config: record.nullishToEmpty(),
-  statusData: z.object({}).nullish().optional(),
-} as const satisfies task.Schemas;
-
-export const TEST_CONNECTION_COMMAND_TYPE = "test_connection";

@@ -17,7 +17,7 @@ import { OPCUA } from "@/feature/opcua";
 import { createOPCDevice } from "@/feature/opcua/testutil";
 import { CaptureStatuses, createConsoleWrapper, getIconButton } from "@/testutil";
 
-const NODE: OPCUA.Task.ScannedNode = {
+const NODE: OPCUA.Device.ScannedNode = {
   key: "ns=2;s=Demo.Static.Scalar.Float",
   nodeId: "ns=2;s=Demo.Static.Scalar.Float",
   name: "Demo Float",

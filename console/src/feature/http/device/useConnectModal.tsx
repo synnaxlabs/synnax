@@ -21,6 +21,11 @@ import { deep, json } from "@synnaxlabs/x";
 import { useState } from "react";
 
 import {
+  SCAN_SCHEMAS,
+  SCAN_TYPE,
+  TEST_CONNECTION_COMMAND_TYPE,
+} from "@/feature/http/device/scan";
+import {
   type APIKeyAuthConfigSendAs,
   type AuthType,
   type Device,
@@ -32,11 +37,6 @@ import {
   ZERO_PROPERTIES,
   ZERO_RESPONSE,
 } from "@/feature/http/device/types";
-import {
-  SCAN_SCHEMAS,
-  SCAN_TYPE,
-  TEST_CONNECTION_COMMAND_TYPE,
-} from "@/feature/http/task/types";
 import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";

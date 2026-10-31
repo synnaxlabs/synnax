@@ -19,9 +19,7 @@ import { Telem } from "@synnaxlabs/pluto";
 import { DataType, deep, errors, id, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { useFromConfig } from "@/feature/modbus/device/queries";
-import { Select as SelectDevice } from "@/feature/modbus/device/Select";
-import { MAKE, SCHEMAS } from "@/feature/modbus/device/types";
+import { Device } from "@/feature/modbus/device";
 import { AddressField } from "@/feature/modbus/task/AddressField";
 import { OrderFields } from "@/feature/modbus/task/OrderFields";
 import { SelectReadChannelTypeField } from "@/feature/modbus/task/SelectReadChannelTypeField";
@@ -49,7 +47,7 @@ import { Task } from "@/platform/task";
 
 const Properties = () => (
   <>
-    <SelectDevice />
+    <Device.Select />
     <Flex.Box x grow>
       <Task.Fields.SampleRate />
       <Task.Fields.StreamRate />
@@ -164,7 +162,7 @@ const getOpenChannel = (channels: ReadChannel[]): ReadChannel => {
 const listItem = Component.renderProp(ChannelListItem);
 
 const Form: FC = () => {
-  const dev = useFromConfig();
+  const dev = Device.useFromConfig();
   const resolve = (c: ReadChannel) =>
     dev == null ? null : { channel: dev.properties.read.channels[readMapKey(c)] ?? 0 };
   return (
@@ -187,7 +185,7 @@ const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({ deviceKey }) => 
 const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, config) => {
   const dev = await client.devices.retrieve({
     key: config.device,
-    schemas: SCHEMAS,
+    schemas: Device.SCHEMAS,
   });
   let shouldCreateIndex = false;
   if (dev.properties.read.index)
@@ -240,7 +238,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
       });
     }
   } finally {
-    if (modified) await client.devices.create(dev, SCHEMAS);
+    if (modified) await client.devices.create(dev, Device.SCHEMAS);
   }
 
   config.channels.forEach((c) => {
@@ -262,7 +260,7 @@ export const Read = Task.wrapForm({
 
 export const useCreateRead = Task.createUseCreate({
   getInitialValues,
-  deviceMake: MAKE,
+  deviceMake: Device.MAKE,
 });
 
 export const ReadSelectable = Selector.createSelectable({

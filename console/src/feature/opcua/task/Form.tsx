@@ -20,16 +20,7 @@ import { Select } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type FC, useState } from "react";
 
-import {
-  Browser,
-  canDropHaulItem,
-  HAUL_TYPE,
-  type HaulItem,
-  isHaulItem,
-} from "@/feature/opcua/device/Browser";
-import { use } from "@/feature/opcua/device/queries";
-import { type Device } from "@/feature/opcua/device/types";
-import { useConnectModal } from "@/feature/opcua/device/useConnectModal";
+import { Device } from "@/feature/opcua/device";
 import { type Channel } from "@/feature/opcua/task/types";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
@@ -122,8 +113,8 @@ const CHANNELS_PATH = "config.channels";
 
 const VARIABLE_NODE_CLASS = "Variable";
 
-const isVariableHaulItem = (item: Haul.Item): item is HaulItem =>
-  isHaulItem(item) && item.data.nodeClass === VARIABLE_NODE_CLASS;
+const isVariableHaulItem = (item: Haul.Item): item is Device.HaulItem =>
+  Device.isHaulItem(item) && item.data.nodeClass === VARIABLE_NODE_CLASS;
 
 const canDrop = ({ items }: Haul.DraggingState): boolean =>
   items.some(isVariableHaulItem);
@@ -133,8 +124,8 @@ interface ChannelListProps<C extends Channel> extends Pick<
   "contextMenuItems" | "resolve"
 > {
   children: Component.RenderProp<ExtraItemProps>;
-  device: Device;
-  convertHaulItemToChannel: (item: HaulItem) => C;
+  device: Device.Device;
+  convertHaulItemToChannel: (item: Device.HaulItem) => C;
   getChannelKeyAndID: ChannelKeyAndIDGetter<C>;
 }
 
@@ -159,7 +150,7 @@ const ChannelList = <C extends Channel>({
   };
 
   const haulProps = Haul.useDrop({
-    type: HAUL_TYPE,
+    type: Device.HAUL_TYPE,
     canDrop,
     onDrop: handleDrop,
   });
@@ -168,7 +159,7 @@ const ChannelList = <C extends Channel>({
   // drags, so the drop target goes inert too.
   const isPreview = Task.useIsPreview();
   const draggingState = Haul.useDraggingState();
-  const isDragging = !isPreview && canDropHaulItem(draggingState);
+  const isDragging = !isPreview && Device.canDropHaulItem(draggingState);
 
   const [selected, setSelected] = useState(data.length > 0 ? [data[0]] : []);
   const listItem = ({ key, ...p }: Task.ChannelListItemProps) => (
@@ -199,11 +190,11 @@ export interface FormProps<C extends Channel> extends Required<
   children?: Component.RenderProp<ExtraItemProps>;
   getChannelKeyAndID: ChannelKeyAndIDGetter<C>;
   /** Returns the bindings the device holds for a channel's node. */
-  resolve: (device: Device, channel: C) => Partial<C>;
+  resolve: (device: Device.Device, channel: C) => Partial<C>;
 }
 
 interface BodyProps<C extends Channel>
-  extends FormProps<C>, PlatformDevice.TaskFormContentProps<Device> {}
+  extends FormProps<C>, PlatformDevice.TaskFormContentProps<Device.Device> {}
 
 const Body = <C extends Channel>({
   device,
@@ -217,7 +208,7 @@ const Body = <C extends Channel>({
   const resolveOnDevice = (channel: C) => resolve(device, channel);
   return (
     <>
-      {!isPreview && <Browser device={device} />}
+      {!isPreview && <Device.Browser device={device} />}
       <ChannelList<C>
         device={device}
         convertHaulItemToChannel={convertHaulItemToChannel}
@@ -232,13 +223,13 @@ const Body = <C extends Channel>({
 };
 
 export const createForm = <C extends Channel>(props: FormProps<C>): FC<{}> => {
-  const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => (
+  const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device.Device>) => (
     <Body<C> device={device} {...props} />
   );
   Content.displayName = "OPCTaskForm";
   return PlatformDevice.wrapTaskForm({
-    use,
-    useConfigure: useConnectModal,
+    use: Device.use,
+    useConfigure: Device.useConnectModal,
     Content,
   });
 };
