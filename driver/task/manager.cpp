@@ -96,7 +96,7 @@ void Manager::remove(const synnax::task::Key &key, const bool even_if_processing
 
 x::errors::Error Manager::configure_initial_tasks() {
     VLOG(1) << "configuring initial tasks";
-    auto [tasks, tasks_err] = this->rack.tasks.list();
+    auto [tasks, tasks_err] = this->rack.tasks.retrieve();
     if (tasks_err) return tasks_err;
     VLOG(1) << "retrieved " << tasks.size() << " tasks from cluster";
     size_t queued = 0;

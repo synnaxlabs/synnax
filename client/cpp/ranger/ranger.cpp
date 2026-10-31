@@ -37,31 +37,6 @@ Client::retrieve_one(const RetrieveRequest &req, const std::string &query) const
     return {std::move(ranges[0]), x::errors::NIL};
 }
 
-std::pair<Range, x::errors::Error> Client::retrieve_by_key(const Key &key) const {
-    return this->retrieve_one(
-        {.where = Where{.key = x::filter::Set<Key>{.eq = key}}},
-        "key " + key.to_string()
-    );
-}
-
-std::pair<Range, x::errors::Error>
-Client::retrieve_by_name(const std::string &name) const {
-    return this->retrieve_one(
-        {.where = Where{.name = x::filter::String{.eq = name}}},
-        "name " + name
-    );
-}
-
-std::pair<std::vector<Range>, x::errors::Error>
-Client::retrieve_by_name(const std::vector<std::string> &names) const {
-    return this->retrieve({.where = Where{.name = x::filter::String{.in = names}}});
-}
-
-std::pair<std::vector<Range>, x::errors::Error>
-Client::retrieve_by_key(const std::vector<Key> &keys) const {
-    return this->retrieve({.where = Where{.key = x::filter::Set<Key>{.in = keys}}});
-}
-
 x::errors::Error Client::create(std::vector<Range> &ranges) const {
     auto req = grpc::ranger::CreateRequest();
     req.mutable_ranges()->Reserve(ranges.size());

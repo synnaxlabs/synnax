@@ -103,25 +103,9 @@ Client::retrieve_one(const RetrieveRequest &req, const std::string &query) const
     return {std::move(channels[0]), x::errors::NIL};
 }
 
-std::pair<Channel, x::errors::Error> Client::retrieve(const Key key) const {
-    return this->retrieve_one(
-        {.where = Where{.key = x::filter::Set<Key>{.eq = key}}},
-        "key " + std::to_string(key)
-    );
-}
-
-std::pair<Channel, x::errors::Error> Client::retrieve(const std::string &name) const {
-    return this->retrieve_one(
-        {.where = Where{.name_patterns = std::vector{name}}},
-        "name " + name
-    );
-}
-
 std::pair<std::vector<Channel>, x::errors::Error>
-Client::retrieve(const std::vector<Key> &keys) const {
-    auto [channels, err] = this->retrieve(
-        RetrieveRequest{.where = Where{.key = x::filter::Set<Key>{.in = keys}}}
-    );
+Client::retrieve_keys(const RetrieveRequest &req, const std::vector<Key> &keys) const {
+    auto [channels, err] = this->retrieve(req);
     if (err) return {{}, err};
     // Callers bind the channels to keys by position, so a missing key is an error.
     std::unordered_set<Key> found;
@@ -139,10 +123,5 @@ Client::retrieve(const std::vector<Key> &keys) const {
             )
         };
     return {channels, x::errors::NIL};
-}
-
-std::pair<std::vector<Channel>, x::errors::Error>
-Client::retrieve(const std::vector<std::string> &names) const {
-    return this->retrieve(RetrieveRequest{.where = Where{.name_patterns = names}});
 }
 }

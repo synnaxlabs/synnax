@@ -106,48 +106,70 @@ public:
         bool is_virtual = true
     ) const;
 
-    /// @brief retrieves a channel with the given name.
-    /// @param name the name of the channel to retrieve. A name that is not a valid
-    /// channel name is a regular expression, anchored when unanchored.
-    /// @throws QueryError if the channel does not exist or multiple channels with
-    /// the same name exist.
-    /// @returns the retrieved channel.
-    /// @returns a pair containing the retrieved channel and an error where ok() is
-    /// false if the channel could not be retrieved. In the case of an error, the
-    /// returned channel will be invalid. Use err.message() to get the error message
-    /// or err.type to get the error type.
+    /// @brief Retrieves the channel with the given key, with each include option in
+    /// includes applied.
+    /// @returns the channel, or a NOT_FOUND error when no channel has the key.
+    template<typename... Includes>
+        requires x::filter::includes<RetrieveRequest, Includes...>
     [[nodiscard]] std::pair<Channel, x::errors::Error>
-    retrieve(const std::string &name) const;
+    retrieve(const Key &key, Includes... includes) const {
+        return this->retrieve_one(
+            x::filter::request<Where, RetrieveRequest>(
+                channel::key.eq(key),
+                includes...
+            ),
+            "key " + std::to_string(key)
+        );
+    }
 
-    /// @brief retrieves a channel with the given key.
-    /// @param key the key of the channel to retrieve.
-    /// @throws QueryError if the channel does not exist.
-    /// @returns the retrieved channel.
-    /// @returns a pair containing the retrieved channel and an error where ok() is
-    /// false if the channel could not be retrieved. In the case of an error, the
-    /// returned channel will be invalid. Use err.message() to get the error message
-    /// or err.type to get the error type.
+    /// @brief Retrieves the channel with the given name, with each include option in
+    /// includes applied. A name that is not a valid channel name is a regular
+    /// expression, anchored when unanchored.
+    /// @returns the channel, or an error when no channel or more than one channel has
+    /// the name.
+    template<typename... Includes>
+        requires x::filter::includes<RetrieveRequest, Includes...>
     [[nodiscard]] std::pair<Channel, x::errors::Error>
-    retrieve(std::uint32_t key) const;
+    retrieve(const std::string &name, Includes... includes) const {
+        return this->retrieve_one(
+            x::filter::request<Where, RetrieveRequest>(
+                channel::name_patterns.has(name),
+                includes...
+            ),
+            "name " + name
+        );
+    }
 
-    /// @brief retrieves channels with the given names.
-    /// @param names the names of the channels to retrieve. A valid channel name matches
-    /// exactly, and any other name is a regular expression, anchored when unanchored.
-    /// @returns all channels matching the given names. If a channel matching a
-    /// name, does not exist, it will not be in the returned vector.
-    /// @returns a pair containing the retrieved channels and an error where ok() is
-    /// false if the channels could not be retrieved. In the case of an error, the
-    /// returned channels will be invalid. Use err.message() to get the error
-    /// message
+    /// @brief Retrieves the channels with the given keys, with each include option in
+    /// includes applied. The channels come in the order of keys, and a key that no
+    /// channel has is a NOT_FOUND error.
+    template<typename... Includes>
+        requires x::filter::includes<RetrieveRequest, Includes...>
     [[nodiscard]] std::pair<std::vector<Channel>, x::errors::Error>
-    retrieve(const std::vector<std::string> &names) const;
+    retrieve(const std::vector<Key> &keys, Includes... includes) const {
+        return this->retrieve_keys(
+            x::filter::request<Where, RetrieveRequest>(
+                channel::key.in(keys),
+                includes...
+            ),
+            keys
+        );
+    }
 
-    /// @brief retrieves channels with the given keys.
-    /// @param keys the keys of the channels to retrieve.
-    /// @returns the channels in the order of keys, and a NOT_FOUND error that names
-    /// every key without a channel.
+    /// @brief Retrieves the channels with the given names, with each include option in
+    /// includes applied. A valid channel name matches exactly, and any other name is a
+    /// regular expression, anchored when unanchored.
+    template<typename... Includes>
+        requires x::filter::includes<RetrieveRequest, Includes...>
     [[nodiscard]] std::pair<std::vector<Channel>, x::errors::Error>
-    retrieve(const std::vector<Key> &keys) const;
+    retrieve(const std::vector<std::string> &names, Includes... includes) const {
+        return this->retrieve(
+            x::filter::request<Where, RetrieveRequest>(
+                channel::name_patterns.has_any(names),
+                includes...
+            )
+        );
+    }
 
     /// @brief retrieves the channels that req selects.
     [[nodiscard]] std::pair<std::vector<Channel>, x::errors::Error>
@@ -172,6 +194,9 @@ public:
 private:
     [[nodiscard]] std::pair<Channel, x::errors::Error>
     retrieve_one(const RetrieveRequest &req, const std::string &query) const;
+
+    [[nodiscard]] std::pair<std::vector<Channel>, x::errors::Error>
+    retrieve_keys(const RetrieveRequest &req, const std::vector<Key> &keys) const;
 
     /// @brief transport for retrieving channels.
     std::shared_ptr<RetrieveClient> retrieve_client;

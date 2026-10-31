@@ -90,7 +90,9 @@ TEST(TaskTests, testRetrieveTaskByType) {
         .config = {{"routing_key", "rk"}}
     };
     ASSERT_NIL(r.tasks.create(t));
-    const auto t2 = ASSERT_NIL_P(r.tasks.retrieve_by_type("pagerduty_alert"));
+    const auto t2 = ASSERT_NIL_P(
+        r.tasks.retrieve(task::type.eq("pagerduty_alert"), task::one())
+    );
     ASSERT_EQ(t2.name, "test_module");
     ASSERT_EQ(t.rack, r.key);
 }
@@ -109,13 +111,13 @@ TEST(TaskTests, testRetrieveTaskByTypeMultipleFound) {
         ASSERT_NIL(r.tasks.create(t));
     }
     ASSERT_OCCURRED_AS_P(
-        r.tasks.retrieve_by_type("pagerduty_alert"),
+        r.tasks.retrieve(task::type.eq("pagerduty_alert"), task::one()),
         x::errors::MULTIPLE_RESULTS
     );
 }
 
-/// @brief it should correctly list the tasks on a rack.
-TEST(TaskTests, testListTasks) {
+/// @brief it should retrieve every task on the client's rack when given no conditions.
+TEST(TaskTests, testRetrieveAll) {
     const auto client = new_test_client();
     auto r = rack::Rack{.name = "test_rack"};
     ASSERT_NIL(client.racks.create(r));
@@ -125,7 +127,7 @@ TEST(TaskTests, testListTasks) {
         .config = {{"routing_key", "rk"}}
     };
     ASSERT_NIL(r.tasks.create(m));
-    const auto tasks = ASSERT_NIL_P(r.tasks.list());
+    const auto tasks = ASSERT_NIL_P(r.tasks.retrieve());
     ASSERT_EQ(tasks.size(), 1);
     ASSERT_EQ(tasks[0].name, "test_module");
     ASSERT_EQ(tasks[0].rack, r.key);
@@ -295,7 +297,7 @@ TEST(TaskTests, testCreateTaskWithStatus) {
         }
     };
     ASSERT_NIL(r.tasks.create(t));
-    const auto t2 = ASSERT_NIL_P(r.tasks.retrieve(t.key, {.include_status = true}));
+    const auto t2 = ASSERT_NIL_P(r.tasks.retrieve(t.key, task::include_status()));
     ASSERT_EQ(t2.name, "test_task_with_status");
     ASSERT_TRUE(t2.status.has_value());
     ASSERT_EQ(t2.status.value().variant, synnax::status::VARIANT_SUCCESS);
@@ -322,7 +324,7 @@ TEST(TaskTests, testRetrieveTaskWithStatusByName) {
         }
     };
     ASSERT_NIL(r.tasks.create(t));
-    const auto t2 = ASSERT_NIL_P(r.tasks.retrieve(rand_name, {.include_status = true}));
+    const auto t2 = ASSERT_NIL_P(r.tasks.retrieve(rand_name, task::include_status()));
     ASSERT_EQ(t2.name, rand_name);
     ASSERT_TRUE(t2.status.has_value());
     ASSERT_EQ(t2.status.value().variant, synnax::status::VARIANT_WARNING);
@@ -346,12 +348,39 @@ TEST(TaskTests, testListTasksWithStatus) {
         }
     };
     ASSERT_NIL(r.tasks.create(t));
-    const auto tasks = ASSERT_NIL_P(r.tasks.list({.include_status = true}));
+    const auto tasks = ASSERT_NIL_P(r.tasks.retrieve(task::include_status()));
     ASSERT_EQ(tasks.size(), 1);
     ASSERT_TRUE(tasks[0].status.has_value());
     ASSERT_EQ(tasks[0].status.value().variant, synnax::status::VARIANT_INFO);
     ASSERT_EQ(tasks[0].status.value().message, "Task info");
 }
+/// @brief it should retrieve the tasks with the given keys, leaving out a key that no
+/// task has.
+TEST(TaskTests, testRetrieveTasksByKeys) {
+    const auto client = new_test_client();
+    auto r = rack::Rack{.name = "test_rack"};
+    ASSERT_NIL(client.racks.create(r));
+    auto t1 = Task{
+        .name = "task_by_keys_1",
+        .type = "pagerduty_alert",
+        .config = {{"routing_key", "rk-1"}}
+    };
+    auto t2 = Task{
+        .name = "task_by_keys_2",
+        .type = "pagerduty_alert",
+        .config = {{"routing_key", "rk-2"}}
+    };
+    ASSERT_NIL(r.tasks.create(t1));
+    ASSERT_NIL(r.tasks.create(t2));
+    const auto tasks = ASSERT_NIL_P(
+        r.tasks.retrieve(std::vector{t1.key, t2.key, x::uuid::create()})
+    );
+    std::set<Key> keys;
+    for (const auto &t: tasks)
+        keys.insert(t.key);
+    ASSERT_EQ(keys, (std::set{t1.key, t2.key}));
+}
+
 /// @brief it should retrieve multiple tasks by their names.
 TEST(TaskTests, testRetrieveTasksByNames) {
     const auto client = new_test_client();
@@ -402,7 +431,7 @@ TEST(TaskTests, testRetrieveTasksByTypes) {
     ASSERT_NIL(r.tasks.create(t1));
     ASSERT_NIL(r.tasks.create(t2));
     const std::vector<std::string> types = {type1, type2};
-    const auto tasks = ASSERT_NIL_P(r.tasks.retrieve_by_type(types));
+    const auto tasks = ASSERT_NIL_P(r.tasks.retrieve(task::type.in(types)));
     ASSERT_EQ(tasks.size(), 2);
     bool found1 = false, found2 = false;
     for (const auto &t: tasks) {
