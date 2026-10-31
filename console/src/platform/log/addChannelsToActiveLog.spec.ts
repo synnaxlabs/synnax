@@ -11,7 +11,7 @@ import { type channel, DataType, type log, type Synnax } from "@synnaxlabs/clien
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { beforeAll, describe, expect, it } from "vitest";
 
-import { addChannelsToActiveLog } from "@/platform/log/addChannelsToActiveLog";
+import { Log } from "@/platform/log";
 import { uniqueName } from "@/testutil";
 
 const client: Synnax = createTestClient();
@@ -41,14 +41,14 @@ describe("addChannelsToActiveLog", () => {
   it("should add a channel that the log does not have", async () => {
     const key = await newLog(project);
     const ch = await newChannel();
-    await addChannelsToActiveLog(client, key, [ch]);
+    await Log.addChannelsToActiveLog(client, key, [ch]);
     expect(await channelsOf(key)).toEqual([ch]);
   });
 
   it("should add every channel when the log is empty", async () => {
     const key = await newLog(project);
     const [a, b] = [await newChannel(), await newChannel()];
-    await addChannelsToActiveLog(client, key, [a, b]);
+    await Log.addChannelsToActiveLog(client, key, [a, b]);
     expect(await channelsOf(key)).toEqual(expect.arrayContaining([a, b]));
     expect(await channelsOf(key)).toHaveLength(2);
   });
@@ -56,8 +56,8 @@ describe("addChannelsToActiveLog", () => {
   it("should skip a channel the log already has", async () => {
     const key = await newLog(project);
     const [a, b] = [await newChannel(), await newChannel()];
-    await addChannelsToActiveLog(client, key, [a]);
-    await addChannelsToActiveLog(client, key, [a, b]);
+    await Log.addChannelsToActiveLog(client, key, [a]);
+    await Log.addChannelsToActiveLog(client, key, [a, b]);
     expect(await channelsOf(key)).toHaveLength(2);
     expect(await channelsOf(key)).toEqual(expect.arrayContaining([a, b]));
   });
@@ -65,21 +65,21 @@ describe("addChannelsToActiveLog", () => {
   it("should leave the log untouched when every channel is already present", async () => {
     const key = await newLog(project);
     const ch = await newChannel();
-    await addChannelsToActiveLog(client, key, [ch]);
-    await addChannelsToActiveLog(client, key, [ch]);
+    await Log.addChannelsToActiveLog(client, key, [ch]);
+    await Log.addChannelsToActiveLog(client, key, [ch]);
     expect(await channelsOf(key)).toEqual([ch]);
   });
 
   it("should do nothing when given no channels", async () => {
     const key = await newLog(project);
-    await addChannelsToActiveLog(client, key, []);
+    await Log.addChannelsToActiveLog(client, key, []);
     expect(await channelsOf(key)).toHaveLength(0);
   });
 
   it("should add a repeated channel only once", async () => {
     const key = await newLog(project);
     const ch = await newChannel();
-    await addChannelsToActiveLog(client, key, [ch, ch]);
+    await Log.addChannelsToActiveLog(client, key, [ch, ch]);
     expect(await channelsOf(key)).toEqual([ch]);
   });
 });

@@ -12,4 +12,4 @@ export * from "@/platform/modals/Stack";
 export * from "@/platform/modals/useConfirm";
 export * from "@/platform/modals/useConfirmDelete";
 export * from "@/platform/modals/useRename";
-export { type Content, type ContentProps } from "@/session/modals/Context";
+export * from "@/session/modals/external";

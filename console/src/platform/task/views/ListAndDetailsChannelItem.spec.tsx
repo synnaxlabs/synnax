@@ -13,7 +13,6 @@ import { describe, expect, it, vi } from "vitest";
 
 import { Task } from "@/platform/task";
 import { renderInTaskForm } from "@/platform/task/testutil";
-import { type Channel } from "@/platform/task/types";
 import { getIconButton, queryIcon, queryIconButton } from "@/testutil";
 
 // The channel item renders inside its real Select/List context by being handed to the
@@ -22,7 +21,7 @@ const renderItem = (
   extra: Partial<Parameters<typeof Task.Views.ListAndDetailsChannelItem>[0]> = {},
 ) =>
   renderInTaskForm(
-    <Task.Views.List<Channel>
+    <Task.Views.List<Task.Channel>
       createChannel={() => null}
       resolve={() => null}
       listItem={Component.renderProp((p) => (

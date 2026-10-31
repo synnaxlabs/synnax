@@ -10,13 +10,13 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { Modals } from "@/platform/modals";
 import {
   findButton,
   findDismissButton,
   type ModalOpenerHandle,
   renderModalOpener,
 } from "@/platform/modals/testutil";
-import { useConfirmDelete } from "@/platform/modals/useConfirmDelete";
 
 interface OpenConfirmParams {
   items: { name: string } | { name: string }[];
@@ -32,7 +32,7 @@ const openConfirm = async ({
   description,
 }: OpenConfirmParams): Promise<ModalOpenerHandle<Promise<boolean>>> =>
   await renderModalOpener(
-    () => useConfirmDelete({ type, title, description }),
+    () => Modals.useConfirmDelete({ type, title, description }),
     [items],
   );
 

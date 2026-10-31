@@ -10,7 +10,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { useHeldChecking } from "@/platform/connection/useHeldChecking";
+import { Connection } from "@/platform/connection";
 
 describe("useHeldChecking", () => {
   beforeEach(() => vi.useFakeTimers());
@@ -19,7 +19,7 @@ describe("useHeldChecking", () => {
 
   it("reports a check as soon as one starts", () => {
     const { result, rerender } = renderHook(
-      (checking: boolean) => useHeldChecking(checking),
+      (checking: boolean) => Connection.useHeldChecking(checking),
       {
         initialProps: false,
       },
@@ -31,7 +31,7 @@ describe("useHeldChecking", () => {
 
   it("holds a check that ends immediately", () => {
     const { result, rerender } = renderHook(
-      (checking: boolean) => useHeldChecking(checking),
+      (checking: boolean) => Connection.useHeldChecking(checking),
       {
         initialProps: true,
       },
@@ -46,7 +46,7 @@ describe("useHeldChecking", () => {
 
   it("keeps reporting a check that starts again inside the hold", () => {
     const { result, rerender } = renderHook(
-      (checking: boolean) => useHeldChecking(checking),
+      (checking: boolean) => Connection.useHeldChecking(checking),
       {
         initialProps: true,
       },

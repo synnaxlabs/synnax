@@ -14,7 +14,6 @@ import { describe, expect, it, vi } from "vitest";
 
 import { Task } from "@/platform/task";
 import { renderInTaskForm } from "@/platform/task/testutil";
-import { type Channel } from "@/platform/task/types";
 import { getIconButton } from "@/testutil";
 
 const listItem = Component.renderProp(
@@ -32,11 +31,11 @@ const details = Component.renderProp(({ path }: { path: string }) => (
 const resolve = () => null;
 
 const renderListAndDetails = (
-  channels: Channel[],
-  createChannel: Task.Views.CreateChannel<Channel> = () => null,
+  channels: Task.Channel[],
+  createChannel: Task.Views.CreateChannel<Task.Channel> = () => null,
 ) =>
   renderInTaskForm(
-    <Task.Views.ListAndDetails<Channel>
+    <Task.Views.ListAndDetails<Task.Channel>
       createChannel={createChannel}
       listItem={listItem}
       details={details}
@@ -81,10 +80,12 @@ describe("layouts.ListAndDetails", () => {
   });
 
   it("should create a channel with the selected key as the copy source when Add is pressed", async () => {
-    const createChannel = vi.fn((_channels: Channel[], copyFrom?: string): Channel => ({
-      key: `new_${copyFrom ?? "none"}`,
-      disabled: false,
-    }));
+    const createChannel = vi.fn(
+      (_channels: Task.Channel[], copyFrom?: string): Task.Channel => ({
+        key: `new_${copyFrom ?? "none"}`,
+        disabled: false,
+      }),
+    );
     const { container, form } = await renderListAndDetails(
       [{ key: "a", disabled: false }],
       createChannel,
@@ -101,7 +102,10 @@ describe("layouts.ListAndDetails", () => {
 
   it("should duplicate the selected channels through the context menu", async () => {
     let counter = 0;
-    const createChannel = (_channels: Channel[], copyFrom?: string): Channel => ({
+    const createChannel = (
+      _channels: Task.Channel[],
+      copyFrom?: string,
+    ): Task.Channel => ({
       key: `dup_${copyFrom}_${counter++}`,
       disabled: false,
     });

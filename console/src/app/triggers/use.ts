@@ -14,7 +14,7 @@ import { Panel as PPanel, TimeSpan } from "@synnaxlabs/pluto";
 import { useRef } from "react";
 
 import { Palette } from "@/app/palette";
-import { useSelectorVisible } from "@/app/vis/useSelectorVisible";
+import { Vis } from "@/app/vis";
 import { Panel } from "@/feature/panel";
 import { Panel as PlatformPanel } from "@/platform/panel";
 import { Selector } from "@/platform/selector";
@@ -71,7 +71,7 @@ export const use = (): void => {
   const { dispatch } = PPanel.useDispatch();
   const openWindow = Panel.useOpenWindow();
   const closeWindowTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const createTabEnabled = useSelectorVisible();
+  const createTabEnabled = Vis.useSelectorVisible();
   const canEditPanel = PlatformPanel.useCanEditActive();
   const openSelector = Selector.useOpenTab();
   Triggers.use({

@@ -28,7 +28,7 @@ vi.mock("@/session/runtime/runtime", async (importOriginal) => {
   return await mockRuntimeEngine(importOriginal, mocks);
 });
 
-import { Selector } from "@/feature/panel/Selector";
+import { Panel } from "@/feature/panel";
 import { Modals } from "@/platform/modals";
 import { createPanelWrapper } from "@/platform/panel/testutil";
 import { findModalButton } from "@/platform/tree/menuTestutil";
@@ -108,7 +108,7 @@ const renderStrip = async (
   await act(async () => {
     render(
       <>
-        <Selector />
+        <Panel.Selector />
         <Modals.Stack />
       </>,
       { wrapper },
@@ -172,7 +172,7 @@ describe("Panel.Selector", () => {
   it("should select a newly created panel", async () => {
     const { wrapper, store } = await createPanelWrapper({ client });
     await act(async () => {
-      render(<Selector />, { wrapper });
+      render(<Panel.Selector />, { wrapper });
     });
     // The strip suspends on the project's panel list, so nothing renders until it
     // resolves.
@@ -210,7 +210,7 @@ describe("Panel.Selector", () => {
       store.dispatch(Session.Panel.reorder({ key: bravo.key, index: 0 }));
     });
     await act(async () => {
-      render(<Selector />, { wrapper });
+      render(<Panel.Selector />, { wrapper });
     });
     await screen.findByText(alpha.name);
     await screen.findByText(bravo.name);
@@ -243,7 +243,7 @@ describe("Panel.Selector", () => {
       );
     });
     await act(async () => {
-      render(<Selector />, { wrapper });
+      render(<Panel.Selector />, { wrapper });
     });
     await screen.findByText(pending.name);
     await screen.findByText(known.name);
@@ -273,7 +273,7 @@ describe("Panel.Selector", () => {
       );
     });
     await act(async () => {
-      render(<Selector />, { wrapper: withHaul(wrapper) });
+      render(<Panel.Selector />, { wrapper: withHaul(wrapper) });
     });
     await screen.findByText(alpha.name);
     await screen.findByText(bravo.name);
@@ -317,7 +317,7 @@ describe("Panel.Selector", () => {
         render(
           <Haul.Provider>
             <TabDragSource source={source.key} tab={tab} />
-            <Selector />
+            <Panel.Selector />
           </Haul.Provider>,
           { wrapper },
         );
@@ -407,7 +407,7 @@ describe("Panel.Selector", () => {
         render(
           <Haul.Provider>
             <TabDragSource source={source.key} tab={tab} />
-            <Selector />
+            <Panel.Selector />
             <PPanel.Suspended panelKey={destination.key}>
               <PPanel.Mosaic>{() => <div />}</PPanel.Mosaic>
             </PPanel.Suspended>
@@ -522,7 +522,7 @@ describe("Panel.Selector", () => {
         project: proj.key,
       });
       await act(async () => {
-        render(<Selector />, { wrapper });
+        render(<Panel.Selector />, { wrapper });
       });
       await waitFor(() => expect(screen.getByText(pan.name)).toBeTruthy());
       expect(screen.queryByRole("button")).toBeNull();
@@ -677,7 +677,7 @@ describe("Panel.Selector", () => {
         project: proj.key,
       });
       await act(async () => {
-        render(<Selector />, { wrapper });
+        render(<Panel.Selector />, { wrapper });
       });
       fireEvent.contextMenu(await screen.findByText(pan.name));
       await screen.findByText("Reload Console");

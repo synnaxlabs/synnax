@@ -15,7 +15,7 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { Access, Ranger } from "@synnaxlabs/pluto";
 import { type FC } from "react";
 
-import { List } from "@/feature/range/list/List";
+import { List } from "@/feature/range/list";
 import { Range } from "@/platform/range";
 
 export interface ChildRangesProps {
@@ -46,7 +46,7 @@ export const ChildRanges: FC<ChildRangesProps> = ({ rangeKey }) => {
           )}
         </Header.Actions>
       </Header.Header>
-      <List
+      <List.List
         data={data}
         getItem={getItem}
         subscribe={subscribe}

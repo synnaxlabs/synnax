@@ -8,4 +8,4 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/feature/command/List";
-export * from "@/platform/command/command";
+export * from "@/platform/command/external";

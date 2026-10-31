@@ -14,7 +14,6 @@ import { breaker, TimeSpan } from "@synnaxlabs/x";
 
 import { type Link } from "@/platform/link";
 import { Session } from "@/session";
-import { type State } from "@/session/store";
 
 const CONNECT_TIMEOUT = TimeSpan.seconds(10);
 const SWAP_POLL_INTERVAL = TimeSpan.milliseconds(50);
@@ -28,7 +27,7 @@ const SWAP_POLL_BREAKER_CONFIG: breaker.Config = {
 // connection state without binding to React. Production wires these to the Redux store
 // and the Synnax provider; tests inject controllable stubs.
 export interface ConnectContext {
-  getState: () => State;
+  getState: () => Session.State;
   getClient: () => Client | null;
   setActive: (key: string) => void;
   poll: breaker.Breaker;

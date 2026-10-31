@@ -12,7 +12,7 @@ import { TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { RetrySchedule } from "@/platform/connection/Retry";
+import { Connection } from "@/platform/connection";
 import { renderWithConsole } from "@/testutil";
 
 const createDetails = (
@@ -38,21 +38,23 @@ const line = (): HTMLElement | null =>
 describe("RetrySchedule", () => {
   it("counts down to the next attempt", async () => {
     const retry = { attempt: 3, nextAt: TimeStamp.now().add(TimeSpan.seconds(5)) };
-    await renderWithConsole(<RetrySchedule details={createDetails({ retry })} />);
+    await renderWithConsole(
+      <Connection.RetrySchedule details={createDetails({ retry })} />,
+    );
     expect(screen.getByText("Retrying in 5s (attempt 3)")).toBeTruthy();
   });
 
   it("reports the check instead of the countdown while one runs", async () => {
     const retry = { attempt: 3, nextAt: TimeStamp.now().add(TimeSpan.seconds(5)) };
     await renderWithConsole(
-      <RetrySchedule details={createDetails({ retry, checking: true })} />,
+      <Connection.RetrySchedule details={createDetails({ retry, checking: true })} />,
     );
     expect(screen.getByText("Checking connection")).toBeTruthy();
     expect(screen.queryByText(/Retrying in/)).toBeNull();
   });
 
   it("keeps its line when there is nothing scheduled", async () => {
-    await renderWithConsole(<RetrySchedule details={createDetails()} />);
+    await renderWithConsole(<Connection.RetrySchedule details={createDetails()} />);
     expect(line()).toBeTruthy();
     expect(line()?.textContent).toBe("");
   });
