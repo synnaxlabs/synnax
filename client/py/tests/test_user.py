@@ -134,11 +134,12 @@ class TestUserClient:
         self, client: sy.Synnax, new_user_list: list[sy.user.New]
     ) -> None:
         """Should keep users that match a filter tree and the given usernames."""
-        users = client.users.create(users=new_user_list[:2])
+        new_users = new_user_list[:2]
+        users = client.users.create(users=new_users)
         where = sy.user.Where(
             not_=sy.user.Where(key=filter.Set[sy.user.Key](eq=users[0].key))
         )
         retrieved = client.users.retrieve(
-            where=where, usernames=[u.username for u in users]
+            where=where, usernames=[u.username for u in new_users]
         )
         assert [u.key for u in retrieved] == [users[1].key]

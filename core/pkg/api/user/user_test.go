@@ -250,7 +250,9 @@ var _ = Describe("Service", func() {
 
 				res := MustSucceed(apiSvc.Retrieve(
 					rootCtx(ctx),
-					apiuser.RetrieveRequest{Usernames: []string{newName}},
+					apiuser.RetrieveRequest{
+						Where: &user.Where{Usernames: []string{newName}},
+					},
 				))
 				Expect(res.Users).To(ConsistOf(u))
 				MustSucceed(login(ctx, newName, "p"))

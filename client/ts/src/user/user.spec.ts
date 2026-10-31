@@ -160,9 +160,9 @@ describe("User", () => {
       });
       describe("many", () => {
         test("found", async () => {
-          const res = await client.users.retrieve({
-            keys: userArray.map((u) => u.key as string),
-          });
+          const res = await client.users.retrieve(
+            userArray.map((u) => u.key as string),
+          );
           expect(res).toHaveLength(2);
           expectUsers(res, userArray);
         });
@@ -176,7 +176,7 @@ describe("User", () => {
           users.forEach((u, i) => (userArray[i].key = u.key));
         });
         test("all", async () => {
-          const res = await client.users.retrieve({ keys: [] });
+          const res = await client.users.retrieve({});
           expectUsers(res, [userOne, userTwo, userThree, ...userArray]);
         });
       });
