@@ -10,8 +10,6 @@
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
-#include <cstdio>
-
 #include <windows.h>
 
 #include "x/cpp/shutdown/shutdown.h"
@@ -64,7 +62,6 @@ void listen_stdin() {
         } else if (GetLastError() == ERROR_BROKEN_PIPE) {
             // The parent died. Windows has no SIGPIPE to end this process, and no one
             // is left to receive a clean stop.
-            std::fputs("stdin pipe closed, exiting\n", stderr);
             TerminateProcess(GetCurrentProcess(), 1);
         }
 
