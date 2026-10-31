@@ -75,6 +75,7 @@ export class Context {
   private readonly statusKey = id.create();
   private _generation = 0;
   private readonly restoreHandlers = new Set<() => void>();
+  private readonly restore2DHandlers = new Set<() => void>();
   private readonly atlases = new text.AtlasRegistry();
 
   static create(
@@ -191,6 +192,18 @@ export class Context {
     };
   }
 
+  /**
+   * Calls f each time a restore rebuilds the 2D canvases, which clears them. The calls
+   * happen even when the rest of the restore fails.
+   * @returns a function that stops the calls.
+   */
+  on2DRestore(f: () => void): destructor.Destructor {
+    this.restore2DHandlers.add(f);
+    return () => {
+      this.restore2DHandlers.delete(f);
+    };
+  }
+
   private configureGL(): void {
     const { gl } = this;
     gl.disable(gl.DEPTH_TEST);
@@ -233,6 +246,7 @@ export class Context {
     this.upper2dCanvas.width = 0;
     this.lower2dCanvas.width = 0;
     this.reset2D();
+    this.restore2DHandlers.forEach((f) => f());
   }
 
   private reset2D(): void {

@@ -224,6 +224,20 @@ describe("render.Context", () => {
       expect(recorder.lower2d.calls).toContainEqual({ op: "reset", args: [] });
     });
 
+    it("should call each 2D restore handler when the GL restore fails", () => {
+      const { renderCtx, returns, lose, restore } = mount("Windows");
+      const handler = vi.fn();
+      const stop = renderCtx.on2DRestore(handler);
+      lose();
+      returns.createProgram = () => null;
+      restore();
+      expect(handler).toHaveBeenCalledOnce();
+      stop();
+      lose();
+      restore();
+      expect(handler).toHaveBeenCalledOnce();
+    });
+
     it("should build new text atlases", () => {
       const { renderCtx, lose, restore } = mount();
       canvasTest.atlasSurface();

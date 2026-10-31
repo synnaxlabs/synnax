@@ -652,15 +652,15 @@ describe("log/aether/Log", () => {
     });
   });
 
-  describe("after the WebGL context is restored", () => {
+  describe("after the 2D canvases are restored", () => {
     it("should request a render until deleted", () => {
       const { h, recorder } = setup([makeEntry(1)]);
       recorder.clear();
-      recorder.restore();
+      recorder.restore2D();
       expect(recorder.loopCalls).toHaveLength(1);
       h.unmount();
       recorder.clear();
-      recorder.restore();
+      recorder.restore2D();
       expect(recorder.loopCalls).toEqual([]);
     });
 
@@ -668,7 +668,7 @@ describe("log/aether/Log", () => {
       const { recorder, updateState } = setup([makeEntry(1)]);
       updateState({ visible: false });
       recorder.clear();
-      recorder.restore();
+      recorder.restore2D();
       expect(recorder.loopCalls).toEqual([]);
     });
   });

@@ -171,7 +171,7 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     const { internal: i } = this;
     i.render = render.Context.use(ctx);
     i.stopListeningRestore?.();
-    i.stopListeningRestore = i.render.onRestore(() => {
+    i.stopListeningRestore = i.render.on2DRestore(() => {
       if (this.state.visible) this.requestRender();
     });
     i.theme = theming.use(ctx);
