@@ -67,9 +67,8 @@ var _ = Describe("Control", func() {
 				)
 				BeforeAll(func(ctx SpecContext) {
 					ShouldNotLeakGoroutines()
-					db = mustOpenDBOnFS(ctx, fs)
+					db = DeferClose(mustOpenDBOnFS(ctx, fs))
 				})
-				AfterAll(func() { Expect(db.Close()).To(Succeed()) })
 				BeforeEach(func(ctx SpecContext) {
 					idxCh, dataCh = GenerateChannelKey(), GenerateChannelKey()
 					keys = []cesium.ChannelKey{idxCh, dataCh}
@@ -187,23 +186,65 @@ var _ = Describe("Control", func() {
 					Expect(w.Write(frame(1, 2))).To(BeTrue())
 					MustSucceed(w.Commit())
 					Expect(db.ControlStates().Transfers).To(BeEmpty())
-					live := openLive(ctx, 1)
-					u := db.ControlStates()
-					Expect(u.Transfers).To(HaveLen(2))
-					Expect(u.Transfers[0].To.Subject.Key).To(Equal("live"))
 					Expect(w.Close()).To(Succeed())
-					Expect(live.Close()).To(Succeed())
-					for len(updates) > 0 {
-						for _, t := range (<-updates).Transfers {
-							if t.From != nil {
-								Expect(t.From.Subject.Key).To(Equal("live"))
-							}
-							if t.To != nil {
-								Expect(t.To.Subject.Key).To(Equal("live"))
-							}
-						}
-					}
+					Consistently(updates).ShouldNot(Receive())
 				})
+				It(
+					"Should leave a live writer as the holder of the channel",
+					func(ctx SpecContext) {
+						live := openLive(ctx, 1)
+						updates, disconnect := observeControl(db)
+						defer disconnect()
+						w := MustSucceed(
+							db.OpenWriter(ctx, persistConfig(1*telem.SecondTS)),
+						)
+						Expect(w.Write(frame(1, 2))).To(BeTrue())
+						MustSucceed(w.Commit())
+						Expect(w.Close()).To(Succeed())
+						Consistently(updates).ShouldNot(Receive())
+						u := db.ControlStates()
+						Expect(u.Transfers).To(HaveLen(2))
+						Expect(u.Transfers[0].To.Subject.Key).To(Equal("live"))
+						Expect(live.Close()).To(Succeed())
+					},
+				)
+				It(
+					"Should let a streaming writer take over next to an open persist writer",
+					func(ctx SpecContext) {
+						live := openLive(ctx, 1)
+						w := MustSucceed(
+							db.OpenWriter(ctx, persistConfig(1*telem.SecondTS)),
+						)
+						operator := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+							ControlSubject: xcontrol.Subject{
+								Key:  "operator",
+								Name: "Operator",
+							},
+							Start:    1 * telem.SecondTS,
+							Channels: keys,
+							Authorities: []xcontrol.Authority{
+								xcontrol.AuthorityAbsolute,
+							},
+							Sync: new(true),
+						}))
+						Expect(live.Write(frame(20))).To(BeFalse())
+						Expect(operator.Write(frame(21, 22))).To(BeTrue())
+						MustSucceed(operator.Commit())
+						Expect(w.Write(frame(1, 2))).Error().To(And(
+							MatchError(validate.ErrValidation),
+							MatchError(
+								ContainSubstring("cannot extend control region"),
+							),
+						))
+						Expect(w.Close()).To(MatchError(validate.ErrValidation))
+						Expect(operator.Close()).To(Succeed())
+						Expect(live.Close()).To(Succeed())
+						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, dataCh))
+						Expect(f.Get(dataCh).Series).To(HaveLen(1))
+						Expect(f.Get(dataCh).Series[0]).
+							To(telem.MatchSeriesDataV[int16](21, 22))
+					},
+				)
 				It(
 					"Should keep a streaming writer in contention behind a live writer",
 					func(ctx SpecContext) {

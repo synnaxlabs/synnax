@@ -388,15 +388,6 @@ var _ = Describe("Control", func() {
 				g, _ := MustSucceed2(c.OpenGate(cfg))
 				return g
 			}
-			It("Should report a gate in a bounded region", func() {
-				Expect(openBounded("backfill", telem.NewRangeSeconds(1, 2)).Bounded()).
-					To(BeTrue())
-			})
-			It("Should not report a gate in any other region", func() {
-				Expect(
-					openAt("live", telem.NewRangeSeconds(1, 2)).Bounded(),
-				).To(BeFalse())
-			})
 			It("Should skip a bounded region in the leading state", func() {
 				openBounded("backfill", telem.NewRangeSeconds(1, 2))
 				openAt("live", telem.NewRangeSeconds(10, 20))
@@ -406,21 +397,83 @@ var _ = Describe("Control", func() {
 				openBounded("backfill", telem.NewRangeSeconds(1, 2))
 				Expect(c.LeadingState()).To(BeNil())
 			})
-			It("Should stop being bounded when an unbounded gate joins", func() {
+			It("Should not let an unbounded gate join a bounded region", func() {
 				g := openBounded("backfill", telem.NewRangeSeconds(1, 2))
-				openAt("live", telem.NewRangeSeconds(1, 20))
-				Expect(g.Bounded()).To(BeFalse())
-				Expect(c.LeadingState().Subject.Key).To(Equal("backfill"))
+				live := openAt("live", telem.NewRangeSeconds(1, 20))
+				Expect(c.LeadingState().Subject.Key).To(Equal("live"))
+				MustSucceed(g.Authorize())
+				MustSucceed(live.Authorize())
 			})
-			It("Should stay bounded when an unbounded gate fails to join", func() {
-				g := openBounded("backfill", telem.NewRangeSeconds(1, 2))
+			It(
+				"Should open an unbounded gate over a bounded region and another region",
+				func() {
+					g := openBounded("backfill", telem.NewRangeSeconds(1, 2))
+					live := openAt("live", telem.NewRangeSeconds(10, 20))
+					cfg, _ := baseConfig(1)
+					cfg.Subject.Key = "operator"
+					cfg.TimeRange = telem.NewRangeSeconds(1, 20)
+					cfg.Authority = 1
+					operator, _ := MustSucceed2(c.OpenGate(cfg))
+					MustSucceed(g.Authorize())
+					MustSucceed(live.Authorize())
+					Expect(operator.Authorize()).Error().
+						To(MatchError(xcontrol.ErrUnauthorized))
+					live.Release()
+					MustSucceed(operator.Authorize())
+				},
+			)
+			It("Should fail to open a bounded gate over a bounded region", func() {
+				openBounded("backfill", telem.NewRangeSeconds(1, 5))
 				cfg, _ := baseConfig(1)
+				cfg.Subject.Key = "second"
+				cfg.TimeRange = telem.NewRangeSeconds(3, 4)
+				cfg.Bounded = new(true)
+				Expect(c.OpenGate(cfg)).Error().To(And(
+					MatchError(xcontrol.ErrUnauthorized),
+					MatchError(ContainSubstring("overlaps with a controlled region")),
+				))
+			})
+			It(
+				"Should fail to open an exclusive gate where two regions overlap",
+				func() {
+					openBounded("backfill", telem.NewRangeSeconds(1, 5))
+					openAt("live", telem.NewRangeSeconds(1, 20))
+					expectControlled(telem.NewRangeSeconds(3, 4), true)
+				},
+			)
+			It("Should fail a reach into an unbounded region", func() {
+				g := openBounded("backfill", telem.NewRangeSeconds(1, 2))
+				openAt("live", telem.NewRangeSeconds(10, 20))
+				Expect(g.Reach(11 * telem.SecondTS)).To(And(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("cannot extend control region")),
+				))
+			})
+			It("Should extend an unbounded region over a bounded region", func() {
+				g := openBounded("backfill", telem.NewRangeSeconds(5, 6))
+				live := openAt("live", telem.NewRangeSeconds(10, 20))
+				Expect(live.Extend(1 * telem.SecondTS)).To(Succeed())
+				Expect(
+					g.Reach(7 * telem.SecondTS),
+				).To(MatchError(validate.ErrValidation))
+			})
+			It("Should prefer a bounded region in ResourceAt", func() {
+				cfg, _ := baseConfig(2)
+				cfg.Subject.Key = "backfill"
+				cfg.TimeRange = telem.NewRangeSeconds(5, 6)
+				cfg.Bounded = new(true)
+				MustSucceed2(c.OpenGate(cfg))
+				cfg, _ = baseConfig(1)
 				cfg.Subject.Key = "live"
-				cfg.TimeRange = telem.NewRangeSeconds(1, 20)
-				cfg.Authority = xcontrol.AuthorityAbsolute - 1
-				cfg.ErrOnUnauthorizedOpen = new(true)
-				Expect(c.OpenGate(cfg)).Error().To(MatchError(xcontrol.ErrUnauthorized))
-				Expect(g.Bounded()).To(BeTrue())
+				cfg.TimeRange = telem.NewRangeSeconds(10, 20)
+				live, _ := MustSucceed2(c.OpenGate(cfg))
+				Expect(live.Extend(1 * telem.SecondTS)).To(Succeed())
+				res, ok := c.ResourceAt(telem.NewRangeSeconds(5, 6))
+				Expect(ok).To(BeTrue())
+				Expect(res.value).To(Equal(2))
+				res, ok = c.ResourceAt(telem.NewRangeSeconds(7, 8))
+				Expect(ok).To(BeTrue())
+				Expect(res.value).To(Equal(1))
 			})
 			It("Should not race with a reach and a concurrent leading state", func() {
 				g := openBounded("backfill", telem.NewRangeSeconds(1, 2))
@@ -434,7 +487,6 @@ var _ = Describe("Control", func() {
 				wg.Go(func() {
 					for range 500 {
 						c.LeadingState()
-						g.Bounded()
 					}
 				})
 				wg.Wait()

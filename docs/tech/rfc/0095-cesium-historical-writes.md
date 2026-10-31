@@ -60,6 +60,7 @@ before the start, as for any writer. Live writers do not change.
 | Start inside another claim, at any authority             | Fails to open with `ErrUnauthorized`           |
 | No start, next to a live writer                          | Fails to open: the start is the open time      |
 | A commit reaches a stored domain                         | The commit fails with a write conflict         |
+| A live writer opens over a persist claim                 | Opens, and the persist writer goes on          |
 | A commit reaches another claim                           | The commit fails, and the other writer goes on |
 | A live writer moves back over uncommitted time           | The live writer wins, and the commit fails     |
 | A delete reaches committed time while the writer is open | Fails with `ErrUnauthorized`                   |
@@ -76,9 +77,11 @@ A persist writer reports no control transfers, and `LeadingState` skips its regi
 transfer with no `to` (`client/ts/src/control/client.ts:84`), so a persist writer that
 closes next to a live writer would show the channel as free.
 
-A live writer whose claim covers a persist writer's committed time joins that region, as
-any two overlapping writers do. The region then stops being bounded and reports control
-as normal.
+A persist writer is alone in its region. No gate joins it, and a live writer's claim
+skips it (`OpenGate`, `unsafeResize`). A live writer that joined would compete by
+authority with old data, and a claim that overlaps two regions cannot join both. Live
+claims still join each other, so an operator can take over while a load runs. The load
+fails at its next commit if that commit reaches the operator's claim.
 
 ### 4.2 The end-domain command
 

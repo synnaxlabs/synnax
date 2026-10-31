@@ -235,7 +235,6 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (
 	}
 	if w.control, transfer, err = db.controller.OpenGate(
 		control.GateConfig[*controlledWriter]{
-			ErrIfControlled:       cfg.Bounded,
 			Bounded:               cfg.Bounded,
 			ErrOnUnauthorizedOpen: cfg.ErrOnUnauthorizedOpen,
 			TimeRange:             cfg.controlTimeRange(start),
@@ -370,10 +369,10 @@ func (w *Writer) SetAuthority(a xcontrol.Authority) control.Transfer {
 	return w.visible(w.control.SetAuthority(a))
 }
 
-// visible hides a transfer in a bounded region, which says nothing about who controls
+// visible hides a transfer of a bounded writer, which says nothing about who controls
 // the channel.
 func (w *Writer) visible(t control.Transfer) control.Transfer {
-	if w.control.Bounded() {
+	if *w.cfg.Bounded {
 		return control.Transfer{}
 	}
 	return t

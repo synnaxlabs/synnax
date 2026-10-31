@@ -64,7 +64,8 @@ func (c Config) Override(other Config) Config {
 }
 
 // Controller controls access to a specified resource type over discrete time regions. A
-// Controller maintains a set of regions that occupy non-overlapping time ranges. If the
+// Controller maintains a set of regions that occupy non-overlapping time ranges, except
+// that an unbounded region can overlap a bounded one. If the
 // controller is open with control.ConcurrencyExclusive, each region can only have one
 // subject, managed by a Gate, controlling it at a single time. Each region manages an
 // independent set of gates that bid for control over the resource using a mix of both
@@ -104,7 +105,11 @@ type GateConfig[R Resource] struct {
 	// [OPTIONAL] Defaults to false.
 	ErrOnUnauthorizedOpen *bool
 	// Bounded marks a gate that holds only TimeRange, and grows through Gate.Reach. A
-	// region of bounded gates does not count toward LeadingState.
+	// bounded gate is alone in its region: it fails to open with
+	// control.ErrUnauthorized
+	// where another region holds TimeRange, and no gate joins it. An unbounded region
+	// can open or extend over it, and its next Gate.Reach into that region fails. A
+	// bounded region does not count toward LeadingState.
 	//
 	// [OPTIONAL] Defaults to false.
 	Bounded *bool
@@ -178,19 +183,23 @@ func (c *Controller[R]) LeadingState() *State {
 }
 
 // ResourceAt returns the resource held by the region overlapping tr, reporting false
-// when no region covers it. Regions occupy non-overlapping time ranges, so at most one
-// can match. The returned resource is safe to read only through fields that are
+// when no region covers it. A bounded region takes precedence over an unbounded region
+// that overlaps it. The returned resource is safe to read only through fields that are
 // themselves safe for concurrent access, as the controller's lock is released before
 // the caller touches it.
 func (c *Controller[R]) ResourceAt(tr telem.TimeRange) (res R, ok bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	for _, reg := range c.regions {
-		if reg.timeRange.OverlapsWith(tr) {
-			return reg.resource, true
+		if !reg.timeRange.OverlapsWith(tr) {
+			continue
+		}
+		res, ok = reg.resource, true
+		if reg.bounded {
+			break
 		}
 	}
-	return res, false
+	return res, ok
 }
 
 // OpenGate opens a new gate for the region occupying the specified time range. If the
@@ -205,9 +214,15 @@ func (c *Controller[R]) OpenGate(
 	if cfg, err = config.New(defaultGateConfig[R](), cfg); err != nil {
 		return g, t, err
 	}
+	if *cfg.Bounded {
+		cfg.ErrIfControlled = cfg.Bounded
+	}
 
 	var exists bool
 	for _, reg := range c.regions {
+		if reg.bounded && !*cfg.ErrIfControlled {
+			continue
+		}
 		// Check if there is an existing region that overlaps with that time range.
 		if reg.timeRange.OverlapsWith(cfg.TimeRange) {
 			// v1 optimization: one writer can only overlap with one region at any given
@@ -258,7 +273,10 @@ func (c *Controller[R]) reach(r *region[R], end telem.TimeStamp) error {
 
 func (c *Controller[R]) unsafeResize(r *region[R], grown telem.TimeRange) error {
 	for _, reg := range c.regions {
-		if reg != r && reg.timeRange.OverlapsWith(grown) {
+		if reg == r || (reg.bounded && !r.bounded) {
+			continue
+		}
+		if reg.timeRange.OverlapsWith(grown) {
 			return errors.Wrapf(
 				validate.ErrValidation,
 				"cannot extend control region to %v because a region holds %v",
