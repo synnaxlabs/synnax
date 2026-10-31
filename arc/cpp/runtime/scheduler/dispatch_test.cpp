@@ -252,6 +252,39 @@ TEST_F(SchedulerTest, ReFiresAnEntryNodeWhenItsScopeReActivates) {
     EXPECT_EQ(entry_node.next_called, 2);
 }
 
+TEST_F(SchedulerTest, DoesNotReFireAOnceEntryNodeWhenItsScopeReActivates) {
+    auto &trigger = mock("trigger", {true});
+    trigger.suppress_auto_mark = true;
+    // Trigger marks on cycles 1 and 3; each mark activates main.
+    trigger.on_next = [&trigger](node::Context &ctx) {
+        ctx.mark_self_changed();
+        if (trigger.next_called == 1 || trigger.next_called == 3) ctx.mark_changed(0);
+    };
+    auto &once = mock("once_node", {true});
+    auto first = parallel_scope("first", {stratum_of({ir::node_member("once_node")})});
+    ir::Transition t;
+    t.on = ir::Handle{"once_node", "output"};
+    t.target = exit_target();
+    auto main = sequential_scope("main", {ir::scope_member(std::move(first))}, {t});
+    main.activations = {
+        {.on = ir::Handle{"trigger", "output"}, .kind = ir::EdgeKind::Conditional}
+    };
+    auto once_node = ir_node("once_node", {"output"});
+    once_node.once = true;
+    auto program = program_of(
+        {ir_node("trigger", {"output"}), once_node},
+        {},
+        root_scope({ir::node_member("trigger"), ir::scope_member(std::move(main))})
+    );
+    const auto s = build(std::move(program));
+    for (int i = 1; i <= 3; ++i)
+        s->next(
+            {.elapsed = i * x::telem::MICROSECOND, .reason = node::RunReason::TimerTick}
+        );
+    EXPECT_EQ(once.reset_called, 2) << "main activated twice";
+    EXPECT_EQ(once.next_called, 1) << "a once node never re-fires";
+}
+
 TEST_F(SchedulerTest, RunsAnEntrySequentialFlowStepOnceWhileTheStepStaysActive) {
     mock("trigger", {true});
     auto &step = mock("step");

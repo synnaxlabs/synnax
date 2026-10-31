@@ -68,6 +68,8 @@ class Node(BaseModel):
         inputs: Contains input parameter type signatures.
         outputs: Contains output parameter type signatures.
         channels: Contains channel read/write mappings.
+        once: Marks an entry node that fires on the first activation of its scope only;
+            a scope reset does not re-arm it.
     """
 
     key: str
@@ -75,6 +77,7 @@ class Node(BaseModel):
     inputs: types.Params = Field(default_factory=list)
     outputs: types.Params = Field(default_factory=list)
     channels: types.Channels
+    once: bool = False
 
 
 class Authorities(BaseModel):

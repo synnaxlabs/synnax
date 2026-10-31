@@ -155,6 +155,16 @@ func (s *Symbol) IsLiteral() bool {
 	return s.IsValueVariable() && s.Type.Kind != types.KindChan
 }
 
+// IsComputed reports whether s is a flow-level value variable whose initializer
+// is neither a literal nor a channel, so its value exists only at runtime.
+func (s *Symbol) IsComputed() bool {
+	if !s.IsLiteral() || s.SourceID != nil || s.DefaultValue != nil {
+		return false
+	}
+	_, err := s.ClosestAncestorOfKind(KindFunction)
+	return errors.Is(err, query.ErrNotFound)
+}
+
 // Symbol is a named entity in an Arc program and, when it has Children, a
 // container that holds other Symbols. Variables, functions, modules, channels,
 // blocks, loops, sequences, stages, and aliases are all Symbols distinguished

@@ -32,7 +32,8 @@ func (*Host) Create(cfg node.Config) (node.Node, error) {
 	if cfg.Node.Type != symbolName && cfg.Node.Type != statefulSymbolName {
 		return nil, query.ErrNotFound
 	}
-	if len(cfg.Node.Inputs) > 0 && cfg.Node.Inputs[0].Value == nil {
+	if cfg.Node.Type == symbolName && len(cfg.Node.Inputs) > 0 &&
+		cfg.Node.Inputs[0].Value == nil {
 		selIdx := -1
 		if idx, err := cfg.State.ResolveInput("sel"); err == nil {
 			selIdx = idx

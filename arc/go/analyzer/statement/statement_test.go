@@ -292,6 +292,7 @@ var _ = Describe("Statement", func() {
 			DescribeTable("reject an invalid stateful initializer",
 				func(bCtx SpecContext, code string) {
 					ctx := declareIn(bCtx, NewRoot(nil, sensorChan...), code)
+					statement.CheckStatefulInitializers(ctx)
 					Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 					Expect((*ctx.Diagnostics)[0].Message).To(
 						ContainSubstring("cannot be assigned to stateful"),
@@ -322,27 +323,21 @@ var _ = Describe("Statement", func() {
 			})
 
 			It(
-				"rejects a stateful initialized from a non-literal value",
+				"accepts a stateful initialized from a variable",
 				func(bCtx SpecContext) {
 					root := NewRoot(nil)
 					declareIn(bCtx, root, "base i64 := 5")
 					ctx := declareIn(bCtx, root, "total i64 $= base")
-					Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-					Expect((*ctx.Diagnostics)[0].Message).To(
-						ContainSubstring("must be a literal value"),
-					)
+					Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 				},
 			)
 
 			It(
-				"rejects a stateful initialized from a constant expression",
+				"accepts a stateful initialized from a computed expression",
 				func(bCtx SpecContext) {
 					root := NewRoot(nil)
 					ctx := declareIn(bCtx, root, "total i64 $= 2 + 3")
-					Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-					Expect((*ctx.Diagnostics)[0].Message).To(
-						ContainSubstring("must be a literal value"),
-					)
+					Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 				},
 			)
 

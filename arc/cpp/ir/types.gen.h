@@ -104,6 +104,9 @@ struct Node {
     ::arc::types::Params outputs;
     /// @brief channels contains channel read/write mappings.
     ::arc::types::Channels channels;
+    /// @brief once marks an entry node that fires on the first activation of its scope
+    /// only; a scope reset does not re-arm it.
+    bool once = false;
 
     static Node parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

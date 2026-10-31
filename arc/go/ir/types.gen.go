@@ -249,6 +249,9 @@ type Node struct {
 	Outputs types.Params `json:"outputs" msgpack:"outputs"`
 	// Channels contains channel read/write mappings.
 	Channels types.Channels `json:"channels" msgpack:"channels"`
+	// Once marks an entry node that fires on the first activation of its scope only; a
+	// scope reset does not re-arm it.
+	Once bool `json:"once" msgpack:"once"`
 }
 
 // Nodes is a collection of node instantiations in an Arc module.

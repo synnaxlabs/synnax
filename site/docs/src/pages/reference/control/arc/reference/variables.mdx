@@ -35,12 +35,12 @@ variable holds depends on its value:
 
 ### Where you can declare
 
-| Place     | `:=`                                | `$=` | `=` | `+=` and `x[i] =` |
-| --------- | ----------------------------------- | ---- | --- | ----------------- |
-| Top level | Yes. A literal value is a constant. | No   | No  | No                |
-| Function  | Yes                                 | Yes  | Yes | Yes               |
-| Sequence  | Yes                                 | Yes  | Yes | No                |
-| Stage     | Yes                                 | Yes  | Yes | No                |
+| Place     | `:=`                          | `$=` | `=` | `+=` and `x[i] =` |
+| --------- | ----------------------------- | ---- | --- | ----------------- |
+| Top level | Yes. The value is a constant. | No   | No  | No                |
+| Function  | Yes                           | Yes  | Yes | Yes               |
+| Sequence  | Yes                           | Yes  | Yes | No                |
+| Stage     | Yes                           | Yes  | Yes | No                |
 
 At the top level, `$=` fails with
 `stateful variables cannot be declared at the top level`. An assignment fails with
@@ -73,9 +73,9 @@ When a stage starts, the `:=` variables of the stage and its sequence, and the `
 variables of the functions it calls, go back to their first values. See
 [entering a stage](/reference/control/arc/execution-model#entering-a-stage).
 
-In a stage or sequence, the first value of a `$=` variable must be a literal. Other
-values fail with `stateful variable initializer must be a literal value`. A channel
-fails with
+In a stage or sequence, the first value of a `$=` variable is a literal or an expression
+that reads no channel. A computed one runs once, on the first entry of its scope. A
+channel fails with
 `channels and channel-read expressions cannot be assigned to stateful variables`.
 
 <Divider.Divider x />

@@ -66,6 +66,11 @@ export const nodeZ = z.object({
   outputs: types.paramsZ,
   /** channels contains channel read/write mappings. */
   channels: types.channelsZ,
+  /**
+   * once marks an entry node that fires on the first activation of its scope only; a
+   * scope reset does not re-arm it.
+   */
+  once: z.boolean().default(false),
 });
 export interface Node extends z.infer<typeof nodeZ> {}
 

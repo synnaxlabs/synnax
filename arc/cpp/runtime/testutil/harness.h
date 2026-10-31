@@ -211,6 +211,9 @@ public:
         return out;
     }
 
+    /// @brief returns the stamp the last tick ran with.
+    [[nodiscard]] x::telem::TimeStamp now() const { return this->cycle_now; }
+
     [[nodiscard]] x::telem::Series
     output(const std::string &node_key, const size_t param_idx) const {
         auto [n, err] = this->node_state->node(node_key);

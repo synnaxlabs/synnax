@@ -2309,6 +2309,59 @@ var _ = Describe("Scheduler", func() {
 		)
 
 		It(
+			"Should not re-fire a once entry node when its scope re-activates",
+			func(ctx SpecContext) {
+				// Trigger marks on cycles 1 and 3; each mark activates main.
+				trigger := mock("trigger", true)
+				trigger.SuppressAutoMark = true
+				once := mock("once_node", true)
+				cycle := 0
+				trigger.OnNext = func(c node.Context) {
+					cycle++
+					c.MarkSelfChanged()
+					if cycle == 1 || cycle == 3 {
+						c.MarkChanged(0)
+					}
+				}
+				first := parallelScope(
+					"first",
+					stratum(ir.Member{NodeKey: new("once_node")}),
+				)
+				main := sequentialScope("main",
+					[]ir.Member{{Scope: &first}},
+					ir.Transition{
+						On:     ir.Handle{Node: "once_node", Param: "output"},
+						Kind:   ir.EdgeKindConditional,
+						Target: exitTarget(),
+					},
+				)
+				main.Activations = []ir.Activation{{
+					On:   ir.Handle{Node: "trigger", Param: "output"},
+					Kind: ir.EdgeKindConditional,
+				}}
+				onceNode := irNode("once_node", "output")
+				onceNode.Once = true
+				prog := programOf(
+					[]ir.Node{irNode("trigger", "output"), onceNode},
+					nil,
+					rootScope(
+						ir.Member{NodeKey: new("trigger")},
+						ir.Member{Scope: new(main)},
+					),
+				)
+				s := build(prog)
+				for i := 1; i <= 3; i++ {
+					s.Next(ctx, node.Cycle{
+						Elapsed: telem.TimeSpan(i) * telem.Microsecond,
+						Reason:  node.ReasonTimerTick,
+					})
+				}
+				Expect(once.ResetCalled).To(Equal(2), "main activated twice")
+				Expect(once.NextCalled).To(Equal(1), "a once node never re-fires")
+			},
+		)
+
+		It(
 			"Should reset sequence members when reactivated after an exit",
 			func(ctx SpecContext) {
 				// Trigger marks on cycles 1 and 3; each mark activates main,

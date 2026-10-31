@@ -10,6 +10,7 @@
 package text_test
 
 import (
+	"slices"
 	"strings"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -458,16 +459,23 @@ var _ = Describe("Text", func() {
 			},
 		)
 
-		It("Should reject a non-literal config input value", func(ctx SpecContext) {
+		It("Should sample a computed config input per fire", func(ctx SpecContext) {
 			source := `count_ch -> wait(duration=1s+1s) -> flag_ch`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-			_, diagnostics := text.Analyze(
+			inter, diagnostics := text.Analyze(
 				ctx,
 				parsedText,
 				NewRoot(nil, varResolver...),
 			)
-			Expect(diagnostics.Ok()).To(BeFalse())
-			Expect(diagnostics.String()).To(ContainSubstring("must be a literal"))
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			duration := MustBeOk(
+				findNodeByKey(inter.Nodes, "wait_0").Inputs.Get("duration"),
+			)
+			Expect(duration.Type.Kind).To(Equal(types.KindVarRef))
+			arg := findNodeByKey(inter.Nodes, duration.Type.Name)
+			Expect(arg.Type).To(HavePrefix("expression_"))
+			Expect(hasEdge(inter, nodeReading(inter, 901), arg.Key)).To(BeTrue(),
+				"the trigger must fire the computed input")
 		})
 
 		It(
@@ -848,7 +856,7 @@ var _ = Describe("Text", func() {
 		})
 
 		It(
-			"Should not fold a cast of a non-literal initializer",
+			"Should bind a cast of a variable initializer as a var ref input",
 			func(ctx SpecContext) {
 				source := `
 			func my_func(tag i64) {n u8} i64 {
@@ -862,18 +870,23 @@ var _ = Describe("Text", func() {
 				}
 			}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				_, diagnostics := text.Analyze(
+				inter, diagnostics := text.Analyze(
 					ctx,
 					parsedText,
 					NewRoot(nil, varResolver...),
 				)
-				Expect(diagnostics.Ok()).To(BeFalse())
-				Expect(diagnostics.String()).To(ContainSubstring("must be a literal"))
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				tag := MustBeOk(
+					findNodeByKey(inter.Nodes, "my_func_0").Inputs.Get("tag"),
+				)
+				Expect(tag.Type.Kind).To(Equal(types.KindVarRef))
+				Expect(tag.Type.Name).To(Equal("var_k_0"))
+				Expect(tag.Value).To(Equal(int64(0)))
 			},
 		)
 
 		It(
-			"Should reject a reactive variable as an input value",
+			"Should bind a reactive variable input as a var ref to its deref",
 			func(ctx SpecContext) {
 				source := `
 			func my_func(tag i64) {n u8} i64 {
@@ -886,13 +899,18 @@ var _ = Describe("Text", func() {
 				}
 			}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				_, diagnostics := text.Analyze(
+				inter, diagnostics := text.Analyze(
 					ctx,
 					parsedText,
 					NewRoot(nil, varResolver...),
 				)
-				Expect(diagnostics.Ok()).To(BeFalse())
-				Expect(diagnostics.String()).To(ContainSubstring("must be a literal"))
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				tag := MustBeOk(
+					findNodeByKey(inter.Nodes, "my_func_0").Inputs.Get("tag"),
+				)
+				Expect(tag.Type.Kind).To(Equal(types.KindVarRef))
+				Expect(tag.Type.Name).To(Equal("var_r_0"))
+				Expect(tag.Type.Elem.Kind).To(Equal(types.KindI64))
 			},
 		)
 
@@ -921,7 +939,7 @@ var _ = Describe("Text", func() {
 		)
 
 		It(
-			"Should reject a reactive variable as a native's input value",
+			"Should bind a reactive variable input of a native as a var ref",
 			func(ctx SpecContext) {
 				resolver := append([]symbol.Symbol{
 					{
@@ -945,13 +963,17 @@ var _ = Describe("Text", func() {
 				}
 			}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				_, diagnostics := text.Analyze(
+				inter, diagnostics := text.Analyze(
 					ctx,
 					parsedText,
 					NewRoot(nil, resolver...),
 				)
-				Expect(diagnostics.Ok()).To(BeFalse())
-				Expect(diagnostics.String()).To(ContainSubstring("must be a literal"))
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				duration := MustBeOk(
+					findNodeByKey(inter.Nodes, "wait_0").Inputs.Get("duration"),
+				)
+				Expect(duration.Type.Kind).To(Equal(types.KindVarRef))
+				Expect(duration.Type.Name).To(Equal("var_r_0"))
 			},
 		)
 
@@ -1558,7 +1580,7 @@ var _ = Describe("Text", func() {
 		})
 
 		It(
-			"Should reject a reassigned reactive variable as an input value",
+			"Should bind a reassigned reactive variable input as a var ref",
 			func(ctx SpecContext) {
 				source := `
 			func my_func(tag i64) {n u8} i64 {
@@ -1572,13 +1594,17 @@ var _ = Describe("Text", func() {
 				}
 			}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				_, diagnostics := text.Analyze(
+				inter, diagnostics := text.Analyze(
 					ctx,
 					parsedText,
 					NewRoot(nil, varResolver...),
 				)
-				Expect(diagnostics.Ok()).To(BeFalse())
-				Expect(diagnostics.String()).To(ContainSubstring("must be a literal"))
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				tag := MustBeOk(
+					findNodeByKey(inter.Nodes, "my_func_0").Inputs.Get("tag"),
+				)
+				Expect(tag.Type.Kind).To(Equal(types.KindVarRef))
+				Expect(tag.Type.Name).To(Equal("var_r_0"))
 			},
 		)
 
@@ -1608,7 +1634,7 @@ var _ = Describe("Text", func() {
 		)
 
 		It(
-			"Should reject a reactive variable inside an input expression",
+			"Should lower an input expression to a node fired by the call's trigger",
 			func(ctx SpecContext) {
 				source := `
 			func my_func(tag i64) {n u8} i64 {
@@ -1621,13 +1647,22 @@ var _ = Describe("Text", func() {
 				}
 			}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				_, diagnostics := text.Analyze(
+				inter, diagnostics := text.Analyze(
 					ctx,
 					parsedText,
 					NewRoot(nil, varResolver...),
 				)
-				Expect(diagnostics.Ok()).To(BeFalse())
-				Expect(diagnostics.String()).To(ContainSubstring("must be a literal"))
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				tag := MustBeOk(
+					findNodeByKey(inter.Nodes, "my_func_0").Inputs.Get("tag"),
+				)
+				Expect(tag.Type.Kind).To(Equal(types.KindVarRef))
+				arg := findNodeByKey(inter.Nodes, tag.Type.Name)
+				Expect(arg.Type).To(HavePrefix("expression_"))
+				Expect(hasEdge(inter, nodeReading(inter, 903), arg.Key)).To(BeTrue(),
+					"the trigger must fire the computed input")
+				Expect(hasEdge(inter, "var_r_0", arg.Key)).To(BeTrue(),
+					"the reactive read inside the input must follow its deref")
 			},
 		)
 
@@ -1659,7 +1694,7 @@ var _ = Describe("Text", func() {
 					NewRoot(nil, resolver...),
 				)
 				Expect(diagnostics.Ok()).To(BeFalse())
-				Expect(diagnostics.String()).To(ContainSubstring("must be a literal"))
+				Expect(diagnostics.String()).To(ContainSubstring("cannot be a channel"))
 			},
 		)
 
@@ -1909,7 +1944,7 @@ var _ = Describe("Text", func() {
 				NewRoot(nil, varResolver...),
 			)
 			Expect(diagnostics.Ok()).To(BeFalse())
-			Expect(diagnostics.String()).To(ContainSubstring("must be a literal"))
+			Expect(diagnostics.String()).To(ContainSubstring("cannot be a channel"))
 		})
 
 		DescribeTable("Should lower reactive re-expression and alias rebind",
@@ -2537,11 +2572,14 @@ var _ = Describe("Text", func() {
 		)
 
 		It(
-			"Should reject a computed stateful variable initializer",
+			"Should reject a stateful initializer whose later-declared callee reads a channel",
 			func(ctx SpecContext) {
 				source := `
 			sequence main {
-				c i64 $= 2 + 3
+				c i64 $= readRaw()
+			}
+			func readRaw() {} i64 {
+				return count_ch
 			}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diagnostics := text.Analyze(
@@ -2551,8 +2589,64 @@ var _ = Describe("Text", func() {
 				)
 				Expect(diagnostics.Ok()).To(BeFalse(), diagnostics.String())
 				Expect(diagnostics.String()).To(ContainSubstring(
-					"stateful variable initializer must be a literal value",
+					"channels and channel-read expressions cannot be assigned to stateful variables",
 				))
+			},
+		)
+
+		It(
+			"Should accept a stateful initializer that reads a top-level variable",
+			func(ctx SpecContext) {
+				source := `
+			x := 2 + 3
+			sequence main {
+				y i64 $= x + 1
+				stage s1 {
+					y -> out_ch
+				}
+			}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				_, diagnostics := text.Analyze(
+					ctx,
+					parsedText,
+					NewRoot(nil, varResolver...),
+				)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			},
+		)
+
+		It(
+			"Should lower a computed stateful initializer as a once entry node in its scope",
+			func(ctx SpecContext) {
+				source := `
+			sequence main {
+				c i64 $= 2 + 3
+				stage s1 {
+					c -> out_ch
+				}
+			}
+			flag_ch => main`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(
+					ctx,
+					parsedText,
+					NewRoot(nil, varResolver...),
+				)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				register := findNodeByType(inter.Nodes, "stateful_variable")
+				Expect(register.Inputs).To(HaveLen(1), "the initializer feeds f0")
+				var init ir.Node
+				for _, e := range inter.Edges {
+					if e.Target.Node == register.Key && e.Target.Param == "f0" {
+						init = findNodeByKey(inter.Nodes, e.Source.Node)
+					}
+				}
+				Expect(init.Type).To(HavePrefix("expression_"))
+				Expect(init.Once).To(BeTrue(),
+					"a stateful initializer fires on the first entry only")
+				Expect(scopeNodeRefs(inter.Root)).ToNot(ContainElement(init.Key))
+				refs := scopeNodeRefs(findTopLevelScope(inter, "main"))
+				Expect(refs).To(Equal([]string{init.Key, register.Key}))
 			},
 		)
 
@@ -8765,6 +8859,246 @@ time.wait(duration=500ms) -> output`
 		})
 	})
 
+	Describe("Computed initializers", func() {
+		resolver := []symbol.Symbol{
+			{
+				Name: "trig",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.U8()),
+				ID:   100,
+			},
+			{
+				Name: "log_ch",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.String()),
+				ID:   101,
+			},
+			{
+				Name: "out",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.I64()),
+				ID:   102,
+			},
+			{
+				Name: "flag",
+				Kind: symbol.KindChannel,
+				Type: types.Chan(types.Bool()),
+				ID:   103,
+			},
+		}
+		analyze := func(ctx SpecContext, source string) ir.IR {
+			GinkgoHelper()
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			inter, diagnostics := text.Analyze(
+				ctx,
+				parsedText,
+				NewRoot(nil, resolver...),
+			)
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			return inter
+		}
+		// initOf returns the node whose output feeds register's first feeder.
+		initOf := func(inter ir.IR, register ir.Node) ir.Node {
+			GinkgoHelper()
+			for _, e := range inter.Edges {
+				if e.Target.Node == register.Key && e.Target.Param == "f1" {
+					return findNodeByKey(inter.Nodes, e.Source.Node)
+				}
+			}
+			Fail("expected an initializer edge into " + register.Key)
+			return ir.Node{}
+		}
+		edgeInto := func(inter ir.IR, node, param string) bool {
+			for _, e := range inter.Edges {
+				if e.Target.Node == node && e.Target.Param == param {
+					return true
+				}
+			}
+			return false
+		}
+		findByTypePrefix := func(inter ir.IR, prefix string) ir.Node {
+			GinkgoHelper()
+			for _, n := range inter.Nodes {
+				if strings.HasPrefix(n.Type, prefix) {
+					return n
+				}
+			}
+			Fail("expected a node whose type starts with " + prefix)
+			return ir.Node{}
+		}
+		// orderOf returns the positions of the given keys within refs.
+		orderOf := func(refs []string, keys ...string) []int {
+			out := make([]int, len(keys))
+			for i, key := range keys {
+				out[i] = slices.Index(refs, key)
+			}
+			return out
+		}
+
+		It(
+			"Should lower a top-level initializer as an entry node before its register",
+			func(ctx SpecContext) {
+				inter := analyze(ctx, `
+			x := 1 + 2
+			trig -> f"{x}" -> log_ch`)
+				register := findNodeByType(inter.Nodes, "variable")
+				f0 := MustBeOk(register.Inputs.Get("f0"))
+				Expect(f0.Value).To(Equal(int64(0)))
+				Expect(edgeInto(inter, register.Key, "f0")).To(BeFalse(),
+					"the initial param must stay unedged so reset restores it")
+				init := initOf(inter, register)
+				Expect(init.Type).To(HavePrefix("expression_"))
+				Expect(init.Inputs).To(BeEmpty())
+				order := orderOf(scopeNodeRefs(inter.Root), init.Key, register.Key)
+				Expect(order[0]).To(BeNumerically(">=", 0))
+				Expect(order[0]).To(BeNumerically("<", order[1]))
+				fmtNode := findByTypePrefix(inter, compiler.FmtStrSyntheticPrefix)
+				p := MustBeOk(fmtNode.Inputs.Get("x"))
+				Expect(p.Type.Kind).To(Equal(types.KindVarRef))
+				Expect(p.Type.Name).To(Equal(register.Key))
+			},
+		)
+
+		It(
+			"Should place a sequence initializer before its register in the strata",
+			func(ctx SpecContext) {
+				inter := analyze(ctx, `
+			sequence main {
+				k := 1 + 2
+				k -> out
+			}
+			trig => main`)
+				register := findNodeByType(inter.Nodes, "variable")
+				init := initOf(inter, register)
+				main := findTopLevelScope(inter, "main")
+				Expect(main.Strata).To(HaveLen(1))
+				Expect(scopeNodeRefs(main)).To(Equal([]string{init.Key, register.Key}))
+			},
+		)
+
+		It(
+			"Should place a stage initializer before its register",
+			func(ctx SpecContext) {
+				inter := analyze(ctx, `
+			sequence main {
+				stage s1 {
+					k := 1 + 2
+					k -> out
+				}
+			}
+			trig => main`)
+				register := findNodeByType(inter.Nodes, "variable")
+				init := initOf(inter, register)
+				s1 := findMember(findTopLevelScope(inter, "main"), "s1")
+				refs := scopeNodeRefs(*s1.Scope)
+				Expect(refs[:2]).To(Equal([]string{init.Key, register.Key}))
+			},
+		)
+
+		It(
+			"Should sample an earlier computed variable inside a later initializer",
+			func(ctx SpecContext) {
+				inter := analyze(ctx, `
+			sequence main {
+				x := 1 + 2
+				y := x + 1
+				y -> out
+			}
+			trig => main`)
+				xReg := findNodeByKey(inter.Nodes, "var_x_0")
+				yReg := findNodeByKey(inter.Nodes, "var_y_0")
+				yInit := initOf(inter, yReg)
+				p := MustBeOk(yInit.Inputs.Get("x"))
+				Expect(p.Type.Kind).To(Equal(types.KindVarRef))
+				Expect(p.Type.Name).To(Equal(xReg.Key))
+				Expect(edgeInto(inter, yInit.Key, "x")).To(BeFalse(),
+					"a sampled read must not wake the initializer")
+			},
+		)
+
+		It(
+			"Should lower a computed call input as a node fired by the trigger",
+			func(ctx SpecContext) {
+				inter := analyze(ctx, `
+			import time
+			func f(t i64 ns) {n u8} i64 {
+				return t
+			}
+			trig -> f(time.now()) -> out`)
+				call := findNodeByKey(inter.Nodes, "f_0")
+				t := MustBeOk(call.Inputs.Get("t"))
+				Expect(t.Type.Kind).To(Equal(types.KindVarRef))
+				Expect(t.Value).To(Equal(int64(0)))
+				arg := findNodeByKey(inter.Nodes, t.Type.Name)
+				Expect(arg.Type).To(HavePrefix("expression_"))
+				Expect(edgeInto(inter, arg.Key, ir.DefaultInputParam)).To(BeTrue(),
+					"the trigger must fire the computed input")
+				order := orderOf(scopeNodeRefs(inter.Root), arg.Key, call.Key)
+				Expect(order[0]).To(BeNumerically(">=", 0))
+				Expect(order[0]).To(BeNumerically("<", order[1]),
+					"the input must run before the call in a pass")
+			},
+		)
+
+		It(
+			"Should lower a routed call's computed input as a node fired by the branch",
+			func(ctx SpecContext) {
+				inter := analyze(ctx, `
+			import time
+			func f(t i64 ns) {} i64 {
+				return t
+			}
+			flag -> select() -> {
+				true: f(time.now()) -> out
+			}`)
+				call := findNodeByKey(inter.Nodes, "f_0")
+				t := MustBeOk(call.Inputs.Get("t"))
+				Expect(t.Type.Kind).To(Equal(types.KindVarRef))
+				arg := findNodeByKey(inter.Nodes, t.Type.Name)
+				Expect(arg.Type).To(HavePrefix("expression_"))
+				Expect(edgeInto(inter, arg.Key, ir.DefaultInputParam)).To(BeTrue(),
+					"the branch must fire the computed input")
+			},
+		)
+
+		It(
+			"Should lower a copy of a computed variable as a computed initializer",
+			func(ctx SpecContext) {
+				inter := analyze(ctx, `
+			import time
+			x := time.now()
+			y := x
+			trig -> f"{y}" -> log_ch`)
+				yReg := findNodeByKey(inter.Nodes, "var_y_0")
+				init := initOf(inter, yReg)
+				Expect(init.Type).To(HavePrefix("expression_"))
+				p := MustBeOk(init.Inputs.Get("x"))
+				Expect(p.Type.Kind).To(Equal(types.KindVarRef))
+				Expect(p.Type.Name).To(Equal("var_x_0"))
+			},
+		)
+
+		It(
+			"Should stamp a var ref with the typed zero on a triggered read",
+			func(ctx SpecContext) {
+				inter := analyze(ctx, `
+			sequence main {
+				k := 1 + 2
+				stage s1 {
+					trig -> k -> out
+				}
+			}
+			trig => main`)
+				register := findNodeByType(inter.Nodes, "variable")
+				read := findNodeByKey(inter.Nodes, "read_k_0")
+				p := MustBeOk(read.Inputs.Get("value"))
+				Expect(p.Type.Kind).To(Equal(types.KindVarRef))
+				Expect(p.Type.Name).To(Equal(register.Key))
+				Expect(p.Value).To(Equal(int64(0)))
+			},
+		)
+	})
+
 	Describe("Compile", func() {
 		It("Should compile a simple arc program to WebAssembly", func(ctx SpecContext) {
 			resolver := []symbol.Symbol{
@@ -8792,7 +9126,7 @@ time.wait(duration=500ms) -> output`
 		})
 
 		It(
-			"Should reject reading a variable whose initializer did not fold",
+			"Should compile a read of a computed top-level initializer",
 			func(ctx SpecContext) {
 				resolver := []symbol.Symbol{
 					{
@@ -8818,9 +9152,8 @@ time.wait(duration=500ms) -> output`
 					NewRoot(nil, resolver...),
 				)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-				Expect(text.Compile(ctx, ir)).Error().To(MatchError(
-					ContainSubstring("not a compile-time constant"),
-				))
+				module := MustSucceed(text.Compile(ctx, ir))
+				Expect(module.Output.WASM).ToNot(BeEmpty())
 			},
 		)
 

@@ -113,7 +113,8 @@ public:
     std::pair<std::unique_ptr<runtime::node::Node>, x::errors::Error>
     create(runtime::node::Config &&cfg) override {
         if (!this->handles(cfg.node.type)) return {nullptr, x::errors::NOT_FOUND};
-        if (!cfg.node.inputs.empty() && cfg.node.inputs[0].value.is_null()) {
+        if (cfg.node.type == symbol_name && !cfg.node.inputs.empty() &&
+            cfg.node.inputs[0].value.is_null()) {
             size_t sel_idx = ExprRead::NO_SEL;
             if (const auto [idx, err] = cfg.state.resolve_input("sel"); !err)
                 sel_idx = idx;

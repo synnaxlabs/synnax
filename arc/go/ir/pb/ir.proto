@@ -149,6 +149,9 @@ message Node {
   repeated .arc.types.pb.Param outputs = 4;
   // channels contains channel read/write mappings.
   .arc.types.pb.Channels channels = 5;
+  // once marks an entry node that fires on the first activation of its scope only; a
+  // scope reset does not re-arm it.
+  bool once = 6;
 }
 
 // Authorities holds the static authority declarations from an Arc program.

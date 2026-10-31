@@ -207,9 +207,13 @@ Assignment ::= Identifier '=' Expression
 
 A variable's kind is inferred from its initializer:
 
-- **Literal**: a held value (`gain := 2 * 3`). Resets to its initial value on each entry
-  into its declaring scope. `$=` makes a literal stateful, keeping its value across
-  entries; only literals can be stateful.
+- **Literal**: a held value (`gain := 6`). Resets to its initial value on each entry
+  into its declaring scope. `$=` makes it stateful, keeping its value across entries.
+- **Computed**: an expression that reads no channel (`start := now()`, `gain := 2 * 3`).
+  It runs once on each entry into its declaring scope, at the same moment a literal
+  resets, and the variable holds the result. A later `=` replaces the value until the
+  next entry. At the top level it runs once when the program starts. With `$=` it runs
+  once, on the first entry, and the value persists.
 - **Channel read**: a read-only expression over one or more channels
   (`scaled := raw * 2`). It is reactive: when any channel it reads produces new data,
   the variable updates and every flow that reads it re-runs with the new value. A flow
@@ -374,7 +378,9 @@ func clamp() {value f64, min f64 = 0.0, max f64 = 1.0} f64 {
 - Positionally by declaration order: `filter(50.0)` sets the first input;
   `average(10ms, 100)` sets the first and second. Trailing inputs with defaults may be
   omitted.
-- Values must be literals or channel identifiers (resolved at compile time).
+- With any expression: `trigger -> f(time.now())` passes the value computed when the
+  call fires. A channel name is not an input value; read it in an expression or pass it
+  to a `chan` input.
 
 ### Triggers
 
@@ -435,9 +441,6 @@ func counter() i64 {
     return count
 }
 ```
-
-A `$=` initializer must be a literal value; only literal variables can be stateful.
-`true` and `false` are literals.
 
 ### Channel operations in functions
 

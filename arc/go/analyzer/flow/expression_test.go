@@ -433,12 +433,22 @@ var _ = Describe("LiftVarReads", func() {
 		Expect(child.Internal).To(BeTrue())
 	})
 
-	It("Should not lift a variable that was never reassigned", func(bCtx SpecContext) {
+	It("Should not lift a never-reassigned literal variable", func(bCtx SpecContext) {
 		addVar(bCtx, symbol.Symbol{
 			Name: "x", Kind: symbol.KindVariable, Type: types.I32(),
+			DefaultValue: int32(5),
 		})
 		lift(bCtx, "x + 1")
 		Expect(fn.Type.Inputs).To(BeEmpty())
+	})
+
+	It("Should lift a computed variable as an input param", func(bCtx SpecContext) {
+		addVar(bCtx, symbol.Symbol{
+			Name: "x", Kind: symbol.KindVariable, Type: types.I32(),
+		})
+		ctx := lift(bCtx, "x + 1")
+		Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+		Expect(MustBeOk(fn.Type.Inputs.Get("x")).Type).To(Equal(types.I32()))
 	})
 
 	It(
@@ -622,4 +632,32 @@ var _ = Describe("LiftFmtStrVarReads", func() {
 			Expect(MustBeOk(fn.Type.Inputs.Get("y")).Type).To(Equal(types.F64()))
 		},
 	)
+})
+
+var _ = Describe("AnalyzeComputedArgs", func() {
+	It("Should register a synth only for a computed argument", func(bCtx SpecContext) {
+		root := NewRoot(nil)
+		MustSucceed(root.Add(bCtx, symbol.Symbol{
+			Name: "x", Kind: symbol.KindVariable, Type: types.I32(),
+		}))
+		args := []symbol.Argument{
+			{Expr: MustSucceed(parser.ParseExpression("1"))},
+			{Expr: MustSucceed(parser.ParseExpression("x"))},
+			{Expr: MustSucceed(parser.ParseExpression("x + 1"))},
+		}
+		ctx := context.NewRoot(bCtx, args[2].Expr, root)
+		flow.AnalyzeComputedArgs(ctx, args)
+		Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+		var synths []*symbol.Symbol
+		for _, c := range root.Children() {
+			if c.Kind == symbol.KindFunction || c.Kind == symbol.KindConstant {
+				synths = append(synths, c)
+			}
+		}
+		Expect(synths).To(HaveLen(1))
+		Expect(synths[0].Name).To(HavePrefix("expression_"))
+		Expect(MustSucceed(root.GetChildByParserRule(args[2].Expr))).To(
+			BeIdenticalTo(synths[0]),
+		)
+	})
 })

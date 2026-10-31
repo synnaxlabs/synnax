@@ -172,6 +172,7 @@ inline Node Node::parse(x::json::Parser parser) {
         .inputs = parser.field<::arc::types::Params>("inputs"),
         .outputs = parser.field<::arc::types::Params>("outputs"),
         .channels = parser.field<::arc::types::Channels>("channels"),
+        .once = parser.field<bool>("once", false),
     };
 }
 
@@ -182,6 +183,7 @@ inline x::json::json Node::to_json() const {
     j["inputs"] = this->inputs.to_json();
     j["outputs"] = this->outputs.to_json();
     j["channels"] = this->channels.to_json();
+    j["once"] = this->once;
     return j;
 }
 

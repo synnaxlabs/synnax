@@ -154,6 +154,7 @@ func newBuilder(prog ir.IR, runtimeNodes map[string]rnode.Node) *builder {
 			key:     n.Key,
 			idx:     i,
 			entry:   n.IsEntryNode(prog.Edges),
+			once:    n.Once,
 			done:    -1,
 			Node:    runtimeNodes[n.Key],
 			outputs: make([]outputResolved, 0, len(n.Outputs)),

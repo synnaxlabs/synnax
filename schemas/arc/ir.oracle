@@ -256,6 +256,12 @@ Node struct {
     channels types.Channels {
         @doc value "contains channel read/write mappings."
     }
+    once     bool = false {
+        @doc value """
+            marks an entry node that fires on the first activation of its scope only; a
+            scope reset does not re-arm it.
+        """
+    }
 
     @cpp methods "[[nodiscard]] std::pair<size_t, x::errors::Error> resolve_input(const std::string& name) const" "[[nodiscard]] std::string to_string() const" "[[nodiscard]] std::string to_string_with_prefix(const std::string& prefix) const" "friend std::ostream& operator<<(std::ostream& os, const Node& n)"
     @doc value   """
