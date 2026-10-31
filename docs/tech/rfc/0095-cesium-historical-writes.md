@@ -74,7 +74,7 @@ data.
 ### 4.1 Control state
 
 A persist writer reports no control transfers, and `LeadingState` skips its region
-(`cesium/internal/control/controller.go:169`). Clients delete a channel's holder on a
+(`cesium/internal/control/controller.go:173`). Clients delete a channel's holder on a
 transfer with no `to` (`client/ts/src/control/client.ts:84`), so a persist writer that
 closes next to a live writer would show the channel as free.
 

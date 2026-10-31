@@ -106,10 +106,9 @@ type GateConfig[R Resource] struct {
 	ErrOnUnauthorizedOpen *bool
 	// Bounded marks a gate that holds only TimeRange, and grows through Gate.Reach. A
 	// bounded gate is alone in its region: it fails to open with
-	// control.ErrUnauthorized
-	// where another region holds TimeRange, and no gate joins it. An unbounded region
-	// can open or extend over it, and its next Gate.Reach into that region fails. A
-	// bounded region does not count toward LeadingState.
+	// control.ErrUnauthorized where another region holds TimeRange, and no gate joins
+	// it. An unbounded region can open or extend over it, and its next Gate.Reach into
+	// that region fails. A bounded region does not count toward LeadingState.
 	//
 	// [OPTIONAL] Defaults to false.
 	Bounded *bool
@@ -215,7 +214,7 @@ func (c *Controller[R]) OpenGate(
 		return g, t, err
 	}
 	if *cfg.Bounded {
-		cfg.ErrIfControlled = cfg.Bounded
+		cfg.ErrIfControlled = new(true)
 	}
 
 	var exists bool

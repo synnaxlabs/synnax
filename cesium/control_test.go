@@ -152,7 +152,12 @@ var _ = Describe("Control", func() {
 					func(ctx SpecContext) {
 						live := openLive(ctx, 1)
 						Expect(db.OpenWriter(ctx, persistConfig(15*telem.SecondTS))).
-							Error().To(MatchError(xcontrol.ErrUnauthorized))
+							Error().To(And(
+							MatchError(xcontrol.ErrUnauthorized),
+							MatchError(
+								ContainSubstring("overlaps with a controlled region"),
+							),
+						))
 						Expect(live.Write(frame(10))).To(BeTrue())
 						MustSucceed(live.Commit())
 						Expect(live.Close()).To(Succeed())
