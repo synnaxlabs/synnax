@@ -540,4 +540,27 @@ describe("queries", () => {
       });
     });
   });
+
+  describe("useCreate", () => {
+    it("should create a rack together with a key that logs in as it", async () => {
+      const name = `rack-${id.create()}`;
+      let token: string | undefined;
+      const { result } = renderHook(
+        () =>
+          Rack.useCreate({
+            afterSuccess: ({ data }) => {
+              token = data.token;
+            },
+          }),
+        { wrapper },
+      );
+      await act(async () => {
+        expect(await result.current.updateAsync({ name })).toBe(true);
+      });
+      const [created] = await client.racks.retrieve({ names: [name] });
+      const keys = await client.auth.retrieveKeys([rack.ontologyID(created.key)]);
+      expect(keys).toHaveLength(1);
+      expect(token?.startsWith("syk_")).toBe(true);
+    });
+  });
 });
