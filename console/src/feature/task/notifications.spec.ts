@@ -93,7 +93,7 @@ describe("Task.createNotificationRule", () => {
   });
 
   describe("onUseChange", () => {
-    it("should hold a scanner problem once it scans a configured device", async () => {
+    it("should list a scanner problem once it scans a configured device", async () => {
       const r = await createRack();
       const { result } = await renderForward(client, { task: RULE });
       const scanner = await createTask(r, {});

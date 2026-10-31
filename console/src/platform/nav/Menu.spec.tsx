@@ -12,6 +12,7 @@ import { act, fireEvent, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { Nav } from "@/platform/nav";
+import { getBadge } from "@/platform/nav/testutil";
 import { renderWithConsole } from "@/testutil";
 
 const item = (key: string, overrides: Partial<Nav.Toolbar> = {}): Nav.Toolbar => ({
@@ -62,11 +63,11 @@ describe("nav Menu", () => {
       />,
     );
     const alpha = screen.getByRole("menuitem", { name: "alpha" });
-    const badge = alpha.querySelector(".console-main-nav__badge");
+    const badge = getBadge(alpha);
     expect(badge?.textContent).toBe("3");
     expect(badge?.classList).toContain("console--warning");
     const bravo = screen.getByRole("menuitem", { name: "bravo" });
-    expect(bravo.querySelector(".console-main-nav__badge")).toBeNull();
+    expect(getBadge(bravo)).toBeNull();
   });
 
   it("should name each item by its tooltip", async () => {

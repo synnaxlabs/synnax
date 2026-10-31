@@ -14,6 +14,7 @@ import { describe, expect, it } from "vitest";
 
 import { renderForward } from "@/app/notifications/testutil";
 import { Status } from "@/feature/status";
+import { findProblem } from "@/feature/status/testutil";
 import { createTestDevice } from "@/platform/device/testutil";
 import { createRackKey, writeStatus } from "@/platform/notifications/testutil";
 import { uniqueName } from "@/testutil";
@@ -22,13 +23,6 @@ const client = createTestClient();
 
 describe("Notifications.useForward", () => {
   describe("problems view", () => {
-    const findProblem = async (message: string): Promise<HTMLElement> => {
-      const text = await within(screen.getByRole("tabpanel")).findByText(message);
-      const problem = text.closest<HTMLElement>(".console-status-problem");
-      if (problem == null) throw new Error(`no problem for ${message}`);
-      return problem;
-    };
-
     it("should list a task problem under the problem of its rack", async () => {
       const r = await client.racks.create({ name: uniqueName("rack") });
       const tsk = await r.createTask({

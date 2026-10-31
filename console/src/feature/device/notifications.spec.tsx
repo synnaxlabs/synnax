@@ -123,7 +123,7 @@ describe("device/notifications", () => {
     });
 
     describe("onUseChange", () => {
-      it("should hold a problem once its device is configured", async () => {
+      it("should list a problem once its device is configured", async () => {
         const { result } = await renderForward(client, {
           device: Device.NOTIFICATION_RULE,
         });

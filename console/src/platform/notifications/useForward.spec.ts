@@ -598,7 +598,7 @@ describe("Notifications.useForward", () => {
   });
 
   describe("open problems", () => {
-    it("should hold a problem only when its thing is in use", async () => {
+    it("should list a problem only when its thing is in use", async () => {
       const [unused, used] = [createTaskKey(), createTaskKey()];
       const { result } = await renderForward(client, { task: usedOnly(used) });
       await write({ key: unused, variant: "error" }, { key: used, variant: "error" });
@@ -606,7 +606,7 @@ describe("Notifications.useForward", () => {
       expect(keysOf(result.current)).not.toContain(unused);
     });
 
-    it("should hold a status that no rule owns, but not a reply", async () => {
+    it("should list a status that no rule owns, but not a reply", async () => {
       const { result } = await renderForward(client, { task: REPLY });
       const [reply, alarm] = await write(
         { variant: "error" },
@@ -619,7 +619,7 @@ describe("Notifications.useForward", () => {
       await client.statuses.delete(alarm.key);
     });
 
-    it("should hold a problem open at load when its thing is in use", async () => {
+    it("should list a problem open at load when its thing is in use", async () => {
       const [unused, used] = [createTaskKey(), createTaskKey()];
       await write({ key: unused, variant: "error" }, { key: used, variant: "error" });
       const { result } = await renderForward(client, { task: usedOnly(used) });
@@ -627,21 +627,10 @@ describe("Notifications.useForward", () => {
       expect(keysOf(result.current)).not.toContain(unused);
     });
 
-    it("should hold a state that joins a reply open at load", async () => {
+    it("should list a state that joins a reply open at load", async () => {
       const key = createTaskKey();
-      await client.statuses.set({
-        key,
-        name: "",
-        variant: "error",
-        message: uniqueName("message"),
-        time: TimeStamp.now(),
-        details: { cmd: "start" },
-      });
-      const { result } = await renderForward(client, {
-        task: {
-          kind: (stat) => (status.detailsOf(stat)?.cmd == null ? "state" : "reply"),
-        },
-      });
+      await writeReply(key);
+      const { result } = await renderForward(client, { task: commanded() });
       expect(keysOf(result.current)).not.toContain(key);
       const [state] = await write({ key, variant: "error" });
       await waitFor(() =>
@@ -651,7 +640,7 @@ describe("Notifications.useForward", () => {
       );
     });
 
-    it("should hold a problem whose notification a newer reply retires", async () => {
+    it("should list a problem whose notification a newer reply retires", async () => {
       const key = createTaskKey();
       const { result } = await renderForward(client, { task: commanded() });
       await write({ key, variant: "warning" });

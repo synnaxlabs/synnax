@@ -39,9 +39,9 @@ export interface Rule {
    */
   inUse?: (params: InUseParams) => Promise<boolean>;
   /**
-   * Calls the handler on each change that can change whether a thing is in use, such
-   * as a device that becomes configured. A problem that starts while its thing is not
-   * in use never notifies, but it joins the open problems when its thing is in use.
+   * Calls the handler on each change that can change whether a thing is in use, such as
+   * a device that becomes configured. A problem that starts while its thing is not in
+   * use never notifies, but it joins the open problems when its thing is in use.
    * @returns a destructor that stops the calls.
    */
   onUseChange?: (client: Client, handler: () => void) => destructor.Destructor;
@@ -90,15 +90,17 @@ interface Entry {
   open: boolean;
   /** Whether the latest write arrived inside the covering problem. */
   covered: boolean;
-  decision: "waiting" | "shown" | "covered" | "hidden";
+  /**
+   * Superseded lasts from a newer status on the key, such as a reply, to the next
+   * write.
+   */
+  decision: "waiting" | "superseded" | "shown" | "covered" | "hidden";
   /** Whether the thing was in use when the problem started, by the first check. */
   usedAtStart?: boolean;
   /** Whether the thing is in use by the latest check. Undefined until a check ends. */
   inUse?: boolean;
   /** True while a warning waits out the delay of its rule. */
   delayed: boolean;
-  /** True from a newer status on the key, such as a reply, to the next write. */
-  superseded: boolean;
   timer?: ReturnType<typeof setTimeout>;
   count: number;
   /** Counts the use checks, since checks can end out of order. */
@@ -165,8 +167,8 @@ const createForwarder = ({
     add({ ...stat, problem: identity });
 
   const show = (problem: Entry): void => {
-    const { decision, superseded, open, usedAtStart, inUse } = problem;
-    if (decision !== "waiting" || superseded || !open) return;
+    const { decision, open, usedAtStart, inUse } = problem;
+    if (decision !== "waiting" || !open) return;
     if (usedAtStart !== true || inUse !== true) return;
     if (problem.delayed && problem.status.variant === "warning") return;
     clearTimeout(problem.timer);
@@ -221,7 +223,6 @@ const createForwarder = ({
       covered: isCovered(owner?.rule, stat),
       decision: "waiting",
       delayed: false,
-      superseded: false,
       count: 1,
       checks: 0,
     };
@@ -242,10 +243,10 @@ const createForwarder = ({
   };
 
   const repeat = (problem: Entry, stat: status.Status): void => {
-    const restarted = !problem.open || problem.superseded;
+    const restarted = !problem.open || problem.decision === "superseded";
+    if (problem.decision === "superseded") problem.decision = "waiting";
     problem.status = stat;
     problem.open = true;
-    problem.superseded = false;
     problem.count++;
     problem.covered = isCovered(problem.rule, stat);
     if (problem.decision === "shown") {
@@ -262,13 +263,12 @@ const createForwarder = ({
     show(problem);
   };
 
-  // A problem that waits to notify must not notify after a newer status on its key. It
-  // stays open, so the problems view keeps it.
+  // A problem that waits to notify must not notify after a newer status on its key.
   const retire = (key: status.Key): void => {
     const problem = problems.get(key);
     if (problem?.decision !== "waiting") return;
     clearTimeout(problem.timer);
-    problem.superseded = true;
+    problem.decision = "superseded";
   };
 
   const handle = (stat: status.Status): void => {
