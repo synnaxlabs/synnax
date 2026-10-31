@@ -11,6 +11,12 @@ load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 cc_library(
+    name = "names",
+    hdrs = ["names.h"],
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
     name = "ni",
     srcs = [
         "factory.cpp",
@@ -24,6 +30,7 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
+        ":names",
         "//client/cpp:synnax",
         "//driver/common",
         "//driver/ni/channel",
@@ -35,6 +42,7 @@ cc_library(
         "//driver/task",
         "//x/cpp/breaker",
         "//x/cpp/json",
+        "//x/cpp/lib",
         "//x/cpp/loop",
         "@nlohmann_json//:json",
     ],
@@ -43,6 +51,7 @@ cc_library(
 cc_test(
     name = "ni_test",
     srcs = [
+        "factory_test.cpp",
         "read_task_test.cpp",
         "write_task_test.cpp",
     ],
@@ -50,6 +59,7 @@ cc_test(
     deps = [
         "//client/cpp/testutil",
         "//driver/ni",
+        "//driver/ni/daqmx:mock",
         "//driver/pipeline/testutil",
         "//x/cpp/testutil",
         "@googletest//:gtest_main",
@@ -59,10 +69,12 @@ cc_test(
 cc_test(
     name = "scan_task_test",
     srcs = ["scan_task_test.cpp"],
+    tags = ["requires-core"],
     deps = [
         "//client/cpp/testutil",
         "//driver/ni",
         "//driver/pipeline/testutil",
+        "//x/cpp/lib",
         "//x/cpp/testutil",
         "@abseil-cpp//absl/log:globals",
         "@abseil-cpp//absl/log:log_entry",

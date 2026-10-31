@@ -76,7 +76,7 @@ func processUnion(
 			Value:     v.Name,
 			Doc:       doc.Get(v.Domains),
 		}
-		inherited, declared := resolver.VariantBases(form, v, table)
+		inherited, declared := resolver.VariantBases(form, v, "py", table)
 		for _, ext := range inherited {
 			if parent, ok := ext.Resolve(table); ok {
 				vd.Parents = append(

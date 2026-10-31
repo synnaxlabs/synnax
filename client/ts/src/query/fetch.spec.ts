@@ -10,9 +10,9 @@
 import { id } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it } from "vitest";
 
-import type Synnax from "@/client";
+import { type Synnax } from "@/index";
 import { project } from "@/project";
-import { createTestClient } from "@/testutil/client";
+import { createTestClient } from "@/testutil";
 
 // Every document table declares a fetch that resolves keys against the cluster and
 // omits entries the cluster no longer has. Reconciliation and watch backfill ride that

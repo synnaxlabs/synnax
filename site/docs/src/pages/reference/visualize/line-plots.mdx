@@ -125,6 +125,13 @@ the plot draws the groups. See [lines](#lines).
 - **First load** -> while the plot loads a range, or a rolling span longer than one
   minute, it shows a message such as **Fetching 1h of data**.
 
+## Where a line breaks
+
+A line breaks where a writer stopped. When a task stops and starts again, the plot
+leaves the time between the two runs empty, however short it is. A writer that stays
+open usually keeps one line through a pause, though a long pause can show as a break. A
+sample with a break on both sides draws no line, but the tooltip still finds it.
+
 <Divider.Divider x />
 
 ## Select a region

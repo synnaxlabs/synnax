@@ -44,16 +44,20 @@ export const Header = (props: HeaderProps): ReactElement => (
 );
 
 export const Actions = (props: PHeader.ActionsProps): ReactElement => (
-  <PHeader.Actions {...props} />
+  <PHeader.Actions gap={0.5} {...props} />
 );
 
-export interface ActionProps extends Button.ButtonProps {}
+export interface ActionProps extends Omit<
+  Button.ButtonProps,
+  "variant" | "textColor"
+> {}
 
 export const Action = ({ className, ...rest }: ActionProps): ReactElement => (
   <Button.Button
     size="small"
     rounded="small"
-    variant="outlined"
+    variant="text"
+    textColor={9}
     className={CSS.cls(CSS.BE("toolbar", "action"), className)}
     {...rest}
   />

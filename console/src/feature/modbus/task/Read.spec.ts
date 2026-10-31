@@ -17,12 +17,14 @@ import { Modbus } from "@/feature/modbus";
 import { createModbusDevice } from "@/feature/modbus/testutil";
 import {
   awaitEditableForm,
+  commitFieldInput,
   createTaskReadOnlyClient,
   createWithHook,
   deployAndAwaitTask,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
   reportTaskStopped,
+  selectFromDropdown,
 } from "@/platform/task/testutil";
 import { getIconButton } from "@/testutil";
 
@@ -103,7 +105,7 @@ describe("Read", () => {
     expect(coilCh.index).toBe(index.key);
     const registerCh = await client.channels.retrieve(register.channel);
     expect(registerCh.name.startsWith(`${dev.name}_register_input_1`)).toBe(true);
-    expect(registerCh.dataType.toString()).toBe("uint8");
+    expect(registerCh.dataType.toString()).toBe("uint16");
   });
 
   it("should bind a new entry to the channel the device already maps", async () => {
@@ -185,6 +187,94 @@ describe("Read", () => {
     );
     const matches = await client.channels.retrieve([`${dev.name}_coil_input_0`]);
     expect(matches).toHaveLength(1);
+  });
+
+  it("should deploy a string register to a string channel", async () => {
+    const dev = await createModbusDevice(client);
+    const draft = await createDraft(client, {
+      ...Modbus.Task.READ_SCHEMAS.config.parse({}),
+      device: dev.key,
+      channels: [
+        Modbus.Task.READ_CHANNEL_SCHEMAS.input_register.parse({
+          type: "input_register",
+          key: id.create(),
+          address: 305,
+        }),
+      ],
+    });
+    const { container } = await renderRead({ client, taskKey: draft.key });
+    await selectFromDropdown("uint16", "String");
+    commitFieldInput(
+      await screen.findByLabelText<HTMLInputElement>("String length"),
+      "6",
+    );
+    const created = await deployAndAwaitTask(
+      client,
+      container,
+      draft.key,
+      Modbus.Task.READ_SCHEMAS,
+    );
+    const [str] = created.config.channels;
+    expect(str).toMatchObject({ dataType: "string", stringLength: 6 });
+    const ch = await client.channels.retrieve(str.channel);
+    expect(ch.name).toBe(`${dev.name}_register_input_305_str`);
+    expect(ch.dataType.toString()).toBe("string");
+  });
+
+  it("should deploy a register bit to a uint8 channel named by its bit", async () => {
+    const dev = await createModbusDevice(client);
+    const draft = await createDraft(client, {
+      ...Modbus.Task.READ_SCHEMAS.config.parse({}),
+      device: dev.key,
+      channels: [
+        Modbus.Task.READ_CHANNEL_SCHEMAS.input_register_bit.parse({
+          type: "input_register_bit",
+          key: id.create(),
+          address: 141,
+        }),
+      ],
+    });
+    const { container } = await renderRead({ client, taskKey: draft.key });
+    commitFieldInput(await screen.findByLabelText<HTMLInputElement>("Bit"), "5");
+    const created = await deployAndAwaitTask(
+      client,
+      container,
+      draft.key,
+      Modbus.Task.READ_SCHEMAS,
+    );
+    const [bit] = created.config.channels;
+    expect(bit).toMatchObject({ address: 141, bit: 5 });
+    const ch = await client.channels.retrieve(bit.channel);
+    expect(ch.name).toBe(`${dev.name}_register_bit_input_141_5`);
+    expect(ch.dataType.toString()).toBe("uint8");
+  });
+
+  it("should store a six-digit Modicon address of the channel's table", async () => {
+    const dev = await createModbusDevice(client);
+    const draft = await createDraft(client, {
+      ...Modbus.Task.READ_SCHEMAS.config.parse({}),
+      device: dev.key,
+      channels: [
+        Modbus.Task.READ_CHANNEL_SCHEMAS.input_register.parse({
+          type: "input_register",
+          key: id.create(),
+        }),
+      ],
+    });
+    await renderRead({ client, taskKey: draft.key });
+    await screen.findByText("300001");
+    commitFieldInput(
+      await screen.findByLabelText<HTMLInputElement>("Address"),
+      "300004",
+    );
+    await screen.findByText("300004");
+    await waitFor(async () => {
+      const saved = await client.tasks.retrieve({
+        key: draft.key,
+        schemas: Modbus.Task.READ_SCHEMAS,
+      });
+      expect(saved.config.channels[0].address).toBe(3);
+    });
   });
 
   describe("byte and word order", () => {
@@ -301,5 +391,44 @@ describe("Read", () => {
         });
       },
     );
+
+    it.each([
+      {
+        last: "bit 15 of a register",
+        channel: Modbus.Task.READ_CHANNEL_SCHEMAS.input_register_bit.parse({
+          type: "input_register_bit",
+          address: 10,
+          bit: 15,
+        }),
+        next: { address: 11, bit: 0 },
+      },
+      {
+        last: "a string of seven characters",
+        channel: Modbus.Task.READ_CHANNEL_SCHEMAS.input_register.parse({
+          type: "input_register",
+          address: 10,
+          dataType: "string",
+          stringLength: 7,
+        }),
+        next: { address: 14 },
+      },
+    ])("should place a new channel after $last", async ({ channel, next }) => {
+      const dev = await createModbusDevice(client);
+      const draft = await createDraft(client, {
+        ...Modbus.Task.READ_SCHEMAS.config.parse({}),
+        device: dev.key,
+        channels: [{ ...channel, key: id.create() }],
+      });
+      const { container } = await renderRead({ client, taskKey: draft.key });
+      await screen.findByText(dev.name);
+      fireEvent.click(getIconButton(container, "add"));
+      await waitFor(async () => {
+        const saved = await client.tasks.retrieve({
+          key: draft.key,
+          schemas: Modbus.Task.READ_SCHEMAS,
+        });
+        expect(saved.config.channels[1]).toMatchObject(next);
+      });
+    });
   });
 });

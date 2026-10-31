@@ -13,7 +13,7 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 import { type Action } from "@/access/action/types.gen";
 import { type role } from "@/access/role";
 import { channel } from "@/channel";
-import { NotFoundError } from "@/errors";
+import { NotFoundError } from "@/index";
 import { query } from "@/query";
 import {
   type BuiltInRole,

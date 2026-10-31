@@ -11,7 +11,6 @@ package doc
 
 import (
 	"fmt"
-	"strings"
 )
 
 // title renders a heading with an optional kind annotation.
@@ -82,94 +81,12 @@ func (d detail) Render() string {
 	return fmt.Sprintf("%s: %s", d.key, d.value)
 }
 
-// errorBlock renders an error display with optional code.
-type errorBlock struct {
-	code    string
-	message string
-}
-
-// Error creates an error block with just a message.
-func Error(message string) Block {
-	return errorBlock{message: message}
-}
-
-// ErrorWithCode creates an error block with a code and message.
-func ErrorWithCode(code, message string) Block {
-	return errorBlock{code: code, message: message}
-}
-
-// Render returns the markdown representation of the error.
-func (e errorBlock) Render() string {
-	if e.code != "" {
-		return fmt.Sprintf("**Error %s**: %s", e.code, e.message)
-	}
-	return fmt.Sprintf("**Error**: %s", e.message)
-}
-
 // Hint renders a suggestion hint.
 type Hint string
 
 // Render returns the markdown representation of the hint.
 func (h Hint) Render() string {
 	return fmt.Sprintf("_Hint_: %s", string(h))
-}
-
-// fix renders a fix suggestion with optional code.
-type fix struct {
-	description string
-	code        string
-	language    string
-}
-
-// Fix creates a fix block with a description, code example, and language for syntax
-// highlighting.
-func Fix(description, codeExample, language string) Block {
-	return fix{description: description, code: codeExample, language: language}
-}
-
-// Render returns the markdown representation of the fix.
-func (f fix) Render() string {
-	if f.code != "" {
-		return fmt.Sprintf(
-			"**Fix**: %s\n\n```%s\n%s\n```",
-			f.description,
-			f.language,
-			f.code,
-		)
-	}
-	return fmt.Sprintf("**Fix**: %s", f.description)
-}
-
-// list renders a bullet or numbered list.
-type list struct {
-	items   []string
-	ordered bool
-}
-
-// List creates an unordered list.
-func List(items ...string) Block {
-	return list{items: items, ordered: false}
-}
-
-// OrderedList creates an ordered list.
-func OrderedList(items ...string) Block {
-	return list{items: items, ordered: true}
-}
-
-// Render returns the markdown representation of the list.
-func (l list) Render() string {
-	if len(l.items) == 0 {
-		return ""
-	}
-	parts := make([]string, len(l.items))
-	for i, item := range l.items {
-		if l.ordered {
-			parts[i] = fmt.Sprintf("%d. %s", i+1, item)
-		} else {
-			parts[i] = fmt.Sprintf("- %s", item)
-		}
-	}
-	return strings.Join(parts, "\n")
 }
 
 // Bold renders bold text.

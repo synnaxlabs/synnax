@@ -19,9 +19,12 @@ const client = createTestClient();
 
 const CONNECTION = { host: "10.0.0.7", port: 502, swapBytes: false, swapWords: false };
 
-const DeviceHost = () => (
-  <span>{`host:${Modbus.Device.useFromConfig()?.properties.connection.host}`}</span>
-);
+const DeviceHost = () => {
+  const connection = Modbus.Device.useFromConfig()?.properties.connection;
+  return (
+    <span>{`host:${connection?.transport === "tcp" ? connection.host : ""}`}</span>
+  );
+};
 
 describe("useFromConfig", () => {
   it("should return the device the form's config names", async () => {

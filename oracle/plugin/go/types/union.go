@@ -215,7 +215,7 @@ func processUnion(entry resolution.Type, data *templateData) (unionData, error) 
 		if v.Inline {
 			if payload, ok := v.Type.Resolve(data.table); ok {
 				pform := payload.Form.(resolution.StructForm)
-				inherited, declared := resolver.VariantBases(form, v, data.table)
+				inherited, declared := resolver.VariantBases(form, v, "go", data.table)
 				embeds = embedBases(inherited)
 				inlineFields = append(slices.Clone(declared), pform.Fields...)
 				// A field that only restates an inherited default keeps the
