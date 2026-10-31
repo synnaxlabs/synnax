@@ -61,6 +61,20 @@ cc_test(
 )
 
 cc_test(
+    name = "scan_task_core_test",
+    srcs = ["scan_task_core_test.cpp"],
+    tags = ["requires-core"],
+    deps = [
+        "//client/cpp/testutil",
+        "//driver/common",
+        "//driver/task",
+        "//x/cpp/testutil",
+        "//x/cpp/uuid",
+        "@googletest//:gtest_main",
+    ],
+)
+
+cc_test(
     name = "factory_test",
     srcs = ["factory_test.cpp"],
     tags = ["requires-core"],
