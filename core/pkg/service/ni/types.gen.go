@@ -11,7 +11,10 @@
 
 package ni
 
-import "github.com/synnaxlabs/synnax/pkg/service/ni/versions"
+import (
+	"github.com/synnaxlabs/synnax/pkg/service/ni/versions"
+	"github.com/synnaxlabs/x/spatial"
+)
 
 // Units enumerates the engineering units for NI analog channel values.
 type Units = versions.Units
@@ -742,14 +745,6 @@ const (
 	AccelChargeSensitivityUnitsPicoCoulombsPerInchesPerSecondSquared AccelChargeSensitivityUnits = versions.AccelChargeSensitivityUnitsPicoCoulombsPerInchesPerSecondSquared
 )
 
-// Range is a range of values that a device reads or writes.
-type Range struct {
-	// Low is the low end of the range.
-	Low float64 `json:"low" msgpack:"low"`
-	// High is the high end of the range.
-	High float64 `json:"high" msgpack:"high"`
-}
-
 // AnalogInputPort is an analog input port of an NI device.
 type AnalogInputPort struct {
 	// Port is the number in the DAQmx name of the port, such as 3 for ai3.
@@ -827,12 +822,14 @@ type Hardware struct {
 	AiMaxMultiChannelRate *float64 `json:"ai_max_multi_channel_rate,omitzero" msgpack:"ai_max_multi_channel_rate,omitempty"`
 	// AoMaxRate is the highest analog output sample rate, in Hz.
 	AoMaxRate *float64 `json:"ao_max_rate,omitzero" msgpack:"ao_max_rate,omitempty"`
-	// AiVoltageRanges are the analog input voltage ranges of the device.
-	AiVoltageRanges []Range `json:"ai_voltage_ranges" msgpack:"ai_voltage_ranges"`
-	// AiCurrentRanges are the analog input current ranges of the device.
-	AiCurrentRanges []Range `json:"ai_current_ranges" msgpack:"ai_current_ranges"`
-	// AoVoltageRanges are the analog output voltage ranges of the device.
-	AoVoltageRanges []Range `json:"ao_voltage_ranges" msgpack:"ao_voltage_ranges"`
-	// AoCurrentRanges are the analog output current ranges of the device.
-	AoCurrentRanges []Range `json:"ao_current_ranges" msgpack:"ao_current_ranges"`
+	// AiVoltageRanges are the analog input voltage ranges of the device, ends included.
+	AiVoltageRanges []spatial.Bounds `json:"ai_voltage_ranges" msgpack:"ai_voltage_ranges"`
+	// AiCurrentRanges are the analog input current ranges of the device, ends included.
+	AiCurrentRanges []spatial.Bounds `json:"ai_current_ranges" msgpack:"ai_current_ranges"`
+	// AoVoltageRanges are the analog output voltage ranges of the device, ends
+	// included.
+	AoVoltageRanges []spatial.Bounds `json:"ao_voltage_ranges" msgpack:"ao_voltage_ranges"`
+	// AoCurrentRanges are the analog output current ranges of the device, ends
+	// included.
+	AoCurrentRanges []spatial.Bounds `json:"ao_current_ranges" msgpack:"ao_current_ranges"`
 }

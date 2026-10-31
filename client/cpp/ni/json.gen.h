@@ -21,6 +21,7 @@
 #include "client/cpp/ni/types.gen.h"
 #include "client/cpp/task/json.gen.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/spatial/json.gen.h"
 #include "x/cpp/telem/types.gen.h"
 #include "x/cpp/uuid/uuid.h"
 
@@ -527,20 +528,6 @@ inline x::json::json ScanConfig::to_json() const {
     return j;
 }
 
-inline Range Range::parse(x::json::Parser parser) {
-    return Range{
-        .low = parser.field<double>("low"),
-        .high = parser.field<double>("high"),
-    };
-}
-
-inline x::json::json Range::to_json() const {
-    x::json::json j;
-    j["low"] = this->low;
-    j["high"] = this->high;
-    return j;
-}
-
 inline AnalogInputPort AnalogInputPort::parse(x::json::Parser parser) {
     return AnalogInputPort{
         .port = parser.field<std::int32_t>("port"),
@@ -663,21 +650,21 @@ inline Hardware Hardware::parse(x::json::Parser parser) {
             "ai_max_multi_channel_rate"
         ),
         .ao_max_rate = parser.field<std::optional<double>>("ao_max_rate"),
-        .ai_voltage_ranges = parser.field<std::vector<Range>>(
+        .ai_voltage_ranges = parser.field<std::vector<::x::spatial::Bounds>>(
             "ai_voltage_ranges",
-            std::vector<Range>{}
+            std::vector<::x::spatial::Bounds>{}
         ),
-        .ai_current_ranges = parser.field<std::vector<Range>>(
+        .ai_current_ranges = parser.field<std::vector<::x::spatial::Bounds>>(
             "ai_current_ranges",
-            std::vector<Range>{}
+            std::vector<::x::spatial::Bounds>{}
         ),
-        .ao_voltage_ranges = parser.field<std::vector<Range>>(
+        .ao_voltage_ranges = parser.field<std::vector<::x::spatial::Bounds>>(
             "ao_voltage_ranges",
-            std::vector<Range>{}
+            std::vector<::x::spatial::Bounds>{}
         ),
-        .ao_current_ranges = parser.field<std::vector<Range>>(
+        .ao_current_ranges = parser.field<std::vector<::x::spatial::Bounds>>(
             "ao_current_ranges",
-            std::vector<Range>{}
+            std::vector<::x::spatial::Bounds>{}
         ),
     };
 }
