@@ -228,16 +228,31 @@ describe("Aggregator", () => {
         expect(result.current.notifications.statuses).toHaveLength(0);
       });
 
-      it("should drop the oldest problems when problems fill the history", () => {
+      it("should drop the oldest statuses that are not problems", () => {
+        const { result } = renderSmall();
+        for (let i = 0; i < 5; i++)
+          act(() => result.current.add({ variant: "info", message: `Saved ${i}` }));
+        expect(result.current.notifications.statuses.map((s) => s.message)).toEqual([
+          "Saved 4",
+          "Saved 3",
+          "Saved 2",
+        ]);
+      });
+
+      it("should keep every problem and a new status when problems fill it", () => {
         const { result } = renderSmall();
         for (let i = 0; i < 5; i++)
           act(() =>
             result.current.add({ ...problem(), key: `task:${i}`, message: `${i}` }),
           );
+        act(() => result.current.add({ variant: "error", message: "Failed to start" }));
         expect(result.current.notifications.statuses.map((s) => s.message)).toEqual([
+          "Failed to start",
           "4",
           "3",
           "2",
+          "1",
+          "0",
         ]);
       });
     });
