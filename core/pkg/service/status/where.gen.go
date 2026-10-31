@@ -15,6 +15,7 @@ import (
 	"strconv"
 
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -44,6 +45,9 @@ func MatchWhere[Details any](w Where) (Filter[Details], error) {
 		fs = append(fs, Not[Details](not))
 	}
 	if l := w.Key; l != nil {
+		if l.Eq == nil && l.In == nil {
+			return nil, validate.PathedError(filter.ErrNoOperator, "key")
+		}
 		if l.Eq != nil {
 			fs = append(fs, MatchKeys[Details](*l.Eq))
 		}
@@ -52,6 +56,9 @@ func MatchWhere[Details any](w Where) (Filter[Details], error) {
 		}
 	}
 	if l := w.Variant; l != nil {
+		if l.Eq == nil && l.In == nil {
+			return nil, validate.PathedError(filter.ErrNoOperator, "variant")
+		}
 		if l.Eq != nil {
 			if !l.Eq.IsValid() {
 				return nil, validate.PathedError(

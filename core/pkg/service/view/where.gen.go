@@ -46,6 +46,9 @@ func MatchWhere(w Where) (Filter, error) {
 		fs = append(fs, Not(not))
 	}
 	if l := w.Key; l != nil {
+		if l.Eq == nil && l.In == nil {
+			return nil, validate.PathedError(filter.ErrNoOperator, "key")
+		}
 		if l.Eq != nil {
 			fs = append(fs, MatchKeys(*l.Eq))
 		}
@@ -54,6 +57,10 @@ func MatchWhere(w Where) (Filter, error) {
 		}
 	}
 	if l := w.Name; l != nil {
+		if l.Eq == nil && l.In == nil && l.Contains == nil && l.StartsWith == nil &&
+			l.Regex == nil {
+			return nil, validate.PathedError(filter.ErrNoOperator, "name")
+		}
 		text := *l
 		if !l.CaseInsensitive {
 			if l.Eq != nil {
@@ -81,6 +88,9 @@ func MatchWhere(w Where) (Filter, error) {
 		}
 	}
 	if l := w.Type; l != nil {
+		if l.Eq == nil && l.In == nil {
+			return nil, validate.PathedError(filter.ErrNoOperator, "type")
+		}
 		if l.Eq != nil {
 			if !l.Eq.IsValid() {
 				return nil, validate.PathedError(
