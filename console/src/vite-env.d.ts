@@ -11,8 +11,8 @@
 
 declare const IS_DEV: boolean;
 /**
- * True in a Synnax Desktop build. Only the composition root (`app/`) reads it; lower
- * layers stay the same for both apps.
+ * True in a Synnax Desktop build. Only the composition root (`app/`) and `flags.ts`
+ * read it; lower layers read a flag instead.
  */
 declare const DESKTOP: boolean;
 /** True only in a Desktop release that CI builds. Local and test builds leave it off. */

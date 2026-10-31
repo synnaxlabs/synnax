@@ -1,5 +1,5 @@
 {
   "extends": "@synnaxlabs/tsconfig/base.json",
-  "compilerOptions": { "types": [] },
+  "compilerOptions": { "lib": ["ESNext"], "types": [] },
   "include": ["src/**/*", "eslint.config.ts"]
 }

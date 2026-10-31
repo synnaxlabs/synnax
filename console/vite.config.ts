@@ -124,7 +124,7 @@ export default defineConfig({
     stripSourcesContent(),
   ],
   build: {
-    target: process.env.TAURI_ENV_PLATFORM === "windows" ? "chrome111" : "safari16.4",
+    target: process.env.TAURI_ENV_PLATFORM === "windows" ? "chrome122" : "safari17.4",
     minify: !isDev,
     // Always emit source maps. The Fallback error UI fetches them at runtime to resolve
     // minified stack traces (see pluto/src/errors/resolveStack.ts).

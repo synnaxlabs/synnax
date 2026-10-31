@@ -7,10 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type device, rack, status } from "@synnaxlabs/client";
+import { device, rack, status } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Status } from "@synnaxlabs/lyra/status";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { TimeStamp } from "@synnaxlabs/x";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 import { type z } from "zod";
@@ -21,7 +22,11 @@ import { OPCUA } from "@/feature/opcua";
 import { createTestDevice } from "@/platform/device/testutil";
 import { Modals } from "@/platform/modals";
 import { Notifications } from "@/platform/notifications";
-import { checkInUse } from "@/platform/notifications/testutil";
+import {
+  checkInUse,
+  renderForward,
+  settleWrites,
+} from "@/platform/notifications/testutil";
 import { createConsoleWrapper, installPortalRoot, uniqueName } from "@/testutil";
 
 const client = createTestClient();
@@ -115,6 +120,28 @@ describe("device/notifications", () => {
       expect(
         await checkInUse(client, Device.NOTIFICATION_RULE, uniqueName("device")),
       ).toBe(false);
+    });
+
+    describe("onUseChange", () => {
+      it("should list a problem once its device is configured", async () => {
+        const { result } = await renderForward(client, {
+          device: Device.NOTIFICATION_RULE,
+        });
+        const dev = await createTestDevice(client, { configured: false });
+        const { key, message } = await client.statuses.set({
+          key: device.statusKey(dev.key),
+          name: dev.name,
+          variant: "error",
+          message: uniqueName("message"),
+          time: TimeStamp.now(),
+        });
+        await settleWrites(client);
+        await client.devices.create({ ...dev, configured: true });
+        await waitFor(() =>
+          expect(result.current.map(({ status: s }) => s.key)).toContain(key),
+        );
+        expect(screen.queryByText(message)).toBeNull();
+      });
     });
 
     describe("coveredBy", () => {

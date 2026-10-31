@@ -8,4 +8,10 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/platform/notifications/Feed";
-export * from "@/platform/notifications/useForward";
+export { Provider, useProblems } from "@/platform/notifications/Provider";
+export {
+  type InUseParams,
+  type Problem,
+  type Rule,
+  type Rules,
+} from "@/platform/notifications/useForward";

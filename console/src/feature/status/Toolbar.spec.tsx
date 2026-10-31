@@ -71,6 +71,13 @@ const createStatus = async (message = "") =>
   );
 
 describe("status toolbar", () => {
+  it("should show only the favorites in the Console build", async () => {
+    await renderToolbar();
+    expect(screen.getByText("Statuses")).toBeTruthy();
+    expect(screen.queryByRole("tab")).toBeNull();
+    expect(Status.TOOLBAR.badge).toBeUndefined();
+  });
+
   it("should open the explorer from the empty state action", async () => {
     const proj = await client.projects.create({
       name: uniqueName("proj"),

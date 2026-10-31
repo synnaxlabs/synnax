@@ -10,8 +10,9 @@
 import { type Synnax } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { act, render, type RenderResult } from "@testing-library/react";
-import { type ReactElement } from "react";
+import { createElement, type ReactElement } from "react";
 
+import { Notifications } from "@/platform/notifications";
 import {
   type ConsolePreloadedState,
   createConsoleWrapper,
@@ -45,7 +46,9 @@ export const renderBar = async (
   const { wrapper, store } = await createConsoleWrapper({ client: as, preloadedState });
   let rendered!: RenderResult;
   await act(async () => {
-    rendered = render(ui, { wrapper });
+    rendered = render(createElement(Notifications.Provider, { rules: {} }, ui), {
+      wrapper,
+    });
   });
   return { ...rendered, store };
 };

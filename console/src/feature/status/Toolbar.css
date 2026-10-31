@@ -20,3 +20,11 @@
 
     --pluto-focus-ring-offset: var(--pluto-focus-ring-inset);
 }
+
+.console-status-problem {
+    padding: 1rem;
+
+    &.console--nested {
+        padding-left: 4rem;
+    }
+}
