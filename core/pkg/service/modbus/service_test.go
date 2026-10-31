@@ -20,8 +20,8 @@ import (
 	v1 "github.com/synnaxlabs/synnax/pkg/service/modbus/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 // register returns a holding register read channel carrying the given extra fields.

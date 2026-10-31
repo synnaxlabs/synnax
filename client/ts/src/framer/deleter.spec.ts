@@ -12,8 +12,12 @@ import { describe, expect, test } from "vitest";
 
 import { UnauthorizedError } from "@/errors";
 import { NotFoundError } from "@/index";
-import { createTestClient, newIndexedPair, secondsLinspace } from "@/testutil";
-import { randomSeries } from "@/util/telem";
+import {
+  createTestClient,
+  newIndexedPair,
+  randomSeries,
+  secondsLinspace,
+} from "@/testutil";
 
 const client = createTestClient();
 

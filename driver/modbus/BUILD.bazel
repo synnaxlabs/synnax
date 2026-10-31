@@ -11,6 +11,12 @@ load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 cc_library(
+    name = "names",
+    hdrs = ["names.h"],
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
     name = "modbus",
     srcs = [
         "block.h",
@@ -24,6 +30,7 @@ cc_library(
     ],
     visibility = ["//visibility:public"],
     deps = [
+        ":names",
         "//client/cpp/modbus",
         "//driver/common",
         "//driver/errors",

@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from examples.simulators import TPCSimDAQ
+from examples.simulators import SimDAQ, TPCSimDAQ
 
 import synnax as sy
 from framework.utils import create_virtual_channel
@@ -215,7 +215,7 @@ class TPCColdFlow(ArcCase):
         "pressure_status",
         "end_tpc_test_cmd",
     ]
-    sim_daq_class = TPCSimDAQ
+    sim_daq_class: type[SimDAQ] | None = TPCSimDAQ
 
     def setup(self) -> None:
         create_virtual_channel(self.client, "tpc_stage", data_type=sy.DataType.UINT8)
@@ -258,7 +258,6 @@ class TPCColdFlow(ArcCase):
 
         if not sequence_complete:
             self.fail(f"Test stopped unexpectedly in phase {current_phase}")
-            return
 
         self.log(f"Observed status values: {observed_statuses}")
 
@@ -266,7 +265,6 @@ class TPCColdFlow(ArcCase):
         missing = expected_statuses - observed_statuses
         if missing:
             self.fail(f"Missing expected status values: {missing}")
-            return
 
         self.log("Multi-output function verified - all status levels observed")
         self.log("TPC cold flow sequence executed successfully")

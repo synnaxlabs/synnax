@@ -11,7 +11,7 @@ import { allocSuite } from "@synnaxlabs/x/bench";
 import { test } from "vitest";
 
 import { framer } from "@/framer";
-import { createKeys, createPayload } from "@/framer/benchutil";
+import { createKeys, createPayload } from "@/framer/testutil";
 
 const CHANNEL_COUNTS = [10, 100, 1000];
 
