@@ -644,16 +644,25 @@ describe("line", () => {
       return { data, home };
     };
 
-    const create = (props: Partial<telem.ChannelDataProps>) =>
-      new telem.ChannelData(client, props);
+    const create = (
+      props: Partial<telem.ChannelDataProps>,
+      from: telem.Client = client,
+    ) => new telem.ChannelData(from, props);
 
-    const createWindowed = (dataKey: channel.Key, window: Window) => ({
-      x: create({ channel: dataKey, useIndexOfChannel: true, window }),
-      y: create({ channel: dataKey, window }),
+    const createWindowed = (
+      dataKey: channel.Key,
+      window: Window,
+      from: telem.Client = client,
+    ) => ({
+      x: create({ channel: dataKey, useIndexOfChannel: true, window }, from),
+      y: create({ channel: dataKey, window }, from),
     });
 
-    const createPair = (dataKey: channel.Key, home: TimeRange) =>
-      createWindowed(dataKey, staticWindow(home));
+    const createPair = (
+      dataKey: channel.Key,
+      home: TimeRange,
+      from: telem.Client = client,
+    ) => createWindowed(dataKey, staticWindow(home), from);
 
     const settle = async (...sources: telem.ChannelData[]): Promise<void> =>
       await expect
@@ -791,12 +800,17 @@ describe("line", () => {
       live.x.cleanup();
       live.y.cleanup();
       const end = start.add(TimeSpan.seconds(2));
-      const read = createPair(keys.data, new TimeRange(start, end));
+      const reloaded = synnax.openFeed();
+      const read = createPair(keys.data, new TimeRange(start, end), {
+        ...client,
+        feed: reloaded,
+      });
       await settle(read.x, read.y);
       await expect.poll(() => read.y.value().data[1].length).toBe(2 * count);
       expect(linesOf(read.x, read.y)).toBe(2);
       read.x.cleanup();
       read.y.cleanup();
+      await reloaded.close();
     });
 
     it("should draw one line while a writer's samples cross raw blocks", async () => {
