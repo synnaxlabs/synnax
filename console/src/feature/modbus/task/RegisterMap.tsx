@@ -147,6 +147,7 @@ const createChannel = ({ type, address }: Free): ReadChannel => ({
 export const RegisterMap = (): ReactElement | null => {
   const channels = Form.useFieldValue<ReadChannel[]>(CHANNELS_PATH);
   const { set } = Form.useContext();
+  const isPreview = Task.useIsPreview();
   const hovered = Hovered.usePresent();
   const setHovered = useSetHovered();
   const find = useFindOverlaps("Modbus.RegisterMap");
@@ -163,6 +164,7 @@ export const RegisterMap = (): ReactElement | null => {
   const axisSpan: [number, number] | undefined =
     hoveredSpan?.span ?? (free == null ? undefined : [free.address, free.address]);
   const handleTrackMove = (type: ReadChannelType, e: PointerEvent<HTMLElement>) => {
+    if (isPreview) return;
     const box = e.currentTarget.getBoundingClientRect();
     const address = lo + Math.floor(((e.clientX - box.left) / box.width) * count);
     const used = spans.some(
