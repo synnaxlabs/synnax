@@ -21,8 +21,8 @@ class Condition(filter.Condition):
 
 key: filter.SetLine[Condition, Key] = filter.SetLine(Condition, "key")
 """Selects by key."""
-username: filter.StringLine[Condition] = filter.StringLine(Condition, "username")
-"""Selects by username."""
+usernames: filter.ListLine[Condition, str] = filter.ListLine(Condition, "usernames")
+"""Matches the users whose password has any of the given usernames."""
 
 and_ = Condition.and_
 """Matches the records that every condition matches."""

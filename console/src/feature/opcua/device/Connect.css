@@ -13,7 +13,7 @@
     width: 155rem;
 
     /* Fits the longest label, so the column holds still as fields show and hide. */
-    .pluto-form-sections.pluto--direction-y {
+    .lyra-form-sections.lyra--direction-y {
         grid-template-columns: minmax(18rem, max-content) minmax(0, 1fr);
     }
 }

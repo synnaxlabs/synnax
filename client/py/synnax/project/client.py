@@ -12,7 +12,8 @@ from typing import overload
 from pydantic import BaseModel
 
 from alamos import NOOP, Instrumentation
-from freighter import Empty, UnaryClient
+from freighter import Empty, FileTransport, UnaryClient
+from synnax import imex
 from synnax.project.types_gen import (
     Key,
     Project,
@@ -22,6 +23,7 @@ from synnax.project.types_gen import (
 )
 from synnax.util import one
 from x import filter
+from x.fs import FilePath
 from x.lists import normalize
 
 
@@ -42,22 +44,36 @@ class _RenameRequest(BaseModel):
     name: str
 
 
+class _ExportRequest(BaseModel):
+    key: Key
+    encoding: imex.Encoding
+
+
+class _ImportResponse(BaseModel):
+    project: Project
+
+
 class Client:
-    """Client for creating, retrieving, and deleting projects on a Synnax cluster.
+    """Client for creating, retrieving, deleting, exporting, and importing projects on
+    a Synnax cluster.
 
     A project is a named, persistable container that groups the panels of the Console
     application.
     """
 
     _client: UnaryClient
+    _file_transport: FileTransport
     instrumentation: Instrumentation = NOOP
 
     def __init__(
         self,
+        *,
         client: UnaryClient,
+        file_transport: FileTransport,
         instrumentation: Instrumentation = NOOP,
     ) -> None:
         self._client = client
+        self._file_transport = file_transport
         self.instrumentation = instrumentation
 
     @overload
@@ -110,6 +126,41 @@ class Client:
         :param name: The new name for the project.
         """
         self._client.send("/project/rename", _RenameRequest(key=key, name=name), Empty)
+
+    def export(
+        self, key: Key, dest: FilePath, *, encoding: imex.Encoding = "JSON"
+    ) -> None:
+        """Exports a project and its contents as a bundle, streaming it into dest.
+
+        The bundle is a zip archive with one file per document and panel, group
+        children as directories, and a manifest.json that names the project.
+
+        :param key: The key of the project to export.
+        :param dest: The path to write the bundle to. It must have a ``.zip``
+            extension. The write is atomic: a failure leaves an existing dest as it was.
+        :param encoding: The serialization of the member files.
+        :raises NotFoundError: If no project exists for key.
+        """
+        self._file_transport.download(
+            "/project/export", _ExportRequest(key=key, encoding=encoding), dest=dest
+        )
+
+    def import_(self, source: FilePath) -> Project:
+        """Imports a project bundle from a zip archive, streamed from disk.
+
+        The Core creates a new project and imports every member in one transaction,
+        so a failure leaves nothing behind. When the manifest has no name, the Core
+        names the project after the file, with the extension removed.
+
+        :param source: The path of the bundle. It must have a ``.zip`` extension.
+        :returns: The created project.
+        :raises ValidationError: If the manifest is missing, malformed, or of another
+            bundle kind, if two member names collide, or if a member cannot be
+            imported.
+        """
+        return self._file_transport.upload(
+            "/project/import", source, _ImportResponse
+        ).project
 
     @overload
     def retrieve(self, *, key: Key) -> Project: ...

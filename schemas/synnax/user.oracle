@@ -18,26 +18,16 @@ Key = uuid {
 }
 
 User struct {
-    key        Key    {
+    key       Key    {
         @doc value "is the unique identifier for this user."
         @key
     }
-    username   string {
-        @doc value         "is the unique login name for the user."
-        @filter
-        @index lookup
+    name      string {
+        @doc value           "is the user's display name."
         @search
-        @validate required
+        @validate min_length 1
     }
-    first_name string {
-        @doc value "is the user's first name."
-        @search
-    }
-    last_name  string {
-        @doc value "is the user's last name."
-        @search
-    }
-    root_user  bool = false {
+    root_user bool = false {
         @doc value """
             is true if this is a root/admin user with full system access. Root users
             cannot be deleted.
@@ -45,19 +35,21 @@ User struct {
         @filter
     }
 
-    @doc value     """
+    @doc value       """
         is an account entity representing a person accessing the Synnax system. Users
         can have roles assigned for permission management.
     """
     @go marshal
     @go migrate
-    @ontology type "user"
-    @retrieve
+    @ontology type   "user"
+    @retrieve custom
 }
 
 Where filter User {
     key
-    username
+    usernames string[] {
+        @doc value "matches the users whose password has any of the given usernames."
+    }
 
     @doc value         "is a filter that selects users."
     @go request_output "core/pkg/api/user"
@@ -66,12 +58,15 @@ Where filter User {
 New struct extends User {
     -root_user
     key?
-    password    string {
+    username string {
+        @doc value         "is the login name for the new user's password."
+        @validate required
+    }
+    password string {
         @doc value           "is the password for the new user account."
         @validate min_length 1
     }
-    first_name?
-    last_name?
+    name?
 
     @cpp omit
     @doc value    "contains parameters for creating a new user."

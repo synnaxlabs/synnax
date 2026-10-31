@@ -114,7 +114,7 @@ const hasAnchor = (body: string, fragment: string): boolean =>
 const probe = async (url: string): Promise<Probe | null> => {
   // LinkedIn's bot wall answers 999 for live and dead pages alike, so its links cannot
   // be verified either way. A 429 on any host proves nothing about the link.
-  const linkedin = new URL(url).host.endsWith("linkedin.com");
+  const linkedin = /(^|\.)linkedin\.com$/.test(new URL(url).hostname);
   const ok = (status: number): boolean =>
     status < 400 || status === 429 || (linkedin && status === 999);
   let last: number | string = 0;

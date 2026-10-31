@@ -58,7 +58,10 @@ const Content = ({ teams }: IssueDialogProps): ReactElement => {
       methods={methods}
       submit="Issue"
       onSubmit={async (value) => {
-        const { key } = await post<{ key: string }>("/api/licenses", value);
+        const { key } = await post<{ key: string }>(
+          "/api/licenses",
+          Licenses.bodyOf(value),
+        );
         navigate(`/licenses/${key}`);
       }}
     >
