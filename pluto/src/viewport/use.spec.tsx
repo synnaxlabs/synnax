@@ -376,6 +376,17 @@ describe("viewport/use", () => {
       expect(e.box).toEqual(DEFAULT_VIEWPORT);
     });
 
+    it("should report a zoom drag off the canvas edge as a click", () => {
+      const h = setup();
+      press(h.canvas, { x: 96, y: 50 });
+      move({ x: 120, y: 50 });
+      expect(box.areaIsZero(h.result.current.maskBox)).toBe(true);
+      release(h.canvas, { x: 120, y: 50 });
+      const e = lastEvent(h.onChange);
+      expect(e.mode).toEqual("click");
+      expect(e.box).toEqual(DEFAULT_VIEWPORT);
+    });
+
     it("should zoom once a drag selects the minimum span", () => {
       const h = setup();
       drag(h.canvas, { x: 50, y: 50 }, { x: 60, y: 50 });
@@ -504,6 +515,17 @@ describe("viewport/use", () => {
       expect(box.bottom(m)).toEqual(100);
       expect(box.left(m)).toEqual(30);
       expect(box.right(m)).toEqual(50);
+    });
+
+    it("should snap a drag off the canvas by the part inside the canvas", () => {
+      const h = setup();
+      press(h.canvas, { x: 96, y: 50 });
+      move({ x: 140, y: 100 });
+      const m = h.result.current.maskBox;
+      expect(box.left(m)).toEqual(0);
+      expect(box.right(m)).toEqual(100);
+      expect(box.top(m)).toEqual(50);
+      expect(box.bottom(m)).toEqual(100);
     });
   });
 

@@ -218,7 +218,7 @@ export const use = ({
       return setStateRef(box.DECIMAL);
     }
 
-    const selection = fullSize(threshold, box_, canvas);
+    const selection = fullSize(threshold, box.intersection(box_, canvas), canvas);
     const isClick_ = isClick(box_) || (mode === "zoom" && isSmallZoom(selection));
     if (isClick_ && mode === "zoom") setMaskBox(box.ZERO);
 
