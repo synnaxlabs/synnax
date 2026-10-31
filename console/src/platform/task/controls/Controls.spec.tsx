@@ -44,7 +44,7 @@ const runningValues = (overrides: { configHash?: string; rack?: number } = {}) =
 });
 
 // The status of a save that succeeded.
-const SAVED = createTaskStatus({ message: "Updated task" });
+const SAVED = createTaskStatus({ message: "Saved task" });
 
 describe("Controls.Controls", () => {
   it("should hide the actions when the task is a snapshot", async () => {
@@ -159,16 +159,14 @@ describe("Controls.Controls", () => {
         <Task.Controls.Controls
           saveStatus={createTaskStatus({
             variant: "error",
-            message: "Failed to update task",
+            message: "Failed to save task",
           })}
           onDeploy={vi.fn()}
           onStop={vi.fn()}
         />,
         { client, values: runningValues() },
       );
-      await waitFor(() =>
-        expect(screen.getByText("Failed to update task")).toBeTruthy(),
-      );
+      await waitFor(() => expect(screen.getByText("Failed to save task")).toBeTruthy());
       expect(screen.queryByText("Running smoothly")).toBeNull();
       await findIconButton(container, "stop");
     });
@@ -176,14 +174,14 @@ describe("Controls.Controls", () => {
     it("should show the task status after a save that did not fail", async () => {
       await renderInTaskFormWithClient(
         <Task.Controls.Controls
-          saveStatus={createTaskStatus({ message: "Updated task" })}
+          saveStatus={createTaskStatus({ message: "Saved task" })}
           onDeploy={vi.fn()}
           onStop={vi.fn()}
         />,
         { client, values: runningValues() },
       );
       await waitFor(() => expect(screen.getByText("Running smoothly")).toBeTruthy());
-      expect(screen.queryByText("Updated task")).toBeNull();
+      expect(screen.queryByText("Saved task")).toBeNull();
     });
   });
 

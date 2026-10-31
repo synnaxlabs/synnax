@@ -239,8 +239,8 @@ class ChannelClient(ResourceClient):
             modal = self.layout.locator(self.layout.MODAL_SELECTOR)
             if modal.count() > 0:
                 modal_text = modal.inner_text()
-                if "Failed to update calculated channel" in modal_text:
-                    error_start = modal_text.find("Failed to update calculated channel")
+                if "Failed to save calculated channel" in modal_text:
+                    error_start = modal_text.find("Failed to save calculated channel")
                     error_section = modal_text[error_start:]
                     for delimiter in ["\n\nCreate more", "\n\nSave"]:
                         if delimiter in error_section:

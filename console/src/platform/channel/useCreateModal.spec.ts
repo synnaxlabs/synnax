@@ -186,12 +186,12 @@ describe("useCreateModal", () => {
       fireEvent.click(getSwitch("Virtual"));
       await clickCreate();
       await waitFor(() =>
-        expect(screen.getByText("Failed to update channel")).toBeTruthy(),
+        expect(screen.getByText("Failed to save channel")).toBeTruthy(),
       );
       expect(screen.getByPlaceholderText("Channel name")).toBeTruthy();
       expect(onStatuses).not.toHaveBeenCalledWith(
         expect.arrayContaining([
-          expect.objectContaining({ message: "Failed to update channel" }),
+          expect.objectContaining({ message: "Failed to save channel" }),
         ]),
       );
     });

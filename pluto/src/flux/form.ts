@@ -247,13 +247,13 @@ const persist = async <
   try {
     if (beforeValidate?.(params) === false) return false;
     if (!(await params.validateAsync())) return false;
-    setResult(loadingResult(`updating ${name}`, undefined));
+    setResult(loadingResult(`saving ${name}`, undefined));
     if ((await beforeSave?.(params)) === false) {
-      setResult(successResult(`updated ${name}`, undefined));
+      setResult(successResult(`saved ${name}`, undefined));
       return false;
     }
     if (signal?.aborted === true) {
-      setResult(successResult(`updated ${name}`, undefined));
+      setResult(successResult(`saved ${name}`, undefined));
       return false;
     }
     const setStatus = (setter: state.SetArg<ResultStatus<never>>) =>
@@ -266,12 +266,12 @@ const persist = async <
         } as Result<undefined>;
       });
     await update({ ...params, setStatus });
-    setResult(successResult(`updated ${name}`, undefined));
+    setResult(successResult(`saved ${name}`, undefined));
     if (afterSave != null) afterSave(params);
     return true;
   } catch (error) {
     if (signal?.aborted === true) return false;
-    const res = errorResult(`update ${name}`, error);
+    const res = errorResult(`save ${name}`, error);
     addStatus({ ...res.status, key: statusKey });
     setResult(res);
     return false;
@@ -400,7 +400,7 @@ export const createForm = <
     const runSave = async (opts: query.FetchOptions = {}): Promise<boolean> => {
       const signal = opts.signal ?? abortRef.current.signal;
       if (client == null) {
-        setResult(nullClientResult<undefined>(`update ${name}`));
+        setResult(nullClientResult<undefined>(`save ${name}`));
         return false;
       }
       const issuedFor = readQuery.current;
