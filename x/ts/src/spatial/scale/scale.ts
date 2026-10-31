@@ -13,7 +13,6 @@ import { math } from "@/math";
 import { type numeric } from "@/numeric";
 import { bounds } from "@/spatial/bounds";
 import { box } from "@/spatial/box";
-import { type Box, isBox } from "@/spatial/box/box";
 import { type dimensions } from "@/spatial/dimensions";
 import { location } from "@/spatial/location";
 import { xy } from "@/spatial/xy";
@@ -293,7 +292,7 @@ export class XY {
     return new XY().translateY(y);
   }
 
-  static clamp(box: Box): XY {
+  static clamp(box: box.Box): XY {
     return new XY().clamp(box);
   }
 
@@ -301,11 +300,11 @@ export class XY {
     return new XY().magnify(xy);
   }
 
-  static scale(box: dimensions.Dimensions | Box): XY {
+  static scale(box: dimensions.Dimensions | box.Box): XY {
     return new XY().scale(box);
   }
 
-  static reBound(box: Box): XY {
+  static reBound(box: box.Box): XY {
     return new XY().reBound(box);
   }
 
@@ -336,9 +335,9 @@ export class XY {
     return next;
   }
 
-  scale(b: Box | dimensions.Dimensions): XY {
+  scale(b: box.Box | dimensions.Dimensions): XY {
     const next = this.copy();
-    if (isBox(b)) {
+    if (box.isBox(b)) {
       const prevRoot = this.currRoot;
       next.currRoot = b.root;
       if (prevRoot != null && !location.xyEquals(prevRoot, b.root)) {
@@ -354,14 +353,14 @@ export class XY {
     return next;
   }
 
-  reBound(b: Box): XY {
+  reBound(b: box.Box): XY {
     const next = this.copy();
     next.x = this.x.reBound(box.xBounds(b));
     next.y = this.y.reBound(box.yBounds(b));
     return next;
   }
 
-  clamp(b: Box): XY {
+  clamp(b: box.Box): XY {
     const next = this.copy();
     next.x = this.x.clamp(box.xBounds(b));
     next.y = this.y.clamp(box.yBounds(b));
@@ -391,7 +390,7 @@ export class XY {
     return { x: this.x.dim(xy.x), y: this.y.dim(xy.y) };
   }
 
-  box(b: Box): Box {
+  box(b: box.Box): box.Box {
     return box.construct(
       this.pos(b.one),
       this.pos(b.two),

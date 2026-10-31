@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type CrudeTimeSpan, TimeSpan } from "@/telem/telem";
+import { type CrudeTimeSpan, TimeSpan } from "@/telem";
 
 // DebouncedFn is the function returned by debounce. It carries cancel and flush handles
 // so callers (e.g., React cleanup paths) can drop pending invocations or force them to
