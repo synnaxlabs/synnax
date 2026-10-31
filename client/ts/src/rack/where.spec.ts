@@ -9,14 +9,14 @@
 
 import { describe } from "vitest";
 
-import { payloadZ, whereZ } from "@/rack/types.gen";
+import { rack } from "@/rack";
 import { LINES } from "@/rack/where";
 import { matches, serverComputed } from "@/rack/where.gen";
 import { itMatchesVectors, readVectors } from "@/testutil/vectors";
 
 describe("Where", () => {
   itMatchesVectors(
-    readVectors("racks", payloadZ, whereZ),
+    readVectors("racks", rack.payloadZ, rack.whereZ),
     (r, where) => matches(LINES, r, where),
     (where) => serverComputed(LINES, where),
   );
