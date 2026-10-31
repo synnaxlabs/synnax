@@ -70,19 +70,14 @@ describe("Value.use", () => {
     let release: () => void = () => {};
     const released = new Promise<void>((resolve) => (release = resolve));
     let failed = false;
-    const flaky: telem.Client = {
-      ...client,
-      channels: {
-        retrieve: async (ch) => {
-          if (!failed) {
-            failed = true;
-            throw new Error("connection refused");
-          }
-          await released;
-          return await client.channels.retrieve(ch);
-        },
-      },
-    };
+    const flaky = telemTest.withRetrieve(client, async (ch) => {
+      if (!failed) {
+        failed = true;
+        throw new Error("connection refused");
+      }
+      await released;
+      return await client.channels.retrieve(ch);
+    });
     const { result } = renderHook(
       () =>
         Value.use({

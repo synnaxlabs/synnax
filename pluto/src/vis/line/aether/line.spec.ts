@@ -68,10 +68,11 @@ describe("line", () => {
       dataToDecimalScale: scale.XY.IDENTITY,
     };
 
-    const mount = (x: Series[], y: Series[], state: Partial<State> = {}) => {
+    const mountLine = (
+      state: Partial<State> & Pick<State, "x" | "y">,
+      factories?: telem.Factory[],
+    ) => {
       const { gl, calls } = canvasTest.createGL();
-      const xSource = createSource(x);
-      const ySource = createSource(y);
       const recorder = canvasTest.record();
       (recorder as { gl: unknown }).gl = gl;
       recorder.resize(PROPS.region, 1);
@@ -79,17 +80,24 @@ describe("line", () => {
         state: {},
         render: recorder,
         registry: { [Line.TYPE]: Line },
+        telem: factories == null ? undefined : { factories },
         children: {
           line: {
             type: Line.TYPE,
-            state: {
-              x: sourceSpec(xSource),
-              y: sourceSpec(ySource),
-              color: color.construct("#ff0000"),
-              ...state,
-            },
+            state: { color: color.construct("#ff0000"), ...state },
           },
         },
+      });
+      return { h, recorder, calls };
+    };
+
+    const mount = (x: Series[], y: Series[], state: Partial<State> = {}) => {
+      const xSource = createSource(x);
+      const ySource = createSource(y);
+      const { h, recorder, calls } = mountLine({
+        x: sourceSpec(xSource),
+        y: sourceSpec(ySource),
+        ...state,
       });
       const draws = (): [number, number][] =>
         calls
@@ -361,27 +369,15 @@ describe("line", () => {
           now: TimeStamp.seconds(110),
         });
         const client = telemTest.createClient(core);
-        const recorder = canvasTest.record();
-        (recorder as { gl: unknown }).gl = canvasTest.createGL().gl;
-        recorder.resize(PROPS.region, 1);
         const window = staticWindow(new TimeRange(0, TimeStamp.seconds(1)));
-        const h = renderAether(lineTest.Host, {
-          state: {},
-          render: recorder,
-          registry: { [Line.TYPE]: Line },
-          telem: { factories: [new telem.RemoteFactory(client)] },
-          children: {
-            line: {
-              type: Line.TYPE,
-              state: {
-                x: telem.channelData({ channel: 999, useIndexOfChannel: true, window }),
-                y: telem.channelData({ channel: 999, window }),
-                color: color.construct("#ff0000"),
-                label: "PT-03",
-              },
-            },
+        const { h } = mountLine(
+          {
+            x: telem.channelData({ channel: 999, useIndexOfChannel: true, window }),
+            y: telem.channelData({ channel: 999, window }),
+            label: "PT-03",
           },
-        });
+          [new telem.RemoteFactory(client)],
+        );
         const line = h.child<Line>("line");
         await expect
           .poll(() => {

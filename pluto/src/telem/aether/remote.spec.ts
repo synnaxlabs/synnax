@@ -92,12 +92,6 @@ describe("remote", () => {
     return client;
   };
 
-  // Returns the client with its channel retrievals run through retrieve.
-  const withRetrieve = (
-    client: Client,
-    retrieve: Client["channels"]["retrieve"],
-  ): Client => ({ ...client, channels: { retrieve } });
-
   describe("channel values", () => {
     const createNumber = (client: Client | null, ch: channel.Key): NumberSource => {
       const spec = streamChannelValue({ channel: ch });
@@ -335,6 +329,21 @@ describe("remote", () => {
       });
     });
 
+    it("should notify when only its status changes", async () => {
+      const core = createCore();
+      const { key } = core.data[0];
+      const source = createNumber(connect(core), key);
+      source.value();
+      await expect.poll(() => source.value().status.variant, POLL).toBe("success");
+      const variants: string[] = [];
+      source.onChange(() => variants.push(source.value().status.variant));
+      core.disconnect();
+      await expect.poll(() => variants.at(-1), POLL).toBe("warning");
+      core.reconnect();
+      await expect.poll(() => source.value().status.variant, POLL).toBe("success");
+      expect(variants.at(-1)).not.toBe("warning");
+    });
+
     it("should notify with the error of a channel the Core denies", async () => {
       const core = createCore();
       const { key } = core.data[0];
@@ -356,7 +365,7 @@ describe("remote", () => {
       const { key } = core.data[0];
       const client = connect(core);
       let failures = 1;
-      const flaky = withRetrieve(client, async (ch) => {
+      const flaky = telemTest.withRetrieve(client, async (ch) => {
         if (failures-- > 0) throw new Error("connection refused");
         return await client.channels.retrieve(ch);
       });
@@ -755,7 +764,7 @@ describe("remote", () => {
       const core = createCore();
       const client = connect(core);
       let failures = 2;
-      const flaky = withRetrieve(client, async (ch) => {
+      const flaky = telemTest.withRetrieve(client, async (ch) => {
         if (failures-- > 0) throw new Error("connection refused");
         return await client.channels.retrieve(ch);
       });
@@ -778,7 +787,7 @@ describe("remote", () => {
       let release: () => void = () => {};
       const released = new Promise<void>((resolve) => (release = resolve));
       let [started, landed] = [false, false];
-      const gated = withRetrieve(client, async (ch) => {
+      const gated = telemTest.withRetrieve(client, async (ch) => {
         started = true;
         await released;
         const retrieved = await client.channels.retrieve(ch);

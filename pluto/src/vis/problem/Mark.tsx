@@ -9,6 +9,7 @@
 
 import "@/vis/problem/Mark.css";
 
+import { status } from "@synnaxlabs/client";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Status } from "@synnaxlabs/lyra/status";
@@ -17,7 +18,7 @@ import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { problem } from "@/vis/problem/aether";
+import { type problem } from "@/vis/problem/aether";
 
 const ICONS: Record<problem.Variant, Icon.FC> = {
   warning: Icon.Warning,
@@ -70,7 +71,7 @@ export const Mark = ({
   size = "medium",
   overhanging = false,
 }: MarkProps): ReactElement | null => {
-  const worst = problem.worst(problems);
+  const worst = status.worst(...problems);
   if (worst == null) return null;
   return (
     <Tooltip.Dialog>

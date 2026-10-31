@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { status } from "@synnaxlabs/client";
+import { type status } from "@synnaxlabs/client";
 import { z } from "zod";
 
-export const variantZ = z.enum(["warning", "error"]);
+const variantZ = z.enum(["warning", "error"]);
 export type Variant = z.infer<typeof variantZ>;
 
 /** A problem with the data that a visualization shows. */
@@ -25,12 +25,13 @@ export const problemZ = z.object({
 export interface Problem extends z.infer<typeof problemZ> {}
 
 /**
- * @returns the problem of a data source's status as a list, which is empty unless the
- * status is a warning or an error.
- * @param name - what the problem is about. Defaults to the name of the status.
+ * Converts the status of a data source into its problems.
+ * @param name - What the problem is about. Defaults to the name of the status.
+ * @returns the problem of the status as a list, which is empty unless the status is a
+ * warning or an error.
  */
 export const fromStatus = (s: status.Status, name: string = s.name): Problem[] => {
-  const { variant, message, description = "" } = s;
+  const { variant, message, description } = s;
   if (variant !== "warning" && variant !== "error") return [];
   return [{ variant, name, message, description }];
 };
@@ -50,7 +51,3 @@ export const merge = (problems: Problem[]): Problem[] => {
   }
   return [...merged.values()];
 };
-
-/** @returns the most severe problem, or undefined when there are none. */
-export const worst = (problems: Problem[]): Problem | undefined =>
-  status.worst(...problems);

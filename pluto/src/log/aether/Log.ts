@@ -272,32 +272,25 @@ export class Log extends aether.Leaf<typeof logStateZ, InternalState> {
     const { data, status } = i.telem.value();
     this.entries = data;
     this.setAnchors(this.state.selectionStart, this.state.selectionEnd);
-    this.checkEmpty(status);
-    this.syncProblems(status);
+    this.syncStatus(status);
     i.stopListeningTelem?.();
     i.stopListeningTelem = i.telem.onChange(() => {
       const { data, status } = this.internal.telem.value();
       this.entries = data;
       this.reanchor();
-      this.checkEmpty(status);
-      this.syncProblems(status);
+      this.syncStatus(status);
       if (this.state.visible) this.requestRender();
     });
     if (!this.state.visible && !this.prevState.visible) return;
     this.requestRender();
   }
 
-  // A loading log is not empty, since its stored entries have not arrived yet.
-  private checkEmpty(s: status.Status): void {
-    const actuallyEmpty = this.entries.length === 0 && s.variant !== "loading";
-    if (actuallyEmpty === this.state.empty) return;
-    this.setState((p) => ({ ...p, empty: actuallyEmpty }));
-  }
-
-  private syncProblems(s: status.Status): void {
+  // A loading log is not empty, because its stored entries have not arrived yet.
+  private syncStatus(s: status.Status): void {
+    const empty = this.entries.length === 0 && s.variant !== "loading";
     const problems = problem.fromStatus(s);
-    if (deep.equal(problems, this.state.problems)) return;
-    this.setState((p) => ({ ...p, problems }));
+    if (empty === this.state.empty && deep.equal(problems, this.state.problems)) return;
+    this.setState((p) => ({ ...p, empty, problems }));
   }
 
   afterDelete(): void {

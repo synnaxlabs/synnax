@@ -130,8 +130,8 @@ export class LinePlot
     return problem.merge(this.axes.flatMap((a) => a.problems));
   }
 
-  // Lines record their loading state and problems as they render, so these sync after
-  // a render.
+  // Lines record their loading state and problems as they render, so these sync after a
+  // render.
   private syncFetchState(): void {
     const { loading, fetching, problems } = this;
     if (

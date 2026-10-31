@@ -61,25 +61,6 @@ export const DISCONNECTED_STATUS: cstatus.Status = {
   time: TimeStamp.ZERO,
 };
 
-// Holds a source's last failure. Retries repeat, so onChange runs only when the failure
-// changes.
-class FailureReporter {
-  status?: cstatus.Status;
-  constructor(private readonly onChange: () => void) {}
-
-  report(e: unknown, message: string): void {
-    const prev = this.status;
-    const next = cstatus.fromException(e, message);
-    this.status = next;
-    if (prev?.message === next.message && prev.description === next.description) return;
-    this.onChange();
-  }
-
-  reset(): void {
-    this.status = undefined;
-  }
-}
-
 const isProblem = (s?: cstatus.Status): boolean =>
   s?.variant === "warning" || s?.variant === "error";
 
@@ -93,6 +74,24 @@ const problemChanged = (
   (prev?.variant !== next.variant ||
     prev.message !== next.message ||
     prev.description !== next.description);
+
+// Holds a source's last failure. Retries repeat, so onChange runs only when the failure
+// changes.
+class FailureReporter {
+  status?: cstatus.Status;
+  constructor(private readonly onChange: () => void) {}
+
+  report(e: unknown, message: string): void {
+    const prev = this.status;
+    const next = cstatus.fromException(e, message);
+    this.status = next;
+    if (problemChanged(prev, next)) this.onChange();
+  }
+
+  reset(): void {
+    this.status = undefined;
+  }
+}
 
 // The status of a source before its channel resolves, or after its retrieval fails.
 const sourceStatus = (

@@ -40,9 +40,6 @@ const RECONNECTING: problem.Problem = {
   description: "",
 };
 
-const tooltip = (): HTMLElement | null =>
-  document.querySelector<HTMLElement>(".lyra-tooltip");
-
 describe("Problem.Mark", () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -88,7 +85,7 @@ describe("Problem.Mark", () => {
     act(() => {
       vi.advanceTimersByTime(DELAY.milliseconds + 10);
     });
-    expect(tooltip()?.textContent).toBe(
+    expect(screen.getByRole("tooltip").textContent).toBe(
       "PT-03Failed to read channel datachannel 999 not foundPT-04Stream reconnecting",
     );
   });
