@@ -1004,7 +1004,10 @@ TEST_F(TestScanTask, testBrowsesChildrenOfUnbuiltStructure) {
     );
     const auto &channels = status.details.data.value().at("channels");
     ASSERT_EQ(channels.size(), 1);
-    EXPECT_EQ(channels[0]["node_id"], "NS=1;S=TestBrokenChild");
+    EXPECT_EQ(
+        channels[0]["node_id"],
+        "nsu=urn:open62541.server.application;s=TestBrokenChild"
+    );
     server.stop();
 }
 
