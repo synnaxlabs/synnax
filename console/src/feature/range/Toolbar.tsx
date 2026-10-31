@@ -17,17 +17,20 @@ import { Icon } from "@synnaxlabs/lyra/icon";
 import { List as BaseList } from "@synnaxlabs/lyra/list";
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Select } from "@synnaxlabs/lyra/select";
+import { Status } from "@synnaxlabs/lyra/status";
 import { Tag } from "@synnaxlabs/lyra/tag";
 import { Telem } from "@synnaxlabs/lyra/telem";
 import { Text } from "@synnaxlabs/lyra/text";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
 import { Access, Ranger } from "@synnaxlabs/pluto";
+import pluralize from "pluralize";
 import { type ReactElement } from "react";
 
 import { ContextMenu } from "@/feature/range/ContextMenu";
 import { Explorer } from "@/feature/range/explorer";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
+import { Modals } from "@/platform/modals";
 import { type Nav } from "@/platform/nav";
 import { Range } from "@/platform/range";
 import { Toolbar } from "@/platform/toolbar";
@@ -140,14 +143,44 @@ const ListItem = (props: BaseList.ItemProps<string>) => {
 
 const listItem = Component.renderProp(ListItem);
 
-const Actions = (): ReactElement | null => {
+const UnfavoriteAllAction = (): ReactElement | null => {
+  const dispatch = Session.useDispatch();
+  const ranges = Session.Range.useSelectMultiple().filter(
+    (r) => r.variant !== "dynamic",
+  );
+  const confirm = Modals.useConfirm();
+  const handleError = Status.useErrorHandler();
+  if (ranges.length === 0) return null;
+  const handleClick = () =>
+    handleError(async () => {
+      const confirmed = await confirm({
+        message: `Are you sure you want to unfavorite ${pluralize("range", ranges.length, true)}?`,
+        description: ranges.some((r) => r.variant === "static")
+          ? "Local ranges not saved to the Core are lost."
+          : "The ranges stay on the Core.",
+        confirm: { variant: "error", label: "Unfavorite" },
+        cancel: { label: "Cancel" },
+        title: "Range.Unfavorite all",
+        icon: <Icon.StarOutlined />,
+      });
+      if (confirmed !== true) return;
+      dispatch(Session.Range.remove({ keys: ranges.map((r) => r.key) }));
+    }, "Failed to unfavorite ranges");
+  return (
+    <Toolbar.Action tooltip="Unfavorite all ranges" onClick={handleClick}>
+      <Icon.StarOutlined />
+    </Toolbar.Action>
+  );
+};
+
+const Actions = (): ReactElement => {
   const openExplorer = Explorer.useOpenTab();
   const openCreate = Range.useCreateModal();
   const hasCreatePermission = Access.useCreateGranted(ranger.TYPE_ONTOLOGY_ID);
   const hasRetrievePermission = Access.useRetrieveGranted(ranger.TYPE_ONTOLOGY_ID);
-  if (!hasCreatePermission && !hasRetrievePermission) return null;
   return (
     <Toolbar.Actions>
+      <UnfavoriteAllAction />
       {hasRetrievePermission && (
         <Toolbar.Action tooltip="Open range explorer" onClick={openExplorer}>
           <Icon.Explore />
