@@ -98,12 +98,13 @@ const trim = (received: Received[], size: number): Received[] => {
 };
 
 /**
- * Collects statuses from its subtree and hands them to {@link useNotifications} and the
- * status list. Mount one near the root of the app. Each key holds one notification for
- * its problem and one for its other statuses, and a new status replaces the one in its
- * slot. A warning or error of the same problem joins its notification instead: the
- * count goes up, and the notification does not show again. A status that is not part of
- * a problem does not show when a view places its key with {@link usePlace}.
+ * Collects statuses from its subtree and hands them to {@link useNotifications}. Mount
+ * one near the root of the app. Each key holds one notification for its problem and one
+ * for its other statuses, and a new status replaces the one in its slot. A warning or
+ * error of the same problem joins its notification instead: the count goes up, and the
+ * notification does not show again. A status that is not part of a problem does not
+ * show when a view places its key with {@link usePlace}. It closes the notification in
+ * its slot instead.
  */
 export const Aggregator = ({
   children,
@@ -124,7 +125,15 @@ export const Aggregator = ({
   };
   const handleAdd: Adder = (spec) => {
     const status = create(spec);
-    if (status.problem == null && placed.current.has(status.key)) return;
+    // The view of a placed key shows the status, so its old notification closes.
+    if (status.problem == null && placed.current.has(status.key)) {
+      setReceived((prev) =>
+        prev.some((r) => sameSlot(r.status, status))
+          ? prev.filter((r) => !sameSlot(r.status, status))
+          : prev,
+      );
+      return;
+    }
     setReceived((prev) => {
       const held = prev.find((r) => sameSlot(r.status, status));
       if (held != null && sameProblem(held.status, status))

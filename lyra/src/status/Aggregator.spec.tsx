@@ -755,6 +755,23 @@ describe("Aggregator", () => {
       expect(notified()).toMatchObject([{ key: "task:1" }]);
     });
 
+    it("should close the notification that a status on a placed key replaces", () => {
+      const { add, notified, rerender } = renderPlaces(<Place visible={false} />);
+      add(reply);
+      expect(notified()).toHaveLength(1);
+      rerender(<Place />);
+      add({ ...reply, variant: "success", message: "Started task" });
+      expect(notified()).toHaveLength(0);
+    });
+
+    it("should keep the notification of a problem on a placed key", () => {
+      const { add, notified, rerender } = renderPlaces(<Place visible={false} />);
+      add({ ...reply, problem: "p1" });
+      rerender(<Place />);
+      add({ ...reply, variant: "success", message: "Started task" });
+      expect(notified()).toMatchObject([{ problem: "p1" }]);
+    });
+
     it("should notify a problem on a placed key", () => {
       const { add, notified } = renderPlaces(<Place />);
       add({ ...reply, problem: "p1" });
