@@ -14,26 +14,30 @@ import { Provider } from "react-redux";
 import { describe, expect, it } from "vitest";
 
 import {
+  MAIN_WINDOW,
+  type SliceState,
+  type StoreState,
+  ZERO_SLICE_STATE,
+} from "@/index";
+import {
   useSelectWindow,
   useSelectWindowAttribute,
   useSelectWindowKey,
   useSelectWindows,
-} from "@/react/selectors";
-import { type SliceState, type StoreState, ZERO_SLICE_STATE } from "@/state";
-import { INITIAL_WINDOW_STATE, MAIN_WINDOW, type WindowState } from "@/window";
+} from "@/react";
+import { createWindowState } from "@/testutil";
 
-const WINDOW_A: WindowState = {
-  ...INITIAL_WINDOW_STATE,
+const WINDOW_A = createWindowState({
   key: "window-a",
   title: "Window A",
   reserved: true,
-};
+});
 
 const buildState = (overrides: Partial<SliceState> = {}): StoreState => ({
   drift: {
     ...ZERO_SLICE_STATE,
     windows: {
-      main: { ...INITIAL_WINDOW_STATE, key: MAIN_WINDOW, reserved: true },
+      main: createWindowState({ key: MAIN_WINDOW, reserved: true }),
       "label-a": WINDOW_A,
     },
     labelKeys: { main: MAIN_WINDOW, "label-a": "window-a" },
