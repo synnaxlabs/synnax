@@ -27,15 +27,13 @@ var _ = Describe("Files", func() {
 
 	BeforeEach(func() { fd = diagnostics.NewFiles() })
 
-	Describe("Empty and Ok", func() {
-		It("Should be empty and ok with no diagnostics", func() {
-			Expect(fd.Empty()).To(BeTrue())
+	Describe("Ok", func() {
+		It("Should be ok with no diagnostics", func() {
 			Expect(fd.Ok()).To(BeTrue())
 		})
 
 		It("Should stay ok when only warnings are reported", func() {
 			fd.Report("a.oracle", warnAt("unresolved type"))
-			Expect(fd.Empty()).To(BeFalse())
 			Expect(fd.Ok()).To(BeTrue())
 		})
 
@@ -90,22 +88,12 @@ var _ = Describe("Files", func() {
 		})
 	})
 
-	Describe("Errors, Each, and Flat ordering", func() {
+	Describe("Each and Flat ordering", func() {
 		BeforeEach(func() {
 			fd.Report("b.oracle", errAt("b error"))
 			fd.Report("a.oracle", warnAt("a warning"))
 			fd.Report("a.oracle", errAt("a error"))
 		})
-
-		It(
-			"Should return only error-level diagnostics in first-seen file order",
-			func() {
-				errs := fd.Errors()
-				Expect(errs).To(HaveLen(2))
-				Expect(errs[0].Message).To(Equal("b error"))
-				Expect(errs[1].Message).To(Equal("a error"))
-			},
-		)
 
 		It("Should visit every diagnostic with its origin file", func() {
 			var visited []string

@@ -22,8 +22,8 @@ import (
 	v6 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v6"
 	v7 "github.com/synnaxlabs/synnax/pkg/service/lineplot/versions/v7"
 	"github.com/synnaxlabs/x/encoding/orc"
-	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 //go:embed testdata/*.hex

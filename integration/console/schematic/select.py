@@ -15,7 +15,7 @@ from console.schematic.symbol import Symbol
 class Select(Symbol):
     """Schematic select symbol (dropdown, Set button, and optional read-back)"""
 
-    _symbol_group = "General"
+    _symbol_group: str | None = "General"
 
     def __init__(
         self,

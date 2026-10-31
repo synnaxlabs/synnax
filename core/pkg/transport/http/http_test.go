@@ -31,14 +31,14 @@ import (
 	apiframer "github.com/synnaxlabs/synnax/pkg/api/framer"
 	apilicense "github.com/synnaxlabs/synnax/pkg/api/license"
 	apirack "github.com/synnaxlabs/synnax/pkg/api/rack"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/synnax/pkg/service"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/apikey"
 	"github.com/synnaxlabs/synnax/pkg/service/license"
-	svcmock "github.com/synnaxlabs/synnax/pkg/service/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	thttp "github.com/synnaxlabs/synnax/pkg/transport/http"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
@@ -47,9 +47,9 @@ import (
 
 func openLicensed(ctx SpecContext, creds auth.Credentials) *fiber.App {
 	GinkgoHelper()
-	node := mock.NewNode(ctx)
-	signer := svcmock.NewSigner()
-	lic := svcmock.NewLicense()
+	node := testutil.NewNode(ctx)
+	signer := svctestutil.NewSigner()
+	lic := svctestutil.NewLicense()
 	key := append([]byte("license/"), lic.Jti.String()...)
 	Expect(node.Layer.DB.KV().Set(ctx, key, []byte(signer.Sign(lic)))).To(Succeed())
 	sec := MustSucceed(security.NewProvider(security.ProviderConfig{
@@ -139,12 +139,12 @@ var _ = Describe("HTTP", func() {
 	Describe("License gate", func() {
 		var (
 			app    *fiber.App
-			signer svcmock.Signer
+			signer svctestutil.Signer
 		)
 		creds := auth.Credentials{Username: "root", Password: "root"}
 		BeforeEach(func(ctx SpecContext) {
-			node := mock.NewNode(ctx)
-			signer = svcmock.NewSigner()
+			node := testutil.NewNode(ctx)
+			signer = svctestutil.NewSigner()
 			sec := MustSucceed(security.NewProvider(security.ProviderConfig{
 				Insecure: new(true),
 			}))
@@ -245,7 +245,7 @@ var _ = Describe("HTTP", func() {
 				"/api/v1/license/activate",
 				func() any {
 					return apilicense.ActivateRequest{
-						Key: signer.Sign(svcmock.NewLicense()),
+						Key: signer.Sign(svctestutil.NewLicense()),
 					}
 				},
 			),
@@ -456,7 +456,7 @@ var _ = Describe("HTTP", func() {
 			Expect(again.StatusCode).To(Equal(http.StatusBadRequest))
 		})
 	})
-	Describe("API keys", func() {
+	Describe("Credentials", func() {
 		var app *fiber.App
 		creds := auth.Credentials{Username: "root", Password: "root"}
 		BeforeEach(func(ctx SpecContext) { app = openLicensed(ctx, creds) })
@@ -518,6 +518,33 @@ var _ = Describe("HTTP", func() {
 			)).To(Equal(http.StatusOK))
 			Expect(call("/api/v1/auth/session/renew", keyToken, struct{}{}, nil)).
 				To(Equal(http.StatusBadRequest))
+		})
+		It("Should set the caller's own password", func() {
+			token := login(auth.Proof{Variant: auth.PasswordProof{Credentials: creds}})
+			Expect(call(
+				"/api/v1/auth/password/set",
+				token,
+				apiauth.PasswordSetRequest{Password: "new", CurrentPassword: "wrong"},
+				nil,
+			)).To(Equal(http.StatusBadRequest))
+			var set apiauth.PasswordSetResponse
+			Expect(call(
+				"/api/v1/auth/password/set",
+				token,
+				apiauth.PasswordSetRequest{
+					Password:        "new",
+					CurrentPassword: creds.Password,
+				},
+				&set,
+			)).To(Equal(http.StatusOK))
+			Expect(call("/api/v1/auth/session/renew", token, struct{}{}, nil)).
+				To(Equal(http.StatusBadRequest))
+			Expect(call("/api/v1/auth/session/renew", set.Token, struct{}{}, nil)).
+				To(Equal(http.StatusOK))
+			login(auth.Proof{Variant: auth.PasswordProof{Credentials: auth.Credentials{
+				Username: creds.Username,
+				Password: "new",
+			}}})
 		})
 		It("Should delete a rack's keys and end their sessions with the rack", func() {
 			rootToken := login(

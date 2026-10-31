@@ -16,8 +16,8 @@ import { type Device } from "@/platform/device";
 export const NETWORK: Device.Network = {
   key: INTEGRATION,
   name: "Modbus",
-  title: "Modbus TCP server",
-  description: "Read and write registers and coils on a Modbus TCP server.",
+  title: "Modbus server",
+  description: "Read and write registers and coils over Modbus TCP or Modbus RTU.",
   icon: <Icon.Logo.Modbus />,
   Connect,
 };

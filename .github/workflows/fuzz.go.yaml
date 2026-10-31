@@ -18,6 +18,10 @@ on:
 permissions:
   contents: read
 
+# The proxy drops streams at times, so a failed fetch falls back to the source.
+env:
+  GOPROXY: https://proxy.golang.org|direct
+
 jobs:
   fuzz:
     name: Fuzz (${{ matrix.module }} ${{ matrix.shard }}/${{ matrix.shards }})
@@ -71,6 +75,9 @@ jobs:
           cache-dependency-path: |
             ${{ matrix.module }}/go.mod
             ${{ matrix.module }}/go.sum
+
+      - name: Download the Go modules
+        run: .github/scripts/go_mod_download.sh ${{ matrix.module }}
 
       - name: Fuzz
         working-directory: ${{ matrix.module }}

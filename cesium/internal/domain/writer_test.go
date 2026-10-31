@@ -21,6 +21,7 @@ import (
 	. "github.com/synnaxlabs/alamos/testutil"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/domain"
+	"github.com/synnaxlabs/cesium/internal/testutil"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
@@ -185,7 +186,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 				It(
 					"Should check stored data at the start instead of at open",
 					func(ctx SpecContext) {
-						Expect(domain.Write(
+						Expect(testutil.WriteDomain(
 							ctx,
 							db,
 							(10 * telem.SecondTS).Range(20*telem.SecondTS),
@@ -889,7 +890,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 				It("Should not write on a closed database", func(ctx SpecContext) {
 					Expect(db.Close()).To(Succeed())
 					Expect(
-						domain.Write(
+						testutil.WriteDomain(
 							ctx,
 							db,
 							telem.TimeStamp(0).Range(telem.TimeStamp(1)),

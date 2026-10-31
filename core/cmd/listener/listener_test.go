@@ -20,7 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/security/cert/auto"
 	"github.com/synnaxlabs/synnax/pkg/security/cert/file"
 	"github.com/synnaxlabs/synnax/pkg/security/cert/tailscale"
-	"github.com/synnaxlabs/synnax/pkg/security/mock"
+	"github.com/synnaxlabs/synnax/pkg/security/testutil"
 	"github.com/synnaxlabs/x/address"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/testutil"
@@ -329,20 +329,20 @@ var _ = Describe("Listener", func() {
 		)
 		BeforeEach(func() {
 			coreFS := xfs.NewMem()
-			mock.GenerateCerts(coreFS)
+			testutil.GenerateCerts(coreFS)
 			prov = MustSucceed(security.NewProvider(security.ProviderConfig{
 				FS:       coreFS,
 				Insecure: new(false),
 			}))
 			coreFC = cert.FactoryConfig{
 				FS:      coreFS,
-				KeySize: mock.SmallKeySize,
+				KeySize: testutil.SmallKeySize,
 			}
 			foreignFS := xfs.NewMem()
-			mock.GenerateCerts(foreignFS)
+			testutil.GenerateCerts(foreignFS)
 			foreignFC = cert.FactoryConfig{
 				FS:      foreignFS,
-				KeySize: mock.SmallKeySize,
+				KeySize: testutil.SmallKeySize,
 			}
 		})
 
