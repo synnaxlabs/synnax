@@ -13,6 +13,11 @@
     color: var(--pluto-gray-l6);
 }
 
+/* Lets a long name fade instead of pushing the enabled switch out of the item. */
+.console-list-channel-item__channel {
+    min-width: 0;
+}
+
 /* The enabled dot stays at full strength, as the way to enable the channel again. */
 .console-list-channel-item--disabled
     .console-list-channel-item__cells

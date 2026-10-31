@@ -67,7 +67,13 @@ export const ListChannelItem = ({
       <List.Cells className={CSS.BE("list-channel-item", "cells")}>
         {children}
         <Icon.Arrow.Right className={CSS.BE("list-channel-item", "flow")} />
-        <Flex.Box x align="center" justify="between" gap="large">
+        <Flex.Box
+          x
+          align="center"
+          justify="between"
+          gap="large"
+          className={CSS.BE("list-channel-item", "channel")}
+        >
           <ChannelName
             channel={channel}
             namePath={`${path}.name`}
