@@ -1087,6 +1087,62 @@ class OnChangeReadTaskSource final : public BaseReadTaskSource {
         return this->start_backfill(all);
     }
 
+    /// @brief reads the structure types again when a field channel failed, then reads
+    /// the value of each node whose field channels now decode, since a node that does
+    /// not change sends no value to decode again.
+    /// @returns only an error that loses the connection.
+    x::errors::Error retry_fields() {
+        std::vector<bool> failing(this->fields.size());
+        for (std::size_t i = 0; i < this->fields.size(); ++i)
+            failing[i] = static_cast<bool>(this->fields[i].second);
+        if (auto err = this->retry_types()) return err;
+        std::map<std::size_t, std::vector<std::size_t>> fixed;
+        for (std::size_t i = 0; i < failing.size(); ++i)
+            if (const auto &item = this->items[i];
+                failing[i] && !this->fields[i].second && item.has_value() &&
+                !this->failed[item.value()])
+                fixed[item.value()].push_back(i);
+        if (fixed.empty()) return x::errors::NIL;
+        types::ReadRequestBuilder builder;
+        for (const auto &[item, _]: fixed)
+            builder.add_node(this->nodes[item]);
+        auto req = builder.build();
+        req.timestampsToReturn = UA_TIMESTAMPSTORETURN_BOTH;
+        auto [res, err] = this->connection.read(req);
+        if (err.matches(errors::UNREACHABLE)) return err;
+        if (err) {
+            this->problems.add_bad(
+                "Failed to read the nodes of the fields that now decode: " + err.data +
+                "."
+            );
+            return x::errors::NIL;
+        }
+        std::size_t k = 0;
+        for (const auto &[item, channels]: fixed) {
+            const auto &value = res.get().results[k++];
+            const auto time = change_time(value);
+            std::optional<std::pair<types::Variant, x::errors::Error>> decoded;
+            for (const auto i: channels)
+                if (auto s = this->sample(i, value, decoded, &this->problems);
+                    s.has_value())
+                    this->live[i].push_back({time, std::move(*s), true});
+        }
+        return x::errors::NIL;
+    }
+
+    /// @returns the problems of the field channels of monitored nodes whose structure
+    /// types failed to read, which each read reports again.
+    [[nodiscard]] Problems undecodable() const {
+        Problems found;
+        for (std::size_t i = 0; i < this->cfg.channels.size(); ++i) {
+            const auto &item = this->items[i];
+            const auto &err = this->fields[i].second;
+            if (err && item.has_value() && !this->failed[item.value()])
+                found.add_bad(this->cfg.channels[i]->ch.name + ": " + err.data + ".");
+        }
+        return found;
+    }
+
     /// @brief lists the channels whose nodes the subscription does not monitor.
     void list_unmonitored() {
         this->unmonitored = Problems();
@@ -1379,7 +1435,7 @@ public:
         res.error = this->read_history();
         if (!res.error) res.error = this->connection.iterate(CHANGE_WAIT);
         // The first value of a node that retry monitors decodes with the types.
-        if (!res.error) res.error = this->retry_types();
+        if (!res.error) res.error = this->retry_fields();
         if (!res.error) res.error = this->retry();
         if (res.error) {
             this->connection = connection::Pool::Connection(nullptr, nullptr, "");
@@ -1387,6 +1443,7 @@ public:
         }
         this->take(fr);
         auto reported = this->unmonitored;
+        reported.merge(this->undecodable());
         reported.merge(this->history_problems);
         reported.merge(this->problems);
         this->problems = Problems();

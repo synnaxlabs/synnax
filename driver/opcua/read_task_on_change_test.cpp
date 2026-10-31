@@ -432,6 +432,32 @@ TEST_F(TestOnChangeReadTask, testReadsFieldOfAddedNode) {
     ASSERT_NIL(src->stop());
 }
 
+/// @brief it should warn about a structure field on each read while its type fails to
+/// read, then read the field once the server defines the type, though the node does not
+/// change.
+TEST_F(TestOnChangeReadTask, testReadsFieldOnceTypeRecovers) {
+    this->server_cfg.motor = testutil::Motor{
+        .speed = 1500.0,
+        .running = true,
+        .position = {.x = 1.5F, .y = 2.5F},
+    };
+    this->server_cfg.motor_type_missing = true;
+    this->start_server();
+    auto cfg = this->config({{"NS=1;S=TestMotor", this->value.key}});
+    cfg["channels"][0]["field"] = "Speed";
+    const auto src = this->source(cfg);
+    ASSERT_NIL(src->start());
+    const auto missing = read_values(*src, this->value, 1, x::telem::SECOND);
+    ASSERT_TRUE(missing.values.empty());
+    x::breaker::Breaker breaker;
+    x::telem::Frame fr;
+    EXPECT_EQ(src->read(breaker, fr).warning.message, "Received bad values");
+    this->server->add_motor_type();
+    const auto found = read_values(*src, this->value, 1, 25 * x::telem::SECOND);
+    EXPECT_EQ(found.values, std::vector<double>({1500}));
+    ASSERT_NIL(src->stop());
+}
+
 /// @brief it should warn about a node in a namespace that the server lacks, then
 /// subscribe to the node once the server adds the namespace.
 TEST_F(TestOnChangeReadTask, testSubscribesToNamespaceAddedLater) {

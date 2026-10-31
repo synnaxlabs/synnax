@@ -397,6 +397,9 @@ struct ServerConfig {
     /// @brief the value of the NS=1;S=TestMotor node, of the Motor data type. The
     /// server adds the node only when it is set.
     std::optional<Motor> motor;
+    /// @brief whether the server lacks the Motor DataType node at start, so a client
+    /// fails to read the structure type of NS=1;S=TestMotor until add_motor_type.
+    bool motor_type_missing = false;
     /// @brief the starting values of the PUMP object. It holds the variables
     /// NS=1;S=Pump.Speed and NS=1;S=Pump.Mode, and the methods PUMP_SET_SPEED(speed),
     /// PUMP_CONFIGURE(mode, speed), and PUMP_FAIL(). The server adds the object only
@@ -649,6 +652,16 @@ public:
         this->added.emplace_back(uri, std::move(nodes));
         this->added_cv.wait(lock, [this] {
             return this->added.empty() || !this->ready;
+        });
+    }
+
+    /// @brief adds the Motor DataType node that ServerConfig::motor_type_missing leaves
+    /// out to the running server. Blocks until the server adds it.
+    void add_motor_type() {
+        std::unique_lock lock(this->added_mu);
+        this->motor_type_requested = true;
+        this->added_cv.wait(lock, [this] {
+            return !this->motor_type_requested || !this->ready;
         });
     }
 
@@ -1049,6 +1062,7 @@ private:
     std::condition_variable added_cv;
     std::vector<std::pair<std::string, std::vector<TestNode>>> added;
     std::optional<Motor> added_motor;
+    bool motor_type_requested = false;
     std::optional<Pump> added_pump;
     std::optional<std::string> added_pump_object;
     std::optional<UA_Byte> added_event_notifier;
@@ -1208,9 +1222,9 @@ private:
         UA_Server_addReference(server, inner, UA_NS0ID(ORGANIZES), target, true);
     }
 
-    /// @brief applies what add_namespace, add_motor, add_pump, add_pump_object, and
-    /// set_pump_event_notifier asked for. Records the history of each node of
-    /// add_namespace when history is set.
+    /// @brief applies what add_namespace, add_motor, add_motor_type, add_pump,
+    /// add_pump_object, and set_pump_event_notifier asked for. Records the history of
+    /// each node of add_namespace when history is set.
     void add_requested(
         UA_Server *server,
         const UA_DataType &motor_type,
@@ -1229,6 +1243,10 @@ private:
             add_motor_node(server, motor_type, *this->added_motor);
             this->added_motor.reset();
         }
+        if (this->motor_type_requested) {
+            add_data_type_node(server, motor_type.typeId, "Motor");
+            this->motor_type_requested = false;
+        }
         if (this->added_pump.has_value()) {
             add_pump_node(server, *this->added_pump);
             this->added_pump.reset();
@@ -1242,6 +1260,26 @@ private:
             this->added_event_notifier.reset();
         }
         this->added_cv.notify_all();
+    }
+
+    /// @brief adds the DataType node id named name, a subtype of Structure.
+    static void
+    add_data_type_node(UA_Server *server, const UA_NodeId &id, const char *name) {
+        UA_DataTypeAttributes attr = UA_DataTypeAttributes_default;
+        attr.displayName = UA_LOCALIZEDTEXT(
+            const_cast<char *>("en-US"),
+            const_cast<char *>(name)
+        );
+        UA_Server_addDataTypeNode(
+            server,
+            id,
+            UA_NS0ID(STRUCTURE),
+            UA_NS0ID(HASSUBTYPE),
+            UA_QUALIFIEDNAME(1, const_cast<char *>(name)),
+            attr,
+            nullptr,
+            nullptr
+        );
     }
 
     static void
@@ -1347,25 +1385,13 @@ public:
             {structures.broken().typeId, "Broken"},
             {UA_NODEID_NUMERIC(1, OPAQUE_TYPE_ID), "Opaque"},
         }};
-        for (const auto &[id, name]: data_types) {
-            UA_DataTypeAttributes attr = UA_DataTypeAttributes_default;
-            attr.displayName = UA_LOCALIZEDTEXT(
-                const_cast<char *>("en-US"),
-                const_cast<char *>(name)
-            );
-            UA_Server_addDataTypeNode(
-                server,
-                id,
-                UA_NS0ID(STRUCTURE),
-                UA_NS0ID(HASSUBTYPE),
-                UA_QUALIFIEDNAME(1, const_cast<char *>(name)),
-                attr,
-                nullptr,
-                nullptr
-            );
-        }
+        for (const auto &[id, name]: data_types)
+            add_data_type_node(server, id, name);
         if (cfg.motor.has_value())
             add_motor_node(server, structures.motor(), *cfg.motor);
+        // TestMotor needs its DataType node when the server adds it.
+        if (cfg.motor_type_missing)
+            UA_Server_deleteNode(server, structures.motor().typeId, true);
         if (!cfg.users.empty()) {
             std::vector<UA_UsernamePasswordLogin> logins;
             logins.reserve(cfg.users.size());
@@ -1432,6 +1458,7 @@ public:
             std::lock_guard lock(this->added_mu);
             this->added.clear();
             this->added_motor.reset();
+            this->motor_type_requested = false;
             this->added_pump.reset();
             this->added_pump_object.reset();
             this->added_event_notifier.reset();
