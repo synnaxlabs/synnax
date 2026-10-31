@@ -10,10 +10,15 @@
 package graph_test
 
 import (
+	"fmt"
+	"slices"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -214,6 +219,42 @@ var _ = Describe("Graph", func() {
 			grouped := g.CalculateGrouped()
 			Expect(grouped).To(HaveLen(1))
 		})
+
+		It(
+			"Should order the independent members of a group by key",
+			func(ctx SpecContext) {
+				base := channel.Channel{
+					Name:     "base_order",
+					DataType: telem.Int64T,
+					Virtual:  true,
+				}
+				Expect(channelWriter.Create(ctx, &base)).To(Succeed())
+				calcs := make([]channel.Channel, 8)
+				for i := range calcs {
+					calcs[i] = channel.Channel{
+						Name:       fmt.Sprintf("calc_order_%d", i),
+						DataType:   telem.Int64T,
+						Virtual:    true,
+						Expression: "return base_order + 1",
+					}
+				}
+				Expect(channelWriter.CreateMany(ctx, &calcs)).To(Succeed())
+				for _, calc := range calcs {
+					Expect(g.Add(ctx, calc)).To(Succeed())
+				}
+				keys := channel.KeysFromChannels(calcs)
+				slices.Sort(keys)
+				for range 10 {
+					grouped := g.CalculateGrouped()
+					Expect(grouped).To(HaveLen(1))
+					for _, mods := range grouped {
+						Expect(lo.Map(mods, func(m compiler.Module, _ int) channel.Key {
+							return m.Channel.Key()
+						})).To(Equal([]channel.Key(keys)))
+					}
+				}
+			},
+		)
 	})
 
 	Describe("CalculateFlat", func() {
