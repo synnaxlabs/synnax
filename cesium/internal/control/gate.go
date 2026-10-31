@@ -90,6 +90,19 @@ func (g *Gate[R]) Extend(start telem.TimeStamp) error {
 	return g.region.controller.extend(g.region, start)
 }
 
+// Reach moves the end of the gate's region forward to end. It does nothing when the
+// region already holds end, and fails when the region would reach another region.
+func (g *Gate[R]) Reach(end telem.TimeStamp) error {
+	return g.region.controller.reach(g.region, end)
+}
+
+// Bounded returns true while every gate in the gate's region is bounded.
+func (g *Gate[R]) Bounded() bool {
+	g.region.RLock()
+	defer g.region.RUnlock()
+	return g.region.bounded
+}
+
 // Release releases the gate's access to the resource. If the gate is the last gate in a
 // region, i.e., transfer.IsRelease() == true, the resource will be returned. Otherwise,
 // the zero value of the resource will be returned.

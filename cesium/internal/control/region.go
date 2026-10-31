@@ -38,6 +38,9 @@ type region[R Resource] struct {
 	// independent regions can access a resource at the same time.
 	// [not safe for unprotected concurrent access]
 	timeRange telem.TimeRange
+	// bounded is true while every gate in the region is bounded.
+	// [not safe for unprotected concurrent access]
+	bounded bool
 	// counter tracks the total number of gates opened in the region. This counter
 	// does not get decremented.
 	// [not safe for unprotected concurrent access]
@@ -102,7 +105,19 @@ func (r *region[R]) open(cfg GateConfig[R]) (g *Gate[R], t Transfer, err error) 
 	}
 	r.gates.Add(g)
 	r.counter++
+	r.bounded = r.bounded && *cfg.Bounded
 	return g, t, nil
+}
+
+// state returns the control State of the gate in control, or nil when the region is
+// empty or bounded.
+func (r *region[R]) state() *State {
+	r.RLock()
+	defer r.RUnlock()
+	if r.bounded || len(r.gates) == 0 {
+		return nil
+	}
+	return r.curr.state()
 }
 
 func (r *region[R]) shouldBeInControl(candidate *Gate[R]) bool {

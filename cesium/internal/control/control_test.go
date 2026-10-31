@@ -291,29 +291,30 @@ var _ = Describe("Control", func() {
 			})
 		})
 
+		openAt := func(key string, tr telem.TimeRange) *control.Gate[testResource] {
+			GinkgoHelper()
+			cfg, _ := baseConfig(1)
+			cfg.Subject.Key = key
+			cfg.TimeRange = tr
+			g, _ := MustSucceed2(c.OpenGate(cfg))
+			return g
+		}
+		expectControlled := func(tr telem.TimeRange, controlled bool) {
+			GinkgoHelper()
+			cfg, _ := baseConfig(2)
+			cfg.Subject.Key = "probe"
+			cfg.TimeRange = tr
+			cfg.ErrIfControlled = new(true)
+			if controlled {
+				Expect(c.OpenGate(cfg)).Error().
+					To(MatchError(xcontrol.ErrUnauthorized))
+				return
+			}
+			g, _ := MustSucceed2(c.OpenGate(cfg))
+			g.Release()
+		}
+
 		Describe("Extend", func() {
-			openAt := func(key string, tr telem.TimeRange) *control.Gate[testResource] {
-				GinkgoHelper()
-				cfg, _ := baseConfig(1)
-				cfg.Subject.Key = key
-				cfg.TimeRange = tr
-				g, _ := MustSucceed2(c.OpenGate(cfg))
-				return g
-			}
-			expectControlled := func(tr telem.TimeRange, controlled bool) {
-				GinkgoHelper()
-				cfg, _ := baseConfig(2)
-				cfg.Subject.Key = "probe"
-				cfg.TimeRange = tr
-				cfg.ErrIfControlled = new(true)
-				if controlled {
-					Expect(c.OpenGate(cfg)).Error().
-						To(MatchError(xcontrol.ErrUnauthorized))
-					return
-				}
-				g, _ := MustSucceed2(c.OpenGate(cfg))
-				g.Release()
-			}
 			It("Should move the start of the region back", func() {
 				g := openAt("test", telem.NewRangeSeconds(10, 20))
 				expectControlled(telem.NewRangeSeconds(5, 6), false)
@@ -342,6 +343,101 @@ var _ = Describe("Control", func() {
 				g := openAt("test", telem.NewRangeSeconds(10, 20))
 				Expect(g.Extend(3 * telem.SecondTS)).To(Succeed())
 				expectControlled(telem.NewRangeSeconds(3, 4), true)
+			})
+		})
+
+		Describe("Reach", func() {
+			It("Should move the end of the region forward", func() {
+				g := openAt("test", telem.NewRangeSeconds(10, 20))
+				expectControlled(telem.NewRangeSeconds(25, 26), false)
+				Expect(g.Reach(30 * telem.SecondTS)).To(Succeed())
+				expectControlled(telem.NewRangeSeconds(25, 26), true)
+				expectControlled(telem.NewRangeSeconds(30, 40), false)
+			})
+			It("Should do nothing when the region already holds the end", func() {
+				g := openAt("test", telem.NewRangeSeconds(10, 20))
+				Expect(g.Reach(15 * telem.SecondTS)).To(Succeed())
+				Expect(g.Reach(20 * telem.SecondTS)).To(Succeed())
+				expectControlled(telem.NewRangeSeconds(15, 16), true)
+				expectControlled(telem.NewRangeSeconds(20, 30), false)
+			})
+			It("Should not move the region into another region", func() {
+				openAt("other", telem.NewRangeSeconds(30, 40))
+				g := openAt("test", telem.NewRangeSeconds(10, 20))
+				Expect(g.Reach(35 * telem.SecondTS)).To(And(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("cannot extend control region")),
+				))
+				expectControlled(telem.NewRangeSeconds(25, 26), false)
+			})
+			It("Should move the region up to the start of another region", func() {
+				openAt("other", telem.NewRangeSeconds(30, 40))
+				g := openAt("test", telem.NewRangeSeconds(10, 20))
+				Expect(g.Reach(30 * telem.SecondTS)).To(Succeed())
+				expectControlled(telem.NewRangeSeconds(29, 30), true)
+			})
+		})
+
+		Describe("Bounded", func() {
+			openBounded := func(key string, tr telem.TimeRange) *control.Gate[testResource] {
+				GinkgoHelper()
+				cfg, _ := baseConfig(1)
+				cfg.Subject.Key = key
+				cfg.TimeRange = tr
+				cfg.Bounded = new(true)
+				g, _ := MustSucceed2(c.OpenGate(cfg))
+				return g
+			}
+			It("Should report a gate in a bounded region", func() {
+				Expect(openBounded("backfill", telem.NewRangeSeconds(1, 2)).Bounded()).
+					To(BeTrue())
+			})
+			It("Should not report a gate in any other region", func() {
+				Expect(
+					openAt("live", telem.NewRangeSeconds(1, 2)).Bounded(),
+				).To(BeFalse())
+			})
+			It("Should skip a bounded region in the leading state", func() {
+				openBounded("backfill", telem.NewRangeSeconds(1, 2))
+				openAt("live", telem.NewRangeSeconds(10, 20))
+				Expect(c.LeadingState().Subject.Key).To(Equal("live"))
+			})
+			It("Should have no leading state when every region is bounded", func() {
+				openBounded("backfill", telem.NewRangeSeconds(1, 2))
+				Expect(c.LeadingState()).To(BeNil())
+			})
+			It("Should stop being bounded when an unbounded gate joins", func() {
+				g := openBounded("backfill", telem.NewRangeSeconds(1, 2))
+				openAt("live", telem.NewRangeSeconds(1, 20))
+				Expect(g.Bounded()).To(BeFalse())
+				Expect(c.LeadingState().Subject.Key).To(Equal("backfill"))
+			})
+			It("Should stay bounded when an unbounded gate fails to join", func() {
+				g := openBounded("backfill", telem.NewRangeSeconds(1, 2))
+				cfg, _ := baseConfig(1)
+				cfg.Subject.Key = "live"
+				cfg.TimeRange = telem.NewRangeSeconds(1, 20)
+				cfg.Authority = xcontrol.AuthorityAbsolute - 1
+				cfg.ErrOnUnauthorizedOpen = new(true)
+				Expect(c.OpenGate(cfg)).Error().To(MatchError(xcontrol.ErrUnauthorized))
+				Expect(g.Bounded()).To(BeTrue())
+			})
+			It("Should not race with a reach and a concurrent leading state", func() {
+				g := openBounded("backfill", telem.NewRangeSeconds(1, 2))
+				var wg sync.WaitGroup
+				wg.Go(func() {
+					defer GinkgoRecover()
+					for i := range telem.TimeStamp(500) {
+						Expect(g.Reach(2*telem.SecondTS + i)).To(Succeed())
+					}
+				})
+				wg.Go(func() {
+					for range 500 {
+						c.LeadingState()
+						g.Bounded()
+					}
+				})
+				wg.Wait()
 			})
 		})
 

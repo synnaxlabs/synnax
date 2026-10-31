@@ -103,6 +103,11 @@ type GateConfig[R Resource] struct {
 	//
 	// [OPTIONAL] Defaults to false.
 	ErrOnUnauthorizedOpen *bool
+	// Bounded marks a gate that holds only TimeRange, and grows through Gate.Reach. A
+	// region of bounded gates does not count toward LeadingState.
+	//
+	// [OPTIONAL] Defaults to false.
+	Bounded *bool
 	// Subject sets the identity of the gate, and is used to track changes in control
 	// within the db.
 	//
@@ -126,6 +131,7 @@ func defaultGateConfig[R Resource]() GateConfig[R] {
 	return GateConfig[R]{
 		ErrIfControlled:       new(false),
 		ErrOnUnauthorizedOpen: new(false),
+		Bounded:               new(false),
 	}
 }
 
@@ -137,6 +143,7 @@ func (c GateConfig[R]) Validate() error {
 	v.NotNil("open_resource", c.OpenResource)
 	v.NotNil("err_if_controlled", c.ErrIfControlled)
 	v.NotNil("err_on_unauthorized_open", c.ErrOnUnauthorizedOpen)
+	v.NotNil("bounded", c.Bounded)
 	return v.Error()
 }
 
@@ -153,26 +160,21 @@ func (c GateConfig[R]) Override(other GateConfig[R]) GateConfig[R] {
 		c.ErrOnUnauthorizedOpen,
 		other.ErrOnUnauthorizedOpen,
 	)
+	c.Bounded = override.Nil(c.Bounded, other.Bounded)
 	return c
 }
 
 // LeadingState returns the current control State of the leading region in the
-// controller. Returns nil if no regions are under control.
-func (c *Controller[R]) LeadingState() (state *State) {
+// controller, skipping bounded regions. Returns nil if no regions are under control.
+func (c *Controller[R]) LeadingState() *State {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	if len(c.regions) == 0 {
-		return nil
+	for _, reg := range c.regions {
+		if s := reg.state(); s != nil {
+			return s
+		}
 	}
-	// gates and curr are guarded by the region's lock, not the controller's:
-	// release and update mutate them under it without holding c.mu.
-	first := c.regions[0]
-	first.RLock()
-	defer first.RUnlock()
-	if len(first.gates) != 0 {
-		state = first.curr.state()
-	}
-	return state
+	return nil
 }
 
 // ResourceAt returns the resource held by the region overlapping tr, reporting false
@@ -232,7 +234,7 @@ func (c *Controller[R]) OpenGate(
 	if res, err = cfg.OpenResource(); err != nil {
 		return g, t, err
 	}
-	reg := c.unsafeInsertNewRegion(cfg.TimeRange, res)
+	reg := c.unsafeInsertNewRegion(cfg.TimeRange, res, *cfg.Bounded)
 	return reg.open(cfg)
 }
 
@@ -242,7 +244,19 @@ func (c *Controller[R]) extend(r *region[R], start telem.TimeStamp) error {
 	if !start.Before(r.timeRange.Start) {
 		return nil
 	}
-	grown := start.Range(r.timeRange.End)
+	return c.unsafeResize(r, start.Range(r.timeRange.End))
+}
+
+func (c *Controller[R]) reach(r *region[R], end telem.TimeStamp) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if !end.After(r.timeRange.End) {
+		return nil
+	}
+	return c.unsafeResize(r, r.timeRange.Start.Range(end))
+}
+
+func (c *Controller[R]) unsafeResize(r *region[R], grown telem.TimeRange) error {
 	for _, reg := range c.regions {
 		if reg != r && reg.timeRange.OverlapsWith(grown) {
 			return errors.Wrapf(
@@ -262,12 +276,14 @@ func (c *Controller[R]) extend(r *region[R], start telem.TimeStamp) error {
 func (c *Controller[R]) unsafeInsertNewRegion(
 	t telem.TimeRange,
 	resource R,
+	bounded bool,
 ) *region[R] {
 	r := &region[R]{
 		resource:   resource,
 		gates:      make(set.Set[*Gate[R]]),
 		timeRange:  t,
 		controller: c,
+		bounded:    bounded,
 	}
 	pos, _ := slices.BinarySearchFunc(c.regions, r, func(a, b *region[R]) int {
 		return int(a.timeRange.Start - b.timeRange.Start)

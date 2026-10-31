@@ -33,6 +33,12 @@ type WriterConfig struct {
 	// data is written.
 	// [OPTIONAL] - Defaults to true
 	Persist *bool
+	// Bounded limits the writer's control region to the time it has committed, so that
+	// it can write behind another writer. The writer fails to open when another writer
+	// holds its start, and a commit fails when it reaches another region. A bounded
+	// region reports no control transfers.
+	// [OPTIONAL] - Defaults to false
+	Bounded *bool
 	// EnableAutoCommit denotes whether each write is committed.
 	//
 	// [OPTIONAL] - Defaults to True
@@ -70,6 +76,7 @@ var (
 	_                   config.Config[WriterConfig] = WriterConfig{}
 	defaultWriterConfig                             = WriterConfig{
 		Persist:                  new(true),
+		Bounded:                  new(false),
 		EnableAutoCommit:         new(true),
 		AutoIndexPersistInterval: 1 * telem.Second,
 		ErrOnUnauthorizedOpen:    new(false),
@@ -83,6 +90,7 @@ func (c WriterConfig) Validate() error {
 	v.NotEmptyString("subject.key", c.Subject.Key)
 	v.NotNil("err_on_unauthorized_open", c.ErrOnUnauthorizedOpen)
 	v.NotNil("persist", c.Persist)
+	v.NotNil("bounded", c.Bounded)
 	v.NotNil("enable_auto_commit", c.EnableAutoCommit)
 	v.Ternary(
 		"end",
@@ -99,6 +107,7 @@ func (c WriterConfig) Override(other WriterConfig) WriterConfig {
 	c.Subject = override.If(c.Subject, other.Subject, other.Subject.Key != "")
 	c.Authority = override.Numeric(c.Authority, other.Authority)
 	c.Persist = override.Nil(c.Persist, other.Persist)
+	c.Bounded = override.Nil(c.Bounded, other.Bounded)
 	c.EnableAutoCommit = override.Nil(c.EnableAutoCommit, other.EnableAutoCommit)
 	c.AutoIndexPersistInterval = override.Zero(
 		c.AutoIndexPersistInterval,
@@ -121,6 +130,9 @@ func (c WriterConfig) domain() domain.WriterConfig {
 }
 
 func (c WriterConfig) controlTimeRange(start telem.TimeStamp) telem.TimeRange {
+	if *c.Bounded {
+		return start.SpanRange(telem.Nanosecond)
+	}
 	return start.Range(lo.Ternary(c.End.IsZero(), telem.TimeStampMax, c.End))
 }
 
@@ -223,7 +235,8 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (
 	}
 	if w.control, transfer, err = db.controller.OpenGate(
 		control.GateConfig[*controlledWriter]{
-			ErrIfControlled:       new(false),
+			ErrIfControlled:       cfg.Bounded,
+			Bounded:               cfg.Bounded,
 			ErrOnUnauthorizedOpen: cfg.ErrOnUnauthorizedOpen,
 			TimeRange:             cfg.controlTimeRange(start),
 			Authority:             cfg.Authority,
@@ -249,7 +262,7 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (
 	); err != nil {
 		return nil, transfer, w.wrapError(err)
 	}
-	return w, transfer, w.wrapError(err)
+	return w, w.visible(transfer), w.wrapError(err)
 }
 
 // Write writes series to db in a domain that starts at start.
@@ -354,7 +367,16 @@ func (w *Writer) write(
 func (w *Writer) SetDomainStart(start telem.TimeStamp) { w.domainStart = start }
 
 func (w *Writer) SetAuthority(a xcontrol.Authority) control.Transfer {
-	return w.control.SetAuthority(a)
+	return w.visible(w.control.SetAuthority(a))
+}
+
+// visible hides a transfer in a bounded region, which says nothing about who controls
+// the channel.
+func (w *Writer) visible(t control.Transfer) control.Transfer {
+	if w.control.Bounded() {
+		return control.Transfer{}
+	}
+	return t
 }
 
 func (w *Writer) updateHwm(series telem.Series) {
@@ -421,6 +443,11 @@ func (w *Writer) commitWithEnd(
 		end = approx.Lower + 1
 	}
 
+	if *w.cfg.Bounded {
+		if err = w.control.Reach(end); err != nil {
+			return 0, err
+		}
+	}
 	if err := dw.Commit(ctx, end); err != nil {
 		return 0, err
 	}
@@ -435,7 +462,7 @@ func (w *Writer) Close() (control.Transfer, error) {
 	w.closed = true
 	dw, t := w.control.Release()
 	if t.IsRelease() {
-		return t, w.wrapError(dw.Close())
+		return w.visible(t), w.wrapError(dw.Close())
 	}
-	return t, nil
+	return w.visible(t), nil
 }

@@ -415,6 +415,52 @@ class TestWriter:
                     async with asyncio.timeout(0.2):
                         await s.read()
 
+    def test_write_persist_behind_live_writer(
+        self,
+        indexed_pair: tuple[sy.Channel, sy.Channel],
+        client: sy.Synnax,
+    ) -> None:
+        """Should fill a gap before the session of a live writer"""
+        idx_ch, data_ch = indexed_pair
+        channels = [idx_ch.key, data_ch.key]
+        start = 10 * sy.TimeSpan.SECOND
+        with client.open_writer(start=start, channels=channels) as live:
+            live.write(
+                {idx_ch.key: seconds_linspace(10, count=2), data_ch.key: [10.0, 11.0]}
+            )
+            live.commit()
+            client.write(
+                1 * sy.TimeSpan.SECOND,
+                {idx_ch.key: seconds_linspace(1, count=2), data_ch.key: [1.0, 2.0]},
+            )
+            live.write({idx_ch.key: seconds_linspace(12, count=1), data_ch.key: [12.0]})
+            live.commit()
+        assert list(client.read(sy.TimeRange.MAX, data_ch.key)) == [
+            1.0,
+            2.0,
+            10.0,
+            11.0,
+            12.0,
+        ]
+
+    def test_write_persist_inside_live_writer(
+        self,
+        indexed_pair: tuple[sy.Channel, sy.Channel],
+        client: sy.Synnax,
+    ) -> None:
+        """Should fail to open a persist writer in the session of a live writer"""
+        idx_ch, data_ch = indexed_pair
+        channels = [idx_ch.key, data_ch.key]
+        with client.open_writer(start=10 * sy.TimeSpan.SECOND, channels=channels):
+            with pytest.raises(
+                sy.UnauthorizedError, match="overlaps with a controlled region"
+            ):
+                client.open_writer(
+                    start=15 * sy.TimeSpan.SECOND,
+                    channels=channels,
+                    mode=sy.WriterMode.PERSIST,
+                )
+
     def test_write_persist_stream_regression(self, client: sy.Synnax) -> None:
         """Should work"""
         idx = client.channels.create(

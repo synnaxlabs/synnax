@@ -38,6 +38,10 @@ func (mode WriterMode) Stream() bool { return mode != WriterModePersistOnly }
 
 const (
 	WriterModePersistStream WriterMode = iota + 1
+	// WriterModePersistOnly stores samples without streaming them. The writer commands
+	// nothing, so it holds only the time it has committed and can write behind a live
+	// writer. It fails to open when another writer holds its Start, and a commit fails
+	// when it reaches another writer's region. It is absent from control state.
 	WriterModePersistOnly
 	WriterModeStreamOnly
 )
@@ -236,6 +240,7 @@ func (db *DB) newStreamWriter(
 			AutoIndexPersistInterval: cfg.AutoIndexPersistInterval,
 			Start:                    cfg.Start,
 			Persist:                  new(cfg.Mode.persist()),
+			Bounded:                  new(!cfg.Mode.Stream()),
 			Authority:                cfg.authority(i),
 		}
 	}
