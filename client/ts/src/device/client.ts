@@ -11,6 +11,7 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array, type destructor, primitive, type record, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { type Condition } from "@/device/builder.gen";
 import {
   type Device,
   type DeviceSchemas,
@@ -130,7 +131,11 @@ export interface ClientConfig {
   ontology: ontology.Client;
 }
 
+type ListParts = query.ListParts<Condition, typeof retrieveMultiParamsZ>;
+type OneParts = query.OneParts<Condition, typeof retrieveMultiParamsZ>;
+
 export class Client extends query.Retriever<
+  Condition,
   typeof retrieveMultiParamsZ,
   Key,
   Omit<Device, "status">,
@@ -197,6 +202,12 @@ export class Client extends query.Retriever<
     this.store = store;
   }
 
+  /**
+   * Retrieves the devices that match every condition in parts, or one device when parts
+   * end with `one()`.
+   */
+  async retrieve(...parts: OneParts): Promise<Device>;
+  async retrieve(...parts: ListParts): Promise<Device[]>;
   async retrieve<
     Properties extends z.ZodType<record.Unknown>,
     Make extends z.ZodType<string>,
@@ -218,8 +229,13 @@ export class Client extends query.Retriever<
   async retrieve(params: RetrieveMultipleParams): Promise<Array<Device>>;
 
   async retrieve(
-    rawParams: Key | (RetrieveParams & { schemas?: DeviceSchemas }),
+    ...args:
+      | ListParts
+      | OneParts
+      | [rawParams: Key | (RetrieveParams & { schemas?: DeviceSchemas })]
   ): Promise<Device | Array<Device>> {
+    if (this.isParts(args)) return await this.retrieveParts(args);
+    const [rawParams] = args;
     const params = typeof rawParams === "string" ? { key: rawParams } : rawParams;
     const { schemas, ...rest } = params;
     const isSingle = "key" in rest;

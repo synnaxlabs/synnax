@@ -246,6 +246,21 @@ describe("Task", async () => {
       await expect(client.tasks.retrieve({ name })).rejects.toThrow(MultipleFoundError);
     });
 
+    it("should retrieve one task by parts", async () => {
+      const name = `test-${id.create()}`;
+      const m = await testRack.createTask({
+        name,
+        config: { routingKey: "dog" },
+        type: "pagerduty_alert",
+      });
+      const retrieved = await client.tasks.retrieve(
+        task.name.eq(name),
+        task.rack.eq(testRack.key),
+        task.one(),
+      );
+      expect(retrieved.key).toBe(m.key);
+    });
+
     it("should retrieve tasks by search term", async () => {
       const prefix = `searchable-task-${id.create()}`;
       const names = [`${prefix}-1`, `${prefix}-2`];

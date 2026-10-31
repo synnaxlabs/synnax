@@ -335,6 +335,23 @@ describe("Status", () => {
       expect(keys).toContain("multi-2");
     });
 
+    it("should retrieve the status that matches every condition", async () => {
+      const key = `condition-${id.create()}`;
+      await client.statuses.set({
+        name: "Condition",
+        key,
+        variant: "warning",
+        message: "Matched",
+        time: TimeStamp.now(),
+      });
+      const retrieved = await client.statuses.retrieve(
+        status.key.eq(key),
+        status.variant.eq("warning"),
+        status.one(),
+      );
+      expect(retrieved.key).toEqual(key);
+    });
+
     it("should search for statuses", async () => {
       const uniqueName = `SearchableStatus_${Date.now()}`;
       await client.statuses.set({

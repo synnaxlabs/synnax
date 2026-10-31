@@ -17,6 +17,7 @@ import { z } from "zod";
 
 import { imex } from "@/imex";
 import { type ontology } from "@/ontology";
+import { type Condition } from "@/project/builder.gen";
 import {
   type Key,
   keyZ,
@@ -63,7 +64,12 @@ export interface ClientConfig {
   ontology: ontology.Client;
 }
 
-export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Project> {
+export class Client extends query.Retriever<
+  Condition,
+  typeof retrieveMultiParamsZ,
+  Key,
+  Project
+> {
   private readonly cfg: ClientConfig;
   private readonly store: query.Table<Key, Project>;
 

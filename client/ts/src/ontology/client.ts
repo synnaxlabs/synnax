@@ -177,6 +177,7 @@ export interface ClientConfig {
  * stream keeps current.
  */
 export class Client extends query.Retriever<
+  never,
   typeof retrieveMultiParamsZ,
   string,
   Resource,

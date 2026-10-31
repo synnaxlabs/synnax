@@ -11,6 +11,7 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array, zod } from "@synnaxlabs/x";
 import z from "zod";
 
+import { type Condition } from "@/group/builder.gen";
 import {
   type Group,
   groupZ,
@@ -70,6 +71,7 @@ export interface ClientConfig {
 }
 
 export class Client extends query.Retriever<
+  Condition,
   typeof retrieveMultipleParamsZ,
   Key,
   Group

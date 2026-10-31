@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type destructor, type record, zod } from "@synnaxlabs/x";
+import { type destructor, filter, type record, zod } from "@synnaxlabs/x";
 import z from "zod";
 
 import { NotFoundError, ValidationError } from "@/errors";
@@ -20,6 +20,7 @@ import {
 } from "@/query/query";
 import { type Keyed, type Table } from "@/query/table";
 import { type Data, type FetchOptions, type Params } from "@/query/types";
+import { checkForMultipleOrNoResults } from "@/util/retrieve";
 
 /** Query fields only the server can evaluate, shared by most request shapes. */
 const DEFAULT_SERVER_FIELDS = ["searchTerm", "limit", "offset"] as const;
@@ -69,6 +70,40 @@ type RequestInput<Z extends z.ZodType> =
         : I
       : never
     : never;
+
+/** The request fields that an option of a retrieve may set. */
+type OptionField<Z extends z.ZodType> =
+  RequestInput<Z> extends infer I
+    ? I extends readonly unknown[]
+      ? never
+      : Exclude<keyof I, "where"> & string
+    : never;
+
+/**
+ * A part of a retrieve: a condition of the type C, or an option that sets a field of
+ * the request schema Z.
+ */
+export type Part<C extends filter.Condition<string>, Z extends z.ZodType> = filter.Part<
+  C,
+  OptionField<Z>
+>;
+
+/**
+ * The parts of a retrieve that returns a list. A retriever with no condition type takes
+ * none.
+ */
+export type ListParts<C extends filter.Condition<string>, Z extends z.ZodType> = [
+  C,
+] extends [never]
+  ? [never]
+  : Array<Part<C, Z>>;
+
+/** The parts of a retrieve that returns one record: parts that end with `one()`. */
+export type OneParts<C extends filter.Condition<string>, Z extends z.ZodType> = [
+  C,
+] extends [never]
+  ? [never]
+  : [...Array<Part<C, Z>>, filter.One];
 
 /** True for params that are a bare record key rather than a query object. */
 const isBareKey = (params: unknown): params is record.Key =>
@@ -170,7 +205,12 @@ export type RetrieverParams<
  * Extend it and call `super(cache, { ... })`:
  *
  * ```ts
- * export class Client extends query.Retriever<typeof requestZ, Key, Label> {
+ * export class Client extends query.Retriever<
+ *   label.Condition,
+ *   typeof requestZ,
+ *   Key,
+ *   Label
+ * > {
  *   constructor(client: UnaryClient, cache: query.Cache) {
  *     const store = cache.createTable({ ... });
  *     super(cache, { name: "label", table: store, request: { ... } });
@@ -186,6 +226,7 @@ export type RetrieverParams<
  * exposes them as named {@link Retrieves} members instead.
  */
 export abstract class Retriever<
+  C extends filter.Condition<string>,
   Z extends z.ZodType<Params>,
   K extends record.Key,
   V extends Keyed<K>,
@@ -193,6 +234,7 @@ export abstract class Retriever<
   SingleInput = { key: K },
   SingleQuery extends Params = K,
 > {
+  private readonly name: string;
   private readonly singleSpace: Retrieves<Params, D | D[]>;
   private readonly requestSpace: Retrieves<Params, D | D[]>;
   private readonly trySingle: (params: unknown) => { query: SingleQuery } | null;
@@ -210,6 +252,7 @@ export abstract class Retriever<
       compose = (record: V) => record as unknown as D,
       single,
     } = params;
+    this.name = name;
     const {
       schema,
       fetch,
@@ -306,23 +349,53 @@ export abstract class Retriever<
   }
 
   /**
-   * Reads the record the params address, or every record matching them. Serves the
-   * cache when the answer is fresh, fetching otherwise. A bare key is shorthand for `{
-   * key }`; a bare key list is accepted by domains whose request schema unions in
-   * {@link keysRequestZ} or {@link keyListZ}.
+   * Reads the records that match every condition in parts, with each option applied.
+   * With no parts, reads every record. Serves the cache when the answer is fresh,
+   * fetching otherwise.
+   *
+   * Reads the record the params address, or every record matching them. A bare key is
+   * shorthand for `{ key }`; a bare key list is accepted by domains whose request
+   * schema unions in {@link keysRequestZ} or {@link keyListZ}.
    * @throws {NotFoundError} if a single-record query matches nothing or the record was
-   * deleted.
+   * deleted, or if parts end with `one()` and no record matches.
+   * @throws {MultipleFoundError} if parts end with `one()` and more than one record
+   * matches.
    * @throws {ValidationError} if params contain `key` (or are a bare key) but fail the
    * single-query schema.
    */
+  retrieve(...parts: OneParts<C, Z>): Promise<D>;
+  retrieve(...parts: ListParts<C, Z>): Promise<D[]>;
   retrieve(params: K | SingleInput, options?: FetchOptions): Promise<D>;
   retrieve(params: K[] | RequestInput<Z>, options?: FetchOptions): Promise<D[]>;
-  async retrieve(
-    params: K | K[] | SingleInput | RequestInput<Z>,
-    options?: FetchOptions,
-  ): Promise<D | D[]> {
+  async retrieve(...args: unknown[]): Promise<D | D[]> {
+    if (this.isParts(args)) return await this.retrieveParts(args);
+    const [params, options] = args as [unknown, FetchOptions | undefined];
     const [space, query] = this.route(params);
     return await space.retrieve(query, options);
+  }
+
+  /** @returns whether args are the parts of a retrieve, rather than params. */
+  protected isParts(args: readonly unknown[]): args is Array<Part<C, Z> | filter.One> {
+    return args.length === 0 || filter.isPart(args[0]);
+  }
+
+  /**
+   * Reads the records that parts select, or one record when parts end with `one()`.
+   * A subclass that overrides retrieve passes its parts here.
+   */
+  protected async retrieveParts(
+    parts: Array<Part<C, Z> | filter.One>,
+  ): Promise<D | D[]> {
+    const one = parts.at(-1) instanceof filter.One;
+    const request = filter.toRequest(
+      (one ? parts.slice(0, -1) : parts) as Array<Part<C, Z>>,
+    );
+    const records = (await this.requestSpace.retrieve(
+      this.normalizeRequest(request),
+    )) as D[];
+    if (!one) return records;
+    checkForMultipleOrNoResults(this.name, request, records, true);
+    return records[0];
   }
 
   /**

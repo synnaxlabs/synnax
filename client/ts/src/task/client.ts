@@ -36,6 +36,7 @@ import {
 } from "@/rack/types.gen";
 import { type ranger } from "@/ranger";
 import { status } from "@/status";
+import { type Condition } from "@/task/builder.gen";
 import {
   type Command,
   commandZ,
@@ -389,11 +390,15 @@ export interface ClientConfig {
   statuses: status.Client;
 }
 
+type ListParts = query.ListParts<Condition, typeof retrieveMultiParamsZ>;
+type OneParts = query.OneParts<Condition, typeof retrieveMultiParamsZ>;
+
 /**
  * Creates, reads, deletes, and commands tasks on a Core. Reach it through
  * `client.hardware.tasks`. Reads are served from a cache a change stream keeps current.
  */
 export class Client extends query.Retriever<
+  Condition,
   typeof retrieveMultiParamsZ,
   Key,
   Omit<Task, "status">,
@@ -600,6 +605,12 @@ export class Client extends query.Retriever<
     rename();
   }
 
+  /**
+   * Retrieves the tasks that match every condition in parts, or one task when parts end
+   * with `one()`.
+   */
+  async retrieve(...parts: OneParts): Promise<Task>;
+  async retrieve(...parts: ListParts): Promise<Task[]>;
   async retrieve<S extends Schemas = Schemas>(
     params: RetrieveSingleParams & RetrieveSchemas<S>,
   ): Promise<Task<S>>;
@@ -609,8 +620,12 @@ export class Client extends query.Retriever<
   ): Promise<Task<S>[]>;
   async retrieve(params: RetrieveMultipleParams): Promise<Task[]>;
   async retrieve<S extends Schemas = Schemas>(
-    rawParams: Key | (RetrieveParams & RetrieveSchemas<S>),
+    ...args:
+      ListParts | OneParts | [rawParams: Key | (RetrieveParams & RetrieveSchemas<S>)]
   ): Promise<Task<S> | Task<S>[]> {
+    if (this.isParts(args))
+      return (await this.retrieveParts(args)) as Task<S> | Task<S>[];
+    const [rawParams] = args;
     const { schemas, ...params } =
       typeof rawParams === "string" ? { key: rawParams } : rawParams;
     const isSingle = z.validate(singleRetrieveParamsZ, params);

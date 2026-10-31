@@ -219,6 +219,69 @@ describe("range", () => {
         })
         .toEqual(names);
     });
+
+    describe("parts", () => {
+      const createRanges = async () => {
+        const prefix = `parts-${id.create()}`;
+        const early = TimeStamp.hours(600).spanRange(TimeSpan.seconds(1));
+        const late = TimeStamp.hours(700).spanRange(TimeSpan.seconds(1));
+        const ranges = await client.ranges.create([
+          { name: `${prefix}-Early`, timeRange: early },
+          { name: `${prefix}-Late`, timeRange: late },
+        ]);
+        return { prefix, early, ranges };
+      };
+
+      it("should retrieve the ranges that every condition matches", async () => {
+        const { prefix, early, ranges } = await createRanges();
+        const retrieved = await client.ranges.retrieve(
+          ranger.name.startsWith(prefix),
+          ranger.overlaps(early),
+        );
+        expect(retrieved.map((r) => r.key)).toEqual([ranges[0].key]);
+      });
+
+      it("should match a name with any case", async () => {
+        const { prefix, ranges } = await createRanges();
+        const retrieved = await client.ranges.retrieve(
+          ranger.name.contains(`${prefix}-late`.toUpperCase(), {
+            caseInsensitive: true,
+          }),
+        );
+        expect(retrieved.map((r) => r.key)).toEqual([ranges[1].key]);
+      });
+
+      it("should return at most limit ranges", async () => {
+        const { prefix } = await createRanges();
+        const retrieved = await client.ranges.retrieve(
+          ranger.name.startsWith(prefix),
+          ranger.limit(1),
+        );
+        expect(retrieved).toHaveLength(1);
+      });
+
+      it("should retrieve one range", async () => {
+        const { prefix, ranges } = await createRanges();
+        const retrieved = await client.ranges.retrieve(
+          ranger.name.eq(`${prefix}-Late`),
+          ranger.one(),
+        );
+        expect(retrieved.key).toEqual(ranges[1].key);
+      });
+
+      it("should throw a MultipleFoundError when one matches more ranges", async () => {
+        const { prefix } = await createRanges();
+        const res = client.ranges.retrieve(
+          ranger.name.startsWith(prefix),
+          ranger.one(),
+        );
+        await expect(res).rejects.toThrow(MultipleFoundError);
+        const where = JSON.stringify({ where: { name: { startsWith: prefix } } });
+        await expect(res).rejects.toThrow(
+          `Expected one range matching ${where}, but found 2`,
+        );
+      });
+    });
   });
 
   describe("retrieveParent", () => {

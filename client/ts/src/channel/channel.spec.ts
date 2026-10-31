@@ -278,6 +278,24 @@ describe("Channel", () => {
       });
       expect(res.map((ch) => ch.key).sort()).toEqual([a.key, c.key].sort());
     });
+    test("retrieve by parts", async () => {
+      const prefix = `qry_${id.create()}`;
+      const [a, , c] = await client.channels.create([
+        { name: `${prefix}_a`, virtual: true, dataType: DataType.FLOAT32 },
+        { name: `${prefix}_b`, virtual: true, dataType: DataType.FLOAT64 },
+        { name: `${prefix}_c`, virtual: true, dataType: DataType.FLOAT32 },
+      ]);
+      const res = await client.channels.retrieve(
+        channel.name.startsWith(prefix),
+        channel.dataType.eq(DataType.FLOAT32),
+      );
+      expect(res.map((ch) => ch.key).sort()).toEqual([a.key, c.key].sort());
+      const one = await client.channels.retrieve(
+        channel.name.eq(a.name),
+        channel.one(),
+      );
+      expect(one.key).toEqual(a.key);
+    });
     test("retrieve by a name pattern", async () => {
       const prefix = `qry_${id.create()}`;
       const [a, b] = await client.channels.create([
