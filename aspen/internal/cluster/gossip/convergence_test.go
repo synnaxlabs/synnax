@@ -19,7 +19,7 @@ import (
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
 	"github.com/synnaxlabs/aspen/internal/cluster/store"
 	"github.com/synnaxlabs/aspen/internal/node"
-	"github.com/synnaxlabs/freighter/mock"
+	freightertestutil "github.com/synnaxlabs/freighter/testutil"
 	"github.com/synnaxlabs/x/rand"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -54,9 +54,9 @@ var progressiveConvergence = []convergenceVars{
 }
 
 var _ = Describe("Convergence", func() {
-	var net *mock.Network[gossip.Message, gossip.Message]
+	var net *freightertestutil.Network[gossip.Message, gossip.Message]
 	BeforeEach(func() {
-		net = mock.NewNetwork[gossip.Message, gossip.Message]()
+		net = freightertestutil.NewNetwork[gossip.Message, gossip.Message]()
 	})
 	p := alamos.NewParametrize(alamos.IterVars(progressiveConvergence))
 	p.Template(func(i int, values convergenceVars) {

@@ -248,7 +248,7 @@ const TaskListItem = ({
               value={task_?.name ?? ""}
               onChange={hasUpdatePermission ? handleRename : undefined}
               allowDoubleClick={false}
-              overflow="ellipsis"
+              overflow="fade"
               weight={500}
             />
             {isDrifted && (

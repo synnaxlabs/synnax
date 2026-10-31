@@ -70,12 +70,12 @@ describe("Label.useEditModal", () => {
       expect(screen.getByPlaceholderText("Search labels...")).toBeTruthy(),
     );
     expect(screen.getByText("Edit")).toBeTruthy();
-    expect(getCreateItem().className).toContain("pluto--hidden");
+    expect(getCreateItem().className).toContain("lyra--hidden");
     fireEvent.click(await findAddButton());
     await waitFor(() => {
       const item = getCreateItem();
-      expect(item.className).toContain("pluto--visible");
-      expect(item.className).not.toContain("pluto--hidden");
+      expect(item.className).toContain("lyra--visible");
+      expect(item.className).not.toContain("lyra--hidden");
     });
   });
 
@@ -85,12 +85,12 @@ describe("Label.useEditModal", () => {
       expect(screen.getByPlaceholderText("Search labels...")).toBeTruthy(),
     );
     fireEvent.click(await findAddButton());
-    await waitFor(() => expect(getCreateItem().className).toContain("pluto--visible"));
-    const swatch = document.querySelector<HTMLElement>(".pluto-color-swatch");
+    await waitFor(() => expect(getCreateItem().className).toContain("lyra--visible"));
+    const swatch = document.querySelector<HTMLElement>(".lyra-color-swatch");
     if (swatch == null) throw new Error("color swatch not found");
     fireEvent.click(swatch);
     const picker = await waitFor(() => {
-      const el = document.querySelector<HTMLElement>(".pluto-color-picker");
+      const el = document.querySelector<HTMLElement>(".lyra-color-picker");
       if (el == null) throw new Error("color picker did not open");
       return el;
     });
@@ -104,7 +104,7 @@ describe("Label.useEditModal", () => {
       1000,
     );
     fireEvent.pointerDown(picker, { clientX: 200, clientY: 200 });
-    expect(getCreateItem().className).toContain("pluto--visible");
+    expect(getCreateItem().className).toContain("lyra--visible");
   });
 
   it("should persist a new label to the Core from the create form", async () => {

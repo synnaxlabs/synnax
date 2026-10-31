@@ -72,7 +72,7 @@ class PanelLifecycle(ConsoleCase):
         panels.rename("New panel", self.gamma)
         assert panels.names() == [self.alpha, self.beta, self.gamma]
 
-        panels.reorder(self.gamma, self.alpha)
+        panels.reorder(self.gamma, target=self.alpha)
         names = panels.names()
         assert names.index(self.gamma) < names.index(self.beta), (
             f"dragging {self.gamma} onto {self.alpha} should move it "

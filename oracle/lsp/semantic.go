@@ -20,15 +20,15 @@ import (
 )
 
 const (
-	SemanticTokenTypeKeyword = iota
-	SemanticTokenTypeType
-	SemanticTokenTypeClass
-	SemanticTokenTypeProperty
-	SemanticTokenTypeDecorator
-	SemanticTokenTypeString
-	SemanticTokenTypeNumber
-	SemanticTokenTypeComment
-	SemanticTokenTypeFunction
+	semanticTokenTypeKeyword = iota
+	semanticTokenTypeType
+	semanticTokenTypeClass
+	semanticTokenTypeProperty
+	semanticTokenTypeDecorator
+	semanticTokenTypeString
+	semanticTokenTypeNumber
+	semanticTokenTypeComment
+	semanticTokenTypeFunction
 )
 
 var semanticTokenTypes = []string{
@@ -95,7 +95,7 @@ func extractSemanticTokens(content string) []uint32 {
 		// filter after a name.
 		if prevName && typ == parser.OracleLexerIDENT && t.GetText() == "filter" &&
 			!followedBy(allTokens, i, parser.OracleLexerDOT) {
-			keyword := uint32(SemanticTokenTypeKeyword)
+			keyword := uint32(semanticTokenTypeKeyword)
 			tokenType = &keyword
 		}
 		if typ != parser.OracleLexerLINE_COMMENT &&
@@ -129,24 +129,24 @@ func mapTokenType(antlrType int, text string, prevWasAt, nameStart bool) *uint32
 	switch antlrType {
 	case parser.OracleLexerSTRUCT, parser.OracleLexerENUM, parser.OracleLexerIMPORT,
 		parser.OracleLexerEXTENDS, parser.OracleLexerMAP:
-		tokenType = SemanticTokenTypeKeyword
+		tokenType = semanticTokenTypeKeyword
 	case parser.OracleLexerAT:
-		tokenType = SemanticTokenTypeDecorator
+		tokenType = semanticTokenTypeDecorator
 	case parser.OracleLexerSTRING_LIT:
-		tokenType = SemanticTokenTypeString
+		tokenType = semanticTokenTypeString
 	case parser.OracleLexerINT_LIT, parser.OracleLexerFLOAT_LIT:
-		tokenType = SemanticTokenTypeNumber
+		tokenType = semanticTokenTypeNumber
 	case parser.OracleLexerBOOL_LIT:
-		tokenType = SemanticTokenTypeKeyword
+		tokenType = semanticTokenTypeKeyword
 	case parser.OracleLexerLINE_COMMENT, parser.OracleLexerBLOCK_COMMENT:
-		tokenType = SemanticTokenTypeComment
+		tokenType = semanticTokenTypeComment
 	case parser.OracleLexerIDENT:
 		if prevWasAt {
-			tokenType = SemanticTokenTypeFunction
+			tokenType = semanticTokenTypeFunction
 		} else if !nameStart && primitiveTypes.Contains(text) {
-			tokenType = SemanticTokenTypeType
+			tokenType = semanticTokenTypeType
 		} else {
-			tokenType = SemanticTokenTypeProperty
+			tokenType = semanticTokenTypeProperty
 		}
 	default:
 		return nil

@@ -23,7 +23,8 @@ class ConnectionLifecycle(ConsoleCase):
     def setup(self) -> None:
         super().setup()
         self.proxy = SeverableProxy(
-            self.synnax_connection.server_address, self.synnax_connection.port
+            target_host=self.synnax_connection.server_address,
+            target_port=self.synnax_connection.port,
         )
         self.recon_channel: str | None = None
 
@@ -103,7 +104,7 @@ class ConnectionLifecycle(ConsoleCase):
         console = self.console
         self.proxy.restore()
 
-        console.cluster.retry_now()
+        # The retry loop checks the Core again within 5 s.
         console.cluster.wait_for_status("Connected", timeout=20000)
         console.cluster.close_badge()
 

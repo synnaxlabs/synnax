@@ -27,7 +27,7 @@ from tests.arc.arc import ArcCase
 from x.telem import to_float
 
 ARC_SOURCE = """
-func count_heater_cycles(heater_on u8) i64 {
+func count_heater_cycles() {heater_on u8} i64 {
     prev u8 $= 0
     count i64 $= 0
     if heater_on == 1 and prev == 0 {
@@ -37,7 +37,7 @@ func count_heater_cycles(heater_on u8) i64 {
     return count
 }
 
-func track_peak_temp(current f32) f32 {
+func track_peak_temp() {current f32} f32 {
     peak f32 $= 0.0
     if current > peak {
         peak = current
@@ -45,16 +45,16 @@ func track_peak_temp(current f32) f32 {
     return peak
 }
 
-func calc_temp_error{setpoint f32} (measured f32) f32 {
+func calc_temp_error(setpoint f32) {measured f32} f32 {
     return measured - setpoint
 }
 
 start_monitor_cmd => monitor
 abort_cmd => abort
 
-heater_cmd -> count_heater_cycles{} -> cycle_count
-temp_sensor -> track_peak_temp{} -> peak_temp
-temp_sensor -> calc_temp_error{50.0} -> temp_error
+heater_cmd -> count_heater_cycles() -> cycle_count
+temp_sensor -> track_peak_temp() -> peak_temp
+temp_sensor -> calc_temp_error(50.0) -> temp_error
 
 sequence monitor {
     stage heating {
@@ -101,10 +101,10 @@ class ThermalMonitor(ArcCase):
         super().setup()
 
     def _create_additional_channels(self) -> None:
-        create_virtual_channel(self.client, "abort_cmd", sy.DataType.UINT8)
-        create_indexed_pair(self.client, "cycle_count", sy.DataType.INT64)
-        create_indexed_pair(self.client, "peak_temp", sy.DataType.FLOAT32)
-        create_indexed_pair(self.client, "temp_error", sy.DataType.FLOAT32)
+        create_virtual_channel(self.client, "abort_cmd", data_type=sy.DataType.UINT8)
+        create_indexed_pair(self.client, "cycle_count", data_type=sy.DataType.INT64)
+        create_indexed_pair(self.client, "peak_temp", data_type=sy.DataType.FLOAT32)
+        create_indexed_pair(self.client, "temp_error", data_type=sy.DataType.FLOAT32)
 
     def verify_sequence_execution(self) -> None:
         self._verify_thermal_cycling()

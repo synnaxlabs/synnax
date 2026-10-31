@@ -11,7 +11,8 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
-from x.exceptions import ExceptionPayload, register_exception
+import freighter
+from x.exceptions import ExceptionPayload, Provider, Registry
 
 
 class Message(BaseModel):
@@ -33,10 +34,9 @@ class Error(Exception):
         super().__init__(message)
 
 
-def encode_test_error(exc: Exception) -> ExceptionPayload:
+def encode_test_error(exc: Exception) -> ExceptionPayload | None:
     if not isinstance(exc, Error):
-        raise TypeError
-    assert isinstance(exc, Error)
+        return None
     return ExceptionPayload(type="integration.error", data=f"{exc.code},{exc.message}")
 
 
@@ -49,4 +49,9 @@ def decode_test_error(encoded: ExceptionPayload) -> Exception | None:
     return Error(int(code), message)
 
 
-register_exception(encode_test_error, decode_test_error)
+def create_registry() -> Registry:
+    """:returns: a registry that decodes Freighter's errors and the test Error."""
+    registry = Registry()
+    registry.register(freighter.EXCEPTION_PROVIDER)
+    registry.register(Provider(encode=encode_test_error, decode=decode_test_error))
+    return registry

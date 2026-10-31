@@ -13,8 +13,7 @@ from pathlib import Path
 import click
 
 from synnax import config
-from synnax.cli import console
-from synnax.cli.connect import connect_from_options, prompt_client_options
+from synnax.cli import connect, console
 from synnax.cli.flow import Context
 
 
@@ -24,11 +23,11 @@ def login() -> None:
     file.
     """
     flow_ctx = Context(console=console.Rich())
-    options = prompt_client_options(flow_ctx)
-    synnax = connect_from_options(flow_ctx, options)
+    options = connect.prompt_client_options(flow_ctx)
+    synnax = connect.from_context(flow_ctx, opts=options)
     if synnax is None:
         return
-    cfg = config.Clusters(config.File(Path(os.path.expanduser("~/.synnax"))))
+    cfg = config.Clusters(config.File(config_dir=Path(os.path.expanduser("~/.synnax"))))
     cfg.set(config.Cluster(options=options))
     flow_ctx.console.info(_SUCCESSFUL_LOGIN)
 
