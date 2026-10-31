@@ -9,8 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { CAMERA_SPRING, CURSOR_SPRING } from "@/director/constants";
-import { at, settleLag, step } from "@/director/spring";
+import { at, CAMERA_SPRING, CURSOR_SPRING, settleLag, step } from "@/director";
 
 const settle = (
   params: typeof CURSOR_SPRING,

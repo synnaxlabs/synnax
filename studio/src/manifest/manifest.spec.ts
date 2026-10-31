@@ -9,14 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import {
-  cdnKey,
-  define,
-  filter,
-  stillKey,
-  stillsDir,
-  videoName,
-} from "@/manifest/manifest";
+import { cdnKey, define, filter, stillKey, stillsDir, videoName } from "@/manifest";
 
 describe("manifest.define", () => {
   it("should accept well-formed entries", () => {

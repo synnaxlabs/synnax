@@ -13,13 +13,10 @@ import path from "node:path";
 import { bundle } from "@remotion/bundler";
 import { renderMedia, renderStill, selectComposition } from "@remotion/renderer";
 
-import { type CaptureSession } from "@/capture/rig";
-import { synthesize } from "@/director/cursor";
-import { direct } from "@/director/director";
-import { overlay } from "@/director/overlay";
-import { stage } from "@/director/stage";
+import { type CaptureSession } from "@/capture";
+import { direct, overlay, stage, synthesize } from "@/director";
 import { type Edit, type Format, type Overlays } from "@/film";
-import { type Core } from "@/fixtures/core";
+import { type Core } from "@/fixtures";
 import { type FilmProps } from "@/remotion/Film";
 import { parse, type Timeline } from "@/timeline";
 
@@ -89,7 +86,7 @@ export const runCapture = async (opts: CaptureRunOptions): Promise<Timeline> => 
   const { desktopUrl = DESKTOP_URL } = opts;
   let core: Core | undefined;
   if (opts.core !== "external") {
-    const { startCore } = await import("@/fixtures/core");
+    const { startCore } = await import("@/fixtures");
     core = await startCore({
       outDir: opts.outDir,
       binary: opts.coreBin,
@@ -99,7 +96,7 @@ export const runCapture = async (opts: CaptureRunOptions): Promise<Timeline> => 
     });
   }
   try {
-    const { CaptureSession } = await import("@/capture/rig");
+    const { CaptureSession } = await import("@/capture");
     const width = opts.width ?? mod.viewport?.width;
     const height = opts.height ?? mod.viewport?.height;
     const session = await CaptureSession.launch({
