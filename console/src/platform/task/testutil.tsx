@@ -45,6 +45,7 @@ import { type z } from "zod";
 
 import { Analytics } from "@/platform/analytics";
 import { type FormTabProps } from "@/platform/task/Form";
+import { type CreateParams, type UseCreate } from "@/platform/task/useCreate";
 import { Session } from "@/session";
 import {
   assertDefined,
@@ -249,6 +250,26 @@ export const awaitTaskResourceTab = async ({
       throw new Error("task resource tab not found");
     return match.resource.key;
   });
+
+/**
+ * Creates a task through a create hook, the way the command palette does.
+ * @returns The created task, parsed with the given schemas.
+ */
+export const createWithHook = async <S extends task.Schemas>(
+  useCreate: UseCreate,
+  schemas: S,
+  params?: CreateParams,
+): Promise<task.Task<S>> => {
+  const store = await createTestStore();
+  const created = await createSelectedPanel(store, defaultClient);
+  const { result } = await renderHookWithConsole(useCreate, {
+    client: defaultClient,
+    store,
+  });
+  act(() => result.current(params));
+  const key = await awaitTaskResourceTab(created);
+  return await defaultClient.tasks.retrieve({ key, schemas });
+};
 
 export interface RenderInTaskFormOptions extends RenderWithConsoleOptions {
   values?: TaskFormValues;
@@ -571,7 +592,7 @@ export interface CommandAnswer extends Omit<CreateTaskStatusOverrides, "details"
  * Answers the next command sent to the task as a Driver does, with a success status
  * unless answer overrides its fields. Specs run without a Driver, so a caller that
  * waits for the answer otherwise times out. Resolves once it listens, with a promise
- * that settles with the command after the answer is written.
+ * that resolves with the command after the answer is written.
  */
 export const answerNextCommand = async (
   client: Client,

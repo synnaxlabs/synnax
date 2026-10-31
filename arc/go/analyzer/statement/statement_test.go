@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/statement"
+	"github.com/synnaxlabs/arc/analyzer/testutil"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
@@ -653,7 +654,7 @@ var _ = Describe("Statement", func() {
 				ctx := context.NewRoot(bCtx, stmt, NewRoot(nil))
 				statement.Analyze(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
-				warnings := ctx.Diagnostics.Warnings()
+				warnings := testutil.Warnings(ctx.Diagnostics)
 				Expect(warnings).To(HaveLen(warningCount))
 				for _, w := range warnings {
 					Expect(w.Message).To(Equal(
@@ -686,7 +687,7 @@ var _ = Describe("Statement", func() {
 			ctx := context.NewRoot(bCtx, block, NewRoot(nil))
 			statement.AnalyzeBlock(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
-			Expect(ctx.Diagnostics.Warnings()).To(HaveLen(1))
+			Expect(testutil.Warnings(ctx.Diagnostics)).To(HaveLen(1))
 		})
 
 		It("should not warn on a bool variable condition", func(bCtx SpecContext) {

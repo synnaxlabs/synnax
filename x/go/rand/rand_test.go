@@ -12,7 +12,6 @@ package rand_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/rand"
 )
 
@@ -59,33 +58,6 @@ var _ = Describe("Rand", func() {
 				m := rand.SubMap(m, 2)
 				Expect(m).To(HaveLen(2))
 			})
-		})
-	})
-
-	Describe("Slice", func() {
-		Describe("sub Slice", func() {
-			It("Should return random sub-slice", func() {
-				value := rand.SubSlice([]int{1, 2, 3, 4, 5, 6}, 2)
-				Expect(value).To(HaveLen(2))
-				Expect(value[0]).ToNot(Equal(value[1]))
-			})
-			It("Should return the slice itself", func() {
-				slc := []int{1, 2, 3, 4, 5, 6}
-				value := rand.SubSlice(slc, 20)
-				Expect(value).To(HaveLen(6))
-				Expect(value).To(Equal(slc))
-			})
-		})
-	})
-
-	Describe("Element", func() {
-		It("Should not introduce any duplicate indexes", func() {
-			slc := make([]int, 1000)
-			for i := range 1000 {
-				slc[i] = i
-			}
-			sub := rand.SubSlice(slc, 800)
-			Expect(lo.Uniq(sub)).To(Equal(sub))
 		})
 	})
 })

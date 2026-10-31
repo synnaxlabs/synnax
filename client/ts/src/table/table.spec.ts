@@ -10,7 +10,7 @@
 import { id, uuid } from "@synnaxlabs/x";
 import { describe, expect, it, test } from "vitest";
 
-import { NotFoundError } from "@/errors";
+import { NotFoundError } from "@/index";
 import { query } from "@/query";
 import { table } from "@/table";
 import { createTestClient, expectDeleted } from "@/testutil";
