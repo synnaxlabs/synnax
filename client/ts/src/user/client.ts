@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type observe, record } from "@synnaxlabs/x";
+import { array, type observe } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type connection } from "@/connection";
