@@ -7,20 +7,22 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import overload
+from typing import Literal, overload
 from uuid import UUID
 
 from pydantic import BaseModel
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
+from synnax import util
+from synnax.access.role import builder_gen
+from synnax.access.role.builder_gen import Condition
 from synnax.access.role.types_gen import (
     RetrieveRequest,
     RetrieveResponse,
     Role,
     Where,
 )
-from synnax.util import one
 from x import filter
 from x.lists import normalize
 
@@ -81,13 +83,31 @@ class Client:
         return res.roles[0] if is_single else res.roles
 
     @overload
-    def retrieve(self, key: UUID) -> Role: ...
+    def retrieve(self, key: UUID | str, /) -> Role: ...
+
+    @overload
+    def retrieve(self, keys: list[UUID] | list[str], /) -> list[Role]: ...
+
+    @overload
+    def retrieve(self, *, key: UUID) -> Role: ...
 
     @overload
     def retrieve(
         self,
-        *,
-        where: Where | None = None,
+        *conditions: Condition,
+        one: Literal[True],
+        keys: list[UUID] | None = None,
+        search_term: str = "",
+        limit: int | None = None,
+        offset: int = 0,
+        internal: bool | None = None,
+    ) -> Role: ...
+
+    @overload
+    def retrieve(
+        self,
+        *conditions: Condition,
+        one: Literal[False] = False,
         keys: list[UUID] | None = None,
         search_term: str = "",
         limit: int | None = None,
@@ -97,37 +117,45 @@ class Client:
 
     def retrieve(
         self,
+        *args: UUID | str | list[UUID] | list[str] | Condition,
         key: UUID | None = None,
-        *,
-        where: Where | None = None,
+        one: bool = False,
         keys: list[UUID] | None = None,
         search_term: str = "",
         limit: int | None = None,
         offset: int = 0,
         internal: bool | None = None,
     ) -> Role | list[Role]:
-        """Retrieves roles. Returns one role when a key is given, and a list otherwise.
+        """Retrieves roles that match every condition and filter. Returns one role for a
+        key, a name, or one, and a list otherwise.
 
-        :param where: Keeps roles that match this filter tree.
-        :raises NotFoundError: If a single role is requested and none matches.
+        :param args: Conditions from the role builder, such as
+            ``role.internal.eq(False)``, or one key, name, or list of either.
+        :param one: Returns the one role that matches, instead of a list.
+        :raises NotFoundError: If no role matches a key, a name, or one.
+        :raises MultipleFoundError: If more than one role matches a name or one.
+        :raises TypeError: If args are neither role conditions nor a shortcut.
         """
-        is_single = key is not None
+        conditions, query = util.shortcut(
+            "Role", args, Condition, UUID, builder_gen.key, builder_gen.name
+        )
         if key is not None:
             keys = [key]
+            query = key
         flat = Where(
             key=None if keys is None else filter.Set[UUID](in_=keys),
             internal=None if internal is None else filter.Bool(eq=internal),
         )
         req = RetrieveRequest(
-            where=filter.merge(where, flat),
+            where=filter.merge(filter.join(Where, conditions), flat),
             search_term=search_term,
             limit=limit,
             offset=offset,
         )
         res = self._client.send("/access/role/retrieve", req, RetrieveResponse)
-        if not is_single:
+        if query is None and not one:
             return res.roles
-        return one("Role", key, res.roles)
+        return util.one("Role", req.where if query is None else query, res.roles)
 
     def delete(self, keys: UUID | list[UUID]) -> None:
         req = _DeleteRequest(keys=normalize(keys))

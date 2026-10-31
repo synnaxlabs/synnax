@@ -253,7 +253,7 @@ class TestStatusClient:
         assert "error" not in result_variants
 
     def test_where(self, client: sy.Synnax) -> None:
-        """Should keep statuses that match a filter tree and the other filters."""
+        """Should keep statuses that match every condition and the other filters."""
         created = client.statuses.set(
             [
                 sy.Status(variant=sy.status.VARIANT_INFO, message="Where 0"),
@@ -261,13 +261,16 @@ class TestStatusClient:
                 sy.Status(variant=sy.status.VARIANT_SUCCESS, message="Where 2"),
             ]
         )
-        where = sy.status.Where(
-            not_=sy.status.Where(
-                variant=sy.filter.Set[sy.status.Variant](eq=sy.status.VARIANT_ERROR)
-            )
+        keys = [s.key for s in created]
+        results = client.statuses.retrieve(
+            ~sy.status.variant.eq(sy.status.VARIANT_ERROR), keys=keys
         )
-        results = client.statuses.retrieve(where=where, keys=[s.key for s in created])
         assert {s.key for s in results} == {created[0].key, created[2].key}
+        assert client.statuses.retrieve(created[0].key).key == created[0].key
+        error = client.statuses.retrieve(
+            sy.status.variant.eq(sy.status.VARIANT_ERROR), keys=keys, one=True
+        )
+        assert error.key == created[1].key
 
     def test_empty_keys(self, client: sy.Synnax) -> None:
         """Should retrieve no statuses for an empty list of keys."""

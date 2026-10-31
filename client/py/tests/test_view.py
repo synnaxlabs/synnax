@@ -116,20 +116,24 @@ class TestView:
 
         assert_eventually(check)
 
-    def test_retrieve_by_where(self, client: sy.Synnax) -> None:
-        """Should retrieve views filtered by a where."""
+    def test_retrieve_conditions(self, client: sy.Synnax) -> None:
+        """Should retrieve the views that every condition and filter select."""
         views = client.views.create(
             [
                 RangeView(name="Range"),
                 StatusView(name="Status"),
             ]
         )
-        res = client.views.retrieve(
-            keys=[v.key for v in views],
-            where=view.Where(type=sy.filter.Set[view.Type](eq="status")),
-        )
+        res = client.views.retrieve(view.type.eq("status"), keys=[v.key for v in views])
         assert len(res) == 1
         assert res[0].name == "Status"
+
+    def test_retrieve_by_bare_key_and_name(self, client: sy.Synnax) -> None:
+        """Should retrieve a view by a key or a name passed as the first argument."""
+        v = client.views.create(RangeView(name=str(uuid4())))
+        assert client.views.retrieve(v.key).name == v.name
+        assert client.views.retrieve(v.name).key == v.key
+        assert [x.key for x in client.views.retrieve([v.name])] == [v.key]
 
     def test_retrieve_by_types(self, client: sy.Synnax) -> None:
         """Should retrieve only the views of the given types."""

@@ -19,7 +19,6 @@ import pytest
 import synnax as sy
 from synnax import project
 from synnax.exceptions import NotFoundError
-from x import filter
 from x.testutil import assert_eventually
 
 
@@ -62,15 +61,17 @@ class TestProject:
         projects = client.projects.retrieve(keys=[p1.key, p2.key])
         assert len(projects) == 2
 
-    def test_retrieve_where(self, client: sy.Synnax) -> None:
-        """Should keep projects that match a filter tree and the given keys."""
+    def test_retrieve_conditions(self, client: sy.Synnax) -> None:
+        """Should keep projects that match every condition and the given keys."""
         p1 = client.projects.create(name="Where A")
         p2 = client.projects.create(name="Where B")
-        where = project.Where(
-            not_=project.Where(key=filter.Set[project.Key](eq=p1.key))
+        projects = client.projects.retrieve(
+            ~project.key.eq(p1.key), keys=[p1.key, p2.key]
         )
-        projects = client.projects.retrieve(where=where, keys=[p1.key, p2.key])
         assert [p.key for p in projects] == [p2.key]
+        assert client.projects.retrieve(p1.key).name == "Where A"
+        one = client.projects.retrieve(project.key.in_([p2.key]), one=True)
+        assert one.key == p2.key
 
     def test_retrieve_with_search_term(self, client: sy.Synnax) -> None:
         """Should search for projects by name."""

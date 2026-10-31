@@ -7,13 +7,15 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import overload
+from typing import Literal, overload
 
 from pydantic import BaseModel
 
 from alamos import NOOP, Instrumentation
 from freighter import Empty, FileTransport, UnaryClient
-from synnax import imex
+from synnax import imex, util
+from synnax.project import builder_gen
+from synnax.project.builder_gen import Condition
 from synnax.project.types_gen import (
     Key,
     Project,
@@ -21,7 +23,6 @@ from synnax.project.types_gen import (
     RetrieveResponse,
     Where,
 )
-from synnax.util import one
 from x import filter
 from x.fs import FilePath
 from x.lists import normalize
@@ -163,13 +164,30 @@ class Client:
         ).project
 
     @overload
+    def retrieve(self, key: Key, /) -> Project: ...
+
+    @overload
+    def retrieve(self, keys: list[Key], /) -> list[Project]: ...
+
+    @overload
     def retrieve(self, *, key: Key) -> Project: ...
 
     @overload
     def retrieve(
         self,
-        *,
-        where: Where | None = None,
+        *conditions: Condition,
+        one: Literal[True],
+        keys: list[Key] | None = None,
+        search_term: str = "",
+        limit: int | None = None,
+        offset: int = 0,
+    ) -> Project: ...
+
+    @overload
+    def retrieve(
+        self,
+        *conditions: Condition,
+        one: Literal[False] = False,
         keys: list[Key] | None = None,
         search_term: str = "",
         limit: int | None = None,
@@ -178,35 +196,43 @@ class Client:
 
     def retrieve(
         self,
-        *,
+        *args: Key | list[Key] | Condition,
         key: Key | None = None,
-        where: Where | None = None,
+        one: bool = False,
         keys: list[Key] | None = None,
         search_term: str = "",
         limit: int | None = None,
         offset: int = 0,
     ) -> Project | list[Project]:
-        """Retrieve one or more projects.
+        """Retrieve one or more projects that match every condition and filter.
 
+        :param args: Conditions from the project builder, such as
+            ``project.key.in_(keys)``, or one key or list of keys.
         :param key: The key of a single project to retrieve. When provided, a single
             project is returned and NotFoundError is raised if it does not exist.
-        :param where: Keeps projects that match this filter tree.
+        :param one: Returns the one project that matches, instead of a list.
         :param keys: The keys of the projects to retrieve.
         :param search_term: A fuzzy search term matched against project names.
         :param limit: The maximum number of projects to return.
         :param offset: The number of projects to skip before returning results.
-        :returns: The matching project when ``key`` is provided, otherwise a list of
-            matching projects.
-        :raises NotFoundError: If ``key`` is provided and no project exists for it.
+        :returns: The matching project for a key or one, otherwise a list of matching
+            projects.
+        :raises NotFoundError: If no project matches a key or one.
+        :raises MultipleFoundError: If one is True and more than one project matches.
+        :raises TypeError: If args are neither project conditions nor a shortcut.
         """
-        is_single = key is not None
+        conditions, query = util.shortcut(
+            "Project", args, Condition, Key, builder_gen.key
+        )
         if key is not None:
             keys = [key]
+            query = key
         flat = Where(key=None if keys is None else filter.Set[Key](in_=keys))
+        where = filter.merge(filter.join(Where, conditions), flat)
         res = self._client.send(
             "/project/retrieve",
             RetrieveRequest(
-                where=filter.merge(where, flat),
+                where=where,
                 search_term=search_term,
                 limit=limit,
                 offset=offset,
@@ -214,6 +240,6 @@ class Client:
             RetrieveResponse,
         )
         projects = res.projects
-        if is_single:
-            return one("Project", key, projects)
-        return projects
+        if query is None and not one:
+            return projects
+        return util.one("Project", where if query is None else query, projects)

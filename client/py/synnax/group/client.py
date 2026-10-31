@@ -7,15 +7,17 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from typing import overload
+from typing import Literal, overload
 from uuid import UUID
 
 from pydantic import BaseModel
 
 from freighter import Empty, UnaryClient
+from synnax import util
+from synnax.group import builder_gen
+from synnax.group.builder_gen import Condition
 from synnax.group.types_gen import Group, RetrieveRequest, RetrieveResponse, Where
 from synnax.ontology.payload import ID, CrudeID
-from synnax.util import one
 from x import filter
 
 
@@ -52,13 +54,30 @@ class Client:
         ).group
 
     @overload
-    def retrieve(self, key: UUID) -> Group: ...
+    def retrieve(self, key: UUID, /) -> Group: ...
+
+    @overload
+    def retrieve(self, keys: list[UUID], /) -> list[Group]: ...
+
+    @overload
+    def retrieve(self, *, key: UUID) -> Group: ...
 
     @overload
     def retrieve(
         self,
-        *,
-        where: Where | None = None,
+        *conditions: Condition,
+        one: Literal[True],
+        keys: list[UUID] | None = None,
+        search_term: str = "",
+        limit: int | None = None,
+        offset: int = 0,
+    ) -> Group: ...
+
+    @overload
+    def retrieve(
+        self,
+        *conditions: Condition,
+        one: Literal[False] = False,
         keys: list[UUID] | None = None,
         search_term: str = "",
         limit: int | None = None,
@@ -67,37 +86,45 @@ class Client:
 
     def retrieve(
         self,
+        *args: UUID | list[UUID] | Condition,
         key: UUID | None = None,
-        *,
-        where: Where | None = None,
+        one: bool = False,
         keys: list[UUID] | None = None,
         search_term: str = "",
         limit: int | None = None,
         offset: int = 0,
     ) -> Group | list[Group]:
-        """Retrieves groups. Returns one group when a key is given, and a list
-        otherwise.
+        """Retrieves groups that match every condition and filter. Returns one group for
+        a key or one, and a list otherwise.
 
-        :param where: Keeps groups that match this filter tree.
-        :raises NotFoundError: If a single group is requested and none matches.
+        :param args: Conditions from the group builder, such as ``group.key.in_(keys)``,
+            or one key or list of keys.
+        :param one: Returns the one group that matches, instead of a list.
+        :raises NotFoundError: If no group matches a key or one.
+        :raises MultipleFoundError: If one is True and more than one group matches.
+        :raises TypeError: If args are neither group conditions nor a shortcut.
         """
-        is_single = key is not None
+        conditions, query = util.shortcut(
+            "Group", args, Condition, UUID, builder_gen.key
+        )
         if key is not None:
             keys = [key]
+            query = key
         flat = Where(key=None if keys is None else filter.Set[UUID](in_=keys))
+        where = filter.merge(filter.join(Where, conditions), flat)
         res = self._client.send(
             "/ontology/retrieve-group",
             RetrieveRequest(
-                where=filter.merge(where, flat),
+                where=where,
                 search_term=search_term,
                 limit=limit,
                 offset=offset,
             ),
             RetrieveResponse,
         )
-        if not is_single:
+        if query is None and not one:
             return res.groups
-        return one("Group", key, res.groups)
+        return util.one("Group", where if query is None else query, res.groups)
 
     def rename(self, key: UUID, name: str) -> Empty:
         return self._client.send(

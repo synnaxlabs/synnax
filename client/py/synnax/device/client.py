@@ -15,6 +15,9 @@ from pydantic_core import to_jsonable_python
 from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
 from synnax import rack as rack_
+from synnax import util
+from synnax.device import builder_gen
+from synnax.device.builder_gen import Condition
 from synnax.device.types_gen import (
     Device,
     Key,
@@ -23,7 +26,6 @@ from synnax.device.types_gen import (
     Where,
 )
 from synnax.ontology.payload import ID as OntologyID
-from synnax.util import one, one_or_none
 from x import filter
 from x.lists import all_none, normalize, override
 
@@ -136,6 +138,38 @@ class Client:
     @overload
     def retrieve(
         self,
+        key: str,
+        /,
+        *,
+        include_status: bool = False,
+        include_parent: bool = False,
+        ignore_not_found: Literal[False] = False,
+    ) -> Device: ...
+
+    @overload
+    def retrieve(
+        self,
+        key: str,
+        /,
+        *,
+        include_status: bool = False,
+        include_parent: bool = False,
+        ignore_not_found: Literal[True],
+    ) -> Device | None: ...
+
+    @overload
+    def retrieve(
+        self,
+        keys: list[str],
+        /,
+        *,
+        include_status: bool = False,
+        include_parent: bool = False,
+    ) -> list[Device]: ...
+
+    @overload
+    def retrieve(
+        self,
         *,
         key: str,
         include_status: bool = False,
@@ -236,8 +270,46 @@ class Client:
     @overload
     def retrieve(
         self,
-        *,
-        where: Where | None = None,
+        *conditions: Condition,
+        one: Literal[True],
+        keys: list[str] | None = None,
+        names: list[str] | None = None,
+        makes: list[str] | None = None,
+        models: list[str] | None = None,
+        locations: list[str] | None = None,
+        racks: list[int] | None = None,
+        search_term: str = "",
+        limit: int | None = None,
+        offset: int = 0,
+        include_status: bool = False,
+        include_parent: bool = False,
+        ignore_not_found: Literal[False] = False,
+    ) -> Device: ...
+
+    @overload
+    def retrieve(
+        self,
+        *conditions: Condition,
+        one: Literal[True],
+        keys: list[str] | None = None,
+        names: list[str] | None = None,
+        makes: list[str] | None = None,
+        models: list[str] | None = None,
+        locations: list[str] | None = None,
+        racks: list[int] | None = None,
+        search_term: str = "",
+        limit: int | None = None,
+        offset: int = 0,
+        include_status: bool = False,
+        include_parent: bool = False,
+        ignore_not_found: Literal[True],
+    ) -> Device | None: ...
+
+    @overload
+    def retrieve(
+        self,
+        *conditions: Condition,
+        one: Literal[False] = False,
         keys: list[str] | None = None,
         names: list[str] | None = None,
         makes: list[str] | None = None,
@@ -253,13 +325,13 @@ class Client:
 
     def retrieve(
         self,
-        *,
+        *args: str | list[str] | Condition,
         key: str | None = None,
         name: str | None = None,
         make: str | None = None,
         model: str | None = None,
         location: str | None = None,
-        where: Where | None = None,
+        one: bool = False,
         keys: list[str] | None = None,
         names: list[str] | None = None,
         makes: list[str] | None = None,
@@ -273,11 +345,14 @@ class Client:
         include_parent: bool = False,
         ignore_not_found: bool = False,
     ) -> list[Device] | Device | None:
-        """Retrieves devices matching the given filters. Returns one device when a key,
-        name, make, model, or location is given, and a list otherwise. A filter left as
-        None does not filter.
+        """Retrieves devices that match every condition and filter. Returns one device
+        for a key, name, make, model, location, or one, and a list otherwise. A filter
+        left as None does not filter.
 
-        :param where: Keeps devices that match this filter tree.
+        :param args: Conditions from the device builder, such as
+            ``device.make.eq("NI")``, or one key or list of keys. A device key is free
+            text, so a string is always a key.
+        :param one: Returns the one device that matches, instead of a list.
         :param racks: Only return devices on the racks with these keys.
         :param search_term: A fuzzy search term matched against device names.
         :param limit: The maximum number of devices to return.
@@ -291,21 +366,28 @@ class Client:
         :raises NotFoundError: If a single device is requested and none matches.
         :raises MultipleFoundError: If a single device is requested and more than one
             matches, even when ignore_not_found is set.
+        :raises TypeError: If args are neither device conditions nor a shortcut.
         """
-        is_single = not all_none(key, name, make, model, location)
+        conditions, query = util.shortcut(
+            "Device", args, Condition, str, builder_gen.key
+        )
         if sum(v is not None for v in (key, name, make, model, location)) > 1:
             raise ValueError(
                 "only one of key, name, make, model, and location can be given"
             )
-        if is_single and (
-            search_term
-            or offset
-            or not all_none(where, keys, names, makes, models, locations, racks, limit)
-        ):
-            raise ValueError(
-                "key, name, make, model, and location cannot be combined with list "
-                "filters; use their plural forms instead"
-            )
+        if not all_none(key, name, make, model, location):
+            if (
+                args
+                or one
+                or search_term
+                or offset
+                or not all_none(keys, names, makes, models, locations, racks, limit)
+            ):
+                raise ValueError(
+                    "key, name, make, model, and location cannot be combined with "
+                    "list filters; use their plural forms instead"
+                )
+            query = next(v for v in (key, name, make, model, location) if v is not None)
         keys = override(key, keys)
         names = override(name, names)
         makes = override(make, makes)
@@ -320,7 +402,7 @@ class Client:
             rack=None if racks is None else filter.Set[rack_.Key](in_=racks),
         )
         req = RetrieveRequest(
-            where=filter.merge(where, flat),
+            where=filter.merge(filter.join(Where, conditions), flat),
             search_term=search_term,
             limit=limit,
             offset=offset,
@@ -328,9 +410,9 @@ class Client:
             include_parent=include_parent,
         )
         res = self._client.send("/device/retrieve", req, RetrieveResponse)
-        if not is_single:
+        if query is None and not one:
             return res.devices
-        query = next(v for v in (key, name, make, model, location) if v is not None)
+        target = req.where if query is None else query
         if ignore_not_found:
-            return one_or_none("Device", query, res.devices)
-        return one("Device", query, res.devices)
+            return util.one_or_none("Device", target, res.devices)
+        return util.one("Device", target, res.devices)
