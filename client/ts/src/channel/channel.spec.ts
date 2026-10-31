@@ -296,6 +296,16 @@ describe("Channel", () => {
       );
       expect(one.key).toEqual(a.key);
     });
+    test("retrieve by name with an include option", async () => {
+      const name = `qry_${id.create()}`;
+      const ch = await client.channels.create({
+        name,
+        virtual: true,
+        dataType: DataType.FLOAT32,
+      });
+      const retrieved = await client.channels.retrieve(name, channel.includeStatus());
+      expect(retrieved.key).toEqual(ch.key);
+    });
     test("retrieve by a name pattern", async () => {
       const prefix = `qry_${id.create()}`;
       const [a, b] = await client.channels.create([

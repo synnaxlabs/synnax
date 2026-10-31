@@ -133,6 +133,7 @@ export interface ClientConfig {
 
 type ListParts = query.ListParts<Condition, typeof retrieveMultiParamsZ>;
 type OneParts = query.OneParts<Condition, typeof retrieveMultiParamsZ>;
+type ShortcutOptions = query.ShortcutOptions<Condition, typeof retrieveMultiParamsZ>;
 
 export class Client extends query.Retriever<
   Condition,
@@ -218,6 +219,13 @@ export class Client extends query.Retriever<
 
   async retrieve(params: Key | RetrieveSingleParams): Promise<Device>;
 
+  /**
+   * Retrieves a device by key, with each include option applied. A device key is free
+   * text, so a device takes no name.
+   */
+  async retrieve(key: Key, ...options: ShortcutOptions): Promise<Device>;
+  async retrieve(keys: Key[], ...options: ShortcutOptions): Promise<Device[]>;
+
   async retrieve<
     Properties extends z.ZodType<record.Unknown>,
     Make extends z.ZodType<string>,
@@ -228,14 +236,12 @@ export class Client extends query.Retriever<
 
   async retrieve(params: RetrieveMultipleParams): Promise<Array<Device>>;
 
-  async retrieve(
-    ...args:
-      | ListParts
-      | OneParts
-      | [rawParams: Key | (RetrieveParams & { schemas?: DeviceSchemas })]
-  ): Promise<Device | Array<Device>> {
+  async retrieve(...args: unknown[]): Promise<Device | Array<Device>> {
     if (this.isParts(args)) return await this.retrieveParts(args);
-    const [rawParams] = args;
+    const [rawParams] = args as [
+      Key | Key[] | (RetrieveParams & { schemas?: DeviceSchemas }),
+    ];
+    if (Array.isArray(rawParams)) return await super.retrieve(rawParams);
     const params = typeof rawParams === "string" ? { key: rawParams } : rawParams;
     const { schemas, ...rest } = params;
     const isSingle = "key" in rest;

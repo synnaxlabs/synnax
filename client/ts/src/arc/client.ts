@@ -174,6 +174,7 @@ export class Client extends query.Retriever<
     super(cache, {
       name: "Arc",
       table: store,
+      names: { key: keyZ },
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) =>

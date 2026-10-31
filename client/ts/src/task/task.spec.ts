@@ -235,6 +235,17 @@ describe("Task", async () => {
       expect(retrieved.key).toBe(m.key);
     });
 
+    it("should retrieve a task by a bare name", async () => {
+      const name = `test-${id.create()}`;
+      const m = await testRack.createTask({
+        name,
+        config: { routingKey: "dog" },
+        type: "pagerduty_alert",
+      });
+      const retrieved = await client.tasks.retrieve(name);
+      expect(retrieved.key).toBe(m.key);
+    });
+
     it("should reject a name that two tasks share", async () => {
       const name = `test-${id.create()}`;
       for (let i = 0; i < 2; i++)
@@ -353,6 +364,12 @@ describe("Task", async () => {
         });
         expect(result).toHaveLength(2);
         expect(result.map((t) => t.key).sort()).toEqual(keysToQuery.sort());
+      });
+
+      it("should retrieve tasks by a list of keys", async () => {
+        const keys = testTasks.slice(0, 2).map((t) => t.key);
+        const result = await client.tasks.retrieve(keys);
+        expect(result.map((t) => t.key).sort()).toEqual(keys.sort());
       });
 
       it("should retrieve tasks by multiple names", async () => {

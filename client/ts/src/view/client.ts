@@ -69,6 +69,7 @@ export class Client extends query.Retriever<
     super(cache, {
       name: "view",
       table: store,
+      names: { key: keyZ },
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),

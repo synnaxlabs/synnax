@@ -197,6 +197,14 @@ describe("range", () => {
       expect(retrieved.length).toBeGreaterThan(0);
       expect(retrieved[0].name).toEqual(range.name);
     });
+    it("should cache a range retrieved by its name", async () => {
+      const range = await client.ranges.create({
+        name: `cached-${id.create()}`,
+        timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
+      });
+      await client.ranges.retrieve(range.name);
+      expect(expectLive(client.ranges.getCached(range.name)).key).toEqual(range.key);
+    });
     it("should retrieve ranges that overlap with the given time range", async () => {
       const timeRange = TimeStamp.hours(500).spanRange(TimeSpan.seconds(1));
       const range = await client.ranges.create({

@@ -259,6 +259,20 @@ describe("Device", async () => {
       expect(retrieved.make).toBe("ni");
     });
 
+    it("should retrieve a device by its key with an include option", async () => {
+      const d = await client.devices.create({
+        key: id.create(),
+        rack: testRack.key,
+        location: "Dev1",
+        name: "test",
+        make: "ni",
+        model: "dog",
+        properties: {},
+      });
+      const retrieved = await client.devices.retrieve(d.key, device.includeStatus());
+      expect(retrieved.key).toBe(d.key);
+    });
+
     it("should retrieve multiple devices by their keys", async () => {
       const d1 = await client.devices.create({
         key: id.create(),
@@ -284,6 +298,32 @@ describe("Device", async () => {
       expect(retrieved.length).toBe(2);
       expect(retrieved[0].key).toBe(d1.key);
       expect(retrieved[1].key).toBe(d2.key);
+    });
+
+    it("should retrieve multiple devices by a list of keys", async () => {
+      const created = await client.devices.create([
+        {
+          key: id.create(),
+          rack: testRack.key,
+          location: "Dev1",
+          name: "test1",
+          make: "ni",
+          model: "dog",
+          properties: {},
+        },
+        {
+          key: id.create(),
+          rack: testRack.key,
+          location: "Dev2",
+          name: "test2",
+          make: "ni",
+          model: "dog",
+          properties: {},
+        },
+      ]);
+      const keys = created.map((d) => d.key);
+      const retrieved = await client.devices.retrieve(keys);
+      expect(retrieved.map((d) => d.key).sort()).toEqual(keys.sort());
     });
 
     it("should treat a missing key as a non-match", async () => {

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type destructor, filter, type record, zod } from "@synnaxlabs/x";
+import { array, type destructor, filter, type record, zod } from "@synnaxlabs/x";
 import z from "zod";
 
 import { NotFoundError, ValidationError } from "@/errors";
@@ -105,6 +105,21 @@ export type OneParts<C extends filter.Condition<string>, Z extends z.ZodType> = 
   ? [never]
   : [...Array<Part<C, Z>>, filter.One];
 
+/** A name, for a retriever whose condition type has a name line. */
+export type Name<C extends filter.Condition<string>> =
+  C extends filter.Condition<string, infer W>
+    ? "name" extends keyof W
+      ? string
+      : never
+    : never;
+
+/** The include options that a key or a name takes. */
+export type ShortcutOptions<C extends filter.Condition<string>, Z extends z.ZodType> = [
+  C,
+] extends [never]
+  ? []
+  : Array<filter.Option<Extract<OptionField<Z>, `include${string}`>>>;
+
 /** True for params that are a bare record key rather than a query object. */
 const isBareKey = (params: unknown): params is record.Key =>
   typeof params === "string" || typeof params === "number";
@@ -159,6 +174,11 @@ export type RetrieverParams<
 > = ComposeParam<V, D> & {
   /** Resource name used in error messages, e.g. "range". */
   name: string;
+  /**
+   * Lets retrieve take a name, or a list of names, for an entity whose filter has a
+   * name line. A string that key rejects is a name.
+   */
+  names?: { key: z.ZodType<K> };
   /** The table owning this domain's record content. */
   table: Table<K, V>;
   /** The space answering every non-single query shape. */
@@ -235,6 +255,7 @@ export abstract class Retriever<
   SingleQuery extends Params = K,
 > {
   private readonly name: string;
+  private readonly names?: { key: z.ZodType<K> };
   private readonly singleSpace: Retrieves<Params, D | D[]>;
   private readonly requestSpace: Retrieves<Params, D | D[]>;
   private readonly trySingle: (params: unknown) => { query: SingleQuery } | null;
@@ -251,8 +272,10 @@ export abstract class Retriever<
       request,
       compose = (record: V) => record as unknown as D,
       single,
+      names,
     } = params;
     this.name = name;
+    this.names = names;
     const {
       schema,
       fetch,
@@ -332,6 +355,7 @@ export abstract class Retriever<
    * Routes params to their answer space, memoized per params object identity.
    * {@link Params} is readonly, so a given object always routes identically; repeat
    * reads of the same object skip schema validation entirely.
+   * @throws {ValidationError} if params are a name or a list of names.
    */
   private route(params: unknown): [Retrieves<Params, D | D[]>, Params] {
     const cacheable = typeof params === "object" && params !== null;
@@ -339,6 +363,11 @@ export abstract class Retriever<
       const held = this.routes.get(params);
       if (held !== undefined) return held;
     }
+    if (this.isName(params))
+      throw new ValidationError(
+        `${JSON.stringify(params)} is not a ${this.name} key. Select by name with ` +
+          `a request whose where has a name condition.`,
+      );
     const single = this.trySingle(params);
     const route: [Retrieves<Params, D | D[]>, Params] =
       single != null
@@ -353,18 +382,24 @@ export abstract class Retriever<
    * With no parts, reads every record. Serves the cache when the answer is fresh,
    * fetching otherwise.
    *
-   * Reads the record the params address, or every record matching them. A bare key is
-   * shorthand for `{ key }`; a bare key list is accepted by domains whose request
-   * schema unions in {@link keysRequestZ} or {@link keyListZ}.
+   * A key or a name reads one record, and a list of either reads a list. Each takes
+   * include options.
+   *
+   * Params read the record they address, or every record that matches them. A bare key
+   * list is accepted by domains whose request schema unions in {@link keysRequestZ} or
+   * {@link keyListZ}.
    * @throws {NotFoundError} if a single-record query matches nothing or the record was
-   * deleted, or if parts end with `one()` and no record matches.
-   * @throws {MultipleFoundError} if parts end with `one()` and more than one record
-   * matches.
+   * deleted, or if a name, a key with options, or parts that end with `one()` match no
+   * record.
+   * @throws {MultipleFoundError} if a name, or parts that end with `one()`, match more
+   * than one record.
    * @throws {ValidationError} if params contain `key` (or are a bare key) but fail the
    * single-query schema.
    */
   retrieve(...parts: OneParts<C, Z>): Promise<D>;
   retrieve(...parts: ListParts<C, Z>): Promise<D[]>;
+  retrieve(key: K | Name<C>, ...options: ShortcutOptions<C, Z>): Promise<D>;
+  retrieve(keys: K[] | Array<Name<C>>, ...options: ShortcutOptions<C, Z>): Promise<D[]>;
   retrieve(params: K | SingleInput, options?: FetchOptions): Promise<D>;
   retrieve(params: K[] | RequestInput<Z>, options?: FetchOptions): Promise<D[]>;
   async retrieve(...args: unknown[]): Promise<D | D[]> {
@@ -374,33 +409,69 @@ export abstract class Retriever<
     return await space.retrieve(query, options);
   }
 
-  /** @returns whether args are the parts of a retrieve, rather than params. */
-  protected isParts(args: readonly unknown[]): args is Array<Part<C, Z> | filter.One> {
-    return args.length === 0 || filter.isPart(args[0]);
+  /**
+   * @returns whether retrieve reads args as parts. Conditions and options are parts,
+   * and so are a name and a key or a name with include options.
+   */
+  protected isParts(args: readonly unknown[]): boolean {
+    if (args.length === 0 || filter.isPart(args[0])) return true;
+    return filter.isPart(args[1]) || this.isName(args[0]);
   }
 
   /**
-   * Reads the records that parts select, or one record when parts end with `one()`.
-   * A subclass that overrides retrieve passes its parts here.
+   * Reads the records that args select, when {@link isParts} accepts them. A key, a
+   * name, or parts that end with `one()` read one record. A subclass that overrides
+   * retrieve passes its args here.
    */
-  protected async retrieveParts(
-    parts: Array<Part<C, Z> | filter.One>,
-  ): Promise<D | D[]> {
-    const one = parts.at(-1) instanceof filter.One;
-    const request = filter.toRequest(
-      (one ? parts.slice(0, -1) : parts) as Array<Part<C, Z>>,
+  protected async retrieveParts(args: readonly unknown[]): Promise<D | D[]> {
+    const [first, ...options] = args;
+    if (args.length > 0 && !filter.isPart(first)) {
+      const line = this.isName(first) ? "name" : "key";
+      const one = !Array.isArray(first);
+      const request = {
+        ...filter.toRequest(options as filter.Option[]),
+        where: { [line]: one ? { eq: first } : { in: first } },
+      };
+      return await this.retrieveRequest(request, one, first);
+    }
+    const one = args.at(-1) instanceof filter.One;
+    const parts = (one ? args.slice(0, -1) : args) as Array<Part<C, Z>>;
+    const request = filter.toRequest(parts);
+    return await this.retrieveRequest(request, one, request);
+  }
+
+  /** @returns whether value is a name, or a non-empty list of names. */
+  private isName(value: unknown): boolean {
+    if (this.names == null) return false;
+    const { key } = this.names;
+    const values = array.toArray(value);
+    return (
+      values.length > 0 &&
+      values.every((v) => typeof v === "string" && !key.safeParse(v).success)
     );
+  }
+
+  /**
+   * @returns the records that request selects, or the one record when one is true.
+   * Errors name the record by params.
+   */
+  private async retrieveRequest(
+    request: Record<string, unknown>,
+    one: boolean,
+    params: unknown,
+  ): Promise<D | D[]> {
     const records = (await this.requestSpace.retrieve(
       this.normalizeRequest(request),
     )) as D[];
     if (!one) return records;
-    checkForMultipleOrNoResults(this.name, request, records, true);
+    checkForMultipleOrNoResults(this.name, params, records, true);
     return records[0];
   }
 
   /**
    * Subscribes to changes in the cached answer to the given query. The handler fires on
    * every change or deletion. Returns a destructor that unsubscribes.
+   * @throws {ValidationError} if params are a name or a list of names.
    */
   onChange(params: K | SingleInput, handler: ChangeHandler<D>): destructor.Destructor;
   onChange(
@@ -418,6 +489,7 @@ export abstract class Retriever<
   /**
    * Returns the cached answer to the given query without touching the network, or
    * undefined when nothing is cached. May be stale for unsubscribed queries.
+   * @throws {ValidationError} if params are a name or a list of names.
    */
   getCached(params: K | SingleInput): Cached<D> | undefined;
   getCached(params: K[] | RequestInput<Z>): Cached<D[]> | undefined;

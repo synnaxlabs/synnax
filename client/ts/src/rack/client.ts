@@ -152,6 +152,7 @@ export class Client extends query.Retriever<
     super(cache, {
       name: "rack",
       table: store,
+      names: { key: keyZ },
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => (await this.fetchThrough(req)).map(stripStatus),
