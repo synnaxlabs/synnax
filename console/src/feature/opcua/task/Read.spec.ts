@@ -381,7 +381,7 @@ describe("Read", () => {
     );
   });
 
-  it("should not reuse the index of an On change channel for a sampled task", async () => {
+  it("should reject an On change channel in a sampled task before it creates an index", async () => {
     const dev = await createOPCDevice(client);
     const ch = createReadChannel();
     const onChange = await createDraft(client, {
@@ -422,6 +422,9 @@ describe("Read", () => {
       schemas: OPCUA.Device.SCHEMAS,
     });
     expect(updated.properties.read.indexes).not.toContain(existing.index);
+    expect(
+      await client.channels.retrieve([`${dev.name}_time_for_OPC_UA_read_task`]),
+    ).toHaveLength(0);
   });
 
   it("should show history backfill in place of array sampling and NaN fill in On change mode", async () => {

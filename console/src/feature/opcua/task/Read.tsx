@@ -202,19 +202,16 @@ const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({
 const channelName = ({ name, nodeName }: ReadChannel) =>
   primitive.isNonZero(name) ? name : channel.escapeInvalidName(nodeName, true);
 
-interface DetermineIndexChannelParams {
-  client: Synnax;
-  config: ReadConfig;
-  device: Device;
-  taskName: string;
-}
-
-const determineIndexChannel = async ({
-  client,
-  config,
-  device,
-  taskName,
-}: DetermineIndexChannelParams): Promise<channel.Key> => {
+/**
+ * Returns the index that the channels of a sampled task share: the channel of its index
+ * node, or else the shared index of a channel that the device already binds. Returns
+ * null when the task needs a new index.
+ */
+const findSharedIndex = async (
+  client: Synnax,
+  config: ReadConfig,
+  device: Device,
+): Promise<channel.Key | null> => {
   const indexChannelInTaskConfig = config.channels.find(({ isIndex }) => isIndex);
   if (indexChannelInTaskConfig) {
     const existingIndex = getChannel(device.properties, indexChannelInTaskConfig);
@@ -227,23 +224,14 @@ const determineIndexChannel = async ({
           );
         if (!device.properties.read.indexes.includes(key))
           device.properties.read.indexes.push(key);
-        setChannel(device.properties, indexChannelInTaskConfig, key);
         return key;
       } catch (e) {
         if (!NotFoundError.matches(e)) throw errors.fromUnknown(e);
       }
-    const { key } = await client.channels.create({
-      name: channel.escapeInvalidName(indexChannelInTaskConfig.nodeName, true),
-      dataType: "timestamp",
-      isIndex: true,
-    });
-    device.properties.read.indexes.push(key);
-    setChannel(device.properties, indexChannelInTaskConfig, key);
-    return key;
+    return null;
   }
 
-  // if one of the channels already exists on an index that sampled tasks share, use
-  // that index. The index of an On change channel belongs to that channel alone.
+  // The index of an On change channel belongs to that channel alone.
   for (const ch of config.channels) {
     const existingChannelKey = getChannel(device.properties, ch);
     if (existingChannelKey)
@@ -254,33 +242,46 @@ const determineIndexChannel = async ({
         if (!NotFoundError.matches(e)) throw errors.fromUnknown(e);
       }
   }
+  return null;
+};
 
-  // there is not an index channel in the task config, so just create a new channel
-  const idxCh = await client.channels.create({
-    name: `${channel.escapeInvalidName(device.name)}_time_for_${channel.escapeInvalidName(taskName)}`,
+/** Creates the index of a sampled task, as the channel of its index node if it has one. */
+const createSharedIndex = async (
+  client: Synnax,
+  config: ReadConfig,
+  device: Device,
+  taskName: string,
+): Promise<channel.Key> => {
+  const indexChannelInTaskConfig = config.channels.find(({ isIndex }) => isIndex);
+  const { key } = await client.channels.create({
+    name:
+      indexChannelInTaskConfig != null
+        ? channel.escapeInvalidName(indexChannelInTaskConfig.nodeName, true)
+        : `${channel.escapeInvalidName(device.name)}_time_for_${channel.escapeInvalidName(taskName)}`,
     dataType: "timestamp",
     isIndex: true,
   });
-  device.properties.read.indexes.push(idxCh.key);
-  return idxCh.key;
+  device.properties.read.indexes.push(key);
+  if (indexChannelInTaskConfig != null)
+    setChannel(device.properties, indexChannelInTaskConfig, key);
+  return key;
 };
 
-/** Binds each channel of a sampled task to a channel on the index that they share. */
+/**
+ * Binds each channel of a sampled task to a channel on the index that they share.
+ * Checks each channel that exists before it creates anything, so a rejected deploy
+ * leaves no new channels.
+ */
 const bindSharedIndex = async (
   client: Synnax,
   config: ReadConfig,
   device: Device,
   name: string,
 ): Promise<void> => {
-  const index = await determineIndexChannel({
-    client,
-    device,
-    config,
-    taskName: name,
-  });
-
+  const index = await findSharedIndex(client, config, device);
   const toCreate: ReadChannel[] = [];
   for (const ch of config.channels) {
+    if (ch.isIndex) continue;
     const exKey = getChannel(device.properties, ch);
     if (!exKey) {
       toCreate.push(ch);
@@ -288,6 +289,7 @@ const bindSharedIndex = async (
     }
     try {
       const rCh = await client.channels.retrieve(exKey);
+      // A channel that exists is never on a new index.
       if (rCh.index !== index)
         throw new Error(
           `Channel ${ch.nodeName} already exists as ${rCh.name}. Move all channels from ${name} to the task that reads ${rCh.name}.`,
@@ -297,9 +299,14 @@ const bindSharedIndex = async (
       else throw errors.fromUnknown(e);
     }
   }
+  const shared = index ?? (await createSharedIndex(client, config, device, name));
   if (toCreate.length === 0) return;
   const channels = await client.channels.create(
-    toCreate.map((ch) => ({ dataType: ch.dataType, name: channelName(ch), index })),
+    toCreate.map((ch) => ({
+      dataType: ch.dataType,
+      name: channelName(ch),
+      index: shared,
+    })),
   );
   channels.forEach(({ key }, i) => setChannel(device.properties, toCreate[i], key));
 };
