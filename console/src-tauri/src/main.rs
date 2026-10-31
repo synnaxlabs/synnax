@@ -13,6 +13,7 @@
 #[cfg(feature = "desktop")]
 mod install;
 mod keychain;
+mod oidc;
 #[cfg(feature = "desktop")]
 mod supervisor;
 
@@ -40,12 +41,16 @@ fn main() {
         keychain::keychain_get,
         keychain::keychain_set,
         keychain::keychain_delete,
+        oidc::oidc_listen,
+        oidc::oidc_wait,
     ]);
     #[cfg(feature = "desktop")]
     let builder = builder.invoke_handler(tauri::generate_handler![
         keychain::keychain_get,
         keychain::keychain_set,
         keychain::keychain_delete,
+        oidc::oidc_listen,
+        oidc::oidc_wait,
         supervisor::commands::supervisor_status,
         supervisor::commands::supervisor_history,
         supervisor::commands::supervisor_restart,
@@ -59,6 +64,7 @@ fn main() {
         install::install_info,
     ]);
     builder
+        .manage(oidc::Loopback::default())
         .plugin(prevent)
         .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
             if let Some(win) = app.get_webview_window("main") {

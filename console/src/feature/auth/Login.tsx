@@ -19,7 +19,8 @@ import { type Input } from "@synnaxlabs/lyra/input";
 import { Status } from "@synnaxlabs/lyra/status";
 import { type Triggers } from "@synnaxlabs/lyra/triggers";
 import { Synnax } from "@synnaxlabs/pluto";
-import { type ReactElement, useState } from "react";
+import { errors } from "@synnaxlabs/x";
+import { type ReactElement, useEffect, useRef, useState } from "react";
 import { z } from "zod";
 
 import { Shell } from "@/feature/shell";
@@ -49,9 +50,17 @@ const PASSWORD_INPUT_PROPS: Partial<Input.TextProps> = {
   size: "large",
 };
 
+interface Accepted {
+  password: boolean;
+  oidc: boolean;
+  providers: auth.OIDCLogin[];
+}
+
+const DEFAULT_ACCEPTED: Accepted = { password: true, oidc: false, providers: [] };
+
 // An unreachable Core, or one older than the methods endpoint, keeps the password
 // form: the connection status reports the first, and the second accepts passwords.
-const usePasswordAccepted = (core?: auth.TokenlessParams): boolean => {
+const useAccepted = (core?: auth.TokenlessParams): Accepted => {
   const host = core?.host;
   const port = core?.port;
   const secure = core?.secure;
@@ -59,17 +68,48 @@ const usePasswordAccepted = (core?: auth.TokenlessParams): boolean => {
     host == null || port == null
       ? null
       : auth.createTokenlessClient({ host, port, secure });
-  const [accepted, setAccepted] = useState(true);
+  const [accepted, setAccepted] = useState<Accepted>(DEFAULT_ACCEPTED);
+  const handleError = Status.useErrorHandler();
   useAsyncEffect(
     async (signal) => {
-      setAccepted(true);
+      setAccepted(DEFAULT_ACCEPTED);
       if (tokenless == null) return;
       const methods = await auth.retrieveMethods(tokenless).catch(() => null);
-      if (methods != null && !signal.aborted) setAccepted(methods.includes("password"));
+      if (methods == null || signal.aborted) return;
+      const oidc = methods.includes("oidc");
+      const password = methods.includes("password");
+      setAccepted({ password, oidc, providers: [] });
+      if (!oidc) return;
+      handleError(async () => {
+        const providers = await auth.retrieveProviders(tokenless);
+        if (!signal.aborted) setAccepted({ password, oidc, providers });
+      }, "Failed to retrieve the login providers");
     },
     [host, port, secure],
   );
   return accepted;
+};
+
+/**
+ * Finishes a browser login the provider redirected back from, before any guard chooses
+ * between the login surface and a session the browser already holds.
+ */
+export const useCompleteBrowserLogin = (): void => {
+  const cores = Session.Core.useSelectMany();
+  const servingCore = Core.detectConnection();
+  const dispatch = Session.useDispatch();
+  const handleError = Status.useErrorHandler();
+  useEffect(() => {
+    handleError(() => {
+      const completed = Core.completeBrowserLogin();
+      if (completed == null) return;
+      const core = cores.find((c) => c.key === completed.core) ?? servingCore;
+      if (core == null) return;
+      const oidc = completed.credentials;
+      dispatch(Session.Core.set({ ...core, username: "", password: "", oidc }));
+      dispatch(Session.Core.select(core.key));
+    }, "Failed to log in");
+  }, []);
 };
 
 /**
@@ -85,11 +125,56 @@ export const Login = (): ReactElement => {
   const [selectedKey, setSelectedKey] = useState<string | undefined>(activeKey);
   const selectedCore = Session.Core.useSelectState(selectedKey);
   const dispatch = Session.useDispatch();
+  const store = Session.useStore();
   const [step, setStep] = useState<Step>(() =>
     servingCore != null || activeKey != null ? "login" : "cores",
   );
   const target = servingCore ?? selectedCore;
-  const passwordAccepted = usePasswordAccepted(target);
+  const {
+    password: passwordAccepted,
+    oidc: oidcAccepted,
+    providers,
+  } = useAccepted(target);
+  const handleError = Status.useErrorHandler();
+  // a second login would replace the first one's loopback listener
+  const [pendingProvider, setPendingProvider] = useState<string>();
+  const mounted = useRef(false);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+
+  const handleProvider = (login: auth.OIDCLogin): void => {
+    const core = servingCore ?? selectedCore;
+    if (core == null) return;
+    setPendingProvider(login.provider);
+    handleError(async () => {
+      let failure: Error | undefined;
+      try {
+        if (Session.Runtime.ENGINE !== "tauri")
+          await Core.beginBrowserLogin(core.key, login);
+        else await Core.loginDesktop(core, login);
+      } catch (e) {
+        failure = errors.fromUnknown(e);
+      }
+      setPendingProvider(undefined);
+      if (failure != null) throw failure;
+      if (Session.Runtime.ENGINE !== "tauri") return;
+      const current = Session.Core.selectState(store.getState(), core.key);
+      // the token is saved under the address the login started with
+      if (
+        current?.host !== core.host ||
+        current.port !== core.port ||
+        current.secure !== core.secure
+      )
+        throw new Error("The Core's address changed during the login. Log in again.");
+      // a user who left the login surface has moved on
+      if (mounted.current)
+        dispatch(Session.Core.recordLogin({ key: core.key, at: Date.now() }));
+    }, `Failed to log in with ${login.provider}`);
+  };
 
   const methods = Form.use<typeof credentialsZ>({
     schema: credentialsZ,
@@ -104,7 +189,7 @@ export const Login = (): ReactElement => {
     // A same-credentials resubmit leaves the connection params untouched, so the
     // provider never swaps the client; nudge the existing one to reconnect.
     if (client != null && key === activeKey) client.reauthenticate(credentials);
-    dispatch(Session.Core.set({ ...coreToConnect, ...credentials }));
+    dispatch(Session.Core.set({ ...coreToConnect, ...credentials, oidc: undefined }));
     dispatch(Session.Core.select(key));
   };
 
@@ -182,11 +267,37 @@ export const Login = (): ReactElement => {
                   </Flex.Box>
                 </>
               ) : (
+                !oidcAccepted && (
+                  <Status.Summary
+                    variant="warning"
+                    message="Password login is off"
+                    description="This Core does not accept passwords. Ask an administrator to add password to its accepted login methods."
+                  />
+                )
+              )}
+              {providers.length > 0 && !window.isSecureContext && (
                 <Status.Summary
                   variant="warning"
-                  message="Password login is off"
-                  description="This Core does not accept passwords. Ask an administrator to add password to its accepted login methods."
+                  message="Provider login needs HTTPS"
+                  description="The browser can only log in through a provider on a page served over HTTPS. Open the Console over HTTPS, or use the desktop Console."
                 />
+              )}
+              {providers.length > 0 && window.isSecureContext && (
+                <Flex.Box y gap="small" full="x">
+                  {providers.map((login) => (
+                    <Button.Button
+                      key={login.provider}
+                      onClick={() => handleProvider(login)}
+                      disabled={pendingProvider != null}
+                      variant="outlined"
+                      size="large"
+                      full="x"
+                      justify="center"
+                    >
+                      Log in with {login.provider}
+                    </Button.Button>
+                  ))}
+                </Flex.Box>
               )}
             </Flex.Box>
           </Form.Form>
