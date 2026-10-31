@@ -175,6 +175,28 @@ class TestOPCReadTask:
         retrieved = client.tasks.retrieve(key=created.key)
         assert sy.opcua.ReadTask(retrieved).config.nan_fill_enabled is True
 
+    def test_mode_defaults_to_sampled(self) -> None:
+        """Should read in sampled mode without backfill by default."""
+        task = sy.opcua.ReadTask(name="test-task", device="some-device-key")
+        assert task.config.mode == "sampled"
+        assert task.config.history_backfill_enabled is False
+
+    def test_on_change_mode_round_trip(self, client: sy.Synnax) -> None:
+        """Should keep the On change mode and backfill through a create and
+        retrieve."""
+        task = sy.opcua.ReadTask(
+            name="test-task",
+            device="some-device-key",
+            mode="on_change",
+            history_backfill_enabled=True,
+        )
+        created = client.tasks.create(
+            name="test-task", type="opc_read", config=task.config
+        )
+        retrieved = sy.opcua.ReadTask(client.tasks.retrieve(key=created.key))
+        assert retrieved.config.mode == "on_change"
+        assert retrieved.config.history_backfill_enabled is True
+
     def test_update_device_properties_maps_fields(self, client: sy.Synnax) -> None:
         """Should map a field channel by node and field, apart from node channels."""
         rack = client.racks.retrieve_embedded_rack()

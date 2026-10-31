@@ -2,7 +2,8 @@
 layout: "@/layouts/Reference.astro"
 title: "OPC UA read task"
 description:
-  "Read the values of OPC UA nodes at a fixed rate and record them in channels."
+  "Read the values of OPC UA nodes at a fixed rate or on each change, and record them in
+  channels."
 ---
 
 import { Divider } from "@synnaxlabs/lyra/divider";
@@ -14,9 +15,10 @@ import { Problem } from "@/components/problem";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
-An OPC UA read task reads the values of nodes on a server at a fixed rate and records
-them in channels. For example, it can record the tank pressures and pump speeds of a PLC
-50 times a second. The Driver times each read in software.
+An OPC UA read task reads the values of nodes on a server and records them in channels.
+In sampled mode, it reads at a fixed rate. For example, it can record the tank pressures
+and pump speeds of a PLC 50 times a second. The Driver times each read in software. In
+[On change mode](#read-on-change), the server sends each change of a node.
 
 Before you start, you need a
 [connected OPC UA server](/reference/hardware/opc-ua/connect-server).
@@ -204,6 +206,66 @@ mode.
 
 <Divider.Divider x />
 
+## Read on change
+
+In **On change** mode, the server sends the task each change of a node, with the time of
+the change. Use it for values that change at irregular times, such as setpoints, states,
+and counters. The task records only the changes.
+
+1. Set **Mode** to **On change**.
+2. Set **Sample rate**: how many times a second the server checks each node.
+3. Set **Stream rate**: how many times a second the server sends the changes.
+
+Each channel records a change at its source time from the server, or at the server time
+when the node has no source time. Because each node changes at its own times, each
+channel needs an index of its own. The Console creates an index named `<channel>_time`
+for each channel. A channel that a sampled task records on a shared index cannot move to
+an On change task.
+
+When the task starts, the server sends the current value of each node. The task records
+a value only when its time is after the last one on the index, so it does not record a
+stored value again. It drops a value with the same time as the last one without a
+warning, and shows "Rejected values with old timestamps" for an earlier one.
+
+A server can check or send less often than the task asks. The task then keeps running at
+the intervals of the server, and its "Task running" status names those intervals.
+
+On change mode cannot read arrays, and a channel cannot be the index. **NaN fill** does
+not apply, so the task skips each Bad value.
+
+In Python, set `mode` to `"on_change"`:
+
+```python
+time = client.channels.create(
+    name="valve_1_state_time", is_index=True, data_type=sy.DataType.TIMESTAMP
+)
+state = client.channels.create(
+    name="valve_1_state", index=time.key, data_type=sy.DataType.UINT8
+)
+task = opcua.ReadTask(
+    name="Line 1 PLC states",
+    device=server.key,
+    mode="on_change",
+    sample_rate=10,
+    stream_rate=10,
+    channels=[opcua.ReadChannel(channel=state.key, node_id="NS=2;S=Valve1.State")],
+)
+```
+
+### Fill gaps from history
+
+Turn on **History backfill** to fill the gap of a stop or an outage. Each time the task
+subscribes, it reads the history of each node from the last stored value to the time it
+subscribed. It records the changes after that time when the history is done. The node
+must allow history reads on the server. The task reads no history for a channel that
+stores nothing yet.
+
+The task reads at most 1,000 values of each node at a time, so a long gap fills over
+some reads. If the server refuses the read, the task shows "Failed to read the history
+of some nodes" and records the changes from that time.
+
+<Divider.Divider x />
+
 ## Read structure fields
 
 Some nodes hold a structure, such as a motor with a speed, a state, and a position. A
@@ -236,7 +298,9 @@ request. To use the time from the server instead:
 2. Turn on **Use as index** for that channel.
 
 The Driver then uses the value of that node as the timestamp of every channel in the
-task. Only one channel can be the index.
+task. Only one channel can be the index. The task records a read only when the time is
+after the last one on the index. It drops a read that repeats the last time without a
+warning, and shows "Rejected values with old timestamps" for an earlier time.
 
 <Divider.Divider x />
 
@@ -265,20 +329,26 @@ read data" and tries again at most 5 seconds apart. A task can also start while 
 server is off. Before each new connection, the task gets the connection settings of the
 server again, so a corrected endpoint or password takes effect without a restart.
 
+In On change mode, the server sends the task a message at least every 2.5 seconds, so
+the task also connects again when these messages stop. With
+[history backfill](#fill-gaps-from-history), the task fills the gap of the outage.
+
 <Divider.Divider x />
 
 ## Task options
 
-| Console label  | Python field           | Default                 | Notes                                                                           |
-| -------------- | ---------------------- | ----------------------- | ------------------------------------------------------------------------------- |
-| OPC UA server  | `device`               |                         | The key of the server.                                                          |
-| Sample rate    | `sample_rate`          | 50 Hz (10 Hz in Python) | Reads per second. At most 10,000.                                               |
-| Stream rate    | `stream_rate`          | 25 Hz (5 Hz in Python)  | Frames per second sent to the Core. At most the sample rate. Not in array mode. |
-| Array sampling | `array_mode`           | Off                     | See [read arrays](#read-arrays).                                                |
-| Array size     | `array_size`           | 1                       | Values in each array node.                                                      |
-| NaN fill       | `nan_fill_enabled`     | Off                     | See [bad values](#bad-values).                                                  |
-| Data saving    | `data_saving_disabled` | On                      | See [data saving](/reference/hardware/tasks#data-saving).                       |
-| Auto start     | `auto_start`           | Off                     | Starts the task each time the Driver starts.                                    |
+| Console label    | Python field               | Default                 | Notes                                                                                  |
+| ---------------- | -------------------------- | ----------------------- | -------------------------------------------------------------------------------------- |
+| OPC UA server    | `device`                   |                         | The key of the server.                                                                 |
+| Mode             | `mode`                     | Sampled                 | `sampled` or `on_change`. See [read on change](#read-on-change).                       |
+| Sample rate      | `sample_rate`              | 50 Hz (10 Hz in Python) | Reads per second, or checks of each node per second in On change mode. At most 10,000. |
+| Stream rate      | `stream_rate`              | 25 Hz (5 Hz in Python)  | Frames per second sent to the Core. At most the sample rate. Not in array mode.        |
+| Array sampling   | `array_mode`               | Off                     | See [read arrays](#read-arrays). Not in On change mode.                                |
+| Array size       | `array_size`               | 1                       | Values in each array node.                                                             |
+| NaN fill         | `nan_fill_enabled`         | Off                     | See [bad values](#bad-values). Not in On change mode.                                  |
+| History backfill | `history_backfill_enabled` | Off                     | See [fill gaps from history](#fill-gaps-from-history). Only in On change mode.         |
+| Data saving      | `data_saving_disabled`     | On                      | See [data saving](/reference/hardware/tasks#data-saving).                              |
+| Auto start       | `auto_start`               | Off                     | Starts the task each time the Driver starts.                                           |
 
 TypeScript uses the same fields in camel case, such as `sampleRate`. See
 [timing](/reference/hardware/tasks#timing). When a task has more nodes than the server
@@ -409,12 +479,71 @@ Set **Array size** to the length of the array.
 <Problem.Item message={"Channel ... already exists as ..."}>
 <Problem.Cause>
 
-Another task already reads the node into that channel.
+Another task already reads the node into that channel. For an On change task, the
+message says that the channel shares an index with other channels.
 
 </Problem.Cause>
 <Problem.Fix>
 
-Move the channels to one task.
+Move the channels to one task, or set the other task to On change mode.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"Failed to subscribe to some nodes"}>
+<Problem.Cause>
+
+The server does not monitor a node of an On change task, such as a node that does not
+exist. The description names each channel and the reason. The task records the other
+nodes.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Drag the node from the **Browser** again.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"Rejected values with old timestamps"}>
+<Problem.Cause>
+
+A value has a time before the last one on its index, so the task did not record it. For
+example, the clock of the server went back, or another task writes to the same index.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Check the clock of the server, and make sure that only one task writes to the index.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"The server samples each node every ... and sends changes every ..."}>
+<Problem.Cause>
+
+The server checks or sends the nodes of an On change task less often than the task asks.
+The task keeps running at the intervals of the server.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Set **Sample rate** and **Stream rate** to rates that the server accepts.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"Failed to read the history of some nodes"}>
+<Problem.Cause>
+
+The server refused to read the history of a node for
+[history backfill](#fill-gaps-from-history). The server may not keep the history of the
+node.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Turn on history for the node on the server, or turn off **History backfill**.
 
 </Problem.Fix>
 </Problem.Item>

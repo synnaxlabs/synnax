@@ -600,12 +600,12 @@ var _ = Describe("Iterator Behavior", func() {
 						Expect(got).To(Equal(expected))
 					},
 					Entry("forward", true, []telem.TimeRange{
-						telem.SecondTS.Range(8 * telem.SecondTS),
+						(4 * telem.SecondTS).Range(8 * telem.SecondTS),
 						(8 * telem.SecondTS).Range(12 * telem.SecondTS),
 						(12 * telem.SecondTS).Range(12*telem.SecondTS + 1),
 					}),
 					Entry("backward", false, []telem.TimeRange{
-						telem.SecondTS.Range(6 * telem.SecondTS),
+						(4 * telem.SecondTS).Range(6 * telem.SecondTS),
 						(6 * telem.SecondTS).Range(10 * telem.SecondTS),
 						(10 * telem.SecondTS).Range(12*telem.SecondTS + 1),
 					}),

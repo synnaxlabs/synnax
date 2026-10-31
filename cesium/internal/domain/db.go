@@ -50,6 +50,7 @@ type DB struct {
 	fc            *fileController
 	closed        *atomic.Bool
 	resourceCount *atomic.Int64
+	writerDomains *writerDomains
 	cfg           Config
 }
 
@@ -152,6 +153,7 @@ func Open(configs ...Config) (*DB, error) {
 		fc:            controller,
 		closed:        &atomic.Bool{},
 		resourceCount: &atomic.Int64{},
+		writerDomains: &writerDomains{domains: make(map[*Writer]telem.TimeRange)},
 	}, nil
 }
 

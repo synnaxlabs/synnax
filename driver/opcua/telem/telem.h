@@ -73,6 +73,9 @@ std::pair<size_t, x::errors::Error> ua_array_write_to_series(
 /// timestamp holds.
 std::pair<x::telem::TimeStamp, x::errors::Error> to_timestamp(UA_DateTime t);
 
+/// @returns ts as a DateTime, which counts 100 ns intervals from 1601.
+UA_DateTime to_date_time(x::telem::TimeStamp ts);
+
 /// @returns the value as JSON text, where an array is a JSON array of its elements and
 /// a structure is an object of its members.
 /// @returns x::errors::VALIDATION if the value does not encode.

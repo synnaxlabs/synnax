@@ -9,12 +9,13 @@
 
 import "@/feature/opcua/task/Task.css";
 
-import { channel, NotFoundError, type Synnax } from "@synnaxlabs/client";
+import { channel, NotFoundError, type opcua, type Synnax } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
-import { caseconv, DataType, errors, primitive } from "@synnaxlabs/x";
+import { Select as PSelect } from "@synnaxlabs/lyra/select";
+import { caseconv, DataType, errors, primitive, record } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 
 import { Select } from "@/feature/opcua/device/Select";
@@ -78,23 +79,61 @@ const IsIndexItem = ({ path }: IsIndexItemProps): ReactElement => {
 
 const isIndexItem = Component.renderProp(IsIndexItem);
 
+const HISTORY_BACKFILL_INPUT_PROPS = {
+  tooltip: "Fill the gap of a stop or an outage from the history of each node",
+} as const;
+
+const MODE_NAMES: Record<opcua.ReadMode, string> = {
+  sampled: "Sampled",
+  on_change: "On change",
+};
+
+const ModeButtons = (p: PSelect.ButtonsProps<opcua.ReadMode>) => (
+  <PSelect.Buttons {...p}>
+    {record.entries(MODE_NAMES).map(([mode, name]) => (
+      <PSelect.Item key={mode} itemKey={mode}>
+        {name}
+      </PSelect.Item>
+    ))}
+  </PSelect.Buttons>
+);
+
+const renderMode = Component.renderProp(ModeButtons);
+
 const Properties = (): ReactElement => {
   const arrayMode = PForm.useFieldValue<boolean>("config.arrayMode");
+  const onChangeMode =
+    PForm.useFieldValue<opcua.ReadMode>("config.mode") === "on_change";
   return (
     <>
       <Select />
       <Flex.Box x>
-        <Task.Fields.SampleRate />
-        <PForm.SwitchField
-          label="Array sampling"
-          path="config.arrayMode"
-          onChange={(value, { set }) => {
-            // always set the array size to 1 for either the default in array mode or an
-            // array size of 1 in stream mode.
+        <PForm.Field<opcua.ReadMode>
+          path="config.mode"
+          label="Mode"
+          onChange={(mode, { get, set }) => {
+            // On change mode reads each value at its own time, never as an array.
+            if (mode !== "on_change" || !get<boolean>("config.arrayMode").value) return;
+            set("config.arrayMode", false);
             set("config.arraySize", 1);
-            if (!value) set("config.streamRate", 25);
+            set("config.streamRate", 25);
           }}
-        />
+        >
+          {renderMode}
+        </PForm.Field>
+        <Task.Fields.SampleRate />
+        {!onChangeMode && (
+          <PForm.SwitchField
+            label="Array sampling"
+            path="config.arrayMode"
+            onChange={(value, { set }) => {
+              // always set the array size to 1 for either the default in array mode or
+              // an array size of 1 in stream mode.
+              set("config.arraySize", 1);
+              if (!value) set("config.streamRate", 25);
+            }}
+          />
+        )}
         {arrayMode ? (
           <PForm.NumericField
             label="Array size"
@@ -106,7 +145,15 @@ const Properties = (): ReactElement => {
         )}
         <Task.Fields.DataSaving />
         <Task.Fields.AutoStart />
-        <Task.Fields.NaNFill />
+        {onChangeMode ? (
+          <PForm.SwitchField
+            label="History backfill"
+            path="config.historyBackfillEnabled"
+            inputProps={HISTORY_BACKFILL_INPUT_PROPS}
+          />
+        ) : (
+          <Task.Fields.NaNFill />
+        )}
       </Flex.Box>
     </>
   );
@@ -154,19 +201,19 @@ const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({
   return { name: "OPC UA read task", type: READ_TYPE, config: cfg };
 };
 
-interface DetermineIndexChannelParams {
-  client: Synnax;
-  config: ReadConfig;
-  device: Device;
-  taskName: string;
-}
+const channelName = ({ name, nodeName }: ReadChannel) =>
+  primitive.isNonZero(name) ? name : channel.escapeInvalidName(nodeName, true);
 
-const determineIndexChannel = async ({
-  client,
-  config,
-  device,
-  taskName,
-}: DetermineIndexChannelParams): Promise<channel.Key> => {
+/**
+ * Returns the index that the channels of a sampled task share: the channel of its index
+ * node, or else the shared index of a channel that the device already binds. Returns
+ * null when the task needs a new index.
+ */
+const findSharedIndex = async (
+  client: Synnax,
+  config: ReadConfig,
+  device: Device,
+): Promise<channel.Key | null> => {
   const indexChannelInTaskConfig = config.channels.find(({ isIndex }) => isIndex);
   if (indexChannelInTaskConfig) {
     const existingIndex = getChannel(device.properties, indexChannelInTaskConfig);
@@ -179,43 +226,136 @@ const determineIndexChannel = async ({
           );
         if (!device.properties.read.indexes.includes(key))
           device.properties.read.indexes.push(key);
-        setChannel(device.properties, indexChannelInTaskConfig, key);
         return key;
       } catch (e) {
         if (!NotFoundError.matches(e)) throw errors.fromUnknown(e);
       }
-    const { key } = await client.channels.create({
-      name: channel.escapeInvalidName(indexChannelInTaskConfig.nodeName, true),
-      dataType: "timestamp",
-      isIndex: true,
-    });
-    device.properties.read.indexes.push(key);
-    setChannel(device.properties, indexChannelInTaskConfig, key);
-    return key;
+    return null;
   }
 
-  // if one of the channels already exists, just use that channels index channel.
+  // The index of an On change channel belongs to that channel alone.
   for (const ch of config.channels) {
     const existingChannelKey = getChannel(device.properties, ch);
     if (existingChannelKey)
       try {
         const { index } = await client.channels.retrieve(existingChannelKey);
-        if (!device.properties.read.indexes.includes(index))
-          device.properties.read.indexes.push(index);
-        return index;
+        if (device.properties.read.indexes.includes(index)) return index;
       } catch (e) {
         if (!NotFoundError.matches(e)) throw errors.fromUnknown(e);
       }
   }
+  return null;
+};
 
-  // there is not an index channel in the task config, so just create a new channel
-  const idxCh = await client.channels.create({
-    name: `${channel.escapeInvalidName(device.name)}_time_for_${channel.escapeInvalidName(taskName)}`,
+/** Creates the index of a sampled task, as the channel of its index node if it has one. */
+const createSharedIndex = async (
+  client: Synnax,
+  config: ReadConfig,
+  device: Device,
+  taskName: string,
+): Promise<channel.Key> => {
+  const indexChannelInTaskConfig = config.channels.find(({ isIndex }) => isIndex);
+  const { key } = await client.channels.create({
+    name:
+      indexChannelInTaskConfig != null
+        ? channel.escapeInvalidName(indexChannelInTaskConfig.nodeName, true)
+        : `${channel.escapeInvalidName(device.name)}_time_for_${channel.escapeInvalidName(taskName)}`,
     dataType: "timestamp",
     isIndex: true,
   });
-  device.properties.read.indexes.push(idxCh.key);
-  return idxCh.key;
+  device.properties.read.indexes.push(key);
+  if (indexChannelInTaskConfig != null)
+    setChannel(device.properties, indexChannelInTaskConfig, key);
+  return key;
+};
+
+/**
+ * Binds each channel of a sampled task to a channel on the index that they share.
+ * Checks each channel that exists before it creates anything, so a rejected deploy
+ * leaves no new channels.
+ */
+const bindSharedIndex = async (
+  client: Synnax,
+  config: ReadConfig,
+  device: Device,
+  name: string,
+): Promise<void> => {
+  const index = await findSharedIndex(client, config, device);
+  const toCreate: ReadChannel[] = [];
+  for (const ch of config.channels) {
+    if (ch.isIndex) continue;
+    const exKey = getChannel(device.properties, ch);
+    if (!exKey) {
+      toCreate.push(ch);
+      continue;
+    }
+    try {
+      const rCh = await client.channels.retrieve(exKey);
+      // A channel that exists is never on a new index.
+      if (rCh.index !== index)
+        throw new Error(
+          `Channel ${ch.nodeName} already exists as ${rCh.name}. Move all channels from ${name} to the task that reads ${rCh.name}.`,
+        );
+    } catch (e) {
+      if (NotFoundError.matches(e)) toCreate.push(ch);
+      else throw errors.fromUnknown(e);
+    }
+  }
+  const shared = index ?? (await createSharedIndex(client, config, device, name));
+  if (toCreate.length === 0) return;
+  const channels = await client.channels.create(
+    toCreate.map((ch) => ({
+      dataType: ch.dataType,
+      name: channelName(ch),
+      index: shared,
+    })),
+  );
+  channels.forEach(({ key }, i) => setChannel(device.properties, toCreate[i], key));
+};
+
+/**
+ * Binds each channel of an On change task to a channel with an index of its own, since
+ * each channel writes at the times that its node gives.
+ */
+const bindOwnIndexes = async (
+  client: Synnax,
+  config: ReadConfig,
+  device: Device,
+): Promise<void> => {
+  const toCreate: ReadChannel[] = [];
+  for (const ch of config.channels) {
+    const exKey = getChannel(device.properties, ch);
+    if (!exKey) {
+      toCreate.push(ch);
+      continue;
+    }
+    try {
+      const rCh = await client.channels.retrieve(exKey);
+      if (device.properties.read.indexes.includes(rCh.index))
+        throw new Error(
+          `Channel ${ch.nodeName} already exists as ${rCh.name}, which shares an index with other channels. On change mode needs a channel with its own index. Read ${ch.nodeName} in the task that reads ${rCh.name}.`,
+        );
+    } catch (e) {
+      if (NotFoundError.matches(e)) toCreate.push(ch);
+      else throw errors.fromUnknown(e);
+    }
+  }
+  if (toCreate.length === 0) return;
+  const indexes = await client.channels.create(
+    toCreate.map((ch) => ({
+      name: `${channelName(ch)}_time`,
+      dataType: "timestamp",
+      isIndex: true,
+    })),
+  );
+  const channels = await client.channels.create(
+    toCreate.map((ch, i) => ({
+      dataType: ch.dataType,
+      name: channelName(ch),
+      index: indexes[i].key,
+    })),
+  );
+  channels.forEach(({ key }, i) => setChannel(device.properties, toCreate[i], key));
 };
 
 const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (
@@ -231,44 +371,8 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (
     { ...previous, properties: migrateProperties(previous.properties) },
     SCHEMAS,
   );
-
-  const index = await determineIndexChannel({
-    client,
-    device,
-    config,
-    taskName: name,
-  });
-
-  const toCreate: ReadChannel[] = [];
-  for (const ch of config.channels) {
-    const exKey = getChannel(device.properties, ch);
-    if (!exKey) {
-      toCreate.push(ch);
-      continue;
-    }
-    try {
-      const rCh = await client.channels.retrieve(exKey);
-      if (rCh.index !== index)
-        throw new Error(
-          `Channel ${ch.nodeName} already exists as ${rCh.name}. Move all channels from ${name} to the task that reads ${rCh.name}.`,
-        );
-    } catch (e) {
-      if (NotFoundError.matches(e)) toCreate.push(ch);
-      else throw errors.fromUnknown(e);
-    }
-  }
-  if (toCreate.length > 0) {
-    const channels = await client.channels.create(
-      toCreate.map(({ name, nodeName, dataType }) => ({
-        dataType,
-        name: primitive.isNonZero(name)
-          ? name
-          : channel.escapeInvalidName(nodeName, true),
-        index,
-      })),
-    );
-    channels.forEach(({ key }, i) => setChannel(device.properties, toCreate[i], key));
-  }
+  if (config.mode === "on_change") await bindOwnIndexes(client, config, device);
+  else await bindSharedIndex(client, config, device, name);
   config.channels = config.channels.map((c) => ({
     ...c,
     channel: getChannel(device.properties, c),

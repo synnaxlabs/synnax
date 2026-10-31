@@ -116,19 +116,24 @@ Driver clock, or a DateTime node marked as the index. Reads split at `MaxNodesPe
 **On change** creates one subscription per task. `sample_rate` sets the sampling
 interval and `stream_rate` the publishing interval. The queue size is the publishing
 interval divided by the sampling interval, rounded up, and discards the oldest value.
-The lifetime count is three times the keep-alive count. The task status shows the
-revised intervals. Each channel has its own index, stamped with the source timestamp, or
-the server timestamp when the source gives none. A missed keep-alive counts as a lost
-connection, which tells a quiet server from a dead one.
+The keep-alive count makes a keep-alive about every 2.5 s, and the lifetime count is
+three times it. The task status shows the revised intervals. Each channel has its own
+index, stamped with the source timestamp, or the server timestamp when the source gives
+none. A missed keep-alive counts as a lost connection, which tells a quiet server from a
+dead one. The open62541 inactivity callback detects it, after the revised publishing
+interval times the keep-alive count plus the request timeout.
 
 **Timestamps** follow the rule PR #2950 uses for MQTT:
 
 - At task start, each index starts from its last stored timestamp.
 - A sample is written only when its timestamp is after the last one on its index.
-- The first value of each index after a start, and a value inside a ConditionRefresh,
-  drop silently when they are not after it. The server is repeating a value we have.
-- Other drops warn: "rejected a value of <name>: its timestamp is not after the last one
-  written".
+- The first value of each index after a start, a history value, and a value inside a
+  ConditionRefresh drop silently when they are not after it. The server is repeating a
+  value we have.
+- A value at the same time as the last one drops silently. The server is sending the
+  same sample again, as a DateTime index does between its updates.
+- Other drops warn: "Rejected a value of <name>: its timestamp is not after the last one
+  written."
 - A DateTime index in Sampled mode gets the same check, and a failed check skips the
   cycle.
 
@@ -138,9 +143,11 @@ have. The task writer opens at task start with no start, as RFC 0086 allows.
 
 **History backfill**: With `history_backfill_enabled`, an On change task reads raw
 history from the last stored timestamp to the start of its subscription, for nodes whose
-access level allows it. It runs at start and after each reconnect, splits at
-`MaxNodesPerHistoryReadData`, follows continuation points, and writes before the live
-values of each index.
+access level allows it, and for channels that store a value. It runs at start and after
+each reconnect, and splits at `MaxNodesPerHistoryReadData`. Each read gets one page of
+1000 values per node. The task releases each continuation point at once and pages by
+time from one tick after the last value, so the server holds no state between reads. It
+writes the history of each index before its live values.
 
 ### 2.4 Quality
 
@@ -216,8 +223,8 @@ alarms come in again.
 An index holds one sample per timestamp, so events take the timestamp rule (§2.3). The
 task reads the last stored time through the C++ iterator. A replayed condition at or
 before it is dropped. Any other event at or before it moves to 1 ns past it, and its
-`time` field keeps the server's time. A subscription sends no notice when the server
-stops answering, so the task reads `CurrentTime` every 5 s.
+`time` field keeps the server's time. A server that stops answering misses its
+keep-alive, which ends the subscription as a lost connection (§2.3).
 
 ### 2.9 Methods
 

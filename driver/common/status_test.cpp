@@ -359,6 +359,27 @@ TEST(TestTaskStateHandler, ClearWarningDropsDescription) {
     EXPECT_EQ(ctx->statuses[1].description, "");
 }
 
+/// @brief clearing a warning should send a running status whose description changes,
+/// and nothing when the description repeats.
+TEST(TestTaskStateHandler, ClearWarningSendsNewDescription) {
+    const auto ctx = std::make_shared<task::MockContext>(nullptr);
+    const synnax::task::Task task{.name = "task1", .type = "opc_read"};
+    auto handler = StatusHandler(ctx, task, x::telem::TimeSpan(0));
+
+    handler.send_start("cmd");
+    handler.clear_warning();
+    ASSERT_EQ(ctx->statuses.size(), 1);
+    handler.clear_warning("The server sends changes every 1s.");
+    handler.clear_warning("The server sends changes every 1s.");
+    ASSERT_EQ(ctx->statuses.size(), 2);
+    EXPECT_EQ(ctx->statuses[1].variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(ctx->statuses[1].message, "Task running");
+    EXPECT_EQ(ctx->statuses[1].description, "The server sends changes every 1s.");
+    handler.clear_warning();
+    ASSERT_EQ(ctx->statuses.size(), 3);
+    EXPECT_EQ(ctx->statuses[2].description, "");
+}
+
 /// @brief it should send repeated identical errors inside the window only once.
 TEST(TestStatusWindow, testSuppressesIdenticalErrors) {
     const auto ctx = std::make_shared<task::MockContext>(nullptr);

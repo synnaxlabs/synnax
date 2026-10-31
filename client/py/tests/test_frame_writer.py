@@ -339,20 +339,6 @@ class TestWriter:
 
         w1.close()
 
-    def test_write_err_first_timestamp_before_start(
-        self, client: sy.Synnax, indexed_pair: tuple[sy.Channel, sy.Channel]
-    ) -> None:
-        """Should raise a validation error when the first timestamp written to an index
-        channel is before the start time of the writer."""
-        time_ch, data_ch = indexed_pair
-        with pytest.raises(sy.ValidationError, match="commit timestamp"):
-            with client.open_writer(
-                start=sy.TimeStamp.now(),
-                channels=[time_ch.key, data_ch.key],
-            ) as w:
-                for i in range(100):
-                    w.write({time_ch.key: [i], data_ch.key: [i]})
-
     def test_write_out_of_order_timestamps(
         self, client: sy.Synnax, indexed_pair: tuple[sy.Channel, sy.Channel]
     ) -> None:

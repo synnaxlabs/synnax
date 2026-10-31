@@ -86,26 +86,6 @@ x::breaker::Config fast_breaker(const int max_retries) {
     };
 }
 
-/// @brief it should correctly resolve the start timestamp for the pipeline from the
-/// first frame written.
-TEST(AcquisitionPipeline, ResolvesStartFromFirstFrame) {
-    auto writes = std::make_shared<x::sync::List<x::telem::Frame>>();
-    const auto mock_factory = std::make_shared<testutil::WriterFactory>(writes);
-    auto start_ts = x::telem::TimeStamp::now();
-    const auto source = std::make_shared<MockSource>(start_ts);
-    synnax::framer::WriterConfig writer_config{.channels = {1}};
-    auto pipeline = Acquisition(
-        mock_factory,
-        synnax::framer::WriterConfig(),
-        source,
-        x::breaker::Config()
-    );
-    ASSERT_TRUE(pipeline.start());
-    ASSERT_EVENTUALLY_GE(writes->size(), 5);
-    ASSERT_TRUE(pipeline.stop());
-    ASSERT_EQ(mock_factory->config.start, start_ts);
-}
-
 /// @brief it should correctly retry opening the writer when an unreachable error
 /// occurs.
 TEST(AcquisitionPipeline, RetriesWriterOpenOnUnreachable) {
@@ -322,120 +302,6 @@ TEST(AcquisitionPipeline, DoesNotStopUnstartedPipeline) {
     ASSERT_FALSE(pipeline.stop());
 }
 
-/// @brief MockSource that returns frames with multiple timestamp series
-class MultiTimestampSource final : public Source {
-public:
-    std::vector<x::telem::TimeStamp> timestamps;
-    x::errors::Error read_err = x::errors::NIL;
-
-    explicit MultiTimestampSource(
-        std::vector<x::telem::TimeStamp> timestamps,
-        const x::errors::Error &read_err = x::errors::NIL
-    ):
-        timestamps(std::move(timestamps)), read_err(read_err) {}
-
-    x::errors::Error read(
-        x::breaker::Breaker &breaker,
-        x::telem::Frame &fr,
-        Authorities &authorities
-    ) override {
-        if (read_err != x::errors::NIL) return read_err;
-        std::this_thread::sleep_for(std::chrono::microseconds(100));
-
-        for (size_t i = 0; i < timestamps.size(); i++) {
-            fr.emplace(i + 1, x::telem::Series(timestamps[i]));
-        }
-
-        return x::errors::NIL;
-    }
-
-    void stopped_with_err(const x::errors::Error &err) override {}
-};
-
-/// @brief MockSource that returns frames with non-timestamp data
-class NonTimestampSource final : public Source {
-public:
-    x::errors::Error read(
-        x::breaker::Breaker &breaker,
-        x::telem::Frame &fr,
-        Authorities &authorities
-    ) override {
-        std::this_thread::sleep_for(std::chrono::microseconds(100));
-        fr.emplace(1, x::telem::Series(std::vector<float>{1.0f, 2.0f, 3.0f}));
-        return x::errors::NIL;
-    }
-
-    void stopped_with_err(const x::errors::Error &err) override {}
-};
-
-/// @brief MockSource that returns frames with empty timestamp series
-class EmptyTimestampSource final : public Source {
-public:
-    x::errors::Error read(
-        x::breaker::Breaker &breaker,
-        x::telem::Frame &fr,
-        Authorities &authorities
-    ) override {
-        std::this_thread::sleep_for(std::chrono::microseconds(100));
-        fr.emplace(1, x::telem::Series(x::telem::TIMESTAMP_T, 0));
-        return x::errors::NIL;
-    }
-
-    void stopped_with_err(const x::errors::Error &err) override {}
-};
-
-/// @brief it should resolve the minimum timestamp when multiple timestamp series exist
-TEST(AcquisitionPipeline, ResolvesStartFromMinimumTimestamp) {
-    auto writes = std::make_shared<x::sync::List<x::telem::Frame>>();
-    const auto mock_factory = std::make_shared<testutil::WriterFactory>(writes);
-
-    auto ts1 = x::telem::TimeStamp(1000000000);
-    auto ts2 = x::telem::TimeStamp(2000000000);
-    auto ts3 = x::telem::TimeStamp(1500000000);
-
-    const auto source = std::make_shared<MultiTimestampSource>(
-        std::vector{ts2, ts1, ts3}
-    );
-
-    auto pipeline = Acquisition(
-        mock_factory,
-        synnax::framer::WriterConfig(),
-        source,
-        x::breaker::Config()
-    );
-
-    ASSERT_TRUE(pipeline.start());
-    ASSERT_EVENTUALLY_GE(writes->size(), 5);
-    ASSERT_TRUE(pipeline.stop());
-
-    ASSERT_EQ(mock_factory->config.start, ts1);
-}
-
-/// @brief it should fall back to now() when no timestamp series exist
-TEST(AcquisitionPipeline, ResolvesStartToNowWithoutTimestamps) {
-    auto writes = std::make_shared<x::sync::List<x::telem::Frame>>();
-    const auto mock_factory = std::make_shared<testutil::WriterFactory>(writes);
-
-    auto before = x::telem::TimeStamp::now();
-    const auto source = std::make_shared<NonTimestampSource>();
-
-    auto pipeline = Acquisition(
-        mock_factory,
-        synnax::framer::WriterConfig(),
-        source,
-        x::breaker::Config()
-    );
-
-    ASSERT_TRUE(pipeline.start());
-    ASSERT_EVENTUALLY_GE(writes->size(), 5);
-    ASSERT_TRUE(pipeline.stop());
-
-    auto after = x::telem::TimeStamp::now();
-
-    ASSERT_GE(mock_factory->config.start, before);
-    ASSERT_LE(mock_factory->config.start, after);
-}
-
 /// @brief a source that returns NOMINAL_SHUTDOWN_ERROR on the first read, used to
 /// test that nominal shutdowns don't trigger stopped_with_err.
 class NominalShutdownSource final : public Source {
@@ -473,31 +339,6 @@ TEST(AcquisitionPipeline, NominalShutdownDoesNotReportError) {
     ASSERT_EVENTUALLY_TRUE(source->read_called.load());
     pipeline.stop();
     ASSERT_EQ(source->stopped_err, x::errors::NIL);
-}
-
-/// @brief it should ignore empty timestamp series and fall back to now()
-TEST(AcquisitionPipeline, ResolvesStartIgnoringEmptyTimestamps) {
-    auto writes = std::make_shared<x::sync::List<x::telem::Frame>>();
-    const auto mock_factory = std::make_shared<testutil::WriterFactory>(writes);
-
-    auto before = x::telem::TimeStamp::now();
-    const auto source = std::make_shared<EmptyTimestampSource>();
-
-    auto pipeline = Acquisition(
-        mock_factory,
-        synnax::framer::WriterConfig(),
-        source,
-        x::breaker::Config()
-    );
-
-    ASSERT_TRUE(pipeline.start());
-    ASSERT_EVENTUALLY_GE(writes->size(), 5);
-    ASSERT_TRUE(pipeline.stop());
-
-    auto after = x::telem::TimeStamp::now();
-
-    ASSERT_GE(mock_factory->config.start, before);
-    ASSERT_LE(mock_factory->config.start, after);
 }
 
 class AuthoritySource final : public Source {
@@ -652,39 +493,6 @@ TEST(AcquisitionPipeline, ForwardsGlobalAuthorityChanges) {
     EXPECT_EQ(change.authorities[0], 150);
 }
 
-/// @brief it should forward authority changes from the very first read that also
-/// triggers the writer to open.
-TEST(AcquisitionPipeline, ForwardsAuthorityOnFirstFrame) {
-    auto writes = std::make_shared<x::sync::List<x::telem::Frame>>();
-    const auto mock_factory = std::make_shared<testutil::WriterFactory>(writes);
-
-    Authorities auth{
-        .keys = {42},
-        .authorities = {250},
-    };
-    const auto source = std::make_shared<AuthoritySource>(
-        x::telem::TimeStamp::now(),
-        auth
-    );
-
-    auto pipe = Acquisition(
-        mock_factory,
-        synnax::framer::WriterConfig(),
-        source,
-        x::breaker::Config()
-    );
-
-    ASSERT_TRUE(pipe.start());
-    ASSERT_EVENTUALLY_GE(mock_factory->authority_changes->size(), 1);
-    ASSERT_EVENTUALLY_GE(writes->size(), 1);
-    ASSERT_TRUE(pipe.stop());
-
-    const auto &change = mock_factory->authority_changes->at(0);
-    ASSERT_EQ(change.keys.size(), 1);
-    EXPECT_EQ(change.keys[0], 42);
-    EXPECT_EQ(change.authorities[0], 250);
-}
-
 class EmptyFrameAuthoritySource final : public Source {
     x::telem::TimeStamp start_ts;
     Authorities auth;
@@ -746,17 +554,19 @@ TEST(AcquisitionPipeline, ForwardsAuthorityWithEmptyFrame) {
     EXPECT_EQ(change.authorities[0], 200);
 }
 
-class PreWriterAuthoritySource final : public Source {
+/// @brief a source that reads authority changes, one per read, before it reads any
+/// frame.
+class AuthorityBeforeDataSource final : public Source {
     x::telem::TimeStamp start_ts;
-    std::vector<Authorities> pre_writer_auths;
+    std::vector<Authorities> leading_auths;
     std::atomic<size_t> read_count{0};
 
 public:
-    explicit PreWriterAuthoritySource(
+    explicit AuthorityBeforeDataSource(
         const x::telem::TimeStamp start_ts,
-        std::vector<Authorities> pre_writer_auths
+        std::vector<Authorities> leading_auths
     ):
-        start_ts(start_ts), pre_writer_auths(std::move(pre_writer_auths)) {}
+        start_ts(start_ts), leading_auths(std::move(leading_auths)) {}
 
     x::errors::Error read(
         x::breaker::Breaker &breaker,
@@ -765,8 +575,8 @@ public:
     ) override {
         std::this_thread::sleep_for(std::chrono::microseconds(100));
         auto idx = this->read_count.fetch_add(1);
-        if (idx < this->pre_writer_auths.size()) {
-            authorities = this->pre_writer_auths[idx];
+        if (idx < this->leading_auths.size()) {
+            authorities = this->leading_auths[idx];
             return x::errors::NIL;
         }
         fr.emplace(1, x::telem::Series(this->start_ts));
@@ -776,70 +586,34 @@ public:
     void stopped_with_err(const x::errors::Error &err) override {}
 };
 
-/// @brief it should buffer authority changes that arrive before the writer opens
-/// and apply them once the first frame opens the writer.
-TEST(AcquisitionPipeline, BuffersAuthorityUntilWriterOpens) {
+/// @brief it should forward each authority change that arrives before the first
+/// frame, in order.
+TEST(AcquisitionPipeline, ForwardsAuthorityBeforeFirstFrame) {
     auto writes = std::make_shared<x::sync::List<x::telem::Frame>>();
     const auto mock_factory = std::make_shared<testutil::WriterFactory>(writes);
-
-    std::vector<Authorities> pre_auths = {
-        {.keys = {1}, .authorities = {100}},
-    };
-    const auto source = std::make_shared<PreWriterAuthoritySource>(
+    const auto source = std::make_shared<AuthorityBeforeDataSource>(
         x::telem::TimeStamp::now(),
-        pre_auths
+        std::vector<Authorities>{
+            {.keys = {1, 2}, .authorities = {100, 200}},
+            {.keys = {1}, .authorities = {50}},
+        }
     );
-
     auto pipe = Acquisition(
         mock_factory,
         synnax::framer::WriterConfig(),
         source,
         x::breaker::Config()
     );
-
     ASSERT_TRUE(pipe.start());
-    ASSERT_EVENTUALLY_GE(mock_factory->authority_changes->size(), 1);
+    ASSERT_EVENTUALLY_GE(writes->size(), 1);
     ASSERT_TRUE(pipe.stop());
-
-    const auto &change = mock_factory->authority_changes->at(0);
-    ASSERT_EQ(change.keys.size(), 1);
-    EXPECT_EQ(change.keys[0], 1);
-    EXPECT_EQ(change.authorities[0], 100);
-}
-
-/// @brief it should dedupe per-channel authority changes buffered before the writer
-/// opens, keeping only the last value for each channel.
-TEST(AcquisitionPipeline, DedupesBufferedChannelAuthority) {
-    auto writes = std::make_shared<x::sync::List<x::telem::Frame>>();
-    const auto mock_factory = std::make_shared<testutil::WriterFactory>(writes);
-
-    std::vector<Authorities> pre_auths = {
-        {.keys = {1, 2}, .authorities = {100, 200}},
-        {.keys = {1}, .authorities = {50}},
-    };
-    const auto source = std::make_shared<PreWriterAuthoritySource>(
-        x::telem::TimeStamp::now(),
-        pre_auths
-    );
-
-    auto pipe = Acquisition(
-        mock_factory,
-        synnax::framer::WriterConfig(),
-        source,
-        x::breaker::Config()
-    );
-
-    ASSERT_TRUE(pipe.start());
-    ASSERT_EVENTUALLY_GE(mock_factory->authority_changes->size(), 1);
-    ASSERT_TRUE(pipe.stop());
-
-    const auto &change = mock_factory->authority_changes->at(0);
-    ASSERT_EQ(change.keys.size(), 2);
-    std::map<synnax::channel::Key, x::control::Authority> merged;
-    for (size_t i = 0; i < change.keys.size(); i++)
-        merged[change.keys[i]] = change.authorities[i];
-    EXPECT_EQ(merged[1], 50);
-    EXPECT_EQ(merged[2], 200);
+    ASSERT_EQ(mock_factory->authority_changes->size(), 2);
+    const auto &first = mock_factory->authority_changes->at(0);
+    EXPECT_EQ(first.keys, (std::vector<synnax::channel::Key>{1, 2}));
+    EXPECT_EQ(first.authorities, (std::vector<x::control::Authority>{100, 200}));
+    const auto &second = mock_factory->authority_changes->at(1);
+    EXPECT_EQ(second.keys, (std::vector<synnax::channel::Key>{1}));
+    EXPECT_EQ(second.authorities, (std::vector<x::control::Authority>{50}));
 }
 
 /// @brief when a source returns both a frame and authority changes in the same
@@ -947,110 +721,44 @@ public:
     void stopped_with_err(const x::errors::Error &err) override {}
 };
 
-/// @brief when open_eagerly is true, the writer should open immediately before the
-/// first frame arrives, using the pre-configured start timestamp.
-TEST(AcquisitionPipeline, EagerOpenOpensWriterBeforeFirstFrame) {
+/// @brief it should open the writer when the pipeline starts, before the source reads
+/// a frame, and leave the start of the writer to the Core.
+TEST(AcquisitionPipeline, OpensWriterBeforeFirstFrame) {
     auto writes = std::make_shared<x::sync::List<x::telem::Frame>>();
     const auto mock_factory = std::make_shared<testutil::WriterFactory>(writes);
     const auto source = std::make_shared<NeverProducesSource>();
-    auto configured_start = x::telem::TimeStamp(5000000000);
     auto pipe = Acquisition(
         mock_factory,
-        synnax::framer::WriterConfig{.start = configured_start},
+        synnax::framer::WriterConfig(),
         source,
-        x::breaker::Config(),
-        "",
-        /* err_on_unauthorized */ true,
-        /* open_eagerly */ true
+        x::breaker::Config()
     );
     ASSERT_TRUE(pipe.start());
     ASSERT_EVENTUALLY_GE(source->reads().load(), 3);
     ASSERT_TRUE(pipe.stop());
-    ASSERT_GE(mock_factory->writer_opens.load(std::memory_order_acquire), 1);
-    ASSERT_EQ(mock_factory->config.start, configured_start);
+    ASSERT_EQ(mock_factory->writer_opens.load(std::memory_order_acquire), 1);
+    ASSERT_EQ(mock_factory->config.start, x::telem::TimeStamp(0));
+    ASSERT_EQ(writes->size(), 0);
 }
 
-/// @brief when an eagerly-opened pipeline is stopped and restarted, the caller
-/// must pass a fresh timestamp via start(timestamp). This prevents "write overlaps
-/// with existing data" errors in Cesium where the new writer's start falls within
-/// the previous writer's committed data range.
-TEST(AcquisitionPipeline, RestartUsesFreshStartTimestamp) {
+/// @brief it should open a new writer each time the pipeline restarts.
+TEST(AcquisitionPipeline, ReopensWriterOnRestart) {
     auto writes = std::make_shared<x::sync::List<x::telem::Frame>>();
     const auto mock_factory = std::make_shared<testutil::WriterFactory>(writes);
     const auto source = std::make_shared<MockSource>(x::telem::TimeStamp::now());
     auto pipe = Acquisition(
         mock_factory,
-        synnax::framer::WriterConfig{.start = x::telem::TimeStamp::now()},
+        synnax::framer::WriterConfig(),
         source,
-        x::breaker::Config(),
-        "",
-        /* err_on_unauthorized */ true,
-        /* open_eagerly */ true
+        x::breaker::Config()
     );
     ASSERT_TRUE(pipe.start());
     ASSERT_EVENTUALLY_GE(writes->size(), 3);
     ASSERT_TRUE(pipe.stop());
-    ASSERT_EQ(mock_factory->writer_opens.load(std::memory_order_acquire), 1);
-    auto first_start = mock_factory->config.start;
-
-    auto restart_ts = x::telem::TimeStamp::now();
-    ASSERT_TRUE(pipe.start(restart_ts));
+    ASSERT_TRUE(pipe.start());
     ASSERT_EVENTUALLY_GE(writes->size(), 6);
     ASSERT_TRUE(pipe.stop());
     ASSERT_EQ(mock_factory->writer_opens.load(std::memory_order_acquire), 2);
-    ASSERT_GT(mock_factory->config.start, first_start);
-    ASSERT_EQ(mock_factory->config.start, restart_ts);
-}
-
-/// @brief with the default lazy-open behavior, the writer should never open if the
-/// source only produces empty frames.
-TEST(AcquisitionPipeline, LazyOpenSkipsWriterOnEmptyFrames) {
-    auto writes = std::make_shared<x::sync::List<x::telem::Frame>>();
-    const auto mock_factory = std::make_shared<testutil::WriterFactory>(writes);
-    const auto source = std::make_shared<NeverProducesSource>();
-    auto pipe = Acquisition(
-        mock_factory,
-        synnax::framer::WriterConfig(),
-        source,
-        x::breaker::Config()
-    );
-    ASSERT_TRUE(pipe.start());
-    ASSERT_EVENTUALLY_GE(source->reads().load(), 5);
-    ASSERT_TRUE(pipe.stop());
-    ASSERT_EQ(mock_factory->writer_opens.load(std::memory_order_acquire), 0);
-}
-
-/// @brief a global authority change buffered before the writer opens should clear
-/// any previously buffered per-channel changes.
-TEST(AcquisitionPipeline, BufferedGlobalAuthorityClearsChannels) {
-    auto writes = std::make_shared<x::sync::List<x::telem::Frame>>();
-    const auto mock_factory = std::make_shared<testutil::WriterFactory>(writes);
-
-    std::vector<Authorities> pre_auths = {
-        {.keys = {1, 2}, .authorities = {100, 200}},
-        {.keys = {}, .authorities = {75}},
-    };
-    const auto source = std::make_shared<PreWriterAuthoritySource>(
-        x::telem::TimeStamp::now(),
-        pre_auths
-    );
-
-    auto pipe = Acquisition(
-        mock_factory,
-        synnax::framer::WriterConfig(),
-        source,
-        x::breaker::Config()
-    );
-
-    ASSERT_TRUE(pipe.start());
-    ASSERT_EVENTUALLY_GE(mock_factory->authority_changes->size(), 1);
-    ASSERT_TRUE(pipe.stop());
-
-    ASSERT_EQ(mock_factory->authority_changes->size(), 1);
-    const auto &change = mock_factory->authority_changes->at(0);
-    EXPECT_TRUE(change.keys.empty());
-    ASSERT_EQ(change.authorities.size(), 1);
-    EXPECT_EQ(change.authorities[0], 75);
 }
 
 /// @brief it should stop the pipeline when the source returns invalid authorities.
@@ -1151,10 +859,7 @@ TEST(AcquisitionPipeline, RetriesOpenWhileCoreUnreachable) {
         x::breaker::Config{
             .base_interval = x::telem::MICROSECOND * 10,
             .max_retries = 5,
-        },
-        "",
-        true,
-        true
+        }
     );
     ASSERT_TRUE(pipeline.start());
     ASSERT_EVENTUALLY_EQ(factory->opens.load(), 4);

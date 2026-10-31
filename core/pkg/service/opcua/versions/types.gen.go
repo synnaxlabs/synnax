@@ -42,6 +42,15 @@ type WriteConfig = v2.WriteConfig
 // ScanConfig configures an OPC UA scan task.
 type ScanConfig = v2.ScanConfig
 
+// ReadMode is how a read task gets values: sampled polls each node at the sample rate,
+// and on_change subscribes to the changes of each node.
+type ReadMode = v2.ReadMode
+
+const (
+	ReadModeSampled  ReadMode = v2.ReadModeSampled
+	ReadModeOnChange ReadMode = v2.ReadModeOnChange
+)
+
 // WriteType is what the commands of a write channel do on the server.
 type WriteType = v2.WriteType
 

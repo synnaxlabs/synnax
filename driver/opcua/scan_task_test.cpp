@@ -533,6 +533,36 @@ TEST_F(TestScanTask, testHealthCheckRidesTaskSession) {
     EXPECT_EQ(conn_pool->size(), 2);
 }
 
+/// @brief it should not open a Session of its own while a task's subscription gets
+/// keep-alives from the server.
+TEST_F(TestScanTask, testHealthCheckRidesTaskSubscription) {
+    Scanner scanner(ctx, task, conn_pool, store);
+    connection::Config cfg;
+    cfg.endpoint = "opc.tcp://localhost:4840";
+    synnax::device::Device dev;
+    dev.key = "subscription-device";
+    dev.name = "Subscription Device";
+    dev.make = "opc";
+    dev.rack = rack.key;
+    dev.properties = x::json::json{
+        {"connection", testutil::connection_json(cfg)},
+        {"channels", x::json::json::array()}
+    };
+    auto task_conn = ASSERT_NIL_P(conn_pool->acquire(cfg, "[test] "));
+    ASSERT_NIL_P(task_conn.subscribe(
+        {UA_NODEID_STRING(1, const_cast<char *>("TestDouble"))},
+        {.sampling = 50 * x::telem::MILLISECOND,
+         .publishing = 100 * x::telem::MILLISECOND},
+        [](std::size_t, const UA_DataValue &) {}
+    ));
+    for (int i = 0; i < 2; ++i) {
+        ASSERT_NIL(task_conn.iterate(10 * x::telem::MILLISECOND));
+        const auto devices = this->scan(scanner, dev);
+        EXPECT_EQ(devices[0].status.value().message, "Server connected");
+    }
+    EXPECT_EQ(conn_pool->size(), 1);
+}
+
 /// @brief it should probe the server on each scan when no task gets replies, so the
 /// reply to its own probe does not hide an outage on the next scan.
 TEST_F(TestScanTask, testHealthCheckProbesEachScan) {

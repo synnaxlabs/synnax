@@ -21,6 +21,7 @@ import (
 	task "github.com/synnaxlabs/synnax/pkg/service/task/versions/v2"
 	"github.com/synnaxlabs/x/errors"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // BaseChannel carries the fields every OPC UA channel shares.
@@ -182,6 +183,11 @@ type ReadConfig struct {
 	// NanFillEnabled is true when a bad value of a float channel is written as NaN.
 	// When false, a bad value skips the read for every channel that shares its index.
 	NanFillEnabled bool `json:"nan_fill_enabled" msgpack:"nan_fill_enabled"`
+	// Mode is how the task gets the values of its nodes.
+	Mode ReadMode `json:"mode" msgpack:"mode"`
+	// HistoryBackfillEnabled is true when an on_change task reads the history of its
+	// nodes from the last stored value to the start of its subscription.
+	HistoryBackfillEnabled bool `json:"history_backfill_enabled" msgpack:"history_backfill_enabled"`
 }
 
 // ApplyDefaults fills zero-valued fields with their schema-declared defaults.
@@ -195,10 +201,21 @@ func (r *ReadConfig) ApplyDefaults() {
 	if r.ArraySize == 0 {
 		r.ArraySize = 1
 	}
+	if r.Mode == "" {
+		r.Mode = ReadModeSampled
+	}
 	r.ReadConfig.ApplyDefaults()
 	for i := range r.Channels {
 		r.Channels[i].ApplyDefaults()
 	}
+}
+
+// Validate returns an error wrapping validate.ErrValidation if any field violates its
+// schema constraints.
+func (r ReadConfig) Validate() error {
+	v := validate.New("ReadConfig")
+	v.Ternaryf("mode", !r.Mode.IsValid(), "invalid mode: %v", r.Mode)
+	return v.Error()
 }
 
 // WriteConfig configures an OPC UA write task.
@@ -217,6 +234,26 @@ func (w *WriteConfig) ApplyDefaults() {
 
 // ScanConfig configures an OPC UA scan task.
 type ScanConfig = v1.ScanConfig
+
+// ReadMode is how a read task gets values: sampled polls each node at the sample rate,
+// and on_change subscribes to the changes of each node.
+type ReadMode string
+
+const (
+	ReadModeSampled  ReadMode = "sampled"
+	ReadModeOnChange ReadMode = "on_change"
+)
+
+// IsValid reports whether r is one of the defined ReadMode
+// values.
+func (r ReadMode) IsValid() bool {
+	switch r {
+	case ReadModeSampled, ReadModeOnChange:
+		return true
+	default:
+		return false
+	}
+}
 
 // WriteType is what the commands of a write channel do on the server.
 type WriteType string

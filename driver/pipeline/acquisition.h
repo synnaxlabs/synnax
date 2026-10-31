@@ -164,14 +164,6 @@ class Acquisition final : public Base {
     /// may compete for the same channels at different authority levels and need
     /// to remain open to accept authority handoff.
     bool err_on_unauthorized;
-    /// @brief whether to open the writer immediately on pipeline start instead of
-    /// waiting for the first non-empty frame. When true, the writer opens using the
-    /// pre-configured writer_config.start timestamp. Set to true for Arc tasks that
-    /// generate data internally and need to seize control authority before the first
-    /// frame arrives. Defaults to false for hardware acquisition tasks (LabJack, NI,
-    /// Modbus, OPC UA) that resolve the start timestamp from data to account for
-    /// clock drift.
-    bool open_eagerly;
 
     void run() override;
 
@@ -186,9 +178,8 @@ public:
     /// @brief construct an acquisition pipeline that opens writers on a Synnax
     /// database cluster.
     /// @param client the Synnax client to use for writing data.
-    /// @param writer_config the configuration for the Synnax writer. This
-    /// configuration will have its start time set to the first timestamp read from
-    /// the source.
+    /// @param writer_config the configuration for the Synnax writer, which the pipeline
+    /// opens when it starts.
     /// @param source the source to read data from. See the Source interface for
     /// more details on how to correctly implement a source.
     /// @param breaker_config the configuration for the breaker used to manage the
@@ -197,24 +188,20 @@ public:
     /// @param thread_name optional name for the pipeline thread (visible in debuggers).
     /// @param err_on_unauthorized whether to reject writes when the writer does
     /// not have sufficient authority. Defaults to true.
-    /// @param open_eagerly whether to open the writer immediately instead of waiting
-    /// for the first non-empty frame. Defaults to false.
     Acquisition(
         std::shared_ptr<synnax::Synnax> client,
         synnax::framer::WriterConfig writer_config,
         std::shared_ptr<Source> source,
         const x::breaker::Config &breaker_config,
         std::string thread_name = "",
-        bool err_on_unauthorized = true,
-        bool open_eagerly = false
+        bool err_on_unauthorized = true
     );
 
     /// @brief construct an acquisition pipeline that opens writers using a writer
     /// factory.
     /// @param factory the writer factory to use for opening writers.
-    /// @param writer_config the configuration for the Synnax writer. This
-    /// configuration will have its start time set to the first timestamp read from
-    /// the source.
+    /// @param writer_config the configuration for the Synnax writer, which the pipeline
+    /// opens when it starts.
     /// @param source the source to read data from. See the Source interface for
     /// more details on how to correctly implement a source.
     /// @param breaker_config the configuration for the breaker used to manage the
@@ -223,26 +210,13 @@ public:
     /// @param thread_name optional name for the pipeline thread (visible in debuggers).
     /// @param err_on_unauthorized whether to reject writes when the writer does
     /// not have sufficient authority. Defaults to true.
-    /// @param open_eagerly whether to open the writer immediately instead of waiting
-    /// for the first non-empty frame. Defaults to false.
     Acquisition(
         std::shared_ptr<WriterFactory> factory,
         synnax::framer::WriterConfig writer_config,
         std::shared_ptr<Source> source,
         const x::breaker::Config &breaker_config,
         std::string thread_name = "",
-        bool err_on_unauthorized = true,
-        bool open_eagerly = false
+        bool err_on_unauthorized = true
     );
-
-    using Base::start;
-
-    /// @brief starts the pipeline with an updated start timestamp for the writer.
-    /// Use this overload on restart to avoid reusing a stale timestamp from a
-    /// previous run.
-    bool start(const x::telem::TimeStamp &start) {
-        this->writer_config.start = start;
-        return Base::start();
-    }
 };
 }

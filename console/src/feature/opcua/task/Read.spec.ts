@@ -28,6 +28,7 @@ import {
   answerNextCommand,
   awaitCommand,
   awaitEditableForm,
+  clickDeploy,
   deployAndAwaitTask,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
@@ -313,6 +314,150 @@ describe("Read", () => {
     expect(afterSecond.properties.read.channels).toEqual(
       afterFirst.properties.read.channels,
     );
+  });
+
+  it("should create each channel on an index of its own in On change mode", async () => {
+    const dev = await createOPCDevice(client);
+    const draft = await createDraft(client, {
+      ...createReadConfig(dev.key, [createReadChannel(), createReadChannel()]),
+      mode: "on_change",
+    });
+    const { container } = await renderRead({ client, taskKey: draft.key });
+    await screen.findByText("History backfill");
+    const { config } = await deployAndAwaitTask(
+      client,
+      container,
+      draft.key,
+      OPCUA.Task.READ_SCHEMAS,
+    );
+    expect(config.mode).toBe("on_change");
+    const indexes = new Set<number>();
+    for (const { channel: key } of config.channels) {
+      const ch = await client.channels.retrieve(key);
+      const index = await client.channels.retrieve(ch.index);
+      expect(index.isIndex).toBe(true);
+      expect(index.name).toBe(`${ch.name}_time`);
+      indexes.add(index.key);
+    }
+    expect(indexes.size).toBe(2);
+    const updated = await client.devices.retrieve({
+      key: dev.key,
+      schemas: OPCUA.Device.SCHEMAS,
+    });
+    expect(updated.properties.read.indexes).toEqual([]);
+  });
+
+  it("should reject a node in On change mode whose channel shares a sampled index", async () => {
+    const dev = await createOPCDevice(client);
+    const ch = createReadChannel();
+    const sampled = await createDraft(client, createReadConfig(dev.key, [ch]));
+    const first = await renderRead({ client, taskKey: sampled.key });
+    const deployed = await deployAndAwaitTask(
+      client,
+      first.container,
+      sampled.key,
+      OPCUA.Task.READ_SCHEMAS,
+    );
+    first.unmount();
+    const existing = await client.channels.retrieve(
+      deployed.config.channels[0].channel,
+    );
+    const draft = await createDraft(client, {
+      ...createReadConfig(dev.key, [ch]),
+      mode: "on_change",
+    });
+    const statuses: Status.NotificationSpec[] = [];
+    const { container } = await renderRead({
+      client,
+      taskKey: draft.key,
+      onStatuses: (next) => statuses.splice(0, statuses.length, ...next),
+    });
+    await screen.findByText(existing.name);
+    await clickDeploy(container);
+    await waitFor(() =>
+      expect(statuses.map(({ description }) => description)).toContain(
+        `Channel ${ch.nodeName} already exists as ${existing.name}, which shares an index with other channels. On change mode needs a channel with its own index. Read ${ch.nodeName} in the task that reads ${existing.name}.`,
+      ),
+    );
+  });
+
+  it("should reject an On change channel in a sampled task before it creates an index", async () => {
+    const dev = await createOPCDevice(client);
+    const ch = createReadChannel();
+    const onChange = await createDraft(client, {
+      ...createReadConfig(dev.key, [ch]),
+      mode: "on_change",
+    });
+    const first = await renderRead({ client, taskKey: onChange.key });
+    await screen.findByText("History backfill");
+    const deployed = await deployAndAwaitTask(
+      client,
+      first.container,
+      onChange.key,
+      OPCUA.Task.READ_SCHEMAS,
+    );
+    first.unmount();
+    const existing = await client.channels.retrieve(
+      deployed.config.channels[0].channel,
+    );
+    const draft = await createDraft(
+      client,
+      createReadConfig(dev.key, [ch, createReadChannel()]),
+    );
+    const statuses: Status.NotificationSpec[] = [];
+    const { container } = await renderRead({
+      client,
+      taskKey: draft.key,
+      onStatuses: (next) => statuses.splice(0, statuses.length, ...next),
+    });
+    await screen.findByText(existing.name);
+    await clickDeploy(container);
+    await waitFor(() =>
+      expect(statuses.map(({ description }) => description)).toContain(
+        `Channel ${ch.nodeName} already exists as ${existing.name}. Move all channels from OPC UA read task to the task that reads ${existing.name}.`,
+      ),
+    );
+    const updated = await client.devices.retrieve({
+      key: dev.key,
+      schemas: OPCUA.Device.SCHEMAS,
+    });
+    expect(updated.properties.read.indexes).not.toContain(existing.index);
+    expect(
+      await client.channels.retrieve([`${dev.name}_time_for_OPC_UA_read_task`]),
+    ).toHaveLength(0);
+  });
+
+  it("should show history backfill in place of array sampling and NaN fill in On change mode", async () => {
+    const dev = await createOPCDevice(client);
+    const ch = createReadChannel();
+    const draft = await createDraft(client, {
+      ...createReadConfig(dev.key, [ch]),
+      arrayMode: true,
+      arraySize: 5,
+      streamRate: 0,
+    });
+    await renderRead({ client, taskKey: draft.key });
+    await screen.findByText(new RegExp(ch.nodeName));
+    await screen.findByText("NaN fill");
+    expect(screen.queryByText("History backfill")).toBeNull();
+    fireEvent.click(screen.getByText("On change"));
+    await screen.findByText("History backfill");
+    expect(screen.queryByText("NaN fill")).toBeNull();
+    expect(screen.queryByText("Array sampling")).toBeNull();
+    fireEvent.click(getLabeledInput("History backfill"));
+    await waitFor(async () => {
+      const { config } = await client.tasks.retrieve({
+        key: draft.key,
+        schemas: OPCUA.Task.READ_SCHEMAS,
+      });
+      expect(config).toMatchObject({
+        mode: "on_change",
+        historyBackfillEnabled: true,
+        arrayMode: false,
+        arraySize: 1,
+        streamRate: 25,
+      });
+    });
   });
 
   it("should swap the stream rate field for an array size field in array mode", async () => {

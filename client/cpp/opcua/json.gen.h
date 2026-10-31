@@ -112,6 +112,11 @@ inline ReadConfig ReadConfig::parse(x::json::Parser parser) {
         std::vector<ReadChannel>{}
     );
     result.nan_fill_enabled = parser.field<bool>("nan_fill_enabled", false);
+    result.mode = parser.field<std::string>("mode", "sampled");
+    result.history_backfill_enabled = parser.field<bool>(
+        "history_backfill_enabled",
+        false
+    );
     return result;
 }
 
@@ -126,6 +131,8 @@ inline x::json::json ReadConfig::to_json() const {
     j["array_size"] = this->array_size;
     j["channels"] = x::json::to_array(this->channels);
     j["nan_fill_enabled"] = this->nan_fill_enabled;
+    j["mode"] = this->mode;
+    j["history_backfill_enabled"] = this->history_backfill_enabled;
     return j;
 }
 

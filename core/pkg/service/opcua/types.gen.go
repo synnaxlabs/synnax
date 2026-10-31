@@ -42,6 +42,15 @@ type WriteConfig = versions.WriteConfig
 // ScanConfig configures an OPC UA scan task.
 type ScanConfig = versions.ScanConfig
 
+// ReadMode is how a read task gets values: sampled polls each node at the sample rate,
+// and on_change subscribes to the changes of each node.
+type ReadMode = versions.ReadMode
+
+const (
+	ReadModeSampled  ReadMode = versions.ReadModeSampled
+	ReadModeOnChange ReadMode = versions.ReadModeOnChange
+)
+
 // WriteType is what the commands of a write channel do on the server.
 type WriteType = versions.WriteType
 
