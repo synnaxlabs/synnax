@@ -15,6 +15,7 @@ from alamos import NOOP, Instrumentation
 from freighter import Empty, UnaryClient
 from synnax.exceptions import NotFoundError
 from synnax.rack.types_gen import Key, Rack, RetrieveRequest, Where
+from synnax.util import one
 from x import filter
 from x.lists import all_none, override
 
@@ -153,6 +154,7 @@ class Client:
         :raises ValueError: If two singular selectors are given, or one is
             combined with a list filter.
         :raises NotFoundError: If a single rack is requested and none matches.
+        :raises MultipleFoundError: If more than one rack matches a single name.
         """
         is_single = not all_none(key, name)
         if sum(v is not None for v in (key, name)) > 1:
@@ -187,11 +189,9 @@ class Client:
             include_status=include_status,
         )
         res = self._client.send("/rack/retrieve", req, _RetrieveResponse)
-        if is_single:
-            if len(res.racks) > 0:
-                return res.racks[0]
-            raise NotFoundError("Rack not found")
-        return res.racks
+        if not is_single:
+            return res.racks
+        return one("Rack", key if key is not None else name, res.racks)
 
     def retrieve_embedded_rack(self) -> Rack:
         if self._embedded_rack is None:

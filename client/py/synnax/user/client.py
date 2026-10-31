@@ -13,9 +13,9 @@ from uuid import UUID
 from pydantic import BaseModel, Field
 
 from freighter import Empty, UnaryClient
-from synnax.exceptions import NotFoundError
 from synnax.user.payload import New, User
 from synnax.user.types_gen import RetrieveRequest, Where
+from synnax.util import one
 from x import filter
 from x.lists import normalize
 from x.params import require_named_params
@@ -171,9 +171,7 @@ class Client:
         users = res.users
         if not single:
             return users
-        if len(users) == 0:
-            raise NotFoundError(f"User matching {key or username} not found")
-        return users[0]
+        return one("User", key or username, users)
 
     def delete(self, keys: UUID | list[UUID] | None = None) -> None:
         self.client.send("/user/delete", _DeleteRequest(keys=normalize(keys)), Empty)

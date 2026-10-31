@@ -27,8 +27,8 @@ from synnax.arc.types_gen import (
     Where,
     ontology_id,
 )
-from synnax.exceptions import MultipleFoundError, NotFoundError
 from synnax.ontology.payload import ID
+from synnax.util import one
 from x import filter
 from x.lists import normalize
 from x.uuid import NIL
@@ -213,13 +213,7 @@ class Client:
         arcs = self._sugar(res.arcs)
         if not is_single:
             return arcs
-        if len(arcs) == 0:
-            identifier = key if key is not None else name
-            raise NotFoundError(f"Arc {identifier} not found")
-        if len(arcs) > 1:
-            identifier = key if key is not None else name
-            raise MultipleFoundError(f"Multiple Arcs matching {identifier} found")
-        return arcs[0]
+        return one("Arc", key if key is not None else name, arcs)
 
     def delete(self, keys: Key | list[Key]) -> None:
         self._client.send("/arc/delete", _DeleteRequest(keys=normalize(keys)), Empty)

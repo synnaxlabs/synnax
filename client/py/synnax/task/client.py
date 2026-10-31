@@ -24,7 +24,6 @@ from freighter import Empty, UnaryClient
 from synnax import rack as rack_
 from synnax.device import Client as DeviceClient
 from synnax.device import Device
-from synnax.exceptions import NotFoundError
 from synnax.framer import Client as FrameClient
 from synnax.ontology.payload import ID
 from synnax.rack import Client as RackClient
@@ -40,6 +39,7 @@ from synnax.task.types_gen import (
     ontology_id,
 )
 from synnax.telem import TimeSpan, TimeStamp
+from synnax.util import one
 from x import filter
 from x.lists import all_none, override
 from x.timing import Timer
@@ -511,6 +511,8 @@ class Client:
         :raises ValueError: If two singular selectors are given, or one is
             combined with a list filter.
         :raises NotFoundError: If a single task is requested and none matches.
+        :raises MultipleFoundError: If more than one task matches a single name or
+            type.
         """
         is_single = not all_none(key, name, type)
         if sum(v is not None for v in (key, name, type)) > 1:
@@ -544,20 +546,9 @@ class Client:
         )
         res = self._client.send(_RETRIEVE_ENDPOINT, req, RetrieveResponse)
         sug = self.sugar(res.tasks)
-        if is_single and len(sug) == 0:
-            raise NotFoundError("Task not found")
-
-        # Warn if multiple tasks found when retrieving by name
-        if is_single and name is not None and len(sug) > 1:
-            task_keys = ", ".join(str(t.key) for t in sug)
-            warnings.warn(
-                f"Multiple tasks ({len(sug)}) found with name '{name}'. "
-                f"Keys: [{task_keys}]. Returning the first task ({sug[0].key}).",
-                UserWarning,
-                stacklevel=2,
-            )
-
-        return sug[0] if is_single else sug
+        if not is_single:
+            return sug
+        return one("Task", next(v for v in (key, name, type) if v is not None), sug)
 
     def sugar(self, tasks: list[Payload]) -> list[Task]:
         return [

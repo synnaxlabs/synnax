@@ -30,7 +30,7 @@ from synnax.channel.types_gen import (
     ontology_id,
 )
 from synnax.channel.writer import Writer
-from synnax.exceptions import MultipleFoundError, NotFoundError, ValidationError
+from synnax.exceptions import MultipleFoundError, ValidationError
 from synnax.ontology.payload import ID
 from synnax.telem import (
     CrudeDataType,
@@ -40,6 +40,7 @@ from synnax.telem import (
     MultiSeries,
     TimeRange,
 )
+from synnax.util import one
 from x import control, filter
 from x.lists import normalize
 
@@ -464,11 +465,9 @@ class Client:
         sug = self._sugar(res)
         if channel is None or not single:
             return sug
-        if len(res) == 1:
-            return sug[0]
         if len(res) > 1:
             raise _multiple_results_error(channel, res)
-        raise NotFoundError(f"Channel matching '{channel}' not found.")
+        return one("Channel", channel, sug)
 
     @overload
     def rename(self, keys: Key, names: str) -> None:

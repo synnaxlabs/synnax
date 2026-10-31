@@ -95,6 +95,25 @@ TEST(TaskTests, testRetrieveTaskByType) {
     ASSERT_EQ(t.rack, r.key);
 }
 
+/// @brief it should reject a type that more than one task on the rack has.
+TEST(TaskTests, testRetrieveTaskByTypeMultipleFound) {
+    const auto client = new_test_client();
+    auto r = rack::Rack{.name = "test_rack"};
+    ASSERT_NIL(client.racks.create(r));
+    for (const auto *name: {"first", "second"}) {
+        auto t = Task{
+            .name = name,
+            .type = "pagerduty_alert",
+            .config = {{"routing_key", "rk"}}
+        };
+        ASSERT_NIL(r.tasks.create(t));
+    }
+    ASSERT_OCCURRED_AS_P(
+        r.tasks.retrieve_by_type("pagerduty_alert"),
+        x::errors::MULTIPLE_RESULTS
+    );
+}
+
 /// @brief it should correctly list the tasks on a rack.
 TEST(TaskTests, testListTasks) {
     const auto client = new_test_client();

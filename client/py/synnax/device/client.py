@@ -22,8 +22,8 @@ from synnax.device.types_gen import (
     RetrieveResponse,
     Where,
 )
-from synnax.exceptions import NotFoundError
 from synnax.ontology.payload import ID as OntologyID
+from synnax.util import one, one_or_none
 from x import filter
 from x.lists import all_none, normalize, override
 
@@ -289,6 +289,8 @@ class Client:
         :raises ValueError: If two singular selectors are given, or one is
             combined with a list filter.
         :raises NotFoundError: If a single device is requested and none matches.
+        :raises MultipleFoundError: If a single device is requested and more than one
+            matches, even when ignore_not_found is set.
         """
         is_single = not all_none(key, name, make, model, location)
         if sum(v is not None for v in (key, name, make, model, location)) > 1:
@@ -326,10 +328,9 @@ class Client:
             include_parent=include_parent,
         )
         res = self._client.send("/device/retrieve", req, RetrieveResponse)
-        if is_single:
-            if len(res.devices) > 0:
-                return res.devices[0]
-            if ignore_not_found:
-                return None
-            raise NotFoundError("Device not found")
-        return res.devices
+        if not is_single:
+            return res.devices
+        query = next(v for v in (key, name, make, model, location) if v is not None)
+        if ignore_not_found:
+            return one_or_none("Device", query, res.devices)
+        return one("Device", query, res.devices)

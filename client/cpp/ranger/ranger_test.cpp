@@ -99,6 +99,21 @@ TEST(RangerTests, testRetrieveByNameNotFound) {
     );
 }
 
+/// @brief it should reject a name that more than one range has.
+TEST(RangerTests, testRetrieveByNameMultipleFound) {
+    const auto client = new_test_client();
+    const auto rand_name = std::to_string(gen_rand());
+    for (int i = 0; i < 2; i++)
+        ASSERT_NIL_P(client.ranges.create(
+            rand_name,
+            x::telem::TimeRange(x::telem::TimeStamp(10), x::telem::TimeStamp(100))
+        ));
+    ASSERT_OCCURRED_AS_P(
+        client.ranges.retrieve_by_name(rand_name),
+        x::errors::MULTIPLE_RESULTS
+    );
+}
+
 /// @brief it should retrieve multiple ranges by their names.
 TEST(RangerTests, testRetrieveMultipleByName) {
     const auto client = new_test_client();

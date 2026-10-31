@@ -13,7 +13,7 @@ import { z } from "zod";
 
 import { channel } from "@/channel";
 import { framer } from "@/framer";
-import { AccessDeniedError, NotFoundError } from "@/index";
+import { AccessDeniedError, MultipleFoundError, NotFoundError } from "@/index";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { rack } from "@/rack";
@@ -233,6 +233,17 @@ describe("Task", async () => {
       });
       const retrieved = await client.tasks.retrieve({ name });
       expect(retrieved.key).toBe(m.key);
+    });
+
+    it("should reject a name that two tasks share", async () => {
+      const name = `test-${id.create()}`;
+      for (let i = 0; i < 2; i++)
+        await testRack.createTask({
+          name,
+          config: { routingKey: "dog" },
+          type: "pagerduty_alert",
+        });
+      await expect(client.tasks.retrieve({ name })).rejects.toThrow(MultipleFoundError);
     });
 
     it("should retrieve tasks by search term", async () => {

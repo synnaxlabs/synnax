@@ -12,7 +12,7 @@ import { describe, expect, it, test } from "vitest";
 
 import { UnauthorizedError } from "@/errors";
 import { framer } from "@/framer";
-import { ValidationError } from "@/index";
+import { NotFoundError, ValidationError } from "@/index";
 import {
   createTestClient,
   newIndexedBoolPair,
@@ -67,9 +67,14 @@ describe("Writer", () => {
     test("write to unknown channel key", async () => {
       const channels = await newIndexedPair(client);
       const writer = await client.openWriter({ start: TimeStamp.now(), channels });
-      await expect(
-        writer.write("nonexistent_channel", randomSeries(10, DataType.FLOAT64)),
-      ).rejects.toThrow('Channel "nonexistent_channel" not found');
+      const write = writer.write(
+        "nonexistent_channel",
+        randomSeries(10, DataType.FLOAT64),
+      );
+      await expect(write).rejects.toThrow(NotFoundError);
+      await expect(write).rejects.toThrow(
+        'channel not found matching "nonexistent_channel"',
+      );
       await writer.close();
     });
 

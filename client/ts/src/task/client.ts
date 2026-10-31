@@ -809,9 +809,8 @@ export class Client extends query.Retriever<
   }
 
   private async fetchSingle(q: SingleRequest): Promise<Task> {
-    let cached: Omit<Task, "status"> | undefined;
-    if ("key" in q) cached = this.store.get(q.key);
-    else if ("name" in q) [cached] = this.store.get((t) => t.name === q.name);
+    // Task names are not unique, so only a key can answer from the cache.
+    const cached = "key" in q ? this.store.get(q.key) : undefined;
     // A cached task without a cached status is ambiguous: the task may have
     // no status or the status may not have synced. Only both count as a hit.
     if (cached != null && this.cfg.statuses.store.has(statusKey(cached.key)))

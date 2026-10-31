@@ -22,7 +22,7 @@ import {
 import { z } from "zod";
 
 import { type channel } from "@/channel";
-import { AccessDeniedError, QueryError } from "@/errors";
+import { AccessDeniedError } from "@/errors";
 import { type framer } from "@/framer";
 import { label } from "@/label";
 import { ontology } from "@/ontology";
@@ -196,9 +196,14 @@ export class Range {
     return r;
   }
 
+  /**
+   * Sets the alias of a channel in the range.
+   * @throws {NotFoundError} if no channel has the given key or name.
+   * @throws {MultipleFoundError} if more than one channel has the given name.
+   */
   async setAlias(channel: channel.Key | Name, alias: string): Promise<void> {
     const ch = await this.channels(channel);
-    if (ch.length === 0) throw new QueryError(`Channel ${channel} does not exist`);
+    checkForMultipleOrNoResults("channel", channel, ch, true);
     await this.rangeClient.setAlias(this.key, ch[0].key, alias);
   }
 
@@ -210,6 +215,10 @@ export class Range {
     return await this.aliaser.list();
   }
 
+  /**
+   * @returns the key of the channel with the given alias in the range.
+   * @throws {NotFoundError} if no channel has the alias.
+   */
   async resolveAlias(alias: string): Promise<channel.Key> {
     return await this.aliaser.resolve(alias);
   }

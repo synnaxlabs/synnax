@@ -20,7 +20,7 @@ from synnax.access.role.types_gen import (
     Role,
     Where,
 )
-from synnax.exceptions import NotFoundError
+from synnax.util import one
 from x import filter
 from x.lists import normalize
 
@@ -127,9 +127,7 @@ class Client:
         res = self._client.send("/access/role/retrieve", req, RetrieveResponse)
         if not is_single:
             return res.roles
-        if len(res.roles) == 0:
-            raise NotFoundError(f"Role {key} not found")
-        return res.roles[0]
+        return one("Role", key, res.roles)
 
     def delete(self, keys: UUID | list[UUID]) -> None:
         req = _DeleteRequest(keys=normalize(keys))
