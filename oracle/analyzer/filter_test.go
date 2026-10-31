@@ -255,6 +255,31 @@ var _ = Describe("Filter definitions", func() {
 			))
 		})
 
+		It("Should accept a bare line over an array of enums", func(ctx SpecContext) {
+			table, diag := Analyze(ctx, `
+				import "schemas/x/filter"
+
+				Kind enum {
+					a = "a"
+				}
+				Thing struct {
+					key   uuid { @key }
+					kinds Kind[]
+				}
+				Where filter Thing {
+					kinds
+				}
+			`, "test", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String())
+			types := fieldTypes(
+				table.MustGet("test.Where").Form.(resolution.StructForm),
+			)
+			Expect(types["kinds"]).To(Equal(resolution.TypeRef{
+				Name:     "filter.Contains",
+				TypeArgs: []resolution.TypeRef{{Name: "test.Kind"}},
+			}))
+		})
+
 		It("Should type a bare line by its type parameter's default", func(
 			ctx SpecContext,
 		) {
@@ -347,12 +372,15 @@ var _ = Describe("Filter definitions", func() {
 					Span struct {
 						start int64
 					}
+					Attributes = map<string, string>
 					Thing struct<D> {
 						key     uuid { @key }
 						name    string
 						color   string?
 						span    Span
 						details D
+						spans   Span[]
+						values  Attributes[]
 					}
 					Other enum {
 						a = "a"
@@ -403,6 +431,12 @@ var _ = Describe("Filter definitions", func() {
 			Entry("a bare line over a field without operators",
 				"Where filter Thing {\n span\n}",
 				"filter Where: Thing.span has no operators for its type"),
+			Entry("a bare line over an array of structs",
+				"Where filter Thing {\n spans\n}",
+				"filter Where: Thing.spans has elements that cannot be compared"),
+			Entry("a bare line over an array of maps",
+				"Where filter Thing {\n values\n}",
+				"filter Where: Thing.values has elements that cannot be compared"),
 			Entry("a bare line over an optional field",
 				"Where filter Thing {\n color\n}",
 				"filter Where: Thing.color is optional, which bare lines do not"),

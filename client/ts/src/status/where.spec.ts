@@ -9,7 +9,7 @@
 
 import { describe } from "vitest";
 
-import { statusZ, whereZ } from "@/status/types.gen";
+import { status } from "@/status";
 import { type Lines, matches, serverComputed } from "@/status/where.gen";
 import { itMatchesVectors, readVectors } from "@/testutil/vectors";
 
@@ -19,7 +19,7 @@ const lines: Lines = {
 
 describe("Where", () => {
   itMatchesVectors(
-    readVectors("statuses", statusZ(), whereZ),
+    readVectors("statuses", status.statusZ(), status.whereZ),
     (s, where) => matches(lines, s, where),
     (where) => serverComputed(lines, where),
   );

@@ -35,7 +35,10 @@ var _ = Describe("TS Filter Plugin", func() {
 
 	BeforeEach(func() {
 		loader = NewMockFileLoader()
-		loader.Add("schemas/x/filter", "@ts output \"x/ts/src/filter\"\n"+FilterSchema)
+		loader.Add(
+			"schemas/x/filter",
+			"@ts output \"x/ts/src/filter\"\n@py output \"x/py/filter\"\n"+FilterSchema,
+		)
 		p = filter.New(filter.DefaultOptions())
 	})
 
@@ -58,6 +61,7 @@ var _ = Describe("TS Filter Plugin", func() {
 			import "schemas/x/filter"
 
 			@ts output "client/ts/src/thing"
+			@py output "client/py/thing"
 
 			Span struct {
 				start int64
@@ -171,6 +175,16 @@ var _ = Describe("TS Filter Plugin", func() {
 				)
 		})
 
+		It("Should skip a line omitted from TypeScript", func(ctx SpecContext) {
+			resp := MustGenerate(ctx, thing+`
+				Where filter Thing {
+					key
+					overlaps Span { @ts omit }
+				}
+			`, "thing", loader, p)
+			ExpectContent(resp, "where.gen.ts").ToNotContain("overlaps")
+		})
+
 		It("Should read bare lines from the response type", func(ctx SpecContext) {
 			resp := MustGenerate(ctx, `
 				import "schemas/x/filter"
@@ -251,7 +265,7 @@ var _ = Describe("TS Filter Plugin", func() {
 		It("Should reject an operator member it cannot check", func(ctx SpecContext) {
 			loader.Add(
 				"schemas/x/filter",
-				`@ts output "x/ts/src/filter"`+strings.Replace(
+				"@ts output \"x/ts/src/filter\"\n@py output \"x/py/filter\"\n"+strings.Replace(
 					FilterSchema,
 					"in T[]?\n\t@pb omit\n}\nOrdered",
 					"in T[]?\n\tgt T?\n\t@pb omit\n}\nOrdered",
