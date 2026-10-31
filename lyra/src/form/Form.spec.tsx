@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { deep, type record } from "@synnaxlabs/x";
-import { act, fireEvent, render, renderHook } from "@testing-library/react";
+import { act, fireEvent, render, renderHook, screen } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { renderToString } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
@@ -624,6 +624,84 @@ describe("Form", () => {
       fireEvent.blur(input);
       // we're executing an async parse so we need to wait for the error to show up
       expect(c.findByText("You must be at least 5 years old.")).toBeTruthy();
+    });
+  });
+
+  describe("CheckboxField", () => {
+    const flagsSchema = z.object({
+      enabled: z.boolean(),
+      disabled: z.boolean(),
+      config: z.object({ autoStart: z.boolean() }),
+    });
+
+    const flagsWrapper =
+      (field?: ReactElement) =>
+      ({ children }: PropsWithChildren): ReactElement => {
+        const methods = Form.use<typeof flagsSchema>({
+          values: { enabled: true, disabled: false, config: { autoStart: false } },
+          schema: flagsSchema,
+        });
+        return (
+          <Form.Form<typeof flagsSchema> {...methods}>
+            {field}
+            {children}
+          </Form.Form>
+        );
+      };
+
+    it("should check the box when the stored value is true", () => {
+      render(<Form.CheckboxField path="enabled" />, { wrapper: flagsWrapper() });
+      expect(
+        screen.getByRole<HTMLInputElement>("checkbox", { name: "Enabled" }).checked,
+      ).toBe(true);
+    });
+
+    it("should never show a required mark", () => {
+      const c = render(<Form.CheckboxField path="enabled" />, {
+        wrapper: flagsWrapper(),
+      });
+      expect(c.queryByText("*")).toBeNull();
+    });
+
+    it("should check the box when an inverted flag is false", () => {
+      render(<Form.CheckboxField path="disabled" label="Saving" inverted />, {
+        wrapper: flagsWrapper(),
+      });
+      expect(
+        screen.getByRole<HTMLInputElement>("checkbox", { name: "Saving" }).checked,
+      ).toBe(true);
+    });
+
+    it("should store the inverse of the box for an inverted flag", () => {
+      const { result } = renderHook(() => Form.useFieldValue<boolean>("disabled"), {
+        wrapper: flagsWrapper(
+          <Form.CheckboxField path="disabled" label="Saving" inverted />,
+        ),
+      });
+      expect(result.current).toBe(false);
+      act(() => {
+        fireEvent.click(screen.getByRole("checkbox", { name: "Saving" }));
+      });
+      expect(result.current).toBe(true);
+    });
+
+    it("should bind to the field key under the path", () => {
+      const { result } = renderHook(
+        () => Form.useFieldValue<boolean>("config.autoStart"),
+        {
+          wrapper: flagsWrapper(
+            <Form.CheckboxField
+              path="config"
+              fieldKey="autoStart"
+              label="Auto start"
+            />,
+          ),
+        },
+      );
+      act(() => {
+        fireEvent.click(screen.getByRole("checkbox", { name: "Auto start" }));
+      });
+      expect(result.current).toBe(true);
     });
   });
 

@@ -20,6 +20,17 @@
         max-width: 200px;
     }
 
+    /* The rack hangs under the header buttons, so the header adds no height. */
+    .console-task-configure__actions {
+        position: relative;
+    }
+
+    .console-task-configure__rack {
+        position: absolute;
+        top: calc(100% + 1rem);
+        right: 0;
+    }
+
     > div {
         padding: 5rem;
         max-width: 1000px;

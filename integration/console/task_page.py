@@ -59,6 +59,12 @@ class TaskPage(ConsolePage):
         controls.wait_for(state="visible", timeout=5000)
         return controls
 
+    def _set_setting(self, label: str, on: bool) -> None:
+        """Set a task-wide setting with its toggle in the controls footer."""
+        toggle = self._controls().get_by_role("button", name=label, exact=True)
+        if (toggle.get_attribute("aria-pressed") == "true") != on:
+            toggle.click()
+
     def _channel_list(self) -> Locator:
         return self._pane().locator(_CHANNEL_LIST_SELECTOR).first
 
@@ -241,11 +247,11 @@ class TaskPage(ConsolePage):
             self.name_input().fill(task_name)
             layout.press_enter()
 
-        if data_saving is not None and data_saving != layout.get_toggle("Data saving"):
-            layout.click_checkbox("Data saving")
+        if data_saving is not None:
+            self._set_setting("Data saving", data_saving)
 
-        if auto_start is not None and auto_start != layout.get_toggle("Auto start"):
-            layout.click_checkbox("Auto start")
+        if auto_start is not None:
+            self._set_setting("Auto start", auto_start)
 
         if sample_rate is not None:
             layout.fill_input_field("Sample rate", str(sample_rate))

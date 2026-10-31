@@ -32,24 +32,28 @@ export const AddressField = ({ path }: AddressFieldProps): ReactElement => {
   const field = Form.useField<number>(`${path}.address`);
   const invalid = field.status.variant !== "success";
   return (
-    <Input.Text
-      value={field.value.toString()}
-      onChange={(raw) => {
-        const parsed = parseAddress(type, raw);
-        if ("error" in parsed)
-          return field.setStatus({ variant: "error", message: parsed.error });
-        // The status clears on its own only when the value changes.
-        if (invalid) field.setStatus({ variant: "success", message: "" });
-        field.onChange(parsed.address);
-      }}
-      onlyChangeOnBlur
-      selectOnFocus
-      preview={field.preview}
-      status={invalid ? field.status.variant : undefined}
-      tooltip={field.status.message}
-      hideTooltip={!invalid}
-      endContent={toModicon(type, field.value)}
-      aria-label="Address"
-    />
+    <Input.Item
+      showLabel={false}
+      showHelpText={false}
+      status={field.status.variant}
+      helpText={field.status.message}
+    >
+      <Input.Text
+        value={field.value.toString()}
+        onChange={(raw) => {
+          const parsed = parseAddress(type, raw);
+          if ("error" in parsed)
+            return field.setStatus({ variant: "error", message: parsed.error });
+          // The status clears on its own only when the value changes.
+          if (invalid) field.setStatus({ variant: "success", message: "" });
+          field.onChange(parsed.address);
+        }}
+        onlyChangeOnBlur
+        selectOnFocus
+        preview={field.preview}
+        endContent={toModicon(type, field.value)}
+        aria-label="Address"
+      />
+    </Input.Item>
   );
 };

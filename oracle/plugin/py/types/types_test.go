@@ -150,6 +150,87 @@ var _ = Describe("Python Types Plugin", func() {
 			},
 		)
 
+		Context("parent omitted in Python", func() {
+			schema := func(parentDomain, childBody string) string {
+				return `
+				@go output "core/user"
+				@py output "out"
+
+				Record struct {
+					key    uint32
+					name   string
+					secret string
+					` + parentDomain + `
+				}
+
+				Shape struct extends Record {
+					` + childBody + `
+				}
+			`
+			}
+
+			It(
+				"Should declare an inline variant's inherited fields",
+				func(ctx SpecContext) {
+					source := `
+					@go output "core/pkg/service/auth"
+					@py output "out"
+
+					Record struct {
+						key  uint32
+						name string
+						@py omit
+					}
+
+					Chan union on type {
+						ai extends Record {
+							rate float64
+						}
+					}
+				`
+					resp := MustGenerate(ctx, source, "auth", loader, typesPlugin)
+					ExpectContent(resp, "types_gen.py").
+						ToContain("key: int", "name: str", "rate: float").
+						ToNotContain("Record")
+				},
+			)
+
+			It("Should declare the inherited fields", func(ctx SpecContext) {
+				resp := MustGenerate(
+					ctx,
+					schema("@py omit", "rate float64"),
+					"user",
+					loader,
+					typesPlugin,
+				)
+				ExpectContent(resp, "types_gen.py").
+					ToContain(
+						`class Shape(BaseModel):`,
+						`key: int`,
+						`name: str`,
+						`secret: str`,
+						`rate: float`,
+					).
+					ToNotContain(`class Record`)
+			})
+
+			It("Should leave out a removed field", func(ctx SpecContext) {
+				resp := MustGenerate(
+					ctx, schema("@py omit", "-secret"), "user", loader, typesPlugin,
+				)
+				ExpectContent(resp, "types_gen.py").
+					ToContain(`class Shape(BaseModel):`, `name: str`).
+					ToNotContain(`secret`, `class Record`)
+			})
+
+			It("Should inherit from a parent that generates", func(ctx SpecContext) {
+				resp := MustGenerate(
+					ctx, schema("", "rate float64"), "user", loader, typesPlugin,
+				)
+				ExpectContent(resp, "types_gen.py").ToContain(`class Shape(Record):`)
+			})
+		})
+
 		It("Should handle optional and array types", func(ctx SpecContext) {
 			source := `
 				@py output "out"

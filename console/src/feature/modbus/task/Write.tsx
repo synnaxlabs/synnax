@@ -23,7 +23,7 @@ import { type FC } from "react";
 
 import { useFromConfig } from "@/feature/modbus/device/queries";
 import { Select as SelectDevice } from "@/feature/modbus/device/Select";
-import { SCHEMAS } from "@/feature/modbus/device/types";
+import { MAKE, SCHEMAS } from "@/feature/modbus/device/types";
 import { AddressField } from "@/feature/modbus/task/AddressField";
 import { OrderFields } from "@/feature/modbus/task/OrderFields";
 import { SelectWriteChannelTypeField } from "@/feature/modbus/task/SelectWriteChannelTypeField";
@@ -44,15 +44,7 @@ import { CSS } from "@/platform/css";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-const Properties = () => (
-  <>
-    <SelectDevice />
-    <Flex.Box x grow>
-      <Task.Fields.DataSaving />
-      <Task.Fields.AutoStart />
-    </Flex.Box>
-  </>
-);
+const Properties = () => <SelectDevice />;
 
 const ChannelListItem = (props: Task.ChannelListItemProps) => {
   const { itemKey } = props;
@@ -310,6 +302,7 @@ export const Write = Task.wrapForm({
 
 export const useCreateWrite = Task.createUseCreate({
   getInitialValues,
+  deviceMake: MAKE,
 });
 
 export const WriteSelectable = Selector.createSelectable({

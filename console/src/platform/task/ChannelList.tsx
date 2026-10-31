@@ -21,8 +21,8 @@ import { type ReactElement, type ReactNode } from "react";
 import { ContextMenu as PlatformContextMenu } from "@/platform/context-menu";
 import { CSS } from "@/platform/css";
 import { BindChannels, type BindChannelsProps } from "@/platform/task/BindChannels";
-import { useIsPreview } from "@/platform/task/Form";
 import { type Channel } from "@/platform/task/types";
+import { useIsPreview } from "@/platform/task/useIsPreview";
 
 export interface ContextMenuItemProps<C extends Channel> {
   keys: string[];

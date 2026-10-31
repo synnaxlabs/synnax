@@ -13,8 +13,7 @@ import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { Project } from "@/feature/project";
-import { renderToolbar } from "@/platform/tree/menuTestutil";
-import { findTreeRow } from "@/platform/tree/treeTestutil";
+import { findTreeRow, renderToolbar } from "@/platform/tree/testutil";
 import { getIconButton, getIconButtons, uniqueName } from "@/testutil";
 
 const client = createTestClient();
