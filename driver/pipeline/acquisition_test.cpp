@@ -1115,4 +1115,50 @@ TEST(AuthoritiesValidation, RejectsManyAuthoritiesWithoutKeys) {
     Authorities auth{.authorities = {100, 200}};
     ASSERT_OCCURRED_AS(auth.validate(), x::errors::VALIDATION);
 }
+
+namespace {
+/// @brief answers each open with the next scripted error.
+class ScriptedWriterFactory final : public WriterFactory {
+    std::vector<x::errors::Error> errors;
+
+public:
+    std::atomic<size_t> opens{0};
+
+    explicit ScriptedWriterFactory(std::vector<x::errors::Error> errors):
+        errors(std::move(errors)) {}
+
+    std::pair<std::unique_ptr<Writer>, x::errors::Error>
+    open_writer(const synnax::framer::WriterConfig &) override {
+        return {nullptr, this->errors.at(this->opens.fetch_add(1))};
+    }
+};
+}
+
+/// @brief it should open the writer again while the Core is unreachable, and stop on
+/// another error.
+TEST(AcquisitionPipeline, RetriesOpenWhileCoreUnreachable) {
+    const auto factory = std::make_shared<ScriptedWriterFactory>(std::vector{
+        freighter::UNREACHABLE,
+        freighter::UNREACHABLE,
+        freighter::UNREACHABLE,
+        x::errors::UNKNOWN,
+    });
+    const auto source = std::make_shared<MockSource>(x::telem::TimeStamp::now());
+    auto pipeline = Acquisition(
+        factory,
+        synnax::framer::WriterConfig(),
+        source,
+        x::breaker::Config{
+            .base_interval = x::telem::MICROSECOND * 10,
+            .max_retries = 5,
+        },
+        "",
+        true,
+        true
+    );
+    ASSERT_TRUE(pipeline.start());
+    ASSERT_EVENTUALLY_EQ(factory->opens.load(), 4);
+    pipeline.stop();
+    ASSERT_MATCHES(source->stopped_err, x::errors::UNKNOWN);
+}
 }

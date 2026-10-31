@@ -89,6 +89,9 @@ class ReadConfig(task.ReadConfig):
         array_mode: Is true when each read returns an array of samples per node.
         array_size: Is the number of samples in each array when array_mode is true.
         channels: Are the OPC UA nodes the task acquires.
+        nan_fill_enabled: Is true when a bad value of a float channel is written as NaN.
+            When false, a bad value skips the read for every channel that shares its
+            index.
     """
 
     sample_rate: telem.Rate = telem.Rate(50)
@@ -97,6 +100,7 @@ class ReadConfig(task.ReadConfig):
     array_mode: bool = False
     array_size: int = Field(default=1, ge=-2147483648, le=2147483647)
     channels: list[ReadChannel] = Field(default_factory=list)
+    nan_fill_enabled: bool = False
 
     def __hash__(self) -> int:
         return hash(self.key)

@@ -566,74 +566,84 @@ TEST_F(TestWriteTask, testMultipleSequentialWrites) {
     ASSERT_NIL(sink->stop());
 }
 
-TEST_F(TestWriteTask, testInvalidNodeIdErrorContainsChannelInfo) {
-    auto client = std::make_shared<synnax::Synnax>(new_test_client());
-
-    auto invalid_cmd_channel = ASSERT_NIL_P(client->channels.create(
-        make_unique_channel_name("invalid_node_cmd"),
+/// @brief it should warn about a node that the server rejects and still write the other
+/// nodes in the command.
+TEST_F(TestWriteTask, testRejectedNodeWritesOthers) {
+    const auto bad_cmd = ASSERT_NIL_P(ctx->client->channels.create(
+        make_unique_channel_name("bad_node_cmd"),
         x::telem::UINT32_T,
         true
     ));
-
-    auto rack = ASSERT_NIL_P(client->racks.create("invalid_node_test_rack"));
-
-    connection::Config invalid_conn_cfg;
-    invalid_conn_cfg.endpoint = "opc.tcp://0.0.0.0:4840";
-    invalid_conn_cfg.security_mode = "None";
-    invalid_conn_cfg.security_policy = "None";
-
-    synnax::device::Device dev{
-        .key = "invalid_node_dev",
-        .rack = rack.key,
-        .location = "dev_invalid",
-        .make = "ni",
-        .model = "PXI-6255",
-        .name = "invalid_node_device",
-        .properties = x::json::json::object(
-            {{"connection", testutil::connection_json(invalid_conn_cfg)}}
-        ),
-    };
-    ASSERT_NIL(client->devices.create(dev));
-
-    // Create config with an invalid node ID that doesn't exist on the server
     x::json::json task_cfg = {
         {"data_saving_disabled", false},
-        {"device", dev.key},
+        {"device", "abc123"},
         {"channels",
-         x::json::json::array(
-             {{{"node_id", "NS=99;I=99999"},
-               {"cmd_channel", invalid_cmd_channel.key},
-               {"disabled", false}}}
-         )}
+         x::json::json::array({
+             {{"node_id", "NS=99;I=99999"},
+              {"cmd_channel", bad_cmd.key},
+              {"disabled", false}},
+             {{"node_id", "NS=1;S=TestUInt32"},
+              {"cmd_channel", this->uint32_cmd_channel.key},
+              {"disabled", false}},
+         })}
     };
-
     auto p = x::json::Parser(task_cfg);
-    auto invalid_cfg = WriteTaskConfig(client, p);
+    auto write_cfg = WriteTaskConfig(ctx->client, p);
     ASSERT_FALSE(p.error()) << p.error().message();
-
-    auto sink = std::make_unique<WriteTaskSink>(
-        client,
+    const auto sink = std::make_unique<WriteTaskSink>(
+        ctx->client,
         conn_pool,
-        std::move(invalid_cfg)
+        std::move(write_cfg)
     );
     ASSERT_NIL(sink->start());
+    auto fr = x::telem::Frame(2);
+    fr.emplace(
+        bad_cmd.key,
+        x::telem::Series(static_cast<uint32_t>(1), x::telem::UINT32_T)
+    );
+    fr.emplace(
+        this->uint32_cmd_channel.key,
+        x::telem::Series(static_cast<uint32_t>(4321), x::telem::UINT32_T)
+    );
+    const auto err = sink->write(fr);
+    ASSERT_MATCHES(err, errors::COMMAND_REJECTED);
+    EXPECT_EQ(
+        err.data,
+        bad_cmd.name +
+            " returned BadNodeIdUnknown. The node id refers to a node that does not "
+            "exist in the server address space."
+    );
+    auto client = ASSERT_NIL_P(connection::connect(conn_cfg, {}, "[test.rejected] "));
+    const auto result = ASSERT_NIL_P(
+        testutil::simple_read(client, "NS=1;S=TestUInt32")
+    );
+    EXPECT_EQ(result.at<uint32_t>(0), 4321);
+    ASSERT_NIL(sink->stop());
+}
 
-    // Attempt to write to the invalid node
+/// @brief it should start while the server is off, and write once the server returns.
+TEST_F(TestWriteTask, testStartsWhileServerOff) {
+    server->stop();
+    const auto sink = std::make_unique<WriteTaskSink>(
+        ctx->client,
+        conn_pool,
+        std::move(*cfg)
+    );
+    ASSERT_NIL(sink->start());
     auto fr = x::telem::Frame(1);
     fr.emplace(
-        invalid_cmd_channel.key,
-        x::telem::Series(static_cast<uint32_t>(12345), x::telem::UINT32_T)
+        this->uint32_cmd_channel.key,
+        x::telem::Series(static_cast<uint32_t>(777), x::telem::UINT32_T)
     );
-
-    auto err = sink->write(fr);
-    ASSERT_TRUE(err) << "Expected error for invalid node ID";
-
-    const std::string err_msg = err.data;
-    EXPECT_TRUE(err_msg.contains(invalid_cmd_channel.name))
-        << "Error message should contain channel name. Got: " << err_msg;
-    EXPECT_TRUE(err_msg.contains("NS=99;I=99999"))
-        << "Error message should contain node ID. Got: " << err_msg;
-
+    ASSERT_OCCURRED_AS(sink->write(fr), errors::UNREACHABLE);
+    server->start();
+    ASSERT_TRUE(server->wait_until_ready());
+    ASSERT_NIL(sink->write(fr));
+    auto client = ASSERT_NIL_P(connection::connect(conn_cfg, {}, "[test.off] "));
+    const auto result = ASSERT_NIL_P(
+        testutil::simple_read(client, "NS=1;S=TestUInt32")
+    );
+    EXPECT_EQ(result.at<uint32_t>(0), 777);
     ASSERT_NIL(sink->stop());
 }
 
@@ -691,7 +701,7 @@ TEST_F(TestWriteTask, testNodeErrorKeepsConnection) {
         x::telem::Series(static_cast<uint32_t>(1), x::telem::UINT32_T)
     );
     ASSERT_NIL(store->regenerate().second);
-    ASSERT_MATCHES(sink->write(fr), errors::CRITICAL.sub("BadNodeIdUnknown"));
+    ASSERT_MATCHES(sink->write(fr), errors::COMMAND_REJECTED);
     ASSERT_EQ(conn_pool->size(), 1);
     ASSERT_NIL(sink->stop());
 }

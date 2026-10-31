@@ -25,6 +25,7 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//client/cpp:synnax",
+        "//client/cpp/errors",
         "//client/cpp/opcua",
         "//driver/common",
         "//driver/opcua/certificate",
@@ -36,10 +37,13 @@ cc_library(
         "//driver/pipeline",
         "//driver/task",
         "//vendor/open62541",
+        "//x/cpp/breaker",
         "//x/cpp/defer",
+        "//x/cpp/errors",
         "//x/cpp/json",
         "//x/cpp/loop",
         "//x/cpp/strings",
+        "//x/cpp/telem",
         "@abseil-cpp//absl/log",
         "@nlohmann_json//:json",
     ],
@@ -47,6 +51,7 @@ cc_library(
 
 cc_test(
     name = "opcua_test",
+    timeout = "long",
     srcs = [
         "read_task_test.cpp",
         "scan_task_test.cpp",

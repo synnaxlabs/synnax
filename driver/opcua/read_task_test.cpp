@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <iomanip>
 #include <iostream>
 #include <thread>
@@ -270,6 +272,40 @@ protected:
         UA_Client_disconnect(test_client.get());
     }
 
+    /// @returns a unary source that reads cfg_json.
+    std::unique_ptr<UnaryReadTaskSource> create_source(const x::json::json &cfg_json) {
+        auto p = x::json::Parser(cfg_json);
+        auto cfg = ReadTaskConfig(ctx->client, p);
+        EXPECT_FALSE(p.error()) << p.error().message();
+        return std::make_unique<UnaryReadTaskSource>(
+            ctx->client,
+            conn_pool,
+            std::move(cfg)
+        );
+    }
+
+    /// @returns the config of a task that reads node_id into the float channel and
+    /// TestDouble into the double channel, which share one index.
+    [[nodiscard]] x::json::json
+    mixed_cfg(const std::string &node_id, const bool nan_fill_enabled) const {
+        return {
+            {"data_saving_disabled", false},
+            {"device", "opc_read_task_test_server_key"},
+            {"channels",
+             x::json::json::array({
+                 {{"node_id", node_id},
+                  {"channel", this->float_channel.key},
+                  {"disabled", false}},
+                 {{"node_id", "NS=1;S=TestDouble"},
+                  {"channel", this->double_channel.key},
+                  {"disabled", false}},
+             })},
+            {"sample_rate", 50},
+            {"stream_rate", 25},
+            {"nan_fill_enabled", nan_fill_enabled},
+        };
+    }
+
     std::unique_ptr<common::ReadTask> create_task() {
         auto p = x::json::Parser(task_cfg_json);
         auto cfg = std::make_unique<ReadTaskConfig>(ctx->client, p);
@@ -340,78 +376,139 @@ TEST_F(TestReadTask, testBasicReadTask) {
     ASSERT_GE(fr.at<x::telem::TimeStamp>(this->index_channel.key, 0), start);
 }
 
-/// @brief it should return error for non-existent OPC UA node.
-TEST_F(TestReadTask, testInvalidNodeId) {
-    x::json::json bad_task_cfg{
-        {"data_saving_disabled", false},
-        {"device", "opc_read_task_test_server_key"},
-        {"channels",
-         x::json::json::array(
-             {{{"key", "NS=2;I=999"},
-               {"name", "nonexistent"},
-               {"node_name", "NonExistent"},
-               {"node_id", "NS=1;S=NonExistentNode"},
-               {"channel", this->float_channel.key},
-               {"disabled", false},
-               {"is_index", false},
-               {"data_type", "float32"}}}
-         )},
-        {"sample_rate", 50},
-        {"array_mode", false},
-        {"stream_rate", 25}
-    };
-
-    auto p = x::json::Parser(bad_task_cfg);
-    auto bad_cfg = std::make_unique<ReadTaskConfig>(ctx->client, p);
-
-    auto rt = std::make_unique<common::ReadTask>(
-        task,
-        ctx,
-        x::breaker::default_config(task.name),
-        std::make_unique<UnaryReadTaskSource>(
-            ctx->client,
-            conn_pool,
-            std::move(*bad_cfg)
-        ),
-        mock_factory
+/// @brief it should skip every channel on the index of a missing node, and name the
+/// node's channel in a warning.
+TEST_F(TestReadTask, testMissingNodeSkipsIndex) {
+    const auto source = this->create_source(mixed_cfg("NS=1;S=NonExistentNode", false));
+    ASSERT_NIL(source->start());
+    x::breaker::Breaker breaker;
+    x::telem::Frame fr;
+    const auto res = source->read(breaker, fr);
+    ASSERT_NIL(res.error);
+    EXPECT_EQ(res.warning.message, "Received bad values");
+    EXPECT_EQ(
+        res.warning.description,
+        this->float_channel.name +
+            " returned BadNodeIdUnknown. The node id refers to a node that does not "
+            "exist in the server address space. " +
+            this->float_channel.name +
+            " returned BadNodeIdUnknown. The node id refers to a node that does not "
+            "exist in the server address space."
     );
-
-    rt->start("start_cmd");
-    std::this_thread::sleep_for(std::chrono::milliseconds(200));
-    rt->stop("stop_cmd", true);
-
-    ASSERT_GE(ctx->statuses.size(), 1);
-    bool found_error = false;
-    for (const auto &state: ctx->statuses) {
-        if (state.variant == synnax::status::VARIANT_ERROR) {
-            found_error = true;
-            break;
-        }
-    }
-    EXPECT_TRUE(found_error);
+    EXPECT_TRUE(fr.empty());
+    ASSERT_NIL(source->stop());
 }
 
-/// @brief it should handle server disconnect during read operation.
-TEST_F(TestReadTask, testServerDisconnectDuringRead) {
+/// @brief it should write NaN for a missing float node when NaN fill is on, and keep
+/// the other channels on its index.
+TEST_F(TestReadTask, testMissingNodeFillsNaN) {
+    const auto source = this->create_source(mixed_cfg("NS=1;S=NonExistentNode", true));
+    ASSERT_NIL(source->start());
+    x::breaker::Breaker breaker;
+    x::telem::Frame fr;
+    const auto res = source->read(breaker, fr);
+    ASSERT_NIL(res.error);
+    EXPECT_EQ(res.warning.message, "Received bad values");
+    ASSERT_EQ(fr.size(), 3);
+    ASSERT_EQ(fr.length(), 2);
+    EXPECT_TRUE(std::isnan(fr.at<float>(this->float_channel.key, 0)));
+    EXPECT_TRUE(std::isnan(fr.at<float>(this->float_channel.key, 1)));
+    EXPECT_NEAR(fr.at<double>(this->double_channel.key, 0), 2.71828, 0.0001);
+    EXPECT_NEAR(fr.at<double>(this->double_channel.key, 1), 2.71828, 0.0001);
+    EXPECT_TRUE(fr.contains(this->index_channel.key));
+    ASSERT_NIL(source->stop());
+}
+
+/// @brief it should return a temporary error while the server is off, and read again
+/// once the server returns.
+TEST_F(TestReadTask, testRecoversAfterServerRestart) {
+    const auto source = this->create_source(task_cfg_json);
+    ASSERT_NIL(source->start());
+    x::breaker::Breaker breaker;
+    x::telem::Frame fr;
+    ASSERT_NIL(source->read(breaker, fr).error);
+    server->stop();
+    ASSERT_MATCHES(source->read(breaker, fr).error, errors::UNREACHABLE);
+    server->start();
+    ASSERT_TRUE(server->wait_until_ready());
+    ASSERT_NIL(source->read(breaker, fr).error);
+    EXPECT_EQ(fr.size(), 11);
+    EXPECT_EQ(conn_pool->size(), 1);
+    ASSERT_NIL(source->stop());
+}
+
+/// @brief it should start while the server is off, and read once the server returns.
+TEST_F(TestReadTask, testStartsWhileServerOff) {
+    server->stop();
+    const auto source = this->create_source(task_cfg_json);
+    ASSERT_NIL(source->start());
+    x::breaker::Breaker breaker;
+    x::telem::Frame fr;
+    ASSERT_MATCHES(source->read(breaker, fr).error, errors::UNREACHABLE);
+    server->start();
+    ASSERT_TRUE(server->wait_until_ready());
+    ASSERT_NIL(source->read(breaker, fr).error);
+    EXPECT_EQ(fr.size(), 11);
+    ASSERT_NIL(source->stop());
+}
+
+/// @brief it should retrieve the device before it connects again, so a corrected
+/// endpoint takes effect without a restart.
+TEST_F(TestReadTask, testReconnectUsesUpdatedDevice) {
+    const std::string endpoint = "opc.tcp://localhost:4863";
+    auto moved_server_cfg = testutil::ServerConfig::create_default();
+    moved_server_cfg.port = 4863;
+    testutil::Server moved_server(moved_server_cfg);
+    moved_server.start();
+    ASSERT_TRUE(moved_server.wait_until_ready());
+    const auto source = this->create_source(task_cfg_json);
+    ASSERT_NIL(source->start());
+    auto dev = ASSERT_NIL_P(
+        ctx->client->devices.retrieve(task_cfg_json["device"].get<std::string>())
+    );
+    connection::Config moved_cfg;
+    moved_cfg.endpoint = endpoint;
+    dev.properties["connection"] = testutil::connection_json(moved_cfg);
+    ASSERT_NIL(ctx->client->devices.create(dev));
+    server->stop();
+    x::breaker::Breaker breaker;
+    x::telem::Frame fr;
+    ASSERT_MATCHES(source->read(breaker, fr).error, errors::UNREACHABLE);
+    ASSERT_NIL(source->read(breaker, fr).error);
+    ASSERT_NIL(source->stop());
+    EXPECT_EQ(conn_pool->available_count(endpoint), 1);
+}
+
+/// @brief it should warn while the server is off and keep running, then write data
+/// again once the server returns.
+TEST_F(TestReadTask, testServerOutageWarns) {
     const auto rt = create_task();
     rt->start("start_cmd");
     ASSERT_EVENTUALLY_GE(mock_factory->writes->size(), 1);
-
     server->stop();
-    server.reset();
-
-    std::this_thread::sleep_for(std::chrono::milliseconds(500));
-
+    ASSERT_EVENTUALLY_TRUE_WITH_TIMEOUT(
+        std::ranges::any_of(
+            ctx->snapshot(),
+            [](const auto &s) {
+                return s.variant == synnax::status::VARIANT_WARNING &&
+                       s.message == "Failed to read data";
+            }
+        ),
+        std::chrono::seconds(5),
+        std::chrono::milliseconds(10)
+    );
+    server->start();
+    ASSERT_TRUE(server->wait_until_ready());
+    const auto writes = mock_factory->writes->size();
+    ASSERT_EVENTUALLY_GE_WITH_TIMEOUT(
+        mock_factory->writes->size(),
+        writes + 1,
+        std::chrono::seconds(10),
+        std::chrono::milliseconds(100)
+    );
     rt->stop("stop_cmd", true);
-
-    bool found_error = false;
-    for (const auto &state: ctx->statuses) {
-        if (state.variant == synnax::status::VARIANT_ERROR) {
-            found_error = true;
-            break;
-        }
-    }
-    EXPECT_TRUE(found_error);
+    for (const auto &status: ctx->snapshot())
+        EXPECT_NE(status.variant, synnax::status::VARIANT_ERROR) << status.description;
 }
 
 /// @brief it should return error for empty channel list.
@@ -906,85 +1003,6 @@ TEST_F(TestReadTask, testWarningMessagesContainChannelInfo) {
     // We can't force an error in this test without a mock server that returns bad data,
     // but we verify the task runs successfully
     ASSERT_GE(ctx->statuses.size(), 2);
-}
-
-/// @brief it should skip samples when write error occurs in unary mode.
-TEST_F(TestReadTask, testSkipSampleOnWriteErrorInUnaryMode) {
-    // Test that UnaryReadTaskSource properly skips samples when write_to_series fails
-    // This exercises the skip_sample logic in read_task.h lines 324-334
-    const auto rt = create_task();
-    rt->start("start_cmd");
-
-    // Let task run and collect multiple samples
-    std::this_thread::sleep_for(std::chrono::milliseconds(200));
-
-    rt->stop("stop_cmd", true);
-
-    // Verify that task completed successfully
-    ASSERT_GE(ctx->statuses.size(), 2);
-    EXPECT_EQ(ctx->statuses[0].variant, synnax::status::VARIANT_SUCCESS);
-    EXPECT_EQ(ctx->statuses[1].variant, synnax::status::VARIANT_SUCCESS);
-}
-
-/// @brief it should clear frame when error occurs in array mode.
-TEST_F(TestReadTask, testFrameClearedOnErrorInArrayMode) {
-    // Test that ArrayReadTaskSource clears the frame when errors occur
-    // This exercises the frame.clear() logic in read_task.h line 268
-    x::json::json array_cfg{
-        {"data_saving_disabled", false},
-        {"device", "opc_read_task_test_server_key"},
-        {"channels",
-         x::json::json::array(
-             {{{"key", "NS=2;I=1"},
-               {"name", "bool_test"},
-               {"node_name", "TestBoolean"},
-               {"node_id", "NS=1;S=TestBoolean"},
-               {"channel", this->bool_channel.key},
-               {"disabled", false},
-               {"is_index", false},
-               {"data_type", "uint8"}}}
-         )},
-        {"sample_rate", 50},
-        {"array_mode", true},
-        {"array_size", 5},
-        {"stream_rate", 25}
-    };
-
-    auto p = x::json::Parser(array_cfg);
-    auto cfg = std::make_unique<ReadTaskConfig>(ctx->client, p);
-
-    auto rt = std::make_unique<common::ReadTask>(
-        task,
-        ctx,
-        x::breaker::default_config(task.name),
-        std::make_unique<ArrayReadTaskSource>(ctx->client, conn_pool, std::move(*cfg)),
-        mock_factory
-    );
-
-    rt->start("start_cmd");
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
-    rt->stop("stop_cmd", true);
-
-    // Verify task ran successfully
-    ASSERT_GE(ctx->statuses.size(), 1);
-}
-
-/// @brief it should clear frame when error occurs in unary mode.
-TEST_F(TestReadTask, testFrameClearedOnErrorInUnaryMode) {
-    // Test that UnaryReadTaskSource clears the frame when errors occur
-    // This exercises the frame.clear() logic in read_task.h line 333
-    const auto rt = create_task();
-    rt->start("start_cmd");
-
-    std::this_thread::sleep_for(std::chrono::milliseconds(100));
-
-    rt->stop("stop_cmd", true);
-
-    if (!mock_factory->writes->empty()) {
-        for (const auto &fr: mock_factory->writes->snapshot()) {
-            EXPECT_GT(fr.length(), 0);
-        }
-    }
 }
 
 /// @brief it should skip samples with invalid boolean data.

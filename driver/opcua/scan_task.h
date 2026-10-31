@@ -106,6 +106,9 @@ private:
     ScanTaskConfig cfg;
     /// @brief only scan() reads or writes it, since commands run on another thread.
     Renewal renewal;
+    /// @brief the time of the last health check of each device, by device key. Only
+    /// scan() reads or writes it.
+    std::unordered_map<std::string, x::telem::TimeStamp> checked;
 
     /// @brief Browse child nodes of a given OPC UA node.
     void browse_nodes(const synnax::task::Command &cmd) const;
@@ -118,8 +121,9 @@ private:
     /// first when regenerate is true.
     void certificates(const synnax::task::Command &cmd, bool regenerate) const;
 
-    /// @brief Check health of a single device by testing its connection. Pins the
-    /// server certificate of a secured device that has none.
+    /// @brief checks the health of a device. Connects only when no task received a
+    /// reply from the server since the last check, or to pin the server certificate of
+    /// a secured device that has none.
     [[nodiscard]] x::errors::Error check_device_health(synnax::device::Device &dev);
 
     /// @brief issues the next Driver certificate when renewal is due, offers it to

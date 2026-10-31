@@ -29,9 +29,9 @@ const validateNodeIDs = ({
     if (nodeId.length === 0 || (nodeIds.get(nodeId) ?? 0) < 2) return;
     issues.push({
       code: "custom",
-      path: ["channels", i, "nodeId"],
+      path: [i, "nodeId"],
       message: "This node ID has already been used elsewhere in the configuration",
-      query: { variant: "warning" },
+      params: { variant: "warning" },
       input: channels,
     });
   });
@@ -55,7 +55,7 @@ const validateIndexChannels = ({
     issues.push({
       code: "custom",
       message: "Only one channel can be marked as an index channel",
-      path: ["channels", i, "isIndex"],
+      path: [i, "isIndex"],
       input: channels,
     });
   });

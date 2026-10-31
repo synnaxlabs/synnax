@@ -156,7 +156,7 @@ A `uint8` channel writes a Boolean, so the task cannot write to a Byte node.
 
 <Problem.List>
 
-<Problem.Item message={"... (NS=...): The value supplied for the attribute is not of the same type as the attribute's value."}>
+<Problem.Item message={"... returned BadTypeMismatch. The value supplied for the attribute is not of the same type as the attribute's value."}>
 <Problem.Cause>
 
 The data type of the command channel does not match the type of the node.
@@ -170,7 +170,7 @@ a `float64` channel.
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={"... (NS=...): The access level does not allow writing to the Node."}>
+<Problem.Item message={"... returned BadNotWritable. The access level does not allow writing to the Node."}>
 <Problem.Cause>
 
 The node is read only on the server, or the user of the connection cannot write to it.
@@ -196,13 +196,23 @@ Write `NS` and the type in uppercase.
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item symptom={"The server disconnects during a write."}>
+<Problem.Item message={"Failed to write commands"}>
 <Problem.Cause>
 
-The Driver connects again once and repeats the write. If the second write fails, the
-task shows the error.
+The task could not write a command. The description names each channel and the reason.
+The task writes the other channels of the command and keeps running. When the connection
+is lost, the Driver connects again once and repeats the write. If that fails, the task
+drops the command. It does not keep commands for later, because a late command could
+move hardware at the wrong time.
 
 </Problem.Cause>
+<Problem.Fix>
+
+Fix the cause in the description. For a lost connection, check the
+[server connection](/reference/hardware/opc-ua/connect-server#troubleshooting). The next
+command connects again.
+
+</Problem.Fix>
 </Problem.Item>
 
 </Problem.List>

@@ -87,6 +87,10 @@ struct ReadConfig : public ::synnax::task::ReadConfig {
     std::int32_t array_size = 1;
     /// @brief channels are the OPC UA nodes the task acquires.
     std::vector<ReadChannel> channels;
+    /// @brief nan_fill_enabled is true when a bad value of a float channel is written
+    /// as NaN. When false, a bad value skips the read for every channel that shares its
+    /// index.
+    bool nan_fill_enabled = false;
 
     ReadConfig() {
         this->sample_rate = ::x::telem::Rate(50);

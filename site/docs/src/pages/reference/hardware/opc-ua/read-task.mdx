@@ -159,6 +159,33 @@ task. Only one channel can be the index.
 
 <Divider.Divider x />
 
+## Bad values
+
+The server sends a status with each value. The task records a value with a Good or an
+Uncertain status. For an Uncertain value, it also shows the warning "Received uncertain
+values" with the name of the channel.
+
+The task does not record a Bad value. A node that does not exist and a value that the
+Driver cannot convert are Bad values too. The task shows the warning "Received bad
+values" with the name of the channel and the status, such as `BadSensorFailure`, and
+keeps running. When the value becomes good again, the task records it.
+
+By default, a Bad value skips the sample for every channel on the same index. Turn on
+**NaN fill** to write `NaN` for a float channel instead, so that the other channels keep
+their samples. A line plot shows `NaN` as a gap. A Bad value of a channel that is not a
+float still skips its index.
+
+<Divider.Divider x />
+
+## Outages
+
+A read task keeps running when the server or the network goes down. It shows "Failed to
+read data" and tries again at most 5 seconds apart. A task can also start while the
+server is off. Before each new connection, the task gets the connection settings of the
+server again, so a corrected endpoint or password takes effect without a restart.
+
+<Divider.Divider x />
+
 ## Task options
 
 | Console label  | Python field           | Default                 | Notes                                                                           |
@@ -168,6 +195,7 @@ task. Only one channel can be the index.
 | Stream rate    | `stream_rate`          | 25 Hz (5 Hz in Python)  | Frames per second sent to the Core. At most the sample rate. Not in array mode. |
 | Array sampling | `array_mode`           | Off                     | See [read arrays](#read-arrays).                                                |
 | Array size     | `array_size`           | 1                       | Values in each array node.                                                      |
+| NaN fill       | `nan_fill_enabled`     | Off                     | See [bad values](#bad-values).                                                  |
 | Data saving    | `data_saving_disabled` | On                      | See [data saving](/reference/hardware/tasks#data-saving).                       |
 | Auto start     | `auto_start`           | Off                     | Starts the task each time the Driver starts.                                    |
 
@@ -230,15 +258,47 @@ Write `NS` and the type in uppercase.
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={"... (NS=...): The node id refers to a node that does not exist in the server address space."}>
+<Problem.Item message={"Received bad values"}>
 <Problem.Cause>
 
-The server has no node with that ID.
+The server sent a Bad status for a node, or the Driver could not convert its value. The
+description names each channel and the reason. For example, `BadNodeIdUnknown` means
+that the server has no node with that ID. See [bad values](#bad-values).
 
 </Problem.Cause>
 <Problem.Fix>
 
-Drag the node from the **Browser** again.
+For `BadNodeIdUnknown`, drag the node from the **Browser** again. For a conversion
+error, check the data type of the node.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"Received uncertain values"}>
+<Problem.Cause>
+
+The server is not sure that a value is correct, such as a last usable value of a sensor.
+The task records the value.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Check the device that the server reads the node from.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"Failed to read data"}>
+<Problem.Cause>
+
+The task lost the connection to the server. It tries again until the server answers. See
+[outages](#outages).
+
+</Problem.Cause>
+<Problem.Fix>
+
+Check the
+[server connection](/reference/hardware/opc-ua/connect-server#troubleshooting).
 
 </Problem.Fix>
 </Problem.Item>
@@ -252,19 +312,6 @@ An array node has a different number of values than **Array size**.
 <Problem.Fix>
 
 Set **Array size** to the length of the array.
-
-</Problem.Fix>
-</Problem.Item>
-
-<Problem.Item message={"Skipped invalid data"}>
-<Problem.Cause>
-
-The server sent a value that the Driver cannot convert. The Driver skips the frame.
-
-</Problem.Cause>
-<Problem.Fix>
-
-Check the data type of the node.
 
 </Problem.Fix>
 </Problem.Item>

@@ -173,10 +173,14 @@ class Acquisition final : public Base {
     /// clock drift.
     bool open_eagerly;
 
-    /// @brief the run function passed to the pipeline thread. Automatically catches
-    /// standard exceptions to ensure the pipeline does not cause the application to
-    /// crash.
     void run() override;
+
+    void stopped_with_err(const x::errors::Error &err) override;
+
+    /// @brief runs the pipeline until it stops.
+    /// @returns true when the Core was temporarily unavailable and the breaker allows
+    /// another run.
+    bool run_once();
 
 public:
     /// @brief construct an acquisition pipeline that opens writers on a Synnax

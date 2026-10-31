@@ -138,6 +138,11 @@ class Control final : public Base {
     /// @brief the current open streamer reading data from the network.
     std::unique_ptr<Streamer> streamer = nullptr;
 
+    /// @brief runs the pipeline until it stops.
+    /// @returns true when the Core was temporarily unavailable and the breaker allows
+    /// another run.
+    bool run_once();
+
 public:
     /// @brief constructs a new control pipeline that opens streamers on a Synnax Core.
     /// @param client the Synnax client to use for opening streamers.
@@ -179,5 +184,7 @@ public:
     bool stop() override;
 
     void run() override;
+
+    void stopped_with_err(const x::errors::Error &err) override;
 };
 }

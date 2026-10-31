@@ -92,6 +92,7 @@ const Properties = (): ReactElement => {
         )}
         <Task.Fields.DataSaving />
         <Task.Fields.AutoStart />
+        <Task.Fields.NaNFill />
       </Flex.Box>
     </>
   );

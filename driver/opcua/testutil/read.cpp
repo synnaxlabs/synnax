@@ -41,15 +41,9 @@ simple_read(const std::shared_ptr<UA_Client> &client, const std::string &node_id
         return {::x::telem::Series(0), opcua::errors::parse(status)};
     }
 
-    // Convert the value to a telemetry series
-    ::x::telem::DataType data_type = telem::ua_to_data_type(value.get().type);
-    ::x::telem::Series series(data_type, 1);
-
-    // Write the value to the series
-    auto [count, write_err] = telem::write_to_series(series, value.get());
-
-    if (write_err) { return {::x::telem::Series(0), write_err}; }
-
-    return {std::move(series), x::errors::NIL};
+    const auto data_type = telem::ua_to_data_type(value.get().type);
+    auto [sample, sample_err] = telem::to_sample(value.get(), data_type);
+    if (sample_err) return {::x::telem::Series(0), sample_err};
+    return {telem::to_series(data_type, {sample}), x::errors::NIL};
 }
 }

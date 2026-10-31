@@ -446,6 +446,15 @@ public:
             this->send_status(synnax::status::VARIANT_SUCCESS, "Stopped scan task");
     }
 
+    void stopped_with_err(const x::errors::Error &err) override {
+        this->status.details.running = false;
+        this->send_status(
+            synnax::status::VARIANT_ERROR,
+            "Failed to scan for devices",
+            err.data
+        );
+    }
+
     void exec(synnax::task::Command &cmd) override {
         this->status.details.cmd = cmd.key;
         // run() writes the status that answers a start or a stop. A command that

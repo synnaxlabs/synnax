@@ -234,8 +234,15 @@ x::errors::Error connect_client(UA_Client *client, const std::string &endpoint) 
         v->received.reset();
         v->rejection = x::errors::NIL;
     }
+    // The first connect closes and opens channels to look up the endpoint, which
+    // noReconnect stops. Outside a connect, noReconnect leaves reconnecting to the
+    // Pool.
+    auto *config = UA_Client_getConfig(client);
+    config->noReconnect = false;
     const auto status = UA_Client_connect(client, endpoint.c_str());
-    if (v == nullptr || status == UA_STATUSCODE_GOOD) return errors::parse(status);
+    config->noReconnect = true;
+    if (v == nullptr || status == UA_STATUSCODE_GOOD)
+        return errors::parse_connect(status);
     if (v->rejection) return v->rejection;
     if (rejected_by_server(status))
         return {
@@ -246,8 +253,18 @@ x::errors::Error connect_client(UA_Client *client, const std::string &endpoint) 
                 v->client_thumbprint +
                 ". Approve it in the server's trusted certificates, then connect again."
         };
-    return errors::parse(status);
+    return errors::parse_connect(status);
 }
+}
+
+x::errors::Error lost(UA_Client *client) {
+    if (client == nullptr) return errors::NO_CONNECTION;
+    UA_SecureChannelState channel = UA_SECURECHANNELSTATE_CLOSED;
+    UA_SessionState session = UA_SESSIONSTATE_CLOSED;
+    UA_Client_getState(client, &channel, &session, nullptr);
+    if (channel == UA_SECURECHANNELSTATE_OPEN && session == UA_SESSIONSTATE_ACTIVATED)
+        return x::errors::NIL;
+    return {errors::NO_CONNECTION, "The connection to the server is lost."};
 }
 
 std::pair<Security, x::errors::Error>
@@ -304,8 +321,8 @@ connect(const Config &cfg, const Security &sec, std::string log_prefix) {
 
 x::errors::Error
 reconnect(const std::shared_ptr<UA_Client> &client, const std::string &endpoint) {
-    const auto err = connect_client(client.get(), endpoint);
-    if (!err) return x::errors::NIL;
+    // A connect does nothing while the channel still reads as open.
+    UA_Client_disconnectSecureChannel(client.get());
     return connect_client(client.get(), endpoint);
 }
 

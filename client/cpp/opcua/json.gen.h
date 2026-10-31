@@ -108,6 +108,7 @@ inline ReadConfig ReadConfig::parse(x::json::Parser parser) {
         "channels",
         std::vector<ReadChannel>{}
     );
+    result.nan_fill_enabled = parser.field<bool>("nan_fill_enabled", false);
     return result;
 }
 
@@ -121,6 +122,7 @@ inline x::json::json ReadConfig::to_json() const {
     j["array_mode"] = this->array_mode;
     j["array_size"] = this->array_size;
     j["channels"] = x::json::to_array(this->channels);
+    j["nan_fill_enabled"] = this->nan_fill_enabled;
     return j;
 }
 

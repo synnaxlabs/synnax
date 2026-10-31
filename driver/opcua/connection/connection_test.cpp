@@ -319,10 +319,7 @@ TEST(ConnectionTest, usernamePasswordWithoutEncryption) {
     cfg.username = "any_user";
     cfg.password = "any_password";
 
-    ASSERT_OCCURRED_AS_P(
-        connect(cfg, {}, "test"),
-        opcua::errors::IDENTITY_TOKEN_REJECTED
-    );
+    ASSERT_OCCURRED_AS_P(connect(cfg, {}, "test"), opcua::errors::SESSION_REJECTED);
 
     server.stop();
 }
@@ -344,10 +341,7 @@ TEST(ConnectionTest, emptyUsernameWithPassword) {
     cfg.username = "";
     cfg.password = "password";
 
-    ASSERT_OCCURRED_AS_P(
-        connect(cfg, {}, "test"),
-        opcua::errors::IDENTITY_TOKEN_REJECTED
-    );
+    ASSERT_OCCURRED_AS_P(connect(cfg, {}, "test"), opcua::errors::SESSION_REJECTED);
 
     server.stop();
 }
@@ -369,10 +363,7 @@ TEST(ConnectionTest, usernameWithEmptyPassword) {
     cfg.username = "username";
     cfg.password = "";
 
-    ASSERT_OCCURRED_AS_P(
-        connect(cfg, {}, "test"),
-        opcua::errors::IDENTITY_TOKEN_REJECTED
-    );
+    ASSERT_OCCURRED_AS_P(connect(cfg, {}, "test"), opcua::errors::SESSION_REJECTED);
 
     server.stop();
 }

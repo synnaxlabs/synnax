@@ -220,4 +220,22 @@ describe("Read", () => {
     await screen.findByText("Stream rate");
     expect(screen.queryByText("Array size")).toBeNull();
   });
+
+  it("should save NaN fill when its switch is turned on", async () => {
+    const dev = await createOPCDevice(client);
+    const ch = createReadChannel();
+    const draft = await createDraft(client, createReadConfig(dev.key, [ch]));
+    await renderRead({ client, taskKey: draft.key });
+    await screen.findByText(new RegExp(ch.nodeName));
+    const toggle = getLabeledInput("NaN fill");
+    expect(toggle.checked).toBe(false);
+    fireEvent.click(toggle);
+    await waitFor(async () => {
+      const saved = await client.tasks.retrieve({
+        key: draft.key,
+        schemas: OPCUA.Task.READ_SCHEMAS,
+      });
+      expect(saved.config.nanFillEnabled).toBe(true);
+    });
+  });
 });

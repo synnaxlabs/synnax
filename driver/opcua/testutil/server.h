@@ -23,6 +23,7 @@
 #include <vector>
 
 #include "absl/log/log.h"
+#include "open62541/plugin/accesscontrol_default.h"
 #include "open62541/plugin/certificategroup_default.h"
 #include "open62541/server.h"
 #include "open62541/server_config_default.h"
@@ -141,6 +142,9 @@ struct ServerConfig {
     /// @brief the client certificates that the server trusts. Empty trusts every
     /// client.
     std::vector<certificate::Certificate> trusted_clients;
+    /// @brief the usernames and passwords that the server accepts besides anonymous
+    /// logins. The server accepts a password only on an encrypted channel.
+    std::vector<std::pair<std::string, std::string>> users;
 
     // Create default test nodes for comprehensive testing
     static ServerConfig create_default() {
@@ -343,7 +347,7 @@ public:
     /// @brief artificial delay injected before each server iterate cycle.
     /// Used in tests to simulate a slow server (e.g. network-unreachable PLC).
     /// Zero means no delay.
-    x::telem::TimeSpan probe_delay;
+    std::atomic<x::telem::TimeSpan> probe_delay;
 
     explicit Server(ServerConfig cfg): cfg(std::move(cfg)) {}
 
@@ -441,6 +445,22 @@ private:
             UA_ServerConfig_setMinimal(server_config, cfg.port, nullptr);
         server_config->maxSessionTimeout = 3600000;
         if (cfg.max_sessions > 0) server_config->maxSessions = cfg.max_sessions;
+        if (!cfg.users.empty()) {
+            std::vector<UA_UsernamePasswordLogin> logins;
+            logins.reserve(cfg.users.size());
+            for (const auto &[username, password]: cfg.users)
+                logins.push_back({
+                    .username = UA_STRING(const_cast<char *>(username.c_str())),
+                    .password = UA_STRING(const_cast<char *>(password.c_str())),
+                });
+            UA_AccessControl_default(
+                server_config,
+                true,
+                nullptr,
+                logins.size(),
+                logins.data()
+            );
+        }
 
         for (const auto &node: cfg.test_nodes) {
             UA_VariableAttributes attr = UA_VariableAttributes_default;
@@ -503,9 +523,9 @@ private:
         ready = true;
 
         while (running.load()) {
-            if (probe_delay.nanoseconds() > 0)
+            if (const auto delay = probe_delay.load(); delay.nanoseconds() > 0)
                 std::this_thread::sleep_for(
-                    std::chrono::nanoseconds(probe_delay.nanoseconds())
+                    std::chrono::nanoseconds(delay.nanoseconds())
                 );
             UA_Server_run_iterate(server, true);
         }
