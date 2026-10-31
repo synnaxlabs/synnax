@@ -18,7 +18,7 @@ import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
 import { Haul } from "@/haul";
 import { type Icon } from "@/icon";
-import { type Input } from "@/input";
+import { Input } from "@/input";
 import { List } from "@/list";
 import { useContext, useSelected } from "@/select/Context";
 import { Label } from "@/select/Label";
@@ -82,6 +82,7 @@ export const SingleTrigger = <K extends record.Key>({
   clearable = false,
   preview,
   className,
+  status,
   tooltip,
   hideTooltip,
   id: idProp,
@@ -149,6 +150,13 @@ export const SingleTrigger = <K extends record.Key>({
       />
     </span>
   );
+  const itemStatus = Input.useItemStatus({
+    status,
+    tooltip: tooltip ?? (collapsible ? shown : undefined),
+    hideTooltip: hideTooltip ?? (collapsible ? nameReadable : undefined),
+    "aria-invalid": rest["aria-invalid"],
+    "aria-describedby": rest["aria-describedby"],
+  });
   const labelledBySelection =
     rest["aria-label"] != null &&
     !iconOnly &&
@@ -178,8 +186,11 @@ export const SingleTrigger = <K extends record.Key>({
       aria-labelledby={
         labelledBySelection ? `${id} ${labelId}` : rest["aria-labelledby"]
       }
-      tooltip={tooltip ?? (collapsible ? shown : undefined)}
-      hideTooltip={hideTooltip ?? (collapsible ? nameReadable : undefined)}
+      status={itemStatus.status}
+      aria-invalid={itemStatus["aria-invalid"]}
+      aria-describedby={itemStatus["aria-describedby"]}
+      tooltip={itemStatus.tooltip}
+      hideTooltip={itemStatus.hideTooltip}
       preview={preview}
       hideCaret={hideCaret || iconOnly || clearOnCaret}
     >
