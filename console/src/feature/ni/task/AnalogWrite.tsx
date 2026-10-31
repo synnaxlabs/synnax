@@ -38,8 +38,6 @@ const Properties = () => (
     <Device.Select />
     <Flex.Box x>
       <Task.Fields.StateUpdateRate />
-      <Task.Fields.DataSaving />
-      <Task.Fields.AutoStart />
     </Flex.Box>
   </>
 );
@@ -237,6 +235,7 @@ export const AnalogWrite = Task.wrapForm({
 
 export const useCreateAnalogWrite = Task.createUseCreate({
   getInitialValues,
+  deviceMake: Device.MAKE,
 });
 
 export const AnalogWriteSelectable = Selector.createSelectable({

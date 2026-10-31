@@ -38,8 +38,6 @@ const Properties = () => (
     <Device.Select />
     <Flex.Box x>
       <Task.Fields.StateUpdateRate />
-      <Task.Fields.DataSaving />
-      <Task.Fields.AutoStart />
     </Flex.Box>
   </>
 );
@@ -217,6 +215,7 @@ export const DigitalWrite = Task.wrapForm({
 
 export const useCreateDigitalWrite = Task.createUseCreate({
   getInitialValues,
+  deviceMake: Device.MAKE,
 });
 
 export const DigitalWriteSelectable = Selector.createSelectable({

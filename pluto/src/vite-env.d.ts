@@ -8,3 +8,6 @@
 // included in the file licenses/APL.txt.
 
 /// <reference types="vite/client" />
+
+/** The port of the Core that the showcase connects to. */
+declare const CORE_PORT: number;

@@ -43,8 +43,6 @@ const Properties = () => (
     <Task.Fields.SampleRate />
     <Flex.Box x grow>
       <Task.Fields.StreamRate />
-      <Task.Fields.DataSaving />
-      <Task.Fields.AutoStart />
     </Flex.Box>
   </>
 );
@@ -236,6 +234,7 @@ export const AnalogRead = Task.wrapForm({
 
 export const useCreateAnalogRead = Task.createUseCreate({
   getInitialValues,
+  deviceMake: Device.MAKE,
 });
 
 export const AnalogReadSelectable = Selector.createSelectable({

@@ -17,7 +17,8 @@ reads the C++ source as text, so it needs no build. It reports:
   environment, and arguments);
 - each member, with its default, of a config struct that has an `override` method;
 - the defaults that `resolve` sets;
-- each default integration, with the preprocessor conditions that build it.
+- each integration that a build runs, by platform, with the preprocessor conditions
+  that build it.
 
     uv run --project scripts scripts/surface_driver.py .
 """
@@ -44,7 +45,9 @@ READ = re.compile(
     r'\(\s*"([^"]+)"(?:\s*,\s*"(-[^"]*)")?'
 )
 STRUCT = re.compile(r"\bstruct\s+(\w+)\s*(?::[^{;]*)?\{")
-DEFAULTS = re.compile(r"\b(resolve|default_integrations)\s*\([^)]*\)[^;{]*\{")
+DEFAULTS = re.compile(
+    r"\b(resolve|built_integrations|platform_integrations)\s*\([^)]*\)[^;{]*\{"
+)
 INIT = re.compile(r"\.(\w+)\s*=\s*([^,{}]+?)\s*(?=[,}])")
 INTEGRATION = re.compile(r"\b\w+::INTEGRATION_NAME\b")
 DIRECTIVE = re.compile(r"^\s*#\s*(if|ifdef|ifndef|elif|else|endif)\b\s*(.*)$")

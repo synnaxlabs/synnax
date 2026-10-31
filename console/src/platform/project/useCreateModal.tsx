@@ -52,7 +52,7 @@ const Create = ({ close }: Modals.ContentProps<Record<never, never>, void>) => {
       <Modal.Header icon={<Icon.Project />}>Project.Create</Modal.Header>
       <Modal.Body>
         <Form.Form<typeof Project.formSchema> {...form}>
-          <Form.Field<string> path="name" showLabel={false}>
+          <Form.Field<string> path="name" showLabel={false} padHelpText={false}>
             {(p) => (
               <Input.Text
                 placeholder="Project name"

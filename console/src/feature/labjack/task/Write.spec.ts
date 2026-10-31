@@ -21,6 +21,7 @@ import {
 } from "@/feature/labjack/testutil";
 import {
   awaitEditableForm,
+  clickDeploy,
   createWithHook,
   deployAndAwaitTask,
   renderTaskFormTab,
@@ -123,6 +124,27 @@ describe("Write", () => {
     fireEvent.click(await findDialogTriggerByText("FIO4"));
     fireEvent.click(await screen.findByText("EIO2"));
     await waitFor(() => expect(screen.queryByText("EIO2")).toBeTruthy());
+  });
+
+  it("should mark both ports when two channels share one on deploy", async () => {
+    const dev = await createLabJackDevice(client);
+    const draft = await createDraft(
+      client,
+      createConfig(dev.key, [
+        createDigitalWriteChannel("DIO4"),
+        createDigitalWriteChannel("DIO4"),
+      ]),
+    );
+    const { container } = await renderWrite({ client, taskKey: draft.key });
+    await waitFor(() => expect(screen.getAllByText("FIO4")).toHaveLength(2));
+    await clickDeploy(container);
+    await waitFor(() => {
+      const triggers = screen
+        .getAllByText("FIO4")
+        .map((text) => text.closest(".lyra-dialog__trigger"));
+      for (const trigger of triggers)
+        expect(trigger?.getAttribute("aria-invalid")).toBe("true");
+    });
   });
 
   it("should create command and state channels, update the device, and save the task", async () => {

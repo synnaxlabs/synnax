@@ -54,10 +54,12 @@ outlined button) has fill l2 and border l4, and its caret has the disabled text 
 
 ### Type
 
-- Levels: h1 33, h2 27, h3 21, h4 16, h5 14, p 13, and small 11 px. Headings are weight
-  500, h5 is 450, and p and small are 400.
-- Small text stays 11 px: field labels, help and error text, table headings, toast
+- Levels: h1 33, h2 27, h3 21, h4 16, h5 14, p 13, small 12, and tiny 11 px. Headings
+  are weight 500, h5 is 450, and p, small, and tiny are 400.
+- Small text is 12 px: field labels, help and error text, table headings, toast
   descriptions, small buttons, and context menus.
+- Tiny text is 11 px, only for small extras: times, keycaps, tags, counts, and task
+  subtitles.
 - A button label at the p or small level is weight 450. Inputs, switches, list items,
   menu items, tabs, and select triggers keep the weight of their text. Do not change any
   other weight, and do not change font smoothing.
@@ -120,10 +122,29 @@ outlined button) has fill l2 and border l4, and its caret has the disabled text 
 - Use a switch only when the change applies at once, as in toolbar properties and live
   preferences. In a form that commits on a button, use a checkbox. A footer mode switch
   ("Create more") stays a switch, because it changes the dialog at once.
+- A checkbox in a form has its label above it or in the label column, like every other
+  field. Its box starts at the edge of the label.
+- When flags pick one of a few kinds, show one button selector with an icon per kind,
+  never a checkbox per flag. The Create channel dialog uses Data, Index, and Virtual.
 - A label is a noun phrase in sentence case. It is never a question, and it never
   changes with state: "Index channel", not "Is index".
 - An error message is a sentence about its field ("Name is required"), never a raw
   schema message.
+- A field in a row, or beside another field, has no help text. Its control shows the
+  error, and the message shows on hover. A control with a border gets a red border. A
+  control with no border, such as a text select or a button group, gets red text.
+
+### Task forms
+
+- Task-wide settings (Data saving, Auto start) are toggle buttons in the task footer,
+  next to the start button. Each shows its icon and "On" or "Off", and its tooltip names
+  the setting. They stay, read-only, when the footer hides the start button.
+- The header stays compact: the rack name hangs under the utility buttons and adds no
+  height.
+- A disabled channel dims to half strength. Its enabled dot stays at full strength, as
+  the way to enable the channel again.
+- A new task takes the only device of its make. With two or more, the device stays
+  empty.
 
 ### Overflow
 
@@ -142,7 +163,7 @@ outlined button) has fill l2 and border l4, and its caret has the disabled text 
 
 ### Menus and selects
 
-- Context menus keep 11 px text in 24 px items.
+- Context menus use 12 px text in 24 px items.
 - A divider separates groups of actions, never single items.
 - In a group, all items have an icon or none do.
 - An open select marks the current value and opens scrolled to it.
@@ -209,9 +230,9 @@ Study these first. Take their conventions, never their signatures.
 
 ## Open decisions
 
-Do not change these without the founder: Console label sizes above 11 px, the dark theme
-surfaces, the plot frame, tabs joined to their panel, the Portal text and control scale,
-the docs reading numbers, the typeface, and the icon set.
+Do not change these without the founder: the dark theme surfaces, the plot frame, tabs
+joined to their panel, the Portal text and control scale, the docs reading numbers, the
+typeface, and the icon set.
 
 ## Docs pages
 

@@ -39,8 +39,6 @@ const Properties = () => (
     <Flex.Box x>
       <Task.Fields.SampleRate />
       <Task.Fields.StreamRate />
-      <Task.Fields.DataSaving />
-      <Task.Fields.AutoStart />
     </Flex.Box>
   </>
 );
@@ -168,6 +166,7 @@ export const DigitalRead = Task.wrapForm({
 
 export const useCreateDigitalRead = Task.createUseCreate({
   getInitialValues,
+  deviceMake: Device.MAKE,
 });
 
 export const DigitalReadSelectable = Selector.createSelectable({

@@ -24,7 +24,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/security"
 	"github.com/synnaxlabs/synnax/pkg/security/cert/file"
-	"github.com/synnaxlabs/synnax/pkg/security/mock"
+	"github.com/synnaxlabs/synnax/pkg/security/testutil"
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/testutil"
@@ -60,19 +60,19 @@ func generateChain(host string) (rootPEM, chainPEM, keyPEM []byte) {
 			KeyUsage:              x509.KeyUsageCertSign | x509.KeyUsageDigitalSignature,
 		}
 	}
-	rootKey := MustSucceed(rsa.GenerateKey(rand.Reader, mock.SmallKeySize))
+	rootKey := MustSucceed(rsa.GenerateKey(rand.Reader, testutil.SmallKeySize))
 	rootT := template(1, "Test Root", true)
 	rootDER := MustSucceed(
 		x509.CreateCertificate(rand.Reader, rootT, rootT, &rootKey.PublicKey, rootKey),
 	)
 	root := MustSucceed(x509.ParseCertificate(rootDER))
-	interKey := MustSucceed(rsa.GenerateKey(rand.Reader, mock.SmallKeySize))
+	interKey := MustSucceed(rsa.GenerateKey(rand.Reader, testutil.SmallKeySize))
 	interT := template(2, "Test Intermediate", true)
 	interDER := MustSucceed(
 		x509.CreateCertificate(rand.Reader, interT, root, &interKey.PublicKey, rootKey),
 	)
 	inter := MustSucceed(x509.ParseCertificate(interDER))
-	leafKey := MustSucceed(rsa.GenerateKey(rand.Reader, mock.SmallKeySize))
+	leafKey := MustSucceed(rsa.GenerateKey(rand.Reader, testutil.SmallKeySize))
 	leafT := template(3, "Test Leaf", false)
 	leafT.DNSNames = []string{host}
 	leafDER := MustSucceed(
@@ -103,7 +103,7 @@ var _ = Describe("OtelProvider", func() {
 		Describe("TLS Properties", func() {
 			It("Should load and return the correct TLS configuration", func() {
 				fs := xfs.NewMem()
-				mock.GenerateCerts(fs)
+				testutil.GenerateCerts(fs)
 				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
 					FS:       fs,
 					Insecure: new(false),
@@ -139,7 +139,7 @@ var _ = Describe("OtelProvider", func() {
 		Describe("VerifyCertHost", func() {
 			It("Should accept a certificate valid for the host", func() {
 				fs := xfs.NewMem()
-				mock.GenerateCerts(fs)
+				testutil.GenerateCerts(fs)
 				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
 					FS:       fs,
 					Insecure: new(false),
@@ -152,7 +152,7 @@ var _ = Describe("OtelProvider", func() {
 			})
 			It("Should reject a certificate that is not valid for the host", func() {
 				fs := xfs.NewMem()
-				mock.GenerateCerts(fs)
+				testutil.GenerateCerts(fs)
 				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
 					FS:       fs,
 					Insecure: new(false),
@@ -167,13 +167,13 @@ var _ = Describe("OtelProvider", func() {
 			})
 			It("Should accept a certificate an unrelated CA signed", func() {
 				fs := xfs.NewMem()
-				mock.GenerateCerts(fs)
+				testutil.GenerateCerts(fs)
 				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
 					FS:       fs,
 					Insecure: new(false),
 				}))
 				foreignFS := xfs.NewMem()
-				mock.GenerateCerts(foreignFS)
+				testutil.GenerateCerts(foreignFS)
 				foreign := MustSucceed(file.NewSource(foreignFS,
 					"/usr/local/synnax/certs/node.crt",
 					"/usr/local/synnax/certs/node.key",
@@ -182,7 +182,7 @@ var _ = Describe("OtelProvider", func() {
 			})
 			It("Should surface a certificate source failure", func() {
 				fs := xfs.NewMem()
-				mock.GenerateCerts(fs)
+				testutil.GenerateCerts(fs)
 				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
 					FS:       fs,
 					Insecure: new(false),
@@ -192,7 +192,7 @@ var _ = Describe("OtelProvider", func() {
 			})
 			It("Should fail on a leaf certificate that does not parse", func() {
 				fs := xfs.NewMem()
-				mock.GenerateCerts(fs)
+				testutil.GenerateCerts(fs)
 				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
 					FS:       fs,
 					Insecure: new(false),
@@ -205,7 +205,7 @@ var _ = Describe("OtelProvider", func() {
 				"Should fail on an intermediate certificate that does not parse",
 				func() {
 					fs := xfs.NewMem()
-					mock.GenerateCerts(fs)
+					testutil.GenerateCerts(fs)
 					prov := MustSucceed(security.NewProvider(security.ProviderConfig{
 						FS:       fs,
 						Insecure: new(false),
@@ -223,7 +223,7 @@ var _ = Describe("OtelProvider", func() {
 		Describe("VerifyCertCoreCA", func() {
 			It("Should accept a certificate the Core CA signed", func() {
 				fs := xfs.NewMem()
-				mock.GenerateCerts(fs)
+				testutil.GenerateCerts(fs)
 				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
 					FS:       fs,
 					Insecure: new(false),
@@ -236,13 +236,13 @@ var _ = Describe("OtelProvider", func() {
 			})
 			It("Should reject a certificate an unrelated CA signed", func() {
 				fs := xfs.NewMem()
-				mock.GenerateCerts(fs)
+				testutil.GenerateCerts(fs)
 				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
 					FS:       fs,
 					Insecure: new(false),
 				}))
 				foreignFS := xfs.NewMem()
-				mock.GenerateCerts(foreignFS)
+				testutil.GenerateCerts(foreignFS)
 				foreign := MustSucceed(file.NewSource(foreignFS,
 					"/usr/local/synnax/certs/node.crt",
 					"/usr/local/synnax/certs/node.key",
@@ -255,7 +255,7 @@ var _ = Describe("OtelProvider", func() {
 			})
 			It("Should verify a chain through a presented intermediate", func() {
 				fs := xfs.NewMem()
-				mock.GenerateCerts(fs)
+				testutil.GenerateCerts(fs)
 				rootPEM, chainPEM, keyPEM := generateChain("localhost")
 				writeFile(fs, "/usr/local/synnax/certs/root.crt", rootPEM)
 				writeFile(fs, "/usr/local/synnax/certs/chain.crt", chainPEM)
@@ -272,7 +272,7 @@ var _ = Describe("OtelProvider", func() {
 			})
 			It("Should surface a certificate source failure", func() {
 				fs := xfs.NewMem()
-				mock.GenerateCerts(fs)
+				testutil.GenerateCerts(fs)
 				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
 					FS:       fs,
 					Insecure: new(false),
@@ -284,7 +284,7 @@ var _ = Describe("OtelProvider", func() {
 		Describe("VerifyCertTrustAnchors", func() {
 			It("Should accept a certificate the Core CA signed", func() {
 				fs := xfs.NewMem()
-				mock.GenerateCerts(fs)
+				testutil.GenerateCerts(fs)
 				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
 					FS:       fs,
 					Insecure: new(false),
@@ -297,7 +297,7 @@ var _ = Describe("OtelProvider", func() {
 			})
 			It("Should accept the node certificate when its CA is absent", func() {
 				fs := xfs.NewMem()
-				mock.GenerateCerts(fs)
+				testutil.GenerateCerts(fs)
 				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
 					FS: fs, CACertPath: "absent.crt",
 					Insecure: new(false),
@@ -310,13 +310,13 @@ var _ = Describe("OtelProvider", func() {
 			})
 			It("Should reject a certificate outside the trust anchors", func() {
 				fs := xfs.NewMem()
-				mock.GenerateCerts(fs)
+				testutil.GenerateCerts(fs)
 				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
 					FS:       fs,
 					Insecure: new(false),
 				}))
 				foreignFS := xfs.NewMem()
-				mock.GenerateCerts(foreignFS)
+				testutil.GenerateCerts(foreignFS)
 				foreign := MustSucceed(file.NewSource(foreignFS,
 					"/usr/local/synnax/certs/node.crt",
 					"/usr/local/synnax/certs/node.key",
@@ -329,7 +329,7 @@ var _ = Describe("OtelProvider", func() {
 			})
 			It("Should verify a chain through a presented intermediate", func() {
 				fs := xfs.NewMem()
-				mock.GenerateCerts(fs)
+				testutil.GenerateCerts(fs)
 				rootPEM, chainPEM, keyPEM := generateChain("localhost")
 				writeFile(fs, "/usr/local/synnax/certs/root.crt", rootPEM)
 				writeFile(fs, "/usr/local/synnax/certs/chain.crt", chainPEM)
@@ -346,7 +346,7 @@ var _ = Describe("OtelProvider", func() {
 			})
 			It("Should surface a certificate source failure", func() {
 				fs := xfs.NewMem()
-				mock.GenerateCerts(fs)
+				testutil.GenerateCerts(fs)
 				prov := MustSucceed(security.NewProvider(security.ProviderConfig{
 					FS:       fs,
 					Insecure: new(false),

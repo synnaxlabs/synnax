@@ -17,7 +17,7 @@ class ThermalSimDAQ(SimDAQ):
     """Simulates thermal system with heater and temperature sensor."""
 
     description = "Run thermal simulator standalone"
-    end_cmd_channel = "end_thermal_test_cmd"
+    end_cmd_channel: str | None = "end_thermal_test_cmd"
 
     AMBIENT_TEMP = 25.0
     HEAT_RATE = 1.0

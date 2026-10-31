@@ -38,8 +38,6 @@ const Properties = () => (
     <Task.Fields.SampleRate />
     <Flex.Box x grow>
       <Task.Fields.StreamRate />
-      <Task.Fields.DataSaving />
-      <Task.Fields.AutoStart />
     </Flex.Box>
   </>
 );
@@ -219,6 +217,7 @@ export const CounterRead = Task.wrapForm({
 
 export const useCreateCounterRead = Task.createUseCreate({
   getInitialValues,
+  deviceMake: Device.MAKE,
 });
 
 export const CounterReadSelectable = Selector.createSelectable({

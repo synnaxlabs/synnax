@@ -32,23 +32,14 @@ type (
 	]
 )
 
-// The Core only serves this service. Request Forward and response Backward exist only
-// to satisfy grpc.Translator.
 var (
-	_ grpc.Translator[control.RetrieveRequest, *RetrieveRequest] = (*retrieveRequestTranslator)(
+	_ grpc.BackwardTranslator[control.RetrieveRequest, *RetrieveRequest] = (*retrieveRequestTranslator)(
 		nil,
 	)
-	_ grpc.Translator[control.RetrieveResponse, *RetrieveResponse] = (*retrieveResponseTranslator)(
+	_ grpc.ForwardTranslator[control.RetrieveResponse, *RetrieveResponse] = (*retrieveResponseTranslator)(
 		nil,
 	)
 )
-
-func (retrieveRequestTranslator) Forward(
-	context.Context,
-	control.RetrieveRequest,
-) (*RetrieveRequest, error) {
-	panic("unreachable")
-}
 
 func (retrieveRequestTranslator) Backward(
 	_ context.Context,
@@ -81,13 +72,6 @@ func (retrieveResponseTranslator) Forward(
 		return nil, err
 	}
 	return &RetrieveResponse{States: states}, nil
-}
-
-func (retrieveResponseTranslator) Backward(
-	context.Context,
-	*RetrieveResponse,
-) (control.RetrieveResponse, error) {
-	panic("unreachable")
 }
 
 // New binds the control retrieve server onto t and returns it for gRPC registration.

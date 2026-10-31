@@ -325,7 +325,7 @@ const InitialAngleField = Form.buildNumericField({
 });
 
 const ZIndexEnabledField: FC<{ path: string }> = ({ path }) => (
-  <Form.SwitchField path={`${path}.zIndexEnabled`} label="Z index enable" />
+  <Form.CheckboxField path={`${path}.zIndexEnabled`} label="Z index enable" />
 );
 
 const ZIndexValField: FC<{ path: string; disabled?: boolean }> = ({

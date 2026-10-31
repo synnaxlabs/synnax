@@ -49,8 +49,6 @@ const Properties = () => (
       inputProps={EXECUTION_RATE_INPUT_PROPS}
     />
     <Task.Fields.StateUpdateRate />
-    <Task.Fields.DataSaving />
-    <Task.Fields.AutoStart />
   </Flex.Box>
 );
 
