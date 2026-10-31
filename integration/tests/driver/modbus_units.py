@@ -222,7 +222,7 @@ class ModbusSerialUnits(ModbusUnits):
     pseudo-terminal, so the case runs only on POSIX."""
 
     sim_classes = [ModbusSerialSim]
-    units_sim = ModbusSerialSim
+    units_sim: type[ModbusGatewaySim] | type[ModbusSerialSim] = ModbusSerialSim
     prefix = "modbus_serial_unit"
 
     def setup(self) -> None:

@@ -19,7 +19,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	pdversions "github.com/synnaxlabs/synnax/pkg/service/pagerduty/versions"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
@@ -70,9 +71,10 @@ func openStack(ctx context.Context, rackName string, excluded ...string) stack {
 		DB:                  db,
 		Ontology:            otg,
 		Group:               groupSvc,
-		HostProvider:        mock.NewStaticHostProvider(1),
+		HostProvider:        testutil.NewStaticHostProvider(1),
 		Status:              statusSvc,
 		HealthCheckInterval: 10 * telem.Millisecond,
+		DriverRole:          MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
 	}))
 	pd := MustOpen(pagerduty.OpenService(ctx, pagerduty.ServiceConfig{DB: db}))
 	imexSvc := imex.NewService()

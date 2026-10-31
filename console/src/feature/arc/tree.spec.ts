@@ -18,7 +18,7 @@ import {
   findTreeRow,
   openTreeRowContextMenu,
   renderOntologyTree,
-} from "@/platform/tree/treeTestutil";
+} from "@/platform/tree/testutil";
 import { Session } from "@/session";
 import { documentIn } from "@/session/window/testutil";
 import {

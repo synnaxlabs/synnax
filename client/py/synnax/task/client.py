@@ -245,11 +245,7 @@ class Task:
                         # racks. Rack statuses have a different schema, so
                         # validation failures are expected and should be skipped.
                         continue
-                    if (
-                        status.details is not None
-                        and status.details.cmd is not None
-                        and status.details.cmd == key
-                    ):
+                    if status.details is not None and status.details.cmd == key:
                         return status
 
 
@@ -420,7 +416,7 @@ class Client:
         return res.tasks
 
     def maybe_assign_def_rack(self, pld: Payload, *, rack: int = 0) -> Payload:
-        if pld is None or pld.rack != 0:
+        if pld.rack != 0:
             return pld
         if rack == 0:
             if self._default_rack is None:

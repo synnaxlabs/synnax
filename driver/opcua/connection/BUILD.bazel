@@ -51,6 +51,10 @@ cc_test(
         "//x/cpp/errors",
         "//x/cpp/testutil",
         "//x/cpp/uuid",
+        "@abseil-cpp//absl/log:globals",
+        "@abseil-cpp//absl/log:log_entry",
+        "@abseil-cpp//absl/log:log_sink",
+        "@abseil-cpp//absl/log:log_sink_registry",
         "@googletest//:gtest_main",
     ],
 )

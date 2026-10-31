@@ -76,7 +76,9 @@ class TelemetryWriter:
             self._update(self._tlm, start_time, 0)
             writer.write(self._tlm)
 
-            while loop.wait() and not self._should_stop():
+            for _ in loop:
+                if self._should_stop():
+                    break
                 now = sy.TimeStamp.now()
                 uptime = (now - start_time) / sy.TimeSpan.SECOND
                 self._update(self._tlm, now, uptime)

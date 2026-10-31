@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/alamos/testutil"
 	"github.com/synnaxlabs/cesium/internal/channel"
+	"github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/io/fs"
@@ -120,12 +121,10 @@ var _ = Describe("Garbage Collection", func() {
 
 						By("Reading data from the channel")
 						frame := MustSucceed(
-							dataDB.Read(
-								ctx,
-								telem.TimeRange{
-									Start: 10 * telem.SecondTS,
-									End:   100 * telem.SecondTS,
-								},
+							testutil.ReadUnary(ctx, dataDB, telem.TimeRange{
+								Start: 10 * telem.SecondTS,
+								End:   100 * telem.SecondTS,
+							},
 							),
 						)
 						Expect(frame.Count()).To(Equal(6))
@@ -341,7 +340,9 @@ var _ = Describe("Garbage Collection", func() {
 					).To(Succeed())
 
 					By("Asserting that the data is correct")
-					f := MustSucceed(dataDB.Read(ctx, telem.TimeRangeMax))
+					f := MustSucceed(
+						testutil.ReadUnary(ctx, dataDB, telem.TimeRangeMax),
+					)
 					Expect(f.Count()).To(Equal(5))
 
 					first := f.SeriesAt(0)
@@ -492,7 +493,9 @@ var _ = Describe("Garbage Collection", func() {
 						<-collected
 
 						actual := make([]int64, 0, len(expected))
-						f := MustSucceed(dataDB.Read(ctx, telem.TimeRangeMax))
+						f := MustSucceed(
+							testutil.ReadUnary(ctx, dataDB, telem.TimeRangeMax),
+						)
 						for series := range f.Series() {
 							actual = append(
 								actual,

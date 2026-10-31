@@ -75,6 +75,11 @@ class ChannelClient(ResourceClient):
         """Hide the channels pane in the sidebar if currently visible."""
         self.layout.close_left_toolbar()
 
+    def _select_kind(self, kind: str) -> None:
+        """Clicks the Data, Index, or Virtual button in the create modal."""
+        modal = self.layout.locator(self.layout.MODAL_SELECTOR)
+        modal.get_by_role("button", name=kind, exact=True).click()
+
     def create(
         self,
         *,
@@ -98,20 +103,21 @@ class ChannelClient(ResourceClient):
 
         self.open_create_modal()
         self.layout.locator("input[placeholder='Channel name']").fill(name)
-        if virtual:
-            self.layout.click_checkbox("Virtual")
         if is_index:
-            self.layout.click_checkbox("Is index")
+            self._select_kind("Index")
         else:
-            if not index:
+            if virtual:
+                self._select_kind("Virtual")
+            elif not index:
                 raise ValueError("Index must be provided if is_index is False")
             data_type_str = str(sy.DataType(data_type))
             self.layout.click_btn("Data type")
             self.layout.select_from_dropdown(
                 data_type_str, placeholder="Search Data Types", exact=True
             )
-            self.layout.click_btn("Index")
-            self.layout.select_from_dropdown(index, placeholder="Search Channels")
+            if not virtual:
+                self.layout.get_by_text("Select channel", exact=True).click()
+                self.layout.select_from_dropdown(index, placeholder="Search Channels")
 
         self.layout.click_role("button", "Create", exact=True)
         self.layout.wait_for_selector_hidden(self.layout.MODAL_SELECTOR)
@@ -164,12 +170,12 @@ class ChannelClient(ResourceClient):
 
             self.layout.locator("input[placeholder='Channel name']").fill(name)
 
-            if virtual:
-                self.layout.click_checkbox("Virtual")
             if is_index:
-                self.layout.click_checkbox("Is index")
+                self._select_kind("Index")
             else:
-                if index == 0:
+                if virtual:
+                    self._select_kind("Virtual")
+                elif index == 0:
                     raise ValueError(
                         f"Index must be provided for non-index channel: {name}"
                     )
@@ -178,10 +184,11 @@ class ChannelClient(ResourceClient):
                 self.layout.select_from_dropdown(
                     data_type_str, placeholder="Search Data Types", exact=True
                 )
-                self.layout.click_btn("Index")
-                self.layout.select_from_dropdown(
-                    index_str, placeholder="Search Channels"
-                )
+                if not virtual:
+                    self.layout.get_by_text("Select channel", exact=True).click()
+                    self.layout.select_from_dropdown(
+                        index_str, placeholder="Search Channels"
+                    )
 
             is_last = i == len(channels) - 1
             if not is_last:
