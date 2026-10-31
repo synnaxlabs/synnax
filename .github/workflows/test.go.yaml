@@ -67,6 +67,10 @@ on:
 permissions:
   contents: read
 
+# The proxy drops streams at times, so a failed fetch falls back to the source.
+env:
+  GOPROXY: https://proxy.golang.org|direct
+
 jobs:
   # Every GOOS lints on Ubuntu, because the Windows runner does not have the disk space
   # for a cold lint. One job per GOOS keeps each runner's cache and compile scratch to
@@ -126,6 +130,9 @@ jobs:
           restore-keys: |
             ${{ steps.key.outputs.sum }}
             ${{ steps.key.outputs.module }}
+
+      - name: Download the Go modules
+        run: .github/scripts/go_mod_download.sh ${{ inputs.directory }}
 
       - name: Build the custom golangci-lint binary
         uses: golangci/golangci-lint-action@v9
@@ -264,6 +271,10 @@ jobs:
           restore-keys: |
             ${{ steps.key.outputs.sum }}
             ${{ steps.key.outputs.module }}
+
+      - name: Download the Go modules
+        shell: bash
+        run: .github/scripts/go_mod_download.sh ${{ inputs.directory }}
 
       - name: Install stringer
         if: matrix.codegen

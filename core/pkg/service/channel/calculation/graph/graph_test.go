@@ -18,7 +18,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation"
 	graph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
@@ -42,7 +42,7 @@ var (
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	node := mock.NewNode(ctx)
+	node := testutil.NewNode(ctx)
 	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
 	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB:       node.DB,
@@ -1302,6 +1302,33 @@ var _ = Describe("Graph", func() {
 				Eventually(statusCommitted).Should(Receive(BeTrue()))
 			},
 		)
+
+		It(
+			"Should hold each calculation the batch re-inspects and finds valid",
+			func(ctx SpecContext) {
+				dep := createDep(ctx, "obs_repair_dep")
+				calc := channel.Channel{
+					Name: "obs_repair", DataType: telem.Int64T, Virtual: true,
+					Expression: "return obs_repair_dep + 1",
+				}
+				Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+				g := openGraph(ctx)
+				repaired := make(chan bool, 16)
+				g.Observe().OnChange(func(_ context.Context, r graph.Changes) {
+					if batchWrites(r, "obs_repair_dep") {
+						repaired <- batchWrites(r, "obs_repair")
+					}
+				})
+				Expect(channelWriter.Rename(ctx, dep.Key(), "obs_repair_moved", false)).
+					To(Succeed())
+				expectStatus(ctx, calc.Key())
+
+				Expect(channelWriter.Rename(ctx, dep.Key(), "obs_repair_dep", false)).
+					To(Succeed())
+
+				Eventually(repaired).Should(Receive(BeTrue()))
+			},
+		)
 	})
 
 	Describe("SetRuntimeStatus", func() {
@@ -1324,6 +1351,107 @@ var _ = Describe("Graph", func() {
 			s := expectStatus(ctx, calc.Key())
 			Expect(s.Message).To(Equal("Failed to run calculation"))
 		})
+
+		It(
+			"Should write only reports that change the stored status",
+			func(ctx SpecContext) {
+				g := openGraph(ctx)
+				createDep(ctx, "rt_change_dep")
+				calc := channel.Channel{
+					Name: "rt_change", DataType: telem.Int64T, Virtual: true,
+					Expression: "return rt_change_dep + 1",
+				}
+				Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+				report := func(variant status.Variant, at telem.TimeStamp) {
+					GinkgoHelper()
+					Expect(g.SetRuntimeStatus(ctx, calc.Key(), &calculation.Status{
+						Name:    "rt_change",
+						Variant: variant,
+						Message: "Message",
+						Time:    at,
+					})).To(Succeed())
+				}
+				storedTime := func() telem.TimeStamp {
+					GinkgoHelper()
+					s, ok := fetchStatus(ctx, calc.Key())
+					Expect(ok).To(BeTrue())
+					return s.Time
+				}
+
+				By("Skipping a success when nothing failed")
+				report(status.VariantSuccess, 1)
+				_, ok := fetchStatus(ctx, calc.Key())
+				Expect(ok).To(BeFalse())
+
+				By("Skipping an error that repeats the stored error")
+				report(status.VariantError, 2)
+				report(status.VariantError, 3)
+				Expect(storedTime()).To(Equal(telem.TimeStamp(2)))
+
+				By("Writing a success over the stored error once")
+				report(status.VariantSuccess, 4)
+				report(status.VariantSuccess, 5)
+				Expect(storedTime()).To(Equal(telem.TimeStamp(4)))
+			},
+		)
+
+		It(
+			"Should drop a report for a channel it holds as invalid",
+			func(ctx SpecContext) {
+				g := openGraph(ctx)
+				calc := createBrokenCalc(ctx, "rt_invalid", "rt_invalid_dep")
+				expectStatus(ctx, calc.Key())
+
+				Expect(g.SetRuntimeStatus(ctx, calc.Key(), &calculation.Status{
+					Name:    "rt_invalid",
+					Variant: status.VariantSuccess,
+					Message: "Calculation running",
+					Time:    telem.Now(),
+				})).To(Succeed())
+
+				s, ok := fetchStatus(ctx, calc.Key())
+				Expect(ok).To(BeTrue())
+				Expect(s.Message).To(Equal("Failed to compile calculation"))
+			},
+		)
+
+		It(
+			"Should drop reports for a rejected definition until the rejection clears",
+			func(ctx SpecContext) {
+				g := openGraph(ctx)
+				createDep(ctx, "rt_reject_dep")
+				calc := channel.Channel{
+					Name: "rt_reject", DataType: telem.Int64T, Virtual: true,
+					Expression: "return rt_reject_dep + 1",
+				}
+				Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+				report := func(message string) *calculation.Status {
+					return &calculation.Status{
+						Name:    "rt_reject",
+						Variant: status.VariantError,
+						Message: message,
+						Time:    telem.Now(),
+					}
+				}
+
+				Expect(g.RejectDefinition(
+					ctx, calc.Key(), report("Failed to compile calculation"),
+				)).To(Succeed())
+				Expect(g.SetRuntimeStatus(
+					ctx, calc.Key(), report("Failed to run calculation"),
+				)).To(Succeed())
+				Expect(expectStatus(ctx, calc.Key()).Message).
+					To(Equal("Failed to compile calculation"))
+
+				By("Clearing the rejection")
+				Expect(g.ClearRuntimeStatus(ctx, calc.Key())).To(Succeed())
+				Expect(g.SetRuntimeStatus(
+					ctx, calc.Key(), report("Failed to run calculation"),
+				)).To(Succeed())
+				Expect(expectStatus(ctx, calc.Key()).Message).
+					To(Equal("Failed to run calculation"))
+			},
+		)
 
 		It(
 			"Should keep a report made from an Observe subscriber on the same batch",
@@ -1436,6 +1564,115 @@ var _ = Describe("Graph", func() {
 
 				held := MustBeOk(fetchStatus(ctx, calc.Key()))
 				Expect(held.Description).To(Equal(st.Description))
+			},
+		)
+	})
+
+	Describe("AcceptDefinition", func() {
+		It("Should keep a status the runtime reported", func(ctx SpecContext) {
+			g := openGraph(ctx)
+			createDep(ctx, "rt_accept_keep_dep")
+			calc := channel.Channel{
+				Name: "rt_accept_keep", DataType: telem.Int64T, Virtual: true,
+				Expression: "return rt_accept_keep_dep + 1",
+			}
+			Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+			Expect(g.SetRuntimeStatus(ctx, calc.Key(), &calculation.Status{
+				Name:    "rt_accept_keep",
+				Variant: status.VariantError,
+				Message: "Failed to run calculation",
+				Time:    telem.Now(),
+			})).To(Succeed())
+
+			Expect(g.AcceptDefinition(ctx, calc.Key())).To(Succeed())
+
+			Expect(expectStatus(ctx, calc.Key()).Message).
+				To(Equal("Failed to run calculation"))
+		})
+
+		It(
+			"Should remove a rejection and resume runtime reports",
+			func(ctx SpecContext) {
+				g := openGraph(ctx)
+				createDep(ctx, "rt_accept_dep")
+				calc := channel.Channel{
+					Name: "rt_accept", DataType: telem.Int64T, Virtual: true,
+					Expression: "return rt_accept_dep + 1",
+				}
+				Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+				Expect(g.RejectDefinition(ctx, calc.Key(), &calculation.Status{
+					Name:    "rt_accept",
+					Variant: status.VariantError,
+					Message: "Failed to compile calculation",
+					Time:    telem.Now(),
+				})).To(Succeed())
+
+				Expect(g.AcceptDefinition(ctx, calc.Key())).To(Succeed())
+				_, ok := fetchStatus(ctx, calc.Key())
+				Expect(ok).To(BeFalse())
+
+				Expect(g.SetRuntimeStatus(ctx, calc.Key(), &calculation.Status{
+					Name:    "rt_accept",
+					Variant: status.VariantError,
+					Message: "Failed to run calculation",
+					Time:    telem.Now(),
+				})).To(Succeed())
+				Expect(expectStatus(ctx, calc.Key()).Message).
+					To(Equal("Failed to run calculation"))
+			},
+		)
+	})
+
+	Describe("Failed", func() {
+		var (
+			g    *graph.Graph
+			calc channel.Channel
+		)
+		open := func(ctx context.Context, name string) {
+			GinkgoHelper()
+			g = openGraph(ctx)
+			createDep(ctx, name+"_dep")
+			calc = channel.Channel{
+				Name:       name,
+				DataType:   telem.Int64T,
+				Virtual:    true,
+				Expression: "return " + name + "_dep + 1",
+			}
+			Expect(channelWriter.Create(ctx, &calc)).To(Succeed())
+		}
+		report := func(ctx context.Context, variant status.Variant) {
+			GinkgoHelper()
+			Expect(g.SetRuntimeStatus(ctx, calc.Key(), &calculation.Status{
+				Name:    calc.Name,
+				Variant: variant,
+				Message: "Calculation status",
+				Time:    telem.Now(),
+			})).To(Succeed())
+		}
+
+		It("Should return false for a channel with no status", func(ctx SpecContext) {
+			open(ctx, "failed_none")
+			Expect(g.Failed(ctx, calc.Key())).To(BeFalse())
+		})
+
+		It(
+			"Should return false for a channel with a success status",
+			func(ctx SpecContext) {
+				open(ctx, "failed_success")
+				report(ctx, status.VariantError)
+				report(ctx, status.VariantSuccess)
+				Expect(MustBeOk(fetchStatus(ctx, calc.Key())).Variant).
+					To(Equal(status.VariantSuccess))
+				Expect(g.Failed(ctx, calc.Key())).To(BeFalse())
+			},
+		)
+
+		It(
+			"Should return true for a channel with an error status",
+			func(ctx SpecContext) {
+				open(ctx, "failed_error")
+				report(ctx, status.VariantError)
+				Expect(g.Failed(ctx, calc.Key())).To(BeTrue())
 			},
 		)
 	})

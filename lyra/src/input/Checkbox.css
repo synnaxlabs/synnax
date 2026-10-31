@@ -12,6 +12,7 @@
 .lyra-input__checkbox {
     --pluto-checkbox-size: round(2.666rem, 1px);
     --pluto-checkbox-radius: round(0.666rem, 1px);
+    --pluto-checkbox-target-size: var(--pluto-height-medium);
 
     display: flex;
     justify-content: center;
@@ -43,8 +44,8 @@
         position: relative;
         cursor: pointer;
         opacity: 0;
-        height: var(--pluto-height-medium);
-        width: var(--pluto-height-medium);
+        height: var(--pluto-checkbox-target-size);
+        width: var(--pluto-checkbox-target-size);
     }
 
     /* Whole-pixel sizes keep the box edges sharp. */
@@ -109,11 +110,7 @@
     &.lyra--height-tiny {
         --pluto-checkbox-size: 2rem;
         --pluto-checkbox-radius: 0.5rem;
-
-        .lyra-input__checkbox-input {
-            height: var(--pluto-height-small);
-            width: var(--pluto-height-small);
-        }
+        --pluto-checkbox-target-size: var(--pluto-height-small);
     }
 
     &.lyra--height-small {
@@ -123,20 +120,25 @@
 
     &.lyra--height-large {
         --pluto-checkbox-size: round(3.333rem, 1px);
-
-        .lyra-input__checkbox-input {
-            height: var(--pluto-height-large);
-            width: var(--pluto-height-large);
-        }
+        --pluto-checkbox-target-size: var(--pluto-height-large);
     }
 
     &.lyra--height-huge {
         --pluto-checkbox-size: 4rem;
         --pluto-checkbox-radius: round(0.833rem, 1px);
+        --pluto-checkbox-target-size: var(--pluto-height-huge);
+    }
+
+    /* In a field, the box starts at the edge of its label. */
+    .lyra-input__item & {
+        justify-content: flex-start;
 
         .lyra-input__checkbox-input {
-            height: var(--pluto-height-huge);
-            width: var(--pluto-height-huge);
+            width: var(--pluto-checkbox-size);
+        }
+
+        .lyra-input__checkbox-indicator {
+            left: calc(var(--pluto-checkbox-size) / 2);
         }
     }
 

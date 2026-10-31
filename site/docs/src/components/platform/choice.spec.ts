@@ -7,31 +7,34 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import { QUERY } from "@/components/platform/choice";
 
-const AGENTS: Record<string, string> = {
-  macOS: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15",
-  Windows: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-  Linux: "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36",
-};
-
 describe("platform choice", () => {
-  afterEach(() => vi.restoreAllMocks());
+  afterEach(() => delete document.documentElement.dataset.os);
 
-  it.each(Object.entries(AGENTS))(
-    "should show %s first to its readers",
-    (os, agent) => {
-      vi.spyOn(navigator, "userAgent", "get").mockReturnValue(agent);
+  it.each(["macOS", "Windows", "Linux"])(
+    "should show %s first when the page marks it",
+    (os) => {
+      document.documentElement.dataset.os = os;
       expect(QUERY.initial?.()).toBe(os);
     },
   );
 
-  it("should leave the first tab for an unknown system", () => {
-    vi.spyOn(navigator, "userAgent", "get").mockReturnValue(
-      "Mozilla/5.0 (PlayStation)",
-    );
+  it("should leave the first tab for an unmarked page", () => {
     expect(QUERY.initial?.()).toBeNull();
+  });
+
+  it("should mark the platform the reader picks", () => {
+    document.documentElement.dataset.os = "macOS";
+    QUERY.onChange?.("Windows");
+    expect(document.documentElement.dataset.os).toBe("Windows");
+  });
+
+  it("should keep the reader's own platform when they pick Docker", () => {
+    document.documentElement.dataset.os = "Linux";
+    QUERY.onChange?.("Docker");
+    expect(document.documentElement.dataset.os).toBe("Linux");
   });
 });

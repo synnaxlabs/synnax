@@ -21,20 +21,27 @@ import { type FC } from "react";
 
 import { useFromConfig } from "@/feature/modbus/device/queries";
 import { Select as SelectDevice } from "@/feature/modbus/device/Select";
-import { SCHEMAS } from "@/feature/modbus/device/types";
+import { MAKE, SCHEMAS } from "@/feature/modbus/device/types";
+import { AddressField } from "@/feature/modbus/task/AddressField";
 import { OrderFields } from "@/feature/modbus/task/OrderFields";
 import { SelectReadChannelTypeField } from "@/feature/modbus/task/SelectReadChannelTypeField";
 import {
+  BIT_BOUNDS,
   deployReadConfigZ,
+  isStringChannel,
   isVariableDensityReadChannel,
-  nextAddress,
+  nextChannel,
   READ_CHANNEL_SCHEMAS,
   READ_SCHEMAS,
   READ_TYPE,
   type ReadChannel,
+  readChannelName,
   type ReadChannelType,
+  readMapKey,
   type ReadSchemas,
+  STRING_LENGTH_BOUNDS,
   type TypedReadChannel,
+  UNSUPPORTED_READ_DATA_TYPES,
 } from "@/feature/modbus/task/types";
 import { CSS } from "@/platform/css";
 import { Selector } from "@/platform/selector";
@@ -46,8 +53,6 @@ const Properties = () => (
     <Flex.Box x grow>
       <Task.Fields.SampleRate />
       <Task.Fields.StreamRate />
-      <Task.Fields.DataSaving />
-      <Task.Fields.AutoStart />
     </Flex.Box>
   </>
 );
@@ -56,7 +61,7 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
   const { itemKey } = props;
   const path = `config.channels.${itemKey}`;
   const ch = PForm.useFieldValue<ReadChannel>(path);
-  const { type, channel } = ch;
+  const { channel } = ch;
   return (
     <Select.Item
       {...props}
@@ -81,13 +86,21 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
             });
           }}
         />
-        <PForm.NumericField
-          inputProps={{ showDragHandle: false }}
-          showLabel={false}
-          showHelpText={false}
-          path={`${path}.address`}
-        />
-        {(type === "input_register" || type === "holding_register") && (
+        <AddressField path={path} />
+        {"bit" in ch && (
+          <PForm.NumericField
+            inputProps={{
+              showDragHandle: false,
+              bounds: BIT_BOUNDS,
+              startContent: "Bit",
+              "aria-label": "Bit",
+            }}
+            showLabel={false}
+            showHelpText={false}
+            path={`${path}.bit`}
+          />
+        )}
+        {isVariableDensityReadChannel(ch) && (
           <PForm.Field<string>
             path={`${path}.dataType`}
             showLabel={false}
@@ -95,6 +108,19 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
           >
             {renderTelemSelectDataType}
           </PForm.Field>
+        )}
+        {isStringChannel(ch) && (
+          <PForm.NumericField
+            inputProps={{
+              showDragHandle: false,
+              bounds: STRING_LENGTH_BOUNDS,
+              startContent: "String length",
+              "aria-label": "String length",
+            }}
+            showLabel={false}
+            showHelpText={false}
+            path={`${path}.stringLength`}
+          />
         )}
       </Flex.Box>
       {isVariableDensityReadChannel(ch) && (
@@ -114,7 +140,11 @@ const ChannelListItem = (props: Task.ChannelListItemProps) => {
 
 const renderTelemSelectDataType = Component.renderProp(
   (props: Telem.SelectDataTypeProps) => (
-    <Telem.SelectDataType {...props} hideVariableDensity location="bottom" />
+    <Telem.SelectDataType
+      {...props}
+      hideDataTypes={UNSUPPORTED_READ_DATA_TYPES}
+      location="bottom"
+    />
   ),
 );
 
@@ -124,12 +154,10 @@ const getOpenChannel = (channels: ReadChannel[]): ReadChannel => {
       ...READ_CHANNEL_SCHEMAS.coil.parse({ type: "coil" }),
       key: id.create(),
     };
-  const channelToCopy = channels[channels.length - 1];
   return {
-    ...channelToCopy,
+    ...nextChannel(channels[channels.length - 1]),
     ...Task.READ_CHANNEL_OVERRIDE,
     key: id.create(),
-    address: nextAddress(channelToCopy),
   };
 };
 
@@ -147,28 +175,6 @@ const Form: FC = () => {
       resolve={resolve}
     />
   );
-};
-
-// Auto-generated channel names and device map keys keep the released type
-// spellings, so channels created before the labels were renamed keep matching.
-const NAME_TYPES: Record<ReadChannelType, string> = {
-  coil: "coil_input",
-  discrete_input: "discrete_input",
-  holding_register: "holding_register_input",
-  input_register: "register_input",
-};
-
-const readMapKey = (channel: ReadChannel) => {
-  let s = `${NAME_TYPES[channel.type]}-${channel.address.toString()}`;
-  if (isVariableDensityReadChannel(channel)) s += `-${channel.dataType}`;
-  return s.replaceAll("_", "-");
-};
-
-const channelName = (deviceName: string, channel: ReadChannel) => {
-  let s = `${deviceName}_${NAME_TYPES[channel.type]}_${channel.address}`;
-  if (isVariableDensityReadChannel(channel))
-    s += `_${new DataType(channel.dataType).toString(true)}`;
-  return s;
 };
 
 const getInitialValues: Task.GetInitialValues<ReadSchemas> = ({ deviceKey }) => {
@@ -222,7 +228,7 @@ const onConfigure: Task.OnConfigure<ReadSchemas["config"]> = async (client, conf
       modified = true;
       const channels = await client.channels.create(
         toCreate.map((c) => ({
-          name: primitive.isNonZero(c.name) ? c.name : channelName(safeName, c),
+          name: primitive.isNonZero(c.name) ? c.name : readChannelName(safeName, c),
           dataType: (c as TypedReadChannel).dataType ?? DataType.UINT8.toString(),
           index: dev.properties.read.index,
         })),
@@ -256,6 +262,7 @@ export const Read = Task.wrapForm({
 
 export const useCreateRead = Task.createUseCreate({
   getInitialValues,
+  deviceMake: MAKE,
 });
 
 export const ReadSelectable = Selector.createSelectable({

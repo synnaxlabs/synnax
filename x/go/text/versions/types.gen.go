@@ -14,8 +14,8 @@ package versions
 import "github.com/synnaxlabs/x/text/versions/v0"
 
 // Level is a typography level identifier shared across visualizations. Mirrors the
-// heading ladder (h1 through h5) plus paragraph (p) and small. Order is descending: h1
-// is the largest, small is the smallest.
+// heading ladder (h1 through h5) plus paragraph (p), small, and tiny. Order is
+// descending: h1 is the largest, tiny is the smallest.
 type Level = v0.Level
 
 const (
@@ -26,4 +26,5 @@ const (
 	LevelH5    Level = v0.LevelH5
 	LevelP     Level = v0.LevelP
 	LevelSmall Level = v0.LevelSmall
+	LevelTiny  Level = v0.LevelTiny
 )
