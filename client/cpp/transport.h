@@ -30,6 +30,9 @@ struct Transport {
     std::unique_ptr<auth::SessionRenewClient> auth_session_renew;
     std::unique_ptr<auth::SessionRetrieveClient> auth_session_retrieve;
     std::unique_ptr<auth::SessionDeleteClient> auth_session_delete;
+    std::unique_ptr<auth::KeyCreateClient> auth_key_create;
+    std::unique_ptr<auth::KeyRetrieveClient> auth_key_retrieve;
+    std::unique_ptr<auth::KeyDeleteClient> auth_key_delete;
     std::unique_ptr<framer::StreamerClient> frame_stream;
     std::unique_ptr<framer::WriterClient> frame_write;
     std::shared_ptr<channel::CreateClient> chan_create;

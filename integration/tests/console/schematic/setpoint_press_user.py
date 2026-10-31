@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from examples.simulators import PressSimDAQ
+from examples.simulators import PressSimDAQ, SimDAQ
 
 import synnax as sy
 from console.case import ConsoleCase
@@ -21,7 +21,7 @@ class SetpointPressUser(SimDaqCase, ConsoleCase):
     whether to open or close the valves.
     """
 
-    sim_daq_class = PressSimDAQ
+    sim_daq_class: type[SimDAQ] | None = PressSimDAQ
 
     def setup(self) -> None:
         self.set_manual_timeout(60)

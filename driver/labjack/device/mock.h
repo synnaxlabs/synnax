@@ -38,6 +38,8 @@ public:
 
     [[nodiscard]] x::errors::Error e_stream_stop() const override {
         if (should_fail_) return x::errors::Error("mock failure");
+        if (!this->streaming) return ljm::STREAM_NOT_RUNNING;
+        this->streaming = false;
         return x::errors::NIL;
     }
 
@@ -126,6 +128,7 @@ public:
         double *scan_rate
     ) const override {
         if (should_fail_) return x::errors::Error("mock failure");
+        this->streaming = true;
         *scan_rate = requested_scan_rate_;
         return x::errors::NIL;
     }
@@ -137,6 +140,7 @@ public:
 private:
     bool should_fail_{false};
     double requested_scan_rate_{1000.0};
+    mutable bool streaming = false;
 };
 
 /// @brief a Manager that serves scripted devices for tests instead of opening LJM

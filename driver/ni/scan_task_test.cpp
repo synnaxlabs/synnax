@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 #include <algorithm>
+#include <atomic>
 #include <cstdint>
 #include <cstring>
 #include <mutex>
@@ -20,8 +21,11 @@
 #include "absl/log/log_sink_registry.h"
 #include "gtest/gtest.h"
 
+#include "client/cpp/testutil/testutil.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/testutil/testutil.h"
 
+#include "driver/ni/ni.h"
 #include "driver/ni/scan_task.h"
 #include "driver/ni/syscfg/api.h"
 
@@ -212,6 +216,14 @@ public:
     NISYSCFGCFUNC FreeDetailedStringW(wchar_t[]) override { return NISysCfg_OK; }
 };
 
+/// @brief returns a System Configuration library that loads api on first use.
+std::shared_ptr<x::lib::Lazy<syscfg::SugaredAPI>>
+loaded(const std::shared_ptr<syscfg::API> &api) {
+    return std::make_shared<x::lib::Lazy<syscfg::SugaredAPI>>([api] {
+        return std::pair{std::make_shared<syscfg::SugaredAPI>(api), x::errors::NIL};
+    });
+}
+
 /// @brief enables VLOG(1) and captures the text of every VLOG(1) line while in scope.
 class CaptureSink final : public absl::LogSink {
     int prev_vlog_level;
@@ -252,11 +264,7 @@ TEST(ScannerTest, testLogsIgnoredDeviceOnce) {
     });
     x::json::json j = {{"disabled", false}};
     auto p = x::json::Parser(j);
-    Scanner scanner(
-        std::make_shared<syscfg::SugaredAPI>(api),
-        ScanTaskConfig(p),
-        synnax::task::Task{}
-    );
+    Scanner scanner(loaded(api), ScanTaskConfig(p), synnax::task::Task{});
     CaptureSink sink;
     for (std::size_t i = 0; i < 3; i++) {
         auto [devices, err] = scanner.scan(common::ScannerContext{.count = i});
@@ -275,11 +283,7 @@ std::vector<synnax::device::Device> scan_once(
 ) {
     auto api = std::make_shared<FakeAPI>(std::move(resources));
     auto p = x::json::Parser(std::move(j));
-    Scanner scanner(
-        std::make_shared<syscfg::SugaredAPI>(api),
-        ScanTaskConfig(p),
-        synnax::task::Task{}
-    );
+    Scanner scanner(loaded(api), ScanTaskConfig(p), synnax::task::Task{});
     auto [devices, err] = scanner.scan(common::ScannerContext{});
     EXPECT_FALSE(err) << err;
     return devices;
@@ -340,5 +344,61 @@ TEST(ScannerTest, testIgnoresSavedPatterns) {
         models,
         std::vector<std::string>({"TestDevice", "MockDevice123", "PXI-6255"})
     );
+}
+
+/// @brief it should start the scanner without the System Configuration library, warn
+/// while the library does not load, and clear the warning on the first scan after it
+/// loads.
+TEST(ScannerTest, testWarnsUntilLibraryLoads) {
+    std::atomic<int> loads = 0;
+    Factory factory(
+        []() -> std::pair<std::shared_ptr<daqmx::SugaredAPI>, x::errors::Error> {
+            return {nullptr, driver::errors::missing_lib(daqmx::LIBRARY_INFO)};
+        },
+        [&loads]() -> std::pair<std::shared_ptr<syscfg::SugaredAPI>, x::errors::Error> {
+            if (loads++ == 0)
+                return {nullptr, driver::errors::missing_lib(syscfg::LIBRARY_INFO)};
+            return {
+                std::make_shared<syscfg::SugaredAPI>(
+                    std::make_shared<FakeAPI>(std::vector<FakeAPI::Resource>{})
+                ),
+                x::errors::NIL
+            };
+        }
+    );
+    const auto ctx = std::make_shared<task::MockContext>(
+        std::make_shared<synnax::Synnax>(new_test_client())
+    );
+    auto [scan_task, handled] = factory.configure_task(
+        ctx,
+        synnax::task::Task{
+            .name = "NI Scanner",
+            .type = SCAN_TASK_TYPE,
+            .config = {{"rate", 1}},
+        },
+        task::NO_COMMAND
+    );
+    ASSERT_TRUE(handled);
+    ASSERT_NE(scan_task, nullptr);
+    ASSERT_EVENTUALLY_GE_WITH_TIMEOUT(
+        ctx->snapshot().size(),
+        3,
+        std::chrono::seconds(5),
+        std::chrono::milliseconds(10)
+    );
+    scan_task->stop(false);
+    const auto statuses = ctx->snapshot();
+    EXPECT_EQ(statuses[0].variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(statuses[0].message, "Started scan task");
+    EXPECT_EQ(statuses[1].variant, synnax::status::VARIANT_WARNING);
+    EXPECT_EQ(statuses[1].message, "Failed to scan for devices");
+    EXPECT_EQ(
+        statuses[1].description,
+        "National Instruments System Configuration library is not installed. Download "
+        "here: https://www.ni.com/en/support/downloads/drivers/"
+        "download.system-configuration.html."
+    );
+    EXPECT_EQ(statuses[2].variant, synnax::status::VARIANT_SUCCESS);
+    EXPECT_EQ(statuses[2].message, "Scan task running");
 }
 }

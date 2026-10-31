@@ -97,23 +97,6 @@ func (w WriterConfig) Override(other WriterConfig) WriterConfig {
 	return w
 }
 
-// Write writes the given data to the DB new telemetry domain occupying the provided
-// time range. If the time domain overlaps with any other domains in the DB, Write will
-// return an error.
-func Write(ctx context.Context, db *DB, tr telem.TimeRange, data []byte) (err error) {
-	w, err := db.OpenWriter(ctx, WriterConfig{Start: tr.Start, End: tr.End})
-	if err != nil {
-		return err
-	}
-	defer func() {
-		err = errors.Combine(err, w.Close())
-	}()
-	if _, err = w.Write(data); err != nil {
-		return err
-	}
-	return w.Commit(ctx, tr.End)
-}
-
 // Writer is used to write a telemetry domain to the DB. A Writer is opened using
 // DB.OpenWriter and a provided WriterConfig, which defines the starting bound of the
 // domain. If no other domain overlaps with the starting bound, the caller can write
