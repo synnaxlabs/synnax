@@ -154,6 +154,9 @@ export const toCSSVars = (
       "rem",
       true,
     ),
+    "tiny-size": CSS.unitProperty(theme.typography.tiny.size, "rem", true),
+    "tiny-weight": theme.typography.tiny.weight,
+    "tiny-line-height": CSS.unitProperty(theme.typography.tiny.lineHeight, "rem", true),
   }).reduce<Record<string, number | string | undefined>>(
     (acc, [key, value]) => ({
       ...acc,

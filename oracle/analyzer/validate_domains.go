@@ -31,7 +31,8 @@ var generatedLangs = []string{"go", "ts", "py", "cpp"}
 //     that language (@lang omit means the type does not exist there). Fields
 //     with their own @lang omit or @lang type override escape the check, as do
 //     references to @lang hand types, which exist hand-written. Nor may it
-//     reference a type with no output in that language.
+//     reference a type with no output in that language. A struct may extend a
+//     parent absent from the language; it then declares the inherited fields.
 //  2. A file-level @lang output where every declared type omits the language —
 //     with no hand-written anchors or actions — generates nothing and should
 //     be removed.
@@ -102,10 +103,20 @@ func validateOmitRefs(
 		case resolution.DistinctForm:
 			check(form.Base, "its base type")
 		case resolution.StructForm:
-			for _, ext := range form.Extends {
-				check(ext, "its extends clause")
+			// A struct with a parent absent from lang declares its inherited fields
+			// itself, so only those fields must exist there.
+			fields := form.Fields
+			if slices.ContainsFunc(form.Extends, func(ref resolution.TypeRef) bool {
+				parent, ok := ref.Resolve(table)
+				return ok && omit.IsAbsent(parent, lang)
+			}) {
+				fields = resolution.UnifiedFields(t, table)
+			} else {
+				for _, ext := range form.Extends {
+					check(ext, "its extends clause")
+				}
 			}
-			for _, f := range form.Fields {
+			for _, f := range fields {
 				if fieldEscapesLang(f, lang) {
 					continue
 				}

@@ -9,8 +9,8 @@
 
 import { describe, expect, it } from "vitest";
 
-import { MultipleFoundError, NotFoundError } from "@/errors";
 import { ethercat } from "@/ethercat";
+import { MultipleFoundError, NotFoundError } from "@/index";
 
 const EL1008_INPUTS: ethercat.PDOEntry[] = Array.from({ length: 8 }, (_, i) => ({
   name: "Input",

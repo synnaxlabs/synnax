@@ -7,14 +7,17 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+from typing import Literal, get_args
 from uuid import uuid4
 
 from pydantic import JsonValue
 
 from synnax import device, task
+from synnax.exceptions import PathError, ValidationError
 from synnax.modbus.types_gen import (
     ReadChannel,
     ReadConfig,
+    RegisterBit,
     WriteChannel,
     WriteConfig,
 )
@@ -31,12 +34,20 @@ _READ_NAME_TYPES = {
     "discrete_input": "discrete_input",
     "holding_register": "holding_register_input",
     "input_register": "register_input",
+    "holding_register_bit": "holding_register_bit_input",
+    "input_register_bit": "register_bit_input",
 }
 
 _WRITE_NAME_TYPES = {
     "coil": "coil_output",
     "holding_register": "holding_register_output",
+    "holding_register_bit": "holding_register_bit_output",
 }
+
+# The rates libmodbus sets on Linux, macOS, and Windows. The Driver and the Console
+# accept the same list.
+_BaudRate = Literal[1200, 2400, 4800, 9600, 19200, 38400, 57600, 115200, 230400]
+_BAUD_RATES: tuple[int, ...] = get_args(_BaudRate)
 
 
 class ReadTask(
@@ -55,8 +66,9 @@ class ReadTask(
         instead of saving it permanently within Synnax.
     :param auto_start: Whether to start the task automatically when it is created.
     :param channels: The input channels to acquire data from (ReadChannel variants:
-        CoilReadChannel, DiscreteInputReadChannel,
-        HoldingRegisterReadChannel, InputRegisterReadChannel).
+        CoilReadChannel, DiscreteInputReadChannel, HoldingRegisterReadChannel,
+        InputRegisterReadChannel, HoldingRegisterBitReadChannel,
+        InputRegisterBitReadChannel).
     """
 
     TYPE = "modbus_read"
@@ -94,7 +106,8 @@ class ReadTask(
 
         The key format follows Console's readMapKey convention:
         "{type}-{address}" for fixed-density channels, "{type}-{address}-{dataType}"
-        for register channels, with underscores replaced by hyphens.
+        for register channels, and "{type}-{address}-{bit}" for register bit
+        channels, with underscores replaced by hyphens.
         """
         dev = device_client.retrieve(key=self.config.device)
         props = dict(dev.properties)
@@ -105,6 +118,8 @@ class ReadTask(
             key = f"{_READ_NAME_TYPES[ch.type]}-{ch.address}"
             if hasattr(ch, "data_type"):
                 key += f"-{ch.data_type}"
+            if isinstance(ch, RegisterBit):
+                key += f"-{ch.bit}"
             key = key.replace("_", "-")
             channels[key] = ch.channel
         dev.properties = props
@@ -122,7 +137,8 @@ class WriteTask(
     :param name: A human-readable name for the task.
     :param auto_start: Whether to start the task automatically when it is created.
     :param channels: The output channels to write to (WriteChannel variants:
-        CoilWriteChannel, HoldingRegisterWriteChannel).
+        CoilWriteChannel, HoldingRegisterWriteChannel,
+        HoldingRegisterBitWriteChannel).
     """
 
     TYPE = "modbus_write"
@@ -153,42 +169,87 @@ class WriteTask(
         """Update device properties before task configuration.
 
         The key format follows Console's writeMapKey convention: "{type}-{address}"
-        with underscores replaced by hyphens. Write channels omit the dataType because
-        the driver converts values based on register type.
+        for coils, "{type}-{address}-{dataType}" for holding registers, and
+        "{type}-{address}-{bit}" for register bits, with underscores replaced by
+        hyphens.
         """
         dev = device_client.retrieve(key=self.config.device)
         props = dict(dev.properties)
         channels = device.ensure_object(props, "write", "channels")
         for ch in self.config.channels:
-            key = f"{_WRITE_NAME_TYPES[ch.type]}-{ch.address}".replace("_", "-")
-            channels[key] = ch.channel
+            key = f"{_WRITE_NAME_TYPES[ch.type]}-{ch.address}"
+            if hasattr(ch, "data_type"):
+                key += f"-{ch.data_type}"
+            if isinstance(ch, RegisterBit):
+                key += f"-{ch.bit}"
+            channels[key.replace("_", "-")] = ch.channel
         dev.properties = props
         return device_client.create(dev)
 
 
 class Device(device.Device):
-    """A Modbus TCP server device.
+    """A unit on a Modbus TCP server or a Modbus RTU serial line. Devices with the
+    same host and port, or the same serial port, share one connection.
 
-    :param host: The IP address or hostname of the Modbus server.
-    :param port: The TCP port number, typically 502.
+    :param transport: "tcp" for Modbus TCP, or "rtu" for Modbus RTU on a serial port.
+    :param host: The IP address or hostname of the Modbus server. Required for TCP.
+    :param port: The TCP port number, typically 502. Required for TCP.
+    :param serial_port: The serial port, such as /dev/ttyUSB0 or COM3. Required for
+        RTU.
+    :param baud_rate: The baud rate of the serial line: 1200, 2400, 4800, 9600, 19200,
+        38400, 57600, 115200, or 230400.
+    :param parity: The parity of the serial line.
+    :param stop_bits: The stop bits of each character on the serial line.
     :param swap_bytes: Whether register channels swap the byte order within each
         16-bit word. A channel's bytes_swapped overrides it.
     :param swap_words: Whether register channels swap the word order of 32-bit and
         larger values. A channel's words_swapped overrides it.
+    :param unit_id: The unit the device addresses. For TCP, from 0 to 255, and 255 by
+        default: 255 addresses the server itself, and a gateway needs the unit behind
+        it. For RTU, from 1 to 247, and 1 by default.
+    :param timeout_ms: The connect and response timeout in milliseconds.
+    :param retries: The immediate retries of a request after a timeout or another
+        temporary fault, from 0 to 10.
+    :param max_registers: The most registers one read covers, from 1 to 125.
+    :param max_gap: The most unused addresses one read can span between two channels.
+        0 reads only addresses that channels cover.
+    :param write_codes: "multiple" writes with function codes 15 and 16. "single" writes
+        each coil with 05 and each register with 06.
+    :param mask_write_supported: Whether the server takes function code 22, so a
+        register bit write is one request. Otherwise the Driver reads the register and
+        writes it back.
+    :param delay_ms: The wait in milliseconds between requests on the connection,
+        from 0 to 5000.
     :param name: Human-readable name for the device.
     :param location: Physical location or description.
     :param rack: Rack key this device belongs to.
     :param key: Unique key for the device. Auto-generated if empty.
     :param configured: Whether the device has been configured.
+    :raises ValueError: If a field of the other transport is set, or a required field
+        of this one is missing.
+    :raises PathError: If baud_rate is not one of the supported rates.
     """
 
     def __init__(
         self,
         *,
-        host: str,
-        port: int,
+        transport: Literal["tcp", "rtu"] = "tcp",
+        host: str | None = None,
+        port: int | None = None,
+        serial_port: str | None = None,
+        baud_rate: _BaudRate = 19200,
+        parity: Literal["none", "even", "odd"] = "even",
+        stop_bits: Literal[1, 2] = 1,
         swap_bytes: bool = False,
         swap_words: bool = False,
+        unit_id: int | None = None,
+        timeout_ms: int = 1000,
+        retries: int = 1,
+        max_registers: int = 125,
+        max_gap: int = 125,
+        write_codes: Literal["multiple", "single"] = "multiple",
+        mask_write_supported: bool = False,
+        delay_ms: int = 0,
         name: str = "",
         location: str = "",
         rack: int = 0,
@@ -197,12 +258,46 @@ class Device(device.Device):
     ):
         if not key:
             key = str(uuid4())
+        connection: dict[str, JsonValue] = {"transport": transport}
+        if transport == "tcp":
+            if host is None or port is None:
+                raise ValueError("a TCP device needs a host and a port")
+            if serial_port is not None:
+                raise ValueError("a TCP device has no serial port")
+            connection.update(host=host, port=port)
+            if unit_id is None:
+                unit_id = 255
+        else:
+            if serial_port is None:
+                raise ValueError("an RTU device needs a serial port")
+            if host is not None or port is not None:
+                raise ValueError("an RTU device has no host or port")
+            if baud_rate not in _BAUD_RATES:
+                rates = ", ".join(str(rate) for rate in _BAUD_RATES)
+                raise PathError("baud_rate", ValidationError(f"must be one of {rates}"))
+            connection.update(
+                serial_port=serial_port,
+                baud_rate=baud_rate,
+                parity=parity,
+                stop_bits=stop_bits,
+            )
+            if unit_id is None:
+                unit_id = 1
+        connection.update(
+            swap_bytes=swap_bytes,
+            swap_words=swap_words,
+            unit_id=unit_id,
+            timeout_ms=timeout_ms,
+            retries=retries,
+        )
         props: dict[str, JsonValue] = {
-            "connection": {
-                "host": host,
-                "port": port,
-                "swap_bytes": swap_bytes,
-                "swap_words": swap_words,
+            "connection": connection,
+            "requests": {
+                "max_registers": max_registers,
+                "max_gap": max_gap,
+                "write_codes": write_codes,
+                "mask_write_supported": mask_write_supported,
+                "delay_ms": delay_ms,
             },
             "read": {"index": 0, "channels": {}},
             "write": {"channels": {}},
