@@ -98,10 +98,12 @@ var _ = Describe("DB Metadata Operations", func() {
 					"Should return the correct size after writing data",
 					func(ctx SpecContext) {
 						w, _ := MustSucceed2(indexDB.OpenWriter(ctx, unary.WriterConfig{
-							Start:   telem.TimeStamp(0),
+							Start:   10 * telem.SecondTS,
 							Subject: control.Subject{Key: "size_test"},
 						}))
-						MustSucceed(w.Write(telem.NewSeriesSecondsTSV(0, 1, 2, 3, 4)))
+						MustSucceed(
+							w.Write(telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14)),
+						)
 						MustSucceed(w.Commit(ctx))
 						MustSucceed(w.Close())
 
@@ -114,12 +116,12 @@ var _ = Describe("DB Metadata Operations", func() {
 					"Should accumulate size across multiple writes",
 					func(ctx SpecContext) {
 						w, _ := MustSucceed2(indexDB.OpenWriter(ctx, unary.WriterConfig{
-							Start:   telem.TimeStamp(0),
+							Start:   10 * telem.SecondTS,
 							Subject: control.Subject{Key: "size_test"},
 						}))
-						MustSucceed(w.Write(telem.NewSeriesSecondsTSV(0, 1, 2)))
+						MustSucceed(w.Write(telem.NewSeriesSecondsTSV(10, 11, 12)))
 						MustSucceed(w.Commit(ctx))
-						MustSucceed(w.Write(telem.NewSeriesSecondsTSV(3, 4)))
+						MustSucceed(w.Write(telem.NewSeriesSecondsTSV(13, 14)))
 						MustSucceed(w.Commit(ctx))
 						MustSucceed(w.Close())
 

@@ -484,6 +484,9 @@ type idxWriter struct {
 	// writingToIdx is true when the Write is writing to the index channel. This is
 	// typically true, which allows us to avoid unnecessary lookups.
 	writingToIdx bool
+	// started is true once the group has written an index sample. Until then, each
+	// index write starts the domains of the group at its first timestamp.
+	started bool
 	// hasUncommittedData tracks whether new data has been written since the last
 	// successful commit. This prevents stale commits when a control transfer
 	// advances the domain writer's prevCommit beyond this writer's highWaterMark.
@@ -623,6 +626,12 @@ func (w *idxWriter) write(
 			if err = w.updateHighWater(series); err != nil {
 				return fr, err
 			}
+			if !w.started {
+				first := series.ValueAt[telem.TimeStamp](0)
+				for _, chW := range w.internal {
+					chW.SetDomainStart(first)
+				}
+			}
 			if alignment, err = uWriter.Write(series); err != nil {
 				accumulatedErr = err
 				if !errors.Is(accumulatedErr, xcontrol.ErrUnauthorized) {
@@ -633,6 +642,7 @@ func (w *idxWriter) write(
 				break
 			}
 			alignmentSet = true
+			w.started = true
 			w.sampleCount = int64(alignment.SampleIndex()) + series.Len()
 			incrementedSampleCount = true
 			w.hasUncommittedData = true
