@@ -126,8 +126,9 @@ outlined button) has fill l2 and border l4, and its caret has the disabled text 
   changes with state: "Index channel", not "Is index".
 - An error message is a sentence about its field ("Name is required"), never a raw
   schema message.
-- A field in a row, or beside another field, has no help text. It shows its error as a
-  table cell does: a red frame, and the message on hover.
+- A field in a row, or beside another field, has no help text. Its control shows the
+  error, and the message shows on hover. A control with a border gets a red border. A
+  control with no border, such as a text select or a button group, gets red text.
 
 ### Overflow
 
