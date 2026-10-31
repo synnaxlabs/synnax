@@ -565,6 +565,22 @@ describe("AnalogRead ports", () => {
     await deployAndAwaitTask(client, container, draft.key);
   });
 
+  it("should deploy a channel on a port that does not report its capabilities", async () => {
+    const hardware = createHardware();
+    for (const port of [8, 9])
+      hardware.analogInputs[port] = {
+        ...hardware.analogInputs[port],
+        terminalConfigs: [],
+        types: [],
+      };
+    const dev = await createNIDevice(client, { properties: { hardware } });
+    const { container, draft } = await renderWith([
+      createChannel("ai_thermocouple", 8, { device: dev.key }),
+      createChannel("ai_voltage", 9, { device: dev.key, terminalConfig: "Diff" }),
+    ]);
+    await deployAndAwaitTask(client, container, draft.key);
+  });
+
   it("should put each negative input under its port, eight pairs to a group", async () => {
     const dev = await createDevice();
     await renderWith([
@@ -741,6 +757,21 @@ describe("AnalogRead ports", () => {
     fireEvent.click(await findDialogTriggerByText("Voltage"));
     await screen.findByText("Temperature built-in sensor");
     expect(screen.queryByText("Thermocouple")).toBeNull();
+  });
+
+  it("should list every type and terminal configuration on a port that does not report them", async () => {
+    const hardware = createHardware();
+    hardware.analogInputs[8] = {
+      ...hardware.analogInputs[8],
+      terminalConfigs: [],
+      types: [],
+    };
+    const dev = await createNIDevice(client, { properties: { hardware } });
+    await renderWith([createChannel("ai_voltage", 8, { device: dev.key })]);
+    fireEvent.click(await findDialogTriggerByText("Voltage"));
+    expect(await screen.findByText("Thermocouple")).toBeTruthy();
+    fireEvent.click(await findDialogTriggerByText("Default (Referenced single ended)"));
+    expect(await screen.findByText("Differential")).toBeTruthy();
   });
 
   it("should show the terminal configuration Default gives on the port", async () => {

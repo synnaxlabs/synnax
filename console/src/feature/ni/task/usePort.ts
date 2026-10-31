@@ -12,6 +12,7 @@ import { Form } from "@synnaxlabs/lyra/form";
 
 import { useByKey } from "@/feature/ni/device/queries";
 import { type Device } from "@/feature/ni/device/types";
+import { accepts } from "@/feature/ni/task/ports";
 
 /** The device of the channel at the path. */
 export const useChannelDevice = (path: string): Device | undefined =>
@@ -29,7 +30,8 @@ export const useAnalogInputPort = (path: string): ni.AnalogInputPort | undefined
 
 /**
  * The types a select offers for a channel on the port: the port's types, the current
- * type, and the types that need no port. Every type when the port is unknown.
+ * type, and the types that need no port. Every type when the port or its types are
+ * unknown.
  */
 export const allowedTypes = <T extends string>(
   all: readonly T[],
@@ -39,5 +41,5 @@ export const allowedTypes = <T extends string>(
 ): T[] =>
   all.filter(
     (t) =>
-      port == null || port.types.includes(t) || t === current || portless.includes(t),
+      port == null || accepts(port.types, t) || t === current || portless.includes(t),
   );

@@ -12,6 +12,7 @@ import { z } from "zod";
 
 import { type Device } from "@/feature/ni/device/types";
 import {
+  accepts,
   analogInputClaims,
   type Claims,
   conflicts,
@@ -125,7 +126,7 @@ export const analogReadHardwareZ = (devices: Device[]): z.ZodType =>
       const port = hardware.analogInputs.find((p) => p.port === c.port);
       if (port == null)
         return report(["channels", i, "port"], `The device has no port ${name}`);
-      if (!port.types.includes(c.type))
+      if (!accepts(port.types, c.type))
         report(
           ["channels", i, "type"],
           `${name} does not take ${lower(AI_CHANNEL_TYPE_NAMES[c.type])} channels`,
@@ -133,7 +134,7 @@ export const analogReadHardwareZ = (devices: Device[]): z.ZodType =>
       if (
         "terminalConfig" in c &&
         c.terminalConfig !== "Cfg_Default" &&
-        !port.terminalConfigs.includes(c.terminalConfig)
+        !accepts(port.terminalConfigs, c.terminalConfig)
       )
         report(
           ["channels", i, "terminalConfig"],
@@ -164,7 +165,7 @@ export const analogWriteHardwareZ = (device: Device | undefined): z.ZodType =>
       const port = hardware.analogOutputs.find((p) => p.port === c.port);
       if (port == null)
         return report(["channels", i, "port"], `The device has no port ${name}`);
-      if (!port.types.includes(c.type))
+      if (!accepts(port.types, c.type))
         report(
           ["channels", i, "type"],
           `${name} does not take ${lower(AO_CHANNEL_TYPE_NAMES[c.type])} channels`,
@@ -183,7 +184,7 @@ export const counterReadHardwareZ = (devices: Device[]): z.ZodType =>
       const port = hardware.counterInputs.find((p) => p.port === c.port);
       if (port == null)
         return report(["channels", i, "port"], `The device has no counter ${name}`);
-      if (!port.types.includes(c.type))
+      if (!accepts(port.types, c.type))
         report(
           ["channels", i, "type"],
           `${name} does not take ${lower(CI_CHANNEL_TYPE_NAMES[c.type])} channels`,

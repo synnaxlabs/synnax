@@ -19,7 +19,7 @@ import { CoefficientsField } from "@/feature/ni/task/CoefficientsField";
 import { CustomScaleSection } from "@/feature/ni/task/CustomScaleForm";
 import { MinMaxValueFields } from "@/feature/ni/task/MinMaxValueFields";
 import { PortField } from "@/feature/ni/task/PortField";
-import { ANALOG_INPUT } from "@/feature/ni/task/ports";
+import { accepts, ANALOG_INPUT } from "@/feature/ni/task/ports";
 import {
   channelTypeItems,
   SelectAIChannelTypeField,
@@ -77,7 +77,7 @@ const SelectTerminalConfigField = Form.buildSelectField<TerminalConfig>({
 // The configurations the port takes, and "Default" named by what it gives there.
 const terminalConfigItems = (port: ni.AnalogInputPort, current: TerminalConfig) =>
   TERMINAL_CONFIGS.filter(
-    (c) => c === "Cfg_Default" || c === current || port.terminalConfigs.includes(c),
+    (c) => c === "Cfg_Default" || c === current || accepts(port.terminalConfigs, c),
   ).map((c) => {
     const resolved = c === "Cfg_Default" ? port.defaultTerminalConfig : undefined;
     return (

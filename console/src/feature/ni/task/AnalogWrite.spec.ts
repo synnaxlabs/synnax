@@ -14,7 +14,11 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { NI } from "@/feature/ni";
-import { createNIDevice, renderNITaskForm } from "@/feature/ni/task/testutil";
+import {
+  createHardware,
+  createNIDevice,
+  renderNITaskForm,
+} from "@/feature/ni/task/testutil";
 import {
   createWithHook,
   deployAndAwaitTask,
@@ -275,6 +279,21 @@ describe("AnalogWrite channel names", () => {
     );
     const item = await findChannelListItem(`${identifier}_ao_1_cmd`);
     expect(within(item).getByText(`${identifier}_ao_1_state`)).toBeTruthy();
+  });
+});
+
+describe("AnalogWrite ports", () => {
+  it("should deploy a channel on a port that does not report its types", async () => {
+    const hardware = createHardware();
+    hardware.analogOutputs[0] = { ...hardware.analogOutputs[0], types: [] };
+    const dev = await createNIDevice(client, { properties: { hardware } });
+    const rendered = await renderAnalogWrite(
+      createConfig(
+        [createChannel("ao_voltage", 0, { cmdChannelName: "", stateChannelName: "" })],
+        dev.key,
+      ),
+    );
+    await deployAndAwaitTask(client, rendered.container, rendered.draft.key);
   });
 });
 
