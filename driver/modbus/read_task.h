@@ -352,6 +352,10 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
             bound->emplace_back(ch, base.channel);
             this->data_channel_count++;
         });
+        if (cfg.ok() && keys.empty()) {
+            cfg.field_err("channels", "task must have at least one enabled channel");
+            return;
+        }
 
         auto [synnax_channels, err] = client->channels.retrieve(
             std::vector(keys.begin(), keys.end())
