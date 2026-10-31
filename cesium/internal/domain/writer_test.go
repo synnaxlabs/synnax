@@ -19,7 +19,9 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	. "github.com/synnaxlabs/alamos/testutil"
+	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/domain"
+	"github.com/synnaxlabs/cesium/internal/testutil"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
@@ -184,7 +186,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 				It(
 					"Should check stored data at the start instead of at open",
 					func(ctx SpecContext) {
-						Expect(domain.Write(
+						Expect(testutil.WriteDomain(
 							ctx,
 							db,
 							(10 * telem.SecondTS).Range(20*telem.SecondTS),
@@ -633,7 +635,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					func(ctx SpecContext) {
 						By("Replacing the DB with a recorder-wrapped FS")
 						Expect(db.Close()).To(Succeed())
-						rec := xfs.NewRecorder(fs)
+						rec := NewRecorder(fs)
 						db = MustSucceed(domain.Open(domain.Config{
 							FS:              rec,
 							Instrumentation: PanicLogger(),
@@ -663,8 +665,8 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						)
 						Expect(
 							rec.Count(
-								xfs.MatchOp(xfs.OpWrite, xfs.OpWriteAt),
-								xfs.MatchName("index.domain"),
+								MatchOp(OpWrite, OpWriteAt),
+								MatchName("index.domain"),
 							),
 						).
 							To(BeZero())
@@ -678,8 +680,8 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						By("Asserting the post-interval commit wrote the index file")
 						Expect(
 							rec.Count(
-								xfs.MatchOp(xfs.OpWrite, xfs.OpWriteAt),
-								xfs.MatchName("index.domain"),
+								MatchOp(OpWrite, OpWriteAt),
+								MatchName("index.domain"),
 							),
 						).
 							To(BeNumerically(">", 0))
@@ -703,7 +705,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 								ctx,
 								domain.WriterConfig{
 									Start:                    10 * telem.SecondTS,
-									AutoIndexPersistInterval: domain.AlwaysIndexPersistOnAutoCommit,
+									AutoIndexPersistInterval: cesium.AlwaysIndexPersistOnAutoCommit,
 								},
 							),
 						)
@@ -821,7 +823,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					"Should not write the index file on commits within the persist interval",
 					func(ctx SpecContext) {
 						Expect(db.Close()).To(Succeed())
-						rec := xfs.NewRecorder(fs)
+						rec := NewRecorder(fs)
 						db = MustSucceed(domain.Open(domain.Config{
 							FS:              rec,
 							FileSize:        1 * telem.Megabyte,
@@ -842,8 +844,8 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						// touched by commits. Snapshot the count before Close since
 						// Close itself flushes any unpersisted state.
 						indexWrites := rec.Count(
-							xfs.MatchOp(xfs.OpWrite, xfs.OpWriteAt),
-							xfs.MatchName("index.domain"),
+							MatchOp(OpWrite, OpWriteAt),
+							MatchName("index.domain"),
 						)
 						Expect(w.Close()).To(Succeed())
 						Expect(indexWrites).To(BeZero())
@@ -888,7 +890,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 				It("Should not write on a closed database", func(ctx SpecContext) {
 					Expect(db.Close()).To(Succeed())
 					Expect(
-						domain.Write(
+						testutil.WriteDomain(
 							ctx,
 							db,
 							telem.TimeStamp(0).Range(telem.TimeStamp(1)),

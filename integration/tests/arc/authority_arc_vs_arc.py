@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from examples.simulators import PressSimDAQ
+from examples.simulators import PressSimDAQ, SimDAQ
 
 import synnax as sy
 from framework.utils import create_virtual_channel
@@ -59,10 +59,12 @@ class AuthorityArcVsArc(ArcCase):
     start_cmd_channel = "start_low_cmd"
     end_cmd_channel = "end_test_cmd"
     subscribe_channels = ["press_vlv_state", "press_pt", "end_test_cmd"]
-    sim_daq_class = PressSimDAQ
+    sim_daq_class: type[SimDAQ] | None = PressSimDAQ
 
     def setup(self) -> None:
-        create_virtual_channel(self.client, "start_high_cmd", sy.DataType.UINT8)
+        create_virtual_channel(
+            self.client, "start_high_cmd", data_type=sy.DataType.UINT8
+        )
         super().setup()
         self.set_manual_timeout(60)
 
@@ -71,7 +73,9 @@ class AuthorityArcVsArc(ArcCase):
         self.wait_for_eq("press_vlv_state", 0)
 
         self.log("Loading Arc B (high priority)")
-        self.load_arc(ARC_HIGH_PRIORITY_SOURCE, "ArcHigh", trigger="start_high_cmd")
+        self.load_arc(
+            ARC_HIGH_PRIORITY_SOURCE, name_prefix="ArcHigh", trigger="start_high_cmd"
+        )
 
         self.log("Waiting for Arc B to override (press_vlv_state == 1)...")
         self.wait_for_eq("press_vlv_state", 1)

@@ -16,6 +16,7 @@ import "schemas/x/telem"
 
 Method enum {
     password = "password"
+    api_key  = "api_key"
 
     @doc value "names an authentication method."
 }
@@ -25,27 +26,33 @@ SessionKey = uuid {
 }
 
 Session struct {
-    key         SessionKey = create {
+    key                SessionKey = create {
         @doc value "is the unique identifier for this session."
         @key
     }
-    hash        bytes           {
+    hash               bytes           {
         @doc value "is the SHA-256 hash of the secret in the session's token."
         @go wire   omit
         @py omit
         @ts omit
     }
-    subject     ontology.ID     {
+    subject            ontology.ID     {
         @doc value    "is the user or rack that logged in."
         @filter
         @index lookup
     }
-    credential  uuid            {
+    credential         uuid            {
         @doc value    "is the key of the credential record the login matched."
         @filter
         @index lookup
     }
-    last_active telem.TimeStamp {
+    credential_version telem.TimeStamp {
+        @doc value "is when the credential's secret was set, as the login saw it."
+        @go wire   omit
+        @py omit
+        @ts omit
+    }
+    last_active        telem.TimeStamp {
         @doc value """
             is the last time a request used the session, to the nearest quarter of the
             idle timeout.
@@ -74,9 +81,21 @@ Credentials struct {
     @doc value "is a plaintext username and password pair presented at login."
 }
 
+APIKeyCredentials struct {
+    key string {
+        @doc value         "is the full API key, as it was shown at creation."
+        @validate required
+    }
+
+    @doc value "is an API key presented at login."
+}
+
 Proof union on method Method {
     password Credentials {
         @doc value "proves a password."
+    }
+    api_key  APIKeyCredentials {
+        @doc value "proves an API key."
     }
 
     @doc value """

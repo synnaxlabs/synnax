@@ -25,7 +25,7 @@ from alamos.trace import NOOP_TRACER, _NoopSpan
 class TestChild:
     def test_nested_path(self, provider: TracerProvider) -> None:
         """Should extend the full parent path for nested children."""
-        ins = Instrumentation("root", tracer=Tracer(otel_provider=provider))
+        ins = Instrumentation(key="root", tracer=Tracer(otel_provider=provider))
         child = ins.child("a").child("b")
         assert child.Meta.path == "root.a.b"
         assert child.L.meta.path == "root.a.b"
@@ -35,7 +35,7 @@ class TestChild:
     def test_filter(self, provider: TracerProvider) -> None:
         """Should keep the environment filter of the parent tracer."""
         tracer = Tracer(otel_provider=provider, filter_=lambda env: env == "prod")
-        child = Instrumentation("root", tracer=tracer).child("a")
+        child = Instrumentation(key="root", tracer=tracer).child("a")
         with child.T.debug("span") as span:
             assert isinstance(span, _NoopSpan)
 
@@ -49,7 +49,7 @@ class Service:
         """Returns the value."""
         return value
 
-    @trace("prod", "custom")
+    @trace("prod", key="custom")
     async def async_method(self, value: int) -> int:
         """Returns the value."""
         await asyncio.sleep(0)
@@ -69,7 +69,7 @@ class TestTrace:
         self, provider: TracerProvider, exporter: InMemorySpanExporter
     ) -> None:
         """Should name the span with the full instrumentation path."""
-        ins = Instrumentation("root", tracer=Tracer(otel_provider=provider))
+        ins = Instrumentation(key="root", tracer=Tracer(otel_provider=provider))
         with ins.child("a").T.prod("span"):
             pass
         (span,) = exporter.get_finished_spans()
@@ -77,14 +77,16 @@ class TestTrace:
 
     def test_noop_span_key(self) -> None:
         """Should give the noop span an empty key."""
-        with Instrumentation("root").T.prod("span") as span:
+        with Instrumentation(key="root").T.prod("span") as span:
             assert span.key == ""
 
 
 class TestTraceDecorator:
     @pytest.fixture
     def service(self, provider: TracerProvider) -> Service:
-        return Service(Instrumentation("root", tracer=Tracer(otel_provider=provider)))
+        return Service(
+            Instrumentation(key="root", tracer=Tracer(otel_provider=provider))
+        )
 
     def test_sync(self, service: Service, exporter: InMemorySpanExporter) -> None:
         """Should trace a sync method under its name and return its value."""
@@ -128,7 +130,7 @@ class TestTraceDecorator:
 class TestConstruction:
     def test_noop_not_mutated(self) -> None:
         """Should not change the shared noop logger and tracer."""
-        Instrumentation("root")
+        Instrumentation(key="root")
         assert not hasattr(NOOP_LOGGER, "meta")
         assert not hasattr(NOOP_TRACER, "_meta")
 
@@ -137,8 +139,8 @@ class TestConstruction:
     ) -> None:
         """Should name each otel tracer by its own instrumentation key."""
         tracer = Tracer(otel_provider=provider)
-        first = Instrumentation("first", tracer=tracer)
-        Instrumentation("second", tracer=tracer)
+        first = Instrumentation(key="first", tracer=tracer)
+        Instrumentation(key="second", tracer=tracer)
         with first.T.prod("span"):
             pass
         (span,) = exporter.get_finished_spans()

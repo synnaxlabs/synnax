@@ -53,6 +53,7 @@ cc_test(
         "//client/cpp/testutil",
         "//driver/common",
         "//driver/pipeline/testutil",
+        "//x/cpp/defer",
         "//x/cpp/sync",
         "//x/cpp/testutil",
         "//x/cpp/uuid",

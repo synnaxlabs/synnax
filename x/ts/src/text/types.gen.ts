@@ -11,6 +11,6 @@
 
 import { z } from "zod";
 
-export const LEVELS = ["h1", "h2", "h3", "h4", "h5", "p", "small"] as const;
+export const LEVELS = ["h1", "h2", "h3", "h4", "h5", "p", "small", "tiny"] as const;
 export const levelZ = z.enum(LEVELS);
 export type Level = z.infer<typeof levelZ>;

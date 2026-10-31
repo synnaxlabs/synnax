@@ -19,7 +19,7 @@ import (
 	freightertestutil "github.com/synnaxlabs/freighter/testutil"
 	"github.com/synnaxlabs/x/errors"
 	xkv "github.com/synnaxlabs/x/kv"
-	"github.com/synnaxlabs/x/kv/memkv"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 type Builder struct {

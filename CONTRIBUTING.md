@@ -6,6 +6,14 @@ How a change gets into `main`. Setup lives in the package guides
 [Python client](client/py/CONTRIBUTING.md), [docs site](site/docs/CONTRIBUTING.md)),
 design in the [RFCs](docs/tech/rfc), and code style in [AGENTS.md](AGENTS.md).
 
+## Commit hooks
+
+`pnpm install` points Git at the hooks in `.githooks`. On each commit, the `pre-commit`
+hook runs `scripts/fix.sh --staged`, which adds copyright headers to the staged files,
+formats them, and stages the fixes. Skip it with `git commit --no-verify`. In a checkout
+made before the hooks, run `pnpm prepare` once. Hooks in `.git/hooks` no longer run;
+`.githooks` holds the Git LFS hooks.
+
 ## Branches and pull requests
 
 `main` is the only long-lived branch and is always releasable. A branch is named after
@@ -20,6 +28,9 @@ person dispatches every release ([RFC 0058](docs/tech/rfc/0058-release-workflow.
 - One review tier label. Answer every Greptile comment with a fix or a reason. A
   `review/bot` PR that is not a draft merges by itself once CI and the gate pass. The
   author merges a `review/human` PR once the gate passes.
+- The `preview` label deploys a live Core with the Console for the PR, and each push
+  while the label stays deploys it again. Add it when the PR changes the Console UI or
+  needs a live Core to review. `preview/docs` does the same for the docs site.
 - A version bump rides the PR that ships the change. Test-only and docs-only changes
   bump nothing.
 

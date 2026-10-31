@@ -18,16 +18,20 @@
 #include <winsock2.h>
 #endif
 
+#include <algorithm>
 #include <filesystem>
+#include <iterator>
+#include <string>
+#include <vector>
 
 #include "absl/log/log.h"
 
+#include "client/cpp/auth/auth.h"
 #include "x/cpp/args/args.h"
 #include "x/cpp/log/log.h"
 #include "x/cpp/thread/rt/rt.h"
 #include "x/cpp/uuid/uuid.h"
 
-#include "driver/labjack/labjack.h"
 #ifndef SYNNAX_NILINUXRT
 #include "driver/modbus/modbus.h"
 #endif
@@ -35,12 +39,21 @@
 #include "driver/common/sample_clock.h"
 #include "driver/ethercat/ethercat.h"
 #include "driver/http/http.h"
-#include "driver/ni/ni.h"
 #include "driver/opcua/opcua.h"
 #include "driver/task/task.h"
 
 namespace driver::rack {
+/// @brief the persisted state file or its directory cannot be used safely, such as
+/// when either is a symbolic link.
+const x::errors::Error STATE_ERROR = x::errors::SY.sub("driver").sub("state");
+
+/// @brief the directory in the state directory that holds OPC UA certificates. The
+/// Linux service user owns it.
+const std::string OPCUA_STATE_DIR = "opcua";
+
 struct RemoteInfo {
+    /// @brief a saved rack that still needs enrollment. It is saved again only while
+    /// the Driver cannot enroll it.
     synnax::rack::Key rack_key = 0;
     x::uuid::UUID cluster_key;
 
@@ -57,22 +70,26 @@ struct RemoteInfo {
     }
 
     [[nodiscard]] x::json::json to_json() const {
-        return {
-            {"rack_key", this->rack_key},
-            {"cluster_key", this->cluster_key.to_string()},
-        };
+        x::json::json j = {{"cluster_key", this->cluster_key.to_string()}};
+        if (this->rack_key != 0) j["rack_key"] = this->rack_key;
+        return j;
     }
 };
 
-inline std::vector<std::string> default_integrations() {
+/// @brief returns the integrations that this platform's build adds to the ones every
+/// build has. Each platform defines it in its own source.
+std::vector<std::string> platform_integrations();
+
+/// @brief returns the integrations that this build runs. A config enables all of them
+/// unless it names its own.
+inline std::vector<std::string> built_integrations() {
     std::vector<std::string> integrations = {
         opcua::INTEGRATION_NAME,
-        ni::INTEGRATION_NAME,
-        labjack::INTEGRATION_NAME,
         arc::INTEGRATION_NAME,
         ethercat::INTEGRATION_NAME,
         http::INTEGRATION_NAME
     };
+    std::ranges::copy(platform_integrations(), std::back_inserter(integrations));
 #ifndef SYNNAX_NILINUXRT
     integrations.push_back(modbus::INTEGRATION_NAME);
 #endif
@@ -91,9 +108,7 @@ inline std::vector<std::string> default_integrations() {
 /// using the --config flag followed by a path to a configuration file. This file
 /// can override the values in the persisted state file.
 struct Config {
-    /// @brief this is the rack that the driver will attach to on the server. If not
-    /// provided, the driver will automatically create a new rack and persist it in
-    /// state.
+    /// @brief the rack the driver runs as. It is the subject of the driver's API key.
     synnax::rack::Rack rack;
     /// @brief important info used to determine the identity of the driver when
     /// connecting to a cluster. This is cached on the local file system to compare
@@ -124,21 +139,6 @@ struct Config {
     /// @brief returns true if the integration with the given name is enabled.
     [[nodiscard]] bool integration_enabled(const std::string &i) const;
 
-    /// @brief returns the list of integrations that are actually available
-    /// at runtime, filtering out NI and LabJack if their SDK libraries
-    /// are not present.
-    [[nodiscard]] std::vector<std::string> supported_integrations() const {
-        std::vector<std::string> result;
-        const bool supports_ni = ni::integration_supported();
-        const bool supports_labjack = labjack::integration_supported();
-        for (const auto &i: this->integrations) {
-            if (i == ni::INTEGRATION_NAME && !supports_ni) continue;
-            if (i == labjack::INTEGRATION_NAME && !supports_labjack) continue;
-            result.push_back(i);
-        }
-        return result;
-    }
-
     friend std::ostream &operator<<(std::ostream &os, const Config &cfg) {
         os << "configuration:\n"
            << cfg.connection << "\n"
@@ -163,10 +163,10 @@ struct Config {
                 {
                     .host = "localhost",
                     .port = 9090,
-                    .username = "synnax",
-                    .password = "seldon",
+                    .username = "",
+                    .password = "",
                 },
-            .integrations = default_integrations(),
+            .integrations = built_integrations(),
         };
         VLOG(1) << "loading configuration from persisted state";
         if (const auto err = cfg.load_persisted_state(parser)) return {cfg, err};
@@ -176,7 +176,25 @@ struct Config {
         if (const auto err = cfg.load_env()) return {cfg, err};
         VLOG(1) << "loading configuration from command line";
         if (const auto err = cfg.load_args(parser)) return {cfg, err};
+        cfg.resolve_credentials(breaker.retry_count() == 0);
         return {cfg, x::errors::NIL};
+    }
+
+    /// @brief makes the API key win over a username and password, warning when it
+    /// drops them if warn is true. Without a key, a missing username defaults to
+    /// "synnax" and a missing password to "seldon".
+    void resolve_credentials(const bool warn) {
+        auto &conn = this->connection;
+        if (!conn.api_key.empty()) {
+            if (warn && (!conn.username.empty() || !conn.password.empty()))
+                LOG(WARNING) << "an API key is set, so the username and password "
+                                "are ignored. Remove them from the configuration";
+            conn.username.clear();
+            conn.password.clear();
+            return;
+        }
+        if (conn.username.empty()) conn.username = "synnax";
+        if (conn.password.empty()) conn.password = "seldon";
     }
 
     static std::pair<Config, x::errors::Error>
@@ -184,14 +202,28 @@ struct Config {
         auto [cfg, err] = resolve(parser, breaker);
         if (err) return {cfg, err};
         if (breaker.retry_count() == 0) LOG(INFO) << cfg;
-        err = cfg.load_remote(breaker);
+        if (cfg.connection.api_key.empty()) {
+            err = cfg.enroll();
+            if (err && cfg.rack.key != 0 &&
+                err.matches(synnax::auth::ERR_ACCESS_DENIED))
+                LOG(WARNING) << "Failed to enroll Driver. " << err.data
+                             << " Until then, the Driver logs in with the password.";
+            else if (err)
+                return {cfg, err};
+            else {
+                if (err = save_api_key(parser, cfg.connection); err) return {cfg, err};
+                LOG(INFO) << x::log::GREEN() << "enrolled rack " << cfg.rack.name
+                          << " and saved its API key" << x::log::RESET();
+            }
+        }
+        err = cfg.load_remote();
         if (err) return {cfg, err};
         LOG(INFO) << x::log::BLUE() << "successfully reached cluster at "
                   << cfg.connection.address() << ". Continuing with driver startup"
                   << x::log::RESET();
         LOG(INFO) << "remote info" << "\n"
                   << x::log::SHALE() << "  rack: " << x::log::RESET() << cfg.rack.name
-                  << " (" << cfg.remote_info.rack_key << ")\n"
+                  << " (" << cfg.rack.key << ")\n"
                   << x::log::SHALE() << "  cluster: " << x::log::RESET()
                   << cfg.remote_info.cluster_key;
         VLOG(1) << "saving remote info";
@@ -216,6 +248,11 @@ struct Config {
     static x::errors::Error
     save_conn_params(x::args::Parser &args, const synnax::Config &conn_params);
 
+    /// @brief saves the connection and its API key to the persisted state file, without
+    /// a username or password.
+    static x::errors::Error
+    save_api_key(x::args::Parser &args, const synnax::Config &conn);
+
     /// @brief permanently saves the remote info to the persisted state file.
     static x::errors::Error
     save_remote_info(x::args::Parser &args, const RemoteInfo &remote_info);
@@ -233,7 +270,16 @@ struct Config {
 
     [[nodiscard]] x::errors::Error load_args(x::args::Parser &args);
 
-    [[nodiscard]] x::errors::Error load_remote(x::breaker::Breaker &breaker);
+    /// @brief logs in with the username and password, then creates an API key for the
+    /// saved rack that needs enrollment, or for a new rack when there is none. Sets the
+    /// key and the rack, and clears the username and password. Returns
+    /// synnax::auth::ERR_ACCESS_DENIED when the user cannot create the key, and sets
+    /// the rack only if it was saved.
+    [[nodiscard]] x::errors::Error enroll();
+
+    /// @brief logs in with the API key and loads the rack it logs in as. Without a key,
+    /// it logs in with the password and loads the saved rack.
+    [[nodiscard]] x::errors::Error load_remote();
 };
 
 /// @brief clears the persisted state file, removing all cached information.

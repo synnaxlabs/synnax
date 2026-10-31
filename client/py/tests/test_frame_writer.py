@@ -176,7 +176,7 @@ class TestWriter:
         """Should let a single writer alternate between user-provided and auto-stamped
         index series across separate write calls."""
         idx_ch, data_ch = indexed_pair
-        user_stamps = seconds_linspace(200, 2)
+        user_stamps = seconds_linspace(200, count=2)
         before_auto = sy.TimeStamp.now()
         with client.open_writer(
             start=200 * sy.TimeSpan.SECOND,
@@ -207,7 +207,7 @@ class TestWriter:
         """Should leave user-provided index timestamps exactly as written when
         auto_index is enabled."""
         idx_ch, data_ch = indexed_pair
-        expected = seconds_linspace(200, 3)
+        expected = seconds_linspace(200, count=3)
         with client.open_writer(
             start=200 * sy.TimeSpan.SECOND,
             channels=[idx_ch.key, data_ch.key],
@@ -234,7 +234,7 @@ class TestWriter:
             1 * sy.TimeSpan.SECOND,
             MappingProxyType(
                 {
-                    idx_ch.name: seconds_linspace(1, 3),
+                    idx_ch.name: seconds_linspace(1, count=3),
                     data_ch.name: np.array([1.0, 2.0, 3.0]),
                 }
             ),
@@ -247,7 +247,7 @@ class TestWriter:
     ) -> None:
         """Should write a tuple of channels and a list of series."""
         idx_ch, data_ch = indexed_pair
-        series: list[CrudeSeries] = [seconds_linspace(1, 3), [1.0, 2.0, 3.0]]
+        series: list[CrudeSeries] = [seconds_linspace(1, count=3), [1.0, 2.0, 3.0]]
         client.write(1 * sy.TimeSpan.SECOND, (idx_ch.key, data_ch.key), series)
         f = client.read(sy.TimeRange.MAX, data_ch.key)
         assert list(f) == [1.0, 2.0, 3.0]
@@ -262,7 +262,7 @@ class TestWriter:
             FramePayload(
                 keys=[idx_ch.key, data_ch.key],
                 series=[
-                    sy.Series(seconds_linspace(1, 3)),
+                    sy.Series(seconds_linspace(1, count=3)),
                     sy.Series(np.array([1.0, 2.0, 3.0])),
                 ],
             ),
@@ -280,10 +280,14 @@ class TestWriter:
         ) as w:
             data = np.random.rand(3).astype(np.float64)
             w.write(
-                pd.DataFrame({idx_ch.name: seconds_linspace(1, 3), data_ch.key: data})
+                pd.DataFrame(
+                    {idx_ch.name: seconds_linspace(1, count=3), data_ch.key: data}
+                )
             )
             w.write(
-                pd.DataFrame({idx_ch.key: seconds_linspace(4, 3), data_ch.name: data})
+                pd.DataFrame(
+                    {idx_ch.key: seconds_linspace(4, count=3), data_ch.name: data}
+                )
             )
 
         f = client.read(sy.TimeRange.MAX, data_ch.key)
@@ -305,7 +309,7 @@ class TestWriter:
             w.write(
                 pd.DataFrame(
                     {
-                        idx.name: seconds_linspace(1, len(samples)),
+                        idx.name: seconds_linspace(1, count=len(samples)),
                         bool_ch.name: samples,
                     }
                 )
@@ -386,7 +390,7 @@ class TestWriter:
         ) as w:
             async with await client.open_async_streamer(indexed_pair) as s:
                 data = np.random.rand(5).astype(np.float64)
-                times = seconds_linspace(1, 5)
+                times = seconds_linspace(1, count=5)
                 w.write(pd.DataFrame({idx_ch.key: times, data_ch.key: data}))
                 with pytest.raises(TimeoutError):
                     async with asyncio.timeout(0.2):
@@ -455,7 +459,7 @@ class TestWriter:
             w1.write(
                 pd.DataFrame(
                     {
-                        idx_ch.key: seconds_linspace(1, 10),
+                        idx_ch.key: seconds_linspace(1, count=10),
                         data_ch.key: np.random.rand(10).astype(np.float64),
                     }
                 )
@@ -466,7 +470,7 @@ class TestWriter:
             w1.write(
                 pd.DataFrame(
                     {
-                        idx_ch.key: seconds_linspace(1, 10),
+                        idx_ch.key: seconds_linspace(1, count=10),
                         data_ch.key: np.random.rand(10).astype(np.float64),
                     }
                 )
@@ -491,7 +495,7 @@ class TestWriter:
             w1.write(
                 pd.DataFrame(
                     {
-                        idx_ch.key: seconds_linspace(1, 10),
+                        idx_ch.key: seconds_linspace(1, count=10),
                         data_ch.key: np.random.rand(10).astype(np.float64),
                     }
                 )
@@ -502,7 +506,7 @@ class TestWriter:
             w1.write(
                 pd.DataFrame(
                     {
-                        idx_ch.key: seconds_linspace(1, 10),
+                        idx_ch.key: seconds_linspace(1, count=10),
                         data_ch.key: np.random.rand(10).astype(np.float64),
                     }
                 )
@@ -524,7 +528,7 @@ class TestWriter:
             w1.write(
                 pd.DataFrame(
                     {
-                        idx_ch.key: seconds_linspace(1, 10),
+                        idx_ch.key: seconds_linspace(1, count=10),
                         data_ch.key: np.random.rand(10).astype(np.float64),
                     }
                 )
@@ -535,7 +539,7 @@ class TestWriter:
             w1.write(
                 pd.DataFrame(
                     {
-                        idx_ch.key: seconds_linspace(1, 10),
+                        idx_ch.key: seconds_linspace(1, count=10),
                         data_ch.key: np.random.rand(10).astype(np.float64),
                     }
                 )
@@ -559,7 +563,7 @@ class TestWriter:
             w1.write(
                 pd.DataFrame(
                     {
-                        idx_ch.key: seconds_linspace(1, 10),
+                        idx_ch.key: seconds_linspace(1, count=10),
                         data_ch.key: np.random.rand(10).astype(np.float64),
                     }
                 )
@@ -570,7 +574,7 @@ class TestWriter:
             w1.write(
                 pd.DataFrame(
                     {
-                        idx_ch.key: seconds_linspace(1, 10),
+                        idx_ch.key: seconds_linspace(1, count=10),
                         data_ch.key: np.random.rand(10).astype(np.float64),
                     }
                 )
@@ -594,18 +598,18 @@ class TestWriter:
             w1.write(
                 pd.DataFrame(
                     {
-                        idx_ch.key: seconds_linspace(1, 10),
+                        idx_ch.key: seconds_linspace(1, count=10),
                         data_ch.key: np.random.rand(10).astype(np.float64),
                     }
                 )
             )
             f = data_ch.read(sy.TimeRange.MAX)
             assert len(f) == 0
-            w1.set_authority(data_ch.name, 255)
+            w1.set_authority(data_ch.name, authority=255)
             w1.write(
                 pd.DataFrame(
                     {
-                        idx_ch.key: seconds_linspace(1, 10),
+                        idx_ch.key: seconds_linspace(1, count=10),
                         data_ch.key: np.random.rand(10).astype(np.float64),
                     }
                 )
@@ -627,19 +631,19 @@ class TestWriter:
             w1.write(
                 pd.DataFrame(
                     {
-                        idx_ch.key: seconds_linspace(1, 10),
+                        idx_ch.key: seconds_linspace(1, count=10),
                         data_ch.key: np.random.rand(10).astype(np.float64),
                     }
                 )
             )
             f = data_ch.read(sy.TimeRange.MAX)
             assert len(f) == 0
-            w1.set_authority(data_ch.name, 255)
-            w1.set_authority(idx_ch.name, 255)
+            w1.set_authority(data_ch.name, authority=255)
+            w1.set_authority(idx_ch.name, authority=255)
             w1.write(
                 pd.DataFrame(
                     {
-                        idx_ch.key: seconds_linspace(1, 10),
+                        idx_ch.key: seconds_linspace(1, count=10),
                         data_ch.key: np.random.rand(10).astype(np.float64),
                     }
                 )
@@ -660,7 +664,7 @@ class TestWriter:
         with client.open_writer(start=start, channels=indexed_pair) as w:
             w.write(
                 {
-                    idx_ch.key: seconds_linspace(30, 10),
+                    idx_ch.key: seconds_linspace(30, count=10),
                     data_ch.key: np.random.rand(10).astype(np.float64),
                 }
             )
@@ -684,7 +688,7 @@ class TestWriter:
             w1.write(
                 pd.DataFrame(
                     {
-                        idx_ch.key: seconds_linspace(1, 10),
+                        idx_ch.key: seconds_linspace(1, count=10),
                         data_ch.key: np.random.rand(10).astype(np.float64),
                     }
                 )
@@ -695,7 +699,7 @@ class TestWriter:
             w1.write(
                 pd.DataFrame(
                     {
-                        idx_ch.key: seconds_linspace(1, 10),
+                        idx_ch.key: seconds_linspace(1, count=10),
                         data_ch.key: np.random.rand(10).astype(np.float64),
                     }
                 )
@@ -741,7 +745,7 @@ class TestWriter:
         ) as w:
             w.write(
                 {
-                    idx.key: seconds_linspace(1, 2),
+                    idx.key: seconds_linspace(1, count=2),
                     data.key: ["hello", "world"],
                 }
             )
@@ -768,7 +772,7 @@ class TestWriter:
             samples: list[dict[str, str | int]] = [{"key": "value"}, {"num": 42}]
             w.write(
                 {
-                    idx.key: seconds_linspace(1, 2),
+                    idx.key: seconds_linspace(1, count=2),
                     data.key: samples,
                 }
             )
@@ -801,7 +805,7 @@ class TestWriter:
         ) as w:
             w.write(
                 {
-                    idx.key: seconds_linspace(1, 3),
+                    idx.key: seconds_linspace(1, count=3),
                     float_ch.key: np.array([1.1, 2.2, 3.3], dtype=np.float64),
                     str_ch.key: ["a", "b", "c"],
                 }
@@ -829,7 +833,7 @@ class TestWriter:
         ) as w:
             w.write(
                 {
-                    idx.key: seconds_linspace(1, 2),
+                    idx.key: seconds_linspace(1, count=2),
                     data.key: ["line1\nline2", "no newline"],
                 }
             )

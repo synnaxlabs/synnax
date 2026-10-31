@@ -1,0 +1,128 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package testutil_test
+
+import (
+	"context"
+
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/distribution"
+	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/control"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/deleter"
+	"github.com/synnaxlabs/synnax/pkg/distribution/transport/testutil"
+	"github.com/synnaxlabs/x/address"
+	. "github.com/synnaxlabs/x/testutil"
+)
+
+const (
+	leaseholder = address.Address("leaseholder")
+	gateway     = address.Address("gateway")
+	peer        = address.Address("peer")
+)
+
+var _ = Describe("Transport", func() {
+	var (
+		net    *testutil.Network
+		server distribution.Transport
+		client distribution.Transport
+	)
+	BeforeEach(func() {
+		net = testutil.NewNetwork()
+		server = net.New(leaseholder, 1)
+		client = net.New(gateway, 1)
+	})
+
+	It("Should provision a transport that implements distribution.Transport", func() {
+		Expect(server.Channel()).ToNot(BeNil())
+		Expect(server.Framer()).ToNot(BeNil())
+		Expect(server.Control()).ToNot(BeNil())
+	})
+
+	It(
+		"Should route a channel create request through the bundled transport",
+		func(ctx SpecContext) {
+			server.Channel().CreateServer().BindHandler(
+				func(
+					_ context.Context, req channel.CreateMessage,
+				) (channel.CreateMessage, error) {
+					return req, nil
+				},
+			)
+			res := MustSucceed(client.Channel().CreateClient().Send(
+				ctx,
+				leaseholder,
+				channel.CreateMessage{Channels: []channel.Channel{{Name: "alpha"}}},
+			))
+			Expect(res.Channels).To(HaveLen(1))
+			Expect(res.Channels[0].Name).To(Equal("alpha"))
+		},
+	)
+
+	It(
+		"Should route a framer delete request through the bundled transport",
+		func(ctx SpecContext) {
+			var received channel.Keys
+			server.Framer().Deleter().Server().BindHandler(
+				func(_ context.Context, req deleter.Request) (struct{}, error) {
+					received = req.Keys
+					return struct{}{}, nil
+				},
+			)
+			Expect(client.Framer().Deleter().Client().Send(
+				ctx,
+				leaseholder,
+				deleter.Request{Keys: channel.Keys{9}},
+			)).To(Equal(struct{}{}))
+			Expect(received).To(Equal(channel.Keys{9}))
+		},
+	)
+
+	It(
+		"Should route a control retrieve through the bundled transport",
+		func(ctx SpecContext) {
+			var received channel.Keys
+			server.Control().RetrieveServer().BindHandler(func(
+				_ context.Context,
+				req control.RetrieveRequest,
+			) (control.RetrieveResponse, error) {
+				received = req.Keys
+				return control.RetrieveResponse{States: []control.State{{Resource: 9}}},
+					nil
+			})
+			res := MustSucceed(client.Control().RetrieveClient().Send(
+				ctx,
+				leaseholder,
+				control.RetrieveRequest{Keys: channel.Keys{9}},
+			))
+			Expect(received).To(Equal(channel.Keys{9}))
+			Expect(res.States).To(ConsistOf(control.State{Resource: 9}))
+		},
+	)
+
+	It(
+		"Should count control subscriptions on the control network",
+		func(ctx SpecContext) {
+			server.Control().SubscribeServer().BindHandler(func(
+				_ context.Context,
+				srv control.SubscribeStream,
+			) error {
+				return srv.Send(control.SubscribeResponse{})
+			})
+			stream := MustSucceed(
+				client.Control().SubscribeClient().Stream(ctx, leaseholder),
+			)
+			MustSucceed(stream.Receive())
+			Expect(stream.CloseSend()).To(Succeed())
+			Expect(net.Control().Subscriptions()).To(Equal(1))
+		},
+	)
+})

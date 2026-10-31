@@ -23,12 +23,12 @@ class TelemetryWriter:
 
     def __init__(
         self,
+        *,
         client: sy.Synnax,
         tlm: dict[str, Any],
         channels: sy.channel.Params,
         update: Callable[[dict[str, object], sy.TimeStamp, float], None],
         should_stop: Callable[[], bool],
-        *,
         rate: sy.Rate | sy.TimeSpan = 200 * sy.TimeSpan.MILLISECOND,
         name: str | None = None,
         on_error: Callable[[Exception], None] | None = None,
@@ -50,7 +50,7 @@ class TelemetryWriter:
         )
         self._thread.start()
 
-    def stop(self, timeout: float = 5.0) -> bool:
+    def stop(self, *, timeout: float = 5.0) -> bool:
         if self._thread is not None and self._thread.is_alive():
             self._thread.join(timeout=timeout)
             return not self._thread.is_alive()
@@ -76,7 +76,9 @@ class TelemetryWriter:
             self._update(self._tlm, start_time, 0)
             writer.write(self._tlm)
 
-            while loop.wait() and not self._should_stop():
+            for _ in loop:
+                if self._should_stop():
+                    break
                 now = sy.TimeStamp.now()
                 uptime = (now - start_time) / sy.TimeSpan.SECOND
                 self._update(self._tlm, now, uptime)
@@ -112,6 +114,7 @@ class TelemetryClient:
 
     def __init__(
         self,
+        *,
         client: sy.Synnax,
         name: str,
         get_state: Callable[[], Enum],
@@ -128,16 +131,19 @@ class TelemetryClient:
         time_ch = create_time_index(client, self._ch_time)
         idx = time_ch.key
         uptime_ch = create_indexed_channel(
-            client, self._ch_uptime, sy.DataType.UINT32, idx
+            client, self._ch_uptime, data_type=sy.DataType.UINT32, index_key=idx
         )
         state_ch = create_indexed_channel(
-            client, self._ch_state, sy.DataType.UINT8, idx
+            client, self._ch_state, data_type=sy.DataType.UINT8, index_key=idx
         )
         count_ch = create_indexed_channel(
-            client, self._ch_test_case_count, sy.DataType.UINT32, idx
+            client,
+            self._ch_test_case_count,
+            data_type=sy.DataType.UINT32,
+            index_key=idx,
         )
         ran_ch = create_indexed_channel(
-            client, self._ch_test_cases_ran, sy.DataType.UINT32, idx
+            client, self._ch_test_cases_ran, data_type=sy.DataType.UINT32, index_key=idx
         )
 
         self.tlm: dict[str, int | float | sy.TimeStamp] = {
@@ -174,5 +180,5 @@ class TelemetryClient:
     def start(self) -> None:
         self._writer.start()
 
-    def stop(self, timeout: float = 5.0) -> bool:
-        return self._writer.stop(timeout)
+    def stop(self, *, timeout: float = 5.0) -> bool:
+        return self._writer.stop(timeout=timeout)
