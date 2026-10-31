@@ -15,7 +15,7 @@ import { screen, waitFor } from "@testing-library/react";
 import { ReactFlowProvider } from "@xyflow/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { Symbol } from "@/schematic/node/general/setpoint/Symbol";
+import { Setpoint } from "@/schematic/node/general/setpoint";
 import { telem } from "@/telem/aether";
 import { telemTest } from "@/telem/aether/testutil";
 import { render } from "@/testutil/render";
@@ -42,7 +42,7 @@ describe("Setpoint.Symbol", () => {
       <ReactFlowProvider>
         <Haul.Provider>
           <div data-id={NODE_KEY}>
-            <Symbol
+            <Setpoint.spec.Node
               nodeKey={NODE_KEY}
               selected={false}
               onConfigChange={vi.fn()}
