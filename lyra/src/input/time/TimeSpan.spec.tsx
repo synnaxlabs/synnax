@@ -12,7 +12,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { Input } from "@/input";
-import { loadLanguage } from "@/input/time/suggest";
+import { preloadTimeLanguage } from "@/input/testutil";
 import { mockBoundingClientRect } from "@/testutil";
 
 const HOUR = Number(TimeSpan.HOUR.valueOf());
@@ -25,7 +25,7 @@ const open = (container: HTMLElement): HTMLInputElement => {
 };
 
 describe("Input.TimeSpan", () => {
-  beforeAll(loadLanguage);
+  preloadTimeLanguage();
   beforeAll(() => {
     Element.prototype.getBoundingClientRect = mockBoundingClientRect(0, 0, 100, 100);
   });

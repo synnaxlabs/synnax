@@ -16,7 +16,7 @@ import { Button } from "@/button";
 import { Component } from "@/component";
 import { List } from "@/list";
 import { mockGeometry } from "@/testutil";
-import { createRenderCounter } from "@/testutil/renders";
+import { createRenderCounter } from "@/testutil/internal";
 
 const removalObservers = new Set<RemovalResizeObserver>();
 
