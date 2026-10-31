@@ -147,7 +147,7 @@ describe("Notifications.useForward", () => {
       expect(screen.queryByText(error.message)).toBeNull();
     });
 
-    it("should not report a failed check of a deleted status", async () => {
+    it("should not notify a deleted status whose check fails", async () => {
       const key = createTaskKey();
       let reject: ((exc: Error) => void) | undefined;
       const inUse = vi.fn(async ({ key: k }: Notifications.InUseParams) => {
@@ -164,17 +164,23 @@ describe("Notifications.useForward", () => {
       expect(screen.queryByText(name)).toBeNull();
     });
 
-    it("should report a check that fails", async () => {
+    it("should notify a status whose check fails and print the error", async () => {
       const key = createTaskKey();
+      const exc = new Error("The Core is unreachable.");
       const inUse = vi.fn(async ({ key: k }: Notifications.InUseParams) => {
-        if (task.statusKey(k) === key) throw new Error("The Core is unreachable.");
+        if (task.statusKey(k) === key) throw exc;
         return false;
       });
+      const printError = vi.spyOn(console, "error").mockImplementation(() => {});
       await renderForward(client, { task: { ...STATE, inUse } });
       const name = uniqueName("task");
-      await write({ key, variant: "error", name });
-      expect(await screen.findByText(name)).toBeTruthy();
-      expect(screen.getByText("Failed to show status")).toBeTruthy();
+      await write({ key, variant: "error", name, message: "Failed to start task" });
+      expect(await screen.findByText("Failed to start task")).toBeTruthy();
+      expect(printError).toHaveBeenCalledWith(
+        `failed to check if the thing of ${key} is in use`,
+        exc,
+      );
+      printError.mockRestore();
     });
   });
 
