@@ -3858,7 +3858,7 @@ var _ = Describe("Writer Behavior", func() {
 					},
 				)
 				It(
-					"Should end no domain of a group it does not fully control",
+					"Should keep an index domain when it lost a data channel",
 					func(ctx SpecContext) {
 						first, second := GenerateChannelKey(), GenerateChannelKey()
 						Expect(db.CreateChannel(
@@ -3903,8 +3903,15 @@ var _ = Describe("Writer Behavior", func() {
 						Expect(live.Write(frameAt(20))).To(BeTrue())
 						MustSucceed(live.Commit())
 						Expect(live.Close()).To(Succeed())
+						Expect(read(ctx, idx).Series).To(HaveLen(1))
+						Expect(read(ctx, data).Series).To(HaveLen(1))
+						after := (20 * telem.SecondTS).SpanRange(telem.Second)
 						for _, key := range all {
-							Expect(read(ctx, key).Series).To(HaveLen(1))
+							Expect(read(ctx, key).Len()).To(Equal(int64(2)))
+							Expect(
+								MustSucceed(db.Read(ctx, after, key)).Get(key).Len(),
+							).
+								To(Equal(int64(1)))
 						}
 					},
 				)

@@ -53,7 +53,8 @@ func (w *Writer) SetAuthority(cfg Config) error {
 
 // EndDomain commits the writer, then ends the domains of the given indexes and of the
 // data channels they index, on every node the writer is open on. It returns false if
-// the writer does not control all of the domains of an index, which then keeps them.
+// the writer does not control an index and all of its data channels. The index then
+// keeps its domain, and some of its data channels may end theirs.
 func (w *Writer) EndDomain(indexes channel.Keys) (authorized bool, err error) {
 	res, err := w.exec(
 		Request{Command: CommandEndDomain, Config: Config{Keys: indexes}},

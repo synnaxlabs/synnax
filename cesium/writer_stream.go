@@ -771,18 +771,16 @@ func (w *idxWriter) endDomain(ctx context.Context) error {
 		return err
 	}
 	// A data domain that outlives its index domain cannot resolve its samples, so the
-	// group ends all of its domains or none.
-	for _, chW := range w.internal {
-		if err := chW.Authorize(); err != nil {
-			return err
+	// index ends last, and only if every data domain ended.
+	for key, chW := range w.internal {
+		if key == w.idx.ch.Key {
+			continue
 		}
-	}
-	for _, chW := range w.internal {
 		if err := chW.EndDomain(ctx); err != nil {
 			return err
 		}
 	}
-	return nil
+	return w.internal[w.idx.ch.Key].EndDomain(ctx)
 }
 
 func (w *idxWriter) Close() (ControlUpdate, error) {

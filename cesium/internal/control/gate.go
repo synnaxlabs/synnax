@@ -90,9 +90,8 @@ func (g *Gate[R]) Extend(start telem.TimeStamp) error {
 	return g.region.controller.extend(g.region, start)
 }
 
-// Advance moves the start of the gate's region forward to start, freeing the time
-// before
-// it. It does nothing when the region is bounded, or does not hold start.
+// Advance moves the start of the gate's region forward to start, which frees the time
+// before it. It does nothing when the region is bounded, or does not hold start.
 func (g *Gate[R]) Advance(start telem.TimeStamp) {
 	g.region.controller.advance(g.region, start)
 }

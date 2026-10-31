@@ -100,9 +100,10 @@ func (w *Writer) SetAuthority(cfg Config) error {
 // EndDomain commits the writer, then ends the domains of the given indexes and of the
 // data channels they index. The next write to an index starts a new domain at its first
 // timestamp, which frees the time before that timestamp for a writer in persist mode.
-// It returns false if the writer does not control all of the domains of an index, which
-// then keeps them. It returns a validation error if a key is not an index the writer
-// was opened with.
+// It returns false if the writer does not control an index and all of its data
+// channels. The index then keeps its domain, and some of its data channels may end
+// theirs. It returns a validation error if a key is not an index the writer was opened
+// with.
 func (w *Writer) EndDomain(indexes channel.Keys) (authorized bool, err error) {
 	res, err := w.exec(
 		Request{Command: CommandEndDomain, Config: Config{Keys: indexes}},

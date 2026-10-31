@@ -387,12 +387,6 @@ func (w *Writer) write(
 // after the region.
 func (w *Writer) SetDomainStart(start telem.TimeStamp) { w.domainStart = start }
 
-// Authorize returns control.ErrUnauthorized if the writer does not hold control.
-func (w *Writer) Authorize() error {
-	_, err := w.control.Authorize()
-	return w.wrapError(err)
-}
-
 // EndDomain ends the domain the writer holds, discarding any uncommitted samples. The
 // next persisted write starts a new domain in a new alignment domain, at the start
 // given to SetDomainStart. EndDomain does nothing when the domain holds no data.

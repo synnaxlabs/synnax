@@ -79,8 +79,9 @@ func (w *Writer) SetAuthority(cfg WriterConfig) error {
 // data channels they index. The next write to an index starts a new domain at its first
 // timestamp, which frees the time before that timestamp for another writer. Indexes the
 // writer does not write are ignored, and an index with no data keeps its domains.
-// EndDomain is synchronous. It returns false if the writer does not control all of the
-// domains of an index, which then keeps them.
+// EndDomain is synchronous. It returns false if the writer does not control an index
+// and all of its data channels. The index then keeps its domain, and some of its data
+// channels may end theirs.
 func (w *Writer) EndDomain(indexes ...ChannelKey) (authorized bool, err error) {
 	res, err := w.exec(
 		WriterRequest{
