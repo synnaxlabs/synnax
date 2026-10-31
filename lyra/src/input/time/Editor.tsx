@@ -18,6 +18,7 @@ import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
 import { Flex } from "@/flex";
 import { type Icon } from "@/icon";
+import { ItemBoundary, useItemStatus } from "@/input/Item";
 import { Text } from "@/input/Text";
 import { Effect } from "@/input/time/Effect";
 import { type Suggestion } from "@/input/time/suggest";
@@ -110,7 +111,9 @@ export const Editor = <V,>({
   variant = "outlined",
   className,
   style,
+  status,
   tooltip,
+  hideTooltip,
   ...rest
 }: EditorProps<V>): ReactElement => {
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -186,6 +189,14 @@ export const Editor = <V,>({
     if (hit != null) commit(hit.value());
   };
 
+  const itemStatus = useItemStatus({
+    status,
+    tooltip,
+    hideTooltip,
+    "aria-invalid": rest["aria-invalid"],
+    "aria-describedby": rest["aria-describedby"],
+  });
+
   const action = actions?.find((a) => a.key === draft?.hoveredAction);
   const candidate = action != null ? action.value() : chosen?.value;
 
@@ -200,96 +211,103 @@ export const Editor = <V,>({
       <Dialog.Trigger
         hideCaret
         variant={variant === "outlined" ? "outlined" : "text"}
-        tooltip={draft != null ? undefined : tooltip}
         tooltipLocation="bottom"
         className={CSS.BE("time-editor", "trigger")}
         {...rest}
+        status={itemStatus.status}
+        aria-invalid={itemStatus["aria-invalid"]}
+        aria-describedby={itemStatus["aria-describedby"]}
+        tooltip={itemStatus.tooltip}
+        // The open editor covers the place a tooltip shows.
+        hideTooltip={draft != null ? true : itemStatus.hideTooltip}
       >
         {label}
       </Dialog.Trigger>
       <Dialog.Dialog className={CSS.BE("time-editor", "dialog")} bordered={false}>
-        <Text
-          type="text"
-          flush
-          autoFocus
-          rounded
-          full="x"
-          size="medium"
-          value={text ?? ""}
-          onChange={setText}
-          onKeyDown={handleKeyDown}
-          onFocus={(e) => e.currentTarget.select()}
-          placeholder={fieldPlaceholder}
-          spellCheck={false}
-        />
-        <Flex.Box y empty bordered borderColor={6} rounded full="x">
-          <Flex.Box y gap="tiny" className={CSS.BE("time-editor", "suggestions")}>
-            {blank && (
-              <BaseText.Text
-                level="small"
-                color={9}
-                className={CSS.BE("time-editor", "note")}
-              >
-                {hint}
-              </BaseText.Text>
+        <ItemBoundary>
+          <Text
+            type="text"
+            flush
+            autoFocus
+            rounded
+            full="x"
+            size="medium"
+            value={text ?? ""}
+            onChange={setText}
+            onKeyDown={handleKeyDown}
+            onFocus={(e) => e.currentTarget.select()}
+            placeholder={fieldPlaceholder}
+            spellCheck={false}
+          />
+          <Flex.Box y empty bordered borderColor={6} rounded full="x">
+            <Flex.Box y gap="tiny" className={CSS.BE("time-editor", "suggestions")}>
+              {blank && (
+                <BaseText.Text
+                  level="small"
+                  color={9}
+                  className={CSS.BE("time-editor", "note")}
+                >
+                  {hint}
+                </BaseText.Text>
+              )}
+              {unread && (
+                <BaseText.Text
+                  level="small"
+                  status="error"
+                  className={CSS.BE("time-editor", "note")}
+                >
+                  {unreadMessage}
+                </BaseText.Text>
+              )}
+              {suggestions.length > 0 && (
+                <Menu.Menu value={chosen?.key} onChange={handleSuggestion}>
+                  {suggestions.map((suggestion, i) => (
+                    <Menu.Item
+                      key={suggestion.key}
+                      itemKey={suggestion.key}
+                      className={CSS.BE("time-editor", "suggestion")}
+                      onMouseEnter={() => update({ selected: i })}
+                    >
+                      {children(suggestion)}
+                    </Menu.Item>
+                  ))}
+                </Menu.Menu>
+              )}
+            </Flex.Box>
+            {actions != null && actions.length > 0 && (
+              <Flex.Box y gap="tiny" className={CSS.BE("time-editor", "actions")}>
+                <Menu.Menu onChange={handleAction}>
+                  {actions.map(({ key, icon, label, hint }) => (
+                    <Menu.Item
+                      key={key}
+                      itemKey={key}
+                      className={CSS.BE("time-editor", "action")}
+                      onMouseEnter={() => update({ hoveredAction: key })}
+                      onMouseLeave={() => update({ hoveredAction: null })}
+                      onFocus={() => update({ hoveredAction: key })}
+                      onBlur={() => update({ hoveredAction: null })}
+                    >
+                      {icon}
+                      {label}
+                      {hint != null && (
+                        <BaseText.Text
+                          color={9}
+                          variant="code"
+                          className={CSS.BE("time-editor", "hint")}
+                        >
+                          {hint}
+                        </BaseText.Text>
+                      )}
+                    </Menu.Item>
+                  ))}
+                </Menu.Menu>
+              </Flex.Box>
             )}
-            {unread && (
-              <BaseText.Text
-                level="small"
-                status="error"
-                className={CSS.BE("time-editor", "note")}
-              >
-                {unreadMessage}
-              </BaseText.Text>
-            )}
-            {suggestions.length > 0 && (
-              <Menu.Menu value={chosen?.key} onChange={handleSuggestion}>
-                {suggestions.map((suggestion, i) => (
-                  <Menu.Item
-                    key={suggestion.key}
-                    itemKey={suggestion.key}
-                    className={CSS.BE("time-editor", "suggestion")}
-                    onMouseEnter={() => update({ selected: i })}
-                  >
-                    {children(suggestion)}
-                  </Menu.Item>
-                ))}
-              </Menu.Menu>
+            {effect != null && (
+              <Effect>{candidate == null ? null : effect({ candidate })}</Effect>
             )}
           </Flex.Box>
-          {actions != null && actions.length > 0 && (
-            <Flex.Box y gap="tiny" className={CSS.BE("time-editor", "actions")}>
-              <Menu.Menu onChange={handleAction}>
-                {actions.map(({ key, icon, label, hint }) => (
-                  <Menu.Item
-                    key={key}
-                    itemKey={key}
-                    className={CSS.BE("time-editor", "action")}
-                    onMouseEnter={() => update({ hoveredAction: key })}
-                    onMouseLeave={() => update({ hoveredAction: null })}
-                    onFocus={() => update({ hoveredAction: key })}
-                    onBlur={() => update({ hoveredAction: null })}
-                  >
-                    {icon}
-                    {label}
-                    {hint != null && (
-                      <BaseText.Text
-                        color={9}
-                        variant="code"
-                        className={CSS.BE("time-editor", "hint")}
-                      >
-                        {hint}
-                      </BaseText.Text>
-                    )}
-                  </Menu.Item>
-                ))}
-              </Menu.Menu>
-            </Flex.Box>
-          )}
-          {effect != null && (
-            <Effect>{candidate == null ? null : effect({ candidate })}</Effect>
-          )}
-        </Flex.Box>
+        </ItemBoundary>
       </Dialog.Dialog>
     </Dialog.Frame>
   );

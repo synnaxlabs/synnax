@@ -221,7 +221,7 @@ var _ = Describe("Inheritance", func() {
 					port string = ""
 				}
 			`, "Solo")
-			Expect(resolver.CanUseInheritance(form, table)).To(BeFalse())
+			Expect(resolver.CanUseInheritance(form, "go", table)).To(BeFalse())
 		})
 
 		It("Should be true for a plain extension", func(ctx SpecContext) {
@@ -236,7 +236,7 @@ var _ = Describe("Inheritance", func() {
 					range float64 = 10
 				}
 			`, "Child")
-			Expect(resolver.CanUseInheritance(form, table)).To(BeTrue())
+			Expect(resolver.CanUseInheritance(form, "go", table)).To(BeTrue())
 		})
 
 		It("Should stay true when a field restates only a default", func(
@@ -253,7 +253,7 @@ var _ = Describe("Inheritance", func() {
 					port string = "AIN0"
 				}
 			`, "Child")
-			Expect(resolver.CanUseInheritance(form, table)).To(BeTrue())
+			Expect(resolver.CanUseInheritance(form, "go", table)).To(BeTrue())
 		})
 
 		It("Should be false when a field restates an inherited type", func(
@@ -270,7 +270,7 @@ var _ = Describe("Inheritance", func() {
 					port int32 = 4
 				}
 			`, "Child")
-			Expect(resolver.CanUseInheritance(form, table)).To(BeFalse())
+			Expect(resolver.CanUseInheritance(form, "go", table)).To(BeFalse())
 		})
 
 		It("Should be true when the parents are disjoint", func(
@@ -291,7 +291,93 @@ var _ = Describe("Inheritance", func() {
 					range float64 = 10
 				}
 			`, "Child")
-			Expect(resolver.CanUseInheritance(form, table)).To(BeTrue())
+			Expect(resolver.CanUseInheritance(form, "go", table)).To(BeTrue())
+		})
+
+		It("Should be false when a parent is omitted in the language", func(
+			ctx SpecContext,
+		) {
+			form, table := analyze(ctx, `
+				@go output "pkg/test"
+				@ts output "ts/test"
+
+				Base struct {
+					port string = ""
+					@ts omit
+				}
+
+				Child struct extends Base {
+					range float64 = 10
+				}
+			`, "Child")
+			Expect(resolver.CanUseInheritance(form, "ts", table)).To(BeFalse())
+			Expect(resolver.CanUseInheritance(form, "go", table)).To(BeTrue())
+		})
+	})
+
+	Describe("ParentsExist", func() {
+		It("Should be true when every parent has an output", func(ctx SpecContext) {
+			form, table := analyze(ctx, `
+				@ts output "ts/test"
+
+				Base struct {
+					port string = ""
+				}
+
+				Child struct extends Base {
+					range float64 = 10
+				}
+			`, "Child")
+			Expect(resolver.ParentsExist(form.Extends, "ts", table)).To(BeTrue())
+		})
+
+		It("Should be true for a hand-written parent", func(ctx SpecContext) {
+			form, table := analyze(ctx, `
+				@ts output "ts/test"
+
+				Base struct {
+					port string = ""
+					@ts hand
+				}
+
+				Child struct extends Base {
+					range float64 = 10
+				}
+			`, "Child")
+			Expect(resolver.ParentsExist(form.Extends, "ts", table)).To(BeTrue())
+		})
+
+		It("Should be false when a parent omits the language", func(ctx SpecContext) {
+			form, table := analyze(ctx, `
+				@ts output "ts/test"
+
+				Base struct {
+					port string = ""
+					@ts omit
+				}
+
+				Child struct extends Base {
+					range float64 = 10
+				}
+			`, "Child")
+			Expect(resolver.ParentsExist(form.Extends, "ts", table)).To(BeFalse())
+		})
+
+		It("Should be false when a parent has no output in the language", func(
+			ctx SpecContext,
+		) {
+			form, table := analyze(ctx, `
+				Base struct {
+					port string = ""
+					@go output "pkg/test"
+				}
+
+				Child struct extends Base {
+					range float64 = 10
+					@ts output "ts/test"
+				}
+			`, "Child")
+			Expect(resolver.ParentsExist(form.Extends, "ts", table)).To(BeFalse())
 		})
 	})
 
@@ -317,8 +403,34 @@ var _ = Describe("Inheritance", func() {
 					}
 				}
 			`, "Chan", "builtin")
-			inherited, declared := resolver.VariantBases(form, v, table)
+			inherited, declared := resolver.VariantBases(form, v, "go", table)
 			Expect(inherited).To(HaveLen(2))
+			Expect(declared).To(BeEmpty())
+		})
+
+		It("Should declare the fields of a base absent from the language", func(
+			ctx SpecContext,
+		) {
+			form, v, table := analyzeUnion(ctx, `
+				@go output "pkg/test"
+				@cpp output "cpp/test"
+
+				Base struct {
+					port string = ""
+					@cpp omit
+				}
+
+				Chan union on type {
+					builtin extends Base {
+						units string = "c"
+					}
+				}
+			`, "Chan", "builtin")
+			inherited, declared := resolver.VariantBases(form, v, "cpp", table)
+			Expect(inherited).To(BeEmpty())
+			Expect(fieldNames(declared)).To(Equal([]string{"port"}))
+			inherited, declared = resolver.VariantBases(form, v, "go", table)
+			Expect(inherited).To(HaveLen(1))
 			Expect(declared).To(BeEmpty())
 		})
 
@@ -344,7 +456,7 @@ var _ = Describe("Inheritance", func() {
 					}
 				}
 			`, "Chan", "builtin")
-			inherited, declared := resolver.VariantBases(form, v, table)
+			inherited, declared := resolver.VariantBases(form, v, "go", table)
 			Expect(inherited).To(HaveLen(1))
 			Expect(inherited[0].Name).To(Equal("test.Extra"))
 			Expect(fieldNames(declared)).To(Equal([]string{"name"}))
@@ -372,7 +484,7 @@ var _ = Describe("Inheritance", func() {
 					}
 				}
 			`, "Chan", "builtin")
-				inherited, declared := resolver.VariantBases(form, v, table)
+				inherited, declared := resolver.VariantBases(form, v, "go", table)
 				Expect(inherited).To(BeEmpty())
 				Expect(fieldNames(declared)).To(Equal([]string{"name"}))
 			},
@@ -401,9 +513,30 @@ var _ = Describe("Inheritance", func() {
 					}
 				}
 			`, "Chan", "builtin")
-			inherited, declared := resolver.VariantBases(form, v, table)
+			inherited, declared := resolver.VariantBases(form, v, "go", table)
 			Expect(inherited).To(HaveLen(1))
 			Expect(fieldNames(declared)).ToNot(ContainElement("name"))
+		})
+
+		It("Should apply a flattened generic base's type arguments", func(
+			ctx SpecContext,
+		) {
+			form, v, table := analyzeUnion(ctx, `
+				@go output "pkg/test"
+
+				Record struct<T> {
+					value T
+					@go omit
+				}
+
+				Chan union on type {
+					ai extends Record<string> {}
+				}
+			`, "Chan", "ai")
+			inherited, declared := resolver.VariantBases(form, v, "go", table)
+			Expect(inherited).To(BeEmpty())
+			Expect(declared).To(HaveLen(1))
+			Expect(declared[0].Type.Name).To(Equal("string"))
 		})
 
 		It("Should not declare a field the variant declares itself", func(
@@ -424,7 +557,7 @@ var _ = Describe("Inheritance", func() {
 					}
 				}
 			`, "Chan", "builtin")
-			inherited, declared := resolver.VariantBases(form, v, table)
+			inherited, declared := resolver.VariantBases(form, v, "go", table)
 			Expect(inherited).To(BeEmpty())
 			Expect(fieldNames(declared)).ToNot(ContainElement("name"))
 		})

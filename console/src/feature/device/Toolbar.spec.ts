@@ -13,8 +13,7 @@ import { describe, expect, it } from "vitest";
 
 import { Device } from "@/feature/device";
 import { createTestDevice } from "@/platform/device/testutil";
-import { renderToolbar } from "@/platform/tree/menuTestutil";
-import { findTreeRow } from "@/platform/tree/treeTestutil";
+import { findTreeRow, renderToolbar } from "@/platform/tree/testutil";
 import {
   assertDefined,
   createTestClientWithGrants,

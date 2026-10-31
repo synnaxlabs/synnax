@@ -28,13 +28,15 @@ class NoDevice(HardwareCase, ConsoleCase):
         Test Opening and closing pages
         """
 
-        self.log("Creating NI Analog Read Task Page")
         rand_int = random.randint(100, 999)
-        ni_ai = self.console.pages.create(AnalogRead, f"USB-6000_{rand_int}")
-
         rack_name = f"TestRack_{rand_int}"
         dev_name = f"USB-6000_{rand_int}"
+        # A new task takes the only NI device if it is configured. This device keeps
+        # one that a concurrent test configured from being the only one.
         self.create_rack(rack_name, dev_name=dev_name)
+
+        self.log("Creating NI Analog Read Task Page")
+        ni_ai = self.console.pages.create(AnalogRead, f"USB-6000_{rand_int}")
         self.initial_assertion(ni_ai)
         self.configure_without_device(ni_ai)
         self.nominal_configuration(ni_ai, rack_name=rack_name, dev_name=dev_name)

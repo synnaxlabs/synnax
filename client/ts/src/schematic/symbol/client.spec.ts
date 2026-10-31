@@ -10,8 +10,8 @@
 import { id } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
-import { NotFoundError } from "@/errors";
 import { group } from "@/group";
+import { NotFoundError } from "@/index";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 import { type schematic } from "@/schematic";
