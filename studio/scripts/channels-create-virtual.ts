@@ -9,14 +9,14 @@
 
 import { capture } from "@/index";
 
-import { selectItem, switchFor } from "./common/channel-dialog";
+import { kindButton, selectItem } from "./common/channel-dialog";
 
 const NAME = "start_cmd";
 
 /**
  * Docs `client/channels/create-virtual`: click the "+" action in the Channels toolbar,
- * name the channel start_cmd, select the Boolean data type, and turn on Virtual so the
- * Index field turns off. Create puts start_cmd in the toolbar.
+ * name the channel start_cmd, select Virtual so the Index field hides, and select the
+ * Boolean data type. Create puts start_cmd in the toolbar.
  */
 export default async (session: capture.CaptureSession): Promise<void> => {
   const { page } = session;
@@ -40,6 +40,9 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.click(name);
   await session.type(NAME);
   await session.hold(400);
+  await session.click(kindButton(modal, "Virtual"));
+  // Long enough for the reader to see the Index field hide.
+  await session.hold(1200);
   await session.click(
     modal.locator(".lyra-dialog__trigger").filter({ hasText: "float32" }).first(),
   );
@@ -48,9 +51,6 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.type("Boolean");
   await selectItem(session, "Boolean");
   await session.hold(500);
-  await session.click(switchFor(modal, "Virtual"));
-  // Long enough for the reader to see the Index field turn off.
-  await session.hold(1200);
   await capture.clickButton(session, "Create");
   session.endZoom();
   await session.waitForHidden(name);

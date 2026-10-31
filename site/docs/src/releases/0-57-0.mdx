@@ -7,6 +7,7 @@ import Release from "@/components/releases/Release.astro";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { mdxOverrides } from "@/components/mdxOverrides";
 import { Image } from "@/components/media/Media";
+import { Keys } from "@/components/keys/Keys";
 
 export const components = mdxOverrides;
 
@@ -66,10 +67,10 @@ create button opens a new panel to hold it. Drag the pills to reorder the strip.
 order is yours alone and never re-sorts itself. A new panel goes on the end, and
 renaming one leaves it where it is.
 
-On desktop, a tab can still be torn off into its own window, and `Ctrl + O` opens a
-second window on the panel you are in. That is how you put a schematic on the wall
-display and a plot on the desk at the same time. Closing a tab now selects the tab
-beside it.
+On desktop, a tab can still be torn off into its own window, and <Keys
+trigger={["Control", "O"]} /> opens a second window on the panel you are in. That is how
+you put a schematic on the wall display and a plot on the desk at the same time. Closing
+a tab now selects the tab beside it.
 
 #### Sharing a project
 

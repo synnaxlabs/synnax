@@ -8,6 +8,7 @@ import Release from "@/components/releases/Release.astro";
 import LabJack from "@/components/releases/LabJack.astro";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { mdxOverrides } from "@/components/mdxOverrides";
+import { Keys } from "@/components/keys/Keys";
 export const components = mdxOverrides;
 
 <Release
@@ -72,9 +73,9 @@ label editing.
 
 #### The `Q` command
 
-When a symbol is selected, hitting the `Q` key will open a quick layout menu for the
-symbol. The rotation controls let you rotate the symbol, and the gray boxes allow you to
-drag the label or control chip of a symbol to a new location.
+When a symbol is selected, hitting <Keys trigger={["Q"]} /> will open a quick layout
+menu for the symbol. The rotation controls let you rotate the symbol, and the gray boxes
+allow you to drag the label or control chip of a symbol to a new location.
 
 <Video
   id="releases/0-35-0/schematic-q-cmd"

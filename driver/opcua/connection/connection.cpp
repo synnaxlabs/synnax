@@ -13,7 +13,7 @@
 #include "absl/log/log.h"
 #include "open62541/client_config_default.h"
 #include "open62541/common.h"
-#include "open62541/plugin/pki.h"
+#include "open62541/plugin/certificategroup.h"
 
 #include "x/cpp/errors/errors.h"
 
@@ -43,8 +43,14 @@ void custom_logger(
     va_list args
 ) {
     const std::string prefix = "[opc] ";
-    char buffer[1024];
-    vsnprintf(buffer, sizeof(buffer), msg, args);
+    char buffer[1024] = {};
+    // open62541 messages use specifiers that vsnprintf does not know, such as %S for a
+    // UA_String.
+    UA_String out{
+        .length = sizeof(buffer),
+        .data = reinterpret_cast<UA_Byte *>(buffer)
+    };
+    UA_String_vformat(&out, msg, args);
     switch (level) {
         case UA_LOGLEVEL_TRACE:
         case UA_LOGLEVEL_DEBUG:
@@ -123,9 +129,8 @@ x::errors::Error time_invalid_error(
     };
 }
 
-UA_StatusCode
-verify_certificate(const UA_CertificateVerification *cv, const UA_ByteString *data) {
-    auto *v = static_cast<Verifier *>(cv->context);
+UA_StatusCode verify_certificate(UA_CertificateGroup *cg, const UA_ByteString *data) {
+    auto *v = static_cast<Verifier *>(cg->context);
     auto [cert, err] = certificate::Certificate::parse(
         std::string_view(reinterpret_cast<const char *>(data->data), data->length)
     );
@@ -150,24 +155,15 @@ verify_certificate(const UA_CertificateVerification *cv, const UA_ByteString *da
     return UA_STATUSCODE_GOOD;
 }
 
-// The client calls this only to log a warning about its own certificate.
-UA_StatusCode verify_application_uri(
-    const UA_CertificateVerification *,
-    const UA_ByteString *,
-    const UA_String *
-) {
-    return UA_STATUSCODE_GOOD;
-}
-
-void clear_verifier(UA_CertificateVerification *cv) {
-    delete static_cast<Verifier *>(cv->context);
-    cv->context = nullptr;
+void clear_verifier(UA_CertificateGroup *cg) {
+    delete static_cast<Verifier *>(cg->context);
+    cg->context = nullptr;
 }
 
 Verifier *verifier(UA_Client *client) {
-    const auto &cv = UA_Client_getConfig(client)->certificateVerification;
-    if (cv.verifyCertificate != verify_certificate) return nullptr;
-    return static_cast<Verifier *>(cv.context);
+    const auto &cg = UA_Client_getConfig(client)->certificateVerification;
+    if (cg.verifyCertificate != verify_certificate) return nullptr;
+    return static_cast<Verifier *>(cg.context);
 }
 
 x::errors::Error
@@ -207,18 +203,21 @@ configure_encryption(const Config &cfg, const Security &sec, UA_ClientConfig *co
             "Failed to configure encryption: " + std::string(UA_StatusCode_name(status))
         };
 
-    auto &cv = config->certificateVerification;
-    if (cv.clear != nullptr) cv.clear(&cv);
-    cv.context = new Verifier{
+    auto &cg = config->certificateVerification;
+    const auto *logging = cg.logging;
+    if (cg.clear != nullptr) cg.clear(&cg);
+    // A clear leaves the trust list callbacks of the default group in place.
+    cg = UA_CertificateGroup{};
+    cg.logging = logging;
+    cg.context = new Verifier{
         .trusted = cfg.server_certificate,
         .first_certificate_trusted = sec.first_certificate_trusted,
         .disabled = cfg.certificate_validation_disabled,
         .now = sec.now,
         .client_thumbprint = id.certificate.thumbprint(),
     };
-    cv.verifyCertificate = verify_certificate;
-    cv.verifyApplicationURI = verify_application_uri;
-    cv.clear = clear_verifier;
+    cg.verifyCertificate = verify_certificate;
+    cg.clear = clear_verifier;
     return x::errors::NIL;
 }
 

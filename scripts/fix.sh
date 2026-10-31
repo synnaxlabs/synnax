@@ -17,7 +17,8 @@
 #   scripts/fix.sh <file...>  the files given
 #
 # A missing formatter is skipped with a warning. With --staged, a partially staged file
-# has its staged copy fixed and staged, and its working copy fixed but not staged.
+# has its staged copy fixed and staged, and its working copy fixed but not staged. A
+# fixer that fails on the working copy does not fail the run.
 
 set -euo pipefail
 
@@ -143,5 +144,5 @@ done < <(paste <(echo "$BEFORE") <(echo "$AFTER"))
 if [ ${#PARTIAL[@]} -gt 0 ]; then
     trap - EXIT
     restore
-    fix "${PARTIAL[@]}"
+    fix "${PARTIAL[@]}" || true
 fi

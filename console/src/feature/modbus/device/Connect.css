@@ -12,3 +12,23 @@
 .console-modbus-connect {
     width: 155rem;
 }
+
+/* Fits the longest label, so the column holds still between tabs. */
+.console-modbus-connect__sections {
+    grid-template-columns: minmax(18rem, max-content) minmax(0, 1fr);
+}
+
+/* Fits the advanced tab, so the dialog keeps its size between tabs. */
+.console-modbus-connect__content {
+    min-height: 60rem;
+}
+
+/* The hairline matches the one after a section title. */
+.console-modbus-connect__selector::after {
+    content: "";
+    flex-grow: 1;
+    align-self: center;
+    height: var(--pluto-border-width);
+    margin-left: 2rem;
+    background: var(--pluto-gray-l6);
+}

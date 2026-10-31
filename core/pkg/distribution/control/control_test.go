@@ -19,9 +19,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/control"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
-	mockcontrol "github.com/synnaxlabs/synnax/pkg/distribution/transport/mock/control"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	mockcontrol "github.com/synnaxlabs/synnax/pkg/distribution/transport/testutil/control"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/breaker"
 	xcontrol "github.com/synnaxlabs/x/control"
@@ -32,7 +32,7 @@ import (
 // createChannel creates a virtual channel leased to the given node.
 func createChannel(
 	ctx context.Context,
-	n mock.Node,
+	n testutil.Node,
 	name string,
 	leaseholder node.Key,
 ) channel.Channel {
@@ -49,7 +49,7 @@ func createChannel(
 // subject name.
 func openWriter(
 	ctx context.Context,
-	n mock.Node,
+	n testutil.Node,
 	subject string,
 	keys ...channel.Key,
 ) *writer.Writer {
@@ -94,7 +94,7 @@ var fastBreaker = breaker.Config{
 // transport, so a spec can decide which peers the service can reach.
 func openIsolated(
 	ctx context.Context,
-	n mock.Node,
+	n testutil.Node,
 	net *mockcontrol.Network,
 	addr address.Address,
 ) *control.Service {
@@ -120,7 +120,7 @@ var _ = Describe("Control", func() {
 	Describe("ServiceConfig", func() {
 		full := func(ctx context.Context) control.ServiceConfig {
 			GinkgoHelper()
-			n := mock.NewNode(ctx)
+			n := testutil.NewNode(ctx)
 			return control.ServiceConfig{
 				Cluster:   n.Cluster,
 				TS:        n.Storage.TS,
@@ -159,7 +159,7 @@ var _ = Describe("Control", func() {
 		It("Should return the state of a channel the host arbitrates", func(
 			ctx SpecContext,
 		) {
-			gw := mock.NewCluster(ctx, 1).Nodes[1]
+			gw := testutil.NewCluster(ctx, 1).Nodes[1]
 			ch := createChannel(ctx, gw, "gateway", 1)
 			w := openWriter(ctx, gw, "philadelphia", ch.Key())
 			Expect(MustSucceed(gw.Control.Retrieve(ctx, ch.Key()))).To(ConsistOf(
@@ -177,7 +177,7 @@ var _ = Describe("Control", func() {
 		})
 
 		It("Should omit channels that no subject controls", func(ctx SpecContext) {
-			gw := mock.NewCluster(ctx, 1).Nodes[1]
+			gw := testutil.NewCluster(ctx, 1).Nodes[1]
 			held := createChannel(ctx, gw, "held", 1)
 			free := createChannel(ctx, gw, "unheld", 1)
 			w := openWriter(ctx, gw, "denver", held.Key())
@@ -192,7 +192,7 @@ var _ = Describe("Control", func() {
 		It("Should return the state of every channel when no keys are given", func(
 			ctx SpecContext,
 		) {
-			cluster := mock.NewCluster(ctx, 2)
+			cluster := testutil.NewCluster(ctx, 2)
 			gw, peer := cluster.Nodes[1], cluster.Nodes[2]
 			local := createChannel(ctx, gw, "local", 1)
 			remote := createChannel(ctx, gw, "remote", 2)
@@ -208,7 +208,7 @@ var _ = Describe("Control", func() {
 		It("Should route to the leaseholder of a channel held by a peer", func(
 			ctx SpecContext,
 		) {
-			cluster := mock.NewCluster(ctx, 2)
+			cluster := testutil.NewCluster(ctx, 2)
 			gw, peer := cluster.Nodes[1], cluster.Nodes[2]
 			ch := createChannel(ctx, gw, "remote", 2)
 			w := openWriter(ctx, peer, "austin", ch.Key())
@@ -223,7 +223,7 @@ var _ = Describe("Control", func() {
 		It("Should notify handlers when the host acquires and releases control", func(
 			ctx SpecContext,
 		) {
-			gw := mock.NewCluster(ctx, 1).Nodes[1]
+			gw := testutil.NewCluster(ctx, 1).Nodes[1]
 			ch := createChannel(ctx, gw, "gateway", 1)
 			updates := collect(gw.Control)
 			w := openWriter(ctx, gw, "chicago", ch.Key())
@@ -244,7 +244,7 @@ var _ = Describe("Control", func() {
 		It("Should notify handlers when a peer acquires and releases control", func(
 			ctx SpecContext,
 		) {
-			cluster := mock.NewCluster(ctx, 2)
+			cluster := testutil.NewCluster(ctx, 2)
 			gw, peer := cluster.Nodes[1], cluster.Nodes[2]
 			ch := createChannel(ctx, gw, "remote", 2)
 			updates := collect(gw.Control)
@@ -273,14 +273,14 @@ var _ = Describe("Control", func() {
 	// the gateway alone, so the peer is unreachable until the spec binds it.
 	Describe("Unreachable peers", func() {
 		var (
-			cluster  *mock.Cluster
-			gw, peer mock.Node
+			cluster  *testutil.Cluster
+			gw, peer testutil.Node
 			net      *mockcontrol.Network
 			peerAddr address.Address
 			svc      *control.Service
 		)
 		BeforeEach(func(ctx SpecContext) {
-			cluster = mock.NewCluster(ctx, 2)
+			cluster = testutil.NewCluster(ctx, 2)
 			gw, peer = cluster.Nodes[1], cluster.Nodes[2]
 			net = mockcontrol.NewNetwork()
 			peerAddr = MustSucceed(gw.Cluster.Resolve(peer.Cluster.HostKey()))
