@@ -32,7 +32,8 @@ read_inputs(
             &types::Reference::browse_name
         );
         if (it == refs.end()) {
-            out[i] = std::vector<Argument>{};
+            // A cut-short browse can leave out the property of a method that has one.
+            if (!browsed[i].truncated) out[i] = std::vector<Argument>{};
             continue;
         }
         req.add_node(it->node.resolve({}).value());
