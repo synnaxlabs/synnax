@@ -1276,40 +1276,32 @@ TEST(TestScanTask, TestNoUpdateWhenParentDeviceSame) {
     EXPECT_EQ(created_devices->size(), 1);
 }
 
-/// @brief it should update when parent is cleared.
-TEST(TestScanTask, TestUpdateWhenParentDeviceCleared) {
-    synnax::device::Device dev1;
-    dev1.key = "device1";
-    dev1.name = "Device 1";
-    dev1.rack = 1;
-    dev1.location = "slot-1";
+/// @brief it should not update a device when the scanner reports no parent.
+TEST(TestScanTask, TestNoUpdateWhenScannerOmitsParent) {
+    synnax::device::Device scanned;
+    scanned.key = "device1";
+    scanned.name = "Device 1";
+    scanned.rack = 1;
+    scanned.location = "slot-1";
 
-    synnax::device::Device dev1_no_parent = dev1;
+    synnax::device::Device remote = scanned;
+    remote.parent = synnax::rack::ontology_id(1);
 
-    const auto parent_id = synnax::device::ontology_id("chassis-1");
-    dev1.parent = parent_id;
-
-    // First scan establishes parent, second scan clears it
-    std::vector<std::vector<synnax::device::Device>> devices = {
-        {dev1},
-        {dev1_no_parent}
-    };
     auto scanner = std::make_unique<MockScanner>(
-        devices,
+        std::vector<std::vector<synnax::device::Device>>{{scanned}},
         std::vector<x::errors::Error>{},
         std::vector<x::errors::Error>{},
         std::vector<x::errors::Error>{}
     );
 
     auto remote_devices = std::make_shared<std::vector<synnax::device::Device>>();
-    remote_devices->push_back(dev1);
+    remote_devices->push_back(remote);
 
     auto created_devices = std::make_shared<std::vector<synnax::device::Device>>();
     auto cluster_api = std::make_unique<MockClusterAPI>(
         remote_devices,
         created_devices
     );
-    auto *cluster_api_ptr = cluster_api.get();
 
     auto ctx = std::make_shared<task::MockContext>(nullptr);
 
@@ -1317,28 +1309,18 @@ TEST(TestScanTask, TestUpdateWhenParentDeviceCleared) {
     task.key = x::uuid::create();
     task.name = "Test Scan Task";
 
-    x::breaker::Config breaker_config;
-    x::telem::Rate scan_rate = x::telem::HERTZ * 1;
-
     ScanTask scan_task(
         std::move(scanner),
         ctx,
         task,
-        breaker_config,
-        scan_rate,
+        x::breaker::Config{},
+        x::telem::HERTZ * 1,
         std::move(cluster_api)
     );
 
     ASSERT_NIL(scan_task.init());
-    // First scan has same parent as remote — no update expected
     ASSERT_NIL(scan_task.scan());
-    ASSERT_EQ(created_devices->size(), 0);
-
-    // Second scan clears the parent — triggers update
-    ASSERT_NIL(scan_task.scan());
-    ASSERT_EQ(created_devices->size(), 1);
-    EXPECT_EQ(created_devices->at(0).key, "device1");
-    EXPECT_EQ(cluster_api_ptr->created_parents->at(0), synnax::ontology::ID{});
+    EXPECT_TRUE(created_devices->empty());
 }
 
 /// @brief it should return expected config values from scanner.
