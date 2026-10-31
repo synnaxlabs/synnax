@@ -7,6 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
+import itertools
+
 import synnax as sy
 from framework.utils import create_virtual_channels
 from tests.arc.arc import ArcCase
@@ -380,6 +382,35 @@ sequence computed_main {
     }
 }
 
+vars_start => sequence {
+    stamp_entry $= time.now()
+    stamp_entry -> stamp_control_out
+    stage stamp_1 {
+        stamp_1_time $= time.now()
+        stamp_1_time -> stamp_out_1
+        time.wait(100ms) => next
+    }
+    stage stamp_2 {
+        stamp_2_time $= time.now()
+        stamp_2_time -> stamp_out_2
+        time.wait(100ms) => next
+    }
+    stage stamp_3 {
+        stamp_3_time $= time.now()
+        stamp_3_time -> stamp_out_3
+        time.wait(100ms) => next
+    }
+    stage stamp_4 {
+        stamp_4_time $= time.now()
+        stamp_4_time -> stamp_out_4
+        time.wait(100ms) => next
+    }
+    stage stamp_5 {
+        stamp_5_time $= time.now()
+        stamp_5_time -> stamp_out_5
+    }
+}
+
 computed_late_start => computed_late
 sequence computed_late {
     late_seed i64 := 20
@@ -463,6 +494,12 @@ COMPUTED_OUTPUTS = [
     "computed_second_ready",
     "computed_late_out",
     "computed_late_second_ready",
+    "stamp_control_out",
+    "stamp_out_1",
+    "stamp_out_2",
+    "stamp_out_3",
+    "stamp_out_4",
+    "stamp_out_5",
 ]
 OUTPUTS = (
     VAR_OUTPUTS
@@ -515,6 +552,12 @@ I64_CHANNELS = [
     "computed_stage_kept_out",
     "computed_late_out",
     "computed_late_second_ready",
+    "stamp_control_out",
+    "stamp_out_1",
+    "stamp_out_2",
+    "stamp_out_3",
+    "stamp_out_4",
+    "stamp_out_5",
 ]
 STR_CHANNELS = [
     "channel_read_write_str_a",
@@ -623,6 +666,7 @@ class Variables(ArcCase):
         self._verify_value_inputs()
         self._verify_alias_inputs()
         self._verify_computed()
+        self._verify_stage_stamps()
 
     def _verify_literal(self) -> None:
         self.log("=== Literal ===")
@@ -808,6 +852,20 @@ class Variables(ArcCase):
         self.writer.write("alias_write_src", "w2")
         self.wait_for_eq("alias_dst_b", "w2")
         self.wait_for_eq("alias_dst_a", "w1")
+
+    def _verify_stage_stamps(self) -> None:
+        self.log("=== stateful stamps on stage entry ===")
+        self.wait_for_gt("stamp_control_out", 0)
+        stamps = [int(self.read_tlm("stamp_control_out", 0))]
+        for i in range(1, 6):
+            self.wait_for_gt(f"stamp_out_{i}", 0)
+            stamps.append(int(self.read_tlm(f"stamp_out_{i}", 0)))
+        if stamps[1] < stamps[0]:
+            self.fail("the first stage stamp must not precede the sequence entry")
+        for prev, cur in itertools.pairwise(stamps[1:]):
+            delta = sy.TimeSpan(cur - prev)
+            if delta < 90 * sy.TimeSpan.MILLISECOND:
+                self.fail(f"stage stamps {delta} apart, expected about 100ms")
 
     def _verify_computed(self) -> None:
         self.log("=== computed initializers ===")
