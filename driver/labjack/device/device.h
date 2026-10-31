@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <functional>
 #include <map>
 #include <memory>
@@ -30,6 +31,8 @@ public:
     virtual x::errors::Error
     e_stream_read(double *data, int *dev_scan_backlog, int *ljm_scan_backlog) const = 0;
 
+    /// @brief stops the stream. A failed stop still allows the next start, so a lost
+    /// connection never blocks it.
     [[nodiscard]] virtual x::errors::Error e_stream_stop() const = 0;
 
     [[nodiscard]] virtual x::errors::Error
@@ -79,11 +82,16 @@ public:
     [[nodiscard]] virtual x::errors::Error
     e_read_name(const char *name, double *value) const = 0;
 
+    /// @brief starts a stream.
+    /// @param configure writes the settings of the stream. It runs only when no other
+    /// stream holds the device, so a refused start leaves the device untouched.
+    /// @returns ljm::STREAM_IS_ACTIVE when a stream already runs on the device.
     [[nodiscard]] virtual x::errors::Error e_stream_start(
         size_t scans_per_read,
         size_t num_addrs,
         const int *scan_list,
-        double *scan_rate
+        double *scan_rate,
+        const std::function<x::errors::Error()> &configure
     ) const = 0;
 };
 
@@ -92,6 +100,9 @@ class LJMDevice final : public Device {
     std::shared_ptr<ljm::API> ljm;
     /// @brief the underlying device handle.
     const int dev_handle;
+    /// @brief true while a stream runs on the handle. A second LJM start on one handle
+    /// succeeds and silently replaces the running stream.
+    mutable std::atomic<bool> streaming = false;
 
 public:
     LJMDevice(const std::shared_ptr<ljm::API> &ljm, const int dev_handle):
@@ -119,7 +130,9 @@ public:
     }
 
     [[nodiscard]] x::errors::Error e_stream_stop() const override {
-        return parse_error(this->ljm, this->ljm->e_stream_stop(dev_handle));
+        const auto err = parse_error(this->ljm, this->ljm->e_stream_stop(dev_handle));
+        this->streaming = false;
+        return err;
     }
 
     [[nodiscard]] x::errors::Error
@@ -238,18 +251,29 @@ public:
         const size_t scans_per_read,
         const size_t num_addrs,
         const int *scan_list,
-        double *scan_rate
+        double *scan_rate,
+        const std::function<x::errors::Error()> &configure
     ) const override {
-        return parse_error(
-            this->ljm,
-            this->ljm->e_stream_start(
-                this->dev_handle,
-                static_cast<int>(scans_per_read),
-                static_cast<int>(num_addrs),
-                scan_list,
-                scan_rate
-            )
-        );
+        if (this->streaming.exchange(true))
+            return x::errors::Error(
+                ljm::STREAM_IS_ACTIVE,
+                "A LabJack runs one stream at a time, and another task is streaming "
+                "from this device. Add these channels to the running task."
+            );
+        auto err = configure();
+        if (!err)
+            err = parse_error(
+                this->ljm,
+                this->ljm->e_stream_start(
+                    this->dev_handle,
+                    static_cast<int>(scans_per_read),
+                    static_cast<int>(num_addrs),
+                    scan_list,
+                    scan_rate
+                )
+            );
+        if (err) this->streaming = false;
+        return err;
     }
 };
 
