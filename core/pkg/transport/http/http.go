@@ -54,6 +54,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/auth/login",
 		),
+		AuthMethods: unary[struct{}, auth.MethodsResponse](
+			router,
+			"/api/v1/auth/methods",
+		),
 		AuthChangePassword: unary[auth.ChangePasswordRequest, struct{}](
 			router,
 			"/api/v1/auth/change-password",

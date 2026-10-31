@@ -126,6 +126,47 @@ var _ = Describe("GetCoreConfigFromViper", func() {
 		})
 	})
 
+	Describe("Auth methods", func() {
+		validate := func() error {
+			GinkgoHelper()
+			viper.Set(start.FlagInsecure, true)
+			cfg := MustSucceed(start.GetCoreConfigFromViper(alamos.Instrumentation{}))
+			return start.DefaultCoreConfig.Override(cfg).Validate()
+		}
+
+		It("Should accept every method when the flag is unset", func() {
+			Expect(validate()).ToNot(MatchError(ContainSubstring("auth_methods")))
+		})
+
+		It("Should reject an explicitly empty list", func() {
+			viper.Set(start.FlagAuthMethods, []string{})
+			Expect(validate()).To(MatchError(ContainSubstring("auth_methods")))
+		})
+
+		It("Should reject an unknown method", func() {
+			viper.Set(start.FlagAuthMethods, []string{"password", "carrier_pigeon"})
+			Expect(validate()).To(MatchError(ContainSubstring("carrier_pigeon")))
+		})
+
+		It("Should refuse api_key off while the embedded Driver is on", func() {
+			viper.Set(start.FlagAuthMethods, []string{"password"})
+			Expect(validate()).To(
+				MatchError(ContainSubstring("must include api_key")),
+			)
+		})
+
+		It("Should allow password off while the embedded Driver is on", func() {
+			viper.Set(start.FlagAuthMethods, []string{"api_key"})
+			Expect(validate()).ToNot(MatchError(ContainSubstring("auth_methods")))
+		})
+
+		It("Should allow api_key off when the embedded Driver is off", func() {
+			viper.Set(start.FlagAuthMethods, []string{"password"})
+			viper.Set(start.FlagNoDriver, true)
+			Expect(validate()).ToNot(MatchError(ContainSubstring("auth_methods")))
+		})
+	})
+
 	It("Should allow a Tailscale advertised listener in insecure mode", func() {
 		viper.Set(listener.FlagListen, []any{
 			map[string]any{

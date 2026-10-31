@@ -64,6 +64,7 @@ type CoreConfig struct {
 	listeners            listener.Configs
 	peers                []address.Address
 	disabledIntegrations []string
+	authMethods          []auth.Method
 	enabledIntegrations  []string
 	certFactoryConfig    cert.FactoryConfig
 	taskShutdownTimeout  time.Duration
@@ -80,6 +81,7 @@ var DefaultCoreConfig = CoreConfig{
 	certFactoryConfig: cert.DefaultFactoryConfig,
 	// a Core installed before the flag existed starts without it
 	sessionIdleTimeout: auth.DefaultIdleTimeout,
+	authMethods:        []auth.Method{auth.MethodPassword, auth.MethodAPIKey},
 }
 
 // driverEnabled reports whether the embedded Driver starts with this Core.
@@ -113,6 +115,15 @@ func (c CoreConfig) Validate() error {
 	v.NonZero("slow_consumer_timeout", c.slowConsumerTimeout)
 	v.Positive("session_idle_timeout", c.sessionIdleTimeout)
 	v.NotNil("no_driver", c.noDriver)
+	v.NotEmptySlice("auth_methods", c.authMethods)
+	for _, m := range c.authMethods {
+		v.Ternaryf("auth_methods", !m.IsValid(), "unknown method %q", m)
+	}
+	v.Ternary(
+		"auth_methods",
+		c.driverEnabled() && !lo.Contains(c.authMethods, auth.MethodAPIKey),
+		"must include api_key while the embedded Driver is on",
+	)
 	v.Exec(c.rootCredentials.Validate)
 	v.NonZero("task_op_timeout", c.taskOpTimeout)
 	v.NonZero("task_poll_interval", c.taskPollInterval)
@@ -144,7 +155,13 @@ func (c CoreConfig) Override(other CoreConfig) CoreConfig {
 			c.sessionIdleTimeout,
 			other.sessionIdleTimeout,
 		),
-		noDriver:      override.Nil(c.noDriver, other.noDriver),
+		noDriver: override.Nil(c.noDriver, other.noDriver),
+		// An explicit empty list is kept so that Validate rejects it.
+		authMethods: override.If(
+			c.authMethods,
+			other.authMethods,
+			other.authMethods != nil,
+		),
 		taskOpTimeout: override.Numeric(c.taskOpTimeout, other.taskOpTimeout),
 		taskPollInterval: override.Numeric(
 			c.taskPollInterval,
@@ -267,6 +284,7 @@ func BootupCore(
 		RootCredentials:    cfg.rootCredentials,
 		FIPS:               cfg.fips,
 		SessionIdleTimeout: cfg.sessionIdleTimeout,
+		AuthMethods:        cfg.authMethods,
 		License: license.ServiceConfig{
 			Key:      cfg.licenseKey,
 			Version:  version.Get(),

@@ -14,6 +14,7 @@ import (
 	"slices"
 	"time"
 
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/distribution"
@@ -105,6 +106,10 @@ type LayerConfig struct {
 	//
 	// [OPTIONAL] - Defaults to 7 days.
 	SessionIdleTimeout time.Duration
+	// AuthMethods are the login methods the Core accepts.
+	//
+	// [OPTIONAL] - Defaults to every method.
+	AuthMethods []auth.Method
 	// License configures the license service. The layer supplies its DB and
 	// instrumentation.
 	//
@@ -142,6 +147,7 @@ func (c LayerConfig) Override(other LayerConfig) LayerConfig {
 		c.SessionIdleTimeout,
 		other.SessionIdleTimeout,
 	)
+	c.AuthMethods = override.Slice(c.AuthMethods, other.AuthMethods)
 	c.License = c.License.Override(other.License)
 	c.ValidateChannelNames = override.Nil(
 		c.ValidateChannelNames, other.ValidateChannelNames,
@@ -154,6 +160,9 @@ func (c LayerConfig) Validate() error {
 	v := validate.New("service")
 	v.NotNil("distribution", c.Distribution)
 	v.NotNil("security", c.Security)
+	for _, m := range c.AuthMethods {
+		v.Ternaryf("auth_methods", !m.IsValid(), "unknown method %q", m)
+	}
 	return v.Error()
 }
 
@@ -487,14 +496,18 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.RBAC) {
 		return nil, err
 	}
+	authenticators := map[auth.Method]auth.Authenticator{
+		auth.MethodPassword: l.Password,
+		auth.MethodAPIKey:   l.APIKey,
+	}
+	if len(cfg.AuthMethods) > 0 {
+		authenticators = lo.PickByKeys(authenticators, cfg.AuthMethods)
+	}
 	if l.Auth, err = auth.OpenService(ctx, auth.ServiceConfig{
 		Instrumentation: cfg.Child("auth"),
 		DB:              cfg.Distribution.DB,
-		Authenticators: map[auth.Method]auth.Authenticator{
-			auth.MethodPassword: l.Password,
-			auth.MethodAPIKey:   l.APIKey,
-		},
-		IdleTimeout: cfg.SessionIdleTimeout,
+		Authenticators:  authenticators,
+		IdleTimeout:     cfg.SessionIdleTimeout,
 	}); !ok(err, l.Auth) {
 		return nil, err
 	}
