@@ -35,7 +35,8 @@ export interface CreateModalParams {
 
 const NAME_INPUT_PROPS: Partial<Input.TextProps> = {
   autoFocus: true,
-  placeholder: "Name",
+  placeholder: "Arc name",
+  "aria-label": "Arc name",
   level: "h2",
   variant: "text",
   selectOnFocus: true,
@@ -62,7 +63,7 @@ const Create = ({
       <Modal.Header icon={<Icon.Arc />}>Arc.Create</Modal.Header>
       <Modal.Body>
         <Form.Form<typeof Arc.formSchema> {...form}>
-          <Form.TextField path="name" required inputProps={NAME_INPUT_PROPS} />
+          <Form.TextField path="name" showLabel={false} inputProps={NAME_INPUT_PROPS} />
           <Form.Field<arc.Mode> path="mode" label="Editor mode" full="x">
             {({ value, onChange }) => (
               <Select.Buttons value={value} onChange={onChange} variant="card" full="x">

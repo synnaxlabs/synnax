@@ -17,7 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/freighter"
 	apicontrol "github.com/synnaxlabs/synnax/pkg/api/control"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
@@ -51,7 +51,7 @@ var (
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	dist := mock.NewNode(ctx)
+	dist := testutil.NewNode(ctx)
 	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: dist.DB}))
 	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB: dist.DB, Ontology: otg,

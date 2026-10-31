@@ -390,6 +390,10 @@ describe("bridgeVertices", () => {
     xOffset: offset,
     yOffset: offset,
     count,
+    span: new TimeRange(
+      TimeStamp.max(x.timeRange.start, y.timeRange.start),
+      TimeStamp.min(x.timeRange.end, y.timeRange.end),
+    ),
   });
   const f32 = (...data: number[]): Series => new Series(new Float32Array(data));
   const shifted = (sampleOffset: bigint, ...data: number[]): Series =>
@@ -457,8 +461,21 @@ describe("bridgeVertices", () => {
 
     it("should join ops in time order whatever their array order", () => {
       const a = op(timed(0, 10, 0, 1), timed(0, 10, 2, 3), 2);
-      const b = op(timed(20, 30, 5, 6), timed(20, 30, 7, 4), 2);
+      const b = op(timed(10, 20, 5, 6), timed(10, 20, 7, 4), 2);
       expect(vertices([b, a])).toEqual([1, 3, 5, 7]);
+    });
+
+    it("should not join two ops with time between them", () => {
+      const a = op(timed(0, 10, 0, 1), timed(0, 10, 2, 3), 2);
+      const b = op(timed(11, 20, 5, 6), timed(11, 20, 7, 4), 2);
+      expect(vertices([a, b])).toEqual([]);
+    });
+
+    it("should join only the ops that touch", () => {
+      const a = op(timed(0, 10, 0, 1), timed(0, 10, 2, 3), 2);
+      const b = op(timed(10, 20, 5, 6), timed(10, 20, 7, 4), 2);
+      const c = op(timed(30, 40, 8, 9), timed(30, 40, 1, 6), 2);
+      expect(vertices([a, b, c])).toEqual([1, 3, 5, 7]);
     });
 
     it("should not join two ops that hold overlapping spans", () => {
@@ -486,7 +503,7 @@ describe("bridgeVertices", () => {
     [0.5, 0.5, 0.75, 1].forEach((e, i) => expect(v[i]).toBeCloseTo(e));
   });
 
-  it("should keep a vertex in view precise when the next op is a day away", () => {
+  it("should keep a vertex in view precise when the next op is far away", () => {
     const start = 1_760_000_000_000_000_000n;
     const day = 86_400_000_000_000n;
     const a = op(shifted(start, 0, 1e6, 2e6), f32(1, 2, 3), 3);

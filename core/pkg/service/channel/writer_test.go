@@ -16,8 +16,8 @@ import (
 	. "github.com/onsi/gomega"
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -49,7 +49,7 @@ var _ = Describe("Writer", func() {
 		)
 		BeforeAll(func(ctx SpecContext) {
 			ShouldNotLeakGoroutines()
-			limitSvc, _ = openService(ctx, mock.NewNode(ctx), channel.ServiceConfig{
+			limitSvc, _ = openService(ctx, testutil.NewNode(ctx), channel.ServiceConfig{
 				Limit: fixedLimit(2),
 			})
 			limitWriter = limitSvc.NewWriter(nil)
@@ -103,7 +103,7 @@ var _ = Describe("Writer", func() {
 			func(ctx SpecContext) {
 				cleanupSvc, _ := openService(
 					ctx,
-					mock.NewNode(ctx),
+					testutil.NewNode(ctx),
 					channel.ServiceConfig{
 						Limit: fixedLimit(3),
 					},
@@ -189,14 +189,14 @@ var _ = Describe("Writer", func() {
 
 	Describe("Create", Ordered, func() {
 		var (
-			dist          mock.Node
+			dist          testutil.Node
 			otg           *ontology.Ontology
 			svc           *channel.Service
 			channelWriter channel.Writer
 		)
 		BeforeAll(func(ctx SpecContext) {
 			ShouldNotLeakGoroutines()
-			dist = mock.NewNode(ctx)
+			dist = testutil.NewNode(ctx)
 			svc, otg = openService(ctx, dist)
 			channelWriter = svc.NewWriter(nil)
 		})
@@ -1042,7 +1042,7 @@ var _ = Describe("Writer", func() {
 				ShouldNotLeakGoroutines()
 				svc, _ = openService(
 					ctx,
-					mock.NewNode(ctx),
+					testutil.NewNode(ctx),
 					channel.ServiceConfig{ValidateNames: new(false)},
 				)
 				channelWriter = svc.NewWriter(nil)
@@ -1145,13 +1145,13 @@ var _ = Describe("Writer", func() {
 
 	Describe("Delete", Ordered, func() {
 		var (
-			dist          mock.Node
+			dist          testutil.Node
 			svc           *channel.Service
 			channelWriter channel.Writer
 		)
 		BeforeAll(func(ctx SpecContext) {
 			ShouldNotLeakGoroutines()
-			dist = mock.NewNode(ctx)
+			dist = testutil.NewNode(ctx)
 			svc, _ = openService(ctx, dist)
 			channelWriter = svc.NewWriter(nil)
 		})
@@ -1344,7 +1344,7 @@ var _ = Describe("Writer", func() {
 		)
 		BeforeAll(func(ctx SpecContext) {
 			ShouldNotLeakGoroutines()
-			svc, _ = openService(ctx, mock.NewNode(ctx))
+			svc, _ = openService(ctx, testutil.NewNode(ctx))
 			channelWriter = svc.NewWriter(nil)
 		})
 		Context("Single channel", func() {
@@ -1437,12 +1437,12 @@ var _ = Describe("Writer", func() {
 	Describe("Limit", Ordered, func() {
 		var (
 			limit       = 5
-			dist        mock.Node
+			dist        testutil.Node
 			limitSvc    *channel.Service
 			limitWriter channel.Writer
 		)
 		BeforeEach(func(ctx SpecContext) {
-			dist = mock.NewNode(ctx)
+			dist = testutil.NewNode(ctx)
 			limitSvc, _ = openService(
 				ctx,
 				dist,
@@ -1646,7 +1646,7 @@ var _ = Describe("Writer", func() {
 		)
 		BeforeAll(func(ctx SpecContext) {
 			ShouldNotLeakGoroutines()
-			svc, _ = openService(ctx, mock.NewNode(ctx))
+			svc, _ = openService(ctx, testutil.NewNode(ctx))
 			channelWriter = svc.NewWriter(nil)
 		})
 		It(

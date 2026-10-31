@@ -24,7 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/security/cert"
 	"github.com/synnaxlabs/synnax/pkg/security/cert/auto"
 	"github.com/synnaxlabs/synnax/pkg/security/cert/file"
-	"github.com/synnaxlabs/synnax/pkg/security/mock"
+	"github.com/synnaxlabs/synnax/pkg/security/testutil"
 	"github.com/synnaxlabs/synnax/pkg/server"
 	"github.com/synnaxlabs/x/address"
 	xfs "github.com/synnaxlabs/x/io/fs"
@@ -34,14 +34,14 @@ import (
 var _ = Describe("MultiListener", func() {
 	It("Should present each listener's own certificate", func() {
 		fs := xfs.NewMem()
-		mock.GenerateCerts(fs)
+		testutil.GenerateCerts(fs)
 		prov := MustSucceed(security.NewProvider(security.ProviderConfig{
 			FS:       fs,
 			Insecure: new(false),
 		}))
 		ca := MustSucceed(cert.NewFactory(cert.FactoryConfig{
 			FS:      fs,
-			KeySize: mock.SmallKeySize,
+			KeySize: testutil.SmallKeySize,
 		}))
 		srcA := MustSucceed(auto.NewSource(ca, "hostA:1"))
 		srcB := MustSucceed(auto.NewSource(ca, "hostB:1"))
@@ -62,14 +62,14 @@ var _ = Describe("MultiListener", func() {
 
 	It("Should serve certificates a client verifies with the trust anchor", func() {
 		fs := xfs.NewMem()
-		mock.GenerateCerts(fs)
+		testutil.GenerateCerts(fs)
 		prov := MustSucceed(security.NewProvider(security.ProviderConfig{
 			FS:       fs,
 			Insecure: new(false),
 		}))
 		ca := MustSucceed(cert.NewFactory(cert.FactoryConfig{
 			FS:      fs,
-			KeySize: mock.SmallKeySize,
+			KeySize: testutil.SmallKeySize,
 		}))
 		l := MustSucceed(cert.NewLoader(cert.LoaderConfig{FS: fs}))
 		autoSrc := MustSucceed(auto.NewSource(ca, "localhost:0"))
@@ -103,12 +103,12 @@ var _ = Describe("MultiListener", func() {
 
 	It("Should serve a node certificate an unrelated CA did not sign", func() {
 		fs := xfs.NewMem()
-		mock.GenerateCerts(fs)
+		testutil.GenerateCerts(fs)
 		l := MustSucceed(cert.NewLoader(cert.LoaderConfig{FS: fs}))
 		// Stand in for a Core whose node certificate came from outside, leaving a CA on
 		// disk that signed nothing the listeners serve.
 		foreign := xfs.NewMem()
-		mock.GenerateCerts(foreign)
+		testutil.GenerateCerts(foreign)
 		caCertPath := path.Join(
 			cert.DefaultLoaderConfig.CertsDir,
 			cert.DefaultLoaderConfig.CACertPath,

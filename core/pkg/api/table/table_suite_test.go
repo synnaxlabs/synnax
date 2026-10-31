@@ -15,9 +15,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apitable "github.com/synnaxlabs/synnax/pkg/api/table"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
-	svcmock "github.com/synnaxlabs/synnax/pkg/service/mock"
+	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -38,8 +38,8 @@ var (
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	node := mock.NewNode(ctx)
-	svc = MustOpen(svcmock.OpenLayer(ctx, node))
+	node := testutil.NewNode(ctx)
+	svc = MustOpen(svctestutil.OpenLayer(ctx, node))
 	apiSvc = MustSucceed(apitable.NewService(apitable.ServiceConfig{
 		Table: svc.Table,
 		RBAC:  svc.RBAC,

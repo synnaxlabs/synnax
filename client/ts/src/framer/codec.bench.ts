@@ -10,8 +10,8 @@
 import { allocSuite } from "@synnaxlabs/x/bench";
 import { test } from "vitest";
 
-import { createCodec, createKeys, createPayload } from "@/framer/benchutil";
-import { Frame } from "@/framer/frame";
+import { framer } from "@/framer";
+import { createCodec, createKeys, createPayload } from "@/framer/testutil";
 
 // SHAPES are [channels, samples per channel]. They bracket the realistic range of
 // streamed frames: a few high-rate channels, wide dashboards, and control-state
@@ -44,7 +44,7 @@ test("encode from frame", async ({ bench }) => {
     ...SHAPES.map((shape) => {
       const keys = createKeys(shape[0]);
       const codec = createCodec(keys);
-      const frame = new Frame(createPayload(keys, shape[1]));
+      const frame = new framer.Frame(createPayload(keys, shape[1]));
       return bench(label(shape), () => {
         codec.encode(frame);
       });
@@ -89,7 +89,7 @@ test("decode varied", async ({ bench }) => {
   const keys = createKeys(100);
   const codec = createCodec(keys);
   const payload = createPayload(keys, 10);
-  const frame = new Frame(createPayload(keys, 10));
+  const frame = new framer.Frame(createPayload(keys, 10));
   const wire = codec.encode(createPayload(keys, 10));
   allocSuite("codec 100ch x 10smp", [
     ["encode", () => void codec.encode(payload)],

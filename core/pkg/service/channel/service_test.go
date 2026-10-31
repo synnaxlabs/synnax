@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/x/telem"
@@ -44,7 +44,7 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext) {
 				noValidateSvc, _ := openService(
 					ctx,
-					mock.NewNode(ctx),
+					testutil.NewNode(ctx),
 					channel.ServiceConfig{
 						ValidateNames: new(false),
 					},

@@ -15,10 +15,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
 	svcframer "github.com/synnaxlabs/synnax/pkg/service/framer"
-	svcmock "github.com/synnaxlabs/synnax/pkg/service/mock"
+	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -36,7 +36,7 @@ func TestFramer(t *testing.T) {
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	svc := MustOpen(svcmock.OpenLayer(ctx, mock.NewNode(ctx)))
+	svc := MustOpen(svctestutil.OpenLayer(ctx, testutil.NewNode(ctx)))
 	channelSvc, framerSvc = svc.Channel, svc.Framer
 	channelWriter = channelSvc.NewWriter(nil)
 	apiChannelSvc = MustSucceed(channel.NewService(channel.ServiceConfig{

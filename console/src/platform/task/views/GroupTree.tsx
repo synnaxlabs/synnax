@@ -24,8 +24,8 @@ import { Button as PlatformButton } from "@/platform/button";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { EnabledCheckbox } from "@/platform/task/EnabledCheckbox";
-import { useIsPreview } from "@/platform/task/Form";
 import { READ_CHANNEL_OVERRIDE } from "@/platform/task/types";
+import { useIsPreview } from "@/platform/task/useIsPreview";
 import { ContextMenu } from "@/platform/task/views/ContextMenu";
 import { Panes } from "@/platform/task/views/Panes";
 

@@ -6,6 +6,14 @@ How a change gets into `main`. Setup lives in the package guides
 [Python client](client/py/CONTRIBUTING.md), [docs site](site/docs/CONTRIBUTING.md)),
 design in the [RFCs](docs/tech/rfc), and code style in [AGENTS.md](AGENTS.md).
 
+## Commit hooks
+
+`pnpm install` points Git at the hooks in `.githooks`. On each commit, the `pre-commit`
+hook runs `scripts/fix.sh --staged`, which adds copyright headers to the staged files,
+formats them, and stages the fixes. Skip it with `git commit --no-verify`. In a checkout
+made before the hooks, run `pnpm prepare` once. Hooks in `.git/hooks` no longer run;
+`.githooks` holds the Git LFS hooks.
+
 ## Branches and pull requests
 
 `main` is the only long-lived branch and is always releasable. A branch is named after

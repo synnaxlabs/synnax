@@ -43,7 +43,9 @@ type StatusDetails struct {
 	// rack is the key of the rack this device belongs to.
 	Rack uint32 `protobuf:"varint,1,opt,name=rack,proto3" json:"rack,omitempty"`
 	// device is the device identifier.
-	Device        string `protobuf:"bytes,2,opt,name=device,proto3" json:"device,omitempty"`
+	Device string `protobuf:"bytes,2,opt,name=device,proto3" json:"device,omitempty"`
+	// data contains device-specific status data.
+	Data          *structpb.Struct `protobuf:"bytes,3,opt,name=data,proto3,oneof" json:"data,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -90,6 +92,13 @@ func (x *StatusDetails) GetDevice() string {
 		return x.Device
 	}
 	return ""
+}
+
+func (x *StatusDetails) GetData() *structpb.Struct {
+	if x != nil {
+		return x.Data
+	}
+	return nil
 }
 
 // Device is a physical piece of hardware connected to Synnax through the Driver system.
@@ -590,10 +599,12 @@ var File_core_pkg_service_legacy_device_pb_device_proto protoreflect.FileDescrip
 
 const file_core_pkg_service_legacy_device_pb_device_proto_rawDesc = "" +
 	"\n" +
-	".core/pkg/service/legacy/device/pb/device.proto\x12\x11service.device.pb\x1a+core/pkg/service/ontology/pb/ontology.proto\x1a'core/pkg/service/status/pb/status.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1bx/go/filter/pb/filter.proto\";\n" +
+	".core/pkg/service/legacy/device/pb/device.proto\x12\x11service.device.pb\x1a+core/pkg/service/ontology/pb/ontology.proto\x1a'core/pkg/service/status/pb/status.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1bx/go/filter/pb/filter.proto\"v\n" +
 	"\rStatusDetails\x12\x12\n" +
 	"\x04rack\x18\x01 \x01(\rR\x04rack\x12\x16\n" +
-	"\x06device\x18\x02 \x01(\tR\x06device\"\xe5\x02\n" +
+	"\x06device\x18\x02 \x01(\tR\x06device\x120\n" +
+	"\x04data\x18\x03 \x01(\v2\x17.google.protobuf.StructH\x00R\x04data\x88\x01\x01B\a\n" +
+	"\x05_data\"\xe5\x02\n" +
 	"\x06Device\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04rack\x18\x02 \x01(\rR\x04rack\x12\x1a\n" +
@@ -675,26 +686,27 @@ var file_core_pkg_service_legacy_device_pb_device_proto_goTypes = []any{
 	(*pb2.String)(nil),      // 11: x.filter.pb.String
 }
 var file_core_pkg_service_legacy_device_pb_device_proto_depIdxs = []int32{
-	8,  // 0: service.device.pb.Device.properties:type_name -> google.protobuf.Struct
-	9,  // 1: service.device.pb.Device.status:type_name -> service.status.pb.Status
-	10, // 2: service.device.pb.Device.parent:type_name -> service.ontology.pb.ID
-	7,  // 3: service.device.pb.WhereList.values:type_name -> service.device.pb.Where
-	3,  // 4: service.device.pb.StringSet.in:type_name -> service.device.pb.StringList
-	5,  // 5: service.device.pb.RackKeySet.in:type_name -> service.device.pb.RackKeyList
-	2,  // 6: service.device.pb.Where.and:type_name -> service.device.pb.WhereList
-	2,  // 7: service.device.pb.Where.or:type_name -> service.device.pb.WhereList
-	7,  // 8: service.device.pb.Where.not:type_name -> service.device.pb.Where
-	4,  // 9: service.device.pb.Where.key:type_name -> service.device.pb.StringSet
-	11, // 10: service.device.pb.Where.name:type_name -> x.filter.pb.String
-	11, // 11: service.device.pb.Where.make:type_name -> x.filter.pb.String
-	11, // 12: service.device.pb.Where.model:type_name -> x.filter.pb.String
-	11, // 13: service.device.pb.Where.location:type_name -> x.filter.pb.String
-	6,  // 14: service.device.pb.Where.rack:type_name -> service.device.pb.RackKeySet
-	15, // [15:15] is the sub-list for method output_type
-	15, // [15:15] is the sub-list for method input_type
-	15, // [15:15] is the sub-list for extension type_name
-	15, // [15:15] is the sub-list for extension extendee
-	0,  // [0:15] is the sub-list for field type_name
+	8,  // 0: service.device.pb.StatusDetails.data:type_name -> google.protobuf.Struct
+	8,  // 1: service.device.pb.Device.properties:type_name -> google.protobuf.Struct
+	9,  // 2: service.device.pb.Device.status:type_name -> service.status.pb.Status
+	10, // 3: service.device.pb.Device.parent:type_name -> service.ontology.pb.ID
+	7,  // 4: service.device.pb.WhereList.values:type_name -> service.device.pb.Where
+	3,  // 5: service.device.pb.StringSet.in:type_name -> service.device.pb.StringList
+	5,  // 6: service.device.pb.RackKeySet.in:type_name -> service.device.pb.RackKeyList
+	2,  // 7: service.device.pb.Where.and:type_name -> service.device.pb.WhereList
+	2,  // 8: service.device.pb.Where.or:type_name -> service.device.pb.WhereList
+	7,  // 9: service.device.pb.Where.not:type_name -> service.device.pb.Where
+	4,  // 10: service.device.pb.Where.key:type_name -> service.device.pb.StringSet
+	11, // 11: service.device.pb.Where.name:type_name -> x.filter.pb.String
+	11, // 12: service.device.pb.Where.make:type_name -> x.filter.pb.String
+	11, // 13: service.device.pb.Where.model:type_name -> x.filter.pb.String
+	11, // 14: service.device.pb.Where.location:type_name -> x.filter.pb.String
+	6,  // 15: service.device.pb.Where.rack:type_name -> service.device.pb.RackKeySet
+	16, // [16:16] is the sub-list for method output_type
+	16, // [16:16] is the sub-list for method input_type
+	16, // [16:16] is the sub-list for extension type_name
+	16, // [16:16] is the sub-list for extension extendee
+	0,  // [0:16] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_service_legacy_device_pb_device_proto_init() }
@@ -702,6 +714,7 @@ func file_core_pkg_service_legacy_device_pb_device_proto_init() {
 	if File_core_pkg_service_legacy_device_pb_device_proto != nil {
 		return
 	}
+	file_core_pkg_service_legacy_device_pb_device_proto_msgTypes[0].OneofWrappers = []any{}
 	file_core_pkg_service_legacy_device_pb_device_proto_msgTypes[1].OneofWrappers = []any{}
 	file_core_pkg_service_legacy_device_pb_device_proto_msgTypes[4].OneofWrappers = []any{}
 	file_core_pkg_service_legacy_device_pb_device_proto_msgTypes[6].OneofWrappers = []any{}
