@@ -282,6 +282,33 @@ describe("Notifications.Provider", () => {
       expect(screen.queryByText(error.message)).toBeNull();
     });
 
+    it("should not check the use of a closed problem until it reopens", async () => {
+      const key = createTaskKey();
+      const checked = vi.fn();
+      const { rule, change } = createControlled(async ({ key: k }) => {
+        if (task.statusKey(k) !== key) return false;
+        checked();
+        return true;
+      });
+      await renderForward(client, { task: rule });
+      const local: status.Status = {
+        key,
+        name: "",
+        variant: "error",
+        message: uniqueName("message"),
+        description: "",
+        time: TimeStamp.now(),
+      };
+      client.statuses.setLocal(local);
+      await vi.waitFor(() => expect(checked).toHaveBeenCalledTimes(1));
+      client.statuses.setLocal({ ...local, variant: "success", time: TimeStamp.now() });
+      change();
+      await settleWrites(client);
+      expect(checked).toHaveBeenCalledTimes(1);
+      client.statuses.setLocal({ ...local, time: TimeStamp.now() });
+      await vi.waitFor(() => expect(checked).toHaveBeenCalledTimes(2));
+    });
+
     it("should keep only the result of the latest check", async () => {
       const key = createTaskKey();
       const resolvers: Array<(inUse: boolean) => void> = [];
@@ -406,6 +433,23 @@ describe("Notifications.Provider", () => {
       );
       await screen.findByText(other.message);
       expect(screen.queryByText(repeat.message)).toBeNull();
+    });
+
+    it("should count a write that the load returns once", async () => {
+      const key = createTaskKey();
+      const retrieve = client.statuses.retrieve.bind(client.statuses);
+      // Writes the problem while the load of the open problems waits on the Core.
+      const spy = vi
+        .spyOn(client.statuses, "retrieve")
+        .mockImplementation(async (params) => {
+          if (params.variants != null) {
+            spy.mockRestore();
+            await write({ key, variant: "error" });
+          }
+          return await retrieve(params);
+        });
+      const { result } = await renderForward(client, { task: STATE });
+      expect(result.current.find(({ status: s }) => s.key === key)?.count).toBe(1);
     });
 
     it("should notify a reply to a problem that is open at load", async () => {

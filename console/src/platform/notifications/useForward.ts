@@ -10,7 +10,7 @@
 import { ontology, type status, type Synnax as Client } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Synnax } from "@synnaxlabs/pluto";
-import { destructor, TimeSpan } from "@synnaxlabs/x";
+import { destructor, TimeSpan, type TimeStamp } from "@synnaxlabs/x";
 import { useEffect, useState } from "react";
 
 /**
@@ -116,6 +116,10 @@ interface Entry {
   count: number;
   /** Counts the use checks, since checks can end out of order. */
   checks: number;
+  /** Whether the use of the thing changed while the problem was closed. */
+  useStale?: boolean;
+  /** The time of the status that the load returned, for an entry that the load made. */
+  loaded?: TimeStamp;
 }
 
 interface ForwarderParams {
@@ -255,13 +259,18 @@ const createForwarder = ({
     check(problem, owner);
   };
 
-  const repeat = (problem: Entry, stat: status.Status): void => {
-    const restarted = !problem.open || problem.decision === "superseded";
+  const repeat = (problem: Entry, stat: status.Status, owner: Owner | null): void => {
+    const reopened = !problem.open;
+    const restarted = reopened || problem.decision === "superseded";
     if (problem.decision === "superseded") problem.decision = "waiting";
     problem.status = stat;
     problem.open = true;
     problem.count++;
     problem.covered = isCovered(problem.rule, stat);
+    if (reopened && problem.useStale === true && owner != null) {
+      problem.useStale = false;
+      check(problem, owner);
+    }
     if (problem.decision === "shown") {
       notify(problem);
       return;
@@ -293,11 +302,13 @@ const createForwarder = ({
   };
 
   const route = (stat: status.Status): void => {
+    const problem = problems.get(stat.key);
+    // The load returned the latest status of the key, which already holds older writes.
+    if (problem?.loaded?.afterEq(stat.time) === true) return;
     const owner = getOwner(rules, stat.key);
     const kind = owner?.rule.kind(stat) ?? "alarm";
     if (kind !== "state") retire(stat.key);
     const bad = PROBLEM_VARIANTS.includes(stat.variant);
-    const problem = problems.get(stat.key);
     if (!bad && problem != null) {
       problem.open = false;
       if (problem.decision === "waiting") clearTimeout(problem.timer);
@@ -311,7 +322,7 @@ const createForwarder = ({
       if (kind === "alarm") add(stat);
       return;
     }
-    if (problem?.identity === identify(stat)) repeat(problem, stat);
+    if (problem?.identity === identify(stat)) repeat(problem, stat, owner);
     else start(stat, owner, kind);
   };
 
@@ -338,6 +349,7 @@ const createForwarder = ({
       const owner = getOwner(rules, stat.key);
       const problem = track(stat, owner);
       problem.decision = "hidden";
+      problem.loaded = stat.time;
       // A reply gets the check too, since a later state can join its problem.
       if (owner == null || owner.rule.kind(stat) === "alarm") problem.inUse = true;
       else check(problem, owner);
@@ -356,7 +368,10 @@ const createForwarder = ({
       rechecking.delete(rule);
       problems.forEach((problem, key) => {
         const owner = getOwner(rules, key);
-        if (owner?.rule === rule && problem.checks > 0) check(problem, owner);
+        if (owner?.rule !== rule || problem.checks === 0) return;
+        // A closed problem checks again only when it reopens.
+        if (problem.open) check(problem, owner);
+        else problem.useStale = true;
       });
     });
   };
