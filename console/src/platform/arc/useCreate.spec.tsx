@@ -40,7 +40,7 @@ describe("arc useCreate", () => {
   it("should reject an empty name with a validation error", async () => {
     const { open } = await setup();
     await open();
-    await waitFor(() => expect(screen.getByPlaceholderText("Name")).toBeTruthy());
+    await waitFor(() => expect(screen.getByPlaceholderText("Arc name")).toBeTruthy());
     const create = await screen.findByRole("button", { name: "Create" });
     await act(async () => {
       fireEvent.click(create);
@@ -54,7 +54,7 @@ describe("arc useCreate", () => {
     await selectTestProject(store, client);
     await open();
 
-    const input = await screen.findByPlaceholderText("Name");
+    const input = await screen.findByPlaceholderText("Arc name");
     fireEvent.change(input, { target: { value: name } });
 
     const create = await screen.findByRole("button", { name: "Create" });

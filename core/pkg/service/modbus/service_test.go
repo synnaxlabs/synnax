@@ -20,8 +20,8 @@ import (
 	v1 "github.com/synnaxlabs/synnax/pkg/service/modbus/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 // register returns a holding register read channel carrying the given extra fields.
@@ -111,7 +111,7 @@ var _ = Describe("Service", func() {
 			})).To(Succeed())
 			data := MustSucceed(svc.Write.Read(ctx, nil, key))
 			Expect(data["channels"]).To(HaveExactElements(
-				HaveKeyWithValue("data_type", "uint8"),
+				HaveKeyWithValue("data_type", "uint16"),
 			))
 		})
 
@@ -123,6 +123,46 @@ var _ = Describe("Service", func() {
 			data := MustSucceed(svc.Scan.Read(ctx, nil, key))
 			Expect(data["rate"]).To(BeNumerically("==", 0.2))
 		})
+
+		DescribeTable(
+			"Should reject a register bit past 15",
+			func(
+				ctx SpecContext,
+				store func() config.Store,
+				channelType string,
+			) {
+				key := uuid.New()
+				write := func(bit int) error {
+					return store().Write(ctx, nil, key, msgpack.EncodedJSON{
+						"channels": []any{map[string]any{
+							"type":    channelType,
+							"key":     "chan-1",
+							"address": 4,
+							"bit":     bit,
+						}},
+					})
+				}
+				Expect(write(15)).To(Succeed())
+				Expect(write(16)).To(MatchError(ContainSubstring(
+					"channels.0.bit: must be less than or equal to 15",
+				)))
+			},
+			Entry(
+				"holding register bit read",
+				func() config.Store { return svc.Read },
+				"holding_register_bit",
+			),
+			Entry(
+				"input register bit read",
+				func() config.Store { return svc.Read },
+				"input_register_bit",
+			),
+			Entry(
+				"holding register bit write",
+				func() config.Store { return svc.Write },
+				"holding_register_bit",
+			),
+		)
 	})
 
 	Describe("Byte and word order", func() {

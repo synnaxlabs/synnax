@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -26,18 +26,18 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/synnax/pkg/service/task/config"
-	"github.com/synnaxlabs/synnax/pkg/service/testutil"
-	"github.com/synnaxlabs/x/kv/memkv"
+	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Where", Ordered, func() {
 	var (
-		v   testutil.Vectors[task.Task, task.Where]
+		v   svctestutil.Vectors[task.Task, task.Where]
 		svc *task.Service
 	)
-	v = MustSucceed(testutil.ReadVectors[task.Task, task.Where]("tasks"))
+	v = MustSucceed(svctestutil.ReadVectors[task.Task, task.Where]("tasks"))
 	aliases := lo.MapEntries(v.Records, func(
 		alias string,
 		t task.Task,
@@ -68,7 +68,7 @@ var _ = Describe("Where", Ordered, func() {
 			DB:           db,
 			Ontology:     otg,
 			Group:        g,
-			HostProvider: mock.NewStaticHostProvider(1),
+			HostProvider: testutil.NewStaticHostProvider(1),
 			Status:       stat,
 		}))
 		lj := MustOpen(labjack.OpenService(ctx, labjack.ServiceConfig{
@@ -92,7 +92,7 @@ var _ = Describe("Where", Ordered, func() {
 
 	DescribeTable(
 		"Should match the case",
-		func(ctx SpecContext, c testutil.Case[task.Where]) {
+		func(ctx SpecContext, c svctestutil.Case[task.Where]) {
 			f := MustSucceed(task.MatchWhere(c.Where))
 			var res []task.Task
 			Expect(svc.NewRetrieve().
@@ -104,7 +104,7 @@ var _ = Describe("Where", Ordered, func() {
 				return aliases[t.Key]
 			})).To(ConsistOf(c.Expected))
 		},
-		lo.Map(v.Cases, func(c testutil.Case[task.Where], _ int) TableEntry {
+		lo.Map(v.Cases, func(c svctestutil.Case[task.Where], _ int) TableEntry {
 			return Entry(c.Name, c)
 		}),
 	)

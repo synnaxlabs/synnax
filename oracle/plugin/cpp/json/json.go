@@ -330,7 +330,7 @@ func (p *Plugin) processStruct(
 		data.AddSystem("type_traits")
 	}
 
-	if resolver.CanUseInheritance(form, data.table) {
+	if resolver.CanUseInheritance(form, "cpp", data.table) {
 		serializer.HasExtends = true
 		for _, extendsRef := range form.Extends {
 			parent, ok := extendsRef.Resolve(data.table)

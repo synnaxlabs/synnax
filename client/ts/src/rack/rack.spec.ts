@@ -10,10 +10,9 @@
 import { id, TimeStamp, zod } from "@synnaxlabs/x";
 import { describe, expect, it, onTestFinished } from "vitest";
 
-import { NotFoundError } from "@/errors";
+import { NotFoundError } from "@/index";
 import { query } from "@/query";
-import { type rack } from "@/rack";
-import { statusKey } from "@/rack/client";
+import { rack } from "@/rack";
 import { status } from "@/status";
 import { createTestClient, spyOnSend, waitForStreamLive } from "@/testutil";
 
@@ -291,7 +290,7 @@ describe("Rack", () => {
       try {
         await client.statuses.set(
           status.create<typeof rack.statusDetailsZ>({
-            key: statusKey(r.key),
+            key: rack.statusKey(r.key),
             variant: "warning",
             message: "Rack needs attention",
             details: { rack: r.key },
@@ -316,7 +315,7 @@ describe("Rack", () => {
       try {
         await client.statuses.set(
           status.create<typeof rack.statusDetailsZ>({
-            key: statusKey(r.key),
+            key: rack.statusKey(r.key),
             variant: "error",
             message: "Rack went dark",
             details: { rack: r.key },
@@ -351,7 +350,7 @@ describe("Rack", () => {
         await client.statuses.set(impostor("device", "Device reconnecting..."));
         await client.statuses.set(
           status.create<typeof rack.statusDetailsZ>({
-            key: statusKey(r.key),
+            key: rack.statusKey(r.key),
             variant: "success",
             message: "Driver alive",
             details: { rack: r.key },

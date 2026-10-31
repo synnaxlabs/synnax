@@ -7,11 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <utility>
 #include <vector>
-
-#include "absl/log/log.h"
-
-#include "x/cpp/os/os.h"
 
 #include "driver/common/factory.h"
 #include "driver/ni/daqmx/prod.h"
@@ -23,53 +20,27 @@
 #include "driver/ni/write_task.h"
 
 namespace driver::ni {
-const std::string NO_LIBS_DESCRIPTION = "The NI-DAQmx and System Configuration "
-                                        "libraries are not installed on this system.";
-
 Factory::Factory(
-    const std::shared_ptr<daqmx::SugaredAPI> &dmx,
-    const std::shared_ptr<syscfg::SugaredAPI> &syscfg,
+    x::lib::Lazy<daqmx::SugaredAPI>::Loader load_dmx,
+    x::lib::Lazy<syscfg::SugaredAPI>::Loader load_syscfg,
     const common::TimingConfig timing_cfg
 ):
-    dmx(dmx), syscfg(syscfg), timing_cfg(timing_cfg) {}
+    dmx(std::make_shared<x::lib::Lazy<daqmx::SugaredAPI>>(std::move(load_dmx))),
+    syscfg(std::make_shared<x::lib::Lazy<syscfg::SugaredAPI>>(std::move(load_syscfg))),
+    timing_cfg(timing_cfg) {}
 
-bool Factory::check_health() const {
-    return this->dmx != nullptr && this->syscfg != nullptr;
-}
-
-bool Factory::check_health(
-    const std::shared_ptr<task::Context> &ctx,
-    const synnax::task::Task &task,
-    const std::string &cmd_key
-) const {
-    if (this->check_health()) return true;
-    synnax::task::Status status{
-        .key = synnax::task::status_key(task),
-        .name = task.name,
-        .variant = synnax::status::VARIANT_ERROR,
-        .message = "Failed to create task",
-        .description = NO_LIBS_DESCRIPTION,
-        .details = synnax::task::StatusDetails{
-            .task = task.key,
-            .running = false,
-            .cmd = cmd_key,
-            .config_hash = task.config_hash,
-        },
-    };
-    ctx->set_status(status);
-    return false;
-}
-
-std::unique_ptr<Factory> Factory::create(common::TimingConfig timing_cfg) {
-    if (x::os::get() == x::os::MACOS_NAME)
-        LOG(WARNING) << "[ni] integration is not supported on macOS";
-    auto [syscfg, syscfg_err] = syscfg::ProdAPI::load();
-    if (syscfg_err) LOG(WARNING) << syscfg_err;
-    auto [dmx, dmx_err] = daqmx::ProdAPI::load();
-    if (dmx_err) LOG(WARNING) << dmx_err;
+std::unique_ptr<Factory> Factory::create(const common::TimingConfig timing_cfg) {
     return std::make_unique<Factory>(
-        dmx != nullptr ? std::make_shared<daqmx::SugaredAPI>(dmx) : nullptr,
-        syscfg != nullptr ? std::make_shared<syscfg::SugaredAPI>(syscfg) : nullptr,
+        []() -> std::pair<std::shared_ptr<daqmx::SugaredAPI>, x::errors::Error> {
+            auto [dmx, err] = daqmx::ProdAPI::load();
+            if (err) return {nullptr, err};
+            return {std::make_shared<daqmx::SugaredAPI>(dmx), x::errors::NIL};
+        },
+        []() -> std::pair<std::shared_ptr<syscfg::SugaredAPI>, x::errors::Error> {
+            auto [syscfg, err] = syscfg::ProdAPI::load();
+            if (err) return {nullptr, err};
+            return {std::make_shared<syscfg::SugaredAPI>(syscfg), x::errors::NIL};
+        },
         timing_cfg
     );
 }
@@ -80,7 +51,6 @@ std::pair<std::unique_ptr<task::Task>, bool> Factory::configure_task(
     const std::string &cmd_key
 ) {
     if (!task.type.starts_with(INTEGRATION_NAME)) return {nullptr, false};
-    if (!this->check_health(ctx, task, cmd_key)) return {nullptr, true};
     std::pair<common::ConfigureResult, x::errors::Error> res;
     if (task.type == SCAN_TASK_TYPE)
         res = configure_scan(ctx, task);

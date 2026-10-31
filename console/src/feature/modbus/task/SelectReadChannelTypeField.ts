@@ -17,6 +17,8 @@ const NAMES = {
   discrete_input: "Discrete",
   holding_register: "Holding register",
   input_register: "Register",
+  holding_register_bit: "Holding register bit",
+  input_register_bit: "Register bit",
 } as const satisfies Record<ReadChannelType, string>;
 
 export const SelectReadChannelTypeField = Form.buildSelectField<ReadChannelType>({

@@ -9,7 +9,7 @@
 
 import threading
 from collections.abc import Callable
-from typing import assert_type, cast
+from typing import Any, assert_type, cast
 from uuid import UUID, uuid4
 
 import pytest
@@ -267,6 +267,7 @@ class TestTaskClient:
         tsk = client.tasks.create(name="test", type="pagerduty_alert")
         with client.open_streamer("sy_task_cmd") as s:
             key = tsk.execute_command("test")
+            matches: list[dict[str, Any]] = []
             for _ in range(10):
                 f = s.read(timeout=1)
                 assert f is not None, "timed out waiting for the command"
@@ -285,6 +286,7 @@ class TestTaskClient:
         target = uuid4()
         with client.open_streamer("sy_task_cmd") as s:
             key = tsk.execute_command("test", args={"target": target})
+            matches: list[dict[str, Any]] = []
             for _ in range(10):
                 f = s.read(timeout=1)
                 assert f is not None, "timed out waiting for the command"

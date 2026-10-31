@@ -27,6 +27,8 @@ message StatusDetails {
   uint32 rack = 1;
   // device is the device identifier.
   string device = 2;
+  // data contains device-specific status data.
+  optional google.protobuf.Struct data = 3;
 }
 
 // Device is a physical piece of hardware connected to Synnax through the Driver system.
