@@ -83,10 +83,16 @@ type String struct {
 	Eq *string `protobuf:"bytes,1,opt,name=eq,proto3,oneof" json:"eq,omitempty"`
 	// in matches a value equal to an element of in.
 	In *StringList `protobuf:"bytes,2,opt,name=in,proto3" json:"in,omitempty"`
-	// regex matches a value that the RE2 pattern regex matches.
-	Regex         *string `protobuf:"bytes,3,opt,name=regex,proto3,oneof" json:"regex,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	// contains matches a value that holds contains.
+	Contains *string `protobuf:"bytes,3,opt,name=contains,proto3,oneof" json:"contains,omitempty"`
+	// starts_with matches a value that begins with starts_with.
+	StartsWith *string `protobuf:"bytes,4,opt,name=starts_with,json=startsWith,proto3,oneof" json:"starts_with,omitempty"`
+	// regex matches a value that the unanchored RE2 pattern regex matches.
+	Regex *string `protobuf:"bytes,5,opt,name=regex,proto3,oneof" json:"regex,omitempty"`
+	// case_insensitive makes every operator on the slot ignore case.
+	CaseInsensitive bool `protobuf:"varint,6,opt,name=case_insensitive,json=caseInsensitive,proto3" json:"case_insensitive,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *String) Reset() {
@@ -133,11 +139,32 @@ func (x *String) GetIn() *StringList {
 	return nil
 }
 
+func (x *String) GetContains() string {
+	if x != nil && x.Contains != nil {
+		return *x.Contains
+	}
+	return ""
+}
+
+func (x *String) GetStartsWith() string {
+	if x != nil && x.StartsWith != nil {
+		return *x.StartsWith
+	}
+	return ""
+}
+
 func (x *String) GetRegex() string {
 	if x != nil && x.Regex != nil {
 		return *x.Regex
 	}
 	return ""
+}
+
+func (x *String) GetCaseInsensitive() bool {
+	if x != nil {
+		return x.CaseInsensitive
+	}
+	return false
 }
 
 // Bool selects boolean values.
@@ -193,12 +220,18 @@ const file_x_go_filter_pb_filter_proto_rawDesc = "" +
 	"\x1bx/go/filter/pb/filter.proto\x12\vx.filter.pb\"$\n" +
 	"\n" +
 	"StringList\x12\x16\n" +
-	"\x06values\x18\x01 \x03(\tR\x06values\"r\n" +
+	"\x06values\x18\x01 \x03(\tR\x06values\"\x81\x02\n" +
 	"\x06String\x12\x13\n" +
 	"\x02eq\x18\x01 \x01(\tH\x00R\x02eq\x88\x01\x01\x12'\n" +
-	"\x02in\x18\x02 \x01(\v2\x17.x.filter.pb.StringListR\x02in\x12\x19\n" +
-	"\x05regex\x18\x03 \x01(\tH\x01R\x05regex\x88\x01\x01B\x05\n" +
-	"\x03_eqB\b\n" +
+	"\x02in\x18\x02 \x01(\v2\x17.x.filter.pb.StringListR\x02in\x12\x1f\n" +
+	"\bcontains\x18\x03 \x01(\tH\x01R\bcontains\x88\x01\x01\x12$\n" +
+	"\vstarts_with\x18\x04 \x01(\tH\x02R\n" +
+	"startsWith\x88\x01\x01\x12\x19\n" +
+	"\x05regex\x18\x05 \x01(\tH\x03R\x05regex\x88\x01\x01\x12)\n" +
+	"\x10case_insensitive\x18\x06 \x01(\bR\x0fcaseInsensitiveB\x05\n" +
+	"\x03_eqB\v\n" +
+	"\t_containsB\x0e\n" +
+	"\f_starts_withB\b\n" +
 	"\x06_regex\"\"\n" +
 	"\x04Bool\x12\x13\n" +
 	"\x02eq\x18\x01 \x01(\bH\x00R\x02eq\x88\x01\x01B\x05\n" +

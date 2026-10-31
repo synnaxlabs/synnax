@@ -13,9 +13,12 @@ package testutil
 // outputs. Load it at "schemas/x/filter" for specs that declare filters.
 const FilterSchema = `
 String struct {
-	eq    string?
-	in    string[]?
-	regex string?
+	eq               string?
+	in               string[]?
+	contains         string?
+	starts_with      string?
+	regex            string?
+	case_insensitive bool = false
 }
 Bool struct {
 	eq bool?

@@ -63,17 +63,31 @@ func (s String) EncodeOrc(w *orc.Writer) error {
 	} else {
 		w.Bool(false)
 	}
+	if s.Contains != nil {
+		w.Bool(true)
+		w.String(*s.Contains)
+	} else {
+		w.Bool(false)
+	}
+	if s.StartsWith != nil {
+		w.Bool(true)
+		w.String(*s.StartsWith)
+	} else {
+		w.Bool(false)
+	}
 	if s.Regex != nil {
 		w.Bool(true)
 		w.String(*s.Regex)
 	} else {
 		w.Bool(false)
 	}
+	w.Bool(s.CaseInsensitive)
 	return nil
 }
 
 // DecodeOrc reads the value from r in the Orc binary format.
 func (s *String) DecodeOrc(r *orc.Reader) error {
+	var err error
 	{
 		present, err := r.Bool()
 		if err != nil {
@@ -115,8 +129,37 @@ func (s *String) DecodeOrc(r *orc.Reader) error {
 			if hv, err = r.String(); err != nil {
 				return err
 			}
+			s.Contains = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv string
+			if hv, err = r.String(); err != nil {
+				return err
+			}
+			s.StartsWith = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv string
+			if hv, err = r.String(); err != nil {
+				return err
+			}
 			s.Regex = &hv
 		}
+	}
+	if s.CaseInsensitive, err = r.Bool(); err != nil {
+		return err
 	}
 	return nil
 }

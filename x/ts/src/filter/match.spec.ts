@@ -51,6 +51,50 @@ describe("filter", () => {
       expect(filter.matchesString({ eq: "a", in: ["a"] }, "a")).toBe(true);
     });
 
+    it("should match contains and startsWith", () => {
+      expect(filter.matchesString({ contains: "an" }, "Tank")).toBe(true);
+      expect(filter.matchesString({ contains: "x" }, "Tank")).toBe(false);
+      expect(filter.matchesString({ startsWith: "Ta" }, "Tank")).toBe(true);
+      expect(filter.matchesString({ startsWith: "an" }, "Tank")).toBe(false);
+    });
+
+    it("should compare case by default", () => {
+      expect(filter.matchesString({ eq: "tank" }, "Tank")).toBe(false);
+      expect(filter.matchesString({ contains: "TA" }, "Tank")).toBe(false);
+    });
+
+    it("should ignore case with caseInsensitive", () => {
+      const ci = { caseInsensitive: true };
+      expect(filter.matchesString({ eq: "TANK", ...ci }, "tank")).toBe(true);
+      expect(filter.matchesString({ in: ["TANK"], ...ci }, "tank")).toBe(true);
+      expect(filter.matchesString({ contains: "AN", ...ci }, "tank")).toBe(true);
+      expect(filter.matchesString({ startsWith: "TA", ...ci }, "tank")).toBe(true);
+      expect(filter.matchesString({ eq: "ÄRGER", ...ci }, "ärger")).toBe(true);
+    });
+
+    it.each([
+      ["a Greek final sigma", "οδοσ", "ΟΔΟΣ", true],
+      ["a final and a medial sigma", "σ", "ς", true],
+      ["a long s", "s", "ſ", true],
+      ["the Kelvin sign", "k", "\u212a", true],
+      ["a Turkish dotted capital I", "i", "İ", false],
+    ])(
+      "should fold case by Unicode simple case folding: %s",
+      (_, eq, value, expected) => {
+        expect(filter.matchesString({ eq, caseInsensitive: true }, value)).toBe(
+          expected,
+        );
+      },
+    );
+
+    it("should treat regex characters in an operand as plain text", () => {
+      const ci = { caseInsensitive: true };
+      expect(filter.matchesString({ eq: "a.b", ...ci }, "axb")).toBe(false);
+      expect(filter.matchesString({ contains: "(x)", ...ci }, "a(x)b")).toBe(true);
+      expect(filter.matchesString({ startsWith: "[a-z]", ...ci }, "[a-z]1")).toBe(true);
+      expect(filter.matchesString({ in: ["a\\b"], ...ci }, "a\\b")).toBe(true);
+    });
+
     it("should throw on a regex", () => {
       expect(() => filter.matchesString({ regex: "a" }, "a")).toThrow(
         "cannot match a regex locally",

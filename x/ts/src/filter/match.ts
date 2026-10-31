@@ -32,13 +32,29 @@ export const matchesSet = <T>(op: Set<z.ZodType<T>>, value: T): boolean =>
   (op.eq === undefined || equal(op.eq, value)) &&
   (op.in == null || op.in.some((v) => equal(v, value)));
 
+const escape = (s: string): string => s.replace(/[\\^$.*+?()[\]{}|]/g, "\\$&");
+
 /**
- * @returns whether value matches every member of op that is set.
+ * @returns whether value matches every member of op that is set. With caseInsensitive,
+ * it compares by Unicode simple case folding, the rule the Core uses.
  * @throws {Error} if op sets a regex, since regex dialects differ between languages.
  */
 export const matchesString = (op: String, value: string): boolean => {
   if (op.regex != null) throw new Error("cannot match a regex locally");
-  return matchesSet(op, value);
+  if (op.caseInsensitive !== true)
+    return (
+      (op.eq == null || op.eq === value) &&
+      (op.in == null || op.in.includes(value)) &&
+      (op.contains == null || value.includes(op.contains)) &&
+      (op.startsWith == null || value.startsWith(op.startsWith))
+    );
+  const test = (pattern: string): boolean => new RegExp(pattern, "iu").test(value);
+  return (
+    (op.eq == null || test(`^${escape(op.eq)}$`)) &&
+    (op.in == null || op.in.some((e) => test(`^${escape(e)}$`))) &&
+    (op.contains == null || test(escape(op.contains))) &&
+    (op.startsWith == null || test(`^${escape(op.startsWith)}`))
+  );
 };
 
 /** @returns whether value matches every member of op that is set. */

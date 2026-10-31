@@ -64,6 +64,7 @@ var _ = Describe("Go Filter Plugin", func() {
 				kind   Kind
 				tags   string[]
 				owner  uuid     { @filter scalar }
+				alias  string   { @filter scalar }
 				@retrieve
 			}
 		`
@@ -127,7 +128,7 @@ var _ = Describe("Go Filter Plugin", func() {
 			ExpectContent(resp, "where.gen.go").
 				ToBeValidGoSource().
 				ToContain(
-					"return re.MatchString(e.Base().Name), nil",
+					"return match(e.Base().Name), nil",
 					"fs = append(fs, MatchTypes(l.In...))",
 				)
 		})
@@ -173,9 +174,7 @@ var _ = Describe("Go Filter Plugin", func() {
 				)
 		})
 
-		It("Should compile a regex and reject an invalid one at its path", func(
-			ctx SpecContext,
-		) {
+		It("Should match text operators through x/filter", func(ctx SpecContext) {
 			resp := MustGenerate(ctx, thing+`
 				Where filter Thing {
 					name
@@ -184,14 +183,36 @@ var _ = Describe("Go Filter Plugin", func() {
 			ExpectContent(resp, "where.gen.go").
 				ToBeValidGoSource().
 				ToContain(
-					`"regexp"`,
-					"re, err := regexp.Compile(*l.Regex)",
-					"errors.Wrap(validate.ErrValidation, err.Error())",
-					`"name",`,
-					`"regex",`,
+					`/x/go/filter"`,
+					"text := *l",
+					"if !l.CaseInsensitive {",
+					"fs = append(fs, MatchNames(*l.Eq))",
+					"fs = append(fs, MatchNames(l.In...))",
+					"text.In = nil",
+					"text.Eq = nil",
+					"match, err := filter.CompileString(text)",
+					`return nil, validate.PathedError(err, "name")`,
 					"e *Thing,",
-					"return re.MatchString(e.Name), nil",
-				)
+					"return match(e.Name), nil",
+				).
+				ToNotContain(`"regexp"`, `/x/go/errors"`)
+		})
+
+		It("Should match an in on a scalar text line through x/filter", func(
+			ctx SpecContext,
+		) {
+			resp := MustGenerate(ctx, thing+`
+				Where filter Thing {
+					alias
+				}
+			`, "thing", loader, p)
+			ExpectContent(resp, "where.gen.go").
+				ToBeValidGoSource().
+				ToContain(
+					"fs = append(fs, MatchAlias(*l.Eq))",
+					"match, err := filter.CompileString(text)",
+				).
+				ToNotContain("MatchAlias(l.In...)", "text.In = nil")
 		})
 
 		It("Should reject an invalid enum value at its path", func(ctx SpecContext) {
@@ -446,10 +467,10 @@ var _ = Describe("Go Filter Plugin", func() {
 		},
 			Entry(
 				"a member no operator has",
-				"regex string?",
-				"contains string?",
+				"regex            string?",
+				"ends_with        string?",
 				"name",
-				"the member contains of String",
+				"the member ends_with of String",
 			),
 			Entry(
 				"a member of another operator",

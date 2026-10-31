@@ -1093,7 +1093,7 @@ func (p *Plugin) processStruct(
 	}
 
 	for _, field := range allFields {
-		if sd.Request && field.Default != nil {
+		if sd.Strict && field.Default != nil {
 			field.Default = nil
 			field.Optional = true
 		}
@@ -3099,8 +3099,7 @@ type structData struct {
 	PartialFields     []fieldData
 	OmittedFields     []string
 	// Request is true for a request derived from a filter. A query cache keys on it, so
-	// it is a type alias, since an interface has no index signature. It leaves its
-	// defaults to the Core, so the cache sees only the fields that a caller set.
+	// it is a type alias, since an interface has no index signature.
 	Request bool
 	// ConditionalOmittedFields names the conditional (type-param-typed) base fields a
 	// synthesized @create New strips from its inner optional.Optional base before
@@ -3115,8 +3114,9 @@ type structData struct {
 	AllParamsOptional        bool
 	Handwritten              bool
 	IsRecursive              bool
-	// Strict is true when the schema rejects unknown keys, so a stale field in a filter
-	// request fails instead of selecting every record.
+	// Strict is true for a filter, its request, and its operator types. Each rejects
+	// unknown keys, so a stale field fails instead of selecting every record. Each
+	// leaves its defaults to the Core, so the cache sees only the fields a caller set.
 	Strict             bool
 	IsAlias            bool
 	IsSingleParam      bool
