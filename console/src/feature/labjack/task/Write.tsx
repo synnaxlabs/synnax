@@ -75,6 +75,7 @@ const ChannelListItem = ({ deviceModel, ...rest }: ChannelListItemProps) => {
         <PForm.Field<string>
           path={`${path}.port`}
           showLabel={false}
+          showHelpText={false}
           onChange={(value) => {
             if (port === value) return;
             set(path, { ...item, port: value });
@@ -94,6 +95,7 @@ const ChannelListItem = ({ deviceModel, ...rest }: ChannelListItemProps) => {
                 key="type"
                 path={`${path}.type`}
                 showLabel={false}
+                showHelpText={false}
                 gap="large"
                 onChange={(value) => {
                   if (type === value) return;

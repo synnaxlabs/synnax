@@ -27,7 +27,11 @@ const LABEL_LOCATION: position.LocationPreference = {
 };
 
 export const MenuItem = (): ReactElement => (
-  <Form.Field<label.Key[] | undefined> path="where.labels" showLabel={false}>
+  <Form.Field<label.Key[] | undefined>
+    path="where.labels"
+    showLabel={false}
+    showHelpText={false}
+  >
     {({ value, onChange }) => (
       <SelectMultiple
         value={value ?? []}
