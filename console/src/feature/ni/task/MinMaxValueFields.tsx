@@ -34,13 +34,13 @@ export const MinMaxValueFields = ({ path, units }: MinMaxValueFieldsProps) => (
       <MinValueField
         path={path}
         showLabel={false}
-        padHelpText={false}
+        showHelpText={false}
         inputProps={{ endContent: units, grow: true, "aria-label": "Minimum value" }}
       />
       <MaxValueField
         path={path}
         showLabel={false}
-        padHelpText={false}
+        showHelpText={false}
         inputProps={{ endContent: units, grow: true, "aria-label": "Maximum value" }}
       />
     </Flex.Box>

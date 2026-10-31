@@ -23,12 +23,12 @@ import { createModbusDevice } from "@/feature/modbus/testutil";
 import { NI } from "@/feature/ni";
 import { createTestDevice } from "@/platform/device/testutil";
 import { findButton } from "@/platform/modals/testutil";
-import { renderTreeContextMenu } from "@/platform/tree/menuTestutil";
-import { createResource } from "@/platform/tree/testutil";
 import {
+  createResource,
   openTreeRowContextMenu,
   renderOntologyTree,
-} from "@/platform/tree/treeTestutil";
+  renderTreeContextMenu,
+} from "@/platform/tree/testutil";
 import {
   assertDefined,
   awaitTextEditingElement,

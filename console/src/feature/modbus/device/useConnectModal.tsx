@@ -197,7 +197,12 @@ export const Connect = ({
       <Modal.Header icon={<Icon.Logo.Modbus />}>{HEADER}</Modal.Header>
       <Modal.Body gap="large">
         <Form.Form<PDevice.FormSchema<typeof SCHEMAS>> {...form}>
-          <Form.TextField path="name" showLabel={false} inputProps={NAME_INPUT_PROPS} />
+          <Form.TextField
+            path="name"
+            showLabel={false}
+            padHelpText={false}
+            inputProps={NAME_INPUT_PROPS}
+          />
           <Form.Sections className={SECTIONS_CLASS}>
             <Form.Section title="Connection">
               <Form.Field<Transport>
