@@ -42,7 +42,10 @@ export const useLabelledBy = (props: {
 export const useLabelled = (): boolean => useItemContext()?.labelID != null;
 
 /** The props through which a control shows the status of its {@link Item}. */
-export interface ItemStatusProps extends Tooltip.ExtensionProps {
+export interface ItemStatusProps extends Pick<
+  Tooltip.ExtensionProps,
+  "tooltip" | "hideTooltip"
+> {
   status?: Status.Variant;
   "aria-invalid"?: AriaAttributes["aria-invalid"];
   "aria-describedby"?: string;

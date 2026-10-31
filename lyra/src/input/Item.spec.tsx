@@ -217,7 +217,7 @@ describe("Input.Item", () => {
       expect(document.getElementById(id ?? "")?.textContent).toBe("Bad");
     });
 
-    it("should describe an input by nothing while it has no message", () => {
+    it("should leave an input undescribed while it has no message", () => {
       render(item({ showLabel: true, showHelpText: true }));
       expect(textbox("Line").getAttribute("aria-describedby")).toBeNull();
     });

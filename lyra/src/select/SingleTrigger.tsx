@@ -84,7 +84,6 @@ export const SingleTrigger = <K extends record.Key>({
   className,
   status,
   tooltip,
-  tooltipLocation,
   hideTooltip,
   id: idProp,
   onKeyDown,
@@ -154,7 +153,6 @@ export const SingleTrigger = <K extends record.Key>({
   const itemStatus = Input.useItemStatus({
     status,
     tooltip: tooltip ?? (collapsible ? shown : undefined),
-    tooltipLocation,
     hideTooltip: hideTooltip ?? (collapsible ? nameReadable : undefined),
     "aria-invalid": rest["aria-invalid"],
     "aria-describedby": rest["aria-describedby"],
@@ -192,7 +190,6 @@ export const SingleTrigger = <K extends record.Key>({
       aria-invalid={itemStatus["aria-invalid"]}
       aria-describedby={itemStatus["aria-describedby"]}
       tooltip={itemStatus.tooltip}
-      tooltipLocation={itemStatus.tooltipLocation}
       hideTooltip={itemStatus.hideTooltip}
       preview={preview}
       hideCaret={hideCaret || iconOnly || clearOnCaret}

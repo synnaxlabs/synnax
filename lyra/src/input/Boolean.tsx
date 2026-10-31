@@ -69,7 +69,6 @@ export const Boolean = ({
   const itemStatus = useItemStatus({
     status,
     tooltip,
-    tooltipLocation,
     hideTooltip,
     "aria-invalid": rest["aria-invalid"],
     "aria-describedby": rest["aria-describedby"],
@@ -99,7 +98,7 @@ export const Boolean = ({
       onClick={onClick}
       status={itemStatus.status}
       tooltip={itemStatus.tooltip}
-      tooltipLocation={itemStatus.tooltipLocation}
+      tooltipLocation={tooltipLocation}
       hideTooltip={itemStatus.hideTooltip}
     >
       {preview !== true ? (

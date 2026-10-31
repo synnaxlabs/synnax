@@ -190,7 +190,6 @@ export const Text = ({
   const itemStatus = useItemStatus({
     status,
     tooltip,
-    tooltipLocation,
     hideTooltip,
     "aria-invalid": rest["aria-invalid"],
     "aria-describedby": rest["aria-describedby"],
@@ -256,7 +255,7 @@ export const Text = ({
       preventClick={preventClick}
       onClickDelay={onClickDelay}
       tooltip={itemStatus.tooltip}
-      tooltipLocation={itemStatus.tooltipLocation}
+      tooltipLocation={tooltipLocation}
       hideTooltip={itemStatus.hideTooltip}
       reveal={reveal}
       propagateClick={propagateClick}
