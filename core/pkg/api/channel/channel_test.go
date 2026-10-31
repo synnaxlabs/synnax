@@ -271,7 +271,7 @@ var _ = Describe("Service", func() {
 			) {
 				reader := MustSucceed(userSvc.NewWriter(nil).Create(
 					ctx,
-					user.User{Username: "reader-" + uuid.New().String()},
+					user.User{Name: "reader-" + uuid.New().String()},
 				))
 				grantOn(
 					ctx,

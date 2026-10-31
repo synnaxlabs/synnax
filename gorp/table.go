@@ -13,7 +13,6 @@ import (
 	"context"
 	"io"
 	"iter"
-	"sync/atomic"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp/internal/key"
@@ -54,15 +53,9 @@ type Table[K Key, E Entry[K]] struct {
 	// disconnectObserver releases the index observer subscription. Nil when no observer
 	// was installed.
 	disconnectObserver func()
-	// populateDone is closed when the background populate routine exits. Nil when the
-	// table has no indexes.
-	populateDone <-chan struct{}
 	// populateShutdown cancels the populate context and waits for the populate routine
 	// to exit. Nil when the table has no indexes.
 	populateShutdown io.Closer
-	// populateErr is the terminal scan error, set by runPopulate before it returns.
-	// Read by WaitForIndexes after populateDone is closed.
-	populateErr atomic.Pointer[error]
 }
 
 // Close disconnects the table's index observer, cancels any running populate goroutine,
@@ -80,30 +73,6 @@ func (t *Table[K, E]) Close() error {
 	return err
 }
 
-// WaitForIndexes blocks until the table's secondary indexes finish populating. Returns
-// nil on success, the populate error on failure, or ctx.Err() if ctx is canceled before
-// populate completes. Returns nil immediately for tables with no registered indexes.
-//
-// Most callers do not need WaitForIndexes: idx.Filter inside Retrieve blocks
-// transparently until the index is ready and falls back to a sequential scan if
-// populate fails. WaitForIndexes is useful for tests that observe indexed state
-// directly via Get / GetTx, and for service startup paths that want to fail fast on
-// populate failure.
-func (t *Table[K, E]) WaitForIndexes(ctx context.Context) error {
-	if t.populateDone == nil {
-		return nil
-	}
-	select {
-	case <-t.populateDone:
-		if e := t.populateErr.Load(); e != nil {
-			return *e
-		}
-		return nil
-	case <-ctx.Done():
-		return ctx.Err()
-	}
-}
-
 // OpenTable creates or opens a table for the given entry type. It runs any provided
 // versioned migrations followed by key migrations to ensure entries are stored under
 // the current prefix and key encoding format. After migrations complete, OpenTable
@@ -115,8 +84,7 @@ func (t *Table[K, E]) WaitForIndexes(ctx context.Context) error {
 // After populate completes the index serves queries normally. If populate fails,
 // idx.Filter falls back to a sequential scan with a synthesized predicate so queries
 // continue to return correct results, and the failure is logged via
-// cfg.Instrumentation. WaitForIndexes lets callers synchronize explicitly when they
-// need to.
+// cfg.Instrumentation.
 func OpenTable[K Key, E Entry[K]](
 	ctx context.Context,
 	cfg TableConfig[K, E],
@@ -155,7 +123,6 @@ func OpenTable[K Key, E Entry[K]](
 	// open-operation ctx (may be short-lived, e.g. an open timeout), but populate must
 	// run for the Table's full lifetime. Termination flows through Table.Close().
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(cfg.Instrumentation))
-	t.populateDone = sCtx.Stopped()
 	t.populateShutdown = signal.NewHardShutdown(sCtx, cancel)
 	sCtx.Go(
 		func(ctx context.Context) error {
@@ -169,8 +136,7 @@ func OpenTable[K Key, E Entry[K]](
 
 // runPopulate scans the table once and feeds every registered index from the same scan.
 // Populate failures are recoverable: queries fall back to sequential scan, and the
-// terminal scan error is stored on t.populateErr and passed to each index's finish
-// closure.
+// terminal scan error is logged and passed to each index's finish closure.
 func (t *Table[K, E]) runPopulate(
 	ctx context.Context,
 	ins alamos.Instrumentation,
@@ -180,7 +146,6 @@ func (t *Table[K, E]) runPopulate(
 	var scanErr error
 	defer func() {
 		if scanErr != nil {
-			t.populateErr.Store(&scanErr)
 			ins.L.Error(
 				"gorp index populate failed; queries fall back to sequential scan",
 				zap.Error(scanErr),
@@ -266,10 +231,4 @@ func (t *Table[K, E]) NewDelete() Delete[K, E] {
 	d.retrieve.keyPrefix = t.keyPrefix
 	d.indexes = t.indexes
 	return d
-}
-
-// OpenNexter opens a new Nexter over entries in the table using the DB's codec for
-// decoding.
-func (t *Table[K, E]) OpenNexter(ctx context.Context) (iter.Seq[E], io.Closer, error) {
-	return wrapReader[K, E](t.db, t.keyPrefix).OpenNexter(ctx)
 }

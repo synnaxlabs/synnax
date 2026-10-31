@@ -21,7 +21,7 @@ import { afterAll, test } from "vitest";
 
 import { ChannelData, type ChannelDataProps, type Client } from "@/telem/aether/remote";
 import { type ValueProps } from "@/telem/aether/telem";
-import { telemTest } from "@/telem/aether/test";
+import { telemTest } from "@/telem/aether/testutil";
 
 // Each read is one frame of a line 1000 pixels wide, with every tile it draws cached.
 

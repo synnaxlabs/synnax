@@ -15,6 +15,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy"
+	legacyv3 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v3"
+	legacyv5 "github.com/synnaxlabs/synnax/pkg/service/schematic/versions/legacy/v5"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -50,7 +52,7 @@ var _ = Describe("MigrateData", func() {
 	DescribeTable("Should lift every Console state version to the latest snapshot",
 		func(version string) {
 			d := MustSucceed(legacy.MigrateData(stateAt(version)))
-			Expect(d.Version).To(Equal(legacy.DataVersion))
+			Expect(d.Version).To(Equal(legacyv5.Version))
 			Expect(d.Snapshot).To(BeTrue())
 			Expect(d.Nodes).To(HaveLen(1))
 			Expect(d.Nodes[0].Key).To(Equal("n1"))
@@ -86,7 +88,7 @@ var _ = Describe("MigrateData", func() {
 			}],
 			"props": {}
 		}`)))
-		Expect(d.Edges[0].Segments).To(Equal([]legacy.Segment{
+		Expect(d.Edges[0].Segments).To(Equal([]legacyv3.Segment{
 			{Direction: "x", Length: 12},
 		}))
 	})
@@ -112,13 +114,13 @@ var _ = Describe("MigrateData", func() {
 			"edges": [],
 			"props": {}
 		}`)))
-		Expect(d.Version).To(Equal(legacy.DataVersion))
+		Expect(d.Version).To(Equal(legacyv5.Version))
 		Expect(d.Nodes).To(HaveLen(1))
 	})
 
 	It("Should decode a nil blob into a zero Data at the latest version", func() {
 		d := MustSucceed(legacy.MigrateData(nil))
-		Expect(d.Version).To(Equal(legacy.DataVersion))
+		Expect(d.Version).To(Equal(legacyv5.Version))
 		Expect(d.Nodes).To(BeEmpty())
 	})
 
@@ -137,9 +139,5 @@ var _ = Describe("MigrateData", func() {
 var _ = Describe("Versions", func() {
 	It("Should report the Console's highest written version as LastVersion", func() {
 		Expect(legacy.LastVersion).To(BeEquivalentTo(6))
-	})
-
-	It("Should terminate the state chain one version below LastVersion", func() {
-		Expect(legacy.DataVersion).To(BeEquivalentTo(5))
 	})
 })

@@ -19,6 +19,7 @@ from synnax import (
     channel,
     connection,
     device,
+    exceptions,
     framer,
     group,
     project,
@@ -40,6 +41,7 @@ from synnax.ranger.retrieve import Retriever as RangeRetriever
 from synnax.signals import Registry as SignalsRegistry
 from synnax.telem import TimeSpan
 from synnax.transport import Transport
+from x.exceptions import Registry
 
 
 class Synnax(framer.Client):
@@ -88,6 +90,7 @@ class Synnax(framer.Client):
 
     def __init__(
         self,
+        *,
         host: str = "",
         port: int = 0,
         username: str = "",
@@ -123,8 +126,14 @@ class Synnax(framer.Client):
             certificate, such as the ca.crt that the Core generates.
         """
         opts = try_load_options_if_none_provided(
-            host, port, username, password, secure, ca_cert
+            host=host,
+            port=port,
+            username=username,
+            password=password,
+            secure=secure,
+            ca_cert=ca_cert,
         )
+        registry = exceptions.create_registry()
         self._transport = _configure_transport(
             opts=opts,
             open_timeout=open_timeout,
@@ -132,6 +141,7 @@ class Synnax(framer.Client):
             keep_alive=keep_alive,
             max_retries=max_retries,
             instrumentation=instrumentation,
+            registry=registry,
         )
         self.auth = auth.Client(
             transport=self._transport.unary,
@@ -151,9 +161,15 @@ class Synnax(framer.Client):
         # that, and when an unclosed client is garbage collected.
         self._finalizer = weakref.finalize(self, self.connectivity.stop)
 
-        ch_retriever = channel.Retriever(self._transport.unary, instrumentation)
-        deleter = framer.Deleter(self._transport.unary, instrumentation)
-        ch_creator = channel.Writer(self._transport.unary, instrumentation)
+        ch_retriever = channel.Retriever(
+            client=self._transport.unary, instrumentation=instrumentation
+        )
+        deleter = framer.Deleter(
+            client=self._transport.unary, instrumentation=instrumentation
+        )
+        ch_creator = channel.Writer(
+            client=self._transport.unary, instrumentation=instrumentation
+        )
         super().__init__(
             stream_client=self._transport.stream,
             async_client=self._transport.stream_async,
@@ -161,19 +177,29 @@ class Synnax(framer.Client):
             file_transport=self._transport.file_transport,
             retriever=ch_retriever,
             deleter=deleter,
+            registry=registry,
             instrumentation=instrumentation,
         )
         self.groups = group.Client(self._transport.unary)
         self.ontology = OntologyClient(client=self._transport.unary)
-        self.channels = channel.Client(self, ch_retriever, ch_creator)
-        range_retriever = RangeRetriever(self._transport.unary, instrumentation)
-        range_creator = ranger.Writer(self._transport.unary, instrumentation)
+        self.channels = channel.Client(
+            frame_client=self, retriever=ch_retriever, creator=ch_creator
+        )
+        range_retriever = RangeRetriever(
+            client=self._transport.unary, instrumentation=instrumentation
+        )
+        range_creator = ranger.Writer(
+            client=self._transport.unary, instrumentation=instrumentation
+        )
         self.signals = SignalsRegistry(frame_client=self, channels=ch_retriever)
         self.racks = rack.Client(client=self._transport.unary)
         self.devices = device.Client(client=self._transport.unary)
         self.views = view.Client(client=self._transport.unary)
         self.imex = ImexClient(file_transport=self._transport.file_transport)
-        self.projects = project.Client(client=self._transport.unary)
+        self.projects = project.Client(
+            client=self._transport.unary,
+            file_transport=self._transport.file_transport,
+        )
         self.tasks = task.Client(
             client=self._transport.unary,
             frame_client=self,
@@ -190,7 +216,9 @@ class Synnax(framer.Client):
             ontology=self.ontology,
             tasks=self.tasks,
         )
-        self.control = ControlClient(self, ch_retriever, self._transport.unary)
+        self.control = ControlClient(
+            framer=self, channels=ch_retriever, client=self._transport.unary
+        )
         self.users = user.Client(self._transport.unary)
         self.statuses = status.Client(self._transport.unary)
         self.license = LicenseClient(self._transport.unary)
@@ -212,15 +240,18 @@ class Synnax(framer.Client):
 
 
 def _configure_transport(
+    *,
     opts: Options,
     open_timeout: TimeSpan,
     read_timeout: TimeSpan,
     keep_alive: TimeSpan,
     max_retries: int,
+    registry: Registry,
     instrumentation: Instrumentation = NOOP,
 ) -> Transport:
     return Transport(
         instrumentation=instrumentation,
+        registry=registry,
         url=URL(host=opts.host, port=opts.port),
         secure=opts.secure,
         ca_cert=opts.ca_cert,

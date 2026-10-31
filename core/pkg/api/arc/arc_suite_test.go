@@ -120,6 +120,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		DB:       db,
 		Ontology: otg,
 		Group:    groupSvc,
+		Password: passwordSvc,
 	}))
 	MustSucceed2(
 		user.ProvisionRoot(
@@ -141,7 +142,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Status: statusSvc,
 	}))
 	author = MustSucceed(
-		userSvc.NewWriter(nil).Create(ctx, user.User{Username: "test"}),
+		userSvc.NewWriter(nil).Create(ctx, user.User{Name: "test"}),
 	)
 	testRack = &rack.Rack{Name: "API Test Rack"}
 	Expect(rackSvc.NewWriter(nil).Create(ctx, testRack)).To(Succeed())

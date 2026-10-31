@@ -42,7 +42,8 @@ afterEach(() => {
 // jsdom's XML parser does not attach CSSStyleDeclaration to painted SVG shapes, which
 // normalizeSVG's computed-style pass requires; a shapeless SVG exercises the same
 // production load path without touching that jsdom hole.
-const SHAPELESS_SVG = '<svg viewBox="0 0 100 100"><g id="grp"></g></svg>';
+const SHAPELESS_SVG =
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><g id="grp"></g></svg>';
 
 // The triggers provider identifies a key by KeyboardEvent.code, not by the printed
 // character, so the zoom keys are pressed as Equal, Minus, and Digit0.
@@ -156,7 +157,7 @@ describe("Schematic.Symbol.Edit.useModal", () => {
       );
       assertDefined(item);
       expect(within(item).queryAllByRole("textbox")).toHaveLength(0);
-      const swatches = item.querySelectorAll<HTMLElement>(".pluto-color-swatch");
+      const swatches = item.querySelectorAll<HTMLElement>(".lyra-color-swatch");
       expect(swatches).toHaveLength(2);
       fireEvent.click(swatches[0]);
       fireEvent.change(screen.getByLabelText("Hex"), { target: { value: "ff0000" } });

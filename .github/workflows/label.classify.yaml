@@ -1,0 +1,74 @@
+# Copyright 2026 Synnax Labs, Inc.
+#
+# Use of this software is governed by the Business Source License included in the file
+# licenses/BSL.txt.
+#
+# As of the Change Date specified in that file, in accordance with the Business Source
+# License, use of this software will be governed by the Apache License, Version 2.0,
+# included in the file licenses/APL.txt.
+
+# Labels a pull request review/human or review/bot from the results Check - Classify
+# uploaded, and keeps one comment with the evidence. An agent reads the UI part of the
+# diff (Console, Pluto, Lyra), fetched through the API. A fork, or a change to the
+# classifier itself, always gets a human: either could forge the uploaded results. The
+# workflow runs from the default branch and never checks out or runs pull request code:
+# the artifacts are data. The label goes on with an App token, because a label set with
+# GITHUB_TOKEN starts no other workflow, and the review gate and auto-merge wait for it.
+
+name: Label - Classify
+
+on:
+  workflow_run:
+    workflows:
+      - Check - Classify
+    types:
+      - completed
+
+permissions: {}
+
+# One run per pull request branch at a time, so an older run never writes after a newer
+# one. A newer queued run replaces an older queued one.
+concurrency:
+  group:
+    label-classify-${{ github.event.workflow_run.head_repository.full_name }}-${{
+    github.event.workflow_run.head_branch }}
+  cancel-in-progress: false
+
+jobs:
+  label:
+    name: Label
+    if: github.event.workflow_run.conclusion != 'cancelled'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: .github/scripts
+
+      - name: Download the results
+        uses: actions/download-artifact@v8
+        with:
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/results
+
+      - name: Create an App token
+        id: token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ secrets.CLAUDE_CODE_APP_ID }}
+          private-key: ${{ secrets.CLAUDE_CODE_APP_PRIVATE_KEY }}
+
+      - name: Install the agent
+        run: npm install --global @anthropic-ai/claude-code@latest
+
+      - name: Classify
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+          HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          REVIEW_AGENT: claude -p --tools "" --strict-mcp-config
+        run: python3 .github/scripts/classify.py "$RUNNER_TEMP/results"

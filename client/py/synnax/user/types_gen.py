@@ -28,17 +28,13 @@ class User(BaseModel):
 
     Attributes:
         key: Is the unique identifier for this user.
-        username: Is the unique login name for the user.
-        first_name: Is the user's first name.
-        last_name: Is the user's last name.
+        name: Is the user's display name.
         root_user: Is true if this is a root/admin user with full system access. Root
             users cannot be deleted.
     """
 
     key: Key
-    username: str
-    first_name: str
-    last_name: str
+    name: str = Field(min_length=1)
     root_user: bool = False
 
     def __hash__(self) -> int:
@@ -53,7 +49,7 @@ class Where(BaseModel):
         or_: Matches when any child matches.
         not_: Matches when the child does not match.
         key: Selects by key.
-        username: Selects by username.
+        usernames: Matches the users whose password has any of the given usernames.
     """
 
     model_config = ConfigDict(populate_by_name=True, extra="forbid")
@@ -62,7 +58,7 @@ class Where(BaseModel):
     or_: list[Where] | None = Field(default=None, alias="or")
     not_: Where | None = Field(default=None, alias="not")
     key: filter.Set[Key] | None = None
-    username: filter.String | None = None
+    usernames: list[str] | None = None
 
 
 class RetrieveResponse(BaseModel):
