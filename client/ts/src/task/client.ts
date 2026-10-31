@@ -96,7 +96,7 @@ interface CommandDeadline {
   cmd: Command;
   timer: NodeJS.Timeout;
   /** The status this client last wrote for the command, which is never its reply. */
-  shown: Status;
+  optimistic: Status;
 }
 
 /**
@@ -514,7 +514,7 @@ export class Client extends query.Retriever<
         return;
       }
       const pending = this.commandDeadlines.get(task);
-      if (pending == null || event.value === pending.shown) return;
+      if (pending == null || event.value === pending.optimistic) return;
       if (status.detailsOf(event.value)?.cmd !== pending.cmd.key) return;
       clearTimeout(pending.timer);
       this.commandDeadlines.delete(task);
@@ -752,11 +752,12 @@ export class Client extends query.Retriever<
       const answered = this.statusesByTask
         .get(task)
         .some(
-          (s) => s !== pending.shown && status.detailsOf(s)?.cmd === pending.cmd.key,
+          (s) =>
+            s !== pending.optimistic && status.detailsOf(s)?.cmd === pending.cmd.key,
         );
       if (answered) continue;
-      pending.shown = this.optimisticStatus(pending.cmd);
-      this.cfg.statuses.setLocal(pending.shown);
+      pending.optimistic = this.optimisticStatus(pending.cmd);
+      this.cfg.statuses.setLocal(pending.optimistic);
     }
   }
 
@@ -786,7 +787,7 @@ export class Client extends query.Retriever<
         }),
       );
     }, COMMAND_DEADLINE.milliseconds);
-    this.commandDeadlines.set(cmd.task, { cmd, timer, shown: optimistic });
+    this.commandDeadlines.set(cmd.task, { cmd, timer, optimistic });
   }
 
   // A task's status may live under the "task:<key>" row or under any status whose

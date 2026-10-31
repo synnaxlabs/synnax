@@ -17,7 +17,7 @@ import (
 
 // Migration lifts stored statuses from v1 to v2, which adds the problem start and clear
 // times. Both stay empty until the next write of each status. Details pass through as
-// raw JSON, since decoding them as any rounds integers past 2^53.
+// raw JSON, because decoding them as any rounds integers past 2^53.
 var Migration = migrate.NewEntry(
 	"v61_add_since_and_cleared",
 	autoMigrateStatus[json.RawMessage],
