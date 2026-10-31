@@ -68,18 +68,27 @@ func (s *Service) CreateSession(
 	if err != nil {
 		return SessionCreateResponse{}, err
 	}
-	res := SessionCreateResponse{Token: tk, Session: session}
-	if req.Cookie {
-		freighter.MDFromContext(ctx).Set(SessionCookieParam, SessionCookie{
-			Token:    tk,
-			Lifetime: s.auth.IdleTimeout(),
-		})
-		res.Token = ""
+	res := SessionCreateResponse{
+		Token:   s.deliver(ctx, tk, req.Cookie),
+		Session: session,
 	}
 	if res.User, err = s.userOf(ctx, session.Subject); err != nil {
 		return SessionCreateResponse{}, err
 	}
 	return res, nil
+}
+
+// deliver returns token, or with cookie set hands it to the transport through
+// [SessionCookieParam] and returns an empty token.
+func (s *Service) deliver(ctx context.Context, token string, cookie bool) string {
+	if !cookie {
+		return token
+	}
+	freighter.MDFromContext(ctx).Set(SessionCookieParam, SessionCookie{
+		Token:    token,
+		Lifetime: s.auth.IdleTimeout(),
+	})
+	return ""
 }
 
 // SessionRenewResponse is the caller's session, so a client that holds only a token

@@ -115,3 +115,6 @@ instance.
 Deploy with the `Deploy - Runners` workflow: it copies the `RUNNERS_*` repo secrets into
 Parameter Store under `/runners/` and runs `deploy.ps1` on the box over SSM. Never start
 the scripts by hand on the box.
+
+The `Sync - Runner webhook ranges` workflow runs `hook_ranges.py` daily. It keeps the
+controller's TCP 9091 rules in sync with the `hooks` ranges in GitHub's meta API.

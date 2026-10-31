@@ -11,8 +11,8 @@ import { TimeStamp, uuid } from "@synnaxlabs/x";
 import { describe, expect, it, onTestFinished, vi } from "vitest";
 
 import { channel } from "@/channel";
-import { AccessDeniedError, NotFoundError } from "@/errors";
 import { framer } from "@/framer";
+import { AccessDeniedError, NotFoundError } from "@/index";
 import { status } from "@/status";
 import {
   createTestClient,

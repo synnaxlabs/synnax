@@ -72,11 +72,13 @@ class CalculatedChannels(ConsoleCase):
         console.channels.edit_calculated(
             self.calc_editable, new_expression=updated_expr
         )
-        for _ in range(5):
-            sy.sleep(0.5)
-            frame = client.read_latest([self.calc_editable, self._ch_uptime], n=1)
+        sy.sleep(0.5)
+        frame = client.read_latest([self.calc_editable, self._ch_uptime], n=1)
+        for _ in range(4):
             if len(frame[self._ch_uptime]) > 0:
                 break
+            sy.sleep(0.5)
+            frame = client.read_latest([self.calc_editable, self._ch_uptime], n=1)
         uptime_val = int(to_float(frame[self._ch_uptime][-1]))
         calc_val = int(to_float(frame[self.calc_editable][-1]))
         expected_val = uptime_val * updated_multiplier
