@@ -32,8 +32,9 @@ struct Argument {
 
 /// @brief reads the InputArguments property of each method.
 /// @returns the input arguments of each method, in order. A method without the property
-/// takes none. Nothing for a method that the server did not browse, or whose property
-/// holds no arguments. Returns the error of the browse or the read.
+/// takes none. Nothing for a method that the server did not browse, whose browse
+/// stopped before it found the property, or whose property holds no arguments. Returns
+/// the error of the browse or the read.
 std::pair<std::vector<std::optional<std::vector<Argument>>>, x::errors::Error>
 read_inputs(
     const connection::Pool::Connection &conn,

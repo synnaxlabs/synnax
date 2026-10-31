@@ -52,4 +52,31 @@ TEST(MethodTest, ReadsInputArguments) {
     EXPECT_FALSE(inputs[2].has_value());
     server.stop();
 }
+
+/// @brief it should leave the inputs of a method unknown when the browse stops before
+/// it lists the children of the method.
+TEST(MethodTest, LeavesCutShortMethodUnknown) {
+    auto server_cfg = testutil::ServerConfig::create_default();
+    server_cfg.port = 4865;
+    server_cfg.pump = testutil::Pump{};
+    server_cfg.generated_variables = connection::MAX_CHILDREN + 1;
+    server_cfg.max_nodes_per_browse = 1;
+    server_cfg.max_references_per_node = 2500;
+    testutil::Server server(server_cfg);
+    server.start();
+    ASSERT_TRUE(server.wait_until_ready());
+    connection::Config cfg;
+    cfg.endpoint = "opc.tcp://localhost:4865";
+    cfg.security_mode = "None";
+    cfg.security_policy = "None";
+    connection::Pool pool(testutil::create_store());
+    const auto conn = ASSERT_NIL_P(pool.acquire(cfg, "[test] "));
+    const auto inputs = ASSERT_NIL_P(read_inputs(
+        conn,
+        {UA_NODEID_STRING(1, const_cast<char *>("Generated")), testutil::PUMP_CONFIGURE}
+    ));
+    ASSERT_EQ(inputs.size(), 2);
+    EXPECT_FALSE(inputs[1].has_value());
+    server.stop();
+}
 }
