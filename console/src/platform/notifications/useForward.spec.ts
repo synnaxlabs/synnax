@@ -438,17 +438,25 @@ describe("Notifications.Provider", () => {
     it("should count a write that the load returns once", async () => {
       const key = createTaskKey();
       const retrieve = client.statuses.retrieve.bind(client.statuses);
-      // Writes the problem while the load of the open problems waits on the Core.
+      const loading = Promise.withResolvers<void>();
+      const written = Promise.withResolvers<void>();
+      // Holds the load of the open problems until the problem is written.
       const spy = vi
         .spyOn(client.statuses, "retrieve")
         .mockImplementation(async (params) => {
           if (params.variants != null) {
-            spy.mockRestore();
-            await write({ key, variant: "error" });
+            loading.resolve();
+            await written.promise;
           }
           return await retrieve(params);
         });
-      const { result } = await renderForward(client, { task: STATE });
+      const rendering = renderForward(client, { task: STATE });
+      await loading.promise;
+      await write({ key, variant: "error" });
+      written.resolve();
+      const { result } = await rendering;
+      spy.mockRestore();
+      await settleWrites(client);
       expect(result.current.find(({ status: s }) => s.key === key)?.count).toBe(1);
     });
 
