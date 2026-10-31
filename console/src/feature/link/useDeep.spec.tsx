@@ -120,8 +120,7 @@ const createCoreState = (): Session.Core.SliceState => ({
     [OTHER_CORE_KEY]: {
       key: OTHER_CORE_KEY,
       name: "Other",
-      host: "127.0.0.1",
-      port: TEST_CORE_ADDRESS.port,
+      ...TEST_CORE_ADDRESS,
       username: "synnax",
       password: "seldon",
       secure: false,
@@ -129,8 +128,7 @@ const createCoreState = (): Session.Core.SliceState => ({
     [THIRD_CORE_KEY]: {
       key: THIRD_CORE_KEY,
       name: "Third",
-      host: "127.0.0.1",
-      port: TEST_CORE_ADDRESS.port,
+      ...TEST_CORE_ADDRESS,
       username: "synnax",
       password: "seldon",
       secure: false,

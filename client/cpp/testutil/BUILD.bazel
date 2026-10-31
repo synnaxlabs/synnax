@@ -8,6 +8,7 @@
 # included in the file licenses/APL.txt.
 
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 cc_library(
     name = "testutil",
@@ -18,5 +19,15 @@ cc_library(
         "//client/cpp:synnax",
         "//x/cpp/env",
         "//x/cpp/testutil",
+    ],
+)
+
+cc_test(
+    name = "testutil_test",
+    srcs = ["testutil_test.cpp"],
+    deps = [
+        ":testutil",
+        "//x/cpp/env",
+        "@googletest//:gtest_main",
     ],
 )
