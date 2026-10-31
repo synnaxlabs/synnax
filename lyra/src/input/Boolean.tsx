@@ -112,7 +112,7 @@ export const Boolean = ({
             {...rest}
             aria-labelledby={ariaLabelledBy}
           />
-          <span className={CSS.BE("input", inputType, "indicator")} onClick={onClick}>
+          <span className={CSS.BE("input", inputType, "indicator")}>
             {value ? checkedIcon : uncheckedIcon}
           </span>
         </>
