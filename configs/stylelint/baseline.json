@@ -1,0 +1,373 @@
+{
+  "foreignClasses": {
+    "console/src/app/App.css": ["pluto-editor"],
+    "console/src/app/palette/Palette.css": ["lyra-list__scroll--empty"],
+    "console/src/app/window/Primary.css": [
+      "lyra--hidden",
+      "lyra--location-left",
+      "lyra--location-top"
+    ],
+    "console/src/app/window/Window.css": ["lyra-btn--outlined", "lyra-flex"],
+    "console/src/feature/account/Login.css": ["lyra-orbital"],
+    "console/src/feature/arc/editor/SelectPerformance.css": [
+      "lyra--visible",
+      "lyra-icon",
+      "lyra-select__dialog",
+      "lyra-select__label"
+    ],
+    "console/src/feature/arc/editor/TaskControls.css": ["lyra-btn", "pluto-editor"],
+    "console/src/feature/arc/editor/toolbar/graph/Toolbar.css": [
+      "lyra-input",
+      "lyra-list__item",
+      "lyra-list__virtualizer",
+      "pluto-arc__stage"
+    ],
+    "console/src/feature/arc/toolbar/Toolbar.css": ["lyra-list__item"],
+    "console/src/feature/auth/ConnectionGuard.css": ["lyra-orbital"],
+    "console/src/feature/core/Badge.css": ["lyra-btn"],
+    "console/src/feature/embedded/Guard.css": ["lyra-orbital"],
+    "console/src/feature/http/device/Connect.css": [
+      "lyra--direction-y",
+      "lyra-form-sections",
+      "lyra-tabs__content",
+      "lyra-tabs__selector"
+    ],
+    "console/src/feature/license/useInfoModal.css": ["lyra-text--code"],
+    "console/src/feature/lineplot/toolbar/Toolbar.css": ["lyra-list__item"],
+    "console/src/feature/log/toolbar/Toolbar.css": ["lyra-btn"],
+    "console/src/feature/ni/task/DigitalChannelList.css": [
+      "lyra--selected",
+      "lyra-list__item"
+    ],
+    "console/src/feature/opcua/device/Connect.css": [
+      "lyra--direction-y",
+      "lyra-form-sections"
+    ],
+    "console/src/feature/opcua/task/Task.css": ["lyra-header"],
+    "console/src/feature/panel/Mosaic.css": [
+      "lyra--center",
+      "pluto-panel-mosaic--overlaid"
+    ],
+    "console/src/feature/panel/MovePicker.css": ["lyra-modal__body"],
+    "console/src/feature/panel/Selector.css": ["lyra-btn"],
+    "console/src/feature/project/Selector.css": [
+      "lyra-avatar",
+      "lyra-dialog__dialog",
+      "lyra-list__scroll",
+      "lyra-list__virtualizer"
+    ],
+    "console/src/feature/project/Splash.css": [
+      "lyra-input",
+      "lyra-list__item",
+      "lyra-list__virtualizer"
+    ],
+    "console/src/feature/range/explorer/Explorer.css": [
+      "lyra-list__sentinel",
+      "lyra-list__virtualizer",
+      "lyra-tags"
+    ],
+    "console/src/feature/range/list/List.css": ["lyra-list__item", "lyra-tags"],
+    "console/src/feature/range/overview/Overview.css": ["lyra--hidden", "lyra-header"],
+    "console/src/feature/schematic/symbol/edit/Edit.css": [
+      "lyra-modal",
+      "lyra-modal__body"
+    ],
+    "console/src/feature/schematic/toolbar/Toolbar.css": [
+      "lyra-icon",
+      "lyra-input",
+      "lyra-list__item",
+      "lyra-list__virtualizer",
+      "lyra-tabs__selector",
+      "lyra-tabs__tab",
+      "lyra-text",
+      "pluto-symbol-primitive"
+    ],
+    "console/src/feature/task/Toolbar.css": ["lyra-icon", "lyra-list__item"],
+    "console/src/feature/theme/Modal.css": ["lyra-modal__body"],
+    "console/src/platform/button/CreateListItem.css": ["lyra-btn"],
+    "console/src/platform/channel/CalculatedModal.css": [
+      "lyra-field__expression",
+      "lyra-modal",
+      "pluto-editor"
+    ],
+    "console/src/platform/connection/Indicator.css": [
+      "lyra-status-indicator__core",
+      "lyra-status-indicator__track"
+    ],
+    "console/src/platform/connection/Target.css": ["lyra-icon"],
+    "console/src/platform/device/Configure.css": [
+      "lyra--end",
+      "lyra--start",
+      "lyra-navbar"
+    ],
+    "console/src/platform/device/Find.css": [
+      "lyra--end",
+      "lyra--start",
+      "lyra-icon",
+      "lyra-icon-tile",
+      "lyra-navbar"
+    ],
+    "console/src/platform/errors/Overlay.css": [
+      "pluto-error-fallback__container",
+      "pluto-error-fallback__content"
+    ],
+    "console/src/platform/label/Edit.css": ["lyra--hidden", "lyra-input", "lyra-modal"],
+    "console/src/platform/multiedit/Sections.css": ["lyra-input-label"],
+    "console/src/platform/nav/Nav.css": [
+      "lyra--direction-x",
+      "lyra--direction-y",
+      "lyra--end",
+      "lyra--hidden",
+      "lyra--location-bottom",
+      "lyra--location-left",
+      "lyra--location-top",
+      "lyra--selected",
+      "lyra--square",
+      "lyra--start",
+      "lyra-menu-item",
+      "lyra-navbar__content",
+      "lyra-resize",
+      "lyra-resize__handle"
+    ],
+    "console/src/platform/notifications/Feed.css": ["lyra-btn"],
+    "console/src/platform/selector/Selector.css": ["lyra-btn", "lyra-icon"],
+    "console/src/platform/shell/Shell.css": [
+      "lyra--square",
+      "lyra-header",
+      "lyra-list__item",
+      "lyra-orbital__stage"
+    ],
+    "console/src/platform/task/Form.css": ["lyra-header", "lyra-list__scroll"],
+    "console/src/platform/task/views/GroupTree.css": [
+      "lyra--selected",
+      "lyra-btn",
+      "lyra-icon",
+      "lyra-tree__item"
+    ],
+    "console/src/platform/task/views/Panes.css": ["lyra-divider", "lyra-header"],
+    "console/src/platform/toolbar/Header.css": ["lyra--location-bottom"],
+    "console/src/platform/version/Info.css": ["lyra-text"],
+    "console/src/platform/vis/Controls.css": ["lyra-btn", "lyra-tabs__content"],
+    "pluto/src/channel/Select.css": ["lyra-dialog__frame", "lyra-dialog__trigger"],
+    "pluto/src/code/Editor.css": ["lyra--bordered"],
+    "pluto/src/errors/Fallback.css": ["lyra-breadcrumb__separator"],
+    "pluto/src/index.css": ["lyra-text"],
+    "pluto/src/mosaic/Mosaic.css": [
+      "lyra-flex",
+      "lyra-resize",
+      "lyra-resize-split",
+      "lyra-tabs"
+    ],
+    "pluto/src/panel/Mosaic.css": [
+      "lyra--alt-color",
+      "lyra--square",
+      "lyra-btn",
+      "lyra-btn--text",
+      "lyra-flex",
+      "lyra-icon",
+      "lyra-tabs",
+      "lyra-tabs__content",
+      "lyra-tabs__selector",
+      "lyra-tabs__selector--clipped-start",
+      "lyra-tabs__selector--default",
+      "lyra-tabs__selector--scrollable",
+      "lyra-tabs__tab"
+    ],
+    "pluto/src/schematic/Schematic.css": ["lyra--thin"],
+    "pluto/src/schematic/Tooltip.css": ["lyra-icon"],
+    "pluto/src/schematic/node/common/form/StateMapping.css": [
+      "lyra-btn",
+      "lyra-list__item"
+    ],
+    "pluto/src/schematic/node/common/orientation/select.css": [
+      "lyra-btn",
+      "lyra-form-section__body",
+      "lyra-form-sections",
+      "lyra-input__item"
+    ],
+    "pluto/src/schematic/node/common/primitive/primitive.css": [
+      "lyra--disabled",
+      "lyra-btn",
+      "lyra-btn--filled",
+      "lyra-btn--outlined",
+      "lyra-select__label"
+    ],
+    "pluto/src/schematic/node/general/button/button.css": [
+      "lyra-btn",
+      "lyra-btn--filled"
+    ],
+    "pluto/src/schematic/node/general/offPageReference/offPageReference.css": [
+      "lyra-icon",
+      "lyra-text"
+    ],
+    "pluto/src/schematic/node/general/select/select.css": [
+      "lyra-btn",
+      "lyra-caret-animated",
+      "lyra-dialog__frame",
+      "lyra-dialog__trigger",
+      "lyra-input"
+    ],
+    "pluto/src/schematic/node/general/stringDisplay/stringDisplay.css": ["lyra-text"],
+    "pluto/src/schematic/node/general/switch/switch.css": [
+      "lyra--disabled",
+      "lyra-btn",
+      "lyra-input__switch",
+      "lyra-input__switch-indicator"
+    ],
+    "pluto/src/schematic/node/general/value/value.css": ["lyra-text"],
+    "pluto/src/table/Table.css": ["lyra-text"],
+    "pluto/src/table/cells/Cells.css": ["lyra-text--editable"],
+    "pluto/src/telem/control/Legend.css": ["lyra-icon"],
+    "pluto/src/vis/legend/Container.css": ["lyra-text"],
+    "pluto/src/vis/properties/Tabs.css": [
+      "lyra-icon",
+      "lyra-tabs__content",
+      "lyra-tabs__selector",
+      "lyra-tabs__tab"
+    ],
+    "pluto/src/vis/value/RedlineForm.css": [
+      "lyra-color-swatch",
+      "lyra-color-swatch__dropdown",
+      "lyra-flex",
+      "lyra-list__item",
+      "lyra-list__scroll"
+    ],
+    "site/common/src/base.css": ["lyra-btn"],
+    "site/common/src/drawer.css": ["lyra-icon"],
+    "site/docs/src/components/article/Article.astro": [
+      "lyra-btn",
+      "lyra-divider",
+      "lyra-icon",
+      "lyra-icon--caret-right",
+      "lyra-tabs__content",
+      "lyra-text"
+    ],
+    "site/docs/src/components/article/NextPrev.astro": ["lyra-icon"],
+    "site/docs/src/components/blog/OneBillionRowsTile.astro": ["lyra-text--h1"],
+    "site/docs/src/components/card/Card.astro": ["lyra-icon"],
+    "site/docs/src/components/channel/Type.astro": ["lyra-icon"],
+    "site/docs/src/components/channel/Types.astro": [
+      "lyra-tabs",
+      "lyra-tabs__content",
+      "lyra-tabs__selector"
+    ],
+    "site/docs/src/components/code/Block.astro": ["lyra-icon", "lyra-tabs__content"],
+    "site/docs/src/components/console/tour/tour.css": ["lyra-icon"],
+    "site/docs/src/components/edition/Compare.astro": ["lyra-icon"],
+    "site/docs/src/components/landing/Choice.astro": ["lyra-btn", "lyra-icon"],
+    "site/docs/src/components/layout/Header.astro": ["lyra-icon"],
+    "site/docs/src/components/media/Lightbox.astro": ["lyra-progress"],
+    "site/docs/src/components/note/Note.css": [
+      "lyra--error",
+      "lyra--info",
+      "lyra--warning"
+    ],
+    "site/docs/src/components/problem/Body.astro": ["lyra-description__item"],
+    "site/docs/src/components/releases/Release.astro": ["lyra-icon--logo-github"],
+    "site/docs/src/components/reliability/Wall.astro": ["lyra-text"],
+    "site/docs/src/components/search/Search.astro": [
+      "lyra--hovered",
+      "lyra-icon",
+      "lyra-text"
+    ],
+    "site/docs/src/components/text/Step.astro": ["lyra-text"],
+    "site/docs/src/pages/reliability.astro": ["lyra-divider", "lyra-text"],
+    "site/docs/src/styles/base.css": ["lyra-btn"],
+    "site/docs/src/styles/layout.css": [
+      "lyra-btn",
+      "lyra-dialog__dialog",
+      "lyra-divider",
+      "lyra-progress",
+      "lyra-tabs",
+      "lyra-tabs__content",
+      "lyra-text",
+      "lyra-text--p"
+    ],
+    "site/docs/src/styles/pluto.css": [
+      "lyra--visible",
+      "lyra-caret",
+      "lyra-dialog__bg",
+      "lyra-dialog__dialog",
+      "lyra-icon",
+      "lyra-icon--arc-flow",
+      "lyra-icon--arc-func",
+      "lyra-tabs",
+      "lyra-tabs__content",
+      "lyra-tabs__selector",
+      "lyra-tabs__selector--chip",
+      "lyra-tabs__tab",
+      "lyra-text"
+    ],
+    "site/foundation/src/styles/contact.css": ["lyra-btn"],
+    "site/foundation/src/styles/page.css": ["lyra-btn"],
+    "site/foundation/src/styles/responsive.css": ["lyra-btn"],
+    "site/foundation/src/styles/unlocks.css": ["lyra-btn"],
+    "site/portal/src/styles/portal.css": [
+      "lyra-avatar",
+      "lyra-btn",
+      "lyra-dialog__dialog",
+      "lyra-input",
+      "lyra-list__item",
+      "lyra-tag"
+    ],
+    "site/www/src/components/Header.astro": ["lyra-btn", "lyra-btn--text", "lyra-icon"],
+    "site/www/src/components/contact/Contact.astro": ["lyra-btn--filled"],
+    "site/www/src/styles/base.css": ["lyra-btn"]
+  },
+  "globalStyles": [
+    "site/common/src/Footer.astro",
+    "site/docs/src/components/article/Article.astro",
+    "site/docs/src/components/article/NextPrev.astro",
+    "site/docs/src/components/blog/ArcTile.astro",
+    "site/docs/src/components/blog/OneBillionRowsTile.astro",
+    "site/docs/src/components/card/Card.astro",
+    "site/docs/src/components/card/Grid.astro",
+    "site/docs/src/components/channel/Type.astro",
+    "site/docs/src/components/channel/Types.astro",
+    "site/docs/src/components/code/Block.astro",
+    "site/docs/src/components/console/ControlChip.astro",
+    "site/docs/src/components/details/Details.astro",
+    "site/docs/src/components/edition/Compare.astro",
+    "site/docs/src/components/edition/Enterprise.astro",
+    "site/docs/src/components/feedback/Feedback.astro",
+    "site/docs/src/components/hardware/Platforms.astro",
+    "site/docs/src/components/landing/Choice.astro",
+    "site/docs/src/components/landing/Hero.astro",
+    "site/docs/src/components/landing/Use.astro",
+    "site/docs/src/components/layout/Header.astro",
+    "site/docs/src/components/layout/NotFound.astro",
+    "site/docs/src/components/media/Lightbox.astro",
+    "site/docs/src/components/nav/OnThisPage.astro",
+    "site/docs/src/components/nav/Outline.astro",
+    "site/docs/src/components/nav/OutlineBar.astro",
+    "site/docs/src/components/nav/Page.astro",
+    "site/docs/src/components/problem/Body.astro",
+    "site/docs/src/components/problem/Item.astro",
+    "site/docs/src/components/releases/List.astro",
+    "site/docs/src/components/releases/Release.astro",
+    "site/docs/src/components/reliability/Stat.astro",
+    "site/docs/src/components/reliability/Subsystems.astro",
+    "site/docs/src/components/reliability/Wall.astro",
+    "site/docs/src/components/rule/Item.astro",
+    "site/docs/src/components/search/Search.astro",
+    "site/docs/src/components/term/Term.astro",
+    "site/docs/src/components/text/Step.astro",
+    "site/docs/src/pages/blog/index.astro",
+    "site/docs/src/pages/reliability.astro",
+    "site/foundation/src/components/Header.astro",
+    "site/www/src/components/Header.astro",
+    "site/www/src/components/automate/Automate.astro",
+    "site/www/src/components/company/Company.astro",
+    "site/www/src/components/contact/Contact.astro",
+    "site/www/src/components/hero/Hero.astro",
+    "site/www/src/components/integrations/Integrations.astro",
+    "site/www/src/components/review/BrickWall.astro",
+    "site/www/src/components/review/Review.astro",
+    "site/www/src/components/sdks/SDKs.astro",
+    "site/www/src/components/sponsorships/Sponsorships.astro",
+    "site/www/src/components/stream/Alarms.astro",
+    "site/www/src/components/stream/CalcChannels.astro",
+    "site/www/src/components/visualize/Visualize.astro",
+    "site/www/src/pages/404.astro"
+  ]
+}

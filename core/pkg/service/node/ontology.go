@@ -48,7 +48,7 @@ func (s *Service) RetrieveResource(
 	key string,
 	_ gorp.Tx,
 ) (ontology.Resource, error) {
-	intKey, err := strconv.Atoi(key)
+	intKey, err := strconv.ParseUint(key, 10, 16)
 	if err != nil {
 		return ontology.Resource{}, err
 	}

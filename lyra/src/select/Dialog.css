@@ -11,26 +11,26 @@
 
 /* Not gated on visibility: the dialog frame reads this width to place the dialog before
    it shows. The window width caps it, as min-width wins over max-width. */
-.pluto-select__dialog:not(.pluto--modal) {
+.lyra-select__dialog:not(.lyra--modal) {
     min-width: min(32rem, var(--pluto-dialog-available-width, 100vw));
 }
 
-.pluto-select__dialog.pluto--visible {
+.lyra-select__dialog.lyra--visible {
     --pluto-dialog-max-height: 250px;
+
     min-height: 60px;
     height: fit-content;
-    & .pluto-list__scroll--empty {
+
+    & .lyra-list__scroll--empty {
         min-height: 20rem;
     }
 
-    &.pluto--modal {
+    &.lyra--modal {
         max-height: var(--pluto-dialog-max-height);
+        /* stylelint-disable declaration-no-important -- outranks the dialog's own
+           border and clip */
         border: none !important;
         overflow: visible !important;
-
-        .pluto-input:first-child .pluto-input__internal {
-            border-top-left-radius: var(--pluto-border-radius-small) !important;
-            border-top-right-radius: var(--pluto-border-radius-small) !important;
-        }
+        /* stylelint-enable declaration-no-important */
     }
 }

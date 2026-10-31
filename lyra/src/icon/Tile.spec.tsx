@@ -19,7 +19,7 @@ describe("Icon.Tile", () => {
         <Icon.Rack />
       </Icon.Tile>,
     );
-    const tile = container.querySelector(".pluto-icon-tile");
+    const tile = container.querySelector(".lyra-icon-tile");
     expect(tile?.getAttribute("aria-hidden")).toBe("true");
     expect(tile?.querySelector("svg")).not.toBeNull();
   });
@@ -30,8 +30,8 @@ describe("Icon.Tile", () => {
         <Icon.Rack />
       </Icon.Tile>,
     );
-    expect(container.querySelector(".pluto-icon-tile")?.classList).toContain(
-      `pluto-icon-tile--${size}`,
+    expect(container.querySelector(".lyra-icon-tile")?.classList).toContain(
+      `lyra-icon-tile--${size}`,
     );
   });
 
@@ -41,8 +41,8 @@ describe("Icon.Tile", () => {
         <Icon.Rack />
       </Icon.Tile>,
     );
-    expect(container.querySelector(".pluto-icon-tile")?.classList).toContain(
-      "pluto-icon-tile--large",
+    expect(container.querySelector(".lyra-icon-tile")?.classList).toContain(
+      "lyra-icon-tile--large",
     );
   });
 });

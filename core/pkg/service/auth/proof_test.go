@@ -40,6 +40,25 @@ var _ = Describe("Proof MessagePack", func() {
 		creds := auth.Credentials{Username: "jane", Password: "secret"}
 		Expect(decoded.Variant).To(Equal(auth.PasswordProof{Credentials: creds}))
 	})
+	It("Should round trip an API key proof", func(ctx SpecContext) {
+		proof := auth.Proof{Variant: auth.APIKeyProof{
+			APIKeyCredentials: auth.APIKeyCredentials{Key: "syk_abc"},
+		}}
+		b := MustSucceed(msgpack.Codec.Encode(ctx, proof))
+		var decoded auth.Proof
+		Expect(msgpack.Codec.Decode(ctx, b, &decoded)).To(Succeed())
+		Expect(decoded).To(Equal(proof))
+	})
+	It("Should reject an API key proof whose key is not a string", func(
+		ctx SpecContext,
+	) {
+		b := MustSucceed(msgpack.Codec.Encode(
+			ctx,
+			map[string]any{"method": "api_key", "key": []int{1}},
+		))
+		Expect(vmsgpack.Unmarshal(b, &auth.Proof{})).
+			To(MatchError(ContainSubstring("decoding string/bytes")))
+	})
 	It("Should reject an unknown method", func(ctx SpecContext) {
 		b := MustSucceed(
 			msgpack.Codec.Encode(ctx, map[string]string{"method": "magic"}),

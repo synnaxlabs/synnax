@@ -17,7 +17,6 @@ import { Access, User } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
-import { Session } from "@/session";
 
 const Roles = (): ReactElement | null => {
   const { data: key } = User.useResultKey({});
@@ -36,37 +35,17 @@ const Roles = (): ReactElement | null => {
   );
 };
 
-/** The logged-in user's first name, falling back to their username. */
-export const useDisplayName = (): string => {
-  const { data: remoteUsername } = User.useResultUsername({});
-  const { data: firstName } = User.useResultFirstName({});
-  const core = Session.Core.useSelectSelected();
-  const username = remoteUsername ?? core?.username ?? "";
-  return firstName != null && firstName !== "" ? firstName : username;
-};
-
-/** The logged-in user's name, roles, and username, for embedding in a dialog. */
+/** The logged-in user's name and roles, for embedding in a dialog. */
 export const Info = (): ReactElement => {
-  const { data: remoteUsername } = User.useResultUsername({});
-  const { data: firstName } = User.useResultFirstName({});
-  const { data: lastName } = User.useResultLastName({});
-  const core = Session.Core.useSelectSelected();
-  const username = remoteUsername ?? core?.username ?? "";
-  const fullName = [firstName, lastName].filter((part) => part).join(" ");
-  const name = fullName !== "" ? fullName : username;
+  const { data: name } = User.useResultName({});
   return (
     <Flex.Box y gap="tiny" className={CSS.B("user-info")}>
       <Flex.Box x align="center" gap="small">
-        <Text.Text weight={500} color={11} overflow="ellipsis">
+        <Text.Text weight={500} color={11} overflow="fade">
           {name}
         </Text.Text>
         <Roles />
       </Flex.Box>
-      {fullName !== "" && (
-        <Text.Text level="small" color={9} overflow="ellipsis">
-          {username}
-        </Text.Text>
-      )}
     </Flex.Box>
   );
 };

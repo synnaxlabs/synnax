@@ -41,7 +41,7 @@ func migratedKey(subject ontology.ID) Key {
 
 // NewMove returns the migration that moves each stored credential to the user with its
 // username, keeping the bcrypt hash. A credential no user holds is dropped with a
-// warning. It reads users in their v0 shape, so it runs after the user migrations.
+// warning. It reads users in their v0 shape, so it runs after the user v0 migrations.
 func NewMove() gorp.Migration {
 	return migrate.New("v0.move_credentials_to_passwords", move)
 }

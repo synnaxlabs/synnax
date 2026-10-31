@@ -82,29 +82,3 @@ func NewObservableSubscriber[V Value]() *ObservableSubscriber[V] {
 	o.Sink = o.sink
 	return o
 }
-
-type GeneratorTransformObservable[V Value, T Value] struct {
-	UnarySink[V]
-	Generator GeneratorFunc[V, T]
-	observe.Observer[T]
-}
-
-func NewGeneratorTransformObservable[V, T Value](
-	f GeneratorFunc[V, T],
-) *GeneratorTransformObservable[V, T] {
-	o := &GeneratorTransformObservable[V, T]{
-		Generator: f,
-		Observer:  observe.New[T](),
-	}
-	o.Sink = o.sink
-	return o
-}
-
-func (o *GeneratorTransformObservable[V, T]) sink(ctx context.Context, v V) error {
-	t, ok, err := o.Generator(ctx, v)
-	if err != nil || !ok {
-		return err
-	}
-	o.NotifyGenerator(ctx, t)
-	return nil
-}

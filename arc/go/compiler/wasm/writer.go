@@ -158,11 +158,6 @@ func (e *Writer) WriteBinaryOp(op Opcode) {
 	e.WriteOpcode(op)
 }
 
-// WriteUnaryOp writes a simple unary operation (no immediates)
-func (e *Writer) WriteUnaryOp(op Opcode) {
-	e.WriteOpcode(op)
-}
-
 // WriteI32Eqz writes an i32.eqz instruction (returns 1 if value is 0, else 0)
 func (e *Writer) WriteI32Eqz() {
 	e.WriteOpcode(OpI32Eqz)
@@ -234,11 +229,6 @@ func (e *Writer) Bytes() []byte {
 // Len returns the current bytecode length
 func (e *Writer) Len() int {
 	return e.buf.Len()
-}
-
-// Reset clears the bytecode buffer
-func (e *Writer) Reset() {
-	e.buf.Reset()
 }
 
 // BlockType represents the type signature of a block

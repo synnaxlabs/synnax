@@ -14,13 +14,14 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
+	"strings"
 	"uuid"
 
 	"github.com/onsi/ginkgo/v2"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/git"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/testutil"
 	"github.com/uptrace/uptrace-go/uptrace"
@@ -64,10 +65,11 @@ const devDSN = "http://synnax_dev@localhost:14317/2"
 
 func newTracer(serviceName string) *alamos.Tracer {
 	ginkgo.GinkgoHelper()
+	commit := testutil.MustSucceed(exec.Command("git", "rev-parse", "HEAD").Output())
 	uptrace.ConfigureOpentelemetry(
 		uptrace.WithDSN(devDSN),
 		uptrace.WithServiceName(serviceName),
-		uptrace.WithServiceVersion(lo.Must(git.CurrentCommit())),
+		uptrace.WithServiceVersion(strings.TrimSpace(string(commit))),
 	)
 	return testutil.MustSucceed(alamos.NewTracer(alamos.TracingConfig{
 		OtelProvider:   otel.GetTracerProvider(),

@@ -19,7 +19,7 @@
 }
 
 /* Shrink guard: a long list would otherwise compress the header. */
-.console-shell__list .pluto-header {
+.console-shell__list .lyra-header {
     padding: 2.5rem 3rem;
     flex-shrink: 0;
 }
@@ -30,7 +30,7 @@
     padding: 1.5rem;
 }
 
-.console-shell__list .pluto-list__item {
+.console-shell__list .lyra-list__item {
     min-height: 9rem;
     padding: 2rem 3rem;
     border-radius: var(--pluto-border-radius-medium);
@@ -61,7 +61,7 @@
     padding: 0 2rem;
     border-radius: var(--pluto-border-radius-medium);
 
-    &.pluto--square {
+    &.lyra--square {
         width: 6rem;
         padding: 0;
     }
@@ -76,7 +76,8 @@
     flex-wrap: wrap;
     justify-content: center;
 
-    & > .pluto-text--overflow-ellipsis {
+    & > .console-shell__connection-name,
+    & > .console-shell__connection-address {
         min-width: 0;
     }
 }
@@ -106,7 +107,7 @@
 }
 
 /* The orbital centers the mark itself, so the standalone spacing comes off. */
-.pluto-orbital__stage .console-shell__mark-ring {
+.lyra-orbital__stage .console-shell__mark-ring {
     margin: 0;
 }
 

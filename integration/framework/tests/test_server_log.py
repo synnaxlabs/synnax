@@ -30,7 +30,9 @@ class TestServerLog:
         src.write_bytes(b"before|during")
         start = len(b"before|")
         dst = tmp_path / "bundle" / "server.log"
-        assert server_log.slice_to(src, dst, start, server_log.current_offset(src))
+        assert server_log.slice_to(
+            src, dst, start=start, end=server_log.current_offset(src)
+        )
         assert dst.read_bytes() == b"during"
 
     def test_should_copy_from_start_to_the_end(self, tmp_path: Path) -> None:
@@ -40,10 +42,10 @@ class TestServerLog:
         with open(src, "ab") as f:
             f.write(b"new")
         dst = tmp_path / "server.log"
-        assert server_log.copy_range(src, dst, start)
+        assert server_log.copy_range(src, dst, start=start)
         assert dst.read_bytes() == b"new"
 
     def test_should_skip_a_missing_log(self, tmp_path: Path) -> None:
         dst = tmp_path / "server.log"
-        assert not server_log.copy_range(tmp_path / "missing.log", dst, 0)
+        assert not server_log.copy_range(tmp_path / "missing.log", dst, start=0)
         assert not dst.exists()

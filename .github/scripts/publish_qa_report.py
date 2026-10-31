@@ -36,7 +36,7 @@ def git(*args: str, env: dict[str, str] | None = None) -> str:
     ).stdout.strip()
 
 
-def upload(paths: list[Path], prefix: str, repo: str) -> str:
+def upload(paths: list[Path], *, prefix: str, repo: str) -> str:
     """Commits paths under prefix on the assets branch and returns their base URL.
 
     Retries when another publisher moves the branch between the fetch and the push.
@@ -91,7 +91,7 @@ def main() -> int:
 
     if links:
         prefix = f"console-qa-{run or os.getpid()}"
-        base = upload([a.dir / link for link in links], prefix, repo)
+        base = upload([a.dir / link for link in links], prefix=prefix, repo=repo)
         body = IMAGE_LINK.sub(lambda m: f"]({base}/{Path(m[1]).name})", body)
     body_file = a.dir / "issue.md"
     body_file.write_text(body)

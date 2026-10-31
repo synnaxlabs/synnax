@@ -42,21 +42,21 @@ class ModbusInvalidConfig(ModbusCase):
 
     def test_no_device(self) -> ModbusRead:
         self.log("Testing: No device selected")
-        page = self.create_page(ModbusRead, "Modbus Console Invalid")
-        self.assert_device_required(page, SERVER_FIELD_LABEL)
+        page = self.create_page(ModbusRead, prefix="Modbus Console Invalid")
+        self.assert_device_required(page, label=SERVER_FIELD_LABEL)
         return page
 
     def test_invalid_rates(self, page: ModbusRead) -> None:
         self.log("Testing: Invalid rates (sample_rate < stream_rate)")
         page.select_server(self.device_name)
-        page.add_channel(REGISTER, 0)
+        page.add_channel(REGISTER, address=0)
         self.assert_rates_rejected(page)
 
     def test_invalid_address(self, page: ModbusRead) -> None:
         self.log("Testing: Invalid register address (runtime)")
         self.set_rates(page)
         page.set_address(0, BAD_ADDRESS)
-        self.assert_driver_rejects(page, "invalid address")
+        self.assert_driver_rejects(page, label="invalid address")
 
     def test_duplicate_channel(self, page: ModbusRead) -> None:
         """Run the task, then deploy a second task on the same register."""
@@ -66,8 +66,8 @@ class ModbusInvalidConfig(ModbusCase):
         # Page objects locate their pane by task type, so the first tab closes before a
         # second read task opens.
         self.console.close_all_tabs()
-        second = self.create_page(ModbusRead, "Modbus Console Duplicate")
+        second = self.create_page(ModbusRead, prefix="Modbus Console Duplicate")
         second.select_server(self.device_name)
-        second.add_channel(REGISTER, 0)
-        self.assert_driver_rejects(second, "duplicate channel")
+        second.add_channel(REGISTER, address=0)
+        self.assert_driver_rejects(second, label="duplicate channel")
         self.console.tasks.stop(page.page_name)

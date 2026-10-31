@@ -565,7 +565,7 @@ describe("Panel.Selector", () => {
       });
       const pan = await createProjectPanel(projectKey);
       await renderStrip([pan], projectKey);
-      expect(pillIcon(pan).classList).toContain("pluto-icon--panel");
+      expect(pillIcon(pan).classList).toContain("lyra-icon--panel");
     });
 
     it("should draw the picked icon on the pill and close the picker", async () => {
@@ -574,7 +574,7 @@ describe("Panel.Selector", () => {
         fireEvent.click(screen.getByLabelText("Valve"));
       });
       await waitFor(() =>
-        expect(pillIcon(pan).classList).toContain("pluto-icon--valve"),
+        expect(pillIcon(pan).classList).toContain("lyra-icon--valve"),
       );
       expect(picker()).toBeNull();
     });
@@ -617,7 +617,7 @@ describe("Panel.Selector", () => {
         fireEvent.click(screen.getByLabelText("Default"));
       });
       await waitFor(() =>
-        expect(pillIcon(pan).classList).toContain("pluto-icon--panel"),
+        expect(pillIcon(pan).classList).toContain("lyra-icon--panel"),
       );
       expect(picker()).toBeNull();
       const stored = await client.panels.retrieve({ key: pan.key });

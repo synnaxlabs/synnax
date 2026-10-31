@@ -41,6 +41,7 @@ cpp: &cpp
   - scripts/sanitizers/**
 
 go: &go
+  - .github/scripts/go_mod_download.sh
   - .github/scripts/pin_mtimes.py
   - .github/workflows/test.go.yaml
   - .golangci.yaml
@@ -63,6 +64,17 @@ ts: &ts
   - turbo.json
 
 eslint_config:
+  - *ts
+
+stylelint:
+  - *ts
+  - console/index.html
+  - console/src/**
+  - lyra/src/**
+  - pluto/src/**
+  - site/*/src/**
+
+stylelint_config:
   - *ts
 
 vite_plugin:
@@ -104,13 +116,18 @@ oracle: &oracle
   - oracle/**
   - scripts/install_antlr4.sh
 
-arc_go: &arc_go
+arc_go_module: &arc_go_module
   - *alamos_go
   - *freighter_go
   - *go
   - *x_go
   - arc/go/**
   - scripts/install_antlr4.sh
+
+# The Arc tests compile every .arc file in the repository.
+arc_go:
+  - *arc_go_module
+  - "**/*.arc"
 
 aspen: &aspen
   - *alamos_go
@@ -128,7 +145,7 @@ freighter_integration: &freighter_integration
 
 core: &core
   - *alamos_go
-  - *arc_go
+  - *arc_go_module
   - *aspen
   - *cesium
   - *freighter_go
@@ -434,20 +451,3 @@ freighter_image:
   - *freighter_py
   - *freighter_ts
   - .github/workflows/build.docker.yaml
-
-# Source that changes what a reviewer sees in a preview Core or Console: the Go that
-# builds the Core, and the TypeScript the Console bundles. Tests, docs, and CI or tool
-# config deploy no preview.
-preview:
-  - "{alamos/go,arc/go,aspen,cesium,core,freighter/go,gorp,x/go}/**/!(*_test).go"
-  - "{alamos/go,arc/go,aspen,cesium,core,freighter/go,gorp,x/go}/go.{mod,sum}"
-  - core/Dockerfile
-  - core/docker-entrypoint.sh
-  - core/pkg/console/fallback.html
-  - "{alamos/ts,arc/ts,client/ts,console,drift}/src/**/!(*.spec.ts|*.spec.tsx|*.md)"
-  - "{freighter/ts,lyra,pluto,x/ts}/src/**/!(*.spec.ts|*.spec.tsx|*.md)"
-  - "{alamos/ts,arc/ts,client/ts,console,drift}/{package.json,vite.config.ts}"
-  - "{freighter/ts,lyra,pluto,x/ts}/{package.json,vite.config.ts}"
-  - arc/ts/syntaxes/**
-  - console/index.html
-  - lyra/static/**

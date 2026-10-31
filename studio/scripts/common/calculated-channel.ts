@@ -49,7 +49,7 @@ export const setup = async (session: capture.CaptureSession): Promise<Modal> => 
   const placeholder = capture.tab(page, "Create component");
   if (await placeholder.isVisible().catch(() => false)) {
     await placeholder.hover();
-    await placeholder.locator(".pluto-tabs__close").first().click();
+    await placeholder.locator(".lyra-tabs__close").first().click();
   }
   await capture.openToolbar(session, "channel");
   await capture.resizeToolbar(session, 500);

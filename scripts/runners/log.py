@@ -20,12 +20,14 @@ class Log:
     """A failed channel write reports to stdout, since it cannot report to itself."""
 
     def __init__(
-        self, client: sy.Synnax, channels: Channels, channel: str, echo: bool = False
+        self, *, client: sy.Synnax, channels: Channels, channel: str, echo: bool = False
     ) -> None:
         self.channel = channel
         self.echo = echo
-        channels.virtual(channel, sy.DataType.STRING)
-        self.publisher = Publisher(client, channel, [channel], report=to_stdout)
+        channels.virtual(channel, data_type=sy.DataType.STRING)
+        self.publisher = Publisher(
+            client=client, name=channel, channels=[channel], report=to_stdout
+        )
 
     def __call__(self, line: str) -> None:
         if self.echo:

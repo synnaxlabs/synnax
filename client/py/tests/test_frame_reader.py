@@ -56,7 +56,9 @@ def _read_tdms(
     dest: pathlib.Path,
     reduction: sy.StrideReduction | None = None,
 ) -> TdmsFile:
-    client.read_tdms(sy.TimeRange.MAX, [ch.key for ch in channels], dest, reduction)
+    client.read_tdms(
+        sy.TimeRange.MAX, [ch.key for ch in channels], dest=dest, reduction=reduction
+    )
     return TdmsFile.read(dest, raw_timestamps=True)
 
 
@@ -100,7 +102,7 @@ class TestReader:
         ) as w:
             w.write(
                 {
-                    idx_ch.key: seconds_linspace(1, 10),
+                    idx_ch.key: seconds_linspace(1, count=10),
                     data_ch.key: np.arange(10, dtype=np.float64),
                 }
             )
@@ -114,7 +116,16 @@ class TestReader:
         idx_ch, data_ch = written_pair
         f = client.read(sy.TimeRange.MAX, [idx_ch.key, data_ch.key])
         assert np.array_equal(f[data_ch.key], np.arange(10, dtype=np.float64))
-        assert np.array_equal(f[idx_ch.key], seconds_linspace(1, 10))
+        assert np.array_equal(f[idx_ch.key], seconds_linspace(1, count=10))
+
+    def test_read_by_key_get_by_name(
+        self, written_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
+    ) -> None:
+        """Should find a channel by name in a frame read by key"""
+        idx_ch, data_ch = written_pair
+        f = client.read(sy.TimeRange.MAX, [idx_ch.key, data_ch.key])
+        assert data_ch.name in f
+        assert np.array_equal(f[data_ch.name], np.arange(10, dtype=np.float64))
 
     @pytest.mark.parametrize("by_name", [True, False])
     def test_read_to_df(
@@ -215,7 +226,10 @@ class TestReader:
         _, data_ch = written_pair
         dest = tmp_path / "out.csv"
         client.read_csv(
-            sy.TimeRange.MAX, data_ch.key, dest, sy.StrideReduction(factor=5)
+            sy.TimeRange.MAX,
+            data_ch.key,
+            dest=dest,
+            reduction=sy.StrideReduction(factor=5),
         )
         lines = dest.read_text().splitlines()
         assert lines[1:] == ["1000000000,0", "6000000000,5"]
@@ -229,7 +243,7 @@ class TestReader:
         """Should write the channel and its index to a CSV file"""
         idx_ch, data_ch = written_pair
         dest = tmp_path / "out.csv"
-        client.read_csv(sy.TimeRange.MAX, data_ch.key, dest)
+        client.read_csv(sy.TimeRange.MAX, data_ch.key, dest=dest)
         lines = dest.read_text().splitlines()
         assert lines[0] == f"{idx_ch.name},{data_ch.name}"
         assert lines[1] == "1000000000,0"
@@ -377,7 +391,10 @@ class TestReader:
                 ),
             ]
         )
-        fast_times, slow_times = seconds_linspace(1, 10), seconds_linspace(2, 3)
+        fast_times, slow_times = (
+            seconds_linspace(1, count=10),
+            seconds_linspace(2, count=3),
+        )
         for index, ch, times, values in (
             (fast_index, fast, fast_times, np.arange(10, dtype=np.float64)),
             (slow_index, slow, slow_times, np.array([-1, 0, 1], dtype=np.int32)),
@@ -420,7 +437,7 @@ class TestReader:
                 for dt in (sy.DataType.FLOAT64, sy.DataType.FLOAT32, sy.DataType.INT32)
             ]
         )
-        times = seconds_linspace(1, 6)
+        times = seconds_linspace(1, count=6)
         with client.open_writer(start=times[0], channels=[index.key, full.key]) as w:
             w.write({index.key: times[:3], full.key: np.arange(3, dtype=np.float64)})
             w.commit()
@@ -501,7 +518,7 @@ class TestReader:
         )
         tdms_index, tdms_data = _tdms_group(tdms, index).channels()
         assert _tdms_timestamps(tdms_index) == [
-            int(t) for t in seconds_linspace(1, 10)[::2]
+            int(t) for t in seconds_linspace(1, count=10)[::2]
         ]
         np.testing.assert_array_equal(
             tdms_data[:], np.arange(0, 10, 2, dtype=np.float64)
@@ -529,3 +546,11 @@ class TestReader:
         """Should return no samples when the channel has no data in the range"""
         _, data_ch = indexed_pair
         assert len(client.read(sy.TimeRange.MAX, data_ch.key)) == 0
+
+    def test_read_empty_list(
+        self, indexed_pair: tuple[sy.Channel, sy.Channel], client: sy.Synnax
+    ) -> None:
+        """Should return an empty series for a listed channel with no data"""
+        _, data_ch = indexed_pair
+        f = client.read(sy.TimeRange.MAX, [data_ch.key])
+        assert len(f[data_ch.key]) == 0

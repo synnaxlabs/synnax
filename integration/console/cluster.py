@@ -57,7 +57,7 @@ class ClusterClient:
         """The state label inside the open badge dialog."""
         return self.badge_dialog.locator(".console-core-badge__state")
 
-    def wait_for_status(self, label: str, timeout: float = 15000) -> None:
+    def wait_for_status(self, label: str, *, timeout: float = 15000) -> None:
         """Wait for the open badge dialog to report ``label``.
 
         Labels are exact ("Connected" must not match "Disconnected").
@@ -69,10 +69,6 @@ class ClusterClient:
     def address(self) -> str:
         """The host:port shown in the open badge dialog."""
         return self.badge_dialog.locator(".console-core-badge__address").inner_text()
-
-    def retry_now(self) -> None:
-        """Click "Retry now" in the open badge dialog."""
-        self.badge_dialog.get_by_role("button", name="Retry now").click(timeout=5000)
 
     # ----------------------------------------------------- connect modal
 
@@ -124,7 +120,7 @@ class ClusterClient:
         """The cold-connect trouble card that replaces the workspace."""
         return self.page.locator(self.TROUBLE_SELECTOR)
 
-    def wait_for_trouble(self, timeout: float = 20000) -> None:
+    def wait_for_trouble(self, *, timeout: float = 20000) -> None:
         self.layout.wait_for_visible(self.trouble)
         self.trouble.get_by_role("button", name="Retry now").wait_for(
             state="visible", timeout=timeout

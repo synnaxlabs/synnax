@@ -16,7 +16,7 @@ name without an `import` is an error.
 ```arc channels="heartbeat"
 import time
 
-time.interval{period=1s} -> heartbeat
+time.interval(period=1s) -> heartbeat
 ```
 
 <Divider.Divider x />
@@ -38,30 +38,30 @@ time.interval{period=1s} -> heartbeat
 
 Built-in functions need no `import`.
 
-| Function                                                   | Signature                           | Use                                                                       |
-| ---------------------------------------------------------- | ----------------------------------- | ------------------------------------------------------------------------- |
-| [`select`](/reference/control/arc/standard-library/select) | `bool -> select{} -> (true, false)` | Send each value to a `true` or a `false` routing entry.                   |
-| `on`                                                       | `on{channel} -> T`                  | Read a channel. Same as a channel name at the start of a flow.            |
-| `write`                                                    | `T -> write{channel} -> u8`         | Write a channel. Same as a channel name at the end of a flow.             |
-| `ge`, `gt`, `le`, `lt`, `eq`, `ne`                         | `T -> gt{b} -> bool`                | Compare the input `a` with `b`. Same as `>=`, `>`, `<=`, `<`, `==`, `!=`. |
-| [`len`](/reference/control/arc/reference/functions#len)    | `len(x) -> i64`                     | Get the length of a series or a string. Only in a function body.          |
+| Function                                                   | Signature                           | Use                                                                         |
+| ---------------------------------------------------------- | ----------------------------------- | --------------------------------------------------------------------------- |
+| [`select`](/reference/control/arc/standard-library/select) | `bool -> select() -> (true, false)` | Send each value to a `true` or a `false` routing entry.                     |
+| `on`                                                       | `on(channel) -> T`                  | Read a channel. Same as a channel name at the start of a flow.              |
+| `write`                                                    | `T -> write(channel) -> u8`         | Write a channel. Same as a channel name at the end of a flow.               |
+| `ge`, `gt`, `le`, `lt`, `eq`, `ne`                         | `T -> gt(b) -> bool`                | Compare the trigger `a` with `b`. Same as `>=`, `>`, `<=`, `<`, `==`, `!=`. |
+| [`len`](/reference/control/arc/reference/functions#len)    | `len(x) -> i64`                     | Get the length of a series or a string. Only in a function body.            |
 
 `on` and `write` are the nodes that the graph editor shows as **Telemetry source** and
 **Telemetry sink**. In text, a channel name does the same work:
 
 ```arc channels="tank_pt, tank_pt_copy"
-on{channel=tank_pt} -> tank_pt_copy
-tank_pt -> write{channel=tank_pt_copy}
+on(channel=tank_pt) -> tank_pt_copy
+tank_pt -> write(channel=tank_pt_copy)
 ```
 
 `on` and `write` cannot be in the same flow. The compiler cannot find a type for them
 and stops with `on_0_T: unresolved type variable: constraints`.
 
 The comparison functions take two numeric values, `a` and `b`, of the same type. A flow
-input fills `a`, and `{}` sets `b`:
+value fills the trigger `a`, and `()` sets `b`:
 
 ```arc channels="tank_pt, tank_high"
-tank_pt -> gt{b=300.0} -> tank_high
+tank_pt -> gt(b=300.0) -> tank_high
 ```
 
 `and`, `or`, and `not` are keywords, so text code cannot call them as functions. Use the

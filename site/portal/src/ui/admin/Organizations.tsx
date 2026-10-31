@@ -72,7 +72,7 @@ export const Organizations = ({ teams, now }: OrganizationsProps): ReactElement 
                     columns={COLUMNS}
                     href={`/admin/organizations/${org.key}`}
                   >
-                    <Text.Text level="p" weight={500} overflow="ellipsis">
+                    <Text.Text level="p" weight={500} overflow="fade">
                       {org.name}
                     </Text.Text>
                     <Text.Text level="p" color={9}>

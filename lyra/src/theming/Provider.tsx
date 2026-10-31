@@ -145,7 +145,7 @@ export interface ProviderProps extends PropsWithChildren<unknown>, UseProviderPr
   el?: HTMLElement | null;
 }
 
-const CLASS_PREFIX = "pluto-theme-";
+const CLASS_PREFIX = "lyra-theme-";
 
 const setThemeClass = (el: HTMLElement, theme: baseTheme.Theme): void => {
   const existing = Array.from(el.classList).find((c) => c.startsWith(CLASS_PREFIX));

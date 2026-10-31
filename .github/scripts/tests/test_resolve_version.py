@@ -38,7 +38,7 @@ class Repo:
             self.git("tag", name)
 
     def resolve(
-        self, product: str, bump: str, prerelease: bool = False
+        self, product: str, *, bump: str, prerelease: bool = False
     ) -> dict[str, str]:
         result = subprocess.run(
             [str(SCRIPT), product, bump, "true" if prerelease else "false"],
@@ -49,7 +49,7 @@ class Repo:
         )
         return dict(line.split("=", 1) for line in result.stdout.splitlines())
 
-    def resolve_error(self, product: str, bump: str) -> str:
+    def resolve_error(self, product: str, *, bump: str) -> str:
         result = subprocess.run(
             [str(SCRIPT), product, bump],
             cwd=self.path,
@@ -72,7 +72,7 @@ class TestBumps:
     """Tests for patch and minor bumps from the reachable base."""
 
     def test_patch_bump(self, repo: Repo) -> None:
-        out = repo.resolve("console", "patch")
+        out = repo.resolve("console", bump="patch")
         assert out["version"] == "0.58.3"
         assert out["tag"] == "console/v0.58.3"
         assert out["minor"] == "0.58"
@@ -80,7 +80,7 @@ class TestBumps:
         assert out["latest"] == "true"
 
     def test_minor_bump(self, repo: Repo) -> None:
-        out = repo.resolve("driver", "minor")
+        out = repo.resolve("driver", bump="minor")
         assert out["version"] == "0.59.0"
         assert out["minor"] == "0.59"
         assert out["previous_tag"] == "driver/v0.58.2"
@@ -88,11 +88,11 @@ class TestBumps:
     def test_should_take_the_base_from_the_reachable_tag(self, repo: Repo) -> None:
         repo.tag("console/v0.59.0")
         repo.commit("more")
-        assert repo.resolve("console", "patch")["version"] == "0.59.1"
+        assert repo.resolve("console", bump="patch")["version"] == "0.59.1"
 
     def test_should_ignore_candidates_when_picking_the_base(self, repo: Repo) -> None:
         repo.tag("console/v0.59.0-rc.1", "console/v0.59.0-rc.2")
-        assert repo.resolve("console", "minor")["version"] == "0.59.0"
+        assert repo.resolve("console", bump="minor")["version"] == "0.59.0"
 
 
 class TestHotfixes:
@@ -105,7 +105,7 @@ class TestHotfixes:
         repo.commit("hotfix")
         repo.tag("console/v0.58.3")
         repo.git("checkout", "-q", "main")
-        out = repo.resolve("console", "patch")
+        out = repo.resolve("console", bump="patch")
         assert out["version"] == "0.58.4"
         assert out["previous_tag"] == "console/v0.58.2"
 
@@ -113,14 +113,14 @@ class TestHotfixes:
         repo.tag("core/v0.59.0", "console/v0.59.0")
         repo.git("checkout", "-q", "-b", "release/console-0.58", "console/v0.58.2")
         repo.commit("hotfix")
-        out = repo.resolve("console", "patch")
+        out = repo.resolve("console", bump="patch")
         assert out["version"] == "0.58.3"
         assert out["latest"] == "false"
 
     def test_should_be_latest_without_a_newer_train(self, repo: Repo) -> None:
         repo.git("checkout", "-q", "-b", "release/console-0.58", "console/v0.58.2")
         repo.commit("hotfix")
-        assert repo.resolve("console", "patch")["latest"] == "true"
+        assert repo.resolve("console", bump="patch")["latest"] == "true"
 
 
 class TestCandidates:
@@ -128,18 +128,19 @@ class TestCandidates:
 
     def test_first_candidate(self, repo: Repo) -> None:
         assert (
-            repo.resolve("core", "minor", prerelease=True)["version"] == "0.59.0-rc.1"
+            repo.resolve("core", bump="minor", prerelease=True)["version"]
+            == "0.59.0-rc.1"
         )
 
     def test_should_count_up_from_existing_candidates(self, repo: Repo) -> None:
         repo.tag("core/v0.59.0-rc.1", "core/v0.59.0-rc.2")
-        out = repo.resolve("core", "minor", prerelease=True)
+        out = repo.resolve("core", bump="minor", prerelease=True)
         assert out["version"] == "0.59.0-rc.3"
         assert out["tag"] == "core/v0.59.0-rc.3"
 
     def test_should_promote_with_the_same_bump(self, repo: Repo) -> None:
         repo.tag("core/v0.59.0-rc.3")
-        out = repo.resolve("core", "minor")
+        out = repo.resolve("core", bump="minor")
         assert out["version"] == "0.59.0"
         assert out["previous_tag"] == "core/v0.58.2"
 
@@ -148,23 +149,23 @@ class TestTrainRule:
     """Tests for the one-minor-ahead cap."""
 
     def test_should_allow_one_minor_ahead_of_core(self, repo: Repo) -> None:
-        assert repo.resolve("console", "minor")["version"] == "0.59.0"
+        assert repo.resolve("console", bump="minor")["version"] == "0.59.0"
 
     def test_should_reject_two_minors_ahead_of_core(self, repo: Repo) -> None:
         repo.tag("console/v0.59.0")
         repo.commit("more")
-        assert "train rule" in repo.resolve_error("console", "minor")
+        assert "train rule" in repo.resolve_error("console", bump="minor")
 
     def test_should_let_core_open_the_next_train(self, repo: Repo) -> None:
         repo.tag("console/v0.59.0", "driver/v0.59.0")
-        assert repo.resolve("core", "minor")["version"] == "0.59.0"
+        assert repo.resolve("core", bump="minor")["version"] == "0.59.0"
 
 
 class TestDesktop:
     """Tests for Desktop, which versions apart from the train."""
 
     def test_should_bump_the_first_release_from_zero(self, repo: Repo) -> None:
-        out = repo.resolve("desktop", "major")
+        out = repo.resolve("desktop", bump="major")
         assert out["version"] == "1.0.0"
         assert out["tag"] == "desktop/v1.0.0"
         assert out["previous_tag"] == ""
@@ -175,24 +176,26 @@ class TestDesktop:
         self, repo: Repo, bump: str
     ) -> None:
         repo.tag("desktop/v1.0.0-rc.1")
-        assert f"bump must be major, not {bump}" in repo.resolve_error("desktop", bump)
+        assert f"bump must be major, not {bump}" in repo.resolve_error(
+            "desktop", bump=bump
+        )
 
     def test_should_bump_from_the_reachable_desktop_tag(self, repo: Repo) -> None:
         repo.tag("desktop/v1.2.0")
         repo.commit("more")
-        out = repo.resolve("desktop", "patch")
+        out = repo.resolve("desktop", bump="patch")
         assert out["version"] == "1.2.1"
         assert out["previous_tag"] == "desktop/v1.2.0"
-        assert repo.resolve("desktop", "major")["version"] == "2.0.0"
+        assert repo.resolve("desktop", bump="major")["version"] == "2.0.0"
 
     def test_should_skip_the_train_rule(self, repo: Repo) -> None:
         repo.tag("desktop/v1.4.0")
         repo.commit("more")
-        assert repo.resolve("desktop", "minor")["version"] == "1.5.0"
+        assert repo.resolve("desktop", bump="minor")["version"] == "1.5.0"
 
     def test_should_count_up_desktop_candidates(self, repo: Repo) -> None:
         repo.tag("desktop/v1.0.0-rc.1")
-        out = repo.resolve("desktop", "major", prerelease=True)
+        out = repo.resolve("desktop", bump="major", prerelease=True)
         assert out["version"] == "1.0.0-rc.2"
         assert out["previous_tag"] == ""
 
@@ -203,22 +206,22 @@ class TestErrors:
     def test_should_fail_without_a_reachable_tag(self, tmp_path: Path) -> None:
         repo = Repo(tmp_path)
         repo.tag("core/v0.58.2")
-        assert "no stable console tag" in repo.resolve_error("console", "patch")
+        assert "no stable console tag" in repo.resolve_error("console", bump="patch")
 
     def test_should_reject_an_unknown_bump(self, repo: Repo) -> None:
-        assert "unknown bump" in repo.resolve_error("core", "huge")
+        assert "unknown bump" in repo.resolve_error("core", bump="huge")
 
     def test_should_reject_a_major_bump_on_the_train(self, repo: Repo) -> None:
-        assert "desktop only" in repo.resolve_error("core", "major")
+        assert "desktop only" in repo.resolve_error("core", bump="major")
 
     def test_should_reject_an_unknown_product(self, repo: Repo) -> None:
-        assert "unknown product" in repo.resolve_error("python", "patch")
+        assert "unknown product" in repo.resolve_error("python", bump="patch")
 
 
 LATEST = Path(__file__).resolve().parents[1] / "latest_version.sh"
 
 
-def latest(repo: Repo, product: str, minor: str, candidates: bool = False) -> str:
+def latest(repo: Repo, *, product: str, minor: str, candidates: bool = False) -> str:
     return subprocess.run(
         [str(LATEST), product, minor, "true" if candidates else "false"],
         cwd=repo.path,
@@ -233,23 +236,29 @@ class TestLatestVersion:
 
     def test_should_pick_the_highest_stable_on_the_train(self, repo: Repo) -> None:
         repo.tag("console/v0.58.3", "console/v0.58.10", "console/v0.59.0")
-        assert latest(repo, "console", "0.58") == "0.58.10"
+        assert latest(repo, product="console", minor="0.58") == "0.58.10"
 
     def test_should_skip_candidates_by_default(self, repo: Repo) -> None:
         repo.tag("console/v0.59.0-rc.1")
-        assert latest(repo, "console", "0.59") == ""
-        assert latest(repo, "console", "0.59", candidates=True) == "0.59.0-rc.1"
+        assert latest(repo, product="console", minor="0.59") == ""
+        assert (
+            latest(repo, product="console", minor="0.59", candidates=True)
+            == "0.59.0-rc.1"
+        )
 
     def test_should_rank_a_stable_above_its_candidates(self, repo: Repo) -> None:
         repo.tag("driver/v0.59.0-rc.1", "driver/v0.59.0-rc.2", "driver/v0.59.0")
-        assert latest(repo, "driver", "0.59", candidates=True) == "0.59.0"
+        assert latest(repo, product="driver", minor="0.59", candidates=True) == "0.59.0"
 
     def test_should_rank_a_later_candidate_above_an_earlier_stable(
         self, repo: Repo
     ) -> None:
         repo.tag("driver/v0.59.0", "driver/v0.59.1-rc.1")
-        assert latest(repo, "driver", "0.59", candidates=True) == "0.59.1-rc.1"
-        assert latest(repo, "driver", "0.59") == "0.59.0"
+        assert (
+            latest(repo, product="driver", minor="0.59", candidates=True)
+            == "0.59.1-rc.1"
+        )
+        assert latest(repo, product="driver", minor="0.59") == "0.59.0"
 
     def test_should_print_nothing_for_an_empty_train(self, repo: Repo) -> None:
-        assert latest(repo, "core", "0.60") == ""
+        assert latest(repo, product="core", minor="0.60") == ""

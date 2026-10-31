@@ -37,19 +37,25 @@ class TestChannel:
         assert channel.index == channel.key
 
     def test_create_index_channel_bad_data_type(self, client: sy.Synnax) -> None:
-        """Should raise a validation error when creating an index channel with a bad data type"""
+        """Should raise a validation error when creating an index channel with a bad
+        data type
+        """
         with pytest.raises(sy.ValidationError):
             client.channels.create(
                 name=channel_name(), data_type=sy.DataType.FLOAT64, is_index=True
             )
 
     def test_create_index_no_data_type_provided(self, client: sy.Synnax) -> None:
-        """Should infer the data type as TimeStamp when creating an index channel without a data type"""
+        """Should infer the data type as TimeStamp when creating an index channel
+        without a data type
+        """
         ch = client.channels.create(name=channel_name(), is_index=True)
         assert ch.data_type == sy.DataType.TIMESTAMP
 
     def test_create_index_no_name_provided(self, client: sy.Synnax) -> None:
-        """Should raise a validation error when creating an index channel without a name"""
+        """Should raise a validation error when creating an index channel without a
+        name
+        """
         with pytest.raises(sy.ValidationError):
             client.channels.create(data_type=sy.DataType.TIMESTAMP, is_index=True)
 
@@ -69,7 +75,9 @@ class TestChannel:
         assert data.index == idx.key
 
     def test_create_nonexistent_index(self, client: sy.Synnax) -> None:
-        """Should raise a validation error when creating a channel with a non-existent index"""
+        """Should raise a validation error when creating a channel with a non-existent
+        index
+        """
         with pytest.raises(sy.ValidationError):
             client.channels.create(
                 name=channel_name(), data_type=sy.DataType.FLOAT64, index=12345678
@@ -84,7 +92,9 @@ class TestChannel:
             client.channels.create(data_type=sy.DataType.FLOAT64, index=idx.key)
 
     def test_create_indexed_pair_no_data_type(self, client: sy.Synnax) -> None:
-        """Should raise a validation error when creating an index channel with no data type"""
+        """Should raise a validation error when creating an index channel with no data
+        type
+        """
         idx = client.channels.create(
             name=channel_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
         )
@@ -166,7 +176,9 @@ class TestChannel:
         assert res.expression == "return 1 + 1"
 
     def test_create_calculation_from_kwargs(self, client: sy.Synnax) -> None:
-        """Should create a calculated channel from kwargs and auto-set virtual to True"""
+        """Should create a calculated channel from kwargs and auto-set virtual to
+        True
+        """
         idx_ch = client.channels.create(
             name=channel_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
         )
@@ -220,7 +232,7 @@ class TestChannel:
             assert isinstance(indexed_pair[i].data_type.density, sy.Density)
 
     def test_retrieve_by_key_not_found(self, client: sy.Synnax) -> None:
-        """Should raise QueryError when key not found"""
+        """Should raise a NotFoundError when key not found"""
         with pytest.raises(sy.NotFoundError):
             client.channels.retrieve(1234)
 
@@ -269,7 +281,7 @@ class TestChannel:
         self,
         client: sy.Synnax,
     ) -> None:
-        """Should raise QueryError when retrieving a single channel with
+        """Should raise a MultipleFoundError when retrieving a single channel with
         multiple matches"""
         with pytest.raises(sy.MultipleFoundError):
             prefix = channel_name()
@@ -323,7 +335,7 @@ class TestChannel:
         )
         keys = [channel.key for channel in channels]
         client.channels.delete(keys)
-        with pytest.raises(sy.QueryError):
+        with pytest.raises(sy.NotFoundError):
             client.channels.retrieve(keys)
 
     def test_delete_by_name(self, client: sy.Synnax) -> None:
@@ -496,7 +508,9 @@ class TestChannel:
     def test_create_channel_with_min_operation_reset_channel(
         self, client: sy.Synnax
     ) -> None:
-        """Should create a calculated channel with a min operation triggered by a reset channel"""
+        """Should create a calculated channel with a min operation triggered by a reset
+        channel
+        """
 
         idx_ch = client.channels.create(
             name=channel_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
@@ -819,7 +833,7 @@ class TestChannelWriteRead:
                 data_type=sy.DataType.TIMESTAMP,
             )
         )
-        d = seconds_linspace(1, 10)
+        d = seconds_linspace(1, count=10)
         start = 1 * sy.TimeSpan.SECOND
         channel.write(start, d)
         data = channel.read(start, start + len(d) * sy.TimeSpan.SECOND)

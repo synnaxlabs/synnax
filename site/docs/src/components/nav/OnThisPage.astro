@@ -69,18 +69,10 @@ const hasHeadings = rest.headings.length > 0;
         .on-this-page__content {
             flex: 1;
             min-height: 0;
-            overflow-x: hidden;
-            overflow-y: auto;
+            overflow: hidden auto;
             padding-top: 2rem;
             padding-bottom: 2rem;
             mask-image: linear-gradient(
-                to bottom,
-                transparent 0,
-                black 2rem,
-                black calc(100% - 2rem),
-                transparent 100%
-            );
-            -webkit-mask-image: linear-gradient(
                 to bottom,
                 transparent 0,
                 black 2rem,

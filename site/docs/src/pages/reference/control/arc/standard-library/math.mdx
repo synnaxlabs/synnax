@@ -21,59 +21,59 @@ cannot call them.
 
 <Field.Item name="duration" type="i64 ns" default="0">
 
-Start again when this much time has passed, measured on input timestamps.
+Start again when this much time has passed, measured on trigger timestamps.
 
 </Field.Item>
 
 <Field.Item name="count" type="i64" default="0">
 
-Start again on the next input after this many values.
+Start again on the next trigger after this many values.
 
 </Field.Item>
 
 <Field.Item name="reset" type="bool" default="false">
 
-Has no effect in text mode, which cannot wire an input to it.
+Has no effect in text mode, which cannot wire a trigger to it.
 
 </Field.Item>
 
 </Field.List>
 
-With `duration` and `count` at 0, the value covers every input since the stage started.
-A window starts again with the input that ends the old window. Synnax reads `duration`
-and `count` once, when the automation starts.
+With `duration` and `count` at 0, the value covers every trigger since the stage
+started. A window starts again with the trigger that ends the old window. Synnax reads
+`duration` and `count` once, when the automation starts.
 
 <Divider.Divider x />
 
 ## `avg`
 
-Gives the average of all input values since the window started.
+Gives the average of all trigger values since the window started.
 
-- Input -> a numeric value.
-- Output -> one value for each input batch, of the same type as the input. It has the
-  timestamp of the last value in the batch. It is not a moving average.
-- Runs -> on each new input. Its window starts again when its stage starts.
+- Trigger -> a numeric value.
+- Output -> one value for each trigger batch, of the same type as the trigger. It has
+  the timestamp of the last value in the batch. It is not a moving average.
+- Runs -> on each new trigger. Its window starts again when its stage starts.
 
 ```arc channels="tank_pt, tank_pt_avg"
 import math
 
-tank_pt -> math.avg{duration=5s} -> tank_pt_avg
+tank_pt -> math.avg(duration=5s) -> tank_pt_avg
 ```
 
-An integer input gives an integer average, rounded toward zero. On the Core, the sum
-uses the input type, so it can overflow and loses precision. Use a float input. A Driver
-sums in `f64`.
+An integer trigger gives an integer average, rounded toward zero. On the Core, the sum
+uses the trigger type, so it can overflow and loses precision. Use a float trigger. A
+Driver sums in `f64`.
 
 <Divider.Divider x />
 
 ## `derivative`
 
-Gives the rate of change of the input, in units per second.
+Gives the rate of change of the trigger, in units per second.
 
-- Input -> a numeric value.
-- Output -> one `f64` value for each input value, with the same timestamp. The rate is
+- Trigger -> a numeric value.
+- Output -> one `f64` value for each trigger value, with the same timestamp. The rate is
   the change from the previous value, divided by the time between their timestamps.
-- Runs -> on each new input. The first value, and a value with a timestamp that is not
+- Runs -> on each new trigger. The first value, and a value with a timestamp that is not
   later than the one before it, give 0. It starts again when its stage starts.
 
 `derivative` has no parameters.
@@ -81,37 +81,37 @@ Gives the rate of change of the input, in units per second.
 ```arc channels="tank_pt, tank_pt_rate"
 import math
 
-tank_pt -> math.derivative{} -> tank_pt_rate
+tank_pt -> math.derivative() -> tank_pt_rate
 ```
 
 <Divider.Divider x />
 
 ## `max`
 
-Gives the largest input value since the window started.
+Gives the largest trigger value since the window started.
 
-- Input -> a numeric value.
-- Output -> one value for each input batch, of the same type as the input.
-- Runs -> on each new input. Its window starts again when its stage starts.
+- Trigger -> a numeric value.
+- Output -> one value for each trigger batch, of the same type as the trigger.
+- Runs -> on each new trigger. Its window starts again when its stage starts.
 
 ```arc channels="tank_pt, tank_pt_max"
 import math
 
-tank_pt -> math.max{} -> tank_pt_max
+tank_pt -> math.max() -> tank_pt_max
 ```
 
 <Divider.Divider x />
 
 ## `min`
 
-Gives the smallest input value since the window started.
+Gives the smallest trigger value since the window started.
 
-- Input -> a numeric value.
-- Output -> one value for each input batch, of the same type as the input.
-- Runs -> on each new input. Its window starts again when its stage starts.
+- Trigger -> a numeric value.
+- Output -> one value for each trigger batch, of the same type as the trigger.
+- Runs -> on each new trigger. Its window starts again when its stage starts.
 
 ```arc channels="tank_pt, tank_pt_min"
 import math
 
-tank_pt -> math.min{count=1000} -> tank_pt_min
+tank_pt -> math.min(count=1000) -> tank_pt_min
 ```

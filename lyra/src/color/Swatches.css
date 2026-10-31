@@ -9,14 +9,14 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-color-swatches {
-    .pluto-color-swatches__grid {
+.lyra-color-swatches {
+    .lyra-color-swatches__grid {
         display: grid;
         grid-template-columns: repeat(10, var(--pluto-height-tiny));
         row-gap: 0.75rem;
         justify-content: space-between;
 
-        & .pluto--selected.pluto-color-swatch {
+        & .lyra--selected.lyra-color-swatch {
             box-shadow: var(--pluto-selected-ring);
         }
     }

@@ -46,7 +46,7 @@ describe("UndoRedoItems", () => {
     // icons, so the cap count is what ties the hint back to the constant.
     const [undoHint, redoHint] = c.getAllByLabelText("trigger-indicator");
     const caps = (el: HTMLElement): number =>
-      el.querySelectorAll(".pluto-text--keyboard").length;
+      el.querySelectorAll(".lyra-text--keyboard").length;
     expect(caps(undoHint)).toBe(Triggers.UNDO.length);
     expect(caps(redoHint)).toBe(Triggers.REDO.length);
     expect(undoHint.textContent).toContain("Z");

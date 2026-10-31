@@ -15,29 +15,12 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
-	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/query"
 )
 
 // Reader is used to retrieve key-value pairs.
 type Reader struct {
 	tx    gorp.Tx
 	table *gorp.Table[string, Pair]
-}
-
-// Get retrieves a single key-value pair from the specified range.
-func (r Reader) Get(ctx context.Context, rng ranger.Key, key string) (string, error) {
-	var (
-		res = Pair{Range: rng, Key: key}
-		err = r.table.NewRetrieve().
-			Where(gorp.MatchKeys[string, Pair](res.GorpKey())).
-			Entry(&res).
-			Exec(ctx, r.tx)
-	)
-	if errors.Is(err, query.ErrNotFound) {
-		return "", errors.Wrapf(err, "key %s not found on range", key)
-	}
-	return res.Value, err
 }
 
 // GetMany retrieves multiple key-value pairs from the specified range.

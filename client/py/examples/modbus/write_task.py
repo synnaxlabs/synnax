@@ -8,7 +8,8 @@
 #  included in the file licenses/APL.txt.
 
 """
-This example demonstrates how to write commands to the test Modbus TCP server (server.py).
+This example demonstrates how to write commands to the test Modbus TCP server
+(server.py).
 
 Before running this example:
 1. Start the test server:
@@ -91,7 +92,8 @@ holding_reg_cmd_1 = client.channels.create(
 )
 
 # Create the Modbus Write Task
-# Demonstrates writing to both coils (1-bit digital) and holding registers (16-bit analog)
+# Demonstrates writing to both coils (1-bit digital) and holding registers (16-bit
+# analog)
 tsk = sy.modbus.WriteTask(
     name="Modbus Py - Write Task",
     device=dev.key,
@@ -160,7 +162,8 @@ with tsk.run():
             hold_reg_1_val = 255 - (i * 20) % 256
 
             print(
-                f"{i + 1:<8} {coil_0_val:>10} {coil_1_val:>10} {hold_reg_0_val:>12} {hold_reg_1_val:>12}"
+                f"{i + 1:<8} {coil_0_val:>10} {coil_1_val:>10} {hold_reg_0_val:>12} "
+                f"{hold_reg_1_val:>12}"
             )
 
             # Write all commands with timestamp

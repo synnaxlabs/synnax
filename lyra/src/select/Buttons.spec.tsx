@@ -38,13 +38,13 @@ describe("Select.Item", () => {
       </Select.Buttons>,
     );
     expect(c.getByText("Option 1").closest("button")?.classList).toContain(
-      "pluto--selected",
+      "lyra--selected",
     );
     expect(c.getByText("Option 2").closest("button")?.classList).not.toContain(
-      "pluto--selected",
+      "lyra--selected",
     );
     expect(c.getByText("Option 3").closest("button")?.classList).not.toContain(
-      "pluto--selected",
+      "lyra--selected",
     );
   });
 
@@ -55,14 +55,14 @@ describe("Select.Item", () => {
         <Select.Item itemKey={2}>Option 2</Select.Item>
       </Select.Buttons>,
     );
-    const group = c.getByText("Option 1").closest(".pluto-select-btns");
-    expect(group?.classList).toContain("pluto-select-btns--text");
-    expect(group?.classList).not.toContain("pluto--pack");
+    const group = c.getByText("Option 1").closest(".lyra-select-btns");
+    expect(group?.classList).toContain("lyra-select-btns--text");
+    expect(group?.classList).not.toContain("lyra--pack");
     expect(c.getByText("Option 1").closest("button")?.classList).toContain(
-      "pluto-btn--text",
+      "lyra-btn--text",
     );
     expect(c.getByText("Option 2").closest("button")?.classList).toContain(
-      "pluto-btn--text",
+      "lyra-btn--text",
     );
   });
 
@@ -73,11 +73,11 @@ describe("Select.Item", () => {
         <Select.Item itemKey={2}>Option 2</Select.Item>
       </Select.Buttons>,
     );
-    const group = c.getByText("Option 1").closest(".pluto-select-btns");
-    expect(group?.classList).toContain("pluto-select-btns--outlined");
-    expect(group?.classList).toContain("pluto--pack");
+    const group = c.getByText("Option 1").closest(".lyra-select-btns");
+    expect(group?.classList).toContain("lyra-select-btns--outlined");
+    expect(group?.classList).toContain("lyra--pack");
     expect(c.getByText("Option 1").closest("button")?.classList).toContain(
-      "pluto-btn--outlined",
+      "lyra-btn--outlined",
     );
   });
 
@@ -88,11 +88,11 @@ describe("Select.Item", () => {
         <Select.Item itemKey={2}>Option 2</Select.Item>
       </Select.Buttons>,
     );
-    const group = c.getByText("Option 1").closest(".pluto-select-btns");
-    expect(group?.classList).toContain("pluto-select-btns--card");
-    expect(group?.classList).not.toContain("pluto--pack");
+    const group = c.getByText("Option 1").closest(".lyra-select-btns");
+    expect(group?.classList).toContain("lyra-select-btns--card");
+    expect(group?.classList).not.toContain("lyra--pack");
     expect(c.getByText("Option 2").closest("button")?.classList).toContain(
-      "pluto-btn--outlined",
+      "lyra-btn--outlined",
     );
   });
 
@@ -105,9 +105,9 @@ describe("Select.Item", () => {
       </Select.Buttons>,
     );
     const button = c.getByText("Option 1").closest("button");
-    expect(button?.classList).toContain("pluto-btn--outlined");
-    expect(button?.classList).toContain("pluto--direction-y");
-    expect(button?.classList).toContain("pluto--grow");
+    expect(button?.classList).toContain("lyra-btn--outlined");
+    expect(button?.classList).toContain("lyra--direction-y");
+    expect(button?.classList).toContain("lyra--grow");
   });
 
   it("should move the selection state when a button is clicked", () => {
@@ -124,13 +124,13 @@ describe("Select.Item", () => {
     const c = render(<C />);
     fireEvent.click(c.getByText("Option 2"));
     expect(c.getByText("Option 2").closest("button")?.classList).toContain(
-      "pluto--selected",
+      "lyra--selected",
     );
     expect(c.getByText("Option 1").closest("button")?.classList).not.toContain(
-      "pluto--selected",
+      "lyra--selected",
     );
     expect(c.getByText("Option 3").closest("button")?.classList).not.toContain(
-      "pluto--selected",
+      "lyra--selected",
     );
   });
 
@@ -146,7 +146,7 @@ describe("Select.Item", () => {
     it("should render only the selected option as a preview", () => {
       const c = renderButtons(true);
       expect(c.getByText("Option 1").closest("button")?.classList).toContain(
-        "pluto-btn--preview",
+        "lyra-btn--preview",
       );
       expect(c.queryByText("Option 2")).toBeNull();
     });
@@ -165,7 +165,7 @@ describe("Select.Item", () => {
     it("should not mark any button when preview is unset", () => {
       const c = renderButtons();
       expect(c.getByText("Option 1").closest("button")?.classList).not.toContain(
-        "pluto-btn--preview",
+        "lyra-btn--preview",
       );
     });
 

@@ -50,7 +50,17 @@ describe("layouts.ListAndDetails", () => {
     await waitFor(() => expect(screen.getByText("No channels in task")).toBeTruthy());
     expect(screen.queryByText(/details-for-/)).toBeNull();
     const copyButton = getIconButton(container, "json");
-    expect(copyButton.className).toContain("pluto--disabled");
+    expect(copyButton.className).toContain("lyra--disabled");
+  });
+
+  it("should open with the first channel's details shown", async () => {
+    await renderListAndDetails([
+      { key: "a", disabled: false },
+      { key: "b", disabled: false },
+    ]);
+    await waitFor(() =>
+      expect(screen.getByText("details-for-config.channels.a")).toBeTruthy(),
+    );
   });
 
   it("should switch the details panel to the channel that is selected", async () => {

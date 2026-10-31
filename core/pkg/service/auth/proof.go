@@ -32,6 +32,11 @@ func (p Proof) EncodeMsgpack(enc *msgpack.Encoder) error {
 			Username string `msgpack:"username"`
 			Password string `msgpack:"password"`
 		}{Method: MethodPassword, Username: v.Username, Password: v.Password})
+	case APIKeyProof:
+		return enc.Encode(struct {
+			Method Method `msgpack:"method"`
+			Key    string `msgpack:"key"`
+		}{Method: MethodAPIKey, Key: v.Key})
 	default:
 		return errors.Newf("Proof: unknown variant %T", v)
 	}
@@ -57,6 +62,12 @@ func (p *Proof) DecodeMsgpack(dec *msgpack.Decoder) error {
 			return err
 		}
 		p.Variant = PasswordProof{Credentials: creds}
+	case MethodAPIKey:
+		var creds APIKeyCredentials
+		if err := msgpack.Unmarshal(raw, &creds); err != nil {
+			return err
+		}
+		p.Variant = APIKeyProof{APIKeyCredentials: creds}
 	default:
 		return errors.Wrapf(
 			validate.ErrValidation,

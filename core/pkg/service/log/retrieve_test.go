@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/notation"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Retrieve", func() {
@@ -25,7 +26,7 @@ var _ = Describe("Retrieve", func() {
 			Channels: []log.ChannelEntry{
 				{
 					Channel:  channel.Key(1),
-					Color:    color.MustFromHex("#ff0000"),
+					Color:    MustSucceed(color.FromHex("#ff0000")),
 					Notation: notation.NotationStandard,
 				},
 			},

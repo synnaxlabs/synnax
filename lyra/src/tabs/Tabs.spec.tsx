@@ -451,13 +451,13 @@ describe("Tabs", () => {
           <BasicTabs />
         </Select.Context>,
       );
-      expect(tab("Tab B").classList.contains("pluto--alt-color")).toBe(true);
-      expect(tab("Tab A").classList.contains("pluto--alt-color")).toBe(false);
+      expect(tab("Tab B").classList.contains("lyra--alt-color")).toBe(true);
+      expect(tab("Tab A").classList.contains("lyra--alt-color")).toBe(false);
     });
 
     it("should not color the selected tab of a frame-owned scalar selection", () => {
       render(<BasicTabs initialValue="a" />);
-      expect(tab("Tab A").classList.contains("pluto--alt-color")).toBe(false);
+      expect(tab("Tab A").classList.contains("lyra--alt-color")).toBe(false);
     });
 
     it("should throw when rendered outside a Frame", () => {
@@ -489,14 +489,14 @@ describe("Tabs", () => {
       ["chip", "align-start", "sizing-content"],
     ] as const)("should default %s to %s and %s", (variant, align, sizing) => {
       const el = strip({ variant });
-      expect(el.classList.contains(`pluto-tabs__selector--${align}`)).toBe(true);
-      expect(el.classList.contains(`pluto-tabs__selector--${sizing}`)).toBe(true);
+      expect(el.classList.contains(`lyra-tabs__selector--${align}`)).toBe(true);
+      expect(el.classList.contains(`lyra-tabs__selector--${sizing}`)).toBe(true);
     });
 
     it.each([
-      ["default", "pluto-btn--text", "pluto--rounded-small"],
-      ["pill", "pluto-btn--outlined", "pluto--rounded"],
-      ["chip", "pluto-btn--outlined", "pluto--rounded"],
+      ["default", "lyra-btn--text", "lyra--rounded-small"],
+      ["pill", "lyra-btn--outlined", "lyra--rounded"],
+      ["chip", "lyra-btn--outlined", "lyra--rounded"],
     ] as const)(
       "should render a %s tab as a %s, %s button",
       (variant, kind, corner) => {
@@ -511,7 +511,7 @@ describe("Tabs", () => {
       "should apply the %s sizing",
       (sizing) => {
         const el = strip({ sizing });
-        expect(el.classList.contains(`pluto-tabs__selector--sizing-${sizing}`)).toBe(
+        expect(el.classList.contains(`lyra-tabs__selector--sizing-${sizing}`)).toBe(
           true,
         );
       },
@@ -519,25 +519,25 @@ describe("Tabs", () => {
 
     it("should let explicit knobs override the variant defaults", () => {
       const el = strip({ variant: "pill", align: "center", sizing: "elastic" });
-      expect(el.classList.contains("pluto-tabs__selector--align-center")).toBe(true);
-      expect(el.classList.contains("pluto-tabs__selector--sizing-elastic")).toBe(true);
+      expect(el.classList.contains("lyra-tabs__selector--align-center")).toBe(true);
+      expect(el.classList.contains("lyra-tabs__selector--sizing-elastic")).toBe(true);
     });
 
     it("should start-align a vertical strip whose variant centers when horizontal", () => {
       const el = strip({ variant: "default", y: true });
-      expect(el.classList.contains("pluto-tabs__selector--align-start")).toBe(true);
+      expect(el.classList.contains("lyra-tabs__selector--align-start")).toBe(true);
     });
 
     it("should still honor an explicit align on a vertical strip", () => {
       const el = strip({ variant: "default", y: true, align: "center" });
-      expect(el.classList.contains("pluto-tabs__selector--align-center")).toBe(true);
+      expect(el.classList.contains("lyra-tabs__selector--align-center")).toBe(true);
     });
   });
 
   describe("scroll thumb", () => {
     // The thumb renders as the strip's sibling so it can hang below the scrollport.
     const thumb = (strip: HTMLElement): HTMLElement => {
-      const el = strip.parentElement?.querySelector<HTMLElement>(".pluto-tabs__thumb");
+      const el = strip.parentElement?.querySelector<HTMLElement>(".lyra-tabs__thumb");
       assert(el != null);
       return el;
     };
@@ -546,21 +546,21 @@ describe("Tabs", () => {
       render(<BasicTabs initialValue="a" />);
       const strip = stubStrip(500, 200);
       fireEvent.scroll(strip);
-      expect(strip.classList.contains("pluto-tabs__selector--scrollable")).toBe(true);
+      expect(strip.classList.contains("lyra-tabs__selector--scrollable")).toBe(true);
     });
 
     it("should not mark a strip whose tabs fit", () => {
       render(<BasicTabs initialValue="a" />);
       const strip = stubStrip(200, 200);
       fireEvent.scroll(strip);
-      expect(strip.classList.contains("pluto-tabs__selector--scrollable")).toBe(false);
+      expect(strip.classList.contains("lyra-tabs__selector--scrollable")).toBe(false);
     });
 
     it("should mark only the edges with tabs hidden past them", () => {
       render(<BasicTabs initialValue="a" />);
       const strip = stubStrip(500, 200);
       const clipped = (edge: string): boolean =>
-        strip.classList.contains(`pluto-tabs__selector--clipped-${edge}`);
+        strip.classList.contains(`lyra-tabs__selector--clipped-${edge}`);
       fireEvent.scroll(strip);
       expect(clipped("start")).toBe(false);
       expect(clipped("end")).toBe(true);
@@ -839,8 +839,7 @@ describe("Tabs", () => {
     const fireStripDrag = (type: "dragOver" | "drop", x: number): void =>
       fireDragEvent(screen.getByRole("tablist"), type, { x, y: 16 });
 
-    const ghost = (): HTMLElement | null =>
-      document.querySelector(".pluto-tabs__ghost");
+    const ghost = (): HTMLElement | null => document.querySelector(".lyra-tabs__ghost");
 
     it("should not accept drops on a wrapping strip", () => {
       // @ts-expect-error - a wrapping strip takes no haulType.
@@ -946,7 +945,7 @@ describe("Tabs", () => {
     });
 
     describe("reorder preview", () => {
-      const HAULED = "pluto-tabs__tab--hauled";
+      const HAULED = "lyra-tabs__tab--hauled";
 
       const tabByKey = (key: string): HTMLElement =>
         screen
@@ -1095,7 +1094,7 @@ describe("Tabs", () => {
         expect(document.querySelector(`.${HAULED}`)).toBeNull();
       });
 
-      const SCROLLABLE = "pluto-tabs__selector--scrollable";
+      const SCROLLABLE = "lyra-tabs__selector--scrollable";
 
       const shiftOf = (tab: HTMLElement): number =>
         Number(/translateX\((-?[\d.]+)px\)/.exec(tab.style.transform)?.[1] ?? 0);

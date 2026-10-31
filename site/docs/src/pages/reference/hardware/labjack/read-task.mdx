@@ -36,6 +36,10 @@ With no thermocouple channels, the device samples the inputs on its own clock. W
 or more thermocouple channels, the Driver reads one sample of each channel at a time,
 and the **Stream rate** has no effect. See [timing](/reference/hardware/tasks#timing).
 
+A LabJack runs one stream at a time and cannot read `AIN` ports during a stream, so a
+task without thermocouples must be the only read task on its device. Add more channels
+to that task instead of starting a second one.
+
 <Divider.Divider x />
 
 ## Create a LabJack read task

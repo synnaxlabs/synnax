@@ -9,17 +9,17 @@
  * included in the file licenses/APL.txt.
  */
 
-@keyframes pluto-skeleton-pulse {
+@keyframes lyra-skeleton-pulse {
     to {
         opacity: 0.4;
     }
 }
 
-.pluto-skeleton {
+.lyra-skeleton {
     flex-shrink: 0;
     border-radius: var(--pluto-border-radius);
     background: var(--pluto-gray-l4);
-    animation: pluto-skeleton-pulse 0.9s ease-in-out infinite alternate;
+    animation: lyra-skeleton-pulse 0.9s ease-in-out infinite alternate;
 
     /* Holds one line of the inherited text height. */
     &::before {
@@ -28,7 +28,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-    .pluto-skeleton {
+    .lyra-skeleton {
         animation: none;
     }
 }

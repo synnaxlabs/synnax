@@ -58,8 +58,10 @@ class BackwardJump(ArcCase):
     ]
 
     def setup(self) -> None:
-        create_virtual_channel(self.client, "bj_press_cmd", sy.DataType.UINT8)
-        create_virtual_channel(self.client, "bj_pressure", sy.DataType.FLOAT32)
+        create_virtual_channel(self.client, "bj_press_cmd", data_type=sy.DataType.UINT8)
+        create_virtual_channel(
+            self.client, "bj_pressure", data_type=sy.DataType.FLOAT32
+        )
         super().setup()
         self.set_manual_timeout(60)
 
@@ -96,12 +98,10 @@ class BackwardJump(ArcCase):
                 "bj_press_cmd has no buffered value; cannot verify guard. "
                 "Streamer did not deliver any reading after the re-fire."
             )
-            return
         if held_value != 0:
             self.fail(
                 f"bj_press_cmd={held_value} after re-firing start_cmd from "
                 "hold. The no-re-entry guard regressed: the runtime "
                 "re-entered pressurize when it should have stayed in hold."
             )
-            return
         self.log("Guard held: sequence stayed in hold as expected")

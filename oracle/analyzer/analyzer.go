@@ -97,38 +97,6 @@ func Analyze(
 	return table, diag
 }
 
-func AnalyzeSource(
-	ctx context.Context,
-	source, namespace string,
-	loader FileLoader,
-) (*resolution.Table, *diagnostics.Files) {
-	diag := diagnostics.NewFiles()
-	table := resolution.NewTable()
-
-	ast, parseDiag := parser.Parse(source)
-	if parseDiag != nil && !parseDiag.Ok() {
-		diag.MergeFile(namespace+".oracle", *parseDiag)
-		return nil, diag
-	}
-	c := &analysisCtx{
-		Context:     ctx,
-		diag:        diag,
-		table:       table,
-		loader:      loader,
-		ast:         ast,
-		filePath:    namespace + ".oracle",
-		namespace:   namespace,
-		fileDomains: make(map[string]resolution.Domain),
-	}
-	analyze(c)
-	if !diag.Ok() {
-		return nil, diag
-	}
-	detectRecursiveTypes(table)
-	validateDomainOmits(table, diag)
-	return table, diag
-}
-
 // AnalyzeSeeded analyzes source into an existing table under an explicit namespace.
 // Callers pre-register the namespaces the source resolves against (sibling schema
 // versions, pinned dependency surfaces) and mark their import paths on the table so the

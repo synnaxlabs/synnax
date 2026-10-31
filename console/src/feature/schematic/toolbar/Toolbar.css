@@ -40,7 +40,7 @@
        the flush floor so the row keeps its small-control height. Negative margins
        stretch it through the row's padding so the divider before the group chips
        spans the row's full height. */
-    .pluto-input.console-schematic__symbols-search {
+    .lyra-input.console-schematic__symbols-search {
         background: transparent;
         border: none;
         border-radius: 0;
@@ -62,15 +62,15 @@
         /* A group tab is inset like the chip it replaced, tighter than the strip's
            document-tab padding. The label sheds the document-tab text margins,
            whose trailing half would pack the icon and label off center. */
-        .pluto-tabs__selector .pluto-tabs__tab {
+        .lyra-tabs__selector .lyra-tabs__tab {
             padding: 0 1.5rem;
 
-            & > .pluto-icon {
+            & > .lyra-icon {
                 margin-left: 0;
                 margin-right: 1rem;
             }
 
-            .pluto-text {
+            .lyra-text {
                 margin: 0;
             }
         }
@@ -79,9 +79,10 @@
     .console-schematic__symbols-group {
         overflow: auto;
         height: 100%;
+
         --pluto-focus-ring-offset: var(--pluto-focus-ring-inset);
 
-        & > .pluto-list__virtualizer {
+        & > .lyra-list__virtualizer {
             height: fit-content;
         }
     }
@@ -99,7 +100,7 @@
             white-space: wrap;
         }
 
-        &.pluto-list__item {
+        &.lyra-list__item {
             width: 90px;
             min-height: 100px;
             max-height: 100px;

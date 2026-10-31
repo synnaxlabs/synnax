@@ -9,51 +9,55 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-navbar {
+.lyra-navbar {
     position: relative;
     flex-shrink: 0;
 }
 
-.pluto-navbar.pluto--direction-y {
+.lyra-navbar.lyra--direction-y {
     padding: 0;
     height: 100%;
 }
 
-.pluto-navbar.pluto--direction-x {
+.lyra-navbar.lyra--direction-x {
     width: 100%;
 }
 
-.pluto-navbar.pluto--direction-y .pluto-navbar__content {
+.lyra-navbar.lyra--direction-y .lyra-navbar__content {
+    /* stylelint-disable-next-line declaration-no-important -- the content runs along
+       the bar whatever direction it is given */
     flex-direction: column !important;
     width: 100%;
 }
 
-.pluto-navbar.pluto--direction-x .pluto-navbar__content {
+.lyra-navbar.lyra--direction-x .lyra-navbar__content {
+    /* stylelint-disable-next-line declaration-no-important -- the content runs along
+       the bar whatever direction it is given */
     flex-direction: row !important;
     height: 100%;
 }
 
-.pluto-navbar.pluto--direction-x .pluto-navbar__content.pluto--location-center {
+.lyra-navbar.lyra--direction-x .lyra-navbar__content.lyra--location-center {
     margin-left: auto;
     margin-right: auto;
 }
 
-.pluto-navbar.pluto--direction-x .pluto-navbar__content.pluto--end {
+.lyra-navbar.lyra--direction-x .lyra-navbar__content.lyra--end {
     margin-left: auto;
 }
 
-.pluto-navbar.pluto--direction-y .pluto-navbar__content.pluto--location-center {
+.lyra-navbar.lyra--direction-y .lyra-navbar__content.lyra--location-center {
     margin-top: auto;
     margin-bottom: auto;
     order: 2;
 }
 
-.pluto-navbar.pluto--direction-y .pluto-navbar__content.pluto--end {
+.lyra-navbar.lyra--direction-y .lyra-navbar__content.lyra--end {
     order: 100;
     margin-top: auto;
 }
 
-.pluto-navbar.pluto--direction-x .pluto-navbar__content.pluto--absolute-center {
+.lyra-navbar.lyra--direction-x .lyra-navbar__content.lyra--absolute-center {
     left: 50%;
     transform: translateX(-50%);
     position: absolute;

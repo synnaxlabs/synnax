@@ -10,10 +10,10 @@
 import "@/schematic/node/general/light/light.css";
 
 import { type schematic } from "@synnaxlabs/client";
-import { CSS } from "@synnaxlabs/lyra/css";
 import { color } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
+import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 
@@ -55,7 +55,7 @@ export const Light = ({
       scale={scale}
     >
       <g
-        className={CSS.cls(CSS.B("symbol-colored"), CSS.BE("light", "lamp"))}
+        className={CSS.cls(CSS.symbolColored, CSS.BE("light", "lamp"))}
         style={
           onColor == null
             ? undefined

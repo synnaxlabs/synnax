@@ -45,11 +45,14 @@ jq -r "$EXPR" "$FAKE_GH_DIR/pull.json"
 
 def pull(
     labels: list[str],
+    *,
     enabled_by: str | None = None,
     draft: bool = False,
     base: str = "main",
+    stacked: bool = False,
 ) -> dict[str, Any]:
     return {
+        "stack": {"number": 3980, "position": 1, "size": 2} if stacked else None,
         "labels": [{"name": n} for n in labels],
         "draft": draft,
         "base": {"ref": base},
@@ -121,6 +124,12 @@ class TestAutoMerge:
         """Should not turn auto-merge on for a pull request that does not qualify."""
         decision, calls = run(pr)
         assert decision == "unchanged"
+        assert calls == []
+
+    def test_leaves_a_stacked_pull_request(self, run: Run) -> None:
+        """Should not turn auto-merge on for a pull request in a stack."""
+        decision, calls = run(pull(["review/bot"], stacked=True))
+        assert decision == "unchanged: the pull request is in a stack"
         assert calls == []
 
     def test_turns_off_its_own_auto_merge(self, run: Run) -> None:

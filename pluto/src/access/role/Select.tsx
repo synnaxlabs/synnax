@@ -11,13 +11,13 @@ import "@/access/role/Select.css";
 
 import { type access } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
-import { CSS } from "@synnaxlabs/lyra/css";
 import { List } from "@synnaxlabs/lyra/list";
 import { Select as Base } from "@synnaxlabs/lyra/select";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type ReactElement } from "react";
 
 import { type ListQuery, useList } from "@/access/role/queries";
+import { CSS } from "@/css";
 import { type Flux } from "@/flux";
 
 const ListItem = ({

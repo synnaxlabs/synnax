@@ -684,7 +684,8 @@ func analyzeForRange(
 		return
 	}
 
-	var argTypes []types.Type
+	argTypes := make([]types.Type, 0, len(argExprs))
+	var loopVarType types.Type
 	for i, argExpr := range argExprs {
 		expression.Analyze(ctx.Child(argExpr))
 		argType := atypes.InferFromExpression(ctx.Child(argExpr))
@@ -700,9 +701,33 @@ func analyzeForRange(
 			return
 		}
 		argTypes = append(argTypes, argType)
+		if !argType.IsInteger() {
+			continue
+		}
+		if !loopVarType.IsValid() {
+			loopVarType = argType
+		} else if !atypes.Compatible(loopVarType, argType) {
+			ctx.Diagnostics.Add(diagnostics.Errorf(
+				ctx.AST,
+				"type mismatch: cannot use %s and %s in range()",
+				loopVarType, argType,
+			))
+		}
 	}
-
-	loopVarType := InferRangeType(argTypes)
+	if !loopVarType.IsValid() {
+		loopVarType = types.I64()
+	}
+	for i, argType := range argTypes {
+		if argType.IsInteger() {
+			continue
+		}
+		if err := ctx.Constraints.AddEquality(
+			argType, loopVarType, argExprs[i], "range() arguments must share one type",
+		); err != nil {
+			ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+			return
+		}
+	}
 
 	_, err := ctx.Scope.Add(ctx, symbol.Symbol{
 		Name: name,
@@ -726,51 +751,6 @@ func isIntegerLiteral(t types.Type) bool {
 		t.Constraint != nil &&
 		(t.Constraint.Kind == types.KindIntegerConstant ||
 			t.Constraint.Kind == types.KindNumericConstant)
-}
-
-// InferRangeType determines the loop variable type from range() argument types.
-// It finds the widest concrete integer type among the arguments. If any concrete
-// type is signed, the result is signed at that width. If all arguments are
-// untyped literals (no concrete types), it defaults to i64.
-func InferRangeType(argTypes []types.Type) types.Type {
-	widestBits := 0
-	anySigned := false
-	for _, t := range argTypes {
-		if !t.IsInteger() {
-			continue
-		}
-		if t.IsSignedInteger() {
-			anySigned = true
-		}
-		if bits := getTypeBits(t); bits > widestBits {
-			widestBits = bits
-		}
-	}
-	if widestBits == 0 {
-		return types.I64()
-	}
-	if anySigned {
-		switch {
-		case widestBits <= 8:
-			return types.I8()
-		case widestBits <= 16:
-			return types.I16()
-		case widestBits <= 32:
-			return types.I32()
-		default:
-			return types.I64()
-		}
-	}
-	switch {
-	case widestBits <= 8:
-		return types.U8()
-	case widestBits <= 16:
-		return types.U16()
-	case widestBits <= 32:
-		return types.U32()
-	default:
-		return types.U64()
-	}
 }
 
 func addHiddenLocals(

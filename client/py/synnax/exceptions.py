@@ -37,7 +37,9 @@ class ControlError(Error):
 
 
 class UnauthorizedError(ControlError):
-    """Raised when an entity attempts to access or modify information it is not allowed."""
+    """Raised when an entity attempts to access or modify information it is not
+    allowed.
+    """
 
     TYPE = ControlError.TYPE + ".unauthorized"
 

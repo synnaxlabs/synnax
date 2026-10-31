@@ -49,7 +49,7 @@ sequence press {
     stage hold {
         0 -> press_vlv_cmd
         abort_cmd == 1 => abort
-        time.wait{duration=10s} => vent
+        time.wait(duration=10s) => vent
     }
     stage vent {
         1 -> vent_vlv_cmd
@@ -81,7 +81,7 @@ transition of the stage:
 stage pressurize {
     // ...
     tank_pt > 300 => hold
-    time.wait{duration=60s} => abort
+    time.wait(duration=60s) => abort
 }
 ```
 
@@ -101,7 +101,7 @@ stage hold {
     tank_pt > 450 => abort
     abort_cmd == 1 => abort
     tank_pt < 250 => abort
-    time.wait{duration=10s} => vent
+    time.wait(duration=10s) => vent
 }
 ```
 
@@ -118,19 +118,19 @@ in `pressurize`, and abort above a limit:
 ```arc channels="tank_pt" bodies="abort, too_fast"
 import math
 
-func too_fast(rate f64) bool {
+func too_fast() {rate f64} bool {
     return rate > 50
 }
 
 // in stage pressurize:
-tank_pt -> math.derivative{} -> too_fast{} => abort
+tank_pt -> math.derivative() -> too_fast() => abort
 ```
 
 `math.derivative` gives the change per second, so this check aborts above 50 psi/s. Its
 first value after the stage starts is 0. A derivative of a noisy sensor is noisy too:
 0.1 psi of noise at 1 kHz is about 100 psi/s. Before you choose the limit, write the
 rate to a channel and plot it during a real run:
-`tank_pt -> math.derivative{} -> tank_pt_rate`.
+`tank_pt -> math.derivative() -> tank_pt_rate`.
 
 <Divider.Divider x />
 
@@ -173,12 +173,12 @@ sequence press {
     range_key str $= ""
     // ...
     stage pressurize {
-        ranges.create{name="Press test", color="#3bc454"} -> range_key
+        ranges.create(name="Press test", color="#3bc454") -> range_key
         // ...
     }
     // ...
     stage done {
-        ranges.end{key=range_key}
+        ranges.end(key=range_key)
         // ...
     }
 }
@@ -198,7 +198,7 @@ import math
 import ranges
 import time
 
-func too_fast(rate f64) bool {
+func too_fast() {rate f64} bool {
     return rate > 50
 }
 
@@ -211,21 +211,21 @@ sequence press {
         start_cmd == 1 => pressurize
     }
     stage pressurize {
-        ranges.create{name="Press test", color="#3bc454"} -> range_key
+        ranges.create(name="Press test", color="#3bc454") -> range_key
         1 -> press_vlv_cmd
         0 -> vent_vlv_cmd
         tank_pt > 450 => abort
-        tank_pt -> math.derivative{} -> too_fast{} => abort
+        tank_pt -> math.derivative() -> too_fast() => abort
         abort_cmd == 1 => abort
         tank_pt > 300 => hold
-        time.wait{duration=60s} => abort
+        time.wait(duration=60s) => abort
     }
     stage hold {
         0 -> press_vlv_cmd
         tank_pt > 450 => abort
         abort_cmd == 1 => abort
         tank_pt < 250 => abort
-        time.wait{duration=10s} => vent
+        time.wait(duration=10s) => vent
     }
     stage vent {
         1 -> vent_vlv_cmd
@@ -237,7 +237,7 @@ sequence press {
         tank_pt < 5 => done
     }
     stage done {
-        ranges.end{key=range_key}
+        ranges.end(key=range_key)
         0 -> vent_vlv_cmd
         start_cmd == 1 => pressurize
     }

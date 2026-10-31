@@ -23,7 +23,9 @@ READ_TIMEOUT = 5
 @pytest.mark.calculations
 class TestCalculatedChannelStreaming:
     def test_basic_calculated_channel_stream(self, client: sy.Synnax) -> None:
-        """Should correctly create and read from a basic calculated channel using streaming"""
+        """Should correctly create and read from a basic calculated channel using
+        streaming
+        """
         timestamp_channel = client.channels.create(
             name=random_name(),
             is_index=True,
@@ -153,7 +155,9 @@ class TestCalculatedChannelStreaming:
 @pytest.mark.calculations
 class TestCalculatedChannelIteration:
     def test_basic_calculated_channel_iterate(self, client: sy.Synnax) -> None:
-        """Should correctly create and read from a basic calculated channel using iteration"""
+        """Should correctly create and read from a basic calculated channel using
+        iteration
+        """
         timestamp_channel = client.channels.create(
             name=random_name(),
             is_index=True,
@@ -170,7 +174,7 @@ class TestCalculatedChannelIteration:
             name=random_name(),
             expression=f"return {src_channel.name}",
         )
-        idx_data_1 = seconds_linspace(5, 3)
+        idx_data_1 = seconds_linspace(5, count=3)
         src_data_1 = [10.0, 20.0, 30.0]
         client.write(
             5 * sy.TimeSpan.SECOND,
@@ -196,7 +200,7 @@ class TestCalculatedChannelIteration:
             data_ser, np.array(src_data_1, dtype=data_ser.data_type.np)
         )
 
-        idx_data_2 = seconds_linspace(9, 3)
+        idx_data_2 = seconds_linspace(9, count=3)
         src_data_2 = [50.0, 60.0, 70.0]
         client.write(
             9 * sy.TimeSpan.SECOND,
@@ -219,7 +223,7 @@ class TestCalculatedChannelIteration:
             np.array(idx_data_1 + idx_data_2, dtype=ts_ser.data_type.np),
         )
 
-        idx_data_0 = seconds_linspace(1, 2)
+        idx_data_0 = seconds_linspace(1, count=2)
         src_data_0 = [0.0, 5.0]
         client.write(
             1 * sy.TimeSpan.SECOND,
@@ -247,7 +251,9 @@ class TestCalculatedChannelIteration:
         )
 
     def test_conditional_calculated_channel(self, client: sy.Synnax) -> None:
-        """Should correctly create and read from a basic calculated channel using iteration"""
+        """Should correctly create and read from a basic calculated channel using
+        iteration
+        """
         timestamp_channel = client.channels.create(
             name=random_name(),
             is_index=True,
@@ -270,7 +276,7 @@ class TestCalculatedChannelIteration:
             }}
             """,
         )
-        idx_data = seconds_linspace(5, 3)
+        idx_data = seconds_linspace(5, count=3)
         src_data = [10.0, 20.0, 30.0]
         client.write(
             5 * sy.TimeSpan.SECOND,
@@ -297,7 +303,9 @@ class TestCalculatedChannelIteration:
         )
 
     def test_calculation_deleted_channel(self, client: sy.Synnax) -> None:
-        """Should correctly create and read from a basic calculated channel using iteration"""
+        """Should correctly create and read from a basic calculated channel using
+        iteration
+        """
         timestamp_channel = client.channels.create(
             name=random_name(),
             is_index=True,
@@ -319,7 +327,7 @@ class TestCalculatedChannelIteration:
                   return 5
               }}""",
         )
-        idx_data = seconds_linspace(5, 3)
+        idx_data = seconds_linspace(5, count=3)
         src_data = [10.0, 20.0, 30.0]
         client.write(
             5 * sy.TimeSpan.SECOND,
@@ -383,7 +391,7 @@ class TestCalculatedChannelIteration:
         )
 
         # Write data
-        idx_data = seconds_linspace(1, 5)
+        idx_data = seconds_linspace(1, count=5)
         src_data = [1.0, 2.0, 3.0, 4.0, 5.0]
         client.write(
             1 * sy.TimeSpan.SECOND,
@@ -451,7 +459,7 @@ class TestCalculatedChannelIteration:
         )
 
         # Write data
-        idx_data = seconds_linspace(1, 5)
+        idx_data = seconds_linspace(1, count=5)
         src_data = [1.0, 2.0, 3.0, 4.0, 5.0]
         client.write(
             1 * sy.TimeSpan.SECOND,
@@ -518,7 +526,7 @@ class TestCalculatedChannelIteration:
         )
 
         # Write data
-        idx_data = seconds_linspace(1, 5)
+        idx_data = seconds_linspace(1, count=5)
         src_data = [1.0, 2.0, 3.0, 4.0, 5.0]
         client.write(
             1 * sy.TimeSpan.SECOND,
@@ -564,7 +572,9 @@ class TestCalculatedChannelIteration:
             )
 
     def test_mixed_calculated_and_concrete_channels(self, client: sy.Synnax) -> None:
-        """Should correctly handle requesting both calculated and concrete channels together"""
+        """Should correctly handle requesting both calculated and concrete channels
+        together
+        """
         # Create index and base concrete channels
         timestamp_channel = client.channels.create(
             name=random_name(),
@@ -599,7 +609,7 @@ class TestCalculatedChannelIteration:
         )
 
         # Write data
-        idx_data = seconds_linspace(1, 5)
+        idx_data = seconds_linspace(1, count=5)
         src_data_1 = [1.0, 2.0, 3.0, 4.0, 5.0]
         src_data_2 = [-2.0, -3.0, -4.0, -5.0, -6.0]
         client.write(
@@ -2420,7 +2430,9 @@ class TestCalculationsAcrossDomains:
 
 
 class TestStatOperationsAlignment:
-    """Tests that statistical operations correctly propagate alignment metadata across domains."""
+    """Tests that statistical operations correctly propagate alignment metadata across
+    domains.
+    """
 
     def test_avg_operation_alignment_across_domains(self, client: sy.Synnax) -> None:
         """Should correctly calculate avg with proper alignment per domain."""
@@ -2683,7 +2695,7 @@ class TestStatOperationsAlignment:
         client.write(
             1 * sy.TimeSpan.SECOND,
             {
-                ts.key: seconds_linspace(1, 2),
+                ts.key: seconds_linspace(1, count=2),
                 src.key: [10.0, 20.0],
             },
         )
@@ -2718,7 +2730,7 @@ class TestStatOperationsAlignment:
         client.write(
             1 * sy.TimeSpan.SECOND,
             {
-                ts.key: seconds_linspace(1, 2),
+                ts.key: seconds_linspace(1, count=2),
                 src.key: [10.0, 20.0],
             },
         )
@@ -2945,7 +2957,7 @@ class TestCalcChannelStress:
         ) as w:
             w.write(
                 {
-                    ts_a.key: seconds_linspace(1, 3),
+                    ts_a.key: seconds_linspace(1, count=3),
                     alpha.key: a1,
                     beta.key: b1,
                 }
@@ -2958,7 +2970,7 @@ class TestCalcChannelStress:
         ) as w:
             w.write(
                 {
-                    ts_b.key: seconds_linspace(1, 2),
+                    ts_b.key: seconds_linspace(1, count=2),
                     gamma.key: g1,
                 }
             )
@@ -2977,7 +2989,7 @@ class TestCalcChannelStress:
         ) as w:
             w.write(
                 {
-                    ts_a.key: seconds_linspace(10, 4),
+                    ts_a.key: seconds_linspace(10, count=4),
                     alpha.key: a2,
                     beta.key: b2,
                 }
@@ -2990,7 +3002,7 @@ class TestCalcChannelStress:
         ) as w:
             w.write(
                 {
-                    ts_b.key: seconds_linspace(10, 5),
+                    ts_b.key: seconds_linspace(10, count=5),
                     gamma.key: g2,
                 }
             )
@@ -3016,7 +3028,7 @@ class TestCalcChannelStress:
             ) as w:
                 w.write(
                     {
-                        ts_a.key: seconds_linspace(20, 2),
+                        ts_a.key: seconds_linspace(20, count=2),
                         alpha.key: a3,
                         beta.key: b3,
                     }
@@ -3035,7 +3047,7 @@ class TestCalcChannelStress:
             ) as w:
                 w.write(
                     {
-                        ts_a.key: seconds_linspace(30, 3),
+                        ts_a.key: seconds_linspace(30, count=3),
                         alpha.key: a4,
                         beta.key: b4,
                     }

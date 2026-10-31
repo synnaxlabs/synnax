@@ -112,10 +112,10 @@ export const Users = ({ entries, now }: UsersProps): ReactElement => {
               {shown.map(({ account: a, usage }) => (
                 <Row key={a.userID} columns={COLUMNS} href={userPath(a.userID)}>
                   <Flex.Box y gap="tiny" className="portal-list__stack">
-                    <Text.Text level="p" weight={500} overflow="ellipsis">
+                    <Text.Text level="p" weight={500} overflow="fade">
                       {a.name}
                     </Text.Text>
-                    <Text.Text level="small" color={9} overflow="ellipsis">
+                    <Text.Text level="small" color={9} overflow="fade">
                       {a.email}
                     </Text.Text>
                   </Flex.Box>

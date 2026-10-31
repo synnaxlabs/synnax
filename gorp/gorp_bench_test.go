@@ -225,31 +225,6 @@ func BenchmarkCreate(b *testing.B) {
 			})
 		}
 	})
-	b.Run("merge_existing", func(b *testing.B) {
-		for _, size := range []int{1, 10, 100} {
-			b.Run(fmt.Sprintf("n=%d", size), func(b *testing.B) {
-				db := setupBenchDB(b)
-				ctx := b.Context()
-				populateEntries(b, db, size)
-				entries := makeBenchEntries(size)
-				b.ReportAllocs()
-				b.ResetTimer()
-				for i := 0; i < b.N; i++ {
-					e := make([]benchEntry, len(entries))
-					copy(e, entries)
-					if err := gorp.NewCreate[int32, benchEntry]().
-						MergeExisting(func(_ gorp.Context, creating, existing benchEntry) (benchEntry, error) {
-							creating.Data = existing.Data + "-merged"
-							return creating, nil
-						}).
-						Entries(&e).
-						Exec(ctx, db); err != nil {
-						b.Fatal(err)
-					}
-				}
-			})
-		}
-	})
 }
 
 // --- Retrieve Benchmarks ---

@@ -15,7 +15,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/oracle/analyzer"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/cpp/types"
 	. "github.com/synnaxlabs/oracle/testutil"
@@ -210,7 +209,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					embedded bool?
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "rack", loader)
+			table, diag := Analyze(ctx, source, "rack", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -237,7 +236,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					parent uint32?
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "rack", loader)
+			table, diag := Analyze(ctx, source, "rack", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -262,7 +261,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					values int32[]
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "rack", loader)
+			table, diag := Analyze(ctx, source, "rack", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -288,7 +287,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					tags string[]?
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "rack", loader)
+			table, diag := Analyze(ctx, source, "rack", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -313,7 +312,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					tags string[]?
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "rack", loader)
+			table, diag := Analyze(ctx, source, "rack", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -338,7 +337,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					config record
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "task", loader)
+			table, diag := Analyze(ctx, source, "task", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -361,7 +360,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					metadata map<string, string>
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "task", loader)
+			table, diag := Analyze(ctx, source, "task", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -394,7 +393,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					-task_counter
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "rack", loader)
+				table, diag := Analyze(ctx, source, "rack", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -474,6 +473,93 @@ var _ = Describe("C++ Types Plugin", func() {
 			},
 		)
 
+		Context("parent omitted in C++", func() {
+			schema := func(parentDomain, childBody string) string {
+				return `
+				@go output "core/pkg/service/auth"
+				@cpp output "client/cpp/auth"
+
+				Record struct {
+					key    uint32
+					name   string
+					secret string
+					` + parentDomain + `
+				}
+
+				Shape struct extends Record {
+					` + childBody + `
+				}
+			`
+			}
+
+			It(
+				"Should declare an inline variant's inherited fields",
+				func(ctx SpecContext) {
+					source := `
+					@go output "core/pkg/service/auth"
+					@cpp output "client/cpp/auth"
+
+					Base struct {
+						port string
+					}
+
+					Record struct {
+						key  uint32
+						name string
+						@cpp omit
+					}
+
+					Chan union on type extends Base {
+						ai extends Record {
+							rate float64
+						}
+					}
+				`
+					resp := MustGenerate(ctx, source, "auth", loader, cppPlugin)
+					ExpectContent(resp, "types.gen.h").
+						ToContain(
+							"struct AIChan : public Base {",
+							"std::uint32_t key",
+							"std::string name",
+							"double rate",
+						).
+						ToNotContain("Record")
+				},
+			)
+
+			It("Should declare the inherited fields", func(ctx SpecContext) {
+				resp := MustGenerate(
+					ctx, schema("@cpp omit", "rate float64"), "auth", loader, cppPlugin,
+				)
+				ExpectContent(resp, "types.gen.h").
+					ToContain(
+						"struct Shape {",
+						"std::uint32_t key",
+						"std::string name",
+						"std::string secret",
+						"double rate",
+					).
+					ToNotContain("struct Record")
+			})
+
+			It("Should leave out a removed field", func(ctx SpecContext) {
+				resp := MustGenerate(
+					ctx, schema("@cpp omit", "-secret"), "auth", loader, cppPlugin,
+				)
+				ExpectContent(resp, "types.gen.h").
+					ToContain("struct Shape {", "std::string name").
+					ToNotContain("secret", "struct Record")
+			})
+
+			It("Should inherit from a parent that generates", func(ctx SpecContext) {
+				resp := MustGenerate(
+					ctx, schema("", "rate float64"), "auth", loader, cppPlugin,
+				)
+				ExpectContent(resp, "types.gen.h").
+					ToContain("struct Shape : public Record {")
+			})
+		})
+
 		It("Should handle @cpp name override", func(ctx SpecContext) {
 			source := `
 				@cpp output "client/cpp/rack"
@@ -484,7 +570,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					name string
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "rack", loader)
+			table, diag := Analyze(ctx, source, "rack", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -512,7 +598,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					}
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "channel", loader)
+			table, diag := Analyze(ctx, source, "channel", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -539,7 +625,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					channels Map<uint32, uint8>
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "ir", loader)
+				table, diag := Analyze(ctx, source, "ir", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -571,7 +657,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					@cpp hand
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "rack", loader)
+			table, diag := Analyze(ctx, source, "rack", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -594,7 +680,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					details D
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "status", loader)
+			table, diag := Analyze(ctx, source, "status", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -620,7 +706,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					details D
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "status", loader)
+				table, diag := Analyze(ctx, source, "status", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -648,7 +734,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					details D
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "status", loader)
+				table, diag := Analyze(ctx, source, "status", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -676,7 +762,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					details D?
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "status", loader)
+			table, diag := Analyze(ctx, source, "status", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -700,7 +786,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					details D
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "status", loader)
+			table, diag := Analyze(ctx, source, "status", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -737,13 +823,8 @@ var _ = Describe("C++ Types Plugin", func() {
 					@cpp name "Status"
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "status", loader)
-			if !diag.Ok() {
-				for _, e := range diag.Errors() {
-					GinkgoWriter.Printf("Error: %s\n", e)
-				}
-			}
-			Expect(diag.Ok()).To(BeTrue())
+			table, diag := Analyze(ctx, source, "status", loader)
+			Expect(diag.Ok()).To(BeTrue(), diag.String)
 
 			req := &plugin.Request{
 				Resolutions: table,
@@ -769,7 +850,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 				Status = StatusDetails
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "rack", loader)
+			table, diag := Analyze(ctx, source, "rack", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -791,7 +872,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					wasm bytes
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "module", loader)
+			table, diag := Analyze(ctx, source, "module", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -815,7 +896,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 				Params Param[]
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "types", loader)
+			table, diag := Analyze(ctx, source, "types", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -850,7 +931,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					outputs Params
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "types", loader)
+				table, diag := Analyze(ctx, source, "types", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -882,7 +963,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 				Params Param[]
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "types", loader)
+				table, diag := Analyze(ctx, source, "types", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -913,7 +994,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 				Params Param[]
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "types", loader)
+				table, diag := Analyze(ctx, source, "types", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -955,7 +1036,7 @@ var _ = Describe("C++ Types Plugin", func() {
 
 				Params Param[]
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "types", loader)
+				table, diag := Analyze(ctx, source, "types", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -992,7 +1073,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					variant Variant
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "status", loader)
+				table, diag := Analyze(ctx, source, "status", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1033,7 +1114,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					axis_key AxisKey
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "lineplot", loader)
+				table, diag := Analyze(ctx, source, "lineplot", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				resp := MustSucceed(
@@ -1057,7 +1138,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					right Node?
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "types", loader)
+				table, diag := Analyze(ctx, source, "types", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1166,7 +1247,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					unit Unit?
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "types", loader)
+				table, diag := Analyze(ctx, source, "types", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1215,7 +1296,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					status RackStatus?
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, rackSource, "rack", loader)
+				table, diag := Analyze(ctx, rackSource, "rack", loader)
 				Expect(diag.Ok()).To(BeTrue(), diag.String())
 
 				req := &plugin.Request{
@@ -1247,7 +1328,7 @@ var _ = Describe("C++ Types Plugin", func() {
 					name string
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
+				table, diag := Analyze(ctx, source, "user", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1276,7 +1357,7 @@ var _ = Describe("C++ Types Plugin", func() {
 						ripe bool
 					}
 				`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "animals", loader)
+				table, diag := Analyze(ctx, source, "animals", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1303,7 +1384,7 @@ var _ = Describe("C++ Types Plugin", func() {
 						mango bool
 					}
 				`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "order", loader)
+				table, diag := Analyze(ctx, source, "order", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1417,7 +1498,7 @@ var _ = Describe("C++ Types Plugin", func() {
 						concurrency control.Concurrency
 					}
 				`
-					table, diag := analyzer.AnalyzeSource(
+					table, diag := Analyze(
 						ctx,
 						channelSource,
 						"channel",

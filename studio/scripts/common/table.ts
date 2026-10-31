@@ -13,7 +13,7 @@ import { capture } from "@/index";
 
 /** drawer returns the bottom toolbar, which edits the selected cell. */
 export const drawer = (page: Page): Locator =>
-  page.locator(".console-nav__drawer.pluto--location-bottom").first();
+  page.locator(".console-nav__drawer.lyra--location-bottom").first();
 
 /** resize drags the table's resize handle named `handle` by `by`, off camera. */
 export const resize = async (

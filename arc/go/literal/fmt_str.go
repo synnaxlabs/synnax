@@ -122,7 +122,7 @@ func UnescapeString(body string, multi bool) (string, error) {
 			if i+6 > len(body) {
 				return "", errors.New(`incomplete \u escape in string literal`)
 			}
-			cp, err := strconv.ParseUint(body[i+2:i+6], 16, 32)
+			cp, err := strconv.ParseUint(body[i+2:i+6], 16, 16)
 			if err != nil {
 				return "", errors.Newf(
 					`invalid \u escape %q in string literal`,

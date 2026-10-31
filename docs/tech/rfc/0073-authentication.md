@@ -346,9 +346,10 @@ User struct {
 }
 ```
 
-`username` moves to the password record. The user endpoint still returns it, filled on
-read. `name` replaces `first_name` and `last_name`. The migration joins the two and
-falls back to the username when both are empty. The rack schema does not change.
+`username` moves to the password record, and the user endpoint does not return it. The
+endpoint still finds users by username. `name` replaces `first_name` and `last_name`.
+The migration joins the two and falls back to the username when both are empty. The rack
+schema does not change.
 
 ### 4.10 API and clients
 

@@ -21,9 +21,6 @@
 //
 // It also serves our users by allowing them to query the topology of the cluster by
 // traversing relationships (such as a browsable tree).
-//
-// For more information, see the [ontology RFC]:
-// https://docs.synnaxlabs.com/rfc/5-220716-ontology.
 package ontology
 
 import (

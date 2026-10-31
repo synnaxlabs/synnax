@@ -88,8 +88,11 @@ const samples = await channel.read(tr);
 
 </Client.Tabs>
 
-A list of channels always gives a `Frame`, even a list of one channel. To work with the
-result, see [Series and frames](/reference/client/series-and-frames).
+A list of channels always gives a `Frame`, even a list of one channel. When a channel
+has no data in the time range, one channel gives an empty `MultiSeries`, and a list
+gives an empty series for that channel. In Python, a frame that you read by key also
+finds a channel by its name. To work with the result, see
+[Series and frames](/reference/client/series-and-frames).
 
 <Divider.Divider x />
 
@@ -196,7 +199,7 @@ The Core writes the CSV file, so your code never holds the whole export in memor
   <Fragment slot="python">
 
 ```python
-client.read_csv(tr, ["temperature", "pressure"], "tank.csv")
+client.read_csv(tr, ["temperature", "pressure"], dest="tank.csv")
 ```
 
 The file name must end in `.csv`.
@@ -239,7 +242,7 @@ Export samples to an NI TDMS file:
   <Fragment slot="python">
 
 ```python
-client.read_tdms(tr, ["temperature", "pressure"], "tank.tdms")
+client.read_tdms(tr, ["temperature", "pressure"], dest="tank.tdms")
 ```
 
 The file name must end in `.tdms`.

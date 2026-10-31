@@ -2890,35 +2890,6 @@ func range_pos_to_neg() i64 { sum i64 := 0
     EXPECT_EQ(v, 3);
 }
 
-/// @brief range with mixed i32 start and i64 end.
-TEST(ForLoopTest, MixedI32I64Range) {
-    const auto c = new_test_client();
-    const auto v = call_func<int64_t>(c, R"arc(
-func range_mixed() i64 {
-    lo i32 := 1
-    hi i64 := 5
-    sum i64 := 0
-    for i := range(lo, hi) { sum = sum + i }
-    return sum
-})arc");
-    EXPECT_EQ(v, 10);
-}
-
-/// @brief range with mixed i32/i64 bounds and i32 step.
-TEST(ForLoopTest, MixedI32I64RangeWithStep) {
-    const auto c = new_test_client();
-    const auto v = call_func<int64_t>(c, R"arc(
-func range_3arg_mixed() i64 {
-    lo i32 := 0
-    hi i64 := 10
-    s i32 := 3
-    sum i64 := 0
-    for i := range(lo, hi, s) { sum = sum + i }
-    return sum
-})arc");
-    EXPECT_EQ(v, 18);
-}
-
 /// @brief for x := data sums series elements.
 TEST(ForLoopTest, SeriesSumSingleIdent) {
     const auto c = new_test_client();
@@ -3105,34 +3076,6 @@ func series_range_nested() i32 {
     EXPECT_EQ(v, 6);
 }
 
-/// @brief range with mixed i16 start and i32 end.
-TEST(ForLoopTest, MixedI16I32Range) {
-    const auto c = new_test_client();
-    const auto v = call_func<int32_t>(c, R"arc(
-func range_i16_i32() i32 {
-    lo i16 := 0
-    hi i32 := 4
-    sum i32 := 0
-    for i := range(lo, hi) { sum = sum + i }
-    return sum
-})arc");
-    EXPECT_EQ(v, 6);
-}
-
-/// @brief range with mixed u8 start and u32 end.
-TEST(ForLoopTest, MixedU8U32Range) {
-    const auto c = new_test_client();
-    const auto v = call_func<uint32_t>(c, R"arc(
-func range_u8_u32() u32 {
-    lo u8 := 1
-    hi u32 := 4
-    sum u32 := 0
-    for i := range(lo, hi) { sum = sum + i }
-    return sum
-})arc");
-    EXPECT_EQ(v, 6);
-}
-
 /// @brief range with u8 bounds.
 TEST(ForLoopTest, U8RangeBounds) {
     const auto c = new_test_client();
@@ -3179,35 +3122,6 @@ func range_i16_only() i16 {
     return sum
 })arc");
     EXPECT_EQ(v, 15);
-}
-
-/// @brief range with mixed i8 start and i16 end.
-TEST(ForLoopTest, MixedI8I16Range) {
-    const auto c = new_test_client();
-    const auto v = call_func<int16_t>(c, R"arc(
-func range_i8_i16() i16 {
-    lo i8 := 0
-    hi i16 := 5
-    sum i16 := 0
-    for i := range(lo, hi) { sum = sum + i }
-    return sum
-})arc");
-    EXPECT_EQ(v, 10);
-}
-
-/// @brief range with mixed u8/u16 bounds and u8 step.
-TEST(ForLoopTest, MixedU8U16RangeWithStep) {
-    const auto c = new_test_client();
-    const auto v = call_func<uint16_t>(c, R"arc(
-func range_u8_u16_step() u16 {
-    lo u8 := 0
-    hi u16 := 10
-    s u8 := 2
-    sum u16 := 0
-    for i := range(lo, hi, s) { sum = sum + i }
-    return sum
-})arc");
-    EXPECT_EQ(v, 20);
 }
 
 /// @brief stateful variable ($=) in a for loop accumulates across reactive executions.

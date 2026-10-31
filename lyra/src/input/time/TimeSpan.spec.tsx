@@ -18,7 +18,7 @@ import { mockBoundingClientRect } from "@/testutil/dom";
 const HOUR = Number(TimeSpan.HOUR.valueOf());
 
 const open = (container: HTMLElement): HTMLInputElement => {
-  const trigger = container.querySelector(".pluto-time-editor__trigger");
+  const trigger = container.querySelector(".lyra-time-editor__trigger");
   if (trigger == null) throw new Error("no time editor trigger");
   fireEvent.click(trigger);
   return screen.getByRole<HTMLInputElement>("textbox");
@@ -47,8 +47,7 @@ describe("Input.TimeSpan", () => {
       const { container } = render(
         <Input.TimeSpan value={0} onChange={vi.fn()} elapsedSince={since} />,
       );
-      const label = () =>
-        container.querySelector(".pluto-timespan__label")?.textContent;
+      const label = () => container.querySelector(".lyra-timespan__label")?.textContent;
       expect(label()).toBe("5s");
       act(() => {
         vi.advanceTimersByTime(TimeSpan.seconds(3).milliseconds);

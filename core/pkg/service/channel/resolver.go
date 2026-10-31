@@ -45,7 +45,7 @@ func (r *symbolResolver) Resolve(
 	ctx context.Context,
 	name string,
 ) (*symbol.Symbol, error) {
-	key, err := strconv.Atoi(name)
+	key, err := strconv.ParseUint(name, 10, 32)
 	var ch Channel
 	q := r.svc.NewRetrieve().Entry(&ch)
 	if err == nil {

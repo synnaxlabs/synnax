@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/x/debounce"
 	. "github.com/synnaxlabs/x/testutil"
 	xtime "github.com/synnaxlabs/x/time"
+	timetestutil "github.com/synnaxlabs/x/time/testutil"
 )
 
 var _ = Describe("Keyed", func() {
@@ -49,12 +50,12 @@ var _ = Describe("Keyed", func() {
 
 	Describe("Behavior", func() {
 		var (
-			clk   *xtime.Fake
+			clk   *timetestutil.Clock
 			fired chan string
 		)
 
 		BeforeEach(func() {
-			clk = &xtime.Fake{}
+			clk = &timetestutil.Clock{}
 			fired = make(chan string, 16)
 		})
 

@@ -8,12 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic } from "@synnaxlabs/client";
-import { CSS } from "@synnaxlabs/lyra/css";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Note } from "@synnaxlabs/lyra/note";
 import { Text } from "@synnaxlabs/lyra/text";
 import { type MouseEventHandler, type ReactElement } from "react";
 
+import { CSS } from "@/css";
 import { Custom } from "@/schematic/node/common/custom";
 import { Handle } from "@/schematic/node/common/handle";
 import { Toggle } from "@/schematic/node/common/toggle";

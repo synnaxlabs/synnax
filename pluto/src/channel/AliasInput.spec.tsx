@@ -38,7 +38,7 @@ const createRange = () =>
     timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
   });
 
-const DISABLED_CLASS = "pluto--disabled";
+const DISABLED_CLASS = "lyra--disabled";
 
 const getButtons = (container: HTMLElement): HTMLButtonElement[] =>
   Array.from(container.querySelectorAll("button"));

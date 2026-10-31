@@ -11,6 +11,7 @@
 import { Button } from "@synnaxlabs/lyra/button";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
+import { Text } from "@synnaxlabs/lyra/text";
 import { assetURL, type Product } from "@/util/releases";
 
 export interface Platform {
@@ -18,46 +19,75 @@ export interface Platform {
     asset: string;
     /** Matches the user agents of browsers running on the platform. */
     agent: RegExp;
+    icon: Icon.FC;
 }
 
 export interface Props {
     product: Product;
     version: string;
     platforms: Platform[];
+    label: string;
+    /** Sets the buttons apart from the text around them. */
+    prominent?: boolean;
 }
 
-const { product, version, platforms } = Astro.props;
+const { product, version, platforms, label, prominent = false } = Astro.props;
 ---
 
-<Flex.Box direction="x" gap="small" wrap>
-    {platforms.map(({ name, asset, agent }) => (
-        <Button.Button
-            href={assetURL(product, version, asset)}
-            variant="filled"
-            data-agent={agent.source}
-        >
-            <Icon.Download />
-            Download v{version} for {name}
-        </Button.Button>
+<Flex.Box
+    direction="x"
+    gap="small"
+    justify="center"
+    wrap
+    className={prominent ? "docs-download docs-download--prominent" : "docs-download"}
+>
+    {platforms.map(({ name, asset, agent, icon: PlatformIcon }) => (
+        <Flex.Box direction="y" align="center" gap="small" data-agent={agent.source}>
+            <Button.Button
+                href={assetURL(product, version, asset)}
+                variant="filled"
+                size="large"
+                level="p"
+                className="docs-cta"
+            >
+                <PlatformIcon />
+                {label}
+                <Icon.Arrow.Down />
+            </Button.Button>
+            <Text.Text level="small" color={8}>
+                v{version} for {name}
+            </Text.Text>
+        </Flex.Box>
     ))}
 </Flex.Box>
-<script is:inline>
+<script is:inline data-astro-rerun>
     // The CDN serves every browser the same page, so the browser picks its platform
     // before paint. An unknown agent, or a phone or tablet that can install neither,
     // keeps every platform: iPhones say "like Mac OS X" and iPads may pose as a
-    // Macintosh, so mobile is checked first.
+    // Macintosh, so mobile is checked first. The client router skips an inline script
+    // whose text already ran, so data-astro-rerun runs it after every navigation.
     (() => {
         const agent = navigator.userAgent;
         if (/iPhone|iPad|Android|Mobile/.test(agent)) return;
-        const buttons = [
+        const platforms = [
             ...document.currentScript.previousElementSibling.querySelectorAll(
                 "[data-agent]",
             ),
         ];
-        const matches = (button) => new RegExp(button.dataset.agent).test(agent);
-        if (!buttons.some(matches)) return;
-        buttons.forEach((button) => {
-            if (!matches(button)) button.remove();
+        const matches = (platform) => new RegExp(platform.dataset.agent).test(agent);
+        if (!platforms.some(matches)) return;
+        platforms.forEach((platform) => {
+            if (!matches(platform)) platform.remove();
         });
     })();
 </script>
+
+<style>
+    :global(.docs-download) {
+        margin: 6rem 0;
+    }
+
+    :global(.docs-download--prominent) {
+        margin: 10rem 0;
+    }
+</style>

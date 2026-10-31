@@ -302,24 +302,29 @@ const translateRoute = (route: Point[], offset: number): Point[] =>
     .hero-slate-art-outline {
         overflow: visible;
     }
+
     .hero-field-wireframe {
         fill: none;
         stroke-linecap: round;
         stroke-linejoin: round;
     }
+
     .hero-field-wireframe path {
         vector-effect: non-scaling-stroke;
     }
+
     .hero-field-wire-top {
         stroke: #7794b2;
         stroke-width: 0.75;
         opacity: 0.55;
     }
+
     .hero-field-wire-base {
         stroke: #597591;
         stroke-width: 0.7;
         opacity: 0.5;
     }
+
     .hero-field-edge-near,
     .hero-field-edge-far,
     .hero-field-groove,
@@ -328,31 +333,37 @@ const translateRoute = (route: Point[], offset: number): Point[] =>
     .hero-field-pulse {
         fill: none;
     }
+
     .hero-field-edge-near {
         stroke: #7d96ad;
         stroke-width: 0.6;
         opacity: 0.3;
     }
+
     .hero-field-edge-far {
         stroke: #486079;
         stroke-width: 0.7;
         opacity: 0.45;
     }
+
     .hero-field-groove {
         stroke: #060f1c;
         stroke-width: 2.7;
         opacity: 0.75;
     }
+
     .hero-field-signal {
         stroke: #7497bb;
         stroke-width: 0.7;
         opacity: 0.46;
     }
+
     .hero-field-return {
         stroke: #435b73;
         stroke-width: 0.5;
         opacity: 0.5;
     }
+
     .hero-field-pulse {
         stroke: #a8c4df;
         stroke-width: 1;
@@ -360,9 +371,11 @@ const translateRoute = (route: Point[], offset: number): Point[] =>
         animation: hero-field-transmission 18s linear infinite;
         opacity: 0.7;
     }
+
     [data-motion="paused"] .hero-field-pulse {
         animation-play-state: paused;
     }
+
     .hero-field-pulse-return {
         stroke: #7196ba;
         stroke-dasharray: 9 491;
@@ -370,11 +383,13 @@ const translateRoute = (route: Point[], offset: number): Point[] =>
         animation-duration: 22s;
         opacity: 0.5;
     }
+
     @keyframes hero-field-transmission {
         to {
             stroke-dashoffset: -1000;
         }
     }
+
     @media (prefers-reduced-motion: reduce) {
         .hero-field-pulse {
             animation: none;

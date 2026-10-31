@@ -9,12 +9,13 @@
 
 import "@/vis/properties/Tabs.css";
 
-import { CSS } from "@synnaxlabs/lyra/css";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Tabs as Base } from "@synnaxlabs/lyra/tabs";
 import { type ReactElement, type ReactNode } from "react";
 import { z } from "zod";
+
+import { CSS } from "@/css";
 
 export const tabKeyZ = z.enum([
   "style",

@@ -155,7 +155,7 @@ describe("View", () => {
     await screen.findByText(saved.name);
     await waitFor(() => expect(countEditableText(List.itemNameID(saved.key))).toBe(1));
     expect(screen.getByText("All ranges").className).not.toContain(
-      "pluto-text--editable",
+      "lyra-text--editable",
     );
   });
 

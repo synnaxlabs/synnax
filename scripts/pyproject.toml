@@ -20,6 +20,7 @@ dev = [
     "griffe>=2,<3",
     "mypy>=2.4.0,<3",
     "pytest>=9.1.1,<10",
+    "pytest-cov>=7.1.0,<8",
     "ruff>=0.17.1,<1",
 ]
 
@@ -33,6 +34,7 @@ select = [
     "I",
     "B",
     "DTZ",
+    "E501",
     "E7",
     "E9",
     "PLE",
@@ -56,3 +58,7 @@ exclude = ["^runners/"]
 pythonpath = ["."]
 # Its own workspace member, tested by the runners CI job.
 norecursedirs = ["runners"]
+
+[tool.coverage.run]
+# The runners CI job measures its own workspace member.
+omit = ["runners/*", "tests/*"]

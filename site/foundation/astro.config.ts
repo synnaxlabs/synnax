@@ -10,8 +10,9 @@
 import react from "@astrojs/react";
 import vercel from "@astrojs/vercel";
 import { integration } from "@synnaxlabs/site-common/integration";
-import { layers } from "@synnaxlabs/vite-plugin";
+import { layers, lyraLayers } from "@synnaxlabs/vite-plugin";
 import { defineConfig } from "astro/config";
+import path from "path";
 
 export default defineConfig({
   integrations: [integration(), react()],
@@ -30,7 +31,9 @@ export default defineConfig({
     // SSR.
     ssr: { noExternal: ["@synnaxlabs/lyra", "@synnaxlabs/site-common"] },
     css: {
-      postcss: { plugins: [layers([{ name: "pluto", files: /[\\/]lyra[\\/]/ }])] },
+      postcss: {
+        plugins: [layers(lyraLayers(path.resolve(import.meta.dirname, "../..")))],
+      },
     },
     // An inlined font ships in the render-blocking stylesheet whether or not a page
     // needs its characters.

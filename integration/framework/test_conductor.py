@@ -49,7 +49,9 @@ class _STATE(Enum):
 
 
 class _TestConductor:
-    """Manages execution of test sequences with timeout monitoring and result collection."""
+    """Manages execution of test sequences with timeout monitoring and result
+    collection.
+    """
 
     def __init__(
         self,
@@ -95,7 +97,7 @@ class _TestConductor:
             name=self.name,
             mode=LogMode.REALTIME,
             persistent_sinks=[
-                SynnaxChannelSink(self.client, f"{self.name}_log"),
+                SynnaxChannelSink(client=self.client, channel_name=f"{self.name}_log"),
             ],
         )
 
@@ -162,7 +164,7 @@ class _TestConductor:
         self.telemetry_client.start()
         sy.sleep(1)
 
-    def log(self, message: str, use_name: bool = True) -> None:
+    def log(self, message: str, *, use_name: bool = True) -> None:
         """Log message with real-time output."""
         if use_name:
             self.log_client.info(message)
@@ -233,7 +235,9 @@ class _TestConductor:
         return self.execution_client.is_running
 
     def get_current_status(self) -> dict[str, Any]:
-        return self.report_client.get_current_status(self.execution_client.is_running)
+        return self.report_client.get_current_status(
+            is_running=self.execution_client.is_running
+        )
 
     def _get_test_statistics(self) -> dict[str, int]:
         return self.report_client.get_statistics()
@@ -257,7 +261,7 @@ class _TestConductor:
             server_log.copy_range(
                 self._server_log_path,
                 self.run_dir / "server.log",
-                self._server_log_start_offset,
+                start=self._server_log_start_offset,
             )
         except Exception as e:
             self.log(f"Warning: failed to capture server log: {e}")
@@ -269,7 +273,7 @@ class _TestConductor:
             (self.run_dir / "README.md").write_text(_BUNDLE_README, encoding="utf-8")
         except Exception as e:
             self.log(f"Warning: failed to write README.md: {e}")
-        report_path = failure_report.safe_render(self.run_dir, self.tests)
+        report_path = failure_report.safe_render(self.run_dir, tests=self.tests)
         if report_path is not None:
             self.log(f"→ failure report: {report_path}")
 
@@ -375,7 +379,7 @@ in the repo) for the full command cheatsheet, common gotchas, and triage heurist
 
 `uv run tc` writing this directory at conductor exit. The breadcrumb line
 `→ bundle: <path>` in conductor stdout points here.
-"""
+"""  # noqa: E501
 
 
 def _monitor_test_execution(conductor: _TestConductor) -> None:
@@ -383,7 +387,8 @@ def _monitor_test_execution(conductor: _TestConductor) -> None:
     while conductor.is_running:
         status = conductor.get_current_status()
         conductor.log(
-            f"Status: {status['completed_tests']}/{status['total_tests']} tests completed"
+            f"Status: {status['completed_tests']}/{status['total_tests']} tests "
+            "completed"
         )
         if status["active_tests"]:
             for test in status["active_tests"]:
@@ -445,7 +450,10 @@ All matching is case-insensitive substring.
     parser.add_argument(
         "--filter",
         "-f",
-        help="Filter tests by case path substring. Without a target, searches all *_tests.json. With a target, narrows results within that target.",
+        help=(
+            "Filter tests by case path substring. Without a target, searches all "
+            "*_tests.json. With a target, narrows results within that target."
+        ),
     )
     parser.add_argument(
         "--exclude",
@@ -553,13 +561,15 @@ All matching is case-insensitive substring.
 
             if stats["total_failed"] > 0:
                 conductor.log(
-                    f"\nExiting with failure code due to {stats['total_failed']}/{stats['total']} failed tests"
+                    "\nExiting with failure code due to "
+                    f"{stats['total_failed']}/{stats['total']} failed tests"
                 )
                 conductor.log(f"→ bundle: {conductor.run_dir}")
                 os._exit(1)
             else:
                 conductor.log(
-                    f"\nAll {stats['total']} tests passed successfully", False
+                    f"\nAll {stats['total']} tests passed successfully",
+                    use_name=False,
                 )
                 conductor.log(f"→ bundle: {conductor.run_dir}")
                 os._exit(0)

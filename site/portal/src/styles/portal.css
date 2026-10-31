@@ -87,11 +87,11 @@
     }
 }
 
-.portal-account__trigger .pluto-avatar {
+.portal-account__trigger .lyra-avatar {
     --pluto-avatar-size: round(5.6667rem, 1px);
 }
 
-.pluto-btn.portal-account__trigger {
+.lyra-btn.portal-account__trigger {
     padding: 0;
 }
 
@@ -104,7 +104,7 @@
 
 /* The left inset matches the space above and below the mark, so the hover fill rims it
    evenly. */
-.pluto-btn.portal-scope {
+.lyra-btn.portal-scope {
     padding: 1.5rem 2rem 1.5rem 1.5rem;
 }
 
@@ -112,7 +112,7 @@
     margin-left: 1rem;
 }
 
-.pluto-dialog__dialog.portal-scope__dialog {
+.lyra-dialog__dialog.portal-scope__dialog {
     /* Lyra's rounded rule ties this selector, so set the radius it reads. */
     --pluto-border-radius: var(--pluto-border-radius-medium);
 
@@ -123,7 +123,7 @@
 }
 
 /* Inset from the dialog's corner by its padding, so the corners stay concentric. */
-.pluto-list__item.portal-scope__item {
+.lyra-list__item.portal-scope__item {
     gap: 1.5rem;
     padding: 1.5rem 2rem;
     border-radius: calc(var(--pluto-border-radius-medium) - 0.5rem);
@@ -139,7 +139,7 @@
 
 /* A long name truncates before the tag shrinks. Lyra's tag rule outranks a single
    class. */
-.pluto-btn.pluto-tag.portal-scope__tag {
+.lyra-btn.lyra-tag.portal-scope__tag {
     flex-shrink: 0;
     border-color: var(--portal-tag-z-50);
     background: var(--portal-tag-z-20);
@@ -221,7 +221,7 @@ section.portal {
     align-items: stretch;
     min-width: 0;
 
-    & a:not(.pluto-btn):hover {
+    & a:not(.lyra-btn):hover {
         text-decoration: none;
     }
 
@@ -247,7 +247,7 @@ section.portal {
     padding: 2rem 3rem;
     border-top: var(--pluto-border-width) solid var(--pluto-gray-l4);
 
-    &.pluto-btn {
+    &.lyra-btn {
         border-radius: 0;
     }
 
@@ -344,7 +344,7 @@ section.portal {
 }
 
 /* Room for a few hashes. The size class of the input sets a height, so outrank it. */
-.pluto-input.portal-fingerprint,
+.lyra-input.portal-fingerprint,
 .portal-fingerprint textarea {
     min-height: 14rem;
     overflow-wrap: anywhere;

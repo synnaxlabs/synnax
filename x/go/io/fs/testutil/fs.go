@@ -35,35 +35,26 @@ type Factory func() xfs.FS
 // FileSystems maps FS implementation names to Factory constructors covering
 // every backend test code needs to exercise (in-memory and on-disk). Each entry
 // produces a fresh FS rooted at an isolated location and arranges for that
-// location to be torn down when the surrounding Ginkgo node exits.
+// location to be torn down when the surrounding Ginkgo node exits. Both roots are
+// named "testdata"; osFS puts its root in a new os.TempDir directory whose name
+// starts with "testdata-p<N>-", where N is the Ginkgo parallel process.
 var FileSystems = map[string]Factory{
-	"memFS": OpenMem,
-	"osFS":  OpenOS,
+	"memFS": openMem,
+	"osFS":  openOS,
 }
 
-// TempDirPrefix returns the prefix used by [OpenOS] for the temporary
-// directories it creates. The prefix encodes the current Ginkgo parallel
-// process so that tests inspecting [os.TempDir] see only entries created by
-// their own process and do not collide with sibling parallel processes.
-func TempDirPrefix() string {
+func tempDirPrefix() string {
 	return fmt.Sprintf("testdata-p%d-", ginkgo.GinkgoParallelProcess())
 }
 
-// OpenMem returns a fresh in-memory FS rooted at "testdata". The rooting
-// matches [OpenOS] so test expectations that include path segments behave
-// identically across backends. No cleanup is needed; the FS is reclaimed by
-// the garbage collector once references go out of scope.
-func OpenMem() xfs.FS {
+func openMem() xfs.FS {
 	ginkgo.GinkgoHelper()
 	return testutil.MustSucceed(xfs.NewMem().Sub("testdata"))
 }
 
-// OpenOS returns an on-disk FS rooted at a unique temporary directory and
-// registers a [ginkgo.DeferCleanup] that removes the directory and all of its
-// contents when the enclosing Ginkgo setup node exits.
-func OpenOS() xfs.FS {
+func openOS() xfs.FS {
 	ginkgo.GinkgoHelper()
-	dir := testutil.MustSucceed(os.MkdirTemp("", TempDirPrefix()+"*"))
+	dir := testutil.MustSucceed(os.MkdirTemp("", tempDirPrefix()+"*"))
 	ginkgo.DeferCleanup(func() {
 		gomega.Expect(os.RemoveAll(dir)).To(gomega.Succeed())
 	})

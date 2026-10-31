@@ -28,10 +28,10 @@ Before you start, you need:
 2. Copy this code into the editor:
 
    ```arc channels="tank_temp, heater_cmd" bodies="bang_bang"
-   func bang_bang{
+   func bang_bang(
        low f64,
        high f64,
-   } (value f64) u8 {
+   ) {value f64} u8 {
        on $= false
        if value < low {
            on = true
@@ -41,7 +41,7 @@ Before you start, you need:
        return u8(on)
    }
 
-   tank_temp -> bang_bang{low=48.0, high=52.0} -> heater_cmd
+   tank_temp -> bang_bang(low=48.0, high=52.0) -> heater_cmd
    ```
 
 3. [Choose where it runs](/reference/control/arc/automations#choose-where-it-runs), and
@@ -69,10 +69,10 @@ the temperature for 10 minutes after a start button, then turns the heater off:
 ```arc channels="tank_temp, heater_cmd, start_cmd" bodies="bang_bang, soak, heat"
 import time
 
-func bang_bang{
+func bang_bang(
     low f64,
     high f64,
-} (value f64) u8 {
+) {value f64} u8 {
     on $= false
     if value < low {
         on = true
@@ -84,9 +84,9 @@ func bang_bang{
 
 sequence soak {
     stage heat {
-        tank_temp -> bang_bang{low=48.0, high=52.0} -> heater_cmd
+        tank_temp -> bang_bang(low=48.0, high=52.0) -> heater_cmd
         tank_temp > 80 => next
-        time.wait{duration=10min} => next
+        time.wait(duration=10min) => next
     }
     0 -> heater_cmd
 }

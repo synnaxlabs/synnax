@@ -14,6 +14,7 @@ const config: ViteUserConfigFn = getViteConfig(
   {
     test: {
       environment: "jsdom",
+      setupFiles: ["src/testutil/setup.ts"],
       unstubGlobals: true,
       restoreMocks: true,
     },

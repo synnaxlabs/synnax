@@ -48,12 +48,12 @@ class SimDaqCase(TestCase):
 
     def __init__(
         self,
-        synnax_connection: SynnaxConnection = DEFAULT_CONNECTION,
         *,
+        synnax_connection: SynnaxConnection = DEFAULT_CONNECTION,
         name: str,
         **params: Any,
     ) -> None:
-        super().__init__(synnax_connection, name=name, **params)
+        super().__init__(synnax_connection=synnax_connection, name=name, **params)
         # Not all test cases need a simulator (e.g. edge_cases).
         sim_cls = self.sim_daq_class
         if sim_cls is not None:

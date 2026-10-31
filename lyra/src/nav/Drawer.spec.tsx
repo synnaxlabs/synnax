@@ -23,13 +23,13 @@ const renderDrawer = (
   );
 
 const drawerOf = (c: ReturnType<typeof render>): HTMLElement => {
-  const drawer = c.container.querySelector<HTMLElement>(".pluto-nav-drawer");
+  const drawer = c.container.querySelector<HTMLElement>(".lyra-nav-drawer");
   if (drawer == null) throw new Error("nav drawer not found");
   return drawer;
 };
 
 const handleOf = (c: ReturnType<typeof render>): HTMLElement => {
-  const handle = c.container.querySelector<HTMLElement>(".pluto-resize__handle");
+  const handle = c.container.querySelector<HTMLElement>(".lyra-resize__handle");
   if (handle == null) throw new Error("resize handle not found");
   return handle;
 };
@@ -89,15 +89,15 @@ describe("Nav.Drawer", () => {
     it("should be visible when not collapsed", () => {
       const c = renderDrawer({ collapsed: false });
       const drawer = drawerOf(c);
-      expect(drawer.className).toContain("pluto--visible");
-      expect(drawer.className).not.toContain("pluto--hidden");
+      expect(drawer.className).toContain("lyra--visible");
+      expect(drawer.className).not.toContain("lyra--hidden");
     });
 
     it("should be hidden when collapsed", () => {
       const c = renderDrawer({ collapsed: true });
       const drawer = drawerOf(c);
-      expect(drawer.className).toContain("pluto--hidden");
-      expect(drawer.className).not.toContain("pluto--visible");
+      expect(drawer.className).toContain("lyra--hidden");
+      expect(drawer.className).not.toContain("lyra--visible");
     });
   });
 
@@ -122,7 +122,7 @@ describe("Nav.Drawer", () => {
     it("should stay visible throughout the drag", async () => {
       const c = renderDrawer();
       await pressMove(c, { x: 500, y: 0 }, { x: 460, y: 0 });
-      expect(drawerOf(c).className).toContain("pluto--visible");
+      expect(drawerOf(c).className).toContain("lyra--visible");
       release({ x: 460, y: 0 });
     });
   });
@@ -132,7 +132,7 @@ describe("Nav.Drawer", () => {
       const onResize = vi.fn();
       const c = renderDrawer({ onResize });
       await pressMove(c, { x: 500, y: 0 }, { x: 250, y: 0 });
-      expect(drawerOf(c).className).toContain("pluto--hidden");
+      expect(drawerOf(c).className).toContain("lyra--hidden");
       expect(onResize).not.toHaveBeenCalled();
       release({ x: 250, y: 0 });
     });
@@ -149,7 +149,7 @@ describe("Nav.Drawer", () => {
     it("should clear the transient collapsed state after release", async () => {
       const c = renderDrawer();
       await drag(c, { x: 500, y: 0 }, { x: 250, y: 0 });
-      expect(drawerOf(c).className).toContain("pluto--visible");
+      expect(drawerOf(c).className).toContain("lyra--visible");
     });
   });
 

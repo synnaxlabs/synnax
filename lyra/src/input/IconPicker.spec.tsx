@@ -70,7 +70,7 @@ describe("IconPicker", () => {
 
     it("should draw the icons in the inherited color without a color", () => {
       const c = renderPicker();
-      expect(c.container.querySelector(`.${CSS.B("symbol-colored")}`)).toBeNull();
+      expect(c.container.querySelector(`.${CSS.symbolColored}`)).toBeNull();
     });
   });
 

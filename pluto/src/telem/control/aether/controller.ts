@@ -14,6 +14,7 @@ import {
   DisconnectedError,
   type framer,
   NotFoundError,
+  SessionEndedError,
   status as cstatus,
   type Synnax,
   TimeStamp,
@@ -235,7 +236,8 @@ export class Controller
       });
       // disabled can turn on while the writer opens. afterUpdate cannot catch that,
       // because the status is not acquired yet.
-      if (!this.acquireExplicit && this.state.disabled) return await this.doRelease();
+      if (!this.acquireExplicit && this.state.disabled)
+        return await this.closeAndRelease();
       this.setState((p) => ({ ...p, status: "acquired" }));
     } catch (err) {
       this.setState((p) => ({ ...p, status: "failed" }));
@@ -246,9 +248,17 @@ export class Controller
   }
 
   private async doRelease(): Promise<void> {
+    // A writer still opening would otherwise outlive the release.
+    if (this.acquirePromise != null) await this.acquirePromise;
+    await this.closeAndRelease();
+  }
+
+  private async closeAndRelease(): Promise<void> {
     try {
       await this.writer?.close();
     } catch (err) {
+      // The Core frees a writer's control when its session ends.
+      if (SessionEndedError.matches(err)) return;
       this.internal.addStatus(
         cstatus.fromException(err, {
           message: "Failed to release control",

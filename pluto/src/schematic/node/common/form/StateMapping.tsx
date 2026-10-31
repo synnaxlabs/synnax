@@ -12,7 +12,6 @@ import "@/schematic/node/common/form/StateMapping.css";
 import { type schematic } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Color } from "@synnaxlabs/lyra/color";
-import { CSS } from "@synnaxlabs/lyra/css";
 import { Flex } from "@synnaxlabs/lyra/flex";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -20,6 +19,8 @@ import { List } from "@synnaxlabs/lyra/list";
 import { Text } from "@synnaxlabs/lyra/text";
 import { color, id } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
+
+import { CSS } from "@/css";
 
 interface StateMappingFormProps {
   path: string;

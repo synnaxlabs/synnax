@@ -64,7 +64,7 @@ const Properties = () => (
       />
       <Task.Fields.DataSaving />
       <Task.Fields.AutoStart />
-      <PForm.SwitchField
+      <PForm.CheckboxField
         label="NaN fill"
         path="config.nanFillEnabled"
         inputProps={NAN_FILL_INPUT_PROPS}

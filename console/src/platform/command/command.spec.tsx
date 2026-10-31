@@ -68,6 +68,6 @@ describe("Command.create", () => {
     });
     await renderCommand(Cmd);
     expect(screen.getByText("Hook Command")).toBeTruthy();
-    expect(document.querySelector(".pluto-text--keyboard")).toBeNull();
+    expect(document.querySelector(".lyra-text--keyboard")).toBeNull();
   });
 });

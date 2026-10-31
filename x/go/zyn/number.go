@@ -82,59 +82,11 @@ func (n NumberZ) Float64() NumberZ {
 	return n
 }
 
-// Float32 marks the number field as a float32. This enables float32-specific validation
-// and conversion.
-func (n NumberZ) Float32() NumberZ {
-	n.expectedType = reflect.TypeFor[float32]()
-	n.dataType = Float32T
-	return n
-}
-
-// Int marks the number field as an int. This enables int-specific validation and
-// conversion.
-func (n NumberZ) Int() NumberZ {
-	n.expectedType = reflect.TypeFor[int]()
-	n.dataType = IntT
-	return n
-}
-
-// Int8 marks the number field as an int8. This enables int8-specific validation and
-// conversion.
-func (n NumberZ) Int8() NumberZ {
-	n.expectedType = reflect.TypeFor[int8]()
-	n.dataType = Int8T
-	return n
-}
-
-// Int16 marks the number field as an int16. This enables int16-specific validation and
-// conversion.
-func (n NumberZ) Int16() NumberZ {
-	n.expectedType = reflect.TypeFor[int16]()
-	n.dataType = Int16T
-	return n
-}
-
-// Int32 marks the number field as an int32. This enables int32-specific validation and
-// conversion.
-func (n NumberZ) Int32() NumberZ {
-	n.expectedType = reflect.TypeFor[int32]()
-	n.dataType = Int32T
-	return n
-}
-
 // Int64 marks the number field as an int64. This enables int64-specific validation and
 // conversion.
 func (n NumberZ) Int64() NumberZ {
 	n.expectedType = reflect.TypeFor[int64]()
 	n.dataType = Int64T
-	return n
-}
-
-// Uint marks the number field as a uint. This enables uint-specific validation and
-// conversion.
-func (n NumberZ) Uint() NumberZ {
-	n.expectedType = reflect.TypeFor[uint]()
-	n.dataType = UintT
 	return n
 }
 
@@ -598,9 +550,6 @@ func (n NumberZ) parseReflect(data, dest any) error {
 
 // Uint32 is a schema that validates uint32 numbers.
 func Uint32() NumberZ { return Number().Uint32() }
-
-// Uint64 is a schema that validates uint64 numbers.
-func Uint64() NumberZ { return Number().Uint64() }
 
 // Int64 is a schema that validates int64 numbers.
 func Int64() NumberZ { return Number().Int64() }

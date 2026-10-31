@@ -284,6 +284,7 @@ async def configure_encryption(server: Server) -> None:
 
 
 async def run_server(
+    *,
     endpoint: str = "",
     rate: sy.Rate = DEFAULT_RATE,
     array_size: int = DEFAULT_ARRAY_SIZE,
@@ -370,6 +371,7 @@ class OPCUASim(DeviceSim):
 
     def __init__(
         self,
+        *,
         array_size: int = DEFAULT_ARRAY_SIZE,
         rate: sy.Rate = 50 * sy.Rate.HZ,
         verbose: bool = False,
@@ -403,12 +405,12 @@ class OPCUASim(DeviceSim):
 
     async def _run_server(self) -> None:
         await run_server(
-            self.endpoint,
-            self.rate,
-            self.array_size,
-            self.encrypted,
-            self.user_manager,
-            self.max_sessions,
+            endpoint=self.endpoint,
+            rate=self.rate,
+            array_size=self.array_size,
+            encrypted=self.encrypted,
+            user_manager=self.user_manager,
+            max_sessions=self.max_sessions,
         )
 
     @staticmethod
@@ -432,6 +434,7 @@ class OPCUATLSSim(OPCUASim):
 
     def __init__(
         self,
+        *,
         array_size: int = DEFAULT_ARRAY_SIZE,
         rate: sy.Rate = 50 * sy.Rate.HZ,
         verbose: bool = False,
@@ -499,6 +502,7 @@ class OPCUATLSAuthSim(OPCUASim):
 
     def __init__(
         self,
+        *,
         array_size: int = DEFAULT_ARRAY_SIZE,
         rate: sy.Rate = 50 * sy.Rate.HZ,
         verbose: bool = False,

@@ -25,7 +25,7 @@ var _ = Describe("Writer", func() {
 		w.Uint8(1)
 		w.Uint32(256)
 		w.Uint64(1024)
-		Expect(w.Len()).To(Equal(13))
+		Expect(w.Bytes()).To(HaveLen(13))
 		expected := make([]byte, 13)
 		expected[0] = 1
 		binary.BigEndian.PutUint32(expected[1:], 256)
@@ -38,7 +38,7 @@ var _ = Describe("Writer", func() {
 		w.Uint32(1)
 		w.Uint32(2)
 		w.Uint32(3)
-		Expect(w.Len()).To(Equal(12))
+		Expect(w.Bytes()).To(HaveLen(12))
 	})
 
 	It("Should write arbitrary bytes", func() {
@@ -65,7 +65,7 @@ var _ = Describe("Writer", func() {
 		w.Int16(-256)
 		w.Int32(-65536)
 		w.Int64(-1)
-		Expect(w.Len()).To(Equal(15))
+		Expect(w.Bytes()).To(HaveLen(15))
 
 		r := orc.NewReader(bytesReader(w.Bytes()))
 		Expect(MustSucceed(r.Int8())).To(Equal(int8(-1)))
@@ -78,7 +78,7 @@ var _ = Describe("Writer", func() {
 		w := orc.NewWriter(0)
 		w.Float32(3.14)
 		w.Float64(2.71828)
-		Expect(w.Len()).To(Equal(12))
+		Expect(w.Bytes()).To(HaveLen(12))
 
 		r := orc.NewReader(bytesReader(w.Bytes()))
 		f32 := MustSucceed(r.Float32())
@@ -100,7 +100,7 @@ var _ = Describe("Writer", func() {
 		w.WriteWithLen([]byte{1, 2, 3})
 		w.WriteWithLen([]byte{})
 		w.WriteWithLen([]byte{4, 5})
-		Expect(w.Len()).To(Equal(4 + 3 + 4 + 0 + 4 + 2))
+		Expect(w.Bytes()).To(HaveLen(4 + 3 + 4 + 0 + 4 + 2))
 
 		r := orc.NewReader(bytesReader(w.Bytes()))
 		b1 := MustSucceed(r.ReadWithLen())
@@ -116,7 +116,7 @@ var _ = Describe("Writer", func() {
 		w.String("hello")
 		w.String("")
 		w.String("world")
-		Expect(w.Len()).To(Equal(4 + 5 + 4 + 0 + 4 + 5))
+		Expect(w.Bytes()).To(HaveLen(4 + 5 + 4 + 0 + 4 + 5))
 
 		r := orc.NewReader(bytesReader(w.Bytes()))
 		Expect(MustSucceed(r.String())).To(Equal("hello"))
@@ -129,28 +129,9 @@ var _ = Describe("Writer", func() {
 			w := orc.NewWriter(10)
 			w.Write([]byte{1, 2, 3, 4})
 			w.Reset()
-			Expect(w.Len()).To(Equal(0))
+			Expect(w.Bytes()).To(BeEmpty())
 			w.Write([]byte{5, 6, 7, 8})
 			Expect(w.Bytes()).To(Equal([]byte{5, 6, 7, 8}))
-		})
-	})
-
-	Describe("Resize", func() {
-		It("Should ensure capacity without losing data", func() {
-			w := orc.NewWriter(5)
-			w.Write([]byte{1, 2, 3, 4, 5})
-			w.Resize(20)
-			w.Write([]byte{6, 7, 8, 9, 10})
-			Expect(w.Bytes()).To(Equal([]byte{
-				1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
-			}))
-		})
-
-		It("Should be a no-op when capacity is sufficient", func() {
-			w := orc.NewWriter(100)
-			w.Write([]byte{1, 2, 3})
-			w.Resize(50)
-			Expect(w.Bytes()).To(Equal([]byte{1, 2, 3}))
 		})
 	})
 

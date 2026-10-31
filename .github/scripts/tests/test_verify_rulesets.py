@@ -48,7 +48,7 @@ jq -r "$EXPR" "$FILE"
 """
 
 
-def ruleset(name: str, count: int = 0) -> dict[str, Any]:
+def ruleset(name: str, *, count: int = 0) -> dict[str, Any]:
     return {
         "name": name,
         "target": "branch",

@@ -18,6 +18,7 @@ import { createModbusDevice } from "@/feature/modbus/testutil";
 import {
   awaitEditableForm,
   createChannelReadOnlyClient,
+  createWithHook,
   deployAndAwaitTask,
   renderTaskFormTab,
   type RenderTaskFormTabOptions,
@@ -94,8 +95,8 @@ describe("Write", () => {
     expect(coilIndex.isIndex).toBe(true);
 
     const holdingCmd = await client.channels.retrieve(holding.channel);
-    expect(holdingCmd.name).toBe(`${dev.name}_holding_register_output_1_cmd`);
-    expect(holdingCmd.dataType.toString()).toBe("uint8");
+    expect(holdingCmd.name).toBe(`${dev.name}_holding_register_output_1_u16_cmd`);
+    expect(holdingCmd.dataType.toString()).toBe("uint16");
 
     const updated = await client.devices.retrieve({
       key: dev.key,
@@ -182,6 +183,162 @@ describe("Write", () => {
     expect(matches).toHaveLength(1);
   });
 
+  it("should reuse a holding register command channel when redeploying", async () => {
+    const dev = await createModbusDevice(client);
+    const draft = await createDraft(client, {
+      ...Modbus.Task.WRITE_SCHEMAS.config.parse({}),
+      device: dev.key,
+      channels: [
+        Modbus.Task.WRITE_CHANNEL_SCHEMAS.holding_register.parse({
+          type: "holding_register",
+          key: id.create(),
+          dataType: "uint16",
+        }),
+      ],
+    });
+    for (let i = 0; i < 2; i++) {
+      const { container, unmount } = await renderWrite({ client, taskKey: draft.key });
+      const deployed = await deployAndAwaitTask(
+        client,
+        container,
+        draft.key,
+        Modbus.Task.WRITE_SCHEMAS,
+      );
+      await reportTaskStopped(client, deployed.payload);
+      unmount();
+    }
+    const updated = await client.devices.retrieve({
+      key: dev.key,
+      schemas: Modbus.Device.SCHEMAS,
+    });
+    expect(Object.keys(updated.properties.write.channels)).toEqual([
+      "holding-register-output-0-uint16",
+    ]);
+    const matches = await client.channels.retrieve([
+      `${dev.name}_holding_register_output_0_u16_cmd`,
+    ]);
+    expect(matches).toHaveLength(1);
+  });
+
+  describe("legacy command channel keys", () => {
+    const createCommand = async (dataType: string) => {
+      const index = await client.channels.create({
+        name: id.create(),
+        dataType: "timestamp",
+        isIndex: true,
+      });
+      return await client.channels.create({
+        name: id.create(),
+        dataType,
+        index: index.key,
+      });
+    };
+
+    const deployFloat = async (legacyKey: string, cmdKey: number) => {
+      const dev = await createModbusDevice(client, {
+        properties: { write: { channels: { [legacyKey]: cmdKey } } },
+      });
+      const draft = await createDraft(client, {
+        ...Modbus.Task.WRITE_SCHEMAS.config.parse({}),
+        device: dev.key,
+        channels: [
+          Modbus.Task.WRITE_CHANNEL_SCHEMAS.holding_register.parse({
+            type: "holding_register",
+            key: id.create(),
+            dataType: "float32",
+          }),
+        ],
+      });
+      const { container, unmount } = await renderWrite({ client, taskKey: draft.key });
+      const deployed = await deployAndAwaitTask(
+        client,
+        container,
+        draft.key,
+        Modbus.Task.WRITE_SCHEMAS,
+      );
+      await reportTaskStopped(client, deployed.payload);
+      unmount();
+      const updated = await client.devices.retrieve({
+        key: dev.key,
+        schemas: Modbus.Device.SCHEMAS,
+      });
+      return { channel: deployed.config.channels[0].channel, updated };
+    };
+
+    it.each([
+      ["Python", "holding-register-output-0"],
+      ["an older Console", "holding-register_output-0"],
+    ])(
+      "should adopt a command channel that %s saved without a data type",
+      async (_, legacyKey) => {
+        const cmd = await createCommand("float32");
+        const { channel, updated } = await deployFloat(legacyKey, cmd.key);
+        expect(channel).toBe(cmd.key);
+        expect(updated.properties.write.channels).toEqual({
+          "holding-register-output-0-float32": cmd.key,
+        });
+      },
+    );
+
+    it("should not adopt a legacy command channel of another data type", async () => {
+      const cmd = await createCommand("uint16");
+      const { channel, updated } = await deployFloat(
+        "holding-register-output-0",
+        cmd.key,
+      );
+      expect(channel).not.toBe(cmd.key);
+      expect(updated.properties.write.channels["holding-register-output-0"]).toBe(
+        cmd.key,
+      );
+    });
+
+    it("should create a command channel when a legacy key names a deleted channel", async () => {
+      const cmd = await createCommand("float32");
+      await client.channels.delete(cmd.key);
+      const { channel, updated } = await deployFloat(
+        "holding-register-output-0",
+        cmd.key,
+      );
+      expect(channel).not.toBe(cmd.key);
+      expect(
+        updated.properties.write.channels["holding-register-output-0-float32"],
+      ).toBe(channel);
+    });
+  });
+
+  it("should create a new command channel when the data type changes", async () => {
+    const dev = await createModbusDevice(client);
+    const deployRegister = async (dataType: string) => {
+      const draft = await createDraft(client, {
+        ...Modbus.Task.WRITE_SCHEMAS.config.parse({}),
+        device: dev.key,
+        channels: [
+          Modbus.Task.WRITE_CHANNEL_SCHEMAS.holding_register.parse({
+            type: "holding_register",
+            key: id.create(),
+            dataType,
+          }),
+        ],
+      });
+      const { container, unmount } = await renderWrite({ client, taskKey: draft.key });
+      const deployed = await deployAndAwaitTask(
+        client,
+        container,
+        draft.key,
+        Modbus.Task.WRITE_SCHEMAS,
+      );
+      await reportTaskStopped(client, deployed.payload);
+      unmount();
+      return deployed.config.channels[0].channel;
+    };
+    const first = await deployRegister("uint16");
+    const second = await deployRegister("float32");
+    expect(second).not.toBe(first);
+    const cmd = await client.channels.retrieve(second);
+    expect(cmd.dataType.toString()).toBe("float32");
+    expect(await deployRegister("uint16")).toBe(first);
+  });
+
   it("should rename and remove a channel through the context menu", async () => {
     const dev = await createModbusDevice(client);
     const draft = await createDraft(client, {
@@ -258,7 +415,144 @@ describe("Write", () => {
     expect(register.wordsSwapped).toBeUndefined();
   });
 
+  it("should deploy a holding register bit to a uint8 command channel", async () => {
+    const dev = await createModbusDevice(client);
+    const draft = await createDraft(client, {
+      ...Modbus.Task.WRITE_SCHEMAS.config.parse({}),
+      device: dev.key,
+      channels: [
+        Modbus.Task.WRITE_CHANNEL_SCHEMAS.holding_register_bit.parse({
+          type: "holding_register_bit",
+          key: id.create(),
+          address: 4,
+          bit: 3,
+        }),
+      ],
+    });
+    const { container } = await renderWrite({ client, taskKey: draft.key });
+    await screen.findByText(dev.name);
+    const created = await deployAndAwaitTask(
+      client,
+      container,
+      draft.key,
+      Modbus.Task.WRITE_SCHEMAS,
+    );
+    const [bit] = created.config.channels;
+    const cmd = await client.channels.retrieve(bit.channel);
+    expect(cmd.name).toBe(`${dev.name}_holding_register_bit_output_4_3_cmd`);
+    expect(cmd.dataType.toString()).toBe("uint8");
+    const updated = await client.devices.retrieve({
+      key: dev.key,
+      schemas: Modbus.Device.SCHEMAS,
+    });
+    expect(Object.values(updated.properties.write.channels)).toEqual([bit.channel]);
+  });
+
+  describe("address", () => {
+    const renderRegister = async () => {
+      const dev = await createModbusDevice(client);
+      const draft = await createDraft(client, {
+        ...Modbus.Task.WRITE_SCHEMAS.config.parse({}),
+        device: dev.key,
+        channels: [
+          Modbus.Task.WRITE_CHANNEL_SCHEMAS.holding_register.parse({
+            type: "holding_register",
+            key: id.create(),
+          }),
+        ],
+      });
+      const { container } = await renderWrite({ client, taskKey: draft.key });
+      await screen.findByText("400001");
+      const input = container.querySelector<HTMLInputElement>(
+        'input[aria-label="Address"]',
+      );
+      if (input == null) throw new Error("expected an address input");
+      return { draft, input };
+    };
+
+    const enter = (input: HTMLInputElement, value: string) => {
+      fireEvent.focus(input);
+      fireEvent.change(input, { target: { value } });
+      fireEvent.blur(input);
+    };
+
+    it("should store a six-digit Modicon address as an offset", async () => {
+      const { draft, input } = await renderRegister();
+      enter(input, "400004");
+      await screen.findByText("400004");
+      await waitFor(async () => {
+        const saved = await client.tasks.retrieve({
+          key: draft.key,
+          schemas: Modbus.Task.WRITE_SCHEMAS,
+        });
+        expect(saved.config.channels[0].address).toBe(3);
+      });
+    });
+
+    it("should keep the address and mark the field for another table's prefix", async () => {
+      const { input } = await renderRegister();
+      enter(input, "300004");
+      await waitFor(() =>
+        expect(input.closest(".lyra-input")?.classList.contains("lyra--error")).toBe(
+          true,
+        ),
+      );
+      expect(input.value).toBe("0");
+      screen.getByText("400001");
+    });
+
+    it("should clear the mark when a valid entry keeps the stored address", async () => {
+      const { input } = await renderRegister();
+      const marked = () =>
+        input.closest(".lyra-input")?.classList.contains("lyra--error");
+      enter(input, "300004");
+      await waitFor(() => expect(marked()).toBe(true));
+      enter(input, "400001");
+      await waitFor(() => expect(marked()).toBe(false));
+    });
+  });
+
+  it("should create the task with one channel", async () => {
+    const tsk = await createWithHook(
+      Modbus.Task.useCreateWrite,
+      Modbus.Task.WRITE_SCHEMAS,
+    );
+    expect(tsk.config.channels).toHaveLength(1);
+  });
+
   describe("add channel", () => {
+    it.each([
+      { bit: 3, address: 10, nextBit: 4 },
+      { bit: 15, address: 11, nextBit: 0 },
+    ])(
+      "should place a new channel after bit $bit of a register",
+      async ({ bit, address, nextBit }) => {
+        const dev = await createModbusDevice(client);
+        const draft = await createDraft(client, {
+          ...Modbus.Task.WRITE_SCHEMAS.config.parse({}),
+          device: dev.key,
+          channels: [
+            Modbus.Task.WRITE_CHANNEL_SCHEMAS.holding_register_bit.parse({
+              type: "holding_register_bit",
+              key: id.create(),
+              address: 10,
+              bit,
+            }),
+          ],
+        });
+        const { container } = await renderWrite({ client, taskKey: draft.key });
+        await screen.findByText(dev.name);
+        fireEvent.click(getIconButton(container, "add"));
+        await waitFor(async () => {
+          const saved = await client.tasks.retrieve({
+            key: draft.key,
+            schemas: Modbus.Task.WRITE_SCHEMAS,
+          });
+          expect(saved.config.channels[1]).toMatchObject({ address, bit: nextBit });
+        });
+      },
+    );
+
     it.each([
       { dataType: "uint16", address: 11 },
       { dataType: "float32", address: 12 },

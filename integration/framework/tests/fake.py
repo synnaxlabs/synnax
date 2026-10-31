@@ -8,6 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import queue
+import threading
 
 import synnax as sy
 
@@ -24,7 +25,7 @@ class Stream:
     def push(self, item: sy.Frame | Exception) -> None:
         self._items.put(item)
 
-    def read(self, timeout: sy.TimeSpan) -> sy.Frame | None:
+    def read(self, *, timeout: sy.TimeSpan) -> sy.Frame | None:
         try:
             item = self._items.get(timeout=timeout.seconds)
         except queue.Empty:
@@ -54,6 +55,7 @@ class Client:
     def __init__(self) -> None:
         self.stream = Stream()
         self.open_error: Exception | None = None
+        self.opened_by: threading.Thread | None = None
         self._channels = Channels()
 
     @property
@@ -63,4 +65,5 @@ class Client:
     def open_streamer(self, channels: list[str]) -> Stream:
         if self.open_error is not None:
             raise self.open_error
+        self.opened_by = threading.current_thread()
         return self.stream

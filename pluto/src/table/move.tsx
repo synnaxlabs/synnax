@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { CSS } from "@synnaxlabs/lyra/css";
 import { Cursor } from "@synnaxlabs/lyra/cursor";
 import { useSyncedRef } from "@synnaxlabs/lyra/hooks";
 import { type Triggers } from "@synnaxlabs/lyra/triggers";
@@ -21,6 +20,7 @@ import {
   useState,
 } from "react";
 
+import { CSS } from "@/css";
 import { INDICATOR_SIZE } from "@/table/Indicator";
 import { transform } from "@/table/shift";
 

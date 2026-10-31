@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { $clerkStore, $isLoadedStore, $userStore } from "@clerk/astro/client";
+import { reset } from "@synnaxlabs/site-common/analytics";
 import { useEffect, useState } from "react";
 
 import { reload } from "@/ui/api";
@@ -41,18 +42,25 @@ export const useClerk = (): Clerk | null => {
 };
 
 /**
+ * logOut logs the user out, then runs `then`. PostHog forgets them, so later visits in
+ * this browser do not join their account.
+ */
+export const logOut = (clerk: Clerk, then: () => void): void => {
+  void clerk.signOut(() => {
+    reset();
+    then();
+    return Promise.resolve();
+  });
+};
+
+/**
  * useLogOut returns a function that logs the user out and reloads the page, which sends
  * them through the login page and back. Returns undefined before clerk-js has loaded.
  */
 export const useLogOut = (): (() => void) | undefined => {
   const clerk = useClerk();
   if (clerk == null) return undefined;
-  return () => {
-    void clerk.signOut(() => {
-      reload();
-      return Promise.resolve();
-    });
-  };
+  return () => logOut(clerk, reload);
 };
 
 /** useUser returns the logged-in user, null when logged out, undefined when loading. */

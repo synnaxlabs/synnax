@@ -224,7 +224,7 @@ describe("Select.Multiple", () => {
     fireEvent.click(c.getByText("Rows"));
     fireEvent.click(c.getByText("Row 0"));
     // Far enough down that the anchor row has unmounted by the time the range closes.
-    const scroller = document.querySelector<HTMLElement>(".pluto-list__scroll");
+    const scroller = document.querySelector<HTMLElement>(".lyra-list__scroll");
     scroller!.scrollTop = 200 * 33;
     fireEvent.scroll(scroller!);
     fireEvent.keyDown(c.container, { code: "Shift" });
@@ -280,7 +280,7 @@ describe("Select.Multiple", () => {
     fireEvent.click(c.getByText("Test Items"));
     fireEvent.click(c.getByText("First Item Option"));
     expect(c.getByRole("option", { name: "First Item Option" }).classList).toContain(
-      "pluto-btn--prevent-click",
+      "lyra-btn--prevent-click",
     );
   });
 
@@ -291,7 +291,7 @@ describe("Select.Multiple", () => {
     fireEvent.click(c.getByText("First Item Option"));
     expect(
       c.getByRole("option", { name: "First Item Option" }).classList,
-    ).not.toContain("pluto-btn--prevent-click");
+    ).not.toContain("lyra-btn--prevent-click");
   });
 
   describe("replaceOnSingle", () => {

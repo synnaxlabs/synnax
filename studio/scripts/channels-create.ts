@@ -9,7 +9,7 @@
 
 import { capture } from "@/index";
 
-import { selectItem, switchFor } from "./common/channel-dialog";
+import { kindButton, selectItem, switchFor } from "./common/channel-dialog";
 
 /**
  * Docs `client/channels/create`: click the "+" action in the Channels toolbar, create
@@ -38,7 +38,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.click(name);
   await session.type("tank_time");
   await session.hold(400);
-  await session.click(switchFor(modal, "Is index"));
+  await session.click(kindButton(modal, "Index"));
   await session.hold(500);
   await session.click(switchFor(modal, "Create more"));
   await session.hold(500);
@@ -52,7 +52,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await session.type("tank_pressure");
   await session.hold(400);
   await session.click(
-    modal.locator(".pluto-dialog__trigger").filter({ hasText: "float32" }).first(),
+    modal.locator(".lyra-dialog__trigger").filter({ hasText: "float32" }).first(),
   );
   await selectItem(session, "float32");
   await session.click(modal.getByText("Select channel", { exact: true }).first(), {

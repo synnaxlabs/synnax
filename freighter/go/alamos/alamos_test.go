@@ -18,6 +18,10 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
+var finalizer = freighter.FinalizerFunc(
+	func(ctx freighter.Context) (freighter.Context, error) { return ctx, nil },
+)
+
 var _ = Describe("Falamos", func() {
 	Describe("Name", func() {
 		It("Should correctly attach tracing metadata", func(ctx SpecContext) {
@@ -31,7 +35,7 @@ var _ = Describe("Falamos", func() {
 					Role:    freighter.RoleClient,
 					Params:  make(freighter.Params),
 				},
-				freighter.NopFinalizer,
+				finalizer,
 			))
 			_, ok := oCtx.Get("alamos-traceparent")
 			Expect(ok).To(BeTrue())
@@ -45,7 +49,7 @@ var _ = Describe("Falamos", func() {
 					Role:    freighter.RoleServer,
 					Params:  oCtx.Params,
 				},
-				freighter.NopFinalizer,
+				finalizer,
 			))
 			_, ok = oCtx.Get("alamos-traceparent")
 			Expect(ok).To(BeTrue())

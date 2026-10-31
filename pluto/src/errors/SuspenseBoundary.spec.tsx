@@ -66,7 +66,7 @@ describe("SuspenseBoundary", () => {
         <Suspender promise={new Promise<string>(() => {})} />
       </SuspenseBoundary>,
     );
-    expect(c.container.querySelector(".pluto-status__loading")).not.toBeNull();
+    expect(c.container.querySelector(".lyra-status__loading")).not.toBeNull();
   });
 
   it("should render nothing while suspended when loading is null", () => {

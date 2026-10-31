@@ -48,7 +48,7 @@ const codeHtmls = CALC_EXAMPLES.map((example) => highlight(example.code));
         grid-template-columns: 2fr 3fr;
     }
 
-    @media (max-width: 900px) {
+    @media (width <= 900px) {
         .calc-visualizer .viz-content {
             grid-template-columns: 1fr;
         }
@@ -133,6 +133,7 @@ const codeHtmls = CALC_EXAMPLES.map((example) => highlight(example.code));
         100% {
             opacity: 1;
         }
+
         50% {
             opacity: 0.6;
         }

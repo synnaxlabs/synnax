@@ -30,8 +30,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
-	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 func TestAPIProject(t *testing.T) {
@@ -101,14 +101,14 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Project: projectSvc,
 	}))
 	author = MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
-		Username: "test",
+		Name: "test",
 	}))
 })
 
 func createUser(ctx SpecContext) user.User {
 	GinkgoHelper()
 	return MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
-		Username: "import-" + uuid.New().String(),
+		Name: "import-" + uuid.New().String(),
 	}))
 }
 

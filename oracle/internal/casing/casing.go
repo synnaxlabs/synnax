@@ -22,10 +22,11 @@ import (
 
 // acronyms are initialisms that stay fully upper-cased in PascalCase identifiers
 // derived from snake_case (e.g. "ai_voltage" -> "AIVoltage"). The set covers the
-// hardware and signal initialisms used in Synnax schemas.
+// initialisms used in Synnax schemas.
 var acronyms = set.New(
 	"ai", "ao", "ci", "co", "di", "do",
 	"rtd", "iepe", "rms", "dc", "ac",
+	"api",
 )
 
 // pascalAcronym converts a snake_case (or mixed-case) identifier to PascalCase, fully

@@ -37,7 +37,9 @@ def load_channel_mapping(mapping_path: Path) -> dict[int, int]:
     return key_map
 
 
-def transform_value(value: Any, key_map: dict[int, int], stats: dict[str, int]) -> Any:
+def transform_value(
+    value: Any, *, key_map: dict[int, int], stats: dict[str, int]
+) -> Any:
     """Recursively transform values, replacing config keys with synnax keys.
 
     Args:
@@ -46,9 +48,12 @@ def transform_value(value: Any, key_map: dict[int, int], stats: dict[str, int]) 
         stats: Dictionary to track replacement statistics
     """
     if isinstance(value, dict):
-        return {k: transform_value(v, key_map, stats) for k, v in value.items()}
+        return {
+            k: transform_value(v, key_map=key_map, stats=stats)
+            for k, v in value.items()
+        }
     if isinstance(value, list):
-        return [transform_value(item, key_map, stats) for item in value]
+        return [transform_value(item, key_map=key_map, stats=stats) for item in value]
     if isinstance(value, int):
         # If in key map, use the synnax key
         if value in key_map:
@@ -64,7 +69,7 @@ def transform_value(value: Any, key_map: dict[int, int], stats: dict[str, int]) 
 
 
 def transform_schematic(
-    schematic_path: Path, mapping_path: Path, output_path: Path
+    schematic_path: Path, *, mapping_path: Path, output_path: Path
 ) -> None:
     """Transform schematic by replacing config keys with Synnax keys."""
     print(f"\n{'=' * 70}")
@@ -85,7 +90,7 @@ def transform_schematic(
     # Transform schematic with statistics tracking
     print("Transforming channel keys...")
     stats = {"mapped_replacements": 0, "unknown_to_zero": 0}
-    transformed = transform_value(schematic, key_map, stats)
+    transformed = transform_value(schematic, key_map=key_map, stats=stats)
 
     print("\nReplacement summary:")
     print(f"  Config keys in mapping: {len(key_map)}")
@@ -109,7 +114,9 @@ def transform_schematic(
 def main() -> None:
     """Main entry point."""
     parser = argparse.ArgumentParser(
-        description="Transform schematic by replacing config channel keys with Synnax keys.",
+        description=(
+            "Transform schematic by replacing config channel keys with Synnax keys."
+        ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -126,7 +133,7 @@ The script will:
   3. Replace config keys with Synnax keys
   4. Replace unknown keys (>1000000) with 0
   5. Save the transformed schematic with '_transformed' suffix
-        """,
+        """,  # noqa: E501
     )
     parser.add_argument(
         "schematic", type=str, help="Path to schematic JSON file to transform"
@@ -135,7 +142,10 @@ The script will:
     parser.add_argument(
         "--output",
         type=str,
-        help="Output path for transformed schematic (default: <schematic>_transformed.json)",
+        help=(
+            "Output path for transformed schematic "
+            "(default: <schematic>_transformed.json)"
+        ),
     )
 
     args = parser.parse_args()
@@ -167,7 +177,9 @@ The script will:
         sys.exit(1)
 
     # Transform
-    transform_schematic(schematic_path, mapping_path, output_path)
+    transform_schematic(
+        schematic_path, mapping_path=mapping_path, output_path=output_path
+    )
     print(f"Output: {output_path}")
 
 

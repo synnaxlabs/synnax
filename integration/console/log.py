@@ -14,26 +14,28 @@ from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 import synnax as sy
 from console.layout import LayoutClient
-from console.page import ConsolePage
+from console.page import ConsolePage, PageType
 
 
 class Log(ConsolePage):
     """Log page management interface"""
 
-    page_type = "Log"
+    page_type: PageType = "Log"
     pluto_label: str = ".pluto-log"
 
     def __init__(
         self,
+        *,
         layout: LayoutClient,
         client: sy.Synnax,
         page_name: str,
         channel_name: str | None = None,
-        *,
         pane_locator: Locator,
     ) -> None:
         """Initialize a Log page wrapper (see ConsolePage.__init__ for details)."""
-        super().__init__(layout, client, page_name, pane_locator=pane_locator)
+        super().__init__(
+            layout=layout, client=client, page_name=page_name, pane_locator=pane_locator
+        )
 
         if channel_name is not None:
             self.set_channel(channel_name)
@@ -70,7 +72,7 @@ class Log(ConsolePage):
     def set_channel(self, channel_name: str) -> None:
         """Add a channel to the log via the 'Add channel' row."""
         self._channels().get_by_text("Add channel").click()
-        self.layout.select_from_dropdown(channel_name, "Search channels")
+        self.layout.select_from_dropdown(channel_name, placeholder="Search channels")
 
     def has_channel(self, channel_name: str) -> bool:
         """Check if a channel is shown in the Log toolbar."""
@@ -105,7 +107,7 @@ class Log(ConsolePage):
         menu = self.page.get_by_role("menu")
         try:
             menu.wait_for(state="visible", timeout=3000)
-            menu.locator(".pluto-menu-item").filter(has_text="Copy").first.click(
+            menu.locator(".lyra-menu-item").filter(has_text="Copy").first.click(
                 timeout=2000
             )
         except PlaywrightTimeoutError:
@@ -113,7 +115,7 @@ class Log(ConsolePage):
             return ""
         return self.layout.read_clipboard()
 
-    def wait_for_copied_entries(self, retries: int = 20) -> list[str]:
+    def wait_for_copied_entries(self, *, retries: int = 20) -> list[str]:
         """Poll the drag-select + context-menu copy until it yields entries.
 
         Returns the non-empty copied lines (one per rendered entry), or an empty
@@ -191,7 +193,7 @@ class Log(ConsolePage):
         if toggle.count() == 0:
             return False
         btn_class = toggle.get_attribute("class") or ""
-        return "pluto--selected" in btn_class
+        return "lyra--selected" in btn_class
 
     def pause_scrolling(self) -> None:
         """Pause log scrolling (enter scrollback mode)."""
@@ -200,7 +202,7 @@ class Log(ConsolePage):
         # The controls reveal on pane hover; hover first so the click lands.
         self.pane_locator.hover()
         self._hold_toggle().click()
-        self.pane_locator.locator(".console-controls button.pluto--selected").wait_for(
+        self.pane_locator.locator(".console-controls button.lyra--selected").wait_for(
             state="attached", timeout=2000
         )
 
@@ -210,6 +212,6 @@ class Log(ConsolePage):
             return
         self.pane_locator.hover()
         self._hold_toggle().click()
-        self.pane_locator.locator(".console-controls button.pluto--selected").wait_for(
+        self.pane_locator.locator(".console-controls button.lyra--selected").wait_for(
             state="detached", timeout=2000
         )

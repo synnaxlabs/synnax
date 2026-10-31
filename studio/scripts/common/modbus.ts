@@ -25,13 +25,13 @@ export const choose = async (
   next: string,
 ): Promise<void> => {
   await session.click(
-    channel.locator(".pluto-dialog__trigger").filter({ hasText: current }).first(),
+    channel.locator(".lyra-dialog__trigger").filter({ hasText: current }).first(),
     { text: true },
   );
   await session.hold(300);
   await session.type(next);
   const item = session.page
-    .locator(".pluto-list__item:not(.pluto-tree__item)")
+    .locator(".lyra-list__item:not(.lyra-tree__item)")
     .filter({ has: session.page.getByText(next, { exact: true }) })
     .first();
   await session.waitFor(item);

@@ -62,4 +62,4 @@ data = np.sin(np.linspace(1, 10, SAMPLE_COUNT)) * 20 + np.random.randn(SAMPLE_CO
 time_channel.write(start, stamps)
 data_channel.write(start, data)
 
-print(client.read_latest([time_channel.key, data_channel.key], 1))
+print(client.read_latest([time_channel.key, data_channel.key], n=1))

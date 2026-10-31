@@ -24,7 +24,6 @@ import (
 // on ChannelEntry in schemas/synnax/log.oracle and with the TypeScript
 // defaultChannelEntry in client/ts/src/log/actions.ts.
 const (
-	defaultPrecision         int32                 = -1
 	defaultNotation          notation.Notation     = notation.NotationStandard
 	defaultTimestampFormat   telem.TimestampFormat = telem.TimestampFormatPreciseDate
 	defaultTimestampTimeZone telem.TimeZone        = telem.TimeZoneLocal
@@ -42,7 +41,7 @@ const (
 // precision. They mirror the @validate constraints on ChannelEntry.precision in
 // schemas/synnax/log.oracle.
 const (
-	minChannelPrecision int32 = -1
+	minChannelPrecision int32 = 0
 	maxChannelPrecision int32 = 17
 )
 
@@ -107,15 +106,17 @@ func (p SetChannelNotationPayload) Handle(state Log) (Log, error) {
 	return state, nil
 }
 
-// Handle sets the display precision of the entry referencing the channel. It
-// returns validate.ErrValidation when the precision is outside the inclusive
-// range [-1, 17], and is a no-op when no entry references the channel.
+// Handle sets the display precision of the entry referencing the channel, or clears it
+// when the payload carries none. It returns validate.ErrValidation when the precision
+// is outside the inclusive range [0, 17], and is a no-op when no entry references the
+// channel.
 func (p SetChannelPrecisionPayload) Handle(state Log) (Log, error) {
-	if p.Precision < minChannelPrecision || p.Precision > maxChannelPrecision {
+	if p.Precision != nil &&
+		(*p.Precision < minChannelPrecision || *p.Precision > maxChannelPrecision) {
 		return Log{}, errors.Wrapf(
 			validate.ErrValidation,
 			"channel precision %d out of range [%d, %d]",
-			p.Precision,
+			*p.Precision,
 			minChannelPrecision,
 			maxChannelPrecision,
 		)
@@ -211,9 +212,8 @@ func channelEntryIndex(entries []ChannelEntry, key channel.Key) int {
 // palette color for entries without an explicit color.
 func defaultChannelEntry(key channel.Key) ChannelEntry {
 	return ChannelEntry{
-		Channel:   key,
-		Notation:  defaultNotation,
-		Precision: defaultPrecision,
+		Channel:  key,
+		Notation: defaultNotation,
 		Timestamp: TimestampConfig{
 			Format: defaultTimestampFormat,
 			Tz:     defaultTimestampTimeZone,

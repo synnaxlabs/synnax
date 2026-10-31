@@ -12,6 +12,7 @@ package channel_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/x/testutil"
@@ -28,11 +29,22 @@ var _ = Describe("ParseKey", func() {
 			MatchError(ContainSubstring("123456a is not a valid channel key")),
 		))
 	})
+	It("Should parse the largest key", func() {
+		Expect(MustSucceed(channel.ParseKey("4294967295"))).
+			To(Equal(channel.Key(4294967295)))
+	})
+	DescribeTable("Should return an error when the key is out of range",
+		func(s string) {
+			Expect(channel.ParseKey(s)).Error().To(MatchError(validate.ErrValidation))
+		},
+		Entry("negative", "-1"),
+		Entry("overflow", "4294967296"),
+	)
 })
 
 var _ = Describe("NewKey", func() {
 	It("Should compose a key from a leaseholder and a local key", func() {
-		k := channel.NewKey(1, 2)
+		k := distchannel.NewKey(1, 2)
 		Expect(k.Lease()).To(Equal(node.Key(1)))
 		Expect(k.LocalKey()).To(Equal(channel.LocalKey(2)))
 	})
@@ -53,8 +65,8 @@ var _ = Describe("KeysFromChannels", func() {
 			{Leaseholder: 2, LocalKey: 3},
 		}
 		Expect(channel.KeysFromChannels(channels)).To(Equal(channel.Keys{
-			channel.NewKey(1, 1),
-			channel.NewKey(2, 3),
+			distchannel.NewKey(1, 1),
+			distchannel.NewKey(2, 3),
 		}))
 	})
 	It("Should return an empty slice when given no channels", func() {

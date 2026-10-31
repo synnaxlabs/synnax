@@ -24,8 +24,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
-	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 func TestAPIImEx(t *testing.T) {
@@ -78,7 +78,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		RBAC: rbacSvc,
 	}))
 	Expect(userSvc.NewRetrieve().
-		Where(user.MatchUsernames("api-imex-suite-root")).
+		Where(user.MatchRootUser(true)).
 		Entry(&root).Exec(ctx, nil)).To(Succeed())
 })
 

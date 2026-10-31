@@ -79,8 +79,9 @@ or past `end`, the body does not run.
 | `range(10, 0, -3)` | 10, 7, 4, 1   |
 | `range(10, 5)`     | None          |
 
-The type of `i` is the widest integer type of the arguments, or `i64` for literals. Arc
-reads `end` and `step` once, before the first pass. A float argument fails with
+The type of `i` is the integer type of the arguments, or `i64` for literals. Mixing
+integer types fails with `type mismatch: cannot use i32 and i64 in range()`. Arc reads
+`end` and `step` once, before the first pass. A float argument fails with
 `range() argument 1 must be an integer type, got exact integer float`. Do not use a step
 of 0: the compiler accepts it, and the loop can run forever.
 

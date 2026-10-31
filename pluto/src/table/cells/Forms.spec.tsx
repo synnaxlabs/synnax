@@ -66,7 +66,7 @@ describe("ValueForm", () => {
     it("should write the averaging window to the cell config", () => {
       const { getByText } = renderTelemetryTab();
       const input = getByText("Averaging window")
-        .closest(".pluto-input__item")
+        .closest(".lyra-input__item")
         ?.querySelector("input");
       expect(input).not.toBeNull();
       fireEvent.change(input!, { target: { value: "7" } });
@@ -138,7 +138,7 @@ describe("ValueForm", () => {
       const { getByText, container } = renderTab("Redline");
       fireEvent.click(getByText("Add band"));
       const input = container.querySelector<HTMLInputElement>(
-        ".pluto-redline-form__bands .pluto-list__item input",
+        ".pluto-redline-form__bands .lyra-list__item input",
       );
       expect(input).not.toBeNull();
       fireEvent.change(input!, { target: { value: "850" } });
@@ -151,7 +151,7 @@ describe("ValueForm", () => {
       const inputs = () =>
         Array.from(
           container.querySelectorAll<HTMLInputElement>(
-            ".pluto-redline-form__bands .pluto-list__item input",
+            ".pluto-redline-form__bands .lyra-list__item input",
           ),
         );
       const commit = (input: HTMLInputElement, value: string) => {
@@ -170,11 +170,11 @@ describe("ValueForm", () => {
       const inputs = () =>
         Array.from(
           container.querySelectorAll<HTMLInputElement>(
-            ".pluto-redline-form__bands .pluto-list__item input",
+            ".pluto-redline-form__bands .lyra-list__item input",
           ),
         );
       const flagged = () =>
-        inputs().map((i) => i.parentElement?.classList.contains("pluto--error"));
+        inputs().map((i) => i.parentElement?.classList.contains("lyra--error"));
       fireEvent.click(getByText("Add band"));
       fireEvent.click(getByText("Add band"));
       fireEvent.click(getByText("Add band"));
@@ -193,7 +193,7 @@ describe("ValueForm", () => {
       expect(floor()).toBe("0");
       expect(
         container.querySelector(".pluto-redline-form__floor-value")?.classList,
-      ).not.toContain("pluto--square");
+      ).not.toContain("lyra--square");
       expect(container.querySelector(".pluto-redline-form__floor input")).toBeNull();
       expect(getByText("No fill")).toBeDefined();
       act(() => methods.set("units", "psi"));
@@ -230,9 +230,9 @@ describe("TextForm", () => {
     );
     expect(getAllByText("Text")).toHaveLength(3);
     expect(getAllByText("Fill")).toHaveLength(1);
-    const swatches = container.querySelectorAll<HTMLElement>(".pluto-color-swatch");
+    const swatches = container.querySelectorAll<HTMLElement>(".lyra-color-swatch");
     expect(swatches).toHaveLength(2);
-    expect(swatches[0].className).toContain("pluto--auto");
-    expect(swatches[1].className).not.toContain("pluto--auto");
+    expect(swatches[0].className).toContain("lyra--auto");
+    expect(swatches[1].className).not.toContain("lyra--auto");
   });
 });

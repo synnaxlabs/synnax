@@ -64,13 +64,13 @@ func isAny(basetypes.Type) bool { return true }
 // getSignedIntegerLiteral extracts a signed integer value from a node.
 // Supports both plain integer literals (2) and negated ones (-2).
 // Returns (value, true) if successful, (0, false) otherwise.
-func getSignedIntegerLiteral(node antlr.ParserRuleContext) (int, bool) {
+func getSignedIntegerLiteral(node antlr.ParserRuleContext) (int64, bool) {
 	if node == nil {
 		return 0, false
 	}
 	var (
-		sign    = 1
-		current = node
+		sign    int64 = 1
+		current       = node
 	)
 	if unary, ok := current.(parser.IUnaryExpressionContext); ok {
 		if unary.MINUS() != nil {
@@ -113,7 +113,7 @@ func getSignedIntegerLiteral(node antlr.ParserRuleContext) (int, bool) {
 	if !ok {
 		return 0, false
 	}
-	return sign * int(intVal), true
+	return sign * intVal, true
 }
 
 // Analyze validates type correctness of an expression and accumulates constraints.

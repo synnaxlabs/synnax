@@ -27,7 +27,7 @@ def run(conn: SynnaxConnection) -> list[str]:
         with lock:
             lines.append(line)
 
-    procs = run_scripts(conn, [SCRIPT], log)
+    procs = run_scripts(conn, [SCRIPT], log=log)
     try:
         deadline = time.monotonic() + 30
         while len(lines) < 2 and time.monotonic() < deadline:

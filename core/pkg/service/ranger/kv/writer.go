@@ -22,13 +22,6 @@ type Writer struct {
 	table *gorp.Table[string, Pair]
 }
 
-// Set sets a key-value pair on the specified range.
-func (w Writer) Set(ctx context.Context, rng ranger.Key, key, value string) error {
-	return w.table.NewCreate().
-		Entry(&Pair{Range: rng, Key: key, Value: value}).
-		Exec(ctx, w.tx)
-}
-
 // SetMany sets multiple key-value pairs on the specified range.
 func (w Writer) SetMany(ctx context.Context, pairs []Pair) error {
 	return w.table.NewCreate().Entries(&pairs).Exec(ctx, w.tx)

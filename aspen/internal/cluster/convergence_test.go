@@ -10,44 +10,20 @@
 package cluster_test
 
 import (
-	"fmt"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/alamos"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/aspen/internal/cluster"
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
 	"github.com/synnaxlabs/aspen/internal/cluster/pledge"
 	"github.com/synnaxlabs/aspen/internal/node"
 	freightertestutil "github.com/synnaxlabs/freighter/testutil"
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/kv/memkv"
-	"github.com/synnaxlabs/x/rand"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
-
-type newConvergenceVars struct {
-	clusterSize          int
-	convergenceThreshold time.Duration
-	gossipInterval       time.Duration
-	peerAddrCount        int
-}
-
-var progressiveNewConvergence = []newConvergenceVars{
-	{
-		clusterSize:          4,
-		convergenceThreshold: time.Second * 1,
-		gossipInterval:       time.Millisecond * 10,
-		peerAddrCount:        1,
-	},
-	{
-		clusterSize:          10,
-		convergenceThreshold: time.Second * 3,
-		gossipInterval:       time.Millisecond * 50,
-		peerAddrCount:        3,
-	},
-}
 
 var _ = Describe("Convergence", func() {
 	var (
@@ -61,20 +37,22 @@ var _ = Describe("Convergence", func() {
 	})
 
 	Context("Serial PledgeServer", func() {
-		p := alamos.NewParametrize(alamos.IterVars(progressiveNewConvergence))
-		p.Template(func(i int, values newConvergenceVars) {
-			It(fmt.Sprintf("Should converge a Cluster size of %v in %v "+
-				"at an interval of %v seconds and a peer address count of %v",
-				values.clusterSize, values.convergenceThreshold,
-				values.gossipInterval, values.peerAddrCount), func(ctx SpecContext) {
+		DescribeTable(
+			"Should converge a cluster",
+			func(
+				ctx SpecContext,
+				clusterSize int,
+				threshold, gossipInterval time.Duration,
+				peerAddrCount int,
+			) {
 				var (
 					clusters  []*cluster.Cluster
 					addresses []address.Address
 				)
-				for range values.clusterSize {
+				for range clusterSize {
 					gossipT := gossipNet.UnaryServer("")
 					pledgeT := pledgeNet.UnaryServer(gossipT.Address())
-					peerAddresses := rand.SubSlice(addresses, values.peerAddrCount)
+					peerAddresses := lo.Samples(addresses, peerAddrCount)
 					cluster := MustOpen(cluster.Open(
 						ctx,
 						cluster.Config{
@@ -83,13 +61,13 @@ var _ = Describe("Convergence", func() {
 								Peers:           peerAddresses,
 								TransportServer: pledgeT,
 								TransportClient: pledgeNet.UnaryClient(),
-								RetryInterval:   values.gossipInterval,
+								RetryInterval:   gossipInterval,
 								RetryScale:      1,
 							},
 							Gossip: gossip.Config{
 								TransportServer: gossipT,
 								TransportClient: gossipNet.UnaryClient(),
-								Interval:        values.gossipInterval,
+								Interval:        gossipInterval,
 							},
 							Storage: DeferClose(memkv.New()),
 						},
@@ -103,16 +81,23 @@ var _ = Describe("Convergence", func() {
 					for _, c := range clusters {
 						Eventually(
 							c.Nodes,
-							values.convergenceThreshold,
+							threshold,
 						).Should(HaveLen(len(clusters)))
 					}
 				}
-				Expect(clusters).To(HaveLen(values.clusterSize))
+				Expect(clusters).To(HaveLen(clusterSize))
 				for j, c := range clusters {
 					Expect(c.HostKey()).To(Equal(node.Key(j + 1)))
 				}
-			})
-		})
-		p.Construct()
+			},
+			Entry(
+				"of 4 nodes in 1s at a 10ms interval with 1 peer address",
+				4, time.Second, 10*time.Millisecond, 1,
+			),
+			Entry(
+				"of 10 nodes in 3s at a 50ms interval with 3 peer addresses",
+				10, 3*time.Second, 50*time.Millisecond, 3,
+			),
+		)
 	})
 })

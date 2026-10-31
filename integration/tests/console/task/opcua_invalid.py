@@ -40,8 +40,8 @@ class OPCUAInvalidConfig(OPCUACase):
 
     def test_no_device(self) -> OPCUARead:
         self.log("Testing: No device selected")
-        page = self.create_page(OPCUARead, "OPCUA Console Invalid")
-        self.assert_device_required(page, SERVER_FIELD_LABEL)
+        page = self.create_page(OPCUARead, prefix="OPCUA Console Invalid")
+        self.assert_device_required(page, label=SERVER_FIELD_LABEL)
         return page
 
     def test_invalid_rates(self, page: OPCUARead) -> None:
@@ -64,8 +64,8 @@ class OPCUAInvalidConfig(OPCUACase):
         # Page objects locate their pane by task type, so the first tab closes before a
         # second read task opens.
         self.console.close_all_tabs()
-        second = self.create_page(OPCUARead, "OPCUA Console Duplicate")
+        second = self.create_page(OPCUARead, prefix="OPCUA Console Duplicate")
         self.select_server(second)
         second.add_channels([NODE])
-        self.assert_driver_rejects(second, "duplicate channel")
+        self.assert_driver_rejects(second, label="duplicate channel")
         self.console.tasks.stop(page.page_name)

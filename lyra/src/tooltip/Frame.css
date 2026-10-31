@@ -9,7 +9,7 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-tooltip {
+.lyra-tooltip {
     position: fixed;
     top: 0;
     left: 0;
@@ -22,19 +22,22 @@
     box-shadow: var(--pluto-shadow-overlay);
     padding: 1rem 1.5rem;
     max-width: 70rem;
-    animation: pluto-tooltip-in 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+    animation: lyra-tooltip-in 0.15s cubic-bezier(0.16, 1, 0.3, 1);
     transition: opacity 0.15s cubic-bezier(0.16, 1, 0.3, 1);
 
-    .pluto-text {
+    /* The tooltip's gray-l2 fill swallows the default chip fill. */
+    --pluto-keycap-bg: color-mix(in srgb, var(--pluto-gray-l11) 12%, transparent);
+
+    .lyra-text {
         font-weight: 350;
     }
 
-    &.pluto--closing {
+    &.lyra--closing {
         opacity: 0;
     }
 }
 
-@keyframes pluto-tooltip-in {
+@keyframes lyra-tooltip-in {
     from {
         opacity: 0;
         transform: scale(0.95);

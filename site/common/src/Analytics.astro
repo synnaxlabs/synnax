@@ -1,0 +1,174 @@
+---
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { Button } from "@synnaxlabs/lyra/button";
+import { Text } from "@synnaxlabs/lyra/text";
+
+interface Props {
+    /** The privacy policy, as the site links to it. */
+    privacy: string;
+    /** The account to link the visitor to once cookies are on. */
+    userID?: string;
+    /**
+     * For pages that show other people's data or put one-time codes in links. PostHog
+     * then records no page text, no attributes of clicked elements, and no link queries.
+     */
+    sensitive?: boolean;
+}
+
+const { privacy, userID, sensitive = false } = Astro.props;
+---
+
+<script is:inline>
+    // PostHog's loader, rewritten to add its queueing methods at once instead of in
+    // init. The page waits to init, and a call made meanwhile is queued, not thrown.
+    (function (posthog) {
+        if (posthog.__SV) return;
+        window.posthog = posthog;
+        posthog._i = [];
+        posthog.people = [];
+        const queue = (name) => {
+            posthog[name] = (...args) => posthog.push([name, ...args]);
+        };
+        // The methods the sites call.
+        [
+            "capture",
+            "identify",
+            "opt_in_capturing",
+            "opt_out_capturing",
+            "reset",
+        ].forEach(queue);
+        posthog.init = (token, config) => {
+            const script = document.createElement("script");
+            script.async = true;
+            script.src = `${config.api_host}/static/array.js`;
+            document.head.append(script);
+            queue("init");
+            posthog._i.push([token, config]);
+        };
+        posthog.__SV = 1;
+    })(window.posthog || []);
+</script>
+
+<div
+    class="consent"
+    hidden
+    data-user-id={userID}
+    data-sensitive={sensitive ? "" : undefined}
+    transition:persist
+>
+    <Text.Text level="small" className="consent-name">
+        Cookies
+    </Text.Text>
+    <Text.Text level="p" className="consent-message">
+        Can we use cookies to learn how people use our websites?
+    </Text.Text>
+    <Text.Text level="small" className="consent-description">
+        If you reject, we count visits without cookies.{" "}
+        <a href={privacy}>Privacy policy</a>
+    </Text.Text>
+    <div class="consent-actions">
+        <Button.Button size="small" className="consent-button" data-consent="reject">
+            Reject
+        </Button.Button>
+        <Button.Button size="small" className="consent-button" data-consent="accept">
+            Accept
+        </Button.Button>
+    </div>
+</div>
+
+<style>
+    /* The Console's notification card, in the corner. Sizes are fixed, so the card
+       reads the same on sites with different type scales. */
+    .consent {
+        position: fixed;
+        z-index: 100;
+        left: 20px;
+        bottom: 20px;
+        width: 340px;
+        padding: 16px;
+        border: var(--pluto-border-l6);
+        border-radius: var(--pluto-border-radius-medium);
+        background: color-mix(in srgb, var(--pluto-gray-l2) 94%, transparent);
+        box-shadow: var(--pluto-shadow-lift);
+        -webkit-backdrop-filter: var(--pluto-frost);
+        backdrop-filter: var(--pluto-frost);
+
+        &[hidden] {
+            display: none;
+        }
+    }
+
+    /* The Astro compiler misses most :global() selectors in nested rules. */
+    .consent :global(.consent-name),
+    .consent :global(.consent-message),
+    .consent :global(.consent-description) {
+        display: block;
+        font-size: 14px;
+        line-height: 20px;
+    }
+
+    .consent :global(.consent-name),
+    .consent :global(.consent-description) {
+        color: var(--pluto-gray-l9);
+        font-size: 13px;
+    }
+
+    .consent :global(.consent-name) {
+        margin-bottom: 4px;
+    }
+
+    .consent :global(.consent-message) {
+        font-weight: 500;
+        text-wrap: balance;
+    }
+
+    .consent :global(.consent-description) {
+        margin-top: 4px;
+    }
+
+    .consent :global(.consent-description) a {
+        white-space: nowrap;
+    }
+
+    .consent-actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 16px;
+    }
+
+    .consent-actions :global(.consent-button) {
+        flex: 1;
+        justify-content: center;
+    }
+
+    @media (width <= 700px) {
+        .consent {
+            left: 12px;
+            right: 12px;
+            bottom: 12px;
+            width: auto;
+        }
+    }
+</style>
+
+<script>
+    import { start } from "./analytics";
+
+    const card = document.querySelector<HTMLElement>(".consent");
+    if (card == null) throw new Error("the consent card is missing");
+    void start({
+        posthog: () => window.posthog,
+        fetch: window.fetch.bind(window),
+        card,
+        userID: card.dataset.userId ?? null,
+        sensitive: card.dataset.sensitive != null,
+    });
+</script>

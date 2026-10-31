@@ -141,8 +141,8 @@ a.brand {
 }
 
 .desktop-nav .header-nav-link,
-.hero-explore.pluto-btn,
-.solutions-explore.pluto-btn {
+.hero-explore.lyra-btn,
+.solutions-explore.lyra-btn {
     height: 32px;
     padding-inline: 12px;
     color: var(--pluto-gray-l8);
@@ -155,7 +155,7 @@ a.brand {
     }
 }
 
-.header-cta.pluto-btn {
+.header-cta.lyra-btn {
     height: 32px;
     padding: 0 16px;
     font: 500 14px/20px var(--foundation-body);
@@ -278,7 +278,7 @@ a.brand {
 }
 
 .hero .hero-explore,
-.solutions-explore.pluto-btn {
+.solutions-explore.lyra-btn {
     align-self: center;
     margin-top: 16px;
     font-family: var(--foundation-mono);
@@ -332,7 +332,7 @@ a.brand {
     letter-spacing: 0.05em;
 }
 
-.foundation-button.pluto-btn {
+.foundation-button.lyra-btn {
     height: 44px;
     padding: 0 18px;
     gap: 12px;

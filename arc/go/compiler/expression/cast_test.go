@@ -18,6 +18,7 @@ import (
 	. "github.com/synnaxlabs/arc/compiler/testutil"
 	. "github.com/synnaxlabs/arc/compiler/wasm"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/symbol"
 	. "github.com/synnaxlabs/arc/symbol/testutil"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
@@ -444,4 +445,194 @@ var _ = Describe("Type Cast Compilation", func() {
 		_, err := expression.Compile(ctx.Child(expr))
 		Expect(err).To(MatchError(ContainSubstring("out of range for i8")))
 	})
+})
+
+var _ = Describe("Type Cast of Mixed Expressions", func() {
+	DescribeTable("should type the operand independently of the cast target",
+		func(
+			bCtx SpecContext,
+			source string,
+			varType types.Type,
+			expectedType types.Type,
+			expectedOpcodes ...any,
+		) {
+			bytecode, exprType := compileWithAnalyzer(bCtx, source, []symbol.Symbol{
+				{Name: "n", Kind: symbol.KindVariable, Type: varType},
+			})
+			Expect(exprType).To(Equal(expectedType))
+			Expect(bytecode).To(MatchOpcodes(expectedOpcodes...))
+		},
+
+		Entry(
+			"i64: literal * var to f64",
+			"f64(2 * n)",
+			types.I64(), types.F64(),
+			OpI64Const, int64(2), OpLocalGet, 0, OpI64Mul, OpF64ConvertI64S,
+		),
+		Entry(
+			"i64: var * literal to f64",
+			"f64(n * 2)",
+			types.I64(), types.F64(),
+			OpLocalGet, 0, OpI64Const, int64(2), OpI64Mul, OpF64ConvertI64S,
+		),
+		Entry(
+			"i64: literal + var to f64",
+			"f64(10 + n)",
+			types.I64(), types.F64(),
+			OpI64Const, int64(10), OpLocalGet, 0, OpI64Add, OpF64ConvertI64S,
+		),
+		Entry(
+			"i64: literal - var to f64",
+			"f64(100 - n)",
+			types.I64(), types.F64(),
+			OpI64Const, int64(100), OpLocalGet, 0, OpI64Sub, OpF64ConvertI64S,
+		),
+		Entry(
+			"i64: literal / var to f64",
+			"f64(7 / n)",
+			types.I64(), types.F64(),
+			OpI64Const, int64(7), OpLocalGet, 0, OpI64DivS, OpF64ConvertI64S,
+		),
+		Entry(
+			"i64: literal % var to f64",
+			"f64(7 % n)",
+			types.I64(), types.F64(),
+			OpI64Const, int64(7), OpLocalGet, 0, OpI64RemS, OpF64ConvertI64S,
+		),
+		Entry(
+			"i64: literal * var to f32",
+			"f32(3 * n)",
+			types.I64(), types.F32(),
+			OpI64Const, int64(3), OpLocalGet, 0, OpI64Mul, OpF32ConvertI64S,
+		),
+		Entry(
+			"i64: negative literal * var to f64",
+			"f64(-2 * n)",
+			types.I64(), types.F64(),
+			OpI64Const, int64(2), OpI64Const, int64(-1), OpI64Mul,
+			OpLocalGet, 0, OpI64Mul, OpF64ConvertI64S,
+		),
+		Entry(
+			"i64: three operands to f64",
+			"f64(2 * n + 1)",
+			types.I64(), types.F64(),
+			OpI64Const, int64(2), OpLocalGet, 0, OpI64Mul,
+			OpI64Const, int64(1), OpI64Add, OpF64ConvertI64S,
+		),
+		Entry(
+			"i64: product of parenthesized mixed terms to f64",
+			"f64((2 * n) * (2 * n + 1))",
+			types.I64(), types.F64(),
+			OpI64Const, int64(2), OpLocalGet, 0, OpI64Mul,
+			OpI64Const, int64(2), OpLocalGet, 0, OpI64Mul,
+			OpI64Const, int64(1), OpI64Add,
+			OpI64Mul, OpF64ConvertI64S,
+		),
+		Entry(
+			"i64: parenthesized literal * var to f64",
+			"f64((5) * n)",
+			types.I64(), types.F64(),
+			OpI64Const, int64(5), OpLocalGet, 0, OpI64Mul, OpF64ConvertI64S,
+		),
+
+		Entry(
+			"i64: literal * var to i32",
+			"i32(2 * n)",
+			types.I64(), types.I32(),
+			OpI64Const, int64(2), OpLocalGet, 0, OpI64Mul, OpI32WrapI64,
+		),
+		Entry(
+			"i64: literal + var to i64 (no-op cast)",
+			"i64(1 + n)",
+			types.I64(), types.I64(),
+			OpI64Const, int64(1), OpLocalGet, 0, OpI64Add,
+		),
+
+		Entry(
+			"i32: literal * var to f64",
+			"f64(2 * n)",
+			types.I32(), types.F64(),
+			OpI32Const, int32(2), OpLocalGet, 0, OpI32Mul, OpF64ConvertI32S,
+		),
+		Entry(
+			"i32: literal * var to i64",
+			"i64(2 * n)",
+			types.I32(), types.I64(),
+			OpI32Const, int32(2), OpLocalGet, 0, OpI32Mul, OpI64ExtendI32S,
+		),
+		Entry(
+			"i16: literal - var to f32",
+			"f32(1000 - n)",
+			types.I16(), types.F32(),
+			OpI32Const, int32(1000), OpLocalGet, 0, OpI32Sub, OpF32ConvertI32S,
+		),
+		Entry(
+			"i8: literal + var to i32 (no-op cast)",
+			"i32(1 + n)",
+			types.I8(), types.I32(),
+			OpI32Const, int32(1), OpLocalGet, 0, OpI32Add,
+		),
+
+		Entry(
+			"u64: literal * var to f64",
+			"f64(2 * n)",
+			types.U64(), types.F64(),
+			OpI64Const, int64(2), OpLocalGet, 0, OpI64Mul, OpF64ConvertI64U,
+		),
+		Entry(
+			"u32: literal + var to f64",
+			"f64(1 + n)",
+			types.U32(), types.F64(),
+			OpI32Const, int32(1), OpLocalGet, 0, OpI32Add, OpF64ConvertI32U,
+		),
+		Entry(
+			"u32: literal / var to f32",
+			"f32(100 / n)",
+			types.U32(), types.F32(),
+			OpI32Const, int32(100), OpLocalGet, 0, OpI32DivU, OpF32ConvertI32U,
+		),
+		Entry(
+			"u16: literal - var to f64",
+			"f64(1000 - n)",
+			types.U16(), types.F64(),
+			OpI32Const, int32(1000), OpLocalGet, 0, OpI32Sub, OpF64ConvertI32U,
+		),
+		Entry(
+			"u8: literal * var to i64",
+			"i64(3 * n)",
+			types.U8(), types.I64(),
+			OpI32Const, int32(3), OpLocalGet, 0, OpI32Mul, OpI64ExtendI32U,
+		),
+
+		Entry(
+			"f32: literal * var to f64",
+			"f64(2 * n)",
+			types.F32(), types.F64(),
+			OpF32Const, float32(2), OpLocalGet, 0, OpF32Mul, OpF64PromoteF32,
+		),
+		Entry(
+			"f32: float literal + var to i32",
+			"i32(0.5 + n)",
+			types.F32(), types.I32(),
+			OpF32Const, float32(0.5), OpLocalGet, 0, OpF32Add, OpI32TruncF32S,
+		),
+		Entry(
+			"f64: literal * var to f32",
+			"f32(2.5 * n)",
+			types.F64(), types.F32(),
+			OpF64Const, float64(2.5), OpLocalGet, 0, OpF64Mul, OpF32DemoteF64,
+		),
+		Entry(
+			"f64: literal * var to i64",
+			"i64(2 * n)",
+			types.F64(), types.I64(),
+			OpF64Const, float64(2), OpLocalGet, 0, OpF64Mul, OpI64TruncF64S,
+		),
+		Entry(
+			"f64: literal * var to u32",
+			"u32(2 * n)",
+			types.F64(), types.U32(),
+			OpF64Const, float64(2), OpLocalGet, 0, OpF64Mul, OpI32TruncF64U,
+		),
+	)
 })

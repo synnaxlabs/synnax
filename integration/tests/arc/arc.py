@@ -63,12 +63,12 @@ class ArcCase(SimDaqCase, TestCase):
 
     def __init__(
         self,
-        synnax_connection: SynnaxConnection = DEFAULT_CONNECTION,
         *,
+        synnax_connection: SynnaxConnection = DEFAULT_CONNECTION,
         name: str,
         **params: object,
     ) -> None:
-        super().__init__(synnax_connection, name=name, **params)
+        super().__init__(synnax_connection=synnax_connection, name=name, **params)
         self._arcs = []
 
     def setup(self) -> None:
@@ -85,7 +85,9 @@ class ArcCase(SimDaqCase, TestCase):
                 )
         self.rack = None
         self.set_manual_timeout(180)
-        create_virtual_channel(self.client, self.start_cmd_channel, sy.DataType.UINT8)
+        create_virtual_channel(
+            self.client, self.start_cmd_channel, data_type=sy.DataType.UINT8
+        )
         self.subscribe(self.subscribe_channels)
         super().setup()
 
@@ -101,8 +103,8 @@ class ArcCase(SimDaqCase, TestCase):
     def load_arc(
         self,
         source: str,
-        name_prefix: str,
         *,
+        name_prefix: str,
         start: bool = True,
         trigger: str | None = None,
     ) -> str:
@@ -179,7 +181,7 @@ class ArcCase(SimDaqCase, TestCase):
         self._retrieve_rack()
         self.arc_name = self.load_arc(
             self.arc_source,
-            self.arc_name_prefix,
+            name_prefix=self.arc_name_prefix,
             trigger=self.start_cmd_channel,
         )
         self.verify_sequence_execution()

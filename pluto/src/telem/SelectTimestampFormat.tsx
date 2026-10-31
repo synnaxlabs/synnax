@@ -9,10 +9,11 @@
 
 import "@/telem/SelectTimestampFormat.css";
 
-import { CSS } from "@synnaxlabs/lyra/css";
 import { Select } from "@synnaxlabs/lyra/select";
 import { type TimestampFormat } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
+
+import { CSS } from "@/css";
 
 export interface SelectTimestampFormatProps extends Omit<
   Select.SingleSimpleProps<TimestampFormat>,

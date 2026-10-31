@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
@@ -49,7 +49,7 @@ var (
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	node := mock.NewNode(ctx)
+	node := testutil.NewNode(ctx)
 	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
 	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB:       node.DB,
@@ -105,7 +105,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Status:  statusSvc,
 	}))
 	author = MustSucceed(
-		userSvc.NewWriter(nil).Create(ctx, user.User{Username: "test"}),
+		userSvc.NewWriter(nil).Create(ctx, user.User{Name: "test"}),
 	)
 })
 

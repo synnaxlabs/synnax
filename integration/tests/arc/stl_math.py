@@ -246,28 +246,30 @@ class StlMath(ArcCase):
         super().setup()
 
     def _setup_pow_channels(self) -> None:
-        create_virtual_channel(self.client, "pow_cc_trigger", sy.DataType.FLOAT64)
+        create_virtual_channel(
+            self.client, "pow_cc_trigger", data_type=sy.DataType.FLOAT64
+        )
 
         for c in CC_CASES:
-            create_indexed_pair(self.client, c.out_ch, sy.DataType.FLOAT64)
+            create_indexed_pair(self.client, c.out_ch, data_type=sy.DataType.FLOAT64)
 
         for fc in FLOW_CASES:
             assert fc.in_ch is not None and fc.in_dtype is not None
-            create_virtual_channel(self.client, fc.in_ch, fc.in_dtype)
+            create_virtual_channel(self.client, fc.in_ch, data_type=fc.in_dtype)
             out_dtype = (
                 sy.DataType.INT64
                 if fc.label in ("xc_i64", "cx_i64")
                 else sy.DataType.FLOAT64
             )
-            create_indexed_pair(self.client, fc.out_ch, out_dtype)
+            create_indexed_pair(self.client, fc.out_ch, data_type=out_dtype)
 
         for xxc in XX_CASES:
-            create_virtual_channel(self.client, xxc.base_ch, xxc.base_dtype)
-            create_virtual_channel(self.client, xxc.exp_ch, xxc.exp_dtype)
+            create_virtual_channel(self.client, xxc.base_ch, data_type=xxc.base_dtype)
+            create_virtual_channel(self.client, xxc.exp_ch, data_type=xxc.exp_dtype)
             out_dtype = (
                 sy.DataType.INT64 if xxc.label == "xx_i64" else sy.DataType.FLOAT64
             )
-            create_virtual_channel(self.client, xxc.out_ch, out_dtype)
+            create_virtual_channel(self.client, xxc.out_ch, data_type=out_dtype)
 
         all_ch: list[str] = ["pow_cc_trigger", *(cc.out_ch for cc in CC_CASES)]
         for fc in FLOW_CASES:
@@ -280,20 +282,20 @@ class StlMath(ArcCase):
     def _setup_op_channels(self) -> None:
         for c in OP_BINARY_CASES:
             dtype = sy.DataType.INT64 if c.label == "mod" else sy.DataType.FLOAT64
-            create_virtual_channel(self.client, c.a_ch, dtype)
-            create_virtual_channel(self.client, c.b_ch, dtype)
-            create_virtual_channel(self.client, c.out_ch, dtype)
-        create_virtual_channel(self.client, "op_neg_a", sy.DataType.FLOAT64)
-        create_virtual_channel(self.client, "op_neg_out", sy.DataType.FLOAT64)
+            create_virtual_channel(self.client, c.a_ch, data_type=dtype)
+            create_virtual_channel(self.client, c.b_ch, data_type=dtype)
+            create_virtual_channel(self.client, c.out_ch, data_type=dtype)
+        create_virtual_channel(self.client, "op_neg_a", data_type=sy.DataType.FLOAT64)
+        create_virtual_channel(self.client, "op_neg_out", data_type=sy.DataType.FLOAT64)
         for c in OP_BINARY_CASES:
             self.subscribe_channels += [c.a_ch, c.b_ch, c.out_ch]
         self.subscribe_channels += ["op_neg_a", "op_neg_out"]
 
     def _setup_stat_channels(self) -> None:
         for name in STAT_VIRTUAL_INPUTS:
-            create_virtual_channel(self.client, name, sy.DataType.FLOAT64)
+            create_virtual_channel(self.client, name, data_type=sy.DataType.FLOAT64)
         for name in STAT_INDEXED_OUTPUTS:
-            create_indexed_pair(self.client, name, sy.DataType.FLOAT64)
+            create_indexed_pair(self.client, name, data_type=sy.DataType.FLOAT64)
         self.subscribe_channels += STAT_VIRTUAL_INPUTS + STAT_INDEXED_OUTPUTS
 
     def _write_many(self, channel: str, values: list[float]) -> None:

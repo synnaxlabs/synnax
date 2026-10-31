@@ -10,8 +10,8 @@
 """
 This example demonstrates task management features in Synnax.
 
-The principles shown here apply to ALL hardware task types (NI, LabJack, OPC UA, Modbus, etc.),
-but this example uses Modbus for demonstration purposes.
+The principles shown here apply to ALL hardware task types (NI, LabJack, OPC UA, Modbus,
+etc.), but this example uses Modbus for demonstration purposes.
 
 Key features demonstrated:
 - Creating tasks
@@ -177,7 +177,7 @@ with client.open_streamer([input_reg_0.key, input_reg_1.key]) as streamer:
     sample_count = 0
     while sy.TimeStamp.now().span(start_time).seconds < 5:
         frame = streamer.read()
-        if frame and input_reg_0.key in frame:
+        if input_reg_0.key in frame:
             sample_count += len(frame[input_reg_0.key])
 
 if sample_count > 0:

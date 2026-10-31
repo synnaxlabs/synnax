@@ -16,6 +16,10 @@ from framework.report_client import ReportClient
 
 def report(statuses: list[STATUS]) -> tuple[ReportClient, list[str]]:
     lines: list[str] = []
+
+    def log(message: str, /, *, use_name: bool = True) -> None:
+        lines.append(message)
+
     tests = [
         models.Test(
             test_name=f"driver/case_{i}",
@@ -30,7 +34,7 @@ def report(statuses: list[STATUS]) -> tuple[ReportClient, list[str]]:
         test_definitions=[],
         active_tests=[],
         active_tests_lock=threading.Lock(),
-        log=lambda message, _: lines.append(message),
+        log=log,
     )
     return client, lines
 

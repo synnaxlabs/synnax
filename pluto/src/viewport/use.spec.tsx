@@ -229,6 +229,16 @@ describe("viewport/use", () => {
       release(h.canvas, { x: 80, y: 80 });
       expect(box.areaIsZero(h.result.current.maskBox)).toBe(true);
     });
+
+    it("should zoom the y axis for a short vertical drag", () => {
+      const h = setup();
+      drag(h.canvas, { x: 50, y: 50 }, { x: 50, y: 30 });
+      const b = lastEvent(h.onChange).box;
+      expect(box.left(b)).toBeCloseTo(0);
+      expect(box.right(b)).toBeCloseTo(1);
+      expect(box.top(b)).toBeCloseTo(0.3);
+      expect(box.bottom(b)).toBeCloseTo(0.5);
+    });
   });
 
   describe("pan", () => {
@@ -300,6 +310,16 @@ describe("viewport/use", () => {
       expect(box.bottom(b)).toBeCloseTo(1);
     });
 
+    it("should keep a right click that drifts vertically on the x axis", () => {
+      const h = setup();
+      drag(h.canvas, { x: 50, y: 50 }, { x: 50, y: 52 }, RIGHT);
+      const b = lastEvent(h.onChange).box;
+      expect(box.left(b)).toBeCloseTo(0.5);
+      expect(box.right(b)).toBeCloseTo(0.5);
+      expect(box.top(b)).toBeCloseTo(0);
+      expect(box.bottom(b)).toBeCloseTo(1);
+    });
+
     it("should not commit a right drag that painted a mask", () => {
       const h = setup();
       drag(h.canvas, { x: 20, y: 20 }, { x: 80, y: 80 }, RIGHT);
@@ -326,6 +346,71 @@ describe("viewport/use", () => {
       move({ x: 52, y: 52 });
       expect(box.areaIsZero(h.result.current.maskBox)).toBe(true);
       release(h.canvas, { x: 52, y: 52 });
+    });
+
+    it("should clear the mask when a zoom drag shrinks below the minimum span", () => {
+      const h = setup();
+      press(h.canvas, { x: 50, y: 50 });
+      move({ x: 80, y: 50 });
+      expect(box.areaIsZero(h.result.current.maskBox)).toBe(false);
+      move({ x: 55, y: 50 });
+      expect(box.areaIsZero(h.result.current.maskBox)).toBe(true);
+      release(h.canvas, { x: 55, y: 50 });
+      expect(lastEvent(h.onChange).mode).toEqual("click");
+    });
+
+    it.each([
+      ["narrow", { x: 59, y: 50 }],
+      ["short vertical", { x: 50, y: 58 }],
+      ["short diagonal", { x: 58, y: 58 }],
+      ["steep diagonal", { x: 57, y: 61 }],
+    ])("should report a %s zoom drag as a click", (_, to) => {
+      const h = setup();
+      press(h.canvas, { x: 50, y: 50 });
+      move(to);
+      expect(box.areaIsZero(h.result.current.maskBox)).toBe(true);
+      release(h.canvas, to);
+      expect(h.onChange).toHaveBeenCalledTimes(1);
+      const e = lastEvent(h.onChange);
+      expect(e.mode).toEqual("click");
+      expect(e.box).toEqual(DEFAULT_VIEWPORT);
+    });
+
+    it("should report a zoom drag off the canvas edge as a click", () => {
+      const h = setup();
+      press(h.canvas, { x: 96, y: 50 });
+      move({ x: 120, y: 50 });
+      expect(box.areaIsZero(h.result.current.maskBox)).toBe(true);
+      release(h.canvas, { x: 120, y: 50 });
+      const e = lastEvent(h.onChange);
+      expect(e.mode).toEqual("click");
+      expect(e.box).toEqual(DEFAULT_VIEWPORT);
+    });
+
+    it("should zoom once a drag selects the minimum span", () => {
+      const h = setup();
+      drag(h.canvas, { x: 50, y: 50 }, { x: 60, y: 50 });
+      const { box: b, mode } = lastEvent(h.onChange);
+      expect(mode).toEqual("zoom");
+      expect(box.left(b)).toBeCloseTo(0.5);
+      expect(box.right(b)).toBeCloseTo(0.6);
+    });
+
+    it("should not treat a pan smaller than the minimum zoom span as a click", () => {
+      const h = setup();
+      drag(h.canvas, { x: 50, y: 50 }, { x: 57, y: 50 }, { keys: [SHIFT] });
+      const { box: b, mode } = lastEvent(h.onChange);
+      expect(mode).toEqual("pan");
+      expect(box.left(b)).toBeCloseTo(-0.07);
+    });
+
+    it("should not treat a select smaller than the minimum zoom span as a click", () => {
+      const h = setup();
+      drag(h.canvas, { x: 50, y: 50 }, { x: 57, y: 50 }, { keys: [ALT] });
+      const { box: b, mode } = lastEvent(h.onChange);
+      expect(mode).toEqual("select");
+      expect(box.left(b)).toBeCloseTo(0.5);
+      expect(box.right(b)).toBeCloseTo(0.57);
     });
   });
 
@@ -404,6 +489,43 @@ describe("viewport/use", () => {
       const m = h.result.current.maskBox;
       expect(box.top(m)).toEqual(40);
       expect(box.bottom(m)).toEqual(60);
+    });
+
+    it.each([
+      ["up", { x: 50, y: 30 }, 30, 50],
+      ["down", { x: 50, y: 70 }, 50, 70],
+      ["up with drift", { x: 53, y: 30 }, 30, 50],
+    ])("should snap a short drag %s to the full canvas width", (_, to, top, bottom) => {
+      const h = setup();
+      press(h.canvas, { x: 50, y: 50 });
+      move(to);
+      const m = h.result.current.maskBox;
+      expect(box.left(m)).toEqual(0);
+      expect(box.right(m)).toEqual(100);
+      expect(box.top(m)).toEqual(top);
+      expect(box.bottom(m)).toEqual(bottom);
+    });
+
+    it("should snap a short diagonal drag to the full canvas height", () => {
+      const h = setup();
+      press(h.canvas, { x: 30, y: 30 });
+      move({ x: 50, y: 55 });
+      const m = h.result.current.maskBox;
+      expect(box.top(m)).toEqual(0);
+      expect(box.bottom(m)).toEqual(100);
+      expect(box.left(m)).toEqual(30);
+      expect(box.right(m)).toEqual(50);
+    });
+
+    it("should snap a drag off the canvas by the part inside the canvas", () => {
+      const h = setup();
+      press(h.canvas, { x: 96, y: 50 });
+      move({ x: 140, y: 100 });
+      const m = h.result.current.maskBox;
+      expect(box.left(m)).toEqual(0);
+      expect(box.right(m)).toEqual(100);
+      expect(box.top(m)).toEqual(50);
+      expect(box.bottom(m)).toEqual(100);
     });
   });
 

@@ -15,7 +15,6 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/oracle/analyzer"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/py/types"
 	. "github.com/synnaxlabs/oracle/testutil"
@@ -151,6 +150,87 @@ var _ = Describe("Python Types Plugin", func() {
 			},
 		)
 
+		Context("parent omitted in Python", func() {
+			schema := func(parentDomain, childBody string) string {
+				return `
+				@go output "core/user"
+				@py output "out"
+
+				Record struct {
+					key    uint32
+					name   string
+					secret string
+					` + parentDomain + `
+				}
+
+				Shape struct extends Record {
+					` + childBody + `
+				}
+			`
+			}
+
+			It(
+				"Should declare an inline variant's inherited fields",
+				func(ctx SpecContext) {
+					source := `
+					@go output "core/pkg/service/auth"
+					@py output "out"
+
+					Record struct {
+						key  uint32
+						name string
+						@py omit
+					}
+
+					Chan union on type {
+						ai extends Record {
+							rate float64
+						}
+					}
+				`
+					resp := MustGenerate(ctx, source, "auth", loader, typesPlugin)
+					ExpectContent(resp, "types_gen.py").
+						ToContain("key: int", "name: str", "rate: float").
+						ToNotContain("Record")
+				},
+			)
+
+			It("Should declare the inherited fields", func(ctx SpecContext) {
+				resp := MustGenerate(
+					ctx,
+					schema("@py omit", "rate float64"),
+					"user",
+					loader,
+					typesPlugin,
+				)
+				ExpectContent(resp, "types_gen.py").
+					ToContain(
+						`class Shape(BaseModel):`,
+						`key: int`,
+						`name: str`,
+						`secret: str`,
+						`rate: float`,
+					).
+					ToNotContain(`class Record`)
+			})
+
+			It("Should leave out a removed field", func(ctx SpecContext) {
+				resp := MustGenerate(
+					ctx, schema("@py omit", "-secret"), "user", loader, typesPlugin,
+				)
+				ExpectContent(resp, "types_gen.py").
+					ToContain(`class Shape(BaseModel):`, `name: str`).
+					ToNotContain(`secret`, `class Record`)
+			})
+
+			It("Should inherit from a parent that generates", func(ctx SpecContext) {
+				resp := MustGenerate(
+					ctx, schema("", "rate float64"), "user", loader, typesPlugin,
+				)
+				ExpectContent(resp, "types_gen.py").ToContain(`class Shape(Record):`)
+			})
+		})
+
 		It("Should handle optional and array types", func(ctx SpecContext) {
 			source := `
 				@py output "out"
@@ -162,7 +242,7 @@ var _ = Describe("Python Types Plugin", func() {
 					tags string[]?
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "ranger", loader)
+			table, diag := Analyze(ctx, source, "ranger", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -196,7 +276,7 @@ var _ = Describe("Python Types Plugin", func() {
 					}
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
+				table, diag := Analyze(ctx, source, "user", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -230,7 +310,7 @@ var _ = Describe("Python Types Plugin", func() {
 					state TaskState
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "task", loader)
+			table, diag := Analyze(ctx, source, "task", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -262,7 +342,7 @@ var _ = Describe("Python Types Plugin", func() {
 					data_type DataType
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "telem", loader)
+			table, diag := Analyze(ctx, source, "telem", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -348,7 +428,7 @@ var _ = Describe("Python Types Plugin", func() {
 
 				AxisKey enum extends XAxisKey, YAxisKey {}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "lineplot", loader)
+				table, diag := Analyze(ctx, source, "lineplot", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				resp := MustSucceed(
@@ -377,7 +457,7 @@ var _ = Describe("Python Types Plugin", func() {
 					op OperationType
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "config", loader)
+				table, diag := Analyze(ctx, source, "config", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -490,7 +570,7 @@ var _ = Describe("Python Types Plugin", func() {
 					last_name string?
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "user", loader)
+			table, diag := Analyze(ctx, source, "user", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -518,7 +598,7 @@ var _ = Describe("Python Types Plugin", func() {
 					status string?
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "device", loader)
+			table, diag := Analyze(ctx, source, "device", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -542,7 +622,7 @@ var _ = Describe("Python Types Plugin", func() {
 					actions string[]?
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "policy", loader)
+			table, diag := Analyze(ctx, source, "policy", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -567,7 +647,7 @@ var _ = Describe("Python Types Plugin", func() {
 					retries int32 = 3
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "config", loader)
+			table, diag := Analyze(ctx, source, "config", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -780,7 +860,7 @@ var _ = Describe("Python Types Plugin", func() {
 					email string
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				table, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -877,7 +957,7 @@ var _ = Describe("Python Types Plugin", func() {
 					name string?
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				table, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -994,7 +1074,7 @@ var _ = Describe("Python Types Plugin", func() {
 					c bool
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				table, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1028,7 +1108,7 @@ var _ = Describe("Python Types Plugin", func() {
 					c bool
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			table, diag := Analyze(ctx, source, "test", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -1067,7 +1147,7 @@ var _ = Describe("Python Types Plugin", func() {
 					c float32
 				}
 			`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+				table, diag := Analyze(ctx, source, "test", loader)
 				Expect(diag.Ok()).To(BeTrue())
 
 				req := &plugin.Request{
@@ -1099,7 +1179,7 @@ var _ = Describe("Python Types Plugin", func() {
 					ripe bool
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "animals", loader)
+			table, diag := Analyze(ctx, source, "animals", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{
@@ -1126,7 +1206,7 @@ var _ = Describe("Python Types Plugin", func() {
 					mango bool
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "order", loader)
+			table, diag := Analyze(ctx, source, "order", loader)
 			Expect(diag.Ok()).To(BeTrue())
 
 			req := &plugin.Request{

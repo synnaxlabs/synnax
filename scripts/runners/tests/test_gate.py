@@ -16,12 +16,16 @@ from log import Log
 from publisher import OPEN_LEEWAY
 
 RUNNER = "ubuntu-build-bot-i-0f44"
-CHANNEL = channel_name("gh_cmd", RUNNER)
+CHANNEL = channel_name("gh_cmd", runner=RUNNER)
 
 
 def gate(client: Client) -> Gate:
-    channels = Channels(core(client), False)
-    return Gate(core(client), channels, Log(core(client), channels, "log"))
+    channels = Channels(client=core(client), enabled=False)
+    return Gate(
+        client=core(client),
+        channels=channels,
+        log=Log(client=core(client), channels=channels, channel="log"),
+    )
 
 
 class TestGate:
@@ -49,18 +53,18 @@ class TestGate:
     def test_should_publish_the_state_after_a_slow_step(self, client: Client) -> None:
         client.latency = 2 * OPEN_LEEWAY
         gate(client).step({RUNNER})
-        assert client.written(channel_name("gh_state", RUNNER)) == [True]
+        assert client.written(channel_name("gh_state", runner=RUNNER)) == [True]
 
     def test_should_apply_the_start_state_over_saved_states(
         self, client: Client
     ) -> None:
-        client.latest[channel_name("gh_state", RUNNER)] = np.array([1], np.uint8)
+        client.latest[channel_name("gh_state", runner=RUNNER)] = np.array([1], np.uint8)
         g = gate(client)
         g.enabled = False
         g.step({RUNNER})
         assert client.written(CHANNEL) == [False]
 
     def test_should_resend_nothing_saved_on_restart(self, client: Client) -> None:
-        client.latest[channel_name("gh_state", RUNNER)] = np.array([1], np.uint8)
+        client.latest[channel_name("gh_state", runner=RUNNER)] = np.array([1], np.uint8)
         gate(client).step({RUNNER})
         assert client.written(CHANNEL) == []

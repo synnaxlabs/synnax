@@ -71,15 +71,13 @@ import (
 func main() {
     ctx := context.Background()
 
-    // Open the first database with no peers, telling it to bootstrap a new cluster
-    // and listen on port 22626.
+    // Open the first database with no peers, so it bootstraps a new cluster and
+    // listens on port 22646.
     db1, err := aspen.Open(
         ctx,
         "aspen/db1",
         "localhost:22646",
         []address.Address{},
-        aspen.Bootstrap(),
-        aspen.MemBacked(),
     )
     if err != nil {
         log.Fatal(err)
@@ -97,7 +95,6 @@ func main() {
         // the cluster topology and will be able to join the cluster without a peer
         // address.
         []address.Address{"localhost:22646"},
-        aspen.MemBacked(),
     )
     if err != nil {
         log.Fatal(err)

@@ -20,7 +20,7 @@ dependencies = [
     "numpy>=2.5.4,<3",
     "playwright>=1.64.0,<2",
     "psutil>=7.2.2,<8",
-    "pymodbus>=3.16.1,<4",
+    "pymodbus[serial]>=3.16.1,<4",
     "asyncua>=2.1.0,<3",
     "nidaqmx>=1.6.0,<2",
     "nisyscfg>=0.2.1,<1",
@@ -36,6 +36,7 @@ tc = "framework.test_conductor:main"
 dev = [
     "mypy>=2.4.0,<3",
     "pytest>=9.1.1,<10",
+    "pytest-cov>=7.1.0,<8",
     "ruff>=0.17.1,<1",
     "types-psutil>=7.2.2.20260906,<8",
 ]
@@ -53,6 +54,7 @@ select = [
     "I",
     "B",
     "DTZ",
+    "E501",
     "E7",
     "E9",
     "PLE",
@@ -80,6 +82,16 @@ known-first-party = ["synnax", "alamos", "freighter", "x"]
 mypy_path = "stubs"
 plugins = ["pydantic.mypy"]
 strict = true
+warn_unreachable = true
+enable_error_code = [
+    "ignore-without-code",
+    "redundant-expr",
+    "truthy-bool",
+    "possibly-undefined",
+    "mutable-override",
+    "deprecated",
+    "unused-awaitable",
+]
 
 [[tool.mypy.overrides]]
 module = "nidaqmx.*"
@@ -98,6 +110,9 @@ warn_required_dynamic_aliases = true
 # unit tests.
 [tool.pytest.ini_options]
 testpaths = ["framework/tests"]
+
+[tool.coverage.run]
+omit = ["framework/tests/*"]
 
 [build-system]
 requires = ["hatchling"]

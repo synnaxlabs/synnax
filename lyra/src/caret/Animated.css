@@ -9,29 +9,29 @@
  * included in the file licenses/APL.txt.
  */
 
-.pluto-caret-animated {
+.lyra-caret-animated {
     transition: transform 0.2s ease;
     transform-origin: center;
     will-change: transform;
     color: var(--pluto-gray-l9);
 
-    &.pluto--location-left {
+    &.lyra--location-left {
         transform: rotate(270deg) scale(0.8);
     }
 
-    &.pluto--location-right {
+    &.lyra--location-right {
         transform: rotate(90deg) scale(0.8);
     }
 
-    &.pluto--location-bottom {
+    &.lyra--location-bottom {
         transform: rotate(180deg) scale(0.8);
     }
 
-    &.pluto--location-top {
+    &.lyra--location-top {
         transform: rotate(0deg) scale(0.8);
     }
 }
 
-.pluto--disabled .pluto-caret-animated {
+.lyra--disabled .lyra-caret-animated {
     color: var(--pluto-text-disabled);
 }

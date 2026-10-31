@@ -14,6 +14,7 @@
 .pluto-panel-mosaic__cap {
     --surface: var(--pluto-gray-l0);
     --spill: 1rem;
+
     position: sticky;
     right: 0;
     z-index: 2;
@@ -36,14 +37,14 @@
 }
 
 /* The fade is inactive while the tabs fit. */
-.pluto-tabs__selector--scrollable .pluto-panel-mosaic__cap::before {
+.lyra-tabs__selector--scrollable .pluto-panel-mosaic__cap::before {
     opacity: 1;
 }
 
 /* Anchored on the frame, outside the scrollport, so it hugs the strip's true left
    edge instead of pinning inside its padding. Height matches the strip's min-height
    set below. */
-.pluto-mosaic__leaf > .pluto-tabs::before {
+.pluto-mosaic__leaf > .lyra-tabs::before {
     content: "";
     position: absolute;
     left: 0;
@@ -58,14 +59,14 @@
 }
 
 /* Shows only while tabs are hidden past the start. */
-.pluto-mosaic__leaf > .pluto-tabs:has(> .pluto-tabs__selector--clipped-start)::before {
+.pluto-mosaic__leaf > .lyra-tabs:has(> .lyra-tabs__selector--clipped-start)::before {
     opacity: 1;
 }
 
 .pluto-panel-mosaic__create {
     border-radius: var(--pluto-border-radius-small);
 
-    &.pluto-btn.pluto--square > .pluto-icon {
+    &.lyra-btn.lyra--square > .lyra-icon {
         width: round(2.25rem, 1px);
         height: round(2.25rem, 1px);
     }
@@ -73,10 +74,11 @@
 
 /* Built from l11, the frame's focus-glow tone, so chip and frame read as one light.
    The repeated variant classes outrank the text variant's own fill vars. */
-.pluto-btn.pluto-btn--text.pluto-panel-mosaic__overlaid-exit {
+.lyra-btn.lyra-btn--text.pluto-panel-mosaic__overlaid-exit {
     border-radius: var(--pluto-border-radius-small);
     border: var(--pluto-border-width) solid var(--pluto-gray-l11-30);
     color: var(--pluto-gray-l11);
+
     --pluto-bg: var(--pluto-gray-l11-10);
     --pluto-hover-bg: var(--pluto-gray-l11-15);
     --pluto-active-bg: var(--pluto-gray-l11-20);
@@ -100,30 +102,32 @@
 /* Grid sizes the content row from the leaf's own height, so the panel's 100% resolves
    in one pass. Under flex the row came from flex-grow, forcing a second layout of the
    whole panel subtree per resize frame. */
-.pluto-mosaic__leaf > .pluto-tabs,
-.pluto-flex.pluto-panel-mosaic__overlaid-leaf {
+.pluto-mosaic__leaf > .lyra-tabs,
+.lyra-flex.pluto-panel-mosaic__overlaid-leaf {
     display: grid;
     grid-template-rows: auto minmax(0, 1fr);
     grid-template-columns: minmax(0, 1fr);
 }
 
 /* Spares WebKit a level of per-frame flex re-measurement while a pane resizes. */
-.pluto-mosaic__leaf > .pluto-tabs > .pluto-tabs__content,
-.pluto-panel-mosaic__overlaid-leaf > .pluto-tabs__content {
+.pluto-mosaic__leaf > .lyra-tabs > .lyra-tabs__content,
+.pluto-panel-mosaic__overlaid-leaf > .lyra-tabs__content {
     display: block;
 }
 
 /* No bottom divider, so chips sit flush with the content edge. A selected pane's tab
    reads a step quieter than the focused tab, which re-points its own color. */
-.pluto-mosaic__leaf > .pluto-tabs > .pluto-tabs__selector--default.pluto--direction-x,
-.pluto-panel-mosaic__overlaid-leaf > .pluto-tabs__selector--default.pluto--direction-x {
+.pluto-mosaic__leaf > .lyra-tabs > .lyra-tabs__selector--default.lyra--direction-x,
+.pluto-panel-mosaic__overlaid-leaf > .lyra-tabs__selector--default.lyra--direction-x {
     /* The strip's fade mask would also fade the sticky cap at the masked edge; the
        cap and start-fade gradients carry the overflow fades here instead. */
     mask-image: none;
     min-height: 5rem;
+
     --pluto-tabs-tab-height: round(4.3333rem, 1px);
     --pluto-tabs-tab-align: flex-end;
     --pluto-tabs-selected-text-color: var(--pluto-gray-l10);
+
     /* Unselected tabs shrink-wrap their content and compress to a sliver before
        the strip scrolls; the selected tab holds its full content and never pads
        past it. */
@@ -131,7 +135,7 @@
     --pluto-tabs-tab-min-width: 11rem;
 }
 
-.pluto-panel-mosaic__overlaid-leaf > .pluto-tabs__selector--default.pluto--direction-x {
+.pluto-panel-mosaic__overlaid-leaf > .lyra-tabs__selector--default.lyra--direction-x {
     --pluto-selected-subtle-bg: var(--pluto-gray-l11-10);
     --pluto-selected-subtle-hover-bg: var(--pluto-gray-l11-10);
     --pluto-selected-subtle-active-bg: var(--pluto-gray-l11-10);
@@ -143,12 +147,14 @@
 }
 
 .pluto-panel-mosaic__overlaid-leaf
-    .pluto-tabs__selector
-    > .pluto-tabs__tab.pluto--selected {
+    .lyra-tabs__selector
+    > .lyra-tabs__tab.lyra--selected {
     --pluto-tabs-selected-text-color: var(--pluto-gray-l11);
-    &.pluto--alt-color {
+
+    &.lyra--alt-color {
         --pluto-tabs-selected-text-color: var(--pluto-gray-l11);
-        > .pluto-icon {
+
+        > .lyra-icon {
             color: var(--pluto-gray-l11);
         }
     }

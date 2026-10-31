@@ -28,7 +28,7 @@ FORMATS = {
 }
 
 
-@dataclass(frozen=True, order=True)
+@dataclass(frozen=True, order=True, kw_only=True)
 class Fragment:
     path: str
     start: int
@@ -54,10 +54,10 @@ class Group:
 
 
 def fragment(side: dict[str, Any]) -> Fragment:
-    return Fragment(side["name"], side["start"], side["end"])
+    return Fragment(path=side["name"], start=side["start"], end=side["end"])
 
 
-def groups(duplicates: list[dict[str, Any]], formats: set[str]) -> list[Group]:
+def groups(duplicates: list[dict[str, Any]], *, formats: set[str]) -> list[Group]:
     """Joins the clone pairs that share a fragment into groups, largest first. A group
     whose every line lies in a larger group is left out, since one fix removes both."""
     parent: dict[Fragment, Fragment] = {}
@@ -106,7 +106,7 @@ def main() -> None:
         else FORMATS[args.language]
     )
     duplicates = json.loads(args.report.read_text())["duplicates"]
-    print(markdown(groups(duplicates, formats)[: args.top]))
+    print(markdown(groups(duplicates, formats=formats)[: args.top]))
 
 
 if __name__ == "__main__":

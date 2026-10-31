@@ -133,7 +133,7 @@ class ChannelLifecycle(ConsoleCase):
         self.log("Testing open channel plot by double-click")
 
         plot = self.console.pages.open_plot_from_click(
-            self.shared_data, self.console.channels
+            self.shared_data, channels=self.console.channels
         )
         self._cleanup_pages.append(plot.page_name)
 

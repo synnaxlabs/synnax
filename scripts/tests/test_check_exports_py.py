@@ -11,7 +11,10 @@ from pathlib import Path
 
 from check_exports_py import Finding, Package, check
 
-PACKAGES = (Package("lib", ("widget",)), Package("app", ("tool",)))
+PACKAGES = (
+    Package(root="lib", checked=("widget",)),
+    Package(root="app", checked=("tool",)),
+)
 
 
 def write(root: Path, files: dict[str, str]) -> None:
@@ -27,7 +30,7 @@ def write(root: Path, files: dict[str, str]) -> None:
 
 
 def names(root: Path) -> list[str]:
-    return [f.name for f in check(root, PACKAGES)]
+    return [f.name for f in check(root, packages=PACKAGES)]
 
 
 class TestCheck:
@@ -43,9 +46,9 @@ class TestCheck:
                 "lib/widget/parts.py": "LIMIT = 1\n\ndef twice():\n    return LIMIT\n",
             },
         )
-        assert check(tmp_path, PACKAGES) == [
-            Finding("lib/widget/parts.py", 1, "LIMIT", tests_only=False),
-            Finding("lib/widget/parts.py", 3, "twice", tests_only=False),
+        assert check(tmp_path, packages=PACKAGES) == [
+            Finding(path="lib/widget/parts.py", line=1, name="LIMIT", tests_only=False),
+            Finding(path="lib/widget/parts.py", line=3, name="twice", tests_only=False),
         ]
 
     def test_should_report_names_an_unpacking_assigns(self, tmp_path: Path) -> None:
@@ -111,8 +114,8 @@ class TestCheck:
                 "lib/tests/test_parts.py": "from widget.parts import LIMIT\n",
             },
         )
-        assert check(tmp_path, PACKAGES) == [
-            Finding("lib/widget/parts.py", 1, "LIMIT", tests_only=True)
+        assert check(tmp_path, packages=PACKAGES) == [
+            Finding(path="lib/widget/parts.py", line=1, name="LIMIT", tests_only=True)
         ]
 
     def test_should_report_a_name_only_another_packages_tests_import(
@@ -126,8 +129,8 @@ class TestCheck:
                 "app/tests/test_run.py": "from widget.parts import LIMIT\n",
             },
         )
-        assert check(tmp_path, PACKAGES) == [
-            Finding("lib/widget/parts.py", 1, "LIMIT", tests_only=True)
+        assert check(tmp_path, packages=PACKAGES) == [
+            Finding(path="lib/widget/parts.py", line=1, name="LIMIT", tests_only=True)
         ]
 
     def test_should_keep_a_test_utility_name_another_packages_tests_import(
@@ -161,8 +164,8 @@ class TestCheck:
                 "app/tests/test_run.py": "from widget.testutil.fake import FAKE\n",
             },
         )
-        assert check(tmp_path, PACKAGES) == [
-            Finding("lib/widget/parts.py", 1, "LIMIT", tests_only=True)
+        assert check(tmp_path, packages=PACKAGES) == [
+            Finding(path="lib/widget/parts.py", line=1, name="LIMIT", tests_only=True)
         ]
 
     def test_should_keep_a_type_in_the_signature_of_a_name_in_use(

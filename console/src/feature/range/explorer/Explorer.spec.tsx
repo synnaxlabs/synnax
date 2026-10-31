@@ -78,7 +78,7 @@ const revealRange = async (name: string): Promise<HTMLElement> => {
 };
 
 const rowOf = (el: HTMLElement): HTMLElement => {
-  const row = el.closest<HTMLElement>(".pluto-list__item");
+  const row = el.closest<HTMLElement>(".lyra-list__item");
   if (row == null) throw new Error("list item not found");
   return row;
 };

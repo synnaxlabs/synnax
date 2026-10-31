@@ -38,6 +38,12 @@ func baseConfig(
 	return cfg
 }
 
+func addresses(nodes node.Group) []address.Address {
+	return lo.MapToSlice(nodes, func(_ node.Key, n node.Node) address.Address {
+		return n.Address
+	})
+}
+
 func allCandidates(nodes node.Group) func() node.Group {
 	return func() node.Group { return nodes }
 }
@@ -220,7 +226,7 @@ var _ = Describe("Pledge", func() {
 				DeferCleanup(cancel)
 				res := MustSucceed(pledge.Pledge(tCtx, baseConfig(net), pledge.Config{
 					Instrumentation: ins.Child("cluster-state-synchronized"),
-					Peers:           nodes.Addresses(),
+					Peers:           addresses(nodes),
 					Candidates:      candidates,
 				}, blazingFastConfig))
 				// The pledge algorithm may assign a marginally higher key than the
@@ -347,7 +353,7 @@ var _ = Describe("Pledge", func() {
 					res := MustSucceed(
 						pledge.Pledge(tCtx, baseConfig(net), pledge.Config{
 							Instrumentation: ins.Child("rejections-uncounted"),
-							Peers:           nodes.Addresses(),
+							Peers:           addresses(nodes),
 							Candidates:      allCandidates(nodes),
 						}, blazingFastConfig, pledge.Config{
 							RequestTimeout: time.Second,
@@ -421,7 +427,7 @@ var _ = Describe("Pledge", func() {
 					tCtx, cancel := context.WithCancel(ctx)
 					cancel()
 					Expect(pledge.Pledge(tCtx, baseConfig(net), pledge.Config{
-						Peers:      nodes.Addresses(),
+						Peers:      addresses(nodes),
 						Candidates: allCandidates(nodes),
 					})).Error().To(MatchError(context.Canceled))
 				},
@@ -488,7 +494,7 @@ var _ = Describe("Pledge", func() {
 						defer GinkgoRecover()
 						defer wg.Done()
 						mu.Lock()
-						addrs := nodes.Addresses()
+						addrs := addresses(nodes)
 						mu.Unlock()
 						cfg, addr := baseConfigWithAddr(net)
 						res := MustSucceed(pledge.Pledge(

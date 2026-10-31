@@ -13,22 +13,17 @@
     width: 155rem;
 
     /* Fits the longest label, so the column holds still as fields show and hide. */
-    .pluto-form-sections.pluto--direction-y {
+    .lyra-form-sections.lyra--direction-y {
         grid-template-columns: minmax(18rem, max-content) minmax(0, 1fr);
     }
 
-    /* A switch in a field fills the field; this one leaves room for the next. */
-    .console-http-connect__secure > .pluto-input__switch {
-        width: auto;
-    }
-
     /* Fits the health check tab, so the dialog keeps its size between tabs. */
-    .console-http-connect__tabs .pluto-tabs__content {
+    .console-http-connect__tabs .lyra-tabs__content {
         min-height: 60rem;
     }
 
     /* The hairline matches the one after a section title. */
-    .console-http-connect__tabs .pluto-tabs__selector::after {
+    .console-http-connect__tabs .lyra-tabs__selector::after {
         content: "";
         flex-grow: 1;
         align-self: center;

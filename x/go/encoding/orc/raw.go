@@ -11,7 +11,6 @@ package orc
 
 import (
 	"encoding/binary"
-	"math"
 )
 
 // Raw provides zero-allocation navigation of Orc-encoded binary data. Callers can skip
@@ -64,39 +63,6 @@ func (r Raw) SkipStrings(n int) Raw {
 	return r
 }
 
-// SkipBool advances past a 1-byte boolean field.
-func (r Raw) SkipBool() Raw { return r.Skip(1) }
-
-// SkipUint8 advances past a 1-byte uint8 field.
-func (r Raw) SkipUint8() Raw { return r.Skip(1) }
-
-// SkipUint16 advances past a 2-byte uint16 field.
-func (r Raw) SkipUint16() Raw { return r.Skip(2) }
-
-// SkipUint32 advances past a 4-byte uint32 field.
-func (r Raw) SkipUint32() Raw { return r.Skip(4) }
-
-// SkipUint64 advances past an 8-byte uint64 field.
-func (r Raw) SkipUint64() Raw { return r.Skip(8) }
-
-// SkipInt8 advances past a 1-byte int8 field.
-func (r Raw) SkipInt8() Raw { return r.Skip(1) }
-
-// SkipInt16 advances past a 2-byte int16 field.
-func (r Raw) SkipInt16() Raw { return r.Skip(2) }
-
-// SkipInt32 advances past a 4-byte int32 field.
-func (r Raw) SkipInt32() Raw { return r.Skip(4) }
-
-// SkipInt64 advances past an 8-byte int64 field.
-func (r Raw) SkipInt64() Raw { return r.Skip(8) }
-
-// SkipFloat32 advances past a 4-byte float32 field.
-func (r Raw) SkipFloat32() Raw { return r.Skip(4) }
-
-// SkipFloat64 advances past an 8-byte float64 field.
-func (r Raw) SkipFloat64() Raw { return r.Skip(8) }
-
 // ReadLenPrefixed reads one length-prefixed field, returning the field value
 // and the remaining Raw. Returns (nil, nil) if the data is too short.
 func (r Raw) ReadLenPrefixed() (value []byte, rest Raw) {
@@ -114,14 +80,6 @@ func (r Raw) ReadLenPrefixed() (value []byte, rest Raw) {
 // ReadString reads one length-prefixed string field, returning the string
 // bytes and the remaining Raw.
 func (r Raw) ReadString() (value []byte, rest Raw) { return r.ReadLenPrefixed() }
-
-// ReadBool reads a 1-byte boolean field.
-func (r Raw) ReadBool() (bool, Raw) {
-	if len(r) < 1 {
-		return false, nil
-	}
-	return r[0] != 0, r[1:]
-}
 
 // ReadUint8 reads a 1-byte uint8 field.
 func (r Raw) ReadUint8() (uint8, Raw) {
@@ -153,40 +111,4 @@ func (r Raw) ReadUint64() (uint64, Raw) {
 		return 0, nil
 	}
 	return binary.BigEndian.Uint64(r[:8]), r[8:]
-}
-
-// ReadInt8 reads a 1-byte int8 field.
-func (r Raw) ReadInt8() (int8, Raw) {
-	v, rest := r.ReadUint8()
-	return int8(v), rest
-}
-
-// ReadInt16 reads a 2-byte big-endian int16 field.
-func (r Raw) ReadInt16() (int16, Raw) {
-	v, rest := r.ReadUint16()
-	return int16(v), rest
-}
-
-// ReadInt32 reads a 4-byte big-endian int32 field.
-func (r Raw) ReadInt32() (int32, Raw) {
-	v, rest := r.ReadUint32()
-	return int32(v), rest
-}
-
-// ReadInt64 reads a 8-byte big-endian int64 field.
-func (r Raw) ReadInt64() (int64, Raw) {
-	v, rest := r.ReadUint64()
-	return int64(v), rest
-}
-
-// ReadFloat32 reads a 4-byte big-endian float32 field.
-func (r Raw) ReadFloat32() (float32, Raw) {
-	v, rest := r.ReadUint32()
-	return math.Float32frombits(v), rest
-}
-
-// ReadFloat64 reads an 8-byte big-endian float64 field.
-func (r Raw) ReadFloat64() (float64, Raw) {
-	v, rest := r.ReadUint64()
-	return math.Float64frombits(v), rest
 }

@@ -36,7 +36,7 @@ describe("Steps", () => {
           <Steps.Item>Install the Driver.</Steps.Item>
         </Steps.List>,
       );
-      expect(screen.getByRole("list").classList).toContain(`pluto-steps--${level}`);
+      expect(screen.getByRole("list").classList).toContain(`lyra-steps--${level}`);
     },
   );
 
@@ -46,7 +46,7 @@ describe("Steps", () => {
         <Steps.Item>Install the Driver.</Steps.Item>
       </Steps.List>,
     );
-    expect(screen.getByRole("list").classList).toContain("pluto-steps--p");
+    expect(screen.getByRole("list").classList).toContain("lyra-steps--p");
   });
 
   it("should keep the start of a list that continues after a block", () => {

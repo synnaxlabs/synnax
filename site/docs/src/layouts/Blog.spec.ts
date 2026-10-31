@@ -45,9 +45,7 @@ const segmentHrefs = async (path: string): Promise<unknown[]> => {
   });
   return elements(fromHtml(html, { fragment: true }))
     .filter(({ properties: { className } }) =>
-      Array.isArray(className)
-        ? className.includes("pluto-breadcrumb__segment")
-        : false,
+      Array.isArray(className) ? className.includes("lyra-breadcrumb__segment") : false,
     )
     .map(({ properties: { href } }) => href);
 };

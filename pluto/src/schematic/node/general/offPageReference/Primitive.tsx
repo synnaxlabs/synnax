@@ -10,11 +10,11 @@
 import "@/schematic/node/general/offPageReference/offPageReference.css";
 
 import { type schematic } from "@synnaxlabs/client";
-import { CSS } from "@synnaxlabs/lyra/css";
 import { Text } from "@synnaxlabs/lyra/text";
 import { color, direction, type text } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement } from "react";
 
+import { CSS } from "@/css";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive } from "@/schematic/node/common/primitive";
 import { PAGE_ICONS } from "@/schematic/node/general/offPageReference/config";
@@ -62,7 +62,7 @@ export const OffPageReference = ({
     <Primitive.Div
       className={CSS.cls(
         CSS.B("arrow"),
-        CSS.B("symbol-colored"),
+        CSS.symbolColored,
         linked && CSS.M("linked"),
         CSS.loc(orientation),
         className,

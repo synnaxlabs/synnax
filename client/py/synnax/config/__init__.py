@@ -10,21 +10,28 @@
 import os
 from pathlib import Path
 
+import keyring
+
 from synnax.config.clusters import Cluster, Clusters
 from synnax.config.file import File
 from synnax.exceptions import ValidationError
 from synnax.options import Options
 
-__all__ = ["Cluster", "Clusters", "File"]
+__all__ = ["Cluster", "Clusters", "File", "default_clusters"]
 
 CONFIG_FILE_PATH = Path(os.path.expanduser("~/.synnax"))
+
+
+def default_clusters() -> Clusters:
+    """Returns the clusters saved in the user's config file and OS keyring."""
+    return Clusters(File(config_dir=CONFIG_FILE_PATH), keyring.get_keyring())
 
 
 def load_options() -> Options | None:
     """Loads the connection parameters from a configuration file.
     :return: The options to connect to a Synnax server.
     """
-    cluster = Clusters(File(CONFIG_FILE_PATH)).get()
+    cluster = default_clusters().get()
     return None if cluster is None else cluster.options
 
 
@@ -34,14 +41,18 @@ NO_OPTIONS_MSG = """No options provided and no configuration file was found. Ple
 
 
 def try_load_options_if_none_provided(
+    *,
     host: str = "",
     port: int = 0,
     username: str = "",
     password: str = "",
     secure: bool = False,
     ca_cert: str | None = None,
+    api_key: str = "",
 ) -> Options:
     if len(host) == 0:
+        if api_key:
+            raise ValidationError("give a host with an API key")
         opts = load_options()
         if opts is None:
             raise ValidationError(NO_OPTIONS_MSG)
@@ -51,6 +62,7 @@ def try_load_options_if_none_provided(
         port=port,
         username=username,
         password=password,
+        api_key=api_key,
         secure=secure,
         ca_cert=ca_cert,
     )

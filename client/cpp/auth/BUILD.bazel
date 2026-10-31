@@ -33,3 +33,15 @@ cc_test(
         "@googletest//:gtest_main",
     ],
 )
+
+cc_test(
+    name = "key_test",
+    srcs = ["key_test.cpp"],
+    tags = ["requires-core"],
+    deps = [
+        "//client/cpp:synnax",
+        "//client/cpp/testutil",
+        "//x/cpp/testutil",
+        "@googletest//:gtest_main",
+    ],
+)

@@ -8,10 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic } from "@synnaxlabs/client";
-import { CSS } from "@synnaxlabs/lyra/css";
 import { color } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement } from "react";
 
+import { CSS } from "@/css";
 import { Primitive } from "@/schematic/node/common/primitive";
 
 interface RenderProps extends Partial<
@@ -63,7 +63,7 @@ export const Scale = ({
   };
   const axis = axisColor == null ? AXIS_FALLBACK : color.hex(axisColor);
   return (
-    <div className={CSS.cls(CSS.B("symbol-colored"), className)} style={containerStyle}>
+    <div className={CSS.cls(CSS.symbolColored, className)} style={containerStyle}>
       <svg width={WIDTH} height={HEIGHT} style={{ position: "absolute" }}>
         {!levelHidden && (
           <>

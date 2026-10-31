@@ -101,15 +101,15 @@ class SymbolEditor:
 
                 if (!onContentsChange) throw new Error('onContentsChange not found');
                 onContentsChange(svgContent, properName);
-            }""",
+            }""",  # noqa: E501
             [svg_content, proper_name],
         )
         self.wait_for_form_visible()
 
     def _region_rows(self) -> Locator:
         """Locate the region rows (the only list items carrying color swatches)."""
-        return self.page.locator(".pluto-list__item").filter(
-            has=self.page.locator(".pluto-color-swatch")
+        return self.page.locator(".lyra-list__item").filter(
+            has=self.page.locator(".lyra-color-swatch")
         )
 
     def region_count(self) -> int:
@@ -128,7 +128,7 @@ class SymbolEditor:
         return (
             self._region_rows()
             .nth(region_index)
-            .locator(".pluto-color-swatch")
+            .locator(".lyra-color-swatch")
             .nth(swatch_index)
         )
 
@@ -136,10 +136,12 @@ class SymbolEditor:
         self, swatch_index: int, hex_color: str, region_index: int
     ) -> None:
         color.pick(
-            self.page, self._region_swatch(swatch_index, region_index), hex_color
+            self.page,
+            self._region_swatch(swatch_index, region_index),
+            hex_color=hex_color,
         )
 
-    def set_region_stroke_color(self, hex_color: str, region_index: int = 0) -> None:
+    def set_region_stroke_color(self, hex_color: str, *, region_index: int = 0) -> None:
         """Set the stroke color for a region (the first swatch in the row).
 
         Args:
@@ -148,7 +150,7 @@ class SymbolEditor:
         """
         self._set_region_color(0, hex_color, region_index)
 
-    def set_region_fill_color(self, hex_color: str, region_index: int = 0) -> None:
+    def set_region_fill_color(self, hex_color: str, *, region_index: int = 0) -> None:
         """Set the fill color for a region (the second swatch in the row).
 
         Args:
@@ -157,7 +159,7 @@ class SymbolEditor:
         """
         self._set_region_color(1, hex_color, region_index)
 
-    def clear_region_fill_color(self, region_index: int = 0) -> None:
+    def clear_region_fill_color(self, *, region_index: int = 0) -> None:
         """Set the fill color for a region back to Auto, so the SVG's own fill paints.
 
         Args:
@@ -165,7 +167,7 @@ class SymbolEditor:
         """
         color.pick_auto(self.page, self._region_swatch(1, region_index))
 
-    def get_region_fill_swatch_color(self, region_index: int = 0) -> str:
+    def get_region_fill_swatch_color(self, *, region_index: int = 0) -> str:
         """Return the color a region's fill swatch shows, e.g. "rgba(255, 0, 0, 1)".
 
         Args:
@@ -187,7 +189,7 @@ class SymbolEditor:
         return str(el.evaluate("(el) => getComputedStyle(el).fill"))
 
     def assert_preview_fill(
-        self, selector: str, expected_rgb: str, timeout: int = 5000
+        self, selector: str, expected_rgb: str, *, timeout: int = 5000
     ) -> None:
         """Wait until a rendered preview shape resolves to the expected computed fill.
 
@@ -204,7 +206,7 @@ class SymbolEditor:
             timeout=timeout,
         )
 
-    def assert_preview_width(self, expected: float, timeout: int = 5000) -> None:
+    def assert_preview_width(self, expected: float, *, timeout: int = 5000) -> None:
         """Wait until the rendered preview SVG reaches the expected width attribute."""
         self.page.wait_for_function(
             """(exp) => {
@@ -218,7 +220,7 @@ class SymbolEditor:
 
     def add_handle(self) -> None:
         """Add a new connection handle."""
-        handles_header = self.page.locator(".pluto-header").filter(has_text="Handles")
+        handles_header = self.page.locator(".lyra-header").filter(has_text="Handles")
         add_handle_btn = handles_header.locator("button").first
         add_handle_btn.click()
 
@@ -229,7 +231,7 @@ class SymbolEditor:
             scale_percent: Scale percentage (e.g., 100 for 100%, 150 for 150%).
                            Valid range is 5 to 1001.
         """
-        properties_header = self.page.locator(".pluto-header").filter(
+        properties_header = self.page.locator(".lyra-header").filter(
             has_text="Properties"
         )
         properties_section = properties_header.locator("..").locator("..")

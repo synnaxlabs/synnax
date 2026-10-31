@@ -34,7 +34,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.click(page.getByText("Configure channels", { exact: true }).first(), {
       text: true,
     });
-    const drawer = page.locator(".console-nav__drawer.pluto--location-bottom").first();
+    const drawer = page.locator(".console-nav__drawer.lyra--location-bottom").first();
     const add = drawer.getByText("Add channel", { exact: true }).first();
     await session.waitFor(add);
     await session.hold(600);
@@ -48,7 +48,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
     await session.hold(400);
     await session.type(channel);
     const item = page
-      .locator(".pluto-list__item:not(.pluto-tree__item)")
+      .locator(".lyra-list__item:not(.lyra-tree__item)")
       .filter({ hasText: channel })
       .first();
     await session.waitFor(item);

@@ -28,6 +28,7 @@ import {
 import {
   awaitEditableForm,
   clickDeploy,
+  createWithHook,
   deployAndAwaitTask,
   renderTaskFormTab,
 } from "@/platform/task/testutil";
@@ -565,5 +566,13 @@ describe("Read", () => {
     await clickDeploy(container);
     await awaitStatus(statuses, /Failed to/);
     await awaitStatus(statuses, /is not configured/);
+  });
+
+  it("should create the task with one channel", async () => {
+    const tsk = await createWithHook(
+      EtherCAT.Task.useCreateRead,
+      EtherCAT.Task.READ_SCHEMAS,
+    );
+    expect(tsk.config.channels).toHaveLength(1);
   });
 });

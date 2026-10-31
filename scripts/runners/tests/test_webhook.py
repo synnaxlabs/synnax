@@ -22,12 +22,12 @@ SECRET = "secret"
 
 @pytest.fixture
 def hook() -> Iterator[Webhook]:
-    w = Webhook(SECRET, 0)
+    w = Webhook(secret=SECRET, port=0)
     yield w
     w.close()
 
 
-def post(hook: Webhook, body: bytes, headers: dict[str, str]) -> int:
+def post(hook: Webhook, *, body: bytes, headers: dict[str, str]) -> int:
     conn = http.client.HTTPConnection("127.0.0.1", hook.server.server_address[1])
     conn.putrequest("POST", "/")
     for k, v in headers.items():
@@ -53,16 +53,16 @@ class TestWebhook:
 
     def test_should_queue_signed_deliveries(self, hook: Webhook) -> None:
         body = json.dumps({"action": "queued"}).encode()
-        assert post(hook, body, signed(body)) == 204
+        assert post(hook, body=body, headers=signed(body)) == 204
         assert hook.drain() == [{"action": "queued"}]
 
     def test_should_reject_unsigned_deliveries(self, hook: Webhook) -> None:
         body = b"{}"
         headers = signed(body) | {"X-Hub-Signature-256": "sha256=00"}
-        assert post(hook, body, headers) == 401
+        assert post(hook, body=body, headers=headers) == 401
         assert hook.drain() == []
 
     def test_should_reject_a_body_past_the_limit_unread(self, hook: Webhook) -> None:
         headers = {"Content-Length": str(MAX_BODY + 1)}
-        assert post(hook, b"", headers) == 413
+        assert post(hook, body=b"", headers=headers) == 413
         assert hook.rejected == 1

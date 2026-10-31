@@ -12,8 +12,6 @@ package telem
 import "github.com/synnaxlabs/x/telem/versions"
 
 const (
-	// Hertz is a data rate of 1 Hz.
-	Hertz Rate = versions.Hertz
 	// Kilohertz is a data rate of 1 kHz.
 	Kilohertz Rate = versions.Kilohertz
 	// Megahertz is a data rate of 1 MHz.

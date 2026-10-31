@@ -46,9 +46,9 @@ export const handle = (symbol: Locator, side: Side, index = 0): Locator =>
  * own, and the create/import pairs differ only by their corner icon.
  */
 export const toolbarButton = (page: Page, ...icons: string[]): Locator => {
-  let button = page.locator(".console-nav__drawer.pluto--location-bottom button");
+  let button = page.locator(".console-nav__drawer.lyra--location-bottom button");
   for (const icon of icons)
-    button = button.filter({ has: page.locator(`svg.pluto-icon--${icon}`) });
+    button = button.filter({ has: page.locator(`svg.lyra-icon--${icon}`) });
   return button.first();
 };
 
@@ -59,7 +59,7 @@ const point = async (page: Page, { x, y }: CanvasPosition): Promise<Point> => {
 };
 
 const drawer = (page: Page): Locator =>
-  page.locator(".console-nav__drawer.pluto--location-bottom").first();
+  page.locator(".console-nav__drawer.lyra--location-bottom").first();
 
 /**
  * selectToolbarTab opens a tab of the schematic's bottom toolbar, opening the
@@ -157,14 +157,14 @@ export const selectSymbols = async (
  */
 export const channelField = (properties: Locator, section: string): Locator =>
   properties
-    .locator(".pluto-form-section")
+    .locator(".lyra-form-section")
     .filter({
       has: properties
         .page()
-        .locator(".pluto-form-section__header")
+        .locator(".lyra-form-section__header")
         .getByText(section, { exact: true }),
     })
-    .locator(".pluto-input__item")
+    .locator(".lyra-input__item")
     .filter({ hasText: "Channel" })
     .first();
 
@@ -188,7 +188,7 @@ export const bindChannel = async (
   await session.waitFor(search);
   await search.fill(channel);
   const option = page
-    .locator(".pluto-list__item")
+    .locator(".lyra-list__item")
     .filter({ has: page.getByText(channel, { exact: true }) })
     .first();
   await session.waitFor(option);

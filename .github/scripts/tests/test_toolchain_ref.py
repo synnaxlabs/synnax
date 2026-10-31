@@ -32,7 +32,7 @@ runs:
 """
 
 
-def toolchain_ref(tmp_path: Path, action: str, pin: str = "v3") -> str:
+def toolchain_ref(tmp_path: Path, *, action: str, pin: str = "v3") -> str:
     (tmp_path / "workflow.yaml").write_text(WORKFLOW)
     composite = tmp_path / ".github" / "actions" / "setup-pnpm"
     composite.mkdir(parents=True, exist_ok=True)
@@ -52,13 +52,15 @@ class TestToolchainRef:
     def test_should_find_a_direct_step_past_a_shared_prefix(
         self, tmp_path: Path
     ) -> None:
-        assert toolchain_ref(tmp_path, "actions/setup-go") == "actions/setup-go@v7"
+        assert (
+            toolchain_ref(tmp_path, action="actions/setup-go") == "actions/setup-go@v7"
+        )
 
     def test_should_find_a_step_inside_a_local_composite(self, tmp_path: Path) -> None:
-        assert toolchain_ref(tmp_path, "pnpm/setup") == "pnpm/setup@v3"
+        assert toolchain_ref(tmp_path, action="pnpm/setup") == "pnpm/setup@v3"
 
     def test_should_follow_a_changed_composite_pin(self, tmp_path: Path) -> None:
-        assert toolchain_ref(tmp_path, "pnpm/setup", pin="v4") == "pnpm/setup@v4"
+        assert toolchain_ref(tmp_path, action="pnpm/setup", pin="v4") == "pnpm/setup@v4"
 
     def test_should_print_nothing_for_an_unused_action(self, tmp_path: Path) -> None:
-        assert toolchain_ref(tmp_path, "bazel-contrib/setup-bazel") == ""
+        assert toolchain_ref(tmp_path, action="bazel-contrib/setup-bazel") == ""

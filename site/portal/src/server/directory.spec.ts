@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { ADMIN_ROLE, clerk, memory } from "@/server/directory";
+import { ADMIN_ROLE, clerk, isInternal, memory } from "@/server/directory";
 
 interface FakeUser {
   id: string;
@@ -150,6 +150,20 @@ const createClient = ({
 };
 
 describe("directory", () => {
+  describe("isInternal", () => {
+    it("should accept a Synnax Labs address in any case", () => {
+      expect(isInternal("em@synnaxlabs.com")).toBe(true);
+      expect(isInternal("Em@SynnaxLabs.com")).toBe(true);
+    });
+
+    it("should refuse an address on another domain", () => {
+      expect(isInternal("ada@example.com")).toBe(false);
+      expect(isInternal("ada@notsynnaxlabs.com")).toBe(false);
+      expect(isInternal("ada@synnaxlabs.com.example.com")).toBe(false);
+      expect(isInternal("")).toBe(false);
+    });
+  });
+
   describe("memory", () => {
     const directory = memory({
       people: {

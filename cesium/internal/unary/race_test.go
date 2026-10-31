@@ -150,7 +150,9 @@ var _ = Describe("Unary racing", func() {
 					Expect(dataDB.GarbageCollect(ctx)).To(Succeed())
 					// remaining: 10, 15, 20, 21, 22, 24
 
-					f := MustSucceed(dataDB.Read(ctx, telem.TimeRangeMax))
+					f := MustSucceed(
+						ReadUnary(ctx, dataDB, telem.TimeRangeMax),
+					)
 					Expect(f.Count()).To(Equal(3))
 					first := f.SeriesAt(0)
 					Expect(first.Data).To(Equal(telem.NewSeriesV[int64](10).Data))

@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { type Instrumentation } from "@synnaxlabs/alamos";
-import { CSS } from "@synnaxlabs/lyra/css";
 import {
   box,
   color,
@@ -22,6 +21,7 @@ import {
 
 import { type aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
+import { CSS } from "@/css";
 import { status } from "@/status/aether";
 import { text } from "@/text/aether";
 import { SugaredOffscreenCanvasRenderingContext2D } from "@/vis/draw2d/canvas";
@@ -75,6 +75,8 @@ export class Context {
   private readonly statusKey = id.create();
   private _generation = 0;
   private readonly restoreHandlers = new Set<() => void>();
+  private readonly restore2DHandlers = new Set<() => void>();
+  private readonly atlases = new text.AtlasRegistry();
 
   static create(
     ctx: aether.Context,
@@ -116,15 +118,14 @@ export class Context {
 
     const lowerCtx = this.lower2dCanvas.getContext("2d");
     if (lowerCtx == null) throw new Error("Could not get 2D context");
-    const atlas = new text.AtlasRegistry();
     this.lower2d = applyDefaultCanvasOpts(
-      new SugaredOffscreenCanvasRenderingContext2D(lowerCtx, atlas, this.dpr),
+      new SugaredOffscreenCanvasRenderingContext2D(lowerCtx, this.atlases, this.dpr),
     );
 
     const upperCtx = this.upper2dCanvas.getContext("2d");
     if (upperCtx == null) throw new Error("Could not get 2D context");
     this.upper2d = applyDefaultCanvasOpts(
-      new SugaredOffscreenCanvasRenderingContext2D(upperCtx, atlas, this.dpr),
+      new SugaredOffscreenCanvasRenderingContext2D(upperCtx, this.atlases, this.dpr),
     );
 
     const webGlOpts: WebGLContextAttributes = {
@@ -181,13 +182,25 @@ export class Context {
 
   /**
    * Calls f each time the WebGL context is restored after a loss. The restore clears
-   * the GL canvas and destroys every GL object made before it.
+   * every canvas and destroys every GL object made before it.
    * @returns a function that stops the calls.
    */
   onRestore(f: () => void): destructor.Destructor {
     this.restoreHandlers.add(f);
     return () => {
       this.restoreHandlers.delete(f);
+    };
+  }
+
+  /**
+   * Calls f each time a restore rebuilds the 2D canvases, which clears them. The calls
+   * happen even when the rest of the restore fails.
+   * @returns a function that stops the calls.
+   */
+  on2DRestore(f: () => void): destructor.Destructor {
+    this.restore2DHandlers.add(f);
+    return () => {
+      this.restore2DHandlers.delete(f);
     };
   }
 
@@ -212,6 +225,7 @@ export class Context {
   }
 
   private restore(): void {
+    this.restore2D();
     this._generation++;
     this.configureGL();
     if (this.os === "Windows") this.clearProgram = new clear.Program(this);
@@ -224,6 +238,27 @@ export class Context {
     });
   }
 
+  // WebKit fires no event for 2D canvases when its GPU process dies. Their pixels and
+  // draw state are gone while getTransform still reports the old values. Only a new
+  // bitmap repairs them, and WebKit keeps the bitmap unless the size really changes.
+  private restore2D(): void {
+    this.atlases.clear();
+    this.upper2dCanvas.width = 0;
+    this.lower2dCanvas.width = 0;
+    this.reset2D();
+    this.restore2DHandlers.forEach((f) => f());
+  }
+
+  private reset2D(): void {
+    this.resizeCanvas(this.upper2dCanvas);
+    this.resizeCanvas(this.lower2dCanvas);
+    [this.lower2d, this.upper2d].forEach((canvas) => {
+      // A size change clears a canvas's state, but not the state its wrapper caches.
+      canvas.reset();
+      canvas.scale(this.dpr, this.dpr);
+    });
+  }
+
   /**
    * Resizes the canvas to the given region and device pixel ratio. Ensuring
    * that all drawing operations and viewports are scaled correctly.
@@ -233,10 +268,7 @@ export class Context {
     this.region = region;
     this.dpr = dpr;
     this.resizeCanvas(this.glCanvas);
-    this.resizeCanvas(this.upper2dCanvas);
-    this.resizeCanvas(this.lower2dCanvas);
-    this.lower2d.scale(this.dpr, this.dpr);
-    this.upper2d.scale(this.dpr, this.dpr);
+    this.reset2D();
     this.gl.viewport(0, 0, box.width(region) * dpr, box.height(region) * dpr);
   }
 

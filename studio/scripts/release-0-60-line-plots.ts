@@ -153,15 +153,15 @@ export default async (session: capture.CaptureSession): Promise<void> => {
   await capture.hideBottomToolbar(session);
   await renamePanel(session, NEW_PANEL, PANEL);
 
-  const tab = page.locator(".console-mosaic .pluto-tabs__tab").first();
+  const tab = page.locator(".console-mosaic .lyra-tabs__tab").first();
   await tab.click({ button: "right", timeout: 5000 });
-  const menu = page.locator(".pluto-menu-context").first();
+  const menu = page.locator(".lyra-menu-context").first();
   await session.waitFor(menu);
   await menu
     .getByText(/^Rename/)
     .first()
     .click({ timeout: 5000 });
-  await session.waitFor(page.locator(".pluto-text--editable[contenteditable='true']"));
+  await session.waitFor(page.locator(".lyra-text--editable[contenteditable='true']"));
   await page.keyboard.press("ControlOrMeta+a");
   await page.keyboard.type(TITLE);
   await page.keyboard.press("Enter");

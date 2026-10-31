@@ -76,14 +76,14 @@ it. Answer with one line of JSON and nothing else:
 """
 
 
-@dataclass
+@dataclass(kw_only=True)
 class Surface:
     name: str
     status: str
     diff: str
 
 
-@dataclass
+@dataclass(kw_only=True)
 class Answer:
     human: bool
     reason: str
@@ -97,25 +97,27 @@ def read_surfaces(root: Path) -> list[Surface]:
         diff = (d / "diff").read_text() if (d / "diff").exists() else ""
         if status not in STATUS_TEXT:
             status, diff = "error", "No report: the job did not finish.\n"
-        out.append(Surface(name, status, diff))
+        out.append(Surface(name=name, status=status, diff=diff))
     return out
 
 
-def ui_answer(files: list[dict[str, Any]], command: str) -> Answer | None:
+def ui_answer(files: list[dict[str, Any]], *, command: str) -> Answer | None:
     """Asks the agent about the UI patches. Returns None when no UI file changed, and
     a human answer without asking when a patch is missing or too large to send."""
     ui = [f for f in files if f["filename"].startswith(UI_PREFIXES)]
     if not ui:
         return None
     if any(not f.get("patch") for f in ui):
-        return Answer(True, "A UI file has no patch: it is binary or too large.")
+        return Answer(
+            human=True, reason="A UI file has no patch: it is binary or too large."
+        )
     body = "".join(f"--- {f['filename']} ({f['status']})\n{f['patch']}\n" for f in ui)
     if len(body) > MAX_UI_PATCH_CHARS:
-        return Answer(True, "The UI diff is too large for the agent.")
-    return ask_agent(PROMPT + body, command)
+        return Answer(human=True, reason="The UI diff is too large for the agent.")
+    return ask_agent(PROMPT + body, command=command)
 
 
-def trust_reasons(pull: dict[str, Any], files: list[dict[str, Any]]) -> list[str]:
+def trust_reasons(pull: dict[str, Any], *, files: list[dict[str, Any]]) -> list[str]:
     reasons = []
     if pull["head"]["repo"]["full_name"] != pull["base"]["repo"]["full_name"]:
         reasons.append("The pull request comes from a fork.")
@@ -138,11 +140,11 @@ def parse_answer(text: str) -> Answer:
         if isinstance(value.get("human"), bool) and isinstance(
             value.get("reason"), str
         ):
-            return Answer(value["human"], value["reason"].strip())
-    return Answer(True, "The agent gave no clear answer.")
+            return Answer(human=value["human"], reason=value["reason"].strip())
+    return Answer(human=True, reason="The agent gave no clear answer.")
 
 
-def ask_agent(prompt: str, command: str) -> Answer:
+def ask_agent(prompt: str, *, command: str) -> Answer:
     try:
         result = subprocess.run(
             shlex.split(command),
@@ -153,18 +155,18 @@ def ask_agent(prompt: str, command: str) -> Answer:
             check=True,
         )
     except (subprocess.SubprocessError, OSError) as e:
-        return Answer(True, f"The agent failed: {type(e).__name__}.")
+        return Answer(human=True, reason=f"The agent failed: {type(e).__name__}.")
     return parse_answer(result.stdout)
 
 
 def needs_human(
-    surfaces: list[Surface], console: Answer | None, reasons: list[str]
+    surfaces: list[Surface], *, console: Answer | None, reasons: list[str]
 ) -> bool:
     changed = any(s.status != "same" for s in surfaces)
     return changed or bool(console and console.human) or bool(reasons)
 
 
-def plan_labels(current: set[str], human: bool) -> tuple[list[str], list[str]]:
+def plan_labels(current: set[str], *, human: bool) -> tuple[list[str], list[str]]:
     """Returns the labels to add and to remove, so exactly one of review/human and
     review/bot stays. An existing human tier label counts as review/human."""
     if human or current & HUMAN_TIERS:
@@ -183,6 +185,7 @@ def fence(text: str) -> str:
 
 def render(
     surfaces: list[Surface],
+    *,
     console: Answer | None,
     reasons: list[str],
     kept: bool,
@@ -247,7 +250,7 @@ def gh_lines(*args: str) -> list[Any]:
     return [json.loads(line) for line in gh(*args).splitlines() if line]
 
 
-def upsert_comment(repo: str, number: int, body: str) -> None:
+def upsert_comment(repo: str, *, number: int, body: str) -> None:
     comments = gh_lines(
         "api",
         "--paginate",
@@ -295,8 +298,8 @@ def main() -> None:
         "--jq",
         ".[] | {filename, status, patch}",
     )
-    console = ui_answer(files, os.environ["REVIEW_AGENT"])
-    reasons = trust_reasons(pull, files)
+    console = ui_answer(files, command=os.environ["REVIEW_AGENT"])
+    reasons = trust_reasons(pull, files=files)
     surfaces = read_surfaces(root)
     # The agent can take minutes: read the head and labels again before writing.
     pull = json.loads(gh("api", f"repos/{repo}/pulls/{number}"))
@@ -304,7 +307,9 @@ def main() -> None:
         print(f"#{number} moved past {head_sha}; a newer run classifies it")
         return
     current = {label["name"] for label in pull["labels"]}
-    add, remove = plan_labels(current, needs_human(surfaces, console, reasons))
+    add, remove = plan_labels(
+        current, human=needs_human(surfaces, console=console, reasons=reasons)
+    )
     for label in add:
         gh(
             "api",
@@ -322,7 +327,11 @@ def main() -> None:
             f"repos/{repo}/issues/{number}/labels/{quote(label, safe='')}",
         )
     kept = bool(current & HUMAN_TIERS)
-    upsert_comment(repo, number, render(surfaces, console, reasons, kept))
+    upsert_comment(
+        repo,
+        number=number,
+        body=render(surfaces, console=console, reasons=reasons, kept=kept),
+    )
     print(f"#{number}: add {add}, remove {remove}")
 
 

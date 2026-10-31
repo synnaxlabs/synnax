@@ -45,16 +45,6 @@ var _ = Describe("Color", func() {
 		})
 	})
 
-	Describe("MustFromHex", func() {
-		It("Should parse a valid hex string", func() {
-			c := color.MustFromHex("#0000ff")
-			Expect(c).To(Equal(color.Color{R: 0, G: 0, B: 255, A: 1}))
-		})
-		It("Should panic on an invalid hex string", func() {
-			Expect(func() { color.MustFromHex("invalid") }).To(Panic())
-		})
-	})
-
 	Describe("FromCSS", func() {
 		DescribeTable(
 			"Should parse valid color strings",

@@ -38,7 +38,7 @@ class Context:
     server-side middleware.
     """
 
-    def __init__(self, protocol: str, target: str, role: Role):
+    def __init__(self, *, protocol: str, target: str, role: Role):
         self.protocol = protocol
         self.target = target
         self.role = role
