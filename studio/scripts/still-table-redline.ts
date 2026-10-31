@@ -36,7 +36,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
 
     await capture.createComponent(session, "Table");
     await session.waitFor(page.locator(".console-table").first());
-    const addRow = page.locator(".pluto-table-frame__add-row .pluto-btn").last();
+    const addRow = page.locator(".pluto-table-frame__add-row .lyra-btn").last();
     await session.click(addRow, { zoom: false });
     await session.click(addRow, { zoom: false });
     await session.settle(300);
@@ -61,7 +61,7 @@ export default async (session: capture.CaptureSession): Promise<void> => {
       await session.click(add, { zoom: false });
       const threshold = (index: number) =>
         toolbar
-          .locator(".pluto-redline-form__bands .pluto-list__item")
+          .locator(".pluto-redline-form__bands .lyra-list__item")
           .nth(index)
           .locator("input[type='text']")
           .first();

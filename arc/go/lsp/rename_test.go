@@ -147,7 +147,7 @@ var _ = Describe("Rename", func() {
 		})
 
 		It("should rename function parameter", func(ctx SpecContext) {
-			content := `func multiply(x f64, y f64) f64 {
+			content := `func multiply() {x f64, y f64} f64 {
     return x * y
 }`
 			OpenArcDocument(server, ctx, uri, content)
@@ -209,7 +209,7 @@ func second() {
 		)
 
 		It("should rename stateful variable", func(ctx SpecContext) {
-			content := `func counter{} () u32 {
+			content := `func counter() u32 {
     count u32 $= 0
     count = count + 1
     return count
@@ -237,7 +237,7 @@ func second() {
 		})
 
 		It("should rename function", func(ctx SpecContext) {
-			content := `func add(x i32, y i32) i32 {
+			content := `func add() {x i32, y i32} i32 {
     return x + y
 }
 

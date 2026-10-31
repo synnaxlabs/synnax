@@ -12,11 +12,8 @@
 package user
 
 import (
-	"regexp"
 	"strconv"
 
-	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -53,30 +50,8 @@ func MatchWhere(w Where) (Filter, error) {
 			fs = append(fs, MatchKeys(l.In...))
 		}
 	}
-	if l := w.Username; l != nil {
-		if l.Eq != nil {
-			fs = append(fs, MatchUsernames(*l.Eq))
-		}
-		if l.In != nil {
-			fs = append(fs, MatchUsernames(l.In...))
-		}
-		if l.Regex != nil {
-			re, err := regexp.Compile(*l.Regex)
-			if err != nil {
-				return nil, validate.PathedError(
-					errors.Wrap(validate.ErrValidation, err.Error()),
-					"username",
-					"regex",
-				)
-			}
-			fs = append(fs, Match(func(
-				_ gorp.Context,
-				_ Retrieve,
-				e *User,
-			) (bool, error) {
-				return re.MatchString(e.Username), nil
-			}))
-		}
+	if l := w.Usernames; l != nil {
+		fs = append(fs, MatchUsernames(l...))
 	}
 	return And(fs...), nil
 }

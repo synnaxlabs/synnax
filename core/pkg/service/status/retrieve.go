@@ -12,7 +12,6 @@ package status
 import (
 	"context"
 	"slices"
-	"strings"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
@@ -41,35 +40,6 @@ func Match[D any](
 		return gorp.Match(func(ctx gorp.Context, s *Status[D]) (bool, error) {
 			return f(ctx, r, s)
 		})
-	}
-}
-
-// And returns a filter that matches when all provided filters match.
-func And[D any](fs ...Filter[D]) Filter[D] {
-	return func(r Retrieve[D]) gorp.Filter[Key, Status[D]] {
-		inner := make([]gorp.Filter[Key, Status[D]], len(fs))
-		for i, f := range fs {
-			inner[i] = f(r)
-		}
-		return gorp.And(inner...)
-	}
-}
-
-// Or returns a filter that matches when any provided filter matches.
-func Or[D any](fs ...Filter[D]) Filter[D] {
-	return func(r Retrieve[D]) gorp.Filter[Key, Status[D]] {
-		inner := make([]gorp.Filter[Key, Status[D]], len(fs))
-		for i, f := range fs {
-			inner[i] = f(r)
-		}
-		return gorp.Or(inner...)
-	}
-}
-
-// Not returns a filter that inverts the provided filter.
-func Not[D any](f Filter[D]) Filter[D] {
-	return func(r Retrieve[D]) gorp.Filter[Key, Status[D]] {
-		return gorp.Not(f(r))
 	}
 }
 
@@ -106,8 +76,7 @@ func (r Retrieve[D]) Entries(s *[]Status[D]) Retrieve[D] {
 }
 
 // Where applies the provided filter to the query, binding it to the Retrieve so
-// service-bound filters can read from r.label. To compose multiple filters, chain Where
-// calls or pass a combined filter via And / Or.
+// service-bound filters can read from r.label. A status must match every chained Where.
 func (r Retrieve[D]) Where(filter Filter[D]) Retrieve[D] {
 	r.gorp = r.gorp.Where(filter(r))
 	return r
@@ -118,16 +87,6 @@ func (r Retrieve[D]) Where(filter Filter[D]) Retrieve[D] {
 func MatchKeys[D any](keys ...Key) Filter[D] {
 	return func(_ Retrieve[D]) gorp.Filter[Key, Status[D]] {
 		return gorp.MatchKeys[Key, Status[D]](keys...)
-	}
-}
-
-// MatchKeyPrefix returns a filter for statuses whose key starts with the provided
-// prefix.
-func MatchKeyPrefix[D any](prefix Key) Filter[D] {
-	return func(_ Retrieve[D]) gorp.Filter[Key, Status[D]] {
-		return gorp.Match(func(_ gorp.Context, s *Status[D]) (bool, error) {
-			return strings.HasPrefix(s.Key, prefix), nil
-		})
 	}
 }
 

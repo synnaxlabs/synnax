@@ -82,6 +82,7 @@ _TROUBLESHOOTING_URL = "https://docs.synnaxlabs.com/reference/client/troubleshoo
 def _create_version_warning(
     node_version: str | None,
     client_version: str,
+    *,
     client_is_newer: bool,
 ) -> str:
     to_upgrade = "Core" if client_is_newer else "client"
@@ -100,6 +101,7 @@ class Checker:
 
     def __init__(
         self,
+        *,
         client: UnaryClient,
         poll_freq: CrudeTimeSpan = TimeSpan.SECOND * 30,
         client_version: str = "",
@@ -168,7 +170,9 @@ class Checker:
                     self._state.client_server_compatible = False
                     if not self._version_warned:
                         _logger.warning(
-                            _create_version_warning(None, self._client_version, True)
+                            _create_version_warning(
+                                None, self._client_version, client_is_newer=True
+                            )
                         )
                         self._version_warned = True
                 elif not _versions_compatible(self._client_version, node_version):
@@ -178,7 +182,9 @@ class Checker:
                             _create_version_warning(
                                 node_version,
                                 self._client_version,
-                                _client_is_newer(self._client_version, node_version),
+                                client_is_newer=_client_is_newer(
+                                    self._client_version, node_version
+                                ),
                             )
                         )
                         self._version_warned = True

@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -55,8 +56,9 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB: db, Ontology: otg,
 	}))
+	passwordSvc := MustOpen(password.OpenService(ctx, password.ServiceConfig{DB: db}))
 	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
-		DB: db, Ontology: otg, Group: g,
+		DB: db, Ontology: otg, Group: g, Password: passwordSvc,
 	}))
 	labelSvc = MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB: db, Ontology: otg, Group: g,
@@ -73,7 +75,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		RBAC:   rbacSvc,
 	}))
 	author = MustSucceed(
-		userSvc.NewWriter(nil).Create(ctx, user.User{Username: "test"}),
+		userSvc.NewWriter(nil).Create(ctx, user.User{Name: "test"}),
 	)
 })
 
@@ -83,7 +85,7 @@ func freshUser(ctx SpecContext) user.User {
 	GinkgoHelper()
 	return MustSucceed(
 		userSvc.NewWriter(nil).
-			Create(ctx, user.User{Username: "anon-" + uuid.New().String()}),
+			Create(ctx, user.User{Name: "anon-" + uuid.New().String()}),
 	)
 }
 

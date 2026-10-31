@@ -69,15 +69,26 @@ env:
 jobs:
   ci:
     name: CI
-    # A called workflow gets no more than its caller grants, and the fail-fast job in CI
-    # asks for actions: write.
+    # A called workflow gets no more than its caller grants. In CI, the fail-fast job
+    # asks for actions: write and the paths filter for pull-requests: read.
     permissions:
       actions: write
       contents: write
       packages: write
+      pull-requests: read
     uses: ./.github/workflows/ci.yaml
     with:
       full: true
+    secrets: inherit
+
+  # A stored shape that changed without a migration stops the release before any draft.
+  migration-audit:
+    name: Migration audit
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+    uses: ./.github/workflows/audit.migration.yaml
     secrets: inherit
 
   resolve:
@@ -168,7 +179,7 @@ jobs:
 
   draft-console:
     name: Draft Console
-    needs: [resolve, ci]
+    needs: [resolve, ci, migration-audit]
     if: inputs.console
     runs-on: ubuntu-latest
     steps:
@@ -227,7 +238,7 @@ jobs:
 
   draft-driver:
     name: Draft Driver
-    needs: [resolve, ci]
+    needs: [resolve, ci, migration-audit]
     if: inputs.driver
     runs-on: ubuntu-latest
     steps:
@@ -277,11 +288,12 @@ jobs:
   # and never runs after one fails.
   draft-core:
     name: Draft Core
-    needs: [resolve, ci, publish-console, publish-driver]
+    needs: [resolve, ci, migration-audit, publish-console, publish-driver]
     if: >-
       !cancelled() && inputs.core && needs.resolve.result == 'success' &&
-      needs.ci.result == 'success' && (!inputs.console || needs.publish-console.result
-      == 'success') && (!inputs.driver || needs.publish-driver.result == 'success')
+      needs.ci.result == 'success' && needs.migration-audit.result == 'success' &&
+      (!inputs.console || needs.publish-console.result == 'success') && (!inputs.driver
+      || needs.publish-driver.result == 'success')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository

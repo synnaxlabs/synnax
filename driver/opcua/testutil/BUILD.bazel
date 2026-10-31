@@ -7,6 +7,7 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
+load("@rules_cc//cc:cc_binary.bzl", "cc_binary")
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
 
 cc_library(
@@ -15,16 +16,31 @@ cc_library(
         "read.cpp",
     ],
     hdrs = [
+        "server.h",
         "testutil.h",
     ],
     visibility = ["//visibility:public"],
     deps = [
+        "//driver/opcua/certificate",
+        "//driver/opcua/connection",
         "//driver/opcua/errors",
         "//driver/opcua/telem",
         "//driver/opcua/types",
         "//vendor/open62541",
         "//x/cpp/errors",
+        "//x/cpp/json",
         "//x/cpp/telem",
+        "//x/cpp/uuid",
+        "@abseil-cpp//absl/log",
+    ],
+)
+
+cc_binary(
+    name = "server",
+    srcs = ["main.cpp"],
+    deps = [
+        ":testutil",
+        "//vendor/open62541",
         "@abseil-cpp//absl/log",
     ],
 )

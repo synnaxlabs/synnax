@@ -13,26 +13,39 @@ import { filter } from "@synnaxlabs/x";
 import { type User, type Where } from "@/user/types.gen";
 
 /**
- * @returns whether the record matches where. An absent where matches every record.
+ * Lines checks the typed lines of a Where against a record. A null entry marks a line
+ * that only the Core can check.
  */
-export const matches = (record: User, where?: Where): boolean => {
+export interface Lines {
+  usernames: ((record: User, value: NonNullable<Where["usernames"]>) => boolean) | null;
+}
+
+/**
+ * @returns whether the record matches where. An absent where matches every record.
+ * @throws {Error} if where is server-computed, since only the Core can check it.
+ */
+export const matches = (lines: Lines, record: User, where?: Where): boolean => {
   if (where == null) return true;
-  if (where.and != null && !where.and.every((w) => matches(record, w))) return false;
-  if (where.or != null && !where.or.some((w) => matches(record, w))) return false;
-  if (where.not != null && matches(record, where.not)) return false;
-  if (where.key != null && !filter.matchesSet(where.key, record.key)) return false;
-  if (where.username != null && !filter.matchesString(where.username, record.username))
+  if (where.and != null && !where.and.every((w) => matches(lines, record, w)))
     return false;
+  if (where.or != null && !where.or.some((w) => matches(lines, record, w)))
+    return false;
+  if (where.not != null && matches(lines, record, where.not)) return false;
+  if (where.key != null && !filter.matchesSet(where.key, record.key)) return false;
+  if (where.usernames != null) {
+    if (lines.usernames == null) throw new Error("only the Core can check usernames");
+    if (!lines.usernames(record, where.usernames)) return false;
+  }
   return true;
 };
 
 /**
- * @returns whether only the Core can check where, because it holds a regex. An absent
- * where is not server-computed.
+ * @returns whether only the Core can check where, because it holds a regex or a line
+ * whose entry in lines is null. An absent where is not server-computed.
  */
-export const serverComputed = (where?: Where): boolean =>
+export const serverComputed = (lines: Lines, where?: Where): boolean =>
   where != null &&
-  (where.and?.some((w) => serverComputed(w)) === true ||
-    where.or?.some((w) => serverComputed(w)) === true ||
-    (where.not != null && serverComputed(where.not)) ||
-    where.username?.regex != null);
+  (where.and?.some((w) => serverComputed(lines, w)) === true ||
+    where.or?.some((w) => serverComputed(lines, w)) === true ||
+    (where.not != null && serverComputed(lines, where.not)) ||
+    (where.usernames != null && lines.usernames == null));
