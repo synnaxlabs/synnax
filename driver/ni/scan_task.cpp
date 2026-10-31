@@ -268,7 +268,7 @@ void Scanner::read_hardware(ni::Device &dev, const common::ScannerContext &ctx) 
             return;
     auto [dmx, err] = this->dmx->get();
     if (!err) {
-        auto [hardware, probe_err] = probe(*dmx, dev.resource_name);
+        auto [hardware, probe_err] = probe(*dmx, dev.location);
         err = probe_err;
         if (!err) {
             const bool complete = is_complete(hardware);
@@ -282,9 +282,9 @@ void Scanner::read_hardware(ni::Device &dev, const common::ScannerContext &ctx) 
     std::ostringstream msg;
     msg << SCAN_LOG_PREFIX << "failed to read the ";
     if (err)
-        msg << "hardware of " << dev.resource_name << ": " << err;
+        msg << "hardware of " << dev.location << ": " << err;
     else
-        msg << "default terminal configuration of some ports of " << dev.resource_name
+        msg << "default terminal configuration of some ports of " << dev.location
             << ". The next scan reads it again";
     if (this->unread_keys.insert(dev.key).second)
         LOG(WARNING) << msg.str();
