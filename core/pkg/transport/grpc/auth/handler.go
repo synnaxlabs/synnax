@@ -71,10 +71,7 @@ func (loginResponseTranslator) Forward(
 ) (*LoginResponse, error) {
 	return &LoginResponse{
 		Token: r.Token,
-		User: &User{
-			Key:      r.User.Key.String(),
-			Username: r.User.Username,
-		},
+		User:  &User{Key: r.User.Key.String()},
 		ClusterInfo: &ClusterInfo{
 			ClusterKey:  r.ClusterInfo.ClusterKey,
 			NodeVersion: r.ClusterInfo.NodeVersion,
@@ -94,10 +91,7 @@ func (loginResponseTranslator) Backward(
 	}
 	return auth.LoginResponse{
 		Token: r.Token,
-		User: user.User{
-			Key:      key,
-			Username: r.User.Username,
-		},
+		User:  user.User{Key: key},
 		ClusterInfo: auth.ClusterInfo{
 			ClusterKey:  r.ClusterInfo.ClusterKey,
 			NodeVersion: r.ClusterInfo.NodeVersion,
@@ -117,8 +111,8 @@ type (
 	sessionRenewServer = grpc.UnaryServer[
 		struct{},
 		*emptypb.Empty,
-		struct{},
-		*emptypb.Empty,
+		auth.SessionRenewResponse,
+		*SessionRenewResponse,
 	]
 	sessionRetrieveServer = grpc.UnaryServer[
 		auth.SessionRetrieveRequest,
@@ -137,6 +131,7 @@ type (
 type (
 	sessionCreateRequestTranslator    struct{}
 	sessionCreateResponseTranslator   struct{}
+	sessionRenewResponseTranslator    struct{}
 	sessionRetrieveRequestTranslator  struct{}
 	sessionRetrieveResponseTranslator struct{}
 	sessionDeleteRequestTranslator    struct{}
@@ -144,6 +139,9 @@ type (
 
 var (
 	_ grpc.Translator[auth.SessionCreateRequest, *SessionCreateRequest] = (*sessionCreateRequestTranslator)(
+		nil,
+	)
+	_ grpc.Translator[auth.SessionRenewResponse, *SessionRenewResponse] = (*sessionRenewResponseTranslator)(
 		nil,
 	)
 	_ grpc.Translator[auth.SessionCreateResponse, *SessionCreateResponse] = (*sessionCreateResponseTranslator)(
@@ -168,6 +166,8 @@ func proofForward(p svcauth.Proof) (*Proof, error) {
 			Username: v.Username,
 			Password: v.Password,
 		}, nil
+	case svcauth.APIKeyProof:
+		return &Proof{Method: string(svcauth.MethodAPIKey), Key: v.Key}, nil
 	default:
 		return nil, errors.Wrapf(validate.ErrValidation, "unknown proof %T", v)
 	}
@@ -184,6 +184,10 @@ func proofBackward(p *Proof) (svcauth.Proof, error) {
 				Username: p.Username,
 				Password: p.Password,
 			},
+		}}, nil
+	case svcauth.MethodAPIKey:
+		return svcauth.Proof{Variant: svcauth.APIKeyProof{
+			APIKeyCredentials: svcauth.APIKeyCredentials{Key: p.Key},
 		}}, nil
 	default:
 		return svcauth.Proof{}, errors.Wrapf(
@@ -235,7 +239,7 @@ func userForward(u *user.User) *User {
 	if u == nil {
 		return nil
 	}
-	return &User{Key: u.Key.String(), Username: u.Username}
+	return &User{Key: u.Key.String()}
 }
 
 func userBackward(u *User) (*user.User, error) {
@@ -246,7 +250,7 @@ func userBackward(u *User) (*user.User, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &user.User{Key: key, Username: u.Username}, nil
+	return &user.User{Key: key}, nil
 }
 
 func (sessionCreateRequestTranslator) Forward(
@@ -299,6 +303,31 @@ func (sessionCreateResponseTranslator) Backward(
 		Session: session,
 		User:    u,
 	}, nil
+}
+
+func (sessionRenewResponseTranslator) Forward(
+	_ context.Context,
+	r auth.SessionRenewResponse,
+) (*SessionRenewResponse, error) {
+	return &SessionRenewResponse{
+		Session: sessionForward(r.Session),
+		User:    userForward(r.User),
+	}, nil
+}
+
+func (sessionRenewResponseTranslator) Backward(
+	_ context.Context,
+	r *SessionRenewResponse,
+) (auth.SessionRenewResponse, error) {
+	session, err := sessionBackward(r.Session)
+	if err != nil {
+		return auth.SessionRenewResponse{}, err
+	}
+	u, err := userBackward(r.User)
+	if err != nil {
+		return auth.SessionRenewResponse{}, err
+	}
+	return auth.SessionRenewResponse{Session: session, User: u}, nil
 }
 
 func (sessionRetrieveRequestTranslator) Forward(
@@ -375,6 +404,182 @@ func (sessionDeleteRequestTranslator) Backward(
 	return auth.SessionDeleteRequest{Keys: keys}, nil
 }
 
+type (
+	keyCreateServer = grpc.UnaryServer[
+		auth.KeyCreateRequest,
+		*KeyCreateRequest,
+		auth.KeyCreateResponse,
+		*KeyCreateResponse,
+	]
+	keyRetrieveServer = grpc.UnaryServer[
+		auth.KeyRetrieveRequest,
+		*KeyRetrieveRequest,
+		auth.KeyRetrieveResponse,
+		*KeyRetrieveResponse,
+	]
+	keyDeleteServer = grpc.UnaryServer[
+		auth.KeyDeleteRequest,
+		*KeyDeleteRequest,
+		struct{},
+		*emptypb.Empty,
+	]
+)
+
+type (
+	keyCreateRequestTranslator    struct{}
+	keyCreateResponseTranslator   struct{}
+	keyRetrieveRequestTranslator  struct{}
+	keyRetrieveResponseTranslator struct{}
+	keyDeleteRequestTranslator    struct{}
+)
+
+var (
+	_ grpc.Translator[auth.KeyCreateRequest, *KeyCreateRequest] = (*keyCreateRequestTranslator)(
+		nil,
+	)
+	_ grpc.Translator[auth.KeyCreateResponse, *KeyCreateResponse] = (*keyCreateResponseTranslator)(
+		nil,
+	)
+	_ grpc.Translator[auth.KeyRetrieveRequest, *KeyRetrieveRequest] = (*keyRetrieveRequestTranslator)(
+		nil,
+	)
+	_ grpc.Translator[auth.KeyRetrieveResponse, *KeyRetrieveResponse] = (*keyRetrieveResponseTranslator)(
+		nil,
+	)
+	_ grpc.Translator[auth.KeyDeleteRequest, *KeyDeleteRequest] = (*keyDeleteRequestTranslator)(
+		nil,
+	)
+)
+
+func apiKeyForward(k auth.APIKey) *APIKey {
+	return &APIKey{
+		Key:     k.Key.String(),
+		Subject: subjectForward(k.Subject),
+		Name:    k.Name,
+		Created: int64(k.Created),
+	}
+}
+
+func apiKeyBackward(k *APIKey) (auth.APIKey, error) {
+	if k == nil {
+		return auth.APIKey{}, nil
+	}
+	key, err := uuid.Parse(k.Key)
+	if err != nil {
+		return auth.APIKey{}, err
+	}
+	return auth.APIKey{
+		Key:     key,
+		Subject: subjectBackward(k.Subject),
+		Name:    k.Name,
+		Created: telem.TimeStamp(k.Created),
+	}, nil
+}
+
+func (keyCreateRequestTranslator) Forward(
+	_ context.Context,
+	r auth.KeyCreateRequest,
+) (*KeyCreateRequest, error) {
+	return &KeyCreateRequest{Subject: subjectForward(r.Subject), Name: r.Name}, nil
+}
+
+func (keyCreateRequestTranslator) Backward(
+	_ context.Context,
+	r *KeyCreateRequest,
+) (auth.KeyCreateRequest, error) {
+	return auth.KeyCreateRequest{Subject: subjectBackward(r.Subject), Name: r.Name}, nil
+}
+
+func (keyCreateResponseTranslator) Forward(
+	_ context.Context,
+	r auth.KeyCreateResponse,
+) (*KeyCreateResponse, error) {
+	return &KeyCreateResponse{Token: r.Token, Key: apiKeyForward(r.Key)}, nil
+}
+
+func (keyCreateResponseTranslator) Backward(
+	_ context.Context,
+	r *KeyCreateResponse,
+) (auth.KeyCreateResponse, error) {
+	k, err := apiKeyBackward(r.Key)
+	if err != nil {
+		return auth.KeyCreateResponse{}, err
+	}
+	return auth.KeyCreateResponse{Token: r.Token, Key: k}, nil
+}
+
+func (keyRetrieveRequestTranslator) Forward(
+	_ context.Context,
+	r auth.KeyRetrieveRequest,
+) (*KeyRetrieveRequest, error) {
+	return &KeyRetrieveRequest{
+		Subjects: lo.Map(r.Subjects, func(id ontology.ID, _ int) *Subject {
+			return subjectForward(id)
+		}),
+	}, nil
+}
+
+func (keyRetrieveRequestTranslator) Backward(
+	_ context.Context,
+	r *KeyRetrieveRequest,
+) (auth.KeyRetrieveRequest, error) {
+	return auth.KeyRetrieveRequest{
+		Subjects: lo.Map(r.Subjects, func(s *Subject, _ int) ontology.ID {
+			return subjectBackward(s)
+		}),
+	}, nil
+}
+
+func (keyRetrieveResponseTranslator) Forward(
+	_ context.Context,
+	r auth.KeyRetrieveResponse,
+) (*KeyRetrieveResponse, error) {
+	return &KeyRetrieveResponse{
+		Keys: lo.Map(r.Keys, func(k auth.APIKey, _ int) *APIKey {
+			return apiKeyForward(k)
+		}),
+	}, nil
+}
+
+func (keyRetrieveResponseTranslator) Backward(
+	_ context.Context,
+	r *KeyRetrieveResponse,
+) (auth.KeyRetrieveResponse, error) {
+	keys := make([]auth.APIKey, 0, len(r.Keys))
+	for _, pk := range r.Keys {
+		k, err := apiKeyBackward(pk)
+		if err != nil {
+			return auth.KeyRetrieveResponse{}, err
+		}
+		keys = append(keys, k)
+	}
+	return auth.KeyRetrieveResponse{Keys: keys}, nil
+}
+
+func (keyDeleteRequestTranslator) Forward(
+	_ context.Context,
+	r auth.KeyDeleteRequest,
+) (*KeyDeleteRequest, error) {
+	return &KeyDeleteRequest{
+		Keys: lo.Map(r.Keys, func(k uuid.UUID, _ int) string { return k.String() }),
+	}, nil
+}
+
+func (keyDeleteRequestTranslator) Backward(
+	_ context.Context,
+	r *KeyDeleteRequest,
+) (auth.KeyDeleteRequest, error) {
+	keys := make([]uuid.UUID, 0, len(r.Keys))
+	for _, k := range r.Keys {
+		key, err := uuid.Parse(k)
+		if err != nil {
+			return auth.KeyDeleteRequest{}, err
+		}
+		keys = append(keys, key)
+	}
+	return auth.KeyDeleteRequest{Keys: keys}, nil
+}
+
 func New(t *api.Transport) grpc.BindableTransport {
 	login := &loginServer{
 		RequestTranslator:  loginRequestTranslator{},
@@ -388,7 +593,7 @@ func New(t *api.Transport) grpc.BindableTransport {
 	}
 	renew := &sessionRenewServer{
 		RequestTranslator:  grpc.EmptyTranslator{},
-		ResponseTranslator: grpc.EmptyTranslator{},
+		ResponseTranslator: sessionRenewResponseTranslator{},
 		ServiceDesc:        &AuthSessionRenewService_ServiceDesc,
 	}
 	retrieve := &sessionRetrieveServer{
@@ -401,10 +606,37 @@ func New(t *api.Transport) grpc.BindableTransport {
 		ResponseTranslator: grpc.EmptyTranslator{},
 		ServiceDesc:        &AuthSessionDeleteService_ServiceDesc,
 	}
+	keyCreate := &keyCreateServer{
+		RequestTranslator:  keyCreateRequestTranslator{},
+		ResponseTranslator: keyCreateResponseTranslator{},
+		ServiceDesc:        &AuthKeyCreateService_ServiceDesc,
+	}
+	keyRetrieve := &keyRetrieveServer{
+		RequestTranslator:  keyRetrieveRequestTranslator{},
+		ResponseTranslator: keyRetrieveResponseTranslator{},
+		ServiceDesc:        &AuthKeyRetrieveService_ServiceDesc,
+	}
+	keyDelete := &keyDeleteServer{
+		RequestTranslator:  keyDeleteRequestTranslator{},
+		ResponseTranslator: grpc.EmptyTranslator{},
+		ServiceDesc:        &AuthKeyDeleteService_ServiceDesc,
+	}
 	t.AuthLogin = login
 	t.AuthSessionCreate = create
 	t.AuthSessionRenew = renew
 	t.AuthSessionRetrieve = retrieve
 	t.AuthSessionDelete = del
-	return grpc.CompoundBindableTransport{login, create, renew, retrieve, del}
+	t.AuthKeyCreate = keyCreate
+	t.AuthKeyRetrieve = keyRetrieve
+	t.AuthKeyDelete = keyDelete
+	return grpc.CompoundBindableTransport{
+		login,
+		create,
+		renew,
+		retrieve,
+		del,
+		keyCreate,
+		keyRetrieve,
+		keyDelete,
+	}
 }

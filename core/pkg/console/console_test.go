@@ -98,6 +98,10 @@ var _ = Describe("Console", func() {
 		BeforeEach(func() {
 			cons = MustSucceed(console.New(console.Config{FS: testFS}))
 			app = fiber.New()
+			// The Core binds its API before the Console.
+			app.Get("/api/v1/thing", func(ctx fiber.Ctx) error {
+				return ctx.Type("html").SendString("<p>api</p>")
+			})
 			cons.BindTo(app)
 		})
 		AfterEach(func() {
@@ -187,6 +191,48 @@ var _ = Describe("Console", func() {
 			)
 		})
 
+		Describe("Security headers", func() {
+			DescribeTable("Should set a Content Security Policy on the app shell",
+				func(path string) {
+					req := httptest.NewRequest(http.MethodGet, path, nil)
+					res := MustSucceed(app.Test(req))
+					Expect(res.StatusCode).To(Equal(http.StatusOK))
+					csp := res.Header.Get(fiber.HeaderContentSecurityPolicy)
+					Expect(csp).To(ContainSubstring(
+						"script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval';",
+					))
+					Expect(csp).To(ContainSubstring("frame-ancestors 'none'"))
+					Expect(res.Header.Get(fiber.HeaderXContentTypeOptions)).
+						To(Equal("nosniff"))
+				},
+				Entry("index.html", "/"),
+				Entry("an SPA route", "/some/spa/route"),
+			)
+
+			It("Should set nosniff but no policy on a static asset", func() {
+				req := httptest.NewRequest(
+					http.MethodGet,
+					"/assets/index-abc123.js",
+					nil,
+				)
+				res := MustSucceed(app.Test(req))
+				Expect(res.StatusCode).To(Equal(http.StatusOK))
+				Expect(res.Header.Get(fiber.HeaderXContentTypeOptions)).
+					To(Equal("nosniff"))
+				Expect(res.Header.Get(fiber.HeaderContentSecurityPolicy)).To(BeEmpty())
+			})
+
+			It("Should not set security headers on an API route", func() {
+				req := httptest.NewRequest(http.MethodGet, "/api/v1/thing", nil)
+				res := MustSucceed(app.Test(req))
+				Expect(res.StatusCode).To(Equal(http.StatusOK))
+				body := MustSucceed(io.ReadAll(res.Body))
+				Expect(string(body)).To(Equal("<p>api</p>"))
+				Expect(res.Header.Get(fiber.HeaderContentSecurityPolicy)).To(BeEmpty())
+				Expect(res.Header.Get(fiber.HeaderXContentTypeOptions)).To(BeEmpty())
+			})
+		})
+
 		Describe("Use", func() {
 			It("Should not panic", func() {
 				Expect(func() { cons.Use() }).ToNot(Panic())
@@ -226,6 +272,8 @@ var _ = Describe("Console", func() {
 				Expect(html).To(ContainSubstring("<title>Synnax Core</title>"))
 				Expect(html).To(ContainSubstring("built without embedded Console"))
 				Expect(html).To(ContainSubstring("<code>-tags=console</code>"))
+				Expect(res.Header.Get(fiber.HeaderContentSecurityPolicy)).
+					To(ContainSubstring("default-src 'self'"))
 			})
 		})
 

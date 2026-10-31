@@ -50,7 +50,7 @@
             width: 0;
         }
 
-        > .pluto-divider {
+        > .lyra-divider {
             display: none;
         }
     }
@@ -60,7 +60,7 @@
         width: var(--console-list-width);
     }
 
-    .console-panes__list > :is(.pluto-header, .console-create-list-item) {
+    .console-panes__list > :is(.lyra-header, .console-create-list-item) {
         flex-shrink: 0;
     }
 
@@ -72,7 +72,7 @@
 
 /* Too narrow for both: the list is a drawer over the details. */
 .console-panes.console--narrow {
-    > .pluto-divider {
+    > .lyra-divider {
         display: none;
     }
 

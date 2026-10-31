@@ -41,11 +41,17 @@ class EditorScrollbar(ConsoleCase):
         self.console.arc.open(self.arc_name)
         page = self.page
         # Monaco hides its scrollbars from the accessibility tree, so no role or label
-        # reaches the slider.
-        slider = page.locator("[data-mode-id='arc']").locator(
-            ".scrollbar.horizontal .slider"
+        # reaches the slider. `.editor-scrollable` skips the hover widget scrollbars.
+        track = page.locator(
+            "[data-mode-id='arc'] .editor-scrollable > .scrollbar.horizontal"
         )
-        slider.wait_for(state="attached", timeout=5000)
+        slider = track.locator(".slider")
+        # The slider fills the track until Monaco measures the long line.
+        page.wait_for_function(
+            "(track) => track.querySelector('.slider').offsetWidth < track.offsetWidth",
+            arg=track.element_handle(timeout=5000),
+            timeout=5000,
+        )
         start = slider.bounding_box()
         assert start is not None, "the horizontal scrollbar has no slider"
 
