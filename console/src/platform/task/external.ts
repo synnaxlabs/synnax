@@ -29,6 +29,7 @@ export * from "@/platform/task/useChannelDeviceKeys";
 export * from "@/platform/task/useConfigCheck";
 export * from "@/platform/task/useCreate";
 export * from "@/platform/task/useDrifted";
+export * from "@/platform/task/useIsPreview";
 export * from "@/platform/task/useKey";
 export * from "@/platform/task/useStatus";
 export * from "@/platform/task/useTare";

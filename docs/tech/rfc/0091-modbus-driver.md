@@ -93,10 +93,11 @@ answers. On RTU, each request waits for 3.5 characters of silence after the last
 A temporary error (§2.4) retries at once, up to `retries` times. A socket error closes
 the connection, and the next attempt reconnects. A timeout or a bad CRC does not close
 it, because other units on the connection still answer. The next request flushes the
-connection first, so a late reply cannot answer it. After three timed-out attempts in a
-row, a unit is demoted for 10 s: its requests fail at once with a temporary error, so it
-cannot slow the other units. `delay_ms` counts from the end of the last request on the
-connection, for any unit.
+connection first, so a late reply cannot answer it. After three attempts in a row time
+out waiting for a reply, a unit is demoted for 10 s: its requests fail at once with a
+temporary error, so it cannot slow the other units. A connect that times out does not
+count, because a server that is down says nothing about the unit. `delay_ms` counts from
+the end of the last request on the connection, for any unit.
 
 ### 2.2 Reads
 

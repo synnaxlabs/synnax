@@ -26,6 +26,7 @@ import {
   type Device,
   DO_PORT_TYPE,
   type DOPort,
+  MAKE,
   type Model,
   PORTS,
   SCHEMAS,
@@ -60,7 +61,6 @@ const Properties = () => (
     <Select />
     <Flex.Box x>
       <Task.Fields.StateUpdateRate />
-      <Task.Fields.DataSaving />
     </Flex.Box>
   </>
 );
@@ -398,6 +398,7 @@ export const Write = Task.wrapForm({
 
 export const useCreateWrite = Task.createUseCreate({
   getInitialValues,
+  deviceMake: MAKE,
 });
 
 export const WriteSelectable = Selector.createSelectable({

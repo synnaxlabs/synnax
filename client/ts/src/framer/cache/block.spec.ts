@@ -17,7 +17,6 @@ import {
 } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { UnexpectedError } from "@/errors";
 import {
   align,
   countBefore,
@@ -29,6 +28,7 @@ import {
 } from "@/framer/cache/block";
 import { Dynamic } from "@/framer/cache/dynamic";
 import { tileSpan } from "@/framer/cache/grid";
+import { UnexpectedError } from "@/index";
 
 const seconds = (s: number): TimeStamp => TimeStamp.seconds(s);
 

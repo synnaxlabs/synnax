@@ -19,7 +19,7 @@ from pydantic import BaseModel, Field
 from synnax import channel as channel_
 from synnax import device as device_
 from synnax import task
-from x import telem
+from x import spatial, telem
 
 TERMINAL_CONFIG_CFG_DEFAULT: Literal["Cfg_Default"] = "Cfg_Default"
 
@@ -737,18 +737,6 @@ class ScanConfig(task.ScanConfig):
         return hash(self.key)
 
 
-class Range(BaseModel):
-    """Is a range of values that a device reads or writes.
-
-    Attributes:
-        low: Is the low end of the range.
-        high: Is the high end of the range.
-    """
-
-    low: float
-    high: float
-
-
 class AnalogInputPort(BaseModel):
     """Is an analog input port of an NI device.
 
@@ -944,10 +932,14 @@ class Hardware(BaseModel):
         ai_max_multi_channel_rate: Is the highest analog input sample rate of the
             device, in Hz. A task with several channels divides it by the channel count.
         ao_max_rate: Is the highest analog output sample rate, in Hz.
-        ai_voltage_ranges: Are the analog input voltage ranges of the device.
-        ai_current_ranges: Are the analog input current ranges of the device.
-        ao_voltage_ranges: Are the analog output voltage ranges of the device.
-        ao_current_ranges: Are the analog output current ranges of the device.
+        ai_voltage_ranges: Are the analog input voltage ranges of the device, ends
+            included.
+        ai_current_ranges: Are the analog input current ranges of the device, ends
+            included.
+        ao_voltage_ranges: Are the analog output voltage ranges of the device, ends
+            included.
+        ao_current_ranges: Are the analog output current ranges of the device, ends
+            included.
     """
 
     product_category: str = ""
@@ -962,10 +954,10 @@ class Hardware(BaseModel):
     ai_max_single_channel_rate: float | None = None
     ai_max_multi_channel_rate: float | None = None
     ao_max_rate: float | None = None
-    ai_voltage_ranges: list[Range] = Field(default_factory=list)
-    ai_current_ranges: list[Range] = Field(default_factory=list)
-    ao_voltage_ranges: list[Range] = Field(default_factory=list)
-    ao_current_ranges: list[Range] = Field(default_factory=list)
+    ai_voltage_ranges: list[spatial.Bounds] = Field(default_factory=list)
+    ai_current_ranges: list[spatial.Bounds] = Field(default_factory=list)
+    ao_voltage_ranges: list[spatial.Bounds] = Field(default_factory=list)
+    ao_current_ranges: list[spatial.Bounds] = Field(default_factory=list)
 
 
 class CustomScale(BaseModel):

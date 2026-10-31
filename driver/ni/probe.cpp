@@ -31,7 +31,7 @@ using ::synnax::ni::AnalogOutputPort;
 using ::synnax::ni::CounterPort;
 using ::synnax::ni::DigitalPort;
 using ::synnax::ni::Hardware;
-using ::synnax::ni::Range;
+using ::x::spatial::Bounds;
 
 const std::unordered_map<int32, std::string> PRODUCT_CATEGORIES = {
     {DAQmx_Val_MSeriesDAQ, "m_series_daq"},
@@ -161,9 +161,9 @@ const std::vector<Pairing> PAIRINGS = {
 
 /// @brief the range of the task that reads back a default terminal configuration, for a
 /// device that lists no voltage ranges.
-const Range FALLBACK_VOLTAGE_RANGE = {.low = -10, .high = 10};
+const Bounds FALLBACK_VOLTAGE_RANGE = {.lower = -10, .upper = 10};
 /// @brief like FALLBACK_VOLTAGE_RANGE, for a device that lists no current ranges.
-const Range FALLBACK_CURRENT_RANGE = {.low = -0.02, .high = 0.02};
+const Bounds FALLBACK_CURRENT_RANGE = {.lower = -0.02, .upper = 0.02};
 /// @brief the shunt resistance of a current readback channel, in ohms. DAQmx uses it
 /// only when the default shunt of the port is external.
 const float64 EXTERNAL_SHUNT_RESISTANCE = 249;
@@ -294,13 +294,13 @@ x::errors::Error read_ranges(
     daqmx::SugaredAPI &dmx,
     const std::string &device,
     const int32 attribute,
-    std::vector<Range> &ranges
+    std::vector<Bounds> &ranges
 ) {
     auto [values, err] = dmx.GetDeviceAttributeDoubleArray(device.c_str(), attribute);
     if (err.matches(daqmx::ATTRIBUTE_NOT_SUPPORTED)) return x::errors::NIL;
     if (err) return err;
     for (std::size_t i = 0; i + 1 < values.size(); i += 2)
-        ranges.push_back({.low = values[i], .high = values[i + 1]});
+        ranges.push_back({.lower = values[i], .upper = values[i + 1]});
     return x::errors::NIL;
 }
 
@@ -313,16 +313,18 @@ bool reads_back_default(const AnalogInputPort &ai) {
 
 /// @brief returns the narrowest of the ranges, which is valid in every terminal
 /// configuration.
-Range narrowest(const std::vector<Range> &ranges, const Range &fallback) {
+Bounds narrowest(const std::vector<Bounds> &ranges, const Bounds &fallback) {
     if (ranges.empty()) return fallback;
-    return std::ranges::min(ranges, {}, [](const Range &r) { return r.high - r.low; });
+    return std::ranges::min(ranges, {}, [](const Bounds &r) {
+        return r.upper - r.lower;
+    });
 }
 
 /// @brief adds a channel with Cfg_Default on the port to the task: a voltage channel
 /// when the port takes one, else a current channel.
 x::errors::Error add_readback_channel(
     daqmx::SugaredAPI &dmx,
-    const TaskHandle task,
+    TaskHandle task,
     const Port &port,
     const AnalogInputPort &ai,
     const Hardware &hw
@@ -334,8 +336,8 @@ x::errors::Error add_readback_channel(
             port.name.c_str(),
             "",
             DAQmx_Val_Cfg_Default,
-            range.low,
-            range.high,
+            range.lower,
+            range.upper,
             DAQmx_Val_Volts,
             nullptr
         );
@@ -346,8 +348,8 @@ x::errors::Error add_readback_channel(
         port.name.c_str(),
         "",
         DAQmx_Val_Cfg_Default,
-        range.low,
-        range.high,
+        range.lower,
+        range.upper,
         DAQmx_Val_Amps,
         DAQmx_Val_Default,
         EXTERNAL_SHUNT_RESISTANCE,

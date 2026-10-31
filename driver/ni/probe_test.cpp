@@ -517,10 +517,10 @@ TEST(ProbeTest, testReadsRatesAndRanges) {
     EXPECT_EQ(hw.ao_max_rate, 833333);
     EXPECT_TRUE(hw.ai_voltage_ranges.empty());
     ASSERT_EQ(hw.ai_current_ranges.size(), 1);
-    EXPECT_EQ(hw.ai_current_ranges[0].low, -0.02);
-    EXPECT_EQ(hw.ai_current_ranges[0].high, 0.02);
+    EXPECT_EQ(hw.ai_current_ranges[0].lower, -0.02);
+    EXPECT_EQ(hw.ai_current_ranges[0].upper, 0.02);
     ASSERT_EQ(hw.ao_voltage_ranges.size(), 1);
-    EXPECT_EQ(hw.ao_voltage_ranges[0].high, 10);
+    EXPECT_EQ(hw.ao_voltage_ranges[0].upper, 10);
     ASSERT_EQ(hw.analog_outputs.size(), 1);
     EXPECT_EQ(hw.analog_outputs[0].terminal_configs, std::vector<std::string>({"RSE"}));
     EXPECT_EQ(hw.analog_outputs[0].types, std::vector<std::string>({"ao_voltage"}));

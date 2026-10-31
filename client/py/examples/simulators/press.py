@@ -17,7 +17,7 @@ class PressSimDAQ(SimDAQ):
     """Simulates pressurization system with valves and pressure sensor."""
 
     description = "Run press simulator standalone"
-    end_cmd_channel = "end_test_cmd"
+    end_cmd_channel: str | None = "end_test_cmd"
 
     def _create_channels(self) -> None:
         self.log("Creating channels...")

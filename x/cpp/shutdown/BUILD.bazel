@@ -8,6 +8,7 @@
 # included in the file licenses/APL.txt.
 
 load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 cc_library(
     name = "shutdown",
@@ -18,4 +19,15 @@ cc_library(
     hdrs = ["shutdown.h"],
     visibility = ["//visibility:public"],
     deps = [],
+)
+
+cc_test(
+    name = "windows_test",
+    size = "small",
+    srcs = ["windows_test.cpp"],
+    target_compatible_with = ["@platforms//os:windows"],
+    deps = [
+        ":shutdown",
+        "@googletest//:gtest_main",
+    ],
 )

@@ -18,7 +18,6 @@ import { readFileSync } from "node:fs";
 import { Synnax } from "@synnaxlabs/client";
 
 import { create } from "../src/feature/project/sample.ts";
-import { RECENT_KEY } from "../src/session/range/slice.ts";
 import { parse } from "./coreURL.ts";
 
 const client = new Synnax({
@@ -28,7 +27,7 @@ const client = new Synnax({
 });
 const read = (name: string): string =>
   readFileSync(new URL(`../src/feature/project/${name}`, import.meta.url), "utf8");
-await create(client, RECENT_KEY, {
+await create(client, {
   simulator: read("sampleSimulator.arc"),
   sequence: read("sampleSequence.arc"),
 });

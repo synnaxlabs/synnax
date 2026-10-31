@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-from examples.simulators import PressSimDAQ
+from examples.simulators import PressSimDAQ, SimDAQ
 
 import synnax as sy
 from framework.utils import create_virtual_channel
@@ -54,7 +54,7 @@ class IntervalPress(ArcCase):
         "str_chan",
         "end_test_cmd",
     ]
-    sim_daq_class = PressSimDAQ
+    sim_daq_class: type[SimDAQ] | None = PressSimDAQ
 
     def setup(self) -> None:
         create_virtual_channel(self.client, "str_chan", data_type=sy.DataType.STRING)

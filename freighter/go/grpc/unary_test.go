@@ -37,8 +37,8 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 				testutil.Request, *v1.Request,
 				testutil.Response, *v1.Response,
 			]{
-				RequestTranslator:  requestTranslator{},
-				ResponseTranslator: responseTranslator{},
+				RequestTranslator:  requestBackwardTranslator{},
+				ResponseTranslator: responseForwardTranslator{},
 				ServiceDesc:        &v1.TestUnaryService_ServiceDesc,
 				Internal:           true,
 			}
