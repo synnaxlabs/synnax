@@ -15,7 +15,7 @@ status. The driver-side cases that need a hand-edited config (bad channel key, b
 node ID) cannot be reached through the form and stay with ``driver/opcua_invalid``.
 """
 
-from console.task.opcua import SERVER_FIELD_LABEL, OPCUARead
+from console.task.opcua import OPCUARead
 from tests.console.task.opcua_case import FLOAT_NODES, OPCUACase
 
 NODE = next(iter(FLOAT_NODES))
@@ -24,25 +24,21 @@ NODE = next(iter(FLOAT_NODES))
 class OPCUAInvalidConfig(OPCUACase):
     """Verify invalid OPC UA read task configurations are rejected.
 
+    A new task takes the simulator's server, the only OPC UA device, so a missing
+    device cannot be reached here. ``modbus_invalid`` covers it.
+
     Tests (run sequentially on one task page):
-        1. No device selected: the form blocks the deploy.
-        2. Invalid rates: stream rate above sample rate, the form blocks the deploy.
-        3. No enabled channels: the form blocks the deploy.
-        4. Duplicate channel: a second task on the same channel is rejected while
+        1. Invalid rates: stream rate above sample rate, the form blocks the deploy.
+        2. No enabled channels: the form blocks the deploy.
+        3. Duplicate channel: a second task on the same channel is rejected while
            the first one runs.
     """
 
     def run(self) -> None:
-        page = self.test_no_device()
+        page = self.create_page(OPCUARead, prefix="OPCUA Console Invalid")
         self.test_invalid_rates(page)
         self.test_no_enabled_channels(page)
         self.test_duplicate_channel(page)
-
-    def test_no_device(self) -> OPCUARead:
-        self.log("Testing: No device selected")
-        page = self.create_page(OPCUARead, prefix="OPCUA Console Invalid")
-        self.assert_device_required(page, label=SERVER_FIELD_LABEL)
-        return page
 
     def test_invalid_rates(self, page: OPCUARead) -> None:
         self.log("Testing: Invalid rates (sample_rate < stream_rate)")

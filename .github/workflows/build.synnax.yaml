@@ -160,6 +160,8 @@ on:
         default: stable
 
 env:
+  # The proxy drops streams at times, so a failed fetch falls back to the source.
+  GOPROXY: https://proxy.golang.org|direct
   RELEASE_TAG: ${{ inputs.release_tag }}
 
 permissions:
@@ -780,6 +782,11 @@ jobs:
         with:
           path: ${{ steps.go-toolchain.outputs.path }}
           key: ${{ steps.go-toolchain.outputs.key }}
+
+      - name: Download the Go modules
+        if: inputs.core && env.CORE_REF_RUN_ID == ''
+        shell: bash
+        run: .github/scripts/go_mod_download.sh core
 
       - name: Build Core
         if: inputs.core && env.CORE_REF_RUN_ID == ''

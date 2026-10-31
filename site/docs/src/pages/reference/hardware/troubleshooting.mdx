@@ -80,17 +80,42 @@ If the status is "Driver not running" instead, see
 </Problem.Fix>
 </Problem.Body>
 
-### `No integration on this Driver handles task type ...`
+### `The configuration of this Driver turns off the ... integration`
 
 <Edition.Enterprise>
 
 <Problem.Body>
 <Problem.Cause>
 
-The Driver that holds the task does not run the integration of the task, for example a
-Modbus task on a Driver on NI Linux RT. When you start the task, it shows "Failed to
-configure task", with this text in the description. A task stays on the Driver of its
-device.
+The configuration of the Driver that holds the task leaves out the integration of the
+task. When you start the task, it shows "Failed to configure task", with this text in
+the description.
+
+</Problem.Cause>
+<Problem.Fix>
+
+1. Add the integration to `integrations` in the
+   [Driver configuration](/reference/enterprise/driver/configuration#configuration-file),
+   or remove it from `--disable-integrations`.
+2. [Restart the Driver](#restart-the-driver).
+
+</Problem.Fix>
+</Problem.Body>
+
+</Edition.Enterprise>
+
+### `... tasks do not run on ...`
+
+<Edition.Enterprise>
+
+<Problem.Body>
+<Problem.Cause>
+
+The Driver that holds the task runs on an operating system that cannot run the
+integration of the task. NI tasks do not run on macOS, LabJack tasks do not run on
+Linux, and Modbus tasks do not run on NI Linux RT. When you start the task, it shows
+"Failed to configure task", with this text in the description. A task stays on the
+Driver of its device.
 
 </Problem.Cause>
 <Problem.Fix>
@@ -104,6 +129,23 @@ device.
 </Problem.Body>
 
 </Edition.Enterprise>
+
+### `No integration on this Driver runs ... tasks`
+
+<Problem.Body>
+<Problem.Cause>
+
+The Driver does not know the type of the task. This happens when the Driver is older
+than the Core. When you start the task, it shows "Failed to configure task", with this
+text in the description.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Update the Driver to the version of the Core, then start the task again.
+
+</Problem.Fix>
+</Problem.Body>
 
 <Divider.Divider x />
 
@@ -124,8 +166,9 @@ device to select shows "No devices connected" in its device list.
   a name in NI MAX. The Driver also skips CompactRIO controllers, but it finds the
   modules in them.
 - **Vendor software** -> NI devices need NI-DAQmx, LabJack devices need LJM, and
-  EtherCAT on Windows needs Npcap. See the setup page of the integration. Install the
-  software, then [restart the Driver](#restart-the-driver).
+  EtherCAT on Windows needs Npcap. See the setup page of the integration. NI and LabJack
+  devices show after the next scan. After you install Npcap,
+  [restart the Driver](#restart-the-driver).
 - **Operating system** -> NI devices do not work on macOS. LabJack devices work on
   Windows and macOS only. See
   [supported integrations](/reference/hardware#supported-integrations).
@@ -174,23 +217,22 @@ The Driver cannot connect to a Modbus, OPC UA, or HTTP device.
 
 ## Tasks
 
-### A task says the libraries are not installed
+### A task says a library is not installed
 
 <Problem.Body>
 <Problem.Cause>
 
-The Driver cannot load the vendor libraries. The task shows "Failed to create task", and
-the description says that the NI-DAQmx and System Configuration libraries or the LabJack
-LJM libraries are not installed on this system. This status shows for a task that you
-imported, or after the software was removed. NI tasks never work on macOS, and LabJack
-tasks never work on Linux.
+The Driver cannot load a vendor library. The task shows "Failed to configure task", or
+the device finder shows "Failed to scan for devices". The description names the library,
+for example "LabJack LJM shared library is not installed".
 
 </Problem.Cause>
 <Problem.Fix>
 
-1. Install NI-DAQmx or LJM.
-2. [Restart the Driver](#restart-the-driver).
-3. Start the task again.
+1. Install the library from the link in the description. Restart the computer if the
+   installer asks.
+2. Start the task again. The Driver tries to load the library each time it needs it, so
+   you do not need to restart the Driver.
 
 </Problem.Fix>
 </Problem.Body>

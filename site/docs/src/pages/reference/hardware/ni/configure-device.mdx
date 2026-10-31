@@ -30,8 +30,8 @@ finds them through NI-DAQmx. Before a task can use a device, you configure it.
   the computer that runs the Driver. If the Driver says that System Configuration is
   missing, install
   [NI System Configuration](https://www.ni.com/en/support/downloads/drivers/download.system-configuration.html).
-- After you install,
-  [restart the Driver](/reference/hardware/troubleshooting#restart-the-driver).
+- The Driver loads the software on its next scan, so you do not need to restart the
+  Driver. Restart the computer if the NI installer asks.
 
 <Divider.Divider x />
 
@@ -113,7 +113,8 @@ The Driver cannot load NI-DAQmx, or it skips the device.
 </Problem.Cause>
 <Problem.Fix>
 
-- **NI-DAQmx is not installed** -> install NI-DAQmx and restart the Driver.
+- **NI-DAQmx is not installed** -> install NI-DAQmx. The device shows after the next
+  scan.
 - **The device has no name** -> check that NI MAX shows the device with a name. The
   Driver skips a device that has no name.
 
@@ -123,17 +124,18 @@ For more causes, see
 </Problem.Fix>
 </Problem.Item>
 
-<Problem.Item message={"The NI-DAQmx and System Configuration libraries are not installed on this system."}>
+<Problem.Item message={"National Instruments NI-DAQmx shared library is not installed."}>
 <Problem.Cause>
 
-The Driver cannot load the libraries. The task shows "Failed to create task", with this
-text in the description.
+The Driver cannot load NI-DAQmx. The task shows "Failed to configure task", or the
+device finder shows "Failed to scan for devices", with this text in the description. The
+text names System Configuration instead when only that library is missing.
 
 </Problem.Cause>
 <Problem.Fix>
 
 1. Install the software in the [prerequisites](#prerequisites).
-2. Restart the Driver.
+2. Start the task again. You do not need to restart the Driver.
 
 </Problem.Fix>
 </Problem.Item>

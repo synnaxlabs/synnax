@@ -34,26 +34,29 @@ A read task reads four types of data, each with its own address range:
 
 A register holds 16 bits. An 8-bit or 16-bit value uses one register, and an 8-bit value
 is the low byte. A 32-bit value uses two registers, and a 64-bit value uses four. The
-**Data type** of the channel sets the size.
+**Data type** of the channel sets the size. A bit channel reads one bit of a register,
+and a string channel reads two characters from each register.
 
-For each type, the Driver reads all addresses from the lowest to the highest in one
-request. One request can hold at most 125 registers or 2000 coils or discrete inputs.
+For each type, the Driver reads the addresses of the task in as few requests as it can.
+One request holds at most 125 registers or 2000 coils or discrete inputs. A request also
+reads the addresses between your channels, up to the **Max gap** of the
+[server](/reference/hardware/modbus/connect-server#connection-options). Lower **Max
+registers** or **Max gap** for a device that rejects long reads or unused addresses.
 
 The Driver timestamps each read with the computer clock. See
 [timing](/reference/hardware/tasks#timing).
 
 ### Byte and word order
 
-By default, the Driver reads the low word of a 32-bit or 64-bit value first. Many
-devices send the high word first. The **Swap words** switch of the
-[server](/reference/hardware/modbus/connect-server#connection-options) puts the high
-word first, and **Swap bytes** swaps the two bytes in each register. The switches set
-the order for every register channel of the server.
+By default, the Driver reads the low word of a 32-bit or 64-bit value first (word swap,
+CDAB). Many devices send the high word first (big-endian, ABCD). The **Byte order** of
+the [server](/reference/hardware/modbus/connect-server#connection-options) sets the
+order for every register channel of the server.
 
 To change the order of one channel, use its **Bytes** and **Words** selects. Each select
 has three options:
 
-- **device** -> uses the switch of the server, and shows its value, such as **device
+- **device** -> uses the byte order of the server, and shows its value, such as **device
   (swapped)**.
 - **swapped** -> swaps the order of this channel, whatever the server sets.
 - **not swapped** -> does not swap the order of this channel, whatever the server sets.
@@ -72,7 +75,8 @@ the server.
 1. In the devices toolbar, right-click the server and select **Create read task**.
 2. Set **Sample rate** and **Stream rate**.
 3. Click **Add channel**. Select the type, then enter the address. For a register,
-   select the **Data type**.
+   select the **Data type**, and for a string, set the **String length**. For a bit, set
+   the **Bit**.
 4. Click <Icon.Play /> (**Start**).
 
 The Console creates the channels. For the server `Pump skid PLC`, a `float32` holding
@@ -184,6 +188,11 @@ Each channel has an `address`, from 0 to 65535, and a `channel`, the Synnax chan
 records the value. Each table shows the Console label of a setting, with its Python
 field under it.
 
+The Console also accepts a six-digit Modicon address, such as 300001 for input
+register 0. The first digit is the table: 0 for coils, 1 for discrete inputs, 3 for
+input registers, and 4 for holding registers. The Console shows the Modicon form next to
+each address.
+
 <Channel.Types>
 
 <Channel.Type
@@ -212,13 +221,14 @@ Reads a discrete input as 0 or 1, as `uint8`.
   python="HoldingRegisterReadChannel"
 >
 
-Reads a number from one or more holding registers.
+Reads a number or a string from one or more holding registers.
 
-| Setting                              | Default | Notes                                                                                           |
-| ------------------------------------ | ------- | ----------------------------------------------------------------------------------------------- |
-| Data type <small>`data_type`</small> | `uint8` | `int8`, `uint8`, `int16`, `uint16`, `int32`, `uint32`, `int64`, `uint64`, `float32`, `float64`. |
-| Bytes <small>`bytes_swapped`</small> | device  | `True` swaps the two bytes in each register. See [byte and word order](#byte-and-word-order).   |
-| Words <small>`words_swapped`</small> | device  | `True` reads the high word first. Only for 32-bit and 64-bit data types.                        |
+| Setting                                      | Default  | Notes                                                                                                     |
+| -------------------------------------------- | -------- | --------------------------------------------------------------------------------------------------------- |
+| Data type <small>`data_type`</small>         | `uint16` | `int8`, `uint8`, `int16`, `uint16`, `int32`, `uint32`, `int64`, `uint64`, `float32`, `float64`, `string`. |
+| String length <small>`string_length`</small> |          | For a string, the number of characters, from 1 to 250. See [strings](#strings).                           |
+| Bytes <small>`bytes_swapped`</small>         | device   | `True` swaps the two bytes in each register. See [byte and word order](#byte-and-word-order).             |
+| Words <small>`words_swapped`</small>         | device   | `True` reads the high word first. Only for 32-bit and 64-bit data types.                                  |
 
 </Channel.Type>
 
@@ -228,17 +238,52 @@ Reads a number from one or more holding registers.
   python="InputRegisterReadChannel"
 >
 
-Reads a number from one or more input registers.
+Reads a number or a string from one or more input registers.
 
-| Setting                              | Default | Notes                                                                                           |
-| ------------------------------------ | ------- | ----------------------------------------------------------------------------------------------- |
-| Data type <small>`data_type`</small> | `uint8` | `int8`, `uint8`, `int16`, `uint16`, `int32`, `uint32`, `int64`, `uint64`, `float32`, `float64`. |
-| Bytes <small>`bytes_swapped`</small> | device  | `True` swaps the two bytes in each register. See [byte and word order](#byte-and-word-order).   |
-| Words <small>`words_swapped`</small> | device  | `True` reads the high word first. Only for 32-bit and 64-bit data types.                        |
+| Setting                                      | Default  | Notes                                                                                                     |
+| -------------------------------------------- | -------- | --------------------------------------------------------------------------------------------------------- |
+| Data type <small>`data_type`</small>         | `uint16` | `int8`, `uint8`, `int16`, `uint16`, `int32`, `uint32`, `int64`, `uint64`, `float32`, `float64`, `string`. |
+| String length <small>`string_length`</small> |          | For a string, the number of characters, from 1 to 250. See [strings](#strings).                           |
+| Bytes <small>`bytes_swapped`</small>         | device   | `True` swaps the two bytes in each register. See [byte and word order](#byte-and-word-order).             |
+| Words <small>`words_swapped`</small>         | device   | `True` reads the high word first. Only for 32-bit and 64-bit data types.                                  |
+
+</Channel.Type>
+
+<Channel.Type
+  name="Holding register bit"
+  type="holding_register_bit"
+  python="HoldingRegisterBitReadChannel"
+>
+
+Reads one bit of a holding register as 0 or 1, as `uint8`.
+
+| Setting                  | Default | Notes                             |
+| ------------------------ | ------- | --------------------------------- |
+| Bit <small>`bit`</small> | `0`     | From 0 (least significant) to 15. |
+
+</Channel.Type>
+
+<Channel.Type
+  name="Register bit"
+  type="input_register_bit"
+  python="InputRegisterBitReadChannel"
+>
+
+Reads one bit of an input register as 0 or 1, as `uint8`.
+
+| Setting                  | Default | Notes                             |
+| ------------------------ | ------- | --------------------------------- |
+| Bit <small>`bit`</small> | `0`     | From 0 (least significant) to 15. |
 
 </Channel.Type>
 
 </Channel.Types>
+
+### Strings
+
+Each register holds two characters, the high byte first. **Bytes** set to swapped puts
+the low byte first. The string ends at the first NUL character. The Synnax channel of a
+string must have the `string` data type.
 
 <Divider.Divider x />
 
@@ -246,28 +291,26 @@ Reads a number from one or more input registers.
 
 ### "Illegal data address"
 
-The server does not have one of the addresses in the task. Check the address map of the
-device. Some devices count addresses from 1, so try the address minus 1.
+The server does not have one of the addresses in a request. The error names the channels
+and the addresses of the request. Check the address map of the device. Some devices
+count addresses from 1, so try the address minus 1. If the server does not have the
+addresses between two channels, set **Max gap** of the server to `0`.
 
 ### "unsupported data type: ..."
 
-The Console also lists the `boolean`, `timestamp`, and `uuid` data types, but the Driver
-does not support them. Select a data type from the
+The Driver does not support the data type of the channel. Select a data type from the
 [channel reference](#channel-reference).
-
-### "Too many data"
-
-The addresses of one type span more than one request can hold. Move the channels closer
-together, or split them into two tasks.
 
 ### The values are wrong
 
 Set the [byte and word order](#byte-and-word-order) of the server or the channel. Check
 that the data type matches the device.
 
-### The task stopped when the connection dropped
+### The connection dropped
 
-The task stops on any connection error. Start the task again when the server is back.
+The Driver reconnects and sends the request again at once, up to the **Retries** of the
+server. If that fails, the task keeps running and shows the warning "Failed to read
+data". The Driver tries again, up to every 5 seconds, until the server is back.
 
 For other problems, see
 [Connect a Modbus server](/reference/hardware/modbus/connect-server#troubleshooting) and

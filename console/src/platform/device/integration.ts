@@ -22,6 +22,10 @@ export interface Integration {
   title: string;
   description: string;
   icon: Icon.ReactElement;
+  /** The make of the devices this integration connects. */
+  make: string;
+  /** The type of the scan task each Driver runs for this integration. */
+  scanType: string;
 }
 
 /** An integration the user connects to by address. */
@@ -31,9 +35,6 @@ export interface Network extends Integration {
 
 /** An integration whose hardware the Driver finds by scanning. */
 export interface Hardware extends Integration {
-  make: string;
-  /** The type of the scan task each Driver runs for this integration. */
-  scanType: string;
   /**
    * What to check when the Driver does not find the hardware. The find view lists these
    * after a check that the Driver runs on the computer the hardware connects to.
