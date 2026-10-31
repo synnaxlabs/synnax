@@ -15,6 +15,8 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
 
+from x.telem.telem import TimeRange, TimeSpan
+
 AGGREGATION_MIN_MAX: Literal["min_max"] = "min_max"
 
 AGGREGATION_AVERAGE: Literal["average"] = "average"
@@ -23,6 +25,55 @@ AGGREGATION_DECIMATE: Literal["decimate"] = "decimate"
 
 
 Aggregation = Literal["min_max", "average", "decimate"]
+
+TIMESTAMP_FORMAT_ISO: Literal["ISO"] = "ISO"
+
+TIMESTAMP_FORMAT_ISODATE: Literal["ISODate"] = "ISODate"
+
+TIMESTAMP_FORMAT_TIME: Literal["time"] = "time"
+
+TIMESTAMP_FORMAT_PRECISETIME: Literal["preciseTime"] = "preciseTime"
+
+TIMESTAMP_FORMAT_DATE: Literal["date"] = "date"
+
+TIMESTAMP_FORMAT_PRECISEDATE: Literal["preciseDate"] = "preciseDate"
+
+TIMESTAMP_FORMAT_DATETIME: Literal["dateTime"] = "dateTime"
+
+
+TimestampFormat = Literal[
+    "ISO", "ISODate", "time", "preciseTime", "date", "preciseDate", "dateTime"
+]
+
+TIME_ZONE_LOCAL: Literal["local"] = "local"
+
+TIME_ZONE_UTC: Literal["UTC"] = "UTC"
+
+
+TimeZone = Literal["local", "UTC"]
+
+
+class DynamicWindow(BaseModel):
+    """Is a rolling window."""
+
+    variant: Literal["dynamic"] = "dynamic"
+    time_span: TimeSpan = Field(
+        default=TimeSpan(0), ge=-9223372036854775808, le=9223372036854775807
+    )
+
+
+class StaticWindow(BaseModel):
+    """Is a fixed window."""
+
+    variant: Literal["static"] = "static"
+    time_range: TimeRange
+
+
+# Is a window of time: a rolling span that ends now, or a fixed range.
+Window = Annotated[
+    DynamicWindow | StaticWindow,
+    Field(discriminator="variant"),
+]
 
 
 class StrideReduction(BaseModel):

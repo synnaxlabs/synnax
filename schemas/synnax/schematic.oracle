@@ -16,6 +16,7 @@ import "schemas/x/spatial"
 import "schemas/x/text"
 
 @go output "core/pkg/service/schematic"
+@py output "client/py/synnax/schematic"
 @ts output "client/ts/src/schematic"
 
 Key = uuid {
