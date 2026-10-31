@@ -68,7 +68,7 @@ func processUnion(
 	ud := unionData{
 		Name:     getPyName(entry),
 		Doc:      doc.Get(entry.Domains),
-		DiscName: fieldName(form.Discriminator),
+		DiscName: FieldName(form.Discriminator),
 	}
 	for _, v := range form.Variants {
 		vd := unionVariantData{

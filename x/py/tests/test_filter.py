@@ -32,3 +32,125 @@ class TestMerge:
         where = Where(key=filter.Set[str](eq="a"))
         flat = Where(key=filter.Set[str](in_=["b"]))
         assert filter.merge(where, flat) == Where(and_=[where, flat])
+
+
+class Thing(filter.Condition):
+    pass
+
+
+class Other(filter.Condition):
+    pass
+
+
+class ThingWhere(BaseModel):
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+
+    and_: list["ThingWhere"] | None = Field(default=None, alias="and")
+    or_: list["ThingWhere"] | None = Field(default=None, alias="or")
+    not_: "ThingWhere | None" = Field(default=None, alias="not")
+    key: filter.Set[int] | None = None
+    name: filter.String | None = None
+    count: filter.Ordered[int] | None = None
+    tags: filter.Contains[str] | None = None
+    virtual: bool | None = None
+    labels: list[str] | None = None
+
+
+key: filter.SetLine[Thing, int] = filter.SetLine(Thing, "key")
+name: filter.StringLine[Thing] = filter.StringLine(Thing, "name")
+count: filter.OrderedLine[Thing, int] = filter.OrderedLine(Thing, "count")
+tags: filter.ContainsLine[Thing, str] = filter.ContainsLine(Thing, "tags")
+virtual: filter.FlagLine[Thing] = filter.FlagLine(Thing, "virtual")
+labels: filter.ListLine[Thing, str] = filter.ListLine(Thing, "labels")
+
+
+class TestBuilder:
+    def test_set(self) -> None:
+        """Should build eq and in_ on a set line."""
+        assert key.eq(1).tree == {"key": {"eq": 1}}
+        assert key.in_([1, 2]).tree == {"key": {"in_": [1, 2]}}
+
+    def test_ordered(self) -> None:
+        """Should build comparisons on an ordered line."""
+        assert count.gt(3).tree == {"count": {"gt": 3}}
+        assert count.lte(3).tree == {"count": {"lte": 3}}
+
+    def test_string(self) -> None:
+        """Should build text operators with the case flag."""
+        assert name.contains("a").tree == {"name": {"contains": "a"}}
+        assert name.starts_with("a", case_insensitive=True).tree == {
+            "name": {"starts_with": "a", "case_insensitive": True}
+        }
+
+    def test_contains(self) -> None:
+        """Should build has and has_any on a contains line."""
+        assert tags.has("a").tree == {"tags": {"any": ["a"]}}
+        assert tags.has_any(["a", "b"]).tree == {"tags": {"any": ["a", "b"]}}
+
+    def test_typed_lines(self) -> None:
+        """Should build the bare value of each typed line."""
+        assert virtual.eq(False).tree == {"virtual": False}
+        assert labels.has("a").tree == {"labels": ["a"]}
+        window: filter.ValueLine[Thing, int] = filter.ValueLine(Thing, "window")
+        assert window(3).tree == {"window": 3}
+
+    def test_operators(self) -> None:
+        """Should join conditions with &, |, and ~."""
+        assert (key.eq(1) & name.eq("a")).tree == {
+            "and_": [{"key": {"eq": 1}}, {"name": {"eq": "a"}}]
+        }
+        assert (key.eq(1) | key.eq(2)).tree == {
+            "or_": [{"key": {"eq": 1}}, {"key": {"eq": 2}}]
+        }
+        assert (~key.eq(1)).tree == {"not_": {"key": {"eq": 1}}}
+
+    def test_repr(self) -> None:
+        """Should show the entity and the tree."""
+        assert repr(key.eq(1)) == "Thing({'key': {'eq': 1}})"
+
+    def test_tree_functions(self) -> None:
+        """Should join conditions with and_, or_, and not_."""
+        assert Thing.and_(key.eq(1), key.eq(2), key.eq(3)).tree == {
+            "and_": [{"key": {"eq": 1}}, {"key": {"eq": 2}}, {"key": {"eq": 3}}]
+        }
+        assert Thing.or_(key.eq(1)).tree == {"or_": [{"key": {"eq": 1}}]}
+        assert Thing.not_(key.eq(1)).tree == {"not_": {"key": {"eq": 1}}}
+
+    def test_type_errors(self) -> None:
+        """Should fail the type check for wrong entities and values."""
+        other: filter.SetLine[Other, int] = filter.SetLine(Other, "key")
+        _ = key.eq(1) & other.eq(1)  # type: ignore[operator]
+        _ = Thing.and_(key.eq(1), other.eq(1))  # type: ignore[arg-type]
+        _ = key.eq("1")  # type: ignore[arg-type]
+        _ = key.eq(None)  # type: ignore[arg-type]
+
+
+class TestJoin:
+    def test_no_conditions(self) -> None:
+        """Should join no conditions into no tree."""
+        assert filter.join(ThingWhere, []) is None
+
+    def test_one_condition(self) -> None:
+        """Should join one condition into its own tree."""
+        assert filter.join(ThingWhere, [key.eq(1)]) == ThingWhere(
+            key=filter.Set[int](eq=1)
+        )
+
+    def test_conditions(self) -> None:
+        """Should join several conditions under and_."""
+        joined = filter.join(
+            ThingWhere, [key.in_([1]), name.eq("a", case_insensitive=True)]
+        )
+        assert joined == ThingWhere(
+            and_=[
+                ThingWhere(key=filter.Set[int](in_=[1])),
+                ThingWhere(name=filter.String(eq="a", case_insensitive=True)),
+            ]
+        )
+
+    def test_stored_tree(self) -> None:
+        """Should keep a stored tree as one condition."""
+        tree = ThingWhere(virtual=True)
+        assert filter.join(ThingWhere, [Thing(tree), labels.has("a")]) == ThingWhere(
+            and_=[tree, ThingWhere(labels=["a"])]
+        )

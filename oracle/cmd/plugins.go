@@ -23,6 +23,7 @@ import (
 	goquery "github.com/synnaxlabs/oracle/plugin/go/query"
 	gotypes "github.com/synnaxlabs/oracle/plugin/go/types"
 	pbtypes "github.com/synnaxlabs/oracle/plugin/pb/types"
+	pybuilder "github.com/synnaxlabs/oracle/plugin/py/builder"
 	pytypes "github.com/synnaxlabs/oracle/plugin/py/types"
 	tsactions "github.com/synnaxlabs/oracle/plugin/ts/actions"
 	tsbuilder "github.com/synnaxlabs/oracle/plugin/ts/builder"
@@ -57,6 +58,7 @@ func buildPluginRegistry() (*plugin.Registry, error) {
 		tsactions.New(tsactions.DefaultOptions()),
 		tsfilter.New(tsfilter.DefaultOptions()),
 		tsbuilder.New(tsbuilder.DefaultOptions()),
+		pybuilder.New(pybuilder.DefaultOptions()),
 	} {
 		if err := registry.Register(p); err != nil {
 			return nil, err
