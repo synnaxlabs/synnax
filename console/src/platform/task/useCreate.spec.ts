@@ -81,6 +81,13 @@ describe("createUseCreate", () => {
     expect(tsk.config.device).toBe("");
   });
 
+  it("should leave the device empty when the only device of its make is not configured", async () => {
+    const make = uniqueName("make");
+    await createTestDevice(client, { make, configured: false });
+    const tsk = await createForMake(make);
+    expect(tsk.config.device).toBe("");
+  });
+
   it("should keep a given device over the only device of its make", async () => {
     const make = uniqueName("make");
     await createTestDevice(client, { make });
