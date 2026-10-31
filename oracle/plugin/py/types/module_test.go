@@ -12,7 +12,6 @@ package types_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/oracle/analyzer"
 	"github.com/synnaxlabs/oracle/plugin/py/types"
 	"github.com/synnaxlabs/oracle/resolution"
 	. "github.com/synnaxlabs/oracle/testutil"
@@ -31,7 +30,7 @@ var _ = Describe("Module", func() {
 			"schemas/rack",
 			"@py output \"client/py/synnax/rack\"\n\nKey = uint32",
 		)
-		t, diag := analyzer.AnalyzeSource(ctx, `
+		t, diag := Analyze(ctx, `
 			import "schemas/rack"
 
 			@py output "client/py/synnax/thing"

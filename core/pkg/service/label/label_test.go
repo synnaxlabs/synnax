@@ -191,7 +191,10 @@ var _ = Describe("Label", Ordered, func() {
 		It("Should match no labels for a resource that does not exist", func(
 			ctx SpecContext,
 		) {
-			l := label.Label{Name: "for-missing", Color: MustSucceed(color.FromHex("#000000"))}
+			l := label.Label{
+				Name:  "for-missing",
+				Color: MustSucceed(color.FromHex("#000000")),
+			}
 			Expect(w.Create(ctx, &l)).To(Succeed())
 			missing := label.OntologyID(label.Key(uuid.New()))
 			var got []label.Label
