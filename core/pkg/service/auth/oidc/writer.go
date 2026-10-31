@@ -11,7 +11,7 @@ package oidc
 
 import (
 	"context"
-	"uuid"
+	"crypto/sha256"
 
 	"github.com/synnaxlabs/gorp"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
@@ -35,7 +35,7 @@ func (w Writer) Create(
 	account Account,
 ) (Link, error) {
 	l := Link{
-		Key:      uuid.New(),
+		Key:      linkKey(account),
 		Subject:  subject,
 		Provider: account.Provider,
 		Account:  account.ID,
@@ -61,6 +61,18 @@ func (w Writer) Create(
 		return Link{}, err
 	}
 	return l, nil
+}
+
+// linkKey is the same for every link to account, so links to one account made at once
+// overwrite each other instead of passing the existence check together. The account
+// then logs in as one user.
+func linkKey(account Account) LinkKey {
+	sum := sha256.Sum256([]byte(account.Provider + "\x00" + account.ID))
+	var k LinkKey
+	copy(k[:], sum[:16])
+	k[6] = k[6]&0x0f | 0x80
+	k[8] = k[8]&0x3f | 0x80
+	return k
 }
 
 // Delete removes the links with the given keys. Unknown keys are ignored.

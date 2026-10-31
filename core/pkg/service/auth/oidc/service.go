@@ -14,7 +14,10 @@ package oidc
 
 import (
 	"context"
+	"maps"
+	"slices"
 	"sync"
+	"time"
 	"uuid"
 
 	gooidc "github.com/coreos/go-oidc/v3/oidc"
@@ -32,6 +35,7 @@ import (
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
+	"go.uber.org/zap"
 	"golang.org/x/oauth2"
 )
 
@@ -78,6 +82,11 @@ type ServiceConfig struct {
 	//
 	// [OPTIONAL] - Defaults to none.
 	Providers []Provider
+	// DiscoveryTimeout bounds each read of a provider's discovery document and how
+	// long [Service.Logins] waits for one.
+	//
+	// [OPTIONAL] - Defaults to 5 seconds.
+	DiscoveryTimeout time.Duration
 }
 
 var _ config.Config[ServiceConfig] = ServiceConfig{}
@@ -90,6 +99,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Role = override.Nil(c.Role, other.Role)
 	c.NewUserRole = override.UUID(c.NewUserRole, other.NewUserRole)
 	c.Providers = override.Slice(c.Providers, other.Providers)
+	c.DiscoveryTimeout = override.Numeric(c.DiscoveryTimeout, other.DiscoveryTimeout)
 	return c
 }
 
@@ -100,6 +110,7 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("user", c.User)
 	v.NotNil("role", c.Role)
 	v.Ternary("new_user_role", c.NewUserRole == uuid.Nil(), "must be set")
+	v.Positive("discovery_timeout", c.DiscoveryTimeout)
 	names := make(set.Set[string], len(c.Providers))
 	for _, p := range c.Providers {
 		v.Ternary("providers", p.Name == "", "name must be set")
@@ -125,16 +136,24 @@ var _ auth.Authenticator = (*Service)(nil)
 // the Core starts does not stop the Core.
 type provider struct {
 	Provider
-	mu         sync.Mutex
+	timeout time.Duration
+	// lock holds one discovery at a time; a waiter gives up when its context ends
+	lock       chan struct{}
 	discovered *gooidc.Provider
 }
 
 func (p *provider) discover(ctx context.Context) (*gooidc.Provider, error) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
+	select {
+	case p.lock <- struct{}{}:
+	case <-ctx.Done():
+		return nil, errors.Wrapf(ctx.Err(), "discover provider %q", p.Name)
+	}
+	defer func() { <-p.lock }()
 	if p.discovered != nil {
 		return p.discovered, nil
 	}
+	ctx, cancel := context.WithTimeout(ctx, p.timeout)
+	defer cancel()
 	discovered, err := gooidc.NewProvider(ctx, p.Issuer)
 	if err != nil {
 		return nil, errors.Wrapf(err, "discover provider %q", p.Name)
@@ -145,7 +164,7 @@ func (p *provider) discover(ctx context.Context) (*gooidc.Provider, error) {
 
 // OpenService opens a [Service] with the given configurations.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(ServiceConfig{}, cfgs...)
+	cfg, err := config.New(ServiceConfig{DiscoveryTimeout: 5 * time.Second}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
@@ -155,7 +174,11 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 		providers: make(map[string]*provider, len(cfg.Providers)),
 	}
 	for _, p := range cfg.Providers {
-		s.providers[p.Name] = &provider{Provider: p}
+		s.providers[p.Name] = &provider{
+			Provider: p,
+			timeout:  cfg.DiscoveryTimeout,
+			lock:     make(chan struct{}, 1),
+		}
 	}
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[LinkKey, Link]{
 		DB:              cfg.DB,
@@ -178,6 +201,51 @@ func (s *Service) NewRetrieve() Retrieve {
 // NewWriter opens a [Writer] that runs in tx.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	return Writer{svc: s, tx: gorp.OverrideTx(s.cfg.DB, tx)}
+}
+
+// Login is where a client sends a person to log in through a provider.
+type Login struct {
+	// Provider is the name of the provider.
+	Provider string
+	// AuthorizationEndpoint is the provider's login address.
+	AuthorizationEndpoint string
+	// ClientID is the Core's client ID at the provider.
+	ClientID string
+}
+
+// Logins returns the login address of each provider, sorted by name. It reads the
+// providers' discovery documents at the same time, and leaves out and logs a provider
+// whose document it cannot read within the discovery timeout, so one provider being
+// down does not hide or delay the others.
+func (s *Service) Logins(ctx context.Context) []Login {
+	names := slices.Sorted(maps.Keys(s.providers))
+	logins := make([]*Login, len(names))
+	var wg sync.WaitGroup
+	for i, name := range names {
+		wg.Go(func() {
+			p := s.providers[name]
+			// bounds the wait for a discovery another login already started
+			dCtx, cancel := context.WithTimeout(ctx, s.cfg.DiscoveryTimeout)
+			defer cancel()
+			discovered, err := p.discover(dCtx)
+			if err != nil {
+				s.cfg.L.Warn("OIDC provider unavailable", zap.Error(err))
+				return
+			}
+			logins[i] = &Login{
+				Provider:              name,
+				AuthorizationEndpoint: discovered.Endpoint().AuthURL,
+				ClientID:              p.ClientID,
+			}
+		})
+	}
+	wg.Wait()
+	return lo.FilterMap(logins, func(l *Login, _ int) (Login, bool) {
+		if l == nil {
+			return Login{}, false
+		}
+		return *l, true
+	})
 }
 
 // Account is a provider account that proved itself at the provider.
