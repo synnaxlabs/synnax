@@ -32,6 +32,13 @@ export interface Port {
   negative?: number;
 }
 
+/**
+ * Whether a port accepts the value, given the list of values it accepts. An empty list
+ * means DAQmx did not report the list, so the port accepts every value.
+ */
+export const accepts = (list: readonly string[], value: string): boolean =>
+  list.length === 0 || list.includes(value);
+
 /** A channel's hold on a port: its own port, or the negative input of its pair. */
 export interface Claim {
   channel: string;

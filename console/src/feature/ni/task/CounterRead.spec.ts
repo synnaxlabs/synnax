@@ -272,6 +272,16 @@ describe("CounterRead ports", () => {
     expect(screen.queryByText("PFI4")).toBeNull();
   });
 
+  it("should deploy a channel on a counter that does not report its types", async () => {
+    const hardware = createHardware();
+    hardware.counterInputs[0] = { ...hardware.counterInputs[0], types: [] };
+    const dev = await createNIDevice(client, { properties: { hardware } });
+    const rendered = await renderCounterRead(
+      createConfig([createChannel("ci_frequency", 0, { device: dev.key })]),
+    );
+    await deployAndAwaitTask(client, rendered.container, rendered.draft.key);
+  });
+
   it("should mark a counter the device does not have", async () => {
     const dev = await createNIDevice(client, {
       properties: { hardware: createHardware() },
