@@ -378,6 +378,61 @@ var _ = Describe("Control", func() {
 			})
 		})
 
+		Describe("Advance", func() {
+			It("Should free the time before the new start", func() {
+				g := openAt("live", telem.NewRangeSeconds(1, 20))
+				g.Advance(10 * telem.SecondTS)
+				expectControlled(telem.NewRangeSeconds(1, 10), false)
+				expectControlled(telem.NewRangeSeconds(10, 11), true)
+			})
+			It("Should do nothing for a start before the region", func() {
+				g := openAt("live", telem.NewRangeSeconds(10, 20))
+				g.Advance(1 * telem.SecondTS)
+				expectControlled(telem.NewRangeSeconds(1, 10), false)
+				expectControlled(telem.NewRangeSeconds(10, 11), true)
+			})
+			It("Should do nothing for a start at the end of the region", func() {
+				g := openAt("live", telem.NewRangeSeconds(1, 20))
+				g.Advance(20 * telem.SecondTS)
+				expectControlled(telem.NewRangeSeconds(1, 2), true)
+			})
+			It("Should do nothing to a bounded region", func() {
+				cfg, _ := baseConfig(1)
+				cfg.Subject.Key = "backfill"
+				cfg.TimeRange = telem.NewRangeSeconds(1, 20)
+				cfg.Bounded = new(true)
+				g, _ := MustSucceed2(c.OpenGate(cfg))
+				g.Advance(10 * telem.SecondTS)
+				expectControlled(telem.NewRangeSeconds(1, 2), true)
+			})
+			It("Should let a bounded gate open in the time it frees", func() {
+				g := openAt("live", telem.NewRangeSeconds(1, 20))
+				g.Advance(10 * telem.SecondTS)
+				cfg, _ := baseConfig(2)
+				cfg.Subject.Key = "backfill"
+				cfg.TimeRange = telem.NewRangeSeconds(5, 6)
+				cfg.Bounded = new(true)
+				backfill, _ := MustSucceed2(c.OpenGate(cfg))
+				MustSucceed(backfill.Authorize())
+				MustSucceed(g.Authorize())
+			})
+			It("Should not race with a concurrent lookup", func() {
+				g := openAt("live", telem.NewRangeSeconds(1, 2000))
+				var wg sync.WaitGroup
+				wg.Go(func() {
+					for i := range telem.TimeStamp(500) {
+						g.Advance(telem.SecondTS * (2 + i))
+					}
+				})
+				wg.Go(func() {
+					for range 500 {
+						c.ResourceAt(telem.NewRangeSeconds(1, 2))
+					}
+				})
+				wg.Wait()
+			})
+		})
+
 		Describe("Bounded", func() {
 			openBounded := func(key string, tr telem.TimeRange) *control.Gate[testResource] {
 				GinkgoHelper()

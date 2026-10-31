@@ -136,7 +136,8 @@ type Writer struct {
 	fileSize telem.Size
 	// prevCommit is the timestamp for the previous Commit call made to the database.
 	prevCommit telem.TimeStamp
-	// len is the number of bytes written by all internal writers of the domain writer.
+	// len is the number of bytes written by all internal writers of the domain writer
+	// since it last ended a domain.
 	len int64
 	// lastIndexPersist stores the timestamp of the last time changes to index were
 	// flushed to disk.
@@ -230,6 +231,35 @@ func (w *Writer) SetStart(start telem.TimeStamp) error {
 	return nil
 }
 
+// EndDomain ends the writer's domain, discarding any uncommitted data. The writer then
+// has no start, and SetStart starts its next domain.
+func (w *Writer) EndDomain(ctx context.Context) error {
+	if w.closed {
+		return ErrWriterClosed
+	}
+	if err := w.switchFile(ctx); err != nil {
+		return err
+	}
+	w.prevCommit = 0
+	w.len = 0
+	w.started = false
+	return nil
+}
+
+func (w *Writer) switchFile(ctx context.Context) error {
+	if err := w.internal.Close(); err != nil {
+		return err
+	}
+	key, size, internal, err := w.fc.acquireWriter(ctx)
+	if err != nil {
+		return err
+	}
+	w.fileKey = key
+	w.internal = internal
+	w.fileSize = telem.Size(size)
+	return nil
+}
+
 // Writer writes binary telemetry to the domain. Write is not safe to call concurrently
 // with any other Writer methods. The contents of p are safe to modify after Write
 // returns.
@@ -317,19 +347,9 @@ func (w *Writer) commit(
 	}
 
 	if switchingFile {
-		err = w.internal.Close()
-		if err != nil {
+		if err = w.switchFile(ctx); err != nil {
 			return span.Error(err)
 		}
-
-		newFileKey, newFileSize, newInternalWriter, err := w.fc.acquireWriter(ctx)
-		if err != nil {
-			return span.Error(err)
-		}
-
-		w.fileKey = newFileKey
-		w.internal = newInternalWriter
-		w.fileSize = telem.Size(newFileSize)
 		w.Start = commitEnd
 		w.prevCommit = 0
 		if w.OnRollover != nil {

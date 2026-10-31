@@ -230,7 +230,7 @@ var _ = Describe("Control", func() {
 						Expect(live.Write(frame(20))).To(BeFalse())
 						Expect(operator.Write(frame(21, 22))).To(BeTrue())
 						MustSucceed(operator.Commit())
-						Expect(w.Write(frame(1, 2))).Error().To(And(
+						Expect(w.Write(frame(1, 30))).Error().To(And(
 							MatchError(validate.ErrValidation),
 							MatchError(
 								ContainSubstring("cannot extend control region"),
