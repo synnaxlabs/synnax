@@ -254,6 +254,385 @@ func (x *Status) GetLabels() *LabelLabelList {
 	return nil
 }
 
+type WhereList struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Values        []*Where               `protobuf:"bytes,1,rep,name=values,proto3" json:"values,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *WhereList) Reset() {
+	*x = WhereList{}
+	mi := &file_core_pkg_service_status_pb_status_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *WhereList) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*WhereList) ProtoMessage() {}
+
+func (x *WhereList) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_status_pb_status_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use WhereList.ProtoReflect.Descriptor instead.
+func (*WhereList) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_status_pb_status_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *WhereList) GetValues() []*Where {
+	if x != nil {
+		return x.Values
+	}
+	return nil
+}
+
+type StringList struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Values        []string               `protobuf:"bytes,1,rep,name=values,proto3" json:"values,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StringList) Reset() {
+	*x = StringList{}
+	mi := &file_core_pkg_service_status_pb_status_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StringList) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StringList) ProtoMessage() {}
+
+func (x *StringList) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_status_pb_status_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StringList.ProtoReflect.Descriptor instead.
+func (*StringList) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_status_pb_status_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *StringList) GetValues() []string {
+	if x != nil {
+		return x.Values
+	}
+	return nil
+}
+
+// StringSet selects values that only compare for equality, such as keys, enum values,
+// and UUIDs. A value must match every operator that is set.
+type StringSet struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// eq matches a value equal to eq.
+	Eq *string `protobuf:"bytes,1,opt,name=eq,proto3,oneof" json:"eq,omitempty"`
+	// in matches a value equal to an element of in.
+	In            *StringList `protobuf:"bytes,2,opt,name=in,proto3" json:"in,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StringSet) Reset() {
+	*x = StringSet{}
+	mi := &file_core_pkg_service_status_pb_status_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StringSet) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StringSet) ProtoMessage() {}
+
+func (x *StringSet) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_status_pb_status_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StringSet.ProtoReflect.Descriptor instead.
+func (*StringSet) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_status_pb_status_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *StringSet) GetEq() string {
+	if x != nil && x.Eq != nil {
+		return *x.Eq
+	}
+	return ""
+}
+
+func (x *StringSet) GetIn() *StringList {
+	if x != nil {
+		return x.In
+	}
+	return nil
+}
+
+type VariantList struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Values        []Variant              `protobuf:"varint,1,rep,packed,name=values,proto3,enum=service.status.pb.Variant" json:"values,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *VariantList) Reset() {
+	*x = VariantList{}
+	mi := &file_core_pkg_service_status_pb_status_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *VariantList) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*VariantList) ProtoMessage() {}
+
+func (x *VariantList) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_status_pb_status_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use VariantList.ProtoReflect.Descriptor instead.
+func (*VariantList) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_status_pb_status_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *VariantList) GetValues() []Variant {
+	if x != nil {
+		return x.Values
+	}
+	return nil
+}
+
+// VariantSet selects values that only compare for equality, such as keys, enum values,
+// and UUIDs. A value must match every operator that is set.
+type VariantSet struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// eq matches a value equal to eq.
+	Eq *Variant `protobuf:"varint,1,opt,name=eq,proto3,enum=service.status.pb.Variant,oneof" json:"eq,omitempty"`
+	// in matches a value equal to an element of in.
+	In            *VariantList `protobuf:"bytes,2,opt,name=in,proto3" json:"in,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *VariantSet) Reset() {
+	*x = VariantSet{}
+	mi := &file_core_pkg_service_status_pb_status_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *VariantSet) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*VariantSet) ProtoMessage() {}
+
+func (x *VariantSet) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_status_pb_status_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use VariantSet.ProtoReflect.Descriptor instead.
+func (*VariantSet) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_status_pb_status_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *VariantSet) GetEq() Variant {
+	if x != nil && x.Eq != nil {
+		return *x.Eq
+	}
+	return Variant_VARIANT_SUCCESS
+}
+
+func (x *VariantSet) GetIn() *VariantList {
+	if x != nil {
+		return x.In
+	}
+	return nil
+}
+
+type LabelKeyList struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Values        []string               `protobuf:"bytes,1,rep,name=values,proto3" json:"values,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LabelKeyList) Reset() {
+	*x = LabelKeyList{}
+	mi := &file_core_pkg_service_status_pb_status_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LabelKeyList) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LabelKeyList) ProtoMessage() {}
+
+func (x *LabelKeyList) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_status_pb_status_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LabelKeyList.ProtoReflect.Descriptor instead.
+func (*LabelKeyList) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_status_pb_status_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *LabelKeyList) GetValues() []string {
+	if x != nil {
+		return x.Values
+	}
+	return nil
+}
+
+// Where is a filter that selects statuses.
+type Where struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// and matches when every child matches.
+	And *WhereList `protobuf:"bytes,1,opt,name=and,proto3" json:"and,omitempty"`
+	// or matches when any child matches.
+	Or *WhereList `protobuf:"bytes,2,opt,name=or,proto3" json:"or,omitempty"`
+	// not matches when the child does not match.
+	Not *Where `protobuf:"bytes,3,opt,name=not,proto3,oneof" json:"not,omitempty"`
+	// key selects by key.
+	Key *StringSet `protobuf:"bytes,4,opt,name=key,proto3,oneof" json:"key,omitempty"`
+	// variant selects by variant.
+	Variant *VariantSet `protobuf:"bytes,5,opt,name=variant,proto3,oneof" json:"variant,omitempty"`
+	// labels matches statuses that have any of the given labels.
+	Labels        *LabelKeyList `protobuf:"bytes,6,opt,name=labels,proto3" json:"labels,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Where) Reset() {
+	*x = Where{}
+	mi := &file_core_pkg_service_status_pb_status_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Where) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Where) ProtoMessage() {}
+
+func (x *Where) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_status_pb_status_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Where.ProtoReflect.Descriptor instead.
+func (*Where) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_status_pb_status_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *Where) GetAnd() *WhereList {
+	if x != nil {
+		return x.And
+	}
+	return nil
+}
+
+func (x *Where) GetOr() *WhereList {
+	if x != nil {
+		return x.Or
+	}
+	return nil
+}
+
+func (x *Where) GetNot() *Where {
+	if x != nil {
+		return x.Not
+	}
+	return nil
+}
+
+func (x *Where) GetKey() *StringSet {
+	if x != nil {
+		return x.Key
+	}
+	return nil
+}
+
+func (x *Where) GetVariant() *VariantSet {
+	if x != nil {
+		return x.Variant
+	}
+	return nil
+}
+
+func (x *Where) GetLabels() *LabelKeyList {
+	if x != nil {
+		return x.Labels
+	}
+	return nil
+}
+
 var File_core_pkg_service_status_pb_status_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_status_pb_status_proto_rawDesc = "" +
@@ -269,7 +648,36 @@ const file_core_pkg_service_status_pb_status_proto_rawDesc = "" +
 	"\vdescription\x18\x05 \x01(\tR\vdescription\x12\x12\n" +
 	"\x04time\x18\x06 \x01(\x03R\x04time\x12.\n" +
 	"\adetails\x18\a \x01(\v2\x14.google.protobuf.AnyR\adetails\x129\n" +
-	"\x06labels\x18\b \x01(\v2!.service.status.pb.LabelLabelListR\x06labels*\x83\x01\n" +
+	"\x06labels\x18\b \x01(\v2!.service.status.pb.LabelLabelListR\x06labels\"=\n" +
+	"\tWhereList\x120\n" +
+	"\x06values\x18\x01 \x03(\v2\x18.service.status.pb.WhereR\x06values\"$\n" +
+	"\n" +
+	"StringList\x12\x16\n" +
+	"\x06values\x18\x01 \x03(\tR\x06values\"V\n" +
+	"\tStringSet\x12\x13\n" +
+	"\x02eq\x18\x01 \x01(\tH\x00R\x02eq\x88\x01\x01\x12-\n" +
+	"\x02in\x18\x02 \x01(\v2\x1d.service.status.pb.StringListR\x02inB\x05\n" +
+	"\x03_eq\"A\n" +
+	"\vVariantList\x122\n" +
+	"\x06values\x18\x01 \x03(\x0e2\x1a.service.status.pb.VariantR\x06values\"t\n" +
+	"\n" +
+	"VariantSet\x12/\n" +
+	"\x02eq\x18\x01 \x01(\x0e2\x1a.service.status.pb.VariantH\x00R\x02eq\x88\x01\x01\x12.\n" +
+	"\x02in\x18\x02 \x01(\v2\x1e.service.status.pb.VariantListR\x02inB\x05\n" +
+	"\x03_eq\"&\n" +
+	"\fLabelKeyList\x12\x16\n" +
+	"\x06values\x18\x01 \x03(\tR\x06values\"\xde\x02\n" +
+	"\x05Where\x12.\n" +
+	"\x03and\x18\x01 \x01(\v2\x1c.service.status.pb.WhereListR\x03and\x12,\n" +
+	"\x02or\x18\x02 \x01(\v2\x1c.service.status.pb.WhereListR\x02or\x12/\n" +
+	"\x03not\x18\x03 \x01(\v2\x18.service.status.pb.WhereH\x00R\x03not\x88\x01\x01\x123\n" +
+	"\x03key\x18\x04 \x01(\v2\x1c.service.status.pb.StringSetH\x01R\x03key\x88\x01\x01\x12<\n" +
+	"\avariant\x18\x05 \x01(\v2\x1d.service.status.pb.VariantSetH\x02R\avariant\x88\x01\x01\x127\n" +
+	"\x06labels\x18\x06 \x01(\v2\x1f.service.status.pb.LabelKeyListR\x06labelsB\x06\n" +
+	"\x04_notB\x06\n" +
+	"\x04_keyB\n" +
+	"\n" +
+	"\b_variant*\x83\x01\n" +
 	"\aVariant\x12\x13\n" +
 	"\x0fVARIANT_SUCCESS\x10\x00\x12\x10\n" +
 	"\fVARIANT_INFO\x10\x01\x12\x13\n" +
@@ -292,24 +700,42 @@ func file_core_pkg_service_status_pb_status_proto_rawDescGZIP() []byte {
 }
 
 var file_core_pkg_service_status_pb_status_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_core_pkg_service_status_pb_status_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_core_pkg_service_status_pb_status_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
 var file_core_pkg_service_status_pb_status_proto_goTypes = []any{
 	(Variant)(0),           // 0: service.status.pb.Variant
 	(*LabelLabelList)(nil), // 1: service.status.pb.LabelLabelList
 	(*Status)(nil),         // 2: service.status.pb.Status
-	(*pb.Label)(nil),       // 3: service.label.pb.Label
-	(*anypb.Any)(nil),      // 4: google.protobuf.Any
+	(*WhereList)(nil),      // 3: service.status.pb.WhereList
+	(*StringList)(nil),     // 4: service.status.pb.StringList
+	(*StringSet)(nil),      // 5: service.status.pb.StringSet
+	(*VariantList)(nil),    // 6: service.status.pb.VariantList
+	(*VariantSet)(nil),     // 7: service.status.pb.VariantSet
+	(*LabelKeyList)(nil),   // 8: service.status.pb.LabelKeyList
+	(*Where)(nil),          // 9: service.status.pb.Where
+	(*pb.Label)(nil),       // 10: service.label.pb.Label
+	(*anypb.Any)(nil),      // 11: google.protobuf.Any
 }
 var file_core_pkg_service_status_pb_status_proto_depIdxs = []int32{
-	3, // 0: service.status.pb.LabelLabelList.values:type_name -> service.label.pb.Label
-	0, // 1: service.status.pb.Status.variant:type_name -> service.status.pb.Variant
-	4, // 2: service.status.pb.Status.details:type_name -> google.protobuf.Any
-	1, // 3: service.status.pb.Status.labels:type_name -> service.status.pb.LabelLabelList
-	4, // [4:4] is the sub-list for method output_type
-	4, // [4:4] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	4, // [4:4] is the sub-list for extension extendee
-	0, // [0:4] is the sub-list for field type_name
+	10, // 0: service.status.pb.LabelLabelList.values:type_name -> service.label.pb.Label
+	0,  // 1: service.status.pb.Status.variant:type_name -> service.status.pb.Variant
+	11, // 2: service.status.pb.Status.details:type_name -> google.protobuf.Any
+	1,  // 3: service.status.pb.Status.labels:type_name -> service.status.pb.LabelLabelList
+	9,  // 4: service.status.pb.WhereList.values:type_name -> service.status.pb.Where
+	4,  // 5: service.status.pb.StringSet.in:type_name -> service.status.pb.StringList
+	0,  // 6: service.status.pb.VariantList.values:type_name -> service.status.pb.Variant
+	0,  // 7: service.status.pb.VariantSet.eq:type_name -> service.status.pb.Variant
+	6,  // 8: service.status.pb.VariantSet.in:type_name -> service.status.pb.VariantList
+	3,  // 9: service.status.pb.Where.and:type_name -> service.status.pb.WhereList
+	3,  // 10: service.status.pb.Where.or:type_name -> service.status.pb.WhereList
+	9,  // 11: service.status.pb.Where.not:type_name -> service.status.pb.Where
+	5,  // 12: service.status.pb.Where.key:type_name -> service.status.pb.StringSet
+	7,  // 13: service.status.pb.Where.variant:type_name -> service.status.pb.VariantSet
+	8,  // 14: service.status.pb.Where.labels:type_name -> service.status.pb.LabelKeyList
+	15, // [15:15] is the sub-list for method output_type
+	15, // [15:15] is the sub-list for method input_type
+	15, // [15:15] is the sub-list for extension type_name
+	15, // [15:15] is the sub-list for extension extendee
+	0,  // [0:15] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_service_status_pb_status_proto_init() }
@@ -317,13 +743,16 @@ func file_core_pkg_service_status_pb_status_proto_init() {
 	if File_core_pkg_service_status_pb_status_proto != nil {
 		return
 	}
+	file_core_pkg_service_status_pb_status_proto_msgTypes[4].OneofWrappers = []any{}
+	file_core_pkg_service_status_pb_status_proto_msgTypes[6].OneofWrappers = []any{}
+	file_core_pkg_service_status_pb_status_proto_msgTypes[8].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_service_status_pb_status_proto_rawDesc), len(file_core_pkg_service_status_pb_status_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   2,
+			NumMessages:   9,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

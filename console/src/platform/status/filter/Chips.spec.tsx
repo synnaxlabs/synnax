@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type status } from "@synnaxlabs/client";
+import { status } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { Form } from "@synnaxlabs/lyra/form";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -22,18 +22,23 @@ import { createConsoleWrapper, findTagCloseButton } from "@/testutil";
 
 const client = createTestClient();
 
-const schema = z.object({
-  query: z.object({ variants: z.array(z.string()) }),
-});
+const schema = z.object({ where: status.whereZ.optional() });
 
-const Fixture = ({ variants }: { variants: status.Variant[] }): ReactElement => {
-  const methods = Form.use({ schema, values: { query: { variants } } });
+interface FixtureProps {
+  variant?: status.Where["variant"];
+}
+
+const Fixture = ({ variant }: FixtureProps): ReactElement => {
+  const methods = Form.use({
+    schema,
+    values: { where: variant == null ? undefined : { variant } },
+  });
   return (
     <View.Frame resourceType="status" icon="Status">
       <Form.Form<typeof schema> {...methods}>
         <Status.Filter.Chips />
-        <Form.Field<status.Variant[]> path="query.variants" showLabel={false}>
-          {({ value }) => <span>{`value:${value.join(",")}`}</span>}
+        <Form.Field<status.Where["variant"]> path="where.variant" showLabel={false}>
+          {({ value }) => <span>{`value:${value?.in?.join(",") ?? "none"}`}</span>}
         </Form.Field>
       </Form.Form>
     </View.Frame>
@@ -42,9 +47,9 @@ const Fixture = ({ variants }: { variants: status.Variant[] }): ReactElement => 
 Fixture.displayName = "Fixture";
 
 describe("Status.Filter.Chips", () => {
-  it("should remove the variant from the filter query when its chip is closed", async () => {
+  it("should remove the variant from the where when its chip is closed", async () => {
     const { wrapper } = await createConsoleWrapper({ client });
-    render(<Fixture variants={["error", "success"]} />, { wrapper });
+    render(<Fixture variant={{ in: ["error", "success"] }} />, { wrapper });
     await waitFor(() => expect(screen.getByText("Error")).toBeTruthy());
     await enableEditing();
     const close = await waitFor(() => findTagCloseButton("Error"));
@@ -54,9 +59,27 @@ describe("Status.Filter.Chips", () => {
     expect(screen.getByText("Success")).toBeTruthy();
   });
 
+  it("should drop the variant line when the last chip is closed", async () => {
+    const { wrapper } = await createConsoleWrapper({ client });
+    render(<Fixture variant={{ in: ["error"] }} />, { wrapper });
+    await waitFor(() => expect(screen.getByText("Error")).toBeTruthy());
+    await enableEditing();
+    fireEvent.click(await waitFor(() => findTagCloseButton("Error")));
+    await waitFor(() => expect(screen.getByText("value:none")).toBeTruthy());
+  });
+
+  it("should show and remove a variant that the where selects with eq", async () => {
+    const { wrapper } = await createConsoleWrapper({ client });
+    render(<Fixture variant={{ eq: "error" }} />, { wrapper });
+    await waitFor(() => expect(screen.getByText("Error")).toBeTruthy());
+    await enableEditing();
+    fireEvent.click(await waitFor(() => findTagCloseButton("Error")));
+    await waitFor(() => expect(screen.queryByText("Variants")).toBeNull());
+  });
+
   it("should render nothing when no variants are selected", async () => {
     const { wrapper } = await createConsoleWrapper({ client });
-    render(<Fixture variants={[]} />, { wrapper });
+    render(<Fixture />, { wrapper });
     await waitFor(() => expect(screen.getByText("All statuses")).toBeTruthy());
     expect(screen.queryByText("Variants")).toBeNull();
   });

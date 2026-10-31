@@ -21,6 +21,7 @@
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/telem/telem.h"
 
+#include "core/pkg/api/status/pb/status.pb.h"
 #include "core/pkg/transport/grpc/status/status.pb.h"
 
 namespace synnax::status {
@@ -29,7 +30,7 @@ const std::string STATUS_SET_CHANNEL_NAME = "sy_status_set";
 
 /// @brief Freighter retrieve transport.
 using RetrieveClient = freighter::
-    UnaryClient<grpc::status::RetrieveRequest, grpc::status::RetrieveResponse>;
+    UnaryClient<grpc::status::RetrieveRequest, ::api::status::pb::RetrieveResponse>;
 
 /// @brief Freighter set transport.
 using SetClient = freighter::
@@ -155,9 +156,24 @@ public:
     [[nodiscard]] std::
         pair<std::vector<synnax::status::Status<Details>>, x::errors::Error>
         retrieve(const std::vector<std::string> &keys) const {
-        grpc::status::RetrieveRequest req;
-        req.mutable_keys()->Add(keys.begin(), keys.end());
-        auto [res, err] = this->retrieve_client->send("/status/retrieve", req);
+        return this->retrieve<Details>(
+            RetrieveRequest{.where = Where{.key = x::filter::Set<Key>{.in = keys}}}
+        );
+    }
+
+    /// @brief Retrieves the statuses that req selects.
+    /// @tparam Details The type of custom details expected in the retrieved statuses.
+    /// @returns A pair containing the statuses and an error where ok() is false if the
+    /// statuses could not be retrieved.
+    template<typename Details = x::json::json>
+    [[nodiscard]] std::
+        pair<std::vector<synnax::status::Status<Details>>, x::errors::Error>
+        retrieve(const RetrieveRequest &req) const {
+        auto [pb_req, pb_err] = req.to_proto();
+        if (pb_err) return {std::vector<synnax::status::Status<Details>>(), pb_err};
+        grpc::status::RetrieveRequest grpc_req;
+        *grpc_req.mutable_request() = pb_req;
+        auto [res, err] = this->retrieve_client->send("/status/retrieve", grpc_req);
         if (err) return {std::vector<synnax::status::Status<Details>>(), err};
         std::vector<synnax::status::Status<Details>> statuses;
         statuses.reserve(res.statuses_size());

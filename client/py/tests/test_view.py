@@ -12,7 +12,8 @@ from uuid import uuid4
 import pytest
 
 import synnax as sy
-from synnax.view import RangeQuery, RangeView, StatusQuery, StatusView
+from synnax import ranger, status
+from synnax.view import RangeView, StatusView
 from x.testutil import assert_eventually
 
 
@@ -22,47 +23,79 @@ class TestView:
         """Should create a single view."""
         label = uuid4()
         v = client.views.create(
-            RangeView(name="Test View", query=RangeQuery(has_labels=[label]))
+            RangeView(name="Test View", where=ranger.Where(labels=[label]))
         )
         assert isinstance(v, RangeView)
         assert v.name == "Test View"
-        assert v.query.has_labels == [label]
+        assert v.where == ranger.Where(labels=[label])
+
+    def test_where_tree(self, client: sy.Synnax) -> None:
+        """Should store a where tree."""
+        where = status.Where(
+            or_=[
+                status.Where(variant=sy.filter.Set[status.Variant](in_=["error"])),
+                status.Where(not_=status.Where(labels=[uuid4()])),
+            ]
+        )
+        v = client.views.create(StatusView(name="Tree", where=where))
+        retrieved = client.views.retrieve(key=v.key)
+        assert isinstance(retrieved, StatusView)
+        assert retrieved.where == where
+
+    def test_invalid_where(self, client: sy.Synnax) -> None:
+        """Should reject a where that the Core cannot run."""
+        with pytest.raises(sy.PathError) as exc:
+            client.views.create(
+                RangeView(
+                    name="Bad", where=ranger.Where(name=sy.filter.String(regex="("))
+                )
+            )
+        assert exc.value.path == ["where", "name", "regex"]
 
     def test_rename(self, client: sy.Synnax) -> None:
-        """Should rename a view and keep its query."""
-        v = client.views.create(
-            StatusView(name="Before Rename", query=StatusQuery(variants=["error"]))
-        )
+        """Should rename a view and keep its where."""
+        where = status.Where(variant=sy.filter.Set[status.Variant](eq="error"))
+        v = client.views.create(StatusView(name="Before Rename", where=where))
         client.views.rename(v.key, "After Rename")
         renamed = client.views.retrieve(key=v.key)
         assert isinstance(renamed, StatusView)
         assert renamed.name == "After Rename"
-        assert renamed.query.variants == ["error"]
+        assert renamed.where == where
 
     def test_create_multiple(self, client: sy.Synnax) -> None:
         """Should create multiple views of different types."""
         views = client.views.create(
             [
-                RangeView(name="Multi 1", query=RangeQuery()),
-                StatusView(name="Multi 2", query=StatusQuery(variants=["error"])),
+                RangeView(name="Multi 1"),
+                StatusView(
+                    name="Multi 2",
+                    where=status.Where(
+                        variant=sy.filter.Set[status.Variant](in_=["error"])
+                    ),
+                ),
             ]
         )
         assert len(views) == 2
         assert isinstance(views[0], RangeView)
         assert isinstance(views[1], StatusView)
-        assert views[1].query.variants == ["error"]
+        assert views[1].where == status.Where(
+            variant=sy.filter.Set[status.Variant](in_=["error"])
+        )
 
     def test_retrieve_by_key(self, client: sy.Synnax) -> None:
         """Should retrieve a view by key."""
         created = client.views.create(
-            StatusView(name="Retrieve Me", query=StatusQuery(variants=["success"]))
+            StatusView(
+                name="Retrieve Me",
+                where=status.Where(variant=sy.filter.Set[status.Variant](eq="success")),
+            )
         )
         assert client.views.retrieve(key=created.key) == created
 
     def test_retrieve_by_keys(self, client: sy.Synnax) -> None:
         """Should retrieve multiple views by keys."""
-        v1 = client.views.create(RangeView(name="View A", query=RangeQuery()))
-        v2 = client.views.create(StatusView(name="View B", query=StatusQuery()))
+        v1 = client.views.create(RangeView(name="View A"))
+        v2 = client.views.create(StatusView(name="View B"))
         views = client.views.retrieve(keys=[v1.key, v2.key])
         assert len(views) == 2
 
@@ -71,8 +104,8 @@ class TestView:
         prefix = f"searchable-view-{uuid4()}"
         client.views.create(
             [
-                RangeView(name=f"{prefix}-1", query=RangeQuery()),
-                StatusView(name=f"{prefix}-2", query=StatusQuery()),
+                RangeView(name=f"{prefix}-1"),
+                StatusView(name=f"{prefix}-2"),
             ]
         )
 
@@ -87,8 +120,8 @@ class TestView:
         """Should retrieve views filtered by type."""
         views = client.views.create(
             [
-                RangeView(name="Range", query=RangeQuery()),
-                StatusView(name="Status", query=StatusQuery()),
+                RangeView(name="Range"),
+                StatusView(name="Status"),
             ]
         )
         res = client.views.retrieve(keys=[v.key for v in views], types=["status"])
@@ -97,15 +130,15 @@ class TestView:
 
     def test_delete(self, client: sy.Synnax) -> None:
         """Should delete a view."""
-        v = client.views.create(RangeView(name="To Delete", query=RangeQuery()))
+        v = client.views.create(RangeView(name="To Delete"))
         client.views.delete(v.key)
         with pytest.raises(sy.NotFoundError):
             client.views.retrieve(key=v.key)
 
     def test_delete_multiple(self, client: sy.Synnax) -> None:
         """Should delete multiple views."""
-        v1 = client.views.create(RangeView(name="Delete 1", query=RangeQuery()))
-        v2 = client.views.create(StatusView(name="Delete 2", query=StatusQuery()))
+        v1 = client.views.create(RangeView(name="Delete 1"))
+        v2 = client.views.create(StatusView(name="Delete 2"))
         client.views.delete([v1.key, v2.key])
         with pytest.raises(sy.NotFoundError):
             client.views.retrieve(keys=[v1.key, v2.key])

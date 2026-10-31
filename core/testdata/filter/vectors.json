@@ -1,0 +1,604 @@
+{
+  "ranges": {
+    "records": {
+      "a": {
+        "key": "00000000-0000-4000-8000-00000000000a",
+        "name": "Hotfire 1",
+        "time_range": {
+          "start": 1000,
+          "end": 2000
+        },
+        "labels": [
+          {
+            "key": "00000000-0000-4000-8000-0000000000f1",
+            "name": "Engine",
+            "color": "#ff0000"
+          }
+        ]
+      },
+      "b": {
+        "key": "00000000-0000-4000-8000-00000000000b",
+        "name": "Hotfire 2",
+        "time_range": {
+          "start": 2000,
+          "end": 3000
+        },
+        "labels": [
+          {
+            "key": "00000000-0000-4000-8000-0000000000f1",
+            "name": "Engine",
+            "color": "#ff0000"
+          },
+          {
+            "key": "00000000-0000-4000-8000-0000000000f2",
+            "name": "Anomaly",
+            "color": "#00ff00"
+          }
+        ]
+      },
+      "c": {
+        "key": "00000000-0000-4000-8000-00000000000c",
+        "name": "Cold flow",
+        "time_range": {
+          "start": 4000,
+          "end": 5000
+        },
+        "labels": []
+      }
+    },
+    "cases": [
+      {
+        "name": "an empty where matches every range",
+        "where": {},
+        "expected": ["a", "b", "c"]
+      },
+      {
+        "name": "key eq",
+        "where": {
+          "key": {
+            "eq": "00000000-0000-4000-8000-00000000000a"
+          }
+        },
+        "expected": ["a"]
+      },
+      {
+        "name": "key in",
+        "where": {
+          "key": {
+            "in": [
+              "00000000-0000-4000-8000-00000000000a",
+              "00000000-0000-4000-8000-00000000000c"
+            ]
+          }
+        },
+        "expected": ["a", "c"]
+      },
+      {
+        "name": "an empty key in matches nothing",
+        "where": {
+          "key": {
+            "in": []
+          }
+        },
+        "expected": []
+      },
+      {
+        "name": "a missing key matches nothing",
+        "where": {
+          "key": {
+            "in": ["00000000-0000-4000-8000-0000000000ee"]
+          }
+        },
+        "expected": []
+      },
+      {
+        "name": "a missing key leaves the other keys",
+        "where": {
+          "key": {
+            "in": [
+              "00000000-0000-4000-8000-00000000000a",
+              "00000000-0000-4000-8000-0000000000ee"
+            ]
+          }
+        },
+        "expected": ["a"]
+      },
+      {
+        "name": "name eq",
+        "where": {
+          "name": {
+            "eq": "Cold flow"
+          }
+        },
+        "expected": ["c"]
+      },
+      {
+        "name": "name in",
+        "where": {
+          "name": {
+            "in": ["Hotfire 1", "Cold flow"]
+          }
+        },
+        "expected": ["a", "c"]
+      },
+      {
+        "name": "an empty name in matches nothing",
+        "where": {
+          "name": {
+            "in": []
+          }
+        },
+        "expected": []
+      },
+      {
+        "name": "the operators on one slot are ANDed",
+        "where": {
+          "name": {
+            "eq": "Hotfire 1",
+            "in": ["Hotfire 1", "Hotfire 2"]
+          }
+        },
+        "expected": ["a"]
+      },
+      {
+        "name": "name regex",
+        "where": {
+          "name": {
+            "regex": "^Hotfire"
+          }
+        },
+        "expected": ["a", "b"],
+        "server_computed": true
+      },
+      {
+        "name": "the slots on one node are ANDed",
+        "where": {
+          "name": {
+            "in": ["Hotfire 1", "Hotfire 2"]
+          },
+          "key": {
+            "eq": "00000000-0000-4000-8000-00000000000b"
+          }
+        },
+        "expected": ["b"]
+      },
+      {
+        "name": "an empty and matches every range",
+        "where": {
+          "and": []
+        },
+        "expected": ["a", "b", "c"]
+      },
+      {
+        "name": "an empty or matches nothing",
+        "where": {
+          "or": []
+        },
+        "expected": []
+      },
+      {
+        "name": "and",
+        "where": {
+          "and": [
+            {
+              "name": {
+                "eq": "Hotfire 1"
+              }
+            },
+            {
+              "key": {
+                "in": [
+                  "00000000-0000-4000-8000-00000000000a",
+                  "00000000-0000-4000-8000-00000000000b"
+                ]
+              }
+            }
+          ]
+        },
+        "expected": ["a"]
+      },
+      {
+        "name": "or",
+        "where": {
+          "or": [
+            {
+              "name": {
+                "eq": "Cold flow"
+              }
+            },
+            {
+              "key": {
+                "eq": "00000000-0000-4000-8000-00000000000a"
+              }
+            }
+          ]
+        },
+        "expected": ["a", "c"]
+      },
+      {
+        "name": "not",
+        "where": {
+          "not": {
+            "name": {
+              "eq": "Cold flow"
+            }
+          }
+        },
+        "expected": ["a", "b"]
+      },
+      {
+        "name": "not of an empty node matches nothing",
+        "where": {
+          "not": {}
+        },
+        "expected": []
+      },
+      {
+        "name": "a nested tree",
+        "where": {
+          "or": [
+            {
+              "and": [
+                {
+                  "key": {
+                    "in": [
+                      "00000000-0000-4000-8000-00000000000a",
+                      "00000000-0000-4000-8000-00000000000b"
+                    ]
+                  }
+                },
+                {
+                  "not": {
+                    "name": {
+                      "eq": "Hotfire 2"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "name": {
+                "eq": "Cold flow"
+              }
+            }
+          ]
+        },
+        "expected": ["a", "c"]
+      },
+      {
+        "name": "overlaps",
+        "where": {
+          "overlaps": {
+            "start": 1500,
+            "end": 2500
+          }
+        },
+        "expected": ["a", "b"]
+      },
+      {
+        "name": "ranges that only touch do not overlap",
+        "where": {
+          "overlaps": {
+            "start": 3000,
+            "end": 4000
+          }
+        },
+        "expected": []
+      },
+      {
+        "name": "labels",
+        "where": {
+          "labels": ["00000000-0000-4000-8000-0000000000f2"]
+        },
+        "expected": ["b"]
+      },
+      {
+        "name": "labels matches any of the labels",
+        "where": {
+          "labels": [
+            "00000000-0000-4000-8000-0000000000f1",
+            "00000000-0000-4000-8000-0000000000f2"
+          ]
+        },
+        "expected": ["a", "b"]
+      },
+      {
+        "name": "empty labels match nothing",
+        "where": {
+          "labels": []
+        },
+        "expected": []
+      },
+      {
+        "name": "a regex in an or branch makes the tree server-computed",
+        "where": {
+          "or": [
+            {
+              "name": {
+                "regex": "^Cold"
+              }
+            },
+            {
+              "key": {
+                "eq": "00000000-0000-4000-8000-00000000000a"
+              }
+            }
+          ]
+        },
+        "expected": ["a", "c"],
+        "server_computed": true
+      },
+      {
+        "name": "labels under not",
+        "where": {
+          "not": {
+            "labels": ["00000000-0000-4000-8000-0000000000f2"]
+          }
+        },
+        "expected": ["a", "c"]
+      }
+    ]
+  },
+  "statuses": {
+    "records": {
+      "a": {
+        "key": "status-a",
+        "name": "Hotfire 1",
+        "variant": "success",
+        "message": "Started task",
+        "time": 1000,
+        "labels": [
+          {
+            "key": "00000000-0000-4000-8000-0000000000f1",
+            "name": "Engine",
+            "color": "#ff0000"
+          }
+        ]
+      },
+      "b": {
+        "key": "status-b",
+        "name": "Hotfire 2",
+        "variant": "error",
+        "message": "Started task",
+        "time": 1000,
+        "labels": [
+          {
+            "key": "00000000-0000-4000-8000-0000000000f1",
+            "name": "Engine",
+            "color": "#ff0000"
+          },
+          {
+            "key": "00000000-0000-4000-8000-0000000000f2",
+            "name": "Anomaly",
+            "color": "#00ff00"
+          }
+        ]
+      },
+      "c": {
+        "key": "status-c",
+        "name": "Cold flow",
+        "variant": "warning",
+        "message": "Started task",
+        "time": 1000,
+        "labels": []
+      }
+    },
+    "cases": [
+      {
+        "name": "an empty where matches every status",
+        "where": {},
+        "expected": ["a", "b", "c"]
+      },
+      {
+        "name": "key eq",
+        "where": {
+          "key": {
+            "eq": "status-a"
+          }
+        },
+        "expected": ["a"]
+      },
+      {
+        "name": "key in",
+        "where": {
+          "key": {
+            "in": ["status-a", "status-c"]
+          }
+        },
+        "expected": ["a", "c"]
+      },
+      {
+        "name": "an empty key in matches nothing",
+        "where": {
+          "key": {
+            "in": []
+          }
+        },
+        "expected": []
+      },
+      {
+        "name": "a missing key matches nothing",
+        "where": {
+          "key": {
+            "eq": "status-z"
+          }
+        },
+        "expected": []
+      },
+      {
+        "name": "a missing key leaves the other keys",
+        "where": {
+          "key": {
+            "in": ["status-a", "status-z"]
+          }
+        },
+        "expected": ["a"]
+      },
+      {
+        "name": "variant eq",
+        "where": {
+          "variant": {
+            "eq": "error"
+          }
+        },
+        "expected": ["b"]
+      },
+      {
+        "name": "variant in",
+        "where": {
+          "variant": {
+            "in": ["success", "warning"]
+          }
+        },
+        "expected": ["a", "c"]
+      },
+      {
+        "name": "an empty variant in matches nothing",
+        "where": {
+          "variant": {
+            "in": []
+          }
+        },
+        "expected": []
+      },
+      {
+        "name": "the slots on one node are ANDed",
+        "where": {
+          "key": {
+            "in": ["status-a", "status-b"]
+          },
+          "variant": {
+            "eq": "error"
+          }
+        },
+        "expected": ["b"]
+      },
+      {
+        "name": "an empty and matches every status",
+        "where": {
+          "and": []
+        },
+        "expected": ["a", "b", "c"]
+      },
+      {
+        "name": "an empty or matches nothing",
+        "where": {
+          "or": []
+        },
+        "expected": []
+      },
+      {
+        "name": "and",
+        "where": {
+          "and": [
+            {
+              "labels": ["00000000-0000-4000-8000-0000000000f1"]
+            },
+            {
+              "variant": {
+                "eq": "success"
+              }
+            }
+          ]
+        },
+        "expected": ["a"]
+      },
+      {
+        "name": "or",
+        "where": {
+          "or": [
+            {
+              "variant": {
+                "eq": "success"
+              }
+            },
+            {
+              "variant": {
+                "eq": "warning"
+              }
+            }
+          ]
+        },
+        "expected": ["a", "c"]
+      },
+      {
+        "name": "not",
+        "where": {
+          "not": {
+            "variant": {
+              "eq": "error"
+            }
+          }
+        },
+        "expected": ["a", "c"]
+      },
+      {
+        "name": "not of an empty node matches nothing",
+        "where": {
+          "not": {}
+        },
+        "expected": []
+      },
+      {
+        "name": "a nested tree",
+        "where": {
+          "or": [
+            {
+              "and": [
+                {
+                  "labels": ["00000000-0000-4000-8000-0000000000f1"]
+                },
+                {
+                  "not": {
+                    "variant": {
+                      "eq": "error"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "key": {
+                "eq": "status-c"
+              }
+            }
+          ]
+        },
+        "expected": ["a", "c"]
+      },
+      {
+        "name": "labels",
+        "where": {
+          "labels": ["00000000-0000-4000-8000-0000000000f2"]
+        },
+        "expected": ["b"]
+      },
+      {
+        "name": "labels matches any of the labels",
+        "where": {
+          "labels": [
+            "00000000-0000-4000-8000-0000000000f1",
+            "00000000-0000-4000-8000-0000000000f2"
+          ]
+        },
+        "expected": ["a", "b"]
+      },
+      {
+        "name": "empty labels match nothing",
+        "where": {
+          "labels": []
+        },
+        "expected": []
+      },
+      {
+        "name": "labels under not",
+        "where": {
+          "not": {
+            "labels": ["00000000-0000-4000-8000-0000000000f2"]
+          }
+        },
+        "expected": ["a", "c"]
+      }
+    ]
+  }
+}

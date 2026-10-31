@@ -26,6 +26,14 @@ const thing = (key: string, size = 1): Thing => ({ key, name: `${key}-name`, siz
 
 const requestZ = z.object({
   keys: z.string().array().optional(),
+  where: z
+    .object({
+      key: z
+        .object({ eq: z.string().optional(), in: z.string().array().optional() })
+        .optional(),
+      name: z.object({ eq: z.string().optional() }).optional(),
+    })
+    .optional(),
   minSize: z.number().optional(),
   searchTerm: z.string().optional(),
 });
@@ -252,6 +260,77 @@ describe("Retriever", () => {
       release([thing("a")]);
       await pending;
       expect(client.store.get("a")?.name).toEqual("renamed");
+    });
+
+    it("routes a where that only matches a key list through the table fetch", async () => {
+      const fetchKeys = vi.fn(async (keys: string[]) => keys.map((k) => thing(k)));
+      const fetchRequest = vi.fn(async () => []);
+      const client = new Client(newCache(), fetchKeys, fetchRequest);
+      client.store.set([thing("a")]);
+      const results = await client.retrieve({ where: { key: { in: ["a", "b"] } } });
+      expect(results.map((t) => t.key)).toEqual(["a", "b"]);
+      expect(fetchKeys).toHaveBeenCalledWith(["b"]);
+      expect(fetchRequest).not.toHaveBeenCalled();
+    });
+
+    it("answers a where with an empty key list from the table", async () => {
+      const fetchRequest = vi.fn(async () => []);
+      const client = new Client(newCache(), async () => [], fetchRequest);
+      expect(client.getCached({ where: { key: { in: [] } } })).toEqual([]);
+      expect(await client.retrieve({ where: { key: { in: [] } } })).toEqual([]);
+      expect(fetchRequest).not.toHaveBeenCalled();
+    });
+
+    describe("keysRequestZ", () => {
+      const keysZ = z.union([query.keysRequestZ(z.string()), requestZ]);
+      class KeysClient extends query.Retriever<typeof keysZ, string, Thing> {
+        constructor(
+          cache: query.Cache,
+          fetchKeys: (keys: string[]) => Promise<Thing[]>,
+          fetchRequest: () => Promise<Thing[]>,
+        ) {
+          const store = cache.createTable<string, Thing>({
+            name: "things",
+            fetch: fetchKeys,
+          });
+          super(cache, {
+            name: "thing",
+            table: store,
+            request: { schema: keysZ, fetch: fetchRequest },
+          });
+          this.store = store;
+        }
+
+        readonly store: query.Table<string, Thing>;
+      }
+
+      it("routes a bare key list through the table fetch", async () => {
+        const fetchKeys = vi.fn(async (keys: string[]) => keys.map((k) => thing(k)));
+        const fetchRequest = vi.fn(async () => []);
+        const client = new KeysClient(newCache(), fetchKeys, fetchRequest);
+        client.store.set([thing("a")]);
+        const results = await client.retrieve(["a", "b"]);
+        expect(results.map((t) => t.key)).toEqual(["a", "b"]);
+        expect(fetchKeys).toHaveBeenCalledWith(["b"]);
+        expect(fetchRequest).not.toHaveBeenCalled();
+      });
+
+      it("answers an empty key list with no fetch", async () => {
+        const fetchKeys = vi.fn(async () => []);
+        const fetchRequest = vi.fn(async () => []);
+        const client = new KeysClient(newCache(), fetchKeys, fetchRequest);
+        expect(await client.retrieve([])).toEqual([]);
+        expect(fetchKeys).not.toHaveBeenCalled();
+        expect(fetchRequest).not.toHaveBeenCalled();
+      });
+    });
+
+    it("routes a where with another line through the request fetch", async () => {
+      const fetchRequest = vi.fn(async () => [thing("a")]);
+      const client = new Client(newCache(), async () => [], fetchRequest);
+      await client.retrieve({ where: { key: { in: ["a"] }, name: { eq: "a-name" } } });
+      await client.retrieve({ where: { key: { eq: "a", in: ["a"] } } });
+      expect(fetchRequest).toHaveBeenCalledTimes(2);
     });
 
     it("treats a request with keys plus another set field as non-keys-only", async () => {

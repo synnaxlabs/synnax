@@ -156,7 +156,9 @@ export const watch = <
  *    them, not necessarily the server's first. A full answer that loses a member
  *    refetches to fill the slot.
  * 3. server-computed — any other field named in `serverFields` is set on the
- *    query (or neither `keyOf` nor `matches` applies): debounced wholesale refetch.
+ *    query, `serverComputed` holds, or neither `keyOf` nor `matches` applies:
+ *    debounced wholesale refetch. An empty string or a zero `offset` asks the server
+ *    for nothing, so it counts as unset.
  */
 export interface SpaceConfig<
   P extends Params,
@@ -192,6 +194,8 @@ export interface SpaceConfig<
    * positive `limit` alone (see rule 2).
    */
   serverFields?: readonly string[];
+  /** Rule 3: whether only the server can evaluate the query, such as a regex. */
+  serverComputed?: (params: P) => boolean;
   /** Foreign tables whose events affect this space's answers. */
   watch?: Watch<P, K>[];
   /**
@@ -701,13 +705,16 @@ export class Space<
   }
 
   private isServerComputed(params: P): boolean {
-    const { serverFields } = this.config;
+    const { serverFields, serverComputed } = this.config;
+    if (serverComputed?.(params) === true) return true;
     if (serverFields == null || serverFields.length === 0) return false;
     if (typeof params !== "object" || params === null) return false;
     const limited = this.limitOf(params) != null;
     return Object.entries(params).some(
       ([field, value]) =>
         value != null &&
+        value !== "" &&
+        !(field === "offset" && value === 0) &&
         serverFields.includes(field) &&
         !(limited && field === "limit"),
     );

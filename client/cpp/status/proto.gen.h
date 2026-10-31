@@ -25,6 +25,7 @@
 #include "x/cpp/json/json.h"
 #include "x/cpp/pb/pb.h"
 
+#include "core/pkg/api/status/pb/status.pb.h"
 #include "core/pkg/service/status/pb/status.pb.h"
 
 namespace synnax::status {
@@ -64,6 +65,80 @@ variant_from_pb(::service::status::pb::Variant pb) {
         default:
             return {"", x::errors::Error("unrecognized Variant protobuf value")};
     }
+}
+
+inline std::pair<::service::status::pb::StringSet, x::errors::Error>
+string_set_to_proto(const ::x::filter::Set<std::string> &self);
+inline std::pair<::x::filter::Set<std::string>, x::errors::Error>
+string_set_from_proto(const ::service::status::pb::StringSet &pb);
+
+inline std::pair<::service::status::pb::VariantSet, x::errors::Error>
+variant_set_to_proto(const ::x::filter::Set<std::string> &self);
+inline std::pair<::x::filter::Set<std::string>, x::errors::Error>
+variant_set_from_proto(const ::service::status::pb::VariantSet &pb);
+
+inline std::pair<::service::status::pb::StringSet, x::errors::Error>
+string_set_to_proto(const ::x::filter::Set<std::string> &self) {
+    ::service::status::pb::StringSet pb;
+    if (self.eq.has_value()) pb.set_eq(*self.eq);
+    if (self.in.has_value()) {
+        auto *wrapper = pb.mutable_in();
+        for (const auto &item: *self.in)
+            wrapper->add_values(item);
+    }
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<::x::filter::Set<std::string>, x::errors::Error>
+string_set_from_proto(const ::service::status::pb::StringSet &pb) {
+    ::x::filter::Set<std::string> cpp;
+    if (pb.has_eq()) cpp.eq = pb.eq();
+    if (pb.has_in()) {
+        cpp.in.emplace();
+        for (const auto &item: pb.in().values())
+            cpp.in->push_back(item);
+    }
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::service::status::pb::VariantSet, x::errors::Error>
+variant_set_to_proto(const ::x::filter::Set<std::string> &self) {
+    ::service::status::pb::VariantSet pb;
+    if (self.eq.has_value()) {
+        auto [v, err] = variant_to_pb(*self.eq);
+        if (err) return {{}, err};
+        pb.set_eq(v);
+    }
+    if (self.in.has_value()) {
+        auto *wrapper = pb.mutable_in();
+        for (const auto &item: *self.in) {
+            auto [v, err] = variant_to_pb(item);
+            if (err) return {{}, err};
+            wrapper->add_values(v);
+        }
+    }
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<::x::filter::Set<std::string>, x::errors::Error>
+variant_set_from_proto(const ::service::status::pb::VariantSet &pb) {
+    ::x::filter::Set<std::string> cpp;
+    if (pb.has_eq()) {
+        auto [v, err] = variant_from_pb(pb.eq());
+        if (err) return {{}, err};
+        cpp.eq = v;
+    }
+    if (pb.has_in()) {
+        cpp.in.emplace();
+        for (const auto &item: pb.in().values()) {
+            auto [v, err] = variant_from_pb(
+                static_cast<::service::status::pb::Variant>(item)
+            );
+            if (err) return {{}, err};
+            cpp.in->push_back(v);
+        }
+    }
+    return {cpp, x::errors::NIL};
 }
 
 template<typename Details>
@@ -140,6 +215,140 @@ Status<Details>::from_proto(const ::service::status::pb::Status &pb) {
             ))
             return {{}, err};
     }
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::service::status::pb::Where, x::errors::Error>
+Where::to_proto() const {
+    ::service::status::pb::Where pb;
+    if (this->and_.has_value()) {
+        auto *wrapper = pb.mutable_and_();
+        for (const auto &item: *this->and_) {
+            auto [v, err] = item.to_proto();
+            if (err) return {{}, err};
+            *wrapper->add_values() = v;
+        }
+    }
+    if (this->or_.has_value()) {
+        auto *wrapper = pb.mutable_or_();
+        for (const auto &item: *this->or_) {
+            auto [v, err] = item.to_proto();
+            if (err) return {{}, err};
+            *wrapper->add_values() = v;
+        }
+    }
+    if (this->not_.has_value()) {
+        auto [v, err] = this->not_->to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_not_() = v;
+    }
+    if (this->key.has_value()) {
+        auto [v, err] = string_set_to_proto(*this->key);
+        if (err) return {{}, err};
+        *pb.mutable_key() = v;
+    }
+    if (this->variant.has_value()) {
+        auto [v, err] = variant_set_to_proto(*this->variant);
+        if (err) return {{}, err};
+        *pb.mutable_variant() = v;
+    }
+    if (this->labels.has_value()) {
+        auto *wrapper = pb.mutable_labels();
+        for (const auto &item: *this->labels) {
+            wrapper->add_values(item.to_string());
+        }
+    }
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<Where, x::errors::Error>
+Where::from_proto(const ::service::status::pb::Where &pb) {
+    Where cpp;
+    if (pb.has_and_()) {
+        cpp.and_.emplace();
+        if (auto err = x::pb::from_proto_repeated<Where>(*cpp.and_, pb.and_().values()))
+            return {{}, err};
+    }
+    if (pb.has_or_()) {
+        cpp.or_.emplace();
+        if (auto err = x::pb::from_proto_repeated<Where>(*cpp.or_, pb.or_().values()))
+            return {{}, err};
+    }
+    if (pb.has_not_()) {
+        auto [v, err] = Where::from_proto(pb.not_());
+        if (err) return {{}, err};
+        cpp.not_ = v;
+    }
+    if (pb.has_key()) {
+        auto [v, err] = string_set_from_proto(pb.key());
+        if (err) return {{}, err};
+        cpp.key = v;
+    }
+    if (pb.has_variant()) {
+        auto [v, err] = variant_set_from_proto(pb.variant());
+        if (err) return {{}, err};
+        cpp.variant = v;
+    }
+    if (pb.has_labels()) {
+        cpp.labels.emplace();
+        for (const auto &item: pb.labels().values()) {
+            auto [v, err] = x::uuid::UUID::parse(item);
+            if (err) return {{}, err};
+            cpp.labels->push_back(v);
+        }
+    }
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::api::status::pb::RetrieveRequest, x::errors::Error>
+RetrieveRequest::to_proto() const {
+    ::api::status::pb::RetrieveRequest pb;
+    if (this->where.has_value()) {
+        auto [v, err] = this->where->to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_where() = v;
+    }
+    pb.set_search_term(this->search_term);
+    if (this->limit.has_value()) pb.set_limit(*this->limit);
+    pb.set_offset(this->offset);
+    pb.set_include_labels(this->include_labels);
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<RetrieveRequest, x::errors::Error>
+RetrieveRequest::from_proto(const ::api::status::pb::RetrieveRequest &pb) {
+    RetrieveRequest cpp;
+    if (pb.has_where()) {
+        auto [v, err] = Where::from_proto(pb.where());
+        if (err) return {{}, err};
+        cpp.where = v;
+    }
+    cpp.search_term = pb.search_term();
+    if (pb.has_limit()) cpp.limit = pb.limit();
+    cpp.offset = pb.offset();
+    cpp.include_labels = pb.include_labels();
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::api::status::pb::RetrieveResponse, x::errors::Error>
+RetrieveResponse::to_proto() const {
+    ::api::status::pb::RetrieveResponse pb;
+    for (const auto &item: this->statuses) {
+        auto [v, err] = item.to_proto();
+        if (err) return {{}, err};
+        *pb.add_statuses() = v;
+    }
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<RetrieveResponse, x::errors::Error>
+RetrieveResponse::from_proto(const ::api::status::pb::RetrieveResponse &pb) {
+    RetrieveResponse cpp;
+    if (auto err = x::pb::from_proto_repeated<Status<x::json::json>>(
+            cpp.statuses,
+            pb.statuses()
+        ))
+        return {{}, err};
     return {cpp, x::errors::NIL};
 }
 

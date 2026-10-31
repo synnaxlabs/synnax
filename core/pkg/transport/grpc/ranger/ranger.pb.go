@@ -16,6 +16,7 @@
 package ranger
 
 import (
+	pb1 "github.com/synnaxlabs/synnax/pkg/api/ranger/pb"
 	pb "github.com/synnaxlabs/synnax/pkg/service/ranger/pb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
@@ -166,8 +167,7 @@ func (x *CreateResponse) GetRanges() []*pb.Range {
 
 type RetrieveRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Keys          []string               `protobuf:"bytes,1,rep,name=keys,proto3" json:"keys,omitempty"`
-	Names         []string               `protobuf:"bytes,2,rep,name=names,proto3" json:"names,omitempty"`
+	Request       *pb1.RetrieveRequest   `protobuf:"bytes,3,opt,name=request,proto3" json:"request,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -202,60 +202,9 @@ func (*RetrieveRequest) Descriptor() ([]byte, []int) {
 	return file_core_pkg_transport_grpc_ranger_ranger_proto_rawDescGZIP(), []int{3}
 }
 
-func (x *RetrieveRequest) GetKeys() []string {
+func (x *RetrieveRequest) GetRequest() *pb1.RetrieveRequest {
 	if x != nil {
-		return x.Keys
-	}
-	return nil
-}
-
-func (x *RetrieveRequest) GetNames() []string {
-	if x != nil {
-		return x.Names
-	}
-	return nil
-}
-
-type RetrieveResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Ranges        []*pb.Range            `protobuf:"bytes,1,rep,name=ranges,proto3" json:"ranges,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *RetrieveResponse) Reset() {
-	*x = RetrieveResponse{}
-	mi := &file_core_pkg_transport_grpc_ranger_ranger_proto_msgTypes[4]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *RetrieveResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*RetrieveResponse) ProtoMessage() {}
-
-func (x *RetrieveResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_transport_grpc_ranger_ranger_proto_msgTypes[4]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use RetrieveResponse.ProtoReflect.Descriptor instead.
-func (*RetrieveResponse) Descriptor() ([]byte, []int) {
-	return file_core_pkg_transport_grpc_ranger_ranger_proto_rawDescGZIP(), []int{4}
-}
-
-func (x *RetrieveResponse) GetRanges() []*pb.Range {
-	if x != nil {
-		return x.Ranges
+		return x.Request
 	}
 	return nil
 }
@@ -270,7 +219,7 @@ type RenameRequest struct {
 
 func (x *RenameRequest) Reset() {
 	*x = RenameRequest{}
-	mi := &file_core_pkg_transport_grpc_ranger_ranger_proto_msgTypes[5]
+	mi := &file_core_pkg_transport_grpc_ranger_ranger_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -282,7 +231,7 @@ func (x *RenameRequest) String() string {
 func (*RenameRequest) ProtoMessage() {}
 
 func (x *RenameRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_transport_grpc_ranger_ranger_proto_msgTypes[5]
+	mi := &file_core_pkg_transport_grpc_ranger_ranger_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -295,7 +244,7 @@ func (x *RenameRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RenameRequest.ProtoReflect.Descriptor instead.
 func (*RenameRequest) Descriptor() ([]byte, []int) {
-	return file_core_pkg_transport_grpc_ranger_ranger_proto_rawDescGZIP(), []int{5}
+	return file_core_pkg_transport_grpc_ranger_ranger_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *RenameRequest) GetKey() string {
@@ -322,7 +271,7 @@ type SetEndRequest struct {
 
 func (x *SetEndRequest) Reset() {
 	*x = SetEndRequest{}
-	mi := &file_core_pkg_transport_grpc_ranger_ranger_proto_msgTypes[6]
+	mi := &file_core_pkg_transport_grpc_ranger_ranger_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -334,7 +283,7 @@ func (x *SetEndRequest) String() string {
 func (*SetEndRequest) ProtoMessage() {}
 
 func (x *SetEndRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_transport_grpc_ranger_ranger_proto_msgTypes[6]
+	mi := &file_core_pkg_transport_grpc_ranger_ranger_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -347,7 +296,7 @@ func (x *SetEndRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetEndRequest.ProtoReflect.Descriptor instead.
 func (*SetEndRequest) Descriptor() ([]byte, []int) {
-	return file_core_pkg_transport_grpc_ranger_ranger_proto_rawDescGZIP(), []int{6}
+	return file_core_pkg_transport_grpc_ranger_ranger_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *SetEndRequest) GetKey() string {
@@ -368,18 +317,15 @@ var File_core_pkg_transport_grpc_ranger_ranger_proto protoreflect.FileDescriptor
 
 const file_core_pkg_transport_grpc_ranger_ranger_proto_rawDesc = "" +
 	"\n" +
-	"+core/pkg/transport/grpc/ranger/ranger.proto\x12\vgrpc.ranger\x1a'core/pkg/service/ranger/pb/ranger.proto\x1a\x1bgoogle/protobuf/empty.proto\"#\n" +
+	"+core/pkg/transport/grpc/ranger/ranger.proto\x12\vgrpc.ranger\x1a#core/pkg/api/ranger/pb/ranger.proto\x1a'core/pkg/service/ranger/pb/ranger.proto\x1a\x1bgoogle/protobuf/empty.proto\"#\n" +
 	"\rDeleteRequest\x12\x12\n" +
 	"\x04keys\x18\x01 \x03(\tR\x04keys\"A\n" +
 	"\rCreateRequest\x120\n" +
 	"\x06ranges\x18\x01 \x03(\v2\x18.service.ranger.pb.RangeR\x06ranges\"B\n" +
 	"\x0eCreateResponse\x120\n" +
-	"\x06ranges\x18\x01 \x03(\v2\x18.service.ranger.pb.RangeR\x06ranges\";\n" +
-	"\x0fRetrieveRequest\x12\x12\n" +
-	"\x04keys\x18\x01 \x03(\tR\x04keys\x12\x14\n" +
-	"\x05names\x18\x02 \x03(\tR\x05names\"D\n" +
-	"\x10RetrieveResponse\x120\n" +
-	"\x06ranges\x18\x01 \x03(\v2\x18.service.ranger.pb.RangeR\x06ranges\"5\n" +
+	"\x06ranges\x18\x01 \x03(\v2\x18.service.ranger.pb.RangeR\x06ranges\"d\n" +
+	"\x0fRetrieveRequest\x128\n" +
+	"\arequest\x18\x03 \x01(\v2\x1e.api.ranger.pb.RetrieveRequestR\arequestJ\x04\b\x01\x10\x02J\x04\b\x02\x10\x03R\x04keysR\x05names\"5\n" +
 	"\rRenameRequest\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\"3\n" +
@@ -387,9 +333,9 @@ const file_core_pkg_transport_grpc_ranger_ranger_proto_rawDesc = "" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x10\n" +
 	"\x03end\x18\x02 \x01(\x03R\x03end2W\n" +
 	"\x12RangeCreateService\x12A\n" +
-	"\x04Exec\x12\x1a.grpc.ranger.CreateRequest\x1a\x1b.grpc.ranger.CreateResponse\"\x002]\n" +
-	"\x14RangeRetrieveService\x12E\n" +
-	"\x04Exec\x12\x1c.grpc.ranger.RetrieveRequest\x1a\x1d.grpc.ranger.RetrieveResponse\"\x002R\n" +
+	"\x04Exec\x12\x1a.grpc.ranger.CreateRequest\x1a\x1b.grpc.ranger.CreateResponse\"\x002_\n" +
+	"\x14RangeRetrieveService\x12G\n" +
+	"\x04Exec\x12\x1c.grpc.ranger.RetrieveRequest\x1a\x1f.api.ranger.pb.RetrieveResponse\"\x002R\n" +
 	"\x12RangeDeleteService\x12<\n" +
 	"\x04Exec\x12\x1a.grpc.ranger.DeleteRequest\x1a\x16.google.protobuf.Empty\"\x002R\n" +
 	"\x12RangeRenameService\x12<\n" +
@@ -410,32 +356,33 @@ func file_core_pkg_transport_grpc_ranger_ranger_proto_rawDescGZIP() []byte {
 	return file_core_pkg_transport_grpc_ranger_ranger_proto_rawDescData
 }
 
-var file_core_pkg_transport_grpc_ranger_ranger_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
+var file_core_pkg_transport_grpc_ranger_ranger_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_core_pkg_transport_grpc_ranger_ranger_proto_goTypes = []any{
-	(*DeleteRequest)(nil),    // 0: grpc.ranger.DeleteRequest
-	(*CreateRequest)(nil),    // 1: grpc.ranger.CreateRequest
-	(*CreateResponse)(nil),   // 2: grpc.ranger.CreateResponse
-	(*RetrieveRequest)(nil),  // 3: grpc.ranger.RetrieveRequest
-	(*RetrieveResponse)(nil), // 4: grpc.ranger.RetrieveResponse
-	(*RenameRequest)(nil),    // 5: grpc.ranger.RenameRequest
-	(*SetEndRequest)(nil),    // 6: grpc.ranger.SetEndRequest
-	(*pb.Range)(nil),         // 7: service.ranger.pb.Range
-	(*emptypb.Empty)(nil),    // 8: google.protobuf.Empty
+	(*DeleteRequest)(nil),        // 0: grpc.ranger.DeleteRequest
+	(*CreateRequest)(nil),        // 1: grpc.ranger.CreateRequest
+	(*CreateResponse)(nil),       // 2: grpc.ranger.CreateResponse
+	(*RetrieveRequest)(nil),      // 3: grpc.ranger.RetrieveRequest
+	(*RenameRequest)(nil),        // 4: grpc.ranger.RenameRequest
+	(*SetEndRequest)(nil),        // 5: grpc.ranger.SetEndRequest
+	(*pb.Range)(nil),             // 6: service.ranger.pb.Range
+	(*pb1.RetrieveRequest)(nil),  // 7: api.ranger.pb.RetrieveRequest
+	(*pb1.RetrieveResponse)(nil), // 8: api.ranger.pb.RetrieveResponse
+	(*emptypb.Empty)(nil),        // 9: google.protobuf.Empty
 }
 var file_core_pkg_transport_grpc_ranger_ranger_proto_depIdxs = []int32{
-	7, // 0: grpc.ranger.CreateRequest.ranges:type_name -> service.ranger.pb.Range
-	7, // 1: grpc.ranger.CreateResponse.ranges:type_name -> service.ranger.pb.Range
-	7, // 2: grpc.ranger.RetrieveResponse.ranges:type_name -> service.ranger.pb.Range
+	6, // 0: grpc.ranger.CreateRequest.ranges:type_name -> service.ranger.pb.Range
+	6, // 1: grpc.ranger.CreateResponse.ranges:type_name -> service.ranger.pb.Range
+	7, // 2: grpc.ranger.RetrieveRequest.request:type_name -> api.ranger.pb.RetrieveRequest
 	1, // 3: grpc.ranger.RangeCreateService.Exec:input_type -> grpc.ranger.CreateRequest
 	3, // 4: grpc.ranger.RangeRetrieveService.Exec:input_type -> grpc.ranger.RetrieveRequest
 	0, // 5: grpc.ranger.RangeDeleteService.Exec:input_type -> grpc.ranger.DeleteRequest
-	5, // 6: grpc.ranger.RangeRenameService.Exec:input_type -> grpc.ranger.RenameRequest
-	6, // 7: grpc.ranger.RangeSetEndService.Exec:input_type -> grpc.ranger.SetEndRequest
+	4, // 6: grpc.ranger.RangeRenameService.Exec:input_type -> grpc.ranger.RenameRequest
+	5, // 7: grpc.ranger.RangeSetEndService.Exec:input_type -> grpc.ranger.SetEndRequest
 	2, // 8: grpc.ranger.RangeCreateService.Exec:output_type -> grpc.ranger.CreateResponse
-	4, // 9: grpc.ranger.RangeRetrieveService.Exec:output_type -> grpc.ranger.RetrieveResponse
-	8, // 10: grpc.ranger.RangeDeleteService.Exec:output_type -> google.protobuf.Empty
-	8, // 11: grpc.ranger.RangeRenameService.Exec:output_type -> google.protobuf.Empty
-	8, // 12: grpc.ranger.RangeSetEndService.Exec:output_type -> google.protobuf.Empty
+	8, // 9: grpc.ranger.RangeRetrieveService.Exec:output_type -> api.ranger.pb.RetrieveResponse
+	9, // 10: grpc.ranger.RangeDeleteService.Exec:output_type -> google.protobuf.Empty
+	9, // 11: grpc.ranger.RangeRenameService.Exec:output_type -> google.protobuf.Empty
+	9, // 12: grpc.ranger.RangeSetEndService.Exec:output_type -> google.protobuf.Empty
 	8, // [8:13] is the sub-list for method output_type
 	3, // [3:8] is the sub-list for method input_type
 	3, // [3:3] is the sub-list for extension type_name
@@ -454,7 +401,7 @@ func file_core_pkg_transport_grpc_ranger_ranger_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_transport_grpc_ranger_ranger_proto_rawDesc), len(file_core_pkg_transport_grpc_ranger_ranger_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   7,
+			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   5,
 		},

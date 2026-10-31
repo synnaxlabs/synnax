@@ -24,6 +24,7 @@ from synnax.status.types_gen import (
     Key,
     Status,
     Variant,
+    Where,
 )
 
 __all__ = [
@@ -40,5 +41,6 @@ __all__ = [
     "Key",
     "Status",
     "Variant",
+    "Where",
     "ontology_id",
 ]

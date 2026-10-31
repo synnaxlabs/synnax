@@ -27,15 +27,16 @@ const LABEL_LOCATION: position.LocationPreference = {
 };
 
 export const MenuItem = (): ReactElement => (
-  <Form.Field<label.Key[] | undefined, label.Key[]>
-    path="query.hasLabels"
+  <Form.Field<label.Key[] | undefined>
+    path="where.labels"
     showLabel={false}
     showHelpText={false}
   >
     {({ value, onChange }) => (
       <SelectMultiple
         value={value ?? []}
-        onChange={onChange}
+        // An empty labels line matches nothing, so no selection drops the line.
+        onChange={(keys) => onChange(keys.length === 0 ? undefined : keys)}
         location={LABEL_LOCATION}
         triggerProps={TRIGGER_PROPS}
       />

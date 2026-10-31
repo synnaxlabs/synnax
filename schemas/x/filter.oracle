@@ -18,15 +18,14 @@ String struct {
         @doc value "matches a value equal to eq."
     }
     in    string[]? {
-        @doc value """
-            matches a value equal to an element of in.
-        """
+        @doc value "matches a value equal to an element of in."
     }
     regex string?   {
         @doc value "matches a value that the RE2 pattern regex matches."
     }
 
-    @doc value "selects string values. A value must match every operator that is set."
+    @doc value  "selects string values. A value must match every operator that is set."
+    @go marshal
 }
 
 Bool struct {
@@ -34,7 +33,8 @@ Bool struct {
         @doc value "matches a value equal to eq."
     }
 
-    @doc value "selects boolean values."
+    @doc value  "selects boolean values."
+    @go marshal
 }
 
 Set struct<T> {
@@ -42,15 +42,14 @@ Set struct<T> {
         @doc value "matches a value equal to eq."
     }
     in T[]? {
-        @doc value """
-            matches a value equal to an element of in.
-        """
+        @doc value "matches a value equal to an element of in."
     }
 
-    @doc value """
+    @doc value  """
         selects values that only compare for equality, such as keys, enum values, and
         UUIDs. A value must match every operator that is set.
     """
+    @go marshal
     @pb omit
 }
 
@@ -59,9 +58,7 @@ Ordered struct<T> {
         @doc value "matches a value equal to eq."
     }
     in  T[]? {
-        @doc value """
-            matches a value equal to an element of in.
-        """
+        @doc value "matches a value equal to an element of in."
     }
     gt  T?   {
         @doc value "matches a value greater than gt."
@@ -76,19 +73,19 @@ Ordered struct<T> {
         @doc value "matches a value less than or equal to lte."
     }
 
-    @doc value """
+    @doc value  """
         selects numbers and times. A value must match every operator that is set.
     """
+    @go marshal
     @pb omit
 }
 
 Contains struct<T> {
     any T[]? {
-        @doc value """
-            matches an array that holds an element of any.
-        """
+        @doc value "matches an array that holds an element of any."
     }
 
-    @doc value "selects arrays by the elements they hold."
+    @doc value  "selects arrays by the elements they hold."
+    @go marshal
     @pb omit
 }

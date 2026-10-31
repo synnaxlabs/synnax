@@ -193,6 +193,8 @@ client_ts: &client_ts
   - *ts
   - *x_ts
   - client/ts/**
+  # The client's filter specs read the Core's shared filter cases.
+  - core/testdata/filter/**
 
 pluto: &pluto
   - *alamos_ts

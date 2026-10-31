@@ -28,7 +28,9 @@ import (
 )
 
 type (
-	Key   = ranger.Key
+	// Key is a unique identifier for a range.
+	Key = ranger.Key
+	// Range is a user-defined region of time.
 	Range = ranger.Range
 )
 
@@ -129,75 +131,29 @@ func (s *Service) Create(
 	return CreateResponse(req), nil
 }
 
-type (
-	RetrieveRequest struct {
-		Keys                []ranger.Key    `json:"keys"                   msgpack:"keys"`
-		Names               []string        `json:"names"                  msgpack:"names"`
-		SearchTerm          string          `json:"search_term"            msgpack:"search_term"`
-		HasLabels           []label.Key     `json:"has_labels"             msgpack:"has_labels"`
-		OverlapsWith        telem.TimeRange `json:"overlaps_with"          msgpack:"overlaps_with"`
-		Limit               int             `json:"limit"                  msgpack:"limit"`
-		Offset              int             `json:"offset"                 msgpack:"offset"`
-		IncludeLabels       bool            `json:"include_labels"         msgpack:"include_labels"`
-		IncludeParent       bool            `json:"include_parent"         msgpack:"include_parent"`
-		IgnoreNotFoundError bool            `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
-	}
-	RetrieveResponse struct {
-		Ranges []Range `json:"ranges" msgpack:"ranges"`
-	}
-)
-
 func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
-	var (
-		ranges          []Range
-		q               = s.internal.NewRetrieve().Entries(&ranges)
-		hasNames        = len(req.Names) > 0
-		hasKeys         = len(req.Keys) > 0
-		hasSearch       = req.SearchTerm != ""
-		hasOverlapsWith = !req.OverlapsWith.IsZero()
-		hasLabels       = len(req.HasLabels) > 0
-	)
-	if hasOverlapsWith {
-		q = q.Where(ranger.MatchOverlap(req.OverlapsWith))
-	}
-	if hasNames {
-		q = q.Where(ranger.MatchNames(req.Names...))
-	}
-	if hasKeys {
-		q = q.Where(ranger.MatchKeys(req.Keys...))
-	}
-	if hasLabels {
-		q = q.Where(ranger.MatchLabels(req.HasLabels...))
-	}
-	if hasSearch {
-		q = q.Search(req.SearchTerm)
-	}
-	if req.Limit > 0 {
-		q = q.Limit(req.Limit)
-	}
-	if req.Offset > 0 {
-		q = q.Offset(req.Offset)
-	}
-	err := q.Exec(ctx, nil)
-	if req.IgnoreNotFoundError && err != nil {
-		err = errors.Skip(err, query.ErrNotFound)
-	}
+	var res RetrieveResponse
+	q, err := req.Apply(s.internal.NewRetrieve().Entries(&res.Ranges))
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
+	if err := q.Exec(ctx, nil); err != nil {
+		return RetrieveResponse{}, err
+	}
 	if req.IncludeLabels {
-		for i, r := range ranges {
-			if ranges[i].Labels, err = s.label.
-				RetrieveFor(ctx, r.OntologyID(), nil); err != nil {
+		for i, r := range res.Ranges {
+			labels, err := s.label.RetrieveFor(ctx, r.OntologyID(), nil)
+			if err != nil {
 				return RetrieveResponse{}, err
 			}
+			res.Ranges[i].Labels = labels
 		}
 	}
 	if req.IncludeParent {
-		for i, r := range ranges {
+		for i, r := range res.Ranges {
 			parentKey, err := s.internal.RetrieveParentKey(ctx, r.Key, nil)
 			if errors.Is(err, query.ErrNotFound) {
 				continue
@@ -205,11 +161,11 @@ func (s *Service) Retrieve(
 			if err != nil {
 				return RetrieveResponse{}, err
 			}
-			ranges[i].Parent = &ranger.Range{}
+			res.Ranges[i].Parent = &ranger.Range{}
 			if err = s.
 				internal.
 				NewRetrieve().
-				Entry(ranges[i].Parent).
+				Entry(res.Ranges[i].Parent).
 				Where(ranger.MatchKeys(parentKey)).
 				Exec(ctx, nil); err != nil {
 				return RetrieveResponse{}, err
@@ -219,11 +175,11 @@ func (s *Service) Retrieve(
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: rangeAccessOntologyIDs(ranges),
+		Objects: rangeAccessOntologyIDs(res.Ranges),
 	}); err != nil {
 		return RetrieveResponse{}, err
 	}
-	return RetrieveResponse{Ranges: ranges}, nil
+	return res, nil
 }
 
 type RenameRequest struct {

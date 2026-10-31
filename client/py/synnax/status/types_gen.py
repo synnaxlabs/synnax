@@ -14,11 +14,11 @@ from __future__ import annotations
 from typing import Generic, Literal, TypeAlias
 from uuid import uuid4
 
-from pydantic import BaseModel, Field, JsonValue
+from pydantic import BaseModel, ConfigDict, Field, JsonValue
 from typing_extensions import TypeVar
 
 from synnax import label
-from x import telem
+from x import filter, telem
 
 VARIANT_SUCCESS: Literal["success"] = "success"
 
@@ -78,3 +78,58 @@ class Status(BaseModel, Generic[Details]):
 
     def __hash__(self) -> int:
         return hash(self.key)
+
+
+class Where(BaseModel):
+    """Is a filter that selects statuses.
+
+    Attributes:
+        and_: Matches when every child matches.
+        or_: Matches when any child matches.
+        not_: Matches when the child does not match.
+        key: Selects by key.
+        variant: Selects by variant.
+        labels: Matches statuses that have any of the given labels.
+    """
+
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+
+    and_: list[Where] | None = Field(default=None, alias="and")
+    or_: list[Where] | None = Field(default=None, alias="or")
+    not_: Where | None = Field(default=None, alias="not")
+    key: filter.Set[Key] | None = None
+    variant: filter.Set[Variant] | None = None
+    labels: list[label.Key] | None = None
+
+
+class RetrieveResponse(BaseModel):
+    """Holds the statuses a RetrieveRequest selects.
+
+    Attributes:
+        statuses: Are the statuses the request selects.
+    """
+
+    statuses: list[Status[JsonValue]] = Field(default_factory=list)
+
+
+class RetrieveRequest(BaseModel):
+    """Is a request to retrieve statuses.
+
+    Attributes:
+        where: Selects the statuses to retrieve. An absent where selects all of them.
+        search_term: Keeps the statuses that match the term, closest match first.
+        limit: Is the most statuses to return.
+        offset: Is the number of matching statuses to skip.
+        include_labels: Includes the labels of each record.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    where: Where | None = None
+    search_term: str = ""
+    limit: int | None = Field(default=None, ge=0, le=4294967295)
+    offset: int = Field(default=0, ge=0, le=4294967295)
+    include_labels: bool = False
+
+
+Where.model_rebuild()

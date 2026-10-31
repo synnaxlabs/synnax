@@ -15,8 +15,172 @@ import (
 	"encoding/json/v2"
 
 	"github.com/synnaxlabs/x/encoding/orc"
+	filter "github.com/synnaxlabs/x/filter/versions/v0"
 	telem "github.com/synnaxlabs/x/telem/versions/v0"
+	"uuid"
 )
+
+// EncodeOrc writes the value to w in the Orc binary format.
+func (wv Where) EncodeOrc(w *orc.Writer) error {
+	if wv.And != nil {
+		w.Bool(true)
+		w.Uint32(uint32(len(wv.And)))
+		for j := range wv.And {
+			if err := wv.And[j].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	} else {
+		w.Bool(false)
+	}
+	if wv.Or != nil {
+		w.Bool(true)
+		w.Uint32(uint32(len(wv.Or)))
+		for j := range wv.Or {
+			if err := wv.Or[j].EncodeOrc(w); err != nil {
+				return err
+			}
+		}
+	} else {
+		w.Bool(false)
+	}
+	if wv.Not != nil {
+		w.Bool(true)
+		if err := wv.Not.EncodeOrc(w); err != nil {
+			return err
+		}
+	} else {
+		w.Bool(false)
+	}
+	if wv.Key != nil {
+		w.Bool(true)
+		if err := wv.Key.EncodeOrc(w); err != nil {
+			return err
+		}
+	} else {
+		w.Bool(false)
+	}
+	if wv.Variant != nil {
+		w.Bool(true)
+		if err := wv.Variant.EncodeOrc(w); err != nil {
+			return err
+		}
+	} else {
+		w.Bool(false)
+	}
+	if wv.Labels != nil {
+		w.Bool(true)
+		w.Uint32(uint32(len(wv.Labels)))
+		for j := range wv.Labels {
+			w.Write(wv.Labels[j][:])
+		}
+	} else {
+		w.Bool(false)
+	}
+	return nil
+}
+
+// DecodeOrc reads the value from r in the Orc binary format.
+func (wv *Where) DecodeOrc(r *orc.Reader) error {
+	if err := r.PushDepth(orc.MaxDecodeDepth); err != nil {
+		return err
+	}
+	defer r.PopDepth()
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			wv.And = make([]Where, n)
+			for j := range wv.And {
+				if err = wv.And[j].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			wv.Or = make([]Where, n)
+			for j := range wv.Or {
+				if err = wv.Or[j].DecodeOrc(r); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv Where
+			if err = hv.DecodeOrc(r); err != nil {
+				return err
+			}
+			wv.Not = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv filter.Set[Key]
+			if err = hv.DecodeOrc(r); err != nil {
+				return err
+			}
+			wv.Key = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var hv filter.Set[Variant]
+			if err = hv.DecodeOrc(r); err != nil {
+				return err
+			}
+			wv.Variant = &hv
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			n, err := r.CollectionLen()
+			if err != nil {
+				return err
+			}
+			wv.Labels = make([]uuid.UUID, n)
+			for j := range wv.Labels {
+				if _, err := r.Read(wv.Labels[j][:]); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
 
 // EncodeOrc writes the value to w in the Orc binary format.
 func (s Status[Details]) EncodeOrc(w *orc.Writer) error {

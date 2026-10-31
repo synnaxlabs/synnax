@@ -110,12 +110,12 @@ describe("range/list/SelectFilters", () => {
     await searchAndClickNestedLabel(label.name);
     await waitFor(() => expect(onRequestChange).toHaveBeenCalled());
     const [setter] = onRequestChange.mock.calls[0] as [
-      state.SetArg<ranger.RetrieveRequest>,
+      state.SetArg<ranger.RetrieveMultipleParams>,
     ];
     const next = state.executeSetter(setter, { offset: 25, limit: 25 });
-    expect(next.hasLabels).toEqual([label.key]);
+    expect(next.where?.labels).toEqual([label.key]);
     expect(next.offset).toBe(0);
-    expect(next.limit).toBe(0);
+    expect(next.limit).toBeUndefined();
   });
 
   it("renders the applied label filters as chips", async () => {
@@ -126,7 +126,7 @@ describe("range/list/SelectFilters", () => {
     const { wrapper } = await createConsoleWrapper({ client });
     await renderSuspended(
       <Range.List.Filters
-        request={{ hasLabels: [label.key] }}
+        request={{ where: { labels: [label.key] } }}
         onRequestChange={vi.fn()}
       />,
       { wrapper },

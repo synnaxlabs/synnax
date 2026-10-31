@@ -17,9 +17,12 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	ranger "github.com/synnaxlabs/synnax/pkg/service/ranger/versions/v1"
 	status "github.com/synnaxlabs/synnax/pkg/service/status/versions/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/view/versions/v1"
 	"github.com/synnaxlabs/x/encoding/orc"
+	filter "github.com/synnaxlabs/x/filter/versions/v0"
+	telem "github.com/synnaxlabs/x/telem/versions/v0"
 	"github.com/synnaxlabs/x/testutil"
 )
 
@@ -46,43 +49,6 @@ var _ = Describe("Codec", func() {
 			Entry("zero values", v1.Base{Key: uuid.Nil(), Name: ""}),
 		)
 	})
-	Describe("RangeQuery", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original v1.RangeQuery) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v1.RangeQuery
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", v1.RangeQuery{
-				HasLabels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-			}),
-			Entry("zero values", v1.RangeQuery{HasLabels: []uuid.UUID{}}),
-			Entry("empty collections", v1.RangeQuery{HasLabels: []uuid.UUID{}}),
-		)
-	})
-	Describe("StatusQuery", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original v1.StatusQuery) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded v1.StatusQuery
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", v1.StatusQuery{
-				HasLabels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-				Variants:  []status.Variant{status.Variant("success")},
-			}),
-			Entry("zero values", v1.StatusQuery{HasLabels: []uuid.UUID{}, Variants: []status.Variant{}}),
-			Entry("empty collections", v1.StatusQuery{HasLabels: []uuid.UUID{}, Variants: []status.Variant{}}),
-		)
-	})
 	Describe("View", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original v1.View) {
@@ -96,16 +62,89 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("range variant", v1.View{Variant: v1.RangeView{
 				Base: fullyPopulatedBase,
-				Query: v1.RangeQuery{
-					HasLabels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802")},
-				},
+				Where: new(ranger.Where{
+					And: []ranger.Where{
+						{
+							And:      []ranger.Where{{}},
+							Or:       []ranger.Where{{}},
+							Not:      new(ranger.Where{}),
+							Key:      new(filter.Set[ranger.Key]{}),
+							Name:     new(filter.String{}),
+							Overlaps: new(telem.TimeRange{}),
+							Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809")},
+						},
+					},
+					Or: []ranger.Where{
+						{
+							And:      []ranger.Where{{}},
+							Or:       []ranger.Where{{}},
+							Not:      new(ranger.Where{}),
+							Key:      new(filter.Set[ranger.Key]{}),
+							Name:     new(filter.String{}),
+							Overlaps: new(telem.TimeRange{}),
+							Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567811")},
+						},
+					},
+					Not: new(ranger.Where{
+						And:      []ranger.Where{{}},
+						Or:       []ranger.Where{{}},
+						Not:      new(ranger.Where{}),
+						Key:      new(filter.Set[ranger.Key]{}),
+						Name:     new(filter.String{}),
+						Overlaps: new(telem.TimeRange{}),
+						Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567819")},
+					}),
+					Key: new(filter.Set[ranger.Key]{
+						Eq: new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781b"))),
+						In: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781c")},
+					}),
+					Name: new(filter.String{
+						Eq:    new(string("test_30")),
+						In:    []string{"test_31"},
+						Regex: new(string("test_32")),
+					}),
+					Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(35), End: telem.TimeStamp(36)}),
+					Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567824")},
+				}),
 			}}),
 			Entry("status variant", v1.View{Variant: v1.StatusView{
 				Base: fullyPopulatedBase,
-				Query: v1.StatusQuery{
-					HasLabels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802")},
-					Variants:  []status.Variant{status.Variant("success")},
-				},
+				Where: new(status.Where{
+					And: []status.Where{
+						{
+							And:     []status.Where{{}},
+							Or:      []status.Where{{}},
+							Not:     new(status.Where{}),
+							Key:     new(filter.Set[status.Key]{}),
+							Variant: new(filter.Set[status.Variant]{}),
+							Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808")},
+						},
+					},
+					Or: []status.Where{
+						{
+							And:     []status.Where{{}},
+							Or:      []status.Where{{}},
+							Not:     new(status.Where{}),
+							Key:     new(filter.Set[status.Key]{}),
+							Variant: new(filter.Set[status.Variant]{}),
+							Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780f")},
+						},
+					},
+					Not: new(status.Where{
+						And:     []status.Where{{}},
+						Or:      []status.Where{{}},
+						Not:     new(status.Where{}),
+						Key:     new(filter.Set[status.Key]{}),
+						Variant: new(filter.Set[status.Variant]{}),
+						Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567816")},
+					}),
+					Key: new(filter.Set[status.Key]{Eq: new(status.Key("test_24")), In: []string{"test_25"}}),
+					Variant: new(filter.Set[status.Variant]{
+						Eq: new(status.Variant("success")),
+						In: []status.Variant{status.Variant("success")},
+					}),
+					Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781d")},
+				}),
 			}}),
 		)
 	})
@@ -128,51 +167,53 @@ func BenchmarkEncodeDecodeBase(b *testing.B) {
 	}
 }
 
-func BenchmarkEncodeDecodeRangeQuery(b *testing.B) {
-	seed := v1.RangeQuery{
-		HasLabels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-	}
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for b.Loop() {
-		w.Reset()
-		if err := seed.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded v1.RangeQuery
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkEncodeDecodeStatusQuery(b *testing.B) {
-	seed := v1.StatusQuery{
-		HasLabels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-		Variants:  []status.Variant{status.Variant("success")},
-	}
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for b.Loop() {
-		w.Reset()
-		if err := seed.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded v1.StatusQuery
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
 func BenchmarkEncodeDecodeView(b *testing.B) {
 	seed := v1.View{Variant: v1.RangeView{
 		Base: fullyPopulatedBase,
-		Query: v1.RangeQuery{
-			HasLabels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802")},
-		},
+		Where: new(ranger.Where{
+			And: []ranger.Where{
+				{
+					And:      []ranger.Where{{}},
+					Or:       []ranger.Where{{}},
+					Not:      new(ranger.Where{}),
+					Key:      new(filter.Set[ranger.Key]{}),
+					Name:     new(filter.String{}),
+					Overlaps: new(telem.TimeRange{}),
+					Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809")},
+				},
+			},
+			Or: []ranger.Where{
+				{
+					And:      []ranger.Where{{}},
+					Or:       []ranger.Where{{}},
+					Not:      new(ranger.Where{}),
+					Key:      new(filter.Set[ranger.Key]{}),
+					Name:     new(filter.String{}),
+					Overlaps: new(telem.TimeRange{}),
+					Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567811")},
+				},
+			},
+			Not: new(ranger.Where{
+				And:      []ranger.Where{{}},
+				Or:       []ranger.Where{{}},
+				Not:      new(ranger.Where{}),
+				Key:      new(filter.Set[ranger.Key]{}),
+				Name:     new(filter.String{}),
+				Overlaps: new(telem.TimeRange{}),
+				Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567819")},
+			}),
+			Key: new(filter.Set[ranger.Key]{
+				Eq: new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781b"))),
+				In: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781c")},
+			}),
+			Name: new(filter.String{
+				Eq:    new(string("test_30")),
+				In:    []string{"test_31"},
+				Regex: new(string("test_32")),
+			}),
+			Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(35), End: telem.TimeStamp(36)}),
+			Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567824")},
+		}),
 	}}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -228,112 +269,54 @@ func FuzzDecodeBase(f *testing.F) {
 	})
 }
 
-func FuzzDecodeRangeQuery(f *testing.F) {
-	{
-		seed := v1.RangeQuery{
-			HasLabels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v1.RangeQuery{HasLabels: []uuid.UUID{}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v1.RangeQuery{HasLabels: []uuid.UUID{}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v1.RangeQuery
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded v1.RangeQuery
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		if !testutil.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
-		}
-	})
-}
-
-func FuzzDecodeStatusQuery(f *testing.F) {
-	{
-		seed := v1.StatusQuery{
-			HasLabels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801")},
-			Variants:  []status.Variant{status.Variant("success")},
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v1.StatusQuery{HasLabels: []uuid.UUID{}, Variants: []status.Variant{}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := v1.StatusQuery{HasLabels: []uuid.UUID{}, Variants: []status.Variant{}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded v1.StatusQuery
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded v1.StatusQuery
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		if !testutil.DeepEqual(decoded, redecoded) {
-			t.Fatal("round-trip mismatch: decoded value changed after an encode/decode cycle")
-		}
-	})
-}
-
 func FuzzDecodeView(f *testing.F) {
 	{
 		seed := v1.View{Variant: v1.RangeView{
 			Base: fullyPopulatedBase,
-			Query: v1.RangeQuery{
-				HasLabels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802")},
-			},
+			Where: new(ranger.Where{
+				And: []ranger.Where{
+					{
+						And:      []ranger.Where{{}},
+						Or:       []ranger.Where{{}},
+						Not:      new(ranger.Where{}),
+						Key:      new(filter.Set[ranger.Key]{}),
+						Name:     new(filter.String{}),
+						Overlaps: new(telem.TimeRange{}),
+						Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809")},
+					},
+				},
+				Or: []ranger.Where{
+					{
+						And:      []ranger.Where{{}},
+						Or:       []ranger.Where{{}},
+						Not:      new(ranger.Where{}),
+						Key:      new(filter.Set[ranger.Key]{}),
+						Name:     new(filter.String{}),
+						Overlaps: new(telem.TimeRange{}),
+						Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567811")},
+					},
+				},
+				Not: new(ranger.Where{
+					And:      []ranger.Where{{}},
+					Or:       []ranger.Where{{}},
+					Not:      new(ranger.Where{}),
+					Key:      new(filter.Set[ranger.Key]{}),
+					Name:     new(filter.String{}),
+					Overlaps: new(telem.TimeRange{}),
+					Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567819")},
+				}),
+				Key: new(filter.Set[ranger.Key]{
+					Eq: new(ranger.Key(uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781b"))),
+					In: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781c")},
+				}),
+				Name: new(filter.String{
+					Eq:    new(string("test_30")),
+					In:    []string{"test_31"},
+					Regex: new(string("test_32")),
+				}),
+				Overlaps: new(telem.TimeRange{Start: telem.TimeStamp(35), End: telem.TimeStamp(36)}),
+				Labels:   []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567824")},
+			}),
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -344,10 +327,42 @@ func FuzzDecodeView(f *testing.F) {
 	{
 		seed := v1.View{Variant: v1.StatusView{
 			Base: fullyPopulatedBase,
-			Query: v1.StatusQuery{
-				HasLabels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567802")},
-				Variants:  []status.Variant{status.Variant("success")},
-			},
+			Where: new(status.Where{
+				And: []status.Where{
+					{
+						And:     []status.Where{{}},
+						Or:      []status.Where{{}},
+						Not:     new(status.Where{}),
+						Key:     new(filter.Set[status.Key]{}),
+						Variant: new(filter.Set[status.Variant]{}),
+						Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567808")},
+					},
+				},
+				Or: []status.Where{
+					{
+						And:     []status.Where{{}},
+						Or:      []status.Where{{}},
+						Not:     new(status.Where{}),
+						Key:     new(filter.Set[status.Key]{}),
+						Variant: new(filter.Set[status.Variant]{}),
+						Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780f")},
+					},
+				},
+				Not: new(status.Where{
+					And:     []status.Where{{}},
+					Or:      []status.Where{{}},
+					Not:     new(status.Where{}),
+					Key:     new(filter.Set[status.Key]{}),
+					Variant: new(filter.Set[status.Variant]{}),
+					Labels:  []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567816")},
+				}),
+				Key: new(filter.Set[status.Key]{Eq: new(status.Key("test_24")), In: []string{"test_25"}}),
+				Variant: new(filter.Set[status.Variant]{
+					Eq: new(status.Variant("success")),
+					In: []status.Variant{status.Variant("success")},
+				}),
+				Labels: []uuid.UUID{uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456781d")},
+			}),
 		}}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

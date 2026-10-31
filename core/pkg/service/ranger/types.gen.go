@@ -20,6 +20,9 @@ type Key = versions.Key
 // for labeling and categorizing telemetry data within specific time periods.
 type Range = versions.Range
 
+// Where is a filter that selects ranges.
+type Where = versions.Where
+
 // Ref is the range a visualization shows: a range saved in the Core, or an inline
 // window.
 type Ref = versions.Ref

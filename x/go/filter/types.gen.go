@@ -11,49 +11,20 @@
 
 package filter
 
+import "github.com/synnaxlabs/x/filter/versions"
+
 // String selects string values. A value must match every operator that is set.
-type String struct {
-	// Eq matches a value equal to eq.
-	Eq *string `json:"eq,omitzero" msgpack:"eq,omitempty"`
-	// In matches a value equal to an element of in.
-	In []string `json:"in,omitzero" msgpack:"in,omitempty"`
-	// Regex matches a value that the RE2 pattern regex matches.
-	Regex *string `json:"regex,omitzero" msgpack:"regex,omitempty"`
-}
+type String = versions.String
 
 // Bool selects boolean values.
-type Bool struct {
-	// Eq matches a value equal to eq.
-	Eq *bool `json:"eq,omitzero" msgpack:"eq,omitempty"`
-}
+type Bool = versions.Bool
 
 // Set selects values that only compare for equality, such as keys, enum values, and
 // UUIDs. A value must match every operator that is set.
-type Set[T any] struct {
-	// Eq matches a value equal to eq.
-	Eq *T `json:"eq,omitzero" msgpack:"eq,omitempty"`
-	// In matches a value equal to an element of in.
-	In []T `json:"in,omitzero" msgpack:"in,omitempty"`
-}
+type Set[T any] = versions.Set[T]
 
 // Ordered selects numbers and times. A value must match every operator that is set.
-type Ordered[T any] struct {
-	// Eq matches a value equal to eq.
-	Eq *T `json:"eq,omitzero" msgpack:"eq,omitempty"`
-	// In matches a value equal to an element of in.
-	In []T `json:"in,omitzero" msgpack:"in,omitempty"`
-	// Gt matches a value greater than gt.
-	Gt *T `json:"gt,omitzero" msgpack:"gt,omitempty"`
-	// Gte matches a value greater than or equal to gte.
-	Gte *T `json:"gte,omitzero" msgpack:"gte,omitempty"`
-	// Lt matches a value less than lt.
-	Lt *T `json:"lt,omitzero" msgpack:"lt,omitempty"`
-	// Lte matches a value less than or equal to lte.
-	Lte *T `json:"lte,omitzero" msgpack:"lte,omitempty"`
-}
+type Ordered[T any] = versions.Ordered[T]
 
 // Contains selects arrays by the elements they hold.
-type Contains[T any] struct {
-	// Any matches an array that holds an element of any.
-	Any []T `json:"any,omitzero" msgpack:"any,omitempty"`
-}
+type Contains[T any] = versions.Contains[T]

@@ -21,13 +21,13 @@
 #include "freighter/cpp/freighter.h"
 #include "x/cpp/telem/telem.h"
 
-#include "core/pkg/service/ranger/pb/ranger.pb.h"
+#include "core/pkg/api/ranger/pb/ranger.pb.h"
 #include "core/pkg/transport/grpc/ranger/ranger.pb.h"
 
 namespace synnax::ranger {
 /// @brief type alias for the transport used to retrieve ranges.
 using RetrieveClient = freighter::
-    UnaryClient<grpc::ranger::RetrieveRequest, grpc::ranger::RetrieveResponse>;
+    UnaryClient<grpc::ranger::RetrieveRequest, ::api::ranger::pb::RetrieveResponse>;
 
 /// @brief type alias for the transport used to create ranges.
 using CreateClient = freighter::
@@ -50,6 +50,10 @@ public:
         create_client(std::move(create_client)),
         set_end_client(std::move(set_end_client)),
         kv(std::move(kv_client)) {}
+
+    /// @brief retrieves the ranges that req selects.
+    [[nodiscard]] std::pair<std::vector<Range>, x::errors::Error>
+    retrieve(const RetrieveRequest &req) const;
 
     /// @brief retrieves the range with the given key.
     [[nodiscard]] std::pair<Range, x::errors::Error>
@@ -91,9 +95,5 @@ private:
     std::unique_ptr<SetEndClient> set_end_client;
     /// @brief range kv get transport.
     ranger::kv::Client kv;
-
-    /// @brief retrieves multiple ranges.
-    std::pair<std::vector<Range>, x::errors::Error>
-    retrieve_many(grpc::ranger::RetrieveRequest &req) const;
 };
 }

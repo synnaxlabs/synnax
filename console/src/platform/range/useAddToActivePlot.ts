@@ -22,7 +22,7 @@ export const useAddToActivePlot = (): ((keys: string[]) => void) => {
     const active = getFocusedKey();
     if (active == null || client == null) return;
     handleError(async () => {
-      const ranges = await client.ranges.retrieve({ keys });
+      const ranges = await client.ranges.retrieve(keys);
       dispatch(Session.Range.add(Session.Range.fromClient(ranges)));
       await client.lineplots.dispatch(
         active,

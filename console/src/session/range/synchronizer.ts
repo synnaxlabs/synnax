@@ -18,7 +18,7 @@ const syncRanges: Synchronizer.Callbacks<StoreState, Action> = {
       .range.ranges.filter(({ variant }) => variant === "persisted")
       .map(({ key }) => key);
     if (keys.length === 0) return;
-    const found = await client.ranges.retrieve({ keys, ignoreNotFoundError: true });
+    const found = await client.ranges.retrieve(keys);
     const foundKeys = new Set(found.map(({ key }) => key));
     const missing = keys.filter((key) => !foundKeys.has(key));
     if (missing.length > 0) store.dispatch(remove({ keys: missing }));

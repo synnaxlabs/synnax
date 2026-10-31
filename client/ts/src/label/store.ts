@@ -31,3 +31,16 @@ export const cachedLabelsOf = (
       .filter((r) => r.type === LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE)
       .map((r) => r.to.key),
   );
+
+/** Reports whether the cache labels the given ontology ID with any of the keys. */
+export const cachedLabeledByAny = (
+  cache: ontology.Cache,
+  id: ontology.ID,
+  keys: Key[],
+): boolean =>
+  cache
+    .relationshipsFrom(id)
+    .some(
+      (r) =>
+        r.type === LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE && keys.includes(r.to.key),
+    );

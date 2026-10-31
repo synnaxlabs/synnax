@@ -141,25 +141,30 @@ describe("queries", () => {
       });
     });
 
-    it("should handle includeLabels parameter", async () => {
+    it("should attach the labels of each range", async () => {
+      const rangeLabel = await client.labels.create({
+        name: "rangeLabel",
+        color: "#FF0000",
+      });
       const testRange = await client.ranges.create({
         name: "labeledRange",
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(1)),
       });
+      await client.labels.label(ranger.ontologyID(testRange.key), [rangeLabel.key]);
 
       const { result } = renderHook(() => Ranger.useList(), {
         wrapper,
       });
       act(() => {
-        result.current.retrieve({ includeLabels: true }, { signal: controller.signal });
+        result.current.retrieve({}, { signal: controller.signal });
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 
       const retrievedRange = result.current.getItem(testRange.key);
-      expect(retrievedRange?.key).toEqual(testRange.key);
+      expect(retrievedRange?.labels?.map((l) => l.key)).toEqual([rangeLabel.key]);
     });
 
-    it("should handle includeParent parameter", async () => {
+    it("should attach the parent of each range", async () => {
       const parentRange = await client.ranges.create({
         name: "parentRange",
         timeRange: TimeStamp.now().spanRange(TimeSpan.seconds(2)),
@@ -174,7 +179,7 @@ describe("queries", () => {
         wrapper,
       });
       act(() => {
-        result.current.retrieve({ includeParent: true }, { signal: controller.signal });
+        result.current.retrieve({}, { signal: controller.signal });
       });
       await waitFor(() =>
         expect(
@@ -184,7 +189,7 @@ describe("queries", () => {
       );
 
       const retrievedChild = result.current.getItem(childRange.key);
-      expect(retrievedChild?.key).toEqual(childRange.key);
+      expect(retrievedChild?.parent?.key).toEqual(parentRange.key);
     });
 
     it("should handle pagination with limit and offset", async () => {
@@ -197,12 +202,15 @@ describe("queries", () => {
         keys.push(range.key);
       }
 
-      const { result } = renderHook(() => Ranger.useList({ initialQuery: { keys } }), {
-        wrapper,
-      });
+      const { result } = renderHook(
+        () => Ranger.useList({ initialQuery: { where: { key: { in: keys } } } }),
+        {
+          wrapper,
+        },
+      );
       act(() => {
         result.current.retrieve(
-          { limit: 2, offset: 1, keys },
+          { limit: 2, offset: 1, where: { key: { in: keys } } },
           { signal: controller.signal },
         );
       });
@@ -292,12 +300,12 @@ describe("queries", () => {
       });
       await client.labels.label(ranger.ontologyID(r.key), [label.key]);
       const { result } = renderHook(
-        () => Ranger.useList({ initialQuery: { hasLabels: [label.key] } }),
+        () => Ranger.useList({ initialQuery: { where: { labels: [label.key] } } }),
         { wrapper },
       );
       act(() => {
         result.current.retrieve(
-          { hasLabels: [label.key] },
+          { where: { labels: [label.key] } },
           { signal: controller.signal },
         );
       });
@@ -311,7 +319,7 @@ describe("queries", () => {
       });
       act(() => {
         result.current.retrieve(
-          { hasLabels: [label.key] },
+          { where: { labels: [label.key] } },
           { signal: controller.signal },
         );
       });
@@ -324,7 +332,7 @@ describe("queries", () => {
       await client.labels.label(ranger.ontologyID(r3.key), [label.key]);
       act(() => {
         result.current.retrieve(
-          { hasLabels: [label.key] },
+          { where: { labels: [label.key] } },
           { signal: controller.signal },
         );
       });
@@ -373,7 +381,7 @@ describe("queries", () => {
         wrapper,
       });
       act(() => {
-        result.current.retrieve({ includeLabels: true }, { signal: controller.signal });
+        result.current.retrieve({}, { signal: controller.signal });
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
 

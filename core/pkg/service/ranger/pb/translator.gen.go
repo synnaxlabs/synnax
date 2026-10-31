@@ -14,9 +14,13 @@ package pb
 import (
 	"uuid"
 
+	"github.com/samber/lo"
+	"github.com/synnaxlabs/synnax/pkg/service/label"
 	labelpb "github.com/synnaxlabs/synnax/pkg/service/label/pb"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	colorpb "github.com/synnaxlabs/x/color/pb"
+	"github.com/synnaxlabs/x/filter"
+	filterpb "github.com/synnaxlabs/x/filter/pb"
 	xpb "github.com/synnaxlabs/x/pb"
 	telempb "github.com/synnaxlabs/x/telem/pb"
 )
@@ -115,6 +119,223 @@ func RangesFromPB(pbs []*Range) ([]ranger.Range, error) {
 	for i, pb := range pbs {
 		var err error
 		result[i], err = RangeFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// UuidSetToPB converts filter.Set[uuid.UUID] to UuidSet.
+func UuidSetToPB(r filter.Set[uuid.UUID]) (*UuidSet, error) {
+	pb := &UuidSet{}
+	if r.Eq != nil {
+		v := r.Eq.String()
+		pb.Eq = &v
+	}
+	if r.In != nil {
+		pb.In = &UuidList{Values: lo.Map(r.In, func(u uuid.UUID, _ int) string { return uuid.UUID(u).String() })}
+	}
+	return pb, nil
+}
+
+// UuidSetFromPB converts UuidSet to filter.Set[uuid.UUID].
+func UuidSetFromPB(pb *UuidSet) (filter.Set[uuid.UUID], error) {
+	var r filter.Set[uuid.UUID]
+	if pb == nil {
+		return r, nil
+	}
+	if pb.Eq != nil {
+		v, err := uuid.Parse(*pb.Eq)
+		if err != nil {
+			return filter.Set[uuid.UUID]{}, err
+		}
+		r.Eq = &v
+	}
+	if pb.In != nil {
+		vals, err := func() ([]uuid.UUID, error) {
+			result := make([]uuid.UUID, len(pb.In.Values))
+			for i, s := range pb.In.Values {
+				parsed, err := uuid.Parse(s)
+				if err != nil {
+					return nil, err
+				}
+				result[i] = uuid.UUID(parsed)
+			}
+			return result, nil
+		}()
+		if err != nil {
+			return filter.Set[uuid.UUID]{}, err
+		}
+		r.In = xpb.ListValues(vals)
+	}
+	return r, nil
+}
+
+// UuidSetsToPB converts a slice of filter.Set[uuid.UUID] to UuidSet.
+func UuidSetsToPB(rs []filter.Set[uuid.UUID]) ([]*UuidSet, error) {
+	result := make([]*UuidSet, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = UuidSetToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// UuidSetsFromPB converts a slice of UuidSet to filter.Set[uuid.UUID].
+func UuidSetsFromPB(pbs []*UuidSet) ([]filter.Set[uuid.UUID], error) {
+	result := make([]filter.Set[uuid.UUID], len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = UuidSetFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// WhereToPB converts Where to Where.
+func WhereToPB(r ranger.Where) (*Where, error) {
+	pb := &Where{}
+	if r.And != nil {
+		vals, err := WheresToPB(r.And)
+		if err != nil {
+			return nil, err
+		}
+		pb.And = &WhereList{Values: vals}
+	}
+	if r.Or != nil {
+		vals, err := WheresToPB(r.Or)
+		if err != nil {
+			return nil, err
+		}
+		pb.Or = &WhereList{Values: vals}
+	}
+	if r.Not != nil {
+		var err error
+		pb.Not, err = WhereToPB(*r.Not)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Key != nil {
+		var err error
+		pb.Key, err = UuidSetToPB(*r.Key)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Name != nil {
+		var err error
+		pb.Name, err = filterpb.StringToPB(*r.Name)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Overlaps != nil {
+		var err error
+		pb.Overlaps, err = telempb.TimeRangeToPB(*r.Overlaps)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Labels != nil {
+		pb.Labels = &LabelKeyList{Values: lo.Map(r.Labels, func(u label.Key, _ int) string { return uuid.UUID(u).String() })}
+	}
+	return pb, nil
+}
+
+// WhereFromPB converts Where to Where.
+func WhereFromPB(pb *Where) (ranger.Where, error) {
+	var r ranger.Where
+	if pb == nil {
+		return r, nil
+	}
+	if pb.And != nil {
+		vals, err := WheresFromPB(pb.And.Values)
+		if err != nil {
+			return ranger.Where{}, err
+		}
+		r.And = xpb.ListValues(vals)
+	}
+	if pb.Or != nil {
+		vals, err := WheresFromPB(pb.Or.Values)
+		if err != nil {
+			return ranger.Where{}, err
+		}
+		r.Or = xpb.ListValues(vals)
+	}
+	if pb.Not != nil {
+		val, err := WhereFromPB(pb.Not)
+		if err != nil {
+			return ranger.Where{}, err
+		}
+		r.Not = &val
+	}
+	if pb.Key != nil {
+		val, err := UuidSetFromPB(pb.Key)
+		if err != nil {
+			return ranger.Where{}, err
+		}
+		r.Key = &val
+	}
+	if pb.Name != nil {
+		val, err := filterpb.StringFromPB(pb.Name)
+		if err != nil {
+			return ranger.Where{}, err
+		}
+		r.Name = &val
+	}
+	if pb.Overlaps != nil {
+		val, err := telempb.TimeRangeFromPB(pb.Overlaps)
+		if err != nil {
+			return ranger.Where{}, err
+		}
+		r.Overlaps = &val
+	}
+	if pb.Labels != nil {
+		vals, err := func() ([]label.Key, error) {
+			result := make([]label.Key, len(pb.Labels.Values))
+			for i, s := range pb.Labels.Values {
+				parsed, err := uuid.Parse(s)
+				if err != nil {
+					return nil, err
+				}
+				result[i] = label.Key(parsed)
+			}
+			return result, nil
+		}()
+		if err != nil {
+			return ranger.Where{}, err
+		}
+		r.Labels = xpb.ListValues(vals)
+	}
+	return r, nil
+}
+
+// WheresToPB converts a slice of Where to Where.
+func WheresToPB(rs []ranger.Where) ([]*Where, error) {
+	result := make([]*Where, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = WhereToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// WheresFromPB converts a slice of Where to Where.
+func WheresFromPB(pbs []*Where) ([]ranger.Where, error) {
+	result := make([]ranger.Where, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = WhereFromPB(pb)
 		if err != nil {
 			return nil, err
 		}

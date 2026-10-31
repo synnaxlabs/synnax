@@ -9,6 +9,7 @@
 
 import "schemas/synnax/label"
 import "schemas/x/color"
+import "schemas/x/filter"
 import "schemas/x/telem"
 
 @cpp output "client/cpp/ranger"
@@ -50,6 +51,7 @@ Range struct {
             filtering.
         """
         @go marshal    omit
+        @include
         @validate skip
     }
     parent     Range?          {
@@ -58,6 +60,7 @@ Range struct {
             nested within other ranges.
         """
         @go marshal    omit
+        @include
         @validate skip
     }
 
@@ -75,6 +78,21 @@ Range struct {
     @py name         "Payload"
     @retrieve custom
     @ts name         "Payload"
+}
+
+Where filter Range {
+    key
+    name
+    overlaps telem.TimeRange {
+        @doc value "matches ranges whose time range overlaps the given range."
+    }
+    labels   label.Key[]     {
+        @doc value "matches ranges that have any of the given labels."
+    }
+
+    @doc value         "is a filter that selects ranges."
+    @go marshal
+    @go request_output "core/pkg/api/ranger"
 }
 
 Ref union on variant {

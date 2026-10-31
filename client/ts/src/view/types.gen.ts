@@ -12,25 +12,9 @@
 import { uuid } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { label } from "@/label";
 import { ontology } from "@/ontology";
+import { ranger } from "@/ranger";
 import { status } from "@/status";
-
-/** RangeQuery filters the ranges shown by a range view. */
-export const rangeQueryZ = z.object({
-  /** hasLabels restricts the view to ranges carrying any of these labels. */
-  hasLabels: label.keyZ.array().default(() => []),
-});
-export interface RangeQuery extends z.infer<typeof rangeQueryZ> {}
-
-/** StatusQuery filters the statuses shown by a status view. */
-export const statusQueryZ = z.object({
-  /** hasLabels restricts the view to statuses carrying any of these labels. */
-  hasLabels: label.keyZ.array().default(() => []),
-  /** variants restricts the view to statuses of these variants. */
-  variants: status.variantZ.array().default(() => []),
-});
-export interface StatusQuery extends z.infer<typeof statusQueryZ> {}
 
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
@@ -47,16 +31,16 @@ export interface Base extends z.infer<typeof baseZ> {}
 /** RangeView is a saved view of ranges. */
 export const rangeViewZ = baseZ.extend({
   type: z.literal("range"),
-  /** query filters the ranges the view shows. */
-  query: rangeQueryZ,
+  /** where selects the ranges the view shows. An absent where shows all. */
+  where: ranger.whereZ.optional(),
 });
 export interface RangeView extends z.infer<typeof rangeViewZ> {}
 
 /** StatusView is a saved view of statuses. */
 export const statusViewZ = baseZ.extend({
   type: z.literal("status"),
-  /** query filters the statuses the view shows. */
-  query: statusQueryZ,
+  /** where selects the statuses the view shows. An absent where shows all. */
+  where: status.whereZ.optional(),
 });
 export interface StatusView extends z.infer<typeof statusViewZ> {}
 
@@ -66,7 +50,7 @@ export type ViewType = z.infer<typeof viewTypeZ>;
 
 /**
  * View is a saved, named filter over a list of resources. The type selects the resource
- * the view lists and the shape of its query.
+ * the view lists and the shape of its where.
  */
 export const viewZ = z.discriminatedUnion("type", [rangeViewZ, statusViewZ]);
 export type View = RangeView | StatusView;
