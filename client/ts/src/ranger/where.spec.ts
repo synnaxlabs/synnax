@@ -9,7 +9,7 @@
 
 import { describe } from "vitest";
 
-import { payloadZ, whereZ } from "@/ranger/types.gen";
+import { ranger } from "@/ranger";
 import { createLines } from "@/ranger/where";
 import { matches, serverComputed } from "@/ranger/where.gen";
 import { itMatchesVectors, readVectors } from "@/testutil/vectors";
@@ -20,7 +20,7 @@ const lines = createLines(
 
 describe("Where", () => {
   itMatchesVectors(
-    readVectors("ranges", payloadZ, whereZ),
+    readVectors("ranges", ranger.payloadZ, ranger.whereZ),
     (r, where) => matches(lines, r, where),
     (where) => serverComputed(lines, where),
   );

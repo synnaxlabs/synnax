@@ -344,6 +344,14 @@ func bareLineOperator(
 		)
 	}
 	if ref.Name == "Array" && len(ref.TypeArgs) == 1 {
+		if !isComparable(ref.TypeArgs[0], c.table) {
+			return report(
+				"%s.%s has elements that cannot be compared; give the line a type to "+
+					"make it a typed line",
+				target.Name,
+				field.Name,
+			)
+		}
 		return operator(resolution.OperatorContains, ref.TypeArgs[0]), true
 	}
 	if _, isKey := field.Domains["key"]; isKey {
@@ -374,6 +382,18 @@ func bareLineOperator(
 		target.Name,
 		field.Name,
 	)
+}
+
+// isComparable reports whether the generated matchers can compare ref by value.
+func isComparable(ref resolution.TypeRef, table *resolution.Table) bool {
+	if resolved, _, ok := resolution.Dealias(ref, table); ok {
+		if _, isEnum := resolved.Form.(resolution.EnumForm); isEnum {
+			return true
+		}
+	}
+	base := resolution.PrimitiveBase(ref, table)
+	return base == "string" || base == "bool" || base == "uuid" ||
+		resolution.IsNumberPrimitive(base)
 }
 
 func operator(name string, arg resolution.TypeRef) resolution.TypeRef {
