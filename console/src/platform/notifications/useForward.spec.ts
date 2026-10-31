@@ -452,6 +452,20 @@ describe("Notifications.Provider", () => {
       expect(result.current.find(({ status: s }) => s.key === key)?.count).toBe(1);
     });
 
+    it("should close a problem open at load on an earlier recovery", async () => {
+      const key = createTaskKey();
+      await write({ key, variant: "error" });
+      const { result } = await renderForward(client, { task: STATE });
+      expect(keysOf(result.current)).toContain(key);
+      // The Driver can stamp a recovery on a clock that is behind the Core.
+      await write({
+        key,
+        variant: "success",
+        time: TimeStamp.now().sub(TimeSpan.minutes(1)),
+      });
+      await waitFor(() => expect(keysOf(result.current)).not.toContain(key));
+    });
+
     it("should notify a reply to a problem that is open at load", async () => {
       const key = createTaskKey();
       await write({ key, variant: "error" });

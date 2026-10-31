@@ -10,7 +10,7 @@
 import { ontology, type status, type Synnax as Client } from "@synnaxlabs/client";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Synnax } from "@synnaxlabs/pluto";
-import { destructor, TimeSpan, type TimeStamp } from "@synnaxlabs/x";
+import { destructor, TimeSpan } from "@synnaxlabs/x";
 import { useEffect, useState } from "react";
 
 /**
@@ -88,6 +88,10 @@ const getOwner = (rules: Rules, key: status.Key): Owner | null => {
 };
 
 // Without a since, every problem on a key has one identity.
+// Writers stamp times on their own clocks, so a later write can have an earlier time.
+const isSameWrite = (a: status.Status, b: status.Status): boolean =>
+  a.time.equals(b.time) && a.variant === b.variant && a.message === b.message;
+
 const identify = ({ since }: status.Status): string =>
   since?.valueOf().toString() ?? "";
 
@@ -118,8 +122,8 @@ interface Entry {
   checks: number;
   /** Whether the use of the thing changed while the problem was closed. */
   useStale?: boolean;
-  /** The time of the status that the load returned, for an entry that the load made. */
-  loaded?: TimeStamp;
+  /** The status that the load returned, until the next write on the key. */
+  loaded?: status.Status;
 }
 
 interface ForwarderParams {
@@ -303,8 +307,10 @@ const createForwarder = ({
 
   const route = (stat: status.Status): void => {
     const problem = problems.get(stat.key);
-    // The load returned the latest status of the key, which already holds older writes.
-    if (problem?.loaded?.afterEq(stat.time) === true) return;
+    const loaded = problem?.loaded;
+    if (problem != null) problem.loaded = undefined;
+    // The stream can also deliver the write that the load returned.
+    if (loaded != null && isSameWrite(loaded, stat)) return;
     const owner = getOwner(rules, stat.key);
     const kind = owner?.rule.kind(stat) ?? "alarm";
     if (kind !== "state") retire(stat.key);
@@ -349,7 +355,7 @@ const createForwarder = ({
       const owner = getOwner(rules, stat.key);
       const problem = track(stat, owner);
       problem.decision = "hidden";
-      problem.loaded = stat.time;
+      problem.loaded = stat;
       // A reply gets the check too, since a later state can join its problem.
       if (owner == null || owner.rule.kind(stat) === "alarm") problem.inUse = true;
       else check(problem, owner);
