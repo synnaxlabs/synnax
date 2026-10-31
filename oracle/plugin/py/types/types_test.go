@@ -1738,6 +1738,221 @@ var _ = Describe("Python Types Plugin", func() {
 			)
 		})
 
+		Context("same-namespace hand-written reference", func() {
+			It("Should import a referenced hand-written struct from its module",
+				func(ctx SpecContext) {
+					source := `
+						@py output "x/py/x/color"
+
+						Color struct {
+							r uint8
+							@py hand
+							@py include "x/py/x/color/color"
+						}
+
+						Band struct {
+							threshold float64
+							color Color
+						}
+					`
+					resp := MustGenerate(ctx, source, "color", loader, typesPlugin)
+					ExpectContent(resp, "types_gen.py").
+						ToContain(`from x.color.color import Color`, `color: Color`).
+						ToNotContain("class Color(")
+				})
+
+			It("Should reference a hand-written struct by its import alias",
+				func(ctx SpecContext) {
+					source := `
+						@py output "x/py/x/color"
+
+						Color struct {
+							r uint8
+							@py hand
+							@py include "x/py/x/color/color"
+							@py name "rgba"
+						}
+
+						Band struct {
+							rgba Color
+						}
+					`
+					resp := MustGenerate(ctx, source, "color", loader, typesPlugin)
+					ExpectContent(resp, "types_gen.py").
+						ToContain(
+							`from x.color.color import rgba as rgba_`,
+							`rgba: rgba_`,
+						)
+				})
+
+			It("Should bind a hand-written type and a module of the same name apart",
+				func(ctx SpecContext) {
+					loader.Add("schemas/status", `
+						@py output "client/py/synnax/status"
+
+						Info struct {
+							key uuid
+						}
+					`)
+					source := `
+						import "schemas/status"
+
+						@py output "client/py/synnax/task"
+
+						Label struct {
+							key uuid
+							@py hand
+							@py include "client/py/synnax/task/label"
+							@py name "status"
+						}
+
+						Config struct {
+							info  status.Info
+							label Label
+						}
+					`
+					resp := MustGenerate(ctx, source, "task", loader, typesPlugin)
+					ExpectContent(resp, "task/types_gen.py").ToContain(
+						`from synnax import status`,
+						`from synnax.task.label import status as status_`,
+						`info: status.Info`,
+						`label: status_`,
+					)
+				})
+
+			DescribeTable(
+				"Should bind a hand-written type apart from a generated import",
+				func(ctx SpecContext, name, imported, field string) {
+					source := `
+						@py output "x/py/x/color"
+
+						Color struct {
+							r uint8
+							@py hand
+							@py include "x/py/x/color/color"
+							@py name "` + name + `"
+						}
+
+						Band struct {
+							key   uuid
+							color Color
+						}
+					`
+					resp := MustGenerate(ctx, source, "color", loader, typesPlugin)
+					ExpectContent(resp, "types_gen.py").ToContain(
+						imported,
+						`from x.color.color import `+name+` as `+name+`_`,
+						field,
+						`color: `+name+`_`,
+					)
+				},
+				Entry("named like the uuid import", "UUID",
+					`from uuid import UUID`, `key: UUID`),
+				Entry("named like the pydantic base class", "BaseModel",
+					`from pydantic import BaseModel`, `class Band(BaseModel):`),
+			)
+
+			It("Should bind a hand-written type apart from a TypeVar of the same name",
+				func(ctx SpecContext) {
+					source := `
+						@py output "x/py/x/color"
+
+						Color struct {
+							r uint8
+							@py hand
+							@py include "x/py/x/color/color"
+						}
+
+						Box struct<Color> {
+							value Color
+						}
+
+						Band struct {
+							color Color
+						}
+					`
+					resp := MustGenerate(ctx, source, "color", loader, typesPlugin)
+					ExpectContent(resp, "types_gen.py").ToContain(
+						`from x.color.color import Color as Color_`,
+						`Color = TypeVar("Color")`,
+						`value: Color`,
+						`color: Color_`,
+					)
+				},
+			)
+
+			It("Should import the variant a hand-written union default names",
+				func(ctx SpecContext) {
+					source := `
+						@py output "x/py/x/color"
+
+						Scale union on type {
+							none {}
+							linear {
+								slope float64
+							}
+							@py hand
+							@py include "x/py/x/color/scale"
+						}
+
+						Band struct {
+							scale  Scale = none
+							linear Scale = { type = "linear", slope = 2 }
+						}
+					`
+					resp := MustGenerate(ctx, source, "color", loader, typesPlugin)
+					ExpectContent(resp, "types_gen.py").
+						ToContain(
+							`from x.color.scale import Scale`,
+							`from x.color.scale import NoneScale`,
+							`from x.color.scale import LinearScale`,
+							`default_factory=lambda: NoneScale(type="none")`,
+							`default_factory=lambda: LinearScale(type="linear", slope=2)`,
+						)
+				})
+
+			It("Should import a hand-written struct that an alias names",
+				func(ctx SpecContext) {
+					source := `
+						@py output "x/py/x/color"
+
+						Color struct {
+							r uint8
+							@py hand
+							@py include "x/py/x/color/color"
+						}
+
+						Shade = Color
+					`
+					resp := MustGenerate(ctx, source, "color", loader, typesPlugin)
+					ExpectContent(resp, "types_gen.py").
+						ToContain(`from x.color.color import Color`, `Shade`)
+				})
+
+			It("Should fail when a referenced hand-written struct declares no module",
+				func(ctx SpecContext) {
+					source := `
+						@py output "x/py/x/color"
+
+						Color struct {
+							r uint8
+							@py hand
+						}
+
+						Band struct {
+							color Color
+						}
+					`
+					req := MustGenerateRequest(ctx, source, "color", loader)
+					Expect(typesPlugin.Generate(req)).Error().To(MatchError(
+						ContainSubstring(
+							"types with no generated Python declaration need a " +
+								"@py include module: color.Color",
+						),
+					))
+				})
+		})
+
 		Context("cross-namespace references", func() {
 			BeforeEach(func() {
 				loader.Add("schemas/status", `
@@ -2524,6 +2739,26 @@ var _ = Describe("Python Union Field & Variant Coverage", func() {
 		},
 	)
 
+	DescribeTable(
+		"Should panic on an invalid union default",
+		func(ctx SpecContext, literal, message string) {
+			withDefault := source + "\nItem struct { scale Scale = " + literal + " }\n"
+			Expect(func() {
+				MustGenerate(ctx, withDefault, "ni", loader, typesPlugin)
+			}).To(PanicWith(ContainSubstring(message)))
+		},
+		Entry(
+			"without its discriminator",
+			"{ slope = 2 }",
+			"does not set its discriminator type",
+		),
+		Entry(
+			"with an unknown variant",
+			`{ type = "cubic" }`,
+			`names unknown variant "cubic"`,
+		),
+	)
+
 	It(
 		"Should alias a module import that an inline variant field shadows",
 		func(ctx SpecContext) {
@@ -2542,6 +2777,45 @@ var _ = Describe("Python Union Field & Variant Coverage", func() {
 				Config union on variant {
 					tracked {
 						status status.Info
+					}
+				}
+			`
+			resp := MustGenerate(ctx, source, "task", loader, typesPlugin)
+			ExpectContent(resp, "task/types_gen.py").ToContain(
+				`from synnax import status as status_`,
+				`status: status_.Info`,
+			)
+		},
+	)
+
+	It(
+		"Should alias a module import that a flattened base field shadows",
+		func(ctx SpecContext) {
+			loader.Add("schemas/status", `
+				@py output "client/py/synnax/status"
+
+				Info struct {
+					key uuid
+				}
+			`)
+			loader.Add("schemas/common", `
+				import "schemas/status"
+
+				@py output "client/py/synnax/common"
+
+				Base struct {
+					status status.Info
+					name   string
+				}
+			`)
+			source := `
+				import "schemas/common"
+
+				@py output "client/py/synnax/task"
+
+				Config union on variant extends common.Base {
+					tracked {
+						-name
 					}
 				}
 			`
