@@ -7,9 +7,10 @@
 # License, use of this software will be governed by the Apache License, Version 2.0,
 # included in the file licenses/APL.txt.
 
-# Runs Claude Code or Codex on an agent runner through scripts/agent/run. Each agent
-# writes to GitHub as its own GitHub App, never as a person. Callers must grant
-# `id-token: write`, which starts a stopped runner through AWS.
+# Runs Claude Code or Codex on an agent runner through scripts/agent/run, with the CLI
+# login of the runner's seat. Each agent writes to GitHub as its own GitHub App, never
+# as a person. Callers must grant `id-token: write`, which starts a stopped runner
+# through AWS.
 name: Agent
 
 on:
@@ -77,15 +78,18 @@ jobs:
           role-to-assume: ${{ vars.AGENT_RUNNER_ROLE_ARN }}
           aws-region: us-east-1
 
-      # Idle runners stop themselves, so a job starts one stopped runner. Only one of
-      # two concurrent starts sees an instance's previous state as stopped, so the other
-      # tries again. The job waits for any runner when none is stopped.
+      # Idle seat instances stop themselves, so a job starts one stopped instance of its
+      # agent. Only one of two concurrent starts sees an instance's previous state as
+      # stopped, so the other tries again. With none stopped, it waits for a runner.
       - name: Start a stopped runner
+        env:
+          AGENT: ${{ inputs.agent || vars.AGENT_DEFAULT || 'claude' }}
         run: |
           for _ in 1 2 3; do
             ids=$(aws ec2 describe-instances --output text \
               --filters Name=tag:project,Values=synnax-agents \
-              Name=tag:pool,Values=agent Name=instance-state-name,Values=stopped \
+              Name=tag:pool,Values=agent Name=tag:agent,Values="$AGENT" \
+              Name=instance-state-name,Values=stopped \
               --query 'Reservations[].Instances[].InstanceId')
             if [ -z "$ids" ]; then exit 0; fi
             read -ra stopped <<< "$ids"
@@ -98,7 +102,10 @@ jobs:
   run:
     needs: start
     name: Run (${{ inputs.agent || vars.AGENT_DEFAULT || 'claude' }})
-    runs-on: [self-hosted, ubuntu-agent-bot]
+    runs-on:
+      - self-hosted
+      - agent
+      - agent-${{ inputs.agent || vars.AGENT_DEFAULT || 'claude' }}
     timeout-minutes: ${{ inputs.timeout-minutes }}
     outputs:
       pr-url: ${{ steps.agent.outputs.pr-url }}
@@ -151,9 +158,13 @@ jobs:
           PR: ${{ inputs.pr }}
         run: gh pr checkout "$PR"
 
-      # A runner can stay stopped for weeks, so every job takes the latest agent CLIs.
-      - name: Update the agent CLIs
-        run: sudo npm install -g @anthropic-ai/claude-code@latest @openai/codex@latest
+      # Every job installs the latest agent CLIs for itself, so an update never replaces
+      # a CLI that another job on the same instance runs.
+      - name: Install the agent CLIs
+        run: |
+          npm install --prefix "$RUNNER_TEMP/cli" \
+            @anthropic-ai/claude-code@latest @openai/codex@latest
+          echo "$RUNNER_TEMP/cli/node_modules/.bin" >> "$GITHUB_PATH"
 
       - name: Set up the task
         if: inputs.setup != ''
@@ -168,8 +179,6 @@ jobs:
           GH_TOKEN: ${{ steps.app.outputs.token }}
           AGENT_GIT_NAME: ${{ steps.bot.outputs.name }}
           AGENT_GIT_EMAIL: ${{ steps.bot.outputs.email }}
-          CLAUDE_CODE_OAUTH_TOKEN:
-            ${{ env.AGENT == 'claude' && secrets.CLAUDE_CODE_OAUTH_TOKEN || '' }}
           PROMPT: ${{ inputs.prompt }}
           OUTPUT: ${{ inputs.output }}
           PR: ${{ inputs.pr }}

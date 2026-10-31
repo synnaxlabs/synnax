@@ -9,6 +9,10 @@
 
 self-hosted-runner:
   labels:
+    - agent
+    - agent-claude
+    - agent-classify
+    - agent-codex
     - macos-build-bot
     - ubuntu-agent-bot
     - ubuntu-build-bot
