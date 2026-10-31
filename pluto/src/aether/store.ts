@@ -130,6 +130,21 @@ interface Entry<
   pendingInvokes: aether.MainInvokeRequest[];
 }
 
+/**
+ * Parses raw into the state of the entry and returns the fields that changed. A parse
+ * copies every field, so the state keeps the old value of each field that did not
+ * change. A memo that reads an unchanged field then stays valid.
+ */
+const parseInto = <StateSchema extends z.ZodType<record.Unknown, record.Unknown>>(
+  entry: Entry<StateSchema>,
+  raw: unknown,
+): record.Unknown => {
+  const next = zod.parse(entry.schema, raw, { label: entry.type });
+  const changed = aether.delta(entry.state, next);
+  entry.state = { ...entry.state, ...changed };
+  return changed;
+};
+
 /** Arguments accepted by {@link Store.stage}. */
 export interface StageParams<
   StateSchema extends z.ZodType<record.Unknown, record.Unknown>,
@@ -482,11 +497,7 @@ export class Store {
     // Drop pushes for a detached path — possible when delete/update messages cross
     // in flight, or after a StrictMode pseudo-unmount.
     if (entry == null) return;
-    entry.state = zod.parse(
-      entry.schema,
-      { ...entry.state, ...state },
-      { label: entry.type },
-    );
+    parseInto(entry, { ...entry.state, ...state });
     this.listeners.get(id)?.forEach((l) => l());
     entry.onReceiveRef?.current?.(entry.state);
   }
@@ -502,12 +513,11 @@ export class Store {
       transfer: Transferable[] = [],
     ): void => {
       if (entry.displaced) return;
-      const prev = entry.state;
       const raw = state.executeSetter<z.input<StateSchema>, z.infer<StateSchema>>(
         next,
-        prev,
+        entry.state,
       );
-      entry.state = zod.parse(entry.schema, raw, { label: entry.type });
+      const changed = parseInto(entry, raw);
       // Before the create message flushes the worker has no component to update, so
       // the state rides along on that message instead and the transfer list merges
       // into it. Ownership of each Transferable still moves exactly once.
@@ -517,7 +527,7 @@ export class Store {
           {
             variant: "update",
             path: entry.path,
-            state: aether.delta(prev, entry.state),
+            state: changed,
             type: entry.type,
           },
           transfer,
