@@ -31,6 +31,8 @@ public:
     virtual x::errors::Error
     e_stream_read(double *data, int *dev_scan_backlog, int *ljm_scan_backlog) const = 0;
 
+    /// @brief stops the stream. A failed stop still allows the next start, so a lost
+    /// connection never blocks it.
     [[nodiscard]] virtual x::errors::Error e_stream_stop() const = 0;
 
     [[nodiscard]] virtual x::errors::Error
@@ -80,6 +82,8 @@ public:
     [[nodiscard]] virtual x::errors::Error
     e_read_name(const char *name, double *value) const = 0;
 
+    /// @brief starts a stream.
+    /// @returns ljm::STREAM_IS_ACTIVE when a stream already runs on the device.
     [[nodiscard]] virtual x::errors::Error e_stream_start(
         size_t scans_per_read,
         size_t num_addrs,
@@ -122,8 +126,6 @@ public:
         );
     }
 
-    /// @brief stops the stream. A failed stop still allows the next start, so a lost
-    /// connection never blocks it.
     [[nodiscard]] x::errors::Error e_stream_stop() const override {
         const auto err = parse_error(this->ljm, this->ljm->e_stream_stop(dev_handle));
         this->streaming = false;

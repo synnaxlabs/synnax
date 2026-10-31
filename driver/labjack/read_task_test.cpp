@@ -512,8 +512,8 @@ TEST_F(SourceClaimTest, testStreamSourceReadReclaimsAfterFailedRestart) {
     ASSERT_NIL(source.stop());
 }
 
-/// @brief a restart that fails must hold no device, so the next read claims it again
-/// and a later stop cannot end the stream of another task on the shared handle.
+/// @brief it should hold no device after a failed restart, so a later stop cannot end
+/// the stream of another task on the shared handle.
 TEST_F(SourceClaimTest, testStreamSourceFailedRestartHoldsNoDevice) {
     parse_config(false);
     const auto mock = std::make_shared<device::Mock>();
@@ -526,8 +526,7 @@ TEST_F(SourceClaimTest, testStreamSourceFailedRestartHoldsNoDevice) {
     EXPECT_EQ(mock.use_count(), 2);
 }
 
-/// @brief a second stream on one device must fail to start and leave the first stream
-/// running.
+/// @brief it should refuse a second stream on one device and leave the first running.
 TEST_F(SourceClaimTest, testStreamSourceSecondStartLeavesFirstStreamRunning) {
     parse_config(false);
     auto first_cfg = std::move(this->cfg);
