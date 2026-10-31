@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
 #include <string>
@@ -331,6 +332,127 @@ TEST_F(TestScanTask, testInvalidConnection) {
     EXPECT_EQ(state.details.cmd, "invalid_scan_cmd");
     EXPECT_EQ(state.variant, synnax::status::VARIANT_ERROR);
     EXPECT_EQ(state.message, "Failed to connect to server");
+}
+
+/// @returns a command of type for the server at endpoint.
+synnax::task::Command
+command(const std::string &type, const std::string &endpoint, x::json::json args = {}) {
+    connection::Config conn_cfg;
+    conn_cfg.endpoint = endpoint;
+    args["connection"] = testutil::connection_json(conn_cfg);
+    return {.type = type, .key = type + "_cmd", .args = args};
+}
+
+/// @brief it should browse from a node ID with no namespace, and print node IDs with
+/// the URI of their namespace.
+TEST_F(TestScanTask, testBrowsePrintsNamespaceURIs) {
+    Scanner scanner(ctx, task, conn_pool, store);
+    auto cmd = command(
+        BROWSE_CMD_TYPE,
+        "opc.tcp://localhost:4840",
+        {{"node_id", "i=85"}}
+    );
+    ASSERT_TRUE(scanner.exec(cmd, task, ctx));
+    ASSERT_EQ(ctx->statuses.size(), 1);
+    const auto &state = ctx->statuses[0];
+    ASSERT_EQ(state.variant, synnax::status::VARIANT_SUCCESS) << state.description;
+    const auto channels = x::json::json(state.details.data.value()).at("channels");
+    const auto it = std::ranges::find_if(channels, [](const auto &ch) {
+        return ch["name"] == "TestBoolean";
+    });
+    ASSERT_NE(it, channels.end());
+    EXPECT_EQ((*it)["node_id"], "nsu=urn:open62541.server.application;s=TestBoolean");
+}
+
+/// @brief it should print the URI of a namespace that the server added after the
+/// connection opened.
+TEST_F(TestScanTask, testBrowsePrintsNamespaceAddedAfterConnect) {
+    Scanner scanner(ctx, task, conn_pool, store);
+    auto cmd = command(
+        BROWSE_CMD_TYPE,
+        "opc.tcp://localhost:4840",
+        {{"node_id", "i=85"}}
+    );
+    ASSERT_TRUE(scanner.exec(cmd, task, ctx));
+    UA_Float value = 5.0f;
+    UA_Variant variant;
+    UA_Variant_setScalar(&variant, &value, &UA_TYPES[UA_TYPES_FLOAT]);
+    server->add_namespace(
+        "urn:late",
+        {{0, "Late", &UA_TYPES[UA_TYPES_FLOAT], variant, "Late"}}
+    );
+    ASSERT_TRUE(scanner.exec(cmd, task, ctx));
+    ASSERT_EQ(ctx->statuses.size(), 2);
+    const auto &state = ctx->statuses[1];
+    ASSERT_EQ(state.variant, synnax::status::VARIANT_SUCCESS) << state.description;
+    const auto channels = x::json::json(state.details.data.value()).at("channels");
+    const auto it = std::ranges::find_if(channels, [](const auto &ch) {
+        return ch["name"] == "Late";
+    });
+    ASSERT_NE(it, channels.end());
+    EXPECT_EQ((*it)["node_id"], "nsu=urn:late;s=Late");
+    EXPECT_EQ(conn_pool->size(), 1);
+}
+
+/// @brief it should fail to browse from a node in a namespace that the server lacks.
+TEST_F(TestScanTask, testBrowseUnknownNamespace) {
+    Scanner scanner(ctx, task, conn_pool, store);
+    auto cmd = command(
+        BROWSE_CMD_TYPE,
+        "opc.tcp://localhost:4840",
+        {{"node_id", "nsu=urn:missing;i=85"}}
+    );
+    ASSERT_TRUE(scanner.exec(cmd, task, ctx));
+    ASSERT_EQ(ctx->statuses.size(), 1);
+    const auto &state = ctx->statuses[0];
+    EXPECT_EQ(state.variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(state.message, "Failed to browse nodes");
+    EXPECT_EQ(state.description, "The server has no namespace urn:missing.");
+}
+
+/// @brief it should list the endpoints of a server without opening a Session, and close
+/// its channel.
+TEST_F(TestScanTask, testGetEndpoints) {
+    const auto server_id = ASSERT_NIL_P(testutil::create_server_identity());
+    start_secured_server(server_id);
+    Scanner scanner(ctx, task, conn_pool, store);
+    auto cmd = command(GET_ENDPOINTS_CMD_TYPE, "opc.tcp://localhost:4871");
+    ASSERT_TRUE(scanner.exec(cmd, task, ctx));
+    ASSERT_EQ(ctx->statuses.size(), 1);
+    const auto &state = ctx->statuses[0];
+    ASSERT_EQ(state.variant, synnax::status::VARIANT_SUCCESS) << state.description;
+    EXPECT_EQ(state.message, "Received endpoints");
+    const auto endpoints = x::json::json(state.details.data.value()).at("endpoints");
+    const auto find = [&](const std::string &mode, const std::string &policy) {
+        return std::ranges::find_if(endpoints, [&](const auto &e) {
+            return e["security_mode"] == mode && e["security_policy"] == policy;
+        });
+    };
+    const auto none = find("None", "None");
+    ASSERT_NE(none, endpoints.end());
+    EXPECT_FALSE((*none)["url"].get<std::string>().empty());
+    const auto tokens = (*none)["user_token_types"].get<std::vector<std::string>>();
+    EXPECT_NE(std::ranges::find(tokens, "anonymous"), tokens.end());
+    const auto secured = find("SignAndEncrypt", "Basic256Sha256");
+    ASSERT_NE(secured, endpoints.end());
+    EXPECT_GT(
+        (*secured)["security_level"].get<int>(),
+        (*none)["security_level"].get<int>()
+    );
+    EXPECT_NE(find("Sign", "Basic256Sha256"), endpoints.end());
+    EXPECT_EQ(conn_pool->size(), 0);
+    EXPECT_EQ(secured_server->sessions_created.load(), 0);
+    ASSERT_EVENTUALLY_EQ(secured_server->channels.load(), 0);
+}
+
+/// @brief it should fail to list the endpoints of a server that does not answer.
+TEST_F(TestScanTask, testGetEndpointsUnreachable) {
+    Scanner scanner(ctx, task, conn_pool, store);
+    auto cmd = command(GET_ENDPOINTS_CMD_TYPE, "opc.tcp://localhost:9999");
+    ASSERT_TRUE(scanner.exec(cmd, task, ctx));
+    ASSERT_EQ(ctx->statuses.size(), 1);
+    EXPECT_EQ(ctx->statuses[0].variant, synnax::status::VARIANT_ERROR);
+    EXPECT_EQ(ctx->statuses[0].message, "Failed to get endpoints");
 }
 
 /// @brief Tests that Scanner::config() returns correct values.

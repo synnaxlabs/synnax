@@ -9,7 +9,7 @@
 
 import "@/feature/opcua/device/Connect.css";
 
-import { type device, type rack, status, TimeSpan } from "@synnaxlabs/client";
+import { type device, type rack, status } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
@@ -23,6 +23,8 @@ import {
   DriverCertificate,
   ServerCertificate,
 } from "@/feature/opcua/device/Certificate";
+import { commandTimeout } from "@/feature/opcua/device/commandTimeout";
+import { Endpoints } from "@/feature/opcua/device/Endpoints";
 import { retrieveScanTask } from "@/feature/opcua/device/retrieveScanTask";
 import {
   SelectSecurityMode,
@@ -33,6 +35,7 @@ import {
   BASIC128_RSA15_SECURITY_POLICY,
   BASIC256_SECURITY_POLICY,
   BASIC256_SHA256_SECURITY_POLICY,
+  type ConnectionConfig,
   type Device,
   INTEGRATION,
   NO_SECURITY_MODE,
@@ -49,8 +52,6 @@ import {
 import { Analytics } from "@/platform/analytics";
 import { CSS } from "@/platform/css";
 import { Device as PlatformDevice } from "@/platform/device";
-
-const TEST_CONNECTION_TIMEOUT = TimeSpan.seconds(10);
 
 const INITIAL_VALUES: Device = {
   key: "",
@@ -102,10 +103,11 @@ export const Connect = ({
   >) => {
     setServerCertificateOffer(null);
     const scanTask = await retrieveScanTask(client, get<rack.Key>("rack").value);
+    const connection = get<ConnectionConfig>("properties.connection").value;
     const scanStatus = await scanTask.executeCommandSync({
       type: TEST_CONNECTION_COMMAND_TYPE,
-      timeout: TEST_CONNECTION_TIMEOUT,
-      args: { connection: get("properties.connection").value },
+      timeout: commandTimeout(connection),
+      args: { connection },
     });
     if (scanStatus.variant === "error") {
       const data = scanStatus.details?.data;
@@ -188,6 +190,11 @@ export const Connect = ({
     setField("properties.connection.clientPrivateKey", "");
   };
 
+  const handleEndpointSelect = (mode: SecurityMode, policy: SecurityPolicy) => {
+    setField("properties.connection.securityMode", mode);
+    setField("properties.connection.securityPolicy", policy);
+  };
+
   const handleTrust = (offer: CertificateInfo) => {
     setField("properties.connection.serverCertificate", offer.pem);
     save();
@@ -240,6 +247,9 @@ export const Connect = ({
               />
             </Form.Section>
             <Form.Section title="Security">
+              <Input.Item label="Endpoint security">
+                <Endpoints rack={rackKey} onSelect={handleEndpointSelect} />
+              </Input.Item>
               <Form.Field<SecurityMode>
                 path="properties.connection.securityMode"
                 label="Mode"
@@ -303,6 +313,26 @@ export const Connect = ({
                 </>
               )}
             </Form.Section>
+            <Form.Section title="Advanced">
+              <Form.NumericField
+                path="properties.connection.clientTimeoutMs"
+                label="Request timeout"
+                padHelpText={false}
+                inputProps={MS_INPUT_PROPS}
+              />
+              <Form.NumericField
+                path="properties.connection.sessionTimeoutMs"
+                label="Session timeout"
+                padHelpText={false}
+                inputProps={MS_INPUT_PROPS}
+              />
+              <Form.NumericField
+                path="properties.connection.secureChannelLifetimeMs"
+                label="Secure channel lifetime"
+                padHelpText={false}
+                inputProps={MS_INPUT_PROPS}
+              />
+            </Form.Section>
           </Form.Sections>
         </Form.Form>
       </Modal.Body>
@@ -363,3 +393,5 @@ const USERNAME_INPUT_PROPS = { placeholder: "Anonymous" } as const;
 const PATH_INPUT_PROPS = { placeholder: "Path on the Driver computer" } as const;
 
 const PASSWORD_INPUT_PROPS = { type: "password" } as const;
+
+const MS_INPUT_PROPS = { endContent: "ms" } as const;

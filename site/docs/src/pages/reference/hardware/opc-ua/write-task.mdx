@@ -110,7 +110,9 @@ await task.start();
 
 The OPC UA write task has one option, **Auto start** (`auto_start`), which starts the
 task each time the Driver starts. For node IDs, see
-[node IDs](/reference/hardware/opc-ua/read-task#node-ids).
+[node IDs](/reference/hardware/opc-ua/read-task#node-ids). When a frame has more
+commands than the server accepts in one request, the Driver splits the write into
+smaller requests.
 
 <Divider.Divider x />
 
@@ -170,6 +172,33 @@ a `float64` channel.
 </Problem.Fix>
 </Problem.Item>
 
+<Problem.Item message={"... returned BadNodeIdUnknown. The node id refers to a node that does not exist in the server address space."}>
+<Problem.Cause>
+
+The server has no node with that ID.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Drag the node from the **Browser** again.
+
+</Problem.Fix>
+</Problem.Item>
+
+<Problem.Item message={"... the server has no namespace ..."}>
+<Problem.Cause>
+
+The server has no namespace with the URI in the node ID of the channel. The server can
+add the namespace later, for example when a PLC loads its program.
+
+</Problem.Cause>
+<Problem.Fix>
+
+Check that the server loaded its program, or drag the node from the **Browser** again.
+
+</Problem.Fix>
+</Problem.Item>
+
 <Problem.Item message={"... returned BadNotWritable. The access level does not allow writing to the Node."}>
 <Problem.Cause>
 
@@ -186,12 +215,13 @@ Make the node writable on the server, or connect with a user that can write to i
 <Problem.Item message={"Invalid NodeId format"}>
 <Problem.Cause>
 
-The node ID is not in the form `NS=<namespace>;<type>=<identifier>`.
+The node ID is not in a form that the Driver accepts.
 
 </Problem.Cause>
 <Problem.Fix>
 
-Write `NS` and the type in uppercase.
+Write the node ID in one of the forms in
+[node IDs](/reference/hardware/opc-ua/read-task#node-ids).
 
 </Problem.Fix>
 </Problem.Item>
@@ -201,9 +231,10 @@ Write `NS` and the type in uppercase.
 
 The task could not write a command. The description names each channel and the reason.
 The task writes the other channels of the command and keeps running. When the connection
-is lost, the Driver connects again once and repeats the write. If that fails, the task
-drops the command. It does not keep commands for later, because a late command could
-move hardware at the wrong time.
+is lost, the Driver connects again once and repeats the write, so a value that the
+server already got can arrive twice. If that fails, the task drops the command. It does
+not keep commands for later, because a late command could move hardware at the wrong
+time.
 
 </Problem.Cause>
 <Problem.Fix>

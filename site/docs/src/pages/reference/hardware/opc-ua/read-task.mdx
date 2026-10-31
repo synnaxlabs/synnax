@@ -25,17 +25,26 @@ Before you start, you need a
 
 ## Node IDs
 
-Each channel of the task reads one node. A node ID has the form
-`NS=<namespace>;<type>=<identifier>`:
+Each channel of the task reads one node. A node ID names the namespace of the node and
+its identifier, in one of these forms:
 
-| Type | Identifier | Example                                       |
-| ---- | ---------- | --------------------------------------------- |
-| `I`  | A number   | `NS=2;I=1001`                                 |
-| `S`  | A string   | `NS=2;S=Tank1.Pressure`                       |
-| `G`  | A GUID     | `NS=2;G=09087e75-8e5e-499b-954f-f2a9603db28a` |
+| Form                                       | Example                                  |
+| ------------------------------------------ | ---------------------------------------- |
+| `nsu=<namespace URI>;<type>=<identifier>`  | `nsu=urn:example:plant;s=Tank1.Pressure` |
+| `ns=<namespace index>;<type>=<identifier>` | `ns=2;s=Tank1.Pressure`                  |
+| `<type>=<identifier>`                      | `i=2258`, a node in namespace 0          |
 
-Write `NS` and the type in uppercase. The Driver rejects `ns=2;s=Tank1.Pressure`. The
-browser in the Console fills the node IDs for you.
+| Type | Identifier       | Example                                       |
+| ---- | ---------------- | --------------------------------------------- |
+| `i`  | A number         | `ns=2;i=1001`                                 |
+| `s`  | A string         | `ns=2;s=Tank1.Pressure`                       |
+| `g`  | A GUID           | `ns=2;g=09087e75-8e5e-499b-954f-f2a9603db28a` |
+| `b`  | Bytes, in base64 | `ns=2;b=M/RbKBsRVkePCePcx24oRA==`             |
+
+The browser in the Console fills node IDs in the `nsu=` form. A server can give a
+namespace a different index when it restarts, but the URI stays the same. In a URI,
+write `;` as `%3B` and `%` as `%25`. The Driver ignores the case of the prefix and the
+type, so it also accepts `NS=2;S=Tank1.Pressure`.
 
 <Divider.Divider x />
 
@@ -200,7 +209,8 @@ server again, so a corrected endpoint or password takes effect without a restart
 | Auto start     | `auto_start`           | Off                     | Starts the task each time the Driver starts.                                    |
 
 TypeScript uses the same fields in camel case, such as `sampleRate`. See
-[timing](/reference/hardware/tasks#timing).
+[timing](/reference/hardware/tasks#timing). When a task has more nodes than the server
+accepts in one request, the Driver splits each read into smaller requests.
 
 <Divider.Divider x />
 
@@ -248,12 +258,12 @@ The Console creates each channel with the data type of its node:
 <Problem.Item message={"Invalid NodeId format"}>
 <Problem.Cause>
 
-The node ID is not in the form `NS=<namespace>;<type>=<identifier>`.
+The node ID is not in a form that the Driver accepts.
 
 </Problem.Cause>
 <Problem.Fix>
 
-Write `NS` and the type in uppercase.
+Write the node ID in one of the forms in [node IDs](#node-ids).
 
 </Problem.Fix>
 </Problem.Item>
@@ -261,15 +271,16 @@ Write `NS` and the type in uppercase.
 <Problem.Item message={"Received bad values"}>
 <Problem.Cause>
 
-The server sent a Bad status for a node, or the Driver could not convert its value. The
-description names each channel and the reason. For example, `BadNodeIdUnknown` means
-that the server has no node with that ID. See [bad values](#bad-values).
+The server sent a Bad status for a node, the server has no namespace with the URI of the
+node, or the Driver could not convert its value. The description names each channel and
+the reason. For example, `BadNodeIdUnknown` means that the server has no node with that
+ID. See [bad values](#bad-values).
 
 </Problem.Cause>
 <Problem.Fix>
 
-For `BadNodeIdUnknown`, drag the node from the **Browser** again. For a conversion
-error, check the data type of the node.
+For `BadNodeIdUnknown` or a missing namespace, drag the node from the **Browser** again.
+For a conversion error, check the data type of the node.
 
 </Problem.Fix>
 </Problem.Item>

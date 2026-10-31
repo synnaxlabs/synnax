@@ -173,6 +173,12 @@ class Device(device.Device):
         connection.
     :param certificate_validation_disabled: Whether the Driver accepts any server
         certificate. Use only to troubleshoot a connection.
+    :param client_timeout_ms: The timeout of each request and connection attempt, in
+        milliseconds.
+    :param secure_channel_lifetime_ms: The lifetime of each secure channel before the
+        Driver renews it, in milliseconds.
+    :param session_timeout_ms: How long the server keeps a session with no requests,
+        in milliseconds.
     :param name: Human-readable name for the device.
     :param location: Physical location or description.
     :param rack: Rack key this device belongs to.
@@ -192,6 +198,9 @@ class Device(device.Device):
         client_private_key: str = "",
         server_cert: str = "",
         certificate_validation_disabled: bool = False,
+        client_timeout_ms: int = 5_000,
+        secure_channel_lifetime_ms: int = 600_000,
+        session_timeout_ms: int = 1_200_000,
         name: str = "",
         location: str = "",
         rack: int = 0,
@@ -206,6 +215,9 @@ class Device(device.Device):
             "security_mode": security_mode,
             "security_policy": security_policy,
             "certificate_validation_disabled": certificate_validation_disabled,
+            "client_timeout_ms": client_timeout_ms,
+            "secure_channel_lifetime_ms": secure_channel_lifetime_ms,
+            "session_timeout_ms": session_timeout_ms,
         }
         if username:
             connection["username"] = username

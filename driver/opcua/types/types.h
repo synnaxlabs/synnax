@@ -9,8 +9,10 @@
 
 #pragma once
 
+#include <optional>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "open62541/types.h"
 
@@ -60,6 +62,9 @@ struct Node {
 
 class NodeId {
     UA_NodeId id_{};
+    /// @brief the namespace of the node when the node ID names it by URI. The namespace
+    /// index of id_ is then not used.
+    std::string namespace_uri_;
 
 public:
     NodeId() { UA_NodeId_init(&id_); }
@@ -74,25 +79,47 @@ public:
     NodeId(const NodeId &) = delete;
     NodeId &operator=(const NodeId &) = delete;
 
-    NodeId(NodeId &&other) noexcept: id_(other.id_) { UA_NodeId_init(&other.id_); }
+    NodeId(NodeId &&other) noexcept:
+        id_(other.id_), namespace_uri_(std::move(other.namespace_uri_)) {
+        UA_NodeId_init(&other.id_);
+    }
 
     NodeId &operator=(NodeId &&other) noexcept {
         if (this != &other) {
             UA_NodeId_clear(&id_);
             id_ = other.id_;
+            namespace_uri_ = std::move(other.namespace_uri_);
             UA_NodeId_init(&other.id_);
         }
         return *this;
     }
 
-    operator const UA_NodeId &() const { return id_; }
-
-    [[nodiscard]] const UA_NodeId &get() const { return id_; }
     [[nodiscard]] bool is_null() const { return UA_NodeId_isNull(&id_); }
+    [[nodiscard]] const std::string &namespace_uri() const { return namespace_uri_; }
 
+    /// @brief finds the namespace index of the node ID on a server.
+    /// @param namespaces the namespace URIs of the server, by index.
+    /// @returns the node ID with the index of its namespace URI, which borrows the
+    /// identifier of this node ID. Nothing if the server has no such namespace.
+    [[nodiscard]] std::optional<UA_NodeId>
+    resolve(const std::vector<std::string> &namespaces) const;
+
+    /// @brief parses `nsu=<uri>;<id>`, `ns=<index>;<id>`, or `<id>` in namespace 0,
+    /// where `<id>` is `i=`, `s=`, `g=`, or `b=` with its identifier. Prefixes match in
+    /// any case.
     static NodeId parse(const std::string &field_name, x::json::Parser &parser);
     static std::pair<NodeId, x::errors::Error> parse(const std::string &node_id_str);
+    /// @returns the node ID as `nsu=<uri>;<id>` when it names its namespace by URI, and
+    /// as `NS=<index>;<id>` when it does not.
+    [[nodiscard]] std::string to_string() const;
+    /// @returns the node ID as `NS=<index>;<id>`.
     static std::string to_string(const UA_NodeId &node_id);
+    /// @returns the node ID as `nsu=<uri>;<id>`, which stays valid when the server
+    /// changes its namespace indexes. A node in namespace 0, or in a namespace that
+    /// namespaces lacks, keeps its index.
+    /// @param namespaces the namespace URIs of the server, by index.
+    static std::string
+    to_string(const UA_NodeId &node_id, const std::vector<std::string> &namespaces);
 };
 
 std::string node_class_to_string(const UA_NodeClass &node_class);
@@ -153,6 +180,7 @@ public:
 
     operator const UA_ReadResponse &() const { return res_; }
     [[nodiscard]] const UA_ReadResponse &get() const { return res_; }
+    UA_ReadResponse *ptr() { return &res_; }
 };
 
 class WriteResponse {
@@ -180,6 +208,7 @@ public:
 
     operator const UA_WriteResponse &() const { return res_; }
     [[nodiscard]] const UA_WriteResponse &get() const { return res_; }
+    UA_WriteResponse *ptr() { return &res_; }
 };
 
 class WriteRequestBuilder {

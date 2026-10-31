@@ -29,8 +29,25 @@ class TestOPCDevice:
             "security_mode": "SignAndEncrypt",
             "security_policy": "Basic256Sha256",
             "certificate_validation_disabled": True,
+            "client_timeout_ms": 5_000,
+            "secure_channel_lifetime_ms": 600_000,
+            "session_timeout_ms": 1_200_000,
             "server_certificate": "-----BEGIN CERTIFICATE-----",
         }
+
+    def test_timeout_properties(self) -> None:
+        """Should write the timeouts that the Driver reads."""
+        dev = sy.opcua.Device(
+            endpoint="opc.tcp://localhost:4840",
+            client_timeout_ms=2_000,
+            secure_channel_lifetime_ms=60_000,
+            session_timeout_ms=120_000,
+        )
+        connection = dev.properties["connection"]
+        assert isinstance(connection, dict)
+        assert connection["client_timeout_ms"] == 2_000
+        assert connection["secure_channel_lifetime_ms"] == 60_000
+        assert connection["session_timeout_ms"] == 120_000
 
 
 @pytest.mark.opcua
@@ -76,6 +93,21 @@ class TestOPCReadTask:
                             "channel": 1234,
                             "disabled": False,
                             "is_index": False,
+                        },
+                    ],
+                },
+            },
+            {
+                "name": "namespace_uri_node_id",
+                "data": {
+                    "device": "some-device-key",
+                    "sample_rate": 10,
+                    "stream_rate": 5,
+                    "channels": [
+                        {
+                            "key": "k09AWoiyLxN",
+                            "node_id": "nsu=urn:synnax:test;s=Pressure",
+                            "channel": 1234,
                         },
                     ],
                 },

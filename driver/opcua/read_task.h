@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <cstddef>
 #include <limits>
 #include <map>
@@ -193,14 +194,14 @@ struct ReadTaskConfig : common::BaseReadTaskConfig {
     }
 };
 
-/// @brief Helper to create a ReadRequestBuilder from config.
-/// The builder borrows NodeIds from cfg, so cfg must outlive the builder.
-static types::ReadRequestBuilder create_read_request(const ReadTaskConfig &cfg) {
-    types::ReadRequestBuilder builder;
-    for (const auto &ch: cfg.channels)
-        builder.add_node(ch->node, UA_ATTRIBUTEID_VALUE);
-    return builder;
-}
+/// @brief the result of a channel whose namespace the server lacks.
+inline const UA_DataValue UNKNOWN_NAMESPACE = [] {
+    UA_DataValue value;
+    UA_DataValue_init(&value);
+    value.hasStatus = true;
+    value.status = UA_STATUSCODE_BADNODEIDUNKNOWN;
+    return value;
+}();
 
 /// @brief the problems with the values of one read, reported as one task warning.
 class Quality {
@@ -242,12 +243,85 @@ protected:
     /// @brief the error of the connection attempt at start, which the first read
     /// returns instead of connecting again.
     x::errors::Error start_err;
+    /// @brief reads the channels on the current connection. It borrows the node IDs of
+    /// cfg.
     types::ReadRequestBuilder request_builder;
+    /// @brief the place of each channel's result in a response to request_builder, or
+    /// nothing when the server lacks the channel's namespace.
+    std::vector<std::optional<std::size_t>> positions;
+    /// @brief the place of the server's namespace array in a response to
+    /// request_builder, which reads it while the server lacks the namespace of a
+    /// channel.
+    std::optional<std::size_t> namespace_position;
+
+    /// @brief reads the channels on conn from now on, with the namespace indexes of its
+    /// server.
+    void use(connection::Pool::Connection conn) {
+        this->connection = std::move(conn);
+        this->build_request();
+    }
+
+    void build_request() {
+        this->request_builder = types::ReadRequestBuilder();
+        this->positions.clear();
+        const auto &namespaces = this->connection.server().namespaces;
+        for (const auto &ch: this->cfg.channels) {
+            const auto id = ch->node.resolve(namespaces);
+            if (!id.has_value()) {
+                this->positions.emplace_back(std::nullopt);
+                continue;
+            }
+            this->positions.emplace_back(this->request_builder.size());
+            this->request_builder.add_node(id.value(), UA_ATTRIBUTEID_VALUE);
+        }
+        this->namespace_position.reset();
+        if (std::ranges::all_of(this->positions, [](const auto &p) {
+                return p.has_value();
+            }))
+            return;
+        this->namespace_position = this->request_builder.size();
+        this->request_builder.add_node(
+            UA_NODEID_NUMERIC(0, UA_NS0ID_SERVER_NAMESPACEARRAY),
+            UA_ATTRIBUTEID_VALUE
+        );
+    }
+
+    /// @brief reads request_builder. When the read finds a namespace that the
+    /// connection lacked, builds the request again and reads it again.
+    std::pair<types::ReadResponse, x::errors::Error> read_request() {
+        auto [res, err] = this->connection.read(this->request_builder.build());
+        if (err || !this->namespace_position.has_value()) return {std::move(res), err};
+        auto [changed, ns_err] = this->connection.update_namespaces(
+            res.get().results[this->namespace_position.value()]
+        );
+        if (ns_err || !changed) return {std::move(res), ns_err};
+        this->build_request();
+        return this->connection.read(this->request_builder.build());
+    }
+
+    /// @returns the result of channel i in res, a response to request_builder.
+    [[nodiscard]] const UA_DataValue &
+    result(const UA_ReadResponse &res, const std::size_t i) const {
+        const auto pos = this->positions[i];
+        if (!pos.has_value()) return UNKNOWN_NAMESPACE;
+        return res.results[pos.value()];
+    }
+
+    /// @returns the text of a bad status of channel i, which names the namespace when
+    /// the server lacks it.
+    [[nodiscard]] std::string
+    bad_status(const std::size_t i, const UA_StatusCode status) const {
+        const auto &ch = *this->cfg.channels[i];
+        if (!this->positions[i].has_value())
+            return ch.ch.name + ": the server has no namespace " +
+                   ch.node.namespace_uri() + ".";
+        return errors::channel_status(ch.ch.name, status);
+    }
 
     x::errors::Error connect() {
         auto [conn, err] = this->connector.connect();
         if (err) return err;
-        this->connection = std::move(conn);
+        this->use(std::move(conn));
         return x::errors::NIL;
     }
 
@@ -262,7 +336,7 @@ protected:
     ) const {
         const auto &name = this->cfg.channels[i]->ch.name;
         if (UA_StatusCode_isBad(result.status)) {
-            q.add_bad(errors::channel_status(name, result.status));
+            q.add_bad(this->bad_status(i, result.status));
             return std::nullopt;
         }
         if (UA_StatusCode_isUncertain(result.status))
@@ -294,11 +368,13 @@ protected:
                 };
             if (auto err = this->connect()) return {types::ReadResponse(), err};
         }
-        const auto &req = this->request_builder.build();
-        auto [res, err] = this->connection.read(req);
+        auto [res, err] = this->read_request();
         if (!err) return {std::move(res), x::errors::NIL};
-        auto [refreshed, refresh_err] = this->connector.refresh(this->connection);
-        if (refreshed) std::tie(res, err) = this->connection.read(req);
+        auto [next, refresh_err] = this->connector.refresh(this->connection);
+        if (next) {
+            this->use(std::move(next));
+            std::tie(res, err) = this->read_request();
+        }
         if (refresh_err) err = refresh_err;
         if (err.matches(errors::UNREACHABLE))
             this->connection = connection::Pool::Connection(nullptr, nullptr, "");
@@ -317,8 +393,7 @@ protected:
             this->cfg.device_key,
             "[opc.read] "
         ),
-        connection(nullptr, nullptr, ""),
-        request_builder(create_read_request(this->cfg)) {}
+        connection(nullptr, nullptr, "") {}
 
 public:
     [[nodiscard]] synnax::framer::WriterConfig writer_config() const override {
@@ -335,7 +410,7 @@ public:
             return x::errors::NIL;
         }
         if (err) return err;
-        this->connection = std::move(c);
+        this->use(std::move(c));
         return x::errors::NIL;
     }
 
@@ -388,7 +463,7 @@ public:
             const auto &ch = this->cfg.channels[i]->ch;
             auto series = this->value<x::telem::Series>(
                 i,
-                results.results[i],
+                this->result(results, i),
                 quality,
                 [&](const UA_Variant &v) {
                     x::telem::Series s(ch.data_type, this->cfg.array_size);
@@ -449,7 +524,7 @@ class UnaryReadTaskSource final : public BaseReadTaskSource {
             const auto &dt = this->cfg.channels[i]->ch.data_type;
             auto sample = this->value<x::telem::SampleValue>(
                 i,
-                res.results[i],
+                this->result(res, i),
                 q,
                 [&dt](const UA_Variant &v) { return telem::to_sample(v, dt); }
             );

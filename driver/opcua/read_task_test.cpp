@@ -419,6 +419,157 @@ TEST_F(TestReadTask, testMissingNodeFillsNaN) {
     ASSERT_NIL(source->stop());
 }
 
+/// @brief it should read a node by the URI of its namespace.
+TEST_F(TestReadTask, testReadsNamespaceURINode) {
+    const auto source = this->create_source(
+        mixed_cfg("nsu=urn:open62541.server.application;s=TestFloat", false)
+    );
+    ASSERT_NIL(source->start());
+    x::breaker::Breaker breaker;
+    x::telem::Frame fr;
+    const auto res = source->read(breaker, fr);
+    ASSERT_NIL(res.error);
+    EXPECT_TRUE(res.warning.empty()) << res.warning.description;
+    ASSERT_EQ(fr.size(), 3);
+    EXPECT_NEAR(fr.at<float>(this->float_channel.key, 0), 3.14159f, 0.0001f);
+    ASSERT_NIL(source->stop());
+}
+
+/// @brief it should treat a node in a namespace that the server lacks as a missing
+/// node.
+TEST_F(TestReadTask, testUnknownNamespaceIsMissingNode) {
+    const auto source = this->create_source(
+        mixed_cfg("nsu=urn:missing;s=TestFloat", false)
+    );
+    ASSERT_NIL(source->start());
+    x::breaker::Breaker breaker;
+    x::telem::Frame fr;
+    const auto res = source->read(breaker, fr);
+    ASSERT_NIL(res.error);
+    EXPECT_EQ(res.warning.message, "Received bad values");
+    const auto problem = this->float_channel.name +
+                         ": the server has no namespace urn:missing.";
+    EXPECT_EQ(res.warning.description, problem + " " + problem);
+    EXPECT_TRUE(fr.empty());
+    ASSERT_NIL(source->stop());
+}
+
+/// @brief it should read the other channels when the server lacks the namespace of one,
+/// with NaN for the missing one.
+TEST_F(TestReadTask, testUnknownNamespaceKeepsOtherChannels) {
+    const auto source = this->create_source(
+        mixed_cfg("nsu=urn:missing;s=TestFloat", true)
+    );
+    ASSERT_NIL(source->start());
+    x::breaker::Breaker breaker;
+    x::telem::Frame fr;
+    ASSERT_NIL(source->read(breaker, fr).error);
+    EXPECT_TRUE(std::isnan(fr.at<float>(this->float_channel.key, 0)));
+    EXPECT_NEAR(fr.at<double>(this->double_channel.key, 0), 2.71828, 0.0001);
+    ASSERT_NIL(source->stop());
+}
+
+/// @returns a float node named Shared in namespace ns.
+testutil::TestNode shared_node(const std::int32_t ns, UA_Float value) {
+    UA_Variant variant;
+    UA_Variant_init(&variant);
+    UA_Variant_setScalar(&variant, &value, &UA_TYPES[UA_TYPES_FLOAT]);
+    return {ns, "Shared", &UA_TYPES[UA_TYPES_FLOAT], variant, "Shared"};
+}
+
+/// @brief it should find a node by its namespace URI after the server restarts with its
+/// namespaces in another order.
+TEST_F(TestReadTask, testNamespaceReorderAcrossRestart) {
+    server->stop();
+    testutil::ServerConfig server_cfg;
+    server_cfg.namespaces = {"urn:a", "urn:b"};
+    server_cfg.test_nodes = {shared_node(2, 1.0f), shared_node(3, 2.0f)};
+    server = std::make_unique<testutil::Server>(server_cfg);
+    server->start();
+    ASSERT_TRUE(server->wait_until_ready());
+    const auto source = this->create_source({
+        {"data_saving_disabled", false},
+        {"device", "opc_read_task_test_server_key"},
+        {"channels",
+         x::json::json::array({
+             {{"node_id", "nsu=urn:b;s=Shared"},
+              {"channel", this->float_channel.key},
+              {"disabled", false}},
+         })},
+        {"sample_rate", 50},
+        {"stream_rate", 25},
+    });
+    ASSERT_NIL(source->start());
+    x::breaker::Breaker breaker;
+    x::telem::Frame fr;
+    ASSERT_NIL(source->read(breaker, fr).error);
+    EXPECT_FLOAT_EQ(fr.at<float>(this->float_channel.key, 0), 2.0f);
+    server->stop();
+    ASSERT_MATCHES(source->read(breaker, fr).error, errors::UNREACHABLE);
+    server_cfg.namespaces = {"urn:b", "urn:a"};
+    server_cfg.test_nodes = {shared_node(2, 2.0f), shared_node(3, 1.0f)};
+    server = std::make_unique<testutil::Server>(server_cfg);
+    server->start();
+    ASSERT_TRUE(server->wait_until_ready());
+    ASSERT_NIL(source->read(breaker, fr).error);
+    EXPECT_FLOAT_EQ(fr.at<float>(this->float_channel.key, 0), 2.0f);
+    EXPECT_EQ(conn_pool->size(), 1);
+    ASSERT_NIL(source->stop());
+}
+
+/// @brief it should read a node in a namespace that the server adds after the task
+/// starts, on the same Session.
+TEST_F(TestReadTask, testNamespaceAddedAfterStart) {
+    const auto source = this->create_source({
+        {"data_saving_disabled", false},
+        {"device", "opc_read_task_test_server_key"},
+        {"channels",
+         x::json::json::array({
+             {{"node_id", "nsu=urn:late;s=Shared"},
+              {"channel", this->float_channel.key},
+              {"disabled", false}},
+         })},
+        {"sample_rate", 50},
+        {"stream_rate", 25},
+    });
+    ASSERT_NIL(source->start());
+    x::breaker::Breaker breaker;
+    x::telem::Frame fr;
+    const auto missing = source->read(breaker, fr);
+    ASSERT_NIL(missing.error);
+    const auto problem = this->float_channel.name +
+                         ": the server has no namespace urn:late.";
+    EXPECT_EQ(missing.warning.description, problem + " " + problem);
+    const auto sessions = server->sessions_created.load();
+    server->add_namespace("urn:late", {shared_node(0, 5.0f)});
+    fr.clear();
+    const auto found = source->read(breaker, fr);
+    ASSERT_NIL(found.error);
+    EXPECT_TRUE(found.warning.empty()) << found.warning.description;
+    EXPECT_FLOAT_EQ(fr.at<float>(this->float_channel.key, 0), 5.0f);
+    EXPECT_EQ(server->sessions_created.load(), sessions);
+    ASSERT_NIL(source->stop());
+}
+
+/// @brief it should read more nodes than the server allows in one request.
+TEST_F(TestReadTask, testSplitsReadAtServerLimit) {
+    server->stop();
+    server->cfg.max_nodes_per_read = 3;
+    server->start();
+    ASSERT_TRUE(server->wait_until_ready());
+    const auto source = this->create_source(task_cfg_json);
+    ASSERT_NIL(source->start());
+    x::breaker::Breaker breaker;
+    x::telem::Frame fr;
+    const auto res = source->read(breaker, fr);
+    ASSERT_NIL(res.error);
+    EXPECT_TRUE(res.warning.empty()) << res.warning.description;
+    ASSERT_EQ(fr.size(), 11);
+    EXPECT_EQ(fr.at<std::uint16_t>(this->uint16_channel.key, 0), 42);
+    EXPECT_NEAR(fr.at<double>(this->double_channel.key, 0), 2.71828, 0.0001);
+    ASSERT_NIL(source->stop());
+}
+
 /// @brief it should return a temporary error while the server is off, and read again
 /// once the server returns.
 TEST_F(TestReadTask, testRecoversAfterServerRestart) {

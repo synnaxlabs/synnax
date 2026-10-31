@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type rack, type task } from "@synnaxlabs/client";
+import { type rack, type task, TimeSpan } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { OPCUA } from "@/feature/opcua";
@@ -23,8 +23,16 @@ import {
   pressSaveTrigger,
   renderModalOpener,
 } from "@/platform/modals/testutil";
-import { answerNextCommand, commitFieldInput } from "@/platform/task/testutil";
-import { captureBrowserDownloads, uniqueName } from "@/testutil";
+import {
+  answerNextCommand,
+  commitFieldInput,
+  selectFromDropdown,
+} from "@/platform/task/testutil";
+import {
+  captureBrowserDownloads,
+  findDialogTriggerByText,
+  uniqueName,
+} from "@/testutil";
 
 const client = createTestClient();
 
@@ -42,6 +50,39 @@ const NEXT_DRIVER_CERTIFICATE: OPCUA.Task.CertificateInfo = {
 };
 
 const TEST_CONNECTION = { type: OPCUA.Task.TEST_CONNECTION_COMMAND_TYPE };
+
+const ENDPOINTS: OPCUA.Task.Endpoint[] = [
+  {
+    url: "opc.tcp://localhost:4840",
+    securityMode: "None",
+    securityPolicy: "None",
+    userTokenTypes: ["anonymous"],
+    securityLevel: 0,
+  },
+  {
+    url: "opc.tcp://localhost:4840",
+    securityMode: "Sign",
+    securityPolicy: "ECC_nistP256",
+    userTokenTypes: ["anonymous"],
+    securityLevel: 2,
+  },
+  {
+    url: "opc.tcp://localhost:4840",
+    securityMode: "SignAndEncrypt",
+    securityPolicy: "Aes256_Sha256_RsaPss",
+    userTokenTypes: ["anonymous", "username"],
+    securityLevel: 3,
+  },
+  {
+    url: "opc.tcp://127.0.0.1:4840",
+    securityMode: "SignAndEncrypt",
+    securityPolicy: "Aes256_Sha256_RsaPss",
+    userTokenTypes: ["username", "certificate"],
+    securityLevel: 3,
+  },
+];
+
+const GET_ENDPOINTS = { type: OPCUA.Task.GET_ENDPOINTS_COMMAND_TYPE };
 
 const createScanTask = async (rck: rack.Rack) =>
   await rck.createTask({
@@ -82,6 +123,9 @@ describe("OPCUA.Device.useConnectModal", () => {
           clientPrivateKey: "",
           serverCertificate: "",
           certificateValidationDisabled: false,
+          clientTimeoutMs: 2000,
+          secureChannelLifetimeMs: 60_000,
+          sessionTimeoutMs: 120_000,
         },
       },
     });
@@ -89,6 +133,9 @@ describe("OPCUA.Device.useConnectModal", () => {
       client,
     });
     await screen.findByDisplayValue(dev.name);
+    expect(screen.getByDisplayValue("2000")).toBeTruthy();
+    expect(screen.getByDisplayValue("60000")).toBeTruthy();
+    expect(screen.getByDisplayValue("120000")).toBeTruthy();
     expect(screen.getByDisplayValue("opc.tcp://existing-server:4840")).toBeTruthy();
     expect(screen.getByDisplayValue("operator")).toBeTruthy();
     await screen.findByText("Client certificate");
@@ -438,5 +485,151 @@ describe("OPCUA.Device.useConnectModal", () => {
     if (key == null) throw new Error("the modal closed without a device");
     const dev = await client.devices.retrieve({ key, schemas: OPCUA.Device.SCHEMAS });
     expect(dev.properties.connection.certificateValidationDisabled).toBe(true);
+  });
+
+  it("should set the security mode and policy from an endpoint the server lists", async () => {
+    const rack = await createRunningRack(client, "opc");
+    const scan = await createScanTask(rack);
+    const { result } = await renderModalOpener(
+      OPCUA.Device.useConnectModal,
+      [{ rack: rack.key }],
+      { client },
+    );
+    const listed = await answerNextCommand(client, scan, {
+      ...GET_ENDPOINTS,
+      data: { endpoints: ENDPOINTS },
+    });
+    fireEvent.click(await screen.findByText("Find endpoints"));
+    await listed.answered;
+    await selectFromDropdown("None", "Sign and encrypt, AES 256-bit with SHA-256");
+    await screen.findByText("Client certificate");
+    const { answered } = await answerNextCommand(client, scan, TEST_CONNECTION);
+    pressSaveTrigger();
+    await answered;
+    const key = await result();
+    if (key == null) throw new Error("the modal closed without a device");
+    const dev = await client.devices.retrieve({ key, schemas: OPCUA.Device.SCHEMAS });
+    expect(dev.properties.connection).toMatchObject({
+      securityMode: "SignAndEncrypt",
+      securityPolicy: "Aes256_Sha256_RsaPss",
+    });
+  });
+
+  it("should merge the endpoints, sort them, and mark unsupported policies", async () => {
+    const rack = await createRunningRack(client, "opc");
+    const scan = await createScanTask(rack);
+    await renderModalOpener(OPCUA.Device.useConnectModal, [{ rack: rack.key }], {
+      client,
+    });
+    const listed = await answerNextCommand(client, scan, {
+      ...GET_ENDPOINTS,
+      data: { endpoints: ENDPOINTS },
+    });
+    fireEvent.click(await screen.findByText("Find endpoints"));
+    await listed.answered;
+    fireEvent.click(await findDialogTriggerByText("None"));
+    const list = await waitFor(() => screen.getAllByRole("dialog").at(-1));
+    if (list == null) throw new Error("the endpoint list did not open");
+    const names = within(list)
+      .getAllByRole("option")
+      .map((option) => option.textContent);
+    expect(names).toEqual([
+      "Sign and encrypt, AES 256-bit with SHA-256Anonymous, Username, Certificate",
+      "Sign, ECC_nistP256 (not supported)Anonymous",
+      "NoneAnonymous",
+    ]);
+  });
+
+  it("should show why the server endpoints could not be listed", async () => {
+    const rack = await createRunningRack(client, "opc");
+    const scan = await createScanTask(rack);
+    await renderModalOpener(OPCUA.Device.useConnectModal, [{ rack: rack.key }], {
+      client,
+    });
+    const failed = await answerNextCommand(client, scan, {
+      ...GET_ENDPOINTS,
+      variant: "error",
+      message: "Failed to get endpoints",
+      description: "Could not establish a network connection to remote server.",
+    });
+    fireEvent.click(await screen.findByText("Find endpoints"));
+    await failed.answered;
+    expect(
+      await screen.findByText(
+        "Could not establish a network connection to remote server.",
+      ),
+    ).toBeTruthy();
+  });
+
+  it("should hide the endpoints of a rack the user moves away from", async () => {
+    const first = await createRunningRack(client, "opc");
+    const second = await createRunningRack(client, "opc");
+    const scan = await createScanTask(first);
+    await renderModalOpener(OPCUA.Device.useConnectModal, [{ rack: first.key }], {
+      client,
+    });
+    const listed = await answerNextCommand(client, scan, {
+      ...GET_ENDPOINTS,
+      data: { endpoints: ENDPOINTS },
+    });
+    fireEvent.click(await screen.findByText("Find endpoints"));
+    await listed.answered;
+    await findDialogTriggerByText("None");
+    fireEvent.click(await findDialogTriggerByText(first.name));
+    const search = await waitFor(() => {
+      const dialog = screen.getAllByRole("dialog").at(-1);
+      if (dialog == null) throw new Error("the rack list did not open");
+      return within(dialog).getByRole("textbox");
+    });
+    fireEvent.change(search, { target: { value: second.name } });
+    fireEvent.click(await screen.findByText(second.name));
+    await findDialogTriggerByText(second.name);
+    expect(
+      screen
+        .getAllByRole("button")
+        .some(
+          (b) =>
+            b.getAttribute("aria-haspopup") === "dialog" &&
+            b.textContent?.includes("None"),
+        ),
+    ).toBe(false);
+  });
+
+  it("should save the timeouts the user enters", async () => {
+    const rack = await createRunningRack(client, "opc");
+    const scan = await createScanTask(rack);
+    const { result } = await renderModalOpener(
+      OPCUA.Device.useConnectModal,
+      [{ rack: rack.key }],
+      { client },
+    );
+    commitFieldInput(await screen.findByDisplayValue<HTMLInputElement>("5000"), "2500");
+    commitFieldInput(screen.getByDisplayValue<HTMLInputElement>("1200000"), "90000");
+    const { answered } = await answerNextCommand(client, scan, TEST_CONNECTION);
+    pressSaveTrigger();
+    await answered;
+    const key = await result();
+    if (key == null) throw new Error("the modal closed without a device");
+    const dev = await client.devices.retrieve({ key, schemas: OPCUA.Device.SCHEMAS });
+    expect(dev.properties.connection).toMatchObject({
+      clientTimeoutMs: 2500,
+      secureChannelLifetimeMs: 600_000,
+      sessionTimeoutMs: 90_000,
+    });
+  });
+
+  it("should wait twice the request timeout and a margin for the connection test", async () => {
+    const rack = await createRunningRack(client, "opc");
+    await createScanTask(rack);
+    await renderModalOpener(OPCUA.Device.useConnectModal, [{ rack: rack.key }], {
+      client,
+    });
+    fireEvent.change(screen.getByPlaceholderText("opc.tcp://localhost:4840"), {
+      target: { value: "opc.tcp://localhost:4840" },
+    });
+    commitFieldInput(await screen.findByDisplayValue<HTMLInputElement>("5000"), "100");
+    pressSaveTrigger();
+    const message = `timed out after ${TimeSpan.milliseconds(2200).toString()}`;
+    expect(await screen.findByText(message, { exact: false })).toBeTruthy();
   });
 });
