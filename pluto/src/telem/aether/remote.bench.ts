@@ -55,7 +55,7 @@ const createSource = async (
   props: ChannelDataProps,
   view: ValueProps,
 ): Promise<ChannelData> => {
-  const source = new ChannelData(client, props, undefined, client.now);
+  const source = new ChannelData(client, props, client.now);
   await settle(source, view);
   return source;
 };

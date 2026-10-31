@@ -66,6 +66,7 @@ const DEFAULT_STATE = {
   selectedText: "",
   selectedLines: [],
   computedLineHeight: 16,
+  problems: [],
 };
 
 const setupAether = (overrides: Record<string, unknown> = {}) => {
@@ -139,6 +140,29 @@ describe("log/Base", () => {
       const { container } = renderLog({ className: "my-class" });
       const div = container.querySelector(".my-class");
       expect(div).not.toBeNull();
+    });
+
+    it("should mark the problems of its data over the empty content", () => {
+      setupAether({
+        empty: true,
+        problems: [
+          {
+            variant: "error",
+            name: "",
+            message: "Failed to read channel data",
+            description: "channel 999 not found",
+          },
+        ],
+      });
+      const { container } = renderLog();
+      const mark = screen.getByRole("img", { name: "Failed to read channel data" });
+      expect(mark.parentElement).toBe(getLogDiv(container));
+      expect(screen.getByText("No log entries")).toBeDefined();
+    });
+
+    it("should show no mark when its data has no problems", () => {
+      renderLog();
+      expect(screen.queryByRole("img")).toBeNull();
     });
   });
 

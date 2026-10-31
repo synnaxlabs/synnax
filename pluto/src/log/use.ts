@@ -37,6 +37,7 @@ export interface UseProps
         | "computedLineHeight"
         | "channelNames"
         | "channelDataTypes"
+        | "problems"
       >,
       "visible"
     >,

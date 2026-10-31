@@ -75,13 +75,11 @@ describe("StreamMultiChannelLog", () => {
     core: SyntheticCore,
     client: telem.Client | null,
     props: Partial<StreamMultiChannelLogProps> = {},
-    options?: telem.CreateOptions,
     maxEntries?: number,
   ): StreamMultiChannelLog => {
     const log = new StreamMultiChannelLog(
       client,
       { channels: [], timeSpan: SPAN, ...props },
-      options,
       core.now,
       maxEntries,
     );
@@ -454,7 +452,7 @@ describe("StreamMultiChannelLog", () => {
       const core = createCore({ text: () => "a\nb\nc" });
       const [a] = core.data.map((c) => c.key);
       core.retype(a, DataType.STRING);
-      const log = open(core, connect(core), { channels: [a] }, undefined, 5);
+      const log = open(core, connect(core), { channels: [a] }, 5);
       await settle(log, 3);
       expect(entriesOf(log).map((e) => e.value)).toEqual(["a", "b", "c"]);
     });
@@ -462,7 +460,7 @@ describe("StreamMultiChannelLog", () => {
     it("should evict a tenth of maxEntries beyond the excess", async () => {
       const core = createCore();
       const [a] = core.data.map((c) => c.key);
-      const log = open(core, connect(core), { channels: [a] }, undefined, 100);
+      const log = open(core, connect(core), { channels: [a] }, 100);
       await settle(log, 90);
       core.advance(TimeSpan.seconds(1));
       await settle(log, 100);
@@ -489,24 +487,31 @@ describe("StreamMultiChannelLog", () => {
     expect(handler).not.toHaveBeenCalled();
   });
 
-  it("should post the error of a channel it cannot read", async () => {
+  it("should notify with the error of a channel it cannot read", async () => {
     const core = createCore();
-    const statuses: cstatus.Crude[] = [];
-    const log = open(
-      core,
-      connect(core),
-      { channels: [999] },
-      {
-        onStatusChange: (s) => statuses.push(s),
-      },
-    );
+    const log = open(core, connect(core), { channels: [999] });
+    const statuses: cstatus.Status[] = [];
+    log.onChange(() => statuses.push(log.value().status));
     log.value();
-    await expect.poll(() => statuses.length, POLL).toBe(1);
-    expect(statuses[0]).toMatchObject({
-      variant: "error",
+    await expect.poll(() => statuses.at(-1)?.variant, POLL).toBe("error");
+    expect(statuses.at(-1)).toMatchObject({
       message: "Failed to read channel data",
       description: "channel 999 not found",
     });
+    expect(entriesOf(log)).toEqual([]);
+  });
+
+  it("should notify when only its status changes", async () => {
+    const core = createCore();
+    const [a] = core.data.map((c) => c.key);
+    const log = open(core, connect(core), { channels: [a] });
+    await settle(log, HISTORY);
+    const variants: string[] = [];
+    log.onChange(() => variants.push(log.value().status.variant));
+    core.disconnect();
+    await expect.poll(() => variants.at(-1), POLL).toBe("warning");
+    core.reconnect();
+    await expect.poll(() => variants.at(-1), POLL).toBe("success");
   });
 
   it("should report the worst status of its channels' snapshots", async () => {
@@ -525,18 +530,10 @@ describe("StreamMultiChannelLog", () => {
     await expect.poll(() => log.value().status.variant, POLL).toBe("success");
   });
 
-  it("should report a disconnected status once instead of throwing", () => {
-    const statuses: cstatus.Crude[] = [];
-    const log = open(
-      createCore(),
-      null,
-      { channels: [1] },
-      {
-        onStatusChange: (s) => statuses.push(s),
-      },
-    );
-    expect(entriesOf(log)).toEqual([]);
-    expect(entriesOf(log)).toEqual([]);
-    expect(statuses).toEqual([telem.DISCONNECTED_STATUS]);
+  it("should report a disconnected status instead of throwing", () => {
+    const log = open(createCore(), null, { channels: [1] });
+    const { data, status } = log.value();
+    expect(data).toEqual([]);
+    expect(status).toBe(telem.DISCONNECTED_STATUS);
   });
 });

@@ -196,7 +196,7 @@ export class RollingAverage extends UnarySourceTransformer<
   schema = rollingAverageProps;
   private readonly window: number[] = [];
   // The appended count of the newest sample the window holds.
-  private appended?: number;
+  private appended = 0;
 
   protected transform(value: math.Numeric): number {
     const num = Number(value);
@@ -211,7 +211,7 @@ export class RollingAverage extends UnarySourceTransformer<
   protected shouldNotify({ data, appended }: Result<math.Numeric>): boolean {
     if (this.props.windowSize < 2) return true;
     if (appended != null) {
-      if (this.appended != null && appended <= this.appended) return true;
+      if (appended <= this.appended) return true;
       this.appended = appended;
     }
     this.window.push(Number(data));

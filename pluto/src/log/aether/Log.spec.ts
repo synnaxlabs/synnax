@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { log as clientLog } from "@synnaxlabs/client";
+import { log as clientLog, status } from "@synnaxlabs/client";
 import { theme } from "@synnaxlabs/lyra/theme";
 import { box, color, TimeStamp } from "@synnaxlabs/x";
 import { assert, beforeEach, describe, expect, it, vi } from "vitest";
@@ -147,6 +147,38 @@ describe("log/aether/Log", () => {
       source.status = telem.SUCCESS_STATUS;
       source.notify();
       expect(log.state.empty).toBe(true);
+    });
+  });
+
+  describe("problems", () => {
+    const FAILED = status.create({
+      variant: "error",
+      message: "Failed to read channel data",
+      description: "channel 999 not found",
+    });
+
+    it("should report the problem of its source", () => {
+      const { log, source } = setup([makeEntry(0)]);
+      expect(log.state.problems).toEqual([]);
+      source.status = FAILED;
+      source.notify();
+      expect(log.state.problems).toEqual([
+        {
+          variant: "error",
+          name: "",
+          message: "Failed to read channel data",
+          description: "channel 999 not found",
+        },
+      ]);
+    });
+
+    it("should clear its problems once its source recovers", () => {
+      const { log, source } = setup([makeEntry(0)]);
+      source.status = FAILED;
+      source.notify();
+      source.status = status.create({ variant: "success", message: "streaming" });
+      source.notify();
+      expect(log.state.problems).toEqual([]);
     });
   });
 

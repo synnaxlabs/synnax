@@ -25,8 +25,6 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type status } from "@/status/aether";
-import { type CreateOptions } from "@/telem/aether/factory";
 import {
   AbstractSource,
   LOADING_STATUS,
@@ -53,46 +51,58 @@ export interface Client {
   now: () => TimeStamp;
 }
 
-/** Reported by remote sources created while the cluster is disconnected. */
-export const DISCONNECTED_STATUS: cstatus.Crude = {
+/** The status of a remote source created while the Core is disconnected. */
+export const DISCONNECTED_STATUS: cstatus.Status = {
+  key: "disconnected",
+  name: "",
   variant: "warning",
   message: "Core disconnected",
+  description: "",
+  time: TimeStamp.ZERO,
 };
 
-/**
- * Posts a source's failures. Retries repeat at the breaker's pace, so an incident
- * posts one status when it starts and again only when the failure changes.
- */
-export class FailureReporter {
-  /** The last failure since the last reset. */
+const isProblem = (s?: cstatus.Status): boolean =>
+  s?.variant === "warning" || s?.variant === "error";
+
+// Whether next starts, changes, or ends a warning or an error. Other changes, such as
+// the end of a load, give listeners nothing to show.
+const problemChanged = (
+  prev: cstatus.Status | undefined,
+  next: cstatus.Status,
+): boolean =>
+  (isProblem(prev) || isProblem(next)) &&
+  (prev?.variant !== next.variant ||
+    prev.message !== next.message ||
+    prev.description !== next.description);
+
+// Holds a source's last failure. Retries repeat, so onChange runs only when the failure
+// changes.
+class FailureReporter {
   status?: cstatus.Status;
-  constructor(private readonly onStatusChange?: status.Adder) {}
+  constructor(private readonly onChange: () => void) {}
 
   report(e: unknown, message: string): void {
-    this.post(cstatus.fromException(e, message));
-  }
-
-  /** Posts a subscription's status when it is an error, and resets on any other. */
-  observe(s: cstatus.Status): void {
-    if (s.variant === "error") this.post(s);
-    else this.reset();
+    const prev = this.status;
+    const next = cstatus.fromException(e, message);
+    this.status = next;
+    if (problemChanged(prev, next)) this.onChange();
   }
 
   reset(): void {
     this.status = undefined;
   }
-
-  private post(s: cstatus.Status): void {
-    const prev = this.status;
-    this.status = s;
-    if (prev?.message === s.message && prev.description === s.description) return;
-    this.onStatusChange?.(s);
-  }
 }
 
-// Loading until a source's channel resolves, then its last failure, if any.
-const sourceStatus = (loading: boolean, failures: FailureReporter): cstatus.Status =>
-  loading ? LOADING_STATUS : (failures.status ?? SUCCESS_STATUS);
+// The status of a source before its channel resolves, or after its retrieval fails.
+const sourceStatus = (
+  client: Client | null,
+  loading: boolean,
+  failures: FailureReporter,
+): cstatus.Status => {
+  if (client == null) return DISCONNECTED_STATUS;
+  if (loading) return LOADING_STATUS;
+  return failures.status ?? SUCCESS_STATUS;
+};
 
 export const streamChannelValuePropsZ = z.object({
   channel: z.number().or(z.string()),
@@ -136,29 +146,25 @@ class ChannelValue<V>
 
   private readonly client: Client | null;
   private readonly conversion: Conversion<V>;
-  private readonly onStatusChange?: status.Adder;
-  private readonly failures: FailureReporter;
+  private readonly failures = new FailureReporter(() => {
+    this.notifiedStatus = this.failures.status;
+    this.notify();
+  });
   private subscription: framer.Subscription | null = null;
   private key: channel.Key | null = null;
   private converted: Converted<V> | null = null;
-  // notified is the value listeners last heard of. A read can convert a new sample
-  // before the subscription's notice runs.
+  // notified and notifiedStatus are the value and status listeners last heard of. A
+  // read can convert a new sample before the subscription's notice runs.
   private notified: Converted<V> | null = null;
+  private notifiedStatus?: cstatus.Status;
   private generation = 0;
   private valid = false;
   private loading = true;
 
-  constructor(
-    client: Client | null,
-    props: unknown,
-    conversion: Conversion<V>,
-    options?: CreateOptions,
-  ) {
+  constructor(client: Client | null, props: unknown, conversion: Conversion<V>) {
     super(props);
     this.client = client;
     this.conversion = conversion;
-    this.onStatusChange = options?.onStatusChange;
-    this.failures = new FailureReporter(this.onStatusChange);
   }
 
   value(): Result<V> {
@@ -167,7 +173,11 @@ class ChannelValue<V>
     if (!this.valid) void this.resolve();
     const { subscription, key } = this;
     if (subscription == null || key == null)
-      return { data: empty, status: sourceStatus(this.loading, this.failures) };
+      return {
+        data: empty,
+        status: sourceStatus(this.client, this.loading, this.failures),
+        appended: 0,
+      };
     const snapshot = subscription.value(key);
     this.convert(snapshot);
     const { status, time, appended } = snapshot;
@@ -181,6 +191,7 @@ class ChannelValue<V>
     this.key = null;
     this.converted = null;
     this.notified = null;
+    this.notifiedStatus = undefined;
     this.valid = false;
     this.loading = true;
     this.failures.reset();
@@ -204,16 +215,12 @@ class ChannelValue<V>
     };
   }
 
-  /** Never rejects: a failure invalidates the source and reaches onStatusChange. */
+  /** Never rejects: a failure invalidates the source and sets its status. */
   private async resolve(): Promise<void> {
     const generation = this.generation;
     this.valid = true;
     const { client } = this;
-    if (client == null) {
-      this.loading = false;
-      this.onStatusChange?.(DISCONNECTED_STATUS);
-      return;
-    }
+    if (client == null) return;
     try {
       const { key } = await client.channels.retrieve(this.props.channel);
       if (generation !== this.generation) return;
@@ -224,12 +231,13 @@ class ChannelValue<V>
       [this.subscription, this.key] = [subscription, key];
       subscription.onChange(() => {
         const snapshot = subscription.value(key);
-        this.failures.observe(snapshot.status);
         this.convert(snapshot);
         // A history change that rewrites the newest sample notifies too, so the value
         // redraws. Consumers that count arrivals compare its appended count.
-        if (this.converted === this.notified) return;
-        this.notified = this.converted;
+        const { converted, notified, notifiedStatus } = this;
+        const { status } = snapshot;
+        if (converted === notified && !problemChanged(notifiedStatus, status)) return;
+        [this.notified, this.notifiedStatus] = [converted, status];
         this.notify();
       });
     } catch (e) {
@@ -287,7 +295,6 @@ export class ChannelData
 
   private readonly client: Client | null;
   private readonly now: () => TimeStamp;
-  private readonly onStatusChange?: status.Adder;
   private generation = 0;
   private valid = false;
   private channel: SelectedChannelProperties | null = null;
@@ -313,22 +320,19 @@ export class ChannelData
   private drawn = new MultiSeries();
   // loading is true until the channel resolves or its retrieval fails.
   private loading = true;
-  private readonly failures: FailureReporter;
+  private readonly failures = new FailureReporter(() => this.notify());
   private readonly retryNotifier = new sync.Notifier();
   private readonly breaker: breaker.Breaker;
 
   constructor(
     client: Client | null,
     props: unknown,
-    options?: CreateOptions,
     now: () => TimeStamp = client?.now ?? (() => TimeStamp.now()),
     breakerConfig?: breaker.Config,
   ) {
     super(props);
     this.client = client;
     this.now = now;
-    this.onStatusChange = options?.onStatusChange;
-    this.failures = new FailureReporter(options?.onStatusChange);
     this.breaker = framer.retry.createBreaker(this.retryNotifier, breakerConfig);
   }
 
@@ -347,18 +351,16 @@ export class ChannelData
     if (client == null || ch == null)
       return {
         data: [bounds.INVALID, new MultiSeries()],
-        status: sourceStatus(this.loading, this.failures),
+        status: sourceStatus(client, this.loading, this.failures),
         aggregation: this.aggregation(),
       };
     const { series, time } =
       extremesKept && !this.xy
         ? this.readBounds(client, ch.key)
         : this.readDraw(client, ch.key, view, points != null);
-    const status = this.status();
-    this.failures.observe(status);
     return {
       data: [this.dataBounds(ch, series, time), series],
-      status,
+      status: this.status(),
       aggregation: this.aggregation(),
     };
   }
@@ -499,17 +501,13 @@ export class ChannelData
 
   /**
    * Never rejects. A connectivity failure retries under the breaker, and a definitive
-   * rejection parks the source. Every distinct failure reaches onStatusChange.
+   * rejection parks the source. Each new failure notifies the source's listeners.
    */
   private async resolve(): Promise<void> {
     const generation = this.generation;
     this.valid = true;
     const { client } = this;
-    if (client == null) {
-      this.loading = false;
-      this.onStatusChange?.(DISCONNECTED_STATUS);
-      return this.notify();
-    }
+    if (client == null) return;
     const { channel, useIndexOfChannel, xChannel } = this.props;
     while (generation === this.generation)
       try {
@@ -524,12 +522,9 @@ export class ChannelData
         return this.notify();
       } catch (e) {
         if (generation !== this.generation) return;
+        // A failure ends the load, so the status shows it while retries run.
+        this.loading = false;
         this.failures.report(e, "Failed to read channel data");
-        // Retries never hold loading, so a failure wakes observers of the status.
-        if (this.loading) {
-          this.loading = false;
-          this.notify();
-        }
         if (framer.retry.isDefinitive(e) || !(await this.breaker.wait())) return;
       }
   }
@@ -550,15 +545,14 @@ export class ChannelData
   }
 }
 
-type Create = (client: Client | null, props: unknown, options?: CreateOptions) => Telem;
+type Create = (client: Client | null, props: unknown) => Telem;
 
 const REGISTRY: Record<string, Create> = {
-  [ChannelData.TYPE]: (client, props, options) =>
-    new ChannelData(client, props, options),
-  [ChannelValue.NUMBER_TYPE]: (client, props, options) =>
-    new ChannelValue(client, props, NUMBER, options),
-  [ChannelValue.STRING_TYPE]: (client, props, options) =>
-    new ChannelValue(client, props, STRING, options),
+  [ChannelData.TYPE]: (client, props) => new ChannelData(client, props),
+  [ChannelValue.NUMBER_TYPE]: (client, props) =>
+    new ChannelValue(client, props, NUMBER),
+  [ChannelValue.STRING_TYPE]: (client, props) =>
+    new ChannelValue(client, props, STRING),
 };
 
 export class RemoteFactory {
@@ -568,8 +562,8 @@ export class RemoteFactory {
     this.client = client;
   }
 
-  create(spec: Spec, options?: CreateOptions): Telem | null {
-    return REGISTRY[spec.type]?.(this.client, spec.props, options) ?? null;
+  create(spec: Spec): Telem | null {
+    return REGISTRY[spec.type]?.(this.client, spec.props) ?? null;
   }
 }
 

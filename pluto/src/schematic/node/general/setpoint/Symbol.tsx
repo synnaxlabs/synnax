@@ -21,6 +21,7 @@ import { Primitive } from "@/schematic/node/common/primitive";
 import { Telem } from "@/schematic/node/common/telem";
 import { Setpoint } from "@/schematic/node/general/setpoint/Primitive";
 import { type NodeProps } from "@/schematic/node/spec";
+import { Problem } from "@/vis/problem";
 import { Setpoint as BaseSetpoint } from "@/vis/setpoint";
 import { Value as BaseValue } from "@/vis/value";
 
@@ -32,34 +33,30 @@ interface ReadbackProps {
   position?: xy.XY;
   channel: channel.Key;
   size: Component.Size;
-  units?: string;
+  /** The width of the readout's value cell. */
+  cellWidth: number;
   stalenessColor?: color.Color;
   stalenessTimeout?: number;
 }
 
-// Readback draws the actual value on the canvas, so samples never re-render React. The
-// offset moves the canvas text inset onto the readout's padding, under the field.
+// Readback draws the actual value on the canvas over the readout, so samples never
+// re-render React. The offset moves the canvas text inset onto the readout's padding.
 const Readback = ({
   nodeKey,
   position,
   channel,
   size,
-  units,
+  cellWidth,
   stalenessColor,
   stalenessTimeout,
-}: ReadbackProps): ReactElement => {
+}: ReadbackProps): ReactElement | null => {
   const theme = Theming.use();
   const level = Primitive.readoutLevel(size);
   const fontHeight = theme.typography[level].size * theme.sizes.base;
   const textInset = 6 + fontHeight * 0.75;
   const offset = xy.construct(READOUT_INSET - textInset, Component.HEIGHTS[size]);
-  // offsetWidth ignores the diagram zoom, so it is in the same units as the box.
-  const [cellWidth, setCellWidth] = useState(0);
-  const valueRef = useResize<HTMLParagraphElement>((_, el) =>
-    setCellWidth(el.offsetWidth),
-  );
   const telem = BaseValue.stringSource({ channel });
-  BaseValue.use({
+  const { problems } = BaseValue.use({
     aetherKey: `${nodeKey}-readback`,
     level,
     color: theme.colors.gray.l10,
@@ -75,7 +72,7 @@ const Readback = ({
     stalenessColor,
     stalenessTimeout,
   });
-  return <Primitive.Readout size={size} units={units} valueRef={valueRef} />;
+  return <Problem.Mark problems={problems} variant="badge" />;
 };
 
 export const Symbol = ({
@@ -105,6 +102,12 @@ export const Symbol = ({
   const resize = Grid.useInlineResize(inlineSize, (inlineSize) =>
     onConfigChange({ inlineSize }),
   );
+  // offsetWidth ignores the diagram zoom, so it is in the same units as the box.
+  const [cellWidth, setCellWidth] = useState(0);
+  const valueRef = useResize<HTMLParagraphElement>((_, el) =>
+    setCellWidth(el.offsetWidth),
+  );
+  const hasReadback = stateChannel != null && stateChannel !== 0;
   return (
     <Grid.Grid nodeKey={nodeKey} allowRotate={false} editable={selected} {...resize}>
       <Control.State
@@ -124,20 +127,23 @@ export const Symbol = ({
         onClickDelay={onClickDelay}
         inlineSize={inlineSize}
         readback={
-          stateChannel != null &&
-          stateChannel !== 0 && (
-            <Readback
-              nodeKey={nodeKey}
-              position={position}
-              channel={stateChannel}
-              size={size}
-              units={units}
-              stalenessColor={stalenessColor}
-              stalenessTimeout={stalenessTimeout}
-            />
+          hasReadback && (
+            <Primitive.Readout size={size} units={units} valueRef={valueRef} />
           )
         }
       />
+      {/* Outside the primitive, whose svg rules would restyle the glyph. */}
+      {hasReadback && (
+        <Readback
+          nodeKey={nodeKey}
+          position={position}
+          channel={stateChannel}
+          size={size}
+          cellWidth={cellWidth}
+          stalenessColor={stalenessColor}
+          stalenessTimeout={stalenessTimeout}
+        />
+      )}
     </Grid.Grid>
   );
 };

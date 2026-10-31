@@ -12,6 +12,7 @@ import { bounds, box, location, scale, xy } from "@synnaxlabs/x";
 import { type AxisRenderProps, BaseAxis, baseAxisStateZ } from "@/lineplot/aether/axis";
 import { rule } from "@/lineplot/rule/aether";
 import { line } from "@/vis/line/aether";
+import { type problem } from "@/vis/problem/aether";
 
 export const yAxisStateZ = baseAxisStateZ.extend({
   location: location.xZ.default("left"),
@@ -130,6 +131,10 @@ export class YAxis extends BaseAxis<typeof baseAxisStateZ, Children> {
 
   get fetching(): boolean {
     return this.lines.some((el) => el.fetching);
+  }
+
+  get problems(): problem.Problem[] {
+    return this.lines.flatMap((el) => el.problems);
   }
 
   private dataBounds(xBounds: bounds.Bounds): line.DataBounds[] {

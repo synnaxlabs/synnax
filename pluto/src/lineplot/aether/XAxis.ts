@@ -13,6 +13,7 @@ import { type AxisRenderProps, BaseAxis, baseAxisStateZ } from "@/lineplot/aethe
 import { YAxis } from "@/lineplot/aether/YAxis";
 import { range } from "@/lineplot/range/aether";
 import { type line } from "@/vis/line/aether";
+import { type problem } from "@/vis/problem/aether";
 
 export const xAxisStateZ = baseAxisStateZ;
 
@@ -84,6 +85,10 @@ export class XAxis extends BaseAxis<typeof baseAxisStateZ, YAxis | range.Provide
 
   get fetching(): boolean {
     return this.yAxes.some((el) => el.fetching);
+  }
+
+  get problems(): problem.Problem[] {
+    return this.yAxes.flatMap((el) => el.problems);
   }
 
   bounds(hold: boolean): bounds.Bounds {

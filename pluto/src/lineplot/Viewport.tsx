@@ -18,6 +18,7 @@ import { type PropsWithChildren, type ReactElement, useLayoutEffect } from "reac
 import { CSS } from "@/css";
 import { useContext, useFetchContext } from "@/lineplot/Frame";
 import { Viewport as Base } from "@/viewport";
+import { Problem } from "@/vis/problem";
 
 export interface ViewportProps extends PropsWithChildren, Base.UseProps {}
 
@@ -32,7 +33,8 @@ export const Viewport = ({
   ...rest
 }: ViewportProps): ReactElement => {
   const { setViewport, setViewportElement } = useContext("LinePlot.Viewport");
-  const { loading, fetching, loadingMessage } = useFetchContext("LinePlot.Viewport");
+  const { loading, fetching, loadingMessage, problems } =
+    useFetchContext("LinePlot.Viewport");
 
   useLayoutEffect(() => {
     setViewport({ box: initial, mode: "zoom", cursor: xy.ZERO, stage: "start" });
@@ -63,9 +65,11 @@ export const Viewport = ({
           )}
         </Status.Loading>
       )}
-      {!loading && fetching && (
+      {/* The mark takes the corner of the fetching icon. */}
+      {!loading && fetching && problems.length === 0 && (
         <Icon.Loading className={CSS.BE("line-plot", "fetching")} />
       )}
+      <Problem.Mark problems={problems} />
       {children}
     </Base.Mask>
   );

@@ -22,6 +22,7 @@ import { CSS } from "@/css";
 import { log } from "@/log/aether";
 import { use, type UseProps } from "@/log/use";
 import { Canvas } from "@/vis/canvas";
+import { Problem } from "@/vis/problem";
 
 export const PAUSE_TRIGGER: Triggers.Trigger = ["H"];
 
@@ -95,6 +96,7 @@ export const Base = ({
     region,
     visibleStart,
     computedLineHeight,
+    problems,
   } = state;
 
   const setHold = (hold: boolean) => {
@@ -249,6 +251,7 @@ export const Base = ({
         {...rest}
       >
         {empty ? emptyContent : children}
+        <Problem.Mark problems={problems} />
       </div>
     </Menu.ContextMenu>
   );

@@ -7,8 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type status } from "@synnaxlabs/client";
 import { theme } from "@synnaxlabs/lyra/theme";
-import { border, box, color, location, notation, scale, text, xy } from "@synnaxlabs/x";
+import {
+  border,
+  box,
+  color,
+  deep,
+  location,
+  notation,
+  scale,
+  text,
+  xy,
+} from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -17,6 +28,7 @@ import { noopColorSourceSpec } from "@/telem/aether/noop";
 import { theming } from "@/theming/aether";
 import { type Element } from "@/vis/diagram/aether/Diagram";
 import { type FillTextOptions } from "@/vis/draw2d/canvas";
+import { problem } from "@/vis/problem/aether";
 import { render } from "@/vis/render";
 import { staleness } from "@/vis/staleness/aether";
 
@@ -48,6 +60,8 @@ const valueState = staleness.configZ.extend({
   // borderRadius rounds the clip region, in px. Set it when the host has rounded
   // corners, so the background fill does not square them off.
   borderRadius: border.crudeRadiusZ.optional(),
+  /** The problems of the value's data. */
+  problems: problem.problemZ.array().default([]),
 });
 
 const CANVAS_VARIANTS: render.Canvas2DVariant[] = ["upper2d", "lower2d"];
@@ -121,6 +135,12 @@ export class Value
     else i.requestRender("layout");
   }
 
+  private syncProblems(stat: status.Status): void {
+    const problems = problem.fromStatus(stat);
+    if (deep.equal(problems, this.state.problems)) return;
+    this.setState((p) => ({ ...p, problems }));
+  }
+
   private requestRender(): void {
     const { requestRender } = this.internal;
     if (requestRender != null) requestRender("layout");
@@ -169,12 +189,14 @@ export class Value
     const { renderCtx, telem, backgroundTelem, fontString, requestRender } =
       this.internal;
     const { location, box: b } = this.state;
+    const { data, status: stat } = telem.value();
+    this.syncProblems(stat);
     if (box.areaIsZero(b)) return;
     const bTopLeft = box.topLeft(b);
     const bWidth = box.width(b);
     const bHeight = box.height(b);
     const canvas = renderCtx.upper2d.applyScale(viewportScale);
-    let value = telem.value().data;
+    let value = data;
     canvas.font = fontString;
     canvas.textAlign = "left";
     canvas.textBaseline = "alphabetic";

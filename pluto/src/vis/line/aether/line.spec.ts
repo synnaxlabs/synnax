@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, status } from "@synnaxlabs/client";
-import { createTestClient } from "@synnaxlabs/client/testutil";
+import { createTestClient, SyntheticCore } from "@synnaxlabs/client/testutil";
 import {
   bounds,
   box,
@@ -68,10 +68,11 @@ describe("line", () => {
       dataToDecimalScale: scale.XY.IDENTITY,
     };
 
-    const mount = (x: Series[], y: Series[], state: Partial<State> = {}) => {
+    const mountLine = (
+      state: Partial<State> & Pick<State, "x" | "y">,
+      factories?: telem.Factory[],
+    ) => {
       const { gl, calls } = canvasTest.createGL();
-      const xSource = createSource(x);
-      const ySource = createSource(y);
       const recorder = canvasTest.record();
       (recorder as { gl: unknown }).gl = gl;
       recorder.resize(PROPS.region, 1);
@@ -79,17 +80,24 @@ describe("line", () => {
         state: {},
         render: recorder,
         registry: { [Line.TYPE]: Line },
+        telem: factories == null ? undefined : { factories },
         children: {
           line: {
             type: Line.TYPE,
-            state: {
-              x: sourceSpec(xSource),
-              y: sourceSpec(ySource),
-              color: color.construct("#ff0000"),
-              ...state,
-            },
+            state: { color: color.construct("#ff0000"), ...state },
           },
         },
+      });
+      return { h, recorder, calls };
+    };
+
+    const mount = (x: Series[], y: Series[], state: Partial<State> = {}) => {
+      const xSource = createSource(x);
+      const ySource = createSource(y);
+      const { h, recorder, calls } = mountLine({
+        x: sourceSpec(xSource),
+        y: sourceSpec(ySource),
+        ...state,
       });
       const draws = (): [number, number][] =>
         calls
@@ -301,6 +309,91 @@ describe("line", () => {
         m.ySource.status = telem.SUCCESS_STATUS;
         expect(m.line.loading).toBe(true);
         values.forEach((value) => expect(value).not.toHaveBeenCalled());
+      });
+    });
+
+    describe("problems", () => {
+      const FAILED = status.create({
+        variant: "error",
+        message: "Failed to read channel data",
+        description: "channel 999 not found",
+      });
+
+      it("should report the problem of a failed source, named by its label", () => {
+        const m = mount([X1], [Y1], { label: "PT-03" });
+        m.ySource.status = FAILED;
+        m.line.render(PROPS);
+        expect(m.line.problems).toEqual([
+          {
+            variant: "error",
+            name: "PT-03",
+            message: "Failed to read channel data",
+            description: "channel 999 not found",
+          },
+        ]);
+      });
+
+      it("should report the worse problem of its two sources", () => {
+        const m = mount([X1], [Y1]);
+        m.xSource.status = status.create({
+          variant: "warning",
+          message: "reconnecting",
+        });
+        m.ySource.status = FAILED;
+        m.line.render(PROPS);
+        expect(m.line.problems.map((p) => p.variant)).toEqual(["error"]);
+      });
+
+      it("should report no problems once its sources recover", () => {
+        const m = mount([X1], [Y1]);
+        m.ySource.status = FAILED;
+        m.line.render(PROPS);
+        m.ySource.status = telem.SUCCESS_STATUS;
+        m.line.render(PROPS);
+        expect(m.line.problems).toEqual([]);
+      });
+
+      it("should report no problems while hidden", () => {
+        const m = mount([X1], [Y1]);
+        m.ySource.status = FAILED;
+        m.line.render(PROPS);
+        m.hide();
+        m.line.render(PROPS);
+        expect(m.line.problems).toEqual([]);
+      });
+
+      it("should mark a failed remote read instead of toasting it", async () => {
+        const core = new SyntheticCore({
+          rate: 10,
+          start: TimeStamp.seconds(100),
+          now: TimeStamp.seconds(110),
+        });
+        const client = telemTest.createClient(core);
+        const window = staticWindow(new TimeRange(0, TimeStamp.seconds(1)));
+        const { h } = mountLine(
+          {
+            x: telem.channelData({ channel: 999, useIndexOfChannel: true, window }),
+            y: telem.channelData({ channel: 999, window }),
+            label: "PT-03",
+          },
+          [new telem.RemoteFactory(client)],
+        );
+        const line = h.child<Line>("line");
+        await expect
+          .poll(() => {
+            line.render(PROPS);
+            return line.problems;
+          })
+          .toEqual([
+            {
+              variant: "error",
+              name: "PT-03",
+              message: "Failed to read channel data",
+              description: "channel 999 not found",
+            },
+          ]);
+        expect(h.providers.status?.state.statuses).toEqual([]);
+        await client.feed.close();
       });
     });
 

@@ -17,6 +17,7 @@ import { Label } from "@/schematic/node/common/label";
 import { LEVEL_SIZES } from "@/schematic/node/common/size";
 import { Value } from "@/schematic/node/general/value/Primitive";
 import { type NodeProps } from "@/schematic/node/spec";
+import { Problem } from "@/vis/problem";
 import { Value as BaseValue } from "@/vis/value";
 
 const VALUE_BACKGROUND_OVERSCAN = xy.construct(1, -4);
@@ -48,7 +49,7 @@ export const Symbol = ({
   const valueBoxHeight = Component.HEIGHTS[LEVEL_SIZES[level]];
   const t = BaseValue.stringSource({ channel, rollingAverage, precision, notation });
   const backgroundTelem = BaseValue.backgroundTelem(t, redline, fillColor);
-  const { width: oWidth } = BaseValue.use({
+  const { width: oWidth, problems } = BaseValue.use({
     aetherKey: nodeKey,
     color: textColor,
     level,
@@ -82,6 +83,8 @@ export const Symbol = ({
         units={units}
         unitsLevel={text.downLevel(level)}
       />
+      {/* Outside the primitive, whose svg rules would restyle the glyph. */}
+      <Problem.Mark problems={problems} variant="badge" />
     </Grid.Grid>
   );
 };
