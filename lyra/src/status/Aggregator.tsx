@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type CrudeTimeSpan, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { type CrudeTimeSpan, id, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { type PropsWithChildren, useState } from "react";
 import type z from "zod";
 
@@ -24,10 +24,21 @@ import {
 import { create, type Status } from "@/status/status";
 
 interface Received {
+  id: string;
+  /** The latest status. */
   status: Status;
-  /** When the aggregator got the status. Notifications expire from this time. */
+  /** When the aggregator got the first status. Notifications expire from this time. */
   time: TimeStamp;
+  /** How many statuses joined. */
+  count: number;
 }
+
+// A key holds one notification for its problem and one for its other statuses.
+const sameSlot = (a: Status, b: Status): boolean =>
+  a.key === b.key && (a.problem == null) === (b.problem == null);
+
+const sameProblem = (a: Status, b: Status): boolean =>
+  a.problem != null && a.problem === b.problem;
 
 const [Context, useContext] = context.create<Received[]>({
   defaultValue: [],
@@ -61,7 +72,7 @@ const [HandlersContext, useHandlers] = context.create<Handlers>({
 
 /** Props for {@link Aggregator}. */
 export interface AggregatorProps extends PropsWithChildren {
-  /** Statuses kept before the oldest are dropped. Defaults to 500. */
+  /** Statuses kept before the oldest are dropped. Problems stay. Defaults to 500. */
   maxHistory?: number;
   /** Prints each error reported through an error handler. Defaults to console.error. */
   log?: Log;
@@ -69,9 +80,21 @@ export interface AggregatorProps extends PropsWithChildren {
 
 const TRUNCATE_FACTOR = 0.9;
 
+const isProblem = ({ status }: Received): boolean => status.problem != null;
+
+// A problem notifies only once while its status stays in the history, so the history
+// keeps every problem. A key holds one problem at most, which bounds them.
+const trim = (received: Received[], size: number): Received[] => {
+  const dropped = new Set(received.filter((r) => !isProblem(r)).slice(size));
+  return received.filter((r) => !dropped.has(r));
+};
+
 /**
- * Collects statuses from its subtree and hands them to {@link useNotifications} and
- * the status list. Mount one near the root of the app.
+ * Collects statuses from its subtree and hands them to {@link useNotifications} and the
+ * status list. Mount one near the root of the app. Each key holds one notification for
+ * its problem and one for its other statuses, and a new status replaces the one in its
+ * place. A warning or error of the same problem joins its notification instead: the
+ * count goes up, and the notification does not show again.
  */
 export const Aggregator = ({
   children,
@@ -79,14 +102,17 @@ export const Aggregator = ({
   log = printError,
 }: AggregatorProps) => {
   const [received, setReceived] = useState<Received[]>([]);
-  if (received.length > maxHistory)
-    setReceived(received.slice(0, Math.floor(maxHistory * TRUNCATE_FACTOR)));
+  if (received.filter((r) => !isProblem(r)).length > maxHistory)
+    setReceived(trim(received, Math.floor(maxHistory * TRUNCATE_FACTOR)));
   const handleAdd: Adder = (spec) => {
-    const next = { status: create(spec), time: TimeStamp.now() };
-    setReceived((prev) => [
-      next,
-      ...prev.filter(({ status }) => status.key != next.status.key),
-    ]);
+    const status = create(spec);
+    setReceived((prev) => {
+      const held = prev.find((r) => sameSlot(r.status, status));
+      if (held != null && sameProblem(held.status, status))
+        return prev.map((r) => (r === held ? { ...r, status, count: r.count + 1 } : r));
+      const next = { id: id.create(), status, time: TimeStamp.now(), count: 1 };
+      return [next, ...prev.filter((r) => r !== held)];
+    });
   };
   const handlers = createHandlers(handleAdd, log);
   return (
@@ -114,17 +140,25 @@ export const useAsyncErrorHandler = (): AsyncErrorHandler => useHandlers().async
 
 /** A status shown as a notification, with how many identical ones it stands for. */
 export type NotificationSpec<Details extends z.ZodType = z.ZodNever> =
-  Status<Details> & { count: number };
+  Status<Details> & {
+    /** Identifies the notification for {@link UseNotificationsReturn.silence}. */
+    id: string;
+    count: number;
+  };
 
 /** Return value for {@link useNotifications}. */
 export interface UseNotificationsReturn<Details extends z.ZodType = z.ZodNever> {
   statuses: NotificationSpec<Details>[];
-  /** Hides one notification for good. */
-  silence: (key: string) => void;
+  /**
+   * Closes the notification with the id. Later statuses of the same problem stay
+   * closed. The next problem on the key shows.
+   */
+  silence: (id: string) => void;
+  /** Closes every notification that shows now. */
   silenceAll: () => void;
 }
 
-const identity = ({ variant, name, message, description }: Status): string =>
+const groupKey = ({ variant, name, message, description }: Status): string =>
   JSON.stringify([variant, name, message, description]);
 
 const DEFAULT_EXPIRATION = TimeSpan.seconds(7);
@@ -139,26 +173,17 @@ interface UseNotificationsProps {
 // values read from it.
 const NO_PROPS: UseNotificationsProps = {};
 
-const group = (
-  received: Received[],
-  threshold: TimeStamp,
-  silencedKeys: Set<string>,
-): NotificationSpec[] => {
-  const active = received
-    .filter(
-      ({ status, time }) => time.afterEq(threshold) && !silencedKeys.has(status.key),
-    )
-    .map(({ status }) => status);
-  const grouped = active.reduce((acc, status) => {
-    const key = identity(status);
-    if (!acc.has(key)) {
-      acc.set(key, { ...status, count: 1 });
+const group = (active: Received[]): NotificationSpec[] => {
+  const grouped = active.reduce((acc, { id, status, count }) => {
+    const key = groupKey(status);
+    const existing = acc.get(key);
+    if (existing == null) {
+      acc.set(key, { ...status, id, count });
       return acc;
     }
-    const existing = acc.get(key)!;
     acc.set(key, {
       ...existing,
-      count: existing.count + 1,
+      count: existing.count + count,
       time: status.time.after(existing.time) ? status.time : existing.time,
     });
     return acc;
@@ -169,42 +194,37 @@ const group = (
 /**
  * @returns the statuses recent enough to show as notifications, with identical ones
  * folded into a single entry carrying a count. They drop off on their own after the
- * expiration, counted from when the aggregator got each status, not from its time.
+ * expiration, counted from when the aggregator got the first status of each, not from
+ * its time.
  */
 export const useNotifications = ({
   expiration = DEFAULT_EXPIRATION,
   poll = DEFAULT_EXPIRATION_POLL,
 }: UseNotificationsProps = NO_PROPS): UseNotificationsReturn => {
   const received = useContext();
-  const [silencedKeys, setSilencedKeys] = useState<Set<string>>(() => new Set());
+  const [silenced, setSilenced] = useState<Set<string>>(() => new Set());
   const now = useNow((now) => now.add(poll));
-  const statusesRef = useSyncedRef(received.map(({ status }) => status));
+  const threshold = now.sub(expiration);
+  const active = received.filter(
+    (r) => r.time.afterEq(threshold) && !silenced.has(r.id),
+  );
+  const activeRef = useSyncedRef(active);
 
-  const filtered = group(received, now.sub(expiration), silencedKeys);
+  const close = (ids: string[]) =>
+    setSilenced((prev) => (ids.length === 0 ? prev : new Set([...prev, ...ids])));
 
-  const silence = (key: string) => {
-    setSilencedKeys((prev) => {
-      const next = new Set<string>();
-      const existing = statusesRef.current.find(({ key: k }) => k === key);
-      if (!prev.has(key)) next.add(key);
-      if (existing != null) {
-        const id = identity(existing);
-        statusesRef.current
-          .filter((status) => identity(status) === id)
-          .forEach((status) => next.add(status.key));
-      }
-      if (next.size == 0) return prev;
-      return new Set([...next, ...prev]);
-    });
+  const silence = (notification: string) => {
+    const closed = activeRef.current.find((r) => r.id === notification);
+    if (closed == null) return;
+    const shared = groupKey(closed.status);
+    close(
+      activeRef.current
+        .filter(({ status }) => groupKey(status) === shared)
+        .map((r) => r.id),
+    );
   };
 
-  const silenceAll = () => {
-    setSilencedKeys((prev) => {
-      const next = new Set(prev);
-      statusesRef.current.forEach(({ key }) => next.add(key));
-      return next;
-    });
-  };
+  const silenceAll = () => close(activeRef.current.map((r) => r.id));
 
-  return { statuses: filtered, silence, silenceAll };
+  return { statuses: group(active), silence, silenceAll };
 };
