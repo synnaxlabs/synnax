@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id } from "@synnaxlabs/x";
+import { id, uuid } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { group } from "@/group";
@@ -40,6 +40,62 @@ describe("Group", () => {
       });
       const g2 = await client.ontology.retrieve(group.ontologyID(g.key));
       expect(g2.name).toEqual("updated-name");
+    });
+  });
+  describe("retrieve", () => {
+    it("should retrieve the groups that match where", async () => {
+      const a = await client.groups.create({ parent: ontology.ROOT_ID, name: "a" });
+      const b = await client.groups.create({ parent: ontology.ROOT_ID, name: "b" });
+      const groups = await client.groups.retrieve({
+        where: { key: { in: [a.key, b.key] } },
+      });
+      expect(groups.map((g) => g.key).sort()).toEqual([a.key, b.key].sort());
+    });
+    it("should leave out a key that no group has", async () => {
+      const a = await client.groups.create({ parent: ontology.ROOT_ID, name: "a" });
+      const groups = await client.groups.retrieve({
+        where: { key: { in: [a.key, uuid.create()] } },
+      });
+      expect(groups.map((g) => g.key)).toEqual([a.key]);
+    });
+    it("should retrieve the children of a parent that match where", async () => {
+      const parent = await client.groups.create({
+        parent: ontology.ROOT_ID,
+        name: `parent-${id.create()}`,
+      });
+      const parentID = group.ontologyID(parent.key);
+      const a = await client.groups.create({ parent: parentID, name: "a" });
+      await client.groups.create({ parent: parentID, name: "b" });
+      const outside = await client.groups.create({
+        parent: ontology.ROOT_ID,
+        name: "outside",
+      });
+      const groups = await client.groups.retrieve({
+        parent: parentID,
+        where: { key: { in: [a.key, outside.key] } },
+      });
+      expect(groups.map((g) => g.key)).toEqual([a.key]);
+    });
+    it("should retrieve the children of a parent", async () => {
+      const parent = await client.groups.create({
+        parent: ontology.ROOT_ID,
+        name: `parent-${id.create()}`,
+      });
+      const parentID = group.ontologyID(parent.key);
+      const a = await client.groups.create({ parent: parentID, name: "a" });
+      const b = await client.groups.create({ parent: parentID, name: "b" });
+      await client.groups.create({ parent: ontology.ROOT_ID, name: "outside" });
+      const groups = await client.groups.retrieve({ parent: parentID });
+      expect(groups.map((g) => g.key).sort()).toEqual([a.key, b.key].sort());
+    });
+    it("should return no children of a parent for a zero limit", async () => {
+      const parent = await client.groups.create({
+        parent: ontology.ROOT_ID,
+        name: `parent-${id.create()}`,
+      });
+      const parentID = group.ontologyID(parent.key);
+      await client.groups.create({ parent: parentID, name: "a" });
+      expect(await client.groups.retrieve({ parent: parentID, limit: 0 })).toEqual([]);
     });
   });
   describe("rename", () => {

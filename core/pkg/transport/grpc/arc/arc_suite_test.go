@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package access_test
+package arc
 
 import (
 	"testing"
@@ -17,9 +17,9 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func TestAPIAccess(t *testing.T) {
+func TestArc(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "API Access Suite", SuiteConfig())
+	RunSpecs(t, "Transport gRPC Arc Suite", SuiteConfig())
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()

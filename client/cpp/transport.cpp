@@ -171,7 +171,7 @@ Transport::Transport(const uint16_t port, const std::string &ip, const bool secu
         grpc::arc::ArcCreateService>>(pool, base_target);
     this->arc_retrieve = std::make_shared<freighter::grpc::UnaryClient<
         grpc::arc::RetrieveRequest,
-        grpc::arc::RetrieveResponse,
+        ::api::arc::pb::RetrieveResponse,
         grpc::arc::ArcRetrieveService>>(pool, base_target);
     this->arc_delete = std::make_shared<freighter::grpc::UnaryClient<
         grpc::arc::DeleteRequest,

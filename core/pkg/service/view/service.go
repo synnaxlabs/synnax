@@ -65,18 +65,18 @@ func (c ServiceConfig) Validate() error {
 // mechanisms for creating, retrieving, updating, and deleting views. It also provides
 // mechanisms for listening to changes in views.
 type Service struct {
-	cfg    ServiceConfig
-	group  group.Group
-	table  *gorp.Table[Key, View]
-	search *gorp.SearchIndex[Key, View]
-	closer xio.MultiCloser
+	cfg     ServiceConfig
+	group   group.Group
+	table   *gorp.Table[Key, View]
+	indexes indexes
+	closer  xio.MultiCloser
 }
 
 // OpenService opens a new Service with the provided configuration. If error is nil, the
 // service is ready for use and must be closed by calling Close to prevent resource
 // leaks.
 func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {
-	s = &Service{search: newSearchIndex()}
+	s = &Service{indexes: newIndexes()}
 	if s.cfg, err = config.New(ServiceConfig{}, cfgs...); err != nil {
 		return nil, err
 	}
@@ -94,7 +94,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, View]{
 		DB:              s.cfg.DB,
-		Indexes:         []gorp.Index[Key, View]{s.search},
+		Indexes:         s.indexes.all(),
 		Migrations:      versions.NewMigrations(s.cfg.Ontology),
 		Instrumentation: s.cfg.Instrumentation,
 	}); !ok(err, s.table) {
@@ -135,8 +135,8 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 // NewRetrieve opens a new Retrieve query to fetch views from the database.
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		gorp:   s.table.NewRetrieve(),
-		baseTX: s.cfg.DB,
-		search: s.search,
+		gorp:    s.table.NewRetrieve(),
+		baseTX:  s.cfg.DB,
+		indexes: s.indexes,
 	}
 }

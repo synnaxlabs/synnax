@@ -11,7 +11,10 @@
 
 package user
 
-import "github.com/synnaxlabs/synnax/pkg/service/user/versions"
+import (
+	"github.com/synnaxlabs/synnax/pkg/service/user/versions"
+	"github.com/synnaxlabs/x/filter"
+)
 
 // Key is a unique identifier for a user, represented as a UUID.
 type Key = versions.Key
@@ -19,3 +22,17 @@ type Key = versions.Key
 // User is an account entity representing a person accessing the Synnax system. Users
 // can have roles assigned for permission management.
 type User = versions.User
+
+// Where is a filter that selects users.
+type Where struct {
+	// And matches when every child matches.
+	And []Where `json:"and,omitzero" msgpack:"and,omitempty"`
+	// Or matches when any child matches.
+	Or []Where `json:"or,omitzero" msgpack:"or,omitempty"`
+	// Not matches when the child does not match.
+	Not *Where `json:"not,omitzero" msgpack:"not,omitempty"`
+	// Key selects by key.
+	Key *filter.Set[Key] `json:"key,omitzero" msgpack:"key,omitempty"`
+	// Usernames matches the users whose password has any of the given usernames.
+	Usernames []string `json:"usernames,omitzero" msgpack:"usernames,omitempty"`
+}

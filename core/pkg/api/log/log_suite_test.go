@@ -14,6 +14,11 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	apilog "github.com/synnaxlabs/synnax/pkg/api/log"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service"
+	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -23,3 +28,23 @@ func TestAPILog(t *testing.T) {
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
+
+var (
+	svc    *service.Layer
+	apiSvc *apilog.Service
+	// author has no role assignments.
+	author user.User
+)
+
+var _ = BeforeSuite(func(ctx SpecContext) {
+	ShouldNotLeakGoroutines()
+	node := testutil.NewNode(ctx)
+	svc = MustOpen(svctestutil.OpenLayer(ctx, node))
+	apiSvc = MustSucceed(apilog.NewService(apilog.ServiceConfig{
+		Log:  svc.Log,
+		RBAC: svc.RBAC,
+	}))
+	author = MustSucceed(svc.User.NewWriter(nil).Create(ctx, user.User{
+		Name: "author",
+	}))
+})

@@ -11,6 +11,7 @@ import { id } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { policy } from "@/access/policy";
+import { role } from "@/access/role";
 import { AccessDeniedError, NotFoundError } from "@/index";
 import { query } from "@/query";
 import {
@@ -19,11 +20,36 @@ import {
   expectDeleted,
   expectLive,
 } from "@/testutil";
+import { user } from "@/user";
 
 const client = createTestClient();
 
 describe("policy", () => {
   describe("retrieve", () => {
+    it("should retrieve the policies of a subject's roles", async () => {
+      const [held, other] = await client.access.policies.create([
+        { name: "held", objects: [], actions: ["retrieve"] },
+        { name: "other", objects: [], actions: ["retrieve"] },
+      ]);
+      const r = await client.access.roles.create({ name: "holder", description: "" });
+      await client.ontology.addChildren(
+        role.ontologyID(r.key),
+        policy.ontologyID(held.key),
+      );
+      const u = await client.users.create({ username: id.create(), password: "test" });
+      await client.access.roles.assign({ user: u.key, role: r.key });
+      const subjects = [user.ontologyID(u.key)];
+      const key = { in: [held.key, other.key] };
+      const matched = await client.access.policies.retrieve({
+        where: { subjects, key },
+      });
+      expect(matched.map((p) => p.key)).toEqual([held.key]);
+      const unmatched = await client.access.policies.retrieve({
+        where: { not: { subjects }, key },
+      });
+      expect(unmatched.map((p) => p.key)).toEqual([other.key]);
+    });
+
     it("should filter by internal flag when retrieving policies", async () => {
       const created = await client.access.policies.create({
         name: "test-non-internal",
@@ -33,14 +59,14 @@ describe("policy", () => {
 
       // Retrieve only internal policies (built-in system policies)
       const internalPolicies = await client.access.policies.retrieve({
-        internal: true,
+        where: { internal: { eq: true } },
       });
       expect(internalPolicies.length).toBeGreaterThan(0);
       expect(internalPolicies.every((p) => p.internal === true)).toBe(true);
       expect(internalPolicies.find((p) => p.key === created.key)).toBeUndefined();
 
       const nonInternalPolicies = await client.access.policies.retrieve({
-        internal: false,
+        where: { internal: { eq: false } },
       });
       expect(nonInternalPolicies.every((p) => p.internal !== true)).toBe(true);
       expect(nonInternalPolicies.find((p) => p.key === created.key)).toBeDefined();
@@ -183,7 +209,7 @@ describe("cached reads", () => {
       const a = await createPolicy();
       const b = await createPolicy();
       await client.access.policies.retrieve(b.key);
-      const res = await client.access.policies.retrieve({ keys: [a.key, b.key] });
+      const res = await client.access.policies.retrieve([a.key, b.key]);
       expect(res.map((p) => p.key)).toEqual([a.key, b.key]);
     });
   });

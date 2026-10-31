@@ -11,28 +11,59 @@
 
 #pragma once
 
+#include <cstdint>
 #include <optional>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "client/cpp/ontology/id.h"
 #include "x/cpp/errors/errors.h"
+#include "x/cpp/filter/types.gen.h"
 #include "x/cpp/json/json.h"
+#include "x/cpp/mem/indirect.h"
 #include "x/cpp/uuid/uuid.h"
 
 #include "arc/cpp/graph/types.gen.h"
 #include "arc/cpp/program/types.gen.h"
 #include "arc/cpp/text/types.gen.h"
+#include "core/pkg/api/arc/pb/arc.pb.h"
 #include "core/pkg/service/arc/pb/arc.pb.h"
 
 namespace synnax::arc {
 
+struct Where;
 struct Arc;
+struct RetrieveRequest;
+struct RetrieveResponse;
 
 constexpr const char *MODE_TEXT = "text";
 constexpr const char *MODE_GRAPH = "graph";
 
 using Key = x::uuid::UUID;
+
+/// @brief Where is a filter that selects Arc modules.
+struct Where {
+    /// @brief and_ matches when every child matches.
+    std::optional<std::vector<Where>> and_;
+    /// @brief or_ matches when any child matches.
+    std::optional<std::vector<Where>> or_;
+    /// @brief not_ matches when the child does not match.
+    x::mem::indirect<Where> not_;
+    /// @brief key selects by key.
+    std::optional<::x::filter::Set<Key>> key;
+    /// @brief name selects by name.
+    std::optional<::x::filter::String> name;
+
+    static Where parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::service::arc::pb::Where;
+    [[nodiscard]] std::pair<::service::arc::pb::Where, x::errors::Error>
+    to_proto() const;
+    static std::pair<Where, x::errors::Error>
+    from_proto(const ::service::arc::pb::Where &pb);
+};
 
 /// @brief Arc is an Arc module combining visual graph representation and text-based
 /// source code for reactive control systems. Compiles to WebAssembly for sandboxed
@@ -60,6 +91,44 @@ struct Arc {
     [[nodiscard]] std::pair<::service::arc::pb::Arc, x::errors::Error> to_proto() const;
     static std::pair<Arc, x::errors::Error>
     from_proto(const ::service::arc::pb::Arc &pb);
+};
+
+/// @brief RetrieveRequest is a request to retrieve arcs.
+struct RetrieveRequest {
+    /// @brief where selects the arcs to retrieve. An absent where selects all of them.
+    std::optional<Where> where;
+    /// @brief search_term keeps the arcs that match the term, closest match first.
+    std::string search_term = "";
+    /// @brief limit is the most arcs to return.
+    std::optional<std::uint32_t> limit;
+    /// @brief offset is the number of matching arcs to skip.
+    std::uint32_t offset = 0;
+    /// @brief include_program includes the program of each record.
+    bool include_program = false;
+
+    static RetrieveRequest parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::arc::pb::RetrieveRequest;
+    [[nodiscard]] std::pair<::api::arc::pb::RetrieveRequest, x::errors::Error>
+    to_proto() const;
+    static std::pair<RetrieveRequest, x::errors::Error>
+    from_proto(const ::api::arc::pb::RetrieveRequest &pb);
+};
+
+/// @brief RetrieveResponse holds the arcs a RetrieveRequest selects.
+struct RetrieveResponse {
+    /// @brief arcs are the arcs the request selects.
+    std::vector<Arc> arcs;
+
+    static RetrieveResponse parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::api::arc::pb::RetrieveResponse;
+    [[nodiscard]] std::pair<::api::arc::pb::RetrieveResponse, x::errors::Error>
+    to_proto() const;
+    static std::pair<RetrieveResponse, x::errors::Error>
+    from_proto(const ::api::arc::pb::RetrieveResponse &pb);
 };
 
 const synnax::ontology::ID ONTOLOGY_TYPE("arc", "");

@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/x/encoding/zip"
+	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -88,7 +89,11 @@ var _ = Describe("Retrieve", func() {
 		)
 		res := MustSucceed(apiSvc.Retrieve(
 			AuthedCtx(ctx, author), apisymbol.RetrieveRequest{
-				Keys: []symbol.Key{first.Key, second.Key},
+				Where: &symbol.Where{
+					Key: &filter.Set[symbol.Key]{
+						In: []symbol.Key{first.Key, second.Key},
+					},
+				},
 			},
 		))
 		Expect(res.Symbols).To(ConsistOf(
@@ -98,20 +103,18 @@ var _ = Describe("Retrieve", func() {
 	It("Should return the symbols the search term matches", func(ctx SpecContext) {
 		sym := createSymbol(ctx, createGroup(ctx, "searchable"), "Pyrometer")
 		grantRetrieveOn(ctx, author.OntologyID(), symbol.OntologyID(sym.Key))
-		Eventually(func(g Gomega) {
-			res, err := apiSvc.Retrieve(
-				AuthedCtx(ctx, author), apisymbol.RetrieveRequest{
-					SearchTerm: "Pyrometer",
-				},
-			)
-			g.Expect(err).ToNot(HaveOccurred())
-			g.Expect(res.Symbols).To(ConsistOf(HaveField("Key", sym.Key)))
-		}).Should(Succeed())
+		Eventually(apiSvc.Retrieve).WithArguments(
+			AuthedCtx(ctx, author),
+			apisymbol.RetrieveRequest{SearchTerm: "Pyrometer"},
+		).Should(HaveField("Symbols", ConsistOf(HaveField("Key", sym.Key))))
 	})
-	It("Should return not found when a key names no symbol", func(ctx SpecContext) {
-		Expect(apiSvc.Retrieve(AuthedCtx(ctx, author), apisymbol.RetrieveRequest{
-			Keys: []symbol.Key{uuid.New()},
-		})).Error().To(MatchError(query.ErrNotFound))
+	It("Should return no symbols when a key names no symbol", func(ctx SpecContext) {
+		res := MustSucceed(
+			apiSvc.Retrieve(AuthedCtx(ctx, author), apisymbol.RetrieveRequest{
+				Where: &symbol.Where{Key: &filter.Set[symbol.Key]{Eq: new(uuid.New())}},
+			}),
+		)
+		Expect(res.Symbols).To(BeEmpty())
 	})
 	It("Should reject the request when retrieve is not granted on a match", func(
 		ctx SpecContext,
@@ -119,7 +122,7 @@ var _ = Describe("Retrieve", func() {
 		g := createGroup(ctx, "unretrievable")
 		sym := createSymbol(ctx, g, "Inlet")
 		Expect(apiSvc.Retrieve(AuthedCtx(ctx, author), apisymbol.RetrieveRequest{
-			Keys: []symbol.Key{sym.Key},
+			Where: &symbol.Where{Key: &filter.Set[symbol.Key]{Eq: &sym.Key}},
 		})).Error().To(MatchError(access.ErrDenied))
 	})
 })

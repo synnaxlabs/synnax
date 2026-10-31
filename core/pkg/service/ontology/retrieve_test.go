@@ -166,6 +166,30 @@ var _ = Describe("Retrieve", func() {
 				},
 			)
 
+			It(
+				"Should skip a non-existent parent when missing IDs are skipped",
+				func(ctx SpecContext) {
+					a := newSampleType("skip-parent")
+					b := newSampleType("skip-child")
+					Expect(w.DefineResources(ctx, a, b)).To(Succeed())
+					Expect(w.DefineRelationships(
+						ctx,
+						a,
+						ontology.RelationshipTypeParentOf,
+						b,
+					)).To(Succeed())
+					var r []ontology.Resource
+					Expect(otg.NewRetrieve().
+						WhereIDs(newSampleType("nonexistent"), a).
+						SkipMissingIDs().
+						TraverseTo(ontology.ChildrenTraverser).
+						Entries(&r).
+						Exec(ctx, tx),
+					).To(Succeed())
+					Expect(ontology.ResourceIDs(r)).To(ConsistOf(b))
+				},
+			)
+
 			It("Should retrieve the grandparents of a resource", func(ctx SpecContext) {
 				a := newSampleType("A")
 				b := newSampleType("B")

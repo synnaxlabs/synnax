@@ -87,19 +87,21 @@ describe("View", () => {
         { name: "Multi 2", type: "status" },
       ]);
       const keys = created.map((v) => v.key);
-      const retrieved = await client.views.retrieve({ keys });
+      const retrieved = await client.views.retrieve(keys);
       expect(retrieved).toHaveLength(2);
       expect(retrieved.map((v) => v.name).sort()).toEqual(["Multi 1", "Multi 2"]);
     });
 
-    it("should retrieve views by type", async () => {
+    it("should retrieve views by where", async () => {
       const client = createTestClient();
       const created = await client.views.create([
         { name: "Range", type: "range" },
         { name: "Status", type: "status" },
       ]);
       const keys = created.map((v) => v.key);
-      const retrieved = await client.views.retrieve({ keys, types: ["status"] });
+      const retrieved = await client.views.retrieve({
+        where: { key: { in: keys }, type: { eq: "status" } },
+      });
       expect(retrieved).toHaveLength(1);
       expect(retrieved[0]).toMatchObject({ name: "Status", type: "status" });
     });
@@ -183,7 +185,7 @@ describe("View", () => {
       ]);
       const keys = views.map((v) => v.key);
       await client.views.delete(keys);
-      await expect(client.views.retrieve({ keys })).rejects.toThrow(NotFoundError);
+      expect(await client.views.retrieve(keys)).toEqual([]);
     });
   });
 });

@@ -236,7 +236,7 @@ export class Range {
   }
 
   async retrieveLabels(): Promise<label.Label[]> {
-    return await this.labelClient.retrieve({ for: ontologyID(this.key) });
+    return await this.labelClient.retrieve({ where: { for: ontologyID(this.key) } });
   }
 
   async addLabel(...labels: label.Key[]): Promise<void> {

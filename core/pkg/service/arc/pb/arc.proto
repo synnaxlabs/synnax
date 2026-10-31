@@ -16,6 +16,7 @@ package service.arc.pb;
 import "arc/go/graph/pb/graph.proto";
 import "arc/go/program/pb/program.proto";
 import "arc/go/text/pb/text.proto";
+import "x/go/filter/pb/filter.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/service/arc/pb";
 
@@ -41,4 +42,33 @@ message Arc {
   .arc.text.pb.Text text = 5;
   // program is the compiled module output including IR and WebAssembly bytecode.
   optional .arc.program.pb.Program program = 6;
+}
+message WhereList {
+  repeated Where values = 1;
+}
+message UuidList {
+  repeated string values = 1;
+}
+
+// UuidSet selects values that only compare for equality, such as keys, enum values, and
+// UUIDs. A value must match every operator that is set.
+message UuidSet {
+  // eq matches a value equal to eq.
+  optional string eq = 1;
+  // in matches a value equal to an element of in.
+  UuidList in = 2;
+}
+
+// Where is a filter that selects Arc modules.
+message Where {
+  // and matches when every child matches.
+  WhereList and = 1;
+  // or matches when any child matches.
+  WhereList or = 2;
+  // not matches when the child does not match.
+  optional Where not = 3;
+  // key selects by key.
+  optional UuidSet key = 4;
+  // name selects by name.
+  optional .x.filter.pb.String name = 5;
 }

@@ -23,19 +23,36 @@ type Retrieve struct {
 	ontology *ontology.Ontology
 }
 
-// ResolveSubjects walks the ontology from each subject up to its parent roles
-// and back down to the policies attached to those roles, returning the policy
-// keys. The result is the input to MatchKeys when retrieving policies for a
-// subject; performing the resolution eagerly lets the policy retrieve hit the
-// keyed multi-get fast path instead of scanning the full policy table.
+// ResolveSubjects walks the ontology from each subject up to its parent roles and back
+// down to the policies attached to those roles, returning the policy keys. It returns
+// query.ErrNotFound if a subject does not exist.
 func (s *Service) ResolveSubjects(
 	ctx context.Context,
 	tx gorp.Tx,
 	subjects ...ontology.ID,
 ) ([]Key, error) {
 	tx = gorp.OverrideTx(s.cfg.DB, tx)
+	return resolveSubjects(ctx, tx, s.cfg.Ontology.NewRetrieve().WhereIDs(subjects...))
+}
+
+// MatchSubjects returns a filter that matches the policies of the roles that any of the
+// subjects hold. A subject that does not exist holds no roles.
+func MatchSubjects(subjects ...ontology.ID) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Policy] {
+		return gorp.MatchKeysFunc[Key, Policy](func(ctx gorp.Context) ([]Key, error) {
+			start := r.ontology.NewRetrieve().WhereIDs(subjects...).SkipMissingIDs()
+			return resolveSubjects(ctx, ctx.Tx, start)
+		})
+	}
+}
+
+func resolveSubjects(
+	ctx context.Context,
+	tx gorp.Tx,
+	subjects ontology.Retrieve,
+) ([]Key, error) {
 	var policyResources []ontology.Resource
-	if err := s.cfg.Ontology.NewRetrieve().WhereIDs(subjects...).
+	if err := subjects.
 		ExcludeFieldData(true).
 		TraverseTo(ontology.ParentsTraverser).
 		WhereTypes(ontology.ResourceTypeRole).

@@ -85,7 +85,7 @@ compile_text(const synnax::Synnax &client, const std::string &source) {
         throw std::runtime_error("Failed to create arc: " + create_err.message());
 
     synnax::arc::RetrieveOptions opts;
-    opts.compile = true;
+    opts.include_program = true;
     auto [compiled, err] = client.arcs.retrieve_by_key(arc.key, opts);
     if (err) throw std::runtime_error("Failed to compile arc: " + err.message());
     if (!compiled.program.has_value())

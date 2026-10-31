@@ -8,12 +8,23 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, primitive, zod } from "@synnaxlabs/x";
+import { array, zod } from "@synnaxlabs/x";
 import z from "zod";
 
 import { LABELED_BY_ONTOLOGY_RELATIONSHIP_TYPE } from "@/label/payload";
 import { matchLabeledBy } from "@/label/store";
-import { type Key, keyZ, type Label, labelZ, type New } from "@/label/types.gen";
+import {
+  type Key,
+  keyZ,
+  type Label,
+  labelZ,
+  type New,
+  type RetrieveRequest,
+  retrieveRequestZ,
+  retrieveResponseZ,
+  type Where,
+} from "@/label/types.gen";
+import { type Lines, matches, serverComputed } from "@/label/where.gen";
 import { ontology } from "@/ontology";
 import { query } from "@/query";
 
@@ -36,25 +47,24 @@ export interface SetOptions extends Pick<SetReq, "replace"> {}
 const removeReqZ = setReqZ.omit({ replace: true });
 const emptyResZ = z.object({});
 
-const retrieveRequestZ = z.object({
-  keys: keyZ.array().optional(),
-  names: z.string().array().optional(),
-  for: ontology.idZ.optional(),
-  searchTerm: z.string().optional(),
-  offset: z.int().optional(),
-  limit: z.int().optional(),
-  ignoreNotFoundError: z.boolean().optional(),
-});
-const retrieveMultiParamsZ = retrieveRequestZ.or(query.keyListZ(keyZ));
+const retrieveMultiParamsZ = z.union([query.keysRequestZ(keyZ), retrieveRequestZ]);
+
+// The client does not cache every attachment, so only the Core can check for.
+const LINES: Lines = { for: null };
+
+/** @returns the resources that the for lines of where name. */
+const forIDs = (where: Where): ontology.ID[] => [
+  ...(where.for != null ? [where.for] : []),
+  ...[...(where.and ?? []), ...(where.or ?? [])].flatMap(forIDs),
+  ...(where.not != null ? forIDs(where.not) : []),
+];
 
 /** Names one label. */
 export type RetrieveSingleParams = { key: Key };
 /** Everything a multi-label retrieval can filter on, including the resource labeled. */
-export type RetrieveMultipleParams = z.input<typeof retrieveRequestZ>;
+export type RetrieveMultipleParams = RetrieveRequest;
 /** Params for a label retrieval, single or multiple. */
 export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
-
-interface RetrieveRequest extends z.infer<typeof retrieveRequestZ> {}
 
 /** Config for {@link Client}. */
 export interface ClientConfig {
@@ -78,8 +88,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, La
     const { relationships } = ontologyClient.cache;
     const store = cache.createTable<Key, Label>({
       name: "labels",
-      fetch: async (keys) =>
-        await this.execRetrieve({ keys, ignoreNotFoundError: true }),
+      fetch: async (keys) => await this.execRetrieve(query.keysRequest(keys)),
       listen: [
         query.createSetListener(SET_CHANNEL_NAME, labelZ),
         query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
@@ -91,15 +100,18 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, La
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
-        matches: (label, req) => this.requestFilter(req)(label),
+        matches: (l, req) => matches(LINES, l, req.where),
+        serverComputed: (req) => serverComputed(LINES, req.where),
         watch: [
           query.watch(relationships, (event, req: RetrieveRequest) => {
-            if (req.for == null) return null;
+            if (req.where == null) return null;
+            const ids = forIDs(req.where);
+            if (ids.length === 0) return null;
             const rel =
               event.variant === "set"
                 ? event.value
                 : ontology.relationshipZ.parse(event.key);
-            if (!matchLabeledBy(rel, req.for)) return null;
+            if (!ids.some((id) => matchLabeledBy(rel, id))) return null;
             return [rel.to.key];
           }),
         ],
@@ -210,7 +222,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, La
     drop();
   }
 
-  private async execRetrieve(params: RetrieveMultipleParams): Promise<Label[]> {
+  private async execRetrieve(params: RetrieveRequest): Promise<Label[]> {
     const res = await this.cfg.unary.send(
       "/label/retrieve",
       params,
@@ -219,31 +231,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, La
     );
     return res.labels;
   }
-
-  /**
-   * Client-side matching for a request: key sets, names, and labeled-entity
-   * membership via the relationship table. Server-computed shapes (search,
-   * limit/offset) never reach this filter; they refetch instead.
-   */
-  private requestFilter(req: RetrieveRequest): (l: Label) => boolean {
-    const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
-    const nameSet = primitive.isNonZero(req.names) ? new Set(req.names) : undefined;
-    return (l) => {
-      if (keySet != null && !keySet.has(l.key)) return false;
-      if (nameSet != null && !nameSet.has(l.name)) return false;
-      if (req.for != null && !this.isLabelOf(req.for, l.key)) return false;
-      return true;
-    };
-  }
-
-  private isLabelOf(id: ontology.ID, key: Key): boolean {
-    return this.cfg.ontology.cache.relationships.has(
-      ontology.relationshipToString(labeledByRel(id, key)),
-    );
-  }
 }
-
-const retrieveResponseZ = z.object({ labels: labelZ.array().default(() => []) });
 
 const labeledByRel = (id: ontology.ID, key: Key): ontology.Relationship => ({
   from: id,

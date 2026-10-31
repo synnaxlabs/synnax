@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/panel"
+	"github.com/synnaxlabs/x/filter"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -98,7 +99,9 @@ var _ = Describe("Service", func() {
 				grant(ctx, author.OntologyID(), access.ActionRetrieve, p.OntologyID())
 				res := MustSucceed(
 					apiSvc.Retrieve(AuthedCtx(ctx, author), apipanel.RetrieveRequest{
-						Keys: []panel.Key{p.Key},
+						Where: &panel.Where{
+							Key: &filter.Set[panel.Key]{In: []panel.Key{p.Key}},
+						},
 					}),
 				)
 				Expect(res.Panels).To(HaveLen(1))
@@ -112,7 +115,9 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext) {
 				p := createPanel(ctx, "forbidden")
 				Expect(apiSvc.Retrieve(AuthedCtx(ctx, author), apipanel.RetrieveRequest{
-					Keys: []panel.Key{p.Key},
+					Where: &panel.Where{
+						Key: &filter.Set[panel.Key]{In: []panel.Key{p.Key}},
+					},
 				})).Error().To(MatchError(access.ErrDenied))
 			},
 		)
@@ -126,8 +131,11 @@ var _ = Describe("Service", func() {
 					panel.OntologyID(p.Key), panel.OntologyID(missing))
 				res := MustSucceed(
 					apiSvc.Retrieve(AuthedCtx(ctx, author), apipanel.RetrieveRequest{
-						Keys:                []panel.Key{p.Key, missing},
-						IgnoreNotFoundError: true,
+						Where: &panel.Where{
+							Key: &filter.Set[panel.Key]{
+								In: []panel.Key{p.Key, missing},
+							},
+						},
 					}),
 				)
 				Expect(res.Panels).To(HaveLen(1))
@@ -140,8 +148,9 @@ var _ = Describe("Service", func() {
 			func(ctx SpecContext) {
 				res := MustSucceed(
 					apiSvc.Retrieve(AuthedCtx(ctx, author), apipanel.RetrieveRequest{
-						Keys:                []panel.Key{uuid.New()},
-						IgnoreNotFoundError: true,
+						Where: &panel.Where{
+							Key: &filter.Set[panel.Key]{In: []panel.Key{uuid.New()}},
+						},
 					}),
 				)
 				Expect(res.Panels).To(BeEmpty())
@@ -155,8 +164,10 @@ var _ = Describe("Service", func() {
 				a.OntologyID(), b.OntologyID())
 			res := MustSucceed(
 				apiSvc.Retrieve(AuthedCtx(ctx, author), apipanel.RetrieveRequest{
-					Keys:   []panel.Key{a.Key, b.Key},
-					Limit:  1,
+					Where: &panel.Where{
+						Key: &filter.Set[panel.Key]{In: []panel.Key{a.Key, b.Key}},
+					},
+					Limit:  new(uint32(1)),
 					Offset: 1,
 				}),
 			)

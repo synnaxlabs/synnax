@@ -12,6 +12,7 @@ import "schemas/arc/ir"
 import "schemas/arc/program"
 import "schemas/arc/text"
 import "schemas/x/crdt"
+import "schemas/x/filter"
 import "schemas/x/spatial"
 
 @cpp output "client/cpp/arc"
@@ -61,6 +62,7 @@ Arc struct {
             is the compiled module output including IR and WebAssembly bytecode.
         """
         @go marshal omit
+        @include
     }
 
     action Create {
@@ -188,4 +190,12 @@ Arc struct {
     @ontology type "arc"
     @py name       "Payload"
     @retrieve
+}
+
+Where filter Arc {
+    key
+    name
+
+    @doc value         "is a filter that selects Arc modules."
+    @go request_output "core/pkg/api/arc"
 }

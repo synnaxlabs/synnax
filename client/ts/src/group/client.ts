@@ -11,7 +11,18 @@ import { type UnaryClient } from "@synnaxlabs/freighter";
 import { array, zod } from "@synnaxlabs/x";
 import z from "zod";
 
-import { type Group, groupZ, type Key, keyZ, ontologyID } from "@/group/types.gen";
+import {
+  type Group,
+  groupZ,
+  type Key,
+  keyZ,
+  ontologyID,
+  type RetrieveRequest,
+  retrieveRequestZ,
+  retrieveResponseZ,
+  type Where,
+} from "@/group/types.gen";
+import { matches, serverComputed } from "@/group/where.gen";
 import { ontology } from "@/ontology";
 import { idZ as ontologyIDZ } from "@/ontology/payload";
 import { query } from "@/query";
@@ -33,18 +44,17 @@ const deleteReqZ = z.object({ keys: z.array(keyZ) });
 
 export interface CreateParams extends z.infer<typeof createReqZ> {}
 
-const retrieveChildrenParamsZ = z.object({
-  parent: ontologyIDZ,
-  searchTerm: z.string().optional(),
-  offset: z.int().optional(),
-  limit: z.int().optional(),
+// The Core knows nothing of parents, so the client resolves parent through the ontology
+// graph.
+const retrieveMultipleParamsZ = retrieveRequestZ.extend({
+  parent: ontologyIDZ.optional(),
 });
 
 export type RetrieveSingleParams = { key: Key };
-export type RetrieveChildrenParams = z.input<typeof retrieveChildrenParamsZ>;
-export type RetrieveParams = RetrieveSingleParams | RetrieveChildrenParams;
+export type RetrieveMultipleParams = z.input<typeof retrieveMultipleParamsZ>;
+export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
 
-interface ChildrenRequest extends z.infer<typeof retrieveChildrenParamsZ> {}
+interface MultipleRequest extends z.infer<typeof retrieveMultipleParamsZ> {}
 
 const isChildOf = (rel: ontology.Relationship, parent: ontology.ID): boolean =>
   ontology.matchRelationship(rel, {
@@ -60,7 +70,7 @@ export interface ClientConfig {
 }
 
 export class Client extends query.Retriever<
-  typeof retrieveChildrenParamsZ,
+  typeof retrieveMultipleParamsZ,
   Key,
   Group
 > {
@@ -73,7 +83,7 @@ export class Client extends query.Retriever<
     const { cache, ontology: ontologyClient } = cfg;
     const store = cache.createTable<Key, Group>({
       name: "groups",
-      fetch: async (keys) => await this.execRetrieveKeys(keys),
+      fetch: async (keys) => await this.execRetrieve(query.keysRequest(keys)),
       listen: [
         query.createSetListener(SET_CHANNEL_NAME, groupZ),
         query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
@@ -83,13 +93,17 @@ export class Client extends query.Retriever<
       name: "group",
       table: store,
       request: {
-        schema: retrieveChildrenParamsZ,
-        fetch: async (req) => await this.fetchChildren(req),
-        matches: (g, req) => this.isCachedChild(req.parent, g.key),
+        schema: retrieveMultipleParamsZ,
+        fetch: async (req) => await this.fetchRequest(req),
+        matches: (g, req) =>
+          matches(g, req.where) &&
+          (req.parent == null || this.isCachedChild(req.parent, g.key)),
+        serverComputed: (req) => serverComputed(req.where),
         watch: [
           query.watch(
             ontologyClient.cache.relationships,
-            (event, req: ChildrenRequest) => {
+            (event, req: MultipleRequest) => {
+              if (req.parent == null) return null;
               const rel =
                 event.variant === "set"
                   ? event.value
@@ -174,18 +188,28 @@ export class Client extends query.Retriever<
     return this.cfg.ontology;
   }
 
-  private async execRetrieveKeys(keys: Key[]): Promise<Group[]> {
-    const res = await this.requireOntology().retrieve({
-      ids: keys.map((key) => ontologyID(key)),
-    });
-    return res.map((r) => zod.parse(groupZ, r.data, { label: "group" }));
+  private async execRetrieve(req: RetrieveRequest): Promise<Group[]> {
+    const res = await this.cfg.unary.send(
+      "/ontology/retrieve-group",
+      req,
+      retrieveRequestZ,
+      retrieveResponseZ,
+    );
+    return res.groups;
   }
 
-  private async fetchChildren(req: ChildrenRequest): Promise<Group[]> {
-    const { parent, ...options } = req;
+  private async fetchRequest({ parent, ...req }: MultipleRequest): Promise<Group[]> {
+    if (parent == null) return await this.execRetrieve(req);
+    const keys = (await this.fetchChildren(parent)).map((g) => g.key);
+    if (keys.length === 0) return [];
+    const children: Where = { key: { in: keys } };
+    const where = req.where == null ? children : { and: [req.where, children] };
+    return await this.execRetrieve({ ...req, where });
+  }
+
+  private async fetchChildren(parent: ontology.ID): Promise<Group[]> {
     const res = await this.requireOntology().children.retrieve({
       ids: parent,
-      ...options,
       types: ["group"],
     });
     const groups = res.map((r) => zod.parse(groupZ, r.data, { label: "group" }));

@@ -136,6 +136,94 @@ var _ = Describe("Label", Ordered, func() {
 			Expect(labels).To(HaveLen(1))
 			Expect(labels[0].Key).To(Equal(l.Key))
 		})
+		It("Should fail with not found for a resource that does not exist", func(
+			ctx SpecContext,
+		) {
+			missing := label.OntologyID(label.Key(uuid.New()))
+			Expect(svc.RetrieveFor(ctx, missing, tx)).Error().
+				To(MatchError(query.ErrNotFound))
+		})
+		It("Should fail with not found for a label relationship with no label", func(
+			ctx SpecContext,
+		) {
+			ls := []label.Label{
+				{Name: "dangling", Color: MustSucceed(color.FromHex("#000000"))},
+				{Name: "dangling-target", Color: MustSucceed(color.FromHex("#000000"))},
+			}
+			Expect(w.CreateMany(ctx, &ls)).To(Succeed())
+			target := ls[1].OntologyID()
+			Expect(w.Label(ctx, target, []label.Key{ls[0].Key})).To(Succeed())
+			Expect(gorp.NewDelete[label.Key, label.Label]().
+				Where(gorp.MatchKeys[label.Key, label.Label](ls[0].Key)).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(svc.RetrieveFor(ctx, target, tx)).Error().
+				To(MatchError(query.ErrNotFound))
+		})
+	})
+	Describe("MatchFor", func() {
+		It("Should match the labels staged on a resource in the transaction", func(
+			ctx SpecContext,
+		) {
+			ls := []label.Label{
+				{Name: "for-a", Color: MustSucceed(color.FromHex("#000000"))},
+				{Name: "for-b", Color: MustSucceed(color.FromHex("#000000"))},
+				{Name: "for-target", Color: MustSucceed(color.FromHex("#000000"))},
+			}
+			Expect(w.CreateMany(ctx, &ls)).To(Succeed())
+			target := ls[2].OntologyID()
+			Expect(w.Label(ctx, target, []label.Key{ls[0].Key})).To(Succeed())
+			var got []label.Label
+			Expect(svc.NewRetrieve().
+				Where(label.MatchFor(target)).
+				Entries(&got).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(got).To(ConsistOf(ls[0]))
+			got = nil
+			Expect(svc.NewRetrieve().
+				Where(label.And(
+					label.MatchKeys(ls[0].Key, ls[1].Key),
+					label.Not(label.MatchFor(target)),
+				)).
+				Entries(&got).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(got).To(ConsistOf(ls[1]))
+		})
+		It("Should match no labels for a resource that does not exist", func(
+			ctx SpecContext,
+		) {
+			l := label.Label{
+				Name:  "for-missing",
+				Color: MustSucceed(color.FromHex("#000000")),
+			}
+			Expect(w.Create(ctx, &l)).To(Succeed())
+			missing := label.OntologyID(label.Key(uuid.New()))
+			var got []label.Label
+			Expect(svc.NewRetrieve().
+				Where(label.Or(label.MatchFor(missing), label.MatchKeys(l.Key))).
+				Entries(&got).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(got).To(ConsistOf(l))
+		})
+	})
+	Describe("Where", func() {
+		a := label.OntologyID(label.Key(uuid.New()))
+		b := label.OntologyID(label.Key(uuid.New()))
+		c := label.OntologyID(label.Key(uuid.New()))
+		DescribeTable("ForIDs", func(w label.Where, expected []ontology.ID) {
+			Expect(w.ForIDs()).To(Equal(expected))
+		},
+			Entry("no for line", label.Where{}, []ontology.ID(nil)),
+			Entry("a top-level for line", label.Where{For: &a}, []ontology.ID{a}),
+			Entry(
+				"for lines under and, or, and not",
+				label.Where{
+					And: []label.Where{{For: &a}},
+					Or:  []label.Where{{}, {For: &b}},
+					Not: &label.Where{For: &c},
+				},
+				[]ontology.ID{a, b, c},
+			),
+		)
 	})
 	Describe("MatchNames", func() {
 		It("Should retrieve a label by its name", func(ctx SpecContext) {

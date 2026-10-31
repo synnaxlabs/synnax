@@ -14,9 +14,10 @@ from __future__ import annotations
 from typing import TypeAlias
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from synnax.ontology.payload import ID
+from x import filter
 
 Key: TypeAlias = UUID
 
@@ -35,6 +36,55 @@ class Project(BaseModel):
 
     def __hash__(self) -> int:
         return hash(self.key)
+
+
+class Where(BaseModel):
+    """Is a filter that selects projects.
+
+    Attributes:
+        and_: Matches when every child matches.
+        or_: Matches when any child matches.
+        not_: Matches when the child does not match.
+        key: Selects by key.
+    """
+
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+
+    and_: list[Where] | None = Field(default=None, alias="and")
+    or_: list[Where] | None = Field(default=None, alias="or")
+    not_: Where | None = Field(default=None, alias="not")
+    key: filter.Set[Key] | None = None
+
+
+class RetrieveResponse(BaseModel):
+    """Holds the projects a RetrieveRequest selects.
+
+    Attributes:
+        projects: Are the projects the request selects.
+    """
+
+    projects: list[Project] = Field(default_factory=list)
+
+
+class RetrieveRequest(BaseModel):
+    """Is a request to retrieve projects.
+
+    Attributes:
+        where: Selects the projects to retrieve. An absent where selects all of them.
+        search_term: Keeps the projects that match the term, closest match first.
+        limit: Is the most projects to return.
+        offset: Is the number of matching projects to skip.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    where: Where | None = None
+    search_term: str = ""
+    limit: int | None = Field(default=None, ge=0, le=4294967295)
+    offset: int = Field(default=0, ge=0, le=4294967295)
+
+
+Where.model_rebuild()
 
 
 ONTOLOGY_TYPE = ID(type="project")

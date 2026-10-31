@@ -11,6 +11,7 @@ import "schemas/synnax/channel"
 import "schemas/synnax/symbol"
 import "schemas/x/border"
 import "schemas/x/color"
+import "schemas/x/filter"
 import "schemas/x/notation"
 import "schemas/x/spatial"
 import "schemas/x/text"
@@ -977,6 +978,13 @@ Schematic struct {
     @go migrate
     @ontology type "schematic"
     @retrieve
+}
+
+Where filter Schematic {
+    key
+
+    @doc value         "is a filter that selects schematics."
+    @go request_output "core/pkg/api/schematic"
 }
 
 ScaleIndicatorConfig struct extends NumericTelemConfig, StalenessConfig {

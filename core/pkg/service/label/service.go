@@ -71,10 +71,10 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // Service is the main entry point for managing labels within Synnax. It provides
 // mechanisms for creating, deleting, retrieving, and listening to changes on labels.
 type Service struct {
-	cfg    ServiceConfig
-	closer xio.MultiCloser
-	table  *gorp.Table[Key, Label]
-	search *gorp.SearchIndex[Key, Label]
+	cfg     ServiceConfig
+	closer  xio.MultiCloser
+	table   *gorp.Table[Key, Label]
+	indexes indexes
 }
 
 // OpenService opens a new label service using the provided configuration. If error
@@ -85,12 +85,12 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{cfg: cfg, search: newSearchIndex()}
+	s = &Service{cfg: cfg, indexes: newIndexes()}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Key, Label]{
 		DB:              cfg.DB,
-		Indexes:         []gorp.Index[Key, Label]{s.search},
+		Indexes:         s.indexes.all(),
 		Migrations:      versions.Migrations,
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
@@ -112,9 +112,10 @@ func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Label]] {
 // NewRetrieve opens a new Retrieve query to fetch labels.
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		baseTx: s.cfg.DB,
-		gorp:   s.table.NewRetrieve(),
-		search: s.search,
+		baseTX:   s.cfg.DB,
+		gorp:     s.table.NewRetrieve(),
+		indexes:  s.indexes,
+		ontology: s.cfg.Ontology,
 	}
 }
 

@@ -126,37 +126,18 @@ func (s *Service) Create(
 	return CreateResponse{Symbols: req.Symbols}, nil
 }
 
-type (
-	// RetrieveRequest filters symbols by key, by search term, or by both. An empty
-	// request matches every symbol.
-	RetrieveRequest struct {
-		// SearchTerm fuzzy-matches symbol names. Empty applies no name filter.
-		SearchTerm string `json:"search_term" msgpack:"search_term"`
-		// Keys narrows the query to these symbols. Empty applies no key filter.
-		Keys []symbol.Key `json:"keys" msgpack:"keys"`
-	}
-	// RetrieveResponse carries the matched symbols.
-	RetrieveResponse struct {
-		// Symbols are the matched symbols.
-		Symbols []symbol.Symbol `json:"symbols" msgpack:"symbols"`
-	}
-)
-
-// Retrieve returns the symbols matching req. It requires retrieve access on every
-// match.
+// Retrieve returns the symbols that the request selects. It requires retrieve access
+// on every match.
 func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
-	q := s.internal.NewRetrieve()
-	if len(req.Keys) > 0 {
-		q = q.Where(symbol.MatchKeys(req.Keys...))
-	}
-	if req.SearchTerm != "" {
-		q = q.Search(req.SearchTerm)
-	}
 	var res RetrieveResponse
-	if err := q.Entries(&res.Symbols).Exec(ctx, nil); err != nil {
+	q, err := req.Apply(s.internal.NewRetrieve().Entries(&res.Symbols))
+	if err != nil {
+		return RetrieveResponse{}, err
+	}
+	if err := q.Exec(ctx, nil); err != nil {
 		return RetrieveResponse{}, err
 	}
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{

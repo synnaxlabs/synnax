@@ -13,7 +13,8 @@ import (
 	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/freighter/noop"
 	"github.com/synnaxlabs/synnax/pkg/api"
-	"github.com/synnaxlabs/synnax/pkg/api/access"
+	"github.com/synnaxlabs/synnax/pkg/api/access/policy"
+	"github.com/synnaxlabs/synnax/pkg/api/access/role"
 	apiarc "github.com/synnaxlabs/synnax/pkg/api/arc"
 	apiauth "github.com/synnaxlabs/synnax/pkg/api/auth"
 	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
@@ -180,14 +181,14 @@ func Bind(layer *api.Layer) []grpc.BindableTransport {
 	t.LabelRemove = noop.UnaryServer[label.RemoveRequest, struct{}]{}
 
 	// ACCESS
-	t.AccessCreatePolicy = noop.UnaryServer[access.CreatePolicyRequest, access.CreatePolicyResponse]{}
-	t.AccessDeletePolicy = noop.UnaryServer[access.DeletePolicyRequest, struct{}]{}
-	t.AccessRetrievePolicy = noop.UnaryServer[access.RetrievePolicyRequest, access.RetrievePolicyResponse]{}
-	t.AccessCreateRole = noop.UnaryServer[access.CreateRoleRequest, access.CreateRoleResponse]{}
-	t.AccessDeleteRole = noop.UnaryServer[access.DeleteRoleRequest, struct{}]{}
-	t.AccessRetrieveRole = noop.UnaryServer[access.RetrieveRoleRequest, access.RetrieveRoleResponse]{}
-	t.AccessAssignRole = noop.UnaryServer[access.AssignRoleRequest, struct{}]{}
-	t.AccessUnassignRole = noop.UnaryServer[access.UnassignRoleRequest, struct{}]{}
+	t.AccessCreatePolicy = noop.UnaryServer[policy.CreateRequest, policy.CreateResponse]{}
+	t.AccessDeletePolicy = noop.UnaryServer[policy.DeleteRequest, struct{}]{}
+	t.AccessRetrievePolicy = noop.UnaryServer[policy.RetrieveRequest, policy.RetrieveResponse]{}
+	t.AccessCreateRole = noop.UnaryServer[role.CreateRequest, role.CreateResponse]{}
+	t.AccessDeleteRole = noop.UnaryServer[role.DeleteRequest, struct{}]{}
+	t.AccessRetrieveRole = noop.UnaryServer[role.RetrieveRequest, role.RetrieveResponse]{}
+	t.AccessAssignRole = noop.UnaryServer[role.AssignRequest, struct{}]{}
+	t.AccessUnassignRole = noop.UnaryServer[role.UnassignRequest, struct{}]{}
 
 	// IMPORT/EXPORT
 	t.ImExImport = noop.UnaryServer[imex.ImportRequest, imex.ImportResponse]{}

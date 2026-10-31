@@ -435,20 +435,21 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	); !ok(err, nil) {
 		return nil, err
 	}
-	if l.User, err = user.OpenService(ctx, user.ServiceConfig{
-		Instrumentation: cfg.Child("user"),
-		DB:              cfg.Distribution.DB,
-		Ontology:        l.Ontology,
-		Group:           l.Group,
-		Signals:         l.Signals,
-	}); !ok(err, l.User) {
-		return nil, err
-	}
 	if l.Password, err = password.OpenService(ctx, password.ServiceConfig{
 		Instrumentation: cfg.Child("password"),
 		DB:              cfg.Distribution.DB,
 		FIPS:            cfg.FIPS,
 	}); !ok(err, l.Password) {
+		return nil, err
+	}
+	if l.User, err = user.OpenService(ctx, user.ServiceConfig{
+		Instrumentation: cfg.Child("user"),
+		DB:              cfg.Distribution.DB,
+		Ontology:        l.Ontology,
+		Group:           l.Group,
+		Password:        l.Password,
+		Signals:         l.Signals,
+	}); !ok(err, l.User) {
 		return nil, err
 	}
 	if l.APIKey, err = apikey.OpenService(ctx, apikey.ServiceConfig{

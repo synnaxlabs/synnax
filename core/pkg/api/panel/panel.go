@@ -22,7 +22,6 @@ import (
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -120,45 +119,26 @@ func (s *Service) Create(
 	return res, nil
 }
 
-type (
-	RetrieveRequest struct {
-		SearchTerm          string      `json:"search_term"            msgpack:"search_term"`
-		Keys                []panel.Key `json:"keys"                   msgpack:"keys"`
-		Limit               int         `json:"limit"                  msgpack:"limit"`
-		Offset              int         `json:"offset"                 msgpack:"offset"`
-		IgnoreNotFoundError bool        `json:"ignore_not_found_error" msgpack:"ignore_not_found_error"`
-	}
-	RetrieveResponse struct {
-		Panels []panel.Panel `json:"panels" msgpack:"panels"`
-	}
-)
-
 func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,
-) (res RetrieveResponse, err error) {
-	q := s.internal.NewRetrieve().Search(req.SearchTerm)
-	if len(req.Keys) > 0 {
-		q = q.Where(panel.MatchKeys(req.Keys...))
+) (RetrieveResponse, error) {
+	var res RetrieveResponse
+	q, err := req.Apply(s.internal.NewRetrieve().Entries(&res.Panels))
+	if err != nil {
+		return RetrieveResponse{}, err
 	}
-	if req.Limit > 0 {
-		q = q.Limit(req.Limit)
+	if err := q.Exec(ctx, nil); err != nil {
+		return RetrieveResponse{}, err
 	}
-	if req.Offset > 0 {
-		q = q.Offset(req.Offset)
-	}
-	err = q.Entries(&res.Panels).Exec(ctx, nil)
-	if req.IgnoreNotFoundError && err != nil {
-		err = errors.Skip(err, query.ErrNotFound)
-	}
-	if eErr := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
+	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
 		Objects: panel.OntologyIDsFromPanels(res.Panels),
-	}); eErr != nil {
-		return RetrieveResponse{}, eErr
+	}); err != nil {
+		return RetrieveResponse{}, err
 	}
-	return res, err
+	return res, nil
 }
 
 // DispatchRequest carries an action sequence to apply to a single panel.

@@ -134,7 +134,7 @@ describe("queries", () => {
         result.current.retrieve({
           limit: 2,
           offset: 1,
-          keys: labels.map((l) => l.key),
+          where: { key: { in: labels.map((l) => l.key) } },
         });
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
@@ -405,12 +405,15 @@ describe("queries", () => {
             { name: "label2", color: "#00FF00" },
           ]);
           const { result } = renderHook(
-            () => Label.useList({ initialQuery: { keys: labels.map((l) => l.key) } }),
+            () =>
+              Label.useList({
+                initialQuery: { where: { key: { in: labels.map((l) => l.key) } } },
+              }),
             { wrapper },
           );
           result.current.retrieve({});
           await result.current.retrieveAsync({
-            keys: labels.map((l) => l.key),
+            where: { key: { in: labels.map((l) => l.key) } },
           });
           await waitFor(() => expect(result.current.variant).toEqual("success"));
           const label = result.current.getItem(labels[0].key);

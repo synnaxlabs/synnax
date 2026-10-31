@@ -250,7 +250,7 @@ describe("Arc queries", () => {
       const { result } = renderHook(() => Arc.useList({}), { wrapper });
 
       act(() => {
-        result.current.retrieve({ keys: [arc1.key, arc2.key] });
+        result.current.retrieve({ where: { key: { in: [arc1.key, arc2.key] } } });
       });
 
       await waitFor(() => {

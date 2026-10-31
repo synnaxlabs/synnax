@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type destructor, primitive } from "@synnaxlabs/x";
+import { array, type destructor } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { ontology } from "@/ontology";
@@ -18,10 +18,13 @@ import {
   keyZ,
   type New,
   ontologyID,
+  type RetrieveRequest,
+  retrieveRequestZ,
+  retrieveResponseZ,
   type View,
-  viewTypeZ,
   viewZ,
 } from "@/view/types.gen";
+import { matches, serverComputed } from "@/view/where.gen";
 
 export const SET_CHANNEL_NAME = "sy_view_set";
 export const DELETE_CHANNEL_NAME = "sy_view_delete";
@@ -32,35 +35,10 @@ const deleteReqZ = z.object({ keys: keyZ.array() });
 const emptyResZ = z.object({});
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
-const retrieveRequestZ = z.object({
-  keys: keyZ.array().optional(),
-  types: viewTypeZ.array().optional(),
-  searchTerm: z.string().optional(),
-  offset: z.number().optional(),
-  limit: z.number().optional(),
-});
-const retrieveMultiParamsZ = retrieveRequestZ.or(query.keyListZ(keyZ));
+const retrieveMultiParamsZ = z.union([query.keysRequestZ(keyZ), retrieveRequestZ]);
 
 export type RetrieveSingleParams = { key: Key };
-export interface RetrieveMultipleParams extends z.input<typeof retrieveRequestZ> {}
-
-interface RetrieveRequest extends z.infer<typeof retrieveRequestZ> {}
-
-const retrieveResponseZ = z.object({ views: viewZ.array().default(() => []) });
-
-/**
- * Client-side matching for a request: key and type sets. Server-computed
- * shapes (search, limit/offset) never reach this filter; they refetch instead.
- */
-const requestFilter = (req: RetrieveRequest): ((v: View) => boolean) => {
-  const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
-  const typeSet = primitive.isNonZero(req.types) ? new Set(req.types) : undefined;
-  return (v) => {
-    if (keySet != null && !keySet.has(v.key)) return false;
-    if (typeSet != null && !typeSet.has(v.type)) return false;
-    return true;
-  };
-};
+export type RetrieveMultipleParams = RetrieveRequest;
 
 export interface ClientConfig {
   unary: UnaryClient;
@@ -76,7 +54,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Vi
     const { cache } = cfg;
     const store = cache.createTable<Key, View>({
       name: "views",
-      fetch: async (keys) => await this.execRetrieve({ keys }),
+      fetch: async (keys) => await this.execRetrieve(query.keysRequest(keys)),
       listen: [
         query.createSetListener(SET_CHANNEL_NAME, viewZ),
         query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
@@ -88,7 +66,8 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Vi
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
-        matches: (view, req) => requestFilter(req)(view),
+        matches: (view, req) => matches(view, req.where),
+        serverComputed: (req) => serverComputed(req.where),
       },
     });
     this.cfg = cfg;
@@ -159,10 +138,10 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Vi
     });
   }
 
-  private async execRetrieve(params: RetrieveMultipleParams): Promise<View[]> {
+  private async execRetrieve(req: RetrieveRequest): Promise<View[]> {
     const res = await this.cfg.unary.send(
       "/view/retrieve",
-      params,
+      req,
       retrieveRequestZ,
       retrieveResponseZ,
     );

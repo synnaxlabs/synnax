@@ -49,7 +49,7 @@ var _ = Describe("Rename", func() {
 		)).Error().ToNot(HaveOccurred())
 		renamed := retrieveView(ctx, v.GorpKey())
 		Expect(renamed.Base().Name).To(Equal("After"))
-		Expect(renamed.Type()).To(Equal(view.RangeViewType))
+		Expect(renamed.Type()).To(Equal(view.TypeRange))
 	})
 	It("Should reject an empty name", func(ctx SpecContext) {
 		u := createUser(ctx)

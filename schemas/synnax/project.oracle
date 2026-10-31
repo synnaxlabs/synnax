@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/x/filter"
+
 @go output "core/pkg/service/project"
 @py output "client/py/synnax/project"
 @ts output "client/ts/src/project"
@@ -35,4 +37,11 @@ Project struct {
     @go migrate
     @ontology type "project"
     @retrieve
+}
+
+Where filter Project {
+    key
+
+    @doc value         "is a filter that selects projects."
+    @go request_output "core/pkg/api/project"
 }

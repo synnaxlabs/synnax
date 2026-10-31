@@ -15,6 +15,8 @@ from pydantic import BaseModel, Field
 from freighter import Empty, UnaryClient
 from synnax.exceptions import NotFoundError
 from synnax.user.payload import New, User
+from synnax.user.types_gen import RetrieveRequest, Where
+from x import filter
 from x.lists import normalize
 from x.params import require_named_params
 
@@ -25,11 +27,6 @@ class _CreateRequest(BaseModel):
 
 class _CreateResponse(BaseModel):
     users: list[User]
-
-
-class _RetrieveRequest(BaseModel):
-    keys: list[UUID] | None = None
-    usernames: list[str] | None = None
 
 
 class _RetrieveResponse(BaseModel):
@@ -118,31 +115,57 @@ class Client:
     def retrieve(self, *, key: UUID) -> User: ...
 
     @overload
-    def retrieve(self, *, keys: list[UUID]) -> list[User]: ...
-
-    @overload
     def retrieve(self, *, username: str) -> User: ...
 
     @overload
-    def retrieve(self, *, usernames: list[str]) -> list[User]: ...
+    def retrieve(
+        self,
+        *,
+        where: Where | None = None,
+        keys: list[UUID] | None = None,
+        usernames: list[str] | None = None,
+        search_term: str = "",
+        limit: int | None = None,
+        offset: int = 0,
+    ) -> list[User]: ...
 
     @require_named_params(example_params=("username", "synnax"))
     def retrieve(
         self,
         *,
         key: UUID | None = None,
-        keys: list[UUID] | None = None,
         username: str | None = None,
+        where: Where | None = None,
+        keys: list[UUID] | None = None,
         usernames: list[str] | None = None,
+        search_term: str = "",
+        limit: int | None = None,
+        offset: int = 0,
     ) -> User | list[User]:
+        """Retrieves users. Returns one user when a key or username is given, and a list
+        otherwise.
+
+        :param where: Keeps users that match this filter tree.
+        :param search_term: A fuzzy search term matched against user names.
+        :raises NotFoundError: If a single user is requested and none matches.
+        """
         if key is not None:
-            keys = normalize(key)
+            keys = [key]
         if username is not None:
-            usernames = normalize(username)
+            usernames = [username]
+        flat = Where(
+            key=None if keys is None else filter.Set[UUID](in_=keys),
+            usernames=usernames,
+        )
         single = key is not None or username is not None
         res = self.client.send(
             "/user/retrieve",
-            _RetrieveRequest(keys=keys, usernames=usernames),
+            RetrieveRequest(
+                where=filter.merge(where, flat),
+                search_term=search_term,
+                limit=limit,
+                offset=offset,
+            ),
             _RetrieveResponse,
         )
         users = res.users

@@ -17,7 +17,9 @@ import (
 	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/arc"
-	"github.com/synnaxlabs/synnax/pkg/service/arc/pb"
+	"github.com/synnaxlabs/synnax/pkg/api/arc/pb"
+	arcpb "github.com/synnaxlabs/synnax/pkg/service/arc/pb"
+	xpb "github.com/synnaxlabs/x/pb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -37,7 +39,7 @@ type (
 		arc.RetrieveRequest,
 		*RetrieveRequest,
 		arc.RetrieveResponse,
-		*RetrieveResponse,
+		*pb.RetrieveResponse,
 	]
 	deleteServer = grpc.UnaryServer[
 		arc.DeleteRequest,
@@ -57,7 +59,7 @@ var (
 	_ grpc.Translator[arc.RetrieveRequest, *RetrieveRequest] = (*retrieveRequestTranslator)(
 		nil,
 	)
-	_ grpc.Translator[arc.RetrieveResponse, *RetrieveResponse] = (*retrieveResponseTranslator)(
+	_ grpc.Translator[arc.RetrieveResponse, *pb.RetrieveResponse] = (*retrieveResponseTranslator)(
 		nil,
 	)
 	_ grpc.Translator[arc.DeleteRequest, *DeleteRequest] = (*deleteRequestTranslator)(
@@ -69,7 +71,7 @@ func (createRequestTranslator) Forward(
 	_ context.Context,
 	msg arc.CreateRequest,
 ) (*CreateRequest, error) {
-	arcs, err := pb.ArcsToPB(msg.Arcs)
+	arcs, err := arcpb.ArcsToPB(msg.Arcs)
 	if err != nil {
 		return nil, err
 	}
@@ -80,7 +82,7 @@ func (createRequestTranslator) Backward(
 	_ context.Context,
 	msg *CreateRequest,
 ) (arc.CreateRequest, error) {
-	arcs, err := pb.ArcsFromPB(msg.Arcs)
+	arcs, err := arcpb.ArcsFromPB(msg.Arcs)
 	if err != nil {
 		return arc.CreateRequest{}, err
 	}
@@ -91,7 +93,7 @@ func (createResponseTranslator) Forward(
 	_ context.Context,
 	msg arc.CreateResponse,
 ) (*CreateResponse, error) {
-	pbArcs, err := pb.ArcsToPB(msg.Arcs)
+	pbArcs, err := arcpb.ArcsToPB(msg.Arcs)
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +104,7 @@ func (createResponseTranslator) Backward(
 	_ context.Context,
 	msg *CreateResponse,
 ) (arc.CreateResponse, error) {
-	arcs, err := pb.ArcsFromPB(msg.Arcs)
+	arcs, err := arcpb.ArcsFromPB(msg.Arcs)
 	if err != nil {
 		return arc.CreateResponse{}, err
 	}
@@ -111,61 +113,39 @@ func (createResponseTranslator) Backward(
 
 func (retrieveRequestTranslator) Forward(
 	_ context.Context,
-	msg arc.RetrieveRequest,
+	r arc.RetrieveRequest,
 ) (*RetrieveRequest, error) {
-	keys := lo.Map(msg.Keys, func(k arc.Key, _ int) string { return k.String() })
-	return &RetrieveRequest{
-		Keys:       keys,
-		Names:      msg.Names,
-		SearchTerm: msg.SearchTerm,
-		Limit:      int32(msg.Limit),
-		Offset:     int32(msg.Offset),
-		Compile:    msg.Compile,
-	}, nil
+	req, err := pb.RetrieveRequestToPB(r)
+	if err != nil {
+		return nil, err
+	}
+	return &RetrieveRequest{Request: req}, nil
 }
 
 func (retrieveRequestTranslator) Backward(
 	_ context.Context,
-	msg *RetrieveRequest,
+	r *RetrieveRequest,
 ) (arc.RetrieveRequest, error) {
-	keys := make([]arc.Key, 0, len(msg.Keys))
-	for _, keyStr := range msg.Keys {
-		key, err := uuid.Parse(keyStr)
-		if err != nil {
-			return arc.RetrieveRequest{}, err
-		}
-		keys = append(keys, key)
+	// A client older than the Core sends the reserved fields, which would otherwise
+	// select every Arc module.
+	if err := xpb.RejectUnknown(r); err != nil {
+		return arc.RetrieveRequest{}, err
 	}
-	return arc.RetrieveRequest{
-		Keys:       keys,
-		Names:      msg.Names,
-		SearchTerm: msg.SearchTerm,
-		Limit:      int(msg.Limit),
-		Offset:     int(msg.Offset),
-		Compile:    msg.Compile,
-	}, nil
+	return pb.RetrieveRequestFromPB(r.Request)
 }
 
 func (retrieveResponseTranslator) Forward(
 	_ context.Context,
-	msg arc.RetrieveResponse,
-) (*RetrieveResponse, error) {
-	arcs, err := pb.ArcsToPB(msg.Arcs)
-	if err != nil {
-		return nil, err
-	}
-	return &RetrieveResponse{Arcs: arcs}, nil
+	res arc.RetrieveResponse,
+) (*pb.RetrieveResponse, error) {
+	return pb.RetrieveResponseToPB(res)
 }
 
 func (retrieveResponseTranslator) Backward(
 	_ context.Context,
-	msg *RetrieveResponse,
+	res *pb.RetrieveResponse,
 ) (arc.RetrieveResponse, error) {
-	arcs, err := pb.ArcsFromPB(msg.Arcs)
-	if err != nil {
-		return arc.RetrieveResponse{}, err
-	}
-	return arc.RetrieveResponse{Arcs: arcs}, nil
+	return pb.RetrieveResponseFromPB(res)
 }
 
 func (deleteRequestTranslator) Forward(

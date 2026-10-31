@@ -14,6 +14,7 @@ from uuid import uuid4 as uuid
 import pytest
 
 import synnax as sy
+from x import filter
 
 
 @pytest.fixture
@@ -103,3 +104,42 @@ class TestUserClient:
         client.users.change_name(user.key, name="Thomas Jefferson")
         retrieved = client.users.retrieve(key=user.key)
         assert retrieved.name == "Thomas Jefferson"
+
+    def test_retrieve_by_username(
+        self, client: sy.Synnax, new_user: sy.user.New
+    ) -> None:
+        """Should retrieve one user by username."""
+        user = client.users.create(user=new_user)
+        assert client.users.retrieve(username=new_user.username).key == user.key
+
+    def test_retrieve_not_found(self, client: sy.Synnax) -> None:
+        """Should raise NotFoundError for a single user that does not exist."""
+        key = uuid()
+        with pytest.raises(sy.NotFoundError, match=f"User matching {key} not found"):
+            client.users.retrieve(key=key)
+
+    def test_retrieve_missing_keys(
+        self, client: sy.Synnax, new_user: sy.user.New
+    ) -> None:
+        """Should omit keys that do not exist from a list retrieve."""
+        user = client.users.create(user=new_user)
+        users = client.users.retrieve(keys=[user.key, uuid()])
+        assert [u.key for u in users] == [user.key]
+
+    def test_retrieve_empty_keys(self, client: sy.Synnax) -> None:
+        """Should return no users for an empty key list."""
+        assert client.users.retrieve(keys=[]) == []
+
+    def test_retrieve_where(
+        self, client: sy.Synnax, new_user_list: list[sy.user.New]
+    ) -> None:
+        """Should keep users that match a filter tree and the given usernames."""
+        new_users = new_user_list[:2]
+        users = client.users.create(users=new_users)
+        where = sy.user.Where(
+            not_=sy.user.Where(key=filter.Set[sy.user.Key](eq=users[0].key))
+        )
+        retrieved = client.users.retrieve(
+            where=where, usernames=[u.username for u in new_users]
+        )
+        assert [u.key for u in retrieved] == [users[1].key]

@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import "schemas/x/color"
+import "schemas/x/filter"
 import "schemas/x/spatial"
 
 @go output "core/pkg/service/schematic/symbol"
@@ -116,6 +117,7 @@ Symbol struct {
     }
     name string {
         @doc value           "is a human-readable name for the symbol."
+        @search
         @validate min_length 1
     }
     data Spec   {
@@ -130,4 +132,12 @@ Symbol struct {
     @go imex
     @go marshal
     @ontology type "schematic_symbol"
+    @retrieve
+}
+
+Where filter Symbol {
+    key
+
+    @doc value         "is a filter that selects schematic symbols."
+    @go request_output "core/pkg/api/schematic/symbol"
 }

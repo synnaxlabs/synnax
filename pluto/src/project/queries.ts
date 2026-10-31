@@ -27,10 +27,7 @@ export const { use } = Flux.createRetrieve<RetrieveQuery, project.Project>({
   getCached: ({ client, query }) => client.projects.getCached(query),
 });
 
-export type ListParams = Pick<
-  project.RetrieveRequest,
-  "keys" | "offset" | "limit" | "searchTerm"
->;
+export type ListParams = project.RetrieveMultipleParams;
 
 export const useList = Flux.createList<ListParams, project.Key, project.Project>({
   name: PLURAL_RESOURCE_NAME,

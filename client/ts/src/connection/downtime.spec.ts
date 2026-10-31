@@ -52,7 +52,7 @@ describe("downtime", () => {
     await client.connect();
     const firstKey = client.connection.status.details.clusterKey;
     const project = await client.projects.create({ name: "survivor" });
-    await client.projects.retrieve({ keys: [project.key] });
+    await client.projects.retrieve([project.key]);
     await proxy.sever();
     // The default 30s heartbeat cannot notice the outage this fast: reaching
     // error proves the dropped change stream drove the state machine.
@@ -62,7 +62,7 @@ describe("downtime", () => {
       ({ variant, details }) => variant === "error" && details.reason === "unreachable",
     );
     // A cached read never leaves the process, so it survives the outage.
-    const offline = await client.projects.retrieve({ keys: [project.key] });
+    const offline = await client.projects.retrieve([project.key]);
     expect(offline).toHaveLength(1);
     // A write must reach the cluster, so it short-circuits instead of hanging.
     await expect(client.projects.create({ name: "unreachable" })).rejects.toThrow(

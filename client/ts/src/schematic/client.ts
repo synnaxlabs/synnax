@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type FileTransport, type UnaryClient } from "@synnaxlabs/freighter";
-import { array, type destructor, errors, primitive, zod } from "@synnaxlabs/x";
+import { array, type destructor, errors, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { actions } from "@/actions";
@@ -29,9 +29,13 @@ import {
   keyZ,
   type New,
   ontologyID,
+  type RetrieveRequest,
+  retrieveRequestZ,
+  retrieveResponseZ,
   type Schematic,
   schematicZ,
 } from "@/schematic/types.gen";
+import { matches, serverComputed } from "@/schematic/where.gen";
 
 export const SET_CHANNEL_NAME = "sy_schematic_set";
 export const DELETE_CHANNEL_NAME = "sy_schematic_delete";
@@ -44,24 +48,12 @@ const copyReqZ = z.object({
   snapshot: z.boolean(),
 });
 
-const retrieveReqZ = z.object({
-  keys: keyZ.array(),
-  ignoreNotFoundError: z.boolean().optional(),
-});
-const retrieveMultiParamsZ = retrieveReqZ.or(query.keyListZ(keyZ));
-const singleRetrieveParamsZ = z
-  .object({ key: keyZ })
-  .transform(({ key }) => ({ keys: [key] }));
+const retrieveMultiParamsZ = z.union([query.keysRequestZ(keyZ), retrieveRequestZ]);
 
-export const retrieveParamsZ = z.union([singleRetrieveParamsZ, retrieveReqZ]);
-export type RetrieveParams = z.input<typeof retrieveParamsZ>;
-export type RetrieveSingleParams = z.input<typeof singleRetrieveParamsZ>;
-export type RetrieveMultipleParams = z.input<typeof retrieveReqZ>;
+export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
+export type RetrieveSingleParams = { key: Key };
+export type RetrieveMultipleParams = RetrieveRequest;
 export type CopyParams = z.input<typeof copyReqZ>;
-
-interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
-
-const retrieveResZ = z.object({ schematics: schematicZ.array() });
 
 const createReqZ = z.object({
   project: project.keyZ,
@@ -71,15 +63,6 @@ const createResZ = z.object({ schematics: schematicZ.array() });
 
 const copyResZ = z.object({ schematic: schematicZ });
 const emptyResZ = z.object({});
-
-/**
- * Client-side matching for a request: exact for key sets, the only shape a
- * schematic request carries.
- */
-const requestFilter = (req: RetrieveRequest): ((s: Schematic) => boolean) => {
-  const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
-  return (s) => keySet == null || keySet.has(s.key);
-};
 
 export interface ClientConfig {
   unary: UnaryClient;
@@ -106,8 +89,7 @@ export class Client extends query.Retriever<
     const store = cache.createTable<Key, Schematic>({
       name: "schematics",
       hydrate: "if-absent",
-      fetch: async (keys) =>
-        await this.execRetrieve({ keys, ignoreNotFoundError: true }),
+      fetch: async (keys) => await this.execRetrieve(query.keysRequest(keys)),
       listen: [query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ)],
     });
     const dispatcher = new actions.Controller<Key, Schematic, Action>({
@@ -132,7 +114,8 @@ export class Client extends query.Retriever<
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.execRetrieve(req),
-        matches: (schematic, req) => requestFilter(req)(schematic),
+        matches: (schematic, req) => matches(schematic, req.where),
+        serverComputed: (req) => serverComputed(req.where),
       },
     });
     this.cfg = cfg;
@@ -290,12 +273,12 @@ export class Client extends query.Retriever<
     return res.schematic;
   }
 
-  private async execRetrieve(params: RetrieveMultipleParams): Promise<Schematic[]> {
+  private async execRetrieve(params: RetrieveRequest): Promise<Schematic[]> {
     const res = await this.cfg.unary.send(
       "/schematic/retrieve",
       params,
-      retrieveReqZ,
-      retrieveResZ,
+      retrieveRequestZ,
+      retrieveResponseZ,
     );
     return res.schematics;
   }

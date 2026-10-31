@@ -16,7 +16,7 @@
 #include <vector>
 
 #include "client/cpp/device/types.gen.h"
-#include "client/cpp/ontology/types.gen.h"
+#include "client/cpp/ontology/id.h"
 #include "client/cpp/rack/key.h"
 #include "client/cpp/status/json.gen.h"
 #include "x/cpp/filter/json.gen.h"

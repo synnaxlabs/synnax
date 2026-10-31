@@ -25,12 +25,24 @@ import (
 // Key is a unique identifier for a saved view configuration.
 type Key = v0.Key
 
-type ViewType string
+// Type names the resource that a view lists.
+type Type string
 
 const (
-	RangeViewType  ViewType = "range"
-	StatusViewType ViewType = "status"
+	TypeRange  Type = "range"
+	TypeStatus Type = "status"
 )
+
+// IsValid reports whether t is one of the defined Type
+// values.
+func (t Type) IsValid() bool {
+	switch t {
+	case TypeRange, TypeStatus:
+		return true
+	default:
+		return false
+	}
+}
 
 type ViewVariant interface {
 	isViewVariant()
@@ -83,14 +95,14 @@ func (u View) MarshalJSONTo(enc *jsontext.Encoder) error {
 		return enc.WriteToken(jsontext.Null)
 	case RangeView:
 		return json.MarshalEncode(enc, struct {
-			Type ViewType `json:"type"`
+			Type Type `json:"type"`
 			RangeView
-		}{Type: RangeViewType, RangeView: v})
+		}{Type: TypeRange, RangeView: v})
 	case StatusView:
 		return json.MarshalEncode(enc, struct {
-			Type ViewType `json:"type"`
+			Type Type `json:"type"`
 			StatusView
-		}{Type: StatusViewType, StatusView: v})
+		}{Type: TypeStatus, StatusView: v})
 	default:
 		return errors.Newf("View: unknown variant %T", v)
 	}
@@ -108,7 +120,7 @@ func (u *View) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	}
 	opts := dec.Options()
 	var disc struct {
-		Type ViewType `json:"type"`
+		Type Type `json:"type"`
 	}
 	if err := json.Unmarshal(
 		data,
@@ -119,18 +131,18 @@ func (u *View) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		return err
 	}
 	switch disc.Type {
-	case RangeViewType:
+	case TypeRange:
 		var v struct {
-			Type ViewType `json:"type"`
+			Type Type `json:"type"`
 			RangeView
 		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
 		u.Variant = v.RangeView
-	case StatusViewType:
+	case TypeStatus:
 		var v struct {
-			Type ViewType `json:"type"`
+			Type Type `json:"type"`
 			StatusView
 		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
@@ -155,12 +167,12 @@ func (u View) Base() Base {
 }
 
 // Type returns the type of the active variant, or an empty type when there is none.
-func (u View) Type() ViewType {
+func (u View) Type() Type {
 	switch u.Variant.(type) {
 	case RangeView:
-		return RangeViewType
+		return TypeRange
 	case StatusView:
-		return StatusViewType
+		return TypeStatus
 	}
 	return ""
 }

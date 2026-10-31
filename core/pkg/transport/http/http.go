@@ -12,7 +12,8 @@ package http
 import (
 	"github.com/synnaxlabs/freighter/http"
 	"github.com/synnaxlabs/synnax/pkg/api"
-	"github.com/synnaxlabs/synnax/pkg/api/access"
+	"github.com/synnaxlabs/synnax/pkg/api/access/policy"
+	"github.com/synnaxlabs/synnax/pkg/api/access/role"
 	"github.com/synnaxlabs/synnax/pkg/api/arc"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
@@ -513,35 +514,35 @@ func Bind(layer *api.Layer, router *http.Router) {
 		),
 
 		// ACCESS
-		AccessCreatePolicy: unary[access.CreatePolicyRequest, access.CreatePolicyResponse](
+		AccessCreatePolicy: unary[policy.CreateRequest, policy.CreateResponse](
 			router,
 			"/api/v1/access/policy/create",
 		),
-		AccessDeletePolicy: unary[access.DeletePolicyRequest, struct{}](
+		AccessDeletePolicy: unary[policy.DeleteRequest, struct{}](
 			router,
 			"/api/v1/access/policy/delete",
 		),
-		AccessRetrievePolicy: unary[access.RetrievePolicyRequest, access.RetrievePolicyResponse](
+		AccessRetrievePolicy: unary[policy.RetrieveRequest, policy.RetrieveResponse](
 			router,
 			"/api/v1/access/policy/retrieve",
 		),
-		AccessCreateRole: unary[access.CreateRoleRequest, access.CreateRoleResponse](
+		AccessCreateRole: unary[role.CreateRequest, role.CreateResponse](
 			router,
 			"/api/v1/access/role/create",
 		),
-		AccessDeleteRole: unary[access.DeleteRoleRequest, struct{}](
+		AccessDeleteRole: unary[role.DeleteRequest, struct{}](
 			router,
 			"/api/v1/access/role/delete",
 		),
-		AccessRetrieveRole: unary[access.RetrieveRoleRequest, access.RetrieveRoleResponse](
+		AccessRetrieveRole: unary[role.RetrieveRequest, role.RetrieveResponse](
 			router,
 			"/api/v1/access/role/retrieve",
 		),
-		AccessAssignRole: unary[access.AssignRoleRequest, struct{}](
+		AccessAssignRole: unary[role.AssignRequest, struct{}](
 			router,
 			"/api/v1/access/role/assign",
 		),
-		AccessUnassignRole: unary[access.UnassignRoleRequest, struct{}](
+		AccessUnassignRole: unary[role.UnassignRequest, struct{}](
 			router,
 			"/api/v1/access/role/unassign",
 		),

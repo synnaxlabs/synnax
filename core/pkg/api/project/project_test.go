@@ -22,8 +22,21 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/project"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/encoding/zip"
+	"github.com/synnaxlabs/x/filter"
 	. "github.com/synnaxlabs/x/testutil"
 )
+
+var _ = Describe("Retrieve", func() {
+	It("Should reject the request when retrieve is not granted on a match", func(
+		ctx SpecContext,
+	) {
+		u := createUser(ctx)
+		p := createProject(ctx, "unretrievable")
+		Expect(apiSvc.Retrieve(AuthedCtx(ctx, u), apiproject.RetrieveRequest{
+			Where: &project.Where{Key: &filter.Set[project.Key]{Eq: &p.Key}},
+		})).Error().To(MatchError(access.ErrDenied))
+	})
+})
 
 var _ = Describe("Export", func() {
 	It(

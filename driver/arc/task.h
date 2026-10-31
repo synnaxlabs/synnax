@@ -63,7 +63,7 @@ struct TaskConfig : ::synnax::task::PersistConfig {
         if (!parser.ok()) return {std::move(cfg), parser.error()};
         auto [arc_data, arc_err] = client->arcs.retrieve_by_key(
             cfg.arc_key,
-            synnax::arc::RetrieveOptions{.compile = true}
+            synnax::arc::RetrieveOptions{.include_program = true}
         );
         if (arc_err) return {std::move(cfg), arc_err};
         if (!arc_data.program.has_value())

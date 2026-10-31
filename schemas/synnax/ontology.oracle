@@ -60,7 +60,8 @@ ID struct {
     }
 
     @cpp hand
-    @doc value  """
+    @cpp include "client/cpp/ontology/id.h"
+    @doc value   """
         is a unique identifier for a Resource. An example:
 
         userID := ID{

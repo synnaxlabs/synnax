@@ -36,12 +36,12 @@ import {
 import { Vis } from "@/platform/vis";
 
 export interface FrameProps extends PropsWithChildren {
-  resourceType: view.ViewType;
+  resourceType: view.Type;
   icon: string;
 }
 
 const ZERO_VARIANTS: {
-  [K in view.ViewType]: Omit<Extract<view.View, { type: K }>, keyof view.Base>;
+  [K in view.Type]: Omit<Extract<view.View, { type: K }>, keyof view.Base>;
 } = {
   range: { type: "range" },
   status: { type: "status" },
@@ -58,7 +58,9 @@ export const Frame = ({ resourceType, icon, children }: FrameProps): ReactElemen
     },
   ];
   const staticProps = List.useStaticData<view.Key, View>({ data: staticViews });
-  const remoteProps = PView.useList({ initialQuery: { types: [resourceType] } });
+  const remoteProps = PView.useList({
+    initialQuery: { where: { type: { eq: resourceType } } },
+  });
   const { retrieve } = remoteProps;
   const handleFetchMore = () => retrieve((p) => p);
   const combinedProps = List.useCombinedData<view.Key, View>({
@@ -117,7 +119,7 @@ interface SelectorProps {
   showEditButton: boolean;
   editable: boolean;
   onEditableClick: () => void;
-  resourceType: view.ViewType;
+  resourceType: view.Type;
   staticViews: StaticView[];
   onSelect: (key: view.Key) => void;
   selected: view.Key;

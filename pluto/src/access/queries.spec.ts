@@ -41,7 +41,7 @@ const cachedPoliciesOf = (
   c: Synnax,
   subject: ontology.ID = subjectOf(c),
 ): access.policy.Policy[] => {
-  const cached = c.access.policies.getCached({ for: subject });
+  const cached = c.access.policies.getCached({ where: { subjects: [subject] } });
   return query.isLive(cached) ? cached : [];
 };
 

@@ -13,6 +13,7 @@ import {
   border,
   caseconv,
   color,
+  filter,
   notation,
   spatial,
   text,
@@ -232,6 +233,30 @@ export const scaleIndicatorConfigZ = numericTelemConfigZ
   });
 export interface ScaleIndicatorConfig extends z.infer<typeof scaleIndicatorConfigZ> {}
 
+/** Where is a filter that selects schematics. */
+export type Where = {
+  and?: Where[];
+  or?: Where[];
+  not?: Where;
+  key?: filter.Set<typeof keyZ>;
+};
+export const whereZ: z.ZodType<Where> = z.strictObject({
+  /** and matches when every child matches. */
+  get and() {
+    return zod.nullToUndefined(whereZ.array());
+  },
+  /** or matches when any child matches. */
+  get or() {
+    return zod.nullToUndefined(whereZ.array());
+  },
+  /** not matches when the child does not match. */
+  get not() {
+    return whereZ.optional();
+  },
+  /** key selects by key. */
+  key: filter.setZ(keyZ).optional(),
+});
+
 export const pipeEdgeConfigZ = segmentedEdgeConfigZ.extend({
   variant: z.literal("pipe"),
 });
@@ -339,6 +364,19 @@ export const dummyToggleSymbolConfigZ = labeledConfigZ
 export interface DummyToggleSymbolConfig extends z.infer<
   typeof dummyToggleSymbolConfigZ
 > {}
+
+/** RetrieveRequest is a request to retrieve schematics. */
+export const retrieveRequestZ = z.strictObject({
+  /** where selects the schematics to retrieve. An absent where selects all of them. */
+  where: whereZ.optional(),
+  /** searchTerm keeps the schematics that match the term, closest match first. */
+  searchTerm: z.string().optional(),
+  /** limit is the most schematics to return. */
+  limit: z.uint32().optional(),
+  /** offset is the number of matching schematics to skip. */
+  offset: z.uint32().optional(),
+});
+export type RetrieveRequest = z.infer<typeof retrieveRequestZ>;
 
 export const toggleSymbolConfigZ = toggleConfigZ.extend({
   strokeColor: color.colorZ.optional(),
@@ -3267,6 +3305,13 @@ export const schematicZ = z.object({
 });
 export interface Schematic extends z.infer<typeof schematicZ> {}
 export interface New extends z.input<typeof schematicZ> {}
+
+/** RetrieveResponse holds the schematics a RetrieveRequest selects. */
+export const retrieveResponseZ = z.object({
+  /** schematics are the schematics the request selects. */
+  schematics: schematicZ.array().default(() => []),
+});
+export interface RetrieveResponse extends z.infer<typeof retrieveResponseZ> {}
 
 export const ontologyID = ontology.createIDFactory<Key>("schematic");
 export const TYPE_ONTOLOGY_ID = ontologyID("");

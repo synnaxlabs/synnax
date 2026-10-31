@@ -19,6 +19,7 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/signals"
@@ -46,6 +47,10 @@ type ServiceConfig struct {
 	//
 	// [REQUIRED]
 	Group *group.Service
+	// Password holds the usernames that [MatchUsernames] matches.
+	//
+	// [REQUIRED]
+	Password *password.Service
 	// Signals is used to propagate user changes through the Synnax signals' channel
 	// communication mechanism.
 	//
@@ -65,6 +70,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.DB = override.Nil(c.DB, other.DB)
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
+	c.Password = override.Nil(c.Password, other.Password)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	return c
 }
@@ -75,6 +81,7 @@ func (c ServiceConfig) Validate() error {
 	v.NotNil("db", c.DB)
 	v.NotNil("ontology", c.Ontology)
 	v.NotNil("group", c.Group)
+	v.NotNil("password", c.Password)
 	return v.Error()
 }
 
@@ -133,9 +140,10 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 // NewRetrieve opens a new [Retrieve] query capable of retrieving [User]s.
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		gorp:    s.table.NewRetrieve(),
-		baseTX:  s.cfg.DB,
-		indexes: s.indexes,
+		gorp:     s.table.NewRetrieve(),
+		baseTX:   s.cfg.DB,
+		indexes:  s.indexes,
+		password: s.cfg.Password,
 	}
 }
 

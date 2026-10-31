@@ -121,7 +121,9 @@ describe("Label.useEditModal", () => {
     fireEvent.change(nameInput, { target: { value: name } });
     fireEvent.click(getIconButton(createItem, "check"));
     await waitFor(async () => {
-      const found = await client.labels.retrieve({ names: [name] });
+      const found = await client.labels.retrieve({
+        where: { name: { eq: name } },
+      });
       expect(found.length).toBe(1);
     });
   });

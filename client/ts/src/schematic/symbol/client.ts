@@ -24,9 +24,14 @@ import {
   keyZ,
   type New,
   ontologyID,
+  type RetrieveRequest,
+  retrieveRequestZ,
+  retrieveResponseZ,
   type Symbol,
   symbolZ,
+  type Where,
 } from "@/schematic/symbol/types.gen";
+import { matches, serverComputed } from "@/schematic/symbol/where.gen";
 
 export const SET_CHANNEL_NAME = "sy_schematic_symbol_set";
 export const DELETE_CHANNEL_NAME = "sy_schematic_symbol_delete";
@@ -35,31 +40,20 @@ const createReqZ = z.object({ symbols: symbolZ.array(), parent: ontology.idZ });
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
-// The server only understands keys and searchTerm; parent scoping is resolved
-// client-side through the ontology, so it never reaches the wire.
-const wireRetrieveRequestZ = z.object({
-  keys: keyZ.array().optional(),
-  searchTerm: z.string().optional(),
-});
-
-const retrieveRequestZ = wireRetrieveRequestZ.extend({
+// The Core knows nothing of parents, so the client resolves parent through the ontology
+// graph.
+const parentRequestZ = retrieveRequestZ.extend({
   parent: ontology.idZ.optional(),
 });
-const retrieveMultiParamsZ = retrieveRequestZ.or(query.keyListZ(keyZ));
+export type RetrieveMultipleParams = z.infer<typeof parentRequestZ>;
+const retrieveMultiParamsZ = z.union([
+  keyZ.array().transform((keys): RetrieveMultipleParams => query.keysRequest(keys)),
+  parentRequestZ,
+]);
 
-const singleRetrieveParamsZ = z
-  .object({ key: keyZ })
-  .transform(({ key }) => ({ keys: [key] }));
-
-const retrieveParamsZ = z.union([singleRetrieveParamsZ, wireRetrieveRequestZ]);
-
-export type RetrieveSingleParams = z.input<typeof singleRetrieveParamsZ>;
-export type RetrieveMultipleParams = z.input<typeof retrieveRequestZ>;
+export type RetrieveSingleParams = { key: Key };
 export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
 
-interface RetrieveRequest extends z.infer<typeof retrieveRequestZ> {}
-
-const retrieveResZ = z.object({ symbols: symbolZ.array().default(() => []) });
 const createResZ = z.object({ symbols: symbolZ.array() });
 const emptyResZ = z.object({});
 const retrieveGroupReqZ = z.object({});
@@ -76,9 +70,6 @@ export interface CreateMultipleParams {
   symbols: New[];
   parent: ontology.ID;
 }
-
-/** Query fields only the server can evaluate. */
-const SERVER_FIELDS = ["searchTerm"] as const;
 
 const childRel = (parent: ontology.ID, key: Key): ontology.Relationship => ({
   from: parent,
@@ -109,7 +100,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Sy
     const { cache, ontology: ontologyClient } = cfg;
     const store = cache.createTable<Key, Symbol>({
       name: "schematicSymbols",
-      fetch: async (keys) => await this.execRetrieve({ keys }),
+      fetch: async (keys) => await this.execRetrieve(query.keysRequest(keys)),
       listen: [
         query.createSetListener(SET_CHANNEL_NAME, symbolZ),
         query.createDeleteListener(DELETE_CHANNEL_NAME, keyZ),
@@ -121,12 +112,14 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Sy
       request: {
         schema: retrieveMultiParamsZ,
         fetch: async (req) => await this.fetchRequest(req),
-        matches: (sym, req) => this.requestFilter(req)(sym),
-        serverFields: SERVER_FIELDS,
+        matches: (sym, req) =>
+          matches(sym, req.where) &&
+          (req.parent == null || this.isChildOf(req.parent, sym.key)),
+        serverComputed: (req) => serverComputed(req.where),
         watch: [
           query.watch(
             ontologyClient.cache.relationships,
-            (event, req: RetrieveRequest) => {
+            (event, req: RetrieveMultipleParams) => {
               if (req.parent == null) return null;
               const rel =
                 event.variant === "set"
@@ -306,14 +299,12 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Sy
     return res.group;
   }
 
-  private async execRetrieve(
-    params: RetrieveSingleParams | z.input<typeof wireRetrieveRequestZ>,
-  ): Promise<Symbol[]> {
+  private async execRetrieve(req: RetrieveRequest): Promise<Symbol[]> {
     const res = await this.cfg.unary.send(
       "/schematic/symbol/retrieve",
-      params,
-      retrieveParamsZ,
-      retrieveResZ,
+      req,
+      retrieveRequestZ,
+      retrieveResponseZ,
     );
     return res.symbols;
   }
@@ -321,7 +312,7 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Sy
   /** Resolves a parent scope to its symbol children's keys via the ontology. */
   private async resolveChildKeys(parent: ontology.ID): Promise<Key[]> {
     // The children space writes the parent relationships through, so
-    // membership checks in requestFilter see them.
+    // membership checks in matches see them.
     const children = await this.cfg.ontology.children.retrieve({
       ids: parent,
       types: ["schematic_symbol"],
@@ -329,27 +320,25 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Sy
     return children.map(({ id: { key } }) => key);
   }
 
-  private async fetchRequest(req: RetrieveRequest): Promise<Symbol[]> {
-    const { parent, ...rest } = req;
-    if (parent == null) return await this.execRetrieve(rest);
+  private async fetchRequest({
+    parent,
+    ...req
+  }: RetrieveMultipleParams): Promise<Symbol[]> {
+    if (parent == null) return await this.execRetrieve(req);
     const keys = await this.resolveChildKeys(parent);
     if (keys.length === 0) return [];
-    if (primitive.isZero(rest.searchTerm)) return await this.store.retrieve(keys);
-    return await this.execRetrieve({ keys, searchTerm: rest.searchTerm });
-  }
-
-  /**
-   * Client-side matching for a request: exact for key sets and parent
-   * membership via the relationship table. Server-computed shapes (search)
-   * never reach this filter; they refetch instead.
-   */
-  private requestFilter(req: RetrieveRequest): (s: Symbol) => boolean {
-    const keySet = primitive.isNonZero(req.keys) ? new Set(req.keys) : undefined;
-    return (s) => {
-      if (keySet != null && !keySet.has(s.key)) return false;
-      if (req.parent != null && !this.isChildOf(req.parent, s.key)) return false;
-      return true;
-    };
+    if (
+      req.where == null &&
+      primitive.isZero(req.searchTerm) &&
+      req.limit == null &&
+      primitive.isZero(req.offset)
+    )
+      return await this.store.retrieve(keys);
+    const where: Where = { key: { in: keys } };
+    return await this.execRetrieve({
+      ...req,
+      where: req.where == null ? where : { and: [req.where, where] },
+    });
   }
 
   private isChildOf(parent: ontology.ID, key: Key): boolean {

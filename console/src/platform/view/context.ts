@@ -25,7 +25,7 @@ export type View = view.View & { static?: true };
 export type StaticView = View & { static: true };
 
 export interface ContextValue {
-  resourceType: view.ViewType;
+  resourceType: view.Type;
   selected: view.Key;
   select: (key: view.Key) => void;
   editable: boolean;

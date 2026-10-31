@@ -102,24 +102,16 @@ func (s *Service) Create(
 	return CreateResponse{Group: g}, nil
 }
 
-type (
-	RetrieveRequest struct {
-		Keys []group.Key `json:"keys" msgpack:"keys"`
-	}
-	RetrieveResponse struct {
-		Groups []group.Group `json:"groups" msgpack:"groups"`
-	}
-)
-
 func (s *Service) Retrieve(
 	ctx context.Context,
 	req RetrieveRequest,
 ) (RetrieveResponse, error) {
 	var res RetrieveResponse
-	if err := s.internal.NewRetrieve().
-		Where(group.MatchKeys(req.Keys...)).
-		Entries(&res.Groups).
-		Exec(ctx, nil); err != nil {
+	q, err := req.Apply(s.internal.NewRetrieve().Entries(&res.Groups))
+	if err != nil {
+		return RetrieveResponse{}, err
+	}
+	if err := q.Exec(ctx, nil); err != nil {
 		return RetrieveResponse{}, err
 	}
 	if err := s.access.NewEnforcer(nil).Enforce(ctx, access.Request{
