@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/config"
@@ -80,6 +81,8 @@ type Label = label.Label
 type CreateRequest struct {
 	// Labels are the labels to create.
 	Labels []Label `json:"labels" msgpack:"labels"`
+	// DispatchKey is stamped onto the create broadcasts so the sender skips its echo.
+	DispatchKey string `json:"dispatch_key" msgpack:"dispatch_key"`
 }
 
 // CreateResponse is a response to a CreateRequest.
@@ -101,10 +104,34 @@ func (s *Service) Create(
 	}); err != nil {
 		return CreateResponse{}, err
 	}
-	if err := s.internal.NewWriter(tx).CreateMany(ctx, &req.Labels); err != nil {
+	if err := s.internal.NewWriter(tx).
+		WithDispatchKey(req.DispatchKey).
+		CreateMany(ctx, &req.Labels); err != nil {
 		return CreateResponse{}, err
 	}
-	return CreateResponse(req), nil
+	return CreateResponse{Labels: req.Labels}, nil
+}
+
+// DispatchRequest carries an action sequence to apply to a single label. DispatchKey is
+// a client-generated identifier for the batch, echoed on the broadcast so the sender
+// recognizes its own echo.
+type DispatchRequest = actions.DispatchRequest[label.Key, label.Action]
+
+// Dispatch applies the action sequence to the target label atomically. Subscribers to
+// the label action signals receive the sequence after the transaction commits.
+func (s *Service) Dispatch(
+	ctx context.Context,
+	tx gorp.Tx,
+	req DispatchRequest,
+) (struct{}, error) {
+	if err := s.access.NewEnforcer(tx).Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: []ontology.ID{label.OntologyID(req.Key)},
+	}); err != nil {
+		return struct{}{}, err
+	}
+	return struct{}{}, s.internal.Dispatch(ctx, req.Key, req.DispatchKey, req.Actions)
 }
 
 type RetrieveRequest struct {
