@@ -10,8 +10,8 @@
 import { type Synnax, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
 import { id } from "@synnaxlabs/x";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 
 import { Modbus } from "@/feature/modbus";
 import { createModbusDevice } from "@/feature/modbus/testutil";
@@ -45,6 +45,13 @@ const ZERO_DRAFT: task.New<Modbus.Task.ReadSchemas> = {
   config: Modbus.Task.READ_SCHEMAS.config.parse({}),
 };
 
+// The channels of the task, while no menu is open.
+const getItems = () => screen.queryAllByRole("option");
+
+// A trigger's label comes from its menu, so a click on the label text does not reach
+// the trigger in jsdom.
+const findByteOrder = () => screen.findByRole("button", { name: /^Byte order/ });
+
 const createDraft = async (
   client: Synnax,
   config: task.Payload<Modbus.Task.ReadSchemas>["config"],
@@ -64,13 +71,15 @@ describe("Read", () => {
     await screen.findByText(dev.name);
 
     fireEvent.click(getIconButton(container, "add"));
-    await screen.findByText("Coil");
+    await waitFor(() => expect(getItems()).toHaveLength(1));
     fireEvent.click(getIconButton(container, "add"));
-    await waitFor(() => expect(screen.getAllByText("Coil")).toHaveLength(2));
+    await waitFor(() => expect(getItems()).toHaveLength(2));
 
-    fireEvent.click(screen.getAllByText("Coil")[1]);
-    fireEvent.click(await screen.findByText("Register"));
-    await screen.findByText("Register");
+    fireEvent.click(
+      within(getItems()[1]).getByRole("button", { name: /^Register type/ }),
+    );
+    fireEvent.click(await screen.findByText("Input register"));
+    await waitFor(() => within(getItems()[1]).getByText("Input register"));
 
     const created = await deployAndAwaitTask(
       client,
@@ -115,7 +124,7 @@ describe("Read", () => {
     const first = await renderRead({ client, taskKey: firstDraft.key });
     await screen.findByText(dev.name);
     fireEvent.click(getIconButton(first.container, "add"));
-    await screen.findByText("Coil");
+    await waitFor(() => expect(getItems()).toHaveLength(1));
     const firstTask = await deployAndAwaitTask(
       client,
       first.container,
@@ -152,7 +161,7 @@ describe("Read", () => {
     });
     await screen.findByText(dev.name);
     fireEvent.click(getIconButton(first.container, "add"));
-    await screen.findByText("Coil");
+    await waitFor(() => expect(getItems()).toHaveLength(1));
     const deployed = await deployAndAwaitTask(
       client,
       first.container,
@@ -170,7 +179,7 @@ describe("Read", () => {
       client,
       taskKey: draft.key,
     });
-    await screen.findByText("Coil");
+    await waitFor(() => expect(getItems()).toHaveLength(1));
     await deployAndAwaitTask(
       client,
       second.container,
@@ -262,12 +271,9 @@ describe("Read", () => {
       ],
     });
     await renderRead({ client, taskKey: draft.key });
-    await screen.findByText("300001");
-    commitFieldInput(
-      await screen.findByLabelText<HTMLInputElement>("Address"),
-      "300004",
-    );
-    await screen.findByText("300004");
+    const address = await screen.findByLabelText<HTMLInputElement>("Address");
+    commitFieldInput(address, "300004");
+    await waitFor(() => expect(address.value).toBe("3"));
     await waitFor(async () => {
       const saved = await client.tasks.retrieve({
         key: draft.key,
@@ -335,23 +341,31 @@ describe("Read", () => {
     it("should show the device's order and leave the channel unset on deploy", async () => {
       const { draft } = await createRegisterDraft("float32", true);
       const { container } = await renderRead({ client, taskKey: draft.key });
-      await screen.findByText("Words: device (swapped)");
-      screen.getByText("Bytes: device (not swapped)");
+      const trigger = await findByteOrder();
+      within(trigger).getByText("From device");
+      within(trigger).getByText("Big-endian");
       const register = await deployRegister(container, draft.key);
       expect(register.bytesSwapped).toBeUndefined();
       expect(register.wordsSwapped).toBeUndefined();
     });
 
+    it("should name a device without swaps a word swap, as the Driver reads the low word first", async () => {
+      const { draft } = await createRegisterDraft("float32", false);
+      await renderRead({ client, taskKey: draft.key });
+      const trigger = await findByteOrder();
+      within(trigger).getByText("Word swap");
+      fireEvent.click(trigger);
+      await screen.findByText("CDAB");
+    });
+
     it("should store the override picked on a register channel", async () => {
       const { draft } = await createRegisterDraft("float32", true);
       const { container } = await renderRead({ client, taskKey: draft.key });
-      fireEvent.click(await screen.findByText("Bytes: device (not swapped)"));
-      fireEvent.click(await screen.findByText("Bytes: swapped"));
-      fireEvent.click(screen.getByText("Words: device (swapped)"));
-      fireEvent.click(await screen.findByText("Words: not swapped"));
+      fireEvent.click(await findByteOrder());
+      fireEvent.click(await screen.findByText("Byte swap"));
       const register = await deployRegister(container, draft.key);
       expect(register.bytesSwapped).toBe(true);
-      expect(register.wordsSwapped).toBe(false);
+      expect(register.wordsSwapped).toBe(true);
     });
 
     it("should not open the order options without permission to update the task", async () => {
@@ -361,15 +375,160 @@ describe("Read", () => {
         taskKey: draft.key,
         as: await createTaskReadOnlyClient(client),
       });
-      fireEvent.click(await screen.findByText("Bytes: device (not swapped)"));
-      expect(screen.queryByText("Bytes: swapped")).toBeNull();
+      fireEvent.click(await findByteOrder());
+      expect(screen.queryByText("Byte swap")).toBeNull();
     });
 
-    it("should show only the byte order for a type that fits in one register", async () => {
+    it("should offer only the two byte orders for a type that fits in one register", async () => {
       const { draft } = await createRegisterDraft("uint16", true);
       await renderRead({ client, taskKey: draft.key });
-      await screen.findByText("Bytes: device (not swapped)");
-      expect(screen.queryByText(/^Words:/)).toBeNull();
+      fireEvent.click(await findByteOrder());
+      await screen.findByText("Little-endian");
+      expect(screen.queryByText("Byte swap")).toBeNull();
+      expect(screen.queryByText("Word swap")).toBeNull();
+    });
+  });
+
+  describe("channels", () => {
+    const renderChannels = async (channels: Modbus.Task.ReadChannel[]) => {
+      const dev = await createModbusDevice(client);
+      const draft = await createDraft(client, {
+        ...Modbus.Task.READ_SCHEMAS.config.parse({}),
+        device: dev.key,
+        channels,
+      });
+      const rendered = await renderRead({ client, taskKey: draft.key });
+      await waitFor(() => expect(getItems()).toHaveLength(channels.length));
+      return rendered;
+    };
+
+    const holding = (address: number, dataType: string) =>
+      Modbus.Task.READ_CHANNEL_SCHEMAS.holding_register.parse({
+        type: "holding_register",
+        key: id.create(),
+        address,
+        dataType,
+      });
+
+    const coil = (address: number) =>
+      Modbus.Task.READ_CHANNEL_SCHEMAS.coil.parse({
+        type: "coil",
+        key: id.create(),
+        address,
+      });
+
+    it("should show a heading for each column", async () => {
+      await renderChannels([coil(0)]);
+      for (const name of ["Type", "Address", "Data type", "Byte order", "Channel"])
+        expect(screen.getByText(name)).toBeTruthy();
+    });
+
+    it("should show the last address of a channel that spans several", async () => {
+      await renderChannels([holding(10, "float32")]);
+      expect(within(getItems()[0]).getByText("–11")).toBeTruthy();
+    });
+
+    it("should mark the addresses of channels that read the same register", async () => {
+      await renderChannels([holding(10, "float32"), holding(11, "uint16"), coil(11)]);
+      const marked = getItems().map(
+        (item) => item.querySelector(".console-modbus__address--overlap") != null,
+      );
+      expect(marked).toEqual([true, true, false]);
+    });
+
+    it("should map each register type in use on its own lane", async () => {
+      const { container } = await renderChannels([holding(10, "uint16"), coil(0)]);
+      const lanes = [...container.querySelectorAll(".console-modbus__lane-name")].map(
+        (lane) => lane.textContent,
+      );
+      expect(lanes).toEqual(["Coil", "Holding register"]);
+    });
+
+    it("should draw one band where many channels read the same addresses", async () => {
+      const { container } = await renderChannels([
+        holding(10, "float32"),
+        holding(10, "float32"),
+        holding(10, "float32"),
+      ]);
+      expect(container.querySelectorAll(".console-modbus__overlap")).toHaveLength(1);
+    });
+
+    it("should show the Modicon address after the offset", async () => {
+      await renderChannels([holding(10, "float32")]);
+      expect(within(getItems()[0]).getByText("400011")).toBeTruthy();
+    });
+
+    it("should add a channel at the free address the map is clicked at", async () => {
+      const { container } = await renderChannels([
+        holding(0, "uint16"),
+        holding(3, "uint16"),
+      ]);
+      const track = container.querySelector<HTMLElement>(".console-modbus__track");
+      if (track == null) throw new Error("no track");
+      vi.spyOn(track, "getBoundingClientRect").mockReturnValue(
+        new DOMRect(0, 0, 400, 8),
+      );
+      fireEvent.pointerMove(track, { clientX: 150 });
+      fireEvent.click(track);
+      await waitFor(() => expect(getItems()).toHaveLength(3));
+      const address = within(getItems()[2]).getByRole<HTMLInputElement>("textbox", {
+        name: "Address",
+      });
+      expect(address.value).toBe("1");
+    });
+
+    it("should not add a channel from the map of a read-only task", async () => {
+      const dev = await createModbusDevice(client);
+      const draft = await createDraft(client, {
+        ...Modbus.Task.READ_SCHEMAS.config.parse({}),
+        device: dev.key,
+        channels: [holding(0, "uint16"), holding(3, "uint16")],
+      });
+      const { container } = await renderTaskFormTab(Modbus.Task.Read, {
+        client,
+        taskKey: draft.key,
+        as: await createTaskReadOnlyClient(client),
+      });
+      await waitFor(() => expect(getItems()).toHaveLength(2));
+      const track = container.querySelector<HTMLElement>(".console-modbus__track");
+      if (track == null) throw new Error("no track");
+      vi.spyOn(track, "getBoundingClientRect").mockReturnValue(
+        new DOMRect(0, 0, 400, 8),
+      );
+      fireEvent.pointerMove(track, { clientX: 150 });
+      expect(container.querySelector(".console-modbus__free")).toBeNull();
+      fireEvent.click(track);
+      expect(getItems()).toHaveLength(2);
+    });
+
+    it("should not add a channel when a used address is clicked", async () => {
+      const { container } = await renderChannels([coil(0), coil(1)]);
+      const segment = container.querySelector(".console-modbus__segment");
+      if (segment == null) throw new Error("no segment");
+      fireEvent.click(segment);
+      expect(getItems()).toHaveLength(2);
+    });
+
+    it("should open a channel's menu from its segment in the map", async () => {
+      const { container } = await renderChannels([coil(0), coil(1)]);
+      fireEvent.contextMenu(container.querySelectorAll(".console-modbus__segment")[1]);
+      fireEvent.click(await screen.findByText("Disable"));
+      await waitFor(() =>
+        expect(
+          getItems().map((item) =>
+            item.classList.contains("console-list-channel-item--disabled"),
+          ),
+        ).toEqual([false, true]),
+      );
+      expect(
+        container.querySelectorAll(".console-modbus__segment--disabled"),
+      ).toHaveLength(1);
+    });
+
+    it("should not select a channel when a field is edited", async () => {
+      await renderChannels([coil(0)]);
+      fireEvent.click(within(getItems()[0]).getByRole("textbox", { name: "Address" }));
+      expect(getItems()[0].getAttribute("aria-selected")).toBe("false");
     });
   });
 

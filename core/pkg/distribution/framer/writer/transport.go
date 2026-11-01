@@ -31,6 +31,8 @@ const (
 	CommandCommit
 	// CommandSetAuthority represents a call to Writer.SetAuthority
 	CommandSetAuthority
+	// CommandEndDomain represents a call to Writer.EndDomain.
+	CommandEndDomain
 )
 
 // Mode configures the persistence and streaming behavior of a writer.
@@ -38,8 +40,8 @@ type Mode = ts.WriterMode
 
 // Request represents a streaming call to a Writer.
 type Request struct {
-	// Config sets the configuration to use when opening the writer. Only used
-	// internally when an open command is sent.
+	// Config sets the configuration to use when opening the writer. CommandSetAuthority
+	// reads its authorities from Config, and CommandEndDomain reads its indexes.
 	Config Config
 	// Frame is the telemetry frame. This field is only acknowledged during Write
 	// commands.
@@ -65,8 +67,8 @@ type Response struct {
 	NodeKey node.Key
 	// Command is the command that was executed on the writer.
 	Command Command
-	// Authorized flags whether the writer or commit operation was authorized. It is
-	// only valid during calls to WriterWrite and WriterCommit.
+	// Authorized flags whether the operation was authorized. It is only valid during
+	// calls to CommandWrite, CommandCommit, and CommandEndDomain.
 	Authorized bool
 }
 

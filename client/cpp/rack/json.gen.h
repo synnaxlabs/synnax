@@ -82,7 +82,7 @@ inline x::json::json Where::to_json() const {
     if (this->embedded.has_value()) j["embedded"] = this->embedded->to_json();
     if (this->integrations.has_value())
         j["integrations"] = this->integrations->to_json();
-    j["host_is_node"] = this->host_is_node;
+    if (this->host_is_node.has_value()) j["host_is_node"] = *this->host_is_node;
     return j;
 }
 
@@ -100,7 +100,7 @@ inline x::json::json RetrieveRequest::to_json() const {
     x::json::json j;
     if (this->where.has_value()) j["where"] = this->where->to_json();
     j["search_term"] = this->search_term;
-    j["limit"] = this->limit;
+    if (this->limit.has_value()) j["limit"] = *this->limit;
     j["offset"] = this->offset;
     j["include_status"] = this->include_status;
     return j;

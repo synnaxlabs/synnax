@@ -255,6 +255,50 @@ var _ = Describe("Task", Ordered, func() {
 		}
 	}
 
+	createIndexed := func(ctx context.Context, prefix string) (idx, data channel.Channel) {
+		GinkgoHelper()
+		idx = channel.Channel{
+			Name:     prefix + "_time_" + uuid.New().String()[:8],
+			IsIndex:  true,
+			DataType: telem.TimestampT,
+		}
+		Expect(channelWriter.Create(ctx, &idx)).To(Succeed())
+		data = channel.Channel{
+			Name:       prefix + "_" + uuid.New().String()[:8],
+			LocalIndex: idx.LocalKey,
+			DataType:   telem.Uint8T,
+		}
+		Expect(channelWriter.Create(ctx, &data)).To(Succeed())
+		return idx, data
+	}
+
+	readStored := func(
+		ctx context.Context,
+		idx, data channel.Channel,
+	) (values []uint8, stamps []telem.TimeStamp) {
+		GinkgoHelper()
+		iter := MustOpen(framerSvc.OpenIterator(ctx, framer.IteratorConfig{
+			Keys:   []channel.Key{idx.Key(), data.Key()},
+			Bounds: telem.TimeRangeMax,
+		}))
+		if !iter.SeekFirst() {
+			return nil, nil
+		}
+		for iter.Next(iterator.AutoSpan) {
+			for _, ser := range iter.Value().Get(data.Key()).Series {
+				for i := range int(ser.Len()) {
+					values = append(values, ser.ValueAt[uint8](i))
+				}
+			}
+			for _, ser := range iter.Value().Get(idx.Key()).Series {
+				for i := range int(ser.Len()) {
+					stamps = append(stamps, ser.ValueAt[telem.TimeStamp](i))
+				}
+			}
+		}
+		return values, stamps
+	}
+
 	bangBangProg := func(ch1, ch2, stopSignal, startSignal *channel.Channel) arc.Text {
 		return arc.Text{
 			Raw: fmt.Sprintf(`
@@ -3691,50 +3735,6 @@ var _ = Describe("Task", Ordered, func() {
 	})
 
 	Describe("Mixed writes to one channel", func() {
-		createIndexed := func(ctx context.Context, prefix string) (idx, data channel.Channel) {
-			GinkgoHelper()
-			idx = channel.Channel{
-				Name:     prefix + "_time_" + uuid.New().String()[:8],
-				IsIndex:  true,
-				DataType: telem.TimestampT,
-			}
-			Expect(channelWriter.Create(ctx, &idx)).To(Succeed())
-			data = channel.Channel{
-				Name:       prefix + "_" + uuid.New().String()[:8],
-				LocalIndex: idx.LocalKey,
-				DataType:   telem.Uint8T,
-			}
-			Expect(channelWriter.Create(ctx, &data)).To(Succeed())
-			return idx, data
-		}
-
-		readStored := func(
-			ctx context.Context,
-			idx, data channel.Channel,
-		) (values []uint8, stamps []telem.TimeStamp) {
-			GinkgoHelper()
-			iter := MustOpen(framerSvc.OpenIterator(ctx, framer.IteratorConfig{
-				Keys:   []channel.Key{idx.Key(), data.Key()},
-				Bounds: telem.TimeRangeMax,
-			}))
-			if !iter.SeekFirst() {
-				return nil, nil
-			}
-			for iter.Next(iterator.AutoSpan) {
-				for _, ser := range iter.Value().Get(data.Key()).Series {
-					for i := range int(ser.Len()) {
-						values = append(values, ser.ValueAt[uint8](i))
-					}
-				}
-				for _, ser := range iter.Value().Get(idx.Key()).Series {
-					for i := range int(ser.Len()) {
-						stamps = append(stamps, ser.ValueAt[telem.TimeStamp](i))
-					}
-				}
-			}
-			return values, stamps
-		}
-
 		DescribeTable(
 			"Should store a body write and a flow write from one cycle in time order",
 			func(ctx SpecContext, indexedSource bool, program string, expected []uint8) {
@@ -3862,6 +3862,82 @@ START => main
 					g.Expect(values).To(Equal([]uint8{2, 1}))
 					g.Expect(stamps).To(HaveLen(2))
 					g.Expect(stamps[1]).To(BeNumerically(">", stamps[0]))
+				}).Should(Succeed())
+			},
+		)
+	})
+
+	Describe("Writer start", func() {
+		It(
+			"Should store a forwarded stamp from before the task started",
+			func(ctx SpecContext) {
+				srcIdx, src := createIndexed(ctx, "early_src")
+				outIdx, out := createIndexed(ctx, "early_out")
+				prog := arc.Text{Raw: fmt.Sprintf("%s -> %s\n", src.Name, out.Name)}
+				started := telem.Now()
+				t := newTask(ctx, newTextFactory(ctx, prog))
+				Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+				defer func() { Expect(t.Stop(false)).To(Succeed()) }()
+
+				keys := []channel.Key{srcIdx.Key(), src.Key()}
+				stamp := started.Add(-telem.Minute)
+				fw := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+					Keys:  keys,
+					Start: stamp,
+				}))
+				defer func() { Expect(fw.Close()).To(Succeed()) }()
+				Expect(fw.Write(frame.NewMulti(keys, []telem.Series{
+					telem.NewSeriesV(stamp),
+					telem.NewSeriesV[uint8](1),
+				}))).To(BeTrue())
+				Eventually(func(g Gomega) {
+					_, stamps := readStored(ctx, outIdx, out)
+					g.Expect(stamps).To(Equal([]telem.TimeStamp{stamp}))
+				}).Should(Succeed())
+			},
+		)
+
+		It(
+			"Should start when stored data covers the start time",
+			func(ctx SpecContext) {
+				srcIdx, src := createIndexed(ctx, "covered_src")
+				outIdx, out := createIndexed(ctx, "covered_out")
+				now := telem.Now()
+				stored := []telem.TimeStamp{
+					now.Add(-telem.Minute),
+					now.Add(telem.Minute),
+				}
+				outKeys := []channel.Key{outIdx.Key(), out.Key()}
+				ow := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+					Keys:  outKeys,
+					Start: stored[0],
+				}))
+				Expect(ow.Write(frame.NewMulti(outKeys, []telem.Series{
+					telem.NewSeries(stored),
+					telem.NewSeriesV[uint8](1, 2),
+				}))).To(BeTrue())
+				MustSucceed(ow.Commit())
+				Expect(ow.Close()).To(Succeed())
+
+				prog := arc.Text{Raw: fmt.Sprintf("%s -> %s\n", src.Name, out.Name)}
+				t := newTask(ctx, newTextFactory(ctx, prog))
+				Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+				defer func() { Expect(t.Stop(false)).To(Succeed()) }()
+
+				srcKeys := []channel.Key{srcIdx.Key(), src.Key()}
+				stamp := now.Add(2 * telem.Minute)
+				sw := MustSucceed(framerSvc.OpenWriter(ctx, framer.WriterConfig{
+					Keys:  srcKeys,
+					Start: stamp,
+				}))
+				defer func() { Expect(sw.Close()).To(Succeed()) }()
+				Expect(sw.Write(frame.NewMulti(srcKeys, []telem.Series{
+					telem.NewSeriesV(stamp),
+					telem.NewSeriesV[uint8](3),
+				}))).To(BeTrue())
+				Eventually(func(g Gomega) {
+					_, stamps := readStored(ctx, outIdx, out)
+					g.Expect(stamps).To(Equal(append(stored, stamp)))
 				}).Should(Succeed())
 			},
 		)

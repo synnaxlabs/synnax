@@ -17,8 +17,10 @@ import (
 	apilog "github.com/synnaxlabs/synnax/pkg/api/log"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
+	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/x/filter"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Retrieve", func() {
@@ -30,5 +32,24 @@ var _ = Describe("Retrieve", func() {
 		Expect(apiSvc.Retrieve(AuthedCtx(ctx, author), apilog.RetrieveRequest{
 			Where: &log.Where{Key: &filter.Set[log.Key]{Eq: &r.Key}},
 		})).Error().To(MatchError(access.ErrDenied))
+	})
+})
+
+var _ = Describe("Create", func() {
+	It("Should stamp the dispatch key onto the create broadcast", func(
+		ctx SpecContext,
+	) {
+		u := newCreator(ctx)
+		rec := &Recorder[log.Key, log.Action]{}
+		DeferCleanup(svc.Log.OnAction(rec.Record))
+		res := MustSucceed(apiSvc.Create(AuthedCtx(ctx, u), nil, apilog.CreateRequest{
+			Project:     proj.Key,
+			Logs:        []log.Log{{Name: "broadcast"}},
+			DispatchKey: "dk-create",
+		}))
+		frames := rec.Snapshot()
+		Expect(frames).To(HaveLen(1))
+		Expect(frames[0].Key).To(Equal(res.Logs[0].Key))
+		Expect(frames[0].DispatchKey).To(Equal("dk-create"))
 	})
 })

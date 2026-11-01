@@ -3306,10 +3306,9 @@ func (u View) Type() ViewType {
 					`case LinearScale:`,
 					`}{Type: LinearScaleType, LinearScale: v})`,
 					`func (u *Scale) UnmarshalJSONFrom(dec *jsontext.Decoder) error {`,
-					`Type ScaleType `+"`"+`json:"type"`+"`",
-					`json.RejectUnknownMembers(false),`,
 					`case LinearScaleType:`,
-					"var v struct {\n\t\t\tType ScaleType `json:\"type\"`\n\t\t\tLinearScale\n\t\t}",
+					`json.RejectUnknownMembers(false)`,
+					"LinearScale\n\t\t}",
 					`u.Variant = v.LinearScale`,
 				)
 		},
@@ -3633,10 +3632,7 @@ func (u *rtScale) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		Type rtScaleType `json:"type"`
 	}
 	if err := json.Unmarshal(
-		data,
-		&disc,
-		opts,
-		json.RejectUnknownMembers(false),
+		data, &disc, opts, json.RejectUnknownMembers(false),
 	); err != nil {
 		return err
 	}
@@ -3722,6 +3718,21 @@ var _ = Describe("Union codec round trip", func() {
 		Expect(got.Port).To(Equal(int32(7)))
 		Expect(got.MinVal).To(Equal(-10.0))
 		Expect(got.Scale.Variant.(rtLinearScale).Slope).To(Equal(1.5))
+	})
+
+	It("Should decode a union when unknown members are rejected", func() {
+		data := []byte(`{"type":"linear","slope":2}`)
+		var out rtScale
+		Expect(json.Unmarshal(data, &out, json.RejectUnknownMembers(true))).
+			To(Succeed())
+		Expect(out.Variant.(rtLinearScale).Slope).To(Equal(2.0))
+	})
+
+	It("Should reject an unknown member of a union variant", func() {
+		data := []byte(`{"type":"linear","slope":2,"offset":1}`)
+		var out rtScale
+		Expect(json.Unmarshal(data, &out, json.RejectUnknownMembers(true))).
+			To(MatchError(ContainSubstring(`unknown object member name "offset"`)))
 	})
 })
 

@@ -65,7 +65,9 @@
             background-color 0.1s ease,
             border-color 0.1s ease,
             outline-color 0.1s ease;
-        cursor: pointer;
+
+        /* The input underneath takes the click. */
+        pointer-events: none;
     }
 
     &:not(.lyra--disabled, .lyra--icon):hover .lyra-input__checkbox-indicator {
