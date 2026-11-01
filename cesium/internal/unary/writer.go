@@ -343,8 +343,10 @@ func (w *Writer) write(
 		return 0, w.wrapError(err)
 	}
 	err := w.control.Authorize(func(dw *controlledWriter) error {
+		var mark telem.TimeStamp
 		if w.Channel.IsIndex {
-			if err := dw.advanceHighWaterMark(series); err != nil {
+			var err error
+			if mark, err = dw.checkOrder(series); err != nil {
 				return err
 			}
 		}
@@ -373,13 +375,17 @@ func (w *Writer) write(
 		// resolving its alignment against this one reserves the slot after this write
 		// instead of colliding with it.
 		dw.storeAlignment(a.AddSamples(uint32(series.Len())))
-		if !*w.cfg.Persist {
-			return nil
+		if *w.cfg.Persist {
+			baseOffset := uint32(dw.tracker.domainBytes)
+			dw.tracker.record(series.Data, baseOffset)
+			if _, err := dw.Write(series.Data); err != nil {
+				return err
+			}
 		}
-		baseOffset := uint32(dw.tracker.domainBytes)
-		dw.tracker.record(series.Data, baseOffset)
-		_, err := dw.Write(series.Data)
-		return err
+		if w.Channel.IsIndex {
+			dw.highWaterMark = mark
+		}
+		return nil
 	})
 	if err != nil {
 		return 0, w.wrapError(err)
@@ -418,14 +424,13 @@ func (w *Writer) visible(t control.Transfer) control.Transfer {
 	return t
 }
 
-// advanceHighWaterMark moves the high-water mark to the last timestamp in series. It
-// returns ErrOutOfOrder and keeps the mark if any timestamp is before the one that
-// precedes it.
-func (w *controlledWriter) advanceHighWaterMark(series telem.Series) error {
+// checkOrder returns the high-water mark after series. It returns ErrOutOfOrder if any
+// timestamp is before the one that precedes it.
+func (w *controlledWriter) checkOrder(series telem.Series) (telem.TimeStamp, error) {
 	prev := w.highWaterMark
 	for i, ts := range series.Unmarshal[telem.TimeStamp]() {
 		if ts < prev {
-			return errors.Wrapf(
+			return 0, errors.Wrapf(
 				ErrOutOfOrder,
 				"timestamp %s at sample %d must not be before %s",
 				ts,
@@ -435,8 +440,7 @@ func (w *controlledWriter) advanceHighWaterMark(series telem.Series) error {
 		}
 		prev = ts
 	}
-	w.highWaterMark = prev
-	return nil
+	return prev, nil
 }
 
 // Commit commits the written series to the database.

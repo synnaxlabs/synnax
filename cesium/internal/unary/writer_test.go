@@ -1511,6 +1511,38 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Expect(t.Occurred()).To(BeTrue())
 					})
 					It(
+						"Should keep the high-water mark when a write fails",
+						func(ctx SpecContext) {
+							live, _ := MustSucceed2(
+								db.OpenWriter(ctx, unary.WriterConfig{
+									Start:     10 * telem.SecondTS,
+									Authority: control.AuthorityAbsolute - 1,
+									Subject:   control.Subject{Key: "live"},
+								}),
+							)
+							MustSucceed(live.Write(telem.NewSeriesSecondsTSV(10, 12)))
+							MustSucceed(live.Commit(ctx))
+							Expect(live.EndDomain(ctx)).To(Succeed())
+							high, _ := MustSucceed2(
+								db.OpenWriter(ctx, unary.WriterConfig{
+									Start:     10 * telem.SecondTS,
+									Authority: control.AuthorityAbsolute,
+									Subject:   control.Subject{Key: "high"},
+								}),
+							)
+							high.SetDomainStart(12 * telem.SecondTS)
+							Expect(
+								high.Write(telem.NewSeriesSecondsTSV(12, 100)),
+							).Error().To(MatchError(domain.ErrWriteConflict))
+							MustSucceed(high.Close())
+							live.SetDomainStart(13 * telem.SecondTS)
+							MustSucceed(live.Write(telem.NewSeriesSecondsTSV(13)))
+							Expect(MustSucceed(live.Commit(ctx))).
+								To(Equal(13*telem.SecondTS + 1))
+							MustSucceed(live.Close())
+						},
+					)
+					It(
 						"Should reject an index write behind the data of another writer",
 						func(ctx SpecContext) {
 							live, _ := MustSucceed2(
