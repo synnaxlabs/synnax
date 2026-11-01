@@ -105,6 +105,7 @@ export const prefix = (action: Action, path: string[]): Action => {
 type Snapshot = NonNullable<ApplyOptions["snapshot"]>;
 
 const applySet = (doc: record.Unknown, a: Set, snapshot: Snapshot): Action[] => {
+  checkPath(a.path);
   const [parentPath, last] = split(a.path);
   if (!guardsHold(doc, a.guards)) return [];
   const found = descend(doc, parentPath, true);
@@ -134,6 +135,7 @@ const applySet = (doc: record.Unknown, a: Set, snapshot: Snapshot): Action[] => 
 };
 
 const applyRemove = (doc: record.Unknown, a: Remove, snapshot: Snapshot): Action[] => {
+  checkPath(a.path);
   if (!guardsHold(doc, a.guards)) return [];
   const found = descend(doc, a.path, false);
   if (found == null) return [];
@@ -156,6 +158,7 @@ const applyRemove = (doc: record.Unknown, a: Remove, snapshot: Snapshot): Action
 };
 
 const applyInsert = (doc: record.Unknown, a: Insert): Action[] => {
+  checkPath(a.path);
   const [parentPath, last] = split(a.path);
   if (!guardsHold(doc, a.guards)) return [];
   const key = keyOf(a.value);
@@ -165,7 +168,7 @@ const applyInsert = (doc: record.Unknown, a: Insert): Action[] => {
   if (found == null) return [];
   const { node, created } = found;
   if (!narrow.isObject(node)) throw notList(a.path);
-  let list = node[last];
+  let list = field(node, last);
   const listCreated = list == null;
   if (listCreated) {
     node[last] = [];
@@ -180,6 +183,7 @@ const applyInsert = (doc: record.Unknown, a: Insert): Action[] => {
 };
 
 const applyMove = (doc: record.Unknown, a: Move): Action[] => {
+  checkPath(a.path);
   if (!guardsHold(doc, a.guards)) return [];
   const found = descend(doc, a.path, false);
   if (found == null) return [];
@@ -225,9 +229,10 @@ const descend = (
       continue;
     }
     if (!narrow.isObject(node)) throw notContainer(path.slice(0, depth));
-    if (node[seg] == null) {
+    const child = field(node, seg);
+    if (child == null) {
       if (!create) return null;
-      created ??= { depth, wasNull: node[seg] === null };
+      created ??= { depth, wasNull: child === null };
       node[seg] = {};
     }
     node = node[seg];
@@ -244,7 +249,7 @@ const guardsHold = (doc: record.Unknown, guards: Guard[]): boolean =>
         const i = entryIndex(node, seg);
         if (i < 0) return false;
         node = node[i];
-      } else if (narrow.isObject(node)) node = node[seg];
+      } else if (narrow.isObject(node)) node = field(node, seg);
       else return false;
     return node === value;
   });
@@ -254,6 +259,18 @@ const undoCreate = (path: string[], created: Created, guards: Guard[]): Action =
   if (created.wasNull) return set(createdPath, null, guards);
   return remove(createdPath.slice(0, -1), createdPath[createdPath.length - 1], guards);
 };
+
+// A write to this field changes a prototype, so JavaScript cannot hold it as data.
+const PROTO_FIELD = "__proto__";
+
+const checkPath = (path: string[]): void => {
+  if (path.includes(PROTO_FIELD))
+    throw new Error(`${format(path)}: a path cannot name ${PROTO_FIELD}`);
+};
+
+/** @returns the field the object holds itself, never one that it inherits. */
+const field = (node: record.Unknown, name: string): unknown =>
+  Object.hasOwn(node, name) ? node[name] : undefined;
 
 const split = (path: string[]): [string[], string] => {
   if (path.length === 0) throw new Error("the path is empty");

@@ -11,7 +11,8 @@
 // into an object names a field, and a segment into a list names the key of an entry,
 // never an index. Actions change the document in place. An action whose guards fail, or
 // whose path goes through a missing list entry, does nothing. An action the document
-// cannot hold returns an error that wraps validate.ErrValidation.
+// cannot hold, or a path that names __proto__, returns an error that wraps
+// validate.ErrValidation.
 package patch
 
 import (
@@ -23,10 +24,18 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-const keyField = "key"
+const (
+	keyField = "key"
+	// protoField changes a prototype when a JavaScript client writes it, so a client
+	// cannot hold it as data.
+	protoField = "__proto__"
+)
 
 // Apply replaces the value at the path in doc.
 func (s Set) Apply(doc map[string]any) error {
+	if err := checkPath(s.Path); err != nil {
+		return err
+	}
 	parent, last, err := split(s.Path)
 	if err != nil {
 		return err
@@ -66,6 +75,9 @@ func (s Set) Apply(doc map[string]any) error {
 // Apply removes the entry with the key from the list at the path in doc, or the field
 // with the key from the object at the path.
 func (r Remove) Apply(doc map[string]any) error {
+	if err := checkPath(r.Path); err != nil {
+		return err
+	}
 	if ok, err := guardsHold(doc, r.Guards); !ok || err != nil {
 		return err
 	}
@@ -87,6 +99,9 @@ func (r Remove) Apply(doc map[string]any) error {
 // Apply inserts the entry into the list at the path in doc, creating the list when it
 // is absent.
 func (ins Insert) Apply(doc map[string]any) error {
+	if err := checkPath(ins.Path); err != nil {
+		return err
+	}
 	parent, last, err := split(ins.Path)
 	if err != nil {
 		return err
@@ -125,6 +140,9 @@ func (ins Insert) Apply(doc map[string]any) error {
 
 // Apply moves the entry with the key in the list at the path in doc.
 func (m Move) Apply(doc map[string]any) error {
+	if err := checkPath(m.Path); err != nil {
+		return err
+	}
 	if ok, err := guardsHold(doc, m.Guards); !ok || err != nil {
 		return err
 	}
@@ -239,6 +257,18 @@ func normalize(v any) (any, error) {
 		return nil, errors.Wrapf(validate.ErrValidation, "decoding value: %s", err)
 	}
 	return out, nil
+}
+
+func checkPath(path []string) error {
+	if slices.Contains(path, protoField) {
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"%s: a path cannot name %s",
+			format(path),
+			protoField,
+		)
+	}
+	return nil
 }
 
 func split(path []string) ([]string, string, error) {

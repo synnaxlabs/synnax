@@ -397,6 +397,71 @@
       "doc": { "channels": { "a": 1 } },
       "actions": [{ "type": "move", "path": ["channels"], "key": "a" }],
       "error": "the value is not a list"
+    },
+    {
+      "name": "set through __proto__ fails",
+      "doc": {},
+      "actions": [{ "type": "set", "path": ["__proto__", "polluted"], "value": 1 }],
+      "error": "a path cannot name __proto__"
+    },
+    {
+      "name": "set at __proto__ fails",
+      "doc": { "a": {} },
+      "actions": [{ "type": "set", "path": ["a", "__proto__"], "value": {} }],
+      "error": "a path cannot name __proto__"
+    },
+    {
+      "name": "remove through __proto__ fails",
+      "doc": {},
+      "actions": [{ "type": "remove", "path": ["__proto__"], "key": "a" }],
+      "error": "a path cannot name __proto__"
+    },
+    {
+      "name": "insert through __proto__ fails",
+      "doc": {},
+      "actions": [
+        { "type": "insert", "path": ["__proto__", "list"], "value": { "key": "a" } }
+      ],
+      "error": "a path cannot name __proto__"
+    },
+    {
+      "name": "move through __proto__ fails",
+      "doc": {},
+      "actions": [{ "type": "move", "path": ["__proto__"], "key": "a" }],
+      "error": "a path cannot name __proto__"
+    },
+    {
+      "name": "set creates a field named like an inherited member",
+      "doc": {},
+      "actions": [
+        { "type": "set", "path": ["constructor", "prototype", "polluted"], "value": 1 }
+      ],
+      "expected": { "constructor": { "prototype": { "polluted": 1 } } }
+    },
+    {
+      "name": "insert creates a list named like an inherited member",
+      "doc": {},
+      "actions": [{ "type": "insert", "path": ["toString"], "value": { "key": "a" } }],
+      "expected": { "toString": [{ "key": "a" }] }
+    },
+    {
+      "name": "remove skips a field named like an inherited member",
+      "doc": {},
+      "actions": [{ "type": "remove", "path": ["constructor"], "key": "a" }],
+      "expected": {}
+    },
+    {
+      "name": "a guard does not read an inherited member",
+      "doc": { "a": 1 },
+      "actions": [
+        {
+          "type": "set",
+          "path": ["a"],
+          "value": 2,
+          "guards": [{ "path": ["constructor", "name"], "value": "Object" }]
+        }
+      ],
+      "expected": { "a": 1 }
     }
   ]
 }
