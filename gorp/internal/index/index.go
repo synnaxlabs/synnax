@@ -229,14 +229,12 @@ func (a *announcements[K, V]) Announce(key K, value V) {
 	a.entries = append(a.entries, announcement[K, V]{key: key, value: value})
 }
 
-// Withdraw ends one Announce of key. Apply a finished write to committed state first,
-// so that a Committing call followed by Get misses no key.
-func (a *announcements[K, V]) Withdraw(key K) {
+// Withdraw ends one Announce of key and value. Apply a finished write to committed
+// state first, so that a Committing call followed by Get misses no key.
+func (a *announcements[K, V]) Withdraw(key K, value V) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	i := slices.IndexFunc(a.entries, func(e announcement[K, V]) bool {
-		return e.key == key
-	})
+	i := slices.Index(a.entries, announcement[K, V]{key: key, value: value})
 	a.entries = slices.Delete(a.entries, i, i+1)
 }
 

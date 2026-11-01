@@ -79,22 +79,35 @@ func (w *Writer[K, E]) set(ctx context.Context, entry E) error {
 		return err
 	}
 	v := w.keyCodec.Encode(entry.GorpKey())
-	// A DB commits inside Set, and observers run before Set returns. Announcing the
-	// entry lets their filters find it while the stored value stays visible to others.
-	direct := w.tx.txIdentity() == nil
-	if direct {
-		for _, idx := range w.indexes {
-			idx.announce(entry)
-		}
+	if w.tx.txIdentity() == nil {
+		return w.setDirect(ctx, v, data, entry)
 	}
-	err = w.tx.Set(ctx, v, data, entry.SetOptions()...)
+	if err := w.tx.Set(ctx, v, data, entry.SetOptions()...); err != nil {
+		return err
+	}
+	for _, idx := range w.indexes {
+		idx.stageSet(w.tx, entry)
+	}
+	return nil
+}
+
+// setDirect writes entry through a DB, which commits inside Set. Observers run before
+// Set returns, so announcing entry lets their filters find it while the stored value
+// stays visible to others.
+func (w *Writer[K, E]) setDirect(
+	ctx context.Context,
+	v, data []byte,
+	entry E,
+) error {
+	for _, idx := range w.indexes {
+		idx.announce(&entry)
+	}
+	err := w.tx.Set(ctx, v, data, entry.SetOptions()...)
 	for _, idx := range w.indexes {
 		if err == nil {
 			idx.stageSet(w.tx, entry)
 		}
-		if direct {
-			idx.withdraw(entry.GorpKey())
-		}
+		idx.withdraw(&entry)
 	}
 	return err
 }

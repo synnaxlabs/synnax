@@ -67,9 +67,9 @@ type Index[K Key, E Entry[K]] interface {
 	stageDelete(tx Tx, key K)
 	// announce shows entry to index filters while a write outside a transaction is in
 	// progress. Committed index state does not change.
-	announce(entry E)
-	// withdraw ends one announce of key.
-	withdraw(key K)
+	announce(entry *E)
+	// withdraw ends one announce of entry.
+	withdraw(entry *E)
 }
 
 // indexStore is the read side of the engine behind an index.
@@ -183,12 +183,14 @@ func (l *LookupIndex[K, E, V]) stageDelete(tx Tx, key K) {
 }
 
 //nolint:unused
-func (l *LookupIndex[K, E, V]) announce(entry E) {
-	l.store.Announce(entry.GorpKey(), l.extract(&entry))
+func (l *LookupIndex[K, E, V]) announce(entry *E) {
+	l.store.Announce((*entry).GorpKey(), l.extract(entry))
 }
 
 //nolint:unused
-func (l *LookupIndex[K, E, V]) withdraw(key K) { l.store.Withdraw(key) }
+func (l *LookupIndex[K, E, V]) withdraw(entry *E) {
+	l.store.Withdraw((*entry).GorpKey(), l.extract(entry))
+}
 
 // Get returns the primary keys of entries whose indexed field matches any of the
 // provided values, merging committed index state with any per-tx delta staged against
@@ -276,12 +278,14 @@ func (s *SortedIndex[K, E, V]) stageDelete(tx Tx, key K) {
 }
 
 //nolint:unused
-func (s *SortedIndex[K, E, V]) announce(entry E) {
-	s.store.Announce(entry.GorpKey(), s.extract(&entry))
+func (s *SortedIndex[K, E, V]) announce(entry *E) {
+	s.store.Announce((*entry).GorpKey(), s.extract(entry))
 }
 
 //nolint:unused
-func (s *SortedIndex[K, E, V]) withdraw(key K) { s.store.Withdraw(key) }
+func (s *SortedIndex[K, E, V]) withdraw(entry *E) {
+	s.store.Withdraw((*entry).GorpKey(), s.extract(entry))
+}
 
 // Get returns the primary keys of entries whose indexed field matches any of the
 // provided values, merging committed index state with any per-tx delta staged against
