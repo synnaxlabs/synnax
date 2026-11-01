@@ -349,11 +349,12 @@ func (db *DB) newStreamWriter(
 	}
 
 	w = &streamWriter{
-		WriterConfig: cfg,
-		internal:     make([]*idxWriter, 0, len(domainWriters)),
-		relay:        db.relay.inlet,
-		virtual:      &virtualWriter{internal: virtualWriters},
-		keyToIdx:     keyToIdx,
+		WriterConfig:       cfg,
+		internal:           make([]*idxWriter, 0, len(domainWriters)),
+		relay:              db.relay.inlet,
+		virtual:            &virtualWriter{internal: virtualWriters},
+		keyToIdx:           keyToIdx,
+		authorizeEndDomain: db.authorizeEndDomain,
 		updateDBControl: func(ctx context.Context, update ControlUpdate) {
 			db.mu.RLock()
 			defer db.mu.RUnlock()

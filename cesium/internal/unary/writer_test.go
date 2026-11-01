@@ -136,6 +136,184 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Expect(t.Occurred()).To(BeTrue())
 					},
 				)
+				Describe("EndDomain", func() {
+					open := func(
+						ctx SpecContext,
+						key string,
+						authority control.Authority,
+					) *unary.Writer {
+						GinkgoHelper()
+						w, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
+							Start:     10 * telem.SecondTS,
+							Subject:   control.Subject{Key: key},
+							Authority: authority,
+						}))
+						return w
+					}
+					boundedConfig := func(start telem.TimeStamp) unary.WriterConfig {
+						return unary.WriterConfig{
+							Start:     start,
+							Subject:   control.Subject{Key: "backfill"},
+							Authority: 1,
+							Bounded:   new(true),
+						}
+					}
+					It(
+						"Should start a new domain in a new alignment domain",
+						func(ctx SpecContext) {
+							w := open(ctx, "live", 2)
+							first := MustSucceed(
+								w.Write(telem.NewSeriesSecondsTSV(10, 11)),
+							)
+							MustSucceed(w.Commit(ctx))
+							Expect(w.EndDomain(ctx)).To(Succeed())
+							w.SetDomainStart(20 * telem.SecondTS)
+							second := MustSucceed(
+								w.Write(telem.NewSeriesSecondsTSV(20, 21)),
+							)
+							Expect(
+								second.DomainIndex(),
+							).To(BeNumerically(">", first.DomainIndex()))
+							Expect(second.SampleIndex()).To(BeZero())
+							Expect(db.WriteCursor(20 * telem.SecondTS)).
+								To(Equal(second.AddSamples(2)))
+							Expect(MustSucceed(w.Commit(ctx))).
+								To(Equal(21*telem.SecondTS + 1))
+							MustSucceed(w.Close())
+							Expect(MustSucceed(db.HasDataFor(
+								ctx,
+								(12 * telem.SecondTS).Range(20*telem.SecondTS),
+							))).To(BeFalse())
+						},
+					)
+					It(
+						"Should hold the time between the domains until the next write",
+						func(ctx SpecContext) {
+							w := open(ctx, "live", 2)
+							MustSucceed(w.Write(telem.NewSeriesSecondsTSV(10, 11)))
+							MustSucceed(w.Commit(ctx))
+							Expect(w.EndDomain(ctx)).To(Succeed())
+							Expect(db.OpenWriter(
+								ctx,
+								boundedConfig(15*telem.SecondTS),
+							)).Error().To(And(
+								MatchError(control.ErrUnauthorized),
+								MatchError(ContainSubstring(
+									"cannot access time range",
+								)),
+							))
+							w.SetDomainStart(20 * telem.SecondTS)
+							MustSucceed(w.Write(telem.NewSeriesSecondsTSV(20)))
+							MustSucceed(w.Commit(ctx))
+							backfill, _ := MustSucceed2(
+								db.OpenWriter(ctx, boundedConfig(15*telem.SecondTS)),
+							)
+							MustSucceed(
+								backfill.Write(telem.NewSeriesSecondsTSV(15, 16)),
+							)
+							MustSucceed(backfill.Commit(ctx))
+							MustSucceed(backfill.Write(telem.NewSeriesSecondsTSV(21)))
+							Expect(backfill.Commit(ctx)).Error().To(And(
+								MatchError(validate.ErrValidation),
+								MatchError(
+									ContainSubstring("cannot write to time range"),
+								),
+							))
+							MustSucceed(backfill.Close())
+							MustSucceed(w.Close())
+						},
+					)
+					It(
+						"Should do nothing when the domain holds no data",
+						func(ctx SpecContext) {
+							w := open(ctx, "live", 2)
+							Expect(w.EndDomain(ctx)).To(Succeed())
+							Expect(db.WriteCursor(10 * telem.SecondTS)).
+								To(Equal(alignment.Leading(1, 0)))
+							MustSucceed(w.Write(telem.NewSeriesSecondsTSV(10, 11)))
+							MustSucceed(w.Commit(ctx))
+							MustSucceed(w.Close())
+						},
+					)
+					It(
+						"Should fail while another writer holds control",
+						func(ctx SpecContext) {
+							low := open(ctx, "lo", 1)
+							high := open(ctx, "hi", 2)
+							MustSucceed(high.Write(telem.NewSeriesSecondsTSV(10, 11)))
+							MustSucceed(high.Commit(ctx))
+							Expect(low.EndDomain(ctx)).To(And(
+								MatchError(control.ErrUnauthorized),
+								MatchError(
+									ContainSubstring("has no control authority"),
+								),
+							))
+							MustSucceed(high.Write(telem.NewSeriesSecondsTSV(12)))
+							Expect(MustSucceed(high.Commit(ctx))).
+								To(Equal(12*telem.SecondTS + 1))
+							MustSucceed(high.Close())
+							MustSucceed(low.Close())
+						},
+					)
+					It("Should fail on a closed writer", func(ctx SpecContext) {
+						w := open(ctx, "live", 2)
+						MustSucceed(w.Close())
+						Expect(w.EndDomain(ctx)).To(MatchError(unary.ErrWriterClosed))
+					})
+				})
+
+				Describe("Control region start", func() {
+					It(
+						"Should move forward to the first sample",
+						func(ctx SpecContext) {
+							w, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
+								Start:     10 * telem.SecondTS,
+								Subject:   control.Subject{Key: "live"},
+								Authority: 2,
+							}))
+							w.SetDomainStart(20 * telem.SecondTS)
+							MustSucceed(w.Write(telem.NewSeriesSecondsTSV(20)))
+							Expect(db.Delete(
+								ctx,
+								(12 * telem.SecondTS).Range(15*telem.SecondTS),
+							)).To(Succeed())
+							Expect(db.Delete(
+								ctx,
+								(20 * telem.SecondTS).Range(21*telem.SecondTS),
+							)).To(MatchError(control.ErrUnauthorized))
+							MustSucceed(w.Close())
+						},
+					)
+					It(
+						"Should stay at the start of a domain the writer did not open",
+						func(ctx SpecContext) {
+							low, _ := MustSucceed2(
+								db.OpenWriter(ctx, unary.WriterConfig{
+									Start:     10 * telem.SecondTS,
+									Subject:   control.Subject{Key: "lo"},
+									Authority: 2,
+								}),
+							)
+							MustSucceed(low.Write(telem.NewSeriesSecondsTSV(10, 11)))
+							high, _ := MustSucceed2(
+								db.OpenWriter(ctx, unary.WriterConfig{
+									Start:     10 * telem.SecondTS,
+									Subject:   control.Subject{Key: "hi"},
+									Authority: 3,
+								}),
+							)
+							high.SetDomainStart(20 * telem.SecondTS)
+							MustSucceed(high.Write(telem.NewSeriesSecondsTSV(20)))
+							Expect(db.Delete(
+								ctx,
+								(10 * telem.SecondTS).Range(11*telem.SecondTS),
+							)).To(MatchError(control.ErrUnauthorized))
+							MustSucceed(high.Close())
+							MustSucceed(low.Close())
+						},
+					)
+				})
+
 				Describe("Bounded", func() {
 					openLive := func(
 						ctx SpecContext,

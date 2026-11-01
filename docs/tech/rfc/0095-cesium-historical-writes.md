@@ -51,8 +51,8 @@ commit fails. Three things need to write old data next to a live writer:
 ### 4.0 The claim of a persist writer
 
 A persist writer claims one nanosecond at its start
-(`cesium/internal/unary/writer.go:132`). Each commit moves the end of the claim forward
-to the end of the commit (`:446`). The first sample moves the start back if it comes
+(`cesium/internal/unary/writer.go:133`). Each commit moves the end of the claim forward
+to the end of the commit (`:481`). The first sample moves the start back if it comes
 before the start, as for any writer. Live writers do not change.
 
 | Case                                                     | Result                                         |
@@ -90,12 +90,20 @@ fails at its next commit if that commit reaches the operator's claim.
 Cesium stores a session as one domain, so a gap inside a session counts as stored data,
 even after the writer closes. Filling it needs the domain split and the claim moved.
 
-A new writer command ends the domain of one index. The domain writer commits, and the
-next sample of that index starts a new domain through the first-write path of RFC 0086.
-File rollover already splits a domain in a session, with the same alignment handling.
-The claim's start then moves forward to the new domain. A live writer's claim also moves
-forward to its first sample, so that a gap ends where the session's data starts and not
-at the open time.
+A new writer command (`Writer.EndDomain`) names indexes. For each one, the writer
+commits the index and its data channels, then ends their domains. The next sample of
+that index starts new domains through the first-write path of RFC 0086. A new domain
+takes a new alignment domain, so a live plot breaks its line at the outage.
+
+No lock covers an index and its data channels, so the command can lose one of them. The
+index ends last, and only if every data channel ended, because a data domain that
+outlives its index domain cannot resolve its samples. For the same reason, the command
+refuses an index whose data channel another writer holds.
+
+The first sample of any live domain moves the claim's start forward to it, whether the
+domain follows an end or opens a session. A gap then ends where the session's data
+starts, not at the open time. Until that sample arrives, the claim still holds the
+outage: the writer does not yet know where the outage ends.
 
 The command reaches Cesium and the Core framer only. Its one caller, the MQTT read task,
 runs in the Core.
@@ -115,11 +123,11 @@ needs no further Cesium work.
 
 ## 5 Implementation phases
 
-| Phase | Scope                                                     | Touches                                  | Depends on |
-| ----- | --------------------------------------------------------- | ---------------------------------------- | ---------- |
-| 1     | Let a non-streaming writer fill time behind a live writer | `cesium`, `client/py`, `site/docs`       | -          |
-| 2     | Add a writer command that ends a domain                   | `cesium`, `core/pkg/distribution/framer` | 1          |
-| 3     | Write Sparkplug B historical values in the MQTT read task | `core/pkg/service/mqtt`, `site/docs`     | 2          |
+| Phase | Scope                                                     | Touches                                                             | Depends on |
+| ----- | --------------------------------------------------------- | ------------------------------------------------------------------- | ---------- |
+| 1     | Let a non-streaming writer fill time behind a live writer | `cesium`, `client/py`, `site/docs`                                  | -          |
+| 2     | Add a writer command that ends a domain                   | `cesium`, `core/pkg/distribution/framer`, `core/pkg/service/framer` | 1          |
+| 3     | Write Sparkplug B historical values in the MQTT read task | `core/pkg/service/mqtt`, `site/docs`                                | 2          |
 
 ## 6 Resolved decisions
 

@@ -252,13 +252,18 @@ func (c *Controller[R]) OpenGate(
 	return reg.open(cfg)
 }
 
-func (c *Controller[R]) extend(r *region[R], start telem.TimeStamp) error {
+func (c *Controller[R]) moveStart(r *region[R], start telem.TimeStamp) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if !start.Before(r.timeRange.Start) {
-		return nil
+	if start.Before(r.timeRange.Start) {
+		return c.unsafeResize(r, start.Range(r.timeRange.End))
 	}
-	return c.unsafeResize(r, start.Range(r.timeRange.End))
+	r.Lock()
+	defer r.Unlock()
+	if !r.bounded && start.Before(r.timeRange.End) {
+		r.timeRange.Start = start
+	}
+	return nil
 }
 
 func (c *Controller[R]) reach(r *region[R], end telem.TimeStamp) error {
