@@ -11,7 +11,6 @@ import { ni, type task } from "@synnaxlabs/client";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { z } from "zod";
 
-import { createPortValidator } from "@/feature/ni/task/types/validation";
 import { Task } from "@/platform/task";
 
 export const PREFIX = "ni";
@@ -275,45 +274,6 @@ const deployReadRateShape = {
 
 const deployStateRateZ = z.number().positive().max(50000);
 
-const validateAnalogPorts = ({
-  value: channels,
-  issues,
-}: z.core.ParsePayload<{ port: number; disabled: boolean }[]>) => {
-  const portsToIndexMap = new Map<number, number>();
-  channels.forEach(({ port, disabled }, i) => {
-    if (disabled) return;
-    if (!portsToIndexMap.has(port)) {
-      portsToIndexMap.set(port, i);
-      return;
-    }
-    const index = portsToIndexMap.get(port) as number;
-    const code = "custom";
-    const message = `Port ${port} has already been used on another channel`;
-    issues.push({ code, message, path: [index, "port"], input: channels[index] });
-    issues.push({ code, message, path: [i, "port"], input: channels[i] });
-  });
-};
-
-const validateDigitalPortsAndLines = ({
-  value: channels,
-  issues,
-}: z.core.ParsePayload<DigitalChannel[]>) => {
-  const portLineToIndexMap = new Map<string, number>();
-  channels.forEach(({ line, port, disabled }, i) => {
-    if (disabled) return;
-    const key = `${port}/${line}`;
-    if (!portLineToIndexMap.has(key)) {
-      portLineToIndexMap.set(key, i);
-      return;
-    }
-    const index = portLineToIndexMap.get(key) as number;
-    const code = "custom";
-    const message = `Port ${port}, line ${line} has already been used on another channel`;
-    issues.push({ code, message, path: [index, "line"], input: channels[index] });
-    issues.push({ code, message, path: [i, "line"], input: channels[i] });
-  });
-};
-
 export const analogReadConfigZ = ni.analogReadConfigZ;
 
 export const deployAnalogReadConfigZ = ni.analogReadConfigZ
@@ -323,7 +283,6 @@ export const deployAnalogReadConfigZ = ni.analogReadConfigZ
       .array(ni.aiChannelZ)
       .check(Task.validateReadChannels)
       .check(Task.validateEnabledChannel)
-      .check(createPortValidator())
       .check(Task.validateChannelDevices),
   })
   .check(Task.validateStreamRate);
@@ -342,8 +301,6 @@ export const ANALOG_READ_SCHEMAS = {
 
 export type AnalogReadSchemas = typeof ANALOG_READ_SCHEMAS;
 
-const validateCounterPorts = createPortValidator("Counter");
-
 export const counterReadConfigZ = ni.counterReadConfigZ;
 
 export const deployCounterReadConfigZ = ni.counterReadConfigZ
@@ -353,7 +310,6 @@ export const deployCounterReadConfigZ = ni.counterReadConfigZ
       .array(ni.ciChannelZ)
       .check(Task.validateReadChannels)
       .check(Task.validateEnabledChannel)
-      .check(validateCounterPorts)
       .check(Task.validateChannelDevices),
   })
   .check(Task.validateStreamRate);
@@ -376,8 +332,7 @@ export const deployAnalogWriteConfigZ = ni.analogWriteConfigZ.extend({
   channels: z
     .array(ni.aoChannelZ)
     .check(Task.validateWriteChannels)
-    .check(Task.validateEnabledChannel)
-    .check(validateAnalogPorts),
+    .check(Task.validateEnabledChannel),
 });
 
 export const ANALOG_WRITE_TYPE = `${PREFIX}_analog_write`;
@@ -399,8 +354,7 @@ export const deployDigitalReadConfigZ = ni.digitalReadConfigZ
     channels: z
       .array(ni.diChannelZ)
       .check(Task.validateReadChannels)
-      .check(Task.validateEnabledChannel)
-      .check(validateDigitalPortsAndLines),
+      .check(Task.validateEnabledChannel),
   })
   .check(Task.validateStreamRate);
 
@@ -422,8 +376,7 @@ export const deployDigitalWriteConfigZ = ni.digitalWriteConfigZ.extend({
   channels: z
     .array(ni.doChannelZ)
     .check(Task.validateWriteChannels)
-    .check(Task.validateEnabledChannel)
-    .check(validateDigitalPortsAndLines),
+    .check(Task.validateEnabledChannel),
 });
 
 export const DIGITAL_WRITE_TYPE = `${PREFIX}_digital_write`;

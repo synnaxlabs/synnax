@@ -22,13 +22,7 @@ import { analogReadHardwareZ } from "@/feature/ni/task/checks";
 import { createNextAIChannel } from "@/feature/ni/task/createChannel";
 import { DetailsTitle as Title } from "@/feature/ni/task/DetailsTitle";
 import { getAIChannelDeviceKey } from "@/feature/ni/task/getAIChannelDeviceKey";
-import {
-  ANALOG_INPUT,
-  analogInputClaims,
-  analogInputHolds,
-  enabledFirst,
-  holdState,
-} from "@/feature/ni/task/ports";
+import { ANALOG_INPUT, holdState } from "@/feature/ni/task/ports";
 import { PortsView } from "@/feature/ni/task/PortsView";
 import {
   AI_CHANNEL_TYPE_ICONS,
@@ -104,7 +98,7 @@ const DetailsTitle = ({ path }: Task.Views.DetailsProps) => {
   const hardware = device?.properties.hardware;
   const Icon = AI_CHANNEL_TYPE_ICONS[value.type];
   const port = channelPort(value);
-  const claims = analogInputClaims(channels, value.device, hardware);
+  const own = channels.filter((c) => c.device === value.device);
   return (
     <Title
       port={
@@ -112,7 +106,7 @@ const DetailsTitle = ({ path }: Task.Views.DetailsProps) => {
           ? null
           : {
               label: String(port),
-              state: holdState(claims, analogInputHolds(value, hardware)),
+              state: holdState(ANALOG_INPUT, own, value, hardware),
               disabled: value.disabled,
             }
       }
@@ -135,7 +129,7 @@ const hasPortList = (devices: Device[]): boolean =>
 const Form: FC = () => {
   const [tare, allowTare, handleTare] = Task.useTare<AIChannel>();
   const devices = useByKeys(Task.useChannelDeviceKeys());
-  Task.useConfigCheck(devices == null ? null : analogReadHardwareZ(devices));
+  PForm.useCheck("config", devices == null ? null : analogReadHardwareZ(devices));
   const resolve = (ch: AIChannel) => {
     const dev = devices?.find(({ key }) => key === ch.device);
     if (dev == null) return null;
@@ -242,7 +236,7 @@ const onConfigure: Task.OnConfigure<typeof analogReadConfigZ> = async (
       const toCreate: AIChannel[] = [];
       // Channels on one port share its data channel, named by an enabled one if any.
       const seen = new Set<string>();
-      for (const channel of enabledFirst(config.channels)) {
+      for (const channel of Task.enabledFirst(config.channels)) {
         if (channel.device !== dev.key) continue;
         const key = getAIChannelDeviceKey(channel);
         if (seen.has(key)) continue;
@@ -288,13 +282,6 @@ export const AnalogRead = Task.wrapForm({
   Form,
   schemas: ANALOG_READ_SCHEMAS,
   deployConfigZ: deployAnalogReadConfigZ,
-  deviceConfigZ: async (client, config) =>
-    analogReadHardwareZ(
-      await client.devices.retrieve({
-        keys: unique.unique(config.channels.map(deviceOf)),
-        schemas: SCHEMAS,
-      }),
-    ),
   type: "ni_analog_read",
   getInitialValues,
   onConfigure,

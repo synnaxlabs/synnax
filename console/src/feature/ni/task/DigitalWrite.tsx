@@ -10,6 +10,7 @@
 import { channel, NotFoundError } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { errors, type optional, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
@@ -24,7 +25,7 @@ import {
   type DigitalNameComponentProps,
 } from "@/feature/ni/task/DigitalChannelList";
 import { getDigitalChannelDeviceKey } from "@/feature/ni/task/getDigitalChannelDeviceKey";
-import { digitalOutputName, enabledFirst } from "@/feature/ni/task/ports";
+import { digitalOutputName } from "@/feature/ni/task/ports";
 import { LinesView } from "@/feature/ni/task/PortsView";
 import {
   deployDigitalWriteConfigZ,
@@ -69,7 +70,7 @@ const name = Component.renderProp(NameComponent);
 
 const Form: FC = () => {
   const dev = useFromConfig();
-  Task.useConfigCheck(digitalHardwareZ(dev, "output"));
+  PForm.useCheck("config", digitalHardwareZ(dev, "output"));
   const resolve = (ch: DOChannel) => {
     if (dev == null) return null;
     const pair =
@@ -148,7 +149,7 @@ const onConfigure: Task.OnConfigure<typeof digitalWriteConfigZ> = async (
     const statesToCreate: DOChannel[] = [];
     // Channels on one port share its data channel, named by an enabled one if any.
     const seen = new Set<string>();
-    for (const channel of enabledFirst(config.channels)) {
+    for (const channel of Task.enabledFirst(config.channels)) {
       const key = getDigitalChannelDeviceKey(channel);
       if (seen.has(key)) continue;
       seen.add(key);
@@ -233,11 +234,6 @@ export const DigitalWrite = Task.wrapForm({
   Form,
   schemas: DIGITAL_WRITE_SCHEMAS,
   deployConfigZ: deployDigitalWriteConfigZ,
-  deviceConfigZ: async (client, config) =>
-    digitalHardwareZ(
-      await client.devices.retrieve({ key: config.device, schemas: SCHEMAS }),
-      "output",
-    ),
   getInitialValues,
   onConfigure,
   type: "ni_digital_write",

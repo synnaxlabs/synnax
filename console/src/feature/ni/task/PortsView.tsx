@@ -21,15 +21,12 @@ import { type MouseEvent, type ReactElement, type ReactNode } from "react";
 import { type Device, MAKE } from "@/feature/ni/device/types";
 import { type LinePlacement } from "@/feature/ni/task/createChannel";
 import {
-  type Claims,
-  describer,
+  claimsOf,
   digitalPorts,
   groups,
-  holdOf,
   lineClaims,
-  lineKey,
+  lineName,
   type PortKind,
-  usedCount,
 } from "@/feature/ni/task/ports";
 import { type DigitalChannel } from "@/feature/ni/task/types";
 import { ContextMenu } from "@/platform/context-menu";
@@ -39,6 +36,8 @@ import { Task } from "@/platform/task";
 const CHANNELS_PATH = "config.channels";
 
 const DEVICE_MENU_KEY = "device";
+
+const lineKey = (port: number, line: number): string => `${port}/${line}`;
 
 interface DeviceSectionProps {
   device: Device;
@@ -130,9 +129,9 @@ const DevicePorts = <C extends Task.Channel>({
 }: DevicePortsProps<C>): ReactElement => {
   const { hardware } = device.properties;
   const ports = hardware == null ? [] : kind.ports(hardware);
-  const claims: Claims =
-    hardware == null ? new Map() : kind.claims(channels, device.key, hardware);
-  const handleClick = (cell: Task.PortCell) => {
+  const claims = claimsOf(kind, channels, hardware);
+  const names = ports.map(({ port }) => `${kind.prefix}${port}`);
+  const handleClick = (cell: Task.Port.Cell) => {
     if (cell.channel != null) onSelect([cell.channel]);
     else if (editable) onAdd(Number(cell.key));
   };
@@ -142,7 +141,7 @@ const DevicePorts = <C extends Task.Channel>({
       usage={
         hardware == null
           ? "No port list yet"
-          : `${usedCount(ports, claims)} of ${ports.length} ports used`
+          : `${Task.Port.usedCount(names, claims)} of ${ports.length} ports used`
       }
       editable={editable}
       onAdd={(cell) => onAdd(cell == null ? undefined : Number(cell))}
@@ -150,14 +149,14 @@ const DevicePorts = <C extends Task.Channel>({
     >
       {(onContextMenu) =>
         hardware != null && (
-          <Task.PortGrid
+          <Task.Port.Grid
             label={`${device.name} ports`}
             groups={groups({
               ports,
               claims,
               prefix: kind.prefix,
               selected,
-              describe: describer(kind, channels, device),
+              describe: Task.Port.describer(channels, (c) => kind.name(c, device)),
             })}
             onClick={handleClick}
             onContextMenu={onContextMenu}
@@ -308,47 +307,34 @@ export const LinesView = <C extends DigitalChannel>({
     const [port, line] = cell.split("/").map(Number);
     return { port, line };
   };
-  const describe = (key: string) => {
-    const channel = channels.find((c) => c.key === key);
-    return channel == null ? "" : name(channel, device);
-  };
-  const cell = (port: number, line: number): Task.PortCell => {
-    const key = lineKey(port, line);
-    const list = claims.get(key) ?? [];
-    const { state, disabled, channel, names } = holdOf([list], describe);
-    const lineName = `port${port}/line${line}`;
-    let tooltip = `${lineName} is free`;
-    if (list.length === 1) tooltip = `${lineName}: ${names}`;
-    else if (list.length > 1) tooltip = `${lineName} is used by ${names}`;
-    return {
-      key,
-      name: lineName,
+  const describe = Task.Port.describer(channels, (c) => name(c, device));
+  const cell = (port: number, line: number): Task.Port.Cell =>
+    Task.Port.cell({
+      key: lineKey(port, line),
       labels: [String(line)],
       row: 1,
       column: line + 1,
-      state,
-      disabled,
-      selected: list.some((c) => selected.includes(c.channel)),
-      channel,
-      tooltip,
-    };
-  };
-  const handleClick = ({ key, channel }: Task.PortCell) => {
+      ports: [lineName(port, line)],
+      claims,
+      selected,
+      describe,
+    });
+  const handleClick = ({ key, channel }: Task.Port.Cell) => {
     if (channel != null) onSelect([channel]);
     else if (editable) add(parse(key));
   };
-  const lines = new Set(
-    ports.flatMap(({ port, lines: n }) =>
-      Array.from({ length: n }, (_, line) => lineKey(port, line)),
-    ),
+  const lines = ports.flatMap(({ port, lines: n }) =>
+    Array.from({ length: n }, (_, line) => lineName(port, line)),
   );
-  const used = [...claims.keys()].filter((k) => lines.has(k)).length;
+  const used = Task.Port.usedCount(lines, claims);
   return (
     <Flex.Box y empty className={CSS.B("ni-ports")}>
       <DeviceSection
         device={device}
         usage={
-          hardware == null ? "No port list yet" : `${used} of ${lines.size} lines used`
+          hardware == null
+            ? "No port list yet"
+            : `${used} of ${lines.length} lines used`
         }
         editable={editable}
         onAdd={(c) => add(c == null ? undefined : parse(c))}
@@ -364,7 +350,7 @@ export const LinesView = <C extends DigitalChannel>({
                 >
                   {`port${port}`}
                 </Text.Text>
-                <Task.PortGrid
+                <Task.Port.Grid
                   label={`port${port} lines`}
                   groups={[
                     {

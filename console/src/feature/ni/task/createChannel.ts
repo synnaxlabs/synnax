@@ -12,16 +12,14 @@ import { deep, id } from "@synnaxlabs/x";
 
 import { type Device } from "@/feature/ni/device/types";
 import {
-  analogInputClaims,
-  analogInputHolds,
-  analogInputPorts,
-  analogOutputPorts,
-  counterInputPorts,
+  ANALOG_INPUT,
+  ANALOG_OUTPUT,
+  claimsOf,
+  COUNTER_INPUT,
   digitalPorts,
   lineClaims,
-  lineKey,
+  lineName,
   lowestFreePort,
-  portClaims,
 } from "@/feature/ni/task/ports";
 import {
   type AIChannel,
@@ -79,10 +77,11 @@ export const createNextAIChannel = (
   if (!("port" in next)) return next;
   if (port != null) return { ...next, port };
   const hardware = hardwareOf(devices, next.device);
+  const own = channels.filter((c) => c.device === next.device);
   const free = lowestFreePort(
-    hardware == null ? null : analogInputPorts(hardware),
-    analogInputClaims(channels, next.device, hardware),
-    (p) => analogInputHolds({ ...next, port: p.port }, hardware),
+    hardware == null ? null : ANALOG_INPUT.ports(hardware),
+    claimsOf(ANALOG_INPUT, own, hardware),
+    (p) => ANALOG_INPUT.holds({ ...next, port: p.port }, hardware),
   );
   return { ...next, port: free };
 };
@@ -94,17 +93,19 @@ export const createNextAOChannel = (
   device?: Device,
 ): AOChannel => {
   const hardware = device?.properties.hardware;
-  return {
+  const next: AOChannel = {
     ...template(channels, createAOChannel(), copy),
     key: id.create(),
     ...Task.WRITE_CHANNEL_OVERRIDE,
-    port:
-      port ??
-      lowestFreePort(
-        hardware == null ? null : analogOutputPorts(hardware),
-        portClaims(channels),
-      ),
   };
+  next.port =
+    port ??
+    lowestFreePort(
+      hardware == null ? null : ANALOG_OUTPUT.ports(hardware),
+      claimsOf(ANALOG_OUTPUT, channels, hardware),
+      (p) => ANALOG_OUTPUT.holds({ ...next, port: p.port }),
+    );
+  return next;
 };
 
 /** Creates a counter channel on the lowest free counter of its device. */
@@ -120,11 +121,13 @@ export const createNextCIChannel = (
   };
   if (device != null) next.device = device;
   const hardware = hardwareOf(devices, next.device);
+  const own = channels.filter((c) => c.device === next.device);
   next.port =
     port ??
     lowestFreePort(
-      hardware == null ? null : counterInputPorts(hardware),
-      portClaims(channels.filter((c) => c.device === next.device)),
+      hardware == null ? null : COUNTER_INPUT.ports(hardware),
+      claimsOf(COUNTER_INPUT, own, hardware),
+      (p) => COUNTER_INPUT.holds({ ...next, port: p.port }),
     );
   return next;
 };
@@ -151,11 +154,11 @@ const createDigitalChannel = <C extends DigitalChannel>(
   for (const { port, lines } of ports) {
     if (placement.port != null && port !== placement.port) continue;
     for (let line = 0; line < lines; line++)
-      if (!taken.has(lineKey(port, line))) return { ...next, port, line };
+      if (!taken.has(lineName(port, line))) return { ...next, port, line };
   }
   const port = placement.port ?? channels.at(-1)?.port ?? next.port;
   let line = 0;
-  while (taken.has(lineKey(port, line))) line++;
+  while (taken.has(lineName(port, line))) line++;
   return { ...next, port, line };
 };
 
