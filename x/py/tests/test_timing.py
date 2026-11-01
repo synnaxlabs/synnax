@@ -16,6 +16,27 @@ from x.telem import Rate, TimeSpan
 from x.timing import Loop, Timer, poll, sleep
 
 
+class FakeClock:
+    """A clock that moves only when a caller sleeps on it or advances it. Each sleep
+    wakes late by a fixed lateness.
+    """
+
+    def __init__(self, *, lateness: TimeSpan = TimeSpan.ZERO) -> None:
+        self.time = 0
+        self.lateness = lateness.nanoseconds
+        self.sleeps: list[bool] = []
+
+    def now(self) -> int:
+        return self.time
+
+    def advance(self, span: TimeSpan) -> None:
+        self.time += span.nanoseconds
+
+    def sleep_until(self, deadline: int, *, precise: bool) -> None:
+        self.sleeps.append(precise)
+        self.time = max(self.time, deadline + self.lateness)
+
+
 @pytest.mark.timing
 class TestTiming:
     def test_sleep(self) -> None:
@@ -42,15 +63,13 @@ class TestTiming:
 
         assert sum(accumulated_precise) < sum(accumulated_standard)
 
-    def test_sleep_rate(self) -> None:
+    @pytest.mark.parametrize("precise", [False, True])
+    def test_sleep_rate(self, precise: bool) -> None:
         """Should convert a rate argument into the equivalent sleep duration."""
-        samples: list[int] = []
-        for _ in range(10):
-            t = Timer()
-            sleep(100 * Rate.HZ, precise=True)
-            samples.append(t.elapsed())
-        median = TimeSpan(int(np.median(samples)))
-        assert TimeSpan.MILLISECOND * 5 < median < TimeSpan.MILLISECOND * 20
+        clock = FakeClock()
+        sleep(100 * Rate.HZ, precise=precise, clock=clock)
+        assert clock.time == TimeSpan.MILLISECOND * 10
+        assert clock.sleeps == [precise]
 
     def test_poll_returns_value_when_condition_met(self) -> None:
         """Should return the non-None value when the condition is met."""
@@ -120,56 +139,63 @@ class TestTiming:
 class TestLoop:
     @pytest.mark.parametrize("precise", [False, True])
     def test_no_drift(self, precise: bool) -> None:
-        """Should hold the average rate over many iterations when the block takes a
-        large part of the interval.
+        """Should keep each iteration on the original schedule when the block takes a
+        large part of the interval and every sleep wakes late.
         """
         interval = TimeSpan.MILLISECOND * 10
-        count = 200
+        lateness = TimeSpan.MILLISECOND
+        clock = FakeClock(lateness=lateness)
         stamps: list[int] = []
-        start = time.perf_counter_ns()
-        with Loop(interval, precise=precise) as loop:
+        with Loop(interval, precise=precise, clock=clock) as loop:
             for _ in loop:
-                stamps.append(time.perf_counter_ns() - start)
-                if len(stamps) == count:
+                stamps.append(clock.now())
+                if len(stamps) == 200:
                     break
-                sleep(TimeSpan.MILLISECOND * 4, precise=True)
-        for i, stamp in enumerate(stamps):
-            assert stamp >= interval * (i + 1)
-        # A loop that slept one interval after the block would take 40% longer. The
-        # slack leaves room for stalls on a loaded CI runner.
-        assert stamps[-1] < interval * count * 1.2
+                clock.advance(TimeSpan.MILLISECOND * 4)
+        assert stamps == [interval * (i + 1) + lateness for i in range(200)]
+        assert clock.sleeps == [precise] * 200
 
     def test_catch_up_short_overrun(self) -> None:
         """Should return at once after an overrun shorter than the interval and keep the
         original schedule.
         """
-        # A schedule restarted after the overrun would end half an interval later, so
-        # the interval is long enough that a CI stall stays inside that margin.
         interval = TimeSpan.MILLISECOND * 200
-        start = time.perf_counter_ns()
-        with Loop(interval, precise=True) as loop:
+        clock = FakeClock()
+        with Loop(interval, clock=clock) as loop:
             loop.wait()
-            sleep(interval * 1.5, precise=True)
-            before = time.perf_counter_ns()
+            assert clock.now() == interval
+            clock.advance(interval * 1.5)
             loop.wait()
-            caught_up = time.perf_counter_ns() - before
+            assert clock.now() == interval * 2.5
+            assert len(clock.sleeps) == 1
             loop.wait()
-            elapsed = time.perf_counter_ns() - start
-        assert caught_up < interval * 0.5
-        assert interval * 3 <= elapsed < interval * 3.5
+            assert clock.now() == interval * 3
 
     def test_skip_missed_iterations(self) -> None:
         """Should drop the iterations missed by an overrun of more than one interval
         instead of running them in a burst.
         """
         interval = TimeSpan.MILLISECOND * 20
-        with Loop(interval, precise=True) as loop:
+        clock = FakeClock()
+        with Loop(interval, clock=clock) as loop:
             loop.wait()
-            sleep(interval * 3, precise=True)
+            clock.advance(interval * 3)
             loop.wait()
-            before = time.perf_counter_ns()
+            assert clock.now() == interval * 4
             loop.wait()
-            assert time.perf_counter_ns() - before >= interval * 0.9
+            assert clock.now() == interval * 5
+
+    def test_restart_schedule_on_enter(self) -> None:
+        """Should start the schedule when the loop is entered instead of created."""
+        interval = TimeSpan.MILLISECOND * 10
+        clock = FakeClock()
+        loop = Loop(interval, clock=clock)
+        clock.advance(interval * 5)
+        with loop:
+            loop.wait()
+        assert clock.now() == interval * 6
+        assert loop.counter == 1
+        assert loop.average == interval
 
     def test_count_iterations(self) -> None:
         """Should count each iteration and report the average time between them."""
