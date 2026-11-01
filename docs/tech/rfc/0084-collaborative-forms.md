@@ -216,7 +216,7 @@ the stored value again, and a notification shows the error with the path.
 ### 7.1 What the compiler does not check
 
 A path is an array of strings at compile time, so a typo such as
-`["config", "sampel_rate"]` compiles. It fails at run time, before anything is stored.
+`["config", "sampel_rate"]` compiles. It fails at run time, before the client sends it.
 The client throws when it computes guards for a path that the schema does not hold, and
 the Core refuses a member that the record does not declare.
 
@@ -388,11 +388,17 @@ One pull request delivers the whole design, with no flag. No stored format chang
    8, Kubernetes) stops lost edits but makes the second user enter the edit again. Locks
    (AVEVA, TIA Portal) stick, and Ignition removed them in version 8. Figma, Linear, and
    Sanity Studio resolve each field on its own. The trade is real (§9).
-2. **13.1 Generic path actions, not typed actions per field.** Sixteen task types and
-   about 30 NI channel types would need hundreds of action variants. Sanity Studio
-   patches forms with key-addressed paths too.
+2. **13.1 Generic path actions, not typed actions per field.** Typed actions give each
+   integration its own controller and editor, and the compiler checks more of an edit.
+   The 24 task types and about 30 NI channel types would need hundreds of action
+   variants, and the task API would change. This RFC keeps that API. The trade is real:
+   a typo in a path compiles (§7.1). Sanity Studio patches forms with key-addressed
+   paths too.
 3. **13.2 The Core applies actions to JSON and decodes once.** The strict decode is the
-   type check. Reflection setters and generated per-field setters add code for no gain.
+   type check. Generated per-field setters skip the JSON step, but each task type needs
+   its own. The trade is real: on a LabJack read task, a path action costs about twice
+   the Core time of a whole write, 0.29 ms against 0.15 ms at 20 channels, and 2.5 ms
+   against 1.0 ms at 200.
 4. **13.3 A stale variant edit does nothing.** A refusal shows an error the user cannot
    explain, and a Core-side rule to keep shared fields needs a Go copy of
    `overrideValidItems`. The trade is real (§9).
