@@ -11,12 +11,18 @@ package lineplot_test
 
 import (
 	"testing"
+	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	apilineplot "github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service"
+	"github.com/synnaxlabs/synnax/pkg/service/access"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
+	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/ontology"
+	"github.com/synnaxlabs/synnax/pkg/service/project"
 	svctestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	. "github.com/synnaxlabs/x/testutil"
@@ -32,19 +38,42 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 var (
 	svc    *service.Layer
 	apiSvc *apilineplot.Service
+	proj   project.Project
 	// author has no role assignments.
 	author user.User
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	node := testutil.NewNode(ctx)
-	svc = MustOpen(svctestutil.OpenLayer(ctx, node))
+	svc = MustOpen(svctestutil.OpenLayer(ctx, testutil.NewNode(ctx)))
 	apiSvc = MustSucceed(apilineplot.NewService(apilineplot.ServiceConfig{
-		LinePlot: svc.LinePlot,
 		RBAC:     svc.RBAC,
+		LinePlot: svc.LinePlot,
 	}))
+	proj = project.Project{Name: "test-project"}
+	Expect(svc.Project.NewWriter(nil).Create(ctx, &proj)).To(Succeed())
 	author = MustSucceed(svc.User.NewWriter(nil).Create(ctx, user.User{
 		Name: "author",
 	}))
 })
+
+// newCreator creates a user that may create line plots.
+func newCreator(ctx SpecContext) user.User {
+	GinkgoHelper()
+	u := MustSucceed(svc.User.NewWriter(nil).Create(ctx, user.User{
+		Name: "user-" + uuid.New().String(),
+	}))
+	roleWriter := svc.RBAC.Role.NewWriter(nil, true)
+	policyWriter := svc.RBAC.Policy.NewWriter(nil, true)
+	r := &role.Role{Name: "role-" + uuid.New().String(), Description: "test"}
+	Expect(roleWriter.Create(ctx, r)).To(Succeed())
+	p := &policy.Policy{
+		Name:    "policy-" + uuid.New().String(),
+		Objects: []ontology.ID{{Type: ontology.ResourceTypeLineplot}},
+		Actions: []access.Action{access.ActionCreate},
+	}
+	Expect(policyWriter.Create(ctx, p)).To(Succeed())
+	Expect(policyWriter.SetOnRole(ctx, r.Key, p.Key)).To(Succeed())
+	Expect(roleWriter.AssignRole(ctx, u.OntologyID(), r.Key)).To(Succeed())
+	return u
+}

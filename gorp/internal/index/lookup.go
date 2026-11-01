@@ -25,6 +25,7 @@ type Lookup[S Scope, K, V comparable] struct {
 	forward    map[V][]K
 	reverse    map[K]V
 	overlay    overlay[S, *delta[K, V]]
+	announcements[K, V]
 }
 
 // NewLookup returns an empty Lookup that waits for its bulk load.
@@ -107,6 +108,14 @@ func (l *Lookup[S, K, V]) Get(scope S, values ...V) ([]K, error) {
 		committed = append(committed, l.forward[v]...)
 	}
 	return mergeValues(&l.overlay, scope, committed, values), nil
+}
+
+// Committing returns the keys that a transaction in its commit or an announced write
+// maps to any of values. Get misses them until that write returns. The write can fail,
+// so a caller must check each key against storage. Call Committing before Get: a scope
+// leaves the overlay only after its flush, so the two reads together miss no key.
+func (l *Lookup[S, K, V]) Committing(values ...V) []K {
+	return l.appendKeys(committingKeys(&l.overlay, values), values)
 }
 
 func (l *Lookup[S, K, V]) put(key K, value V) {

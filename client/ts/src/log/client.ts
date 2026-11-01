@@ -16,6 +16,7 @@ import { createOf, kindOf, reduceAll } from "@/log/actions";
 import {
   type Action,
   dispatchReqZ,
+  dispatchResZ,
   rename as renameAction,
   scopedActionZ,
 } from "@/log/actions.gen";
@@ -47,7 +48,11 @@ export type RetrieveParams = RetrieveSingleParams | RetrieveMultipleParams;
 export type RetrieveSingleParams = { key: Key };
 export type RetrieveMultipleParams = RetrieveRequest;
 
-const createReqZ = z.object({ project: project.keyZ, logs: logZ.array() });
+const createReqZ = z.object({
+  project: project.keyZ,
+  dispatchKey: z.string(),
+  logs: logZ.array(),
+});
 const createResZ = z.object({ logs: logZ.array() });
 
 const emptyResZ = z.object({});
@@ -81,15 +86,9 @@ export class Client extends query.Retriever<
     const dispatcher = new actions.Controller<Key, Log, Action>({
       store,
       onError: cache.onError,
+      onEpoch: (callback) => cache.onEpoch(callback),
       reduce: reduceAll,
-      send: async (key, actions, dispatchKey) => {
-        await cfg.unary.send(
-          "/log/dispatch",
-          { key, dispatchKey, actions },
-          dispatchReqZ,
-          emptyResZ,
-        );
-      },
+      send: actions.sender(cfg.unary, "/log/dispatch", dispatchReqZ, dispatchResZ),
       kindOf,
       createOf,
     });
@@ -132,11 +131,15 @@ export class Client extends query.Retriever<
       rollbacks: [this.store.set(optimistic)],
       onOptimistic: () => opts.onOptimistic?.(optimistic),
       commit: async () =>
-        await this.cfg.unary.send(
-          "/log/create",
-          { project, logs: optimistic },
-          createReqZ,
-          createResZ,
+        await this.dispatcher.create(
+          optimistic.map(({ key }) => key),
+          async (dispatchKey) =>
+            await this.cfg.unary.send(
+              "/log/create",
+              { project, dispatchKey, logs: optimistic },
+              createReqZ,
+              createResZ,
+            ),
         ),
     });
     this.store.set(res.logs);

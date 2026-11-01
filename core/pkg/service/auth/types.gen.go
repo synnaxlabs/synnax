@@ -151,10 +151,7 @@ func (u *Proof) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		Type Method `json:"method"`
 	}
 	if err := json.Unmarshal(
-		data,
-		&disc,
-		opts,
-		json.RejectUnknownMembers(false),
+		data, &disc, opts, json.RejectUnknownMembers(false),
 	); err != nil {
 		return err
 	}
