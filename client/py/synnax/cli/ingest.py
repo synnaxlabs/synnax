@@ -19,6 +19,7 @@ from synnax.cli import channel, connect, default, flow
 from synnax.cli.flow import Context
 from synnax.cli.io import prompt_file
 from synnax.cli.telem import select_data_type
+from synnax.config import default_clusters
 from synnax.ingest import row
 from synnax.io import FACTORY, ChannelMeta, Factory, ReaderType, RowFileReader
 from synnax.telem import DataType, Rate, TimeRange, TimeStamp
@@ -112,7 +113,7 @@ def _initialize_reader(
 
 def _connect_client(ctx: Context, cli: _Flow) -> str | None:
     if cli.client is None:
-        cli.client = connect.from_context(ctx)
+        cli.client = connect.from_clusters(ctx, default_clusters())
     return "ingest_all" if cli.client else None
 
 

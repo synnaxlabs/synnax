@@ -125,22 +125,30 @@ func (u *WriteChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var disc struct {
 		Type WriteChannelType `json:"type"`
 	}
-	if err := json.Unmarshal(data, &disc, opts); err != nil {
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case EntryWriteChannelType:
-		var v EntryWriteChannel
+		var v struct {
+			Type WriteChannelType `json:"type"`
+			EntryWriteChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.EntryWriteChannel
 	case UnresolvedWriteChannelType:
-		var v UnresolvedWriteChannel
+		var v struct {
+			Type WriteChannelType `json:"type"`
+			UnresolvedWriteChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.UnresolvedWriteChannel
 	default:
 		return errors.Newf("WriteChannel: unknown type %q", disc.Type)
 	}

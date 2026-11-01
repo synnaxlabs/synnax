@@ -16,8 +16,16 @@ import (
 	v2 "github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/v2"
 )
 
-// MigrateWriteConfig lifts a v2 write config to v3. Each entry channel gets a stop
+// MigrateWriteChannel lifts a v2 write channel to v3. An entry channel gets a stop
 // value of 0.
+func MigrateWriteChannel(
+	ctx context.Context,
+	old v2.WriteChannel,
+) (WriteChannel, error) {
+	return autoMigrateWriteChannel(ctx, old)
+}
+
+// MigrateWriteConfig lifts a v2 write config to v3.
 func MigrateWriteConfig(ctx context.Context, old v2.WriteConfig) (WriteConfig, error) {
 	return autoMigrateWriteConfig(ctx, old)
 }

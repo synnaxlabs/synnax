@@ -28,7 +28,7 @@ func autoMigrateReadConfig(_ context.Context, old v2.ReadConfig) (ReadConfig, er
 
 func autoMigrateWriteConfig(ctx context.Context, old v2.WriteConfig) (WriteConfig, error) {
 	channels, err := lo.MapErr(old.Channels, func(v v2.WriteChannel, _ int) (WriteChannel, error) {
-		return autoMigrateWriteChannel(ctx, v)
+		return MigrateWriteChannel(ctx, v)
 	})
 	if err != nil {
 		return WriteConfig{}, err

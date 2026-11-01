@@ -21,8 +21,8 @@ import (
 	v2 "github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/v2"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/ethercat/versions/v3"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 var (

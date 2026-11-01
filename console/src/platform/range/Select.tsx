@@ -70,7 +70,7 @@ const StaticListItem = (
         parent={parent}
         timeRange={range.timeRange}
       />
-      <Telem.Text.TimeRange level="small">{range.timeRange}</Telem.Text.TimeRange>
+      <Telem.Text.TimeRange level="tiny">{range.timeRange}</Telem.Text.TimeRange>
     </Select.Item>
   );
 };

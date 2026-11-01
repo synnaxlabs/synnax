@@ -7,6 +7,7 @@ import { Image, Video } from "@/components/media/Media";
 import { Releases } from "@/components/releases";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { mdxOverrides } from "@/components/mdxOverrides";
+import { Keys } from "@/components/keys/Keys";
 
 export const components = mdxOverrides;
 
@@ -74,7 +75,8 @@ every spike is on screen, and each line gets a few thousand points for any range
 
 - **Zoom in** -> finer data loads, and the coarse data stays until it arrives. Zoom far
   enough to see single samples.
-- **Pan past the range** -> the plot loads the data there. **Ctrl**-click to go back.
+- **Pan past the range** -> the plot loads the data there. <Keys trigger={["Control",
+  "MouseLeft"]} /> to go back.
 - **Live data** -> streams at full rate and draws the same way as stored data.
 
 For 10 lines of 1 kHz data, a frame of an hour view takes 0.6 ms of CPU time instead of
