@@ -272,6 +272,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/range/set-end",
 		),
+		RangeDispatch: unary[ranger.DispatchRequest, struct{}](
+			router,
+			"/api/v1/range/dispatch",
+		),
 
 		// KV
 		KVGet:    unary[kv.GetRequest, kv.GetResponse](router, "/api/v1/range/kv/get"),
@@ -473,6 +477,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/label/remove",
 		),
+		LabelDispatch: unary[label.DispatchRequest, struct{}](
+			router,
+			"/api/v1/label/dispatch",
+		),
 
 		// RACK
 		RackCreate: unary[rack.CreateRequest, rack.CreateResponse](
@@ -512,6 +520,10 @@ func Bind(layer *api.Layer, router *http.Router) {
 		TaskRename: unary[task.RenameRequest, struct{}](
 			router,
 			"/api/v1/task/rename",
+		),
+		TaskDispatch: unary[task.DispatchRequest, task.DispatchResponse](
+			router,
+			"/api/v1/task/dispatch",
 		),
 
 		// DEVICE
