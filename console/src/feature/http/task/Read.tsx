@@ -27,7 +27,7 @@ import { type FC } from "react";
 
 import { useFromConfig } from "@/feature/http/device/queries";
 import { Select as SelectDevice } from "@/feature/http/device/Select";
-import { SCHEMAS } from "@/feature/http/device/types";
+import { MAKE, SCHEMAS } from "@/feature/http/device/types";
 import { EndpointLabel } from "@/feature/http/task/EndpointLabel";
 import { TimeFormatField } from "@/feature/http/task/TimeFormatField";
 import {
@@ -62,9 +62,7 @@ const Properties = () => (
         label="Rate"
         inputProps={RATE_INPUT_PROPS}
       />
-      <Task.Fields.DataSaving />
-      <Task.Fields.AutoStart />
-      <PForm.SwitchField
+      <PForm.CheckboxField
         label="NaN fill"
         path="config.nanFillEnabled"
         inputProps={NAN_FILL_INPUT_PROPS}
@@ -511,6 +509,7 @@ export const Read = Task.wrapForm({
 
 export const useCreateRead = Task.createUseCreate({
   getInitialValues,
+  deviceMake: MAKE,
 });
 
 export const ReadSelectable = Selector.createSelectable({

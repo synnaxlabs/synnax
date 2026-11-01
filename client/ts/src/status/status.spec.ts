@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { color, id, TimeStamp, uuid } from "@synnaxlabs/x";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 import z from "zod";
 
 import { group } from "@/group";
@@ -691,6 +691,43 @@ describe("Status", () => {
       });
 
       expect(results).toHaveLength(0);
+    });
+  });
+
+  describe("onWrite", () => {
+    const createListener = async () => {
+      const local = createTestClient();
+      onTestFinished(async () => await local.close());
+      await local.connect();
+      await waitForStreamLive(local.connection);
+      const handler = vi.fn<(written: status.Status) => void>();
+      onTestFinished(local.statuses.onWrite(handler));
+      const keys = () => handler.mock.calls.map(([written]) => written.key);
+      return { local, keys };
+    };
+
+    const createStatus = async (): Promise<status.Status> =>
+      await client.statuses.set({
+        key: id.create(),
+        name: "onWrite",
+        variant: "warning",
+        message: "Written",
+        time: TimeStamp.now(),
+      });
+
+    it("should call the handler with a status another client writes", async () => {
+      const { keys } = await createListener();
+      const written = await createStatus();
+      await expect.poll(keys).toContain(written.key);
+    });
+
+    it("should skip a status that a retrieve brings into the cache", async () => {
+      const fetched = await createStatus();
+      const { local, keys } = await createListener();
+      await local.statuses.retrieve({ key: fetched.key });
+      const later = await createStatus();
+      await expect.poll(keys).toContain(later.key);
+      expect(keys()).not.toContain(fetched.key);
     });
   });
 
