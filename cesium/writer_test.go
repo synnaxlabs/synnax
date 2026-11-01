@@ -26,7 +26,6 @@ import (
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/alignment"
 	"github.com/synnaxlabs/cesium/internal/channel"
-	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/index"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/cesium/internal/unary"
@@ -4194,13 +4193,9 @@ var _ = Describe("Writer Behavior", func() {
 						live := openLive(ctx)
 						Expect(live.Write(frame(10, 12))).To(BeTrue())
 						Expect(live.EndDomain(idx)).To(BeTrue())
-						Expect(live.Write(frame(11))).Error().To(And(
-							MatchError(domain.ErrWriteConflict),
-							MatchError(ContainSubstring(
-								"cannot start writer because there is already data",
-							)),
-						))
-						Expect(live.Close()).To(MatchError(domain.ErrWriteConflict))
+						Expect(live.Write(frame(11))).Error().
+							To(MatchError(unary.ErrOutOfOrder))
+						Expect(live.Close()).To(MatchError(unary.ErrOutOfOrder))
 					},
 				)
 			})
@@ -4297,7 +4292,7 @@ var _ = Describe("Writer Behavior", func() {
 					Expect(err).To(MatchError(ContainSubstring("same length")))
 				})
 
-				Specify("Commit error across many channels", func(ctx SpecContext) {
+				Specify("Index error across many channels", func(ctx SpecContext) {
 					var (
 						idxKey   = GenerateChannelKey()
 						channels = []cesium.Channel{{
@@ -4337,14 +4332,14 @@ var _ = Describe("Writer Behavior", func() {
 					write(10*telem.SecondTS, 11*telem.SecondTS)
 					MustSucceed(w.Commit())
 					write(5*telem.SecondTS, 6*telem.SecondTS)
-					matchOneCommitError := And(
-						MatchError(validate.ErrValidation),
+					matchOneError := And(
+						MatchError(unary.ErrOutOfOrder),
 						WithTransform(func(err error) int {
-							return strings.Count(err.Error(), "must not be less than")
+							return strings.Count(err.Error(), "index out of order")
 						}, Equal(1)),
 					)
-					Expect(w.Commit()).Error().To(matchOneCommitError)
-					Expect(w.Close()).To(matchOneCommitError)
+					Expect(w.Commit()).Error().To(matchOneError)
+					Expect(w.Close()).To(matchOneError)
 				})
 
 				Context("Missing Channel", func() {
