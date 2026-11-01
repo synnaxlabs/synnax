@@ -35,15 +35,6 @@ var _ = Describe("Doc", func() {
 			Expect(d.Render()).To(Equal("First\n\nSecond"))
 		})
 
-		It("Should skip empty blocks in rendering", func() {
-			d := doc.New(
-				doc.Paragraph("First"),
-				doc.List(),
-				doc.Paragraph("Second"),
-			)
-			Expect(d.Render()).To(Equal("First\n\nSecond"))
-		})
-
 		It("Should skip a Paragraph with empty string in rendering", func() {
 			d := doc.New(
 				doc.Paragraph("First"),
@@ -156,54 +147,10 @@ var _ = Describe("Doc", func() {
 		})
 	})
 
-	Describe("Error", func() {
-		It("Should render error without code", func() {
-			e := doc.Error("Type mismatch")
-			Expect(e.Render()).To(Equal("**Error**: Type mismatch"))
-		})
-
-		It("Should render error with code", func() {
-			e := doc.ErrorWithCode("E001", "Type mismatch")
-			Expect(e.Render()).To(Equal("**Error E001**: Type mismatch"))
-		})
-	})
-
 	Describe("Hint", func() {
 		It("Should render hint with italic label", func() {
 			h := doc.Hint("Use explicit cast: i32(value)")
 			Expect(h.Render()).To(Equal("_Hint_: Use explicit cast: i32(value)"))
-		})
-	})
-
-	Describe("Fix", func() {
-		It("Should render fix without code", func() {
-			f := doc.Fix("Remove the unused variable", "", "arc")
-			Expect(f.Render()).To(Equal("**Fix**: Remove the unused variable"))
-		})
-
-		It("Should render fix with code example", func() {
-			f := doc.Fix("Cast the value explicitly", "i32(myFloat)", "arc")
-			expected := "**Fix**: Cast the value explicitly\n\n```arc\ni32(myFloat)\n```"
-			Expect(f.Render()).To(Equal(expected))
-		})
-	})
-
-	Describe("List", func() {
-		It("Should render empty list as empty string", func() {
-			l := doc.List()
-			Expect(l.Render()).To(Equal(""))
-		})
-
-		It("Should render unordered list", func() {
-			l := doc.List("First item", "Second item", "Third item")
-			expected := "- First item\n- Second item\n- Third item"
-			Expect(l.Render()).To(Equal(expected))
-		})
-
-		It("Should render ordered list", func() {
-			l := doc.OrderedList("Step one", "Step two", "Step three")
-			expected := "1. Step one\n2. Step two\n3. Step three"
-			Expect(l.Render()).To(Equal(expected))
 		})
 	})
 
@@ -243,16 +190,6 @@ var _ = Describe("Doc", func() {
 				doc.Detail("Range", "-2147483648 to 2147483647", false),
 			)
 			expected := "#### i32\n##### Type\n\nSigned 32-bit integer.\n\nRange: -2147483648 to 2147483647"
-			Expect(d.Render()).To(Equal(expected))
-		})
-
-		It("Should render error diagnostic documentation", func() {
-			d := doc.New(
-				doc.ErrorWithCode("E001", "Type mismatch"),
-				doc.Paragraph("Cannot assign f64 to i32."),
-				doc.Hint("Use explicit cast: i32(value)"),
-			)
-			expected := "**Error E001**: Type mismatch\n\nCannot assign f64 to i32.\n\n_Hint_: Use explicit cast: i32(value)"
 			Expect(d.Render()).To(Equal(expected))
 		})
 

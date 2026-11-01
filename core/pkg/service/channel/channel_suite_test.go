@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -40,7 +40,7 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 
 // serviceConfig builds a channel ServiceConfig for the node, opening the ontology,
 // group, label, and status services the channel service depends on.
-func serviceConfig(ctx context.Context, node mock.Node) channel.ServiceConfig {
+func serviceConfig(ctx context.Context, node testutil.Node) channel.ServiceConfig {
 	GinkgoHelper()
 	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: node.DB}))
 	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
@@ -74,7 +74,7 @@ func serviceConfig(ctx context.Context, node mock.Node) channel.ServiceConfig {
 // Extra configs override the derived distribution-layer fields.
 func openService(
 	ctx context.Context,
-	node mock.Node,
+	node testutil.Node,
 	cfgs ...channel.ServiceConfig,
 ) (*channel.Service, *ontology.Ontology) {
 	GinkgoHelper()
@@ -88,7 +88,7 @@ func openService(
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	node := mock.NewNode(ctx)
+	node := testutil.NewNode(ctx)
 	db = node.DB
 	svc, _ = openService(ctx, node)
 	channelWriter = svc.NewWriter(nil)

@@ -8,10 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { renderHook } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { Form } from "@/form";
+import { createLocalStore } from "@/form/testutil";
 
 const create = <Z extends z.ZodType>(values: z.infer<Z>, schema?: Z) => {
   const touched = { current: false };
@@ -79,6 +80,43 @@ const verdictValues = {
   extra: {},
   nested: { ssn: "1" },
 } as VerdictValues;
+
+interface Tracked {
+  channels: { key: string; port: number }[];
+  config: { type: "a"; value: string } | { type: "b"; value?: string };
+}
+
+const trackedSchema = z.object({
+  channels: z.array(z.object({ key: z.string(), port: z.number() })),
+  config: z.discriminatedUnion("type", [
+    z.object({ type: z.literal("a"), value: z.string().min(1) }),
+    z.object({ type: z.literal("b"), value: z.string().optional() }),
+  ]),
+});
+
+const createTrackedStore = () =>
+  createLocalStore<Tracked>({
+    channels: [
+      { key: "a", port: 1 },
+      { key: "b", port: 2 },
+    ],
+    config: { type: "a", value: "v" },
+  });
+
+const createTracked = () => {
+  const store = createTrackedStore();
+  const touched = { current: false };
+  const onHasTouched = (value: boolean) => {
+    touched.current = value;
+  };
+  const hook = renderHook(
+    ({ store }) => Form.use({ store, schema: trackedSchema, onHasTouched }),
+    { initialProps: { store } },
+  );
+  const handleChange = vi.fn();
+  hook.result.current.bind(handleChange);
+  return { store, form: hook.result.current, handleChange, touched, hook };
+};
 
 describe("use", () => {
   describe("constructor", () => {
@@ -404,10 +442,11 @@ describe("use", () => {
 
     it("should clear every status when no path is given", () => {
       const state = create(initialValues, basicSchema);
-      state.setStatus("name", { key: "name", variant: "error", message: "Taken" });
-      state.setStatus("age", { key: "age", variant: "warning", message: "Old" });
+      state.setStatus("name", { key: "name", variant: "error", message: "e" });
+      state.setStatus("email", { key: "email", variant: "error", message: "e" });
       state.clearStatuses();
-      expect(state.getStatuses()).toEqual([]);
+      expect(state.get("name").status.variant).toBe("success");
+      expect(state.get("email").status.variant).toBe("success");
     });
 
     describe("external statuses", () => {
@@ -564,6 +603,180 @@ describe("use", () => {
     });
   });
 
+  describe("keyed lists", () => {
+    interface Keyed {
+      channels: { key: string; port: number }[];
+    }
+    const createKeyed = (): Keyed => ({
+      channels: [
+        { key: "a", port: 1 },
+        { key: "b", port: 2 },
+      ],
+    });
+    const keysOf = (state: Form.UseReturn<z.ZodType<Keyed>>): string[] =>
+      state.value().channels.map(({ key }) => key);
+
+    it("should insert an entry after the named entry", () => {
+      const state = create<z.ZodType<Keyed>>(createKeyed());
+      state.insert("channels", { key: "c", port: 3 }, "a");
+      expect(keysOf(state)).toEqual(["a", "c", "b"]);
+      expect(state.get("channels").touched).toBe(true);
+    });
+
+    it("should refresh a field whose index an insert shifts", () => {
+      const state = create<z.ZodType<Keyed>>(createKeyed());
+      expect(state.get("channels.0.port").value).toBe(1);
+      state.insert("channels", { key: "c", port: 3 });
+      expect(state.get("channels.0.port").value).toBe(3);
+    });
+
+    it("should move an entry and refresh the fields it shifts", () => {
+      const state = create<z.ZodType<Keyed>>(createKeyed());
+      expect(state.get("channels.0.port").value).toBe(1);
+      state.move("channels", "b");
+      expect(keysOf(state)).toEqual(["b", "a"]);
+      expect(state.get("channels.0.port").value).toBe(2);
+    });
+
+    it("should clear the touched flag when a move restores the list", () => {
+      const state = create<z.ZodType<Keyed>>(createKeyed());
+      state.move("channels", "b");
+      state.move("channels", "a");
+      expect(state.get("channels").touched).toBe(false);
+    });
+
+    it("should mark the list touched when it removes an entry", () => {
+      const state = create<z.ZodType<Keyed>>(createKeyed());
+      state.remove("channels.a");
+      expect(keysOf(state)).toEqual(["b"]);
+      expect(state.get("channels").touched).toBe(true);
+    });
+  });
+
+  describe("batch", () => {
+    it("should make every write in the batch one store change", () => {
+      const store = createLocalStore(initialValues);
+      const { result } = renderHook(() => Form.use({ store, schema: basicSchema }));
+      const state = result.current;
+      const handleChange = vi.fn();
+      store.onChange(handleChange);
+      state.batch(() => {
+        state.set("name", "Jane");
+        state.set("age", 30);
+      });
+      expect(handleChange).toHaveBeenCalledTimes(1);
+      expect(state.get("name").value).toBe("Jane");
+      expect(state.get("age").value).toBe(30);
+    });
+  });
+
+  describe("listen", () => {
+    it("should refresh a field that another writer changes", () => {
+      const { store, form, handleChange } = createTracked();
+      expect(form.get("channels.b.port").value).toBe(2);
+      store.set("channels.b.port", 3);
+      expect(form.get("channels.b.port").value).toBe(3);
+      expect(handleChange).toHaveBeenCalledTimes(1);
+    });
+
+    it("should clear a status from setStatus when another writer changes its value", () => {
+      const { store, form } = createTracked();
+      const taken = {
+        key: "channels.b.port",
+        variant: "error" as const,
+        message: "Taken",
+      };
+      form.setStatus("channels.b.port", taken);
+      store.set("channels.b.port", 3);
+      expect(form.get("channels.b.port").status.variant).toBe("success");
+    });
+
+    it("should keep the state of a field that the change does not reach", () => {
+      const { store, form } = createTracked();
+      const prev = form.get("channels.a.port");
+      store.set("channels.b.port", 3);
+      expect(form.get("channels.a.port")).toBe(prev);
+    });
+
+    it("should refresh a field whose discriminator another writer changes", () => {
+      const { store, form } = createTracked();
+      expect(form.get("config.value").required).toBe(true);
+      store.set("config", { type: "b" });
+      expect(form.get("config.value").required).toBe(false);
+    });
+
+    it("should refresh a field that another writer removes", () => {
+      const { store, form } = createTracked();
+      expect(form.get("channels.0.port").value).toBe(1);
+      store.remove("channels.a");
+      expect(form.get("channels.0.port").value).toBe(2);
+    });
+
+    it("should notify once for its own write", () => {
+      const { form, handleChange } = createTracked();
+      form.set("channels.a.port", 5);
+      expect(handleChange).toHaveBeenCalledTimes(1);
+    });
+
+    it("should catch up on a change made before it listens", () => {
+      const store = createTrackedStore();
+      const handleChange = vi.fn();
+      let primed = false;
+      const { result } = renderHook(() => {
+        const form = Form.use({ store, schema: trackedSchema });
+        if (!primed) {
+          primed = true;
+          form.bind(handleChange);
+          expect(form.get("channels.b.port").value).toBe(2);
+          store.set("channels.b.port", 3);
+        }
+        return form;
+      });
+      expect(handleChange).toHaveBeenCalledTimes(1);
+      expect(result.current.get("channels.b.port").value).toBe(3);
+    });
+
+    it("should stop following after the form unmounts", () => {
+      const { store, handleChange, hook } = createTracked();
+      hook.unmount();
+      store.set("channels.b.port", 3);
+      expect(handleChange).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("store", () => {
+    it("should read another store with its values as the initial ones", () => {
+      const { form, handleChange, touched, hook } = createTracked();
+      form.set("channels.a.port", 5);
+      expect(touched.current).toBe(true);
+      handleChange.mockClear();
+      const next = createLocalStore<Tracked>({
+        channels: [{ key: "c", port: 9 }],
+        config: { type: "b" },
+      });
+      hook.rerender({ store: next });
+      expect(handleChange).toHaveBeenCalledTimes(1);
+      expect(form.get("channels.0.port").value).toBe(9);
+      expect(touched.current).toBe(false);
+      form.set("channels.0.port", 1);
+      form.reset();
+      expect(form.value()).toEqual({
+        channels: [{ key: "c", port: 9 }],
+        config: { type: "b" },
+      });
+    });
+
+    it("should report no change for the store it already reads", () => {
+      const { store, form, handleChange, touched, hook } = createTracked();
+      form.set("channels.a.port", 5);
+      handleChange.mockClear();
+      hook.rerender({ store });
+      expect(handleChange).not.toHaveBeenCalled();
+      expect(touched.current).toBe(true);
+      expect(form.get("channels.a.port").value).toBe(5);
+    });
+  });
+
   describe("validate", () => {
     it("should return true for valid data", () => {
       const state = create(initialValues, basicSchema);
@@ -605,13 +818,23 @@ describe("use", () => {
       expect(state.get("email").status.variant).toBe("success");
     });
 
-    it("should keep the status object of a field whose result did not change", () => {
+    it("should keep the state object of a field whose error did not change", () => {
       const state = create(initialValues, basicSchema);
       state.set("email", "invalid");
-      const status = state.get("email").status;
-      expect(status.variant).toBe("error");
+      state.validate();
+      const before = state.get("email");
       state.set("name", "Jane Doe");
-      expect(state.get("email").status).toBe(status);
+      state.validate();
+      expect(state.get("email")).toBe(before);
+    });
+
+    it("should give a field a new state object when its error changes", () => {
+      const state = create({ ...initialValues, age: -1 }, basicSchema);
+      state.validate();
+      expect(state.get("age").status.message).toBe("Age must be positive");
+      state.set("age", 200);
+      state.validate();
+      expect(state.get("age").status.message).toBe("Age must be realistic");
     });
 
     it("should return true when no schema is provided", () => {
@@ -842,6 +1065,39 @@ describe("use", () => {
         state.get("nested.leaf");
         state.set("nested", { leaf: "m" });
         expect(state.get("nested.leaf").value).toBe("m");
+      });
+
+      describe("a change elsewhere in the form", () => {
+        const buildNested = () => {
+          let checks = 0;
+          const schema = z.object({
+            name: z.string(),
+            config: z.object({
+              tracked: z.string().check(() => {
+                checks++;
+              }),
+            }),
+          });
+          const state = create({ name: "a", config: { tracked: "a" } }, schema);
+          state.get("config.tracked");
+          return { state, checks: () => checks };
+        };
+        type Nested = ReturnType<typeof buildNested>["state"];
+
+        it.each([
+          ["a write", (s: Nested) => s.set("name", "b")],
+          [
+            "setStatus",
+            (s: Nested) =>
+              s.setStatus("name", { key: "name", variant: "error", message: "e" }),
+          ],
+        ])("should not consult the schema for a field after %s", (_, change) => {
+          const { state, checks } = buildNested();
+          change(state);
+          const before = checks();
+          state.get("config.tracked");
+          expect(checks()).toBe(before);
+        });
       });
 
       it("should refresh every field on reset", () => {

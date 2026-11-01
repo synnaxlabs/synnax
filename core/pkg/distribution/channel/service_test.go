@@ -15,8 +15,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
-	tmock "github.com/synnaxlabs/synnax/pkg/distribution/transport/mock/channel"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
+	tmock "github.com/synnaxlabs/synnax/pkg/distribution/transport/testutil/channel"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -24,7 +24,7 @@ import (
 // populated ServiceConfig backed by its host resolver, key-value store, time-series
 // database, and a fresh in-memory channel transport.
 func validServiceConfig(ctx context.Context) channel.ServiceConfig {
-	node := mock.NewNode(ctx)
+	node := testutil.NewNode(ctx)
 	return channel.ServiceConfig{
 		HostResolver: node.Cluster,
 		KV:           node.DB,

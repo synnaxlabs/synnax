@@ -134,11 +134,13 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	if cfg.Signals != nil {
 		var sig stdio.Closer
-		if sig, err = actions.PublishSignals(ctx, actions.SignalsConfig[Key, Action]{
-			Provider: cfg.Signals,
-			State:    s.state,
-			Name:     "schematic",
-		}); !ok(err, sig) {
+		if sig, err = cfg.Signals.PublishActions(
+			ctx,
+			signals.ActionPublisherConfig[Key, Action]{
+				Observable: s.state,
+				Name:       "schematic",
+			},
+		); !ok(err, sig) {
 			return nil, err
 		}
 		deleteCfg := signals.GorpPublisherConfigUUID(s.table.Observe())
@@ -160,7 +162,7 @@ func (s *Service) Close() error { return s.closer.Close() }
 func (s *Service) OnAction(
 	handler func(context.Context, actions.Scoped[Key, Action]),
 ) observe.Disconnect {
-	return s.state.OnAction(handler)
+	return s.state.OnChange(handler)
 }
 
 // Dispatch applies a sequence of actions atomically to the schematic with the given
@@ -176,25 +178,31 @@ func (s *Service) Dispatch(
 	dispatchKey string,
 	acts []Action,
 ) error {
-	return s.state.Dispatch(ctx, key, dispatchKey, acts, func(tx gorp.Tx) error {
-		return s.table.NewUpdate().Where(gorp.MatchKeys[Key, Schematic](key)).
-			ChangeErr(func(_ gorp.Context, sch Schematic) (Schematic, error) {
-				if sch.Snapshot {
-					for _, a := range acts {
-						if a.Type != ActionTypeRename {
-							return sch, errors.Wrapf(
-								validate.ErrValidation,
-								"[Schematic] - cannot dispatch %s on snapshot %s:%s",
-								a.Type,
-								key,
-								sch.Name,
-							)
+	return s.state.Dispatch(
+		ctx,
+		key,
+		dispatchKey,
+		acts,
+		func(tx gorp.Tx) ([]Action, error) {
+			return nil, s.table.NewUpdate().Where(gorp.MatchKeys[Key, Schematic](key)).
+				ChangeErr(func(_ gorp.Context, sch Schematic) (Schematic, error) {
+					if sch.Snapshot {
+						for _, a := range acts {
+							if a.Type != ActionTypeRename {
+								return sch, errors.Wrapf(
+									validate.ErrValidation,
+									"[Schematic] - cannot dispatch %s on snapshot %s:%s",
+									a.Type,
+									key,
+									sch.Name,
+								)
+							}
 						}
 					}
-				}
-				return Reduce(sch, acts...)
-			}).Exec(ctx, tx)
-	})
+					return Reduce(sch, acts...)
+				}).Exec(ctx, tx)
+		},
+	)
 }
 
 // NewWriter opens a new writer for creating, updating, and deleting schematics in

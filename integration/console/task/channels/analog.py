@@ -10,7 +10,7 @@
 from typing import Literal
 
 from console.layout import LayoutClient
-from console.task.channels.utils import is_numeric_string
+from console.task.channels.utils import get_port, is_numeric_string, set_port
 
 
 class Analog:
@@ -76,10 +76,10 @@ class Analog:
 
         # Optional configurations
         if port is not None:
-            layout.fill_input_field("Port", str(port))
+            set_port(layout, port)
             values["Port"] = str(port)
         else:
-            values["Port"] = layout.get_input_field("Port")
+            values["Port"] = get_port(layout)
 
         if terminal_config is not None:
             layout.click_btn("Terminal configuration")
@@ -131,6 +131,8 @@ class Analog:
             actual_value: str | bool
             if isinstance(expected_value, bool):
                 actual_value = self.layout.get_toggle(key)
+            elif key == "Port":
+                actual_value = get_port(self.layout)
             elif is_numeric_string(expected_value):
                 # Match by accessible name: range inputs have no visible label.
                 actual_value = self.layout.page.get_by_label(

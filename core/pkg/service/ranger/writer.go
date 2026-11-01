@@ -15,22 +15,30 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/gorp"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
-	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
 // Writer is used to create ranges within the DB.
 type Writer struct {
-	tx        gorp.Tx
-	otgWriter ontology.Writer
-	otg       *ontology.Ontology
-	label     *label.Service
-	table     *gorp.Table[Key, Range]
+	tx         gorp.Tx
+	otgWriter  ontology.Writer
+	otg        *ontology.Ontology
+	label      *label.Service
+	table      *gorp.Table[Key, Range]
+	dispatcher actions.Dispatcher[Key, Action]
+}
+
+// WithDispatchKey returns a copy of the writer that stamps dispatchKey onto the
+// broadcasts it emits, so the client that sent the write recognizes its own echo.
+func (w Writer) WithDispatchKey(dispatchKey string) Writer {
+	w.dispatcher = w.dispatcher.WithDispatchKey(dispatchKey)
+	return w
 }
 
 // Create creates or updates the given range. If r.Parent is non-nil, the range is
@@ -43,6 +51,8 @@ type Writer struct {
 // defined from the range to each label; existing relationships are preserved. If the
 // range does not already have a key, a new key will be assigned. If the range already
 // exists and r.Parent is non-nil, the existing parent relationship will be replaced.
+// After the transaction commits, Create broadcasts a create action that carries the
+// stored range, without its labels or parent.
 func (w Writer) Create(ctx context.Context, r *Range) error {
 	if r.Key == uuid.Nil() {
 		r.Key = uuid.New()
@@ -63,6 +73,14 @@ func (w Writer) Create(ctx context.Context, r *Range) error {
 	if err = w.table.NewCreate().Entry(r).Exec(ctx, w.tx); err != nil {
 		return err
 	}
+	created := *r
+	created.Labels, created.Parent = nil, nil
+	w.dispatcher.NotifyOnCommit(
+		ctx,
+		w.tx,
+		r.Key,
+		NewCreateAction(CreatePayload{Range: created}),
+	)
 	otgID := r.OntologyID()
 	if err = w.otgWriter.DefineResources(ctx, otgID); err != nil {
 		return err
@@ -131,38 +149,23 @@ func (w Writer) CreateMany(ctx context.Context, ranges *[]Range) error {
 	return nil
 }
 
-// Rename renames the range with the given key. It returns query.ErrNotFound if no range
-// with the key exists and a validation error if name is empty.
-func (w Writer) Rename(ctx context.Context, key Key, name string) error {
-	v := validate.New("ranger.range")
-	v.NotEmptyString("name", name)
-	if err := v.Error(); err != nil {
-		return err
-	}
-	return w.table.
-		NewUpdate().
-		Where(gorp.MatchKeys[Key, Range](key)).
-		Change(func(_ gorp.Context, r Range) Range { r.Name = name; return r }).
-		Exec(ctx, w.tx)
-}
-
-// SetEnd sets the end bound of the range with the given key, preserving all other
-// fields. Returns query.ErrNotFound if no range with the key exists.
-func (w Writer) SetEnd(ctx context.Context, key Key, end telem.TimeStamp) error {
+// apply applies the actions to the range with the given key and stores the result.
+func (w Writer) apply(ctx context.Context, key Key, acts []Action) error {
 	return w.table.
 		NewUpdate().
 		Where(gorp.MatchKeys[Key, Range](key)).
 		ChangeErr(func(_ gorp.Context, r Range) (Range, error) {
-			if end.Before(r.TimeRange.Start) {
-				return r, errors.Wrapf(
-					validate.ErrValidation,
-					"range end %v cannot precede its start %v",
-					end,
-					r.TimeRange.Start,
-				)
+			next, err := Reduce(r, acts...)
+			if err != nil {
+				return Range{}, err
 			}
-			r.TimeRange.End = end
-			return r, nil
+			if err = next.Validate(); err != nil {
+				return Range{}, err
+			}
+			if err = w.validate(next); err != nil {
+				return Range{}, err
+			}
+			return next, nil
 		}).
 		Exec(ctx, w.tx)
 }
