@@ -200,6 +200,12 @@ export class Client extends query.Retriever<
 
   private async fetchRequest({ parent, ...req }: MultipleRequest): Promise<Group[]> {
     if (parent == null) return await this.execRetrieve(req);
+    const { searchTerm = "", limit, offset } = req;
+    // The ontology endpoint reads a zero limit as no limit.
+    if (limit === 0) return [];
+    // The Core checks access on every child it returns, so a page must stay a page.
+    if (req.where == null && searchTerm === "")
+      return await this.fetchChildren(parent, { limit, offset });
     const keys = (await this.fetchChildren(parent)).map((g) => g.key);
     if (keys.length === 0) return [];
     const children: Where = { key: { in: keys } };
@@ -207,9 +213,13 @@ export class Client extends query.Retriever<
     return await this.execRetrieve({ ...req, where });
   }
 
-  private async fetchChildren(parent: ontology.ID): Promise<Group[]> {
+  private async fetchChildren(
+    parent: ontology.ID,
+    page: { limit?: number; offset?: number } = {},
+  ): Promise<Group[]> {
     const res = await this.requireOntology().children.retrieve({
       ids: parent,
+      ...page,
       types: ["group"],
     });
     const groups = res.map((r) => zod.parse(groupZ, r.data, { label: "group" }));
