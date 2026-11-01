@@ -11,9 +11,8 @@ import { DataType, id, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { type channel } from "@/channel";
-import { type RetrieveMultipleParams } from "@/control/client";
-import { type KeyedState } from "@/control/state";
-import { NotFoundError } from "@/errors";
+import { type control } from "@/control";
+import { NotFoundError } from "@/index";
 import { query } from "@/query";
 import { createTestClient } from "@/testutil";
 
@@ -26,8 +25,10 @@ const createVirtual = async () =>
     virtual: true,
   });
 
-const keysOf = (states: query.Cached<KeyedState[]> | undefined): channel.Key[] =>
-  query.isLive<KeyedState[]>(states) ? states.map(({ key }) => key) : [];
+const keysOf = (
+  states: query.Cached<control.KeyedState[]> | undefined,
+): channel.Key[] =>
+  query.isLive<control.KeyedState[]>(states) ? states.map(({ key }) => key) : [];
 
 describe("control client", () => {
   describe("retrieve", () => {
@@ -91,7 +92,7 @@ describe("control client", () => {
   describe("onChange", () => {
     it("should deliver a live transfer when no keys are given", async () => {
       const ch = await createVirtual();
-      const all: RetrieveMultipleParams = {};
+      const all: control.RetrieveMultipleParams = {};
       const off = client.control.onChange(all, () => {});
       try {
         await client.control.retrieve(all);
@@ -115,7 +116,7 @@ describe("control client", () => {
     it("should not deliver a live transfer for an empty key set", async () => {
       const ch = await createVirtual();
       const none: channel.Key[] = [];
-      const all: RetrieveMultipleParams = {};
+      const all: control.RetrieveMultipleParams = {};
       const delivered: channel.Key[][] = [];
       const offNone = client.control.onChange(none, (states) =>
         delivered.push(keysOf(states)),

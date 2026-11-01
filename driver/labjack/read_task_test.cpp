@@ -24,7 +24,7 @@ TEST(TestReadChannelParse, testAIChan) {
     const x::json::json cfg{
         {"port", "AIN0"},
         {"disabled", false},
-        {"key", "8hYJO9zt6eS"},
+        {"key", "ain0"},
         {"channel", 1},
         {"type", "analog"},
         {"range", 5},
@@ -46,7 +46,7 @@ TEST(TestReadChannelParse, testDIChan) {
     const x::json::json cfg{
         {"port", "DIO0"},
         {"disabled", false},
-        {"key", "8hYJO9zt6eS"},
+        {"key", "ain0"},
         {"channel", 1},
         {"type", "digital"}
     };
@@ -65,7 +65,7 @@ TEST(TestReadChannelParse, testTCChan) {
     const x::json::json cfg{
         {"port", "AIN3"},
         {"disabled", false},
-        {"key", "8hYJO9zt6eS"},
+        {"key", "ain0"},
         {"channel", 0},
         {"type", "thermocouple"},
         {"range", 0},
@@ -99,7 +99,7 @@ TEST(TestReadChannelParse, testInvalidChannelType) {
     const x::json::json cfg{
         {"port", "AIN0"},
         {"disabled", false},
-        {"key", "8hYJO9zt6eS"},
+        {"key", "ain0"},
         {"channel", 1},
         {"type", "INVALID_TYPE"}, // Invalid channel type
         {"range", 5},
@@ -163,7 +163,7 @@ x::json::json basic_read_task_config() {
          x::json::json::array(
              {{{"port", "AIN0"},
                {"disabled", false},
-               {"key", "8hYJO9zt6eS"},
+               {"key", "ain0"},
                {"channel", 0},
                {"type", "thermocouple"},
                {"range", 0},
@@ -176,12 +176,12 @@ x::json::json basic_read_task_config() {
                {"cjc_offset", 0}},
               {{"port", "DIO4"},
                {"disabled", false},
-               {"key", "DYFpBBDlpRt"},
+               {"key", "dio4"},
                {"channel", 0},
                {"type", "digital"}},
               {{"port", "AIN6"},
                {"disabled", false},
-               {"key", "rHb0YjmhUq3"},
+               {"key", "ain6"},
                {"channel", 0},
                {"type", "analog"},
                {"range", 0},
@@ -290,7 +290,7 @@ TEST(TestReadTaskConfigParse, testInvalidChannelTypeInConfig) {
     j["channels"] = x::json::json::array(
         {{{"port", "AIN0"},
           {"disabled", false},
-          {"key", "8hYJO9zt6eS"},
+          {"key", "ain0"},
           {"channel", ch.key},
           {"type", "UNKNOWN_CHANNEL_TYPE"}, // Invalid channel type
           {"range", 5}}}
@@ -326,7 +326,7 @@ TEST(TestReadTaskConfigParse, testLabJackDriverSetsAutoCommitTrue) {
     j["channels"] = x::json::json::array(
         {{{"port", "AIN0"},
           {"disabled", false},
-          {"key", "8hYJO9zt6eS"},
+          {"key", "ain0"},
           {"channel", ch.key},
           {"type", "analog"},
           {"range", 5},
@@ -371,7 +371,7 @@ protected:
             j["channels"] = x::json::json::array(
                 {{{"port", "AIN0"},
                   {"disabled", false},
-                  {"key", "8hYJO9zt6eS"},
+                  {"key", "ain0"},
                   {"channel", ch.key},
                   {"type", "thermocouple"},
                   {"range", 0},
@@ -387,7 +387,7 @@ protected:
             j["channels"] = x::json::json::array(
                 {{{"port", "AIN0"},
                   {"disabled", false},
-                  {"key", "8hYJO9zt6eS"},
+                  {"key", "ain0"},
                   {"channel", ch.key},
                   {"type", "analog"},
                   {"range", 5},
@@ -510,5 +510,41 @@ TEST_F(SourceClaimTest, testStreamSourceReadReclaimsAfterFailedRestart) {
     ASSERT_NIL(res.error);
     EXPECT_EQ(devs->acquire_call_count, 3);
     ASSERT_NIL(source.stop());
+}
+
+/// @brief it should hold no device after a failed restart, so a later stop cannot end
+/// the stream of another task on the shared handle.
+TEST_F(SourceClaimTest, testStreamSourceFailedRestartHoldsNoDevice) {
+    parse_config(false);
+    const auto mock = std::make_shared<device::Mock>();
+    devs->dev = mock;
+    StreamSource source(devs, std::move(*cfg));
+    ASSERT_NIL(source.start());
+    EXPECT_EQ(mock.use_count(), 3);
+    mock->set_should_fail(true);
+    ASSERT_OCCURRED_AS(source.restart(true), x::errors::Error("mock failure"));
+    EXPECT_EQ(mock.use_count(), 2);
+}
+
+/// @brief it should refuse a second stream on one device, write nothing to the device,
+/// and leave the first stream running.
+TEST_F(SourceClaimTest, testStreamSourceSecondStartLeavesFirstStreamRunning) {
+    parse_config(false);
+    auto first_cfg = std::move(this->cfg);
+    parse_config(false);
+    const auto mock = std::make_shared<device::Mock>();
+    devs->dev = mock;
+    StreamSource first(devs, std::move(*first_cfg));
+    StreamSource second(devs, std::move(*cfg));
+    ASSERT_NIL(first.start());
+    const auto writes = mock->write_count();
+    EXPECT_GT(writes, 0);
+    ASSERT_OCCURRED_AS(second.start(), ljm::STREAM_IS_ACTIVE);
+    EXPECT_EQ(mock->write_count(), writes);
+    ASSERT_NIL(second.stop());
+    ASSERT_OCCURRED_AS(second.start(), ljm::STREAM_IS_ACTIVE);
+    ASSERT_NIL(first.stop());
+    ASSERT_NIL(second.start());
+    ASSERT_NIL(second.stop());
 }
 }

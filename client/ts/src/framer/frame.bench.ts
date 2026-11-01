@@ -10,8 +10,8 @@
 import { allocSuite } from "@synnaxlabs/x/bench";
 import { test } from "vitest";
 
-import { createKeys, createPayload } from "@/framer/benchutil";
-import { Frame } from "@/framer/frame";
+import { framer } from "@/framer";
+import { createKeys, createPayload } from "@/framer/testutil";
 
 const CHANNEL_COUNTS = [10, 100, 1000];
 
@@ -21,7 +21,7 @@ test("from payload", async ({ bench }) => {
     ...CHANNEL_COUNTS.map((n) => {
       const payload = createPayload(createKeys(n), 10);
       return bench(`${n}ch`, () => {
-        new Frame(payload);
+        new framer.Frame(payload);
       });
     }),
   );
@@ -32,7 +32,7 @@ test("get", async ({ bench }) => {
   await bench.compare(
     ...CHANNEL_COUNTS.flatMap((n) => {
       const keys = createKeys(n);
-      const frame = new Frame(createPayload(keys, 10));
+      const frame = new framer.Frame(createPayload(keys, 10));
       return [
         bench(`one key of ${n}ch`, () => {
           frame.get(keys[n - 1]);
@@ -48,9 +48,9 @@ test("get", async ({ bench }) => {
 {
   const keys = createKeys(100);
   const payload = createPayload(keys, 10);
-  const frame = new Frame(payload);
+  const frame = new framer.Frame(payload);
   allocSuite("frame 100ch x 10smp", [
-    ["from payload", () => new Frame(payload)],
+    ["from payload", () => new framer.Frame(payload)],
     ["get one key", () => void frame.get(keys[99])],
     [
       "get all keys",

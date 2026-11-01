@@ -12,12 +12,11 @@ import { DataType, Series, sleep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { type channel } from "@/channel";
-import { NotFoundError, UnexpectedError } from "@/errors";
-import { type framer } from "@/framer";
+import { framer } from "@/framer";
 import { Joins } from "@/framer/cache/join";
 import { Store } from "@/framer/cache/store";
 import { MultiplexedStreamer, type StreamHooks } from "@/framer/cache/streamer";
-import { Frame } from "@/framer/frame";
+import { NotFoundError, UnexpectedError } from "@/index";
 
 // Returns the stores a streamer writes into, with no join that can wait.
 const createCache = (store: Store = new Store()) => ({
@@ -333,7 +332,7 @@ describe("MultiplexedStreamer", () => {
             i++;
             return {
               done: false,
-              value: new Frame({
+              value: new framer.Frame({
                 1: new Series({
                   data: new Float32Array([1]),
                   alignment: BigInt(i),
@@ -357,7 +356,7 @@ describe("MultiplexedStreamer", () => {
     });
 
     it("should deliver the series of a key a frame repeats together", async () => {
-      const frame = new Frame(
+      const frame = new framer.Frame(
         [1, 1],
         [
           new Series({ data: new Float32Array([1]), alignment: 0n }),
@@ -641,7 +640,7 @@ describe("MultiplexedStreamer", () => {
 
   describe("repair", () => {
     it("should reopen the stream when the run loop ends while demand remains", async () => {
-      const frame = new Frame({ 1: new Series(new Float32Array([1])) });
+      const frame = new framer.Frame({ 1: new Series(new Float32Array([1])) });
       // The first streamer delivers one frame and then reports done, simulating a
       // stream that dies. The streamer must detect the dead loop and reopen.
       const dying = new MockStreamer([1], undefined, [frame]);
@@ -699,7 +698,7 @@ describe("MultiplexedStreamer", () => {
           i++;
           return {
             done: false,
-            value: new Frame({
+            value: new framer.Frame({
               1: new Series({ data: new Float32Array([1]), alignment: BigInt(i) }),
             }),
           };
@@ -801,7 +800,7 @@ describe("MultiplexedStreamer", () => {
     });
 
     it("should run the drop handlers when the run loop dies", async () => {
-      const frame = new Frame({ 1: new Series(new Float32Array([1])) });
+      const frame = new framer.Frame({ 1: new Series(new Float32Array([1])) });
       const dying = new MockStreamer([1], undefined, [frame]);
       const streamer = new MultiplexedStreamer({
         ...createCache(),
@@ -937,7 +936,7 @@ describe("MultiplexedStreamer", () => {
       const streamer = new MultiplexedStreamer({
         ...cache,
         openStreamer: createStreamOpener([
-          oneFrameStreamer([1], new Frame({ 1: createTimestamps() })),
+          oneFrameStreamer([1], new framer.Frame({ 1: createTimestamps() })),
         ]),
         removalDelay: TimeSpan.milliseconds(50),
       });
@@ -963,7 +962,7 @@ describe("MultiplexedStreamer", () => {
         openStreamer: createStreamOpener([
           oneFrameStreamer(
             [1, 2],
-            new Frame([1, 2], [createTimestamps(), createTimestamps()]),
+            new framer.Frame([1, 2], [createTimestamps(), createTimestamps()]),
           ),
         ]),
         removalDelay: TimeSpan.milliseconds(50),
@@ -990,7 +989,7 @@ describe("MultiplexedStreamer", () => {
       const streamer = new MultiplexedStreamer({
         ...cache,
         openStreamer: createStreamOpener(
-          [oneFrameStreamer([1], new Frame({ 1: createTimestamps() }))],
+          [oneFrameStreamer([1], new framer.Frame({ 1: createTimestamps() }))],
           hooks,
         ),
       });
@@ -1009,7 +1008,7 @@ describe("MultiplexedStreamer", () => {
       const cache = createJoined(1);
       const { store } = cache;
       const dying = new MockStreamer([1], undefined, [
-        new Frame({ 1: createTimestamps() }),
+        new framer.Frame({ 1: createTimestamps() }),
       ]);
       const replacement = pendingStreamer([1]);
       const streamer = new MultiplexedStreamer({
@@ -1036,7 +1035,7 @@ describe("MultiplexedStreamer", () => {
           await sleep.sleep(TimeSpan.milliseconds(5));
           return {
             done: false,
-            value: new Frame({ 1: new Series(new Float32Array([1])) }),
+            value: new framer.Frame({ 1: new Series(new Float32Array([1])) }),
           };
         }
         // A streamer whose read never returns: the run loop can never drain, so the
