@@ -118,13 +118,11 @@ class StagelessWorkflow(ArcCase):
                 "sw_a has no buffered value; cannot verify gate held. "
                 "Streamer did not deliver any reading after trigger."
             )
-            return
         if a_value != 1:
             self.fail(
                 f"sw_a={a_value} after wait elapsed but expression gate "
                 "should still be blocking; sequence should not have advanced"
             )
-            return
         self.log("Sequence correctly held at expression gate")
 
         self.log("Driving sw_pressure=75 (above gate threshold)")
