@@ -10,10 +10,15 @@
 package graph_test
 
 import (
+	"fmt"
+	"slices"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/compiler"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/group"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -214,6 +219,100 @@ var _ = Describe("Graph", func() {
 			grouped := g.CalculateGrouped()
 			Expect(grouped).To(HaveLen(1))
 		})
+
+		It(
+			"Should order the independent members of a group by key",
+			func(ctx SpecContext) {
+				base := channel.Channel{
+					Name:     "base_order",
+					DataType: telem.Int64T,
+					Virtual:  true,
+				}
+				Expect(channelWriter.Create(ctx, &base)).To(Succeed())
+				calcs := make([]channel.Channel, 8)
+				for i := range calcs {
+					calcs[i] = channel.Channel{
+						Name:       fmt.Sprintf("calc_order_%d", i),
+						DataType:   telem.Int64T,
+						Virtual:    true,
+						Expression: "return base_order + 1",
+					}
+				}
+				Expect(channelWriter.CreateMany(ctx, &calcs)).To(Succeed())
+				for _, calc := range calcs {
+					Expect(g.Add(ctx, calc)).To(Succeed())
+				}
+				keys := channel.KeysFromChannels(calcs)
+				slices.Sort(keys)
+				for range 10 {
+					grouped := g.CalculateGrouped()
+					Expect(grouped).To(HaveLen(1))
+					for _, mods := range grouped {
+						Expect(lo.Map(mods, func(m compiler.Module, _ int) channel.Key {
+							return m.Channel.Key()
+						})).To(Equal([]channel.Key(keys)))
+					}
+				}
+			},
+		)
+
+		It(
+			"Should order the dependencies of a nested member by key",
+			func(ctx SpecContext) {
+				base := channel.Channel{
+					Name:     "base_nested_order",
+					DataType: telem.Int64T,
+					Virtual:  true,
+				}
+				Expect(channelWriter.Create(ctx, &base)).To(Succeed())
+				calcs := []channel.Channel{
+					{
+						Name:       "calc_nested_order_a",
+						DataType:   telem.Int64T,
+						Virtual:    true,
+						Expression: "return base_nested_order",
+					},
+					{
+						Name:       "calc_nested_order_b",
+						DataType:   telem.Int64T,
+						Virtual:    true,
+						Expression: "return base_nested_order + 1",
+					},
+					{
+						Name:       "calc_nested_order_c",
+						DataType:   telem.Int64T,
+						Virtual:    true,
+						Expression: "return base_nested_order + 2",
+					},
+				}
+				Expect(channelWriter.CreateMany(ctx, &calcs)).To(Succeed())
+				for _, calc := range calcs {
+					Expect(g.Add(ctx, calc)).To(Succeed())
+				}
+				calcs[0].Expression = "return calc_nested_order_b + calc_nested_order_c"
+				Expect(channelWriter.Create(ctx, &calcs[0])).To(Succeed())
+				Expect(g.Update(ctx, calcs[0])).To(Succeed())
+				order := func() []channel.Key {
+					GinkgoHelper()
+					grouped := g.CalculateGrouped()
+					Expect(grouped).To(HaveLen(1))
+					for _, mods := range grouped {
+						return lo.Map(mods, func(m compiler.Module, _ int) channel.Key {
+							return m.Channel.Key()
+						})
+					}
+					return nil
+				}
+				first := order()
+				Expect(slices.Index(first, calcs[1].Key())).
+					To(BeNumerically("<", slices.Index(first, calcs[2].Key())))
+				Expect(slices.Index(first, calcs[2].Key())).
+					To(BeNumerically("<", slices.Index(first, calcs[0].Key())))
+				for range 20 {
+					Expect(order()).To(Equal(first))
+				}
+			},
+		)
 	})
 
 	Describe("CalculateFlat", func() {

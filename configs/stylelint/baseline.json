@@ -29,7 +29,6 @@
     "console/src/feature/http/device/Connect.css": [
       "lyra--direction-y",
       "lyra-form-sections",
-      "lyra-input__switch",
       "lyra-tabs__content",
       "lyra-tabs__selector"
     ],
@@ -138,7 +137,7 @@
       "lyra-list__item",
       "lyra-orbital__stage"
     ],
-    "console/src/platform/task/Form.css": ["lyra-header", "lyra-list__scroll"],
+    "console/src/platform/task/Form.css": ["lyra-header"],
     "console/src/platform/task/views/GroupTree.css": [
       "lyra--selected",
       "lyra-btn",

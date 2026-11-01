@@ -98,6 +98,41 @@ var _ = Describe("Writer", func() {
 				`duplicate column key "c0": validation error`,
 			),
 		)
+
+		It(
+			"Should broadcast the create with the writer's dispatch key after commit",
+			func(ctx SpecContext) {
+				rec := &Recorder[table.Key, table.Action]{}
+				DeferCleanup(svc.OnAction(rec.Record))
+				v := table.Table{Name: "broadcast"}
+				Expect(
+					svc.NewWriter(tx).WithDispatchKey("dk-1").Create(ctx, proj.Key, &v),
+				).To(Succeed())
+				Expect(rec.Snapshot()).To(BeEmpty())
+				Expect(tx.Commit(ctx)).To(Succeed())
+				seen := rec.Snapshot()
+				Expect(seen).To(HaveLen(1))
+				Expect(seen[0].Key).To(Equal(v.Key))
+				Expect(seen[0].DispatchKey).To(Equal("dk-1"))
+				Expect(seen[0].Actions).To(HaveLen(1))
+				Expect(seen[0].Actions[0].Type).To(Equal(table.ActionTypeCreate))
+			},
+		)
+
+		It(
+			"Should not broadcast a create whose transaction closes uncommitted",
+			func(ctx SpecContext) {
+				rec := &Recorder[table.Key, table.Action]{}
+				DeferCleanup(svc.OnAction(rec.Record))
+				uncommitted := db.OpenTx()
+				v := table.Table{Name: "discarded"}
+				Expect(
+					svc.NewWriter(uncommitted).Create(ctx, proj.Key, &v),
+				).To(Succeed())
+				Expect(uncommitted.Close()).To(Succeed())
+				Expect(rec.Snapshot()).To(BeEmpty())
+			},
+		)
 	})
 
 	Describe("CreateMany", func() {
@@ -118,6 +153,27 @@ var _ = Describe("Writer", func() {
 	})
 
 	Describe("Dispatch", func() {
+		It(
+			"Should reject a create without changing the table it names",
+			func(ctx SpecContext) {
+				target := table.Table{Name: "target"}
+				Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &target)).To(Succeed())
+				other := table.Table{Name: "other"}
+				Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &other)).To(Succeed())
+				Expect(svc.Dispatch(ctx, target.Key, "d1", []table.Action{
+					table.NewCreateAction(table.CreatePayload{
+						Table: table.Table{Key: other.Key, Name: "overwritten"},
+					}),
+				})).To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(
+						ContainSubstring("only the Core dispatches a table create"),
+					),
+				))
+				Expect(retrieve(ctx, other.Key).Name).To(Equal("other"))
+			},
+		)
+
 		It("Should rename a Table via a Rename action", func(ctx SpecContext) {
 			s := table.Table{Name: "test"}
 			Expect(svc.NewWriter(nil).Create(ctx, proj.Key, &s)).To(Succeed())

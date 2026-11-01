@@ -33,7 +33,7 @@ inline x::json::json StatusDetails::to_json() const {
     x::json::json j;
     j["rack"] = this->rack;
     j["device"] = this->device;
-    j["data"] = this->data;
+    if (this->data.has_value()) j["data"] = *this->data;
     return j;
 }
 
