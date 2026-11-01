@@ -32,6 +32,9 @@ These come from user review and are not open for reinterpretation.
   itself.
 - **Create shots start from an empty panel.** `capture.clearPanel` in setup, then
   `capture.clickPanelCreate` on camera so the viewer sees the component selector open.
+- **Zoom before a toolbar opens.** A shot that works in a toolbar zooms on the main nav
+  button first (`capture.zoomCenter(session, button, 1.6)`). The frame then holds the
+  nav button, the toolbar, and its "+", so the viewer sees each click.
 - **Form dialogs frame the whole dialog.**
   `session.zoom(page.locator(capture.MODAL).first())` once it opens, `session.endZoom()`
   at the click that closes it. Never zoom a button that the dialog already covered.

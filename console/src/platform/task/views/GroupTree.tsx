@@ -80,19 +80,28 @@ type Entry<F> = { kind: "group"; groupKey: string } | FieldEntry<F>;
 interface Index<F> {
   nodes: Tree.Node[];
   entries: Map<string, Entry<F>>;
+  /** Maps the key of each empty group's add field item to the group's key. */
+  adders: Map<string, string>;
 }
 
 const isShown = <F extends GroupField>(g: Group<F>, f: F): boolean => f.key !== g.index;
 
-/** Groups as tree nodes with their fields beneath; the index field stays hidden. */
+const adderKey = (groupKey: string): string => `${groupKey}/add-field`;
+
+/**
+ * Groups as tree nodes with their fields beneath; the index field stays hidden. Outside
+ * preview, an empty group holds one add field item in place of its fields.
+ */
 const useIndex = <G extends Group<F>, F extends GroupField>(
   path: deep.Path<G[]>,
+  preview: boolean,
 ): Index<F> => {
   // The form writes child paths into the same array, so the array's identity never
   // changes; the field state's does on every write beneath it.
   const state = Form.useFieldState(path);
   const groups = deep.widen<Group<F>[]>(path);
   const entries = new Map<string, Entry<F>>();
+  const adders = new Map<string, string>();
   const nodes = state.value.map((g) => {
     entries.set(g.key, { kind: "group", groupKey: g.key });
     const children = g.fields
@@ -106,9 +115,14 @@ const useIndex = <G extends Group<F>, F extends GroupField>(
         });
         return { key: f.key };
       });
+    if (children.length === 0 && !preview) {
+      const key = adderKey(g.key);
+      adders.set(key, g.key);
+      children.push({ key });
+    }
     return { key: g.key, children };
   });
-  return { nodes, entries };
+  return { nodes, entries, adders };
 };
 
 const entryPath = <G, F>(
@@ -190,6 +204,14 @@ const FieldItem = ({ path, ...props }: FieldItemProps) => {
   );
 };
 
+/** Stands in for an empty group's fields; choosing it adds the first one. */
+const AdderItem = (props: Tree.ItemRenderProps<string>) => (
+  <Tree.Item {...props} level="small" textColor={9} className={CSS.B("adder-item")}>
+    <Icon.Add />
+    Add field
+  </Tree.Item>
+);
+
 const TREE_ITEM_HEIGHT = 36;
 
 const disabledPath = <F extends GroupField>({ path }: FieldEntry<F>) =>
@@ -217,10 +239,10 @@ export const GroupTree = <G extends Group<F>, F extends GroupField>({
   fieldDetails,
 }: GroupTreeProps<G, F>): ReactNode => {
   const [selected, setSelected] = useState<string[]>([]);
-  const { nodes, entries } = useIndex<G, F>(path);
+  const isPreview = useIsPreview();
+  const { nodes, entries, adders } = useIndex<G, F>(path, isPreview);
   const groups = deep.widen<Group<F>[]>(path);
   const ctx = Form.useContext();
-  const isPreview = useIsPreview();
   const [initialExpanded] = useState(() => nodes.map(({ key }) => key));
   // A fold that hides the selected field moves the selection up to its group.
   const handleExpand = ({ action, clicked }: Tree.HandleExpandProps<string>) => {
@@ -241,14 +263,6 @@ export const GroupTree = <G extends Group<F>, F extends GroupField>({
   });
   const { expand, shape } = treeProps;
 
-  const handleSelect: Tree.TreeProps<string, record.Keyed<string>>["onSelect"] = (
-    keys,
-    { clicked },
-  ) => {
-    setSelected(keys);
-    if (clicked != null && entries.get(clicked)?.kind === "group") expand(clicked);
-  };
-
   const handleAddGroup = () => {
     const g = { ...createGroup(), key: id.create() } as G;
     ctx.set(path, [...ctx.get(path).value, g]);
@@ -267,6 +281,17 @@ export const GroupTree = <G extends Group<F>, F extends GroupField>({
     expand(groupKey);
   };
 
+  // An add field item is never selected; choosing it adds a field instead.
+  const handleSelect: Tree.TreeProps<string, record.Keyed<string>>["onSelect"] = (
+    keys,
+    { clicked },
+  ) => {
+    const adderGroup = clicked == null ? undefined : adders.get(clicked);
+    if (adderGroup != null) return handleAddField(adderGroup);
+    setSelected(keys.filter((k) => !adders.has(k)));
+    if (clicked != null && entries.get(clicked)?.kind === "group") expand(clicked);
+  };
+
   const handleRemove = (keys: string[]) => {
     const removed = new Set(keys);
     ctx.set(
@@ -277,7 +302,7 @@ export const GroupTree = <G extends Group<F>, F extends GroupField>({
         .map((g) => ({ ...g, fields: g.fields.filter((f) => !removed.has(f.key)) })),
     );
     // Selection moves to the nearest survivor in the visible list, below first.
-    const visible = shape.keys;
+    const visible = shape.keys.filter((k) => !adders.has(k));
     const first = visible.findIndex((k) => removed.has(k));
     const after = visible.slice(first).find((k) => !removed.has(k));
     const before = visible
@@ -327,7 +352,8 @@ export const GroupTree = <G extends Group<F>, F extends GroupField>({
   };
 
   const menuProps = Menu.useContextMenu();
-  const menuRenderProp = ({ keys }: Menu.ContextMenuMenuProps) => {
+  const menuRenderProp = (props: Menu.ContextMenuMenuProps) => {
+    const keys = props.keys.filter((k) => !adders.has(k));
     const entry = keys.length === 1 ? entries.get(keys[0]) : undefined;
     const fields = keys
       .map((key) => entries.get(key))
@@ -354,6 +380,7 @@ export const GroupTree = <G extends Group<F>, F extends GroupField>({
   };
 
   const renderItem = ({ key, ...p }: Tree.ItemRenderProps<string>) => {
+    if (adders.has(p.itemKey)) return <AdderItem key={key} {...p} />;
     const entry = entries.get(p.itemKey);
     if (entry?.kind === "field")
       return <FieldItem key={key} {...p} path={entry.path} />;
