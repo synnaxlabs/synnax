@@ -393,7 +393,7 @@ class TestChannel:
 
     def test_retrieve_one_empty_selector(self, client: sy.Synnax) -> None:
         """Should raise a not found error when one has an empty selector"""
-        with pytest.raises(sy.NotFoundError, match=r"Channel matching \[\] not found"):
+        with pytest.raises(sy.NotFoundError, match=r"^Found no channel$"):
             client.channels.retrieve([], one=True)  # type: ignore[call-overload]
 
     def test_retrieve_conditions_and_filters(self, client: sy.Synnax) -> None:

@@ -469,7 +469,7 @@ class Client:
         if channel is not None:
             normal = normalize_params(channel)
             if len(normal.channels) == 0:
-                return util.one("Channel", channel, []) if one else []
+                return util.one("channel", None, []) if one else []
             single = normal.single
             selected = (
                 single_where(normal.channels[0]) if single else params_where(channel)
