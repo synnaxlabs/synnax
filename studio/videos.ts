@@ -178,6 +178,7 @@ export default manifest.define([
   // Hardware shots run against the simulated Driver in fixtures/hardware.ts.
   { id: "device-drivers/task/task-basic", script: "scripts/tasks-start.ts" },
   { id: "hardware/devices/toolbar", script: "scripts/devices-toolbar.ts" },
+  { id: "hardware/devices/connect-picker", script: "scripts/devices-connect.ts" },
   {
     id: "device-drivers/ni/configure-device/ni-configure-device",
     script: "scripts/ni-configure-device.ts",

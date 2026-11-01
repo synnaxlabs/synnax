@@ -90,6 +90,7 @@ var _ = Describe("Service", func() {
 			Expect(svc.Authenticate(ctx, proof(token))).To(Equal(auth.Identity{
 				Subject:    sub,
 				Credential: k.Key,
+				Version:    k.Created,
 			}))
 		})
 		It("Should reject a wrong secret", func(ctx SpecContext) {
@@ -116,6 +117,16 @@ var _ = Describe("Service", func() {
 		It("Should reject a proof for another method", func(ctx SpecContext) {
 			Expect(svc.Authenticate(ctx, auth.Proof{Variant: auth.PasswordProof{}})).
 				Error().To(MatchError(validate.ErrValidation))
+		})
+	})
+	Describe("Version", func() {
+		It("Should return when the key was created", func(ctx SpecContext) {
+			k, _ := MustSucceed2(svc.NewWriter(nil).Create(ctx, subject(), ""))
+			Expect(svc.Version(ctx, nil, k.Key)).To(Equal(k.Created))
+		})
+		It("Should return a not found error for an unknown key", func(ctx SpecContext) {
+			Expect(svc.Version(ctx, nil, uuid.New())).Error().
+				To(MatchError(query.ErrNotFound))
 		})
 	})
 	Describe("Delete", func() {

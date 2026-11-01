@@ -17,7 +17,7 @@ ButtonMode = Literal["Fire", "Momentary", "Pulse"]
 class Button(Symbol):
     """Schematic button symbol"""
 
-    _symbol_group = "General"
+    _symbol_group: str | None = "General"
 
     def __init__(
         self,
