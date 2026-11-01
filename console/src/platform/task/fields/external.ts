@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/platform/task/fields/AutoStart";
-export * from "@/platform/task/fields/DataSaving";
 export * from "@/platform/task/fields/SampleRate";
 export * from "@/platform/task/fields/StateUpdateRate";
 export * from "@/platform/task/fields/StreamRate";

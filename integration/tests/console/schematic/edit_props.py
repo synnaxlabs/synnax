@@ -108,7 +108,7 @@ class EditProps(ConsoleCase):
         assert schematic.get_control_status() is True, (
             "Control status mismatch! Expected: True"
         )
-        assert schematic.control_legend_visible is True, (
+        assert schematic.control_legend_visible() is True, (
             "Control legend should be visible"
         )
 
@@ -123,7 +123,7 @@ class EditProps(ConsoleCase):
         )
         schematic.set_properties(show_control_legend=False)
         schematic.acquire_control()
-        assert schematic.control_legend_visible is False, (
+        assert schematic.control_legend_visible() is False, (
             "Control legend should not be visible"
         )
 

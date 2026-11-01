@@ -12,6 +12,7 @@ from __future__ import annotations
 import csv
 from collections.abc import Iterator
 from pathlib import Path
+from typing import ClassVar
 
 import pandas as pd
 from pandas.io.parsers import TextFileReader
@@ -24,7 +25,7 @@ from synnax.io.protocol import ChannelMeta, FileWriter, ReaderType, RowFileReade
 class CSVReader(ExtensionMatcher):
     """A RowReader implementation for CSV files."""
 
-    _extensions = ("csv",)
+    _extensions: ClassVar[tuple[str, ...]] = ("csv",)
 
     channel_keys: list[str] | None
     chunk_size: int
@@ -164,7 +165,7 @@ def _estimate_row_count(path: Path) -> int:
 class CSVWriter(ExtensionMatcher):
     """A Writer implementation for CSV files."""
 
-    _extensions = ("csv",)
+    _extensions: ClassVar[tuple[str, ...]] = ("csv",)
 
     _path: Path
     _header: bool

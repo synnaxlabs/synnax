@@ -8,19 +8,30 @@
 // included in the file licenses/APL.txt.
 
 import { panel, ranger, type Synnax as Client } from "@synnaxlabs/client";
-import { createTestClient, RoleClients } from "@synnaxlabs/client/testutil";
+import {
+  createTestClient,
+  RoleClients,
+  waitForStreamLive,
+} from "@synnaxlabs/client/testutil";
 import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
 import { TimeRange } from "@synnaxlabs/x";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
+import { searchAndClickLabelOption } from "@/platform/label/testutil";
 import { Modals } from "@/platform/modals";
 import { createActiveState } from "@/platform/project/testutil";
 import { Range } from "@/platform/range";
 import { createTestRange, uniqueRangeName } from "@/platform/range/testutil";
 import { Session } from "@/session";
 import { createCore } from "@/session/core/testutil";
-import { createConsoleWrapper, renderSuspended, uniqueName } from "@/testutil";
+import {
+  createConsoleWrapper,
+  findTagCloseButton,
+  getIconButton,
+  renderSuspended,
+  uniqueName,
+} from "@/testutil";
 
 const client = createTestClient();
 const roles = new RoleClients(client);
@@ -58,6 +69,43 @@ describe("Range.Details", () => {
     await waitFor(async () => {
       const retrieved = await client.ranges.retrieve(range.key);
       expect(retrieved.name).toEqual(next);
+    });
+  });
+
+  it("should show a label another client adds and add one beside it", async () => {
+    const range = await createRange();
+    const [added, remote] = await client.labels.create([
+      { name: uniqueName("added"), color: "#FF0000" },
+      { name: uniqueName("remote"), color: "#00FF00" },
+    ]);
+    await renderDetails(range.key);
+    await screen.findByDisplayValue(range.name, {});
+    await waitForStreamLive(client.connection);
+    await createTestClient().labels.label(range.ontologyID, [remote.key]);
+    await screen.findByText(remote.name);
+    fireEvent.click(getIconButton(screen.getByLabelText("Labels"), "add"));
+    await searchAndClickLabelOption(added.name);
+    await waitFor(async () => {
+      const labels = await client.labels.retrieve({ for: range.ontologyID });
+      expect(labels.map(({ key }) => key).sort()).toEqual(
+        [added.key, remote.key].sort(),
+      );
+    });
+  });
+
+  it("should remove a label when its tag is closed", async () => {
+    const range = await createRange();
+    const [removed, kept] = await client.labels.create([
+      { name: uniqueName("removed"), color: "#FF0000" },
+      { name: uniqueName("kept"), color: "#00FF00" },
+    ]);
+    await client.labels.label(range.ontologyID, [removed.key, kept.key]);
+    await renderDetails(range.key);
+    await screen.findByText(removed.name);
+    fireEvent.click(findTagCloseButton(removed.name));
+    await waitFor(async () => {
+      const labels = await client.labels.retrieve({ for: range.ontologyID });
+      expect(labels.map(({ key }) => key)).toEqual([kept.key]);
     });
   });
 

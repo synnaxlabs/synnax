@@ -11,34 +11,35 @@ import { allocSuiteAsync } from "@synnaxlabs/x/bench";
 import { test } from "vitest";
 
 import { type channel } from "@/channel";
-import { createKeys, createSequence } from "@/framer/benchutil";
+import { type framer } from "@/framer";
 import { Joins } from "@/framer/cache/join";
 import { Store } from "@/framer/cache/store";
 import { MultiplexedStreamer } from "@/framer/cache/streamer";
-import { type Frame } from "@/framer/frame";
-import { type Streamer } from "@/framer/streamer";
+import { createKeys, createSequence } from "@/framer/testutil";
 
-class StubStreamer implements Streamer {
+class StubStreamer implements framer.Streamer {
   keys: channel.Key[];
   private i = 0;
-  private pending: ((r: IteratorResult<Frame>) => void) | null = null;
+  private pending: ((r: IteratorResult<framer.Frame>) => void) | null = null;
 
   constructor(
-    private readonly frames: Frame[],
+    private readonly frames: framer.Frame[],
     keys: channel.Key[],
     private readonly onDrained: () => void,
   ) {
     this.keys = keys;
   }
 
-  async next(): Promise<IteratorResult<Frame>> {
+  async next(): Promise<IteratorResult<framer.Frame>> {
     if (this.i < this.frames.length)
       return { done: false, value: this.frames[this.i++] };
     this.onDrained();
-    return await new Promise<IteratorResult<Frame>>((res) => (this.pending = res));
+    return await new Promise<IteratorResult<framer.Frame>>(
+      (res) => (this.pending = res),
+    );
   }
 
-  async read(): Promise<Frame> {
+  async read(): Promise<framer.Frame> {
     const res = await this.next();
     if (res.done) throw new Error("drained");
     return res.value;
@@ -51,7 +52,7 @@ class StubStreamer implements Streamer {
     this.pending = null;
   }
 
-  [Symbol.asyncIterator](): AsyncIterator<Frame> {
+  [Symbol.asyncIterator](): AsyncIterator<framer.Frame> {
     return this;
   }
 }
@@ -62,7 +63,7 @@ let _sink = 0;
 // fixed ~100ms demand-reconcile debounce on top of the ingest work, so use frame counts
 // large enough for ingest to dominate.
 const runIngest = async (
-  frames: Frame[],
+  frames: framer.Frame[],
   keys: channel.Key[],
   handlerCount: number,
 ): Promise<void> => {

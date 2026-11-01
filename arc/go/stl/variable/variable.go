@@ -10,10 +10,7 @@
 package variable
 
 import (
-	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
-	"github.com/synnaxlabs/arc/symbol"
-	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -22,25 +19,6 @@ const (
 	symbolName         = "variable"
 	statefulSymbolName = "stateful_variable"
 )
-
-// NewSymbols returns the Internal variable builtins emitted by := / $= lowering.
-func NewSymbols() []*symbol.Symbol {
-	mk := func(name string) *symbol.Symbol {
-		typeVar := types.Variable("T", nil)
-		return &symbol.Symbol{
-			Name:     name,
-			Kind:     symbol.KindFunction,
-			Exec:     symbol.ExecFlow,
-			Internal: true,
-			Type: types.Function(types.FunctionProperties{
-				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: typeVar}},
-				Inputs:  types.Params{{Name: "value", Type: typeVar}},
-			}),
-			Trigger: symbol.TriggerOnly,
-		}
-	}
-	return []*symbol.Symbol{mk(symbolName), mk(statefulSymbolName)}
-}
 
 // Host is the runtime factory for the variable builtin.
 type Host struct{}

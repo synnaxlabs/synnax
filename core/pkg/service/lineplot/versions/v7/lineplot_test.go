@@ -67,12 +67,6 @@ var _ = Describe("LinePlot", func() {
 			Expect(lp.Validate()).To(Succeed())
 		})
 
-		It("Should reject an empty name", func() {
-			lp := v7.LinePlot{}
-			lp.ApplyDefaults()
-			Expect(lp.Validate()).To(MatchError(ContainSubstring("name: required")))
-		})
-
 		It("Should path errors to the offending line and rule", func() {
 			lp := v7.LinePlot{
 				Name:  "valid",

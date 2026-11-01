@@ -171,6 +171,88 @@ var _ = Describe("TS Types Plugin", func() {
 			},
 		)
 
+		Context("parent omitted in TypeScript", func() {
+			schema := func(parentDomain, childBody string) string {
+				return `
+				@go output "core/user"
+				@ts output "out"
+
+				Record struct {
+					key    uint32
+					name   string
+					secret string
+					` + parentDomain + `
+				}
+
+				Shape struct extends Record {
+					` + childBody + `
+				}
+			`
+			}
+
+			It(
+				"Should declare an inline variant's inherited fields",
+				func(ctx SpecContext) {
+					source := `
+					@go output "core/pkg/service/auth"
+					@ts output "out"
+
+					Record struct {
+						key  uint32
+						name string
+						@ts omit
+					}
+
+					Chan union on type {
+						ai extends Record {
+							rate float64
+						}
+					}
+				`
+					resp := MustGenerate(ctx, source, "auth", loader, typesPlugin)
+					ExpectContent(resp, "types.gen.ts").
+						ToContain("key: z.uint32()", "name: z.string()", "rate: z.number()").
+						ToNotContain("Record")
+				},
+			)
+
+			It("Should declare the inherited fields", func(ctx SpecContext) {
+				resp := MustGenerate(
+					ctx,
+					schema("@ts omit", "rate float64"),
+					"user",
+					loader,
+					typesPlugin,
+				)
+				ExpectContent(resp, "types.gen.ts").
+					ToContain(
+						`export const shapeZ = z.object({`,
+						`key: z.uint32()`,
+						`name: z.string()`,
+						`secret: z.string()`,
+						`rate: z.number()`,
+					).
+					ToNotContain(`recordZ`)
+			})
+
+			It("Should leave out a removed field", func(ctx SpecContext) {
+				resp := MustGenerate(
+					ctx, schema("@ts omit", "-secret"), "user", loader, typesPlugin,
+				)
+				ExpectContent(resp, "types.gen.ts").
+					ToContain(`export const shapeZ = z.object({`, `name: z.string()`).
+					ToNotContain(`secret`, `recordZ`)
+			})
+
+			It("Should extend a parent that generates", func(ctx SpecContext) {
+				resp := MustGenerate(
+					ctx, schema("", "-secret"), "user", loader, typesPlugin,
+				)
+				ExpectContent(resp, "types.gen.ts").
+					ToContain(`export const shapeZ = recordZ`, `.omit({ secret: true })`)
+			})
+		})
+
 		It("Should handle optional and array types", func(ctx SpecContext) {
 			source := `
 				@ts output "out"

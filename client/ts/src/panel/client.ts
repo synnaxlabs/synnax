@@ -17,6 +17,7 @@ import { createOf, kindOf, reduceAll } from "@/panel/actions";
 import {
   type Action,
   dispatchReqZ,
+  dispatchResZ,
   rename as renameAction,
   scopedActionZ,
 } from "@/panel/actions.gen";
@@ -43,7 +44,7 @@ const retrieveReqZ = z.object({
 });
 const retrieveMultiParamsZ = retrieveReqZ.or(query.keyListZ(keyZ));
 export interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
-const createReqZ = z.object({ panels: panelZ.array() });
+const createReqZ = z.object({ dispatchKey: z.string(), panels: panelZ.array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
 const retrieveResZ = z.object({ panels: panelZ.array().default(() => []) });
@@ -91,15 +92,9 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pa
     const dispatcher = new actions.Controller<Key, Panel, Action>({
       store,
       onError: cache.onError,
+      onEpoch: (callback) => cache.onEpoch(callback),
       reduce: reduceAll,
-      send: async (key, actions, dispatchKey) => {
-        await cfg.unary.send(
-          "/panel/dispatch",
-          { key, dispatchKey, actions },
-          dispatchReqZ,
-          emptyResZ,
-        );
-      },
+      send: actions.sender(cfg.unary, "/panel/dispatch", dispatchReqZ, dispatchResZ),
       kindOf,
       createOf,
     });
@@ -161,18 +156,27 @@ export class Client extends query.Retriever<typeof retrieveMultiParamsZ, Key, Pa
     const optimistic = array
       .toArray(panels)
       .map((p) => zod.parse(panelZ, p, { label: "panel" }));
-    // The cache keeps the optimistic docs: edits dispatched during the create replay
-    // onto them and reach the Core with or after it.
-    const res = await this.dispatcher.create(optimistic, {
-      onCached: async () => await opts.onOptimistic?.(optimistic),
-      send: async (latest) =>
-        await this.cfg.unary.send(
-          "/panel/create",
-          { panels: latest },
-          createReqZ,
-          createResZ,
-        ),
+    const res = await query.optimistic({
+      rollbacks: [this.store.set(optimistic)],
+      onOptimistic: () => opts.onOptimistic?.(optimistic),
+      commit: async () => {
+        // onOptimistic may dispatch further local mutations against these keys
+        // before the panels exist on the cluster. Send the latest cached docs so
+        // the server response doesn't stomp those changes back out.
+        const latest = optimistic.map((p) => this.store.get(p.key) ?? p);
+        return await this.dispatcher.create(
+          latest.map(({ key }) => key),
+          async (dispatchKey) =>
+            await this.cfg.unary.send(
+              "/panel/create",
+              { dispatchKey, panels: latest },
+              createReqZ,
+              createResZ,
+            ),
+        );
+      },
     });
+    this.store.set(res.panels);
     return isMany ? res.panels : res.panels[0];
   }
 
