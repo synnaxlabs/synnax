@@ -14,6 +14,7 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "driver/labjack/device/device.h"
@@ -37,9 +38,9 @@ public:
     }
 
     [[nodiscard]] x::errors::Error e_stream_stop() const override {
+        const bool stopped = std::exchange(this->streaming, false);
         if (should_fail_) return x::errors::Error("mock failure");
-        if (!this->streaming) return ljm::STREAM_NOT_RUNNING;
-        this->streaming = false;
+        if (!stopped) return ljm::STREAM_NOT_RUNNING;
         return x::errors::NIL;
     }
 
@@ -81,6 +82,7 @@ public:
     [[nodiscard]] x::errors::Error
     e_write_name(const char *name, double value) const override {
         if (should_fail_) return x::errors::Error("mock failure");
+        ++this->name_writes;
         return x::errors::NIL;
     }
 
@@ -125,9 +127,12 @@ public:
         size_t scans_per_read,
         size_t num_addrs,
         const int *scan_list,
-        double *scan_rate
+        double *scan_rate,
+        const std::function<x::errors::Error()> &configure
     ) const override {
         if (should_fail_) return x::errors::Error("mock failure");
+        if (this->streaming) return ljm::STREAM_IS_ACTIVE;
+        if (const auto err = configure()) return err;
         this->streaming = true;
         *scan_rate = requested_scan_rate_;
         return x::errors::NIL;
@@ -136,11 +141,13 @@ public:
     // Mock control methods
     void set_should_fail(const bool should_fail) { should_fail_ = should_fail; }
     void set_scan_rate(const double rate) { requested_scan_rate_ = rate; }
+    [[nodiscard]] size_t write_count() const { return this->name_writes; }
 
 private:
     bool should_fail_{false};
     double requested_scan_rate_{1000.0};
     mutable bool streaming = false;
+    mutable size_t name_writes = 0;
 };
 
 /// @brief a Manager that serves scripted devices for tests instead of opening LJM

@@ -376,6 +376,7 @@ public:
 
     void start() {
         running = true;
+        exited = false;
         thread = std::thread(&Server::run, this);
     }
 
@@ -396,6 +397,15 @@ public:
 
     void stop() {
         running = false;
+        // Each pass of the event loop, shutdown included, blocks for up to 500 ms
+        // unless it is canceled.
+        while (thread.joinable() && !exited.load()) {
+            {
+                std::lock_guard lock(loop_mu);
+                if (loop != nullptr) loop->cancel(loop);
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
         if (thread.joinable()) thread.join();
         ready = false;
     }
@@ -466,6 +476,18 @@ private:
 
 public:
     void run() {
+        serve();
+        exited = true;
+    }
+
+private:
+    std::atomic<bool> exited{false};
+    /// @brief guards loop, which stop() cancels from another thread.
+    std::mutex loop_mu;
+    /// @brief the running server's event loop, or nullptr when there is none.
+    UA_EventLoop *loop = nullptr;
+
+    void serve() {
         UA_Server *server = UA_Server_new();
         auto *server_config = UA_Server_getConfig(server);
         if (cfg.identity.has_value()) {
@@ -543,6 +565,10 @@ public:
             return;
         }
 
+        {
+            std::lock_guard lock(loop_mu);
+            loop = server_config->eventLoop;
+        }
         ready = true;
 
         while (running.load()) {
@@ -564,6 +590,10 @@ public:
         }
         this->added_cv.notify_all();
         UA_Server_run_shutdown(server);
+        {
+            std::lock_guard lock(loop_mu);
+            loop = nullptr;
+        }
         UA_Server_delete(server);
     }
 };

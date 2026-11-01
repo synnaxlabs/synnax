@@ -45,9 +45,11 @@ cc_test(
         "//client/cpp/errors",
         "//driver/pipeline",
         "//driver/pipeline/testutil",
+        "//x/cpp/defer",
         "//x/cpp/sync",
         "//x/cpp/testutil",
         "@abseil-cpp//absl/log",
+        "@abseil-cpp//absl/log:globals",
         "@googletest//:gtest_main",
     ],
 )

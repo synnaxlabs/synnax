@@ -304,7 +304,7 @@ export default class Synnax extends framer.Client {
       ontology: this.ontology,
       ranges: this.ranges,
       cache,
-      statusStore: this.statuses.store,
+      statuses: this.statuses,
     });
     this.racks = new rack.Client({
       unary,

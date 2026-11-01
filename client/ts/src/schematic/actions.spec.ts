@@ -511,6 +511,128 @@ describe("schematic reducer", () => {
     });
   });
 
+  describe("path actions", () => {
+    const set = (path: string[], value: unknown) => schematic.set({ path, value });
+
+    it("should set a field of an element config from its wire form", () => {
+      const state = empty({ configs: { n1: tank("Pump") } });
+      const { next, targets } = schematic.reduceAll(state, [
+        set(["configs", "n1", "label", "max_inline_size"], 200),
+      ]);
+      expect(next.configs.n1).toEqual(
+        cfg({ variant: "tank", label: { label: "Pump", maxInlineSize: 200 } }),
+      );
+      expect(targets).toEqual(["n1"]);
+    });
+
+    it("should return a wire-form inverse that restores the config", () => {
+      const state = empty({ configs: { n1: tank("Pump") } });
+      const { next, inverse } = schematic.reduceAll(state, [
+        set(["configs", "n1", "label", "max_inline_size"], 200),
+      ]);
+      expect(inverse).toEqual([
+        schematic.set({
+          path: ["configs", "n1", "label", "max_inline_size"],
+          value: 150,
+        }),
+      ]);
+      expect(apply(next, ...inverse)).toEqual(state);
+    });
+
+    it("should keep the other element configs by identity", () => {
+      const state = empty({ configs: { n1: tank("Pump"), n2: tank("Valve") } });
+      const out = apply(state, set(["configs", "n1", "label", "label"], "Tank"));
+      expect(out.configs.n2).toBe(state.configs.n2);
+    });
+
+    it("should remove an element config", () => {
+      const state = empty({ configs: { n1: tank("Pump") } });
+      const out = apply(state, schematic.remove({ path: ["configs"], key: "n1" }));
+      expect(out.configs).toEqual({});
+    });
+
+    it("should throw for a path outside the element configs", () => {
+      expect(() => apply(empty(), set(["name"], "Other"))).toThrow(
+        "name is not inside an entry of configs",
+      );
+    });
+  });
+
+  describe("setChanged", () => {
+    const encoded = (state: schematic.Schematic, actions: schematic.Action[]) =>
+      actions.map((a) => schematic.encode(state, a));
+
+    it("should keep an edit to another field that base does not hold", () => {
+      const base = tank("Pump");
+      const state = empty({ configs: { n1: tank("Pump", "#ff0000") } });
+      const actions = schematic.setChanged({ key: "n1", base, next: tank("Valve") });
+      const out = apply(state, ...encoded(state, actions));
+      expect(out.configs.n1).toEqual(tank("Valve", "#ff0000"));
+    });
+
+    it("should name the entry and its variant in each action", () => {
+      const actions = schematic.setChanged({
+        key: "n1",
+        base: tank("Pump"),
+        next: tank("Valve"),
+      });
+      expect(actions).toEqual([
+        schematic.set({
+          path: ["configs", "n1", "label", "label"],
+          value: "Valve",
+          guards: [{ path: ["configs", "n1", "variant"], value: "tank" }],
+        }),
+      ]);
+    });
+
+    it("should remove a field that next does not hold", () => {
+      const base = tank("Pump", "#ff0000");
+      const state = empty({ configs: { n1: base } });
+      const actions = schematic.setChanged({ key: "n1", base, next: tank("Pump") });
+      expect(apply(state, ...encoded(state, actions)).configs.n1).toEqual(tank("Pump"));
+    });
+
+    it("should replace the config when the symbol changes variant", () => {
+      const base = tank("Pump");
+      const next = cfg({ variant: "valve" });
+      const state = empty({ configs: { n1: base } });
+      const actions = schematic.setChanged({ key: "n1", base, next });
+      expect(apply(state, ...encoded(state, actions)).configs.n1).toEqual(next);
+    });
+
+    it("should list no action when nothing differs", () => {
+      const base = tank("Pump");
+      expect(schematic.setChanged({ key: "n1", base, next: tank("Pump") })).toEqual([]);
+    });
+  });
+
+  describe("kindOf", () => {
+    const base = tank("Pump");
+    const single = schematic.setChanged({ key: "n1", base, next: tank("Valve") });
+    const both = schematic.setChanged({
+      key: "n1",
+      base,
+      next: tank("Valve", "#ff0000"),
+    });
+
+    it("should classify config edits as one kind for any number of fields", () => {
+      expect(schematic.kindOf(single)).toEqual("config");
+      expect(schematic.kindOf(both)).toEqual("config");
+      expect(
+        schematic.kindOf([schematic.setConfig({ key: "n1", config: base })]),
+      ).toEqual("config");
+    });
+
+    it("should classify a config edit that rides on a move as a move", () => {
+      const move = schematic.setNodePosition({ key: "n1", position: { x: 1, y: 1 } });
+      expect(schematic.kindOf([move, ...single])).toEqual("move");
+    });
+
+    it("should classify a rename by its own type", () => {
+      expect(schematic.kindOf([schematic.rename({ name: "New" })])).toEqual("rename");
+    });
+  });
+
   describe("immutability", () => {
     it("should leave the input state object unmodified", () => {
       const state = empty({ nodes: [node("n1", 0, 0)] });
