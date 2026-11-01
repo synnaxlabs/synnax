@@ -230,7 +230,7 @@ channel types.
 - **Writes are covariant**: A component typed `Path<{ mode: string }>` can write a value
   that the real union rejects. The schema catches it at run time.
 - **Correlated writes**: A write that spreads over a union member loses the link between
-  `type` and the other fields, so the 8 channel and scale type changes keep an `as`.
+  `type` and the other fields, so the 6 channel and scale type changes keep an `as`.
 - **Unknown values**: A `z.unknown()` field has no value type. The HTTP static field
   casts its path to the type of the input it renders.
 
