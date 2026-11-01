@@ -253,7 +253,7 @@ var _ = Describe("Control", func() {
 					Expect(t.Occurred()).To(BeFalse())
 					Expect(
 						err,
-					).To(MatchError(ContainSubstring("overlaps with a controlled region")))
+					).To(MatchError(ContainSubstring("cannot access time range")))
 				})
 			})
 
@@ -467,14 +467,18 @@ var _ = Describe("Control", func() {
 				},
 			)
 			It("Should fail to open a bounded gate over a bounded region", func() {
-				openBounded("backfill", telem.NewRangeSeconds(1, 5))
+				other := openBounded("backfill", telem.NewRangeSeconds(1, 5))
 				cfg, _ := baseConfig(1)
 				cfg.Subject.Key = "second"
-				cfg.TimeRange = telem.NewRangeSeconds(3, 4)
+				cfg.TimeRange = telem.NewRangeSeconds(3, 8)
 				cfg.Bounded = new(true)
 				Expect(c.OpenGate(cfg)).Error().To(And(
 					MatchError(xcontrol.ErrUnauthorized),
-					MatchError(ContainSubstring("overlaps with a controlled region")),
+					MatchError(ContainSubstring(fmt.Sprintf(
+						"cannot access time range %v because writer %v holds it",
+						telem.NewRangeSeconds(3, 5),
+						other.Subject(),
+					))),
 				))
 			})
 			It(

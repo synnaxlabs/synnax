@@ -452,9 +452,7 @@ class TestWriter:
         idx_ch, data_ch = indexed_pair
         channels = [idx_ch.key, data_ch.key]
         with client.open_writer(start=10 * sy.TimeSpan.SECOND, channels=channels):
-            with pytest.raises(
-                sy.UnauthorizedError, match="overlaps with a controlled region"
-            ):
+            with pytest.raises(sy.UnauthorizedError, match="cannot access time range"):
                 client.open_writer(
                     start=15 * sy.TimeSpan.SECOND,
                     channels=channels,

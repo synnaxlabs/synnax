@@ -57,9 +57,8 @@ func (r *region[R]) open(cfg GateConfig[R]) (g *Gate[R], t Transfer, err error) 
 	if *cfg.ErrIfControlled && r.curr != nil {
 		err = errors.Wrapf(
 			control.ErrUnauthorized,
-			"time range %v overlaps with a controlled region with bounds %v controlled by %v",
-			cfg.TimeRange,
-			r.timeRange,
+			"cannot access time range %v because writer %v holds it",
+			cfg.TimeRange.Intersection(r.timeRange),
 			r.curr.Subject(),
 		)
 		return g, t, err
