@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/union"
+	"github.com/synnaxlabs/x/validate"
 )
 
 func TestUnion(t *testing.T) {
@@ -33,6 +34,16 @@ var _ = Describe("MissingPayload", func() {
 	It("Should include the variant name in the error message", func() {
 		err := union.MissingPayload("set_node_position")
 		Expect(err).To(MatchError(ContainSubstring(`variant "set_node_position"`)))
+	})
+})
+
+var _ = Describe("UnknownVariant", func() {
+	It("Should wrap ErrUnknownVariant and validate.ErrValidation", func() {
+		Expect(union.UnknownVariant("teleport")).To(SatisfyAll(
+			MatchError(union.ErrUnknownVariant),
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring(`variant "teleport"`)),
+		))
 	})
 })
 

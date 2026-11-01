@@ -157,18 +157,19 @@ Analog read is the worked design. Each item below runs in the prototype on branc
   select lists the port's `terminal_configs`. A new channel takes the lowest free port
   on its device, not the lowest port unused in the task
   (`console/src/feature/ni/task/createChannel.ts:61-72`).
-- **Checks**: They run only when the device has `hardware`. A port the device lacks, a
-  type or configuration the port rejects, and a port in conflict are field errors that
-  show while the user edits. A sample rate above `ai_max_single_channel_rate` is an
-  error. A rate above the multiplexed maximum, the multi channel rate divided by the
-  channel count with CJC and autozero channels counted, is a warning, because that count
-  is an estimate. Deploy runs the same checks. `deployConfigZ` is static and has no
-  device data (`console/src/platform/task/Form.tsx:72`), so `Task.wrapForm` gets an
-  async device check after it (NEW).
+- **Checks**: A port in conflict is a field error with or without `hardware`. The other
+  checks run only when the device has `hardware`. A port the device lacks and a type or
+  configuration the port rejects are field errors that show while the user edits. A
+  sample rate above `ai_max_single_channel_rate` is an error. A rate above the
+  multiplexed maximum, the multi channel rate divided by the channel count with CJC and
+  autozero channels counted, is a warning, because that count is an estimate. The form
+  runs the checks with Lyra's `Form.useCheck` (NEW): their issues show on fields but
+  never block an autosave. From the first deploy on, `Task.wrapForm` checks
+  `deployConfigZ` the same way. A deploy starts only when no field shows an error.
 
-The grid and the view switch go in `console/src/platform/task` as `Task.PortGrid` and a
-`ports` render prop on `Task.Views.ListAndDetails` (NEW), because LabJack uses them in
-Phase 3. The NI data hooks stay in `console/src/feature/ni`.
+The grid, the port claims, and the view switch go in `console/src/platform/task` as
+`Task.Port` and a `ports` render prop on `Task.Views.ListAndDetails` (NEW), because
+LabJack uses them in Phase 3. The NI data hooks stay in `console/src/feature/ni`.
 
 The compact task header and the disabled channel look apply to every task form. They
 ship with the task form layout change, not in these phases.
@@ -203,9 +204,9 @@ A digital line past its port's width is a field error.
 - **Phase 2: Port picking.** §3.4 and §3.5 for the five NI tasks, and the integration
   helpers. Deletes `portCount`, `lineCounts`, `digitalInputOutput`, `PortField`, the
   next-port counters, and `COUNTER_TERMINALS`.
-- **Phase 3: LabJack.** The LabJack forms use `Task.PortGrid` and the Ports view over
-  the static `PORTS` table (`console/src/feature/labjack/device/types.ts:200`), in place
-  of `SelectPort`.
+- **Phase 3: LabJack.** The LabJack forms use `Task.Port` and the Ports view over the
+  static `PORTS` table (`console/src/feature/labjack/device/types.ts:200`), in place of
+  `SelectPort`.
 
 Compatibility: `hardware` is optional, so a device keeps today's form until a new Driver
 scans it. Stored tasks keep "Default". The dead `portCount` keys leave a stored device
