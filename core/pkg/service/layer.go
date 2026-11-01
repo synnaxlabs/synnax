@@ -269,8 +269,7 @@ func revokePasswordSessions(
 		Exec(ctx, nil); err != nil {
 		return errors.Wrap(err, "load the root password")
 	}
-	return sessions.NewWriter(nil).
-		RevokeCredential(ctx, nil, p.Key)
+	return sessions.NewWriter(nil).RevokeCredential(ctx, p.Key)
 }
 
 // OpenLayer opens the service layer using the provided configurations. Later
@@ -413,6 +412,15 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	if closer, err := l.Signals.PublishFromGorp(
 		ctx,
 		signals.GorpPublisherConfigUUID(l.Label.Observe()),
+	); !ok(err, closer) {
+		return nil, err
+	}
+	if closer, err := l.Signals.PublishActions(
+		ctx,
+		signals.ActionPublisherConfig[label.Key, label.Action]{
+			Observable: l.Label.ObserveActions(),
+			Name:       "label_action",
+		},
 	); !ok(err, closer) {
 		return nil, err
 	}

@@ -10,7 +10,7 @@
 import { id } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, test, vi } from "vitest";
 
-import { AuthError, NotFoundError, ValidationError } from "@/errors";
+import { AuthError, NotFoundError, ValidationError } from "@/index";
 import { query } from "@/query";
 import { createTestClient, expectDeleted } from "@/testutil";
 import { type user } from "@/user";
