@@ -19,8 +19,7 @@ import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { createTestRange } from "@/platform/range/testutil";
-import { getTreeRow } from "@/platform/tree/menuTestutil";
-import { renderOntologyTree } from "@/platform/tree/treeTestutil";
+import { getTreeRow, renderOntologyTree } from "@/platform/tree/testutil";
 import {
   awaitTextEditingElement,
   commitTextEdit,

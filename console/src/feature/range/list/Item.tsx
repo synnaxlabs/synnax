@@ -75,7 +75,11 @@ const Base = ({
     >
       <Form.Form<typeof Ranger.formSchema> {...form}>
         <Flex.Box x align="center" gap="tiny" grow>
-          <Form.Field<NumericTimeRange> path="timeRange" showHelpText showLabel={false}>
+          <Form.Field<NumericTimeRange>
+            path="timeRange"
+            showLabel={false}
+            padHelpText={false}
+          >
             {({ value, onChange }) => (
               <Ranger.StageButton
                 value={value}

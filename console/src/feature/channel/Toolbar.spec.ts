@@ -18,8 +18,7 @@ import {
 import { describe, expect, it } from "vitest";
 
 import { Channel } from "@/feature/channel";
-import { getSwitch } from "@/platform/modals/testutil";
-import { renderToolbar } from "@/platform/tree/menuTestutil";
+import { renderToolbar } from "@/platform/tree/testutil";
 import {
   assertDefined,
   createTestClientWithGrants,
@@ -56,7 +55,7 @@ describe("channel/Toolbar", () => {
     });
     fireEvent.click(create);
     expect(await screen.findByPlaceholderText("Channel name")).toBeTruthy();
-    expect(getSwitch("Is index")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Index" })).toBeTruthy();
   });
 
   it("opens the create calculated channel modal from the toolbar action", async () => {
