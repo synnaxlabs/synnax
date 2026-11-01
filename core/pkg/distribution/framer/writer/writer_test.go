@@ -433,6 +433,51 @@ var _ = Describe("Writer", func() {
 				Expect(w.Close()).To(Succeed())
 			},
 		)
+		DescribeTable(
+			"Should return false when one node refuses",
+			func(ctx SpecContext, refusing int) {
+				gw := testutil.NewCluster(ctx, 2).Nodes[1]
+				keys := channel.KeysFromChannels(
+					MustSucceed(gw.Channel.Create(ctx, []channel.Channel{
+						{
+							Name:        "gateway_time",
+							IsIndex:     true,
+							DataType:    telem.TimestampT,
+							Leaseholder: 1,
+						},
+						{
+							Name:        "peer_time",
+							IsIndex:     true,
+							DataType:    telem.TimestampT,
+							Leaseholder: 2,
+						},
+					})),
+				)
+				w := MustSucceed(gw.Framer.OpenWriter(ctx, writer.Config{
+					ControlSubject: control.Subject{Key: "low"},
+					Keys:           keys,
+					Start:          10 * telem.SecondTS,
+					Authorities:    []control.Authority{1},
+					Sync:           new(true),
+				}))
+				holder := MustSucceed(gw.Framer.OpenWriter(ctx, writer.Config{
+					ControlSubject: control.Subject{Key: "high"},
+					Keys:           channel.Keys{keys[refusing]},
+					Start:          10 * telem.SecondTS,
+					Authorities:    []control.Authority{control.AuthorityAbsolute},
+					Sync:           new(true),
+				}))
+				Expect(holder.Write(frame.NewMulti(
+					channel.Keys{keys[refusing]},
+					[]telem.Series{telem.NewSeriesSecondsTSV(10)},
+				))).To(BeTrue())
+				Expect(w.EndDomain(keys)).To(BeFalse())
+				Expect(holder.Close()).To(Succeed())
+				Expect(w.Close()).To(Succeed())
+			},
+			Entry("on the gateway", 0),
+			Entry("on a peer", 1),
+		)
 		It("Should report a commit that fails", func(ctx SpecContext) {
 			gw := testutil.NewCluster(ctx, 1).Nodes[1]
 			idx := MustSucceed(gw.Channel.Create(ctx, []channel.Channel{{
