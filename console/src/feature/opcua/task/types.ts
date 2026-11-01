@@ -181,6 +181,7 @@ export interface CertificatesResponse extends z.infer<typeof certificatesRespons
 
 const testConnectionResponseZ = z.object({
   serverCertificate: certificateInfoZ.optional(),
+  clientCertificateRejected: z.boolean().optional(),
 });
 
 // Each command replies with its own shape, and the client drops a reply that fails

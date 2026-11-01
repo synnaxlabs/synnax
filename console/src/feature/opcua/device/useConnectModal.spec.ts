@@ -9,6 +9,7 @@
 
 import { type rack, type task } from "@synnaxlabs/client";
 import { createTestClient } from "@synnaxlabs/client/testutil";
+import { stubClipboardWriteText } from "@synnaxlabs/lyra/testutil";
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -50,14 +51,35 @@ const createScanTask = async (rck: rack.Rack) =>
     config: {},
   });
 
+const DRIVER_THUMBPRINT = "01:23:45:67:89:AB:CD:EF:01:23:45:67:89:AB:CD:EF:01:23:45:67";
+
+const NEXT_DRIVER_THUMBPRINT =
+  "89:AB:CD:EF:01:23:45:67:89:AB:CD:EF:01:23:45:67:89:AB:CD:EF";
+
 const answerGetCertificate = async (
   scan: task.Task,
-  next?: OPCUA.Task.CertificateInfo,
+  certificates: OPCUA.Task.CertificatesResponse = { current: DRIVER_CERTIFICATE },
 ) =>
   await answerNextCommand(client, scan, {
     type: OPCUA.Task.GET_CERTIFICATE_COMMAND_TYPE,
-    data: { current: DRIVER_CERTIFICATE, next },
+    data: certificates,
   });
+
+/** Opens the dialog on a running rack with security on and the Driver certificate shown. */
+const openWithDriverCertificate = async () => {
+  const rack = await createRunningRack(client, "opc");
+  const scan = await createScanTask(rack);
+  const loaded = await answerGetCertificate(scan);
+  const { result } = await renderModalOpener(
+    OPCUA.Device.useConnectModal,
+    [{ rack: rack.key }],
+    { client },
+  );
+  fireEvent.click(await screen.findByText("Sign"));
+  await loaded.answered;
+  await screen.findByText(DRIVER_THUMBPRINT);
+  return { scan, result };
+};
 
 const toDER = (pem: string): Uint8Array =>
   new Uint8Array(
@@ -252,38 +274,23 @@ describe("OPCUA.Device.useConnectModal", () => {
     ).toBeTruthy();
   });
 
-  it("should show the Driver certificate of the selected rack", async () => {
-    const rack = await createRunningRack(client, "opc");
-    const scan = await createScanTask(rack);
-    const { answered } = await answerGetCertificate(scan, NEXT_DRIVER_CERTIFICATE);
-    await renderModalOpener(OPCUA.Device.useConnectModal, [{ rack: rack.key }], {
-      client,
-    });
-    fireEvent.click(await screen.findByText("Sign"));
-    await answered;
-    expect(
-      await screen.findByText(
-        "01:23:45:67:89:AB:CD:EF:01:23:45:67:89:AB:CD:EF:01:23:45:67",
-      ),
-    ).toBeTruthy();
-    expect(screen.getByText("Expires 2029-01-15")).toBeTruthy();
-    expect(screen.getByText("Next certificate")).toBeTruthy();
-    expect(
-      screen.getByText("89:AB:CD:EF:01:23:45:67:89:AB:CD:EF:01:23:45:67:89:AB:CD:EF"),
-    ).toBeTruthy();
-    expect(screen.getByText("Expires 2032-01-15")).toBeTruthy();
+  it("should show the thumbprint of the Driver certificate of the selected rack", async () => {
+    await openWithDriverCertificate();
+    expect(screen.getByText(DRIVER_THUMBPRINT)).toBeTruthy();
+    expect(screen.queryByText("2029-01-15")).toBeNull();
+  });
+
+  it("should copy the thumbprint of the Driver certificate", async () => {
+    const writeText = stubClipboardWriteText();
+    await openWithDriverCertificate();
+    fireEvent.click(findButton("Copy"));
+    await waitFor(() =>
+      expect(writeText).toHaveBeenCalledWith(DRIVER_CERTIFICATE.thumbprint),
+    );
   });
 
   it("should download the Driver certificate as DER", async () => {
-    const rack = await createRunningRack(client, "opc");
-    const scan = await createScanTask(rack);
-    const { answered } = await answerGetCertificate(scan);
-    await renderModalOpener(OPCUA.Device.useConnectModal, [{ rack: rack.key }], {
-      client,
-    });
-    fireEvent.click(await screen.findByText("Sign"));
-    await answered;
-    await screen.findByText("Expires 2029-01-15");
+    await openWithDriverCertificate();
     const downloads = captureBrowserDownloads();
     fireEvent.click(findButton("Download"));
     await waitFor(() => expect(downloads.anchors).toHaveLength(1));
@@ -293,28 +300,43 @@ describe("OPCUA.Device.useConnectModal", () => {
     );
   });
 
-  it("should show the new Driver certificate after a confirmed regenerate", async () => {
-    const rack = await createRunningRack(client, "opc");
-    const scan = await createScanTask(rack);
-    const loaded = await answerGetCertificate(scan);
-    await renderModalOpener(OPCUA.Device.useConnectModal, [{ rack: rack.key }], {
-      client,
+  it("should show the expiry and renewal of the Driver certificate in its view", async () => {
+    const { scan } = await openWithDriverCertificate();
+    const loaded = await answerGetCertificate(scan, {
+      current: DRIVER_CERTIFICATE,
+      next: NEXT_DRIVER_CERTIFICATE,
     });
-    fireEvent.click(await screen.findByText("Sign"));
+    fireEvent.click(findButton("Manage"));
     await loaded.answered;
-    await screen.findByText("Expires 2029-01-15");
+    expect(await screen.findByText("2029-01-15")).toBeTruthy();
+    expect(screen.getByText("Renewal")).toBeTruthy();
+    expect(screen.getByText(NEXT_DRIVER_THUMBPRINT)).toBeTruthy();
+    expect(screen.getByText("2032-01-15")).toBeTruthy();
+  });
+
+  it("should show the regenerated Driver certificate once its view closes", async () => {
+    const { scan } = await openWithDriverCertificate();
+    const loaded = await answerGetCertificate(scan);
+    fireEvent.click(findButton("Manage"));
+    await loaded.answered;
+    await screen.findByText("2029-01-15");
     const regenerated = await answerNextCommand(client, scan, {
       type: OPCUA.Task.REGENERATE_CERTIFICATE_COMMAND_TYPE,
       data: { current: NEXT_DRIVER_CERTIFICATE },
     });
     fireEvent.click(findButton("Regenerate"));
-    await screen.findByText(
-      "Are you sure you want to regenerate the Driver certificate?",
-    );
+    await screen.findByText("Regenerate Driver certificate");
     fireEvent.click(findLastButton("Regenerate"));
     await regenerated.answered;
-    expect(await screen.findByText("Expires 2032-01-15")).toBeTruthy();
-    expect(screen.queryByText("Expires 2029-01-15")).toBeNull();
+    expect(await screen.findByText("2032-01-15")).toBeTruthy();
+    const reloaded = await answerGetCertificate(scan, {
+      current: NEXT_DRIVER_CERTIFICATE,
+    });
+    const dismissButtons = screen.getAllByRole("button", { name: "Close" });
+    fireEvent.click(dismissButtons[dismissButtons.length - 1]);
+    await reloaded.answered;
+    expect(await screen.findByText(NEXT_DRIVER_THUMBPRINT)).toBeTruthy();
+    expect(screen.queryByText(DRIVER_THUMBPRINT)).toBeNull();
   });
 
   it("should show the thumbprint of the pinned server certificate", async () => {
@@ -339,26 +361,21 @@ describe("OPCUA.Device.useConnectModal", () => {
   });
 
   it("should trust the certificate the server sent and connect again", async () => {
-    const rack = await createRunningRack(client, "opc");
-    const scan = await createScanTask(rack);
-    const loaded = await answerGetCertificate(scan);
-    const { result } = await renderModalOpener(
-      OPCUA.Device.useConnectModal,
-      [{ rack: rack.key }],
-      { client },
-    );
-    fireEvent.click(await screen.findByText("Sign"));
-    await loaded.answered;
-    expect(await screen.findByText("Not trusted")).toBeTruthy();
+    const { scan, result } = await openWithDriverCertificate();
+    expect(
+      screen.getByText("No certificate yet. Connect to get one from the server."),
+    ).toBeTruthy();
     const rejected = await answerNextCommand(client, scan, {
       ...TEST_CONNECTION,
       variant: "error",
       message: "Server certificate not trusted",
+      description: "The Driver does not trust the server certificate yet.",
       data: { serverCertificate: SERVER_CERTIFICATE },
     });
     pressSaveTrigger();
     await rejected.answered;
     expect(await screen.findByText(SERVER_CERTIFICATE.subject)).toBeTruthy();
+    expect(screen.getByText("Server certificate not trusted")).toBeTruthy();
     const accepted = await answerNextCommand(client, scan, TEST_CONNECTION);
     fireEvent.click(findButton("Trust"));
     await accepted.answered;
@@ -366,6 +383,40 @@ describe("OPCUA.Device.useConnectModal", () => {
     if (key == null) throw new Error("the modal closed without a device");
     const dev = await client.devices.retrieve({ key, schemas: OPCUA.Device.SCHEMAS });
     expect(dev.properties.connection.serverCertificate).toBe(SERVER_CERTIFICATE.pem);
+  });
+
+  it("should show why the server rejected the Driver certificate at its field", async () => {
+    const { scan } = await openWithDriverCertificate();
+    const description =
+      "The server rejected the connection's security checks (BadSecurityChecksFailed).";
+    const rejected = await answerNextCommand(client, scan, {
+      ...TEST_CONNECTION,
+      variant: "error",
+      message: "Server rejected the Driver certificate",
+      description,
+      data: { clientCertificateRejected: true },
+    });
+    pressSaveTrigger();
+    await rejected.answered;
+    expect(await screen.findByText(description)).toBeTruthy();
+    expect(screen.getByText("Server rejected the Driver certificate")).toBeTruthy();
+  });
+
+  it("should clear the rejection when another client certificate is chosen", async () => {
+    const { scan } = await openWithDriverCertificate();
+    const description = "The server rejected the connection's security checks.";
+    const rejected = await answerNextCommand(client, scan, {
+      ...TEST_CONNECTION,
+      variant: "error",
+      message: "Server rejected the Driver certificate",
+      description,
+      data: { clientCertificateRejected: true },
+    });
+    pressSaveTrigger();
+    await rejected.answered;
+    await screen.findByText(description);
+    fireEvent.click(screen.getByText("Files on the Driver computer"));
+    await waitFor(() => expect(screen.queryByText(description)).toBeNull());
   });
 
   it("should show the file paths of a device that names them", async () => {
