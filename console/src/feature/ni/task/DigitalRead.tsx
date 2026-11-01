@@ -10,6 +10,7 @@
 import { channel, NotFoundError } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { errors, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
@@ -17,12 +18,15 @@ import { type FC } from "react";
 import { useFromConfig } from "@/feature/ni/device/queries";
 import { Select } from "@/feature/ni/device/Select";
 import { MAKE, SCHEMAS } from "@/feature/ni/device/types";
+import { digitalHardwareZ } from "@/feature/ni/task/checks";
 import { createNextDIChannel } from "@/feature/ni/task/createChannel";
 import {
   DigitalChannelList,
   type DigitalNameComponentProps,
 } from "@/feature/ni/task/DigitalChannelList";
 import { getDigitalChannelDeviceKey } from "@/feature/ni/task/getDigitalChannelDeviceKey";
+import { digitalInputName } from "@/feature/ni/task/ports";
+import { LinesView } from "@/feature/ni/task/PortsView";
 import {
   deployDigitalReadConfigZ,
   type DIChannel,
@@ -60,6 +64,7 @@ const name = Component.renderProp(NameComponent);
 
 const Form: FC = () => {
   const dev = useFromConfig();
+  PForm.useCheck("config", digitalHardwareZ(dev, "input"));
   const resolve = (ch: DIChannel) =>
     dev == null
       ? null
@@ -69,10 +74,25 @@ const Form: FC = () => {
         };
   return (
     <DigitalChannelList<DIChannel>
-      createChannel={createNextDIChannel}
+      createChannel={(channels) => createNextDIChannel(channels, {}, dev)}
       name={name}
       contextMenuItems={Task.readChannelContextMenuItem}
       resolve={resolve}
+      ports={
+        dev?.properties.hardware == null
+          ? undefined
+          : (props) => (
+              <LinesView<DIChannel>
+                {...props}
+                device={dev}
+                direction="input"
+                create={(channels, placement) =>
+                  createNextDIChannel(channels, placement, dev)
+                }
+                name={digitalInputName}
+              />
+            )
+      }
     />
   );
 };
@@ -118,8 +138,12 @@ const onConfigure: Task.OnConfigure<typeof digitalReadConfigZ> = async (
       dev.properties.digitalInput.channels = {};
     }
     const toCreate: DIChannel[] = [];
-    for (const channel of config.channels) {
+    // Channels on one port share its data channel, named by an enabled one if any.
+    const seen = new Set<string>();
+    for (const channel of Task.enabledFirst(config.channels)) {
       const key = getDigitalChannelDeviceKey(channel);
+      if (seen.has(key)) continue;
+      seen.add(key);
       const exKey = dev.properties.digitalInput.channels[key];
       if (primitive.isZero(exKey)) toCreate.push(channel);
       else

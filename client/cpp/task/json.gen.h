@@ -41,7 +41,7 @@ inline x::json::json StatusDetails::to_json() const {
     j["cmd"] = this->cmd;
     j["config_hash"] = this->config_hash;
     j["rack"] = this->rack;
-    j["data"] = this->data;
+    if (this->data.has_value()) j["data"] = *this->data;
     return j;
 }
 

@@ -7,10 +7,5 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Form } from "@synnaxlabs/lyra/form";
-
-export const PortField = Form.buildNumericField({
-  fieldKey: "port",
-  fieldProps: { label: "Port" },
-  inputProps: { showDragHandle: false, style: { width: "12rem" } },
-});
+export * from "@/platform/task/port/claims";
+export * from "@/platform/task/port/Grid";
