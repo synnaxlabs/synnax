@@ -21,7 +21,7 @@ vi.mock("@/session/runtime/runtime", async (importOriginal) => {
 
 import { Core } from "@/platform/core";
 import { Session } from "@/session";
-import { createCore, createCoreState } from "@/session/core/testutil";
+import { createCore, createCoreState, keychainAccount } from "@/session/core/testutil";
 import { createSessionConsoleWrapper, createStatusConsoleWrapper } from "@/testutil";
 
 /** Records the keychain writes and deletes the keeper issues. */
@@ -52,7 +52,7 @@ describe("Core.TokenKeeper", () => {
     expect(calls[0]).toMatchObject({
       cmd: "keychain_set",
       args: {
-        account: `http://synnax@localhost:9090#${core.key}`,
+        account: keychainAccount(core),
         secret: expect.stringMatching(/^sys_/),
       },
     });
@@ -65,7 +65,7 @@ describe("Core.TokenKeeper", () => {
     await waitFor(() => expect(calls).toHaveLength(1));
     expect(calls[0]).toEqual({
       cmd: "keychain_delete",
-      args: { account: `http://synnax@localhost:9090#${core.key}` },
+      args: { account: keychainAccount(core) },
     });
   });
 
@@ -103,7 +103,7 @@ describe("Core.TokenKeeper", () => {
     expect(calls).toHaveLength(1);
     expect(calls[0]).toMatchObject({
       cmd: "keychain_set",
-      args: { account: `http://synnax@localhost:9090#${first.key}` },
+      args: { account: keychainAccount(first) },
     });
   });
 });
