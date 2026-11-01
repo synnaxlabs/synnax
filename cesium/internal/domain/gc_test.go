@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/alamos/testutil"
 	"github.com/synnaxlabs/cesium/internal/domain"
+	"github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/io/fs"
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
@@ -45,7 +46,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 						Instrumentation: PanicLogger(),
 					}))
 					Expect(
-						domain.Write(
+						testutil.WriteDomain(
 							ctx,
 							db,
 							(10 * telem.SecondTS).Range(19*telem.SecondTS+1),
@@ -69,7 +70,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 
 					By("Asserting that we can still write to the file")
 					Expect(
-						domain.Write(
+						testutil.WriteDomain(
 							ctx,
 							db,
 							(20 * telem.SecondTS).Range(28*telem.SecondTS+1),
@@ -121,7 +122,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 						Instrumentation: PanicLogger(),
 					}))
 					Expect(
-						domain.Write(
+						testutil.WriteDomain(
 							ctx,
 							db,
 							(10 * telem.SecondTS).Range(19*telem.SecondTS+1),
@@ -129,7 +130,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 						),
 					).To(Succeed())
 					Expect(
-						domain.Write(
+						testutil.WriteDomain(
 							ctx,
 							db,
 							(20 * telem.SecondTS).Range(23*telem.SecondTS+1),
@@ -137,7 +138,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 						),
 					).To(Succeed())
 					Expect(
-						domain.Write(
+						testutil.WriteDomain(
 							ctx,
 							db,
 							(30 * telem.SecondTS).Range(36*telem.SecondTS+1),
@@ -236,7 +237,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 							Instrumentation: PanicLogger(),
 						}))
 						Expect(
-							domain.Write(
+							testutil.WriteDomain(
 								ctx,
 								db,
 								(10 * telem.SecondTS).Range(19*telem.SecondTS+1),
@@ -244,7 +245,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 							),
 						).To(Succeed())
 						Expect(
-							domain.Write(
+							testutil.WriteDomain(
 								ctx,
 								db,
 								(20 * telem.SecondTS).Range(23*telem.SecondTS+1),
@@ -252,7 +253,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 							),
 						).To(Succeed())
 						Expect(
-							domain.Write(
+							testutil.WriteDomain(
 								ctx,
 								db,
 								(30 * telem.SecondTS).Range(36*telem.SecondTS+1),
@@ -333,7 +334,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 							Instrumentation: PanicLogger(),
 						}))
 						Expect(
-							domain.Write(
+							testutil.WriteDomain(
 								ctx,
 								db,
 								(1 * telem.SecondTS).Range(7*telem.SecondTS+1),
@@ -412,7 +413,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 							Instrumentation: PanicLogger(),
 						}))
 						Expect(
-							domain.Write(
+							testutil.WriteDomain(
 								ctx,
 								db,
 								(10 * telem.SecondTS).Range(19*telem.SecondTS+1),
@@ -446,7 +447,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 
 						By("Asserting that we can still write to the file")
 						Expect(
-							domain.Write(
+							testutil.WriteDomain(
 								ctx,
 								db,
 								(20 * telem.SecondTS).Range(28*telem.SecondTS+1),
@@ -456,7 +457,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 
 						By("Asserting that the data is correct")
 						data := MustSucceed(
-							domain.Read(
+							testutil.ReadDomain(
 								ctx,
 								db,
 								(20 * telem.SecondTS).Range(29*telem.SecondTS+1),
@@ -491,7 +492,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 						Instrumentation: PanicLogger(),
 					}))
 					Expect(
-						domain.Write(
+						testutil.WriteDomain(
 							ctx,
 							db,
 							(10 * telem.SecondTS).Range(19*telem.SecondTS+1),
@@ -499,7 +500,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 						),
 					).To(Succeed())
 					Expect(
-						domain.Write(
+						testutil.WriteDomain(
 							ctx,
 							db,
 							(20 * telem.SecondTS).Range(23*telem.SecondTS+1),
@@ -507,7 +508,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 						),
 					).To(Succeed())
 					Expect(
-						domain.Write(
+						testutil.WriteDomain(
 							ctx,
 							db,
 							(30 * telem.SecondTS).Range(36*telem.SecondTS+1),
@@ -535,7 +536,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 					Expect(MustSucceed(fs.Stat("3.domain")).Size()).To(Equal(int64(3)))
 
 					Expect(
-						domain.Write(
+						testutil.WriteDomain(
 							ctx,
 							db,
 							(100 * telem.SecondTS).Range(105*telem.SecondTS+1),
@@ -543,7 +544,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 						),
 					).To(Succeed())
 					Expect(
-						domain.Write(
+						testutil.WriteDomain(
 							ctx,
 							db,
 							(110 * telem.SecondTS).Range(115*telem.SecondTS+1),
@@ -608,7 +609,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 							Instrumentation: PanicLogger(),
 						}))
 						Expect(
-							domain.Write(
+							testutil.WriteDomain(
 								ctx,
 								db,
 								(10 * telem.SecondTS).Range(19*telem.SecondTS+1),
@@ -617,7 +618,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 						).To(Succeed())
 						// file 1
 						Expect(
-							domain.Write(
+							testutil.WriteDomain(
 								ctx,
 								db,
 								(20 * telem.SecondTS).Range(25*telem.SecondTS+1),
@@ -626,7 +627,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 						).To(Succeed())
 						// file 1
 						Expect(
-							domain.Write(
+							testutil.WriteDomain(
 								ctx,
 								db,
 								(30 * telem.SecondTS).Range(36*telem.SecondTS+1),
@@ -635,7 +636,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 						).To(Succeed())
 						// file 2
 						Expect(
-							domain.Write(
+							testutil.WriteDomain(
 								ctx,
 								db,
 								(40 * telem.SecondTS).Range(43*telem.SecondTS+1),
@@ -678,7 +679,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 
 						By("Asserting that we can still write data")
 						Expect(
-							domain.Write(
+							testutil.WriteDomain(
 								ctx,
 								db,
 								(44 * telem.SecondTS).Range(44*telem.SecondTS+1),
@@ -738,7 +739,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 							Instrumentation: PanicLogger(),
 						}))
 						Expect(
-							domain.Write(
+							testutil.WriteDomain(
 								ctx,
 								db,
 								(10 * telem.SecondTS).Range(19*telem.SecondTS+1),
@@ -747,7 +748,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 						).To(Succeed())
 						// file 1
 						Expect(
-							domain.Write(
+							testutil.WriteDomain(
 								ctx,
 								db,
 								(20 * telem.SecondTS).Range(25*telem.SecondTS+1),
@@ -756,7 +757,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 						).To(Succeed())
 						// file 1
 						Expect(
-							domain.Write(
+							testutil.WriteDomain(
 								ctx,
 								db,
 								(30 * telem.SecondTS).Range(36*telem.SecondTS+1),
@@ -765,7 +766,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 						).To(Succeed())
 						// file 2
 						Expect(
-							domain.Write(
+							testutil.WriteDomain(
 								ctx,
 								db,
 								(40 * telem.SecondTS).Range(43*telem.SecondTS+1),
@@ -849,7 +850,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 							Instrumentation: PanicLogger(),
 						}))
 						Expect(
-							domain.Write(
+							testutil.WriteDomain(
 								ctx,
 								db,
 								(10 * telem.SecondTS).Range(19*telem.SecondTS+1),
@@ -858,7 +859,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 						).To(Succeed())
 						// file 1
 						Expect(
-							domain.Write(
+							testutil.WriteDomain(
 								ctx,
 								db,
 								(20 * telem.SecondTS).Range(25*telem.SecondTS+1),
@@ -867,7 +868,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 						).To(Succeed())
 						// file 1
 						Expect(
-							domain.Write(
+							testutil.WriteDomain(
 								ctx,
 								db,
 								(30 * telem.SecondTS).Range(36*telem.SecondTS+1),
@@ -876,7 +877,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 						).To(Succeed())
 						// file 2
 						Expect(
-							domain.Write(
+							testutil.WriteDomain(
 								ctx,
 								db,
 								(40 * telem.SecondTS).Range(46*telem.SecondTS+1),
@@ -930,7 +931,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 
 						By("Asserting that new data would still be written")
 						Expect(
-							domain.Write(
+							testutil.WriteDomain(
 								ctx,
 								db,
 								(30 * telem.SecondTS).Range(35*telem.SecondTS+1),
@@ -994,7 +995,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 						Instrumentation: PanicLogger(),
 					}))
 					Expect(
-						domain.Write(
+						testutil.WriteDomain(
 							ctx,
 							db,
 							(10 * telem.SecondTS).Range(19*telem.SecondTS+1),
@@ -1003,7 +1004,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 					).To(Succeed())
 					// file 1
 					Expect(
-						domain.Write(
+						testutil.WriteDomain(
 							ctx,
 							db,
 							(20 * telem.SecondTS).Range(25*telem.SecondTS+1),
@@ -1012,7 +1013,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 					).To(Succeed())
 					// file 1
 					Expect(
-						domain.Write(
+						testutil.WriteDomain(
 							ctx,
 							db,
 							(30 * telem.SecondTS).Range(36*telem.SecondTS+1),
@@ -1021,7 +1022,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 					).To(Succeed())
 					// file 2
 					Expect(
-						domain.Write(
+						testutil.WriteDomain(
 							ctx,
 							db,
 							(40 * telem.SecondTS).Range(46*telem.SecondTS+1),
@@ -1068,7 +1069,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 						Instrumentation: PanicLogger(),
 					}))
 					Expect(
-						domain.Write(
+						testutil.WriteDomain(
 							ctx,
 							db,
 							(10 * telem.SecondTS).Range(19*telem.SecondTS+1),
@@ -1114,7 +1115,7 @@ var _ = Describe("Garbage Collection", Ordered, func() {
 						GCThreshold:     math.SmallestNonzeroFloat32,
 						Instrumentation: PanicLogger(),
 					}))
-					Expect(domain.Write(
+					Expect(testutil.WriteDomain(
 						ctx,
 						db,
 						(10 * telem.SecondTS).Range(19*telem.SecondTS+1),

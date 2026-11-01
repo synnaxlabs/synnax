@@ -30,6 +30,25 @@ describe("UUID", () => {
     });
   });
 
+  describe("fromName", () => {
+    it("should derive the RFC 9562 version 5 UUID", () => {
+      // uuid5(NAMESPACE_DNS, "www.example.com") from the RFC test vectors.
+      expect(
+        uuid.fromName("www.example.com", "6ba7b810-9dad-11d1-80b4-00c04fd430c8"),
+      ).toEqual("2ed6657d-e927-568b-95e1-2665a8aea6a2");
+    });
+
+    it("should derive the same UUID for the same name", () => {
+      const ns = uuid.create();
+      expect(uuid.fromName("a", ns)).toEqual(uuid.fromName("a", ns));
+    });
+
+    it("should derive different UUIDs for different names", () => {
+      const ns = uuid.create();
+      expect(uuid.fromName("a", ns)).not.toEqual(uuid.fromName("b", ns));
+    });
+  });
+
   describe("parse", () => {
     it("should parse a valid UUID from bytes", () => {
       const bytes = new Uint8Array([

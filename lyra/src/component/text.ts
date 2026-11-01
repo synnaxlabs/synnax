@@ -13,7 +13,7 @@ import { type Size } from "@/component/size";
 
 /** Default typography level for each component size. */
 export const SIZE_TEXT_LEVELS: Record<Size, text.Level> = {
-  tiny: "small",
+  tiny: "tiny",
   small: "small",
   medium: "p",
   large: "h5",
@@ -29,4 +29,5 @@ export const TEXT_LEVEL_SIZES: Record<text.Level, Size> = {
   h5: "small",
   p: "medium",
   small: "small",
+  tiny: "tiny",
 };

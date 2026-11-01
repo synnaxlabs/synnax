@@ -11,18 +11,21 @@ import { array, DataType, Series } from "@synnaxlabs/x";
 import { allocSuiteAsync } from "@synnaxlabs/x/bench";
 import { test } from "vitest";
 
-import { type channel } from "@/channel";
-import { payloadZ } from "@/channel/types.gen";
+import { channel } from "@/channel";
+import { framer } from "@/framer";
 import { WriteAdapter } from "@/framer/adapter";
-import { createKeys } from "@/framer/benchutil";
-import { Frame } from "@/framer/frame";
+import { createKeys } from "@/framer/testutil";
 
 const CHANNELS = 10;
 const SAMPLES = 100;
 
 const keys = createKeys(CHANNELS);
 const payloads: channel.Payload[] = keys.map((key) =>
-  payloadZ.parse({ key, name: `ch_${key}`, dataType: DataType.FLOAT32.toString() }),
+  channel.payloadZ.parse({
+    key,
+    name: `ch_${key}`,
+    dataType: DataType.FLOAT32.toString(),
+  }),
 );
 
 const retrieveChannels = async (params: channel.Params): Promise<channel.Payload[]> => {
@@ -43,7 +46,7 @@ const data = new Float32Array(SAMPLES);
 const record: Record<string, Float32Array> = Object.fromEntries(
   payloads.map((p) => [p.name, data]),
 );
-const keyedFrame = new Frame(
+const keyedFrame = new framer.Frame(
   keys,
   keys.map(() => new Series({ data, dataType: DataType.FLOAT32 })),
 );

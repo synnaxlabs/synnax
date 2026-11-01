@@ -22,14 +22,8 @@ import {
 import { afterAll, describe, expect, it } from "vitest";
 
 import { type channel } from "@/channel";
-import { UnexpectedError } from "@/errors";
-import { type FeedOptions } from "@/framer/feed";
-import { type Frame } from "@/framer/frame";
-import {
-  type LatestRequest,
-  type PointsRequest,
-  type Subscription,
-} from "@/framer/subscription";
+import { type framer } from "@/framer";
+import { UnexpectedError } from "@/index";
 import { createTestClient, SyntheticCore } from "@/testutil";
 
 // More points than any window here holds samples, so every sample draws.
@@ -42,7 +36,7 @@ afterAll(async () => await feed.close());
 const POLL = { timeout: 10000, interval: 50 };
 const START = TimeStamp.seconds(1_000_000);
 
-const OPTIONS: FeedOptions = {
+const OPTIONS: framer.FeedOptions = {
   batchDebounce: TimeSpan.milliseconds(5),
   removalDelay: TimeSpan.ZERO,
   breaker: {
@@ -73,22 +67,25 @@ const createClock = (): (() => TimeStamp) => {
   };
 };
 
-const raw = (keys: channel.Key[], window: Window): PointsRequest => ({
+const raw = (keys: channel.Key[], window: Window): framer.PointsRequest => ({
   keys,
   window,
   limit: { variant: "points", count: EXACT, aggregation: "min_max" },
 });
 
-const latest = (keys: channel.Key[], count = 1): LatestRequest => ({
+const latest = (keys: channel.Key[], count = 1): framer.LatestRequest => ({
   keys,
   limit: { variant: "latest", count },
 });
 
-const valuesOf = (sub: Subscription, key: channel.Key): number[] =>
+const valuesOf = (sub: framer.Subscription, key: channel.Key): number[] =>
   Array.from(sub.value(key).series) as number[];
 
 /** Returns the samples of the channel once the subscription loads them. */
-const loaded = async (sub: Subscription, key: channel.Key): Promise<number[]> => {
+const loaded = async (
+  sub: framer.Subscription,
+  key: channel.Key,
+): Promise<number[]> => {
   await expect.poll(() => sub.value(key).status.variant, POLL).toBe("success");
   return valuesOf(sub, key);
 };
@@ -349,7 +346,7 @@ describe("Feed", () => {
     const direct = core.openFeed({
       ...OPTIONS,
       fetchTimeout: TimeSpan.milliseconds(20),
-      readRemote: async () => await new Promise<Frame>(() => {}),
+      readRemote: async () => await new Promise<framer.Frame>(() => {}),
     });
     const key = core.index.key;
     const tr = new TimeRange(START, START.add(TimeSpan.seconds(1)));

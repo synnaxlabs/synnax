@@ -31,10 +31,11 @@ func testCtx() context.Context[parser.IProgramContext] {
 
 // makeType is a helper to create a types.Type with an optional unit.
 func makeType(unitName string) types.Type {
+	GinkgoHelper()
 	if unitName == "" {
 		return types.Type{Kind: types.KindF64}
 	}
-	return types.Type{Kind: types.KindF64, Unit: units.MustResolve(unitName)}
+	return types.Type{Kind: types.KindF64, Unit: MustBeOk(units.Resolve(unitName))}
 }
 
 var _ = Describe("Analysis", func() {
