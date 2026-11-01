@@ -148,9 +148,11 @@ func editAt[V any](
 }
 
 // Edit applies fn to the JSON form of doc and decodes the result into a new D. The
-// decode rejects members that D does not have, so an action outside D fails. Edit
-// returns the error of fn, or an error wrapping validate.ErrValidation when doc does
-// not encode or the result does not decode.
+// decode rejects members that D does not have, so an action outside D fails. Edit also
+// rejects a result that drops a member D holds, since D would fill it with a zero value
+// that a client replaying the action does not hold. Edit returns the error of fn, or an
+// error wrapping validate.ErrValidation when doc does not encode or the result does not
+// decode.
 func Edit[D any](doc D, fn func(map[string]any) error) (D, error) {
 	var zero D
 	b, err := json.Marshal(doc)
@@ -171,5 +173,39 @@ func Edit[D any](doc D, fn func(map[string]any) error) (D, error) {
 	if err = json.Unmarshal(b, &next, json.RejectUnknownMembers(true)); err != nil {
 		return zero, errors.Wrapf(validate.ErrValidation, "decoding document: %s", err)
 	}
+	if b, err = json.Marshal(next); err != nil {
+		return zero, errors.Wrapf(validate.ErrValidation, "encoding document: %s", err)
+	}
+	var decoded map[string]any
+	if err = json.Unmarshal(b, &decoded); err != nil {
+		return zero, errors.Wrapf(validate.ErrValidation, "decoding document: %s", err)
+	}
+	if path := missing(decoded, m); path != nil {
+		return zero, errors.Wrapf(
+			validate.ErrValidation,
+			"%s: the document requires a value",
+			format(path),
+		)
+	}
 	return next, nil
+}
+
+// missing returns the path of a member that want holds and got lacks or holds as null,
+// or nil when got holds every member.
+func missing(want, got map[string]any) []string {
+	for field, value := range want {
+		held, ok := got[field]
+		if value != nil && (!ok || held == nil) {
+			return []string{field}
+		}
+		wantObject, wantOK := value.(map[string]any)
+		gotObject, gotOK := held.(map[string]any)
+		if !wantOK || !gotOK {
+			continue
+		}
+		if path := missing(wantObject, gotObject); path != nil {
+			return append([]string{field}, path...)
+		}
+	}
+	return nil
 }

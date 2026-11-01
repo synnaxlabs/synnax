@@ -51,6 +51,51 @@ var _ = Describe("Edit", func() {
 		))
 	})
 
+	It("Should reject the removal of a member that the document holds", func() {
+		Expect(patch.Edit(doc, patch.Remove{Key: "name"}.Apply)).
+			Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(ContainSubstring("[name]: the document requires a value")),
+		))
+	})
+
+	It("Should reject the removal of a nested member", func() {
+		type bounds struct {
+			Low  int `json:"low"`
+			High int `json:"high"`
+		}
+		type limits struct {
+			Bounds bounds `json:"bounds"`
+		}
+		Expect(patch.Edit(
+			limits{Bounds: bounds{High: 1}},
+			patch.Remove{Path: []string{"bounds"}, Key: "high"}.Apply,
+		)).Error().To(SatisfyAll(
+			MatchError(validate.ErrValidation),
+			MatchError(
+				ContainSubstring("[bounds, high]: the document requires a value"),
+			),
+		))
+	})
+
+	It("Should reject a null for a member that the document holds", func() {
+		Expect(patch.Edit(doc, patch.Set{Path: []string{"name"}}.Apply)).
+			Error().To(MatchError(
+			ContainSubstring("[name]: the document requires a value"),
+		))
+	})
+
+	It("Should accept the removal of an optional member", func() {
+		type tagged struct {
+			Name string `json:"name"`
+			Tag  string `json:"tag,omitzero"`
+		}
+		Expect(patch.Edit(
+			tagged{Name: "a", Tag: "b"},
+			patch.Remove{Key: "tag"}.Apply,
+		)).To(Equal(tagged{Name: "a"}))
+	})
+
 	It("Should return the error of the function", func() {
 		err := errors.New("failed")
 		Expect(patch.Edit(doc, func(map[string]any) error { return err })).

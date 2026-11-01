@@ -47,6 +47,14 @@ describe("ranger.reduceAll", () => {
       expect(next.color).toEqual(color.construct("#ff0000"));
     });
 
+    it("should remove the color when a set holds null", () => {
+      const prev = { ...createRange(), color: color.construct("#00ff00") };
+      const { next } = ranger.reduceAll(prev, [
+        ranger.set({ path: ["color"], value: null }),
+      ]);
+      expect(next).not.toHaveProperty("color");
+    });
+
     it("should keep the range unchanged by identity when nothing changes", () => {
       const prev = createRange();
       const { next } = ranger.reduceAll(prev, [

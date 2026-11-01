@@ -81,6 +81,15 @@ var _ = Describe("Actions", func() {
 	})
 
 	Describe("RemovePayload", func() {
+		It("Should reject the removal of the color", func() {
+			Expect(label.Reduce(
+				base,
+				label.NewRemoveAction(label.RemovePayload{Key: "color"}),
+			)).Error().To(SatisfyAll(
+				MatchError(validate.ErrValidation),
+				MatchError(ContainSubstring("[color]: the document requires a value")),
+			))
+		})
 		It("Should leave the label unchanged when the field is missing", func() {
 			Expect(label.Reduce(
 				base,

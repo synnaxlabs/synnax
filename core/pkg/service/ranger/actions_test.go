@@ -107,6 +107,31 @@ var _ = Describe("Actions", func() {
 			))
 			Expect(res.Color).To(BeNil())
 		})
+		DescribeTable(
+			"Should reject the removal of",
+			func(
+				act ranger.Action,
+				path string,
+			) {
+				Expect(ranger.Reduce(base, act)).Error().To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(
+						ContainSubstring(path+": the document requires a value"),
+					),
+				))
+			},
+			Entry("the time range", ranger.NewRemoveAction(ranger.RemovePayload{
+				Key: "time_range",
+			}), "[time_range]"),
+			Entry(
+				"an end of the time range",
+				ranger.NewRemoveAction(ranger.RemovePayload{
+					Path: []string{"time_range"},
+					Key:  "end",
+				}),
+				"[time_range, end]",
+			),
+		)
 	})
 
 	Describe("InsertPayload", func() {
