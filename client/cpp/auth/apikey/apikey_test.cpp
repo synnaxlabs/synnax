@@ -19,7 +19,7 @@
 namespace synnax::auth::apikey {
 namespace {
 synnax::Synnax keyed_client(const std::string &token) {
-    auto cfg = test_client_config;
+    auto cfg = test_client_config();
     cfg.api_key = token;
     return synnax::Synnax(cfg);
 }

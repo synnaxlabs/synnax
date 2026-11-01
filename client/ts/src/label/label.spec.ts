@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id } from "@synnaxlabs/x";
+import { color, id } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { label } from "@/label";
 import { query } from "@/query";
-import { createTestClient, expectDeleted, expectLive } from "@/testutil";
+import { createTestClient, expectDeleted, expectLive, spyOnSend } from "@/testutil";
 
 const client = createTestClient();
 
@@ -172,5 +172,85 @@ describe("store", () => {
       .toBe(true);
     const cached = expectDeleted(client.labels.getCached(created.key));
     expect(cached.corpse.name).toEqual(created.name);
+  });
+});
+
+describe("dispatch", () => {
+  beforeAll(async () => {
+    await client.connect();
+    await remote.connect();
+  });
+  const createLabel = async (c = client) =>
+    await c.labels.create({ name: `dispatch-${id.create()}`, color: "#00ff00" });
+  const rename = (value: string) => label.set({ path: ["name"], value });
+
+  it("should store the actions and keep them in the cached label", async () => {
+    const lbl = await createLabel();
+    expect(
+      await client.labels.dispatch(lbl.key, [
+        rename("Anomaly"),
+        label.set({ path: ["color"], value: "#ff0000" }),
+      ]),
+    ).toBe(true);
+    const stored = await createTestClient().labels.retrieve(lbl.key);
+    expect(stored.name).toBe("Anomaly");
+    expect(stored.color).toEqual(color.construct("#ff0000"));
+    const cached = expectLive(client.labels.getCached(lbl.key));
+    expect(cached.name).toBe("Anomaly");
+    expect(cached.color).toEqual(color.construct("#ff0000"));
+  });
+
+  it("should return false without a send when the label is not cached", async () => {
+    const lbl = await createLabel(remote);
+    const fresh = createTestClient();
+    const send = spyOnSend(fresh);
+    expect(await fresh.labels.dispatch(lbl.key, rename("Anomaly"))).toBe(false);
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("should drop actions the Core refuses from the cached label", async () => {
+    const lbl = await createLabel();
+    await expect(client.labels.dispatch(lbl.key, rename(""))).rejects.toThrow(
+      "name: required",
+    );
+    expect(expectLive(client.labels.getCached(lbl.key)).name).toBe(lbl.name);
+  });
+
+  it("should send a transaction as one dispatch", async () => {
+    const lbl = await createLabel();
+    const send = spyOnSend(client);
+    const tx = client.labels.beginTransaction(lbl.key);
+    tx.add(rename("Anomaly"));
+    tx.add(label.set({ path: ["color"], value: "#ff0000" }));
+    expect(expectLive(client.labels.getCached(lbl.key)).name).toBe("Anomaly");
+    expect(await tx.commit()).toBe(true);
+    expect(
+      send.mock.calls.filter(([target]) => target === "/label/dispatch"),
+    ).toHaveLength(1);
+    const stored = await createTestClient().labels.retrieve(lbl.key);
+    expect(stored.name).toBe("Anomaly");
+    expect(stored.color).toEqual(color.construct("#ff0000"));
+  });
+
+  it("applies another client's dispatch to a cached label", async () => {
+    const lbl = await createLabel();
+    await remote.labels.retrieve(lbl.key);
+    await client.labels.dispatch(lbl.key, rename("Anomaly"));
+    await expect
+      .poll(() => {
+        const cached = remote.labels.getCached(lbl.key);
+        return query.isLive(cached) ? cached.name : undefined;
+      })
+      .toBe("Anomaly");
+  });
+
+  it("ingests a label that another client creates", async () => {
+    const lbl = await createLabel(remote);
+    await expect
+      .poll(() => {
+        const cached = client.labels.getCached(lbl.key);
+        return query.isLive(cached) ? cached.name : undefined;
+      })
+      .toBe(lbl.name);
   });
 });
