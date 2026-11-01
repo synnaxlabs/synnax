@@ -652,6 +652,27 @@ describe("log/aether/Log", () => {
     });
   });
 
+  describe("after the 2D canvases are restored", () => {
+    it("should request a render until deleted", () => {
+      const { h, recorder } = setup([makeEntry(1)]);
+      recorder.clear();
+      recorder.restore2D();
+      expect(recorder.loopCalls).toHaveLength(1);
+      h.unmount();
+      recorder.clear();
+      recorder.restore2D();
+      expect(recorder.loopCalls).toEqual([]);
+    });
+
+    it("should not request a render while hidden", () => {
+      const { recorder, updateState } = setup([makeEntry(1)]);
+      updateState({ visible: false });
+      recorder.clear();
+      recorder.restore2D();
+      expect(recorder.loopCalls).toEqual([]);
+    });
+  });
+
   describe("render", () => {
     it("should return undefined for zero-area region", () => {
       const zeroRegion = box.construct({ x: 0, y: 0 }, { width: 0, height: 0 });

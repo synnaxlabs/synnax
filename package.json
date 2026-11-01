@@ -2,6 +2,7 @@
   "name": "synnax",
   "private": true,
   "scripts": {
+    "prepare": "git config core.hooksPath .githooks",
     "build": "turbo build",
     "build:alamos": "turbo build --filter @synnaxlabs/alamos",
     "build:arc": "turbo build --filter @synnaxlabs/arc",

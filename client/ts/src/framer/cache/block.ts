@@ -307,6 +307,21 @@ export class RawBlock implements Block {
     return out;
   }
 
+  /**
+   * @returns the piece, starting where the block's newest fetched series ends, or at
+   * the block's start, as a read starts a run's samples.
+   */
+  continued(p: Series): Series {
+    const start = this._fetched.at(-1)?.timeRange.end ?? this.range.start;
+    return derive(p, { timeRange: new TimeRange(start, p.timeRange.end) });
+  }
+
+  /** Ends the newest fetched series at the block's end, as a read cuts a run. */
+  cutNewest(): void {
+    const newest = this._fetched.at(-1);
+    if (newest != null) newest.timeRange.end = this.range.end;
+  }
+
   private insert(series: Series): void {
     const plan = bounds.buildInsertionPlan(
       this._fetched.map((s) => s.alignmentBounds),
