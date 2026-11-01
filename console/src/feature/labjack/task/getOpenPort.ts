@@ -8,10 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { Device } from "@/feature/labjack/device";
+import { claims, terminal } from "@/feature/labjack/task/ports";
 import { type Channel } from "@/feature/labjack/task/types";
 
 // This is a bit of a confusing type, but basically it maps the port type (AI, AO, DI,
-// DO) to the actual port object (AIPort, AOPort, DIPort, DOPort).
+// DO) to the actual port object (Device.AIPort, Device.AOPort, Device.DIPort, Device.DOPort).
 export type Port<T extends Device.PortType> = T extends Device.AIPortType
   ? Device.AIPort
   : T extends Device.DIPortType
@@ -27,9 +28,9 @@ export const getOpenPort = <T extends Device.PortType>(
   model: Device.Model,
   types: T[],
 ): Port<T> | null => {
-  const portsInUse = new Set(channels.map(({ port }) => port));
+  const taken = claims(channels, model);
   for (const type of types) {
-    const port = Device.PORTS[model][type].find(({ key }) => !portsInUse.has(key));
+    const port = Device.PORTS[model][type].find((p) => !taken.has(terminal(p)));
     if (port != null) return port as Port<T>;
   }
   return null;

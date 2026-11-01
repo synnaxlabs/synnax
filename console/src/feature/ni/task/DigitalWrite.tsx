@@ -10,17 +10,21 @@
 import { channel, NotFoundError } from "@synnaxlabs/client";
 import { Component } from "@synnaxlabs/lyra/component";
 import { Flex } from "@synnaxlabs/lyra/flex";
+import { Form as PForm } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { errors, type optional, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
 import { Device } from "@/feature/ni/device";
+import { digitalHardwareZ } from "@/feature/ni/task/checks";
 import { createNextDOChannel } from "@/feature/ni/task/createChannel";
 import {
   DigitalChannelList,
   type DigitalNameComponentProps,
 } from "@/feature/ni/task/DigitalChannelList";
 import { getDigitalChannelDeviceKey } from "@/feature/ni/task/getDigitalChannelDeviceKey";
+import { digitalOutputName } from "@/feature/ni/task/ports";
+import { LinesView } from "@/feature/ni/task/PortsView";
 import {
   deployDigitalWriteConfigZ,
   DIGITAL_WRITE_SCHEMAS,
@@ -64,6 +68,7 @@ const name = Component.renderProp(NameComponent);
 
 const Form: FC = () => {
   const dev = Device.useFromConfig();
+  PForm.useCheck("config", digitalHardwareZ(dev, "output"));
   const resolve = (ch: DOChannel) => {
     if (dev == null) return null;
     const pair =
@@ -73,10 +78,25 @@ const Form: FC = () => {
   };
   return (
     <DigitalChannelList
-      createChannel={createNextDOChannel}
+      createChannel={(channels) => createNextDOChannel(channels, {}, dev)}
       name={name}
       contextMenuItems={Task.writeChannelContextMenuItems}
       resolve={resolve}
+      ports={
+        dev?.properties.hardware == null
+          ? undefined
+          : (props) => (
+              <LinesView<DOChannel>
+                {...props}
+                device={dev}
+                direction="output"
+                create={(channels, placement) =>
+                  createNextDOChannel(channels, placement, dev)
+                }
+                name={digitalOutputName}
+              />
+            )
+      }
     />
   );
 };
@@ -125,8 +145,12 @@ const onConfigure: Task.OnConfigure<typeof digitalWriteConfigZ> = async (
     }
     const commandsToCreate: DOChannel[] = [];
     const statesToCreate: DOChannel[] = [];
-    for (const channel of config.channels) {
+    // Channels on one port share its data channel, named by an enabled one if any.
+    const seen = new Set<string>();
+    for (const channel of Task.enabledFirst(config.channels)) {
       const key = getDigitalChannelDeviceKey(channel);
+      if (seen.has(key)) continue;
+      seen.add(key);
       const exPair = dev.properties.digitalOutput.channels[key];
       if (exPair == null) {
         commandsToCreate.push(channel);
