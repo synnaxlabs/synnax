@@ -61,6 +61,14 @@ export interface ContextValue<Z extends z.ZodType = z.ZodType> {
   has: (path: string) => boolean;
   setStatus: typeof State.prototype.setStatus;
   clearStatuses: () => void;
+  /**
+   * Adds a schema that validates the value at the path with every validation. Its
+   * issues show on the fields they name, touched or not, but never make the form
+   * invalid. The schema must parse synchronously.
+   *
+   * @returns a function that removes the check.
+   */
+  addCheck: typeof State.prototype.addCheck;
   /** Takes the current values as the baseline, clearing the touched flag. */
   setCurrentStateAsInitialValues: () => void;
   getStatuses: () => Status.Crude[];

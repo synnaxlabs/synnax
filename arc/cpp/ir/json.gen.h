@@ -93,7 +93,7 @@ inline Member Member::parse(x::json::Parser parser) {
 
 inline x::json::json Member::to_json() const {
     x::json::json j;
-    j["node_key"] = this->node_key;
+    if (this->node_key.has_value()) j["node_key"] = *this->node_key;
     if (this->scope.has_value()) j["scope"] = this->scope->to_json();
     return j;
 }
@@ -196,7 +196,7 @@ inline Authorities Authorities::parse(x::json::Parser parser) {
 
 inline x::json::json Authorities::to_json() const {
     x::json::json j;
-    j["default"] = this->default_;
+    if (this->default_.has_value()) j["default"] = *this->default_;
     j["channels"] = this->channels;
     return j;
 }

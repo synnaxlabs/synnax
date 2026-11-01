@@ -15,12 +15,12 @@ import { describe, expect, it } from "vitest";
 import { Range } from "@/feature/range";
 import { findButton } from "@/platform/modals/testutil";
 import { createTestRange } from "@/platform/range/testutil";
-import { createResource } from "@/platform/tree/testutil";
 import {
+  createResource,
   findTreeRow,
   openTreeRowContextMenu,
   renderOntologyTree,
-} from "@/platform/tree/treeTestutil";
+} from "@/platform/tree/testutil";
 import { Session } from "@/session";
 import {
   awaitTextEditingElement,
