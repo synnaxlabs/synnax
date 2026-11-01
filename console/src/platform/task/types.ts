@@ -21,6 +21,10 @@ export interface Channel {
   key: string;
 }
 
+/** The channels, enabled ones first, each group in its order. */
+export const enabledFirst = <C extends Channel>(channels: C[]): C[] =>
+  channels.toSorted((a, b) => Number(a.disabled) - Number(b.disabled));
+
 export const validateChannels = ({
   value: channels,
   issues,

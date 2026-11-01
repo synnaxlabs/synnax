@@ -70,7 +70,7 @@ const CHANNEL_B: Task.Channel = { key: "b", disabled: true };
 
 const twoChannels = { config: { channels: [CHANNEL_A, CHANNEL_B] } };
 
-const PORTS: Task.PortGroup[] = [
+const PORTS: Task.Port.Group[] = [
   {
     key: "ports",
     columns: 2,
@@ -98,7 +98,7 @@ const PORTS: Task.PortGroup[] = [
   },
 ];
 
-const portGrid = <Task.PortGrid label="Ports" groups={PORTS} onClick={vi.fn()} />;
+const portGrid = <Task.Port.Grid label="Ports" groups={PORTS} onClick={vi.fn()} />;
 
 describe("ChannelList", () => {
   it("should render the empty content when there are no channels", async () => {
