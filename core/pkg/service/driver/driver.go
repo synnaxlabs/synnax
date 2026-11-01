@@ -214,9 +214,10 @@ func (d *Driver) processCommand(ctx context.Context, frame framer.Frame) {
 // startCommandType deploys the stored task row before running it.
 const startCommandType = "start"
 
-// handleStart deploys the latest stored config before running the task: when no
-// live instance exists or the stored config differs from the one the instance
-// was built from, the task is rebuilt first, then the start command executes.
+// handleStart deploys the latest stored config before running the task: when no live
+// instance exists or the stored config differs from the one the instance was built
+// from, the task is rebuilt first, then the start command executes. A pinned start
+// whose hash differs from the stored config's is refused.
 func (d *Driver) handleStart(ctx context.Context, cmd task.Command) {
 	var tsk task.Task
 	if err := d.cfg.Task.NewRetrieve().
@@ -247,6 +248,10 @@ func (d *Driver) handleStart(ctx context.Context, cmd task.Command) {
 				zap.Stringer("task", cmd.Task),
 			)
 		}
+		return
+	}
+	if cmd.Pinned && cmd.ConfigHash != tsk.ConfigHash {
+		d.refusePinnedStart(ctx, tsk, cmd)
 		return
 	}
 	d.mu.RLock()
@@ -294,6 +299,37 @@ func (d *Driver) ackFailure(
 		err.Error(),
 	); sErr != nil {
 		d.cfg.L.Error("failed to write start failure status", zap.Error(sErr))
+	}
+}
+
+// refusePinnedStart answers a pinned start whose config changed after the sender saw
+// it. The live instance runs on as it was, so the status keeps the stored running state
+// and config hash.
+func (d *Driver) refusePinnedStart(ctx context.Context, t task.Task, cmd task.Command) {
+	stat := task.Status{
+		Key:     t.OntologyID().String(),
+		Name:    t.Name,
+		Variant: status.VariantWarning,
+		Message: "Config changed",
+		Description: "The task config changed after you saw it. Review the task, " +
+			"then start it again.",
+		Details: task.StatusDetails{Task: t.Key, Rack: t.Rack, Cmd: cmd.Key},
+	}
+	if err := d.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		var stored task.Status
+		if err := d.cfg.Status.NewRetrieve[task.StatusDetails]().
+			Where(status.MatchKeys[task.StatusDetails](stat.Key)).
+			Entry(&stored).
+			Exec(ctx, tx); err == nil {
+			stat.Details.Running = stored.Details.Running
+			stat.Details.ConfigHash = stored.Details.ConfigHash
+		} else if !errors.Is(err, query.ErrNotFound) {
+			return err
+		}
+		stat.Time = telem.Now()
+		return d.cfg.Status.NewWriter(tx).Set(ctx, &stat)
+	}); err != nil {
+		d.cfg.L.Error("failed to write refused start status", zap.Error(err))
 	}
 }
 

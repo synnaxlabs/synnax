@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { label, type ontology, query, ranger } from "@synnaxlabs/client";
+import { label, type ontology, ranger } from "@synnaxlabs/client";
 import { type List } from "@synnaxlabs/lyra/list";
-import { primitive, verbs } from "@synnaxlabs/x";
+import { type NumericTimeRange, primitive, verbs } from "@synnaxlabs/x";
 import { useEffect } from "react";
 import { z } from "zod";
 
@@ -107,43 +107,31 @@ export const { use: useMultiple, useResult: useResultMultiple } = Flux.createRet
   getCached: ({ client, query: { keys } }) => client.ranges.getCached(keys),
 });
 
-export const formSchema = z.object({
+const timeRangeZ = z
+  .object({ start: z.number(), end: z.number() })
+  .refine(({ start, end }) => end >= start, {
+    error: "End time must be after start time",
+  });
+
+export const createFormSchema = z.object({
   ...ranger.payloadZ.omit({ timeRange: true }).partial({ key: true }).shape,
   labels: z.array(label.keyZ),
   parent: z.string().optional(),
-  timeRange: z
-    .object({ start: z.number(), end: z.number() })
-    .refine(({ start, end }) => end >= start, {
-      error: "End time must be after start time",
-    }),
+  timeRange: timeRangeZ,
 });
 
-export const toFormValues = (range: ranger.Range): z.infer<typeof formSchema> => ({
-  ...range.payload,
-  timeRange: range.timeRange.numeric,
-  parent: range.parent?.key,
-  labels: range.labels?.map((l) => l.key) ?? [],
-});
-
-export type FormQuery = RetrieveQuery;
-
-const ZERO_FORM_VALUES: z.infer<typeof formSchema> = {
+const ZERO_CREATE_FORM_VALUES: z.infer<typeof createFormSchema> = {
   name: "",
   labels: [],
   parent: "",
   timeRange: { start: 0, end: 0 },
 };
 
-export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
+/** A form that creates a range when the caller saves it. */
+export const useCreateForm = Flux.createForm<null, typeof createFormSchema>({
   name: RESOURCE_NAME,
-  schema: formSchema,
-  initialValues: ZERO_FORM_VALUES,
-  retrieve: async ({ client, query: { key } }) =>
-    toFormValues(await client.ranges.retrieve(key)),
-  getCached: ({ client, query: { key } }) => {
-    const cached = client.ranges.getCached(key);
-    return query.isLive(cached) ? toFormValues(cached) : undefined;
-  },
+  schema: createFormSchema,
+  initialValues: ZERO_CREATE_FORM_VALUES,
   update: async ({ client, value: getValue, reset }) => {
     const value = getValue();
     const parentKey = value.parent;
@@ -163,11 +151,24 @@ export const useForm = Flux.createForm<FormQuery, typeof formSchema>({
       parent: value.parent,
     });
   },
-  mountListeners: ({ client, query: { key }, reset, abandon }) =>
-    client.ranges.onChange(key, (result) => {
-      if (query.isLive(result)) reset(toFormValues(result));
-      else if (query.Deleted.matches(result)) abandon();
-    }),
+});
+
+export const formSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  timeRange: timeRangeZ,
+});
+
+/** A form over the name and time range of a cached range. */
+export const useForm = Flux.createDocumentForm<
+  ranger.Key,
+  ranger.Range,
+  typeof formSchema
+>({
+  name: RESOURCE_NAME,
+  schema: formSchema,
+  domain: (client) => client.ranges,
+  useEnsure,
+  toValues: ({ name, timeRange }) => ({ name, timeRange: timeRange.numeric }),
 });
 
 export const useLabels = (key: ranger.Key | null): label.Label[] | undefined =>
@@ -210,15 +211,14 @@ export const useListMetaData = Flux.createList<
 
 export const kvPairFormSchema = ranger.kv.pairZ;
 
-export type KVFormQuery = ListMetaDataQuery & { key: string };
-
 const ZERO_KV_PAIR_FORM_VALUES: z.infer<typeof kvPairFormSchema> = {
   key: "",
   value: "",
   range: "",
 };
 
-export const useKVPairForm = Flux.createForm<KVFormQuery, typeof kvPairFormSchema>({
+/** A form that sets a new metadata pair on a range when it saves. */
+export const useCreateKVPairForm = Flux.createForm<null, typeof kvPairFormSchema>({
   name: KV_RESOURCE_NAME,
   schema: kvPairFormSchema,
   initialValues: ZERO_KV_PAIR_FORM_VALUES,
@@ -226,13 +226,6 @@ export const useKVPairForm = Flux.createForm<KVFormQuery, typeof kvPairFormSchem
     const { key, value, range } = getPair();
     await client.ranges.getKV(range).set(key, value);
   },
-  mountListeners: ({ client, query: { rangeKey, key }, abandon }) =>
-    client.ranges.kv.onChange(rangeKey, (result) => {
-      // An undefined answer is an invalidation, not a deletion.
-      if (result === undefined) return;
-      if (query.isLive(result) && result.some((pair) => pair.key === key)) return;
-      abandon();
-    }),
 });
 
 export interface DeleteKVParams extends ListMetaDataQuery {
@@ -294,6 +287,24 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams>({
     await client.ranges.rename(key, name, {
       onOptimistic: async () => await onOptimisticComplete(data),
     });
+    return data;
+  },
+});
+
+export interface SetTimeRangeParams {
+  key: ranger.Key;
+  timeRange: NumericTimeRange;
+}
+
+export const { useUpdate: useSetTimeRange } = Flux.createUpdate<SetTimeRangeParams>({
+  name: RESOURCE_NAME,
+  verbs: verbs.UPDATE,
+  update: async ({ client, data }) => {
+    const { key, timeRange } = data;
+    await client.ranges.dispatch(
+      key,
+      ranger.set({ path: ["timeRange"], value: timeRange }),
+    );
     return data;
   },
 });
