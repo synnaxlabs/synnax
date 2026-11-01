@@ -78,7 +78,7 @@ export const GaugeForm = ({ tab, onTabChange }: FormProps): ReactElement => (
     </Tabs.Content>
     <Tabs.Content itemKey="telemetry">
       <Base.Sections x>
-        <Value.TelemForm path="" />
+        <Value.TelemForm />
       </Base.Sections>
     </Tabs.Content>
   </Properties.Tabs>

@@ -21,7 +21,7 @@ import {
 } from "@synnaxlabs/x";
 import type z from "zod";
 
-import { AccessDeniedError, NotFoundError } from "@/errors";
+import { AccessDeniedError, isConnectionError, NotFoundError } from "@/errors";
 import { Deleted } from "@/query/deleted";
 import { type LookupIndex } from "@/query/indexes";
 import { type Listener } from "@/query/streamer";
@@ -144,6 +144,17 @@ const fetchSurvivors = async <Key extends record.Key, Value extends state.State>
 const DEFAULT_FETCH_DEBOUNCE = TimeSpan.milliseconds(10);
 
 /**
+ * Owns the base of a key, the value that writes build on, when a table shows other
+ * content on top of it, such as edits that have not reached the Core.
+ */
+export interface Interceptor<Key extends record.Key, Value> {
+  /** Returns the base of the key, or undefined when the key shows its base. */
+  base: (key: Key) => Value | undefined;
+  /** Takes a written value as the base of its key and returns the value to show. */
+  apply: (key: Key, value: Value) => Value;
+}
+
+/**
  * The sole owner of one resource's record content and tombstones. Everything else in
  * the cache holds keys into it: answers store key lists, dispatch bookkeeping rides
  * entry deletion, and consumers assemble content at read time. An equal-value set
@@ -170,6 +181,7 @@ export class Table<
     Array<Keyed<Key, Value>>
   > | null;
   private readonly indexes: Array<LookupIndex<Key, Value>>;
+  private interceptor: Interceptor<Key, Value> | null = null;
   private gen = 0;
   private writeSeq = 0;
   // Holds a stamp only for present entries: applyDelete drops the key's stamp, so the
@@ -251,27 +263,48 @@ export class Table<
     return index;
   }
 
+  /**
+   * Hands the base of each key to the interceptor. A setter receives the base, the
+   * table shows what the interceptor returns, and a rollback restores the base that the
+   * write replaced. A table takes one interceptor.
+   * @throws {Error} if the table already has an interceptor.
+   */
+  intercept(interceptor: Interceptor<Key, Value>): void {
+    if (this.interceptor != null)
+      throw new Error("The table already has an interceptor");
+    this.interceptor = interceptor;
+  }
+
+  private base(key: Key): Value | undefined {
+    return this.interceptor?.base(key) ?? this.entries.get(key);
+  }
+
+  /** Writes the value as the base of the key and shows the result if it changed. */
+  private show(key: Key, value: Value): void {
+    const next = this.interceptor == null ? value : this.interceptor.apply(key, value);
+    const shown = this.entries.get(key);
+    if (shown != null && this.equal(next, shown, key)) return;
+    this.applySet(key, next);
+    this.notify({ variant: "set", key, value: next });
+  }
+
   private setOne(
     key: Key,
     value: state.SetArg<Value | undefined>,
   ): destructor.Destructor | undefined {
-    const prev = this.entries.get(key);
+    const prev = this.base(key);
     const next = state.executeSetter(value, prev);
     if (next == null || (prev != null && this.equal(next, prev, key))) return undefined;
     const prevTombstone = this.tombstones.get(key);
     this.tombstones.delete(key);
-    this.applySet(key, next);
-    this.notify({ variant: "set", key, value: next });
+    this.show(key, next);
 
     return () => {
       if (prev === undefined) {
         this.applyDelete(key);
         if (prevTombstone != null) this.tombstones.set(key, prevTombstone);
         this.notify({ variant: "delete", key });
-      } else {
-        this.applySet(key, prev);
-        this.notify({ variant: "set", key, value: prev });
-      }
+      } else this.show(key, prev);
     };
   }
 
@@ -455,7 +488,8 @@ export class Table<
    * Deletes entries and notifies subscribers. Deleted values are retained as tombstones
    * until a subsequent set for the key.
    * @param key - The key(s) to delete or a filter function
-   * @returns A rollback that restores the deleted entries
+   * @returns A rollback that restores the deleted entries, then fetches them again: an
+   * entry misses every change made while it was deleted.
    */
   delete(
     key: Key | Key[] | ((value: Value, key: Key) => boolean),
@@ -481,13 +515,10 @@ export class Table<
 
     if (typeof key === "function")
       this.entries.forEach((value, k) => {
-        if (key(value, k)) toDelete.push({ key: k, value });
+        if (key(value, k)) toDelete.push({ key: k, value: this.base(k) });
       });
     else
-      array.toArray(key).forEach((k) => {
-        const value = this.entries.get(k);
-        toDelete.push({ key: k, value });
-      });
+      array.toArray(key).forEach((k) => toDelete.push({ key: k, value: this.base(k) }));
 
     this.batch(() =>
       toDelete.forEach(({ key: k, value }) => {
@@ -498,16 +529,28 @@ export class Table<
       }),
     );
 
-    return () =>
+    return () => {
+      const restored: Key[] = [];
       this.batch(() =>
         toDelete.forEach(({ key: k, value }) => {
           if (value == null) return;
           this.tombstones.delete(k);
-          this.applySet(k, value);
+          this.show(k, value);
           this.stampWrite(k);
-          this.notify({ variant: "set", key: k, value });
+          restored.push(k);
         }),
       );
+      if (tombstone) this.refetch(restored);
+    };
+  }
+
+  private refetch(keys: Key[]): void {
+    if (this.fetchBatcher == null || keys.length === 0) return;
+    this.retrieve(keys, { refresh: true }).catch((exc: unknown) => {
+      // The reconcile after the next reconnect fetches them.
+      if (isConnectionError(exc)) return;
+      this.onError(new Error("failed to fetch restored entries", { cause: exc }));
+    });
   }
 
   /**

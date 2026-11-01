@@ -9,7 +9,7 @@
 
 import "@/platform/range/overview/Details.css";
 
-import { ranger } from "@synnaxlabs/client";
+import { type label, ranger } from "@synnaxlabs/client";
 import { Button } from "@synnaxlabs/lyra/button";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { Flex } from "@synnaxlabs/lyra/flex";
@@ -17,9 +17,9 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { Icon } from "@synnaxlabs/lyra/icon";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Text } from "@synnaxlabs/lyra/text";
-import { Access, Ranger } from "@synnaxlabs/pluto";
-import { type NumericTimeRange, TimeStamp } from "@synnaxlabs/x";
-import { type FC, type ReactElement, useState } from "react";
+import { Access, Label as PLabel, Ranger } from "@synnaxlabs/pluto";
+import { type NumericTimeRange } from "@synnaxlabs/x";
+import { type FC, type ReactElement } from "react";
 
 import { Core } from "@/platform/core";
 import { CSS } from "@/platform/css";
@@ -65,26 +65,44 @@ const ParentRangeButton = (props: ParentRangeButtonProps): ReactElement => (
   </Errors.SuspenseBoundary>
 );
 
+interface LabelsProps {
+  rangeKey: string;
+  preview: boolean;
+}
+
+const Labels = ({ rangeKey, preview }: LabelsProps): ReactElement => {
+  const value = (Ranger.useLabels(rangeKey) ?? []).map(({ key }) => key);
+  const { update } = PLabel.useEditFor();
+  const handleChange = (next: label.Key[]): void =>
+    update({
+      id: ranger.ontologyID(rangeKey),
+      added: next.filter((key) => !value.includes(key)),
+      removed: value.filter((key) => !next.includes(key)),
+    });
+  return (
+    <Label.SelectMultiple
+      zIndex={100}
+      variant="floating"
+      className={CSS.BE("range-overview", "labels-select")}
+      value={value}
+      onChange={handleChange}
+      preview={preview}
+    />
+  );
+};
+
 export interface DetailsProps {
   rangeKey: string;
 }
 
 export const Details: FC<DetailsProps> = ({ rangeKey }) => {
   const range = Ranger.use({ key: rangeKey });
-  const [now] = useState(() => TimeStamp.now().nanoseconds);
   // The form saves on every edit, so a subject who cannot write the range gets it
   // read-only rather than a field that reverts once the save is refused.
   const canEdit = Access.useUpdateGranted(ranger.ontologyID(rangeKey));
   const parent = Ranger.useResultParent({ id: ranger.ontologyID(rangeKey) }).data;
-  const { form, status } = Ranger.useForm({
+  const { form } = Ranger.useForm({
     query: { key: rangeKey },
-    initialValues: {
-      key: rangeKey,
-      name: "",
-      timeRange: { start: now, end: now },
-      labels: [],
-    },
-    autoSave: true,
     mode: canEdit ? "normal" : "preview",
   });
 
@@ -105,15 +123,6 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
     `;
 
   const promptDownloadCSVModal = Framer.useDownloadCSVModal();
-
-  if (status.variant === "error")
-    return (
-      <Status.Summary
-        variant={status.variant}
-        message={status.message}
-        description={status.description}
-      />
-    );
 
   return (
     <Form.Form<typeof Ranger.formSchema> {...form}>
@@ -200,16 +209,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
           )}
         </Form.Field>
         <Flex.Box x>
-          <Form.Field<string[]> path="labels" showLabel={false}>
-            {(p) => (
-              <Label.SelectMultiple
-                zIndex={100}
-                variant="floating"
-                className={CSS.BE("range-overview", "labels-select")}
-                {...p}
-              />
-            )}
-          </Form.Field>
+          <Labels rangeKey={rangeKey} preview={!canEdit} />
         </Flex.Box>
       </Flex.Box>
     </Form.Form>
