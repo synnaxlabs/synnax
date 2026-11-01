@@ -17,8 +17,10 @@ import (
 	apilineplot "github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
+	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/x/filter"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Retrieve", func() {
@@ -30,5 +32,26 @@ var _ = Describe("Retrieve", func() {
 		Expect(apiSvc.Retrieve(AuthedCtx(ctx, author), apilineplot.RetrieveRequest{
 			Where: &lineplot.Where{Key: &filter.Set[lineplot.Key]{Eq: &r.Key}},
 		})).Error().To(MatchError(access.ErrDenied))
+	})
+})
+
+var _ = Describe("Create", func() {
+	It("Should stamp the dispatch key onto the create broadcast", func(
+		ctx SpecContext,
+	) {
+		u := newCreator(ctx)
+		rec := &Recorder[lineplot.Key, lineplot.Action]{}
+		DeferCleanup(svc.LinePlot.OnAction(rec.Record))
+		res := MustSucceed(
+			apiSvc.Create(AuthedCtx(ctx, u), nil, apilineplot.CreateRequest{
+				Project:     proj.Key,
+				LinePlots:   []lineplot.LinePlot{{Name: "broadcast"}},
+				DispatchKey: "dk-create",
+			}),
+		)
+		frames := rec.Snapshot()
+		Expect(frames).To(HaveLen(1))
+		Expect(frames[0].Key).To(Equal(res.LinePlots[0].Key))
+		Expect(frames[0].DispatchKey).To(Equal("dk-create"))
 	})
 })

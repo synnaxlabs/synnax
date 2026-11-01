@@ -75,7 +75,7 @@ inline x::json::json Channel::to_json() const {
     j["data_type"] = this->data_type;
     j["is_index"] = this->is_index;
     j["index"] = this->index;
-    j["alias"] = this->alias;
+    if (this->alias.has_value()) j["alias"] = *this->alias;
     j["virtual"] = this->is_virtual;
     j["internal"] = this->internal;
     j["expression"] = this->expression;
@@ -120,7 +120,7 @@ inline x::json::json Where::to_json() const {
     if (this->data_type.has_value()) j["data_type"] = this->data_type->to_json();
     if (this->is_index.has_value()) j["is_index"] = this->is_index->to_json();
     if (this->internal.has_value()) j["internal"] = this->internal->to_json();
-    j["virtual"] = this->virtual_;
+    if (this->virtual_.has_value()) j["virtual"] = *this->virtual_;
     if (this->name_patterns.has_value()) j["name_patterns"] = *this->name_patterns;
     return j;
 }
@@ -139,7 +139,7 @@ inline x::json::json RetrieveRequest::to_json() const {
     x::json::json j;
     if (this->where.has_value()) j["where"] = this->where->to_json();
     j["search_term"] = this->search_term;
-    j["limit"] = this->limit;
+    if (this->limit.has_value()) j["limit"] = *this->limit;
     j["offset"] = this->offset;
     j["include_status"] = this->include_status;
     return j;

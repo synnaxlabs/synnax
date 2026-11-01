@@ -10,6 +10,7 @@
 export * from "@/platform/task/BindChannels";
 export * from "@/platform/task/ChannelList";
 export * from "@/platform/task/ChannelName";
+export * from "@/platform/task/check";
 export * from "@/platform/task/controls";
 export * from "@/platform/task/createCommand";
 export * from "@/platform/task/CreateMenuItem";
@@ -18,6 +19,7 @@ export * from "@/platform/task/fields";
 export * from "@/platform/task/Form";
 export * from "@/platform/task/getChannelNameID";
 export * from "@/platform/task/ParentRangeButton";
+export * from "@/platform/task/port";
 export * from "@/platform/task/Rack";
 export * from "@/platform/task/ReadChannelContextMenuItem";
 export * from "@/platform/task/registry";

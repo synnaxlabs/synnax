@@ -427,6 +427,27 @@ var _ = Describe("HTTP", func() {
 			res := post("/api/v1/auth/session/renew", nil, struct{}{})
 			Expect(res.StatusCode).To(Equal(http.StatusBadRequest))
 		})
+		It("Should read the cookie on every unary route", func() {
+			const unauthenticated = "no authentication token"
+			bare := post("/api/v1/auth/session/renew", nil, struct{}{})
+			Expect(MustSucceed(io.ReadAll(bare.Body))).To(
+				ContainSubstring(unauthenticated),
+			)
+			// An unknown session stops each request at the auth check.
+			headers := withCookie(
+				"localhost:9090",
+				&http.Cookie{Name: "synnax-session-9090", Value: "sys_unknown"},
+			)
+			routes := lo.Filter(app.GetRoutes(true), func(r fiber.Route, _ int) bool {
+				return r.Method == http.MethodPost
+			})
+			Expect(routes).ToNot(BeEmpty())
+			unread := lo.FilterMap(routes, func(r fiber.Route, _ int) (string, bool) {
+				body := MustSucceed(io.ReadAll(post(r.Path, headers, struct{}{}).Body))
+				return r.Path, strings.Contains(string(body), unauthenticated)
+			})
+			Expect(unread).To(BeEmpty())
+		})
 		It("Should clear the cookie when the session logs out", func() {
 			cookie := loginWithCookie("localhost:9090")
 			renew := post(
