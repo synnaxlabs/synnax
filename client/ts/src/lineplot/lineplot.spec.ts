@@ -10,9 +10,8 @@
 import { id, uuid } from "@synnaxlabs/x";
 import { describe, expect, it, test } from "vitest";
 
-import { NotFoundError } from "@/errors";
-import { rename } from "@/lineplot/actions.gen";
-import { type LinePlot } from "@/lineplot/types.gen";
+import { NotFoundError } from "@/index";
+import { lineplot } from "@/lineplot";
 import { query } from "@/query";
 import { createTestClient, expectDeleted } from "@/testutil";
 
@@ -54,12 +53,12 @@ describe("LinePlot", () => {
   });
 });
 
-const seedPlot = async (): Promise<LinePlot> => {
+const seedPlot = async (): Promise<lineplot.LinePlot> => {
   const project = await client.projects.create({ name: `lp-${id.create()}` });
   return await client.lineplots.create(project.key, { name: `plot-${id.create()}` });
 };
 
-const cachedName = (key: LinePlot["key"]): string | undefined => {
+const cachedName = (key: lineplot.LinePlot["key"]): string | undefined => {
   const cached = client.lineplots.getCached(key);
   return query.isLive(cached) ? cached.name : undefined;
 };
@@ -99,7 +98,7 @@ describe("store", () => {
     await client.connect();
     const plot = await seedPlot();
     const name = `renamed-${id.create()}`;
-    await client.lineplots.dispatch(plot.key, [rename({ name })]);
+    await client.lineplots.dispatch(plot.key, [lineplot.rename({ name })]);
     await expect.poll(() => cachedName(plot.key)).toBe(name);
   });
 });

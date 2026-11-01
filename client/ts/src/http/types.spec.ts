@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { staticWriteFieldZ } from "@/http/types.gen";
+import { http } from "@/http";
 
 const FIELD = { key: "field-1", pointer: "/setpoint", type: "static" } as const;
 
@@ -22,14 +22,14 @@ describe("staticWriteFieldZ", () => {
     ["array", [1, 2, 3]],
   ];
   it.each(CASES)("should accept a %s value", (_, value) => {
-    expect(staticWriteFieldZ.parse({ ...FIELD, value }).value).toEqual(value);
+    expect(http.staticWriteFieldZ.parse({ ...FIELD, value }).value).toEqual(value);
   });
 
   it("should accept an explicit null value", () => {
-    expect(staticWriteFieldZ.parse({ ...FIELD, value: null }).value).toBeNull();
+    expect(http.staticWriteFieldZ.parse({ ...FIELD, value: null }).value).toBeNull();
   });
 
   it("should reject a field with no value", () => {
-    expect(() => staticWriteFieldZ.parse(FIELD)).toThrow();
+    expect(() => http.staticWriteFieldZ.parse(FIELD)).toThrow();
   });
 });

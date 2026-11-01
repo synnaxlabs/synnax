@@ -63,10 +63,19 @@ protected:
     /// @brief the certificate that the client presents.
     static inline certificate::Identity client_id;
 
+    /// @brief a Store directory with one Driver identity. Each test copies it, since
+    /// making a key takes seconds on Windows.
+    static inline std::filesystem::path store_dir;
+
     std::filesystem::path dir;
     std::unique_ptr<testutil::Server> server;
 
     static void SetUpTestSuite() {
+        store_dir = std::filesystem::temp_directory_path() /
+                    ("opcua-security-store-" + x::uuid::create().to_string());
+        ASSERT_NIL_P(
+            certificate::Store(certificate::StoreConfig{.dir = store_dir}).current()
+        );
         server_id = ASSERT_NIL_P(testutil::create_server_identity());
         other_id = ASSERT_NIL_P(testutil::create_server_identity());
         client_id = ASSERT_NIL_P(
@@ -79,9 +88,16 @@ protected:
         );
     }
 
+    static void TearDownTestSuite() { std::filesystem::remove_all(store_dir); }
+
     void SetUp() override {
         this->dir = std::filesystem::temp_directory_path() /
                     ("opcua-security-" + x::uuid::create().to_string());
+        std::filesystem::copy(
+            store_dir,
+            this->dir,
+            std::filesystem::copy_options::recursive
+        );
     }
 
     void TearDown() override {
