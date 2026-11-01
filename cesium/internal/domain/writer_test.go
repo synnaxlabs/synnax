@@ -144,6 +144,88 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					})
 				})
 			})
+			Describe("SetStart", func() {
+				firstDomain := func(ctx SpecContext) telem.TimeRange {
+					GinkgoHelper()
+					i := db.OpenIterator(domain.IterRange(telem.TimeRangeMax))
+					Expect(i.SeekFirst(ctx)).To(BeTrue())
+					tr := i.TimeRange()
+					Expect(i.Close()).To(Succeed())
+					return tr
+				}
+				It(
+					"Should not write until a writer opened without a start has one",
+					func(ctx SpecContext) {
+						w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{}))
+						Expect(w.Write([]byte{1, 2, 3})).Error().
+							To(MatchError(domain.ErrNoStart))
+						Expect(w.SetStart(10 * telem.SecondTS)).To(Succeed())
+						MustSucceed(w.Write([]byte{1, 2, 3}))
+						Expect(w.Commit(ctx, 13*telem.SecondTS)).To(Succeed())
+						Expect(w.Close()).To(Succeed())
+						Expect(firstDomain(ctx)).To(Equal(
+							(10 * telem.SecondTS).Range(13 * telem.SecondTS),
+						))
+					},
+				)
+				It(
+					"Should move the start before the first write",
+					func(ctx SpecContext) {
+						w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{
+							Start: 10 * telem.SecondTS,
+						}))
+						Expect(w.SetStart(5 * telem.SecondTS)).To(Succeed())
+						MustSucceed(w.Write([]byte{1, 2, 3}))
+						Expect(w.Commit(ctx, 8*telem.SecondTS)).To(Succeed())
+						Expect(w.Close()).To(Succeed())
+						Expect(firstDomain(ctx)).To(Equal(
+							(5 * telem.SecondTS).Range(8 * telem.SecondTS),
+						))
+					},
+				)
+				It(
+					"Should check stored data at the start instead of at open",
+					func(ctx SpecContext) {
+						Expect(testutil.WriteDomain(
+							ctx,
+							db,
+							(10 * telem.SecondTS).Range(20*telem.SecondTS),
+							[]byte{1, 2, 3},
+						)).To(Succeed())
+						w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{}))
+						Expect(w.SetStart(15 * telem.SecondTS)).To(And(
+							MatchError(domain.ErrWriteConflict),
+							MatchError(ContainSubstring(
+								"cannot start writer because there is already data",
+							)),
+						))
+						Expect(w.SetStart(20 * telem.SecondTS)).To(Succeed())
+						Expect(w.Close()).To(Succeed())
+					},
+				)
+				It("Should not set the start after a write", func(ctx SpecContext) {
+					w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{
+						Start: 10 * telem.SecondTS,
+					}))
+					MustSucceed(w.Write([]byte{1, 2, 3}))
+					Expect(
+						w.SetStart(5 * telem.SecondTS),
+					).To(MatchError(domain.ErrStartAfterWrite))
+					Expect(w.Close()).To(Succeed())
+				})
+				It("Should not set a start after a preset end", func(ctx SpecContext) {
+					w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{
+						End: 10 * telem.SecondTS,
+					}))
+					Expect(w.SetStart(15 * telem.SecondTS)).To(And(
+						MatchError(validate.ErrValidation),
+						MatchError(ContainSubstring(
+							"must not be after the preset end timestamp",
+						)),
+					))
+					Expect(w.Close()).To(Succeed())
+				})
+			})
 			Describe("CheckFileSizeAndMaybeSwitchFile", func() {
 				Context("No preset end", func() {
 					It(

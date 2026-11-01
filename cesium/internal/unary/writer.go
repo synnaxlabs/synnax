@@ -44,7 +44,9 @@ type WriterConfig struct {
 	// Subject is the control subject held by the writer.
 	// [REQUIRED]
 	Subject xcontrol.Subject
-	// Start marks the starting bound of the writer.
+	// Start marks the start of the writer's control region and, unless
+	// Writer.SetDomainStart sets another, of the domain it writes. A non-zero Start
+	// fails the open when stored data holds it.
 	// [REQUIRED]
 	Start telem.TimeStamp
 	// End is an optional parameter that marks the ending bound of the domain. Defining
@@ -146,6 +148,9 @@ type controlledWriter struct {
 	// and the current domain start remain consistent across owners. Reset on rollover
 	// via the domain.Writer's OnRollover hook.
 	tracker *offsetTracker
+	// sessionStart is the start of the resource's first domain. Commits that resolve
+	// their end from the session sample count anchor on it.
+	sessionStart telem.TimeStamp
 }
 
 var _ control.Resource = &controlledWriter{}
@@ -161,6 +166,15 @@ func (w *controlledWriter) storeAlignment(a telem.Alignment) {
 	w.alignment.Store(uint64(a))
 }
 
+func (w *controlledWriter) setStart(start telem.TimeStamp) error {
+	if err := w.SetStart(start); err != nil {
+		return err
+	}
+	w.sessionStart = start
+	w.tracker.currentStart = start
+	return nil
+}
+
 type Writer struct {
 	// control stores the gate held by the writer in the controller of the unaryDB.
 	control *control.Gate[*controlledWriter]
@@ -173,6 +187,9 @@ type Writer struct {
 	// but not limited to density and index.
 	Channel channel.Channel
 	cfg     WriterConfig
+	// domainStart is where the domain starts if this writer persists its first
+	// sample. Defaults to cfg.Start.
+	domainStart telem.TimeStamp
 	// highWaterMark is a hot-path optimization when writing to an index channel. We can
 	// avoid unnecessary index lookups by keeping track of the highest timestamp
 	// written. Only valid when Channel.IsIndex is true.
@@ -195,10 +212,11 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (
 		return nil, transfer, err
 	}
 	w = &Writer{
-		cfg:       cfg,
-		Channel:   db.cfg.Channel,
-		idx:       db.index(),
-		wrapError: db.wrapError,
+		cfg:         cfg,
+		Channel:     db.cfg.Channel,
+		idx:         db.index(),
+		wrapError:   db.wrapError,
+		domainStart: cfg.Start,
 	}
 	if w.control, transfer, err = db.controller.OpenGate(
 		control.GateConfig[*controlledWriter]{
@@ -213,8 +231,9 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (
 					return nil, err
 				}
 				cw := &controlledWriter{
-					channelKey: db.cfg.Channel.Key,
-					tracker:    db.resolver.newTracker(cfg.Start),
+					channelKey:   db.cfg.Channel.Key,
+					tracker:      db.resolver.newTracker(),
+					sessionStart: cfg.Start,
 				}
 				cw.storeAlignment(a)
 				domainCfg := cfg.domain()
@@ -288,6 +307,11 @@ func (w *Writer) write(
 	if err != nil {
 		return 0, w.wrapError(err)
 	}
+	if *w.cfg.Persist && dw.Len() == 0 {
+		if err = dw.setStart(w.domainStart); err != nil {
+			return 0, w.wrapError(err)
+		}
+	}
 	if w.Channel.IsIndex {
 		w.updateHwm(series)
 	}
@@ -314,6 +338,10 @@ func (w *Writer) write(
 	}
 	return a, w.wrapError(err)
 }
+
+// SetDomainStart sets where the writer's domain starts, in place of Start. It applies
+// at the next persisted write, and only while the domain holds no data.
+func (w *Writer) SetDomainStart(start telem.TimeStamp) { w.domainStart = start }
 
 func (w *Writer) SetAuthority(a xcontrol.Authority) control.Transfer {
 	return w.control.SetAuthority(a)
@@ -364,13 +392,12 @@ func (w *Writer) commitWithEnd(
 
 	if end.IsZero() {
 		// Subtract 1 because we want the timestamp of the last written sample.
-		// Anchor on cfg.Start (the writer's session start, always a real index
-		// timestamp) and use the cumulative session sample count, since after a
-		// rollover the per-domain start is "previous commit end + 1ns" which is
-		// not a sample boundary in the index.
+		// Anchor on the session start with the cumulative session sample count, since
+		// after a rollover the per-domain start is "previous commit end + 1ns" which
+		// is not a sample boundary in the index.
 		approx, err := w.idx.Stamp(
 			ctx,
-			w.cfg.Start,
+			dw.sessionStart,
 			dw.tracker.count(dw.Writer)-1,
 			index.MustBeContinuous,
 		)
@@ -378,7 +405,7 @@ func (w *Writer) commitWithEnd(
 			return 0, err
 		}
 		if !approx.Exact() {
-			return 0, index.NewDiscontinuousStampError(w.cfg.Start)
+			return 0, index.NewDiscontinuousStampError(dw.sessionStart)
 		}
 		// Add 1 to the end timestamp because the end timestamp is exclusive.
 		end = approx.Lower + 1
