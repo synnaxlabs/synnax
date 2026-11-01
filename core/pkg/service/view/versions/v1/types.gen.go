@@ -123,10 +123,7 @@ func (u *View) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		Type Type `json:"type"`
 	}
 	if err := json.Unmarshal(
-		data,
-		&disc,
-		opts,
-		json.RejectUnknownMembers(false),
+		data, &disc, opts, json.RejectUnknownMembers(false),
 	); err != nil {
 		return err
 	}

@@ -41,7 +41,7 @@ from synnax.task.types_gen import (
     Where,
     ontology_id,
 )
-from synnax.telem import TimeSpan, TimeStamp
+from synnax.telem import TimeSpan
 from x import filter
 from x.lists import all_none, override
 from x.timing import Timer
@@ -187,7 +187,7 @@ class Task:
         :param args: The arguments to pass to the command.
         :return: The unique key assigned to the command.
         """
-        w = self._frame_client.open_writer(TimeStamp.now(), _TASK_CMD_CHANNEL)
+        w = self._frame_client.open_writer(channels=_TASK_CMD_CHANNEL)
         cmd = Command(
             task=self.key,
             type=type_,
