@@ -167,6 +167,38 @@ export const buildSwitchField = fieldBuilder<boolean, boolean, Input.SwitchProps
 );
 export const SwitchField = buildSwitchField({ inputProps: {} });
 
+export interface CheckboxFieldProps extends BuiltFieldProps<
+  boolean,
+  boolean,
+  Input.CheckboxProps
+> {
+  /**
+   * Checks the box when the stored value is false, for a flag that names the
+   * non-default condition, such as `dataSavingDisabled` under "Data saving".
+   */
+  inverted?: boolean;
+}
+
+/** A checkbox field, for a setting that the form saves on a button. */
+export const CheckboxField = ({
+  inverted = false,
+  inputProps,
+  path,
+  fieldKey,
+  ...rest
+}: CheckboxFieldProps): ReactElement | null => (
+  <Field<boolean> {...rest} path={fieldKey ? `${path}.${fieldKey}` : path}>
+    {({ value, onChange, ...p }) => (
+      <Input.Checkbox
+        {...p}
+        {...inputProps}
+        value={inverted ? !value : value}
+        onChange={(v) => onChange(inverted ? !v : v)}
+      />
+    )}
+  </Field>
+);
+
 export type DateTimeFieldProps = BuiltFieldProps<number, number, Input.DateTimeProps>;
 export const buildDateTimeField = fieldBuilder<number, number, Input.DateTimeProps>(
   Input.DateTime,

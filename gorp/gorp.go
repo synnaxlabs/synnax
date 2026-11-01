@@ -12,6 +12,7 @@ package gorp
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/encoding"
@@ -60,6 +61,21 @@ func (db *DB) WithTx(ctx context.Context, f func(tx Tx) error) (err error) {
 		err = txn.Commit(ctx)
 	}
 	return err
+}
+
+// OnCommit runs fn after tx commits, and never when tx closes without a commit. When tx
+// is a DB used directly, its writes have already committed, so fn runs at once.
+func OnCommit(tx Tx, fn func()) {
+	state := tx.txIdentity()
+	if state == nil {
+		fn()
+		return
+	}
+	state.OnCleanup(func(committed bool) {
+		if committed {
+			fn()
+		}
+	})
 }
 
 // OverrideTx replaces the given Tx with the DB if the given Tx is nil. This
@@ -126,7 +142,12 @@ type txState struct {
 	// cleanups is the list of hooks to invoke when the owning tx
 	// commits or closes, in registration order.
 	cleanups []func(committed bool)
+	// committing is true during a commit attempt.
+	committing atomic.Bool
 }
+
+// Committing reports whether a commit attempt is in flight.
+func (s *txState) Committing() bool { return s.committing.Load() }
 
 // OnCleanup registers a hook to run when the owning transaction commits
 // or closes. The hook is invoked with committed=true if the owning tx
@@ -173,8 +194,10 @@ func (t *tx) txIdentity() *txState { return &t.state }
 // run after the commit attempt completes, with committed=true on
 // success and committed=false otherwise.
 func (t *tx) Commit(ctx context.Context, opts ...any) error {
+	t.state.committing.Store(true)
 	err := t.Tx.Commit(ctx, opts...)
 	t.state.runCleanups(err == nil)
+	t.state.committing.Store(false)
 	return err
 }
 
