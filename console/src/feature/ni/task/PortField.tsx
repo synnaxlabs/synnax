@@ -12,7 +12,7 @@ import { Form } from "@synnaxlabs/lyra/form";
 import { type ReactElement } from "react";
 
 import { type Device } from "@/feature/ni/device/types";
-import { describer, groups, type PortKind } from "@/feature/ni/task/ports";
+import { claimsOf, groups, type PortKind } from "@/feature/ni/task/ports";
 import { Task } from "@/platform/task";
 
 export interface PortFieldProps<C extends Task.Channel> {
@@ -39,18 +39,17 @@ export const PortField = <C extends Task.Channel>({
   if (device == null || hardware == null)
     return <Form.NumericField path={`${path}.port`} label="Port" />;
   const own = channels.filter((c) => deviceOf(c) === device.key);
-  const claims = kind.claims(own, device.key, hardware);
   const portGroups = groups({
     ports: kind.ports(hardware),
-    claims,
+    claims: claimsOf(kind, own, hardware),
     prefix: kind.prefix,
     selected: [key],
-    describe: describer(kind, own, device),
+    describe: Task.Port.describer(own, (c) => kind.name(c, device)),
   });
   return (
     <Form.Field<number> path={`${path}.port`} label="Port">
       {({ onChange, preview }) => (
-        <Task.PortGrid
+        <Task.Port.Grid
           label="Port"
           groups={portGroups}
           onClick={(cell) => {

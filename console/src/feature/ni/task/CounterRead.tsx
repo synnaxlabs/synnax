@@ -21,7 +21,7 @@ import { counterReadHardwareZ } from "@/feature/ni/task/checks";
 import { CIChannelForm } from "@/feature/ni/task/CIChannelForm";
 import { createNextCIChannel } from "@/feature/ni/task/createChannel";
 import { DetailsTitle as Title } from "@/feature/ni/task/DetailsTitle";
-import { COUNTER_INPUT, enabledFirst, holdState } from "@/feature/ni/task/ports";
+import { COUNTER_INPUT, holdState } from "@/feature/ni/task/ports";
 import { PortsView } from "@/feature/ni/task/PortsView";
 import {
   CI_CHANNEL_TYPE_ICONS,
@@ -90,12 +90,12 @@ const DetailsTitle = ({ path }: Task.Views.DetailsProps) => {
   const channels = PForm.useFieldValue<CIChannel[]>("config.channels");
   const device = useChannelDevice(path);
   const Icon = CI_CHANNEL_TYPE_ICONS[value.type];
-  const claims = COUNTER_INPUT.claims(channels, value.device, undefined);
+  const own = channels.filter((c) => c.device === value.device);
   return (
     <Title
       port={{
         label: String(value.port),
-        state: holdState(claims, [value.port]),
+        state: holdState(COUNTER_INPUT, own, value),
         disabled: value.disabled,
       }}
       type={{ icon: <Icon />, name: CI_CHANNEL_TYPE_NAMES[value.type] }}
@@ -117,7 +117,7 @@ const hasPortList = (devices: Device[]): boolean =>
 const Form: FC = () => {
   const [tare, allowTare, handleTare] = Task.useTare<CIChannel>();
   const devices = useByKeys(Task.useChannelDeviceKeys());
-  Task.useConfigCheck(devices == null ? null : counterReadHardwareZ(devices));
+  PForm.useCheck("config", devices == null ? null : counterReadHardwareZ(devices));
   const resolve = (ch: CIChannel) => {
     const dev = devices?.find(({ key }) => key === ch.device);
     if (dev == null) return null;
@@ -214,7 +214,7 @@ const onConfigure: Task.OnConfigure<typeof counterReadConfigZ> = async (
       const toCreate: CIChannel[] = [];
       // Channels on one port share its data channel, named by an enabled one if any.
       const seen = new Set<string>();
-      for (const channel of enabledFirst(deviceChannels)) {
+      for (const channel of Task.enabledFirst(deviceChannels)) {
         const key = channel.port.toString();
         if (seen.has(key)) continue;
         seen.add(key);
@@ -260,13 +260,6 @@ export const CounterRead = Task.wrapForm({
   Form,
   schemas: COUNTER_READ_SCHEMAS,
   deployConfigZ: deployCounterReadConfigZ,
-  deviceConfigZ: async (client, config) =>
-    counterReadHardwareZ(
-      await client.devices.retrieve({
-        keys: unique.unique(config.channels.map(deviceOf)),
-        schemas: SCHEMAS,
-      }),
-    ),
   type: "ni_counter_read",
   getInitialValues,
   onConfigure,

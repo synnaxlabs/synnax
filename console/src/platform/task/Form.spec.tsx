@@ -50,7 +50,6 @@ interface MakeRendererParams {
   onConfigure?: Task.OnConfigure<(typeof schemas)["config"]>;
   Form?: FC;
   deployConfigZ?: z.ZodType;
-  deviceConfigZ?: Task.WrapFormParams<typeof schemas>["deviceConfigZ"];
 }
 
 const getInitialValues: Task.GetInitialValues<typeof schemas> = () => ({
@@ -64,13 +63,11 @@ const createRenderer = ({
   onConfigure = async (_client, config) => [config, 0],
   Form = ChildForm,
   deployConfigZ = schemas.config,
-  deviceConfigZ,
 }: MakeRendererParams = {}) =>
   Task.wrapForm<typeof schemas>({
     Form,
     schemas,
     deployConfigZ,
-    deviceConfigZ,
     type: "opc_read",
     getInitialValues,
     onConfigure,
@@ -169,10 +166,28 @@ describe("wrapForm", () => {
 
   describe("deploy validation gate", () => {
     const DeviceStatusProbe: FC = () => {
-      const { status } = PForm.useField<string>("config.device");
-      return <div>{`device-status:${status.message}`}</div>;
+      const { status, onChange } = PForm.useField<string>("config.device");
+      return (
+        <button
+          onClick={() => onChange("dev")}
+        >{`device-status:${status.message}`}</button>
+      );
     };
     DeviceStatusProbe.displayName = "DeviceStatusProbe";
+
+    const requiredDeviceZ = schemas.config.extend({
+      device: z.string().min(1, "Device is required"),
+    });
+
+    const noPortZ = schemas.config.extend({
+      device: z.string().min(1, "The device has no such port"),
+    });
+
+    const PortCheckProbe: FC = () => {
+      PForm.useCheck("config", noPortZ);
+      return <DeviceStatusProbe />;
+    };
+    PortCheckProbe.displayName = "PortCheckProbe";
 
     it("should block deploy and surface field errors for an invalid config", async () => {
       const client = createTestClient();
@@ -180,9 +195,7 @@ describe("wrapForm", () => {
       let configured = false;
       const Renderer = createRenderer({
         Form: DeviceStatusProbe,
-        deployConfigZ: schemas.config.extend({
-          device: z.string().min(1, "Device is required"),
-        }),
+        deployConfigZ: requiredDeviceZ,
         onConfigure: async (_client, config) => {
           configured = true;
           return [config, 0];
@@ -199,16 +212,12 @@ describe("wrapForm", () => {
       expect(configured).toBe(false);
     });
 
-    it("should block deploy on an issue from the device check", async () => {
+    it("should block deploy on an error from a check the form runs", async () => {
       const client = createTestClient();
       const draft = await client.tasks.create({ ...getInitialValues({}), rack: 0 });
       let configured = false;
       const Renderer = createRenderer({
-        Form: DeviceStatusProbe,
-        deviceConfigZ: async () =>
-          schemas.config.extend({
-            device: z.string().min(1, "The device has no such port"),
-          }),
+        Form: PortCheckProbe,
         onConfigure: async (_client, config) => {
           configured = true;
           return [config, 0];
@@ -218,38 +227,40 @@ describe("wrapForm", () => {
         client,
         taskKey: draft.key,
       });
+      expect(
+        screen.getByText("device-status:The device has no such port"),
+      ).toBeTruthy();
       await clickDeploy(container);
-      await waitFor(() =>
-        expect(
-          screen.getByText("device-status:The device has no such port"),
-        ).toBeTruthy(),
-      );
+      await act(async () => {});
       expect(configured).toBe(false);
     });
 
-    it("should skip the device check when the deploy check fails", async () => {
+    it("should not show a deploy error before the first deploy", async () => {
       const client = createTestClient();
       const draft = await client.tasks.create({ ...getInitialValues({}), rack: 0 });
-      let checked = false;
       const Renderer = createRenderer({
         Form: DeviceStatusProbe,
-        deployConfigZ: schemas.config.extend({
-          device: z.string().min(1, "Device is required"),
-        }),
-        deviceConfigZ: async () => {
-          checked = true;
-          return schemas.config;
-        },
+        deployConfigZ: requiredDeviceZ,
+      });
+      await renderTaskFormTab(Renderer, { client, taskKey: draft.key });
+      expect(screen.getByText("device-status:")).toBeTruthy();
+    });
+
+    it("should clear a deploy error once an edit fixes it", async () => {
+      const client = createTestClient();
+      const draft = await client.tasks.create({ ...getInitialValues({}), rack: 0 });
+      const Renderer = createRenderer({
+        Form: DeviceStatusProbe,
+        deployConfigZ: requiredDeviceZ,
       });
       const { container } = await renderTaskFormTab(Renderer, {
         client,
         taskKey: draft.key,
       });
       await clickDeploy(container);
-      await waitFor(() =>
-        expect(screen.getByText("device-status:Device is required")).toBeTruthy(),
-      );
-      expect(checked).toBe(false);
+      const probe = await screen.findByText("device-status:Device is required");
+      await act(async () => probe.click());
+      expect(screen.getByText("device-status:")).toBeTruthy();
     });
 
     it("should deploy when the only issues are warnings", async () => {
@@ -284,9 +295,7 @@ describe("wrapForm", () => {
       const draft = await client.tasks.create({ ...getInitialValues({}), rack: 0 });
       const Renderer = createRenderer({
         Form: DeviceStatusProbe,
-        deployConfigZ: schemas.config.extend({
-          device: z.string().min(1, "Device is required"),
-        }),
+        deployConfigZ: requiredDeviceZ,
       });
       const { container } = await renderTaskFormTab(Renderer, {
         client,

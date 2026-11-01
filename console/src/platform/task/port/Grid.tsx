@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/platform/task/PortGrid.css";
+import "@/platform/task/port/Grid.css";
 
 import { Menu } from "@synnaxlabs/lyra/menu";
 import { Tooltip } from "@synnaxlabs/lyra/tooltip";
@@ -16,9 +16,9 @@ import { type CSSProperties, type MouseEvent, type ReactElement } from "react";
 import { CSS } from "@/platform/css";
 
 /** Whether a port is free, holds one channel, or holds more than one. */
-export type PortState = "free" | "used" | "conflict";
+export type State = "free" | "used" | "conflict";
 
-export interface PortCell {
+export interface Cell {
   /**
    * Unique in the grid. A free cell carries it in `data-menu-key` when the grid has a
    * menu of its own.
@@ -33,7 +33,7 @@ export interface PortCell {
   column: number;
   /** Spans two rows: a differential channel uses both ports of the pair. */
   paired?: boolean;
-  state: PortState;
+  state: State;
   /** Only disabled channels hold the port: it shows as used, but faded. */
   disabled?: boolean;
   selected?: boolean;
@@ -46,17 +46,17 @@ export interface PortCell {
 }
 
 /** Cells laid out together, such as the positive and negative rows of eight pairs. */
-export interface PortGroup {
+export interface Group {
   key: string;
   columns: number;
-  cells: PortCell[];
+  cells: Cell[];
 }
 
-export interface PortGridProps {
+export interface GridProps {
   /** Names the grid for assistive technology. */
   label: string;
-  groups: PortGroup[];
-  onClick: (cell: PortCell) => void;
+  groups: Group[];
+  onClick: (cell: Cell) => void;
   /**
    * Opens a menu over a free port. A used port leaves the event to the enclosing
    * channel list, which opens its channel's menu. Without it, a free port is not a
@@ -66,7 +66,7 @@ export interface PortGridProps {
 }
 
 const cellClass = (
-  { state, selected = false, paired = false, disabled = false }: PortCell,
+  { state, selected = false, paired = false, disabled = false }: Cell,
   target: boolean,
 ): string =>
   CSS.cls(
@@ -78,7 +78,7 @@ const cellClass = (
     selected && CSS.BEM("port-grid", "cell", "selected"),
   );
 
-const cellStyle = ({ row, column, paired = false }: PortCell): CSSProperties => ({
+const cellStyle = ({ row, column, paired = false }: Cell): CSSProperties => ({
   gridColumn: column,
   gridRow: paired ? `${row} / span 2` : row,
 });
@@ -88,12 +88,12 @@ const cellStyle = ({ row, column, paired = false }: PortCell): CSSProperties => 
  * conflict. A channel's own color never shows, so the channel on a port shows in its
  * tooltip.
  */
-export const PortGrid = ({
+export const Grid = ({
   label,
   groups,
   onClick,
   onContextMenu,
-}: PortGridProps): ReactElement => (
+}: GridProps): ReactElement => (
   <div role="group" aria-label={label} className={CSS.B("port-grid")}>
     {groups.map(({ key, columns, cells }) => (
       <div
@@ -129,19 +129,19 @@ export const PortGrid = ({
   </div>
 );
 
-export interface PortBadgeProps {
-  state: PortState;
+export interface BadgeProps {
+  state: State;
   /** The channel is disabled: the badge shows faded, as the grid does. */
   disabled?: boolean;
   children: string;
 }
 
 /** A port's number in its state color, as the grid shows it. */
-export const PortBadge = ({
+export const Badge = ({
   state,
   disabled = false,
   children,
-}: PortBadgeProps): ReactElement => (
+}: BadgeProps): ReactElement => (
   <span
     className={CSS.cls(
       CSS.B("port-badge"),

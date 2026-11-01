@@ -220,6 +220,128 @@ describe("Form", () => {
         expect(result.current.validate()).toBe(true);
       });
     });
+    describe("addCheck", () => {
+      const notJohn = z.string().refine((v) => v !== "John Doe", "Not John");
+      const useBasicForm = () =>
+        Form.use({ values: deep.copy(initialFormValues), schema: basicFormSchema });
+
+      it("should show a check's issue on an untouched field", () => {
+        const { result } = renderHook(useBasicForm);
+        act(() => {
+          result.current.addCheck("name", notJohn);
+        });
+        expect(result.current.get("name").status).toMatchObject({
+          variant: "error",
+          message: "Not John",
+        });
+      });
+      it("should not make the form invalid", () => {
+        const { result } = renderHook(useBasicForm);
+        act(() => {
+          result.current.addCheck("name", notJohn);
+        });
+        expect(result.current.validate()).toBe(true);
+      });
+      it("should check again on every set", () => {
+        const { result } = renderHook(useBasicForm);
+        act(() => {
+          result.current.addCheck("name", notJohn);
+        });
+        act(() => result.current.set("name", "Jane Doe"));
+        expect(result.current.get("name").status.variant).toBe("success");
+      });
+      it("should check the values a reset gives", () => {
+        const { result } = renderHook(() =>
+          Form.use({
+            values: deep.copy({ ...initialFormValues, name: "Jane Doe" }),
+            schema: basicFormSchema,
+          }),
+        );
+        act(() => {
+          result.current.addCheck("name", notJohn);
+        });
+        act(() => result.current.reset(deep.copy(initialFormValues)));
+        expect(result.current.get("name").status.message).toBe("Not John");
+      });
+      it("should check again after a remove", () => {
+        const { result } = renderHook(useBasicForm);
+        act(() => {
+          result.current.addCheck(
+            "",
+            z.object({ optionalField: z.literal("").optional() }),
+          );
+        });
+        act(() => result.current.set("optionalField", "set"));
+        expect(result.current.get("optionalField").status.variant).toBe("error");
+        act(() => result.current.remove("optionalField"));
+        expect(result.current.getStatuses()).toEqual([]);
+      });
+      it("should clear its issues once removed", () => {
+        const { result } = renderHook(useBasicForm);
+        let remove = () => {};
+        act(() => {
+          remove = result.current.addCheck("name", notJohn);
+        });
+        act(() => remove());
+        expect(result.current.get("name").status.variant).toBe("success");
+      });
+      it("should keep an error over a later warning on the same field", () => {
+        const { result } = renderHook(useBasicForm);
+        const warning = z.string().check(({ value, issues }) => {
+          issues.push({
+            code: "custom",
+            message: "Odd name",
+            input: value,
+            params: { variant: "warning" },
+          });
+        });
+        act(() => {
+          result.current.addCheck("name", notJohn);
+          result.current.addCheck("name", warning);
+        });
+        expect(result.current.get("name").status.message).toBe("Not John");
+      });
+    });
+  });
+
+  describe("useCheck", () => {
+    const notJohn = z.string().refine((v) => v !== "John Doe", "Not John");
+
+    it("should check the field while mounted", () => {
+      const { result, unmount } = renderHook(
+        () => {
+          Form.useCheck("name", notJohn);
+          return Form.useContext();
+        },
+        { wrapper },
+      );
+      expect(result.current.get("name").status.message).toBe("Not John");
+      const ctx = result.current;
+      unmount();
+      expect(ctx.get("name").status.variant).toBe("success");
+    });
+    it("should check nothing for a null schema", () => {
+      const { result } = renderHook(
+        () => {
+          Form.useCheck("name", null);
+          return Form.useContext();
+        },
+        { wrapper },
+      );
+      expect(result.current.get("name").status.variant).toBe("success");
+    });
+    it("should replace the check when the schema changes", () => {
+      const notJane = z.string().refine((v) => v !== "John Doe", "Not Jane");
+      const { result, rerender } = renderHook(
+        ({ schema }: { schema: z.ZodType }) => {
+          Form.useCheck("name", schema);
+          return Form.useContext();
+        },
+        { wrapper, initialProps: { schema: notJohn } },
+      );
+      rerender({ schema: notJane });
+      expect(result.current.get("name").status.message).toBe("Not Jane");
+    });
   });
 
   describe("useField", () => {

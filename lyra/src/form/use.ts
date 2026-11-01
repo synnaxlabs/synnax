@@ -85,9 +85,24 @@ export const use = <Z extends z.ZodType>({
   ): FieldState<V> | null =>
     ref.current.getState(path, opts)) as typeof State.prototype.getState;
 
+  // Validates the touched fields and the checks, then calls done.
+  const revalidate = (done: () => void) => {
+    try {
+      ref.current.validate();
+    } catch (_) {
+      return handleError(async () => {
+        await ref.current.validateAsync();
+        done();
+      }, "Failed to validate form");
+    }
+    done();
+  };
+
+  const notify = () => ref.current.notify();
+
   const remove = (path: string) => {
     ref.current.remove(path);
-    ref.current.notify();
+    revalidate(notify);
   };
 
   const reset = (values?: z.infer<Z>) => {
@@ -136,15 +151,7 @@ export const use = <Z extends z.ZodType>({
       const hasTouched = ref.current.hasBeenTouched;
       if (hasTouched !== prevHasTouched) onHasTouchedRef.current?.(hasTouched);
     };
-    try {
-      ref.current.validate();
-    } catch (_) {
-      return handleError(async () => {
-        await ref.current.validateAsync();
-        finish();
-      }, "Failed to validate form");
-    }
-    finish();
+    revalidate(finish);
   };
 
   const has = (path: string): boolean => deep.has(ref.current.values, path);
@@ -160,6 +167,15 @@ export const use = <Z extends z.ZodType>({
   const clearStatuses = () => {
     ref.current.clearStatus();
     ref.current.notify();
+  };
+
+  const addCheck = (path: string, schema: z.ZodType): destructor.Destructor => {
+    const removeCheck = ref.current.addCheck(path, schema);
+    revalidate(notify);
+    return () => {
+      removeCheck();
+      revalidate(notify);
+    };
   };
 
   useEffect(() => {
@@ -180,6 +196,7 @@ export const use = <Z extends z.ZodType>({
     remove,
     setStatus,
     clearStatuses,
+    addCheck,
     reset,
     setCurrentStateAsInitialValues,
     getStatuses: () => ref.current.getStatuses(),

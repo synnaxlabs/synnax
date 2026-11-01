@@ -25,9 +25,7 @@ import { DetailsTitle as Title } from "@/feature/ni/task/DetailsTitle";
 import {
   ANALOG_OUTPUT,
   analogOutputStateName,
-  enabledFirst,
   holdState,
-  portClaims,
 } from "@/feature/ni/task/ports";
 import { PortsView } from "@/feature/ni/task/PortsView";
 import {
@@ -97,7 +95,7 @@ const DetailsTitle = ({ path }: Task.Views.DetailsProps) => {
     <Title
       port={{
         label: String(value.port),
-        state: holdState(portClaims(channels), [value.port]),
+        state: holdState(ANALOG_OUTPUT, channels, value, device?.properties.hardware),
         disabled: value.disabled,
       }}
       type={{ icon: <Icon />, name: AO_CHANNEL_TYPE_NAMES[value.type] }}
@@ -114,7 +112,7 @@ const channelListItem = Component.renderProp(ChannelListItem);
 
 const Form: FC = () => {
   const dev = useFromConfig();
-  Task.useConfigCheck(analogWriteHardwareZ(dev));
+  PForm.useCheck("config", analogWriteHardwareZ(dev));
   const resolve = (ch: AOChannel) => {
     if (dev == null) return null;
     const pair =
@@ -191,7 +189,7 @@ const onConfigure: Task.OnConfigure<typeof analogWriteConfigZ> = async (
     const statesToCreate: AOChannel[] = [];
     // Channels on one port share its data channel, named by an enabled one if any.
     const seen = new Set<string>();
-    for (const channel of enabledFirst(config.channels)) {
+    for (const channel of Task.enabledFirst(config.channels)) {
       const key = channel.port.toString();
       if (seen.has(key)) continue;
       seen.add(key);
@@ -271,10 +269,6 @@ export const AnalogWrite = Task.wrapForm({
   Form,
   schemas: ANALOG_WRITE_SCHEMAS,
   deployConfigZ: deployAnalogWriteConfigZ,
-  deviceConfigZ: async (client, config) =>
-    analogWriteHardwareZ(
-      await client.devices.retrieve({ key: config.device, schemas: SCHEMAS }),
-    ),
   type: "ni_analog_write",
   getInitialValues,
   onConfigure,
