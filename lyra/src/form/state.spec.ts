@@ -701,7 +701,7 @@ describe("State", () => {
   describe("listen", () => {
     it("should refresh a field that another writer changes", () => {
       const { store, state, handleChange } = buildTracked();
-      state.listen();
+      state.listen(() => state.notify());
       expect(state.getState("channels.b.port").value).toBe(2);
       store.set("channels.b.port", 3);
       expect(state.getState("channels.b.port").value).toBe(3);
@@ -710,7 +710,7 @@ describe("State", () => {
 
     it("should clear a status from setStatus when another writer changes its value", () => {
       const { store, state } = buildTracked();
-      state.listen();
+      state.listen(() => state.notify());
       const taken = {
         key: "channels.b.port",
         variant: "error" as const,
@@ -723,7 +723,7 @@ describe("State", () => {
 
     it("should keep the state of a field that the change does not reach", () => {
       const { store, state } = buildTracked();
-      state.listen();
+      state.listen(() => state.notify());
       const prev = state.getState("channels.a.port");
       store.set("channels.b.port", 3);
       expect(state.getState("channels.a.port")).toBe(prev);
@@ -731,7 +731,7 @@ describe("State", () => {
 
     it("should refresh a field whose discriminator another writer changes", () => {
       const { store, state } = buildTracked();
-      state.listen();
+      state.listen(() => state.notify());
       expect(state.getState("config.value").required).toBe(true);
       store.set("config", { type: "b" });
       expect(state.getState("config.value").required).toBe(false);
@@ -739,7 +739,7 @@ describe("State", () => {
 
     it("should refresh a field that another writer removes", () => {
       const { store, state } = buildTracked();
-      state.listen();
+      state.listen(() => state.notify());
       expect(state.getState("channels.0.port").value).toBe(1);
       store.remove("channels.a");
       expect(state.getState("channels.0.port").value).toBe(2);
@@ -747,7 +747,7 @@ describe("State", () => {
 
     it("should not notify for its own writes", () => {
       const { state, handleChange } = buildTracked();
-      state.listen();
+      state.listen(() => state.notify());
       state.setValue("channels.a.port", 5);
       expect(handleChange).not.toHaveBeenCalled();
     });
@@ -756,14 +756,14 @@ describe("State", () => {
       const { store, state, handleChange } = buildTracked();
       expect(state.getState("channels.b.port").value).toBe(2);
       store.set("channels.b.port", 3);
-      state.listen();
+      state.listen(() => state.notify());
       expect(handleChange).toHaveBeenCalledTimes(1);
       expect(state.getState("channels.b.port").value).toBe(3);
     });
 
     it("should stop following after the destructor runs", () => {
       const { store, state, handleChange } = buildTracked();
-      const destroy = state.listen();
+      const destroy = state.listen(() => state.notify());
       destroy();
       store.set("channels.b.port", 3);
       expect(handleChange).not.toHaveBeenCalled();

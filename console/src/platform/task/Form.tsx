@@ -13,7 +13,6 @@ import {
   type device,
   DisconnectedError,
   type rack,
-  type status,
   type Synnax,
   task,
 } from "@synnaxlabs/client";
@@ -23,7 +22,7 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Status } from "@synnaxlabs/lyra/status";
 import { Access, Synnax as PSynnax, Task as PTask } from "@synnaxlabs/pluto";
 import { deep, primitive } from "@synnaxlabs/x";
-import { type FC } from "react";
+import { type FC, useRef } from "react";
 import { type z } from "zod";
 
 import { Analytics } from "@/platform/analytics";
@@ -65,9 +64,9 @@ export interface WrapFormParams<S extends task.Schemas = task.Schemas> {
   onConfigure: OnConfigure<S["config"]>;
   schemas: S;
   /**
-   * Validates the config when the user deploys. Errors show on their fields and block
-   * the start. Warnings show but do not block. Keep the shape schemas lax: a field
-   * whose value fails its shape schema stays unsent.
+   * Checks the config from the first deploy on, as a check the form runs on every edit.
+   * A deploy starts only when no field shows an error, so a warning never blocks one.
+   * Keep the shape schemas lax: a field whose value fails its shape schema stays unsent.
    */
   deployConfigZ: z.ZodType;
   showHeader?: boolean;
@@ -111,11 +110,6 @@ const Header = ({ isSnapshot }: HeaderProps) => (
   </>
 );
 
-const issueVariant = (issue: z.core.$ZodIssue): status.Variant =>
-  issue.code === "custom" && issue.params != null && "variant" in issue.params
-    ? (issue.params.variant as status.Variant)
-    : "error";
-
 export const wrapForm = <S extends task.Schemas = task.Schemas>({
   Properties,
   Form,
@@ -137,28 +131,20 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
     // read-only rather than fields that revert once the save is refused.
     const canEdit = Access.useUpdateGranted(task.ontologyID(taskKey));
 
+    const deployChecked = useRef(false);
+
     const handleDeploy = () => {
       handleError(async () => {
         if (client == null) throw new DisconnectedError();
         if (canEdit) {
           if (!(await flush())) return;
-          const { config, name, rack } = form.value();
-          form.clearStatuses();
-          const result = deployConfigZ.safeParse(config);
-          if (!result.success) {
-            let blocked = false;
-            result.error.issues.forEach((issue) => {
-              const variant = issueVariant(issue);
-              if (variant !== "warning") blocked = true;
-              // Fields address array items by their key, not by their index.
-              const path = deep.resolvePath(
-                ["config", ...issue.path].join("."),
-                form.value(),
-              );
-              form.setStatus(path, { key: path, variant, message: issue.message });
-            });
-            if (blocked) return;
+          if (!deployChecked.current) {
+            form.addCheck("config", deployConfigZ);
+            deployChecked.current = true;
           }
+          await form.validateAsync();
+          if (form.getStatuses().some(({ variant }) => variant === "error")) return;
+          const { config, name, rack } = form.value();
           // The form's values are the cached task, and onConfigure changes its config.
           const [newConfig, newRack] = await onConfigure(
             client,

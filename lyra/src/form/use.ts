@@ -109,6 +109,7 @@ export const use = <Z extends z.ZodType>(params: UseParams<Z>): UseReturn<Z> => 
     }
     finish(changes, prevHasTouched);
   };
+  const settleRef = useSyncedRef(settle);
 
   const commit = (path: string, write: () => void, silent = false) => {
     const change = {
@@ -223,6 +224,15 @@ export const use = <Z extends z.ZodType>(params: UseParams<Z>): UseReturn<Z> => 
     ref.current.notify();
   };
 
+  const addCheck = (path: string, schema: z.ZodType): destructor.Destructor => {
+    const removeCheck = ref.current.addCheck(path, schema);
+    settle([], ref.current.hasBeenTouched);
+    return () => {
+      removeCheck();
+      settle([], ref.current.hasBeenTouched);
+    };
+  };
+
   // A store of another identity replaces the one the form reads, as for another record.
   useLayoutEffect(() => {
     const prevHasTouched = ref.current.hasBeenTouched;
@@ -230,8 +240,9 @@ export const use = <Z extends z.ZodType>(params: UseParams<Z>): UseReturn<Z> => 
       ref.current.notify();
       if (prevHasTouched) onHasTouchedRef.current?.(false);
     }
-    return ref.current.listen();
-  }, [ref, store, onHasTouchedRef]);
+    // A change from another client can break a check, so it validates like an edit.
+    return ref.current.listen(() => settleRef.current([], ref.current.hasBeenTouched));
+  }, [ref, store, onHasTouchedRef, settleRef]);
 
   return {
     bind,
@@ -248,6 +259,7 @@ export const use = <Z extends z.ZodType>(params: UseParams<Z>): UseReturn<Z> => 
     batch,
     setStatus,
     clearStatuses,
+    addCheck,
     reset,
     setCurrentStateAsInitialValues,
     getStatuses: () => ref.current.getStatuses(),

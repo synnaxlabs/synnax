@@ -58,6 +58,11 @@ interface SetValueOptions {
   markTouched?: boolean;
 }
 
+interface Check {
+  path: string;
+  schema: z.ZodType;
+}
+
 export class State<Z extends z.ZodType> extends observe.Observer<void> {
   private readonly schema?: Z;
   private store: Store<z.infer<Z>>;
@@ -67,6 +72,7 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
   /** Paths whose status came from `setStatus`, which validation never removes. */
   private readonly external: Set<string>;
   private readonly touched: Set<string>;
+  private readonly checks: Set<Check>;
   private readonly cachedRefs: Map<string, { state: FieldState; stale: boolean }>;
   /** The values that the cached field states were read from. */
   private observed: z.infer<Z>;
@@ -81,6 +87,7 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
     this.statuses = new Map();
     this.external = new Set();
     this.touched = new Set();
+    this.checks = new Set();
     this.cachedRefs = new Map();
     this.initialValues = deep.copy(this.observed);
   }
@@ -100,6 +107,8 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
     this.external.clear();
     this.touched.clear();
     this.cachedRefs.clear();
+    // No field is touched, so only the checks have issues to show.
+    this.processValidation(false, undefined);
     return true;
   }
 
@@ -145,13 +154,13 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
 
   /**
    * Follows changes that others make to the store. Each one marks stale the fields it
-   * reaches and notifies.
+   * reaches and calls the callback.
    *
    * @returns a destructor that stops following.
    */
-  listen(): destructor.Destructor {
+  listen(onChange: () => void): destructor.Destructor {
     const handleChange = () => {
-      if (this.depth === 0 && this.refresh()) this.notify();
+      if (this.depth === 0 && this.refresh()) onChange();
     };
     handleChange();
     return this.store.onChange(handleChange);
@@ -320,6 +329,17 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
     this.touched.clear();
     this.cachedRefs.clear();
     this.write(() => this.store.set("", nextValues));
+    // No field is touched, so only the checks have issues to show.
+    this.processValidation(false, undefined);
+  }
+
+  /** @returns a function that removes the check. */
+  addCheck(path: string, schema: z.ZodType): destructor.Destructor {
+    const check: Check = { path, schema };
+    this.checks.add(check);
+    return () => {
+      this.checks.delete(check);
+    };
   }
 
   setCurrentStateAsInitialValues() {
@@ -350,14 +370,12 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
   }
 
   validate(validateUntouched?: boolean, path?: string): boolean {
-    if (this.schema == null) return true;
-    const result = this.schema.safeParse(this.values);
+    const result = this.schema?.safeParse(this.values);
     return this.processValidation(validateUntouched, result, path);
   }
 
   async validateAsync(validateUntouched?: boolean, path?: string): Promise<boolean> {
-    if (this.schema == null) return true;
-    const result = await this.schema.safeParseAsync(this.values);
+    const result = await this.schema?.safeParseAsync(this.values);
     return this.processValidation(validateUntouched, result, path);
   }
 
@@ -398,15 +416,19 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
 
   private processValidation(
     validateUntouched: boolean = false,
-    result: z.ZodSafeParseResult<z.infer<Z>>,
+    result: z.ZodSafeParseResult<z.infer<Z>> | undefined,
     validationPath?: string,
   ): boolean {
-    if (this.schema == null) return true;
     const next = new Map<string, Status.Crude>();
+    // A later issue on a path replaces an earlier one, but never an error with less.
+    const add = (path: string, { variant, message }: Status.Crude) => {
+      if (next.get(path)?.variant === "error" && variant !== "error") return;
+      next.set(path, { key: path, variant, message });
+    };
     let success = true;
-    if (!result.success)
+    if (result?.success === false)
       this.errorsToStatuses(result.error.issues, [], []).forEach((status) => {
-        const { key: issuePath, message, variant } = status;
+        const { key: issuePath, variant } = status;
         if (issuePath == null) return;
         const matchesPath =
           validationPath == null ||
@@ -415,8 +437,20 @@ export class State<Z extends z.ZodType> extends observe.Observer<void> {
         const isTouched = validateUntouched || this.touched.has(issuePath);
         if (!matchesPath || !isTouched) return;
         if (variant !== "warning") success = false;
-        next.set(issuePath, { key: issuePath, variant, message });
+        add(issuePath, status);
       });
+    this.checks.forEach(({ path, schema }) => {
+      const root = path === "";
+      const value = root
+        ? this.values
+        : deep.get(this.values, path, { optional: true });
+      const checked = schema.safeParse(value);
+      if (checked.success) return;
+      const prefix = root ? [] : path.split(deep.SEPARATOR);
+      this.errorsToStatuses(checked.error.issues, prefix, []).forEach((status) => {
+        if (status.key != null) add(status.key, status);
+      });
+    });
     this.statuses.forEach((status, path) => {
       if (status.variant === "success" || this.external.has(path) || next.has(path))
         return;

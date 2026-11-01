@@ -29,7 +29,7 @@ to start a config that the operator did not see.
 
 Ana and Ben open the same NI analog read task. Ana sets the sample rate to 1 kHz. A
 moment later, Ben moves channel `c3` to port 4. Each form autosaves its whole config
-(`console/src/platform/task/Form.tsx:139-143`):
+(`console/src/platform/task/Form.tsx:133-137`):
 
 1. Ana's form saves a sample rate of 1 kHz, with `c3` on port 3.
 2. Ben's form saves the old sample rate, with `c3` on port 4.
@@ -248,7 +248,7 @@ task keeps the config it was deployed with (RFC 0056 §4.1).
 ### 8.1 Deploy pins the start
 
 The play button deploys the task. It runs these steps
-(`console/src/platform/task/Form.tsx:140-188`):
+(`console/src/platform/task/Form.tsx:136-174`):
 
 1. Send every pending edit. Stop if a field holds an invalid value.
 2. Check the config against the deploy schema.
