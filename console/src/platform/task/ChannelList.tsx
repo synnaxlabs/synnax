@@ -139,6 +139,12 @@ export interface ChannelListProps<C extends Channel>
   checkable?: boolean;
   /** The columns items line up on. The list then shows their headings. */
   columns?: List.Column[];
+  /**
+   * Shown in place of the items, such as the channels by port. A right click on an
+   * element with `Menu.CONTEXT_TARGET` and a channel key in `data-menu-key` opens that
+   * channel's menu.
+   */
+  ports?: ReactNode;
 }
 
 export const ChannelList = <C extends Channel>({
@@ -155,6 +161,7 @@ export const ChannelList = <C extends Channel>({
   resolve,
   checkable = false,
   columns,
+  ports,
   ...rest
 }: ChannelListProps<C>) => {
   const { onSelect, path, data } = rest;
@@ -183,28 +190,42 @@ export const ChannelList = <C extends Channel>({
           onContextMenu={menuProps.open}
         >
           {header}
-          {columns != null && <List.Headings ref={headingsRef} checkable={checkable} />}
+          {ports == null && columns != null && (
+            <List.Headings ref={headingsRef} checkable={checkable} />
+          )}
         </Flex.Box>
-        <Select.Frame<string, C>
-          multiple
-          data={data}
-          value={selected}
-          onChange={handleChange}
-          replaceOnSingle={!checkable}
-          allowNone={checkable}
-          autoSelectOnNone={!checkable}
-        >
-          <List.Scroll
-            full="y"
-            onDragOver={onDragOver}
-            onDrop={onDrop}
+        {ports != null ? (
+          <Flex.Box
+            y
+            grow
+            empty
             className={menuProps.className}
             onContextMenu={menuProps.open}
-            onScroll={handleScroll}
           >
-            <List.Items<string, C> emptyContent={emptyContent}>{listItem}</List.Items>
-          </List.Scroll>
-        </Select.Frame>
+            {ports}
+          </Flex.Box>
+        ) : (
+          <Select.Frame<string, C>
+            multiple
+            data={data}
+            value={selected}
+            onChange={handleChange}
+            replaceOnSingle={!checkable}
+            allowNone={checkable}
+            autoSelectOnNone={!checkable}
+          >
+            <List.Scroll
+              full="y"
+              onDragOver={onDragOver}
+              onDrop={onDrop}
+              className={menuProps.className}
+              onContextMenu={menuProps.open}
+              onScroll={handleScroll}
+            >
+              <List.Items<string, C> emptyContent={emptyContent}>{listItem}</List.Items>
+            </List.Scroll>
+          </Select.Frame>
+        )}
       </Menu.ContextMenu>
       {status.variant !== "success" && (
         <Input.HelpText
