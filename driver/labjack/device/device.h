@@ -9,8 +9,13 @@
 
 #pragma once
 
+#include <atomic>
+#include <functional>
 #include <map>
+#include <memory>
 #include <mutex>
+#include <string>
+#include <utility>
 
 #include "absl/log/log.h"
 
@@ -26,6 +31,8 @@ public:
     virtual x::errors::Error
     e_stream_read(double *data, int *dev_scan_backlog, int *ljm_scan_backlog) const = 0;
 
+    /// @brief stops the stream. A failed stop still allows the next start, so a lost
+    /// connection never blocks it.
     [[nodiscard]] virtual x::errors::Error e_stream_stop() const = 0;
 
     [[nodiscard]] virtual x::errors::Error
@@ -75,11 +82,16 @@ public:
     [[nodiscard]] virtual x::errors::Error
     e_read_name(const char *name, double *value) const = 0;
 
+    /// @brief starts a stream.
+    /// @param configure writes the settings of the stream. It runs only when no other
+    /// stream holds the device, so a refused start leaves the device untouched.
+    /// @returns ljm::STREAM_IS_ACTIVE when a stream already runs on the device.
     [[nodiscard]] virtual x::errors::Error e_stream_start(
         size_t scans_per_read,
         size_t num_addrs,
         const int *scan_list,
-        double *scan_rate
+        double *scan_rate,
+        const std::function<x::errors::Error()> &configure
     ) const = 0;
 };
 
@@ -88,6 +100,9 @@ class LJMDevice final : public Device {
     std::shared_ptr<ljm::API> ljm;
     /// @brief the underlying device handle.
     const int dev_handle;
+    /// @brief true while a stream runs on the handle. A second LJM start on one handle
+    /// succeeds and silently replaces the running stream.
+    mutable std::atomic<bool> streaming = false;
 
 public:
     LJMDevice(const std::shared_ptr<ljm::API> &ljm, const int dev_handle):
@@ -115,7 +130,9 @@ public:
     }
 
     [[nodiscard]] x::errors::Error e_stream_stop() const override {
-        return parse_error(this->ljm, this->ljm->e_stream_stop(dev_handle));
+        const auto err = parse_error(this->ljm, this->ljm->e_stream_stop(dev_handle));
+        this->streaming = false;
+        return err;
     }
 
     [[nodiscard]] x::errors::Error
@@ -234,18 +251,29 @@ public:
         const size_t scans_per_read,
         const size_t num_addrs,
         const int *scan_list,
-        double *scan_rate
+        double *scan_rate,
+        const std::function<x::errors::Error()> &configure
     ) const override {
-        return parse_error(
-            this->ljm,
-            this->ljm->e_stream_start(
-                this->dev_handle,
-                static_cast<int>(scans_per_read),
-                static_cast<int>(num_addrs),
-                scan_list,
-                scan_rate
-            )
-        );
+        if (this->streaming.exchange(true))
+            return x::errors::Error(
+                ljm::STREAM_IS_ACTIVE,
+                "A LabJack runs one stream at a time, and another task is streaming "
+                "from this device. Add these channels to the running task."
+            );
+        auto err = configure();
+        if (!err)
+            err = parse_error(
+                this->ljm,
+                this->ljm->e_stream_start(
+                    this->dev_handle,
+                    static_cast<int>(scans_per_read),
+                    static_cast<int>(num_addrs),
+                    scan_list,
+                    scan_rate
+                )
+            );
+        if (err) this->streaming = false;
+        return err;
     }
 };
 
@@ -272,6 +300,10 @@ public:
     acquire(const std::string &serial_number) = 0;
 };
 
+/// @brief opens the device with the given serial number.
+using Opener = std::function<
+    std::pair<std::shared_ptr<Device>, x::errors::Error>(const std::string &)>;
+
 /// @brief a Manager that opens devices through the LJM library, sharing one handle
 /// among concurrent holders of the same device.
 class LJMManager final : public Manager {
@@ -283,6 +315,8 @@ class LJMManager final : public Manager {
     std::mutex open_mu;
     std::map<std::string, std::weak_ptr<Device>> handles;
     std::shared_ptr<ljm::API> ljm;
+    /// @brief opens a device when no holder remains.
+    Opener open;
 
     /// @brief returns the cached device for the serial number, if a holder still
     /// exists.
@@ -296,7 +330,27 @@ class LJMManager final : public Manager {
     }
 
 public:
-    explicit LJMManager(const std::shared_ptr<ljm::API> &ljm): ljm(ljm) {}
+    /// @brief lists and opens devices through the LJM library.
+    explicit LJMManager(const std::shared_ptr<ljm::API> &ljm):
+        LJMManager(
+            ljm,
+            [ljm](const std::string &serial_number)
+                -> std::pair<std::shared_ptr<Device>, x::errors::Error> {
+                int dev_handle = 0;
+                const int err = ljm->open(
+                    LJM_dtANY,
+                    LJM_ctANY,
+                    serial_number.c_str(),
+                    &dev_handle
+                );
+                if (err != 0) return {nullptr, parse_error(ljm, err)};
+                return {std::make_shared<LJMDevice>(ljm, dev_handle), x::errors::NIL};
+            }
+        ) {}
+
+    /// @brief lists devices through the LJM library and opens them through open.
+    LJMManager(std::shared_ptr<ljm::API> ljm, Opener open):
+        ljm(std::move(ljm)), open(std::move(open)) {}
 
     x::errors::Error list_all(
         const int dev_type,
@@ -333,11 +387,13 @@ public:
         // A racing caller may have opened the device while we waited.
         if (auto existing = this->cached(serial_number))
             return {existing, x::errors::NIL};
-        int dev_handle = 0;
-        const int
-            err = ljm->open(LJM_dtANY, LJM_ctANY, serial_number.c_str(), &dev_handle);
-        if (err != 0) return {nullptr, parse_error(ljm, err)};
-        auto dev = std::make_shared<LJMDevice>(ljm, dev_handle);
+        auto [dev, open_err] = this->open(serial_number);
+        if (open_err) return {nullptr, open_err};
+        // A stream outlives the process that started it, and no caller holds this new
+        // handle, so any stream on the device belongs to another process.
+        if (const auto stop_err = dev->e_stream_stop();
+            stop_err && !stop_err.matches(ljm::STREAM_NOT_RUNNING))
+            return {nullptr, stop_err};
         std::lock_guard lock(this->mu);
         this->handles[serial_number] = dev;
         return {dev, x::errors::NIL};

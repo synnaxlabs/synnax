@@ -38,7 +38,8 @@ LIMITS: dict[str, dict[str, Limits]] = {
         "Linux": Limits(min_wait_ms=1, max_error_percent=8.0, max_spread_ms=0.3),
         # A 1 ms Go wait on macOS is up to 7% late.
         "Darwin": Limits(min_wait_ms=5, max_error_percent=2.0, max_spread_ms=1.25),
-        "Windows": Limits(min_wait_ms=1, max_error_percent=3.0, max_spread_ms=0.5),
+        # The OS rarely holds a Go wait 1 ms late, and very rarely 3 ms late.
+        "Windows": Limits(min_wait_ms=1, max_error_percent=3.0, max_spread_ms=1.25),
     },
 }
 
@@ -52,7 +53,7 @@ LONG_LIMITS: dict[str, dict[str, Limits]] = {
     "Go": {
         "Linux": Limits(min_wait_ms=50, max_error_percent=0.5, max_spread_ms=0.3),
         "Darwin": Limits(min_wait_ms=50, max_error_percent=0.5, max_spread_ms=2.0),
-        "Windows": Limits(min_wait_ms=50, max_error_percent=0.5, max_spread_ms=0.5),
+        "Windows": Limits(min_wait_ms=50, max_error_percent=0.5, max_spread_ms=1.25),
     },
 }
 
