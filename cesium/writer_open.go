@@ -38,6 +38,11 @@ func (mode WriterMode) Stream() bool { return mode != WriterModePersistOnly }
 
 const (
 	WriterModePersistStream WriterMode = iota + 1
+	// WriterModePersistOnly stores samples without streaming them. The writer commands
+	// nothing, so it holds only the time it has committed and can write behind a live
+	// writer. It fails to open when another writer holds its Start, and a commit fails
+	// when it reaches another writer's region. It is absent from control state and
+	// ignores virtual channels.
 	WriterModePersistOnly
 	WriterModeStreamOnly
 )
@@ -83,7 +88,8 @@ type WriterConfig struct {
 	// Start marks the start of the writer's control region. When Start is zero, the
 	// region starts at the time the writer opens. If a sample exists for any channel at
 	// a non-zero Start, the writer fails to open. The domains of each index start at
-	// the first timestamp written to that index, not at Start.
+	// the first timestamp written to that index, not at Start. The region moves back to
+	// a domain that starts before it.
 	//
 	// A writer that writes data channels without their index needs a Start that is a
 	// sample of that index.
@@ -235,6 +241,7 @@ func (db *DB) newStreamWriter(
 			AutoIndexPersistInterval: cfg.AutoIndexPersistInterval,
 			Start:                    cfg.Start,
 			Persist:                  new(cfg.Mode.persist()),
+			Bounded:                  new(!cfg.Mode.Stream()),
 			Authority:                cfg.authority(i),
 		}
 	}
@@ -257,6 +264,9 @@ func (db *DB) newStreamWriter(
 		}
 		var transfer control.Transfer
 		if isVirtual {
+			if !cfg.Mode.Stream() {
+				continue
+			}
 			if virtualWriters == nil {
 				virtualWriters = make(map[ChannelKey]*virtual.Writer)
 			}
@@ -339,11 +349,12 @@ func (db *DB) newStreamWriter(
 	}
 
 	w = &streamWriter{
-		WriterConfig: cfg,
-		internal:     make([]*idxWriter, 0, len(domainWriters)),
-		relay:        db.relay.inlet,
-		virtual:      &virtualWriter{internal: virtualWriters},
-		keyToIdx:     keyToIdx,
+		WriterConfig:       cfg,
+		internal:           make([]*idxWriter, 0, len(domainWriters)),
+		relay:              db.relay.inlet,
+		virtual:            &virtualWriter{internal: virtualWriters},
+		keyToIdx:           keyToIdx,
+		authorizeEndDomain: db.authorizeEndDomain,
 		updateDBControl: func(ctx context.Context, update ControlUpdate) {
 			db.mu.RLock()
 			defer db.mu.RUnlock()

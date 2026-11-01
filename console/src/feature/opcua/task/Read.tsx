@@ -21,6 +21,7 @@ import { type FC, type ReactElement } from "react";
 import { Select } from "@/feature/opcua/device/Select";
 import {
   type Device,
+  MAKE,
   migrateProperties,
   type Properties as DeviceProperties,
   SCHEMAS,
@@ -66,7 +67,7 @@ interface IsIndexItemProps {
 const IsIndexItem = ({ path }: IsIndexItemProps): ReactElement => {
   const dataType = PForm.useFieldValue<string>(`${path}.dataType`, { optional: true });
   return (
-    <PForm.SwitchField
+    <PForm.CheckboxField
       path={`${path}.isIndex`}
       label="Use as index"
       x
@@ -123,7 +124,7 @@ const Properties = (): ReactElement => {
         </PForm.Field>
         <Task.Fields.SampleRate />
         {!onChangeMode && (
-          <PForm.SwitchField
+          <PForm.CheckboxField
             label="Array sampling"
             path="config.arrayMode"
             onChange={(value, { set }) => {
@@ -143,10 +144,8 @@ const Properties = (): ReactElement => {
         ) : (
           <Task.Fields.StreamRate />
         )}
-        <Task.Fields.DataSaving />
-        <Task.Fields.AutoStart />
         {onChangeMode ? (
-          <PForm.SwitchField
+          <PForm.CheckboxField
             label="History backfill"
             path="config.historyBackfillEnabled"
             inputProps={HISTORY_BACKFILL_INPUT_PROPS}
@@ -387,12 +386,12 @@ export const Read = Task.wrapForm({
   Form: TaskForm,
   schemas: READ_SCHEMAS,
   deployConfigZ: deployReadConfigZ,
-  getInitialValues,
   onConfigure,
 });
 
 export const useCreateRead = Task.createUseCreate({
   getInitialValues,
+  deviceMake: MAKE,
 });
 
 export const ReadSelectable = Selector.createSelectable({

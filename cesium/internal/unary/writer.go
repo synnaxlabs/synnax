@@ -15,6 +15,7 @@ import (
 	"uuid"
 
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/cesium/internal/alignment"
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/control"
 	"github.com/synnaxlabs/cesium/internal/domain"
@@ -33,6 +34,12 @@ type WriterConfig struct {
 	// data is written.
 	// [OPTIONAL] - Defaults to true
 	Persist *bool
+	// Bounded limits the writer's control region to the time it has committed, so that
+	// it can write behind another writer. The writer fails to open when another writer
+	// holds its start, and a commit fails when it reaches another region. A bounded
+	// region reports no control transfers.
+	// [OPTIONAL] - Defaults to false
+	Bounded *bool
 	// EnableAutoCommit denotes whether each write is committed.
 	//
 	// [OPTIONAL] - Defaults to True
@@ -70,6 +77,7 @@ var (
 	_                   config.Config[WriterConfig] = WriterConfig{}
 	defaultWriterConfig                             = WriterConfig{
 		Persist:                  new(true),
+		Bounded:                  new(false),
 		EnableAutoCommit:         new(true),
 		AutoIndexPersistInterval: 1 * telem.Second,
 		ErrOnUnauthorizedOpen:    new(false),
@@ -83,6 +91,7 @@ func (c WriterConfig) Validate() error {
 	v.NotEmptyString("subject.key", c.Subject.Key)
 	v.NotNil("err_on_unauthorized_open", c.ErrOnUnauthorizedOpen)
 	v.NotNil("persist", c.Persist)
+	v.NotNil("bounded", c.Bounded)
 	v.NotNil("enable_auto_commit", c.EnableAutoCommit)
 	v.Ternary(
 		"end",
@@ -99,6 +108,7 @@ func (c WriterConfig) Override(other WriterConfig) WriterConfig {
 	c.Subject = override.If(c.Subject, other.Subject, other.Subject.Key != "")
 	c.Authority = override.Numeric(c.Authority, other.Authority)
 	c.Persist = override.Nil(c.Persist, other.Persist)
+	c.Bounded = override.Nil(c.Bounded, other.Bounded)
 	c.EnableAutoCommit = override.Nil(c.EnableAutoCommit, other.EnableAutoCommit)
 	c.AutoIndexPersistInterval = override.Zero(
 		c.AutoIndexPersistInterval,
@@ -121,8 +131,9 @@ func (c WriterConfig) domain() domain.WriterConfig {
 }
 
 func (c WriterConfig) controlTimeRange(start telem.TimeStamp) telem.TimeRange {
-	// The automatic controlTimeRange is until the end of time, but we are not sure if
-	// we should use this or the start of next domain.
+	if *c.Bounded {
+		return start.SpanRange(telem.Nanosecond)
+	}
 	return start.Range(lo.Ternary(c.End.IsZero(), telem.TimeStampMax, c.End))
 }
 
@@ -149,9 +160,11 @@ type controlledWriter struct {
 	// and the current domain start remain consistent across owners. Reset on rollover
 	// via the domain.Writer's OnRollover hook.
 	tracker *offsetTracker
-	// sessionStart is the start of the resource's first domain. Commits that resolve
-	// their end from the session sample count anchor on it.
+	// sessionStart is the start of the resource's first domain since it last ended one.
+	// Commits that resolve their end from the session sample count anchor on it.
 	sessionStart telem.TimeStamp
+	// alignments reserves the alignment domain of each domain after the first.
+	alignments *alignment.Counter
 }
 
 var _ control.Resource = &controlledWriter{}
@@ -173,6 +186,22 @@ func (w *controlledWriter) setStart(start telem.TimeStamp) error {
 	}
 	w.sessionStart = start
 	w.tracker.currentStart = start
+	return nil
+}
+
+func (w *controlledWriter) endDomain(ctx context.Context) error {
+	if w.Len() == 0 {
+		return nil
+	}
+	a, err := w.alignments.Next()
+	if err != nil {
+		return err
+	}
+	if err = w.Finish(ctx); err != nil {
+		return err
+	}
+	w.tracker.reset()
+	w.storeAlignment(a)
 	return nil
 }
 
@@ -225,7 +254,7 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (
 	}
 	if w.control, transfer, err = db.controller.OpenGate(
 		control.GateConfig[*controlledWriter]{
-			ErrIfControlled:       new(false),
+			Bounded:               cfg.Bounded,
 			ErrOnUnauthorizedOpen: cfg.ErrOnUnauthorizedOpen,
 			TimeRange:             cfg.controlTimeRange(start),
 			Authority:             cfg.Authority,
@@ -239,6 +268,7 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (
 					channelKey:   db.cfg.Channel.Key,
 					tracker:      db.resolver.newTracker(),
 					sessionStart: start,
+					alignments:   db.leadingAlignment,
 				}
 				cw.storeAlignment(a)
 				domainCfg := cfg.domain()
@@ -251,7 +281,7 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (
 	); err != nil {
 		return nil, transfer, w.wrapError(err)
 	}
-	return w, transfer, w.wrapError(err)
+	return w, w.visible(transfer), w.wrapError(err)
 }
 
 // Write writes series to db in a domain that starts at start.
@@ -315,6 +345,10 @@ func (w *Writer) write(
 		return 0, w.wrapError(err)
 	}
 	if *w.cfg.Persist && dw.Len() == 0 {
+		// Move first, so that no delete can reach the domain setStart checks.
+		if err = w.control.MoveStart(w.domainStart); err != nil {
+			return 0, w.wrapError(err)
+		}
 		if err = dw.setStart(w.domainStart); err != nil {
 			return 0, w.wrapError(err)
 		}
@@ -347,11 +381,36 @@ func (w *Writer) write(
 }
 
 // SetDomainStart sets where the writer's domain starts, in place of Start. It applies
-// at the next persisted write, and only while the domain holds no data.
+// at the next persisted write, and only while the domain holds no data. The writer's
+// control region moves to the start, unless the writer is bounded and the start comes
+// after the region.
 func (w *Writer) SetDomainStart(start telem.TimeStamp) { w.domainStart = start }
 
+// EndDomain ends the domain the writer holds, discarding any uncommitted samples. The
+// next persisted write starts a new domain in a new alignment domain, at the start
+// given to SetDomainStart. EndDomain does nothing when the domain holds no data.
+func (w *Writer) EndDomain(ctx context.Context) error {
+	if w.closed {
+		return w.wrapError(ErrWriterClosed)
+	}
+	dw, err := w.control.Authorize()
+	if err != nil {
+		return w.wrapError(err)
+	}
+	return w.wrapError(dw.endDomain(ctx))
+}
+
 func (w *Writer) SetAuthority(a xcontrol.Authority) control.Transfer {
-	return w.control.SetAuthority(a)
+	return w.visible(w.control.SetAuthority(a))
+}
+
+// visible hides a transfer of a bounded writer, which says nothing about who controls
+// the channel.
+func (w *Writer) visible(t control.Transfer) control.Transfer {
+	if *w.cfg.Bounded {
+		return control.Transfer{}
+	}
+	return t
 }
 
 func (w *Writer) updateHwm(series telem.Series) {
@@ -418,6 +477,11 @@ func (w *Writer) commitWithEnd(
 		end = approx.Lower + 1
 	}
 
+	if *w.cfg.Bounded {
+		if err = w.control.Reach(end); err != nil {
+			return 0, err
+		}
+	}
 	if err := dw.Commit(ctx, end); err != nil {
 		return 0, err
 	}
@@ -432,7 +496,7 @@ func (w *Writer) Close() (control.Transfer, error) {
 	w.closed = true
 	dw, t := w.control.Release()
 	if t.IsRelease() {
-		return t, w.wrapError(dw.Close())
+		return w.visible(t), w.wrapError(dw.Close())
 	}
-	return t, nil
+	return w.visible(t), nil
 }

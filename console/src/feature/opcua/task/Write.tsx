@@ -25,6 +25,7 @@ import { type FC, type ReactElement } from "react";
 import { Select } from "@/feature/opcua/device/Select";
 import {
   type Device,
+  MAKE,
   migrateProperties,
   type Properties as DeviceProperties,
   SCHEMAS,
@@ -52,12 +53,7 @@ import { CSS } from "@/platform/css";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-const Properties = () => (
-  <>
-    <Select />
-    <Task.Fields.AutoStart />
-  </>
-);
+const Properties = () => <Select />;
 
 // A command channel that only starts a method takes a value that the call ignores.
 const TRIGGER_DATA_TYPE = DataType.UINT8.toString();
@@ -147,7 +143,7 @@ const Argument = ({ path, index }: ArgumentProps): ReactElement | null => {
         onChange={handleSourceChange}
       >
         {({ value, onChange }) => (
-          <Input.Switch
+          <Input.Checkbox
             value={value === "command"}
             onChange={(next) => onChange(next ? "command" : "value")}
           />
@@ -400,12 +396,12 @@ export const Write = Task.wrapForm({
   schemas: WRITE_SCHEMAS,
   deployConfigZ: deployWriteConfigZ,
   type: "opc_write",
-  getInitialValues,
   onConfigure,
 });
 
 export const useCreateWrite = Task.createUseCreate({
   getInitialValues,
+  deviceMake: MAKE,
 });
 
 export const WriteSelectable = Selector.createSelectable({

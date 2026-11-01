@@ -24,7 +24,7 @@ import { Browser } from "@/feature/opcua/device/Browser";
 import { HAUL_TYPE, type HaulItem, isHaulItem } from "@/feature/opcua/device/haul";
 import { use } from "@/feature/opcua/device/queries";
 import { Select } from "@/feature/opcua/device/Select";
-import { type Device, SCHEMAS } from "@/feature/opcua/device/types";
+import { type Device, MAKE, SCHEMAS } from "@/feature/opcua/device/types";
 import { useConnectModal } from "@/feature/opcua/device/useConnectModal";
 import { findFreeName } from "@/feature/opcua/task/findFreeName";
 import {
@@ -40,15 +40,7 @@ import { Device as PlatformDevice } from "@/platform/device";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-const Properties = (): ReactElement => (
-  <>
-    <Select />
-    <Flex.Box x>
-      <Task.Fields.DataSaving />
-      <Task.Fields.AutoStart />
-    </Flex.Box>
-  </>
-);
+const Properties = (): ReactElement => <Select />;
 
 interface NodeListProps {
   path: string;
@@ -305,11 +297,13 @@ export const Event = Task.wrapForm({
   schemas: EVENT_SCHEMAS,
   deployConfigZ: deployEventConfigZ,
   type: EVENT_TYPE,
-  getInitialValues,
   onConfigure,
 });
 
-export const useCreateEvent = Task.createUseCreate({ getInitialValues });
+export const useCreateEvent = Task.createUseCreate({
+  getInitialValues,
+  deviceMake: MAKE,
+});
 
 export const EventSelectable = Selector.createSelectable({
   type: EVENT_TYPE,

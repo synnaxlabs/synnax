@@ -428,8 +428,8 @@ describe("Write", () => {
       first.unmount();
       const second = await renderWrite({ client, taskKey: draft.key });
       await screen.findByText(`Call ${ch.nodeName}`);
-      const [modeSwitch] = screen.getAllByRole("checkbox", { name: "Command" });
-      fireEvent.click(modeSwitch);
+      const [modeCheckbox] = screen.getAllByRole("checkbox", { name: "Command" });
+      fireEvent.click(modeCheckbox);
       const bound = await client.channels.retrieve(before);
       await screen.findByText(
         `The command takes string, but ${bound.name} is float64. Configuring the task replaces ${bound.name} with a new channel.`,
@@ -465,8 +465,8 @@ describe("Write", () => {
       const draft = await createDraft(client, createWriteConfig(dev.key, [ch]));
       const { container } = await renderWrite({ client, taskKey: draft.key });
       await screen.findByText(`Call ${ch.nodeName}`);
-      const [, speedSwitch] = screen.getAllByRole("checkbox", { name: "Command" });
-      fireEvent.click(speedSwitch);
+      const [, speedCheckbox] = screen.getAllByRole("checkbox", { name: "Command" });
+      fireEvent.click(speedCheckbox);
       await waitFor(async () => {
         const { config } = await client.tasks.retrieve({
           key: draft.key,

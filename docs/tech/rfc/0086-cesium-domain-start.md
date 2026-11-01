@@ -34,9 +34,9 @@ the sensor's clock, which runs behind.
 | 2     | 12:00:06       | 12:00:04              |
 
 Today, the task opens its writer on frame 1, at the earliest index timestamp in that
-frame: 12:00:05. Every index starts its domain there (`cesium/writer_open.go:419`).
+frame: 12:00:05. Every index starts its domain there (`cesium/writer_open.go:238`).
 Frame 2 writes `sensor_time` at 12:00:04, before that start, so its commit fails
-(`cesium/internal/domain/writer.go:375`). After the first error, the writer skips every
+(`cesium/internal/domain/writer.go:358`). After the first error, the writer skips every
 later request for all of its channels (`cesium/writer_stream.go:149-151`), so
 `arrival_time` stops too. This failed the merge queue run of #2950 on Windows.
 
@@ -69,8 +69,8 @@ of each index, so Cesium makes the choice.
 - **Data-only group**: A group that writes data channels without their index. Each
   sample takes the position of an index sample that is already stored.
 - **Control claim**: The time range of a writer's control region (RFC 0014). It runs
-  from its start to the end of time. Writers with overlapping claims on one channel
-  compete by authority.
+  from its start to the end of time, and moves back to a domain that starts before it.
+  Writers with overlapping claims on one channel compete by authority.
 - **Open check**: When a writer opens, Cesium fails it if stored data on one of its
   channels holds the start.
 - **Open time**: The time on the Core when the writer opens.
@@ -101,15 +101,15 @@ at 12:00:04. The two groups do not wait for each other.
 
 The write path, from top to bottom:
 
-| Layer         | Code                                      | Role after this RFC                                      |
-| ------------- | ----------------------------------------- | -------------------------------------------------------- |
-| Clients       | Python, TypeScript, C++                   | Leave `start` out, except for a data-only write          |
-| API           | `api/framer.WriterConfig.Start`           | Passes the value through, zero included                  |
-| Distribution  | `distribution/framer/writer.Config.Start` | Passes the value to each Core that leases a channel      |
-| Cesium writer | `cesium.WriterConfig.Start`               | Fails at open on a data-only group with no `Start` (NEW) |
-| Index group   | `idxWriter`                               | Gives its first index timestamp to its channels (NEW)    |
-| Unary writer  | `unary.Writer`                            | Claims from `Start` or the open time, starts the domain  |
-| Domain writer | `domain.Writer`                           | Opens with no start and takes one before it writes (NEW) |
+| Layer         | Code                                      | Role after this RFC                                                      |
+| ------------- | ----------------------------------------- | ------------------------------------------------------------------------ |
+| Clients       | Python, TypeScript, C++                   | Leave `start` out, except for a data-only write                          |
+| API           | `api/framer.WriterConfig.Start`           | Passes the value through, zero included                                  |
+| Distribution  | `distribution/framer/writer.Config.Start` | Passes the value to each Core that leases a channel                      |
+| Cesium writer | `cesium.WriterConfig.Start`               | Fails at open on a data-only group with no `Start` (NEW)                 |
+| Index group   | `idxWriter`                               | Gives its first index timestamp to its channels (NEW)                    |
+| Unary writer  | `unary.Writer`                            | Claims from `Start` or the open time, moves the claim back to its domain |
+| Domain writer | `domain.Writer`                           | Opens with no start and takes one before it writes (NEW)                 |
 
 Cesium makes every choice about where a domain starts. The layers above it carry a value
 and do not read it. A new caller gets the right behavior without new code.
@@ -140,6 +140,7 @@ def open_writer(
     self,
     start: CrudeTimeStamp | None = None,      # was: start: CrudeTimeStamp
     channels: channel.Params | None = None,   # was: channels: channel.Params
+    *,
     authorities: CrudeAuthority | list[CrudeAuthority] = Authority.ABSOLUTE,
     ...
 ) -> Writer: ...
@@ -196,14 +197,15 @@ framer.WriterConfig{ControlSubject: subject, Start: telem.Now(), Keys: writeKeys
 framer.WriterConfig{ControlSubject: subject, Keys: writeKeys}
 ```
 
-`Start` changes from `[REQUIRED]` to `[OPTIONAL]` in the API config, with the same doc
-at each layer:
+`Start` changes from `[REQUIRED]` to `[OPTIONAL]` in the API config. Cesium holds the
+full contract, and the layers above it keep a shorter doc:
 
 ```go
 // Start marks the start of the writer's control region. When Start is zero, the
 // region starts at the time the writer opens. If a sample exists for any channel at
 // a non-zero Start, the writer fails to open. The domains of each index start at
-// the first timestamp written to that index, not at Start.
+// the first timestamp written to that index, not at Start. The region moves back to
+// a domain that starts before it.
 //
 // A writer that writes data channels without their index needs a Start that is a
 // sample of that index.
@@ -256,15 +258,16 @@ acquisition->start();
 
 ### 4.4 Behavior that callers see
 
-| Write                                 | Before                            | After                                     |
-| ------------------------------------- | --------------------------------- | ----------------------------------------- |
-| An index sample before `Start`        | Fails and stops the writer        | Writes                                    |
-| Two indexes, one clock behind         | Fails on the index that is behind | Each index starts at its first timestamp  |
-| No `Start`, empty channel             | Domain starts at the Unix epoch   | Domain starts at the first timestamp      |
-| No `Start`, data overlaps stored data | Fails at the first commit         | Fails at the first write                  |
-| `Start` held by stored data           | Fails at open                     | Fails at open                             |
-| Data-only group, no `Start`           | Looks up its position at 1970     | Fails at open                             |
-| Delete that reaches an open writer    | Fails when it reaches the claim   | Fails when it reaches the claim or domain |
+| Write                                   | Before                            | After                                                    |
+| --------------------------------------- | --------------------------------- | -------------------------------------------------------- |
+| An index sample before `Start`          | Fails and stops the writer        | Writes                                                   |
+| Two indexes, one clock behind           | Fails on the index that is behind | Each index starts at its first timestamp                 |
+| No `Start`, empty channel               | Domain starts at the Unix epoch   | Domain starts at the first timestamp                     |
+| No `Start`, first sample in stored data | Fails at the first commit         | Fails at the first write                                 |
+| No `Start`, later sample in stored data | Fails at the next commit          | Fails at the next commit                                 |
+| `Start` held by stored data             | Fails at open                     | Fails at open                                            |
+| Data-only group, no `Start`             | Looks up its position at 1970     | Fails at open                                            |
+| Delete that reaches an open writer      | Fails when it reaches the claim   | Fails when it reaches the claim, which covers the domain |
 
 The data-only error names both channels:
 `writer needs a start to write channel X without its index Y`
@@ -299,22 +302,26 @@ spellings, zero and absent, that each need a meaning.
 
 ## 6 Risks
 
-### 6.0 The claim and the domain no longer start together
+### 6.0 A domain can start before the claim
 
 Before, the claim and every domain started at `Start`. Now a domain can start before the
 claim. In §3.1, if the first sensor stamp were 12:00:01, `sensor_time` would start two
 seconds before the claim at 12:00:03.
 
-A delete relied on the two being equal. It checked only for a claim on its time range
+A delete checks only for a claim on its time range
 (`cesium/internal/unary/delete.go:65`). A delete from 12:00:01 to 12:00:03 would pass
-that check and remove data that the writer must still commit. Each domain database now
-keeps the domain of each open writer, and a delete that reaches one fails with
-`ErrDeleteOverlapsWriter` (`cesium/internal/domain/delete.go:78`). The domain runs to
-the writer's preset end, or to the end of time when it has none.
+that check and remove data that the writer must still commit. So at its first persisted
+write, a unary writer moves its claim back to its domain start
+(`cesium/internal/unary/writer.go:317`). The delete check then sees the whole domain. A
+second list of open domains was rejected: it repeats the claim check on the same path.
 
-Control does not depend on the two being equal. A claim decides who can write. The
-domain overlap check protects stored data. Two writers on one channel still compete by
-authority, because both claims run to the end of time.
+The claim stays at the earlier time until the writer closes. Control does not change,
+because two writers on one channel already compete by authority: both claims run to the
+end of time.
+
+If a delete runs in that time range during the first write, the writer fails with an
+error. Refusing only that frame is not safe. A data channel would hold fewer samples
+than its index, and its later samples would shift.
 
 ### 6.1 Conflicts surface later
 
@@ -342,15 +349,15 @@ from the first timestamp instead of from 1970.
 A unary writer opens its control gate and its domain writer when the writer opens. The
 gate needs its time range then (`cesium/internal/control/controller.go:198`). The domain
 writer now opens with no start. `SetStart` gives it one before its first write and runs
-the stored-data check then (`cesium/internal/domain/writer.go:235`). `Write` with no
+the stored-data check then (`cesium/internal/domain/writer.go:222`). `Write` with no
 start returns `ErrNoStart`, and `SetStart` after a write returns `ErrStartAfterWrite`.
 The open, commit, and close paths stay the same. Only the start moves.
 
 ### 7.1 Each group starts at its first index sample
 
 On its first index write, an `idxWriter` calls `SetDomainStart` with the first timestamp
-on each unary writer in the group (`cesium/writer_stream.go:628`). The unary writer
-applies it at its next persisted write (`cesium/internal/unary/writer.go:349`). The data
+on each unary writer in the group (`cesium/writer_stream.go:632`). The unary writer
+applies it at its next persisted write (`cesium/internal/unary/writer.go:320`). The data
 channels take the same start, so their domains line up with the index.
 
 ### 7.2 Commits anchor on the session start
@@ -358,11 +365,11 @@ channels take the same start, so their domains line up with the index.
 A data channel's commit finds its end by counting samples from a real index sample. That
 anchor used to be `Start`. A zero `Start` is not an index sample, so the anchor is now
 the start of the writer's first domain (`sessionStart`,
-`cesium/internal/unary/writer.go:156`).
+`cesium/internal/unary/writer.go:152`).
 
 ### 7.3 The open time comes from the Core that leases the channel
 
-Each unary writer reads the time when it opens (`cesium/internal/unary/writer.go:219`).
+Each unary writer reads the time when it opens (`cesium/internal/unary/writer.go:215`).
 In a cluster, that is the clock of the Core that leases the channel. All gates on one
 channel live on that Core, so they compare times from one clock.
 
@@ -378,7 +385,7 @@ at open, before any data is lost, with an error that names both channels.
 A file that holds its index starts each index at its first value. A start would add an
 open check at that time, which fails when another channel's stored data holds it. The
 engine passes a start only when a data channel's index is not in the file
-(`client/py/synnax/ingest/row.py:59`).
+(`client/py/synnax/ingest/row.py:60`).
 
 ### 7.6 The acquisition pipeline opens at task start
 
@@ -390,16 +397,19 @@ changes from before the writer opened.
 
 ## 8 Implementation phases
 
-The phases are one stack of pull requests, merged from the bottom up.
+Phases 1 to 5 merge as one stack of pull requests, from the bottom up: #3521, #3522,
+#3528, #3529, and #3530. Phase 2 also moves the claim back to the domain start (§6.0)
+and removes the `AutoIndex` default. Phase 3 fixes SY-5057 in the Core. Phase 6 lands in
+#2950 after phase 2 merges.
 
-- **Phase 1: Cesium.** #3521 lets a domain writer take its start before its first write
-  (§7.0). #3522 applies §3, adds the delete guard (§6.0), and removes the `AutoIndex`
-  default.
-- **Phase 2: Go callers.** #3528 drops the `Start` of Arc, which fixes SY-5057 in the
-  Core. The Go read task drops its start picker in #2950, after #3522 merges.
-- **Phase 3: C++ callers.** #3529 changes the acquisition pipeline and C++ Arc.
-- **Phase 4: Clients.** #3530 changes the Python and TypeScript clients, the CLI ingest,
-  the C++ client docs, and the writes pages of the docs.
+| Phase | Scope                                             | Touches                                                                                                           | Depends on |
+| ----- | ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | ---------- |
+| 1     | Let Cesium unary writers set their domain start   | `cesium/internal/domain`, `cesium/internal/unary`                                                                 | -          |
+| 2     | Start each index's domains at its first timestamp | `cesium`, `core/pkg/api/framer`, `core/pkg/distribution/framer/writer`, `client/py/tests`, `client/ts/src/framer` | 1          |
+| 3     | Open Arc task writers without a start             | `core/pkg/service/arc/task`                                                                                       | 2          |
+| 4     | Open Driver writers when their task starts        | `driver/pipeline`, `driver/arc`                                                                                   | 2          |
+| 5     | Open client writers without a start               | `client/py`, `client/ts/src/framer`, `client/cpp/framer`, `site/docs`                                             | 2          |
+| 6     | Open the read task writer when the task starts    | `core/pkg/service/driver`, `core/pkg/service/mqtt`                                                                | 2          |
 
 ## 9 Resolved decisions
 

@@ -63,6 +63,13 @@ const DEFAULT_STALE_THRESHOLD = TimeSpan.minutes(10);
 // with no samples count against the budget too.
 const ENTRY_OVERHEAD = 256;
 
+// Moves the samples of the buffer's leading series into the block as fetched ones.
+const flushInto = (block: RawBlock, buffer: Dynamic): void => {
+  const flushed = buffer.flush();
+  if (flushed != null && flushed.length > 0)
+    block.fill([flushed], block.coveredEnd, block.coveredCount);
+};
+
 // A cached block and the bytes it counted against the budget at its last set.
 interface Entry {
   block: Block;
@@ -367,12 +374,24 @@ export class Store {
   /**
    * Appends a block-aligned piece to the stream's buffer of the block's channel, and
    * extends the block's coverage to the end of the piece. The block opens as by
-   * {@link join}.
+   * {@link join}. The series of one run touch in time, as a read's series do, and the
+   * series of two runs do not.
+   * @param block - The block that holds the piece.
+   * @param p - The piece.
+   * @param newRun - True when the piece holds the first sample a writer wrote.
    */
-  append(block: RawBlock, p: Series): void {
+  append(block: RawBlock, p: Series, newRun = false): void {
     const live = this.liveOf(block.channel);
     const opened = live.block !== block;
     if (opened) this.join(block);
+    if (newRun) {
+      flushInto(block, live.buffer);
+      live.buffer.startRun();
+    } else if (live.buffer.leadingBuffer == null) {
+      if (block.fetched.length === 0)
+        this.findRaw(block.channel, block.index - 1)?.cutNewest();
+      p = block.continued(p);
+    }
     const res = live.buffer.write(new MultiSeries([p]));
     const flushed = res.flushed.series.length > 0;
     if (flushed) block.fill(res.flushed.series, block.coveredEnd, block.coveredCount);
@@ -432,9 +451,7 @@ export class Store {
   private seal(live: Live, complete = false): void {
     const { block } = live;
     if (block == null) return;
-    const flushed = live.buffer.flush();
-    if (flushed != null && flushed.length > 0)
-      block.fill([flushed], block.coveredEnd, block.coveredCount);
+    flushInto(block, live.buffer);
     if (complete) block.extend(block.range.end, block.coveredCount);
     block.buffer = null;
     live.block = null;

@@ -14,8 +14,6 @@
 
 #include "client/cpp/synnax.h"
 
-const synnax::Config test_client_config = {"localhost", 9090, "synnax", "seldon"};
-
 /// @brief the task type to give a task whose type does not matter to the test. The
 /// cluster rejects a task whose type owns no configuration store, so a test cannot
 /// invent one. Every field of this type's configuration is defaulted, so an empty
@@ -27,8 +25,12 @@ const std::string SYNTHETIC_TASK_TYPE = "opc_scan";
 /// tells apart at the same time. Its configuration has the same shape.
 const std::string ALT_SYNTHETIC_TASK_TYPE = "labjack_scan";
 
-/// @brief instantiates a new client for testing purposes. The cluster is expected to be
-/// running on localhost:9090 in insecure mode.
+/// @brief returns the config of the Core that tests connect to: SYNNAX_HOST and
+/// SYNNAX_PORT when set, else localhost:9090, in insecure mode.
+/// @throws std::runtime_error if SYNNAX_PORT is not a port number.
+extern synnax::Config test_client_config();
+
+/// @brief instantiates a new client for the Core named by test_client_config.
 extern synnax::Synnax new_test_client();
 
 /// @brief creates a new random generator for a test suite, and outputs the seed to

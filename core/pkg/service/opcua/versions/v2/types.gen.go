@@ -137,22 +137,30 @@ func (u *WriteChannel) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var disc struct {
 		Type WriteType `json:"type"`
 	}
-	if err := json.Unmarshal(data, &disc, opts); err != nil {
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case WriteTypeNode:
-		var v NodeWriteChannel
+		var v struct {
+			Type WriteType `json:"type"`
+			NodeWriteChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.NodeWriteChannel
 	case WriteTypeMethod:
-		var v MethodWriteChannel
+		var v struct {
+			Type WriteType `json:"type"`
+			MethodWriteChannel
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.MethodWriteChannel
 	default:
 		return errors.Newf("WriteChannel: unknown type %q", disc.Type)
 	}
@@ -363,22 +371,30 @@ func (u *MethodArgument) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var disc struct {
 		Type ArgumentSource `json:"source"`
 	}
-	if err := json.Unmarshal(data, &disc, opts); err != nil {
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case ArgumentSourceValue:
-		var v ValueMethodArgument
+		var v struct {
+			Type ArgumentSource `json:"source"`
+			ValueMethodArgument
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.ValueMethodArgument
 	case ArgumentSourceCommand:
-		var v CommandMethodArgument
+		var v struct {
+			Type ArgumentSource `json:"source"`
+			CommandMethodArgument
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.CommandMethodArgument
 	default:
 		return errors.Newf("MethodArgument: unknown source %q", disc.Type)
 	}

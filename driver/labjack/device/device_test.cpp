@@ -34,7 +34,9 @@ Opener serve(const std::shared_ptr<Device> &dev, size_t &opens) {
 /// @brief starts a stream on the device.
 void start_stream(const std::shared_ptr<Device> &dev) {
     double scan_rate = 1000;
-    ASSERT_NIL(dev->e_stream_start(1, 0, nullptr, &scan_rate));
+    ASSERT_NIL(dev->e_stream_start(1, 0, nullptr, &scan_rate, [] {
+        return x::errors::NIL;
+    }));
 }
 
 /// @brief it should stop a stream that another process left running on a device it
