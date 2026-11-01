@@ -16,6 +16,8 @@ package index
 
 import (
 	"context"
+	"maps"
+	"slices"
 	"sync"
 
 	"github.com/synnaxlabs/x/set"
@@ -29,6 +31,9 @@ type Scope interface {
 	// OnCleanup registers fn to run once when the transaction ends. committed is true
 	// when the transaction committed.
 	OnCleanup(fn func(committed bool))
+	// Committing reports whether the transaction is in its commit. Its staged changes
+	// are final from that point.
+	Committing() bool
 }
 
 func isNone[S Scope](scope S) bool {
@@ -139,7 +144,7 @@ type changes interface{ isEmpty() bool }
 // overlay holds the changes of every scope that has staged changes against an index.
 type overlay[S Scope, D changes] struct {
 	// mu guards deltas.
-	mu     sync.Mutex
+	mu     sync.RWMutex
 	deltas map[S]D
 	// create returns an empty set of changes.
 	create func() D
@@ -148,7 +153,7 @@ type overlay[S Scope, D changes] struct {
 }
 
 // load returns the changes of scope, creating them on first use. New changes register
-// a cleanup on scope that drops them and flushes them if scope committed.
+// a cleanup on scope that flushes them if scope committed, and then drops them.
 func (o *overlay[S, D]) load(scope S) D {
 	o.mu.Lock()
 	defer o.mu.Unlock()
@@ -161,12 +166,12 @@ func (o *overlay[S, D]) load(scope S) D {
 	d := o.create()
 	o.deltas[scope] = d
 	scope.OnCleanup(func(committed bool) {
-		o.mu.Lock()
-		delete(o.deltas, scope)
-		o.mu.Unlock()
 		if committed && !d.isEmpty() {
 			o.flush(d)
 		}
+		o.mu.Lock()
+		delete(o.deltas, scope)
+		o.mu.Unlock()
 	})
 	return d
 }
@@ -177,9 +182,9 @@ func (o *overlay[S, D]) get(scope S) (D, bool) {
 	if isNone(scope) {
 		return none, false
 	}
-	o.mu.Lock()
+	o.mu.RLock()
 	d, ok := o.deltas[scope]
-	o.mu.Unlock()
+	o.mu.RUnlock()
 	if !ok || d.isEmpty() {
 		return none, false
 	}
@@ -201,4 +206,76 @@ func mergeValues[S Scope, K, V comparable](
 		return d.merge(committed, values)
 	}
 	return committed
+}
+
+// announcement is a value that key takes when a write in progress finishes.
+type announcement[K, V comparable] struct {
+	handle uint64
+	key    K
+	value  V
+}
+
+// announcements holds the writes in progress outside any transaction. Its zero value
+// is ready to use.
+type announcements[K, V comparable] struct {
+	mu      sync.RWMutex
+	entries []announcement[K, V]
+	// last is the handle of the latest Announce.
+	last uint64
+}
+
+// Announce makes Committing return key for value until Withdraw of the returned
+// handle. Committed state does not change, so a read of the current value still finds
+// key.
+func (a *announcements[K, V]) Announce(key K, value V) uint64 {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.last++
+	a.entries = append(
+		a.entries,
+		announcement[K, V]{handle: a.last, key: key, value: value},
+	)
+	return a.last
+}
+
+// Withdraw ends the Announce that returned handle. Apply a finished write to committed
+// state first, so that a Committing call followed by Get misses no key.
+func (a *announcements[K, V]) Withdraw(handle uint64) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	i := slices.IndexFunc(a.entries, func(e announcement[K, V]) bool {
+		return e.handle == handle
+	})
+	a.entries = slices.Delete(a.entries, i, i+1)
+}
+
+// appendKeys appends the announced keys for any of values to keys.
+func (a *announcements[K, V]) appendKeys(keys []K, values []V) []K {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	for _, e := range a.entries {
+		if slices.Contains(values, e.value) {
+			keys = append(keys, e.key)
+		}
+	}
+	return keys
+}
+
+// committingKeys returns the keys that committing scopes map to any of values.
+func committingKeys[S Scope, K, V comparable](
+	o *overlay[S, *delta[K, V]],
+	values []V,
+) []K {
+	o.mu.RLock()
+	defer o.mu.RUnlock()
+	var keys []K
+	for scope, d := range o.deltas {
+		if !scope.Committing() {
+			continue
+		}
+		for _, v := range values {
+			keys = slices.AppendSeq(keys, maps.Keys(d.forward[v]))
+		}
+	}
+	return keys
 }

@@ -36,6 +36,7 @@ export {
   type EntryStatus,
   type HydrateMode,
   type IngestOptions,
+  type Interceptor,
   type Keyed,
   type ListenerSpec,
   partialUpdate,

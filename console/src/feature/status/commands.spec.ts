@@ -14,7 +14,7 @@ import { describe, expect, it } from "vitest";
 import { renderPalette } from "@/feature/command/testutil";
 import { Status } from "@/feature/status";
 import { findCommand } from "@/platform/command/testutil";
-import { findModalButton } from "@/platform/tree/menuTestutil";
+import { findModalButton } from "@/platform/tree/testutil";
 import { Session } from "@/session";
 import {
   assertDefined,

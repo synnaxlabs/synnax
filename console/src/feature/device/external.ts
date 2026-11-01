@@ -14,6 +14,7 @@ import { OPCUA } from "@/feature/opcua";
 import { type Command } from "@/platform/command";
 
 export * from "@/feature/device/Connect";
+export { INTEGRATIONS } from "@/feature/device/integrations";
 export * from "@/feature/device/link";
 export * from "@/feature/device/notifications";
 export * from "@/feature/device/Toolbar";

@@ -139,10 +139,8 @@ vi.mock("@/session/log/slice"); // ❌ use the real reducer with a preloaded sto
 ```
 
 **Authoring vs. running.** Writing live-core tests against `createTestClient` is correct
-and encouraged. But do **not** _execute_ those specs against the user's dev cluster
-without approval — hand the actual run to the user (see
-`feedback_no_tests_against_running_server`). Verify your work with `check-types` /
-`lint` / `prettier`.
+and encouraged. Run those specs against a Core that you started, never against one you
+did not. See "Live-Core tests" in `docs/claude/testing.md`.
 
 ## Rule 3: Keep the environment honest — the add/change/replace triage
 
