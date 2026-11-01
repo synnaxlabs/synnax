@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { channel, type device } from "@synnaxlabs/client";
+import { channel, type device, ni } from "@synnaxlabs/client";
 import { z } from "zod";
 
 import { Device } from "@/platform/device";
@@ -63,6 +63,7 @@ export const propertiesZ = z.object({
       channels: z.record(z.string(), Device.commandStatePairZ).default(() => ({})),
     })
     .default(() => ({ portCount: 0, lineCounts: [], stateIndex: 0, channels: {} })),
+  hardware: ni.hardwareZ.optional(),
 });
 export type Properties = z.infer<typeof propertiesZ>;
 
