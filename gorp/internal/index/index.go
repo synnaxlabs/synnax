@@ -208,6 +208,50 @@ func mergeValues[S Scope, K, V comparable](
 	return committed
 }
 
+// announcement is a value that key takes when a write in progress finishes.
+type announcement[K, V comparable] struct {
+	key   K
+	value V
+}
+
+// announcements holds the writes in progress outside any transaction. Its zero value
+// is ready to use.
+type announcements[K, V comparable] struct {
+	mu      sync.RWMutex
+	entries []announcement[K, V]
+}
+
+// Announce makes Committing return key for value until Withdraw. Committed state does
+// not change, so a read of the current value still finds key.
+func (a *announcements[K, V]) Announce(key K, value V) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.entries = append(a.entries, announcement[K, V]{key: key, value: value})
+}
+
+// Withdraw ends one Announce of key. Apply a finished write to committed state first,
+// so that a Committing call followed by Get misses no key.
+func (a *announcements[K, V]) Withdraw(key K) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	i := slices.IndexFunc(a.entries, func(e announcement[K, V]) bool {
+		return e.key == key
+	})
+	a.entries = slices.Delete(a.entries, i, i+1)
+}
+
+// appendKeys appends the announced keys for any of values to keys.
+func (a *announcements[K, V]) appendKeys(keys []K, values []V) []K {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	for _, e := range a.entries {
+		if slices.Contains(values, e.value) {
+			keys = append(keys, e.key)
+		}
+	}
+	return keys
+}
+
 // committingKeys returns the keys that committing scopes map to any of values.
 func committingKeys[S Scope, K, V comparable](
 	o *overlay[S, *delta[K, V]],

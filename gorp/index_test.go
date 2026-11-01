@@ -141,21 +141,24 @@ func (t failingCommitTx) Commit(ctx context.Context, opts ...any) error {
 	return t.db.fail
 }
 
-// failingSetDB is a kv.DB whose writes outside a transaction fail once fail is set.
-type failingSetDB struct {
+// interceptedSetDB is a kv.DB that calls intercept before each write outside a
+// transaction. An error from intercept fails the write before it reaches storage.
+type interceptedSetDB struct {
 	kv.DB
-	fail error
+	intercept func() error
 }
 
-func (f *failingSetDB) Set(
+func (i *interceptedSetDB) Set(
 	ctx context.Context,
 	key, value []byte,
 	opts ...any,
 ) error {
-	if f.fail != nil {
-		return f.fail
+	if i.intercept != nil {
+		if err := i.intercept(); err != nil {
+			return err
+		}
 	}
-	return f.DB.Set(ctx, key, value, opts...)
+	return i.DB.Set(ctx, key, value, opts...)
 }
 
 // openHostIndexedDB returns a DB whose indexes take local writes only from the commit
@@ -187,14 +190,14 @@ var _ = Describe("Index", func() {
 			byScore  []int32
 		)
 		BeforeEach(func(ctx SpecContext) {
-			db = openHostIndexedDB(memkv.New())
+			db = DeferClose(openHostIndexedDB(memkv.New()))
 			nameIdx = gorp.NewLookupIndex(
 				"name", func(e *indexedEntry) string { return e.Name },
 			)
 			scoreIdx = gorp.NewSortedIndex(
 				"score", func(e *indexedEntry) int64 { return e.Score },
 			)
-			table = openIndexedTable(ctx, db, nameIdx, scoreIdx)
+			table = DeferClose(openIndexedTable(ctx, db, nameIdx, scoreIdx))
 			Expect(table.NewCreate().
 				Entry(&indexedEntry{ID: 1, Name: "alpha", Score: 10}).
 				Exec(ctx, db)).To(Succeed())
@@ -204,6 +207,7 @@ var _ = Describe("Index", func() {
 				_ iter.Seq[change.Change[int32, indexedEntry]],
 			) {
 				retrieve := func(f gorp.Filter[int32, indexedEntry]) []int32 {
+					GinkgoHelper()
 					var res []indexedEntry
 					Expect(table.NewRetrieve().
 						Where(f).Entries(&res).Exec(ctx, db)).To(Succeed())
@@ -213,10 +217,6 @@ var _ = Describe("Index", func() {
 				byScore = retrieve(scoreIdx.Filter(int64(99)))
 			})
 			DeferCleanup(disconnect)
-		})
-		AfterEach(func() {
-			Expect(table.Close()).To(Succeed())
-			Expect(db.Close()).To(Succeed())
 		})
 
 		It("Should find an entry written through a tx", func(ctx SpecContext) {
@@ -281,24 +281,57 @@ var _ = Describe("Index", func() {
 		Expect(nameIdx.Get(nil, "alpha")).To(ConsistOf(int32(1)))
 	})
 
-	It(
-		"Should restore the indexes when a write through the DB fails",
-		func(ctx SpecContext) {
-			failing := &failingSetDB{DB: memkv.New()}
-			db := openHostIndexedDB(failing)
-			DeferCleanup(func() { Expect(db.Close()).To(Succeed()) })
-			nameIdx := gorp.NewLookupIndex(
+	Describe("Write through the DB", func() {
+		var (
+			store    *interceptedSetDB
+			db       *gorp.DB
+			table    *gorp.Table[int32, indexedEntry]
+			nameIdx  *gorp.LookupIndex[int32, indexedEntry, string]
+			scoreIdx *gorp.SortedIndex[int32, indexedEntry, int64]
+		)
+		BeforeEach(func(ctx SpecContext) {
+			store = &interceptedSetDB{DB: memkv.New()}
+			db = DeferClose(openHostIndexedDB(store))
+			nameIdx = gorp.NewLookupIndex(
 				"name", func(e *indexedEntry) string { return e.Name },
 			)
-			scoreIdx := gorp.NewSortedIndex(
+			scoreIdx = gorp.NewSortedIndex(
 				"score", func(e *indexedEntry) int64 { return e.Score },
 			)
-			table := openIndexedTable(ctx, db, nameIdx, scoreIdx)
-			DeferCleanup(func() { Expect(table.Close()).To(Succeed()) })
+			table = DeferClose(openIndexedTable(ctx, db, nameIdx, scoreIdx))
 			Expect(table.NewCreate().
 				Entry(&indexedEntry{ID: 1, Name: "alpha", Score: 10}).
 				Exec(ctx, db)).To(Succeed())
-			failing.fail = errors.New("set failed")
+		})
+
+		It(
+			"Should find an entry only by its stored value during an update",
+			func(ctx SpecContext) {
+				retrieve := func(f gorp.Filter[int32, indexedEntry]) []int32 {
+					GinkgoHelper()
+					var res []indexedEntry
+					Expect(table.NewRetrieve().
+						Where(f).Entries(&res).Exec(ctx, db)).To(Succeed())
+					return idsOf(res)
+				}
+				var byOld, byNew []int32
+				store.intercept = func() error {
+					byOld = retrieve(nameIdx.Filter("alpha"))
+					byNew = retrieve(nameIdx.Filter("zeta"))
+					return nil
+				}
+				Expect(table.NewCreate().
+					Entry(&indexedEntry{ID: 1, Name: "zeta", Score: 99}).
+					Exec(ctx, db)).To(Succeed())
+				Expect(byOld).To(ConsistOf(int32(1)))
+				Expect(byNew).To(BeEmpty())
+				Expect(retrieve(nameIdx.Filter("alpha"))).To(BeEmpty())
+				Expect(retrieve(nameIdx.Filter("zeta"))).To(ConsistOf(int32(1)))
+			},
+		)
+
+		It("Should keep the indexes when the write fails", func(ctx SpecContext) {
+			store.intercept = func() error { return errors.New("set failed") }
 			Expect(table.NewCreate().
 				Entry(&indexedEntry{ID: 1, Name: "zeta", Score: 99}).
 				Exec(ctx, db)).To(MatchError("set failed"))
@@ -309,8 +342,8 @@ var _ = Describe("Index", func() {
 			Expect(nameIdx.Get(nil, "alpha")).To(ConsistOf(int32(1)))
 			Expect(scoreIdx.Get(nil, int64(99))).To(BeEmpty())
 			Expect(scoreIdx.Get(nil, int64(10))).To(ConsistOf(int32(1)))
-		},
-	)
+		})
+	})
 
 	Describe("Lookup", func() {
 		Describe("Population at OpenTable", func() {

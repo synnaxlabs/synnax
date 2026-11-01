@@ -35,6 +35,7 @@ type Sorted[S Scope, K comparable, V cmp.Ordered] struct {
 	entries []entry[K, V]
 	reverse map[K]V
 	overlay overlay[S, *delta[K, V]]
+	announcements[K, V]
 }
 
 // NewSorted returns an empty Sorted index that waits for its bulk load.
@@ -126,10 +127,10 @@ func (s *Sorted[S, K, V]) Get(scope S, values ...V) ([]K, error) {
 	return mergeValues(&s.overlay, scope, committed, values), nil
 }
 
-// Committing returns the keys that a transaction in its commit maps to any of values.
-// See Lookup.Committing for its contract.
+// Committing returns the keys that a transaction in its commit or an announced write
+// maps to any of values. See Lookup.Committing for its contract.
 func (s *Sorted[S, K, V]) Committing(values ...V) []K {
-	return committingKeys(&s.overlay, values)
+	return s.appendKeys(committingKeys(&s.overlay, values), values)
 }
 
 // Walk returns up to limit committed keys in ascending value order, or in descending

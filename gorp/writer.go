@@ -13,8 +13,6 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/gorp/internal/key"
-	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/query"
 )
 
 // Writer wraps a key-value writer to provide a strongly typed interface for writing
@@ -81,43 +79,24 @@ func (w *Writer[K, E]) set(ctx context.Context, entry E) error {
 		return err
 	}
 	v := w.keyCodec.Encode(entry.GorpKey())
-	if w.tx.txIdentity() == nil {
-		// A DB commits inside Set, and observers run before Set returns. The indexes
-		// take the entry first so that those observers find it.
+	// A DB commits inside Set, and observers run before Set returns. Announcing the
+	// entry lets their filters find it while the stored value stays visible to others.
+	direct := w.tx.txIdentity() == nil
+	if direct {
 		for _, idx := range w.indexes {
-			idx.set(entry)
+			idx.announce(entry)
 		}
-		if err := w.tx.Set(ctx, v, data, entry.SetOptions()...); err != nil {
-			return errors.Combine(err, w.restore(ctx, entry.GorpKey()))
-		}
-		return nil
 	}
-	if err := w.tx.Set(ctx, v, data, entry.SetOptions()...); err != nil {
-		return err
-	}
+	err = w.tx.Set(ctx, v, data, entry.SetOptions()...)
 	for _, idx := range w.indexes {
-		idx.stageSet(w.tx, entry)
-	}
-	return nil
-}
-
-// restore returns the indexes to the entry that storage holds for key.
-func (w *Writer[K, E]) restore(ctx context.Context, key K) error {
-	r := Reader[K, E]{tx: w.tx, keyCodec: w.keyCodec}
-	entry, err := r.Get(ctx, key)
-	if errors.Is(err, query.ErrNotFound) {
-		for _, idx := range w.indexes {
-			idx.delete(key)
+		if err == nil {
+			idx.stageSet(w.tx, entry)
 		}
-		return nil
+		if direct {
+			idx.withdraw(entry.GorpKey())
+		}
 	}
-	if err != nil {
-		return err
-	}
-	for _, idx := range w.indexes {
-		idx.set(entry)
-	}
-	return nil
+	return err
 }
 
 func (w *Writer[K, E]) delete(ctx context.Context, key K) error {
