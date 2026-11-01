@@ -82,4 +82,19 @@ describe("Controls.Bar", () => {
     );
     expect(screen.queryByText("Pick rack")).toBeNull();
   });
+
+  it("should keep the settings when the actions hide", async () => {
+    const { container } = await renderWithConsole(
+      <Task.Controls.Bar
+        status={createTaskStatus()}
+        running={false}
+        hideActions
+        settings={<button>Auto start</button>}
+        onDeploy={vi.fn()}
+        onStop={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("Auto start")).toBeTruthy();
+    expect(container.querySelector("[aria-label='lyra-icon--play']")).toBeNull();
+  });
 });
