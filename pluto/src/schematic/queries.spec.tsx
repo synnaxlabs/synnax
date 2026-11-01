@@ -715,6 +715,28 @@ describe("schematic queries", () => {
       );
     });
 
+    it("writes only the segments of a connected edge", async () => {
+      await dispatch(
+        schematic.setConfig({
+          key: "e1",
+          config: { variant: "pipe", segments: SEGMENTS },
+        }),
+      );
+      await waitFor(() => expect(getEdgeCfg()?.segments).toEqual(SEGMENTS));
+      const send = spyOnSend(client);
+      await dispatch(
+        schematic.setNodePosition({ key: "n1", position: { x: 20, y: 0 } }),
+      );
+      const [, req] =
+        send.mock.calls.find(([target]) => target === "/schematic/dispatch") ?? [];
+      expect(req).toMatchObject({
+        actions: [
+          { type: "set_node_position" },
+          { type: "set", set: { path: ["configs", "e1", "segments"] } },
+        ],
+      });
+    });
+
     it("does not synthesize a setConfig when the edge has no stored segments", async () => {
       expect(getEdgeCfg()).toBeUndefined();
 

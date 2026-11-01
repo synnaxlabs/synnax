@@ -24,7 +24,12 @@ import {
   setNode,
   setNodePosition,
 } from "@/schematic/actions.gen";
-import { type Schematic, schematicZ } from "@/schematic/types.gen";
+import {
+  type ElementConfig,
+  elementConfigZ,
+  type Schematic,
+  schematicZ,
+} from "@/schematic/types.gen";
 
 // Path actions edit only the element configs.
 const applyPath = (state: Draft<Schematic>, action: patch.Action): HandlerResult =>
@@ -143,6 +148,21 @@ const handlers: Handlers = {
 
 export const reduceAll = createReduceAll(handlers);
 
+export interface SetChangedArgs {
+  /** The key of the element. */
+  key: string;
+  base: ElementConfig;
+  next: ElementConfig;
+}
+
+/**
+ * Writes only the fields of an element's config that differ between base and next, so
+ * a concurrent edit to another field of the element survives.
+ * @returns the actions to dispatch, with none when nothing differs.
+ */
+export const setChanged = ({ key, base, next }: SetChangedArgs): Action[] =>
+  patch.diff(elementConfigZ, base, next).map((a) => patch.prefix(a, ["configs", key]));
+
 /**
  * Converts a path action from the camelCase form of the cached schematic into the
  * snake_case form that the Core stores. Other actions keep their form.
@@ -164,17 +184,23 @@ export const encode = (state: Schematic, action: Action): Action => {
 export const createOf = (action: Action) =>
   action.type === "create" ? action.create.schematic : undefined;
 
+const isConfigEdit = ({ type }: Action): boolean =>
+  type === "set_config" || type === "set" || type === "remove";
+
 export const kindOf = (actions: Action[]): string => {
   if (actions.length === 0) return "default";
-  // A drag dispatches a stream of `set_node_position` per frame, plus `set_config`
-  // companions synthesized by augmentWithEdgeSegments for any affected edges. Both
-  // shapes are part of one user gesture and must coalesce together; classify them all
-  // as "move" so the per-kind coalesce window collapses them into a single undoable.
+  // A drag dispatches a stream of `set_node_position` per frame, plus config edits
+  // synthesized by augmentWithEdgeSegments for any affected edges. Both shapes are part
+  // of one user gesture and must coalesce together; classify them all as "move" so the
+  // per-kind coalesce window collapses them into a single undoable.
   const hasMove = actions.some((a) => a.type === "set_node_position");
   const onlyMoveOrSegment = actions.every(
-    (a) => a.type === "set_node_position" || a.type === "set_config",
+    (a) => a.type === "set_node_position" || isConfigEdit(a),
   );
   if (hasMove && onlyMoveOrSegment) return "move";
+  // One gesture changes a varying number of fields, such as a resize that changes the
+  // width on one frame and both sides on the next.
+  if (actions.every(isConfigEdit)) return "config";
   if (actions.length === 1) return actions[0].type;
   return "transaction";
 };

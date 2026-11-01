@@ -223,8 +223,8 @@ const MultiCellForm = ({ cellKeys }: MultiCellFormProps): ReactElement => {
     fields: FIELDS,
     onChange: (updates) =>
       dispatch(
-        updates.map(([key, config]) =>
-          table.setCell({ cell: { key, config: Table.Cell.configZ.parse(config) } }),
+        updates.flatMap(({ key, base, next }) =>
+          table.setChanged({ key, base, next: Table.Cell.configZ.parse(next) }),
         ),
       ),
   });

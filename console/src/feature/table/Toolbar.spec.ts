@@ -11,6 +11,7 @@ import { type Synnax as Client, table } from "@synnaxlabs/client";
 import {
   createTestClient,
   RoleClients,
+  spyOnSend,
   waitForStreamLive,
 } from "@synnaxlabs/client/testutil";
 import { color } from "@synnaxlabs/x";
@@ -231,6 +232,27 @@ describe("table/Toolbar", () => {
         "#0000ff",
       ]);
     });
+  });
+
+  it("sends only the field that the edit changes", async () => {
+    await renderTable(Toolbar, {
+      table: { name: uniqueName("table"), ...createUncoloredGrid() },
+      preloadedState: (key) =>
+        createPreloadedState(key, { selectedCells: ["a", "b"], lastSelected: "b" }),
+    });
+    await screen.findByText("Colors");
+    const send = spyOnSend(client);
+    fireEvent.change(roleInput("Fill"), { target: { value: "0000ff" } });
+    await waitFor(() =>
+      expect(
+        send.mock.calls.find(([target]) => target === "/table/dispatch")?.[1],
+      ).toMatchObject({
+        actions: ["a", "b"].map((key) => ({
+          type: "set",
+          set: { path: ["cells", key, "fill_color"] },
+        })),
+      }),
+    );
   });
 
   it("shows Mixed when the selected fills differ", async () => {

@@ -91,3 +91,51 @@ describe("table path actions", () => {
     );
   });
 });
+
+describe("table setChanged", () => {
+  const text = (value: string, extra: object = {}): table.CellConfig =>
+    table.cellConfigZ.parse({ variant: "text", value, ...extra });
+
+  it("should keep an edit to another field that base does not hold", () => {
+    const state = table.tableZ.parse({
+      name: "Readings",
+      cells: { a: text("Pressure", { fillColor: "#ff0000" }) },
+    });
+    const actions = table.setChanged({
+      key: "a",
+      base: text("Pressure"),
+      next: text("Flow"),
+    });
+    const { next } = table.reduceAll(
+      state,
+      actions.map((a) => table.encode(state, a)),
+    );
+    expect(next.cells.a).toEqual(text("Flow", { fillColor: "#ff0000" }));
+  });
+
+  it("should list no action when nothing differs", () => {
+    const base = text("Pressure");
+    expect(table.setChanged({ key: "a", base, next: text("Pressure") })).toEqual([]);
+  });
+
+  it("should classify edits to one cell as one kind", () => {
+    const base = text("Pressure");
+    const single = table.setChanged({ key: "a", base, next: text("Flow") });
+    const both = table.setChanged({
+      key: "a",
+      base,
+      next: text("Flow", { fillColor: "#ff0000" }),
+    });
+    const whole = table.setCell({ cell: { key: "a", config: base } });
+    expect(table.kindOf(single)).toEqual("set_cell:a");
+    expect(table.kindOf(both)).toEqual("set_cell:a");
+    expect(table.kindOf([whole])).toEqual("set_cell:a");
+  });
+
+  it("should not classify edits to two cells as one kind", () => {
+    const base = text("Pressure");
+    const a = table.setChanged({ key: "a", base, next: text("Flow") });
+    const b = table.setChanged({ key: "b", base, next: text("Flow") });
+    expect(table.kindOf([...a, ...b])).toEqual("transaction");
+  });
+});

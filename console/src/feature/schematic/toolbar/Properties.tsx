@@ -203,11 +203,6 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
   const editableByKey = removeShielded(configByKey, parentOf);
   const nodesByKey = new Map(selectedNodes.map((n) => [n.key, n]));
 
-  const configActions = (
-    updates: Iterable<[string, Schematic.ElementConfig]>,
-  ): schematic.Action[] =>
-    Array.from(updates, ([key, config]) => schematic.setConfig({ key, config }));
-
   let firstNodeLabel: Schematic.Node.Label.Config | undefined;
   for (const cfg of configByKey.values()) {
     if (!("label" in cfg)) continue;
@@ -218,7 +213,7 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
   const selection = MultiEdit.selection({
     configs: editableByKey,
     fields: FIELDS,
-    onChange: (updates) => dispatch(configActions(updates)),
+    onChange: (updates) => dispatch(updates.flatMap(schematic.setChanged)),
   });
 
   const selectionRefs = Array.from(editableByKey).flatMap(([key, cfg]) =>
@@ -360,15 +355,13 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
   };
 
   const rotateOrientationActions = (dir: direction.Angular): schematic.Action[] => {
-    const updates: [string, Schematic.ElementConfig][] = [];
-    editableByKey.forEach((cfg, key) => {
-      if (!("orientation" in cfg) || cfg.orientation == null) return;
-      updates.push([
-        key,
-        { ...cfg, orientation: location.rotate(cfg.orientation, dir) },
-      ]);
+    const updates: schematic.SetChangedArgs[] = [];
+    editableByKey.forEach((base, key) => {
+      if (!("orientation" in base) || base.orientation == null) return;
+      const orientation = location.rotate(base.orientation, dir);
+      updates.push({ key, base, next: { ...base, orientation } });
     });
-    return configActions(updates);
+    return updates.flatMap(schematic.setChanged);
   };
 
   const handleRotateIndividual = (dir: direction.Angular): void => {
@@ -390,12 +383,13 @@ const MultiConfig = ({ configByKey }: MultiElementPropertiesProps): ReactElement
     key: K,
     value: Schematic.Node.Label.Config[K],
   ): void => {
-    const updates: [string, Schematic.ElementConfig][] = [];
-    editableByKey.forEach((cfg, elKey) => {
-      if (!("label" in cfg) || cfg.label == null) return;
-      updates.push([elKey, { ...cfg, label: { ...cfg.label, [key]: value } }]);
+    const updates: schematic.SetChangedArgs[] = [];
+    editableByKey.forEach((base, elKey) => {
+      if (!("label" in base) || base.label == null) return;
+      const label = { ...base.label, [key]: value };
+      updates.push({ key: elKey, base, next: { ...base, label } });
     });
-    const actions = configActions(updates);
+    const actions = updates.flatMap(schematic.setChanged);
     if (actions.length > 0) dispatch(actions);
   };
 

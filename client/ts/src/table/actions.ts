@@ -27,7 +27,15 @@ import {
   resizeRow,
   setCell,
 } from "@/table/actions.gen";
-import { type Cell, columnZ, rowZ, type Table, tableZ } from "@/table/types.gen";
+import {
+  type Cell,
+  type CellConfig,
+  cellConfigZ,
+  columnZ,
+  rowZ,
+  type Table,
+  tableZ,
+} from "@/table/types.gen";
 
 const MIN_CELL_DIM = 32;
 // baseRow and baseCol are the entries an action gives the opposing axis when it
@@ -288,6 +296,21 @@ const handlers: Handlers = {
 
 export const reduceAll = createReduceAll(handlers);
 
+export interface SetChangedArgs {
+  /** The key of the cell. */
+  key: string;
+  base: CellConfig;
+  next: CellConfig;
+}
+
+/**
+ * Writes only the fields of a cell's config that differ between base and next, so a
+ * concurrent edit to another field of the cell survives.
+ * @returns the actions to dispatch, with none when nothing differs.
+ */
+export const setChanged = ({ key, base, next }: SetChangedArgs): Action[] =>
+  patch.diff(cellConfigZ, base, next).map((a) => patch.prefix(a, ["cells", key]));
+
 /**
  * Converts a path action from the camelCase form of the cached table into the
  * snake_case form that the Core stores. Other actions keep their form.
@@ -309,19 +332,24 @@ export const encode = (state: Table, action: Action): Action => {
 export const createOf = (action: Action) =>
   action.type === "create" ? action.create.table : undefined;
 
+const cellOf = (action: Action): string | undefined => {
+  if (action.type === "set_cell") return action.setCell.cell.key;
+  if (action.type === "set" || action.type === "remove") return patch.pathOf(action)[1];
+  return undefined;
+};
+
 // kindOf classifies an action batch for the undoable store's per-kind coalesce window.
 // Continuous resize gestures (a stream of resize_row or resize_col actions) collapse
-// into a single undo step; successive set_cell actions on the same cell coalesce
-// per-cell so typing inside one cell collapses to one undo step but switching cells
-// starts a fresh entry; everything else is treated as a discrete user action.
+// into a single undo step; successive edits to the same cell coalesce per-cell so
+// typing inside one cell collapses to one undo step but switching cells starts a fresh
+// entry; everything else is treated as a discrete user action.
 export const kindOf = (actions: Action[]): string => {
   if (actions.length === 0) return "default";
   if (actions.every((a) => a.type === "resize_row" || a.type === "resize_col"))
     return "resize";
-  if (actions.length === 1) {
-    const a = actions[0];
-    if (a.type === "set_cell") return `set_cell:${a.setCell.cell.key}`;
-    return a.type;
-  }
+  const cell = cellOf(actions[0]);
+  if (cell != null && actions.every((a) => cellOf(a) === cell))
+    return `set_cell:${cell}`;
+  if (actions.length === 1) return actions[0].type;
   return "transaction";
 };

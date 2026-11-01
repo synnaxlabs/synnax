@@ -8,5 +8,6 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/patch/convert";
+export * from "@/patch/diff";
 export * from "@/patch/patch";
 export * from "@/patch/types.gen";

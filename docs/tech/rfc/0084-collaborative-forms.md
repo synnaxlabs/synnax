@@ -346,6 +346,10 @@ the samples its subject can read (`core/pkg/api/framer/records.go`).
   config in the cached document, instead of copying it, writing it back whole, and
   setting `sync: true` (`console/src/feature/schematic/toolbar/Properties.tsx:81-87`).
   Lyra deletes the `sync` option. A form whose element is removed keeps its last values.
+- **Canvas edits**: A resize, a label edit, a toggle, a multi-selection edit, or a table
+  cell edit sends one path action for each field it changes. A whole config write stays
+  only for what replaces an element: a paste, a new edge, and a symbol or cell type
+  swap.
 - **Forms that stay local**: Create forms, the device connect modals, and the status
   create modal keep a local copy and one save.
 

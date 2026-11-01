@@ -201,9 +201,10 @@ const augmentWithEdgeSegments = (
   const extra = updates.flatMap((u) => {
     const existing = current.configs[u.key];
     if (existing == null || !("segments" in existing)) return [];
-    return schematic.setConfig({
+    return schematic.setChanged({
       key: u.key,
-      config: { ...existing, segments: u.segments },
+      base: existing,
+      next: { ...existing, segments: u.segments },
     });
   });
   return [...actions, ...extra];

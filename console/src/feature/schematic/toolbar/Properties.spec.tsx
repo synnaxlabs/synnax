@@ -8,7 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
-import { createTestClient, waitForStreamLive } from "@synnaxlabs/client/testutil";
+import {
+  createTestClient,
+  spyOnSend,
+  waitForStreamLive,
+} from "@synnaxlabs/client/testutil";
 import { type Status } from "@synnaxlabs/lyra/status";
 import { Schematic as PSchematic } from "@synnaxlabs/pluto";
 import { color, location, uuid } from "@synnaxlabs/x";
@@ -320,6 +324,23 @@ describe("Schematic toolbar Properties", () => {
           ).map((c) => hexOf(c.strokeColor)),
         )
         .toEqual([RED, RED]);
+    });
+
+    it("sends only the field that the edit changes", async () => {
+      await renderProperties({ nodeKeys: ["n1", "n2"] });
+      await screen.findByText("Colors");
+      const send = spyOnSend(client);
+      setRoleColor("Stroke", RED);
+      await waitFor(() =>
+        expect(
+          send.mock.calls.find(([target]) => target === "/schematic/dispatch")?.[1],
+        ).toMatchObject({
+          actions: ["n1", "n2"].map((key) => ({
+            type: "set",
+            set: { path: ["configs", key, "stroke_color"] },
+          })),
+        }),
+      );
     });
 
     it("shows Mixed when the selected strokes differ", async () => {
