@@ -13,7 +13,7 @@ import {
   spyOnSend,
   waitForStreamLive,
 } from "@synnaxlabs/client/testutil";
-import { uuid } from "@synnaxlabs/x";
+import { color, uuid } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor, within } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import {
@@ -1012,6 +1012,34 @@ describe("schematic queries", () => {
       expect(result.current.form.value()).toMatchObject({
         variant: "tank",
         scaleVisible: false,
+      });
+    });
+
+    // Most symbol forms edit at the root of the config, as `Form.useField("")` does.
+    it("should add and remove fields with a write of the whole config", async () => {
+      const schem = await createTestSchematic(proj.key);
+      const { result } = await renderForm(schem.key);
+      const strokeColor = color.construct("#ff0000");
+      const add = { ...result.current.form.value(), strokeColor };
+      act(() => result.current.form.set("", add));
+      await act(async () => expect(await result.current.flush()).toBe(true));
+      expect(await fetchStoredConfig(schem.key, "n1")).toHaveProperty("strokeColor");
+      const remove = { ...result.current.form.value(), strokeColor: undefined };
+      act(() => result.current.form.set("", remove));
+      await act(async () => expect(await result.current.flush()).toBe(true));
+      expect(await fetchStoredConfig(schem.key, "n1")).not.toHaveProperty(
+        "strokeColor",
+      );
+    });
+
+    it("should replace the config when a whole write changes its variant", async () => {
+      const schem = await createTestSchematic(proj.key);
+      const { result } = await renderForm(schem.key);
+      const next = schematic.elementConfigZ.parse({ variant: "value" });
+      act(() => result.current.form.set("", next));
+      await act(async () => expect(await result.current.flush()).toBe(true));
+      expect(await fetchStoredConfig(schem.key, "n1")).toMatchObject({
+        variant: "value",
       });
     });
 

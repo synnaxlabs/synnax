@@ -252,7 +252,8 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/range/set-end",
 		),
-		RangeDispatch: router.NewUnaryServer[ranger.DispatchRequest, struct{}](
+		RangeDispatch: unary[ranger.DispatchRequest, struct{}](
+			router,
 			"/api/v1/range/dispatch",
 		),
 
@@ -456,7 +457,8 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/label/remove",
 		),
-		LabelDispatch: router.NewUnaryServer[label.DispatchRequest, struct{}](
+		LabelDispatch: unary[label.DispatchRequest, struct{}](
+			router,
 			"/api/v1/label/dispatch",
 		),
 
@@ -499,7 +501,8 @@ func Bind(layer *api.Layer, router *http.Router) {
 			router,
 			"/api/v1/task/rename",
 		),
-		TaskDispatch: router.NewUnaryServer[task.DispatchRequest, task.DispatchResponse](
+		TaskDispatch: unary[task.DispatchRequest, task.DispatchResponse](
+			router,
 			"/api/v1/task/dispatch",
 		),
 

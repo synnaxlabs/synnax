@@ -161,7 +161,8 @@ interface StoreParams<
  * document at once and reaches the Core as a path action. Writes to one field coalesce
  * into one dispatch, and a field whose value fails its schema holds its edits until the
  * value passes. A batch and a list edit send at once, and the Core checks their values.
- * Sends run in order, so the Core applies edits in the order they were made.
+ * A write of the whole form is a write to each field it changes. Sends run in order, so
+ * the Core applies edits in the order they were made.
  */
 class DocumentStore<
   Key extends record.Key,
@@ -211,7 +212,10 @@ class DocumentStore<
   };
 
   set = (formPath: string, value: unknown): void => {
-    if (formPath === "") throw new Error("A document form cannot replace its document");
+    if (formPath === "") {
+      this.setChanged(value);
+      return;
+    }
     const values = this.get();
     const target = locate(this.params.schema, values, formPath);
     if (target == null) return;
@@ -300,6 +304,15 @@ class DocumentStore<
   close(): void {
     void this.takeValid();
     this.edits.splice(0).forEach((edit) => edit.tx.abort());
+  }
+
+  private setChanged(next: unknown): void {
+    patch.diff(this.params.schema, this.get(), next).forEach((action) => {
+      // A change of union member at the root has no field to write.
+      if (action.type === "set" && action.set.path.length > 0)
+        this.set(action.set.path.join(deep.SEPARATOR), action.set.value);
+      else this.dispatch(action);
+    });
   }
 
   private locateList(values: V, formPath: string): string[] | null {

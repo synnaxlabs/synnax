@@ -166,6 +166,63 @@ describe("createDocumentForm", () => {
     expect(countDispatches(send)).toBe(0);
   });
 
+  it("should send only the fields that a write of the whole form changes", async () => {
+    const t = await createTask();
+    const { result } = await renderForm(t.key);
+    const send = spyOnSend(formClient);
+    const values = result.current.form.value();
+    act(() =>
+      result.current.form.set("", {
+        ...values,
+        config: { ...values.config, routingKey: "cat" },
+      }),
+    );
+    expect(result.current.form.get("config.routingKey").value).toBe("cat");
+    await act(async () => expect(await result.current.flush()).toBe(true));
+    const [, req] =
+      send.mock.calls.find(([target]) => target === "/task/dispatch") ?? [];
+    expect(req).toMatchObject({
+      actions: [{ type: "set", set: { path: ["config", "routing_key"] } }],
+    });
+    expect((await fetchStored(t.key)).config).toMatchObject({ routingKey: "cat" });
+  });
+
+  it("should send writes of the whole form to one field as one dispatch", async () => {
+    const t = await createTask();
+    const { result } = await renderForm(t.key);
+    const send = spyOnSend(formClient);
+    const write = (routingKey: string) => {
+      const values = result.current.form.value();
+      const config = { ...values.config, routingKey };
+      act(() => result.current.form.set("", { ...values, config }));
+    };
+    write("c");
+    write("ca");
+    write("cat");
+    await act(async () => expect(await result.current.flush()).toBe(true));
+    expect(countDispatches(send)).toBe(1);
+    expect((await fetchStored(t.key)).config).toMatchObject({ routingKey: "cat" });
+  });
+
+  it("should hold a write of the whole form that fails a field's schema", async () => {
+    const t = await createTask();
+    const { result } = await renderForm(t.key);
+    const values = result.current.form.value();
+    const config = { ...values.config, routingKey: "" };
+    act(() => result.current.form.set("", { ...values, config }));
+    await act(async () => expect(await result.current.flush()).toBe(false));
+    expect((await fetchStored(t.key)).config).toMatchObject({ routingKey: "dog" });
+  });
+
+  it("should send nothing for a write of the whole form that changes nothing", async () => {
+    const t = await createTask();
+    const { result } = await renderForm(t.key);
+    const send = spyOnSend(formClient);
+    act(() => result.current.form.set("", { ...result.current.form.value() }));
+    await act(async () => expect(await result.current.flush()).toBe(true));
+    expect(countDispatches(send)).toBe(0);
+  });
+
   it("should hold a value that fails its schema until the value passes", async () => {
     const t = await createTask();
     const { result } = await renderForm(t.key);
