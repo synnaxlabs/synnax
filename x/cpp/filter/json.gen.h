@@ -33,11 +33,11 @@ inline String String::parse(x::json::Parser parser) {
 
 inline x::json::json String::to_json() const {
     x::json::json j;
-    j["eq"] = this->eq;
+    if (this->eq.has_value()) j["eq"] = *this->eq;
     if (this->in.has_value()) j["in"] = *this->in;
-    j["contains"] = this->contains;
-    j["starts_with"] = this->starts_with;
-    j["regex"] = this->regex;
+    if (this->contains.has_value()) j["contains"] = *this->contains;
+    if (this->starts_with.has_value()) j["starts_with"] = *this->starts_with;
+    if (this->regex.has_value()) j["regex"] = *this->regex;
     j["case_insensitive"] = this->case_insensitive;
     return j;
 }
@@ -50,7 +50,7 @@ inline Bool Bool::parse(x::json::Parser parser) {
 
 inline x::json::json Bool::to_json() const {
     x::json::json j;
-    j["eq"] = this->eq;
+    if (this->eq.has_value()) j["eq"] = *this->eq;
     return j;
 }
 

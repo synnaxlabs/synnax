@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+export * from "@/task/actions";
+export * from "@/task/actions.gen";
 export * from "@/task/builder.gen";
 export * from "@/task/client";
 export * from "@/task/types.gen";

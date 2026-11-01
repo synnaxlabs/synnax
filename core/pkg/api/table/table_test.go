@@ -17,8 +17,10 @@ import (
 	apitable "github.com/synnaxlabs/synnax/pkg/api/table"
 	. "github.com/synnaxlabs/synnax/pkg/api/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
+	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/table"
 	"github.com/synnaxlabs/x/filter"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Retrieve", func() {
@@ -30,5 +32,24 @@ var _ = Describe("Retrieve", func() {
 		Expect(apiSvc.Retrieve(AuthedCtx(ctx, author), apitable.RetrieveRequest{
 			Where: &table.Where{Key: &filter.Set[table.Key]{Eq: &r.Key}},
 		})).Error().To(MatchError(access.ErrDenied))
+	})
+})
+
+var _ = Describe("Create", func() {
+	It("Should stamp the dispatch key onto the create broadcast", func(
+		ctx SpecContext,
+	) {
+		u := newCreator(ctx)
+		rec := &Recorder[table.Key, table.Action]{}
+		DeferCleanup(svc.Table.OnAction(rec.Record))
+		res := MustSucceed(apiSvc.Create(AuthedCtx(ctx, u), nil, apitable.CreateRequest{
+			Project:     proj.Key,
+			Tables:      []table.Table{{Name: "broadcast"}},
+			DispatchKey: "dk-create",
+		}))
+		frames := rec.Snapshot()
+		Expect(frames).To(HaveLen(1))
+		Expect(frames[0].Key).To(Equal(res.Tables[0].Key))
+		Expect(frames[0].DispatchKey).To(Equal("dk-create"))
 	})
 })

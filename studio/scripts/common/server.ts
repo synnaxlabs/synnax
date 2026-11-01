@@ -42,7 +42,7 @@ const checkboxField = (modal: Locator, label: string): Locator =>
 export const MODBUS: Server = {
   server: { protocol: "modbus", port: 5020 },
   command: "Connect Modbus server",
-  title: "Modbus TCP server",
+  title: "Modbus server",
   defaultName: "Modbus server",
   name: "Pump skid PLC",
   fill: async (session, modal) => {
