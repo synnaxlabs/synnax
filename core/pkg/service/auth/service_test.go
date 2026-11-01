@@ -10,6 +10,7 @@
 package auth_test
 
 import (
+	"context"
 	"sync"
 	"time"
 	"uuid"
@@ -20,10 +21,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
-	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 	xtime "github.com/synnaxlabs/x/time"
 	timetestutil "github.com/synnaxlabs/x/time/testutil"
 	"github.com/synnaxlabs/x/validate"
@@ -37,6 +38,24 @@ func proof(username, pwd string) auth.Proof {
 	return auth.Proof{Variant: auth.PasswordProof{
 		Credentials: auth.Credentials{Username: username, Password: pwd},
 	}}
+}
+
+// changingPassword runs change after a proof checks out, before the login that asked
+// opens its session.
+type changingPassword struct {
+	*password.Service
+	change func(context.Context)
+}
+
+func (c changingPassword) Authenticate(
+	ctx context.Context,
+	proof auth.Proof,
+) (auth.Identity, error) {
+	identity, err := c.Service.Authenticate(ctx, proof)
+	if err == nil {
+		c.change(ctx)
+	}
+	return identity, err
 }
 
 var _ = Describe("ServiceConfig", func() {
@@ -229,6 +248,62 @@ var _ = Describe("Service", func() {
 			}),
 		)
 		It(
+			"Should reject a session whose password changed during its login",
+			func(ctx SpecContext) {
+				var racing *auth.Service
+				changing := changingPassword{
+					Service: pw,
+					change: func(ctx context.Context) {
+						GinkgoHelper()
+						Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+							var p password.Password
+							if err := pw.NewRetrieve().
+								Where(password.MatchSubjects(alice)).
+								Entry(&p).
+								Exec(ctx, tx); err != nil {
+								return err
+							}
+							if err := pw.NewWriter(tx).
+								ChangePassword(ctx, alice, "changed"); err != nil {
+								return err
+							}
+							return racing.NewWriter(tx).RevokeCredential(ctx, p.Key)
+						})).To(Succeed())
+					},
+				}
+				racing = MustOpen(auth.OpenService(ctx, auth.ServiceConfig{
+					DB: db,
+					Authenticators: map[auth.Method]auth.Authenticator{
+						auth.MethodPassword: changing,
+					},
+					Clock: clock,
+				}))
+				_, token := MustSucceed2(racing.Login(ctx, proof(username, "secret")))
+				Expect(racing.Authenticate(ctx, token)).Error().
+					To(MatchError(auth.ErrInvalidToken))
+			},
+		)
+		It(
+			"Should reject a session written back after its password changed",
+			func(ctx SpecContext) {
+				session, token := login(ctx)
+				Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+					if err := pw.NewWriter(tx).
+						ChangePassword(ctx, alice, "changed"); err != nil {
+						return err
+					}
+					return svc.NewWriter(tx).RevokeCredential(ctx, session.Credential)
+				})).To(Succeed())
+				// as an activity write that read the session before the change does
+				Expect(gorp.WrapWriter[auth.SessionKey, auth.Session](db).
+					Set(ctx, session)).To(Succeed())
+				Expect(svc.Authenticate(ctx, token)).Error().
+					To(MatchError(auth.ErrInvalidToken))
+				Expect(svc.NewRetrieve().Where(auth.MatchKeys(session.Key)).
+					Exists(ctx, nil)).To(BeFalse())
+			},
+		)
+		It(
 			"Should reject the token of a session that was logged out",
 			func(ctx SpecContext) {
 				session, token := login(ctx)
@@ -325,6 +400,18 @@ var _ = Describe("Service", func() {
 				Eventually(ended).Should(BeClosed())
 			},
 		)
+		It(
+			"Should end a hold whose password changed after it was opened",
+			func(ctx SpecContext) {
+				session, _ := login(ctx)
+				ended, release := MustSucceed2(svc.Hold(ctx, session.Key))
+				defer release()
+				Expect(pw.NewWriter(nil).ChangePassword(ctx, alice, "changed")).
+					To(Succeed())
+				Expect(svc.CheckHolds(ctx)).To(Succeed())
+				Eventually(ended).Should(BeClosed())
+			},
+		)
 		It("Should check holds when nothing is held", func(ctx SpecContext) {
 			Expect(svc.CheckHolds(ctx)).To(Succeed())
 		})
@@ -373,11 +460,8 @@ var _ = Describe("Service", func() {
 				session, _ := login(ctx)
 				ended, release := MustSucceed2(svc.Hold(ctx, session.Key))
 				defer release()
-				Expect(svc.NewWriter(nil).RevokeCredential(
-					ctx,
-					nil,
-					session.Credential,
-				)).To(Succeed())
+				Expect(svc.NewWriter(nil).RevokeCredential(ctx, session.Credential)).
+					To(Succeed())
 				Eventually(ended).Should(BeClosed())
 			},
 		)
@@ -535,17 +619,15 @@ var _ = Describe("Service", func() {
 			})
 		})
 		Describe("RevokeCredential", func() {
-			It("Should end the credential's other sessions", func(ctx SpecContext) {
-				kept, keptToken := login(ctx)
-				_, otherToken := login(ctx)
-				Expect(svc.NewWriter(nil).RevokeCredential(
-					ctx,
-					[]auth.SessionKey{kept.Key},
-					kept.Credential,
-				)).To(Succeed())
-				MustSucceed(svc.Authenticate(ctx, keptToken))
-				Expect(svc.Authenticate(ctx, otherToken)).Error().
-					To(MatchError(auth.ErrInvalidToken))
+			It("Should end every session of the credential", func(ctx SpecContext) {
+				first, firstToken := login(ctx)
+				_, secondToken := login(ctx)
+				Expect(svc.NewWriter(nil).RevokeCredential(ctx, first.Credential)).
+					To(Succeed())
+				for _, token := range []string{firstToken, secondToken} {
+					Expect(svc.Authenticate(ctx, token)).Error().
+						To(MatchError(auth.ErrInvalidToken))
+				}
 			})
 			It("Should end the sessions of several credentials", func(ctx SpecContext) {
 				a, aToken := login(ctx)
@@ -559,7 +641,6 @@ var _ = Describe("Service", func() {
 				)
 				Expect(svc.NewWriter(nil).RevokeCredential(
 					ctx,
-					nil,
 					a.Credential,
 					b.Credential,
 				)).To(Succeed())
@@ -570,12 +651,43 @@ var _ = Describe("Service", func() {
 			})
 			It("Should leave other credentials alone", func(ctx SpecContext) {
 				_, token := login(ctx)
-				Expect(svc.NewWriter(nil).RevokeCredential(
-					ctx,
-					nil,
-					uuid.New(),
-				)).To(Succeed())
+				Expect(svc.NewWriter(nil).RevokeCredential(ctx, uuid.New())).
+					To(Succeed())
 				MustSucceed(svc.Authenticate(ctx, token))
+			})
+		})
+		Describe("Open", func() {
+			It(
+				"Should open a session on the credential's version in the transaction",
+				func(ctx SpecContext) {
+					old, oldToken := login(ctx)
+					var (
+						session auth.Session
+						token   string
+					)
+					Expect(db.WithTx(ctx, func(tx gorp.Tx) error {
+						if err := pw.NewWriter(tx).
+							ChangePassword(ctx, alice, "changed"); err != nil {
+							return err
+						}
+						w := svc.NewWriter(tx)
+						if err := w.RevokeCredential(ctx, old.Credential); err != nil {
+							return err
+						}
+						var err error
+						session, token, err = w.Open(ctx, alice, old.Credential)
+						return err
+					})).To(Succeed())
+					Expect(session.Subject).To(Equal(alice))
+					Expect(session.Credential).To(Equal(old.Credential))
+					Expect(svc.Authenticate(ctx, token)).To(Equal(session))
+					Expect(svc.Authenticate(ctx, oldToken)).Error().
+						To(MatchError(auth.ErrInvalidToken))
+				},
+			)
+			It("Should reject an unknown credential", func(ctx SpecContext) {
+				Expect(svc.NewWriter(nil).Open(ctx, alice, uuid.New())).Error().
+					To(MatchError(query.ErrNotFound))
 			})
 		})
 	})

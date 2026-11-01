@@ -11,11 +11,11 @@
 
 package versions
 
-import "github.com/synnaxlabs/synnax/pkg/service/auth/versions/v2"
+import "github.com/synnaxlabs/synnax/pkg/service/auth/versions/v3"
 
 // SessionKey is a unique identifier for a session.
-type SessionKey = v2.SessionKey
+type SessionKey = v3.SessionKey
 
 // Session is a logged-in subject. It ends when it is revoked or when no request has
 // used it for the idle timeout.
-type Session = v2.Session
+type Session = v3.Session

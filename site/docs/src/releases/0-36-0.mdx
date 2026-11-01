@@ -8,6 +8,7 @@ import Release from "@/components/releases/Release.astro";
 import LabJack from "@/components/releases/LabJack.astro";
 import { Divider } from "@synnaxlabs/lyra/divider";
 import { mdxOverrides } from "@/components/mdxOverrides";
+import { Keys } from "@/components/keys/Keys";
 export const components = mdxOverrides;
 
 <Release
@@ -42,9 +43,9 @@ can be accessed by clicking the 'Annotations' tab in the visualization toolbar.
 
 ### Schematic undo/redo
 
-You can now undo and redo changes to a schematic. This feature is possible by using the
-`Ctrl + Z` and `Ctrl + Shift + Z` keyboard shortcuts on a schematic that you are
-editing.
+You can now undo and redo changes to a schematic you are editing: press <Keys
+trigger={["Control", "Z"]} /> to undo and <Keys trigger={["Control", "Shift", "Z"]} />
+to redo.
 
 <Video id="releases/0-36-0/schematic-undo" themed={false} />
 

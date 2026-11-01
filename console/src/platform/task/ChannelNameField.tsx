@@ -13,7 +13,7 @@ import { Input } from "@synnaxlabs/lyra/input";
 import { Access, Channel } from "@synnaxlabs/pluto";
 import { type ReactElement } from "react";
 
-import { useIsPreview } from "@/platform/task/Form";
+import { useIsPreview } from "@/platform/task/useIsPreview";
 
 export interface ChannelNameFieldProps {
   /** The channel the name belongs to, or 0 before configure creates it. */

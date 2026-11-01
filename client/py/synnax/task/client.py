@@ -28,7 +28,7 @@ from synnax.ontology.payload import ID
 from synnax.rack import Client as RackClient
 from synnax.rack import Rack
 from synnax.task.types_gen import Command, Key, Payload, Status, ontology_id
-from synnax.telem import TimeSpan, TimeStamp
+from synnax.telem import TimeSpan
 from x.lists import all_none, override
 from x.timing import Timer
 
@@ -190,7 +190,7 @@ class Task:
         :param args: The arguments to pass to the command.
         :return: The unique key assigned to the command.
         """
-        w = self._frame_client.open_writer(TimeStamp.now(), _TASK_CMD_CHANNEL)
+        w = self._frame_client.open_writer(channels=_TASK_CMD_CHANNEL)
         cmd = Command(
             task=self.key,
             type=type_,
@@ -245,11 +245,7 @@ class Task:
                         # racks. Rack statuses have a different schema, so
                         # validation failures are expected and should be skipped.
                         continue
-                    if (
-                        status.details is not None
-                        and status.details.cmd is not None
-                        and status.details.cmd == key
-                    ):
+                    if status.details is not None and status.details.cmd == key:
                         return status
 
 
@@ -420,7 +416,7 @@ class Client:
         return res.tasks
 
     def maybe_assign_def_rack(self, pld: Payload, *, rack: int = 0) -> Payload:
-        if pld is None or pld.rack != 0:
+        if pld.rack != 0:
             return pld
         if rack == 0:
             if self._default_rack is None:

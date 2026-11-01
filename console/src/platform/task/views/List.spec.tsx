@@ -109,7 +109,7 @@ describe("layouts.List", () => {
         createChannel={() => ({ key: "new", disabled: false })}
         listItem={listItem}
         resolve={resolve}
-        title="Tags"
+        header={<Task.Views.Header title="Tags" />}
         emptyContent={<span>No tags</span>}
         addLabel="Add tag"
       />,

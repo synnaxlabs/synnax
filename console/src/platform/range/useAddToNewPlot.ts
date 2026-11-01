@@ -27,7 +27,7 @@ export const useAddToNewPlot = (): ((keys: string[]) => void) => {
       const names = ranges.map(({ name }) => name);
       create({
         name: `Plot for ${strings.naturalLanguageJoin(names, "range")}`,
-        ranges: { x1: ranges.map(({ key }) => key), x2: [] },
+        ranges: ranges.map(({ key }) => ({ variant: "key", key })),
       });
     }, "Failed to add ranges to plot");
   };

@@ -110,7 +110,7 @@ describe("MQTT Edge form", () => {
     await screen.findByPlaceholderText("plant");
     expect(screen.getByPlaceholderText("line1")).toBeTruthy();
     expect(getLabeledInput("Authority").value).toBe("0");
-    expect(screen.getByText("Auto start")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Auto start" })).toBeTruthy();
   });
 
   it("should add a tag with no channels and the double type", async () => {

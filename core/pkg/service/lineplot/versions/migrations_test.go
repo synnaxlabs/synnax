@@ -31,6 +31,8 @@ var _ = Describe("Migrations", func() {
 			"v55_lift_typed_lineplot",
 			"v58_custom_range",
 			"v59_line_reduction",
+			"v61_lineplot_ranger_refs",
+			"v61_min_line_stroke_width",
 		}))
 	})
 })

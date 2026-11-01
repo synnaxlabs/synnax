@@ -431,9 +431,12 @@
     --pluto-p-size: round(2.1666666666666665rem, 1px);
     --pluto-p-weight: 400;
     --pluto-p-line-height: round(3rem, 1px);
-    --pluto-small-size: round(1.8333333333333333rem, 1px);
+    --pluto-small-size: round(2rem, 1px);
     --pluto-small-weight: 400;
-    --pluto-small-line-height: round(2.3333333333333335rem, 1px);
+    --pluto-small-line-height: round(2.6666666666666665rem, 1px);
+    --pluto-tiny-size: round(1.8333333333333333rem, 1px);
+    --pluto-tiny-weight: 400;
+    --pluto-tiny-line-height: round(2.3333333333333335rem, 1px);
     --pluto-dark-theme-name: Synnax Dark;
     --pluto-dark-theme-key: synnaxDark;
     --pluto-dark-primary-m1: #356fc5;
@@ -855,9 +858,12 @@
     --pluto-dark-p-size: round(2.1666666666666665rem, 1px);
     --pluto-dark-p-weight: 400;
     --pluto-dark-p-line-height: round(3rem, 1px);
-    --pluto-dark-small-size: round(1.8333333333333333rem, 1px);
+    --pluto-dark-small-size: round(2rem, 1px);
     --pluto-dark-small-weight: 400;
-    --pluto-dark-small-line-height: round(2.3333333333333335rem, 1px);
+    --pluto-dark-small-line-height: round(2.6666666666666665rem, 1px);
+    --pluto-dark-tiny-size: round(1.8333333333333333rem, 1px);
+    --pluto-dark-tiny-weight: 400;
+    --pluto-dark-tiny-line-height: round(2.3333333333333335rem, 1px);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -1283,9 +1289,12 @@
         --pluto-p-size: round(2.1666666666666665rem, 1px);
         --pluto-p-weight: 400;
         --pluto-p-line-height: round(3rem, 1px);
-        --pluto-small-size: round(1.8333333333333333rem, 1px);
+        --pluto-small-size: round(2rem, 1px);
         --pluto-small-weight: 400;
-        --pluto-small-line-height: round(2.3333333333333335rem, 1px);
+        --pluto-small-line-height: round(2.6666666666666665rem, 1px);
+        --pluto-tiny-size: round(1.8333333333333333rem, 1px);
+        --pluto-tiny-weight: 400;
+        --pluto-tiny-line-height: round(2.3333333333333335rem, 1px);
         --pluto-dark-theme-name: Synnax Dark;
         --pluto-dark-theme-key: synnaxDark;
         --pluto-dark-primary-m1: #356fc5;
@@ -1707,8 +1716,11 @@
         --pluto-dark-p-size: round(2.1666666666666665rem, 1px);
         --pluto-dark-p-weight: 400;
         --pluto-dark-p-line-height: round(3rem, 1px);
-        --pluto-dark-small-size: round(1.8333333333333333rem, 1px);
+        --pluto-dark-small-size: round(2rem, 1px);
         --pluto-dark-small-weight: 400;
-        --pluto-dark-small-line-height: round(2.3333333333333335rem, 1px);
+        --pluto-dark-small-line-height: round(2.6666666666666665rem, 1px);
+        --pluto-dark-tiny-size: round(1.8333333333333333rem, 1px);
+        --pluto-dark-tiny-weight: 400;
+        --pluto-dark-tiny-line-height: round(2.3333333333333335rem, 1px);
     }
 }

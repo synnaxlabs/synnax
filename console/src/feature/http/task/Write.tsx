@@ -21,7 +21,7 @@ import { type FC, useState } from "react";
 
 import { useFromConfig } from "@/feature/http/device/queries";
 import { Select as SelectDevice } from "@/feature/http/device/Select";
-import { SCHEMAS } from "@/feature/http/device/types";
+import { MAKE, SCHEMAS } from "@/feature/http/device/types";
 import { EndpointLabel } from "@/feature/http/task/EndpointLabel";
 import {
   deployWriteConfigZ,
@@ -38,14 +38,7 @@ import { Form as PlatformForm } from "@/platform/form";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-const Properties = () => (
-  <>
-    <SelectDevice />
-    <Flex.Box x grow>
-      <Task.Fields.AutoStart />
-    </Flex.Box>
-  </>
-);
+const Properties = () => <SelectDevice />;
 
 const MethodSelect: FC<{ path: string }> = ({ path }) => (
   <PForm.Field<WriteMethod> path={path} label="Method">
@@ -169,7 +162,7 @@ const Form: FC = () => {
       list={
         <Task.Views.ChannelList<WriteEndpoint>
           path="config.endpoints"
-          title={null}
+          header={null}
           emptyContent={EMPTY_ENDPOINTS}
           addLabel="Add endpoint"
           createChannel={createEndpoint}
@@ -243,12 +236,12 @@ export const Write = Task.wrapForm({
   schemas: WRITE_SCHEMAS,
   deployConfigZ: deployWriteConfigZ,
   type: WRITE_TYPE,
-  getInitialValues,
   onConfigure,
 });
 
 export const useCreateWrite = Task.createUseCreate({
   getInitialValues,
+  deviceMake: MAKE,
 });
 
 export const WriteSelectable = Selector.createSelectable({

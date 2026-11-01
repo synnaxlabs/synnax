@@ -5,17 +5,17 @@
 - **Related**: [RFC 0017 - General purpose device drivers](0017-drivers.md),
   [RFC 0034 - Gorp indexes](0034-gorp-indexes.md),
   [RFC 0053 - Oracle explicit schema versioning](0053-oracle-explicit-schema-versioning.md),
-  [RFC 0079 - Kafka integration](0079-kafka-integration.md)
+  [RFC 0079 - Kafka integration](0079-kafka-integration.md),
+  [RFC 0091 - Modbus driver](0091-modbus-driver.md)
 
 ## 0 Summary
 
 The generic `device` table goes away. Each integration defines its device resources in
 its own Oracle schema: typed fields in place of the `properties` blob, its own Gorp
 table, ontology type, migrations, and endpoints, owned by that integration's Core
-service. A generic Go `device.Service[D]` carries the shared machinery, as
-`config.Service[E]` does for task configs. Every device gets a UUID key; discovered
-hardware carries a `serial`. The scanner and the user write disjoint field groups. NI
-chassis and EtherCAT masters become resources.
+service as concrete code. Every device gets a UUID key; discovered hardware carries a
+`serial`. The scanner and the user write disjoint field groups. NI chassis and EtherCAT
+masters become resources.
 
 ## 1 Motivation
 
@@ -93,8 +93,7 @@ and needs no device table. The device select always narrows to one make before i
 (`console/src/platform/device/Select.tsx:40,50`), so it is a per-resource select
 already. No screen shows a server beside a slave with a shared column set, because there
 is no shared column: a server has no location and a slave has no model. Status is the
-one shared behavior, and §4.2 keeps it generic through `device.Service[D]`, which is
-where the task precedent does transfer: shared machinery, not a shared row.
+one shared behavior, and it stays in the status service (§4.2).
 
 ## 2 Vocabulary
 
@@ -123,9 +122,9 @@ where the task precedent does transfer: shared machinery, not a shared row.
 3. **The integration owns its devices**: The Go service that owns an integration's task
    config stores owns its device tables, endpoints, and migrations
    (`core/pkg/service/ni/service.go:69-176` is the shape).
-4. **Shared machinery is generic, not inherited**: `device.Service[D]` takes its
-   contract from injected hooks, as `config.ServiceConfig[E]` does
-   (`core/pkg/service/task/config/config.go:66-122`).
+4. **Repeat, then deduplicate across every resource**: Device services repeat the writer
+   code that racks and schematics also carry. A later project removes that overlap for
+   all resources, not for devices alone.
 5. **One writer per field**: The scanner writes the identity group and the user writes
    the configuration group. Neither write path touches the other group.
 6. **Core-minted keys**: Every key is a UUID the Core creates. Hardware identity is an
@@ -154,12 +153,17 @@ references it, so it has no identifier and no channel maps.
 
 ### 4.1 Schemas
 
-Each resource is a struct in its integration's `.oracle` file, with the file's existing
-`@go`, `@ts`, `@py`, and `@cpp` outputs. Every struct carries `@create`, `@retrieve`,
-`@search`, `@go marshal`, `@go migrate`, and `@ontology type`, and declares
-`key uuid = create` with `@key`, `rack rack.Key` with `@filter`, `name string` with
-`@filter`, and a `status` of its own `Status` type with `@go marshal omit`. A base
-struct would carry nothing else, so the three fields repeat.
+Each resource is a struct in its own `.oracle` file with its own package, such as
+`ni_device.oracle` and `core/pkg/service/ni/device`, because Oracle allows one
+`@retrieve` per output. Each file has `@go`, `@ts`, `@py`, and `@cpp` outputs. Every
+struct carries `@create`, `@retrieve`, `@go marshal`, `@go migrate`, and
+`@ontology type`, and declares `key uuid = create` with `@key`, `rack rack.Key` with
+`@filter`, `name string` with `@filter` and `@search`, and a `status` of its own
+`Status` type with `@go marshal omit`. A base struct would carry nothing else, so the
+three fields repeat.
+
+Gorp names a table by its Go type, so each resource sets `CustomTypeName`. Otherwise
+`ni.Device` shares a table with the legacy `Device`.
 
 The NI resources are the pattern for every discovered make:
 
@@ -167,7 +171,7 @@ The NI resources are the pattern for every discovered make:
 Chassis struct {
     key       Key = create        { @key }
     rack      rack.Key            { @filter }
-    name      string              { @filter }
+    name      string              { @filter @search }
     serial    string              { @index lookup }
     model     string              { @filter }
     alias     string
@@ -179,13 +183,12 @@ Chassis struct {
     @go migrate
     @ontology type "ni_chassis"
     @retrieve
-    @search
 }
 
 Device struct {
     key        Key = create       { @key }
     rack       rack.Key           { @filter }
-    name       string             { @filter }
+    name       string             { @filter @search }
     serial     string             { @index lookup }
     model      string             { @filter }
     alias      string
@@ -218,8 +221,8 @@ Field groups per make:
 - **OPC UA server**: `connection` (endpoint, credentials, security mode and policy,
   certificates), `read_indexes`, node channel maps
   (`console/src/feature/opcua/device/types/v1.ts:18-30`).
-- **Modbus server**: `host`, `port`, `swap_bytes`, `swap_words`, `read_index`, register
-  channel maps.
+- **Modbus server**: `connection` and `requests` (RFC 0091 §2.0), `read_index`, register
+  channel maps. Its `StatusDetails` hold the request counts as `stats` (RFC 0091 §2.7).
 - **HTTP server**: `host`, `secure`, `verify_ssl`, `timeout`, `auth` (the existing
   union), `max_concurrent_requests`, `health_check`, per-path read and write channel
   maps (`console/src/feature/http/device/types.ts:224-239`). The `base_url` the Driver
@@ -237,41 +240,24 @@ into each integration's write config under its typed key.
 
 ### 4.2 Core services
 
-`device.Service[D]` is the generic store in `core/pkg/service/device`, once the legacy
-service has moved out. Its config mirrors `config.ServiceConfig[E]`:
+Each integration service owns its resources beside its config stores: the NI service
+gains `Chassis` and `Devices`, the EtherCAT service `Masters` and `Slaves`. Each
+resource has a concrete writer and generated retrieve, in the shape of
+`core/pkg/service/rack`. No generic device store exists.
 
-```go
-type ServiceConfig[D gorp.Entry[uuid.UUID]] struct {
-    DB              *gorp.DB
-    Ontology        *ontology.Ontology
-    Search          *search.Service
-    Status          *status.Service
-    Signals         *signals.Provider
-    Type            ontology.ResourceType
-    Migrations      []migrate.Migration
-    SetEntryKey     func(*D, uuid.UUID)
-    RackOf          func(D) rack.Key
-    ParentOf        func(D) (ontology.ID, bool)
-    ValidateEntry   func(*D) error
-    alamos.Instrumentation
-}
-```
-
-The service opens the Gorp table with its migration chain, registers ontology and search
-services for `Type`, publishes `sy_<type>_set` and `sy_<type>_delete` through
-`signals.PublishFromGorp`, and exposes `Create`, `Update`, `Retrieve`, and `Delete`.
-`Create` writes the row, an initial unknown status, the ontology resource, and the
-`parent_of` edge from `ParentOf`, or from the rack when there is no parent. `Update`
-takes a function over the stored row, so a caller changes one field group and leaves the
-other as stored. `Delete` refuses with a `validate.ErrValidation` wrap while the
-integration's referrer check returns true, then deletes children, status, resource, and
+Opening a resource opens its Gorp table with its migration chain and Oracle-generated
+indexes, registers its ontology service, and publishes `sy_<type>_set` and
+`sy_<type>_delete` through `signals.PublishFromGorp`. Its writer exposes `Create`,
+`Update`, and `Delete`. `Create` writes the row, an initial unknown status, the ontology
+resource, and the `parent_of` edge to its parent key, or to the rack when there is no
+parent. `Update` takes a function over the stored row, so a caller changes one field
+group and leaves the other as stored. `Delete` refuses with a `validate.ErrValidation`
+wrap while a task references the resource, then deletes children, status, resource, and
 row in one transaction.
 
-Each integration service opens one `device.Service[D]` per resource beside its config
-stores: the NI service gains `Chassis` and `Devices`, the EtherCAT service `Masters` and
-`Slaves`. The referrer check for `ni.Device` scans the five NI config stores for a
-channel whose `device` is the key. Both tables belong to one service, so no
-cross-service query exists.
+The referrer check for `ni.Device` scans the five NI config stores for a channel whose
+`device` is the key. Both tables belong to one service, so no cross-service query
+exists.
 
 Status stays in the status service under `<type>:<key>`. Each resource defines its own
 `Status` and `StatusDetails`; a server reports different fields from a slave.
@@ -319,9 +305,10 @@ string and the `<master>.Slot <n>` location encoding are deleted.
 
 Each resource gets routes under its integration: `/ni/device/create`,
 `/ni/device/retrieve`, `/ni/device/update`, `/ni/device/delete`, and the same for
-`/ni/chassis`, `/ethercat/master`, `/opcua/server`, and the rest. Retrieve filters are
-the struct's `@filter` fields plus `search_term`, `include_status`, and
-`include_parent`. The generic `/device/*` routes are deleted.
+`/ni/chassis`, `/ethercat/master`, `/opcua/server`, and the rest. `update` is one route
+that dispatches on a union over the identity and configuration groups, so one request
+writes one group. Retrieve filters are the struct's `@filter` fields plus `search_term`,
+`include_status`, and `include_parent`. The generic `/device/*` routes are deleted.
 
 Clients expose one namespace per resource: `client.ni.devices`, `client.ni.chassis`,
 `client.labjack.devices`, `client.ethercat.masters`, `client.ethercat.slaves`,
@@ -339,7 +326,7 @@ records, and each integration binds `Flux.createRetrieve`, `createList`, and
 `createForm` to its own client in the Console, as EtherCAT already does
 (`console/src/feature/ethercat/device/queries.ts`). `StatusIndicator` reads only
 `variant` and `message`, so it becomes a status-level component. The module is deleted
-in Phase 24.
+in Phase 23.
 
 ### 4.6 Driver
 
@@ -400,12 +387,10 @@ policy object `{type: "device"}` into the eight typed objects and maps a per-key
 
 ### 4.10 Testing
 
-`device.Service[D]` gets a Ginkgo suite against an in-memory Gorp DB with a test entry
-type. Each integration service gets specs for create, identity update, configuration
-update, refused delete, and cascade. The migration suite seeds 0.59-shaped rows for
-every make, including one that quarantines. Driver specs build devices from generated
-structs. Console specs for each make's forms and tree items run against the typed
-client.
+Each integration service gets specs for create, identity update, configuration update,
+refused delete, and cascade. The migration suite seeds 0.59-shaped rows for every make,
+including one that quarantines. Driver specs build devices from generated structs.
+Console specs for each make's forms and tree items run against the typed client.
 
 ## 5 Prior art
 
@@ -428,31 +413,29 @@ green at every step. The migration brings 0.59 data forward near the end.
 - **Phase 1: Legacy move.** `core/pkg/service/device` moves to
   `core/pkg/service/legacy/device` (SY-5190). The package name, proto package, and C++
   namespace stay `device`, so only import paths change. Mechanical, `review/bot`.
-- **Phase 2: Generic service.** `device.Service[D]`, `ServiceConfig[D]`, and its suite.
-  No caller.
-- **Phase 3: Ontology types and roles.** The eight `ResourceType` members, regenerated
+- **Phase 2: Ontology types and roles.** The eight `ResourceType` members, regenerated
   clients, and the builtin role lists.
-- **Phases 4 to 9: Schemas and services, one integration each.** NI, LabJack, EtherCAT,
+- **Phases 3 to 8: Schemas and services, one integration each.** NI, LabJack, EtherCAT,
   OPC UA, Modbus, HTTP: the Oracle structs, generated types in four languages, the
-  `device.Service[D]` instances, and routes. Each lands dark.
-- **Phases 10 to 15: Driver, one integration each.** Scanner and tasks on the typed
-  client. Phase 10 also makes `ScanTask` a template.
-- **Phases 16 to 21: Console, one integration each.** Forms, tree items, menus, links,
+  writers, and routes. Each lands dark.
+- **Phases 9 to 14: Driver, one integration each.** Scanner and tasks on the typed
+  client. Phase 9 also makes `ScanTask` a template.
+- **Phases 15 to 20: Console, one integration each.** Forms, tree items, menus, links,
   and palette commands on the typed client. Each phase removes its make from `make.tsx`;
-  Phase 21 deletes the file.
-- **Phase 22: Migration.** §4.8 steps 1 to 3 and the policy rewrite. The map now exists
+  Phase 20 deletes the file.
+- **Phase 21: Migration.** §4.8 steps 1 to 3 and the policy rewrite. The map now exists
   for the next phase.
-- **Phase 23: Task config references.** Typed device keys on every config, with the
+- **Phase 22: Task config references.** Typed device keys on every config, with the
   config migrations of §4.8 step 4 reading the map.
-- **Phase 24: Delete the legacy path.** §4.8 step 5, the legacy service, `/device/*`
+- **Phase 23: Delete the legacy path.** §4.8 step 5, the legacy service, `/device/*`
   routes, `client.devices`, `sy.Device`, `synnax::device::Client`, `pluto/src/device`,
   and the Console's generic device layer.
-- **Phase 25: Documentation.** Device pages per integration and the Python and
+- **Phase 24: Documentation.** Device pages per integration and the Python and
   TypeScript examples.
 
-Compatibility: a 0.59 Core upgrades through Phase 24 with every device, status,
-reference, and policy carried forward. A client older than Phase 24 gets a not-found on
-`/device/*` from a Core at Phase 24; clients and the Core ship in one train.
+Compatibility: a 0.59 Core upgrades through Phase 23 with every device, status,
+reference, and policy carried forward. A client older than Phase 23 gets a not-found on
+`/device/*` from a Core at Phase 23; clients and the Core ship in one train.
 
 ## 7 What this RFC does not cover
 
@@ -493,6 +476,9 @@ reference, and policy carried forward. A client older than Phase 24 gets a not-f
     down.
 11. **Naming by what the thing is**: `opcua.Server`, not `opcua.Device`. The `model`
     constants `HTTP server` and `OPC UA` existed only to fill a generic column.
+12. **No generic device store**: A `device.Service[D]` needed 8 hooks, did not fit
+    racks, and left the same code in every other resource. The trade is real: eight
+    hand-written writers until a project deduplicates all resources.
 
 ## 9 Open questions
 

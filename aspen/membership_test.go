@@ -21,8 +21,8 @@ import (
 	"github.com/synnaxlabs/aspen/testutil"
 	transporttestutil "github.com/synnaxlabs/aspen/transport/testutil"
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/testutil/memkv"
 )
 
 // specTimeout bounds every spec in this file. Aspen retries pledges until its context

@@ -25,8 +25,8 @@ import { Button as PlatformButton } from "@/platform/button";
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
 import { EnabledCheckbox } from "@/platform/task/EnabledCheckbox";
-import { useIsPreview } from "@/platform/task/Form";
 import { READ_CHANNEL_OVERRIDE } from "@/platform/task/types";
+import { useIsPreview } from "@/platform/task/useIsPreview";
 import { ContextMenu } from "@/platform/task/views/ContextMenu";
 import { Panes } from "@/platform/task/views/Panes";
 
@@ -97,6 +97,8 @@ type Entry =
 interface Index {
   nodes: Tree.Node[];
   entries: Map<string, Entry>;
+  /** Maps the key of each empty group's add field item to the group's key. */
+  adders: Map<string, string>;
 }
 
 const isBranch = <F extends GroupField>(g: Group<F> | Leaf): g is Group<F> =>
@@ -104,14 +106,17 @@ const isBranch = <F extends GroupField>(g: Group<F> | Leaf): g is Group<F> =>
 
 const isShown = <F extends GroupField>(g: Group<F>, f: F): boolean => f.key !== g.index;
 
+const adderKey = (groupKey: string): string => `${groupKey}/add-field`;
+
 /** Each group key with the keys of its shown fields, or null for a leaf. */
 type Structure = [string, string[] | null][];
 
 /**
- * Groups as tree nodes with their fields beneath; the index field stays hidden. Edits
- * that keep the structure, such as typing in a field, return the same index.
+ * Groups as tree nodes with their fields beneath; the index field stays hidden. Outside
+ * preview, an empty group holds one add field item in place of its fields. Edits that
+ * keep the structure, such as typing in a field, return the same index.
  */
-const useIndex = <F extends GroupField>(path: string): Index => {
+const useIndex = <F extends GroupField>(path: string, preview: boolean): Index => {
   const { bind, get } = Form.useContext();
   const getStructure = () =>
     JSON.stringify(
@@ -122,11 +127,12 @@ const useIndex = <F extends GroupField>(path: string): Index => {
     );
   const structure = useSyncExternalStore(bind, getStructure, getStructure);
   const entries = new Map<string, Entry>();
+  const adders = new Map<string, string>();
   const nodes = (JSON.parse(structure) as Structure).map(
     ([groupKey, fieldKeys]): Tree.Node => {
       entries.set(groupKey, { kind: "group", groupKey, leaf: fieldKeys == null });
       if (fieldKeys == null) return { key: groupKey };
-      const children = fieldKeys.map((fieldKey) => {
+      const children: Tree.Node[] = fieldKeys.map((fieldKey) => {
         entries.set(fieldKey, {
           kind: "field",
           groupKey,
@@ -135,10 +141,15 @@ const useIndex = <F extends GroupField>(path: string): Index => {
         });
         return { key: fieldKey };
       });
+      if (children.length === 0 && !preview) {
+        const key = adderKey(groupKey);
+        adders.set(key, groupKey);
+        children.push({ key });
+      }
       return { key: groupKey, children };
     },
   );
-  return { nodes, entries };
+  return { nodes, entries, adders };
 };
 
 const entryPath = (path: string, entry: Entry): string =>
@@ -242,6 +253,14 @@ const FieldItem = ({ path, emptyLabel, ...props }: FieldItemProps) => {
   );
 };
 
+/** Stands in for an empty group's fields; choosing it adds the first one. */
+const AdderItem = (props: Tree.ItemRenderProps<string>) => (
+  <Tree.Item {...props} level="small" textColor={9} className={CSS.B("adder-item")}>
+    <Icon.Add />
+    Add field
+  </Tree.Item>
+);
+
 const TREE_ITEM_HEIGHT = 36;
 
 const copyField = <F extends GroupField>(f: F, key: string = id.create()): F => ({
@@ -284,9 +303,9 @@ export const GroupTree = <
   fieldDetails,
 }: GroupTreeProps<G, F>): ReactNode => {
   const [selected, setSelected] = useState<string[]>([]);
-  const { nodes, entries } = useIndex<F>(path);
-  const ctx = Form.useContext();
   const isPreview = useIsPreview();
+  const { nodes, entries, adders } = useIndex<F>(path, isPreview);
+  const ctx = Form.useContext();
   const handleError = Status.useErrorHandler();
   const [initialExpanded] = useState(() => nodes.map(({ key }) => key));
   // A fold that hides the selected field moves the selection up to its group.
@@ -307,16 +326,6 @@ export const GroupTree = <
     toggleOn: "caret",
   });
   const { expand, shape } = treeProps;
-
-  const handleSelect: Tree.TreeProps<string, record.Keyed<string>>["onSelect"] = (
-    keys,
-    { clicked },
-  ) => {
-    setSelected(keys);
-    if (clicked == null) return;
-    const entry = entries.get(clicked);
-    if (entry?.kind === "group" && !entry.leaf) expand(clicked);
-  };
 
   const handleAddGroups = () =>
     handleError(async () => {
@@ -344,6 +353,19 @@ export const GroupTree = <
     expand(groupKey);
   };
 
+  // An add field item is never selected; choosing it adds a field instead.
+  const handleSelect: Tree.TreeProps<string, record.Keyed<string>>["onSelect"] = (
+    keys,
+    { clicked },
+  ) => {
+    const adderGroup = clicked == null ? undefined : adders.get(clicked);
+    if (adderGroup != null) return handleAddField(adderGroup);
+    setSelected(keys.filter((k) => !adders.has(k)));
+    if (clicked == null) return;
+    const entry = entries.get(clicked);
+    if (entry?.kind === "group" && !entry.leaf) expand(clicked);
+  };
+
   const handleRemove = (keys: string[]) => {
     const removed = new Set(keys);
     const groups = ctx.get<G[]>(path).value;
@@ -358,7 +380,7 @@ export const GroupTree = <
         ),
     );
     // Selection moves to the nearest survivor in the visible list, below first.
-    const visible = shape.keys;
+    const visible = shape.keys.filter((k) => !adders.has(k));
     const first = visible.findIndex((k) => removed.has(k));
     const after = visible.slice(first).find((k) => !removed.has(k));
     const before = visible
@@ -398,7 +420,8 @@ export const GroupTree = <
   };
 
   const menuProps = Menu.useContextMenu();
-  const menuRenderProp = ({ keys }: Menu.ContextMenuMenuProps) => {
+  const menuRenderProp = (props: Menu.ContextMenuMenuProps) => {
+    const keys = props.keys.filter((k) => !adders.has(k));
     const entry = keys.length === 1 ? entries.get(keys[0]) : undefined;
     const toggles = keys.flatMap((key) => {
       const e = entries.get(key);
@@ -427,6 +450,7 @@ export const GroupTree = <
   };
 
   const renderItem = ({ key, ...p }: Tree.ItemRenderProps<string>) => {
+    if (adders.has(p.itemKey)) return <AdderItem key={key} {...p} />;
     const entry = entries.get(p.itemKey);
     if (entry?.kind === "field")
       return (

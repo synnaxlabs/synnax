@@ -11,15 +11,15 @@ import { Flex } from "@synnaxlabs/lyra/flex";
 import { type ReactElement } from "react";
 
 import {
+  RangeSelect,
   XAxisChannelSelect,
-  XAxisRangeSelect,
   YAxisChannelSelect,
 } from "@/feature/lineplot/SelectAxis";
 import { CSS } from "@/platform/css";
 
 export const Data = (): ReactElement => (
   <Flex.Box className={CSS.BE("line-plot", "toolbar", "data")} full="x">
-    <XAxisRangeSelect axisKey="x1" grow />
+    <RangeSelect grow />
     <YAxisChannelSelect axisKey="y1" align="center" grow />
     <YAxisChannelSelect axisKey="y2" grow />
     <XAxisChannelSelect

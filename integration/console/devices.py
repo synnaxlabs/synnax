@@ -425,6 +425,13 @@ class DevicesClient(ResourceClient):
         self.layout.notifications.close_all()
         self.modal.get_by_role("button", name="Connect", exact=True).click(timeout=5000)
 
+    def fill_connect_serial(self, *, name: str, serial_port: str) -> None:
+        """Fill the open connect form of a serial device and click Connect."""
+        self.modal.get_by_label("Name", exact=True).fill(name)
+        self.modal.get_by_label(re.compile(r"^Serial port\b")).fill(serial_port)
+        self.layout.notifications.close_all()
+        self.modal.get_by_role("button", name="Connect", exact=True).click(timeout=5000)
+
     def found(self, name: str) -> Locator:
         """The item of a device in the open find view."""
         return self.modal.locator(".lyra-pane__item").filter(has_text=name)

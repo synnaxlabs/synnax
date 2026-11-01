@@ -9,8 +9,9 @@
 
 import { Icon } from "@synnaxlabs/lyra/icon";
 
-import { INTEGRATION } from "@/feature/mqtt/device/types";
+import { INTEGRATION, MAKE } from "@/feature/mqtt/device/types";
 import { Connect } from "@/feature/mqtt/device/useConnectModal";
+import { SCAN_TYPE } from "@/feature/mqtt/task/types";
 import { type Device } from "@/platform/device";
 
 export const NETWORK: Device.Network = {
@@ -19,5 +20,7 @@ export const NETWORK: Device.Network = {
   title: "MQTT broker",
   description: "Subscribe and publish to topics on an MQTT broker, with Sparkplug B.",
   icon: <Icon.Logo.MQTT />,
+  make: MAKE,
+  scanType: SCAN_TYPE,
   Connect,
 };

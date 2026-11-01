@@ -45,10 +45,10 @@ const (
 	SparkplugDataTypeInt16    SparkplugDataType = versions.SparkplugDataTypeInt16
 	SparkplugDataTypeInt32    SparkplugDataType = versions.SparkplugDataTypeInt32
 	SparkplugDataTypeInt64    SparkplugDataType = versions.SparkplugDataTypeInt64
-	SparkplugDataTypeUInt8    SparkplugDataType = versions.SparkplugDataTypeUInt8
-	SparkplugDataTypeUInt16   SparkplugDataType = versions.SparkplugDataTypeUInt16
-	SparkplugDataTypeUInt32   SparkplugDataType = versions.SparkplugDataTypeUInt32
-	SparkplugDataTypeUInt64   SparkplugDataType = versions.SparkplugDataTypeUInt64
+	SparkplugDataTypeUint8    SparkplugDataType = versions.SparkplugDataTypeUint8
+	SparkplugDataTypeUint16   SparkplugDataType = versions.SparkplugDataTypeUint16
+	SparkplugDataTypeUint32   SparkplugDataType = versions.SparkplugDataTypeUint32
+	SparkplugDataTypeUint64   SparkplugDataType = versions.SparkplugDataTypeUint64
 	SparkplugDataTypeFloat    SparkplugDataType = versions.SparkplugDataTypeFloat
 	SparkplugDataTypeDouble   SparkplugDataType = versions.SparkplugDataTypeDouble
 	SparkplugDataTypeBoolean  SparkplugDataType = versions.SparkplugDataTypeBoolean

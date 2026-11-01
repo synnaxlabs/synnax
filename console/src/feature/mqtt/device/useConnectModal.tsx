@@ -172,14 +172,14 @@ export const Connect = ({
               />
             </Form.Section>
             <Form.Section title="Security">
-              <Form.SwitchField
+              <Form.CheckboxField
                 path="properties.secure"
                 label="TLS"
                 padHelpText={false}
               />
               {secure && (
                 <>
-                  <Form.SwitchField
+                  <Form.CheckboxField
                     path="properties.verificationSkipped"
                     label="Skip verification"
                     padHelpText={false}

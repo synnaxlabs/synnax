@@ -17,7 +17,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/gorp"
-	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	calcgraph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
@@ -29,6 +29,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	racktestutil "github.com/synnaxlabs/synnax/pkg/service/rack/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	taskconfig "github.com/synnaxlabs/synnax/pkg/service/task/config"
@@ -39,7 +40,7 @@ import (
 )
 
 var (
-	node         mock.Node
+	node         testutil.Node
 	db           *gorp.DB
 	rackService  *rack.Service
 	deviceSvc    *device.Service
@@ -48,7 +49,7 @@ var (
 	channelSvc   *channel.Service
 	framerSvc    *framer.Service
 	statusSvc    *status.Service
-	hostProvider = mock.NewStaticHostProvider(1)
+	hostProvider = testutil.NewStaticHostProvider(1)
 )
 
 func TestDriver(t *testing.T) {
@@ -60,7 +61,7 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	ShouldNotLeakGoroutines()
-	node = mock.NewNode(ctx)
+	node = testutil.NewNode(ctx)
 	db = node.DB
 	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 	groupSvc := MustOpen(group.OpenService(ctx, group.ServiceConfig{
@@ -84,6 +85,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Group:        groupSvc,
 		HostProvider: hostProvider,
 		Status:       statusSvc,
+		DriverRole:   MustSucceed(racktestutil.CreateDriverRole(ctx, otg)),
 	}))
 	deviceSvc = MustOpen(device.OpenService(ctx, device.ServiceConfig{
 		DB:       node.DB,

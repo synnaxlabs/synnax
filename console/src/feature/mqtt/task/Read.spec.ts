@@ -143,7 +143,8 @@ describe("MQTT Read form", () => {
     fireEvent.click(screen.getByRole("button", { name: "Payload value" }));
     await screen.findByPlaceholderText("/timestamp");
     expect(screen.getByText("Format")).toBeTruthy();
-    expect(screen.getAllByRole("treeitem")).toHaveLength(1);
+    // The entry and the add field item that stands in for its fields.
+    expect(screen.getAllByRole("treeitem")).toHaveLength(2);
     fireEvent.click(screen.getByRole("button", { name: "Arrival time" }));
     await waitFor(() => expect(screen.queryByText("Format")).toBeNull());
   });
@@ -160,7 +161,7 @@ describe("MQTT Read form", () => {
   it("should name a new field's channel after the broker, topic, and pointer", async () => {
     const { dev } = await renderRead([createReadEntry("e1", "plant/oven")]);
     fireEvent.contextMenu(await screen.findByRole("treeitem", { name: /plant\/oven/ }));
-    fireEvent.click(await screen.findByText("Add field"));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Add field" }));
     const pointer = await screen.findByPlaceholderText("/temperature");
     fireEvent.change(pointer, { target: { value: "/temp" } });
     fireEvent.blur(pointer);

@@ -22,7 +22,7 @@ import { type optional, primitive } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/platform/css";
-import { useIsPreview } from "@/platform/task/Form";
+import { useIsPreview } from "@/platform/task/useIsPreview";
 import { Session } from "@/session";
 
 export interface ChannelNameProps extends optional.Optional<
@@ -154,7 +154,7 @@ export const ChannelName = ({ namePath, ...rest }: ChannelNameProps): ReactEleme
   if (rest.defaultName != null)
     return (
       <Message variant="info" message="Created when the task is configured">
-        <Stored {...rest} namePath={namePath} color={8} />
+        <Stored {...rest} namePath={namePath} color={9} />
       </Message>
     );
   return (

@@ -46,7 +46,7 @@ const SearchListItem: Search.ListItem = (props) => {
         <Icon.Range />
         {resource?.name}
       </Text.Text>
-      <Telem.Text.TimeRange level="small">
+      <Telem.Text.TimeRange level="tiny">
         {resource?.data?.timeRange as CrudeTimeRange}
       </Telem.Text.TimeRange>
     </Palette.ListItem>

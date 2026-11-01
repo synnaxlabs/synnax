@@ -83,10 +83,10 @@ const (
 	SparkplugDataTypeInt16    SparkplugDataType = "int16"
 	SparkplugDataTypeInt32    SparkplugDataType = "int32"
 	SparkplugDataTypeInt64    SparkplugDataType = "int64"
-	SparkplugDataTypeUInt8    SparkplugDataType = "uint8"
-	SparkplugDataTypeUInt16   SparkplugDataType = "uint16"
-	SparkplugDataTypeUInt32   SparkplugDataType = "uint32"
-	SparkplugDataTypeUInt64   SparkplugDataType = "uint64"
+	SparkplugDataTypeUint8    SparkplugDataType = "uint8"
+	SparkplugDataTypeUint16   SparkplugDataType = "uint16"
+	SparkplugDataTypeUint32   SparkplugDataType = "uint32"
+	SparkplugDataTypeUint64   SparkplugDataType = "uint64"
 	SparkplugDataTypeFloat    SparkplugDataType = "float"
 	SparkplugDataTypeDouble   SparkplugDataType = "double"
 	SparkplugDataTypeBoolean  SparkplugDataType = "boolean"
@@ -98,7 +98,7 @@ const (
 // values.
 func (s SparkplugDataType) IsValid() bool {
 	switch s {
-	case SparkplugDataTypeInt8, SparkplugDataTypeInt16, SparkplugDataTypeInt32, SparkplugDataTypeInt64, SparkplugDataTypeUInt8, SparkplugDataTypeUInt16, SparkplugDataTypeUInt32, SparkplugDataTypeUInt64, SparkplugDataTypeFloat, SparkplugDataTypeDouble, SparkplugDataTypeBoolean, SparkplugDataTypeString, SparkplugDataTypeDateTime:
+	case SparkplugDataTypeInt8, SparkplugDataTypeInt16, SparkplugDataTypeInt32, SparkplugDataTypeInt64, SparkplugDataTypeUint8, SparkplugDataTypeUint16, SparkplugDataTypeUint32, SparkplugDataTypeUint64, SparkplugDataTypeFloat, SparkplugDataTypeDouble, SparkplugDataTypeBoolean, SparkplugDataTypeString, SparkplugDataTypeDateTime:
 		return true
 	default:
 		return false
@@ -258,22 +258,30 @@ func (u *ReadEntry) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var disc struct {
 		Type ReadEntryType `json:"type"`
 	}
-	if err := json.Unmarshal(data, &disc, opts); err != nil {
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case PlainReadEntryType:
-		var v PlainReadEntry
+		var v struct {
+			Type ReadEntryType `json:"type"`
+			PlainReadEntry
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.PlainReadEntry
 	case SparkplugReadEntryType:
-		var v SparkplugReadEntry
+		var v struct {
+			Type ReadEntryType `json:"type"`
+			SparkplugReadEntry
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.SparkplugReadEntry
 	default:
 		return errors.Newf("ReadEntry: unknown type %q", disc.Type)
 	}
@@ -520,22 +528,30 @@ func (u *WriteField) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var disc struct {
 		Type WriteFieldType `json:"type"`
 	}
-	if err := json.Unmarshal(data, &disc, opts); err != nil {
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case StaticWriteFieldType:
-		var v StaticWriteField
+		var v struct {
+			Type WriteFieldType `json:"type"`
+			StaticWriteField
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.StaticWriteField
 	case GeneratedWriteFieldType:
-		var v GeneratedWriteField
+		var v struct {
+			Type WriteFieldType `json:"type"`
+			GeneratedWriteField
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.GeneratedWriteField
 	default:
 		return errors.Newf("WriteField: unknown type %q", disc.Type)
 	}
@@ -702,22 +718,30 @@ func (u *WriteTarget) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var disc struct {
 		Type WriteTargetType `json:"type"`
 	}
-	if err := json.Unmarshal(data, &disc, opts); err != nil {
+	if err := json.Unmarshal(
+		data, &disc, opts, json.RejectUnknownMembers(false),
+	); err != nil {
 		return err
 	}
 	switch disc.Type {
 	case PlainWriteTargetType:
-		var v PlainWriteTarget
+		var v struct {
+			Type WriteTargetType `json:"type"`
+			PlainWriteTarget
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.PlainWriteTarget
 	case SparkplugWriteTargetType:
-		var v SparkplugWriteTarget
+		var v struct {
+			Type WriteTargetType `json:"type"`
+			SparkplugWriteTarget
+		}
 		if err := json.Unmarshal(data, &v, opts); err != nil {
 			return err
 		}
-		u.Variant = v
+		u.Variant = v.SparkplugWriteTarget
 	default:
 		return errors.Newf("WriteTarget: unknown type %q", disc.Type)
 	}

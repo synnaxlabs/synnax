@@ -45,10 +45,10 @@ const (
 	SparkplugDataTypeInt16    SparkplugDataType = v1.SparkplugDataTypeInt16
 	SparkplugDataTypeInt32    SparkplugDataType = v1.SparkplugDataTypeInt32
 	SparkplugDataTypeInt64    SparkplugDataType = v1.SparkplugDataTypeInt64
-	SparkplugDataTypeUInt8    SparkplugDataType = v1.SparkplugDataTypeUInt8
-	SparkplugDataTypeUInt16   SparkplugDataType = v1.SparkplugDataTypeUInt16
-	SparkplugDataTypeUInt32   SparkplugDataType = v1.SparkplugDataTypeUInt32
-	SparkplugDataTypeUInt64   SparkplugDataType = v1.SparkplugDataTypeUInt64
+	SparkplugDataTypeUint8    SparkplugDataType = v1.SparkplugDataTypeUint8
+	SparkplugDataTypeUint16   SparkplugDataType = v1.SparkplugDataTypeUint16
+	SparkplugDataTypeUint32   SparkplugDataType = v1.SparkplugDataTypeUint32
+	SparkplugDataTypeUint64   SparkplugDataType = v1.SparkplugDataTypeUint64
 	SparkplugDataTypeFloat    SparkplugDataType = v1.SparkplugDataTypeFloat
 	SparkplugDataTypeDouble   SparkplugDataType = v1.SparkplugDataTypeDouble
 	SparkplugDataTypeBoolean  SparkplugDataType = v1.SparkplugDataTypeBoolean

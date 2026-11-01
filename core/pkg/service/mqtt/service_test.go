@@ -71,14 +71,14 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := uuid.New()
-			Expect(svc.Read.Write(ctx, nil, key, msgpack.EncodedJSON{
+			MustSucceed(svc.Read.Write(ctx, nil, key, msgpack.EncodedJSON{
 				"device": "broker-1",
 				"entries": []any{map[string]any{
 					"key":   "entry-1",
 					"type":  "plain",
 					"topic": "plant/line1/temperature",
 				}},
-			})).To(Succeed())
+			}))
 			data := MustSucceed(svc.Read.Read(ctx, nil, key))
 			Expect(data["key"]).To(Equal(key.String()))
 			Expect(data["device"]).To(Equal("broker-1"))
@@ -91,7 +91,7 @@ var _ = Describe("Service", func() {
 
 		It("Should store a Sparkplug read entry", func(ctx SpecContext) {
 			key := uuid.New()
-			Expect(svc.Read.Write(ctx, nil, key, msgpack.EncodedJSON{
+			MustSucceed(svc.Read.Write(ctx, nil, key, msgpack.EncodedJSON{
 				"entries": []any{map[string]any{
 					"key":       "entry-1",
 					"type":      "sparkplug",
@@ -99,7 +99,7 @@ var _ = Describe("Service", func() {
 					"edge_node": "line1",
 					"tag":       "temperature",
 				}},
-			})).To(Succeed())
+			}))
 			data := MustSucceed(svc.Read.Read(ctx, nil, key))
 			Expect(data["entries"]).To(HaveExactElements(SatisfyAll(
 				HaveKeyWithValue("edge_node", "line1"),
@@ -111,9 +111,9 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := uuid.New()
-			Expect(svc.Write.Write(ctx, nil, key, msgpack.EncodedJSON{
+			MustSucceed(svc.Write.Write(ctx, nil, key, msgpack.EncodedJSON{
 				"targets": []any{map[string]any{"key": "target-1", "type": "plain"}},
-			})).To(Succeed())
+			}))
 			data := MustSucceed(svc.Write.Read(ctx, nil, key))
 			Expect(data["targets"]).To(HaveExactElements(SatisfyAll(
 				HaveKeyWithValue("qos", "at_least_once"),
@@ -125,7 +125,7 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := uuid.New()
-			Expect(svc.Scan.Write(ctx, nil, key, msgpack.EncodedJSON{})).To(Succeed())
+			MustSucceed(svc.Scan.Write(ctx, nil, key, msgpack.EncodedJSON{}))
 			data := MustSucceed(svc.Scan.Read(ctx, nil, key))
 			Expect(data["rate"]).To(BeNumerically("==", 0.2))
 		})
@@ -134,11 +134,11 @@ var _ = Describe("Service", func() {
 			ctx SpecContext,
 		) {
 			key := uuid.New()
-			Expect(svc.Edge.Write(ctx, nil, key, msgpack.EncodedJSON{
+			MustSucceed(svc.Edge.Write(ctx, nil, key, msgpack.EncodedJSON{
 				"group":     "plant",
 				"edge_node": "synnax",
 				"tags":      []any{map[string]any{"key": "tag-1", "name": "pressure"}},
-			})).To(Succeed())
+			}))
 			data := MustSucceed(svc.Edge.Read(ctx, nil, key))
 			Expect(data["tags"]).To(HaveExactElements(
 				HaveKeyWithValue("tag_type", "double"),
@@ -150,7 +150,8 @@ var _ = Describe("Service", func() {
 		) {
 			Expect(svc.Read.Write(ctx, nil, uuid.New(), msgpack.EncodedJSON{
 				"entries": []any{map[string]any{"type": "plain", "qos": "twice"}},
-			})).To(MatchError(ContainSubstring("twice")))
+			})).Error().
+				To(MatchError(ContainSubstring("twice")))
 		})
 
 		It("Should return the validation error for an unknown entry type", func(
@@ -158,7 +159,8 @@ var _ = Describe("Service", func() {
 		) {
 			Expect(svc.Read.Write(ctx, nil, uuid.New(), msgpack.EncodedJSON{
 				"entries": []any{map[string]any{"type": "amqp"}},
-			})).To(MatchError(ContainSubstring("amqp")))
+			})).Error().
+				To(MatchError(ContainSubstring("amqp")))
 		})
 	})
 })

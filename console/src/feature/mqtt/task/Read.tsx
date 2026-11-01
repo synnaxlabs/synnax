@@ -21,7 +21,7 @@ import { type FC } from "react";
 
 import { use } from "@/feature/mqtt/device/queries";
 import { Select as SelectDevice } from "@/feature/mqtt/device/Select";
-import { type Device, SCHEMAS } from "@/feature/mqtt/device/types";
+import { type Device, MAKE, SCHEMAS } from "@/feature/mqtt/device/types";
 import { useConnectModal } from "@/feature/mqtt/device/useConnectModal";
 import { createDiscoverModal, type Kind } from "@/feature/mqtt/task/discover/Discover";
 import {
@@ -52,15 +52,7 @@ import { Device as PlatformDevice } from "@/platform/device";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-const Properties = () => (
-  <>
-    <SelectDevice />
-    <Flex.Box x grow>
-      <Task.Fields.DataSaving />
-      <Task.Fields.AutoStart />
-    </Flex.Box>
-  </>
-);
+const Properties = () => <SelectDevice />;
 
 const POINTER_INPUT_PROPS = { placeholder: "/temperature" } as const;
 
@@ -133,7 +125,7 @@ const PlainEntryPane: FC<{ path: string }> = ({ path }) => (
         inputProps={TOPIC_INPUT_PROPS}
       />
       <QoSField path={`${path}.qos`} />
-      <PForm.SwitchField
+      <PForm.CheckboxField
         path={`${path}.retainedIgnored`}
         label="Ignore retained"
         padHelpText={false}
@@ -367,12 +359,12 @@ export const Read = Task.wrapForm({
   schemas: READ_SCHEMAS,
   deployConfigZ: deployReadConfigZ,
   type: "mqtt_read",
-  getInitialValues,
   onConfigure,
 });
 
 export const useCreateRead = Task.createUseCreate({
   getInitialValues,
+  deviceMake: MAKE,
 });
 
 export const ReadSelectable = Selector.createSelectable({

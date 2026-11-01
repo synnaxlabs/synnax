@@ -10,8 +10,6 @@
 package units
 
 import (
-	"fmt"
-
 	"github.com/synnaxlabs/arc/types"
 )
 
@@ -139,18 +137,4 @@ var registry = map[string]types.Unit{
 func Resolve(name string) (*types.Unit, bool) {
 	u, ok := registry[name]
 	return &u, ok
-}
-
-func MustResolve(name string) *types.Unit {
-	u, ok := Resolve(name)
-	if !ok {
-		panic(fmt.Sprintf("units: failed to resolve %s", name))
-	}
-	return u
-}
-
-// IsValid returns true if the given name is a valid unit.
-func IsValid(name string) bool {
-	_, ok := registry[name]
-	return ok
 }

@@ -23,7 +23,7 @@ import { deep } from "@synnaxlabs/x";
 
 import { use } from "@/feature/mqtt/device/queries";
 import { Select as SelectDevice } from "@/feature/mqtt/device/Select";
-import { SCHEMAS } from "@/feature/mqtt/device/types";
+import { MAKE, SCHEMAS } from "@/feature/mqtt/device/types";
 import { useConnectModal } from "@/feature/mqtt/device/useConnectModal";
 import {
   fromSparkplugDataType,
@@ -56,7 +56,6 @@ const Properties = () => (
         helpText="The control authority of the writes that commands make"
         inputProps={AUTHORITY_INPUT_PROPS}
       />
-      <Task.Fields.AutoStart />
     </Flex.Box>
   </>
 );
@@ -197,12 +196,14 @@ const createTag = (tags: EdgeTag[]): EdgeTag => ({
   ...(tags.length > 0 && { tagType: tags[tags.length - 1].tagType }),
 });
 
+const HEADER = <Task.Views.Header title="Tags" />;
+
 const EMPTY_CONTENT = <Empty.Action message="No tags in task" />;
 
 const Content = () => (
   <Task.Views.List<EdgeTag>
     path={TAGS_PATH}
-    title="Tags"
+    header={HEADER}
     emptyContent={EMPTY_CONTENT}
     addLabel="Add tag"
     createChannel={createTag}
@@ -262,12 +263,12 @@ export const Edge = Task.wrapForm({
   schemas: EDGE_SCHEMAS,
   deployConfigZ: deployEdgeConfigZ,
   type: "mqtt_sparkplug_edge",
-  getInitialValues,
   onConfigure,
 });
 
 export const useCreateEdge = Task.createUseCreate({
   getInitialValues,
+  deviceMake: MAKE,
 });
 
 export const EdgeSelectable = Selector.createSelectable({

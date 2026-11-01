@@ -10,18 +10,20 @@
 package ranger_test
 
 import (
+	"context"
 	"uuid"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/synnax/pkg/service/actions"
+	. "github.com/synnaxlabs/synnax/pkg/service/actions/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Writer", func() {
@@ -460,121 +462,70 @@ var _ = Describe("Writer", func() {
 			},
 		)
 	})
+})
 
-	Describe("Rename", func() {
-		It("Should rename a range", func(ctx SpecContext) {
-			r := ranger.Range{
-				Name: "before",
-				TimeRange: telem.TimeRange{
-					Start: telem.SecondTS,
-					End:   telem.SecondTS * 5,
-				},
-			}
-			Expect(svc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
-			Expect(svc.NewWriter(tx).Rename(ctx, r.Key, "after")).To(Succeed())
-			var updated ranger.Range
-			Expect(svc.NewRetrieve().Where(ranger.MatchKeys(r.Key)).Entry(&updated).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(updated.Name).To(Equal("after"))
+var _ = Describe("Writer broadcasts", func() {
+	// commit commits the spec's transaction and deletes the given ranges after the
+	// spec.
+	commit := func(ctx context.Context, keys ...ranger.Key) {
+		GinkgoHelper()
+		Expect(tx.Commit(ctx)).To(Succeed())
+		DeferCleanup(func(ctx SpecContext) {
+			Expect(svc.NewWriter(db).Delete(ctx, keys...)).To(Succeed())
 		})
+	}
+	newRange := func() *ranger.Range {
+		return &ranger.Range{Name: "Hot fire", TimeRange: telem.NewRangeSeconds(1, 5)}
+	}
+	// framesOf returns the recorded frames that broadcast on the range with the key.
+	framesOf := func(
+		rec *Recorder[ranger.Key, ranger.Action],
+		key ranger.Key,
+	) []actions.Scoped[ranger.Key, ranger.Action] {
+		var res []actions.Scoped[ranger.Key, ranger.Action]
+		for _, f := range rec.Snapshot() {
+			if f.Key == key {
+				res = append(res, f)
+			}
+		}
+		return res
+	}
 
-		It("Should return a validation error for an empty name", func(ctx SpecContext) {
-			r := ranger.Range{
-				Name: "before",
-				TimeRange: telem.TimeRange{
-					Start: telem.SecondTS,
-					End:   telem.SecondTS * 5,
-				},
-			}
-			Expect(svc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
-			Expect(svc.NewWriter(tx).Rename(ctx, r.Key, "")).
-				To(MatchError(ContainSubstring("name: required")))
-			var unchanged ranger.Range
-			Expect(svc.NewRetrieve().Where(ranger.MatchKeys(r.Key)).Entry(&unchanged).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(unchanged.Name).To(Equal("before"))
+	It("Should broadcast a create without labels or parent", func(ctx SpecContext) {
+		parent := newRange()
+		Expect(w.Create(ctx, parent)).To(Succeed())
+		l := label.Label{Key: uuid.New(), Name: "Label"}
+		Expect(labelSvc.NewWriter(tx).Create(ctx, &l)).To(Succeed())
+		rec := &Recorder[ranger.Key, ranger.Action]{}
+		DeferCleanup(svc.OnAction(rec.Record))
+		r := newRange()
+		r.Parent, r.Labels = &ranger.Range{Key: parent.Key}, []label.Label{l}
+		Expect(w.WithDispatchKey("dk-create").Create(ctx, r)).To(Succeed())
+		Expect(rec.Snapshot()).To(BeEmpty())
+		commit(ctx, parent.Key, r.Key)
+		DeferCleanup(func(ctx SpecContext) {
+			Expect(labelSvc.NewWriter(db).Delete(ctx, l.Key)).To(Succeed())
 		})
+		created := framesOf(rec, r.Key)
+		Expect(created).To(HaveLen(1))
+		f := created[0]
+		Expect(f.Key).To(Equal(r.Key))
+		Expect(f.DispatchKey).To(Equal("dk-create"))
+		Expect(f.Actions).To(Equal([]ranger.Action{
+			ranger.NewCreateAction(ranger.CreatePayload{Range: ranger.Range{
+				Key:       r.Key,
+				Name:      r.Name,
+				TimeRange: r.TimeRange,
+			}}),
+		}))
 	})
 
-	Describe("SetEnd", func() {
-		It(
-			"Should set the end bound while preserving the start",
-			func(ctx SpecContext) {
-				r := ranger.Range{
-					Name: "set_end",
-					TimeRange: telem.TimeRange{
-						Start: telem.SecondTS,
-						End:   telem.TimeStampMax,
-					},
-				}
-				Expect(svc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
-				end := telem.SecondTS * 10
-				Expect(svc.NewWriter(tx).SetEnd(ctx, r.Key, end)).To(Succeed())
-				var updated ranger.Range
-				Expect(svc.NewRetrieve().Where(ranger.MatchKeys(r.Key)).Entry(&updated).
-					Exec(ctx, tx)).To(Succeed())
-				Expect(updated.TimeRange.Start).To(Equal(telem.SecondTS))
-				Expect(updated.TimeRange.End).To(Equal(end))
-			},
-		)
-
-		It("Should overwrite a previously set end bound", func(ctx SpecContext) {
-			r := ranger.Range{
-				Name: "set_end",
-				TimeRange: telem.TimeRange{
-					Start: telem.SecondTS,
-					End:   telem.SecondTS * 5,
-				},
-			}
-			Expect(svc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
-			Expect(
-				svc.NewWriter(tx).SetEnd(ctx, r.Key, telem.SecondTS*20),
-			).To(Succeed())
-			var updated ranger.Range
-			Expect(svc.NewRetrieve().Where(ranger.MatchKeys(r.Key)).Entry(&updated).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(updated.TimeRange.End).To(Equal(telem.SecondTS * 20))
-		})
-
-		It(
-			"Should return query.ErrNotFound when the range does not exist",
-			func(ctx SpecContext) {
-				Expect(svc.NewWriter(tx).SetEnd(ctx, uuid.New(), telem.Now())).
-					To(MatchError(query.ErrNotFound))
-			},
-		)
-
-		It(
-			"Should return a validation error when end precedes start",
-			func(ctx SpecContext) {
-				r := ranger.Range{
-					Name: "set_end_before_start",
-					TimeRange: telem.TimeRange{
-						Start: telem.SecondTS * 10,
-						End:   telem.TimeStampMax,
-					},
-				}
-				Expect(svc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
-				Expect(svc.NewWriter(tx).SetEnd(ctx, r.Key, telem.SecondTS*5)).
-					To(MatchError(validate.ErrValidation))
-			},
-		)
-
-		It("Should leave other fields untouched", func(ctx SpecContext) {
-			r := ranger.Range{
-				Name: "set_end_preserve",
-				TimeRange: telem.TimeRange{
-					Start: telem.SecondTS,
-					End:   telem.TimeStampMax,
-				},
-			}
-			Expect(svc.NewWriter(tx).Create(ctx, &r)).To(Succeed())
-			Expect(svc.NewWriter(tx).SetEnd(ctx, r.Key, telem.SecondTS*3)).To(Succeed())
-			var updated ranger.Range
-			Expect(svc.NewRetrieve().Where(ranger.MatchKeys(r.Key)).Entry(&updated).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(updated.Name).To(Equal(r.Name))
-			Expect(updated.Key).To(Equal(r.Key))
-		})
+	It("Should not broadcast a create that never commits", func(ctx SpecContext) {
+		rec := &Recorder[ranger.Key, ranger.Action]{}
+		DeferCleanup(svc.OnAction(rec.Record))
+		uncommitted := db.OpenTx()
+		Expect(svc.NewWriter(uncommitted).Create(ctx, newRange())).To(Succeed())
+		Expect(uncommitted.Close()).To(Succeed())
+		Expect(rec.Snapshot()).To(BeEmpty())
 	})
 })

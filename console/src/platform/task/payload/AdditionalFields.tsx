@@ -21,13 +21,13 @@ import { type ReactElement, useState } from "react";
 
 import { CSS } from "@/platform/css";
 import { Empty } from "@/platform/empty";
-import { useIsPreview } from "@/platform/task/Form";
 import { JSON_TYPE_ITEMS } from "@/platform/task/payload/JSONTypeItems";
 import {
   type GeneratorType,
   type JSONType,
   type TimeFormat,
 } from "@/platform/task/payload/types";
+import { useIsPreview } from "@/platform/task/useIsPreview";
 import { ContextMenu } from "@/platform/task/views/ContextMenu";
 
 interface StaticField {
@@ -106,7 +106,7 @@ const StaticItem = ({ path, ...props }: ItemProps) => {
         />
       )}
       {jsonType === "boolean" && (
-        <Form.SwitchField
+        <Form.CheckboxField
           path={`${path}.value`}
           showLabel={false}
           showHelpText={false}

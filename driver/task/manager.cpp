@@ -90,6 +90,7 @@ void Manager::remove(const synnax::task::Key &key, const bool even_if_processing
     // keeps relevant()'s instance read claim-free.
     if (!even_if_processing && it->second->processing) return;
     if (it->second->relevant(this->rack.key)) return;
+    this->statuses->drop(key);
     this->entries.erase(it);
 }
 
@@ -303,11 +304,13 @@ void Manager::process_start(const synnax::task::Command &cmd) {
             std::lock_guard entry_lock{entry->mu};
             ours = entry->row.rack == this->rack.key;
             deployed = entry->deployed_hash;
-            // The sender's hash can force a deploy but never confirm a
-            // match: a sender that disagrees with our copy may have seen a
-            // revision whose set event has not landed here yet.
+            // The sender's hash can force a deploy but never confirm a match: a sender
+            // that disagrees with our copy may have seen a revision whose set event has
+            // not landed here yet. A pinned start always fetches, because only the
+            // fetch can refuse it.
             wanted = entry->row.config_hash;
-            if (!cmd.config_hash.empty() && cmd.config_hash != wanted) wanted.clear();
+            if (cmd.pinned || (!cmd.config_hash.empty() && cmd.config_hash != wanted))
+                wanted.clear();
         }
         if (!ours) {
             // The start deploys the task on its new rack and doubles as the
@@ -518,6 +521,7 @@ void Manager::monitor_loop() {
 void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
     switch (op.type) {
         case Op::Type::DEPLOY: {
+            this->statuses->claim(op.task_key);
             auto tsk = op.task;
             // An op without the task body needs the fetch, done here to keep
             // the streamer loop off the network.
@@ -564,8 +568,13 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
                         entry->instance = nullptr;
                     }
                     this->clear_deploy(entry);
+                    this->statuses->drop(op.task_key);
                     std::lock_guard lock{this->mu};
                     this->remove(op.task_key, true);
+                    break;
+                }
+                if (op.cmd.pinned && op.cmd.config_hash != tsk.config_hash) {
+                    this->refuse_pinned_start(tsk, op.cmd);
                     break;
                 }
                 std::string deployed;
@@ -622,9 +631,10 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
                     status.name = tsk.name;
                     status.variant = synnax::status::VARIANT_ERROR;
                     status.message = "Failed to configure task";
-                    status.description = "No integration on this Driver handles task "
-                                         "type '" +
-                                         tsk.type + "'.";
+                    status.description = "No integration on this Driver runs '" +
+                                         tsk.type +
+                                         "' tasks. Check that the Driver and the "
+                                         "Core run the same version.";
                     status.details.task = op.task_key;
                     status.details.running = false;
                     status.details.cmd = op.cmd.key;
@@ -661,6 +671,7 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
                 entry->instance = nullptr;
             }
             this->clear_deploy(entry);
+            this->statuses->drop(op.task_key);
             // The row is gone from the cluster, so the entry goes unconditionally.
             std::lock_guard lock{this->mu};
             this->entries.erase(op.task_key);
@@ -676,11 +687,41 @@ void Manager::execute_op(const Op &op, const std::shared_ptr<Entry> &entry) {
             // The row may have moved back to this rack while the release was queued,
             // so the entry can survive and must not keep a stale hash.
             this->clear_deploy(entry);
+            this->statuses->drop(op.task_key);
             std::lock_guard lock{this->mu};
             this->remove(op.task_key, true);
             break;
         }
     }
+}
+
+void Manager::refuse_pinned_start(
+    const synnax::task::Task &tsk,
+    const synnax::task::Command &cmd
+) {
+    LOG(INFO) << "refusing start pinned to a stale config for task " << tsk;
+    synnax::task::Status status;
+    status.key = synnax::task::status_key(tsk);
+    status.name = tsk.name;
+    status.variant = synnax::status::VARIANT_WARNING;
+    status.message = "Config changed";
+    status.description = "The task config changed after you saw it. Review the task, "
+                         "then start it again.";
+    status.details.task = tsk.key;
+    status.details.cmd = cmd.key;
+    // The live instance runs on as it was, so the status keeps the stored running state
+    // and config hash.
+    auto [stored, err] = this->ctx->client->statuses
+                             .retrieve<synnax::task::StatusDetails>(status.key);
+    if (err && !err.matches(x::errors::NOT_FOUND)) {
+        LOG(ERROR) << "failed to retrieve status of task " << tsk << ": " << err;
+        return;
+    }
+    if (!err) {
+        status.details.running = stored.details.running;
+        status.details.config_hash = stored.details.config_hash;
+    }
+    this->ctx->set_status(status);
 }
 
 void Manager::clear_deploy(const std::shared_ptr<Entry> &entry) {

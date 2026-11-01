@@ -19,15 +19,15 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
-	distmock "github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	disttestutil "github.com/synnaxlabs/synnax/pkg/distribution/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	. "github.com/synnaxlabs/synnax/pkg/service/channel/testutil"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/iterator"
-	servicemock "github.com/synnaxlabs/synnax/pkg/service/mock"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	servicetestutil "github.com/synnaxlabs/synnax/pkg/service/testutil"
 	"github.com/synnaxlabs/x/breaker"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
@@ -261,9 +261,9 @@ var _ = Describe("ReadTask", func() {
 
 		It("Should write a frame that another node leads during a stop",
 			func(ctx SpecContext) {
-				cluster := distmock.NewCluster(ctx, 0)
+				cluster := disttestutil.NewCluster(ctx, 0)
 				local, peer := cluster.Provision(ctx), cluster.Provision(ctx)
-				svc := MustOpen(servicemock.OpenLayer(ctx, local))
+				svc := MustOpen(servicetestutil.OpenLayer(ctx, local))
 				w := svc.Channel.NewWriter(nil)
 				peerIdx := channel.Channel{
 					Name:        UniqueChannelName(),

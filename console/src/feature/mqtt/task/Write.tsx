@@ -21,7 +21,7 @@ import { type FC, useState } from "react";
 
 import { use } from "@/feature/mqtt/device/queries";
 import { Select as SelectDevice } from "@/feature/mqtt/device/Select";
-import { type Device, SCHEMAS } from "@/feature/mqtt/device/types";
+import { type Device, MAKE, SCHEMAS } from "@/feature/mqtt/device/types";
 import { useConnectModal } from "@/feature/mqtt/device/useConnectModal";
 import { jsonTypeOf } from "@/feature/mqtt/task/createReadFields";
 import { createDiscoverModal, type Kind } from "@/feature/mqtt/task/discover/Discover";
@@ -53,14 +53,7 @@ import { Empty } from "@/platform/empty";
 import { Selector } from "@/platform/selector";
 import { Task } from "@/platform/task";
 
-const Properties = () => (
-  <>
-    <SelectDevice />
-    <Flex.Box x grow>
-      <Task.Fields.AutoStart />
-    </Flex.Box>
-  </>
-);
+const Properties = () => <SelectDevice />;
 
 const TARGETS_PATH = "config.targets";
 
@@ -160,7 +153,11 @@ const PlainTargetPane: FC<PaneProps> = ({ path, deviceName }) => (
         inputProps={TOPIC_INPUT_PROPS}
       />
       <QoSField path={`${path}.qos`} />
-      <PForm.SwitchField path={`${path}.retained`} label="Retain" padHelpText={false} />
+      <PForm.CheckboxField
+        path={`${path}.retained`}
+        label="Retain"
+        padHelpText={false}
+      />
     </PForm.Section>
     <Task.Payload.ChannelSections
       path={`${path}.channel`}
@@ -268,7 +265,7 @@ const Content = ({ device }: PlatformDevice.TaskFormContentProps<Device>) => {
       list={
         <Task.Views.ChannelList<WriteTarget>
           path={TARGETS_PATH}
-          title={null}
+          header={null}
           emptyContent={EMPTY_TARGETS}
           footer={
             !isPreview && (
@@ -367,12 +364,12 @@ export const Write = Task.wrapForm({
   schemas: WRITE_SCHEMAS,
   deployConfigZ: deployWriteConfigZ,
   type: "mqtt_write",
-  getInitialValues,
   onConfigure,
 });
 
 export const useCreateWrite = Task.createUseCreate({
   getInitialValues,
+  deviceMake: MAKE,
 });
 
 export const WriteSelectable = Selector.createSelectable({
