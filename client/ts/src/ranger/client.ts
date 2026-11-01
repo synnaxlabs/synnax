@@ -732,12 +732,6 @@ export class Client extends query.Retriever<
     this.writeRelationships(range);
   }
 
-  private hydrate(range: Range): void {
-    if (this.store.status(range.key) === "tombstoned") return;
-    this.store.ingest(range);
-    this.hydrateRelated(range);
-  }
-
   private hydrateRelated(range: Range): void {
     if (range.labels != null) this.cfg.labels.store.ingest(range.labels);
     this.writeRelationships(range);
@@ -804,9 +798,11 @@ export class Client extends query.Retriever<
       checkForMultipleOrNoResults("Range", query, ranges, true);
       return this.composeOne(ranges[0]);
     }
+    const since = this.store.stamp();
     const ranges = await this.execRetrieve({ ...BASE_REQUEST, names: [query] });
     checkForMultipleOrNoResults("Range", query, ranges, true);
-    this.hydrate(ranges[0]);
+    this.hydrateRelatedMany(ranges);
+    this.store.ingest(ranges, { since });
     return ranges[0];
   }
 
