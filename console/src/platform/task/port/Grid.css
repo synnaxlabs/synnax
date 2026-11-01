@@ -12,32 +12,32 @@
 .console-port-grid,
 .console-port-badge {
     /* Oklch mixing keeps the primary hue from going muddy at low strength. */
-    --console-port-used: color-mix(
+    --pluto-port-used: color-mix(
         in oklch,
         var(--pluto-primary-z) 42%,
         var(--pluto-gray-l1)
     );
-    --console-port-used-hover: color-mix(
+    --pluto-port-used-hover: color-mix(
         in oklch,
         var(--pluto-primary-z) 58%,
         var(--pluto-gray-l1)
     );
-    --console-port-disabled: color-mix(
+    --pluto-port-disabled: color-mix(
         in oklch,
         var(--pluto-primary-z) 16%,
         var(--pluto-gray-l1)
     );
-    --console-port-disabled-hover: color-mix(
+    --pluto-port-disabled-hover: color-mix(
         in oklch,
         var(--pluto-primary-z) 26%,
         var(--pluto-gray-l1)
     );
-    --console-port-conflict: color-mix(
+    --pluto-port-conflict: color-mix(
         in srgb,
         var(--pluto-error-z) 15%,
         var(--pluto-gray-l1)
     );
-    --console-port-conflict-border: color-mix(
+    --pluto-port-conflict-border: color-mix(
         in srgb,
         var(--pluto-error-z) 65%,
         var(--pluto-gray-l1)
@@ -45,7 +45,7 @@
 }
 
 .console-port-grid {
-    --console-port-cell: 24px;
+    --pluto-port-cell: 24px;
 
     display: flex;
     flex-wrap: wrap;
@@ -91,19 +91,19 @@
 }
 
 .console-port-grid__cell--used {
-    background: var(--console-port-used);
+    background: var(--pluto-port-used);
     color: var(--pluto-gray-l11);
     font-weight: 500;
 
     &:hover,
     &[data-context-menu-open] {
-        background: var(--console-port-used-hover);
+        background: var(--pluto-port-used-hover);
     }
 }
 
 .console-port-grid__cell--conflict {
-    border-color: var(--console-port-conflict-border);
-    background: var(--console-port-conflict);
+    border-color: var(--pluto-port-conflict-border);
+    background: var(--pluto-port-conflict);
     color: var(--pluto-error-z);
     font-weight: 500;
 }
@@ -124,14 +124,14 @@
 /* A port that only disabled channels hold: the used fill, dimmed like the list item. */
 .console-port-grid__cell--disabled:not(.console-port-grid__cell--conflict),
 .console-port-badge--disabled:not(.console-port-badge--conflict) {
-    background: var(--console-port-disabled);
+    background: var(--pluto-port-disabled);
     color: var(--pluto-text-disabled);
 }
 
 .console-port-grid__cell--disabled:not(.console-port-grid__cell--conflict) {
     &:hover,
     &[data-context-menu-open] {
-        background: var(--console-port-disabled-hover);
+        background: var(--pluto-port-disabled-hover);
     }
 }
 
@@ -158,12 +158,12 @@
 }
 
 .console-port-badge--used {
-    background: var(--console-port-used);
+    background: var(--pluto-port-used);
     color: var(--pluto-gray-l11);
 }
 
 .console-port-badge--conflict {
-    border-color: var(--console-port-conflict-border);
-    background: var(--console-port-conflict);
+    border-color: var(--pluto-port-conflict-border);
+    background: var(--pluto-port-conflict);
     color: var(--pluto-error-z);
 }
