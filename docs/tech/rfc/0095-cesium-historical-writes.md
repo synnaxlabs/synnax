@@ -97,7 +97,8 @@ takes a new alignment domain, so a live plot breaks its line at the outage.
 
 No lock covers an index and its data channels, so the command can lose one of them. The
 index ends last, and only if every data channel ended, because a data domain that
-outlives its index domain cannot resolve its samples.
+outlives its index domain cannot resolve its samples. For the same reason, the command
+refuses an index whose data channel another writer holds.
 
 The first sample of any live domain moves the claim's start forward to it, whether the
 domain follows an end or opens a session. A gap then ends where the session's data

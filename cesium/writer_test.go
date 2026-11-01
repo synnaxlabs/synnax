@@ -3796,6 +3796,91 @@ var _ = Describe("Writer Behavior", func() {
 						Expect(live.Close()).To(Succeed())
 					},
 				)
+				It(
+					"Should keep an index while another writer holds its data channel",
+					func(ctx SpecContext) {
+						timestamps := MustSucceed(db.OpenWriter(ctx, config(
+							"timestamps",
+							[]cesium.ChannelKey{idx},
+							1*telem.SecondTS,
+							1,
+						)))
+						values := MustSucceed(db.OpenWriter(ctx, config(
+							"values",
+							[]cesium.ChannelKey{data},
+							1*telem.SecondTS,
+							1,
+						)))
+						Expect(timestamps.Write(telem.UnaryFrame(
+							idx,
+							telem.NewSeriesSecondsTSV(1, 2, 3),
+						))).To(BeTrue())
+						Expect(values.Write(telem.UnaryFrame(
+							data,
+							telem.NewSeriesV[int64](1, 2, 3),
+						))).To(BeTrue())
+						Expect(timestamps.EndDomain(idx)).To(BeFalse())
+						Expect(timestamps.Write(telem.UnaryFrame(
+							idx,
+							telem.NewSeriesSecondsTSV(10, 11),
+						))).To(BeTrue())
+						Expect(values.Write(telem.UnaryFrame(
+							data,
+							telem.NewSeriesV[int64](4, 5),
+						))).To(BeTrue())
+						MustSucceed(values.Commit())
+						Expect(values.Close()).To(Succeed())
+						Expect(timestamps.Close()).To(Succeed())
+						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, data))
+						Expect(f.Get(data).Series).To(HaveLen(1))
+						Expect(f.Get(data).Series[0]).
+							To(telem.MatchSeriesDataV[int64](1, 2, 3, 4, 5))
+					},
+				)
+				It(
+					"Should end no domain while another writer holds a sibling channel",
+					func(ctx SpecContext) {
+						sibling := GenerateChannelKey()
+						Expect(db.CreateChannel(ctx, cesium.Channel{
+							Key:      sibling,
+							Name:     "End domain sibling",
+							Index:    idx,
+							DataType: telem.Int64T,
+						})).To(Succeed())
+						live := openLive(ctx)
+						other := MustSucceed(db.OpenWriter(ctx, config(
+							"other",
+							[]cesium.ChannelKey{sibling},
+							1*telem.SecondTS,
+							1,
+						)))
+						Expect(live.Write(frame(1, 2))).To(BeTrue())
+						Expect(live.EndDomain(idx)).To(BeFalse())
+						Expect(live.Write(frame(10))).To(BeTrue())
+						Expect(other.Close()).To(Succeed())
+						Expect(live.Close()).To(Succeed())
+						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, data))
+						Expect(f.Get(data).Series).To(HaveLen(1))
+					},
+				)
+				It(
+					"Should end an index next to a persist writer on its data channel",
+					func(ctx SpecContext) {
+						live := openLive(ctx)
+						cfg := config(
+							"backfill",
+							[]cesium.ChannelKey{data},
+							1*telem.SecondTS,
+							control.AuthorityAbsolute,
+						)
+						cfg.Mode = cesium.WriterModePersistOnly
+						fill := MustSucceed(db.OpenWriter(ctx, cfg))
+						Expect(live.Write(frame(10, 11))).To(BeTrue())
+						Expect(live.EndDomain(idx)).To(BeTrue())
+						Expect(fill.Close()).To(Succeed())
+						Expect(live.Close()).To(Succeed())
+					},
+				)
 				It("Should report a commit that fails", func(ctx SpecContext) {
 					live := openLive(ctx)
 					cfg := backfill(keys, 1*telem.SecondTS)

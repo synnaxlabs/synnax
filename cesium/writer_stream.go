@@ -112,12 +112,13 @@ type StreamWriter = confluence.Segment[WriterRequest, WriterResponse]
 type streamWriter struct {
 	confluence.UnarySink[WriterRequest]
 	confluence.AbstractUnarySource[WriterResponse]
-	relay           confluence.Inlet[relayResponse]
-	accumulatedErr  error
-	errSent         bool
-	virtual         *virtualWriter
-	updateDBControl func(ctx context.Context, u ControlUpdate)
-	internal        []*idxWriter
+	relay              confluence.Inlet[relayResponse]
+	accumulatedErr     error
+	errSent            bool
+	virtual            *virtualWriter
+	updateDBControl    func(ctx context.Context, u ControlUpdate)
+	authorizeEndDomain func(index ChannelKey, own map[ChannelKey]*unaryWriterState) error
+	internal           []*idxWriter
 	// keyToIdx maps every channel key the writer is responsible for to its owning
 	// idxWriter.
 	keyToIdx map[ChannelKey]*idxWriter
@@ -427,7 +428,7 @@ func (w *streamWriter) endDomain(ctx context.Context, indexes []ChannelKey) erro
 		if !idx.writingToIdx || !slices.Contains(indexes, idx.idx.ch.Key) {
 			continue
 		}
-		if err := idx.endDomain(ctx); err != nil {
+		if err := idx.endDomain(ctx, w.authorizeEndDomain); err != nil {
 			if !errors.Is(err, xcontrol.ErrUnauthorized) {
 				return err
 			}
@@ -764,8 +765,14 @@ func (w *idxWriter) Commit(ctx context.Context) (telem.TimeStamp, error) {
 	return end.Lower, err
 }
 
-func (w *idxWriter) endDomain(ctx context.Context) error {
+func (w *idxWriter) endDomain(
+	ctx context.Context,
+	authorize func(index ChannelKey, own map[ChannelKey]*unaryWriterState) error,
+) error {
 	if _, err := w.Commit(ctx); err != nil {
+		return err
+	}
+	if err := authorize(w.idx.ch.Key, w.internal); err != nil {
 		return err
 	}
 	// A data domain that outlives its index domain cannot resolve its samples, so the
