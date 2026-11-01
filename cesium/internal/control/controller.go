@@ -236,6 +236,29 @@ func (c *Controller[R]) OpenGate(
 	return reg.open(cfg)
 }
 
+func (c *Controller[R]) extend(r *region[R], start telem.TimeStamp) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if !start.Before(r.timeRange.Start) {
+		return nil
+	}
+	grown := start.Range(r.timeRange.End)
+	for _, reg := range c.regions {
+		if reg != r && reg.timeRange.OverlapsWith(grown) {
+			return errors.Wrapf(
+				validate.ErrValidation,
+				"cannot extend control region to %v because a region holds %v",
+				grown,
+				reg.timeRange,
+			)
+		}
+	}
+	r.Lock()
+	defer r.Unlock()
+	r.timeRange = grown
+	return nil
+}
+
 func (c *Controller[R]) unsafeInsertNewRegion(
 	t telem.TimeRange,
 	resource R,

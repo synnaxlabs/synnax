@@ -27,6 +27,7 @@ import (
 	. "github.com/synnaxlabs/x/io/fs/testutil"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 func filterDataFiles(l []os.FileInfo) []os.FileInfo {
@@ -64,20 +65,20 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 				})
 				Specify("Happy Path", func(ctx SpecContext) {
 					w, t := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
-						Start:   telem.TimeStamp(0),
+						Start:   10 * telem.SecondTS,
 						Subject: control.Subject{Key: "foo"},
 					}))
 					Expect(t.Occurred()).To(BeTrue())
 					v := MustSucceed(
-						w.Write(telem.NewSeriesSecondsTSV(0, 1, 2, 3, 4, 5)),
+						w.Write(telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14, 15)),
 					)
 					Expect(v).To(Equal(alignment.Leading(1, 0)))
 					Expect(
 						MustSucceed(
-							w.Write(telem.NewSeriesSecondsTSV(6, 7, 8, 9, 10, 11)),
+							w.Write(telem.NewSeriesSecondsTSV(16, 17, 18, 19, 20, 21)),
 						),
 					).To(Equal(alignment.Leading(1, 6)))
-					Expect(MustSucceed(w.Commit(ctx))).To(Equal(11*telem.SecondTS + 1))
+					Expect(MustSucceed(w.Commit(ctx))).To(Equal(21*telem.SecondTS + 1))
 					t = MustSucceed(w.Close())
 					Expect(t.Occurred()).To(BeTrue())
 					Expect(db.LeadingControlState()).To(BeNil())
@@ -89,18 +90,22 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					Expect(db.WriteCursor(0)).To(Equal(alignment.Leading(1, 0)))
 					Expect(db.WriteCursor(0)).To(Equal(alignment.Leading(2, 0)))
 					w, t := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
-						Start:   telem.TimeStamp(0),
+						Start:   10 * telem.SecondTS,
 						Subject: control.Subject{Key: "leading"},
 					}))
 					Expect(t.Occurred()).To(BeTrue())
 
 					By("Tracking the controlling writer's next write position")
-					Expect(MustSucceed(w.Write(telem.NewSeriesSecondsTSV(0)))).
+					Expect(MustSucceed(w.Write(telem.NewSeriesSecondsTSV(10)))).
 						To(Equal(alignment.Leading(3, 0)))
-					Expect(db.WriteCursor(0)).To(Equal(alignment.Leading(3, 1)))
-					Expect(MustSucceed(w.Write(telem.NewSeriesSecondsTSV(1, 2)))).
+					Expect(
+						db.WriteCursor(10 * telem.SecondTS),
+					).To(Equal(alignment.Leading(3, 1)))
+					Expect(MustSucceed(w.Write(telem.NewSeriesSecondsTSV(11, 12)))).
 						To(Equal(alignment.Leading(3, 1)))
-					Expect(db.WriteCursor(0)).To(Equal(alignment.Leading(3, 3)))
+					Expect(
+						db.WriteCursor(10 * telem.SecondTS),
+					).To(Equal(alignment.Leading(3, 3)))
 
 					t = MustSucceed(w.Close())
 					Expect(t.Occurred()).To(BeTrue())
@@ -109,29 +114,121 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					"WriteCursor only tracks the region covering the timestamp",
 					func(ctx SpecContext) {
 						w, t := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
-							Start:   telem.TimeStamp(0),
-							End:     5 * telem.SecondTS,
+							Start:   10 * telem.SecondTS,
+							End:     15 * telem.SecondTS,
 							Subject: control.Subject{Key: "bounded"},
 						}))
 						Expect(t.Occurred()).To(BeTrue())
-						MustSucceed(w.Write(telem.NewSeriesSecondsTSV(0, 1, 2)))
+						MustSucceed(w.Write(telem.NewSeriesSecondsTSV(10, 11, 12)))
 
 						By("Tracking the bounded region for a timestamp inside it")
 						Expect(
-							db.WriteCursor(1 * telem.SecondTS),
+							db.WriteCursor(11 * telem.SecondTS),
 						).To(Equal(alignment.Leading(1, 3)))
 
 						By(
 							"Reserving a fresh domain for a timestamp the region does not cover",
 						)
 						Expect(
-							db.WriteCursor(10 * telem.SecondTS),
+							db.WriteCursor(20 * telem.SecondTS),
 						).To(Equal(alignment.Leading(2, 0)))
 						t = MustSucceed(w.Close())
 						Expect(t.Occurred()).To(BeTrue())
 					},
 				)
 				Describe("Domain start", func() {
+					It(
+						"Should claim from the open time when Start is zero",
+						func(ctx SpecContext) {
+							Expect(unary.Write(
+								ctx,
+								db,
+								1*telem.SecondTS,
+								telem.NewSeriesSecondsTSV(1, 2, 3),
+							)).To(Succeed())
+							w, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
+								Subject: control.Subject{Key: "foo"},
+							}))
+							Expect(db.Delete(
+								ctx,
+								(1 * telem.SecondTS).Range(4*telem.SecondTS),
+							)).To(Succeed())
+							MustSucceed(w.Close())
+						},
+					)
+					It(
+						"Should not check stored data at open when Start is zero",
+						func(ctx SpecContext) {
+							now := telem.Now()
+							Expect(unary.Write(
+								ctx,
+								db,
+								now.Add(-telem.Hour),
+								telem.NewSeriesV(
+									now.Add(-telem.Hour),
+									now.Add(telem.Hour),
+								),
+							)).To(Succeed())
+							w, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
+								Subject: control.Subject{Key: "foo"},
+							}))
+							first := now.Add(2 * telem.Hour)
+							w.SetDomainStart(first)
+							MustSucceed(w.Write(telem.NewSeriesV(first)))
+							Expect(MustSucceed(w.Commit(ctx))).To(Equal(first + 1))
+							MustSucceed(w.Close())
+						},
+					)
+					It(
+						"Should fail when the domain start reaches another region",
+						func(ctx SpecContext) {
+							w1, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
+								Start:   1 * telem.SecondTS,
+								End:     3 * telem.SecondTS,
+								Subject: control.Subject{Key: "foo"},
+							}))
+							w2, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
+								Start:   10 * telem.SecondTS,
+								Subject: control.Subject{Key: "bar"},
+							}))
+							w2.SetDomainStart(2 * telem.SecondTS)
+							Expect(
+								w2.Write(telem.NewSeriesSecondsTSV(2, 3)),
+							).Error().To(And(
+								MatchError(validate.ErrValidation),
+								MatchError(
+									ContainSubstring("cannot extend control region"),
+								),
+							))
+							MustSucceed(w2.Close())
+							MustSucceed(w1.Close())
+						},
+					)
+					It(
+						"Should not delete a domain that starts before the claim",
+						func(ctx SpecContext) {
+							w, _ := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
+								Start:   10 * telem.SecondTS,
+								Subject: control.Subject{Key: "foo"},
+							}))
+							w.SetDomainStart(5 * telem.SecondTS)
+							MustSucceed(w.Write(telem.NewSeriesSecondsTSV(5, 6, 7)))
+							MustSucceed(w.Commit(ctx))
+							Expect(db.Delete(
+								ctx,
+								(5 * telem.SecondTS).Range(7*telem.SecondTS),
+							)).To(MatchError(control.ErrUnauthorized))
+							Expect(db.Delete(
+								ctx,
+								(1 * telem.SecondTS).Range(5*telem.SecondTS),
+							)).To(Succeed())
+							MustSucceed(w.Close())
+							Expect(db.Delete(
+								ctx,
+								(5 * telem.SecondTS).Range(7*telem.SecondTS),
+							)).To(Succeed())
+						},
+					)
 					It(
 						"Should start the domain where SetDomainStart sets it",
 						func(ctx SpecContext) {

@@ -267,7 +267,7 @@ describe("Writer", () => {
       });
 
       const writer = await client.openWriter({
-        start: TimeStamp.now(),
+        start: TimeStamp.seconds(1),
         channels: [indexCh.key, dataCh.key],
       });
 
@@ -275,7 +275,7 @@ describe("Writer", () => {
         for (let i = 0; i < 10; i++) {
           await new Promise((resolve) => setTimeout(resolve, 5));
           await writer.write({
-            [indexCh.key]: new TimeStamp(i),
+            [indexCh.key]: TimeStamp.seconds(10 - i),
             [dataCh.key]: i,
           });
         }

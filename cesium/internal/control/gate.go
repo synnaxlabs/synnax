@@ -12,6 +12,7 @@ package control
 import (
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/telem"
 )
 
 // Gate controls access to a resource for a given region of time.
@@ -81,6 +82,12 @@ func (g *Gate[R]) Authorize() (r R, err error) {
 		g.Subject(),
 		g.region.curr.Subject(),
 	)
+}
+
+// Extend moves the start of the gate's region back to start. It does nothing when the
+// region already holds start, and fails when the region would reach another region.
+func (g *Gate[R]) Extend(start telem.TimeStamp) error {
+	return g.region.controller.extend(g.region, start)
 }
 
 // Release releases the gate's access to the resource. If the gate is the last gate in a

@@ -3370,6 +3370,195 @@ var _ = Describe("Writer Behavior", func() {
 				})
 			})
 
+			Describe("Domain start", func() {
+				createPair := func(ctx SpecContext, name string) (idx, data cesium.ChannelKey) {
+					GinkgoHelper()
+					idx, data = GenerateChannelKey(), GenerateChannelKey()
+					Expect(db.CreateChannel(
+						ctx,
+						cesium.Channel{
+							Key:      idx,
+							Name:     name + " index",
+							IsIndex:  true,
+							DataType: telem.TimestampT,
+						},
+						cesium.Channel{
+							Key:      data,
+							Name:     name,
+							Index:    idx,
+							DataType: telem.Int64T,
+						},
+					)).To(Succeed())
+					return idx, data
+				}
+				writePair := func(
+					w *cesium.Writer,
+					idx, data cesium.ChannelKey,
+					ts telem.Series,
+					values ...int64,
+				) error {
+					_, err := w.Write(telem.MultiFrame(
+						[]cesium.ChannelKey{idx, data},
+						[]telem.Series{ts, telem.NewSeriesV(values...)},
+					))
+					return err
+				}
+				It(
+					"Should start the domains of each index at its own first timestamp",
+					func(ctx SpecContext) {
+						idx1, data1 := createPair(ctx, "Lovelace")
+						idx2, data2 := createPair(ctx, "Babbage")
+						w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+							Channels: []cesium.ChannelKey{idx1, data1, idx2, data2},
+							Start:    105 * telem.SecondTS,
+							Sync:     new(true),
+						}))
+						Expect(writePair(
+							w, idx1, data1, telem.NewSeriesSecondsTSV(105, 106), 1, 2,
+						)).To(Succeed())
+						Expect(writePair(
+							w, idx2, data2, telem.NewSeriesSecondsTSV(103, 104), 3, 4,
+						)).To(Succeed())
+						Expect(
+							MustSucceed(w.Commit()),
+						).To(Equal(106*telem.SecondTS + 1))
+						Expect(w.Close()).To(Succeed())
+						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, data2))
+						Expect(f.SeriesAt(0)).To(telem.MatchSeriesData(
+							telem.NewSeriesV[int64](3, 4),
+						))
+						Expect(f.SeriesAt(0).TimeRange).To(Equal(
+							(103 * telem.SecondTS).Range(104*telem.SecondTS + 1),
+						))
+					},
+				)
+				It(
+					"Should start a domain after stored data when Start is zero",
+					func(ctx SpecContext) {
+						idx, data := createPair(ctx, "Hopper")
+						w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+							Channels: []cesium.ChannelKey{idx, data},
+							Start:    1 * telem.SecondTS,
+						}))
+						Expect(writePair(
+							w, idx, data, telem.NewSeriesSecondsTSV(1, 2), 1, 2,
+						)).To(Succeed())
+						MustSucceed(w.Commit())
+						Expect(w.Close()).To(Succeed())
+						w = MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+							Channels: []cesium.ChannelKey{idx, data},
+						}))
+						Expect(writePair(
+							w, idx, data, telem.NewSeriesSecondsTSV(3, 4), 3, 4,
+						)).To(Succeed())
+						Expect(MustSucceed(w.Commit())).To(Equal(4*telem.SecondTS + 1))
+						Expect(w.Close()).To(Succeed())
+						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, data))
+						Expect(f.Get(data).Series).To(HaveLen(2))
+						Expect(f.Get(data).Series[1].TimeRange).To(Equal(
+							(3 * telem.SecondTS).Range(4*telem.SecondTS + 1),
+						))
+					},
+				)
+				It(
+					"Should not delete the domain of an open writer before its Start",
+					func(ctx SpecContext) {
+						idx, data := createPair(ctx, "Franklin")
+						w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+							Channels: []cesium.ChannelKey{idx, data},
+							Start:    10 * telem.SecondTS,
+						}))
+						Expect(writePair(
+							w, idx, data, telem.NewSeriesSecondsTSV(1, 2), 1, 2,
+						)).To(Succeed())
+						MustSucceed(w.Commit())
+						Expect(db.DeleteTimeRange(
+							ctx,
+							[]cesium.ChannelKey{data},
+							(0 * telem.SecondTS).Range(3*telem.SecondTS),
+						)).To(And(
+							MatchError(control.ErrUnauthorized),
+							MatchError(ContainSubstring(
+								"overlaps with a controlled region",
+							)),
+						))
+						Expect(writePair(
+							w, idx, data, telem.NewSeriesSecondsTSV(4), 3,
+						)).To(Succeed())
+						Expect(MustSucceed(w.Commit())).To(Equal(4*telem.SecondTS + 1))
+						Expect(w.Close()).To(Succeed())
+						Expect(db.DeleteTimeRange(
+							ctx,
+							[]cesium.ChannelKey{data},
+							(0 * telem.SecondTS).Range(3*telem.SecondTS),
+						)).To(Succeed())
+					},
+				)
+				Describe("Stored data", func() {
+					var idx, data cesium.ChannelKey
+					BeforeEach(func(ctx SpecContext) {
+						idx, data = createPair(ctx, "Turing")
+						w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+							Channels: []cesium.ChannelKey{idx, data},
+							Start:    10 * telem.SecondTS,
+						}))
+						Expect(writePair(
+							w, idx, data, telem.NewSeriesSecondsTSV(10, 15), 1, 2,
+						)).To(Succeed())
+						MustSucceed(w.Commit())
+						Expect(w.Close()).To(Succeed())
+					})
+					It(
+						"Should fail to open when stored data holds a non-zero Start",
+						func(ctx SpecContext) {
+							Expect(db.OpenWriter(ctx, cesium.WriterConfig{
+								Channels: []cesium.ChannelKey{idx, data},
+								Start:    12 * telem.SecondTS,
+							})).Error().To(And(
+								MatchError(validate.ErrValidation),
+								MatchError(ContainSubstring(
+									"cannot open writer because there is already data",
+								)),
+							))
+						},
+					)
+					It(
+						"Should fail the first write when stored data holds it and Start is zero",
+						func(ctx SpecContext) {
+							w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+								Channels: []cesium.ChannelKey{idx, data},
+								Sync:     new(true),
+							}))
+							Expect(writePair(
+								w, idx, data, telem.NewSeriesSecondsTSV(12, 20), 3, 4,
+							)).To(And(
+								MatchError(validate.ErrValidation),
+								MatchError(ContainSubstring(
+									"cannot start writer because there is already data",
+								)),
+							))
+							Expect(w.Close()).To(MatchError(validate.ErrValidation))
+						},
+					)
+				})
+				It(
+					"Should not open a group that writes data without its index when Start is zero",
+					func(ctx SpecContext) {
+						idx, data := createPair(ctx, "Noether")
+						Expect(db.OpenWriter(ctx, cesium.WriterConfig{
+							Channels: []cesium.ChannelKey{data},
+						})).Error().To(And(
+							MatchError(validate.ErrValidation),
+							MatchError(ContainSubstring(
+								"writer needs a start to write channel [Noether]<%d> "+
+									"without its index [Noether index]<%d>",
+								data,
+								idx,
+							)),
+						))
+					},
+				)
+			})
 			Describe("Open Errors", func() {
 				Specify("Channel that does not exist", func(ctx SpecContext) {
 					_, err := db.OpenWriter(
